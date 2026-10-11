@@ -124,13 +124,10 @@ struct ContentView: View {
                 }
             }
             if let propagation, !propagation.bands.isEmpty {
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 4) {
-                        ForEach(propagation.bands, id: \.name) { band in propagationBand(band) }
-                    }
-                    Text(propagationHelp)
-                        .font(.system(size: 11)).foregroundStyle(XLogTheme.secondary).lineLimit(1)
+                HStack(spacing: 4) {
+                    ForEach(propagation.bands, id: \.name) { band in propagationBand(band) }
                 }
+                .fixedSize(horizontal: true, vertical: false)
             } else if propagation == nil {
                 Text("Waiting for xCat")
                     .font(.system(size: 14, weight: .semibold)).foregroundStyle(XLogTheme.secondary)
