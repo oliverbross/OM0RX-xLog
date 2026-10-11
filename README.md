@@ -25,11 +25,12 @@ Development scope, acceptance evidence and the prioritized backlog are tracked i
 - Previous-QSO history and a worked/confirmed band-mode matrix beside the active contact.
 - An operator desk that keeps the compact logger, callsign intelligence, station state, world map and selected band maps visible together.
 - Resizable, independently undockable World Map and Band Maps windows for multi-screen stations.
-- A hybrid/satellite world map with live classified spots, a worked/confirmed DXCC entity overlay and an accurate great-circle rotor path with short- and long-path bearings.
+- A hybrid/satellite world map that opens on the operator grid, with high-contrast classified spot labels, prominent semantic-colour DXCC prefixes, a worked/confirmed DXCC entity overlay and an accurate great-circle rotor path with short- and long-path bearings.
 - One, several or all band maps, each with full-band and CW/data/phone presets, pan/zoom controls, allocation lanes and collision-free spot labels.
 - Structured POTA, SOTA, IOTA, WWFF and castle-reference promotion from cluster comments and special badges into the matching ADIF fields.
 - Fast local search, compact statistics and visible sync state.
-- OM0RX-xCat RigCtlD integration for live frequency/mode and radio tuning.
+- OM0RX-xCat RigCtlD integration for live frequency/mode and one-transaction frequency-plus-mode tuning.
+- Optional deduplicated forwarding of the filtered xCluster feed to FLEX through xCat's loopback RUMlog-compatible UDP bridge; xLog never owns the radio directly.
 - `om0rx-xlog://spot` handoff for OM0RX-xCluster and other local tools.
 - Secrets stored in macOS Keychain.
 
@@ -71,6 +72,8 @@ The **Band Maps** settings page configures two independent workspaces:
 
 Band-map text can be scaled from 80–200% for high-density and 4K displays. Panels resize with their window, and frequency spacing plus collision avoidance scale with the available height rather than leaving unused space.
 
+The full Log QSO editor presents contact/location, award references, notes, station and QSL fields together on one screen at normal desktop sizes. When xCat station telemetry is available, xLog automatically records transmitted power in ADIF `TX_PWR`: measured RF output is retained for the active QSO, with the current RF-drive setting and then the configured station default used as fallbacks.
+
 Wavelog and QRZ credentials and the Club Log API key are stored in Keychain; they are not written to preferences, the logbook database or diagnostic output.
 
 xLog accepts either the Wavelog site URL (for example `https://log.example.com`) or the full API-v2 URL ending in `/index.php/api/v2`. The first synchronization is read-first: xLog downloads and reconciles the complete remote log before it may upload safe local changes. Existing xBridge users can reuse the same station profile and credential, while xBridge itself remains unchanged.
@@ -85,7 +88,7 @@ xLog registers this URL scheme:
 om0rx-xlog://spot?call=RG1L%2FMM&frequency=14.006500&mode=CW&comment=DX
 ```
 
-Opening it loads the call, frequency, mode and note into the editor, promotes recognized activation references to their ADIF fields, then asks xCat to tune both frequency and mode. The QSO is not logged until the operator presses **Log QSO**. When the spot originates inside the Operator Desk, xLog keeps the desk visible and draws the station-to-DX great-circle path.
+Opening it first clears fields belonging to the previous contact, then loads the call, frequency, mode and note into the editor, promotes recognized activation references to their ADIF fields, and asks xCat to tune frequency and mode coherently. The QSO is not logged until the operator presses **Log QSO**. A visible **Clear** action is also available beside **Log QSO**. When the spot originates inside the Operator Desk, xLog keeps the desk visible and draws the station-to-DX great-circle path.
 
 ## Data and synchronization
 
@@ -99,7 +102,7 @@ Each QSO has a stable local UUID, optional Wavelog ID, complete JSON record, sea
 
 ## Operator maps
 
-The world map defaults to a readable hybrid/satellite base and can switch to Satellite or Standard. Its overlay menu shows live spots, all CTY-derived DXCC entity centroids, or both. Live spots follow the Operator Desk band selection and use each band's configured xCluster colour. DXCC markers use the same semantic state as the rest of xLog: grey needed, orange worked and green confirmed. Enter a station gridsquare to enable the great-circle line, distance, and short-/long-path rotor bearings. When a callsign resolves, the camera automatically frames the home marker, DX marker and complete path with usable padding; manual pan and zoom remain available afterward.
+The world map defaults to a readable hybrid/satellite base and can switch to Satellite or Standard. Before a DX target exists it opens centered on the configured operator grid. Its overlay menu shows live spots, all CTY-derived DXCC entity centroids, or both. Live spots follow the Operator Desk band selection and use high-contrast badges in each band's configured xCluster colour. DXCC prefixes use roughly twice the former type size, bold semantic-colour text and a dark backing: grey needed, orange worked and green confirmed. Enter a station gridsquare to enable the great-circle line, distance, and short-/long-path rotor bearings. When a callsign resolves, the camera automatically frames the home marker, DX marker and complete path with usable padding; manual pan and zoom remain available afterward.
 
 Band-plan shading is an operating aid. Allocations vary by country, licence and IARU region, so the operator remains responsible for using frequencies permitted by their licence. The panel controls can show the whole band, jump to CW/data/phone portions, zoom in or out and pan along the band. Spot labels use the exact xCluster status colours and a collision-aware layout. xCluster publishes its already-filtered view, so band maps follow the same bands, modes, continent, call/DXCC status, special, source, worked-state, search and maximum-spot filters as the cluster table. The undocked window can arrange its independent band selection in one full-height horizontal row or an adaptive grid.
 
@@ -113,7 +116,21 @@ Reference files are kept under:
 ~/Library/Application Support/OM0RX-xLog/Reference Data/
 ```
 
-Downloads are validated and replaced atomically; a failed update leaves the last known good file active.
+Downloads are validated and replaced atomically; a failed update leaves the last known good file active. When a source supplies `ETag` or `Last-Modified`, xLog stores that validator and revalidates conditionally instead of downloading an unchanged dataset again. Reference Data settings show the cache size, last successful check and published validator for Club Log CTY, LoTW activity and the Wavelog catalog.
+
+The same page manages offline activation directories. xLog downloads the official POTA park CSV, SOTA summit CSV, IOTA group JSON and WWFF directory CSV, validates both schema and minimum record count, then atomically replaces the last-known-good copy. Exact matches appear beneath POTA/SOTA/IOTA/WWFF entry fields; partial references show the first matching suggestion. A location button beside an exact match can explicitly use that reference as the current QSO's map target; this never turns the rotor automatically. Settings shows each source's record count, size, last successful check and published validator. Unknown values are retained and never prevent logging. The WCA/castle field currently remains pass-through because the programme's published bulk spreadsheet link is unavailable; the limitation is shown truthfully in Settings.
+
+## Backup and recovery
+
+Settings → **Backup & Restore** creates a portable `.xlogbackup` package containing a consistent SQLite snapshot, non-secret station settings, band-map/intelligence workspace preferences and the current reference-data cache. Every package carries a manifest with record counts, pending-sync count, last-QSO time, byte size and SHA-256 checksum. xLog also runs SQLite integrity checking before accepting a backup or offering it for restore.
+
+Restore always starts with a read-only preview. If confirmed, xLog first writes a verified snapshot of the current profile under:
+
+```text
+~/Library/Application Support/OM0RX-xLog/Recovery/
+```
+
+The replaced database is retained as a timestamped rollback file. Wavelog, QRZ and Club Log credentials remain in macOS Keychain and are deliberately excluded from backup packages and restore operations.
 
 ## Keyboard workflow
 

@@ -49,21 +49,33 @@ struct LogbookView: View {
                         Text(qso.start.formatted(date: .numeric, time: .shortened)).monospacedDigit()
                     }.width(min: 130, ideal: 145)
                     TableColumn("Callsign") { qso in
-                        Text(qso.call).fontWeight(.bold).foregroundStyle(XLogTheme.teal)
+                        HStack(spacing: 5) {
+                            Circle().fill(qso.isDirty ? XLogTheme.amber : XLogTheme.teal).frame(width: 6, height: 6)
+                            Text(qso.call).fontWeight(.bold).foregroundStyle(XLogTheme.teal)
+                        }
+                        .help(qso.isDirty ? "Pending Wavelog sync" : "Synced with Wavelog")
                     }.width(min: 90, ideal: 115)
-                    TableColumn("Band") { qso in Text(qso.band).fontWeight(.semibold).foregroundStyle(XLogTheme.cyan) }.width(55)
-                    TableColumn("Mode") { qso in Text(qso.submode.isEmpty ? qso.mode : qso.submode) }.width(60)
+                    TableColumn("Band / Mode") { qso in
+                        Text("\(qso.band) · \(qso.submode.isEmpty ? qso.mode : qso.submode)")
+                            .fontWeight(.semibold).foregroundStyle(XLogTheme.cyan)
+                    }.width(92)
                     TableColumn("Frequency") { qso in Text(qso.displayFrequency).monospacedDigit().foregroundStyle(XLogTheme.cyan) }.width(88)
                     TableColumn("RST") { qso in Text("\(qso.rstSent) / \(qso.rstReceived)").monospacedDigit() }.width(75)
                     TableColumn("Country") { qso in Text(qso.country.isEmpty ? "—" : qso.country) }.width(min: 110, ideal: 150)
                     TableColumn("QSL") { qso in
-                        Label(qso.isConfirmed ? "Confirmed" : qso.qslReceived.isEmpty ? "—" : qso.qslReceived, systemImage: qso.isConfirmed ? "checkmark.circle.fill" : "minus")
-                            .foregroundStyle(qso.isConfirmed ? XLogTheme.teal : XLogTheme.secondary)
-                    }.width(90)
-                    TableColumn("Sync") { qso in
-                        Text(qso.isDirty ? "Pending" : "Synced")
-                            .foregroundStyle(qso.isDirty ? XLogTheme.amber : XLogTheme.teal)
-                    }.width(64)
+                        ConfirmationStatus(sent: qso.qslSent, received: qso.qslReceived, service: "QSL")
+                    }.width(66)
+                    TableColumn("LoTW") { qso in
+                        ConfirmationStatus(sent: qso.lotwSent, received: qso.lotwReceived, service: "LoTW")
+                    }.width(66)
+                    TableColumn("Club Log") { qso in
+                        ConfirmationStatus(
+                            sent: qso.extraFields["CLUBLOG_QSO_UPLOAD_STATUS"] ?? "",
+                            received: "",
+                            service: "Club Log",
+                            supportsReceived: false
+                        )
+                    }.width(72)
                     TableColumn("Comment") { qso in Text(qso.comment).lineLimit(1) }.width(min: 140, ideal: 240)
                 }
                 .scrollContentBackground(.hidden)
@@ -91,6 +103,46 @@ struct LogbookView: View {
         } message: {
             Text("The contact will be hidden locally and deleted from Wavelog at the next sync. You can undo before syncing.")
         }
+    }
+}
+
+private struct ConfirmationStatus: View {
+    let sent: String
+    let received: String
+    let service: String
+    var supportsReceived = true
+
+    var body: some View {
+        HStack(spacing: 4) {
+            statusGlyph("arrowtriangle.up.fill", value: sent, label: "sent")
+            statusGlyph("arrowtriangle.down.fill", value: received, label: "received", available: supportsReceived)
+        }
+        .font(.system(size: 11, weight: .bold))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilitySummary)
+        .help(accessibilitySummary)
+    }
+
+    private func statusGlyph(_ symbol: String, value: String, label: String, available: Bool = true) -> some View {
+        Image(systemName: symbol)
+            .foregroundStyle(available ? statusColor(value) : XLogTheme.secondary.opacity(0.24))
+            .accessibilityHidden(true)
+    }
+
+    private func statusColor(_ value: String) -> Color {
+        switch value.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() {
+        case "Y", "V": return XLogTheme.teal
+        case "N": return XLogTheme.danger
+        case "R", "Q", "I", "M": return XLogTheme.amber
+        default: return XLogTheme.secondary.opacity(0.45)
+        }
+    }
+
+    private var accessibilitySummary: String {
+        let sentText = sent.isEmpty ? "not recorded" : sent
+        guard supportsReceived else { return "\(service) upload \(sentText)" }
+        let receivedText = received.isEmpty ? "not recorded" : received
+        return "\(service) sent \(sentText), received \(receivedText)"
     }
 }
 
@@ -186,25 +238,74 @@ struct SyncView: View {
                             Label("\(report.pulled) read", systemImage: "arrow.down")
                             Label("\(report.deleted) deleted", systemImage: "trash")
                             if report.conflicts > 0 { Label("\(report.conflicts) conflicts", systemImage: "exclamationmark.triangle.fill").foregroundStyle(XLogTheme.amber) }
+                            if report.failed > 0 { Label("\(report.failed) queued for retry", systemImage: "arrow.clockwise.circle.fill").foregroundStyle(XLogTheme.danger) }
                         }.font(.caption).foregroundStyle(XLogTheme.secondary)
+                    }
+                }
+                Panel(title: "Wavelog outbox", symbol: "tray.full") {
+                    if model.outbox.isEmpty {
+                        Label("Everything has been acknowledged by Wavelog.", systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(XLogTheme.teal)
+                    } else {
+                        Text("Local contacts remain safe while failed items wait for their next retry.")
+                            .font(.caption).foregroundStyle(XLogTheme.secondary)
+                        if model.outbox.count > 100 {
+                            Text("Showing the first 100 of \(model.outbox.count) queued contacts.")
+                                .font(.caption).foregroundStyle(XLogTheme.secondary)
+                        }
+                        ForEach(Array(model.outbox.prefix(100))) { entry in
+                            HStack(spacing: 12) {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("\(entry.qso.call) · \(entry.qso.band) \(entry.qso.mode)")
+                                        .font(.body.weight(.semibold))
+                                    if let error = entry.lastError {
+                                        Text(error).font(.caption).foregroundStyle(XLogTheme.danger).lineLimit(2)
+                                    } else {
+                                        Text("Waiting for first upload").font(.caption).foregroundStyle(XLogTheme.secondary)
+                                    }
+                                    if let next = entry.nextAttemptAt {
+                                        Text("Attempt \(entry.attemptCount) · next retry \(next.formatted(date: .omitted, time: .shortened))")
+                                            .font(.caption2).foregroundStyle(XLogTheme.secondary)
+                                    }
+                                }
+                                Spacer()
+                                Button("Retry now") { model.retrySync(entry) }
+                                    .disabled(model.isWorking)
+                            }
+                            .padding(9).background(XLogTheme.raised).clipShape(RoundedRectangle(cornerRadius: 7))
+                        }
                     }
                 }
                 if !model.conflicts.isEmpty {
                     Panel(title: "Sync conflicts", symbol: "exclamationmark.triangle.fill") {
                         Text("Both xLog and Wavelog changed these contacts. Review each version; nothing is overwritten until you choose.")
                             .foregroundStyle(XLogTheme.secondary)
-                        ForEach(model.conflicts) { conflict in
-                            HStack(spacing: 12) {
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(conflict.localQSO.call).font(.headline).foregroundStyle(XLogTheme.amber)
-                                    Text("Local: \(conflict.localQSO.start.formatted(date: .abbreviated, time: .shortened)) · \(conflict.localQSO.band) \(conflict.localQSO.mode)")
-                                    Text("Wavelog: \(conflict.remoteQSO.start.formatted(date: .abbreviated, time: .shortened)) · \(conflict.remoteQSO.band) \(conflict.remoteQSO.mode)")
-                                }.font(.caption)
+                        ForEach(model.conflicts) { conflict in ConflictMergeCard(conflict: conflict) }
+                    }
+                }
+                Panel(title: "Operator activity", symbol: "waveform.path.ecg.rectangle") {
+                    if model.activityEvents.isEmpty {
+                        Text("Tune, station, validation and sync timings will appear here.")
+                            .foregroundStyle(XLogTheme.secondary)
+                    } else {
+                        ForEach(model.activityEvents.prefix(20)) { event in
+                            HStack(alignment: .top, spacing: 10) {
+                                Image(systemName: event.kind.symbol)
+                                    .foregroundStyle(event.succeeded ? XLogTheme.cyan : XLogTheme.danger)
+                                    .frame(width: 18)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    HStack(spacing: 8) {
+                                        Text(event.title).fontWeight(.semibold)
+                                        if let duration = event.durationMilliseconds {
+                                            Text("\(duration) ms").font(.system(.caption, design: .monospaced)).foregroundStyle(duration > 1_000 ? XLogTheme.amber : XLogTheme.teal)
+                                        }
+                                    }
+                                    if !event.detail.isEmpty { Text(event.detail).font(.caption).foregroundStyle(XLogTheme.secondary) }
+                                }
                                 Spacer()
-                                Button("Keep local") { model.resolve(conflict, useRemote: false) }
-                                Button("Use Wavelog") { model.resolve(conflict, useRemote: true) }
+                                Text(event.date.formatted(date: .omitted, time: .standard)).font(.caption2).foregroundStyle(XLogTheme.secondary)
                             }
-                            .padding(10).background(XLogTheme.raised).clipShape(RoundedRectangle(cornerRadius: 7))
+                            .padding(.vertical, 3)
                         }
                     }
                 }
@@ -243,5 +344,62 @@ struct SyncView: View {
     private func updateText(_ date: Date?, bytes: Int) -> String {
         guard let date else { return "Not downloaded yet" }
         return "\(date.formatted(date: .abbreviated, time: .shortened)) · \(ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file))"
+    }
+}
+
+private struct ConflictMergeCard: View {
+    @EnvironmentObject private var model: AppModel
+    let conflict: SyncConflict
+    @State private var remoteFields: Set<String> = []
+
+    private var fields: [QSOConflictField] { QSOConflictMerge.differingFields(in: conflict) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(conflict.localQSO.call).font(.headline).foregroundStyle(XLogTheme.amber)
+                    Text("Choose the source for each changed field.").font(.caption).foregroundStyle(XLogTheme.secondary)
+                }
+                Spacer()
+                Button("All local") { remoteFields.removeAll() }
+                Button("All Wavelog") { remoteFields = Set(fields.map(\.key)) }
+            }
+            ForEach(fields) { field in
+                HStack(alignment: .top, spacing: 8) {
+                    Text(field.label).font(.caption.weight(.semibold)).frame(width: 110, alignment: .leading)
+                    Button {
+                        remoteFields.remove(field.key)
+                    } label: {
+                        conflictValue(field.localValue, source: "LOCAL", selected: !remoteFields.contains(field.key))
+                    }.buttonStyle(.plain)
+                    Button {
+                        remoteFields.insert(field.key)
+                    } label: {
+                        conflictValue(field.remoteValue, source: "WAVELOG", selected: remoteFields.contains(field.key))
+                    }.buttonStyle(.plain)
+                }
+            }
+            HStack {
+                Button("Keep complete local record") { model.resolve(conflict, useRemote: false) }
+                Button("Use complete Wavelog record") { model.resolve(conflict, useRemote: true) }
+                Spacer()
+                Button("Save merged record") { model.resolve(conflict, remoteFields: remoteFields) }
+                    .buttonStyle(PrimaryActionStyle())
+            }
+        }
+        .padding(10).background(XLogTheme.raised).clipShape(RoundedRectangle(cornerRadius: 7))
+    }
+
+    private func conflictValue(_ value: String, source: String, selected: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(source).font(.caption2.weight(.bold)).foregroundStyle(selected ? XLogTheme.cyan : XLogTheme.secondary)
+            Text(value).font(.caption).foregroundStyle(XLogTheme.text).lineLimit(3).frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(7)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(selected ? XLogTheme.cyan.opacity(0.12) : XLogTheme.surface)
+        .overlay(RoundedRectangle(cornerRadius: 6).stroke(selected ? XLogTheme.cyan : XLogTheme.rule))
+        .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 }

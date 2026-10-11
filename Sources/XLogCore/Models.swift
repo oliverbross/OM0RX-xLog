@@ -158,6 +158,22 @@ public struct BandModeCell: Hashable, Sendable {
     public let confirmed: Bool
 }
 
+public struct DXCCSummary: Equatable, Sendable {
+    public var qsoCount: Int
+    public var confirmedCount: Int
+    public var matrix: Set<BandModeCell>
+    public var latest: QSO?
+
+    public init(qsoCount: Int = 0, confirmedCount: Int = 0, matrix: Set<BandModeCell> = [], latest: QSO? = nil) {
+        self.qsoCount = qsoCount
+        self.confirmedCount = confirmedCount
+        self.matrix = matrix
+        self.latest = latest
+    }
+
+    public static let empty = DXCCSummary()
+}
+
 public struct SyncConflict: Codable, Identifiable, Hashable, Sendable {
     public let id: UUID
     public let localQSO: QSO

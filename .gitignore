@@ -4,3 +4,4 @@ dist/
 *.xcuserstate
 .swiftpm/
 .impeccable/review/
+.recovery/

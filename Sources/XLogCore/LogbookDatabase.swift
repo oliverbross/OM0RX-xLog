@@ -5,12 +5,14 @@ public enum LogbookDatabaseError: Error, LocalizedError {
     case open(String)
     case sqlite(String)
     case corruptRecord
+    case closed
 
     public var errorDescription: String? {
         switch self {
         case let .open(message): return "Could not open the xLog database: \(message)"
         case let .sqlite(message): return "xLog database error: \(message)"
         case .corruptRecord: return "A stored QSO could not be decoded."
+        case .closed: return "The xLog database is closed."
         }
     }
 }
@@ -53,7 +55,51 @@ public final class LogbookDatabase: @unchecked Sendable {
         try migrate()
     }
 
-    deinit { sqlite3_close(handle) }
+    deinit { close() }
+
+    public func close() {
+        lock.withLock {
+            guard let handle else { return }
+            sqlite3_close_v2(handle)
+            self.handle = nil
+        }
+    }
+
+    public func backup(to destination: URL) throws {
+        try lock.withLock {
+            guard let handle else { throw LogbookDatabaseError.closed }
+            let fileManager = FileManager.default
+            try fileManager.createDirectory(
+                at: destination.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            if fileManager.fileExists(atPath: destination.path) {
+                try fileManager.removeItem(at: destination)
+            }
+
+            var destinationHandle: OpaquePointer?
+            let flags = SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX
+            guard sqlite3_open_v2(destination.path, &destinationHandle, flags, nil) == SQLITE_OK,
+                  let destinationHandle else {
+                let message = destinationHandle.map { String(cString: sqlite3_errmsg($0)) } ?? "unknown error"
+                sqlite3_close(destinationHandle)
+                throw LogbookDatabaseError.open("Could not create backup: \(message)")
+            }
+            defer { sqlite3_close(destinationHandle) }
+
+            guard let backup = sqlite3_backup_init(destinationHandle, "main", handle, "main") else {
+                throw LogbookDatabaseError.sqlite(String(cString: sqlite3_errmsg(destinationHandle)))
+            }
+            let result = sqlite3_backup_step(backup, -1)
+            let finish = sqlite3_backup_finish(backup)
+            guard result == SQLITE_DONE, finish == SQLITE_OK else {
+                throw LogbookDatabaseError.sqlite(String(cString: sqlite3_errmsg(destinationHandle)))
+            }
+            guard sqlite3_exec(destinationHandle, "PRAGMA journal_mode=DELETE;", nil, nil, nil) == SQLITE_OK else {
+                throw LogbookDatabaseError.sqlite(String(cString: sqlite3_errmsg(destinationHandle)))
+            }
+        }
+    }
 
     public func save(_ value: QSO, markDirty: Bool = true) throws {
         try lock.withLock {
@@ -162,11 +208,132 @@ public final class LogbookDatabase: @unchecked Sendable {
         return cells
     }
 
-    public func pending(limit: Int = 100) throws -> [QSO] {
+    public func dxccSummary(dxcc: Int) throws -> DXCCSummary {
         try lock.withLock {
-            try withStatement("SELECT record_json FROM qsos WHERE is_dirty = 1 ORDER BY updated_at ASC LIMIT ?;") { statement in
-                sqlite3_bind_int(statement, 1, Int32(limit))
+            let predicate = "deleted_at IS NULL AND CAST(json_extract(record_json,'$.dxcc') AS INTEGER) = ?"
+            let counts = try withStatement("""
+                SELECT COUNT(*),
+                SUM(CASE WHEN json_extract(record_json,'$.qslReceived') IN ('Y','V')
+                    OR json_extract(record_json,'$.lotwReceived') IN ('Y','V') THEN 1 ELSE 0 END)
+                FROM qsos WHERE \(predicate);
+                """) { statement -> (Int, Int) in
+                    sqlite3_bind_int(statement, 1, Int32(dxcc))
+                    guard sqlite3_step(statement) == SQLITE_ROW else { return (0, 0) }
+                    return (Int(sqlite3_column_int(statement, 0)), Int(sqlite3_column_int(statement, 1)))
+                }
+
+            let matrix = try withStatement("""
+                SELECT band,
+                    COALESCE(NULLIF(json_extract(record_json,'$.submode'),''), mode),
+                    MAX(CASE WHEN json_extract(record_json,'$.qslReceived') IN ('Y','V')
+                        OR json_extract(record_json,'$.lotwReceived') IN ('Y','V') THEN 1 ELSE 0 END)
+                FROM qsos WHERE \(predicate)
+                GROUP BY band, COALESCE(NULLIF(json_extract(record_json,'$.submode'),''), mode);
+                """) { statement -> Set<BandModeCell> in
+                    sqlite3_bind_int(statement, 1, Int32(dxcc))
+                    var cells: Set<BandModeCell> = []
+                    while sqlite3_step(statement) == SQLITE_ROW {
+                        let band = sqlite3_column_text(statement, 0).map { String(cString: $0) } ?? ""
+                        let mode = sqlite3_column_text(statement, 1).map { String(cString: $0) } ?? ""
+                        cells.insert(BandModeCell(band: band, mode: mode, worked: true, confirmed: sqlite3_column_int(statement, 2) == 1))
+                    }
+                    return cells
+                }
+
+            let latest = try withStatement("SELECT record_json FROM qsos WHERE \(predicate) ORDER BY qso_start DESC LIMIT 1;") { statement -> QSO? in
+                sqlite3_bind_int(statement, 1, Int32(dxcc))
+                return try decodeRows(statement).first
+            }
+            return DXCCSummary(qsoCount: counts.0, confirmedCount: counts.1, matrix: matrix, latest: latest)
+        }
+    }
+
+    public func pending(limit: Int = 100, includingDeferred: Bool = false) throws -> [QSO] {
+        try lock.withLock {
+            let dueClause = includingDeferred ? "" : "AND (o.next_attempt_at IS NULL OR o.next_attempt_at <= ?)"
+            let sql = """
+                SELECT q.record_json FROM qsos q
+                LEFT JOIN sync_outbox o ON o.local_id = q.local_id
+                WHERE q.is_dirty = 1 \(dueClause)
+                ORDER BY q.updated_at ASC LIMIT ?;
+                """
+            return try withStatement(sql) { statement in
+                var index: Int32 = 1
+                if !includingDeferred {
+                    sqlite3_bind_double(statement, index, Date().timeIntervalSince1970)
+                    index += 1
+                }
+                sqlite3_bind_int(statement, index, Int32(limit))
                 return try decodeRows(statement)
+            }
+        }
+    }
+
+    public func outboxEntries(limit: Int = 500) throws -> [SyncOutboxEntry] {
+        try lock.withLock {
+            try withStatement("""
+                SELECT q.record_json, COALESCE(o.attempt_count, 0), o.last_attempt_at, o.next_attempt_at, o.last_error
+                FROM qsos q LEFT JOIN sync_outbox o ON o.local_id = q.local_id
+                WHERE q.is_dirty = 1
+                ORDER BY COALESCE(o.next_attempt_at, q.updated_at) ASC LIMIT ?;
+                """) { statement in
+                sqlite3_bind_int(statement, 1, Int32(limit))
+                var values: [SyncOutboxEntry] = []
+                while sqlite3_step(statement) == SQLITE_ROW {
+                    guard let bytes = sqlite3_column_blob(statement, 0) else { throw LogbookDatabaseError.corruptRecord }
+                    let qso = try decoder.decode(QSO.self, from: Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 0))))
+                    let attempts = Int(sqlite3_column_int(statement, 1))
+                    let lastAttempt = sqlite3_column_type(statement, 2) == SQLITE_NULL ? nil : Date(timeIntervalSince1970: sqlite3_column_double(statement, 2))
+                    let nextAttempt = sqlite3_column_type(statement, 3) == SQLITE_NULL ? nil : Date(timeIntervalSince1970: sqlite3_column_double(statement, 3))
+                    let error = sqlite3_column_text(statement, 4).map { String(cString: $0) }
+                    values.append(.init(qso: qso, attemptCount: attempts, lastAttemptAt: lastAttempt, nextAttemptAt: nextAttempt, lastError: error))
+                }
+                return values
+            }
+        }
+    }
+
+    public func recordSyncFailure(localID: UUID, message: String, at date: Date = Date()) throws {
+        try lock.withLock {
+            let previousAttempts = try withStatement("SELECT attempt_count FROM sync_outbox WHERE local_id = ? LIMIT 1;") { statement -> Int in
+                bind(localID.uuidString, to: 1, in: statement)
+                return sqlite3_step(statement) == SQLITE_ROW ? Int(sqlite3_column_int(statement, 0)) : 0
+            }
+            let attemptCount = previousAttempts + 1
+            let delay = min(3_600.0, 30.0 * pow(2.0, Double(min(previousAttempts, 7))))
+            try withStatement("""
+                INSERT INTO sync_outbox(local_id, attempt_count, last_attempt_at, next_attempt_at, last_error)
+                VALUES(?,?,?,?,?)
+                ON CONFLICT(local_id) DO UPDATE SET
+                  attempt_count=excluded.attempt_count,
+                  last_attempt_at=excluded.last_attempt_at,
+                  next_attempt_at=excluded.next_attempt_at,
+                  last_error=excluded.last_error;
+                """) { statement in
+                bind(localID.uuidString, to: 1, in: statement)
+                sqlite3_bind_int(statement, 2, Int32(attemptCount))
+                sqlite3_bind_double(statement, 3, date.timeIntervalSince1970)
+                sqlite3_bind_double(statement, 4, date.addingTimeInterval(delay).timeIntervalSince1970)
+                bind(message, to: 5, in: statement)
+                try stepDone(statement)
+            }
+        }
+    }
+
+    public func retrySync(localID: UUID) throws {
+        try lock.withLock {
+            try withStatement("UPDATE sync_outbox SET next_attempt_at = NULL WHERE local_id = ?;") { statement in
+                bind(localID.uuidString, to: 1, in: statement)
+                try stepDone(statement)
+            }
+        }
+    }
+
+    public func clearSyncFailure(localID: UUID) throws {
+        try lock.withLock {
+            try withStatement("DELETE FROM sync_outbox WHERE local_id = ?;") { statement in
+                bind(localID.uuidString, to: 1, in: statement)
+                try stepDone(statement)
             }
         }
     }
@@ -177,6 +344,26 @@ public final class LogbookDatabase: @unchecked Sendable {
             if let wavelogID { qso.wavelogID = wavelogID }
             qso.isDirty = false
             try save(qso, markDirty: false)
+            try clearSyncFailure(localID: localID)
+        }
+    }
+
+    public func possibleDuplicate(call: String, band: String, mode: String, around date: Date, within seconds: TimeInterval = 600) throws -> QSO? {
+        try lock.withLock {
+            try withStatement("""
+                SELECT record_json FROM qsos
+                WHERE deleted_at IS NULL AND call = ? COLLATE NOCASE AND band = ? COLLATE NOCASE
+                  AND mode = ? COLLATE NOCASE AND ABS(qso_start - ?) <= ?
+                ORDER BY ABS(qso_start - ?) ASC LIMIT 1;
+                """) { statement in
+                bind(call, to: 1, in: statement)
+                bind(band, to: 2, in: statement)
+                bind(mode, to: 3, in: statement)
+                sqlite3_bind_double(statement, 4, date.timeIntervalSince1970)
+                sqlite3_bind_double(statement, 5, seconds)
+                sqlite3_bind_double(statement, 6, date.timeIntervalSince1970)
+                return try decodeRows(statement).first
+            }
         }
     }
 
@@ -249,6 +436,19 @@ public final class LogbookDatabase: @unchecked Sendable {
             } else {
                 try save(conflict.localQSO, markDirty: true)
             }
+            try withStatement("DELETE FROM sync_conflicts WHERE conflict_id = ?;") { statement in
+                bind(conflict.id.uuidString, to: 1, in: statement)
+                try stepDone(statement)
+            }
+        }
+    }
+
+    public func resolveConflict(_ conflict: SyncConflict, merged: QSO) throws {
+        try lock.withLock {
+            var value = merged
+            value.id = conflict.localQSO.id
+            value.wavelogID = conflict.remoteQSO.wavelogID ?? conflict.localQSO.wavelogID
+            try save(value, markDirty: true)
             try withStatement("DELETE FROM sync_conflicts WHERE conflict_id = ?;") { statement in
                 bind(conflict.id.uuidString, to: 1, in: statement)
                 try stepDone(statement)
@@ -365,6 +565,13 @@ public final class LogbookDatabase: @unchecked Sendable {
           conflict_json BLOB NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_conflicts_detected ON sync_conflicts(detected_at DESC);
+        CREATE TABLE IF NOT EXISTS sync_outbox(
+          local_id TEXT PRIMARY KEY,
+          attempt_count INTEGER NOT NULL DEFAULT 0,
+          last_attempt_at REAL,
+          next_attempt_at REAL,
+          last_error TEXT
+        );
         """)
         try? execute("ALTER TABLE qsos ADD COLUMN baseline_json BLOB;")
     }

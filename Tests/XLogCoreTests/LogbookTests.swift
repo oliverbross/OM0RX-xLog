@@ -130,6 +130,29 @@ struct LogbookTests {
         #expect(try database.pending().count == 1)
     }
 
+    @Test("DXCC summary is independent from exact callsign history")
+    func dxccSummary() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let database = try LogbookDatabase(url: directory.appendingPathComponent("test.sqlite"))
+        try database.save(QSO(
+            call: "VK4JAZ", start: Date(timeIntervalSince1970: 100), band: "20m", mode: "SSB",
+            country: "Australia", dxcc: 150, qslReceived: "Y"
+        ))
+        try database.save(QSO(
+            call: "VK8NSB", start: Date(timeIntervalSince1970: 200), band: "40m", mode: "CW",
+            country: "Australia", dxcc: 150
+        ))
+
+        let summary = try database.dxccSummary(dxcc: 150)
+        #expect(try database.previous(call: "VK4JAZ").count == 1)
+        #expect(summary.qsoCount == 2)
+        #expect(summary.confirmedCount == 1)
+        #expect(summary.latest?.call == "VK8NSB")
+        #expect(summary.matrix.contains(BandModeCell(band: "20m", mode: "SSB", worked: true, confirmed: true)))
+        #expect(summary.matrix.contains(BandModeCell(band: "40m", mode: "CW", worked: true, confirmed: false)))
+    }
+
     @Test("ADIF preserves unknown fields")
     func adifRoundTrip() throws {
         let source = "<ADIF_VER:5>3.1.7<EOH><CALL:5>OM0RX<QSO_DATE:8>20261011<TIME_ON:6>120000<BAND:3>20m<MODE:2>CW<APP_TEST:6>custom<EOR>"
@@ -171,6 +194,17 @@ struct LogbookTests {
         #expect(resolver.entities.count > 200)
     }
 
+    @Test("Bundled DXCC boundary data is valid and representative")
+    func bundledDXCCBoundaries() throws {
+        let boundaries = try DXCCBoundaryStore.bundled()
+        #expect(boundaries.count >= 330)
+        #expect(boundaries.contains(where: { $0.adif == 291 && !$0.polygons.isEmpty }))
+        #expect(boundaries.contains(where: { $0.adif == 150 && !$0.polygons.isEmpty }))
+        #expect(boundaries.allSatisfy { boundary in
+            boundary.polygons.allSatisfy { $0.outerRing.count >= 4 }
+        })
+    }
+
     @Test("Great-circle bearings and distance support rotor paths")
     func greatCircle() {
         let darwin = GeoCoordinate(latitude: -12.4634, longitude: 130.8456)
@@ -180,6 +214,33 @@ struct LogbookTests {
         #expect(solution.distanceKilometres < 14_500)
         #expect(solution.shortPathBearing >= 0 && solution.shortPathBearing < 360)
         #expect(abs(solution.longPathBearing - ((solution.shortPathBearing + 180).truncatingRemainder(dividingBy: 360))) < 0.001)
+        let shortRoute = GreatCircle.route(from: darwin, to: bratislava, longPath: false)
+        let longRoute = GreatCircle.route(from: darwin, to: bratislava, longPath: true)
+        #expect(shortRoute.first == darwin)
+        #expect(shortRoute.last == bratislava)
+        #expect(longRoute.first == darwin)
+        #expect(longRoute.last == bratislava)
+        #expect(shortRoute[shortRoute.count / 2] != longRoute[longRoute.count / 2])
+    }
+
+    @Test("Solar ephemeris produces a plausible Sun and terminator")
+    func solarEphemeris() {
+        let equinox = Date(timeIntervalSince1970: 1_710_903_960) // 2024-03-20 03:06 UTC
+        let equinoxState = SolarEphemeris.state(at: equinox, samples: 72)
+        #expect(abs(equinoxState.subsolarPoint.latitude) < 1)
+        #expect(equinoxState.subsolarPoint.longitude > 120)
+        #expect(equinoxState.subsolarPoint.longitude < 150)
+        #expect(equinoxState.terminator.count == 73)
+
+        for (index, point) in equinoxState.terminator.dropLast().enumerated() where index.isMultiple(of: 12) {
+            let separation = GreatCircle.solve(from: equinoxState.subsolarPoint, to: point)
+            #expect(abs(separation.distanceKilometres - 10_007.5) < 2)
+        }
+
+        let juneSolstice = Date(timeIntervalSince1970: 1_718_917_860) // 2024-06-20 20:51 UTC
+        let junePoint = SolarEphemeris.subsolarPoint(at: juneSolstice)
+        #expect(junePoint.latitude > 23)
+        #expect(junePoint.latitude < 24)
     }
 
     @Test("Spot award references are promoted to ADIF fields")
@@ -338,6 +399,143 @@ struct LogbookTests {
 
         #expect(failedClosed)
         #expect(try database.fetch(limit: 10).contains(where: { $0.wavelogID == 99 && $0.deletedAt == nil }))
+    }
+
+    @Test("Verified backup previews and restores the complete local database")
+    func verifiedBackupAndRestore() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+
+        let sourceURL = directory.appendingPathComponent("source.sqlite")
+        let source = try LogbookDatabase(url: sourceURL)
+        let original = QSO(
+            call: "VK8NSB",
+            start: Date(timeIntervalSince1970: 1_760_000_000),
+            band: "80m",
+            mode: "SSB",
+            frequencyHz: 3_532_000,
+            country: "Australia",
+            dxcc: 150
+        )
+        try source.save(original)
+
+        var settings = XLogSettings.defaults
+        settings.gridSquare = "JN88TQ"
+        settings.wavelogStationID = 7
+        let preferences = XLogBackupPreferences(
+            deskBandMapBands: ["80m"],
+            detachedBandMapBands: ["160m", "40m"],
+            deskBandMapFollowsRadio: true,
+            detachedBandMapLayout: "Adaptive grid",
+            bandMapFontScale: 1.4,
+            intelligenceBands: ["160m", "80m", "40m"],
+            clusterSpotOpensFullEditor: false
+        )
+        let packageURL = directory.appendingPathComponent("station.xlogbackup")
+        let manager = XLogBackupManager()
+        let created = try manager.create(
+            database: source,
+            at: packageURL,
+            settings: settings,
+            preferences: preferences
+        )
+
+        #expect(created.manifest.qsoCount == 1)
+        #expect(created.manifest.pendingSyncCount == 1)
+        #expect(created.manifest.databaseBytes > 0)
+        #expect(created.manifest.databaseSHA256.count == 64)
+        #expect(created.settings?.gridSquare == "JN88TQ")
+        #expect(created.preferences == preferences)
+
+        let liveURL = directory.appendingPathComponent("live.sqlite")
+        let live = try LogbookDatabase(url: liveURL)
+        try live.save(QSO(call: "WRONG", band: "20m", mode: "CW"))
+        live.close()
+        let rollback = try manager.installDatabase(from: packageURL, to: liveURL)
+        #expect(rollback != nil)
+        #expect(rollback.map { FileManager.default.fileExists(atPath: $0.path) } == true)
+
+        let restored = try LogbookDatabase(url: liveURL)
+        let restoredQSO = try #require(restored.fetch().first)
+        #expect(restoredQSO.call == "VK8NSB")
+        #expect(restoredQSO.band == "80m")
+        #expect(try restored.fetch().count == 1)
+    }
+
+    @Test("Backup inspection rejects a changed database")
+    func backupChecksumRejectsMutation() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let database = try LogbookDatabase(url: directory.appendingPathComponent("source.sqlite"))
+        try database.save(QSO(call: "OM0RX", band: "40m", mode: "CW"))
+        let packageURL = directory.appendingPathComponent("station.xlogbackup")
+        let manager = XLogBackupManager()
+        _ = try manager.create(
+            database: database,
+            at: packageURL,
+            settings: .defaults,
+            preferences: XLogBackupPreferences(
+                deskBandMapBands: ["40m"],
+                detachedBandMapBands: ["40m"],
+                deskBandMapFollowsRadio: true,
+                detachedBandMapLayout: "Adaptive grid",
+                bandMapFontScale: 1,
+                intelligenceBands: ["40m"],
+                clusterSpotOpensFullEditor: false
+            )
+        )
+        let backupDatabase = packageURL.appendingPathComponent("OM0RX-xLog.sqlite")
+        let handle = try FileHandle(forWritingTo: backupDatabase)
+        try handle.seekToEnd()
+        try handle.write(contentsOf: Data([0x00]))
+        try handle.close()
+
+        #expect(throws: XLogBackupError.self) {
+            _ = try manager.inspect(at: packageURL)
+        }
+    }
+
+    @Test("Activation directory parses exact matches and prefix suggestions")
+    func activationDirectoryMatches() throws {
+        let pota = Data("""
+        "reference","name","active","entityId","locationDesc","latitude","longitude","grid"
+        "US-0001","Acadia National Park","1","291","US-ME","44.31","-68.2034","FN54vh"
+        "US-1234","Park, With Comma","1","291","US-VA","38.1","-77.2","FM18jb"
+        """.utf8)
+        let records = try ActivationReferenceDirectory.parse(data: pota, kind: .pota)
+        let directory = ActivationReferenceDirectory(records: records)
+
+        #expect(directory.count(for: .pota) == 2)
+        #expect(directory.exactMatch("us-1234", kind: .pota)?.name == "Park, With Comma")
+        #expect(directory.prefixMatches("US-12", kind: .pota).first?.reference == "US-1234")
+    }
+
+    @Test("SOTA, IOTA and WWFF official formats preserve names and locations")
+    func activationDirectoryFormats() throws {
+        let sota = Data("""
+        SOTA Summits List (Date=11/10/2026)
+        SummitCode,AssociationName,RegionName,SummitName,AltM,AltFt,GridRef1,GridRef2,Longitude,Latitude,Points
+        3B8/MU-001,Mauritius,Mauritius,"Piton de la Petite Rivière Noire",828,2716,57.4,-20.4,57.4,-20.4,10
+        """.utf8)
+        let iota = Data("""
+        [{"refno":"AF-001","name":"Agalega Islands","dxcc_num":"4","latitude_max":"-10.75","latitude_min":"-10.00","longitude_max":"57.00","longitude_min":"56.25"}]
+        """.utf8)
+        let wwff = Data("""
+        reference,status,name,program,dxcc,state,county,continent,iota,iaruLocator,latitude,longitude,country
+        OMFF-0001,active,"Protected Area, One",OMFF,OM,OM,OM,EU,-,JN88AA,48.0,17.0,Slovakia
+        """.utf8)
+
+        let records = try ActivationReferenceDirectory.parse(data: sota, kind: .sota)
+            + ActivationReferenceDirectory.parse(data: iota, kind: .iota)
+            + ActivationReferenceDirectory.parse(data: wwff, kind: .wwff)
+        let directory = ActivationReferenceDirectory(records: records)
+
+        #expect(directory.exactMatch("3b8/mu-001", kind: .sota)?.name == "Piton de la Petite Rivière Noire")
+        #expect(directory.exactMatch("AF-001", kind: .iota)?.detail == "DXCC #4")
+        #expect(directory.exactMatch("OMFF-0001", kind: .wwff)?.grid == "JN88AA")
+        #expect(directory.exactMatch("OMFF-0001", kind: .wwff)?.name == "Protected Area, One")
     }
 }
 

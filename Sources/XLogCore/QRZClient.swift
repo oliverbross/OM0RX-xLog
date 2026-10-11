@@ -15,6 +15,8 @@ public struct CallsignProfile: Equatable, Sendable {
     public var county = ""
     public var qth = ""
     public var email = ""
+    public var latitude: Double?
+    public var longitude: Double?
 }
 
 public enum QRZClientError: Error, LocalizedError {
@@ -65,7 +67,9 @@ public actor QRZClient {
             state: document["state"] ?? "",
             county: document["county"] ?? "",
             qth: document["addr2"] ?? "",
-            email: document["email"] ?? ""
+            email: document["email"] ?? "",
+            latitude: document["lat"].flatMap(Double.init),
+            longitude: document["lon"].flatMap(Double.init)
         )
     }
 

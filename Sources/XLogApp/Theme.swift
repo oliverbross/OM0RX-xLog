@@ -83,6 +83,7 @@ struct Panel<Content: View>: View {
             }
             content
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding(14)
         .background(XLogTheme.surface)
         .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -97,11 +98,13 @@ struct StatusChip: View {
     let symbol: String
 
     var body: some View {
-        HStack(spacing: 7) {
-            Image(systemName: symbol).foregroundStyle(color)
-            VStack(alignment: .leading, spacing: 0) {
-                Text(title).font(.caption2).foregroundStyle(XLogTheme.secondary)
-                Text(detail).font(.caption.weight(.semibold)).foregroundStyle(XLogTheme.text)
+        HStack(spacing: 10) {
+            Image(systemName: symbol)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(color)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title).font(.system(size: 13, weight: .semibold)).foregroundStyle(XLogTheme.secondary)
+                Text(detail).font(.system(size: 15, weight: .semibold)).foregroundStyle(XLogTheme.text)
             }
         }
         .accessibilityElement(children: .combine)

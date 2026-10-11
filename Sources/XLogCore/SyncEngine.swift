@@ -5,6 +5,7 @@ public struct SyncReport: Equatable, Sendable {
     public var pulled = 0
     public var deleted = 0
     public var conflicts = 0
+    public var failed = 0
 }
 
 public actor SyncEngine {
@@ -178,20 +179,29 @@ public actor SyncEngine {
 
         for qso in try database.pending(limit: 500) {
             if try database.hasConflict(localID: qso.id) { continue }
-            if qso.deletedAt != nil {
-                if let remoteID = qso.wavelogID { try await client.deleteQSO(id: remoteID); report.deleted += 1 }
-                try database.markSynced(localID: qso.id)
-                continue
+            do {
+                if qso.deletedAt != nil {
+                    if let remoteID = qso.wavelogID { try await client.deleteQSO(id: remoteID); report.deleted += 1 }
+                    try database.markSynced(localID: qso.id)
+                    continue
+                }
+                if let remoteID = qso.wavelogID {
+                    _ = try await client.updateQSO(id: remoteID, fields: WavelogQSOUpdate(qso))
+                    try database.markSynced(localID: qso.id)
+                } else {
+                    guard let create = WavelogQSOCreate(adif: qso.adifRecord) else {
+                        try database.recordSyncFailure(localID: qso.id, message: "This QSO cannot be converted to a valid Wavelog request.")
+                        report.failed += 1
+                        continue
+                    }
+                    let remote = try await client.createQSO(create)
+                    try database.markSynced(localID: qso.id, wavelogID: remote.id)
+                }
+                report.pushed += 1
+            } catch {
+                try database.recordSyncFailure(localID: qso.id, message: error.localizedDescription)
+                report.failed += 1
             }
-            if let remoteID = qso.wavelogID {
-                _ = try await client.updateQSO(id: remoteID, fields: WavelogQSOUpdate(qso))
-                try database.markSynced(localID: qso.id)
-            } else {
-                guard let create = WavelogQSOCreate(adif: qso.adifRecord) else { continue }
-                let remote = try await client.createQSO(create)
-                try database.markSynced(localID: qso.id, wavelogID: remote.id)
-            }
-            report.pushed += 1
         }
 
         return report

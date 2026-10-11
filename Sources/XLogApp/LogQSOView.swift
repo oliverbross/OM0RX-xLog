@@ -4,36 +4,44 @@ import XLogCore
 struct LogQSOView: View {
     @EnvironmentObject private var model: AppModel
     @FocusState private var focused: Field?
-    @State private var tab: DetailTab = .qso
 
     private enum Field { case call, frequency }
-    private enum DetailTab: String, CaseIterable, Identifiable {
-        case qso = "QSO"
-        case station = "Station"
-        case general = "General"
-        case notes = "Notes"
-        case qsl = "QSL"
-        var id: String { rawValue }
-    }
 
     var body: some View {
         GeometryReader { proxy in
-            ScrollView {
-                if proxy.size.width >= 1_080 {
+            let singleScreen = proxy.size.width >= 1_420 && proxy.size.height >= 700
+            Group {
+                if singleScreen {
                     HStack(alignment: .top, spacing: 14) {
-                        editor.frame(maxWidth: .infinity)
-                        contextInspector.frame(width: 365)
+                        editor(expanded: true)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        contextInspector
+                            .frame(width: min(390, proxy.size.width * 0.24))
+                            .frame(maxHeight: .infinity)
                     }
+                    .padding(16)
                 } else {
-                    VStack(spacing: 14) { editor; contextInspector }
+                    ScrollView {
+                        if proxy.size.width >= 1_080 {
+                            HStack(alignment: .top, spacing: 14) {
+                                editor(expanded: false).frame(maxWidth: .infinity)
+                                contextInspector.frame(width: 350)
+                            }
+                        } else {
+                            VStack(spacing: 14) {
+                                editor(expanded: false)
+                                contextInspector
+                            }
+                        }
+                    }
+                    .padding(16)
                 }
             }
-            .padding(16)
         }
         .onAppear { focused = .call }
     }
 
-    private var editor: some View {
+    private func editor(expanded: Bool) -> some View {
         VStack(spacing: 14) {
             Panel(title: "Active contact", symbol: "dot.radiowaves.left.and.right") {
                 HStack(alignment: .bottom, spacing: 12) {
@@ -50,33 +58,50 @@ struct LogQSOView: View {
                     }
                     VStack(alignment: .leading, spacing: 5) {
                         FieldLabel(title: "Frequency MHz")
-                        TextField("14.074000", text: $model.draft.frequency)
-                            .textFieldStyle(DarkTextFieldStyle())
-                            .font(.system(.body, design: .monospaced))
-                            .foregroundStyle(XLogTheme.cyan)
-                            .focused($focused, equals: .frequency)
-                            .frame(width: 132)
-                            .onChange(of: model.draft.frequency) { value in
-                                if let hz = BandPlan.frequencyHz(from: value) {
-                                    let band = BandPlan.band(for: hz)
-                                    if !band.isEmpty { model.draft.band = band }
+                        if model.radioSnapshot != nil, !model.isEditing {
+                            liveRadioValue(model.draft.frequency, width: 132)
+                        } else {
+                            TextField("14.074000", text: $model.draft.frequency)
+                                .textFieldStyle(DarkTextFieldStyle())
+                                .font(.system(.body, design: .monospaced).weight(.semibold))
+                                .foregroundStyle(.white)
+                                .focused($focused, equals: .frequency)
+                                .frame(width: 132)
+                                .onChange(of: model.draft.frequency) { value in
+                                    if let hz = BandPlan.frequencyHz(from: value) {
+                                        let band = BandPlan.band(for: hz)
+                                        if !band.isEmpty { model.draft.band = band }
+                                    }
                                 }
-                            }
+                        }
                     }
                     VStack(alignment: .leading, spacing: 5) {
                         FieldLabel(title: "Band")
-                        Picker("Band", selection: $model.draft.band) {
-                            ForEach(BandPlan.bands, id: \.self) { Text($0).tag($0) }
-                        }.labelsHidden().frame(width: 82)
+                        if model.radioSnapshot != nil, !model.isEditing {
+                            liveRadioValue(model.draft.band, width: 82)
+                        } else {
+                            Picker("Band", selection: $model.draft.band) {
+                                ForEach(BandPlan.bands, id: \.self) { Text($0).tag($0) }
+                            }.labelsHidden().frame(width: 82)
+                        }
                     }
                     VStack(alignment: .leading, spacing: 5) {
                         FieldLabel(title: "Mode")
-                        Picker("Mode", selection: $model.draft.mode) {
-                            ForEach(BandPlan.modes, id: \.self) { Text($0).tag($0) }
-                        }.labelsHidden().frame(width: 92)
+                        if model.radioSnapshot != nil, !model.isEditing {
+                            liveRadioValue(model.draft.mode, width: 92)
+                        } else {
+                            Picker("Mode", selection: $model.draft.mode) {
+                                ForEach(BandPlan.modes, id: \.self) { Text($0).tag($0) }
+                            }.labelsHidden().frame(width: 92)
+                        }
                     }
-                    Button { model.readRadio() } label: { Label("Read radio", systemImage: "antenna.radiowaves.left.and.right") }
-                        .buttonStyle(.bordered)
+                    if model.radioSnapshot == nil {
+                        Button { model.readRadio() } label: { Label("Read radio", systemImage: "antenna.radiowaves.left.and.right") }
+                            .buttonStyle(.bordered)
+                    } else {
+                        Label("Live", systemImage: "dot.radiowaves.left.and.right")
+                            .font(.caption.weight(.semibold)).foregroundStyle(XLogTheme.cyan)
+                    }
                 }
 
                 HStack(spacing: 12) {
@@ -87,28 +112,38 @@ struct LogQSOView: View {
                     reportField("RST sent", text: $model.draft.rstSent)
                     reportField("RST received", text: $model.draft.rstReceived)
                 }
+                if let recoveredAt = model.qsoSession.recoveredAt {
+                    Label("Recovered unsaved draft at \(recoveredAt.formatted(date: .omitted, time: .shortened))", systemImage: "arrow.counterclockwise.circle.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(XLogTheme.amber)
+                }
             }
+            .frame(height: expanded ? (model.qsoSession.recoveredAt == nil ? 142 : 164) : nil)
 
-            Picker("Contact details", selection: $tab) {
-                ForEach(DetailTab.allCases) { Text($0.rawValue).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-
-            Panel(title: tab.rawValue + " details", symbol: tabSymbol) {
-                detailFields
-                    .frame(minHeight: 184, alignment: .top)
-            }
+            detailsPanel(expanded: expanded)
+                .frame(maxHeight: expanded ? .infinity : nil)
 
             HStack {
-                Text("Saved locally first; Wavelog synchronization follows in the background.")
-                    .font(.caption).foregroundStyle(XLogTheme.secondary)
+                if let issue = model.draftValidationPreview.first {
+                    Label(issue.message, systemImage: issue.severity == .error ? "xmark.octagon.fill" : "exclamationmark.triangle.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(issue.severity == .error ? XLogTheme.danger : XLogTheme.amber)
+                        .lineLimit(2)
+                } else {
+                    Text("Saved locally first; Wavelog synchronization follows in the background.")
+                        .font(.caption).foregroundStyle(XLogTheme.secondary)
+                }
                 Spacer()
-                Button("Clear") {
+                Button {
                     model.cancelEditing()
                     focused = .call
+                } label: {
+                    Label("Clear QSO", systemImage: "xmark.circle.fill")
                 }
                 .buttonStyle(.bordered)
+                .tint(XLogTheme.danger)
+                .controlSize(.regular)
+                .help("Clear the current contact without logging it")
                 Button {
                     model.logQSO()
                     focused = .call
@@ -122,32 +157,35 @@ struct LogQSOView: View {
         }
     }
 
-    @ViewBuilder private var detailFields: some View {
-        switch tab {
-        case .qso:
+    private func detailsPanel(expanded: Bool) -> some View {
+        Panel(title: "QSO details", symbol: "rectangle.3.group") {
+            Group {
+                if expanded {
+                    HStack(alignment: .top, spacing: 16) {
+                        contactAndLocation
+                        detailDivider
+                        awardsAndNotes
+                        detailDivider
+                        stationAndQSL
+                    }
+                } else {
+                    VStack(alignment: .leading, spacing: 18) {
+                        contactAndLocation
+                        Divider().overlay(XLogTheme.rule)
+                        awardsAndNotes
+                        Divider().overlay(XLogTheme.rule)
+                        stationAndQSL
+                    }
+                }
+            }
+        }
+    }
+
+    private var contactAndLocation: some View {
+        detailSection("Contact & location", symbol: "person.crop.circle") {
             FieldGrid {
                 FormField("Name", text: $model.draft.name)
                 FormField("Gridsquare", text: $model.draft.gridSquare)
-                FormField("IOTA", text: $model.draft.iota)
-                FormField("SOTA", text: $model.draft.sota)
-                FormField("WWFF", text: $model.draft.wwff)
-                FormField("POTA", text: $model.draft.pota)
-                FormField("SIG", text: $model.draft.sig)
-                FormField("SIG info", text: $model.draft.sigInfo)
-                FormField("DOK", text: $model.draft.dok)
-                FormField("Location", text: $model.draft.qth)
-            }
-        case .station:
-            FieldGrid {
-                FormField("Station location", text: $model.draft.stationLocation)
-                FormField("Radio", text: $model.draft.radio)
-                FormField("RX frequency", text: $model.draft.rxFrequency)
-                FormField("RX band", text: $model.draft.rxBand)
-                FormField("TX power", text: $model.draft.txPower)
-                FormField("Operator", text: $model.draft.operatorCall)
-            }
-        case .general:
-            FieldGrid {
                 FormField("Country", text: $model.draft.country)
                 FormField("DXCC", text: $model.draft.dxcc)
                 FormField("Continent", text: $model.draft.continent)
@@ -155,26 +193,65 @@ struct LogQSOView: View {
                 FormField("ITU zone", text: $model.draft.ituZone)
                 FormField("State", text: $model.draft.state)
                 FormField("County", text: $model.draft.county)
-                FormField("Propagation", text: $model.draft.propagation)
-                FormField("Antenna path", text: $model.draft.antennaPath)
+                FormField("Location", text: $model.draft.qth)
                 FormField("Email", text: $model.draft.email)
             }
-        case .notes:
-            VStack(spacing: 10) {
-                FormField("Comment", text: $model.draft.comment)
-                VStack(alignment: .leading, spacing: 5) {
-                    FieldLabel(title: "QSO note")
-                    TextEditor(text: $model.draft.notes)
-                        .font(.body)
-                        .scrollContentBackground(.hidden)
-                        .padding(6).frame(minHeight: 108)
-                        .background(XLogTheme.raised)
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
-                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(XLogTheme.rule))
-                }
-            }
-        case .qsl:
+        }
+    }
+
+    private var awardsAndNotes: some View {
+        detailSection("References & notes", symbol: "star.circle") {
             FieldGrid {
+                FormField("POTA", text: $model.draft.pota)
+                FormField("SOTA", text: $model.draft.sota)
+                FormField("IOTA", text: $model.draft.iota)
+                FormField("WWFF", text: $model.draft.wwff)
+                FormField("SIG", text: $model.draft.sig)
+                FormField("SIG info", text: $model.draft.sigInfo)
+                FormField("DOK", text: $model.draft.dok)
+                FormField("Propagation", text: $model.draft.propagation)
+                FormField("Antenna path", text: $model.draft.antennaPath)
+                FormField("Comment", text: $model.draft.comment)
+            }
+            VStack(alignment: .leading, spacing: 5) {
+                FieldLabel(title: "QSO note")
+                TextEditor(text: $model.draft.notes)
+                    .font(.body)
+                    .scrollContentBackground(.hidden)
+                    .padding(6)
+                    .frame(minHeight: 72, maxHeight: 88)
+                    .background(XLogTheme.raised)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(XLogTheme.rule))
+            }
+        }
+    }
+
+    private var stationAndQSL: some View {
+        detailSection("Station & QSL", symbol: "antenna.radiowaves.left.and.right") {
+            if !model.automaticStationMetadata.isEmpty {
+                VStack(alignment: .leading, spacing: 5) {
+                    FieldLabel(title: "Captured automatically")
+                    ForEach(Array(model.automaticStationMetadata.enumerated()), id: \.offset) { _, item in
+                        HStack(spacing: 6) {
+                            Text(item.0).foregroundStyle(XLogTheme.secondary)
+                            Spacer(minLength: 4)
+                            Text(item.1).font(.system(.caption, design: .monospaced).weight(.semibold)).lineLimit(2)
+                        }
+                        .font(.caption)
+                    }
+                }
+                .padding(8)
+                .background(XLogTheme.raised)
+                .clipShape(RoundedRectangle(cornerRadius: 7))
+            }
+            FieldGrid {
+                FormField("Station location", text: $model.draft.stationLocation)
+                FormField("Radio", text: $model.draft.radio)
+                FormField("RX frequency", text: $model.draft.rxFrequency)
+                FormField("RX band", text: $model.draft.rxBand)
+                transmitPowerField
+                FormField("Operator", text: $model.draft.operatorCall)
                 FormField("QSL sent", text: $model.draft.qslSent)
                 FormField("QSL received", text: $model.draft.qslReceived)
                 FormField("Method", text: $model.draft.qslMethod)
@@ -182,6 +259,25 @@ struct LogQSOView: View {
                 FormField("QSL message", text: $model.draft.qslMessage)
             }
         }
+    }
+
+    private var detailDivider: some View {
+        Divider().overlay(XLogTheme.rule).frame(maxHeight: .infinity)
+    }
+
+    private func detailSection<Content: View>(
+        _ title: String,
+        symbol: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label(title, systemImage: symbol)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(XLogTheme.text)
+                .symbolRenderingMode(.monochrome)
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 
     private var contextInspector: some View {
@@ -238,15 +334,47 @@ struct LogQSOView: View {
         }
     }
 
-    private var tabSymbol: String {
-        switch tab {
-        case .qso: return "waveform"
-        case .station: return "antenna.radiowaves.left.and.right"
-        case .general: return "globe"
-        case .notes: return "note.text"
-        case .qsl: return "envelope"
+    private var transmitPowerField: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 6) {
+                FieldLabel(title: "TX power (W)")
+                if model.stationSnapshot?.station.available == true, !model.isEditing {
+                    Text("AUTO")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(XLogTheme.teal)
+                }
+            }
+            if model.stationSnapshot?.station.available == true, !model.isEditing {
+                Text(model.draft.txPower.isEmpty ? "—" : model.draft.txPower)
+                    .font(.system(.body, design: .monospaced).weight(.semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .padding(.horizontal, 9)
+                    .frame(maxWidth: .infinity, minHeight: 30, alignment: .leading)
+                    .background(XLogTheme.raised)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(XLogTheme.teal.opacity(0.45)))
+                    .accessibilityLabel("Automatically captured transmit power")
+            } else {
+                TextField("TX power", text: $model.draft.txPower)
+                    .textFieldStyle(DarkTextFieldStyle())
+            }
         }
     }
+
+    private func liveRadioValue(_ value: String, width: CGFloat) -> some View {
+        Text(value.isEmpty ? "—" : value)
+            .font(.system(.body, design: .monospaced).weight(.semibold))
+            .foregroundStyle(.white)
+            .lineLimit(1)
+            .padding(.horizontal, 9)
+            .frame(width: width, alignment: .leading)
+            .frame(minHeight: 30)
+            .background(XLogTheme.raised)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .overlay(RoundedRectangle(cornerRadius: 6).stroke(XLogTheme.cyan.opacity(0.5)))
+    }
+
 }
 
 private struct FieldGrid<Content: View>: View {
