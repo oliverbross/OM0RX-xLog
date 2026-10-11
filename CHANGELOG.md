@@ -1,0 +1,27 @@
+# Changelog
+
+## 0.1.0 — 2026-10-11
+
+- Introduced the native macOS xLog contact editor and local SQLite logbook.
+- Added Wavelog API v2 create, update, delete and reconciliation.
+- Added QRZ callsign enrichment, CTY classification, LoTW activity and Wavelog catalog refresh.
+- Added ADIF import/export with preservation of unknown fields.
+- Added xCat live frequency/mode integration and `om0rx-xlog://spot` handoff.
+- Added logbook search, previous-QSO context, band/mode matrix and basic station statistics.
+- Added QSO editing, confirmed deletion with undo, and visible local/Wavelog conflict resolution.
+- Added typed status notifications, improved control contrast and keyboard accessibility.
+- Packaged SwiftPM reference resources and verified the signed app launches successfully.
+- Added the unified Operator Desk with the logger, station context, world map and selected band maps visible together.
+- Added resizable undocked map windows, a hybrid/satellite map, DXCC status overlay and great-circle rotor path with short-/long-path bearings.
+- Added multi-band maps with CW/data/phone presets, pan/zoom controls, allocation shading and collision-aware spot placement.
+- Bound world-map spots to the active band-map selection with the configured colour for each band, and made undocked band maps fully resizable.
+- Added structured POTA, SOTA, IOTA, WWFF and castle-reference handoff from xCluster into ADIF fields.
+- Split Operator Desk and undocked band maps into independent persistent workspaces, with optional radio-band following on the desk.
+- Added full-height single-row and adaptive-grid layouts plus persistent 80–200% band-map text scaling for 4K displays.
+- Made map spots consume xCluster's filtered/sorted snapshot so cluster filters apply consistently throughout the operator desk.
+- Hardened Wavelog bootstrap synchronization: complete 5,000-row JSON ID scans combined with 1,000-row ADIF detail scans, stable-snapshot verification before deletion reconciliation, complete pagination, read-first reconciliation, preservation of local-only ADIF fields and full `/api/v2` URL normalization.
+- Preserved award references from cluster spots independently of the optional human-readable logging note.
+- Combined Wavelog's stable JSON-ID pages with its full ADIF pages so DXCC, country, LoTW and QSL confirmation state are imported instead of appearing as ATNO.
+- Cleared only prior auto-populated callsign fields when the call changes, preventing stale QRZ/CTY identity while preserving operator edits.
+- Automatically framed the station marker, active DX station and complete geodesic path whenever the resolved callsign changes.
+- Restored configured Wavelog state immediately at launch and started the first automatic reconciliation without waiting for the periodic timer.

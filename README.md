@@ -1,0 +1,146 @@
+# OM0RX-xLog
+
+[![macOS 13+](https://img.shields.io/badge/macOS-13%2B-black)](#requirements)
+[![Swift 5.10](https://img.shields.io/badge/Swift-5.10-F05138)](Package.swift)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+
+OM0RX-xLog is a fast, local-first amateur-radio logbook for macOS. It is the logging centre of the OM0RX station suite: contacts are committed to a local SQLite database first, enriched from QRZ and current reference data, synchronized in both directions with Wavelog, and connected to the radio through OM0RX-xCat.
+
+Created and maintained by **Oliver Bross, OM0RX**.
+
+Development scope, acceptance evidence and the prioritized backlog are tracked in [PROJECT_STATUS.md](PROJECT_STATUS.md).
+
+![OM0RX-xLog operator desk](docs/screenshots/operator-desk.png)
+
+## What is included
+
+- Native SwiftUI macOS application; no embedded web view.
+- Local SQLite logbook that works without Wavelog or an internet connection.
+- Wavelog-style field groups: QSO, Station, General, Notes and QSL.
+- Built-in, two-way Wavelog API v2 synchronization for new, edited and deleted contacts; OM0RX-xBridge remains available for RUMlog users but is not required by xLog.
+- Full QSO editing plus explicit conflict review when both xLog and Wavelog changed the same contact.
+- Lossless ADIF import/export: unknown application fields are retained.
+- QRZ XML callsign lookup without overwriting values the operator already entered.
+- Bundled CTY fallback plus authenticated Club Log `cty.xml`, LoTW activity and Wavelog catalog updates.
+- Previous-QSO history and a worked/confirmed band-mode matrix beside the active contact.
+- An operator desk that keeps the compact logger, callsign intelligence, station state, world map and selected band maps visible together.
+- Resizable, independently undockable World Map and Band Maps windows for multi-screen stations.
+- A hybrid/satellite world map with live classified spots, a worked/confirmed DXCC entity overlay and an accurate great-circle rotor path with short- and long-path bearings.
+- One, several or all band maps, each with full-band and CW/data/phone presets, pan/zoom controls, allocation lanes and collision-free spot labels.
+- Structured POTA, SOTA, IOTA, WWFF and castle-reference promotion from cluster comments and special badges into the matching ADIF fields.
+- Fast local search, compact statistics and visible sync state.
+- OM0RX-xCat RigCtlD integration for live frequency/mode and radio tuning.
+- `om0rx-xlog://spot` handoff for OM0RX-xCluster and other local tools.
+- Secrets stored in macOS Keychain.
+
+## Suite architecture
+
+```mermaid
+flowchart LR
+  XC[OM0RX-xCluster] -->|spot URL + classified local snapshot| XL[OM0RX-xLog]
+  XL -->|RigCtlD on loopback| CAT[OM0RX-xCat]
+  CAT -->|single radio owner| ST[Radio · KPA500 · KAT500 · Windows agent]
+  XL <-->|API v2 reconciliation| WL[Wavelog]
+  BR[OM0RX-xBridge] <-->|RUMlog compatibility| WL
+```
+
+xCat remains the only process that owns the physical radio connection. xLog never competes with it for CAT access. xBridge remains useful when RUMlog must coexist, but xLog itself does not require RUMlog.
+
+## Requirements
+
+- macOS 13 Ventura or newer.
+- OM0RX-xCat running when live frequency/mode or tuning is required.
+- A Wavelog instance with an API v2 token for synchronization.
+- An eligible QRZ XML subscription for full QRZ lookup data.
+- A Club Log application API key to download the official `cty.xml`; LoTW activity updates do not require it.
+
+## Configuration
+
+Open **Settings** in xLog:
+
+1. **Station** — enter station/operator callsigns, gridsquare, station location, radio and default power.
+2. **Wavelog** — enter the instance URL, station profile ID and an API v2 token beginning with `wl2_`.
+3. **QRZ** — enable lookup and enter QRZ XML credentials.
+4. **Integrations** — keep xCat on `127.0.0.1:14532` unless its RigCtlD listener was deliberately changed.
+5. **Reference Data** — enter a Club Log application API key and retain the official CDN endpoint. LoTW activity is refreshed independently.
+
+The **Band Maps** settings page configures two independent workspaces:
+
+- **Operator Desk** — show one or more chosen bands, or enable **Follow radio** so the desk always follows the band reported by xCat.
+- **Undocked Band Maps** — keep a different persistent selection, including **All bands**, and choose **Single row** for an ultrawide display or **Adaptive grid** to use both the width and height of the window.
+
+Band-map text can be scaled from 80–200% for high-density and 4K displays. Panels resize with their window, and frequency spacing plus collision avoidance scale with the available height rather than leaving unused space.
+
+Wavelog and QRZ credentials and the Club Log API key are stored in Keychain; they are not written to preferences, the logbook database or diagnostic output.
+
+xLog accepts either the Wavelog site URL (for example `https://log.example.com`) or the full API-v2 URL ending in `/index.php/api/v2`. The first synchronization is read-first: xLog downloads and reconciles the complete remote log before it may upload safe local changes. Existing xBridge users can reuse the same station profile and credential, while xBridge itself remains unchanged.
+
+![OM0RX-xLog settings](docs/screenshots/settings.png)
+
+## Cluster handoff
+
+xLog registers this URL scheme:
+
+```text
+om0rx-xlog://spot?call=RG1L%2FMM&frequency=14.006500&mode=CW&comment=DX
+```
+
+Opening it loads the call, frequency, mode and note into the editor, promotes recognized activation references to their ADIF fields, then asks xCat to tune both frequency and mode. The QSO is not logged until the operator presses **Log QSO**. When the spot originates inside the Operator Desk, xLog keeps the desk visible and draws the station-to-DX great-circle path.
+
+## Data and synchronization
+
+The database lives at:
+
+```text
+~/Library/Application Support/OM0RX-xLog/OM0RX-xLog.sqlite
+```
+
+Each QSO has a stable local UUID, optional Wavelog ID, complete JSON record, searchable columns, dirty state and deletion tombstone. Synchronization first reads Wavelog and compares it with the last synchronized baseline, records any two-sided edit as an explicit conflict, and only then pushes safe pending changes. **Keep local** and **Use Wavelog** choices are presented in Sync; xLog never silently overwrites either version.
+
+## Operator maps
+
+The world map defaults to a readable hybrid/satellite base and can switch to Satellite or Standard. Its overlay menu shows live spots, all CTY-derived DXCC entity centroids, or both. Live spots follow the Operator Desk band selection and use each band's configured xCluster colour. DXCC markers use the same semantic state as the rest of xLog: grey needed, orange worked and green confirmed. Enter a station gridsquare to enable the great-circle line, distance, and short-/long-path rotor bearings. When a callsign resolves, the camera automatically frames the home marker, DX marker and complete path with usable padding; manual pan and zoom remain available afterward.
+
+Band-plan shading is an operating aid. Allocations vary by country, licence and IARU region, so the operator remains responsible for using frequencies permitted by their licence. The panel controls can show the whole band, jump to CW/data/phone portions, zoom in or out and pan along the band. Spot labels use the exact xCluster status colours and a collision-aware layout. xCluster publishes its already-filtered view, so band maps follow the same bands, modes, continent, call/DXCC status, special, source, worked-state, search and maximum-spot filters as the cluster table. The undocked window can arrange its independent band selection in one full-height horizontal row or an adaptive grid.
+
+![OM0RX-xLog undocked multi-band maps](docs/screenshots/band-maps.png)
+
+Double-click a Logbook row to edit it. Delete asks for confirmation and remains undoable until the next synchronization.
+
+Reference files are kept under:
+
+```text
+~/Library/Application Support/OM0RX-xLog/Reference Data/
+```
+
+Downloads are validated and replaced atomically; a failed update leaves the last known good file active.
+
+## Keyboard workflow
+
+- **⌘L** — return to Log QSO.
+- **⌘Return** — save the active QSO locally.
+- **⌘⇧R** — read frequency and mode from xCat.
+- **⌘⇧S** — synchronize with Wavelog.
+
+## Build and test
+
+```bash
+swift test
+./scripts/package-app.sh
+open dist/OM0RX-xLog.app
+```
+
+The packaging script creates and verifies a signed application bundle in `dist/`. It uses a Developer ID Application identity when one is available and otherwise creates an ad-hoc signature.
+
+## Security and release status
+
+- Network services use HTTPS except for the explicit loopback xCat connection.
+- No credential is bundled with the project.
+- The initial package is locally signed and has not been claimed as notarized until a notarization receipt is produced.
+- Live Wavelog, QRZ and Club Log acceptance depends on credentials supplied by the operator; automated tests do not prove those account-bound paths.
+
+## License
+
+Copyright © 2026 Oliver Bross OM0RX.
+
+OM0RX-xLog is released under the [GNU General Public License v3.0](LICENSE).

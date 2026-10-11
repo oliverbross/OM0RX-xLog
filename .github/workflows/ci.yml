@@ -1,0 +1,17 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test-and-package:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test
+        run: swift test
+      - name: Package app
+        run: ./scripts/package-app.sh
+      - name: Verify packaged resources
+        run: test -f dist/OM0RX-xLog.app/Contents/Resources/OM0RXXLog_XLogCore.bundle/Contents/Resources/cty.csv
