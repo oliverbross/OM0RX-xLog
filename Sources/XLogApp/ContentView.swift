@@ -198,11 +198,8 @@ struct ContentView: View {
                 .padding(.top, 9)
                 .padding(.bottom, 6)
 
-            ViewThatFits(in: .vertical) {
-                stationControls
-                compactStationControls
-            }
-            .padding(.horizontal, 8)
+            focusedStationControls
+                .padding(.horizontal, 8)
 
             Spacer(minLength: 6)
 
@@ -260,163 +257,95 @@ struct ContentView: View {
         Rectangle().fill(XLogTheme.rule).frame(height: 1)
     }
 
-    private var stationControls: some View {
-        let station = model.stationSnapshot?.station
-        return VStack(alignment: .leading, spacing: 7) {
-            HStack(spacing: 5) {
-                Text("STATION CONTROL")
-                    .font(.caption2.weight(.bold)).foregroundStyle(XLogTheme.secondary)
-                Spacer()
-                Circle().fill(station == nil ? XLogTheme.secondary : XLogTheme.teal).frame(width: 6, height: 6)
-            }
-
-            VStack(spacing: 5) {
-                let amplifierAction = station?.kpaOperate == true ? "standby" : "operate"
-                stationActionTile(
-                    station?.kpaOperate == true ? "STANDBY" : "OPERATE",
-                    action: amplifierAction,
-                    symbol: station?.kpaOperate == true ? "pause.fill" : "bolt.fill",
-                    tint: XLogTheme.orange,
-                    enabled: station?.allowedActions.contains(amplifierAction) == true
-                )
-                stationActionTile(
-                    "TUNE",
-                    action: "tune",
-                    symbol: "wave.3.right",
-                    tint: XLogTheme.amber,
-                    enabled: station?.allowedActions.contains("tune") == true
-                )
-                stationActionTile(
-                    "CANCEL",
-                    action: "cancel",
-                    symbol: "xmark.circle.fill",
-                    tint: XLogTheme.danger,
-                    enabled: station?.allowedActions.contains("cancel") == true
-                )
-            }
-
-            stationMetric(
-                "TX POWER",
-                station?.txPowerWatts.map { String(format: "%.0f W", $0) } ?? "—",
-                tint: XLogTheme.orange,
-                background: Color(red: 0.25, green: 0.12, blue: 0.055)
-            )
-            stationMetric(
-                "SWR",
-                station?.swr.map { String(format: "%.2f %@", $0, station?.swrIsLive == true ? "LIVE" : "LAST") } ?? "—",
-                tint: XLogTheme.teal,
-                background: Color(red: 0.045, green: 0.20, blue: 0.18)
-            )
-            stationMetric(
-                "RF DRIVE",
-                station?.rfDriveWatts.map { "\($0) W" } ?? "—",
-                tint: XLogTheme.pink,
-                background: Color(red: 0.16, green: 0.10, blue: 0.28)
-            )
-
-            stationDevice(
-                station?.kpaDetailPrimary ?? "KPA500 unavailable",
-                detail: station?.kpaDetailSecondary ?? model.stationStatus,
-                color: station?.kpaOperate == true ? XLogTheme.teal : XLogTheme.amber
-            )
-            stationDevice(
-                station?.katDetailPrimary ?? "KAT500 unavailable",
-                detail: station?.katDetailSecondary ?? model.stationStatus,
-                color: XLogTheme.cyan
-            )
-        }
-    }
-
-    private var compactStationControls: some View {
+    private var focusedStationControls: some View {
         let station = model.stationSnapshot?.station
         let amplifierAction = station?.kpaOperate == true ? "standby" : "operate"
-        return VStack(alignment: .leading, spacing: 7) {
+        let kpaPrimary = station?.kpaDetailPrimary ?? ""
+        let kpaSecondary = station?.kpaDetailSecondary ?? ""
+        let katPrimary = station?.katDetailPrimary ?? ""
+        let output = stationDetailValue("OUT", in: kpaPrimary) ?? "—"
+        let kpaSWR = stationDetailValue("SWR", in: kpaPrimary)
+            ?? station?.swr.map { String(format: "%.2f", $0) }
+            ?? "—"
+        let temperature = stationDetailValue("TEMP", in: kpaSecondary) ?? "—"
+        let kpaBand = stationBand(in: kpaPrimary) ?? station?.band ?? "—"
+        let katBand = stationBand(in: katPrimary) ?? station?.band ?? "—"
+        let antenna = stationAntenna(in: katPrimary) ?? "—"
+
+        return VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 5) {
-                Text("STATION CONTROL")
-                    .font(.caption2.weight(.bold)).foregroundStyle(XLogTheme.secondary)
+                Text(station?.kpaOperate == true ? "KPA500 · OPERATE" : "KPA500 · STANDBY")
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundStyle(station == nil ? XLogTheme.secondary : XLogTheme.amber)
                 Spacer()
-                Circle().fill(station == nil ? XLogTheme.secondary : XLogTheme.teal).frame(width: 6, height: 6)
+                Circle().fill(station == nil ? XLogTheme.secondary : XLogTheme.teal).frame(width: 7, height: 7)
             }
 
-            HStack(spacing: 5) {
-                compactStationAction(
-                    station?.kpaOperate == true ? "STBY" : "OPER",
-                    action: amplifierAction,
-                    symbol: station?.kpaOperate == true ? "pause.fill" : "bolt.fill",
-                    tint: XLogTheme.orange,
-                    enabled: station?.allowedActions.contains(amplifierAction) == true
-                )
-                compactStationAction("TUNE", action: "tune", symbol: "wave.3.right", tint: XLogTheme.amber, enabled: station?.allowedActions.contains("tune") == true)
-                compactStationAction("STOP", action: "cancel", symbol: "xmark.circle.fill", tint: XLogTheme.danger, enabled: station?.allowedActions.contains("cancel") == true)
-            }
-
-            HStack(spacing: 5) {
-                compactStationMetric("PWR", station?.txPowerWatts.map { String(format: "%.0fW", $0) } ?? "—", tint: XLogTheme.orange)
-                compactStationMetric("SWR", station?.swr.map { String(format: "%.2f", $0) } ?? "—", tint: XLogTheme.teal)
-                compactStationMetric("DRV", station?.rfDriveWatts.map { "\($0)W" } ?? "—", tint: XLogTheme.pink)
-            }
-
-            compactDevice(
-                title: station?.kpaDetailPrimary ?? "KPA500 unavailable",
-                detail: station?.kpaDetailSecondary ?? model.stationStatus,
-                color: station?.kpaOperate == true ? XLogTheme.teal : XLogTheme.amber
+            stationActionTile(
+                station?.kpaOperate == true ? "SWITCH TO STANDBY" : "SWITCH TO OPERATE",
+                action: amplifierAction,
+                symbol: station?.kpaOperate == true ? "pause.fill" : "bolt.fill",
+                tint: station?.kpaOperate == true ? XLogTheme.teal : XLogTheme.orange,
+                enabled: station?.allowedActions.contains(amplifierAction) == true
             )
-            compactDevice(
-                title: station?.katDetailPrimary ?? "KAT500 unavailable",
-                detail: station?.katDetailSecondary ?? model.stationStatus,
-                color: XLogTheme.cyan
-            )
+
+            HStack(spacing: 6) {
+                sidebarStationValue("OUTPUT", output, tint: XLogTheme.orange)
+                sidebarStationValue("SWR", kpaSWR, tint: XLogTheme.teal)
+            }
+            HStack(spacing: 6) {
+                sidebarStationValue("KPA BAND", kpaBand, tint: XLogTheme.amber)
+                sidebarStationValue("KPA TEMP", temperature, tint: XLogTheme.amber)
+            }
+            HStack(spacing: 6) {
+                sidebarStationValue("KAT BAND", katBand, tint: XLogTheme.cyan)
+                sidebarStationValue("ANTENNA", antenna, tint: XLogTheme.cyan)
+            }
         }
+        .help("\(kpaPrimary)\n\(kpaSecondary)\n\(katPrimary)")
     }
 
-    private func compactStationAction(_ title: String, action: String, symbol: String, tint: Color, enabled: Bool) -> some View {
-        Button { model.performStationAction(action) } label: {
-            VStack(spacing: 3) {
-                Image(systemName: symbol).font(.system(size: 11, weight: .bold))
-                Text(title).font(.system(size: 8, weight: .bold, design: .rounded))
-            }
-            .foregroundStyle(enabled ? tint : XLogTheme.secondary)
-            .frame(maxWidth: .infinity, minHeight: 37)
-            .background(enabled ? tint.opacity(0.13) : XLogTheme.raised.opacity(0.65))
-            .clipShape(RoundedRectangle(cornerRadius: 6))
-            .overlay(RoundedRectangle(cornerRadius: 6).stroke((enabled ? tint : XLogTheme.rule).opacity(0.42)))
-        }
-        .buttonStyle(.plain)
-        .disabled(!enabled)
-        .help(enabled ? "Send station \(title.lowercased()) through OM0RX-xCat" : "Blocked by the current station route or safety state")
-    }
-
-    private func compactStationMetric(_ title: String, _ value: String, tint: Color) -> some View {
+    private func sidebarStationValue(_ title: String, _ value: String, tint: Color) -> some View {
         VStack(spacing: 1) {
-            Text(title).font(.system(size: 8, weight: .bold, design: .rounded))
-            Text(value).font(.system(size: 12, weight: .bold, design: .rounded)).monospacedDigit()
+            Text(title).font(.system(size: 9.5, weight: .bold, design: .rounded))
+            Text(value).font(.system(size: 16, weight: .bold, design: .rounded)).monospacedDigit()
         }
         .foregroundStyle(tint)
-        .frame(maxWidth: .infinity, minHeight: 36)
+        .frame(maxWidth: .infinity, minHeight: 48)
         .background(XLogTheme.raised)
         .clipShape(RoundedRectangle(cornerRadius: 6))
-        .overlay(RoundedRectangle(cornerRadius: 6).stroke(tint.opacity(0.2)))
+        .overlay(RoundedRectangle(cornerRadius: 6).stroke(tint.opacity(0.28)))
     }
 
-    private func compactDevice(title: String, detail: String, color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.system(size: 11, weight: .bold, design: .rounded))
-                .foregroundStyle(color)
-                .lineLimit(1)
-            Text(detail.replacingOccurrences(of: " | ", with: " · "))
-                .font(.system(size: 9, weight: .medium, design: .monospaced))
-                .foregroundStyle(XLogTheme.secondary)
-                .lineLimit(2)
-                .minimumScaleFactor(0.78)
+    private func stationDetailValue(_ prefix: String, in detail: String) -> String? {
+        let wanted = prefix.uppercased()
+        for component in stationComponents(detail) {
+            let upper = component.uppercased()
+            guard upper.hasPrefix(wanted + " ") else { continue }
+            let index = component.index(component.startIndex, offsetBy: prefix.count)
+            return component[index...].trimmingCharacters(in: .whitespacesAndNewlines)
         }
-        .padding(.horizontal, 7)
-        .padding(.vertical, 6)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(XLogTheme.raised)
-        .clipShape(RoundedRectangle(cornerRadius: 6))
-        .overlay(RoundedRectangle(cornerRadius: 6).stroke(color.opacity(0.22)))
-        .help("\(title)\n\(detail)")
+        return nil
+    }
+
+    private func stationBand(in detail: String) -> String? {
+        stationComponents(detail).first { component in
+            let normalized = component.lowercased()
+            guard normalized.hasSuffix("m") else { return false }
+            return Double(normalized.dropLast()) != nil
+        }
+    }
+
+    private func stationAntenna(in detail: String) -> String? {
+        stationComponents(detail).first { component in
+            component.uppercased().hasPrefix("ANT")
+        }
+    }
+
+    private func stationComponents(_ detail: String) -> [String] {
+        detail.components(separatedBy: "|")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
     }
 
     private func stationActionTile(
@@ -439,7 +368,7 @@ struct ContentView: View {
             }
             .foregroundStyle(enabled ? tint : XLogTheme.secondary)
             .padding(.horizontal, 10)
-            .frame(maxWidth: .infinity, minHeight: 36)
+            .frame(maxWidth: .infinity, minHeight: 44)
             .background(enabled ? tint.opacity(0.13) : XLogTheme.raised.opacity(0.65))
             .clipShape(RoundedRectangle(cornerRadius: 6))
             .overlay(RoundedRectangle(cornerRadius: 6).stroke((enabled ? tint : XLogTheme.rule).opacity(0.42)))
@@ -447,50 +376,6 @@ struct ContentView: View {
         .buttonStyle(.plain)
         .disabled(!enabled)
         .help(enabled ? "Send station \(title.lowercased()) through OM0RX-xCat" : "Blocked by the current station route or safety state")
-    }
-
-    private func stationMetric(_ title: String, _ value: String, tint: Color, background: Color) -> some View {
-        VStack(spacing: 2) {
-            Text(title).font(.system(size: 9, weight: .bold, design: .rounded))
-            Text(value).font(.system(size: 16, weight: .bold, design: .rounded)).monospacedDigit()
-        }
-        .foregroundStyle(tint)
-        .frame(maxWidth: .infinity, minHeight: 45)
-        .background(background)
-        .clipShape(RoundedRectangle(cornerRadius: 6))
-        .overlay(RoundedRectangle(cornerRadius: 6).stroke(tint.opacity(0.16)))
-    }
-
-    private func stationDevice(_ title: String, detail: String, color: Color) -> some View {
-        let values = (title + " | " + detail)
-            .components(separatedBy: "|")
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-        return VStack(alignment: .leading, spacing: 6) {
-            if let heading = values.first {
-                Text(heading)
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
-                    .foregroundStyle(color)
-            }
-            LazyVGrid(
-                columns: [GridItem(.flexible(), alignment: .leading), GridItem(.flexible(), alignment: .leading)],
-                alignment: .leading,
-                spacing: 5
-            ) {
-                ForEach(Array(values.dropFirst().enumerated()), id: \.offset) { _, value in
-                    Text(value)
-                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(XLogTheme.text)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.86)
-                }
-            }
-        }
-        .padding(7)
-        .background(XLogTheme.raised)
-        .clipShape(RoundedRectangle(cornerRadius: 6))
-        .overlay(RoundedRectangle(cornerRadius: 6).stroke(color.opacity(0.25)))
-        .help("\(title)\n\(detail)")
     }
 
     @ViewBuilder private var destination: some View {
