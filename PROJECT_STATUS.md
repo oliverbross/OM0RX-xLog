@@ -2,7 +2,7 @@
 
 Last updated: 2026-10-11  
 Product owner and maker: **Oliver Bross OM0RX**  
-Repository: `oliverbross/OM0RX-xLog` (public repository creation is a v0.1.0 release gate)
+Repository: `oliverbross/OM0RX-xLog` (public)
 
 This is the living implementation and acceptance record for OM0RX-xLog. Update it whenever scope, behaviour, validation evidence, or release state changes.
 
@@ -156,11 +156,11 @@ Current local evidence at this revision:
 - [x] README architecture, setup, screenshots and limitations.
 - [x] Final screenshot set refreshed from the current build.
 - [x] Impeccable finish review returns SHIP with no blocker.
-- [ ] Create public `oliverbross/OM0RX-xLog` repository and push `main`.
-- [ ] Tag and publish xLog `v0.1.0` with the signed macOS archive.
-- [ ] Commit/push xCluster snapshot and award-handoff changes.
-- [ ] Tag and publish xCluster `v0.1.6` with the signed macOS archive.
-- [ ] Verify public repository descriptions, README rendering and release downloads.
+- [x] Create public `oliverbross/OM0RX-xLog` repository and push `main`.
+- [x] Tag and publish xLog `v0.1.0` with the signed macOS archive.
+- [x] Commit/push xCluster snapshot and award-handoff changes.
+- [x] Tag and publish xCluster `v0.1.6` with the signed macOS archive.
+- [x] Verify public repository descriptions, README rendering and release downloads.
 
 ## Priority backlog
 
