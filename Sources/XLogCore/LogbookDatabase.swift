@@ -199,6 +199,59 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
+    public func awardProgress() throws -> AwardProgressSnapshot {
+        try lock.withLock {
+            let confirmed = "(UPPER(COALESCE(json_extract(record_json,'$.qslReceived'),'')) IN ('Y','V') OR UPPER(COALESCE(json_extract(record_json,'$.lotwReceived'),'')) IN ('Y','V'))"
+            let validStates = "'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY'"
+            let counts = try withStatement("""
+                SELECT
+                    COUNT(*),
+                    SUM(CASE WHEN \(confirmed) THEN 1 ELSE 0 END),
+                    COUNT(DISTINCT CASE WHEN CAST(json_extract(record_json,'$.dxcc') AS INTEGER) > 0 THEN CAST(json_extract(record_json,'$.dxcc') AS INTEGER) END),
+                    COUNT(DISTINCT CASE WHEN \(confirmed) AND CAST(json_extract(record_json,'$.dxcc') AS INTEGER) > 0 THEN CAST(json_extract(record_json,'$.dxcc') AS INTEGER) END),
+                    COUNT(DISTINCT CASE WHEN CAST(json_extract(record_json,'$.cqZone') AS INTEGER) BETWEEN 1 AND 40 THEN CAST(json_extract(record_json,'$.cqZone') AS INTEGER) END),
+                    COUNT(DISTINCT CASE WHEN \(confirmed) AND CAST(json_extract(record_json,'$.cqZone') AS INTEGER) BETWEEN 1 AND 40 THEN CAST(json_extract(record_json,'$.cqZone') AS INTEGER) END),
+                    COUNT(DISTINCT CASE WHEN CAST(json_extract(record_json,'$.dxcc') AS INTEGER) IN (291,6,110) AND UPPER(TRIM(COALESCE(json_extract(record_json,'$.state'),''))) IN (\(validStates)) THEN UPPER(TRIM(json_extract(record_json,'$.state'))) END),
+                    COUNT(DISTINCT CASE WHEN \(confirmed) AND CAST(json_extract(record_json,'$.dxcc') AS INTEGER) IN (291,6,110) AND UPPER(TRIM(COALESCE(json_extract(record_json,'$.state'),''))) IN (\(validStates)) THEN UPPER(TRIM(json_extract(record_json,'$.state'))) END),
+                    COUNT(DISTINCT CASE WHEN LENGTH(TRIM(COALESCE(json_extract(record_json,'$.gridSquare'),''))) >= 4 THEN UPPER(SUBSTR(TRIM(json_extract(record_json,'$.gridSquare')),1,4)) END),
+                    COUNT(DISTINCT CASE WHEN \(confirmed) AND LENGTH(TRIM(COALESCE(json_extract(record_json,'$.gridSquare'),''))) >= 4 THEN UPPER(SUBSTR(TRIM(json_extract(record_json,'$.gridSquare')),1,4)) END)
+                FROM qsos WHERE deleted_at IS NULL;
+                """) { statement -> [Int] in
+                    guard sqlite3_step(statement) == SQLITE_ROW else { return Array(repeating: 0, count: 10) }
+                    return (0..<10).map { Int(sqlite3_column_int64(statement, Int32($0))) }
+                }
+
+            func groups(_ expression: String) throws -> [String: Int] {
+                try withStatement("""
+                    SELECT \(expression) AS value, COUNT(*)
+                    FROM qsos WHERE deleted_at IS NULL
+                    GROUP BY value ORDER BY COUNT(*) DESC;
+                    """) { statement in
+                        var result: [String: Int] = [:]
+                        while sqlite3_step(statement) == SQLITE_ROW {
+                            let key = sqlite3_column_text(statement, 0).map { String(cString: $0) } ?? "Unknown"
+                            result[key.isEmpty ? "Unknown" : key] = Int(sqlite3_column_int64(statement, 1))
+                        }
+                        return result
+                    }
+            }
+
+            let effectiveMode = "UPPER(COALESCE(NULLIF(json_extract(record_json,'$.submode'),''), mode))"
+            let modeGroup = "CASE WHEN \(effectiveMode) = 'CW' THEN 'CW' WHEN \(effectiveMode) IN ('SSB','USB','LSB','AM','FM') THEN 'Phone' ELSE 'Digital' END"
+            return AwardProgressSnapshot(
+                qsoCount: counts[0], confirmedQSOs: counts[1],
+                dxccWorked: counts[2], dxccConfirmed: counts[3],
+                cqZonesWorked: counts[4], cqZonesConfirmed: counts[5],
+                statesWorked: counts[6], statesConfirmed: counts[7],
+                gridsWorked: counts[8], gridsConfirmed: counts[9],
+                modeCounts: try groups(modeGroup),
+                bandCounts: try groups("COALESCE(NULLIF(LOWER(band),''),'Unknown')"),
+                continentCounts: try groups("COALESCE(NULLIF(UPPER(TRIM(json_extract(record_json,'$.continent'))),''),'Unknown')"),
+                yearCounts: try groups("STRFTIME('%Y', qso_start, 'unixepoch')")
+            )
+        }
+    }
+
     public func bandModeMatrix(call: String) throws -> Set<BandModeCell> {
         let values = try previous(call: call, limit: 2_000)
         var cells: Set<BandModeCell> = []

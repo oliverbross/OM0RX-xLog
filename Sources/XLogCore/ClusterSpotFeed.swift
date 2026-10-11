@@ -20,6 +20,24 @@ public struct ClusterSpot: Codable, Hashable, Identifiable, Sendable {
     public var statusHex: String
     public var bandHex: String
     public var modeHex: String
+
+    /// The compact opportunity label used by xCluster-style band maps.
+    /// Opportunity states take precedence over worked/confirmed history so the
+    /// operator sees the most actionable information in the limited marker space.
+    public var opportunityCode: String {
+        let call = callStatus.lowercased()
+        let dxcc = dxccStatus.lowercased()
+        let combined = "\(call) \(dxcc)"
+
+        if combined.contains("atno") { return "ATNO" }
+        if combined.contains("new band+mode") || combined.contains("new band + mode") { return "NB+NM" }
+        if combined.contains("new band") { return "NB" }
+        if combined.contains("new mode") { return "NM" }
+        if call.contains("new call") { return "NC" }
+        if combined.contains("confirmed") { return "C" }
+        if combined.contains("worked") { return "W" }
+        return "--"
+    }
 }
 
 public struct ClusterSpotSnapshot: Codable, Equatable, Sendable {

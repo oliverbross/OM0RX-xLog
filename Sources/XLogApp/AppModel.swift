@@ -221,6 +221,7 @@ final class AppModel: ObservableObject {
     }
     @Published var qsos: [QSO] = []
     @Published var stats = LogbookStats.empty
+    @Published var awardProgress = AwardProgressSnapshot.empty
     @Published var previous: [QSO] = []
     @Published var matrix: Set<BandModeCell> = []
     @Published var dxccSummary = DXCCSummary.empty
@@ -233,6 +234,8 @@ final class AppModel: ObservableObject {
     @Published var radioStatus = "xCat offline"
     @Published var stationSnapshot: XCatStationSnapshot?
     @Published var stationStatus = "xCat telemetry unavailable"
+    @Published var localWeather: StationWeather?
+    @Published var weatherStatus = "Configure station grid"
     @Published var syncStatus = "Not configured"
     @Published var lookupStatus = "Ready"
     @Published var referenceState = ReferenceDataState()
@@ -285,6 +288,7 @@ final class AppModel: ObservableObject {
     private var syncTimer: Timer?
     private var radioTimer: Timer?
     private var clusterFeedTimer: Timer?
+    private var weatherTimer: Timer?
     private var editingOriginal: QSO?
     private var lastDeleted: QSO?
     private var callContext = ""
@@ -390,6 +394,7 @@ final class AppModel: ObservableObject {
         syncTimer?.invalidate()
         radioTimer?.invalidate()
         clusterFeedTimer?.invalidate()
+        weatherTimer?.invalidate()
         lookupTask?.cancel()
         rotorTurnTask?.cancel()
     }
@@ -399,6 +404,7 @@ final class AppModel: ObservableObject {
         do {
             qsos = try database.fetch(limit: 2_000, search: search)
             stats = try database.stats()
+            awardProgress = try database.awardProgress()
             refreshCallContext()
             conflicts = try database.conflicts()
             outbox = try database.outboxEntries()
@@ -1618,6 +1624,11 @@ final class AppModel: ObservableObject {
         clusterFeedTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.loadClusterFeed() }
         }
+        weatherTimer?.invalidate()
+        Task { await refreshWeather() }
+        weatherTimer = Timer.scheduledTimer(withTimeInterval: 15 * 60, repeats: true) { [weak self] _ in
+            Task { @MainActor in await self?.refreshWeather() }
+        }
         syncTimer?.invalidate()
         guard settings.automaticSync else { return }
         syncTimer = Timer.scheduledTimer(withTimeInterval: TimeInterval(max(1, settings.syncIntervalMinutes) * 60), repeats: true) { [weak self] _ in
@@ -1627,6 +1638,21 @@ final class AppModel: ObservableObject {
 
     private var isWavelogConfigured: Bool {
         URL(string: settings.wavelogURL) != nil && settings.wavelogStationID > 0 && !wavelogToken.isEmpty
+    }
+
+    func refreshWeather() async {
+        let grid = settings.gridSquare.isEmpty ? (stationSnapshot?.rotor.homeGrid ?? "") : settings.gridSquare
+        guard let coordinate = MaidenheadLocator.coordinate(grid) else {
+            if localWeather == nil { weatherStatus = "Configure station grid" }
+            return
+        }
+        do {
+            let weather = try await WeatherClient.fetch(latitude: coordinate.latitude, longitude: coordinate.longitude)
+            localWeather = weather
+            weatherStatus = "Updated \(weather.fetchedAt.formatted(date: .omitted, time: .shortened))"
+        } catch {
+            weatherStatus = localWeather == nil ? "Weather unavailable" : "Using last weather update"
+        }
     }
 
     private func loadClusterFeed() {

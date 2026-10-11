@@ -1445,9 +1445,30 @@ private extension NSColor {
     }
 }
 
+private enum ClusterStatusScope: String, CaseIterable, Identifiable {
+    case all = "All spots"
+    case needed = "Needed"
+    case worked = "Worked"
+    case confirmed = "Confirmed"
+    case priority = "Priority"
+    var id: String { rawValue }
+}
+
+private enum ClusterModeScope: String, CaseIterable, Identifiable {
+    case all = "All modes"
+    case cw = "CW"
+    case phone = "Phone"
+    case digital = "Digital"
+    var id: String { rawValue }
+}
+
 struct BandMapsView: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.openWindow) private var openWindow
+    @State private var statusScope: ClusterStatusScope = .all
+    @State private var modeScope: ClusterModeScope = .all
+    @State private var spotSearch = ""
+    @State private var selectedSpot: ClusterSpot?
     var compact = false
     private let columns = [GridItem(.adaptive(minimum: 320, maximum: 480), spacing: 12, alignment: .top)]
 
@@ -1520,6 +1541,8 @@ struct BandMapsView: View {
             .padding(compact ? 9 : 14).background(XLogTheme.surface)
             .overlay(alignment: .bottom) { Rectangle().fill(XLogTheme.rule).frame(height: 1) }
 
+            if !compact { clusterIntelligenceBar }
+
             if model.clusterFeedUpdatedAt == nil {
                 VStack(spacing: 12) {
                     Image(systemName: "dot.radiowaves.left.and.right").font(.system(size: 38)).foregroundStyle(XLogTheme.secondary)
@@ -1538,9 +1561,9 @@ struct BandMapsView: View {
                     GeometryReader { proxy in
                         BandMapPanel(
                             band: band,
-                            spots: model.clusterSpots.filter { $0.band == band },
+                            spots: spots(for: band),
                             remove: { model.removeBandMap(band, detached: detached) },
-                            select: model.openClusterSpot,
+                            select: inspectAndOpen,
                             fontScale: model.bandMapFontScale,
                             preferredContainerHeight: max(430, proxy.size.height - 28)
                         )
@@ -1586,9 +1609,9 @@ struct BandMapsView: View {
         ForEach(bands, id: \.self) { band in
             BandMapPanel(
                 band: band,
-                spots: model.clusterSpots.filter { $0.band == band },
+                spots: spots(for: band),
                 remove: { model.removeBandMap(band, detached: detached) },
-                select: model.openClusterSpot,
+                select: inspectAndOpen,
                 allowsVerticalResize: !compact && bands.count > 1,
                 fontScale: model.bandMapFontScale,
                 preferredContainerHeight: minimumHeight > 0 ? minimumHeight : nil
@@ -1596,6 +1619,83 @@ struct BandMapsView: View {
             .frame(width: width)
             .frame(minHeight: minimumHeight)
         }
+    }
+
+    private var clusterIntelligenceBar: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "scope").foregroundStyle(XLogTheme.cyan)
+            TextField("Call, country or note", text: $spotSearch)
+                .textFieldStyle(DarkTextFieldStyle()).frame(width: 190)
+            Picker("Status", selection: $statusScope) {
+                ForEach(ClusterStatusScope.allCases) { Text($0.rawValue).tag($0) }
+            }
+            .labelsHidden().frame(width: 120)
+            Picker("Mode", selection: $modeScope) {
+                ForEach(ClusterModeScope.allCases) { Text($0.rawValue).tag($0) }
+            }
+            .labelsHidden().frame(width: 110)
+            Text("\(filteredSpots.count) of \(model.clusterSpots.count)")
+                .font(.caption.monospacedDigit()).foregroundStyle(XLogTheme.secondary)
+            Rectangle().fill(XLogTheme.rule).frame(width: 1, height: 32)
+            if let spot = selectedSpot {
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 7) {
+                        Text(spot.callsign).font(.body.weight(.bold)).foregroundStyle(Color(hex: spot.statusHex))
+                        Text(String(format: "%.3f MHz", spot.frequencyKHz / 1_000)).font(.body.monospacedDigit())
+                        Text(spot.mode).font(.caption.weight(.semibold)).foregroundStyle(XLogTheme.cyan)
+                        Text("\(spot.callStatus) · \(spot.dxccStatus)").font(.caption).foregroundStyle(XLogTheme.secondary)
+                    }
+                    Text([spot.country, spot.comment, spot.source].filter { !$0.isEmpty }.joined(separator: " · "))
+                        .font(.caption).foregroundStyle(XLogTheme.secondary).lineLimit(1)
+                }
+            } else {
+                Text("Select a marker to load it into the logger, tune through xCat and inspect its classification here.")
+                    .font(.caption).foregroundStyle(XLogTheme.secondary).lineLimit(2)
+            }
+            Spacer(minLength: 0)
+            if statusScope != .all || modeScope != .all || !spotSearch.isEmpty {
+                Button("Clear filters") { statusScope = .all; modeScope = .all; spotSearch = "" }
+                    .controlSize(.small)
+            }
+        }
+        .padding(.horizontal, 14).frame(minHeight: 52)
+        .background(XLogTheme.raised)
+        .overlay(alignment: .bottom) { Rectangle().fill(XLogTheme.rule).frame(height: 1) }
+    }
+
+    private var filteredSpots: [ClusterSpot] {
+        model.clusterSpots.filter { spot in
+            let status = "\(spot.callStatus) \(spot.dxccStatus)".lowercased()
+            let statusMatches: Bool
+            switch statusScope {
+            case .all: statusMatches = true
+            case .needed: statusMatches = status.contains("need") || status.contains("new")
+            case .worked: statusMatches = status.contains("worked") && !status.contains("confirmed")
+            case .confirmed: statusMatches = status.contains("confirmed")
+            case .priority: statusMatches = spot.score >= 50 || !spot.specialTags.isEmpty
+            }
+            let normalizedMode = spot.mode.uppercased()
+            let modeMatches: Bool
+            switch modeScope {
+            case .all: modeMatches = true
+            case .cw: modeMatches = normalizedMode == "CW"
+            case .phone: modeMatches = ["SSB", "USB", "LSB", "AM", "FM"].contains(normalizedMode)
+            case .digital: modeMatches = normalizedMode != "CW" && !["SSB", "USB", "LSB", "AM", "FM"].contains(normalizedMode)
+            }
+            let needle = spotSearch.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            let searchMatches = needle.isEmpty || [spot.callsign, spot.country, spot.comment, spot.source]
+                .contains(where: { $0.lowercased().contains(needle) })
+            return statusMatches && modeMatches && searchMatches
+        }
+    }
+
+    private func spots(for band: String) -> [ClusterSpot] {
+        (compact ? model.clusterSpots : filteredSpots).filter { $0.band == band }
+    }
+
+    private func inspectAndOpen(_ spot: ClusterSpot) {
+        selectedSpot = spot
+        model.openClusterSpot(spot)
     }
 }
 
@@ -1723,7 +1823,9 @@ private struct BandMapPanel: View {
                             HStack(spacing: 4) {
                                 Text(spot.callsign).fontWeight(.bold).lineLimit(1)
                                 Spacer(minLength: 2)
-                                Text(String(format: "%.1f", spot.frequencyKHz)).monospacedDigit().opacity(0.82)
+                                Text(spot.opportunityCode)
+                                    .font(.system(size: 9 * scale, weight: .black, design: .rounded))
+                                    .opacity(0.92)
                             }
                             .font(.system(size: 10 * scale))
                             .foregroundStyle(Color(hex: spot.statusHex))
@@ -1734,7 +1836,7 @@ private struct BandMapPanel: View {
                             .clipShape(RoundedRectangle(cornerRadius: 4))
                         }
                         .buttonStyle(.plain)
-                        .help("\(spot.callsign) · \(spot.mode) · \(spot.callStatus) · \(spot.comment)")
+                        .help("\(spot.callsign) · \(spot.opportunityCode) · \(spot.mode) · \(spot.callStatus) · \(spot.dxccStatus) · \(spot.comment)")
                         .position(x: placement.x, y: placement.y)
                     }
                 }

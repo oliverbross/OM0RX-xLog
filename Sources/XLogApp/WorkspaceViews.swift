@@ -148,72 +148,249 @@ private struct ConfirmationStatus: View {
 
 struct InsightsView: View {
     @EnvironmentObject private var model: AppModel
+
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Station insights").font(.title2.bold())
-                    Text("A fast local summary; detailed award accounting remains in Wavelog.")
-                        .foregroundStyle(XLogTheme.secondary)
-                }
-                HStack(spacing: 0) {
-                    Metric(title: "Contacts", value: model.stats.qsoCount.formatted(), symbol: "waveform.path.ecg", color: XLogTheme.cyan)
-                    Divider().overlay(XLogTheme.rule)
-                    Metric(title: "DXCC entities", value: model.stats.dxccCount.formatted(), symbol: "globe", color: XLogTheme.teal)
-                    Divider().overlay(XLogTheme.rule)
-                    Metric(title: "Confirmed", value: model.stats.confirmedCount.formatted(), symbol: "checkmark.seal.fill", color: XLogTheme.teal)
-                    Divider().overlay(XLogTheme.rule)
-                    Metric(title: "This year", value: model.stats.thisYearCount.formatted(), symbol: "calendar", color: XLogTheme.amber)
-                }
-                .padding(.vertical, 10)
-                .background(XLogTheme.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(XLogTheme.rule))
-                Panel(title: "Operating mix", symbol: "chart.bar.fill") {
-                    if model.qsos.isEmpty {
-                        Text("Mode and band summaries will appear after the first contact.")
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(alignment: .firstTextBaseline) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Station intelligence").font(.title2.bold())
+                        Text("Local award estimates, operating patterns and live station conditions.")
                             .foregroundStyle(XLogTheme.secondary)
-                    } else {
-                        let grouped = Dictionary(grouping: model.qsos, by: { $0.band })
-                        VStack(spacing: 10) {
-                            ForEach(grouped.keys.sorted(), id: \.self) { band in
-                                HStack {
-                                    Text(band).fontWeight(.semibold).frame(width: 45, alignment: .leading)
-                                    GeometryReader { proxy in
-                                        let fraction = Double(grouped[band]?.count ?? 0) / Double(max(1, model.qsos.count))
-                                        ZStack(alignment: .leading) {
-                                            Capsule().fill(XLogTheme.raised)
-                                            Capsule().fill(XLogTheme.cyan).frame(width: max(3, proxy.size.width * fraction))
-                                        }
-                                    }.frame(height: 8)
-                                    Text((grouped[band]?.count ?? 0).formatted()).monospacedDigit().frame(width: 50, alignment: .trailing)
+                    }
+                    Spacer()
+                    Text("LOCAL LOG · NOT AN AWARD APPLICATION")
+                        .font(.caption2.weight(.semibold)).foregroundStyle(XLogTheme.secondary)
+                }
+
+                Panel(title: "Award progress", symbol: "medal.fill") {
+                    HStack(spacing: 0) {
+                        AwardProgressCell(code: "DXCC", title: "Entities", worked: model.awardProgress.dxccWorked, confirmed: model.awardProgress.dxccConfirmed, target: 100, color: XLogTheme.teal)
+                        insightDivider
+                        AwardProgressCell(code: "WAZ", title: "CQ zones", worked: model.awardProgress.cqZonesWorked, confirmed: model.awardProgress.cqZonesConfirmed, target: 40, color: XLogTheme.cyan)
+                        insightDivider
+                        AwardProgressCell(code: "WAS", title: "US states", worked: model.awardProgress.statesWorked, confirmed: model.awardProgress.statesConfirmed, target: 50, color: XLogTheme.amber)
+                        insightDivider
+                        AwardProgressCell(code: "GRID", title: "Four-character fields", worked: model.awardProgress.gridsWorked, confirmed: model.awardProgress.gridsConfirmed, target: nil, color: XLogTheme.pink)
+                    }
+                }
+
+                HStack(alignment: .top, spacing: 12) {
+                    Panel(title: "Operating mix", symbol: "chart.bar.fill") {
+                        if model.awardProgress.qsoCount == 0 {
+                            EmptyInsight(text: "Mode and band summaries appear after the first contact.")
+                        } else {
+                            VStack(alignment: .leading, spacing: 13) {
+                                MixSection(title: "MODE", values: model.awardProgress.modeCounts, colors: [XLogTheme.cyan, XLogTheme.amber, XLogTheme.pink])
+                                MixSection(title: "TOP BANDS", values: top(model.awardProgress.bandCounts, limit: 7), colors: [XLogTheme.teal])
+                                MixSection(title: "CONTINENTS", values: top(model.awardProgress.continentCounts, limit: 7), colors: [XLogTheme.cyan])
+                            }
+                        }
+                    }
+
+                    Panel(title: "Achievements", symbol: "sparkles") {
+                        VStack(spacing: 0) {
+                            ForEach(model.awardProgress.achievements) { achievement in
+                                AchievementRow(achievement: achievement)
+                                if achievement.id != model.awardProgress.achievements.last?.id {
+                                    Rectangle().fill(XLogTheme.rule).frame(height: 1)
                                 }
                             }
                         }
                     }
+                    .frame(width: 360)
                 }
-            }.padding(20)
+
+                ConditionsPanel()
+            }
+            .padding(20)
+        }
+    }
+
+    private var insightDivider: some View {
+        Rectangle().fill(XLogTheme.rule).frame(width: 1, height: 92).padding(.horizontal, 6)
+    }
+
+    private func top(_ values: [String: Int], limit: Int) -> [String: Int] {
+        Dictionary(uniqueKeysWithValues: values.sorted { $0.value > $1.value }.prefix(limit).map { ($0.key, $0.value) })
+    }
+}
+
+private struct AwardProgressCell: View {
+    let code: String
+    let title: String
+    let worked: Int
+    let confirmed: Int
+    let target: Int?
+    let color: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(code).font(.caption.weight(.bold)).foregroundStyle(color)
+                Spacer()
+                if let target { Text("/ \(target)").font(.caption.monospacedDigit()).foregroundStyle(XLogTheme.secondary) }
+            }
+            Text(worked.formatted())
+                .font(.system(size: 27, weight: .bold, design: .rounded)).monospacedDigit()
+            Text("\(title) · \(confirmed.formatted()) confirmed")
+                .font(.caption).foregroundStyle(XLogTheme.secondary)
+            if let target {
+                GeometryReader { proxy in
+                    ZStack(alignment: .leading) {
+                        Rectangle().fill(XLogTheme.raised)
+                        Rectangle().fill(color).frame(width: max(3, proxy.size.width * min(1, Double(worked) / Double(max(1, target)))))
+                    }
+                }
+                .frame(height: 5)
+                .clipShape(Capsule())
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 8)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+private struct MixSection: View {
+    let title: String
+    let values: [String: Int]
+    let colors: [Color]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text(title).font(.caption2.weight(.bold)).foregroundStyle(XLogTheme.secondary)
+            let maximum = values.values.max() ?? 1
+            ForEach(Array(values.sorted { lhs, rhs in
+                lhs.value == rhs.value ? lhs.key < rhs.key : lhs.value > rhs.value
+            }.enumerated()), id: \.element.key) { index, item in
+                HStack(spacing: 8) {
+                    Text(item.key).font(.caption.weight(.semibold)).frame(width: 68, alignment: .leading).lineLimit(1)
+                    GeometryReader { proxy in
+                        Rectangle()
+                            .fill(colors[index % max(1, colors.count)])
+                            .frame(width: max(3, proxy.size.width * Double(item.value) / Double(maximum)))
+                    }
+                    .frame(height: 5)
+                    .background(XLogTheme.raised)
+                    .clipShape(Capsule())
+                    Text(item.value.formatted()).font(.caption.monospacedDigit()).frame(width: 48, alignment: .trailing)
+                }
+            }
         }
     }
 }
 
-private struct Metric: View {
-    let title: String
-    let value: String
-    let symbol: String
-    let color: Color
+private struct AchievementRow: View {
+    let achievement: AwardAchievement
+
     var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: symbol).foregroundStyle(color).font(.title3)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(value).font(.system(size: 22, weight: .bold, design: .rounded)).monospacedDigit()
-                Text(title).font(.caption).foregroundStyle(XLogTheme.secondary)
+        HStack(spacing: 11) {
+            Image(systemName: achievement.symbol)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(achievement.completed ? XLogTheme.teal : XLogTheme.cyan)
+                .frame(width: 24)
+            VStack(alignment: .leading, spacing: 3) {
+                HStack {
+                    Text(achievement.code).font(.body.weight(.bold))
+                    Text(achievement.title).font(.caption).foregroundStyle(XLogTheme.secondary)
+                    Spacer()
+                    Text("\(achievement.current.formatted()) / \(achievement.target.formatted())")
+                        .font(.caption.monospacedDigit()).foregroundStyle(XLogTheme.secondary)
+                }
+                GeometryReader { proxy in
+                    Rectangle().fill(achievement.completed ? XLogTheme.teal : XLogTheme.cyan)
+                        .frame(width: max(3, proxy.size.width * achievement.fraction))
+                }
+                .frame(height: 4).background(XLogTheme.raised).clipShape(Capsule())
+            }
+        }
+        .padding(.vertical, 9)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+private struct ConditionsPanel: View {
+    @EnvironmentObject private var model: AppModel
+
+    var body: some View {
+        Panel(title: "Propagation & station weather", symbol: "sun.max.fill") {
+            HStack(alignment: .top, spacing: 22) {
+                propagation
+                Rectangle().fill(XLogTheme.rule).frame(width: 1, height: 104)
+                weather
+            }
+        }
+    }
+
+    private var propagation: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Text("HF PROPAGATION").font(.caption2.weight(.bold)).foregroundStyle(XLogTheme.secondary)
+            if let value = model.stationSnapshot?.propagation {
+                HStack(spacing: 18) {
+                    ConditionReading(label: "SFI", value: value.solarFlux.map(String.init) ?? "—", color: XLogTheme.amber)
+                    ConditionReading(label: "A", value: value.aIndex.map(String.init) ?? "—", color: XLogTheme.cyan)
+                    ConditionReading(label: "K", value: value.kIndex.map(String.init) ?? "—", color: XLogTheme.teal)
+                    ConditionReading(label: "X-RAY", value: value.xRay, color: XLogTheme.pink)
+                }
+                HStack(spacing: 6) {
+                    ForEach(value.bands, id: \.name) { band in
+                        VStack(spacing: 2) {
+                            Text(band.name).font(.caption2.weight(.bold)).foregroundStyle(XLogTheme.secondary)
+                            Text("D \(band.day.uppercased()) · N \(band.night.uppercased())")
+                                .font(.caption2.weight(.semibold)).foregroundStyle(XLogTheme.text)
+                        }
+                        .padding(.horizontal, 7).padding(.vertical, 5)
+                        .background(XLogTheme.raised).clipShape(RoundedRectangle(cornerRadius: 5))
+                    }
+                }
+            } else {
+                EmptyInsight(text: "Waiting for propagation telemetry from xCat.")
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 16)
-        .accessibilityElement(children: .combine)
     }
+
+    private var weather: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("LOCAL WEATHER · \(model.settings.gridSquare.isEmpty ? "GRID REQUIRED" : model.settings.gridSquare.uppercased())")
+                .font(.caption2.weight(.bold)).foregroundStyle(XLogTheme.secondary)
+            if let weather = model.localWeather {
+                HStack(spacing: 12) {
+                    Image(systemName: weather.condition.symbolName).font(.system(size: 27)).foregroundStyle(XLogTheme.cyan)
+                    Text("\(weather.temperatureC, specifier: "%.1f")°C")
+                        .font(.system(size: 25, weight: .bold, design: .rounded)).monospacedDigit()
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(weather.condition.description).fontWeight(.semibold)
+                        Text("Feels \(weather.apparentTemperatureC, specifier: "%.1f")° · Wind \(weather.windSpeedKMH, specifier: "%.0f") km/h @ \(weather.windDirectionDegrees, specifier: "%.0f")°")
+                            .font(.caption).foregroundStyle(XLogTheme.secondary)
+                    }
+                }
+                Text("Pressure \(weather.pressureHPa, specifier: "%.0f") hPa · Cloud \(weather.cloudCoverPercent, specifier: "%.0f")% · Rain \(weather.precipitationMM, specifier: "%.1f") mm · \(model.weatherStatus)")
+                    .font(.caption).foregroundStyle(XLogTheme.secondary)
+            } else {
+                EmptyInsight(text: model.weatherStatus)
+                Button("Refresh weather") { Task { await model.refreshWeather() } }.controlSize(.small)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct ConditionReading: View {
+    let label: String
+    let value: String
+    let color: Color
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label).font(.caption2.weight(.bold)).foregroundStyle(XLogTheme.secondary)
+            Text(value).font(.system(size: 19, weight: .bold, design: .rounded)).foregroundStyle(color).monospacedDigit()
+        }
+    }
+}
+
+private struct EmptyInsight: View {
+    let text: String
+    var body: some View { Text(text).font(.callout).foregroundStyle(XLogTheme.secondary) }
 }
 
 struct SyncView: View {

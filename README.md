@@ -27,6 +27,9 @@ Development scope, acceptance evidence and the prioritized backlog are tracked i
 - Resizable, independently undockable World Map and Band Maps windows for multi-screen stations.
 - A hybrid/satellite world map that opens on the operator grid, with high-contrast classified spot labels, prominent semantic-colour DXCC prefixes, a worked/confirmed DXCC entity overlay and an accurate great-circle rotor path with short- and long-path bearings.
 - One, several or all band maps, each with full-band and CW/data/phone presets, pan/zoom controls, allocation lanes and collision-free spot labels.
+- Cluster intelligence controls for callsign/country/note search, worked-state and mode filtering, priority spots and an inline classification inspector without replacing the frequency-accurate band-map workflow.
+- Local worked/confirmed progress for DXCC, WAZ, WAS and four-character Maidenhead fields, plus milestone achievements and mode/band/continent/year operating summaries. These are operator estimates, not award-application certification.
+- Grid-derived local weather from Open-Meteo, shown alongside xCat's live solar and day/night band-condition telemetry with a last-good-data fallback.
 - Structured POTA, SOTA, IOTA, WWFF and castle-reference promotion from cluster comments and special badges into the matching ADIF fields.
 - Fast local search, compact statistics and visible sync state.
 - OM0RX-xCat RigCtlD integration for live frequency/mode and one-transaction frequency-plus-mode tuning.
@@ -71,6 +74,8 @@ The **Band Maps** settings page configures two independent workspaces:
 - **Undocked Band Maps** — keep a different persistent selection, including **All bands**, and choose **Single row** for an ultrawide display or **Adaptive grid** to use both the width and height of the window.
 
 Band-map text can be scaled from 80–200% for high-density and 4K displays. Panels resize with their window, and frequency spacing plus collision avoidance scale with the available height rather than leaving unused space.
+
+The **Insights** workspace calculates award progress from the complete local SQLite log rather than the limited on-screen QSO table. It separates worked and confirmed entities, zones, US states and grid fields; confirmation means a verified paper-QSL or LoTW receive status in the stored record. It is deliberately labelled as local progress because final eligibility still depends on each award programme's rules and accepted confirmations.
 
 The full Log QSO editor presents contact/location, award references, notes, station and QSL fields together on one screen at normal desktop sizes. When xCat station telemetry is available, xLog automatically records transmitted power in ADIF `TX_PWR`: measured RF output is retained for the active QSO, with the current RF-drive setting and then the configured station default used as fallbacks.
 
@@ -118,6 +123,8 @@ Reference files are kept under:
 
 Downloads are validated and replaced atomically; a failed update leaves the last known good file active. When a source supplies `ETag` or `Last-Modified`, xLog stores that validator and revalidates conditionally instead of downloading an unchanged dataset again. Reference Data settings show the cache size, last successful check and published validator for Club Log CTY, LoTW activity and the Wavelog catalog.
 
+Station weather uses the configured station gridsquare, converts it to coordinates locally and requests only current conditions from Open-Meteo every 15 minutes. Weather failure never interrupts logging, CAT, cluster or synchronization; xLog retains the last successful observation and marks it accordingly.
+
 The same page manages offline activation directories. xLog downloads the official POTA park CSV, SOTA summit CSV, IOTA group JSON and WWFF directory CSV, validates both schema and minimum record count, then atomically replaces the last-known-good copy. Exact matches appear beneath POTA/SOTA/IOTA/WWFF entry fields; partial references show the first matching suggestion. A location button beside an exact match can explicitly use that reference as the current QSO's map target; this never turns the rotor automatically. Settings shows each source's record count, size, last successful check and published validator. Unknown values are retained and never prevent logging. The WCA/castle field currently remains pass-through because the programme's published bulk spreadsheet link is unavailable; the limitation is shown truthfully in Settings.
 
 ## Backup and recovery
@@ -161,3 +168,5 @@ The packaging script creates and verifies a signed application bundle in `dist/`
 Copyright © 2026 Oliver Bross OM0RX.
 
 OM0RX-xLog is released under the [GNU General Public License v3.0](LICENSE).
+
+The cluster, award and environmental-intelligence expansion was inspired by Balazs Valkony HA5XB's [HamLedger](https://github.com/valibali/hamledger). The xLog implementation is native Swift/SQLite work designed for the existing OM0RX architecture; no HamLedger source or assets are included.

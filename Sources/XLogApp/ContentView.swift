@@ -117,12 +117,20 @@ struct ContentView: View {
                 Text("HF PROP")
                     .font(.system(size: 13, weight: .semibold)).foregroundStyle(XLogTheme.secondary)
                 if let propagation {
-                    Text("SFI \(propagation.solarFlux.map(String.init) ?? "—")  A \(propagation.aIndex.map(String.init) ?? "—")  K \(propagation.kIndex.map(String.init) ?? "—")  X \(propagation.xRay)")
-                        .font(.system(size: 14, weight: .semibold))
+                    Text("SFI \(propagation.solarFlux.map(String.init) ?? "—") · A \(propagation.aIndex.map(String.init) ?? "—") · K \(propagation.kIndex.map(String.init) ?? "—") · \(propagation.xRay)")
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(XLogTheme.text)
                         .monospacedDigit()
+                        .lineLimit(1)
+                }
+                if let weather = model.localWeather {
+                    Rectangle().fill(XLogTheme.rule).frame(width: 1, height: 15).padding(.horizontal, 2)
+                    Image(systemName: weather.condition.symbolName).foregroundStyle(XLogTheme.cyan)
+                    Text("\(weather.temperatureC, specifier: "%.0f")°")
+                        .font(.system(size: 13, weight: .semibold)).monospacedDigit()
                 }
             }
+            .fixedSize(horizontal: true, vertical: false)
             if let propagation, !propagation.bands.isEmpty {
                 HStack(spacing: 4) {
                     ForEach(propagation.bands, id: \.name) { band in propagationBand(band) }
@@ -133,6 +141,8 @@ struct ContentView: View {
                     .font(.system(size: 14, weight: .semibold)).foregroundStyle(XLogTheme.secondary)
             }
         }
+        .fixedSize(horizontal: true, vertical: false)
+        .layoutPriority(2)
         .accessibilityElement(children: .combine)
         .help(propagationHelp)
     }
@@ -163,42 +173,91 @@ struct ContentView: View {
     }
 
     private var propagationHelp: String {
-        guard let propagation = model.stationSnapshot?.propagation else { return model.stationStatus }
-        let ratings = propagation.bands.map { "\($0.name): day \($0.day), night \($0.night)" }.joined(separator: " · ")
-        return ratings.isEmpty ? propagation.status : ratings
+        let propagationText: String
+        if let propagation = model.stationSnapshot?.propagation {
+            let ratings = propagation.bands.map { "\($0.name): day \($0.day), night \($0.night)" }.joined(separator: " · ")
+            propagationText = ratings.isEmpty ? propagation.status : ratings
+        } else {
+            propagationText = model.stationStatus
+        }
+        guard let weather = model.localWeather else { return propagationText }
+        return "\(propagationText)\n\(weather.condition.description), \(weather.temperatureC.formatted(.number.precision(.fractionLength(1))))°C, wind \(weather.windSpeedKMH.formatted(.number.precision(.fractionLength(0)))) km/h. \(model.weatherStatus)"
     }
 
     private var sidebar: some View {
-        List(selection: $model.destination) {
-            Section("Station log") {
-                ForEach([AppModel.Destination.desk, .log, .logbook, .map, .bandMaps, .insights]) { item in
-                    Label(item.rawValue, systemImage: item.icon).tag(item)
-                }
-            }
-            Section("Services") {
-                ForEach([AppModel.Destination.sync, .settings]) { item in
-                    Label(item.rawValue, systemImage: item.icon).tag(item)
-                }
-            }
-            Section("Station") {
+        VStack(alignment: .leading, spacing: 0) {
+            sidebarSection("Station log", items: [.desk, .log, .logbook, .map, .bandMaps, .insights])
+            sidebarRule
+            sidebarSection("Services", items: [.sync, .settings])
+            sidebarRule
+
+            Text("STATION")
+                .font(.system(size: 10, weight: .bold, design: .rounded))
+                .foregroundStyle(XLogTheme.secondary)
+                .padding(.horizontal, 14)
+                .padding(.top, 9)
+                .padding(.bottom, 6)
+
+            ViewThatFits(in: .vertical) {
                 stationControls
-                    .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 10, trailing: 8))
-                    .listRowBackground(Color.clear)
+                compactStationControls
             }
-        }
-        .scrollContentBackground(.hidden)
-        .background(XLogTheme.surface)
-        .listStyle(.sidebar)
-        .navigationSplitViewColumnWidth(min: 200, ideal: 225, max: 265)
-        .safeAreaInset(edge: .bottom) {
+            .padding(.horizontal, 8)
+
+            Spacer(minLength: 6)
+
             VStack(alignment: .leading, spacing: 3) {
                 Text(model.settings.stationCall.isEmpty ? "STATION NOT SET" : model.settings.stationCall)
                     .font(.caption.weight(.bold)).foregroundStyle(XLogTheme.teal)
                 Text(model.settings.gridSquare.isEmpty ? "Configure station profile" : model.settings.gridSquare)
                     .font(.caption2).foregroundStyle(XLogTheme.secondary)
             }
-            .padding(12).frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(XLogTheme.background.opacity(0.35))
+            .overlay(alignment: .top) { Rectangle().fill(XLogTheme.rule).frame(height: 1) }
         }
+        .background(XLogTheme.surface)
+        .navigationSplitViewColumnWidth(min: 200, ideal: 225, max: 265)
+        .clipped()
+    }
+
+    private func sidebarSection(_ title: String, items: [AppModel.Destination]) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.system(size: 10, weight: .bold, design: .rounded))
+                .foregroundStyle(XLogTheme.secondary)
+                .padding(.horizontal, 14)
+                .padding(.bottom, 4)
+
+            ForEach(items) { item in
+                Button {
+                    model.destination = item
+                } label: {
+                    Label(item.rawValue, systemImage: item.icon)
+                        .font(.system(size: 13, weight: model.destination == item ? .semibold : .regular))
+                        .foregroundStyle(model.destination == item ? XLogTheme.text : XLogTheme.secondary)
+                        .frame(maxWidth: .infinity, minHeight: 31, alignment: .leading)
+                        .padding(.horizontal, 10)
+                        .background(model.destination == item ? XLogTheme.cyan.opacity(0.16) : Color.clear)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                        .overlay {
+                            if model.destination == item {
+                                RoundedRectangle(cornerRadius: 6).stroke(XLogTheme.cyan.opacity(0.28))
+                            }
+                        }
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 6)
+            }
+        }
+        .padding(.top, 10)
+        .padding(.bottom, 8)
+    }
+
+    private var sidebarRule: some View {
+        Rectangle().fill(XLogTheme.rule).frame(height: 1)
     }
 
     private var stationControls: some View {
@@ -266,6 +325,98 @@ struct ContentView: View {
                 color: XLogTheme.cyan
             )
         }
+    }
+
+    private var compactStationControls: some View {
+        let station = model.stationSnapshot?.station
+        let amplifierAction = station?.kpaOperate == true ? "standby" : "operate"
+        return VStack(alignment: .leading, spacing: 7) {
+            HStack(spacing: 5) {
+                Text("STATION CONTROL")
+                    .font(.caption2.weight(.bold)).foregroundStyle(XLogTheme.secondary)
+                Spacer()
+                Circle().fill(station == nil ? XLogTheme.secondary : XLogTheme.teal).frame(width: 6, height: 6)
+            }
+
+            HStack(spacing: 5) {
+                compactStationAction(
+                    station?.kpaOperate == true ? "STBY" : "OPER",
+                    action: amplifierAction,
+                    symbol: station?.kpaOperate == true ? "pause.fill" : "bolt.fill",
+                    tint: XLogTheme.orange,
+                    enabled: station?.allowedActions.contains(amplifierAction) == true
+                )
+                compactStationAction("TUNE", action: "tune", symbol: "wave.3.right", tint: XLogTheme.amber, enabled: station?.allowedActions.contains("tune") == true)
+                compactStationAction("STOP", action: "cancel", symbol: "xmark.circle.fill", tint: XLogTheme.danger, enabled: station?.allowedActions.contains("cancel") == true)
+            }
+
+            HStack(spacing: 5) {
+                compactStationMetric("PWR", station?.txPowerWatts.map { String(format: "%.0fW", $0) } ?? "—", tint: XLogTheme.orange)
+                compactStationMetric("SWR", station?.swr.map { String(format: "%.2f", $0) } ?? "—", tint: XLogTheme.teal)
+                compactStationMetric("DRV", station?.rfDriveWatts.map { "\($0)W" } ?? "—", tint: XLogTheme.pink)
+            }
+
+            compactDevice(
+                title: station?.kpaDetailPrimary ?? "KPA500 unavailable",
+                detail: station?.kpaDetailSecondary ?? model.stationStatus,
+                color: station?.kpaOperate == true ? XLogTheme.teal : XLogTheme.amber
+            )
+            compactDevice(
+                title: station?.katDetailPrimary ?? "KAT500 unavailable",
+                detail: station?.katDetailSecondary ?? model.stationStatus,
+                color: XLogTheme.cyan
+            )
+        }
+    }
+
+    private func compactStationAction(_ title: String, action: String, symbol: String, tint: Color, enabled: Bool) -> some View {
+        Button { model.performStationAction(action) } label: {
+            VStack(spacing: 3) {
+                Image(systemName: symbol).font(.system(size: 11, weight: .bold))
+                Text(title).font(.system(size: 8, weight: .bold, design: .rounded))
+            }
+            .foregroundStyle(enabled ? tint : XLogTheme.secondary)
+            .frame(maxWidth: .infinity, minHeight: 37)
+            .background(enabled ? tint.opacity(0.13) : XLogTheme.raised.opacity(0.65))
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .overlay(RoundedRectangle(cornerRadius: 6).stroke((enabled ? tint : XLogTheme.rule).opacity(0.42)))
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+        .help(enabled ? "Send station \(title.lowercased()) through OM0RX-xCat" : "Blocked by the current station route or safety state")
+    }
+
+    private func compactStationMetric(_ title: String, _ value: String, tint: Color) -> some View {
+        VStack(spacing: 1) {
+            Text(title).font(.system(size: 8, weight: .bold, design: .rounded))
+            Text(value).font(.system(size: 12, weight: .bold, design: .rounded)).monospacedDigit()
+        }
+        .foregroundStyle(tint)
+        .frame(maxWidth: .infinity, minHeight: 36)
+        .background(XLogTheme.raised)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .overlay(RoundedRectangle(cornerRadius: 6).stroke(tint.opacity(0.2)))
+    }
+
+    private func compactDevice(title: String, detail: String, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .foregroundStyle(color)
+                .lineLimit(1)
+            Text(detail.replacingOccurrences(of: " | ", with: " · "))
+                .font(.system(size: 9, weight: .medium, design: .monospaced))
+                .foregroundStyle(XLogTheme.secondary)
+                .lineLimit(2)
+                .minimumScaleFactor(0.78)
+        }
+        .padding(.horizontal, 7)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(XLogTheme.raised)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .overlay(RoundedRectangle(cornerRadius: 6).stroke(color.opacity(0.22)))
+        .help("\(title)\n\(detail)")
     }
 
     private func stationActionTile(
