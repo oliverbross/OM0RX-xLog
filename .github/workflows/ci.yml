@@ -14,4 +14,10 @@ jobs:
       - name: Package app
         run: ./scripts/package-app.sh
       - name: Verify packaged resources
-        run: test -f dist/OM0RX-xLog.app/Contents/Resources/OM0RXXLog_XLogCore.bundle/Contents/Resources/cty.csv
+        run: |
+          resources=dist/OM0RX-xLog.app/Contents/Resources/OM0RXXLog_XLogCore.bundle/Contents/Resources
+          test -f "$resources/cty.csv"
+          test -f "$resources/ham-award-jarl-entities.json"
+          test -f "$resources/ham-award-jarl-prefectures.json"
+          test -f "$resources/ham-award-wcsa-schools.json"
+          test -f "$resources/ham-award-tools-LICENSE.md"

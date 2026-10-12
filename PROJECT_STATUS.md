@@ -1,6 +1,7 @@
 # OM0RX-xLog project status
 
-Last updated: 2026-10-11  
+Last updated: 2026-10-12
+Release `v0.2.0` adds the complete native AJD/WAJA/JCC/JCG/AJA/WACA/WAGA/WAPC/WCSA catalogue, backed by bundled MIT-licensed reference data and live verification against the 67,823-contact local log.
 Latency follow-up: xCat now omits redundant RX-VFO/split writes for simplex
 spot changes (one remote command instead of three; 57 Swift tests pass).
 The Windows source separates radio polling from serialized accessory following
@@ -84,6 +85,7 @@ xCat remains the single owner of safety-critical radio communication and interlo
 | Low-latency atomic tune and station telemetry | PARTIAL | xLog sends one `xcat_tune` request, xCat maps it to one `set_frequency_mode` Windows-Agent command, prevents overlapping polls/tunes and records end-to-end timing in Operator activity. The acknowledgement window is 12 seconds so the accepted 7.204-second guarded route no longer produces a false timeout. xCat clears a previous split and selects VFO A before a new spot tune. Correctness and diagnostics are implemented; reducing the underlying station latency remains. |
 | xCluster handoff | DONE | Callsign, frequency, mode, comment and detected special badges cross the `om0rx-xlog://spot` contract. |
 | Award reference promotion | DONE | Tested POTA, SOTA, IOTA, WWFF and castle parsing populates the corresponding ADIF fields without inventing missing IDs. |
+| International award catalogue | DONE | Insights calculates AJD, WAJA, JCC, JCG, AJA, WACA, WAGA, WAPC and WCSA from the complete local log, including historical Japanese entities, WAPC band/mode detail, WCSA school slots and case-normalized ADIF bands. Installed evidence: AJD 10/10, WAJA 47/47, JCC 433, JCG 97, AJA 1,473, WAPC 34/34 and WCSA Gold. |
 | Official award-directory cache | PARTIAL | Official POTA park, SOTA summit, IOTA group and WWFF feeds are downloaded, schema/count validated, conditionally revalidated, atomically replaced and loaded immediately at startup before network synchronization. The installed profile holds 348,973 records (POTA 96,532; SOTA 182,280; IOTA 1,178; WWFF 68,983), and `US-1234` live-resolved to Pearl Lake State Park. The published WCA spreadsheet link currently returns 404, so full castle caching remains open; castle values are preserved rather than rejected. |
 | Operator Desk | DONE | Logger, callsign intelligence, rotor, world map and selected band maps are simultaneously visible. Station Pulse was removed and its useful state moved to the header. |
 | World map | DONE | Hybrid default plus satellite/standard styles, live spot layer, DXCC entity layer and semantic legends. |
@@ -209,7 +211,7 @@ This register is the release gate for all operator feedback in this build cycle.
 
 Current local evidence at this revision:
 
-- xLog: **28/28** Swift tests pass, including database lifecycle, local-only ADIF preservation during remote merges, complete multi-page sync, fail-closed unstable-pagination handling before deletion reconciliation, field-level conflict merge, durable retry/backoff state, pre-log validation and duplicate detection, split RX/TX snapshot decoding, API-v2 URL normalization, CTY resolution, great-circle and solar calculations, DXCC boundary parsing, award parsing, activation-directory formats and matching, conditional-cache revalidation with corrupt-response rollback, exact-callsign-versus-DXCC aggregation, FLEX spot XML/status mapping, verified backup round-trip and tamper rejection.
+- xLog: **38/38** Swift tests pass across seven suites, including the complete nine-award catalogue, Japanese entity dates, case-normalized bands, WAPC matrices, WCSA slot deduplication, database lifecycle, Wavelog reconciliation, CTY resolution, propagation, activation directories, FLEX spot mapping and verified backup recovery.
 - xCat: **56/56** Swift tests pass, including CAT/RigCtl session transmit ownership, atomic frequency-plus-mode dispatch, clearing a prior split before a new spot tune and explicit target-band rotor command parsing/gating; read-only short-lived xLog polling disconnects cannot issue a cleanup unkey against an independently keyed Maestro session.
 - Windows Remote Station Agent final gate at pushed source `90abbb4` / deployed controller `c49dfd3`: **888 Python**, **105 browser/widget**, **105 MSHV safety**, **210 standalone WindowsAgent**, **117 focused station**, and **1 native widget smoke** test passed. Guarded live acceptance used no PTT, TUNE-start, CWX or RF transmission.
 - xCluster: **22/22** Swift tests passing, including the structured xLog handoff and local snapshot contract.
@@ -240,13 +242,14 @@ Current local evidence at this revision:
 - [x] Impeccable finish review returns SHIP with no blocker.
 - [x] Create public `oliverbross/OM0RX-xLog` repository and push `main`.
 - [x] Tag and publish xLog `v0.1.0` with the signed macOS archive.
+- [x] Tag and publish xLog `v0.2.0` with the Developer ID-signed macOS archive and complete nine-award acceptance evidence.
 - [x] Commit/push xCluster snapshot and award-handoff changes.
 - [x] Tag and publish xCluster `v0.1.6` with the signed macOS archive.
 - [x] Verify public repository descriptions, README rendering and release downloads.
 
 ## Priority backlog
 
-### P0 — before calling v0.1 production-ready
+### P0 — before calling v0.2 production-ready
 
 1. Reduce the measured 7.204-second guarded combined-tune latency while preserving coherent frequency/mode publication and all station interlocks.
 2. Complete external Wavelog catalog and physical rotor acceptance; QRZ, authenticated Club Log CTY, atomic xCat tune and the Windows station route are accepted.
@@ -266,7 +269,7 @@ Current local evidence at this revision:
 1. Embed the full xCluster table as an optional xLog workspace while preserving standalone xCluster.
 2. Extend the now-accepted xCat/KPA500/KAT500/rotator integration with deeper diagnostics without moving safety ownership into xLog.
 3. Extract shared xBridge/xCluster/Wavelog/ADIF components into reusable Swift packages.
-4. Expand local award/statistics views while Wavelog remains the full cloud award engine.
+4. Extend the local award catalogue when additional programmes have stable, redistributable reference data; Wavelog remains the full cloud award engine.
 
 ## Change-control rule
 

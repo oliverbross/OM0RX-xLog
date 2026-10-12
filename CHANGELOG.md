@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.0 — 2026-10-12
+
+- Added a complete local award catalogue for AJD, WAJA, JCC, JCG, AJA, WACA, WAGA, WAPC and WCSA.
+- Added historical Japanese entity and designation-date handling, case-normalized ADIF bands, WAPC band/mode matrices and WCSA school-slot milestones.
+- Bundled the ham-award-tools reference datasets and complete MIT attribution inside the signed application.
+- Added native Insights detail views for all nine awards and verified them against the complete 67,823-contact local log.
+- Added operator-intelligence summaries, propagation and weather presentation, compact xCluster opportunity classifications and stable graphical HF conditions.
+- Added integrated rotor targeting and improved spot-to-radio reliability while retaining xCat as the single radio owner.
+- Kept the station sidebar fixed and readable with live KPA500/KAT500 status, power, SWR, band, antenna and amplifier controls.
+- Expanded release CI to prove the packaged application contains every award reference and licence resource.
+
 ## 0.1.0 — 2026-10-11
 
 - Introduced the native macOS xLog contact editor and local SQLite logbook.

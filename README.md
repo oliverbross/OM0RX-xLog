@@ -3,6 +3,7 @@
 [![macOS 13+](https://img.shields.io/badge/macOS-13%2B-black)](#requirements)
 [![Swift 5.10](https://img.shields.io/badge/Swift-5.10-F05138)](Package.swift)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+[![Release: v0.2.0](https://img.shields.io/badge/release-v0.2.0-12D6A0.svg)](https://github.com/oliverbross/OM0RX-xLog/releases/tag/v0.2.0)
 
 OM0RX-xLog is a fast, local-first amateur-radio logbook for macOS. It is the logging centre of the OM0RX station suite: contacts are committed to a local SQLite database first, enriched from QRZ and current reference data, synchronized in both directions with Wavelog, and connected to the radio through OM0RX-xCat.
 
