@@ -6,6 +6,22 @@ import XLogCore
 
 @Suite("Live logbook isolated workspace")
 struct LiveLogbookMethodsTests {
+    @Test("DXCC map statuses reflect confirmations and deletion without manufacturing credits")
+    func mapStatuses() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let service = LiveLogbookMethods(supportDirectory: root)
+        _ = try service.handle(method: "workspace_create", params: ["mode": "empty"])
+        var qso = try #require(service.handle(method: "logbook_draft", params: [:])["qso"] as? [String: Any])
+        qso["call"] = "K1ABC"; qso["dxcc"] = 291; qso["qslReceived"] = "N"
+        _ = try service.handle(method: "logbook_save", params: ["qso": qso])
+        #expect((try service.handle(method: "logbook_stats", params: [:])["dxcc_statuses"] as? [String: String])?["291"] == "worked")
+        qso["lotwReceived"] = "Y"
+        _ = try service.handle(method: "logbook_save", params: ["qso": qso])
+        #expect((try service.handle(method: "logbook_stats", params: [:])["dxcc_statuses"] as? [String: String])?["291"] == "confirmed")
+        _ = try service.handle(method: "logbook_delete", params: ["id": qso["id"]!])
+        #expect((try service.handle(method: "logbook_stats", params: [:])["dxcc_statuses"] as? [String: String])?["291"] == "needed")
+    }
     @Test("Award catalogue search and delivery filters operate before pagination")
     func catalogueFilters() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -19,6 +35,15 @@ struct LiveLogbookMethodsTests {
         #expect((subset["programmes"] as? [[String: Any]])?.count == 1)
         let empty = try service.handle(method: "logbook_catalog", params: ["search": "no such programme xyz"])
         #expect(empty["total_programmes"] as? Int == 0)
+        let global = try service.handle(method: "logbook_catalog", params: ["catalogue_group": "global", "limit": 25])
+        let programmes = try #require(global["programmes"] as? [[String: Any]])
+        #expect(!programmes.isEmpty)
+        #expect(programmes.allSatisfy { $0["catalogue_group"] as? String == "global" })
+        #expect(programmes.allSatisfy { ($0["name"] as? String)?.isEmpty == false })
+        #expect(programmes.allSatisfy { $0["research_sections"] != nil && $0["official_sources"] != nil })
+        let stats = try service.handle(method: "logbook_stats", params: [:])
+        let awards = try #require(stats["awards"] as? [String: Any])
+        #expect((awards["achievements"] as? [[String: Any]])?.isEmpty == false)
     }
     @Test("Empty workspace saves full QSO, searches, deletes, undoes and reopens")
     func lifecycle() throws {

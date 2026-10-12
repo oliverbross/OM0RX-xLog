@@ -38,6 +38,22 @@ struct StationTransmitOwnership {
     }
 }
 
+/// Enqueue before yielding: overlapping listener retirement and station
+/// shutdown must both wait for the same pending writes and release callbacks.
+struct StationCATRetirement {
+    private var pending: Task<Void, Never>?
+
+    mutating func enqueue(_ operation: @escaping @Sendable () async -> Void) -> Task<Void, Never> {
+        let previous = pending
+        let next = Task {
+            await previous?.value
+            await operation()
+        }
+        pending = next
+        return next
+    }
+}
+
 /// Explicitly connected direct Remote Station Agent owner. This uses the same
 /// authenticated HTTPS/WSS client and authoritative state decoder as xCat.
 actor LiveStationSession {
@@ -56,14 +72,59 @@ actor LiveStationSession {
     private var rotorAzimuth: Double?
     private var rotorObservedAt: Date?
     private var rotorGeneration: UInt64 = 0
+    private var rotorObservation = RotorObservation()
+    private var rotorCommandRevision: UInt64 = 0
+    private var catServers: EmbeddedCATServers?
+    private var catConfiguration = EmbeddedCATServers.Configuration()
+    private var catListenerEpoch: UInt64 = 0
+    private var catRetirement = StationCATRetirement()
+    private var lifecycleTransitions = 0
+    private var terminalShutdown = false
 
     static let methods: Set<String> = ["station_connect", "station_disconnect", "station_reconnect",
                                         "station_forget", "station_configuration", "station_configuration_save",
                                         "station_radio_control", "station_rotor_connect", "station_rotor_disconnect",
-                                        "station_rotor_goto", "station_rotor_stop", "station_add_spot"]
+                                        "station_rotor_goto", "station_rotor_stop", "station_add_spot", "station_cat_servers"]
 
     func handle(_ method: String, params: [String: Any]) async throws -> [String: Any] {
+        try requireActive()
         switch method {
+        case "station_cat_servers":
+            try requireKeys(params, allowed: ["provider", "cat_port", "rigctl_port", "allow_transmit"])
+            func port(_ key: String) throws -> UInt16? {
+                guard let raw = params[key], !(raw is NSNull) else { return nil }
+                guard let value = try Self.integer(raw), (1...65535).contains(value) else { throw Self.invalidParams() }
+                return UInt16(value)
+            }
+            let nextConfiguration = try EmbeddedCATServers.Configuration(catPort: port("cat_port"), rigCtlPort: port("rigctl_port"), allowTransmit: Self.boolean(params["allow_transmit"]) ?? false)
+            try beginLifecycleTransition()
+            defer { lifecycleTransitions -= 1 }
+            if nextConfiguration.catPort == nil && nextConfiguration.rigCtlPort == nil {
+                await stopCATServers()
+                return await snapshot()
+            }
+            let generation = connectionGeneration
+            let observedEpoch = catListenerEpoch
+            guard let client, await client.observedSnapshot().isConnected else {
+                throw WorkerFailure("station_unavailable", "Connect the embedded radio before enabling CAT listeners.")
+            }
+            guard generation == connectionGeneration, observedEpoch == catListenerEpoch,
+                  self.client === client else { throw lifecycleChanged() }
+            guard !nextConfiguration.allowTransmit || allowTransmit else {
+                throw WorkerFailure("station_action_blocked", "Enable transmit for the radio connection before enabling CAT transmit commands.")
+            }
+            await stopCATServers()
+            guard generation == connectionGeneration, self.client === client else { throw lifecycleChanged() }
+            try requireActive()
+            let epoch = catListenerEpoch
+            let servers = EmbeddedCATServers(radio: client, configuration: nextConfiguration,
+                observedSnapshot: { await client.observedSnapshot() },
+                authorizeMutation: { [weak self] mutation in await self?.authorizeCATMutation(mutation, generation: generation, epoch: epoch) ?? false },
+                didCompleteMutation: { [weak self] mutation in await self?.completeCATMutation(mutation, generation: generation) })
+            do { try servers.start() }
+            catch { throw WorkerFailure("cat_listener_failed", "Cannot open CAT listeners. Check for conflicting ports and close the other CAT server first.") }
+            catServers = servers; catConfiguration = nextConfiguration
+            return await snapshot()
         case "station_connect":
             try requireKeys(params, allowed: ["provider", "base_url", "token", "allow_transmit"])
             let endpoint = try Self.validatedURL(params["base_url"])
@@ -83,7 +144,11 @@ actor LiveStationSession {
             guard let token, !token.isEmpty, token.utf8.count <= 4_096 else {
                 throw WorkerFailure("station_credentials_required", "Enter a Remote Station Agent token.")
             }
+            try beginLifecycleTransition()
+            defer { lifecycleTransitions -= 1 }
+            let expectedGeneration = connectionGeneration
             try await ensureExclusiveWriter()
+            guard expectedGeneration == connectionGeneration else { throw lifecycleChanged() }
             let next: RemoteAgentClient
             let generation = connectionGeneration &+ 1
             do {
@@ -95,9 +160,16 @@ actor LiveStationSession {
                 throw WorkerFailure("invalid_params", "Invalid Remote Station Agent connection settings.")
             }
             connectionGeneration = generation
-            if let current = client {
+            let current = client
+            client = nil
+            transportState = .stopped
+            allowTransmit = false
+            await stopCATServers()
+            if let current {
                 await stop(current)
             }
+            guard generation == connectionGeneration else { throw lifecycleChanged() }
+            try requireActive()
             client = next
             baseURL = endpoint
             transportState = .connecting
@@ -106,6 +178,10 @@ actor LiveStationSession {
                 try keychain.save(token)
             }
             await next.start()
+            guard !terminalShutdown, generation == connectionGeneration, client === next else {
+                await next.stop()
+                throw lifecycleChanged()
+            }
             return await snapshot()
 
         case "station_disconnect":
@@ -115,31 +191,43 @@ actor LiveStationSession {
 
         case "station_reconnect":
             try requireKeys(params, allowed: ["provider"])
+            try beginLifecycleTransition()
+            defer { lifecycleTransitions -= 1 }
+            let generation = connectionGeneration
             try await ensureExclusiveWriter()
+            guard generation == connectionGeneration else { throw lifecycleChanged() }
             guard let current = client else {
                 throw WorkerFailure("station_unavailable", "Connect to the Remote Station Agent first.")
             }
             transportState = .connecting
             await current.reconnectNow()
+            guard !terminalShutdown, generation == connectionGeneration, client === current else {
+                await current.stop()
+                throw lifecycleChanged()
+            }
             return await snapshot()
 
         case "station_forget":
             try requireKeys(params, allowed: ["provider", "base_url"])
             let endpoint = try Self.validatedURL(params["base_url"])
+            try beginLifecycleTransition()
+            defer { lifecycleTransitions -= 1 }
             if endpoint == baseURL, client != nil {
                 await shutdown()
             }
+            try requireActive()
             try StationAgentKeychain(endpoint: endpoint).delete()
             return ["forgotten": true]
 
         case "station_configuration":
             try requireKeys(params, allowed: ["provider"])
+            let generation = connectionGeneration
             guard let current = client else {
                 throw WorkerFailure("station_unavailable", "Connect to the Remote Station Agent first.")
             }
             do {
-                let value = try await current.fetchConfiguration()
-                let data = try JSONEncoder().encode(value)
+                let data = try await current.fetchConfigurationData()
+                guard generation == connectionGeneration, client === current else { throw lifecycleChanged() }
                 guard data.count <= 32_768,
                       let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
                     throw WorkerFailure("station_protocol", "Station configuration is too large or invalid.")
@@ -153,18 +241,22 @@ actor LiveStationSession {
 
         case "station_configuration_save":
             try requireKeys(params, allowed: ["provider", "configuration"])
+            try beginLifecycleTransition()
+            defer { lifecycleTransitions -= 1 }
+            let generation = connectionGeneration
             try await ensureExclusiveWriter()
+            guard generation == connectionGeneration else { throw lifecycleChanged() }
             guard let current = client,
                   let object = params["configuration"] as? [String: Any],
                   JSONSerialization.isValidJSONObject(object),
                   let data = try? JSONSerialization.data(withJSONObject: object),
                   data.count <= 32_768,
-                  let value = try? JSONDecoder().decode(RemoteStationConfiguration.self, from: data) else {
+                  (try? JSONDecoder().decode(RemoteStationConfiguration.self, from: data)) != nil else {
                 throw Self.invalidParams()
             }
             do {
-                let saved = try await current.saveConfiguration(value)
-                let encoded = try JSONEncoder().encode(saved)
+                let encoded = try await current.saveConfigurationData(data)
+                guard generation == connectionGeneration, client === current else { throw lifecycleChanged() }
                 guard encoded.count <= 32_768,
                       let result = try JSONSerialization.jsonObject(with: encoded) as? [String: Any] else {
                     throw WorkerFailure("station_protocol", "Saved station configuration is invalid.")
@@ -205,7 +297,7 @@ actor LiveStationSession {
             return await snapshot()
 
         case "station_rotor_goto":
-            try requireKeys(params, allowed: ["provider", "bearing"])
+            try requireKeys(params, allowed: ["provider", "bearing", "label"])
             guard let bearingValue = params["bearing"] as? NSNumber,
                   CFGetTypeID(bearingValue) != CFBooleanGetTypeID(),
                   bearingValue.doubleValue.isFinite,
@@ -215,7 +307,14 @@ actor LiveStationSession {
                 throw WorkerFailure("station_unavailable", "The rotor is not connected.")
             }
             do {
+                rotorCommandRevision &+= 1
+                let revision = rotorCommandRevision
+                let generation = rotorGeneration
                 try await rotorClient.turn(to: bearingValue.doubleValue)
+                if revision == rotorCommandRevision && generation == rotorGeneration {
+                    let label = (params["label"] as? String).map { String($0.prefix(64)) } ?? "Manual bearing"
+                    rotorObservation.request(bearingValue.doubleValue, label: label)
+                }
                 return ["accepted": true, "confirmed": false, "action": "rotor_goto", "state": await snapshot()]
             } catch {
                 throw WorkerFailure("station_rejected", "The rotor rejected the turn command.")
@@ -228,7 +327,13 @@ actor LiveStationSession {
                 throw WorkerFailure("station_unavailable", "The rotor is not connected.")
             }
             do {
+                rotorCommandRevision &+= 1
+                let revision = rotorCommandRevision
+                let generation = rotorGeneration
                 try await rotorClient.stopRotation()
+                if revision == rotorCommandRevision && generation == rotorGeneration {
+                    rotorObservation.stopRequested()
+                }
                 return ["accepted": true, "confirmed": false, "action": "rotor_stop", "state": await snapshot()]
             } catch {
                 throw WorkerFailure("station_rejected", "The rotor rejected the stop command.")
@@ -259,6 +364,7 @@ actor LiveStationSession {
             try await ensureExclusiveWriter()
             guard let client else { throw WorkerFailure("station_unavailable", "Connect to the Remote Station Agent first.") }
             let observed = await client.observedSnapshot()
+            try requireActive()
             guard observed.isConnected,
                   observed.remoteStationStatus?.supportedCommands.contains("add_spot") == true else {
                 throw WorkerFailure("station_action_blocked", "The agent does not advertise FLEX spot forwarding.")
@@ -277,6 +383,7 @@ actor LiveStationSession {
     }
 
     func snapshot() async -> [String: Any] {
+        let generation = connectionGeneration
         guard let client else {
             return ["source": "direct_agent", "available": false,
                     "transport_state": RadioConnectionState.stopped.rawValue,
@@ -284,14 +391,23 @@ actor LiveStationSession {
                     "propagation": NSNull(), "allow_transmit": false]
         }
         let observed = await client.observedSnapshot()
+        guard generation == connectionGeneration, self.client === client else { return await snapshot() }
         var result = Self.project(observed, transport: transportState, allowTransmit: allowTransmit)
         result["rotor"] = rotorProjection()
+        result["cat_servers"] = ["cat_port": Self.optional(catConfiguration.catPort), "rigctl_port": Self.optional(catConfiguration.rigCtlPort), "allow_transmit": catConfiguration.allowTransmit]
         return result
     }
 
     /// Used by explicit disconnect and worker EOF; a monitoring session issues
     /// no station commands, while activated controls get a best-effort release.
+    func terminate() async {
+        terminalShutdown = true
+        await shutdown()
+    }
+
     func shutdown() async {
+        lifecycleTransitions += 1
+        defer { lifecycleTransitions -= 1 }
         connectionGeneration &+= 1
         let current = client
         client = nil
@@ -299,13 +415,35 @@ actor LiveStationSession {
         transportState = .stopped
         allowTransmit = false
         stopRotor()
+        await stopCATServers()
         if let current { await stop(current) }
+    }
+
+    private func beginLifecycleTransition() throws {
+        guard lifecycleTransitions == 0 else {
+            throw WorkerFailure("station_busy", "A station connection or CAT listener change is still finishing. Retry when it completes.")
+        }
+        lifecycleTransitions += 1
+    }
+
+    private func lifecycleChanged() -> WorkerFailure {
+        WorkerFailure("station_changed", "The station connection changed during the request. Retry with the current connection.")
+    }
+
+    private func stopCATServers() async {
+        catListenerEpoch &+= 1
+        let previous = catServers
+        catServers = nil
+        catConfiguration = .init()
+        let drain = catRetirement.enqueue { await previous?.stopAndDrain() }
+        await drain.value
     }
 
     func tune(frequencyHz: Int64, mode: String) async throws -> [String: Any] {
         try await ensureExclusiveWriter()
         guard let client else { throw WorkerFailure("station_unavailable", "Connect to the Remote Station Agent first.") }
         let before = await client.observedSnapshot()
+        try requireActive()
         guard before.isConnected, before.remoteStationStatus?.radioKnown == true,
               before.remoteStationStatus?.radioStale == false else {
             throw WorkerFailure("station_unavailable", "Observed radio state is unavailable.")
@@ -322,6 +460,7 @@ actor LiveStationSession {
         while clock.now < deadline {
             try Task.checkCancellation()
             let observed = await client.observedSnapshot()
+            try requireActive()
             if observed.transportReceivedAt.map({ $0 > startedAt }) == true,
                Self.confirmsSimplex(observed, frequencyHz: frequencyHz, mode: normalized) {
                 var result = Self.project(observed, transport: transportState, allowTransmit: allowTransmit)
@@ -339,13 +478,14 @@ actor LiveStationSession {
             throw WorkerFailure("invalid_params", "Invalid direct station action.")
         }
         let observed = await client.observedSnapshot()
+        try requireActive()
         guard observed.isConnected, let station = observed.remoteStationStatus,
               station.supportedCommands.contains("station_\(name)"),
               station.allowedActions.contains(name) else {
             throw WorkerFailure("station_action_blocked", "The station does not currently allow this action.")
         }
         if action != .standby && action != .cancel {
-            guard allowTransmit, station.inhibitors.isEmpty else {
+            guard lifecycleTransitions == 0, allowTransmit, station.inhibitors.isEmpty else {
                 throw WorkerFailure("station_action_blocked", "Transmit control is not enabled or the station has inhibitors.")
             }
         }
@@ -428,13 +568,14 @@ actor LiveStationSession {
         try await ensureExclusiveWriter()
         guard let client else { throw WorkerFailure("station_unavailable", "Connect to the Remote Station Agent first.") }
         let observed = await client.observedSnapshot()
+        try requireActive()
         guard let station = observed.remoteStationStatus,
               station.supportedCommands.contains(advertised),
               observed.isConnected || (control == "ptt" && !needsTransmitOptIn) || control == "clear_cw" else {
             throw WorkerFailure("station_action_blocked", "The radio does not currently support this control.")
         }
         if needsTransmitOptIn {
-            guard allowTransmit, station.inhibitors.isEmpty, station.commissioned,
+            guard lifecycleTransitions == 0, allowTransmit, station.inhibitors.isEmpty, station.commissioned,
                   station.radioKnown, !station.radioStale else {
                 throw WorkerFailure("station_action_blocked", "Transmit control is not enabled or the station is not ready.")
             }
@@ -466,6 +607,7 @@ actor LiveStationSession {
               value.isFinite, (0...360).contains(value) else { return }
         rotorAzimuth = value
         rotorObservedAt = Date()
+        rotorObservation.observe(value)
     }
 
     private func stopRotor() {
@@ -476,15 +618,17 @@ actor LiveStationSession {
         rotorStatus = "Disconnected"
         rotorAzimuth = nil
         rotorObservedAt = nil
+        rotorObservation = RotorObservation()
+        rotorCommandRevision &+= 1
     }
 
     private func rotorProjection() -> [String: Any] {
         ["connected": rotorState == .connected,
-         "name": rotorName, "status": rotorStatus,
+         "name": rotorName, "status": rotorState == .connected ? rotorObservation.status : rotorStatus,
          "azimuth": Self.optional(rotorAzimuth),
          "observed_at": Self.optional(rotorObservedAt?.timeIntervalSince1970),
-         "target_bearing": NSNull(), "target_label": "",
-         "moving": NSNull(), "motion_direction": NSNull()]
+         "target_bearing": Self.optional(rotorObservation.target), "target_label": rotorObservation.label,
+         "moving": Self.optional(rotorObservation.moving), "motion_direction": Self.optional(rotorObservation.direction)]
     }
 
     private func stop(_ current: RemoteAgentClient) async {
@@ -507,18 +651,93 @@ actor LiveStationSession {
         await current.stop()
     }
 
+    private func authorizeCATMutation(_ mutation: EmbeddedCATServers.Mutation, generation: UInt64, epoch: UInt64) async -> Bool {
+        guard !terminalShutdown, generation == connectionGeneration, let client else { return false }
+        let observed = await client.observedSnapshot()
+        guard !terminalShutdown, generation == connectionGeneration, self.client === client,
+              let station = observed.remoteStationStatus else { return false }
+        // A release remains available even if freshness/commissioning changed.
+        switch mutation {
+        case .transmit(false): return station.supportedCommands.contains("set_ptt")
+        case .clearCW: return station.supportedCommands.contains("clear_cw")
+        case .stationAction(.cancel): return transmitOwnership.releases.contains(.cancelTune)
+        default: break
+        }
+        guard epoch == catListenerEpoch, observed.isConnected, station.radioKnown, !station.radioStale else { return false }
+        let command: String
+        var needsTX = false
+        switch mutation {
+        case .primaryFrequency, .frequency, .secondaryFrequency: command = "set_frequency_hz"
+        case .frequencyAndMode, .tuneSimplex: command = "tune_simplex"
+        case .mode: command = "set_mode"
+        case .splitTransmit: command = "set_split"
+        case .receiveVFO: command = "set_receive_vfo"
+        case .cwSpeed: command = "set_cw_speed"
+        case .sendCW: command = "send_cw"; needsTX = true
+        case .clearCW: command = "clear_cw"
+        case .transmit: command = "set_ptt"; needsTX = true
+        case .transmitMode(let mode): command = mode == .tune ? "station_tune" : "set_ptt"; needsTX = true
+        case .rit: command = "set_rit"
+        case .xit: command = "set_xit"
+        case .rfPower: command = "set_rf_power"
+        case .stationAction(let action):
+            guard station.allowedActions.contains(action.rawValue) else { return false }
+            command = "station_\(action.rawValue)"; needsTX = action != .standby && action != .cancel
+        case .namedStationAction: return false
+        case .addSpot: command = "add_spot"
+        }
+        guard station.supportedCommands.contains(command) else { return false }
+        if needsTX {
+            guard lifecycleTransitions == 0, allowTransmit, catConfiguration.allowTransmit,
+                  station.commissioned, station.inhibitors.isEmpty else { return false }
+        }
+        switch mutation {
+        case .sendCW: transmitOwnership.beginControl("send_cw")
+        case .transmit(true): transmitOwnership.beginControl("ptt", enabled: true)
+        case .transmitMode(let mode):
+            if mode == .tune { transmitOwnership.beginAction(.tune) }
+            else { transmitOwnership.beginControl("ptt", enabled: true) }
+        case .stationAction(let action): transmitOwnership.beginAction(action)
+        default: break
+        }
+        return true
+    }
+
+    private func completeCATMutation(_ mutation: EmbeddedCATServers.Mutation, generation: UInt64) async {
+        guard generation == connectionGeneration else { return }
+        switch mutation {
+        case .clearCW: transmitOwnership.completeControl("clear_cw")
+        case .transmit(false):
+            if transmitOwnership.releases.contains(.cancelTune), let client {
+                do { try await client.performStationAction(.cancel); transmitOwnership.completeAction(.cancel) } catch { }
+            }
+            transmitOwnership.completeControl("ptt", enabled: false)
+        case .stationAction(let action): transmitOwnership.completeAction(action)
+        default: break
+        }
+    }
+
     private func ensureExclusiveWriter() async throws {
+        try requireActive()
         let companionAppRunning = await MainActor.run {
             !NSRunningApplication.runningApplications(withBundleIdentifier: "com.oliverbross.OM0RXXCat").isEmpty
         }
-        guard !companionAppRunning, !Self.companionListenerActive() else {
+        try requireActive()
+        let ownedPorts = Set([catConfiguration.catPort, catConfiguration.rigCtlPort].compactMap { $0 })
+        guard !companionAppRunning, !Self.companionListenerActive(excluding: ownedPorts) else {
             throw WorkerFailure("station_owner_conflict", "Stop the standalone xCat radio owner before direct station control.")
         }
     }
 
+    private func requireActive() throws {
+        guard !terminalShutdown else {
+            throw WorkerFailure("worker_stopping", "The station service is shutting down; no new station command was started.")
+        }
+    }
+
     /// A TCP connect probe sends no CAT/RigCtlD bytes and cannot command a radio.
-    private static func companionListenerActive() -> Bool {
-        for port in [UInt16(14_532), 4_532, 15_002, 5_002] {
+    private static func companionListenerActive(excluding ownedPorts: Set<UInt16>) -> Bool {
+        for port in [UInt16(14_532), 4_532, 15_002, 5_002] where !ownedPorts.contains(port) {
             let descriptor = socket(AF_INET, SOCK_STREAM, 0)
             guard descriptor >= 0 else { return true }
             defer { close(descriptor) }

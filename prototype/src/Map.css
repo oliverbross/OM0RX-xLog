@@ -1,0 +1,61 @@
+.map-toolbar {
+  position: absolute;
+  z-index: 2;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  max-width: calc(100% - 70px);
+  padding: 8px 10px;
+  border: 1px solid #243a55;
+  border-radius: 7px;
+  background: #0b1728ee;
+  box-shadow: 0 7px 18px #0007;
+  color: #e6edf6;
+  font-size: 11px;
+}
+.map-toolbar strong { font-size: 13px; white-space: nowrap; }
+.map-toolbar label { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.map-toolbar select, .map-toolbar button {
+  min-height: 26px;
+  padding: 2px 7px;
+  border: 1px solid #405a74;
+  border-radius: 4px;
+  background: #101f34;
+  color: #e6edf6;
+  font: inherit;
+}
+.map-toolbar button[aria-pressed="true"] { border-color: #35c8f5; color: #35c8f5; }
+.map-toolbar button:focus-visible, .map-toolbar select:focus-visible,
+.map-legend button:focus-visible { outline: 2px solid #35c8f5; outline-offset: 2px; }
+.map-count { color: #35c8f5; white-space: nowrap; }
+.map-offline { position: absolute; z-index: 2; top: 57px; left: 10px; margin: 0; padding: 5px 8px; border-radius: 4px; background: #0b1728ee; color: #f3b23c; font-size: 11px; }
+.map-dxcc-label, .map-spot-label {
+  display: block;
+  margin-left: 6px;
+  padding: 1px 3px;
+  border-radius: 3px;
+  background: #07111f99;
+  color: #8fb3d9;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 20px;
+  white-space: nowrap;
+  text-shadow: 0 1px 2px #000;
+  pointer-events: none;
+}
+.map-spot-label { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+.map-wrap .map-legend { bottom: 29px; max-width: min(650px, calc(100% - 20px)); font-size: 11px; }
+.map-legend strong { color: #e6edf6; font-weight: 650; }
+.map-legend-items { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.map-legend-items span, .map-legend-items button { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.map-legend-items i { display: inline-block; width: 8px; height: 8px; border: 1px solid #e6edf6aa; border-radius: 50%; }
+.map-legend-items button { padding: 1px 2px; border: 0; border-radius: 3px; background: transparent; color: #e6edf6; font: inherit; cursor: pointer; pointer-events: auto; }
+.map-legend-items button[aria-pressed="false"] { opacity: 0.48; text-decoration: line-through; }
+@media (max-width: 780px) {
+  .map-toolbar { max-width: calc(100% - 62px); }
+  .map-toolbar strong, .map-count { width: 100%; }
+  .map-offline { top: 92px; }
+}

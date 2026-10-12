@@ -7,7 +7,7 @@ import LiveApp from "../src/LiveApp";
 import Conditions from "../src/live/Conditions";
 import Monitor from "../src/live/Monitor";
 const calls = vi.hoisted(() => ({ request: vi.fn() }));
-vi.mock("../src/worker", () => ({ workerRequest: calls.request, openMonitor: vi.fn() }));
+vi.mock("../src/worker", async (importOriginal) => ({ ...await importOriginal<typeof import("../src/worker")>(), workerRequest: calls.request, openMonitor: vi.fn() }));
 vi.mock("../src/Map", () => ({ default: () => <div>Map surface</div> }));
 let exists = false;
 beforeEach(() => {
@@ -30,7 +30,7 @@ afterEach(cleanup);
 it("starts with real-data onboarding and only reads; never creates a log or commands hardware implicitly", async () => {
   render(<LiveApp />);
   await waitFor(() => expect(screen.getByRole("button", { name: "Copy my existing xLog logbook" }).hasAttribute("disabled")).toBe(false));
-  expect(calls.request.mock.calls.every(([method]) => ["workspace_status", "cluster_snapshot", "station_snapshot"].includes(method))).toBe(true);
+  expect(calls.request.mock.calls.every(([method]) => ["workspace_status", "cluster_snapshot", "station_snapshot", "propagation_snapshot"].includes(method))).toBe(true);
   expect(screen.getByText("No sample contacts, spots or station readings are loaded.")).toBeTruthy();
 });
 

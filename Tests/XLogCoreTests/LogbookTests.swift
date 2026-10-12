@@ -149,6 +149,24 @@ struct LogbookTests {
         #expect(try database.pending().count == 1)
     }
 
+    @Test("Callsign matrix includes old confirmations beyond the history page and aggregates each cell")
+    func completeCallsignMatrix() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let database = try LogbookDatabase(url: directory.appendingPathComponent("test.sqlite"))
+        try database.save(QSO(call: "K1ABC", start: Date(timeIntervalSince1970: 1), band: "160m", mode: "CW", lotwReceived: "Y"))
+        for index in 0..<2_001 {
+            try database.save(QSO(call: "K1ABC", start: Date(timeIntervalSince1970: Double(index + 100)), band: "20m", mode: "SSB", qslReceived: index == 0 ? "Y" : "N"))
+        }
+        var deleted = QSO(call: "K1ABC", start: Date(timeIntervalSince1970: 50), band: "6m", mode: "CW", qslReceived: "Y")
+        deleted.deletedAt = Date(); try database.save(deleted)
+        try database.save(QSO(call: "OTHER", start: Date(timeIntervalSince1970: 60), band: "40m", mode: "CW"))
+        let cells = try database.bandModeMatrix(call: "k1abc")
+        #expect(cells.count == 2)
+        #expect(cells.contains(BandModeCell(band: "160m", mode: "CW", worked: true, confirmed: true)))
+        #expect(cells.contains(BandModeCell(band: "20m", mode: "SSB", worked: true, confirmed: true)))
+    }
+
     @Test("DXCC summary is independent from exact callsign history")
     func dxccSummary() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

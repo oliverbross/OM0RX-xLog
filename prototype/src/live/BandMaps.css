@@ -1,0 +1,59 @@
+.band-maps { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--canvas); color: #e6edf6; }
+.band-maps-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px 18px; padding: 12px 14px; border-bottom: 1px solid var(--border); background: var(--panel); }
+.band-maps-head h2 { font-size: 16px; line-height: 1.15; margin: 0 0 3px; }
+.band-maps-head p { color: var(--secondary); font-size: 11px; }
+.band-maps-head-controls { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.band-maps-follow { white-space: nowrap; color: var(--secondary); }
+.band-maps-follow input { accent-color: var(--teal); }
+.band-maps-scale, .band-maps-layout { display: inline-flex; align-items: center; gap: 2px; }
+.band-maps-scale button, .band-maps-layout button { min-height: 26px; padding: 2px 7px; }
+.band-maps-scale output { min-width: 38px; text-align: center; color: var(--secondary); font-variant-numeric: tabular-nums; }
+.band-maps-layout button[aria-pressed="true"] { background: #244160; border-color: #4b779e; color: #fff; }
+.band-maps-add select { width: 124px; }
+.band-maps-intelligence { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-height: 52px; padding: 8px 14px; border-bottom: 1px solid var(--border); background: var(--control); color: var(--secondary); }
+.band-maps-intelligence label { white-space: nowrap; }
+.band-maps-search input { width: 180px; }
+.band-maps-intelligence select { min-width: 94px; }
+.band-maps-count { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.band-maps-selected { flex: 1; min-width: 180px; color: #dce7f4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.band-maps-panels { flex: 1; min-height: 0; padding: 10px; gap: 10px; }
+.band-maps-row { display: flex; overflow: auto; align-items: stretch; }
+.band-maps-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); align-content: start; overflow: auto; }
+.band-map-panel { display: flex; flex-direction: column; min-width: 320px; min-height: 0; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); overflow: hidden; font-size: calc(12px * var(--band-font-scale)); }
+.band-maps-row .band-map-panel { width: min(380px, 90vw); flex: 0 0 auto; }
+.band-maps-row .band-map-panel:only-child { flex: 1 1 auto; }
+.band-map-panel-head { height: 37px; display: flex; align-items: center; gap: 6px; padding: 0 9px; background: var(--control); }
+.band-map-panel-head strong { font-size: 1.1em; }
+.band-map-panel-head small { color: var(--secondary); font-size: .84em; }
+.band-map-panel-head button { margin-left: auto; padding: 0 5px; min-height: 24px; background: transparent; border: 0; font-size: 17px; line-height: 1; }
+.band-map-accent { width: 7px; height: 7px; border-radius: 50%; background: var(--band-accent); flex: none; }
+.band-map-panel-tools { min-height: 34px; display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 2px 6px; border-bottom: 1px solid var(--border); }
+.band-map-panel-tools select { min-height: 26px; max-width: 125px; background: transparent; border-color: transparent; font-size: .91em; }
+.band-map-tool-buttons { display: inline-flex; gap: 1px; }
+.band-map-tool-buttons button { min-width: 25px; min-height: 25px; padding: 1px; background: transparent; border-color: transparent; color: var(--secondary); font-size: 15px; }
+.band-map-tool-buttons button:hover { color: #fff; background: #27405c; }
+.band-map-chart { position: relative; flex: 1 0 auto; min-width: 0; background: #0b1728; overflow: hidden; }
+.band-map-allocation { position: absolute; inset-inline: 0; pointer-events: none; }
+.band-map-allocation span { position: absolute; right: 6px; top: 3px; font-size: .67em; font-weight: 750; letter-spacing: .025em; }
+.band-map-cw { background: #0c425c70; color: #68d8ff; }
+.band-map-data { background: #5d326e70; color: #f5a5e3; }
+.band-map-phone { background: #75543055; color: #ffd179; }
+.band-map-gridline { position: absolute; left: 0; right: 0; height: 1px; border-top: 1px solid #5b6c794f; pointer-events: none; }
+.band-map-gridline span { position: absolute; left: 4px; top: -7px; padding: 0 2px; background: #0b1728b8; color: var(--secondary); font: calc(9px * var(--band-font-scale)) ui-monospace, SFMono-Regular, monospace; font-variant-numeric: tabular-nums; }
+.band-map-spot { position: absolute; transform: translate(-50%, -50%); display: flex; align-items: center; justify-content: space-between; gap: 3px; height: calc(22px * var(--band-font-scale)); min-height: calc(22px * var(--band-font-scale)) !important; padding: 1px 5px; border: 1px solid; border-radius: 4px; text-align: left; font: calc(10px * var(--band-font-scale)) ui-monospace, SFMono-Regular, monospace; overflow: hidden; }
+.band-map-spot strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.band-map-spot b { flex: none; font-size: .86em; }
+.band-map-spot:hover { filter: brightness(1.25); }
+.band-map-overflow { position: absolute; bottom: 4px; right: 5px; max-width: calc(100% - 60px); background: #122b40; color: #fff; border: 1px solid var(--border); border-radius: 4px; padding: 3px 6px; font-size: .8em; }
+.band-map-panel-foot { display: flex; align-items: center; justify-content: space-between; gap: 5px; min-height: 28px; padding: 2px 8px; background: var(--control); color: var(--secondary); font: calc(10px * var(--band-font-scale)) ui-monospace, SFMono-Regular, monospace; font-variant-numeric: tabular-nums; }
+.band-map-panel-foot output { white-space: nowrap; }
+.band-map-legend { display: flex; gap: 7px; }
+.band-map-legend span { display: inline-flex; align-items: center; gap: 3px; }
+.band-map-legend span::before { content: ""; width: 9px; height: 3px; background: #68d8ff; }
+.band-map-legend span:nth-child(2)::before { background: #f5a5e3; }
+.band-map-legend span:nth-child(3)::before { background: #ffd179; }
+.band-maps-compact .band-maps-head { padding: 8px 10px; }
+.band-maps-compact .band-maps-head h2 { font-size: 13px; }
+.band-maps-compact .band-maps-panels { padding: 8px; }
+.band-maps .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+@media (max-width: 700px) { .band-maps-head-controls { justify-content: flex-start; } .band-maps-intelligence { align-items: stretch; } .band-maps-selected { width: 100%; flex-basis: 100%; } }

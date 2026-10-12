@@ -57,9 +57,9 @@ test("NDJSON responds with stdin open, preserves correlation and accepts fragmen
       child.stdin.write(JSON.stringify({ id: "three", method: "self_test", params: {} }) + "\n");
     }
   }, 3);
-  assert.deepEqual(responses.map(response => response.id), ["one", "two", "three"]);
+  assert.deepEqual(new Set(responses.map(response => response.id)), new Set(["one", "two", "three"]));
   assert.ok(responses.every(response => response.ok));
-  assert.equal(responses[2].result.network_contact, false);
+  assert.equal(responses.find(response => response.id === "three").result.network_contact, false);
 });
 
 test("NDJSON rejects malformed and oversized lines then recovers", async () => {
@@ -67,9 +67,9 @@ test("NDJSON rejects malformed and oversized lines then recovers", async () => {
     child.stdin.write("bad JSON\n" + "x".repeat(32769) + "\n");
     child.stdin.write(JSON.stringify({ id: "recovered", method: "health", params: {} }) + "\n");
   }, () => {}, 3);
-  assert.deepEqual(responses.slice(0, 2).map(response => response.error.code), ["invalid_request", "request_too_large"]);
-  assert.equal(responses[2].id, "recovered");
-  assert.equal(responses[2].ok, true);
+  assert.deepEqual(new Set(responses.filter(response => !response.ok).map(response => response.error.code)),
+    new Set(["invalid_request", "request_too_large"]));
+  assert.equal(responses.find(response => response.id === "recovered").ok, true);
 });
 
 test("P2 core integration methods run through the real bounded worker process", async () => {
@@ -81,8 +81,21 @@ test("P2 core integration methods run through the real bounded worker process", 
     } }) + "\n");
   }, () => {}, 2);
   assert.ok(responses.every(response => response.ok));
-  assert.equal(responses[0].result.passed, true);
-  assert.equal(responses[0].result.station_io, false);
-  assert.equal(responses[1].result.spots[0].call_status, "New Call");
-  assert.equal(responses[1].result.spots[0].dxcc_status, "ATNO");
+  const byID = Object.fromEntries(responses.map(response => [response.id, response]));
+  assert.equal(byID.contracts.result.passed, true);
+  assert.equal(byID.contracts.result.station_io, false);
+  assert.equal(byID.cluster.result.spots[0].call_status, "New Call");
+  assert.equal(byID.cluster.result.spots[0].dxcc_status, "ATNO");
+});
+
+test("concurrent worker requests have unique correlated replies under a burst", async () => {
+  const count = 12;
+  const responses = await exercise(child => {
+    for (let index = 0; index < count; index++) {
+      child.stdin.write(JSON.stringify({ id: `burst-${index}`, method: "health", params: {} }) + "\n");
+    }
+  }, () => {}, count);
+  assert.deepEqual(new Set(responses.map(response => response.id)),
+    new Set(Array.from({ length: count }, (_, index) => `burst-${index}`)));
+  assert.ok(responses.every(response => response.ok));
 });

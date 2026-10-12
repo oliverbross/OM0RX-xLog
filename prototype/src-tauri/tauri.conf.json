@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "OM0RX-xLog Integration",
-  "version": "0.4.0-alpha.1",
+  "version": "0.4.0-alpha.2",
   "identifier": "com.oliverbross.xlog.integration",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -15,14 +15,14 @@
       "width": 1440, "height": 940, "minWidth": 1000, "minHeight": 720
     }],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ipc: http://ipc.localhost; worker-src 'self' blob:; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-src 'none'"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://gibs.earthdata.nasa.gov; connect-src 'self' ipc: http://ipc.localhost https://gibs.earthdata.nasa.gov; worker-src 'self' blob:; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-src 'none'"
     }
   },
   "bundle": {
     "active": true,
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
     "targets": "all",
-    "externalBin": ["binaries/xlog-prototype-worker"],
+    "externalBin": ["binaries/xlog-prototype-worker", "binaries/rigctld", "binaries/rotctld"],
     "macOS": { "minimumSystemVersion": "14.0" },
     "shortDescription": "Integrated logging, cluster and station services",
     "category": "Utility"

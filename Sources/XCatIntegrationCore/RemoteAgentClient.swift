@@ -340,6 +340,46 @@ public actor RemoteAgentClient: RadioControlling {
         return decoded.config
     }
 
+    /// Validate the known schema without re-encoding it: newer agent fields
+    /// must survive a load/edit/save round trip through an older desktop.
+    public static func configurationData(fromResponse data: Data) throws -> Data {
+        guard data.count <= 65_536 else { throw XCatError.server("Remote configuration response is too large.") }
+        let decoded = try JSONDecoder().decode(RemoteConfigResponse.self, from: data)
+        guard decoded.success,
+              let envelope = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let configuration = envelope["config"] as? [String: Any] else {
+            throw XCatError.server("Remote Agent rejected the configuration response.")
+        }
+        let raw = try JSONSerialization.data(withJSONObject: configuration)
+        guard raw.count <= 32_768 else { throw XCatError.server("Remote configuration is too large.") }
+        return raw
+    }
+
+    public static func configurationRequestBody(_ data: Data) throws -> Data {
+        guard data.count <= 32_768,
+              let configuration = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw XCatError.server("Remote configuration is too large or invalid.")
+        }
+        _ = try JSONDecoder().decode(RemoteStationConfiguration.self, from: data)
+        return try JSONSerialization.data(withJSONObject: ["config": configuration])
+    }
+
+    public func fetchConfigurationData() async throws -> Data {
+        let request = endpoint.httpRequest(path: "/api/v1/config", token: token)
+        let (data, response) = try await session.data(for: request)
+        try Self.validate(response: response, data: data)
+        return try Self.configurationData(fromResponse: data)
+    }
+
+    public func saveConfigurationData(_ configuration: Data) async throws -> Data {
+        var request = endpoint.httpRequest(path: "/api/v1/config", token: token, method: "PUT")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try Self.configurationRequestBody(configuration)
+        let (data, response) = try await session.data(for: request)
+        try Self.validate(response: response, data: data)
+        return try Self.configurationData(fromResponse: data)
+    }
+
     private func connect() async {
         guard shouldRun else { return }
         generation += 1

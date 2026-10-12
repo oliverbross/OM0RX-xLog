@@ -12,13 +12,28 @@ Created and maintained by **Oliver Bross, OM0RX**.
 ## Shared-app Mac integration — development alpha
 
 The `codex/unified-xlog-integration-p2` branch now builds **OM0RX-xLog Integration
-0.4.0-alpha.1**: the shared Tauri/React app with persistent real logbook, xCluster,
-and embedded xCat Remote Agent services. It has a separate bundle and an isolated
+0.4.0-alpha.2**: the shared Tauri/React app with persistent real logbook, xCluster,
+embedded xCat Remote Agent services, and bundled Hamlib radio/rotor helpers. It has a separate bundle and an isolated
 verified logbook copy; the working native apps and original data are preserved.
 There are no fixture contacts or spots in its runtime screens. This is not yet a
 100%-parity or production release. Read the [setup, preservation contract and open
 acceptance gates](docs/P2_MAC_LIVE_INTEGRATION.md) before testing. Windows/Linux
 live integration remains deferred until the Mac workflows are accepted.
+
+**The integrated app does not require the standalone xCat or xCluster apps.**
+Choose **Remote station · embedded xCat** to connect directly to the station
+agent, or **Local station · Hamlib** to manage a supported radio and rotor from
+this computer. Hamlib 4.7.2 and libusb are built from checksum-pinned upstream
+sources and packaged in the Mac application; no Homebrew installation is required
+to run them. Model/device/serial settings, capability discovery and reconnect are
+explicit. Real-device acceptance is separate from the bundled dummy tests.
+
+The parity work restores the native navigation/sidebar, full QSO editor,
+multi-band maps, cluster palette, awards filters, graphical propagation and
+typed station settings. It also separates slow logbook/service requests from the
+station response path. The [P3 parity ledger](docs/P3_PARITY_LEDGER.md) records
+remaining gaps; an alpha version is not a claim of 100% parity. Build and live
+acceptance evidence belongs to the exact revision recorded with each release.
 
 The installed shared app has now passed direct-agent frequency-change/restore
 and bidirectional rotor-readback checks with the operator present. See the

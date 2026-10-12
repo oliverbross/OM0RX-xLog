@@ -333,6 +333,25 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
+    /// One aggregate query for the map; never decode every QSO on every radio poll.
+    public func dxccMapStatuses() throws -> [Int: String] {
+        try lock.withLock {
+            try withStatement("""
+                SELECT CAST(json_extract(record_json,'$.dxcc') AS INTEGER),
+                    MAX(CASE WHEN UPPER(COALESCE(json_extract(record_json,'$.qslReceived'),'')) IN ('Y','V')
+                        OR UPPER(COALESCE(json_extract(record_json,'$.lotwReceived'),'')) IN ('Y','V') THEN 1 ELSE 0 END)
+                FROM qsos WHERE deleted_at IS NULL AND CAST(json_extract(record_json,'$.dxcc') AS INTEGER) > 0
+                GROUP BY CAST(json_extract(record_json,'$.dxcc') AS INTEGER);
+                """) { statement in
+                    var result: [Int: String] = [:]
+                    while sqlite3_step(statement) == SQLITE_ROW {
+                        result[Int(sqlite3_column_int(statement, 0))] = sqlite3_column_int(statement, 1) == 1 ? "confirmed" : "worked"
+                    }
+                    return result
+                }
+        }
+    }
+
     public func awardCatalog() throws -> AwardCatalogSnapshot {
         try lock.withLock {
             let values = try withStatement("SELECT record_json FROM qsos WHERE deleted_at IS NULL ORDER BY qso_start ASC;") {
@@ -343,12 +362,27 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     public func bandModeMatrix(call: String) throws -> Set<BandModeCell> {
-        let values = try previous(call: call, limit: 2_000)
-        var cells: Set<BandModeCell> = []
-        for qso in values {
-            cells.insert(BandModeCell(band: qso.band, mode: qso.submode.isEmpty ? qso.mode : qso.submode, worked: true, confirmed: qso.isConfirmed))
+        try lock.withLock {
+            // A history page is not an award matrix: an older confirmation
+            // must remain visible even after thousands of recent contacts.
+            try withStatement("""
+                SELECT band, COALESCE(NULLIF(json_extract(record_json,'$.submode'),''), mode),
+                    MAX(CASE WHEN json_extract(record_json,'$.qslReceived') IN ('Y','V')
+                        OR json_extract(record_json,'$.lotwReceived') IN ('Y','V') THEN 1 ELSE 0 END)
+                FROM qsos WHERE deleted_at IS NULL AND call = ? COLLATE NOCASE
+                GROUP BY band, COALESCE(NULLIF(json_extract(record_json,'$.submode'),''), mode);
+                """) { statement in
+                bind(call, to: 1, in: statement)
+                var cells: Set<BandModeCell> = []
+                while sqlite3_step(statement) == SQLITE_ROW {
+                    let band = sqlite3_column_text(statement, 0).map { String(cString: $0) } ?? ""
+                    let mode = sqlite3_column_text(statement, 1).map { String(cString: $0) } ?? ""
+                    cells.insert(BandModeCell(band: band, mode: mode, worked: true,
+                                             confirmed: sqlite3_column_int(statement, 2) == 1))
+                }
+                return cells
+            }
         }
-        return cells
     }
 
     public func dxccSummary(dxcc: Int) throws -> DXCCSummary {

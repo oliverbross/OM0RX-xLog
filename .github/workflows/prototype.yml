@@ -123,6 +123,9 @@ jobs:
         run: npm test && npm run build
       - name: Stage isolated worker
         run: node prototype/scripts/stage-worker.mjs
+      - name: Build pinned Hamlib radio and rotor helpers (Mac integration)
+        if: runner.os == 'macOS'
+        run: bash prototype/scripts/stage-hamlib-macos.sh
       - name: Test worker process framing (Unix)
         if: runner.os != 'Windows'
         run: node Tests/XLogPrototypeTests/worker-process.test.mjs prototype/src-tauri/target/release/xlog-prototype-worker
@@ -135,6 +138,13 @@ jobs:
       - name: Shell contract tests
         working-directory: prototype/src-tauri
         run: cargo test --locked
+      - name: Bundled Hamlib dummy protocol and lifecycle tests
+        if: runner.os == 'macOS'
+        working-directory: prototype/src-tauri
+        shell: bash
+        run: |
+          target=$(rustc -vV | sed -n 's/^host: //p')
+          XLOG_TEST_RIGCTLD="$PWD/binaries/rigctld-$target" XLOG_TEST_ROTCTLD="$PWD/binaries/rotctld-$target" cargo test --locked --test hamlib_dummy
       - name: Build desktop executable (not an installer acceptance claim)
         working-directory: prototype
         run: npx tauri build --no-bundle

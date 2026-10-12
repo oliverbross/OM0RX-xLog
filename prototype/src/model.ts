@@ -13,6 +13,11 @@ export type Spot = {
   reporter: string;
   note: string;
   state: "needed" | "worked" | "confirmed";
+  // Populated by the integrated xCluster feed. Fixtures can omit these.
+  adif?: number | null;
+  callStatus?: string;
+  statusHex?: string;
+  bandHex?: string;
 };
 export const spots: Spot[] = [
   {

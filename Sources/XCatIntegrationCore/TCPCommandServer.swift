@@ -49,6 +49,15 @@ public final class TCPCommandServer: @unchecked Sendable {
     public typealias DisconnectHandler = @Sendable (_ ownedTransmit: Bool) async -> Void
     public typealias EventHandler = @Sendable (String) -> Void
 
+    // Scoped to the connection handling this command. The radio adapter calls
+    // this only after authorization and before attempting a transmit write, so
+    // denied/read-only commands cannot acquire another client's release duty.
+    @TaskLocal fileprivate static var transmitAttemptObserver: (@Sendable () async -> Void)?
+
+    public static func recordAuthorizedTransmitAttempt() async {
+        await transmitAttemptObserver?()
+    }
+
     private let queue: DispatchQueue
     private let framing: Framing
     private let handler: Handler
@@ -58,6 +67,7 @@ public final class TCPCommandServer: @unchecked Sendable {
     private let lock = NSLock()
     private var listener: NWListener?
     private var connections: [ObjectIdentifier: NWConnection] = [:]
+    private var sessions: [ObjectIdentifier: ConnectionSession] = [:]
 
     public init(
         label: String,
@@ -128,6 +138,16 @@ public final class TCPCommandServer: @unchecked Sendable {
         activeConnections.forEach { $0.cancel() }
     }
 
+    public func stopAndDrain() async {
+        stop()
+        let activeSessions = lock.withLock { Array(sessions.values) }
+        await withTaskGroup(of: Void.self) { group in
+            for session in activeSessions {
+                group.addTask { await session.disconnectAndWait() }
+            }
+        }
+    }
+
     private func accept(_ connection: NWConnection) {
         let session = ConnectionSession(
             framing: framing,
@@ -136,7 +156,13 @@ public final class TCPCommandServer: @unchecked Sendable {
             onDisconnect: onDisconnect
         )
         let identifier = ObjectIdentifier(connection)
-        lock.withLock { connections[identifier] = connection }
+        let accepted = lock.withLock {
+            guard listener != nil else { return false }
+            connections[identifier] = connection
+            sessions[identifier] = session
+            return true
+        }
+        guard accepted else { connection.cancel(); return }
         connection.stateUpdateHandler = { [weak self, onEvent] state in
             switch state {
             case .ready:
@@ -144,11 +170,17 @@ public final class TCPCommandServer: @unchecked Sendable {
             case let .failed(error):
                 onEvent("Client failed: \(error)")
                 self?.removeConnection(identifier)
-                Task { await session.disconnect() }
+                Task { [weak self] in
+                    await session.disconnectAndWait()
+                    self?.removeSession(identifier)
+                }
             case .cancelled:
                 onEvent("Client disconnected")
                 self?.removeConnection(identifier)
-                Task { await session.disconnect() }
+                Task { [weak self] in
+                    await session.disconnectAndWait()
+                    self?.removeSession(identifier)
+                }
             default:
                 break
             }
@@ -159,6 +191,10 @@ public final class TCPCommandServer: @unchecked Sendable {
 
     private func removeConnection(_ identifier: ObjectIdentifier) {
         lock.withLock { _ = connections.removeValue(forKey: identifier) }
+    }
+
+    private func removeSession(_ identifier: ObjectIdentifier) {
+        lock.withLock { _ = sessions.removeValue(forKey: identifier) }
     }
 
     private func receive(on connection: NWConnection, session: ConnectionSession) {
@@ -226,7 +262,7 @@ public final class TCPCommandServer: @unchecked Sendable {
     }
 }
 
-private actor ConnectionSession {
+actor ConnectionSession {
     private let delimiter: UInt8
     private let handler: TCPCommandServer.Handler
     private let transmitIntentResolver: TCPCommandServer.TransmitIntentResolver
@@ -234,6 +270,10 @@ private actor ConnectionSession {
     private var buffer = Data()
     private var didDisconnect = false
     private var ownsTransmit = false
+    private var inFlightCommands = 0
+    private var didFinishDisconnect = false
+    private var didCompleteDisconnect = false
+    private var disconnectWaiters: [CheckedContinuation<Void, Never>] = []
 
     init(
         framing: TCPCommandServer.Framing,
@@ -248,6 +288,7 @@ private actor ConnectionSession {
     }
 
     func ingest(_ data: Data) async -> [Data] {
+        guard !didDisconnect else { return [] }
         buffer.append(data)
         if buffer.count > 65_536 {
             buffer.removeAll(keepingCapacity: true)
@@ -255,15 +296,25 @@ private actor ConnectionSession {
         }
 
         var responses: [Data] = []
-        while let delimiterIndex = buffer.firstIndex(of: delimiter) {
+        while !didDisconnect, let delimiterIndex = buffer.firstIndex(of: delimiter) {
             let commandData = buffer[..<delimiterIndex]
             buffer.removeSubrange(...delimiterIndex)
             guard let command = String(data: commandData, encoding: .utf8) else { continue }
-            let response = await handler(command)
+            inFlightCommands += 1
+            let response = await TCPCommandServer.$transmitAttemptObserver.withValue({
+                await self.recordTransmitAttempt()
+            }) {
+                await handler(command)
+            }
+            inFlightCommands -= 1
             switch transmitIntentResolver(command, response) {
             case .acquire: ownsTransmit = true
             case .release: ownsTransmit = false
             case .none: break
+            }
+            if didDisconnect {
+                await finishDisconnectIfReady()
+                return []
             }
             if let response, let responseData = response.data(using: .utf8) {
                 responses.append(responseData)
@@ -275,7 +326,31 @@ private actor ConnectionSession {
     func disconnect() async {
         guard !didDisconnect else { return }
         didDisconnect = true
+        buffer.removeAll()
+        await finishDisconnectIfReady()
+    }
+
+    func disconnectAndWait() async {
+        await disconnect()
+        guard !didCompleteDisconnect else { return }
+        await withCheckedContinuation { disconnectWaiters.append($0) }
+    }
+
+    private func recordTransmitAttempt() {
+        // Keep this duty on an ambiguous reply: a failed acknowledgment does
+        // not prove the radio failed to start transmitting.
+        ownsTransmit = true
+    }
+
+    private func finishDisconnectIfReady() async {
+        guard didDisconnect, inFlightCommands == 0, !didFinishDisconnect else { return }
+        didFinishDisconnect = true
+        // A late transmit write must finish before its release is attempted.
         await onDisconnect(ownsTransmit)
+        didCompleteDisconnect = true
+        let waiters = disconnectWaiters
+        disconnectWaiters.removeAll()
+        waiters.forEach { $0.resume() }
     }
 }
 

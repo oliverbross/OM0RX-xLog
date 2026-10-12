@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { clusterBandColors, clusterModeColors, clusterStatusColors, paletteColor, specialTagColors } from "./clusterPalette";
 import "./ClusterPanel.css";
 
 type Request = (method: string, params?: Record<string, unknown>) => Promise<unknown>;
@@ -42,6 +43,16 @@ const modes = ["CW", "SSB", "FT8", "FT4", "FT2", "RTTY", "PSK", "DIGI", "AM", "F
 const callStatuses = ["New Call", "New Band", "New Mode", "New Band+Mode", "Worked", "Confirmed", "Unknown"];
 const dxccStatuses = ["ATNO", "C/New Band", "C/New Mode", "C/New Band+Mode", "W/New Band", "W/New Mode", "W/New Band+Mode", "Worked", "Confirmed", "Unknown"];
 const formatDate = (value?: number | null) => value == null ? "—" : new Date((value + 978_307_200) * 1000).toLocaleString();
+const formatTime = (value: number) => new Date((value + 978_307_200) * 1000).toLocaleTimeString();
+const rowTint = (status: string): string | undefined => {
+  if (status === "ATNO") return "#FF8C0026";
+  if (status.includes("Band+Mode")) return "#E91E6326";
+  if (status.includes("New Band")) return "#00BFFF26";
+  if (status.includes("New Mode")) return "#FFC00026";
+  if (status === "Worked") return "#B0B0B01A";
+  if (status === "Confirmed") return "#6464641A";
+  return undefined;
+};
 const emptyFilter: Filter = { query: "", bands: [], modes: [], continents: [], callStatuses: [], dxccStatuses: [],
   specials: [], sources: ["cluster", "rbl"], worked: [], sort: "newest" };
 export function ClusterPanel({ snapshot, onRequest, onSelect }: Props) {
@@ -214,17 +225,25 @@ export function ClusterPanel({ snapshot, onRequest, onSelect }: Props) {
     </div>}
 
     <div className="table-scroll live-cluster-table"><table><thead><tr>
-      <th>Callsign</th><th>MHz</th><th>Band</th><th>Mode</th><th>Country</th><th>CQ</th><th>Call status</th><th>DXCC</th>
-      <th>Special</th><th>Worked before</th><th>Score</th><th>Source</th><th>Spotter</th><th>Comment</th>
-    </tr></thead><tbody>{(live?.spots ?? []).map((spot) => <tr key={spot.id} onClick={() => { setSelectedSpot(spot); onSelect(spot); }} title="Load this spot into the logger and tune through xCat">
-      <td><button type="button" className="call-button" onClick={(event) => { event.stopPropagation(); void openHistory(spot); }} title="Show previous QSOs">{spot.callsign}</button></td>
+      <th>Time</th><th>Score</th><th>Band</th><th>MHz</th><th>Callsign</th><th>Mode</th><th>Country</th><th>CQ</th>
+      <th>Spotter</th><th>Call status</th><th>DXCC status</th><th>Special</th><th>Worked before</th><th>Comment</th>
+    </tr></thead><tbody>{(live?.spots ?? []).map((spot, index) => <tr key={spot.id}
+      className={`${selectedSpot?.id === spot.id ? "is-selected" : ""} ${index % 2 ? "is-odd" : "is-even"}`}
+      style={{ backgroundColor: selectedSpot?.id === spot.id ? undefined : rowTint(spot.dxccStatus) }}
+      onClick={() => { setSelectedSpot(spot); onSelect(spot); }} title="Load this spot into the logger and tune through xCat">
+      <td className="mono">{formatTime(spot.receivedAt)}</td>
+      <td><span className={`live-cluster-score ${spot.score >= 80 ? "priority" : spot.score >= 55 ? "high" : spot.score >= 30 ? "medium" : "low"}`}>{spot.score}</span></td>
+      <td><span className="live-cluster-category" style={{ color: paletteColor(spot.band, configuration?.palette.band, clusterBandColors) }}>{spot.band}</span></td>
       <td className="cyan mono">{(spot.frequencyKHz / 1000).toFixed(6)}</td>
-      <td style={{ color: spot.bandHex }}>{spot.band}</td><td style={{ color: spot.modeHex }}>{spot.mode}</td>
+      <td><button type="button" className="call-button live-cluster-call" onClick={(event) => { event.stopPropagation(); void openHistory(spot); }} title="Show previous QSOs">{spot.callsign}</button></td>
+      <td><span className="live-cluster-category" style={{ color: paletteColor(spot.mode, configuration?.palette.mode, clusterModeColors) }}>{spot.mode}</span></td>
       <td>{spot.country}</td><td>{spot.cqZone ?? "—"}</td>
-      <td style={{ color: spot.statusHex }}>{spot.callStatus}</td><td>{spot.dxccStatus}</td>
-      <td className="live-cluster-special">{spot.specialTags.join(", ") || "—"}</td><td>{formatDate(spot.workedBefore)}</td>
-      <td className="mono">{spot.score}</td><td>{spot.source === "rbl" ? "RBN" : "DX"}</td>
-      <td>{spot.aggregateCount > 1 ? `${spot.aggregateSpotters.join(", ")} (${spot.aggregateCount})` : spot.spotter}</td><td>{spot.comment || "—"}</td>
+      <td title={`${spot.source === "rbl" ? "RBN" : "DX Cluster"} · ${spot.clusterName}`}>{spot.aggregateCount > 1 ? `${spot.spotter} +${spot.aggregateCount - 1}` : spot.spotter}</td>
+      <td className="live-cluster-status" style={{ color: paletteColor(spot.callStatus, configuration?.palette.status, clusterStatusColors) }}>{spot.callStatus}</td>
+      <td className="live-cluster-status" style={{ color: paletteColor(spot.dxccStatus, configuration?.palette.status, clusterStatusColors) }}>{spot.dxccStatus}</td>
+      <td className="live-cluster-special">{spot.specialTags.length ? spot.specialTags.slice(0, 2).map(tag => <span className="live-cluster-special-tag" style={specialTagColors(tag)} key={tag}>{tag}</span>) : "—"}</td>
+      <td className="live-cluster-worked-before">{spot.workedBefore == null ? "—" : `✓ ${formatDate(spot.workedBefore)}`}</td>
+      <td title={spot.comment}>{spot.comment || "—"}</td>
     </tr>)}</tbody></table>
       {!live?.spots.length && <p className="empty">{connected ? "No live spots match the current filters." : "Configure a cluster, then connect to receive live spots."}</p>}
     </div>

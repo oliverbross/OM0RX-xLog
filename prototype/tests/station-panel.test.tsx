@@ -2,7 +2,6 @@
 import React from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import StationPanel from "../src/live/StationPanel";
 
 afterEach(() => cleanup());
@@ -16,7 +15,7 @@ it("reads observed state without connecting or commanding radio or rotor", async
   render(<StationPanel snapshot={null} onRequest={request} onSnapshot={publish} />);
   await waitFor(() => expect(request).toHaveBeenCalled());
   expect(screen.getByText("No observed radio")).toBeTruthy();
-  await userEvent.click(screen.getByRole("button", { name: "Direct agent" }));
+  expect(screen.queryByRole("button", { name: "xCat companion" })).toBeNull();
   await waitFor(() => expect(request).toHaveBeenCalledWith("station_snapshot", { provider: "direct_agent" }));
   expect(request.mock.calls.every(([method]) => method === "station_snapshot")).toBe(true);
 });

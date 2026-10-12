@@ -182,19 +182,29 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                 let db = try readyDatabase()
                 let stats = try db.stats()
                 let awards = try db.awardProgress()
+                var statuses = Dictionary(try currentCTYResolver().entities.map { (String($0.adif), "needed") }, uniquingKeysWith: { first, _ in first })
+                for (adif, status) in try db.dxccMapStatuses() { statuses[String(adif)] = status }
+                let settings = try currentSettings()
+                let home: Any = MaidenheadLocator.coordinate(settings.gridSquare).map {
+                    ["lat": $0.latitude, "lon": $0.longitude, "call": settings.stationCall, "grid": settings.gridSquare] as [String: Any]
+                } as Any? ?? NSNull()
                 return ["stats": ["qso_count": stats.qsoCount, "dxcc_count": stats.dxccCount,
                                   "confirmed_count": stats.confirmedCount, "this_year_count": stats.thisYearCount],
+                        "dxcc_statuses": statuses, "map_home": home,
                         "awards": awardJSON(awards),
                         "pending_sync_count": try db.pendingSyncCount(),
                         "outbox_count": try db.outboxCount()]
             case "logbook_catalog":
-                try requireKeys(params, allowed: ["limit", "offset", "search", "delivery_state"])
+                try requireKeys(params, allowed: ["limit", "offset", "search", "delivery_state", "catalogue_group", "mode_facet", "role_facet"])
                 let limit = try integer(params, "limit", default: 20, range: 1...25)
                 let offset = try integer(params, "offset", default: 0, range: 0...Int(Int32.max))
                 let catalog = try readyDatabase().awardCatalog()
                 return try catalogJSON(catalog, offset: offset, limit: limit,
                                        search: try string(params, "search", max: 120) ?? "",
-                                       delivery: try string(params, "delivery_state", max: 40) ?? "")
+                                       delivery: try string(params, "delivery_state", max: 40) ?? "",
+                                       group: try string(params, "catalogue_group", max: 32) ?? "",
+                                       mode: try string(params, "mode_facet", max: 16) ?? "",
+                                       role: try string(params, "role_facet", max: 16) ?? "")
             case "logbook_previous":
                 try requireKeys(params, allowed: ["call", "limit"], required: ["call"])
                 guard let call = try string(params, "call", max: 32), !call.isEmpty else { throw invalid() }
@@ -471,23 +481,40 @@ public final class LiveLogbookMethods: @unchecked Sendable {
          "states_worked": value.statesWorked, "states_confirmed": value.statesConfirmed,
          "grids_worked": value.gridsWorked, "grids_confirmed": value.gridsConfirmed,
          "mode_counts": value.modeCounts, "band_counts": value.bandCounts,
-         "continent_counts": value.continentCounts, "year_counts": value.yearCounts]
+         "continent_counts": value.continentCounts, "year_counts": value.yearCounts,
+         "achievements": value.achievements.map { ["code": $0.id, "title": $0.title, "current": $0.current, "target": $0.target, "completed": $0.current >= $0.target] as [String: Any] }]
     }
 
-    private func catalogJSON(_ value: AwardCatalogSnapshot, offset: Int, limit: Int, search: String = "", delivery: String = "") throws -> [String: Any] {
+    private func catalogJSON(_ value: AwardCatalogSnapshot, offset: Int, limit: Int, search: String = "", delivery: String = "", group: String = "", mode: String = "", role: String = "") throws -> [String: Any] {
+        guard ["", "global", "europe", "world", "specialty"].contains(group), ["", "cw", "ssb", "mixed"].contains(mode), ["", "hunter", "activator"].contains(role) else { throw invalid() }
         let matching = value.programmes.filter { programme in
-            (delivery.isEmpty || programme.deliveryState.rawValue == delivery) &&
+            let research = programme.record.research
+            let roleText = ([programme.record.name, programme.record.scopeOrCountingFocus] + research.values.map(\.displayText)).joined(separator: " ").lowercased()
+            let modeText = research["modes"]?.displayText.lowercased() ?? ""
+            return (delivery.isEmpty || programme.deliveryState.rawValue == delivery) &&
+            (group.isEmpty || programme.record.catalogueGroup.rawValue == group) &&
+            (mode.isEmpty || modeText.range(of: "\\b\(mode)\\b", options: .regularExpression) != nil) &&
+            (role.isEmpty || (role == "hunter" ? roleText.contains("hunter") || roleText.contains("chaser") : roleText.contains("activator") || roleText.contains("activation"))) &&
             (search.isEmpty || [programme.record.name, programme.record.sponsor, programme.record.scopeOrCountingFocus, programme.record.id]
                 .joined(separator: " ").localizedCaseInsensitiveContains(search))
         }
         let programmes = try matching.dropFirst(offset).prefix(limit).map { programme -> [String: Any] in
             ["record": try json(programme.record),
+             "id": programme.record.id, "short_code": programme.record.shortCode,
+             "name": programme.record.name, "sponsor": programme.record.sponsor,
+             "catalogue_group": programme.record.catalogueGroup.rawValue,
+             "scope_or_counting_focus": programme.record.scopeOrCountingFocus,
+             "research_sections": programme.record.research.sorted { $0.key < $1.key }.map { ["title": $0.key.replacingOccurrences(of: "_", with: " "), "text": $0.value.displayText] },
+             "open_questions": programme.record.openQuestions,
+             "official_sources": try json(programme.record.officialSources),
+             "checked_on_utc": programme.record.checkedOnUTC,
              "delivery_state": programme.deliveryState.rawValue,
              "delivery_detail": programme.deliveryDetail,
              "progress_code": programme.progress?.code as Any? ?? NSNull()]
         }
         return ["reference_date": value.referenceDate, "research_date": value.researchDate,
          "total_programmes": matching.count, "catalogue_total": value.programmes.count, "offset": offset, "limit": limit,
+         "delivery_counts": Dictionary(grouping: value.programmes, by: { $0.deliveryState.rawValue }).mapValues(\.count),
          "programmes": programmes,
          "items": value.items.map { item in
              ["code": item.code, "title": item.title, "programme": item.programme,

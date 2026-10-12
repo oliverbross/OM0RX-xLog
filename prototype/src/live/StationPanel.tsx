@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Activity, AlertTriangle, Antenna, LockKeyhole, Radio, RefreshCw, RotateCcw, ShieldAlert } from "lucide-react";
 import "./StationPanel.css";
+import AgentConfiguration from "./AgentConfiguration";
 
 type Request = (method: string, params?: Record<string, unknown>) => Promise<any>;
 type RadioState = {
@@ -26,6 +27,7 @@ type StationSnapshot = {
   source?: "xcat_loopback" | "direct_agent"; available?: boolean; transport_state?: string;
   generated_at?: number; allow_transmit?: boolean; radio?: RadioState | null;
   station?: StationState | null; rotor?: RotorState | null;
+  cat_servers?: { cat_port?: number | null; rigctl_port?: number | null; allow_transmit?: boolean };
   propagation?: { status?: string; updated_at?: number; solar_flux?: number; a_index?: number; k_index?: number } | null;
 };
 type Props = { snapshot: any; onRequest: Request; onSnapshot: (value: any) => void; monitor?: boolean };
@@ -40,22 +42,22 @@ function errorText(cause: unknown): string { return cause instanceof Error ? cau
 
 export default function StationPanel({ snapshot, onRequest, onSnapshot, monitor = false }: Props) {
   const incoming = snapshot as StationSnapshot | null;
-  const [provider, setProvider] = useState<"xcat_loopback" | "direct_agent">(
-    incoming?.source === "direct_agent" || (!incoming && localStorage.getItem("xlog.integration.provider") === "direct_agent") ? "direct_agent" : "xcat_loopback",
+  const [provider] = useState<"xcat_loopback" | "direct_agent">(
+    "direct_agent",
   );
   const [live, setLive] = useState<StationSnapshot | null>(incoming);
   const [host, setHost] = useState("127.0.0.1");
   const [port, setPort] = useState("14532");
-  const [agentURL, setAgentURL] = useState("");
+  const [agentURL, setAgentURL] = useState(() => localStorage.getItem("xlog.remote.url") || "");
   const [token, setToken] = useState("");
   const [allowTransmit, setAllowTransmit] = useState(false);
   const [tuneMHz, setTuneMHz] = useState("");
   const [tuneMode, setTuneMode] = useState("SSB");
   const [rotorBearing, setRotorBearing] = useState("");
   const [rotorBand, setRotorBand] = useState("20m");
-  const [rotorHost, setRotorHost] = useState("");
-  const [rotorPort, setRotorPort] = useState("4001");
-  const [rotorName, setRotorName] = useState("Rotor");
+  const [rotorHost, setRotorHost] = useState(() => localStorage.getItem("xlog.rotor.host") || "");
+  const [rotorPort, setRotorPort] = useState(() => localStorage.getItem("xlog.rotor.port") || "4001");
+  const [rotorName, setRotorName] = useState(() => localStorage.getItem("xlog.rotor.name") || "Rotor");
   const [vfoMHz, setVFOMHz] = useState("");
   const [vfoLetter, setVFOLetter] = useState("B");
   const [directMode, setDirectMode] = useState("CW");
@@ -64,8 +66,10 @@ export default function StationPanel({ snapshot, onRequest, onSnapshot, monitor 
   const [cwSpeed, setCWSpeed] = useState("");
   const [ritOffset, setRITOffset] = useState("0");
   const [xitOffset, setXITOffset] = useState("0");
-  const [configText, setConfigText] = useState("");
-  const [configLoaded, setConfigLoaded] = useState(false);
+  const [agentConfig, setAgentConfig] = useState<Record<string, any> | null>(null);
+  const [catPort, setCATPort] = useState("15002");
+  const [rigctlPort, setRigctlPort] = useState("14532");
+  const [catTransmit, setCATTransmit] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -116,6 +120,12 @@ export default function StationPanel({ snapshot, onRequest, onSnapshot, monitor 
     setBusy(true); setError(""); setNotice("");
     try {
       const response = unwrap(await onRequest(method, params));
+      if (method === "station_connect") localStorage.setItem("xlog.remote.url", String(params.base_url));
+      if (method === "station_rotor_connect") {
+        localStorage.setItem("xlog.rotor.host", String(params.host));
+        localStorage.setItem("xlog.rotor.port", String(params.port));
+        localStorage.setItem("xlog.rotor.name", String(params.name));
+      }
       if (startedEndpoint !== endpointRef.current) return null;
       const next = (response?.state ?? (response?.source ? response : null)) as StationSnapshot | null;
       if (next) { setLive(next); onSnapshot(next); }
@@ -130,7 +140,7 @@ export default function StationPanel({ snapshot, onRequest, onSnapshot, monitor 
 
   async function connect(event: FormEvent) {
     event.preventDefault();
-    setConfigLoaded(false); setConfigText("");
+    setAgentConfig(null);
     const response = await command("station_connect", {
       provider: "direct_agent", base_url: agentURL.trim(),
       ...(token ? { token } : {}), allow_transmit: allowTransmit,
@@ -171,19 +181,16 @@ export default function StationPanel({ snapshot, onRequest, onSnapshot, monitor 
     try {
       const response = unwrap(await onRequest("station_configuration", { provider: "direct_agent" }));
       if (startedEndpoint !== endpointRef.current) return;
-      setConfigText(JSON.stringify(response.configuration, null, 2));
-      setConfigLoaded(true);
+      setAgentConfig(response.configuration);
       setNotice("Agent configuration loaded. It has not been changed.");
     } catch (cause) { if (startedEndpoint === endpointRef.current) setError(errorText(cause)); }
     finally { setBusy(false); }
   }
-  async function saveConfiguration() {
-    try {
-      const configuration = JSON.parse(configText);
-      if (!configuration || Array.isArray(configuration) || typeof configuration !== "object") throw new Error("Configuration must be a JSON object.");
-      const response = await command("station_configuration_save", { provider: "direct_agent", configuration }, "Agent configuration");
-      if (response?.configuration) setConfigText(JSON.stringify(response.configuration, null, 2));
-    } catch (cause) { setError(errorText(cause)); }
+  async function saveConfiguration(configuration: Record<string, any>) {
+    await onRequest("station_configuration_save", { provider: "direct_agent", configuration });
+    const response = unwrap(await onRequest("station_configuration", { provider: "direct_agent" }));
+    setAgentConfig(response.configuration);
+    setNotice("Configuration saved and reloaded from the agent. Check route readiness before operating.");
   }
 
   const radio = live?.radio;
@@ -208,11 +215,7 @@ export default function StationPanel({ snapshot, onRequest, onSnapshot, monitor 
       <div className="live-station-head-actions"><span className={`live-station-status ${connected ? "is-online" : "is-offline"}`}><i />{connected ? "Observed live" : "No observed radio"}</span>
         <button type="button" onClick={() => void refresh()}><RefreshCw size={13} /> Refresh</button></div>
     </header>
-    <div className="live-station-provider" role="group" aria-label="Station provider">
-      <button type="button" aria-pressed={!isDirect} className={!isDirect ? "selected" : ""} onClick={() => { setProvider("xcat_loopback"); setLive(null); setError(""); setNotice(""); }}>xCat companion</button>
-      <button type="button" aria-pressed={isDirect} className={isDirect ? "selected" : ""} onClick={() => { setProvider("direct_agent"); setLive(null); setError(""); setNotice(""); }}>Direct agent</button>
-      <span>Changing provider never connects or takes radio ownership.</span>
-    </div>
+    <p className="live-station-helper">xCat is embedded in xLog. Connect to your remote station here; the standalone xCat application is not required.</p>
     {error && <p className="live-station-error" role="alert"><AlertTriangle size={14} />{error}</p>}
     {notice && <p className="live-station-notice" role="status">{notice}</p>}
     <div className="live-station-grid">
@@ -275,7 +278,7 @@ export default function StationPanel({ snapshot, onRequest, onSnapshot, monitor 
               <label>Agent token<input aria-label="Agent token" type="password" autoComplete="off" placeholder="Enter token or use saved Keychain token" value={token} onChange={(event) => setToken(event.target.value)} /></label>
               <label className="live-station-checkbox"><input type="checkbox" checked={allowTransmit} onChange={(event) => setAllowTransmit(event.target.checked)} /> Allow CAT transmit controls for this connection</label>
               <div className="live-station-actionrow"><button type="submit" disabled={busy || !agentURL.trim()}><LockKeyhole size={13} /> Connect</button>
-                <button type="button" disabled={busy} onClick={() => void command("station_reconnect", { provider: "direct_agent" }, "Reconnect request")}><RotateCcw size={13} /> Reconnect</button>
+                <button type="button" disabled={busy || !agentURL.trim()} onClick={() => void command("station_connect", { provider: "direct_agent", base_url: agentURL.trim(), allow_transmit: allowTransmit }, "Reconnect request")}><RotateCcw size={13} /> Reconnect</button>
                 <button type="button" disabled={busy} onClick={() => void command("station_disconnect", { provider: "direct_agent" }, "Disconnect")}>Disconnect station &amp; rotor</button></div>
               <button type="button" className="live-station-quiet" disabled={busy || !agentURL.trim()} onClick={() => void command("station_forget", { provider: "direct_agent", base_url: agentURL.trim() }, "Saved token removal")}>Forget saved token for this URL</button>
             </form>}</> : <><p className="live-station-helper">Read from the standalone xCat loopback service. xCat remains radio owner; this view does not launch it.</p>
@@ -284,9 +287,14 @@ export default function StationPanel({ snapshot, onRequest, onSnapshot, monitor 
         <section className="live-station-card"><h3>Source and freshness</h3><dl><dt>Provider</dt><dd>{value(live?.source)}</dd><dt>Radio</dt><dd>{connected ? "Observed" : "Unavailable"}</dd>
           <dt>Station snapshot</dt><dd>{timestamp(live?.generated_at)}</dd><dt>Radio observed</dt><dd>{timestamp(radio?.observed_at)}</dd><dt>RF ownership</dt><dd>{isDirect ? "This app, on explicit connect" : "Standalone xCat"}</dd></dl>
           {!connected && <p className="live-station-helper">No frequency or accessory value is fabricated while the station is unavailable.</p>}</section>
-        {isDirect && !isMonitor && <section className="live-station-card"><h3>Agent configuration</h3><p className="live-station-helper">Review the agent’s complete configuration. Save sends the edited JSON to the connected agent.</p>
+        {isDirect && !isMonitor && <section className="live-station-card"><h3>Built-in CAT servers</h3><p className="live-station-helper">Optional connections for RUMlogNG and other local clients. They use this embedded radio session, not a separate xCat app. Listeners bind only to 127.0.0.1.</p>
+          <p>CAT: {live?.cat_servers?.cat_port || "Off"} · RigCtlD: {live?.cat_servers?.rigctl_port || "Off"}</p>
+          <div className="live-station-connect"><label>TS-480 CAT port (blank disables)<input type="number" min="1" max="65535" value={catPort} onChange={e => setCATPort(e.target.value)} /></label><label>RigCtlD port (blank disables)<input type="number" min="1" max="65535" value={rigctlPort} onChange={e => setRigctlPort(e.target.value)} /></label><label><input type="checkbox" checked={catTransmit} onChange={e => setCATTransmit(e.target.checked)} />Allow client transmit / CW commands</label>
+          <div className="live-actions"><button disabled={busy || !connected} onClick={() => void command("station_cat_servers", { provider: "direct_agent", cat_port: catPort ? Number(catPort) : null, rigctl_port: rigctlPort ? Number(rigctlPort) : null, allow_transmit: catTransmit }, "CAT listeners")}>Apply CAT listeners</button><button disabled={busy} onClick={() => void command("station_cat_servers", { provider: "direct_agent", cat_port: null, rigctl_port: null, allow_transmit: false }, "Stop CAT listeners")}>Stop listeners</button></div></div>
+        </section>}
+        {isDirect && !isMonitor && <section className="live-station-card"><h3>Agent configuration</h3><p className="live-station-helper">Load the active station profile, edit its hardware and band policy, then review the changes before saving.</p>
           <button type="button" disabled={busy || !connected} onClick={() => void loadConfiguration()}>Load configuration</button>
-          {configLoaded && <><textarea aria-label="Agent configuration JSON" spellCheck={false} value={configText} onChange={(event) => setConfigText(event.target.value)} rows={11} /><button type="button" disabled={busy || !connected} onClick={() => void saveConfiguration()}>Save configuration</button></>}
+          {agentConfig && <AgentConfiguration config={agentConfig} onSave={saveConfiguration} busy={busy || !connected} />}
         </section>}
         {isDirect && !isMonitor && <section className="live-station-card"><h3>DCU-1 rotor connection</h3><p className="live-station-helper">Optional local rotor owner. Explicit connection starts read-only azimuth polling; motion needs a separate action.</p>
           <div className="live-station-connect"><label>Rotor TCP host<input aria-label="Rotor TCP host" value={rotorHost} onChange={(event) => setRotorHost(event.target.value)} placeholder="Rotor host or IP" /></label><label>Rotor TCP port<input aria-label="Rotor TCP port" inputMode="numeric" value={rotorPort} onChange={(event) => setRotorPort(event.target.value)} /></label><label>Name<input aria-label="Rotor name" value={rotorName} onChange={(event) => setRotorName(event.target.value)} /></label>

@@ -10,12 +10,42 @@ import Glibc
 
 let worker = PrototypeWorker()
 let output = FileHandle.standardOutput
-@MainActor func emit(_ input: Data?) async {
+
+private actor OutputWriter {
+    func send(_ response: Data) {
+        var frame = response
+        frame.append(10)
+        FileHandle.standardOutput.write(frame)
+    }
+}
+
+private actor Admission {
+    private var running = 0
+    private let limit = 16
+    func enter() -> Bool {
+        guard running < limit else { return false }
+        running += 1
+        return true
+    }
+    func leave() { running -= 1 }
+}
+
+private let writer = OutputWriter()
+private let admission = Admission()
+func overloaded(_ input: Data?) -> Data {
+    let object = input.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+    let id = (object?["id"] as? String).flatMap { $0.utf8.count <= 128 ? $0 : nil } ?? ""
+    return (try? JSONSerialization.data(withJSONObject: [
+        "id": id, "ok": false,
+        "error": ["code": "worker_busy", "message": "Station service is busy; try again."]
+    ])) ?? Data()
+}
+
+func emit(_ input: Data?) async {
     let response: Data
     if let input { response = await LiveWorker.shared.response(to: input) }
-    else { response = worker.oversizedResponse() }
-    output.write(response)
-    output.write(Data([10]))
+    else { response = PrototypeWorker().oversizedResponse() }
+    await writer.send(response)
 }
 
 if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--self-test" {
@@ -30,6 +60,21 @@ if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--self-test"
     // Prevent CRT text-mode CRLF translation from altering byte limits/framing.
     _ = ucrt._setmode(0, _O_BINARY)
     #endif
+    await withTaskGroup(of: Void.self) { group in
+    func dispatch(_ requests: [Data?]) async {
+        for request in requests {
+            if await admission.enter() {
+                group.addTask {
+                    await emit(request)
+                    await admission.leave()
+                }
+            } else {
+                // A saturated lane rejects immediately with the same request
+                // ID; it never builds an unbounded queue behind slow I/O.
+                await writer.send(overloaded(request))
+            }
+        }
+    }
     while true {
         // Foundation read(upToCount:) may wait for the full count on a pipe.
         // Native reads return the available fragment without waiting for EOF.
@@ -52,16 +97,21 @@ if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--self-test"
             if readError == EINTR { continue }
             #endif
             FileHandle.standardError.write(Data("Worker input stream failed.\n".utf8))
-            exit(1)
+            break
         }
         var requests: [Data?] = []
         lines.consume(chunk) { requests.append($0) }
-        for request in requests { await emit(request) }
+        await dispatch(requests)
     }
     var requests: [Data?] = []
     lines.finish { requests.append($0) }
-    for request in requests { await emit(request) }
+    await dispatch(requests)
+    // EOF is the graceful shutdown signal. Retire station ownership before
+    // waiting on unrelated slow service/logbook work so RF releases are not
+    // delayed behind a network lookup or database import.
     await LiveWorker.shared.shutdown()
+    await group.waitForAll()
+    }
 } else {
     FileHandle.standardError.write(Data("Usage: xlog-prototype-worker [--self-test]\n".utf8))
     exit(2)

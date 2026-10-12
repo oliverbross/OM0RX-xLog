@@ -8,7 +8,7 @@ adaptive
 
 ## Stack
 
-Delegated: native Swift 6, SwiftUI and AppKit on macOS 13+, with SQLite for the authoritative local logbook and Foundation networking for integrations.
+Preserved baseline: native SwiftUI/AppKit macOS application. The authorized successor is one shared React/Tauri interface, a reused Swift domain worker with SQLite, embedded xCat/xCluster services, and bundled Hamlib radio/rotor helpers. Mac-first acceptance precedes Windows/Linux release; those platforms are not claimed supported until their exact packages pass.
 
 ## Users
 
@@ -16,7 +16,7 @@ Radio amateurs who need a fast, keyboard-first local logger during live operatio
 
 ## Product Purpose
 
-OM0RX-xLog is the local logging centre for the OM0RX station ecosystem. It records QSOs reliably without requiring a browser or RUMlog, enriches contacts, controls the radio through OM0RX-xCat, and synchronises changes both ways with Wavelog. It must remain useful as a standalone logger when network services are unavailable.
+OM0RX-xLog is the local logging centre for the OM0RX station ecosystem. It records QSOs reliably without requiring a browser or RUMlog, enriches contacts, controls a remote station through embedded xCat or local hardware through bundled Hamlib, and synchronises changes both ways with Wavelog. Neither standalone xCat nor xCluster is a required successor-app dependency. It must remain useful as a standalone logger when network services are unavailable.
 
 ## Positioning
 
@@ -38,7 +38,7 @@ One native logbook joins local-first operation, the existing OM0RX radio and clu
 - Logging fields follow the useful Wavelog groups: QSO, Station, General, Notes and QSL.
 - Callsign enrichment must not overwrite fields the operator has edited.
 - Secrets belong in macOS Keychain, never preferences, source, screenshots or logs.
-- Radio tuning is delegated to OM0RX-xCat over loopback; xLog must not compete for the physical radio connection.
+- One embedded station session owns each configured device. UI, cluster selection and optional compatibility clients share that authority. Remote station policy stays on the Windows agent; local Hamlib radio and rotor require no Windows agent. Standalone xCat loopback remains only a transitional compatibility adapter, not the primary architecture.
 - Club Log CTY, LoTW activity and Wavelog catalog updates are atomic and validated before activation.
 - Cluster activation references are promoted into standard ADIF fields when a valid identifier is present; xLog never invents a reference from a programme badge alone.
 - The operator desk keeps logging, propagation and cluster context simultaneously visible, with resizable undocked maps for multi-screen stations.
