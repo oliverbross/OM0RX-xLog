@@ -3,12 +3,15 @@ import { Radio, ContactRound, Navigation, CircleX, CircleCheck } from "lucide-re
 import { bandForRadio } from "./BandMaps";
 import { rotorCommandParams, rotorProjection, type RotorSnapshot } from "./rotorControl";
 import "./OperatorDesk.css";
+import RotorCompass from "./RotorCompass";
+import { DeskAntenna } from "./StationEquipment";
+import { deskEquipmentKind, equipmentProfile, hasConfiguredRotor } from "./equipmentPreferences";
 
 type Data = Record<string, any>;
 type Request = (method: string, params?: Data) => Promise<any>;
 type Props = { draft: Data | null; setDraft: (value: SetStateAction<Data | null>) => void; save: () => void; clear: () => void; busy: boolean;
   lookup: Data | null; previous: Data[]; request: Request; refresh: number; onEditor: () => void; onReadRadio: () => Promise<void>;
-  follow: boolean; setFollow: (value: boolean) => void; rotor: RotorSnapshot | null; autoRotor: boolean; setAutoRotor: (value: boolean) => void; onManualRotor: () => void; isEditing?: boolean; intelligenceBands?: string[] };
+  follow: boolean; setFollow: (value: boolean) => void; rotor: RotorSnapshot | null; autoRotor: boolean; setAutoRotor: (value: boolean) => void; onManualRotor: () => void; isEditing?: boolean; intelligenceBands?: string[]; equipment?: unknown };
 const normalizedCall = (value: unknown) => String(value ?? "").trim().toUpperCase();
 const bands = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "4m", "2m", "70cm"];
 const modes = ["CW", "SSB", "FT8", "FT4", "FT2", "RTTY", "PSK", "DIGI", "AM", "FM"];
@@ -131,7 +134,7 @@ export function DeskRotor({ draft, lookup, rotor, request, autoRotor, setAutoRot
     finally { setBusy(false); }
   };
   const stop = async () => { onManualRotor(); setMessage(""); try { await request("rotor_stop", rotorCommandParams(rotor)); setMessage("Stop accepted; watch the observed rotor state."); } catch (cause) { setMessage(cause instanceof Error ? cause.message : "Rotor stop unavailable."); } };
-  return <section className="desk-panel desk-rotor" aria-label="Rotor"><h2><Navigation size={15} aria-hidden="true" /> Rotor</h2><div className="desk-rotor-body"><div className="desk-compass" aria-label={observed.connected && finite(observed.azimuth) ? `Observed rotor bearing ${Math.round(observed.azimuth)} degrees` : "Rotor bearing unavailable"}><span className="compass-n">N</span><span className="compass-e">E</span><span className="compass-s">S</span><span className="compass-w">W</span><div className="compass-ticks" />{finite(bearing) && <em aria-label={`${path} target bearing ${Math.round(bearing)} degrees`} style={{ transform: `rotate(${bearing}deg)` }} />}{observed.connected && finite(observed.azimuth) && <i style={{ transform: `rotate(${observed.azimuth}deg)` }} />}<b /></div>
+  return <section className="desk-panel desk-rotor" aria-label="Rotor"><h2><Navigation size={15} aria-hidden="true" /> Rotor</h2><div className="desk-rotor-body"><RotorCompass connected={observed.connected} azimuth={observed.azimuth} target={bearing} path={path} />
       <div className="desk-rotor-target"><small className={observed.connected ? "teal" : "desk-offline"}>● {observed.connected ? "ROTOR CONNECTED" : "ROTOR OFFLINE"}</small><strong>{call || "—"}</strong><span>{info?.gridSquare || "No grid"} · {finite(info?.latitude) && finite(info?.longitude) ? "Position resolved" : "No position"}</span><div className="desk-current"><b>{observed.connected && finite(observed.azimuth) ? `${Math.round(observed.azimuth).toString().padStart(3, "0")}°` : "---°"}</b><small>CURRENT</small></div><p><b>{path} {finite(bearing) ? `${Math.round(bearing)}°` : "---°"}</b> <span>— {finite(distance) ? `${Math.round(distance).toLocaleString()} km` : "km"}</span></p><span>{observed.status || "Rotor telemetry unavailable"}</span></div></div>
     <div className="desk-rotor-actions"><button type="button" aria-label="Turn rotor short path" aria-pressed={path === "SP"} disabled={busy || !observed.connected || !finite(info?.bearing)} onClick={() => void turn("SP")}>{finite(info?.bearing) ? `SP · ${Math.round(info.bearing)}°` : "SP"}</button><button type="button" aria-label="Turn rotor long path" aria-pressed={path === "LP"} disabled={busy || !observed.connected || !finite(info?.long_path_bearing)} onClick={() => void turn("LP")}>{finite(info?.long_path_bearing) ? `LP · ${Math.round(info.long_path_bearing)}°` : "LP"}</button><button type="button" aria-label="Stop desk rotor" className="desk-stop" disabled={!rotor?.owner} onClick={() => void stop()}>■ Stop</button></div>
     <label className="desk-toggle" title="When enabled, turn short path to the resolved callsign, including a typed call. Selected spots wait for confirmed radio tuning. Stop or reconnect disables automatic turns."><input type="checkbox" checked={autoRotor} disabled={!observed.connected} onChange={event => setAutoRotor(event.target.checked)} />Auto rotor</label>{message && <p className="desk-rotor-result" role="status">{message}</p>}
@@ -139,5 +142,7 @@ export function DeskRotor({ draft, lookup, rotor, request, autoRotor, setAutoRot
 }
 
 export default function OperatorDesk(props: Props) {
-  return <div className="operator-desk"><div className="operator-desk-top"><DeskQSO {...props} /><DeskIntelligence {...props} /><DeskRotor {...props} /></div></div>;
+  const profile = equipmentProfile(props.equipment);
+  const kind = deskEquipmentKind(profile, props.rotor, hasConfiguredRotor(localStorage));
+  return <div className="operator-desk"><div className={`operator-desk-top${kind === "none" ? " without-equipment" : ""}`}><DeskQSO {...props} /><DeskIntelligence {...props} />{kind === "rotor" ? <DeskRotor {...props} /> : kind === "antenna" ? <DeskAntenna profile={profile} /> : null}</div></div>;
 }

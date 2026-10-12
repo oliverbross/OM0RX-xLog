@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { BAND_RANGES, BandMaps, bandForRadio, opportunityCode, placeSpots, panBandRange, bandMapCapacity } from "./BandMaps";
+import { BAND_RANGES, BandMaps, BandMapsToolbarContext, bandForRadio, opportunityCode, placeSpots, panBandRange, bandMapCapacity } from "./BandMaps";
 import type { BandMapViewPreferences } from "./BandMaps";
 
 const spot = (id: string, frequencyKHz: number, band = "20m", callStatus = "New Call", dxccStatus = "Worked") => ({
@@ -13,6 +13,25 @@ beforeEach(() => localStorage.clear());
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe("native band-map parity", () => {
+  it("puts optional Undock immediately beside Add band map, preserves Dock back and removes redundant subtitle", () => {
+    const undock = vi.fn(), dock = vi.fn(), select = vi.fn();
+    render(<BandMaps spots={[]} onSelect={select} onUndock={undock} onDock={dock} />);
+    const button = screen.getByRole("button", { name: "Undock" }), dockButton = screen.getByRole("button", { name: "Dock back" });
+    expect(button.previousElementSibling?.contains(screen.getByLabelText("Add band map"))).toBe(true); expect(dockButton.previousElementSibling).toBe(button);
+    expect(screen.queryByText("Click a spot to load it into the logger and request station tuning.")).toBeNull();
+    fireEvent.click(button); fireEvent.click(dockButton); expect(undock).toHaveBeenCalledOnce(); expect(dock).toHaveBeenCalledOnce(); expect(select).not.toHaveBeenCalled();
+  });
+  it("uses an explicit compact toolbar slot while keeping standalone/full headers and page controls intact", () => {
+    const target = document.createElement("div"); document.body.append(target);
+    const preferences: BandMapViewPreferences = { bands: ["20m", "30m", "17m", "15m", "40m"], followRadio: false, layout: "row", fontScale: 1 };
+    const { rerender, unmount } = render(<BandMapsToolbarContext.Provider value={target}><BandMaps compact spots={[]} onSelect={vi.fn()} preferences={preferences} /></BandMapsToolbarContext.Provider>);
+    expect(screen.queryByRole("heading", { name: "Band maps" })).toBeNull();
+    expect(target.contains(screen.getByRole("button", { name: "Next band maps" }))).toBe(true);
+    expect(target.contains(screen.getByLabelText("Add band map"))).toBe(true); expect(target.contains(screen.getByRole("checkbox", { name: "Follow radio" }))).toBe(true);
+    rerender(<BandMapsToolbarContext.Provider value={target}><BandMaps spots={[]} onSelect={vi.fn()} preferences={preferences} /></BandMapsToolbarContext.Provider>);
+    expect(screen.getByRole("heading", { name: "Band maps" })).toBeTruthy(); expect(target.children).toHaveLength(0);
+    unmount(); target.remove();
+  });
   it("fills the available width and bounds pages to the available height", () => {
     expect(bandMapCapacity(1010, 700, true, 2)).toEqual({ columns: 2, capacity: 2 });
     expect(bandMapCapacity(600, 500, true, 8)).toEqual({ columns: 2, capacity: 2 });

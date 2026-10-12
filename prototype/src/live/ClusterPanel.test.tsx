@@ -47,6 +47,15 @@ describe("DX Cluster filter colours", () => {
 });
 
 describe("cluster toolbar panels", () => {
+  it("allows cancellation while a cluster is connecting with no received spots", async () => {
+    const data = response(); data.snapshot.connectedClusters = 0; data.snapshot.connections[0].phase = "connecting";
+    const request = vi.fn(async () => data);
+    render(<ClusterPanel passive snapshot={data} onRequest={request} onSelect={vi.fn()} />);
+    const disconnect = screen.getByRole("button", { name: "Disconnect" });
+    expect(disconnect.hasAttribute("disabled")).toBe(false);
+    fireEvent.click(disconnect);
+    await waitFor(() => expect(request).toHaveBeenCalledWith("cluster_disconnect", {}));
+  });
   it("puts controlled Console/Settings panels before the spot table and preserves their drafts while hidden", () => {
     const onRequest = vi.fn(async () => ({}));
     const { container } = render(<ClusterPanel passive snapshot={response()} onRequest={onRequest} onSelect={vi.fn()} />);

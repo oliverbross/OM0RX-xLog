@@ -1,0 +1,21 @@
+// @vitest-environment jsdom
+import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, render, screen } from "@testing-library/react";
+import RotorCompass, { bearingArc, bearingDelta } from "./RotorCompass";
+afterEach(cleanup);
+describe("telemetry compass", () => {
+  it("uses the short rotation across north without a reverse full-circle sweep", () => {
+    expect(bearingDelta(359, 1)).toBe(2); expect(bearingDelta(1, 359)).toBe(-2);
+    expect(bearingDelta(721, 359)).toBe(-2); expect(bearingArc(40, 40)).toBe("");
+  });
+  it("shows one actual needle, a rim target and hides actual bearing when offline", () => {
+    const view = render(<RotorCompass connected azimuth={359} target={42} path="SP" />);
+    expect(screen.getByLabelText("Observed rotor bearing 359 degrees")).toBeTruthy();
+    expect(view.container.querySelectorAll(".rotor-observed-needle")).toHaveLength(1);
+    expect(screen.getByLabelText("SP target bearing 42 degrees")).toBeTruthy();
+    view.rerender(<RotorCompass connected={false} azimuth={359} target={42} path="SP" />);
+    expect(screen.getByLabelText("Rotor bearing unavailable")).toBeTruthy();
+    expect(view.container.querySelector(".rotor-observed-needle")).toBeNull();
+    expect(view.container.querySelector(".rotor-target-arc")).toBeNull();
+  });
+});

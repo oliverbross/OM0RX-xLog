@@ -18,3 +18,9 @@ The Mac direct-station integration includes a byte-identical snapshot of
 OM0RX-xCat XCatCore by Oliver Bross OM0RX, GPL-3.0-only. Its exact source
 revision, local worktree-diff fingerprint, and file hashes are recorded in
 docs/XCAT_INTEGRATION_PROVENANCE.md. The original xCat checkout remains untouched.
+
+The read-only chaser and DX calendar are independently implemented from the
+ShackCQ GPL-3.0-only behavioral contracts at the pinned revision in
+docs/OPPORTUNITIES_PROVENANCE.md. Public spot publishers and 425DXN retain
+their own data terms and visible source attribution. No third-party calendar
+code or raw provider data is bundled.

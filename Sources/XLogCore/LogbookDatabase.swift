@@ -17,6 +17,44 @@ public enum LogbookDatabaseError: Error, LocalizedError {
     }
 }
 
+public struct OpportunityReferenceHistory: Codable, Equatable, Sendable {
+    public struct BandMode: Codable, Equatable, Sendable {
+        public var band: String
+        public var mode: String
+        public var workedCount: Int
+        public var confirmedCount: Int
+    }
+    public var kind: String
+    public var reference: String
+    public var workedCount: Int
+    public var confirmedCount: Int
+    public var bandModes: [BandMode]
+}
+
+/// Exact contact inputs needed by xCluster classification, without decoding
+/// the rest of each full QSO record. Confirmation remains the consumer's rule:
+/// raw QSL strings are intentionally not collapsed into a Boolean here.
+public struct ClusterContactRow: Equatable, Sendable {
+    public let call: String
+    public let band: String
+    public let mode: String
+    public let dxcc: Int?
+    public let start: Date
+    public let qslReceived: String
+    public let lotwReceived: String
+
+    public init(call: String, band: String, mode: String, dxcc: Int?, start: Date,
+                qslReceived: String, lotwReceived: String) {
+        self.call = call
+        self.band = band
+        self.mode = mode
+        self.dxcc = dxcc
+        self.start = start
+        self.qslReceived = qslReceived
+        self.lotwReceived = lotwReceived
+    }
+}
+
 public final class LogbookDatabase: @unchecked Sendable {
     private var handle: OpaquePointer?
     private let lock = NSRecursiveLock()
@@ -29,6 +67,8 @@ public final class LogbookDatabase: @unchecked Sendable {
     private var cachedAwards: AwardProgressSnapshot?
     private var cachedDXCCStatuses: [Int: String]?
     private var cachedAwardCatalog: AwardCatalogSnapshot?
+    private var cachedOpportunityReferences: [OpportunityReferenceHistory]?
+    private var cachedClusterContactRows: [ClusterContactRow]?
 
     public let url: URL
 
@@ -187,6 +227,63 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
+    /// A single consistent, nondeleted read for the cluster's contact index.
+    /// Project from JSON so even an imported row with divergent scalar index
+    /// columns has the same values as the former full-QSO decode.
+    public func clusterContactRows() throws -> [ClusterContactRow] {
+        try lock.withLock {
+            try refreshAggregateCacheVersion()
+            if let cachedClusterContactRows { return cachedClusterContactRows }
+            let rows = try withStatement("""
+                SELECT json_extract(record_json,'$.call'),
+                    json_extract(record_json,'$.band'),
+                    json_extract(record_json,'$.mode'),
+                    json_extract(record_json,'$.start'),
+                    json_extract(record_json,'$.submode'),
+                    json_extract(record_json,'$.dxcc'),
+                    json_extract(record_json,'$.qslReceived'),
+                    json_extract(record_json,'$.lotwReceived')
+                FROM qsos WHERE deleted_at IS NULL ORDER BY qso_start DESC;
+                """) { statement -> [ClusterContactRow] in
+                func requiredString(_ column: Int32) throws -> String {
+                    guard sqlite3_column_type(statement, column) == SQLITE_TEXT,
+                          let value = sqlite3_column_text(statement, column) else {
+                        throw LogbookDatabaseError.corruptRecord
+                    }
+                    return String(cString: value)
+                }
+                var values: [ClusterContactRow] = []
+                var step = sqlite3_step(statement)
+                while step == SQLITE_ROW {
+                    let call = try requiredString(0)
+                    let band = try requiredString(1)
+                    let mode = try requiredString(2)
+                    guard [SQLITE_INTEGER, SQLITE_FLOAT].contains(sqlite3_column_type(statement, 3)) else {
+                        throw LogbookDatabaseError.corruptRecord
+                    }
+                    let submode = try requiredString(4)
+                    let dxcc: Int?
+                    switch sqlite3_column_type(statement, 5) {
+                    case SQLITE_NULL: dxcc = nil
+                    case SQLITE_INTEGER: dxcc = Int(sqlite3_column_int64(statement, 5))
+                    default: throw LogbookDatabaseError.corruptRecord
+                    }
+                    values.append(ClusterContactRow(
+                        call: call, band: band, mode: submode.isEmpty ? mode : submode,
+                        dxcc: dxcc,
+                        start: Date(timeIntervalSinceReferenceDate: sqlite3_column_double(statement, 3)),
+                        qslReceived: try requiredString(6), lotwReceived: try requiredString(7)
+                    ))
+                    step = sqlite3_step(statement)
+                }
+                guard step == SQLITE_DONE else { throw error() }
+                return values
+            }
+            cachedClusterContactRows = rows
+            return rows
+        }
+    }
+
     /// Returns only rows that can affect a callsign/DXCC history. SQL filters
     /// before JSON decoding; nil-DXCC rows remain candidates because their
     /// historical entity may be resolved from CTY at the QSO date.
@@ -326,53 +423,73 @@ public final class LogbookDatabase: @unchecked Sendable {
             try refreshAggregateCacheVersion()
             if let cachedAwards { return cachedAwards }
             let confirmed = "(UPPER(COALESCE(json_extract(record_json,'$.qslReceived'),'')) IN ('Y','V') OR UPPER(COALESCE(json_extract(record_json,'$.lotwReceived'),'')) IN ('Y','V'))"
-            let validStates = "'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY'"
-            let counts = try withStatement("""
-                SELECT
-                    COUNT(*),
-                    SUM(CASE WHEN \(confirmed) THEN 1 ELSE 0 END),
-                    COUNT(DISTINCT CASE WHEN CAST(json_extract(record_json,'$.dxcc') AS INTEGER) > 0 THEN CAST(json_extract(record_json,'$.dxcc') AS INTEGER) END),
-                    COUNT(DISTINCT CASE WHEN \(confirmed) AND CAST(json_extract(record_json,'$.dxcc') AS INTEGER) > 0 THEN CAST(json_extract(record_json,'$.dxcc') AS INTEGER) END),
-                    COUNT(DISTINCT CASE WHEN CAST(json_extract(record_json,'$.cqZone') AS INTEGER) BETWEEN 1 AND 40 THEN CAST(json_extract(record_json,'$.cqZone') AS INTEGER) END),
-                    COUNT(DISTINCT CASE WHEN \(confirmed) AND CAST(json_extract(record_json,'$.cqZone') AS INTEGER) BETWEEN 1 AND 40 THEN CAST(json_extract(record_json,'$.cqZone') AS INTEGER) END),
-                    COUNT(DISTINCT CASE WHEN CAST(json_extract(record_json,'$.dxcc') AS INTEGER) IN (291,6,110) AND UPPER(TRIM(COALESCE(json_extract(record_json,'$.state'),''))) IN (\(validStates)) THEN UPPER(TRIM(json_extract(record_json,'$.state'))) END),
-                    COUNT(DISTINCT CASE WHEN \(confirmed) AND CAST(json_extract(record_json,'$.dxcc') AS INTEGER) IN (291,6,110) AND UPPER(TRIM(COALESCE(json_extract(record_json,'$.state'),''))) IN (\(validStates)) THEN UPPER(TRIM(json_extract(record_json,'$.state'))) END),
-                    COUNT(DISTINCT CASE WHEN LENGTH(TRIM(COALESCE(json_extract(record_json,'$.gridSquare'),''))) >= 4 THEN UPPER(SUBSTR(TRIM(json_extract(record_json,'$.gridSquare')),1,4)) END),
-                    COUNT(DISTINCT CASE WHEN \(confirmed) AND LENGTH(TRIM(COALESCE(json_extract(record_json,'$.gridSquare'),''))) >= 4 THEN UPPER(SUBSTR(TRIM(json_extract(record_json,'$.gridSquare')),1,4)) END)
-                FROM qsos WHERE deleted_at IS NULL;
-                """) { statement -> [Int] in
-                    guard sqlite3_step(statement) == SQLITE_ROW else { return Array(repeating: 0, count: 10) }
-                    return (0..<10).map { Int(sqlite3_column_int64(statement, Int32($0))) }
-                }
-
-            func groups(_ expression: String) throws -> [String: Int] {
-                try withStatement("""
-                    SELECT \(expression) AS value, COUNT(*)
-                    FROM qsos WHERE deleted_at IS NULL
-                    GROUP BY value ORDER BY COUNT(*) DESC;
-                    """) { statement in
-                        var result: [String: Int] = [:]
-                        while sqlite3_step(statement) == SQLITE_ROW {
-                            let key = sqlite3_column_text(statement, 0).map { String(cString: $0) } ?? "Unknown"
-                            result[key.isEmpty ? "Unknown" : key] = Int(sqlite3_column_int64(statement, 1))
-                        }
-                        return result
-                    }
-            }
-
             let effectiveMode = "UPPER(COALESCE(NULLIF(json_extract(record_json,'$.submode'),''), mode))"
             let modeGroup = "CASE WHEN \(effectiveMode) = 'CW' THEN 'CW' WHEN \(effectiveMode) IN ('SSB','USB','LSB','AM','FM') THEN 'Phone' ELSE 'Digital' END"
-            let value = AwardProgressSnapshot(
-                qsoCount: counts[0], confirmedQSOs: counts[1],
-                dxccWorked: counts[2], dxccConfirmed: counts[3],
-                cqZonesWorked: counts[4], cqZonesConfirmed: counts[5],
-                statesWorked: counts[6], statesConfirmed: counts[7],
-                gridsWorked: counts[8], gridsConfirmed: counts[9],
-                modeCounts: try groups(modeGroup),
-                bandCounts: try groups("COALESCE(NULLIF(LOWER(band),''),'Unknown')"),
-                continentCounts: try groups("COALESCE(NULLIF(UPPER(TRIM(json_extract(record_json,'$.continent'))),''),'Unknown')"),
-                yearCounts: try groups("STRFTIME('%Y', qso_start, 'unixepoch')")
-            )
+            let validStates = Set("AL AK AZ AR CA CO CT DE FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY".split(separator: " ").map(String.init))
+            // One row projection replaces ten distinct aggregates plus four
+            // independent scans. It never materializes or decodes QSO JSON.
+            let value = try withStatement("""
+                SELECT \(confirmed), CAST(json_extract(record_json,'$.dxcc') AS INTEGER),
+                    CAST(json_extract(record_json,'$.cqZone') AS INTEGER),
+                    UPPER(TRIM(COALESCE(json_extract(record_json,'$.state'),''))),
+                    CASE WHEN LENGTH(TRIM(COALESCE(json_extract(record_json,'$.gridSquare'),''))) >= 4
+                        THEN UPPER(SUBSTR(TRIM(json_extract(record_json,'$.gridSquare')),1,4)) END,
+                    \(modeGroup), COALESCE(NULLIF(LOWER(band),''),'Unknown'),
+                    COALESCE(NULLIF(UPPER(TRIM(json_extract(record_json,'$.continent'))),''),'Unknown'),
+                    STRFTIME('%Y', qso_start, 'unixepoch')
+                FROM qsos WHERE deleted_at IS NULL;
+                """) { statement -> AwardProgressSnapshot in
+                func string(_ column: Int32) -> String? {
+                    sqlite3_column_text(statement, column).map { String(cString: $0) }
+                }
+                func count(_ dictionary: inout [String: Int], _ key: String?) {
+                    dictionary[(key?.isEmpty == false ? key : nil) ?? "Unknown", default: 0] += 1
+                }
+                var result = AwardProgressSnapshot()
+                var workedDXCC = Set<Int>(), confirmedDXCC = Set<Int>()
+                var workedZones = Set<Int>(), confirmedZones = Set<Int>()
+                var workedStates = Set<String>(), confirmedStates = Set<String>()
+                var workedGrids = Set<String>(), confirmedGrids = Set<String>()
+                var step = sqlite3_step(statement)
+                while step == SQLITE_ROW {
+                    result.qsoCount += 1
+                    let isConfirmed = sqlite3_column_int(statement, 0) != 0
+                    if isConfirmed { result.confirmedQSOs += 1 }
+                    let dxcc = Int(sqlite3_column_int(statement, 1))
+                    if dxcc > 0 {
+                        workedDXCC.insert(dxcc)
+                        if isConfirmed { confirmedDXCC.insert(dxcc) }
+                    }
+                    let zone = Int(sqlite3_column_int(statement, 2))
+                    if (1...40).contains(zone) {
+                        workedZones.insert(zone)
+                        if isConfirmed { confirmedZones.insert(zone) }
+                    }
+                    if [291, 6, 110].contains(dxcc), let state = string(3), validStates.contains(state) {
+                        workedStates.insert(state)
+                        if isConfirmed { confirmedStates.insert(state) }
+                    }
+                    if let field = string(4) {
+                        workedGrids.insert(field)
+                        if isConfirmed { confirmedGrids.insert(field) }
+                    }
+                    count(&result.modeCounts, string(5))
+                    count(&result.bandCounts, string(6))
+                    count(&result.continentCounts, string(7))
+                    count(&result.yearCounts, string(8))
+                    step = sqlite3_step(statement)
+                }
+                guard step == SQLITE_DONE else { throw error() }
+                result.dxccWorked = workedDXCC.count
+                result.dxccConfirmed = confirmedDXCC.count
+                result.cqZonesWorked = workedZones.count
+                result.cqZonesConfirmed = confirmedZones.count
+                result.statesWorked = workedStates.count
+                result.statesConfirmed = confirmedStates.count
+                result.gridsWorked = workedGrids.count
+                result.gridsConfirmed = confirmedGrids.count
+                return result
+            }
             cachedAwards = value
             return value
         }
@@ -405,12 +522,107 @@ public final class LogbookDatabase: @unchecked Sendable {
         try lock.withLock {
             try refreshAggregateCacheVersion()
             if let cachedAwardCatalog { return cachedAwardCatalog }
-            let values = try withStatement("SELECT record_json FROM qsos WHERE deleted_at IS NULL ORDER BY qso_start ASC;") {
-                try decodeRows($0)
+            // All current calculators are limited to Japan, WAPC entities,
+            // or WCSA school calls. The slash arm is a portable-call superset.
+            // `save` maintains the indexed call column alongside record_json;
+            // use it to avoid parsing every full JSON blob on a cold open.
+            let schools = try AwardCatalogEngine.candidateSchoolCalls()
+            let placeholders = Array(repeating: "?", count: schools.count).joined(separator: ",")
+            let entities = AwardCatalogEngine.candidateDXCCs.map(String.init).joined(separator: ",")
+            let sql = """
+                WITH candidates AS (
+                    SELECT local_id FROM qsos
+                    WHERE deleted_at IS NULL AND CAST(json_extract(record_json,'$.dxcc') AS INTEGER) IN (\(entities))
+                    UNION
+                    SELECT local_id FROM qsos INDEXED BY idx_qsos_call
+                    WHERE INSTR(call,'/') > 0 OR UPPER(TRIM(call)) IN (\(placeholders))
+                )
+                SELECT qsos.record_json FROM candidates JOIN qsos USING (local_id)
+                WHERE qsos.deleted_at IS NULL ORDER BY qsos.qso_start ASC;
+                """
+            let values = try withStatement(sql) { statement in
+                for (index, call) in schools.enumerated() {
+                    bind(call, to: Int32(index + 1), in: statement)
+                }
+                return try decodeRows(statement)
             }
             let catalog = try AwardCatalogEngine.compute(qsos: values)
             cachedAwardCatalog = catalog
             return catalog
+        }
+    }
+
+    /// Single narrow projection for worked/confirmed reference history. It
+    /// does not decode QSO records or classify a missing/failed DB as "new".
+    public func opportunityReferenceHistory() throws -> [OpportunityReferenceHistory] {
+        try lock.withLock {
+            try refreshAggregateCacheVersion()
+            if let cachedOpportunityReferences { return cachedOpportunityReferences }
+            struct Key: Hashable { let kind: String; let reference: String }
+            struct BandModeKey: Hashable { let band: String; let mode: String }
+            struct Tally { var worked = 0; var confirmed = 0; var cells: [BandModeKey: (Int, Int)] = [:] }
+            let values = try withStatement("""
+                SELECT json_extract(record_json,'$.potaReference'),
+                    json_extract(record_json,'$.sotaReference'),
+                    json_extract(record_json,'$.iota'),
+                    json_extract(record_json,'$.wwffReference'),
+                    json_extract(record_json,'$.sig'),
+                    json_extract(record_json,'$.sigInfo'),
+                    json_extract(record_json,'$.band'),
+                    COALESCE(NULLIF(json_extract(record_json,'$.submode'),''),
+                             json_extract(record_json,'$.mode')),
+                    (UPPER(COALESCE(json_extract(record_json,'$.qslReceived'),'')) IN ('Y','V')
+                     OR UPPER(COALESCE(json_extract(record_json,'$.lotwReceived'),'')) IN ('Y','V'))
+                FROM qsos WHERE deleted_at IS NULL;
+                """) { statement -> [OpportunityReferenceHistory] in
+                func value(_ column: Int32) -> String {
+                    sqlite3_column_text(statement, column).map { String(cString: $0) } ?? ""
+                }
+                func references(_ raw: String) -> Set<String> {
+                    Set(raw.split(whereSeparator: { $0 == "," || $0 == ";" || $0.isNewline })
+                        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() }
+                        .filter { !$0.isEmpty })
+                }
+                var tallies: [Key: Tally] = [:]
+                var step = sqlite3_step(statement)
+                while step == SQLITE_ROW {
+                    let band = value(6).trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+                    let mode = value(7).trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+                    let confirmed = sqlite3_column_int(statement, 8) != 0
+                    var entries = [("pota", value(0)), ("sota", value(1)),
+                                   ("iota", value(2)), ("wwff", value(3))]
+                    let sig = value(4).trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+                    if ["WCA", "COTA", "CASTLE"].contains(sig) { entries.append(("castle", value(5))) }
+                    for (kind, raw) in entries {
+                        for reference in references(raw) {
+                            let key = Key(kind: kind, reference: reference)
+                            var tally = tallies[key] ?? Tally()
+                            tally.worked += 1
+                            if confirmed { tally.confirmed += 1 }
+                            let cell = BandModeKey(band: band, mode: mode)
+                            var counts = tally.cells[cell] ?? (0, 0)
+                            counts.0 += 1
+                            if confirmed { counts.1 += 1 }
+                            tally.cells[cell] = counts
+                            tallies[key] = tally
+                        }
+                    }
+                    step = sqlite3_step(statement)
+                }
+                guard step == SQLITE_DONE else { throw error() }
+                return tallies.map { key, tally in
+                    OpportunityReferenceHistory(
+                        kind: key.kind, reference: key.reference,
+                        workedCount: tally.worked, confirmedCount: tally.confirmed,
+                        bandModes: tally.cells.map { cell, counts in
+                            .init(band: cell.band, mode: cell.mode,
+                                  workedCount: counts.0, confirmedCount: counts.1)
+                        }.sorted { ($0.band, $0.mode) < ($1.band, $1.mode) }
+                    )
+                }.sorted { ($0.kind, $0.reference) < ($1.kind, $1.reference) }
+            }
+            cachedOpportunityReferences = values
+            return values
         }
     }
 
@@ -433,6 +645,8 @@ public final class LogbookDatabase: @unchecked Sendable {
         cachedAwards = nil
         cachedDXCCStatuses = nil
         cachedAwardCatalog = nil
+        cachedOpportunityReferences = nil
+        cachedClusterContactRows = nil
     }
 
     public func bandModeMatrix(call: String) throws -> Set<BandModeCell> {

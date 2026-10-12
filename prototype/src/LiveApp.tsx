@@ -8,6 +8,9 @@ import { workerRequest, openMonitor, openDetachedMap, detachedMapKind, findDetac
 import WorldMap from "./Map";
 import type { Spot } from "./model";
 import { ClusterPanel } from "./live/ClusterPanel";
+import { clusterSessionIntentKey, shouldResumeCluster } from "./live/clusterResume";
+import OpportunitiesPanel, { type Opportunity } from "./live/OpportunitiesPanel";
+import { useReferenceSchedule } from "./live/referenceSchedule";
 import { DetachedClusterSurface } from "./live/DetachedClusterSurface";
 import { openDetachedCluster, dockDetachedWorkspace, onClusterReady, onClusterRequest, onDetachedDock,
   publishClusterProjection, completeClusterRequest, type ClusterProjection } from "./live/DetachedClusterBridge";
@@ -43,7 +46,7 @@ type Data = Record<string, any>;
 type Request = (method: string, params?: Data) => Promise<any>;
 const navigation = [
   ["Operator Desk", LayoutDashboard], ["Log QSO", Radio], ["Logbook", BookOpen], ["DX Cluster", Network],
-  ["World Map", MapIcon], ["Band Maps", Activity], ["Awards", Award],
+  ["World Map", MapIcon], ["Band Maps", Activity], ["Chaser & DX", Activity], ["Awards", Award],
   ["Station Control", Radio], ["Sync", RefreshCw], ["Settings", Settings],
 ] as const;
 const monitor = new URLSearchParams(location.search).get("view") === "monitor";
@@ -76,6 +79,7 @@ function MainLiveApp() {
   const latestWorkspacePreferences = useRef<WorkspacePreferences | null>(null);
   const preferenceWrite = useRef<Promise<unknown>>(Promise.resolve());
   const preferenceRevision = useRef(0);
+  const reloadRevision = useRef(0);
   const [draft, setDraftState] = useState<Data | null>(null);
   const setDraft = useCallback((next: Data | null | ((current: Data | null) => Data | null)) => {
     setDraftState(current => changedCallDraft(current, typeof next === "function" ? next(current) : next));
@@ -128,6 +132,7 @@ function MainLiveApp() {
   const editing = useRef(false);
   const stationPolling = useRef(false);
   const clusterPolling = useRef(false);
+  const clusterResumeChecked = useRef(false);
   const clusterMutationEpoch = useRef(0);
   const latestSpots = useRef<Data[]>([]);
   const selectCurrentSpot = useRef<(spot: Data) => void>(() => {});
@@ -145,6 +150,11 @@ function MainLiveApp() {
   }, []);
   const request: Request = useCallback(async (method, params = {}) => {
     try {
+      if (method === "cluster_connect" || method === "cluster_disconnect") {
+        clusterResumeChecked.current = true;
+        try { localStorage.setItem(clusterSessionIntentKey, method === "cluster_connect" ? "connected" : "disconnected"); }
+        catch { /* Storage failure must not prevent an explicit Disconnect. */ }
+      }
       const clusterEpoch = method === "cluster_filter" || method === "cluster_configure" || method === "cluster_connect" || method === "cluster_disconnect"
         ? ++clusterMutationEpoch.current : clusterMutationEpoch.current;
       if (method.startsWith("rotor_")) {
@@ -214,6 +224,21 @@ function MainLiveApp() {
       return result;
     } catch (e) { throw new Error(e instanceof Error ? e.message : "Operation failed"); }
   }, [disarmAutoRotor]);
+  useReferenceSchedule(workspace?.workspace_exists === true, request);
+  const loadOpportunity = (item: Opportunity) => {
+    if (editing.current) { setError("Finish or clear the contact being edited before loading a new contact."); setView("Log QSO"); return; }
+    selection.current++; pendingTune.current = false; disarmAutoRotor();
+    spotRotorFence.current = { call: normalizedCall(item.callsign), confirmed: false };
+    editing.current = false; setFollowImmediate(false); setSelected(null);
+    setOperatorDraft(current => current ? { ...current, call: item.callsign,
+      frequencyHz: item.frequency_hz ?? null, band: item.frequency_hz ? bandForRadio(item.frequency_hz) || current.band : current.band,
+      mode: item.mode ? logMode(item.mode, current.mode || "") : current.mode, comment: item.comment,
+      potaReference: item.kind === "pota" ? item.reference : "", sotaReference: item.kind === "sota" ? item.reference : "",
+      iota: item.kind === "iota" ? item.reference : "", wwffReference: item.kind === "wwff" ? item.reference : "",
+      sig: ["castle", "wwbota"].includes(item.kind) ? item.kind.toUpperCase() : "",
+      sigInfo: ["castle", "wwbota"].includes(item.kind) ? item.reference : "" } : current);
+    setView("Log QSO"); setMessage("Chaser selection loaded into the draft only. Radio follow and Auto rotor are off; no station command was sent.");
+  };
   const viewedStationRequest: Request = useCallback(async (method, params = {}) => {
     if (viewProvider === stationProvider) return request(method, params);
     if (method === "station_snapshot") return { source: viewProvider, available: false, radio: null };
@@ -274,26 +299,32 @@ function MainLiveApp() {
     finally { providerTransition.current = false; setBusy(false); }
   };
   const reload = useCallback(async () => {
+    const revision = ++reloadRevision.current;
     setWorkspacePending(true);
     try {
     const state = await request("workspace_status");
     if (state.workspace_exists) {
       await preferenceWrite.current.catch(() => {});
-      const [s, totals, blank, loaded] = await Promise.all([request("settings_load"), request("logbook_stats"), request("logbook_draft"), request("workspace_preferences_load")]);
+      const [s, blank, loaded] = await Promise.all([request("settings_load"), request("logbook_draft"), request("workspace_preferences_load")]);
+      if (revision !== reloadRevision.current) return;
       const prior = loaded.preferences as WorkspacePreferences;
       const migrated = loaded.stored ? null : migrateLegacyBandMaps(prior, localStorage);
       const preferences = migrated ? (await request("workspace_preferences_save", { preferences: migrated })).preferences as WorkspacePreferences : prior;
       latestWorkspacePreferences.current = preferences;
       setWorkspacePreferences(preferences);
-      setSettings(s.settings); setStats(totals);
+      setSettings(s.settings);
       setDraft(current => {
         if (current) return current;
         try { const saved = JSON.parse(localStorage.getItem("xlog.integration.draft") || "null"); return saved?.id && saved?.start ? saved : blank.qso; }
         catch { return blank.qso; }
       });
     }
+    if (revision !== reloadRevision.current) return;
     setWorkspace(state);
-    } finally { setWorkspacePending(false); }
+    if (state.workspace_exists) void request("logbook_stats").then(totals => {
+      if (revision === reloadRevision.current) setStats(totals);
+    }).catch(() => { if (revision === reloadRevision.current) setError("Logbook totals could not be loaded. Your draft is available; reopen the workspace to retry."); });
+    } finally { if (revision === reloadRevision.current) setWorkspacePending(false); }
   }, [request]);
   const changeBandMapPreferences = (compact: boolean, view: BandMapViewPreferences) => {
     const current = latestWorkspacePreferences.current;
@@ -359,7 +390,19 @@ function MainLiveApp() {
     const pollCluster = async () => {
       if (clusterPolling.current) return;
       clusterPolling.current = true;
-      try { if (!disposed) await request("cluster_snapshot"); }
+      try {
+        if (!disposed) {
+          const state = await request("cluster_snapshot");
+          if (!disposed && !monitor && !clusterResumeChecked.current && state.configuration) {
+            clusterResumeChecked.current = true;
+            const active = state.snapshot?.connections?.some((connection: Data) => connection.phase === "connected" || connection.phase === "connecting");
+            if (!active && shouldResumeCluster(localStorage.getItem(clusterSessionIntentKey), state.configuration)) {
+              try { await request("cluster_connect"); }
+              catch { if (!disposed) setError("Cluster could not resume. Open DX Cluster to inspect its connection and retry Connect."); }
+            }
+          }
+        }
+      }
       catch { /* Keep the last verified cluster projection until reconnect. */ }
       finally { clusterPolling.current = false; }
     };
@@ -422,6 +465,7 @@ function MainLiveApp() {
   });
   const selectSpot = (spot: Data) => {
     if (monitor) return;
+    if (editing.current) { setError("Finish or clear the contact being edited before selecting a new spot."); setView("Log QSO"); return; }
     const generation = ++selection.current; const hz = Math.round(spot.frequencyKHz * 1000);
     const selectedProvider = provider.current;
     const rotorIntent = rotorRef.current?.owner && rotorProjection(rotorRef.current).connected ?
@@ -540,24 +584,25 @@ function MainLiveApp() {
       <span className="rail-end">{stats?.stats?.qso_count?.toLocaleString() ?? "—"} contacts · Integrated logbook</span>
       <button onClick={() => void openMonitor().catch(e => setError(e.message))}><ExternalLink size={14} />Monitor</button>
     </header>
-    <aside className="sidebar"><nav>{navigation.map(([name, Icon], i) => <div key={name}>{(i === 0 || name === "Station Control") && <div className="nav-group">{i === 0 ? "Station log" : "Services"}</div>}<button aria-current={view === name ? "page" : undefined} onClick={() => setView(name)}><Icon size={17} />{name}</button></div>)}</nav>
+    <aside className="sidebar"><nav>{navigation.filter(([name]) => name !== "Sync" || settings?.logbookMode !== "local").map(([name, Icon], i) => <div key={name}>{(i === 0 || name === "Station Control") && <div className="nav-group">{i === 0 ? "Station log" : "Services"}</div>}<button aria-current={view === name ? "page" : undefined} onClick={() => setView(name)}><Icon size={17} />{name}</button></div>)}</nav>
       <SidebarStation snapshot={stationWithRotor} provider={stationProvider} busy={busy} onAction={action => void run(async () => { await request("station_action", { action }); })} />
       <div className="sidebar-foot"><strong className="teal">{settings?.stationCall || "Station not configured"}</strong><span>{settings?.gridSquare || "Set station grid"}</span></div>
     </aside>
-    <main><div className="workspace-heading"><h1>{view}</h1><span className="secondary">{workspace?.workspace_exists ? "Your isolated working logbook · manual sync" : workspace ? "Choose a logbook to begin" : workspacePending ? "Opening your workspace" : "Logbook service unavailable"}</span></div>
+    <main>{!["Operator Desk", "Band Maps"].includes(view) && <div className="workspace-heading"><h1>{view}</h1><span className="secondary">{workspace?.workspace_exists ? settings?.logbookMode === "local" ? "Standalone local logbook" : "Local logbook · manual Wavelog sync" : workspace ? "Choose a logbook to begin" : workspacePending ? "Opening your workspace" : "Logbook service unavailable"}</span></div>}
       {error && <div className="live-error" role="alert">{error}<button onClick={() => setError("")}>Dismiss</button></div>}
       {message && !message.endsWith("· radio frequency and mode confirmed") && <p className="live-message" role="status">{message}</p>}
       {["Operator Desk", "Log QSO"].includes(view) && referenceEvidence?.call === normalizedCall(draft?.call) && !!referenceEvidence.rows.length &&
         <p className="live-message" role="status">{referenceEvidence.rows.map(row => `${String(row.kind).toUpperCase()} ${row.reference} · ${row.status === "verified" ? `Verified: ${row.name}` : row.status === "not_installed" ? "Directory not installed" : "Not found in installed directory"}`).join(" | ")}</p>}
       {!workspace?.workspace_exists ? <WorkspaceGate workspace={workspace} pending={workspacePending} busy={busy}
         retry={() => void run(reload)} create={mode => void run(async () => { await request("workspace_create", { mode }); await reload(); })} /> : <>
-      {view === "Operator Desk" && <><OperatorDesk draft={draft} setDraft={setOperatorDraft} save={save} clear={() => void run(clear)} busy={busy} lookup={lookup} previous={previous} request={request} refresh={refresh} onEditor={() => setView("Log QSO")} onReadRadio={readRadioIntoDraft} follow={follow} setFollow={setFollowImmediate} rotor={rotorState} autoRotor={autoRotor} setAutoRotor={changeAutoRotor} onManualRotor={disarmAutoRotor} isEditing={editing.current} intelligenceBands={workspacePreferences?.intelligenceBands} />
+      {view === "Operator Desk" && <><OperatorDesk equipment={settings?.stationEquipment} draft={draft} setDraft={setOperatorDraft} save={save} clear={() => void run(clear)} busy={busy} lookup={lookup} previous={previous} request={request} refresh={refresh} onEditor={() => setView("Log QSO")} onReadRadio={readRadioIntoDraft} follow={follow} setFollow={setFollowImmediate} rotor={rotorState} autoRotor={autoRotor} setAutoRotor={changeAutoRotor} onManualRotor={disarmAutoRotor} isEditing={editing.current} intelligenceBands={workspacePreferences?.intelligenceBands} />
         <div className="live-desk-bottom"><OperatorWorkspace map={<div className="live-map">{map}</div>} cluster={cluster} selectedSpotId={selected} onSelect={selectSpot} bandMaps={<BandMaps spots={liveSpots} onSelect={selectSpot} radioFrequencyHz={station?.radio?.frequency_hz} compact preferences={workspacePreferences ? bandMapView(workspacePreferences, true) : undefined} onPreferencesChange={value => changeBandMapPreferences(true, value)} />} /></div></>}
       {view === "Log QSO" && <QSOEditor draft={draft} setDraft={setOperatorDraft} save={save} clear={() => void run(clear)} busy={busy} lookup={lookup} previous={previous} follow={follow} setFollow={setFollowImmediate} request={request} onReadRadio={readRadioIntoDraft} isEditing={editing.current} automaticStationMetadata={automaticStationMetadata} />}
       {view === "Logbook" && <LogbookPanel onRequest={request} refreshKey={refresh} onEdit={qso => { editing.current = true; setDraft(qso); setFollowImmediate(false); setView("Log QSO"); }} />}
       {view === "DX Cluster" && <ClusterPanel passive snapshot={cluster} selectedSpotId={selected} onRequest={request} onSelect={selectSpot} onUndock={() => void openDetachedCluster().catch(e => setError(e.message))} />}
+      {view === "Chaser & DX" && <OpportunitiesPanel request={request} refresh={refresh} onSelect={loadOpportunity} />}
       {view === "World Map" && <><div className="live-actions"><button type="button" onClick={() => void openDetachedMap("world-map").catch(e => setError(e.message))}><ExternalLink size={14} />Undock World Map</button></div><div className="live-map full">{map}</div></>}
-      {view === "Band Maps" && <><div className="live-actions"><button type="button" onClick={() => void openDetachedMap("band-maps").catch(e => setError(e.message))}><ExternalLink size={14} />Undock Band Maps</button></div><BandMaps spots={liveSpots} onSelect={selectSpot} radioFrequencyHz={station?.radio?.frequency_hz} preferences={workspacePreferences ? bandMapView(workspacePreferences, false) : undefined} onPreferencesChange={value => changeBandMapPreferences(false, value)} /></>}
+      {view === "Band Maps" && <BandMaps spots={liveSpots} onSelect={selectSpot} radioFrequencyHz={station?.radio?.frequency_hz} onUndock={() => void openDetachedMap("band-maps").catch(e => setError(e.message))} preferences={workspacePreferences ? bandMapView(workspacePreferences, false) : undefined} onPreferencesChange={value => changeBandMapPreferences(false, value)} />}
       {view === "Station Control" && <><div className="live-tabs" role="group" aria-label="Station sections">{["Control and connections", "RUMlog spots"].map(section => <button key={section} aria-pressed={stationSection === section} onClick={() => setStationSection(section)}>{section}</button>)}</div>
         {stationSection === "RUMlog spots" ? <SpotBridgePanel request={request} provider={stationProvider} /> : <><div className="live-station-provider" role="group" aria-label="Radio connection type">
         {([ ["direct_agent", "Remote station · embedded xCat"], ["direct_flex_lan", "Direct FLEX · LAN"], ["hamlib", "Local station · Hamlib"] ] as const).map(([id, label]) => <button key={id} className={viewProvider === id ? "selected" : ""} aria-pressed={viewProvider === id} disabled={busy} onClick={() => setViewProvider(id)}>{label}</button>)}
@@ -565,10 +610,10 @@ function MainLiveApp() {
         <span>Active radio: {radioProviderLabels[stationProvider]}. {viewProvider === stationProvider ? "Your independent rotor stays connected." : "Viewing only. Apply radio selection to disconnect the active radio; your independent rotor stays connected."}</span></div>
         {viewProvider === "hamlib" ? <HamlibPanel request={viewedStationRequest} snapshot={stationProvider === viewProvider ? station : null} /> :
           viewProvider === "direct_flex_lan" ? <DirectFlexPanel request={viewedStationRequest} snapshot={stationProvider === viewProvider ? station : null} /> :
-          <StationPanel snapshot={stationProvider === viewProvider ? station : null} onRequest={viewedStationRequest} onSnapshot={value => { if (stationProvider === viewProvider && provider.current === viewProvider) setStation(value); }} independentRotor />}<RotorPanel snapshot={rotorState} request={request} onManual={disarmAutoRotor} /></>}</>}
+          <StationPanel snapshot={stationProvider === viewProvider ? station : null} onRequest={viewedStationRequest} onSnapshot={value => { if (stationProvider === viewProvider && provider.current === viewProvider) setStation(value); }} independentRotor />}</>}</>}
       {(view === "Awards" || awardsOpened) && <div hidden={view !== "Awards"}><IntegratedAwards request={request} refresh={refresh} initialStats={stats?.awards} /></div>}
-      {view === "Settings" && settings && <ServiceSettings values={settings} request={request} onSaved={setSettings} dataRequest={dataManagementRequest} onDataChanged={() => { setSettings(null); setDraft(null); setStats(null); latestWorkspacePreferences.current = null; setWorkspacePreferences(null); setRefresh(n => n + 1); }} />}
-      {view === "Sync" && <SyncPanel request={request} onChanged={() => setRefresh(n => n + 1)} />}
+      {view === "Settings" && settings && <ServiceSettings values={settings} request={request} onSaved={setSettings} rotorSettings={<RotorPanel snapshot={rotorState} request={request} onManual={disarmAutoRotor} />} dataRequest={dataManagementRequest} onDataChanged={() => { setSettings(null); setDraft(null); setStats(null); latestWorkspacePreferences.current = null; setWorkspacePreferences(null); setRefresh(n => n + 1); }} />}
+      {view === "Sync" && (settings?.logbookMode === "local" ? <p>Standalone local logbook. Wavelog synchronization is disabled in Settings.</p> : <SyncPanel request={request} onChanged={() => setRefresh(n => n + 1)} />)}
       </>}
     </main></div>;
 }

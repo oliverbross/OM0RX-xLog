@@ -12,6 +12,32 @@ vi.mock("../src/live/BandMaps", async original => ({ ...await original<typeof im
   default: ({ preferences: view, onPreferencesChange }: any) => <div><output data-testid="map-font">{view?.fontScale}</output><button disabled={!view} onClick={() => onPreferencesChange?.({ ...view, fontScale: Number((view.fontScale + 0.1).toFixed(1)) })}>Increase map font</button></div> }));
 vi.mock("../src/live/ClusterPanel", () => ({ ClusterPanel: ({ onSelect }: any) => <button onClick={() => onSelect({ id: "spot", callsign: "K1ABC", frequencyKHz: 14074, mode: "FT8", band: "20m" })}>Select test spot</button> }));
 const preferences = { deskBandMapBands: ["20m"], detachedBandMapBands: ["20m"], deskBandMapFollowsRadio: false, detachedBandMapFollowsRadio: false, detachedBandMapLayout: "Single row", bandMapFontScale: 1, intelligenceBands: ["20m"], clusterSpotOpensFullEditor: false };
+function controlOneSecondPolls() {
+  // Control only the app's 1000ms snapshot intervals. Keep Testing Library's
+  // 50ms waits, lookup debounces and all other timers real; no wall-clock sleeps
+  // or shortened application poll periods are needed to prove poll/reply order.
+  const callbacks = new Map<number, () => void>(); let nextId = -1000;
+  const interval = globalThis.setInterval, clear = globalThis.clearInterval;
+  vi.spyOn(globalThis, "setInterval").mockImplementation(((callback: TimerHandler, delay?: number, ...args: unknown[]) => {
+    if (delay === 1000 && typeof callback === "function") {
+      const id = nextId--; callbacks.set(id, () => callback(...args)); return id;
+    }
+    return interval(callback, delay, ...args);
+  }) as typeof setInterval);
+  vi.spyOn(globalThis, "clearInterval").mockImplementation(((id: ReturnType<typeof setInterval>) => {
+    if (!callbacks.delete(id as unknown as number)) clear(id);
+  }) as typeof clearInterval);
+  return async () => {
+    const before = bridge.request.mock.calls.filter(([method]) => method === "rotor_snapshot").length;
+    await act(async () => { for (const callback of [...callbacks.values()]) callback(); });
+    expect(bridge.request.mock.calls.filter(([method]) => method === "rotor_snapshot").length).toBeGreaterThan(before);
+  };
+}
+async function openRotorSettings() {
+  fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: "Settings" }));
+  fireEvent.click(await screen.findByRole("tab", { name: "Rotator" }));
+  return screen.findByRole("region", { name: "Independent rotor" });
+}
 beforeEach(() => {
   localStorage.clear(); bridge.request.mockReset(); bridge.tune = null; bridge.rotorGeneration = 4; bridge.intentId = null; bridge.deferMotion = false; bridge.motion = null;
   bridge.request.mockImplementation(async (method: string, params: any = {}) => {
@@ -36,6 +62,7 @@ beforeEach(() => {
 });
 
 it.each(["before", "after"])("keeps auto armed when its own identified motion is polled %s the reply", async order => {
+  const poll = controlOneSecondPolls();
   bridge.deferMotion = true;
   render(<LiveApp />);
   const automatic = await screen.findByRole("checkbox", { name: "Auto rotor" });
@@ -47,14 +74,15 @@ it.each(["before", "after"])("keeps auto armed when its own identified motion is
   await act(async () => { bridge.tune?.({ accepted: true, confirmed: true }); });
   await waitFor(() => expect(bridge.motion).not.toBeNull());
   const reply = { owner: "native_dcu1", generation: 5, intent_id: bridge.intentId, state: "active", backend: { accepted: true } };
-  if (order === "before") await act(async () => { await new Promise(resolve => setTimeout(resolve, 1100)); });
+  if (order === "before") await poll();
   await act(async () => { bridge.motion?.resolve(reply); });
-  if (order === "after") await act(async () => { await new Promise(resolve => setTimeout(resolve, 1100)); });
+  if (order === "after") await poll();
   fireEvent.click(screen.getByRole("button", { name: "Operator Desk" }));
   expect((await screen.findByRole("checkbox", { name: "Auto rotor" }) as HTMLInputElement).checked).toBe(true);
 });
 
 it.each(["rejected", "late success"])("manual monitor motion disarms pending auto and cannot rearm from %s", async outcome => {
+  const poll = controlOneSecondPolls();
   bridge.deferMotion = true;
   render(<LiveApp />);
   const automatic = await screen.findByRole("checkbox", { name: "Auto rotor" });
@@ -70,7 +98,7 @@ it.each(["rejected", "late success"])("manual monitor motion disarms pending aut
   // generation after this auto turn. Neither observation is ours.
   bridge.intentId = null;
   if (outcome === "late success") bridge.rotorGeneration++;
-  await act(async () => { await new Promise(resolve => setTimeout(resolve, 1100)); });
+  await poll();
   await act(async () => {
     if (outcome === "rejected") bridge.motion?.reject(new Error("Rotor generation changed"));
     else bridge.motion?.resolve({ owner: "native_dcu1", generation: 5, intent_id: ownId, state: "active", backend: { accepted: true } });
@@ -79,7 +107,7 @@ it.each(["rejected", "late success"])("manual monitor motion disarms pending aut
   expect((await screen.findByRole("checkbox", { name: "Auto rotor" }) as HTMLInputElement).checked).toBe(false);
   expect(bridge.request.mock.calls.filter(([method]) => method === "rotor_goto")).toHaveLength(1);
 });
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 it("never turns from a late lookup after an unconfirmed spot tune", async () => {
   const base = bridge.request.getMockImplementation()!;
@@ -230,7 +258,7 @@ it("cancels pending automatic motion on independent stop and never replays it", 
   fireEvent.click(screen.getByRole("button", { name: "DX Cluster" }));
   fireEvent.click(await screen.findByRole("button", { name: "Select test spot" }));
   await waitFor(() => expect(bridge.tune).not.toBeNull());
-  fireEvent.click(screen.getByRole("button", { name: "Station Control" }));
+  await openRotorSettings();
   fireEvent.click(await screen.findByRole("button", { name: "Stop rotor" }));
   await waitFor(() => expect(bridge.request).toHaveBeenCalledWith("rotor_stop", { owner: "native_dcu1", generation: 4 }));
   await act(async () => { bridge.tune?.({ accepted: true, confirmed: true }); });
@@ -251,7 +279,7 @@ it("stops the fresh same-owner generation while a goto reply is in flight and ne
   await act(async () => { bridge.tune?.({ accepted: true, confirmed: true }); });
   await waitFor(() => expect(bridge.motion).not.toBeNull());
   const ownId = bridge.intentId;
-  fireEvent.click(screen.getByRole("button", { name: "Station Control" }));
+  await openRotorSettings();
   fireEvent.click(await screen.findByRole("button", { name: "Stop rotor" }));
   await waitFor(() => expect(bridge.request).toHaveBeenCalledWith("rotor_stop", { owner: "native_dcu1", generation: 5 }));
   await act(async () => { bridge.motion?.resolve({ owner: "native_dcu1", generation: 5, intent_id: ownId, state: "active", backend: { accepted: true } }); });
@@ -263,7 +291,7 @@ it("stops the fresh same-owner generation while a goto reply is in flight and ne
 it("does not retry or redirect an explicit Stop across an owner switch", async () => {
   render(<LiveApp />);
   await waitFor(() => expect((screen.getByRole("checkbox", { name: "Auto rotor" }) as HTMLInputElement).disabled).toBe(false));
-  fireEvent.click(screen.getByRole("button", { name: "Station Control" }));
+  await openRotorSettings();
   const base = bridge.request.getMockImplementation()!;
   bridge.request.mockImplementation(async (method: string, params: any = {}) => method === "rotor_snapshot"
     ? { result: { owner: "hamlib", generation: 5, state: "active", backend: { fields: { position: { Azimuth: "80" } } } } }
@@ -285,6 +313,8 @@ it("preserves rotor ownership across radio handover and clears only the stale gu
   expect(bridge.request.mock.calls.filter(([method]) => method === "station_disconnect")).toHaveLength(1);
   expect(bridge.request.mock.calls.some(([method]) => method === "rotor_disconnect")).toBe(false);
   await waitFor(() => expect(screen.queryByText("Previous radio disconnected. Connect the selected radio explicitly.")).toBeNull());
+  expect(screen.queryByRole("region", { name: "Independent rotor" })).toBeNull();
+  await openRotorSettings();
   expect(screen.getByRole("region", { name: "Independent rotor" })).toBeTruthy();
   expect(screen.getByText("053°")).toBeTruthy();
 });

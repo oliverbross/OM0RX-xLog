@@ -1,14 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { hamlibManufacturers, loadHamlibCatalogue, type HamlibModel } from "./hamlibCatalogue";
 type Data = Record<string, any>;
 type Request = (method: string, params?: Data) => Promise<Data>;
 export default function HamlibPanel({ request, snapshot }: { request: Request; snapshot: Data | null }) {
   return <section className="live-station"><header className="live-station-head"><div><h2>Local station · Hamlib</h2><p>Radio and rotor connect directly from xLog. No xCat application or Windows agent is required.</p></div></header>
     <div className="live-station-grid"><HamlibDevice device="radio" request={request} state={snapshot?.hamlib?.radio} /></div></section>;
 }
-export function HamlibDevice({ device, request, state, configurationOnly = false, connectionOwned = false }: { device: "radio" | "rotor"; request: Request; state?: Data | null; configurationOnly?: boolean; connectionOwned?: boolean }) {
+export function HamlibDevice({ device, request, state, configurationOnly = false, connectionOwned = false, connectionSelectionAllowed = true }: { device: "radio" | "rotor"; request: Request; state?: Data | null; configurationOnly?: boolean; connectionOwned?: boolean; connectionSelectionAllowed?: boolean }) {
   const key = `xlog.hamlib.${device}`;
   const [config, setConfig] = useState<Data>(() => { try { return JSON.parse(localStorage.getItem(key) || "null") || { mode: "managed", path: "", baud: 9600, host: "127.0.0.1", port: device === "radio" ? 4532 : 4533 }; } catch { return { mode: "managed" }; } });
-  const [models, setModels] = useState<Data[]>([]), [search, setSearch] = useState("");
+  const [models, setModels] = useState<HamlibModel[]>([]), [search, setSearch] = useState(""), [manufacturer, setManufacturer] = useState("");
+  const [catalogueLoading, setCatalogueLoading] = useState(true);
+  const catalogueVersion = useRef(0);
   const [ports, setPorts] = useState<Data[]>([]), [capabilities, setCapabilities] = useState<Data | null>(null);
   const [health, setHealth] = useState<Data | null>(null);
   const [error, setError] = useState(""), [message, setMessage] = useState(""), [busy, setBusy] = useState(false);
@@ -20,15 +23,21 @@ export function HamlibDevice({ device, request, state, configurationOnly = false
   const connection = () => ({ ...config, model: Number(config.model), baud: Number(config.baud), port: Number(config.port), tx_enabled: tx });
   async function act(method: string, params: Data, label: string) {
     setBusy(true); setError(""); setMessage("");
-    try { const result = await request(method, { device, ...params });
+    try { if (!connectionSelectionAllowed && ["hamlib_connect", "hamlib_reconnect", "hamlib_disconnect"].includes(method)) throw new Error("Apply this rotor selection before changing its connection.");
+      const result = await request(method, { device, ...params });
       setMessage(`${label}: ${result?.readback?.state === "observed" ? "observed readback received" : result?.state === "accepted" ? "accepted; check observed state below" : "completed"}.`);
       return result;
     } catch (e) { setError(e instanceof Error ? e.message : "Hamlib operation failed"); }
     finally { setBusy(false); }
   }
   const control = (action: string, params: Data = {}) => act("hamlib_control", { action, ...params }, action);
-  const loadModels = () => request("hamlib_models", { device }).then(result => setModels(result.models || [])).catch(e => setError(e.message));
-  useEffect(() => { void loadModels(); }, [device]);
+  const loadModels = (retry = false) => {
+    const version = ++catalogueVersion.current; setCatalogueLoading(true);
+    return loadHamlibCatalogue(request, device, retry).then(result => { if (version === catalogueVersion.current) { setModels(result); setError(""); } })
+      .catch(cause => { if (version === catalogueVersion.current) setError(cause instanceof Error ? cause.message : "Device catalogue unavailable."); })
+      .finally(() => { if (version === catalogueVersion.current) setCatalogueLoading(false); });
+  };
+  useEffect(() => { setModels([]); setSearch(""); setManufacturer(""); void loadModels(); return () => { catalogueVersion.current++; }; }, [device, request]);
   useEffect(() => {
     let active = true, checking = false;
     const check = async () => {
@@ -40,14 +49,22 @@ export function HamlibDevice({ device, request, state, configurationOnly = false
     void check(); const timer = setInterval(() => void check(), 3000);
     return () => { active = false; clearInterval(timer); };
   }, [device, request]);
-  const filtered = models.filter(m => Object.values(m).join(" ").toLowerCase().includes(search.toLowerCase()));
+  const manufacturers = useMemo(() => hamlibManufacturers(models), [models]);
+  const filtered = useMemo(() => models.filter(model => (!manufacturer || model.manufacturer.toLowerCase() === manufacturer) && model.search.includes(search.trim().toLowerCase())), [models, manufacturer, search]);
+  const selectedModel = models.find(model => model.id === Number(config.model));
+  const selectedOutsideFilter = !!config.model && !filtered.some(model => model.id === Number(config.model));
+  const deviceLabel = device === "radio" ? "Radio" : "Rotor";
+  const modelReady = config.mode === "external" || !!selectedModel;
   const connected = health ? health.connected === true : !!state;
   return <section className="live-station-card hamlib-device"><h3>{device === "radio" ? "Radio" : "Rotator"} <span className={connected ? "teal" : "secondary"}>{connected ? "Connected" : "Disconnected"}</span></h3>
     <form className="live-station-connect" onSubmit={e => { e.preventDefault(); localStorage.setItem(key, JSON.stringify(config)); void act("hamlib_connect", connection(), "Connection"); }}>
       <label>Connection<select value={config.mode} onChange={e => update("mode", e.target.value)}><option value="managed">Built-in Hamlib · serial / device TCP</option><option value="external">Existing local Hamlib daemon</option></select></label>
-      {config.mode === "managed" ? <><label>Find manufacturer or model<input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search the bundled Hamlib catalogue" /></label>
-        <label>Model<select required value={config.model || ""} onChange={e => update("model", Number(e.target.value))}><option value="">Choose hardware…</option>{filtered.map(m => <option key={m.id} value={m.id}>{m.manufacturer} {m.model} · {m.id} · {m.maturity}</option>)}</select></label>
-        {!models.length && <button type="button" onClick={() => void loadModels()}>Reload device catalogue</button>}
+      {config.mode === "managed" ? <><label>Manufacturer<select aria-label={`${deviceLabel} manufacturer`} value={manufacturer} onChange={event => setManufacturer(event.target.value)}><option value="">All manufacturers</option>{manufacturers.map(group => <option key={group.key} value={group.key}>{group.name} · {group.count}</option>)}</select></label>
+        <label>Find model<input aria-label={`Find ${device} model`} value={search} onChange={e => setSearch(e.target.value)} placeholder="Model name, ID or maturity" /></label>
+        <label>Model<select aria-label={`${deviceLabel} model`} required value={config.model || ""} onChange={e => update("model", Number(e.target.value))}><option value="">Choose hardware…</option>{selectedOutsideFilter && <option value={config.model}>{selectedModel ? `${selectedModel.manufacturer} ${selectedModel.model} · ${selectedModel.id} · ${selectedModel.maturity} (selected; outside filter)` : `Saved model ${config.model} · not in this catalogue`}</option>}{filtered.map(m => <option key={m.id} value={m.id}>{m.manufacturer} {m.model} · {m.id} · {m.maturity}</option>)}</select></label>
+        <p className="live-station-helper" role="status">{catalogueLoading ? "Loading bundled device catalogue…" : `${filtered.length} matching ${device} models · ${models.length} listed. Catalogue support is not physical-device verification.`}</p>
+        {!catalogueLoading && !models.length && <button type="button" onClick={() => void loadModels(true)}>Reload device catalogue</button>}
+        {!catalogueLoading && !!config.model && !selectedModel && <p className="amber">Choose a model from the current bundled catalogue before connecting.</p>}
         <label>Serial device or device TCP address<input required={config.model !== 1} value={config.path || ""} onChange={e => update("path", e.target.value)} placeholder="/dev/cu.usbserial, COM3, or host:port" /></label>
         <div className="live-actions"><button type="button" disabled={busy} onClick={() => void act("hamlib_serial_ports", {}, "Device scan").then(result => result && setPorts(result.ports || []))}>Scan serial devices</button>{ports.length > 0 && <label>Detected device<select value="" onChange={e => update("path", e.target.value)}><option value="">Choose detected device…</option>{ports.map(p => <option key={p.path} value={p.path}>{p.label || p.path}</option>)}</select></label>}</div>
         <label>Serial baud<input type="number" min="300" max="921600" value={config.baud || 9600} onChange={e => update("baud", Number(e.target.value))} /></label>
@@ -57,7 +74,7 @@ export function HamlibDevice({ device, request, state, configurationOnly = false
           ["dtr_state", "DTR", ["Unset", "OFF", "ON"]], ["rts_state", "RTS", ["Unset", "OFF", "ON"]],
         ].map(([key, label, choices]) => <label key={String(key)}>{String(label)}<select value={config.serial?.[String(key)] ?? ""} onChange={e => serial(String(key), ["data_bits", "stop_bits"].includes(String(key)) ? Number(e.target.value) : e.target.value)}><option value="">Model default</option>{(choices as (string | number)[]).map(value => <option key={value} value={value}>{value}</option>)}</select></label>)}</div></details></> : <><label>Local daemon host<input value={config.host || "127.0.0.1"} onChange={e => update("host", e.target.value)} /></label><label>Port<input type="number" min="1" max="65535" value={config.port || ""} onChange={e => update("port", Number(e.target.value))} /></label></>}
       {device === "radio" && <label><input type="checkbox" checked={tx} onChange={e => setTX(e.target.checked)} />Enable transmit commands for this connection</label>}
-      <div className="live-actions"><button disabled={busy || connected || connectionOwned}>Connect {device}</button><button type="button" disabled={busy} onClick={() => { localStorage.setItem(key, JSON.stringify(config)); void act("hamlib_reconnect", connection(), "Reconnect"); }}>Reconnect {device}</button><button type="button" disabled={busy || (!connected && !connectionOwned)} onClick={() => void act("hamlib_disconnect", {}, "Disconnect")}>Disconnect</button><button type="button" disabled={busy || (!connected && !config.model)} onClick={() => void act("hamlib_capabilities", connected ? {} : { model: Number(config.model) }, "Capabilities").then(result => result && setCapabilities(result))}>Read capabilities</button></div>
+      <div className="live-actions"><button disabled={busy || connected || connectionOwned || !modelReady || !connectionSelectionAllowed}>Connect {device}</button><button type="button" disabled={busy || !modelReady || !connectionSelectionAllowed} onClick={() => { localStorage.setItem(key, JSON.stringify(config)); void act("hamlib_reconnect", connection(), "Reconnect"); }}>Reconnect {device}</button><button type="button" disabled={busy || (!connected && !connectionOwned) || !connectionSelectionAllowed} onClick={() => void act("hamlib_disconnect", {}, "Disconnect")}>Disconnect</button><button type="button" disabled={busy || (!connected && !selectedModel)} onClick={() => void act("hamlib_capabilities", connected ? {} : { model: Number(config.model) }, "Capabilities").then(result => result && setCapabilities(result))}>Read capabilities</button></div>
     </form>
     {error && <p className="live-station-error" role="alert">{error}</p>}{message && <p role="status">{message}</p>}
     {health?.reconnect_required && <p className="amber" role="status">The {device} connection needs attention. Check its cable, power and connection settings, then reconnect. No previous control command will be replayed.</p>}

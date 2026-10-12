@@ -6,6 +6,45 @@ import XLogCore
 
 @Suite("Live logbook isolated workspace")
 struct LiveLogbookMethodsTests {
+    @Test("Fresh workspace is local and mode changes are explicit without clearing its outbox")
+    func standaloneModePersistence() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let service = LiveLogbookMethods(supportDirectory: root)
+        _ = try service.handle(method: "workspace_create", params: ["mode": "empty"])
+        var settings = try #require(service.handle(method: "settings_load", params: [:])["settings"] as? [String: Any])
+        #expect(settings["logbookMode"] as? String == "local")
+        #expect(settings["automaticSync"] as? Bool == false)
+        let db = try service.openedDatabase()
+        let qso = QSO(call: "K1ABC", start: Date(timeIntervalSince1970: 1_790_000_000), band: "20m", mode: "CW")
+        try db.save(qso)
+        let pending = try db.pendingSyncCount()
+
+        var missingMode = settings
+        missingMode.removeValue(forKey: "logbookMode")
+        #expect(throws: WorkerFailure.self) {
+            try service.handle(method: "settings_save", params: ["settings": missingMode])
+        }
+        #expect(try service.currentSettings().logbookMode == .local)
+        settings["logbookMode"] = "wavelog"
+        let saved = try service.handle(method: "settings_save", params: ["settings": settings])
+        #expect((saved["settings"] as? [String: Any])?["logbookMode"] as? String == "wavelog")
+        #expect((saved["settings"] as? [String: Any])?["automaticSync"] as? Bool == false)
+        #expect(try db.pendingSyncCount() == pending)
+        #expect(try service.currentSettings().logbookMode == .wavelog)
+
+        settings["logbookMode"] = "local"
+        try service.beginManualSync()
+        #expect(throws: WorkerFailure.self) {
+            try service.handle(method: "settings_save", params: ["settings": settings])
+        }
+        service.endManualSync()
+        #expect(try service.currentSettings().logbookMode == .wavelog)
+        _ = try service.handle(method: "settings_save", params: ["settings": settings])
+        #expect(try service.currentSettings().logbookMode == .local)
+        #expect(try db.pendingSyncCount() == pending)
+    }
+
     @Test("CTY resolver is reused until the disposable reference file changes")
     func ctyResolverSourceIdentity() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -159,6 +198,7 @@ struct LiveLogbookMethodsTests {
         #expect(created["pending_sync_count"] as? Int == 1)
         #expect(created["outbox_count"] as? Int == 1)
         #expect(created["automatic_sync"] as? Bool == false)
+        #expect(try service.currentSettings().logbookMode == .local)
         #expect(try native.pendingSyncCount() == 1)
         #expect(try native.outboxCount() == 1)
         let status = try service.handle(method: "workspace_status", params: [:])

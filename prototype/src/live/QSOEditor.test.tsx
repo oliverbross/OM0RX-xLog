@@ -87,7 +87,7 @@ describe("QSOEditor", () => {
       expect(screen.getByRole("heading", { name: heading })).toBeTruthy();
     }
     expect(screen.queryByRole("button", { name: "Station" })).toBeNull();
-    expect(screen.getByText("Saved locally first; Wavelog synchronization is manual.")).toBeTruthy();
+    expect(screen.getByText("Saved to your local logbook.")).toBeTruthy();
   });
   it("renders only supplied station context with explicit provenance", () => {
     const view = render(<Harness />);
@@ -165,6 +165,65 @@ describe("QSOEditor", () => {
   it("recognizes LoTW confirmation independently of a negative paper QSL", () => {
     render(<Harness previous={[{ call: "EA7EU", band: "20m", mode: "CW", qslReceived: "N", lotwReceived: "Y" }]} />);
     expect(screen.getByText("Confirmed")).toBeTruthy();
+  });
+  it("keeps the screenshot's compact five-band / three-mode matrices identically shaped without extra status chips", async () => {
+    const request = vi.fn(async (method: string) => method === "logbook_matrix" ? { cells: [
+      { band: "17m", mode: "FT4", worked: true, confirmed: false }, { band: "20m", mode: "CW", worked: true, confirmed: false },
+    ] } : { history: { call: "EA7EU", adif: 281, matrix: [{ band: "6m", mode: "FM", worked: true, confirmed: true }, { band: "80m", mode: "FT8", worked: true, confirmed: true }] } });
+    const { container } = render(<Harness lookup={{ call: "EA7EU", country: "A deliberately long but authentic country name", dxcc: 281 }} request={request} />);
+    await screen.findByLabelText("Country 80m FT8: Confirmed");
+    expect(screen.getByLabelText("Callsign 20m CW: Worked")).toBeTruthy(); expect(screen.queryByLabelText("Callsign 17m FT4: Worked")).toBeNull();
+    const callTable = screen.getByRole("table", { name: "Callsign band and mode status" }), countryTable = screen.getByRole("table", { name: "Country band and mode status" });
+    expect(within(callTable).getAllByRole("columnheader").map(node => node.textContent)).toEqual(within(countryTable).getAllByRole("columnheader").map(node => node.textContent));
+    expect(within(callTable).getAllByRole("columnheader").map(node => node.textContent)).toEqual(["Mode", "80m", "40m", "20m", "15m", "10m"]);
+    expect(within(callTable).getAllByRole("rowheader").map(node => node.textContent)).toEqual(["CW", "SSB", "FT8"]);
+    expect(within(callTable).getAllByRole("rowheader").map(node => node.textContent)).toEqual(within(countryTable).getAllByRole("rowheader").map(node => node.textContent));
+    expect(callTable.querySelectorAll("td").length).toBe(countryTable.querySelectorAll("td").length);
+    expect(container.querySelectorAll(".qso-matrix-heading")).toHaveLength(2); expect(container.querySelector(".qso-matrix-other")).toBeNull();
+    expect(container.querySelectorAll(".qso-matrix-legend")).toHaveLength(2);
+    expect(editorCSS).toContain("grid-template-rows:16px 18px"); expect(editorCSS).toContain(".qso-matrix-section+.qso-matrix-section { padding-left:0; border-left:0; }");
+    expect(value()).toEqual(initial());
+  });
+  it("opens a twice-sized thumbnail in a safe full-size modal, traps focus, closes on Escape and restores focus", () => {
+    const save = vi.fn(), photo = "https://cdn-bio.qrz.com/e/ea7eu/photo.jpg";
+    render(<Harness save={save} lookup={{ call: "EA7EU", imageURL: photo, source: "QRZ XML" }} />);
+    const trigger = screen.getByRole("button", { name: "View full-size QRZ photo for EA7EU" });
+    expect(trigger.getAttribute("aria-haspopup")).toBe("dialog"); expect(editorCSS).toContain("width:176px"); expect(editorCSS).toContain("max-height:208px");
+    trigger.focus(); fireEvent.click(trigger);
+    const dialog = screen.getByRole("dialog", { name: "Full-size QRZ photo for EA7EU" });
+    const image = within(dialog).getByRole("img", { name: "EA7EU full-size QRZ profile photo" });
+    expect(image.getAttribute("src")).toBe(photo); expect(image.getAttribute("referrerpolicy")).toBe("no-referrer");
+    expect(document.activeElement).toBe(within(dialog).getByRole("button", { name: "Close photo" }));
+    fireEvent.keyDown(dialog, { key: "Tab", shiftKey: true }); expect(document.activeElement).toBe(within(dialog).getByRole("button", { name: "Close photo" }));
+    fireEvent.keyDown(dialog, { key: "Enter", metaKey: true }); expect(save).not.toHaveBeenCalled();
+    fireEvent.keyDown(dialog, { key: "Escape" }); expect(screen.queryByRole("dialog")).toBeNull(); expect(document.activeElement).toBe(trigger);
+    expect(value()).toEqual(initial());
+  });
+  it("closes the photo on explicit close, image failure or changed callsign without reopening a stale image", () => {
+    const profile = { call: "EA7EU", imageURL: "https://cdn-bio.qrz.com/e/ea7eu/photo.jpg", source: "QRZ XML" };
+    const { rerender } = render(<Harness lookup={profile} />);
+    fireEvent.click(screen.getByRole("button", { name: "View full-size QRZ photo for EA7EU" })); fireEvent.click(screen.getByRole("button", { name: "Close photo" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "View full-size QRZ photo for EA7EU" }));
+    rerender(<Harness lookup={{ ...profile, call: "OTHER" }} />); expect(screen.queryByRole("dialog")).toBeNull();
+    rerender(<Harness lookup={profile} />); expect(screen.queryByRole("dialog")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "View full-size QRZ photo for EA7EU" }));
+    fireEvent.error(screen.getByRole("img", { name: "EA7EU full-size QRZ profile photo" }));
+    expect(screen.queryByRole("dialog")).toBeNull(); expect(screen.queryByRole("img")).toBeNull(); expect(screen.queryByRole("button", { name: "View full-size QRZ photo for EA7EU" })).toBeNull();
+  });
+  it("aligns previous contact columns and renders Worked orange / Confirmed green at the mode's font size", () => {
+    render(<Harness previous={[
+      { id: "worked", call: "EA7EU", start: "2026-10-12T10:20:00Z", band: "160m", mode: "FT4", qslReceived: "N", lotwReceived: "N" },
+      { id: "confirmed", call: "EA7EU", start: "2026-10-11T09:00:00Z", band: "6m", mode: "SSB", qslReceived: "Y", lotwReceived: "N" },
+    ]} />);
+    const history = screen.getByRole("heading", { name: "Previous QSOs" }).closest("section")!;
+    const worked = within(history).getByText("Worked"), confirmed = within(history).getByText("Confirmed");
+    expect(worked.className).toBe("qso-history-worked"); expect(confirmed.className).toBe("qso-history-confirmed");
+    expect(worked.tagName).toBe("SPAN"); expect(worked.parentElement?.children).toHaveLength(4); expect(confirmed.parentElement?.children).toHaveLength(4);
+    expect(editorCSS).toContain("grid-template-columns:minmax(0,1fr) 42px 40px 74px"); expect(editorCSS).toContain(".qso-history-worked { color:#ff8c00; }");
+    expect(editorCSS).toContain(".qso-history-confirmed { color:#12d6a0; }"); expect(editorCSS).toContain("font-size:inherit");
+    expect(history.querySelector("time")?.getAttribute("dateTime")).toBe("2026-10-12T10:20:00Z");
+    expect(value()).toEqual(initial());
   });
   it("edits across native field groups and retains unknown QSO and ADIF keys", () => {
     render(<Harness />);

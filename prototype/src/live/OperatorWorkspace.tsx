@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { clusterRowTint, type ClusterPalette, type LiveClusterSpot } from "./ClusterPanel";
+import { BandMapsToolbarContext } from "./BandMaps";
 import { clusterBandColors, clusterModeColors, clusterStatusColors, paletteColor, specialTagColors } from "./clusterPalette";
 import { boundColumnWidth, compactClusterColumns, defaultWorkspacePreferences, operatorWorkspaceKey, readWorkspacePreferences, splitBounds,
   type CompactColumn, type WorkspacePreferences } from "./operatorWorkspacePreferences";
@@ -33,6 +34,7 @@ export function OperatorWorkspace({ map, bandMaps, cluster, onSelect, selectedSp
     try { return readWorkspacePreferences(window.localStorage.getItem(operatorWorkspaceKey)); } catch { return defaultWorkspacePreferences(); }
   });
   const [width, setWidth] = useState(0), [clusterHeight, setClusterHeight] = useState(0);
+  const [bandToolbarHost, setBandToolbarHost] = useState<HTMLDivElement | null>(null);
   const [columnsOpen, setColumnsOpen] = useState(false), [page, setPage] = useState(0), [columnPage, setColumnPage] = useState(0);
   const root = useRef<HTMLDivElement>(null), clusterPane = useRef<HTMLDivElement>(null);
   const id = useId();
@@ -54,8 +56,8 @@ export function OperatorWorkspace({ map, bandMaps, cluster, onSelect, selectedSp
   const projection = cluster as ClusterProjection | null;
   const spots = Array.isArray(projection?.snapshot?.spots) ? projection.snapshot.spots : [];
   const colors = palette ?? projection?.configuration?.palette;
-  const rows = Math.max(1, Math.min(50, Math.floor((clusterHeight - 100) / 28) || 1));
-  const columnRows = Math.max(1, Math.min(7, Math.floor((clusterHeight - 125) / 26) || 1)), columnPageSize = columnRows * 2;
+  const rows = Math.max(1, Math.min(50, Math.floor((clusterHeight - 68) / 28) || 1));
+  const columnRows = Math.max(1, Math.min(7, Math.floor((clusterHeight - 93) / 26) || 1)), columnPageSize = columnRows * 2;
   const columnPages = Math.ceil(compactClusterColumns.length / columnPageSize), currentColumnPage = Math.min(columnPage, columnPages - 1);
   const pages = Math.max(1, Math.ceil(spots.length / rows)), currentPage = Math.min(page, pages - 1), offset = currentPage * rows;
   const totalWidth = preferences.columns.reduce((sum, column) => sum + preferences.widths[column], 0);
@@ -64,7 +66,6 @@ export function OperatorWorkspace({ map, bandMaps, cluster, onSelect, selectedSp
     if (!Number.isFinite(value)) return;
     setPreferences(current => ({ ...current, widths: { ...current.widths, [column]: boundColumnWidth(value) } }));
   };
-  const connectionText = projection?.snapshot?.connections?.map(connection => `${connection.serverName} · ${connection.phase}${connection.error ? ` · ${connection.error}` : ""}`).join(" | ");
   const move = (clientX: number) => {
     const current = drag.current; if (!current) return;
     if (current.kind === "split") { if (width > 740) setSplit((clientX - (root.current?.getBoundingClientRect().left ?? 0)) / (width - 10) * 100); }
@@ -82,16 +83,24 @@ export function OperatorWorkspace({ map, bandMaps, cluster, onSelect, selectedSp
       onPointerDown={event => { if (event.button !== 0) return; event.preventDefault(); drag.current = { kind: "split", startX: event.clientX, startWidth: 0, total: 0, pixels: 0 }; event.currentTarget.setPointerCapture?.(event.pointerId); move(event.clientX); }}
       onPointerMove={event => move(event.clientX)} onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }} onLostPointerCapture={() => { drag.current = null; }} />
     <div className="operator-tools-pane">
-      <div className="operator-tool-tabs" role="tablist" aria-label="Operator tools">{(["band-maps", "cluster"] as const).map(tab => <button key={tab} type="button" role="tab"
+      <div className="operator-tool-toolbar"><div className="operator-tool-tabs" role="tablist" aria-label="Operator tools">{(["band-maps", "cluster"] as const).map(tab => <button key={tab} type="button" role="tab"
         id={`${id}-${tab}-tab`} aria-selected={preferences.activeTab === tab} aria-controls={`${id}-${tab}`} tabIndex={preferences.activeTab === tab ? 0 : -1}
         onClick={() => setPreferences(current => ({ ...current, activeTab: tab }))}
         onKeyDown={event => { if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return; event.preventDefault();
           const next = event.key === "Home" ? "band-maps" : event.key === "End" ? "cluster" : tab === "cluster" ? "band-maps" : "cluster";
           setPreferences(current => ({ ...current, activeTab: next })); document.getElementById(`${id}-${next}-tab`)?.focus(); }}>{tab === "band-maps" ? "Band maps" : "Cluster"}</button>)}</div>
-      <div id={`${id}-band-maps`} role="tabpanel" aria-labelledby={`${id}-band-maps-tab`} className="operator-tool-content" hidden={preferences.activeTab !== "band-maps"}>{bandMaps}</div>
+        <div ref={setBandToolbarHost} className="operator-band-map-toolbar" hidden={preferences.activeTab !== "band-maps"} />
+        <div className="operator-cluster-toolbar" hidden={preferences.activeTab !== "cluster"}>
+          <div className="operator-cluster-connections" role="status" aria-label="Compact cluster connections">{projection?.snapshot?.connections?.length ? projection.snapshot.connections.map((connection, index) => {
+            const phase = connection.phase.toLowerCase(), label = phase.charAt(0).toUpperCase() + phase.slice(1);
+            return <span key={`${connection.serverName}-${index}`} className={`operator-cluster-connection ${phase === "connected" ? "is-connected" : ["disconnected", "failed"].includes(phase) ? "is-disconnected" : "is-connecting"}`}>
+              {connection.serverName} · {label}{connection.error && <small> · {connection.error}</small>}</span>;
+          }) : <span className={`operator-cluster-connection ${projection?.snapshot ? projection.snapshot.connectedClusters ? "is-connected" : "is-disconnected" : "is-connecting"}`}>{projection?.snapshot ? projection.snapshot.connectedClusters ? `${projection.snapshot.connectedClusters} connected` : "Disconnected" : "Awaiting live cluster state"}</span>}</div>
+          <button type="button" aria-expanded={columnsOpen} aria-controls={`${id}-columns`} onClick={() => setColumnsOpen(value => !value)}>Columns</button>
+        </div>
+      </div>
+      <div id={`${id}-band-maps`} role="tabpanel" aria-labelledby={`${id}-band-maps-tab`} className="operator-tool-content" hidden={preferences.activeTab !== "band-maps"}><BandMapsToolbarContext.Provider value={bandToolbarHost}>{bandMaps}</BandMapsToolbarContext.Provider></div>
       <div id={`${id}-cluster`} role="tabpanel" aria-labelledby={`${id}-cluster-tab`} className="operator-tool-content operator-compact-cluster" ref={clusterPane} hidden={preferences.activeTab !== "cluster"}>
-        <header><span title={connectionText}>{connectionText || (projection?.snapshot ? `${projection.snapshot.connectedClusters ?? 0} connected` : "Awaiting live cluster state")}</span>
-          <button type="button" aria-expanded={columnsOpen} aria-controls={`${id}-columns`} onClick={() => setColumnsOpen(value => !value)}>Columns</button></header>
         <div id={`${id}-columns`} className="operator-column-settings" hidden={!columnsOpen}>
           <p>Preferred widths scale to fit. Drag a header edge or use its arrow keys.</p>
           <div>{compactClusterColumns.slice(currentColumnPage * columnPageSize, (currentColumnPage + 1) * columnPageSize).map(([column, label]) => <label key={column}><input type="checkbox" aria-label={`Show ${label} column`} checked={preferences.columns.includes(column)} disabled={preferences.columns.length === 1 && preferences.columns.includes(column)}

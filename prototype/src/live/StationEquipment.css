@@ -1,0 +1,15 @@
+.live .equipment-bands { display: flex; flex-wrap: wrap; gap: 10px 16px; border: 0; padding: 0; margin: 16px 0 0; }
+.live .equipment-bands legend { color: var(--secondary); margin-bottom: 8px; font-size: 12px; }
+.live .equipment-bands label { display: inline-flex; flex-direction: row; align-items: center; gap: 6px; }
+.equipment-bands input { width: auto; }
+.desk-antenna-body { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+.equipment-diagram { width: clamp(70px, 38%, 120px); flex-shrink: 0; color: var(--cyan); }
+.equipment-secondary { stroke: var(--secondary); }
+.desk-antenna-body > div { display: flex; flex-direction: column; gap: 6px; min-width: 0; overflow-wrap: anywhere; }
+.desk-antenna-body strong { font-size: 16px; }
+.desk-antenna-body span, .desk-antenna-body small, .desk-antenna-bands small { color: var(--secondary); font-size: 11px; }
+.desk-antenna-bands { display: flex; flex-wrap: wrap; gap: 6px; }
+.desk-antenna-bands span { font-size: 12px; font-weight: 650; color: var(--cyan); background: #102237; border: 1px solid #244358; border-radius: 4px; padding: 4px 7px; }
+/* Removing equipment returns its grid track to the logging and intelligence panels. */
+.operator-desk-top.without-equipment { grid-template-columns: minmax(0, 1.8fr) minmax(0, 1.1fr); }
+@container operator-desk (max-width: 1420px) { .operator-desk-top.without-equipment { grid-template-columns: minmax(0, 1fr); } }

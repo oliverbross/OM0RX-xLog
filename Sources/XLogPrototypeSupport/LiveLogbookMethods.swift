@@ -74,6 +74,9 @@ public final class LiveLogbookMethods: @unchecked Sendable {
         try lock.withLock {
             _ = try readyDatabase()
             guard !manualSyncActive else { throw WorkerFailure("sync_busy", "Synchronization is already running.") }
+            guard try settingsStore().load().logbookMode == .wavelog else {
+                throw WorkerFailure("sync_mode_local", "Choose Wavelog mode in Settings before synchronizing.")
+            }
             manualSyncActive = true
         }
     }
@@ -140,7 +143,12 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                 guard let isolatedDefaults = created.makeDefaults() else {
                     throw WorkerFailure("workspace_unavailable", "Could not create isolated preferences.")
                 }
-                SettingsStore(defaults: isolatedDefaults).save(IntegrationWorkspace.safeSettings(from: nativeSettings))
+                var initialSettings = IntegrationWorkspace.safeSettings(from: nativeSettings)
+                // A new isolated workspace has no Wavelog credential (none is
+                // copied from native). Copying contacts or profile defaults is
+                // not consent to sync this separate logbook.
+                initialSettings.logbookMode = .local
+                SettingsStore(defaults: isolatedDefaults).save(initialSettings)
                 if mode == "copy_native", let nativeDefaults {
                     applyBackupPreferences(backupPreferences(from: nativeDefaults), to: isolatedDefaults)
                 }
@@ -268,10 +276,16 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                         "automatic_sync": false]
             case "settings_save":
                 try requireKeys(params, allowed: ["settings"], required: ["settings"])
-                guard let object = params["settings"] as? [String: Any] else { throw invalid() }
+                guard let object = params["settings"] as? [String: Any],
+                      let mode = object["logbookMode"] as? String,
+                      LogbookMode(rawValue: mode) != nil else { throw invalid() }
                 let value: XLogSettings = try decode(object)
                 let safe = IntegrationWorkspace.safeSettings(from: value)
-                try settingsStore().save(safe)
+                let store = try settingsStore()
+                if manualSyncActive && store.load().logbookMode != safe.logbookMode {
+                    throw WorkerFailure("sync_busy", "Wait for synchronization to finish before changing logbook mode.")
+                }
+                store.save(safe)
                 return ["settings": try json(safe), "automatic_sync": false]
             case "workspace_preferences_load":
                 try requireKeys(params, allowed: [])

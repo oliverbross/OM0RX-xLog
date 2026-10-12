@@ -6,6 +6,22 @@ import XLogCore
 
 @Suite("Integrated reference resolution")
 struct LiveReferenceMethodsTests {
+    @Test("Standalone mode rejects an explicit Wavelog catalog refresh before network")
+    func localModeDoesNotRefreshWavelogCatalog() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let logbook = LiveLogbookMethods(supportDirectory: root)
+        _ = try logbook.handle(method: "workspace_create", params: ["mode": "empty"])
+        let resolver = LiveReferenceMethods(logbook: logbook)
+        do {
+            _ = try await resolver.handle(method: "reference_refresh", params: ["source": "wavelog_catalog"])
+            Issue.record("Wavelog catalog refresh started in standalone mode")
+        } catch let error as WorkerFailure {
+            #expect(error.code == "reference_configuration_required")
+        }
+        #expect((try await resolver.handle(method: "reference_status", params: [:]))["running"] as? Bool == false)
+    }
+
     @Test("All five activation kinds transfer and validate against installed workspace data")
     func allKinds() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

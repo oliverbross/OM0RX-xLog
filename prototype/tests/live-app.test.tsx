@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import LiveApp from "../src/LiveApp";
 import Conditions from "../src/live/Conditions";
@@ -26,6 +26,54 @@ beforeEach(() => {
   });
 });
 afterEach(cleanup);
+
+it("opens the draft without waiting for slow logbook aggregates", async () => {
+  exists = true;
+  const base = calls.request.getMockImplementation()!;
+  calls.request.mockImplementation((method: string, params: unknown) => method === "logbook_stats" ? new Promise(() => {}) : base(method, params));
+  render(<LiveApp />);
+  expect(await screen.findByLabelText("Callsign")).toBeTruthy();
+  expect(screen.queryByRole("heading", { name: "Operator Desk" })).toBeNull();
+  expect(calls.request).toHaveBeenCalledWith("logbook_stats", {});
+});
+
+it("loads chaser reference into a draft without tuning or moving a rotor", async () => {
+  exists = true;
+  const base = calls.request.getMockImplementation()!;
+  calls.request.mockImplementation((method: string, params: unknown) => method === "opportunities_snapshot" ? Promise.resolve({ result: {
+    items: [{ id: "pota:test", kind: "pota", callsign: "K1ABC", reference: "US-0001", name: "Park", frequency_hz: 14025000, mode: "CW", comment: "POTA US-0001", source: "pota", source_url: "", observed_at: "2026-10-12T00:00:00Z", expires_at: "2026-10-12T01:00:00Z", worked_count: 0, confirmed_count: 0 }], sources: [], total_available: 1, history_state: "ready",
+  } }) : base(method, params));
+  render(<LiveApp />);
+  await screen.findByLabelText("Callsign");
+  fireEvent.click(screen.getByRole("button", { name: "Chaser & DX" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Load K1ABC into QSO draft" }));
+  expect((await screen.findByLabelText("Callsign") as HTMLInputElement).value).toBe("K1ABC");
+  expect((screen.getByLabelText("POTA") as HTMLInputElement).value).toBe("US-0001");
+  expect((screen.getByRole("checkbox", { name: "Follow radio" }) as HTMLInputElement).checked).toBe(false);
+  expect(calls.request.mock.calls.some(([method]) => ["station_tune", "rotor_goto", "logbook_save", "sync_run"].includes(method))).toBe(false);
+});
+
+it("resumes a saved reconnect cluster while radio is offline, once only", async () => {
+  const base = calls.request.getMockImplementation()!;
+  calls.request.mockImplementation((method: string, params: unknown) => method === "cluster_snapshot" ? Promise.resolve({ ok: true, result: {
+    configuration: { reconnect: true, servers: [{ enabled: true }] }, snapshot: { spots: [], connections: [], connectedClusters: 0 },
+  } }) : base(method, params));
+  render(<LiveApp />);
+  await waitFor(() => expect(calls.request).toHaveBeenCalledWith("cluster_connect", {}));
+  expect(calls.request.mock.calls.filter(([method]) => method === "cluster_connect")).toHaveLength(1);
+  expect(calls.request.mock.calls.some(([method]) => ["station_connect", "station_tune", "rotor_connect", "rotor_goto"].includes(method))).toBe(false);
+});
+
+it("does not reconnect after an explicit disconnect from a prior session", async () => {
+  localStorage.setItem("xlog.integration.clusterSessionIntent", "disconnected");
+  const base = calls.request.getMockImplementation()!;
+  calls.request.mockImplementation((method: string, params: unknown) => method === "cluster_snapshot" ? Promise.resolve({ ok: true, result: {
+    configuration: { reconnect: true, servers: [{ enabled: true }] }, snapshot: { spots: [], connections: [], connectedClusters: 0 },
+  } }) : base(method, params));
+  render(<LiveApp />);
+  await screen.findByRole("button", { name: "Copy my existing xLog logbook" });
+  expect(calls.request.mock.calls.some(([method]) => method === "cluster_connect")).toBe(false);
+});
 
 it("starts with real-data onboarding and only reads; never creates a log or commands hardware implicitly", async () => {
   render(<LiveApp />);

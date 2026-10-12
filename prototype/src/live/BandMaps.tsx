@@ -1,10 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { CSSProperties } from "react";
 import { ArrowDown, ArrowUp, RotateCcw, X, ZoomIn, ZoomOut } from "lucide-react";
 import { clusterBandColors, clusterStatusColors, paletteColor } from "./clusterPalette";
 import "./BandMaps.css";
 
 export type BandMapSpot = Record<string, any>;
+// An explicit host slot lets compact maps share the workspace toolbar without
+// changing ownership, remounting charts, or searching/moving DOM nodes.
+export const BandMapsToolbarContext = createContext<HTMLElement | null>(null);
 export const BAND_MAP_MODES = ["cw", "data", "phone"] as const;
 export type BandMapMode = typeof BAND_MAP_MODES[number];
 // Fit readable charts to the viewport; excess bands are paged, never clipped.
@@ -15,7 +19,7 @@ export function bandMapCapacity(width: number, height: number, singleRow: boolea
 }
 export type BandMapViewPreferences = { bands: string[]; followRadio: boolean; layout: "row" | "grid"; fontScale: number; modes?: BandMapMode[] };
 type Props = { spots: BandMapSpot[]; onSelect: (spot: BandMapSpot) => void; radioFrequencyHz?: number; compact?: boolean;
-  preferences?: BandMapViewPreferences; onPreferencesChange?: (next: BandMapViewPreferences) => void; onDock?: () => void };
+  preferences?: BandMapViewPreferences; onPreferencesChange?: (next: BandMapViewPreferences) => void; onDock?: () => void; onUndock?: () => void };
 type Allocation = { name: "CW" | "Data" | "Phone"; low: number; high: number };
 type Range = { low: number; high: number; allocations: Allocation[] };
 type ViewRange = { low: number; high: number };
@@ -240,7 +244,7 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
       })}
       {Array.from({ length: 9 }, (_, index) => {
         const fraction = index / 8;
-        return <div key={index} className="band-map-gridline" style={{ top: `${fraction * 100}%` }} aria-hidden="true"><span>{((view.high - (view.high - view.low) * fraction) / 1000).toFixed(3)}</span></div>;
+        return <div key={index} className="band-map-gridline" data-edge={index === 0 ? "upper" : index === 8 ? "lower" : undefined} style={{ top: `${fraction * 100}%` }} aria-hidden="true"><span>{((view.high - (view.high - view.low) * fraction) / 1000).toFixed(3)}</span></div>;
       })}
       {placed.map(({ spot, lane, top, key }) => {
         const color = statusColor(spot);
@@ -256,7 +260,8 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
   </section>;
 }
 
-export function BandMaps({ spots, onSelect, radioFrequencyHz, compact = false, preferences, onPreferencesChange, onDock }: Props) {
+export function BandMaps({ spots, onSelect, radioFrequencyHz, compact = false, preferences, onPreferencesChange, onDock, onUndock }: Props) {
+  const toolbarHost = useContext(BandMapsToolbarContext);
   const [localBands, setLocalBands] = useState(() => storedBands(compact));
   const [localFollow, setLocalFollow] = useState(() => storedFlag(compact, "followRadio", false));
   const [localLayout, setLocalLayout] = useState<"row" | "grid">(() => {
@@ -350,16 +355,16 @@ export function BandMaps({ spots, onSelect, radioFrequencyHz, compact = false, p
   };
   const remove = (band: string) => { if (bands.length <= 1) return; selectBands(bands.filter((item) => item !== band)); };
   const choose = (spot: BandMapSpot) => { setSelected(spot); onSelect(spot); };
-  return <section className={`band-maps${compact ? " band-maps-compact" : ""}`} aria-label="Band maps">
-    <header className="band-maps-head"><div><h2>Band maps</h2>{!compact && <p>Click a spot to load it into the logger and request station tuning.</p>}</div>
-      <div className="band-maps-head-controls"><label className="band-maps-follow"><input type="checkbox" checked={follow} onChange={(event) => setFollow(event.target.checked)} /> Follow radio</label>
+  const toolbarControls = <div className="band-maps-head-controls"><label className="band-maps-follow"><input type="checkbox" checked={follow} onChange={(event) => setFollow(event.target.checked)} /> Follow radio</label>
         <div className="band-maps-scale"><button type="button" aria-label="Decrease band map text size" disabled={fontScale <= 0.8} onClick={() => setFontScale((value) => Math.max(0.8, +(value - 0.1).toFixed(1)))}>A−</button><output>{Math.round(fontScale * 100)}%</output><button type="button" aria-label="Increase band map text size" disabled={fontScale >= 2} onClick={() => setFontScale((value) => Math.min(2, +(value + 0.1).toFixed(1)))}>A+</button></div>
         {!compact && <div className="band-maps-layout" role="group" aria-label="Band map layout"><button type="button" aria-pressed={layout === "row"} onClick={() => setLayout("row")}>Single row</button><button type="button" aria-pressed={layout === "grid"} onClick={() => setLayout("grid")}>Adaptive grid</button></div>}
         {pages > 1 && <div className="band-maps-pages" role="group" aria-label="Band map pages"><button type="button" aria-label="Previous band maps" disabled={visiblePage === 0} onClick={() => setPage(visiblePage - 1)}>‹</button><output aria-live="polite">{visiblePage + 1} / {pages}</output><button type="button" aria-label="Next band maps" disabled={visiblePage === pages - 1} onClick={() => setPage(visiblePage + 1)}>›</button></div>}
         <label className="band-maps-add"><span className="sr-only">Add band map</span><select aria-label="Add band map" value="" onChange={(event) => { const value = event.target.value; if (value === "all") selectBands(BAND_ORDER); else add(value); event.target.value = ""; }}><option value="">Add band map</option><option value="all">All bands</option>{BAND_ORDER.filter((band) => !bands.includes(band)).map((band) => <option key={band} value={band}>{band}</option>)}</select></label>
+        {onUndock && <button type="button" onClick={onUndock}>Undock</button>}
         {onDock && <button type="button" onClick={onDock}>Dock back</button>}
-      </div>
-    </header>
+      </div>;
+  return <section className={`band-maps${compact ? " band-maps-compact" : ""}`} aria-label="Band maps">
+    {compact && toolbarHost ? createPortal(toolbarControls, toolbarHost) : <header className="band-maps-head"><div><h2>Band maps</h2></div>{toolbarControls}</header>}
     {!compact && <div className="band-maps-intelligence"><label className="band-maps-search">Search <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Call, country or note" /></label><label>Status <select value={status} onChange={(event) => setStatus(event.target.value)}><option value="all">All</option><option value="needed">Needed</option><option value="worked">Worked</option><option value="confirmed">Confirmed</option><option value="priority">Priority</option></select></label>
       <details className="band-maps-mode-picker" onKeyDown={event => { if (event.key === "Escape") { event.currentTarget.open = false; event.currentTarget.querySelector("summary")?.focus(); } }}>
         <summary>Modes · {modes.length === 3 ? "All" : modes.length === 0 ? "None" : modes.map(mode => mode === "cw" ? "CW" : mode === "data" ? "Data" : "Phone").join(" + ")}</summary>

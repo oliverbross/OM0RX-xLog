@@ -102,6 +102,13 @@ actor LiveServiceMethods {
             guard params.isEmpty else { throw invalid() }
             let database = try logbook.openedDatabase()
             var result = syncState
+            let mode = try logbook.currentSettings().logbookMode
+            result["mode"] = mode.rawValue
+            result["sync_available"] = mode == .wavelog
+            if mode == .local {
+                result["running"] = false
+                result["status"] = "Local logbook · Wavelog sync disabled"
+            }
             let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601
             result["conflicts"] = try database.conflicts().map { stored -> [String: Any] in
                 let conflict = try currentConflict(stored, database: database)
@@ -123,6 +130,9 @@ actor LiveServiceMethods {
             }
             guard syncTask == nil else { throw WorkerFailure("sync_busy", "Synchronization is already running.") }
             let settings = try logbook.currentSettings()
+            guard settings.logbookMode == .wavelog else {
+                throw WorkerFailure("sync_mode_local", "Choose Wavelog mode in Settings before synchronizing.")
+            }
             let secrets = try workspaceSecrets()
             guard let url = URL(string: settings.wavelogURL), let token = try secrets.load(.wavelogToken) else {
                 throw WorkerFailure("sync_configuration_required", "Configure the Wavelog URL, station ID and token first.")

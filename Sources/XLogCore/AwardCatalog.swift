@@ -87,6 +87,18 @@ public enum AwardCatalogError: Error, LocalizedError {
 }
 
 public enum AwardCatalogEngine {
+    /// Candidate superset for every implemented calculator below (JARL,
+    /// WAPC, and WCSA). Keep this alongside compute when adding a programme.
+    /// Slash calls are deliberately broad: a school may be a portable part.
+    public static let candidateDXCCs = [339, 177, 192, 318, 386, 321, 152]
+
+    public static func candidateSchoolCalls() throws -> [String] {
+        guard let url = Bundle.module.url(forResource: "ham-award-wcsa-schools", withExtension: "json") else {
+            throw AwardCatalogError.missingResource("WCSA schools")
+        }
+        let schools = try JSONDecoder().decode([String: String].self, from: Data(contentsOf: url))
+        return schools.keys.map { $0.uppercased() }.sorted()
+    }
     private struct JAREntity: Decodable, Sendable {
         var type: String
         var deleted: Bool

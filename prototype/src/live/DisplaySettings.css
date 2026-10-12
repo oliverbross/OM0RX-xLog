@@ -1,0 +1,6 @@
+.display-settings { min-width: 0; max-width: 78ch; }
+.display-settings p { color: var(--secondary); margin: 0 0 12px; }
+.display-settings label { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.display-settings select { min-width: 150px; }
+.display-settings-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
+.display-settings-actions span { color: var(--secondary); }

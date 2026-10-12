@@ -101,17 +101,24 @@ public actor LiveClusterMethods {
                 "forwarding": ["accepted_count": forwardAcceptedCount, "status": forwardStatus]]
     }
 
+    /// Read an already running cluster without starting services or scanning contacts.
+    func currentSpotRowsIfStarted() async -> [[String: Any]] {
+        guard let service, let (snapshot, _) = try? await boundedSnapshot(service),
+              let object = try? json(snapshot) as? [String: Any] else { return [] }
+        return object["spots"] as? [[String: Any]] ?? []
+    }
+
     /// Called after local QSO mutations, import, restore or remote reconciliation.
     public func refreshContacts() async throws {
         let service = try await readyService()
         let database = try LiveLogbookMethods.shared.openedDatabase()
-        let contacts = try database.fetchAll()
+        let contacts = try database.clusterContactRows()
         var records: [ClusterContact] = []
         records.reserveCapacity(contacts.count)
         let resolver = try? CTYResolver.bundled()
         for qso in contacts {
             records.append(ClusterContact(callsign: qso.call, band: qso.band,
-                                          mode: qso.submode.isEmpty ? qso.mode : qso.submode,
+                                          mode: qso.mode,
                                           adif: qso.dxcc ?? resolver?.resolve(qso.call, at: qso.start)?.adif,
                                           date: qso.start, paperQSL: qso.qslReceived,
                                           lotwQSL: qso.lotwReceived))

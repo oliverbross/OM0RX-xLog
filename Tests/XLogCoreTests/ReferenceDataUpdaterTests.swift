@@ -85,15 +85,18 @@ private final class ReferenceMetadataURLProtocol: URLProtocol, @unchecked Sendab
     private static var statuses: [String: Int] = [:]
     private static var bodies: [String: Data] = [:]
     private static var paths: [String] = []
+    private static var conditionalTags: [String?] = []
 
     static func configure(_ statuses: [String: Int], bodies: [String: Data] = [:]) {
         lock.withLock {
             self.statuses = statuses
             self.bodies = bodies
             self.paths = []
+            self.conditionalTags = []
         }
     }
     static func requestedPaths() -> [String] { lock.withLock { paths } }
+    static func requestedETags() -> [String?] { lock.withLock { conditionalTags } }
     override class func canInit(with request: URLRequest) -> Bool { request.url?.host == "fixture.invalid" }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
 
@@ -101,6 +104,7 @@ private final class ReferenceMetadataURLProtocol: URLProtocol, @unchecked Sendab
         let path = request.url!.path
         let (status, override) = Self.lock.withLock { () -> (Int, Data?) in
             Self.paths.append(path)
+            Self.conditionalTags.append(request.value(forHTTPHeaderField: "If-None-Match"))
             return (Self.statuses[path] ?? 500, Self.bodies[path])
         }
         let body: Data
@@ -190,6 +194,58 @@ struct ReferenceDataUpdaterTests {
         #expect(!persisted.contains("fixture.invalid"))
     }
 
+    @Test("Selective scheduled CTY and LoTW checks request only their due source")
+    func selectiveSourceRequests() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let updater = try fixtureUpdater(directory: directory)
+        let club = URL(string: "https://fixture.invalid/cty.xml")!
+        let lotw = URL(string: "https://fixture.invalid/lotw.csv")!
+        ReferenceMetadataURLProtocol.configure(["/cty.xml": 200, "/lotw.csv": 200])
+        let cty = try await updater.refreshClubLog(club, apiKey: "fixture-secret")
+        #expect(ReferenceMetadataURLProtocol.requestedPaths() == ["/cty.xml"])
+        #expect(cty.sourceMetadata["cty.xml"]?.status == "downloaded")
+        #expect(cty.sourceMetadata["lotw-user-activity.csv"] == nil)
+        ReferenceMetadataURLProtocol.configure(["/cty.xml": 200, "/lotw.csv": 200])
+        let lotwState = try await updater.refreshLoTW(lotw)
+        #expect(ReferenceMetadataURLProtocol.requestedPaths() == ["/lotw.csv"])
+        #expect(lotwState.sourceMetadata["cty.xml"]?.checkedAt == cty.sourceMetadata["cty.xml"]?.checkedAt)
+        #expect(lotwState.sourceMetadata["lotw-user-activity.csv"]?.status == "downloaded")
+    }
+
+    @Test("Credential-bearing endpoints reject HTTP before requests and refuse redirects")
+    func credentialTransportBoundary() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let updater = try fixtureUpdater(directory: directory)
+        ReferenceMetadataURLProtocol.configure(["/cty.xml": 200, "/index.php/api/v2/catalog": 200])
+        await #expect(throws: ReferenceDataUpdaterError.self) {
+            try await updater.refreshClubLog(URL(string: "http://fixture.invalid/cty.xml")!, apiKey: "fixture-secret")
+        }
+        await #expect(throws: ReferenceDataUpdaterError.self) {
+            try await updater.refreshWavelogCatalog(baseURL: URL(string: "http://fixture.invalid")!, token: "fixture-token")
+        }
+        #expect(ReferenceMetadataURLProtocol.requestedPaths().isEmpty)
+
+        let blocker = CredentialRedirectBlocker()
+        let session = URLSession(configuration: .ephemeral)
+        let task = session.dataTask(with: URL(string: "https://fixture.invalid/cty.xml")!)
+        let response = HTTPURLResponse(url: URL(string: "https://fixture.invalid/cty.xml")!,
+                                       statusCode: 302, httpVersion: nil,
+                                       headerFields: ["Location": "http://fixture.invalid/exfil"])!
+        var allowed: URLRequest?
+        var callbackInvoked = false
+        blocker.urlSession(session, task: task, willPerformHTTPRedirection: response,
+            newRequest: URLRequest(url: URL(string: "http://fixture.invalid/exfil")!)) {
+            callbackInvoked = true
+            allowed = $0
+        }
+        #expect(callbackInvoked)
+        #expect(allowed == nil)
+        task.cancel()
+        session.invalidateAndCancel()
+    }
+
     @Test("Wavelog catalogue check does not become a new download")
     func wavelogCatalogMetadata() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -211,6 +267,67 @@ struct ReferenceDataUpdaterTests {
         let fromFrontController = try await updater.refreshWavelogCatalog(baseURL: frontController, token: "fixture-token")
         #expect(fromFrontController.sourceMetadata["wavelog-catalog.json"]?.status == "up_to_date")
         #expect(ReferenceMetadataURLProtocol.requestedPaths() == ["/index.php/api/v2/catalog"])
+    }
+
+    @Test("Changed source URL or credential never reuses a prior validator or cache on 304")
+    func validatorsAreSourceScoped() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let updater = try fixtureUpdater(directory: directory)
+        let oldURL = URL(string: "https://fixture.invalid/cty.xml")!
+        let newURL = URL(string: "https://fixture.invalid/cty-new.xml?private=fixture-secret")!
+        let lotw = URL(string: "https://fixture.invalid/lotw.csv")!
+        ReferenceMetadataURLProtocol.configure(["/cty.xml": 200, "/lotw.csv": 200])
+        let first = try await updater.refresh(clubLogURL: oldURL, clubLogAPIKey: "old-key", lotwURL: lotw)
+        let original = try Data(contentsOf: directory.appendingPathComponent("cty.xml"))
+        let firstIdentity = try #require(first.validators["cty.xml"]?.sourceIdentity)
+
+        ReferenceMetadataURLProtocol.configure(["/cty-new.xml": 304, "/lotw.csv": 304])
+        await #expect(throws: ReferenceDataUpdaterError.self) {
+            try await updater.refresh(clubLogURL: newURL, clubLogAPIKey: "new-key", lotwURL: lotw)
+        }
+        let requested = ReferenceMetadataURLProtocol.requestedPaths()
+        let tags = ReferenceMetadataURLProtocol.requestedETags()
+        let changedIndex = try #require(requested.firstIndex(of: "/cty-new.xml"))
+        #expect(tags[changedIndex] == nil)
+        #expect(try Data(contentsOf: directory.appendingPathComponent("cty.xml")) == original)
+        let failed = await updater.currentState()
+        #expect(failed.validators["cty.xml"]?.sourceIdentity == firstIdentity)
+        #expect(failed.sourceMetadata["cty.xml"]?.status == "failed")
+        let persisted = try String(contentsOf: directory.appendingPathComponent("state.json"), encoding: .utf8)
+        #expect(!persisted.contains("fixture-secret"))
+        #expect(!persisted.contains("new-key"))
+        #expect(!persisted.contains("fixture.invalid"))
+
+        ReferenceMetadataURLProtocol.configure(["/cty-new.xml": 200, "/lotw.csv": 304],
+            bodies: ["/cty-new.xml": ReferenceMetadataURLProtocol.validCTY])
+        let replaced = try await updater.refresh(clubLogURL: newURL, clubLogAPIKey: "new-key", lotwURL: lotw)
+        #expect(replaced.validators["cty.xml"]?.sourceIdentity != firstIdentity)
+        #expect(replaced.sourceMetadata["cty.xml"]?.status == "downloaded")
+    }
+
+    @Test("Changing a Wavelog bearer scope cannot accept an earlier catalogue 304")
+    func wavelogValidatorTokenScope() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let updater = try fixtureUpdater(directory: directory)
+        let base = URL(string: "https://fixture.invalid/index.php")!
+        let path = "/index.php/api/v2/catalog"
+        ReferenceMetadataURLProtocol.configure([path: 200])
+        let first = try await updater.refreshWavelogCatalog(baseURL: base, token: "first-secret")
+        let oldIdentity = try #require(first.validators["wavelog-catalog.json"]?.sourceIdentity)
+        let original = try Data(contentsOf: directory.appendingPathComponent("wavelog-catalog.json"))
+        ReferenceMetadataURLProtocol.configure([path: 304])
+        await #expect(throws: ReferenceDataUpdaterError.self) {
+            try await updater.refreshWavelogCatalog(baseURL: base, token: "second-secret")
+        }
+        #expect(ReferenceMetadataURLProtocol.requestedETags() == [nil])
+        #expect(try Data(contentsOf: directory.appendingPathComponent("wavelog-catalog.json")) == original)
+        let failed = await updater.currentState()
+        #expect(failed.validators["wavelog-catalog.json"]?.sourceIdentity == oldIdentity)
+        let persisted = try String(contentsOf: directory.appendingPathComponent("state.json"), encoding: .utf8)
+        #expect(!persisted.contains("first-secret"))
+        #expect(!persisted.contains("second-secret"))
     }
 
     @Test("Invalid CTY and LoTW responses never replace a usable cache or pass 304")

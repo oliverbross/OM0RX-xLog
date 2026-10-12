@@ -5,6 +5,23 @@ import XLogCore
 @testable import XLogPrototypeSupport
 
 final class LiveSyncConflictTests: XCTestCase {
+    func testStandaloneModeRejectsSyncWithoutChangingLocalOutbox() async throws {
+        let fixture = try Fixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        do {
+            _ = try await fixture.service.handle(method: "sync_run", params: ["confirm_single_writer": true])
+            XCTFail("Started Wavelog synchronization in local mode")
+        } catch let error as WorkerFailure {
+            XCTAssertEqual(error.code, "sync_mode_local")
+        }
+        XCTAssertEqual(try fixture.database.outboxEntries().map(\.id), [fixture.local.id])
+        let status = try await fixture.service.handle(method: "sync_status", params: [:])
+        XCTAssertEqual(status["running"] as? Bool, false)
+        XCTAssertEqual(status["mode"] as? String, "local")
+        XCTAssertEqual(status["sync_available"] as? Bool, false)
+        XCTAssertEqual(status["status"] as? String, "Local logbook · Wavelog sync disabled")
+    }
+
     func testFieldProjectionAndSelectiveMergePreserveIdentityUnknownDataAndOutbox() async throws {
         let fixture = try Fixture()
         defer { try? FileManager.default.removeItem(at: fixture.root) }

@@ -1,0 +1,51 @@
+// @vitest-environment jsdom
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { OpportunitiesPanel } from "./OpportunitiesPanel";
+
+const pota = { id: "pota:OM0RX:OM-0001", kind: "pota", callsign: "OM0RX/P", reference: "OM-0001", name: "Verified park",
+  frequency_hz: 14_074_000, mode: "FT8", observed_at: "2026-10-12T10:00:00Z", expires_at: "2026-10-12T10:30:00Z",
+  source: "POTA official spots", source_url: "https://api.pota.app/spot/activator", comment: "", reference_status: "verified",
+  worked_count: 3, confirmed_count: 1, band_modes: [{ band: "20m", mode: "FT8", worked_count: 3, confirmed_count: 1 }] };
+const expedition = { ...pota, id: "425dxn:DX1", kind: "dxpedition", callsign: "DX1ABC", reference: "", name: "DX1ABC: DXpedition",
+  frequency_hz: null, mode: "", source: "425DXN Worldwide DX Calendar", source_url: "https://www.425dxn.org/index.php?op=wcal",
+  reference_status: "not_applicable", worked_count: 0, confirmed_count: 0 };
+const snapshot = { generated_at: "2026-10-12T10:01:00Z", items: [pota, expedition], total_available: 2, history_state: "ready",
+  sources: [{ source: "pota", state: "stale", count: 1, source_url: pota.source_url, last_success: "2026-10-11T10:00:00Z", last_attempt: null, safe_error: "SOURCE_UNAVAILABLE_OR_INVALID" }], selection_tunes: false, transmit: false };
+afterEach(cleanup);
+
+describe("read-only opportunities", () => {
+  it("shows source age, full reference history and only loads a draft on selection", async () => {
+    const request = vi.fn(async (_method: string) => snapshot), select = vi.fn();
+    render(<OpportunitiesPanel request={request} onSelect={select} />);
+    expect(await screen.findByText("Verified park")).toBeTruthy();
+    expect(screen.getByText("stale")).toBeTruthy();
+    expect(screen.getByText(/Last check failed/)).toBeTruthy();
+    expect(screen.getByText("3 worked")).toBeTruthy();
+    expect(screen.getByText("20m FT8: 3 worked, 1 confirmed")).toBeTruthy();
+    expect(screen.getByText("No reference history")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Load OM0RX/P into QSO draft" }));
+    expect(select).toHaveBeenCalledWith(pota);
+    expect(request).toHaveBeenCalledWith("opportunities_snapshot");
+    expect(request.mock.calls.some(([method]) => /tune|station_/.test(method))).toBe(false);
+  });
+  it("refreshes a selected source explicitly and retains a last-good view on failure", async () => {
+    const request = vi.fn(async (method: string) => { if (method === "opportunities_refresh") throw Error("network"); return snapshot; });
+    render(<OpportunitiesPanel request={request} onSelect={vi.fn()} />);
+    await screen.findByText("Verified park");
+    fireEvent.click(screen.getByRole("button", { name: "Check POTA source" }));
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("earlier snapshot is retained"));
+    expect(screen.getByText("Verified park")).toBeTruthy();
+    expect(request).toHaveBeenCalledWith("opportunities_refresh", { source: "pota" });
+  });
+  it("withholds history labels when backend history is not ready and filters without requests", async () => {
+    const request = vi.fn(async () => ({ ...snapshot, history_state: "unavailable" }));
+    render(<OpportunitiesPanel request={request} onSelect={vi.fn()} />);
+    await screen.findByText("Verified park");
+    expect(screen.getByText(/worked and confirmed labels are withheld/)).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Programme"), { target: { value: "dxpedition" } });
+    expect(screen.queryByText("Verified park")).toBeNull();
+    expect(screen.getByText("DX1ABC: DXpedition")).toBeTruthy();
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+});

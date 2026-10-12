@@ -210,7 +210,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
           return <span key={connection.serverID} className={phase === "connected" ? "live-cluster-connected" : "live-cluster-disconnected"}><i className={`phase-${phase}`} />{connection.serverName} · {label}{connection.error && <small className="live-cluster-connection-error"> · {connection.error}</small>}</span>;
         }) : <span className={connected ? "live-cluster-connected" : "live-cluster-disconnected"}>{connected ? `${connected} cluster${connected === 1 ? "" : "s"} · Connected` : "Disconnected"}</span>}</div>
         <button type="button" disabled={busy || !configuration?.servers.some((s) => s.enabled)} onClick={() => void request("cluster_connect", {}, "Connecting to configured clusters…")}>Connect</button>
-        <button type="button" disabled={busy || !connected} onClick={() => void request("cluster_disconnect", {}, "Disconnected")}>Disconnect</button>
+        <button type="button" disabled={busy || !live?.connections?.length} onClick={() => void request("cluster_disconnect", {}, "Disconnected")}>Disconnect</button>
         <button type="button" disabled={busy} onClick={() => void request("cluster_snapshot")}>Refresh</button>
         <button type="button" aria-expanded={consoleOpen} aria-controls={`${panelId}-console`} onClick={() => setConsoleOpen(value => !value)}>Console</button>
         <button type="button" aria-expanded={settingsOpen} aria-controls={`${panelId}-settings`} onClick={() => setSettingsOpen(value => !value)}>Settings</button>
@@ -275,7 +275,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
       <td className="live-cluster-worked-before">{spot.workedBefore == null ? "—" : `✓ ${formatDate(spot.workedBefore)}`}</td>
       <td title={spot.comment}>{spot.comment || "—"}</td>
     </tr>)}</tbody></table>
-      {!live?.spots.length && <p className="empty">{connected ? "No live spots match the current filters." : "Configure a cluster, then connect to receive live spots."}</p>}
+      {!live?.spots.length && <p className="empty">{connected ? "No live spots match the current filters." : configuration?.servers.some(server => server.enabled) ? "Your cluster is configured. Use Connect to resume live spots; the radio can remain offline." : "Configure a cluster, then connect to receive live spots."}</p>}
     </div>
     {selectedSpot && <div className="live-cluster-inspector" aria-label="Selected spot details">
       <div><strong>{selectedSpot.callsign}</strong><span>{selectedSpot.country}</span></div>
@@ -325,7 +325,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
     <section className="live-cluster-settings" id={`${panelId}-settings`} hidden={!settingsOpen} aria-labelledby={`${panelId}-settings-title`}><h3 id={`${panelId}-settings-title`}>Cluster settings</h3>
       {configuration && <div className="live-cluster-settings-body">
         <div className="live-cluster-setting-row"><label>Maximum visible spots <select value={configuration.maximumSpots} onChange={(event) => setConfiguration({ ...configuration, maximumSpots: Number(event.target.value) })}>{[50, 100, 200, 500].map((count) => <option key={count}>{count}</option>)}</select></label>
-          <label><input type="checkbox" checked={configuration.reconnect} onChange={(event) => setConfiguration({ ...configuration, reconnect: event.target.checked })} /> Reconnect automatically</label>
+          <label><input type="checkbox" checked={configuration.reconnect} onChange={(event) => setConfiguration({ ...configuration, reconnect: event.target.checked })} /> Reconnect automatically, including after app restart</label>
           <label><input type="checkbox" checked={configuration.requestSkimmer} onChange={(event) => setConfiguration({ ...configuration, requestSkimmer: event.target.checked })} /> Request RBN / Skimmer</label>
           <label><input type="checkbox" checked={configuration.showWorkedBandModeSpots} onChange={(event) => setConfiguration({ ...configuration, showWorkedBandModeSpots: event.target.checked })} /> Show already-worked combinations</label></div>
         <label><input type="checkbox" checked={configuration.forwardSpotsToFlex} onChange={(event) => setConfiguration({ ...configuration, forwardSpotsToFlex: event.target.checked })} /> Forward incoming spots to FLEX via the connected direct-agent station</label>

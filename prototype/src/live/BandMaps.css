@@ -51,6 +51,8 @@
 .band-map-phone { background: #75543055; color: #ffd179; }
 .band-map-gridline { position: absolute; left: 0; right: 0; height: 1px; border-top: 1px solid #5b6c794f; pointer-events: none; }
 .band-map-gridline span { position: absolute; left: 4px; top: -7px; padding: 0 2px; background: #0b1728b8; color: var(--secondary); font: calc(9px * var(--band-font-scale)) ui-monospace, SFMono-Regular, monospace; font-variant-numeric: tabular-nums; }
+.band-map-gridline[data-edge="upper"] span { top: 2px; }
+.band-map-gridline[data-edge="lower"] span { top: auto; bottom: 3px; }
 .band-map-spot { position: absolute; transform: translate(-50%, -50%); display: flex; align-items: center; justify-content: space-between; gap: 3px; height: calc(22px * var(--band-font-scale)); min-height: calc(22px * var(--band-font-scale)) !important; padding: 1px 5px; border: 1px solid; border-radius: 4px; text-align: left; font: calc(10px * var(--band-font-scale)) ui-monospace, SFMono-Regular, monospace; overflow: hidden; }
 .band-map-spot strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .band-map-spot b { flex: none; font-size: .86em; }
@@ -66,5 +68,5 @@
 .band-maps-compact .band-maps-head { padding: 8px 10px; }
 .band-maps-compact .band-maps-head h2 { font-size: 13px; }
 .band-maps-compact .band-maps-panels { padding: 8px; }
-.band-maps .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.band-maps .sr-only, .band-maps-head-controls .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 @media (max-width: 700px) { .band-maps-head-controls { justify-content: flex-start; } .band-maps-intelligence { align-items: stretch; } .band-maps-selected { width: 100%; flex-basis: 100%; } }

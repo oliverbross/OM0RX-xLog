@@ -2,8 +2,8 @@
 import Foundation
 import XLogCore
 
-/// Explicit refresh of the integrated workspace's own reference cache.
-/// Nothing starts at app launch, and the native xLog cache is never opened.
+/// Integrated workspace reference cache. Scheduled checks are opt-in calls;
+/// opening this actor or reading status never starts network activity.
 actor LiveReferenceMethods {
     static let shared = LiveReferenceMethods()
 
@@ -44,10 +44,13 @@ actor LiveReferenceMethods {
             _ = try logbook.openedDatabase()
             guard refreshTask == nil else { throw WorkerFailure("reference_busy", "A reference update is already running.") }
             let settings = try logbook.currentSettings()
+            guard source != "wavelog_catalog" || settings.logbookMode == .wavelog else {
+                throw WorkerFailure("reference_configuration_required", "Choose Wavelog mode before refreshing its catalog.")
+            }
             let updater = try ReferenceDataUpdater(directory: directory, session: session)
             let secrets = SecretStore(service: try logbook.currentKeychainService())
-            let clubKey = try secrets.load(.clubLogAPIKey) ?? ""
-            let token = try secrets.load(.wavelogToken) ?? ""
+            let clubKey = source == "clublog_lotw" ? (try secrets.load(.clubLogAPIKey) ?? "") : ""
+            let token = source == "wavelog_catalog" ? (try secrets.load(.wavelogToken) ?? "") : ""
             guard source != "wavelog_catalog" || !token.isEmpty else {
                 throw WorkerFailure("reference_configuration_required", "Save an integrated Wavelog token before refreshing its catalog.")
             }
@@ -71,6 +74,72 @@ actor LiveReferenceMethods {
                 }
             }
             return ["running": true, "status": lastResult, "source": source]
+        case "reference_schedule":
+            guard params.isEmpty else { throw invalid() }
+            _ = try logbook.openedDatabase()
+            let settings = try logbook.currentSettings()
+            let secrets = SecretStore(service: try logbook.currentKeychainService())
+            let clubKey = try secrets.load(.clubLogAPIKey) ?? ""
+            let token = settings.logbookMode == .wavelog ? (try secrets.load(.wavelogToken) ?? "") : ""
+            let updater = try ReferenceDataUpdater(directory: directory, session: session)
+            let clubURL = URL(string: settings.clubLogCTYURL)
+            let lotwURL = URL(string: settings.lotwActivityURL)
+            let wavelogURL = URL(string: settings.wavelogURL)
+            var expectedIdentities: [String: String] = [:]
+            if let clubURL, !clubKey.isEmpty,
+               let requestURL = ReferenceDataUpdater.clubLogRequestURL(clubURL, apiKey: clubKey) {
+                expectedIdentities["cty.xml"] = ReferenceDataUpdater.sourceIdentity(for: requestURL)
+            }
+            if let lotwURL {
+                expectedIdentities["lotw-user-activity.csv"] = ReferenceDataUpdater.sourceIdentity(for: lotwURL)
+            }
+            for kind in [ActivationReferenceKind.pota, .sota, .iota, .wwff] {
+                if let url = ReferenceDataUpdater.activationSourceURLs[kind] {
+                    expectedIdentities[kind.fileName] = ReferenceDataUpdater.sourceIdentity(for: url)
+                }
+            }
+            if settings.logbookMode == .wavelog, let wavelogURL, !token.isEmpty,
+               let requestURL = ReferenceDataUpdater.wavelogCatalogURL(wavelogURL) {
+                expectedIdentities["wavelog-catalog.json"] = ReferenceDataUpdater.sourceIdentity(
+                    for: requestURL, credential: token)
+            }
+            let plan = ReferenceCheckPlan.make(
+                state: await updater.currentState(), now: Date(),
+                clubLogConfigured: expectedIdentities["cty.xml"] != nil,
+                wavelogConfigured: expectedIdentities["wavelog-catalog.json"] != nil,
+                expectedIdentities: expectedIdentities
+            )
+            let due = plan.due
+            let next = plan.nextCheckAt.map { ISO8601DateFormatter().string(from: $0) } ?? NSNull() as Any
+            guard refreshTask == nil, !due.isEmpty else {
+                return ["running": refreshTask != nil, "scheduled": [String](),
+                        "due": due, "next_check_at": next]
+            }
+            lastResult = "Checking scheduled reference sources"
+            refreshTask = Task {
+                var failed = false
+                let hasCTY = due.contains("cty.xml")
+                let hasLoTW = due.contains("lotw-user-activity.csv")
+                if hasCTY, let clubURL {
+                    do { _ = try await updater.refreshClubLog(clubURL, apiKey: clubKey) }
+                    catch { failed = true }
+                } else if hasCTY { failed = true }
+                if hasLoTW, let lotwURL {
+                    do { _ = try await updater.refreshLoTW(lotwURL) }
+                    catch { failed = true }
+                } else if hasLoTW { failed = true }
+                for kind in [ActivationReferenceKind.pota, .sota, .iota, .wwff] where due.contains(kind.fileName) {
+                    do { _ = try await updater.refreshActivationDirectory(kind) }
+                    catch { failed = true }
+                }
+                if due.contains("wavelog-catalog.json"), let wavelogURL {
+                    do { _ = try await updater.refreshWavelogCatalog(baseURL: wavelogURL, token: token) }
+                    catch { failed = true }
+                } else if due.contains("wavelog-catalog.json") { failed = true }
+                self.finish(failed ? "Some scheduled checks failed; validated cache was retained."
+                                   : "Scheduled reference checks completed")
+            }
+            return ["running": true, "scheduled": due, "due": due, "next_check_at": next]
         default:
             throw WorkerFailure("method_not_allowed", "Unknown reference-data operation.")
         }

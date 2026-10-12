@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { OperatorWorkspace } from "./OperatorWorkspace";
+import { BandMaps } from "./BandMaps";
 import { type LiveClusterSpot } from "./ClusterPanel";
 import { defaultWorkspacePreferences, operatorWorkspaceKey, readWorkspacePreferences, splitBounds } from "./operatorWorkspacePreferences";
 
@@ -68,11 +69,11 @@ describe("operator workspace", () => {
     fireEvent.mouseEnter(row); fireEvent.focus(row); expect(onSelect).not.toHaveBeenCalled();
     expect((within(row).getByText("20m") as HTMLElement).style.color).toBe("rgb(18, 52, 86)"); expect((row as HTMLElement).style.backgroundColor).toBe("rgba(255, 140, 0, 0.15)");
     fireEvent.keyDown(row, { key: "Enter" }); expect(onSelect).toHaveBeenCalledExactlyOnceWith(spot());
-    const status = screen.getByText(/ShackCQ · connected/); expect(status.textContent).toContain("Backup · failed · Connection refused");
+    const status = screen.getByRole("status", { name: "Compact cluster connections" }); expect(status.textContent).toContain("ShackCQ · Connected"); expect(status.textContent).toContain("Backup · Failed · Connection refused");
   });
   it("paginates available-height rows without table scrolling, and updates live data while hidden", () => {
-    const { rerender } = mount(); clusterTab(); expect(screen.getByText("1–6 of 12")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Next spots page" })); expect(screen.getByText("7–12 of 12")).toBeTruthy();
+    const { rerender } = mount(); clusterTab(); expect(screen.getByText("1–7 of 12")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Next spots page" })); expect(screen.getByText("8–12 of 12")).toBeTruthy();
     fireEvent.click(screen.getByRole("tab", { name: "Band maps" }));
     rerender(<OperatorWorkspace map={<div>Existing map</div>} bandMaps={<div>Existing band maps</div>} cluster={projection(1)} onSelect={vi.fn()} />);
     clusterTab(); expect(screen.getByText("1–1 of 1")).toBeTruthy(); expect(screen.getByRole("button", { name: "Next spots page" }).hasAttribute("disabled")).toBe(true);
@@ -105,8 +106,8 @@ describe("operator workspace", () => {
   });
   it("paginates column controls in a short pane instead of clipping settings or adding a scrollbar", () => {
     paneHeight = 160; mount(); clusterTab(); fireEvent.click(screen.getByRole("button", { name: "Columns" }));
-    expect(screen.getAllByRole("checkbox")).toHaveLength(2); expect(screen.queryByRole("checkbox", { name: "Show Comment column" })).toBeNull();
-    for (let index = 0; index < 6; index++) fireEvent.click(screen.getByRole("button", { name: "Next column settings page" }));
+    expect(screen.getAllByRole("checkbox")).toHaveLength(4); expect(screen.queryByRole("checkbox", { name: "Show Comment column" })).toBeNull();
+    for (let index = 0; index < 3; index++) fireEvent.click(screen.getByRole("button", { name: "Next column settings page" }));
     expect(screen.getByRole("checkbox", { name: "Show Comment column" })).toBeTruthy(); expect(screen.getByRole("button", { name: "Next column settings page" }).hasAttribute("disabled")).toBe(true);
     expect(screen.getByRole("button", { name: "Reset columns and widths" })).toBeTruthy();
   });
@@ -114,5 +115,33 @@ describe("operator workspace", () => {
     const source = readFileSync("src/live/OperatorWorkspace.tsx", "utf8"), css = readFileSync("src/live/OperatorWorkspace.css", "utf8");
     expect(source).not.toMatch(/workerRequest|setInterval|fetch\(|onRequest|cluster_connect|cluster_snapshot/);
     expect(css).not.toMatch(/overflow[^;]*:\s*(auto|scroll)/); expect(css).toContain("table-layout: fixed"); expect(css).toContain("min-width: 0; min-height: 0; overflow: hidden");
+  });
+  it("places compact band-map controls in the tabs toolbar without duplicate heading or lost zoom/state", () => {
+    const onSelect = vi.fn(), { container } = render(<OperatorWorkspace map={<div>Existing map</div>} cluster={projection()} onSelect={onSelect}
+      bandMaps={<BandMaps compact spots={[]} onSelect={onSelect} />} />);
+    expect(screen.queryByRole("heading", { name: "Band maps" })).toBeNull();
+    const toolbar = container.querySelector(".operator-tool-toolbar")!;
+    for (const element of [screen.getByRole("tab", { name: "Band maps" }), screen.getByRole("tab", { name: "Cluster" }), screen.getByLabelText("Follow radio"),
+      screen.getByRole("button", { name: "Decrease band map text size" }), screen.getByRole("button", { name: "Increase band map text size" }), screen.getByLabelText("Add band map")]) expect(toolbar.contains(element)).toBe(true);
+    expect(container.querySelector(".operator-tool-content .band-maps-head")).toBeNull();
+    expect(screen.getByRole("tablist", { name: "Operator tools" }).querySelectorAll("input,select")).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "Zoom 20m in" })); const zoomed = screen.getByLabelText(/20m spectrum/).getAttribute("aria-label");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Follow radio" })); fireEvent.click(screen.getByRole("button", { name: "Increase band map text size" }));
+    clusterTab(); expect(screen.queryByRole("checkbox", { name: "Follow radio" })).toBeNull();
+    fireEvent.click(screen.getByRole("tab", { name: "Band maps" })); expect((screen.getByRole("checkbox", { name: "Follow radio" }) as HTMLInputElement).checked).toBe(true);
+    expect(screen.getByLabelText(/20m spectrum/).getAttribute("aria-label")).toBe(zoomed); expect(within(toolbar as HTMLElement).getByText("110%")).toBeTruthy(); expect(onSelect).not.toHaveBeenCalled();
+  });
+  it("puts every cluster status and Columns in that same toolbar with explicit connected/disconnected/connecting colors", () => {
+    const data = projection(); data.snapshot.connections.push({ serverName: "Connecting DX", phase: "connecting" } as any, { serverName: "Offline DX", phase: "disconnected" } as any);
+    const { container } = mount(data); clusterTab();
+    const status = screen.getByRole("status", { name: "Compact cluster connections" }), toolbar = container.querySelector(".operator-tool-toolbar")!;
+    expect(toolbar.contains(status)).toBe(true); expect(toolbar.contains(screen.getByRole("button", { name: "Columns" }))).toBe(true);
+    expect(container.querySelector(".operator-compact-cluster header")).toBeNull(); expect(screen.getAllByText("ShackCQ · Connected")).toHaveLength(1);
+    expect(within(status).getByText("ShackCQ · Connected").classList.contains("is-connected")).toBe(true);
+    expect(within(status).getByText("Connecting DX · Connecting").classList.contains("is-connecting")).toBe(true);
+    expect(within(status).getByText("Offline DX · Disconnected").classList.contains("is-disconnected")).toBe(true);
+    expect(status.textContent).toContain("Connection refused");
+    const css = readFileSync("src/live/OperatorWorkspace.css", "utf8"); expect(css).toContain(".is-connected { color:#12d6a0; }"); expect(css).toContain(".is-disconnected { color:#ff6b5e; }"); expect(css).toContain(".is-connecting { color:#f3b23c; }");
+    expect(css).toContain("grid-template-rows: auto minmax(0, 1fr)");
   });
 });

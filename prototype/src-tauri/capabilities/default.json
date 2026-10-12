@@ -3,5 +3,5 @@
   "identifier": "prototype-local",
   "description": "Only bundled prototype windows; no filesystem, shell or network plugins.",
   "windows": ["main", "monitor", "world-map", "band-maps", "dx-cluster"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "core:webview:allow-set-webview-zoom"]
 }

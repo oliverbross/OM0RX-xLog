@@ -73,6 +73,8 @@ public actor LiveWorker {
                 }
             } else if method.hasPrefix("reference_") {
                 result = try await LiveReferenceMethods.shared.handle(method: method, params: params)
+            } else if method.hasPrefix("opportunities_") {
+                result = try await LiveOpportunitiesMethods.shared.handle(method: method, params: params)
             } else if method.hasPrefix("station_") {
                 result = try await LiveStationMethods.handle(method, params: params)
             } else if method.hasPrefix("spot_bridge_") {

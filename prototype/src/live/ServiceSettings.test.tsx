@@ -5,6 +5,23 @@ import ServiceSettings from "./ServiceSettings";
 afterEach(cleanup);
 const values = { operatorCall: "OM0RX", stationCall: "OM0RX", wavelogURL: "https://example.invalid", wavelogStationID: 1, qrzUsername: "operator", qrzEnabled: true, clubLogCTYURL: "https://example.invalid/cty", lotwActivityURL: "https://example.invalid/lotw", preservedUnknown: "retain" };
 describe("grouped service settings", () => {
+  it("applies standalone mode only on Save, retaining Wavelog setup without starting sync", async () => {
+    const request = vi.fn(async (_method: string, params?: Record<string, any>) => ({ settings: params?.settings }));
+    render(<ServiceSettings values={{ ...values, logbookMode: "wavelog" }} request={request} onSaved={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("Logbook mode"), { target: { value: "local" } });
+    expect(request).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
+    await waitFor(() => expect(request).toHaveBeenCalledWith("settings_save", { settings: { ...values, logbookMode: "local" } }));
+    expect(request.mock.calls.some(([method]) => method.startsWith("sync_"))).toBe(false);
+  });
+  it("puts rotator settings in their own tab without applying a connection change", () => {
+    const request = vi.fn();
+    render(<ServiceSettings values={values} request={request} onSaved={vi.fn()} rotorSettings={<div>Independent rotor setup</div>} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Rotator" }));
+    expect(screen.getByRole("tabpanel", { name: "Rotator" }).textContent).toContain("Independent rotor setup");
+    expect(screen.queryByRole("button", { name: "Save settings" })).toBeNull();
+    expect(request).not.toHaveBeenCalled();
+  });
   it("shows existing service URL, station and login values together without fetching credentials", () => {
     const request = vi.fn();
     render(<ServiceSettings values={values} request={request} onSaved={vi.fn()} />);

@@ -12,7 +12,7 @@ Created and maintained by **Oliver Bross, OM0RX**.
 ## Shared-app Mac integration — development alpha
 
 The `codex/unified-xlog-integration-p2` branch now builds **OM0RX-xLog Integration
-0.4.0-alpha.5**: the shared Tauri/React app with persistent real logbook, xCluster,
+0.4.0-alpha.6**: the shared Tauri/React app with persistent real logbook, xCluster,
 embedded xCat Remote Agent services, and bundled Hamlib radio/rotor helpers. It has a separate bundle and an isolated
 verified logbook copy; the working native apps and original data are preserved.
 There are no fixture contacts or spots in its runtime screens. This is not yet a
@@ -299,5 +299,5 @@ The worldwide awards research registry is a dated, source-linked implementation 
 
 The [operator feedback delivery tracker](docs/OPERATOR_FEEDBACK_TRACKER_2026-10-12.md)
 records each requested UI/data/radio fix separately, including source, test,
-installation and live-acceptance status. Pending alpha.5 source changes are not
+installation and live-acceptance status. Pending alpha.6 source changes are not
 proof of installed behavior or full native parity.
