@@ -83,14 +83,49 @@ try {
     }
     if (-not $DumpbinPath -or -not (Test-Path $DumpbinPath)) { throw 'Native Windows audit requires installed Visual Studio dumpbin.exe.' }
     if (-not $VCRedistDirectory) {
-        if ($env:VCToolsRedistDir) { $redistRoot = $env:VCToolsRedistDir }
-        elseif ($vsRoot) {
-            $redistRoot = (Get-ChildItem (Join-Path $vsRoot 'VC/Redist/MSVC') -Directory | Sort-Object Name -Descending | Select-Object -First 1).FullName
-        } else { throw 'Cannot locate the Visual Studio licensed REDIST tree.' }
-        $crt = Get-ChildItem (Join-Path $redistRoot 'x64') -Directory -Filter '*.CRT' | Select-Object -First 1
-        if (-not $crt) { throw "Missing x64 CRT redist directory: $redistRoot" }
+        $searchedRedistRoots = [Collections.Generic.List[string]]::new()
+        function Get-CrtDirectories([string]$Root) {
+            $searchedRedistRoots.Add($Root)
+            $architecture = Join-Path $Root 'x64'
+            $searchedRedistRoots.Add($architecture)
+            if (-not (Test-Path -LiteralPath $architecture -PathType Container)) { return }
+            Get-ChildItem -LiteralPath $architecture -Directory -Filter 'Microsoft.VC*.CRT' |
+                Where-Object {
+                    $_.FullName -match '(?i)[\\/]redist[\\/].*[\\/]x64[\\/]Microsoft\.VC\d+\.CRT$' -and
+                    (Test-Path -LiteralPath (Join-Path $_.FullName 'vcruntime140.dll') -PathType Leaf)
+                }
+        }
+        $crt = $null
+        # Developer environments sometimes expose an alias or a stale path.
+        # Prefer this input only when it contains an actual redistributable CRT.
+        if ($env:VCToolsRedistDir) {
+            $crt = Get-CrtDirectories $env:VCToolsRedistDir | Sort-Object Name -Descending | Select-Object -First 1
+        }
+        if (-not $crt -and $vsRoot) {
+            $redistTree = Join-Path $vsRoot 'VC/Redist/MSVC'
+            if (Test-Path -LiteralPath $redistTree -PathType Container) {
+                # Numeric toolset versions outrank alias folders such as v143.
+                # Check each actual x64 tree; never assume the highest name has one.
+                $roots = Get-ChildItem -LiteralPath $redistTree -Directory | Sort-Object -Property @{
+                    Expression = { $version = [version]'0.0'; if ([version]::TryParse($_.Name, [ref]$version)) { $version } else { [version]'0.0' } }
+                    Descending = $true
+                }, Name
+                foreach ($root in $roots) {
+                    $crt = Get-CrtDirectories $root.FullName | Sort-Object Name -Descending | Select-Object -First 1
+                    if ($crt) { break }
+                }
+            } else { $searchedRedistRoots.Add($redistTree) }
+        }
+        if (-not $crt) {
+            foreach ($root in $searchedRedistRoots | Select-Object -Unique) {
+                $children = if (Test-Path -LiteralPath $root -PathType Container) { @(Get-ChildItem -LiteralPath $root -Directory | ForEach-Object Name) -join ', ' } else { '(directory missing)' }
+                Write-Host "CRT discovery inspected: $root; immediate directories: $children"
+            }
+            throw 'Cannot locate an actual official x64 Microsoft.VC*.CRT directory with vcruntime140.dll in the selected Visual Studio REDIST tree.'
+        }
         $VCRedistDirectory = $crt.FullName
     }
+    if (-not (Test-Path -LiteralPath $VCRedistDirectory -PathType Container)) { throw "CRT redist directory does not exist: $VCRedistDirectory" }
     if ($VCRedistDirectory -notmatch '(?i)[\\/]redist[\\/].*[\\/]x64[\\/]Microsoft\.VC\d+\.CRT$') {
         throw 'VCRedistDirectory must be an official VS REDIST x64 Microsoft.VC*.CRT directory, not System32.'
     }

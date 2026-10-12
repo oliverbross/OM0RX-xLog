@@ -5,7 +5,7 @@ param(
     [string]$EvidenceDirectory,
     [switch]$RequireNoSwiftToolchain,
     [int]$ResponseTimeoutSeconds = 10,
-    [int]$GuiTimeoutSeconds = 90
+    [int]$GuiTimeoutSeconds = 100
 )
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest

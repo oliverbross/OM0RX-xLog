@@ -3,7 +3,7 @@ FROM ubuntu:24.04
 COPY prototype/scripts/linux-runtime-dependencies.txt /tmp/runtime-dependencies.txt
 RUN apt-get update && \
     sed '/^#/d; /^$/d' /tmp/runtime-dependencies.txt | xargs apt-get install -y --no-install-recommends && \
-    apt-get install -y --no-install-recommends python3 binutils xvfb xauth dbus-x11 imagemagick && \
+    apt-get install -y --no-install-recommends python3 binutils xvfb xauth dbus-x11 imagemagick weston && \
     rm -rf /var/lib/apt/lists/* && \
     useradd --create-home --uid 10001 acceptance && \
     mkdir /evidence && chown acceptance:acceptance /evidence
@@ -12,6 +12,7 @@ RUN dpkg -i /tmp/package/*.deb && rm -rf /tmp/package
 COPY prototype/dist-linux/*/*.tar.gz /tmp/archive/
 RUN mkdir -p /qa && mv /tmp/archive/*.tar.gz /qa/runtime.tar.gz && rmdir /tmp/archive
 COPY prototype/scripts/accept-linux.sh prototype/scripts/linux-runtime.py prototype/scripts/linux-worker-acceptance.py /qa/
+COPY prototype/scripts/linux-wayland-acceptance.sh /qa/
 USER acceptance
 WORKDIR /home/acceptance
 ENTRYPOINT ["bash", "/qa/accept-linux.sh"]

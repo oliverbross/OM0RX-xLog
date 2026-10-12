@@ -2,6 +2,20 @@ name: Cross-platform prototype
 
 on:
   workflow_dispatch:
+    inputs:
+      runtime_run_id:
+        description: 'Optional completed package run ID for runtime-only recheck (no rebuild)'
+        required: false
+        default: ''
+      runtime_source_sha:
+        description: 'Exact package commit SHA, required with runtime_run_id'
+        required: false
+        default: ''
+      runtime_platform:
+        description: 'Runtime-only recheck target'
+        type: choice
+        options: [both, linux, windows]
+        default: both
   push:
     branches: [codex/unified-xlog-prototype-p1]
     paths: ['prototype/**', '!prototype/**/*.md', 'Sources/**', 'Tests/**', 'Package.swift', '.github/workflows/prototype.yml']
@@ -10,9 +24,11 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   prototype:
+    if: ${{ inputs.runtime_run_id == '' }}
     strategy:
       fail-fast: false
       matrix:
@@ -26,6 +42,18 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: prototype/package-lock.json
+      - name: Restore native dependency/build cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            prototype/src-tauri/target
+            .build/prototype-tests
+            .build/prototype-worker
+          key: xlog-p1b-${{ runner.os }}-${{ hashFiles('prototype/src-tauri/Cargo.lock', 'Package.swift') }}-${{ github.sha }}
+          restore-keys: |
+            xlog-p1b-${{ runner.os }}-${{ hashFiles('prototype/src-tauri/Cargo.lock', 'Package.swift') }}-
       - name: Linux build dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libcurl4-openssl-dev libxml2-dev libicu-dev libssl-dev
@@ -130,6 +158,7 @@ jobs:
             ${{ runner.temp }}/xlog-windows-package/*.zip
             ${{ runner.temp }}/xlog-windows-package/*.zip.sha256
       - name: Upload development executables and evidence inputs
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: xlog-prototype-${{ matrix.os }}-${{ github.sha }}
@@ -141,17 +170,31 @@ jobs:
             prototype/src-tauri/target/release/sqlite3.dll
             prototype/src-tauri/Cargo.lock
             prototype/package-lock.json
+      - name: Save native dependency/build cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            prototype/src-tauri/target
+            .build/prototype-tests
+            .build/prototype-worker
+          key: xlog-p1b-${{ runner.os }}-${{ hashFiles('prototype/src-tauri/Cargo.lock', 'Package.swift') }}-${{ github.sha }}
   linux-runtime:
     name: Linux runtime-only container acceptance
     needs: prototype
+    if: ${{ always() && !cancelled() && inputs.runtime_platform != 'windows' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: xlog-runtime-linux-${{ github.sha }}
+          name: xlog-runtime-linux-${{ inputs.runtime_source_sha || github.sha }}
           path: prototype/dist-linux
+          run-id: ${{ inputs.runtime_run_id || github.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Build runtime-only Ubuntu image with packaged deb
         run: docker build -f prototype/scripts/Dockerfile.linux-runtime -t xlog-prototype-runtime .
       - name: Native WebKit GUI, worker, relaunch and relocation with network disabled
@@ -171,13 +214,16 @@ jobs:
   windows-runtime:
     name: Windows fresh-runner runtime acceptance
     needs: prototype
+    if: ${{ always() && !cancelled() && inputs.runtime_platform != 'linux' }}
     runs-on: windows-2022
     timeout-minutes: 15
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: xlog-runtime-windows-${{ github.sha }}
+          name: xlog-runtime-windows-${{ inputs.runtime_source_sha || github.sha }}
           path: ${{ runner.temp }}/xlog-runtime-download
+          run-id: ${{ inputs.runtime_run_id || github.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Extract isolated package
         shell: pwsh
         run: |

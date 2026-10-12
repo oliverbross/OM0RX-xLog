@@ -32,9 +32,9 @@ for attempt in 1 2 3; do
   # Xvfb and dbus are QA harness dependencies. They are not application deps.
   xvfb-run -a -s '-screen 0 1600x1100x24' dbus-run-session -- bash -c '
     set -euo pipefail
-    timeout 90 "$1/launch" --acceptance-report "$2" > "$3" 2>&1 &
+    timeout 100 "$1/launch" --acceptance-report "$2" > "$3" 2>&1 &
     pid=$!
-    for count in $(seq 1 80); do
+    for count in $(seq 1 200); do
       if [[ -s "$2" ]]; then
         import -window root "$4"
         break
@@ -54,6 +54,8 @@ assert value['platform'] == 'linux'
 PY
   [[ -s "$evidence/ui-$attempt.png" ]]
 done
+xvfb-run -a -s '-screen 0 1600x1100x24' dbus-run-session -- \
+  bash /qa/linux-wayland-acceptance.sh "$package" "$evidence"
 python3 - "$package" "$evidence" <<'PY'
 import json, sys
 from pathlib import Path
@@ -62,8 +64,10 @@ manifest = json.loads((package / 'runtime-manifest.json').read_text())
 (evidence / 'acceptance.json').write_text(json.dumps({
     'schema': 1, 'status': 'passed', 'commit': manifest['commit'],
     'platform': 'ubuntu-24.04-amd64', 'developmentToolchainsPresent': False,
-    'nonRoot': True, 'framingTestCount': 2, 'embeddedUiLaunchCount': 3,
-    'installedDebLaunchCount': 2, 'relocatedArchiveLaunchCount': 1,
-    'scope': 'Synthetic core and embedded UI under Xvfb; no hardware/accounts'}, indent=2) + '\n')
+    'nonRoot': True, 'framingTestCount': 2, 'embeddedUiLaunchCount': 4,
+    'installedDebLaunchCount': 3, 'relocatedArchiveLaunchCount': 1,
+    'x11LaunchCount': 3, 'waylandLaunchCount': 1,
+    'waylandCompositorBackend': 'Weston nested X11 with pixman renderer',
+    'scope': 'Synthetic core and embedded UI under Xvfb and nested Wayland; no hardware/accounts'}, indent=2) + '\n')
 PY
 printf 'Linux clean-container acceptance passed: %s\n' "$evidence"

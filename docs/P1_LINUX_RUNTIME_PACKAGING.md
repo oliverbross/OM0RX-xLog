@@ -39,23 +39,32 @@ docker run --rm --network none --cap-drop ALL \
 
 The image installs the actual Debian package as root during image construction;
 runtime checks run as a regular user with network access disabled. Python,
-binutils, Xvfb, D-Bus, and ImageMagick are QA tools, not declared application
+binutils, Xvfb, D-Bus, ImageMagick, and Weston are QA tools, not declared application
 dependencies. No compiler, Swift/Rust/Node toolchain or development library is
 installed. The harness rejects unexpected development executables, verifies all
 payload hashes, checks native recursive loader resolution, executes worker
 self-test plus both open-pipe/fragments and malformed/oversized-line recovery
 regressions, then launches the installed embedded UI twice to check shutdown and
 reopen. A third launch uses the tar archive extracted at a new user-writable path.
-Each UI run saves a native report and an X11 screenshot. Any failed report,
+Each UI run saves a native report and an X11 screenshot. A fourth installed
+package run forces GTK/WebKit to use Wayland with `DISPLAY` removed. Weston 13
+uses its X11 backend with the pixman compositor under a separate Xvfb session;
+the outer X11 screenshot captures the nested compositor. At least fourteen
+successful native UI checks are required for this Wayland report, including the
+embedded map, worker, memory logbook and detached monitor. This exercises a
+native Wayland application, not a physical Wayland desktop or a directly
+headless Weston backend. Compositor logs/version and the exact session layout
+are recorded separately in `wayland-session.json`. Any failed report,
 missing screenshot, loader failure, timeout or nonzero exit fails the lane.
 
-The authoritative result is `evidence/acceptance.json` together with the three
+The authoritative result is `evidence/acceptance.json` together with the four
 UI reports/screenshots, worker report, logs, loader inventories, package versions,
 OS/user records and hash checks from the same run. Successful builds or local
 script syntax checks do not establish Linux clean-runtime acceptance. Xvfb
-acceptance also does not establish physical desktop, display-driver, radio/RF or
+and nested Wayland acceptance also do not establish physical desktop, display-driver, radio/RF or
 production-account behavior.
 
 Primary platform references: [Tauri Debian distribution](https://tauri.app/distribute/debian/),
 [Swift Linux packaging](https://docs.swift.org/latest/documentation/swiftlinux/packaging/),
 and version-tagged Swift source license URLs recorded in `runtime-manifest.json`.
+The nested compositor options follow the [Ubuntu 24.04 Weston 13 manual](https://manpages.ubuntu.com/manpages/noble/man1/weston.1.html).
