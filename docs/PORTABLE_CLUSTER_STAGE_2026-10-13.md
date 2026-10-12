@@ -6,6 +6,10 @@ session, parser and classifier with a new Winsock/POSIX socket adapter. macOS
 retains its Network.framework transport. This source stage is not an installed
 release or a full-parity certificate.
 
+Source commit: `c17cff2c84845e8aea9abeaf6fd139e386eb71c1`, pushed to
+`codex/unified-xlog-integration-p2`. All-platform CI run `38302431354` is in
+progress, with Mac portable tests running and Windows/Linux toolchains preparing.
+
 ## Transport and ownership
 
 Each connection owns its socket on one serial I/O lane. Cancellation never closes
@@ -57,6 +61,9 @@ retired connection from sending login or commands.
   The test fixture has no worker, credential or station access. The existing wide
   full-cluster table still exceeds the laptop viewport; broader responsive-table
   acceptance remains open. No layout or design-token changes were introduced.
+
+Rendered evidence: [laptop settings](evidence/portable-cluster/settings-laptop.png)
+and [wide settings](evidence/portable-cluster/settings-wide.png).
 
 The native Windows/Linux build and runtime matrix is the next gate. These Mac
 tests exercise the portable adapter directly but do not prove Winsock behavior.
