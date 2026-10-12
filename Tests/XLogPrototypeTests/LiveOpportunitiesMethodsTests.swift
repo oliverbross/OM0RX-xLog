@@ -1,7 +1,13 @@
-#if os(macOS)
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 import Testing
+#if canImport(XLogCore)
 import XLogCore
+#else
+import XLogPortableCore
+#endif
 @testable import XLogPrototypeSupport
 
 @Suite("Isolated opportunities projection")
@@ -11,6 +17,79 @@ struct LiveOpportunitiesMethodsTests {
         var lastSuccess: Date
         var lastAttempt: Date
         var safeError: String?
+    }
+
+    @Test("Every shared public programme and the DX calendar retain their source evidence")
+    func portableProgrammeParsing() throws {
+        let now = Date(timeIntervalSince1970: 1_791_763_200)
+        for (source, reference) in [("pota", "OM-0001"), ("sota", "FL/VO-209"),
+                                    ("wwff", "OMFF-0123"), ("wwbota", "OM-CAS-1")] {
+            let body = try JSONSerialization.data(withJSONObject: [["activator": "OM0RX/P",
+                "reference": reference, "frequency": "14074", "mode": "FT8"]])
+            let rows = try OpportunityFeedParser.parse(body, source: source, observedAt: now)
+            #expect(rows.count == 1)
+            #expect(rows[0].reference == reference)
+            #expect(rows[0].frequencyHz == 14_074_000)
+            #expect(rows[0].sourceURL == OpportunityFeedParser.sourceURL(source))
+        }
+        let calendar = Data(#"[{"from":"2026-10-01","to":"2026-10-20","cal":"DX1ABC: Island (EU-001)"}]"#.utf8)
+        let events = try OpportunityFeedParser.parse(calendar, source: "425dxn", observedAt: now)
+        #expect(events.first?.kind == "dxpedition")
+        #expect(events.first?.frequencyHz == nil)
+        #expect(events.first?.sourceURL.contains("425dxn.org") == true)
+        #expect(throws: OpportunityFeedError.self) {
+            try OpportunityFeedParser.parse(Data("<html>not a feed</html>".utf8), source: "pota", observedAt: now)
+        }
+    }
+
+    @Test("Refresh uses the bounded portable transport and preserves validated cache on failure")
+    func refreshAndFallback() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        _ = try logbook.handle(method: "workspace_create", params: ["mode": "empty"])
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [ValidOpportunityProjectionFeed.self]
+        let session = URLSession(configuration: config)
+        defer { session.invalidateAndCancel() }
+        let actor = LiveOpportunitiesMethods(logbook: logbook, session: session, clusterSpots: { [] })
+        let fresh = try await actor.handle(method: "opportunities_refresh", params: ["source": "pota"])
+        let freshRows = try #require(fresh["items"] as? [[String: Any]])
+        #expect(freshRows.count == 1)
+        #expect(freshRows.first?["callsign"] as? String == "OM0RX/P")
+        #expect(freshRows.first?["frequency_hz"] as? Int64 == 14_074_000)
+        #expect(freshRows.first?["reference_status"] as? String == "not_installed")
+
+        let badConfig = URLSessionConfiguration.ephemeral
+        badConfig.protocolClasses = [FailedOpportunityProjectionFeed.self]
+        let badSession = URLSession(configuration: badConfig)
+        defer { badSession.invalidateAndCancel() }
+        let reopened = LiveOpportunitiesMethods(logbook: logbook, session: badSession, clusterSpots: { [] })
+        let fallback = try await reopened.handle(method: "opportunities_refresh", params: ["source": "pota"])
+        let fallbackRows = try #require(fallback["items"] as? [[String: Any]])
+        #expect(fallbackRows.first?["id"] as? String == freshRows.first?["id"] as? String)
+        let sources = try #require(fallback["sources"] as? [[String: Any]])
+        let source = try #require(sources.first { $0["source"] as? String == "pota" })
+        #expect(source["state"] as? String == "stale")
+        #expect(source["safe_error"] as? String == "SOURCE_UNAVAILABLE_OR_INVALID")
+    }
+
+    @Test("Worker routes opportunities to its own local workspace without contacting a publisher")
+    func workerRoute() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        _ = try logbook.handle(method: "workspace_create", params: ["mode": "empty"])
+        let worker = LiveWorker(logbook: logbook)
+        let request = Data(#"{"id":"opportunities","method":"opportunities_snapshot","params":{}}"#.utf8)
+        let response = try #require(JSONSerialization.jsonObject(with: await worker.response(to: request)) as? [String: Any])
+        #expect(response["ok"] as? Bool == true)
+        let result = try #require(response["result"] as? [String: Any])
+        #expect((result["items"] as? [[String: Any]])?.isEmpty == true)
+        #expect(result["history_state"] as? String == "ready")
+        await worker.beginTerminalShutdown()
+        let stopped = try #require(JSONSerialization.jsonObject(with: await worker.response(to: request)) as? [String: Any])
+        #expect((stopped["error"] as? [String: Any])?["code"] as? String == "worker_stopping")
     }
 
     @Test("Cached public evidence joins complete local reference history without polling a cluster or feed")
@@ -79,4 +158,28 @@ struct LiveOpportunitiesMethodsTests {
         }
     }
 }
-#endif
+
+private final class ValidOpportunityProjectionFeed: URLProtocol, @unchecked Sendable {
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        let response = HTTPURLResponse(url: request.url!, statusCode: 200,
+            httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "application/json"])!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data(#"[{"activator":"OM0RX/P","reference":"OM-0001","frequency":"14074","mode":"FT8"}]"#.utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() { }
+}
+
+private final class FailedOpportunityProjectionFeed: URLProtocol, @unchecked Sendable {
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        let response = HTTPURLResponse(url: request.url!, statusCode: 503,
+            httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "text/html"])!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() { }
+}

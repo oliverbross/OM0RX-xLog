@@ -29,14 +29,15 @@ let liveCoreName = "XLogPortableCore"
 let liveIntegrationDependencies: [Target.Dependency] = []
 let prototypeCoreTargets: [Target] = [
     .target(name: "XLogPortableCore", dependencies: portableCrypto + ["CSQLitePrototype"], path: "Sources/XLogCore",
-        exclude: ["ActivationReferenceDirectory.swift", "DXCCBoundaries.swift", "FlexSpotForwarder.swift",
-                  "OpportunityFeeds.swift", "QRZClient.swift", "ReferenceDataUpdater.swift", "SecretStore.swift",
+        exclude: ["DXCCBoundaries.swift", "FlexSpotForwarder.swift",
+                  "QRZClient.swift", "ReferenceDataUpdater.swift", "SecretStore.swift",
                   "Solar.swift", "SyncEngine.swift", "TransmitPowerCapture.swift", "WeatherClient.swift", "XCatClient.swift"],
         sources: ["ADIF.swift", "Models.swift", "QSOADIF.swift", "SemanticQSOIdentity.swift", "WavelogClient.swift",
                   "LogbookDatabase.swift", "IntegrationWorkspace.swift", "Settings.swift", "CWProfile.swift",
                   "BackupManager.swift", "LocalFilePermissions.swift", "LocalFilePath.swift", "CTYResolver.swift", "Geo.swift",
                   "OperatingSupport.swift", "OperatorIntelligence.swift", "AwardCatalog.swift",
-                  "AwardRegistry.swift", "AwardReferences.swift", "ClusterSpotFeed.swift"],
+                  "AwardRegistry.swift", "AwardReferences.swift", "ClusterSpotFeed.swift",
+                  "ActivationReferenceDirectory.swift", "OpportunityFeeds.swift"],
         resources: [.process("Resources")])
 ]
 #endif

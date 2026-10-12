@@ -16,6 +16,7 @@ struct LocalAcceptanceSessionTests {
         do {
             for method in ["station_connect", "station_radio_control", "station_action", "rotor_goto",
                            "cluster_connect", "cluster_snapshot", "reference_refresh", "qrz_lookup",
+                           "opportunities_snapshot", "opportunities_refresh",
                            "sync_run", "secret_set", "backup_import", "future_service"] {
                 let result = try await request(session, method)
                 #expect(result["ok"] as? Bool == false)
@@ -27,6 +28,7 @@ struct LocalAcceptanceSessionTests {
             #expect(health?["mode"] as? String == "isolated_local_acceptance")
             #expect(health?["isolated_workspace"] as? Bool == true)
             #expect(health?["platform_services"] as? Bool == false)
+            #expect(health?["public_opportunities"] as? Bool == false)
             let status = try await request(session, "workspace_status")["result"] as? [String: Any]
             #expect(status?["workspace_exists"] as? Bool == false)
             #expect(status?["native_log_exists"] as? Bool == false)

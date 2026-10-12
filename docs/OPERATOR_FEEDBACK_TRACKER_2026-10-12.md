@@ -156,6 +156,29 @@ stats/progress/map totals remove the preceding seconds of serialized database
 work. Cold Awards, live-service contention and target-machine measurements are
 still open. The installed signed alpha.7 remains unchanged until packaging.
 
+### Shared Chaser and DX public feeds
+
+The public-opportunities worker path now compiles outside the macOS-only service
+router. POTA, SOTA, WWFF, WWBOTA and the 425DXN calendar use the shared parser,
+installed activation references and local worked/confirmed history. Snapshots
+read cached evidence; only explicit refresh contacts a publisher. On Windows
+and Linux, this does not yet include the separately pending live cluster
+transport or authenticated reference-download/vault services.
+
+The same delegate-based downloader runs on every platform: HTTPS GET, no
+redirects or credential/cookie storage, validated JSON response, bounded
+2 MiB streamed body and cancellation. Failed refreshes retain the previous
+validated feed with a stale status. The isolated native acceptance mode still
+denies both opportunity methods before dispatch.
+
+Local Mac verification passes 139 XCTest cases, 57 Swift Testing cases and
+73 native core cases. Nine feed/projection tests cover all public programmes,
+calendar parsing, no-network snapshots, worker routing, known and unknown
+response lengths, invalid origins/content, redirects, cancellation and stale
+cache fallback. The release worker build and its synthetic self-test pass.
+Windows/Linux native compilation and runtime results for this source are
+pending; no publisher, credential, radio or rotor endpoint was contacted.
+
 ### Isolated current UI acceptance foundation
 
 The native acceptance launch now selects a dedicated worker session with a

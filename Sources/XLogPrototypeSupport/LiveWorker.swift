@@ -17,9 +17,11 @@ public actor LiveWorker {
         }
     }
     private let logbookLane: LogbookLane
+    private let opportunities: LiveOpportunitiesMethods
     private let localAcceptance: Bool
     init(logbook: LiveLogbookMethods = .shared, localAcceptance: Bool = false) {
         logbookLane = LogbookLane(service: logbook)
+        opportunities = LiveOpportunitiesMethods(logbook: logbook)
         self.localAcceptance = localAcceptance
     }
 
@@ -56,8 +58,8 @@ public actor LiveWorker {
                 }
                 try LocalAcceptanceSession.validate(method: method, params: params)
             }
-            if terminalShutdown && (method.hasPrefix("station_") || method.hasPrefix("spot_bridge_")) {
-                throw WorkerFailure("worker_stopping", "The station service is shutting down; no new station command was started.")
+            if terminalShutdown && (method.hasPrefix("station_") || method.hasPrefix("spot_bridge_") || method.hasPrefix("opportunities_")) {
+                throw WorkerFailure("worker_stopping", "The worker is shutting down; no new service request was started.")
             }
             if method == "health" {
                 guard params.isEmpty else { throw WorkerFailure("invalid_params", "Health takes no parameters.") }
@@ -68,6 +70,7 @@ public actor LiveWorker {
                     health["isolated_workspace"] = true
                     health["network_contact"] = false
                     health["credentials_accessed"] = false
+                    health["public_opportunities"] = false
                 }
                 return encode(["id": id, "ok": true, "result": health])
             }
@@ -82,12 +85,12 @@ public actor LiveWorker {
                     try? await LiveClusterMethods.shared.refreshContacts()
                 }
                 #endif
+            } else if method.hasPrefix("opportunities_") {
+                result = try await opportunities.handle(method: method, params: params)
             } else {
                 #if os(macOS)
                 if method.hasPrefix("reference_") {
                     result = try await LiveReferenceMethods.shared.handle(method: method, params: params)
-                } else if method.hasPrefix("opportunities_") {
-                    result = try await LiveOpportunitiesMethods.shared.handle(method: method, params: params)
                 } else if method.hasPrefix("station_") {
                     result = try await LiveStationMethods.handle(method, params: params)
                 } else if method.hasPrefix("spot_bridge_") {
@@ -121,7 +124,7 @@ public actor LiveWorker {
         #endif
         return ["mode": mode, "platform": platform, "synthetic_only": false,
                 "version": "0.4.0-alpha.7", "local_logbook": true,
-                "platform_services": services, "station_io": false,
+                "platform_services": services, "public_opportunities": true, "station_io": false,
                 "connections_require_explicit_action": true]
     }
 

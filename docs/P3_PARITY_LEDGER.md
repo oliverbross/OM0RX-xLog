@@ -17,6 +17,10 @@ or hardware acceptance. Generated 100,000-contact Mac GUI runs pass functional
 checks; the latest index follow-up displays the logbook in 80 ms, but first
 Awards is still 698 ms and overall performance acceptance remains open. See the current checkpoint in
 [`OPERATOR_FEEDBACK_TRACKER_2026-10-12.md`](OPERATOR_FEEDBACK_TRACKER_2026-10-12.md).
+The Chaser and DX public-feed path is now shared as well, with bounded HTTP,
+cache fallback and local reference history; its Windows/Linux build acceptance
+is pending. Live cluster transport, authenticated services and portable vaults
+remain separate incomplete gates.
 The inspection table and detailed baseline below remain historical evidence.
 
 | Repository | Inspected local HEAD | Qualification |

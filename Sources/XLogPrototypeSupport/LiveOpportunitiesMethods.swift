@@ -1,6 +1,12 @@
-#if os(macOS)
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+#if canImport(XLogCore)
 import XLogCore
+#else
+import XLogPortableCore
+#endif
 
 /// Read-only operator opportunities. Public feeds are fetched only after an
 /// explicit refresh; loading this actor never contacts a publisher or a radio.
@@ -22,7 +28,11 @@ actor LiveOpportunitiesMethods {
 
     init(logbook: LiveLogbookMethods = .shared, session: URLSession? = nil,
          clusterSpots: @escaping () async -> [[String: Any]] = {
+             #if os(macOS)
              await LiveClusterMethods.shared.currentSpotRowsIfStarted()
+             #else
+             []
+             #endif
          }) {
         self.logbook = logbook
         self.clusterSpots = clusterSpots
@@ -60,17 +70,7 @@ actor LiveOpportunitiesMethods {
             var request = URLRequest(url: url)
             request.timeoutInterval = 15
             request.setValue("application/json", forHTTPHeaderField: "Accept")
-            let (bytes, response) = try await session.bytes(for: request, delegate: NoOpportunityRedirect())
-            guard let http = response as? HTTPURLResponse, http.statusCode == 200,
-                  http.url?.scheme == "https", http.url?.host == url.host,
-                  let mime = http.value(forHTTPHeaderField: "content-type")?.lowercased(),
-                  mime.contains("json"),
-                  http.expectedContentLength <= 2_097_152 else { throw OpportunityFeedError.invalidBody }
-            var data = Data()
-            for try await byte in bytes {
-                guard data.count < 2_097_152 else { throw OpportunityFeedError.invalidBody }
-                data.append(byte)
-            }
+            let data = try await OpportunityDownload.fetch(request, configuration: session.configuration)
             let items = try OpportunityFeedParser.parse(data, source: source, observedAt: Date())
             prior.items = items
             prior.lastSuccess = Date()
@@ -205,12 +205,3 @@ actor LiveOpportunitiesMethods {
     private func iso(_ date: Date) -> String { ISO8601DateFormatter().string(from: date) }
     private func invalid() -> WorkerFailure { WorkerFailure("invalid_params", "Invalid opportunity request or cache.") }
 }
-
-private final class NoOpportunityRedirect: NSObject, URLSessionTaskDelegate {
-    func urlSession(_ session: URLSession, task: URLSessionTask,
-                    willPerformHTTPRedirection response: HTTPURLResponse,
-                    newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
-        completionHandler(nil)
-    }
-}
-#endif
