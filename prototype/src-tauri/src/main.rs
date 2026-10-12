@@ -5,6 +5,7 @@ mod acceptance;
 mod hamlib;
 mod rotor;
 mod detached_geometry;
+mod winkeyer;
 
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu, WINDOW_SUBMENU_ID};
 use tauri::{Emitter, LogicalSize, Manager};
@@ -105,6 +106,11 @@ fn apply_workspace_layout(app: &tauri::AppHandle, layout: WorkspaceLayout) -> ta
 async fn worker_request(window: tauri::WebviewWindow, request: serde_json::Value) -> Result<serde_json::Value, String> {
     // Only typed integration operations cross this boundary; never shell commands.
     let method = request.get("method").and_then(|m| m.as_str()).unwrap_or("");
+    if method.starts_with("winkeyer_") {
+        winkeyer::validate_surface(window.label())?;
+        return tauri::async_runtime::spawn_blocking(move || winkeyer::request(request))
+            .await.map_err(|_| "WinKeyer task failed".to_string())?;
+    }
     if method == "station_action" && matches!(request["params"]["action"].as_str(), Some("rotor_goto" | "rotor_stop")) {
         return Err("Legacy xCat rotor actions require migration to the selected rotor owner".into());
     }
@@ -353,7 +359,7 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("Application failed to start")
         .run(|_, event| {
-            if matches!(event, tauri::RunEvent::Exit) { hamlib::shutdown(); worker::shutdown(); }
+            if matches!(event, tauri::RunEvent::Exit) { winkeyer::shutdown(); hamlib::shutdown(); worker::shutdown(); }
         });
 }
 

@@ -10,8 +10,67 @@ are part of overnight acceptance.
 six named colours, optional F1–F12 / Shift+F1–F12 shortcuts, chosen desk buttons,
 strict ASCII previews and `{MYCALL}`, `{CALL}`, `{RST}`, `{NAME}`, `{GRID}`,
 `{SERIAL}` substitutions. All four tests pass. No editor, persistence, button row,
-arming/controller or WinKeyer transport is wired yet. This is not a delivered CW
-feature. Never portray the profile engine as hardware support.
+arming/controller is wired yet. This is not a delivered CW feature.
+
+The Rust desktop now routes main-window-only `winkeyer_*` requests to an independent
+serial actor in `prototype/src-tauri/src/winkeyer.rs`. This source stage is not
+installed. It uses `serialport` 4.10.1 (locked dependency; no system libudev feature),
+1200 baud / 8N2, explicit Connect with control-line consent, an echo/Host Open/status
+handshake, and continuously serviced status/flow control. Accepted firmware replies
+are the documented WK2 revision 23 and WK3 revisions 30/31. Original WK1, older WK2
+firmware, other revisions and compatible/OEM clones are not assumed supported.
+
+The 19 WinKeyer tests include threaded fake-serial execution, not just source
+inspection. Full Mac Rust suite: 71 unit tests + 16 Hamlib integration tests pass.
+The 19 focused tests also pass serially. `cargo clippy --all-targets` passes with
+only the existing `hamlib::Session::new` argument-count warning; no WinKeyer lint
+warnings. Distribution metadata already inventories locked Cargo dependencies and
+copies their supplied notices, so the next package will include serialport's
+resolved dependency/licence records (the new package itself has not been built).
+No physical serial port was opened, no keyer was enumerated/probed, and no RF or
+station configuration changes were made. Windows/Linux build and hardware tests
+remain separate gates. The installed alpha.6 is unchanged.
+
+### Backend contract for the remaining UI/controller work
+
+- Requests use the existing `{id, method, params}` envelope and return
+  `{id, ok, result}` or `{id, ok:false, error:{code:"WINKEYER", message}}`.
+- `winkeyer_ports` is inventory only. `winkeyer_connect` requires `port` and
+  `confirm_serial_control:true`. It returns a generation immediately in connecting
+  phase; poll `winkeyer_snapshot`. Connecting/closing never queue CW operations.
+- Every action other than inventory/connect/snapshot requires that exact
+  `generation`. No reconnect or alternate-device fallback is implicit.
+- `winkeyer_arm` additionally requires `confirm_transmit:true`, fresh idle status,
+  and no owned output. Arming lasts 60 seconds, is memory-only, and expires into
+  cancellation/Stop, not replay. The frontend must also disarm on focus loss,
+  profile/output changes and context changes; backend arming alone does not meet
+  the foreground-only shortcut requirement.
+- `winkeyer_send` takes an increasing positive integer `intent` plus validated
+  uppercase ASCII `text` (1–128 bytes). Rejected send intents are consumed. The
+  response means accepted, never transmitted. UI timeout must never retry text.
+  One macro is active at a time, with bounded single-character writes and XOFF.
+- `winkeyer_speed` takes integer `wpm` (5–99), only when fresh and idle. No mode,
+  pin, key/PTT routing, EEPROM, factory reset or manual key-down controls exist.
+- `winkeyer_stop` bypasses the command queue, discards queued Arm/Send operations,
+  disarms and requests Clear Buffer only for xLog-owned output. Pending paddle
+  break-in is read first; it cancels host ownership and never resumes host text.
+  A Stop acknowledgement is only a request, not confirmation of physical idle.
+- `winkeyer_disconnect` requests Stop, waits up to one second for settled idle,
+  then Host Close. Poll the snapshot; call disconnect again when terminal to
+  retire the session. If output remains uncertain, retirement additionally requires
+  `confirm_output_stopped:true` after the operator checks the keyer physically.
+  A failed/partial write closes the transport without further command bytes: its
+  parser boundary is unknown. Never send a new macro or reconnect automatically.
+- Snapshots expose phase, firmware, status flags/age, remaining arming time,
+  ownership, pending count and last intent; they contain no macro text. Serial
+  echo is ignored as proof. Neither BUSY/idle nor a successful write proves RF.
+
+Tests cover status tagging, all WK1 status bits, handshake/unsupported firmware,
+fresh arming, invalid text/repeated intents, XOFF, paddle cancellation, Stop,
+expiry/stale status, partial writes, settle timing across status polls, generation
+fencing, surface restriction, expired queued requests, port-open failure, EOF and
+owned/unowned shutdown. Actual driver timeouts, device-buffer behavior, hotplug and
+all three OS packages still need real-target acceptance.
 
 ## Next implementation boundary
 
@@ -28,12 +87,9 @@ feature. Never portray the profile engine as hardware support.
    limit is **80**, not the existing UI's 160. Agent/FLEX route uses
    `station_radio_control` with `send_cw` / `clear_cw` and explicit provider. Do not
    silently fall back from an unsupported radio to another transmitter.
-4. WinKeyer transport should own a serial port separately from radio/rotor,
-   main-window only, with connection generation and consumed intent IDs. Use a
-   continuously read, bounded worker so XOFF, paddle break-in and Stop can preempt
-   pending text. No UI-thread serial I/O; no raw device commands from templates.
-   Port collisions, partial writes, unplug/EOF, unsupported firmware, stale status,
-   shutdown and reconnect must be tested with a fake transport before real hardware.
+4. Integrate the implemented WinKeyer actor with that controller and editor.
+   Preserve its generation/intent/uncertainty gates; do not bypass them through
+   ad-hoc UI serial calls. Complete packaged and real-target acceptance separately.
 
 ## Protocol references and constraints
 
@@ -41,17 +97,19 @@ Primary references:
 - https://www.k1elsystems.com/files/WK3_Datasheet_v1.3.pdf
 - https://k1elsystems.com/files/WinkeyInterfaceGuide.pdf
 
-The initial WK3 manual fetch succeeded, but subsequent page-text retrieval failed;
-re-read exact command/revision/status tables before implementing the byte parser.
-The local PDF extraction command was policy-blocked; do not repeat it or bypass
-that restriction. Web/approved document tools are alternatives.
+Exact serial settings, Host Open and WK1-compatible status table 14 were rechecked
+against K1EL's primary WK2/WK3 manuals through web document/search tools. Additional
+revision reference: https://www.k1elsystems.com/files/WK3_Datasheet_v1.pdf (page 42).
+The local PDF extraction command was policy-blocked; do not repeat or bypass it.
 
-Prior researched outline: 1200 baud, 8N2; Host Open `00 02` and a firmware revision
+Implemented protocol: 1200 baud, 8N2; Host Open `00 02` and a firmware revision
 handshake; Host Close `00 03`; Clear Buffer `0A`; speed `02 nn` (5–99). Clear only
 owned or uncertain xLog sends on release, never unowned paddle activity. Do not
 implement manual PTT (`18`), immediate/timed key-down, EEPROM writes, factory reset
-or automatic pin-configuration overrides in this stage. DTR/RTS changes on serial
-open can have electrical effects: require explicit connection and document them;
+or automatic pin-configuration overrides in this stage. Connect asserts DTR and
+clears RTS, as described in K1EL's interface guide. These changes (including an
+OS/driver's brief DTR assertion on open) can have electrical effects: require
+explicit connection and show the warning in settings;
 do not claim all WinKeyer generations or OEM variants are verified.
 
 The RD-Nexus `crates/tempo-audio/src/winkeyer.rs` module is useful reference only:

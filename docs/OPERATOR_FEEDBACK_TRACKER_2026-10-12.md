@@ -27,8 +27,10 @@ packaged UI result. Keep unresolved items here across releases.
   (17 station, 86 worker, 33 cluster) plus 40 Swift Testing cases, all passed.
 - UI-26 source/fixture review disposition: **ship**, followed by documentation;
   no claim of installed-app or hardware acceptance. Browser fixture server closed.
-- CW-02 pure rules are tested, but CW-01 transport and CW-03 editor/button row are
-  still implementation work. See `docs/CW_IMPLEMENTATION_STAGE.md` before continuing.
+- CW-02 pure rules are tested. CW-01 now has a guarded Rust serial actor and 19
+  fake-transport/protocol tests (full Rust suite 87/87). Settings, main-window
+  controller, CW-03 desk row, installed and physical acceptance remain open.
+  See `docs/CW_IMPLEMENTATION_STAGE.md` before continuing.
 - Alpha.6 source is frozen, pushed, signed, notarized and installed. Broader parity
   and performance gates remain open.
 - Reference follow-up: Wavelog catalog semantic schema validation and cancellation
@@ -56,7 +58,7 @@ close PERF-01's packaged UI, cold-start or median/p95 acceptance requirements.
 | UI-25 | Move independent rotator configuration into Settings → Rotator; browsing settings leaves connections unchanged | Source implemented | Pending packaged navigation check |
 | UI-26 | Hide unconfigured rotor; optional fixed-antenna type/name/bands or no equipment panel; reclaim its grid track | Implemented; 21 focused UI tests, settings migration/round-trip tests; full frontend 311/311 + TypeScript and Swift core 67/67. Fresh narrow UI review: ship | Alpha.6: saved temporary vertical/20–10m card, verified on Desk and persisted across navigation; restored automatic/empty-band preferences. Existing ARCO configuration correctly retains offline rotor. Synthetic no-equipment/wide/laptop fixtures passed. Relaunch of changed equipment, high-DPI and assistive-technology checks remain |
 | SYNC-02 | Explicit standalone local vs local+Wavelog logbook mode; local mode blocks sync network, keeps all data, switching back never auto-syncs | Backend and UI in progress | Test saved mode/restart/no-network guards; current user mode unchanged |
-| CW-01 | Cross-platform WinKeyer configuration and transport, separate from supported-radio CW route | New requested stage; review official protocol and existing ShackCQ implementation | Radio intentionally off; no keying/transmission tests; physical WinKeyer acceptance required |
+| CW-01 | Cross-platform WinKeyer configuration and transport, separate from supported-radio CW route | Rust serial actor/main-only ingress implemented; documented WK2/3 handshake, arm/generation/intent gates, flow control, priority Stop and uncertain-output retention; 19 fake-transport tests, full Rust 87/87. Settings/controller integration still open | Not installed. No serial-port probing or RF tests; actual WinKeyer, driver and Windows/Linux acceptance required |
 | CW-02 | Up to 20 editable macros, safe substitutions/preview, named colors and assigned keyboard shortcuts | Pure profile/preview/key-matching engine implemented, 4 tests pass; settings editor and output controller still pending | Not user-facing yet. Opt-in transmit arming; no shortcuts while typing/in dialogs, no reconnect/retry replay, immediate Stop |
 | CW-03 | Optional customizable row of selected colored CW macro buttons under Active QSO | New requested stage | Responsive row/selection, saved profile, same shared frontend; no fabricated transmit confirmation |
 | CLUSTER-01 | Restore live cluster after update; resume saved connected session on restart, respect explicit Disconnect; independent of offline radio | Startup resume implemented; intent/race regression tests passed | Alpha.6 automatically reconnected ShackCQ after installation/restart without pressing Connect; 12 live spots observed, radio/PA/rotor offline. Explicit-disconnect persistence covered by tests, not repeated against live feed |
