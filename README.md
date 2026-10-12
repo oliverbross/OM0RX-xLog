@@ -11,6 +11,10 @@ Created and maintained by **Oliver Bross, OM0RX**.
 
 Development scope, acceptance evidence and the prioritized backlog are tracked in [PROJECT_STATUS.md](PROJECT_STATUS.md).
 
+## Proposed local-station and cross-platform programme
+
+The [unified xLog project plan](docs/LOCAL_STATION_CROSS_PLATFORM_PLAN.md) brings xCat's station controls and xCluster's complete cluster workspace into xLog, adds standalone Hamlib radio/rotor profiles, and proposes a single shared macOS/Windows/Linux interface while preserving existing remote operation. It includes the architecture audit, reuse strategy, phased backlog, parity gates, data migration, release requirements and effort/risk estimates. This is a **planning proposal, not implemented support**: the current release remains the native macOS application described below.
+
 ![OM0RX-xLog operator desk](docs/screenshots/operator-desk.png)
 
 ## What is included

@@ -1,6 +1,15 @@
 # OM0RX-xLog project status
 
 Last updated: 2026-10-12
+
+## Proposed portability programme — planning only
+
+[Unified xLog project plan](docs/LOCAL_STATION_CROSS_PLATFORM_PLAN.md): integrate xCat station controls and the full xCluster workspace into xLog, add standalone Hamlib radio/rotor profiles, preserve remote station support, and deliver one shared macOS/Windows/Linux UI/domain implementation. Architecture inspection and planning are complete; implementation and hardware/platform acceptance are **not started**. The next proposed gate is baseline approval followed by a time-boxed three-platform prototype. Existing release functionality and station ownership remain unchanged until an implementation ADR explicitly replaces the applicable constraints. Existing uncommitted xCat work is preserved and must be reconciled before selecting the suite integration baseline.
+
+This proposal expands the older P2 ecosystem-consolidation items below into a full integration programme; those historical items do not limit the new CAT/CLU feature inventory. Release evidence below continues to describe the shipped Mac app, not the proposed unified product.
+
+## Current release and operating evidence
+
 Release `v0.3.0` adds the complete 190-programme worldwide research registry and a searchable 192-entry library while retaining the nine native AJD/WAJA/JCC/JCG/AJA/WACA/WAGA/WAPC/WCSA calculators. Every entry now has an explicit live, tracking, blocked or historical delivery state; local worked, evidence-eligible and sponsor-credit totals are separate.
 Latency follow-up: xCat now omits redundant RX-VFO/split writes for simplex
 spot changes (one remote command instead of three; 57 Swift tests pass).
