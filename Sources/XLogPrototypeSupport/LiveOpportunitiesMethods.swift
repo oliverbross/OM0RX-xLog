@@ -78,7 +78,8 @@ actor LiveOpportunitiesMethods {
         // Shared across windows/remounts. Slow or unavailable sources cannot
         // create overlapping downloads or a tight retry loop.
         let interval: TimeInterval = source == "425dxn" && feeds[source]?.safeError == nil ? 6 * 3_600 : 60
-        if automatic, let attempt = feeds[source]?.lastAttempt, Date().timeIntervalSince(attempt) < interval { return }
+        let oldCalendar = source == "425dxn" && feeds[source]?.items.contains(where: { $0.startsAt == nil }) == true
+        if automatic, !oldCalendar, let attempt = feeds[source]?.lastAttempt, Date().timeIntervalSince(attempt) < interval { return }
         let task = Task { await self.fetch(source) }
         refreshing[source] = task
         await task.value
@@ -116,6 +117,16 @@ actor LiveOpportunitiesMethods {
         // Cluster rows supplement official data. Their source and reference
         // evidence remain distinct; an unvalidated comment is not a park name.
         let spots = await clusterSpots()
+        var latestByCall: [String: [String: Any]] = [:]
+        for row in spots {
+            guard let call = row["callsign"] as? String,
+                  let khz = row["frequencyKHz"] as? Double, khz.isFinite, khz >= 100, khz <= 1_000_000,
+                  let received = row["receivedAt"] as? Double, received.isFinite else { continue }
+            let age = now.timeIntervalSince(Date(timeIntervalSinceReferenceDate: received))
+            guard age >= -60, age <= 3_600 else { continue }
+            let key = call.uppercased()
+            if received > (latestByCall[key]?["receivedAt"] as? Double ?? -.infinity) { latestByCall[key] = row }
+        }
         for row in spots.prefix(350) {
                 guard let call = row["callsign"] as? String,
                       let comment = row["comment"] as? String,
@@ -145,22 +156,38 @@ actor LiveOpportunitiesMethods {
         let directory = try activationDirectory()
         let selected = Array(all.sorted { $0.observedAt > $1.observedAt }.prefix(300))
         let items: [[String: Any]] = selected.map { item in
-            let key = "\(item.kind):\(item.reference.uppercased())"
+            let calendar = item.kind == "dxpedition" || item.kind == "special_event"
+            let reference = calendar ? OpportunityFeedParser.iotaReference(in: item.reference + " " + item.name) ?? item.reference : item.reference
+            let referenceKind = calendar && OpportunityFeedParser.iotaReference(in: reference) != nil ? "iota" : item.kind
+            let key = "\(referenceKind):\(reference.uppercased())"
             let evidence = byReference[key]
-            let kind = ActivationReferenceKind(rawValue: item.kind)
-            let match = kind.flatMap { directory.exactMatch(item.reference, kind: $0) }
+            let kind = ActivationReferenceKind(rawValue: referenceKind)
+            let match = kind.flatMap { directory.exactMatch(reference, kind: $0) }
             let directoryLocation = match?.latitude != nil && match?.longitude != nil
             let feedLocation = item.latitude != nil && item.longitude != nil
+            let aliases = Set((item.callsigns ?? [item.callsign]).map { $0.uppercased() })
+            let operationActive = (item.startsAt ?? .distantPast) <= now && (item.endsAt ?? item.expiresAt) > now
+            let latestSpot = calendar && operationActive ? aliases.compactMap { latestByCall[$0] }
+                .max { ($0["receivedAt"] as? Double ?? 0) < ($1["receivedAt"] as? Double ?? 0) } : nil
+            let frequency = latestSpot.flatMap { ($0["frequencyKHz"] as? Double).map { Int64(($0 * 1_000).rounded()) } } ?? item.frequencyHz
+            let areaLocation = directoryLocation && kind == .iota
             let referenceStatus = kind.map { !directory.hasData(for: $0) ? "not_installed" : match == nil ? "not_found" : "verified" } ?? "not_applicable"
-            return ["id": item.id, "kind": item.kind, "callsign": item.callsign,
-                    "reference": item.reference, "name": item.name.isEmpty ? match?.name ?? "" : item.name,
-                    "frequency_hz": item.frequencyHz as Any? ?? NSNull(), "mode": item.mode,
+            return ["id": item.id, "kind": item.kind, "callsign": latestSpot?["callsign"] as? String ?? item.callsign,
+                    "reference": reference, "reference_kind": referenceKind,
+                    "programmes": referenceKind != item.kind ? [item.kind, referenceKind] : [item.kind],
+                    "name": item.name.isEmpty ? match?.name ?? "" : item.name,
+                    "frequency_hz": frequency as Any? ?? NSNull(), "mode": latestSpot?["mode"] as? String ?? item.mode,
                     "observed_at": iso(item.observedAt), "expires_at": iso(item.expiresAt),
                     "source": item.source, "source_url": item.sourceURL, "comment": item.comment,
                     "reference_status": referenceStatus,
                     "latitude": (directoryLocation ? match?.latitude : feedLocation ? item.latitude : nil) as Any? ?? NSNull(),
                     "longitude": (directoryLocation ? match?.longitude : feedLocation ? item.longitude : nil) as Any? ?? NSNull(),
-                    "location_source": directoryLocation ? "Reference directory" : feedLocation ? "Public feed" : "Unavailable",
+                    "location_source": areaLocation ? "IOTA group centre — approximate area, not station position" : directoryLocation ? "Reference directory" : feedLocation ? "Public feed" : "No published coordinates",
+                    "location_accuracy": areaLocation ? "reference_area" : directoryLocation || feedLocation ? "reference_position" : "unavailable",
+                    "activity": calendar ? latestSpot == nil ? "scheduled" : "spotted_operation" : "live_spot",
+                    "starts_at": item.startsAt.map(iso) as Any? ?? NSNull(),
+                    "ends_at": calendar ? iso(item.endsAt ?? item.expiresAt) as Any : NSNull(),
+                    "latest_spot_at": latestSpot.flatMap { ($0["receivedAt"] as? Double).map { iso(Date(timeIntervalSinceReferenceDate: $0)) } } as Any? ?? NSNull(),
                     "worked_count": evidence?.workedCount ?? 0,
                     "confirmed_count": evidence?.confirmedCount ?? 0,
                     "band_modes": evidence?.bandModes.map { cell in

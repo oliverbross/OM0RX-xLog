@@ -17,15 +17,20 @@ public struct PublicOpportunity: Codable, Equatable, Sendable {
     public var comment: String
     public var latitude: Double?
     public var longitude: Double?
+    public var startsAt: Date?
+    public var endsAt: Date?
+    public var callsigns: [String]?
 
     public init(id: String, kind: String, callsign: String, reference: String, name: String,
                 frequencyHz: Int64?, mode: String, observedAt: Date, expiresAt: Date,
-                source: String, sourceURL: String, comment: String, latitude: Double? = nil, longitude: Double? = nil) {
+                source: String, sourceURL: String, comment: String, latitude: Double? = nil, longitude: Double? = nil,
+                startsAt: Date? = nil, endsAt: Date? = nil, callsigns: [String]? = nil) {
         self.id = id; self.kind = kind; self.callsign = callsign; self.reference = reference
         self.name = name; self.frequencyHz = frequencyHz; self.mode = mode
         self.observedAt = observedAt; self.expiresAt = expiresAt
         self.source = source; self.sourceURL = sourceURL; self.comment = comment
         self.latitude = latitude; self.longitude = longitude
+        self.startsAt = startsAt; self.endsAt = endsAt; self.callsigns = callsigns
     }
 }
 
@@ -98,13 +103,20 @@ public enum OpportunityFeedParser {
                                       options: [.regularExpression, .caseInsensitive]) != nil
             let dayEnd = end.addingTimeInterval(86_400 - 0.001)
             found.append(PublicOpportunity(id: "425dxn:\(formatter.string(from: start)):\(formatter.string(from: end)):\(call):\(title)",
-                kind: special ? "special_event" : "dxpedition", callsign: call, reference: "",
+                kind: special ? "special_event" : "dxpedition", callsign: call, reference: iotaReference(in: title) ?? "",
                 name: title, frequencyHz: nil, mode: "", observedAt: observedAt,
                 expiresAt: dayEnd, source: "425DXN Worldwide DX Calendar",
-                sourceURL: "https://www.425dxn.org/index.php?op=wcal", comment: ""))
+                sourceURL: "https://www.425dxn.org/index.php?op=wcal", comment: "",
+                startsAt: start, endsAt: dayEnd, callsigns: aliases))
         }
         guard !found.isEmpty else { throw OpportunityFeedError.noUsableRows }
         return found.sorted { $0.expiresAt < $1.expiresAt }
+    }
+
+    /// Only explicit programme references; never infer an island from a prefix.
+    public static func iotaReference(in text: String) -> String? {
+        guard let range = text.range(of: #"\b(?:AF|AN|AS|EU|NA|OC|SA)-\d{3}\b"#, options: [.regularExpression, .caseInsensitive]) else { return nil }
+        return String(text[range]).uppercased()
     }
 
     private static func rows(_ raw: Any) -> [[String: Any]]? {

@@ -118,9 +118,57 @@ struct LiveOpportunitiesMethodsTests {
         #expect(events.first?.kind == "dxpedition")
         #expect(events.first?.frequencyHz == nil)
         #expect(events.first?.sourceURL.contains("425dxn.org") == true)
+        #expect(events.first?.reference == "EU-001")
+        #expect(events.first?.startsAt == ISO8601DateFormatter().date(from: "2026-10-01T00:00:00Z"))
+        #expect(events.first?.callsigns == ["DX1ABC"])
+        #expect(OpportunityFeedParser.iotaReference(in: "Island holiday") == nil)
         #expect(throws: OpportunityFeedError.self) {
             try OpportunityFeedParser.parse(Data("<html>not a feed</html>".utf8), source: "pota", observedAt: now)
         }
+    }
+
+    @Test("Island expeditions join reference areas and only fresh exact-alias spots during their dates")
+    func islandExpeditions() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        _ = try logbook.handle(method: "workspace_create", params: ["mode": "empty"])
+        let directory = try logbook.referenceDirectoryURL()
+        try Data(#"[{"refno":"OC-001","name":"Date line islands","latitude_min":-12,"latitude_max":-10,"longitude_min":179,"longitude_max":-179}]"#.utf8)
+            .write(to: directory.appendingPathComponent("iota-groups.json"))
+        let now = Date()
+        let item = PublicOpportunity(id: "calendar:island", kind: "dxpedition", callsign: "DX1ABC", reference: "OC-001",
+            name: "DX1ABC, DX2ABC: Island (OC-001)", frequencyHz: nil, mode: "", observedAt: now,
+            expiresAt: now.addingTimeInterval(86_400), source: "425DXN Worldwide DX Calendar", sourceURL: "", comment: "",
+            startsAt: now.addingTimeInterval(-86_400), endsAt: now.addingTimeInterval(86_400), callsigns: ["DX1ABC", "DX2ABC"])
+        var future = item; future.id = "calendar:future"; future.startsAt = now.addingTimeInterval(3_600)
+        var unlocated = item; unlocated.id = "calendar:unknown"; unlocated.reference = ""; unlocated.name = "Unknown island"; unlocated.callsigns = ["DX3ABC"]
+        let cache = logbook.workspaceDirectoryURL.appendingPathComponent("Opportunities", isDirectory: true)
+        try FileManager.default.createDirectory(at: cache, withIntermediateDirectories: false)
+        try JSONEncoder().encode(["425dxn": FixtureFeed(items: [item, future, unlocated], lastSuccess: now, lastAttempt: now)])
+            .write(to: cache.appendingPathComponent("public-feed-cache.json"))
+        let actor = LiveOpportunitiesMethods(logbook: logbook, clusterSpots: {
+            [["id": "fresh", "callsign": "DX2ABC", "frequencyKHz": 14250.0, "mode": "SSB", "receivedAt": now.timeIntervalSinceReferenceDate],
+             ["id": "old", "callsign": "DX1ABC", "frequencyKHz": 21050.0, "receivedAt": now.addingTimeInterval(-7_200).timeIntervalSinceReferenceDate]]
+        })
+        let result = try await actor.handle(method: "opportunities_snapshot", params: [:])
+        let rows = try #require(result["items"] as? [[String: Any]])
+        let located = try #require(rows.first { $0["id"] as? String == item.id })
+        #expect(located["programmes"] as? [String] == ["dxpedition", "iota"])
+        #expect(located["longitude"] as? Double == 180)
+        #expect(located["latitude"] as? Double == -11)
+        #expect(located["location_accuracy"] as? String == "reference_area")
+        #expect(located["callsign"] as? String == "DX2ABC")
+        #expect(located["frequency_hz"] as? Int64 == 14_250_000)
+        #expect(located["activity"] as? String == "spotted_operation")
+        let futureRow = try #require(rows.first { $0["id"] as? String == future.id })
+        #expect(futureRow["frequency_hz"] is NSNull)
+        #expect(futureRow["activity"] as? String == "scheduled")
+        let unknown = try #require(rows.first { $0["id"] as? String == unlocated.id })
+        #expect(unknown["latitude"] is NSNull)
+        #expect(unknown["location_accuracy"] as? String == "unavailable")
+        #expect(result["selection_tunes"] as? Bool == false)
+        _ = try JSONSerialization.data(withJSONObject: result)
     }
 
     @Test("Refresh uses the bounded portable transport and preserves validated cache on failure")

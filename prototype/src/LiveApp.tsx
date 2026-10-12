@@ -242,7 +242,7 @@ function MainLiveApp() {
       frequencyHz: item.frequency_hz ?? null, band: item.frequency_hz ? bandForRadio(item.frequency_hz) || current.band : current.band,
       mode: item.mode ? logMode(item.mode, current.mode || "") : current.mode, comment: item.comment,
       potaReference: item.kind === "pota" ? item.reference : "", sotaReference: item.kind === "sota" ? item.reference : "",
-      iota: item.kind === "iota" ? item.reference : "", wwffReference: item.kind === "wwff" ? item.reference : "",
+      iota: item.kind === "iota" || item.reference_kind === "iota" ? item.reference : "", wwffReference: item.kind === "wwff" ? item.reference : "",
       sig: ["castle", "wwbota"].includes(item.kind) ? item.kind.toUpperCase() : "",
       sigInfo: ["castle", "wwbota"].includes(item.kind) ? item.reference : "" } : current);
     setView("Log QSO"); setMessage("Chaser selection loaded into the draft only. Radio follow and Auto rotor are off; no station command was sent.");
@@ -590,11 +590,10 @@ function MainLiveApp() {
       <span className="rail-cluster-count">{cluster?.snapshot?.connectedClusters || 0} clusters · {liveSpots.length} spots</span>
       {workspace?.workspace_exists && <Conditions compact propagation={propagation?.bands?.length ? propagation : station?.propagation || null} request={request} weatherKey={settings?.gridSquare || ""} />}
       <span className="rail-end">{stats?.stats?.qso_count?.toLocaleString() ?? "—"} contacts · Integrated logbook</span>
-      <button onClick={() => void openMonitor().catch(e => setError(e.message))}><ExternalLink size={14} />Monitor</button>
     </header>
     <aside className="sidebar"><nav>{navigation.filter(([name]) => name !== "Sync" || settings?.logbookMode !== "local").map(([name, Icon], i) => <div key={name}>{(i === 0 || name === "Station Control") && <div className="nav-group">{i === 0 ? "Station log" : "Services"}</div>}<button aria-current={view === name ? "page" : undefined} onClick={() => setView(name)}><Icon size={17} />{name}</button></div>)}</nav>
       <SidebarStation snapshot={stationWithRotor} provider={stationProvider} busy={busy} onAction={action => void run(async () => { await request("station_action", { action }); })} />
-      <div className="sidebar-foot"><strong className="teal">{settings?.stationCall || "Station not configured"}</strong><span>{settings?.gridSquare || "Set station grid"}</span></div>
+      <div className="sidebar-foot"><button onClick={() => void openMonitor().catch(e => setError(e.message))}><ExternalLink size={16} />Monitor</button><strong className="teal">{settings?.stationCall || "Station not configured"}</strong><span>{settings?.gridSquare || "Set station grid"}</span></div>
     </aside>
     <main aria-label={view}>
       {error && <div className="live-error" role="alert">{error}<button onClick={() => setError("")}>Dismiss</button></div>}

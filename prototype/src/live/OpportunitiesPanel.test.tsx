@@ -17,6 +17,25 @@ vi.mock("../Map", () => ({ default: (props: { data: { id: string }[]; onSpot: (s
 afterEach(() => { cleanup(); localStorage.clear(); vi.useRealTimers(); });
 
 describe("read-only opportunities", () => {
+  it("puts DXpeditions second and includes island operations in IOTA without duplicating All", async () => {
+    const island = { ...expedition, reference: "EU-001", reference_kind: "iota", programmes: ["dxpedition", "iota"],
+      activity: "scheduled", starts_at: "2026-10-01T00:00:00Z", ends_at: "2026-10-20T23:59:59Z",
+      latitude: 38, longitude: 25, location_accuracy: "reference_area", location_source: "IOTA group centre" };
+    const request = vi.fn(async () => ({ ...snapshot, items: [pota, island] })), select = vi.fn();
+    render(<OpportunitiesPanel request={request} onSelect={select} />);
+    await screen.findByText("DX1ABC");
+    expect(screen.getAllByRole("tab").slice(0, 2).map(tab => tab.textContent)).toEqual(["All", "DXpeditions"]);
+    expect(screen.getAllByText("DX1ABC")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("tab", { name: "IOTA" }));
+    expect(screen.getByText("IOTA · EU-001")).toBeTruthy();
+    expect(screen.getByText("Approximate IOTA group area")).toBeTruthy();
+    expect(screen.getByText("Not a live frequency report")).toBeTruthy();
+    expect(screen.queryByText("Verified park")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Show map" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Load QSO draft only" }));
+    expect(select).toHaveBeenCalledWith(island);
+    expect(screen.getByText(/1 located · 0 without published coordinates/)).toBeTruthy();
+  });
   it("names each programme beside its reference and keeps WWFF out of the POTA filter", async () => {
     const wwff = { ...pota, id: "cluster:wwff", kind: "wwff", callsign: "K5G", reference: "KFF-3017", name: "Guadalupe River" };
     const request = vi.fn(async () => ({ ...snapshot, items: [pota, wwff] }));

@@ -2,7 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import * as maplibregl from "maplibre-gl";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import geometryUrl from "../../Sources/XLogCore/Resources/dxcc-boundaries.geojson?url";
-import { dxccPrefixLabel, mapSpotDetails, normalizedMapCall, normalizeMapSpots, type MapSpot } from "./MapSpots";
+import { dxccPrefixLabel, mapSpotBounds, mapSpotDetails, normalizedMapCall, normalizeMapSpots, type MapSpot } from "./MapSpots";
 import { describeMapError } from "./MapErrors";
 import { acceptanceActive, interiorLandProbe, landPixelMatches } from "./acceptance";
 import { bearingAndDistance, grayline, greatCircle, nightHemisphere, solarPosition, type Coordinate } from "./MapGeography";
@@ -133,6 +133,7 @@ export default function WorldMap({
   frequencyHz,
   spotActionLabel = "Activate to tune",
   locationLabel = "CTY approximate spot locations",
+  fitToDataKey,
 }: {
   selected: string | null;
   onSpot?: (spot: MapSpot) => void;
@@ -147,6 +148,7 @@ export default function WorldMap({
   frequencyHz?: number;
   spotActionLabel?: string;
   locationLabel?: string;
+  fitToDataKey?: string;
 }) {
   const mappedSpots = useMemo(() => normalizeMapSpots(data), [data]);
   const detailID = useId();
@@ -165,6 +167,8 @@ export default function WorldMap({
   const [solarDate, setSolarDate] = useState(() => new Date());
   const callback = useRef(onSpot);
   const actionLabel = useRef(spotActionLabel); actionLabel.current = spotActionLabel;
+  const fitDataRef = useRef(fitToDataKey); fitDataRef.current = fitToDataKey;
+  const fittedDataKey = useRef<string | null>(null);
   const selection = useRef(selected);
   const preserveCamera = useRef(Boolean(selected));
   const fittedRouteKey = useRef<string | null>(null);
@@ -389,7 +393,7 @@ export default function WorldMap({
     };
     const fitFixture = () => {
       const station = homeRef.current;
-      if (!fixture && station) {
+      if (!fixture && station && !fitDataRef.current) {
         map.jumpTo({ center: [station.lon, station.lat], zoom: 2.55 });
         return;
       }
@@ -635,6 +639,19 @@ export default function WorldMap({
       duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 350,
     });
   }, [routeKey, home?.lon, home?.lat, target?.lon, target?.lat, longPath, compact]);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (fitToDataKey == null || !map || !mappedSpots.length || fittedDataKey.current === fitToDataKey) return;
+    const fit = () => {
+      const bounds = mapSpotBounds(mappedSpots);
+      if (!bounds) return;
+      fittedDataKey.current = fitToDataKey; preserveCamera.current = true;
+      map.fitBounds(bounds, { padding: { top: 38, right: 38, bottom: 38, left: 38 }, maxZoom: 5,
+        duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 220 });
+    };
+    if (map.isStyleLoaded()) fit(); else map.once("load", fit);
+    return () => { map.off("load", fit); };
+  }, [fitToDataKey, mappedSpots]);
   useEffect(() => {
     const map = mapRef.current;
     if (!fixture && home && map && !preserveCamera.current && !selected) {

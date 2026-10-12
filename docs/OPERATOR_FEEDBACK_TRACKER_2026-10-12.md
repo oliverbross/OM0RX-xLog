@@ -8,7 +8,7 @@ packaged UI result. Keep unresolved items here across releases.
 ## Current delivery boundary
 
 - Working tree: shared cross-platform xLog; Mac-first delivery.
-- Currently installed: Integration alpha.11, source `73c255233df18078422cc14d62299bae5da93ad7` (signed/notarized, 21 native acceptance checks passed). Native width-entry issue found and being corrected in alpha.12 before release. Wider parity gates remain open.
+- Currently installed: Integration alpha.12, source `ced2d2cb65c5861de138663288d5ef02cdfc0d68` (signed/notarized, 21 native acceptance checks passed). Native width entry verified with 180, then defaults restored. Wider parity gates remain open.
 - Individual runtime checks and remaining gates are recorded below and in the alpha.7 acceptance report.
 - Restart of Integration was explicitly approved once the build passes.
 - Preserve the latest operator draft, all logbooks/settings/credentials, and
@@ -124,6 +124,14 @@ Original native app hash remains
 No radio/rotor command was sent. Exact-source OS matrix `38307750798` is pending.
 
 ### Chaser usability and parity follow-up (CHASER-02)
+
+CHASER-03 (13 October follow-up, source/tests complete; packaged verification pending): move DXpeditions immediately after All;
+make map follow programme/filter selection and show supplied coordinates or
+clearly marked reference-area locations. Include recent IOTA-tagged cluster
+spots and dated calendar operations carrying IOTA references in the IOTA tab.
+Separate scheduled operations from live spots, show dates and location evidence,
+and explain unlocated rows instead of inventing precise markers. Calendar rows
+without frequencies must remain mappable when defensible location data exists.
 
 New operator screenshots, 13 October: automatically load and refresh public feeds;
 remove per-feed Check requirements; replace Programme dropdown with programme
@@ -513,6 +521,30 @@ Installed Chaser automatic refresh verified without pressing Refresh: POTA 82,
 SOTA 6, WWFF 10, WWBOTA healthy zero, DX calendar 56; 154 total observations.
 Programme tabs are present and the table reaches the bottom pagination rail.
 All 358 frontend tests and TypeScript pass after the numeric-entry correction.
+
+Alpha.12 installed checkpoint: notarization `5f077292-3e2d-4de1-bfd9-86254a05a882`
+accepted, staple/signature verified; archive SHA-256
+`d130a881cf1ce1a5ae7b01d7c29c3c144963a45a78665dd715e26bbeef518d5b`.
+All 21 signed native checks passed on 100,002 generated records. Live native
+typing now reads Callsign width 180 after Tab, cluster stays Connected. Defaults
+restored after test; no radio, rotor or transmit command. Exact-source all-platform
+CI `38312294786` remains separate and pending at this checkpoint.
+
+HEADER-04 (requested, source implemented; package verification pending): move Monitor
+from the top station rail to the bottom-left sidebar footer; enlarge the configured
+station callsign and grid without changing their values or Monitor behaviour.
+
+Alpha.13 candidate: DXpeditions second; IOTA includes explicitly referenced calendar
+operations and recent tagged cluster spots. Reference-area pins remain visibly
+approximate; no coordinates are invented for unlocated expeditions. Calendar dates,
+exact-call fresh cluster frequencies, frequency-free map entries, date-line-safe
+centres/bounds and filter-driven camera fitting have regression coverage. Selecting
+an island expedition carries the IOTA reference into a draft, without station I/O.
+Browser fixture checked at 1440×900. Impeccable layout detector returned no findings.
+Shared Swift suite passed (71 Swift Testing cases, XCTest suite also successful).
+Frontend full run: 363 passed with one worker; the initial concurrent build/test run
+had timeouts and was not accepted. Expanded LiveApp follow-up: 9 passed. TypeScript
+and Vite build passed; existing large-bundle warning remains a performance follow-up.
 
 Record the source SHA, exact test evidence, installed version, and observed
 result. Leave partial or failed gates visible. Add newly reported issues here

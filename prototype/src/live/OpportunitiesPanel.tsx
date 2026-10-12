@@ -9,6 +9,8 @@ export type Opportunity = {
   source: string; source_url: string; comment: string; reference_status: string;
   worked_count: number; confirmed_count: number;
   latitude?: number | null; longitude?: number | null; location_source?: string;
+  programmes?: string[]; reference_kind?: string; activity?: string; location_accuracy?: string;
+  starts_at?: string | null; ends_at?: string | null; latest_spot_at?: string | null;
   band_modes?: { band: string; mode: string; worked_count: number; confirmed_count: number }[];
 };
 type Source = { source: string; state: string; count: number; source_url: string; refreshing?: boolean;
@@ -16,7 +18,7 @@ type Source = { source: string; state: string; count: number; source_url: string
 type Snapshot = { generated_at: string; items: Opportunity[]; total_available: number;
   history_state: string; sources: Source[]; selection_tunes: false; transmit: false };
 type Request = (method: string, params?: Record<string, unknown>) => Promise<unknown>;
-const kinds = ["all", "pota", "sota", "wwff", "wwbota", "iota", "castle", "dxpedition", "special_event"] as const;
+const kinds = ["all", "dxpedition", "pota", "sota", "wwff", "wwbota", "iota", "castle", "special_event"] as const;
 const labels: Record<string, string> = { all: "All", pota: "POTA", sota: "SOTA", wwff: "WWFF",
   wwbota: "WWBOTA", iota: "IOTA", castle: "Castles", dxpedition: "DXpeditions", special_event: "Special events" };
 const officialHosts = new Set(["api.pota.app", "api2.sota.org.uk", "spots.wwff.co", "api.wwbota.org", "www.425dxn.org"]);
@@ -29,6 +31,13 @@ function time(value: string): string {
   return Number.isFinite(date.valueOf()) ? new Intl.DateTimeFormat(undefined, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "UTC", timeZoneName: "short" }).format(date) : "Time unavailable";
 }
 function mhz(hz: number | null): string { return hz != null && Number.isFinite(hz) ? `${(hz / 1_000_000).toFixed(3)} MHz` : "Frequency not supplied"; }
+function activity(item: Opportunity): string {
+  if (item.activity === "spotted_operation") return "Live cluster spot · scheduled operation";
+  if (item.activity !== "scheduled" && item.kind !== "dxpedition" && item.kind !== "special_event") return "Live spot";
+  const date = (value: string) => new Intl.DateTimeFormat(undefined, { day: "2-digit", month: "short", timeZone: "UTC" }).format(new Date(value));
+  return item.starts_at && item.ends_at && Number.isFinite(Date.parse(item.starts_at)) && Number.isFinite(Date.parse(item.ends_at))
+    ? `Scheduled ${date(item.starts_at)}–${date(item.ends_at)}` : "Scheduled operation";
+}
 export function opportunityBand(hz: number | null): string {
   if (hz == null) return "";
   const mhz = hz / 1_000_000;
@@ -94,7 +103,7 @@ export function OpportunitiesPanel({ request, onSelect, refresh = 0, home }: { r
     observer.observe(element); return () => observer.disconnect();
   }, [snapshot != null]);
   const rows = useMemo(() => (snapshot?.items ?? []).filter(item =>
-    (kind === "all" || item.kind === kind) &&
+    (kind === "all" || item.kind === kind || item.programmes?.includes(kind)) &&
     (band === "all" || opportunityBand(item.frequency_hz) === band) && (mode === "all" || item.mode === mode) &&
     `${item.callsign} ${item.reference} ${item.name}`.toUpperCase().includes(query.trim().toUpperCase())).sort((a, b) =>
       sort === "callsign" ? a.callsign.localeCompare(b.callsign) : sort === "reference" ? a.reference.localeCompare(b.reference) :
@@ -104,9 +113,9 @@ export function OpportunitiesPanel({ request, onSelect, refresh = 0, home }: { r
   const modes = [...new Set([mode, ...(snapshot?.items ?? []).map(item => item.mode)])].filter(value => value && value !== "all").sort();
   const currentPage = Math.min(page, Math.max(0, Math.ceil(rows.length / pageSize) - 1));
   const pageRows = rows.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
-  const mapSpots = useMemo<MapSpot[]>(() => rows.filter(item => item.frequency_hz != null && typeof item.latitude === "number" && typeof item.longitude === "number").map(item => ({
-    id: item.id, call: item.callsign, mhz: item.frequency_hz! / 1_000_000, mode: item.mode as MapSpot["mode"], band: opportunityBand(item.frequency_hz),
-    country: item.name, grid: "", lat: item.latitude!, lon: item.longitude!, reporter: item.source, note: `${item.reference} · ${item.location_source}`,
+  const mapSpots = useMemo<MapSpot[]>(() => rows.filter(item => typeof item.latitude === "number" && typeof item.longitude === "number").map(item => ({
+    id: item.id, call: item.callsign, mhz: (item.frequency_hz ?? 0) / 1_000_000, locationOnly: item.frequency_hz == null, mode: item.mode as MapSpot["mode"], band: opportunityBand(item.frequency_hz),
+    country: item.name, grid: "", lat: item.latitude!, lon: item.longitude!, reporter: item.source, note: `${item.reference} · ${activity(item)} · ${item.location_source}`,
     receivedAt: new Date(item.observed_at).valueOf(), state: item.confirmed_count ? "confirmed" : item.worked_count ? "worked" : "needed",
   })), [rows]);
   const choose = (item: Opportunity) => { setSelected(item.id); onSelect(item); };
@@ -138,16 +147,16 @@ export function OpportunitiesPanel({ request, onSelect, refresh = 0, home }: { r
       {snapshot.history_state !== "ready" && <p className="opportunities-warning">Logbook history is unavailable; worked and confirmed labels are withheld.</p>}
       <div className="opportunities-table-wrap" ref={tableRef}><table><thead><tr><th>Call / operation</th><th>Reference</th><th>Band / mode</th><th>Evidence</th><th>History</th><th>Action</th></tr></thead>
         <tbody>{pageRows.map(item => <tr key={item.id} className={selected === item.id ? "is-selected" : ""}><td><strong>{item.callsign}</strong><small title={item.name}>{item.name || (item.kind === "dxpedition" || item.kind === "special_event" ? item.source : "Name unavailable")}</small></td>
-          <td><span className={item.reference_status === "verified" ? "opportunities-verified" : ""}>{item.reference ? `${labels[item.kind] || item.kind} · ${item.reference}` : labels[item.kind] || item.kind}</span><small>{item.reference_status === "not_found" ? "Not in installed directory" : item.reference_status === "not_installed" ? "Directory not installed" : ""}</small></td>
-          <td>{mhz(item.frequency_hz)}<small>{item.mode || "Mode not supplied"}</small></td>
-          <td>{time(item.observed_at)}<small>{officialLink(item.source_url) ? <a href={officialLink(item.source_url)} target="_blank" rel="noreferrer">{item.source}</a> : item.source}</small></td>
+          <td><span className={item.reference_status === "verified" ? "opportunities-verified" : ""}>{item.reference ? `${labels[item.reference_kind || item.kind] || item.kind} · ${item.reference}` : labels[item.kind] || item.kind}</span><small title={item.location_source}>{item.location_accuracy === "reference_area" ? "Approximate IOTA group area" : item.reference_status === "not_found" ? "Not in installed directory" : item.reference_status === "not_installed" ? "Directory not installed" : ""}</small></td>
+          <td title={activity(item)}>{item.frequency_hz == null ? activity(item) : mhz(item.frequency_hz)}<small>{item.frequency_hz == null ? "Not a live frequency report" : `${item.mode || "Mode not supplied"} · ${activity(item)}`}</small></td>
+          <td>{item.latest_spot_at ? `Cluster · ${time(item.latest_spot_at)}` : time(item.observed_at)}<small>{officialLink(item.source_url) ? <a href={officialLink(item.source_url)} target="_blank" rel="noreferrer">{item.source}</a> : item.source}</small></td>
           <td title={item.band_modes?.map(cell => `${cell.band} ${cell.mode}: ${cell.worked_count} worked, ${cell.confirmed_count} confirmed`).join(" · ")}>{!item.reference ? "No reference history" : snapshot.history_state === "ready" ? <>{item.worked_count ? `${item.worked_count} worked` : "Unworked reference"}<small>{item.confirmed_count} confirmed</small></> : "Unknown"}</td>
           <td><button type="button" onClick={() => choose(item)} aria-label={`Load ${item.callsign} into QSO draft`}>Load QSO</button></td></tr>)}
-          {!rows.length && <tr><td colSpan={6} className="opportunities-empty">{busy ? "Loading live feeds…" : "No matching live observations. Feeds refresh automatically; try another programme or filter."}</td></tr>}
+          {!rows.length && <tr><td colSpan={6} className="opportunities-empty">{busy ? "Loading live feeds…" : kind === "iota" ? "No matching IOTA spots or scheduled island operations. Recent cluster comments must contain an IOTA reference." : kind === "castle" ? "No recent castle-tagged cluster spots match these filters." : "No matching activity. Feeds refresh automatically; try another programme or filter."}</td></tr>}
         </tbody></table></div>
-      <nav className="opportunities-pagination" aria-label="Chaser pages"><button type="button" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>Previous</button><span>{rows.length ? currentPage * pageSize + 1 : 0}–{Math.min((currentPage + 1) * pageSize, rows.length)} of {rows.length}</span><button type="button" disabled={(currentPage + 1) * pageSize >= rows.length} onClick={() => setPage(currentPage + 1)}>Next</button>{showMap && <span>{mapSpots.length} located observations · selection loads a draft only</span>}</nav>
-      {showMap && <div className="opportunities-map"><Suspense fallback={<p>Loading map…</p>}><OpportunityMap selected={selected} data={mapSpots} home={home} compact
-        spotActionLabel="Load QSO draft only" locationLabel="Park / summit coordinates · public feed or installed directory"
+      <nav className="opportunities-pagination" aria-label="Chaser pages"><button type="button" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>Previous</button><span>{rows.length ? currentPage * pageSize + 1 : 0}–{Math.min((currentPage + 1) * pageSize, rows.length)} of {rows.length}</span><button type="button" disabled={(currentPage + 1) * pageSize >= rows.length} onClick={() => setPage(currentPage + 1)}>Next</button>{showMap && <span>{mapSpots.length} located · {rows.length - mapSpots.length} without published coordinates · selection loads a draft only</span>}</nav>
+      {showMap && <div className="opportunities-map"><Suspense fallback={<p>Loading map…</p>}><OpportunityMap selected={selected} data={mapSpots} home={home} compact fitToDataKey={`${kind}:${band}:${mode}:${query}`}
+        spotActionLabel="Load QSO draft only" locationLabel="Published reference locations · IOTA group centres are approximate"
         onSpot={spot => { const item = rows.find(row => row.id === spot.id); if (item) choose(item); }} /></Suspense></div>}
     </>}
   </section>;

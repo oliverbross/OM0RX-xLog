@@ -35,20 +35,23 @@ it("opens the draft without waiting for slow logbook aggregates", async () => {
   expect(await screen.findByLabelText("Callsign")).toBeTruthy();
   expect(screen.queryByRole("heading", { name: "Operator Desk" })).toBeNull();
   expect(calls.request).toHaveBeenCalledWith("logbook_stats", {});
+  expect(screen.getByRole("button", { name: "Monitor" }).closest(".sidebar-foot")).not.toBeNull();
+  expect(document.querySelector(".main-station-rail")?.textContent).not.toContain("Monitor");
 });
 
-it("loads chaser reference into a draft without tuning or moving a rotor", async () => {
+it.each([{ kind: "pota", reference_kind: "pota", reference: "US-0001", field: "POTA" },
+  { kind: "dxpedition", reference_kind: "iota", reference: "EU-001", field: "IOTA" }])("loads $kind reference into a draft without tuning or moving a rotor", async (programme) => {
   exists = true;
   const base = calls.request.getMockImplementation()!;
   calls.request.mockImplementation((method: string, params: unknown) => method === "opportunities_snapshot" ? Promise.resolve({ result: {
-    items: [{ id: "pota:test", kind: "pota", callsign: "K1ABC", reference: "US-0001", name: "Park", frequency_hz: 14025000, mode: "CW", comment: "POTA US-0001", source: "pota", source_url: "", observed_at: "2026-10-12T00:00:00Z", expires_at: "2026-10-12T01:00:00Z", worked_count: 0, confirmed_count: 0 }], sources: [], total_available: 1, history_state: "ready",
+    items: [{ id: "pota:test", ...programme, callsign: "K1ABC", name: "Park", frequency_hz: 14025000, mode: "CW", comment: "", source: "pota", source_url: "", observed_at: "2026-10-12T00:00:00Z", expires_at: "2026-10-12T01:00:00Z", worked_count: 0, confirmed_count: 0 }], sources: [], total_available: 1, history_state: "ready",
   } }) : base(method, params));
   render(<LiveApp />);
   await screen.findByLabelText("Callsign");
   fireEvent.click(screen.getByRole("button", { name: "Chaser & DX" }));
   fireEvent.click(await screen.findByRole("button", { name: "Load K1ABC into QSO draft" }));
   expect((await screen.findByLabelText("Callsign") as HTMLInputElement).value).toBe("K1ABC");
-  expect((screen.getByLabelText("POTA") as HTMLInputElement).value).toBe("US-0001");
+  expect((screen.getByLabelText(programme.field) as HTMLInputElement).value).toBe(programme.reference);
   expect((screen.getByRole("checkbox", { name: "Follow radio" }) as HTMLInputElement).checked).toBe(false);
   expect(calls.request.mock.calls.some(([method]) => ["station_tune", "rotor_goto", "logbook_save", "sync_run"].includes(method))).toBe(false);
 });

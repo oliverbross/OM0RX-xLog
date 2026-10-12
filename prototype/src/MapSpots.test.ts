@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dxccPrefixLabel, mapSpotDetails, normalizeMapSpots, type MapSpot } from "./MapSpots";
+import { dxccPrefixLabel, mapSpotBounds, mapSpotDetails, normalizeMapSpots, type MapSpot } from "./MapSpots";
 
 const spot = (values: Partial<MapSpot> = {}): MapSpot => ({
   id: "old-feed", call: "K1ABC", mhz: 14.074, mode: "FT8", band: "20m", country: "United States",
@@ -7,6 +7,19 @@ const spot = (values: Partial<MapSpot> = {}): MapSpot => ({
 });
 
 describe("map spot identity", () => {
+  it("allows explicitly location-only operations without inventing a frequency", () => {
+    const operation = spot({ mhz: 0, locationOnly: true });
+    expect(normalizeMapSpots([operation])).toEqual([operation]);
+    expect(normalizeMapSpots([spot({ mhz: 0 })])).toEqual([]);
+    expect(mapSpotDetails(operation)[0]).toBe("Scheduled operation · frequency not supplied");
+    expect(normalizeMapSpots([spot({ mhz: -1, locationOnly: true })])).toEqual([]);
+  });
+  it("fits the short span across the date line", () => {
+    expect(mapSpotBounds([])).toBeNull();
+    expect(mapSpotBounds([spot({ lon: 179, lat: -10 }), spot({ lon: -179, lat: 12 })])).toEqual([[179, -10], [181, 12]]);
+    expect(mapSpotBounds([spot()])).toEqual([[-72, 41], [-72, 41]]);
+    expect(mapSpotBounds([spot({ lon: 18 }), spot({ lon: -72 })])).toEqual([[-72, 41], [18, 41]]);
+  });
   it("chooses the newest valid spot for a normalized call and retains its original feed ID", () => {
     const old = spot({ call: " k1abc " });
     const newest = spot({ id: "new-feed", call: "k1abc", mhz: 7.074, band: "40m", receivedAt: 3 });

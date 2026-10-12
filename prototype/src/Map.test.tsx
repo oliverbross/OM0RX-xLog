@@ -103,6 +103,29 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe("map spot inspection", () => {
+  it("fits programme data once per filter and preserves the camera during background refresh", () => {
+    const props = { selected: null, home: { call: "OM0RX", lat: 48, lon: 18 }, onSpot: vi.fn() };
+    const data = [spot({ lon: 179, lat: -10 }), spot({ id: "two", call: "K2ABC", lon: -179, lat: 12 })];
+    const view = render(<WorldMap {...props} data={data} fitToDataKey="iota" />);
+    const map = harness.maps[0];
+    expect(map.fitCalls.at(-1).bounds).toEqual([[179, -10], [181, 12]]);
+    const count = map.fitCalls.length;
+    view.rerender(<WorldMap {...props} data={[...data]} fitToDataKey="iota" />);
+    expect(map.fitCalls).toHaveLength(count);
+    view.rerender(<WorldMap {...props} data={[spot()]} fitToDataKey="pota" />);
+    expect(map.fitCalls).toHaveLength(count + 1);
+    expect(map.fitCalls.at(-1).bounds).toEqual([[-72, 41], [-72, 41]]);
+    expect(props.onSpot).not.toHaveBeenCalled();
+  });
+  it("waits for map load before fitting programme locations", () => {
+    harness.startReady = false;
+    vi.mocked(fetch).mockReturnValue(new Promise(() => {}));
+    render(<WorldMap data={[spot()]} selected={null} onSpot={vi.fn()} fitToDataKey="iota" />);
+    const map = harness.maps[0];
+    act(() => map.fire("load", {}));
+    expect(map.fitCalls.at(-1).bounds).toEqual([[-72, 41], [-72, 41]]);
+    expect(map.fitCalls.at(-1).options.maxZoom).toBe(5);
+  });
   it("labels both known route endpoints and the selected path with distance above observed frequency", () => {
     const onSpot = vi.fn();
     const home = { call: "OM0RX", lon: 20, lat: 48 }, target = { call: "K1ABC", lon: -72, lat: 41 };

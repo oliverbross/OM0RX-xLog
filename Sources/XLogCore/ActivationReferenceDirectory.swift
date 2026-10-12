@@ -158,7 +158,7 @@ public struct ActivationReferenceDirectory: Sendable {
                   let name = object["name"] as? String, !reference.isEmpty, !name.isEmpty else { return nil }
             let dxcc = object["dxcc_num"] as? String ?? ""
             let latitude = midpoint(object["latitude_min"], object["latitude_max"])
-            let longitude = midpoint(object["longitude_min"], object["longitude_max"])
+            let longitude = midpoint(object["longitude_min"], object["longitude_max"], longitude: true)
             return ActivationReference(
                 kind: .iota,
                 reference: normalize(reference),
@@ -235,14 +235,20 @@ public struct ActivationReferenceDirectory: Sendable {
         return row[index].trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private static func midpoint(_ minimum: Any?, _ maximum: Any?) -> Double? {
+    private static func midpoint(_ minimum: Any?, _ maximum: Any?, longitude: Bool = false) -> Double? {
         func number(_ value: Any?) -> Double? {
             if let value = value as? Double { return value }
             if let value = value as? NSNumber { return value.doubleValue }
             if let value = value as? String { return Double(value) }
             return nil
         }
-        guard let minimum = number(minimum), let maximum = number(maximum) else { return nil }
+        let limit = longitude ? 180.0 : 90.0
+        guard let minimum = number(minimum), let maximum = number(maximum),
+              minimum.isFinite, maximum.isFinite, abs(minimum) <= limit, abs(maximum) <= limit else { return nil }
+        if longitude, abs(maximum - minimum) > 180 {
+            let centre = (minimum + maximum + 360) / 2
+            return centre > 180 ? centre - 360 : centre
+        }
         return (minimum + maximum) / 2
     }
 
