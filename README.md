@@ -75,7 +75,7 @@ The **Band Maps** settings page configures two independent workspaces:
 
 Band-map text can be scaled from 80–200% for high-density and 4K displays. Panels resize with their window, and frequency spacing plus collision avoidance scale with the available height rather than leaving unused space.
 
-The **Insights** workspace calculates award progress from the complete local SQLite log rather than the limited on-screen QSO table. It separates worked and confirmed entities, zones, US states and grid fields; confirmation means a verified paper-QSL or LoTW receive status in the stored record. It is deliberately labelled as local progress because final eligibility still depends on each award programme's rules and accepted confirmations.
+The **Insights** workspace calculates award progress from the complete local SQLite log rather than the limited on-screen QSO table. It separates worked and confirmed entities, zones, US states and grid fields; confirmation means a verified paper-QSL or LoTW receive status in the stored record. Its international catalogue also evaluates AJD, WAJA, JCC, JCG, AJA, WACA, WAGA, WAPC and WCSA, including historical Japanese entity dates, WAPC band/mode matrices and WCSA school slots. It is deliberately labelled as local progress because final eligibility still depends on each award programme's rules and accepted confirmations.
 
 The full Log QSO editor presents contact/location, award references, notes, station and QSL fields together on one screen at normal desktop sizes. When xCat station telemetry is available, xLog automatically records transmitted power in ADIF `TX_PWR`: measured RF output is retained for the active QSO, with the current RF-drive setting and then the configured station default used as fallbacks.
 
@@ -170,3 +170,5 @@ Copyright © 2026 Oliver Bross OM0RX.
 OM0RX-xLog is released under the [GNU General Public License v3.0](LICENSE).
 
 The cluster, award and environmental-intelligence expansion was inspired by Balazs Valkony HA5XB's [HamLedger](https://github.com/valibali/hamledger). The xLog implementation is native Swift/SQLite work designed for the existing OM0RX architecture; no HamLedger source or assets are included.
+
+The extended JARL, WAPC and WCSA award logic and bundled reference datasets are adapted from BI1GHZ's MIT-licensed [ham-award-tools](https://github.com/cebarobot/ham-award-tools), reference commit `f28a04fa5a94368ac4099ce5cec97fcd93ce0849`. Its complete MIT notice is distributed in `Sources/XLogCore/Resources/ham-award-tools-LICENSE.md` and in the packaged application resources.

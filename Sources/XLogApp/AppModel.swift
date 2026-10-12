@@ -222,6 +222,7 @@ final class AppModel: ObservableObject {
     @Published var qsos: [QSO] = []
     @Published var stats = LogbookStats.empty
     @Published var awardProgress = AwardProgressSnapshot.empty
+    @Published var awardCatalog = AwardCatalogSnapshot.empty
     @Published var previous: [QSO] = []
     @Published var matrix: Set<BandModeCell> = []
     @Published var dxccSummary = DXCCSummary.empty
@@ -405,13 +406,19 @@ final class AppModel: ObservableObject {
             qsos = try database.fetch(limit: 2_000, search: search)
             stats = try database.stats()
             awardProgress = try database.awardProgress()
+            awardCatalog = try database.awardCatalog()
             refreshCallContext()
             conflicts = try database.conflicts()
             outbox = try database.outboxEntries()
         } catch { banner = AppBanner(message: error.localizedDescription, kind: .error) }
     }
 
-    func searchChanged() { reload() }
+    func searchChanged() {
+        guard let database else { return }
+        do {
+            qsos = try database.fetch(limit: 2_000, search: search)
+        } catch { banner = AppBanner(message: error.localizedDescription, kind: .error) }
+    }
 
     func callChanged() {
         draft.call = draft.call.uppercased()

@@ -252,6 +252,15 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
+    public func awardCatalog() throws -> AwardCatalogSnapshot {
+        try lock.withLock {
+            let values = try withStatement("SELECT record_json FROM qsos WHERE deleted_at IS NULL ORDER BY qso_start ASC;") {
+                try decodeRows($0)
+            }
+            return try AwardCatalogEngine.compute(qsos: values)
+        }
+    }
+
     public func bandModeMatrix(call: String) throws -> Set<BandModeCell> {
         let values = try previous(call: call, limit: 2_000)
         var cells: Set<BandModeCell> = []

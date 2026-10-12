@@ -148,6 +148,7 @@ private struct ConfirmationStatus: View {
 
 struct InsightsView: View {
     @EnvironmentObject private var model: AppModel
+    @State private var selectedAwardCode = "AJD"
 
     var body: some View {
         ScrollView {
@@ -172,6 +173,34 @@ struct InsightsView: View {
                         AwardProgressCell(code: "WAS", title: "US states", worked: model.awardProgress.statesWorked, confirmed: model.awardProgress.statesConfirmed, target: 50, color: XLogTheme.amber)
                         insightDivider
                         AwardProgressCell(code: "GRID", title: "Four-character fields", worked: model.awardProgress.gridsWorked, confirmed: model.awardProgress.gridsConfirmed, target: nil, color: XLogTheme.pink)
+                    }
+                }
+
+                Panel(title: "International award catalogue", symbol: "rosette") {
+                    if model.awardCatalog.items.isEmpty {
+                        EmptyInsight(text: "Award progress appears after the local log and bundled reference data are available.")
+                    } else {
+                        HStack(alignment: .top, spacing: 18) {
+                            VStack(spacing: 0) {
+                                ForEach(model.awardCatalog.items) { award in
+                                    AwardCatalogRow(
+                                        award: award,
+                                        selected: award.code == selectedAwardCode,
+                                        action: { selectedAwardCode = award.code }
+                                    )
+                                    if award.id != model.awardCatalog.items.last?.id {
+                                        Rectangle().fill(XLogTheme.rule).frame(height: 1)
+                                    }
+                                }
+                            }
+                            .frame(width: 345)
+
+                            Rectangle().fill(XLogTheme.rule).frame(width: 1).frame(minHeight: 390)
+
+                            if let selected = model.awardCatalog.items.first(where: { $0.code == selectedAwardCode }) ?? model.awardCatalog.items.first {
+                                AwardCatalogDetail(award: selected, referenceDate: model.awardCatalog.referenceDate)
+                            }
+                        }
                     }
                 }
 
@@ -213,6 +242,119 @@ struct InsightsView: View {
 
     private func top(_ values: [String: Int], limit: Int) -> [String: Int] {
         Dictionary(uniqueKeysWithValues: values.sorted { $0.value > $1.value }.prefix(limit).map { ($0.key, $0.value) })
+    }
+}
+
+private struct AwardCatalogRow: View {
+    let award: AwardCatalogItem
+    let selected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 11) {
+                Text(award.code)
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(awardColor(award.code))
+                    .frame(width: 48, alignment: .leading)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(award.title).font(.subheadline.weight(.semibold)).lineLimit(1)
+                    Text(award.programme).font(.caption2).foregroundStyle(XLogTheme.secondary)
+                }
+                Spacer(minLength: 8)
+                Text("\(award.current.formatted()) / \(award.target.formatted())")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(award.completed ? XLogTheme.teal : XLogTheme.secondary)
+            }
+            .padding(.horizontal, 10)
+            .frame(minHeight: 43)
+            .background(selected ? XLogTheme.raised : Color.clear)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(award.code), \(award.title), \(award.current) of \(award.target)")
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+}
+
+private struct AwardCatalogDetail: View {
+    let award: AwardCatalogItem
+    let referenceDate: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text(award.code)
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .foregroundStyle(awardColor(award.code))
+                Text(award.title).font(.title3.weight(.semibold))
+                Spacer()
+                Label(award.completed ? "Target reached" : "In progress", systemImage: award.completed ? "checkmark.seal.fill" : "scope")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(award.completed ? XLogTheme.teal : XLogTheme.secondary)
+            }
+
+            HStack(alignment: .lastTextBaseline, spacing: 7) {
+                Text(award.current.formatted())
+                    .font(.system(size: 42, weight: .bold, design: .rounded)).monospacedDigit()
+                Text("of \(award.target.formatted()) \(award.unit)")
+                    .font(.body.weight(.medium)).foregroundStyle(XLogTheme.secondary)
+            }
+
+            GeometryReader { proxy in
+                ZStack(alignment: .leading) {
+                    Rectangle().fill(XLogTheme.raised)
+                    Rectangle().fill(awardColor(award.code)).frame(width: max(4, proxy.size.width * award.fraction))
+                }
+            }
+            .frame(height: 7)
+            .clipShape(Capsule())
+
+            Text(award.detail)
+                .font(.body)
+                .foregroundStyle(XLogTheme.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if !award.breakdowns.isEmpty {
+                Text("BREAKDOWN").font(.caption2.weight(.bold)).foregroundStyle(XLogTheme.secondary)
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 118), spacing: 8)], alignment: .leading, spacing: 8) {
+                    ForEach(award.breakdowns) { item in
+                        HStack {
+                            Text(item.label).font(.caption.weight(.semibold)).lineLimit(1)
+                            Spacer()
+                            Text(item.target.map { "\(item.value)/\($0)" } ?? item.value.formatted())
+                                .font(.caption.monospacedDigit()).foregroundStyle(XLogTheme.secondary)
+                        }
+                        .padding(.horizontal, 9)
+                        .frame(minHeight: 30)
+                        .background(XLogTheme.raised)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                    }
+                }
+            }
+
+            Spacer(minLength: 0)
+            HStack(spacing: 7) {
+                Image(systemName: "checkmark.shield")
+                Text("Calculated locally from confirmed QSOs")
+                if !referenceDate.isEmpty { Text("· JARL data \(referenceDate)") }
+            }
+            .font(.caption2)
+            .foregroundStyle(XLogTheme.secondary)
+        }
+        .frame(maxWidth: .infinity, minHeight: 390, alignment: .topLeading)
+        .accessibilityElement(children: .contain)
+    }
+}
+
+private func awardColor(_ code: String) -> Color {
+    switch code {
+    case "AJD", "JCC", "WACA": return XLogTheme.cyan
+    case "WAJA", "JCG", "WAGA": return XLogTheme.teal
+    case "AJA": return XLogTheme.amber
+    case "WAPC": return XLogTheme.orange
+    case "WCSA": return XLogTheme.pink
+    default: return XLogTheme.cyan
     }
 }
 
