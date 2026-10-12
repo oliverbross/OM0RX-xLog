@@ -1,9 +1,9 @@
 # Unified xLog: xCat, xCluster, local stations and cross-platform programme
 
-Planning revision: 2 · 2026-10-12 · Owner: Oliver Bross, OM0RX
+Planning revision: 3 · 2026-10-12 · Owner: Oliver Bross, OM0RX
 
-Status: **proposed; architecture inspected, implementation not started**.
-This document is a project-management and architecture proposal, not a claim of Windows/Linux support or hardware acceptance. No application, station configuration, credentials or live logbook is changed by this planning task.
+Status: **P0 preservation complete; P1 isolated prototype implemented, verification in progress**.
+The user authorized P0/P1 after revision 2. See [preservation manifest](P0_MACOS_BASELINE.md), [prototype](../prototype/README.md) and [acceptance ledger](P1_PROTOTYPE_ACCEPTANCE.md). This remains the complete programme plan, not a claim of released Windows/Linux support or hardware acceptance. Installed applications, station configuration, credentials and live logbooks remain unchanged. Later phases are not silently marked complete by the synthetic prototype.
 
 ## 1. Executive decision
 

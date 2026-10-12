@@ -5,3 +5,9 @@ dist/
 .swiftpm/
 .impeccable/review/
 .recovery/
+prototype/node_modules/
+prototype/src-tauri/target/
+prototype/src-tauri/gen/
+prototype/src-tauri/binaries/
+prototype/test-results/
+prototype/playwright-report/

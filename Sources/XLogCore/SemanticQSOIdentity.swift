@@ -1,4 +1,8 @@
+#if canImport(CryptoKit)
 import CryptoKit
+#else
+import Crypto
+#endif
 import Foundation
 
 public struct SemanticQSOIdentity: Codable, Equatable, Hashable, Sendable {

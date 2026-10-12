@@ -2,9 +2,9 @@
 
 Last updated: 2026-10-12
 
-## Proposed portability programme — planning only
+## Portability programme — P0/P1 prototype, production unchanged
 
-[Unified xLog project plan](docs/LOCAL_STATION_CROSS_PLATFORM_PLAN.md): integrate xCat station controls and the full xCluster workspace into xLog, add standalone Hamlib radio/rotor profiles, preserve remote station support, and deliver one shared macOS/Windows/Linux UI/domain implementation. Architecture inspection and planning are complete; implementation and hardware/platform acceptance are **not started**. The next proposed gate is baseline approval followed by a time-boxed three-platform prototype. Existing release functionality and station ownership remain unchanged until an implementation ADR explicitly replaces the applicable constraints. Existing uncommitted xCat work is preserved and must be reconciled before selecting the suite integration baseline.
+[Unified xLog project plan](docs/LOCAL_STATION_CROSS_PLATFORM_PLAN.md): integrate xCat station controls and the full xCluster workspace into xLog, add standalone Hamlib radio/rotor profiles, preserve remote station support, and deliver one shared macOS/Windows/Linux UI/domain implementation. P0 preservation and P1 implementation are authorized. The isolated [prototype](prototype/README.md) is being verified on `codex/unified-xlog-prototype-p1`; [evidence and remaining gates](docs/P1_PROTOTYPE_ACCEPTANCE.md) distinguish source tests, platform packaging and hardware acceptance. Current v0.3.0 remains the working macOS-only release. No installed app or station ownership changes. Existing uncommitted xCat work is preserved and must be reconciled before selecting the suite integration baseline.
 
 This proposal expands the older P2 ecosystem-consolidation items below into a full integration programme; those historical items do not limit the new CAT/CLU feature inventory. Release evidence below continues to describe the shipped Mac app, not the proposed unified product.
 

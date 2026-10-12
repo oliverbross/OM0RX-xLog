@@ -1,0 +1,116 @@
+name: Cross-platform prototype
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/unified-xlog-prototype-p1]
+    paths: ['prototype/**', 'Sources/**', 'Tests/**', 'Package.swift', '.github/workflows/prototype.yml']
+  pull_request:
+    paths: ['prototype/**', 'Sources/**', 'Tests/**', 'Package.swift', '.github/workflows/prototype.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  prototype:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, ubuntu-24.04, windows-2022]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: prototype/package-lock.json
+      - name: Linux build dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libcurl4-openssl-dev libxml2-dev libicu-dev libssl-dev
+      - name: Swift toolchain (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          archive="$RUNNER_TEMP/swift-6.3.3-RELEASE-ubuntu24.04.tar.gz"
+          toolchain="$RUNNER_TEMP/xlog-swift-6.3.3"
+          curl --fail --location --retry 3 --output "$archive" https://download.swift.org/swift-6.3.3-release/ubuntu2404/swift-6.3.3-RELEASE/swift-6.3.3-RELEASE-ubuntu24.04.tar.gz
+          sha256sum "$archive"
+          mkdir -p "$toolchain"
+          tar -xzf "$archive" --strip-components=1 -C "$toolchain"
+          echo "$toolchain/usr/bin" >> "$GITHUB_PATH"
+      - name: Swift toolchain (Windows)
+        if: runner.os == 'Windows'
+        uses: compnerd/gha-setup-swift@bbae8ce86bac5a3449f3992b3d88bc4ca25f2057
+        with:
+          swift-version: swift-6.3.3-release
+          swift-build: 6.3.3-RELEASE
+      - name: Windows SQLite
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          & "$env:VCPKG_INSTALLATION_ROOT/vcpkg.exe" install sqlite3:x64-windows
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          "XLOG_SQLITE_PREFIX=$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows" >> $env:GITHUB_ENV
+          "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin" >> $env:GITHUB_PATH
+      - name: Record native toolchains
+        run: |
+          swift --version
+          rustc --version
+          node --version
+      - name: Test portable Swift core (Unix)
+        if: runner.os != 'Windows'
+        env:
+          XLOG_PORTABLE_ONLY: '1'
+        run: swift test --scratch-path .build/prototype-tests
+      - name: Test portable Swift core (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          XLOG_PORTABLE_ONLY: '1'
+        run: |
+          swift test --scratch-path .build/prototype-tests -Xcc "-I$env:XLOG_SQLITE_PREFIX/include" -Xlinker "/LIBPATH:$env:XLOG_SQLITE_PREFIX/lib"
+          exit $LASTEXITCODE
+      - name: Build Swift worker (Unix)
+        if: runner.os != 'Windows'
+        run: bash prototype/scripts/build-worker.sh
+      - name: Build Swift worker (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./prototype/scripts/build-worker.ps1
+      - name: Install frontend dependencies
+        working-directory: prototype
+        run: npm ci
+      - name: Frontend tests and build
+        working-directory: prototype
+        run: npm test && npm run build
+      - name: Stage isolated worker
+        run: node prototype/scripts/stage-worker.mjs
+      - name: Test worker process framing (Unix)
+        if: runner.os != 'Windows'
+        run: node Tests/XLogPrototypeTests/worker-process.test.mjs prototype/src-tauri/target/release/xlog-prototype-worker
+      - name: Test worker process framing (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          node Tests/XLogPrototypeTests/worker-process.test.mjs prototype/src-tauri/target/release/xlog-prototype-worker.exe
+          exit $LASTEXITCODE
+      - name: Shell contract tests
+        working-directory: prototype/src-tauri
+        run: cargo test --locked
+      - name: Build desktop executable (not an installer acceptance claim)
+        working-directory: prototype
+        run: npx tauri build --no-bundle
+      - name: Upload development executables and evidence inputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: xlog-prototype-${{ matrix.os }}-${{ github.sha }}
+          if-no-files-found: error
+          path: |
+            prototype/src-tauri/target/release/xlog-prototype
+            prototype/src-tauri/target/release/xlog-prototype.exe
+            prototype/src-tauri/target/release/xlog-prototype-worker*
+            prototype/src-tauri/target/release/sqlite3.dll
+            prototype/src-tauri/Cargo.lock
+            prototype/package-lock.json
