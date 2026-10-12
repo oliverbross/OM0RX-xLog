@@ -19,7 +19,22 @@ packaged UI result. Keep unresolved items here across releases.
   Integration app in place without extra archived app copies and publish an exact
   prerelease. Stable native release must remain available.
 
-### Latest source checkpoint (equipment / CW foundation)
+### Latest source checkpoint (CW integration, 13 October)
+
+- CW settings, native persistence, optional desk row and guarded radio/WinKeyer
+  controller are integrated in source, not installed. Full frontend **344/344**,
+  TypeScript/Vite, Rust **91/91**, Swift core **72/72**, and Mac portable-worker
+  **138 XCTest + 40 Swift Testing** pass. No physical device traffic was used.
+- Independent CW finish review found mismatched preview length limits; the shared
+  backend-aware limit and nine boundary tests address this. The reviewer scored
+  that single fix resolved, disposition **ship** at verdict-pass scope.
+  Documentation handoff is complete without changing the incumbent design.
+  Details: `docs/CW_IMPLEMENTATION_STAGE.md` and
+  `docs/CW_UI_DOCUMENTATION_2026-10-13.md`.
+- Exact package, installed CW acceptance, hardware/driver behavior and alternate
+  OS acceptance remain open. Alpha.6 is still the installed version.
+
+### Earlier alpha.6 equipment / CW foundation checkpoint
 
 - Full shared frontend: 311/311 tests, TypeScript clean; `git diff --check` clean.
 - Rust desktop backend: 68/68 tests passed before the version-only alpha.6 bump.
@@ -58,9 +73,9 @@ close PERF-01's packaged UI, cold-start or median/p95 acceptance requirements.
 | UI-25 | Move independent rotator configuration into Settings → Rotator; browsing settings leaves connections unchanged | Source implemented | Pending packaged navigation check |
 | UI-26 | Hide unconfigured rotor; optional fixed-antenna type/name/bands or no equipment panel; reclaim its grid track | Implemented; 21 focused UI tests, settings migration/round-trip tests; full frontend 311/311 + TypeScript and Swift core 67/67. Fresh narrow UI review: ship | Alpha.6: saved temporary vertical/20–10m card, verified on Desk and persisted across navigation; restored automatic/empty-band preferences. Existing ARCO configuration correctly retains offline rotor. Synthetic no-equipment/wide/laptop fixtures passed. Relaunch of changed equipment, high-DPI and assistive-technology checks remain |
 | SYNC-02 | Explicit standalone local vs local+Wavelog logbook mode; local mode blocks sync network, keeps all data, switching back never auto-syncs | Backend and UI in progress | Test saved mode/restart/no-network guards; current user mode unchanged |
-| CW-01 | Cross-platform WinKeyer configuration and transport, separate from supported-radio CW route | Rust serial actor/main-only ingress implemented; documented WK2/3 handshake, arm/generation/intent gates, flow control, priority Stop and uncertain-output retention; 19 fake-transport tests, full Rust 87/87. Settings/controller integration still open | Not installed. No serial-port probing or RF tests; actual WinKeyer, driver and Windows/Linux acceptance required |
-| CW-02 | Up to 20 editable macros, safe substitutions/preview, named colors and assigned keyboard shortcuts | Pure profile/preview/key-matching engine implemented, 4 tests pass; settings editor and output controller still pending | Not user-facing yet. Opt-in transmit arming; no shortcuts while typing/in dialogs, no reconnect/retry replay, immediate Stop |
-| CW-03 | Optional customizable row of selected colored CW macro buttons under Active QSO | New requested stage | Responsive row/selection, saved profile, same shared frontend; no fabricated transmit confirmation |
+| CW-01 | Cross-platform WinKeyer configuration and transport, separate from supported-radio CW route | Source integrated: explicit saved-port connection/consent, serial actor, radio routing, 60-second arm, generation/intent gates, priority Stop and uncertain-output retention; 19 protocol + 19 controller tests; full Rust91/91 | Not installed. No serial-port probing or RF tests; physical WinKeyer, driver, radio and Windows/Linux acceptance required |
+| CW-02 | Up to20 editable macros, safe substitutions/preview, named colors and assigned keyboard shortcuts | Settings/native persistence/preview/keys implemented; shared80/128-character output limits; nine preview boundary cases; full frontend344/344, core72/72 | Review scored its preview-limit finding resolved; package save/restart/keyboard acceptance open. No automatic sends on editing/navigation/reconnect |
+| CW-03 | Optional customizable row of selected colored CW macro buttons under Active QSO | Source implemented: one row, chosen colors/keys, More menu, explicit Arm/Stop and uncertain-output recovery; six laptop/wide/2x synthetic captures | Installed native-shell acceptance remains open; no fabricated transmit confirmation or physical4K claim |
 | CLUSTER-01 | Restore live cluster after update; resume saved connected session on restart, respect explicit Disconnect; independent of offline radio | Startup resume implemented; intent/race regression tests passed | Alpha.6 automatically reconnected ShackCQ after installation/restart without pressing Connect; 12 live spots observed, radio/PA/rotor offline. Explicit-disconnect persistence covered by tests, not repeated against live feed |
 | PERF-01 | App-wide cold/warm performance audit: typing-to-intelligence (reported slow again for VK8NSB), tab opening, startup, awards, spot/classification, background requests and large-log behavior | Required final acceptance, not closed by caches or unit tests; cold award calculations still multi-second | Measure representative packaged runtime, record median/p95 and distinguish remote QRZ latency from local history/paint |
 | UI-01 | Operator Desk Active QSO, intelligence, rotor match supplied information and colors | Implemented; component tests | Recheck updated package |

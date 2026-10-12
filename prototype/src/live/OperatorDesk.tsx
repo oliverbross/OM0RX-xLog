@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type SetStateAction } from "react";
+import { useEffect, useRef, useState, type SetStateAction, type ReactNode } from "react";
 import { Radio, ContactRound, Navigation, CircleX, CircleCheck } from "lucide-react";
 import { bandForRadio } from "./BandMaps";
 import { rotorCommandParams, rotorProjection, type RotorSnapshot } from "./rotorControl";
@@ -11,7 +11,7 @@ type Data = Record<string, any>;
 type Request = (method: string, params?: Data) => Promise<any>;
 type Props = { draft: Data | null; setDraft: (value: SetStateAction<Data | null>) => void; save: () => void; clear: () => void; busy: boolean;
   lookup: Data | null; previous: Data[]; request: Request; refresh: number; onEditor: () => void; onReadRadio: () => Promise<void>;
-  follow: boolean; setFollow: (value: boolean) => void; rotor: RotorSnapshot | null; autoRotor: boolean; setAutoRotor: (value: boolean) => void; onManualRotor: () => void; isEditing?: boolean; intelligenceBands?: string[]; equipment?: unknown };
+  follow: boolean; setFollow: (value: boolean) => void; rotor: RotorSnapshot | null; autoRotor: boolean; setAutoRotor: (value: boolean) => void; onManualRotor: () => void; isEditing?: boolean; intelligenceBands?: string[]; equipment?: unknown; cwControls?: ReactNode };
 const normalizedCall = (value: unknown) => String(value ?? "").trim().toUpperCase();
 const bands = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "4m", "2m", "70cm"];
 const modes = ["CW", "SSB", "FT8", "FT4", "FT2", "RTTY", "PSK", "DIGI", "AM", "FM"];
@@ -26,7 +26,7 @@ export function rotorPathDistance(shortPath: unknown, path: "SP" | "LP"): number
     ? path === "SP" ? shortPath : circumference - shortPath : undefined;
 }
 
-export function DeskQSO({ draft, setDraft, save, clear, busy, onEditor, onReadRadio, follow, setFollow, isEditing }: Props) {
+export function DeskQSO({ draft, setDraft, save, clear, busy, onEditor, onReadRadio, follow, setFollow, isEditing, cwControls }: Props) {
   const [frequencyText, setFrequencyText] = useState<string | null>(null);
   const [timeText, setTimeText] = useState<{ date: string; time: string } | null>(null);
   const [reading, setReading] = useState(false), [error, setError] = useState("");
@@ -74,7 +74,7 @@ export function DeskQSO({ draft, setDraft, save, clear, busy, onEditor, onReadRa
     {error && <p className="desk-error" role="alert">{error}</p>}
     {(!validFrequency || !validTime || frequencyBand && frequencyBand !== draft.band) && <p className="desk-error" role="alert">Check the UTC date, frequency and band before logging.</p>}
     <footer className="desk-active-actions"><button type="button" onClick={onEditor}>Full editor</button><button type="button" disabled={busy || reading} onClick={() => void read()}><Radio size={12} />{reading ? "Reading…" : "Read radio"}</button><label className="desk-toggle"><input type="checkbox" checked={follow} onChange={event => setFollow(event.target.checked)} />Follow radio</label><span /><button type="button" disabled={busy} onClick={clear}><CircleX size={12} />Clear QSO</button><button className="desk-log" disabled={!canSave}><CircleCheck size={13} />{isEditing ? "Update QSO" : "Log QSO"}</button></footer>
-  </form></section>;
+  </form>{cwControls}</section>;
 }
 
 type Evidence = { call: string; adif: number | null; callCells?: Data[]; history?: Data; error?: string };

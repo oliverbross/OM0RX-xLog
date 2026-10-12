@@ -233,6 +233,12 @@ actor LiveFlexSession {
     }
 
     private func control(_ params: [String: Any]) async throws -> [String: Any] {
+        var params = params
+        if let raw = params.removeValue(forKey: "expected_generation") {
+            guard let expected = Self.integer(raw), expected >= 0, UInt64(expected) == connectionGeneration else {
+                throw WorkerFailure("station_changed", "Radio connection changed; stale control was not sent.")
+            }
+        }
         guard let control = params["control"] as? String else { throw invalid() }
         switch control {
         case "ptt":
@@ -532,7 +538,7 @@ actor LiveFlexSession {
                   "receive": vfo.isReceive, "transmit": vfo.isTransmit] as [String: Any]
              }] as [String: Any]
         } ?? NSNull()
-        return ["source": "direct_flex_lan", "available": current != nil,
+        return ["source": "direct_flex_lan", "available": current != nil, "generation": connectionGeneration,
                 "transport_state": transportState.rawValue, "generated_at": Date().timeIntervalSince1970,
                 "radio": radioProjection, "station": NSNull(), "rotor": NSNull(),
                 "propagation": NSNull(), "allow_transmit": configuration?.allowTransmit ?? false,

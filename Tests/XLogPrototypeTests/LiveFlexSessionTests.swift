@@ -224,6 +224,37 @@ final class LiveFlexSessionTests: XCTestCase {
         XCTAssertEqual(commands, ["stop_transport"])
     }
 
+    func testCWGenerationFenceRejectsStaleSendAndStopBeforeDeviceWrite() async throws {
+        let (session, radio) = try await fixture(allowTransmit: true)
+        let snapshot = try await session.handle("station_snapshot", params: ["provider": "direct_flex_lan"])
+        let generation = try XCTUnwrap(snapshot["generation"] as? UInt64)
+        for expected in [generation + 1, -1, "1", true, 1.5, NSNull()] as [Any] {
+            for control in ["send_cw", "clear_cw"] {
+                do {
+                    _ = try await session.handle("station_radio_control", params: [
+                        "provider": "direct_flex_lan", "control": control, "text": "CQ",
+                        "expected_generation": expected,
+                    ])
+                    XCTFail("Stale or malformed CW generation was accepted")
+                } catch let failure as WorkerFailure {
+                    XCTAssertEqual(failure.code, "station_changed")
+                }
+            }
+        }
+        let before = await radio.commandLog()
+        XCTAssertTrue(before.isEmpty)
+        _ = try await session.handle("station_radio_control", params: [
+            "provider": "direct_flex_lan", "control": "send_cw", "text": "CQ",
+            "expected_generation": generation,
+        ])
+        _ = try await session.handle("station_radio_control", params: [
+            "provider": "direct_flex_lan", "control": "clear_cw", "expected_generation": generation,
+        ])
+        let after = await radio.commandLog()
+        XCTAssertEqual(after, ["cw_send", "cw_clear"])
+        _ = try await session.handle("station_disconnect", params: ["provider": "direct_flex_lan"])
+    }
+
     func testTuneLeavesBReceiveAndTransmitOnlyAfterFreshAProof() async throws {
         let initial = RadioSnapshot(frequencyHz: 7_050_000, mode: "LSB", slice: "B",
             transmitSlice: "B", transmitFrequencyHz: 7_050_000,

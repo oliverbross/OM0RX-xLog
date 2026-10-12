@@ -43,6 +43,23 @@ final class LiveStationMethodsTests: XCTestCase {
     }
 
     #if os(macOS)
+    func testRemoteCWGenerationFenceRejectsRequestsBeforeConnecting() async throws {
+        let session = LiveStationSession()
+        let snapshot = await session.snapshot()
+        let generation = try XCTUnwrap(snapshot["generation"] as? UInt64)
+        for control in ["send_cw", "clear_cw"] {
+            do {
+                _ = try await session.handle("station_radio_control", params: [
+                    "provider": "direct_agent", "control": control, "text": "CQ",
+                    "expected_generation": generation + 1,
+                ])
+                XCTFail("Stale CW generation was accepted")
+            } catch let failure as WorkerFailure {
+                XCTAssertEqual(failure.code, "station_changed")
+            }
+        }
+    }
+
     func testMonitoringDoesNotAcquireTransmitReleaseObligations() {
         var ownership = StationTransmitOwnership()
         XCTAssertTrue(ownership.releases.isEmpty)

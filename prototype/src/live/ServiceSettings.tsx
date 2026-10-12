@@ -2,13 +2,16 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import DataManagementPanel from "./DataManagementPanel";
 import DisplaySettings from "./DisplaySettings";
 import { EquipmentSettings } from "./StationEquipment";
+import CWSettings from "./CWSettings";
+import { validateCWProfile, type CWContext } from "./cwMacros";
+import type { CWState } from "./cwController";
 import { referenceAutoCheckKey, referenceAutoCheckChanged } from "./referenceSchedule";
 import "./ServiceSettings.css";
 
 type Data = Record<string, any>;
 type Request = (method: string, params?: Data) => Promise<Data>;
-type Props = { values: Data; request: Request; onSaved: (value: Data) => void; dataRequest?: Request; onDataChanged?: () => void; rotorSettings?: ReactNode };
-const tabs = ["Station", "Wavelog", "QRZ", "Reference data", "Rotator", "Display", "Backups"] as const;
+type Props = { values: Data; request: Request; onSaved: (value: Data) => void; dataRequest?: Request; onDataChanged?: () => void; rotorSettings?: ReactNode; cwContext?: CWContext; cwState?: CWState; refreshCW?: () => Promise<void>; cwProvider?: string };
+const tabs = ["Station", "Wavelog", "QRZ", "Reference data", "Rotator", "CW", "Display", "Backups"] as const;
 type Tab = typeof tabs[number];
 
 function Credential({ account, label, request }: { account: string; label: string; request: Request }) {
@@ -30,7 +33,7 @@ function Credential({ account, label, request }: { account: string; label: strin
     {message && <p role="status">{message}</p>}</div>;
 }
 
-export default function ServiceSettings({ values, request, onSaved, dataRequest, onDataChanged, rotorSettings }: Props) {
+export default function ServiceSettings({ values, request, onSaved, dataRequest, onDataChanged, rotorSettings, cwContext, cwState, refreshCW, cwProvider }: Props) {
   const [automaticReferences, setAutomaticReferences] = useState(() => localStorage.getItem(referenceAutoCheckKey) !== "false");
   const [tab, setTab] = useState<Tab>("Station");
   const [form, setForm] = useState(values);
@@ -43,10 +46,11 @@ export default function ServiceSettings({ values, request, onSaved, dataRequest,
     event.preventDefault(); if (busy) return;
     setBusy(true); setMessage("");
     try {
-      const response = await request("settings_save", { settings: form });
+      const saved = { ...form, ...(form.cwProfile ? { cwProfile: validateCWProfile(form.cwProfile) } : {}) };
+      const response = await request("settings_save", { settings: saved });
       onSaved(response.settings); setForm(response.settings);
       setMessage("Settings saved. Synchronization remains manual; use Sync when ready.");
-    } catch { setMessage("Could not save settings. Check the fields and try again."); }
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Could not save settings. Check the fields and try again."); }
     finally { setBusy(false); }
   };
   return <section className="service-settings" aria-label="Station and service settings">
@@ -55,13 +59,14 @@ export default function ServiceSettings({ values, request, onSaved, dataRequest,
       if (next !== null) { event.preventDefault(); setTab(tabs[next]); document.getElementById(`service-tab-${next}`)?.focus(); }
     }}>{name}</button>)}</div>
     <div id="service-settings-panel" role="tabpanel" aria-labelledby={`service-tab-${tabs.indexOf(tab)}`}>
-    <p hidden={tab === "Display"}>URLs and account details are grouped with their credentials. Save settings for non-secret fields; each credential has its own secure Save button.</p>
+    <p hidden={tab === "Display" || tab === "CW"}>URLs and account details are grouped with their credentials. Save settings for non-secret fields; each credential has its own secure Save button.</p>
     <div hidden={tab !== "Display"}><DisplaySettings /></div>
     <div hidden={tab !== "Rotator"}>{rotorSettings ?? <p>Rotator settings are unavailable in this view.</p>}</div>
     <section hidden={tab !== "Reference data"}><label><input type="checkbox" checked={automaticReferences} onChange={event => {
       setAutomaticReferences(event.target.checked); localStorage.setItem(referenceAutoCheckKey, String(event.target.checked)); window.dispatchEvent(new Event(referenceAutoCheckChanged));
     }} />Automatically check reference databases</label><p>Checks run after startup, on return to the app and hourly when due. Validated cached data remains available on failure. This preference saves immediately; it never synchronizes QSOs.</p></section>
     <form onSubmit={event => void save(event)} noValidate><fieldset disabled={busy}>
+      <div hidden={tab !== "CW"}><CWSettings value={form.cwProfile} saved={values.cwProfile} onChange={cwProfile => setForm(current => ({ ...current, cwProfile }))} context={cwContext} request={request} state={cwState} refresh={refreshCW} radioProvider={cwProvider} /></div>
       <section hidden={tab !== "Station"}><h2>Station identity</h2><div className="service-fields">{[["operatorCall", "Operator call"], ["stationCall", "Station call"], ["gridSquare", "Station grid"], ["stationLocation", "Station location"], ["defaultPower", "Default power W"], ["defaultRadio", "Radio name"]].map(([key, label]) => field(key, label))}</div></section>
       <div hidden={tab !== "Station"}><EquipmentSettings value={form.stationEquipment} onChange={stationEquipment => setForm(current => ({ ...current, stationEquipment }))} /></div>
       <section hidden={tab !== "Station"}><h2>Logbook mode</h2><label>Use xLog as<select aria-label="Logbook mode" value={form.logbookMode ?? "wavelog"} onChange={event => setForm(current => ({ ...current, logbookMode: event.target.value }))}>
@@ -74,7 +79,7 @@ export default function ServiceSettings({ values, request, onSaved, dataRequest,
       <div className="live-actions" hidden={tab === "Backups" || tab === "Display" || tab === "Rotator"}><button type="submit" className="primary">{busy ? "Saving settings…" : "Save settings"}</button><span role="status">{message}</span></div>
     </fieldset></form>
     <div hidden={tab !== "Reference data" && tab !== "Backups"}>{dataRequest ? <DataManagementPanel onRequest={dataRequest} onChanged={onDataChanged ?? (() => {})} section={tab === "Backups" ? "backups" : "references"} sourceSettings={values} /> : <p>Reference and backup tools are unavailable in this view.</p>}</div>
-    <p className="service-security-note">Credentials stay in the integrated app’s separate macOS Keychain service. Existing application credentials are not changed. Never paste credentials into a support chat.</p>
+    <p className="service-security-note" hidden={tab === "CW"}>Credentials stay in the integrated app’s separate macOS Keychain service. Existing application credentials are not changed. Never paste credentials into a support chat.</p>
     </div>
   </section>;
 }

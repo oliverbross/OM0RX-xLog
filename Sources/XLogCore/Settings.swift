@@ -35,6 +35,7 @@ public struct XLogSettings: Codable, Equatable, Sendable {
     public var clubLogCTYURL: String
     public var lotwActivityURL: String
     public var stationEquipment = StationEquipment()
+    public var cwProfile: CWProfile? = nil
 
     public static let defaults = XLogSettings(
         operatorCall: "OM0RX",
@@ -62,7 +63,7 @@ extension XLogSettings {
         case operatorCall, stationCall, gridSquare, stationLocation, defaultPower, defaultRadio
         case wavelogURL, wavelogStationID, logbookMode, automaticSync, syncIntervalMinutes
         case qrzUsername, qrzEnabled, xcatHost, xcatRigCtlPort, clubLogCTYURL, lotwActivityURL
-        case stationEquipment
+        case stationEquipment, cwProfile
     }
 
     public init(from decoder: Decoder) throws {
@@ -87,6 +88,7 @@ extension XLogSettings {
         clubLogCTYURL = try values.decode(String.self, forKey: .clubLogCTYURL)
         lotwActivityURL = try values.decode(String.self, forKey: .lotwActivityURL)
         stationEquipment = try values.decodeIfPresent(StationEquipment.self, forKey: .stationEquipment) ?? StationEquipment()
+        cwProfile = try values.decodeIfPresent(CWProfile.self, forKey: .cwProfile)
     }
 }
 

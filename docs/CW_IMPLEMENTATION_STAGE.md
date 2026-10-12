@@ -6,11 +6,53 @@ are part of overnight acceptance.
 
 ## Current state
 
-`prototype/src/live/cwMacros.ts` implements pure profile validation (20 slots),
-six named colours, optional F1–F12 / Shift+F1–F12 shortcuts, chosen desk buttons,
-strict ASCII previews and `{MYCALL}`, `{CALL}`, `{RST}`, `{NAME}`, `{GRID}`,
-`{SERIAL}` substitutions. All four tests pass. No editor, persistence, button row,
-arming/controller is wired yet. This is not a delivered CW feature.
+The source now wires Settings → CW, native preferences persistence, optional desk
+buttons and main-window shortcuts into the guarded output controller. This is not
+yet installed or hardware-accepted. Twenty slots support six named colours,
+F1–F12 / Shift+F1–F12, enable/desk visibility and strict ASCII previews. Tokens are
+`{MYCALL}`, `{CALL}`, `{RST}`, `{NAME}`, `{GRID}` and `{SERIAL}`; SERIAL reads the
+QSO's preserved ADIF `extraFields.STX`, never an invented counter.
+
+Saving and previewing never send. Connecting WinKeyer is a separate explicit
+action with saved port and control-line consent; changing that port clears consent.
+The desk row keeps Arm/Stop visible and puts excess selected macros into a More
+menu. Arming is memory-only, foreground-only and expires after 60 seconds. Focus,
+view/QSO identity, output or saved profile changes disarm. Typing, dialogs, IME,
+OS-modified keys and repeat events cannot trigger macro shortcuts.
+
+The controller retains the original provider/generation before any send attempt
+or WinKeyer lease request. Lost acknowledgements retain Stop, never retry text.
+Stop runs immediately and again after an already-in-flight Arm/Send settles;
+failure retains the recovery guard. Old/out-of-order idle polls cannot clear a
+new macro's ownership. Native Hamlib/FLEX/remote-agent controls check the expected
+connection generation before writes. Radio readback, CW mode, TX opt-in and both
+send/stop capabilities are required. Editor/tooltip/controller share the actual
+80-character Hamlib or 128-character station/WinKeyer limit.
+
+### Source-stage verification — 13 October 2026
+
+- Shared frontend: **344/344 tests**, TypeScript and production Vite build pass.
+  Includes 19 injected-I/O controller tests, nine preview boundary cases, settings
+  Save/validation/20-slot/port-consent tests, and actual hook focus/shortcut tests.
+- Rust: **73 unit + 18 Hamlib integration tests**, all pass. Generation-fence tests
+  include a fake TCP peer proving stale CW Send/Stop write no bytes. Clippy passes
+  with the pre-existing eight-argument `Session::new` warning only.
+- Native Swift core: **72 tests** pass, including legacy-settings migration,
+  macro round-trip, rejection of invalid fields and stripping of transient fields.
+- Mac portable-worker suite: **138 XCTest + 40 Swift Testing cases**, all pass.
+  FLEX fake-radio tests prove stale/malformed generations send no commands, and
+  matching Send/Stop generation succeeds. Remote generation rejection is tested
+  without connecting; this does not replace connected-agent acceptance.
+- Six synthetic component captures at 1000/1440 CSS pixels and 1920 at 2x device
+  scale are under `.impeccable/review/cw/`. They are not installed Tauri captures.
+  The independent finish reviewer found a preview-limit mismatch; source and nine
+  boundary tests address it. The verdict pass scored that single fix **resolved**,
+  disposition **ship** at that scope. Documentation handoff is complete in
+  `CW_UI_DOCUMENTATION_2026-10-13.md`; the incumbent design is unchanged.
+
+Full build retains the existing >500 kB bundle warning; this stage does not close
+app-wide performance acceptance. No serial device was enumerated/opened, no
+radio/PA/rotor commands were sent, and installed alpha.6 remains unchanged.
 
 The Rust desktop now routes main-window-only `winkeyer_*` requests to an independent
 serial actor in `prototype/src-tauri/src/winkeyer.rs`. This source stage is not
@@ -21,7 +63,8 @@ are the documented WK2 revision 23 and WK3 revisions 30/31. Original WK1, older 
 firmware, other revisions and compatible/OEM clones are not assumed supported.
 
 The 19 WinKeyer tests include threaded fake-serial execution, not just source
-inspection. Full Mac Rust suite: 71 unit tests + 16 Hamlib integration tests pass.
+inspection. At the transport checkpoint, 71 unit + 16 integration tests passed;
+the current larger suite is recorded above.
 The 19 focused tests also pass serially. `cargo clippy --all-targets` passes with
 only the existing `hamlib::Session::new` argument-count warning; no WinKeyer lint
 warnings. Distribution metadata already inventories locked Cargo dependencies and
@@ -31,7 +74,7 @@ No physical serial port was opened, no keyer was enumerated/probed, and no RF or
 station configuration changes were made. Windows/Linux build and hardware tests
 remain separate gates. The installed alpha.6 is unchanged.
 
-### Backend contract for the remaining UI/controller work
+### Backend contract enforced by the UI/controller
 
 - Requests use the existing `{id, method, params}` envelope and return
   `{id, ok, result}` or `{id, ok:false, error:{code:"WINKEYER", message}}`.
@@ -72,7 +115,7 @@ fencing, surface restriction, expired queued requests, port-open failure, EOF an
 owned/unowned shutdown. Actual driver timeouts, device-buffer behavior, hotplug and
 all three OS packages still need real-target acceptance.
 
-## Next implementation boundary
+## Implemented integration contract and remaining acceptance
 
 1. Settings → CW: explicit Save, macro editor/preview, output choice (active radio
    or WinKeyer), selected one-row desk buttons. No reconnect or configuration edit
@@ -87,9 +130,15 @@ all three OS packages still need real-target acceptance.
    limit is **80**, not the existing UI's 160. Agent/FLEX route uses
    `station_radio_control` with `send_cw` / `clear_cw` and explicit provider. Do not
    silently fall back from an unsupported radio to another transmitter.
-4. Integrate the implemented WinKeyer actor with that controller and editor.
+4. The WinKeyer actor is integrated with that controller and editor in source.
    Preserve its generation/intent/uncertainty gates; do not bypass them through
    ad-hoc UI serial calls. Complete packaged and real-target acceptance separately.
+
+Still required: exact signed/notarized Mac package, installed preference/shortcut
+and error-state checks without RF, physical keyer/driver hotplug and serial
+timing, supported-radio connected acceptance, and actual Windows/Linux packages.
+No generic promise of all radios, firmware or operating systems follows from the
+fake-device tests. The new profile defaults to no desk row and no assigned keys.
 
 ## Protocol references and constraints
 

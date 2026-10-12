@@ -322,7 +322,7 @@ actor LiveStationSession {
     func snapshot() async -> [String: Any] {
         let generation = connectionGeneration
         guard let client else {
-            return ["source": "direct_agent", "available": false,
+            return ["source": "direct_agent", "available": false, "generation": generation,
                     "transport_state": RadioConnectionState.stopped.rawValue,
                     "radio": NSNull(), "station": NSNull(), "rotor": await rotor.projection(),
                     "propagation": NSNull(), "allow_transmit": false]
@@ -330,6 +330,7 @@ actor LiveStationSession {
         let observed = await client.observedSnapshot()
         guard generation == connectionGeneration, self.client === client else { return await snapshot() }
         var result = Self.project(observed, transport: transportState, allowTransmit: allowTransmit)
+        result["generation"] = generation
         result["rotor"] = await rotor.projection()
         result["cat_servers"] = ["cat_port": Self.optional(catConfiguration.catPort), "rigctl_port": Self.optional(catConfiguration.rigCtlPort), "allow_transmit": catConfiguration.allowTransmit]
         return result
@@ -437,7 +438,11 @@ actor LiveStationSession {
 
     private func radioControl(_ params: [String: Any]) async throws -> [String: Any] {
         try requireKeys(params, allowed: ["provider", "control", "enabled", "offset_hz", "vfo",
-                                         "watts", "words_per_minute", "text", "frequency_hz", "mode"])
+                                         "watts", "words_per_minute", "text", "frequency_hz", "mode", "expected_generation"])
+        let generation = connectionGeneration
+        if let raw = params["expected_generation"] {
+            guard let expected = try Self.integer(raw), expected >= 0, UInt64(expected) == generation else { throw lifecycleChanged() }
+        }
         guard let control = params["control"] as? String else { throw Self.invalidParams() }
         let command: (RemoteAgentClient) async throws -> Void
         let advertised: String
@@ -505,6 +510,7 @@ actor LiveStationSession {
         guard let client else { throw WorkerFailure("station_unavailable", "Connect to the Remote Station Agent first.") }
         let observed = await client.observedSnapshot()
         try requireActive()
+        guard generation == connectionGeneration, self.client === client else { throw lifecycleChanged() }
         guard let station = observed.remoteStationStatus,
               station.supportedCommands.contains(advertised),
               observed.isConnected || (control == "ptt" && !needsTransmitOptIn) || control == "clear_cw" else {
@@ -519,6 +525,7 @@ actor LiveStationSession {
         transmitOwnership.beginControl(control, enabled: needsTransmitOptIn)
         do {
             try await command(client)
+            guard generation == connectionGeneration, self.client === client else { throw lifecycleChanged() }
             transmitOwnership.completeControl(control, enabled: needsTransmitOptIn)
             return ["accepted": true, "confirmed": false, "control": control, "state": await snapshot()]
         } catch {

@@ -5,8 +5,9 @@ export const cwTokens = ["MYCALL", "CALL", "RST", "NAME", "GRID", "SERIAL"] as c
 export type CWToken = typeof cwTokens[number];
 export type CWContext = Partial<Record<CWToken, string>>;
 export type CWMacro = { id: number; label: string; text: string; color: typeof cwColors[number]; shortcut: string; enabled: boolean; onDesk: boolean };
-export type CWProfile = { version: 1; output: "radio" | "winkeyer"; showOnDesk: boolean; macros: CWMacro[] };
-export const defaultCWProfile: CWProfile = { version: 1, output: "radio", showOnDesk: false, macros: [
+export type CWProfile = { version: 1; output: "radio" | "winkeyer"; showOnDesk: boolean; macros: CWMacro[]; winkeyer?: { port: string; wpm: number } };
+export const cwOutputLimit = (output: CWProfile["output"], radioProvider: string) => output === "radio" && radioProvider === "hamlib" ? 80 : 128;
+export const defaultCWProfile: CWProfile = { version: 1, output: "radio", showOnDesk: false, winkeyer: { port: "", wpm: 20 }, macros: [
   { id: 1, label: "CQ", text: "CQ CQ DE {MYCALL} {MYCALL} K", color: "cyan", shortcut: "", enabled: true, onDesk: true },
   { id: 2, label: "Call", text: "{CALL} DE {MYCALL} K", color: "green", shortcut: "", enabled: true, onDesk: true },
   { id: 3, label: "Report", text: "{CALL} {RST} {RST} K", color: "amber", shortcut: "", enabled: true, onDesk: true },
@@ -46,7 +47,10 @@ export function validateCWProfile(value: unknown): CWProfile {
   });
   // Whitelist the persistent fields. Arming, queued text and session ownership
   // must never survive a reload, profile import, reconnect or app restart.
-  return { version: 1, output: profile.output, showOnDesk: profile.showOnDesk, macros };
+  const winkeyer = profile.winkeyer ?? { port: "", wpm: 20 };
+  if (typeof winkeyer.port !== "string" || winkeyer.port.length > 512 || /[\x00-\x1f\x7f]/.test(winkeyer.port) || !Number.isInteger(winkeyer.wpm) || winkeyer.wpm < 5 || winkeyer.wpm > 99)
+    throw new Error("Use a valid WinKeyer port and a speed of 5–99 WPM.");
+  return { version: 1, output: profile.output, showOnDesk: profile.showOnDesk, macros, winkeyer: { port: winkeyer.port.trim(), wpm: winkeyer.wpm } };
 }
 
 export function expandCWMacro(template: string, context: CWContext, maxLength = 80): string {

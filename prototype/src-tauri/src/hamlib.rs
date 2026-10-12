@@ -610,6 +610,7 @@ const VFOS: &[&str] = &[
 ];
 
 fn control(session: &mut Session, device: Device, params: &Value) -> Result<Value, String> {
+    validate_expected_generation(params, session.generation)?;
     let action = params
         .get("action")
         .and_then(Value::as_str)
@@ -875,6 +876,15 @@ fn control(session: &mut Session, device: Device, params: &Value) -> Result<Valu
     Ok(
         json!({"state":"accepted","device":device.name(),"action":action,"readback":readback,"generation":session.generation}),
     )
+}
+
+fn validate_expected_generation(params: &Value, generation: u64) -> Result<(), String> {
+    if let Some(expected) = params.get("expected_generation") {
+        if expected.as_u64() != Some(generation) {
+            return Err("Radio connection changed; stale control was not sent".into());
+        }
+    }
+    Ok(())
 }
 
 fn release_owned_tx(session: &mut Session) -> Result<(), String> {
@@ -1392,6 +1402,33 @@ pub fn shutdown() {
 mod tests {
     use super::*;
     use std::io::Cursor;
+
+    #[test]
+    fn macro_controls_require_the_exact_generation_when_supplied() {
+        assert!(validate_expected_generation(&json!({}), 7).is_ok());
+        assert!(validate_expected_generation(&json!({"expected_generation":7}), 7).is_ok());
+        for value in [json!(8), json!(6), json!(-1), json!(7.5), json!("7"), json!(true), Value::Null] {
+            assert!(validate_expected_generation(&json!({"expected_generation":value}), 7).is_err());
+        }
+    }
+
+    #[test]
+    fn stale_macro_send_and_stop_never_reach_the_transport() {
+        let listener = TcpListener::bind((LOOPBACK, 0)).unwrap();
+        let address = listener.local_addr().unwrap();
+        let (reader, writer) = connect_stream(address).unwrap();
+        let (mut peer, _) = listener.accept().unwrap();
+        peer.set_read_timeout(Some(Duration::from_millis(50))).unwrap();
+        let mut session = Session::new(reader, writer, None, "external", address.port(), None, true, 7);
+        for action in ["cw", "cw_stop"] {
+            let result = control(&mut session, Device::Radio, &json!({"action":action,"text":"CQ", "expected_generation":6}));
+            assert!(result.unwrap_err().contains("connection changed"));
+        }
+        let mut byte = [0u8; 1];
+        let error = peer.read(&mut byte).unwrap_err();
+        assert!(matches!(error.kind(), std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut));
+        assert!(!session.cw_owned);
+    }
 
     #[test]
     fn parser_handles_multiline_extended_frame() {
