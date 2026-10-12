@@ -8,8 +8,8 @@ packaged UI result. Keep unresolved items here across releases.
 ## Current delivery boundary
 
 - Working tree: shared cross-platform xLog; Mac-first delivery.
-- Currently installed: Integration alpha.5, source `973df9c727a95725eb585f1b4c88a0b09350ad67` (bundle metadata checked).
-- Next package: alpha.6. The pending changes below are **not yet installed**.
+- Currently installed: Integration alpha.6, source `248525a6e0570aaf8344870843fed8df0ccaf76d` (bundle metadata checked).
+- Alpha.6 is installed; individual runtime checks and remaining gates are recorded below.
 - Restart of Integration was explicitly approved once the build passes.
 - Preserve the latest operator draft, all logbooks/settings/credentials, and
   `/Applications/OM0RX-xLog.app` (the original native app).
@@ -29,7 +29,8 @@ packaged UI result. Keep unresolved items here across releases.
   no claim of installed-app or hardware acceptance. Browser fixture server closed.
 - CW-02 pure rules are tested, but CW-01 transport and CW-03 editor/button row are
   still implementation work. See `docs/CW_IMPLEMENTATION_STAGE.md` before continuing.
-- Alpha.6 source is being frozen for packaging; installation remains pending.
+- Alpha.6 source is frozen, pushed, signed, notarized and installed. Broader parity
+  and performance gates remain open.
 - Reference follow-up: Wavelog catalog semantic schema validation and cancellation
   of an already-running catalog check when changing to standalone mode remain open.
 
@@ -37,7 +38,7 @@ packaged UI result. Keep unresolved items here across releases.
 
 | ID | Requested result / acceptance | Source and test state | Installed / live verification |
 | --- | --- | --- | --- |
-| UI-17 | Band-map upper/lower frequency tick numbers fully visible, including enlarged text | Edge tick labels inset from chart clipping bounds | Pending packaged visual check |
+| UI-17 | Band-map upper/lower frequency tick numbers fully visible, including enlarged text | Edge tick labels inset from chart clipping bounds | Alpha.6 at 1440×940 with 120% band labels: all four visible charts show complete upper/lower tick labels |
 | UI-18 | HF propagation centered in available header space, separate from radio/status and weather | In progress | Pending wide/laptop check |
 | UI-19 | Callsign/Country matrix same size and aligned; table + C/W/— legend only, no extra status chips | In progress | Pending packaged visual check |
 | UI-20 | QRZ photo twice current size with full-size viewer; aligned previous-QSO columns, orange Worked and green Confirmed at mode text size | In progress | Pending packaged visual check |
@@ -46,12 +47,12 @@ packaged UI result. Keep unresolved items here across releases.
 | UI-23 | Main Band Maps: remove duplicate page header and separate Undock row; Undock beside Add band map | Source implemented | Pending packaged visual check |
 | UI-24 | Refine rotor instrument with readable scale, single observed needle, separate rim target and short-path arc; no fabricated motion | Source implemented; geometry and offline tests | Pending packaged visual check; hardware off |
 | UI-25 | Move independent rotator configuration into Settings → Rotator; browsing settings leaves connections unchanged | Source implemented | Pending packaged navigation check |
-| UI-26 | Hide unconfigured rotor; optional fixed-antenna type/name/bands or no equipment panel; reclaim its grid track | Implemented; 21 focused UI tests, settings migration/round-trip tests; full frontend 307/307 + TypeScript and Swift core 67/67. Fresh narrow UI review: ship | Synthetic 1920×1080 and 1000×720 fixtures verified. Not installed; packaged persistence/relaunch, high-DPI and assistive-technology checks remain. Descriptive antenna only; owned rotor always retains Stop |
+| UI-26 | Hide unconfigured rotor; optional fixed-antenna type/name/bands or no equipment panel; reclaim its grid track | Implemented; 21 focused UI tests, settings migration/round-trip tests; full frontend 311/311 + TypeScript and Swift core 67/67. Fresh narrow UI review: ship | Alpha.6: saved temporary vertical/20–10m card, verified on Desk and persisted across navigation; restored automatic/empty-band preferences. Existing ARCO configuration correctly retains offline rotor. Synthetic no-equipment/wide/laptop fixtures passed. Relaunch of changed equipment, high-DPI and assistive-technology checks remain |
 | SYNC-02 | Explicit standalone local vs local+Wavelog logbook mode; local mode blocks sync network, keeps all data, switching back never auto-syncs | Backend and UI in progress | Test saved mode/restart/no-network guards; current user mode unchanged |
 | CW-01 | Cross-platform WinKeyer configuration and transport, separate from supported-radio CW route | New requested stage; review official protocol and existing ShackCQ implementation | Radio intentionally off; no keying/transmission tests; physical WinKeyer acceptance required |
 | CW-02 | Up to 20 editable macros, safe substitutions/preview, named colors and assigned keyboard shortcuts | Pure profile/preview/key-matching engine implemented, 4 tests pass; settings editor and output controller still pending | Not user-facing yet. Opt-in transmit arming; no shortcuts while typing/in dialogs, no reconnect/retry replay, immediate Stop |
 | CW-03 | Optional customizable row of selected colored CW macro buttons under Active QSO | New requested stage | Responsive row/selection, saved profile, same shared frontend; no fabricated transmit confirmation |
-| CLUSTER-01 | Restore live cluster after update; resume saved connected session on restart, respect explicit Disconnect; independent of offline radio | Confirmed startup only snapshots and never resumes session; fix in progress | Must verify live OM0RX-13 spots and packaged restart |
+| CLUSTER-01 | Restore live cluster after update; resume saved connected session on restart, respect explicit Disconnect; independent of offline radio | Startup resume implemented; intent/race regression tests passed | Alpha.6 automatically reconnected ShackCQ after installation/restart without pressing Connect; 12 live spots observed, radio/PA/rotor offline. Explicit-disconnect persistence covered by tests, not repeated against live feed |
 | PERF-01 | App-wide cold/warm performance audit: typing-to-intelligence (reported slow again for VK8NSB), tab opening, startup, awards, spot/classification, background requests and large-log behavior | Required final acceptance, not closed by caches or unit tests; cold award calculations still multi-second | Measure representative packaged runtime, record median/p95 and distinguish remote QRZ latency from local history/paint |
 | UI-01 | Operator Desk Active QSO, intelligence, rotor match supplied information and colors | Implemented; component tests | Recheck updated package |
 | UI-02 | Log QSO full fields match supplied editor; no large empty right column; matrices span below details | Implemented; component tests | Pending alpha.5 |
