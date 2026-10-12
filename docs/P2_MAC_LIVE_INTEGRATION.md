@@ -88,7 +88,7 @@ native feature parity or production-release readiness. Remaining work includes:
 - Original xCat local FLEX/SmartLink and CAT-server interoperability surfaces,
   rotor presets/automatic tracking and the complete station-monitor presentation.
 - Local Hamlib radio/rotor profiles and live Windows/Linux service transport.
-- Direct-agent token provisioning, live cluster login, observed tune/supersession,
+- Direct-agent token provisioning, observed tune/supersession,
   rotor motion and Maestro colour/display acceptance with the operator.
 - Wavelog/QRZ/reference-provider credentialed acceptance and original-vs-copy
   writer cutover. No real QSO should be fabricated for a test.
@@ -121,12 +121,42 @@ edited, deleted or remotely synchronized during acceptance. The original app
 executables retained their exact baseline SHA-256 hashes; the original xCat
 dirty diff retained hash `fad2daaa7eacb924962ec8d0f6c1dad7eaa7993a170cc0b88d2cb731982a5939`.
 
-**Live radio acceptance blocked upstream:** the already installed standalone xCat
+**Initial live radio acceptance was blocked upstream:** the already installed standalone xCat
 showed HTTP 502, reconnecting, and an interrupted Remote Agent WebSocket. The new
 app's companion path correctly did not invent radio data. Windows service recovery
-is required before live radio/tune/rotor/spot acceptance. No Windows policy, MOX,
+was required before live radio/tune/rotor/spot acceptance. No Windows policy, MOX,
 amplifier or radio command was changed by this work. A separate cluster login was
 requested from the operator rather than taking over the existing live session.
+
+After the operator restarted Windows, standalone xCat showed Connected, VFO A
+18.160 MHz USB, VFO B 18.088 MHz CW, KPA STBY, KAT ANT1 and clear alarms.
+The original xCat loopback listener still resets the integration app's status
+connections, so this does not establish embedded-client acceptance. See
+`WINDOWS_AGENT_RECOVERY_FOR_XLOG.md` for the recovery handoff and chronology.
+
+The operator approved the separate **OM0RX-13** cluster login. The installed shared
+app connected to ShackCQ, received the server's explicit OM0RX-13 greeting and
+real incoming spots, and displayed callsign/DXCC classifications against all
+67,843 copied contacts. OM0RX-12 was left untouched. FLEX forwarding remained off;
+no received spot was clicked to tune or move the antenna.
+
+The final local bundle was rebuilt and installed from `b9744fd91b8eddcbf8481eb3674423d2a776836c`.
+Strict ad-hoc signature verification and all three installed worker-process tests
+passed. The clean GitHub build originally selected Swift 5.10; its workflow now
+uses the same Xcode 16.2 toolchain as the passing native build, without changing
+the copied xCat source or the macOS 14 deployment target.
+
+Both clean GitHub workflows passed on that SHA: native CI run `38218696048` and
+shared application run `38218696064`, including the uploaded Mac application
+artifact. The installed compact two-column monitor rendered successfully as a
+normal window, with unknown station values clearly unavailable and real cluster
+spots plotted on its map. This is display validation, not rotor-motion evidence.
+
+Published Apple Silicon archive:
+`OM0RX-xLog-Integration-0.4.0-alpha.1-macOS-arm64.zip`.
+SHA-256: `e50195ebe4cd39f8ed80c9a709516f41f950bdc5fc51590202443b5b6e3428a9`.
+It includes the separate app, setup notes, GPL notice and resolved dependency
+license inventory. This development package is not notarized.
 
 Unit fixtures are not hardware evidence. UI screenshots remain in the task rather
 than Git because they contain private logbook rows. No tokens, personal database
