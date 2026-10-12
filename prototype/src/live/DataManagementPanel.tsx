@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { Archive, CheckCircle2, DatabaseBackup, RefreshCw } from "lucide-react";
 import "./data-management.css";
 
@@ -23,9 +24,10 @@ type ReferenceStatus = {
   state: Record<string, any>;
 };
 
-export function DataManagementPanel({ onRequest, onChanged }: {
+export function DataManagementPanel({ onRequest, onChanged, pickBackup = () => invoke<string | null>("pick_backup_package") }: {
   onRequest: Request;
   onChanged: () => void;
+  pickBackup?: () => Promise<string | null>;
 }) {
   const [backups, setBackups] = useState<Backup[]>([]);
   const [selected, setSelected] = useState("");
@@ -33,6 +35,7 @@ export function DataManagementPanel({ onRequest, onChanged }: {
   const [reference, setReference] = useState<ReferenceStatus | null>(null);
   const [confirmRestore, setConfirmRestore] = useState(false);
   const [restoreSettings, setRestoreSettings] = useState(true);
+  const [restorePreferences, setRestorePreferences] = useState(false);
   const [restoreReference, setRestoreReference] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -75,7 +78,7 @@ export function DataManagementPanel({ onRequest, onChanged }: {
   }
 
   async function inspect(name: string) {
-    setSelected(name); setConfirmRestore(false); setError("");
+    setSelected(name); setConfirmRestore(false); setRestorePreferences(false); setError("");
     try { setPreview(await onRequest("backup_inspect", { name })); }
     catch (cause) { setPreview(null); setError(cause instanceof Error ? cause.message : String(cause)); }
   }
@@ -96,6 +99,13 @@ export function DataManagementPanel({ onRequest, onChanged }: {
           setMessage(`Verified backup created: ${created.manifest.qsoCount.toLocaleString()} QSOs.`);
         })}><Archive size={14} /> Create backup</button></div>
       <p>Each backup contains a consistent SQLite snapshot and non-secret settings. Credentials stay in Keychain.</p>
+      <button type="button" disabled={busy} onClick={() => void act(async () => {
+        const sourcePath = await pickBackup();
+        if (!sourcePath) return;
+        const imported = await onRequest("backup_import", { source_path: sourcePath });
+        await reload(); await inspect(imported.name);
+        setMessage(`Verified external backup imported: ${imported.manifest.qsoCount.toLocaleString()} QSOs. Inspect it before restoring.`);
+      })}>Import xLog backup…</button>
       <div className="live-data-backup-list" role="list" aria-label="Integrated logbook backups">
         {backups.map((backup) => <button role="listitem" type="button" key={backup.name}
           aria-pressed={selected === backup.name} onClick={() => void inspect(backup.name)}>{backup.name}</button>)}
@@ -106,12 +116,14 @@ export function DataManagementPanel({ onRequest, onChanged }: {
         <span>Created {date(preview.manifest.createdAt)} · {preview.manifest.pendingSyncCount.toLocaleString()} pending sync · {(preview.manifest.databaseBytes / 1024 / 1024).toFixed(1)} MB</span>
         <span>{preview.manifest.includesReferenceData ? "Reference cache included" : "No reference cache"} · {preview.includes_settings ? "Settings included" : "No settings"}</span>
         <label><input type="checkbox" checked={restoreSettings} onChange={(event) => setRestoreSettings(event.target.checked)} /> Restore settings</label>
+        <label><input type="checkbox" checked={restorePreferences} onChange={(event) => setRestorePreferences(event.target.checked)} disabled={!preview.includes_preferences} /> Restore workspace preferences (band maps and intelligence)</label>
         <label><input type="checkbox" checked={restoreReference} onChange={(event) => setRestoreReference(event.target.checked)} disabled={!preview.manifest.includesReferenceData} /> Restore reference cache</label>
         <label className="live-data-confirm"><input type="checkbox" checked={confirmRestore} onChange={(event) => setConfirmRestore(event.target.checked)} /> I understand this replaces the integrated working copy and creates a recovery backup first.</label>
         <button type="button" disabled={busy || !confirmRestore} onClick={() => void act(async () => {
           const restored = await onRequest("backup_restore", {
             name: preview.name, confirm_restore: true,
-            restore_settings: restoreSettings, restore_reference_data: restoreReference,
+            restore_settings: restoreSettings, restore_preferences: restorePreferences,
+            restore_reference_data: restoreReference,
           });
           setConfirmRestore(false);
           setMessage(`Restored ${restored.qso_count.toLocaleString()} QSOs. Recovery backup: ${restored.recovery_backup}.`);

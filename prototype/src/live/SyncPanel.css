@@ -1,5 +1,8 @@
 .sync-panel { min-width: 0; color: var(--text, #e6edf6); }
 .sync-panel > p { max-width: 75ch; }
+.sync-panel .sync-setup { display:flex; align-items:center; gap:12px; margin:12px 0; padding:10px; background:#102137; border:1px solid #304b68; border-radius:6px; }
+.sync-panel .sync-setup p { margin:0; max-width:75ch; color:#b4c6da; }
+.sync-panel .sync-setup button { flex:none; }
 .sync-panel .sync-confirm { align-items: flex-start; line-height: 1.5; }
 .sync-panel input[type="checkbox"], .sync-panel input[type="radio"] { flex: 0 0 auto; accent-color: var(--teal, #12d6a0); }
 .sync-panel .sync-count { color: var(--secondary, #92a7bf); font-weight: 400; margin-left: 5px; font-variant-numeric: tabular-nums; }

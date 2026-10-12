@@ -1,6 +1,6 @@
 [package]
 name = "xlog-prototype"
-version = "0.4.0-alpha.3"
+version = "0.4.0-alpha.4"
 description = "Shared xLog desktop with integrated station and cluster services"
 edition = "2021"
 license = "GPL-3.0-only"
@@ -13,6 +13,14 @@ tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri-plugin-single-instance = "2"
+
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+rfd = "0.16"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSOpenPanel", "NSSavePanel"] }
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSString", "NSURL"] }
 
 [profile.release]
 # Avoid rust-objcopy LINKEDIT misalignment on current macOS toolchains.

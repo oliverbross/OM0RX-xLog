@@ -1,0 +1,15 @@
+.service-settings { min-width:0; }
+.service-settings fieldset { min-width:0; border:0; margin:0; padding:0; }
+.service-settings section { padding:16px 0; border-bottom:1px solid var(--border); }
+.service-settings section h2 { margin:0 0 8px; }
+.service-settings p { max-width:85ch; margin:0 0 10px; color:var(--secondary); }
+.service-settings .service-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; max-width:950px; }
+.service-settings label { display:flex; flex-direction:column; align-items:stretch; gap:5px; color:var(--secondary); }
+.service-settings input { width:100%; min-width:0; }
+.service-settings .service-enable { flex-direction:row; align-items:center; margin:8px 0 12px; }
+.service-settings input[type="checkbox"] { width:auto; }
+.service-settings .service-credential { display:flex; align-items:flex-end; gap:10px; flex-wrap:wrap; max-width:950px; margin-top:12px; }
+.service-settings .service-credential label { flex:1; min-width:220px; }
+.service-settings .service-credential p { flex-basis:100%; color:var(--teal); margin:0; }
+.service-settings input:focus-visible { outline:2px solid var(--cyan); outline-offset:2px; }
+@media(max-width:800px) { .service-settings .service-fields { grid-template-columns:1fr; } }

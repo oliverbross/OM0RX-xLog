@@ -125,6 +125,9 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                     throw WorkerFailure("workspace_unavailable", "Could not create isolated preferences.")
                 }
                 SettingsStore(defaults: isolatedDefaults).save(IntegrationWorkspace.safeSettings(from: nativeSettings))
+                if mode == "copy_native", let nativeDefaults {
+                    applyBackupPreferences(backupPreferences(from: nativeDefaults), to: isolatedDefaults)
+                }
                 workspace = created
                 database = try LogbookDatabase(url: created.databaseURL)
                 return ["mode": mode, "qso_count": created.qsoCount,
@@ -253,6 +256,25 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                 let safe = IntegrationWorkspace.safeSettings(from: value)
                 try settingsStore().save(safe)
                 return ["settings": try json(safe), "automatic_sync": false]
+            case "workspace_preferences_load":
+                try requireKeys(params, allowed: [])
+                _ = try readyDatabase()
+                guard let defaults = workspace?.makeDefaults() else {
+                    throw WorkerFailure("workspace_required", "Create an isolated logbook first.")
+                }
+                return ["preferences": try json(backupPreferences(from: defaults)),
+                        "stored": defaults.object(forKey: "OM0RX-xLog.deskBandMapBands") != nil]
+            case "workspace_preferences_save":
+                try requireKeys(params, allowed: ["preferences"], required: ["preferences"])
+                _ = try readyDatabase()
+                guard let object = params["preferences"] as? [String: Any] else { throw invalid() }
+                let value: XLogBackupPreferences = try decode(object)
+                try validateBackupPreferences(value)
+                guard let defaults = workspace?.makeDefaults() else {
+                    throw WorkerFailure("workspace_required", "Create an isolated logbook first.")
+                }
+                applyBackupPreferences(value, to: defaults)
+                return ["preferences": try json(value)]
             case "backup_create":
                 try requireKeys(params, allowed: ["name"])
                 guard !manualSyncActive else { throw WorkerFailure("sync_busy", "Wait for synchronization to finish before backing up.") }
@@ -278,6 +300,33 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                     .prefix(100)
                 let backups = entries.map { ["name": $0.lastPathComponent] }
                 return ["backups": backups]
+            case "backup_import":
+                try requireKeys(params, allowed: ["source_path"], required: ["source_path"])
+                _ = try readyDatabase()
+                guard let path = try string(params, "source_path", max: 4096), path.hasPrefix("/"),
+                      !path.split(separator: "/").contains(".."),
+                      URL(fileURLWithPath: path).pathExtension.lowercased() == XLogBackupManager.packageExtension else { throw invalid() }
+                let source = URL(fileURLWithPath: path).standardizedFileURL
+                let root = try backupDirectory()
+                guard !source.resolvingSymlinksInPath().path.hasPrefix(workspaceURL.resolvingSymlinksInPath().path + "/") else {
+                    throw WorkerFailure("unsafe_backup", "Select an external backup package without symbolic links.")
+                }
+                try validateBackupPackageLinks(source)
+                let manager = XLogBackupManager()
+                _ = try manager.inspect(at: source)
+                let identifier = UUID().uuidString
+                let staged = root.appendingPathComponent(".import-\(identifier).xlogbackup", isDirectory: true)
+                let destination = root.appendingPathComponent("Imported-\(identifier).xlogbackup", isDirectory: true)
+                var published = false
+                defer { if !published { try? fileManager.removeItem(at: staged) } }
+                try fileManager.copyItem(at: source, to: staged)
+                try validateBackupPackageLinks(staged)
+                let preview = try manager.inspect(at: staged)
+                try fileManager.moveItem(at: staged, to: destination)
+                published = true
+                return ["name": destination.lastPathComponent, "manifest": try json(preview.manifest),
+                        "includes_settings": preview.settings != nil,
+                        "includes_preferences": preview.preferences != nil]
             case "backup_inspect":
                 try requireKeys(params, allowed: ["name"], required: ["name"])
                 _ = try readyDatabase()
@@ -287,19 +336,27 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                         "includes_settings": preview.settings != nil,
                         "includes_preferences": preview.preferences != nil]
             case "backup_restore":
-                try requireKeys(params, allowed: ["name", "confirm_restore", "restore_settings", "restore_reference_data"], required: ["name", "confirm_restore"])
+                try requireKeys(params, allowed: ["name", "confirm_restore", "restore_settings", "restore_preferences", "restore_reference_data"], required: ["name", "confirm_restore"])
                 guard params["confirm_restore"] as? Bool == true else {
                     throw WorkerFailure("restore_confirmation_required", "Confirm the isolated logbook restore before continuing.")
                 }
                 guard !manualSyncActive else { throw WorkerFailure("sync_busy", "Wait for synchronization to finish before restoring.") }
                 _ = try readyDatabase()
                 guard params["restore_settings"] == nil || params["restore_settings"] is Bool,
+                      params["restore_preferences"] == nil || params["restore_preferences"] is Bool,
                       params["restore_reference_data"] == nil || params["restore_reference_data"] is Bool else { throw invalid() }
                 let restoreSettings = params["restore_settings"] as? Bool ?? true
+                let restorePreferences = params["restore_preferences"] as? Bool ?? false
                 let restoreReference = params["restore_reference_data"] as? Bool ?? true
                 let package = try existingBackup(named: params["name"])
                 let manager = XLogBackupManager()
                 let preview = try manager.inspect(at: package)
+                if restorePreferences {
+                    guard let preferences = preview.preferences else {
+                        throw WorkerFailure("backup_preferences_missing", "The selected backup does not contain workspace preferences.")
+                    }
+                    try validateBackupPreferences(preferences)
+                }
                 let db = try readyDatabase()
                 let reference = try referenceDirectoryURL()
                 let recovery = try workspaceSubdirectory("Recovery", create: true)
@@ -322,10 +379,15 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                         }
                         SettingsStore(defaults: defaults).save(IntegrationWorkspace.safeSettings(from: settings))
                     }
+                    if restorePreferences, let preferences = preview.preferences,
+                       let defaults = workspace?.makeDefaults() {
+                        applyBackupPreferences(preferences, to: defaults)
+                    }
                     database = try LogbookDatabase(url: workspaceURL.appendingPathComponent("OM0RX-xLog.sqlite"))
                     workspace = try IntegrationWorkspaceBootstrap.open(at: workspaceURL)
                     return ["restored": true, "qso_count": try database?.count() ?? 0,
-                            "recovery_backup": rollbackName, "automatic_sync": false]
+                            "recovery_backup": rollbackName, "preferences_restored": restorePreferences,
+                            "automatic_sync": false]
                 } catch {
                     database = try? LogbookDatabase(url: workspaceURL.appendingPathComponent("OM0RX-xLog.sqlite"))
                     throw error
@@ -418,6 +480,11 @@ public final class LiveLogbookMethods: @unchecked Sendable {
         guard let name = value as? String, name.hasSuffix(".xlogbackup") else { throw invalid() }
         _ = try backupName(String(name.dropLast(".xlogbackup".count)))
         let package = try backupDirectory().appendingPathComponent(name, isDirectory: true)
+        try validateBackupPackageLinks(package)
+        return package
+    }
+
+    private func validateBackupPackageLinks(_ package: URL) throws {
         let attributes = try package.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
         guard attributes.isDirectory == true, attributes.isSymbolicLink != true else { throw invalid() }
         guard let enumerator = fileManager.enumerator(at: package, includingPropertiesForKeys: [.isSymbolicLinkKey]) else { throw invalid() }
@@ -426,22 +493,54 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                 throw WorkerFailure("unsafe_backup", "The selected backup contains a symbolic link.")
             }
         }
-        return package
     }
 
     private func currentBackupPreferences() throws -> XLogBackupPreferences {
         guard let defaults = workspace?.makeDefaults() else {
             throw WorkerFailure("workspace_required", "Create an isolated logbook first.")
         }
+        return backupPreferences(from: defaults)
+    }
+
+    private func backupPreferences(from defaults: UserDefaults) -> XLogBackupPreferences {
+        let supported = Set(BandPlan.bands)
+        let bands: ([String]?, [String]) -> [String] = { input, fallback in
+            var seen = Set<String>()
+            let known = (input ?? fallback).filter { supported.contains($0) && seen.insert($0).inserted }
+            return known.isEmpty ? fallback : known
+        }
+        let rawScale = defaults.object(forKey: "OM0RX-xLog.bandMapFontScale") as? Double ?? 1
         return XLogBackupPreferences(
-            deskBandMapBands: defaults.stringArray(forKey: "OM0RX-xLog.deskBandMapBands") ?? ["20m"],
-            detachedBandMapBands: defaults.stringArray(forKey: "OM0RX-xLog.detachedBandMapBands") ?? Array(BandPlan.bands.prefix(10)),
+            deskBandMapBands: bands(defaults.stringArray(forKey: "OM0RX-xLog.deskBandMapBands"), ["20m"]),
+            detachedBandMapBands: bands(defaults.stringArray(forKey: "OM0RX-xLog.detachedBandMapBands"), Array(BandPlan.bands.prefix(10))),
             deskBandMapFollowsRadio: defaults.object(forKey: "OM0RX-xLog.deskBandMapFollowsRadio") as? Bool ?? true,
-            detachedBandMapLayout: defaults.string(forKey: "OM0RX-xLog.detachedBandMapLayout") ?? "Adaptive grid",
-            bandMapFontScale: defaults.object(forKey: "OM0RX-xLog.bandMapFontScale") as? Double ?? 1,
-            intelligenceBands: defaults.stringArray(forKey: "OM0RX-xLog.intelligenceBands") ?? ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m"],
-            clusterSpotOpensFullEditor: defaults.bool(forKey: "OM0RX-xLog.clusterSpotOpensFullEditor")
+            detachedBandMapLayout: defaults.string(forKey: "OM0RX-xLog.detachedBandMapLayout") == "Single row" ? "Single row" : "Adaptive grid",
+            bandMapFontScale: rawScale.isFinite ? min(2, max(0.8, rawScale)) : 1,
+            intelligenceBands: bands(defaults.stringArray(forKey: "OM0RX-xLog.intelligenceBands"), ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m"]),
+            clusterSpotOpensFullEditor: defaults.bool(forKey: "OM0RX-xLog.clusterSpotOpensFullEditor"),
+            detachedBandMapFollowsRadio: defaults.bool(forKey: "OM0RX-xLog.detachedBandMapFollowsRadio")
         )
+    }
+
+    private func validateBackupPreferences(_ value: XLogBackupPreferences) throws {
+        let supported = Set(BandPlan.bands)
+        for bands in [value.deskBandMapBands, value.detachedBandMapBands, value.intelligenceBands] {
+            guard !bands.isEmpty, bands.count <= supported.count,
+                  Set(bands).count == bands.count, Set(bands).isSubset(of: supported) else { throw invalid() }
+        }
+        guard ["Adaptive grid", "Single row"].contains(value.detachedBandMapLayout),
+              value.bandMapFontScale.isFinite, (0.8...2).contains(value.bandMapFontScale) else { throw invalid() }
+    }
+
+    private func applyBackupPreferences(_ value: XLogBackupPreferences, to defaults: UserDefaults) {
+        defaults.set(value.deskBandMapBands, forKey: "OM0RX-xLog.deskBandMapBands")
+        defaults.set(value.detachedBandMapBands, forKey: "OM0RX-xLog.detachedBandMapBands")
+        defaults.set(value.deskBandMapFollowsRadio, forKey: "OM0RX-xLog.deskBandMapFollowsRadio")
+        defaults.set(value.detachedBandMapLayout, forKey: "OM0RX-xLog.detachedBandMapLayout")
+        defaults.set(value.bandMapFontScale, forKey: "OM0RX-xLog.bandMapFontScale")
+        defaults.set(value.intelligenceBands, forKey: "OM0RX-xLog.intelligenceBands")
+        defaults.set(value.clusterSpotOpensFullEditor, forKey: "OM0RX-xLog.clusterSpotOpensFullEditor")
+        defaults.set(value.detachedBandMapFollowsRadio, forKey: "OM0RX-xLog.detachedBandMapFollowsRadio")
     }
 
     private func requireKeys(_ params: [String: Any], allowed: Set<String>, required: Set<String> = []) throws {

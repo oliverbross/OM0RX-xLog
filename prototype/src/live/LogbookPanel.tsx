@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { ArrowDown, ArrowUp, Download, FileUp, Pencil, RotateCcw, Search, Trash2 } from "lucide-react";
+import { Download, FileUp, Pencil, RotateCcw, Search, Trash2, Triangle } from "lucide-react";
 import "./logbook.css";
 
 type QSO = Record<string, unknown> & {
@@ -25,7 +25,9 @@ type QSO = Record<string, unknown> & {
 
 type LogbookPage = { qsos: QSO[]; total: number; offset: number; limit: number };
 type Request = (method: string, params?: Record<string, unknown>) => Promise<any>;
-const pageSize = 20;
+const pageSize = 100;
+// Keep worker responses and ADIF export frames bounded independently of the UI page.
+const requestPageSize = 20;
 const maxADIFBytes = 14_000;
 const utf8 = new TextEncoder();
 
@@ -64,8 +66,8 @@ function ConfirmationStatus({ service, sent, received, supportsReceived = true }
     ? `${service} sent ${sentText}, received ${receivedText}`
     : `${service} upload ${sentText}`;
   return <span className="live-logbook-confirmation" role="img" aria-label={description} title={description}>
-    <ArrowUp aria-hidden="true" className={`is-${confirmationTone(sent)}`} size={12} strokeWidth={2.6} />
-    <ArrowDown aria-hidden="true" className={supportsReceived ? `is-${confirmationTone(received)}` : "is-unavailable"} size={12} strokeWidth={2.6} />
+    <Triangle aria-hidden="true" className={`is-${confirmationTone(sent)}`} size={10} fill="currentColor" strokeWidth={0} />
+    <Triangle aria-hidden="true" className={`is-down ${supportsReceived ? `is-${confirmationTone(received)}` : "is-unavailable"}`} size={10} fill="currentColor" strokeWidth={0} />
   </span>;
 }
 
@@ -110,27 +112,45 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey }: {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [selectedID, setSelectedID] = useState<string | null>(null);
   const [undoID, setUndoID] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+
+  async function readPage(pageOffset: number, pageSearch: string) {
+    const first = result<LogbookPage>(await onRequest("logbook_list", { search: pageSearch, offset: pageOffset, limit: requestPageSize }));
+    const remainingOffsets: number[] = [];
+    for (let next = pageOffset + requestPageSize; next < Math.min(first.total, pageOffset + pageSize); next += requestPageSize) remainingOffsets.push(next);
+    const rest = await Promise.all(remainingOffsets.map(async next => result<LogbookPage>(
+      await onRequest("logbook_list", { search: pageSearch, offset: next, limit: requestPageSize }),
+    )));
+    const unique = new Map<string, QSO>();
+    for (const qso of [first, ...rest].flatMap(chunk => chunk.qsos)) unique.set(qso.id, qso);
+    return { ...first, qsos: [...unique.values()], offset: pageOffset, limit: pageSize };
+  }
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setSelectedID(null);
+    setConfirmDelete(null);
     setError("");
-    onRequest("logbook_list", { search, offset, limit: pageSize })
+    readPage(offset, search)
       .then((response) => {
         if (!cancelled) setPage(result<LogbookPage>(response));
       })
       .catch((cause) => {
-        if (!cancelled) setError(cause instanceof Error ? cause.message : String(cause));
+        if (!cancelled) { setPage(null); setError(cause instanceof Error ? cause.message : String(cause)); }
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [onRequest, search, offset, refreshKey]);
 
-  async function reload() {
-    const response = await onRequest("logbook_list", { search, offset, limit: pageSize });
-    setPage(result<LogbookPage>(response));
+  async function reload(pageOffset = offset) {
+    const response = await readPage(pageOffset, search);
+    if (response.total > 0 && pageOffset >= response.total) {
+      setOffset(Math.floor((response.total - 1) / pageSize) * pageSize);
+    } else if (!response.total && pageOffset > 0) setOffset(0);
+    else setPage(response);
   }
 
   function submitSearch(event: FormEvent) {
@@ -144,6 +164,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey }: {
     try {
       await onRequest("logbook_delete", { id });
       setUndoID(id);
+      setSelectedID(null);
       setConfirmDelete(null);
       setNotice("QSO deleted from the integrated logbook. Undo is available here.");
       await reload();
@@ -182,7 +203,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey }: {
         setNotice(`Importing ${index + 1} of ${batches.length} batches · ${imported} added`);
       }
       setOffset(0);
-      await reload();
+      await reload(0);
       setNotice(`${imported} QSOs imported; ${skipped} duplicates skipped.`);
     } catch (cause) {
       setError(`${imported} QSOs were imported before the operation stopped. ${cause instanceof Error ? cause.message : String(cause)}`);
@@ -202,7 +223,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey }: {
       let exported = 0;
       while (exported < total) {
         const response = result<{ text: string; count: number }>(
-          await onRequest("logbook_export_adif", { offset: exported, limit: pageSize }),
+          await onRequest("logbook_export_adif", { offset: exported, limit: requestPageSize }),
         );
         if (response.count <= 0) throw new Error("Export stopped before the end of the logbook.");
         parts.push(response.text);
@@ -223,6 +244,8 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey }: {
 
   const total = page?.total ?? 0;
   const rows = page?.qsos ?? [];
+  const selected = rows.find(qso => qso.id === selectedID);
+  const deleting = rows.find(qso => qso.id === confirmDelete);
   return (
     <section className="live-logbook" aria-label="Integrated logbook">
       <header className="live-logbook-head">
@@ -231,6 +254,14 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey }: {
           <p>Working copy · {total.toLocaleString()} contacts · synchronization off</p>
         </div>
         <div className="live-logbook-actions">
+          <form className="live-logbook-search" onSubmit={submitSearch}>
+            <input value={query} onChange={(event) => setQuery(event.target.value)} maxLength={128}
+              placeholder="Callsign, name, country or note" aria-label="Search logbook" />
+            <button type="submit" disabled={loading || busy} aria-label="Search" title="Search"><Search size={14} /></button>
+          </form>
+          <button type="button" disabled={!selected || busy || loading} onClick={() => selected && onEdit(selected)}><Pencil size={13} /> Edit</button>
+          <button type="button" disabled={!selected || busy || loading} onClick={() => selected && setConfirmDelete(selected.id)}><Trash2 size={13} /> Delete</button>
+          <button type="button" onClick={() => void undoDelete()} disabled={!undoID || busy}><RotateCcw size={13} /> Undo delete</button>
           <input ref={fileInput} type="file" accept=".adi,.adif,text/plain" hidden
             onChange={(event) => { const file = event.target.files?.[0]; if (file) void importFile(file); }} />
           <button type="button" onClick={() => fileInput.current?.click()} disabled={busy}>
@@ -241,45 +272,45 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey }: {
           </button>
         </div>
       </header>
-      <form className="live-logbook-search" onSubmit={submitSearch}>
-        <Search size={15} aria-hidden="true" />
-        <input value={query} onChange={(event) => setQuery(event.target.value)}
-          placeholder="Callsign, comment, reference…" aria-label="Search logbook" />
-        <button type="submit" disabled={loading}>Search</button>
-      </form>
       {error && <p className="live-logbook-feedback error" role="alert">{error}</p>}
-      {notice && <p className="live-logbook-feedback" role="status">{notice}
-        {undoID && <button type="button" onClick={() => void undoDelete()} disabled={busy}><RotateCcw size={13} /> Undo delete</button>}
-      </p>}
+      {notice && <p className="live-logbook-feedback" role="status">{notice}</p>}
+      {deleting && <div className="live-logbook-feedback" role="group" aria-label={`Delete ${deleting.call}`}>
+        <span>Delete {deleting.call} · {utcTime(deleting.start)}? You can undo this deletion.</span>
+        <div><button type="button" onClick={() => void deleteQSO(deleting.id)} disabled={busy}>Confirm delete</button>
+          <button type="button" onClick={() => setConfirmDelete(null)} disabled={busy}>Cancel</button></div>
+      </div>}
       <div className="live-logbook-table-wrap">
         <table className="live-logbook-table">
-          <thead><tr><th scope="col">Date UTC</th><th scope="col">Callsign</th><th scope="col">Band / mode</th><th scope="col">Frequency</th><th scope="col">RST</th><th scope="col">Name / country</th><th scope="col">QSL</th><th scope="col">LoTW</th><th scope="col">Club Log</th><th scope="col">Comment</th><th scope="col">Sync</th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead>
+          <thead><tr><th scope="col">UTC</th><th scope="col">Callsign</th><th scope="col">Band / Mode</th><th scope="col" title="Frequency in MHz">Frequency</th><th scope="col">RST</th><th scope="col">Country</th><th scope="col">QSL</th><th scope="col">LoTW</th><th scope="col">Club Log</th><th scope="col">Comment</th></tr></thead>
           <tbody>
-            {rows.map((qso) => <tr key={qso.id}>
+            {rows.map((qso, index) => <tr key={qso.id} tabIndex={0} aria-selected={selectedID === qso.id}
+              onClick={() => { setSelectedID(qso.id); setConfirmDelete(null); }}
+              onDoubleClick={() => { if (!busy && !loading) onEdit(qso); }}
+              onKeyDown={event => {
+                if (busy || loading) return;
+                if (event.key === "Enter") { event.preventDefault(); setSelectedID(qso.id); onEdit(qso); }
+                else if (event.key === " ") { event.preventDefault(); setSelectedID(qso.id); setConfirmDelete(null); }
+                else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                  event.preventDefault();
+                  const next = Math.max(0, Math.min(rows.length - 1, index + (event.key === "ArrowDown" ? 1 : -1)));
+                  setSelectedID(rows[next].id); setConfirmDelete(null);
+                  (event.currentTarget.parentElement?.children[next] as HTMLElement | undefined)?.focus();
+                }
+              }}>
               <td className="mono">{utcTime(qso.start)}</td>
-              <td className="live-logbook-call mono">{qso.call}</td>
-              <td>{qso.band} · {qso.submode || qso.mode}</td>
-              <td className="mono">{typeof qso.frequencyHz === "number" ? `${(qso.frequencyHz / 1_000_000).toFixed(6)} MHz` : "—"}</td>
+              <td className="live-logbook-call"><span className={`live-logbook-sync-dot ${qso.isDirty ? "is-pending" : "is-clean"}`} role="img" aria-label={qso.isDirty ? "Pending synchronization" : "No pending changes"} title={qso.isDirty ? "Pending synchronization" : "No pending changes"} />{qso.call}</td>
+              <td className="live-logbook-band">{qso.band} · {qso.submode || qso.mode}</td>
+              <td className="live-logbook-frequency mono">{typeof qso.frequencyHz === "number" ? (qso.frequencyHz / 1_000_000).toFixed(6) : "—"}</td>
               <td className="mono" aria-label={`RST sent ${qso.rstSent || "not recorded"}, received ${qso.rstReceived || "not recorded"}`}>{qso.rstSent || "—"} / {qso.rstReceived || "—"}</td>
-              <td>{[qso.name, qso.country].filter(Boolean).join(" · ") || "—"}</td>
+              <td title={qso.name || undefined}>{qso.country || "—"}</td>
               <td><ConfirmationStatus service="QSL" sent={qso.qslSent} received={qso.qslReceived} /></td>
               <td><ConfirmationStatus service="LoTW" sent={qso.lotwSent} received={qso.lotwReceived} /></td>
               <td><ConfirmationStatus service="Club Log" sent={qso.extraFields?.CLUBLOG_QSO_UPLOAD_STATUS} supportsReceived={false} /></td>
               <td className="live-logbook-comment" title={qso.comment || undefined}>{qso.comment || "—"}</td>
-              <td>{qso.isDirty ? <span className="live-logbook-pending">Pending</span> : "Synced"}</td>
-              <td className="live-logbook-row-actions">
-                {confirmDelete === qso.id ? <>
-                  <button type="button" onClick={() => void deleteQSO(qso.id)} disabled={busy}>Confirm delete</button>
-                  <button type="button" onClick={() => setConfirmDelete(null)}>Cancel</button>
-                </> : <>
-                  <button type="button" title={`Edit ${qso.call}`} aria-label={`Edit ${qso.call}`} onClick={() => onEdit(qso)}><Pencil size={13} /></button>
-                  <button type="button" title={`Delete ${qso.call}`} aria-label={`Delete ${qso.call}`} onClick={() => setConfirmDelete(qso.id)} disabled={busy}><Trash2 size={13} /></button>
-                </>}
-              </td>
             </tr>)}
           </tbody>
         </table>
-        {!loading && !rows.length && <div className="live-logbook-empty">
+        {!loading && !error && !rows.length && <div className="live-logbook-empty">
           {search ? "No QSOs match this search. Try a callsign or clear the search." : "This working logbook is empty. Log a QSO or import an ADIF file to begin."}
         </div>}
         {loading && <div className="live-logbook-empty" role="status">Loading logbook…</div>}

@@ -451,14 +451,29 @@ public final class DCU1RotatorClient: @unchecked Sendable {
 
     public func stop() {
         queue.async { [weak self] in
-            guard let self else { return }
-            self.desiredRunning = false
-            self.stopPolling()
-            self.connection?.cancel()
-            self.connection = nil
-            self.receiveBuffer = ""
-            self.onState(.stopped, "Disconnected")
+            self?.stopOnQueue()
         }
+    }
+
+    /// Retire this transport before another rotor owner is admitted. This
+    /// queue barrier does not claim that the physical rotor has stopped.
+    public func stopAndDrain() async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                stopOnQueue()
+                continuation.resume()
+            }
+        }
+    }
+
+    private func stopOnQueue() {
+        desiredRunning = false
+        stopPolling()
+        connection?.stateUpdateHandler = nil
+        connection?.cancel()
+        connection = nil
+        receiveBuffer = ""
+        onState(.stopped, "Disconnected")
     }
 
     public func turn(to bearing: Double) async throws {

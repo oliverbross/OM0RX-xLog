@@ -26,10 +26,24 @@ The project baseline already records a Trash-triggered profile-cleanup incident.
 That is consistent with this observation, but the current cleanup actor was not
 identified. Future replacements must preserve the outgoing application in a
 rollback directory **outside Trash**, keep only the current bundle in
-Applications, and verify both application-support directories before and after
+Applications for each distinct application, and verify both application-support directories before and after
 replacement. Do not use an app uninstaller or clean related data.
 
 The startup UI now distinguishes an unknown or failed workspace check from a
 confirmed first launch. It never offers creation while the existing-data check
 is pending or failed. A disposable-workspace concurrent worker regression covers
 the real logbook startup methods without opening the operator's database.
+
+## Original native application restored
+
+On the operator's explicit request, `/Applications/OM0RX-xLog.app` was restored
+from the retained `OM0RX-xLog-native.app` bundle on 12 October. It is the exact
+native v0.3.0 build 6 baseline, bundle ID `com.oliverbross.OM0RXXLog`, with
+executable SHA-256 `7a2b244545c9eb2639cde5f0a152c9cfaf40e2e06fde9ad97fd3184e37efdb97`.
+Strict code-signature verification and stapled-ticket validation passed;
+Gatekeeper accepted it as `Notarized Developer ID`. Launch Services was refreshed.
+The app was not launched, and neither database nor preferences were modified.
+
+**Retain both distinct applications:** the original native `OM0RX-xLog.app`
+and the developing `OM0RX-xLog Integration.app`. The operator's request to remove
+obsolete builds does not authorize removing the preserved native app again.

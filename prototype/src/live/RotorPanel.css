@@ -1,0 +1,6 @@
+.rotor-panel { margin-top:14px; }
+.rotor-panel>.live-actions { padding:0 14px; }
+.rotor-panel-layout { display:grid; grid-template-columns:minmax(0,1.25fr) minmax(240px,1fr); gap:12px; padding:0 14px 14px; align-items:start; }
+.rotor-panel-bearing { display:block; margin:10px 0; font:700 32px/1.2 ui-monospace,SFMono-Regular,Consolas,monospace; }
+.rotor-panel-layout .live-station-inline { flex-wrap:wrap; }
+@media(max-width:1050px){.rotor-panel-layout{grid-template-columns:minmax(0,1fr);}}

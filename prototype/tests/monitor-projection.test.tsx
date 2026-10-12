@@ -21,6 +21,35 @@ vi.mock("../src/Map", () => ({ default: (props: any) => <div data-testid="projec
 
 afterEach(() => { cleanup(); window.history.replaceState({}, "", "/"); bridge.receive = null; bridge.request.mockReset(); bridge.ready.mockReset(); bridge.stop.mockReset(); });
 
+it("stops an in-flight manual turn using the fresh generation and ignores older projections and replies", async () => {
+  window.history.replaceState({}, "", "/?view=monitor");
+  bridge.ready.mockResolvedValue(undefined);
+  let generation = 2;
+  let moveReply: null | ((value: any) => void) = null;
+  const rotor = () => ({ owner: "native_dcu1", generation, state: "active", backend_available: true, backend: { connected: true, azimuth: 90 } });
+  bridge.request.mockImplementation(async method => {
+    if (method === "rotor_goto" || method === "rotor_stop") generation++;
+    if (method === "rotor_goto") return new Promise(resolve => { moveReply = result => resolve({ result }); });
+    return { result: rotor() };
+  });
+  const { default: LiveApp } = await import("../src/LiveApp");
+  render(<LiveApp />);
+  await waitFor(() => expect(bridge.ready).toHaveBeenCalledOnce());
+  const projection = { spots: [], provider: "direct_flex_lan", controlsEnabled: false,
+    station: { source: "direct_flex_lan", radio: { connected: false }, rotor: { owner: "native_dcu1", connected: true, azimuth: 90 }, rotor_control: rotor() } };
+  act(() => bridge.receive?.(projection));
+  await userEvent.type(screen.getByRole("spinbutton", { name: "Monitor rotor bearing" }), "75");
+  await userEvent.click(screen.getByRole("button", { name: "Turn" }));
+  await waitFor(() => expect(bridge.request).toHaveBeenCalledWith("rotor_goto", { owner: "native_dcu1", generation: 2, bearing: 75, label: "Monitor bearing" }));
+  act(() => bridge.receive?.(projection));
+  await userEvent.click(screen.getByRole("button", { name: "Stop" }));
+  await waitFor(() => expect(bridge.request).toHaveBeenCalledWith("rotor_stop", { owner: "native_dcu1", generation: 3 }));
+  await act(async () => { (moveReply as unknown as (value: any) => void)({ ...rotor(), generation: 3 }); });
+  act(() => bridge.receive?.(projection));
+  await userEvent.click(screen.getByRole("button", { name: "Stop" }));
+  await waitFor(() => expect(bridge.request).toHaveBeenCalledWith("rotor_stop", { owner: "native_dcu1", generation: 4 }));
+});
+
 it("monitor consumes main projection without starting station, cluster, or logbook polling", async () => {
   window.history.replaceState({}, "", "/?view=monitor");
   bridge.ready.mockResolvedValue(undefined);
@@ -45,16 +74,17 @@ it("monitor consumes main projection without starting station, cluster, or logbo
   expect(bridge.request).toHaveBeenCalledTimes(1);
   act(() => bridge.receive?.({ spots: [], station: null, provider: "hamlib", controlsEnabled: false }));
   expect(screen.queryByRole("button", { name: "Operate" })).toBeNull();
-  bridge.request.mockResolvedValue({ result: { state: "accepted" } });
-  act(() => bridge.receive?.({ spots: [], provider: "hamlib", controlsEnabled: true,
-    station: { source: "hamlib", radio: { connected: true, observed: true, mode: "CW", frequency_hz: 14025000 },
-      station: { allowed_actions: [] }, rotor: { connected: true, azimuth: 90 } } }));
+  const rotor = { owner: "hamlib", generation: 2, state: "active", backend: { fields: { position: { Azimuth: "90" } } } };
+  bridge.request.mockImplementation(async method => ({ result: method === "rotor_snapshot" ? rotor : { ...rotor, generation: 3, backend: { state: "accepted" } } }));
+  act(() => bridge.receive?.({ spots: [], provider: "hamlib", controlsEnabled: false,
+    station: { source: "hamlib", radio: { connected: false, observed: false, mode: "CW", frequency_hz: 14025000 },
+      station: { allowed_actions: [] }, rotor: { owner: "hamlib", connected: true, azimuth: 90 }, rotor_control: rotor } }));
   await userEvent.click(screen.getByRole("button", { name: "Stop" }));
-  expect(bridge.request).toHaveBeenLastCalledWith("hamlib_control", { device: "rotor", action: "stop" });
+  expect(bridge.request).toHaveBeenCalledWith("rotor_stop", { owner: "hamlib", generation: 2 });
   expect(bridge.request.mock.calls.some(([method]) => method === "hamlib_snapshot" || method === "station_snapshot")).toBe(false);
   await new Promise(resolve => setTimeout(resolve, 6_100));
   expect(screen.getByText(/Main station observation is stale/)).toBeTruthy();
   expect(screen.getByText("OFFLINE")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Stop" })).toBeNull();
-  expect(bridge.request).toHaveBeenCalledTimes(2);
+  expect(bridge.request).toHaveBeenCalledTimes(4);
 }, 12_000);

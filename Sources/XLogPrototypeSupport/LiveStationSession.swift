@@ -58,6 +58,9 @@ struct StationCATRetirement {
 /// authenticated HTTPS/WSS client and authoritative state decoder as xCat.
 actor LiveStationSession {
     static let shared = LiveStationSession()
+    private let rotor: LiveRotorSession
+
+    init(rotor: LiveRotorSession = .shared) { self.rotor = rotor }
 
     private var client: RemoteAgentClient?
     private var baseURL: String?
@@ -65,15 +68,6 @@ actor LiveStationSession {
     private var allowTransmit = false
     private var transmitOwnership = StationTransmitOwnership()
     private var connectionGeneration: UInt64 = 0
-    private var rotorClient: DCU1RotatorClient?
-    private var rotorState: DCU1RotatorClient.State = .stopped
-    private var rotorName = "Rotor"
-    private var rotorStatus = "Disconnected"
-    private var rotorAzimuth: Double?
-    private var rotorObservedAt: Date?
-    private var rotorGeneration: UInt64 = 0
-    private var rotorObservation = RotorObservation()
-    private var rotorCommandRevision: UInt64 = 0
     private var catServers: EmbeddedCATServers?
     private var catConfiguration = EmbeddedCATServers.Configuration()
     private var catListenerEpoch: UInt64 = 0
@@ -83,8 +77,9 @@ actor LiveStationSession {
 
     static let methods: Set<String> = ["station_connect", "station_disconnect", "station_reconnect",
                                         "station_forget", "station_configuration", "station_configuration_save",
-                                        "station_radio_control", "station_rotor_connect", "station_rotor_disconnect",
-                                        "station_rotor_goto", "station_rotor_stop", "station_add_spot", "station_cat_servers"]
+                                        "station_radio_control", "station_rotor_snapshot", "station_rotor_connect",
+                                        "station_rotor_disconnect", "station_rotor_goto", "station_rotor_stop",
+                                        "station_add_spot", "station_cat_servers"]
 
     func handle(_ method: String, params: [String: Any]) async throws -> [String: Any] {
         try requireActive()
@@ -271,73 +266,15 @@ actor LiveStationSession {
         case "station_radio_control":
             return try await radioControl(params)
 
-        case "station_rotor_connect":
-            try requireKeys(params, allowed: ["provider", "host", "port", "name"])
-            let host = try Self.validatedRotorHost(params["host"])
-            guard let portValue = try Self.integer(params["port"]), (1...65_535).contains(portValue) else { throw Self.invalidParams() }
-            let name = (params["name"] as? String ?? "Rotor").trimmingCharacters(in: .whitespacesAndNewlines)
-            guard params["name"] == nil || params["name"] is String,
-                  (1...64).contains(name.utf8.count) else { throw Self.invalidParams() }
-            try await ensureExclusiveWriter()
-            stopRotor()
-            let generation = rotorGeneration
-            rotorName = name
-            rotorState = .connecting
-            rotorStatus = "Connecting"
-            let next = DCU1RotatorClient(host: host, port: UInt16(portValue), pollMilliseconds: 500,
-                onState: { [weak self] state, _ in Task { await self?.recordRotorState(state, generation: generation) } },
-                onAzimuth: { [weak self] azimuth in Task { await self?.recordRotorAzimuth(azimuth, generation: generation) } })
-            rotorClient = next
-            next.start()
-            return await snapshot()
-
-        case "station_rotor_disconnect":
-            try requireKeys(params, allowed: ["provider"])
-            stopRotor()
-            return await snapshot()
-
-        case "station_rotor_goto":
-            try requireKeys(params, allowed: ["provider", "bearing", "label"])
-            guard let bearingValue = params["bearing"] as? NSNumber,
-                  CFGetTypeID(bearingValue) != CFBooleanGetTypeID(),
-                  bearingValue.doubleValue.isFinite,
-                  (0...360).contains(bearingValue.doubleValue) else { throw Self.invalidParams() }
-            try await ensureExclusiveWriter()
-            guard rotorState == .connected, let rotorClient else {
-                throw WorkerFailure("station_unavailable", "The rotor is not connected.")
+        case "station_rotor_snapshot", "station_rotor_connect", "station_rotor_disconnect",
+             "station_rotor_goto", "station_rotor_stop":
+            var result = try await rotor.handle(method, params: params)
+            if method == "station_rotor_snapshot" { return result }
+            if method == "station_rotor_connect" || method == "station_rotor_disconnect" {
+                return await snapshot()
             }
-            do {
-                rotorCommandRevision &+= 1
-                let revision = rotorCommandRevision
-                let generation = rotorGeneration
-                try await rotorClient.turn(to: bearingValue.doubleValue)
-                if revision == rotorCommandRevision && generation == rotorGeneration {
-                    let label = (params["label"] as? String).map { String($0.prefix(64)) } ?? "Manual bearing"
-                    rotorObservation.request(bearingValue.doubleValue, label: label)
-                }
-                return ["accepted": true, "confirmed": false, "action": "rotor_goto", "state": await snapshot()]
-            } catch {
-                throw WorkerFailure("station_rejected", "The rotor rejected the turn command.")
-            }
-
-        case "station_rotor_stop":
-            try requireKeys(params, allowed: ["provider"])
-            try await ensureExclusiveWriter()
-            guard rotorState == .connected, let rotorClient else {
-                throw WorkerFailure("station_unavailable", "The rotor is not connected.")
-            }
-            do {
-                rotorCommandRevision &+= 1
-                let revision = rotorCommandRevision
-                let generation = rotorGeneration
-                try await rotorClient.stopRotation()
-                if revision == rotorCommandRevision && generation == rotorGeneration {
-                    rotorObservation.stopRequested()
-                }
-                return ["accepted": true, "confirmed": false, "action": "rotor_stop", "state": await snapshot()]
-            } catch {
-                throw WorkerFailure("station_rejected", "The rotor rejected the stop command.")
-            }
+            result["state"] = await snapshot()
+            return result
 
         case "station_add_spot":
             try requireKeys(params, allowed: ["provider", "spot"])
@@ -387,13 +324,13 @@ actor LiveStationSession {
         guard let client else {
             return ["source": "direct_agent", "available": false,
                     "transport_state": RadioConnectionState.stopped.rawValue,
-                    "radio": NSNull(), "station": NSNull(), "rotor": rotorProjection(),
+                    "radio": NSNull(), "station": NSNull(), "rotor": await rotor.projection(),
                     "propagation": NSNull(), "allow_transmit": false]
         }
         let observed = await client.observedSnapshot()
         guard generation == connectionGeneration, self.client === client else { return await snapshot() }
         var result = Self.project(observed, transport: transportState, allowTransmit: allowTransmit)
-        result["rotor"] = rotorProjection()
+        result["rotor"] = await rotor.projection()
         result["cat_servers"] = ["cat_port": Self.optional(catConfiguration.catPort), "rigctl_port": Self.optional(catConfiguration.rigCtlPort), "allow_transmit": catConfiguration.allowTransmit]
         return result
     }
@@ -414,7 +351,6 @@ actor LiveStationSession {
         baseURL = nil
         transportState = .stopped
         allowTransmit = false
-        stopRotor()
         await stopCATServers()
         if let current { await stop(current) }
     }
@@ -464,7 +400,7 @@ actor LiveStationSession {
             if observed.transportReceivedAt.map({ $0 > startedAt }) == true,
                Self.confirmsSimplex(observed, frequencyHz: frequencyHz, mode: normalized) {
                 var result = Self.project(observed, transport: transportState, allowTransmit: allowTransmit)
-                result["rotor"] = rotorProjection()
+                result["rotor"] = await rotor.projection()
                 return ["accepted": true, "confirmed": true, "state": result]
             }
             try await Task.sleep(for: .milliseconds(100))
@@ -593,42 +529,6 @@ actor LiveStationSession {
     private func recordState(_ state: RadioConnectionState, generation: UInt64) {
         guard client != nil, generation == connectionGeneration else { return }
         transportState = state
-    }
-
-    private func recordRotorState(_ state: DCU1RotatorClient.State, generation: UInt64) {
-        guard rotorClient != nil, generation == rotorGeneration else { return }
-        rotorState = state
-        rotorStatus = state.rawValue.capitalized
-        if state != .connected { rotorAzimuth = nil; rotorObservedAt = nil }
-    }
-
-    private func recordRotorAzimuth(_ value: Double, generation: UInt64) {
-        guard rotorClient != nil, generation == rotorGeneration, rotorState == .connected,
-              value.isFinite, (0...360).contains(value) else { return }
-        rotorAzimuth = value
-        rotorObservedAt = Date()
-        rotorObservation.observe(value)
-    }
-
-    private func stopRotor() {
-        rotorGeneration &+= 1
-        rotorClient?.stop()
-        rotorClient = nil
-        rotorState = .stopped
-        rotorStatus = "Disconnected"
-        rotorAzimuth = nil
-        rotorObservedAt = nil
-        rotorObservation = RotorObservation()
-        rotorCommandRevision &+= 1
-    }
-
-    private func rotorProjection() -> [String: Any] {
-        ["connected": rotorState == .connected,
-         "name": rotorName, "status": rotorState == .connected ? rotorObservation.status : rotorStatus,
-         "azimuth": Self.optional(rotorAzimuth),
-         "observed_at": Self.optional(rotorObservedAt?.timeIntervalSince1970),
-         "target_bearing": Self.optional(rotorObservation.target), "target_label": rotorObservation.label,
-         "moving": Self.optional(rotorObservation.moving), "motion_direction": Self.optional(rotorObservation.direction)]
     }
 
     private func stop(_ current: RemoteAgentClient) async {

@@ -55,7 +55,24 @@
 }
 .live-cluster-filterrail input { min-width: 185px; }
 .live-cluster-filterrail button, .live-cluster-filterrail select { flex: 0 0 auto; }
-.live-cluster-filterrail button[aria-expanded="true"] { border-color: var(--cyan); color: var(--cyan); }
+.live-cluster-filterrail [data-filter="bands"] { --filter-ink: #58d9ff; --filter-surface: #173b4a; }
+.live-cluster-filterrail [data-filter="modes"] { --filter-ink: #bca0ff; --filter-surface: #302748; }
+.live-cluster-filterrail [data-filter="continents"] { --filter-ink: #6adea6; --filter-surface: #183b32; }
+.live-cluster-filterrail [data-filter="callStatuses"] { --filter-ink: #ffad78; --filter-surface: #442d25; }
+.live-cluster-filterrail [data-filter="dxccStatuses"] { --filter-ink: #ffd36b; --filter-surface: #403823; }
+.live-cluster-filterrail [data-filter="specials"] { --filter-ink: #ff94d2; --filter-surface: #422b40; }
+.live-cluster-filterrail [data-filter="sources"] { --filter-ink: #39e3c2; --filter-surface: #123e38; }
+.live-cluster-filterrail [data-filter="worked"] { --filter-ink: #85bcff; --filter-surface: #203650; }
+.live-cluster-filterrail [data-filter="sort"] { --filter-ink: #d0c4ff; --filter-surface: #302e4b; }
+.live-cluster-filterrail [data-filter] {
+  color: var(--filter-ink);
+  background: var(--filter-surface);
+  border-color: color-mix(in srgb, var(--filter-ink) 65%, var(--filter-surface));
+}
+.live-cluster-filterrail [data-filter]:hover,
+.live-cluster-filterrail [data-filter][aria-expanded="true"] { border-color: var(--filter-ink); }
+.live-cluster-filterrail [data-filter][aria-expanded="true"] { box-shadow: inset 0 -2px var(--filter-ink); }
+.live-cluster-filterrail [data-filter]:focus-visible { outline: 2px solid var(--filter-ink); outline-offset: 2px; }
 .live-cluster-picker {
   position: absolute;
   z-index: 20;

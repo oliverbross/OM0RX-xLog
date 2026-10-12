@@ -36,7 +36,8 @@ type HistoryRow = { id: string; date: string; call: string; band: string; mode: 
 type History = { call: string; previous_count: number; previous: HistoryRow[]; adif?: number | null;
   country: string; cq_zone?: number | null; grid: string; dxcc_contact_count: number;
   matrix: { band: string; mode: string; worked: boolean; confirmed: boolean }[] };
-type Props = { snapshot: unknown; onRequest: Request; onSelect: (spot: LiveClusterSpot) => void };
+type Props = { snapshot: unknown; onRequest: Request; onSelect: (spot: LiveClusterSpot) => void;
+  passive?: boolean; onUndock?: () => void; passwordControlsEnabled?: boolean; selectedSpotId?: string | null };
 
 const bands = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "2m", "70cm"];
 const modes = ["CW", "SSB", "FT8", "FT4", "FT2", "RTTY", "PSK", "DIGI", "AM", "FM"];
@@ -55,9 +56,11 @@ const rowTint = (status: string): string | undefined => {
 };
 const emptyFilter: Filter = { query: "", bands: [], modes: [], continents: [], callStatuses: [], dxccStatuses: [],
   specials: [], sources: ["cluster", "rbl"], worked: [], sort: "newest" };
-export function ClusterPanel({ snapshot, onRequest, onSelect }: Props) {
+export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, onUndock, passwordControlsEnabled = true, selectedSpotId }: Props) {
   const requestRef = useRef(onRequest);
   const filterVersion = useRef(0);
+  const lastRemoteFilter = useRef("");
+  const lastRemoteConfiguration = useRef("");
   const historyVersion = useRef(0);
   const historyRevision = useRef<number | null>(null);
   const [live, setLive] = useState<Snapshot | null>((snapshot as Response | null)?.snapshot ?? null);
@@ -81,16 +84,36 @@ export function ClusterPanel({ snapshot, onRequest, onSelect }: Props) {
   useEffect(() => {
     const next = snapshot as Response | null;
     if (next?.snapshot) setLive(next.snapshot);
+    if (next?.configuration) {
+      const remoteConfiguration = JSON.stringify(next.configuration);
+      const localConfiguration = configuration ? JSON.stringify(configuration) : "";
+      if (!configuration || localConfiguration === lastRemoteConfiguration.current || localConfiguration === remoteConfiguration) {
+        setConfiguration(next.configuration);
+        setSavedServerIDs(next.configuration.servers.map(server => server.id));
+        setPasswordServers(next.password_servers ?? []);
+      }
+      lastRemoteConfiguration.current = remoteConfiguration;
+      const remoteFilter = JSON.stringify(next.configuration.filter);
+      if (remoteFilter !== lastRemoteFilter.current) {
+        lastRemoteFilter.current = remoteFilter;
+        setFilter(next.configuration.filter);
+      }
+    }
     if (next?.forwarding) setForwarding(next.forwarding);
     if (next?.snapshot_truncated != null) setSnapshotTruncated(next.snapshot_truncated);
   }, [snapshot]);
   useEffect(() => { requestRef.current = onRequest; }, [onRequest]);
   useEffect(() => {
+    if (selectedSpotId === undefined) return;
+    setSelectedSpot(live?.spots.find(spot => spot.id === selectedSpotId) ?? null);
+  }, [selectedSpotId, live?.spots]);
+  useEffect(() => {
+    if (passive) return;
     let active = true;
     requestRef.current("cluster_snapshot", {}).then((raw) => {
       if (!active) return;
       const next = raw as Response;
-      if (next.configuration) { setConfiguration(next.configuration); setFilter(next.configuration.filter); setSavedServerIDs(next.configuration.servers.map((s) => s.id)); }
+      if (next.configuration) { setConfiguration(next.configuration); lastRemoteConfiguration.current = JSON.stringify(next.configuration); setFilter(next.configuration.filter); setSavedServerIDs(next.configuration.servers.map((s) => s.id)); }
       if (next.snapshot) setLive(next.snapshot);
       setPasswordServers(next.password_servers ?? []);
       if (next.forwarding) setForwarding(next.forwarding);
@@ -106,11 +129,11 @@ export function ClusterPanel({ snapshot, onRequest, onSelect }: Props) {
       }).catch(() => {});
     }, 1000);
     return () => { active = false; window.clearInterval(timer); };
-  }, []);
+  }, [passive]);
 
   const accept = (raw: unknown) => {
     const next = raw as Response;
-    if (next.configuration) setConfiguration(next.configuration);
+    if (next.configuration) { setConfiguration(next.configuration); lastRemoteConfiguration.current = JSON.stringify(next.configuration); }
     if (next.snapshot) setLive(next.snapshot);
     if (next.password_servers) setPasswordServers(next.password_servers);
     if (next.forwarding) setForwarding(next.forwarding);
@@ -129,6 +152,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect }: Props) {
   };
   const changeFilter = (next: Filter) => {
     setFilter(next);
+    setConfiguration(current => current ? { ...current, filter: next } : current);
     const version = ++filterVersion.current;
     onRequest("cluster_filter", { filter: next }).then((raw) => {
       if (version === filterVersion.current && (raw as Response).snapshot) setLive((raw as Response).snapshot ?? null);
@@ -182,6 +206,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect }: Props) {
         <button type="button" disabled={busy || !configuration?.servers.some((s) => s.enabled)} onClick={() => void request("cluster_connect", {}, "Connecting to configured clusters…")}>Connect</button>
         <button type="button" disabled={busy || !connected} onClick={() => void request("cluster_disconnect", {}, "Disconnected")}>Disconnect</button>
         <button type="button" disabled={busy} onClick={() => void request("cluster_snapshot")}>Refresh</button>
+        {onUndock && <button type="button" onClick={onUndock}>Undock</button>}
       </div>
     </header>
     {!live?.logbookDataLoaded && <p className="live-cluster-note">No integrated logbook is open; worked and confirmed status remains Unknown.</p>}
@@ -200,12 +225,12 @@ export function ClusterPanel({ snapshot, onRequest, onSelect }: Props) {
         onChange={(event) => changeFilter({ ...filter, query: event.target.value })} />
       {(Object.keys(filterLabels) as (keyof Filter)[]).map((key) => {
         const values = filter[key] as string[];
-        return <button type="button" key={key} aria-expanded={activePicker === key}
+        return <button type="button" key={key} data-filter={key} aria-expanded={activePicker === key}
           onClick={() => setActivePicker(activePicker === key ? null : key)}>
           {filterLabels[key]}{values.length && !(key === "sources" && values.length === 2) ? ` · ${values.length}` : ""}
         </button>;
       })}
-      <select aria-label="Sort spots" value={filter.sort} onChange={(event) => changeFilter({ ...filter, sort: event.target.value })}>
+      <select data-filter="sort" aria-label="Sort spots" value={filter.sort} onChange={(event) => changeFilter({ ...filter, sort: event.target.value })}>
         <option value="newest">Newest</option><option value="score">Score</option><option value="frequency">Frequency</option><option value="callsign">Callsign</option>
       </select>
       <button type="button" onClick={() => changeFilter(emptyFilter)}>Clear filters</button>
@@ -228,8 +253,8 @@ export function ClusterPanel({ snapshot, onRequest, onSelect }: Props) {
       <th>Time</th><th>Score</th><th>Band</th><th>MHz</th><th>Callsign</th><th>Mode</th><th>Country</th><th>CQ</th>
       <th>Spotter</th><th>Call status</th><th>DXCC status</th><th>Special</th><th>Worked before</th><th>Comment</th>
     </tr></thead><tbody>{(live?.spots ?? []).map((spot, index) => <tr key={spot.id}
-      className={`${selectedSpot?.id === spot.id ? "is-selected" : ""} ${index % 2 ? "is-odd" : "is-even"}`}
-      style={{ backgroundColor: selectedSpot?.id === spot.id ? undefined : rowTint(spot.dxccStatus) }}
+      className={`${(selectedSpotId ?? selectedSpot?.id) === spot.id ? "is-selected" : ""} ${index % 2 ? "is-odd" : "is-even"}`}
+      style={{ backgroundColor: (selectedSpotId ?? selectedSpot?.id) === spot.id ? undefined : rowTint(spot.dxccStatus) }}
       onClick={() => { setSelectedSpot(spot); onSelect(spot); }} title="Load this spot into the logger and tune through xCat">
       <td className="mono">{formatTime(spot.receivedAt)}</td>
       <td><span className={`live-cluster-score ${spot.score >= 80 ? "priority" : spot.score >= 55 ? "high" : spot.score >= 30 ? "medium" : "low"}`}>{spot.score}</span></td>
@@ -303,10 +328,11 @@ export function ClusterPanel({ snapshot, onRequest, onSelect }: Props) {
           <label>Port<input aria-label={`${server.name} port`} type="number" min="1" max="65535" value={server.port} onChange={(event) => updateServer(server.id, { port: Number(event.target.value) })} /></label>
           <label>Login callsign<input aria-label={`${server.name} callsign`} value={server.callsign} maxLength={24} onChange={(event) => updateServer(server.id, { callsign: event.target.value.toUpperCase() })} /></label>
           <button type="button" onClick={() => setConfiguration({ ...configuration, servers: configuration.servers.filter((item) => item.id !== server.id) })}>Remove</button>
-          <label className="live-cluster-password">Password · {passwordServers.includes(server.id) ? "saved in Keychain" : "none"}<input type="password" autoComplete="new-password" value={passwordDrafts[server.id] ?? ""} maxLength={256} onChange={(event) => setPasswordDrafts({ ...passwordDrafts, [server.id]: event.target.value })} /></label>
-          <button type="button" disabled={busy || !passwordDrafts[server.id] || !savedServerIDs.includes(server.id)} title={!savedServerIDs.includes(server.id) ? "Save cluster settings first" : undefined} onClick={() => { void request("cluster_password_set", { server_id: server.id, password: passwordDrafts[server.id] }, "Password saved in Keychain"); setPasswordDrafts((drafts) => ({ ...drafts, [server.id]: "" })); }}>Save password</button>
-          <button type="button" disabled={busy || !passwordServers.includes(server.id)} onClick={() => void request("cluster_password_set", { server_id: server.id, password: "" }, "Password removed")}>Remove password</button>
+          <label className="live-cluster-password">Password · {passwordServers.includes(server.id) ? "saved in Keychain" : "none"}<input type="password" autoComplete="new-password" disabled={!passwordControlsEnabled} value={passwordDrafts[server.id] ?? ""} maxLength={256} onChange={(event) => setPasswordDrafts({ ...passwordDrafts, [server.id]: event.target.value })} /></label>
+          <button type="button" disabled={!passwordControlsEnabled || busy || !passwordDrafts[server.id] || !savedServerIDs.includes(server.id)} title={!passwordControlsEnabled ? "Dock back to manage Keychain passwords" : !savedServerIDs.includes(server.id) ? "Save cluster settings first" : undefined} onClick={() => { void request("cluster_password_set", { server_id: server.id, password: passwordDrafts[server.id] }, "Password saved in Keychain"); setPasswordDrafts((drafts) => ({ ...drafts, [server.id]: "" })); }}>Save password</button>
+          <button type="button" disabled={!passwordControlsEnabled || busy || !passwordServers.includes(server.id)} title={!passwordControlsEnabled ? "Dock back to manage Keychain passwords" : undefined} onClick={() => void request("cluster_password_set", { server_id: server.id, password: "" }, "Password removed")}>Remove password</button>
         </div>)}
+        {!passwordControlsEnabled && <p>Dock back to the main workspace to manage Keychain passwords.</p>}
         <button type="button" disabled={configuration.servers.length >= 16} onClick={() => setConfiguration({ ...configuration, servers: [...configuration.servers, { id: crypto.randomUUID(), name: "", host: "", port: 7300, callsign: "", enabled: true }] })}>Add server</button>
         <details><summary>Command presets</summary><div className="live-cluster-rules"><p>Saved commands are stored with cluster settings. Do not put passwords or tokens in presets.</p>{configuration.commandPresets.map((preset) => <div key={preset.id}>
           <label>Name<input value={preset.name} maxLength={80} onChange={(event) => setConfiguration({ ...configuration, commandPresets: configuration.commandPresets.map((item) => item.id === preset.id ? { ...item, name: event.target.value } : item) })} /></label>

@@ -5,7 +5,9 @@ import { clusterBandColors, clusterStatusColors, paletteColor } from "./clusterP
 import "./BandMaps.css";
 
 export type BandMapSpot = Record<string, any>;
-type Props = { spots: BandMapSpot[]; onSelect: (spot: BandMapSpot) => void; radioFrequencyHz?: number; compact?: boolean };
+export type BandMapViewPreferences = { bands: string[]; followRadio: boolean; layout: "row" | "grid"; fontScale: number };
+type Props = { spots: BandMapSpot[]; onSelect: (spot: BandMapSpot) => void; radioFrequencyHz?: number; compact?: boolean;
+  preferences?: BandMapViewPreferences; onPreferencesChange?: (next: BandMapViewPreferences) => void };
 type Allocation = { name: "CW" | "Data" | "Phone"; low: number; high: number };
 type Range = { low: number; high: number; allocations: Allocation[] };
 type ViewRange = { low: number; high: number };
@@ -199,41 +201,67 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
   </section>;
 }
 
-export function BandMaps({ spots, onSelect, radioFrequencyHz, compact = false }: Props) {
-  const [bands, setBands] = useState(() => storedBands(compact));
-  const [follow, setFollow] = useState(() => storedFlag(compact, "followRadio", false));
-  const [layout, setLayout] = useState(() => {
+export function BandMaps({ spots, onSelect, radioFrequencyHz, compact = false, preferences, onPreferencesChange }: Props) {
+  const [localBands, setLocalBands] = useState(() => storedBands(compact));
+  const [localFollow, setLocalFollow] = useState(() => storedFlag(compact, "followRadio", false));
+  const [localLayout, setLocalLayout] = useState<"row" | "grid">(() => {
     try { return localStorage.getItem(storageKey(compact, "layout")) === "row" ? "row" : "grid"; }
     catch { return "grid"; }
   });
-  const [fontScale, setFontScale] = useState(() => {
+  const [localFontScale, setLocalFontScale] = useState(() => {
     try { const value = Number(localStorage.getItem(storageKey(compact, "fontScale"))); return value >= 0.8 && value <= 2 ? value : 1; }
     catch { return 1; }
   });
+  const bands = preferences?.bands ?? localBands;
+  const follow = preferences?.followRadio ?? localFollow;
+  const layout = preferences?.layout ?? localLayout;
+  const fontScale = preferences?.fontScale ?? localFontScale;
+  const setBands = (next: string[] | ((current: string[]) => string[])) => {
+    const value = typeof next === "function" ? next(bands) : next;
+    if (preferences) onPreferencesChange?.({ ...preferences, bands: value });
+    else setLocalBands(value);
+  };
+  const setFollow = (value: boolean) => {
+    if (preferences) onPreferencesChange?.({ ...preferences, followRadio: value });
+    else setLocalFollow(value);
+  };
+  const setLayout = (value: "row" | "grid") => {
+    if (preferences) onPreferencesChange?.({ ...preferences, layout: value });
+    else setLocalLayout(value);
+  };
+  const setFontScale = (next: number | ((current: number) => number)) => {
+    const value = typeof next === "function" ? next(fontScale) : next;
+    if (preferences) onPreferencesChange?.({ ...preferences, fontScale: value });
+    else setLocalFontScale(value);
+  };
+  const selectBands = (nextBands: string[]) => {
+    if (preferences) onPreferencesChange?.({ ...preferences, bands: nextBands, followRadio: false });
+    else { setLocalFollow(false); setLocalBands(nextBands); }
+  };
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
   const [mode, setMode] = useState("all");
   const [selected, setSelected] = useState<BandMapSpot | null>(null);
   const radioBand = bandForRadio(radioFrequencyHz);
-  useEffect(() => { if (follow && radioBand) setBands((current) => current.length === 1 && current[0] === radioBand ? current : [radioBand]); }, [follow, radioBand]);
-  useEffect(() => { store(compact, "bands", bands); }, [bands, compact]);
-  useEffect(() => { store(compact, "followRadio", follow); }, [follow, compact]);
-  useEffect(() => { store(compact, "layout", layout); }, [layout, compact]);
-  useEffect(() => { store(compact, "fontScale", String(fontScale)); }, [fontScale, compact]);
+  useEffect(() => { if (follow && radioBand && (bands.length !== 1 || bands[0] !== radioBand)) setBands([radioBand]); }, [follow, radioBand, bands]);
+  useEffect(() => { if (!preferences) store(compact, "bands", bands); }, [bands, compact, preferences]);
+  useEffect(() => { if (!preferences) store(compact, "followRadio", follow); }, [follow, compact, preferences]);
+  useEffect(() => { if (!preferences) store(compact, "layout", layout); }, [layout, compact, preferences]);
+  useEffect(() => { if (!preferences) store(compact, "fontScale", String(fontScale)); }, [fontScale, compact, preferences]);
   const filtered = useMemo(() => compact ? spots : spots.filter((spot) => {
     const needle = query.trim().toLowerCase();
     return (!needle || [spot.callsign, spot.country, spot.comment, spot.source].some((part) => text(part).toLowerCase().includes(needle)))
       && matchesStatus(spot, status) && (mode === "all" || modeGroup(text(spot.mode)) === mode);
   }), [spots, compact, query, status, mode]);
-  const add = (band: string) => { if (!(band in BAND_RANGES)) return; setFollow(false); setBands((current) => current.includes(band) ? current : [...current, band]); };
-  const remove = (band: string) => { if (bands.length <= 1) return; setFollow(false); setBands((current) => current.filter((item) => item !== band)); };
+  const add = (band: string) => { if (!(band in BAND_RANGES)) return; selectBands(bands.includes(band) ? bands : [...bands, band]); };
+  const remove = (band: string) => { if (bands.length <= 1) return; selectBands(bands.filter((item) => item !== band)); };
   const choose = (spot: BandMapSpot) => { setSelected(spot); onSelect(spot); };
   return <section className={`band-maps${compact ? " band-maps-compact" : ""}`} aria-label="Band maps">
     <header className="band-maps-head"><div><h2>Band maps</h2>{!compact && <p>Click a spot to load it into the logger and request station tuning.</p>}</div>
       <div className="band-maps-head-controls"><label className="band-maps-follow"><input type="checkbox" checked={follow} onChange={(event) => setFollow(event.target.checked)} /> Follow radio</label>
         <div className="band-maps-scale"><button type="button" aria-label="Decrease band map text size" disabled={fontScale <= 0.8} onClick={() => setFontScale((value) => Math.max(0.8, +(value - 0.1).toFixed(1)))}>A−</button><output>{Math.round(fontScale * 100)}%</output><button type="button" aria-label="Increase band map text size" disabled={fontScale >= 2} onClick={() => setFontScale((value) => Math.min(2, +(value + 0.1).toFixed(1)))}>A+</button></div>
         {!compact && <div className="band-maps-layout" role="group" aria-label="Band map layout"><button type="button" aria-pressed={layout === "row"} onClick={() => setLayout("row")}>Single row</button><button type="button" aria-pressed={layout === "grid"} onClick={() => setLayout("grid")}>Adaptive grid</button></div>}
-        <label className="band-maps-add"><span className="sr-only">Add band map</span><select aria-label="Add band map" value="" onChange={(event) => { const value = event.target.value; if (value === "all") { setFollow(false); setBands(BAND_ORDER); } else add(value); event.target.value = ""; }}><option value="">Add band map</option><option value="all">All bands</option>{BAND_ORDER.filter((band) => !bands.includes(band)).map((band) => <option key={band} value={band}>{band}</option>)}</select></label>
+        <label className="band-maps-add"><span className="sr-only">Add band map</span><select aria-label="Add band map" value="" onChange={(event) => { const value = event.target.value; if (value === "all") selectBands(BAND_ORDER); else add(value); event.target.value = ""; }}><option value="">Add band map</option><option value="all">All bands</option>{BAND_ORDER.filter((band) => !bands.includes(band)).map((band) => <option key={band} value={band}>{band}</option>)}</select></label>
       </div>
     </header>
     {!compact && <div className="band-maps-intelligence"><label className="band-maps-search">Search <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Call, country or note" /></label><label>Status <select value={status} onChange={(event) => setStatus(event.target.value)}><option value="all">All</option><option value="needed">Needed</option><option value="worked">Worked</option><option value="confirmed">Confirmed</option><option value="priority">Priority</option></select></label><label>Mode <select value={mode} onChange={(event) => setMode(event.target.value)}><option value="all">All</option><option value="cw">CW</option><option value="data">Data</option><option value="phone">Phone</option></select></label><span className="band-maps-count">{filtered.length} of {spots.length} spots</span><span className="band-maps-selected">{selected ? `${text(selected.callsign)} · ${opportunityCode(selected)} · ${text(selected.callStatus)} · ${text(selected.dxccStatus)}` : "Select a marker to load it into the logger."}</span>{(query || status !== "all" || mode !== "all") && <button type="button" onClick={() => { setQuery(""); setStatus("all"); setMode("all"); }}>Clear filters</button>}</div>}

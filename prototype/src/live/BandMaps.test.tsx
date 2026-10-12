@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { BAND_RANGES, BandMaps, bandForRadio, opportunityCode, placeSpots } from "./BandMaps";
+import type { BandMapViewPreferences } from "./BandMaps";
 
 const spot = (id: string, frequencyKHz: number, band = "20m", callStatus = "New Call", dxccStatus = "Worked") => ({
   id, callsign: id, frequencyKHz, band, mode: "CW", callStatus, dxccStatus,
@@ -61,6 +62,22 @@ describe("native band-map parity", () => {
     rerender(<BandMaps compact spots={[spot("OH9W", 7186, "40m")]} onSelect={onSelect} radioFrequencyHz={7_186_000} />);
     expect(screen.getByRole("region", { name: "40m band map" })).toBeTruthy();
     expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it("uses workspace-owned preferences without writing browser storage and accepts restored values", () => {
+    const onPreferencesChange = vi.fn();
+    const base: BandMapViewPreferences = { bands: ["20m"], followRadio: true, layout: "grid", fontScale: 1 };
+    const { rerender } = render(<BandMaps spots={[]} onSelect={vi.fn()} preferences={base} onPreferencesChange={onPreferencesChange} />);
+    fireEvent.change(screen.getByLabelText("Add band map"), { target: { value: "40m" } });
+    expect(onPreferencesChange).toHaveBeenLastCalledWith({ ...base, bands: ["20m", "40m"], followRadio: false });
+    expect(localStorage.length).toBe(0);
+    const restored: BandMapViewPreferences = { bands: ["17m"], followRadio: false, layout: "row", fontScale: 1.5 };
+    rerender(<BandMaps spots={[]} onSelect={vi.fn()} preferences={restored} onPreferencesChange={onPreferencesChange} />);
+    expect(screen.getByRole("region", { name: "17m band map" })).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "20m band map" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Single row" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByText("150%")).toBeTruthy();
+    expect(localStorage.length).toBe(0);
   });
 
   it("selects the original spot and keeps per-spot frequency in accessible detail only", () => {

@@ -81,8 +81,10 @@ Never include bearer tokens in reports, screenshots or source control.
 
 The original native SQLite logbook and native source work remain preserved.
 The integrated app continues to use its separate working copy and manual sync.
-No synthetic QSO is to be inserted into that copy for acceptance. Only one xLog
-application bundle is retained in Applications. Preserve outgoing builds in a
+No synthetic QSO is to be inserted into that copy for acceptance. Retain both
+the original native `OM0RX-xLog.app` and the developing `OM0RX-xLog Integration.app`
+in Applications, as the operator explicitly requested. Keep only one current
+bundle per application identity. Preserve outgoing integration builds in a
 dedicated rollback directory **outside Trash**: a Trash-triggered application
 cleanup was found to have also removed associated data. See the
 [recovery record](P3_WORKSPACE_RECOVERY_2026-10-12.md). Do not use Trash-based
@@ -129,3 +131,47 @@ be attributed to this build.
   including actual bundled Hamlib dummy processes; native core's 50 tests are
   unchanged and passed in the preceding checkpoint. Packaging and visual results
   are separate and will be recorded after the exact artifact is launched.
+
+## Alpha.4 follow-up (source implementation; packaged verification pending)
+
+- Radio and rotor ownership are independent. The host arbitrates native DCU-1
+  and Hamlib rotor transports, fences retired generations and denies legacy
+  mutation bypasses. Radio handover no longer disconnects the antenna controller;
+  worker exit awaits its transport retirement without claiming physical stop.
+- Native backup packages can be selected and imported into the private workspace
+  only after validation. Restore has a separate preference opt-in, a recovery
+  backup, and preserves the manual-sync/isolated-secret boundary. Main and detached
+  band-map preferences share a worker-owned store and one-time legacy migration.
+- The map's initial `land` tile-manager error was traced to an unsafe readiness
+  probe. Delayed-style and subsequent tile-loading regressions now cover it.
+- The compact sidebar uses readable two-column metrics; band-map controls use
+  less vertical space. The propagation source text remains separated at small
+  widths. Independent 15-minute weather refresh preserves source/time and
+  last-known observations, rejecting delayed results for a previous station grid.
+- The exact original native v0.3.0 build 6 was restored to Applications with
+  matching baseline executable hash, valid signature, stapled notarization and
+  Gatekeeper acceptance. It was not launched and its data was not modified.
+
+Full source tests, final review, signed packaging and live acceptance are in
+progress. Do not treat this section as acceptance of an unbuilt artifact.
+
+### Operator reference follow-up
+
+- Log QSO now uses the supplied three-column details layout and a separate
+  intelligence/history/matrix inspector. Complete QSO identities and unknown
+  ADIF data remain intact; optional captured metadata requires explicit provenance.
+- Logbook uses the supplied ten-column order, dense alternating rows, teal
+  callsigns, cyan band/frequency and compact confirmation triangles. Selection
+  drives the toolbar; deletion requires confirmation and retains Undo. A 100-row
+  display page is assembled from bounded 20-record worker responses; ADIF exports
+  keep the 20-record frame size. Keyboard selection and double-click edit remain
+  available without an action column on every row.
+- DX Cluster filter controls have category-specific colours matching the supplied
+  reference. Text contrast and existing filter/sort/clear behavior have focused
+  regression coverage; the table and filter logic are not redesigned.
+- Sync's explicit Check setup reads only configuration/presence flags and does
+  not send contacts. It distinguishes a saved credential from authenticated
+  server success and explains why queued, zero-attempt contacts remain local.
+- Current source check: native core 50/50, shared Swift 149/149, focused
+  logbook/filter/sync frontend 15/15. Final complete frontend/Rust counts and
+  packaged reference-screen verification remain pending the combined UI freeze.

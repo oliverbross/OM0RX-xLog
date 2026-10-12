@@ -10,6 +10,31 @@ const fixture = () => ({ running: false, status: "Not started", conflicts: [{
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 describe("Wavelog conflict merge", () => {
+  it("explains missing credentials without retrieving a token or starting sync", async () => {
+    const request = vi.fn(async (method: string, _params?: Record<string, any>) => {
+      if (method === "settings_load") return { settings: { wavelogURL: "https://example.invalid", wavelogStationID: 1 } };
+      if (method === "secret_status") return { "wavelog-token": false };
+      return fixture();
+    });
+    render(<SyncPanel request={request} onChanged={() => {}} />);
+    await screen.findByText("Automatic synchronization is off. Queued contacts with 0 attempts have not been uploaded yet.");
+    fireEvent.click(screen.getByRole("button", { name: "Check setup" }));
+    await screen.findByText(/Setup incomplete: Wavelog API v2 token/);
+    expect(request.mock.calls.every(([method]) => ["sync_status", "settings_load", "secret_status"].includes(method))).toBe(true);
+  });
+
+  it("does not claim authentication merely because a credential is saved", async () => {
+    const request = vi.fn(async (method: string, _params?: Record<string, any>) => {
+      if (method === "settings_load") return { settings: { wavelogURL: "https://example.invalid", wavelogStationID: 1 } };
+      if (method === "secret_status") return { "wavelog-token": true };
+      return fixture();
+    });
+    render(<SyncPanel request={request} onChanged={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: "Check setup" }));
+    await screen.findByText(/Server authentication is not yet verified/);
+    expect(request.mock.calls.some(([method]) => method === "sync_run")).toBe(false);
+  });
+
   it("loads read-only and saves selected fields without starting sync", async () => {
     const request = vi.fn(async (method: string, _params?: Record<string, any>) => method === "sync_status" ? fixture() : { resolved: true });
     const changed = vi.fn(); render(<SyncPanel request={request} onChanged={changed} />);

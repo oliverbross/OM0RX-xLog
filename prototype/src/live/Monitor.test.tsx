@@ -11,6 +11,14 @@ const flex = (overrides: Record<string, any> = {}) => ({ source: "direct_flex_la
   capabilities: { supported_commands: ["tune", "cancel"] }, ...overrides });
 
 describe("direct FLEX detached monitor", () => {
+  it("pairs an independent rotor with FLEX and retains stop when its radio is offline", async () => {
+    const stop = vi.fn(async () => ({ backend: { accepted: true, confirmed: false } }));
+    render(<Monitor snapshot={flex({ radio: null, rotor: { owner: "native_dcu1", connected: true, name: "Antenna", azimuth: 53 } })} map={<div>Map</div>} onRotorRequest={stop} />);
+    expect(screen.getByText("053°")).toBeTruthy();
+    expect(screen.getByText("OFFLINE")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Stop" }));
+    await waitFor(() => expect(stop).toHaveBeenCalledExactlyOnceWith("rotor_stop", {}));
+  });
   it("shows radio-only observation without fabricated station or rotor telemetry", () => {
     render(<Monitor snapshot={flex()} map={<div>Map</div>} />);
     expect(screen.getByText(/DIRECT FLEX LAN/)).toBeTruthy();

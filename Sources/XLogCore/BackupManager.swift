@@ -33,6 +33,7 @@ public struct XLogBackupPreferences: Codable, Equatable, Sendable {
     public var bandMapFontScale: Double
     public var intelligenceBands: [String]
     public var clusterSpotOpensFullEditor: Bool
+    public var detachedBandMapFollowsRadio: Bool
 
     public init(
         deskBandMapBands: [String],
@@ -41,7 +42,8 @@ public struct XLogBackupPreferences: Codable, Equatable, Sendable {
         detachedBandMapLayout: String,
         bandMapFontScale: Double,
         intelligenceBands: [String],
-        clusterSpotOpensFullEditor: Bool
+        clusterSpotOpensFullEditor: Bool,
+        detachedBandMapFollowsRadio: Bool = false
     ) {
         self.deskBandMapBands = deskBandMapBands
         self.detachedBandMapBands = detachedBandMapBands
@@ -50,6 +52,25 @@ public struct XLogBackupPreferences: Codable, Equatable, Sendable {
         self.bandMapFontScale = bandMapFontScale
         self.intelligenceBands = intelligenceBands
         self.clusterSpotOpensFullEditor = clusterSpotOpensFullEditor
+        self.detachedBandMapFollowsRadio = detachedBandMapFollowsRadio
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case deskBandMapBands, detachedBandMapBands, deskBandMapFollowsRadio,
+             detachedBandMapLayout, bandMapFontScale, intelligenceBands,
+             clusterSpotOpensFullEditor, detachedBandMapFollowsRadio
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        deskBandMapBands = try values.decode([String].self, forKey: .deskBandMapBands)
+        detachedBandMapBands = try values.decode([String].self, forKey: .detachedBandMapBands)
+        deskBandMapFollowsRadio = try values.decode(Bool.self, forKey: .deskBandMapFollowsRadio)
+        detachedBandMapLayout = try values.decode(String.self, forKey: .detachedBandMapLayout)
+        bandMapFontScale = try values.decode(Double.self, forKey: .bandMapFontScale)
+        intelligenceBands = try values.decode([String].self, forKey: .intelligenceBands)
+        clusterSpotOpensFullEditor = try values.decode(Bool.self, forKey: .clusterSpotOpensFullEditor)
+        detachedBandMapFollowsRadio = try values.decodeIfPresent(Bool.self, forKey: .detachedBandMapFollowsRadio) ?? false
     }
 }
 

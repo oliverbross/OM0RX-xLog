@@ -32,8 +32,8 @@ describe("logbook confirmation visibility", () => {
     render(<LogbookPanel onRequest={request} onEdit={vi.fn()} refreshKey={0} />);
     await screen.findByText("OM0RX");
     expect(screen.getAllByRole("columnheader").map(header => header.textContent)).toEqual([
-      "Date UTC", "Callsign", "Band / mode", "Frequency", "RST", "Name / country",
-      "QSL", "LoTW", "Club Log", "Comment", "Sync", "Actions",
+      "UTC", "Callsign", "Band / Mode", "Frequency", "RST", "Country",
+      "QSL", "LoTW", "Club Log", "Comment",
     ]);
     const rows = screen.getAllByRole("row");
     expect(within(rows[1]).getByText("OM0RX")).toBeTruthy();
@@ -43,6 +43,8 @@ describe("logbook confirmation visibility", () => {
     expect(within(rows[1]).getByRole("img", { name: "LoTW sent Q, received N" })).toBeTruthy();
     expect(within(rows[1]).getByRole("img", { name: "Club Log upload Y" })).toBeTruthy();
     expect(within(rows[1]).getByText("Portable from the summit")).toBeTruthy();
+    expect(within(rows[1]).getByText("14.025000")).toBeTruthy();
+    expect(within(rows[1]).getByRole("img", { name: "Pending synchronization" })).toBeTruthy();
     expect(within(rows[2]).getByRole("img", { name: "QSL sent not recorded, received M" })).toBeTruthy();
     expect(within(rows[2]).getByRole("img", { name: "LoTW sent X, received not recorded" })).toBeTruthy();
     expect(within(rows[2]).getByRole("img", { name: "Club Log upload not recorded" })).toBeTruthy();
@@ -59,10 +61,35 @@ describe("logbook confirmation visibility", () => {
     fireEvent.click(screen.getByRole("button", { name: "Search" }));
     await screen.findByText("1–1 of 1");
     expect(screen.queryByText("VK8AA")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Edit OM0RX" }));
+    expect((screen.getByRole("button", { name: "Edit" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByText("OM0RX"));
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     expect(edit).toHaveBeenCalledWith(first);
     expect(edit.mock.calls[0][0].extraFields.APP_CUSTOM).toBe("preserved");
     expect(edit.mock.calls[0][0].customQSOKey).toEqual({ retain: true });
+  });
+
+  it("selects rows with the keyboard and requires confirmation before deleting the selected identity", async () => {
+    let deleted = false;
+    const request = vi.fn(async (method: string, params?: Record<string, unknown>) => {
+      if (method === "logbook_delete") { expect(params).toEqual({ id: second.id }); deleted = true; return {}; }
+      if (method === "logbook_undo") { expect(params).toEqual({ id: second.id }); deleted = false; return {}; }
+      return page(deleted ? [first] : [first, second]);
+    });
+    const edit = vi.fn();
+    render(<LogbookPanel onRequest={request} onEdit={edit} refreshKey={0} />);
+    const call = await screen.findByText("OM0RX");
+    fireEvent.keyDown(call.closest("tr")!, { key: "ArrowDown" });
+    expect(screen.getByText("VK8AA").closest("tr")?.getAttribute("aria-selected")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    expect(request.mock.calls.some(([method]) => method === "logbook_delete")).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Confirm delete" }));
+    await screen.findByText("1–1 of 1");
+    expect(screen.queryByText("VK8AA")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Undo delete" }));
+    await screen.findByText("VK8AA");
+    fireEvent.doubleClick(screen.getByText("OM0RX"));
+    expect(edit).toHaveBeenCalledWith(first);
   });
 
   it("retains an unrecognized Club Log extension value as recorded instead of marking it confirmed", async () => {
@@ -72,5 +99,23 @@ describe("logbook confirmation visibility", () => {
     expect(label.querySelector(".is-unrecorded")).toBeTruthy();
     expect(screen.getByRole("img", { name: "Club Log upload not recorded" })).toBeTruthy();
     expect(document.querySelector(".live-logbook-table-wrap")).toBeTruthy();
+  });
+
+  it("fills a dense 100-row page using bounded worker frames and keeps page navigation aligned", async () => {
+    const request = vi.fn(async (_method: string, params?: Record<string, unknown>) => {
+      const offset = Number(params?.offset ?? 0);
+      const limit = Number(params?.limit ?? 20);
+      expect(limit).toBe(20);
+      return { total: 121, offset, limit, qsos: Array.from({ length: Math.min(limit, 121 - offset) }, (_, index) => ({ ...first, id: `qso-${offset + index}`, call: `TEST${offset + index}` })) };
+    });
+    render(<LogbookPanel onRequest={request} onEdit={vi.fn()} refreshKey={0} />);
+    await screen.findByText("1–100 of 121");
+    expect(screen.getAllByRole("row")).toHaveLength(101);
+    expect(request.mock.calls.map(([, params]) => params?.offset)).toEqual([0, 20, 40, 60, 80]);
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await screen.findByText("101–121 of 121");
+    expect(screen.getByText("TEST120")).toBeTruthy();
+    expect(screen.queryByText("TEST0")).toBeNull();
+    expect((screen.getByRole("button", { name: "Next" }) as HTMLButtonElement).disabled).toBe(true);
   });
 });

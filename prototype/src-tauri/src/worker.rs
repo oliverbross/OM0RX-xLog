@@ -24,8 +24,9 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     if label == "monitor" {
         let allowed = match request["method"].as_str() {
             Some(
-                "station_snapshot" | "cluster_snapshot" | "health" | "station_rotor_goto"
-                | "station_rotor_stop",
+                "station_snapshot" | "cluster_snapshot" | "health" | "station_rotor_snapshot"
+                | "station_rotor_goto" | "station_rotor_stop" | "rotor_snapshot"
+                | "rotor_goto" | "rotor_stop",
             ) => true,
             Some("station_action") => matches!(
                 request["params"]["action"].as_str(),
@@ -67,9 +68,12 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "cluster_classify",
         "workspace_status",
         "workspace_create",
+        "workspace_preferences_load",
+        "workspace_preferences_save",
         "backup_create",
         "backup_list",
         "backup_inspect",
+        "backup_import",
         "backup_restore",
         "reference_status",
         "reference_refresh",
@@ -102,9 +106,16 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "station_forget",
         "station_radio_control",
         "station_rotor_connect",
+        "station_rotor_snapshot",
         "station_rotor_disconnect",
         "station_rotor_goto",
         "station_rotor_stop",
+        "rotor_snapshot",
+        "rotor_connect",
+        "rotor_disconnect",
+        "rotor_goto",
+        "rotor_park",
+        "rotor_stop",
         "station_add_spot",
         "spot_bridge_snapshot",
         "spot_bridge_configure",
@@ -600,7 +611,7 @@ mod tests {
     }
     #[test]
     fn rejects_hardware_and_shell_methods() {
-        for method in ["ptt", "tune", "rotor_goto", "connect", "exec"] {
+        for method in ["ptt", "tune", "rotor_send_raw", "connect", "exec"] {
             assert!(validate_request(&json!({"id":"a","method":method,"params":{}})).is_err());
         }
     }

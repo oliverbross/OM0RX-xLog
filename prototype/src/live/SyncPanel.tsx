@@ -12,6 +12,8 @@ export default function SyncPanel({ request, onChanged }: Props) {
   const [state, setState] = useState<Data | null>(null);
   const [confirmed, setConfirmed] = useState(false), [busy, setBusy] = useState(false);
   const [error, setError] = useState(""), [message, setMessage] = useState("");
+  const [setupMessage, setSetupMessage] = useState("");
+  const [checkingSetup, setCheckingSetup] = useState(false);
   const mounted = useRef(false), working = useRef(false), sequence = useRef(0), polling = useRef(false);
   const read = useCallback(async () => {
     const revision = ++sequence.current;
@@ -41,10 +43,28 @@ export default function SyncPanel({ request, onChanged }: Props) {
     } finally { working.current = false; if (mounted.current) setBusy(false); }
   };
   const locked = busy || state?.running === true;
+  const checkSetup = async () => {
+    setCheckingSetup(true); setSetupMessage("");
+    try {
+      // Read presence flags only. No credential value or remote sync request crosses this boundary.
+      const [configuration, credentials] = await Promise.all([request("settings_load"), request("secret_status")]);
+      const settings = configuration.settings;
+      const missing: string[] = [];
+      if (!String(settings?.wavelogURL ?? "").trim()) missing.push("Wavelog URL");
+      if (!Number.isInteger(settings?.wavelogStationID) || settings.wavelogStationID < 1) missing.push("station ID");
+      if (credentials["wavelog-token"] !== true) missing.push("Wavelog API v2 token");
+      if (mounted.current) setSetupMessage(missing.length
+        ? `Setup incomplete: ${missing.join(", ")}. Open Settings; paste the token directly into its private credential field and save it there.`
+        : "URL, station ID and saved token are present. Server authentication is not yet verified. Confirm the single writer, then synchronize manually.");
+    } catch {
+      if (mounted.current) setSetupMessage("Could not check setup. Review Settings and approve any Keychain prompt directly on this Mac; no synchronization was started.");
+    } finally { if (mounted.current) setCheckingSetup(false); }
+  };
   const conflicts: Conflict[] = state?.conflicts || [];
   return <section className="live-sync sync-panel" aria-label="Wavelog synchronization">
     <h2>Wavelog synchronization</h2>
     <p>Sync sends pending local changes and reconciles Wavelog edits and deletions. Stop the original xLog and every other sync writer before using this logbook as the active Wavelog writer.</p>
+    <div className="sync-setup"><button disabled={locked || checkingSetup} onClick={() => void checkSetup()}>{checkingSetup ? "Checking setup…" : "Check setup"}</button><p aria-live="polite">{setupMessage || "Automatic synchronization is off. Queued contacts with 0 attempts have not been uploaded yet."}</p></div>
     <label className="sync-confirm"><input type="checkbox" checked={confirmed} disabled={locked} onChange={event => setConfirmed(event.target.checked)} />I have stopped the other sync applications; this logbook is the only writer.</label>
     <div className="live-actions"><button disabled={!state || !confirmed || locked} onClick={() => void act("sync_run", { confirm_single_writer: true }, "Synchronization started. Progress appears below.")}>{state?.running ? "Synchronizing…" : "Synchronize now"}</button><span role="status">{state?.status || "Reading sync state…"}</span></div>
     {error && <p className="sync-error" role="alert">{error}</p>}

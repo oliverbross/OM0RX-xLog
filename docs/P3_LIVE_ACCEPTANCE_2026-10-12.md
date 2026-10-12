@@ -82,3 +82,85 @@ The monitor's small map no longer had the oversized toolbar, but a generic map
 error banner remained over a rendered basemap. Publication was held pending
 diagnosis rather than presenting that display as accepted. The next alpha.3
 work adds source-specific safe diagnostics and further map/layout parity.
+
+## Alpha.3 diagnostic and layout checkpoint
+
+Developer ID-signed `1f98d372ffc78ef9e9ade64efd09dcaba7b1df2d` was installed
+after the operator explicitly approved a restart. The previous bundle was
+retained outside Trash at `Documents/OM0RX-App-Backups/xLog-97f65d7-before-1f98d37.app`.
+This diagnostic build has not yet been notarized or publicly released.
+
+The operator was actively testing and saved M7KOD themselves before restart;
+the private logbook consequently increased to **67,844** contacts. The agent
+did not create that QSO. The post-install read-only SQLite check returned `ok`
+and 67,844 contacts. The latest draft and subsequently operator-entered
+VK8NSB were retained; earlier draft/frequency values were not restored over
+the operator's changes.
+
+Tests for this source: native Swift 50 (unchanged core), shared Swift 145,
+frontend 131, Rust 50 including 16 real bundled Hamlib dummy cases, packaged
+worker process 4: **380 unique tests passed**. Both GitHub workflows completed
+successfully at the exact SHA (`38238717951`, `38238717946`).
+
+With explicit operator permission, saved remote-agent/ARCO/OM0RX-13
+connections were re-established. At approximately 20:32 Australia/Darwin,
+the monitor displayed 18.146000 MHz USB, RX A, MOX off, KPA STBY/0 W/29 °C,
+KAT 17 m/ANT1, READY, confirmed route and clear alarms. ARCO readback was
+307°, stopped. Frequency and rotor changes since earlier acceptance were
+operator activity, not movements made by the update checks.
+
+The new diagnostics exposed the exact map failure: `There is no tile manager
+with ID 'land'`. Source review traced it to calling MapLibre `isSourceLoaded`
+before asynchronous style registration, not a failed external tile service.
+A source fix and delayed-style regression tests are being validated; this
+installed artifact still displays the diagnostic banner.
+
+Native View menu presets were exercised at 1000×720 and 1440×940. The desk,
+map and band map remained together, without sidebar scrolling. The compact
+sidebar's three-column metrics wrapped labels/values awkwardly; a two-column
+correction, tighter band-map controls and separated propagation source text
+are queued for the next build. The station handover notice also persisted
+after reconnect and is being corrected. These observations do not certify
+full parity or the subsequent uncommitted changes.
+
+## M7KOD sync diagnosis — installed alpha.3, 12 October 2026
+
+Read-only inspection of the installed integration app found M7KOD preserved in
+the local logbook and in Pending outbox: Queued, 0 attempts, sync Not started.
+The app remains manual-sync during migration. A credential-metadata presence
+query returned item-not-found for its separate Wavelog token entry; no token was
+read or printed. The Wavelog URL and station ID were already configured in Settings.
+
+The original native xLog was also running when checked. No sync was started and
+neither application was quit. Settings was opened for the operator to save the
+token directly into the secure field, and single-writer cutover/manual-sync
+permission was requested. Successful server authentication and upload of M7KOD
+remain **unverified** until that operator step and explicit sync acceptance.
+
+### Authorized synchronization result
+
+The operator subsequently saved the token directly in the app, closed the native
+app and authorized manual synchronization from the integrated workspace. Process
+inspection confirmed only Integration and its worker were running. Before sync,
+the application created and verified
+`OM0RX-xLog-2026-10-12T11-50-45Z.xlogbackup`: 67,844 QSOs, one pending change,
+271.4 MB, with settings/reference cache. No credential was read or printed.
+
+After the single-writer confirmation and Synchronize now action, the application
+reported **Completed** and **Pending outbox 0**. A read-only SQLite check found
+M7KOD (20 m SSB, 14.275 MHz) mapped to server-returned Wavelog ID **178693**, with
+`is_dirty=0` and no deletion timestamp. The outbox count was zero and
+`PRAGMA quick_check` returned `ok`. This is successful authenticated upload and
+local acknowledgement evidence, not a separate browser inspection of Wavelog.
+
+The next alpha groups service configuration and credentials together. The existing
+Wavelog URL/station ID and QRZ username were present; Club Log integration remains
+a CTY reference downloader rather than a QSO account uploader.
+
+### Alpha.4 source validation checkpoint
+
+After all implementation agents froze their changes: frontend **194/194** passed,
+TypeScript passed, Rust **68/68** passed (including bundled Hamlib dummy tests).
+The shared Swift suite passed **151/151**, and the native suite passed **50/50**.
+These are source/test results; packaged UI, hardware, notarization and release
+acceptance are separate gates.

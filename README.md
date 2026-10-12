@@ -12,7 +12,7 @@ Created and maintained by **Oliver Bross, OM0RX**.
 ## Shared-app Mac integration — development alpha
 
 The `codex/unified-xlog-integration-p2` branch now builds **OM0RX-xLog Integration
-0.4.0-alpha.3**: the shared Tauri/React app with persistent real logbook, xCluster,
+0.4.0-alpha.4**: the shared Tauri/React app with persistent real logbook, xCluster,
 embedded xCat Remote Agent services, and bundled Hamlib radio/rotor helpers. It has a separate bundle and an isolated
 verified logbook copy; the working native apps and original data are preserved.
 There are no fixture contacts or spots in its runtime screens. This is not yet a
@@ -37,6 +37,32 @@ The **Station Control → RUMlog spots** tab configures all eleven native
 Logbook/Contest categories, colours, priorities and lifetimes. Its explicit
 loopback listeners currently forward through the Remote Station Agent and
 require matching acknowledgements; they do not tune or transmit the radio.
+
+Radio and rotor connections have independent ownership. Pair any radio provider
+with a bundled Hamlib rotor or the native DCU-1 connection; changing radio mode
+does not retire the rotor. Explicit rotor handover prevents two backends from
+owning the controller, and stale commands are rejected after a handover or Stop.
+No queued turn is replayed after reconnect.
+
+Workspace backups can be imported from an existing `.xlogbackup` package using
+the native chooser, verified, then restored only after explicit confirmation.
+Band-map preferences are stored with the workspace and can be restored separately
+from station settings. Weather refreshes independently every 15 minutes, retaining
+the last observation and its source/time when the provider is unavailable.
+
+The development logbook restores the native dense ten-column table, coloured
+confirmation indicators and selected-row edit/delete/undo toolbar. Pages display
+up to 100 contacts while each worker/export frame remains bounded. DX Cluster
+filter categories use the operator's cyan/purple/green/orange/gold/pink/teal/blue
+palette without changing filtering behavior.
+
+**Integration sync is manual during migration.** A contact marked Queued with
+zero attempts is saved locally, not uploaded. The integration workspace has its
+own Keychain credentials: enter the Wavelog API v2 token directly under
+**Settings → Wavelog synchronization**, next to its URL and station ID, never in a support chat. QRZ username/password and Club Log CTY URL/API key are likewise grouped by service; Club Log currently supplies reference data, not QSO uploads. **Sync → Check setup**
+checks configuration and credential presence without sending contacts. Close
+other sync writers and explicitly confirm single-writer ownership before
+**Synchronize now**. A saved token alone does not prove server authentication.
 
 The parity work restores the native navigation/sidebar, full QSO editor,
 multi-band maps, cluster palette, awards filters, graphical propagation and

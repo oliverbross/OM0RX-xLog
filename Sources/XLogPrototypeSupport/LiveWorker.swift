@@ -31,6 +31,7 @@ public actor LiveWorker {
         beginTerminalShutdown()
         #if os(macOS)
         await LiveSpotBridge.shared.stopForShutdown()
+        await LiveRotorSession.shared.terminate()
         await LiveFlexSession.shared.terminate()
         await LiveStationSession.shared.terminate()
         #endif

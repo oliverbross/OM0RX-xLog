@@ -30,7 +30,7 @@ type StationSnapshot = {
   cat_servers?: { cat_port?: number | null; rigctl_port?: number | null; allow_transmit?: boolean };
   propagation?: { status?: string; updated_at?: number; solar_flux?: number; a_index?: number; k_index?: number } | null;
 };
-type Props = { snapshot: any; onRequest: Request; onSnapshot: (value: any) => void; monitor?: boolean };
+type Props = { snapshot: any; onRequest: Request; onSnapshot: (value: any) => void; monitor?: boolean; independentRotor?: boolean };
 const modes = ["CW", "SSB", "USB", "LSB", "AM", "FM", "FT8", "FT4", "FT2", "RTTY", "PSK", "DIGI"];
 const rotorBands = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "4m", "2m", "70cm", "Other"];
 
@@ -40,7 +40,7 @@ function value<T>(item: T | null | undefined, unit = ""): string { return item =
 function timestamp(epoch?: number | null): string { return typeof epoch === "number" && Number.isFinite(epoch) ? new Date(epoch * 1000).toLocaleTimeString() : "—"; }
 function errorText(cause: unknown): string { return cause instanceof Error ? cause.message : "Station request failed."; }
 
-export default function StationPanel({ snapshot, onRequest, onSnapshot, monitor = false }: Props) {
+export default function StationPanel({ snapshot, onRequest, onSnapshot, monitor = false, independentRotor = true }: Props) {
   const incoming = snapshot as StationSnapshot | null;
   const [provider] = useState<"xcat_loopback" | "direct_agent">(
     "direct_agent",
@@ -264,12 +264,12 @@ export default function StationPanel({ snapshot, onRequest, onSnapshot, monitor 
           <div className="live-station-inline"><label>Radio mode<select aria-label="Direct radio mode" value={directMode} onChange={(event) => setDirectMode(event.target.value)}>{modes.map((mode) => <option key={mode}>{mode}</option>)}</select></label><button type="button" disabled={busy || !can("set_mode")} onClick={() => void radioControl("set_mode", { mode: directMode }, "Radio mode change")}>Set mode</button></div>
           <p className="live-station-helper">PTT and CW require an explicit transmit opt-in, commissioned station and clear inhibitors. No command is sent by polling or opening this view.</p>
         </section>}
-        <section className="live-station-card"><h3><Antenna size={15} /> Rotor</h3>
+        {!independentRotor && <section className="live-station-card"><h3><Antenna size={15} /> Rotor</h3>
           {rotor ? <><p>{rotor.name || "Rotor"} · {rotor.connected ? value(rotor.status) : "Disconnected"} · azimuth {value(rotor.azimuth, "°")}{rotor.moving ? ` · moving ${rotor.motion_direction ?? ""}` : ""}</p>
             <p className="live-station-helper">Target {value(rotor.target_bearing, "°")} · {value(rotor.target_label)}</p>
             {!isMonitor && <form className="live-station-inline" onSubmit={(event) => void rotorGoto(event)}><label>Bearing °<input aria-label="Rotor bearing degrees" inputMode="decimal" value={rotorBearing} onChange={(event) => setRotorBearing(event.target.value)} placeholder="0–360" /></label>{!isDirect && <label>Band<select aria-label="Rotor band" value={rotorBand} onChange={(event) => setRotorBand(event.target.value)}>{rotorBands.map((band) => <option key={band}>{band}</option>)}</select></label>}
               <button type="submit" disabled={busy || (isDirect ? !rotor.connected : !actions.includes("rotor_goto"))}>Go to</button><button type="button" disabled={busy || (isDirect ? !rotor.connected : !actions.includes("rotor_stop"))} onClick={() => void (isDirect ? command("station_rotor_stop", { provider: "direct_agent" }, "Rotor stop") : command("station_action", { ...endpoint, action: "rotor_stop" }, "Rotor stop"))}>Stop</button></form>}</> : <p className="live-station-helper">No rotor state is supplied by this provider.</p>}
-        </section>
+        </section>}
       </div>
       <aside className="live-station-side">
         <section className="live-station-card"><h3>{isDirect ? "Direct agent connection" : "Companion connection"}</h3>
@@ -279,7 +279,7 @@ export default function StationPanel({ snapshot, onRequest, onSnapshot, monitor 
               <label className="live-station-checkbox"><input type="checkbox" checked={allowTransmit} onChange={(event) => setAllowTransmit(event.target.checked)} /> Allow CAT transmit controls for this connection</label>
               <div className="live-station-actionrow"><button type="submit" disabled={busy || !agentURL.trim()}><LockKeyhole size={13} /> Connect</button>
                 <button type="button" disabled={busy || !agentURL.trim()} onClick={() => void command("station_connect", { provider: "direct_agent", base_url: agentURL.trim(), allow_transmit: allowTransmit }, "Reconnect request")}><RotateCcw size={13} /> Reconnect</button>
-                <button type="button" disabled={busy} onClick={() => void command("station_disconnect", { provider: "direct_agent" }, "Disconnect")}>Disconnect station &amp; rotor</button></div>
+                <button type="button" disabled={busy} onClick={() => void command("station_disconnect", { provider: "direct_agent" }, "Disconnect")}>Disconnect radio</button></div>
               <button type="button" className="live-station-quiet" disabled={busy || !agentURL.trim()} onClick={() => void command("station_forget", { provider: "direct_agent", base_url: agentURL.trim() }, "Saved token removal")}>Forget saved token for this URL</button>
             </form>}</> : <><p className="live-station-helper">Read from the standalone xCat loopback service. xCat remains radio owner; this view does not launch it.</p>
             {!isMonitor && <div className="live-station-connect"><label>Host<input aria-label="xCat loopback host" value={host} onChange={(event) => setHost(event.target.value)} /></label><label>Port<input aria-label="xCat loopback port" inputMode="numeric" value={port} onChange={(event) => setPort(event.target.value)} /></label></div>}</>}
@@ -296,7 +296,7 @@ export default function StationPanel({ snapshot, onRequest, onSnapshot, monitor 
           <button type="button" disabled={busy || !connected} onClick={() => void loadConfiguration()}>Load configuration</button>
           {agentConfig && <AgentConfiguration config={agentConfig} onSave={saveConfiguration} busy={busy || !connected} />}
         </section>}
-        {isDirect && !isMonitor && <section className="live-station-card"><h3>DCU-1 rotor connection</h3><p className="live-station-helper">Optional local rotor owner. Explicit connection starts read-only azimuth polling; motion needs a separate action.</p>
+        {isDirect && !isMonitor && !independentRotor && <section className="live-station-card"><h3>DCU-1 rotor connection</h3><p className="live-station-helper">Optional local rotor owner. Explicit connection starts read-only azimuth polling; motion needs a separate action.</p>
           <div className="live-station-connect"><label>Rotor TCP host<input aria-label="Rotor TCP host" value={rotorHost} onChange={(event) => setRotorHost(event.target.value)} placeholder="Rotor host or IP" /></label><label>Rotor TCP port<input aria-label="Rotor TCP port" inputMode="numeric" value={rotorPort} onChange={(event) => setRotorPort(event.target.value)} /></label><label>Name<input aria-label="Rotor name" value={rotorName} onChange={(event) => setRotorName(event.target.value)} /></label>
             <div className="live-station-actionrow"><button type="button" disabled={busy || !rotorHost.trim() || !Number.isInteger(Number(rotorPort)) || Number(rotorPort) < 1 || Number(rotorPort) > 65535} onClick={() => void command("station_rotor_connect", { provider: "direct_agent", host: rotorHost.trim(), port: Number(rotorPort), name: rotorName.trim() }, "Rotor connection request")}>Connect rotor</button><button type="button" disabled={busy || !rotor?.connected} onClick={() => void command("station_rotor_disconnect", { provider: "direct_agent" }, "Rotor disconnect")}>Disconnect rotor</button></div></div>
         </section>}

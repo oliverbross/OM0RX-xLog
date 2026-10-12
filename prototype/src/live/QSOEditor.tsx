@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type SetStateAction } from "react";
+import { Radio, PanelsTopLeft, UserRound, Star, RadioTower, ContactRound, History, Grid3X3, CircleX, CircleCheck } from "lucide-react";
 import "./QSOEditor.css";
 
 type Data = Record<string, any>;
@@ -8,6 +9,8 @@ type Props = {
   lookup: Data | null; previous: Data[]; follow: boolean; setFollow: (value: boolean) => void;
   request?: (method: string, params?: Data) => Promise<any>;
   onReadRadio?: () => void | Promise<void>;
+  automaticStationMetadata?: Array<{ label: string; value: string; provenance: "observed" | "configured" | "selected" }>;
+  isEditing?: boolean;
 };
 type MatrixCell = { band: string; mode: string; worked: boolean; confirmed: boolean };
 type MatrixState = { call: string; adif: number | null; callCells?: MatrixCell[]; countryCells?: MatrixCell[]; callError?: string; countryError?: string };
@@ -37,11 +40,10 @@ function StatusMatrix({ scope, cells }: { scope: string; cells: MatrixCell[] }) 
 const groups: Record<string, Field[]> = {
   Station: [
     { key: "stationLocation", label: "Station location" }, { key: "radio", label: "Radio" },
-    { key: "txPower", label: "TX power W" }, { key: "operatorCall", label: "Operator" },
-    { key: "myCall", label: "Station call" }, { key: "myGrid", label: "Station grid" },
     { key: "receiveFrequencyHz", label: "RX frequency MHz" }, { key: "receiveBand", label: "RX band", kind: "enum", options: bands },
-    { key: "propagationMode", label: "Propagation" }, { key: "antennaPath", label: "Antenna path" },
+    { key: "txPower", label: "TX power W" }, { key: "operatorCall", label: "Operator" },
   ],
+  StationExtra: [{ key: "myCall", label: "Station call" }, { key: "myGrid", label: "Station grid" }],
   General: [
     { key: "name", label: "Name" }, { key: "gridSquare", label: "Gridsquare" },
     { key: "country", label: "Country" }, { key: "dxcc", label: "DXCC", kind: "number" },
@@ -54,16 +56,18 @@ const groups: Record<string, Field[]> = {
     { key: "potaReference", label: "POTA" }, { key: "sotaReference", label: "SOTA" },
     { key: "iota", label: "IOTA" }, { key: "wwffReference", label: "WWFF" },
     { key: "sig", label: "SIG" }, { key: "sigInfo", label: "SIG info" }, { key: "dok", label: "DOK" },
+    { key: "propagationMode", label: "Propagation" }, { key: "antennaPath", label: "Antenna path" },
+    { key: "comment", label: "Comment" },
   ],
-  Notes: [{ key: "comment", label: "Comment", kind: "textarea" }, { key: "notes", label: "QSO note", kind: "textarea" }],
+  Notes: [{ key: "notes", label: "QSO note", kind: "textarea" }],
   QSL: [
     { key: "qslSent", label: "QSL sent", kind: "enum", options: ["Y", "N", "R", "Q", "I", "V"] },
     { key: "qslReceived", label: "QSL received", kind: "enum", options: ["Y", "N", "R", "Q", "I", "V"] },
     { key: "qslMethod", label: "QSL method", kind: "enum", options: ["B", "D", "E", "M"] },
-    { key: "qslVia", label: "QSL via" }, { key: "qslMessage", label: "QSL message", kind: "textarea" },
-    { key: "lotwSent", label: "LoTW sent", kind: "enum", options: ["Y", "N", "Q", "I"] },
-    { key: "lotwReceived", label: "LoTW received", kind: "enum", options: ["Y", "N", "V", "I"] },
+    { key: "qslVia", label: "QSL via" }, { key: "qslMessage", label: "QSL message" },
   ],
+  QSLExtra: [{ key: "lotwSent", label: "LoTW sent", kind: "enum", options: ["Y", "N", "Q", "I"] },
+    { key: "lotwReceived", label: "LoTW received", kind: "enum", options: ["Y", "N", "V", "I"] }],
 };
 const lookupFields = ["name", "gridSquare", "country", "dxcc", "continent", "cqZone", "ituZone", "state", "county", "qth", "email"];
 const call = (value: unknown) => String(value ?? "").trim().toUpperCase();
@@ -86,8 +90,7 @@ const bandFor = (hz: number): string => {
   const mhz = hz / 1_000_000; return ranges.find(([min,max]) => mhz >= min && mhz < max)?.[2] ?? "";
 };
 
-export function QSOEditor({ draft, setDraft, save, clear, busy, lookup, previous, follow, setFollow, request, onReadRadio }: Props) {
-  const [tab, setTab] = useState("QSO");
+export function QSOEditor({ draft, setDraft, save, clear, busy, lookup, previous, follow, setFollow, request, onReadRadio, automaticStationMetadata = [], isEditing = false }: Props) {
   const [frequencyDraft, setFrequencyDraft] = useState<string | null>(null);
   const [receiveDraft, setReceiveDraft] = useState<string | null>(null);
   const [timeDrafts, setTimeDrafts] = useState<Record<string, { date: string; time: string }>>({});
@@ -96,6 +99,7 @@ export function QSOEditor({ draft, setDraft, save, clear, busy, lookup, previous
   const [matrix, setMatrix] = useState<MatrixState | null>(null);
   const [radioBusy, setRadioBusy] = useState(false);
   const [radioError, setRadioError] = useState("");
+  const readDraftIdentity = useRef(draft?.id); readDraftIdentity.current = draft?.id;
   const callRef = useRef<HTMLInputElement>(null);
   const rootRef = useRef<HTMLElement>(null);
   const update = (key: string, value: unknown) => { if (["frequencyHz", "band", "mode"].includes(key)) setFollow(false); setDraft((current) => current ? { ...current, [key]: value } : current); };
@@ -149,7 +153,7 @@ export function QSOEditor({ draft, setDraft, save, clear, busy, lookup, previous
   const submit = (event?: FormEvent) => { event?.preventDefault(); if (!canSave) { setShowErrors(true); return; } void save(); };
   const keyDown = (event: KeyboardEvent<HTMLElement>) => {
     if ((event.metaKey || event.ctrlKey) && event.key === "Enter") { event.preventDefault(); submit(); }
-    if (event.key === "Escape") { event.preventDefault(); setTab("QSO"); window.setTimeout(() => callRef.current?.focus(), 0); }
+    if (event.key === "Escape") { event.preventDefault(); window.setTimeout(() => callRef.current?.focus(), 0); }
   };
   const changeFrequency = (key: "frequencyHz" | "receiveFrequencyHz", text: string) => {
     if (key === "frequencyHz") setFollow(false);
@@ -167,10 +171,10 @@ export function QSOEditor({ draft, setDraft, save, clear, busy, lookup, previous
   };
   const field = ({ key, label, kind, options }: Field) => {
     const value = draft?.[key];
-    if (kind === "textarea") return <label key={key} className="qso-field qso-wide"><span>{label}</span><textarea aria-label={label} rows={key === "notes" ? 5 : 3} value={value ?? ""} onChange={(event) => update(key, event.target.value)} /></label>;
+    if (kind === "textarea") return <label key={key} className="qso-field qso-wide"><span>{label}</span><textarea aria-label={label} rows={key === "notes" ? 5 : 3} placeholder={label} value={value ?? ""} onChange={(event) => update(key, event.target.value)} /></label>;
     if (key === "receiveFrequencyHz") return <label key={key} className="qso-field"><span>{label}</span><input aria-label={label} inputMode="decimal" value={currentReceive} onChange={(event) => changeFrequency("receiveFrequencyHz", event.target.value)} /></label>;
     if (kind === "enum") return <label key={key} className="qso-field"><span>{label}</span><select aria-label={label} value={value ?? ""} onChange={(event) => update(key, event.target.value)}><option value="">—</option>{value && !options?.includes(String(value)) && <option value={value}>{value}</option>}{options?.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>;
-    return <label key={key} className="qso-field"><span>{label}</span><input aria-label={label} type={kind === "number" ? "number" : key === "email" ? "email" : "text"} min={kind === "number" ? 1 : undefined} step={kind === "number" ? 1 : undefined} value={kind === "number" ? numericDrafts[key] ?? String(value ?? "") : value ?? ""} onChange={(event) => { const text = event.target.value; if (kind === "number") { setNumericDrafts((current) => ({ ...current, [key]: text })); if (text === "" || /^\d+$/.test(text)) update(key, text ? Number(text) : null); } else update(key, ["myCall", "operatorCall", "myGrid", "gridSquare"].includes(key) ? text.toUpperCase() : text); }} autoComplete="off" spellCheck={false} /></label>;
+    return <label key={key} className="qso-field"><span>{label}</span><input aria-label={label} type={kind === "number" ? "number" : key === "email" ? "email" : "text"} min={kind === "number" ? 1 : undefined} step={kind === "number" ? 1 : undefined} placeholder={label} value={kind === "number" ? numericDrafts[key] ?? String(value ?? "") : value ?? ""} onChange={(event) => { const text = event.target.value; if (kind === "number") { setNumericDrafts((current) => ({ ...current, [key]: text })); if (text === "" || /^\d+$/.test(text)) update(key, text ? Number(text) : null); } else update(key, ["myCall", "operatorCall", "myGrid", "gridSquare"].includes(key) ? text.toUpperCase() : text); }} autoComplete="off" spellCheck={false} /></label>;
   };
   const fillLookup = () => {
     if (!sameLookup) return;
@@ -183,27 +187,57 @@ export function QSOEditor({ draft, setDraft, save, clear, busy, lookup, previous
   };
   const readRadio = async () => {
     if (!onReadRadio || busy || radioBusy) return;
+    const identity = draft?.id;
     setRadioBusy(true); setRadioError("");
-    try { await onReadRadio(); setFrequencyDraft(null); setReceiveDraft(null); }
-    catch (cause) { setRadioError(cause instanceof Error ? cause.message : "Radio readback unavailable."); }
+    try { await onReadRadio(); if (readDraftIdentity.current === identity) { setFrequencyDraft(null); setReceiveDraft(null); } }
+    catch (cause) { if (readDraftIdentity.current === identity) setRadioError(cause instanceof Error ? cause.message : "Radio readback unavailable."); }
     finally { setRadioBusy(false); }
   };
   const matchingMatrix = matrix?.call === matrixCall && matrix.adif === matrixADIF ? matrix : null;
+  const captured = automaticStationMetadata.filter(item => item && item.label?.trim() && item.value?.trim() &&
+    ["observed", "configured", "selected"].includes(item.provenance));
   if (!draft) return <section className="qso-editor" aria-label="Log QSO"><p>Opening logbook…</p></section>;
-  return <section className="qso-editor" ref={rootRef} onKeyDown={keyDown} aria-label="Log QSO"><div className="qso-editor-main"><div className="qso-editor-head"><h2>Active contact</h2><span>Local QSO draft · UTC</span></div>
-    <form onSubmit={submit} noValidate><div className="qso-primary"><label className="qso-field qso-call"><span>Callsign</span><input ref={callRef} aria-label="Callsign" value={draft.call ?? ""} maxLength={32} onChange={(event) => update("call", event.target.value.toUpperCase())} autoComplete="off" spellCheck={false} /></label><label className="qso-field"><span>Frequency MHz</span><input aria-label="Frequency MHz" inputMode="decimal" value={currentFrequency} onChange={(event) => changeFrequency("frequencyHz", event.target.value)} /></label><label className="qso-field"><span>Band</span><select aria-label="Band" value={draft.band ?? ""} onChange={(event) => update("band", event.target.value)}><option value="">Select band</option>{draft.band && !bands.includes(draft.band) && <option value={draft.band}>{draft.band}</option>}{bands.map((band) => <option key={band}>{band}</option>)}</select></label><label className="qso-field"><span>Mode</span><select aria-label="Mode" value={draft.mode ?? ""} onChange={(event) => update("mode", event.target.value)}><option value="">Select mode</option>{draft.mode && !modes.includes(draft.mode) && <option value={draft.mode}>{draft.mode}</option>}{modes.map((mode) => <option key={mode}>{mode}</option>)}</select></label></div>
-      <div className="qso-time-row">{(["start", "end"] as const).map((key) => <div className="qso-utc" key={key}><strong>{key === "start" ? "Start UTC" : "End UTC"}</strong><label><span>Date</span><input aria-label={`${key === "start" ? "Start" : "End"} UTC date`} type="date" value={currentTime(key).date} onChange={(event) => changeTime(key, "date", event.target.value)} /></label><label><span>Time</span><input aria-label={`${key === "start" ? "Start" : "End"} UTC time`} type="time" step={1} value={currentTime(key).time} onChange={(event) => changeTime(key, "time", event.target.value)} /></label></div>)}<div className="qso-reports">{field({ key: "rstSent", label: "RST sent" })}{field({ key: "rstReceived", label: "RST received" })}</div></div>
-      <nav className="qso-tabs" aria-label="QSO fields">{["QSO", ...Object.keys(groups), "Metadata"].map((name) => <button type="button" key={name} aria-current={tab === name ? "page" : undefined} onClick={() => setTab(name)}>{name}</button>)}</nav>
-      {tab === "QSO" && <div className="qso-fields">{field({ key: "submode", label: "Submode" })}<p className="qso-help">Frequency is optional for manual logging. When entered within an amateur band, it sets the matching band. Keep a split RX frequency in Station.</p></div>}
-      {groups[tab] && <div className="qso-fields">{groups[tab].map(field)}</div>}
-      {tab === "Metadata" && <div className="qso-metadata"><p>Captured identity and sync fields are retained with this draft. ADIF extensions remain editable below.</p><dl>{[["id", "Local ID"], ["wavelogID", "Wavelog ID"], ["stationProfileID", "Station profile ID"], ["updatedAt", "Updated UTC"], ["isDirty", "Local changes"], ["deletedAt", "Deleted UTC"]].map(([key, label]) => <div key={key}><dt>{label}</dt><dd>{draft[key] == null ? "—" : String(draft[key])}</dd></div>)}</dl><h3>Additional ADIF fields</h3><div className="qso-extra">{Object.entries(draft.extraFields ?? {}).map(([key, value]) => <label key={key}><span>{key}</span><input aria-label={`ADIF ${key}`} value={String(value)} onChange={(event) => setDraft((current) => current ? { ...current, extraFields: { ...(current.extraFields ?? {}), [key]: event.target.value } } : current)} /></label>)}</div>{Object.keys(draft.extraFields ?? {}).length === 0 && <p>No additional ADIF fields in this QSO.</p>}</div>}
+  return <section className="qso-editor" ref={rootRef} onKeyDown={keyDown} aria-label="Log QSO">
+    <div className="qso-editor-main"><form onSubmit={submit} noValidate>
+      <section className="qso-active" aria-labelledby="qso-active-title">
+        <h2 id="qso-active-title"><Radio size={15} aria-hidden="true" /> Active contact</h2>
+        <div className="qso-primary">
+          <label className="qso-field qso-call"><span>Callsign</span><input ref={callRef} aria-label="Callsign" value={draft.call ?? ""} maxLength={32} onChange={(event) => update("call", event.target.value.toUpperCase())} autoComplete="off" spellCheck={false} /></label>
+          <label className="qso-field qso-frequency"><span>Frequency MHz</span><input aria-label="Frequency MHz" inputMode="decimal" value={currentFrequency} onChange={(event) => changeFrequency("frequencyHz", event.target.value)} /></label>
+          <label className="qso-field"><span>Band</span><select aria-label="Band" value={draft.band ?? ""} onChange={(event) => update("band", event.target.value)}><option value="">Select band</option>{draft.band && !bands.includes(draft.band) && <option value={draft.band}>{draft.band}</option>}{bands.map((band) => <option key={band}>{band}</option>)}</select></label>
+          <label className="qso-field"><span>Mode</span><select aria-label="Mode" value={draft.mode ?? ""} onChange={(event) => update("mode", event.target.value)}><option value="">Select mode</option>{draft.mode && !modes.includes(draft.mode) && <option value={draft.mode}>{draft.mode}</option>}{modes.map((mode) => <option key={mode}>{mode}</option>)}</select></label>
+          {onReadRadio && <button className="qso-read-radio" type="button" onClick={() => void readRadio()} disabled={busy || radioBusy}><Radio size={13} aria-hidden="true" /> {radioBusy ? "Reading…" : "Read radio"}</button>}
+        </div>
+        <div className="qso-time-row"><div className="qso-utc"><strong>UTC</strong><label><span>Date</span><input aria-label="Start UTC date" type="date" value={currentTime("start").date} onChange={(event) => changeTime("start", "date", event.target.value)} /></label><label><span>Time</span><input aria-label="Start UTC time" type="time" step={1} value={currentTime("start").time} onChange={(event) => changeTime("start", "time", event.target.value)} /></label></div><div className="qso-reports">{field({ key: "rstSent", label: "RST sent" })}{field({ key: "rstReceived", label: "RST received" })}</div></div>
+        {radioError && <p className="qso-radio-error" role="alert">{radioError}</p>}
+      </section>
+
+      <section className="qso-details" aria-labelledby="qso-details-title">
+        <h2 id="qso-details-title"><PanelsTopLeft size={15} aria-hidden="true" /> QSO details</h2>
+        <div className="qso-detail-columns">
+          <section className="qso-detail-column" aria-labelledby="qso-contact-title"><h3 id="qso-contact-title"><UserRound size={13} aria-hidden="true" /> Contact &amp; location</h3><div className="qso-fields">{groups.General.map(field)}</div></section>
+          <section className="qso-detail-column" aria-labelledby="qso-reference-title"><h3 id="qso-reference-title"><Star size={13} aria-hidden="true" /> References &amp; notes</h3><div className="qso-fields">{groups.References.map(field)}{groups.Notes.map(field)}</div></section>
+          <section className="qso-detail-column" aria-labelledby="qso-station-title"><h3 id="qso-station-title"><RadioTower size={13} aria-hidden="true" /> Station &amp; QSL</h3>
+            {captured.length > 0 && <div className="qso-captured"><strong>Station context</strong><dl>{captured.map((item, index) => <div key={`${item.label}-${index}`}><dt>{item.label}<small>{item.provenance}</small></dt><dd>{item.value}</dd></div>)}</dl></div>}
+            <div className="qso-fields">{groups.Station.map(field)}{groups.QSL.map(field)}</div>
+          </section>
+        </div>
+        <details className="qso-more"><summary>Additional QSO fields, timing and ADIF metadata</summary><div className="qso-more-content">
+          <div className="qso-more-fields">{field({ key: "submode", label: "Submode" })}{groups.StationExtra.map(field)}{groups.QSLExtra.map(field)}</div>
+          <div className="qso-utc qso-end-utc"><strong>End UTC</strong><label><span>Date</span><input aria-label="End UTC date" type="date" value={currentTime("end").date} onChange={(event) => changeTime("end", "date", event.target.value)} /></label><label><span>Time</span><input aria-label="End UTC time" type="time" step={1} value={currentTime("end").time} onChange={(event) => changeTime("end", "time", event.target.value)} /></label></div>
+          <div className="qso-metadata"><p>Local identity and sync fields are retained. Additional ADIF fields remain editable.</p><dl>{[["id", "Local ID"], ["wavelogID", "Wavelog ID"], ["stationProfileID", "Station profile ID"], ["updatedAt", "Updated UTC"], ["isDirty", "Local changes"], ["deletedAt", "Deleted UTC"]].map(([key, label]) => <div key={key}><dt>{label}</dt><dd>{draft[key] == null ? "—" : String(draft[key])}</dd></div>)}</dl><h3>Additional ADIF fields</h3><div className="qso-extra">{Object.entries(draft.extraFields ?? {}).map(([key, value]) => <label key={key}><span>{key}</span><input aria-label={`ADIF ${key}`} value={String(value)} onChange={(event) => setDraft((current) => current ? { ...current, extraFields: { ...(current.extraFields ?? {}), [key]: event.target.value } } : current)} /></label>)}</div>{Object.keys(draft.extraFields ?? {}).length === 0 && <p>No additional ADIF fields in this QSO.</p>}</div>
+        </div></details>
+      </section>
+
       {(showErrors || errors.length > 0) && <div className="qso-validation" role="alert">{errors.length ? <ul>{errors.map((issue) => <li key={issue}>{issue}</li>)}</ul> : <span>QSO is ready to save.</span>}</div>}
-      {radioError && <p className="qso-radio-error" role="alert">{radioError}</p>}
-      <div className="qso-actions"><label><input type="checkbox" checked={follow} onChange={(event) => setFollow(event.target.checked)} />Follow radio</label>{onReadRadio && <button type="button" onClick={() => void readRadio()} disabled={busy || radioBusy}>{radioBusy ? "Reading radio…" : "Read radio"}</button>}<span>Saved locally first. External sync follows separately.</span><button type="button" onClick={clear} disabled={busy}>Clear QSO</button><button className="qso-save" type="submit" disabled={!canSave}>{draft.wavelogID ? "Update QSO" : "Log QSO"} · ⌘↵</button></div>
-    </form></div><aside className="qso-inspector"><section><h3>Callsign intelligence</h3><strong>{sameLookup ? lookup?.country || draft.country || "Country unresolved" : draft.country || "Enter a callsign"}</strong><span>{sameLookup ? lookup?.source || "Lookup" : "No matching lookup"}{sameLookup && typeof lookup?.bearing === "number" ? ` · ${Math.round(lookup.bearing)}° · ${Math.round(lookup.distance_km)} km` : ""}</span><button type="button" onClick={fillLookup} disabled={!sameLookup || busy}>Fill empty fields from lookup</button></section><section><h3>Previous QSOs</h3>{matchingPrevious.length ? <div className="qso-previous">{matchingPrevious.map((item, index) => <div key={item.id ?? index}><time>{item.start ? new Date(item.start).toLocaleString("en-GB", { timeZone: "UTC", dateStyle: "short", timeStyle: "short" }) : "—"}</time><b>{item.band}</b><span>{item.mode}</span><small>{[item.qslReceived, item.lotwReceived].some(value => ["Y", "V"].includes(String(value).toUpperCase())) ? "Confirmed" : "Worked"}</small></div>)}</div> : <p>No local history for this call.</p>}</section>
-    <section><h3>Band / mode matrix · callsign</h3>{!request ? <p>Local matrix is unavailable.</p> : !/^[A-Z0-9/-]{3,32}$/.test(matrixCall) ? <p>Enter a callsign to inspect its local history.</p> : matchingMatrix?.callError ? <p>{matchingMatrix.callError}</p> : matchingMatrix?.callCells ? <StatusMatrix scope="Callsign" cells={matchingMatrix.callCells} /> : <p>Checking local call history…</p>}</section>
-    <section><h3>Band / mode matrix · country</h3>{matrixADIF === null ? <p>Country status needs a resolved DXCC entity for this callsign.</p> : !request ? <p>Country matrix is unavailable.</p> : matchingMatrix?.countryError ? <p>{matchingMatrix.countryError}</p> : matchingMatrix?.countryCells ? <><p>{lookup?.country || draft.country || `DXCC ${matrixADIF}`} · DXCC {matrixADIF}</p><StatusMatrix scope="Country" cells={matchingMatrix.countryCells} /></> : <p>Checking all local contacts for this DXCC entity…</p>}</section>
-    </aside></section>;
+      <footer className="qso-actions"><div className="qso-footer-context"><label><input type="checkbox" checked={follow} onChange={(event) => setFollow(event.target.checked)} />Follow radio</label><span>Saved locally first; Wavelog synchronization is manual.</span></div><div className="qso-footer-buttons"><button type="button" onClick={clear} disabled={busy}><CircleX size={13} aria-hidden="true" /> Clear QSO</button><button className="qso-save" type="submit" disabled={!canSave}><CircleCheck size={13} aria-hidden="true" /> {isEditing ? "Update QSO" : "Log QSO"}</button></div></footer>
+    </form></div>
+    <aside className="qso-inspector" aria-label="Contact context">
+      <section aria-labelledby="qso-intelligence-title"><h2 id="qso-intelligence-title"><ContactRound size={15} aria-hidden="true" /> Callsign intelligence</h2><div className="qso-intelligence"><strong>{sameLookup ? lookup?.country || draft.country || "Country unresolved" : draft.country || "Enter a callsign"}</strong>{sameLookup && lookup?.isNewCall === true && <b>NEW CALL</b>}</div><p>{sameLookup ? lookup?.gridSquare || draft.gridSquare || lookup?.source || "Grid unavailable" : draft.gridSquare || "Enter a callsign to see lookup details."}</p>{sameLookup && typeof lookup?.bearing === "number" && <p>{Math.round(lookup.bearing)}° · {Math.round(lookup.distance_km)} km</p>}<button type="button" onClick={fillLookup} disabled={!sameLookup || busy}>Fill empty fields from lookup</button></section>
+      <section aria-labelledby="qso-previous-title"><h2 id="qso-previous-title"><History size={15} aria-hidden="true" /> Previous QSOs</h2>{matchingPrevious.length ? <div className="qso-previous">{matchingPrevious.map((item, index) => <div key={item.id ?? index}><time>{item.start ? new Date(item.start).toLocaleString("en-GB", { timeZone: "UTC", dateStyle: "short", timeStyle: "short" }) : "—"}</time><b>{item.band}</b><span>{item.mode}</span><small>{[item.qslReceived, item.lotwReceived].some(value => ["Y", "V"].includes(String(value).toUpperCase())) ? "Confirmed" : "Worked"}</small></div>)}</div> : <div className="qso-empty"><History size={19} aria-hidden="true" /><strong>No local history</strong><p>No matching QSO is in the loaded local history.</p></div>}</section>
+      <section aria-labelledby="qso-matrix-title"><h2 id="qso-matrix-title"><Grid3X3 size={15} aria-hidden="true" /> Band / mode matrix</h2><div className="qso-matrix-section"><h3>Callsign</h3>{!request ? <p>Local matrix is unavailable.</p> : !/^[A-Z0-9/-]{3,32}$/.test(matrixCall) ? <p>Enter a callsign to inspect its local history.</p> : matchingMatrix?.callError ? <p>{matchingMatrix.callError}</p> : matchingMatrix?.callCells ? <StatusMatrix scope="Callsign" cells={matchingMatrix.callCells} /> : <p>Checking local call history…</p>}</div><div className="qso-matrix-section"><h3>Country</h3>{matrixADIF === null ? <p>Country status needs a resolved DXCC entity.</p> : !request ? <p>Country matrix is unavailable.</p> : matchingMatrix?.countryError ? <p>{matchingMatrix.countryError}</p> : matchingMatrix?.countryCells ? <><p>{lookup?.country || draft.country || `DXCC ${matrixADIF}`} · DXCC {matrixADIF}</p><StatusMatrix scope="Country" cells={matchingMatrix.countryCells} /></> : <p>Checking local contacts for this DXCC entity…</p>}</div></section>
+    </aside>
+  </section>;
 }
 
 export default QSOEditor;

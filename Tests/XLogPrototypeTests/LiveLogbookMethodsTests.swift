@@ -179,6 +179,10 @@ struct LiveLogbookMethodsTests {
         let inspected = try service.handle(method: "backup_inspect", params: ["name": name])
         #expect((inspected["manifest"] as? [String: Any])?["qsoCount"] as? Int == 1)
 
+        var currentPreferences = try #require(service.handle(method: "workspace_preferences_load", params: [:])["preferences"] as? [String: Any])
+        currentPreferences["deskBandMapBands"] = ["40m"]
+        _ = try service.handle(method: "workspace_preferences_save", params: ["preferences": currentPreferences])
+
         var draft = try #require(service.handle(method: "logbook_draft", params: [:])["qso"] as? [String: Any])
         draft["call"] = "K2NEW"
         _ = try service.handle(method: "logbook_save", params: ["qso": draft])
@@ -194,6 +198,8 @@ struct LiveLogbookMethodsTests {
         ])
         #expect(restored["qso_count"] as? Int == 1)
         #expect(restored["automatic_sync"] as? Bool == false)
+        #expect(restored["preferences_restored"] as? Bool == false)
+        #expect((try service.handle(method: "workspace_preferences_load", params: [:])["preferences"] as? [String: Any])?["deskBandMapBands"] as? [String] == ["40m"])
         let recoveryName = try #require(restored["recovery_backup"] as? String)
         let recovery = root.appendingPathComponent("OM0RX-xLog-Integrated Preview/Recovery/" + recoveryName)
         #expect(try XLogBackupManager().inspect(at: recovery).manifest.qsoCount == 2)
@@ -201,6 +207,99 @@ struct LiveLogbookMethodsTests {
         #expect(try service.handle(method: "logbook_list", params: [:])["total"] as? Int == 1)
         #expect(throws: WorkerFailure.self) {
             try service.handle(method: "backup_inspect", params: ["name": "../" + name])
+        }
+    }
+
+    @Test("Workspace preferences are explicit, backed up and restored only on request")
+    func backupPreferences() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let service = LiveLogbookMethods(supportDirectory: root)
+        _ = try service.handle(method: "workspace_create", params: ["mode": "empty"])
+        let keychainService = try service.currentKeychainService()
+        var original = try #require(service.handle(method: "workspace_preferences_load", params: [:])["preferences"] as? [String: Any])
+        original["deskBandMapBands"] = ["40m", "20m"]
+        original["detachedBandMapBands"] = ["17m"]
+        original["deskBandMapFollowsRadio"] = false
+        original["detachedBandMapLayout"] = "Single row"
+        original["bandMapFontScale"] = 1.5
+        _ = try service.handle(method: "workspace_preferences_save", params: ["preferences": original])
+        let created = try service.handle(method: "backup_create", params: ["name": "preferences"])
+        let name = try #require(created["name"] as? String)
+        let package = root.appendingPathComponent("OM0RX-xLog-Integrated Preview/Backups/" + name)
+        let backedUp = try #require(XLogBackupManager().inspect(at: package).preferences)
+        #expect(backedUp.deskBandMapBands == ["40m", "20m"])
+        #expect(backedUp.detachedBandMapLayout == "Single row")
+
+        var changed = original
+        changed["deskBandMapBands"] = ["10m"]
+        _ = try service.handle(method: "workspace_preferences_save", params: ["preferences": changed])
+        let retained = try #require(service.handle(method: "workspace_preferences_load", params: [:])["preferences"] as? [String: Any])
+        #expect(retained["deskBandMapBands"] as? [String] == ["10m"])
+        _ = try service.handle(method: "backup_restore", params: [
+            "name": name, "confirm_restore": true, "restore_preferences": true,
+        ])
+        #expect(try service.handle(method: "settings_load", params: [:])["automatic_sync"] as? Bool == false)
+        #expect(try service.currentKeychainService() == keychainService)
+        let restored = try #require(service.handle(method: "workspace_preferences_load", params: [:])["preferences"] as? [String: Any])
+        #expect(restored["deskBandMapBands"] as? [String] == ["40m", "20m"])
+        #expect(restored["bandMapFontScale"] as? Double == 1.5)
+        var invalid = restored
+        invalid["deskBandMapBands"] = ["bogus"]
+        #expect(throws: WorkerFailure.self) {
+            try service.handle(method: "workspace_preferences_save", params: ["preferences": invalid])
+        }
+        #expect((try service.handle(method: "workspace_preferences_load", params: [:])["preferences"] as? [String: Any])?["deskBandMapBands"] as? [String] == ["40m", "20m"])
+    }
+
+    @Test("External xLog backup import verifies and copies before a separate restore decision")
+    func externalBackupImport() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let sourceDBURL = root.appendingPathComponent("Source/source.sqlite")
+        let sourceDB = try LogbookDatabase(url: sourceDBURL)
+        try sourceDB.save(QSO(call: "K1EXT", band: "20m", mode: "CW"))
+        let source = root.appendingPathComponent("External/Native.xlogbackup")
+        let prefs = XLogBackupPreferences(deskBandMapBands: ["20m"], detachedBandMapBands: ["40m"],
+                                          deskBandMapFollowsRadio: false, detachedBandMapLayout: "Single row",
+                                          bandMapFontScale: 1, intelligenceBands: ["20m"],
+                                          clusterSpotOpensFullEditor: false)
+        _ = try XLogBackupManager().create(database: sourceDB, at: source,
+                                           settings: .defaults, preferences: prefs)
+        let service = LiveLogbookMethods(supportDirectory: root)
+        _ = try service.handle(method: "workspace_create", params: ["mode": "empty"])
+        let imported = try service.handle(method: "backup_import", params: ["source_path": source.path])
+        let name = try #require(imported["name"] as? String)
+        #expect(name.hasSuffix(".xlogbackup"))
+        #expect((imported["manifest"] as? [String: Any])?["qsoCount"] as? Int == 1)
+        #expect(imported["includes_preferences"] as? Bool == true)
+        #expect(try service.handle(method: "logbook_list", params: [:])["total"] as? Int == 0)
+        #expect((try service.handle(method: "backup_inspect", params: ["name": name])["manifest"] as? [String: Any])?["qsoCount"] as? Int == 1)
+        let second = try service.handle(method: "backup_import", params: ["source_path": source.path])
+        let secondName = try #require(second["name"] as? String)
+        #expect(secondName != name)
+        #expect((try service.handle(method: "backup_inspect", params: ["name": name])["manifest"] as? [String: Any])?["qsoCount"] as? Int == 1)
+        #expect(throws: WorkerFailure.self) {
+            try service.handle(method: "backup_import", params: ["source_path": root.path + "/External/../External/Native.xlogbackup"])
+        }
+        #expect(throws: WorkerFailure.self) {
+            try service.handle(method: "backup_import", params: ["source_path": root.path])
+        }
+        let linked = root.appendingPathComponent("External/Linked.xlogbackup")
+        try FileManager.default.createSymbolicLink(at: linked, withDestinationURL: source)
+        #expect(throws: WorkerFailure.self) {
+            try service.handle(method: "backup_import", params: ["source_path": linked.path])
+        }
+        let tampered = root.appendingPathComponent("External/Tampered.xlogbackup")
+        try FileManager.default.copyItem(at: source, to: tampered)
+        try FileManager.default.createSymbolicLink(at: tampered.appendingPathComponent("extra"), withDestinationURL: sourceDBURL)
+        #expect(throws: WorkerFailure.self) {
+            try service.handle(method: "backup_import", params: ["source_path": tampered.path])
+        }
+        let malformed = root.appendingPathComponent("External/Malformed.xlogbackup")
+        try FileManager.default.createDirectory(at: malformed, withIntermediateDirectories: true)
+        #expect(throws: XLogBackupError.self) {
+            try service.handle(method: "backup_import", params: ["source_path": malformed.path])
         }
     }
 

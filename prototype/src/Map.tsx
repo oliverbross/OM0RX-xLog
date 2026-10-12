@@ -555,12 +555,15 @@ export default function WorldMap({
     const map = mapRef.current;
     if (!map) return;
     const update = () => {
-      if (!map.getSource("land")) return;
+      if (mapRef.current !== map || !map.getSource("land")) return;
       for (const id of entityIDsRef.current) map.setFeatureState({ source: "land", id },
         { status: dxccStatuses?.[id] ?? "unknown" });
       redrawRef.current();
     };
-    if (map.isSourceLoaded("land")) update(); else map.once("load", update);
+    // Source existence is the safe probe: isSourceLoaded emits an error before
+    // registration, while isStyleLoaded can become false during later tile work
+    // even though the source remains ready and the initial load will not repeat.
+    if (map.getSource("land")) update(); else map.once("load", update);
     return () => { map.off("load", update); };
   }, [dxccStatuses]);
   useEffect(() => {
