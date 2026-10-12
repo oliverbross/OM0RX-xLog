@@ -69,6 +69,8 @@ public final class TCPCommandServer: @unchecked Sendable {
     private var connections: [ObjectIdentifier: NWConnection] = [:]
     private var sessions: [ObjectIdentifier: ConnectionSession] = [:]
 
+    public var boundPort: UInt16? { lock.withLock { listener?.port?.rawValue } }
+
     public init(
         label: String,
         framing: Framing,
@@ -95,11 +97,11 @@ public final class TCPCommandServer: @unchecked Sendable {
 
         let newListener = try NWListener(using: parameters)
         let startup = StartupGate()
-        newListener.stateUpdateHandler = { [onEvent] state in
+        newListener.stateUpdateHandler = { [weak newListener, onEvent] state in
             switch state {
             case .ready:
                 startup.resolve()
-                onEvent("Listening on 127.0.0.1:\(port)")
+                onEvent("Listening on 127.0.0.1:\(newListener?.port?.rawValue ?? port)")
             case let .failed(error):
                 startup.resolve(failure: error.localizedDescription)
                 onEvent("Listener failed on port \(port): \(error)")

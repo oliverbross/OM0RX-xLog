@@ -43,13 +43,14 @@ final class EmbeddedCATServersTests: XCTestCase {
     }
 
     func testSecondEmbeddedListenerCannotTakeOverActivePort() throws {
-        let port = try LoopbackSocket.freePort()
         let first = EmbeddedCATServers(
-            radio: SimulatedRadio(), configuration: .init(catPort: port),
-            authorizeMutation: { _ in true }
+            radio: SimulatedRadio(), configuration: .init(catPort: 0),
+            authorizeMutation: { _ in true }, allowEphemeralPorts: true
         )
         try first.start()
         defer { first.stop() }
+        let port = try XCTUnwrap(first.boundCATPort)
+        XCTAssertNotEqual(port, 0)
         let second = EmbeddedCATServers(
             radio: SimulatedRadio(), configuration: .init(rigCtlPort: port),
             authorizeMutation: { _ in true }
@@ -63,18 +64,23 @@ final class EmbeddedCATServersTests: XCTestCase {
     }
 
     func testCATAndRigCtlReadbackAndMutationGate() async throws {
-        let catPort = try LoopbackSocket.freePort()
-        let rigPort = try LoopbackSocket.freePort(excluding: catPort)
         let radio = SimulatedRadio(snapshot: RadioSnapshot(frequencyHz: 14_074_000))
         let ledger = MutationLedger()
         let servers = EmbeddedCATServers(
             radio: radio,
-            configuration: .init(catPort: catPort, rigCtlPort: rigPort),
+            configuration: .init(catPort: 0, rigCtlPort: 0),
             authorizeMutation: { mutation in await ledger.authorize(mutation) },
-            didCompleteMutation: { mutation in await ledger.complete(mutation) }
+            didCompleteMutation: { mutation in await ledger.complete(mutation) },
+            allowEphemeralPorts: true
         )
         try servers.start()
         defer { servers.stop() }
+
+        let catPort = try XCTUnwrap(servers.boundCATPort)
+        let rigPort = try XCTUnwrap(servers.boundRigCtlPort)
+        XCTAssertNotEqual(catPort, rigPort)
+        XCTAssertNotEqual(catPort, 0)
+        XCTAssertNotEqual(rigPort, 0)
 
         let cat = try LoopbackSocket.connect(port: catPort)
         defer { cat.close() }
@@ -99,16 +105,16 @@ final class EmbeddedCATServersTests: XCTestCase {
     }
 
     func testCATReadbackCanUseAuthoritativeObservedSnapshot() throws {
-        let port = try LoopbackSocket.freePort()
         let radio = SimulatedRadio(snapshot: RadioSnapshot(frequencyHz: 14_074_000))
         let server = EmbeddedCATServers(
             radio: radio,
-            configuration: .init(catPort: port),
+            configuration: .init(catPort: 0),
             observedSnapshot: { RadioSnapshot(frequencyHz: 7_074_000) },
-            authorizeMutation: { _ in true }
+            authorizeMutation: { _ in true }, allowEphemeralPorts: true
         )
         try server.start()
         defer { server.stop() }
+        let port = try XCTUnwrap(server.boundCATPort)
         let client = try LoopbackSocket.connect(port: port)
         defer { client.close() }
         XCTAssertEqual(try client.exchange("FA;"), "FA00007074000;")
@@ -117,13 +123,15 @@ final class EmbeddedCATServersTests: XCTestCase {
     func testTransmitRequiresOptInAndOwnedClientDisconnectReleases() async throws {
         let radio = SimulatedRadio()
         let ledger = MutationLedger()
-        let deniedPort = try LoopbackSocket.freePort()
         let denied = EmbeddedCATServers(
             radio: radio,
-            configuration: .init(catPort: deniedPort),
-            authorizeMutation: { mutation in await ledger.authorize(mutation) }
+            configuration: .init(catPort: 0),
+            authorizeMutation: { mutation in await ledger.authorize(mutation) },
+            allowEphemeralPorts: true
         )
         try denied.start()
+        defer { denied.stop() }
+        let deniedPort = try XCTUnwrap(denied.boundCATPort)
         let readOnly = try LoopbackSocket.connect(port: deniedPort)
         XCTAssertEqual(try readOnly.exchange("TX;"), "?;")
         readOnly.close()
@@ -133,15 +141,16 @@ final class EmbeddedCATServersTests: XCTestCase {
         XCTAssertFalse(deniedTransmit)
         XCTAssertEqual(deniedAuthorizations, 0)
 
-        let enabledPort = try LoopbackSocket.freePort()
         let enabled = EmbeddedCATServers(
             radio: radio,
-            configuration: .init(catPort: enabledPort, allowTransmit: true),
+            configuration: .init(catPort: 0, allowTransmit: true),
             authorizeMutation: { mutation in await ledger.authorize(mutation) },
-            didCompleteMutation: { mutation in await ledger.complete(mutation) }
+            didCompleteMutation: { mutation in await ledger.complete(mutation) },
+            allowEphemeralPorts: true
         )
         try enabled.start()
         defer { enabled.stop() }
+        let enabledPort = try XCTUnwrap(enabled.boundCATPort)
         let owner = try LoopbackSocket.connect(port: enabledPort)
         owner.write("TX;")
         try await waitUntil { (await radio.snapshot()).isTransmitting }
@@ -197,14 +206,6 @@ private final class LoopbackSocket {
         _ = Darwin.shutdown(descriptor, SHUT_RDWR)
         _ = Darwin.close(descriptor)
         descriptor = -1
-    }
-
-    static func freePort(excluding other: UInt16? = nil) throws -> UInt16 {
-        for _ in 0..<10 {
-            let lease = try reserve()
-            if lease.port != other { return lease.port }
-        }
-        throw NSError(domain: "EmbeddedCATTests", code: 1)
     }
 
     static func reserve() throws -> LoopbackSocket {

@@ -65,6 +65,7 @@ final class EmbeddedCATServers: @unchecked Sendable {
 
     private let radio: any RadioControlling
     private let configuration: Configuration
+    private let allowEphemeralPorts: Bool
     private let onEvent: EventHandler
     private let guardedRadio: GuardedRadio
     private let stationStateProvider: RigCtlCommandProcessor.StationStateProvider?
@@ -72,6 +73,9 @@ final class EmbeddedCATServers: @unchecked Sendable {
     private let lock = NSLock()
     private var catServer: TCPCommandServer?
     private var rigCtlServer: TCPCommandServer?
+
+    var boundCATPort: UInt16? { lock.withLock { catServer?.boundPort } }
+    var boundRigCtlPort: UInt16? { lock.withLock { rigCtlServer?.boundPort } }
 
     init(
         radio: any RadioControlling,
@@ -81,10 +85,15 @@ final class EmbeddedCATServers: @unchecked Sendable {
         didCompleteMutation: @escaping MutationCompletion = { _ in },
         stationStateProvider: RigCtlCommandProcessor.StationStateProvider? = nil,
         stationActionHandler: RigCtlCommandProcessor.StationActionHandler? = nil,
-        onEvent: @escaping EventHandler = { _, _ in }
+        onEvent: @escaping EventHandler = { _, _ in },
+        allowEphemeralPorts: Bool = false
     ) {
         self.radio = radio
         self.configuration = configuration
+        // Internal fixture opt-in only; user configuration still rejects zero.
+        // Let the OS atomically allocate and retain test ports, with no
+        // bind/close/rebind window where another process can take the port.
+        self.allowEphemeralPorts = allowEphemeralPorts
         guardedRadio = GuardedRadio(
             radio: radio,
             observedSnapshot: observedSnapshot ?? { await radio.snapshot() },
@@ -104,15 +113,15 @@ final class EmbeddedCATServers: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         guard catServer == nil, rigCtlServer == nil else { return }
-        if configuration.catPort == 0 || configuration.rigCtlPort == 0 {
+        if !allowEphemeralPorts && (configuration.catPort == 0 || configuration.rigCtlPort == 0) {
             throw StartError.invalidPort
         }
-        if let catPort = configuration.catPort, catPort == configuration.rigCtlPort {
+        if let catPort = configuration.catPort, catPort != 0, catPort == configuration.rigCtlPort {
             throw StartError.duplicatePort(catPort)
         }
         // The copied listener enables local endpoint reuse. A non-reuse bind
         // catches a pre-existing service before we hand the port to Network.
-        for port in [configuration.catPort, configuration.rigCtlPort].compactMap({ $0 }) {
+        for port in [configuration.catPort, configuration.rigCtlPort].compactMap({ $0 }) where port != 0 {
             guard Self.loopbackPortIsFree(port) else { throw StartError.portUnavailable(port) }
         }
 
