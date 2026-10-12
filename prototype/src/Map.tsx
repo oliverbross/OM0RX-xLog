@@ -3,6 +3,7 @@ import * as maplibregl from "maplibre-gl";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import geometryUrl from "../../Sources/XLogCore/Resources/dxcc-boundaries.geojson?url";
 import { type Spot, spots, fixtureBounds } from "./model";
+import { acceptanceActive } from "./acceptance";
 // MapLibre 6 resolves its default worker relative to import.meta.url. Vite's
 // optimized module and packaged bundle do not preserve that adjacent path.
 // Emit the standalone worker as a local asset and configure it before any map.
@@ -24,7 +25,21 @@ export default function WorldMap({
   selection.current = selected;
   useEffect(() => {
     if (!container.current) return;
+    const element = container.current;
     let map: maplibregl.Map;
+    let disposed = false;
+    let landFeatures = 0;
+    const evidence = () => {
+      if (disposed || !acceptanceActive) return;
+      const canvas = map.getCanvas();
+      const gl = canvas.getContext("webgl2") || canvas.getContext("webgl");
+      element.dataset.canvasWidth = String(canvas.width);
+      element.dataset.canvasHeight = String(canvas.height);
+      element.dataset.webgl = String(Boolean(gl && !gl.isContextLost() && gl.getError() === gl.NO_ERROR));
+      element.dataset.landFeatures = String(landFeatures);
+      element.dataset.renderedLandFeatures = String(map.isStyleLoaded() ? map.queryRenderedFeatures(undefined, { layers: ["land"] }).length : 0);
+      element.dataset.mapLoaded = String(map.isStyleLoaded() && map.isSourceLoaded("land") && landFeatures > 0);
+    };
     const fitFixture = () =>
       map.fitBounds(fixtureBounds(spots), {
         padding: { top: 24, right: 48, bottom: 75, left: 24 },
@@ -94,6 +109,23 @@ export default function WorldMap({
         },
       });
       mapRef.current = map;
+      map.on("load", () => {
+        const source = map.getSource("land") as maplibregl.GeoJSONSource;
+        source.getData().then((data) => {
+          if (disposed) return;
+          landFeatures = data.type === "FeatureCollection" ? data.features.length : 0;
+          evidence();
+        }).catch(() => {
+          if (!disposed) {
+            element.dataset.mapError = "Loaded geography could not be read back";
+            setError("Map geography could not be read back.");
+          }
+        });
+      });
+      // Native acceptance samples completed frames only; normal usage does not
+      // query rendered geography or consume WebGL error state.
+      map.on("idle", evidence);
+      document.addEventListener("xlog-native-acceptance", evidence);
       fitFixture();
       map.on("movestart", (event) => {
         if (event.originalEvent) preserveCamera.current = true;
@@ -125,22 +157,26 @@ export default function WorldMap({
       map.on("mouseleave", "spots", () => {
         map.getCanvas().style.cursor = "";
       });
-      map.on("error", () =>
+      map.on("error", () => {
+        element.dataset.mapError = "Map data could not render";
         setError(
           "Map data could not render. Logging and cluster selection remain available.",
-        ),
-      );
+        );
+      });
       const resize = new ResizeObserver(() => {
         map.resize();
         if (!preserveCamera.current && !selection.current) fitFixture();
       });
       resize.observe(container.current);
       return () => {
+        disposed = true;
+        document.removeEventListener("xlog-native-acceptance", evidence);
         resize.disconnect();
         map.remove();
         mapRef.current = null;
       };
     } catch (e) {
+      element.dataset.mapError = e instanceof Error ? e.message : String(e);
       setError(
         `Map unavailable: ${e instanceof Error ? e.message : String(e)}`,
       );

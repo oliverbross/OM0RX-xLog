@@ -40,6 +40,7 @@ import {
   type State,
 } from "./model";
 import { desktop, openMonitor, workerRequest } from "./worker";
+import { startAcceptance } from "./acceptance";
 type View =
   | "Operator Desk"
   | "Logbook"
@@ -375,6 +376,9 @@ export default function App() {
   const callsignRef = useRef<HTMLInputElement>(null);
   const channelRef = useRef<BroadcastChannel | null>(null);
   const current = isMonitor ? monitorState : state;
+  useEffect(() => {
+    if (desktop) startAcceptance(isMonitor);
+  }, []);
   useEffect(() => {
     const channel = new BroadcastChannel("xlog-p1-synthetic-monitor");
     channelRef.current = channel;

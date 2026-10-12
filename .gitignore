@@ -11,3 +11,7 @@ prototype/src-tauri/gen/
 prototype/src-tauri/binaries/
 prototype/test-results/
 prototype/playwright-report/
+prototype/distribution-metadata/
+prototype/dist-linux/
+prototype/dist-windows/
+prototype/packaging-evidence/

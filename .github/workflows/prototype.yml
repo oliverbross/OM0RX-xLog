@@ -102,6 +102,33 @@ jobs:
       - name: Build desktop executable (not an installer acceptance claim)
         working-directory: prototype
         run: npx tauri build --no-bundle
+      - name: Collect resolved dependency inventory and notices
+        run: node prototype/scripts/distribution-metadata.mjs
+      - name: Package Linux runtime and Debian application
+        if: runner.os == 'Linux'
+        run: bash prototype/scripts/package-linux.sh
+      - name: Package Windows portable runtime
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./prototype/scripts/package-windows.ps1 -SkipBuild -OutputRoot "$env:RUNNER_TEMP/xlog-windows-package"
+      - name: Upload Linux runtime packages
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: xlog-runtime-linux-${{ github.sha }}
+          if-no-files-found: error
+          retention-days: 30
+          path: prototype/dist-linux/
+      - name: Upload Windows runtime package
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: xlog-runtime-windows-${{ github.sha }}
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            ${{ runner.temp }}/xlog-windows-package/*.zip
+            ${{ runner.temp }}/xlog-windows-package/*.zip.sha256
       - name: Upload development executables and evidence inputs
         uses: actions/upload-artifact@v4
         with:
@@ -114,3 +141,60 @@ jobs:
             prototype/src-tauri/target/release/sqlite3.dll
             prototype/src-tauri/Cargo.lock
             prototype/package-lock.json
+  linux-runtime:
+    name: Linux runtime-only container acceptance
+    needs: prototype
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: xlog-runtime-linux-${{ github.sha }}
+          path: prototype/dist-linux
+      - name: Build runtime-only Ubuntu image with packaged deb
+        run: docker build -f prototype/scripts/Dockerfile.linux-runtime -t xlog-prototype-runtime .
+      - name: Native WebKit GUI, worker, relaunch and relocation with network disabled
+        run: |
+          mkdir -p prototype/packaging-evidence/linux
+          chmod 777 prototype/packaging-evidence/linux
+          docker image inspect xlog-prototype-runtime > prototype/packaging-evidence/linux/container-image.json
+          docker run --rm --network none --cap-drop ALL -v "$PWD/prototype/packaging-evidence/linux:/evidence" xlog-prototype-runtime
+      - name: Upload native Linux reports and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xlog-acceptance-linux-${{ github.sha }}
+          retention-days: 30
+          if-no-files-found: warn
+          path: prototype/packaging-evidence/linux/
+  windows-runtime:
+    name: Windows fresh-runner runtime acceptance
+    needs: prototype
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: xlog-runtime-windows-${{ github.sha }}
+          path: ${{ runner.temp }}/xlog-runtime-download
+      - name: Extract isolated package
+        shell: pwsh
+        run: |
+          $zip = "$env:RUNNER_TEMP/xlog-runtime-download/OM0RX-xLog-Prototype-windows-x86_64.zip"
+          $expected = (Get-Content "$zip.sha256").Split(' ')[0].ToLowerInvariant()
+          if ((Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { throw 'ZIP checksum mismatch' }
+          Expand-Archive -LiteralPath $zip -DestinationPath "$env:RUNNER_TEMP/xlog-windows-accept"
+      - name: Native WebView2 GUI and worker without installing Swift
+        shell: pwsh
+        run: |
+          $package = "$env:RUNNER_TEMP/xlog-windows-accept/OM0RX-xLog-Prototype-windows-x86_64"
+          & "$package/accept-windows.ps1" -PackageDirectory $package -EvidenceDirectory "$env:RUNNER_TEMP/xlog-windows-evidence" -RequireNoSwiftToolchain
+      - name: Upload native Windows reports and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xlog-acceptance-windows-${{ github.sha }}
+          retention-days: 30
+          if-no-files-found: warn
+          path: ${{ runner.temp }}/xlog-windows-evidence/

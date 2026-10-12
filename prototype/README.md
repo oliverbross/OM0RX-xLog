@@ -52,6 +52,14 @@ npm run tauri -- build --no-bundle
 
 The [matrix workflow](../.github/workflows/prototype.yml) is the canonical CI recipe. Development executables may require installed Swift runtime libraries. Building on a developer runner does not prove clean-machine packaging, signing or hardware operation.
 
+## Runtime packaging and native acceptance (P1 follow-up)
+
+The follow-up packages Swift runtime dependencies with the prototype, without changing the stable applications. After building, generate dependency evidence with `node prototype/scripts/distribution-metadata.mjs` from the repository root. Then use the [Linux packaging recipe](../docs/P1_LINUX_RUNTIME_PACKAGING.md) or [Windows portable packaging recipe](../docs/P1_WINDOWS_RUNTIME_PACKAGING.md). Runtime packages are distinct from the older raw development-executable artifacts.
+
+The workflow tests Linux packages in a network-disabled, non-root Ubuntu 24.04 runtime container without development toolchains. Windows acceptance uses a fresh native runner with no Swift setup, app-local DLLs, a restricted child environment and loaded-module evidence. That hosted Windows Server image is **not** Windows 11 consumer-desktop acceptance. The user will perform the final separate-desktop download/launch check; no station PC is remotely modified by this workflow.
+
+The explicit `--acceptance-report /absolute/new/report.json` switch exercises the actual embedded WebView and Swift helper, synthetic spot selection, keyboard logging, loaded map geometry and detached monitor readback. It records 14 observed checks, then exits; it is disabled in normal launches. Report targets must be new files. See the [current packaging acceptance ledger](../docs/P1_RUNTIME_ACCEPTANCE.md) for executed results and remaining gates, rather than assuming the existence of a script establishes a pass.
+
 ## Isolation and licensing
 
 The shell exposes only diagnostic worker requests and monitor creation; it has no shell/network/filesystem plugin. IPC has bounded framing, IDs, method allowlisting, four concurrent requests and an eight-second kill/reap deadline. The P1 shell intentionally uses one worker per request; persistent provider ownership/recovery belongs to P2.

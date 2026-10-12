@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod worker;
+mod acceptance;
 
 use tauri::Manager;
 
@@ -34,8 +35,16 @@ fn open_monitor(app: tauri::AppHandle) -> Result<(), String> {
 }
 
 fn main() {
+    let path = acceptance::report_path(std::env::args()).unwrap_or_else(|error| {
+        eprintln!("{error}");
+        std::process::exit(2);
+    });
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![worker_request, open_monitor])
+        .manage(acceptance::Acceptance::new(path))
+        .setup(|app| { acceptance::start_watchdog(app.handle().clone()); Ok(()) })
+        .invoke_handler(tauri::generate_handler![worker_request, open_monitor,
+            acceptance::acceptance_enabled, acceptance::acceptance_monitor,
+            acceptance::acceptance_monitor_result, acceptance::finish_acceptance])
         .run(tauri::generate_context!())
         .expect("Prototype application failed to start");
 }
