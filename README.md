@@ -17,6 +17,8 @@ Cross-platform development is isolated on [`codex/unified-xlog-prototype-p1`](ht
 
 The prototype now has Windows portable-ZIP and Ubuntu 24.04 Debian/archive packaging, including its Swift runtime. Native runtime checks, exact tested revisions, download links and remaining desktop/release gates are recorded in [packaged runtime acceptance](docs/P1_RUNTIME_ACCEPTANCE.md). No compiler or Swift installation is intended for users of these packages; platform system dependencies such as Windows WebView2 are documented explicitly.
 
+The packaging follow-up passes 39 tests per OS and native synthetic UI acceptance on macOS, Windows and Linux, including fresh-runtime Windows launches and isolated Ubuntu X11/Wayland launches. The user's Windows desktop check and production integration/release gates remain open; these packages are test prototypes, not the completed unified product.
+
 Development scope, acceptance evidence and the prioritized backlog are tracked in [PROJECT_STATUS.md](PROJECT_STATUS.md).
 
 ## Proposed local-station and cross-platform programme

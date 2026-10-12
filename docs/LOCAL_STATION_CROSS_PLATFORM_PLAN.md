@@ -1,9 +1,11 @@
 # Unified xLog: xCat, xCluster, local stations and cross-platform programme
 
-Planning revision: 3 · 2026-10-12 · Owner: Oliver Bross, OM0RX
+Planning revision: 4 · 2026-10-12 · Owner: Oliver Bross, OM0RX
 
-Status: **P0 preservation complete; P1 isolated prototype builds/tests pass on macOS, Windows and Linux. G1 remains open for clean-machine packaging and full platform acceptance**.
+Status: **P0 preservation complete; P1 isolated prototype passes 39 tests per OS, runtime packaging and native synthetic UI acceptance on macOS, Windows and Linux. G1 remains conditional on consumer-desktop and platform-release acceptance**.
 The user authorized P0/P1 after revision 2. See [preservation manifest](P0_MACOS_BASELINE.md), [prototype](../prototype/README.md) and [acceptance ledger](P1_PROTOTYPE_ACCEPTANCE.md). This remains the complete programme plan, not a claim of released Windows/Linux support or hardware acceptance. Installed applications, station configuration, credentials and live logbooks remain unchanged. Later phases are not silently marked complete by the synthetic prototype.
+
+The authorized packaging follow-up is recorded in [P1 runtime acceptance](P1_RUNTIME_ACCEPTANCE.md), including exact binaries, hashes, native loader evidence and test downloads. Windows portable ZIP and Ubuntu Debian/archive runtime dependencies are packaged; fresh native runs pass two Windows and four Linux launches without a Swift toolchain. Windows consumer-desktop, physical Linux GPU/Wayland, signing/notarization, final redistribution review and real-provider/data migration remain separate gates. The user's remote station PC has not been used or modified by this work.
 
 ## 1. Executive decision
 

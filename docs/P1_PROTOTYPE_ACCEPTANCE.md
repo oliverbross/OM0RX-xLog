@@ -2,6 +2,8 @@
 
 Date: 2026-10-12. Development branch: `codex/unified-xlog-prototype-p1`.
 
+This is the initial P1 evidence record. The subsequent [packaged runtime acceptance ledger](P1_RUNTIME_ACCEPTANCE.md) records the newer test counts, native Windows/Linux runtime checks and remaining release boundaries. Historical counts and artifacts below are retained as evidence, not presented as the latest packages.
+
 ## Production preservation
 
 The [P0 manifest](P0_MACOS_BASELINE.md) records production application hashes, source baselines and test counts. The v0.3.0 release is explicitly labelled **Current working macOS-only release**; its original ZIP and tag are preserved. README/release documentation was published separately to main before prototype code. The prototype has a separate bundle identity, output directory and memory-only fixtures. No production app is replaced/restarted, no live logbook is opened, and no station/configuration/credential write is part of P1.

@@ -1,0 +1,175 @@
+{
+  "arch": "x86_64",
+  "checks": {
+    "cluster_selection": true,
+    "final_desk": true,
+    "keyboard_clear": true,
+    "keyboard_focus": true,
+    "keyboard_log": true,
+    "logbook_readback": true,
+    "map_loaded": true,
+    "monitor_opened": true,
+    "monitor_snapshot": true,
+    "profile_manual": true,
+    "profile_simulator": true,
+    "worker_health": true,
+    "worker_parse_adif": true,
+    "worker_self_test": true
+  },
+  "details": {
+    "beforeMonitorMap": {
+      "canvasHeight": 586,
+      "canvasWidth": 754,
+      "capturedAt": 1791782968382,
+      "error": "",
+      "landFeatures": 342,
+      "landPixelProbes": 66,
+      "loaded": true,
+      "matchedLandPixels": 66,
+      "pixelMismatches": [],
+      "renderedLandFeatures": 299,
+      "tilesLoaded": true,
+      "visible": true,
+      "webgl": true
+    },
+    "call": "W1AW",
+    "finalMap": {
+      "canvasHeight": 586,
+      "canvasWidth": 754,
+      "capturedAt": 1791782970220,
+      "error": "",
+      "landFeatures": 342,
+      "landPixelProbes": 66,
+      "loaded": true,
+      "matchedLandPixels": 66,
+      "pixelMismatches": [],
+      "renderedLandFeatures": 299,
+      "tilesLoaded": true,
+      "visible": true,
+      "webgl": true
+    },
+    "frequency": "14.240000",
+    "health": {
+      "id": "d9cb5d85-8553-46d3-89a2-3982f29a845e",
+      "ok": true,
+      "result": {
+        "limits": {
+          "max_adif_bytes": 16384,
+          "max_fields_per_record": 128,
+          "max_records": 128,
+          "max_request_bytes": 32768,
+          "max_response_bytes": 65536
+        },
+        "methods": [
+          "health",
+          "parse_adif",
+          "self_test"
+        ],
+        "mode": "synthetic_only",
+        "platform": "Linux",
+        "protocol_version": 1,
+        "station_io": false,
+        "worker": "xlog-prototype-worker"
+      }
+    },
+    "initialMap": {
+      "canvasHeight": 586,
+      "canvasWidth": 754,
+      "capturedAt": 1791782967322,
+      "error": "",
+      "landFeatures": 342,
+      "landPixelProbes": 90,
+      "loaded": true,
+      "matchedLandPixels": 90,
+      "pixelMismatches": [],
+      "renderedLandFeatures": 302,
+      "tilesLoaded": true,
+      "visible": true,
+      "webgl": true
+    },
+    "mode": "SSB",
+    "monitor": {
+      "checks": {
+        "map_loaded": true,
+        "monitor_rendered": true
+      },
+      "details": {
+        "call": "W1AW",
+        "frequency": "14.240000",
+        "map": {
+          "canvasHeight": 281,
+          "canvasWidth": 760,
+          "capturedAt": 1791782969124,
+          "error": "",
+          "landFeatures": 342,
+          "landPixelProbes": 80,
+          "loaded": true,
+          "matchedLandPixels": 80,
+          "pixelMismatches": [],
+          "renderedLandFeatures": 313,
+          "tilesLoaded": true,
+          "visible": true,
+          "webgl": true
+        },
+        "mode": "SSB",
+        "profile": "simulator",
+        "qsoCount": 1
+      },
+      "embeddedUi": true,
+      "schema": 1,
+      "status": "passed",
+      "worker": false
+    },
+    "parse_adif": {
+      "id": "951a55db-26d8-432c-a5c0-448a55bd91d8",
+      "ok": true,
+      "result": {
+        "core_source": "Sources/XLogCore",
+        "record_count": 1,
+        "records": [
+          {
+            "fields": {
+              "APP_XLOG_TEST": "fixture",
+              "BAND": "20m",
+              "CALL": "W1AW",
+              "COMMENT": "Synthetic fixture",
+              "FREQ": "14.240",
+              "MODE": "SSB",
+              "QSO_DATE": "20261012",
+              "TIME_ON": "120000"
+            },
+            "qso": {
+              "band": "20m",
+              "call": "W1AW",
+              "frequency_hz": 14240000,
+              "mode": "SSB"
+            },
+            "semantic_identity_hash": "b0d23e2d1d97cbe5edeb51bee1aca6b89fcf2ce7b649e3bdd06af2c6b0527553"
+          }
+        ]
+      }
+    },
+    "qsoCount": 1,
+    "self_test": {
+      "id": "4431d104-b2f7-4272-b049-1583b8212d82",
+      "ok": true,
+      "result": {
+        "adif": "existing_core_roundtrip_passed",
+        "file_io": false,
+        "foundation_http": "urlsession_protocol_fixture_passed",
+        "network_contact": false,
+        "passed": true,
+        "sha256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        "sqlite": "memory_readback_passed",
+        "station_io": false,
+        "xml": "fixture_parse_passed"
+      }
+    }
+  },
+  "embeddedUi": true,
+  "platform": "linux",
+  "schema": 1,
+  "station_io": false,
+  "status": "passed",
+  "worker": true
+}

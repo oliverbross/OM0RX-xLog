@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "status": "passed",
+  "commit": "744e97033800df55e62fcaa7a9f467ac45ea3aab",
+  "platform": "ubuntu-24.04-amd64",
+  "developmentToolchainsPresent": false,
+  "nonRoot": true,
+  "framingTestCount": 2,
+  "embeddedUiLaunchCount": 4,
+  "installedDebLaunchCount": 3,
+  "relocatedArchiveLaunchCount": 1,
+  "x11LaunchCount": 3,
+  "waylandLaunchCount": 1,
+  "waylandCompositorBackend": "Weston nested X11 with pixman renderer",
+  "scope": "Synthetic core and embedded UI under Xvfb and nested Wayland; no hardware/accounts"
+}

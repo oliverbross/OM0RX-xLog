@@ -1,5 +1,7 @@
 # P1 runtime packaging inventory and remaining clean-machine gate
 
+Historical inventory: see [packaged runtime acceptance](P1_RUNTIME_ACCEPTANCE.md) for the follow-up packaging implementation, native loader checks and fresh-runtime results. The limitations below describe the original development archives, not the newer runtime packages.
+
 Date: 2026-10-12. Scope: static inventory of the development artifacts from [successful native matrix run 38196764698](https://github.com/oliverbross/OM0RX-xLog/actions/runs/38196764698), commit `c3d05eac4ef88f83d4a9ed93496aed0cd4788b37`. This is not an inventory of the subsequent UI revision `46f1bca` or a production release.
 
 **Result:** the archives contain native prototype executables, but do not establish an installable application with a closed runtime dependency set. Windows includes SQLite alone as an additional DLL; Linux includes no shared libraries. Missing Swift runtime packaging is an inference from that archive content, the dynamically linked Linux worker metadata and the build's installed Swift toolchains. Exact Windows/Linux import tables and recursive loader closure remain unverified.

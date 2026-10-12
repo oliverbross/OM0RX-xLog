@@ -1,0 +1,175 @@
+{
+  "arch": "x86_64",
+  "checks": {
+    "cluster_selection": true,
+    "final_desk": true,
+    "keyboard_clear": true,
+    "keyboard_focus": true,
+    "keyboard_log": true,
+    "logbook_readback": true,
+    "map_loaded": true,
+    "monitor_opened": true,
+    "monitor_snapshot": true,
+    "profile_manual": true,
+    "profile_simulator": true,
+    "worker_health": true,
+    "worker_parse_adif": true,
+    "worker_self_test": true
+  },
+  "details": {
+    "beforeMonitorMap": {
+      "canvasHeight": 397,
+      "canvasWidth": 484,
+      "capturedAt": 1791783120778,
+      "error": "",
+      "landFeatures": 342,
+      "landPixelProbes": 59,
+      "loaded": true,
+      "matchedLandPixels": 59,
+      "pixelMismatches": [],
+      "renderedLandFeatures": 313,
+      "tilesLoaded": true,
+      "visible": true,
+      "webgl": true
+    },
+    "call": "W1AW",
+    "finalMap": {
+      "canvasHeight": 397,
+      "canvasWidth": 484,
+      "capturedAt": 1791783123172,
+      "error": "",
+      "landFeatures": 342,
+      "landPixelProbes": 59,
+      "loaded": true,
+      "matchedLandPixels": 59,
+      "pixelMismatches": [],
+      "renderedLandFeatures": 313,
+      "tilesLoaded": true,
+      "visible": true,
+      "webgl": true
+    },
+    "frequency": "14.240000",
+    "health": {
+      "id": "a1466186-db24-4c70-b32e-5a6a63eb896b",
+      "ok": true,
+      "result": {
+        "limits": {
+          "max_adif_bytes": 16384,
+          "max_fields_per_record": 128,
+          "max_records": 128,
+          "max_request_bytes": 32768,
+          "max_response_bytes": 65536
+        },
+        "methods": [
+          "health",
+          "parse_adif",
+          "self_test"
+        ],
+        "mode": "synthetic_only",
+        "platform": "Windows",
+        "protocol_version": 1,
+        "station_io": false,
+        "worker": "xlog-prototype-worker"
+      }
+    },
+    "initialMap": {
+      "canvasHeight": 374,
+      "canvasWidth": 484,
+      "capturedAt": 1791783118362,
+      "error": "",
+      "landFeatures": 342,
+      "landPixelProbes": 76,
+      "loaded": true,
+      "matchedLandPixels": 76,
+      "pixelMismatches": [],
+      "renderedLandFeatures": 322,
+      "tilesLoaded": true,
+      "visible": true,
+      "webgl": true
+    },
+    "mode": "SSB",
+    "monitor": {
+      "checks": {
+        "map_loaded": true,
+        "monitor_rendered": true
+      },
+      "details": {
+        "call": "W1AW",
+        "frequency": "14.240000",
+        "map": {
+          "canvasHeight": 260,
+          "canvasWidth": 760,
+          "capturedAt": 1791783121873,
+          "error": "",
+          "landFeatures": 342,
+          "landPixelProbes": 67,
+          "loaded": true,
+          "matchedLandPixels": 67,
+          "pixelMismatches": [],
+          "renderedLandFeatures": 317,
+          "tilesLoaded": true,
+          "visible": true,
+          "webgl": true
+        },
+        "mode": "SSB",
+        "profile": "simulator",
+        "qsoCount": 1
+      },
+      "embeddedUi": true,
+      "schema": 1,
+      "status": "passed",
+      "worker": false
+    },
+    "parse_adif": {
+      "id": "979d0994-e149-435c-9e2e-69a722db0f97",
+      "ok": true,
+      "result": {
+        "core_source": "Sources/XLogCore",
+        "record_count": 1,
+        "records": [
+          {
+            "fields": {
+              "APP_XLOG_TEST": "fixture",
+              "BAND": "20m",
+              "CALL": "W1AW",
+              "COMMENT": "Synthetic fixture",
+              "FREQ": "14.240",
+              "MODE": "SSB",
+              "QSO_DATE": "20261012",
+              "TIME_ON": "120000"
+            },
+            "qso": {
+              "band": "20m",
+              "call": "W1AW",
+              "frequency_hz": 14240000,
+              "mode": "SSB"
+            },
+            "semantic_identity_hash": "b0d23e2d1d97cbe5edeb51bee1aca6b89fcf2ce7b649e3bdd06af2c6b0527553"
+          }
+        ]
+      }
+    },
+    "qsoCount": 1,
+    "self_test": {
+      "id": "f7aee9ab-3803-4c97-a45d-105c9a95a653",
+      "ok": true,
+      "result": {
+        "adif": "existing_core_roundtrip_passed",
+        "file_io": false,
+        "foundation_http": "urlsession_protocol_fixture_passed",
+        "network_contact": false,
+        "passed": true,
+        "sha256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        "sqlite": "memory_readback_passed",
+        "station_io": false,
+        "xml": "fixture_parse_passed"
+      }
+    }
+  },
+  "embeddedUi": true,
+  "platform": "windows",
+  "schema": 1,
+  "station_io": false,
+  "status": "passed",
+  "worker": true
+}

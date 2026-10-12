@@ -1,0 +1,540 @@
+{
+  "schema": 1,
+  "status": "passed",
+  "platform": "windows",
+  "package": "D:\\a\\_temp\\xlog-windows-accept\\OM0RX-xLog-Prototype-windows-x86_64",
+  "startedUtc": "2026-10-12T05:31:44.4076507Z",
+  "checks": [
+    {
+      "name": "payload-hashes",
+      "passed": true,
+      "evidence": {
+        "manifestSha256": "a05d34746815712e33b93c10e32a0880f75c4d73c6a23f44d0e24721e8038548",
+        "files": 516
+      }
+    },
+    {
+      "name": "native-isolation",
+      "passed": true,
+      "evidence": {
+        "noSwiftRequired": true,
+        "swiftAbsentFromProbes": true
+      }
+    },
+    {
+      "name": "webview-prerequisite",
+      "passed": true,
+      "evidence": [
+        {
+          "registry": "HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
+          "version": "131.0.2903.86"
+        }
+      ]
+    },
+    {
+      "name": "worker-valid-module-origins",
+      "passed": true,
+      "evidence": {
+        "appLocalRequired": true,
+        "manifest": "worker-valid-modules.json",
+        "count": 55
+      }
+    },
+    {
+      "name": "ndjson-open-stdin-fragment-correlation",
+      "passed": true,
+      "evidence": {
+        "responses": 3,
+        "methods": [
+          "health",
+          "parse_adif",
+          "self_test"
+        ],
+        "shutdown": "EOF exit 0",
+        "syntheticOnly": true
+      }
+    },
+    {
+      "name": "ndjson-malformed-oversized-recovery",
+      "passed": true,
+      "evidence": {
+        "shutdown": "EOF exit 0",
+        "responses": 3
+      }
+    },
+    {
+      "name": "worker-cli-self-test",
+      "passed": true,
+      "evidence": {
+        "shutdown": "exit 0",
+        "syntheticOnly": true
+      }
+    },
+    {
+      "name": "gui-run-1-module-origins",
+      "passed": true,
+      "evidence": {
+        "appLocalRequired": false,
+        "manifest": "gui-run-1-modules.json",
+        "count": 46
+      }
+    },
+    {
+      "name": "gui-run-1",
+      "passed": true,
+      "evidence": {
+        "nativeChecks": 14,
+        "screenshot": {
+          "sha256": "9681ee8940e7a9fb5e6f3507cd9a43d196b06ef5a959c8102a59ab24e64437c7",
+          "height": 768,
+          "path": "gui-run-1-desktop.png",
+          "limitation": "Full native CI desktop image; inspect for actual application rendering.",
+          "width": 1024,
+          "status": "captured"
+        },
+        "reportSha256": "730bc75948aef96ac83ecd78ce97bc677b171f756b6345a58f610213caeba607",
+        "exit": 0,
+        "report": "gui-run-1.json"
+      }
+    },
+    {
+      "name": "gui-run-2-module-origins",
+      "passed": true,
+      "evidence": {
+        "appLocalRequired": false,
+        "manifest": "gui-run-2-modules.json",
+        "count": 45
+      }
+    },
+    {
+      "name": "gui-run-2",
+      "passed": true,
+      "evidence": {
+        "nativeChecks": 14,
+        "screenshot": {
+          "sha256": "d7ae363e1047f95c67a15e2674d53f6826b8a5e8331290fb48c173082465a574",
+          "height": 768,
+          "path": "gui-run-2-desktop.png",
+          "limitation": "Full native CI desktop image; inspect for actual application rendering.",
+          "width": 1024,
+          "status": "captured"
+        },
+        "reportSha256": "8d0931c8a30f73a99661cc32857b3e127b03495d7a57bdc6c16e1c26d7c72893",
+        "exit": 0,
+        "report": "gui-run-2.json"
+      }
+    }
+  ],
+  "limitations": [
+    "GitHub Windows Server native acceptance is not Windows 11 consumer desktop acceptance.",
+    "Evergreen WebView2 is a declared installed-runtime prerequisite.",
+    "Unsigned internal prototype; no station, remote host, credentials or stable app is touched."
+  ],
+  "commit": "744e97033800df55e62fcaa7a9f467ac45ea3aab",
+  "os": {
+    "runnerImageVersion": "20261004.326.1",
+    "architecture": "X64",
+    "powershell": "7.6.6",
+    "description": "Microsoft Windows 10.0.20348",
+    "version": "Microsoft Windows NT 10.0.20348.0",
+    "runnerImage": "win22"
+  },
+  "toolchains": {
+    "swiftAbsentFromProbes": true,
+    "swiftRegisteredInstallations": [],
+    "commandsBeforeIsolation": {
+      "rustc": [
+        "C:\\Users\\runneradmin\\.cargo\\bin\\rustc.exe"
+      ],
+      "cargo": [
+        "C:\\Users\\runneradmin\\.cargo\\bin\\cargo.exe"
+      ],
+      "vcpkg": [
+        "C:\\vcpkg\\vcpkg.exe"
+      ],
+      "dumpbin": [],
+      "swift": [],
+      "node": [
+        "C:\\Program Files\\nodejs\\node.exe"
+      ],
+      "swiftc": []
+    },
+    "absenceLimit": "Command lookup, conventional installation paths and uninstall registry checked; not an exhaustive disk scan.",
+    "swiftKnownDirectories": []
+  },
+  "isolation": {
+    "developerEnvironmentRemoved": true,
+    "workingDirectory": "D:\\a\\_temp\\xlog-windows-evidence\\synthetic-profile",
+    "parentEnvironmentChanged": false,
+    "childProfile": "D:\\a\\_temp\\xlog-windows-evidence\\synthetic-profile",
+    "childPath": "D:\\a\\_temp\\xlog-windows-accept\\OM0RX-xLog-Prototype-windows-x86_64;C:\\Windows\\System32;C:\\Windows"
+  },
+  "webview": {
+    "installations": [
+      {
+        "registry": "HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
+        "version": "131.0.2903.86"
+      }
+    ],
+    "mode": "Evergreen prerequisite; acceptance does not install it",
+    "installed": true
+  },
+  "guiReports": [
+    {
+      "arch": "x86_64",
+      "checks": {
+        "cluster_selection": true,
+        "final_desk": true,
+        "keyboard_clear": true,
+        "keyboard_focus": true,
+        "keyboard_log": true,
+        "logbook_readback": true,
+        "map_loaded": true,
+        "monitor_opened": true,
+        "monitor_snapshot": true,
+        "profile_manual": true,
+        "profile_simulator": true,
+        "worker_health": true,
+        "worker_parse_adif": true,
+        "worker_self_test": true
+      },
+      "details": {
+        "beforeMonitorMap": {
+          "canvasHeight": 397,
+          "canvasWidth": 484,
+          "capturedAt": 1791783120778,
+          "error": "",
+          "landFeatures": 342,
+          "landPixelProbes": 59,
+          "loaded": true,
+          "matchedLandPixels": 59,
+          "pixelMismatches": [],
+          "renderedLandFeatures": 313,
+          "tilesLoaded": true,
+          "visible": true,
+          "webgl": true
+        },
+        "call": "W1AW",
+        "finalMap": {
+          "canvasHeight": 397,
+          "canvasWidth": 484,
+          "capturedAt": 1791783123172,
+          "error": "",
+          "landFeatures": 342,
+          "landPixelProbes": 59,
+          "loaded": true,
+          "matchedLandPixels": 59,
+          "pixelMismatches": [],
+          "renderedLandFeatures": 313,
+          "tilesLoaded": true,
+          "visible": true,
+          "webgl": true
+        },
+        "frequency": "14.240000",
+        "health": {
+          "id": "a1466186-db24-4c70-b32e-5a6a63eb896b",
+          "ok": true,
+          "result": {
+            "limits": {
+              "max_adif_bytes": 16384,
+              "max_fields_per_record": 128,
+              "max_records": 128,
+              "max_request_bytes": 32768,
+              "max_response_bytes": 65536
+            },
+            "methods": [
+              "health",
+              "parse_adif",
+              "self_test"
+            ],
+            "mode": "synthetic_only",
+            "platform": "Windows",
+            "protocol_version": 1,
+            "station_io": false,
+            "worker": "xlog-prototype-worker"
+          }
+        },
+        "initialMap": {
+          "canvasHeight": 374,
+          "canvasWidth": 484,
+          "capturedAt": 1791783118362,
+          "error": "",
+          "landFeatures": 342,
+          "landPixelProbes": 76,
+          "loaded": true,
+          "matchedLandPixels": 76,
+          "pixelMismatches": [],
+          "renderedLandFeatures": 322,
+          "tilesLoaded": true,
+          "visible": true,
+          "webgl": true
+        },
+        "mode": "SSB",
+        "monitor": {
+          "checks": {
+            "map_loaded": true,
+            "monitor_rendered": true
+          },
+          "details": {
+            "call": "W1AW",
+            "frequency": "14.240000",
+            "map": {
+              "canvasHeight": 260,
+              "canvasWidth": 760,
+              "capturedAt": 1791783121873,
+              "error": "",
+              "landFeatures": 342,
+              "landPixelProbes": 67,
+              "loaded": true,
+              "matchedLandPixels": 67,
+              "pixelMismatches": [],
+              "renderedLandFeatures": 317,
+              "tilesLoaded": true,
+              "visible": true,
+              "webgl": true
+            },
+            "mode": "SSB",
+            "profile": "simulator",
+            "qsoCount": 1
+          },
+          "embeddedUi": true,
+          "schema": 1,
+          "status": "passed",
+          "worker": false
+        },
+        "parse_adif": {
+          "id": "979d0994-e149-435c-9e2e-69a722db0f97",
+          "ok": true,
+          "result": {
+            "core_source": "Sources/XLogCore",
+            "record_count": 1,
+            "records": [
+              {
+                "fields": {
+                  "APP_XLOG_TEST": "fixture",
+                  "BAND": "20m",
+                  "CALL": "W1AW",
+                  "COMMENT": "Synthetic fixture",
+                  "FREQ": "14.240",
+                  "MODE": "SSB",
+                  "QSO_DATE": "20261012",
+                  "TIME_ON": "120000"
+                },
+                "qso": {
+                  "band": "20m",
+                  "call": "W1AW",
+                  "frequency_hz": 14240000,
+                  "mode": "SSB"
+                },
+                "semantic_identity_hash": "b0d23e2d1d97cbe5edeb51bee1aca6b89fcf2ce7b649e3bdd06af2c6b0527553"
+              }
+            ]
+          }
+        },
+        "qsoCount": 1,
+        "self_test": {
+          "id": "f7aee9ab-3803-4c97-a45d-105c9a95a653",
+          "ok": true,
+          "result": {
+            "adif": "existing_core_roundtrip_passed",
+            "file_io": false,
+            "foundation_http": "urlsession_protocol_fixture_passed",
+            "network_contact": false,
+            "passed": true,
+            "sha256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+            "sqlite": "memory_readback_passed",
+            "station_io": false,
+            "xml": "fixture_parse_passed"
+          }
+        }
+      },
+      "embeddedUi": true,
+      "platform": "windows",
+      "schema": 1,
+      "station_io": false,
+      "status": "passed",
+      "worker": true
+    },
+    {
+      "arch": "x86_64",
+      "checks": {
+        "cluster_selection": true,
+        "final_desk": true,
+        "keyboard_clear": true,
+        "keyboard_focus": true,
+        "keyboard_log": true,
+        "logbook_readback": true,
+        "map_loaded": true,
+        "monitor_opened": true,
+        "monitor_snapshot": true,
+        "profile_manual": true,
+        "profile_simulator": true,
+        "worker_health": true,
+        "worker_parse_adif": true,
+        "worker_self_test": true
+      },
+      "details": {
+        "beforeMonitorMap": {
+          "canvasHeight": 397,
+          "canvasWidth": 484,
+          "capturedAt": 1791783132332,
+          "error": "",
+          "landFeatures": 342,
+          "landPixelProbes": 59,
+          "loaded": true,
+          "matchedLandPixels": 59,
+          "pixelMismatches": [],
+          "renderedLandFeatures": 313,
+          "tilesLoaded": true,
+          "visible": true,
+          "webgl": true
+        },
+        "call": "W1AW",
+        "finalMap": {
+          "canvasHeight": 397,
+          "canvasWidth": 484,
+          "capturedAt": 1791783134648,
+          "error": "",
+          "landFeatures": 342,
+          "landPixelProbes": 59,
+          "loaded": true,
+          "matchedLandPixels": 59,
+          "pixelMismatches": [],
+          "renderedLandFeatures": 313,
+          "tilesLoaded": true,
+          "visible": true,
+          "webgl": true
+        },
+        "frequency": "14.240000",
+        "health": {
+          "id": "b16f3832-cb4f-4431-852a-45137fa8a6df",
+          "ok": true,
+          "result": {
+            "limits": {
+              "max_adif_bytes": 16384,
+              "max_fields_per_record": 128,
+              "max_records": 128,
+              "max_request_bytes": 32768,
+              "max_response_bytes": 65536
+            },
+            "methods": [
+              "health",
+              "parse_adif",
+              "self_test"
+            ],
+            "mode": "synthetic_only",
+            "platform": "Windows",
+            "protocol_version": 1,
+            "station_io": false,
+            "worker": "xlog-prototype-worker"
+          }
+        },
+        "initialMap": {
+          "canvasHeight": 374,
+          "canvasWidth": 484,
+          "capturedAt": 1791783130050,
+          "error": "",
+          "landFeatures": 342,
+          "landPixelProbes": 76,
+          "loaded": true,
+          "matchedLandPixels": 76,
+          "pixelMismatches": [],
+          "renderedLandFeatures": 322,
+          "tilesLoaded": true,
+          "visible": true,
+          "webgl": true
+        },
+        "mode": "SSB",
+        "monitor": {
+          "checks": {
+            "map_loaded": true,
+            "monitor_rendered": true
+          },
+          "details": {
+            "call": "W1AW",
+            "frequency": "14.240000",
+            "map": {
+              "canvasHeight": 260,
+              "canvasWidth": 760,
+              "capturedAt": 1791783133485,
+              "error": "",
+              "landFeatures": 342,
+              "landPixelProbes": 67,
+              "loaded": true,
+              "matchedLandPixels": 67,
+              "pixelMismatches": [],
+              "renderedLandFeatures": 317,
+              "tilesLoaded": true,
+              "visible": true,
+              "webgl": true
+            },
+            "mode": "SSB",
+            "profile": "simulator",
+            "qsoCount": 1
+          },
+          "embeddedUi": true,
+          "schema": 1,
+          "status": "passed",
+          "worker": false
+        },
+        "parse_adif": {
+          "id": "aad626ac-052e-4763-828a-bfc6f2dc3d80",
+          "ok": true,
+          "result": {
+            "core_source": "Sources/XLogCore",
+            "record_count": 1,
+            "records": [
+              {
+                "fields": {
+                  "APP_XLOG_TEST": "fixture",
+                  "BAND": "20m",
+                  "CALL": "W1AW",
+                  "COMMENT": "Synthetic fixture",
+                  "FREQ": "14.240",
+                  "MODE": "SSB",
+                  "QSO_DATE": "20261012",
+                  "TIME_ON": "120000"
+                },
+                "qso": {
+                  "band": "20m",
+                  "call": "W1AW",
+                  "frequency_hz": 14240000,
+                  "mode": "SSB"
+                },
+                "semantic_identity_hash": "b0d23e2d1d97cbe5edeb51bee1aca6b89fcf2ce7b649e3bdd06af2c6b0527553"
+              }
+            ]
+          }
+        },
+        "qsoCount": 1,
+        "self_test": {
+          "id": "6b0cdf95-a617-43ae-8c7b-e7a8b9fbf133",
+          "ok": true,
+          "result": {
+            "adif": "existing_core_roundtrip_passed",
+            "file_io": false,
+            "foundation_http": "urlsession_protocol_fixture_passed",
+            "network_contact": false,
+            "passed": true,
+            "sha256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+            "sqlite": "memory_readback_passed",
+            "station_io": false,
+            "xml": "fixture_parse_passed"
+          }
+        }
+      },
+      "embeddedUi": true,
+      "platform": "windows",
+      "schema": 1,
+      "station_io": false,
+      "status": "passed",
+      "worker": true
+    }
+  ],
+  "embeddedUi": true,
+  "worker": true,
+  "workerRegressionTests": 2,
+  "guiLaunches": 2,
+  "manualWindows11DesktopAcceptance": "pending user download/launch; no remote deployment performed",
+  "finishedUtc": "2026-10-12T05:32:19.7050343Z"
+}
