@@ -6,9 +6,11 @@ are part of overnight acceptance.
 
 ## Current state
 
-The source now wires Settings → CW, native preferences persistence, optional desk
-buttons and main-window shortcuts into the guarded output controller. This is not
-yet installed or hardware-accepted. Twenty slots support six named colours,
+Settings → CW, native preferences persistence, optional desk buttons and
+main-window shortcuts are integrated in signed/notarized installed alpha.7.
+Native Save/restart and disarmed-row checks passed; hardware and remaining native
+acceptance are open. See `ALPHA7_INSTALLED_ACCEPTANCE_2026-10-13.md` for exact
+evidence. Twenty slots support six named colours,
 F1–F12 / Shift+F1–F12, enable/desk visibility and strict ASCII previews. Tokens are
 `{MYCALL}`, `{CALL}`, `{RST}`, `{NAME}`, `{GRID}` and `{SERIAL}`; SERIAL reads the
 QSO's preserved ADIF `extraFields.STX`, never an invented counter.
@@ -134,8 +136,9 @@ all three OS packages still need real-target acceptance.
    Preserve its generation/intent/uncertainty gates; do not bypass them through
    ad-hoc UI serial calls. Complete packaged and real-target acceptance separately.
 
-Still required: exact signed/notarized Mac package, installed preference/shortcut
-and error-state checks without RF, physical keyer/driver hotplug and serial
+Mac alpha.7 packaging and installed preference round-trip are verified in the
+acceptance report above. Still required: native shortcut and error-state checks
+without RF, physical keyer/driver hotplug and serial
 timing, supported-radio connected acceptance, and actual Windows/Linux packages.
 No generic promise of all radios, firmware or operating systems follows from the
 fake-device tests. The new profile defaults to no desk row and no assigned keys.
