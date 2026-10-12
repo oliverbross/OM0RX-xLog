@@ -131,7 +131,10 @@ try {
     }
 
     $runtimeDirectories = [Collections.Generic.List[string]]::new()
-    $runtimeDirectories.Add((Split-Path $swift))
+    $runtimeKinds = @{}
+    $compilerDirectory = Split-Path $swift
+    $runtimeDirectories.Add($compilerDirectory)
+    $runtimeKinds[$compilerDirectory] = 'swift-compiler-host-runtime'
     # Official Windows toolset separates Runtimes from SDKs and Toolchains.
     # Discover the selected installed 6.3.3 runtime component from this compiler
     # vendor root, rather than inheriting its PATH entries.
@@ -142,27 +145,38 @@ try {
             foreach ($runtime in Get-ChildItem $runtimesRoot -Directory | Where-Object Name -Match '^6\.3\.3([+-]|$)') {
                 foreach ($file in Get-ChildItem $runtime.FullName -Filter '*.dll' -File -Recurse | Where-Object FullName -NotMatch '[\\/](arm64|aarch64|x86|i686)[\\/]') {
                     $runtimeDirectories.Add($file.DirectoryName)
+                    $runtimeKinds[$file.DirectoryName] = 'swift-distribution-runtime'
                 }
             }
         }
     }
     foreach ($path in $targetInfo.paths.runtimeLibraryPaths) {
-        if (Test-Path $path) { $runtimeDirectories.Add([IO.Path]::GetFullPath($path)) }
+        if (Test-Path $path) {
+            $directory = [IO.Path]::GetFullPath($path)
+            $runtimeDirectories.Add($directory)
+            if (-not $runtimeKinds.ContainsKey($directory)) { $runtimeKinds[$directory] = 'swift-sdk-runtime' }
+        }
     }
     if ($env:SDKROOT) {
         foreach ($suffix in @('usr/bin', 'usr/lib/swift/windows', 'usr/lib/swift/windows/x86_64')) {
             $path = Join-Path $env:SDKROOT $suffix
-            if (Test-Path $path) { $runtimeDirectories.Add([IO.Path]::GetFullPath($path)) }
+            if (Test-Path $path) {
+                $directory = [IO.Path]::GetFullPath($path)
+                $runtimeDirectories.Add($directory)
+                if (-not $runtimeKinds.ContainsKey($directory)) { $runtimeKinds[$directory] = 'swift-sdk-runtime' }
+            }
         }
     }
     # Explicit build-runtime directories are recorded; never search developer
     # PATH or arbitrary disk locations to make unresolved imports disappear.
     foreach ($path in $AdditionalRuntimeDirectory) {
-        $runtimeDirectories.Add((Resolve-Path $path -ErrorAction Stop).Path)
+        $directory = (Resolve-Path $path -ErrorAction Stop).Path
+        $runtimeDirectories.Add($directory)
+        if (-not $runtimeKinds.ContainsKey($directory)) { $runtimeKinds[$directory] = 'explicit-runtime-directory' }
     }
     $runtimeDirectories = @($runtimeDirectories | Sort-Object -Unique)
     $candidates = @{}
-    function Register-Candidates([string]$Directory, [string]$Origin) {
+    function Register-Candidates([string]$Directory, [string]$Origin, [int]$Priority) {
         foreach ($file in Get-ChildItem -LiteralPath $Directory -Filter '*.dll' -File) {
             $key = $file.Name.ToLowerInvariant()
             if ($Origin -eq 'visual-studio-redist-crt') {
@@ -171,13 +185,22 @@ try {
                 $candidates[$key] = [Collections.Generic.List[object]]::new()
             }
             if (-not $candidates.ContainsKey($key)) { $candidates[$key] = [Collections.Generic.List[object]]::new() }
-            $candidates[$key].Add([pscustomobject]@{ path = $file.FullName; origin = $Origin })
+            $candidates[$key].Add([pscustomobject]@{ path = $file.FullName; origin = $Origin; priority = $Priority })
         }
     }
-    foreach ($path in $runtimeDirectories) { Register-Candidates $path 'swift-toolchain-runtime' }
-    Register-Candidates $VCRedistDirectory 'visual-studio-redist-crt'
+    foreach ($path in $runtimeDirectories) {
+        $kind = $runtimeKinds[$path]
+        $priority = switch ($kind) {
+            'swift-distribution-runtime' { 30 }
+            'explicit-runtime-directory' { 20 }
+            'swift-sdk-runtime' { 10 }
+            default { 0 }
+        }
+        Register-Candidates $path $kind $priority
+    }
+    Register-Candidates $VCRedistDirectory 'visual-studio-redist-crt' 40
     # SQLite must come from the exact selected prefix, not a stale staged DLL.
-    $candidates['sqlite3.dll'] = @([pscustomobject]@{ path = $sqlite; origin = 'vcpkg-sqlite3-x64-windows' })
+    $candidates['sqlite3.dll'] = @([pscustomobject]@{ path = $sqlite; origin = 'vcpkg-sqlite3-x64-windows'; priority = 40 })
 
     New-Item -ItemType Directory -Path $package -Force | Out-Null
     $notices = New-Item -ItemType Directory -Path (Join-Path $package 'notices')
@@ -192,6 +215,7 @@ try {
         $queue.Enqueue($name)
     }
     $edges = [Collections.Generic.List[object]]::new()
+    $runtimeSelections = [Collections.Generic.List[object]]::new()
     $visited = @{}
     while ($queue.Count -gt 0) {
         $name = $queue.Dequeue()
@@ -215,13 +239,21 @@ try {
                 continue
             }
             if ($candidates.ContainsKey($dependency)) {
-                $choices = @($candidates[$dependency] | ForEach-Object { $_ })
+                $allChoices = @($candidates[$dependency] | ForEach-Object { $_ } | Sort-Object priority -Descending)
+                # Swift's Runtimes component is the application redistributable;
+                # compiler-host copies can differ (e.g. BlocksRuntime). Keep
+                # ambiguity checks within the chosen authoritative source tier.
+                $choices = @($allChoices | Where-Object priority -eq $allChoices[0].priority)
                 $hashes = @($choices | ForEach-Object { Hash $_.path } | Sort-Object -Unique)
                 if ($hashes.Count -ne 1) { throw "Ambiguous runtime import $dependency from: $($choices.path -join ', '). Select consistent toolchain directories." }
                 $choice = $choices[0]
                 Copy-Item -LiteralPath $choice.path -Destination (Join-Path $package $dependency)
                 $origins[$dependency] = $choice
                 $queue.Enqueue($dependency)
+                $shadowed = @($allChoices | Where-Object priority -lt $choice.priority | ForEach-Object {
+                    [pscustomobject]@{ path = $_.path; origin = $_.origin; priority = $_.priority; sha256 = Hash $_.path }
+                })
+                $runtimeSelections.Add([pscustomobject]@{ import = $dependency; selected = $choice; sha256 = $hashes[0]; shadowed = $shadowed })
                 $edges.Add([pscustomobject]@{ from = $name; import = $dependency; resolution = 'app-local'; source = $choice.path; sha256 = $hashes[0] })
                 continue
             }
@@ -312,6 +344,7 @@ Full build-source path and version details are intentionally recorded there.
     Write-Json (Join-Path $package 'provenance.json') ([ordered]@{
         schema = 1; product = 'OM0RX-xLog Prototype'; commit = $commit; platform = 'windows-x86_64'; sourceDateEpoch = $epoch
         swiftVersion = $swiftVersion; swiftTargetInfo = $targetInfo; swiftRuntimeDirectories = $runtimeDirectories; vcRedistDirectory = $VCRedistDirectory
+        runtimeSelections = $runtimeSelections.ToArray(); runtimeSelectionPolicy = 'Official Swift 6.3.3 Runtimes component before explicit runtime directories, SDK runtime directories, then compiler-host fallback. Conflicting copies within a source tier fail. CRT and SQLite use their canonical selected sources.'
         webview = @{ mode = 'evergreen-prerequisite'; source = 'https://learn.microsoft.com/microsoft-edge/webview2/concepts/distribution'; bundled = $false }
         payloads = $payloads; notices = $noticeEvidence; noticeLimit = 'Non-Swift third-party upstream license snapshots must be checked against exact packaged versions before public distribution.'
         signing = 'unsigned internal prototype'; hamlib = 'not included'; acceptance = 'pending native clean-job acceptance'
