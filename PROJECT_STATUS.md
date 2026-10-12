@@ -1,7 +1,7 @@
 # OM0RX-xLog project status
 
 Last updated: 2026-10-12
-Release `v0.2.1` adds the complete native AJD/WAJA/JCC/JCG/AJA/WACA/WAGA/WAPC/WCSA catalogue, backed by bundled MIT-licensed reference data and live verification against the 67,823-contact local log, plus Swift 5.10/macOS 14 CI compatibility.
+Release `v0.2.2` adds the complete native AJD/WAJA/JCC/JCG/AJA/WACA/WAGA/WAPC/WCSA catalogue, backed by bundled MIT-licensed reference data and live verification against the 67,823-contact local log, plus Swift 5.10 source and Xcode 16.2/macOS 14 CI compatibility.
 Latency follow-up: xCat now omits redundant RX-VFO/split writes for simplex
 spot changes (one remote command instead of three; 57 Swift tests pass).
 The Windows source separates radio polling from serialized accessory following
@@ -242,7 +242,7 @@ Current local evidence at this revision:
 - [x] Impeccable finish review returns SHIP with no blocker.
 - [x] Create public `oliverbross/OM0RX-xLog` repository and push `main`.
 - [x] Tag and publish xLog `v0.1.0` with the signed macOS archive.
-- [x] Tag and publish xLog `v0.2.1` with the Developer ID-signed macOS archive, Swift 5.10/macOS 14 CI and complete nine-award acceptance evidence.
+- [x] Tag and publish xLog `v0.2.2` with the Developer ID-signed macOS archive, Swift 5.10 source/Xcode 16.2 macOS 14 CI and complete nine-award acceptance evidence.
 - [x] Commit/push xCluster snapshot and award-handoff changes.
 - [x] Tag and publish xCluster `v0.1.6` with the signed macOS archive.
 - [x] Verify public repository descriptions, README rendering and release downloads.

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.2 — 2026-10-12
+
+- Pinned GitHub's macOS 14 runner to its installed Xcode 16.2 toolchain so the Swift Testing suite runs in CI as it does in release builds.
+
 ## 0.2.1 — 2026-10-12
 
 - Restored Swift 5.10/macOS 14 CI compatibility for semantic QSO timestamp normalization.

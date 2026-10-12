@@ -7,8 +7,12 @@ on:
 jobs:
   test-and-package:
     runs-on: macos-14
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_16.2.app/Contents/Developer
     steps:
       - uses: actions/checkout@v4
+      - name: Verify toolchain
+        run: swift --version
       - name: Test
         run: swift test
       - name: Package app
