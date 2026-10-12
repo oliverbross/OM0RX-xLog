@@ -227,6 +227,123 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
+    /// Initial creation and all mutations use SQLite's write lock as well as the
+    /// instance lock, so two service instances cannot accept the same revision.
+    public func operatorDraft(initial: QSO) throws -> OperatorDraftSnapshot {
+        try lock.withLock {
+            if let existing = try readOperatorDraft() { return existing }
+            try execute("BEGIN IMMEDIATE;")
+            do {
+                if let existing = try readOperatorDraft() {
+                    try execute("COMMIT;")
+                    return existing
+                }
+                try initial.validateOperatorDraft(forSave: false)
+                guard try lookup(localID: initial.id) == nil else { throw OperatorDraftError.existingContact }
+                let draft = OperatorDraftSnapshot(revision: 0, qso: initial)
+                try writeOperatorDraft(draft)
+                try execute("COMMIT;")
+                return draft
+            } catch {
+                try? execute("ROLLBACK;")
+                throw error
+            }
+        }
+    }
+
+    public func operatorDraftReceipt(operationID: UUID) throws -> OperatorDraftReceipt? {
+        try lock.withLock {
+            try withStatement("SELECT payload FROM xlog_operator_receipts WHERE operation_id = ?;") { statement in
+                bind(operationID.uuidString, to: 1, in: statement)
+                let step = sqlite3_step(statement)
+                if step == SQLITE_DONE { return nil }
+                guard step == SQLITE_ROW, let bytes = sqlite3_column_blob(statement, 0) else { throw error() }
+                return try decoder.decode(OperatorDraftReceipt.self, from: Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 0))))
+            }
+        }
+    }
+
+    /// Save, draft advance and receipt are one transaction. A repeated operation
+    /// returns its original receipt even after another window advances the draft.
+    /// Only creating new contacts is exposed here; editing a logged QSO requires
+    /// a separate record revision contract and cannot hijack this draft's ID.
+    public func applyOperatorDraft(_ mutation: OperatorDraftMutation, nextDraft: QSO) throws -> OperatorDraftReceipt {
+        try lock.withLock {
+            guard (0..<9_007_199_254_740_991).contains(mutation.expectedRevision) else { throw OperatorDraftError.invalid }
+            try execute("BEGIN IMMEDIATE;")
+            do {
+                if let receipt = try operatorDraftReceipt(operationID: mutation.operationID) {
+                    guard receipt.mutation == mutation else { throw OperatorDraftError.operationReused }
+                    try execute("COMMIT;")
+                    return receipt
+                }
+                guard let current = try readOperatorDraft() else { throw OperatorDraftError.notInitialized }
+                guard current.qso.id == mutation.draftID, current.revision == mutation.expectedRevision else {
+                    throw OperatorDraftError.conflict(current)
+                }
+                let updated: QSO
+                var saved: QSO?
+                switch mutation.action {
+                case .replace:
+                    guard let replacement = mutation.qso, replacement.id == current.qso.id else { throw OperatorDraftError.invalid }
+                    try replacement.validateOperatorDraft(forSave: false)
+                    updated = replacement
+                case .clear, .save:
+                    guard mutation.qso == nil, nextDraft.id != current.qso.id, nextDraft.call.isEmpty else { throw OperatorDraftError.invalid }
+                    try nextDraft.validateOperatorDraft(forSave: false)
+                    guard try lookup(localID: nextDraft.id) == nil else { throw OperatorDraftError.existingContact }
+                    updated = nextDraft
+                    if mutation.action == .save {
+                        try current.qso.validateOperatorDraft(forSave: true)
+                        guard try lookup(localID: current.qso.id) == nil else { throw OperatorDraftError.existingContact }
+                        try save(current.qso)
+                        guard let value = try lookup(localID: current.qso.id) else { throw LogbookDatabaseError.corruptRecord }
+                        saved = value
+                    }
+                }
+                let draft = OperatorDraftSnapshot(revision: current.revision + 1, qso: updated)
+                try writeOperatorDraft(draft)
+                let receipt = OperatorDraftReceipt(mutation: mutation, draft: draft, savedQSO: saved)
+                let payload = try encoder.encode(receipt)
+                try withStatement("INSERT INTO xlog_operator_receipts(operation_id, action, revision, payload) VALUES(?,?,?,?);") { statement in
+                    bind(mutation.operationID.uuidString, to: 1, in: statement)
+                    bind(mutation.action.rawValue, to: 2, in: statement)
+                    sqlite3_bind_int64(statement, 3, draft.revision)
+                    _ = payload.withUnsafeBytes { sqlite3_bind_blob(statement, 4, $0.baseAddress, Int32($0.count), Self.transient) }
+                    try stepDone(statement)
+                }
+                // Keystroke/autofill receipts are bounded. Older retries still
+                // fail the revision fence; contact-save receipts never expire.
+                try withStatement("DELETE FROM xlog_operator_receipts WHERE action <> 'save' AND revision <= ?;") { statement in
+                    sqlite3_bind_int64(statement, 1, draft.revision - 256)
+                    try stepDone(statement)
+                }
+                try execute("COMMIT;")
+                return receipt
+            } catch {
+                try? execute("ROLLBACK;")
+                throw error
+            }
+        }
+    }
+
+    private func readOperatorDraft() throws -> OperatorDraftSnapshot? {
+        try withStatement("SELECT payload FROM xlog_operator_draft WHERE singleton = 1;") { statement in
+            let step = sqlite3_step(statement)
+            if step == SQLITE_DONE { return nil }
+            guard step == SQLITE_ROW, let bytes = sqlite3_column_blob(statement, 0) else { throw error() }
+            return try decoder.decode(OperatorDraftSnapshot.self, from: Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 0))))
+        }
+    }
+
+    private func writeOperatorDraft(_ draft: OperatorDraftSnapshot) throws {
+        let payload = try encoder.encode(draft)
+        try withStatement("INSERT INTO xlog_operator_draft(singleton, payload) VALUES(1,?) ON CONFLICT(singleton) DO UPDATE SET payload=excluded.payload;") { statement in
+            _ = payload.withUnsafeBytes { sqlite3_bind_blob(statement, 1, $0.baseAddress, Int32($0.count), Self.transient) }
+            try stepDone(statement)
+        }
+    }
+
     public func fetch(limit: Int = 500, search: String = "", offset: Int = 0) throws -> [QSO] {
         try lock.withLock {
             let needle = search.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1193,6 +1310,18 @@ public final class LogbookDatabase: @unchecked Sendable {
           conflict_json BLOB NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_conflicts_detected ON sync_conflicts(detected_at DESC);
+        CREATE TABLE IF NOT EXISTS xlog_operator_draft(
+          singleton INTEGER PRIMARY KEY CHECK(singleton = 1),
+          payload BLOB NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS xlog_operator_receipts(
+          operation_id TEXT PRIMARY KEY,
+          action TEXT NOT NULL CHECK(action IN ('replace','clear','save')),
+          revision INTEGER NOT NULL,
+          payload BLOB NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_operator_transient_receipts
+          ON xlog_operator_receipts(revision) WHERE action <> 'save';
         CREATE TABLE IF NOT EXISTS sync_outbox(
           local_id TEXT PRIMARY KEY,
           attempt_count INTEGER NOT NULL DEFAULT 0,

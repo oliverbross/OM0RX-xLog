@@ -49,6 +49,12 @@ Native `Sources/XLogApp/ContentView.swift:187–220` renders **Station log** wit
 
 ## Parity rows, ordered by operational impact
 
+### Configurable canvas and all-screen undocking — 2026-10-13
+
+The operator expanded the earlier three-window requirement to **all screens**, explicitly including Logbook. The existing docked arrangement remains available; selective undocking and fully undocked mode must both work. Native menus must preserve every route, and all panels need configurable visibility, placement and size. See [WS-01 through WS-08](WORKSPACE_CANVAS_AND_NATIVE_WINDOWS_PLAN_2026-10-13.md).
+
+Status: **partial foundation only**. The new database/worker API provides revision-checked operator drafts and transactional Save receipts with offline tests. The current renderer still owns polling, draft UI state and child projections. It must be replaced by shared session ownership before closing the main renderer can count as fully undocked acceptance. Logged-contact edit concurrency, canvas/menu implementation, per-window capabilities and exact native/OS proof remain open. RUMlog reference comparison is a follow-on, not an asserted parity result.
+
 ### Operator-requested detachable workspaces — 2026-10-12
 
 **Required; acceptance pending.** DX Cluster, World Map and Band Maps must each

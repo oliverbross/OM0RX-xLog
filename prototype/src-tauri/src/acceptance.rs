@@ -103,6 +103,7 @@ pub fn validate_local_request(request: &Value) -> Result<(), String> {
         | "workspace_status" | "workspace_create" | "workspace_preferences_load" | "workspace_preferences_save"
         | "settings_load" | "settings_save" | "logbook_draft" | "logbook_catalog" | "logbook_list"
         | "logbook_save" | "logbook_delete" | "logbook_undo" | "logbook_stats" | "logbook_previous"
+        | "logbook_operator_draft" | "logbook_operator_draft_apply" | "logbook_operator_draft_receipt"
         | "logbook_matrix" | "logbook_import_adif" | "logbook_export_adif"
         | "backup_create" | "backup_list" | "backup_inspect" | "backup_restore"
     ));

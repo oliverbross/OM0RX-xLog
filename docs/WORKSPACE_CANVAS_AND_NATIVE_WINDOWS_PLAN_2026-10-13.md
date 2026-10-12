@@ -1,0 +1,137 @@
+# Configurable Operator Desk and native windows
+
+Status: shared-draft foundation in implementation; canvas, menus and independent-window acceptance remain open.
+Request: 13 October 2026. Baseline: `0cc7ecc` / installed alpha.13.
+
+## Product contract
+
+The Operator Desk becomes a configurable workspace, with two complete modes and selective undocking between them:
+
+- **Docked:** add, hide, move and resize individual panels on a canvas.
+- **Undocked:** place the same panels in independent native windows, including across monitors. The main desk need not remain open.
+
+User clarification: **everything, including Logbook, must be detachable**. Keep the existing docked layout available as a preset. An operator may keep that layout and undock only selected screens; fully undocked operation is optional, not a forced replacement. Each detached screen offers Dock back, restoring its prior placement where possible. Persist mixed arrangements as well as the two endpoint modes.
+
+Replace sidebar navigation with native menus. Keep every existing destination reachable, including Settings, Sync, Awards, Chaser & DX, Station Control and Monitor. Preserve the existing navy/cyan/teal visual language, compact toolbars and keyboard-first operation. Do not add redundant title rows.
+
+This request extends the ongoing parity programme; it does not mark earlier requests complete. No radio, amplifier, CW transmission or rotor-motion testing is authorized while the station is off.
+
+## Tracked acceptance items
+
+| ID | Outcome | Status |
+| --- | --- | --- |
+| WS-01 | Every desk panel can be shown/hidden, moved and resized | Planned |
+| WS-02 | Settings → Workspace provides panel selection and named layouts | Planned |
+| WS-03 | Native menus replace navigation links on all three desktop platforms | Planned |
+| WS-04 | Window menu opens/focuses individual native panel windows | Planned |
+| WS-05 | Docked, mixed and fully undocked arrangements share one live session | Planned |
+| WS-06 | Layouts and window geometry survive restart and monitor changes | Planned |
+| WS-07 | Concurrent windows cannot duplicate logging or station actions | Planned |
+| WS-08 | Responsive, accessible and measured fast interaction at laptop/4K sizes | Planned |
+
+## Interaction defaults
+
+- Layout is locked during normal operation. **Edit layout** enables header drag handles, resize handles, add/hide and keyboard move/resize controls. Escape cancels the current manipulation.
+- Use free placement with optional 8-point snapping, not a fixed top row. Support bring forward/back and a fit/recover action so covered panels remain reachable.
+- Settings → Workspace manages enabled panels, Docked/Undocked mode, saved layouts, rename/delete and restore defaults. Hiding a panel never disconnects equipment or deletes its data.
+- Start with the current arrangement as the default. Save wide-monitor geometry independently of temporary viewport changes. Compact layouts must preserve readable controls rather than merely shrinking text.
+- Avoid normal page scrollbars through adaptive panel internals, paging and fit-to-window layouts. If a custom arrangement cannot fit at readable minimum sizes, offer Fit, another preset or undocking; retain keyboard-accessible recovery instead of silently clipping content. Temporary overflow is a recovery fallback, not the default operating layout.
+- Band maps and Cluster can remain a tab group or be placed independently. Existing column choices, widths, filters and band-map preferences survive migration.
+- Unconfigured rotor remains hidden by default; configured antenna/status can be selected instead. Preserve CW macro buttons, alerts, propagation, station metrics and station identity as available panels; do not lose sidebar information when removing navigation.
+- Window menu includes individual panels, Show Operator Desk, Dock All, Undock Enabled Panels and Recover Windows. Opening an existing panel focuses its singleton window.
+- Closing a detached panel hides it, not the station connection. Closing the desk while other windows remain does not end the session. Closing the last workspace window restores the desk; explicit Quit performs coordinated shutdown. Platform activation can always recover the desk.
+
+## Findings that govern implementation
+
+`OperatorDesk.tsx` uses a fixed top grid. `OperatorWorkspace.tsx` owns only the lower map/tools split and saves its state in localStorage. Existing native detached windows and `detached_geometry.rs` provide useful singleton and work-area-clamping foundations.
+
+The Rust worker process is already a singleton, but this alone is insufficient: `LiveApp.tsx` owns polling, the QSO draft, lookup generations, follow-radio, auto-rotor and child-window projections. Detached Cluster requests are forwarded to the main renderer. Fully undocked mode must remove this dependency; a hidden main webview is not an accepted controller.
+
+`workspace_preferences_save` currently replaces the full preference object. Layout and Settings writers need isolated revisions or scoped updates to avoid overwriting each other.
+
+## Implementation sequence
+
+### 1. Shared session and draft safety (WS-05, WS-07)
+
+Add an application-managed native session controller, reusing the existing worker and device owners. Move shared polling, selected-spot orchestration, lookup generations and automatic-action coordination out of renderer effects incrementally. Keep the current UI operational while migrating each responsibility; never run old and new owners simultaneously.
+
+Store the canonical QSO draft with the workspace service. Use revision-checked mutations containing draft ID, operation ID and expected revision. A stale edit returns a conflict rather than replacing newer text. Preserve unacknowledged text in its initiating view until reconciled.
+
+Make Save transactional with a durable operation receipt: saving, advancing the draft and recording the receipt succeed together. Repeating an operation after a lost response returns the original result, not another contact. Radio command uncertainty is different: reconcile observed state and do not automatically replay writes.
+
+Expose validated, capability-scoped session operations and revisioned subscriptions. Snapshot/event handshakes recover gaps, renderer reloads and backend generation changes. Use actual native window identity, not caller-supplied labels. Service failures disable command controls and disarm automatic actions without replay on reconnect.
+
+Critical files: `prototype/src-tauri/src/main.rs`, `worker.rs`, new `operator_session.rs`; `prototype/src/LiveApp.tsx`, `live/DetachedClusterBridge.ts`, `live/worker.ts`, new `live/operatorSession.ts`; workspace draft/logbook handlers under `Sources/XLogPrototypeSupport` and transaction support under `Sources/XLogCore`.
+
+### 2. Panel registry and durable layouts (WS-01, WS-02)
+
+Extract reusable panels with a registry defining stable ID, title, renderer, minimum/default size, singleton label and capability set. Render the same implementation docked and detached, avoiding divergent control behaviour.
+
+Initial inventory: Active QSO/full editor, logbook, callsign intelligence, rotor/antenna, world map, band maps, cluster, station controls/status, station identity, CW/macros, alerts and propagation. Every remaining screen (including Settings, Sync, Awards and Chaser & DX) must also open in its own window; these do not need to become mandatory canvas widgets. Use a route inventory to prevent omissions.
+
+Create a versioned layout document containing named presets, active preset, logical design size, per-panel placement (`canvas`, `window`, `hidden`), rectangle, stacking order, lock and snap preferences. Reject unknown IDs, duplicate singleton placements and invalid/unbounded geometry. Use a separate layout revision and scoped patch operations. Persist committed changes, not every pointer move.
+
+Migrate existing lower-split preferences once after successful native persistence. Include portable layouts in backups; retain machine-specific display placement separately. Older backups receive compatible defaults.
+
+Critical files: `live/workspacePreferences.ts`, `live/operatorWorkspacePreferences.ts`, new `live/operatorPanels.tsx`, `live/PanelFrame.tsx`, `Sources/XLogPrototypeSupport/LiveLogbookMethods.swift`, `Sources/XLogCore/BackupManager.swift`, Settings workspace section and associated Codable preference validation.
+
+### 3. Canvas and responsive panels (WS-01, WS-08)
+
+Add `OperatorCanvas.tsx` and replace fixed composition in `OperatorDesk.tsx`/`OperatorWorkspace.tsx`. Implement move/resize, snapping, keyboard equivalents, focus restoration, show/hide and recovery. Keep edit affordances absent from locked operating mode. Define the direction contract in the surface brief before UI edits and follow the Impeccable craft-floor/review workflow.
+
+Use lightweight transforms during dragging, bounded resize updates for maps, and final persistence at interaction end. Subscribe each panel only to its necessary state; do not cause a whole-desk render or history query on each telemetry event. Maintain compact breakpoints for QSO fields, intelligence, rotor and toolbars.
+
+### 4. Native menus and independent windows (WS-03 through WS-06)
+
+Extend platform-default menus with Log/View, Station, Workspace and Window actions. Route commands through the backend regardless of focused window. Remove sidebar links only after a route inventory proves all destinations reachable. Retain navigation only for non-native browser fixtures where a native menu cannot exist.
+
+Generalize singleton window construction and add a shared `DetachedPanelSurface.tsx`. Replace renderer-to-renderer projections with session subscriptions. Limit capabilities by panel rather than granting every window main-window permissions.
+
+Extend geometry recovery to every window, including Monitor and the main desk. Preserve preferred display-relative logical bounds, scale/display identity, normal restore bounds and maximized state. Do not overwrite preferred bounds merely because a monitor was temporarily unplugged. Migrate existing physical geometry conservatively; always clamp a usable title bar into a current work area.
+
+Critical files: `prototype/src-tauri/src/main.rs`, `detached_geometry.rs`, `capabilities/default.json`, `tauri.conf.json`, React entry routing, detached surfaces, menu/session tests.
+
+### 5. Verification and release (all items)
+
+Keep separate evidence for unit tests, browser interaction, native runtime, signed packages and each operating system. Do not label a canvas-only milestone fully undocked. Package from a clean committed source revision; test and identify that exact installed build.
+
+Required gates:
+
+- Two editing surfaces observe one draft; conflicting edits are handled, acknowledged edits survive restart, repeated Save/double-click/lost response creates exactly one QSO. Logging retries never tune or transmit.
+- Close or deliberately fail the main renderer: all remaining windows continue receiving updates and processing permitted operations. Instrumentation shows one device owner, one polling owner and no duplicate automatic actions.
+- All former sidebar routes and Window actions work with main and child focus on macOS, Windows and Linux. Unsupported platform evidence remains explicitly pending.
+- Add/hide/move/resize/dock/undock, keyboard manipulation, preset/reset, restart, backup restore and simultaneous layout/Settings edits retain correct state.
+- Test 1280×800, 1440×900 and 3840×2160, UI scaling, mixed-DPI/negative-origin displays, unplug/reconnect, maximize/restore and window recovery. No unreachable controls or routine outer overflow.
+- Record drag frame-time, input latency, lookup time, renderer CPU/memory and subscription/poll counts against alpha.13 with generated 100,000-contact data and dense spot fixtures. Target fluid 60 Hz manipulation and under 100 ms local control feedback; separate remote lookup/network delay from UI latency. Do not claim speed without measurements.
+- Existing cluster reconnect/spot retention, maps, awards, Chaser, standalone/Wavelog mode, CW safety, rotor ownership and offline behaviour remain covered by regression tests. Use fixtures/instrumented backends while hardware is off; no RF acceptance claim.
+
+## Delivery checkpoints
+
+1. Shared-session and draft safety proven behind existing UI.
+2. Configurable docked canvas and backed-up layouts accepted.
+3. Native menus and independent panels accepted with main renderer absent.
+4. Exact packaged cross-platform verification and performance evidence recorded.
+
+No user answer is needed for these defaults. This plan records the requested endpoint; implementation and release gates remain open.
+
+### Checkpoint A — durable draft foundation
+
+Implemented in source, not connected to the installed UI: `OperatorDraft.swift`, transactional database methods and three bounded worker operations (`logbook_operator_draft`, `logbook_operator_draft_apply`, `logbook_operator_draft_receipt`). Replace, Clear and Save require the current draft ID/revision and a unique operation ID. Conflicts return the current snapshot without applying the stale request. Save atomically inserts a new QSO, advances the draft and writes a durable receipt; a retry returns that original result without resetting a newer draft. Reusing an operation ID with different input is rejected.
+
+Only new-contact drafts are covered here. Logged-contact editing still uses its existing path and needs its own revision contract before becoming multi-window. Existing frontend draft/localStorage behaviour is deliberately unchanged until session migration; no independent-window gate is closed by these methods alone.
+
+Recent non-save receipts retain a 256-revision retry window; older retries fail the revision fence. Save receipts do not expire. Receipt responses are historical operation results, not fresh snapshots. Drafts are limited to 24 KiB and request parameters to 32,000 bytes beneath the native IPC limit. Existing native window permissions are not expanded: only `main` can call these operations until the panel capability registry is implemented.
+
+Evidence: 10 focused Swift tests pass, covering separate database connections, simultaneous saves, restart/lost acknowledgement, operation-ID misuse, injected receipt-write rollback, logged-contact identity protection, validation, bounded transient receipts, backup recovery, worker conflict responses and terminal shutdown. The shared Swift regression suite passed before the final shutdown-fence addition (80 Swift Testing cases plus XCTest suites); the focused 10-test rerun includes that addition. Native core regression tests pass (73). Rust worker boundary tests pass (15), as do local acceptance boundary tests (9). Cross-platform CI on this new source and renderer migration remain pending.
+
+## Follow-on: RUMlogNG workflow and feature comparison
+
+User added this reference pass after the canvas/native-window request. Confirmed installed app identity through the native app inventory: `de.dl2rum.RUMlogNG`; it was not running at inspection. Its menus/settings have not yet been audited in this pass. Do not represent remembered features as current observations.
+
+Track as **RUM-01: reference audit**, **RUM-02: evidence-backed gap matrix**, and **RUM-03: prioritized independent implementations**, all pending. Finish the requested workspace changes before expanding into the broader RUMlog parity programme; inspect menu conventions early enough to inform our menu naming and grouping.
+
+Audit the installed app's menu hierarchy and shortcuts, preferences categories, separate windows and layout recovery, log editing/search/import/export, QSL/LoTW/Club Log, awards, cluster/band maps, station/rotor/CW, contest workflows and useful integrations. Record the installed version and observed behaviour, distinguish disabled/unconfigured capabilities from missing features, and avoid changing its configuration or logbook. Do not open secret fields, trigger sync/import, select tuning spots, connect hardware or run station controls as part of the comparison.
+
+Produce a matrix with the observed workflow, xLog counterpart, status (equivalent/partial/missing/not applicable), concrete user benefit, priority, implementation scope and acceptance test. Inspect existing xLog code before declaring a gap. Use the findings to reproduce familiar user-facing conventions and capabilities in our own architecture, not to clone every menu item blindly.
+
+Implement independently from observed behaviour and public documentation. Do not copy proprietary source, icons, artwork or manual text. Do not assume licensing or patent status from the user's general statement; evaluate any specific third-party reuse separately. Keep the modern cross-platform UI, responsiveness and single-session safety contract intact.

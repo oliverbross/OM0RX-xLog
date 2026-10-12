@@ -15,6 +15,12 @@ const MAX_IN_FLIGHT: usize = 16;
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(45);
 pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     validate_request(request)?;
+    // New shared-draft commands are staged behind the current main surface.
+    // Detached editors receive explicit registry capabilities in the next stage;
+    // an unknown/new label must not inherit logging rights by default.
+    if request["method"].as_str().is_some_and(|method| method.starts_with("logbook_operator_draft")) && label != "main" {
+        return Err("This window cannot access the operator draft.".into());
+    }
     if matches!(label, "world-map" | "band-maps") {
         if !matches!(request["method"].as_str(), Some("cluster_snapshot" | "logbook_stats" | "health")) {
             return Err("Detached maps are read-only.".into());
@@ -82,6 +88,9 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "opportunities_snapshot",
         "opportunities_refresh",
         "logbook_draft",
+        "logbook_operator_draft",
+        "logbook_operator_draft_apply",
+        "logbook_operator_draft_receipt",
         "logbook_catalog",
         "logbook_list",
         "logbook_save",
@@ -609,6 +618,17 @@ mod tests {
             }
             for method in ["station_tune", "station_action", "station_snapshot", "logbook_save", "sync_run", "settings_save", "secret_save", "workspace_create", "backup_restore", "hamlib_control"] {
                 assert!(validate_surface(label, &json!({"id":"r","method":method,"params":{}})).is_err());
+            }
+        }
+    }
+
+    #[test]
+    fn shared_draft_is_scoped_to_the_authorized_editor() {
+        for method in ["logbook_operator_draft", "logbook_operator_draft_apply", "logbook_operator_draft_receipt"] {
+            let request = json!({"id":"draft-test","method":method,"params":{}});
+            assert!(validate_surface("main", &request).is_ok());
+            for label in ["monitor", "world-map", "band-maps", "dx-cluster", "unknown", ""] {
+                assert!(validate_surface(label, &request).is_err());
             }
         }
     }

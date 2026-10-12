@@ -184,15 +184,37 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                         "total": try db.count(search: search)]
             case "logbook_draft":
                 try requireKeys(params, allowed: [])
-                let settings = try currentSettings()
-                let draft = QSO(call: "", band: "20m", mode: "SSB",
-                                stationLocation: settings.stationLocation,
-                                radio: settings.defaultRadio,
-                                txPower: settings.defaultPower,
-                                operatorCall: settings.operatorCall,
-                                myCall: settings.stationCall,
-                                myGrid: settings.gridSquare)
-                return ["qso": try json(draft)]
+                return ["qso": try json(newOperatorDraft())]
+            case "logbook_operator_draft":
+                try requireKeys(params, allowed: [])
+                return ["draft": try json(readyDatabase().operatorDraft(initial: newOperatorDraft()))]
+            case "logbook_operator_draft_receipt":
+                try requireKeys(params, allowed: ["operationID"], required: ["operationID"])
+                guard let value = params["operationID"] as? String, let id = UUID(uuidString: value) else { throw invalid() }
+                let receipt = try readyDatabase().operatorDraftReceipt(operationID: id)
+                return ["receipt": try receipt.map { try json($0) } ?? NSNull()]
+            case "logbook_operator_draft_apply":
+                try requireKeys(params, allowed: ["operationID", "draftID", "expectedRevision", "action", "qso"],
+                                required: ["operationID", "draftID", "expectedRevision", "action"])
+                _ = try integer(params, "expectedRevision", default: -1, range: 0...9_007_199_254_740_990)
+                guard JSONSerialization.isValidJSONObject(params),
+                      try JSONSerialization.data(withJSONObject: params).count <= 32_000 else { throw invalid() }
+                let mutation: OperatorDraftMutation
+                do { mutation = try decode(params) } catch { throw invalid() }
+                do {
+                    let receipt = try readyDatabase().applyOperatorDraft(mutation, nextDraft: newOperatorDraft())
+                    return ["status": "applied", "receipt": try json(receipt)]
+                } catch OperatorDraftError.conflict(let current) {
+                    // Explicit non-applied result gives the client an atomic
+                    // conflict snapshot without overwriting its pending text.
+                    return ["status": "conflict", "draft": try json(current)]
+                } catch OperatorDraftError.operationReused {
+                    throw WorkerFailure("draft_operation_reused", "This operation ID was already used for a different draft change.")
+                } catch OperatorDraftError.notInitialized {
+                    throw WorkerFailure("draft_not_initialized", "Load the shared operator draft before changing it.")
+                } catch OperatorDraftError.existingContact {
+                    throw WorkerFailure("draft_existing_contact", "This draft cannot replace an existing logged contact.")
+                } catch OperatorDraftError.invalid { throw invalid() }
             case "logbook_save":
                 try requireKeys(params, allowed: ["qso"], required: ["qso"])
                 guard let object = params["qso"] as? [String: Any] else { throw invalid() }
@@ -601,6 +623,13 @@ public final class LiveLogbookMethods: @unchecked Sendable {
         defaults.set(value.clusterSpotOpensFullEditor, forKey: "OM0RX-xLog.clusterSpotOpensFullEditor")
         defaults.set(value.detachedBandMapFollowsRadio, forKey: "OM0RX-xLog.detachedBandMapFollowsRadio")
         defaults.set(value.detachedBandMapModes, forKey: "OM0RX-xLog.detachedBandMapModes")
+    }
+
+    private func newOperatorDraft() throws -> QSO {
+        let settings = try currentSettings()
+        return QSO(call: "", band: "20m", mode: "SSB", stationLocation: settings.stationLocation,
+                   radio: settings.defaultRadio, txPower: settings.defaultPower,
+                   operatorCall: settings.operatorCall, myCall: settings.stationCall, myGrid: settings.gridSquare)
     }
 
     private func requireKeys(_ params: [String: Any], allowed: Set<String>, required: Set<String> = []) throws {

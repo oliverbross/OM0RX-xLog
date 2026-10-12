@@ -19,6 +19,14 @@ packaged UI result. Keep unresolved items here across releases.
   Integration app in place without extra archived app copies and publish an exact
   prerelease. Stable native release must remain available.
 
+### Configurable workspace and native windows — 13 October
+
+Tracked in [the workspace implementation plan](WORKSPACE_CANVAS_AND_NATIVE_WINDOWS_PLAN_2026-10-13.md), WS-01 through WS-08. Preserve the existing docked layout, allow selective undocking of **every screen including Logbook**, and support fully undocked operation. All panels need show/hide, move/resize and saved arrangements. Native menus replace navigation links without dropping station information or existing destinations. RUMlogNG menu/settings/workflow comparison is queued as RUM-01 through RUM-03; its detailed audit is not complete.
+
+The first source stage adds a durable revisioned operator draft and atomic Save/receipt transaction, with 10 focused tests and Rust boundary tests passing. It is not yet wired to the UI. Main-renderer polling/projection extraction, editable logged-contact revisions, canvas, menus, window lifecycle and native/OS acceptance remain open; no full-undocked claim is made.
+
+Exact installed alpha.13 source `e126d6f4ba7009494db76f9fbf49ed4ca44ff8a9` now has successful three-platform run `38314805976` (Mac/Windows/Linux build jobs plus Windows fresh-runner and Linux runtime-only acceptance). Push Mac run `38314721512` also passed. These results apply to alpha.13, not the new workspace source stage, and do not prove physical desktop or radio acceptance.
+
 ### Alpha.8 installed checkpoint
 
 The signed/notarized alpha.8 bundle passed all 21 generated large-log checks
