@@ -31,6 +31,7 @@ type Configuration = { servers: Server[]; reconnect: boolean; requestSkimmer: bo
   palette: Palette; filter: Filter; commandPresets: CommandPreset[]; forwardSpotsToFlex: boolean };
 type Forwarding = { accepted_count: number; status: string };
 type Response = { configuration?: Configuration; snapshot?: Snapshot; password_servers?: string[];
+  password_storage_available?: boolean; flex_forwarding_available?: boolean;
   forwarding?: Forwarding; snapshot_truncated?: boolean };
 type HistoryRow = { id: string; date: string; call: string; band: string; mode: string;
   rstSent: string; rstReceived: string; grid: string; lotwSent: string; lotwReceived: string; confirmed: boolean };
@@ -70,6 +71,10 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
   const [configuration, setConfiguration] = useState<Configuration | null>(null);
   const [filter, setFilter] = useState<Filter>(emptyFilter);
   const [passwordServers, setPasswordServers] = useState<string[]>([]);
+  const [passwordStorageAvailable, setPasswordStorageAvailable] = useState((snapshot as Response | null)?.password_storage_available !== false);
+  const [forwardingAvailable, setForwardingAvailable] = useState((snapshot as Response | null)?.flex_forwarding_available !== false);
+  const canEditPasswords = passwordControlsEnabled && passwordStorageAvailable;
+  const passwordUnavailableReason = !passwordStorageAvailable ? "Secure password storage is unavailable on this platform" : "Dock back to manage passwords";
   const [savedServerIDs, setSavedServerIDs] = useState<string[]>([]);
   const [passwordDrafts, setPasswordDrafts] = useState<Record<string, string>>({});
   const [activePicker, setActivePicker] = useState<keyof Filter | null>(null);
@@ -86,6 +91,8 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
 
   useEffect(() => {
     const next = snapshot as Response | null;
+    if (next?.password_storage_available != null) setPasswordStorageAvailable(next.password_storage_available);
+    if (next?.flex_forwarding_available != null) setForwardingAvailable(next.flex_forwarding_available);
     if (next?.snapshot) setLive(next.snapshot);
     if (next?.configuration) {
       const remoteConfiguration = JSON.stringify(next.configuration);
@@ -116,6 +123,8 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
     requestRef.current("cluster_snapshot", {}).then((raw) => {
       if (!active) return;
       const next = raw as Response;
+      if (next.password_storage_available != null) setPasswordStorageAvailable(next.password_storage_available);
+      if (next.flex_forwarding_available != null) setForwardingAvailable(next.flex_forwarding_available);
       if (next.configuration) { setConfiguration(next.configuration); lastRemoteConfiguration.current = JSON.stringify(next.configuration); setFilter(next.configuration.filter); setSavedServerIDs(next.configuration.servers.map((s) => s.id)); }
       if (next.snapshot) setLive(next.snapshot);
       setPasswordServers(next.password_servers ?? []);
@@ -124,6 +133,8 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
     }).catch(() => { if (active) setError("Cluster state is unavailable. Check the worker and retry."); });
     const timer = window.setInterval(() => {
       requestRef.current("cluster_snapshot", {}).then((raw) => {
+        if (active && (raw as Response).password_storage_available != null) setPasswordStorageAvailable((raw as Response).password_storage_available!);
+        if (active && (raw as Response).flex_forwarding_available != null) setForwardingAvailable((raw as Response).flex_forwarding_available!);
         if (active && (raw as Response).snapshot) {
           setLive((raw as Response).snapshot ?? null);
           if ((raw as Response).forwarding) setForwarding((raw as Response).forwarding ?? null);
@@ -136,6 +147,8 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
 
   const accept = (raw: unknown) => {
     const next = raw as Response;
+    if (next.password_storage_available != null) setPasswordStorageAvailable(next.password_storage_available);
+    if (next.flex_forwarding_available != null) setForwardingAvailable(next.flex_forwarding_available);
     if (next.configuration) { setConfiguration(next.configuration); lastRemoteConfiguration.current = JSON.stringify(next.configuration); }
     if (next.snapshot) setLive(next.snapshot);
     if (next.password_servers) setPasswordServers(next.password_servers);
@@ -328,8 +341,9 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
           <label><input type="checkbox" checked={configuration.reconnect} onChange={(event) => setConfiguration({ ...configuration, reconnect: event.target.checked })} /> Reconnect automatically, including after app restart</label>
           <label><input type="checkbox" checked={configuration.requestSkimmer} onChange={(event) => setConfiguration({ ...configuration, requestSkimmer: event.target.checked })} /> Request RBN / Skimmer</label>
           <label><input type="checkbox" checked={configuration.showWorkedBandModeSpots} onChange={(event) => setConfiguration({ ...configuration, showWorkedBandModeSpots: event.target.checked })} /> Show already-worked combinations</label></div>
-        <label><input type="checkbox" checked={configuration.forwardSpotsToFlex} onChange={(event) => setConfiguration({ ...configuration, forwardSpotsToFlex: event.target.checked })} /> Forward incoming spots to FLEX via the connected direct-agent station</label>
-        <p>Forwarding is opt-in and requires the Remote Station Agent to advertise add_spot. An accepted command does not confirm that FLEX displayed the spot. xCat loopback companion mode cannot forward spots.</p>
+        <label><input type="checkbox" disabled={!forwardingAvailable && !configuration.forwardSpotsToFlex} checked={configuration.forwardSpotsToFlex} onChange={(event) => setConfiguration({ ...configuration, forwardSpotsToFlex: event.target.checked })} /> Forward incoming spots to FLEX via the connected direct-agent station</label>
+        {!forwardingAvailable && <p>FLEX forwarding is not yet available on this platform. {configuration.forwardSpotsToFlex ? "Turn it off before saving cluster settings." : "Cluster spots remain available in xLog."}</p>}
+        {forwardingAvailable && <p>Forwarding is opt-in and requires the Remote Station Agent to advertise add_spot. An accepted command does not confirm that FLEX displayed the spot. xCat loopback companion mode cannot forward spots.</p>}
         {configuration.forwardSpotsToFlex && <p role="status">FLEX forwarding: {forwarding?.status ?? "Connect a cluster and direct-agent station."} {forwarding?.accepted_count ? `· ${forwarding.accepted_count} accepted` : ""}</p>}
         <h3>Servers</h3><p>Configured servers connect together. Saving settings disconnects active sessions.</p>
         {configuration.servers.map((server) => <div className="live-cluster-server" key={server.id}>
@@ -339,11 +353,11 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
           <label>Port<input aria-label={`${server.name} port`} type="number" min="1" max="65535" value={server.port} onChange={(event) => updateServer(server.id, { port: Number(event.target.value) })} /></label>
           <label>Login callsign<input aria-label={`${server.name} callsign`} value={server.callsign} maxLength={24} onChange={(event) => updateServer(server.id, { callsign: event.target.value.toUpperCase() })} /></label>
           <button type="button" onClick={() => setConfiguration({ ...configuration, servers: configuration.servers.filter((item) => item.id !== server.id) })}>Remove</button>
-          <label className="live-cluster-password">Password · {passwordServers.includes(server.id) ? "saved in Keychain" : "none"}<input type="password" autoComplete="new-password" disabled={!passwordControlsEnabled} value={passwordDrafts[server.id] ?? ""} maxLength={256} onChange={(event) => setPasswordDrafts({ ...passwordDrafts, [server.id]: event.target.value })} /></label>
-          <button type="button" disabled={!passwordControlsEnabled || busy || !passwordDrafts[server.id] || !savedServerIDs.includes(server.id)} title={!passwordControlsEnabled ? "Dock back to manage Keychain passwords" : !savedServerIDs.includes(server.id) ? "Save cluster settings first" : undefined} onClick={() => { void request("cluster_password_set", { server_id: server.id, password: passwordDrafts[server.id] }, "Password saved in Keychain"); setPasswordDrafts((drafts) => ({ ...drafts, [server.id]: "" })); }}>Save password</button>
-          <button type="button" disabled={!passwordControlsEnabled || busy || !passwordServers.includes(server.id)} title={!passwordControlsEnabled ? "Dock back to manage Keychain passwords" : undefined} onClick={() => void request("cluster_password_set", { server_id: server.id, password: "" }, "Password removed")}>Remove password</button>
+          <label className="live-cluster-password">Password · {passwordServers.includes(server.id) ? "saved securely" : "none"}<input type="password" autoComplete="new-password" disabled={!canEditPasswords} value={passwordDrafts[server.id] ?? ""} maxLength={256} onChange={(event) => setPasswordDrafts({ ...passwordDrafts, [server.id]: event.target.value })} /></label>
+          <button type="button" disabled={!canEditPasswords || busy || !passwordDrafts[server.id] || !savedServerIDs.includes(server.id)} title={!canEditPasswords ? passwordUnavailableReason : !savedServerIDs.includes(server.id) ? "Save cluster settings first" : undefined} onClick={() => { void request("cluster_password_set", { server_id: server.id, password: passwordDrafts[server.id] }, "Password saved securely"); setPasswordDrafts((drafts) => ({ ...drafts, [server.id]: "" })); }}>Save password</button>
+          <button type="button" disabled={!canEditPasswords || busy || !passwordServers.includes(server.id)} title={!canEditPasswords ? passwordUnavailableReason : undefined} onClick={() => void request("cluster_password_set", { server_id: server.id, password: "" }, "Password removed")}>Remove password</button>
         </div>)}
-        {!passwordControlsEnabled && <p>Dock back to the main workspace to manage Keychain passwords.</p>}
+        {!passwordStorageAvailable ? <p>Secure password storage is not yet available on this platform. Callsign-only clusters can still connect.</p> : !passwordControlsEnabled && <p>Dock back to the main workspace to manage passwords.</p>}
         <button type="button" disabled={configuration.servers.length >= 16} onClick={() => setConfiguration({ ...configuration, servers: [...configuration.servers, { id: crypto.randomUUID(), name: "", host: "", port: 7300, callsign: "", enabled: true }] })}>Add server</button>
         <details><summary>Command presets</summary><div className="live-cluster-rules"><p>Saved commands are stored with cluster settings. Do not put passwords or tokens in presets.</p>{configuration.commandPresets.map((preset) => <div key={preset.id}>
           <label>Name<input value={preset.name} maxLength={80} onChange={(event) => setConfiguration({ ...configuration, commandPresets: configuration.commandPresets.map((item) => item.id === preset.id ? { ...item, name: event.target.value } : item) })} /></label>

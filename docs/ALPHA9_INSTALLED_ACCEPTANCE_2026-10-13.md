@@ -59,6 +59,7 @@ restored to All and the app returned to the empty Operator Desk.
 Public feed/account acceptance, physical radio/keyer/rotor operation, physical
 Windows/Linux desktops, high-DPI and assistive-technology checks remain open.
 The preceding shared-feed source passed all platform builds and Linux/Windows
-runtime checks in CI run `38295724601`. The exact alpha.9 matrix is tracked as
-`38298414791`; its result must be checked separately. No full-parity claim follows
+runtime checks in CI run `38295724601`. The exact alpha.9 matrix
+`38298414791` completed successfully on macOS, Windows and Linux, including
+Windows fresh-runner and Linux runtime-only container acceptance. No full-parity claim follows
 from the Mac package or this one Chaser correction.

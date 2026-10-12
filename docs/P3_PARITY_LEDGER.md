@@ -18,9 +18,12 @@ checks; the latest index follow-up displays the logbook in 80 ms, but first
 Awards is still 698 ms and overall performance acceptance remains open. See the current checkpoint in
 [`OPERATOR_FEEDBACK_TRACKER_2026-10-12.md`](OPERATOR_FEEDBACK_TRACKER_2026-10-12.md).
 The Chaser and DX public-feed path is now shared as well, with bounded HTTP,
-cache fallback and local reference history; its Windows/Linux build acceptance
-is pending. Live cluster transport, authenticated services and portable vaults
-remain separate incomplete gates.
+cache fallback and local reference history. Exact alpha.9 CI `38298414791` passes
+all three builds plus Linux and Windows runtime acceptance. The next source stage
+adds portable live cluster sockets and worker routing, with owned loopback and
+workspace tests on Mac; its Windows/Linux matrix is pending. See
+[`PORTABLE_CLUSTER_STAGE_2026-10-13.md`](PORTABLE_CLUSTER_STAGE_2026-10-13.md).
+Authenticated services, portable vaults and live OS acceptance remain incomplete.
 The inspection table and detailed baseline below remain historical evidence.
 
 | Repository | Inspected local HEAD | Qualification |

@@ -18,10 +18,13 @@ public actor LiveWorker {
     }
     private let logbookLane: LogbookLane
     private let opportunities: LiveOpportunitiesMethods
+    private let cluster: LiveClusterMethods
     private let localAcceptance: Bool
-    init(logbook: LiveLogbookMethods = .shared, localAcceptance: Bool = false) {
+    init(logbook: LiveLogbookMethods = .shared, localAcceptance: Bool = false, cluster: LiveClusterMethods? = nil) {
         logbookLane = LogbookLane(service: logbook)
-        opportunities = LiveOpportunitiesMethods(logbook: logbook)
+        let cluster = cluster ?? (logbook === LiveLogbookMethods.shared ? .shared : LiveClusterMethods(logbook: logbook))
+        self.cluster = cluster
+        opportunities = LiveOpportunitiesMethods(logbook: logbook, clusterSpots: { await cluster.currentSpotRowsIfStarted() })
         self.localAcceptance = localAcceptance
     }
 
@@ -38,6 +41,7 @@ public actor LiveWorker {
         await LiveFlexSession.shared.terminate()
         await LiveStationSession.shared.terminate()
         #endif
+        await cluster.terminate()
     }
 
     public func response(to data: Data) async -> Data {
@@ -58,7 +62,7 @@ public actor LiveWorker {
                 }
                 try LocalAcceptanceSession.validate(method: method, params: params)
             }
-            if terminalShutdown && (method.hasPrefix("station_") || method.hasPrefix("spot_bridge_") || method.hasPrefix("opportunities_")) {
+            if terminalShutdown && (method.hasPrefix("station_") || method.hasPrefix("spot_bridge_") || method.hasPrefix("opportunities_") || method.hasPrefix("cluster_")) {
                 throw WorkerFailure("worker_stopping", "The worker is shutting down; no new service request was started.")
             }
             if method == "health" {
@@ -71,6 +75,7 @@ public actor LiveWorker {
                     health["network_contact"] = false
                     health["credentials_accessed"] = false
                     health["public_opportunities"] = false
+                    health["live_cluster"] = false
                 }
                 return encode(["id": id, "ok": true, "result": health])
             }
@@ -80,13 +85,13 @@ public actor LiveWorker {
             let result: [String: Any]
             if method == "cluster_history" || method.hasPrefix("workspace_") || method.hasPrefix("logbook_") || method.hasPrefix("settings_") || method.hasPrefix("backup_") {
                 result = try await logbookLane.handle(method: method, params: params)
-                #if os(macOS)
                 if !localAcceptance && ["workspace_create", "logbook_save", "logbook_delete", "logbook_undo", "logbook_import_adif", "backup_restore"].contains(method) {
-                    try? await LiveClusterMethods.shared.refreshContacts()
+                    try? await cluster.refreshContacts()
                 }
-                #endif
             } else if method.hasPrefix("opportunities_") {
                 result = try await opportunities.handle(method: method, params: params)
+            } else if method.hasPrefix("cluster_") {
+                result = try await cluster.handle(method: method, params: params)
             } else {
                 #if os(macOS)
                 if method.hasPrefix("reference_") {
@@ -95,8 +100,6 @@ public actor LiveWorker {
                     result = try await LiveStationMethods.handle(method, params: params)
                 } else if method.hasPrefix("spot_bridge_") {
                     result = try await LiveSpotBridge.shared.handle(method: method, params: params)
-                } else if method.hasPrefix("cluster_") {
-                    result = try await LiveClusterMethods.shared.handle(method: method, params: params)
                 } else {
                     result = try await LiveServiceMethods.shared.handle(method: method, params: params)
                 }
@@ -124,7 +127,7 @@ public actor LiveWorker {
         #endif
         return ["mode": mode, "platform": platform, "synthetic_only": false,
                 "version": "0.4.0-alpha.9", "local_logbook": true,
-                "platform_services": services, "public_opportunities": true, "station_io": false,
+                "platform_services": services, "public_opportunities": true, "live_cluster": true, "station_io": false,
                 "connections_require_explicit_action": true]
     }
 

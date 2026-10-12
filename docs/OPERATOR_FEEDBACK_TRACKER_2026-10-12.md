@@ -50,6 +50,21 @@ are single-run observations, not app-wide median/p95 acceptance. ShackCQ
 reconnected automatically after installation; the empty draft and 67,846-contact
 workspace were retained. See `ALPHA9_INSTALLED_ACCEPTANCE_2026-10-13.md`.
 
+Exact alpha.9 CI `38298414791` passed Mac, Windows and Linux builds, Windows
+fresh-runner runtime acceptance and Linux runtime-only container acceptance.
+
+### Portable live cluster follow-up
+
+Windows/POSIX socket transport and shared worker routing are implemented in the
+next source stage. Six owned-loopback tests cover login, framing, IPv4/IPv6,
+reconnect, cancellation and no command replay. Workspace tests cover Chaser,
+configuration persistence, unavailable secure storage and terminal shutdown.
+Capability messages retain the existing compact cluster settings layout; browser
+fixtures at 1280×800 and 1920×1080 confirm readable messages and disabled controls.
+This does not replace native WebView acceptance. Windows/Linux secure password
+storage, FLEX forwarding and DNS cancellation remain open; the installed alpha.9
+has not been replaced. See `PORTABLE_CLUSTER_STAGE_2026-10-13.md`.
+
 ### Cross-platform local logbook work after alpha.7
 
 The non-macOS worker previously rejected all workspace/logbook requests with

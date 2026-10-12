@@ -28,11 +28,7 @@ actor LiveOpportunitiesMethods {
 
     init(logbook: LiveLogbookMethods = .shared, session: URLSession? = nil,
          clusterSpots: @escaping () async -> [[String: Any]] = {
-             #if os(macOS)
              await LiveClusterMethods.shared.currentSpotRowsIfStarted()
-             #else
-             []
-             #endif
          }) {
         self.logbook = logbook
         self.clusterSpots = clusterSpots

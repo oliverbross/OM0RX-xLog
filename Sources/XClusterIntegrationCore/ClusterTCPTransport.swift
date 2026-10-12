@@ -52,7 +52,8 @@ public func makeClusterTCPTransport(
     return ClusterNetworkConnection(server: server, password: password, reconnect: reconnect,
                                     requestSkimmer: requestSkimmer, onState: onState, onLine: onLine)
     #else
-    return UnavailableClusterConnection(onState: onState)
+    return ClusterPortableConnection(server: server, password: password, reconnect: reconnect,
+                                     requestSkimmer: requestSkimmer, onState: onState, onLine: onLine)
     #endif
 }
 
@@ -170,13 +171,5 @@ private final class ClusterNetworkConnection: ClusterConnectionTransport, @unche
         retry += 1
         queue.asyncAfter(deadline: .now() + .seconds(delay)) { [weak self] in self?.open() }
     }
-}
-#else
-private final class UnavailableClusterConnection: ClusterConnectionTransport, @unchecked Sendable {
-    private let onState: @Sendable (ClusterConnectionPhase, String?) -> Void
-    init(onState: @escaping @Sendable (ClusterConnectionPhase, String?) -> Void) { self.onState = onState }
-    func start() { onState(.failed, ClusterSessionError.unsupportedTransport.localizedDescription) }
-    func send(_ command: String) {}
-    func stop() {}
 }
 #endif

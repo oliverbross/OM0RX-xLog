@@ -29,6 +29,7 @@ struct LocalAcceptanceSessionTests {
             #expect(health?["isolated_workspace"] as? Bool == true)
             #expect(health?["platform_services"] as? Bool == false)
             #expect(health?["public_opportunities"] as? Bool == false)
+            #expect(health?["live_cluster"] as? Bool == false)
             let status = try await request(session, "workspace_status")["result"] as? [String: Any]
             #expect(status?["workspace_exists"] as? Bool == false)
             #expect(status?["native_log_exists"] as? Bool == false)

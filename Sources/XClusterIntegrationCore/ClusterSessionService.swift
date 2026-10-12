@@ -231,12 +231,14 @@ public enum ClusterSessionError: Error, LocalizedError, Sendable {
     case invalidConfiguration(String)
     case notConnected
     case unsupportedTransport
+    case terminated
 
     public var errorDescription: String? {
         switch self {
         case .invalidConfiguration(let reason): return reason
         case .notConnected: return "No selected cluster is connected."
         case .unsupportedTransport: return "Live cluster TCP transport is not available on this platform."
+        case .terminated: return "The cluster session has shut down."
         }
     }
 }
@@ -268,6 +270,7 @@ public actor ClusterSessionService {
     private var contactCounts: [String: Int] = [:]
     private var contactRevision = 0
     private var hasContactSnapshot = false
+    private var terminated = false
     private let transportFactory: ClusterTransportFactory
     private let onUpdate: (@Sendable (ClusterSessionSnapshot) -> Void)?
     private let onSpot: (@Sendable (ClassifiedClusterSpot, UUID) -> Void)?
@@ -296,12 +299,14 @@ public actor ClusterSessionService {
     /// Credentials are supplied by the host's secure store for this connection only.
     /// They are absent from configuration, snapshots, transcript and diagnostics.
     public func connect(passwords: [UUID: String] = [:]) throws {
+        guard !terminated else { throw ClusterSessionError.terminated }
         let enabled = configuration.servers.filter(\.enabled)
         guard !enabled.isEmpty else { throw ClusterSessionError.invalidConfiguration("Configure and enable a cluster server first.") }
         guard transports.isEmpty else { return }
         for server in enabled {
             guard !server.name.isEmpty, !server.host.isEmpty, server.port > 0, server.port <= 65_535,
                   !server.host.contains(where: { $0.isWhitespace || $0.isNewline }),
+                  !server.host.unicodeScalars.contains(where: { $0.value < 0x20 || $0.value == 0x7f }),
                   server.callsign.range(of: #"^[A-Za-z0-9/\-]{2,24}$"#, options: .regularExpression) != nil else {
                 throw ClusterSessionError.invalidConfiguration("Invalid name, host, port or login callsign for a cluster server.")
             }
@@ -338,6 +343,13 @@ public actor ClusterSessionService {
         transports.removeAll()
         for id in statuses.keys { statuses[id]?.phase = .disconnected; statuses[id]?.error = nil }
         publish()
+    }
+
+    /// Unlike an operator disconnect, terminal shutdown cannot be undone by an
+    /// already queued connect request on a different actor.
+    public func terminate() {
+        terminated = true
+        disconnect()
     }
 
     public func replaceContacts(_ records: [ClusterContact]) {

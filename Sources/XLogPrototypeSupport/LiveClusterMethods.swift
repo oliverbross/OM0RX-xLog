@@ -1,31 +1,78 @@
-#if os(macOS)
 import Foundation
+#if os(macOS)
 import Security
 import XCatIntegrationCore
+#endif
 import XClusterIntegrationCore
+#if canImport(XLogCore)
 import XLogCore
+#else
+import XLogPortableCore
+#endif
+
+protocol ClusterCredentialStoring: Sendable {
+    var available: Bool { get }
+    func load(_ id: UUID) throws -> String?
+    func save(_ password: String, serverID: UUID) throws
+}
 
 /// Persistent worker bridge for the isolated integrated xLog profile.
-/// Configuration is separate from both standalone apps; passwords live in Keychain.
+/// Configuration is separate from both standalone apps. Passwords require a
+/// platform secure store; no plaintext fallback is permitted.
 public actor LiveClusterMethods {
     public static let shared = LiveClusterMethods()
 
     // Foundation's standalone worker may not provide a CFPreferences suite.
     // An explicit private file also keeps service identity independent of bundle lookup.
-    private let configurationURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        .appendingPathComponent("OM0RX-xLog Integration Services/cluster.json")
-    private let vault = ClusterCredentialVault()
+    private let configurationURL: URL
+    private let logbook: LiveLogbookMethods
+    private let vault: any ClusterCredentialStoring
+    private let transportFactory: ClusterTransportFactory
     private var service: ClusterSessionService?
     private var configuration: ClusterSessionConfiguration?
     private var forwardAcceptedCount = 0
     private var forwardStatus = "Off"
     private var forwardRetryAfter = Date.distantPast
+    private var terminated = false
+    private var forwardingAvailable: Bool {
+        #if os(macOS)
+        true
+        #else
+        false
+        #endif
+    }
+
+    init(logbook: LiveLogbookMethods = .shared, configurationURL: URL? = nil,
+         vault: any ClusterCredentialStoring = ClusterCredentialVault(),
+         transportFactory: @escaping ClusterTransportFactory = { server, password, reconnect, skimmer, state, line in
+             makeClusterTCPTransport(server: server, password: password, reconnect: reconnect,
+                                     requestSkimmer: skimmer, onState: state, onLine: line)
+         }) {
+        self.logbook = logbook
+        self.vault = vault
+        self.transportFactory = transportFactory
+        self.configurationURL = configurationURL ?? (logbook === LiveLogbookMethods.shared
+            ? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("OM0RX-xLog Integration Services/cluster.json")
+            : logbook.workspaceDirectoryURL.appendingPathComponent("Cluster/cluster.json"))
+    }
+
+    func terminate() async {
+        terminated = true
+        await service?.terminate()
+    }
+
+    private func requireRunning() throws {
+        guard !terminated else { throw WorkerFailure("worker_stopping", "The cluster service has shut down.") }
+    }
 
     public func handle(method: String, params: [String: Any]) async throws -> [String: Any] {
+        try requireRunning()
         if method == "cluster_history" {
-            return try LiveLogbookMethods.shared.handle(method: method, params: params)
+            return try logbook.handle(method: method, params: params)
         }
         let service = try await readyService()
+        try requireRunning()
         switch method {
         case "cluster_snapshot":
             try require(params, allowed: [])
@@ -34,16 +81,21 @@ public actor LiveClusterMethods {
             guard let object = params["configuration"] as? [String: Any] else { throw invalid() }
             let next: ClusterSessionConfiguration = try decode(object)
             try validate(next)
+            guard forwardingAvailable || !next.forwardSpotsToFlex else {
+                throw WorkerFailure("platform_pending", "FLEX spot forwarding is not yet available on this platform. Turn forwarding off before saving cluster settings.")
+            }
             await service.configure(next)
+            try requireRunning()
             configuration = next
             forwardStatus = next.forwardSpotsToFlex ? "Enabled; connect a cluster and direct-agent station." : "Off"
             try saveConfiguration(next)
         case "cluster_connect":
             try require(params, allowed: [])
-            let workspaceStatus = try LiveLogbookMethods.shared.handle(method: "workspace_status", params: [:])
+            let workspaceStatus = try logbook.handle(method: "workspace_status", params: [:])
             if workspaceStatus["workspace_exists"] as? Bool == true {
                 try await refreshContacts()
             } else { await service.invalidateContacts() }
+            try requireRunning()
             let active = try currentConfiguration().servers.filter(\.enabled)
             var passwords: [UUID: String] = [:]
             for server in active { passwords[server.id] = try vault.load(server.id) ?? "" }
@@ -67,6 +119,7 @@ public actor LiveClusterMethods {
             let filter: ClusterSpotFilter = try decode(object)
             try validateFilter(filter)
             await service.updateFilter(filter)
+            try requireRunning()
             var next = try currentConfiguration()
             next.filter = filter
             configuration = next
@@ -87,7 +140,9 @@ public actor LiveClusterMethods {
         let (snapshot, truncated) = try await boundedSnapshot(service)
         return ["configuration": try json(currentConfiguration()),
                 "snapshot": try json(snapshot), "snapshot_truncated": truncated,
-                "password_servers": try currentConfiguration().servers.filter { try vault.hasPassword($0.id) }.map { $0.id.uuidString },
+                "password_storage_available": vault.available,
+                "flex_forwarding_available": forwardingAvailable,
+                "password_servers": try currentConfiguration().servers.filter { try vault.load($0.id) != nil }.map { $0.id.uuidString },
                 "forwarding": ["accepted_count": forwardAcceptedCount, "status": forwardStatus]]
     }
 
@@ -100,8 +155,9 @@ public actor LiveClusterMethods {
 
     /// Called after local QSO mutations, import, restore or remote reconciliation.
     public func refreshContacts() async throws {
+        try requireRunning()
         let service = try await readyService()
-        let database = try LiveLogbookMethods.shared.openedDatabase()
+        let database = try logbook.openedDatabase()
         let contacts = try database.clusterContactRows()
         var records: [ClusterContact] = []
         records.reserveCapacity(contacts.count)
@@ -134,6 +190,7 @@ public actor LiveClusterMethods {
     }
 
     private func readyService() async throws -> ClusterSessionService {
+        try requireRunning()
         if let service { return service }
         let config: ClusterSessionConfiguration
         try validateConfigurationPath()
@@ -147,12 +204,12 @@ public actor LiveClusterMethods {
         }
         let created = ClusterSessionService(configuration: config, onSpot: { [weak self] spot, generation in
             Task { await self?.forwardSpotIfEnabled(spot, generation: generation) }
-        })
-        if let csv = try? CTYResolver.bundledCSV() { await created.replaceCountryCSV(csv) }
+        }, transportFactory: transportFactory)
         configuration = config
-        forwardStatus = config.forwardSpotsToFlex ? "Enabled; connect a cluster and direct-agent station." : "Off"
+        forwardStatus = config.forwardSpotsToFlex ? (forwardingAvailable ? "Enabled; connect a cluster and direct-agent station." : "Unavailable on this platform") : "Off"
         service = created
-        if (try LiveLogbookMethods.shared.handle(method: "workspace_status", params: [:]))["workspace_exists"] as? Bool == true {
+        if let csv = try? CTYResolver.bundledCSV() { await created.replaceCountryCSV(csv) }
+        if (try logbook.handle(method: "workspace_status", params: [:]))["workspace_exists"] as? Bool == true {
             try await refreshContacts()
         }
         return created
@@ -171,12 +228,13 @@ public actor LiveClusterMethods {
         try validateConfigurationPath()
         let directory = configurationURL.deletingLastPathComponent()
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
-                                               attributes: [.posixPermissions: 0o700])
+                                               attributes: LocalFilePermissions.directoryAttributes)
         try JSONEncoder().encode(value).write(to: configurationURL, options: .atomic)
-        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: configurationURL.path)
+        try LocalFilePermissions.protectFile(configurationURL)
     }
 
     private func forwardSpotIfEnabled(_ spot: ClassifiedClusterSpot, generation: UUID) async {
+        #if os(macOS)
         guard configuration?.forwardSpotsToFlex == true, let service,
               await service.isVisibleSpot(spot.id, in: generation) else { return }
         let now = Date()
@@ -201,6 +259,7 @@ public actor LiveClusterMethods {
             forwardStatus = "FLEX forwarding unavailable. Connect a direct-agent station with add_spot support."
             forwardRetryAfter = now.addingTimeInterval(60)
         }
+        #endif
     }
 
     private func currentConfiguration() throws -> ClusterSessionConfiguration {
@@ -270,7 +329,9 @@ public actor LiveClusterMethods {
     }
 }
 
-private struct ClusterCredentialVault {
+struct ClusterCredentialVault: ClusterCredentialStoring {
+    #if os(macOS)
+    var available: Bool { true }
     private let service = "com.oliverbross.xlog.integration.cluster"
 
     func load(_ id: UUID) throws -> String? {
@@ -314,5 +375,11 @@ private struct ClusterCredentialVault {
             throw WorkerFailure("credential_failed", "Could not save the cluster password in Keychain.")
         }
     }
+    #else
+    var available: Bool { false }
+    func load(_ id: UUID) throws -> String? { nil }
+    func save(_ password: String, serverID: UUID) throws {
+        throw WorkerFailure("credential_unavailable", "Secure cluster password storage is unavailable on this platform. No credential was saved or removed.")
+    }
+    #endif
 }
-#endif

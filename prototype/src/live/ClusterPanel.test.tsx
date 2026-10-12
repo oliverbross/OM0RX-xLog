@@ -47,6 +47,38 @@ describe("DX Cluster filter colours", () => {
 });
 
 describe("cluster toolbar panels", () => {
+  it("disables unsupported secure-storage and forwarding controls without blocking callsign-only Connect", () => {
+    const request = vi.fn(async () => ({}));
+    const data = { ...response(), password_storage_available: false, flex_forwarding_available: false };
+    render(<ClusterPanel passive snapshot={data} onRequest={request} onSelect={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    expect(screen.getByLabelText("Password · none").hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("button", { name: "Save password" }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("button", { name: "Remove password" }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByLabelText(/Forward incoming spots/).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByText(/Callsign-only clusters can still connect/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Connect" }).hasAttribute("disabled")).toBe(false);
+    expect(request).not.toHaveBeenCalled();
+  });
+  it("learns secure-store capability from the worker response and keeps detached password controls disabled", async () => {
+    const request = vi.fn(async () => ({ ...response(), password_storage_available: false }));
+    const { rerender } = render(<ClusterPanel snapshot={null} onRequest={request} onSelect={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    await waitFor(() => expect(screen.getByText(/Callsign-only clusters can still connect/)).toBeTruthy());
+    rerender(<ClusterPanel passive passwordControlsEnabled={false} snapshot={{ ...response(), password_storage_available: true }} onRequest={request} onSelect={vi.fn()} />);
+    expect(screen.getByLabelText("Password · none").hasAttribute("disabled")).toBe(true);
+    expect(screen.getByText("Dock back to the main workspace to manage passwords.")).toBeTruthy();
+  });
+  it("lets a transferred unavailable forwarding preference be turned off before saving", () => {
+    const data = response(); data.configuration.forwardSpotsToFlex = true;
+    render(<ClusterPanel passive snapshot={{ ...data, flex_forwarding_available: false }} onRequest={vi.fn(async () => ({}))} onSelect={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    const checkbox = screen.getByLabelText(/Forward incoming spots/);
+    expect(checkbox.hasAttribute("disabled")).toBe(false);
+    fireEvent.click(checkbox);
+    expect((checkbox as HTMLInputElement).checked).toBe(false);
+    expect(checkbox.hasAttribute("disabled")).toBe(true);
+  });
   it("allows cancellation while a cluster is connecting with no received spots", async () => {
     const data = response(); data.snapshot.connectedClusters = 0; data.snapshot.connections[0].phase = "connecting";
     const request = vi.fn(async () => data);
