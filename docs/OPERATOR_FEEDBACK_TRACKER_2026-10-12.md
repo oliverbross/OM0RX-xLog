@@ -8,7 +8,7 @@ packaged UI result. Keep unresolved items here across releases.
 ## Current delivery boundary
 
 - Working tree: shared cross-platform xLog; Mac-first delivery.
-- Currently installed: Integration alpha.8, source `9a7863501d96a06eea859ea589afc88a60101b53` (bundle metadata checked). Public release is held for CHASER-01 below.
+- Currently installed: Integration alpha.9, source `250053b45ad563df2b1a651fadd498d6f6298be5` (bundle metadata checked). CHASER-01 is verified fixed in this package; wider parity gates remain open.
 - Individual runtime checks and remaining gates are recorded below and in the alpha.7 acceptance report.
 - Restart of Integration was explicitly approved once the build passes.
 - Preserve the latest operator draft, all logbooks/settings/credentials, and
@@ -27,11 +27,10 @@ and is installed. Logbook display measured 72 ms and cold/repeat Awards
 automatic cluster reconnection were retained. Exact package and installed
 observations are in `ALPHA8_INSTALLED_ACCEPTANCE_2026-10-13.md`.
 
-**CHASER-01 remains open:** KFF WWFF references appear as duplicate POTA rows
-in the installed Chaser table. Reproduced with K5G / KFF-3017 and KE2CIE /
+**CHASER-01 was found in alpha.8 and is fixed in alpha.9:** KFF WWFF references
+appeared as duplicate POTA rows. Reproduced with K5G / KFF-3017 and KE2CIE /
 KFF-2099, repeated after Refresh view and confirmed with Programme POTA.
-No row was loaded or tuned. Correct programme classification and recheck the
-package before publishing this preview.
+No row was loaded or tuned.
 
 Alpha.9 source correction: the shared parser now excludes WWFF references,
 SOTA reference tails and explicitly labelled castle references from POTA
@@ -39,8 +38,17 @@ candidates. Directory resolution uses the same rule. Chaser rows identify their
 programme beside the reference without adding a column. The regression first
 failed against alpha.8 source, then passed after correction. Full frontend
 350/350, native core 73/73, worker 139 XCTest plus 59 Swift Testing cases, and
-TypeScript passed. Installed verification remains open; alpha.8 has not been
-published as a GitHub release.
+TypeScript passed. Installed alpha.9 shows KE2CIE / KFF-2099 once as WWFF;
+Programme POTA excludes it. Refresh view adds the genuine POTA US-9309 spot
+separately. Alpha.8 was not published as a GitHub release.
+
+### Alpha.9 installed checkpoint
+
+The signed/notarized package passed all 21 isolated native large-log checks with
+100,002 generated contacts: logbook 69 ms, cold/repeat Awards 689/18 ms. These
+are single-run observations, not app-wide median/p95 acceptance. ShackCQ
+reconnected automatically after installation; the empty draft and 67,846-contact
+workspace were retained. See `ALPHA9_INSTALLED_ACCEPTANCE_2026-10-13.md`.
 
 ### Cross-platform local logbook work after alpha.7
 
