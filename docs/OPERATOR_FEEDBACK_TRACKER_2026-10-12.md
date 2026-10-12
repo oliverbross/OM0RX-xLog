@@ -124,7 +124,14 @@ page saying “The URL can’t be shown”. In the pinned Tauri/Wry code, GTK
 incognito creates a fresh context per view while Tauri deduplicates scheme
 registration by the shared context key. The acceptance-only correction assigns
 separate temporary keys to detached views, retaining incognito and cleaning up
-owned directories on exit. A fresh native Linux run is required.
+owned directories on exit. Matrix `38290139344` at `c49d456` now passes all
+three build jobs and both fresh runtime jobs. Linux completed four native GUI
+launches (three X11 and one nested Wayland), each with 16/16 checks, detached
+projection and 70/70 map probes. Debian installation, relaunch and relocated
+archive launch passed in a non-root, network-disabled Ubuntu container without
+development toolchains. This closes the observed isolated detached-window
+failure, not physical Linux desktop or network/hardware parity. Reports are in
+`docs/evidence/native-ui-c49d456/linux-*.json`.
 
 The 100,000-record acceptance extension uses generated ADIF through the shipping
 bounded import API, then measures rendered logbook, first/repeat awards and
@@ -133,8 +140,21 @@ duplicate lookup because the existing case-insensitive index excluded deleted
 rows but that lookup intentionally includes them. A new all-record composite
 index retains duplicate/deletion semantics. The regression verifies indexed
 query planning, case-insensitive matching, deleted-record suppression and the
-existing one-second boundary. Native timings remain pending until a full run
-completes; neither fixture construction nor a source test proves responsiveness.
+existing one-second boundary. Native timings are now recorded in
+[`NATIVE_LARGE_LOG_PERFORMANCE_2026-10-13.md`](NATIVE_LARGE_LOG_PERFORMANCE_2026-10-13.md).
+Both indexed runs passed all 21 native checks. The history follow-up reduced
+entity-history requests to 260/252 ms in the comparison run; repeat Awards and
+rendered callsign history were 18 ms. First logbook display (1,800 ms) and first
+Awards open (845 ms) remain above the near-instant target. Source tests alone
+do not close that requirement. Matrix `38291686192` tests the follow-up source
+`51307464d229afbbdd43c6268e0243d477a542f9` on all three platforms.
+
+The aggregate-index follow-up also passes all 21 native checks: first logbook
+display is now 80 ms, first Awards 698 ms, repeat Awards 25 ms and rendered
+local callsign history 17 ms in the generated 100,000-contact run. Index-backed
+stats/progress/map totals remove the preceding seconds of serialized database
+work. Cold Awards, live-service contention and target-machine measurements are
+still open. The installed signed alpha.7 remains unchanged until packaging.
 
 ### Isolated current UI acceptance foundation
 

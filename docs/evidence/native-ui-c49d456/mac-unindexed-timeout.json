@@ -1,0 +1,9 @@
+{
+  "embeddedUi": false,
+  "error": "Native UI acceptance exceeded 300 seconds",
+  "platform": "macos",
+  "schema": 1,
+  "station_io": false,
+  "status": "failed",
+  "worker": false
+}

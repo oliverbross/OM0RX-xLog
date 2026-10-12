@@ -8,8 +8,14 @@ Current follow-up, 13 October: the portable worker's normal local-logbook path
 is being enabled for Windows and Linux. The same SQLite/ADIF/settings/CTY/award
 and backup implementations now sit behind the bounded worker router. Native
 package tests include a disposable local-logbook round trip and bundled-resource
-lookup. Mac source tests pass; native Windows/Linux and full service parity are
-not yet accepted. See the current checkpoint in
+lookup. Windows Server CI at `bd90b6d` now passes its fresh-runner worker and
+two native GUI workflows; this is not Windows 11 desktop or full service parity.
+Linux's isolated detached-window correction now passes fresh X11 and nested
+Wayland runtime checks at `c49d456`; the same matrix passes Windows runtime.
+These are headless/container and Windows Server checks, not physical desktop
+or hardware acceptance. Generated 100,000-contact Mac GUI runs pass functional
+checks; the latest index follow-up displays the logbook in 80 ms, but first
+Awards is still 698 ms and overall performance acceptance remains open. See the current checkpoint in
 [`OPERATOR_FEEDBACK_TRACKER_2026-10-12.md`](OPERATOR_FEEDBACK_TRACKER_2026-10-12.md).
 The inspection table and detailed baseline below remain historical evidence.
 

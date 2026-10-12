@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "status": "passed",
+  "applicationBackend": "wayland",
+  "applicationDisplayVariablePresent": false,
+  "compositor": "Weston",
+  "compositorBackend": "x11",
+  "compositorRenderer": "pixman",
+  "capture": "outer Xvfb X11 root showing nested Weston compositor",
+  "physicalDesktop": false,
+  "directHeadlessCompositor": false,
+  "report": "ui-wayland.json",
+  "checkCount": 16
+}

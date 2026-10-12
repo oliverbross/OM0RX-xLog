@@ -1,0 +1,60 @@
+{
+  "arch": "x86_64",
+  "checks": {
+    "awards_loaded": true,
+    "detached_projection": true,
+    "empty_workspace": true,
+    "final_desk": true,
+    "isolated_worker": true,
+    "keyboard_clear": true,
+    "keyboard_editor": true,
+    "keyboard_focus": true,
+    "keyboard_log": true,
+    "logbook_readback": true,
+    "map_loaded": true,
+    "settings_save_readback": true,
+    "worker_integration_self_test": true,
+    "worker_parse_adif": true,
+    "worker_self_test": true,
+    "workspace_created": true
+  },
+  "details": {
+    "awardsReadyMs": 227,
+    "detached": {
+      "checks": {},
+      "details": {
+        "scale": "110%",
+        "surface": "band-maps"
+      },
+      "embeddedUi": true,
+      "schema": 1,
+      "scope": "integrated-local-ui",
+      "status": "passed",
+      "worker": false
+    },
+    "finalMap": {
+      "canvasHeight": 260,
+      "canvasWidth": 713,
+      "capturedAt": 1791830423940,
+      "error": "",
+      "landFeatures": 342,
+      "landPixelProbes": 70,
+      "loaded": true,
+      "matchedLandPixels": 70,
+      "pixelMismatches": [],
+      "renderedLandFeatures": 328,
+      "tilesLoaded": true,
+      "visible": true,
+      "webgl": true
+    },
+    "surface": "main"
+  },
+  "embeddedUi": true,
+  "large_log_requested": false,
+  "platform": "linux",
+  "schema": 1,
+  "scope": "integrated-local-ui",
+  "station_io": false,
+  "status": "passed",
+  "worker": true
+}
