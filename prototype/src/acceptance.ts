@@ -57,6 +57,11 @@ function mapDetails(): Json {
     loaded: map?.dataset.mapLoaded === "true",
     landFeatures: Number(map?.dataset.landFeatures ?? 0),
     renderedLandFeatures: Number(map?.dataset.renderedLandFeatures ?? 0),
+    tilesLoaded: map?.dataset.tilesLoaded === "true",
+    landPixelProbes: Number(map?.dataset.landPixelProbes ?? 0),
+    matchedLandPixels: Number(map?.dataset.matchedLandPixels ?? 0),
+    capturedAt: Number(map?.dataset.capturedAt ?? 0),
+    pixelMismatches: JSON.parse(map?.dataset.pixelMismatches || "[]") as unknown[],
     canvasWidth: canvas?.width ?? 0,
     canvasHeight: canvas?.height ?? 0,
     webgl: map?.dataset.webgl === "true",
@@ -66,7 +71,32 @@ function mapDetails(): Json {
 }
 export function validMapEvidence(map: Json) {
   return map.loaded === true && Number(map.landFeatures) > 0 && Number(map.renderedLandFeatures) > 0 && Number(map.canvasWidth) > 0 &&
-    Number(map.canvasHeight) > 0 && map.webgl === true && map.error === "" && map.visible === true;
+    Number(map.canvasHeight) > 0 && map.webgl === true && map.error === "" && map.visible === true &&
+    map.tilesLoaded === true && Number(map.landPixelProbes) >= 8 && map.matchedLandPixels === map.landPixelProbes;
+}
+export function landPixelMatches(pixels: Uint8Array) {
+  // Existing offline land paint #314741. Read a 3×3 patch so a border or spot
+  // touching the exact query point does not invalidate adjacent painted land.
+  for (let i = 0; i + 3 < pixels.length; i += 4) {
+    if (Math.abs(pixels[i] - 49) <= 6 && Math.abs(pixels[i + 1] - 71) <= 6 &&
+      Math.abs(pixels[i + 2] - 65) <= 6 && pixels[i + 3] === 255) return true;
+  }
+  return false;
+}
+export function interiorLandProbe(
+  point: [number, number],
+  hasFeature: (point: [number, number], layers: string[]) => boolean,
+) {
+  // Require a complete CSS-pixel neighborhood of land, with no country edge
+  // or spot. This is wider than the framebuffer 3×3 patch at supported scales.
+  if (!hasFeature(point, ["land"])) return false;
+  for (const dx of [-3, 0, 3]) {
+    for (const dy of [-3, 0, 3]) {
+      const neighbor: [number, number] = [point[0] + dx, point[1] + dy];
+      if (!hasFeature(neighbor, ["land"]) || hasFeature(neighbor, ["borders", "spots"])) return false;
+    }
+  }
+  return true;
 }
 export function validWorkerResult(method: string, response: Json) {
   if (response.ok !== true || typeof response.id !== "string" || !response.id) return false;
@@ -89,11 +119,29 @@ export function validWorkerResult(method: string, response: Json) {
     typeof records[0].semantic_identity_hash === "string" && /^[a-f0-9]{64}$/.test(records[0].semantic_identity_hash);
 }
 async function awaitMap() {
-  await waitForAcceptance("loaded local geography and healthy WebGL canvas", () => {
-    const evidence = mapDetails();
-    if (evidence.error) throw new Error(`Map failed: ${evidence.error}`);
-    return validMapEvidence(evidence);
-  }, 25_000);
+  const requestedAt = Date.now();
+  let samplesRequested = 1;
+  let nextSampleAt = requestedAt + 500;
+  document.dispatchEvent(new Event("xlog-native-map-evidence"));
+  try {
+    await waitForAcceptance("loaded local geography and healthy WebGL canvas", () => {
+      const evidence = mapDetails();
+      if (evidence.error) throw new Error(`Map failed: ${evidence.error}`);
+      const fresh = Number(evidence.capturedAt) >= requestedAt;
+      if (fresh && validMapEvidence(evidence)) return true;
+      // A completed CPU/source load may precede a usable first GPU frame.
+      // Request at most three independent fresh frames; never weaken coverage.
+      if (fresh && samplesRequested < 3 && Date.now() >= nextSampleAt) {
+        samplesRequested++;
+        nextSampleAt = Date.now() + 500;
+        document.dispatchEvent(new Event("xlog-native-map-evidence"));
+      }
+      return false;
+    }, 25_000);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`${message}; map evidence: ${JSON.stringify(mapDetails())}`);
+  }
   return mapDetails();
 }
 async function checkWorker(method: string, name: string) {
@@ -156,7 +204,7 @@ async function runMain(report: AcceptanceReport) {
     element<HTMLSelectElement>('select[aria-label="Station profile"]').value === "simulator" &&
     !button("Read simulated radio").disabled && call() === "W1AW");
   report.checks.profile_simulator = true;
-  report.details.finalMap = await awaitMap();
+  report.details.beforeMonitorMap = await awaitMap();
   button("Detach monitor").click();
   await waitForAcceptance("native monitor open result", () => document.querySelector(".status-line")?.textContent?.includes("Detached station monitor opened") === true);
   report.checks.monitor_opened = true;
@@ -174,6 +222,10 @@ async function runMain(report: AcceptanceReport) {
     monitor.details.profile === element<HTMLSelectElement>('select[aria-label="Station profile"]').value &&
     monitor.details.qsoCount === qsoCount() && validMapEvidence(monitor.details.map as Json);
   if (!report.checks.monitor_snapshot) throw new Error(`Native monitor acceptance failed: ${monitor.error || "shared snapshot mismatch"}`);
+  await invoke("acceptance_prepare_final");
+  // Native focus/close transitions precede the final framebuffer observation.
+  await pause(1_000);
+  report.details.finalMap = await awaitMap();
   report.details.qsoCount = qsoCount();
   report.details.frequency = frequency();
   report.details.call = call();
@@ -219,6 +271,7 @@ export function startAcceptance(monitor: boolean) {
       await (monitor ? runMonitor(report) : runMain(report));
       report.status = "passed";
     } catch (error) {
+      report.details.failureMap = mapDetails();
       report.error = error instanceof Error ? error.message : String(error);
       showFailure(report.error);
     }

@@ -10,6 +10,7 @@ use tauri::Manager;
 pub struct Acceptance {
     pub path: Option<PathBuf>,
     completed: AtomicBool,
+    final_prepared: AtomicBool,
     monitor: Mutex<Option<Value>>,
 }
 
@@ -54,7 +55,12 @@ pub fn passed(report: &Value) -> bool {
     const REQUIRED: [&str; 14] = ["worker_health", "worker_self_test", "worker_parse_adif", "map_loaded",
         "cluster_selection", "keyboard_log", "logbook_readback", "keyboard_focus", "keyboard_clear",
         "profile_manual", "profile_simulator", "monitor_opened", "monitor_snapshot", "final_desk"];
+    let map = &report["details"]["finalMap"];
+    let probes = map["landPixelProbes"].as_u64().unwrap_or(0);
     report["status"] == "passed" && report["embeddedUi"] == true && report["worker"] == true
+        && map["tilesLoaded"] == true && map["webgl"] == true && map["visible"] == true
+        && map["error"] == "" && probes >= 8 && map["matchedLandPixels"].as_u64() == Some(probes)
+        && map["capturedAt"].as_u64().is_some_and(|time| time > 0)
         && report["checks"].as_object().is_some_and(|checks|
             REQUIRED.iter().all(|key| checks.get(*key) == Some(&Value::Bool(true)))
                 && checks.values().all(|value| value == &Value::Bool(true)))
@@ -80,21 +86,35 @@ pub fn acceptance_monitor_result(window: tauri::WebviewWindow, state: tauri::Sta
 }
 
 #[tauri::command]
+pub async fn acceptance_prepare_final(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, Acceptance>) -> Result<(), String> {
+    state.require()?;
+    if window.label() != "main" { return Err("Only the main window may prepare final acceptance".into()); }
+    if state.completed.load(Ordering::Acquire) { return Err("Acceptance already completed".into()); }
+    if let Some(monitor) = app.get_webview_window("monitor") { monitor.close().map_err(|e| e.to_string())?; }
+    window.set_focus().map_err(|e| e.to_string())?;
+    state.final_prepared.store(true, Ordering::Release);
+    Ok(())
+}
+
+#[tauri::command]
 pub fn finish_acceptance(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, Acceptance>, mut report: Value) -> Result<(), String> {
     state.require()?;
     if window.label() != "main" { return Err("Only the main window may finish acceptance".into()); }
     bounded_object(&report)?;
     if state.completed.swap(true, Ordering::AcqRel) { return Err("Acceptance already completed".into()); }
-    let success = passed(&report);
+    let prepared = state.final_prepared.load(Ordering::Acquire);
+    let success = prepared && passed(&report);
+    if !prepared && report["error"].is_null() {
+        report["error"] = json!("Final native window transition was not prepared");
+    }
     report["schema"] = json!(1);
     report["platform"] = json!(std::env::consts::OS);
     report["arch"] = json!(std::env::consts::ARCH);
     report["status"] = json!(if success { "passed" } else { "failed" });
     report["station_io"] = json!(false);
     if let Err(error) = state.save(&report) { app.exit(1); return Err(error); }
-    if let Some(monitor) = app.get_webview_window("monitor") { let _ = monitor.close(); }
-    let _ = window.set_focus();
-    // Leave the actual rendered windows visible for external native screenshots.
+    // Final UI evidence was collected after closing the monitor and focusing main.
+    // Do not mutate window/map lifecycle after the accepted framebuffer evidence.
     std::thread::spawn(move || {
         std::thread::sleep(std::time::Duration::from_secs(5));
         app.exit(if success { 0 } else { 1 });
@@ -133,8 +153,14 @@ mod tests {
             "worker_health":true,"worker_self_test":true,"worker_parse_adif":true,"map_loaded":true,
             "cluster_selection":true,"keyboard_log":true,"logbook_readback":true,"keyboard_focus":true,
             "keyboard_clear":true,"profile_manual":true,"profile_simulator":true,"monitor_opened":true,
-            "monitor_snapshot":true,"final_desk":true}});
+            "monitor_snapshot":true,"final_desk":true},"details":{"finalMap":{
+                "tilesLoaded":true,"webgl":true,"visible":true,"error":"",
+                "landPixelProbes":24,"matchedLandPixels":24,"capturedAt":1}}});
         assert!(passed(&report));
+        report["details"]["finalMap"]["matchedLandPixels"] = json!(23); assert!(!passed(&report));
+        report["details"]["finalMap"]["matchedLandPixels"] = json!(24);
+        report["details"]["finalMap"]["tilesLoaded"] = json!(false); assert!(!passed(&report));
+        report["details"]["finalMap"]["tilesLoaded"] = json!(true);
         report["checks"]["map_loaded"] = json!(false); assert!(!passed(&report));
         report["checks"]["map_loaded"] = json!("true"); assert!(!passed(&report));
         assert!(!passed(&json!({"status":"passed","embeddedUi":true,"worker":true,"checks":{}})));

@@ -231,6 +231,7 @@ try {
         $label = "gui-run-$run"
         $guiPath = Join-Path $EvidenceDirectory "$label.json"
         $gui = Start-Isolated 'xlog-prototype.exe' @('--acceptance-report', $guiPath)
+        $stdoutTask = $null; $stderrTask = $null
         try {
             $stdoutTask = $gui.StandardOutput.ReadToEndAsync(); $stderrTask = $gui.StandardError.ReadToEndAsync()
             $deadline = [DateTime]::UtcNow.AddSeconds($GuiTimeoutSeconds)
@@ -245,15 +246,24 @@ try {
             }
             if (-not $gui.HasExited) {
                 $screenshot = Capture-Desktop $label
+                Write-Json (Join-Path $EvidenceDirectory "$label-screenshot.json") $screenshot
                 if (-not $gui.HasExited) { Record-Modules $gui $label }
-            } else { $screenshot = @{ status = 'unavailable'; reason = 'GUI exited before capture'; limitation = 'Manual Windows desktop rendering remains required.' } }
+            } else {
+                $screenshot = @{ status = 'unavailable'; reason = 'GUI exited before capture'; limitation = 'Manual Windows desktop rendering remains required.' }
+                Write-Json (Join-Path $EvidenceDirectory "$label-screenshot.json") $screenshot
+            }
+            # Keep the native failure authoritative even if a blocked Windows
+            # event loop also prevents its watchdog's app.exit from completing.
+            if ($guiReport -and $guiReport.PSObject.Properties['status'] -and $guiReport.status -eq 'failed') {
+                $reason = if ($guiReport.PSObject.Properties['error']) { $guiReport.error } else { 'Native report status failed' }
+                throw "GUI native acceptance failed on run ${run}: $reason. See $label.json and screenshot/module evidence."
+            }
             $remaining = [Math]::Max(1, [int]($deadline - [DateTime]::UtcNow).TotalMilliseconds)
             Assert-That ($gui.WaitForExit($remaining)) "GUI acceptance timed out on run $run."
             $stdout = Wait-Task $stdoutTask 10 'GUI stdout did not close.'
             $stderr = Wait-Task $stderrTask 10 'GUI stderr did not close.'
             $stdout | Set-Content (Join-Path $EvidenceDirectory "$label-stdout.txt") -Encoding utf8NoBOM
             $stderr | Set-Content (Join-Path $EvidenceDirectory "$label-stderr.txt") -Encoding utf8NoBOM
-            Write-Json (Join-Path $EvidenceDirectory "$label-screenshot.json") $screenshot
             Assert-That ($gui.ExitCode -eq 0) "GUI acceptance exited $($gui.ExitCode) on run $run; inspect stderr evidence."
             Assert-That ($null -ne $guiReport) "GUI did not produce an acceptance report on run $run."
             Assert-That ($guiReport.schema -eq 1 -and $guiReport.status -eq 'passed' -and $guiReport.embeddedUi -eq $true -and $guiReport.worker -eq $true) "GUI-to-worker acceptance contract failed on run $run."
@@ -262,7 +272,21 @@ try {
             foreach ($check in $nativeChecks) { Assert-That ($check.Value -eq $true) "GUI native check failed: $($check.Name)" }
             $guiReports += $guiReport
             Record-Check $label @{ exit = 0; nativeChecks = $nativeChecks.Count; report = "$label.json"; reportSha256 = Hash $guiPath; screenshot = $screenshot }
-        } finally { if (-not $gui.HasExited) { $gui.Kill($true) }; $gui.Dispose() }
+        } finally {
+            if (-not $gui.HasExited) { $gui.Kill($true); $null = $gui.WaitForExit(5000) }
+            # Persist diagnostic streams on timeout/native failure as well as on
+            # success. Only this harness-owned process tree is terminated.
+            foreach ($stream in @(@{ name = 'stdout'; task = $stdoutTask }, @{ name = 'stderr'; task = $stderrTask })) {
+                $path = Join-Path $EvidenceDirectory "$label-$($stream.name).txt"
+                if (-not (Test-Path $path) -and $stream.task) {
+                    try {
+                        $value = Wait-Task $stream.task 5 "GUI $($stream.name) did not close after termination."
+                        $value | Set-Content $path -Encoding utf8NoBOM
+                    } catch { $_.Exception.Message | Set-Content $path -Encoding utf8NoBOM }
+                }
+            }
+            $gui.Dispose()
+        }
     }
     $report.guiReports = $guiReports
     $report.status = 'passed'

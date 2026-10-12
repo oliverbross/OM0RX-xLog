@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const invoke = vi.hoisted(() => vi.fn());
 vi.mock("@tauri-apps/api/core", () => ({ invoke }));
-import { validMapEvidence, validWorkerResult, waitForAcceptance } from "../src/acceptance";
+import { interiorLandProbe, landPixelMatches, validMapEvidence, validWorkerResult, waitForAcceptance } from "../src/acceptance";
 
 beforeEach(() => {
   vi.resetModules();
@@ -14,11 +14,32 @@ afterEach(() => {
 });
 describe("native acceptance evidence", () => {
   it("requires loaded and rendered land, visible canvas and healthy WebGL", () => {
-    const map = { loaded: true, landFeatures: 300, renderedLandFeatures: 8, canvasWidth: 900, canvasHeight: 400, webgl: true, error: "", visible: true };
+    const map = { loaded: true, landFeatures: 300, renderedLandFeatures: 8, canvasWidth: 900, canvasHeight: 400, webgl: true, error: "", visible: true, tilesLoaded: true, landPixelProbes: 40, matchedLandPixels: 40 };
     expect(validMapEvidence(map)).toBe(true);
-    for (const mutation of [{ loaded: false }, { landFeatures: 0 }, { renderedLandFeatures: 0 }, { canvasWidth: 0 }, { webgl: false }, { error: "source failed" }, { visible: false }]) {
+    for (const mutation of [{ loaded: false }, { landFeatures: 0 }, { renderedLandFeatures: 0 }, { canvasWidth: 0 }, { webgl: false }, { error: "source failed" }, { visible: false }, { tilesLoaded: false }, { landPixelProbes: 0 }, { matchedLandPixels: 39 }]) {
       expect(validMapEvidence({ ...map, ...mutation })).toBe(false);
     }
+  });
+  it("rejects ocean or empty framebuffer pixels despite available CPU land features", () => {
+    expect(landPixelMatches(new Uint8Array([18, 51, 71, 255]))).toBe(false);
+    expect(landPixelMatches(new Uint8Array(36))).toBe(false);
+    expect(landPixelMatches(new Uint8Array([49, 71, 65, 255]))).toBe(true);
+    expect(landPixelMatches(new Uint8Array([18, 51, 71, 255, 49, 71, 65, 255]))).toBe(true);
+  });
+  it("samples land interiors and excludes shorelines, tiny islands, borders and spots", () => {
+    expect(interiorLandProbe([10, 10], (_, layers) => layers[0] === "land")).toBe(true);
+    // Land exists at the center but not across the full sampling neighborhood.
+    expect(interiorLandProbe([10, 10], (point, layers) => layers[0] === "land" && point[0] >= 10)).toBe(false);
+    expect(interiorLandProbe([10, 10], (point, layers) => layers[0] === "land" && point[0] === 10 && point[1] === 10)).toBe(false);
+    expect(interiorLandProbe([10, 10], (_, layers) => layers.includes("land") || layers.includes("borders"))).toBe(false);
+    expect(interiorLandProbe([10, 10], (_, layers) => layers.includes("land") || layers.includes("spots"))).toBe(false);
+  });
+  it("still rejects a missing GPU tile when every CPU interior query reports land", () => {
+    expect(interiorLandProbe([10, 10], (_, layers) => layers[0] === "land")).toBe(true);
+    const painted = landPixelMatches(new Uint8Array([18, 51, 71, 255]));
+    expect(validMapEvidence({ loaded: true, landFeatures: 342, renderedLandFeatures: 299,
+      canvasWidth: 754, canvasHeight: 586, webgl: true, error: "", visible: true,
+      tilesLoaded: true, landPixelProbes: 40, matchedLandPixels: 39 + Number(painted) })).toBe(false);
   });
   it("rejects successful envelopes with invalid or unsafe worker evidence", () => {
     const health = { id: "fixture", ok: true, result: { protocol_version: 1, worker: "xlog-prototype-worker", mode: "synthetic_only", station_io: false } };
@@ -57,9 +78,46 @@ describe("native acceptance evidence", () => {
     const { startAcceptance } = await import("../src/acceptance");
     startAcceptance(false);
     await vi.waitFor(() => expect(invoke).toHaveBeenCalledWith("finish_acceptance", {
-      report: expect.objectContaining({ status: "failed", worker: false, error: "Map failed: local geography missing" }),
+      report: expect.objectContaining({ status: "failed", worker: false,
+        error: expect.stringContaining("Map failed: local geography missing; map evidence:"),
+        details: expect.objectContaining({ failureMap: expect.objectContaining({ error: "local geography missing", landPixelProbes: 0, matchedLandPixels: 0 }) }),
+      }),
     }));
     expect(document.querySelector('[role="alert"]')?.textContent).toContain("local geography missing");
     expect(invoke).not.toHaveBeenCalledWith("open_monitor");
+  });
+  it("bounds fresh sampling to three frames and retains incomplete pixel coverage as a failure", async () => {
+    vi.useFakeTimers();
+    const app = document.createElement("div");
+    app.className = "app";
+    const map = document.createElement("div");
+    map.className = "map";
+    Object.assign(map.dataset, { mapLoaded: "true", landFeatures: "342", renderedLandFeatures: "299",
+      webgl: "true", tilesLoaded: "true", landPixelProbes: "40", matchedLandPixels: "39" });
+    vi.spyOn(map, "getBoundingClientRect").mockReturnValue({ width: 754, height: 586 } as DOMRect);
+    const canvas = document.createElement("canvas");
+    canvas.width = 754;
+    canvas.height = 586;
+    map.append(canvas);
+    app.append(map);
+    document.body.append(app);
+    let samples = 0;
+    const capture = () => { samples++; map.dataset.capturedAt = String(Date.now()); };
+    document.addEventListener("xlog-native-map-evidence", capture);
+    try {
+      invoke.mockImplementation(async (command: string) => command === "acceptance_enabled" ? true : undefined);
+      const { startAcceptance } = await import("../src/acceptance");
+      startAcceptance(false);
+      await vi.advanceTimersByTimeAsync(26_000);
+      expect(samples).toBe(3);
+      expect(invoke).toHaveBeenCalledWith("finish_acceptance", {
+        report: expect.objectContaining({ status: "failed", checks: {},
+          details: expect.objectContaining({ failureMap: expect.objectContaining({ landPixelProbes: 40, matchedLandPixels: 39 }) }),
+          error: expect.stringContaining("Timed out: loaded local geography"),
+        }),
+      });
+    } finally {
+      document.removeEventListener("xlog-native-map-evidence", capture);
+    }
   });
 });

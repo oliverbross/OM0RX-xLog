@@ -15,7 +15,9 @@ async fn worker_request(request: serde_json::Value) -> Result<serde_json::Value,
 }
 
 #[tauri::command]
-fn open_monitor(app: tauri::AppHandle) -> Result<(), String> {
+async fn open_monitor(app: tauri::AppHandle) -> Result<(), String> {
+    // Creating a Windows WebView from a synchronous IPC command can block its
+    // message loop. Tauri must dispatch this native window work asynchronously.
     if let Some(window) = app.get_webview_window("monitor") {
         window.show().map_err(|e| e.to_string())?;
         return window.set_focus().map_err(|e| e.to_string());
@@ -44,7 +46,8 @@ fn main() {
         .setup(|app| { acceptance::start_watchdog(app.handle().clone()); Ok(()) })
         .invoke_handler(tauri::generate_handler![worker_request, open_monitor,
             acceptance::acceptance_enabled, acceptance::acceptance_monitor,
-            acceptance::acceptance_monitor_result, acceptance::finish_acceptance])
+            acceptance::acceptance_monitor_result, acceptance::acceptance_prepare_final,
+            acceptance::finish_acceptance])
         .run(tauri::generate_context!())
         .expect("Prototype application failed to start");
 }
