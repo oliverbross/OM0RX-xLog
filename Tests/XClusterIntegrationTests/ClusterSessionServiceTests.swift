@@ -7,11 +7,13 @@ private final class TestClusterTransport: ClusterConnectionTransport, @unchecked
     var onLine: (@Sendable (String) -> Void)?
     var sent: [String] = []
     var stopped = false
+    var optionUpdates: [(Bool, Bool)] = []
 
     func start() { onState?(.connected, nil) }
     func send(_ command: String) { sent.append(command) }
     func stop() { stopped = true }
     func emit(_ line: String) { onLine?(line) }
+    func updateOptions(reconnect: Bool, requestSkimmer: Bool) { optionUpdates.append((reconnect, requestSkimmer)) }
 }
 
 private final class TestTransportSupplier: @unchecked Sendable {
@@ -51,6 +53,120 @@ final class ClusterSessionServiceTests: XCTestCase {
             try await Task.sleep(for: .milliseconds(10))
         }
         XCTFail("Cluster service update did not arrive")
+    }
+
+    func testDisplaySaveRetainsConnectionsHistoryIDsAndRefreshesColoursAndRules() async throws {
+        let server = ClusterServerConfiguration(name: "Fixture", host: "example.invalid", port: 7300, callsign: "OM0RX")
+        var config = ClusterSessionConfiguration(servers: [server])
+        let connection = TestClusterTransport()
+        let supplier = TestTransportSupplier([connection]) // Any unexpected reconnect fails this fixture.
+        let service = ClusterSessionService(configuration: config, transportFactory: { _, _, _, _, state, line in
+            supplier.make(onState: state, onLine: line)
+        })
+        try await service.connect()
+        connection.emit("DX de W1AW: 14025.0 K1ABC CW CUSTOM")
+        connection.emit("Fixture greeting")
+        try await waitFor { await service.snapshot().console.count == 1 }
+        let before = await service.snapshot()
+        config.palette.status["Unknown"] = "#123456"
+        config.palette.band["20m"] = "#234567"
+        config.palette.mode["CW"] = "#345678"
+        config.specialRules = [.init(name: "Custom", keywords: ["CUSTOM"])]
+        config.servers[0].name = "Renamed"
+        config.maximumSpots = 500
+        config.reconnect = false
+        config.requestSkimmer = false
+        try await service.configure(config, password: { _ in XCTFail("Display save read a password"); return "" })
+        let after = await service.snapshot()
+        XCTAssertEqual(after.spots.map(\.id), before.spots.map(\.id))
+        XCTAssertEqual(after.spots.first?.receivedAt, before.spots.first?.receivedAt)
+        XCTAssertEqual(after.spots.first?.statusHex, "#123456")
+        XCTAssertEqual(after.spots.first?.bandHex, "#234567")
+        XCTAssertEqual(after.spots.first?.modeHex, "#345678")
+        XCTAssertEqual(after.spots.first?.specialTags, ["Custom"])
+        XCTAssertEqual(after.console.count, 1)
+        XCTAssertEqual(after.connections.first?.serverName, "Renamed")
+        XCTAssertEqual(after.connectedClusters, 1)
+        XCTAssertFalse(connection.stopped)
+        XCTAssertEqual(connection.optionUpdates.count, 1)
+        XCTAssertFalse(connection.optionUpdates[0].0)
+        XCTAssertFalse(connection.optionUpdates[0].1)
+        connection.emit("DX de W1AW: 14026.0 K2ABC CW")
+        try await waitFor { await service.snapshot().loadedSpots == 2 }
+        await service.disconnect()
+    }
+
+    func testConnectionEditReplacesOnlyAffectedSocketAndKeepsSpotsAndRejectsStaleEvents() async throws {
+        let a = ClusterServerConfiguration(name: "A", host: "a.invalid", port: 7300, callsign: "OM0RX")
+        let b = ClusterServerConfiguration(name: "B", host: "b.invalid", port: 7300, callsign: "OM0RX")
+        var config = ClusterSessionConfiguration(servers: [a, b])
+        let old = TestClusterTransport(), unaffected = TestClusterTransport(), replacement = TestClusterTransport()
+        let supplier = TestTransportSupplier([old, unaffected, replacement])
+        let service = ClusterSessionService(configuration: config, transportFactory: { server, password, _, _, state, line in
+            if server.host == "changed.invalid" { XCTAssertEqual(password, "replacement-secret") }
+            return supplier.make(onState: state, onLine: line)
+        })
+        try await service.connect()
+        old.emit("DX de W1AW: 14025.0 K1BEFORE CW")
+        try await waitFor { await service.snapshot().loadedSpots == 1 }
+        let before = await service.snapshot().spots.first?.id
+        config.servers[0].host = "changed.invalid"
+        try await service.configure(config, password: { id in
+            XCTAssertEqual(id, a.id); return "replacement-secret"
+        })
+        try await waitFor { await service.snapshot().connectedClusters == 2 }
+        XCTAssertTrue(old.stopped)
+        XCTAssertFalse(unaffected.stopped)
+        old.emit("DX de W1AW: 14026.0 K1STALE CW")
+        old.onState?(.failed, "stale failure")
+        unaffected.emit("DX de W1AW: 14027.0 K1UNTOUCHED CW")
+        replacement.emit("DX de W1AW: 14028.0 K1AFTER CW")
+        try await waitFor { await service.snapshot().loadedSpots >= 3 }
+        try await Task.sleep(for: .milliseconds(30))
+        let result = await service.snapshot()
+        XCTAssertEqual(result.connectedClusters, 2)
+        XCTAssertEqual(result.loadedSpots, 3)
+        XCTAssertTrue(result.spots.contains { $0.id == before })
+        XCTAssertFalse(result.spots.contains { $0.callsign == "K1STALE" })
+        // Disabling/removing a server closes only that socket, never its historical spots.
+        config.servers.removeFirst()
+        try await service.configure(config)
+        XCTAssertTrue(replacement.stopped)
+        XCTAssertFalse(unaffected.stopped)
+        let retained = await service.snapshot()
+        XCTAssertEqual(retained.loadedSpots, 3)
+        XCTAssertEqual(retained.connections.count, 1)
+        await service.disconnect()
+        config.servers[0].port = 7301
+        try await service.configure(config, password: { _ in XCTFail("Disconnected save read a password"); return "" })
+        let disconnected = await service.snapshot()
+        XCTAssertEqual(disconnected.connectedClusters, 0)
+        XCTAssertEqual(disconnected.loadedSpots, 3)
+    }
+
+    func testFailedCredentialReadLeavesOldConnectionAndHistoryUntouched() async throws {
+        let server = ClusterServerConfiguration(name: "Fixture", host: "example.invalid", port: 7300, callsign: "OM0RX")
+        var config = ClusterSessionConfiguration(servers: [server])
+        let connection = TestClusterTransport()
+        let supplier = TestTransportSupplier([connection])
+        let service = ClusterSessionService(configuration: config, transportFactory: { _, _, _, _, state, line in
+            supplier.make(onState: state, onLine: line)
+        })
+        try await service.connect()
+        connection.emit("DX de W1AW: 14025.0 K1ABC CW")
+        try await waitFor { await service.snapshot().loadedSpots == 1 }
+        config.servers[0].port = 7301
+        do {
+            try await service.configure(config, password: { _ in throw ClusterSessionError.notConnected })
+            XCTFail("Expected credential failure")
+        } catch ClusterSessionError.notConnected { }
+        XCTAssertFalse(connection.stopped)
+        let snapshot = await service.snapshot()
+        XCTAssertEqual(snapshot.connectedClusters, 1)
+        XCTAssertEqual(snapshot.loadedSpots, 1)
+        await service.terminate()
+        do { try await service.configure(config); XCTFail("Terminated session reconfigured") }
+        catch ClusterSessionError.terminated { }
     }
 
     func testRealLineClassificationFilteringConsoleAndCredentialSeparation() async throws {
@@ -168,9 +284,11 @@ final class ClusterSessionServiceTests: XCTestCase {
         let limited = await service.snapshot()
         XCTAssertEqual(limited.spots.count, 1)
         config.maximumSpots = 500
-        await service.configure(config)
-        // Configure intentionally clears old spots; feed the same real wire lines to the new socket.
-        // The first transport was stopped, so this test uses a fresh service for filter assertions.
+        try await service.configure(config)
+        let expanded = await service.snapshot()
+        XCTAssertEqual(expanded.spots.count, 4)
+        XCTAssertFalse(connection.stopped)
+        // A separate fixture keeps the filter assertions independent of the save regression.
         let filters = ClusterSessionService(configuration: .init(servers: [server],
             showWorkedBandModeSpots: true, maximumSpots: 500), transportFactory: { _, _, _, _, onState, onLine in
             connection.onState = onState

@@ -87,6 +87,23 @@ Windows API branch; a dedicated CI-only random-identity round trip is required.
 Linux vault support and authenticated portable services remain open. See
 `WINDOWS_VAULT_STAGE_2026-10-13.md`.
 
+### Cluster settings save regression (CLUSTER-02)
+
+Reported 13 October: saving colours disconnected every cluster and erased all
+received spots. The cause was an unconditional disconnect and history reset in
+`ClusterSessionService.configure`. The correction preserves sockets, spot IDs,
+timestamps and console history for display edits; reprojects colours and special
+rules; reconnects only added or changed enabled endpoints in a running session;
+and leaves explicitly disconnected sessions offline. Retry/skimmer options update
+in place. Credential lookup failure leaves the existing connection untouched;
+late callbacks from replaced sockets are rejected independently per server.
+
+Regression coverage includes multi-server replacement, retained history, palette
+and rules, offline saves, credential failure, terminal shutdown, worker Save
+dispatch, and owned-loopback live option changes on both Mac and portable socket
+implementations. Source tests pass; installed acceptance is pending. Spot retention
+here means across settings saves and reconnects, not a new disk-backed history.
+
 ### Cross-platform local logbook work after alpha.7
 
 The non-macOS worker previously rejected all workspace/logbook requests with

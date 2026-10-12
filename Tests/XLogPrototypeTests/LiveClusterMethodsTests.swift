@@ -77,6 +77,20 @@ struct LiveClusterMethodsTests {
         }
         #expect(snapshot["connectedClusters"] as? Int == 1)
         #expect((snapshot["spots"] as? [[String: Any]])?.first?["callsign"] as? String == "K1ABC")
+        let spotID = (snapshot["spots"] as? [[String: Any]])?.first?["id"] as? String
+        var palette = try #require(configuration["palette"] as? [String: Any])
+        var bands = try #require(palette["band"] as? [String: String])
+        bands["20m"] = "#123456"
+        palette["band"] = bands
+        configuration["palette"] = palette
+        let saved = try await request(worker, "cluster_configure", ["configuration": configuration])
+        #expect(saved["ok"] as? Bool == true)
+        let savedSnapshot = (saved["result"] as? [String: Any])?["snapshot"] as? [String: Any]
+        #expect(savedSnapshot?["connectedClusters"] as? Int == 1)
+        #expect((savedSnapshot?["spots"] as? [[String: Any]])?.first?["id"] as? String == spotID)
+        #expect((savedSnapshot?["spots"] as? [[String: Any]])?.first?["bandHex"] as? String == "#123456")
+        #expect(fixture.counts.0 == 1)
+        #expect(fixture.counts.1 == 0)
         let opportunities = try await request(worker, "opportunities_snapshot")["result"] as? [String: Any]
         #expect((opportunities?["items"] as? [[String: Any]])?.contains { $0["reference"] as? String == "US-3051" } == true)
         #expect(try await request(worker, "cluster_command", ["command": "SH/DX"])["ok"] as? Bool == true)

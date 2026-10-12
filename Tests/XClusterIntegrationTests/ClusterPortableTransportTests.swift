@@ -38,6 +38,68 @@ final class ClusterPortableTransportTests: XCTestCase {
         XCTFail("Loopback transport condition did not arrive")
     }
 
+    func testPortableOptionsChangeInPlaceAndRetryCanResumeAfterFailure() async throws {
+        try await exerciseLiveOptions { server, state, line in
+            ClusterPortableConnection(server: server, password: "", reconnect: true, requestSkimmer: true,
+                                      onState: state, onLine: line)
+        }
+    }
+
+    #if canImport(Network)
+    func testMacOptionsChangeInPlaceAndRetryCanResumeAfterFailure() async throws {
+        try await exerciseLiveOptions { server, state, line in
+            makeClusterTCPTransport(server: server, password: "", reconnect: true, requestSkimmer: true,
+                                    onState: state, onLine: line)
+        }
+    }
+    #endif
+
+    private func exerciseLiveOptions(_ factory: (ClusterServerConfiguration,
+        @escaping @Sendable (ClusterConnectionPhase, String?) -> Void,
+        @escaping @Sendable (String) -> Void) -> any ClusterConnectionTransport) async throws {
+        let listener = try LoopbackListener()
+        let complete = expectation(description: "options changed without replacing live socket")
+        let wire = WireEvidence(), events = WireEvidence()
+        let client = factory(.init(name: "Fixture", host: "127.0.0.1", port: Int(listener.port), callsign: "OM0RX"),
+                             { phase, _ in events.phase(phase) }, { events.line($0) })
+        defer { client.stop() }
+        DispatchQueue.global().async {
+            defer { complete.fulfill() }
+            guard let first = xlog_test_accept(listener.pointer, 4_000) else { XCTFail("No first connection"); return }
+            var buffer = [UInt8](repeating: 0, count: 4096), input = Data()
+            while !String(decoding: input, as: UTF8.self).contains("unset/skimmer\r\n") {
+                let count = buffer.withUnsafeMutableBytes { xlog_test_read(first, $0.baseAddress, Int32($0.count), 4_000) }
+                guard count > 0 else { xlog_test_close(first); XCTFail("Options edit closed the socket"); return }
+                input.append(contentsOf: buffer.prefix(Int(count)))
+                if String(decoding: input, as: UTF8.self).contains("set/skimmer\r\n") { wire.line("LOGIN") }
+            }
+            XCTAssertEqual(String(decoding: input, as: UTF8.self), "OM0RX\r\nset/skimmer\r\nunset/skimmer\r\n")
+            xlog_test_close(first)
+            if let unexpected = xlog_test_accept(listener.pointer, 2_600) {
+                xlog_test_close(unexpected); XCTFail("Reconnect=false was ignored")
+            }
+            wire.line("RETRY DISABLED")
+            guard let second = xlog_test_accept(listener.pointer, 4_000) else { XCTFail("Re-enabling retry did not reconnect"); return }
+            defer { xlog_test_close(second) }
+            input = Data()
+            while !String(decoding: input, as: UTF8.self).contains("set/skimmer\r\n") {
+                let count = buffer.withUnsafeMutableBytes { xlog_test_read(second, $0.baseAddress, Int32($0.count), 4_000) }
+                guard count > 0 else { XCTFail("Missing replacement login"); return }
+                input.append(contentsOf: buffer.prefix(Int(count)))
+            }
+            XCTAssertEqual(String(decoding: input, as: UTF8.self), "OM0RX\r\nset/skimmer\r\n")
+            client.stop()
+        }
+        client.start()
+        try await waitFor { wire.lines.contains("LOGIN") }
+        client.updateOptions(reconnect: false, requestSkimmer: false)
+        try await waitFor { wire.lines.contains("RETRY DISABLED") }
+        XCTAssertEqual(events.phases.filter { $0 == .connected }.count, 1)
+        client.updateOptions(reconnect: true, requestSkimmer: true)
+        await fulfillment(of: [complete], timeout: 6)
+        XCTAssertEqual(events.phases.filter { $0 == .connected }.count, 2)
+    }
+
     func testIPv4LoginFramingCommandRedactionAndRemoteClose() async throws {
         let listener = try LoopbackListener()
         let accepted = expectation(description: "fixture completed")

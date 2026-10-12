@@ -176,7 +176,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
   };
   const saveConfig = async () => {
     if (!configuration) return;
-    if (await request("cluster_configure", { configuration }, "Cluster settings saved. Connect when ready.")) {
+    if (await request("cluster_configure", { configuration }, "Cluster settings saved. Received spots retained.")) {
       setSavedServerIDs(configuration.servers.map((s) => s.id));
     }
   };

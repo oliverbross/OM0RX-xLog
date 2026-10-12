@@ -63,8 +63,8 @@ public func makeClusterTCPTransport(
 private final class ClusterNetworkConnection: ClusterConnectionTransport, @unchecked Sendable {
     private let server: ClusterServerConfiguration
     private let password: String
-    private let reconnect: Bool
-    private let requestSkimmer: Bool
+    private var reconnect: Bool
+    private var requestSkimmer: Bool
     private let onState: @Sendable (ClusterConnectionPhase, String?) -> Void
     private let onLine: @Sendable (String) -> Void
     private let queue: DispatchQueue
@@ -72,6 +72,8 @@ private final class ClusterNetworkConnection: ClusterConnectionTransport, @unche
     private var framer = ClusterTelnetLineFramer()
     private var stopped = false
     private var retry = 0
+    private var retryGeneration = UUID()
+    private var loggedIn = false
 
     init(server: ClusterServerConfiguration, password: String, reconnect: Bool, requestSkimmer: Bool,
          onState: @escaping @Sendable (ClusterConnectionPhase, String?) -> Void,
@@ -86,6 +88,21 @@ private final class ClusterNetworkConnection: ClusterConnectionTransport, @unche
     }
 
     func start() { queue.async { self.open() } }
+
+    func updateOptions(reconnect: Bool, requestSkimmer: Bool) {
+        queue.async {
+            guard !self.stopped else { return }
+            let skimmerChanged = self.requestSkimmer != requestSkimmer
+            let retryEnabled = !self.reconnect && reconnect
+            self.reconnect = reconnect
+            self.requestSkimmer = requestSkimmer
+            if !reconnect { self.retryGeneration = UUID() }
+            if skimmerChanged && self.loggedIn {
+                self.send(requestSkimmer ? "set/skimmer" : "unset/skimmer")
+            }
+            if retryEnabled && self.connection == nil { self.open() }
+        }
+    }
 
     func stop() {
         queue.async {
@@ -108,6 +125,8 @@ private final class ClusterNetworkConnection: ClusterConnectionTransport, @unche
     private func open() {
         guard !stopped, let port = NWEndpoint.Port(rawValue: UInt16(server.port)) else { return }
         onState(.connecting, nil)
+        loggedIn = false
+        retryGeneration = UUID()
         framer = .init()
         let newConnection = NWConnection(host: .init(server.host), port: port, using: .tcp)
         connection = newConnection
@@ -136,6 +155,7 @@ private final class ClusterNetworkConnection: ClusterConnectionTransport, @unche
             var login = self.server.callsign.uppercased() + "\r\n"
             if !self.password.isEmpty { login += self.password + "\r\n" }
             login += (self.requestSkimmer ? "set/skimmer" : "unset/skimmer") + "\r\n"
+            self.loggedIn = true
             connection.send(content: Data(login.utf8), completion: .contentProcessed { [weak self] error in
                 if let error { self?.queue.async { self?.closed(error.localizedDescription) } }
             })
@@ -163,13 +183,19 @@ private final class ClusterNetworkConnection: ClusterConnectionTransport, @unche
     private func closed(_ reason: String?) {
         connection?.cancel()
         connection = nil
+        loggedIn = false
         guard !stopped else { onState(.disconnected, nil); return }
         onState(reason == nil ? .disconnected : .failed, reason)
         guard reconnect else { return }
         let delays = [2, 5, 10, 20, 30, 60]
         let delay = delays[min(retry, delays.count - 1)]
         retry += 1
-        queue.asyncAfter(deadline: .now() + .seconds(delay)) { [weak self] in self?.open() }
+        let generation = UUID()
+        retryGeneration = generation
+        queue.asyncAfter(deadline: .now() + .seconds(delay)) { [weak self] in
+            guard let self, self.reconnect, self.retryGeneration == generation else { return }
+            self.open()
+        }
     }
 }
 #endif

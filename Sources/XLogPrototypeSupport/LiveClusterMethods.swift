@@ -84,7 +84,7 @@ public actor LiveClusterMethods {
             guard forwardingAvailable || !next.forwardSpotsToFlex else {
                 throw WorkerFailure("platform_pending", "FLEX spot forwarding is not yet available on this platform. Turn forwarding off before saving cluster settings.")
             }
-            await service.configure(next)
+            try await service.configure(next, password: { [vault] id in try vault.load(id) ?? "" })
             try requireRunning()
             configuration = next
             forwardStatus = next.forwardSpotsToFlex ? "Enabled; connect a cluster and direct-agent station." : "Off"

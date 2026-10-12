@@ -249,6 +249,11 @@ public protocol ClusterConnectionTransport: AnyObject, Sendable {
     func start()
     func send(_ command: String)
     func stop()
+    func updateOptions(reconnect: Bool, requestSkimmer: Bool)
+}
+
+public extension ClusterConnectionTransport {
+    func updateOptions(reconnect: Bool, requestSkimmer: Bool) {}
 }
 
 public typealias ClusterTransportFactory = @Sendable (
@@ -267,6 +272,7 @@ public actor ClusterSessionService {
     private var transports: [UUID: any ClusterConnectionTransport] = [:]
     /// Invalidates callbacks queued by an earlier socket, including a reconnect to the same server ID.
     private var connectionGeneration = UUID()
+    private var transportGenerations: [UUID: UUID] = [:]
     private var contactCounts: [String: Int] = [:]
     private var contactRevision = 0
     private var hasContactSnapshot = false
@@ -287,13 +293,46 @@ public actor ClusterSessionService {
         self.transportFactory = transportFactory
     }
 
-    public func configure(_ value: ClusterSessionConfiguration) {
-        disconnect()
+    /// Display edits never disturb sockets or received history. Resolve credentials
+    /// only for replacement connections, before touching any running transport.
+    public func configure(_ value: ClusterSessionConfiguration,
+                          password: @Sendable (UUID) throws -> String = { _ in "" }) throws {
+        guard !terminated else { throw ClusterSessionError.terminated }
+        try validate(value)
+        let wasRunning = !transports.isEmpty
+        let enabled = value.servers.filter(\.enabled)
+        let retained = Set(enabled.compactMap { next -> UUID? in
+            guard transports[next.id] != nil,
+                  let previous = configuration.servers.first(where: { $0.id == next.id }),
+                  previous.host.lowercased() == next.host.lowercased(), previous.port == next.port,
+                  previous.callsign.uppercased() == next.callsign.uppercased() else { return nil }
+            return next.id
+        })
+        let replacements = wasRunning ? enabled.filter { !retained.contains($0.id) } : []
+        var passwords: [UUID: String] = [:]
+        for server in replacements {
+            let secret = try password(server.id)
+            try validatePassword(secret)
+            passwords[server.id] = secret
+        }
+        let removed = Set(transports.keys).subtracting(retained)
+        if !removed.isEmpty || !replacements.isEmpty { connectionGeneration = UUID() }
+        for id in removed {
+            transportGenerations.removeValue(forKey: id)
+            transports.removeValue(forKey: id)?.stop()
+        }
+        let optionsChanged = configuration.reconnect != value.reconnect
+            || configuration.requestSkimmer != value.requestSkimmer
         configuration = value
-        spots.removeAll()
-        statuses.removeAll()
-        console.removeAll()
-        publish()
+        statuses = statuses.filter { retained.contains($0.key) }
+        for server in enabled where retained.contains(server.id) {
+            statuses[server.id]?.serverName = server.name
+            if optionsChanged {
+                transports[server.id]?.updateOptions(reconnect: value.reconnect, requestSkimmer: value.requestSkimmer)
+            }
+        }
+        for server in replacements { start(server, password: passwords[server.id] ?? "") }
+        reclassify()
     }
 
     /// Credentials are supplied by the host's secure store for this connection only.
@@ -303,6 +342,15 @@ public actor ClusterSessionService {
         let enabled = configuration.servers.filter(\.enabled)
         guard !enabled.isEmpty else { throw ClusterSessionError.invalidConfiguration("Configure and enable a cluster server first.") }
         guard transports.isEmpty else { return }
+        try validate(configuration)
+        for server in enabled { try validatePassword(passwords[server.id] ?? "") }
+        connectionGeneration = UUID()
+        for server in enabled { start(server, password: passwords[server.id] ?? "") }
+        publish()
+    }
+
+    private func validate(_ value: ClusterSessionConfiguration) throws {
+        let enabled = value.servers.filter(\.enabled)
         for server in enabled {
             guard !server.name.isEmpty, !server.host.isEmpty, server.port > 0, server.port <= 65_535,
                   !server.host.contains(where: { $0.isWhitespace || $0.isNewline }),
@@ -314,31 +362,32 @@ public actor ClusterSessionService {
         guard Set(enabled.map(\.id)).count == enabled.count else {
             throw ClusterSessionError.invalidConfiguration("Cluster server IDs must be unique.")
         }
-        for server in enabled {
-            if let password = passwords[server.id],
-               (password.utf8.count > 256 || password.contains("\r") || password.contains("\n")) {
-                throw ClusterSessionError.invalidConfiguration("Cluster password contains an invalid line break or is too long.")
-            }
+    }
+
+    private func validatePassword(_ password: String) throws {
+        if password.utf8.count > 256 || password.contains("\r") || password.contains("\n") {
+            throw ClusterSessionError.invalidConfiguration("Cluster password contains an invalid line break or is too long.")
         }
-        connectionGeneration = UUID()
-        let generation = connectionGeneration
-        for server in enabled {
-            let events = ClusterEventSequence()
-            let transport = transportFactory(server, passwords[server.id] ?? "", configuration.reconnect,
-                                             configuration.requestSkimmer, { [weak self] phase, error in
-                events.submit { [weak self] in await self?.receiveState(serverID: server.id, generation: generation, phase: phase, error: error) }
-            }, { [weak self] line in
-                events.submit { [weak self] in await self?.receiveLine(line, serverID: server.id, generation: generation) }
-            })
-            transports[server.id] = transport
-            statuses[server.id] = .init(serverID: server.id, serverName: server.name, phase: .connecting, error: nil)
-            transport.start()
-        }
-        publish()
+    }
+
+    private func start(_ server: ClusterServerConfiguration, password: String) {
+        let generation = UUID()
+        transportGenerations[server.id] = generation
+        let events = ClusterEventSequence()
+        let transport = transportFactory(server, password, configuration.reconnect,
+                                         configuration.requestSkimmer, { [weak self] phase, error in
+            events.submit { [weak self] in await self?.receiveState(serverID: server.id, generation: generation, phase: phase, error: error) }
+        }, { [weak self] line in
+            events.submit { [weak self] in await self?.receiveLine(line, serverID: server.id, generation: generation) }
+        })
+        transports[server.id] = transport
+        statuses[server.id] = .init(serverID: server.id, serverName: server.name, phase: .connecting, error: nil)
+        transport.start()
     }
 
     public func disconnect() {
         connectionGeneration = UUID()
+        transportGenerations.removeAll()
         for transport in transports.values { transport.stop() }
         transports.removeAll()
         for id in statuses.keys { statuses[id]?.phase = .disconnected; statuses[id]?.error = nil }
@@ -447,14 +496,14 @@ public actor ClusterSessionService {
     }
 
     private func receiveState(serverID: UUID, generation: UUID, phase: ClusterConnectionPhase, error: String?) {
-        guard generation == connectionGeneration, transports[serverID] != nil else { return }
+        guard generation == transportGenerations[serverID], transports[serverID] != nil else { return }
         statuses[serverID]?.phase = phase
         statuses[serverID]?.error = error
         publish()
     }
 
     private func receiveLine(_ line: String, serverID: UUID, generation: UUID) {
-        guard generation == connectionGeneration, transports[serverID] != nil,
+        guard generation == transportGenerations[serverID], transports[serverID] != nil,
               let server = configuration.servers.first(where: { $0.id == serverID }) else { return }
         guard line.utf8.count <= ClusterLineParser.maximumLineBytes else { return }
         if let raw = ClusterLineParser.parse(line, clusterID: serverID, clusterName: server.name) {
@@ -516,11 +565,14 @@ public actor ClusterSessionService {
             spots[index].callStatus = result.callStatus
             spots[index].dxccStatus = result.dxccStatus
             spots[index].workedBefore = result.workedBefore
+            spots[index].specialTags = SpotLogic.specials(in: spots[index].comment, rules: configuration.specialRules)
             let (score, reasons) = SpotLogic.score(callStatus: result.callStatus, dxccStatus: result.dxccStatus,
                                                    specials: spots[index].specialTags, source: spots[index].source)
             spots[index].score = score
             spots[index].scoreReasons = reasons
             spots[index].statusHex = configuration.palette.status[result.callStatus] ?? "#B0B0B0"
+            spots[index].bandHex = configuration.palette.band[spots[index].band] ?? "#B0B0B0"
+            spots[index].modeHex = configuration.palette.mode[spots[index].mode] ?? "#B0B0B0"
         }
         publish()
     }
