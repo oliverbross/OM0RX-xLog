@@ -8,7 +8,7 @@ packaged UI result. Keep unresolved items here across releases.
 ## Current delivery boundary
 
 - Working tree: shared cross-platform xLog; Mac-first delivery.
-- Currently installed: Integration alpha.12, source `ced2d2cb65c5861de138663288d5ef02cdfc0d68` (signed/notarized, 21 native acceptance checks passed). Native width entry verified with 180, then defaults restored. Wider parity gates remain open.
+- Currently installed: Integration alpha.13, source `e126d6f4ba7009494db76f9fbf49ed4ca44ff8a9` (signed/notarized, 21 native acceptance checks passed). Monitor footer and live island map verified. Wider parity gates remain open.
 - Individual runtime checks and remaining gates are recorded below and in the alpha.7 acceptance report.
 - Restart of Integration was explicitly approved once the build passes.
 - Preserve the latest operator draft, all logbooks/settings/credentials, and
@@ -125,7 +125,7 @@ No radio/rotor command was sent. Exact-source OS matrix `38307750798` is pending
 
 ### Chaser usability and parity follow-up (CHASER-02)
 
-CHASER-03 (13 October follow-up, source/tests complete; packaged verification pending): move DXpeditions immediately after All;
+CHASER-03 (13 October follow-up, installed and verified in alpha.13): move DXpeditions immediately after All;
 make map follow programme/filter selection and show supplied coordinates or
 clearly marked reference-area locations. Include recent IOTA-tagged cluster
 spots and dated calendar operations carrying IOTA references in the IOTA tab.
@@ -530,7 +530,7 @@ typing now reads Callsign width 180 after Tab, cluster stays Connected. Defaults
 restored after test; no radio, rotor or transmit command. Exact-source all-platform
 CI `38312294786` remains separate and pending at this checkpoint.
 
-HEADER-04 (requested, source implemented; package verification pending): move Monitor
+HEADER-04 (installed and visually verified in alpha.13): move Monitor
 from the top station rail to the bottom-left sidebar footer; enlarge the configured
 station callsign and grid without changing their values or Monitor behaviour.
 
@@ -545,6 +545,20 @@ Shared Swift suite passed (71 Swift Testing cases, XCTest suite also successful)
 Frontend full run: 363 passed with one worker; the initial concurrent build/test run
 had timeouts and was not accepted. Expanded LiveApp follow-up: 9 passed. TypeScript
 and Vite build passed; existing large-bundle warning remains a performance follow-up.
+
+Alpha.13 installed verification: Monitor visibly in bottom-left footer, above larger
+OM0RX and JN88TQ. H49A draft and 67,846 contacts retained; ShackCQ reconnected.
+Live IOTA tab: 21 matching/located operations, explicitly approximate group areas.
+DXpeditions second tab: 26 matching, 21 located and 5 without published coordinates.
+No spot selected and no radio/rotor command sent during native verification.
+All 21 packaged checks passed; report `docs/evidence/native-ui-alpha13/mac-signed-large.json`.
+The first acceptance invocation exited because the normal single-instance app was
+still running and produced no report; after closing Integration, the actual isolated
+run completed and its report was checked. Apple notarization
+`bb8f10cb-ed8f-4293-adb4-7a9351649811` Accepted; staple, Gatekeeper and installed signature
+verified. Archive SHA-256 `180b27815c2a299a78d9862bc43b5f2c512f3b69a989cc467dda72e7b7363e41`.
+Previous alpha.12 all-platform CI `38312294786` succeeded. Exact alpha.13 matrix
+`38314805976` remains running and is not claimed passed.
 
 Record the source SHA, exact test evidence, installed version, and observed
 result. Leave partial or failed gates visible. Add newly reported issues here
