@@ -9,6 +9,12 @@ OM0RX-xLog is a fast, local-first amateur-radio logbook for macOS. It is the log
 
 Created and maintained by **Oliver Bross, OM0RX**.
 
+## Current working release — macOS only
+
+**Use [v0.3.0 for everyday macOS operation](https://github.com/oliverbross/OM0RX-xLog/releases/tag/v0.3.0).** The existing Developer ID signed, notarized application remains available unchanged: [download the macOS application](https://github.com/oliverbross/OM0RX-xLog/releases/download/v0.3.0/OM0RX-xLog-0.3.0-macOS.zip). It is the current working native release, not a Windows/Linux build. Radio/rotor operation uses the existing xCat integration, and the published feature/award limitations still apply.
+
+Cross-platform development is isolated on [`codex/unified-xlog-prototype-p1`](https://github.com/oliverbross/OM0RX-xLog/tree/codex/unified-xlog-prototype-p1). Its prototype uses synthetic data, has a separate application identity, and is **not a production replacement**. Existing apps, settings, logs and credentials are not migrated or replaced. See the [preservation baseline](docs/P0_MACOS_BASELINE.md) for version and validation evidence.
+
 Development scope, acceptance evidence and the prioritized backlog are tracked in [PROJECT_STATUS.md](PROJECT_STATUS.md).
 
 ## Proposed local-station and cross-platform programme
