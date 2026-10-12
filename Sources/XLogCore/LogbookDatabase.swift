@@ -291,12 +291,18 @@ public final class LogbookDatabase: @unchecked Sendable {
         try lock.withLock {
             if let adif {
                 return try withStatement("""
-                    SELECT record_json FROM qsos
-                    WHERE deleted_at IS NULL AND (
-                        call = ? COLLATE NOCASE
-                        OR CAST(json_extract(record_json,'$.dxcc') AS INTEGER) = ?
-                        OR CAST(json_extract(record_json,'$.dxcc') AS INTEGER) IS NULL
-                    ) ORDER BY qso_start DESC;
+                    WITH candidates AS (
+                        SELECT local_id FROM qsos INDEXED BY idx_qsos_call_live_nocase
+                        WHERE deleted_at IS NULL AND call = ? COLLATE NOCASE
+                        UNION
+                        SELECT local_id FROM qsos INDEXED BY idx_qsos_dxcc_live
+                        WHERE deleted_at IS NULL AND CAST(json_extract(record_json,'$.dxcc') AS INTEGER) = ?
+                        UNION
+                        SELECT local_id FROM qsos INDEXED BY idx_qsos_dxcc_live
+                        WHERE deleted_at IS NULL AND CAST(json_extract(record_json,'$.dxcc') AS INTEGER) IS NULL
+                    )
+                    SELECT qsos.record_json FROM candidates JOIN qsos USING(local_id)
+                    ORDER BY qsos.qso_start DESC;
                     """) { statement in
                         bind(call.uppercased(), to: 1, in: statement)
                         sqlite3_bind_int(statement, 2, Int32(adif))
@@ -397,6 +403,13 @@ public final class LogbookDatabase: @unchecked Sendable {
             try refreshAggregateCacheVersion()
             let yearStart = Calendar(identifier: .gregorian).date(from: Calendar.current.dateComponents([.year], from: Date()))?.timeIntervalSince1970 ?? 0
             if let cachedStats, cachedStatsYearStart == yearStart { return cachedStats }
+            let cacheKey = "stats-v1-\(yearStart)"
+            if let value: LogbookStats = try persistedAggregate(cacheKey) {
+                cachedStats = value
+                cachedStatsYearStart = yearStart
+                return value
+            }
+            let revision = try qsoRevision()
             let value: LogbookStats = try withStatement("""
                 SELECT COUNT(*), COUNT(DISTINCT CASE WHEN json_extract(record_json,'$.dxcc') IS NOT NULL THEN json_extract(record_json,'$.dxcc') END),
                 SUM(CASE WHEN json_extract(record_json,'$.qslReceived') IN ('Y','V') OR json_extract(record_json,'$.lotwReceived') IN ('Y','V') THEN 1 ELSE 0 END),
@@ -414,6 +427,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                 }
             cachedStats = value
             cachedStatsYearStart = yearStart
+            persistAggregate(value, key: cacheKey, revision: revision)
             return value
         }
     }
@@ -422,6 +436,13 @@ public final class LogbookDatabase: @unchecked Sendable {
         try lock.withLock {
             try refreshAggregateCacheVersion()
             if let cachedAwards { return cachedAwards }
+            // Bump this key if progress calculation semantics change.
+            let cacheKey = "award-progress-v1"
+            if let value: AwardProgressSnapshot = try persistedAggregate(cacheKey) {
+                cachedAwards = value
+                return value
+            }
+            let revision = try qsoRevision()
             let confirmed = "(UPPER(COALESCE(json_extract(record_json,'$.qslReceived'),'')) IN ('Y','V') OR UPPER(COALESCE(json_extract(record_json,'$.lotwReceived'),'')) IN ('Y','V'))"
             let effectiveMode = "UPPER(COALESCE(NULLIF(json_extract(record_json,'$.submode'),''), mode))"
             let modeGroup = "CASE WHEN \(effectiveMode) = 'CW' THEN 'CW' WHEN \(effectiveMode) IN ('SSB','USB','LSB','AM','FM') THEN 'Phone' ELSE 'Digital' END"
@@ -491,6 +512,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                 return result
             }
             cachedAwards = value
+            persistAggregate(value, key: cacheKey, revision: revision)
             return value
         }
     }
@@ -500,6 +522,12 @@ public final class LogbookDatabase: @unchecked Sendable {
         try lock.withLock {
             try refreshAggregateCacheVersion()
             if let cachedDXCCStatuses { return cachedDXCCStatuses }
+            let cacheKey = "dxcc-map-v1"
+            if let value: [Int: String] = try persistedAggregate(cacheKey) {
+                cachedDXCCStatuses = value
+                return value
+            }
+            let revision = try qsoRevision()
             let value = try withStatement("""
                 SELECT CAST(json_extract(record_json,'$.dxcc') AS INTEGER),
                     MAX(CASE WHEN UPPER(COALESCE(json_extract(record_json,'$.qslReceived'),'')) IN ('Y','V')
@@ -514,6 +542,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                     return result
                 }
             cachedDXCCStatuses = value
+            persistAggregate(value, key: cacheKey, revision: revision)
             return value
         }
     }
@@ -522,6 +551,12 @@ public final class LogbookDatabase: @unchecked Sendable {
         try lock.withLock {
             try refreshAggregateCacheVersion()
             if let cachedAwardCatalog { return cachedAwardCatalog }
+            let cacheKey = try AwardCatalogEngine.persistedCacheKey.get()
+            if let value: AwardCatalogSnapshot = try persistedAggregate(cacheKey) {
+                cachedAwardCatalog = value
+                return value
+            }
+            let revision = try qsoRevision()
             // All current calculators are limited to Japan, WAPC entities,
             // or WCSA school calls. The slash arm is a portable-call superset.
             // `save` maintains the indexed call column alongside record_json;
@@ -548,6 +583,7 @@ public final class LogbookDatabase: @unchecked Sendable {
             }
             let catalog = try AwardCatalogEngine.compute(qsos: values)
             cachedAwardCatalog = catalog
+            persistAggregate(catalog, key: cacheKey, revision: revision)
             return catalog
         }
     }
@@ -623,6 +659,47 @@ public final class LogbookDatabase: @unchecked Sendable {
             }
             cachedOpportunityReferences = values
             return values
+        }
+    }
+
+    private func qsoRevision() throws -> Int64 {
+        try withStatement("SELECT revision FROM xlog_qso_revision WHERE singleton = 1;") { statement in
+            guard sqlite3_step(statement) == SQLITE_ROW else { throw error() }
+            return sqlite3_column_int64(statement, 0)
+        }
+    }
+
+    private func persistedAggregate<T: Decodable>(_ key: String) throws -> T? {
+        try withStatement("""
+            SELECT payload FROM xlog_aggregate_cache c JOIN xlog_qso_revision r
+                ON r.singleton = 1 AND c.revision = r.revision WHERE c.cache_key = ?;
+            """) { statement in
+            bind(key, to: 1, in: statement)
+            let step = sqlite3_step(statement)
+            if step == SQLITE_DONE { return nil }
+            guard step == SQLITE_ROW else { throw error() }
+            guard let bytes = sqlite3_column_blob(statement, 0) else { return nil }
+            let data = Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 0)))
+            // A damaged or obsolete derived payload is recomputed, never treated
+            // as an empty logbook. Authoritative QSO data is not modified.
+            return try? decoder.decode(T.self, from: data)
+        }
+    }
+
+    private func persistAggregate<T: Encodable>(_ value: T, key: String, revision: Int64) {
+        // An external writer may commit during calculation. Publish only if its
+        // revision is still current in this atomic statement; otherwise a later
+        // call recomputes. Cache write failure must not hide a valid calculation.
+        try? withStatement("""
+            INSERT OR REPLACE INTO xlog_aggregate_cache(cache_key, revision, payload)
+                SELECT ?, ?, ? WHERE (SELECT revision FROM xlog_qso_revision WHERE singleton = 1) = ?;
+            """) { statement in
+            let data = try encoder.encode(value)
+            bind(key, to: 1, in: statement)
+            sqlite3_bind_int64(statement, 2, revision)
+            _ = data.withUnsafeBytes { sqlite3_bind_blob(statement, 3, $0.baseAddress, Int32($0.count), Self.transient) }
+            sqlite3_bind_int64(statement, 4, revision)
+            try stepDone(statement)
         }
     }
 
@@ -1030,6 +1107,25 @@ public final class LogbookDatabase: @unchecked Sendable {
           ON qsos(CAST(json_extract(record_json,'$.dxcc') AS INTEGER), qso_start DESC)
           WHERE deleted_at IS NULL;
         CREATE INDEX IF NOT EXISTS idx_qsos_dirty ON qsos(is_dirty, updated_at);
+        CREATE TABLE IF NOT EXISTS xlog_qso_revision(
+          singleton INTEGER PRIMARY KEY CHECK(singleton = 1),
+          revision INTEGER NOT NULL
+        );
+        INSERT OR IGNORE INTO xlog_qso_revision(singleton, revision) VALUES(1, 0);
+        CREATE TABLE IF NOT EXISTS xlog_aggregate_cache(
+          cache_key TEXT PRIMARY KEY,
+          revision INTEGER NOT NULL,
+          payload BLOB NOT NULL
+        );
+        CREATE TRIGGER IF NOT EXISTS xlog_qso_revision_insert AFTER INSERT ON qsos BEGIN
+          UPDATE xlog_qso_revision SET revision = revision + 1 WHERE singleton = 1;
+        END;
+        CREATE TRIGGER IF NOT EXISTS xlog_qso_revision_update AFTER UPDATE ON qsos BEGIN
+          UPDATE xlog_qso_revision SET revision = revision + 1 WHERE singleton = 1;
+        END;
+        CREATE TRIGGER IF NOT EXISTS xlog_qso_revision_delete AFTER DELETE ON qsos BEGIN
+          UPDATE xlog_qso_revision SET revision = revision + 1 WHERE singleton = 1;
+        END;
         CREATE TABLE IF NOT EXISTS sync_conflicts(
           conflict_id TEXT PRIMARY KEY,
           local_id TEXT NOT NULL,

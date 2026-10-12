@@ -1,6 +1,6 @@
 import Foundation
 
-public struct AwardProgressSnapshot: Equatable, Sendable {
+public struct AwardProgressSnapshot: Codable, Equatable, Sendable {
     public var qsoCount: Int
     public var confirmedQSOs: Int
     public var dxccWorked: Int

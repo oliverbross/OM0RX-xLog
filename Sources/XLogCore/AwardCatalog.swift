@@ -1,6 +1,7 @@
 import Foundation
+import CryptoKit
 
-public struct AwardBreakdown: Identifiable, Equatable, Sendable {
+public struct AwardBreakdown: Codable, Identifiable, Equatable, Sendable {
     public var label: String
     public var value: Int
     public var target: Int?
@@ -13,7 +14,7 @@ public struct AwardBreakdown: Identifiable, Equatable, Sendable {
     }
 }
 
-public struct AwardCatalogItem: Identifiable, Equatable, Sendable {
+public struct AwardCatalogItem: Codable, Identifiable, Equatable, Sendable {
     public var code: String
     public var title: String
     public var programme: String
@@ -53,7 +54,7 @@ public struct AwardCatalogItem: Identifiable, Equatable, Sendable {
     }
 }
 
-public struct AwardCatalogSnapshot: Equatable, Sendable {
+public struct AwardCatalogSnapshot: Codable, Equatable, Sendable {
     public var items: [AwardCatalogItem]
     public var programmes: [AwardProgramme]
     public var referenceDate: String
@@ -87,6 +88,19 @@ public enum AwardCatalogError: Error, LocalizedError {
 }
 
 public enum AwardCatalogEngine {
+    // Bump the rules version when calculator semantics change. Resource edits
+    // invalidate automatically, including research records and school lists.
+    static let persistedCacheKey: Result<String, Error> = Result {
+        var digest = SHA256()
+        for name in ["ham-award-jarl-entities", "ham-award-wcsa-schools", "ham-award-research-registry"] {
+            guard let url = Bundle.module.url(forResource: name, withExtension: "json") else {
+                throw AwardCatalogError.missingResource(name)
+            }
+            digest.update(data: try Data(contentsOf: url))
+        }
+        return "catalog-rules-v1-" + digest.finalize().map { String(format: "%02x", $0) }.joined()
+    }
+
     /// Candidate superset for every implemented calculator below (JARL,
     /// WAPC, and WCSA). Keep this alongside compute when adding a programme.
     /// Slash calls are deliberately broad: a school may be a portable part.

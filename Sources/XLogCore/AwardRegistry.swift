@@ -30,7 +30,7 @@ public enum AwardCatalogueGroup: String, Codable, CaseIterable, Sendable {
     }
 }
 
-public enum AwardDeliveryState: String, CaseIterable, Sendable {
+public enum AwardDeliveryState: String, Codable, CaseIterable, Sendable {
     case implemented
     case trackingOnly
     case blocked
@@ -154,7 +154,7 @@ public struct AwardResearchRegistry: Codable, Equatable, Sendable {
     }
 }
 
-public struct AwardProgramme: Identifiable, Equatable, Sendable {
+public struct AwardProgramme: Codable, Identifiable, Equatable, Sendable {
     public var record: AwardProgrammeRecord
     public var deliveryState: AwardDeliveryState
     public var deliveryDetail: String

@@ -36,6 +36,13 @@ packaged UI result. Keep unresolved items here across releases.
 
 ## Checklist
 
+Performance follow-up after alpha.6: persisted revision-fenced award/stat/map
+caches and indexed history UNION are implemented and tested, but not installed.
+Optimized isolated 67,846-contact catalogue reopen measured 22–52 ms, versus
+1.88 seconds for its initial calculation; first post-change calculation remains
+open. See [performance evidence](PERFORMANCE_STAGE_2026-10-13.md). This does not
+close PERF-01's packaged UI, cold-start or median/p95 acceptance requirements.
+
 | ID | Requested result / acceptance | Source and test state | Installed / live verification |
 | --- | --- | --- | --- |
 | UI-17 | Band-map upper/lower frequency tick numbers fully visible, including enlarged text | Edge tick labels inset from chart clipping bounds | Alpha.6 at 1440×940 with 120% band labels: all four visible charts show complete upper/lower tick labels |

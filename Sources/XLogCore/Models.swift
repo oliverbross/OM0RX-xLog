@@ -143,7 +143,7 @@ public struct QSO: Codable, Identifiable, Hashable, Sendable {
     }
 }
 
-public struct LogbookStats: Equatable, Sendable {
+public struct LogbookStats: Codable, Equatable, Sendable {
     public var qsoCount = 0
     public var dxccCount = 0
     public var confirmedCount = 0

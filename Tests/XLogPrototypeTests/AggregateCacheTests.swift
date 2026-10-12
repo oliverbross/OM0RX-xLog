@@ -134,12 +134,23 @@ struct AggregateCacheTests {
                 qslReceived: qso.qslReceived, lotwReceived: qso.lotwReceived)
         })
         let indexedHistory = try elapsed { _ = try db.historyCandidates(call: "OM0AAO", adif: 504) }
+        let restarted = try LogbookDatabase(url: URL(fileURLWithPath: path))
+        var restartedCatalog: AwardCatalogSnapshot?
+        var restartedProgress: AwardProgressSnapshot?
+        var restartedStats: LogbookStats?
+        let reopenedCatalog = try elapsed { restartedCatalog = try restarted.awardCatalog() }
+        let reopenedProgress = try elapsed { restartedProgress = try restarted.awardProgress() }
+        let reopenedStats = try elapsed { restartedStats = try restarted.stats() }
+        #expect(restartedCatalog == fullCatalog)
+        #expect(try restartedProgress == db.awardProgress())
+        #expect(try restartedStats == db.stats())
         print("ISOLATED_LOGBOOK_BENCHMARK qso_count=\(try db.stats().qsoCount) " +
               "catalog_cold_s=\(coldCatalog) catalog_cached_s=\(warmCatalog) " +
               "catalog_uncached_s=\(uncachedCatalog) progress_cold_s=\(coldProgress) " +
               "progress_cached_s=\(warmProgress) stats_cold_s=\(coldStats) stats_cached_s=\(warmStats) " +
               "cluster_projection_s=\(projectedContactsTime) full_decode_s=\(fullHistory) " +
-              "history_candidates_s=\(indexedHistory)")
+              "history_candidates_s=\(indexedHistory) " +
+              "catalog_reopened_s=\(reopenedCatalog) progress_reopened_s=\(reopenedProgress) stats_reopened_s=\(reopenedStats)")
     }
 
     @Test("Awards, catalogue, map and stats follow local, sync and external QSO writes")
