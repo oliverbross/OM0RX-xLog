@@ -11,6 +11,8 @@ final class ClusterPortableConnection: ClusterConnectionTransport, @unchecked Se
     private let requestSkimmer: Bool
     private let onState: @Sendable (ClusterConnectionPhase, String?) -> Void
     private let onLine: @Sendable (String) -> Void
+    private let resolver: ClusterAddressResolver
+    private let connectionTimeoutMilliseconds: Int
     private let cancellation = xlog_socket_cancellation_create()
     private let queue: DispatchQueue
     private let lock = NSLock()
@@ -21,13 +23,16 @@ final class ClusterPortableConnection: ClusterConnectionTransport, @unchecked Se
 
     init(server: ClusterServerConfiguration, password: String, reconnect: Bool, requestSkimmer: Bool,
          onState: @escaping @Sendable (ClusterConnectionPhase, String?) -> Void,
-         onLine: @escaping @Sendable (String) -> Void) {
+         onLine: @escaping @Sendable (String) -> Void,
+         resolver: ClusterAddressResolver = .shared, connectionTimeoutMilliseconds: Int = 10_000) {
         self.server = server
         self.password = password
         self.reconnect = reconnect
         self.requestSkimmer = requestSkimmer
         self.onState = onState
         self.onLine = onLine
+        self.resolver = resolver
+        self.connectionTimeoutMilliseconds = min(10_000, max(1, connectionTimeoutMilliseconds))
         queue = DispatchQueue(label: "com.oliverbross.xlog.cluster.socket.\(server.id.uuidString)")
     }
 
@@ -79,8 +84,12 @@ final class ClusterPortableConnection: ClusterConnectionTransport, @unchecked Se
         var retry = 0
         while !cancelled {
             onState(.connecting, nil)
-            let socket = server.host.withCString {
-                xlog_socket_connect($0, UInt16(server.port), 10_000, cancellation)
+            let deadline = DispatchTime.now().uptimeNanoseconds + UInt64(connectionTimeoutMilliseconds) * 1_000_000
+            let addresses = resolver.resolve(host: server.host, port: UInt16(server.port), deadline: deadline, cancelled: { self.cancelled })
+            let now = DispatchTime.now().uptimeNanoseconds
+            let remaining = now < deadline ? Int32((deadline - now) / 1_000_000) : 0
+            let socket = addresses.flatMap { resolved in
+                withExtendedLifetime(resolved) { xlog_socket_connect_addresses(resolved.pointer, remaining, cancellation) }
             }
             guard !cancelled else { if let socket { xlog_socket_close(socket) }; break }
             if let socket {

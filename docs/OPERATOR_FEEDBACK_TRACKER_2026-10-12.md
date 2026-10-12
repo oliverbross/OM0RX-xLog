@@ -62,8 +62,11 @@ configuration persistence, unavailable secure storage and terminal shutdown.
 Capability messages retain the existing compact cluster settings layout; browser
 fixtures at 1280×800 and 1920×1080 confirm readable messages and disabled controls.
 This does not replace native WebView acceptance. Windows/Linux secure password
-storage, FLEX forwarding and DNS cancellation remain open; the installed alpha.9
-has not been replaced. See `PORTABLE_CLUSTER_STAGE_2026-10-13.md`.
+storage and FLEX forwarding remain open. DNS follow-up now bounds the full
+connection deadline and outstanding resolver jobs, releases stopped connections
+before OS resolution returns, and rejects late answers; six additional tests and
+AddressSanitizer pass on Mac. Exact follow-up OS acceptance remains open. The
+installed alpha.9 has not been replaced. See `PORTABLE_CLUSTER_STAGE_2026-10-13.md`.
 
 ### Cross-platform local logbook work after alpha.7
 

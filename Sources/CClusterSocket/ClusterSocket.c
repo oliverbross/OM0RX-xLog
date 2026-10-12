@@ -29,6 +29,7 @@ typedef int socket_handle;
 #endif
 
 struct XLogSocket { socket_handle fd; };
+struct XLogSocketAddresses { struct addrinfo *values; };
 struct XLogSocketCancellation { atomic_int cancelled; };
 
 XLogSocketCancellation *xlog_socket_cancellation_create(void) {
@@ -81,9 +82,8 @@ static int wait_socket(socket_handle fd, int writing, int timeout_ms) {
     return 1;
 }
 
-XLogSocket *xlog_socket_connect(const char *host, uint16_t port, int timeout_ms,
-                               const XLogSocketCancellation *token) {
-    if (!host || !*host || !port || timeout_ms <= 0 || xlog_socket_cancelled(token)) return NULL;
+XLogSocketAddresses *xlog_socket_resolve(const char *host, uint16_t port) {
+    if (!host || !*host || !port) return NULL;
 #ifdef _WIN32
     WSADATA winsock;
     if (WSAStartup(MAKEWORD(2, 2), &winsock) != 0) return NULL;
@@ -95,38 +95,64 @@ XLogSocket *xlog_socket_connect(const char *host, uint16_t port, int timeout_ms,
     hints.ai_protocol = IPPROTO_TCP;
     char service[6];
     snprintf(service, sizeof(service), "%u", port);
-    socket_handle connected = BAD_SOCKET;
     if (getaddrinfo(host, service, &hints, &addresses) == 0) {
-        uint64_t deadline = milliseconds() + (uint64_t)timeout_ms;
-        for (struct addrinfo *address = addresses; address && !xlog_socket_cancelled(token); address = address->ai_next) {
-            if (milliseconds() >= deadline) break;
-            socket_handle fd = socket(address->ai_family, address->ai_socktype, address->ai_protocol);
-            if (fd == BAD_SOCKET) continue;
-            if (!nonblocking(fd)) { close_socket(fd); continue; }
-            int result = connect(fd, address->ai_addr, (int)address->ai_addrlen);
-            int ready = result == 0;
-            if (!ready && socket_pending(socket_errno())) {
-                while (!xlog_socket_cancelled(token)) {
-                    uint64_t now = milliseconds();
-                    if (now >= deadline) break;
-                    int remaining = (int)(deadline - now);
-                    int waited = wait_socket(fd, 1, remaining < 100 ? remaining : 100);
-                    if (waited < 0) break;
-                    if (waited == 0) continue;
-                    int error = 0;
-#ifdef _WIN32
-                    int length = sizeof(error);
-#else
-                    socklen_t length = sizeof(error);
-#endif
-                    ready = getsockopt(fd, SOL_SOCKET, SO_ERROR, (void *)&error, &length) == 0 && error == 0;
-                    break;
-                }
-            }
-            if (ready && !xlog_socket_cancelled(token)) { connected = fd; break; }
-            close_socket(fd);
-        }
+        XLogSocketAddresses *result = malloc(sizeof(*result));
+        if (result) { result->values = addresses; return result; }
         freeaddrinfo(addresses);
+    }
+#ifdef _WIN32
+    WSACleanup();
+#endif
+    return NULL;
+}
+
+void xlog_socket_addresses_destroy(XLogSocketAddresses *addresses) {
+    if (!addresses) return;
+    freeaddrinfo(addresses->values);
+    free(addresses);
+#ifdef _WIN32
+    WSACleanup();
+#endif
+}
+
+XLogSocket *xlog_socket_connect_addresses(const XLogSocketAddresses *addresses,
+                                         int timeout_ms, const XLogSocketCancellation *token) {
+    if (!addresses || timeout_ms <= 0 || xlog_socket_cancelled(token)) return NULL;
+#ifdef _WIN32
+    // A connected socket outlives its address list and owns a separate runtime
+    // reference, balanced by socket_close even after resolver cleanup.
+    WSADATA winsock;
+    if (WSAStartup(MAKEWORD(2, 2), &winsock) != 0) return NULL;
+#endif
+    socket_handle connected = BAD_SOCKET;
+    uint64_t deadline = milliseconds() + (uint64_t)timeout_ms;
+    for (struct addrinfo *address = addresses->values; address && !xlog_socket_cancelled(token); address = address->ai_next) {
+        if (milliseconds() >= deadline) break;
+        socket_handle fd = socket(address->ai_family, address->ai_socktype, address->ai_protocol);
+        if (fd == BAD_SOCKET) continue;
+        if (!nonblocking(fd)) { close_socket(fd); continue; }
+        int result = connect(fd, address->ai_addr, (int)address->ai_addrlen);
+        int ready = result == 0;
+        if (!ready && socket_pending(socket_errno())) {
+            while (!xlog_socket_cancelled(token)) {
+                uint64_t now = milliseconds();
+                if (now >= deadline) break;
+                int remaining = (int)(deadline - now);
+                int waited = wait_socket(fd, 1, remaining < 100 ? remaining : 100);
+                if (waited < 0) break;
+                if (waited == 0) continue;
+                int error = 0;
+#ifdef _WIN32
+                int length = sizeof(error);
+#else
+                socklen_t length = sizeof(error);
+#endif
+                ready = getsockopt(fd, SOL_SOCKET, SO_ERROR, (void *)&error, &length) == 0 && error == 0;
+                break;
+            }
+        }
+        if (ready && !xlog_socket_cancelled(token)) { connected = fd; break; }
+        close_socket(fd);
     }
     if (connected != BAD_SOCKET) {
         XLogSocket *result = malloc(sizeof(*result));
@@ -137,6 +163,15 @@ XLogSocket *xlog_socket_connect(const char *host, uint16_t port, int timeout_ms,
     WSACleanup();
 #endif
     return NULL;
+}
+
+XLogSocket *xlog_socket_connect(const char *host, uint16_t port, int timeout_ms,
+                               const XLogSocketCancellation *token) {
+    if (timeout_ms <= 0 || xlog_socket_cancelled(token)) return NULL;
+    XLogSocketAddresses *addresses = xlog_socket_resolve(host, port);
+    XLogSocket *result = xlog_socket_connect_addresses(addresses, timeout_ms, token);
+    xlog_socket_addresses_destroy(addresses);
+    return result;
 }
 
 int xlog_socket_read(XLogSocket *socket, void *bytes, int capacity, int timeout_ms) {
