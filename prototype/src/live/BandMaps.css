@@ -1,4 +1,6 @@
 .band-maps { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--canvas); color: #e6edf6; }
+.band-maps:not(.band-maps-compact) { flex: 1 1 0; min-height: 280px; }
+.band-maps-head, .band-maps-intelligence, .band-map-panel-head, .band-map-panel-tools, .band-map-panel-foot { flex-shrink: 0; }
 .band-maps-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px 18px; padding: 12px 14px; border-bottom: 1px solid var(--border); background: var(--panel); }
 .band-maps-head h2 { font-size: 16px; line-height: 1.15; margin: 0 0 3px; }
 .band-maps-head p { color: var(--secondary); font-size: 11px; }
@@ -18,7 +20,7 @@
 .band-maps-selected { flex: 1; min-width: 180px; color: #dce7f4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .band-maps-panels { flex: 1; min-height: 0; padding: 10px; gap: 10px; }
 .band-maps-row { display: flex; overflow: auto; align-items: stretch; }
-.band-maps-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); align-content: start; overflow: auto; }
+.band-maps-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); grid-auto-rows: minmax(240px, 1fr); align-content: stretch; overflow: auto; }
 .band-map-panel { display: flex; flex-direction: column; min-width: 320px; min-height: 0; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); overflow: hidden; font-size: calc(12px * var(--band-font-scale)); }
 .band-maps-row .band-map-panel { width: min(380px, 90vw); flex: 0 0 auto; }
 .band-maps-row .band-map-panel:only-child { flex: 1 1 auto; }
@@ -32,7 +34,7 @@
 .band-map-tool-buttons { display: inline-flex; gap: 1px; }
 .band-map-tool-buttons button { min-width: 25px; min-height: 25px; padding: 1px; background: transparent; border-color: transparent; color: var(--secondary); font-size: 15px; }
 .band-map-tool-buttons button:hover { color: #fff; background: #27405c; }
-.band-map-chart { position: relative; flex: 1 0 auto; min-width: 0; background: #0b1728; overflow: hidden; }
+.band-map-chart { position: relative; flex: 1 1 0; min-height: 96px; min-width: 0; background: #0b1728; overflow: hidden; }
 .band-map-allocation { position: absolute; inset-inline: 0; pointer-events: none; }
 .band-map-allocation span { position: absolute; right: 6px; top: 3px; font-size: .67em; font-weight: 750; letter-spacing: .025em; }
 .band-map-cw { background: #0c425c70; color: #68d8ff; }

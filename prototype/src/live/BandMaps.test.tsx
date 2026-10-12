@@ -13,20 +13,27 @@ beforeEach(() => localStorage.clear());
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe("native band-map parity", () => {
-  it("fits compact marker placement to the actual available chart height", () => {
+  it.each([true, false])("fits marker placement to resized chart height (compact=%s)", compact => {
     let resize: () => void = () => {};
     vi.stubGlobal("ResizeObserver", class {
       constructor(callback: () => void) { resize = callback; }
       observe() {}
       disconnect() {}
     });
-    render(<BandMaps compact spots={[spot("OM0RX", 14001)]} onSelect={vi.fn()} />);
+    render(<BandMaps compact={compact} spots={[spot("OM0RX", 14001)]} onSelect={vi.fn()} />);
     const chart = screen.getByLabelText(/20m spectrum/) as HTMLElement;
     expect(chart.style.height).toBe("");
-    Object.defineProperties(chart, { clientHeight: { value: 120 }, clientWidth: { value: 310 } });
+    Object.defineProperties(chart, { clientHeight: { value: 120, configurable: true }, clientWidth: { value: 310 } });
     act(() => resize());
     const marker = within(chart).getByRole("button", { name: /OM0RX/ });
     expect(parseFloat(marker.style.top)).toBeLessThan(120);
+    Object.defineProperty(chart, "clientHeight", { value: 1000, configurable: true });
+    act(() => resize());
+    expect(parseFloat(marker.style.top)).toBeGreaterThan(900);
+    Object.defineProperty(chart, "clientHeight", { value: 220 });
+    act(() => resize());
+    expect(parseFloat(marker.style.top)).toBeLessThan(220);
+    expect(chart.style.height).toBe("");
   });
 
   it("uses native opportunity precedence and band boundaries", () => {

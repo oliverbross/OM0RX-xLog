@@ -12,7 +12,7 @@ Created and maintained by **Oliver Bross, OM0RX**.
 ## Shared-app Mac integration — development alpha
 
 The `codex/unified-xlog-integration-p2` branch now builds **OM0RX-xLog Integration
-0.4.0-alpha.4**: the shared Tauri/React app with persistent real logbook, xCluster,
+0.4.0-alpha.5**: the shared Tauri/React app with persistent real logbook, xCluster,
 embedded xCat Remote Agent services, and bundled Hamlib radio/rotor helpers. It has a separate bundle and an isolated
 verified logbook copy; the working native apps and original data are preserved.
 There are no fixture contacts or spots in its runtime screens. This is not yet a
@@ -55,6 +55,10 @@ confirmation indicators and selected-row edit/delete/undo toolbar. Pages display
 up to 100 contacts while each worker/export frame remains bounded. DX Cluster
 filter categories use the operator's cyan/purple/green/orange/gold/pink/teal/blue
 palette without changing filtering behavior.
+
+Band maps fill the available window height in both the main workspace and detached
+window. Marker positions are recalculated from the measured chart size whenever
+the window grows or shrinks; adaptive grid rows share the available vertical space.
 
 **Integration sync is manual during migration.** A contact marked Queued with
 zero attempts is saved locally, not uploaded. The integration workspace has its
