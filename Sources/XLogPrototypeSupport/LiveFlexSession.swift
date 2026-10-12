@@ -8,6 +8,7 @@ protocol FlexSessionRadio: RadioControlling {
     func reconnectNow() async
     func stopTransportOnly() async
     func transmitObservation() async -> FlexRadioClient.TransmitObservation?
+    func rfPowerObservation() async -> FlexRadioClient.RFPowerObservation?
 }
 
 extension FlexRadioClient: FlexSessionRadio {}
@@ -37,6 +38,7 @@ actor LiveFlexSession {
     private var observedRevision: UInt64 = 0
     private var observedAt: Date?
     private var observedTransmit: Bool?
+    private var observedPower: Int?
     private var transportState: RadioConnectionState = .stopped
     private var connectionGeneration: UInt64 = 0
     private var operationEpoch: UInt64 = 0
@@ -74,6 +76,7 @@ actor LiveFlexSession {
             observed = nil
             observedAt = nil
             observedTransmit = nil
+            observedPower = nil
             transportState = .connecting
             await radio.reconnectNow()
             return snapshot()
@@ -125,6 +128,7 @@ actor LiveFlexSession {
         observed = nil
         observedAt = nil
         observedTransmit = nil
+        observedPower = nil
         transportState = .connecting
         await newRadio.start()
         guard !terminal, generation == connectionGeneration else {
@@ -158,6 +162,7 @@ actor LiveFlexSession {
         observed = nil
         observedAt = nil
         observedTransmit = nil
+        observedPower = nil
         transportState = .stopped
     }
 
@@ -340,15 +345,15 @@ actor LiveFlexSession {
             return ["accepted": true, "confirmed": true, "control": control, "state": snapshot()]
         case "set_rf_power":
             try keys(params, ["provider", "control", "watts"])
-            guard let watts = Self.integer(params["watts"]), (1...100).contains(watts) else { throw invalid() }
+            guard let watts = Self.integer(params["watts"]), (0...100).contains(watts) else { throw invalid() }
             let (radio, epoch) = try beginControl(needsTransmit: false)
             defer { activeControl = false }
             try await requireSafeReceiveMutation(radio, letter: observed?.slice.uppercased() ?? "", epoch: epoch)
-            let revision = observedRevision
+            let revision = await radio.rfPowerObservation()?.revision ?? 0
             do { try await radio.setRFPower(Int(watts)) } catch { throw rejectedControl() }
-            _ = try await waitForObservation(after: revision, epoch: epoch) {
-                $0.isConnected && $0.rfPowerWatts == Int(watts)
-            }
+            let power = try await waitForRFPowerObservation(radio, after: revision, epoch: epoch,
+                                                             watts: Int(watts))
+            observedPower = power.level
             return ["accepted": true, "confirmed": true, "control": control, "state": snapshot()]
         default:
             throw WorkerFailure("station_action_blocked", "This direct FLEX control is not yet supported.")
@@ -464,6 +469,21 @@ actor LiveFlexSession {
         throw WorkerFailure("station_timeout", "A fresh FLEX interlock readback did not confirm transmit state.")
     }
 
+    private func waitForRFPowerObservation(_ radio: any FlexSessionRadio, after revision: UInt64,
+                                           epoch: UInt64, watts: Int) async throws -> FlexRadioClient.RFPowerObservation {
+        let deadline = ContinuousClock.now.advanced(by: readbackTimeout)
+        while ContinuousClock.now < deadline {
+            try Task.checkCancellation()
+            try requireEpoch(epoch)
+            let sample = await radio.rfPowerObservation()
+            try requireEpoch(epoch)
+            if let sample, sample.revision > revision, sample.isConnected,
+               sample.level == watts, transportState == .ready { return sample }
+            try await Task.sleep(for: .milliseconds(40))
+        }
+        throw WorkerFailure("station_timeout", "A fresh FLEX RF-power status did not confirm the requested setting.")
+    }
+
     private func requireEpoch(_ epoch: UInt64) throws {
         guard epoch == operationEpoch, !terminal, radio != nil else {
             throw WorkerFailure("station_superseded", "The direct FLEX session changed during the operation.")
@@ -478,16 +498,19 @@ actor LiveFlexSession {
             observed = nil
             observedAt = nil
             observedTransmit = nil
+            observedPower = nil
         }
     }
 
     private func recordSnapshot(_ snapshot: RadioSnapshot, generation: UInt64) async {
         let sample = await radio?.transmitObservation()
+        let power = await radio?.rfPowerObservation()
         guard generation == connectionGeneration else { return }
         observed = snapshot
         observedRevision &+= 1
         observedAt = Date()
         observedTransmit = sample?.isTransmitting
+        observedPower = power?.isConnected == true ? power?.level : nil
     }
 
     private func snapshot() -> [String: Any] {
@@ -501,6 +524,7 @@ actor LiveFlexSession {
              "split": value.vfo(value.slice)?.isReceive == true && value.vfo(value.transmitSlice)?.isTransmit == true
                  ? (value.slice != value.transmitSlice || value.frequencyHz != value.transmitFrequencyHz) as Any : NSNull(),
              "transmitting": observedTransmit as Any? ?? NSNull(),
+              "rf_power_level": observedPower as Any? ?? NSNull(),
              "observed_at": observedAt?.timeIntervalSince1970 as Any? ?? NSNull(),
              "received_at": observedAt?.timeIntervalSince1970 as Any? ?? NSNull(),
              "vfos": value.vfos.map { vfo in
@@ -513,7 +537,9 @@ actor LiveFlexSession {
                 "radio": radioProjection, "station": NSNull(), "rotor": NSNull(),
                 "propagation": NSNull(), "allow_transmit": configuration?.allowTransmit ?? false,
                 "capabilities": ["supported_commands": supportedCommands(current),
-                                 "unavailable_commands": ["set_rit", "set_xit", "set_rf_power", "station_cat_servers"],
+                                 "unavailable_commands": observedPower == nil
+                                     ? ["set_rit", "set_xit", "set_rf_power", "station_cat_servers"]
+                                     : ["set_rit", "set_xit", "station_cat_servers"],
                                  "requires_transmit_opt_in": true] as [String: Any]]
     }
 
@@ -522,6 +548,7 @@ actor LiveFlexSession {
                       "station_reconnect", "set_frequency_a", "set_mode", "set_receive_vfo",
                       "set_split", "set_cw_speed", "ptt", "send_cw", "clear_cw", "tune", "cancel"]
         if current?.vfo("B") != nil { result.append("set_frequency_b") }
+        if current != nil && observedPower != nil { result.append("set_rf_power") }
         return result.sorted()
     }
 

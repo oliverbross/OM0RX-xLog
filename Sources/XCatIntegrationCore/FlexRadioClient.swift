@@ -18,6 +18,22 @@ enum FlexCommandResponseParser {
     }
 }
 
+/// A transmitter status is distinct from a successful command response. Only
+/// this field can advance the RF-power readback revision.
+enum FlexRFPowerStatusParser {
+    static func parse(_ line: String) -> Int? {
+        guard line.first == "S", let separator = line.firstIndex(of: "|") else { return nil }
+        let fields = line[line.index(after: separator)...].split(separator: " ")
+        guard fields.first == "transmit" else { return nil }
+        let matches = fields.dropFirst().filter { $0.hasPrefix("rfpower=") }
+        guard matches.count == 1 else { return nil }
+        let raw = matches[0].dropFirst("rfpower=".count)
+        guard !raw.isEmpty, raw.utf8.allSatisfy({ (48...57).contains($0) }),
+              let watts = Int(raw), (0...100).contains(watts) else { return nil }
+        return watts
+    }
+}
+
 public actor FlexRadioClient: RadioControlling {
     public typealias StateHandler = @Sendable (RadioConnectionState, String) -> Void
     public typealias SnapshotHandler = @Sendable (RadioSnapshot) -> Void
@@ -30,6 +46,18 @@ public actor FlexRadioClient: RadioControlling {
         public init(revision: UInt64, isTransmitting: Bool, isConnected: Bool) {
             self.revision = revision
             self.isTransmitting = isTransmitting
+            self.isConnected = isConnected
+        }
+    }
+
+    public struct RFPowerObservation: Sendable {
+        public let revision: UInt64
+        public let level: Int
+        public let isConnected: Bool
+
+        public init(revision: UInt64, level: Int, isConnected: Bool) {
+            self.revision = revision
+            self.level = level
             self.isConnected = isConnected
         }
     }
@@ -72,6 +100,8 @@ public actor FlexRadioClient: RadioControlling {
     private var value: RadioSnapshot
     private var interlockKnown = false
     private var interlockObservationRevision: UInt64 = 0
+    private var rfPowerKnown = false
+    private var rfPowerObservationRevision: UInt64 = 0
     private var slices: [Int: SliceState] = [:]
     private var selectedSliceID: Int?
     private var followedClientHandle: String?
@@ -139,6 +169,8 @@ public actor FlexRadioClient: RadioControlling {
         failAllPending(XCatError.notConnected)
         inboundBuffer.removeAll(keepingCapacity: false)
         interlockKnown = false
+        rfPowerKnown = false
+        value.rfPowerLevel = nil
         value.isConnected = false
         publishSnapshot()
         transition(.stopped, "Stopped")
@@ -156,6 +188,8 @@ public actor FlexRadioClient: RadioControlling {
         // Explicit reconnect must withdraw the old session's apparent live
         // readback before any new transport or slice is discovered.
         value.isConnected = false
+        rfPowerKnown = false
+        value.rfPowerLevel = nil
         publishSnapshot()
         connect()
     }
@@ -171,6 +205,12 @@ public actor FlexRadioClient: RadioControlling {
         return TransmitObservation(revision: interlockObservationRevision,
                                    isTransmitting: value.isTransmitting,
                                    isConnected: value.isConnected)
+    }
+
+    public func rfPowerObservation() -> RFPowerObservation? {
+        guard rfPowerKnown, state == .ready, let level = value.rfPowerLevel else { return nil }
+        return RFPowerObservation(revision: rfPowerObservationRevision, level: level,
+                                  isConnected: value.isConnected)
     }
 
     public func primaryFrequency() -> Int64? {
@@ -230,6 +270,14 @@ public actor FlexRadioClient: RadioControlling {
         }
         if !enabled { try await sendCommand("transmit tune 0") }
         try await sendCommand("xmit \(enabled ? 1 : 0)")
+    }
+
+    public func setRFPower(_ watts: Int) async throws {
+        guard (0...100).contains(watts) else {
+            throw XCatError.server("RF power must be 0 through 100.")
+        }
+        guard state == .ready, value.isConnected else { throw XCatError.notConnected }
+        try await sendCommand("transmit set rfpower=\(watts)")
     }
 
     public func cwSpeed() -> Int { wordsPerMinute }
@@ -361,6 +409,7 @@ public actor FlexRadioClient: RadioControlling {
             "sub client all",
             "sub slice all",
             "sub radio all",
+            "sub tx all",
             "keepalive enable",
             "slice list",
             "ping",
@@ -478,6 +527,13 @@ public actor FlexRadioClient: RadioControlling {
                 default:
                     interlockKnown = false
                 }
+                publishSnapshot()
+            }
+        case "transmit":
+            if let watts = FlexRFPowerStatusParser.parse(line) {
+                value.rfPowerLevel = watts
+                rfPowerKnown = true
+                rfPowerObservationRevision &+= 1
                 publishSnapshot()
             }
         case "cwx":
@@ -672,6 +728,8 @@ public actor FlexRadioClient: RadioControlling {
         connection = nil
         failAllPending(XCatError.notConnected)
         interlockKnown = false
+        rfPowerKnown = false
+        value.rfPowerLevel = nil
         value.isConnected = false
         publishSnapshot()
         guard shouldRun else {
@@ -709,6 +767,8 @@ public actor FlexRadioClient: RadioControlling {
         reportedSliceIDs.removeAll(keepingCapacity: true)
         transportReady = false
         interlockKnown = false
+        rfPowerKnown = false
+        value.rfPowerLevel = nil
         failAllPending(XCatError.notConnected)
     }
 

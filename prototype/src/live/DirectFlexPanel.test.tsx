@@ -24,7 +24,8 @@ describe("direct FLEX LAN controls", () => {
   it("does not show agent, amplifier, tuner or rotor commands", () => {
     render(<DirectFlexPanel request={vi.fn()} snapshot={snapshot()} />);
     expect(screen.getByText("Direct FLEX · LAN")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /Operate|Standby|Rotor|KPA|KAT|RIT|XIT|RF power/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Operate|Standby|Rotor|KPA|KAT|RIT|XIT/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Set RF power" }).hasAttribute("disabled")).toBe(true);
     expect(screen.getByRole("button", { name: "PTT on" }).hasAttribute("disabled")).toBe(true);
     expect(screen.getByRole("button", { name: "Tune carrier" }).hasAttribute("disabled")).toBe(true);
     expect(screen.getByText(/Transmit opt-in off/)).toBeTruthy();
@@ -86,5 +87,51 @@ describe("direct FLEX LAN controls", () => {
     expect(optIn.disabled).toBe(true);
     expect(optIn.checked).toBe(true);
     expect(screen.getByText(/Disconnect before changing it/)).toBeTruthy();
+  });
+  it("sets only a supported observed-RX FLEX RF power level using the legacy watts request key", async () => {
+    const base = snapshot();
+    const radio = { ...base.radio, rf_power_level: 35 };
+    const capabilities = { supported_commands: [...base.capabilities.supported_commands, "set_rf_power"] };
+    const request = vi.fn(async () => ({ accepted: true, confirmed: true,
+      state: snapshot({ radio: { ...radio, rf_power_level: 0 }, capabilities }) }));
+    render(<DirectFlexPanel request={request} snapshot={snapshot({ radio, capabilities })} />);
+    expect(screen.getByText("35 / 100")).toBeTruthy();
+    expect(screen.getByText(/not a measured watt reading/)).toBeTruthy();
+    const input = screen.getByRole("spinbutton", { name: "RF power setting (0–100)" }) as HTMLInputElement;
+    expect(input.value).toBe("35");
+    expect(screen.getByRole("button", { name: "Set RF power" }).hasAttribute("disabled")).toBe(false);
+    fireEvent.change(input, { target: { value: "0" } });
+    fireEvent.click(screen.getByRole("button", { name: "Set RF power" }));
+    await waitFor(() => expect(request).toHaveBeenCalledWith("station_radio_control", {
+      provider: "direct_flex_lan", control: "set_rf_power", watts: 0,
+    }));
+    await waitFor(() => expect(input.value).toBe("0"));
+    expect(screen.getByText(/RIT\/XIT, CAT server and SmartLink controls are unavailable/)).toBeTruthy();
+    expect(screen.queryByText(/RF power setting is unavailable/)).toBeNull();
+  });
+  it("preserves a manually edited RF power draft across polls and blocks unsafe or unsupported writes", () => {
+    const base = snapshot();
+    const caps = { supported_commands: [...base.capabilities.supported_commands, "set_rf_power"] };
+    const initial = snapshot({ radio: { ...base.radio, rf_power_level: 35 }, capabilities: caps });
+    const request = vi.fn();
+    const view = render(<DirectFlexPanel request={request} snapshot={initial} />);
+    const input = screen.getByRole("spinbutton", { name: "RF power setting (0–100)" }) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "50" } });
+    view.rerender(<DirectFlexPanel request={request} snapshot={snapshot({ radio: { ...base.radio, rf_power_level: 40 }, capabilities: caps })} />);
+    expect(input.value).toBe("50");
+    expect(screen.getByText("40 / 100")).toBeTruthy();
+    fireEvent.change(input, { target: { value: "101" } });
+    expect(screen.getByRole("button", { name: "Set RF power" }).hasAttribute("disabled")).toBe(true);
+    fireEvent.change(input, { target: { value: "40" } });
+    view.rerender(<DirectFlexPanel request={request} snapshot={snapshot({ radio: { ...base.radio, rf_power_level: 40, transmitting: true }, capabilities: caps })} />);
+    expect(screen.getByRole("button", { name: "Set RF power" }).hasAttribute("disabled")).toBe(true);
+    view.rerender(<DirectFlexPanel request={request} snapshot={snapshot({ radio: { ...base.radio, rf_power_level: 40, transmitting: null }, capabilities: caps })} />);
+    expect(screen.getByRole("button", { name: "Set RF power" }).hasAttribute("disabled")).toBe(true);
+    view.rerender(<DirectFlexPanel request={request} snapshot={snapshot({ radio: { ...base.radio, rf_power_level: 40 }, capabilities: base.capabilities })} />);
+    expect(screen.getByRole("button", { name: "Set RF power" }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByText(/RF power setting is unavailable until FLEX reports its current level/)).toBeTruthy();
+    expect(request).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Use observed RF power setting" }));
+    expect(input.value).toBe("40");
   });
 });

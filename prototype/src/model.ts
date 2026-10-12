@@ -18,6 +18,7 @@ export type Spot = {
   callStatus?: string;
   statusHex?: string;
   bandHex?: string;
+  receivedAt?: number;
 };
 export const spots: Spot[] = [
   {

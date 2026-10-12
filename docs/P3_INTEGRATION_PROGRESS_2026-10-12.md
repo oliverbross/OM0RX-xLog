@@ -107,3 +107,25 @@ rows close only with their listed exact-build evidence.
 Exact final test counts, artifact hash, source SHA and new live observations are
 recorded with the release after packaging; earlier alpha observations must not
 be attributed to this build.
+
+## Alpha.3 follow-up (source implementation; packaged verification pending)
+
+- Direct FLEX now implements the documented 0–100 RF power setting. It is not
+  labelled measured watts. Capability appears only after the corresponding
+  status is observed; confirmation requires a newer matching power-field sample
+  and known receive interlock state. RIT/XIT remain unavailable on this provider.
+- Logbook rows restore native RST, QSL, LoTW, Club Log and comment visibility,
+  preserving each complete QSO's identity and unknown ADIF extensions.
+- Maps retain the newest valid spot per callsign while preserving its source ID
+  for selection. Hover and keyboard focus inspect details without tuning.
+  Bogus `None`/`null` DXCC labels are removed. Source-aware, sanitized map errors
+  make the previously generic monitor error diagnosable; its runtime cause must
+  still be established, not assumed fixed by diagnostics alone.
+- The desk retains side-by-side map/band-map panels at compact width, and band
+  markers use the actual available chart height. Low-height sidebar metrics use
+  two rows without adding sidebar scrolling. Native View-menu presets select
+  1000×720 or 1440×940 main-window sizes without resizing the detached monitor.
+- Source checks: 145 shared Swift tests, 131 frontend tests, 50 Rust tests
+  including actual bundled Hamlib dummy processes; native core's 50 tests are
+  unchanged and passed in the preceding checkpoint. Packaging and visual results
+  are separate and will be recorded after the exact artifact is launched.

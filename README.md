@@ -12,7 +12,7 @@ Created and maintained by **Oliver Bross, OM0RX**.
 ## Shared-app Mac integration — development alpha
 
 The `codex/unified-xlog-integration-p2` branch now builds **OM0RX-xLog Integration
-0.4.0-alpha.2**: the shared Tauri/React app with persistent real logbook, xCluster,
+0.4.0-alpha.3**: the shared Tauri/React app with persistent real logbook, xCluster,
 embedded xCat Remote Agent services, and bundled Hamlib radio/rotor helpers. It has a separate bundle and an isolated
 verified logbook copy; the working native apps and original data are preserved.
 There are no fixture contacts or spots in its runtime screens. This is not yet a
@@ -30,8 +30,9 @@ explicit. Real-device acceptance is separate from the bundled dummy tests.
 
 **Direct FLEX · LAN** also connects to a private-address FLEX radio without the
 Windows agent. It exposes only implemented capabilities and distinguishes fresh
-observations from command acknowledgements; SmartLink, direct-FLEX RIT/XIT,
-RF-power controls and direct-FLEX CAT listeners remain open parity work.
+observations from command acknowledgements. Its RF power setting uses the
+radio's observed 0–100 level, not a measured-watts claim. SmartLink,
+direct-FLEX RIT/XIT and direct-FLEX CAT listeners remain open parity work.
 The **Station Control → RUMlog spots** tab configures all eleven native
 Logbook/Contest categories, colours, priorities and lifetimes. Its explicit
 loopback listeners currently forward through the Remote Station Agent and

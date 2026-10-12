@@ -48,6 +48,16 @@
   pointer-events: none;
 }
 .map-spot-label { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+.map-wrap .map-spot-hit { width:18px; height:18px; min-height:18px; padding:0; border:0; border-radius:50%; background:transparent; cursor:pointer; }
+.map-wrap .map-spot-hit:hover { background:transparent; }
+.map-wrap .map-spot-hit:focus-visible { outline:2px solid #35c8f5; outline-offset:2px; }
+.map-spot-popup { pointer-events:none; }
+.map-spot-popup .maplibregl-popup-content { padding:10px 12px; border-radius:7px; background:#0b1728; color:#e6edf6; border:1px solid #243a55; box-shadow:none; }
+.map-spot-popup .maplibregl-popup-tip { border-top-color:#0b1728; border-bottom-color:#0b1728; }
+.map-spot-details { display:flex; flex-direction:column; gap:4px; font:11px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; overflow-wrap:anywhere; }
+.map-spot-details strong { font:700 14px/1.3 ui-monospace,SFMono-Regular,Consolas,monospace; }
+.map-spot-details .map-spot-frequency { color:#35c8f5; font-variant-numeric:tabular-nums; }
+.map-compact .map-spot-popup .maplibregl-popup-content { padding:7px 9px; }
 .map-wrap .map-legend { bottom: 29px; max-width: min(650px, calc(100% - 20px)); font-size: 11px; }
 .map-legend strong { color: #e6edf6; font-weight: 650; }
 .map-legend-items { display: flex; flex-wrap: wrap; gap: 4px 10px; }

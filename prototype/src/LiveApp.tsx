@@ -292,7 +292,7 @@ function MainLiveApp() {
     void publishMonitorProjection(latestMonitorProjection.current).catch(() => {});
   }, [station, cluster, stats, selected, mapTarget, stationProvider, busy]);
   const mapSpots: Spot[] = useMemo(() => liveSpots.filter(s => typeof s.latitude === "number" && typeof s.longitude === "number").map(s => ({
-    id: s.id, call: s.callsign, mhz: s.frequencyKHz / 1000, mode: s.mode, band: s.band,
+    id: s.id, call: s.callsign, receivedAt: s.receivedAt, mhz: s.frequencyKHz / 1000, mode: s.mode, band: s.band,
     country: s.country, grid: "", lon: s.longitude, lat: s.latitude, reporter: s.spotter, note: s.comment,
     state: s.callStatus === "Confirmed" ? "confirmed" : s.callStatus === "Worked" ? "worked" : "needed",
     adif: s.adif, callStatus: s.callStatus, statusHex: s.statusHex, bandHex: s.bandHex,
@@ -357,7 +357,7 @@ function DetachedMapSurface({ kind }: { kind: DetachedMapKind }) {
   }, [kind]);
   const spots = projection.spots;
   const mapSpots: Spot[] = spots.filter(s => typeof s.latitude === "number" && typeof s.longitude === "number").map(s => ({
-    id: s.id, call: s.callsign, mhz: s.frequencyKHz / 1000, mode: s.mode, band: s.band,
+    id: s.id, call: s.callsign, receivedAt: s.receivedAt, mhz: s.frequencyKHz / 1000, mode: s.mode, band: s.band,
     country: s.country, grid: "", lon: s.longitude, lat: s.latitude, reporter: s.spotter, note: s.comment,
     state: s.callStatus === "Confirmed" ? "confirmed" : s.callStatus === "Worked" ? "worked" : "needed",
     adif: s.adif, callStatus: s.callStatus, statusHex: s.statusHex, bandHex: s.bandHex,
@@ -394,7 +394,7 @@ function MonitorSurface() {
     return () => { active = false; unlisten?.(); };
   }, []);
   const mapSpots: Spot[] = useMemo(() => projection.spots.filter(s => typeof s.latitude === "number" && typeof s.longitude === "number").map(s => ({
-    id: s.id, call: s.callsign, mhz: s.frequencyKHz / 1000, mode: s.mode, band: s.band,
+    id: s.id, call: s.callsign, receivedAt: s.receivedAt, mhz: s.frequencyKHz / 1000, mode: s.mode, band: s.band,
     country: s.country, grid: "", lon: s.longitude, lat: s.latitude, reporter: s.spotter, note: s.comment,
     state: s.callStatus === "Confirmed" ? "confirmed" : s.callStatus === "Worked" ? "worked" : "needed",
     adif: s.adif, callStatus: s.callStatus, statusHex: s.statusHex, bandHex: s.bandHex,

@@ -134,17 +134,20 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
   const [view, setView] = useState<ViewRange>({ low: full.low, high: full.high });
   const [width, setWidth] = useState(340);
   const chartRef = useRef<HTMLDivElement>(null);
-  const chartHeight = compact ? 336 : 520;
+  const [chartHeight, setChartHeight] = useState(compact ? 336 : 520);
   useEffect(() => {
     const target = chartRef.current;
     if (!target) return;
-    const update = () => setWidth(target.clientWidth || 340);
+    const update = () => {
+      setWidth(target.clientWidth || 340);
+      if (compact && target.clientHeight > 0) setChartHeight(target.clientHeight);
+    };
     update();
     if (typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(update);
     observer.observe(target);
     return () => observer.disconnect();
-  }, []);
+  }, [compact]);
   const visible = useMemo(() => normalizeSpots(spots, band, view), [spots, band, view]);
   const { placed, hidden } = useMemo(() => placeSpots(visible, view, width, chartHeight, fontScale), [visible, view, width, chartHeight, fontScale]);
   const allBandCount = spots.filter((spot) => spot.band === band && finite(spot.frequencyKHz) !== null).length;
@@ -170,7 +173,7 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
     }}><option>Full band</option>{full.allocations.map((part) => <option key={part.name}>{part.name} portion</option>)}{segmentName === "Custom range" && <option>Custom range</option>}</select></label>
       <div className="band-map-tool-buttons"><button type="button" aria-label={`Pan ${band} up`} title="Pan up" onClick={() => pan(1)}><ArrowUp size={13} /></button><button type="button" aria-label={`Pan ${band} down`} title="Pan down" onClick={() => pan(-1)}><ArrowDown size={13} /></button><button type="button" aria-label={`Zoom ${band} out`} title="Zoom out" onClick={() => zoom(1.55)}><ZoomOut size={13} /></button><button type="button" aria-label={`Zoom ${band} in`} title="Zoom in" onClick={() => zoom(0.62)}><ZoomIn size={13} /></button><button type="button" aria-label={`Reset ${band} range`} title="Full band" onClick={() => setView({ low: full.low, high: full.high })}><RotateCcw size={13} /></button></div>
     </div>
-    <div className="band-map-chart" ref={chartRef} style={{ height: chartHeight }} aria-label={`${band} spectrum, ${rangeLabel}`}>
+    <div className="band-map-chart" ref={chartRef} style={compact ? undefined : { height: chartHeight }} aria-label={`${band} spectrum, ${rangeLabel}`}>
       {full.allocations.map((part) => {
         const low = Math.max(view.low, part.low);
         const high = Math.min(view.high, part.high);

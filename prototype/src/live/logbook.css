@@ -12,12 +12,20 @@
 .live-logbook-feedback.error { color: var(--error); background: #321b25; }
 .live-logbook-table-wrap { flex: 1; min-height: 0; overflow: auto; border: 1px solid var(--border); border-radius: 6px; }
 .live-logbook-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 11px; }
+.live-logbook-table { min-width: 1120px; }
 .live-logbook-table th { position: sticky; top: 0; z-index: 1; background: #13233a; color: var(--secondary); font-weight: 650; }
 .live-logbook-table th, .live-logbook-table td { padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; white-space: nowrap; }
 .live-logbook-table tbody tr:hover { background: #12233a; }
 .live-logbook-table tbody tr:last-child td { border-bottom: 0; }
 .live-logbook-call { color: var(--cyan); font-weight: 700; letter-spacing: 0.01em; }
 .live-logbook-pending { color: var(--amber); }
+.live-logbook-confirmation { display: inline-flex; align-items: center; gap: 3px; vertical-align: middle; }
+.live-logbook-confirmation .is-confirmed { color: var(--teal); }
+.live-logbook-confirmation .is-rejected { color: var(--error); }
+.live-logbook-confirmation .is-pending { color: var(--amber); }
+.live-logbook-confirmation .is-unrecorded { color: var(--secondary); opacity: 0.45; }
+.live-logbook-confirmation .is-unavailable { color: var(--secondary); opacity: 0.24; }
+.live-logbook-comment { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
 .live-logbook-row-actions { text-align: right; }
 .live-logbook-row-actions button { min-height: 24px; padding: 2px 5px; margin-left: 4px; }
 .live-logbook-empty { padding: 36px 24px; color: var(--secondary); text-align: center; }

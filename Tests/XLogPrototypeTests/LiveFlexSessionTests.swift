@@ -1,7 +1,7 @@
 #if os(macOS)
 import Foundation
 import XCTest
-import XCatIntegrationCore
+@testable import XCatIntegrationCore
 @testable import XLogPrototypeSupport
 
 private final class FlexFixtureBox: @unchecked Sendable {
@@ -19,10 +19,15 @@ private actor FakeFlexRadio: FlexSessionRadio {
     private var observeRelease = true
     private var observeTune = true
     private var transmitRevision: UInt64? = 1
+    private var powerRevision: UInt64 = 0
+    private var powerReadback: Int?
+    private var rejectPower = false
 
     init(snapshot: RadioSnapshot, onState: @escaping FlexRadioClient.StateHandler,
          onSnapshot: @escaping FlexRadioClient.SnapshotHandler) {
         value = snapshot
+        powerReadback = snapshot.rfPowerLevel
+        if powerReadback != nil { powerRevision = 1 }
         self.onState = onState
         self.onSnapshot = onSnapshot
     }
@@ -39,6 +44,17 @@ private actor FakeFlexRadio: FlexSessionRadio {
     func setObserveTune(_ value: Bool) { observeTune = value }
     func simulateState(_ state: RadioConnectionState) { onState(state, "fixture") }
     func simulateUnrelatedSnapshot() { onSnapshot(value) }
+    func setPowerReadback(_ watts: Int?) { powerReadback = watts }
+    func setRejectPower(_ reject: Bool) { rejectPower = reject }
+    func simulatePowerStatus(_ watts: Int) {
+        value.rfPowerLevel = watts
+        powerRevision &+= 1
+        onSnapshot(value)
+    }
+    func rfPowerObservation() -> FlexRadioClient.RFPowerObservation? {
+        guard let level = value.rfPowerLevel, powerRevision > 0 else { return nil }
+        return .init(revision: powerRevision, level: level, isConnected: value.isConnected)
+    }
     func transmitObservation() -> FlexRadioClient.TransmitObservation? {
         guard let transmitRevision else { return nil }
         return .init(revision: transmitRevision, isTransmitting: value.isTransmitting,
@@ -145,6 +161,11 @@ private actor FakeFlexRadio: FlexSessionRadio {
             return copy
         }
         onSnapshot(value)
+    }
+    func setRFPower(_ watts: Int) throws {
+        commands.append("rf_power_\(watts)")
+        if rejectPower { throw XCatError.server("Rejected") }
+        if let powerReadback { simulatePowerStatus(powerReadback) }
     }
     func cwSpeed() -> Int { 25 }
     func setCWSpeed(_ wordsPerMinute: Int) { commands.append("cw_speed") }
@@ -344,21 +365,130 @@ final class LiveFlexSessionTests: XCTestCase {
         XCTAssertEqual(commands, ["frequency_b", "receive_b", "split_on", "mode"])
     }
 
-    func testUnsupportedRFPowerDoesNotClaimSuccessOrSendControl() async throws {
+    func testRFPowerRequiresFreshMatchingStatusNotJustACKOrUnrelatedSnapshot() async throws {
         let (session, radio) = try await fixture()
+        await radio.simulateUnrelatedSnapshot()
         do {
             _ = try await session.handle("station_radio_control", params: [
                 "provider": "direct_flex_lan", "control": "set_rf_power", "watts": 50,
             ])
-            XCTFail("Unimplemented copied FLEX transport claimed RF power support")
+            XCTFail("ACK-only RF-power command was confirmed")
         } catch let failure as WorkerFailure {
-            XCTAssertEqual(failure.code, "station_rejected")
+            XCTAssertEqual(failure.code, "station_timeout")
         }
         let commands = await radio.commandLog()
-        XCTAssertEqual(commands, [])
+        XCTAssertEqual(commands, ["rf_power_50"])
         let state = try await session.handle("station_snapshot", params: ["provider": "direct_flex_lan"])
         let capabilities = try XCTUnwrap(state["capabilities"] as? [String: Any])
         XCTAssertFalse((capabilities["supported_commands"] as? [String] ?? []).contains("set_rf_power"))
+    }
+
+    func testRFPowerFreshStatusConfirmsBoundaryValuesAndCapability() async throws {
+        let (session, radio) = try await fixture()
+        for watts in [0, 100] {
+            await radio.setPowerReadback(watts)
+            let result = try await session.handle("station_radio_control", params: [
+                "provider": "direct_flex_lan", "control": "set_rf_power", "watts": watts,
+            ])
+            XCTAssertEqual(result["confirmed"] as? Bool, true)
+            let state = try XCTUnwrap(result["state"] as? [String: Any])
+            XCTAssertEqual((state["radio"] as? [String: Any])?["rf_power_level"] as? Int, watts)
+            let capabilities = try XCTUnwrap(state["capabilities"] as? [String: Any])
+            XCTAssertTrue((capabilities["supported_commands"] as? [String] ?? []).contains("set_rf_power"))
+        }
+        let commands = await radio.commandLog()
+        XCTAssertEqual(commands, ["rf_power_0", "rf_power_100"])
+    }
+
+    func testRFPowerRejectsInvalidValuesBeforeWrite() async throws {
+        let (session, radio) = try await fixture()
+        for watts in [-1 as Any, 101, 3.5, true] {
+            do {
+                _ = try await session.handle("station_radio_control", params: [
+                    "provider": "direct_flex_lan", "control": "set_rf_power", "watts": watts,
+                ])
+                XCTFail("Invalid RF power was accepted")
+            } catch let failure as WorkerFailure {
+                XCTAssertEqual(failure.code, "invalid_params")
+            }
+        }
+        let commands = await radio.commandLog()
+        XCTAssertEqual(commands, [])
+    }
+
+    func testRFPowerMatchingStaleReadbackOrFreshMismatchDoesNotConfirm() async throws {
+        var initial = RadioSnapshot(frequencyHz: 14_074_000)
+        initial.rfPowerLevel = 50
+        let (session, radio) = try await fixture(initial)
+        await radio.setPowerReadback(nil)
+        let unrelated = Task {
+            try await Task.sleep(for: .milliseconds(30))
+            await radio.simulateUnrelatedSnapshot()
+        }
+        do {
+            _ = try await session.handle("station_radio_control", params: [
+                "provider": "direct_flex_lan", "control": "set_rf_power", "watts": 50,
+            ])
+            XCTFail("Stale matching power and unrelated telemetry confirmed the command")
+        } catch let failure as WorkerFailure {
+            XCTAssertEqual(failure.code, "station_timeout")
+        }
+        _ = try? await unrelated.value
+        await radio.setPowerReadback(49)
+        do {
+            _ = try await session.handle("station_radio_control", params: [
+                "provider": "direct_flex_lan", "control": "set_rf_power", "watts": 50,
+            ])
+            XCTFail("Mismatched fresh power status confirmed the command")
+        } catch let failure as WorkerFailure {
+            XCTAssertEqual(failure.code, "station_timeout")
+        }
+    }
+
+    func testRFPowerCommandRejectionCannotConfirmCachedValue() async throws {
+        let (session, radio) = try await fixture()
+        await radio.setRejectPower(true)
+        do {
+            _ = try await session.handle("station_radio_control", params: [
+                "provider": "direct_flex_lan", "control": "set_rf_power", "watts": 50,
+            ])
+            XCTFail("Rejected RF power control was confirmed")
+        } catch let failure as WorkerFailure {
+            XCTAssertEqual(failure.code, "station_rejected")
+        }
+    }
+
+    func testRFPowerStatusParserAcceptsOnlyBoundedTransmitField() {
+        XCTAssertEqual(FlexRFPowerStatusParser.parse("S0|transmit rfpower=0"), 0)
+        XCTAssertEqual(FlexRFPowerStatusParser.parse("SABCD|transmit mic=30 rfpower=100 vox=0"), 100)
+        for line in ["R1|0|", "S0|slice rfpower=50", "S0|transmit mic=50",
+                     "S0|transmit rfpower=101", "S0|transmit rfpower=-1",
+                     "S0|transmit rfpower=50.5", "S0|transmit rfpower=999999999999999999999",
+                     "S0|transmit rfpower=50 rfpower=51"] {
+            XCTAssertNil(FlexRFPowerStatusParser.parse(line), line)
+        }
+    }
+
+    func testRFPowerCommandResponseIsOnlyACKEvidence() {
+        XCTAssertEqual(FlexCommandResponseParser.parse("R41|0|")?.code, 0)
+        XCTAssertEqual(FlexCommandResponseParser.parse("R41|50000033|Parameter out of range")?.code,
+                       0x50000033)
+        XCTAssertNil(FlexRFPowerStatusParser.parse("R41|0|"))
+    }
+
+    func testRFPowerWriteRequiresObservedIdleInterlock() async throws {
+        let (session, radio) = try await fixture()
+        await radio.setTransmitObservationKnown(false)
+        do {
+            _ = try await session.handle("station_radio_control", params: [
+                "provider": "direct_flex_lan", "control": "set_rf_power", "watts": 50,
+            ])
+            XCTFail("RF power changed without authoritative idle interlock")
+        } catch let failure as WorkerFailure {
+            XCTAssertEqual(failure.code, "station_unavailable")
+        }
+        let commands = await radio.commandLog()
+        XCTAssertEqual(commands, [])
     }
 
     func testTransportLossInvalidatesObservedStateBeforeFurtherControls() async throws {

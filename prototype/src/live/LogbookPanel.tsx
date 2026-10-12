@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { Download, FileUp, Pencil, RotateCcw, Search, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Download, FileUp, Pencil, RotateCcw, Search, Trash2 } from "lucide-react";
 import "./logbook.css";
 
 type QSO = Record<string, unknown> & {
@@ -10,6 +10,16 @@ type QSO = Record<string, unknown> & {
   mode: string;
   submode?: string;
   frequencyHz?: number | null;
+  rstSent?: string;
+  rstReceived?: string;
+  name?: string;
+  country?: string;
+  comment?: string;
+  qslSent?: string;
+  qslReceived?: string;
+  lotwSent?: string;
+  lotwReceived?: string;
+  extraFields?: Record<string, string>;
   isDirty?: boolean;
 };
 
@@ -33,6 +43,30 @@ function utcTime(value: string) {
         year: "numeric", month: "2-digit", day: "2-digit",
         hour: "2-digit", minute: "2-digit", timeZone: "UTC", hour12: false,
       }).format(date);
+}
+
+type ConfirmationTone = "confirmed" | "rejected" | "pending" | "unrecorded";
+export function confirmationTone(value: string | undefined): ConfirmationTone {
+  switch (value?.trim().toUpperCase()) {
+    case "Y": case "V": return "confirmed";
+    case "N": return "rejected";
+    case "R": case "Q": case "I": case "M": return "pending";
+    default: return "unrecorded";
+  }
+}
+
+function ConfirmationStatus({ service, sent, received, supportsReceived = true }: {
+  service: string; sent?: string; received?: string; supportsReceived?: boolean;
+}) {
+  const sentText = sent?.trim() || "not recorded";
+  const receivedText = received?.trim() || "not recorded";
+  const description = supportsReceived
+    ? `${service} sent ${sentText}, received ${receivedText}`
+    : `${service} upload ${sentText}`;
+  return <span className="live-logbook-confirmation" role="img" aria-label={description} title={description}>
+    <ArrowUp aria-hidden="true" className={`is-${confirmationTone(sent)}`} size={12} strokeWidth={2.6} />
+    <ArrowDown aria-hidden="true" className={supportsReceived ? `is-${confirmationTone(received)}` : "is-unavailable"} size={12} strokeWidth={2.6} />
+  </span>;
 }
 
 function adifBatches(text: string): string[] {
@@ -219,14 +253,19 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey }: {
       </p>}
       <div className="live-logbook-table-wrap">
         <table className="live-logbook-table">
-          <thead><tr><th scope="col">Date UTC</th><th scope="col">Callsign</th><th scope="col">Band / mode</th><th scope="col">Frequency</th><th scope="col">Name / location</th><th scope="col">Sync</th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead>
+          <thead><tr><th scope="col">Date UTC</th><th scope="col">Callsign</th><th scope="col">Band / mode</th><th scope="col">Frequency</th><th scope="col">RST</th><th scope="col">Name / country</th><th scope="col">QSL</th><th scope="col">LoTW</th><th scope="col">Club Log</th><th scope="col">Comment</th><th scope="col">Sync</th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead>
           <tbody>
             {rows.map((qso) => <tr key={qso.id}>
               <td className="mono">{utcTime(qso.start)}</td>
               <td className="live-logbook-call mono">{qso.call}</td>
               <td>{qso.band} · {qso.submode || qso.mode}</td>
               <td className="mono">{typeof qso.frequencyHz === "number" ? `${(qso.frequencyHz / 1_000_000).toFixed(6)} MHz` : "—"}</td>
+              <td className="mono" aria-label={`RST sent ${qso.rstSent || "not recorded"}, received ${qso.rstReceived || "not recorded"}`}>{qso.rstSent || "—"} / {qso.rstReceived || "—"}</td>
               <td>{[qso.name, qso.country].filter(Boolean).join(" · ") || "—"}</td>
+              <td><ConfirmationStatus service="QSL" sent={qso.qslSent} received={qso.qslReceived} /></td>
+              <td><ConfirmationStatus service="LoTW" sent={qso.lotwSent} received={qso.lotwReceived} /></td>
+              <td><ConfirmationStatus service="Club Log" sent={qso.extraFields?.CLUBLOG_QSO_UPLOAD_STATUS} supportsReceived={false} /></td>
+              <td className="live-logbook-comment" title={qso.comment || undefined}>{qso.comment || "—"}</td>
               <td>{qso.isDirty ? <span className="live-logbook-pending">Pending</span> : "Synced"}</td>
               <td className="live-logbook-row-actions">
                 {confirmDelete === qso.id ? <>

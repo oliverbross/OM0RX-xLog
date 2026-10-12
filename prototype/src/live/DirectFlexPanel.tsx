@@ -43,10 +43,13 @@ export default function DirectFlexPanel({ request, snapshot }: Props) {
   const [vfo, setVFO] = useState<"A" | "B">("A");
   const [cwText, setCWText] = useState("");
   const [cwSpeed, setCWSpeed] = useState("25");
+  const [rfPower, setRFPower] = useState("");
   const frequencyRevision = useRef(0);
   const modeRevision = useRef(0);
+  const rfPowerRevision = useRef(0);
   const frequencyEdited = useRef(false);
   const modeEdited = useRef(false);
+  const rfPowerEdited = useRef(false);
   const radio = snapshot?.source === provider ? snapshot.radio : null;
   const connected = radio?.observed === true && radio?.connected === true;
   const attached = snapshot?.source === provider && snapshot.transport_state !== "stopped";
@@ -57,6 +60,11 @@ export default function DirectFlexPanel({ request, snapshot }: Props) {
     if (connected && !frequencyEdited.current && typeof radio.frequency_hz === "number") setFrequency(formatMHz(radio.frequency_hz));
     if (connected && !modeEdited.current && typeof radio.mode === "string" && modes.includes(radio.mode)) setMode(radio.mode);
   }, [connected, radio?.frequency_hz, radio?.mode]);
+  useEffect(() => {
+    if (connected && !rfPowerEdited.current && Number.isInteger(radio?.rf_power_level)) {
+      setRFPower(String(radio.rf_power_level));
+    }
+  }, [connected, radio?.rf_power_level]);
   useEffect(() => { if (attached) setAllowTransmit(snapshot.allow_transmit === true); }, [attached, snapshot?.allow_transmit]);
   const useObservedValues = () => {
     if (!connected) return;
@@ -64,10 +72,16 @@ export default function DirectFlexPanel({ request, snapshot }: Props) {
     if (typeof radio.frequency_hz === "number") setFrequency(formatMHz(radio.frequency_hz));
     if (typeof radio.mode === "string" && modes.includes(radio.mode)) setMode(radio.mode);
   };
+  const useObservedRFPower = () => {
+    if (!connected || !Number.isInteger(radio?.rf_power_level)) return;
+    rfPowerEdited.current = false;
+    setRFPower(String(radio.rf_power_level));
+  };
 
   async function act(method: string, params: Data, label: string) {
     const startedFrequencyRevision = frequencyRevision.current;
     const startedModeRevision = modeRevision.current;
+    const startedRFPowerRevision = rfPowerRevision.current;
     setBusy(true); setError(""); setNotice("");
     try {
       const result = await request(method, { provider, ...params });
@@ -79,6 +93,10 @@ export default function DirectFlexPanel({ request, snapshot }: Props) {
       if (confirmedRadio && (method === "station_tune" || params.control === "set_mode") &&
           modeRevision.current === startedModeRevision && modes.includes(confirmedRadio.mode)) {
         modeEdited.current = false; setMode(confirmedRadio.mode);
+      }
+      if (confirmedRadio && params.control === "set_rf_power" &&
+          rfPowerRevision.current === startedRFPowerRevision && Number.isInteger(confirmedRadio.rf_power_level)) {
+        rfPowerEdited.current = false; setRFPower(String(confirmedRadio.rf_power_level));
       }
       setNotice(`${label}: ${result?.confirmed === true ? "confirmed by fresh radio observation" : result?.accepted === true ? "accepted; observation remains pending" : "request completed"}.`);
       return result;
@@ -106,6 +124,8 @@ export default function DirectFlexPanel({ request, snapshot }: Props) {
   const hz = strictHz(frequency);
   const validCW = cwText.length > 0 && cwText.length <= 128 && /^[\x20-\x7E]+$/.test(cwText) && !cwText.includes("|");
   const speed = Number(cwSpeed);
+  const validRFPower = /^(?:0|[1-9]\d?|100)$/.test(rfPower);
+  const rfPowerSupported = supports("set_rf_power");
   return <section className="live-station direct-flex">
     <header className="live-station-head"><div><h2><Radio size={17} /> Direct FLEX · LAN</h2><p>Connect xLog directly to a FLEX radio on a private address. No standalone xCat or Remote Station Agent is used.</p></div>
       <span className={`live-station-status ${connected ? "is-online" : "is-offline"}`}><i />{connected ? "Observed" : snapshot?.transport_state || "Disconnected"}</span></header>
@@ -131,6 +151,7 @@ export default function DirectFlexPanel({ request, snapshot }: Props) {
           return <div key={letter}><b>VFO {letter}</b><strong>{formatMHz(observed?.frequency_hz)} MHz</strong><small>{observed?.mode || "—"}{observed?.receive ? " · RX" : ""}{observed?.transmit ? " · TX" : ""}</small></div>;
         })}</div>
         <p className="live-station-helper">Receive VFO {radio?.receive_vfo || "—"} · Transmit VFO {radio?.transmit_vfo || "—"} · {radio?.split ? "Split" : "Simplex"} · Transmit opt-in {snapshot?.allow_transmit ? "enabled" : "off"}</p>
+        <p className="live-station-helper">Observed RF power level: <strong>{connected && Number.isInteger(radio?.rf_power_level) ? `${radio.rf_power_level} / 100` : "unavailable"}</strong>. This is a radio setting, not measured output in watts.</p>
         <button className="live-station-quiet" disabled={!connected} onClick={useObservedValues}>Use observed frequency and mode in controls</button>
       </section>
       <section className="live-station-card"><h3>Frequency and mode</h3>
@@ -149,11 +170,17 @@ export default function DirectFlexPanel({ request, snapshot }: Props) {
           <button disabled={busy || !txAllowed || !supports("tune") || radio?.transmitting !== false} onClick={() => void act("station_action", { action: "tune" }, "Tune")}>Tune carrier</button>
           <button disabled={busy || !supports("cancel")} onClick={() => void act("station_action", { action: "cancel" }, "Cancel / release")}>Cancel / release</button></div>
       </section>
+      <section className="live-station-card"><h3>RF power setting</h3>
+        <p className="live-station-helper">FLEX level 0–100; this is not a measured watt reading. Changing the setting requires an observed receive state and fresh readback.</p>
+        <div className="live-station-inline"><label>RF power setting (0–100)<input aria-label="RF power setting (0–100)" type="number" min="0" max="100" step="1" value={rfPower} onChange={event => { rfPowerEdited.current = true; rfPowerRevision.current++; setRFPower(event.target.value); }} /></label>
+          <button type="button" disabled={busy || !rfPowerSupported || radio?.transmitting !== false || !validRFPower} onClick={() => void control("set_rf_power", { watts: Number(rfPower) })}>Set RF power</button></div>
+        <button type="button" className="live-station-quiet" disabled={!connected || !Number.isInteger(radio?.rf_power_level)} onClick={useObservedRFPower}>Use observed RF power setting</button>
+      </section>
       <section className="live-station-card"><h3>CW</h3><label>CW text<textarea aria-label="FLEX CW text" maxLength={128} value={cwText} onChange={event => setCWText(event.target.value)} /></label>
         <div className="live-station-actionrow"><button disabled={busy || !txAllowed || !supports("send_cw") || !validCW} onClick={() => void control("send_cw", { text: cwText })}>Send CW</button><button disabled={busy || !supports("clear_cw")} onClick={() => void control("clear_cw")}>Clear CW</button></div>
         <div className="live-station-inline"><label>CW speed WPM<input aria-label="FLEX CW speed" type="number" min="5" max="100" value={cwSpeed} onChange={event => setCWSpeed(event.target.value)} /></label><button disabled={busy || !supports("set_cw_speed") || !Number.isInteger(speed) || speed < 5 || speed > 100} onClick={() => void control("set_cw_speed", { words_per_minute: speed })}>Set speed</button></div>
       </section>
-      <section className="live-station-card"><h3>Provider scope</h3><p>Direct FLEX reports radio state only. Amplifier, tuner, rotor, Remote Agent configuration, RIT/XIT, RF power and CAT server controls are unavailable here.</p></section>
+      <section className="live-station-card"><h3>Provider scope</h3><p>Direct FLEX reports radio state only. Amplifier, tuner, rotor, Remote Agent configuration, RIT/XIT, CAT server and SmartLink controls are unavailable here. {!rfPowerSupported && "RF power setting is unavailable until FLEX reports its current level."}</p></section>
     </div></div>
     {error && <p className="live-station-error" role="alert">{error}</p>}{notice && <p className="live-station-notice" role="status">{notice}</p>}
   </section>;

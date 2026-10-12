@@ -57,3 +57,28 @@ artifact, not full parity certification. It does not establish numerical
 transport/render latency, direct-LAN FLEX or SmartLink acceptance, physical
 Hamlib-device acceptance, Maestro colour display, live Wavelog single-writer
 sync, or Windows/Linux functionality. Those remain separate acceptance gates.
+
+## Subsequent alpha.2 package checkpoint
+
+Source `97f65d7dffdca3524ca2e9bfd836bbf2d8bb4d62` was built, Developer ID signed,
+accepted by Apple notarization and stapled. Gatekeeper reported
+`source=Notarized Developer ID` for the installed app. Submission ID:
+`cfa523c3-b64d-496a-92b4-be5036cc4f6a`. Archive SHA-256:
+`fe2576ef91396fb72ebfff0dea0a5cecb2270eea7f95f4d9a20ca8371d30c48f`.
+
+Tests at this source: native Swift 50; shared Swift 138; frontend 110; Rust 49
+(the 16 Hamlib cases were also run explicitly against the bundled dummy
+helpers); packaged worker process 4. Total unique tests: 351, zero failures in
+the final runs. One earlier frontend run timed out under parallel compiler/test
+contention; capping Vitest workers at four produced a clean complete rerun.
+
+The outgoing app was retained outside Trash. After installation, SQLite
+integrity remained `ok`, count remained 67,843, and the preserved draft loaded.
+Only one application process and its one worker were running. Saved-Keychain
+agent reconnect succeeded without displaying a token; ARCO polling resumed at
+172°. The monitor showed both VFOs, MOX off, KPA STBY/0 W and confirmed route.
+
+The monitor's small map no longer had the oversized toolbar, but a generic map
+error banner remained over a rendered basemap. Publication was held pending
+diagnosis rather than presenting that display as accepted. The next alpha.3
+work adds source-specific safe diagnostics and further map/layout parity.

@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import * as maplibregl from "maplibre-gl";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import geometryUrl from "../../Sources/XLogCore/Resources/dxcc-boundaries.geojson?url";
-import { type Spot } from "./model";
+import { dxccPrefixLabel, mapSpotDetails, normalizedMapCall, normalizeMapSpots, type MapSpot } from "./MapSpots";
+import { describeMapError } from "./MapErrors";
 import { acceptanceActive, interiorLandProbe, landPixelMatches } from "./acceptance";
 import { bearingAndDistance, grayline, greatCircle, solarPosition, type Coordinate } from "./MapGeography";
 import { clusterBandColors, clusterStatusColors, paletteColor } from "./live/clusterPalette";
@@ -11,7 +12,6 @@ import "./Map.css";
 // optimized module and packaged bundle do not preserve that adjacent path.
 // Emit the standalone worker as a local asset and configure it before any map.
 maplibregl.setWorkerUrl(new URL(workerUrl, window.location.href).href);
-type MapSpot = Spot & { adif?: number | null; bandHex?: string; statusHex?: string; callStatus?: string };
 type MapPoint = { call?: string; lat: number; lon: number; grid?: string; country?: string };
 type OverlayMode = "Spots" | "DXCC" | "Both";
 type MapAppearance = "Hybrid" | "Satellite" | "Standard";
@@ -47,10 +47,6 @@ function representativePoint(feature: DXCCFeature): Coordinate | null {
     (Math.min(...latitudes) + Math.max(...latitudes)) / 2];
 }
 
-function shortPrefix(prefix: string | null) {
-  return (prefix ?? "").replaceAll("_", "/").split(",", 1)[0].split("-", 1)[0].trim();
-}
-
 export default function WorldMap({
   selected,
   onSpot,
@@ -74,6 +70,8 @@ export default function WorldMap({
   longPath?: boolean;
   compact?: boolean;
 }) {
+  const mappedSpots = useMemo(() => normalizeMapSpots(data), [data]);
+  const detailID = useId();
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [error, setError] = useState("");
@@ -90,10 +88,19 @@ export default function WorldMap({
   const callback = useRef(onSpot);
   const selection = useRef(selected);
   const preserveCamera = useRef(Boolean(selected));
-  const spotsRef = useRef(data);
+  const spotsRef = useRef(mappedSpots);
+  const selectedCallRef = useRef<string | null>(null);
+  const previousSelectionRef = useRef(selected);
+  const currentSelected = data.find(spot => spot.id === selected);
+  if (currentSelected) selectedCallRef.current = normalizedMapCall(currentSelected.call);
+  else if (previousSelectionRef.current !== selected || selected === null) selectedCallRef.current = null;
+  previousSelectionRef.current = selected;
+  const selectedSpot = mappedSpots.find(spot => spot.id === selected || spot.call === selectedCallRef.current);
   const homeRef = useRef(home);
   const labelsRef = useRef<{ id: number; label: string; name: string; coordinate: Coordinate }[]>([]);
+  const entityIDsRef = useRef<number[]>([]);
   const markersRef = useRef(new Map<string, maplibregl.Marker>());
+  const spotMarkersRef = useRef(new Map<string, maplibregl.Marker>());
   const redrawRef = useRef(() => {});
   const appearanceRef = useRef(appearance);
   const overlayRef = useRef(overlayMode);
@@ -105,7 +112,7 @@ export default function WorldMap({
   statusFilterRef.current = statusFilter;
   dxccRef.current = dxccStatuses;
   paletteRef.current = palette;
-  spotsRef.current = data;
+  spotsRef.current = mappedSpots;
   homeRef.current = home;
   callback.current = onSpot;
   selection.current = selected;
@@ -116,6 +123,31 @@ export default function WorldMap({
     let disposed = false;
     let landFeatures = 0;
     let captureRequested = acceptanceActive;
+    let inspectedCall: string | null = null;
+    let popup: maplibregl.Popup | null = null;
+    const hideDetails = () => { popup?.remove(); popup = null; inspectedCall = null; };
+    const showDetails = (call: string, refresh = false) => {
+      const spot = spotsRef.current.find(value => value.call === call);
+      if (!spot || overlayRef.current === "DXCC") { hideDetails(); return; }
+      if (inspectedCall === call && popup && !refresh) return;
+      inspectedCall = call;
+      const content = document.createElement("div");
+      content.className = "map-spot-details";
+      content.id = detailID;
+      content.setAttribute("role", "tooltip");
+      const heading = document.createElement("strong");
+      heading.textContent = spot.call;
+      heading.style.color = paletteColor(spot.callStatus ?? "Unknown", paletteRef.current?.status, clusterStatusColors);
+      content.append(heading);
+      for (const [index, text] of mapSpotDetails(spot).entries()) {
+        const line = document.createElement("span");
+        line.className = index === 0 ? "map-spot-frequency" : "";
+        line.textContent = text;
+        content.append(line);
+      }
+      popup ??= new maplibregl.Popup({ closeButton: false, closeOnClick: false, maxWidth: "280px", offset: 12, className: "map-spot-popup" });
+      popup.setLngLat([spot.lon, spot.lat]).setDOMContent(content).addTo(map);
+    };
     const redrawLabels = () => {
       if (disposed) return;
       const width = map.getContainer().clientWidth, height = map.getContainer().clientHeight;
@@ -168,6 +200,44 @@ export default function WorldMap({
       }
       for (const [id, marker] of markersRef.current) {
         if (!visible.has(id)) { marker.remove(); markersRef.current.delete(id); }
+      }
+      // Focusable hit targets sit over the existing palette-coloured circles.
+      // Hover and focus inspect only; activation retains the existing tune action.
+      const visibleSpots = new Set<string>();
+      if (overlayRef.current !== "DXCC") for (const spot of spotsRef.current) {
+        const position = map.project([spot.lon, spot.lat]);
+        if (position.x < 0 || position.x > width || position.y < 0 || position.y > height) continue;
+        visibleSpots.add(spot.call);
+        let marker = spotMarkersRef.current.get(spot.call);
+        if (!marker) {
+          const button = document.createElement("button");
+          const call = spot.call;
+          button.type = "button";
+          button.className = "map-spot-hit";
+          button.setAttribute("aria-describedby", detailID);
+          button.addEventListener("mouseenter", () => showDetails(call));
+          button.addEventListener("focus", () => showDetails(call));
+          button.addEventListener("mouseleave", () => { if (document.activeElement !== button) hideDetails(); });
+          button.addEventListener("blur", hideDetails);
+          button.addEventListener("keydown", event => { if (event.key === "Escape") { event.preventDefault(); hideDetails(); } });
+          button.addEventListener("click", event => {
+            event.stopPropagation();
+            const current = spotsRef.current.find(value => value.call === call);
+            if (current) callback.current?.(current);
+          });
+          marker = new maplibregl.Marker({ element: button, anchor: "center" }).setLngLat([spot.lon, spot.lat]).addTo(map);
+          spotMarkersRef.current.set(call, marker);
+        }
+        const button = marker.getElement();
+        button.setAttribute("aria-label", `${spot.call} · ${mapSpotDetails(spot)[0]}${callback.current ? ". Activate to tune." : ". Inspect spot."}`);
+        button.setAttribute("aria-current", selectedCallRef.current === spot.call ? "true" : "false");
+        marker.setLngLat([spot.lon, spot.lat]);
+      }
+      for (const [call, marker] of spotMarkersRef.current) {
+        if (!visibleSpots.has(call)) { marker.remove(); spotMarkersRef.current.delete(call); }
+      }
+      if (inspectedCall) {
+        if (visibleSpots.has(inspectedCall)) showDetails(inspectedCall, true); else hideDetails();
       }
     };
     redrawRef.current = redrawLabels;
@@ -261,7 +331,7 @@ export default function WorldMap({
                 type: "FeatureCollection",
                 features: spotsRef.current.map((s) => ({
                   type: "Feature",
-                  properties: { id: s.id, state: s.state, bandColor: paletteColor(s.band, paletteRef.current?.band, clusterBandColors) },
+                  id: `spot-${s.call}`, properties: { id: s.id, state: s.state, bandColor: paletteColor(s.band, paletteRef.current?.band, clusterBandColors) },
                   geometry: { type: "Point", coordinates: [s.lon, s.lat] },
                 })),
               },
@@ -321,18 +391,24 @@ export default function WorldMap({
           if (disposed) return;
           landFeatures = data.type === "FeatureCollection" ? data.features?.length ?? 0 : 0;
           if (data.type === "FeatureCollection" && data.features) {
+            entityIDsRef.current = [...new Set(data.features.map(feature => feature.properties.dxcc_entity_code).filter(Number.isFinite))];
             labelsRef.current = data.features.flatMap(feature => {
               const coordinate = representativePoint(feature);
-              const label = shortPrefix(feature.properties.dxcc_prefix);
+              const label = dxccPrefixLabel(feature.properties.dxcc_prefix);
               return coordinate && label && Number.isFinite(feature.properties.dxcc_entity_code) ? [{ id: feature.properties.dxcc_entity_code,
                 label, name: feature.properties.dxcc_name ?? "DXCC entity", coordinate }] : [];
             }).sort((a, b) => a.id - b.id);
-            for (const entity of labelsRef.current) map.setFeatureState({ source: "land", id: entity.id },
-              { status: dxccRef.current?.[entity.id] ?? "unknown" });
+            for (const id of entityIDsRef.current) map.setFeatureState({ source: "land", id },
+              { status: dxccRef.current?.[id] ?? "unknown" });
             redrawLabels();
           }
-          element.dataset.mapError = "";
-          setError("");
+          // Loading bundled geography only resolves its own failure. It is
+          // not evidence that a different source or the renderer recovered.
+          if (!element.dataset.mapError || element.dataset.mapErrorSource === "land") {
+            element.dataset.mapError = "";
+            element.dataset.mapErrorSource = "";
+            setError("");
+          }
           requestEvidence();
         }).catch((cause: unknown) => {
           if (!disposed) {
@@ -379,18 +455,26 @@ export default function WorldMap({
       map.on("mouseleave", "spots", () => {
         map.getCanvas().style.cursor = "";
       });
+      map.on("mousemove", "spots", (event) => {
+        const spot = spotsRef.current.find(value => value.id === event.features?.[0]?.properties?.id);
+        if (spot) showDetails(spot.call);
+      });
+      map.on("mouseleave", "spots", () => {
+        if (!container.current?.contains(document.activeElement) || !document.activeElement?.classList.contains("map-spot-hit")) hideDetails();
+      });
       map.on("error", (event) => {
         // Raster failures must not hide the bundled DXCC geography.
-        const sourceId = (event as unknown as { sourceId?: string }).sourceId;
-        const imageryError = sourceId === "imagery" || String(event.error ?? "").includes("gibs.earthdata.nasa.gov");
-        if (imageryError && appearanceRef.current !== "Standard") {
+        const diagnostic = describeMapError(event);
+        if (diagnostic.imagery) {
           setImageryUnavailable(true);
           appearanceRef.current = "Standard";
           if (map.getLayer("imagery")) map.setLayoutProperty("imagery", "visibility", "none");
           if (map.getLayer("land")) map.setPaintProperty("land", "fill-opacity", 1);
-        } else if (!imageryError) {
-          element.dataset.mapError = "Map data could not render";
-          setError("Map data could not render. Logging and cluster selection remain available.");
+        } else {
+          const message = `Map error (${diagnostic.source}): ${diagnostic.detail}`;
+          element.dataset.mapError = message;
+          element.dataset.mapErrorSource = diagnostic.source;
+          setError(`${message} Logging and cluster selection remain available.`);
         }
       });
       const resize = new ResizeObserver(() => {
@@ -406,6 +490,9 @@ export default function WorldMap({
         resize.disconnect();
         markersRef.current.forEach(marker => marker.remove());
         markersRef.current.clear();
+        spotMarkersRef.current.forEach(marker => marker.remove());
+        spotMarkersRef.current.clear();
+        hideDetails();
         redrawRef.current = () => {};
         map.remove();
         mapRef.current = null;
@@ -418,7 +505,7 @@ export default function WorldMap({
     }
   }, []);
   useEffect(() => {
-    const s = spotsRef.current.find((s) => s.id === selected);
+    const s = selectedSpot;
     if (s && mapRef.current) {
       preserveCamera.current = true;
       mapRef.current.easeTo({
@@ -428,7 +515,8 @@ export default function WorldMap({
           : 180,
       });
     }
-  }, [selected]);
+    redrawRef.current();
+  }, [selected, selectedSpot?.call, selectedSpot?.lon, selectedSpot?.lat]);
   useEffect(() => {
     const map = mapRef.current;
     if (!fixture && home && map && !preserveCamera.current && !selected) {
@@ -468,8 +556,8 @@ export default function WorldMap({
     if (!map) return;
     const update = () => {
       if (!map.getSource("land")) return;
-      for (const entity of labelsRef.current) map.setFeatureState({ source: "land", id: entity.id },
-        { status: dxccStatuses?.[entity.id] ?? "unknown" });
+      for (const id of entityIDsRef.current) map.setFeatureState({ source: "land", id },
+        { status: dxccStatuses?.[id] ?? "unknown" });
       redrawRef.current();
     };
     if (map.isSourceLoaded("land")) update(); else map.once("load", update);
@@ -509,8 +597,8 @@ export default function WorldMap({
     if (!map) return;
     const update = () => {
       const source = map.getSource("spots") as maplibregl.GeoJSONSource | undefined;
-      source?.setData({ type: "FeatureCollection", features: data.map(s => ({
-        type: "Feature", properties: { id: s.id, state: s.state,
+      source?.setData({ type: "FeatureCollection", features: mappedSpots.map(s => ({
+        type: "Feature", id: `spot-${s.call}`, properties: { id: s.id, state: s.state,
           bandColor: paletteColor(s.band, palette?.band, clusterBandColors) },
         geometry: { type: "Point", coordinates: [s.lon, s.lat] },
       })) });
@@ -518,9 +606,9 @@ export default function WorldMap({
     };
     if (map.isStyleLoaded()) update(); else map.once("load", update);
     return () => { map.off("load", update); };
-  }, [data, palette]);
+  }, [mappedSpots, palette]);
   const routeSummary = home && target ? bearingAndDistance([home.lon, home.lat], [target.lon, target.lat]) : null;
-  const activeBands = [...new Set(data.map(spot => spot.band))].slice(0, 9);
+  const activeBands = [...new Set(mappedSpots.map(spot => spot.band))].slice(0, 9);
   const changePreset = (next: MapPreset) => {
     setPreset(next);
     if (next === "Simple") { setOverlayMode("Spots"); setShowSun(false); setShowGrayline(false); }
@@ -549,7 +637,7 @@ export default function WorldMap({
         <button type="button" aria-pressed={showSun} onClick={() => setShowSun(!showSun)}>Sun</button>
         <button type="button" aria-pressed={showGrayline} onClick={() => setShowGrayline(!showGrayline)}>Greyline</button>
         <button type="button" aria-pressed={longPath} onClick={() => setLongPath(!longPath)} title="Switch the displayed great-circle path; does not move the rotor">{longPath ? "Long path" : "Short path"}</button>
-        <span className="map-count">{data.length} mapped</span>
+        <span className="map-count">{mappedSpots.length} mapped</span>
       </div>}
       {imageryUnavailable && appearance !== "Standard" && <p className="map-offline" role="status">Imagery unavailable · showing bundled map</p>}
       {error && (

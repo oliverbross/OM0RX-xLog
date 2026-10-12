@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { BAND_RANGES, BandMaps, bandForRadio, opportunityCode, placeSpots } from "./BandMaps";
 
 const spot = (id: string, frequencyKHz: number, band = "20m", callStatus = "New Call", dxccStatus = "Worked") => ({
@@ -9,9 +9,25 @@ const spot = (id: string, frequencyKHz: number, band = "20m", callStatus = "New 
 });
 
 beforeEach(() => localStorage.clear());
-afterEach(() => cleanup());
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe("native band-map parity", () => {
+  it("fits compact marker placement to the actual available chart height", () => {
+    let resize: () => void = () => {};
+    vi.stubGlobal("ResizeObserver", class {
+      constructor(callback: () => void) { resize = callback; }
+      observe() {}
+      disconnect() {}
+    });
+    render(<BandMaps compact spots={[spot("OM0RX", 14001)]} onSelect={vi.fn()} />);
+    const chart = screen.getByLabelText(/20m spectrum/) as HTMLElement;
+    expect(chart.style.height).toBe("");
+    Object.defineProperties(chart, { clientHeight: { value: 120 }, clientWidth: { value: 310 } });
+    act(() => resize());
+    const marker = within(chart).getByRole("button", { name: /OM0RX/ });
+    expect(parseFloat(marker.style.top)).toBeLessThan(120);
+  });
+
   it("uses native opportunity precedence and band boundaries", () => {
     expect(opportunityCode(spot("A", 14070, "20m", "New Call", "ATNO"))).toBe("ATNO");
     expect(opportunityCode(spot("B", 14070, "20m", "New Band+Mode"))).toBe("NB+NM");

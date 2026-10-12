@@ -149,6 +149,8 @@ public struct RadioSnapshot: Equatable, Sendable {
     public var vfos: [RadioVFO]
     public var remoteStationStatus: RemoteStationStatus?
     public var rfPowerWatts: Int?
+    /// FLEX transmitter RF drive setting (0–100), not measured output watts.
+    public var rfPowerLevel: Int?
     public var agentObservedAt: Date?
     public var transportReceivedAt: Date?
 
@@ -164,6 +166,7 @@ public struct RadioSnapshot: Equatable, Sendable {
         vfos: [RadioVFO]? = nil,
         remoteStationStatus: RemoteStationStatus? = nil,
         rfPowerWatts: Int? = nil,
+        rfPowerLevel: Int? = nil,
         agentObservedAt: Date? = nil,
         transportReceivedAt: Date? = nil
     ) {
@@ -177,6 +180,7 @@ public struct RadioSnapshot: Equatable, Sendable {
         self.station = station
         self.remoteStationStatus = remoteStationStatus
         self.rfPowerWatts = rfPowerWatts
+        self.rfPowerLevel = rfPowerLevel
         self.agentObservedAt = agentObservedAt
         self.transportReceivedAt = transportReceivedAt
         self.vfos = vfos ?? [RadioVFO(
