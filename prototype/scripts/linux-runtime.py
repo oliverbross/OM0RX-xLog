@@ -25,6 +25,21 @@ def write_json(path, data):
     path.write_text(json.dumps(data, indent=2) + '\n')
 
 
+def normalize_permissions(directory):
+    # Build caches can contain owner-only licenses. Installed payloads must be
+    # readable/traversable by regular users, while keeping executable helpers.
+    directory.chmod(0o755)
+    for current, directories, files in os.walk(directory, followlinks=False):
+        for name in directories + files:
+            path = Path(current) / name
+            if path.is_symlink():
+                raise RuntimeError(f'Unexpected package symlink during permission normalization: {path}')
+            if path.is_dir():
+                path.chmod(0o755)
+            else:
+                path.chmod(0o755 if path.stat().st_mode & 0o111 else 0o644)
+
+
 def loader(path, env):
     output = run('ldd', str(path), env=env)
     if 'not found' in output:
@@ -172,8 +187,11 @@ def package(root, out, swift_root, sha):
                 'source': f'https://github.com/oliverbross/OM0RX-xLog/tree/{sha}',
                 'scope': 'synthetic prototype; no Hamlib, station access or production release'}
     write_json(stage / 'runtime-manifest.json', metadata)
+    normalize_permissions(stage)
     hashes = {str(path.relative_to(stage)): digest(path) for path in sorted(stage.rglob('*')) if path.is_file()}
-    (stage / 'payload.sha256').write_text(''.join(f'{value}  {name}\n' for name, value in hashes.items()))
+    hash_manifest = stage / 'payload.sha256'
+    hash_manifest.write_text(''.join(f'{value}  {name}\n' for name, value in hashes.items()))
+    hash_manifest.chmod(0o644)
     deb = out / 'deb-root'
     install = deb / 'opt/om0rx-xlog-prototype'
     shutil.copytree(stage, install)
@@ -191,6 +209,7 @@ def package(root, out, swift_root, sha):
     desktop.parent.mkdir(parents=True)
     desktop.write_text('[Desktop Entry]\nType=Application\nName=OM0RX-xLog Prototype (synthetic)\n'
                        'Exec=/opt/om0rx-xlog-prototype/launch\nTerminal=false\nCategories=Utility;\n')
+    normalize_permissions(deb)
 
 
 if __name__ == '__main__':

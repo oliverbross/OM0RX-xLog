@@ -16,7 +16,10 @@ function notices(directory, key) {
     if (!entry.isFile() || !/^(licen[cs]e|copying|notice|copyright)([-.]|$)/i.test(entry.name)) continue;
     const relative = path.join("notices", key.replace(/[^\w.-]/g, "_"), entry.name);
     fs.mkdirSync(path.dirname(path.join(destination, relative)), { recursive: true });
-    fs.copyFileSync(path.join(directory, entry.name), path.join(destination, relative));
+    const target = path.join(destination, relative);
+    fs.copyFileSync(path.join(directory, entry.name), target);
+    // Registry archives can carry owner-only modes; notices ship to other users.
+    fs.chmodSync(target, 0o644);
     copied.push(relative.split(path.sep).join("/"));
   }
   return copied;

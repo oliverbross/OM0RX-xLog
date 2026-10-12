@@ -134,7 +134,9 @@ jobs:
         run: node prototype/scripts/distribution-metadata.mjs
       - name: Package Linux runtime and Debian application
         if: runner.os == 'Linux'
-        run: bash prototype/scripts/package-linux.sh
+        run: |
+          python3 prototype/scripts/test-linux-runtime-permissions.py
+          bash prototype/scripts/package-linux.sh
       - name: Package Windows portable runtime
         if: runner.os == 'Windows'
         shell: pwsh
