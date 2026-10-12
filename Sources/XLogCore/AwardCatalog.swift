@@ -58,6 +58,31 @@ public struct AwardCatalogItem: Codable, Identifiable, Equatable, Sendable {
     }
 }
 
+/// The calculators depend on these ADIF fields, not the entire editable QSO.
+/// Keeping their input explicit makes cold catalogue reads smaller and makes
+/// any future rule's additional field dependency a compile-time change.
+public struct AwardCatalogContact: Decodable, Sendable {
+    public let call: String
+    public let start: Date
+    public let band: String
+    public let mode: String
+    public let submode: String
+    public let dxcc: Int?
+    public let state: String
+    public let county: String
+    public let qslReceived: String
+    public let lotwReceived: String
+    public let propagationMode: String
+    public let extraFields: [String: String]
+
+    public init(_ qso: QSO) {
+        call = qso.call; start = qso.start; band = qso.band; mode = qso.mode
+        submode = qso.submode; dxcc = qso.dxcc; state = qso.state; county = qso.county
+        qslReceived = qso.qslReceived; lotwReceived = qso.lotwReceived
+        propagationMode = qso.propagationMode; extraFields = qso.extraFields
+    }
+}
+
 public struct AwardCatalogSnapshot: Codable, Equatable, Sendable {
     public var items: [AwardCatalogItem]
     public var programmes: [AwardProgramme]
@@ -148,6 +173,10 @@ public enum AwardCatalogEngine {
     ]
 
     public static func compute(qsos: [QSO]) throws -> AwardCatalogSnapshot {
+        try compute(contacts: qsos.map(AwardCatalogContact.init))
+    }
+
+    public static func compute(contacts qsos: [AwardCatalogContact]) throws -> AwardCatalogSnapshot {
         let reference = try loadReferenceData()
         let confirmed = qsos.filter { isConfirmed($0, includeEQSL: true) }
         let confirmedWithoutEQSL = qsos.filter { isConfirmed($0, includeEQSL: false) }
@@ -255,7 +284,7 @@ public enum AwardCatalogEngine {
         )
     }
 
-    private static func workedCounts(qsos: [QSO], reference: ReferenceData) -> [String: Int] {
+    private static func workedCounts(qsos: [AwardCatalogContact], reference: ReferenceData) -> [String: Int] {
         var districts = Set<String>()
         var prefectures = Set<String>()
         var jcc = Set<String>()
@@ -337,15 +366,15 @@ public enum AwardCatalogEngine {
         )
     }
 
-    private static func isConfirmed(_ qso: QSO, includeEQSL: Bool) -> Bool {
+    private static func isConfirmed(_ qso: AwardCatalogContact, includeEQSL: Bool) -> Bool {
         let accepted = Set(["Y", "V"])
         if accepted.contains(qso.qslReceived.trimmedUpper) || accepted.contains(qso.lotwReceived.trimmedUpper) { return true }
         return includeEQSL && accepted.contains(extra(qso, keys: ["EQSL_QSL_RCVD", "eqslQSLReceived"]).trimmedUpper)
     }
 
-    private static func isJapan(_ qso: QSO) -> Bool { [339, 177, 192].contains(qso.dxcc ?? -1) }
+    private static func isJapan(_ qso: AwardCatalogContact) -> Bool { [339, 177, 192].contains(qso.dxcc ?? -1) }
 
-    private static func japanFields(_ qso: QSO) -> (call: String, prefecture: String?, county: String?) {
+    private static func japanFields(_ qso: AwardCatalogContact) -> (call: String, prefecture: String?, county: String?) {
         if qso.dxcc == 177 || qso.dxcc == 192 { return (qso.call.trimmedUpper, "10", "10007") }
         let prefecture = qso.state.trimmedUpper.isEmpty ? nil : qso.state.trimmedUpper
         let county = qso.county.trimmedUpper.isEmpty ? nil : qso.county.trimmedUpper
@@ -369,7 +398,7 @@ public enum AwardCatalogEngine {
         }
     }
 
-    private static func wapcProvince(_ qso: QSO) -> String? {
+    private static func wapcProvince(_ qso: AwardCatalogContact) -> String? {
         switch qso.dxcc {
         case 318: return qso.state.trimmedUpper
         case 386: return "TW"
@@ -379,14 +408,14 @@ public enum AwardCatalogEngine {
         }
     }
 
-    private static func modeGroup(_ qso: QSO) -> String {
+    private static func modeGroup(_ qso: AwardCatalogContact) -> String {
         let mode = (qso.submode.isEmpty ? qso.mode : qso.submode).trimmedUpper
         if mode == "CW" { return "CW" }
         if ["AM", "FM", "SSB", "USB", "LSB", "DIGITALVOICE", "VOI"].contains(mode) { return "PHONE" }
         return "DATA"
     }
 
-    private static func wcsaProgress(qsos: [QSO], schools: [String: String]) -> (schoolCount: Int, slotCount: Int) {
+    private static func wcsaProgress(qsos: [AwardCatalogContact], schools: [String: String]) -> (schoolCount: Int, slotCount: Int) {
         var schoolCalls = Set<String>()
         var slots = Set<String>()
         for qso in qsos {
@@ -413,7 +442,7 @@ public enum AwardCatalogEngine {
         return (schoolCalls.count, slots.count)
     }
 
-    private static func extra(_ qso: QSO, keys: [String]) -> String {
+    private static func extra(_ qso: AwardCatalogContact, keys: [String]) -> String {
         let wanted = Set(keys.map { $0.lowercased() })
         return qso.extraFields.first(where: { wanted.contains($0.key.lowercased()) })?.value ?? ""
     }

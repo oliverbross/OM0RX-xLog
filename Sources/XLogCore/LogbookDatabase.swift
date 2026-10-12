@@ -461,7 +461,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                 SELECT COUNT(*), COUNT(DISTINCT CASE WHEN json_extract(record_json,'$.dxcc') IS NOT NULL THEN json_extract(record_json,'$.dxcc') END),
                 SUM(CASE WHEN json_extract(record_json,'$.qslReceived') IN ('Y','V') OR json_extract(record_json,'$.lotwReceived') IN ('Y','V') THEN 1 ELSE 0 END),
                 SUM(CASE WHEN qso_start >= ? THEN 1 ELSE 0 END)
-                FROM qsos WHERE deleted_at IS NULL;
+                FROM qsos INDEXED BY idx_qsos_metrics_live WHERE deleted_at IS NULL;
                 """) { statement in
                     sqlite3_bind_double(statement, 1, yearStart)
                     guard sqlite3_step(statement) == SQLITE_ROW else { return .empty }
@@ -505,7 +505,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                     \(modeGroup), COALESCE(NULLIF(LOWER(band),''),'Unknown'),
                     COALESCE(NULLIF(UPPER(TRIM(json_extract(record_json,'$.continent'))),''),'Unknown'),
                     STRFTIME('%Y', qso_start, 'unixepoch')
-                FROM qsos WHERE deleted_at IS NULL;
+                FROM qsos INDEXED BY idx_qsos_metrics_live WHERE deleted_at IS NULL;
                 """) { statement -> AwardProgressSnapshot in
                 func string(_ column: Int32) -> String? {
                     sqlite3_column_text(statement, column).map { String(cString: $0) }
@@ -579,7 +579,8 @@ public final class LogbookDatabase: @unchecked Sendable {
                 SELECT CAST(json_extract(record_json,'$.dxcc') AS INTEGER),
                     MAX(CASE WHEN UPPER(COALESCE(json_extract(record_json,'$.qslReceived'),'')) IN ('Y','V')
                         OR UPPER(COALESCE(json_extract(record_json,'$.lotwReceived'),'')) IN ('Y','V') THEN 1 ELSE 0 END)
-                FROM qsos WHERE deleted_at IS NULL AND CAST(json_extract(record_json,'$.dxcc') AS INTEGER) > 0
+                FROM qsos INDEXED BY idx_qsos_metrics_live
+                WHERE deleted_at IS NULL AND CAST(json_extract(record_json,'$.dxcc') AS INTEGER) > 0
                 GROUP BY CAST(json_extract(record_json,'$.dxcc') AS INTEGER);
                 """) { statement in
                     var result: [Int: String] = [:]
@@ -626,9 +627,9 @@ public final class LogbookDatabase: @unchecked Sendable {
                 for (index, call) in schools.enumerated() {
                     bind(call, to: Int32(index + 1), in: statement)
                 }
-                return try decodeRows(statement)
+                return try decodeRows(statement, as: AwardCatalogContact.self)
             }
-            let catalog = try AwardCatalogEngine.compute(qsos: values)
+            let catalog = try AwardCatalogEngine.compute(contacts: values)
             cachedAwardCatalog = catalog
             persistAggregate(catalog, key: cacheKey, revision: revision)
             return catalog
@@ -1151,6 +1152,16 @@ public final class LogbookDatabase: @unchecked Sendable {
           ON qsos(call COLLATE NOCASE, qso_start DESC) WHERE deleted_at IS NULL;
         CREATE INDEX IF NOT EXISTS idx_qsos_semantic
           ON qsos(call COLLATE NOCASE, band COLLATE NOCASE, mode COLLATE NOCASE, qso_start);
+        -- Keep the exact source JSON values in a covering read index. SQLite
+        -- maintains these derived values for all writers; no QSO is rewritten.
+        CREATE INDEX IF NOT EXISTS idx_qsos_metrics_live ON qsos(
+          CAST(json_extract(record_json,'$.dxcc') AS INTEGER),
+          json_extract(record_json,'$.dxcc'), json_extract(record_json,'$.cqZone'),
+          json_extract(record_json,'$.state'), json_extract(record_json,'$.gridSquare'),
+          json_extract(record_json,'$.submode'), json_extract(record_json,'$.qslReceived'),
+          json_extract(record_json,'$.lotwReceived'), json_extract(record_json,'$.continent'),
+          band, mode, qso_start
+        ) WHERE deleted_at IS NULL;
         CREATE INDEX IF NOT EXISTS idx_qsos_start ON qsos(qso_start DESC);
         CREATE INDEX IF NOT EXISTS idx_qsos_dxcc_live
           ON qsos(CAST(json_extract(record_json,'$.dxcc') AS INTEGER), qso_start DESC)
