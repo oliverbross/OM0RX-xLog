@@ -1,10 +1,14 @@
 import Foundation
+#if os(macOS)
+import XLogCore
+#else
 import XLogPortableCore
+#endif
 
 /// P1 protocol only. No paths, executables, credentials or device commands are accepted.
 public struct PrototypeWorker {
     public static let maxRequestBytes = 32_768
-    public static let maxResponseBytes = 65_536
+    public static let maxResponseBytes = 1_048_576
     public static let maxADIFBytes = 16_384
     public static let maxRecords = 128
     public static let maxFieldsPerRecord = 128

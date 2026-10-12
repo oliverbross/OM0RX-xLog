@@ -11,42 +11,41 @@ let portableOnly = ProcessInfo.processInfo.environment["XLOG_PORTABLE_ONLY"] == 
 let portableDependencies: [Package.Dependency] = []
 let portableCrypto: [Target.Dependency] = []
 let sqlitePkgConfig: String? = nil
+let liveCoreName = "XLogCore"
+let liveIntegrationDependencies: [Target.Dependency] = ["XCatIntegrationCore"]
+let prototypeCoreTargets: [Target] = [
+    .target(name: "XLogCore", resources: [.process("Resources")], linkerSettings: [
+        .linkedFramework("Network"), .linkedFramework("Security"), .linkedLibrary("sqlite3"), .linkedLibrary("z")
+    ]),
+    .target(name: "XCatIntegrationCore", linkerSettings: [.linkedFramework("Network"), .linkedFramework("Security")])
+]
 #else
 let portableDependencies: [Package.Dependency] = [
     .package(url: "https://github.com/apple/swift-crypto.git", exact: "3.8.0"),
 ]
 let portableCrypto: [Target.Dependency] = [.product(name: "Crypto", package: "swift-crypto")]
 let sqlitePkgConfig: String? = "sqlite3"
+let liveCoreName = "XLogPortableCore"
+let liveIntegrationDependencies: [Target.Dependency] = []
+let prototypeCoreTargets: [Target] = [
+    .target(name: "XLogPortableCore", dependencies: portableCrypto, path: "Sources/XLogCore",
+        exclude: ["Resources"],
+        sources: ["ADIF.swift", "Models.swift", "QSOADIF.swift", "SemanticQSOIdentity.swift", "WavelogClient.swift"])
+]
 #endif
 
 let package = portableOnly ? Package(
     name: "OM0RXXLogPrototype",
-    platforms: [.macOS(.v13)],
+    platforms: [.macOS(.v14)],
     products: [.executable(name: "xlog-prototype-worker", targets: ["XLogPrototypeWorker"])],
     dependencies: portableDependencies,
-    targets: [
+    targets: prototypeCoreTargets + [
         .systemLibrary(name: "CSQLitePrototype", pkgConfig: sqlitePkgConfig, providers: [.apt(["libsqlite3-dev"])]),
-        .target(
-            name: "XLogPortableCore",
-            dependencies: portableCrypto,
-            path: "Sources/XLogCore",
-            exclude: [
-                "Resources", "ActivationReferenceDirectory.swift", "AwardCatalog.swift",
-                "AwardReferences.swift", "AwardRegistry.swift", "BackupManager.swift",
-                "CTYResolver.swift", "ClusterSpotFeed.swift", "DXCCBoundaries.swift",
-                "FlexSpotForwarder.swift", "Geo.swift", "LogbookDatabase.swift",
-                "OperatingSupport.swift", "OperatorIntelligence.swift", "QRZClient.swift",
-                "ReferenceDataUpdater.swift", "SecretStore.swift", "Settings.swift",
-                "Solar.swift", "SyncEngine.swift", "TransmitPowerCapture.swift",
-                "WeatherClient.swift", "XCatClient.swift",
-            ],
-            sources: ["ADIF.swift", "Models.swift", "QSOADIF.swift", "SemanticQSOIdentity.swift", "WavelogClient.swift"]
-        ),
         .target(name: "XClusterIntegrationCore"),
         .target(name: "XStationIntegrationCore"),
-        .target(name: "XLogPrototypeSupport", dependencies: ["XLogPortableCore", "CSQLitePrototype", "XClusterIntegrationCore", "XStationIntegrationCore"] + portableCrypto),
+        .target(name: "XLogPrototypeSupport", dependencies: [.byName(name: liveCoreName), "CSQLitePrototype", "XClusterIntegrationCore", "XStationIntegrationCore"] + portableCrypto + liveIntegrationDependencies),
         .executableTarget(name: "XLogPrototypeWorker", dependencies: ["XLogPrototypeSupport"]),
-        .testTarget(name: "XLogPrototypeTests", dependencies: ["XLogPrototypeSupport", "XLogPortableCore"], exclude: ["worker-process.test.mjs"]),
+        .testTarget(name: "XLogPrototypeTests", dependencies: ["XLogPrototypeSupport", .byName(name: liveCoreName)], exclude: ["worker-process.test.mjs"]),
         .testTarget(name: "XClusterIntegrationTests", dependencies: ["XClusterIntegrationCore"]),
         .testTarget(name: "XStationIntegrationTests", dependencies: ["XStationIntegrationCore"]),
     ]

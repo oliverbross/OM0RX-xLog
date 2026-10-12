@@ -1,0 +1,226 @@
+#if os(macOS)
+import Foundation
+import Testing
+import XLogCore
+@testable import XLogPrototypeSupport
+
+@Suite("Live logbook isolated workspace")
+struct LiveLogbookMethodsTests {
+    @Test("Award catalogue search and delivery filters operate before pagination")
+    func catalogueFilters() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let service = LiveLogbookMethods(supportDirectory: root)
+        _ = try service.handle(method: "workspace_create", params: ["mode": "empty"])
+        let all = try service.handle(method: "logbook_catalog", params: [:])
+        #expect(all["total_programmes"] as? Int == 192)
+        let subset = try service.handle(method: "logbook_catalog", params: ["search": "Japan", "delivery_state": "implemented", "limit": 1])
+        #expect((subset["total_programmes"] as? Int ?? 0) > 1)
+        #expect((subset["programmes"] as? [[String: Any]])?.count == 1)
+        let empty = try service.handle(method: "logbook_catalog", params: ["search": "no such programme xyz"])
+        #expect(empty["total_programmes"] as? Int == 0)
+    }
+    @Test("Empty workspace saves full QSO, searches, deletes, undoes and reopens")
+    func lifecycle() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let service = LiveLogbookMethods(supportDirectory: root)
+        let before = try service.handle(method: "workspace_status", params: [:])
+        #expect(before["workspace_exists"] as? Bool == false)
+        _ = try service.handle(method: "workspace_create", params: ["mode": "empty"])
+
+        let draftResponse = try service.handle(method: "logbook_draft", params: [:])
+        var draft = try #require(draftResponse["qso"] as? [String: Any])
+        draft["call"] = "VK4JAZ"
+        draft["name"] = "Alice"
+        draft["comment"] = "full-field preservation"
+        draft["frequencyHz"] = 14_025_000
+        let saved = try service.handle(method: "logbook_save", params: ["qso": draft])
+        let qso = try #require(saved["qso"] as? [String: Any])
+        let id = try #require(qso["id"] as? String)
+        #expect(qso["comment"] as? String == "full-field preservation")
+        #expect(qso["frequencyHz"] as? Int == 14_025_000)
+
+        let page = try service.handle(method: "logbook_list", params: ["search": "VK4JAZ", "limit": 20, "offset": 0])
+        #expect(page["total"] as? Int == 1)
+        #expect((page["qsos"] as? [[String: Any]])?.first?["id"] as? String == id)
+        let stats = try service.handle(method: "logbook_stats", params: [:])
+        #expect((stats["stats"] as? [String: Any])?["qso_count"] as? Int == 1)
+
+        _ = try service.handle(method: "logbook_delete", params: ["id": id])
+        #expect(try service.handle(method: "logbook_list", params: [:])["total"] as? Int == 0)
+        _ = try service.handle(method: "logbook_undo", params: ["id": id])
+        #expect(try service.handle(method: "logbook_list", params: [:])["total"] as? Int == 1)
+
+        let reopened = LiveLogbookMethods(supportDirectory: root)
+        let status = try reopened.handle(method: "workspace_status", params: [:])
+        #expect(status["workspace_exists"] as? Bool == true)
+        #expect(status["qso_count"] as? Int == 1)
+        let settings = try reopened.handle(method: "settings_load", params: [:])
+        #expect(settings["automatic_sync"] as? Bool == false)
+    }
+
+    @Test("Invalid QSO never saves; ADIF import skips semantic duplicates")
+    func validationAndImport() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let service = LiveLogbookMethods(supportDirectory: root)
+        _ = try service.handle(method: "workspace_create", params: ["mode": "empty"])
+        let draftResponse = try service.handle(method: "logbook_draft", params: [:])
+        var draft = try #require(draftResponse["qso"] as? [String: Any])
+        draft["call"] = "not a call!"
+        #expect(throws: WorkerFailure.self) {
+            try service.handle(method: "logbook_save", params: ["qso": draft])
+        }
+        #expect(try service.handle(method: "logbook_list", params: [:])["total"] as? Int == 0)
+        draft["call"] = "VK4JAZ"
+        draft["frequencyHz"] = -1
+        #expect(throws: WorkerFailure.self) {
+            try service.handle(method: "logbook_save", params: ["qso": draft])
+        }
+        #expect(try service.handle(method: "logbook_list", params: [:])["total"] as? Int == 0)
+
+        let malformedFrequency = "<CALL:6>VK4JAZ<QSO_DATE:8>20261012<TIME_ON:6>120000<BAND:3>20m<MODE:2>CW<FREQ:3>bad<EOR>"
+        #expect(throws: WorkerFailure.self) {
+            try service.handle(method: "logbook_import_adif", params: ["text": malformedFrequency])
+        }
+        #expect(try service.handle(method: "logbook_list", params: [:])["total"] as? Int == 0)
+
+        let record = "<CALL:6>VK4JAZ<QSO_DATE:8>20261012<TIME_ON:6>120000<BAND:3>20m<MODE:2>CW<COMMENT:11>full record<EOR>"
+        let imported = try service.handle(method: "logbook_import_adif", params: ["text": record + record])
+        #expect(imported["imported"] as? Int == 1)
+        #expect(imported["skipped_duplicates"] as? Int == 1)
+        let exported = try service.handle(method: "logbook_export_adif", params: ["limit": 20, "offset": 0])
+        #expect((exported["text"] as? String)?.contains("full record") == true)
+        #expect(try service.handle(method: "logbook_list", params: [:])["total"] as? Int == 1)
+    }
+
+    @Test("Copy mode snapshots native fixture including pending outbox without writing it")
+    func copiedNativeFixture() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let nativeURL = root.appendingPathComponent("OM0RX-xLog/OM0RX-xLog.sqlite")
+        let native = try LogbookDatabase(url: nativeURL)
+        let qso = QSO(call: "VK4JAZ", start: Date(timeIntervalSince1970: 1_700_000_000), band: "20m", mode: "CW")
+        try native.save(qso)
+        try native.recordSyncFailure(localID: qso.id, message: "offline")
+        let service = LiveLogbookMethods(supportDirectory: root)
+        let created = try service.handle(method: "workspace_create", params: ["mode": "copy_native"])
+        #expect(created["qso_count"] as? Int == 1)
+        #expect(created["pending_sync_count"] as? Int == 1)
+        #expect(created["outbox_count"] as? Int == 1)
+        #expect(created["automatic_sync"] as? Bool == false)
+        #expect(try native.pendingSyncCount() == 1)
+        #expect(try native.outboxCount() == 1)
+        let status = try service.handle(method: "workspace_status", params: [:])
+        #expect(status["native_log_exists"] as? Bool == true)
+        #expect(status["outbox_count"] as? Int == 1)
+        _ = try service.handle(method: "logbook_delete", params: ["id": qso.id.uuidString])
+        #expect(try native.fetch().count == 1)
+    }
+
+    @Test("A hard-linked database cannot be reopened as the isolated workspace")
+    func rejectsHardLinkAlias() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let nativeURL = root.appendingPathComponent("OM0RX-xLog/OM0RX-xLog.sqlite")
+        let native = try LogbookDatabase(url: nativeURL)
+        native.close()
+        let workspace = try IntegrationWorkspaceBootstrap.createEmpty(
+            at: root.appendingPathComponent("OM0RX-xLog-Integrated Preview")
+        )
+        try FileManager.default.removeItem(at: workspace.databaseURL)
+        try FileManager.default.linkItem(at: nativeURL, to: workspace.databaseURL)
+        let service = LiveLogbookMethods(supportDirectory: root)
+        #expect(throws: WorkerFailure.self) {
+            try service.handle(method: "workspace_status", params: [:])
+        }
+    }
+
+    @Test("Verified backup restores only the isolated copy and retains a recovery snapshot")
+    func backupRestore() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let nativeURL = root.appendingPathComponent("OM0RX-xLog/OM0RX-xLog.sqlite")
+        let native = try LogbookDatabase(url: nativeURL)
+        try native.save(QSO(call: "K1NAT", band: "20m", mode: "CW"))
+        let service = LiveLogbookMethods(supportDirectory: root)
+        _ = try service.handle(method: "workspace_create", params: ["mode": "copy_native"])
+        let created = try service.handle(method: "backup_create", params: ["name": "before-change"])
+        let name = try #require(created["name"] as? String)
+        #expect(name == "before-change.xlogbackup")
+        let listed = try service.handle(method: "backup_list", params: [:])
+        #expect((listed["backups"] as? [[String: String]])?.contains(where: { $0["name"] == name }) == true)
+        let inspected = try service.handle(method: "backup_inspect", params: ["name": name])
+        #expect((inspected["manifest"] as? [String: Any])?["qsoCount"] as? Int == 1)
+
+        var draft = try #require(service.handle(method: "logbook_draft", params: [:])["qso"] as? [String: Any])
+        draft["call"] = "K2NEW"
+        _ = try service.handle(method: "logbook_save", params: ["qso": draft])
+        #expect(try service.handle(method: "logbook_list", params: [:])["total"] as? Int == 2)
+        #expect(throws: WorkerFailure.self) {
+            try service.handle(method: "backup_restore", params: ["name": name, "confirm_restore": false])
+        }
+        #expect(try service.handle(method: "logbook_list", params: [:])["total"] as? Int == 2)
+
+        let restored = try service.handle(method: "backup_restore", params: [
+            "name": name, "confirm_restore": true,
+            "restore_settings": false, "restore_reference_data": false,
+        ])
+        #expect(restored["qso_count"] as? Int == 1)
+        #expect(restored["automatic_sync"] as? Bool == false)
+        let recoveryName = try #require(restored["recovery_backup"] as? String)
+        let recovery = root.appendingPathComponent("OM0RX-xLog-Integrated Preview/Recovery/" + recoveryName)
+        #expect(try XLogBackupManager().inspect(at: recovery).manifest.qsoCount == 2)
+        #expect(try native.fetch().count == 1)
+        #expect(try service.handle(method: "logbook_list", params: [:])["total"] as? Int == 1)
+        #expect(throws: WorkerFailure.self) {
+            try service.handle(method: "backup_inspect", params: ["name": "../" + name])
+        }
+    }
+
+    @Test("Reference status reads only the isolated cache without a refresh")
+    func referenceStatus() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let service = LiveLogbookMethods(supportDirectory: root)
+        _ = try service.handle(method: "workspace_create", params: ["mode": "empty"])
+        let reference = LiveReferenceMethods(logbook: service)
+        let status = try await reference.handle(method: "reference_status", params: [:])
+        #expect(status["running"] as? Bool == false)
+        #expect(status["cty_source"] as? String == "bundled")
+        #expect(try service.currentKeychainService().hasPrefix("com.oliverbross.OM0RXXLog.Integration."))
+    }
+
+    @Test("Backup and reference paths reject symbolic-link redirection")
+    func rejectsDataPathLinks() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let service = LiveLogbookMethods(supportDirectory: root)
+        _ = try service.handle(method: "workspace_create", params: ["mode": "empty"])
+        let workspace = root.appendingPathComponent("OM0RX-xLog-Integrated Preview")
+        let backups = workspace.appendingPathComponent("Backups")
+        try FileManager.default.createSymbolicLink(at: backups, withDestinationURL: root)
+        #expect(throws: WorkerFailure.self) {
+            try service.handle(method: "backup_list", params: [:])
+        }
+        try FileManager.default.removeItem(at: backups)
+        let reference = workspace.appendingPathComponent("Reference Data")
+        try FileManager.default.createSymbolicLink(at: reference, withDestinationURL: root)
+        let actor = LiveReferenceMethods(logbook: service)
+        await #expect(throws: WorkerFailure.self) {
+            try await actor.handle(method: "reference_status", params: [:])
+        }
+        try FileManager.default.removeItem(at: reference)
+        try FileManager.default.createDirectory(at: reference, withIntermediateDirectories: false)
+        try FileManager.default.createSymbolicLink(
+            at: reference.appendingPathComponent("cty.xml"),
+            withDestinationURL: root.appendingPathComponent("unrelated.xml")
+        )
+        await #expect(throws: WorkerFailure.self) {
+            try await actor.handle(method: "reference_status", params: [:])
+        }
+    }
+
+}
+#endif

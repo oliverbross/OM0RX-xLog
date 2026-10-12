@@ -43,6 +43,13 @@ public final class CTYResolver: @unchecked Sendable {
         return try CTYResolver(csvURL: url)
     }
 
+    public static func bundledCSV() throws -> String {
+        guard let url = Bundle.module.url(forResource: "cty", withExtension: "csv") else {
+            throw CocoaError(.fileNoSuchFile)
+        }
+        return try String(contentsOf: url, encoding: .utf8)
+    }
+
     public convenience init(xmlURL: URL) throws {
         let parser = ClubLogXMLParser()
         try parser.parse(url: xmlURL)

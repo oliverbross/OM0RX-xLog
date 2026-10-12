@@ -6,19 +6,19 @@ export async function workerRequest(
 ) {
   if (!desktop)
     throw new Error(
-      "Browser preview has no Swift worker. Launch the desktop prototype to run this check.",
+      "The browser cannot connect to station services. Launch OM0RX-xLog Integration on your desktop.",
     );
   const response = await invoke<{
     id: string;
     ok: boolean;
     result?: unknown;
-    error?: unknown;
+    error?: { code?: string; message?: string };
   }>("worker_request", {
     request: { id: crypto.randomUUID(), method, params },
   });
   if (!response.ok)
     throw new Error(
-      `Swift worker rejected ${method}: ${JSON.stringify(response.error)}`,
+      response.error?.message || "The operation failed; no successful outcome was confirmed.",
     );
   return response;
 }
@@ -28,7 +28,7 @@ export async function openMonitor() {
     return "Detached station monitor opened";
   }
   const w = window.open(
-    `${window.location.pathname}?monitor=1`,
+    `${window.location.pathname}?view=monitor`,
     "xlog-p1-monitor",
     "width=760,height=660",
   );

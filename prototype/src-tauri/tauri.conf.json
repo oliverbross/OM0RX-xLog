@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "OM0RX-xLog Prototype",
-  "version": "0.1.0",
-  "identifier": "com.oliverbross.xlog.prototype",
+  "productName": "OM0RX-xLog Integration",
+  "version": "0.4.0-alpha.1",
+  "identifier": "com.oliverbross.xlog.integration",
   "build": {
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build",
@@ -11,7 +11,7 @@
   },
   "app": {
     "windows": [{
-      "label": "main", "title": "OM0RX-xLog — P1 Prototype (synthetic data)",
+      "label": "main", "title": "OM0RX-xLog — Integrated Station",
       "width": 1440, "height": 940, "minWidth": 1000, "minHeight": 720
     }],
     "security": {
@@ -23,8 +23,8 @@
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
     "targets": "all",
     "externalBin": ["binaries/xlog-prototype-worker"],
-    "macOS": { "minimumSystemVersion": "13.0" },
-    "shortDescription": "Isolated architecture prototype, not the stable xLog release",
+    "macOS": { "minimumSystemVersion": "14.0" },
+    "shortDescription": "Integrated logging, cluster and station services",
     "category": "Utility"
   }
 }

@@ -9,7 +9,18 @@ OM0RX-xLog is a fast, local-first amateur-radio logbook for macOS. It is the log
 
 Created and maintained by **Oliver Bross, OM0RX**.
 
-## Current working release — macOS only
+## Shared-app Mac integration — development alpha
+
+The `codex/unified-xlog-integration-p2` branch now builds **OM0RX-xLog Integration
+0.4.0-alpha.1**: the shared Tauri/React app with persistent real logbook, xCluster,
+and embedded xCat Remote Agent services. It has a separate bundle and an isolated
+verified logbook copy; the working native apps and original data are preserved.
+There are no fixture contacts or spots in its runtime screens. This is not yet a
+100%-parity or production release. Read the [setup, preservation contract and open
+acceptance gates](docs/P2_MAC_LIVE_INTEGRATION.md) before testing. Windows/Linux
+live integration remains deferred until the Mac workflows are accepted.
+
+## Current working release — macOS only (unchanged)
 
 **Use [v0.3.0 for everyday macOS operation](https://github.com/oliverbross/OM0RX-xLog/releases/tag/v0.3.0).** The existing Developer ID signed, notarized application remains available unchanged: [download the macOS application](https://github.com/oliverbross/OM0RX-xLog/releases/download/v0.3.0/OM0RX-xLog-0.3.0-macOS.zip). It is the current working native release, not a Windows/Linux build. Radio/rotor operation uses the existing xCat integration, and the published feature/award limitations still apply.
 

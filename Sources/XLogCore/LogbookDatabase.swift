@@ -148,22 +148,103 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
-    public func fetch(limit: Int = 500, search: String = "") throws -> [QSO] {
+    public func fetch(limit: Int = 500, search: String = "", offset: Int = 0) throws -> [QSO] {
         try lock.withLock {
             let needle = search.trimmingCharacters(in: .whitespacesAndNewlines)
             let filtered = !needle.isEmpty
             let sql = filtered
-                ? "SELECT record_json FROM qsos WHERE deleted_at IS NULL AND (call LIKE ? OR record_json LIKE ?) ORDER BY qso_start DESC LIMIT ?;"
-                : "SELECT record_json FROM qsos WHERE deleted_at IS NULL ORDER BY qso_start DESC LIMIT ?;"
+                ? "SELECT record_json FROM qsos WHERE deleted_at IS NULL AND (call LIKE ? OR record_json LIKE ?) ORDER BY qso_start DESC LIMIT ? OFFSET ?;"
+                : "SELECT record_json FROM qsos WHERE deleted_at IS NULL ORDER BY qso_start DESC LIMIT ? OFFSET ?;"
             return try withStatement(sql) { statement in
                 if filtered {
                     let pattern = "%\(needle)%"
                     bind(pattern, to: 1, in: statement); bind(pattern, to: 2, in: statement)
                     sqlite3_bind_int(statement, 3, Int32(limit))
+                    sqlite3_bind_int(statement, 4, Int32(offset))
                 } else {
                     sqlite3_bind_int(statement, 1, Int32(limit))
+                    sqlite3_bind_int(statement, 2, Int32(offset))
                 }
                 return try decodeRows(statement)
+            }
+        }
+    }
+
+    /// One SQLite read statement gives consumers a consistent contact view even
+    /// while another connection appends to the logbook.
+    public func fetchAll() throws -> [QSO] {
+        try lock.withLock {
+            try withStatement("SELECT record_json FROM qsos WHERE deleted_at IS NULL ORDER BY qso_start DESC;") {
+                try decodeRows($0)
+            }
+        }
+    }
+
+    public func count(search: String = "") throws -> Int {
+        try lock.withLock {
+            let needle = search.trimmingCharacters(in: .whitespacesAndNewlines)
+            let filtered = !needle.isEmpty
+            let sql = filtered
+                ? "SELECT COUNT(*) FROM qsos WHERE deleted_at IS NULL AND (call LIKE ? OR record_json LIKE ?);"
+                : "SELECT COUNT(*) FROM qsos WHERE deleted_at IS NULL;"
+            return try withStatement(sql) { statement in
+                if filtered {
+                    let pattern = "%\(needle)%"
+                    bind(pattern, to: 1, in: statement)
+                    bind(pattern, to: 2, in: statement)
+                }
+                guard sqlite3_step(statement) == SQLITE_ROW else {
+                    throw LogbookDatabaseError.sqlite(String(cString: sqlite3_errmsg(handle)))
+                }
+                return Int(sqlite3_column_int64(statement, 0))
+            }
+        }
+    }
+
+    public func pendingSyncCount() throws -> Int {
+        try scalarCount("SELECT COUNT(*) FROM qsos WHERE is_dirty = 1;")
+    }
+
+    public func outboxCount() throws -> Int {
+        try scalarCount("SELECT COUNT(*) FROM sync_outbox;")
+    }
+
+    private func scalarCount(_ sql: String) throws -> Int {
+        try lock.withLock {
+            try withStatement(sql) { statement in
+                guard sqlite3_step(statement) == SQLITE_ROW else {
+                    throw LogbookDatabaseError.sqlite(String(cString: sqlite3_errmsg(handle)))
+                }
+                return Int(sqlite3_column_int64(statement, 0))
+            }
+        }
+    }
+
+    /// Imports a bounded batch as one transaction, skipping identities already present.
+    /// The original QSO and pending outbox state remain intact on any failure.
+    public func importBatch(_ values: [QSO]) throws -> Int {
+        try lock.withLock {
+            var seen = Set<SemanticQSOIdentity>()
+            var imported = 0
+            try execute("BEGIN IMMEDIATE;")
+            do {
+                for value in values {
+                    let identity = SemanticQSOIdentity(
+                        call: value.call,
+                        timestamp: ISO8601DateFormatter().string(from: value.start),
+                        band: value.band,
+                        mode: value.submode.isEmpty ? value.mode : value.submode
+                    )
+                    guard seen.insert(identity).inserted,
+                          try lookupSemantic(value) == nil else { continue }
+                    try save(value)
+                    imported += 1
+                }
+                try execute("COMMIT;")
+                return imported
+            } catch {
+                try? execute("ROLLBACK;")
+                throw error
             }
         }
     }
@@ -568,8 +649,10 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
-    private func lookup(localID: UUID) throws -> QSO? {
-        try lookup(sql: "SELECT record_json FROM qsos WHERE local_id = ? LIMIT 1;", value: localID.uuidString)
+    public func lookup(localID: UUID) throws -> QSO? {
+        try lock.withLock {
+            try lookup(sql: "SELECT record_json FROM qsos WHERE local_id = ? LIMIT 1;", value: localID.uuidString)
+        }
     }
 
     private func lookup(wavelogID: Int) throws -> QSO? {

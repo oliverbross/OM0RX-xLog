@@ -117,7 +117,8 @@ public final class XLogBackupManager: @unchecked Sendable {
         let parent = packageURL.deletingLastPathComponent()
         try fileManager.createDirectory(at: parent, withIntermediateDirectories: true)
         let temporary = parent.appendingPathComponent(".xlogbackup-\(UUID().uuidString)", isDirectory: true)
-        try fileManager.createDirectory(at: temporary, withIntermediateDirectories: true)
+        try fileManager.createDirectory(at: temporary, withIntermediateDirectories: true,
+                                        attributes: [.posixPermissions: 0o700])
         var committed = false
         defer { if !committed { try? fileManager.removeItem(at: temporary) } }
 

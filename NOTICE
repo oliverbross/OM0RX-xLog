@@ -13,3 +13,8 @@ changes are recorded in docs/P2_CLUSTER_PROVENANCE.md.
 The new station contracts preserve observed-state requirements from OM0RX-xCat
 and xLog; their provenance and unintegrated boundaries are recorded in
 docs/P2_STATION_CONTRACT.md. Existing standalone applications remain preserved.
+
+The Mac direct-station integration includes a byte-identical snapshot of
+OM0RX-xCat XCatCore by Oliver Bross OM0RX, GPL-3.0-only. Its exact source
+revision, local worktree-diff fingerprint, and file hashes are recorded in
+docs/XCAT_INTEGRATION_PROVENANCE.md. The original xCat checkout remains untouched.

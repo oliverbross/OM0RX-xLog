@@ -1,0 +1,258 @@
+import Foundation
+import XCTest
+@testable import XClusterIntegrationCore
+
+private final class TestClusterTransport: ClusterConnectionTransport, @unchecked Sendable {
+    var onState: (@Sendable (ClusterConnectionPhase, String?) -> Void)?
+    var onLine: (@Sendable (String) -> Void)?
+    var sent: [String] = []
+    var stopped = false
+
+    func start() { onState?(.connected, nil) }
+    func send(_ command: String) { sent.append(command) }
+    func stop() { stopped = true }
+    func emit(_ line: String) { onLine?(line) }
+}
+
+private final class TestTransportSupplier: @unchecked Sendable {
+    private let lock = NSLock()
+    private var next = 0
+    let transports: [TestClusterTransport]
+
+    init(_ transports: [TestClusterTransport]) { self.transports = transports }
+
+    func make(onState: @escaping @Sendable (ClusterConnectionPhase, String?) -> Void,
+              onLine: @escaping @Sendable (String) -> Void) -> TestClusterTransport {
+        lock.lock()
+        let chosen = transports[next]
+        next += 1
+        lock.unlock()
+        chosen.onState = onState
+        chosen.onLine = onLine
+        return chosen
+    }
+}
+
+private final class TestSpotEvents: @unchecked Sendable {
+    private let lock = NSLock()
+    private var values: [(UUID, UUID)] = []
+    func record(_ spot: ClassifiedClusterSpot, generation: UUID) {
+        lock.lock(); values.append((spot.id, generation)); lock.unlock()
+    }
+    var all: [(UUID, UUID)] {
+        lock.lock(); defer { lock.unlock() }; return values
+    }
+}
+
+final class ClusterSessionServiceTests: XCTestCase {
+    private func waitFor(_ predicate: @escaping () async -> Bool) async throws {
+        for _ in 0..<100 {
+            if await predicate() { return }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTFail("Cluster service update did not arrive")
+    }
+
+    func testRealLineClassificationFilteringConsoleAndCredentialSeparation() async throws {
+        let server = ClusterServerConfiguration(name: "Fixture", host: "example.invalid", port: 7300, callsign: "OM0RX-12")
+        let connection = TestClusterTransport()
+        let service = ClusterSessionService(configuration: .init(servers: [server]), transportFactory: { _, _, _, _, onState, onLine in
+            connection.onState = onState
+            connection.onLine = onLine
+            return connection
+        })
+        await service.replaceCountryCSV("K,United States,291,NA,5,8,40,100,-5,K N W;")
+        await service.replaceContacts([ClusterContact(callsign: "K1OLD", band: "20m", mode: "CW", adif: 291)])
+        try await service.connect(passwords: [server.id: "private-test-password"])
+        try await waitFor { await service.snapshot().connectedClusters == 1 }
+        connection.emit("DX de K1SPT: 14025.0 K1NEW CW POTA K-1234")
+        connection.emit("DX de K2SPT-#: 14027.0 K1OLD CW RBN")
+        connection.emit("No spots found")
+        try await waitFor {
+            let state = await service.snapshot()
+            return state.loadedSpots == 2 && state.console.count == 1
+        }
+
+        let snapshot = await service.snapshot()
+        XCTAssertEqual(snapshot.spots.count, 1) // Exact worked band/mode is hidden by original default.
+        XCTAssertEqual(snapshot.spots[0].callsign, "K1NEW")
+        XCTAssertEqual(snapshot.spots[0].dxccStatus, "Worked")
+        XCTAssertEqual(snapshot.spots[0].country, "UNITED STATES")
+        XCTAssertEqual(snapshot.spots[0].source, "cluster")
+        XCTAssertEqual(snapshot.spots[0].specialTags, ["POTA"])
+        XCTAssertEqual(snapshot.console.last?.text, "No spots found")
+        let encoded = String(decoding: try JSONEncoder().encode(snapshot), as: UTF8.self)
+        XCTAssertFalse(encoded.contains("private-test-password"))
+
+        var filter = ClusterSpotFilter()
+        filter.sources = ["rbl"]
+        await service.updateFilter(filter)
+        let filtered = await service.snapshot()
+        XCTAssertEqual(filtered.spots.count, 0)
+        await service.disconnect()
+        XCTAssertTrue(connection.stopped)
+    }
+
+    func testCommandIsBoundedAndNotEchoedIntoSnapshot() async throws {
+        let server = ClusterServerConfiguration(name: "Fixture", host: "example.invalid", port: 7300, callsign: "OM0RX-12")
+        let connection = TestClusterTransport()
+        let service = ClusterSessionService(configuration: .init(servers: [server]), transportFactory: { _, _, _, _, onState, onLine in
+            connection.onState = onState
+            connection.onLine = onLine
+            return connection
+        })
+        try await service.connect()
+        try await waitFor { await service.snapshot().connectedClusters == 1 }
+        try await service.sendCommand("SH/DX\r\n", to: server.id)
+        XCTAssertEqual(connection.sent, ["SH/DX"])
+        let snapshot = await service.snapshot()
+        XCTAssertEqual(snapshot.console.last?.text, "Command sent")
+        do {
+            try await service.sendCommand(String(repeating: "A", count: 161))
+            XCTFail("Oversized command must be rejected")
+        } catch {}
+        await service.disconnect()
+    }
+
+    func testBoundedTelnetFramingAcrossChunks() {
+        var framer = ClusterTelnetLineFramer()
+        XCTAssertEqual(framer.consume(Data([255, 251])), [])
+        XCTAssertEqual(framer.consume(Data([1] + Array("DX de K1: 14025.0 ".utf8))), [])
+        XCTAssertEqual(framer.consume(Data("K1ABC CW\r\n".utf8)), ["DX de K1: 14025.0 K1ABC CW"])
+        XCTAssertEqual(framer.consume(Data((String(repeating: "X", count: ClusterLineParser.maximumLineBytes + 1) + "\nOK\n").utf8)), ["OK"])
+        XCTAssertEqual(framer.consume(Data([255, 250, 1, 2, 255])), [])
+        XCTAssertEqual(framer.consume(Data([240] + Array("READY\n".utf8))), ["READY"])
+    }
+
+    func testCallbacksFromPreviousSocketCannotChangeReconnectedSession() async throws {
+        let server = ClusterServerConfiguration(name: "Fixture", host: "example.invalid", port: 7300, callsign: "OM0RX")
+        let old = TestClusterTransport()
+        let current = TestClusterTransport()
+        let supplier = TestTransportSupplier([old, current])
+        let service = ClusterSessionService(configuration: .init(servers: [server]), transportFactory: { _, _, _, _, onState, onLine in
+            supplier.make(onState: onState, onLine: onLine)
+        })
+        try await service.connect()
+        try await waitFor { await service.snapshot().connectedClusters == 1 }
+        await service.disconnect()
+        try await service.connect()
+        try await waitFor { await service.snapshot().connectedClusters == 1 }
+        old.onState?(.failed, "stale failure")
+        old.emit("DX de K1OLD: 14025.0 K1STALE CW")
+        current.emit("DX de K1NEW: 14026.0 K1FRESH CW")
+        try await waitFor { await service.snapshot().loadedSpots == 1 }
+        try await Task.sleep(for: .milliseconds(30))
+        let snapshot = await service.snapshot()
+        XCTAssertEqual(snapshot.connections.first?.phase, .connected)
+        XCTAssertEqual(snapshot.spots.map(\.callsign), ["K1FRESH"])
+    }
+
+    func testEveryFilterDimensionAndVisibleLimitUseRealParsedSpots() async throws {
+        let server = ClusterServerConfiguration(name: "Fixture", host: "example.invalid", port: 7300, callsign: "OM0RX")
+        let connection = TestClusterTransport()
+        var config = ClusterSessionConfiguration(servers: [server], showWorkedBandModeSpots: true, maximumSpots: 1)
+        let service = ClusterSessionService(configuration: config, transportFactory: { _, _, _, _, onState, onLine in
+            connection.onState = onState
+            connection.onLine = onLine
+            return connection
+        })
+        await service.replaceCountryCSV("K,United States,291,NA,5,8,40,100,-5,K N W;")
+        await service.replaceContacts([ClusterContact(callsign: "K1OLD", band: "20m", mode: "CW", adif: 291)])
+        try await service.connect()
+        try await waitFor { await service.snapshot().connectedClusters == 1 }
+        connection.emit("DX de K1SPT: 14025.0 K1AAA CW POTA K-1234")
+        connection.emit("DX de K1SPT: 14026.0 K1OLD CW")
+        connection.emit("DX de K2SPT-#: 7025.0 K1RBN CW RBN")
+        connection.emit("DX de K1SPT: 14074.0 K1DIG FT8")
+        try await waitFor { await service.snapshot().loadedSpots == 4 }
+        let limited = await service.snapshot()
+        XCTAssertEqual(limited.spots.count, 1)
+        config.maximumSpots = 500
+        await service.configure(config)
+        // Configure intentionally clears old spots; feed the same real wire lines to the new socket.
+        // The first transport was stopped, so this test uses a fresh service for filter assertions.
+        let filters = ClusterSessionService(configuration: .init(servers: [server],
+            showWorkedBandModeSpots: true, maximumSpots: 500), transportFactory: { _, _, _, _, onState, onLine in
+            connection.onState = onState
+            connection.onLine = onLine
+            return connection
+        })
+        await filters.replaceCountryCSV("K,United States,291,NA,5,8,40,100,-5,K N W;")
+        await filters.replaceContacts([ClusterContact(callsign: "K1OLD", band: "20m", mode: "CW", adif: 291)])
+        try await filters.connect()
+        try await waitFor { await filters.snapshot().connectedClusters == 1 }
+        connection.emit("DX de K1SPT: 14025.0 K1AAA CW POTA K-1234")
+        connection.emit("DX de K1SPT: 14026.0 K1OLD CW")
+        connection.emit("DX de K2SPT-#: 7025.0 K1RBN CW RBN")
+        connection.emit("DX de K1SPT: 14074.0 K1DIG FT8")
+        try await waitFor { await filters.snapshot().loadedSpots == 4 }
+        func matching(_ update: (inout ClusterSpotFilter) -> Void) async -> [ClassifiedClusterSpot] {
+            var filter = ClusterSpotFilter()
+            update(&filter)
+            await filters.updateFilter(filter)
+            return await filters.snapshot().spots
+        }
+        let byQuery = await matching { $0.query = "K1AAA" }
+        XCTAssertEqual(byQuery.map(\.callsign), ["K1AAA"])
+        let byBand = await matching { $0.bands = ["40m"] }
+        XCTAssertEqual(byBand.map(\.callsign), ["K1RBN"])
+        let byMode = await matching { $0.modes = ["FT8"] }
+        XCTAssertEqual(byMode.map(\.callsign), ["K1DIG"])
+        let byContinent = await matching { $0.continents = ["NA"] }
+        XCTAssertEqual(byContinent.count, 4)
+        let byCallStatus = await matching { $0.callStatuses = ["Worked"] }
+        XCTAssertEqual(byCallStatus.map(\.callsign), ["K1OLD"])
+        let byDXCC = await matching { $0.dxccStatuses = ["W/New Band"] }
+        XCTAssertEqual(byDXCC.map(\.callsign), ["K1RBN"])
+        let bySpecial = await matching { $0.specials = ["POTA"] }
+        XCTAssertEqual(bySpecial.map(\.callsign), ["K1AAA"])
+        let bySource = await matching { $0.sources = ["rbl"] }
+        XCTAssertEqual(bySource.map(\.callsign), ["K1RBN"])
+        let byWorked = await matching { $0.worked = ["Worked before"] }
+        XCTAssertEqual(byWorked.map(\.callsign), ["K1OLD"])
+        let byFrequency = await matching { $0.sort = .frequency }
+        XCTAssertEqual(byFrequency.first?.callsign, "K1RBN")
+        let byCallsign = await matching { $0.sort = .callsign }
+        XCTAssertEqual(byCallsign.first?.callsign, "K1AAA")
+    }
+
+    func testLegacyConfigurationDecodesOptInForwardingAsDisabled() throws {
+        let original = ClusterSessionConfiguration(servers: [])
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(original)) as? [String: Any])
+        object.removeValue(forKey: "commandPresets")
+        object.removeValue(forKey: "forwardSpotsToFlex")
+        let decoded = try JSONDecoder().decode(ClusterSessionConfiguration.self,
+            from: JSONSerialization.data(withJSONObject: object))
+        XCTAssertFalse(decoded.forwardSpotsToFlex)
+        XCTAssertEqual(decoded.commandPresets.map(\.command),
+                       ["sh/dx/50", "sh/mydx 50", "sh/wwv/5", "sh/wcy/5", "sh/ann/10", "sh/u"])
+    }
+
+    func testForwardingEligibilityFollowsVisibleSnapshotAndConnectionGeneration() async throws {
+        let server = ClusterServerConfiguration(name: "Fixture", host: "example.invalid", port: 7300, callsign: "OM0RX")
+        let connection = TestClusterTransport()
+        let events = TestSpotEvents()
+        var config = ClusterSessionConfiguration(servers: [server])
+        config.filter.query = "K1VISIBLE"
+        let service = ClusterSessionService(configuration: config,
+            onSpot: { spot, generation in events.record(spot, generation: generation) },
+            transportFactory: { _, _, _, _, onState, onLine in
+                connection.onState = onState
+                connection.onLine = onLine
+                return connection
+            })
+        try await service.connect()
+        try await waitFor { await service.snapshot().connectedClusters == 1 }
+        connection.emit("DX de K1SPT: 14025.0 K1HIDDEN CW")
+        connection.emit("DX de K1SPT: 14026.0 K1VISIBLE CW")
+        try await waitFor { events.all.count == 2 }
+        let received = events.all
+        let hidden = await service.isVisibleSpot(received[0].0, in: received[0].1)
+        let visible = await service.isVisibleSpot(received[1].0, in: received[1].1)
+        XCTAssertFalse(hidden)
+        XCTAssertTrue(visible)
+        await service.disconnect()
+        let afterDisconnect = await service.isVisibleSpot(received[1].0, in: received[1].1)
+        XCTAssertFalse(afterDisconnect)
+    }
+}

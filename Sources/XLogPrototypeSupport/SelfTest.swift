@@ -11,7 +11,11 @@ import CryptoKit
 import Crypto
 #endif
 import CSQLitePrototype
+#if os(macOS)
+import XLogCore
+#else
 import XLogPortableCore
+#endif
 
 public enum PrototypeSelfTest {
     /// In-memory fixtures only. URLRequest construction does not open a connection.

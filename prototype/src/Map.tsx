@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import * as maplibregl from "maplibre-gl";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import geometryUrl from "../../Sources/XLogCore/Resources/dxcc-boundaries.geojson?url";
-import { type Spot, spots, fixtureBounds } from "./model";
+import { type Spot } from "./model";
 import { acceptanceActive, interiorLandProbe, landPixelMatches } from "./acceptance";
 // MapLibre 6 resolves its default worker relative to import.meta.url. Vite's
 // optimized module and packaged bundle do not preserve that adjacent path.
@@ -11,9 +11,13 @@ maplibregl.setWorkerUrl(new URL(workerUrl, window.location.href).href);
 export default function WorldMap({
   selected,
   onSpot,
+  data = [],
+  fixture = false,
 }: {
   selected: string | null;
   onSpot?: (spot: Spot) => void;
+  data?: Spot[];
+  fixture?: boolean;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -21,6 +25,8 @@ export default function WorldMap({
   const callback = useRef(onSpot);
   const selection = useRef(selected);
   const preserveCamera = useRef(Boolean(selected));
+  const spotsRef = useRef(data);
+  spotsRef.current = data;
   callback.current = onSpot;
   selection.current = selected;
   useEffect(() => {
@@ -83,12 +89,17 @@ export default function WorldMap({
       element.dataset.capturedAt = String(Date.now());
       captureRequested = false;
     };
-    const fitFixture = () =>
-      map.fitBounds(fixtureBounds(spots), {
+    const fitFixture = () => {
+      const points = spotsRef.current;
+      const bounds: [[number, number], [number, number]] = points.length ?
+        [[Math.min(...points.map(s => s.lon)), Math.min(...points.map(s => s.lat))],
+         [Math.max(...points.map(s => s.lon)), Math.max(...points.map(s => s.lat))]] : [[-170, -55], [175, 75]];
+      map.fitBounds(bounds, {
         padding: { top: 24, right: 48, bottom: 75, left: 24 },
         duration: 0,
         maxZoom: 2,
       });
+    };
     try {
       map = new maplibregl.Map({
         container: container.current,
@@ -103,7 +114,7 @@ export default function WorldMap({
               type: "geojson",
               data: {
                 type: "FeatureCollection",
-                features: spots.map((s) => ({
+                features: spotsRef.current.map((s) => ({
                   type: "Feature",
                   properties: { id: s.id, state: s.state },
                   geometry: { type: "Point", coordinates: [s.lon, s.lat] },
@@ -183,7 +194,7 @@ export default function WorldMap({
         new maplibregl.AttributionControl({
           compact: false,
           customAttribution:
-            "DXCC geometry: amazingproducer/dxcc-world-map · offline prototype",
+            "DXCC geometry: amazingproducer/dxcc-world-map",
         }),
         "bottom-right",
       );
@@ -193,7 +204,7 @@ export default function WorldMap({
       );
       map.on("click", "spots", (e) => {
         const id = e.features?.[0]?.properties?.id;
-        const s = spots.find((s) => s.id === id);
+        const s = spotsRef.current.find((s) => s.id === id);
         if (s) callback.current?.(s);
       });
       map.on("mouseenter", "spots", () => {
@@ -230,7 +241,7 @@ export default function WorldMap({
     }
   }, []);
   useEffect(() => {
-    const s = spots.find((s) => s.id === selected);
+    const s = spotsRef.current.find((s) => s.id === selected);
     if (s && mapRef.current) {
       preserveCamera.current = true;
       mapRef.current.easeTo({
@@ -241,6 +252,19 @@ export default function WorldMap({
       });
     }
   }, [selected]);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const update = () => {
+      const source = map.getSource("spots") as maplibregl.GeoJSONSource | undefined;
+      source?.setData({ type: "FeatureCollection", features: data.map(s => ({
+        type: "Feature", properties: { id: s.id, state: s.state },
+        geometry: { type: "Point", coordinates: [s.lon, s.lat] },
+      })) });
+    };
+    if (map.isStyleLoaded()) update(); else map.once("load", update);
+    return () => { map.off("load", update); };
+  }, [data]);
   return (
     <div className="map-wrap">
       <div
@@ -255,7 +279,7 @@ export default function WorldMap({
         </p>
       )}
       <div className="map-legend">
-        <span>Offline geography · fixture colours</span>
+        <span>{fixture ? "Offline geography · fixture colours" : "Live spots · CTY approximate locations"}</span>
         <div>
           <i className="dot cyan" /> Needed <i className="dot orange" /> Worked{" "}
           <i className="dot teal" /> Confirmed

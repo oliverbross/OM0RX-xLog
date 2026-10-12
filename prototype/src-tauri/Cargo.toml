@@ -1,7 +1,7 @@
 [package]
 name = "xlog-prototype"
-version = "0.1.0"
-description = "Isolated xLog cross-platform architecture prototype"
+version = "0.4.0-alpha.1"
+description = "Shared xLog desktop with integrated station and cluster services"
 edition = "2021"
 license = "GPL-3.0-only"
 

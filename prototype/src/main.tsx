@@ -1,6 +1,6 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
-import App from "./App";
+import App from "./LiveApp";
 import "./style.css";
 import "maplibre-gl/dist/maplibre-gl.css";
 createRoot(document.getElementById("root")!).render(

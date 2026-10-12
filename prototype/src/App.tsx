@@ -566,7 +566,7 @@ export default function App() {
           </div>
         </div>
         <div className="monitor-map">
-          <WorldMap selected={current.selected} />
+          <WorldMap selected={current.selected} data={spots} fixture />
         </div>
         <footer className="status-line">
           P2 prototype ·{" "}
@@ -775,7 +775,7 @@ export default function App() {
                   {view === "World Map" ? "Operator desk" : "Expand map"}
                 </button>
               </div>
-              <WorldMap selected={state.selected} onSpot={onSpot} />
+              <WorldMap selected={state.selected} onSpot={onSpot} data={spots} fixture />
             </section>
             {view === "Operator Desk" && (
               <section className="band-section">

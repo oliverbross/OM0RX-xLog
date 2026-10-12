@@ -23,13 +23,13 @@ function exercise(start, onLine, expectedCount) {
         let newline;
         while ((newline = buffer.indexOf("\n")) >= 0) {
           const line = buffer.slice(0, newline);
-          assert.ok(Buffer.byteLength(line) + 1 <= 65536, "Response exceeds its limit.");
+          assert.ok(Buffer.byteLength(line) + 1 <= 1048576, "Response exceeds its limit.");
           responses.push(JSON.parse(line));
           buffer = buffer.slice(newline + 1);
           onLine(child, responses);
           if (responses.length === expectedCount) child.stdin.end();
         }
-        assert.ok(Buffer.byteLength(buffer) <= 65536, "Unframed stdout exceeds its limit.");
+        assert.ok(Buffer.byteLength(buffer) <= 1048576, "Unframed stdout exceeds its limit.");
       } catch (error) { child.kill(); clearTimeout(timer); reject(error); }
     });
     child.on("close", code => {

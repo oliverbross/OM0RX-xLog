@@ -22,6 +22,10 @@ for (const mode of ['debug', 'release']) {
   const destination = join(root, 'prototype/src-tauri/target', mode);
   mkdirSync(destination, { recursive: true });
   copyFileSync(source, join(destination, executable));
+  const coreBundle = join(binDir, 'OM0RXXLogPrototype_XLogCore.bundle');
+  if (process.platform === 'darwin' && existsSync(coreBundle)) {
+    cpSync(coreBundle, join(destination, 'OM0RXXLogPrototype_XLogCore.bundle'), { recursive: true });
+  }
   if (process.platform === 'win32' && existsSync(join(binDir, 'sqlite3.dll'))) {
     cpSync(join(binDir, 'sqlite3.dll'), join(destination, 'sqlite3.dll'));
   }

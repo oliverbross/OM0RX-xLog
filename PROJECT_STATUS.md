@@ -2,6 +2,15 @@
 
 Last updated: 2026-10-12
 
+## P2b real-service shared Mac app — partial acceptance
+
+The operator chose the shared cross-platform app as the sole integration target,
+not a native-only host. `0.4.0-alpha.1` now replaces the shared runtime's synthetic
+entry point with persistent isolated logbook, live cluster and embedded Remote
+Agent/rotor services. The original applications and logbook remain preserved.
+See [Mac integration evidence and explicit remaining parity gates](docs/P2_MAC_LIVE_INTEGRATION.md).
+The historical P2a/P1 results below do not qualify this newer runtime as 100% parity.
+
 ## P2a integration foundation — in progress on an isolated branch
 
 Current priority is **Mac-first operator testing**. The separate Mac prototype at source `3ff72c52c885c5d61eb59eb457dc459922e005a6` passed 95 prototype tests and 17 native UI checks and is installed alongside the stable app. P2 Windows/Linux builds are deferred at the operator's request; automatic CI now selects Mac only. This preview remains synthetic, not live-provider or personal-data cutover.

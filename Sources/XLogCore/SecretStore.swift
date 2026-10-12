@@ -19,12 +19,13 @@ public struct SecretStore: Sendable {
         case clubLogAPIKey = "clublog-api-key"
     }
     public static let service = "com.oliverbross.OM0RXXLog"
-    public init() {}
+    private let serviceName: String
+    public init(service: String = Self.service) { self.serviceName = service }
 
     public func load(_ account: Account) throws -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: Self.service,
+            kSecAttrService as String: serviceName,
             kSecAttrAccount as String: account.rawValue,
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne,
@@ -40,7 +41,7 @@ public struct SecretStore: Sendable {
     public func save(_ value: String, for account: Account) throws {
         let identity: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: Self.service,
+            kSecAttrService as String: serviceName,
             kSecAttrAccount as String: account.rawValue,
         ]
         if value.isEmpty {

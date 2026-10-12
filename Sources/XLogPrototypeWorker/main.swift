@@ -10,8 +10,10 @@ import Glibc
 
 let worker = PrototypeWorker()
 let output = FileHandle.standardOutput
-func emit(_ input: Data?) {
-    let response = input.map(worker.response(to:)) ?? worker.oversizedResponse()
+@MainActor func emit(_ input: Data?) async {
+    let response: Data
+    if let input { response = await LiveWorker.shared.response(to: input) }
+    else { response = worker.oversizedResponse() }
     output.write(response)
     output.write(Data([10]))
 }
@@ -28,11 +30,12 @@ if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--self-test"
     // Prevent CRT text-mode CRLF translation from altering byte limits/framing.
     _ = ucrt._setmode(0, _O_BINARY)
     #endif
-    var bytes = [UInt8](repeating: 0, count: 4096)
     while true {
         // Foundation read(upToCount:) may wait for the full count on a pipe.
         // Native reads return the available fragment without waiting for EOF.
-        let count = bytes.withUnsafeMutableBytes { buffer -> Int in
+        let (count, chunk, readError) = await Task.detached {
+            var bytes = [UInt8](repeating: 0, count: 4096)
+            let count = bytes.withUnsafeMutableBytes { buffer -> Int in
             #if os(Windows)
             return Int(ucrt._read(0, buffer.baseAddress, UInt32(buffer.count)))
             #elseif canImport(Darwin)
@@ -40,18 +43,25 @@ if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--self-test"
             #else
             return Glibc.read(STDIN_FILENO, buffer.baseAddress, buffer.count)
             #endif
-        }
+            }
+            return (count, Data(bytes.prefix(max(0, count))), errno)
+        }.value
         if count == 0 { break }
         if count < 0 {
             #if !os(Windows)
-            if errno == EINTR { continue }
+            if readError == EINTR { continue }
             #endif
             FileHandle.standardError.write(Data("Worker input stream failed.\n".utf8))
             exit(1)
         }
-        lines.consume(Data(bytes.prefix(count)), emit: emit)
+        var requests: [Data?] = []
+        lines.consume(chunk) { requests.append($0) }
+        for request in requests { await emit(request) }
     }
-    lines.finish(emit: emit)
+    var requests: [Data?] = []
+    lines.finish { requests.append($0) }
+    for request in requests { await emit(request) }
+    await LiveWorker.shared.shutdown()
 } else {
     FileHandle.standardError.write(Data("Usage: xlog-prototype-worker [--self-test]\n".utf8))
     exit(2)

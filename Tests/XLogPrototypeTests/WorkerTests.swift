@@ -1,6 +1,10 @@
 import Foundation
 import XCTest
+#if os(macOS)
+import XLogCore
+#else
 import XLogPortableCore
+#endif
 import XLogPrototypeSupport
 
 final class WorkerTests: XCTestCase {

@@ -1,0 +1,533 @@
+import Foundation
+
+/// Synchronous transport callbacks must reach the actor in wire order. Separate
+/// unstructured Tasks can otherwise reorder a disconnect or consecutive spots.
+private final class ClusterEventSequence: @unchecked Sendable {
+    private let lock = NSLock()
+    private var tail: Task<Void, Never>?
+    func submit(_ operation: @escaping @Sendable () async -> Void) {
+        lock.withLock {
+            let previous = tail
+            tail = Task { await previous?.value; await operation() }
+        }
+    }
+}
+
+/// The live session uses xCluster's parser, opportunity rules and table semantics.
+/// No endpoint, credential, contact or country is invented by this module.
+public struct ClusterServerConfiguration: Codable, Hashable, Identifiable, Sendable {
+    public var id: UUID
+    public var name: String
+    public var host: String
+    public var port: Int
+    public var callsign: String
+    public var enabled: Bool
+
+    public init(id: UUID = UUID(), name: String, host: String, port: Int, callsign: String, enabled: Bool = true) {
+        self.id = id
+        self.name = name
+        self.host = host
+        self.port = port
+        self.callsign = callsign
+        self.enabled = enabled
+    }
+}
+
+public enum ClusterSpotSort: String, Codable, CaseIterable, Sendable {
+    case newest, score, frequency, callsign
+}
+
+public struct ClusterCommandPreset: Codable, Hashable, Identifiable, Sendable {
+    public var id: UUID
+    public var name: String
+    public var command: String
+
+    public init(id: UUID = UUID(), name: String, command: String) {
+        self.id = id
+        self.name = name
+        self.command = command
+    }
+}
+
+/// Empty categorical sets mean all values, except sources, where an empty set hides all sources.
+public struct ClusterSpotFilter: Codable, Equatable, Sendable {
+    public var query = ""
+    public var bands: Set<String> = []
+    public var modes: Set<String> = []
+    public var continents: Set<String> = []
+    public var callStatuses: Set<String> = []
+    public var dxccStatuses: Set<String> = []
+    public var specials: Set<String> = []
+    public var sources: Set<String> = ["cluster", "rbl"]
+    public var worked: Set<String> = []
+    public var sort: ClusterSpotSort = .newest
+
+    public init() {}
+}
+
+public struct ClusterPalette: Codable, Equatable, Sendable {
+    public var status: [String: String]
+    public var band: [String: String]
+    public var mode: [String: String]
+
+    public static let originalDefaults = ClusterPalette(
+        status: ["New Call": "#FF6B35", "New Band": "#00BFFF", "New Mode": "#FFC000",
+                 "New Band+Mode": "#E91E63", "ATNO": "#FF8C00", "C/New Band": "#4A9EFF",
+                 "C/New Mode": "#FFD93D", "C/New Band+Mode": "#9C27B0", "W/New Band": "#00BCD4",
+                 "W/New Mode": "#FFA726", "W/New Band+Mode": "#FF5722", "Worked": "#B0B0B0",
+                 "Confirmed": "#10B981", "Unknown": "#777F8C"],
+        band: ["160m": "#B794F4", "80m": "#A78BFA", "60m": "#818CF8", "40m": "#4A9EFF",
+               "30m": "#22D3EE", "20m": "#12D6A0", "17m": "#4ADE80", "15m": "#F3B23C",
+               "12m": "#FB923C", "10m": "#FF6B5E", "6m": "#F472B6", "2m": "#E879F9",
+               "70cm": "#C084FC", "Unknown": "#B0B0B0"],
+        mode: ["CW": "#F3B23C", "SSB": "#35C8F5", "AM": "#FFD166", "FM": "#4A9EFF",
+               "RTTY": "#FB923C", "FT8": "#A78BFA", "FT4": "#F472B6", "FT2": "#E879F9",
+               "PSK": "#4ADE80", "OLIVIA": "#2DD4BF", "JT65": "#818CF8", "JT9": "#60A5FA",
+               "HELL": "#F59E0B", "MFSK": "#34D399", "SSTV": "#F87171", "DIGI": "#8B9CFF",
+               "Unknown": "#B0B0B0"]
+    )
+
+    public init(status: [String: String] = [:], band: [String: String] = [:], mode: [String: String] = [:]) {
+        self.status = status
+        self.band = band
+        self.mode = mode
+    }
+}
+
+public struct ClusterSessionConfiguration: Codable, Sendable {
+    public static let originalSpecialRules: [SpecialRule] = [
+        .init(name: "POTA", keywords: ["POTA"], referenceFormat: .pota),
+        .init(name: "SOTA", keywords: ["SOTA"], referenceFormat: .sota),
+        .init(name: "IOTA", keywords: ["IOTA"], referenceFormat: .iota),
+        .init(name: "WWFF", keywords: ["WWFF"], referenceFormat: .wwff),
+        .init(name: "BUNKER", keywords: ["WWBOTA", "UKBOTA", "BUNKER ON THE AIR", "BUNKERS ON THE AIR"], referenceFormat: .bunker),
+        .init(name: "CASTLE", keywords: ["WCA", "CASTLE"], referenceFormat: .castle),
+        .init(name: "LIGHTHOUSE", keywords: ["LIGHTHOUSE", "ARLHS", "ILLW"]),
+        .init(name: "CONTEST", keywords: ["CONTEST"]),
+        .init(name: "IARU", keywords: ["IARU"]),
+    ]
+
+    public var servers: [ClusterServerConfiguration]
+    public var reconnect: Bool
+    public var requestSkimmer: Bool
+    public var showWorkedBandModeSpots: Bool
+    public var maximumSpots: Int
+    public var specialRules: [SpecialRule]
+    public var palette: ClusterPalette
+    public var filter: ClusterSpotFilter
+    public var commandPresets: [ClusterCommandPreset]
+    /// Explicit opt-in. Only the direct-agent xCat provider supports add_spot.
+    public var forwardSpotsToFlex: Bool
+
+    public init(servers: [ClusterServerConfiguration], reconnect: Bool = true, requestSkimmer: Bool = true,
+                showWorkedBandModeSpots: Bool = false, maximumSpots: Int = 200,
+                specialRules: [SpecialRule] = originalSpecialRules, palette: ClusterPalette = .originalDefaults,
+                filter: ClusterSpotFilter = .init(),
+                commandPresets: [ClusterCommandPreset] = [
+                    .init(name: "Recent DX", command: "sh/dx/50"),
+                    .init(name: "My DX", command: "sh/mydx 50"),
+                    .init(name: "WWV", command: "sh/wwv/5"),
+                    .init(name: "WCY", command: "sh/wcy/5"),
+                    .init(name: "Announcements", command: "sh/ann/10"),
+                    .init(name: "Users", command: "sh/u")
+                ], forwardSpotsToFlex: Bool = false) {
+        self.servers = servers
+        self.reconnect = reconnect
+        self.requestSkimmer = requestSkimmer
+        self.showWorkedBandModeSpots = showWorkedBandModeSpots
+        self.maximumSpots = maximumSpots
+        self.specialRules = specialRules
+        self.palette = palette
+        self.filter = filter
+        self.commandPresets = commandPresets
+        self.forwardSpotsToFlex = forwardSpotsToFlex
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case servers, reconnect, requestSkimmer, showWorkedBandModeSpots, maximumSpots
+        case specialRules, palette, filter, commandPresets, forwardSpotsToFlex
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        servers = try values.decode([ClusterServerConfiguration].self, forKey: .servers)
+        reconnect = try values.decode(Bool.self, forKey: .reconnect)
+        requestSkimmer = try values.decode(Bool.self, forKey: .requestSkimmer)
+        showWorkedBandModeSpots = try values.decode(Bool.self, forKey: .showWorkedBandModeSpots)
+        maximumSpots = try values.decode(Int.self, forKey: .maximumSpots)
+        specialRules = try values.decode([SpecialRule].self, forKey: .specialRules)
+        palette = try values.decode(ClusterPalette.self, forKey: .palette)
+        filter = try values.decode(ClusterSpotFilter.self, forKey: .filter)
+        commandPresets = try values.decodeIfPresent([ClusterCommandPreset].self, forKey: .commandPresets)
+            ?? Self(servers: []).commandPresets
+        forwardSpotsToFlex = try values.decodeIfPresent(Bool.self, forKey: .forwardSpotsToFlex) ?? false
+    }
+}
+
+public enum ClusterConnectionPhase: String, Codable, Sendable {
+    case disconnected, connecting, connected, failed
+}
+
+public struct ClusterConnectionStatus: Codable, Sendable {
+    public var serverID: UUID
+    public var serverName: String
+    public var phase: ClusterConnectionPhase
+    public var error: String?
+}
+
+public struct ClusterConsoleEntry: Codable, Sendable {
+    public var receivedAt: Date
+    public var source: String
+    public var text: String
+    public var isCommand: Bool
+}
+
+public struct ClassifiedClusterSpot: Codable, Hashable, Identifiable, Sendable {
+    public var id: UUID
+    public var receivedAt: Date
+    public var clusterName: String
+    public var spotter: String
+    public var frequencyKHz: Double
+    public var frequencyText: String
+    public var callsign: String
+    public var comment: String
+    public var band: String
+    public var mode: String
+    public var country: String
+    public var adif: Int?
+    public var continent: String
+    public var cqZone: Int?
+    public var ituZone: Int?
+    public var latitude: Double?
+    public var longitude: Double?
+    public var callStatus: String
+    public var dxccStatus: String
+    public var workedBefore: Date?
+    public var specialTags: [String]
+    public var score: Int
+    public var scoreReasons: [String]
+    public var aggregateCount: Int
+    public var aggregateSpotters: [String]
+    public var source: String
+    public var statusHex: String
+    public var bandHex: String
+    public var modeHex: String
+}
+
+public struct ClusterSessionSnapshot: Codable, Sendable {
+    public var generatedAt: Date
+    public var connectedClusters: Int
+    public var loadedSpots: Int
+    public var contactCount: Int
+    public var contactRevision: Int
+    public var logbookDataLoaded: Bool
+    public var countryDataLoaded: Bool
+    public var connections: [ClusterConnectionStatus]
+    public var spots: [ClassifiedClusterSpot]
+    public var console: [ClusterConsoleEntry]
+}
+
+public enum ClusterSessionError: Error, LocalizedError, Sendable {
+    case invalidConfiguration(String)
+    case notConnected
+    case unsupportedTransport
+
+    public var errorDescription: String? {
+        switch self {
+        case .invalidConfiguration(let reason): return reason
+        case .notConnected: return "No selected cluster is connected."
+        case .unsupportedTransport: return "Live cluster TCP transport is not available on this platform."
+        }
+    }
+}
+
+/// Transport injection keeps the session, classification and UI contract portable.
+/// The production macOS transport is in ClusterTCPTransport.swift.
+public protocol ClusterConnectionTransport: AnyObject, Sendable {
+    func start()
+    func send(_ command: String)
+    func stop()
+}
+
+public typealias ClusterTransportFactory = @Sendable (
+    _ server: ClusterServerConfiguration, _ password: String, _ reconnect: Bool, _ requestSkimmer: Bool,
+    _ onState: @escaping @Sendable (ClusterConnectionPhase, String?) -> Void,
+    _ onLine: @escaping @Sendable (String) -> Void
+) -> any ClusterConnectionTransport
+
+public actor ClusterSessionService {
+    private var configuration: ClusterSessionConfiguration
+    private var contacts = ClusterClassificationIndex.empty
+    private var countries = ClusterCountryDirectory.empty
+    private var spots: [ClassifiedClusterSpot] = []
+    private var statuses: [UUID: ClusterConnectionStatus] = [:]
+    private var console: [ClusterConsoleEntry] = []
+    private var transports: [UUID: any ClusterConnectionTransport] = [:]
+    /// Invalidates callbacks queued by an earlier socket, including a reconnect to the same server ID.
+    private var connectionGeneration = UUID()
+    private var contactCounts: [String: Int] = [:]
+    private var contactRevision = 0
+    private var hasContactSnapshot = false
+    private let transportFactory: ClusterTransportFactory
+    private let onUpdate: (@Sendable (ClusterSessionSnapshot) -> Void)?
+    private let onSpot: (@Sendable (ClassifiedClusterSpot, UUID) -> Void)?
+
+    public init(configuration: ClusterSessionConfiguration, onUpdate: (@Sendable (ClusterSessionSnapshot) -> Void)? = nil,
+                onSpot: (@Sendable (ClassifiedClusterSpot, UUID) -> Void)? = nil,
+                transportFactory: @escaping ClusterTransportFactory = { server, password, reconnect, requestSkimmer, onState, onLine in
+                    makeClusterTCPTransport(server: server, password: password, reconnect: reconnect,
+                                            requestSkimmer: requestSkimmer, onState: onState, onLine: onLine)
+                }) {
+        self.configuration = configuration
+        self.onUpdate = onUpdate
+        self.onSpot = onSpot
+        self.transportFactory = transportFactory
+    }
+
+    public func configure(_ value: ClusterSessionConfiguration) {
+        disconnect()
+        configuration = value
+        spots.removeAll()
+        statuses.removeAll()
+        console.removeAll()
+        publish()
+    }
+
+    /// Credentials are supplied by the host's secure store for this connection only.
+    /// They are absent from configuration, snapshots, transcript and diagnostics.
+    public func connect(passwords: [UUID: String] = [:]) throws {
+        let enabled = configuration.servers.filter(\.enabled)
+        guard !enabled.isEmpty else { throw ClusterSessionError.invalidConfiguration("Configure and enable a cluster server first.") }
+        guard transports.isEmpty else { return }
+        for server in enabled {
+            guard !server.name.isEmpty, !server.host.isEmpty, server.port > 0, server.port <= 65_535,
+                  !server.host.contains(where: { $0.isWhitespace || $0.isNewline }),
+                  server.callsign.range(of: #"^[A-Za-z0-9/\-]{2,24}$"#, options: .regularExpression) != nil else {
+                throw ClusterSessionError.invalidConfiguration("Invalid name, host, port or login callsign for a cluster server.")
+            }
+        }
+        guard Set(enabled.map(\.id)).count == enabled.count else {
+            throw ClusterSessionError.invalidConfiguration("Cluster server IDs must be unique.")
+        }
+        for server in enabled {
+            if let password = passwords[server.id],
+               (password.utf8.count > 256 || password.contains("\r") || password.contains("\n")) {
+                throw ClusterSessionError.invalidConfiguration("Cluster password contains an invalid line break or is too long.")
+            }
+        }
+        connectionGeneration = UUID()
+        let generation = connectionGeneration
+        for server in enabled {
+            let events = ClusterEventSequence()
+            let transport = transportFactory(server, passwords[server.id] ?? "", configuration.reconnect,
+                                             configuration.requestSkimmer, { [weak self] phase, error in
+                events.submit { [weak self] in await self?.receiveState(serverID: server.id, generation: generation, phase: phase, error: error) }
+            }, { [weak self] line in
+                events.submit { [weak self] in await self?.receiveLine(line, serverID: server.id, generation: generation) }
+            })
+            transports[server.id] = transport
+            statuses[server.id] = .init(serverID: server.id, serverName: server.name, phase: .connecting, error: nil)
+            transport.start()
+        }
+        publish()
+    }
+
+    public func disconnect() {
+        connectionGeneration = UUID()
+        for transport in transports.values { transport.stop() }
+        transports.removeAll()
+        for id in statuses.keys { statuses[id]?.phase = .disconnected; statuses[id]?.error = nil }
+        publish()
+    }
+
+    public func replaceContacts(_ records: [ClusterContact]) {
+        var nextCounts: [String: Int] = [:]
+        for record in records {
+            nextCounts[record.callsign.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(), default: 0] += 1
+        }
+        if hasContactSnapshot {
+            let newlyLogged = Set(nextCounts.compactMap { call, count in
+                count > (contactCounts[call] ?? 0) ? call : nil
+            })
+            if !newlyLogged.isEmpty { spots.removeAll { newlyLogged.contains($0.callsign) } }
+        }
+        contactCounts = nextCounts
+        contactRevision &+= 1
+        hasContactSnapshot = true
+        contacts = ClusterClassificationIndex(records: records)
+        reclassify()
+    }
+
+    public func invalidateContacts() {
+        contacts = .empty
+        contactCounts.removeAll()
+        contactRevision &+= 1
+        hasContactSnapshot = false
+        reclassify()
+    }
+
+    /// The host loads an authoritative CTY CSV; unresolved entities remain Unknown.
+    public func replaceCountryCSV(_ text: String) {
+        countries = ClusterCountryDirectory(csv: text)
+        reclassify()
+    }
+
+    public func updateFilter(_ value: ClusterSpotFilter) {
+        configuration.filter = value
+        publish()
+    }
+
+    public func clearConsole() {
+        console.removeAll()
+        publish()
+    }
+
+    public func sendCommand(_ input: String, to serverID: UUID? = nil) throws {
+        let command = input.replacingOccurrences(of: "\r", with: " ").replacingOccurrences(of: "\n", with: " ")
+            .split(whereSeparator: \.isWhitespace).joined(separator: " ")
+        guard !command.isEmpty, command.utf8.count <= 160,
+              command.unicodeScalars.allSatisfy({ $0.value >= 0x20 && $0.value <= 0x7e }) else {
+            throw ClusterSessionError.invalidConfiguration("Cluster command must contain 1–160 bytes.")
+        }
+        let targets = statuses.values.filter { $0.phase == .connected && (serverID == nil || $0.serverID == serverID) }
+        guard !targets.isEmpty else { throw ClusterSessionError.notConnected }
+        // Console commands can contain secrets. Never echo their content into the transcript.
+        for target in targets { transports[target.serverID]?.send(command) }
+        appendConsole(source: targets.count == 1 ? targets[0].serverName : "All connected", text: "Command sent", isCommand: true)
+        publish()
+    }
+
+    public func snapshot() -> ClusterSessionSnapshot {
+        let filter = configuration.filter
+        var visible = spots.filter { spot in
+            (filter.query.isEmpty || spot.callsign.localizedCaseInsensitiveContains(filter.query)
+                || spot.country.localizedCaseInsensitiveContains(filter.query)
+                || spot.comment.localizedCaseInsensitiveContains(filter.query))
+                && (filter.bands.isEmpty || filter.bands.contains(spot.band))
+                && (filter.modes.isEmpty || filter.modes.contains(spot.mode))
+                && (filter.continents.isEmpty || filter.continents.contains(spot.continent))
+                && (filter.callStatuses.isEmpty || filter.callStatuses.contains(spot.callStatus))
+                && (filter.dxccStatuses.isEmpty || filter.dxccStatuses.contains(spot.dxccStatus))
+                && (filter.specials.isEmpty || !filter.specials.isDisjoint(with: spot.specialTags))
+                && filter.sources.contains(spot.source)
+                && SpotLogic.shouldShow(callStatus: spot.callStatus, showWorkedBandModeSpots: configuration.showWorkedBandModeSpots)
+                && (filter.worked.isEmpty || filter.worked.contains(spot.workedBefore == nil ? "Not worked" : "Worked before"))
+        }
+        switch filter.sort {
+        case .newest: visible.sort { $0.receivedAt > $1.receivedAt }
+        case .score: visible.sort { $0.score == $1.score ? $0.receivedAt > $1.receivedAt : $0.score > $1.score }
+        case .frequency: visible.sort { $0.frequencyKHz < $1.frequencyKHz }
+        case .callsign: visible.sort { $0.callsign < $1.callsign }
+        }
+        return ClusterSessionSnapshot(generatedAt: Date(), connectedClusters: statuses.values.filter { $0.phase == .connected }.count,
+                                      loadedSpots: spots.count, contactCount: contacts.recordCount,
+                                      contactRevision: contactRevision,
+                                      logbookDataLoaded: hasContactSnapshot,
+                                      countryDataLoaded: !countries.isEmpty,
+                                      connections: statuses.values.sorted { $0.serverName < $1.serverName },
+                                      spots: Array(visible.prefix(max(1, min(configuration.maximumSpots, 500)))), console: console)
+    }
+
+    /// FLEX forwarding follows the exact currently visible filtered/sorted/max-count snapshot.
+    public func isVisibleSpot(_ spotID: UUID, in generation: UUID) -> Bool {
+        generation == connectionGeneration && statuses.values.contains(where: { $0.phase == .connected })
+            && snapshot().spots.contains(where: { $0.id == spotID })
+    }
+
+    private func receiveState(serverID: UUID, generation: UUID, phase: ClusterConnectionPhase, error: String?) {
+        guard generation == connectionGeneration, transports[serverID] != nil else { return }
+        statuses[serverID]?.phase = phase
+        statuses[serverID]?.error = error
+        publish()
+    }
+
+    private func receiveLine(_ line: String, serverID: UUID, generation: UUID) {
+        guard generation == connectionGeneration, transports[serverID] != nil,
+              let server = configuration.servers.first(where: { $0.id == serverID }) else { return }
+        guard line.utf8.count <= ClusterLineParser.maximumLineBytes else { return }
+        if let raw = ClusterLineParser.parse(line, clusterID: serverID, clusterName: server.name) {
+            addSpot(raw)
+        } else {
+            appendConsole(source: server.name, text: line, isCommand: false)
+        }
+        publish()
+    }
+
+    private func addSpot(_ raw: RawSpot) {
+        guard raw.callsign.utf8.count <= 32, raw.spotter.utf8.count <= 64 else { return }
+        let country = countries.resolve(raw.callsign)
+        let band = SpotLogic.band(for: raw.frequencyKHz)
+        let mode = SpotLogic.mode(comment: raw.comment, band: band, khz: raw.frequencyKHz)
+        let classification = classify(call: raw.callsign, band: band, mode: mode, adif: country?.adif)
+        let specials = SpotLogic.specials(in: raw.comment, rules: configuration.specialRules)
+        let source = SpotLogic.source(spotter: raw.spotter, comment: raw.comment)
+        let (score, reasons) = SpotLogic.score(callStatus: classification.callStatus, dxccStatus: classification.dxccStatus,
+                                               specials: specials, source: source)
+        var spot = ClassifiedClusterSpot(
+            id: UUID(), receivedAt: raw.receivedAt, clusterName: raw.clusterName, spotter: raw.spotter,
+            frequencyKHz: raw.frequencyKHz, frequencyText: raw.frequencyText, callsign: raw.callsign,
+            comment: String(decoding: Data(raw.comment.utf8.prefix(512)), as: UTF8.self),
+            band: band, mode: mode, country: country?.name ?? "Unknown", adif: country?.adif,
+            continent: country?.continent ?? "", cqZone: country?.cqZone, ituZone: country?.ituZone,
+            latitude: country?.latitude, longitude: country?.longitude,
+            callStatus: classification.callStatus, dxccStatus: classification.dxccStatus,
+            workedBefore: classification.workedBefore, specialTags: specials, score: score, scoreReasons: reasons,
+            aggregateCount: 1, aggregateSpotters: [raw.spotter], source: source,
+            statusHex: configuration.palette.status[classification.callStatus] ?? "#B0B0B0",
+            bandHex: configuration.palette.band[band] ?? "#B0B0B0",
+            modeHex: configuration.palette.mode[mode] ?? "#B0B0B0"
+        )
+        if let index = spots.firstIndex(where: { $0.callsign == spot.callsign && abs($0.frequencyKHz - spot.frequencyKHz) <= 0.1
+            && raw.receivedAt.timeIntervalSince($0.receivedAt) < 180 }) {
+            spot.aggregateCount = spots[index].aggregateCount + 1
+            spot.aggregateSpotters = Array(Set(spots[index].aggregateSpotters + [raw.spotter])).sorted().prefix(32).map { $0 }
+            spots.remove(at: index)
+        }
+        spots.insert(spot, at: 0)
+        let limit = max(min(configuration.maximumSpots, 500) * 2, 400)
+        if spots.count > limit { spots.removeLast(spots.count - limit) }
+        onSpot?(spot, connectionGeneration)
+    }
+
+    private func reclassify() {
+        for index in spots.indices {
+            let country = countries.resolve(spots[index].callsign)
+            let result = classify(call: spots[index].callsign, band: spots[index].band,
+                                  mode: spots[index].mode, adif: country?.adif)
+            spots[index].country = country?.name ?? "Unknown"
+            spots[index].adif = country?.adif
+            spots[index].continent = country?.continent ?? ""
+            spots[index].cqZone = country?.cqZone
+            spots[index].ituZone = country?.ituZone
+            spots[index].latitude = country?.latitude
+            spots[index].longitude = country?.longitude
+            spots[index].callStatus = result.callStatus
+            spots[index].dxccStatus = result.dxccStatus
+            spots[index].workedBefore = result.workedBefore
+            let (score, reasons) = SpotLogic.score(callStatus: result.callStatus, dxccStatus: result.dxccStatus,
+                                                   specials: spots[index].specialTags, source: spots[index].source)
+            spots[index].score = score
+            spots[index].scoreReasons = reasons
+            spots[index].statusHex = configuration.palette.status[result.callStatus] ?? "#B0B0B0"
+        }
+        publish()
+    }
+
+    private func appendConsole(source: String, text: String, isCommand: Bool) {
+        let safe = String(text.prefix(ClusterLineParser.maximumLineBytes)).unicodeScalars.filter {
+            $0.value >= 0x20 && $0.value != 0x7f
+        }.map(String.init).joined()
+        console.append(.init(receivedAt: Date(), source: source,
+                             text: String(decoding: Data(safe.utf8.prefix(1024)), as: UTF8.self), isCommand: isCommand))
+        if console.count > 400 { console.removeFirst(console.count - 400) }
+    }
+
+    private func classify(call: String, band: String, mode: String, adif: Int?) -> ClusterClassification {
+        guard hasContactSnapshot else {
+            return ClusterClassification(callStatus: "Unknown", dxccStatus: "Unknown", workedBefore: nil)
+        }
+        return contacts.classify(call: call, band: band, mode: mode, adif: adif)
+    }
+
+    private func publish() { onUpdate?(snapshot()) }
+}

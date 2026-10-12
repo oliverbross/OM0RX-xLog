@@ -137,6 +137,18 @@ jobs:
         run: npx tauri build --no-bundle
       - name: Collect resolved dependency inventory and notices
         run: node prototype/scripts/distribution-metadata.mjs
+      - name: Package separate Mac integration application
+        if: runner.os == 'macOS'
+        run: |
+          bash prototype/scripts/package-macos.sh
+          ditto -c -k --sequesterRsrc --keepParent "prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog Integration.app" prototype/OM0RX-xLog-Integration-macOS.zip
+      - name: Upload Mac integration package
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: xlog-integration-macos-${{ github.sha }}
+          if-no-files-found: error
+          path: prototype/OM0RX-xLog-Integration-macOS.zip
       - name: Package Linux runtime and Debian application
         if: runner.os == 'Linux'
         run: |
