@@ -11,6 +11,8 @@ This isolated development application tests one React/Tauri interface and a reta
 
 This is a feasibility slice, **not complete xCat/xCluster integration or feature parity**. Session QSOs are memory-only and disappear on reload/quit. No live DB, credentials, Wavelog, hardware or existing settings are opened. No worker method accepts a command, executable, device or URL. See [acceptance evidence](../docs/P1_PROTOTYPE_ACCEPTANCE.md) and the [complete programme](../docs/LOCAL_STATION_CROSS_PLATFORM_PLAN.md).
 
+Preview the [desktop](../docs/screenshots/prototype-desktop.png), [minimum desktop](../docs/screenshots/prototype-minimum.png) and [detached monitor](../docs/screenshots/prototype-monitor.png). [Design parity notes](DESIGN_PARITY.md) distinguish preserved identity from remaining production parity work.
+
 ## Build and test on macOS / Linux
 
 Prerequisites: Swift 6-compatible toolchain, Rust stable, Node 22.12+ (or supported newer LTS), platform Tauri build dependencies and SQLite headers. These are developer prerequisites; final users must not need them.
