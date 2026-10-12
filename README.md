@@ -20,6 +20,11 @@ There are no fixture contacts or spots in its runtime screens. This is not yet a
 acceptance gates](docs/P2_MAC_LIVE_INTEGRATION.md) before testing. Windows/Linux
 live integration remains deferred until the Mac workflows are accepted.
 
+The installed shared app has now passed direct-agent frequency-change/restore
+and bidirectional rotor-readback checks with the operator present. See the
+[2026-10-12 live acceptance and local cleanup record](docs/P2_LIVE_ACCEPTANCE_2026-10-12.md)
+for exact observations and remaining limits. This does not establish full parity.
+
 ## Current working release — macOS only (unchanged)
 
 **Use [v0.3.0 for everyday macOS operation](https://github.com/oliverbross/OM0RX-xLog/releases/tag/v0.3.0).** The existing Developer ID signed, notarized application remains available unchanged: [download the macOS application](https://github.com/oliverbross/OM0RX-xLog/releases/download/v0.3.0/OM0RX-xLog-0.3.0-macOS.zip). It is the current working native release, not a Windows/Linux build. Radio/rotor operation uses the existing xCat integration, and the published feature/award limitations still apply.

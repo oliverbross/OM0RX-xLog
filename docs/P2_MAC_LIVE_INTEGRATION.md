@@ -4,6 +4,12 @@ This is the shared Tauri/React application, not a replacement native SwiftUI
 application. The existing macOS v0.3.0 release remains the stable product.
 Branch: `codex/unified-xlog-integration-p2`.
 
+**Latest operator acceptance:** see [the 2026-10-12 live report](P2_LIVE_ACCEPTANCE_2026-10-12.md).
+Direct-agent connection, frequency change/restore and bidirectional rotor feedback
+were subsequently verified. At the operator's explicit request, older local xLog
+app bundles were moved recoverably to Trash and only Integration remains running;
+the original data and published stable release are preserved.
+
 ## Preservation contract
 
 - Separate bundle: `/Applications/OM0RX-xLog Integration.app`.
