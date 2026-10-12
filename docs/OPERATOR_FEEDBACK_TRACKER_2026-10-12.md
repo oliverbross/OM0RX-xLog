@@ -70,9 +70,40 @@ that staging and packaging path. No compatibility claim for every radio or rotor
 model follows from a dummy-device pass.
 
 Follow-up matrix: `38285494988`, exact source
-`c4e0562c8e74a23ef23d15ba1e051b59826ffa45`. All three native source jobs were
-confirmed running after dispatch. Results, portable dependency audits and current
-UI acceptance remain pending; do not substitute the earlier Mac-only success.
+`c4e0562c8e74a23ef23d15ba1e051b59826ffa45`. Mac and Linux source/package jobs
+passed, including Linux Hamlib compilation and model-1 dummy tests. Windows
+passed portable Swift tests, then failed one frontend test whose background poll
+could update the rendered rotor owner before its simulated Stop click. The test
+now captures the old button before changing the preflight response and clicks
+without yielding; its no-redirect/no-command assertion remains intact.
+
+Linux runtime acceptance stopped before the UI: its framing harness assumed
+completion order for independent correlated worker requests. Both OS harnesses
+now require exact response IDs/error coverage without assuming completion order.
+Two new harness tests cover all response permutations and reject missing,
+duplicate or incorrect replies; the real-worker framing harness also passes on
+Mac. Windows native packaging and Linux/Windows native UI acceptance remain open.
+
+### Shared local contact intelligence follow-up
+
+The `cluster_history` IPC name is retained, but the database-only handler now
+runs on the shared logbook lane on all operating systems. It reuses the same
+indexed candidate query and exact projection for prior-QSO counts, confirmations,
+country band/mode matrix and latest entity QSO. It no longer constructs the
+Mac-only cluster/vault service to answer an offline history request. The three
+history projection tests now compile for portable targets; a new isolated-worker
+test verifies this route while live cluster requests remain denied. Integer
+parameters reject Booleans, fractions and out-of-range values rather than
+truncating NSNumber values.
+
+Acceptance workspace creation now explicitly disables native-preference
+inheritance. The earlier native passes used separate writable workspaces but
+could read safe native station defaults during creation; they did not alter
+native preferences. The stricter deterministic setup needs another native pass.
+Current Mac source verification: 139 XCTest cases, 48 Swift Testing cases, 94
+Rust tests and 19 focused rotor UI tests pass; TypeScript/Vite also passes.
+The planned 100,000-QSO native UI benchmark is still open; harness failures were
+addressed before extending performance acceptance.
 
 ### Isolated current UI acceptance foundation
 

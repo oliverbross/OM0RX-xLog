@@ -19,7 +19,7 @@ public final class LocalAcceptanceSession: @unchecked Sendable {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false,
                                                 attributes: LocalFilePermissions.directoryAttributes)
         directory = root
-        service = LiveLogbookMethods(supportDirectory: root)
+        service = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
         worker = LiveWorker(logbook: service, localAcceptance: true)
     }
 
@@ -28,7 +28,7 @@ public final class LocalAcceptanceSession: @unchecked Sendable {
     // backups or copy a native logbook even though those are local operations.
     static func validate(method: String, params: [String: Any]) throws {
         let methods: Set<String> = [
-            "health", "parse_adif", "self_test", "integration_self_test", "cluster_classify",
+            "health", "parse_adif", "self_test", "integration_self_test", "cluster_classify", "cluster_history",
             "workspace_status", "workspace_create", "workspace_preferences_load", "workspace_preferences_save",
             "settings_load", "settings_save", "logbook_draft", "logbook_catalog", "logbook_list",
             "logbook_save", "logbook_delete", "logbook_undo", "logbook_stats", "logbook_previous",

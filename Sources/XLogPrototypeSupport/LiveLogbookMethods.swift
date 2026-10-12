@@ -13,6 +13,7 @@ public final class LiveLogbookMethods: @unchecked Sendable {
     private let lock = NSRecursiveLock()
     private let fileManager: FileManager
     private let supportDirectory: URL
+    private let inheritNativePreferences: Bool
     private var database: LogbookDatabase?
     private var workspace: IntegrationWorkspace?
     private var ctyResolverCache: (source: String, resolver: CTYResolver)?
@@ -20,8 +21,10 @@ public final class LiveLogbookMethods: @unchecked Sendable {
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
 
-    public init(fileManager: FileManager = .default, supportDirectory: URL? = nil) {
+    public init(fileManager: FileManager = .default, supportDirectory: URL? = nil,
+                inheritNativePreferences: Bool = true) {
         self.fileManager = fileManager
+        self.inheritNativePreferences = inheritNativePreferences
         self.supportDirectory = supportDirectory ?? fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
@@ -141,7 +144,7 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                     created = try IntegrationWorkspaceBootstrap.createEmpty(at: workspaceURL)
                 default: throw invalid()
                 }
-                let nativeDefaults = UserDefaults(suiteName: "com.oliverbross.OM0RXXLog")
+                let nativeDefaults = inheritNativePreferences ? UserDefaults(suiteName: "com.oliverbross.OM0RXXLog") : nil
                 let nativeSettings = nativeDefaults.map { SettingsStore(defaults: $0).load() }
                 guard let isolatedDefaults = created.makeDefaults() else {
                     throw WorkerFailure("workspace_unavailable", "Could not create isolated preferences.")
@@ -161,6 +164,14 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                 return ["mode": mode, "qso_count": created.qsoCount,
                         "pending_sync_count": created.pendingSyncCount,
                         "outbox_count": created.outboxCount, "automatic_sync": false]
+            case "cluster_history":
+                try requireKeys(params, allowed: ["call", "adif"], required: ["call"])
+                guard let call = params["call"] as? String,
+                      call.range(of: #"^[A-Za-z0-9/\-]{2,32}$"#, options: .regularExpression) != nil else { throw invalid() }
+                let adif = params["adif"] == nil ? nil : try integer(params, "adif", default: 0, range: 1...1_000)
+                let contacts = try readyDatabase().historyCandidates(call: call, adif: adif)
+                return ["history": LocalContactHistory.project(contacts: contacts, call: call, adif: adif,
+                            resolver: try? currentCTYResolver())]
             case "logbook_list":
                 try requireKeys(params, allowed: ["search", "limit", "offset"])
                 let search = try string(params, "search", max: 128) ?? ""
@@ -604,8 +615,12 @@ public final class LiveLogbookMethods: @unchecked Sendable {
 
     private func integer(_ params: [String: Any], _ key: String, default fallback: Int, range: ClosedRange<Int>) throws -> Int {
         guard let value = params[key] else { return fallback }
-        guard let number = value as? NSNumber, String(cString: number.objCType) != "c",
-              let result = Int(exactly: number.int64Value), range.contains(result) else { throw invalid() }
+        // Decode the JSON integer itself: NSNumber conversion can silently
+        // truncate fractions, and its ObjC type varies for small integers.
+        guard JSONSerialization.isValidJSONObject([value]),
+              let data = try? JSONSerialization.data(withJSONObject: [value]),
+              let result = try? JSONDecoder().decode([Int].self, from: data).first,
+              range.contains(result) else { throw invalid() }
         return result
     }
 

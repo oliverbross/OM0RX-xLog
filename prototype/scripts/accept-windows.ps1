@@ -208,9 +208,13 @@ try {
         $worker.StandardInput.WriteLine('{"id":"recovered","method":"health","params":{}}')
         $worker.StandardInput.Flush()
         $responses = @((Read-Response $worker), (Read-Response $worker), (Read-Response $worker))
-        Assert-That ($responses[0].ok -eq $false -and $responses[0].error.code -eq 'invalid_request') 'Malformed framing did not fail as expected.'
-        Assert-That ($responses[1].ok -eq $false -and $responses[1].error.code -eq 'request_too_large') 'Oversized framing did not fail as expected.'
-        Assert-That ($responses[2].id -eq 'recovered' -and $responses[2].ok -eq $true) 'Framing recovery failed.'
+        # Independent requests can finish out of order; IDs and exact error
+        # coverage are the protocol contract, not the scheduler's completion order.
+        $errors = @($responses | Where-Object { $_.ok -eq $false })
+        $recovered = @($responses | Where-Object { $_.id -eq 'recovered' })
+        Assert-That ($errors.Count -eq 2 -and @($errors | Where-Object { $_.id -ne '' }).Count -eq 0) 'Invalid framing response coverage.'
+        Assert-That ((($errors.error.code | Sort-Object) -join ',') -eq 'invalid_request,request_too_large') 'Malformed or oversized framing did not fail as expected.'
+        Assert-That ($recovered.Count -eq 1 -and $recovered[0].ok -eq $true) 'Framing recovery failed.'
         Write-Json (Join-Path $EvidenceDirectory 'worker-recovery-responses.json') $responses
         Finish-Worker $worker $stderrTask
         Record-Check 'ndjson-malformed-oversized-recovery' @{ responses = 3; shutdown = 'EOF exit 0' }

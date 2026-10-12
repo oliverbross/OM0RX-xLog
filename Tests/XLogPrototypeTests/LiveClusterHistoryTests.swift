@@ -1,7 +1,10 @@
-#if os(macOS)
 import Foundation
 import Testing
+#if canImport(XLogCore)
 import XLogCore
+#else
+import XLogPortableCore
+#endif
 @testable import XLogPrototypeSupport
 
 @Suite("Integrated cluster contact history")
@@ -34,7 +37,7 @@ struct LiveClusterHistoryTests {
         try database.save(QSO(call: "W7OTHER", start: base.addingTimeInterval(50 * 86_400),
                               band: "10m", mode: "CW", dxcc: 110, qslReceived: "Y"))
 
-        let history = LiveClusterMethods.historyProjection(
+        let history = LocalContactHistory.project(
             contacts: try database.fetchAll(), call: "k1abc", adif: 291)
         #expect(history["call"] as? String == "K1ABC")
         #expect(history["previous_count"] as? Int == 25)
@@ -54,7 +57,7 @@ struct LiveClusterHistoryTests {
     @Test("Unknown entity has no DXCC totals or invented latest QSO")
     func missingEntity() {
         let qso = QSO(call: "K1ABC", band: "20m", mode: "CW", qslReceived: "Y")
-        let history = LiveClusterMethods.historyProjection(contacts: [qso], call: "K1ABC", adif: nil)
+        let history = LocalContactHistory.project(contacts: [qso], call: "K1ABC", adif: nil)
         #expect(history["previous_count"] as? Int == 1)
         #expect(history["previous_confirmed_count"] as? Int == 1)
         #expect(history["dxcc_contact_count"] as? Int == 0)
@@ -81,7 +84,7 @@ struct LiveClusterHistoryTests {
                               band: "10m", mode: "FT8", dxcc: 230, qslReceived: "Y"))
 
         func projection(_ contacts: [QSO]) -> [String: Any] {
-            LiveClusterMethods.historyProjection(contacts: contacts, call: "K1ABC", adif: 291,
+            LocalContactHistory.project(contacts: contacts, call: "K1ABC", adif: 291,
                                                  resolver: resolver)
         }
         func assertEquivalent() throws {
@@ -102,4 +105,3 @@ struct LiveClusterHistoryTests {
         try assertEquivalent()
     }
 }
-#endif

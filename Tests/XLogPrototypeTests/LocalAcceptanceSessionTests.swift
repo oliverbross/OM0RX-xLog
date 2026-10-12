@@ -47,6 +47,10 @@ struct LocalAcceptanceSessionTests {
             for session in [first, second] {
                 let created = try await request(session, "workspace_create", ["mode": "empty"])
                 #expect(created["ok"] as? Bool == true)
+                let settingsResponse = try await request(session, "settings_load")
+                let settings = (settingsResponse["result"] as? [String: Any])?["settings"] as? [String: Any]
+                #expect(settings?["gridSquare"] as? String == "")
+                #expect(settings?["logbookMode"] as? String == "local")
             }
             let imported = try await request(first, "logbook_import_adif", ["text": "<CALL:5>K1ABC<QSO_DATE:8>20261001<TIME_ON:6>120000<BAND:3>20m<MODE:2>CW<EOR>"])
             #expect(imported["ok"] as? Bool == true)
@@ -65,5 +69,37 @@ struct LocalAcceptanceSessionTests {
         #expect((late["error"] as? [String: Any])?["code"] as? String == "worker_stopping")
         #expect(!FileManager.default.fileExists(atPath: first.directory.path))
         #expect(!FileManager.default.fileExists(atPath: second.directory.path))
+    }
+
+    @Test("Local callsign and DXCC intelligence needs neither cluster nor credentials")
+    func localHistory() async throws {
+        let session = try LocalAcceptanceSession()
+        do {
+            _ = try await request(session, "workspace_create", ["mode": "empty"])
+            let records = "<CALL:5>K1ABC<QSO_DATE:8>20261001<TIME_ON:6>120000<BAND:3>20m<MODE:2>CW<DXCC:3>291<QSL_RCVD:1>Y<EOR>" +
+                "<CALL:5>K1ABC<QSO_DATE:8>20261002<TIME_ON:6>120000<BAND:3>40m<MODE:3>FT8<DXCC:3>291<LOTW_QSL_RCVD:1>Y<EOR>" +
+                "<CALL:5>K2ABC<QSO_DATE:8>20261003<TIME_ON:6>120000<BAND:3>20m<MODE:3>SSB<DXCC:3>291<EOR>"
+            let imported = try await request(session, "logbook_import_adif", ["text": records])
+            #expect((imported["result"] as? [String: Any])?["imported"] as? Int == 3)
+            let response = try await request(session, "cluster_history", ["call": "k1abc", "adif": 291])
+            #expect(response["ok"] as? Bool == true)
+            let history = try #require((response["result"] as? [String: Any])?["history"] as? [String: Any])
+            #expect(history["call"] as? String == "K1ABC")
+            #expect(history["previous_count"] as? Int == 2)
+            #expect(history["previous_confirmed_count"] as? Int == 2)
+            #expect(history["dxcc_contact_count"] as? Int == 3)
+            #expect(history["dxcc_confirmed_count"] as? Int == 2)
+            #expect((history["last_dxcc_qso"] as? [String: Any])?["call"] as? String == "K2ABC")
+            for invalidADIF: Any in [true, 291.5, -1, 1001, "291"] {
+                let rejected = try await request(session, "cluster_history", ["call": "K1ABC", "adif": invalidADIF])
+                #expect((rejected["error"] as? [String: Any])?["code"] as? String == "invalid_params")
+            }
+            let offline = try await request(session, "cluster_snapshot")
+            #expect((offline["error"] as? [String: Any])?["code"] as? String == "acceptance_restricted")
+        } catch {
+            try? await session.close()
+            throw error
+        }
+        try await session.close()
     }
 }

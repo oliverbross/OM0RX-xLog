@@ -23,17 +23,7 @@ public actor LiveClusterMethods {
 
     public func handle(method: String, params: [String: Any]) async throws -> [String: Any] {
         if method == "cluster_history" {
-            // Logbook intelligence does not need to start the cluster service
-            // or load every contact into its spot classifier first.
-            try require(params, allowed: ["call", "adif"], required: ["call"])
-            guard let call = params["call"] as? String,
-                  call.range(of: #"^[A-Za-z0-9/\-]{2,32}$"#, options: .regularExpression) != nil else { throw invalid() }
-            let adif: Int?
-            if let value = params["adif"] as? Int {
-                guard (1...1_000).contains(value) else { throw invalid() }
-                adif = value
-            } else { adif = nil }
-            return ["history": try history(call: call, adif: adif)]
+            return try LiveLogbookMethods.shared.handle(method: method, params: params)
         }
         let service = try await readyService()
         switch method {
@@ -126,77 +116,6 @@ public actor LiveClusterMethods {
         await service.replaceContacts(records)
     }
 
-    private func history(call: String, adif: Int?) throws -> [String: Any] {
-        let database = try LiveLogbookMethods.shared.openedDatabase()
-        let resolver = try? LiveLogbookMethods.shared.currentCTYResolver()
-        let contacts = try database.historyCandidates(call: call, adif: adif)
-        return Self.historyProjection(contacts: contacts, call: call, adif: adif, resolver: resolver)
-    }
-
-    /// Aggregate the full nondeleted contact view, not the bounded 20-row
-    /// history page or the band/mode matrix used by spot classification.
-    static func historyProjection(contacts: [QSO], call: String, adif: Int?,
-                                  resolver: CTYResolver? = nil) -> [String: Any] {
-        let normalizedCall = call.uppercased()
-        let entity = resolver?.resolve(normalizedCall)
-        var previous: [[String: Any]] = []
-        var previousCount = 0
-        var previousConfirmedCount = 0
-        var entityCount = 0
-        var entityConfirmedCount = 0
-        var lastEntityQSO: QSO?
-        var lastGrid = ""
-        var matrix: [String: (band: String, mode: String, confirmed: Bool)] = [:]
-        let formatter = ISO8601DateFormatter()
-        let matrixBands: Set<String> = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "2m", "70cm"]
-        let matrixModes: Set<String> = ["CW", "SSB", "FT8", "FT4", "FT2", "RTTY", "PSK", "DIGI", "AM", "FM"]
-        for qso in contacts {
-                if qso.deletedAt != nil { continue }
-                let mode = SpotLogic.normalizedMode(qso.submode.isEmpty ? qso.mode : qso.submode)
-                let qsoAdif: Int? = adif == nil ? nil : (qso.dxcc ?? resolver?.resolve(qso.call, at: qso.start)?.adif)
-                let confirmed = ClusterContact(callsign: qso.call, band: qso.band, mode: mode,
-                                               paperQSL: qso.qslReceived, lotwQSL: qso.lotwReceived).isConfirmed
-                if qso.call.uppercased() == normalizedCall {
-                    previousCount += 1
-                    if confirmed { previousConfirmedCount += 1 }
-                    if lastGrid.isEmpty { lastGrid = qso.gridSquare }
-                    if previous.count < 20 {
-                        previous.append(["id": qso.id.uuidString, "date": formatter.string(from: qso.start),
-                                         "call": qso.call, "band": qso.band, "mode": mode,
-                                         "rstSent": qso.rstSent, "rstReceived": qso.rstReceived,
-                                         "grid": qso.gridSquare, "lotwSent": qso.lotwSent,
-                                         "lotwReceived": qso.lotwReceived, "confirmed": confirmed])
-                    }
-                }
-                if let adif, matrixBands.contains(qso.band), matrixModes.contains(mode),
-                   qsoAdif == adif {
-                    let key = "\(qso.band)|\(mode)"
-                    let existing = matrix[key]
-                    matrix[key] = (qso.band, mode, confirmed || (existing?.confirmed ?? false))
-                }
-                if let adif, qsoAdif == adif {
-                    entityCount += 1
-                    if confirmed { entityConfirmedCount += 1 }
-                    if lastEntityQSO.map({ qso.start > $0.start }) ?? true {
-                        lastEntityQSO = qso
-                    }
-                }
-        }
-        let lastDXCC: Any = lastEntityQSO.map { qso -> Any in
-            ["id": qso.id.uuidString, "date": formatter.string(from: qso.start),
-             "call": qso.call, "band": qso.band,
-             "mode": SpotLogic.normalizedMode(qso.submode.isEmpty ? qso.mode : qso.submode)]
-        } ?? NSNull()
-        return ["call": normalizedCall, "previous_count": previousCount, "previous": previous,
-                "previous_confirmed_count": previousConfirmedCount,
-                "adif": adif as Any? ?? NSNull(),
-                "country": entity?.name ?? "Unknown", "cq_zone": entity?.cqZone as Any? ?? NSNull(),
-                "grid": lastGrid, "dxcc_contact_count": entityCount,
-                "dxcc_confirmed_count": entityConfirmedCount, "last_dxcc_qso": lastDXCC,
-                "matrix": matrix.values.map { ["band": $0.band, "mode": $0.mode,
-                                                  "worked": true, "confirmed": $0.confirmed] as [String: Any] }
-                    .sorted { String(describing: $0["band"] ?? "") < String(describing: $1["band"] ?? "") }]
-    }
 
     /// Keep the full in-memory history while fitting a bounded worker response.
     /// Trim oldest console lines first, then least-recent visible spots if needed.

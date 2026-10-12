@@ -8,7 +8,22 @@ import subprocess
 import sys
 import time
 
-worker, report = sys.argv[1:]
+def validate_responses(responses, recovery=False):
+    # The persistent worker correlates independent requests by ID and may finish
+    # them out of order. Require exact coverage, not scheduler-dependent order.
+    assert len(responses) == 3
+    if recovery:
+        valid = [item for item in responses if item.get('id') == 'recovered']
+        errors = [item for item in responses if item.get('ok') is False]
+        assert len(valid) == 1 and valid[0]['ok'] is True
+        assert len(errors) == 2 and all(item.get('id') == '' for item in errors)
+        assert sorted(item['error']['code'] for item in errors) == ['invalid_request', 'request_too_large']
+    else:
+        assert sorted(item['id'] for item in responses) == ['one', 'three', 'two']
+        assert all(item['ok'] is True for item in responses)
+        by_id = {item['id']: item for item in responses}
+        assert by_id['two']['result']['record_count'] == 1
+        assert by_id['three']['result']['network_contact'] is False
 
 
 def request(identifier, method, params=None):
@@ -45,26 +60,22 @@ def response(child):
     raise AssertionError('Response exceeded 65536 bytes')
 
 
-def exercise(recovery=False):
+def exercise(worker, recovery=False):
     child = subprocess.Popen([worker], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                              stderr=subprocess.PIPE, bufsize=0)
     try:
         if recovery:
             send(child, b'bad JSON\n' + b'x' * 32769 + b'\n' + request('recovered', 'health'))
             responses = [response(child) for _ in range(3)]
-            assert [item['error']['code'] for item in responses[:2]] == ['invalid_request', 'request_too_large']
-            assert responses[2]['id'] == 'recovered' and responses[2]['ok'] is True
         else:
             send(child, request('one', 'health'))
             first = response(child)
+            assert first['id'] == 'one' and first['ok'] is True
             second = request('two', 'parse_adif', {'text': '<CALL:5>TEST1<EOR>'})
             send(child, second[:17])
             send(child, second[17:] + request('three', 'self_test'))
             responses = [first, response(child), response(child)]
-            assert [item['id'] for item in responses] == ['one', 'two', 'three']
-            assert all(item['ok'] is True for item in responses)
-            assert responses[1]['result']['record_count'] == 1
-            assert responses[2]['result']['network_contact'] is False
+        validate_responses(responses, recovery)
         child.stdin.close()
         child.wait(timeout=5)
         assert child.returncode == 0
@@ -76,13 +87,15 @@ def exercise(recovery=False):
         child.wait()
 
 
-self_test = json.loads(subprocess.check_output([worker, '--self-test'], timeout=10))
-assert self_test['ok'] is True and self_test['result']['network_contact'] is False
-local_test = json.loads(subprocess.check_output([worker, '--local-logbook-self-test'], timeout=30))
-assert local_test['ok'] is True and local_test['result']['passed'] is True
-assert local_test['result']['award_programmes'] == 192
-assert local_test['result']['network_contact'] is False and local_test['result']['station_io'] is False
-Path(report).write_text(json.dumps({'schema': 1, 'status': 'passed', 'selfTest': self_test,
-                                   'localLogbookTest': local_test,
-                                   'openPipeAndFragments': exercise(), 'malformedOversizedRecovery': exercise(True),
-                                   'framingTestCount': 2}, indent=2) + '\n')
+if __name__ == '__main__':
+    worker, report = sys.argv[1:]
+    self_test = json.loads(subprocess.check_output([worker, '--self-test'], timeout=10))
+    assert self_test['ok'] is True and self_test['result']['network_contact'] is False
+    local_test = json.loads(subprocess.check_output([worker, '--local-logbook-self-test'], timeout=30))
+    assert local_test['ok'] is True and local_test['result']['passed'] is True
+    assert local_test['result']['award_programmes'] == 192
+    assert local_test['result']['network_contact'] is False and local_test['result']['station_io'] is False
+    Path(report).write_text(json.dumps({'schema': 1, 'status': 'passed', 'selfTest': self_test,
+                                       'localLogbookTest': local_test,
+                                       'openPipeAndFragments': exercise(worker), 'malformedOversizedRecovery': exercise(worker, True),
+                                       'framingTestCount': 2}, indent=2) + '\n')

@@ -75,7 +75,7 @@ public actor LiveWorker {
                 return diagnostics.response(to: data)
             }
             let result: [String: Any]
-            if method.hasPrefix("workspace_") || method.hasPrefix("logbook_") || method.hasPrefix("settings_") || method.hasPrefix("backup_") {
+            if method == "cluster_history" || method.hasPrefix("workspace_") || method.hasPrefix("logbook_") || method.hasPrefix("settings_") || method.hasPrefix("backup_") {
                 result = try await logbookLane.handle(method: method, params: params)
                 #if os(macOS)
                 if !localAcceptance && ["workspace_create", "logbook_save", "logbook_delete", "logbook_undo", "logbook_import_adif", "backup_restore"].contains(method) {

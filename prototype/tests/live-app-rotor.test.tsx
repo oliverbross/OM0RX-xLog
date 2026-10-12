@@ -292,11 +292,15 @@ it("does not retry or redirect an explicit Stop across an owner switch", async (
   render(<LiveApp />);
   await waitFor(() => expect((screen.getByRole("checkbox", { name: "Auto rotor" }) as HTMLInputElement).disabled).toBe(false));
   await openRotorSettings();
+  const stop = await screen.findByRole("button", { name: "Stop rotor" });
   const base = bridge.request.getMockImplementation()!;
   bridge.request.mockImplementation(async (method: string, params: any = {}) => method === "rotor_snapshot"
     ? { result: { owner: "hamlib", generation: 5, state: "active", backend: { fields: { position: { Azimuth: "80" } } } } }
     : base(method, params));
-  fireEvent.click(await screen.findByRole("button", { name: "Stop rotor" }));
+  // Capture the rendered old owner, then switch the preflight response and
+  // click in one turn. Awaiting a selector after switching lets a background
+  // poll legitimately update the button to the new owner on slower runners.
+  fireEvent.click(stop);
   await waitFor(() => expect(screen.getAllByText(/Rotor owner changed/).length).toBeGreaterThan(0));
   expect(bridge.request.mock.calls.some(([method]) => method === "rotor_stop")).toBe(false);
 });
