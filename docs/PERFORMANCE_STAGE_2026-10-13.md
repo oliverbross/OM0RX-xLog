@@ -1,7 +1,8 @@
 # Performance stage — 13 October 2026
 
 This is backend measurement evidence, not a claim of instant UI or complete
-performance acceptance. Installed alpha.6 does **not** contain these changes.
+performance acceptance. Alpha.7 includes the award/statistics/history changes
+below. The later cluster projection cache is source-only until the next package.
 
 ## Changes
 
@@ -64,3 +65,39 @@ Packaged cold/warm median/p95, input-to-paint latency, empty-cache first visit,
 post-import/sync recalculation, QRZ latency separation, detached-window behavior,
 concurrent-writer stress, low-memory behavior and Windows/Linux acceptance remain.
 Next delivery must package the source before claiming these gains in the app.
+
+## Cluster projection cache follow-up
+
+The exact eight-field cluster contact projection now uses the existing persisted
+aggregate store, fenced by the QSO revision and a `cluster-contacts-v1` schema key.
+It preserves raw QSL evidence, submode, fractional dates and JSON-authoritative
+values rather than substituting possibly divergent scalar search columns.
+External insert/update/delete and soft-delete changes invalidate it through the
+existing revision triggers; damaged payloads recompute. Publication still checks
+the revision atomically, so a concurrent contact write cannot publish an obsolete
+cache as current. No new production index, table or generated column was added.
+
+On the same isolated 67,846-contact database, first projection plus cache write
+took 1.628 seconds; a new connection reloaded identical rows in 147.6 ms. Seven
+additional fresh connections in the full optimized test run measured a 145.3 ms
+median and 155.1 ms nearest-rank p95. This is a small exploratory sample with warm
+OS file caches, not physical cold-disk or packaged UI latency. The stored payload
+is 7,371,463 bytes. Full QSO decode remained about 3.3 seconds; first post-contact-
+change projection still requires a scan and is not an instant-performance claim.
+
+The new core regression checks persisted reuse without rewriting, fractional
+dates, raw confirmations, divergent scalar columns, raw external edits,
+soft-delete/restore, malformed cache and hard-delete invalidation. Full native
+core: 73 tests passed. Mac portable-worker: 138 XCTest cases plus 40 Swift Testing
+cases passed, including exact equality with full decode and all seven reloads.
+
+An expression-index and generated-column experiment on the temporary fixture
+still read full JSON blobs in the actual macOS SQLite query plan. Those temporary
+objects were removed; neither experiment reached source or the live database.
+SQLite's [query-plan documentation](https://sqlite.org/eqp.html) and
+[expression-index rules](https://www.sqlite.org/expridx.html) informed that check;
+the observed bytecode, not the index name, determined rejection.
+
+Installed alpha.7 remains unchanged by this follow-up. Further work includes
+first post-mutation scans, repeated classifier construction, exact worker/paint
+timings and all broader performance gates above.

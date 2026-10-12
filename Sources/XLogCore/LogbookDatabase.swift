@@ -34,7 +34,7 @@ public struct OpportunityReferenceHistory: Codable, Equatable, Sendable {
 /// Exact contact inputs needed by xCluster classification, without decoding
 /// the rest of each full QSO record. Confirmation remains the consumer's rule:
 /// raw QSL strings are intentionally not collapsed into a Boolean here.
-public struct ClusterContactRow: Equatable, Sendable {
+public struct ClusterContactRow: Codable, Equatable, Sendable {
     public let call: String
     public let band: String
     public let mode: String
@@ -234,6 +234,12 @@ public final class LogbookDatabase: @unchecked Sendable {
         try lock.withLock {
             try refreshAggregateCacheVersion()
             if let cachedClusterContactRows { return cachedClusterContactRows }
+            let cacheKey = "cluster-contacts-v1"
+            if let value: [ClusterContactRow] = try persistedAggregate(cacheKey) {
+                cachedClusterContactRows = value
+                return value
+            }
+            let revision = try qsoRevision()
             let rows = try withStatement("""
                 SELECT json_extract(record_json,'$.call'),
                     json_extract(record_json,'$.band'),
@@ -280,6 +286,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                 return values
             }
             cachedClusterContactRows = rows
+            persistAggregate(rows, key: cacheKey, revision: revision)
             return rows
         }
     }

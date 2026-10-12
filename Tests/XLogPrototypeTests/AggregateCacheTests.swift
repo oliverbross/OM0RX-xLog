@@ -141,6 +141,18 @@ struct AggregateCacheTests {
         let reopenedCatalog = try elapsed { restartedCatalog = try restarted.awardCatalog() }
         let reopenedProgress = try elapsed { restartedProgress = try restarted.awardProgress() }
         let reopenedStats = try elapsed { restartedStats = try restarted.stats() }
+        var restartedContacts: [ClusterContactRow] = []
+        let reopenedContacts = try elapsed { restartedContacts = try restarted.clusterContactRows() }
+        #expect(restartedContacts == projectedContacts)
+        var contactReloadSamples: [Double] = []
+        for _ in 0..<7 {
+            let connection = try LogbookDatabase(url: URL(fileURLWithPath: path))
+            var sample: [ClusterContactRow] = []
+            contactReloadSamples.append(try elapsed { sample = try connection.clusterContactRows() })
+            #expect(sample == projectedContacts)
+            connection.close()
+        }
+        contactReloadSamples.sort()
         #expect(restartedCatalog == fullCatalog)
         #expect(try restartedProgress == db.awardProgress())
         #expect(try restartedStats == db.stats())
@@ -150,7 +162,9 @@ struct AggregateCacheTests {
               "progress_cached_s=\(warmProgress) stats_cold_s=\(coldStats) stats_cached_s=\(warmStats) " +
               "cluster_projection_s=\(projectedContactsTime) full_decode_s=\(fullHistory) " +
               "history_candidates_s=\(indexedHistory) " +
-              "catalog_reopened_s=\(reopenedCatalog) progress_reopened_s=\(reopenedProgress) stats_reopened_s=\(reopenedStats)")
+              "catalog_reopened_s=\(reopenedCatalog) progress_reopened_s=\(reopenedProgress) stats_reopened_s=\(reopenedStats) " +
+              "cluster_reopened_s=\(reopenedContacts) " +
+              "cluster_reload_median_s=\(contactReloadSamples[3]) cluster_reload_p95_s=\(contactReloadSamples[6]) samples=7")
     }
 
     @Test("Awards, catalogue, map and stats follow local, sync and external QSO writes")

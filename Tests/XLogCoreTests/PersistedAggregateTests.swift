@@ -101,4 +101,39 @@ struct PersistedAggregateTests {
         #expect(try upgraded.awardCatalog() == catalog)
         #expect(try sql(url, "SELECT COUNT(*) FROM xlog_aggregate_cache WHERE cache_key NOT LIKE '%-obsolete';") == 2)
     }
+
+    @Test("Cluster rows persist exact raw fields and follow raw external mutations")
+    func clusterProjection() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let url = root.appendingPathComponent("log.sqlite")
+        let db = try LogbookDatabase(url: url)
+        try db.save(QSO(call: "K1ABC", start: Date(timeIntervalSince1970: 1_700_000_000.125),
+                        band: "20m", mode: "DATA", submode: "FT8", dxcc: 291,
+                        qslReceived: "YES", lotwReceived: "X"))
+        // JSON is authoritative even when an external writer leaves scalar
+        // search columns divergent. Keep raw QSL evidence, not a Boolean.
+        _ = try sql(url, "UPDATE qsos SET call = 'INDEX-ONLY', band = '40m', mode = 'CW';")
+        let rows = try db.clusterContactRows()
+        #expect(rows.count == 1)
+        #expect(rows[0].call == "K1ABC" && rows[0].band == "20m" && rows[0].mode == "FT8")
+        #expect(rows[0].qslReceived == "YES" && rows[0].lotwReceived == "X")
+        #expect(rows[0].start == Date(timeIntervalSince1970: 1_700_000_000.125))
+        let cacheRow = try sql(url, "SELECT rowid FROM xlog_aggregate_cache WHERE cache_key = 'cluster-contacts-v1';")
+        let reopened = try LogbookDatabase(url: url)
+        #expect(try reopened.clusterContactRows() == rows)
+        #expect(try sql(url, "SELECT rowid FROM xlog_aggregate_cache WHERE cache_key = 'cluster-contacts-v1';") == cacheRow)
+
+        _ = try sql(url, "UPDATE qsos SET record_json = json_set(record_json, '$.qslReceived', 'Y', '$.submode', 'FT4');")
+        #expect(try db.clusterContactRows().first?.qslReceived == "Y")
+        #expect(try reopened.clusterContactRows().first?.mode == "FT4")
+        _ = try sql(url, "UPDATE qsos SET deleted_at = 1;")
+        #expect(try db.clusterContactRows().isEmpty)
+        _ = try sql(url, "UPDATE qsos SET deleted_at = NULL;")
+        #expect(try db.clusterContactRows().count == 1)
+        _ = try sql(url, "UPDATE xlog_aggregate_cache SET payload = X'7B7D' WHERE cache_key = 'cluster-contacts-v1';")
+        #expect(try db.clusterContactRows().first?.mode == "FT4")
+        _ = try sql(url, "DELETE FROM qsos;")
+        #expect(try reopened.clusterContactRows().isEmpty)
+    }
 }

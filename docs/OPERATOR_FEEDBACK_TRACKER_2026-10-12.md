@@ -8,8 +8,8 @@ packaged UI result. Keep unresolved items here across releases.
 ## Current delivery boundary
 
 - Working tree: shared cross-platform xLog; Mac-first delivery.
-- Currently installed: Integration alpha.6, source `248525a6e0570aaf8344870843fed8df0ccaf76d` (bundle metadata checked).
-- Alpha.6 is installed; individual runtime checks and remaining gates are recorded below.
+- Currently installed: Integration alpha.7, source `7ae632b8019adb857807d484b5a8f7f8edbceba0` (bundle metadata checked).
+- Individual runtime checks and remaining gates are recorded below and in the alpha.7 acceptance report.
 - Restart of Integration was explicitly approved once the build passes.
 - Preserve the latest operator draft, all logbooks/settings/credentials, and
   `/Applications/OM0RX-xLog.app` (the original native app).
@@ -57,11 +57,17 @@ packaged UI result. Keep unresolved items here across releases.
 ## Checklist
 
 Performance follow-up after alpha.6: persisted revision-fenced award/stat/map
-caches and indexed history UNION are implemented and tested, but not installed.
+caches and indexed history UNION are implemented, tested and installed in alpha.7.
 Optimized isolated 67,846-contact catalogue reopen measured 22–52 ms, versus
 1.88 seconds for its initial calculation; first post-change calculation remains
 open. See [performance evidence](PERFORMANCE_STAGE_2026-10-13.md). This does not
 close PERF-01's packaged UI, cold-start or median/p95 acceptance requirements.
+
+Later source-only cluster projection cache: full data equality, 73 core tests and
+138 XCTest + 40 Swift Testing worker tests pass. Seven isolated fresh-connection
+reloads measured 145 ms median / 155 ms p95, versus 1.63 seconds for first scan and
+cache write. This is backend evidence with warm OS caches, not packaged UI timing;
+first post-mutation work remains open. No installed app or live-log changes.
 
 | ID | Requested result / acceptance | Source and test state | Installed / live verification |
 | --- | --- | --- | --- |
