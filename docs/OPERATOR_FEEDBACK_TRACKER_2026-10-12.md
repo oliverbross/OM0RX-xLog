@@ -78,6 +78,15 @@ substituted by CTY. Shutdown cancellation, changed-grid rejection, retained stal
 propagation and concurrent request coalescing have fixture coverage. This source
 stage has not replaced installed alpha.9. See `PUBLIC_SERVICES_STAGE_2026-10-13.md`.
 
+### Windows cluster credential follow-up
+
+The source now wires Windows Credential Manager into the cluster vault using an
+exact namespaced service/account adapter, bounded UTF-8 blobs and no plaintext
+fallback. Mac Keychain is unchanged. Local validation tests do not prove the
+Windows API branch; a dedicated CI-only random-identity round trip is required.
+Linux vault support and authenticated portable services remain open. See
+`WINDOWS_VAULT_STAGE_2026-10-13.md`.
+
 ### Cross-platform local logbook work after alpha.7
 
 The non-macOS worker previously rejected all workspace/logbook requests with

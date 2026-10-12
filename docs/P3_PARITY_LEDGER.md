@@ -25,6 +25,9 @@ adds portable live cluster sockets and worker routing. Initial transport source
 the DNS follow-up at `6e7ea39` has a separate matrix in progress. See
 [`PORTABLE_CLUSTER_STAGE_2026-10-13.md`](PORTABLE_CLUSTER_STAGE_2026-10-13.md).
 Authenticated services, portable vaults and live OS acceptance remain incomplete.
+Windows cluster credential storage now has a native adapter and an opt-in CI
+fixture; exact Windows acceptance is pending, and Linux vaults remain open. See
+[`WINDOWS_VAULT_STAGE_2026-10-13.md`](WINDOWS_VAULT_STAGE_2026-10-13.md).
 The public conditions/offline callsign follow-up now shares native parsers and
 workspace-owned routing on all platforms; exact portable acceptance is pending.
 See [`PUBLIC_SERVICES_STAGE_2026-10-13.md`](PUBLIC_SERVICES_STAGE_2026-10-13.md).

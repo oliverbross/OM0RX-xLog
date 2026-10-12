@@ -105,6 +105,8 @@ jobs:
         shell: pwsh
         env:
           XLOG_PORTABLE_ONLY: '1'
+          # Random fixture identities only, removed by the test's exact cleanup.
+          XLOG_TEST_NATIVE_VAULT: '1'
         run: |
           swift test --scratch-path .build/prototype-tests -Xcc "-I$env:XLOG_SQLITE_PREFIX/include" -Xlinker "/LIBPATH:$env:XLOG_SQLITE_PREFIX/lib"
           exit $LASTEXITCODE

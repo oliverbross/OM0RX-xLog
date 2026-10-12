@@ -38,6 +38,11 @@ storage is not implemented yet: saves/removals fail explicitly, the UI disables
 password entry and no plaintext fallback exists. Callsign-only servers can connect.
 Portable credential storage remains a required parity gate, not a removed feature.
 
+Later source follow-up: Windows now has a Credential Manager adapter wired into
+this path, awaiting its exact-source native CI fixture. The unsupported paragraph
+above describes the initial transport stage; Linux remains unsupported. See
+[`WINDOWS_VAULT_STAGE_2026-10-13.md`](WINDOWS_VAULT_STAGE_2026-10-13.md).
+
 FLEX spot forwarding still requires the Mac direct-agent path. Unsupported hosts
 show that limitation and reject enabling it. A configuration transferred from
 macOS remains readable and permits explicitly turning forwarding off before Save.

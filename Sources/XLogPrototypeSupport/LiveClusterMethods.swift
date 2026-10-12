@@ -375,6 +375,11 @@ struct ClusterCredentialVault: ClusterCredentialStoring {
             throw WorkerFailure("credential_failed", "Could not save the cluster password in Keychain.")
         }
     }
+    #elseif os(Windows)
+    var available: Bool { NativeCredentialStore.supported }
+    private let store = NativeCredentialStore(service: "com.oliverbross.xlog.integration.cluster")
+    func load(_ id: UUID) throws -> String? { try store.load(id.uuidString) }
+    func save(_ password: String, serverID: UUID) throws { try store.save(password, account: serverID.uuidString) }
     #else
     var available: Bool { false }
     func load(_ id: UUID) throws -> String? { nil }

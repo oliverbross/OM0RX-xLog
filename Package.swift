@@ -59,9 +59,10 @@ let package = portableOnly ? Package(
     targets: prototypeCoreTargets + [
         .systemLibrary(name: "CSQLitePrototype", pkgConfig: sqlitePkgConfig, providers: [.apt(["libsqlite3-dev"])]),
         .target(name: "CClusterSocket", linkerSettings: [.linkedLibrary("ws2_32", .when(platforms: [.windows]))]),
+        .target(name: "CPlatformVault", linkerSettings: [.linkedLibrary("Advapi32", .when(platforms: [.windows]))]),
         .target(name: "XClusterIntegrationCore", dependencies: ["CClusterSocket"]),
         .target(name: "XStationIntegrationCore"),
-        .target(name: "XLogPrototypeSupport", dependencies: [.byName(name: liveCoreName), "CSQLitePrototype", "XClusterIntegrationCore", "XStationIntegrationCore"] + portableCrypto + liveIntegrationDependencies),
+        .target(name: "XLogPrototypeSupport", dependencies: [.byName(name: liveCoreName), "CSQLitePrototype", "CPlatformVault", "XClusterIntegrationCore", "XStationIntegrationCore"] + portableCrypto + liveIntegrationDependencies),
         .executableTarget(name: "XLogPrototypeWorker", dependencies: ["XLogPrototypeSupport"]),
         .testTarget(name: "XLogPrototypeTests", dependencies: ["XLogPrototypeSupport", "XClusterIntegrationCore", .byName(name: liveCoreName)], exclude: ["worker-process.test.mjs"]),
         .target(name: "CClusterSocketTestSupport", dependencies: ["CClusterSocket"], path: "Tests/CClusterSocketTestSupport"),
