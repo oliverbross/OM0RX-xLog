@@ -20,6 +20,30 @@ Native `Sources/XLogApp/ContentView.swift:187–220` renders **Station log** wit
 
 ## Parity rows, ordered by operational impact
 
+### Operator-requested detachable workspaces — 2026-10-12
+
+**Required; acceptance pending.** DX Cluster, World Map and Band Maps must each
+offer an obvious **Undock** action and a **Dock back** action. Reuse existing
+detached-window support where present; do not create separate applications or
+duplicate cluster connections, radio sessions, logbook writers or command owners.
+
+- Each workspace opens in a normal, independently movable and resizable window,
+  including on another display; it is not forced always-on-top.
+- Preserve the same live data, filters, colours, selected spot and functional
+  controls between docked and detached presentations. A user action dispatches
+  once, with the same authoritative observed-state completion requirements.
+- Remember each window's position and size, restoring it within a visible display
+  after monitor changes. Repeated Undock focuses the existing window rather than
+  creating duplicates.
+- Dock back and closing the detached window preserve workspace state and make
+  the workspace accessible again from the main app. Neither action disconnects
+  shared station/cluster services or loses the active QSO draft.
+- Verify detach, move, resize, close, redock, reopen and app restart for all three
+  workspaces on the packaged Mac build; retain Windows/Linux acceptance gates.
+
+Related rows: P3-01, P3-09, P3-10 and P3-11. Existing detached-window code alone
+does not close these requirements without packaged behavior checks.
+
 | ID / plan link | Native evidence and shared state at inspection | Completion test |
 | --- | --- | --- |
 | P3-01 · PAR-01 | **Partial.** Native compact desk and distinct full editor are in `PropagationViews.swift:85–200` and `LogQSOView.swift:1–160`; shared desk uses the tabbed `QSOEditor` in `LiveApp.tsx:192–213` and has no distinct Log QSO route. Native sidebar structure is above. | At fixed minimum/standard sizes, compare desk, full editor, sidebar, live controls and field/tab order against native screenshots; keyboard-only traverse and perform ⌘L, ⇧⌘R, ⇧⌘S, ⌘Return, Escape with documented focus and no duplicate save. |
