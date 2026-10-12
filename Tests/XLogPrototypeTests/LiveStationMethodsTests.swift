@@ -3,6 +3,17 @@ import XCTest
 @testable import XLogPrototypeSupport
 
 final class LiveStationMethodsTests: XCTestCase {
+    func testJSONBooleanCannotBecomeANumericPort() throws {
+        for literal in ["true", "false"] {
+            let params = try XCTUnwrap(JSONSerialization.jsonObject(
+                with: Data("{\"port\":\(literal)}".utf8)) as? [String: Any])
+            XCTAssertThrowsError(try LiveStationMethods.Endpoint(params, allowed: []))
+        }
+        let params = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: Data("{\"port\":14532}".utf8)) as? [String: Any])
+        XCTAssertEqual(try LiveStationMethods.Endpoint(params, allowed: []).port, 14_532)
+    }
+
     func testEndpointIsBoundedToLoopback() throws {
         let defaults = try LiveStationMethods.Endpoint([:], allowed: [])
         XCTAssertEqual(defaults.host, "127.0.0.1")

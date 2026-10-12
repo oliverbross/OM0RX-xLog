@@ -47,6 +47,13 @@ explicit Node types dependency. The existing packaged UI harness still targets
 the earlier synthetic screen, not `LiveApp`; its acceptance must be updated
 before current shared-UI parity can be claimed.
 
+Second matrix run `38281076782` at `04ecbc4` advanced both portable builds to
+the station bridge, where Linux and Windows found a missing `CoreFoundation`
+import for strict Boolean-versus-number validation. The explicit import fixes
+that compilation dependency without weakening validation. A JSON-decoded port
+regression covers both Boolean values and a valid numeric port; all nine station
+bridge tests pass locally on Mac. Native CI confirmation is still required.
+
 ### Latest alpha.7 checkpoint (CW integration, 13 October)
 
 - CW settings, native persistence, optional desk row and guarded radio/WinKeyer

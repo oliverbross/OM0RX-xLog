@@ -1,4 +1,5 @@
 import Foundation
+import CoreFoundation
 #if os(macOS)
 import XCatIntegrationCore
 import XLogCore
