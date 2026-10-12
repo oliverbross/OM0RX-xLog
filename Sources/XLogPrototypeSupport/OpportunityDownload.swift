@@ -7,6 +7,9 @@ import FoundationNetworking
 /// transport on every OS rather than buffering an unbounded body on portable OSes.
 final class OpportunityDownload: NSObject, URLSessionDataDelegate, @unchecked Sendable {
     static let maximumBytes = 2_097_152
+    enum Format: Sendable { case json, xml }
+    private let format: Format
+    private let byteLimit: Int
     private let lock = NSLock()
     private let request: URLRequest
     private let configuration: URLSessionConfiguration
@@ -17,17 +20,20 @@ final class OpportunityDownload: NSObject, URLSessionDataDelegate, @unchecked Se
     private var responseAccepted = false
     private var body = Data()
 
-    init(request: URLRequest, configuration: URLSessionConfiguration) {
+    init(request: URLRequest, configuration: URLSessionConfiguration, format: Format = .json, byteLimit: Int = maximumBytes) {
         self.request = request
         self.configuration = configuration
+        self.format = format
+        self.byteLimit = max(1, min(Self.maximumBytes, byteLimit))
     }
 
-    static func fetch(_ request: URLRequest, configuration: URLSessionConfiguration) async throws -> Data {
+    static func fetch(_ request: URLRequest, configuration: URLSessionConfiguration, format: Format = .json,
+                      byteLimit: Int = maximumBytes) async throws -> Data {
         guard request.url?.scheme == "https", request.url?.user == nil,
               request.url?.password == nil, request.httpMethod == "GET" else {
             throw WorkerFailure("invalid_feed", "Public feeds require an HTTPS GET request.")
         }
-        let transfer = OpportunityDownload(request: request, configuration: configuration)
+        let transfer = OpportunityDownload(request: request, configuration: configuration, format: format, byteLimit: byteLimit)
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { transfer.start($0) }
         } onCancel: {
@@ -63,9 +69,8 @@ final class OpportunityDownload: NSObject, URLSessionDataDelegate, @unchecked Se
         guard let http = response as? HTTPURLResponse, http.statusCode == 200,
               http.url?.scheme == "https", http.url?.host == request.url?.host,
               let mime = http.mimeType?.lowercased(),
-              mime == "application/json" || mime == "text/json" ||
-                (mime.hasPrefix("application/") && mime.hasSuffix("+json")),
-              http.expectedContentLength <= Int64(Self.maximumBytes) else {
+              accepts(mime),
+              http.expectedContentLength <= Int64(byteLimit) else {
             completionHandler(.cancel)
             finish(.failure(WorkerFailure("invalid_feed", "Public feed response was invalid.")))
             return
@@ -77,11 +82,20 @@ final class OpportunityDownload: NSObject, URLSessionDataDelegate, @unchecked Se
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
         let overflow = lock.withLock {
             guard !finished else { return false }
-            guard data.count <= Self.maximumBytes - body.count else { return true }
+            guard data.count <= byteLimit - body.count else { return true }
             body.append(data)
             return false
         }
         if overflow { finish(.failure(WorkerFailure("feed_too_large", "Public feed exceeded the download limit."))) }
+    }
+
+    private func accepts(_ mime: String) -> Bool {
+        switch format {
+        case .json: return mime == "application/json" || mime == "text/json" ||
+            (mime.hasPrefix("application/") && mime.hasSuffix("+json"))
+        case .xml: return mime == "application/xml" || mime == "text/xml" ||
+            (mime.hasPrefix("application/") && mime.hasSuffix("+xml"))
+        }
     }
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {

@@ -68,6 +68,16 @@ before OS resolution returns, and rejects late answers; six additional tests and
 AddressSanitizer pass on Mac. Exact follow-up OS acceptance remains open. The
 installed alpha.9 has not been replaced. See `PORTABLE_CLUSTER_STAGE_2026-10-13.md`.
 
+### Shared public services follow-up
+
+Weather and propagation now route through one workspace-owned shared service,
+using the native parsers and bounded credential-free HTTP downloads. Portable
+callsign lookup resolves offline CTY and geometry instead of rejecting the whole
+operation. QRZ authentication and portable secure stores remain open, not silently
+substituted by CTY. Shutdown cancellation, changed-grid rejection, retained stale
+propagation and concurrent request coalescing have fixture coverage. This source
+stage has not replaced installed alpha.9. See `PUBLIC_SERVICES_STAGE_2026-10-13.md`.
+
 ### Cross-platform local logbook work after alpha.7
 
 The non-macOS worker previously rejected all workspace/logbook requests with

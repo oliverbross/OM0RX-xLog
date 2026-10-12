@@ -2,6 +2,12 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+#if canImport(FoundationXML)
+import FoundationXML
+#endif
 
 public enum PropagationRating: String, Equatable, Sendable {
     case good

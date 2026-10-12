@@ -11,9 +11,6 @@ actor LiveServiceMethods {
     private let logbook: LiveLogbookMethods
     private var syncTask: Task<Void, Never>?
     private var syncState: [String: Any] = ["running": false, "status": "Not started"]
-    private var propagationTask: Task<Void, Never>?
-    private var propagationLastAttempt: Date?
-    private var propagationState: [String: Any] = ["status": "Not loaded", "source": "N0NBH / HamQSL"]
     private var qrzClient: QRZClient?
     private var qrzCredentialDigest: Data?
 
@@ -21,18 +18,6 @@ actor LiveServiceMethods {
 
     func handle(method: String, params: [String: Any]) async throws -> [String: Any] {
         switch method {
-        case "propagation_snapshot":
-            guard params.isEmpty else { throw invalid() }
-            if propagationTask == nil && Date().timeIntervalSince(propagationLastAttempt ?? .distantPast) >= 600 {
-                propagationLastAttempt = Date()
-                propagationTask = Task { [weak self] in
-                    do {
-                        let value = try await PropagationConditionsClient().fetch()
-                        await self?.recordPropagation(value)
-                    } catch { await self?.propagationFailed() }
-                }
-            }
-            return propagationState
         case "secret_save":
             let secrets = try workspaceSecrets()
             guard Set(params.keys) == ["account", "value"], let name = params["account"] as? String,
@@ -50,19 +35,10 @@ actor LiveServiceMethods {
             }
             return values
         case "lookup_call":
-            guard Set(params.keys) == ["call"], let raw = params["call"] as? String,
-                  (1...32).contains(raw.utf8.count), raw.utf8.allSatisfy({ (65...90).contains($0) || (97...122).contains($0) || (48...57).contains($0) || $0 == 47 }) else { throw invalid() }
-            let call = raw.uppercased()
+            let call = try LocalCallsignProfile.validatedCall(params)
             let settings = try logbook.currentSettings()
             let secrets = try workspaceSecrets()
-            var profile: [String: Any] = ["call": call, "source": "No match"]
-            if let country = try logbook.currentCTYResolver().resolve(call) {
-                profile.merge(["country": country.name, "dxcc": country.adif,
-                               "continent": country.continent, "cqZone": String(country.cqZone),
-                               "ituZone": String(country.ituZone), "source": "CTY approximate",
-                               "latitude": country.latitude as Any? ?? NSNull(),
-                               "longitude": country.longitude as Any? ?? NSNull()]) { _, new in new }
-            }
+            var profile = try LocalCallsignProfile.base(call, logbook: logbook)
             if settings.qrzEnabled, let password = try secrets.load(.qrzPassword), !password.isEmpty {
                 let client = try cachedQRZClient(username: settings.qrzUsername, password: password)
                 profile = await CallsignEnrichment.resolve(base: profile) {
@@ -79,25 +55,8 @@ actor LiveServiceMethods {
                 qrzClient = nil
                 qrzCredentialDigest = nil
             }
-            if let origin = MaidenheadLocator.coordinate(settings.gridSquare),
-               let lat = profile["latitude"] as? Double, let lon = profile["longitude"] as? Double {
-                let solution = GreatCircle.solve(from: .init(latitude: origin.latitude, longitude: origin.longitude),
-                                                to: .init(latitude: lat, longitude: lon))
-                profile["bearing"] = solution.shortPathBearing
-                profile["long_path_bearing"] = solution.longPathBearing
-                profile["distance_km"] = solution.distanceKilometres
-            }
+            LocalCallsignProfile.addGeometry(to: &profile, grid: settings.gridSquare)
             return profile
-        case "weather":
-            guard params.isEmpty else { throw invalid() }
-            let settings = try logbook.currentSettings()
-            guard let position = MaidenheadLocator.coordinate(settings.gridSquare) else {
-                throw WorkerFailure("grid_required", "Configure the station grid before requesting weather.")
-            }
-            let value = try await WeatherClient.fetch(latitude: position.latitude, longitude: position.longitude)
-            return ["temperature_c": value.temperatureC, "wind_kmh": value.windSpeedKMH,
-                    "condition": value.condition.description, "observed_at": value.observedAt.timeIntervalSince1970,
-                    "source": "Open-Meteo"]
         case "sync_status":
             guard params.isEmpty else { throw invalid() }
             let database = try logbook.openedDatabase()
@@ -201,21 +160,6 @@ actor LiveServiceMethods {
     private func conflictRevision(_ conflict: SyncConflict) throws -> String {
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
         return SHA256.hash(data: try encoder.encode(conflict)).map { String(format: "%02x", $0) }.joined()
-    }
-
-    private func recordPropagation(_ value: PropagationConditionsSnapshot) {
-        propagationState = ["status": "Current", "source": "N0NBH / HamQSL", "stale": false,
-            "updated_at": value.updatedAt?.timeIntervalSince1970 as Any? ?? NSNull(),
-            "received_at": Date().timeIntervalSince1970,
-            "solar_flux": value.solarFlux as Any? ?? NSNull(), "a_index": value.aIndex as Any? ?? NSNull(),
-            "k_index": value.kIndex as Any? ?? NSNull(), "x_ray": value.xRay,
-            "bands": value.displayBands.map { ["name": $0.name, "day": $0.day.rawValue, "night": $0.night.rawValue] }]
-        propagationTask = nil
-    }
-    private func propagationFailed() {
-        propagationState["status"] = "Refresh unavailable · retaining last observation"
-        propagationState["stale"] = true
-        propagationTask = nil
     }
 
     private func finish(_ state: [String: Any]) {

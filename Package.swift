@@ -26,18 +26,27 @@ let portableDependencies: [Package.Dependency] = [
 let portableCrypto: [Target.Dependency] = [.product(name: "Crypto", package: "swift-crypto")]
 let sqlitePkgConfig: String? = "sqlite3"
 let liveCoreName = "XLogPortableCore"
-let liveIntegrationDependencies: [Target.Dependency] = []
+let liveIntegrationDependencies: [Target.Dependency] = ["XCatIntegrationCore"]
 let prototypeCoreTargets: [Target] = [
+    // Public propagation reuses the native parser; radio/network owners remain
+    // excluded until their separate portable implementation is accepted.
+    .target(name: "XCatIntegrationCore", exclude: [
+        "Models.swift", "DXSpot.swift", "SmartLinkRadioClient.swift", "CATCommandProcessor.swift", "SimulatedRadio.swift",
+        "RemoteStationConfiguration.swift", "FlexRadioClient.swift", "Rotator.swift",
+        "RigCtlCommandProcessor.swift", "RemoteAgentModels.swift", "RemoteAgentClient.swift",
+        "TCPCommandServer.swift", "LegacyXCATClient.swift", "SmartLinkBroker.swift",
+        "SmartLinkAuth.swift", "RemoteAgentAuth.swift"
+    ], sources: ["XCatError.swift", "PropagationConditions.swift"]),
     .target(name: "XLogPortableCore", dependencies: portableCrypto + ["CSQLitePrototype"], path: "Sources/XLogCore",
         exclude: ["DXCCBoundaries.swift", "FlexSpotForwarder.swift",
                   "QRZClient.swift", "ReferenceDataUpdater.swift", "SecretStore.swift",
-                  "Solar.swift", "SyncEngine.swift", "TransmitPowerCapture.swift", "WeatherClient.swift", "XCatClient.swift"],
+                  "Solar.swift", "SyncEngine.swift", "TransmitPowerCapture.swift", "XCatClient.swift"],
         sources: ["ADIF.swift", "Models.swift", "QSOADIF.swift", "SemanticQSOIdentity.swift", "WavelogClient.swift",
                   "LogbookDatabase.swift", "IntegrationWorkspace.swift", "Settings.swift", "CWProfile.swift",
                   "BackupManager.swift", "LocalFilePermissions.swift", "LocalFilePath.swift", "CTYResolver.swift", "Geo.swift",
                   "OperatingSupport.swift", "OperatorIntelligence.swift", "AwardCatalog.swift",
                   "AwardRegistry.swift", "AwardReferences.swift", "ClusterSpotFeed.swift",
-                  "ActivationReferenceDirectory.swift", "OpportunityFeeds.swift"],
+                  "ActivationReferenceDirectory.swift", "OpportunityFeeds.swift", "WeatherClient.swift"],
         resources: [.process("Resources")])
 ]
 #endif

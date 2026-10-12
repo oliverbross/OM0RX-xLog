@@ -41,6 +41,20 @@ struct OpportunityDownloadTests {
         }
     }
 
+    @Test("Public conditions opt into XML and a smaller streaming limit without weakening JSON feeds")
+    func conditionLimits() async throws {
+        let xml = try await OpportunityDownload.fetch(request("xml"), configuration: configuration(), format: .xml, byteLimit: 32)
+        #expect(xml == Data("<solar/>".utf8))
+        for (path, format, limit) in [("xml", OpportunityDownload.Format.json, 32),
+                                     ("valid", .xml, 32), ("valid", .json, 5),
+                                     ("unknown-length", .json, 5), ("xml", .xml, 4)] {
+            do {
+                _ = try await OpportunityDownload.fetch(request(path), configuration: configuration(), format: format, byteLimit: limit)
+                Issue.record("Invalid type or oversized conditions body was accepted")
+            } catch { }
+        }
+    }
+
     @Test("Cancellation before and during transfer completes without waiting for a body")
     func cancellation() async {
         let before = Task {
@@ -85,7 +99,7 @@ private final class OpportunityHTTPFixture: URLProtocol, @unchecked Sendable {
     override func startLoading() {
         guard let url = request.url else { return }
         let kind = url.lastPathComponent
-        var headers = ["Content-Type": kind == "html" ? "text/html" :
+        var headers = ["Content-Type": kind == "xml" ? "text/xml" : kind == "html" ? "text/html" :
                        kind == "vendor-json" ? "application/feed+json" : "application/json"]
         if kind == "large-header" { headers["Content-Length"] = String(OpportunityDownload.maximumBytes + 1) }
         if kind == "valid" { headers["Content-Length"] = "13" }
@@ -95,7 +109,9 @@ private final class OpportunityHTTPFixture: URLProtocol, @unchecked Sendable {
                                        httpVersion: "HTTP/1.1", headerFields: headers)!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         if kind == "hang" { return }
-        if kind == "overflow" {
+        if kind == "xml" {
+            client?.urlProtocol(self, didLoad: Data("<solar/>".utf8))
+        } else if kind == "overflow" {
             client?.urlProtocol(self, didLoad: Data(repeating: 32, count: OpportunityDownload.maximumBytes))
             client?.urlProtocol(self, didLoad: Data([32]))
         } else {

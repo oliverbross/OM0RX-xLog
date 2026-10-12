@@ -19,9 +19,12 @@ public actor LiveWorker {
     private let logbookLane: LogbookLane
     private let opportunities: LiveOpportunitiesMethods
     private let cluster: LiveClusterMethods
+    private let publicServices: LivePublicServiceMethods
     private let localAcceptance: Bool
-    init(logbook: LiveLogbookMethods = .shared, localAcceptance: Bool = false, cluster: LiveClusterMethods? = nil) {
+    init(logbook: LiveLogbookMethods = .shared, localAcceptance: Bool = false, cluster: LiveClusterMethods? = nil,
+         publicServices: LivePublicServiceMethods? = nil) {
         logbookLane = LogbookLane(service: logbook)
+        self.publicServices = publicServices ?? LivePublicServiceMethods(logbook: logbook)
         let cluster = cluster ?? (logbook === LiveLogbookMethods.shared ? .shared : LiveClusterMethods(logbook: logbook))
         self.cluster = cluster
         opportunities = LiveOpportunitiesMethods(logbook: logbook, clusterSpots: { await cluster.currentSpotRowsIfStarted() })
@@ -34,6 +37,7 @@ public actor LiveWorker {
 
     public func shutdown() async {
         beginTerminalShutdown()
+        await publicServices.terminate()
         if localAcceptance { return }
         #if os(macOS)
         await LiveSpotBridge.shared.stopForShutdown()
@@ -62,7 +66,7 @@ public actor LiveWorker {
                 }
                 try LocalAcceptanceSession.validate(method: method, params: params)
             }
-            if terminalShutdown && (method.hasPrefix("station_") || method.hasPrefix("spot_bridge_") || method.hasPrefix("opportunities_") || method.hasPrefix("cluster_")) {
+            if terminalShutdown && (method.hasPrefix("station_") || method.hasPrefix("spot_bridge_") || method.hasPrefix("opportunities_") || method.hasPrefix("cluster_") || ["weather", "propagation_snapshot", "lookup_call"].contains(method)) {
                 throw WorkerFailure("worker_stopping", "The worker is shutting down; no new service request was started.")
             }
             if method == "health" {
@@ -76,6 +80,8 @@ public actor LiveWorker {
                     health["credentials_accessed"] = false
                     health["public_opportunities"] = false
                     health["live_cluster"] = false
+                    health["public_conditions"] = false
+                    health["local_callsign_lookup"] = false
                 }
                 return encode(["id": id, "ok": true, "result": health])
             }
@@ -92,6 +98,8 @@ public actor LiveWorker {
                 result = try await opportunities.handle(method: method, params: params)
             } else if method.hasPrefix("cluster_") {
                 result = try await cluster.handle(method: method, params: params)
+            } else if method == "weather" || method == "propagation_snapshot" {
+                result = try await publicServices.handle(method: method, params: params)
             } else {
                 #if os(macOS)
                 if method.hasPrefix("reference_") {
@@ -104,7 +112,11 @@ public actor LiveWorker {
                     result = try await LiveServiceMethods.shared.handle(method: method, params: params)
                 }
                 #else
-                throw WorkerFailure("platform_pending", "This service is not yet available on this platform. The local logbook remains available; no connection or command was started.")
+                if method == "lookup_call" {
+                    result = try await publicServices.handle(method: method, params: params)
+                } else {
+                    throw WorkerFailure("platform_pending", "This service is not yet available on this platform. The local logbook remains available; no connection or command was started.")
+                }
                 #endif
             }
             return encode(["id": id, "ok": true, "result": result])
@@ -127,7 +139,8 @@ public actor LiveWorker {
         #endif
         return ["mode": mode, "platform": platform, "synthetic_only": false,
                 "version": "0.4.0-alpha.9", "local_logbook": true,
-                "platform_services": services, "public_opportunities": true, "live_cluster": true, "station_io": false,
+                "platform_services": services, "public_opportunities": true, "live_cluster": true,
+                "public_conditions": true, "local_callsign_lookup": true, "station_io": false,
                 "connections_require_explicit_action": true]
     }
 

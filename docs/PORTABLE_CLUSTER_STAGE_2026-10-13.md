@@ -7,10 +7,12 @@ retains its Network.framework transport. This source stage is not an installed
 release or a full-parity certificate.
 
 Initial transport source: `c17cff2c84845e8aea9abeaf6fd139e386eb71c1`, pushed to
-`codex/unified-xlog-integration-p2`. All-platform CI run `38302431354` has passed
-portable core tests on Mac, Windows and Linux. Mac and Linux jobs completed
-successfully; the Windows shell-contract/package stages remain in progress.
-The DNS follow-up below requires a new exact-source matrix.
+`codex/unified-xlog-integration-p2`. All-platform CI run `38302431354` passed
+Mac, Windows and Linux builds plus Windows fresh-runner and Linux runtime-only
+container acceptance. The DNS follow-up is pushed as
+`6e7ea391bd765cceb2cb70b7cc6aa1ff41252a71`; its exact-source matrix
+`38304045236` has passed all three portable core suites and the Mac job, while
+remaining packaging/runtime stages are in progress.
 
 ## Transport and ownership
 
