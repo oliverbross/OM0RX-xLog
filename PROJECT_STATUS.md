@@ -1,7 +1,7 @@
 # OM0RX-xLog project status
 
 Last updated: 2026-10-12
-Release `v0.2.2` adds the complete native AJD/WAJA/JCC/JCG/AJA/WACA/WAGA/WAPC/WCSA catalogue, backed by bundled MIT-licensed reference data and live verification against the 67,823-contact local log, plus Swift 5.10 source and Xcode 16.2/macOS 14 CI compatibility.
+Release `v0.2.3` adds the complete native AJD/WAJA/JCC/JCG/AJA/WACA/WAGA/WAPC/WCSA catalogue, backed by bundled MIT-licensed reference data and live verification against the 67,823-contact local log, plus Swift 5.10 source, Xcode 16.2/macOS 14 CI compatibility and Apple notarization/stapling.
 Latency follow-up: xCat now omits redundant RX-VFO/split writes for simplex
 spot changes (one remote command instead of three; 57 Swift tests pass).
 The Windows source separates radio polling from serialized accessory following
@@ -229,7 +229,7 @@ Current local evidence at this revision:
 - Live Wavelog catalog refresh. Authenticated Club Log CTY and LoTW refresh passed in the installed app on 11 Oct 2026.
 - Tune-latency optimization below the accepted coherent-but-slow 7.204-second combined transition, without reintroducing mixed state or weakening interlocks.
 - Rotor comparison of displayed SP/LP bearing against the physical station controller.
-- Apple notarization and Gatekeeper validation on a clean Mac.
+- Independent launch validation on a second clean Mac; Apple notarization, stapling and local Gatekeeper assessment are complete.
 
 ## Release checklist
 
@@ -242,7 +242,7 @@ Current local evidence at this revision:
 - [x] Impeccable finish review returns SHIP with no blocker.
 - [x] Create public `oliverbross/OM0RX-xLog` repository and push `main`.
 - [x] Tag and publish xLog `v0.1.0` with the signed macOS archive.
-- [x] Tag and publish xLog `v0.2.2` with the Developer ID-signed macOS archive, Swift 5.10 source/Xcode 16.2 macOS 14 CI and complete nine-award acceptance evidence.
+- [x] Tag and publish xLog `v0.2.3` with the Developer ID-signed, Apple-notarized and stapled macOS archive, Swift 5.10 source/Xcode 16.2 macOS 14 CI and complete nine-award acceptance evidence.
 - [x] Commit/push xCluster snapshot and award-handoff changes.
 - [x] Tag and publish xCluster `v0.1.6` with the signed macOS archive.
 - [x] Verify public repository descriptions, README rendering and release downloads.
@@ -254,7 +254,7 @@ Current local evidence at this revision:
 1. Reduce the measured 7.204-second guarded combined-tune latency while preserving coherent frequency/mode publication and all station interlocks.
 2. Complete external Wavelog catalog and physical rotor acceptance; QRZ, authenticated Club Log CTY, atomic xCat tune and the Windows station route are accepted.
 3. Complete an operator-approved live backup/restore recovery drill; the verified implementation and automated round-trip/tamper coverage are complete.
-4. Add notarization and clean-Mac Gatekeeper evidence.
+4. Complete independent launch validation of the notarized download on a second clean Mac.
 
 ### P1 — next functional release
 

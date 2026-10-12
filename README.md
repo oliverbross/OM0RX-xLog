@@ -3,7 +3,7 @@
 [![macOS 13+](https://img.shields.io/badge/macOS-13%2B-black)](#requirements)
 [![Swift 5.10](https://img.shields.io/badge/Swift-5.10-F05138)](Package.swift)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
-[![Release: v0.2.2](https://img.shields.io/badge/release-v0.2.2-12D6A0.svg)](https://github.com/oliverbross/OM0RX-xLog/releases/tag/v0.2.2)
+[![Release: v0.2.3](https://img.shields.io/badge/release-v0.2.3-12D6A0.svg)](https://github.com/oliverbross/OM0RX-xLog/releases/tag/v0.2.3)
 
 OM0RX-xLog is a fast, local-first amateur-radio logbook for macOS. It is the logging centre of the OM0RX station suite: contacts are committed to a local SQLite database first, enriched from QRZ and current reference data, synchronized in both directions with Wavelog, and connected to the radio through OM0RX-xCat.
 
@@ -157,11 +157,17 @@ open dist/OM0RX-xLog.app
 
 The packaging script creates and verifies a signed application bundle in `dist/`. It uses a Developer ID Application identity when one is available and otherwise creates an ad-hoc signature.
 
+For a release machine with the `OM0RX-notary` Keychain profile configured, build, submit, staple, Gatekeeper-check and recreate the distributable ZIP with:
+
+```bash
+./scripts/notarize-release.sh
+```
+
 ## Security and release status
 
 - Network services use HTTPS except for the explicit loopback xCat connection.
 - No credential is bundled with the project.
-- The initial package is locally signed and has not been claimed as notarized until a notarization receipt is produced.
+- Release downloads are Developer ID signed, Apple-notarized and carry a stapled ticket; the release script requires an accepted receipt before recreating the final ZIP.
 - Live Wavelog, QRZ and Club Log acceptance depends on credentials supplied by the operator; automated tests do not prove those account-bound paths.
 
 ## License

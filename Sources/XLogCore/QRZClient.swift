@@ -79,7 +79,7 @@ public actor QRZClient {
         components.queryItems = [
             URLQueryItem(name: "username", value: username),
             URLQueryItem(name: "password", value: password),
-            URLQueryItem(name: "agent", value: "OM0RX-xLog-0.2.2"),
+            URLQueryItem(name: "agent", value: "OM0RX-xLog-0.2.3"),
         ]
         let (data, response) = try await session.data(from: components.url!)
         guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw QRZClientError.rejected("HTTP request rejected") }

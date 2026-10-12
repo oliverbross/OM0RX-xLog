@@ -28,9 +28,9 @@ if [[ -z "$signing_identity" ]]; then
 fi
 signing_identity="${signing_identity:--}"
 if [[ "$signing_identity" == "-" ]]; then
-    codesign --force --deep --sign - "$app_dir"
+    codesign --force --sign - "$app_dir"
 else
-    codesign --force --deep --options runtime --timestamp --entitlements "$repo_dir/Resources/OM0RXXLog.entitlements" --sign "$signing_identity" "$app_dir"
+    codesign --force --options runtime --timestamp --entitlements "$repo_dir/Resources/OM0RXXLog.entitlements" --sign "$signing_identity" "$app_dir"
 fi
 codesign --verify --deep --strict --verbose=2 "$app_dir"
 print "$app_dir"

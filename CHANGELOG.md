@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.3 — 2026-10-12
+
+- Added a repeatable Keychain-backed Apple notarization workflow with mandatory acceptance, stapling, Gatekeeper verification and post-staple archive recreation.
+- Removed recursive signing from the packaging step and retained strict deep verification of the finished app bundle.
+
 ## 0.2.2 — 2026-10-12
 
 - Pinned GitHub's macOS 14 runner to its installed Xcode 16.2 toolchain so the Swift Testing suite runs in CI as it does in release builds.

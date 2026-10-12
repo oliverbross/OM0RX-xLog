@@ -1,8 +1,8 @@
-# OM0RX-xLog 0.2.2
+# OM0RX-xLog 0.2.3
 
 The award, intelligence and operator-workflow release of the native, local-first OM0RX macOS logbook.
 
-This patch release includes the complete 0.2.0 feature set, restores Swift 5.10 source compatibility and selects Xcode 16.2 on GitHub's macOS 14 runner so the Swift Testing suite is available in CI.
+This patch release includes the complete 0.2.0 feature set, Swift 5.10 source/Xcode 16.2 CI compatibility and a repeatable Apple notarization, stapling and Gatekeeper-verification workflow.
 
 Highlights:
 
@@ -15,4 +15,4 @@ Highlights:
 - The complete v0.1 logging, Wavelog v2 synchronization, QRZ, ADIF, Operator Desk, world-map and multi-band-map feature set.
 - Bundled MIT attribution and reference data from ham-award-tools commit `f28a04fa5a94368ac4099ce5cec97fcd93ce0849`.
 
-The downloadable app is Developer ID signed but not notarized. Live QRZ and Club Log paths require the operator's own credentials; Wavelog bootstrap has been exercised against the owner's production station profile for this release.
+The downloadable app is Developer ID signed, Apple-notarized and stapled. Live QRZ and Club Log paths require the operator's own credentials; Wavelog bootstrap has been exercised against the owner's production station profile for this release.
