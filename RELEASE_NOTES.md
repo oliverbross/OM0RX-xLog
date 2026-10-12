@@ -19,4 +19,4 @@ Highlights:
 - The complete v0.1 logging, Wavelog v2 synchronization, QRZ, ADIF, Operator Desk, world-map and multi-band-map feature set.
 - Bundled MIT attribution and reference data from ham-award-tools commit `f28a04fa5a94368ac4099ce5cec97fcd93ce0849`.
 
-The downloadable app is intended to remain Developer ID signed, Apple-notarized and stapled. No award application, email, payment or sponsor claim is sent by the awards library.
+The downloadable app is Developer ID signed, Apple-notarized and stapled. No award application, email, payment or sponsor claim is sent by the awards library.

@@ -1,7 +1,7 @@
 # OM0RX-xLog project status
 
 Last updated: 2026-10-12
-Release candidate `v0.3.0` adds the complete 190-programme worldwide research registry and a searchable 192-entry library while retaining the nine native AJD/WAJA/JCC/JCG/AJA/WACA/WAGA/WAPC/WCSA calculators. Every entry now has an explicit live, tracking, blocked or historical delivery state; local worked, evidence-eligible and sponsor-credit totals are separate.
+Release `v0.3.0` adds the complete 190-programme worldwide research registry and a searchable 192-entry library while retaining the nine native AJD/WAJA/JCC/JCG/AJA/WACA/WAGA/WAPC/WCSA calculators. Every entry now has an explicit live, tracking, blocked or historical delivery state; local worked, evidence-eligible and sponsor-credit totals are separate.
 Latency follow-up: xCat now omits redundant RX-VFO/split writes for simplex
 spot changes (one remote command instead of three; 57 Swift tests pass).
 The Windows source separates radio polling from serialized accessory following
@@ -218,6 +218,7 @@ Current local evidence at this revision:
 - xCluster: **22/22** Swift tests passing, including the structured xLog handoff and local snapshot contract.
 - Signed release builds pass strict `codesign` verification.
 - Apple notary submission `693349bc-1164-4f98-a25d-a345686edcfe` was accepted; `stapler validate` succeeded and Gatekeeper reports `source=Notarized Developer ID` for the v0.2.3 app. The post-staple ZIP SHA-256 is `36e56bf13a598a37a9531e6e8ed445a270ef844606bd20e1032a594085b13491`.
+- Apple notary submission `49b9cfbb-756a-4c13-86dd-f58ab61f02e0` was accepted for v0.3.0; stapling and Gatekeeper verification succeeded. The post-staple ZIP SHA-256 is `a2977cf790adf909f340a9fa8a028ca6f90d31315f06cbb702f7e6c4abd7245e`.
 - Installed xLog launches and visibly receives the live local xCluster snapshot.
 - Operator Desk, hybrid DXCC map, active-band filtering, clean allocation band map and undocked full-window band map were inspected in the running app.
 - The installed Reference Data screen showed all 348,973 validated activation records immediately at launch while Wavelog synchronization was still running, proving cached POTA/SOTA/IOTA/WWFF data no longer waits behind network sync.
@@ -245,6 +246,7 @@ Current local evidence at this revision:
 - [x] Create public `oliverbross/OM0RX-xLog` repository and push `main`.
 - [x] Tag and publish xLog `v0.1.0` with the signed macOS archive.
 - [x] Tag and publish xLog `v0.2.3` with the Developer ID-signed, Apple-notarized and stapled macOS archive, Swift 5.10 source/Xcode 16.2 macOS 14 CI and complete nine-award acceptance evidence.
+- [x] Build, notarize and staple xLog `v0.3.0` with the complete 190-record research registry, 192-entry UI library, explicit coverage ledger and 43-test gate.
 - [x] Commit/push xCluster snapshot and award-handoff changes.
 - [x] Tag and publish xCluster `v0.1.6` with the signed macOS archive.
 - [x] Verify public repository descriptions, README rendering and release downloads.
