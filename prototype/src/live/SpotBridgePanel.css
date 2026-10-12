@@ -1,0 +1,19 @@
+.spot-bridge { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+.spot-bridge header { display: flex; justify-content: space-between; align-items: start; gap: 16px; }
+.spot-bridge h2 { font-size: 15px; margin: 0 0 7px; }
+.spot-bridge p { font-size: 12px; line-height: 1.5; }
+.spot-bridge header p { color: var(--secondary); margin: 0 0 14px; }
+.spot-bridge-ports { display: flex; align-items: end; gap: 16px; margin-bottom: 16px; }
+.spot-bridge-ports label { display: flex; flex-direction: column; align-items: start; gap: 5px; }
+.spot-bridge-ports input { width: 115px; }
+.spot-bridge-ports span { color: var(--secondary); max-width: 450px; line-height: 1.5; }
+.spot-bridge table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.spot-bridge th { text-align: left; font-weight: 600; }
+.spot-bridge td, .spot-bridge th { padding: 5px 10px; border-bottom: 1px solid var(--border); }
+.spot-bridge thead { color: var(--secondary); }
+.spot-bridge td:first-child { color: var(--secondary); }
+.spot-bridge td input[type="number"] { width: 100px; }
+.spot-bridge td input[type="color"] { width: 48px; min-height: 26px; padding: 2px; cursor: pointer; }
+.spot-bridge footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; border-top: 1px solid var(--border); padding-top: 12px; margin-top: 14px; font-size: 12px; }
+.spot-bridge footer small { flex-basis: 100%; color: var(--secondary); line-height: 1.5; }
+.spot-bridge-provider-note { color: var(--amber); border: 1px solid #70512a; border-radius: 6px; background: #342818; padding: 9px 11px; margin: 10px 0; line-height: 1.45; }

@@ -1,6 +1,25 @@
 import Foundation
 #if os(macOS)
+import XCatIntegrationCore
 import XLogCore
+
+/// A synchronous actor reservation closes the gap between the two providers'
+/// asynchronous attachment checks when connect IPC requests arrive together.
+actor StationProviderClaim {
+    static let shared = StationProviderClaim()
+    private var owner: String?
+
+    func reserve(_ provider: String) throws {
+        guard owner == nil || owner == provider else {
+            throw WorkerFailure("station_busy", "Disconnect the other station provider before connecting.")
+        }
+        owner = provider
+    }
+
+    func release(_ provider: String) {
+        if owner == provider { owner = nil }
+    }
+}
 #endif
 
 /// The Mac worker talks to the real xCat loopback service. No values are
@@ -47,11 +66,68 @@ enum LiveStationMethods {
         }
         #endif
         #if os(macOS)
-        if LiveStationSession.methods.contains(method) {
-            return try await LiveStationSession.shared.handle(method, params: params)
-        }
         guard params["provider"] == nil || params["provider"] is String else { throw invalidParams() }
-        let provider = params["provider"] as? String ?? "xcat_loopback"
+        let selectedProvider = params["provider"] as? String ?? "xcat_loopback"
+        if selectedProvider == "direct_flex_lan" {
+            if method == "station_connect" {
+                let remote = await LiveStationSession.shared.snapshot()
+                guard remote["transport_state"] as? String == RadioConnectionState.stopped.rawValue,
+                      remote["radio"] is NSNull else {
+                    throw WorkerFailure("station_busy", "Disconnect the Remote Station Agent before connecting direct FLEX.")
+                }
+                try await StationProviderClaim.shared.reserve(selectedProvider)
+            }
+            do {
+                let result = try await LiveFlexSession.shared.handle(method, params: params)
+                if method == "station_disconnect" {
+                    await StationProviderClaim.shared.release(selectedProvider)
+                }
+                return result
+            } catch {
+                if method == "station_connect", !(await LiveFlexSession.shared.isAttached()) {
+                    await StationProviderClaim.shared.release(selectedProvider)
+                }
+                throw error
+            }
+        }
+        if LiveStationSession.methods.contains(method) {
+            guard selectedProvider == "direct_agent" else { throw invalidParams() }
+            if method == "station_connect" {
+                guard !(await LiveFlexSession.shared.isAttached()) else {
+                    throw WorkerFailure("station_busy", "Disconnect direct FLEX before connecting the Remote Station Agent.")
+                }
+                try await StationProviderClaim.shared.reserve(selectedProvider)
+            }
+            do {
+                let result = try await LiveStationSession.shared.handle(method, params: params)
+                if method == "station_disconnect" {
+                    await StationProviderClaim.shared.release(selectedProvider)
+                } else if method == "station_forget" {
+                    let state = await LiveStationSession.shared.snapshot()
+                    if state["transport_state"] as? String == RadioConnectionState.stopped.rawValue,
+                       state["radio"] is NSNull {
+                        await StationProviderClaim.shared.release(selectedProvider)
+                    }
+                }
+                return result
+            } catch {
+                if method == "station_connect" {
+                    let state = await LiveStationSession.shared.snapshot()
+                    if state["transport_state"] as? String == RadioConnectionState.stopped.rawValue,
+                       state["radio"] is NSNull {
+                        await StationProviderClaim.shared.release(selectedProvider)
+                    }
+                } else if method == "station_forget" {
+                    let state = await LiveStationSession.shared.snapshot()
+                    if state["transport_state"] as? String == RadioConnectionState.stopped.rawValue,
+                       state["radio"] is NSNull {
+                        await StationProviderClaim.shared.release(selectedProvider)
+                    }
+                }
+                throw error
+            }
+        }
+        let provider = selectedProvider
         if provider == "direct_agent" {
             guard Set(params.keys).isSubset(of: method == "station_tune"
                 ? ["provider", "frequency_hz", "mode"] : method == "station_action"

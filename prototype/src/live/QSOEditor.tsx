@@ -120,9 +120,10 @@ export function QSOEditor({ draft, setDraft, save, clear, busy, lookup, previous
     }).catch(() => { if (active) setMatrix(current => current?.call === matrixCall && current.adif === matrixADIF ? { ...current, callError: "Could not read call history." } : current); });
     if (matrixADIF !== null) void request("cluster_history", { call: matrixCall, adif: matrixADIF }).then(value => {
       if (!active) return;
-      const valid = call(value?.call) === matrixCall && value?.adif === matrixADIF && Array.isArray(value?.matrix);
+      const history = value?.history;
+      const valid = call(history?.call) === matrixCall && history?.adif === matrixADIF && Array.isArray(history?.matrix);
       setMatrix(current => current?.call === matrixCall && current.adif === matrixADIF ?
-        { ...current, countryCells: valid ? value.matrix : undefined,
+        { ...current, countryCells: valid ? history.matrix : undefined,
           countryError: valid ? undefined : "Country history response does not match this callsign." } : current);
     }).catch(() => { if (active) setMatrix(current => current?.call === matrixCall && current.adif === matrixADIF ? { ...current, countryError: "Could not read country history." } : current); });
     return () => { active = false; };

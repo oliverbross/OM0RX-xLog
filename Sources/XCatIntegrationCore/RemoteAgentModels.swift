@@ -200,6 +200,16 @@ enum RemoteAgentStateDecoder {
         return try response.state.map { try decode($0, receivedAt: receivedAt) }
     }
 
+    static func spotCommandResponse(_ data: Data, expected: FlexSpot, receivedAt: Date = Date()) throws -> RemoteAgentDecodedState? {
+        let response = try JSONDecoder().decode(CommandResponse.self, from: data)
+        guard response.success, response.result?.accepted == true,
+              response.result?.callsign?.uppercased() == expected.callsign,
+              response.result?.frequencyHz == expected.frequencyHz else {
+            throw XCatError.server("Remote Agent did not acknowledge the matching FLEX spot.")
+        }
+        return try response.state.map { try decode($0, receivedAt: receivedAt) }
+    }
+
     private static func decode(_ state: StateDTO, receivedAt: Date) throws -> RemoteAgentDecodedState {
         guard state.protocolVersion == 1 else {
             throw XCatError.server("Remote Agent protocol version \(state.protocolVersion) is not supported.")
@@ -404,6 +414,18 @@ private struct CommandResponse: Decodable {
     let success: Bool
     let state: StateDTO?
     let error: ErrorDTO?
+    let result: SpotResultDTO?
+}
+
+private struct SpotResultDTO: Decodable {
+    let accepted: Bool?
+    let callsign: String?
+    let frequencyHz: Int64?
+
+    enum CodingKeys: String, CodingKey {
+        case accepted, callsign
+        case frequencyHz = "frequency_hz"
+    }
 }
 
 private struct ErrorDTO: Decodable {

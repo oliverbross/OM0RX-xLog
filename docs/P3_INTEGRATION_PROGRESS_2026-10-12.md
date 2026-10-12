@@ -50,6 +50,22 @@ source observations predate the changes listed here.
   disconnect/profile handover reports unresolved release instead of concealing it.
 - Worker exit closes admission and gives accepted requests a bounded graceful
   EOF drain. A terminal station cannot be reopened by a late queued connect.
+- A third, direct-LAN FLEX provider now owns its transport independently of the
+  Windows agent. Supported tuning and VFO controls require observed readback;
+  unavailable RIT/XIT/RF-power/CAT/SmartLink functions are not advertised as
+  implemented. Transmit ownership and interlock evidence are tested without RF.
+- RUMlog Logbook/Contest UDP settings expose all eleven native style categories.
+  Explicit loopback listeners bind exclusively, roll back partial startup,
+  bound source flows and pre-actor queued work, and share acknowledged spot
+  deduplication with xCluster. This forwarding path currently requires the
+  Remote Station Agent. ACK counts are not Maestro visual-display proof.
+- Workspace startup distinguishes pending, failed and confirmed-empty states;
+  a slow startup no longer presents empty-workspace creation controls.
+- Country-matrix responses are decoded from their actual nested worker contract.
+  New rotor requests receive their own movement grace period rather than
+  inheriting the previous target's last-motion timestamp.
+- The small detached monitor map omits the full-size layer toolbar and legend;
+  full controls remain available in the World Map workspace.
 
 ## Acceptance discipline
 
@@ -66,13 +82,23 @@ Never include bearer tokens in reports, screenshots or source control.
 The original native SQLite logbook and native source work remain preserved.
 The integrated app continues to use its separate working copy and manual sync.
 No synthetic QSO is to be inserted into that copy for acceptance. Only one xLog
-application bundle is retained in Applications; an older installed build is moved
-recoverably to Trash before replacement.
+application bundle is retained in Applications. Preserve outgoing builds in a
+dedicated rollback directory **outside Trash**: a Trash-triggered application
+cleanup was found to have also removed associated data. See the
+[recovery record](P3_WORKSPACE_RECOVERY_2026-10-12.md). Do not use Trash-based
+app replacement or remove application support/preferences during upgrades.
+
+The Developer ID-signed alpha.2 built from `87f778a` has now passed authenticated
+embedded-agent connection, OM0RX-13 cluster reception, receive-frequency change
+and restoration, and observed DCU-1 rotor movement/return. The original native
+database is preserved and the private working copy contains 67,843 contacts.
+See [exact-build live evidence](P3_LIVE_ACCEPTANCE_2026-10-12.md), including the
+transient rotor-status defect discovered in this check.
 
 ## Remaining acceptance gates
 
-The P3 ledger remains open for complete direct-FLEX/SmartLink coverage, all
-spot-forwarding/listener rules, migration/profile ownership, clean-machine
+The P3 ledger remains open for complete direct-FLEX/SmartLink coverage, live
+spot-forwarding/display acceptance, migration/profile ownership, clean-machine
 Windows/Linux live services and portable secret storage, notarization, and
 named physical local Hamlib radio/rotor acceptance. These cannot be closed by a
 successful Mac compile or a dummy backend test. Additional UI and data-workflow

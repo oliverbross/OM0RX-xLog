@@ -2,6 +2,7 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { emitTo, listen, type UnlistenFn } from "@tauri-apps/api/event";
 export const desktop = isTauri();
 export type DetachedMapKind = "world-map" | "band-maps";
+export type StationProvider = "direct_agent" | "direct_flex_lan" | "hamlib";
 export type DetachedMapProjection = {
   spots: Record<string, any>[]; palette?: Record<string, unknown>;
   home?: { call?: string; lat: number; lon: number; grid?: string; country?: string } | null;
@@ -11,7 +12,7 @@ export type DetachedMapProjection = {
 };
 export type MonitorProjection = DetachedMapProjection & {
   station: Record<string, any> | null;
-  provider: "direct_agent" | "hamlib";
+  provider: StationProvider;
   controlsEnabled: boolean;
 };
 export function validMonitorProjection(value: unknown): value is MonitorProjection {
@@ -19,7 +20,7 @@ export function validMonitorProjection(value: unknown): value is MonitorProjecti
   const item = value as Record<string, unknown>;
   return Array.isArray(item.spots) && item.spots.length <= 500 &&
     (item.station === null || typeof item.station === "object" && !Array.isArray(item.station)) &&
-    (item.provider === "direct_agent" || item.provider === "hamlib") &&
+    (item.provider === "direct_agent" || item.provider === "direct_flex_lan" || item.provider === "hamlib") &&
     typeof item.controlsEnabled === "boolean" &&
     (item.station === null || (item.station as Record<string, unknown>).source === item.provider);
 }

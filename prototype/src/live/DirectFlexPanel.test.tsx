@@ -1,0 +1,90 @@
+// @vitest-environment jsdom
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import DirectFlexPanel, { validFlexEndpoint } from "./DirectFlexPanel";
+
+const snapshot = (overrides: Record<string, any> = {}) => ({ source: "direct_flex_lan", available: true,
+  transport_state: "ready", allow_transmit: false,
+  radio: { observed: true, connected: true, frequency_hz: 14_074_000, mode: "USB",
+    receive_vfo: "A", transmit_vfo: "A", transmitting: false, split: false,
+    vfos: [{ letter: "A", frequency_hz: 14_074_000, mode: "USB", receive: true, transmit: true }] },
+  station: null, rotor: null, capabilities: { supported_commands: ["station_tune", "set_frequency_a", "set_mode",
+    "set_receive_vfo", "set_split", "ptt", "send_cw", "clear_cw", "set_cw_speed", "tune", "cancel"] }, ...overrides });
+afterEach(() => { cleanup(); localStorage.clear(); });
+
+describe("direct FLEX LAN controls", () => {
+  it("accepts only numeric private addresses and exact endpoint fields", () => {
+    expect(validFlexEndpoint("192.168.1.50", "4992", "OM0RX-xLog")).toBe(true);
+    expect(validFlexEndpoint("100.64.1.2", "4992", "OM0RX-xLog")).toBe(true);
+    expect(validFlexEndpoint("::1", "4992", "OM0RX-xLog")).toBe(true);
+    expect(validFlexEndpoint("radio.example", "4992", "OM0RX-xLog")).toBe(false);
+    expect(validFlexEndpoint("8.8.8.8", "4992", "OM0RX-xLog")).toBe(false);
+    expect(validFlexEndpoint("192.168.1.50", "4992.5", "OM0RX-xLog")).toBe(false);
+  });
+  it("does not show agent, amplifier, tuner or rotor commands", () => {
+    render(<DirectFlexPanel request={vi.fn()} snapshot={snapshot()} />);
+    expect(screen.getByText("Direct FLEX · LAN")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Operate|Standby|Rotor|KPA|KAT|RIT|XIT|RF power/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "PTT on" }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("button", { name: "Tune carrier" }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByText(/Transmit opt-in off/)).toBeTruthy();
+  });
+  it("connects explicitly with the provider contract and no automatic control", async () => {
+    const request = vi.fn(async () => snapshot({ available: false, transport_state: "connecting", radio: null }));
+    render(<DirectFlexPanel request={request} snapshot={null} />);
+    fireEvent.change(screen.getByLabelText("Private radio IP address"), { target: { value: "192.168.1.50" } });
+    fireEvent.change(screen.getByLabelText("Station name"), { target: { value: "OM0RX-xLog" } });
+    fireEvent.click(screen.getByRole("button", { name: "Connect FLEX" }));
+    await waitFor(() => expect(request).toHaveBeenCalledWith("station_connect", {
+      provider: "direct_flex_lan", host: "192.168.1.50", port: 4992,
+      station_name: "OM0RX-xLog", allow_transmit: false,
+    }));
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+  it("uses capability-aware frequency, mode and transmit requests", async () => {
+    const request = vi.fn(async () => ({ accepted: true, confirmed: true }));
+    render(<DirectFlexPanel request={request} snapshot={snapshot({ allow_transmit: true })} />);
+    fireEvent.change(screen.getByLabelText("FLEX frequency MHz"), { target: { value: "14.075" } });
+    fireEvent.click(screen.getByRole("button", { name: "Set VFO frequency" }));
+    await waitFor(() => expect(request).toHaveBeenCalledWith("station_radio_control",
+      { provider: "direct_flex_lan", control: "set_frequency_a", frequency_hz: 14_075_000 }));
+    fireEvent.click(screen.getByRole("button", { name: "PTT on" }));
+    await waitFor(() => expect(request).toHaveBeenCalledWith("station_radio_control",
+      { provider: "direct_flex_lan", control: "ptt", enabled: true }));
+    expect(screen.queryByRole("button", { name: "Operate" })).toBeNull();
+  });
+  it("keeps unadvertised VFO B unavailable", () => {
+    render(<DirectFlexPanel request={vi.fn()} snapshot={snapshot()} />);
+    fireEvent.change(screen.getByLabelText("FLEX VFO"), { target: { value: "B" } });
+    expect(screen.getByRole("button", { name: "Set VFO frequency" }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("button", { name: "Use VFO for RX" }).hasAttribute("disabled")).toBe(true);
+  });
+  it("preserves manual frequency and mode through observation polls until explicitly reset", () => {
+    const initial = snapshot();
+    const next = snapshot({ radio: { ...initial.radio, frequency_hz: 14_076_000, mode: "LSB" } });
+    const request = vi.fn(async () => next);
+    const view = render(<DirectFlexPanel request={request} snapshot={initial} />);
+    const frequency = screen.getByLabelText("FLEX frequency MHz") as HTMLInputElement;
+    const mode = screen.getByLabelText("FLEX mode") as HTMLSelectElement;
+    fireEvent.change(frequency, { target: { value: "14.075" } });
+    fireEvent.change(mode, { target: { value: "CW" } });
+    view.rerender(<DirectFlexPanel request={request} snapshot={next} />);
+    expect(frequency.value).toBe("14.075");
+    expect(mode.value).toBe("CW");
+    fireEvent.click(screen.getByRole("button", { name: "Read state" }));
+    expect(frequency.value).toBe("14.075");
+    expect(mode.value).toBe("CW");
+    fireEvent.click(screen.getByRole("button", { name: "Use observed frequency and mode in controls" }));
+    expect(frequency.value).toBe("14.076000");
+    expect(mode.value).toBe("LSB");
+  });
+  it("locks transmit opt-in while attached to the radio", () => {
+    const view = render(<DirectFlexPanel request={vi.fn()} snapshot={null} />);
+    const optIn = screen.getByRole("checkbox", { name: /Enable transmit commands/ }) as HTMLInputElement;
+    expect(optIn.disabled).toBe(false);
+    view.rerender(<DirectFlexPanel request={vi.fn()} snapshot={snapshot({ allow_transmit: true })} />);
+    expect(optIn.disabled).toBe(true);
+    expect(optIn.checked).toBe(true);
+    expect(screen.getByText(/Disconnect before changing it/)).toBeTruthy();
+  });
+});

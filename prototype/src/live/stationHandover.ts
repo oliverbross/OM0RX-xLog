@@ -9,7 +9,9 @@ export async function retireStationProvider(provider: string, invoke: Invoke): P
     ]);
     if (results.some(result => result.status === "rejected"))
       throw new Error("Local station handover could not be confirmed. Check radio and rotor connections before switching.");
+  } else if (provider === "direct_agent" || provider === "direct_flex_lan") {
+    await invoke("station_disconnect", { provider });
   } else {
-    await invoke("station_disconnect", { provider: "direct_agent" });
+    throw new Error("Unknown station provider; no handover was performed.");
   }
 }

@@ -4,7 +4,7 @@ import { workerRequest, openMonitor, openDetachedMap, detachedMapKind, findDetac
   onDetachedSpot, onDetachedReady, onDetachedProjection, announceDetachedReady,
   publishDetachedProjection, requestDetachedSpot,
   onMonitorProjection, onMonitorReady, announceMonitorReady, publishMonitorProjection,
-  type DetachedMapKind, type DetachedMapProjection, type MonitorProjection } from "./worker";
+  type DetachedMapKind, type DetachedMapProjection, type MonitorProjection, type StationProvider } from "./worker";
 import WorldMap from "./Map";
 import type { Spot } from "./model";
 import { ClusterPanel } from "./live/ClusterPanel";
@@ -14,11 +14,14 @@ import { DataManagementPanel } from "./live/DataManagementPanel";
 import Conditions from "./live/Conditions";
 import Monitor from "./live/Monitor";
 import HamlibPanel from "./live/HamlibPanel";
+import DirectFlexPanel from "./live/DirectFlexPanel";
 import { hamlibStationRequest } from "./live/hamlibStation";
-import BandMaps from "./live/BandMaps";
+import BandMaps, { bandForRadio } from "./live/BandMaps";
 import IntegratedAwards from "./live/AwardsPanel";
 import QSOEditor from "./live/QSOEditor";
 import SyncPanel from "./live/SyncPanel";
+import WorkspaceGate from "./live/WorkspaceGate";
+import SpotBridgePanel from "./live/SpotBridgePanel";
 import { logMode } from "./live/draftRadio";
 import { retireStationProvider } from "./live/stationHandover";
 import "./live/live.css";
@@ -45,6 +48,7 @@ export default function LiveApp() {
 function MainLiveApp() {
   const [view, setView] = useState<string>("Operator Desk");
   const [workspace, setWorkspace] = useState<Data | null>(null);
+  const [workspacePending, setWorkspacePending] = useState(true);
   const [settings, setSettings] = useState<Data | null>(null);
   const [draft, setDraft] = useState<Data | null>(null);
   const [station, setStation] = useState<Data | null>(null);
@@ -63,8 +67,10 @@ function MainLiveApp() {
   latestFollow.current = follow;
   const setFollowImmediate = (value: boolean) => { latestFollow.current = value; setFollow(value); };
   const [autoRotor, setAutoRotor] = useState(false);
-  const provider = useRef(localStorage.getItem("xlog.integration.provider") === "hamlib" ? "hamlib" : "direct_agent");
+  const savedProvider = localStorage.getItem("xlog.integration.provider");
+  const provider = useRef<StationProvider>(savedProvider === "hamlib" || savedProvider === "direct_flex_lan" ? savedProvider : "direct_agent");
   const [stationProvider, setStationProvider] = useState(provider.current);
+  const [stationSection, setStationSection] = useState("Control and connections");
   const pendingTune = useRef(false);
   const providerTransition = useRef(false);
   const selection = useRef(0);
@@ -77,7 +83,7 @@ function MainLiveApp() {
   const latestMonitorProjection = useRef<MonitorProjection>({ spots: [], station: null, provider: "direct_agent", controlsEnabled: false });
   useEffect(() => {
     const changed = (event: StorageEvent) => {
-      if (event.key === "xlog.integration.provider" && event.newValue) { selection.current++; pendingTune.current = false; provider.current = event.newValue; setStationProvider(event.newValue); setStation(null); }
+      if (event.key === "xlog.integration.provider" && (event.newValue === "hamlib" || event.newValue === "direct_agent" || event.newValue === "direct_flex_lan")) { selection.current++; pendingTune.current = false; provider.current = event.newValue; setStationProvider(event.newValue); setStation(null); }
     };
     window.addEventListener("storage", changed); return () => window.removeEventListener("storage", changed);
   }, []);
@@ -86,7 +92,8 @@ function MainLiveApp() {
       const isStation = method.startsWith("station_");
       if (providerTransition.current && ((isStation && method !== "station_snapshot") || method === "hamlib_connect" || method === "hamlib_reconnect" || method === "hamlib_control"))
         throw new Error("Wait for station handover to finish before sending another control.");
-      if (isStation && params.provider) { provider.current = params.provider; setStationProvider(params.provider); localStorage.setItem("xlog.integration.provider", params.provider); }
+      if (isStation && params.provider && params.provider !== provider.current)
+        throw new Error("Selected station changed. Finish handover before connecting or sending controls.");
       const requestedProvider = provider.current;
       const requestedSelection = selection.current;
       const result = isStation && requestedProvider === "hamlib"
@@ -110,7 +117,8 @@ function MainLiveApp() {
       throw new Error("Radio frequency and mode are not currently observed.");
     latestFollow.current = false; setFollow(false);
     setDraft(current => current ? { ...current, frequencyHz: state.radio.frequency_hz,
-      band: state.station?.band || current.band, mode: logMode(state.radio.mode, current.mode || "") } : current);
+      band: state.station?.band || bandForRadio(state.radio.frequency_hz) || current.band,
+      mode: logMode(state.radio.mode, current.mode || "") } : current);
     setMessage("Observed radio frequency and mode copied into the QSO draft.");
   }, [request]);
   useEffect(() => {
@@ -135,7 +143,7 @@ function MainLiveApp() {
     try { await operation(); } catch (e) { setError(e instanceof Error ? e.message : "Operation failed"); }
     finally { setBusy(false); }
   };
-  const changeProvider = async (next: string) => {
+  const changeProvider = async (next: StationProvider) => {
     if (provider.current === next || providerTransition.current) return;
     providerTransition.current = true;
     selection.current++; pendingTune.current = false; setAutoRotor(false);
@@ -149,6 +157,8 @@ function MainLiveApp() {
     finally { providerTransition.current = false; setBusy(false); }
   };
   const reload = useCallback(async () => {
+    setWorkspacePending(true);
+    try {
     const state = await request("workspace_status");
     setWorkspace(state);
     if (state.workspace_exists) {
@@ -160,6 +170,7 @@ function MainLiveApp() {
         catch { return blank.qso; }
       });
     }
+    } finally { setWorkspacePending(false); }
   }, [request]);
   useEffect(() => { if (!monitor) void reload().catch(e => setError(e.message)); }, [reload, refresh]);
   useEffect(() => {
@@ -184,7 +195,7 @@ function MainLiveApp() {
         if (latestFollow.current && !pendingTune.current && !editing.current && state.radio?.observed && state.radio?.connected) {
           setDraft(d => {
             if (!d) return d;
-            const band = state.station?.band || d.band;
+            const band = state.station?.band || bandForRadio(state.radio.frequency_hz) || d.band;
             const mode = logMode(state.radio.mode, d.mode || "");
             return d.frequencyHz === state.radio.frequency_hz && d.band === band && d.mode === mode
               ? d : { ...d, frequencyHz: state.radio.frequency_hz, band, mode };
@@ -235,10 +246,10 @@ function MainLiveApp() {
     setDraft(d => d ? { ...d, call: spot.callsign, frequencyHz: hz, band: spot.band, mode: spot.mode,
       country: spot.country || "", dxcc: spot.adif ?? null } : d);
     setMessage(`Tuning ${spot.callsign} · waiting for observed radio state`); setError("");
-    void request("station_tune", { frequency_hz: hz, mode: spot.mode }).then(async result => {
+    void request("station_tune", { frequency_hz: hz, mode: String(spot.mode || "").toUpperCase() }).then(async result => {
       if (selection.current !== generation || provider.current !== selectedProvider) return;
       setMessage(result.confirmed ? `${spot.callsign} · radio frequency and mode confirmed` : `${spot.callsign} · request accepted; awaiting observation`);
-      if (autoRotor && result.confirmed) {
+      if (autoRotor && selectedProvider !== "direct_flex_lan" && result.confirmed) {
         const target = await request("lookup_call", { call: spot.callsign });
         if (selection.current === generation && provider.current === selectedProvider && typeof target.bearing === "number")
           await request(provider.current === "direct_agent" ? "station_rotor_goto" : "station_action", provider.current === "direct_agent" ? { bearing: target.bearing, label: spot.callsign } : { action: "rotor_goto", bearing: target.bearing, band: spot.band });
@@ -257,7 +268,7 @@ function MainLiveApp() {
     home: stats?.map_home, dxccStatuses: stats?.dxcc_statuses,
     radioFrequencyHz: station?.radio?.frequency_hz, selected, target: mapTarget };
   latestMonitorProjection.current = { ...latestProjection.current, station,
-    provider: provider.current === "hamlib" ? "hamlib" : "direct_agent",
+    provider: provider.current,
     controlsEnabled: !providerTransition.current && !busy && station?.source === provider.current };
   useEffect(() => {
     if (monitor) return;
@@ -298,30 +309,31 @@ function MainLiveApp() {
       <button onClick={() => void openMonitor().catch(e => setError(e.message))}><ExternalLink size={14} />Monitor</button>
     </header>
     <aside className="sidebar"><nav>{navigation.map(([name, Icon], i) => <div key={name}>{(i === 0 || name === "Station Control") && <div className="nav-group">{i === 0 ? "Station log" : "Services"}</div>}<button aria-current={view === name ? "page" : undefined} onClick={() => setView(name)}><Icon size={17} />{name}</button></div>)}</nav>
-      <SidebarStation snapshot={station} busy={busy} onAction={action => void run(async () => { await request("station_action", { action }); })} />
+      <SidebarStation snapshot={station} provider={stationProvider} busy={busy} onAction={action => void run(async () => { await request("station_action", { action }); })} />
       <div className="sidebar-foot"><strong className="teal">{settings?.stationCall || "Station not configured"}</strong><span>{settings?.gridSquare || "Set station grid"}</span></div>
     </aside>
-    <main><div className="workspace-heading"><h1>{view}</h1><span className="secondary">{workspace?.workspace_exists ? "Your isolated working logbook · manual sync" : "Choose a logbook to begin"}</span></div>
+    <main><div className="workspace-heading"><h1>{view}</h1><span className="secondary">{workspace?.workspace_exists ? "Your isolated working logbook · manual sync" : workspace ? "Choose a logbook to begin" : workspacePending ? "Opening your workspace" : "Logbook service unavailable"}</span></div>
       {workspace?.workspace_exists && <Conditions propagation={propagation?.bands?.length ? propagation : station?.propagation || null} request={request} />}
       {error && <div className="live-error" role="alert">{error}<button onClick={() => setError("")}>Dismiss</button></div>}
       {message && <p className="live-message" role="status">{message}</p>}
-      {!workspace?.workspace_exists ? <section className="live-onboarding"><h2>Bring your logbook into the integrated app</h2><p>Create a verified copy of your existing xLog database, or begin with an empty logbook. Your original database, settings and installed apps are not modified. Existing remote sync credentials are not copied.</p>
-        <div className="live-actions"><button className="primary" disabled={busy || !workspace?.native_log_exists} onClick={() => void run(async () => { await request("workspace_create", { mode: "copy_native" }); await reload(); })}>Copy my existing xLog logbook</button>
-        <button disabled={busy || !workspace} onClick={() => void run(async () => { await request("workspace_create", { mode: "empty" }); await reload(); })}>Create empty logbook</button>
-        <button onClick={() => void run(reload)}>Retry connection</button></div><p className="secondary">No sample contacts, spots or station readings are loaded.</p></section> : <>
+      {!workspace?.workspace_exists ? <WorkspaceGate workspace={workspace} pending={workspacePending} busy={busy}
+        retry={() => void run(reload)} create={mode => void run(async () => { await request("workspace_create", { mode }); await reload(); })} /> : <>
       {view === "Operator Desk" && <><div className="live-desk-top"><DeskQSO draft={draft} setDraft={setDraft} save={save} busy={busy} onEditor={() => setView("Log QSO")} follow={follow} setFollow={setFollowImmediate} />
         <section className="live-context callsign-context"><h2>Callsign intelligence</h2><strong>{lookup?.country || "Enter a callsign"}</strong><span>{lookup?.source || "CTY / QRZ"}</span><p>{lookup?.bearing != null ? `${Math.round(lookup.bearing)}° · ${Math.round(lookup.distance_km)} km` : "Bearing unavailable"}</p><span className="teal">{previous.length ? `${previous.length}${previous.length === 10 ? "+" : ""} previous contacts` : "No previous contacts"}</span><p className="secondary">{previous[0] ? `${previous[0].band} · ${previous[0].mode} · ${new Date(previous[0].start).toLocaleDateString()}` : "No QSO is saved until you log it."}</p></section>
-        <section className="live-context station-pulse"><h2>Station pulse</h2><span>Radio <b>{station?.radio?.connected ? station.radio.mode : "Offline"}</b></span><span>xCluster <b>{liveSpots.length} spots</b></span><span>Logbook <b>{stats?.stats?.qso_count?.toLocaleString() ?? "—"}</b></span><label><input type="checkbox" checked={autoRotor} onChange={e => setAutoRotor(e.target.checked)} />Auto rotor</label><button onClick={() => setView("Station Control")}>Station controls</button></section></div>
+        <section className="live-context station-pulse"><h2>Station pulse</h2><span>Radio <b>{station?.radio?.connected ? station.radio.mode : "Offline"}</b></span><span>xCluster <b>{liveSpots.length} spots</b></span><span>Logbook <b>{stats?.stats?.qso_count?.toLocaleString() ?? "—"}</b></span><label title={stationProvider === "direct_flex_lan" ? "Direct FLEX does not include a rotor connection." : undefined}><input type="checkbox" checked={autoRotor} disabled={stationProvider === "direct_flex_lan"} onChange={e => setAutoRotor(e.target.checked)} />Auto rotor</label><button onClick={() => setView("Station Control")}>Station controls</button></section></div>
         <div className="live-desk-bottom"><div className="live-map">{map}</div><BandMaps spots={liveSpots} onSelect={selectSpot} radioFrequencyHz={station?.radio?.frequency_hz} compact /></div></>}
       {view === "Log QSO" && <QSOEditor draft={draft} setDraft={setDraft} save={save} clear={() => void run(clear)} busy={busy} lookup={lookup} previous={previous} follow={follow} setFollow={setFollowImmediate} request={request} onReadRadio={readRadioIntoDraft} />}
       {view === "Logbook" && <LogbookPanel onRequest={request} refreshKey={refresh} onEdit={qso => { editing.current = true; setDraft(qso); setFollowImmediate(false); setView("Log QSO"); }} />}
       {view === "DX Cluster" && <ClusterPanel snapshot={cluster} onRequest={request} onSelect={selectSpot} />}
       {view === "World Map" && <><div className="live-actions"><button type="button" onClick={() => void openDetachedMap("world-map").catch(e => setError(e.message))}><ExternalLink size={14} />Open World Map window</button></div><div className="live-map full">{map}</div></>}
       {view === "Band Maps" && <><div className="live-actions"><button type="button" onClick={() => void openDetachedMap("band-maps").catch(e => setError(e.message))}><ExternalLink size={14} />Open Band Maps window</button></div><BandMaps spots={liveSpots} onSelect={selectSpot} radioFrequencyHz={station?.radio?.frequency_hz} /></>}
-      {view === "Station Control" && <><div className="live-station-provider" role="group" aria-label="Station connection type">
-        {[["direct_agent", "Remote station · embedded xCat"], ["hamlib", "Local station · Hamlib"]].map(([id, label]) => <button key={id} className={stationProvider === id ? "selected" : ""} aria-pressed={stationProvider === id} disabled={busy} onClick={() => void changeProvider(id)}>{label}</button>)}
+      {view === "Station Control" && <><div className="live-tabs" role="group" aria-label="Station sections">{["Control and connections", "RUMlog spots"].map(section => <button key={section} aria-pressed={stationSection === section} onClick={() => setStationSection(section)}>{section}</button>)}</div>
+        {stationSection === "RUMlog spots" ? <SpotBridgePanel request={request} provider={stationProvider} /> : <><div className="live-station-provider" role="group" aria-label="Station connection type">
+        {([ ["direct_agent", "Remote station · embedded xCat"], ["direct_flex_lan", "Direct FLEX · LAN"], ["hamlib", "Local station · Hamlib"] ] as const).map(([id, label]) => <button key={id} className={stationProvider === id ? "selected" : ""} aria-pressed={stationProvider === id} disabled={busy} onClick={() => void changeProvider(id)}>{label}</button>)}
         <span>Switching station type disconnects the previous owner. Connect the new station explicitly.</span></div>
-        {stationProvider === "hamlib" ? <HamlibPanel request={request} snapshot={station} /> : <StationPanel snapshot={station} onRequest={request} onSnapshot={setStation} />}</>}
+        {stationProvider === "hamlib" ? <HamlibPanel request={request} snapshot={station} /> :
+          stationProvider === "direct_flex_lan" ? <DirectFlexPanel request={request} snapshot={station} /> :
+          <StationPanel snapshot={station} onRequest={request} onSnapshot={setStation} />}</>}</>}
       {view === "Awards" && <IntegratedAwards request={request} refresh={refresh} />}
       {view === "Settings" && settings && <><SettingsPanel values={settings} request={request} onSaved={setSettings} /><DataManagementPanel onRequest={request} onChanged={() => setRefresh(n => n + 1)} /></>}
       {view === "Sync" && <SyncPanel request={request} onChanged={() => setRefresh(n => n + 1)} />}
@@ -406,7 +418,17 @@ function MonitorSurface() {
       if (result?.accepted !== true) throw new Error("Station action was not accepted.");
       return result;
     }
-    if ((method === "station_rotor_goto" || method === "station_rotor_stop") && projection.station.rotor?.connected) {
+    if (method === "station_action" && source === "direct_flex_lan") {
+      const action = params.action;
+      if ((action !== "tune" && action !== "cancel") ||
+          !projection.station.capabilities?.supported_commands?.includes(action) ||
+          (action === "tune" && projection.station.allow_transmit !== true))
+        throw new Error("Direct FLEX action is unavailable or transmit was not enabled.");
+      const result = (await workerRequest(method, { provider: source, action })).result as Data;
+      if (result?.accepted !== true) throw new Error("Direct FLEX action was not accepted.");
+      return result;
+    }
+    if ((method === "station_rotor_goto" || method === "station_rotor_stop") && source !== "direct_flex_lan" && projection.station.rotor?.connected) {
       if (method === "station_rotor_goto" &&
           (typeof params.bearing !== "number" || !Number.isFinite(params.bearing) || params.bearing < 0 || params.bearing > 360))
         throw new Error("Rotor bearing must be between 0 and 360 degrees.");
@@ -424,24 +446,28 @@ function MonitorSurface() {
     throw new Error("This monitor command is unavailable.");
   };
   const map = <WorldMap data={mapSpots} selected={projection.selected ?? null} palette={projection.palette}
-    home={projection.home} dxccStatuses={projection.dxccStatuses} target={projection.target} />;
+    home={projection.home} dxccStatuses={projection.dxccStatuses} target={projection.target} compact />;
   return <>{error && <p className="live-error" role="alert">{error}</p>}
     {stale && <p className="live-error" role="status">Main station observation is stale. Reopen the main window before using monitor controls.</p>}
     <Monitor snapshot={displayedStation} map={map} onRequest={!stale && projection.controlsEnabled ? monitorRequest : undefined} /></>;
 }
 
-function SidebarStation({ snapshot, busy, onAction }: { snapshot: Data | null; busy: boolean; onAction: (action: string) => void }) {
-  const s = snapshot?.station, local = snapshot?.source === "hamlib";
+function SidebarStation({ snapshot, provider, busy, onAction }: { snapshot: Data | null; provider: StationProvider; busy: boolean; onAction: (action: string) => void }) {
+  const s = snapshot?.station, local = provider === "hamlib", flex = provider === "direct_flex_lan";
   const detail = (text: string | undefined, prefix: string) => text?.split(/[|·]/).map(v => v.trim()).find(v => v.toUpperCase().startsWith(prefix + " "))?.slice(prefix.length).trim();
   const band = (text: string | undefined) => text?.split(/[|·]/).map(v => v.trim()).find(v => /^\d+(\.\d+)?[cm]+$/i.test(v));
   const antenna = s?.kat_detail_primary?.match(/\bANT\s*\d+\b/)?.[0];
   const action = s?.kpa_operate ? "standby" : "operate";
-  const items = local ? [["FREQUENCY", frequency(snapshot?.radio?.frequency_hz), "cyan"], ["MODE", snapshot?.radio?.mode || "—", "teal"], ["ROTOR", snapshot?.rotor?.azimuth == null ? "—" : `${Math.round(snapshot.rotor.azimuth)}°`, "cyan"]]
+  const items = flex ? [["FREQUENCY", frequency(snapshot?.radio?.frequency_hz), "cyan"],
+      ["MODE", snapshot?.radio?.mode || "—", "teal"],
+      ["RX VFO", snapshot?.radio?.receive_vfo || "—", "cyan"],
+      ["TX", snapshot?.radio?.transmitting === true ? "ACTIVE" : snapshot?.radio?.transmitting === false ? "IDLE" : "UNKNOWN", snapshot?.radio?.transmitting === true ? "orange" : "teal"]]
+    : local ? [["FREQUENCY", frequency(snapshot?.radio?.frequency_hz), "cyan"], ["MODE", snapshot?.radio?.mode || "—", "teal"], ["ROTOR", snapshot?.rotor?.azimuth == null ? "—" : `${Math.round(snapshot.rotor.azimuth)}°`, "cyan"]]
     : [["OUTPUT", detail(s?.kpa_detail_primary, "OUT") || (s?.tx_power_watts == null ? "—" : `${s.tx_power_watts} W`), "orange"],
       [s?.swr_is_live ? "SWR LIVE" : "SWR LAST", s?.swr?.toFixed(2) || "—", "teal"], ["KPA BAND", band(s?.kpa_detail_primary) || s?.band || "—", "amber"],
       ["KPA TEMP", detail(s?.kpa_detail_secondary, "TEMP") || "—", "amber"], ["KAT BAND", band(s?.kat_detail_primary) || s?.band || "—", "cyan"], ["ANTENNA", antenna || "—", "cyan"]];
-  return <section className="live-station-brief"><div className="nav-group">Station</div><strong className={local ? "cyan" : "amber"}>{local ? "LOCAL · HAMLIB" : `KPA500 · ${s?.kpa_operate == null ? "OFFLINE" : s.kpa_operate ? "OPERATE" : "STANDBY"}`}</strong>
-    {!local && <button className={s?.kpa_operate ? "teal" : "orange"} disabled={busy || !s?.allowed_actions?.includes(action)} onClick={() => onAction(action)}>Switch to {action}</button>}
+  return <section className="live-station-brief"><div className="nav-group">Station</div><strong className={local || flex ? "cyan" : "amber"}>{flex ? `DIRECT FLEX · ${snapshot?.radio?.connected ? "CONNECTED" : "OFFLINE"}` : local ? "LOCAL · HAMLIB" : `KPA500 · ${s?.kpa_operate == null ? "OFFLINE" : s.kpa_operate ? "OPERATE" : "STANDBY"}`}</strong>
+    {!local && !flex && <button className={s?.kpa_operate ? "teal" : "orange"} disabled={busy || !s?.allowed_actions?.includes(action)} onClick={() => onAction(action)}>Switch to {action}</button>}
     <div className="sidebar-metrics">{items.map(([title, text, color]) => <div key={title} className={color}><small>{title}</small><b>{text}</b></div>)}</div></section>;
 }
 function DeskQSO({ draft, setDraft, save, busy, onEditor, follow, setFollow }: any) {

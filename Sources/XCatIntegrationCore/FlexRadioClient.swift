@@ -22,6 +22,18 @@ public actor FlexRadioClient: RadioControlling {
     public typealias StateHandler = @Sendable (RadioConnectionState, String) -> Void
     public typealias SnapshotHandler = @Sendable (RadioSnapshot) -> Void
 
+    public struct TransmitObservation: Sendable {
+        public let revision: UInt64
+        public let isTransmitting: Bool
+        public let isConnected: Bool
+
+        public init(revision: UInt64, isTransmitting: Bool, isConnected: Bool) {
+            self.revision = revision
+            self.isTransmitting = isTransmitting
+            self.isConnected = isConnected
+        }
+    }
+
     private struct SliceState: Sendable {
         var id: Int
         var frequencyMHz: Double?
@@ -58,6 +70,8 @@ public actor FlexRadioClient: RadioControlling {
     private var commandSequence = 1
     private var state: RadioConnectionState = .stopped
     private var value: RadioSnapshot
+    private var interlockKnown = false
+    private var interlockObservationRevision: UInt64 = 0
     private var slices: [Int: SliceState] = [:]
     private var selectedSliceID: Int?
     private var followedClientHandle: String?
@@ -108,11 +122,23 @@ public actor FlexRadioClient: RadioControlling {
             try? await sendCommand("cwx clear", timeout: .seconds(1))
             try? await sendCommand("xmit 0", timeout: .seconds(1))
         }
+        await stopTransportOnly()
+    }
+
+    /// Close this client without changing the radio's transmit state. Owners
+    /// with explicit RF obligations release and observe those before calling it.
+    public func stopTransportOnly() async {
+        shouldRun = false
+        reconnectTask?.cancel()
+        reconnectTask = nil
+        pingTask?.cancel()
+        pingTask = nil
         generation += 1
         connection?.cancel()
         connection = nil
         failAllPending(XCatError.notConnected)
         inboundBuffer.removeAll(keepingCapacity: false)
+        interlockKnown = false
         value.isConnected = false
         publishSnapshot()
         transition(.stopped, "Stopped")
@@ -127,11 +153,24 @@ public actor FlexRadioClient: RadioControlling {
         generation += 1
         connection?.cancel()
         connection = nil
+        // Explicit reconnect must withdraw the old session's apparent live
+        // readback before any new transport or slice is discovered.
+        value.isConnected = false
+        publishSnapshot()
         connect()
     }
 
     public func snapshot() -> RadioSnapshot {
         value
+    }
+
+    /// Only an interlock status, never an unrelated slice update, can prove
+    /// whether FLEX transmit is on or off for this transport session.
+    public func transmitObservation() -> TransmitObservation? {
+        guard interlockKnown, state == .ready else { return nil }
+        return TransmitObservation(revision: interlockObservationRevision,
+                                   isTransmitting: value.isTransmitting,
+                                   isConnected: value.isConnected)
     }
 
     public func primaryFrequency() -> Int64? {
@@ -422,7 +461,23 @@ public actor FlexRadioClient: RadioControlling {
             applySlice(identifier: identifier, properties: properties)
         case "interlock":
             if let interlock = properties["state"]?.uppercased() {
-                value.isTransmitting = interlock == "TRANSMITTING" || interlock == "PTT_REQUESTED"
+                // Transitional, fault, and unfamiliar values cannot prove an
+                // RF-off state. Only explicit settled RX or keyed TX does.
+                switch interlock {
+                case "TRANSMITTING":
+                    value.isTransmitting = true
+                    interlockKnown = true
+                    interlockObservationRevision &+= 1
+                case "PTT_REQUESTED":
+                    value.isTransmitting = true
+                    interlockKnown = false
+                case "RECEIVE", "READY":
+                    value.isTransmitting = false
+                    interlockKnown = true
+                    interlockObservationRevision &+= 1
+                default:
+                    interlockKnown = false
+                }
                 publishSnapshot()
             }
         case "cwx":
@@ -472,7 +527,8 @@ public actor FlexRadioClient: RadioControlling {
             return
         }
         var slice = slices[id] ?? SliceState(id: id)
-        if let frequency = properties["RF_frequency"].flatMap(Double.init) ?? properties["freq"].flatMap(Double.init) {
+        if let frequency = properties["RF_frequency"].flatMap(Double.init) ?? properties["freq"].flatMap(Double.init),
+           frequency.isFinite, (0.1...1_000).contains(frequency) {
             slice.frequencyMHz = frequency
         }
         if let mode = properties["mode"] { slice.mode = mode.uppercased() }
@@ -532,8 +588,8 @@ public actor FlexRadioClient: RadioControlling {
                 letter: letter,
                 frequencyHz: Int64((frequencyMHz * 1_000_000).rounded()),
                 mode: slice.mode ?? "?",
-                isReceive: slice.id == selected.id,
-                isTransmit: slice.id == transmit.id
+                isReceive: slice.active,
+                isTransmit: slice.transmit
             )
         }.sorted { $0.letter < $1.letter }
         value.station = stationName
@@ -615,6 +671,7 @@ public actor FlexRadioClient: RadioControlling {
         connection?.cancel()
         connection = nil
         failAllPending(XCatError.notConnected)
+        interlockKnown = false
         value.isConnected = false
         publishSnapshot()
         guard shouldRun else {
@@ -651,6 +708,7 @@ public actor FlexRadioClient: RadioControlling {
         reportedClientHandles.removeAll(keepingCapacity: true)
         reportedSliceIDs.removeAll(keepingCapacity: true)
         transportReady = false
+        interlockKnown = false
         failAllPending(XCatError.notConnected)
     }
 

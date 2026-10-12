@@ -1,6 +1,7 @@
 #if os(macOS)
 import Foundation
 import Security
+import XCatIntegrationCore
 import XClusterIntegrationCore
 import XLogCore
 
@@ -16,7 +17,6 @@ public actor LiveClusterMethods {
     private let vault = ClusterCredentialVault()
     private var service: ClusterSessionService?
     private var configuration: ClusterSessionConfiguration?
-    private var forwardedKeys: [String: Date] = [:]
     private var forwardAcceptedCount = 0
     private var forwardStatus = "Off"
     private var forwardRetryAfter = Date.distantPast
@@ -229,33 +229,22 @@ public actor LiveClusterMethods {
               await service.isVisibleSpot(spot.id, in: generation) else { return }
         let now = Date()
         guard now >= forwardRetryAfter else { return }
-        forwardedKeys = forwardedKeys.filter { now.timeIntervalSince($0.value) < 180 }
         let frequencyHz = Int64((spot.frequencyKHz * 1_000).rounded())
         guard (100_000...60_000_000).contains(frequencyHz),
               abs(now.timeIntervalSince(spot.receivedAt)) < 86_400 else { return }
-        let key = "\(spot.callsign)|\(frequencyHz)"
-        guard forwardedKeys[key] == nil else { return }
-        forwardedKeys[key] = now
-        let ascii: (String, Int) -> String = { input, limit in
-            String(input.unicodeScalars.filter { (32...126).contains($0.value) && $0.value != 124 }
-                .prefix(limit).map(Character.init))
-        }
-        let payload: [String: Any] = [
-            "frequency_hz": frequencyHz, "callsign": ascii(spot.callsign, 32),
-            "mode": ascii(spot.mode, 16), "source": "xLog xCluster",
-            "spotter": ascii(spot.spotter, 32), "comment": ascii(spot.comment, 96),
-            "timestamp": Int64(spot.receivedAt.timeIntervalSince1970),
-            "lifetime_seconds": 600, "priority": 3,
-            "color_hex": spot.statusHex.range(of: #"^#[0-9A-Fa-f]{6}$"#, options: .regularExpression) == nil
-                ? "#35C8F5" : spot.statusHex
-        ]
         do {
-            let response = try await LiveStationMethods.handle("station_add_spot", params: ["provider": "direct_agent", "spot": payload])
-            guard response["accepted"] as? Bool == true else {
-                throw WorkerFailure("station_rejected", "The Remote Station Agent did not accept the spot.")
+            let flexSpot = try FlexSpot(frequencyHz: frequencyHz, callsign: spot.callsign,
+                                        mode: spot.mode, source: "xLog xCluster", spotter: spot.spotter,
+                                        comment: spot.comment,
+                                        timestamp: Int64(spot.receivedAt.timeIntervalSince1970),
+                                        lifetimeSeconds: 600, priority: 3,
+                                        colorHex: spot.statusHex.range(of: #"^#[0-9A-Fa-f]{6}$"#, options: .regularExpression) == nil
+                                            ? "#35C8F5" : spot.statusHex)
+            guard !flexSpot.mode.isEmpty else { return }
+            if try await SpotForwardBroker.shared.forward(flexSpot) {
+                forwardAcceptedCount += 1
+                forwardStatus = "Accepted by Remote Station Agent; FLEX display is not verified."
             }
-            forwardAcceptedCount += 1
-            forwardStatus = "Accepted by Remote Station Agent; FLEX display is not verified."
         } catch {
             forwardStatus = "FLEX forwarding unavailable. Connect a direct-agent station with add_spot support."
             forwardRetryAfter = now.addingTimeInterval(60)

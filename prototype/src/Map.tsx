@@ -61,6 +61,7 @@ export default function WorldMap({
   dxccStatuses,
   palette,
   longPath: initialLongPath = false,
+  compact = false,
 }: {
   selected: string | null;
   onSpot?: (spot: MapSpot) => void;
@@ -71,6 +72,7 @@ export default function WorldMap({
   dxccStatuses?: Record<number, DXCCStatus> | null;
   palette?: { status?: Record<string, string>; band?: Record<string, string> } | null;
   longPath?: boolean;
+  compact?: boolean;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -526,14 +528,14 @@ export default function WorldMap({
     else { setOverlayMode("DXCC"); setShowSun(true); setShowGrayline(true); }
   };
   return (
-    <div className="map-wrap">
+    <div className={`map-wrap${compact ? " map-compact" : ""}`}>
       <div
         ref={container}
         className="map"
         role="region"
         aria-label="Interactive world map, arrow keys pan, plus and minus zoom"
       />
-      <div className="map-toolbar" aria-label="World map controls">
+      {!compact && <div className="map-toolbar" aria-label="World map controls">
         <strong>World map</strong>
         <label>Preset <select aria-label="Map preset" value={preset} onChange={event => changePreset(event.target.value as MapPreset)}>
           <option>Simple</option><option>Detailed</option><option>DX</option>
@@ -548,14 +550,14 @@ export default function WorldMap({
         <button type="button" aria-pressed={showGrayline} onClick={() => setShowGrayline(!showGrayline)}>Greyline</button>
         <button type="button" aria-pressed={longPath} onClick={() => setLongPath(!longPath)} title="Switch the displayed great-circle path; does not move the rotor">{longPath ? "Long path" : "Short path"}</button>
         <span className="map-count">{data.length} mapped</span>
-      </div>
+      </div>}
       {imageryUnavailable && appearance !== "Standard" && <p className="map-offline" role="status">Imagery unavailable · showing bundled map</p>}
       {error && (
         <p className="map-error" role="alert">
           {error}
         </p>
       )}
-      <div className="map-legend">
+      {!compact && <div className="map-legend">
         {routeSummary ? <strong>{target?.call} · {Math.round(routeSummary.distanceKm).toLocaleString()} km · SP {Math.round(routeSummary.shortBearing).toString().padStart(3, "0")}° · LP {Math.round(routeSummary.longBearing).toString().padStart(3, "0")}°</strong>
           : !home && !fixture ? <span>Set your station grid to draw accurate DX paths.</span> : null}
         <span>{fixture ? "Offline geography · fixture spots" : "CTY approximate spot locations"}</span>
@@ -569,7 +571,7 @@ export default function WorldMap({
           {showSun && <span><i style={{ backgroundColor: "#ffd75a" }} />Sun</span>}
           {showGrayline && <span><i style={{ backgroundColor: "#a9b6c8" }} />Greyline</span>}
         </div>
-      </div>
+      </div>}
     </div>
   );
 }

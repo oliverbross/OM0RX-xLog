@@ -11,11 +11,16 @@ public actor LiveWorker {
     // Disk-backed logbook work is synchronous. Run it on its own actor so a
     // slow import/backup cannot monopolize the station and service router.
     private actor LogbookLane {
-        static let shared = LogbookLane()
+        private let service: LiveLogbookMethods
+        init(service: LiveLogbookMethods) { self.service = service }
         func handle(method: String, params: [String: Any]) throws -> [String: Any] {
-            try LiveLogbookMethods.shared.handle(method: method, params: params)
+            try service.handle(method: method, params: params)
         }
     }
+    private let logbookLane: LogbookLane
+    init(logbook: LiveLogbookMethods = .shared) { logbookLane = LogbookLane(service: logbook) }
+    #else
+    init() {}
     #endif
 
     func beginTerminalShutdown() {
@@ -25,6 +30,8 @@ public actor LiveWorker {
     public func shutdown() async {
         beginTerminalShutdown()
         #if os(macOS)
+        await LiveSpotBridge.shared.stopForShutdown()
+        await LiveFlexSession.shared.terminate()
         await LiveStationSession.shared.terminate()
         #endif
     }
@@ -41,7 +48,7 @@ public actor LiveWorker {
                 throw WorkerFailure("invalid_request", "Expected a bounded, correlated request.")
             }
             id = requestID
-            if terminalShutdown && method.hasPrefix("station_") {
+            if terminalShutdown && (method.hasPrefix("station_") || method.hasPrefix("spot_bridge_")) {
                 throw WorkerFailure("worker_stopping", "The station service is shutting down; no new station command was started.")
             }
             if method == "health" {
@@ -59,7 +66,7 @@ public actor LiveWorker {
             #if os(macOS)
             let result: [String: Any]
             if method.hasPrefix("workspace_") || method.hasPrefix("logbook_") || method.hasPrefix("settings_") || method.hasPrefix("backup_") {
-                result = try await LogbookLane.shared.handle(method: method, params: params)
+                result = try await logbookLane.handle(method: method, params: params)
                 if ["workspace_create", "logbook_save", "logbook_delete", "logbook_undo", "logbook_import_adif", "backup_restore"].contains(method) {
                     try? await LiveClusterMethods.shared.refreshContacts()
                 }
@@ -67,6 +74,8 @@ public actor LiveWorker {
                 result = try await LiveReferenceMethods.shared.handle(method: method, params: params)
             } else if method.hasPrefix("station_") {
                 result = try await LiveStationMethods.handle(method, params: params)
+            } else if method.hasPrefix("spot_bridge_") {
+                result = try await LiveSpotBridge.shared.handle(method: method, params: params)
             } else if method.hasPrefix("cluster_") {
                 result = try await LiveClusterMethods.shared.handle(method: method, params: params)
             } else {

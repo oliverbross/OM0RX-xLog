@@ -23,7 +23,7 @@ describe("QSOEditor", () => {
   it("reads authoritative call and country matrices, not the six displayed previous QSOs", async () => {
     const request = vi.fn(async (method: string) => method === "logbook_matrix"
       ? { cells: [{ band: "20m", mode: "CW", worked: true, confirmed: false }] }
-      : { call: "EA7EU", adif: 281, matrix: [{ band: "80m", mode: "FT8", worked: true, confirmed: true }] });
+      : { history: { call: "EA7EU", adif: 281, matrix: [{ band: "80m", mode: "FT8", worked: true, confirmed: true }] } });
     render(<Harness lookup={{ call: "EA7EU", country: "Spain", dxcc: 281 }} previous={[]} request={request} />);
     await waitFor(() => expect(screen.getByLabelText("Country 80m FT8: Confirmed")).toBeTruthy());
     expect(screen.getByLabelText("Callsign 20m CW: Worked")).toBeTruthy();
@@ -34,7 +34,7 @@ describe("QSOEditor", () => {
   });
   it("does not render missing or mismatched country evidence as unworked", async () => {
     const request = vi.fn(async (method: string) => method === "logbook_matrix" ? { cells: [] }
-      : { call: "OTHER", adif: 281, matrix: [] });
+      : { history: { call: "OTHER", adif: 281, matrix: [] } });
     render(<Harness lookup={{ call: "EA7EU", country: "Spain", dxcc: 281 }} request={request} />);
     await waitFor(() => expect(screen.getByText("Country history response does not match this callsign.")).toBeTruthy());
     expect(screen.queryByLabelText("Country 80m FT8: Unworked")).toBeNull();

@@ -28,6 +28,15 @@ sources and packaged in the Mac application; no Homebrew installation is require
 to run them. Model/device/serial settings, capability discovery and reconnect are
 explicit. Real-device acceptance is separate from the bundled dummy tests.
 
+**Direct FLEX · LAN** also connects to a private-address FLEX radio without the
+Windows agent. It exposes only implemented capabilities and distinguishes fresh
+observations from command acknowledgements; SmartLink, direct-FLEX RIT/XIT,
+RF-power controls and direct-FLEX CAT listeners remain open parity work.
+The **Station Control → RUMlog spots** tab configures all eleven native
+Logbook/Contest categories, colours, priorities and lifetimes. Its explicit
+loopback listeners currently forward through the Remote Station Agent and
+require matching acknowledgements; they do not tune or transmit the radio.
+
 The parity work restores the native navigation/sidebar, full QSO editor,
 multi-band maps, cluster palette, awards filters, graphical propagation and
 typed station settings. It also separates slow logbook/service requests from the
@@ -37,8 +46,11 @@ acceptance evidence belongs to the exact revision recorded with each release.
 
 The installed shared app has now passed direct-agent frequency-change/restore
 and bidirectional rotor-readback checks with the operator present. See the
-[2026-10-12 live acceptance and local cleanup record](docs/P2_LIVE_ACCEPTANCE_2026-10-12.md)
+[latest exact-build live acceptance record](docs/P3_LIVE_ACCEPTANCE_2026-10-12.md)
 for exact observations and remaining limits. This does not establish full parity.
+Upgrade by retaining the outgoing bundle in a separate rollback folder, not
+by using a Trash-based app cleaner. Preserve application support and preferences;
+see the [workspace recovery record](docs/P3_WORKSPACE_RECOVERY_2026-10-12.md).
 
 ## Current working release — macOS only (unchanged)
 

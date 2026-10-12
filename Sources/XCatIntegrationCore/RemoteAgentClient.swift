@@ -317,7 +317,7 @@ public actor RemoteAgentClient: RadioControlling {
     }
 
     public func addSpot(_ spot: FlexSpot) async throws {
-        try await execute(.addSpot(spot))
+        try await execute(.addSpot(spot), expectedSpot: spot)
     }
 
     public func fetchConfiguration() async throws -> RemoteStationConfiguration {
@@ -450,7 +450,7 @@ public actor RemoteAgentClient: RadioControlling {
         }
     }
 
-    private func execute(_ command: RemoteAgentCommand) async throws {
+    private func execute(_ command: RemoteAgentCommand, expectedSpot: FlexSpot? = nil) async throws {
         guard shouldRun else { throw XCatError.notConnected }
         guard value.remoteStationStatus?.supportedCommands.contains(command.name) == true else {
             throw XCatError.server("Remote Agent does not advertise \(command.name).")
@@ -468,7 +468,13 @@ public actor RemoteAgentClient: RadioControlling {
                 let (data, response) = try await session.data(for: request)
                 let receivedAt = Date()
                 try Self.validate(response: response, data: data)
-                if let decoded = try RemoteAgentStateDecoder.commandResponse(data, receivedAt: receivedAt) { apply(decoded) }
+                let decoded: RemoteAgentDecodedState?
+                if let spot = expectedSpot {
+                    decoded = try RemoteAgentStateDecoder.spotCommandResponse(data, expected: spot, receivedAt: receivedAt)
+                } else {
+                    decoded = try RemoteAgentStateDecoder.commandResponse(data, receivedAt: receivedAt)
+                }
+                if let decoded { apply(decoded) }
                 return
             } catch {
                 lastError = error

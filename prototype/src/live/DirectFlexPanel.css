@@ -1,0 +1,16 @@
+.direct-flex .flex-connect-fields { display: grid; grid-template-columns: minmax(190px, 1fr) 95px minmax(170px, 1fr); gap: 10px; }
+.direct-flex .flex-connect-fields input { width: 100%; }
+.direct-flex .flex-readback { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin: 2px 0 14px; padding: 11px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.direct-flex .flex-readback strong { color: var(--cyan); font: 600 26px ui-monospace, SFMono-Regular, Consolas, monospace; font-variant-numeric: tabular-nums; }
+.direct-flex .flex-readback strong small { font: 500 11px system-ui, sans-serif; }
+.direct-flex .flex-readback > span { font-size: 11px; }
+.direct-flex .live-station-card label:has(textarea) { display: flex; flex-direction: column; align-items: stretch; color: var(--secondary); font-size: 10px; gap: 5px; }
+.direct-flex .live-station-card button:focus-visible, .direct-flex input:focus-visible, .direct-flex select:focus-visible, .direct-flex textarea:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.direct-flex .live-station-card button:hover:not(:disabled) { border-color: var(--cyan); }
+.direct-flex .live-station-card button:disabled { opacity: .5; cursor: not-allowed; }
+.integrated-monitor.flex-radio-only { grid-template-columns: minmax(0, 1fr); }
+.integrated-monitor.flex-radio-only .monitor-radio { border-right: 0; }
+.monitor-flex-state { padding: 10px 12px; color: #92a7bf; }
+.integrated-monitor.flex-radio-only .monitor-live-map.flex-map { min-height: 260px; margin-top: 10px; }
+@media (max-width: 850px) { .direct-flex .flex-connect-fields { grid-template-columns: minmax(0, 1fr) 95px; } .direct-flex .flex-connect-fields label:last-child { grid-column: 1 / -1; } }
+@media (max-width: 600px) { .direct-flex .flex-connect-fields { grid-template-columns: minmax(0, 1fr); } .direct-flex .flex-connect-fields label:last-child { grid-column: auto; } }

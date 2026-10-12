@@ -11,6 +11,7 @@ export default function Monitor({ snapshot, map, onRequest }: { snapshot: Data |
   const [busy, setBusy] = useState(false);
   const [bearing, setBearing] = useState("");
   const local = snapshot?.source === "hamlib";
+  const flex = snapshot?.source === "direct_flex_lan";
   const action = station?.kpa_operate ? "standby" : "operate";
   const command = async (method: string, params: Data) => {
     if (!onRequest) return;
@@ -29,18 +30,23 @@ export default function Monitor({ snapshot, map, onRequest }: { snapshot: Data |
   const vfo = (letter: string) => radio?.vfos?.find((v: Data) => v.letter === letter)?.frequency_hz ??
     (radio?.receive_vfo === letter ? radio.receive_frequency_hz : radio?.transmit_vfo === letter ? radio.transmit_frequency_hz : null);
   const fresh = radio?.connected && radio?.observed && station?.radio_stale !== true;
-  return <div className="integrated-monitor">
+  const supported: string[] = Array.isArray(snapshot?.capabilities?.supported_commands) ? snapshot.capabilities.supported_commands : [];
+  return <div className={`integrated-monitor${flex ? " flex-radio-only" : ""}`}>
     <section className="monitor-radio">
-      <header><span className="secondary">STATION · {local ? "LOCAL HAMLIB" : "EMBEDDED xCAT"}</span><b className={fresh && typeof radio?.transmitting === "boolean" ? "teal" : "amber"}>{!fresh ? "OFFLINE" : radio?.transmitting === true ? "TX" : radio?.transmitting === false ? "RX" : "PTT UNKNOWN"}</b></header>
-      <div className="monitor-vfos"><strong>A: {frequency(vfo("A"))}</strong><strong>B: {frequency(vfo("B"))}</strong><span>{radio?.mode || "Mode unavailable"} · {station?.band || "—"} · {station?.interlock_state || "No live observation"}</span></div>
+      <header><span className="secondary">STATION · {flex ? "DIRECT FLEX LAN" : local ? "LOCAL HAMLIB" : "EMBEDDED xCAT"}</span><b className={fresh && typeof radio?.transmitting === "boolean" ? "teal" : "amber"}>{!fresh ? "OFFLINE" : radio?.transmitting === true ? "TX" : radio?.transmitting === false ? "RX" : "PTT UNKNOWN"}</b></header>
+      <div className="monitor-vfos"><strong>A: {frequency(vfo("A"))}</strong><strong>B: {frequency(vfo("B"))}</strong><span>{radio?.mode || "Mode unavailable"}{!flex && ` · ${station?.band || "—"} · ${station?.interlock_state || "No live observation"}`}</span></div>
+      {flex ? <p className="monitor-flex-state">{radio?.connected ? `Receive VFO ${radio.receive_vfo || "—"} · Transmit VFO ${radio.transmit_vfo || "—"} · ${radio.split ? "Split" : "Simplex"}` : "Connect direct FLEX from the main station controls."}</p> : <>
       <div className="monitor-meters"><div className="output"><small>TX POWER</small><strong>{value(station?.tx_power_watts, " W")}</strong></div><div className="swr"><small>SWR</small><strong>{value(station?.swr)}</strong><small>{station?.swr_is_live ? "LIVE" : "LAST"}</small></div><div className="drive"><small>RF DRIVE</small><strong>{value(station?.rf_drive_watts, " W")}</strong></div></div>
       {!local && <><section className="monitor-kpa"><strong>KPA500 · {station?.kpa_operate == null ? "Unavailable" : station.kpa_operate ? "OPERATE" : "STBY"}</strong><p>{station?.kpa_detail_primary || "Waiting for amplifier status"}</p><p>{station?.kpa_detail_secondary}</p></section>
       <section className="monitor-kat"><strong>KAT500</strong><p>{station?.kat_detail_primary || "Waiting for tuner status"}</p><p>{station?.kat_detail_secondary}</p></section>
       <section className="monitor-route"><p>{station?.route_detail || "Route unavailable"}</p><b>{station?.route_alignment || "UNKNOWN"}</b></section></>}
       {!local && onRequest && <div className="monitor-actions"><button disabled={busy || !station?.allowed_actions?.includes(action)} onClick={() => void command("station_action", { action })}>{station?.kpa_operate ? "Standby" : "Operate"}</button><button disabled={busy || !snapshot?.allow_transmit || !station?.allowed_actions?.includes("tune")} onClick={() => void command("station_action", { action: "tune" })}>Tune</button><button disabled={!station?.allowed_actions?.includes("cancel")} onClick={() => void command("station_action", { action: "cancel" })}>Cancel</button></div>}
-      <footer>{station?.alarm_summary || "No live alarm observation"}<br />{snapshot?.generated_at ? `Received ${new Date(snapshot.generated_at * 1000).toLocaleTimeString()}` : "Waiting for station"}<p role="status">{message}</p></footer>
+      </>}
+      {flex && onRequest && <div className="monitor-actions"><button disabled={busy || !fresh || !snapshot?.allow_transmit || !supported.includes("tune")} onClick={() => void command("station_action", { action: "tune" })}>Tune</button><button disabled={busy || !fresh || !supported.includes("cancel")} onClick={() => void command("station_action", { action: "cancel" })}>Cancel tune / release TX</button></div>}
+      {flex && <div className="monitor-live-map flex-map">{map}</div>}
+      <footer>{flex ? "FLEX radio observation only · no amplifier, tuner or rotor telemetry" : station?.alarm_summary || "No live alarm observation"}<br />{snapshot?.generated_at ? `Received ${new Date(snapshot.generated_at * 1000).toLocaleTimeString()}` : "Waiting for station"}<p role="status">{message}</p></footer>
     </section>
-    <section className="monitor-rotor"><header><strong>{rotor?.name || "ROTOR"}</strong><span>{rotor?.connected ? rotor.status : "Disconnected"}</span></header><div className={`monitor-compass ${rotor?.connected && onRequest ? "can-turn" : ""}`} title="Click a heading to turn; or enter a bearing below" onClick={event => {
+    {!flex && <section className="monitor-rotor"><header><strong>{rotor?.name || "ROTOR"}</strong><span>{rotor?.connected ? rotor.status : "Disconnected"}</span></header><div className={`monitor-compass ${rotor?.connected && onRequest ? "can-turn" : ""}`} title="Click a heading to turn; or enter a bearing below" onClick={event => {
       if (!rotor?.connected || !onRequest || busy) return;
       const rect = event.currentTarget.getBoundingClientRect();
       const x = event.clientX - rect.left - rect.width / 2, y = event.clientY - rect.top - rect.height / 2;
@@ -48,6 +54,6 @@ export default function Monitor({ snapshot, map, onRequest }: { snapshot: Data |
       const target = Math.round((Math.atan2(x, -y) * 180 / Math.PI + 360) % 360);
       setBearing(String(target)); void command("station_rotor_goto", { bearing: target });
     }}><span className="north">N</span><span className="east">E</span><span className="south">S</span><span className="west">W</span>{typeof rotor?.azimuth === "number" && <i style={{ transform: `rotate(${angle}deg)` }} />}<strong>{typeof rotor?.azimuth === "number" ? `${Math.round(rotor.azimuth).toString().padStart(3, "0")}°` : "—"}<small>OBSERVED ANTENNA</small></strong></div><div className="monitor-target"><strong>{rotor?.target_label || "No selected target"}</strong><span>{typeof rotor?.target_bearing === "number" ? `${Math.round(rotor.target_bearing)}° target` : ""}</span></div><div className="monitor-live-map">{map}</div>
-      {onRequest && <form className="monitor-actions" onSubmit={event => { event.preventDefault(); if (bearing !== "" && Number(bearing) >= 0 && Number(bearing) <= 360) void command("station_rotor_goto", { bearing: Number(bearing) }); }}><input aria-label="Monitor rotor bearing" type="number" min="0" max="360" value={bearing} onChange={e => setBearing(e.target.value)} placeholder="Bearing °" /><button disabled={busy || !rotor?.connected || bearing === ""}>Turn</button><button type="button" disabled={!rotor?.connected} onClick={() => void command("station_rotor_stop", {})}>Stop</button></form>}</section>
+      {onRequest && <form className="monitor-actions" onSubmit={event => { event.preventDefault(); if (bearing !== "" && Number(bearing) >= 0 && Number(bearing) <= 360) void command("station_rotor_goto", { bearing: Number(bearing) }); }}><input aria-label="Monitor rotor bearing" type="number" min="0" max="360" value={bearing} onChange={e => setBearing(e.target.value)} placeholder="Bearing °" /><button disabled={busy || !rotor?.connected || bearing === ""}>Turn</button><button type="button" disabled={!rotor?.connected} onClick={() => void command("station_rotor_stop", {})}>Stop</button></form>}</section>}
   </div>;
 }

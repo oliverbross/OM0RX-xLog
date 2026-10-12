@@ -106,6 +106,10 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "station_rotor_goto",
         "station_rotor_stop",
         "station_add_spot",
+        "spot_bridge_snapshot",
+        "spot_bridge_configure",
+        "spot_bridge_start",
+        "spot_bridge_stop",
         "cluster_snapshot",
         "cluster_connect",
         "cluster_disconnect",
@@ -557,6 +561,10 @@ mod tests {
             "sync_run",
             "settings_save",
             "propagation_snapshot",
+            "spot_bridge_snapshot",
+            "spot_bridge_configure",
+            "spot_bridge_start",
+            "spot_bridge_stop",
         ] {
             let request = json!({"id":"r","method":method,"params":{}});
             assert!(validate_surface("monitor", &request).is_err());

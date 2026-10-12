@@ -191,7 +191,11 @@ public enum RUMlogSpotParser {
         guard let number = Double(rawFrequency), number.isFinite, number > 0 else {
             throw XCatError.server("RUMlog spot has no valid frequency.")
         }
-        let frequencyHz = Int64((number < 100_000 ? number * 1_000 : number).rounded())
+        let scaledHz = number < 100_000 ? number * 1_000 : number
+        guard scaledHz.isFinite, (100_000.0...60_000_000.0).contains(scaledHz),
+              let frequencyHz = Int64(exactly: scaledHz.rounded()) else {
+            throw XCatError.invalidFrequency
+        }
         let callsign = fields["dxcall"] ?? ""
         let timestamp = parseTimestamp(fields["timestamp"]) ?? Int64(Date().timeIntervalSince1970)
         return ParsedRUMlogSpot(
@@ -292,10 +296,13 @@ public final class UDPSpotReceiver: @unchecked Sendable {
     public typealias EventHandler = @Sendable (String) -> Void
 
     private let queue: DispatchQueue
+    private let lock = NSLock()
     private let onDatagram: DatagramHandler
     private let onEvent: EventHandler
     private var listener: NWListener?
+    private var generation: UUID?
     private var connections: [NWConnection] = []
+    private static let maximumActiveSources = 64
 
     public init(label: String, onDatagram: @escaping DatagramHandler, onEvent: @escaping EventHandler = { _ in }) {
         queue = DispatchQueue(label: label)
@@ -304,58 +311,107 @@ public final class UDPSpotReceiver: @unchecked Sendable {
     }
 
     public func start(port: UInt16) throws {
-        guard listener == nil, let nwPort = NWEndpoint.Port(rawValue: port) else {
+        guard let nwPort = NWEndpoint.Port(rawValue: port) else {
             throw XCatError.server("The RUMlog UDP port is invalid or already running.")
         }
         let parameters = NWParameters.udp
-        parameters.allowLocalEndpointReuse = true
+        // Never share a RUMlog feed port with a standalone xCat listener. A
+        // second listener would make delivery ambiguous and lose spots.
+        parameters.allowLocalEndpointReuse = false
         parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: nwPort)
         let newListener = try NWListener(using: parameters)
         let startup = StartupGate()
+        let session = UUID()
+        let installed = lock.withLock { () -> Bool in
+            guard listener == nil else { return false }
+            listener = newListener
+            generation = session
+            return true
+        }
+        guard installed else {
+            newListener.cancel()
+            throw XCatError.server("The RUMlog UDP port is invalid or already running.")
+        }
         newListener.stateUpdateHandler = { [weak self] state in
+            guard let self, self.lock.withLock({ self.generation == session }) else {
+                startup.resolve(failure: "Listener was stopped before it became ready.")
+                return
+            }
             switch state {
             case .ready:
                 startup.resolve()
-                self?.onEvent("Listening on 127.0.0.1:\(port)")
+                self.onEvent("Listening on 127.0.0.1:\(port)")
             case let .failed(error):
                 startup.resolve(failure: error.localizedDescription)
-                self?.onEvent("UDP listener failed: \(error.localizedDescription)")
+                self.onEvent("UDP listener failed: \(error.localizedDescription)")
+            case .cancelled:
+                startup.resolve(failure: "Listener was cancelled before it became ready.")
             default: break
             }
         }
         newListener.newConnectionHandler = { [weak self] connection in
-            guard let self else { return }
-            self.connections.append(connection)
+            guard let self else { connection.cancel(); return }
+            let accepted = self.lock.withLock { () -> Bool in
+                guard self.generation == session,
+                      self.connections.count < Self.maximumActiveSources else { return false }
+                self.connections.append(connection)
+                return true
+            }
+            guard accepted else { connection.cancel(); return }
+            connection.stateUpdateHandler = { [weak self, weak connection] state in
+                guard let self, let connection else { return }
+                switch state {
+                case .failed, .cancelled:
+                    self.remove(connection)
+                default: break
+                }
+            }
             connection.start(queue: self.queue)
-            self.receive(on: connection)
+            self.receive(on: connection, generation: session)
         }
-        listener = newListener
-        newListener.start(queue: queue)
-        if let failure = startup.wait(timeout: .now() + 3) {
+        let shouldStart = lock.withLock { () -> Bool in
+            guard generation == session else { return false }
+            newListener.start(queue: queue)
+            return true
+        }
+        guard shouldStart else {
             newListener.cancel()
-            listener = nil
+            throw XCatError.server("The RUMlog UDP listener was stopped before startup.")
+        }
+        if let failure = startup.wait(timeout: .now() + 3) {
+            stop()
             throw XCatError.server("Could not listen on 127.0.0.1:\(port): \(failure)")
         }
     }
 
     public func stop() {
-        listener?.cancel()
-        listener = nil
-        queue.async { [weak self] in
-            guard let self else { return }
-            self.connections.forEach { $0.cancel() }
-            self.connections.removeAll()
+        let (oldListener, oldConnections) = lock.withLock { () -> (NWListener?, [NWConnection]) in
+            let prior = (listener, connections)
+            listener = nil
+            generation = nil
+            connections.removeAll()
+            return prior
         }
+        oldListener?.cancel()
+        oldConnections.forEach { $0.cancel() }
     }
 
-    private func receive(on connection: NWConnection) {
+    private func remove(_ connection: NWConnection) {
+        lock.withLock { connections.removeAll { $0 === connection } }
+    }
+
+    private func receive(on connection: NWConnection, generation session: UUID) {
         connection.receiveMessage { [weak self] data, _, _, error in
             guard let self else { return }
+            let active = self.lock.withLock {
+                self.generation == session && self.connections.contains { $0 === connection }
+            }
+            guard active else { connection.cancel(); return }
             if let data, !data.isEmpty { self.onDatagram(data) }
             if error == nil {
-                self.receive(on: connection)
+                self.receive(on: connection, generation: session)
             } else {
-                self.connections.removeAll { $0 === connection }
+                self.remove(connection)
                 connection.cancel()
             }
         }

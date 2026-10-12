@@ -16,6 +16,11 @@ struct RotorObservation {
         target = bearing.truncatingRemainder(dividingBy: 360)
         self.label = label
         requestedAt = now
+        // Motion from the previous target must not age the new command's
+        // startup grace period. The controller may take time to begin moving.
+        lastChange = nil
+        moving = nil
+        direction = nil
         stableSamples = 0
         status = "Turn requested · waiting for motion"
     }

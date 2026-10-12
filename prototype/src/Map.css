@@ -31,6 +31,7 @@
 .map-toolbar button:focus-visible, .map-toolbar select:focus-visible,
 .map-legend button:focus-visible { outline: 2px solid #35c8f5; outline-offset: 2px; }
 .map-count { color: #35c8f5; white-space: nowrap; }
+.map-compact .map-offline { top: 8px; max-width: calc(100% - 60px); }
 .map-offline { position: absolute; z-index: 2; top: 57px; left: 10px; margin: 0; padding: 5px 8px; border-radius: 4px; background: #0b1728ee; color: #f3b23c; font-size: 11px; }
 .map-dxcc-label, .map-spot-label {
   display: block;

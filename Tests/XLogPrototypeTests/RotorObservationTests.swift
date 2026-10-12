@@ -29,4 +29,21 @@ struct RotorObservationTests {
         rotor.stopRequested()
         #expect(rotor.target == nil)
     }
+    @Test func newTargetGetsFreshMotionGracePeriod() {
+        var rotor = RotorObservation()
+        let now = Date()
+        rotor.observe(173, now: now)
+        rotor.request(175, label: "First", now: now)
+        rotor.observe(176, now: now.addingTimeInterval(1))
+        rotor.observe(176, now: now.addingTimeInterval(2))
+        rotor.observe(176, now: now.addingTimeInterval(3))
+        rotor.request(173, label: "Return", now: now.addingTimeInterval(20))
+        rotor.observe(176, now: now.addingTimeInterval(21))
+        rotor.observe(176, now: now.addingTimeInterval(22))
+        #expect(rotor.status == "Turn requested · waiting for motion")
+        rotor.observe(172, now: now.addingTimeInterval(23))
+        rotor.observe(172, now: now.addingTimeInterval(24))
+        rotor.observe(172, now: now.addingTimeInterval(25))
+        #expect(rotor.status.hasPrefix("At target"))
+    }
 }
