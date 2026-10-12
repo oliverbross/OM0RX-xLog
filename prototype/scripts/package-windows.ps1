@@ -205,6 +205,9 @@ try {
     New-Item -ItemType Directory -Path $package -Force | Out-Null
     $notices = New-Item -ItemType Directory -Path (Join-Path $package 'notices')
     Copy-Item -LiteralPath $sharedMetadata -Destination (Join-Path $notices.FullName 'shared') -Recurse
+    $coreResources = Join-Path $release 'OM0RXXLogPrototype_XLogPortableCore.resources'
+    if (-not (Test-Path -LiteralPath $coreResources -PathType Container)) { throw 'Local logbook CTY and awards resources are missing.' }
+    Copy-Item -LiteralPath $coreResources -Destination (Join-Path $package 'OM0RXXLogPrototype_XLogPortableCore.resources') -Recurse
     $auditDirectory = New-Item -ItemType Directory -Path (Join-Path $package 'evidence/native-imports')
     $origins = @{}
     $queue = [Collections.Generic.Queue[string]]::new()

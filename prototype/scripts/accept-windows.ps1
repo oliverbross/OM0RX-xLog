@@ -186,7 +186,7 @@ try {
     try {
         $stderrTask = $worker.StandardError.ReadToEndAsync()
         $health = Send-Request $worker 'one' 'health' @{}
-        Assert-That ($health.id -eq 'one' -and $health.ok -eq $true -and $health.result.platform -eq 'Windows' -and $health.result.mode -eq 'synthetic_only' -and $health.result.station_io -eq $false) 'Health contract failed.'
+        Assert-That ($health.id -eq 'one' -and $health.ok -eq $true -and $health.result.platform -eq 'Windows' -and $health.result.mode -eq 'integrated_local' -and $health.result.local_logbook -eq $true -and $health.result.platform_services -eq $false -and $health.result.station_io -eq $false) 'Local integration health contract failed.'
         $fragment = @{ id = 'two'; method = 'parse_adif'; params = @{ text = '<CALL:5>TEST1<QSO_DATE:8>20260101<TIME_ON:6>120000<BAND:3>20m<MODE:2>CW<EOR>' } } | ConvertTo-Json -Compress
         $worker.StandardInput.Write($fragment.Substring(0, 17)); $worker.StandardInput.Flush()
         $worker.StandardInput.WriteLine($fragment.Substring(17)); $worker.StandardInput.Flush()
@@ -197,7 +197,7 @@ try {
         Write-Json (Join-Path $EvidenceDirectory 'worker-valid-responses.json') @($health, $parsed, $selfTest)
         Record-Modules $worker 'worker-valid' -RequireWorkerRuntime
         Finish-Worker $worker $stderrTask
-        Record-Check 'ndjson-open-stdin-fragment-correlation' @{ responses = 3; methods = @('health', 'parse_adif', 'self_test'); shutdown = 'EOF exit 0'; syntheticOnly = $true }
+        Record-Check 'ndjson-open-stdin-fragment-correlation' @{ responses = 3; methods = @('health', 'parse_adif', 'self_test'); shutdown = 'EOF exit 0'; localLogbook = $true; stationIO = $false }
     } finally { if (-not $worker.HasExited) { $worker.Kill($true) }; $worker.Dispose() }
 
     $worker = Start-Isolated 'xlog-prototype-worker.exe'
@@ -214,6 +214,16 @@ try {
         Write-Json (Join-Path $EvidenceDirectory 'worker-recovery-responses.json') $responses
         Finish-Worker $worker $stderrTask
         Record-Check 'ndjson-malformed-oversized-recovery' @{ responses = 3; shutdown = 'EOF exit 0' }
+    } finally { if (-not $worker.HasExited) { $worker.Kill($true) }; $worker.Dispose() }
+
+    $worker = Start-Isolated 'xlog-prototype-worker.exe' @('--local-logbook-self-test')
+    try {
+        $stderrTask = $worker.StandardError.ReadToEndAsync()
+        $response = Read-Response $worker
+        Assert-That ($response.ok -eq $true -and $response.result.passed -eq $true -and $response.result.award_programmes -eq 192 -and $response.result.network_contact -eq $false -and $response.result.station_io -eq $false) 'Packaged local logbook round trip failed.'
+        Finish-Worker $worker $stderrTask
+        Write-Json (Join-Path $EvidenceDirectory 'worker-local-logbook.json') $response
+        Record-Check 'worker-local-logbook-round-trip' @{ shutdown = 'exit 0'; syntheticRecords = $true; localFileIO = $true; stationIO = $false }
     } finally { if (-not $worker.HasExited) { $worker.Kill($true) }; $worker.Dispose() }
 
     $worker = Start-Isolated 'xlog-prototype-worker.exe' @('--self-test')

@@ -1,4 +1,3 @@
-#if os(macOS)
 import Foundation
 import XCTest
 @testable import XLogPrototypeSupport
@@ -49,4 +48,3 @@ final class WorkerStartupTests: XCTestCase {
         return try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
     }
 }
-#endif

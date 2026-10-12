@@ -1,8 +1,11 @@
-#if os(macOS)
 import Foundation
+#if canImport(XLogCore)
 import XLogCore
+#else
+import XLogPortableCore
+#endif
 
-/// Mac-only bridge to an explicitly created integration workspace. It never opens
+/// Shared local bridge to an explicitly created integration workspace. It never opens
 /// LogbookDatabase() without a URL, and it never constructs a Wavelog client.
 public final class LiveLogbookMethods: @unchecked Sendable {
     public static let shared = LiveLogbookMethods()
@@ -493,7 +496,7 @@ public final class LiveLogbookMethods: @unchecked Sendable {
         let directory = workspaceURL.appendingPathComponent(name, isDirectory: true)
         if create, !fileManager.fileExists(atPath: directory.path) {
             try fileManager.createDirectory(at: directory, withIntermediateDirectories: false,
-                                            attributes: [.posixPermissions: 0o700])
+                                            attributes: LocalFilePermissions.directoryAttributes)
         }
         let values = try directory.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
         guard values.isDirectory == true, values.isSymbolicLink != true else {
@@ -666,4 +669,3 @@ public final class LiveLogbookMethods: @unchecked Sendable {
          }]
     }
 }
-#endif

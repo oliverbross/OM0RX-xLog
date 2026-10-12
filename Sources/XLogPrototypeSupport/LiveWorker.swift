@@ -7,7 +7,6 @@ public actor LiveWorker {
     public static let shared = LiveWorker()
     private let diagnostics = PrototypeWorker()
     private var terminalShutdown = false
-    #if os(macOS)
     // Disk-backed logbook work is synchronous. Run it on its own actor so a
     // slow import/backup cannot monopolize the station and service router.
     private actor LogbookLane {
@@ -19,9 +18,6 @@ public actor LiveWorker {
     }
     private let logbookLane: LogbookLane
     init(logbook: LiveLogbookMethods = .shared) { logbookLane = LogbookLane(service: logbook) }
-    #else
-    init() {}
-    #endif
 
     func beginTerminalShutdown() {
         terminalShutdown = true
@@ -54,40 +50,39 @@ public actor LiveWorker {
             }
             if method == "health" {
                 guard params.isEmpty else { throw WorkerFailure("invalid_params", "Health takes no parameters.") }
-                #if os(macOS)
-                return encode(["id": id, "ok": true, "result": ["mode": "integrated", "synthetic_only": false,
-                    "version": "0.4.0-alpha.2", "connections_require_explicit_action": true]])
-                #else
-                return diagnostics.response(to: data)
-                #endif
+                return encode(["id": id, "ok": true, "result": Self.health])
             }
             if ["parse_adif", "self_test", "integration_self_test", "cluster_classify"].contains(method) {
                 return diagnostics.response(to: data)
             }
-            #if os(macOS)
             let result: [String: Any]
             if method.hasPrefix("workspace_") || method.hasPrefix("logbook_") || method.hasPrefix("settings_") || method.hasPrefix("backup_") {
                 result = try await logbookLane.handle(method: method, params: params)
+                #if os(macOS)
                 if ["workspace_create", "logbook_save", "logbook_delete", "logbook_undo", "logbook_import_adif", "backup_restore"].contains(method) {
                     try? await LiveClusterMethods.shared.refreshContacts()
                 }
-            } else if method.hasPrefix("reference_") {
-                result = try await LiveReferenceMethods.shared.handle(method: method, params: params)
-            } else if method.hasPrefix("opportunities_") {
-                result = try await LiveOpportunitiesMethods.shared.handle(method: method, params: params)
-            } else if method.hasPrefix("station_") {
-                result = try await LiveStationMethods.handle(method, params: params)
-            } else if method.hasPrefix("spot_bridge_") {
-                result = try await LiveSpotBridge.shared.handle(method: method, params: params)
-            } else if method.hasPrefix("cluster_") {
-                result = try await LiveClusterMethods.shared.handle(method: method, params: params)
+                #endif
             } else {
-                result = try await LiveServiceMethods.shared.handle(method: method, params: params)
+                #if os(macOS)
+                if method.hasPrefix("reference_") {
+                    result = try await LiveReferenceMethods.shared.handle(method: method, params: params)
+                } else if method.hasPrefix("opportunities_") {
+                    result = try await LiveOpportunitiesMethods.shared.handle(method: method, params: params)
+                } else if method.hasPrefix("station_") {
+                    result = try await LiveStationMethods.handle(method, params: params)
+                } else if method.hasPrefix("spot_bridge_") {
+                    result = try await LiveSpotBridge.shared.handle(method: method, params: params)
+                } else if method.hasPrefix("cluster_") {
+                    result = try await LiveClusterMethods.shared.handle(method: method, params: params)
+                } else {
+                    result = try await LiveServiceMethods.shared.handle(method: method, params: params)
+                }
+                #else
+                throw WorkerFailure("platform_pending", "This service is not yet available on this platform. The local logbook remains available; no connection or command was started.")
+                #endif
             }
             return encode(["id": id, "ok": true, "result": result])
-            #else
-            throw WorkerFailure("platform_pending", "Live integration is currently being accepted on macOS. This platform has not been commissioned.")
-            #endif
         } catch let failure as WorkerFailure {
             return encode(["id": id, "ok": false, "error": ["code": failure.code, "message": failure.message]])
         } catch {
@@ -95,6 +90,20 @@ public actor LiveWorker {
             // return arbitrary localizedDescription over the UI/log boundary.
             return encode(["id": id, "ok": false, "error": ["code": "operation_failed", "message": "Operation failed. Check the connection or configuration; no success has been confirmed."]])
         }
+    }
+
+    private static var health: [String: Any] {
+        #if os(macOS)
+        let platform = "macOS", mode = "integrated", services = true
+        #elseif os(Windows)
+        let platform = "Windows", mode = "integrated_local", services = false
+        #else
+        let platform = "Linux", mode = "integrated_local", services = false
+        #endif
+        return ["mode": mode, "platform": platform, "synthetic_only": false,
+                "version": "0.4.0-alpha.7", "local_logbook": true,
+                "platform_services": services, "station_io": false,
+                "connections_require_explicit_action": true]
     }
 
     private func encode(_ value: [String: Any]) -> Data {

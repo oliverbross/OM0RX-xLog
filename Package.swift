@@ -28,9 +28,13 @@ let sqlitePkgConfig: String? = "sqlite3"
 let liveCoreName = "XLogPortableCore"
 let liveIntegrationDependencies: [Target.Dependency] = []
 let prototypeCoreTargets: [Target] = [
-    .target(name: "XLogPortableCore", dependencies: portableCrypto, path: "Sources/XLogCore",
-        exclude: ["Resources"],
-        sources: ["ADIF.swift", "Models.swift", "QSOADIF.swift", "SemanticQSOIdentity.swift", "WavelogClient.swift"])
+    .target(name: "XLogPortableCore", dependencies: portableCrypto + ["CSQLitePrototype"], path: "Sources/XLogCore",
+        sources: ["ADIF.swift", "Models.swift", "QSOADIF.swift", "SemanticQSOIdentity.swift", "WavelogClient.swift",
+                  "LogbookDatabase.swift", "IntegrationWorkspace.swift", "Settings.swift", "CWProfile.swift",
+                  "BackupManager.swift", "LocalFilePermissions.swift", "CTYResolver.swift", "Geo.swift",
+                  "OperatingSupport.swift", "OperatorIntelligence.swift", "AwardCatalog.swift",
+                  "AwardRegistry.swift", "AwardReferences.swift"],
+        resources: [.process("Resources")])
 ]
 #endif
 

@@ -1,6 +1,14 @@
-import CryptoKit
 import Foundation
+#if canImport(CryptoKit)
+import CryptoKit
+#else
+import Crypto
+#endif
+#if canImport(SQLite3)
 import SQLite3
+#else
+import CSQLitePrototype
+#endif
 
 public enum XLogBackupError: Error, LocalizedError {
     case destinationExists
@@ -143,7 +151,7 @@ public final class XLogBackupManager: @unchecked Sendable {
         try fileManager.createDirectory(at: parent, withIntermediateDirectories: true)
         let temporary = parent.appendingPathComponent(".xlogbackup-\(UUID().uuidString)", isDirectory: true)
         try fileManager.createDirectory(at: temporary, withIntermediateDirectories: true,
-                                        attributes: [.posixPermissions: 0o700])
+                                        attributes: LocalFilePermissions.directoryAttributes)
         var committed = false
         defer { if !committed { try? fileManager.removeItem(at: temporary) } }
 

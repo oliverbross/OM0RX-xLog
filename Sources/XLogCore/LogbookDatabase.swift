@@ -1,5 +1,9 @@
 import Foundation
+#if canImport(SQLite3)
 import SQLite3
+#else
+import CSQLitePrototype
+#endif
 
 public enum LogbookDatabaseError: Error, LocalizedError {
     case open(String)

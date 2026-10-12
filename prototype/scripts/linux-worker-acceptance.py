@@ -78,6 +78,11 @@ def exercise(recovery=False):
 
 self_test = json.loads(subprocess.check_output([worker, '--self-test'], timeout=10))
 assert self_test['ok'] is True and self_test['result']['network_contact'] is False
+local_test = json.loads(subprocess.check_output([worker, '--local-logbook-self-test'], timeout=30))
+assert local_test['ok'] is True and local_test['result']['passed'] is True
+assert local_test['result']['award_programmes'] == 192
+assert local_test['result']['network_contact'] is False and local_test['result']['station_io'] is False
 Path(report).write_text(json.dumps({'schema': 1, 'status': 'passed', 'selfTest': self_test,
+                                   'localLogbookTest': local_test,
                                    'openPipeAndFragments': exercise(), 'malformedOversizedRecovery': exercise(True),
                                    'framingTestCount': 2}, indent=2) + '\n')

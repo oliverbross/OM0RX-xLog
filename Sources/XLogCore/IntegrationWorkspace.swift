@@ -1,5 +1,9 @@
 import Foundation
+#if canImport(SQLite3)
 import SQLite3
+#else
+import CSQLitePrototype
+#endif
 
 public enum IntegrationWorkspaceError: Error, LocalizedError, Equatable {
     case sourceMissing
@@ -116,7 +120,7 @@ public enum IntegrationWorkspaceBootstrap {
         try fileManager.createDirectory(
             at: staging,
             withIntermediateDirectories: false,
-            attributes: [.posixPermissions: 0o700]
+            attributes: LocalFilePermissions.directoryAttributes
         )
         var committed = false
         defer { if !committed { try? fileManager.removeItem(at: staging) } }
@@ -124,7 +128,7 @@ public enum IntegrationWorkspaceBootstrap {
         let stagedDatabase = staging.appendingPathComponent("OM0RX-xLog.sqlite")
         try populate(stagedDatabase)
         let counts = try inspect(stagedDatabase)
-        try fileManager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: stagedDatabase.path)
+        try LocalFilePermissions.protectFile(stagedDatabase, fileManager: fileManager)
 
         // The identity is generated before publication; no native preferences or secrets
         // are copied into the workspace, and a failed move cannot replace an old one.
@@ -144,7 +148,7 @@ public enum IntegrationWorkspaceBootstrap {
         )
         let metadataURL = staging.appendingPathComponent("workspace.json")
         try JSONEncoder().encode(metadata).write(to: metadataURL, options: .atomic)
-        try fileManager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: metadataURL.path)
+        try LocalFilePermissions.protectFile(metadataURL, fileManager: fileManager)
         guard !fileManager.fileExists(atPath: destination.path) else {
             throw IntegrationWorkspaceError.destinationExists
         }

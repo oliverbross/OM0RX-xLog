@@ -19,6 +19,23 @@ packaged UI result. Keep unresolved items here across releases.
   Integration app in place without extra archived app copies and publish an exact
   prerelease. Stable native release must remain available.
 
+### Cross-platform local logbook work after alpha.7
+
+The non-macOS worker previously rejected all workspace/logbook requests with
+`platform_pending`. The shared SQLite logbook, settings, CTY/awards and verified
+backup paths now compile into its portable core and route through the same
+handlers. Linux and Windows packaging must include the Swift resource directory.
+`--local-logbook-self-test` exercises a disposable workspace, unknown ADIF fields,
+editing, deletion/undo, CTY/awards resources, backup/restore and reopen. It never
+opens the operator's workspace, credentials or hardware.
+
+Mac regression: 73 core tests, 138 worker XCTest tests and 42 Swift Testing cases
+passed. The two CTY identity assertions were also rewritten to avoid a Swift
+Testing macro incompatibility in CI's older Mac toolchain. Native Windows/Linux
+build and runtime results remain pending; network services and credential stores
+remain explicitly unavailable on those worker platforms. This is not full
+cross-platform parity, and the installed alpha.7 app is unchanged.
+
 ### Latest alpha.7 checkpoint (CW integration, 13 October)
 
 - CW settings, native persistence, optional desk row and guarded radio/WinKeyer
@@ -150,7 +167,7 @@ hourly continuation is scheduled in this thread, bounded to 21:10 UTC.
 | NIGHT-05 | Custom alerts with condition rules, dashboard, optional popup/bell/spoken delivery | Architecture/reuse research; opt-in sound, deduplicate/rate-limit, test action, no RF commands from alerts |
 | NIGHT-06 | POTA/SOTA/IOTA/WWFF/etc chaser view based on user's ShackCQ project | Read-only source research; integrate existing classifications/reference validation, preserve notices |
 | NIGHT-07 | DXpedition and contest information from user's ShackCQ project | Read-only source/feed research; dated source attribution, freshness and offline errors; no fabricated events |
-| NIGHT-08 | Same shared UX on macOS/Windows/Linux, Mac-first package verification | Avoid platform-specific frontend forks; cross-platform runtime acceptance remains distinct |
+| NIGHT-08 | Same shared UX on macOS/Windows/Linux, Mac-first package verification | Real local logbook/CTY/awards/settings/backup handlers enabled in portable core; package resource staging and disposable runtime round trip added. Native CI pending; network/vault/hardware and complete UI acceptance still open |
 
 ### Pre-package automated checkpoint
 

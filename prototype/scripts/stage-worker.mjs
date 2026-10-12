@@ -11,6 +11,11 @@ const binDir = execFileSync('swift', ['build', '--scratch-path', '.build/prototy
 }).trim();
 const source = join(binDir, executable);
 if (!existsSync(source)) throw new Error('Build the prototype worker before staging.');
+const resourceName = process.platform === 'darwin'
+  ? 'OM0RXXLogPrototype_XLogCore.bundle'
+  : 'OM0RXXLogPrototype_XLogPortableCore.resources';
+const coreResources = join(binDir, resourceName);
+if (!existsSync(coreResources)) throw new Error(`Required local logbook resources are missing: ${resourceName}`);
 const target = execFileSync('rustc', ['-vV'], { encoding: 'utf8' }).match(/^host: (.+)$/m)?.[1];
 if (!target) throw new Error('Cannot resolve Rust host triple.');
 const binaries = join(root, 'prototype/src-tauri/binaries');
@@ -22,10 +27,7 @@ for (const mode of ['debug', 'release']) {
   const destination = join(root, 'prototype/src-tauri/target', mode);
   mkdirSync(destination, { recursive: true });
   copyFileSync(source, join(destination, executable));
-  const coreBundle = join(binDir, 'OM0RXXLogPrototype_XLogCore.bundle');
-  if (process.platform === 'darwin' && existsSync(coreBundle)) {
-    cpSync(coreBundle, join(destination, 'OM0RXXLogPrototype_XLogCore.bundle'), { recursive: true });
-  }
+  cpSync(coreResources, join(destination, resourceName), { recursive: true });
   if (process.platform === 'win32' && existsSync(join(binDir, 'sqlite3.dll'))) {
     cpSync(join(binDir, 'sqlite3.dll'), join(destination, 'sqlite3.dll'));
   }

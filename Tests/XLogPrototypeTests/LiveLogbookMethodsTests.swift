@@ -1,7 +1,10 @@
-#if os(macOS)
 import Foundation
 import Testing
+#if canImport(XLogCore)
 import XLogCore
+#else
+import XLogPortableCore
+#endif
 @testable import XLogPrototypeSupport
 
 @Suite("Live logbook isolated workspace")
@@ -52,14 +55,16 @@ struct LiveLogbookMethodsTests {
         let service = LiveLogbookMethods(supportDirectory: root)
         _ = try service.handle(method: "workspace_create", params: ["mode": "empty"])
         let bundled = try service.currentCTYResolver()
-        #expect(bundled === (try service.currentCTYResolver()))
+        let bundledAgain = try service.currentCTYResolver()
+        #expect(bundled === bundledAgain)
 
         let reference = try service.referenceDirectoryURL().appendingPathComponent("cty.xml")
         try Data("<cty><prefix><call>ZZ1</call><adif>990</adif><cqz>1</cqz><entity>Fixture A</entity></prefix></cty>".utf8)
             .write(to: reference)
         let first = try service.currentCTYResolver()
         #expect(first !== bundled)
-        #expect(first === (try service.currentCTYResolver()))
+        let firstAgain = try service.currentCTYResolver()
+        #expect(first === firstAgain)
         #expect(first.resolve("ZZ1ABC")?.name == "FIXTURE A")
 
         try Data("<cty><prefix><call>ZZ1</call><adif>991</adif><cqz>1</cqz><entity>Fixture Changed</entity></prefix></cty>".utf8)
@@ -377,6 +382,7 @@ struct LiveLogbookMethodsTests {
         }
     }
 
+    #if os(macOS)
     @Test("Reference status reads only the isolated cache without a refresh")
     func referenceStatus() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -419,6 +425,6 @@ struct LiveLogbookMethodsTests {
             try await actor.handle(method: "reference_status", params: [:])
         }
     }
+    #endif
 
 }
-#endif

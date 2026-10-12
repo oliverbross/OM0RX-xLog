@@ -98,6 +98,8 @@ def package(root, out, swift_root, sha):
         (stage / folder).mkdir(parents=True)
     for name in ['xlog-prototype', 'xlog-prototype-worker']:
         shutil.copy2(root / 'prototype/src-tauri/target/release' / name, stage / 'bin' / name)
+    resource_name = 'OM0RXXLogPrototype_XLogPortableCore.resources'
+    shutil.copytree(root / 'prototype/src-tauri/target/release' / resource_name, stage / 'bin' / resource_name)
     # The exact native closure decides what is bundled. No host /usr/lib copied.
     env = dict(os.environ)
     runtime = swift_root / 'usr/lib/swift/linux'
@@ -105,7 +107,7 @@ def package(root, out, swift_root, sha):
         raise RuntimeError(f'Swift runtime directory is absent: {runtime}')
     env['LD_LIBRARY_PATH'] = str(runtime)
     origins = {}
-    queue = list((stage / 'bin').iterdir())
+    queue = [path for path in (stage / 'bin').iterdir() if path.is_file()]
     seen = set()
     while queue:
         binary = queue.pop()

@@ -54,6 +54,17 @@ if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--self-test"
     output.write(Data([10]))
     let object = try? JSONSerialization.jsonObject(with: response) as? [String: Any]
     exit(object?["ok"] as? Bool == true ? 0 : 1)
+} else if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--local-logbook-self-test" {
+    do {
+        let result = try LocalLogbookSelfTest.run()
+        output.write(try JSONSerialization.data(withJSONObject: ["id": "local-logbook-self-test", "ok": true, "result": result], options: [.sortedKeys]))
+        output.write(Data([10]))
+        exit(0)
+    } catch {
+        // Never print raw dependency errors, paths, preferences or contact data.
+        output.write(Data("{\"id\":\"local-logbook-self-test\",\"ok\":false,\"error\":{\"code\":\"local_self_test_failed\",\"message\":\"Local logbook acceptance failed.\"}}\n".utf8))
+        exit(1)
+    }
 } else if CommandLine.arguments.count == 1 {
     var lines = WorkerLineReader()
     #if os(Windows)
@@ -113,6 +124,6 @@ if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--self-test"
     await group.waitForAll()
     }
 } else {
-    FileHandle.standardError.write(Data("Usage: xlog-prototype-worker [--self-test]\n".utf8))
+    FileHandle.standardError.write(Data("Usage: xlog-prototype-worker [--self-test | --local-logbook-self-test]\n".utf8))
     exit(2)
 }

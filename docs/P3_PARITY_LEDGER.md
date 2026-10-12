@@ -4,6 +4,15 @@ Audit date: 2026-10-12. Scope: the shared `OM0RX-xLog Integration` app versus na
 
 ## Pinned inspection basis and evidence rules
 
+Current follow-up, 13 October: the portable worker's normal local-logbook path
+is being enabled for Windows and Linux. The same SQLite/ADIF/settings/CTY/award
+and backup implementations now sit behind the bounded worker router. Native
+package tests include a disposable local-logbook round trip and bundled-resource
+lookup. Mac source tests pass; native Windows/Linux and full service parity are
+not yet accepted. See the current checkpoint in
+[`OPERATOR_FEEDBACK_TRACKER_2026-10-12.md`](OPERATOR_FEEDBACK_TRACKER_2026-10-12.md).
+The inspection table and detailed baseline below remain historical evidence.
+
 | Repository | Inspected local HEAD | Qualification |
 | --- | --- | --- |
 | xLog, including shared `prototype` | `96131eb108f2b2160cd5e8553e2f9b45e9e2e092` | Live worktree changed during this audit (`prototype/src/live/ClusterPanel.tsx`, new `clusterPalette.ts`, new Rust `hamlib.rs`); those uncommitted files are observations, not a tested commit. Recheck the ledger against the final integration SHA. |
