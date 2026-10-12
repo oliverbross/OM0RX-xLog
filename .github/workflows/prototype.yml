@@ -3,6 +3,11 @@ name: Cross-platform prototype
 on:
   workflow_dispatch:
     inputs:
+      build_platforms:
+        description: 'Build Mac first; select all only after operator preview testing'
+        type: choice
+        options: [macos, all]
+        default: macos
       runtime_run_id:
         description: 'Optional completed package run ID for runtime-only recheck (no rebuild)'
         required: false
@@ -32,7 +37,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-14, ubuntu-24.04, windows-2022]
+        os: ${{ fromJSON(inputs.build_platforms == 'all' && '["macos-14", "ubuntu-24.04", "windows-2022"]' || '["macos-14"]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
     steps:
@@ -186,7 +191,7 @@ jobs:
   linux-runtime:
     name: Linux runtime-only container acceptance
     needs: prototype
-    if: ${{ always() && !cancelled() && inputs.runtime_platform != 'windows' }}
+    if: ${{ always() && !cancelled() && (inputs.build_platforms == 'all' || inputs.runtime_run_id != '') && inputs.runtime_platform != 'windows' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -216,7 +221,7 @@ jobs:
   windows-runtime:
     name: Windows fresh-runner runtime acceptance
     needs: prototype
-    if: ${{ always() && !cancelled() && inputs.runtime_platform != 'linux' }}
+    if: ${{ always() && !cancelled() && (inputs.build_platforms == 'all' || inputs.runtime_run_id != '') && inputs.runtime_platform != 'linux' }}
     runs-on: windows-2022
     timeout-minutes: 15
     steps:

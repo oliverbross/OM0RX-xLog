@@ -2,6 +2,8 @@
 
 Planning revision: 4 · 2026-10-12 · Owner: Oliver Bross, OM0RX
 
+Iteration order update: build and test the Mac preview first, collect operator feedback, then resume Windows/Linux compilation. Automatic prototype CI now targets Mac only; the shared architecture and later portability gates are unchanged. See the [Mac preview evidence](P2_INTEGRATION_ACCEPTANCE.md#mac-first-operator-preview).
+
 Implementation update: the user authorized the next integration stage while deferring consumer Windows testing. [P2a foundation](P2_INTEGRATION_ACCEPTANCE.md) implements shared station contracts and portable xCluster domain rules with native-worker/UI wiring on `codex/unified-xlog-integration-p2`. G2 remains partial until the remaining use-case/platform-service extraction and real-provider ownership are proven; no live cutover is implied.
 
 Status: **P0 preservation complete; P1 isolated prototype passes 39 tests per OS, runtime packaging and native synthetic UI acceptance on macOS, Windows and Linux. G1 remains conditional on consumer-desktop and platform-release acceptance**.

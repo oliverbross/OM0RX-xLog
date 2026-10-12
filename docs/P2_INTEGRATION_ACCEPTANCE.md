@@ -2,6 +2,22 @@
 
 Date: 2026-10-12. Branch: `codex/unified-xlog-integration-p2`.
 Starting revision: `453b8e832e36f86051919619dd155999204f86e4`.
+Verified Mac application source: `3ff72c52c885c5d61eb59eb457dc459922e005a6`.
+
+## Mac-first operator preview
+
+The operator requested Mac-first iteration before further Windows/Linux compilation. Automatic prototype CI now runs macOS only; the full matrix remains an explicit `workflow_dispatch` choice (`build_platforms: all`) for after Mac feedback. Run `38211567119` was cancelled at the operator's request, not accepted as a P2 cross-platform result. No runtime-only follow-up was dispatched. Original Mac application CI `38211567080` succeeded at the application source above.
+
+The separate ad-hoc development application was installed and opened at `/Applications/OM0RX-xLog Prototype.app`. The existing `/Applications/OM0RX-xLog.app`, xCat and xCluster bundles were not replaced. This is not a notarized production release and contains no personal logbook or live station provider.
+
+Suggested operator test:
+
+1. Open **OM0RX-xLog Prototype**, select a synthetic DX Cluster spot, and check its call/frequency and band-map labels.
+2. Log a synthetic QSO and check the cluster's opportunity label updates from new/unworked to worked. Session data is memory-only and resets on restart.
+3. Open the detached monitor, move/resize it, and check the map and readable layout.
+4. Run **Check integration contracts** and report any layout, interaction or classification issues. It exercises simulated contracts, not the real radio.
+
+Windows/Linux P2 builds and desktop acceptance remain deferred until this Mac preview has been tested. The single shared implementation and previous P1 portability evidence are retained.
 
 ## Delivered scope
 
@@ -23,8 +39,13 @@ This is the next bounded integration increment, not completion of the full xCat/
 | Rust | 9 passed |
 | Actual worker process | 3 passed, including P2 integration requests, open-stdin framing and malformed-input recovery |
 | Original Mac application | 43 tests / 7 suites passed; no app replacement |
-| Ad-hoc Mac prototype | Build/signature passed; native 17-check acceptance passed. Final exact-source rebuild and CI evidence follow below |
-| Three-platform CI / runtime | Pending initial push and native runner results; P1 results are not claimed as P2 acceptance |
+| Ad-hoc Mac prototype | Exact source above rebuilt; strict bundle/worker signature verification passed; final native acceptance passed all 17 checks |
+| Three-platform CI / runtime | Deferred by operator; initial matrix cancelled; P1 results are not claimed as P2 acceptance |
+
+Total automated prototype tests on this Mac: **95 passed** (55 Swift + 28 frontend + 9 Rust + 3 process), separately from the 43 original-app tests and 17 native UI checks. Final native report: `docs/evidence/p2-macos-3ff72c5/native-ui.json`. All map probes matched (initial 88/88, before monitor 74/74, final 72/72, detached monitor 58/58). Six station-contract scenarios and cluster diagnostics passed with `station_io=false`.
+
+Installed preview executable SHA-256: `16ed57235dd4cbf2f94b8bda3c0fe929ffd9890aae99b40a5cd8150d53b806d7`.
+Installed worker SHA-256: `4c69344513da05ec321bc69481bd8df9c796b8bd484307c9089551a92a8e3de1`.
 
 Tests use no live radio, amplifier, tuner, rotor, Wavelog, credential store or personal logbook. Station tests include a mock provider and actual coordinator transitions, not hardware acceptance. Production transmit features are represented in contracts; absence of a live provider in this prototype is not a new restriction on the working apps.
 

@@ -4,6 +4,8 @@ Last updated: 2026-10-12
 
 ## P2a integration foundation — in progress on an isolated branch
 
+Current priority is **Mac-first operator testing**. The separate Mac prototype at source `3ff72c52c885c5d61eb59eb457dc459922e005a6` passed 95 prototype tests and 17 native UI checks and is installed alongside the stable app. P2 Windows/Linux builds are deferred at the operator's request; automatic CI now selects Mac only. This preview remains synthetic, not live-provider or personal-data cutover.
+
 The user authorized the next integration stage after deferring Windows consumer-desktop testing. `codex/unified-xlog-integration-p2` now contains the portable xCluster domain extraction, shared station/profile/command contracts, observed-state tune coordinator and native-worker classification wiring. See [P2 acceptance](docs/P2_INTEGRATION_ACCEPTANCE.md) for exact tests and open gates. This increment does not complete G2 or the full xCat/xCluster integration. Installed applications and pre-existing xCat work remain unchanged.
 
 ## Portability programme — P0/P1 prototype, production unchanged

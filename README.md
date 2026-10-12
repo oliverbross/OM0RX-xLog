@@ -23,6 +23,8 @@ The next integration increment is isolated on [`codex/unified-xlog-integration-p
 
 Development scope, acceptance evidence and the prioritized backlog are tracked in [PROJECT_STATUS.md](PROJECT_STATUS.md).
 
+**Current iteration is Mac-first.** A separate **OM0RX-xLog Prototype** preview is ready for operator testing; it does not replace the working release. Automatic prototype builds target macOS. Further Windows/Linux P2 builds are deferred until Mac feedback; [preview instructions and exact evidence](docs/P2_INTEGRATION_ACCEPTANCE.md#mac-first-operator-preview) distinguish synthetic workflows from the remaining live integration.
+
 ## Proposed local-station and cross-platform programme
 
 The [unified xLog project plan](docs/LOCAL_STATION_CROSS_PLATFORM_PLAN.md) brings xCat's station controls and xCluster's complete cluster workspace into xLog, adds standalone Hamlib radio/rotor profiles, and proposes a single shared macOS/Windows/Linux interface while preserving existing remote operation. It includes the architecture audit, reuse strategy, phased backlog, parity gates, data migration, release requirements and effort/risk estimates. This is a **planning proposal, not implemented support**: the current release remains the native macOS application described below.
