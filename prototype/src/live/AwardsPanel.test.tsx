@@ -30,6 +30,13 @@ const makeRequest = () => vi.fn(async (method: string) => method === "logbook_st
 afterEach(() => cleanup());
 
 describe("native Insights and Awards presentation", () => {
+  it("shows already loaded award totals immediately without a duplicate worker calculation", async () => {
+    const request = makeRequest();
+    render(<AwardsPanel request={request} refresh={0} initialStats={stats.awards} />);
+    expect(screen.getByRole("progressbar", { name: "DXCC milestone" }).getAttribute("aria-valuenow")).toBe("67");
+    await screen.findByRole("article", { name: "All Japan Districts detail" });
+    expect(request.mock.calls.filter(([method]) => method === "logbook_stats")).toHaveLength(0);
+  });
   it("uses native worker counts, achievements and nine-rule evidence without computing an award", async () => {
     const request = makeRequest();
     render(<AwardsPanel request={request} refresh={0} />);

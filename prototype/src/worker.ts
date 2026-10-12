@@ -11,7 +11,7 @@ export type DetachedMapProjection = {
   home?: { call?: string; lat: number; lon: number; grid?: string; country?: string } | null;
   dxccStatuses?: Record<number, "needed" | "worked" | "confirmed"> | null;
   radioFrequencyHz?: number; selected?: string | null;
-  target?: { call: string; lat: number; lon: number; country?: string };
+  target?: { call: string; lat: number; lon: number; country?: string; locationSource?: string };
   bandMapPreferences?: BandMapViewPreferences;
 };
 export type MonitorProjection = DetachedMapProjection & {

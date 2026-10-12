@@ -164,3 +164,30 @@ TypeScript passed, Rust **68/68** passed (including bundled Hamlib dummy tests).
 The shared Swift suite passed **151/151**, and the native suite passed **50/50**.
 These are source/test results; packaged UI, hardware, notarization and release
 acceptance are separate gates.
+
+### Installed alpha.4 checkpoint and subsequent feedback
+
+Source `b2de82a25f2fd62ecc59703b9e2bb3c0464d73c1` was Developer ID signed,
+notarized (Apple submission `00baa498-f7e3-4006-92d5-90021bd07c16`, Accepted),
+stapled and installed with explicit operator restart approval. All four packaged
+worker tests passed. The outgoing Integration bundle was moved to the external
+application-backup directory, not deleted; the original native app executable
+retained SHA-256 `7a2b244545c9eb2639cde5f0a152c9cfaf40e2e06fde9ad97fd3184e37efdb97`.
+
+The real M6KUP draft reopened with 14.222 MHz/SSB and its UTC values. The new
+service settings visibly showed the existing Wavelog URL/station ID and QRZ
+username beside the separate secure fields. FLEX reconnected with KPA STBY,
+0 W and KAT ANT1; live cluster spots returned. DX Cluster and World Map each
+opened as separate windows and docked back; cluster window movement was tested.
+Detached Band Maps displayed all four selected bands and live spots. Full
+resize/reopen/restart/multi-monitor geometry acceptance is not claimed here.
+
+After reconciliation, the reopened workspace contained 67,846 nondeleted QSOs;
+M7KOD remained clean with Wavelog ID 178693 and SQLite quick_check remained ok.
+No contact was fabricated for testing. No RF/station-control write was tested.
+
+Operator feedback identified fixed-height band maps and excessive whitespace
+in the QSO inspector. Follow-up alpha.5 removes the 520 px chart lock and uses
+measured resize-aware marker placement; the complete frontend suite then passed
+195 tests. Additional QSO layout/QRZ work and its final artifact acceptance are
+recorded separately; this checkpoint is not a parity-completion certificate.

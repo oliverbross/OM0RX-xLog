@@ -3,7 +3,7 @@ import { AlertTriangle, Award, BookOpen, CheckCircle2, Clock3, ExternalLink, Sea
 import "./AwardsPanel.css";
 
 type Request = (method: string, params?: Record<string, unknown>) => Promise<any>;
-type Props = { request: Request; refresh: number };
+type Props = { request: Request; refresh: number; initialStats?: AwardsStats | null };
 type Counts = Record<string, number>;
 type AwardsStats = {
   qso_count: number; dxcc_worked: number; dxcc_confirmed: number;
@@ -122,8 +122,8 @@ function MixSection({ title, counts, limit }: { title: string; counts: Counts; l
   return <div className="awards-mix-section"><h4>{title}</h4>{sorted.length ? sorted.map(([name, count]) => <div className="awards-mix-row" key={name}><span>{name}</span><div aria-hidden="true"><i style={{ width: `${Math.max(2, count / largest * 100)}%` }} /></div><b>{format(count)}</b></div>) : <p>No contacts yet.</p>}</div>;
 }
 
-export function AwardsPanel({ request, refresh }: Props) {
-  const [stats, setStats] = useState<AwardsStats | null>(null);
+export function AwardsPanel({ request, refresh, initialStats }: Props) {
+  const [stats, setStats] = useState<AwardsStats | null>(initialStats ?? null);
   const [catalogue, setCatalogue] = useState<Catalogue | null>(null);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -144,10 +144,11 @@ export function AwardsPanel({ request, refresh }: Props) {
   useEffect(() => {
     let active = true;
     setStatsError("");
+    if (initialStats && statsRetry === 0) { setStats(initialStats); return; }
     void request("logbook_stats").then((value) => { if (active) setStats((value?.result ?? value)?.awards ?? null); })
       .catch(() => { if (active) setStatsError("Award totals are unavailable. Retry after opening the integrated logbook."); });
     return () => { active = false; };
-  }, [request, refresh, statsRetry]);
+  }, [request, refresh, statsRetry, initialStats]);
   useEffect(() => {
     let active = true;
     setLoading(true); setCatalogueError("");

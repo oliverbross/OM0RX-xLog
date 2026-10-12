@@ -46,8 +46,8 @@
 .desk-band-matrix .is-unknown { border-style: dashed; }
 .desk-intelligence footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px; color: var(--secondary); font-size: 9px; font-weight: 650; margin-top: auto; }
 .live .desk-error { color: #ffb4aa; margin: 0; font-size: 10px; }
-.desk-rotor-body { display: grid; grid-template-columns: minmax(100px, 1fr) minmax(0, 1fr); gap: 12px; align-items: center; flex: 1; }
-.desk-compass { position: relative; width: 100%; aspect-ratio: 1; border: 2px solid #12536a; border-radius: 50%; background: radial-gradient(circle, #102337 0, #081624 68%); }
+.desk-rotor-body { display: grid; grid-template-columns: minmax(0, 160px) minmax(0, 1fr); gap: 12px; align-items: center; flex: 1; }
+.desk-compass { position: relative; width: 100%; max-width: 160px; aspect-ratio: 1; border: 2px solid #12536a; border-radius: 50%; background: radial-gradient(circle, #102337 0, #081624 68%); }
 .compass-ticks { position: absolute; inset: 7%; border: 1px solid #17384e; border-radius: 50%; background: repeating-conic-gradient(from -1deg, #66879c 0deg 1deg, transparent 1deg 10deg); mask: radial-gradient(circle, transparent 64%, #000 65%, #000 70%, transparent 71%); }
 .desk-compass > span { position: absolute; color: var(--secondary); font-size: 8px; font-weight: 700; }
 .compass-n { top: 14%; left: 48%; }.compass-s { bottom: 14%; left: 48%; }.compass-e { right: 14%; top: 47%; }.compass-w { left: 14%; top: 47%; }
@@ -69,7 +69,7 @@
 .desk-rotor-actions button[aria-pressed="true"] { background: #195570; border-color: #296b89; color: var(--cyan); }
 .desk-rotor-actions .desk-stop { background: #5a2b29; border-color: #723530; color: #ffb4aa; }
 .live .desk-rotor-result { font-size: 10px; margin: 0; color: var(--secondary); overflow-wrap: anywhere; }
-@container operator-desk (max-width: 1420px) { .operator-desk-top { grid-template-columns: minmax(0, 1fr) 300px; }.desk-active { grid-column: 1 / -1; }.desk-intelligence { min-height: 245px; }.desk-rotor { min-height: 245px; } }
+@container operator-desk (max-width: 1420px) { .operator-desk-top { grid-template-columns: minmax(0, 1fr) 300px; }.desk-active { grid-column: 1 / -1; }.desk-rotor-body { grid-template-columns: minmax(0, 120px) minmax(0, 1fr); }.desk-intelligence { min-height: 245px; }.desk-rotor { min-height: 245px; } }
 @container operator-desk (max-width: 1000px) { .operator-desk-top { grid-template-columns: minmax(0, 1fr) 240px; }.desk-active-primary { grid-template-columns: minmax(0, 1.6fr) 106px 78px minmax(0, 1fr) 58px 68px 54px 54px; gap: 5px; }.desk-active-location { grid-template-columns: 1fr 1fr 80px 1fr 100px; }.desk-panel { padding: 10px; }.desk-rotor-body { gap: 7px; grid-template-columns: 95px minmax(0, 1fr); }.desk-current b { font-size: 24px; }.desk-matrices small { display: block; margin-top: 2px; } }
 @container operator-desk (max-width: 760px) { .desk-active-primary { grid-template-columns: repeat(4, minmax(0, 1fr)); }.desk-active-location { grid-template-columns: repeat(5, minmax(0, 1fr)); }.desk-panel input:not([type="checkbox"]), .desk-panel select { font-size: 11px; padding: 4px 5px; }.desk-matrices { grid-template-columns: 1fr; }.desk-matrices > div + div { border-left: 0; padding-left: 0; }.desk-intelligence { min-height: 270px; } }
 @container operator-desk (max-width: 560px) { .operator-desk-top { grid-template-columns: 1fr; }.desk-active { grid-column: auto; }.desk-active-location { grid-template-columns: repeat(3, minmax(0, 1fr)); }.desk-active-references { grid-template-columns: repeat(3, minmax(0, 1fr)); }.desk-rotor-body { grid-template-columns: 140px 1fr; }.desk-matrices { grid-template-columns: 1fr 1fr; }.desk-matrices > div + div { border-left: 1px solid #274252; padding-left: 8px; } }

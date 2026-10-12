@@ -21,9 +21,18 @@ describe("stable propagation presentation", () => {
 
   it("does not fabricate band conditions while no observation exists", () => {
     render(<Conditions propagation={null} request={vi.fn()} weatherKey="" />);
-    expect(screen.getAllByLabelText("Day: Unknown")).toHaveLength(4);
+    expect(screen.getAllByLabelText("Day: Unknown")).toHaveLength(5);
     expect(screen.getByText("Awaiting propagation data")).toBeTruthy();
     expect(screen.queryByLabelText("Day: Good")).toBeNull();
+  });
+  it("uses compact day/night labels and coloured indices without a timestamp row", () => {
+    const { container } = render(<Conditions compact propagation={{ solar_flux: 122, a_index: 13, k_index: 1,
+      updated_at: 1_800_000_000, bands: [{ name: "6m", day: "Fair", night: "Poor" }] }} request={vi.fn()} />);
+    expect(screen.getByText("Day")).toBeTruthy(); expect(screen.getByText("Night")).toBeTruthy();
+    expect(screen.queryByText(/^Updated/)).toBeNull();
+    expect(container.querySelector(".condition-sfi b")?.textContent).toBe("122");
+    expect(container.querySelector(".condition-a b")?.textContent).toBe("13");
+    expect(container.querySelector(".condition-k b")?.textContent).toBe("1");
   });
 
   it("refreshes weather independently and keeps the last observation on failure", async () => {

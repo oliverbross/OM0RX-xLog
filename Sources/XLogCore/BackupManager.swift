@@ -34,6 +34,7 @@ public struct XLogBackupPreferences: Codable, Equatable, Sendable {
     public var intelligenceBands: [String]
     public var clusterSpotOpensFullEditor: Bool
     public var detachedBandMapFollowsRadio: Bool
+    public var detachedBandMapModes: [String]
 
     public init(
         deskBandMapBands: [String],
@@ -43,7 +44,8 @@ public struct XLogBackupPreferences: Codable, Equatable, Sendable {
         bandMapFontScale: Double,
         intelligenceBands: [String],
         clusterSpotOpensFullEditor: Bool,
-        detachedBandMapFollowsRadio: Bool = false
+        detachedBandMapFollowsRadio: Bool = false,
+        detachedBandMapModes: [String] = ["cw", "data", "phone"]
     ) {
         self.deskBandMapBands = deskBandMapBands
         self.detachedBandMapBands = detachedBandMapBands
@@ -53,12 +55,13 @@ public struct XLogBackupPreferences: Codable, Equatable, Sendable {
         self.intelligenceBands = intelligenceBands
         self.clusterSpotOpensFullEditor = clusterSpotOpensFullEditor
         self.detachedBandMapFollowsRadio = detachedBandMapFollowsRadio
+        self.detachedBandMapModes = detachedBandMapModes
     }
 
     private enum CodingKeys: String, CodingKey {
         case deskBandMapBands, detachedBandMapBands, deskBandMapFollowsRadio,
              detachedBandMapLayout, bandMapFontScale, intelligenceBands,
-             clusterSpotOpensFullEditor, detachedBandMapFollowsRadio
+             clusterSpotOpensFullEditor, detachedBandMapFollowsRadio, detachedBandMapModes
     }
 
     public init(from decoder: Decoder) throws {
@@ -71,6 +74,7 @@ public struct XLogBackupPreferences: Codable, Equatable, Sendable {
         intelligenceBands = try values.decode([String].self, forKey: .intelligenceBands)
         clusterSpotOpensFullEditor = try values.decode(Bool.self, forKey: .clusterSpotOpensFullEditor)
         detachedBandMapFollowsRadio = try values.decodeIfPresent(Bool.self, forKey: .detachedBandMapFollowsRadio) ?? false
+        detachedBandMapModes = try values.decodeIfPresent([String].self, forKey: .detachedBandMapModes) ?? ["cw", "data", "phone"]
     }
 }
 

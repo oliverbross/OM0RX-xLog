@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { BAND_RANGES, BandMaps, bandForRadio, opportunityCode, placeSpots } from "./BandMaps";
+import { BAND_RANGES, BandMaps, bandForRadio, opportunityCode, placeSpots, panBandRange, bandMapCapacity } from "./BandMaps";
 import type { BandMapViewPreferences } from "./BandMaps";
 
 const spot = (id: string, frequencyKHz: number, band = "20m", callStatus = "New Call", dxccStatus = "Worked") => ({
@@ -13,15 +13,120 @@ beforeEach(() => localStorage.clear());
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe("native band-map parity", () => {
+  it("fills the available width and bounds pages to the available height", () => {
+    expect(bandMapCapacity(1010, 700, true, 2)).toEqual({ columns: 2, capacity: 2 });
+    expect(bandMapCapacity(600, 500, true, 8)).toEqual({ columns: 2, capacity: 2 });
+    expect(bandMapCapacity(600, 500, false, 8)).toEqual({ columns: 2, capacity: 4 });
+    expect(bandMapCapacity(260, 220, false, 8)).toEqual({ columns: 1, capacity: 1 });
+  });
+
+  it("pages excess bands without discarding zoom or tuning a spot", () => {
+    const onSelect = vi.fn();
+    const preferences: BandMapViewPreferences = { bands: ["20m", "30m", "17m", "15m", "40m"], followRadio: false, layout: "row", fontScale: 1 };
+    render(<BandMaps spots={[]} onSelect={onSelect} preferences={preferences} />);
+    fireEvent.click(screen.getByRole("button", { name: "Zoom 20m in" }));
+    const zoomed = screen.getByLabelText(/20m spectrum/).getAttribute("aria-label");
+    fireEvent.click(screen.getByRole("button", { name: "Next band maps" }));
+    expect(screen.queryByRole("region", { name: "20m band map" })).toBeNull();
+    expect(screen.getByRole("region", { name: "40m band map" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Previous band maps" }));
+    expect(screen.getByLabelText(/20m spectrum/).getAttribute("aria-label")).toBe(zoomed);
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it("reveals an added band on its page and retains prior zoom", () => {
+    localStorage.setItem("xlog.integration.bandMaps.workspace.bands", JSON.stringify(["20m", "30m", "17m", "15m"]));
+    localStorage.setItem("xlog.integration.bandMaps.workspace.layout", "row");
+    render(<BandMaps spots={[]} onSelect={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Zoom 20m in" }));
+    const zoomed = screen.getByLabelText(/20m spectrum/).getAttribute("aria-label");
+    fireEvent.change(screen.getByLabelText("Add band map"), { target: { value: "40m" } });
+    expect(screen.getByRole("region", { name: "40m band map" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Previous band maps" }));
+    expect(screen.getByLabelText(/20m spectrum/).getAttribute("aria-label")).toBe(zoomed);
+  });
+
+  it("does not let a second pointer clear drag click suppression", () => {
+    class Pointer extends MouseEvent { pointerId: number; constructor(type: string, init: PointerEventInit) { super(type, init); this.pointerId = init.pointerId ?? 0; } }
+    vi.stubGlobal("PointerEvent", Pointer);
+    const onSelect = vi.fn();
+    render(<BandMaps spots={[spot("DRAG2", 14170)]} onSelect={onSelect} />);
+    fireEvent.click(screen.getByRole("button", { name: "Zoom 20m in" }));
+    const chart = screen.getByLabelText(/20m spectrum/) as HTMLElement;
+    chart.setPointerCapture = vi.fn(); chart.hasPointerCapture = () => true; chart.releasePointerCapture = vi.fn();
+    const marker = screen.getByRole("button", { name: /DRAG2.*MHz/ });
+    fireEvent.pointerDown(marker, { pointerId: 1, button: 0, clientY: 100 });
+    fireEvent.pointerMove(chart, { pointerId: 1, clientY: 130 });
+    fireEvent.pointerDown(marker, { pointerId: 2, button: 0, clientY: 150 });
+    fireEvent.pointerCancel(chart, { pointerId: 2 });
+    fireEvent.pointerUp(chart, { pointerId: 1, clientY: 130 });
+    fireEvent.click(marker, { detail: 1 });
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+  it("combines mode choices, persists them, and clears to all without selecting a spot", () => {
+    const onSelect = vi.fn();
+    const spots = [spot("CW1", 14020), { ...spot("FT1", 14074), mode: "FT8" }, { ...spot("SSB1", 14200), mode: "SSB" }];
+    const first = render(<BandMaps spots={spots} onSelect={onSelect} />);
+    fireEvent.click(screen.getByText("Modes · All"));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Data" }));
+    expect(screen.getByText("2 of 3 spots")).toBeTruthy();
+    expect(screen.getByText("Modes · CW + Phone")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /FT1.*MHz/ })).toBeNull();
+    first.unmount();
+    render(<BandMaps spots={spots} onSelect={onSelect} />);
+    expect(screen.getByText("Modes · CW + Phone")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    expect(screen.getByText("3 of 3 spots")).toBeTruthy();
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it("pans a zoomed spectrum with wheel and clamps to its band boundaries", () => {
+    const onSelect = vi.fn();
+    render(<BandMaps spots={[]} onSelect={onSelect} />);
+    const chart = screen.getByLabelText(/20m spectrum/) as HTMLElement;
+    const initial = chart.getAttribute("aria-label");
+    fireEvent.wheel(chart, { deltaY: 120 });
+    expect(chart.getAttribute("aria-label")).toBe(initial);
+    fireEvent.click(screen.getByRole("button", { name: "Zoom 20m in" }));
+    const zoomed = chart.getAttribute("aria-label");
+    fireEvent.wheel(chart, { deltaY: 120 });
+    expect(chart.getAttribute("aria-label")).not.toBe(zoomed);
+    expect(panBandRange({ low: 14100, high: 14200 }, BAND_RANGES["20m"], -1000)).toEqual({ low: 14000, high: 14100 });
+    expect(panBandRange({ low: 14100, high: 14200 }, BAND_RANGES["20m"], 1000)).toEqual({ low: 14250, high: 14350 });
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it("drags the zoomed spectrum without accidentally tuning a spot", () => {
+    vi.stubGlobal("PointerEvent", MouseEvent);
+    const onSelect = vi.fn();
+    render(<BandMaps spots={[spot("DRAG1", 14170)]} onSelect={onSelect} />);
+    fireEvent.click(screen.getByRole("button", { name: "Zoom 20m in" }));
+    const chart = screen.getByLabelText(/20m spectrum/) as HTMLElement;
+    chart.setPointerCapture = vi.fn(); chart.hasPointerCapture = () => true; chart.releasePointerCapture = vi.fn();
+    const marker = screen.getByRole("button", { name: /DRAG1.*MHz/ });
+    const initial = chart.getAttribute("aria-label");
+    fireEvent.pointerDown(marker, { button: 0, clientY: 100 });
+    fireEvent.pointerMove(chart, { clientY: 140 });
+    fireEvent.pointerUp(chart, { clientY: 140 });
+    fireEvent.click(marker, { detail: 1 });
+    expect(chart.getAttribute("aria-label")).not.toBe(initial);
+    expect(onSelect).not.toHaveBeenCalled();
+    fireEvent.pointerDown(marker, { button: 0, clientY: 100 });
+    fireEvent.pointerUp(marker, { clientY: 100 });
+    fireEvent.click(marker, { detail: 1 });
+    expect(onSelect).toHaveBeenCalledTimes(1);
+  });
   it.each([true, false])("fits marker placement to resized chart height (compact=%s)", compact => {
-    let resize: () => void = () => {};
+    const resizes = new Map<Element, () => void>();
     vi.stubGlobal("ResizeObserver", class {
-      constructor(callback: () => void) { resize = callback; }
-      observe() {}
+      callback: () => void;
+      constructor(callback: () => void) { this.callback = callback; }
+      observe(target: Element) { resizes.set(target, this.callback); }
       disconnect() {}
     });
     render(<BandMaps compact={compact} spots={[spot("OM0RX", 14001)]} onSelect={vi.fn()} />);
     const chart = screen.getByLabelText(/20m spectrum/) as HTMLElement;
+    const resize = () => resizes.get(chart)?.();
     expect(chart.style.height).toBe("");
     Object.defineProperties(chart, { clientHeight: { value: 120, configurable: true }, clientWidth: { value: 310 } });
     act(() => resize());
@@ -85,6 +190,18 @@ describe("native band-map parity", () => {
     expect(screen.getByRole("button", { name: "Single row" }).getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByText("150%")).toBeTruthy();
     expect(localStorage.length).toBe(0);
+  });
+
+  it("places an optional Dock back action beside Add band map only in a detached view", () => {
+    const onDock = vi.fn();
+    const { rerender } = render(<BandMaps spots={[]} onSelect={vi.fn()} onDock={onDock} />);
+    const add = screen.getByLabelText("Add band map");
+    const dock = screen.getByRole("button", { name: "Dock back" });
+    expect(add.closest("label")?.nextElementSibling).toBe(dock);
+    fireEvent.click(dock);
+    expect(onDock).toHaveBeenCalledOnce();
+    rerender(<BandMaps spots={[]} onSelect={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: "Dock back" })).toBeNull();
   });
 
   it("selects the original spot and keeps per-spot frequency in accessible detail only", () => {

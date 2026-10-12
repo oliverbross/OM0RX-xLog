@@ -1,11 +1,28 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ClusterPanel } from "./ClusterPanel";
+import { DetachedClusterSurface } from "./DetachedClusterSurface";
+const bridge = vi.hoisted(() => ({ dock: vi.fn(async () => {}), ready: vi.fn(async () => {}), request: vi.fn(async () => ({})) }));
+vi.mock("./DetachedClusterBridge", async original => ({ ...await original<typeof import("./DetachedClusterBridge")>(), dockDetachedWorkspace: bridge.dock,
+  announceDetachedClusterReady: bridge.ready, requestViaMain: bridge.request, onClusterProjection: vi.fn(async () => () => {}) }));
 
 afterEach(cleanup);
 
 describe("passive docked DX Cluster presentation", () => {
+  it("removes the duplicate detached rail and retains toolbar docking while waiting for main state", async () => {
+    bridge.dock.mockClear(); bridge.ready.mockClear(); bridge.request.mockClear();
+    const { container } = render(<DetachedClusterSurface />);
+    await waitFor(() => expect(bridge.ready).toHaveBeenCalledOnce());
+    expect(container.querySelector(".station-rail")).toBeNull();
+    expect(screen.queryByText("OM0RX-xLog")).toBeNull();
+    expect(screen.queryByText("Live data and actions owned by the main workspace")).toBeNull();
+    expect(screen.getAllByRole("heading", { name: "DX Cluster" })).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Dock back" }).closest(".live-cluster-actions")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Dock back" }));
+    await waitFor(() => expect(bridge.dock).toHaveBeenCalledOnce());
+    expect(bridge.request).not.toHaveBeenCalled();
+  });
   it("uses main-pushed snapshots without starting its own worker poll, and exposes Undock", () => {
     const onRequest = vi.fn(async () => ({}));
     const onUndock = vi.fn();

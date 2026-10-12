@@ -13,7 +13,8 @@ enum CallsignEnrichment {
                 result["lookup_warning"] = "Online lookup returned a different callsign; offline result retained."
                 return result
             }
-            for key in ["name", "gridSquare", "country", "cqZone", "ituZone", "state", "county", "qth", "email"] {
+            for key in ["name", "gridSquare", "country", "cqZone", "ituZone", "state", "county", "qth", "email",
+                        "nickname", "websiteURL", "imageURL", "qslManager", "iota", "licenseClass"] {
                 if let value = online[key] as? String, !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     result[key] = value
                 }

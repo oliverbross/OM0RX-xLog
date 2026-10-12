@@ -11,10 +11,16 @@ vi.mock("maplibre-gl", () => {
     sources = new Map<string, any>();
     ready = harness.startReady;
     styleBusy = false;
+    zoom = 2;
+    layers: any[];
+    layoutCalls: any[][] = [];
     featureStateCalls: any[] = [];
+    fitCalls: { bounds: [[number, number], [number, number]]; options: any }[] = [];
+    easeCalls: any[] = [];
     missingSourceQueries = 0;
     constructor(options: any) {
       this.element = options.container;
+      this.layers = options.style.layers;
       Object.defineProperties(this.element, { clientWidth: { value: 1000 }, clientHeight: { value: 500 } });
       for (const key of Object.keys(options.style.sources)) this.sources.set(key, { setData: vi.fn() });
       harness.maps.push(this);
@@ -40,7 +46,7 @@ vi.mock("maplibre-gl", () => {
     }
     getContainer() { return this.element; }
     getCanvas() { return this.element; }
-    getZoom() { return 2; }
+    getZoom() { return this.zoom; }
     project() { return { x: 400, y: 200 }; }
     getLayer() { return true; }
     getSource(id: string) { return this.ready ? this.sources.get(id) : undefined; }
@@ -54,12 +60,12 @@ vi.mock("maplibre-gl", () => {
       return true;
     }
     addControl() {}
-    fitBounds() {}
+    fitBounds(bounds: [[number, number], [number, number]], options: any) { this.fitCalls.push({ bounds, options }); }
     jumpTo() {}
-    easeTo() {}
+    easeTo(options: any) { this.easeCalls.push(options); }
     resize() {}
     triggerRepaint() {}
-    setLayoutProperty() {}
+    setLayoutProperty(...args: any[]) { this.layoutCalls.push(args); }
     setPaintProperty() {}
     setFeatureState(...args: any[]) { this.featureStateCalls.push(args); }
     remove() {}
@@ -81,7 +87,7 @@ vi.mock("maplibre-gl", () => {
   }
   return { Map: FakeMap, Marker, Popup, setWorkerUrl: vi.fn(), NavigationControl: class {}, AttributionControl: class {}, ScaleControl: class {} };
 });
-import WorldMap from "./Map";
+import WorldMap, { routeBounds, routeFrequencyLabel, routeLabelPosition } from "./Map";
 
 const spot = (changes: Partial<MapSpot> = {}): MapSpot => ({
   id: "feed-1", call: "K1ABC", mhz: 14.074, mode: "FT8", band: "20m", country: "United States",
@@ -97,6 +103,133 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe("map spot inspection", () => {
+  it("labels both known route endpoints and the selected path with distance above observed frequency", () => {
+    const onSpot = vi.fn();
+    const home = { call: "OM0RX", lon: 20, lat: 48 }, target = { call: "K1ABC", lon: -72, lat: 41 };
+    const { rerender } = render(<WorldMap data={[spot()]} selected={null} home={home} target={target}
+      frequencyHz={14_250_010} onSpot={onSpot} />);
+    const map = harness.maps[0];
+    expect(screen.getByLabelText("Home station OM0RX").textContent).toBe("OM0RX");
+    expect(screen.getByLabelText("Target K1ABC").textContent).toBe("K1ABC");
+    const annotation = screen.getByRole("note", { name: /Short path.*14\.250\.010 MHz/ });
+    expect(annotation.querySelector(".map-route-distance")?.textContent).toMatch(/^SP · [\d,]+ km$/);
+    expect(annotation.querySelector(".map-route-frequency")?.textContent).toBe("14.250.010 MHz");
+    expect(annotation.querySelector(".map-route-distance")?.nextElementSibling?.className).toBe("map-route-label-gap");
+    fireEvent.click(screen.getByRole("button", { name: "Short path" }));
+    expect(screen.getByRole("note", { name: /Long path/ }).querySelector(".map-route-distance")?.textContent).toMatch(/^LP · [\d,]+ km$/);
+    rerender(<WorldMap data={[spot()]} selected={null} home={home} target={target} onSpot={onSpot} />);
+    expect(screen.getByRole("note", { name: /Long path/ }).querySelector(".map-route-frequency")).toBeNull();
+    expect(onSpot).not.toHaveBeenCalled();
+    expect(map.fitCalls).toHaveLength(2);
+  });
+
+  it("omits unknown endpoint callsigns and unobserved frequencies without inventing labels", () => {
+    render(<WorldMap data={[]} selected={null} home={{ lon: 20, lat: 48 }} target={{ lon: -72, lat: 41 }}
+      frequencyHz={Number.NaN} />);
+    expect(screen.queryByLabelText(/^Home station /)).toBeNull();
+    expect(screen.queryByLabelText(/^Target /)).toBeNull();
+    expect(screen.getByRole("note", { name: /Short path/ }).querySelector(".map-route-frequency")).toBeNull();
+    expect(routeFrequencyLabel(undefined)).toBeNull();
+    expect(routeFrequencyLabel(14_250_000.5)).toBeNull();
+    expect(routeFrequencyLabel(14_250_000)).toBe("14.250.000 MHz");
+  });
+
+  it("places a route annotation near its arc midpoint without crossing a date-line seam", () => {
+    const sections: [number, number][][] = [
+      [[170, 10], [175, 11], [180, 12]],
+      [[-180, 12], [-175, 13], [-170, 14], [-165, 15]],
+    ];
+    const position = routeLabelPosition(sections);
+    expect(position).not.toBeNull();
+    expect(position!.point[0]).toBeLessThan(0);
+    expect(Math.abs(position!.after[0] - position!.before[0])).toBeLessThan(180);
+    expect(routeLabelPosition([])).toBeNull();
+  });
+
+  it("shows callsign labels at regional zoom level three", () => {
+    render(<WorldMap data={[spot()]} selected={null} />);
+    const map = harness.maps[0];
+    expect(map.element.querySelector(".map-spot-label")).toBeNull();
+    map.zoom = 3;
+    act(() => { map.fire("moveend", {}); map.fire("zoomend", {}); });
+    expect(map.element.querySelector(".map-spot-label")?.textContent).toBe("K1ABC");
+  });
+  it("fits the complete home-to-target path once and leaves a manually panned camera alone during spot refreshes", () => {
+    const home = { call: "OM0RX", lon: 20, lat: 48 };
+    const target = { call: "K1ABC", lon: -72, lat: 41 };
+    const { rerender } = render(<WorldMap data={[spot()]} selected="feed-1" home={home} target={target} />);
+    const map = harness.maps[0];
+    expect(map.fitCalls).toHaveLength(1);
+    const [[west, south], [east, north]] = map.fitCalls[0].bounds;
+    expect(west).toBeLessThanOrEqual(-72);
+    expect(east).toBeGreaterThanOrEqual(20);
+    expect(south).toBeLessThanOrEqual(41);
+    expect(north).toBeGreaterThanOrEqual(48);
+    expect(map.easeCalls).toHaveLength(0);
+    map.fire("movestart", { originalEvent: new Event("pointerdown") });
+    rerender(<WorldMap data={[spot({ id: "feed-2", receivedAt: 2, lon: -71.5 })]} selected="feed-1"
+      home={{ ...home }} target={{ ...target }} />);
+    expect(map.fitCalls).toHaveLength(1);
+    expect(map.easeCalls).toHaveLength(0);
+    rerender(<WorldMap data={[spot()]} selected="feed-1" home={home} target={{ ...target, lon: -70 }} />);
+    expect(map.fitCalls).toHaveLength(2);
+    rerender(<WorldMap data={[spot()]} selected="feed-1" home={{ ...home, lat: 49 }} target={{ ...target, lon: -70 }} />);
+    expect(map.fitCalls).toHaveLength(3);
+    fireEvent.click(screen.getByRole("button", { name: "Short path" }));
+    expect(map.fitCalls).toHaveLength(4);
+    expect(map.fitCalls[3].options.padding.bottom).toBe(100);
+    rerender(<WorldMap data={[spot()]} selected="feed-1" home={{ ...home, lat: 49 }} target={{ ...target, call: "W1XYZ", lon: -70 }} />);
+    expect(map.fitCalls).toHaveLength(5); // a new call can share the same approximate DXCC point
+  });
+
+  it("uses antimeridian-aware bounds and closes both short- and long-path seams", () => {
+    const from: [number, number] = [179, 10], to: [number, number] = [-179, 12];
+    const short = routeBounds(from, to, false)!;
+    const long = routeBounds(from, to, true)!;
+    expect(short[1][0] - short[0][0]).toBeLessThan(10);
+    expect(short[0][0]).toBeLessThanOrEqual(179);
+    expect(short[1][0]).toBeGreaterThanOrEqual(181);
+    expect(long[1][0] - long[0][0]).toBeGreaterThan(300);
+    const { rerender } = render(<WorldMap data={[]} selected={null} fixture home={{ lon: 179, lat: 10 }} target={{ lon: -179, lat: 12 }} />);
+    const map = harness.maps[0];
+    const source = map.sources.get("route").setData;
+    const coordinates = () => source.mock.lastCall[0].features.flatMap((feature: any) => feature.geometry.coordinates);
+    expect(coordinates()).toContainEqual([179, 10]);
+    expect(coordinates()).toContainEqual([-179, 12]);
+    expect(coordinates().some((point: number[]) => Math.abs(point[0]) === 180)).toBe(true);
+    expect(map.fitCalls.at(-1).bounds).toEqual(short);
+    fireEvent.click(screen.getByRole("button", { name: "Short path" }));
+    expect(map.fitCalls.at(-1).bounds).toEqual(long);
+    expect(coordinates()).toContainEqual([179, 10]);
+    expect(coordinates()).toContainEqual([-179, 12]);
+    rerender(<WorldMap data={[]} selected={null} fixture home={{ lon: 179, lat: 10 }} target={{ lon: -179, lat: 12 }} />);
+    expect(map.fitCalls).toHaveLength(3); // fixture fit, initial route, explicit LP fit
+  });
+
+  it("shades the night hemisphere below route and spots, follows Greyline, and updates without moving the camera", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-21T12:00:00Z"));
+    try {
+      render(<WorldMap data={[spot()]} selected={null} home={{ lon: 20, lat: 48 }} target={{ lon: -72, lat: 41 }} />);
+      const map = harness.maps[0];
+      const layerIDs = map.layers.map((layer: any) => layer.id);
+      expect(layerIDs.indexOf("night-fill")).toBeLessThan(layerIDs.indexOf("grayline-band"));
+      expect(layerIDs.indexOf("night-fill")).toBeLessThan(layerIDs.indexOf("route-line"));
+      expect(layerIDs.indexOf("night-fill")).toBeLessThan(layerIDs.indexOf("spots"));
+      const night = map.sources.get("night").setData;
+      expect(night.mock.lastCall[0].features[0].geometry.type).toBe("Polygon");
+      const original = night.mock.lastCall[0].features[0].geometry.coordinates;
+      const fitted = map.fitCalls.length;
+      act(() => { vi.advanceTimersByTime(60_000); });
+      expect(night.mock.lastCall[0].features[0].geometry.coordinates).not.toEqual(original);
+      expect(map.fitCalls).toHaveLength(fitted);
+      fireEvent.click(screen.getByRole("button", { name: "Greyline" }));
+      expect(night.mock.lastCall[0].features).toEqual([]);
+      expect(map.layoutCalls.at(-3)).toEqual(["night-fill", "visibility", "none"]);
+      expect(map.fitCalls).toHaveLength(fitted);
+    } finally { vi.useRealTimers(); }
+  });
+
   it("applies DXCC changes while an existing source has transient tile work", async () => {
     vi.mocked(fetch).mockResolvedValue({ ok: true, json: async () => ({ type: "FeatureCollection", features: [{
       properties: { dxcc_entity_code: 291, dxcc_name: "United States", dxcc_prefix: "K" },

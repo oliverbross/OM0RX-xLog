@@ -23,6 +23,12 @@ public final class LogbookDatabase: @unchecked Sendable {
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
     private static let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+    private var cachedDataVersion: Int?
+    private var cachedStats: LogbookStats?
+    private var cachedStatsYearStart: TimeInterval?
+    private var cachedAwards: AwardProgressSnapshot?
+    private var cachedDXCCStatuses: [Int: String]?
+    private var cachedAwardCatalog: AwardCatalogSnapshot?
 
     public let url: URL
 
@@ -145,6 +151,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                 }
                 try stepDone(statement)
             }
+            invalidateQSOAggregates()
         }
     }
 
@@ -177,6 +184,35 @@ public final class LogbookDatabase: @unchecked Sendable {
             try withStatement("SELECT record_json FROM qsos WHERE deleted_at IS NULL ORDER BY qso_start DESC;") {
                 try decodeRows($0)
             }
+        }
+    }
+
+    /// Returns only rows that can affect a callsign/DXCC history. SQL filters
+    /// before JSON decoding; nil-DXCC rows remain candidates because their
+    /// historical entity may be resolved from CTY at the QSO date.
+    public func historyCandidates(call: String, adif: Int?) throws -> [QSO] {
+        try lock.withLock {
+            if let adif {
+                return try withStatement("""
+                    SELECT record_json FROM qsos
+                    WHERE deleted_at IS NULL AND (
+                        call = ? COLLATE NOCASE
+                        OR CAST(json_extract(record_json,'$.dxcc') AS INTEGER) = ?
+                        OR CAST(json_extract(record_json,'$.dxcc') AS INTEGER) IS NULL
+                    ) ORDER BY qso_start DESC;
+                    """) { statement in
+                        bind(call.uppercased(), to: 1, in: statement)
+                        sqlite3_bind_int(statement, 2, Int32(adif))
+                        return try decodeRows(statement)
+                    }
+            }
+            return try withStatement("""
+                SELECT record_json FROM qsos WHERE deleted_at IS NULL AND call = ? COLLATE NOCASE
+                ORDER BY qso_start DESC;
+                """) { statement in
+                    bind(call.uppercased(), to: 1, in: statement)
+                    return try decodeRows(statement)
+                }
         }
     }
 
@@ -261,8 +297,10 @@ public final class LogbookDatabase: @unchecked Sendable {
 
     public func stats() throws -> LogbookStats {
         try lock.withLock {
+            try refreshAggregateCacheVersion()
             let yearStart = Calendar(identifier: .gregorian).date(from: Calendar.current.dateComponents([.year], from: Date()))?.timeIntervalSince1970 ?? 0
-            return try withStatement("""
+            if let cachedStats, cachedStatsYearStart == yearStart { return cachedStats }
+            let value: LogbookStats = try withStatement("""
                 SELECT COUNT(*), COUNT(DISTINCT CASE WHEN json_extract(record_json,'$.dxcc') IS NOT NULL THEN json_extract(record_json,'$.dxcc') END),
                 SUM(CASE WHEN json_extract(record_json,'$.qslReceived') IN ('Y','V') OR json_extract(record_json,'$.lotwReceived') IN ('Y','V') THEN 1 ELSE 0 END),
                 SUM(CASE WHEN qso_start >= ? THEN 1 ELSE 0 END)
@@ -277,11 +315,16 @@ public final class LogbookDatabase: @unchecked Sendable {
                         thisYearCount: Int(sqlite3_column_int(statement, 3))
                     )
                 }
+            cachedStats = value
+            cachedStatsYearStart = yearStart
+            return value
         }
     }
 
     public func awardProgress() throws -> AwardProgressSnapshot {
         try lock.withLock {
+            try refreshAggregateCacheVersion()
+            if let cachedAwards { return cachedAwards }
             let confirmed = "(UPPER(COALESCE(json_extract(record_json,'$.qslReceived'),'')) IN ('Y','V') OR UPPER(COALESCE(json_extract(record_json,'$.lotwReceived'),'')) IN ('Y','V'))"
             let validStates = "'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY'"
             let counts = try withStatement("""
@@ -319,7 +362,7 @@ public final class LogbookDatabase: @unchecked Sendable {
 
             let effectiveMode = "UPPER(COALESCE(NULLIF(json_extract(record_json,'$.submode'),''), mode))"
             let modeGroup = "CASE WHEN \(effectiveMode) = 'CW' THEN 'CW' WHEN \(effectiveMode) IN ('SSB','USB','LSB','AM','FM') THEN 'Phone' ELSE 'Digital' END"
-            return AwardProgressSnapshot(
+            let value = AwardProgressSnapshot(
                 qsoCount: counts[0], confirmedQSOs: counts[1],
                 dxccWorked: counts[2], dxccConfirmed: counts[3],
                 cqZonesWorked: counts[4], cqZonesConfirmed: counts[5],
@@ -330,13 +373,17 @@ public final class LogbookDatabase: @unchecked Sendable {
                 continentCounts: try groups("COALESCE(NULLIF(UPPER(TRIM(json_extract(record_json,'$.continent'))),''),'Unknown')"),
                 yearCounts: try groups("STRFTIME('%Y', qso_start, 'unixepoch')")
             )
+            cachedAwards = value
+            return value
         }
     }
 
     /// One aggregate query for the map; never decode every QSO on every radio poll.
     public func dxccMapStatuses() throws -> [Int: String] {
         try lock.withLock {
-            try withStatement("""
+            try refreshAggregateCacheVersion()
+            if let cachedDXCCStatuses { return cachedDXCCStatuses }
+            let value = try withStatement("""
                 SELECT CAST(json_extract(record_json,'$.dxcc') AS INTEGER),
                     MAX(CASE WHEN UPPER(COALESCE(json_extract(record_json,'$.qslReceived'),'')) IN ('Y','V')
                         OR UPPER(COALESCE(json_extract(record_json,'$.lotwReceived'),'')) IN ('Y','V') THEN 1 ELSE 0 END)
@@ -349,16 +396,43 @@ public final class LogbookDatabase: @unchecked Sendable {
                     }
                     return result
                 }
+            cachedDXCCStatuses = value
+            return value
         }
     }
 
     public func awardCatalog() throws -> AwardCatalogSnapshot {
         try lock.withLock {
+            try refreshAggregateCacheVersion()
+            if let cachedAwardCatalog { return cachedAwardCatalog }
             let values = try withStatement("SELECT record_json FROM qsos WHERE deleted_at IS NULL ORDER BY qso_start ASC;") {
                 try decodeRows($0)
             }
-            return try AwardCatalogEngine.compute(qsos: values)
+            let catalog = try AwardCatalogEngine.compute(qsos: values)
+            cachedAwardCatalog = catalog
+            return catalog
         }
+    }
+
+    /// SQLite's data_version changes for commits made by other connections;
+    /// this connection invalidates directly in save(), including sync merges.
+    private func refreshAggregateCacheVersion() throws {
+        let version = try withStatement("PRAGMA data_version;") { statement in
+            guard sqlite3_step(statement) == SQLITE_ROW else {
+                throw LogbookDatabaseError.sqlite(String(cString: sqlite3_errmsg(handle)))
+            }
+            return Int(sqlite3_column_int64(statement, 0))
+        }
+        if let cachedDataVersion, cachedDataVersion != version { invalidateQSOAggregates() }
+        cachedDataVersion = version
+    }
+
+    private func invalidateQSOAggregates() {
+        cachedStats = nil
+        cachedStatsYearStart = nil
+        cachedAwards = nil
+        cachedDXCCStatuses = nil
+        cachedAwardCatalog = nil
     }
 
     public func bandModeMatrix(call: String) throws -> Set<BandModeCell> {
@@ -735,7 +809,12 @@ public final class LogbookDatabase: @unchecked Sendable {
           baseline_json BLOB
         );
         CREATE INDEX IF NOT EXISTS idx_qsos_call ON qsos(call);
+        CREATE INDEX IF NOT EXISTS idx_qsos_call_live_nocase
+          ON qsos(call COLLATE NOCASE, qso_start DESC) WHERE deleted_at IS NULL;
         CREATE INDEX IF NOT EXISTS idx_qsos_start ON qsos(qso_start DESC);
+        CREATE INDEX IF NOT EXISTS idx_qsos_dxcc_live
+          ON qsos(CAST(json_extract(record_json,'$.dxcc') AS INTEGER), qso_start DESC)
+          WHERE deleted_at IS NULL;
         CREATE INDEX IF NOT EXISTS idx_qsos_dirty ON qsos(is_dirty, updated_at);
         CREATE TABLE IF NOT EXISTS sync_conflicts(
           conflict_id TEXT PRIMARY KEY,

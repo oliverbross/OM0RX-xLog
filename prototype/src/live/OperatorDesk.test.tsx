@@ -1,14 +1,14 @@
 // @vitest-environment jsdom
 import { useState } from "react";
 import { afterEach, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import OperatorDesk, { rotorPathDistance } from "./OperatorDesk";
 import type { RotorSnapshot } from "./rotorControl";
 const initial = { id: "native-qso-id", call: "W7AIT", start: "2026-10-11T22:47:12Z", frequencyHz: 18160000, band: "17m", mode: "SSB", rstSent: "59", rstReceived: "59", name: "C OLHEISER, II", comment: "CQ", gridSquare: "CM97LQ", country: "United States of America", county: "Stanislaus", sig: "", extraFields: { APP_CUSTOM: "Keep me" }, customField: { unchanged: true } };
 const lookup = { call: "W7AIT", name: "C OLHEISER, II", country: "United States of America", dxcc: 291, gridSquare: "CM97LQ", continent: "NA", cqZone: "5", ituZone: "6", source: "CTY approximate", latitude: 37, longitude: -121, bearing: 73, long_path_bearing: 253, distance_km: 12500 };
 const rotor: RotorSnapshot = { owner: "native_dcu1", generation: 4, state: "active", backend_available: true, backend: { connected: true, azimuth: 53, name: "Antenna", status: "Ready" } };
-function Harness({ request = vi.fn(async method => method === "logbook_matrix" ? { cells: [] } : { history: { call: "W7AIT", adif: 291, previous_count: 0, previous: [], dxcc_contact_count: 9109, matrix: [{ band: "17m", mode: "SSB", worked: true, confirmed: true }] } }), info = lookup, rotorState = rotor, save = vi.fn(), clear = vi.fn(), onEditor = vi.fn(), onReadRadio = vi.fn(async () => {}), onManualRotor = vi.fn(), switchDraft = false }: any) {
-  const [draft, setDraft] = useState<Record<string, any> | null>(initial), [follow, setFollow] = useState(true), [autoRotor, setAutoRotor] = useState(false);
+function Harness({ request = vi.fn(async method => method === "logbook_matrix" ? { cells: [] } : { history: { call: "W7AIT", adif: 291, previous_count: 0, previous: [], dxcc_contact_count: 9109, matrix: [{ band: "17m", mode: "SSB", worked: true, confirmed: true }] } }), info = lookup, rotorState = rotor, save = vi.fn(), clear = vi.fn(), onEditor = vi.fn(), onReadRadio = vi.fn(async () => {}), onManualRotor = vi.fn(), switchDraft = false, initialDraft = initial }: any) {
+  const [draft, setDraft] = useState<Record<string, any> | null>(initialDraft), [follow, setFollow] = useState(true), [autoRotor, setAutoRotor] = useState(false);
   return <><OperatorDesk draft={draft} setDraft={setDraft} save={save} clear={clear} busy={false} lookup={info} previous={[]} request={request} refresh={0} onEditor={onEditor} onReadRadio={onReadRadio} follow={follow} setFollow={setFollow} rotor={rotorState} autoRotor={autoRotor} setAutoRotor={setAutoRotor} onManualRotor={onManualRotor} />{switchDraft && <button onClick={() => setDraft({ ...initial, id: "new-draft", frequencyHz: 7025000, band: "40m" })}>Switch draft</button>}<output data-testid="draft">{JSON.stringify(draft)}</output></>;
 }
 const draft = () => JSON.parse(screen.getByTestId("draft").textContent || "{}");
@@ -73,6 +73,17 @@ it("never shows stale lookup or mismatched history as current evidence", async (
   expect(screen.queryByText("Wrong country")).toBeNull();
   expect(screen.getByLabelText("DXCC 17m: Unknown")).toBeTruthy();
   expect((screen.getByRole("button", { name: "Turn rotor long path" }) as HTMLButtonElement).disabled).toBe(true);
+});
+it("does not let stale draft country/location label a new call's matched intelligence", () => {
+  const entered = { ...initial, call: "OM0AAO", country: "ENGLAND", dxcc: 223, name: "Old name", gridSquare: "IO91AA" };
+  render(<Harness initialDraft={entered} info={{ ...lookup, call: "OM0AAO", name: "Viliam Pertik", country: "Slovak Republic", dxcc: 504, gridSquare: "JN88WT" }} />);
+  const intelligence = within(screen.getByRole("region", { name: "Callsign and DXCC intelligence" }));
+  expect(intelligence.getByText("Slovak Republic")).toBeTruthy();
+  expect(intelligence.getByText("#504")).toBeTruthy();
+  expect(intelligence.queryByText("ENGLAND")).toBeNull();
+  expect(intelligence.queryByText("Old name")).toBeNull();
+  expect(intelligence.getByText("JN88WT")).toBeTruthy();
+  expect(draft()).toEqual(entered);
 });
 it("uses observed compass telemetry and sends only explicit generation-fenced LP/Stop motion", async () => {
   const request = vi.fn(async (_method: string, _params?: Record<string, any>) => ({})), onManualRotor = vi.fn();

@@ -48,6 +48,32 @@
   pointer-events: none;
 }
 .map-spot-label { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+.map-route-endpoint {
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: #07111fdb;
+  color: #e6edf6;
+  font: 700 12px/1.25 ui-monospace, SFMono-Regular, Consolas, monospace;
+  white-space: nowrap;
+  text-shadow: 0 1px 2px #000;
+  pointer-events: none;
+}
+.map-route-home { color: #12d6a0; }
+.map-route-target { color: #f3b23c; }
+.map-route-annotation { pointer-events: none; }
+.map-route-annotation-inner { display: flex; flex-direction: column; align-items: center; white-space: nowrap; transform-origin: center; }
+.map-route-annotation-inner > span:not(.map-route-label-gap) {
+  padding: 2px 5px;
+  border-radius: 3px;
+  background: #07111fe8;
+  color: #e6edf6;
+  font: 700 11px/1.25 ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 2px #000;
+}
+.map-route-annotation-inner .map-route-distance { color: #a8e8fa; }
+.map-route-annotation-inner .map-route-frequency { color: #f3d892; }
+.map-route-label-gap { height: 11px; }
 .map-wrap .map-spot-hit { width:18px; height:18px; min-height:18px; padding:0; border:0; border-radius:50%; background:transparent; cursor:pointer; }
 .map-wrap .map-spot-hit:hover { background:transparent; }
 .map-wrap .map-spot-hit:focus-visible { outline:2px solid #35c8f5; outline-offset:2px; }

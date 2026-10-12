@@ -1,4 +1,4 @@
-import { BAND_ORDER } from "./BandMaps";
+import { BAND_ORDER, BAND_MAP_MODES } from "./BandMaps";
 import type { BandMapViewPreferences } from "./BandMaps";
 
 export type WorkspacePreferences = {
@@ -10,6 +10,7 @@ export type WorkspacePreferences = {
   bandMapFontScale: number;
   intelligenceBands: string[];
   clusterSpotOpensFullEditor: boolean;
+  detachedBandMapModes?: BandMapViewPreferences["modes"];
 };
 
 export function validBandMapView(value: unknown): value is BandMapViewPreferences {
@@ -19,7 +20,9 @@ export function validBandMapView(value: unknown): value is BandMapViewPreference
     view.bands.every(band => typeof band === "string" && BAND_ORDER.includes(band)) &&
     new Set(view.bands).size === view.bands.length &&
     typeof view.followRadio === "boolean" && (view.layout === "row" || view.layout === "grid") &&
-    typeof view.fontScale === "number" && Number.isFinite(view.fontScale) && view.fontScale >= 0.8 && view.fontScale <= 2;
+    typeof view.fontScale === "number" && Number.isFinite(view.fontScale) && view.fontScale >= 0.8 && view.fontScale <= 2 &&
+    (view.modes === undefined || (Array.isArray(view.modes) && view.modes.length <= 3 &&
+      view.modes.every(mode => BAND_MAP_MODES.includes(mode)) && new Set(view.modes).size === view.modes.length));
 }
 
 export function bandMapView(preferences: WorkspacePreferences, compact: boolean): BandMapViewPreferences {
@@ -28,6 +31,7 @@ export function bandMapView(preferences: WorkspacePreferences, compact: boolean)
     followRadio: compact ? preferences.deskBandMapFollowsRadio : preferences.detachedBandMapFollowsRadio,
     layout: compact ? "row" : preferences.detachedBandMapLayout === "Single row" ? "row" : "grid",
     fontScale: preferences.bandMapFontScale,
+    ...(!compact && preferences.detachedBandMapModes ? { modes: preferences.detachedBandMapModes } : {}),
   };
 }
 
@@ -36,7 +40,8 @@ export function withBandMapView(preferences: WorkspacePreferences, compact: bool
   return compact ? { ...preferences, deskBandMapBands: view.bands, deskBandMapFollowsRadio: view.followRadio,
     bandMapFontScale: view.fontScale }
     : { ...preferences, detachedBandMapBands: view.bands, detachedBandMapFollowsRadio: view.followRadio,
-      detachedBandMapLayout: view.layout === "row" ? "Single row" : "Adaptive grid", bandMapFontScale: view.fontScale };
+      detachedBandMapLayout: view.layout === "row" ? "Single row" : "Adaptive grid", bandMapFontScale: view.fontScale,
+      ...(view.modes ? { detachedBandMapModes: view.modes } : {}) };
 }
 
 export function migrateLegacyBandMaps(preferences: WorkspacePreferences, storage: Pick<Storage, "getItem">): WorkspacePreferences | null {

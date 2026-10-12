@@ -6,6 +6,30 @@ import XLogCore
 
 @Suite("Live logbook isolated workspace")
 struct LiveLogbookMethodsTests {
+    @Test("CTY resolver is reused until the disposable reference file changes")
+    func ctyResolverSourceIdentity() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let service = LiveLogbookMethods(supportDirectory: root)
+        _ = try service.handle(method: "workspace_create", params: ["mode": "empty"])
+        let bundled = try service.currentCTYResolver()
+        #expect(bundled === (try service.currentCTYResolver()))
+
+        let reference = try service.referenceDirectoryURL().appendingPathComponent("cty.xml")
+        try Data("<cty><prefix><call>ZZ1</call><adif>990</adif><cqz>1</cqz><entity>Fixture A</entity></prefix></cty>".utf8)
+            .write(to: reference)
+        let first = try service.currentCTYResolver()
+        #expect(first !== bundled)
+        #expect(first === (try service.currentCTYResolver()))
+        #expect(first.resolve("ZZ1ABC")?.name == "FIXTURE A")
+
+        try Data("<cty><prefix><call>ZZ1</call><adif>991</adif><cqz>1</cqz><entity>Fixture Changed</entity></prefix></cty>".utf8)
+            .write(to: reference, options: .atomic)
+        let updated = try service.currentCTYResolver()
+        #expect(updated !== first)
+        #expect(updated.resolve("ZZ1ABC")?.adif == 991)
+    }
+
     @Test("DXCC map statuses reflect confirmations and deletion without manufacturing credits")
     func mapStatuses() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -218,11 +242,13 @@ struct LiveLogbookMethodsTests {
         _ = try service.handle(method: "workspace_create", params: ["mode": "empty"])
         let keychainService = try service.currentKeychainService()
         var original = try #require(service.handle(method: "workspace_preferences_load", params: [:])["preferences"] as? [String: Any])
+        #expect(original["detachedBandMapModes"] as? [String] == ["cw", "data", "phone"])
         original["deskBandMapBands"] = ["40m", "20m"]
         original["detachedBandMapBands"] = ["17m"]
         original["deskBandMapFollowsRadio"] = false
         original["detachedBandMapLayout"] = "Single row"
         original["bandMapFontScale"] = 1.5
+        original["detachedBandMapModes"] = ["cw", "phone"]
         _ = try service.handle(method: "workspace_preferences_save", params: ["preferences": original])
         let created = try service.handle(method: "backup_create", params: ["name": "preferences"])
         let name = try #require(created["name"] as? String)
@@ -230,9 +256,11 @@ struct LiveLogbookMethodsTests {
         let backedUp = try #require(XLogBackupManager().inspect(at: package).preferences)
         #expect(backedUp.deskBandMapBands == ["40m", "20m"])
         #expect(backedUp.detachedBandMapLayout == "Single row")
+        #expect(backedUp.detachedBandMapModes == ["cw", "phone"])
 
         var changed = original
         changed["deskBandMapBands"] = ["10m"]
+        changed["detachedBandMapModes"] = []
         _ = try service.handle(method: "workspace_preferences_save", params: ["preferences": changed])
         let retained = try #require(service.handle(method: "workspace_preferences_load", params: [:])["preferences"] as? [String: Any])
         #expect(retained["deskBandMapBands"] as? [String] == ["10m"])
@@ -244,12 +272,18 @@ struct LiveLogbookMethodsTests {
         let restored = try #require(service.handle(method: "workspace_preferences_load", params: [:])["preferences"] as? [String: Any])
         #expect(restored["deskBandMapBands"] as? [String] == ["40m", "20m"])
         #expect(restored["bandMapFontScale"] as? Double == 1.5)
+        #expect(restored["detachedBandMapModes"] as? [String] == ["cw", "phone"])
         var invalid = restored
         invalid["deskBandMapBands"] = ["bogus"]
         #expect(throws: WorkerFailure.self) {
             try service.handle(method: "workspace_preferences_save", params: ["preferences": invalid])
         }
         #expect((try service.handle(method: "workspace_preferences_load", params: [:])["preferences"] as? [String: Any])?["deskBandMapBands"] as? [String] == ["40m", "20m"])
+        invalid = restored
+        invalid["detachedBandMapModes"] = ["cw", "cw"]
+        #expect(throws: WorkerFailure.self) {
+            try service.handle(method: "workspace_preferences_save", params: ["preferences": invalid])
+        }
     }
 
     @Test("External xLog backup import verifies and copies before a separate restore decision")

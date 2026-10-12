@@ -13,7 +13,6 @@ import { openDetachedCluster, dockDetachedWorkspace, onClusterReady, onClusterRe
   publishClusterProjection, completeClusterRequest, type ClusterProjection } from "./live/DetachedClusterBridge";
 import { LogbookPanel } from "./live/LogbookPanel";
 import StationPanel from "./live/StationPanel";
-import { DataManagementPanel } from "./live/DataManagementPanel";
 import Conditions from "./live/Conditions";
 import Monitor from "./live/Monitor";
 import HamlibPanel from "./live/HamlibPanel";
@@ -23,18 +22,22 @@ import BandMaps, { bandForRadio } from "./live/BandMaps";
 import { bandMapView, migrateLegacyBandMaps, validBandMapView, withBandMapView } from "./live/workspacePreferences";
 import type { WorkspacePreferences } from "./live/workspacePreferences";
 import type { BandMapViewPreferences } from "./live/BandMaps";
+import { mergeBandMapPreferenceIntent, sameBandMapPreferences } from "./live/detachedBandMapPreferences";
 import IntegratedAwards from "./live/AwardsPanel";
 import QSOEditor from "./live/QSOEditor";
 import OperatorDesk from "./live/OperatorDesk";
+import { OperatorWorkspace } from "./live/OperatorWorkspace";
 import SyncPanel from "./live/SyncPanel";
 import ServiceSettings from "./live/ServiceSettings";
 import WorkspaceGate from "./live/WorkspaceGate";
 import SpotBridgePanel from "./live/SpotBridgePanel";
 import { logMode } from "./live/draftRadio";
+import { changedCallDraft, enrichedDraft, normalizedCall } from "./live/draftEnrichment";
 import { retireStationProvider } from "./live/stationHandover";
 import RotorPanel from "./live/RotorPanel";
 import { clearConnectedHandoverMessage, ownAutomaticRotorMotion, rotorCommandParams, rotorIntentCurrent, rotorProjection, validRotorSnapshot, type AutomaticRotorIntent, type RotorSnapshot } from "./live/rotorControl";
 import "./live/live.css";
+import appLogo from "../src-tauri/icons/64x64.png";
 
 type Data = Record<string, any>;
 type Request = (method: string, params?: Data) => Promise<any>;
@@ -48,6 +51,11 @@ const detached = detachedMapKind(new URLSearchParams(location.search).get("view"
 const detachedCluster = new URLSearchParams(location.search).get("view") === "dx-cluster";
 const frequency = (hz?: number) => typeof hz === "number" && Number.isFinite(hz) ? (hz / 1e6).toFixed(6) : "—";
 const emptySpots: Data[] = [];
+const radioProviderLabels: Record<StationProvider, string> = {
+  direct_agent: "Remote station · embedded xCat",
+  direct_flex_lan: "Direct FLEX · LAN",
+  hamlib: "Local station · Hamlib",
+};
 const newDraft = () => localStorage.removeItem("xlog.integration.draft");
 
 export default function LiveApp() {
@@ -59,6 +67,8 @@ export default function LiveApp() {
 
 function MainLiveApp() {
   const [view, setView] = useState<string>("Operator Desk");
+  const [awardsOpened, setAwardsOpened] = useState(false);
+  useEffect(() => { if (view === "Awards") setAwardsOpened(true); }, [view]);
   const [workspace, setWorkspace] = useState<Data | null>(null);
   const [workspacePending, setWorkspacePending] = useState(true);
   const [settings, setSettings] = useState<Data | null>(null);
@@ -66,14 +76,28 @@ function MainLiveApp() {
   const latestWorkspacePreferences = useRef<WorkspacePreferences | null>(null);
   const preferenceWrite = useRef<Promise<unknown>>(Promise.resolve());
   const preferenceRevision = useRef(0);
-  const [draft, setDraft] = useState<Data | null>(null);
+  const [draft, setDraftState] = useState<Data | null>(null);
+  const setDraft = useCallback((next: Data | null | ((current: Data | null) => Data | null)) => {
+    setDraftState(current => changedCallDraft(current, typeof next === "function" ? next(current) : next));
+  }, []);
+  const referenceEdits = useRef<Record<string, number>>({});
+  const setOperatorDraft = useCallback((next: Data | null | ((current: Data | null) => Data | null)) => {
+    setDraft(current => {
+      const value = typeof next === "function" ? next(current) : next;
+      for (const key of ["potaReference", "sotaReference", "iota", "wwffReference", "sig", "sigInfo"])
+        if (current?.[key] !== value?.[key]) referenceEdits.current[key] = (referenceEdits.current[key] ?? 0) + 1;
+      return value;
+    });
+  }, [setDraft]);
   const draftIdentity = useRef(draft?.id); draftIdentity.current = draft?.id;
+  const draftCall = useRef(normalizedCall(draft?.call)); draftCall.current = normalizedCall(draft?.call);
   const [station, setStation] = useState<Data | null>(null);
   const [cluster, setCluster] = useState<Data | null>(null);
   const [stats, setStats] = useState<Data | null>(null);
   const [propagation, setPropagation] = useState<Data | null>(null);
   const [lookup, setLookup] = useState<Data | null>(null);
   const [previous, setPrevious] = useState<Data[]>([]);
+  const [referenceEvidence, setReferenceEvidence] = useState<{ call: string; rows: Data[] } | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [refresh, setRefresh] = useState(0);
@@ -88,14 +112,17 @@ function MainLiveApp() {
   const rotorRef = useRef<RotorSnapshot | null>(null);
   const autoEnabled = useRef(false), autoEpoch = useRef(0);
   const automaticMotion = useRef<AutomaticRotorIntent | null>(null);
+  const automaticTarget = useRef("");
   const rotorPolling = useRef(false);
   const disarmAutoRotor = useCallback(() => { autoEpoch.current++; automaticMotion.current = null; autoEnabled.current = false; setAutoRotor(false); }, []);
   const changeAutoRotor = (enabled: boolean) => { autoEpoch.current++; automaticMotion.current = null; autoEnabled.current = enabled; setAutoRotor(enabled); };
   const savedProvider = localStorage.getItem("xlog.integration.provider");
   const provider = useRef<StationProvider>(savedProvider === "hamlib" || savedProvider === "direct_flex_lan" ? savedProvider : "direct_agent");
   const [stationProvider, setStationProvider] = useState(provider.current);
+  const [viewProvider, setViewProvider] = useState(provider.current);
   const [stationSection, setStationSection] = useState("Control and connections");
   const pendingTune = useRef(false);
+  const spotRotorFence = useRef<{ call: string; confirmed: boolean } | null>(null);
   const providerTransition = useRef(false);
   const selection = useRef(0);
   const editing = useRef(false);
@@ -111,7 +138,8 @@ function MainLiveApp() {
   const latestMonitorProjection = useRef<MonitorProjection>({ spots: [], station: null, provider: "direct_agent", controlsEnabled: false });
   useEffect(() => {
     const changed = (event: StorageEvent) => {
-      if (event.key === "xlog.integration.provider" && (event.newValue === "hamlib" || event.newValue === "direct_agent" || event.newValue === "direct_flex_lan")) { selection.current++; pendingTune.current = false; disarmAutoRotor(); provider.current = event.newValue; setStationProvider(event.newValue); setStation(null); }
+      if (event.key === "xlog.integration.provider" && event.newValue !== provider.current)
+        setError("Radio selection changed in another window. This window retains its active radio until you apply a selection here.");
     };
     window.addEventListener("storage", changed); return () => window.removeEventListener("storage", changed);
   }, []);
@@ -186,6 +214,14 @@ function MainLiveApp() {
       return result;
     } catch (e) { throw new Error(e instanceof Error ? e.message : "Operation failed"); }
   }, [disarmAutoRotor]);
+  const viewedStationRequest: Request = useCallback(async (method, params = {}) => {
+    if (viewProvider === stationProvider) return request(method, params);
+    if (method === "station_snapshot") return { source: viewProvider, available: false, radio: null };
+    if (method === "hamlib_status") return { connected: false, state: "Preview only. Apply radio selection to use this radio.", reconnect_required: false };
+    if (["hamlib_models", "hamlib_serial_ports", "hamlib_capabilities"].includes(method))
+      return request(method, params);
+    throw new Error("Apply this radio selection before connecting or sending controls. The active radio has not changed.");
+  }, [request, stationProvider, viewProvider]);
   const readRadioIntoDraft = useCallback(async () => {
     if (providerTransition.current) throw new Error("Wait for station handover before reading the radio.");
     const generation = selection.current, source = provider.current, identity = draftIdentity.current;
@@ -223,7 +259,8 @@ function MainLiveApp() {
     try { await operation(); } catch (e) { setError(e instanceof Error ? e.message : "Operation failed"); }
     finally { setBusy(false); }
   };
-  const changeProvider = async (next: StationProvider) => {
+  const applyProvider = async () => {
+    const next = viewProvider;
     if (provider.current === next || providerTransition.current) return;
     providerTransition.current = true;
     selection.current++; pendingTune.current = false; disarmAutoRotor();
@@ -347,15 +384,35 @@ function MainLiveApp() {
     return () => { disposed = true; clearInterval(timer); };
   }, [request, disarmAutoRotor]);
   useEffect(() => {
-    const call = String(draft?.call || "").trim(); let disposed = false;
+    const call = normalizedCall(draft?.call); let disposed = false;
+    const baseline = draft;
+    setLookup(null); setPrevious([]);
     if (!call || !workspace?.workspace_exists) { setLookup(null); setPrevious([]); return; }
     const timer = setTimeout(() => {
-      void Promise.all([request("lookup_call", { call }), request("logbook_previous", { call, limit: 10 })])
-        .then(([info, history]) => { if (!disposed) { setLookup(info); setPrevious(history.qsos); } })
+      // A large history query must not hold QRZ details hostage.
+      void request("lookup_call", { call })
+        .then(info => { if (!disposed) { setLookup(info); if (baseline && !editing.current) setDraft(current => enrichedDraft(current, baseline, info)); } })
         .catch(e => { if (!disposed) setLookup({ call, source: e.message }); });
+      void request("logbook_previous", { call, limit: 10 })
+        .then(history => { if (!disposed) setPrevious(history.qsos); }).catch(() => { if (!disposed) setPrevious([]); });
     }, 400);
     return () => { disposed = true; clearTimeout(timer); };
   }, [draft?.call, request, workspace?.workspace_exists]);
+  useEffect(() => {
+    const call = normalizedCall(draft?.call);
+    if (!autoRotor || !autoEnabled.current || pendingTune.current || editing.current || !call || normalizedCall(lookup?.call) !== call) return;
+    if (spotRotorFence.current?.call === call && !spotRotorFence.current.confirmed) return;
+    const rotor = rotorRef.current;
+    const key = `${autoEpoch.current}:${draft?.id}:${call}`;
+    if (automaticTarget.current === key || !rotor?.owner || !rotorProjection(rotor).connected ||
+        typeof lookup?.bearing !== "number" || !Number.isFinite(lookup.bearing) || lookup.bearing < 0 || lookup.bearing > 360) return;
+    automaticTarget.current = key;
+    const id = crypto.randomUUID();
+    const intent = { owner: rotor.owner, generation: rotor.generation };
+    automaticMotion.current = { ...intent, epoch: autoEpoch.current, id };
+    void request("rotor_goto", { ...intent, bearing: lookup.bearing, label: call, intent_id: id })
+      .catch(cause => setError(cause instanceof Error ? cause.message : "Automatic rotor turn failed."));
+  }, [autoRotor, draft?.id, draft?.call, lookup, request]);
   const clear = async () => { editing.current = false; newDraft(); setDraft((await request("logbook_draft")).qso); setSelected(null); };
   const save = () => run(async () => {
     if (!draft) return;
@@ -371,19 +428,37 @@ function MainLiveApp() {
       { owner: rotorRef.current.owner, generation: rotorRef.current.generation } : null;
     const automaticEpoch = autoEpoch.current;
     const automaticRequested = autoEnabled.current;
-    pendingTune.current = true; editing.current = false; setSelected(spot.id);
-    setDraft(d => d ? { ...d, call: spot.callsign, frequencyHz: hz, band: spot.band, mode: spot.mode,
-      country: spot.country || "", dxcc: spot.adif ?? null } : d);
+    spotRotorFence.current = { call: normalizedCall(spot.callsign), confirmed: false };
+    pendingTune.current = true; editing.current = false; setSelected(spot.id); setReferenceEvidence(null);
+    setDraftState(d => d ? { ...changedCallDraft(d, { ...d, call: spot.callsign }), call: spot.callsign, frequencyHz: hz, band: spot.band, mode: spot.mode,
+      country: spot.country || "", dxcc: spot.adif ?? null, comment: String(spot.comment || ""),
+      potaReference: "", sotaReference: "", iota: "", wwffReference: "", sig: "", sigInfo: "" } : d);
+    const identity = draftIdentity.current;
+    const referenceBaseline = { ...referenceEdits.current };
+    void request("reference_resolve", { comment: String(spot.comment || ""), special_tags: Array.isArray(spot.specialTags) ? spot.specialTags : [] })
+      .then(result => {
+        if (selection.current !== generation || draftIdentity.current !== identity || draftCall.current !== normalizedCall(spot.callsign)) return;
+        setReferenceEvidence({ call: normalizedCall(spot.callsign), rows: result.references || [] });
+        setDraft(current => {
+          if (!current || current.id !== identity || normalizedCall(current.call) !== normalizedCall(spot.callsign)) return current;
+          const next = { ...current };
+          for (const key of ["potaReference", "sotaReference", "iota", "wwffReference", "sig", "sigInfo"])
+            if (!next[key] && (referenceEdits.current[key] ?? 0) === (referenceBaseline[key] ?? 0) && typeof result.fields?.[key] === "string") next[key] = result.fields[key];
+          return next;
+        });
+      }).catch(() => { if (selection.current === generation) setError("Spot reference lookup failed. The original spot comment is preserved; check Reference data in Settings."); });
     setMessage(`Tuning ${spot.callsign} · waiting for observed radio state`); setError("");
     void request("station_tune", { frequency_hz: hz, mode: String(spot.mode || "").toUpperCase() }).then(async result => {
       if (selection.current !== generation || provider.current !== selectedProvider) return;
+      spotRotorFence.current = { call: normalizedCall(spot.callsign), confirmed: result.confirmed === true };
       setMessage(result.confirmed ? `${spot.callsign} · radio frequency and mode confirmed` : `${spot.callsign} · request accepted; awaiting observation`);
       if (automaticRequested && rotorIntent && autoEnabled.current && autoEpoch.current === automaticEpoch && result.confirmed) {
         const target = await request("lookup_call", { call: spot.callsign });
-        if (selection.current === generation && provider.current === selectedProvider && autoEnabled.current && autoEpoch.current === automaticEpoch &&
+        if (selection.current === generation && provider.current === selectedProvider && draftCall.current === normalizedCall(spot.callsign) && autoEnabled.current && autoEpoch.current === automaticEpoch &&
             rotorIntentCurrent(rotorIntent, rotorRef.current) && String(target.call).trim().toUpperCase() === String(spot.callsign).trim().toUpperCase() &&
             typeof target.bearing === "number" && Number.isFinite(target.bearing) && target.bearing >= 0 && target.bearing <= 360) {
           const id = crypto.randomUUID();
+          automaticTarget.current = `${automaticEpoch}:${draftIdentity.current}:${normalizedCall(spot.callsign)}`;
           automaticMotion.current = { ...rotorIntent, epoch: automaticEpoch, id };
           await request("rotor_goto", { ...rotorIntent, bearing: target.bearing, label: spot.callsign, intent_id: id });
         }
@@ -394,13 +469,13 @@ function MainLiveApp() {
   const liveSpots: Data[] = cluster?.snapshot?.spots || emptySpots;
   const mapTarget = useMemo(() => draft?.call && lookup?.call === draft.call &&
     typeof lookup?.latitude === "number" && typeof lookup?.longitude === "number"
-      ? { call: draft.call, lat: lookup.latitude, lon: lookup.longitude, country: lookup.country } : undefined,
-    [draft?.call, lookup?.call, lookup?.latitude, lookup?.longitude, lookup?.country]);
+      ? { call: draft.call, lat: lookup.latitude, lon: lookup.longitude, country: lookup.country, locationSource: lookup.location_source || lookup.source } : undefined,
+    [draft?.call, lookup?.call, lookup?.latitude, lookup?.longitude, lookup?.country, lookup?.location_source, lookup?.source]);
   latestSpots.current = liveSpots;
   selectCurrentSpot.current = selectSpot;
   latestProjection.current = { revision: ++mapProjectionRevision.current, spots: liveSpots, palette: cluster?.configuration?.palette,
     home: stats?.map_home, dxccStatuses: stats?.dxcc_statuses,
-    radioFrequencyHz: station?.radio?.frequency_hz, selected, target: mapTarget,
+    radioFrequencyHz: station?.radio?.observed && station?.radio?.connected ? station.radio.frequency_hz : undefined, selected, target: mapTarget,
     bandMapPreferences: workspacePreferences ? bandMapView(workspacePreferences, false) : undefined };
   const stationWithRotor = { ...(station || { source: provider.current, radio: null }), rotor: rotorProjection(rotorState),
     rotor_control: rotorState, projection_received_at: Date.now() / 1000 };
@@ -432,7 +507,7 @@ function MainLiveApp() {
   useEffect(() => {
     if (monitor) return;
     void publishDetachedProjection("world-map", latestProjection.current).catch(() => {});
-  }, [cluster, stats, selected, mapTarget]);
+  }, [cluster, stats, selected, mapTarget, station?.radio?.frequency_hz, station?.radio?.observed, station?.radio?.connected]);
   useEffect(() => {
     if (monitor) return;
     void publishDetachedProjection("band-maps", latestProjection.current).catch(() => {});
@@ -448,7 +523,7 @@ function MainLiveApp() {
   })), [liveSpots]);
   const map = <WorldMap data={mapSpots} selected={selected} palette={cluster?.configuration?.palette}
     home={stats?.map_home} dxccStatuses={stats?.dxcc_statuses}
-    target={mapTarget}
+    target={mapTarget} frequencyHz={station?.radio?.observed && station?.radio?.connected ? station.radio.frequency_hz : undefined}
     onSpot={spot => { const real = liveSpots.find(s => s.id === spot.id); if (real) selectSpot(real); }} />;
   const automaticStationMetadata: Array<{ label: string; value: string; provenance: "observed" | "configured" | "selected" }> = [];
   if (settings?.stationCall) automaticStationMetadata.push({ label: "Station call", value: settings.stationCall, provenance: "configured" });
@@ -458,9 +533,10 @@ function MainLiveApp() {
     if (station.radio.mode) automaticStationMetadata.push({ label: "Radio mode", value: station.radio.mode, provenance: "observed" });
   }
   return <div className="app live">
-    <header className="station-rail"><strong className="brand teal">OM0RX-xLog</strong><span className="cyan">{frequency(station?.radio?.frequency_hz)} MHz · {station?.radio?.mode || "Radio offline"}</span>
+    <header className="station-rail main-station-rail"><strong className="brand teal"><img src={appLogo} alt="" width={32} height={32} />OM0RX-xLog</strong><strong className="cyan rail-frequency">{frequency(station?.radio?.frequency_hz)} MHz · {station?.radio?.mode || "Radio offline"}</strong>
       <span className={station?.radio?.connected ? "teal" : "amber"}>{station?.radio?.connected ? "Connected" : "Disconnected"}</span>
-      <span>{cluster?.snapshot?.connectedClusters || 0} clusters · {liveSpots.length} spots</span>
+      <span className="rail-cluster-count">{cluster?.snapshot?.connectedClusters || 0} clusters · {liveSpots.length} spots</span>
+      {workspace?.workspace_exists && <Conditions compact propagation={propagation?.bands?.length ? propagation : station?.propagation || null} request={request} weatherKey={settings?.gridSquare || ""} />}
       <span className="rail-end">{stats?.stats?.qso_count?.toLocaleString() ?? "—"} contacts · Integrated logbook</span>
       <button onClick={() => void openMonitor().catch(e => setError(e.message))}><ExternalLink size={14} />Monitor</button>
     </header>
@@ -469,27 +545,29 @@ function MainLiveApp() {
       <div className="sidebar-foot"><strong className="teal">{settings?.stationCall || "Station not configured"}</strong><span>{settings?.gridSquare || "Set station grid"}</span></div>
     </aside>
     <main><div className="workspace-heading"><h1>{view}</h1><span className="secondary">{workspace?.workspace_exists ? "Your isolated working logbook · manual sync" : workspace ? "Choose a logbook to begin" : workspacePending ? "Opening your workspace" : "Logbook service unavailable"}</span></div>
-      {workspace?.workspace_exists && <Conditions propagation={propagation?.bands?.length ? propagation : station?.propagation || null} request={request} weatherKey={settings?.gridSquare || ""} />}
       {error && <div className="live-error" role="alert">{error}<button onClick={() => setError("")}>Dismiss</button></div>}
-      {message && <p className="live-message" role="status">{message}</p>}
+      {message && !message.endsWith("· radio frequency and mode confirmed") && <p className="live-message" role="status">{message}</p>}
+      {["Operator Desk", "Log QSO"].includes(view) && referenceEvidence?.call === normalizedCall(draft?.call) && !!referenceEvidence.rows.length &&
+        <p className="live-message" role="status">{referenceEvidence.rows.map(row => `${String(row.kind).toUpperCase()} ${row.reference} · ${row.status === "verified" ? `Verified: ${row.name}` : row.status === "not_installed" ? "Directory not installed" : "Not found in installed directory"}`).join(" | ")}</p>}
       {!workspace?.workspace_exists ? <WorkspaceGate workspace={workspace} pending={workspacePending} busy={busy}
         retry={() => void run(reload)} create={mode => void run(async () => { await request("workspace_create", { mode }); await reload(); })} /> : <>
-      {view === "Operator Desk" && <><OperatorDesk draft={draft} setDraft={setDraft} save={save} clear={() => void run(clear)} busy={busy} lookup={lookup} previous={previous} request={request} refresh={refresh} onEditor={() => setView("Log QSO")} onReadRadio={readRadioIntoDraft} follow={follow} setFollow={setFollowImmediate} rotor={rotorState} autoRotor={autoRotor} setAutoRotor={changeAutoRotor} onManualRotor={disarmAutoRotor} isEditing={editing.current} intelligenceBands={workspacePreferences?.intelligenceBands} />
-        <div className="live-desk-bottom"><div className="live-map">{map}</div><BandMaps spots={liveSpots} onSelect={selectSpot} radioFrequencyHz={station?.radio?.frequency_hz} compact preferences={workspacePreferences ? bandMapView(workspacePreferences, true) : undefined} onPreferencesChange={value => changeBandMapPreferences(true, value)} /></div></>}
-      {view === "Log QSO" && <QSOEditor draft={draft} setDraft={setDraft} save={save} clear={() => void run(clear)} busy={busy} lookup={lookup} previous={previous} follow={follow} setFollow={setFollowImmediate} request={request} onReadRadio={readRadioIntoDraft} isEditing={editing.current} automaticStationMetadata={automaticStationMetadata} />}
+      {view === "Operator Desk" && <><OperatorDesk draft={draft} setDraft={setOperatorDraft} save={save} clear={() => void run(clear)} busy={busy} lookup={lookup} previous={previous} request={request} refresh={refresh} onEditor={() => setView("Log QSO")} onReadRadio={readRadioIntoDraft} follow={follow} setFollow={setFollowImmediate} rotor={rotorState} autoRotor={autoRotor} setAutoRotor={changeAutoRotor} onManualRotor={disarmAutoRotor} isEditing={editing.current} intelligenceBands={workspacePreferences?.intelligenceBands} />
+        <div className="live-desk-bottom"><OperatorWorkspace map={<div className="live-map">{map}</div>} cluster={cluster} selectedSpotId={selected} onSelect={selectSpot} bandMaps={<BandMaps spots={liveSpots} onSelect={selectSpot} radioFrequencyHz={station?.radio?.frequency_hz} compact preferences={workspacePreferences ? bandMapView(workspacePreferences, true) : undefined} onPreferencesChange={value => changeBandMapPreferences(true, value)} />} /></div></>}
+      {view === "Log QSO" && <QSOEditor draft={draft} setDraft={setOperatorDraft} save={save} clear={() => void run(clear)} busy={busy} lookup={lookup} previous={previous} follow={follow} setFollow={setFollowImmediate} request={request} onReadRadio={readRadioIntoDraft} isEditing={editing.current} automaticStationMetadata={automaticStationMetadata} />}
       {view === "Logbook" && <LogbookPanel onRequest={request} refreshKey={refresh} onEdit={qso => { editing.current = true; setDraft(qso); setFollowImmediate(false); setView("Log QSO"); }} />}
       {view === "DX Cluster" && <ClusterPanel passive snapshot={cluster} selectedSpotId={selected} onRequest={request} onSelect={selectSpot} onUndock={() => void openDetachedCluster().catch(e => setError(e.message))} />}
       {view === "World Map" && <><div className="live-actions"><button type="button" onClick={() => void openDetachedMap("world-map").catch(e => setError(e.message))}><ExternalLink size={14} />Undock World Map</button></div><div className="live-map full">{map}</div></>}
       {view === "Band Maps" && <><div className="live-actions"><button type="button" onClick={() => void openDetachedMap("band-maps").catch(e => setError(e.message))}><ExternalLink size={14} />Undock Band Maps</button></div><BandMaps spots={liveSpots} onSelect={selectSpot} radioFrequencyHz={station?.radio?.frequency_hz} preferences={workspacePreferences ? bandMapView(workspacePreferences, false) : undefined} onPreferencesChange={value => changeBandMapPreferences(false, value)} /></>}
       {view === "Station Control" && <><div className="live-tabs" role="group" aria-label="Station sections">{["Control and connections", "RUMlog spots"].map(section => <button key={section} aria-pressed={stationSection === section} onClick={() => setStationSection(section)}>{section}</button>)}</div>
         {stationSection === "RUMlog spots" ? <SpotBridgePanel request={request} provider={stationProvider} /> : <><div className="live-station-provider" role="group" aria-label="Radio connection type">
-        {([ ["direct_agent", "Remote station · embedded xCat"], ["direct_flex_lan", "Direct FLEX · LAN"], ["hamlib", "Local station · Hamlib"] ] as const).map(([id, label]) => <button key={id} className={stationProvider === id ? "selected" : ""} aria-pressed={stationProvider === id} disabled={busy} onClick={() => void changeProvider(id)}>{label}</button>)}
-        <span>Switching radios disconnects the previous radio. Your independent rotor stays connected.</span></div>
-        {stationProvider === "hamlib" ? <HamlibPanel request={request} snapshot={station} /> :
-          stationProvider === "direct_flex_lan" ? <DirectFlexPanel request={request} snapshot={station} /> :
-          <StationPanel snapshot={station} onRequest={request} onSnapshot={setStation} independentRotor />}<RotorPanel snapshot={rotorState} request={request} onManual={disarmAutoRotor} /></>}</>}
-      {view === "Awards" && <IntegratedAwards request={request} refresh={refresh} />}
-      {view === "Settings" && settings && <><SettingsPanel values={settings} request={request} onSaved={setSettings} /><DataManagementPanel onRequest={dataManagementRequest} onChanged={() => { setSettings(null); setDraft(null); setStats(null); latestWorkspacePreferences.current = null; setWorkspacePreferences(null); setRefresh(n => n + 1); }} /></>}
+        {([ ["direct_agent", "Remote station · embedded xCat"], ["direct_flex_lan", "Direct FLEX · LAN"], ["hamlib", "Local station · Hamlib"] ] as const).map(([id, label]) => <button key={id} className={viewProvider === id ? "selected" : ""} aria-pressed={viewProvider === id} disabled={busy} onClick={() => setViewProvider(id)}>{label}</button>)}
+        {viewProvider !== stationProvider && <button type="button" disabled={busy} onClick={() => void applyProvider()}>Apply radio selection</button>}
+        <span>Active radio: {radioProviderLabels[stationProvider]}. {viewProvider === stationProvider ? "Your independent rotor stays connected." : "Viewing only. Apply radio selection to disconnect the active radio; your independent rotor stays connected."}</span></div>
+        {viewProvider === "hamlib" ? <HamlibPanel request={viewedStationRequest} snapshot={stationProvider === viewProvider ? station : null} /> :
+          viewProvider === "direct_flex_lan" ? <DirectFlexPanel request={viewedStationRequest} snapshot={stationProvider === viewProvider ? station : null} /> :
+          <StationPanel snapshot={stationProvider === viewProvider ? station : null} onRequest={viewedStationRequest} onSnapshot={value => { if (stationProvider === viewProvider && provider.current === viewProvider) setStation(value); }} independentRotor />}<RotorPanel snapshot={rotorState} request={request} onManual={disarmAutoRotor} /></>}</>}
+      {(view === "Awards" || awardsOpened) && <div hidden={view !== "Awards"}><IntegratedAwards request={request} refresh={refresh} initialStats={stats?.awards} /></div>}
+      {view === "Settings" && settings && <ServiceSettings values={settings} request={request} onSaved={setSettings} dataRequest={dataManagementRequest} onDataChanged={() => { setSettings(null); setDraft(null); setStats(null); latestWorkspacePreferences.current = null; setWorkspacePreferences(null); setRefresh(n => n + 1); }} />}
       {view === "Sync" && <SyncPanel request={request} onChanged={() => setRefresh(n => n + 1)} />}
       </>}
     </main></div>;
@@ -497,6 +575,13 @@ function MainLiveApp() {
 
 function DetachedMapSurface({ kind }: { kind: DetachedMapKind }) {
   const [projection, setProjection] = useState<DetachedMapProjection>({ spots: [] });
+  const [optimisticBandMapPreferences, setOptimisticBandMapPreferences] = useState<BandMapViewPreferences | null>(null);
+  const latestBandMapPreferences = useRef<BandMapViewPreferences | null>(null);
+  const authoritativeBandMapPreferences = useRef<BandMapViewPreferences | null>(null);
+  const pendingPreferenceSequence = useRef(0);
+  const pendingPreferences = useRef(false);
+  const preferenceSend = useRef<Promise<void>>(Promise.resolve());
+  const preferenceTimeout = useRef<number | null>(null);
   const latestRevision = useRef(-1);
   const [error, setError] = useState("");
   const [receivedAt, setReceivedAt] = useState(0);
@@ -507,6 +592,17 @@ function DetachedMapSurface({ kind }: { kind: DetachedMapKind }) {
     void onDetachedProjection(value => {
       if (active && value && Array.isArray(value.spots) && Number.isSafeInteger(value.revision) &&
         Number(value.revision) > latestRevision.current) {
+        if (kind === "band-maps" && validBandMapView(value.bandMapPreferences)) {
+          authoritativeBandMapPreferences.current = value.bandMapPreferences;
+          if (!pendingPreferences.current || latestBandMapPreferences.current &&
+            sameBandMapPreferences(latestBandMapPreferences.current, value.bandMapPreferences)) {
+            pendingPreferences.current = false;
+            latestBandMapPreferences.current = value.bandMapPreferences;
+            setOptimisticBandMapPreferences(null);
+            if (preferenceTimeout.current !== null) window.clearTimeout(preferenceTimeout.current);
+            preferenceTimeout.current = null;
+          }
+        }
         latestRevision.current = Number(value.revision); setProjection(value); setReceivedAt(Date.now());
       }
     }).then(stop => {
@@ -514,7 +610,7 @@ function DetachedMapSurface({ kind }: { kind: DetachedMapKind }) {
       unlisten = stop;
       void announceDetachedReady(kind).catch(cause => setError(cause instanceof Error ? cause.message : "Map projection unavailable."));
     }).catch(cause => { if (active) setError(cause instanceof Error ? cause.message : "Map projection unavailable."); });
-    return () => { active = false; unlisten?.(); };
+    return () => { active = false; unlisten?.(); if (preferenceTimeout.current !== null) window.clearTimeout(preferenceTimeout.current); };
   }, [kind]);
   const spots = projection.spots;
   const mapSpots: Spot[] = spots.filter(s => typeof s.latitude === "number" && typeof s.longitude === "number").map(s => ({
@@ -526,16 +622,47 @@ function DetachedMapSurface({ kind }: { kind: DetachedMapKind }) {
   const select = (spot: { id?: unknown }) => {
     if (typeof spot.id === "string") void requestDetachedSpot(kind, spot.id).catch(cause => setError(cause instanceof Error ? cause.message : "Spot selection could not reach the main window."));
   };
+  const changeDetachedBandMapPreferences = (requested: BandMapViewPreferences) => {
+    const rendered = optimisticBandMapPreferences ?? projection.bandMapPreferences;
+    if (!validBandMapView(rendered) || !validBandMapView(requested)) return;
+    const next = mergeBandMapPreferenceIntent(latestBandMapPreferences.current ?? rendered, rendered, requested);
+    if (!validBandMapView(next)) return;
+    latestBandMapPreferences.current = next;
+    pendingPreferences.current = true;
+    setOptimisticBandMapPreferences(next);
+    const sequence = ++pendingPreferenceSequence.current;
+    if (preferenceTimeout.current !== null) window.clearTimeout(preferenceTimeout.current);
+    preferenceTimeout.current = window.setTimeout(() => {
+      if (pendingPreferences.current && pendingPreferenceSequence.current === sequence) {
+        pendingPreferences.current = false;
+        latestBandMapPreferences.current = authoritativeBandMapPreferences.current;
+        setOptimisticBandMapPreferences(null);
+        setError("Band-map preferences were not confirmed by the main workspace. Try again.");
+      }
+    }, 10_000);
+    preferenceSend.current = preferenceSend.current.catch(() => {}).then(() => requestDetachedBandMapPreferences(next));
+    void preferenceSend.current.catch(cause => {
+      if (pendingPreferenceSequence.current !== sequence) return;
+      pendingPreferences.current = false;
+      latestBandMapPreferences.current = authoritativeBandMapPreferences.current;
+      setOptimisticBandMapPreferences(null);
+      if (preferenceTimeout.current !== null) window.clearTimeout(preferenceTimeout.current);
+      preferenceTimeout.current = null;
+      setError(cause instanceof Error ? cause.message : "Band-map preferences could not reach the main window.");
+    });
+  };
   return <div className="app live monitor-app" style={{ display: "flex", flexDirection: "column" }}>
-    <header className="station-rail"><strong className="brand teal">OM0RX-xLog</strong><span className="cyan">{kind === "world-map" ? "World Map" : "Band Maps"}</span><span className="rail-end">{spots.length} live spots · selection handled by main window</span><button type="button" onClick={() => void dockDetachedWorkspace().catch(() => setError("Could not dock this window. Close it and reopen the workspace in the main app."))}>Dock back</button></header>
+    {kind === "world-map" && <header className="station-rail"><strong className="brand teal">OM0RX-xLog</strong><span className="cyan">World Map</span><span className="rail-end">{spots.length} live spots · selection handled by main window</span><button type="button" onClick={() => void dockDetachedWorkspace().catch(() => setError("Could not dock this window. Close it and reopen the workspace in the main app."))}>Dock back</button></header>}
     <main style={{ flex: 1, minHeight: 0, padding: 14 }}>
       {error && <p className="live-error" role="alert">{error}</p>}
       {receivedAt === 0 ? <p className="secondary">Waiting for the main workspace projection…</p> : clock - receivedAt > 5_000 && <p className="live-cluster-note" role="status">Main workspace updates paused; map data below may be stale.</p>}
       {kind === "world-map" ? <div className="live-map full"><WorldMap data={mapSpots} selected={projection.selected ?? null}
         palette={projection.palette} home={projection.home} dxccStatuses={projection.dxccStatuses}
-        target={projection.target}
-        onSpot={select} /></div> : <BandMaps spots={spots} onSelect={select} radioFrequencyHz={projection.radioFrequencyHz} preferences={projection.bandMapPreferences} onPreferencesChange={value => void requestDetachedBandMapPreferences(value).catch(cause => setError(cause instanceof Error ? cause.message : "Band-map preferences could not reach the main window."))} />}
-      <p className="secondary">This window displays the main app’s latest read-only projection. Spot selection is validated and handled by the main window.</p>
+        target={projection.target} frequencyHz={projection.radioFrequencyHz}
+        onSpot={select} /></div> : <BandMaps spots={spots} onSelect={select} radioFrequencyHz={projection.radioFrequencyHz}
+          preferences={optimisticBandMapPreferences ?? projection.bandMapPreferences} onPreferencesChange={changeDetachedBandMapPreferences}
+          onDock={() => void dockDetachedWorkspace().catch(() => setError("Could not dock this window. Close it and reopen the workspace in the main app."))} />}
+      {kind === "world-map" && <p className="secondary">This window displays the main app’s latest read-only projection. Spot selection is validated and handled by the main window.</p>}
     </main>
   </div>;
 }
@@ -628,7 +755,7 @@ function MonitorSurface() {
     throw new Error("This monitor command is unavailable.");
   };
   const map = <WorldMap data={mapSpots} selected={projection.selected ?? null} palette={projection.palette}
-    home={projection.home} dxccStatuses={projection.dxccStatuses} target={projection.target} compact />;
+    home={projection.home} dxccStatuses={projection.dxccStatuses} target={projection.target} frequencyHz={!stale ? projection.radioFrequencyHz : undefined} compact />;
   return <>{error && <p className="live-error" role="alert">{error}</p>}
     {stale && <p className="live-error" role="status">Main station observation is stale. Reopen the main window before using monitor controls.</p>}
     <Monitor snapshot={displayedStation} map={map} onRequest={!stale && projection.controlsEnabled ? monitorRequest : undefined} onRotorRequest={!projectionStale && projection.station?.rotor_control?.owner ? monitorRotorRequest : undefined} /></>;
@@ -651,7 +778,4 @@ function SidebarStation({ snapshot, provider, busy, onAction }: { snapshot: Data
   return <section className="live-station-brief"><div className="nav-group">Station</div><strong className={local || flex ? "cyan" : "amber"}>{flex ? `DIRECT FLEX · ${snapshot?.radio?.connected ? "CONNECTED" : "OFFLINE"}` : local ? "LOCAL · HAMLIB" : `KPA500 · ${s?.kpa_operate == null ? "OFFLINE" : s.kpa_operate ? "OPERATE" : "STANDBY"}`}</strong>
     {!local && !flex && <button className={s?.kpa_operate ? "teal" : "orange"} disabled={busy || !s?.allowed_actions?.includes(action)} onClick={() => onAction(action)}>Switch to {action}</button>}
     <div className="sidebar-metrics">{items.map(([title, text, color]) => <div key={title} className={color}><small>{title}</small><b>{text}</b></div>)}</div></section>;
-}
-function SettingsPanel({ values, request, onSaved }: { values: Data; request: Request; onSaved: (value: Data) => void }) {
-  return <ServiceSettings values={values} request={request} onSaved={onSaved} />;
 }

@@ -61,5 +61,45 @@ struct LiveClusterHistoryTests {
         #expect(history["dxcc_confirmed_count"] as? Int == 0)
         #expect(history["last_dxcc_qso"] is NSNull)
     }
+
+    @Test("Indexed candidates preserve full history and reflect saves and deletes immediately")
+    func indexedCandidatesAndMutation() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let database = try LogbookDatabase(url: root.appendingPathComponent("history.sqlite"))
+        let resolver = try CTYResolver.bundled()
+        let base = Date(timeIntervalSince1970: 1_767_225_600)
+        for index in 0..<30 {
+            try database.save(QSO(call: "K1ABC", start: base.addingTimeInterval(Double(index) * 60),
+                                  band: "20m", mode: "CW", dxcc: 291,
+                                  qslReceived: index.isMultiple(of: 3) ? "Y" : "N"))
+        }
+        // A historical contact without stored DXCC must still be resolved at its QSO date.
+        try database.save(QSO(call: "K2OTHER", start: base.addingTimeInterval(2_000),
+                              band: "40m", mode: "SSB", qslReceived: "Y"))
+        try database.save(QSO(call: "DL1OTHER", start: base.addingTimeInterval(3_000),
+                              band: "10m", mode: "FT8", dxcc: 230, qslReceived: "Y"))
+
+        func projection(_ contacts: [QSO]) -> [String: Any] {
+            LiveClusterMethods.historyProjection(contacts: contacts, call: "K1ABC", adif: 291,
+                                                 resolver: resolver)
+        }
+        func assertEquivalent() throws {
+            let full = projection(try database.fetchAll())
+            let selected = projection(try database.historyCandidates(call: "K1ABC", adif: 291))
+            #expect(try JSONSerialization.data(withJSONObject: full, options: .sortedKeys)
+                    == JSONSerialization.data(withJSONObject: selected, options: .sortedKeys))
+        }
+        try assertEquivalent()
+
+        let added = QSO(call: "K1ABC", start: base.addingTimeInterval(4_000),
+                        band: "15m", mode: "CW", dxcc: 291, qslReceived: "Y")
+        try database.save(added)
+        #expect(projection(try database.historyCandidates(call: "K1ABC", adif: 291))["previous_count"] as? Int == 31)
+        try assertEquivalent()
+        try database.softDelete(added)
+        #expect(projection(try database.historyCandidates(call: "K1ABC", adif: 291))["previous_count"] as? Int == 30)
+        try assertEquivalent()
+    }
 }
 #endif

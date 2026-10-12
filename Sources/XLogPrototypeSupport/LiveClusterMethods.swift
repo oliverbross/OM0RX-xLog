@@ -22,6 +22,19 @@ public actor LiveClusterMethods {
     private var forwardRetryAfter = Date.distantPast
 
     public func handle(method: String, params: [String: Any]) async throws -> [String: Any] {
+        if method == "cluster_history" {
+            // Logbook intelligence does not need to start the cluster service
+            // or load every contact into its spot classifier first.
+            try require(params, allowed: ["call", "adif"], required: ["call"])
+            guard let call = params["call"] as? String,
+                  call.range(of: #"^[A-Za-z0-9/\-]{2,32}$"#, options: .regularExpression) != nil else { throw invalid() }
+            let adif: Int?
+            if let value = params["adif"] as? Int {
+                guard (1...1_000).contains(value) else { throw invalid() }
+                adif = value
+            } else { adif = nil }
+            return ["history": try history(call: call, adif: adif)]
+        }
         let service = try await readyService()
         switch method {
         case "cluster_snapshot":
@@ -78,16 +91,6 @@ public actor LiveClusterMethods {
         case "cluster_console_clear":
             try require(params, allowed: [])
             await service.clearConsole()
-        case "cluster_history":
-            try require(params, allowed: ["call", "adif"], required: ["call"])
-            guard let call = params["call"] as? String,
-                  call.range(of: #"^[A-Za-z0-9/\-]{2,32}$"#, options: .regularExpression) != nil else { throw invalid() }
-            let adif: Int?
-            if let value = params["adif"] as? Int {
-                guard (1...1_000).contains(value) else { throw invalid() }
-                adif = value
-            } else { adif = nil }
-            return ["history": try history(call: call, adif: adif)]
         default:
             throw WorkerFailure("method_not_allowed", "Unknown live cluster method.")
         }
@@ -118,8 +121,8 @@ public actor LiveClusterMethods {
 
     private func history(call: String, adif: Int?) throws -> [String: Any] {
         let database = try LiveLogbookMethods.shared.openedDatabase()
-        let resolver = try? CTYResolver.bundled()
-        let contacts = try database.fetchAll()
+        let resolver = try? LiveLogbookMethods.shared.currentCTYResolver()
+        let contacts = try database.historyCandidates(call: call, adif: adif)
         return Self.historyProjection(contacts: contacts, call: call, adif: adif, resolver: resolver)
     }
 

@@ -76,6 +76,7 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "backup_import",
         "backup_restore",
         "reference_status",
+        "reference_resolve",
         "reference_refresh",
         "logbook_draft",
         "logbook_catalog",

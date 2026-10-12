@@ -45,6 +45,30 @@ export function grayline(at: Date): Coordinate[][] {
   return splitAntimeridian(points);
 }
 
+// On a Mercator map the night hemisphere is the area poleward of a single
+// terminator latitude at each longitude. Build one closed ring across the
+// full [-180, 180] domain, so the date-line seam and polar caps stay filled.
+export function nightHemisphere(sun: Coordinate): Coordinate[][] {
+  const mercatorLimit = 85.05112878;
+  const [sunLongitude, sunLatitude] = sun;
+  const sinDeclination = Math.sin(radians(sunLatitude));
+  const denominator = Math.abs(sinDeclination) < 1e-10 ? 1e-10 : sinDeclination;
+  const cosDeclination = Math.cos(radians(sunLatitude));
+  const terminator = (longitude: number): Coordinate => {
+    const latitude = degrees(Math.atan(-cosDeclination * Math.cos(radians(longitude - sunLongitude)) / denominator));
+    return [longitude, Math.max(-mercatorLimit, Math.min(mercatorLimit, latitude))];
+  };
+  const northNight = sinDeclination < 0;
+  const pole = northNight ? mercatorLimit : -mercatorLimit;
+  const ring: Coordinate[] = northNight ? [[-180, pole]] : [[-180, pole], [180, pole]];
+  for (let longitude = northNight ? -180 : 180;
+    northNight ? longitude <= 180 : longitude >= -180;
+    longitude += northNight ? 1 : -1) ring.push(terminator(longitude));
+  if (northNight) ring.push([180, pole]);
+  ring.push([-180, pole]);
+  return [ring];
+}
+
 export function greatCircle(from: Coordinate, to: Coordinate, longPath = false): Coordinate[][] {
   const vector = ([lon, lat]: Coordinate) => [Math.cos(radians(lat)) * Math.cos(radians(lon)),
     Math.cos(radians(lat)) * Math.sin(radians(lon)), Math.sin(radians(lat))];

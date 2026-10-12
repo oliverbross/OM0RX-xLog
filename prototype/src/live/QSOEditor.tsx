@@ -3,6 +3,17 @@ import { Radio, PanelsTopLeft, UserRound, Star, RadioTower, ContactRound, Histor
 import "./QSOEditor.css";
 
 type Data = Record<string, any>;
+export function safeProfileURL(value: unknown): string | null {
+  if (typeof value !== "string" || !value.trim() || value.length > 2048) return null;
+  try {
+    const url = new URL(value), host = url.hostname.toLowerCase().replace(/\.$/, "");
+    if (url.protocol !== "https:" || url.username || url.password || url.port || url.hash ||
+      !/^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,63}$/.test(host) ||
+      /(?:^|\.)(?:localhost|local|internal|lan|home|test|invalid)$/.test(host) ||
+      host === "xmldata.qrz.com") return null;
+    return url.href;
+  } catch { return null; }
+}
 type Props = {
   draft: Data | null; setDraft: (value: SetStateAction<Data | null>) => void;
   save: () => void | Promise<unknown>; clear: () => void; busy: boolean;
@@ -99,6 +110,7 @@ export function QSOEditor({ draft, setDraft, save, clear, busy, lookup, previous
   const [matrix, setMatrix] = useState<MatrixState | null>(null);
   const [radioBusy, setRadioBusy] = useState(false);
   const [radioError, setRadioError] = useState("");
+  const [failedImage, setFailedImage] = useState<string | null>(null);
   const readDraftIdentity = useRef(draft?.id); readDraftIdentity.current = draft?.id;
   const callRef = useRef<HTMLInputElement>(null);
   const rootRef = useRef<HTMLElement>(null);
@@ -109,6 +121,10 @@ export function QSOEditor({ draft, setDraft, save, clear, busy, lookup, previous
   const currentReceive = receiveDraft ?? frequencyText(draft?.receiveFrequencyHz);
   const currentTime = (key: "start" | "end") => timeDrafts[key] ?? { date: datePart(draft?.[key]), time: timePart(draft?.[key]) };
   const sameLookup = !!draft && !!lookup && call(lookup.call) !== "" && call(lookup.call) === call(draft.call);
+  const profile = sameLookup ? lookup : null;
+  const profileImage = safeProfileURL(profile?.imageURL);
+  const profileWebsite = safeProfileURL(profile?.websiteURL);
+  useEffect(() => { setFailedImage(null); }, [profileImage, draft?.call]);
   const matchingPrevious = useMemo(() => previous.filter((item) => call(item.call) === call(draft?.call)).slice(0, 6), [previous, draft?.call]);
   const matrixCall = call(draft?.call);
   const matrixADIF = sameLookup && Number.isInteger(lookup?.dxcc) && lookup.dxcc > 0 ? lookup.dxcc as number : null;
@@ -229,13 +245,25 @@ export function QSOEditor({ draft, setDraft, save, clear, busy, lookup, previous
         </div></details>
       </section>
 
+      <section className="qso-matrices" aria-labelledby="qso-matrix-title"><h2 id="qso-matrix-title"><Grid3X3 size={15} aria-hidden="true" /> Band / mode matrix</h2><div className="qso-matrix-columns"><div className="qso-matrix-section"><h3>Callsign</h3>{!request ? <p>Local matrix is unavailable.</p> : !/^[A-Z0-9/-]{3,32}$/.test(matrixCall) ? <p>Enter a callsign to inspect its local history.</p> : matchingMatrix?.callError ? <p>{matchingMatrix.callError}</p> : matchingMatrix?.callCells ? <StatusMatrix scope="Callsign" cells={matchingMatrix.callCells} /> : <p>Checking local call history…</p>}</div><div className="qso-matrix-section"><h3>Country</h3>{matrixADIF === null ? <p>Country status needs a resolved DXCC entity.</p> : !request ? <p>Country matrix is unavailable.</p> : matchingMatrix?.countryError ? <p>{matchingMatrix.countryError}</p> : matchingMatrix?.countryCells ? <><p>{lookup?.country || `DXCC ${matrixADIF}`} · DXCC {matrixADIF}</p><StatusMatrix scope="Country" cells={matchingMatrix.countryCells} /></> : <p>Checking local contacts for this DXCC entity…</p>}</div></div></section>
+
       {(showErrors || errors.length > 0) && <div className="qso-validation" role="alert">{errors.length ? <ul>{errors.map((issue) => <li key={issue}>{issue}</li>)}</ul> : <span>QSO is ready to save.</span>}</div>}
       <footer className="qso-actions"><div className="qso-footer-context"><label><input type="checkbox" checked={follow} onChange={(event) => setFollow(event.target.checked)} />Follow radio</label><span>Saved locally first; Wavelog synchronization is manual.</span></div><div className="qso-footer-buttons"><button type="button" onClick={clear} disabled={busy}><CircleX size={13} aria-hidden="true" /> Clear QSO</button><button className="qso-save" type="submit" disabled={!canSave}><CircleCheck size={13} aria-hidden="true" /> {isEditing ? "Update QSO" : "Log QSO"}</button></div></footer>
     </form></div>
     <aside className="qso-inspector" aria-label="Contact context">
-      <section aria-labelledby="qso-intelligence-title"><h2 id="qso-intelligence-title"><ContactRound size={15} aria-hidden="true" /> Callsign intelligence</h2><div className="qso-intelligence"><strong>{sameLookup ? lookup?.country || draft.country || "Country unresolved" : draft.country || "Enter a callsign"}</strong>{sameLookup && lookup?.isNewCall === true && <b>NEW CALL</b>}</div><p>{sameLookup ? lookup?.gridSquare || draft.gridSquare || lookup?.source || "Grid unavailable" : draft.gridSquare || "Enter a callsign to see lookup details."}</p>{sameLookup && typeof lookup?.bearing === "number" && <p>{Math.round(lookup.bearing)}° · {Math.round(lookup.distance_km)} km</p>}<button type="button" onClick={fillLookup} disabled={!sameLookup || busy}>Fill empty fields from lookup</button></section>
+      <section aria-labelledby="qso-intelligence-title"><h2 id="qso-intelligence-title"><ContactRound size={15} aria-hidden="true" /> Callsign intelligence</h2>
+        <div className="qso-profile-summary">{profileImage && failedImage !== profileImage && <img className="qso-profile-photo" src={profileImage} alt={`${matrixCall} QRZ profile photo`} loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={() => setFailedImage(profileImage)} />}
+          <div className="qso-profile-identity"><div className="qso-intelligence"><strong>{profile?.name || matrixCall || "Enter a callsign"}</strong>{profile?.isNewCall === true && <b>NEW CALL</b>}</div><p>{profile ? profile.country || "Country unresolved" : "Enter a callsign to see lookup details."}</p>{profile?.nickname && <p>{profile.nickname}</p>}<span className="qso-profile-source">{profile?.source || "Lookup pending"}</span></div>
+        </div>
+        {profile?.location_source && <p className="secondary">Position: {profile.location_source}</p>}
+        {profile?.lookup_warning && <p className="qso-profile-mismatch" role="status">{profile.lookup_warning}</p>}
+        {profile && <dl className="qso-profile-facts">{[["Grid", profile.gridSquare], ["DXCC", profile.dxcc], ["Continent", profile.continent], ["CQ zone", profile.cqZone], ["ITU zone", profile.ituZone], ["Location", profile.qth], ["State", profile.state], ["County", profile.county], ["Email", profile.email], ["QSL manager", profile.qslManager], ["IOTA", profile.iota], ["License class", profile.licenseClass]].filter(([, value]) => value !== undefined && value !== null && String(value).trim() !== "").map(([label, value]) => <div key={String(label)}><dt>{label}</dt><dd>{String(value)}</dd></div>)}</dl>}
+        {profile && typeof profile.bearing === "number" && Number.isFinite(profile.bearing) && <p>{Math.round(profile.bearing)}°{typeof profile.distance_km === "number" && Number.isFinite(profile.distance_km) ? ` · ${Math.round(profile.distance_km).toLocaleString()} km` : ""}</p>}
+        {profileWebsite && <p><a className="qso-profile-link" href={profileWebsite} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">Station website</a></p>}
+        {profile && (draft.country && profile.country && draft.country.trim().toUpperCase() !== String(profile.country).trim().toUpperCase() || draft.dxcc != null && profile.dxcc != null && Number(draft.dxcc) !== Number(profile.dxcc)) && <p className="qso-profile-mismatch" role="status">Draft country/DXCC differs from this lookup. Your entered fields are unchanged; review them before logging.</p>}
+        <button type="button" onClick={fillLookup} disabled={!sameLookup || busy}>Fill empty fields from lookup</button>
+      </section>
       <section aria-labelledby="qso-previous-title"><h2 id="qso-previous-title"><History size={15} aria-hidden="true" /> Previous QSOs</h2>{matchingPrevious.length ? <div className="qso-previous">{matchingPrevious.map((item, index) => <div key={item.id ?? index}><time>{item.start ? new Date(item.start).toLocaleString("en-GB", { timeZone: "UTC", dateStyle: "short", timeStyle: "short" }) : "—"}</time><b>{item.band}</b><span>{item.mode}</span><small>{[item.qslReceived, item.lotwReceived].some(value => ["Y", "V"].includes(String(value).toUpperCase())) ? "Confirmed" : "Worked"}</small></div>)}</div> : <div className="qso-empty"><History size={19} aria-hidden="true" /><strong>No local history</strong><p>No matching QSO is in the loaded local history.</p></div>}</section>
-      <section aria-labelledby="qso-matrix-title"><h2 id="qso-matrix-title"><Grid3X3 size={15} aria-hidden="true" /> Band / mode matrix</h2><div className="qso-matrix-section"><h3>Callsign</h3>{!request ? <p>Local matrix is unavailable.</p> : !/^[A-Z0-9/-]{3,32}$/.test(matrixCall) ? <p>Enter a callsign to inspect its local history.</p> : matchingMatrix?.callError ? <p>{matchingMatrix.callError}</p> : matchingMatrix?.callCells ? <StatusMatrix scope="Callsign" cells={matchingMatrix.callCells} /> : <p>Checking local call history…</p>}</div><div className="qso-matrix-section"><h3>Country</h3>{matrixADIF === null ? <p>Country status needs a resolved DXCC entity.</p> : !request ? <p>Country matrix is unavailable.</p> : matchingMatrix?.countryError ? <p>{matchingMatrix.countryError}</p> : matchingMatrix?.countryCells ? <><p>{lookup?.country || draft.country || `DXCC ${matrixADIF}`} · DXCC {matrixADIF}</p><StatusMatrix scope="Country" cells={matchingMatrix.countryCells} /></> : <p>Checking local contacts for this DXCC entity…</p>}</div></section>
     </aside>
   </section>;
 }

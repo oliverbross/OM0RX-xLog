@@ -81,6 +81,81 @@ it.each(["rejected", "late success"])("manual monitor motion disarms pending aut
 });
 afterEach(cleanup);
 
+it("never turns from a late lookup after an unconfirmed spot tune", async () => {
+  const base = bridge.request.getMockImplementation()!;
+  let lookupReply: ((value: any) => void) | undefined;
+  bridge.request.mockImplementation(async (method: string, params: any = {}) => method === "lookup_call"
+    ? new Promise(resolve => { lookupReply = result => resolve({ result }); }) : base(method, params));
+  render(<LiveApp />);
+  const automatic = await screen.findByRole("checkbox", { name: "Auto rotor" });
+  await waitFor(() => expect((automatic as HTMLInputElement).disabled).toBe(false));
+  fireEvent.click(automatic);
+  fireEvent.click(screen.getByRole("button", { name: "DX Cluster" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Select test spot" }));
+  await waitFor(() => expect(bridge.tune).not.toBeNull());
+  await act(async () => bridge.tune?.({ accepted: true, confirmed: false }));
+  await waitFor(() => expect(lookupReply).toBeDefined());
+  await act(async () => lookupReply?.({ call: "K1ABC", bearing: 90 }));
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 50)); });
+  expect(bridge.request.mock.calls.some(([method]) => method === "rotor_goto")).toBe(false);
+});
+
+it("transfers selected spot references without replacing edits made during validation", async () => {
+  const base = bridge.request.getMockImplementation()!;
+  let resolveReferences: ((value: any) => void) | undefined;
+  bridge.request.mockImplementation(async (method: string, params: any = {}) => {
+    if (method === "reference_resolve") return new Promise(resolve => { resolveReferences = result => resolve({ result }); });
+    return base(method, params);
+  });
+  render(<LiveApp />);
+  await screen.findByRole("checkbox", { name: "Auto rotor" });
+  fireEvent.click(screen.getByRole("button", { name: "DX Cluster" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Select test spot" }));
+  await waitFor(() => expect(resolveReferences).toBeDefined());
+  fireEvent.click(screen.getByRole("button", { name: "Operator Desk" }));
+  fireEvent.change(screen.getByLabelText("Desk POTA"), { target: { value: "US-9999" } });
+  fireEvent.change(screen.getByLabelText("Desk IOTA"), { target: { value: "EU-001" } });
+  fireEvent.change(screen.getByLabelText("Desk IOTA"), { target: { value: "" } });
+  await act(async () => resolveReferences?.({ fields: { sotaReference: "FL/VO-209", potaReference: "US-0001", iota: "EU-002" },
+    references: [{ kind: "sota", reference: "FL/VO-209", status: "verified", name: "Summit" }] }));
+  expect((screen.getByLabelText("Desk SOTA") as HTMLInputElement).value).toBe("FL/VO-209");
+  expect((screen.getByLabelText("Desk POTA") as HTMLInputElement).value).toBe("US-9999");
+  expect((screen.getByLabelText("Desk IOTA") as HTMLInputElement).value).toBe("");
+  expect(screen.getByText(/SOTA FL\/VO-209 · Verified: Summit/)).toBeTruthy();
+});
+
+it("discards reference results when the operator has changed the callsign", async () => {
+  const base = bridge.request.getMockImplementation()!;
+  let resolveReferences: ((value: any) => void) | undefined;
+  bridge.request.mockImplementation(async (method: string, params: any = {}) => method === "reference_resolve"
+    ? new Promise(resolve => { resolveReferences = result => resolve({ result }); }) : base(method, params));
+  render(<LiveApp />);
+  await screen.findByRole("checkbox", { name: "Auto rotor" });
+  fireEvent.click(screen.getByRole("button", { name: "DX Cluster" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Select test spot" }));
+  await waitFor(() => expect(resolveReferences).toBeDefined());
+  fireEvent.click(screen.getByRole("button", { name: "Operator Desk" }));
+  fireEvent.change(screen.getByLabelText("Desk Callsign"), { target: { value: "EA7EU" } });
+  await act(async () => resolveReferences?.({ fields: { sotaReference: "FL/VO-209" }, references: [] }));
+  expect((screen.getByLabelText("Desk SOTA") as HTMLInputElement).value).toBe("");
+});
+
+it("turns once for a typed resolved call when auto is enabled and never repeats on polling", async () => {
+  render(<LiveApp />);
+  const automatic = await screen.findByRole("checkbox", { name: "Auto rotor" });
+  await waitFor(() => expect((automatic as HTMLInputElement).disabled).toBe(false));
+  fireEvent.change(screen.getByLabelText("Desk Callsign"), { target: { value: "EA7EU" } });
+  await waitFor(() => expect(bridge.request).toHaveBeenCalledWith("lookup_call", { call: "EA7EU" }));
+  expect(bridge.request.mock.calls.some(([method]) => method === "rotor_goto")).toBe(false);
+  fireEvent.click(automatic);
+  await waitFor(() => expect(bridge.request).toHaveBeenCalledWith("rotor_goto", expect.objectContaining({ label: "EA7EU", bearing: 90 })));
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 1100)); });
+  expect(bridge.request.mock.calls.filter(([method]) => method === "rotor_goto")).toHaveLength(1);
+  fireEvent.change(screen.getByLabelText("Desk Callsign"), { target: { value: "OM0AAO" } });
+  await waitFor(() => expect(bridge.request).toHaveBeenCalledWith("rotor_goto", expect.objectContaining({ label: "OM0AAO" })));
+  expect(bridge.request.mock.calls.filter(([method]) => method === "rotor_goto")).toHaveLength(2);
+});
+
 it.each(["Operator Desk", "Log QSO"])("saves exactly once on Command-Enter in %s without a global shortcut duplicate", async view => {
   const base = bridge.request.getMockImplementation()!;
   bridge.request.mockImplementation(async (method: string, params: any = {}) => method === "logbook_save" ? { result: { qso: params.qso } } : base(method, params));
@@ -203,9 +278,50 @@ it("preserves rotor ownership across radio handover and clears only the stale gu
   await screen.findByRole("checkbox", { name: "Auto rotor" });
   fireEvent.click(screen.getByRole("button", { name: "Station Control" }));
   fireEvent.click(await screen.findByRole("button", { name: "Direct FLEX · LAN" }));
+  expect(bridge.request.mock.calls.some(([method]) => method === "station_disconnect")).toBe(false);
+  expect(screen.getByText(/Viewing only. Apply radio selection/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Apply radio selection" }));
   await waitFor(() => expect(bridge.request).toHaveBeenCalledWith("station_disconnect", { provider: "direct_agent" }));
+  expect(bridge.request.mock.calls.filter(([method]) => method === "station_disconnect")).toHaveLength(1);
   expect(bridge.request.mock.calls.some(([method]) => method === "rotor_disconnect")).toBe(false);
   await waitFor(() => expect(screen.queryByText("Previous radio disconnected. Connect the selected radio explicitly.")).toBeNull());
   expect(screen.getByRole("region", { name: "Independent rotor" })).toBeTruthy();
   expect(screen.getByText("053°")).toBeTruthy();
+});
+
+it("browses inactive radio tabs without disconnecting or changing the active poll provider", async () => {
+  render(<LiveApp />);
+  await screen.findByRole("checkbox", { name: "Auto rotor" });
+  fireEvent.click(screen.getByRole("button", { name: "Station Control" }));
+  fireEvent.click(screen.getByRole("button", { name: "Local station · Hamlib" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Disconnect" }).hasAttribute("disabled")).toBe(true));
+  expect(bridge.request.mock.calls.some(([method]) => method === "hamlib_status")).toBe(false);
+  fireEvent.click(screen.getByRole("button", { name: "Direct FLEX · LAN" }));
+  expect(bridge.request.mock.calls.some(([method]) => method === "station_disconnect" || method === "hamlib_disconnect")).toBe(false);
+  expect(localStorage.getItem("xlog.integration.provider")).toBeNull();
+  await waitFor(() => expect(bridge.request.mock.calls.some(([method, params]) => method === "station_snapshot" && params.provider === "direct_agent")).toBe(true));
+  expect(bridge.request.mock.calls.some(([method, params]) => method === "station_snapshot" && params.provider === "direct_flex_lan")).toBe(false);
+
+  fireEvent.change(screen.getByRole("textbox", { name: "Private radio IP address" }), { target: { value: "192.168.1.50" } });
+  fireEvent.click(screen.getByRole("button", { name: "Connect FLEX" }));
+  await waitFor(() => expect(screen.getByText(/Apply this radio selection before connecting/)).toBeTruthy());
+  expect(bridge.request.mock.calls.some(([method]) => method === "station_connect")).toBe(false);
+});
+
+it("keeps the prior active radio if explicit selection retirement fails", async () => {
+  const base = bridge.request.getMockImplementation()!;
+  bridge.request.mockImplementation(async (method: string, params: any = {}) => {
+    if (method === "station_disconnect") throw new Error("Owned release unconfirmed");
+    return base(method, params);
+  });
+  render(<LiveApp />);
+  await screen.findByRole("checkbox", { name: "Auto rotor" });
+  fireEvent.click(screen.getByRole("button", { name: "Station Control" }));
+  fireEvent.click(screen.getByRole("button", { name: "Direct FLEX · LAN" }));
+  fireEvent.click(screen.getByRole("button", { name: "Apply radio selection" }));
+  await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("Owned release unconfirmed"));
+  expect(screen.getByRole("button", { name: "Apply radio selection" })).toBeTruthy();
+  expect(localStorage.getItem("xlog.integration.provider")).toBeNull();
+  expect(bridge.request.mock.calls.filter(([method]) => method === "station_disconnect")).toHaveLength(1);
+  expect(bridge.request.mock.calls.some(([method, params]) => method === "station_snapshot" && params.provider === "direct_flex_lan")).toBe(false);
 });

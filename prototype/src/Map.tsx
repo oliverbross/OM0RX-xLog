@@ -5,7 +5,7 @@ import geometryUrl from "../../Sources/XLogCore/Resources/dxcc-boundaries.geojso
 import { dxccPrefixLabel, mapSpotDetails, normalizedMapCall, normalizeMapSpots, type MapSpot } from "./MapSpots";
 import { describeMapError } from "./MapErrors";
 import { acceptanceActive, interiorLandProbe, landPixelMatches } from "./acceptance";
-import { bearingAndDistance, grayline, greatCircle, solarPosition, type Coordinate } from "./MapGeography";
+import { bearingAndDistance, grayline, greatCircle, nightHemisphere, solarPosition, type Coordinate } from "./MapGeography";
 import { clusterBandColors, clusterStatusColors, paletteColor } from "./live/clusterPalette";
 import "./Map.css";
 // MapLibre 6 resolves its default worker relative to import.meta.url. Vite's
@@ -26,6 +26,78 @@ function lineFeatures(lines: Coordinate[][]) {
   return { type: "FeatureCollection" as const, features: lines.map((line) => ({
     type: "Feature" as const, properties: {}, geometry: { type: "LineString" as const, coordinates: line },
   })) };
+}
+
+// The geography helper splits at the antimeridian for MapLibre, but does not
+// include the crossing itself. Complete both sides so the displayed route and
+// its camera bounds include the whole great circle, including its endpoints.
+function completeRoute(from: Coordinate, to: Coordinate, longPath: boolean): Coordinate[][] {
+  const sections = greatCircle(from, to, longPath).map(section => [...section]);
+  if (!sections.length) return [];
+  const samePoint = (a: Coordinate, b: Coordinate) =>
+    Math.abs(a[0] - b[0] - 360 * Math.round((a[0] - b[0]) / 360)) < 1e-6 && Math.abs(a[1] - b[1]) < 1e-6;
+  if (!samePoint(sections[0][0], from)) {
+    if (Math.abs(sections[0][0][0] - from[0]) > 180) sections.unshift([from]);
+    else sections[0].unshift(from);
+  } else if (Math.abs(sections[0][0][0] - from[0]) < 180) sections[0][0] = from;
+  const last = sections[sections.length - 1];
+  if (!samePoint(last[last.length - 1], to)) {
+    if (Math.abs(last[last.length - 1][0] - to[0]) > 180) sections.push([to]);
+    else last.push(to);
+  } else if (Math.abs(last[last.length - 1][0] - to[0]) < 180) last[last.length - 1] = to;
+  for (let index = 0; index < sections.length - 1; index++) {
+    const before = sections[index];
+    const after = sections[index + 1];
+    const a = before[before.length - 1], b = after[0];
+    const crossing = a[0] > 0 ? 180 : -180;
+    const bUnwrapped = b[0] + (crossing > 0 ? 360 : -360);
+    const fraction = (crossing - a[0]) / (bUnwrapped - a[0]);
+    const latitude = a[1] + fraction * (b[1] - a[1]);
+    before.push([crossing, latitude]);
+    after.unshift([-crossing, latitude]);
+  }
+  return sections;
+}
+
+export function routeBounds(from: Coordinate, to: Coordinate, longPath: boolean): [[number, number], [number, number]] | null {
+  const sections = completeRoute(from, to, longPath);
+  if (!sections.length) return null;
+  // Unwrap adjacent samples instead of taking min/max of wrapped longitude:
+  // 179°E to 179°W is a 2° short path, not a 358° viewport.
+  let previous = from[0];
+  let west = previous, east = previous, south = from[1], north = from[1];
+  for (const point of sections.flat()) {
+    const longitude = point[0] + 360 * Math.round((previous - point[0]) / 360);
+    previous = longitude;
+    west = Math.min(west, longitude);
+    east = Math.max(east, longitude);
+    south = Math.min(south, point[1]);
+    north = Math.max(north, point[1]);
+  }
+  return [[west, south], [east, north]];
+}
+
+export function routeLabelPosition(sections: Coordinate[][]): { point: Coordinate; before: Coordinate; after: Coordinate } | null {
+  const total = sections.reduce((count, section) => count + Math.max(0, section.length - 1), 0);
+  if (!total) return null;
+  const halfway = total / 2;
+  let traversed = 0;
+  for (const section of sections) {
+    const edges = Math.max(0, section.length - 1);
+    if (edges && halfway <= traversed + edges) {
+      const middle = Math.max(0, Math.min(section.length - 1, Math.round(halfway - traversed)));
+      return { point: section[middle], before: section[Math.max(0, middle - 2)],
+        after: section[Math.min(section.length - 1, middle + 2)] };
+    }
+    traversed += edges;
+  }
+  return null;
+}
+
+export function routeFrequencyLabel(frequencyHz?: number): string | null {
+  if (typeof frequencyHz !== "number" || !Number.isSafeInteger(frequencyHz) || frequencyHz <= 0) return null;
+  const mhz = (frequencyHz / 1_000_000).toFixed(6);
+  return `${mhz.slice(0, -3)}.${mhz.slice(-3)} MHz`;
 }
 
 function representativePoint(feature: DXCCFeature): Coordinate | null {
@@ -58,6 +130,7 @@ export default function WorldMap({
   palette,
   longPath: initialLongPath = false,
   compact = false,
+  frequencyHz,
 }: {
   selected: string | null;
   onSpot?: (spot: MapSpot) => void;
@@ -69,6 +142,7 @@ export default function WorldMap({
   palette?: { status?: Record<string, string>; band?: Record<string, string> } | null;
   longPath?: boolean;
   compact?: boolean;
+  frequencyHz?: number;
 }) {
   const mappedSpots = useMemo(() => normalizeMapSpots(data), [data]);
   const detailID = useId();
@@ -88,6 +162,8 @@ export default function WorldMap({
   const callback = useRef(onSpot);
   const selection = useRef(selected);
   const preserveCamera = useRef(Boolean(selected));
+  const fittedRouteKey = useRef<string | null>(null);
+  const centeredSelectionKey = useRef<string | null>(null);
   const spotsRef = useRef(mappedSpots);
   const selectedCallRef = useRef<string | null>(null);
   const previousSelectionRef = useRef(selected);
@@ -97,6 +173,8 @@ export default function WorldMap({
   previousSelectionRef.current = selected;
   const selectedSpot = mappedSpots.find(spot => spot.id === selected || spot.call === selectedCallRef.current);
   const homeRef = useRef(home);
+  const targetRef = useRef(target);
+  const routeLabelPointRef = useRef<Coordinate | null>(null);
   const labelsRef = useRef<{ id: number; label: string; name: string; coordinate: Coordinate }[]>([]);
   const entityIDsRef = useRef<number[]>([]);
   const markersRef = useRef(new Map<string, maplibregl.Marker>());
@@ -114,6 +192,7 @@ export default function WorldMap({
   paletteRef.current = palette;
   spotsRef.current = mappedSpots;
   homeRef.current = home;
+  targetRef.current = target;
   callback.current = onSpot;
   selection.current = selected;
   useEffect(() => {
@@ -152,6 +231,13 @@ export default function WorldMap({
       if (disposed) return;
       const width = map.getContainer().clientWidth, height = map.getContainer().clientHeight;
       const occupied: { x: number; y: number }[] = [];
+      // Endpoint callsigns and the route annotation remain primary; lower
+      // priority spot/DXCC labels must move out of their immediate vicinity.
+      for (const point of [homeRef.current, targetRef.current]) {
+        if (point?.call?.trim() && Number.isFinite(point.lon) && Number.isFinite(point.lat))
+          occupied.push(map.project([point.lon, point.lat]));
+      }
+      if (routeLabelPointRef.current) occupied.push(map.project(routeLabelPointRef.current));
       const visible = new Set<string>();
       const displayLabel = (id: string, coordinate: Coordinate, className: string, value: string, title: string, color: string) => {
         visible.add(id);
@@ -168,7 +254,7 @@ export default function WorldMap({
         if (element.style.color !== color) element.style.color = color;
         marker.setLngLat(coordinate);
       };
-      if (overlayRef.current !== "Spots") {
+      const drawDXCCLabels = () => { if (overlayRef.current !== "Spots") {
         for (const entity of labelsRef.current) {
           const status = dxccRef.current?.[entity.id] ?? "unknown";
           if (status !== "unknown" && !statusFilterRef.current.includes(status)) continue;
@@ -181,8 +267,8 @@ export default function WorldMap({
             status === "unknown" ? "#8fa7c0" :
               status === "needed" ? "#8fb3d9" : status === "worked" ? "#ff9d2e" : "#12d6a0");
         }
-      }
-      if (overlayRef.current !== "DXCC" && map.getZoom() >= 4) {
+      } };
+      if (overlayRef.current !== "DXCC" && map.getZoom() >= 3) {
         const seen = new Set<string>();
         for (const spot of spotsRef.current) {
           const call = spot.call.trim().toUpperCase();
@@ -198,6 +284,8 @@ export default function WorldMap({
             paletteColor(spot.callStatus ?? "Unknown", paletteRef.current?.status, clusterStatusColors));
         }
       }
+      // Callsigns take priority over approximate country labels at regional zoom.
+      drawDXCCLabels();
       for (const [id, marker] of markersRef.current) {
         if (!visible.has(id)) { marker.remove(); markersRef.current.delete(id); }
       }
@@ -324,6 +412,7 @@ export default function WorldMap({
               attribution: '<a href="https://www.earthdata.nasa.gov/data/visualization/worldview" target="_blank" rel="noopener noreferrer">NASA GIBS Blue Marble</a>' },
             route: { type: "geojson", data: emptyLines },
             grayline: { type: "geojson", data: emptyLines },
+            night: { type: "geojson", data: { type: "FeatureCollection", features: [] } },
             landmarks: { type: "geojson", data: { type: "FeatureCollection", features: [] } },
             spots: {
               type: "geojson",
@@ -361,6 +450,8 @@ export default function WorldMap({
               "fill-color": ["match", ["feature-state", "status"], "needed", "#8FB3D9", "worked", "#FF9D2E", "confirmed", "#12D6A0", "#61758D"],
               "fill-opacity": 0.12,
             } },
+            { id: "night-fill", type: "fill", source: "night", layout: { visibility: showGrayline ? "visible" : "none" },
+              paint: { "fill-color": "#c7d0d8", "fill-opacity": 0.27 } },
             { id: "grayline-band", type: "line", source: "grayline", paint: { "line-color": "#07111f", "line-opacity": 0.42, "line-width": 30 } },
             { id: "grayline-edge", type: "line", source: "grayline", paint: { "line-color": "#a9b6c8", "line-opacity": 0.78, "line-width": 1.25, "line-dasharray": [4, 5] } },
             { id: "route-line", type: "line", source: "route", paint: { "line-color": "#35c8f5", "line-width": 3, "line-opacity": 0.95, "line-dasharray": [8, 5] } },
@@ -506,7 +597,8 @@ export default function WorldMap({
   }, []);
   useEffect(() => {
     const s = selectedSpot;
-    if (s && mapRef.current) {
+    const key = selected && s ? `${selected}:${s.call}` : null;
+    if (s && key && key !== centeredSelectionKey.current && !(home && target) && mapRef.current) {
       preserveCamera.current = true;
       mapRef.current.easeTo({
         center: [s.lon, s.lat],
@@ -515,8 +607,29 @@ export default function WorldMap({
           : 180,
       });
     }
+    centeredSelectionKey.current = key;
     redrawRef.current();
-  }, [selected, selectedSpot?.call, selectedSpot?.lon, selectedSpot?.lat]);
+  }, [selected, selectedSpot?.call, home?.lat, home?.lon, target?.lat, target?.lon]);
+  const routeKey = home && target && [home.lon, home.lat, target.lon, target.lat].every(Number.isFinite)
+    ? `${home.call?.trim().toUpperCase() ?? ""}:${home.lon},${home.lat}:${target.call?.trim().toUpperCase() ?? ""}:${target.lon},${target.lat}:${longPath}` : null;
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!routeKey || !home || !target || !map) {
+      fittedRouteKey.current = null;
+      return;
+    }
+    if (fittedRouteKey.current === routeKey) return;
+    const bounds = routeBounds([home.lon, home.lat], [target.lon, target.lat], longPath);
+    if (!bounds) return;
+    fittedRouteKey.current = routeKey;
+    preserveCamera.current = true;
+    map.fitBounds(bounds, {
+      padding: compact ? { top: 28, right: 34, bottom: 34, left: 34 }
+        : { top: 74, right: 54, bottom: 100, left: 54 },
+      maxZoom: 6,
+      duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 350,
+    });
+  }, [routeKey, home?.lon, home?.lat, target?.lon, target?.lat, longPath, compact]);
   useEffect(() => {
     const map = mapRef.current;
     if (!fixture && home && map && !preserveCamera.current && !selected) {
@@ -571,9 +684,14 @@ export default function WorldMap({
     if (!map) return;
     const update = () => {
       const sun = solarPosition(solarDate);
-      const route = home && target ? greatCircle([home.lon, home.lat], [target.lon, target.lat], longPath) : [];
+      const route = home && target ? completeRoute([home.lon, home.lat], [target.lon, target.lat], longPath) : [];
       (map.getSource("route") as maplibregl.GeoJSONSource | undefined)?.setData(lineFeatures(route));
       (map.getSource("grayline") as maplibregl.GeoJSONSource | undefined)?.setData(lineFeatures(showGrayline ? grayline(solarDate) : []));
+      (map.getSource("night") as maplibregl.GeoJSONSource | undefined)?.setData({
+        type: "FeatureCollection", features: showGrayline ? [{ type: "Feature", properties: {},
+          geometry: { type: "Polygon", coordinates: nightHemisphere(sun) } }] : [],
+      });
+      map.setLayoutProperty("night-fill", "visibility", showGrayline ? "visible" : "none");
       map.setLayoutProperty("grayline-band", "visibility", showGrayline ? "visible" : "none");
       map.setLayoutProperty("grayline-edge", "visibility", showGrayline ? "visible" : "none");
       map.setPaintProperty("route-line", "line-color", longPath ? "#f47ac4" : "#35c8f5");
@@ -591,6 +709,69 @@ export default function WorldMap({
     if (map.isStyleLoaded()) update(); else map.once("load", update);
     return () => { map.off("load", update); };
   }, [home, target, showSun, showGrayline, solarDate, longPath]);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const markers: maplibregl.Marker[] = [];
+    routeLabelPointRef.current = null;
+    const endpoint = (point: MapPoint | null | undefined, kind: "home" | "target") => {
+      const call = point?.call?.trim();
+      if (!point || !call || !Number.isFinite(point.lon) || !Number.isFinite(point.lat)) return;
+      const label = document.createElement("span");
+      label.className = `map-route-endpoint map-route-${kind}`;
+      label.textContent = call;
+      label.setAttribute("aria-label", `${kind === "home" ? "Home station" : "Target"} ${call}`);
+      markers.push(new maplibregl.Marker({ element: label, anchor: kind === "home" ? "bottom" : "top",
+        offset: [0, kind === "home" ? -14 : 14] })
+        .setLngLat([point.lon, point.lat]).addTo(map));
+    };
+    endpoint(home, "home");
+    endpoint(target, "target");
+    let orient = () => {};
+    if (home && target && [home.lon, home.lat, target.lon, target.lat].every(Number.isFinite)) {
+      const sections = completeRoute([home.lon, home.lat], [target.lon, target.lat], longPath);
+      const position = routeLabelPosition(sections);
+      if (position) {
+        routeLabelPointRef.current = position.point;
+        const distance = bearingAndDistance([home.lon, home.lat], [target.lon, target.lat]).distanceKm;
+        const pathDistance = longPath ? 2 * Math.PI * 6371.0088 - distance : distance;
+        const frequency = routeFrequencyLabel(frequencyHz);
+        const markerElement = document.createElement("div");
+        markerElement.className = "map-route-annotation";
+        markerElement.setAttribute("role", "note");
+        markerElement.setAttribute("aria-label", `${longPath ? "Long" : "Short"} path ${Math.round(pathDistance).toLocaleString()} kilometres${frequency ? `, ${frequency}` : ""}`);
+        const inner = document.createElement("div");
+        inner.className = "map-route-annotation-inner";
+        const distanceLabel = document.createElement("span");
+        distanceLabel.className = "map-route-distance";
+        distanceLabel.textContent = `${longPath ? "LP" : "SP"} · ${Math.round(pathDistance).toLocaleString()} km`;
+        inner.append(distanceLabel);
+        const gap = document.createElement("span");
+        gap.className = "map-route-label-gap";
+        inner.append(gap);
+        if (frequency) {
+          const frequencyLabel = document.createElement("span");
+          frequencyLabel.className = "map-route-frequency";
+          frequencyLabel.textContent = frequency;
+          inner.append(frequencyLabel);
+        }
+        markerElement.append(inner);
+        markers.push(new maplibregl.Marker({ element: markerElement, anchor: "center" })
+          .setLngLat(position.point).addTo(map));
+        redrawRef.current();
+        orient = () => {
+          const before = map.project(position.before), after = map.project(position.after);
+          let angle = Math.atan2(after.y - before.y, after.x - before.x) * 180 / Math.PI;
+          if (angle > 90) angle -= 180;
+          if (angle < -90) angle += 180;
+          inner.style.transform = `rotate(${Math.max(-70, Math.min(70, angle))}deg)`;
+        };
+        orient();
+        map.on("moveend", orient);
+      }
+    }
+    return () => { map.off("moveend", orient); markers.forEach(marker => marker.remove()); routeLabelPointRef.current = null; };
+  }, [home?.call, home?.lon, home?.lat, target?.call, target?.lon, target?.lat, longPath, frequencyHz]);
   useEffect(() => {
     const timer = window.setInterval(() => setSolarDate(new Date()), 60_000);
     return () => window.clearInterval(timer);

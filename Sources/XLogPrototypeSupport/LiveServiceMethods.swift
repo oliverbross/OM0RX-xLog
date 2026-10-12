@@ -14,6 +14,8 @@ actor LiveServiceMethods {
     private var propagationTask: Task<Void, Never>?
     private var propagationLastAttempt: Date?
     private var propagationState: [String: Any] = ["status": "Not loaded", "source": "N0NBH / HamQSL"]
+    private var qrzClient: QRZClient?
+    private var qrzCredentialDigest: Data?
 
     init(logbook: LiveLogbookMethods = .shared) { self.logbook = logbook }
 
@@ -37,6 +39,7 @@ actor LiveServiceMethods {
                   let account = SecretStore.Account(rawValue: name), let value = params["value"] as? String,
                   value.utf8.count <= 8192 else { throw invalid() }
             try secrets.save(value, for: account)
+            if account == .qrzPassword { qrzClient = nil; qrzCredentialDigest = nil }
             return ["saved": !value.isEmpty]
         case "secret_status":
             let secrets = try workspaceSecrets()
@@ -61,13 +64,20 @@ actor LiveServiceMethods {
                                "longitude": country.longitude as Any? ?? NSNull()]) { _, new in new }
             }
             if settings.qrzEnabled, let password = try secrets.load(.qrzPassword), !password.isEmpty {
+                let client = try cachedQRZClient(username: settings.qrzUsername, password: password)
                 profile = await CallsignEnrichment.resolve(base: profile) {
-                    let result = try await QRZClient(username: settings.qrzUsername, password: password).lookup(call)
+                    let result = try await client.lookup(call)
                     return ["call": result.call, "name": result.name, "gridSquare": result.gridSquare, "country": result.country,
                     "dxcc": result.dxcc as Any? ?? NSNull(), "cqZone": result.cqZone, "ituZone": result.ituZone,
                     "state": result.state, "county": result.county, "qth": result.qth, "email": result.email,
+                    "nickname": result.nickname, "websiteURL": result.websiteURL,
+                    "imageURL": result.imageURL, "qslManager": result.qslManager,
+                    "iota": result.iota, "licenseClass": result.licenseClass,
                     "latitude": result.latitude as Any? ?? NSNull(), "longitude": result.longitude as Any? ?? NSNull()]
                 }
+            } else {
+                qrzClient = nil
+                qrzCredentialDigest = nil
             }
             if let origin = MaidenheadLocator.coordinate(settings.gridSquare),
                let lat = profile["latitude"] as? Double, let lon = profile["longitude"] as? Double {
@@ -205,6 +215,17 @@ actor LiveServiceMethods {
     }
     private func workspaceSecrets() throws -> SecretStore {
         SecretStore(service: try logbook.currentKeychainService())
+    }
+    private func cachedQRZClient(username: String, password: String) throws -> QRZClient {
+        // A new client logs in again. Reuse the XML session only while the
+        // workspace credentials are unchanged; never persist the digest/key.
+        let workspaceID = try logbook.currentKeychainService()
+        let identity = Data(SHA256.hash(data: Data("\(workspaceID)\0\(username)\0\(password)".utf8)))
+        if let qrzClient, qrzCredentialDigest == identity { return qrzClient }
+        let client = QRZClient(username: username, password: password)
+        qrzClient = client
+        qrzCredentialDigest = identity
+        return client
     }
     private func invalid() -> WorkerFailure { WorkerFailure("invalid_params", "Invalid service parameters.") }
 }

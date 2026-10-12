@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { clusterBandColors, clusterModeColors, clusterStatusColors, paletteColor, specialTagColors } from "./clusterPalette";
 import "./ClusterPanel.css";
 
@@ -23,7 +23,8 @@ type Rule = { id: string; name: string; keywords: string[]; referenceFormat: str
 type Filter = { query: string; bands: string[]; modes: string[]; continents: string[];
   callStatuses: string[]; dxccStatuses: string[]; specials: string[];
   sources: string[]; worked: string[]; sort: string };
-type Palette = { status: Record<string, string>; band: Record<string, string>; mode: Record<string, string> };
+export type ClusterPalette = { status: Record<string, string>; band: Record<string, string>; mode: Record<string, string> };
+type Palette = ClusterPalette;
 type CommandPreset = { id: string; name: string; command: string };
 type Configuration = { servers: Server[]; reconnect: boolean; requestSkimmer: boolean;
   showWorkedBandModeSpots: boolean; maximumSpots: number; specialRules: Rule[];
@@ -37,7 +38,7 @@ type History = { call: string; previous_count: number; previous: HistoryRow[]; a
   country: string; cq_zone?: number | null; grid: string; dxcc_contact_count: number;
   matrix: { band: string; mode: string; worked: boolean; confirmed: boolean }[] };
 type Props = { snapshot: unknown; onRequest: Request; onSelect: (spot: LiveClusterSpot) => void;
-  passive?: boolean; onUndock?: () => void; passwordControlsEnabled?: boolean; selectedSpotId?: string | null };
+  passive?: boolean; onUndock?: () => void; onDock?: () => void; passwordControlsEnabled?: boolean; selectedSpotId?: string | null };
 
 const bands = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "2m", "70cm"];
 const modes = ["CW", "SSB", "FT8", "FT4", "FT2", "RTTY", "PSK", "DIGI", "AM", "FM"];
@@ -45,7 +46,7 @@ const callStatuses = ["New Call", "New Band", "New Mode", "New Band+Mode", "Work
 const dxccStatuses = ["ATNO", "C/New Band", "C/New Mode", "C/New Band+Mode", "W/New Band", "W/New Mode", "W/New Band+Mode", "Worked", "Confirmed", "Unknown"];
 const formatDate = (value?: number | null) => value == null ? "—" : new Date((value + 978_307_200) * 1000).toLocaleString();
 const formatTime = (value: number) => new Date((value + 978_307_200) * 1000).toLocaleTimeString();
-const rowTint = (status: string): string | undefined => {
+export const clusterRowTint = (status: string): string | undefined => {
   if (status === "ATNO") return "#FF8C0026";
   if (status.includes("Band+Mode")) return "#E91E6326";
   if (status.includes("New Band")) return "#00BFFF26";
@@ -56,7 +57,9 @@ const rowTint = (status: string): string | undefined => {
 };
 const emptyFilter: Filter = { query: "", bands: [], modes: [], continents: [], callStatuses: [], dxccStatuses: [],
   specials: [], sources: ["cluster", "rbl"], worked: [], sort: "newest" };
-export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, onUndock, passwordControlsEnabled = true, selectedSpotId }: Props) {
+export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, onUndock, onDock, passwordControlsEnabled = true, selectedSpotId }: Props) {
+  const panelId = useId();
+  const [consoleOpen, setConsoleOpen] = useState(false), [settingsOpen, setSettingsOpen] = useState(false);
   const requestRef = useRef(onRequest);
   const filterVersion = useRef(0);
   const lastRemoteFilter = useRef("");
@@ -202,11 +205,17 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
     <header className="live-cluster-head">
       <div><h2>DX Cluster</h2><p>{connected} live · {live?.spots.length ?? 0} shown / {live?.loadedSpots ?? 0} received · {live?.contactCount ?? 0} log contacts</p></div>
       <div className="live-cluster-actions">
-        <span className={connected ? "live-cluster-connected" : "live-cluster-disconnected"}>{connected ? "Connected" : "Disconnected"}</span>
+        <div className="live-cluster-connection-summary" role="status" aria-label="Cluster connections">{allConnections.length ? allConnections.map(connection => {
+          const phase = connection.phase.toLowerCase(), label = phase.charAt(0).toUpperCase() + phase.slice(1);
+          return <span key={connection.serverID} className={phase === "connected" ? "live-cluster-connected" : "live-cluster-disconnected"}><i className={`phase-${phase}`} />{connection.serverName} · {label}{connection.error && <small className="live-cluster-connection-error"> · {connection.error}</small>}</span>;
+        }) : <span className={connected ? "live-cluster-connected" : "live-cluster-disconnected"}>{connected ? `${connected} cluster${connected === 1 ? "" : "s"} · Connected` : "Disconnected"}</span>}</div>
         <button type="button" disabled={busy || !configuration?.servers.some((s) => s.enabled)} onClick={() => void request("cluster_connect", {}, "Connecting to configured clusters…")}>Connect</button>
         <button type="button" disabled={busy || !connected} onClick={() => void request("cluster_disconnect", {}, "Disconnected")}>Disconnect</button>
         <button type="button" disabled={busy} onClick={() => void request("cluster_snapshot")}>Refresh</button>
+        <button type="button" aria-expanded={consoleOpen} aria-controls={`${panelId}-console`} onClick={() => setConsoleOpen(value => !value)}>Console</button>
+        <button type="button" aria-expanded={settingsOpen} aria-controls={`${panelId}-settings`} onClick={() => setSettingsOpen(value => !value)}>Settings</button>
         {onUndock && <button type="button" onClick={onUndock}>Undock</button>}
+        {onDock && <button type="button" onClick={onDock}>Dock back</button>}
       </div>
     </header>
     {!live?.logbookDataLoaded && <p className="live-cluster-note">No integrated logbook is open; worked and confirmed status remains Unknown.</p>}
@@ -214,13 +223,9 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
     {snapshotTruncated && <p className="live-cluster-note">The live snapshot exceeded the worker limit; older console lines or spots are hidden. Narrow filters to view more.</p>}
     {error && <p className="live-cluster-error" role="alert">{error}</p>}
     {message && <p className="live-cluster-message" role="status">{message}</p>}
-    {allConnections.length > 0 && <div className="live-cluster-connections" aria-label="Cluster connections">
-      {allConnections.map((connection) => <span key={connection.serverID} title={connection.error ?? ""}>
-        <i className={`phase-${connection.phase}`} />{connection.serverName}: {connection.phase}{connection.error ? ` · ${connection.error}` : ""}
-      </span>)}
-    </div>}
+    {renderToolbarPanels()}
 
-    <div className="live-cluster-filterrail" aria-label="Spot filters">
+    <div className="live-cluster-filter-container"><div className="live-cluster-filterrail" aria-label="Spot filters">
       <input aria-label="Search spots" placeholder="Callsign, country or note" value={filter.query} maxLength={128}
         onChange={(event) => changeFilter({ ...filter, query: event.target.value })} />
       {(Object.keys(filterLabels) as (keyof Filter)[]).map((key) => {
@@ -247,14 +252,14 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
         })}
       </div>
       <button type="button" onClick={() => changeFilter({ ...filter, [activePicker]: activePicker === "sources" ? ["cluster", "rbl"] : [] })}>All</button>
-    </div>}
+    </div>}</div>
 
     <div className="table-scroll live-cluster-table"><table><thead><tr>
       <th>Time</th><th>Score</th><th>Band</th><th>MHz</th><th>Callsign</th><th>Mode</th><th>Country</th><th>CQ</th>
       <th>Spotter</th><th>Call status</th><th>DXCC status</th><th>Special</th><th>Worked before</th><th>Comment</th>
     </tr></thead><tbody>{(live?.spots ?? []).map((spot, index) => <tr key={spot.id}
       className={`${(selectedSpotId ?? selectedSpot?.id) === spot.id ? "is-selected" : ""} ${index % 2 ? "is-odd" : "is-even"}`}
-      style={{ backgroundColor: (selectedSpotId ?? selectedSpot?.id) === spot.id ? undefined : rowTint(spot.dxccStatus) }}
+      style={{ backgroundColor: (selectedSpotId ?? selectedSpot?.id) === spot.id ? undefined : clusterRowTint(spot.dxccStatus) }}
       onClick={() => { setSelectedSpot(spot); onSelect(spot); }} title="Load this spot into the logger and tune through xCat">
       <td className="mono">{formatTime(spot.receivedAt)}</td>
       <td><span className={`live-cluster-score ${spot.score >= 80 ? "priority" : spot.score >= 55 ? "high" : spot.score >= 30 ? "medium" : "low"}`}>{spot.score}</span></td>
@@ -299,7 +304,13 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
       </div>}
     </aside>}
 
-    <details className="live-cluster-console"><summary>Cluster console · {live?.console.length ?? 0} lines</summary>
+  </section>;
+
+  // Local render helper keeps console/configuration inputs mounted while placing
+  // their controlled panels next to the toolbar, ahead of the tall spot table.
+  function renderToolbarPanels() {
+    return <div className="live-cluster-toolbar-panels">
+    <section className="live-cluster-console" id={`${panelId}-console`} hidden={!consoleOpen} aria-labelledby={`${panelId}-console-title`}><h3 id={`${panelId}-console-title`}>Cluster console · {live?.console.length ?? 0} lines</h3>
       <div className="live-cluster-console-controls">
         <select aria-label="Command target" value={commandTarget} onChange={(event) => setCommandTarget(event.target.value)}><option value="">All connected clusters</option>{configuration?.servers.map((server) => <option key={server.id} value={server.id}>{server.name}</option>)}</select>
         <select aria-label="Command preset" onChange={(event) => { if (event.target.value) setCommand(event.target.value); }} defaultValue=""><option value="">Command preset</option>{configuration?.commandPresets.map((preset) => <option key={preset.id} value={preset.command}>{preset.name}</option>)}</select>
@@ -309,9 +320,9 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
         <button type="button" disabled={!live?.console.length} onClick={() => { void navigator.clipboard.writeText((live?.console ?? []).map((line) => `${formatDate(line.receivedAt)} · ${line.source} · ${line.text}`).join("\n")).then(() => setMessage("Transcript copied")).catch(() => setError("Could not copy the transcript.")); }}>Copy</button>
       </div>
       <div className="live-cluster-transcript" role="log" aria-live="polite">{live?.console.length ? live.console.map((line, index) => <p key={`${line.receivedAt}-${index}`}><time>{formatDate(line.receivedAt)}</time><b>{line.source}</b><span>{line.text}</span></p>) : <p>No cluster replies yet.</p>}</div>
-    </details>
+    </section>
 
-    <details className="live-cluster-settings"><summary>Cluster settings</summary>
+    <section className="live-cluster-settings" id={`${panelId}-settings`} hidden={!settingsOpen} aria-labelledby={`${panelId}-settings-title`}><h3 id={`${panelId}-settings-title`}>Cluster settings</h3>
       {configuration && <div className="live-cluster-settings-body">
         <div className="live-cluster-setting-row"><label>Maximum visible spots <select value={configuration.maximumSpots} onChange={(event) => setConfiguration({ ...configuration, maximumSpots: Number(event.target.value) })}>{[50, 100, 200, 500].map((count) => <option key={count}>{count}</option>)}</select></label>
           <label><input type="checkbox" checked={configuration.reconnect} onChange={(event) => setConfiguration({ ...configuration, reconnect: event.target.checked })} /> Reconnect automatically</label>
@@ -350,8 +361,9 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
         <details><summary>Status, band and mode colours</summary>{(["status", "band", "mode"] as const).map((family) => <div className="live-cluster-colours" key={family}><h4>{family}</h4>{Object.entries(configuration.palette[family]).map(([name, colour]) => <label key={name}>{name}<input type="color" value={colour} onChange={(event) => setConfiguration({ ...configuration, palette: { ...configuration.palette, [family]: { ...configuration.palette[family], [name]: event.target.value } } })} /></label>)}</div>)}</details>
         <button type="button" disabled={busy} onClick={() => void saveConfig()}>Save cluster settings</button>
       </div>}
-    </details>
-  </section>;
+    </section>
+    </div>;
+  }
 }
 
 export default ClusterPanel;

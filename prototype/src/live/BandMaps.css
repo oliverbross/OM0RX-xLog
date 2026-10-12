@@ -17,24 +17,33 @@
 .band-maps-search input { width: 180px; }
 .band-maps-intelligence select { min-width: 94px; }
 .band-maps-count { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.band-maps-mode-picker { position: relative; color: #dce7f4; }
+.band-maps-mode-picker summary { cursor: pointer; padding: 5px 9px; border: 1px solid var(--border); border-radius: 4px; background: var(--panel); }
+.band-maps-mode-options { position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; min-width: 150px; padding: 8px; display: grid; gap: 6px; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 5px 14px #0008; }
+.band-maps-mode-options label { display: flex; gap: 8px; align-items: center; min-height: 25px; cursor: pointer; }
+.band-maps-mode-options input { accent-color: var(--teal); }
+.band-maps-mode-picker summary:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 .band-maps-selected { flex: 1; min-width: 180px; color: #dce7f4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .band-maps-panels { flex: 1; min-height: 0; padding: 10px; gap: 10px; }
-.band-maps-row { display: flex; overflow: auto; align-items: stretch; }
-.band-maps-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); grid-auto-rows: minmax(240px, 1fr); align-content: stretch; overflow: auto; }
-.band-map-panel { display: flex; flex-direction: column; min-width: 320px; min-height: 0; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); overflow: hidden; font-size: calc(12px * var(--band-font-scale)); }
-.band-maps-row .band-map-panel { width: min(380px, 90vw); flex: 0 0 auto; }
-.band-maps-row .band-map-panel:only-child { flex: 1 1 auto; }
+.band-maps-row, .band-maps-grid { display: grid; align-items: stretch; align-content: stretch; overflow: hidden; }
+.band-map-panel { display: flex; flex-direction: column; min-width: 0; min-height: 0; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); overflow: hidden; font-size: calc(12px * var(--band-font-scale)); }
+.band-map-panel[hidden] { display: none; }
+.band-maps-pages { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.band-maps-pages button { min-width: 26px; padding: 2px 6px; }
+.band-maps-pages output { color: var(--secondary); font-variant-numeric: tabular-nums; }
 .band-map-panel-head { height: 37px; display: flex; align-items: center; gap: 6px; padding: 0 9px; background: var(--control); }
 .band-map-panel-head strong { font-size: 1.1em; }
 .band-map-panel-head small { color: var(--secondary); font-size: .84em; }
 .band-map-panel-head button { margin-left: auto; padding: 0 5px; min-height: 24px; background: transparent; border: 0; font-size: 17px; line-height: 1; }
 .band-map-accent { width: 7px; height: 7px; border-radius: 50%; background: var(--band-accent); flex: none; }
-.band-map-panel-tools { min-height: 34px; display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 2px 6px; border-bottom: 1px solid var(--border); }
+.band-map-panel-tools { min-height: 34px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 3px; padding: 2px 6px; border-bottom: 1px solid var(--border); }
 .band-map-panel-tools select { min-height: 26px; max-width: 125px; background: transparent; border-color: transparent; font-size: .91em; }
 .band-map-tool-buttons { display: inline-flex; gap: 1px; }
 .band-map-tool-buttons button { min-width: 25px; min-height: 25px; padding: 1px; background: transparent; border-color: transparent; color: var(--secondary); font-size: 15px; }
 .band-map-tool-buttons button:hover { color: #fff; background: #27405c; }
 .band-map-chart { position: relative; flex: 1 1 0; min-height: 96px; min-width: 0; background: #0b1728; overflow: hidden; }
+.band-map-chart.is-zoomed { cursor: grab; touch-action: none; user-select: none; }
+.band-map-chart.is-dragging, .band-map-chart.is-dragging .band-map-spot { cursor: grabbing; }
 .band-map-allocation { position: absolute; inset-inline: 0; pointer-events: none; }
 .band-map-allocation span { position: absolute; right: 6px; top: 3px; font-size: .67em; font-weight: 750; letter-spacing: .025em; }
 .band-map-cw { background: #0c425c70; color: #68d8ff; }
@@ -47,7 +56,7 @@
 .band-map-spot b { flex: none; font-size: .86em; }
 .band-map-spot:hover { filter: brightness(1.25); }
 .band-map-overflow { position: absolute; bottom: 4px; right: 5px; max-width: calc(100% - 60px); background: #122b40; color: #fff; border: 1px solid var(--border); border-radius: 4px; padding: 3px 6px; font-size: .8em; }
-.band-map-panel-foot { display: flex; align-items: center; justify-content: space-between; gap: 5px; min-height: 28px; padding: 2px 8px; background: var(--control); color: var(--secondary); font: calc(10px * var(--band-font-scale)) ui-monospace, SFMono-Regular, monospace; font-variant-numeric: tabular-nums; }
+.band-map-panel-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 3px 5px; min-height: 28px; padding: 2px 8px; background: var(--control); color: var(--secondary); font: calc(10px * var(--band-font-scale)) ui-monospace, SFMono-Regular, monospace; font-variant-numeric: tabular-nums; }
 .band-map-panel-foot output { white-space: nowrap; }
 .band-map-legend { display: flex; gap: 7px; }
 .band-map-legend span { display: inline-flex; align-items: center; gap: 3px; }

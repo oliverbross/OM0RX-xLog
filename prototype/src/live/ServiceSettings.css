@@ -1,4 +1,11 @@
 .service-settings { min-width:0; }
+.service-settings [hidden] { display:none!important; }
+.service-tabs { display:flex; gap:5px; flex-wrap:wrap; padding-bottom:10px; margin-bottom:12px; border-bottom:1px solid var(--border); }
+.service-tabs button { padding:6px 15px; font-weight:650; }
+.service-tabs button[aria-selected="true"] { border-color:var(--cyan); background:#123247; color:var(--cyan); }
+.service-tabs button:focus-visible { outline:2px solid var(--cyan); outline-offset:2px; }
+.service-settings [role="tabpanel"] { min-width:0; }
+.service-settings .service-security-note { margin-top:14px; font-size:11px; }
 .service-settings fieldset { min-width:0; border:0; margin:0; padding:0; }
 .service-settings section { padding:16px 0; border-bottom:1px solid var(--border); }
 .service-settings section h2 { margin:0 0 8px; }

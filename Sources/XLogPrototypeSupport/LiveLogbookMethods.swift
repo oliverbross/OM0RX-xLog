@@ -12,6 +12,7 @@ public final class LiveLogbookMethods: @unchecked Sendable {
     private let supportDirectory: URL
     private var database: LogbookDatabase?
     private var workspace: IntegrationWorkspace?
+    private var ctyResolverCache: (source: String, resolver: CTYResolver)?
     private var manualSyncActive = false
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
@@ -85,9 +86,24 @@ public final class LiveLogbookMethods: @unchecked Sendable {
         try lock.withLock {
             _ = try readyDatabase()
             let downloaded = workspaceURL.appendingPathComponent("Reference Data/cty.xml")
-            if fileManager.fileExists(atPath: downloaded.path),
-               let resolver = try? CTYResolver(xmlURL: downloaded) { return resolver }
-            return try CTYResolver.bundled()
+            if fileManager.fileExists(atPath: downloaded.path) {
+                let attributes = try fileManager.attributesOfItem(atPath: downloaded.path)
+                let source = [downloaded.path,
+                              String((attributes[.systemNumber] as? NSNumber)?.uint64Value ?? 0),
+                              String((attributes[.systemFileNumber] as? NSNumber)?.uint64Value ?? 0),
+                              String((attributes[.size] as? NSNumber)?.uint64Value ?? 0),
+                              String((attributes[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0)]
+                    .joined(separator: "|")
+                if let cached = ctyResolverCache, cached.source == source { return cached.resolver }
+                if let resolver = try? CTYResolver(xmlURL: downloaded) {
+                    ctyResolverCache = (source, resolver)
+                    return resolver
+                }
+            }
+            if let cached = ctyResolverCache, cached.source == "bundled" { return cached.resolver }
+            let resolver = try CTYResolver.bundled()
+            ctyResolverCache = ("bundled", resolver)
+            return resolver
         }
     }
 
@@ -129,6 +145,7 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                     applyBackupPreferences(backupPreferences(from: nativeDefaults), to: isolatedDefaults)
                 }
                 workspace = created
+                ctyResolverCache = nil
                 database = try LogbookDatabase(url: created.databaseURL)
                 return ["mode": mode, "qso_count": created.qsoCount,
                         "pending_sync_count": created.pendingSyncCount,
@@ -368,6 +385,7 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                                        referenceDataURL: fileManager.fileExists(atPath: reference.path) ? reference : nil)
                 db.close()
                 database = nil
+                ctyResolverCache = nil
                 do {
                     _ = try manager.installDatabase(from: package, to: workspaceURL.appendingPathComponent("OM0RX-xLog.sqlite"))
                     if restoreReference, preview.manifest.includesReferenceData {
@@ -415,6 +433,7 @@ public final class LiveLogbookMethods: @unchecked Sendable {
         }
         database = try LogbookDatabase(url: loaded.databaseURL)
         workspace = loaded
+        ctyResolverCache = nil
     }
 
     private func validateWorkspaceLocation() throws {
@@ -509,6 +528,9 @@ public final class LiveLogbookMethods: @unchecked Sendable {
             let known = (input ?? fallback).filter { supported.contains($0) && seen.insert($0).inserted }
             return known.isEmpty ? fallback : known
         }
+        var seenModes = Set<String>()
+        let modes = (defaults.stringArray(forKey: "OM0RX-xLog.detachedBandMapModes") ?? ["cw", "data", "phone"])
+            .filter { ["cw", "data", "phone"].contains($0) && seenModes.insert($0).inserted }
         let rawScale = defaults.object(forKey: "OM0RX-xLog.bandMapFontScale") as? Double ?? 1
         return XLogBackupPreferences(
             deskBandMapBands: bands(defaults.stringArray(forKey: "OM0RX-xLog.deskBandMapBands"), ["20m"]),
@@ -518,7 +540,8 @@ public final class LiveLogbookMethods: @unchecked Sendable {
             bandMapFontScale: rawScale.isFinite ? min(2, max(0.8, rawScale)) : 1,
             intelligenceBands: bands(defaults.stringArray(forKey: "OM0RX-xLog.intelligenceBands"), ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m"]),
             clusterSpotOpensFullEditor: defaults.bool(forKey: "OM0RX-xLog.clusterSpotOpensFullEditor"),
-            detachedBandMapFollowsRadio: defaults.bool(forKey: "OM0RX-xLog.detachedBandMapFollowsRadio")
+            detachedBandMapFollowsRadio: defaults.bool(forKey: "OM0RX-xLog.detachedBandMapFollowsRadio"),
+            detachedBandMapModes: modes
         )
     }
 
@@ -530,6 +553,9 @@ public final class LiveLogbookMethods: @unchecked Sendable {
         }
         guard ["Adaptive grid", "Single row"].contains(value.detachedBandMapLayout),
               value.bandMapFontScale.isFinite, (0.8...2).contains(value.bandMapFontScale) else { throw invalid() }
+        guard value.detachedBandMapModes.count <= 3,
+              Set(value.detachedBandMapModes).count == value.detachedBandMapModes.count,
+              Set(value.detachedBandMapModes).isSubset(of: ["cw", "data", "phone"]) else { throw invalid() }
     }
 
     private func applyBackupPreferences(_ value: XLogBackupPreferences, to defaults: UserDefaults) {
@@ -541,6 +567,7 @@ public final class LiveLogbookMethods: @unchecked Sendable {
         defaults.set(value.intelligenceBands, forKey: "OM0RX-xLog.intelligenceBands")
         defaults.set(value.clusterSpotOpensFullEditor, forKey: "OM0RX-xLog.clusterSpotOpensFullEditor")
         defaults.set(value.detachedBandMapFollowsRadio, forKey: "OM0RX-xLog.detachedBandMapFollowsRadio")
+        defaults.set(value.detachedBandMapModes, forKey: "OM0RX-xLog.detachedBandMapModes")
     }
 
     private func requireKeys(_ params: [String: Any], allowed: Set<String>, required: Set<String> = []) throws {

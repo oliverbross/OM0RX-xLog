@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
 import { useState } from "react";
+import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import QSOEditor from "./QSOEditor";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import QSOEditor, { safeProfileURL } from "./QSOEditor";
+const editorCSS = readFileSync("src/live/QSOEditor.css", "utf8");
 
 const initial = () => ({
   id: "qso-1", call: "EA7EU", start: "2026-10-12T10:20:30Z", end: null,
@@ -21,6 +23,63 @@ const value = () => JSON.parse(screen.getByTestId("draft").textContent || "{}");
 afterEach(cleanup);
 
 describe("QSOEditor", () => {
+  it("places two status matrices below QSO details on the main width, outside the content-sized inspector", () => {
+    const { container } = render(<Harness />);
+    const details = container.querySelector(".qso-details")!, matrices = container.querySelector(".qso-matrices")!;
+    expect(details.nextElementSibling).toBe(matrices);
+    expect(matrices.closest(".qso-editor-main")).toBeTruthy();
+    expect(matrices.querySelectorAll(".qso-matrix-section")).toHaveLength(2);
+    expect(container.querySelector(".qso-inspector .qso-matrices")).toBeNull();
+    expect(container.querySelectorAll(".qso-inspector > section")).toHaveLength(2);
+    expect(editorCSS).toContain("grid-template-columns:repeat(2,minmax(0,1fr))");
+    expect(editorCSS).toContain("grid-template-rows:auto auto; align-content:start");
+    expect(editorCSS).not.toContain("grid-template-rows:1fr 1fr");
+    expect(editorCSS).not.toContain("height:100%");
+    expect(editorCSS).not.toContain("min-height:390px");
+  });
+  it("shows matched QRZ details and safe bounded photo without mutating the QSO draft", () => {
+    const profile = { call: "EA7EU", source: "QRZ XML", name: "Operator name", country: "Spain", gridSquare: "IM67AA", dxcc: 281,
+      imageURL: "https://cdn-bio.qrz.com/e/ea7eu/photo.jpg", nickname: "On-air nickname", websiteURL: "https://station.example.com/", qslManager: "EA1AAA", iota: "EU-005", licenseClass: "Full", qth: "Seville", state: "Andalusia", county: "Seville", email: "radio@example.com" };
+    render(<Harness lookup={profile} />);
+    const inspector = within(screen.getByRole("complementary", { name: "Contact context" }));
+    const image = inspector.getByRole("img", { name: "EA7EU QRZ profile photo" });
+    expect(image.getAttribute("src")).toBe(profile.imageURL);
+    expect(image.getAttribute("referrerpolicy")).toBe("no-referrer");
+    expect(image.className).toBe("qso-profile-photo");
+    for (const detail of ["Operator name", "QRZ XML", "On-air nickname", "EA1AAA", "EU-005", "Full", "radio@example.com"]) expect(inspector.getByText(detail)).toBeTruthy();
+    expect(inspector.getByRole("link", { name: "Station website" }).getAttribute("rel")).toBe("noopener noreferrer");
+    expect(value()).toEqual(initial());
+  });
+  it("collapses unavailable and failed QRZ photos and ignores another call's profile", () => {
+    const view = render(<Harness lookup={{ call: "EA7EU", source: "QRZ XML", imageURL: "https://cdn-bio.qrz.com/e/ea7eu/photo.jpg" }} />);
+    fireEvent.error(screen.getByRole("img", { name: "EA7EU QRZ profile photo" }));
+    expect(screen.queryByRole("img", { name: "EA7EU QRZ profile photo" })).toBeNull();
+    view.rerender(<Harness lookup={{ call: "OTHER", source: "QRZ XML stale", name: "Wrong operator", imageURL: "https://cdn-bio.qrz.com/x/photo.jpg" }} />);
+    expect(screen.queryByRole("img")).toBeNull();
+    expect(screen.queryByText("Wrong operator")).toBeNull();
+    expect(screen.queryByText("QRZ XML stale")).toBeNull();
+    view.rerender(<Harness lookup={{ call: "EA7EU", source: "CTY approximate", country: "Spain" }} />);
+    expect(screen.queryByRole("img")).toBeNull();
+    expect(screen.getByText("CTY approximate")).toBeTruthy();
+  });
+  it("rejects unsafe profile links and photo URLs before rendering", () => {
+    expect(safeProfileURL("https://cdn-bio.qrz.com/a/photo.jpg")).toBe("https://cdn-bio.qrz.com/a/photo.jpg");
+    for (const url of ["http://cdn.qrz.com/photo.jpg", "javascript:alert(1)", "data:image/svg+xml,hi", "https://user:password@cdn.qrz.com/photo.jpg", "https://127.0.0.1/photo.jpg", "https://[::1]/photo.jpg", "https://localhost/photo.jpg", "https://shack.local/photo.jpg", "https://internal.lan/photo.jpg", "https://xmldata.qrz.com/xml/current/?s=key", "https://cdn.qrz.com:8443/photo.jpg", "https://cdn.qrz.com/photo.jpg#fragment"]) expect(safeProfileURL(url)).toBeNull();
+    render(<Harness lookup={{ call: "EA7EU", source: "QRZ XML", imageURL: "https://127.0.0.1/photo.jpg", websiteURL: "javascript:alert(1)" }} />);
+    expect(screen.queryByRole("img")).toBeNull();
+    expect(screen.queryByRole("link", { name: "Station website" })).toBeNull();
+  });
+  it("warns about differing draft country/DXCC while profile and matrices stay on matching lookup evidence", async () => {
+    const request = vi.fn(async (method: string) => method === "logbook_matrix" ? { cells: [] } : { history: { call: "EA7EU", adif: 281, matrix: [] } });
+    render(<Harness lookup={{ call: "EA7EU", source: "QRZ XML", country: "Spain", dxcc: 281 }} request={request} />);
+    fireEvent.change(screen.getByLabelText("Country"), { target: { value: "ENGLAND" } });
+    fireEvent.change(screen.getByLabelText("DXCC"), { target: { value: "223" } });
+    await screen.findByText("Spain · DXCC 281");
+    expect(screen.getByText(/Draft country\/DXCC differs from this lookup/)).toBeTruthy();
+    expect(value()).toMatchObject({ country: "ENGLAND", dxcc: 223 });
+    expect(within(screen.getByRole("complementary", { name: "Contact context" })).getByText("Spain")).toBeTruthy();
+    expect(request).toHaveBeenCalledWith("cluster_history", { call: "EA7EU", adif: 281 });
+  });
   it("keeps the native active contact, three detail columns, and right-hand context visible together", () => {
     render(<Harness />);
     for (const heading of ["Active contact", "QSO details", "Contact & location", "References & notes", "Station & QSL",

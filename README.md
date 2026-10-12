@@ -59,6 +59,25 @@ palette without changing filtering behavior.
 Band maps fill the available window height in both the main workspace and detached
 window. Marker positions are recalculated from the measured chart size whenever
 the window grows or shrinks; adaptive grid rows share the available vertical space.
+Zoomed band maps support mouse-wheel and drag panning within band limits; a drag
+does not activate a spot. Modes can be combined with checkboxes and are saved with
+workspace preferences. Detached cluster and band-map toolbars keep docking and
+configuration controls beside the working surface rather than in duplicate headers.
+
+The world map fits the complete selected short/long path, shades the night
+hemisphere in translucent grey, and shows spot callsigns from regional zoom.
+QRZ enrichment is callsign-scoped, reuses its authenticated session, and can show
+the XML profile photograph. Selected spot comments supply activation references
+with explicit installed-directory verification (unknown references are retained).
+Auto rotor follows resolved typed calls when explicitly enabled; selected spots
+wait for confirmed tuning, and Stop/reconnect disables automatic motion.
+
+Settings are grouped into Station, Wavelog, QRZ, Reference data and Backups tabs.
+Reference status distinguishes downloaded data, server checks and missing history;
+it never treats an existing file as proof that the upstream data is current.
+Awards reuse mutation-aware calculations and preserve the page on navigation.
+**The first uncached award catalogue calculation is still a known performance
+limitation** on large logs; warm-cache timings do not establish instant cold loading.
 
 **Integration sync is manual during migration.** A contact marked Queued with
 zero attempts is saved locally, not uploaded. The integration workspace has its
@@ -276,3 +295,9 @@ The cluster, award and environmental-intelligence expansion was inspired by Bala
 The extended JARL, WAPC and WCSA award logic and bundled reference datasets are adapted from BI1GHZ's MIT-licensed [ham-award-tools](https://github.com/cebarobot/ham-award-tools), reference commit `f28a04fa5a94368ac4099ce5cec97fcd93ce0849`. Its complete MIT notice is distributed in `Sources/XLogCore/Resources/ham-award-tools-LICENSE.md` and in the packaged application resources.
 
 The worldwide awards research registry is a dated, source-linked implementation input supplied for this project. It retains official source URLs and unresolved questions, contains summaries rather than reproduced rulebooks, and is deliberately gated from qualification claims until a complete executable rule pack and required reference data are audited.
+## Active operator feedback
+
+The [operator feedback delivery tracker](docs/OPERATOR_FEEDBACK_TRACKER_2026-10-12.md)
+records each requested UI/data/radio fix separately, including source, test,
+installation and live-acceptance status. Pending alpha.5 source changes are not
+proof of installed behavior or full native parity.

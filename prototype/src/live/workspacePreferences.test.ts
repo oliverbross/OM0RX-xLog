@@ -10,6 +10,14 @@ const native: WorkspacePreferences = {
 };
 
 describe("isolated workspace band-map preferences", () => {
+  it("round trips multiple mode choices and rejects invalid or duplicate values", () => {
+    const view = { bands: ["20m"], followRadio: false, layout: "grid" as const, fontScale: 1, modes: ["cw", "phone"] as ("cw" | "phone")[] };
+    const next = withBandMapView(native, false, view);
+    expect(bandMapView(next, false).modes).toEqual(["cw", "phone"]);
+    expect(validBandMapView({ ...view, modes: [] })).toBe(true);
+    expect(validBandMapView({ ...view, modes: ["cw", "cw"] })).toBe(false);
+    expect(validBandMapView({ ...view, modes: ["not-mode"] })).toBe(false);
+  });
   it("maps desk and detached choices without dropping unrelated native preferences", () => {
     const next = withBandMapView(native, false, { bands: ["17m"], followRadio: true, layout: "row", fontScale: 1.4 });
     expect(next.detachedBandMapLayout).toBe("Single row");
