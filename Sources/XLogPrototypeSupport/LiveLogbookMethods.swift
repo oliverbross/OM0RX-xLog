@@ -169,8 +169,8 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                 guard let call = params["call"] as? String,
                       call.range(of: #"^[A-Za-z0-9/\-]{2,32}$"#, options: .regularExpression) != nil else { throw invalid() }
                 let adif = params["adif"] == nil ? nil : try integer(params, "adif", default: 0, range: 1...1_000)
-                let contacts = try readyDatabase().historyCandidates(call: call, adif: adif)
-                return ["history": LocalContactHistory.project(contacts: contacts, call: call, adif: adif,
+                let contacts = try readyDatabase().historyRows(call: call, adif: adif)
+                return ["history": LocalContactHistory.project(rows: contacts, call: call, adif: adif,
                             resolver: try? currentCTYResolver())]
             case "logbook_list":
                 try requireKeys(params, allowed: ["search", "limit", "offset"])

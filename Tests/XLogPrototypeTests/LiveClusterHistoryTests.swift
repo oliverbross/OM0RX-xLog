@@ -90,8 +90,12 @@ struct LiveClusterHistoryTests {
         func assertEquivalent() throws {
             let full = projection(try database.fetchAll())
             let selected = projection(try database.historyCandidates(call: "K1ABC", adif: 291))
+            let thin = LocalContactHistory.project(rows: try database.historyRows(call: "K1ABC", adif: 291),
+                                                   call: "K1ABC", adif: 291, resolver: resolver)
             #expect(try JSONSerialization.data(withJSONObject: full, options: .sortedKeys)
                     == JSONSerialization.data(withJSONObject: selected, options: .sortedKeys))
+            #expect(try JSONSerialization.data(withJSONObject: full, options: .sortedKeys)
+                    == JSONSerialization.data(withJSONObject: thin, options: .sortedKeys))
         }
         try assertEquivalent()
 

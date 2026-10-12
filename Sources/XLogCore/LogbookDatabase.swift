@@ -59,6 +59,34 @@ public struct ClusterContactRow: Codable, Equatable, Sendable {
     }
 }
 
+/// Fields used by callsign/country intelligence. Large country histories must
+/// not decode every editable QSO field or arbitrary ADIF payload just to count
+/// contacts and paint a small band/mode matrix.
+public struct ContactHistoryRow: Decodable, Sendable {
+    public let id: UUID
+    public let call: String
+    public let start: Date
+    public let band: String
+    public let mode: String
+    public let submode: String
+    public let dxcc: Int?
+    public let qslReceived: String
+    public let lotwReceived: String
+    public let lotwSent: String
+    public let gridSquare: String
+    public let rstSent: String
+    public let rstReceived: String
+    public let deletedAt: Date?
+
+    public init(_ qso: QSO) {
+        id = qso.id; call = qso.call; start = qso.start; band = qso.band
+        mode = qso.mode; submode = qso.submode; dxcc = qso.dxcc
+        qslReceived = qso.qslReceived; lotwReceived = qso.lotwReceived; lotwSent = qso.lotwSent
+        gridSquare = qso.gridSquare; rstSent = qso.rstSent; rstReceived = qso.rstReceived
+        deletedAt = qso.deletedAt
+    }
+}
+
 public final class LogbookDatabase: @unchecked Sendable {
     private var handle: OpaquePointer?
     private let lock = NSRecursiveLock()
@@ -299,6 +327,14 @@ public final class LogbookDatabase: @unchecked Sendable {
     /// before JSON decoding; nil-DXCC rows remain candidates because their
     /// historical entity may be resolved from CTY at the QSO date.
     public func historyCandidates(call: String, adif: Int?) throws -> [QSO] {
+        try historyCandidates(call: call, adif: adif, as: QSO.self)
+    }
+
+    public func historyRows(call: String, adif: Int?) throws -> [ContactHistoryRow] {
+        try historyCandidates(call: call, adif: adif, as: ContactHistoryRow.self)
+    }
+
+    private func historyCandidates<T: Decodable>(call: String, adif: Int?, as type: T.Type) throws -> [T] {
         try lock.withLock {
             if let adif {
                 return try withStatement("""
@@ -317,7 +353,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                     """) { statement in
                         bind(call.uppercased(), to: 1, in: statement)
                         sqlite3_bind_int(statement, 2, Int32(adif))
-                        return try decodeRows(statement)
+                        return try decodeRows(statement, as: type)
                     }
             }
             return try withStatement("""
@@ -325,7 +361,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                 ORDER BY qso_start DESC;
                 """) { statement in
                     bind(call.uppercased(), to: 1, in: statement)
-                    return try decodeRows(statement)
+                    return try decodeRows(statement, as: type)
                 }
         }
     }
@@ -1211,12 +1247,19 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     private func decodeRows(_ statement: OpaquePointer?) throws -> [QSO] {
-        var values: [QSO] = []
-        while sqlite3_step(statement) == SQLITE_ROW {
+        try decodeRows(statement, as: QSO.self)
+    }
+
+    private func decodeRows<T: Decodable>(_ statement: OpaquePointer?, as type: T.Type) throws -> [T] {
+        var values: [T] = []
+        var step = sqlite3_step(statement)
+        while step == SQLITE_ROW {
             guard let bytes = sqlite3_column_blob(statement, 0) else { throw LogbookDatabaseError.corruptRecord }
             let count = Int(sqlite3_column_bytes(statement, 0))
-            values.append(try decoder.decode(QSO.self, from: Data(bytes: bytes, count: count)))
+            values.append(try decoder.decode(type, from: Data(bytes: bytes, count: count)))
+            step = sqlite3_step(statement)
         }
+        guard step == SQLITE_DONE else { throw error() }
         return values
     }
 

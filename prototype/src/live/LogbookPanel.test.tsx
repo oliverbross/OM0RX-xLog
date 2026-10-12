@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import LogbookPanel, { confirmationTone } from "./LogbookPanel";
+import LogbookPanel, { confirmationTone, utcTime } from "./LogbookPanel";
 
 const first = {
   id: "contact-1", call: "OM0RX", start: "2026-10-12T10:15:00Z", band: "20m", mode: "CW",
@@ -19,6 +19,16 @@ const page = (qsos: object[] = [first, second]) => ({ qsos, total: qsos.length, 
 afterEach(cleanup);
 
 describe("logbook confirmation visibility", () => {
+  it("reuses UTC formatting across table rows and preserves invalid-date handling", () => {
+    const constructor = vi.spyOn(Intl, "DateTimeFormat");
+    try {
+      for (let row = 0; row < 100; row++) {
+        expect(utcTime("2024-03-01T09:29:00+09:30")).toBe("29/02/2024, 23:59");
+      }
+      expect(utcTime("invalid")).toBe("invalid");
+      expect(constructor).not.toHaveBeenCalled();
+    } finally { constructor.mockRestore(); }
+  });
   it("uses native confirmation colour categories without interpreting unknown values as success", () => {
     expect(["Y", "v"].map(confirmationTone)).toEqual(["confirmed", "confirmed"]);
     expect(confirmationTone("N")).toBe("rejected");

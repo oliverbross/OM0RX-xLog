@@ -13,6 +13,11 @@ enum LocalContactHistory {
     /// history page or the band/mode matrix used by spot classification.
     static func project(contacts: [QSO], call: String, adif: Int?,
                                   resolver: CTYResolver? = nil) -> [String: Any] {
+        project(rows: contacts.map(ContactHistoryRow.init), call: call, adif: adif, resolver: resolver)
+    }
+
+    static func project(rows: [ContactHistoryRow], call: String, adif: Int?,
+                        resolver: CTYResolver? = nil) -> [String: Any] {
         let normalizedCall = call.uppercased()
         let entity = resolver?.resolve(normalizedCall)
         var previous: [[String: Any]] = []
@@ -20,13 +25,13 @@ enum LocalContactHistory {
         var previousConfirmedCount = 0
         var entityCount = 0
         var entityConfirmedCount = 0
-        var lastEntityQSO: QSO?
+        var lastEntityQSO: ContactHistoryRow?
         var lastGrid = ""
         var matrix: [String: (band: String, mode: String, confirmed: Bool)] = [:]
         let formatter = ISO8601DateFormatter()
         let matrixBands: Set<String> = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "2m", "70cm"]
         let matrixModes: Set<String> = ["CW", "SSB", "FT8", "FT4", "FT2", "RTTY", "PSK", "DIGI", "AM", "FM"]
-        for qso in contacts {
+        for qso in rows {
                 if qso.deletedAt != nil { continue }
                 let mode = SpotLogic.normalizedMode(qso.submode.isEmpty ? qso.mode : qso.submode)
                 let qsoAdif: Int? = adif == nil ? nil : (qso.dxcc ?? resolver?.resolve(qso.call, at: qso.start)?.adif)

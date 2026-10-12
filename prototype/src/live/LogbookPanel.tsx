@@ -37,14 +37,17 @@ function result<T>(response: any): T {
     : response) as T;
 }
 
-function utcTime(value: string) {
+// Construct once, not for every row on every selection/poll-driven render.
+const utcDateTime = new Intl.DateTimeFormat("en-GB", {
+  year: "numeric", month: "2-digit", day: "2-digit",
+  hour: "2-digit", minute: "2-digit", timeZone: "UTC", hour12: false,
+});
+
+export function utcTime(value: string) {
   const date = new Date(value);
   return Number.isNaN(date.getTime())
     ? value
-    : new Intl.DateTimeFormat("en-GB", {
-        year: "numeric", month: "2-digit", day: "2-digit",
-        hour: "2-digit", minute: "2-digit", timeZone: "UTC", hour12: false,
-      }).format(date);
+    : utcDateTime.format(date);
 }
 
 type ConfirmationTone = "confirmed" | "rejected" | "pending" | "unrecorded";
