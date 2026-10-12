@@ -136,6 +136,8 @@ Evidence: 87 Rust tests pass, including 9 native Cluster-owner tests and scoped 
 
 Checkpoint A source `bdeea582da377378df3874fb2d73f175d34b0d73` passed matrix `38317820765` (three builds, Windows fresh-runner and Linux runtime-only container acceptance) and Mac push `38317780404`. These results do not cover this subsequent Cluster extraction. Exact checkpoint B native runtime, cross-platform CI and packaged evidence remain pending. Installed alpha.13 is unchanged.
 
+Checkpoint B source is committed and pushed as `5670cd72144323531b60a4c79bd732c9e73ab9de`. All-platform matrix `38319902334` and Mac push `38319864420` are in progress; neither is claimed passed. No new package has been installed or released.
+
 ## Follow-on: RUMlogNG workflow and feature comparison
 
 User added this reference pass after the canvas/native-window request. Confirmed installed app identity through the native app inventory: `de.dl2rum.RUMlogNG`; it was not running at inspection. Its menus/settings have not yet been audited in this pass. Do not represent remembered features as current observations.
