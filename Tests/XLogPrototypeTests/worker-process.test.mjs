@@ -71,3 +71,18 @@ test("NDJSON rejects malformed and oversized lines then recovers", async () => {
   assert.equal(responses[2].id, "recovered");
   assert.equal(responses[2].ok, true);
 });
+
+test("P2 core integration methods run through the real bounded worker process", async () => {
+  const responses = await exercise(child => {
+    child.stdin.write(JSON.stringify({ id: "contracts", method: "integration_self_test", params: {} }) + "\n");
+    child.stdin.write(JSON.stringify({ id: "cluster", method: "cluster_classify", params: {
+      history_scope: "synthetic_session", contacts: [],
+      spots: [{ id: "s1", line: "DX de DEMO1: 14240.0 W1AW SSB", adif: 291 }],
+    } }) + "\n");
+  }, () => {}, 2);
+  assert.ok(responses.every(response => response.ok));
+  assert.equal(responses[0].result.passed, true);
+  assert.equal(responses[0].result.station_io, false);
+  assert.equal(responses[1].result.spots[0].call_status, "New Call");
+  assert.equal(responses[1].result.spots[0].dxcc_status, "ATNO");
+});

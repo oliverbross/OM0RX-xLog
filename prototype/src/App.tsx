@@ -41,6 +41,7 @@ import {
 } from "./model";
 import { desktop, openMonitor, workerRequest } from "./worker";
 import { startAcceptance } from "./acceptance";
+import { clusterBatch, decodeClassifications, opportunityLabel, classificationTone, type Classification } from "./integration";
 type View =
   | "Operator Desk"
   | "Logbook"
@@ -70,10 +71,14 @@ function BandMap({
   band,
   onSpot,
   selected,
+  opportunity = spotOpportunity,
+  tone = (spot: Spot) => spot.state,
 }: {
   band: Band;
   onSpot: (s: Spot) => void;
   selected: string | null;
+  opportunity?: (spot: Spot) => string;
+  tone?: (spot: Spot) => string;
 }) {
   const [zoom, setZoom] = useState(1);
   const [center, setCenter] = useState((bands[band].min + bands[band].max) / 2);
@@ -180,18 +185,18 @@ function BandMap({
         ))}
         {filtered.map((s, i) => (
           <button
-            className={`band-spot ${s.state} ${selected === s.id ? "selected" : ""}`}
+            className={`band-spot ${tone(s)} ${selected === s.id ? "selected" : ""}`}
             style={{
               top: `${pos(s.mhz)}%`,
               left: `${i % 2 === 0 ? "14" : "56"}%`,
             }}
             key={s.id}
             onClick={() => onSpot(s)}
-            aria-label={`Load ${s.call} ${(s.mhz * 1000).toFixed(1)} kHz ${s.mode}, synthetic ${spotOpportunity(s)}`}
-            title={`${s.mhz.toFixed(6)} MHz · fixture opportunity ${spotOpportunity(s)}`}
+            aria-label={`Load ${s.call} ${(s.mhz * 1000).toFixed(1)} kHz ${s.mode}, synthetic ${opportunity(s)}`}
+            title={`${s.mhz.toFixed(6)} MHz · synthetic opportunity ${opportunity(s)}`}
           >
             <b>{s.call}</b>
-            <span className="opportunity">{spotOpportunity(s)}</span>
+            <span className="opportunity">{opportunity(s)}</span>
           </button>
         ))}
       </div>
@@ -371,11 +376,34 @@ export default function App() {
   );
   const [checkResult, setCheckResult] = useState("");
   const [checking, setChecking] = useState(false);
+  const [classifications, setClassifications] = useState<Record<string, Classification>>({});
+  const [clusterStatus, setClusterStatus] = useState(desktop ? "Classifying synthetic session…" : "Browser preview · fixed fixture labels");
+  const [classificationRetry, setClassificationRetry] = useState(0);
+  const opportunity = (spot: Spot): string => desktop ? opportunityLabel(classifications[spot.id]) : spotOpportunity(spot);
+  const tone = (spot: Spot): string => desktop ? classificationTone(classifications[spot.id]) : spot.state;
   const [message, setMessage] = useState("");
   const [sidebar, setSidebar] = useState(true);
   const callsignRef = useRef<HTMLInputElement>(null);
   const channelRef = useRef<BroadcastChannel | null>(null);
   const current = isMonitor ? monitorState : state;
+  useEffect(() => {
+    if (!desktop || isMonitor) return;
+    let active = true;
+    setClassifications({});
+    setClusterStatus("Classifying synthetic session…");
+    workerRequest("cluster_classify", clusterBatch(state.qsos))
+      .then(response => {
+        const rows = decodeClassifications(response.result);
+        if (active) {
+          setClassifications(rows);
+          setClusterStatus(`xCluster rules · ${state.qsos.length} synthetic session QSOs`);
+        }
+      })
+      .catch(() => {
+        if (active) setClusterStatus("Classification unavailable · retry or check the worker");
+      });
+    return () => { active = false; };
+  }, [state.qsos, classificationRetry]);
   useEffect(() => {
     if (desktop) startAcceptance(isMonitor);
   }, []);
@@ -541,7 +569,7 @@ export default function App() {
           <WorldMap selected={current.selected} />
         </div>
         <footer className="status-line">
-          P1 prototype ·{" "}
+          P2 prototype ·{" "}
           {desktop ? "Desktop detached window" : "Browser preview"} · no
           hardware IO
         </footer>
@@ -587,7 +615,7 @@ export default function App() {
           </span>
         </div>
         <div className="rail-end">
-          <span className="simulation-tag">P1 SIMULATION</span>
+          <span className="simulation-tag">P2 SIMULATION</span>
           <b>{state.qsos.length} session QSOs</b>
         </div>
       </header>
@@ -773,6 +801,8 @@ export default function App() {
                   band={activeBand}
                   onSpot={onSpot}
                   selected={state.selected}
+                  opportunity={opportunity}
+                  tone={tone}
                 />
               </section>
             )}
@@ -791,6 +821,8 @@ export default function App() {
                   band={b}
                   onSpot={onSpot}
                   selected={state.selected}
+                  opportunity={opportunity}
+                  tone={tone}
                 />
               ))}
             </div>
@@ -822,9 +854,8 @@ export default function App() {
             </div>
             <p className="view-note secondary">
               Select a callsign or press Enter on its button to load the QSO
-              draft. Simulator follows frequency and mode. Fixture labels: NC
-              new call · NB new band · ATNO all-time new entity. No cluster
-              socket is opened.
+              draft. Simulator follows frequency and mode. Session labels: NC new call · NB new band · NM new mode · ATNO new entity · WKD worked.
+              Native labels use the extracted xCluster rules. Browser preview uses fixed fixtures. No cluster socket is opened.
             </p>
             <div className="table-scroll">
               <table>
@@ -857,17 +888,17 @@ export default function App() {
                       <td>{s.mode}</td>
                       <td>{s.country}</td>
                       <td>{s.reporter}</td>
-                      <td className="cyan mono">{spotOpportunity(s)}</td>
+                      <td className="cyan mono">{opportunity(s)}</td>
                       <td
                         className={
-                          s.state === "confirmed"
+                          tone(s) === "confirmed"
                             ? "teal"
-                            : s.state === "worked"
+                            : tone(s) === "worked"
                               ? "orange"
-                              : "cyan"
+                              : tone(s) === "secondary" ? "secondary" : "cyan"
                         }
                       >
-                        {s.state}
+                        {desktop ? classifications[s.id]?.call_status ?? "Unknown" : s.state}
                       </td>
                       <td>{s.note}</td>
                     </tr>
@@ -880,7 +911,9 @@ export default function App() {
             </div>
             <div className="cluster-console">
               <h2>Fixture console</h2>
-              <pre>{`[P1] Network feed disabled. Loaded ${spots.length} synthetic spots.\n[P1] Spot selection shares the QSO draft and simulated readback.\n[P1] No live cluster, FLEX forwarding or compatibility listener.`}</pre>
+              <p role="status" data-cluster-classification={Object.keys(classifications).length === spots.length ? "ready" : "unavailable"}>{clusterStatus}</p>
+              <button disabled={!desktop || clusterStatus.startsWith("Classifying")} onClick={() => setClassificationRetry(n => n + 1)}>Refresh classification</button>
+              <pre>{`[P2] ${spots.length} synthetic spots · no network feed.\n[P2] Native parser and classification rules from xCluster.\n[P2] No live cluster, FLEX forwarding or compatibility listener.`}</pre>
             </div>
           </section>
         )}
@@ -908,9 +941,9 @@ export default function App() {
                   : "Not configured"}
               </dd>
               <dt>Rotor</dt>
-              <dd>Not configured in P1</dd>
+              <dd>Not integrated yet</dd>
               <dt>Accessories</dt>
-              <dd>Not configured in P1</dd>
+              <dd>Not integrated yet</dd>
               <dt>PTT / CW / tune</dt>
               <dd>Unavailable in this prototype</dd>
               <dt>Provider generation</dt>
@@ -954,17 +987,19 @@ export default function App() {
               >
                 Run worker self-test
               </button>
+              <button disabled={!desktop || checking} onClick={() => check("integration_self_test")}>
+                Check integration contracts
+              </button>
             </div>
             {checking && <p role="status">Waiting for worker response…</p>}
             <pre className="check-output">
               {checkResult ||
                 "Launch the desktop prototype to inspect worker responses. Browser preview cannot run the Swift worker."}
             </pre>
-            <h2>P1 scope</h2>
+            <h2>Integration stage</h2>
             <p>
-              Operator desk · keyboard QSO session · integrated synthetic
-              cluster · station profile switching · interactive offline map ·
-              frequency-positioned band maps · detached station monitor.
+              Shared station contracts and xCluster parser/classification run in the Swift worker.
+              Cluster and band-map labels reflect synthetic session contacts; they are not results from your real logbook.
             </p>
             <p className="secondary">
               The logbook above is synthetic session memory. Production

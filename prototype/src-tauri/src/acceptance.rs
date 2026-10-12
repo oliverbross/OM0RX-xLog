@@ -52,7 +52,7 @@ fn bounded_object(report: &Value) -> Result<(), String> {
 }
 
 pub fn passed(report: &Value) -> bool {
-    const REQUIRED: [&str; 14] = ["worker_health", "worker_self_test", "worker_parse_adif", "map_loaded",
+    const REQUIRED: [&str; 17] = ["worker_health", "worker_self_test", "worker_parse_adif", "worker_integration_self_test", "cluster_classification_initial", "cluster_classification_logged", "map_loaded",
         "cluster_selection", "keyboard_log", "logbook_readback", "keyboard_focus", "keyboard_clear",
         "profile_manual", "profile_simulator", "monitor_opened", "monitor_snapshot", "final_desk"];
     let map = &report["details"]["finalMap"];
@@ -150,7 +150,7 @@ mod tests {
     #[test]
     fn success_requires_observed_ui_worker_and_multiple_boolean_checks() {
         let mut report = json!({"status":"passed","embeddedUi":true,"worker":true,"checks":{
-            "worker_health":true,"worker_self_test":true,"worker_parse_adif":true,"map_loaded":true,
+            "worker_health":true,"worker_self_test":true,"worker_parse_adif":true,"worker_integration_self_test":true,"cluster_classification_initial":true,"cluster_classification_logged":true,"map_loaded":true,
             "cluster_selection":true,"keyboard_log":true,"logbook_readback":true,"keyboard_focus":true,
             "keyboard_clear":true,"profile_manual":true,"profile_simulator":true,"monitor_opened":true,
             "monitor_snapshot":true,"final_desk":true},"details":{"finalMap":{

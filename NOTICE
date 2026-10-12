@@ -5,3 +5,11 @@ This product uses public amateur-radio reference data supplied by its configured
 sources. Those datasets remain subject to their respective providers' terms.
 
 The OM0RX-xLog icon was created specifically for this project.
+
+The isolated integration prototype includes pure-domain code adapted from
+OM0RX-xCluster by Oliver Bross OM0RX, GPL-3.0-only, source revision
+776b7b04ffa5a9057f1e909339393549a103836b. Exact file provenance and deliberate
+changes are recorded in docs/P2_CLUSTER_PROVENANCE.md.
+The new station contracts preserve observed-state requirements from OM0RX-xCat
+and xLog; their provenance and unintegrated boundaries are recorded in
+docs/P2_STATION_CONTRACT.md. Existing standalone applications remain preserved.

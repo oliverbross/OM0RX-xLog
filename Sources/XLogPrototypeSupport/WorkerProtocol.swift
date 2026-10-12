@@ -54,6 +54,11 @@ public struct PrototypeWorker {
             case "self_test":
                 try requireEmpty(params)
                 result = try PrototypeSelfTest.run()
+            case "integration_self_test":
+                try requireEmpty(params)
+                result = try IntegrationMethods.selfTest()
+            case "cluster_classify":
+                result = try IntegrationMethods.classify(params)
             default:
                 throw WorkerFailure("method_not_allowed", "Method is not available in the P1 worker.")
             }
@@ -93,7 +98,7 @@ public struct PrototypeWorker {
         #endif
         return ["protocol_version": 1, "worker": "xlog-prototype-worker", "platform": platform,
                 "mode": "synthetic_only", "station_io": false,
-                "methods": ["health", "parse_adif", "self_test"],
+                "methods": ["health", "parse_adif", "self_test", "integration_self_test", "cluster_classify"],
                 "limits": ["max_request_bytes": Self.maxRequestBytes, "max_response_bytes": Self.maxResponseBytes,
                            "max_adif_bytes": Self.maxADIFBytes,
                            "max_records": Self.maxRecords, "max_fields_per_record": Self.maxFieldsPerRecord]]

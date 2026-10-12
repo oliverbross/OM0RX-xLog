@@ -109,6 +109,14 @@ export function validWorkerResult(method: string, response: Json) {
     result.foundation_http === "urlsession_protocol_fixture_passed" &&
     result.sha256 === "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad" &&
     result.station_io === false && result.file_io === false && result.network_contact === false;
+  if (method === "integration_self_test") {
+    const station = result.station as Json | undefined;
+    const scenarios = station?.scenarios as Json | undefined;
+    const required = ["ackIsNotSuccess", "preCommandMatchRejected", "sidebandMismatchRejected", "freshExactObservationConfirms", "shutdownRejectsCallbacks"];
+    return result.passed === true && result.cluster_passed === true && result.schema_version === 1 &&
+      result.station_io === false && result.file_io === false && station?.schemaVersion === 1 &&
+      !!scenarios && required.every(key => scenarios[key] === true) && Object.values(scenarios).every(value => value === true);
+  }
   if (method !== "parse_adif") return false;
   const records = result.records as Json[] | undefined;
   const fields = records?.[0]?.fields as Json | undefined;
@@ -167,11 +175,13 @@ async function runMain(report: AcceptanceReport) {
   report.checks.map_loaded = true;
   button("Prototype Checks").click();
   await waitForAcceptance("worker check controls", () => Boolean(document.querySelector(".check-output")));
-  for (const [method, name] of [["health", "Check worker health"], ["self_test", "Run worker self-test"], ["parse_adif", "Parse synthetic ADIF"]]) {
+  for (const [method, name] of [["health", "Check worker health"], ["self_test", "Run worker self-test"], ["parse_adif", "Parse synthetic ADIF"], ["integration_self_test", "Check integration contracts"]]) {
     report.details[method] = await checkWorker(method, name);
     report.checks[`worker_${method}`] = true;
   }
   report.worker = ["health", "self_test", "parse_adif"].every((method) => report.checks[`worker_${method}`]);
+  await checkClusterOpportunity("ATNO");
+  report.checks.cluster_classification_initial = true;
   await loadFixture();
   report.checks.cluster_selection = true;
   const before = qsoCount();
@@ -185,6 +195,8 @@ async function runMain(report: AcceptanceReport) {
     return rows.length === 1 && rows[0].textContent?.includes("W1AW14.240000SSB") === true;
   });
   report.checks.logbook_readback = true;
+  await checkClusterOpportunity("WKD");
+  report.checks.cluster_classification_logged = true;
   key("F2");
   await waitForAcceptance("F2 callsign focus", () => document.activeElement?.getAttribute("aria-label") === "Callsign");
   report.checks.keyboard_focus = true;
@@ -233,6 +245,15 @@ async function runMain(report: AcceptanceReport) {
   report.checks.final_desk = document.querySelector(".workspace-heading h1")?.textContent === "Operator Desk" &&
     validMapEvidence(mapDetails()) && qsoCount() === 1;
   if (!report.checks.final_desk) throw new Error("Final operator desk or map is unavailable");
+}
+
+async function checkClusterOpportunity(expected: string) {
+  button("DX Cluster").click();
+  await waitForAcceptance(`native xCluster classification ${expected}`, () => {
+    const ready = document.querySelector('[data-cluster-classification="ready"]');
+    const row = [...document.querySelectorAll(".cluster tbody tr")].find(row => row.querySelector(".call-button")?.textContent === "W1AW");
+    return !!ready && [...(row?.querySelectorAll("td") ?? [])].some(cell => cell.textContent === expected);
+  });
 }
 
 async function runMonitor(report: AcceptanceReport) {

@@ -1,5 +1,7 @@
 # Unified xLog prototype — P1, not the production app
 
+P2a follow-up on `codex/unified-xlog-integration-p2`: the desktop now uses extracted xCluster parser/classification rules for the synthetic cluster and band-map labels, and adds shared station contracts/observed-state diagnostics. See [P2 integration evidence](../docs/P2_INTEGRATION_ACCEPTANCE.md). The 128-QSO memory-only session limit preserves complete classification history within bounded IPC; full durable storage and live providers are later work. The P1 evidence below remains historical baseline, not proof of complete suite integration.
+
 This isolated development application tests one React/Tauri interface and a retained Swift domain worker on macOS, Windows and Linux. It does **not** replace `/Applications/OM0RX-xLog.app`, xCat or xCluster. Use [the current working macOS-only release](https://github.com/oliverbross/OM0RX-xLog/releases/tag/v0.3.0) for real logging/station operation.
 
 ## What is implemented

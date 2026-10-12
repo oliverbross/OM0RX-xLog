@@ -187,6 +187,9 @@ export type Draft = {
   received: string;
 };
 export type QSO = Draft & { id: string; time: string; profile: Profile };
+// P2 memory-only preview: bounded complete history fits the native IPC envelope.
+// Never silently drop older records, which would invent new-call/entity results.
+export const MAX_SESSION_QSOS = 128;
 export type State = {
   draft: Draft;
   radio: { mhz: number; mode: Mode };
@@ -308,6 +311,9 @@ export function reducer(state: State, action: Action): State {
         notice: "Draft cleared",
       };
     case "log": {
+      if (state.qsos.length >= MAX_SESSION_QSOS) return {
+        ...state, error: `Synthetic session limit reached (${MAX_SESSION_QSOS} QSOs). The draft and existing contacts are unchanged.`,
+      };
       const error = validateDraft(state.draft);
       if (error) return { ...state, error };
       return {

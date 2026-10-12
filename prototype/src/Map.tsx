@@ -255,7 +255,7 @@ export default function WorldMap({
         </p>
       )}
       <div className="map-legend">
-        <span>Offline geography · synthetic spots</span>
+        <span>Offline geography · fixture colours</span>
         <div>
           <i className="dot cyan" /> Needed <i className="dot orange" /> Worked{" "}
           <i className="dot teal" /> Confirmed

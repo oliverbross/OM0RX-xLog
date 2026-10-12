@@ -22,7 +22,7 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         return Err("Invalid request ID".into());
     }
     let method = request["method"].as_str().ok_or("Method is required")?;
-    if !["health", "parse_adif", "self_test"].contains(&method) {
+    if !["health", "parse_adif", "self_test", "integration_self_test", "cluster_classify"].contains(&method) {
         return Err("This prototype permits only core diagnostics and ADIF parsing".into());
     }
     if !request["params"].is_object() {
@@ -108,7 +108,7 @@ mod tests {
 
     #[test]
     fn permits_only_prototype_core_methods() {
-        for method in ["health", "parse_adif", "self_test"] {
+        for method in ["health", "parse_adif", "self_test", "integration_self_test", "cluster_classify"] {
             assert!(validate_request(&json!({"id":"a","method":method,"params":{}})).is_ok());
         }
     }

@@ -2,6 +2,8 @@
 
 Planning revision: 4 · 2026-10-12 · Owner: Oliver Bross, OM0RX
 
+Implementation update: the user authorized the next integration stage while deferring consumer Windows testing. [P2a foundation](P2_INTEGRATION_ACCEPTANCE.md) implements shared station contracts and portable xCluster domain rules with native-worker/UI wiring on `codex/unified-xlog-integration-p2`. G2 remains partial until the remaining use-case/platform-service extraction and real-provider ownership are proven; no live cutover is implied.
+
 Status: **P0 preservation complete; P1 isolated prototype passes 39 tests per OS, runtime packaging and native synthetic UI acceptance on macOS, Windows and Linux. G1 remains conditional on consumer-desktop and platform-release acceptance**.
 The user authorized P0/P1 after revision 2. See [preservation manifest](P0_MACOS_BASELINE.md), [prototype](../prototype/README.md) and [acceptance ledger](P1_PROTOTYPE_ACCEPTANCE.md). This remains the complete programme plan, not a claim of released Windows/Linux support or hardware acceptance. Installed applications, station configuration, credentials and live logbooks remain unchanged. Later phases are not silently marked complete by the synthetic prototype.
 

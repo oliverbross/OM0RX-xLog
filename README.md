@@ -19,6 +19,8 @@ The prototype now has Windows portable-ZIP and Ubuntu 24.04 Debian/archive packa
 
 The packaging follow-up passes 39 tests per OS and native synthetic UI acceptance on macOS, Windows and Linux, including fresh-runtime Windows launches and isolated Ubuntu X11/Wayland launches. The user's Windows desktop check and production integration/release gates remain open; these packages are test prototypes, not the completed unified product.
 
+The next integration increment is isolated on [`codex/unified-xlog-integration-p2`](https://github.com/oliverbross/OM0RX-xLog/tree/codex/unified-xlog-integration-p2): portable xCluster parsing/classification now feeds the prototype's cluster and band-map labels, and shared station contracts preserve observed-state tuning semantics. See [P2 integration evidence and remaining scope](docs/P2_INTEGRATION_ACCEPTANCE.md). Live providers, credentials, personal logs and installed apps are not switched over by this increment.
+
 Development scope, acceptance evidence and the prioritized backlog are tracked in [PROJECT_STATUS.md](PROJECT_STATUS.md).
 
 ## Proposed local-station and cross-platform programme

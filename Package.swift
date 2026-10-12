@@ -42,9 +42,13 @@ let package = portableOnly ? Package(
             ],
             sources: ["ADIF.swift", "Models.swift", "QSOADIF.swift", "SemanticQSOIdentity.swift", "WavelogClient.swift"]
         ),
-        .target(name: "XLogPrototypeSupport", dependencies: ["XLogPortableCore", "CSQLitePrototype"] + portableCrypto),
+        .target(name: "XClusterIntegrationCore"),
+        .target(name: "XStationIntegrationCore"),
+        .target(name: "XLogPrototypeSupport", dependencies: ["XLogPortableCore", "CSQLitePrototype", "XClusterIntegrationCore", "XStationIntegrationCore"] + portableCrypto),
         .executableTarget(name: "XLogPrototypeWorker", dependencies: ["XLogPrototypeSupport"]),
         .testTarget(name: "XLogPrototypeTests", dependencies: ["XLogPrototypeSupport", "XLogPortableCore"], exclude: ["worker-process.test.mjs"]),
+        .testTarget(name: "XClusterIntegrationTests", dependencies: ["XClusterIntegrationCore"]),
+        .testTarget(name: "XStationIntegrationTests", dependencies: ["XStationIntegrationCore"]),
     ]
 ) : Package(
     name: "OM0RXXLog",

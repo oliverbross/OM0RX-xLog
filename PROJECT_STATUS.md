@@ -2,6 +2,10 @@
 
 Last updated: 2026-10-12
 
+## P2a integration foundation — in progress on an isolated branch
+
+The user authorized the next integration stage after deferring Windows consumer-desktop testing. `codex/unified-xlog-integration-p2` now contains the portable xCluster domain extraction, shared station/profile/command contracts, observed-state tune coordinator and native-worker classification wiring. See [P2 acceptance](docs/P2_INTEGRATION_ACCEPTANCE.md) for exact tests and open gates. This increment does not complete G2 or the full xCat/xCluster integration. Installed applications and pre-existing xCat work remain unchanged.
+
 ## Portability programme — P0/P1 prototype, production unchanged
 
 [Unified xLog project plan](docs/LOCAL_STATION_CROSS_PLATFORM_PLAN.md): integrate xCat station controls and the full xCluster workspace into xLog, add standalone Hamlib radio/rotor profiles, preserve remote station support, and deliver one shared macOS/Windows/Linux UI/domain implementation. P0 preservation and P1 implementation are authorized. The isolated [prototype](prototype/README.md) on `codex/unified-xlog-prototype-p1` builds and passes 39 prototype tests on each of macOS, Windows and Linux. Windows runtime ZIP and Ubuntu Debian/archive packages now pass fresh native runtime acceptance: two Windows GUI launches, four Linux X11/Wayland launches, and local Mac acceptance, with all 14 UI checks on every launch. Exact package source is `744e97033800df55e62fcaa7a9f467ac45ea3aab`; [runtime evidence, downloads and remaining gates](docs/P1_RUNTIME_ACCEPTANCE.md) distinguish automated acceptance from the user's later Windows desktop check. G1 remains conditional on consumer-desktop/platform-release gates, not missing runtime packaging. Current v0.3.0 remains the working macOS-only release. No installed app or station ownership changes. Existing uncommitted xCat work is preserved and must be reconciled before selecting the suite integration baseline.
