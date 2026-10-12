@@ -105,6 +105,37 @@ Rust tests and 19 focused rotor UI tests pass; TypeScript/Vite also passes.
 The planned 100,000-QSO native UI benchmark is still open; harness failures were
 addressed before extending performance acceptance.
 
+### Native Windows runtime and large log follow-up
+
+Matrix `38287723409`, source `bd90b6d7e6d0e0ccb3ca4fe2e5502a53cab551c2`,
+passed all three source/package jobs. Windows fresh-runner runtime job
+`114946041508` passed without a Swift installation: worker framing/recovery,
+local database round trip, module-origin checks and two native GUI launches.
+Both GUI reports contain all 16 checks, detached band maps at 110% and 71/71
+matching map framebuffer probes. The 1024×768 screenshot shows the application
+rendering with stacked, vertically scrollable desk panels; compact/4K polish is
+still an open acceptance item. This is Windows Server CI, not a Windows 11
+consumer-desktop or physical-device pass. Reports are in
+`docs/evidence/native-ui-bd90b6d/`.
+
+Linux runtime-only job `114939996239` passed local logging, shortcuts, settings
+and awards, then failed detached projection. Its screenshot shows the detached
+page saying “The URL can’t be shown”. In the pinned Tauri/Wry code, GTK
+incognito creates a fresh context per view while Tauri deduplicates scheme
+registration by the shared context key. The acceptance-only correction assigns
+separate temporary keys to detached views, retaining incognito and cleaning up
+owned directories on exit. A fresh native Linux run is required.
+
+The 100,000-record acceptance extension uses generated ADIF through the shipping
+bounded import API, then measures rendered logbook, first/repeat awards and
+local history. During setup, SQLite confirmed `SCAN qsos` for every semantic
+duplicate lookup because the existing case-insensitive index excluded deleted
+rows but that lookup intentionally includes them. A new all-record composite
+index retains duplicate/deletion semantics. The regression verifies indexed
+query planning, case-insensitive matching, deleted-record suppression and the
+existing one-second boundary. Native timings remain pending until a full run
+completes; neither fixture construction nor a source test proves responsiveness.
+
 ### Isolated current UI acceptance foundation
 
 The native acceptance launch now selects a dedicated worker session with a

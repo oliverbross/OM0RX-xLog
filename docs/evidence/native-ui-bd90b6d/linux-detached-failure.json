@@ -1,0 +1,46 @@
+{
+  "arch": "x86_64",
+  "checks": {
+    "awards_loaded": true,
+    "detached_projection": false,
+    "empty_workspace": true,
+    "isolated_worker": true,
+    "keyboard_clear": true,
+    "keyboard_editor": true,
+    "keyboard_focus": true,
+    "keyboard_log": true,
+    "logbook_readback": true,
+    "settings_save_readback": true,
+    "worker_integration_self_test": true,
+    "worker_parse_adif": true,
+    "worker_self_test": true,
+    "workspace_created": true
+  },
+  "details": {
+    "awardsReadyMs": 131,
+    "failureMap": {
+      "canvasHeight": 0,
+      "canvasWidth": 0,
+      "capturedAt": 0,
+      "error": "",
+      "landFeatures": 0,
+      "landPixelProbes": 0,
+      "loaded": false,
+      "matchedLandPixels": 0,
+      "pixelMismatches": [],
+      "renderedLandFeatures": 0,
+      "tilesLoaded": false,
+      "visible": false,
+      "webgl": false
+    },
+    "surface": "main"
+  },
+  "embeddedUi": true,
+  "error": "Acceptance failed: detached_projection",
+  "platform": "linux",
+  "schema": 1,
+  "scope": "integrated-local-ui",
+  "station_io": false,
+  "status": "failed",
+  "worker": true
+}

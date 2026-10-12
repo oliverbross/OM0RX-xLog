@@ -9,14 +9,21 @@ use tauri::Manager;
 #[derive(Default)]
 pub struct Acceptance {
     pub path: Option<PathBuf>,
+    large_log: bool,
     completed: AtomicBool,
     final_prepared: AtomicBool,
     monitor: Mutex<Option<Value>>,
+    #[cfg(target_os = "linux")]
+    browser_contexts: Mutex<Vec<tempfile::TempDir>>,
 }
 
 pub fn report_path(args: impl IntoIterator<Item = String>) -> Result<Option<PathBuf>, String> {
     let args: Vec<_> = args.into_iter().collect();
     let flags: Vec<_> = args.iter().enumerate().filter(|(_, a)| a.as_str() == "--acceptance-report").collect();
+    let large_flags = args.iter().filter(|arg| arg.as_str() == "--acceptance-large-log").count();
+    if large_flags > 1 || (flags.is_empty() && large_flags != 0) {
+        return Err("Large-log acceptance requires one acceptance report and at most one fixture flag".into());
+    }
     if flags.is_empty() { return Ok(None); }
     if flags.len() != 1 { return Err("Only one acceptance report is permitted".into()); }
     let path = PathBuf::from(args.get(flags[0].0 + 1).ok_or("Acceptance report path required")?);
@@ -30,9 +37,32 @@ pub fn report_path(args: impl IntoIterator<Item = String>) -> Result<Option<Path
 }
 
 impl Acceptance {
-    pub fn new(path: Option<PathBuf>) -> Self { Self { path, ..Self::default() } }
+    pub fn new(path: Option<PathBuf>) -> Self {
+        let large_log = path.is_some() && std::env::args().any(|arg| arg == "--acceptance-large-log");
+        Self { path, large_log, ..Self::default() }
+    }
     fn require(&self) -> Result<(), String> {
         if self.path.is_none() { Err("Acceptance is disabled for normal application launches".into()) } else { Ok(()) }
+    }
+    /// Wry creates a new ephemeral GTK context for each incognito view, while
+    /// Tauri deduplicates custom-scheme registration by data-directory key.
+    /// Give each detached acceptance view its own key so `tauri://` and IPC
+    /// are registered on that view too. Incognito remains enabled. Normal
+    /// operator windows retain their existing shared persistent context.
+    pub fn detached_browser_context(&self) -> Result<Option<PathBuf>, String> {
+        #[cfg(target_os = "linux")]
+        if self.path.is_some() {
+            let directory = tempfile::Builder::new().prefix("xlog-acceptance-webview-")
+                .tempdir().map_err(|error| error.to_string())?;
+            let path = directory.path().to_path_buf();
+            self.browser_contexts.lock().map_err(|_| "Acceptance contexts unavailable")?.push(directory);
+            return Ok(Some(path));
+        }
+        Ok(None)
+    }
+    pub fn cleanup_browser_contexts(&self) {
+        #[cfg(target_os = "linux")]
+        if let Ok(mut contexts) = self.browser_contexts.lock() { contexts.clear(); }
     }
     fn save(&self, report: &Value) -> Result<(), String> {
         self.require()?;
@@ -106,6 +136,9 @@ pub fn passed(report: &Value) -> bool {
 pub fn acceptance_enabled(state: tauri::State<'_, Acceptance>) -> bool { state.path.is_some() }
 
 #[tauri::command]
+pub fn acceptance_large_log(state: tauri::State<'_, Acceptance>) -> bool { state.path.is_some() && state.large_log }
+
+#[tauri::command]
 pub fn acceptance_monitor(window: tauri::WebviewWindow, state: tauri::State<'_, Acceptance>, report: Value) -> Result<(), String> {
     state.require()?;
     if !matches!(window.label(), "monitor" | "band-maps") { return Err("Only a tested detached surface may report its readback".into()); }
@@ -141,7 +174,9 @@ pub fn finish_acceptance(app: tauri::AppHandle, window: tauri::WebviewWindow, st
     bounded_object(&report)?;
     if state.completed.swap(true, Ordering::AcqRel) { return Err("Acceptance already completed".into()); }
     let prepared = state.final_prepared.load(Ordering::Acquire);
-    let success = prepared && passed(&report);
+    let large_valid = !state.large_log || large_log_passed(&report);
+    let success = prepared && passed(&report) && large_valid;
+    report["large_log_requested"] = json!(state.large_log);
     if !prepared && report["error"].is_null() {
         report["error"] = json!("Final native window transition was not prepared");
     }
@@ -162,20 +197,68 @@ pub fn finish_acceptance(app: tauri::AppHandle, window: tauri::WebviewWindow, st
 
 pub fn start_watchdog(app: tauri::AppHandle) {
     if app.state::<Acceptance>().path.is_none() { return; }
+    let timeout_seconds = if app.state::<Acceptance>().large_log { 300 } else { 90 };
     std::thread::spawn(move || {
-        std::thread::sleep(std::time::Duration::from_secs(90));
+        std::thread::sleep(std::time::Duration::from_secs(timeout_seconds));
         let state = app.state::<Acceptance>();
         if !state.completed.swap(true, Ordering::AcqRel) {
             let _ = state.save(&json!({"schema":1,"status":"failed","embeddedUi":false,"worker":false,
-                "platform":std::env::consts::OS,"error":"Native UI acceptance exceeded 90 seconds","station_io":false}));
+                "platform":std::env::consts::OS,"error":format!("Native UI acceptance exceeded {timeout_seconds} seconds"),"station_io":false}));
             app.exit(1);
         }
     });
 }
 
+fn large_log_passed(report: &Value) -> bool {
+    let performance = &report["details"]["performance"];
+    performance["fixture_records"] == 100_000 && performance["total_records"] == 100_002
+        && ["large_log_records", "large_logbook_ready", "large_awards_ready", "large_history_ready", "large_final_desk"]
+            .iter().all(|key| report["checks"][key] == true)
+        && ["importMs", "logbookReadyMs", "awardsFirstOpenMs", "awardsRepeatOpenMs", "historyFirstMs", "historyRepeatMs", "historyRenderedMs"]
+            .iter().all(|key| performance[key].as_f64().is_some_and(|value| value.is_finite() && value >= 0.0))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn normal_windows_do_not_allocate_acceptance_contexts() {
+        assert!(Acceptance::default().detached_browser_context().unwrap().is_none());
+    }
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn detached_ephemeral_contexts_have_distinct_keys_and_owned_cleanup() {
+        let state = Acceptance::new(Some(PathBuf::from("/tmp/unused-acceptance-report.json")));
+        let first = state.detached_browser_context().unwrap().unwrap();
+        let second = state.detached_browser_context().unwrap().unwrap();
+        assert_ne!(first, second);
+        assert!(first.is_dir() && second.is_dir());
+        state.cleanup_browser_contexts();
+        assert!(!first.exists() && !second.exists());
+    }
+    #[test]
+    fn large_log_requires_explicit_native_gate_and_complete_measurements() {
+        assert!(report_path(["app".into(), "--acceptance-large-log".into()]).is_err());
+        assert!(!large_log_passed(&json!({})));
+        let mut report = json!({"checks": {}, "details":{"performance": {
+            "fixture_records":100_000, "total_records":100_002
+        }}});
+        for key in ["large_log_records", "large_logbook_ready", "large_awards_ready", "large_history_ready", "large_final_desk"] {
+            report["checks"][key] = json!(true);
+        }
+        for key in ["importMs", "logbookReadyMs", "awardsFirstOpenMs", "awardsRepeatOpenMs", "historyFirstMs", "historyRepeatMs", "historyRenderedMs"] {
+            report["details"]["performance"][key] = json!(1);
+        }
+        assert!(large_log_passed(&report));
+        report["details"]["performance"]["total_records"] = json!(1);
+        assert!(!large_log_passed(&report));
+        report["details"]["performance"]["total_records"] = json!(100_002);
+        report["details"]["performance"]["historyFirstMs"] = json!(-1);
+        assert!(!large_log_passed(&report));
+        report["details"]["performance"]["historyFirstMs"] = json!(1);
+        report["checks"]["large_history_ready"] = json!(false);
+        assert!(!large_log_passed(&report));
+    }
     #[test]
     fn only_acceptance_windows_use_ephemeral_browser_storage() {
         let mut config: tauri::utils::config::Config = serde_json::from_value(json!({

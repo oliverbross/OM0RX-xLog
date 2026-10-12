@@ -1,0 +1,319 @@
+{
+  "schema": 1,
+  "status": "passed",
+  "platform": "windows",
+  "package": "D:\\a\\_temp\\xlog-windows-accept\\OM0RX-xLog-Prototype-windows-x86_64",
+  "startedUtc": "2026-10-12T18:14:24.6356453Z",
+  "checks": [
+    {
+      "name": "payload-hashes",
+      "passed": true,
+      "evidence": {
+        "manifestSha256": "57473bb1851f0ca187d2124bdff40a7c80b80743569960d32e7924e03ab88e70",
+        "files": 561
+      }
+    },
+    {
+      "name": "native-isolation",
+      "passed": true,
+      "evidence": {
+        "noSwiftRequired": true,
+        "swiftAbsentFromProbes": true
+      }
+    },
+    {
+      "name": "webview-prerequisite",
+      "passed": true,
+      "evidence": [
+        {
+          "registry": "HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
+          "version": "131.0.2903.86"
+        }
+      ]
+    },
+    {
+      "name": "worker-valid-module-origins",
+      "passed": true,
+      "evidence": {
+        "appLocalRequired": true,
+        "manifest": "worker-valid-modules.json",
+        "count": 54
+      }
+    },
+    {
+      "name": "ndjson-open-stdin-fragment-correlation",
+      "passed": true,
+      "evidence": {
+        "stationIO": false,
+        "localLogbook": true,
+        "shutdown": "EOF exit 0",
+        "responses": 3,
+        "methods": [
+          "health",
+          "parse_adif",
+          "self_test"
+        ]
+      }
+    },
+    {
+      "name": "ndjson-malformed-oversized-recovery",
+      "passed": true,
+      "evidence": {
+        "shutdown": "EOF exit 0",
+        "responses": 3
+      }
+    },
+    {
+      "name": "worker-local-logbook-round-trip",
+      "passed": true,
+      "evidence": {
+        "localFileIO": true,
+        "stationIO": false,
+        "syntheticRecords": true,
+        "shutdown": "exit 0"
+      }
+    },
+    {
+      "name": "worker-cli-self-test",
+      "passed": true,
+      "evidence": {
+        "shutdown": "exit 0",
+        "syntheticOnly": true
+      }
+    },
+    {
+      "name": "gui-run-1-module-origins",
+      "passed": true,
+      "evidence": {
+        "appLocalRequired": false,
+        "manifest": "gui-run-1-modules.json",
+        "count": 50
+      }
+    },
+    {
+      "name": "gui-run-1",
+      "passed": true,
+      "evidence": {
+        "screenshot": {
+          "path": "gui-run-1-desktop.png",
+          "height": 768,
+          "width": 1024,
+          "limitation": "Full native CI desktop image; inspect for actual application rendering.",
+          "status": "captured",
+          "sha256": "fda02f3f63ecc26db9262b2be639cf0e1a43bba30eec018fb2859e3ba6368645"
+        },
+        "report": "gui-run-1.json",
+        "reportSha256": "7fc8df37a8002b33f3113f97cc0b6b07bc4cb3676d07799cceda3e40cec3b341",
+        "nativeChecks": 16,
+        "exit": 0
+      }
+    },
+    {
+      "name": "gui-run-2-module-origins",
+      "passed": true,
+      "evidence": {
+        "appLocalRequired": false,
+        "manifest": "gui-run-2-modules.json",
+        "count": 49
+      }
+    },
+    {
+      "name": "gui-run-2",
+      "passed": true,
+      "evidence": {
+        "screenshot": {
+          "path": "gui-run-2-desktop.png",
+          "height": 768,
+          "width": 1024,
+          "limitation": "Full native CI desktop image; inspect for actual application rendering.",
+          "status": "captured",
+          "sha256": "fda02f3f63ecc26db9262b2be639cf0e1a43bba30eec018fb2859e3ba6368645"
+        },
+        "report": "gui-run-2.json",
+        "reportSha256": "51f83fc0a802cd42283dfb36828960049532ae26b1b345cf2c402890581bae4f",
+        "nativeChecks": 16,
+        "exit": 0
+      }
+    }
+  ],
+  "limitations": [
+    "GitHub Windows Server native acceptance is not Windows 11 consumer desktop acceptance.",
+    "Evergreen WebView2 is a declared installed-runtime prerequisite.",
+    "Unsigned internal prototype; no station, remote host, credentials or stable app is touched."
+  ],
+  "commit": "bd90b6d7e6d0e0ccb3ca4fe2e5502a53cab551c2",
+  "os": {
+    "description": "Microsoft Windows 10.0.20348",
+    "version": "Microsoft Windows NT 10.0.20348.0",
+    "architecture": "X64",
+    "powershell": "7.6.6",
+    "runnerImageVersion": "20261004.326.1",
+    "runnerImage": "win22"
+  },
+  "toolchains": {
+    "swiftRegisteredInstallations": [],
+    "commandsBeforeIsolation": {
+      "dumpbin": [],
+      "swift": [],
+      "vcpkg": [
+        "C:\\vcpkg\\vcpkg.exe"
+      ],
+      "node": [
+        "C:\\Program Files\\nodejs\\node.exe"
+      ],
+      "rustc": [
+        "C:\\Users\\runneradmin\\.cargo\\bin\\rustc.exe"
+      ],
+      "cargo": [
+        "C:\\Users\\runneradmin\\.cargo\\bin\\cargo.exe"
+      ],
+      "swiftc": []
+    },
+    "swiftKnownDirectories": [],
+    "swiftAbsentFromProbes": true,
+    "absenceLimit": "Command lookup, conventional installation paths and uninstall registry checked; not an exhaustive disk scan."
+  },
+  "isolation": {
+    "parentEnvironmentChanged": false,
+    "workingDirectory": "D:\\a\\_temp\\xlog-windows-evidence\\synthetic-profile",
+    "developerEnvironmentRemoved": true,
+    "childProfile": "D:\\a\\_temp\\xlog-windows-evidence\\synthetic-profile",
+    "childPath": "D:\\a\\_temp\\xlog-windows-accept\\OM0RX-xLog-Prototype-windows-x86_64;C:\\Windows\\System32;C:\\Windows"
+  },
+  "webview": {
+    "installations": [
+      {
+        "registry": "HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
+        "version": "131.0.2903.86"
+      }
+    ],
+    "mode": "Evergreen prerequisite; acceptance does not install it",
+    "installed": true
+  },
+  "guiReports": [
+    {
+      "arch": "x86_64",
+      "checks": {
+        "awards_loaded": true,
+        "detached_projection": true,
+        "empty_workspace": true,
+        "final_desk": true,
+        "isolated_worker": true,
+        "keyboard_clear": true,
+        "keyboard_editor": true,
+        "keyboard_focus": true,
+        "keyboard_log": true,
+        "logbook_readback": true,
+        "map_loaded": true,
+        "settings_save_readback": true,
+        "worker_integration_self_test": true,
+        "worker_parse_adif": true,
+        "worker_self_test": true,
+        "workspace_created": true
+      },
+      "details": {
+        "awardsReadyMs": 188,
+        "detached": {
+          "checks": {},
+          "details": {
+            "scale": "110%",
+            "surface": "band-maps"
+          },
+          "embeddedUi": true,
+          "schema": 1,
+          "scope": "integrated-local-ui",
+          "status": "passed",
+          "worker": false
+        },
+        "finalMap": {
+          "canvasHeight": 260,
+          "canvasWidth": 463,
+          "capturedAt": 1791828877653,
+          "error": "",
+          "landFeatures": 342,
+          "landPixelProbes": 71,
+          "loaded": true,
+          "matchedLandPixels": 71,
+          "pixelMismatches": [],
+          "renderedLandFeatures": 328,
+          "tilesLoaded": true,
+          "visible": true,
+          "webgl": true
+        },
+        "surface": "main"
+      },
+      "embeddedUi": true,
+      "platform": "windows",
+      "schema": 1,
+      "scope": "integrated-local-ui",
+      "station_io": false,
+      "status": "passed",
+      "worker": true
+    },
+    {
+      "arch": "x86_64",
+      "checks": {
+        "awards_loaded": true,
+        "detached_projection": true,
+        "empty_workspace": true,
+        "final_desk": true,
+        "isolated_worker": true,
+        "keyboard_clear": true,
+        "keyboard_editor": true,
+        "keyboard_focus": true,
+        "keyboard_log": true,
+        "logbook_readback": true,
+        "map_loaded": true,
+        "settings_save_readback": true,
+        "worker_integration_self_test": true,
+        "worker_parse_adif": true,
+        "worker_self_test": true,
+        "workspace_created": true
+      },
+      "details": {
+        "awardsReadyMs": 185,
+        "detached": {
+          "checks": {},
+          "details": {
+            "scale": "110%",
+            "surface": "band-maps"
+          },
+          "embeddedUi": true,
+          "schema": 1,
+          "scope": "integrated-local-ui",
+          "status": "passed",
+          "worker": false
+        },
+        "finalMap": {
+          "canvasHeight": 260,
+          "canvasWidth": 463,
+          "capturedAt": 1791828888687,
+          "error": "",
+          "landFeatures": 342,
+          "landPixelProbes": 71,
+          "loaded": true,
+          "matchedLandPixels": 71,
+          "pixelMismatches": [],
+          "renderedLandFeatures": 328,
+          "tilesLoaded": true,
+          "visible": true,
+          "webgl": true
+        },
+        "surface": "main"
+      },
+      "embeddedUi": true,
+      "platform": "windows",
+      "schema": 1,
+      "scope": "integrated-local-ui",
+      "station_io": false,
+      "status": "passed",
+      "worker": true
+    }
+  ],
+  "embeddedUi": true,
+  "worker": true,
+  "workerRegressionTests": 2,
+  "guiLaunches": 2,
+  "manualWindows11DesktopAcceptance": "pending user download/launch; no remote deployment performed",
+  "finishedUtc": "2026-10-12T18:14:53.7581395Z"
+}

@@ -1113,6 +1113,8 @@ public final class LogbookDatabase: @unchecked Sendable {
         CREATE INDEX IF NOT EXISTS idx_qsos_call ON qsos(call);
         CREATE INDEX IF NOT EXISTS idx_qsos_call_live_nocase
           ON qsos(call COLLATE NOCASE, qso_start DESC) WHERE deleted_at IS NULL;
+        CREATE INDEX IF NOT EXISTS idx_qsos_semantic
+          ON qsos(call COLLATE NOCASE, band COLLATE NOCASE, mode COLLATE NOCASE, qso_start);
         CREATE INDEX IF NOT EXISTS idx_qsos_start ON qsos(qso_start DESC);
         CREATE INDEX IF NOT EXISTS idx_qsos_dxcc_live
           ON qsos(CAST(json_extract(record_json,'$.dxcc') AS INTEGER), qso_start DESC)

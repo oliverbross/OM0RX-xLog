@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { awaitMap, mapDetails, validWorkerResult, waitForAcceptance } from "./acceptance";
+import { LARGE_LOG_RECORDS, largeLogADIFBatch } from "./acceptanceFixture";
 
 type Json = Record<string, any>;
 const frame = () => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
@@ -41,6 +42,7 @@ export function validSavedContact(result: Json) {
 }
 
 async function main(report: Json) {
+  const largeLog = await invoke<boolean>("acceptance_large_log");
   const check = (name: string, condition: boolean) => {
     report.checks[name] = condition;
     if (!condition) throw new Error(`Acceptance failed: ${name}`);
@@ -93,11 +95,21 @@ async function main(report: Json) {
   await click("Save settings");
   await waitForAcceptance("settings saved", () => document.querySelector(".sidebar-foot")?.textContent?.includes("TEST1") === true);
   check("settings_save_readback", (await worker("settings_load")).result.settings.stationCall === "TEST1");
-  await navigate("Awards");
+  if (largeLog) await prepareLargeLog(report, check);
   const awardsStarted = performance.now();
+  await navigate("Awards");
   await waitForAcceptance("bundled awards library", () => document.querySelector(".awards-summary b")?.textContent === "192");
   report.details.awardsReadyMs = Math.round(performance.now() - awardsStarted);
   check("awards_loaded", !document.querySelector(".awards-error"));
+  if (largeLog) {
+    report.details.performance.awardsFirstOpenMs = report.details.awardsReadyMs;
+    await navigate("Operator Desk");
+    const repeatStarted = performance.now();
+    await navigate("Awards");
+    await waitForAcceptance("repeat awards paint", () => !!document.querySelector(".awards-summary b")?.getClientRects().length);
+    report.details.performance.awardsRepeatOpenMs = Math.round(performance.now() - repeatStarted);
+    check("large_awards_ready", !document.querySelector(".awards-error"));
+  }
 
   await navigate("Band Maps");
   await waitForAcceptance("band maps", () => !!document.querySelector(".band-maps-scale output"));
@@ -119,7 +131,58 @@ async function main(report: Json) {
   await waitForAcceptance("final operator desk", () => !!document.querySelector('[aria-label="Desk Callsign"]'));
   report.details.finalMap = await awaitMap();
   check("map_loaded", true);
-  check("final_desk", element<HTMLInputElement>('[aria-label="Desk Callsign"]').value === "" && validSavedContact((await worker("logbook_list")).result));
+  check("final_desk", element<HTMLInputElement>('[aria-label="Desk Callsign"]').value === "" && validSavedContact((await worker("logbook_list", { search: "W1AW" })).result));
+  if (largeLog) {
+    await measureLargeHistory(report, check);
+    report.details.finalMap = await awaitMap();
+    check("large_final_desk", element<HTMLInputElement>('[aria-label="Desk Callsign"]').value === "" &&
+      (await worker("logbook_list", { limit: 1 })).result.total === LARGE_LOG_RECORDS + 2);
+  }
+}
+
+async function prepareLargeLog(report: Json, check: (name: string, condition: boolean) => void) {
+  const metrics: Json = { fixture_records: LARGE_LOG_RECORDS };
+  report.details.performance = metrics;
+  const importStarted = performance.now();
+  for (let offset = 0; offset < LARGE_LOG_RECORDS; offset += 64) {
+    const count = Math.min(64, LARGE_LOG_RECORDS - offset);
+    const result = (await worker("logbook_import_adif", { text: largeLogADIFBatch(offset, count) })).result;
+    if (result.imported !== count || result.skipped_duplicates !== 0) throw new Error(`Large fixture import incomplete at ${offset}`);
+  }
+  metrics.importMs = Math.round(performance.now() - importStarted);
+  // A normal rendered save publishes the log mutation to the real UI refresh
+  // path. Do not time a retained awards panel with pre-import cached state.
+  await navigate("Operator Desk");
+  await fill('[aria-label="Desk Callsign"]', "PERFTEST");
+  await fill('[aria-label="Desk Frequency MHz"]', "14.240000");
+  await fill('[aria-label="Desk Mode"]', "SSB");
+  element('[aria-label="Desk Callsign"]').dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", ctrlKey: true, bubbles: true, cancelable: true }));
+  await waitForAcceptance("large-workspace UI save", () => element<HTMLInputElement>('[aria-label="Desk Callsign"]').value === "" && document.body.textContent?.includes("PERFTEST saved") === true);
+  metrics.total_records = (await worker("logbook_list", { limit: 1 })).result.total;
+  check("large_log_records", metrics.total_records === LARGE_LOG_RECORDS + 2);
+  const started = performance.now();
+  await navigate("Logbook");
+  await waitForAcceptance("large logbook rendered rows", () => document.querySelector(".live-logbook")?.textContent?.includes((LARGE_LOG_RECORDS + 2).toLocaleString()) === true &&
+    !!document.querySelector(".live-logbook-table tbody tr"));
+  metrics.logbookReadyMs = Math.round(performance.now() - started);
+  check("large_logbook_ready", true);
+}
+
+async function measureLargeHistory(report: Json, check: (name: string, condition: boolean) => void) {
+  const metrics = report.details.performance;
+  for (const key of ["historyFirstMs", "historyRepeatMs"]) {
+    const started = performance.now();
+    const history = (await worker("cluster_history", { call: "DL1T0", adif: 230 })).result.history;
+    metrics[key] = Math.round(performance.now() - started);
+    if (history.previous_count !== 50 || history.dxcc_contact_count !== 12_500) throw new Error("Large fixture history totals do not match");
+  }
+  const started = performance.now();
+  await fill('[aria-label="Desk Callsign"]', "DL1T0");
+  await waitForAcceptance("rendered large-log callsign intelligence", () => document.querySelector(".desk-matrices h3 small")?.textContent?.includes("50 worked") === true);
+  metrics.historyRenderedMs = Math.round(performance.now() - started);
+  check("large_history_ready", true);
+  await click("Clear QSO", ".desk-active button");
+  await waitForAcceptance("large-test draft cleared", () => element<HTMLInputElement>('[aria-label="Desk Callsign"]').value === "");
 }
 
 let started = false;

@@ -209,7 +209,7 @@ async fn open_monitor(app: tauri::AppHandle) -> Result<(), String> {
         window.show().map_err(|e| e.to_string())?;
         return window.set_focus().map_err(|e| e.to_string());
     }
-    tauri::WebviewWindowBuilder::new(
+    let mut builder = tauri::WebviewWindowBuilder::new(
         &app,
         "monitor",
         tauri::WebviewUrl::App(if app.state::<acceptance::Acceptance>().path.is_some() {
@@ -220,8 +220,11 @@ async fn open_monitor(app: tauri::AppHandle) -> Result<(), String> {
     .inner_size(780.0, 600.0)
     .min_inner_size(640.0, 480.0)
     .always_on_top(false)
-    .incognito(app.state::<acceptance::Acceptance>().path.is_some())
-    .build()
+    .incognito(app.state::<acceptance::Acceptance>().path.is_some());
+    if let Some(directory) = app.state::<acceptance::Acceptance>().detached_browser_context()? {
+        builder = builder.data_directory(directory);
+    }
+    builder.build()
     .map(|_| ())
     .map_err(|e| e.to_string())
 }
@@ -243,13 +246,16 @@ async fn open_detached_map(app: tauri::AppHandle, window: tauri::WebviewWindow, 
         return existing.set_focus().map_err(|e| e.to_string());
     }
     let suffix = if app.state::<acceptance::Acceptance>().path.is_some() { "&acceptance=local" } else { "" };
-    let detached = tauri::WebviewWindowBuilder::new(&app, &kind, tauri::WebviewUrl::App(format!("index.html?view={kind}{suffix}").into()))
+    let mut builder = tauri::WebviewWindowBuilder::new(&app, &kind, tauri::WebviewUrl::App(format!("index.html?view={kind}{suffix}").into()))
         .title(title)
         .inner_size(width, height)
         .min_inner_size(640.0, 480.0)
         .always_on_top(false)
-        .incognito(app.state::<acceptance::Acceptance>().path.is_some())
-        .build().map_err(|e| e.to_string())?;
+        .incognito(app.state::<acceptance::Acceptance>().path.is_some());
+    if let Some(directory) = app.state::<acceptance::Acceptance>().detached_browser_context()? {
+        builder = builder.data_directory(directory);
+    }
+    let detached = builder.build().map_err(|e| e.to_string())?;
     if app.state::<acceptance::Acceptance>().path.is_none() {
         detached_geometry::restore(&detached);
         detached_geometry::watch(&detached);
@@ -368,13 +374,16 @@ fn main() {
         .setup(|app| { acceptance::start_watchdog(app.handle().clone()); Ok(()) })
         .invoke_handler(tauri::generate_handler![worker_request, pick_backup_package, open_monitor, open_detached_map,
             detached_cluster_request, claim_detached_cluster_request, complete_detached_cluster_request, detached_cluster_ready, dock_detached_window,
-            acceptance::acceptance_enabled, acceptance::acceptance_monitor,
+            acceptance::acceptance_enabled, acceptance::acceptance_large_log, acceptance::acceptance_monitor,
             acceptance::acceptance_monitor_result, acceptance::acceptance_prepare_final,
             acceptance::finish_acceptance])
         .build(context)
         .expect("Application failed to start")
-        .run(|_, event| {
-            if matches!(event, tauri::RunEvent::Exit) { winkeyer::shutdown(); hamlib::shutdown(); worker::shutdown(); }
+        .run(|app, event| {
+            if matches!(event, tauri::RunEvent::Exit) {
+                winkeyer::shutdown(); hamlib::shutdown(); worker::shutdown();
+                app.state::<acceptance::Acceptance>().cleanup_browser_contexts();
+            }
         });
 }
 
