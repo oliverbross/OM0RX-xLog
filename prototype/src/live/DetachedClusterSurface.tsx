@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ClusterPanel } from "./ClusterPanel";
 import { requestDetachedSpot } from "../worker";
 import { announceDetachedClusterReady, dockDetachedWorkspace, onClusterProjection,
-  newerClusterProjection, requestViaMain, type ClusterProjection } from "./DetachedClusterBridge";
+  newerClusterProjection, requestViaSession, type ClusterProjection } from "./DetachedClusterBridge";
 
 export function DetachedClusterSurface() {
   const [projection, setProjection] = useState<ClusterProjection | null>(null);
@@ -19,22 +19,26 @@ export function DetachedClusterSurface() {
         latestProjection.current = next;
         setProjection(next);
         setReceivedAt(Date.now());
+        if (next.available) setError("");
       }
     }).then(unlisten => {
       if (!active) { unlisten(); return; }
       stop = unlisten;
-      void announceDetachedClusterReady().catch(() => setError("Main cluster state is unavailable. Dock back and retry."));
-    }).catch(() => { if (active) setError("Main cluster state is unavailable. Dock back and retry."); });
+      void announceDetachedClusterReady().catch(() => { if (active) setError("Cluster service updates are unavailable. Refresh to retry; no action will be replayed."); });
+    }).catch(() => { if (active) setError("Could not subscribe to cluster updates. Close and reopen this window."); });
     return () => { active = false; stop?.(); };
   }, []);
   const dock = () => void dockDetachedWorkspace().catch(() => setError("Could not dock this window. Close it and reopen DX Cluster in the main workspace."));
   return <div className="app live monitor-app" style={{ display: "flex", flexDirection: "column" }}>
     <main style={{ flex: 1, minHeight: 0, padding: 14 }}>
       {error && <p className="live-error" role="alert">{error}</p>}
-      {receivedAt > 0 && clock - receivedAt > 5_000 && <p className="live-cluster-note" role="status">Main workspace updates paused; cluster data below may be stale.</p>}
-      {!projection && <p className="secondary">Waiting for the main cluster workspace…</p>}
-      <ClusterPanel passive snapshot={projection?.response ?? null} selectedSpotId={projection?.selected ?? null} onRequest={requestViaMain} onDock={dock}
-        onSelect={spot => void requestDetachedSpot("dx-cluster", spot.id).catch(() => setError("Spot selection could not reach the main workspace."))}
+      {projection && (!projection.available || receivedAt > 0 && clock - receivedAt > 5_000) && <p className="live-cluster-note" role="status">Cluster service updates paused; the last received spots remain visible. Refresh to check the service.</p>}
+      {!projection?.response && <p className="secondary">Loading the shared cluster session…</p>}
+      <ClusterPanel passive snapshot={projection?.response ?? null} selectedSpotId={projection?.selected ?? null} onRequest={requestViaSession} onDock={dock}
+        onSelect={spot => {
+          if (!projection?.available || Date.now() - receivedAt > 5_000) { setError("Refresh cluster state before selecting a spot."); return; }
+          void requestDetachedSpot("dx-cluster", spot.id).catch(() => setError("Spot selection could not reach the QSO workspace."));
+        }}
         passwordControlsEnabled={false} />
     </main>
   </div>;

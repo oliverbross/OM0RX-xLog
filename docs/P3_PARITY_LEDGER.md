@@ -55,6 +55,8 @@ The operator expanded the earlier three-window requirement to **all screens**, e
 
 Status: **partial foundation only**. The new database/worker API provides revision-checked operator drafts and transactional Save receipts with offline tests. The current renderer still owns polling, draft UI state and child projections. It must be replaced by shared session ownership before closing the main renderer can count as fully undocked acceptance. Logged-contact edit concurrency, canvas/menu implementation, per-window capabilities and exact native/OS proof remain open. RUMlog reference comparison is a follow-on, not an asserted parity result.
 
+Checkpoint B extracts **Cluster only**: one native snapshot poller and last-good projection, direct scoped detached Cluster commands, no main-renderer transport relay, and no retry after uncertain delivery. Other polling/projections, QSO selection and automatic actions still depend on the main renderer. 87 Rust and 367 frontend tests pass; production frontend builds. Browser fixtures verify stale-data retention/recovery, not native main-window-absent operation. All-screen undocking and WS-08 sizing remain unaccepted; installed alpha.13 is unchanged. See the workspace plan for precise evidence and open gates.
+
 ### Operator-requested detachable workspaces — 2026-10-12
 
 **Required; acceptance pending.** DX Cluster, World Map and Band Maps must each

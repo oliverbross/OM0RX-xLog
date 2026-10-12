@@ -15,6 +15,11 @@ const MAX_IN_FLIGHT: usize = 16;
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(45);
 pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     validate_request(request)?;
+    // Cluster has a separate scoped session dispatcher. No new window label
+    // inherits the main workspace's logbook, credential or station authority.
+    if !matches!(label, "main" | "monitor" | "world-map" | "band-maps") {
+        return Err("This window cannot access the workspace service.".into());
+    }
     // New shared-draft commands are staged behind the current main surface.
     // Detached editors receive explicit registry capabilities in the next stage;
     // an unknown/new label must not inherit logging rights by default.
@@ -653,6 +658,17 @@ mod tests {
             assert!(validate_request(&json!({"id":"a","method":method,"params":{}})).is_err());
         }
     }
+    #[test]
+    fn unregistered_and_cluster_windows_do_not_inherit_main_workspace_authority() {
+        for label in ["dx-cluster", "logbook", "unknown", ""] {
+            for method in ["logbook_save", "settings_save", "station_connect", "station_action", "health"] {
+                let request = json!({"id":"fixture-12345678","method":method,"params":{}});
+                assert!(validate_surface(label, &request).is_err(), "{label}: {method}");
+                assert!(validate_surface("main", &request).is_ok(), "main: {method}");
+            }
+        }
+    }
+
     #[test]
     fn rejects_unknown_fields_and_bad_shapes() {
         assert!(

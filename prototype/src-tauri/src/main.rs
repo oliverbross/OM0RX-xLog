@@ -6,12 +6,10 @@ mod hamlib;
 mod rotor;
 mod detached_geometry;
 mod winkeyer;
+mod cluster_session;
 
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu, WINDOW_SUBMENU_ID};
 use tauri::{Emitter, LogicalSize, Manager};
-use std::collections::HashMap;
-use std::sync::{Mutex, OnceLock};
-use std::time::{Duration, Instant};
 
 const COMPACT_WORKSPACE_MENU_ID: &str = "workspace_compact";
 const STANDARD_WORKSPACE_MENU_ID: &str = "workspace_standard";
@@ -103,10 +101,18 @@ fn apply_workspace_layout(app: &tauri::AppHandle, layout: WorkspaceLayout) -> ta
 }
 
 #[tauri::command]
-async fn worker_request(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, request: serde_json::Value) -> Result<serde_json::Value, String> {
+async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, request: serde_json::Value) -> Result<serde_json::Value, String> {
     // Only typed integration operations cross this boundary; never shell commands.
     if state.path.is_some() { acceptance::validate_local_request(&request)?; }
     let method = request.get("method").and_then(|m| m.as_str()).unwrap_or("");
+    // Local acceptance permits cluster_history against its synthetic logbook,
+    // but must never start the live session's background snapshot service.
+    if state.path.is_none() && cluster_session::handles(method) {
+        cluster_session::validate(window.label(), &request)?;
+        let session = cluster_session::owner(&app)?;
+        return tauri::async_runtime::spawn_blocking(move || session.request(request))
+            .await.map_err(|_| "Cluster session task failed".to_string())?;
+    }
     if method.starts_with("winkeyer_") {
         winkeyer::validate_surface(window.label())?;
         return tauri::async_runtime::spawn_blocking(move || winkeyer::request(request))
@@ -263,70 +269,19 @@ async fn open_detached_map(app: tauri::AppHandle, window: tauri::WebviewWindow, 
     Ok(())
 }
 
-fn valid_cluster_envelope(request: &serde_json::Value) -> bool {
-    let Some(object) = request.as_object() else { return false; };
-    let Some(id) = object.get("id").and_then(|value| value.as_str()) else { return false; };
-    let Some(method) = object.get("method").and_then(|value| value.as_str()) else { return false; };
-    object.len() == 3 && (8..=64).contains(&id.len()) && id.bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
-        && matches!(method, "cluster_snapshot" | "cluster_filter" | "cluster_connect" | "cluster_disconnect"
-            | "cluster_history" | "cluster_command" | "cluster_console_clear" | "cluster_configure")
-        && object.get("params").is_some_and(serde_json::Value::is_object)
-        && serde_json::to_vec(request).is_ok_and(|encoded| encoded.len() <= 32_768)
-}
-
-type PendingCluster = HashMap<String, (Instant, serde_json::Value)>;
-fn pending_cluster() -> &'static Mutex<PendingCluster> {
-    static PENDING: OnceLock<Mutex<PendingCluster>> = OnceLock::new();
-    PENDING.get_or_init(|| Mutex::new(HashMap::new()))
-}
-fn store_cluster_request(id: String, request: serde_json::Value) -> Result<(), String> {
-    let mut pending = pending_cluster().lock().map_err(|_| "Cluster bridge unavailable".to_string())?;
-    pending.retain(|_, (created, _)| created.elapsed() < Duration::from_secs(60));
-    if pending.len() >= 64 || pending.contains_key(&id) { return Err("Too many pending cluster actions".into()); }
-    pending.insert(id, (Instant::now(), request));
-    Ok(())
-}
-fn take_cluster_request(id: &str) -> Result<serde_json::Value, String> {
-    let mut pending = pending_cluster().lock().map_err(|_| "Cluster bridge unavailable".to_string())?;
-    let Some((created, request)) = pending.remove(id) else { return Err("Unknown or already handled cluster action".into()); };
-    if created.elapsed() >= Duration::from_secs(60) { return Err("Cluster action expired".into()); }
-    Ok(request)
-}
-
 #[tauri::command]
-fn detached_cluster_request(window: tauri::WebviewWindow, app: tauri::AppHandle, request: serde_json::Value) -> Result<(), String> {
-    if window.label() != "dx-cluster" || !valid_cluster_envelope(&request) {
-        return Err("Detached cluster request is not permitted".into());
-    }
-    let id = request["id"].as_str().unwrap_or_default().to_string();
-    store_cluster_request(id.clone(), request)?;
-    if let Err(error) = app.emit_to("main", "xlog:cluster-request", &id) {
-        if let Ok(mut pending) = pending_cluster().lock() { pending.remove(&id); }
-        return Err(error.to_string());
-    }
-    Ok(())
-}
-
-#[tauri::command]
-fn claim_detached_cluster_request(window: tauri::WebviewWindow, id: String) -> Result<serde_json::Value, String> {
-    if window.label() != "main" || !(8..=64).contains(&id.len()) { return Err("Only the main workspace can claim cluster actions".into()); }
-    take_cluster_request(&id)
-}
-
-#[tauri::command]
-fn complete_detached_cluster_request(window: tauri::WebviewWindow, app: tauri::AppHandle, response: serde_json::Value) -> Result<(), String> {
-    if window.label() != "main" || response.get("id").and_then(|value| value.as_str()).is_none_or(|id| !(8..=64).contains(&id.len()))
-        || !response.get("ok").is_some_and(serde_json::Value::is_boolean)
-        || serde_json::to_vec(&response).map_or(true, |encoded| encoded.len() > 1_048_576) {
-        return Err("Detached cluster response is not permitted".into());
-    }
-    app.emit_to("dx-cluster", "xlog:cluster-response", response).map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-fn detached_cluster_ready(window: tauri::WebviewWindow, app: tauri::AppHandle) -> Result<(), String> {
+async fn detached_cluster_ready(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>) -> Result<(), String> {
     if window.label() != "dx-cluster" { return Err("Only the detached cluster can announce readiness".into()); }
-    app.emit_to("main", "xlog:cluster-ready", ()).map_err(|error| error.to_string())
+    if state.path.is_some() { return Err("Live cluster access is disabled in isolated acceptance.".into()); }
+    let session = cluster_session::owner(&app)?;
+    tauri::async_runtime::spawn_blocking(move || session.refresh_and_publish()).await
+        .map_err(|_| "Cluster session task failed".to_string())?
+}
+
+#[tauri::command]
+fn cluster_session_selection(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>, selected: Option<String>) -> Result<(), String> {
+    if window.label() != "main" || state.path.is_some() { return Err("Only the live QSO workspace can publish a cluster selection.".into()); }
+    cluster_session::owner(&app)?.select(selected)
 }
 
 #[tauri::command]
@@ -373,7 +328,7 @@ fn main() {
         .manage(acceptance::Acceptance::new(path))
         .setup(|app| { acceptance::start_watchdog(app.handle().clone()); Ok(()) })
         .invoke_handler(tauri::generate_handler![worker_request, pick_backup_package, open_monitor, open_detached_map,
-            detached_cluster_request, claim_detached_cluster_request, complete_detached_cluster_request, detached_cluster_ready, dock_detached_window,
+            detached_cluster_ready, cluster_session_selection, dock_detached_window,
             acceptance::acceptance_enabled, acceptance::acceptance_large_log, acceptance::acceptance_monitor,
             acceptance::acceptance_monitor_result, acceptance::acceptance_prepare_final,
             acceptance::finish_acceptance])
@@ -381,7 +336,7 @@ fn main() {
         .expect("Application failed to start")
         .run(|app, event| {
             if matches!(event, tauri::RunEvent::Exit) {
-                winkeyer::shutdown(); hamlib::shutdown(); worker::shutdown();
+                cluster_session::shutdown(); winkeyer::shutdown(); hamlib::shutdown(); worker::shutdown();
                 app.state::<acceptance::Acceptance>().cleanup_browser_contexts();
             }
         });
@@ -389,8 +344,7 @@ fn main() {
 
 #[cfg(test)]
 mod workspace_layout_tests {
-    use super::{store_cluster_request, take_cluster_request, valid_cluster_envelope, WorkspaceLayout, COMPACT_WORKSPACE_MENU_ID, STANDARD_WORKSPACE_MENU_ID};
-    use serde_json::json;
+    use super::{WorkspaceLayout, COMPACT_WORKSPACE_MENU_ID, STANDARD_WORKSPACE_MENU_ID};
 
     #[test]
     fn menu_actions_have_exact_logical_inner_sizes() {
@@ -405,23 +359,4 @@ mod workspace_layout_tests {
         assert_eq!(WorkspaceLayout::from_menu_id("quit"), None);
     }
 
-    #[test]
-    fn detached_cluster_envelope_rejects_credential_and_station_commands() {
-        assert!(valid_cluster_envelope(&json!({"id":"12345678-abcd","method":"cluster_filter","params":{"filter":{"query":"EA"}}})));
-        assert!(!valid_cluster_envelope(&json!({"id":"12345678-abcd","method":"cluster_password_set","params":{"password":"secret"}})));
-        assert!(!valid_cluster_envelope(&json!({"id":"12345678-abcd","method":"station_tune","params":{}})));
-        assert!(!valid_cluster_envelope(&json!({"id":"12345678-abcd","method":"cluster_filter","params":"bad"})));
-        assert!(!valid_cluster_envelope(&json!({"id":"12345678-abcd","method":"cluster_command","params":{"command":"x".repeat(40000)}})));
-    }
-
-    #[test]
-    fn cluster_action_ticket_is_single_use_and_cannot_be_forged_by_an_event() {
-        let id = "ticket-12345678";
-        assert!(take_cluster_request(id).is_err());
-        let canonical = json!({"id":id,"method":"cluster_snapshot","params":{}});
-        store_cluster_request(id.into(), canonical.clone()).unwrap();
-        assert!(store_cluster_request(id.into(), canonical.clone()).is_err());
-        assert_eq!(take_cluster_request(id).unwrap(), canonical);
-        assert!(take_cluster_request(id).is_err());
-    }
 }

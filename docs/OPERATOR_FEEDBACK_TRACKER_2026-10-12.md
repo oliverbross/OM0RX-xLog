@@ -25,6 +25,8 @@ Tracked in [the workspace implementation plan](WORKSPACE_CANVAS_AND_NATIVE_WINDO
 
 The first source stage adds a durable revisioned operator draft and atomic Save/receipt transaction, with 10 focused tests and Rust boundary tests passing. It is not yet wired to the UI. Main-renderer polling/projection extraction, editable logged-contact revisions, canvas, menus, window lifecycle and native/OS acceptance remain open; no full-undocked claim is made.
 
+The next source checkpoint extracts Cluster polling and detached commands into a native shared owner, retaining last-good spots on service failure and rejecting command replay/late shutdown results. Scope and remaining renderer dependencies are documented under checkpoint B in the plan. Rust: 87 passed; frontend: 367 passed; TypeScript/Vite build passed. Isolated browser stale/recovery checks passed; compact all-column readability and full-height panel use remain open (WS-08). No new package installed. Prior draft checkpoint `bdeea58` passed all-platform CI `38317820765` and Mac `38317780404`; these do not cover the new Cluster changes.
+
 Exact installed alpha.13 source `e126d6f4ba7009494db76f9fbf49ed4ca44ff8a9` now has successful three-platform run `38314805976` (Mac/Windows/Linux build jobs plus Windows fresh-runner and Linux runtime-only acceptance). Push Mac run `38314721512` also passed. These results apply to alpha.13, not the new workspace source stage, and do not prove physical desktop or radio acceptance.
 
 ### Alpha.8 installed checkpoint

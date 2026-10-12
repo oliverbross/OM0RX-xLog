@@ -1,6 +1,6 @@
 # Configurable Operator Desk and native windows
 
-Status: shared-draft foundation in implementation; canvas, menus and independent-window acceptance remain open.
+Status: shared-draft foundation and initial native Cluster session implemented in source; canvas, menus and independent-window acceptance remain open.
 Request: 13 October 2026. Baseline: `0cc7ecc` / installed alpha.13.
 
 ## Product contract
@@ -123,6 +123,18 @@ Only new-contact drafts are covered here. Logged-contact editing still uses its 
 Recent non-save receipts retain a 256-revision retry window; older retries fail the revision fence. Save receipts do not expire. Receipt responses are historical operation results, not fresh snapshots. Drafts are limited to 24 KiB and request parameters to 32,000 bytes beneath the native IPC limit. Existing native window permissions are not expanded: only `main` can call these operations until the panel capability registry is implemented.
 
 Evidence: 10 focused Swift tests pass, covering separate database connections, simultaneous saves, restart/lost acknowledgement, operation-ID misuse, injected receipt-write rollback, logged-contact identity protection, validation, bounded transient receipts, backup recovery, worker conflict responses and terminal shutdown. The shared Swift regression suite passed before the final shutdown-fence addition (80 Swift Testing cases plus XCTest suites); the focused 10-test rerun includes that addition. Native core regression tests pass (73). Rust worker boundary tests pass (15), as do local acceptance boundary tests (9). Cross-platform CI on this new source and renderer migration remain pending.
+
+### Checkpoint B — native Cluster session extraction
+
+Implemented in source, not installed: `prototype/src-tauri/src/cluster_session.rs` now owns one background snapshot poller, a revisioned last-good projection, bounded command admission and the existing Swift worker transport. Main-window snapshot reads reuse that projection. Detached Cluster commands go directly to the native owner; the main-renderer request-ticket relay and full-snapshot publisher are removed. No command is retried after an uncertain response. Service failures retain spots and mark the projection unavailable; shutdown rejects late results. Explicit window capabilities keep Cluster away from credentials and station/logbook writes, and unknown labels no longer inherit main-window permissions. Local-only acceptance's history reads bypass this owner so they cannot activate live polling.
+
+This is **not** complete shared-session ownership: spot selection/tuning still reaches the QSO renderer; draft UI, lookup generations, follow-radio, automatic rotor logic, connection restart intent and other detached projections have not migrated. Closing the main renderer is not yet a supported whole-app workflow. Native menus, all-screen windows (including Logbook), canvas and geometry/lifecycle acceptance remain open.
+
+Evidence: 87 Rust tests pass, including 9 native Cluster-owner tests and scoped worker-boundary checks. Full frontend suite: 367 tests across 57 files; TypeScript and production Vite build pass. The existing large-bundle/ineffective Map dynamic-import warning remains a performance follow-up. An isolated browser fixture checked loading, last-good/stale state and Refresh recovery at 1180×800 and 640×480; no browser exceptions, and compact document width equals viewport width. The fixture performed no live IPC or station/network action. Screenshots are retained in `/tmp/xlog-cluster-session-8vB0Ls`. The temporary harness was removed after verification.
+
+**WS-08 remains open:** all 14 selected Cluster columns become over-compressed at 640 px; the retained table also does not yet use the full detached-window height. Address these in the panel sizing/canvas pass, not by hiding inaccessible overflow. These screenshots are not native runtime or whole-feature acceptance.
+
+Checkpoint A source `bdeea582da377378df3874fb2d73f175d34b0d73` passed matrix `38317820765` (three builds, Windows fresh-runner and Linux runtime-only container acceptance) and Mac push `38317780404`. These results do not cover this subsequent Cluster extraction. Exact checkpoint B native runtime, cross-platform CI and packaged evidence remain pending. Installed alpha.13 is unchanged.
 
 ## Follow-on: RUMlogNG workflow and feature comparison
 

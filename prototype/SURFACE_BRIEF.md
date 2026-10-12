@@ -1,5 +1,9 @@
 # P1 preserved operator console
 
+## Shared detached Cluster extension — 13 October 2026
+
+This extension targets the live Integration surface, not the historical P1 fixture below. Operate mode; preserve the shipped navy/cyan palette, Cluster table, toolbar, docking action and column controls. Change only transport ownership and truthful loading/stale-service copy. The native shared session supplies Cluster projections and handles permitted Cluster actions. Retain the last verified spots on failure and keep Dock back reachable. Radio tuning/spot selection coordination and restart connection-intent migration remain separate pending session work; do not label this fully undocked acceptance.
+
 Operate mode. This is a framework feasibility slice of the current OM0RX-xLog console, using docs/screenshots/operator-desk.png and band-maps.png as visual authority. Preserve navy surfaces, compact system-family labels, mono frequency/callsign measurements, sidebar, station rail, compact active QSO, contextual intelligence, station pulse, geographic map and frequency-positioned band maps. No visual redesign.
 
 All station, cluster and QSO values are synthetic. Profiles offer only simulator and manual/disconnected modes; no hardware transport, credentials, live logbook or sync. Synthetic QSOs reside in window memory. The Swift worker reports its actual IPC response; browser preview explicitly has no worker. One shared frontend supports a detached station monitor.

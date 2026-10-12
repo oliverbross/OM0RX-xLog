@@ -1,16 +1,16 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ClusterPanel } from "./ClusterPanel";
 import { DetachedClusterSurface } from "./DetachedClusterSurface";
-const bridge = vi.hoisted(() => ({ dock: vi.fn(async () => {}), ready: vi.fn(async () => {}), request: vi.fn(async () => ({})) }));
+const bridge = vi.hoisted(() => ({ dock: vi.fn(async () => {}), ready: vi.fn(async () => {}), request: vi.fn(async () => ({})), handler: null as null | ((value: any) => void) }));
 vi.mock("./DetachedClusterBridge", async original => ({ ...await original<typeof import("./DetachedClusterBridge")>(), dockDetachedWorkspace: bridge.dock,
-  announceDetachedClusterReady: bridge.ready, requestViaMain: bridge.request, onClusterProjection: vi.fn(async () => () => {}) }));
+  announceDetachedClusterReady: bridge.ready, requestViaSession: bridge.request, onClusterProjection: vi.fn(async handler => { bridge.handler = handler; return () => { bridge.handler = null; }; }) }));
 
 afterEach(cleanup);
 
 describe("passive docked DX Cluster presentation", () => {
-  it("removes the duplicate detached rail and retains toolbar docking while waiting for main state", async () => {
+  it("retains toolbar docking while waiting for the native shared session", async () => {
     bridge.dock.mockClear(); bridge.ready.mockClear(); bridge.request.mockClear();
     const { container } = render(<DetachedClusterSurface />);
     await waitFor(() => expect(bridge.ready).toHaveBeenCalledOnce());
@@ -18,10 +18,27 @@ describe("passive docked DX Cluster presentation", () => {
     expect(screen.queryByText("OM0RX-xLog")).toBeNull();
     expect(screen.queryByText("Live data and actions owned by the main workspace")).toBeNull();
     expect(screen.getAllByRole("heading", { name: "DX Cluster" })).toHaveLength(1);
+    expect(screen.getByText("Loading the shared cluster session…")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Dock back" }).closest(".live-cluster-actions")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Dock back" }));
     await waitFor(() => expect(bridge.dock).toHaveBeenCalledOnce());
     expect(bridge.request).not.toHaveBeenCalled();
+  });
+  it("receives native projections and distinguishes service failure from disconnected clusters", async () => {
+    render(<DetachedClusterSurface />);
+    await waitFor(() => expect(bridge.handler).not.toBeNull());
+    const response = { snapshot: { connectedClusters: 0, loadedSpots: 0, contactCount: 0,
+      contactRevision: 0, logbookDataLoaded: true, countryDataLoaded: true, connections: [], spots: [], console: [] } };
+    act(() => bridge.handler?.({ revision: 1, response, available: true, selected: null }));
+    expect(screen.queryByText(/Loading the shared/)).toBeNull();
+    expect(screen.queryByText(/updates paused/)).toBeNull();
+    act(() => bridge.handler?.({ revision: 2, response, available: false, selected: null }));
+    expect(screen.getByText(/Cluster service updates paused/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Dock back" }).hasAttribute("disabled")).toBe(false);
+    act(() => bridge.handler?.({ revision: 1, response, available: true, selected: null }));
+    expect(screen.getByText(/updates paused/)).toBeTruthy();
+    act(() => bridge.handler?.({ revision: 3, response, available: true, selected: null }));
+    expect(screen.queryByText(/updates paused/)).toBeNull();
   });
   it("uses main-pushed snapshots without starting its own worker poll, and exposes Undock", () => {
     const onRequest = vi.fn(async () => ({}));

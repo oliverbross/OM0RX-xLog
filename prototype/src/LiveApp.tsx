@@ -12,8 +12,8 @@ import { clusterSessionIntentKey, shouldResumeCluster } from "./live/clusterResu
 import OpportunitiesPanel, { type Opportunity } from "./live/OpportunitiesPanel";
 import { useReferenceSchedule } from "./live/referenceSchedule";
 import { DetachedClusterSurface } from "./live/DetachedClusterSurface";
-import { openDetachedCluster, dockDetachedWorkspace, onClusterReady, onClusterRequest, onDetachedDock,
-  publishClusterProjection, completeClusterRequest, type ClusterProjection } from "./live/DetachedClusterBridge";
+import { openDetachedCluster, dockDetachedWorkspace, onDetachedDock,
+  publishClusterSelection } from "./live/DetachedClusterBridge";
 import { LogbookPanel } from "./live/LogbookPanel";
 import StationPanel from "./live/StationPanel";
 import Conditions from "./live/Conditions";
@@ -141,8 +141,6 @@ function MainLiveApp() {
   const selectCurrentSpot = useRef<(spot: Data) => void>(() => {});
   const latestProjection = useRef<DetachedMapProjection>({ spots: [] });
   const mapProjectionRevision = useRef(0);
-  const latestClusterProjection = useRef<ClusterProjection | null>(null);
-  const clusterProjectionRevision = useRef(0);
   const latestMonitorProjection = useRef<MonitorProjection>({ spots: [], station: null, provider: "direct_agent", controlsEnabled: false });
   useEffect(() => {
     const changed = (event: StorageEvent) => {
@@ -541,21 +539,14 @@ function MainLiveApp() {
       onDetachedSpot(payload => { const spot = findDetachedSpot(payload, latestSpots.current); if (spot) selectCurrentSpot.current(spot); }),
       onDetachedBandMapPreferences(value => { if (validBandMapView(value)) changeBandMapPreferences(false, value); }),
       onDetachedReady(kind => { void publishDetachedProjection(kind, latestProjection.current).catch(() => {}); }),
-      onClusterReady(() => { if (latestClusterProjection.current) void publishClusterProjection(latestClusterProjection.current).catch(() => {}); }),
-      onClusterRequest(entry => { void request(entry.method, entry.params).then(result =>
-        completeClusterRequest({ id: entry.id, ok: true, result })).catch(() =>
-        completeClusterRequest({ id: entry.id, ok: false, error: "Cluster action failed in the main workspace. Review its status and retry." })).catch(() => {}); }),
       onDetachedDock(kind => { setView(kind === "dx-cluster" ? "DX Cluster" : kind === "world-map" ? "World Map" : "Band Maps"); }),
       onMonitorReady(() => { void publishMonitorProjection(latestMonitorProjection.current).catch(() => {}); }),
     ]).then(results => { for (const result of results) if (result.status === "fulfilled") { if (active) subscriptions.push(result.value); else result.value(); } });
     return () => { active = false; subscriptions.forEach(unlisten => unlisten()); };
   }, [request]);
   useEffect(() => {
-    if (monitor || !cluster?.snapshot) return;
-    const projection: ClusterProjection = { revision: ++clusterProjectionRevision.current, response: cluster, selected };
-    latestClusterProjection.current = projection;
-    void publishClusterProjection(projection).catch(() => {});
-  }, [cluster, selected]);
+    if (!monitor) void publishClusterSelection(selected).catch(() => {});
+  }, [selected]);
   useEffect(() => {
     if (monitor) return;
     void publishDetachedProjection("world-map", latestProjection.current).catch(() => {});
