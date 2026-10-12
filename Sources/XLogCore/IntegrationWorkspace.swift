@@ -95,9 +95,8 @@ public enum IntegrationWorkspaceBootstrap {
         let sourceValues = try? source.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
         guard sourceValues?.isSymbolicLink != true else { throw IntegrationWorkspaceError.unsafePath }
         guard sourceValues?.isRegularFile == true else { throw IntegrationWorkspaceError.sourceMissing }
-        guard destination.path != source.path,
-              !destination.resolvingSymlinksInPath().path.hasPrefix(source.resolvingSymlinksInPath().path + "/"),
-              !source.resolvingSymlinksInPath().path.hasPrefix(destination.resolvingSymlinksInPath().path + "/") else {
+        guard !LocalFilePath.contains(destination, in: source),
+              !LocalFilePath.contains(source, in: destination) else {
             throw IntegrationWorkspaceError.unsafePath
         }
         return try createStaged(at: destination, fileManager: fileManager) { stagedDatabase in

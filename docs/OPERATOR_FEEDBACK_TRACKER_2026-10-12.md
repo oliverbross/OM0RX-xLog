@@ -36,6 +36,17 @@ build and runtime results remain pending; network services and credential stores
 remain explicitly unavailable on those worker platforms. This is not full
 cross-platform parity, and the installed alpha.7 app is unchanged.
 
+First native matrix run: `38280083999`, source `3a4147a`. Linux and Windows found the omitted
+`ClusterSpotFeed.swift` dependency that owns Maidenhead decoding; Mac passed
+Swift tests and all 344 frontend tests, then failed TypeScript because clean
+installs lacked `@types/node`. Both source issues are corrected for the next
+run. Backup import now accepts native Windows drive/UNC paths while rejecting
+traversal and device namespaces; three portable path tests plus fifteen local
+logbook tests pass on Mac. Local frontend build and 344 tests pass with the
+explicit Node types dependency. The existing packaged UI harness still targets
+the earlier synthetic screen, not `LiveApp`; its acceptance must be updated
+before current shared-UI parity can be claimed.
+
 ### Latest alpha.7 checkpoint (CW integration, 13 October)
 
 - CW settings, native persistence, optional desk row and guarded radio/WinKeyer

@@ -337,12 +337,11 @@ public final class LiveLogbookMethods: @unchecked Sendable {
             case "backup_import":
                 try requireKeys(params, allowed: ["source_path"], required: ["source_path"])
                 _ = try readyDatabase()
-                guard let path = try string(params, "source_path", max: 4096), path.hasPrefix("/"),
-                      !path.split(separator: "/").contains(".."),
+                guard let path = try string(params, "source_path", max: 4096), LocalFilePath.isAbsoluteWithoutTraversal(path),
                       URL(fileURLWithPath: path).pathExtension.lowercased() == XLogBackupManager.packageExtension else { throw invalid() }
                 let source = URL(fileURLWithPath: path).standardizedFileURL
                 let root = try backupDirectory()
-                guard !source.resolvingSymlinksInPath().path.hasPrefix(workspaceURL.resolvingSymlinksInPath().path + "/") else {
+                guard !LocalFilePath.contains(source, in: workspaceURL) else {
                     throw WorkerFailure("unsafe_backup", "Select an external backup package without symbolic links.")
                 }
                 try validateBackupPackageLinks(source)
