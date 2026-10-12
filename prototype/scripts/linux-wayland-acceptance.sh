@@ -45,6 +45,8 @@ env -u DISPLAY timeout --kill-after=5 100 "$package/launch" --acceptance-report 
 app_pid=$!
 for count in $(seq 1 200); do
   if [[ -s "$report" ]]; then
+    # Weston may still be fading the closed monitor when the report is written.
+    sleep 1
     import -window root "$evidence/ui-wayland.png"
     break
   fi

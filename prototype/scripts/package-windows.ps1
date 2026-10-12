@@ -282,7 +282,7 @@ try {
         'Swift-Foundation-NOTICE.txt' = 'https://raw.githubusercontent.com/swiftlang/swift-foundation/swift-6.3.3-RELEASE/NOTICE.txt'
         'Swift-Dispatch-LICENSE.txt' = 'https://raw.githubusercontent.com/swiftlang/swift-corelibs-libdispatch/swift-6.3.3-RELEASE/LICENSE'
         'LLVM-compiler-rt-LICENSE.txt' = 'https://raw.githubusercontent.com/swiftlang/llvm-project/swift-6.3.3-RELEASE/compiler-rt/LICENSE.TXT'
-        'Visual-Studio-REDIST.html' = 'https://learn.microsoft.com/en-us/legal/visualstudio/redist/2022'
+        'Visual-Studio-REDIST.html' = 'https://learn.microsoft.com/en-us/visualstudio/releases/2022/redistribution'
         'SQLite-public-domain.html' = 'https://www.sqlite.org/copyright.html'
     }
     # Third-party license snapshots are disclosed separately from exact binary
@@ -304,7 +304,15 @@ try {
     $noticeEvidence = @()
     foreach ($name in $noticeSources.Keys) {
         $destination = Join-Path $notices.FullName $name
-        Invoke-WebRequest -Uri $noticeSources[$name] -OutFile $destination
+        $uri = [string]$noticeSources[$name]
+        try {
+            Invoke-WebRequest -Uri $uri -OutFile $destination -TimeoutSec 30 -MaximumRetryCount 2 -RetryIntervalSec 2 -ErrorAction Stop
+        } catch {
+            $status = 'network error'
+            $response = $_.Exception.PSObject.Properties['Response']
+            if ($response -and $response.Value -and $response.Value.PSObject.Properties['StatusCode']) { $status = [int]$response.Value.StatusCode }
+            throw "Notice download failed: $name; HTTP/status $status; source $uri. Portable archive was not emitted."
+        }
         $noticeEvidence += [pscustomobject]@{ path = "notices/$name"; source = $noticeSources[$name]; sha256 = Hash $destination }
     }
     $sqliteCopyright = Join-Path $env:XLOG_SQLITE_PREFIX 'share/sqlite3/copyright'

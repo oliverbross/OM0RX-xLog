@@ -16,6 +16,8 @@
   --orange: #ff8c00;
   --pink: #f47bc5;
   --error: #ff6b5e;
+  /* Includes room for the GTK/WebView native select arrow and full mode text. */
+  --qso-mode-width: 88px;
 }
 * {
   box-sizing: border-box;
@@ -317,7 +319,7 @@ main {
 }
 .qso-first {
   display: grid;
-  grid-template-columns: minmax(140px, 1fr) 118px 72px;
+  grid-template-columns: minmax(140px, 1fr) 118px var(--qso-mode-width);
   gap: 7px;
   align-items: end;
 }
@@ -895,7 +897,7 @@ tbody tr:hover {
       );
   }
   .qso-first {
-    grid-template-columns: minmax(180px, 1fr) 125px 78px;
+    grid-template-columns: minmax(180px, 1fr) 125px var(--qso-mode-width);
   }
   .qso-actions button {
     font-size: 11px;
@@ -917,7 +919,7 @@ tbody tr:hover {
     padding: 10px;
   }
   .qso-first {
-    grid-template-columns: minmax(110px, 1fr) 106px 80px;
+    grid-template-columns: minmax(110px, 1fr) 106px var(--qso-mode-width);
   }
   .active-qso {
     padding: 10px;

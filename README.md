@@ -15,6 +15,8 @@ Created and maintained by **Oliver Bross, OM0RX**.
 
 Cross-platform development is isolated on [`codex/unified-xlog-prototype-p1`](https://github.com/oliverbross/OM0RX-xLog/tree/codex/unified-xlog-prototype-p1). Its prototype uses synthetic data, has a separate application identity, and is **not a production replacement**. Existing apps, settings, logs and credentials are not migrated or replaced. See the [preservation baseline](docs/P0_MACOS_BASELINE.md) for version and validation evidence.
 
+The prototype now has Windows portable-ZIP and Ubuntu 24.04 Debian/archive packaging, including its Swift runtime. Native runtime checks, exact tested revisions, download links and remaining desktop/release gates are recorded in [packaged runtime acceptance](docs/P1_RUNTIME_ACCEPTANCE.md). No compiler or Swift installation is intended for users of these packages; platform system dependencies such as Windows WebView2 are documented explicitly.
+
 Development scope, acceptance evidence and the prioritized backlog are tracked in [PROJECT_STATUS.md](PROJECT_STATUS.md).
 
 ## Proposed local-station and cross-platform programme

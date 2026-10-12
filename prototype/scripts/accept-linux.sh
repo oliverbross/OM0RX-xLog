@@ -36,6 +36,8 @@ for attempt in 1 2 3; do
     pid=$!
     for count in $(seq 1 200); do
       if [[ -s "$2" ]]; then
+        # Let native window-close/focus animations settle within the app hold.
+        sleep 1
         import -window root "$4"
         break
       fi
