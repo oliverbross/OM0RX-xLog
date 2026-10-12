@@ -15,6 +15,7 @@ export type AcceptanceReport = {
 // One run per webview also avoids StrictMode repeating interactions or windows.
 let started = false;
 export let acceptanceActive = false;
+export function activateMapAcceptance() { acceptanceActive = true; }
 const pause = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 export async function waitForAcceptance(
   label: string,
@@ -50,7 +51,7 @@ function selectProfile(value: string) {
   Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")!.set!.call(control, value);
   control.dispatchEvent(new Event("change", { bubbles: true }));
 }
-function mapDetails(): Json {
+export function mapDetails(): Json {
   const map = document.querySelector<HTMLElement>(".map");
   const canvas = map?.querySelector("canvas");
   return {
@@ -126,7 +127,7 @@ export function validWorkerResult(method: string, response: Json) {
     qso?.call === "W1AW" && qso.frequency_hz === 14_240_000 && qso.mode === "SSB" &&
     typeof records[0].semantic_identity_hash === "string" && /^[a-f0-9]{64}$/.test(records[0].semantic_identity_hash);
 }
-async function awaitMap() {
+export async function awaitMap() {
   const requestedAt = Date.now();
   let samplesRequested = 1;
   let nextSampleAt = requestedAt + 500;

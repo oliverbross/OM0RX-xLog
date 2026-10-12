@@ -277,6 +277,7 @@ try {
             Assert-That ($gui.ExitCode -eq 0) "GUI acceptance exited $($gui.ExitCode) on run $run; inspect stderr evidence."
             Assert-That ($null -ne $guiReport) "GUI did not produce an acceptance report on run $run."
             Assert-That ($guiReport.schema -eq 1 -and $guiReport.status -eq 'passed' -and $guiReport.embeddedUi -eq $true -and $guiReport.worker -eq $true) "GUI-to-worker acceptance contract failed on run $run."
+            Assert-That ($guiReport.scope -eq 'integrated-local-ui') 'GUI acceptance did not exercise the current integrated app.'
             $nativeChecks = @($guiReport.checks.PSObject.Properties)
             Assert-That ($nativeChecks.Count -gt 0) 'GUI report contains no native acceptance checks.'
             foreach ($check in $nativeChecks) { Assert-That ($check.Value -eq $true) "GUI native check failed: $($check.Name)" }

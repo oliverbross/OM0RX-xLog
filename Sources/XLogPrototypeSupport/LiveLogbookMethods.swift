@@ -437,7 +437,13 @@ public final class LiveLogbookMethods: @unchecked Sendable {
             try validateWorkspaceLocation()
             return
         }
-        let loaded = try IntegrationWorkspaceBootstrap.open(at: workspaceURL)
+        let loaded: IntegrationWorkspace
+        do { loaded = try IntegrationWorkspaceBootstrap.open(at: workspaceURL) }
+        catch IntegrationWorkspaceError.unsafePath {
+            // Foundation may reject a Windows alias during bootstrap, before
+            // the file-identity comparison below. Keep the same safe IPC error.
+            throw WorkerFailure("unsafe_workspace", "The integration workspace path is unsafe.")
+        }
         if fileManager.fileExists(atPath: nativeDatabaseURL.path) {
             let native = try fileManager.attributesOfItem(atPath: nativeDatabaseURL.path)
             let isolated = try fileManager.attributesOfItem(atPath: loaded.databaseURL.path)

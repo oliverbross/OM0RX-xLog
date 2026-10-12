@@ -64,7 +64,7 @@ jobs:
             xlog-p1b-${{ runner.os }}-${{ hashFiles('prototype/src-tauri/Cargo.lock', 'Package.swift') }}-
       - name: Linux build dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libcurl4-openssl-dev libxml2-dev libicu-dev libssl-dev
+        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libcurl4-openssl-dev libxml2-dev libicu-dev libssl-dev libudev-dev
       - name: Swift toolchain (Linux)
         if: runner.os == 'Linux'
         shell: bash
@@ -126,6 +126,13 @@ jobs:
       - name: Build pinned Hamlib radio and rotor helpers (Mac integration)
         if: runner.os == 'macOS'
         run: bash prototype/scripts/stage-hamlib-macos.sh
+      - name: Build pinned Hamlib radio and rotor helpers (Linux integration)
+        if: runner.os == 'Linux'
+        run: bash prototype/scripts/stage-hamlib-linux.sh
+      - name: Stage pinned Hamlib radio and rotor helpers (Windows integration)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./prototype/scripts/stage-hamlib-windows.ps1
       - name: Test worker process framing (Unix)
         if: runner.os != 'Windows'
         run: node Tests/XLogPrototypeTests/worker-process.test.mjs prototype/src-tauri/target/release/xlog-prototype-worker
@@ -139,12 +146,21 @@ jobs:
         working-directory: prototype/src-tauri
         run: cargo test --locked
       - name: Bundled Hamlib dummy protocol and lifecycle tests
-        if: runner.os == 'macOS'
+        if: runner.os != 'Windows'
         working-directory: prototype/src-tauri
         shell: bash
         run: |
           target=$(rustc -vV | sed -n 's/^host: //p')
           XLOG_TEST_RIGCTLD="$PWD/binaries/rigctld-$target" XLOG_TEST_ROTCTLD="$PWD/binaries/rotctld-$target" cargo test --locked --test hamlib_dummy
+      - name: Bundled Hamlib dummy protocol and lifecycle tests (Windows)
+        if: runner.os == 'Windows'
+        working-directory: prototype/src-tauri
+        shell: pwsh
+        run: |
+          $env:XLOG_TEST_RIGCTLD = Join-Path $PWD 'binaries/rigctld-x86_64-pc-windows-msvc.exe'
+          $env:XLOG_TEST_ROTCTLD = Join-Path $PWD 'binaries/rotctld-x86_64-pc-windows-msvc.exe'
+          cargo test --locked --test hamlib_dummy
+          exit $LASTEXITCODE
       - name: Build desktop executable (not an installer acceptance claim)
         working-directory: prototype
         run: npx tauri build --no-bundle

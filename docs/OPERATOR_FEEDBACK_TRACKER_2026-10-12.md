@@ -43,9 +43,8 @@ installs lacked `@types/node`. Both source issues are corrected for the next
 run. Backup import now accepts native Windows drive/UNC paths while rejecting
 traversal and device namespaces; three portable path tests plus fifteen local
 logbook tests pass on Mac. Local frontend build and 344 tests pass with the
-explicit Node types dependency. The existing packaged UI harness still targets
-the earlier synthetic screen, not `LiveApp`; its acceptance must be updated
-before current shared-UI parity can be claimed.
+explicit Node types dependency. That run still used the earlier synthetic UI
+harness; the current LiveApp driver below replaces it for the next run.
 
 Matrix run `38281076782` at `04ecbc4` found unresolved CoreFoundation type IDs
 in the station bridge. Run `38281893795` at `f588213` confirmed the explicit
@@ -54,7 +53,21 @@ validation now uses Foundation's JSON scalar representation to reject Booleans
 without platform-specific type IDs. Tests cover JSON true/false, numeric ports,
 small integer NSNumber values, NaN and infinities. Linux also exposed an xCat
 import outside the existing macOS-only rotor test guard; the import now shares
-that guard. Native confirmation of these corrections remains pending.
+that guard. Matrix run `38282914334` at `1e8a14d` passed the Mac source job.
+Linux compiled and passed Swift tests, then stopped at the missing native Hamlib
+sidecars. Windows compiled and ran its portable tests; one alias-path rejection
+returned a bootstrap error instead of the common `unsafe_workspace` IPC error.
+The rejection remains intact and its error is now normalized. These latest
+corrections require another native matrix run.
+
+Linux now has a checksum-pinned Hamlib/libusb build recipe; Windows stages the
+checksum-pinned upstream Hamlib archive and records its DLL provenance. Both
+portable packages include radio/rotor helpers, upstream notices and their native
+dependency audits. CI runs model-1 loopback dummy tests, never physical-device
+tests. Linux shell syntax and two runtime-permission tests pass locally.
+PowerShell execution is blocked by the local tool policy; Windows CI must verify
+that staging and packaging path. No compatibility claim for every radio or rotor
+model follows from a dummy-device pass.
 
 ### Isolated current UI acceptance foundation
 
@@ -67,11 +80,19 @@ refresh the operator's cluster history. EOF drains admitted local requests,
 closes the database and removes the session's preferences and directory; later
 requests cannot reopen it.
 
-Mac source verification passes 139 XCTest cases, 47 Swift Testing cases,
-five real NDJSON process tests and 92 Rust tests. This is an acceptance foundation,
-not a packaged UI pass: the old UI driver still needs replacement, and browser
-storage must be isolated before running acceptance alongside an operator profile.
-The installed alpha.7 app has not been replaced by this work.
+The foundation checkpoint passed 139 XCTest cases, 47 Swift Testing cases and
+five real NDJSON process tests on Mac. The current driver now exercises LiveApp:
+empty-workspace creation, keyboard QSO save/readback, editor focus, draft clearing,
+settings persistence, bundled awards, detached band-map projection and final map
+GPU evidence. Acceptance windows use private browser storage, avoid saved window
+geometry and restrict external content through their CSP. Ordinary launches do
+not wait for an acceptance IPC check.
+
+Current local verification: 346 frontend tests, TypeScript/Vite build, 94 Rust
+tests and 13 isolated local-logbook tests pass. The driver and private-profile behavior still require native packaged
+execution; these source tests do not establish a UI acceptance pass. The main JS
+bundle remains 1.66 MB minified and produces a size warning, so startup/performance
+acceptance is still open. The installed alpha.7 app has not been replaced.
 
 ### Latest alpha.7 checkpoint (CW integration, 13 October)
 

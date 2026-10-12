@@ -58,7 +58,7 @@ def audit(package, output):
     entries = []
     graph = {}
     library_inventory = {}
-    binaries = [package / 'bin/xlog-prototype', package / 'bin/xlog-prototype-worker']
+    binaries = [package / 'bin' / name for name in ['xlog-prototype', 'xlog-prototype-worker', 'rigctld', 'rotctld']]
     binaries += sorted((package / 'lib').glob('*.so*'))
     for binary in binaries:
         resolved, paths = loader(binary, env)
@@ -96,8 +96,9 @@ def package(root, out, swift_root, sha):
     stage = out / 'om0rx-xlog-prototype-linux-amd64'
     for folder in ['bin', 'lib', 'notices']:
         (stage / folder).mkdir(parents=True)
-    for name in ['xlog-prototype', 'xlog-prototype-worker']:
+    for name in ['xlog-prototype', 'xlog-prototype-worker', 'rigctld', 'rotctld']:
         shutil.copy2(root / 'prototype/src-tauri/target/release' / name, stage / 'bin' / name)
+    shutil.copytree(root / 'prototype/src-tauri/binaries/hamlib-4.7.2-notices', stage / 'notices/hamlib-4.7.2')
     resource_name = 'OM0RXXLogPrototype_XLogPortableCore.resources'
     shutil.copytree(root / 'prototype/src-tauri/target/release' / resource_name, stage / 'bin' / resource_name)
     # The exact native closure decides what is bundled. No host /usr/lib copied.

@@ -44,6 +44,20 @@ impl Acceptance {
     }
 }
 
+/// Apply before Tauri creates configured windows. Incognito selects an ephemeral
+/// WKWebView/WebKitGTK data store and WebView2's InPrivate profile; never clear
+/// the operator's persistent browser storage as part of a test.
+pub fn isolate_browser_storage(config: &mut tauri::utils::config::Config, enabled: bool) {
+    if enabled {
+        for window in &mut config.app.windows {
+            window.incognito = true;
+            window.url = tauri::WebviewUrl::App("index.html?acceptance=local".into());
+        }
+        config.app.security.csp = Some(tauri::utils::config::Csp::Policy(
+            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ipc: http://ipc.localhost; worker-src 'self' blob:; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-src 'none'".into()));
+    }
+}
+
 fn bounded_object(report: &Value) -> Result<(), String> {
     if !report.is_object() || serde_json::to_vec(report).map_err(|e| e.to_string())?.len() > 60_000 {
         return Err("Expected a bounded acceptance object".into());
@@ -72,6 +86,11 @@ pub fn passed(report: &Value) -> bool {
     const REQUIRED: [&str; 17] = ["worker_health", "worker_self_test", "worker_parse_adif", "worker_integration_self_test", "cluster_classification_initial", "cluster_classification_logged", "map_loaded",
         "cluster_selection", "keyboard_log", "logbook_readback", "keyboard_focus", "keyboard_clear",
         "profile_manual", "profile_simulator", "monitor_opened", "monitor_snapshot", "final_desk"];
+    const LOCAL: [&str; 16] = ["isolated_worker", "empty_workspace", "workspace_created", "worker_self_test",
+        "worker_integration_self_test", "worker_parse_adif", "keyboard_log", "logbook_readback", "keyboard_editor",
+        "keyboard_focus", "keyboard_clear", "settings_save_readback", "awards_loaded", "detached_projection",
+        "map_loaded", "final_desk"];
+    let required: &[&str] = if report["scope"] == "integrated-local-ui" { &LOCAL } else if report["scope"].is_null() { &REQUIRED } else { return false; };
     let map = &report["details"]["finalMap"];
     let probes = map["landPixelProbes"].as_u64().unwrap_or(0);
     report["status"] == "passed" && report["embeddedUi"] == true && report["worker"] == true
@@ -79,7 +98,7 @@ pub fn passed(report: &Value) -> bool {
         && map["error"] == "" && probes >= 8 && map["matchedLandPixels"].as_u64() == Some(probes)
         && map["capturedAt"].as_u64().is_some_and(|time| time > 0)
         && report["checks"].as_object().is_some_and(|checks|
-            REQUIRED.iter().all(|key| checks.get(*key) == Some(&Value::Bool(true)))
+            required.iter().all(|key| checks.get(*key) == Some(&Value::Bool(true)))
                 && checks.values().all(|value| value == &Value::Bool(true)))
 }
 
@@ -89,7 +108,7 @@ pub fn acceptance_enabled(state: tauri::State<'_, Acceptance>) -> bool { state.p
 #[tauri::command]
 pub fn acceptance_monitor(window: tauri::WebviewWindow, state: tauri::State<'_, Acceptance>, report: Value) -> Result<(), String> {
     state.require()?;
-    if window.label() != "monitor" { return Err("Only the monitor may report its readback".into()); }
+    if !matches!(window.label(), "monitor" | "band-maps") { return Err("Only a tested detached surface may report its readback".into()); }
     bounded_object(&report)?;
     *state.monitor.lock().map_err(|_| "Monitor evidence unavailable")? = Some(report);
     Ok(())
@@ -107,7 +126,9 @@ pub async fn acceptance_prepare_final(app: tauri::AppHandle, window: tauri::Webv
     state.require()?;
     if window.label() != "main" { return Err("Only the main window may prepare final acceptance".into()); }
     if state.completed.load(Ordering::Acquire) { return Err("Acceptance already completed".into()); }
-    if let Some(monitor) = app.get_webview_window("monitor") { monitor.close().map_err(|e| e.to_string())?; }
+    for label in ["monitor", "band-maps", "world-map", "dx-cluster"] {
+        if let Some(detached) = app.get_webview_window(label) { detached.close().map_err(|e| e.to_string())?; }
+    }
     window.set_focus().map_err(|e| e.to_string())?;
     state.final_prepared.store(true, Ordering::Release);
     Ok(())
@@ -155,6 +176,37 @@ pub fn start_watchdog(app: tauri::AppHandle) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn only_acceptance_windows_use_ephemeral_browser_storage() {
+        let mut config: tauri::utils::config::Config = serde_json::from_value(json!({
+            "identifier":"test.xlog.acceptance", "app":{"windows":[{"label":"main"},{"label":"other"}]}
+        })).unwrap();
+        isolate_browser_storage(&mut config, false);
+        assert!(config.app.windows.iter().all(|window| !window.incognito));
+        isolate_browser_storage(&mut config, true);
+        assert!(config.app.windows.iter().all(|window| window.incognito));
+        assert!(config.app.windows.iter().all(|window| window.url == tauri::WebviewUrl::App("index.html?acceptance=local".into())));
+        assert!(!config.app.security.csp.unwrap().to_string().contains("https:"));
+    }
+    #[test]
+    fn integrated_local_report_requires_real_workflow_checks_and_gpu_evidence() {
+        let names = ["isolated_worker", "empty_workspace", "workspace_created", "worker_self_test",
+            "worker_integration_self_test", "worker_parse_adif", "keyboard_log", "logbook_readback", "keyboard_editor",
+            "keyboard_focus", "keyboard_clear", "settings_save_readback", "awards_loaded", "detached_projection",
+            "map_loaded", "final_desk"];
+        let checks: serde_json::Map<String, Value> = names.iter().map(|name| (name.to_string(), json!(true))).collect();
+        let mut report = json!({"scope":"integrated-local-ui","status":"passed","embeddedUi":true,"worker":true,
+            "checks":checks,"details":{"finalMap":{"tilesLoaded":true,"webgl":true,"visible":true,"error":"",
+            "landPixelProbes":40,"matchedLandPixels":40,"capturedAt":1}}});
+        assert!(passed(&report));
+        for name in names {
+            report["checks"][name] = json!(false);
+            assert!(!passed(&report));
+            report["checks"][name] = json!(true);
+        }
+        report["details"]["finalMap"]["matchedLandPixels"] = json!(39);
+        assert!(!passed(&report));
+    }
     #[test]
     fn local_acceptance_cannot_reach_native_hardware_or_external_sources() {
         for method in ["hamlib_connect", "hamlib_models", "winkeyer_connect", "winkeyer_send", "rotor_goto",

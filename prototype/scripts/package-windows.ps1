@@ -48,6 +48,7 @@ try {
     if ($timestamp.Year -lt 1980 -or $timestamp.Year -gt 2107) { throw 'SOURCE_DATE_EPOCH is outside ZIP timestamp range.' }
 
     if (-not $SkipBuild) {
+        & (Join-Path $PSScriptRoot 'stage-hamlib-windows.ps1')
         & (Join-Path $PSScriptRoot 'build-worker.ps1')
         if ($LASTEXITCODE -ne 0) { throw 'Worker build failed.' }
         $null = Invoke-Checked node @('prototype/scripts/stage-worker.mjs')
@@ -55,7 +56,7 @@ try {
         try { $null = Invoke-Checked npx.cmd @('tauri', 'build', '--no-bundle') } finally { Pop-Location }
     }
     $release = Join-Path $repoRoot 'prototype/src-tauri/target/release'
-    foreach ($name in @('xlog-prototype.exe', 'xlog-prototype-worker.exe')) {
+    foreach ($name in @('xlog-prototype.exe', 'xlog-prototype-worker.exe', 'rigctld.exe', 'rotctld.exe')) {
         if (-not (Test-Path (Join-Path $release $name))) { throw "Missing release payload: $name" }
     }
     $sharedMetadata = Join-Path $repoRoot 'prototype/distribution-metadata'
@@ -199,6 +200,24 @@ try {
         Register-Candidates $path $kind $priority
     }
     Register-Candidates $VCRedistDirectory 'visual-studio-redist-crt' 40
+    $hamlibRuntime = Join-Path $repoRoot 'prototype/src-tauri/binaries/hamlib-windows-runtime'
+    $hamlibNotices = Join-Path $repoRoot 'prototype/src-tauri/binaries/hamlib-4.7.2-notices'
+    $hamlibProvenance = Get-Content (Join-Path $hamlibNotices 'PROVENANCE.json') -Raw | ConvertFrom-Json
+    if ($hamlibProvenance.archiveSha256 -ne '8553bc6c5c6032e8debf99c017e98f58fed7e07e7c25d04815dc3e8bbe3304c7') { throw 'Unexpected Hamlib distribution provenance.' }
+    $expectedHamlibDlls = @('libhamlib-4.dll', 'libusb-1.0.dll', 'libgcc_s_seh-1.dll', 'libwinpthread-1.dll')
+    if (@($hamlibProvenance.runtime).Count -ne $expectedHamlibDlls.Count -or
+        (Compare-Object $expectedHamlibDlls @($hamlibProvenance.runtime.name)) -or
+        (Compare-Object $expectedHamlibDlls @((Get-ChildItem -LiteralPath $hamlibRuntime -Filter '*.dll' -File).Name))) {
+        throw 'Unexpected Hamlib runtime inventory.'
+    }
+    foreach ($entry in $hamlibProvenance.runtime) {
+        if ((Hash (Join-Path $hamlibRuntime $entry.name)) -ne $entry.sha256) { throw 'Hamlib runtime changed after staging.' }
+    }
+    if (@($hamlibProvenance.helpers).Count -ne 2 -or (Compare-Object @('rigctld.exe', 'rotctld.exe') @($hamlibProvenance.helpers.name))) { throw 'Unexpected Hamlib helper inventory.' }
+    foreach ($entry in $hamlibProvenance.helpers) {
+        if ((Hash (Join-Path $release $entry.name)) -ne $entry.sha256) { throw 'Hamlib helper changed after staging.' }
+    }
+    Register-Candidates $hamlibRuntime 'upstream-hamlib-4.7.2-w64' 40
     # SQLite must come from the exact selected prefix, not a stale staged DLL.
     $candidates['sqlite3.dll'] = @([pscustomobject]@{ path = $sqlite; origin = 'vcpkg-sqlite3-x64-windows'; priority = 40 })
 
@@ -211,10 +230,11 @@ try {
     $auditDirectory = New-Item -ItemType Directory -Path (Join-Path $package 'evidence/native-imports')
     $origins = @{}
     $queue = [Collections.Generic.Queue[string]]::new()
-    foreach ($name in @('xlog-prototype.exe', 'xlog-prototype-worker.exe')) {
+    foreach ($name in @('xlog-prototype.exe', 'xlog-prototype-worker.exe', 'rigctld.exe', 'rotctld.exe')) {
         $source = Join-Path $release $name
         Copy-Item -LiteralPath $source -Destination (Join-Path $package $name)
-        $origins[$name.ToLowerInvariant()] = [pscustomobject]@{ path = $source; origin = 'prototype-build' }
+        $origin = if ($name -in @('rigctld.exe', 'rotctld.exe')) { 'upstream-hamlib-4.7.2-w64' } else { 'prototype-build' }
+        $origins[$name.ToLowerInvariant()] = [pscustomobject]@{ path = $source; origin = $origin }
         $queue.Enqueue($name)
     }
     $edges = [Collections.Generic.List[object]]::new()
@@ -278,6 +298,7 @@ try {
 
     # Keep complete primary-source notices with retrieval hashes. Installed
     # vcpkg's copyright accompanies the exact SQLite build as well.
+    Copy-Item -LiteralPath $hamlibNotices -Destination (Join-Path $package 'notices/hamlib-4.7.2') -Recurse
     $noticeSources = [ordered]@{
         'Swift-LICENSE.txt' = 'https://raw.githubusercontent.com/swiftlang/swift/swift-6.3.3-RELEASE/LICENSE.txt'
         'Swift-Foundation-LICENSE.txt' = 'https://raw.githubusercontent.com/swiftlang/swift-corelibs-foundation/swift-6.3.3-RELEASE/LICENSE'
@@ -327,10 +348,10 @@ try {
     }
     Copy-Item (Join-Path $PSScriptRoot 'accept-windows.ps1') (Join-Path $package 'accept-windows.ps1')
     @'
-OM0RX-xLog P1 portable architecture prototype - synthetic fixtures only
+OM0RX-xLog Integration portable test package
 Intended desktop target: x86_64 Windows 11, pending user desktop acceptance.
 Native CI reference: Windows Server 2022. Windows 10 is not accepted here.
-Launch xlog-prototype.exe from this extracted directory. Both executables and
+Launch xlog-prototype.exe from this extracted directory. All four executables and
 all bundled DLLs must stay together. No Swift, Node, Rust or vcpkg is needed by
 the packaged executable. Microsoft Evergreen WebView2 Runtime is required;
 this portable archive does not install it or silently alter the machine.
@@ -338,7 +359,8 @@ Official runtime setup: https://developer.microsoft.com/microsoft-edge/webview2/
 
 Run acceptance in PowerShell 7: ./accept-windows.ps1 -PackageDirectory .
 The acceptance report distinguishes toolchain absence, restricted PATH,
-module origins and synthetic UI-to-worker tests. A GitHub Windows Server
+module origins and isolated real local-logbook UI tests. Network services and
+credentials remain unavailable on this platform. A GitHub Windows Server
 runner is not a pristine Windows 11 consumer installation. Inspect evidence.
 
 Unsigned internal test package. Not an installer, public release, hardware

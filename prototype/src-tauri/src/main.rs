@@ -212,12 +212,15 @@ async fn open_monitor(app: tauri::AppHandle) -> Result<(), String> {
     tauri::WebviewWindowBuilder::new(
         &app,
         "monitor",
-        tauri::WebviewUrl::App("index.html?view=monitor".into()),
+        tauri::WebviewUrl::App(if app.state::<acceptance::Acceptance>().path.is_some() {
+            "index.html?view=monitor&acceptance=local".into()
+        } else { "index.html?view=monitor".into() }),
     )
     .title("OM0RX-xLog — Station Monitor")
     .inner_size(780.0, 600.0)
     .min_inner_size(640.0, 480.0)
     .always_on_top(false)
+    .incognito(app.state::<acceptance::Acceptance>().path.is_some())
     .build()
     .map(|_| ())
     .map_err(|e| e.to_string())
@@ -239,14 +242,18 @@ async fn open_detached_map(app: tauri::AppHandle, window: tauri::WebviewWindow, 
         existing.show().map_err(|e| e.to_string())?;
         return existing.set_focus().map_err(|e| e.to_string());
     }
-    let detached = tauri::WebviewWindowBuilder::new(&app, &kind, tauri::WebviewUrl::App(format!("index.html?view={kind}").into()))
+    let suffix = if app.state::<acceptance::Acceptance>().path.is_some() { "&acceptance=local" } else { "" };
+    let detached = tauri::WebviewWindowBuilder::new(&app, &kind, tauri::WebviewUrl::App(format!("index.html?view={kind}{suffix}").into()))
         .title(title)
         .inner_size(width, height)
         .min_inner_size(640.0, 480.0)
         .always_on_top(false)
+        .incognito(app.state::<acceptance::Acceptance>().path.is_some())
         .build().map_err(|e| e.to_string())?;
-    detached_geometry::restore(&detached);
-    detached_geometry::watch(&detached);
+    if app.state::<acceptance::Acceptance>().path.is_none() {
+        detached_geometry::restore(&detached);
+        detached_geometry::watch(&detached);
+    }
     Ok(())
 }
 
@@ -339,6 +346,8 @@ fn main() {
         eprintln!("{error}");
         std::process::exit(2);
     });
+    let mut context = tauri::generate_context!();
+    acceptance::isolate_browser_storage(context.config_mut(), path.is_some());
     tauri::Builder::default()
         .menu(workspace_menu)
         .on_menu_event(|app, event| {
@@ -362,7 +371,7 @@ fn main() {
             acceptance::acceptance_enabled, acceptance::acceptance_monitor,
             acceptance::acceptance_monitor_result, acceptance::acceptance_prepare_final,
             acceptance::finish_acceptance])
-        .build(tauri::generate_context!())
+        .build(context)
         .expect("Application failed to start")
         .run(|_, event| {
             if matches!(event, tauri::RunEvent::Exit) { winkeyer::shutdown(); hamlib::shutdown(); worker::shutdown(); }

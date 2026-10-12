@@ -9,6 +9,7 @@ libicu74
 libssl3t64
 libstdc++6
 libgcc-s1
+libudev1
 zlib1g
 ca-certificates
 fonts-dejavu-core
