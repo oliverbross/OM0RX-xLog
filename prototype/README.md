@@ -29,7 +29,7 @@ npm run tauri -- build --no-bundle
 
 Run `npm run tauri -- dev` after staging for the isolated desktop window. For browser-only visual preview use `npm run dev`; it explicitly reports that native worker IPC is unavailable. Never treat the preview as worker acceptance.
 
-macOS `.app` development bundle: `npm run tauri -- build --bundles app`. It is named **OM0RX-xLog Prototype**, identifier `com.oliverbross.xlog.prototype`, with the existing xLog artwork. No installer modifies Applications. Native title bars/file dialogs remain platform-specific.
+macOS `.app` development bundle: run `bash prototype/scripts/package-macos.sh` from the repository root (after `npm ci` in `prototype`). It builds, ad-hoc signs and strictly verifies the isolated bundle without using Apple credentials. This is **not notarization**. It is named **OM0RX-xLog Prototype**, identifier `com.oliverbross.xlog.prototype`, with the existing xLog artwork. No installer modifies Applications. Native title bars/file dialogs remain platform-specific.
 
 ## Windows
 

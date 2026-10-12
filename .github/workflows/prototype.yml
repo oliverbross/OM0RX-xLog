@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
   push:
     branches: [codex/unified-xlog-prototype-p1]
-    paths: ['prototype/**', 'Sources/**', 'Tests/**', 'Package.swift', '.github/workflows/prototype.yml']
+    paths: ['prototype/**', '!prototype/**/*.md', 'Sources/**', 'Tests/**', 'Package.swift', '.github/workflows/prototype.yml']
   pull_request:
-    paths: ['prototype/**', 'Sources/**', 'Tests/**', 'Package.swift', '.github/workflows/prototype.yml']
+    paths: ['prototype/**', '!prototype/**/*.md', 'Sources/**', 'Tests/**', 'Package.swift', '.github/workflows/prototype.yml']
 
 permissions:
   contents: read
