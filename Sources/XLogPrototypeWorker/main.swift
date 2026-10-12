@@ -41,9 +41,9 @@ func overloaded(_ input: Data?) -> Data {
     ])) ?? Data()
 }
 
-func emit(_ input: Data?) async {
+func emit(_ input: Data?, using liveWorker: LiveWorker) async {
     let response: Data
-    if let input { response = await LiveWorker.shared.response(to: input) }
+    if let input { response = await liveWorker.response(to: input) }
     else { response = PrototypeWorker().oversizedResponse() }
     await writer.send(response)
 }
@@ -65,7 +65,14 @@ if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--self-test"
         output.write(Data("{\"id\":\"local-logbook-self-test\",\"ok\":false,\"error\":{\"code\":\"local_self_test_failed\",\"message\":\"Local logbook acceptance failed.\"}}\n".utf8))
         exit(1)
     }
-} else if CommandLine.arguments.count == 1 {
+} else if CommandLine.arguments.count == 1 || CommandLine.arguments == [CommandLine.arguments[0], "--local-ui-acceptance"] {
+    let acceptance: LocalAcceptanceSession?
+    do { acceptance = CommandLine.arguments.count == 2 ? try LocalAcceptanceSession() : nil }
+    catch {
+        FileHandle.standardError.write(Data("Could not create isolated local acceptance session.\n".utf8))
+        exit(1)
+    }
+    let liveWorker = acceptance?.worker ?? LiveWorker.shared
     var lines = WorkerLineReader()
     #if os(Windows)
     // Prevent CRT text-mode CRLF translation from altering byte limits/framing.
@@ -76,7 +83,7 @@ if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--self-test"
         for request in requests {
             if await admission.enter() {
                 group.addTask {
-                    await emit(request)
+                    await emit(request, using: liveWorker)
                     await admission.leave()
                 }
             } else {
@@ -120,10 +127,17 @@ if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--self-test"
     // EOF is the graceful shutdown signal. Retire station ownership before
     // waiting on unrelated slow service/logbook work so RF releases are not
     // delayed behind a network lookup or database import.
-    await LiveWorker.shared.shutdown()
+    if acceptance == nil { await liveWorker.shutdown() }
     await group.waitForAll()
     }
+    if let acceptance {
+        do { try await acceptance.close() }
+        catch {
+            FileHandle.standardError.write(Data("Could not clean isolated local acceptance session.\n".utf8))
+            exit(1)
+        }
+    }
 } else {
-    FileHandle.standardError.write(Data("Usage: xlog-prototype-worker [--self-test | --local-logbook-self-test]\n".utf8))
+    FileHandle.standardError.write(Data("Usage: xlog-prototype-worker [--self-test | --local-logbook-self-test | --local-ui-acceptance]\n".utf8))
     exit(2)
 }

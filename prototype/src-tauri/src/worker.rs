@@ -394,6 +394,16 @@ fn read_responses(output: impl Read, weak: Weak<Session>) {
 
 static SESSION: OnceLock<Mutex<Option<Arc<Session>>>> = OnceLock::new();
 static SHUTTING_DOWN: AtomicBool = AtomicBool::new(false);
+static LOCAL_ACCEPTANCE: OnceLock<bool> = OnceLock::new();
+
+/// Called once by native main before creating any webviews. A renderer cannot
+/// opt into or out of isolation, or nominate a directory for acceptance data.
+pub fn configure_local_acceptance(enabled: bool) -> Result<(), String> {
+    if SESSION.get().is_some() {
+        return Err("Cannot change acceptance mode after worker startup".into());
+    }
+    LOCAL_ACCEPTANCE.set(enabled).map_err(|_| "Acceptance mode was already configured".into())
+}
 
 fn start() -> Result<Arc<Session>, String> {
     let executable = std::env::current_exe().map_err(|_| "Cannot locate application")?;
@@ -409,7 +419,11 @@ fn start() -> Result<Arc<Session>, String> {
     if !path.is_file() {
         return Err("Bundled station service is missing. Reinstall the application.".into());
     }
-    let child = Command::new(path)
+    let mut command = Command::new(path);
+    if LOCAL_ACCEPTANCE.get() == Some(&true) {
+        command.arg("--local-ui-acceptance");
+    }
+    let child = command
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())

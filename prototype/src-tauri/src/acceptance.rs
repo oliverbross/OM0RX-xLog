@@ -51,6 +51,23 @@ fn bounded_object(report: &Value) -> Result<(), String> {
     Ok(())
 }
 
+/// This gate precedes Rust's direct Hamlib/WinKeyer/rotor dispatch as well as
+/// Swift routing. The worker independently enforces the same local-only scope.
+pub fn validate_local_request(request: &Value) -> Result<(), String> {
+    let allowed = matches!(request["method"].as_str(), Some(
+        "health" | "parse_adif" | "self_test" | "integration_self_test" | "cluster_classify"
+        | "workspace_status" | "workspace_create" | "workspace_preferences_load" | "workspace_preferences_save"
+        | "settings_load" | "settings_save" | "logbook_draft" | "logbook_catalog" | "logbook_list"
+        | "logbook_save" | "logbook_delete" | "logbook_undo" | "logbook_stats" | "logbook_previous"
+        | "logbook_matrix" | "logbook_import_adif" | "logbook_export_adif"
+        | "backup_create" | "backup_list" | "backup_inspect" | "backup_restore"
+    ));
+    if !allowed || (request["method"] == "workspace_create" && request["params"]["mode"] != "empty") {
+        return Err("Local acceptance cannot access external data, services, credentials or hardware.".into());
+    }
+    Ok(())
+}
+
 pub fn passed(report: &Value) -> bool {
     const REQUIRED: [&str; 17] = ["worker_health", "worker_self_test", "worker_parse_adif", "worker_integration_self_test", "cluster_classification_initial", "cluster_classification_logged", "map_loaded",
         "cluster_selection", "keyboard_log", "logbook_readback", "keyboard_focus", "keyboard_clear",
@@ -138,6 +155,18 @@ pub fn start_watchdog(app: tauri::AppHandle) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn local_acceptance_cannot_reach_native_hardware_or_external_sources() {
+        for method in ["hamlib_connect", "hamlib_models", "winkeyer_connect", "winkeyer_send", "rotor_goto",
+            "station_connect", "station_action", "cluster_connect", "reference_refresh", "backup_import", "future_service"] {
+            assert!(validate_local_request(&json!({"method":method,"params":{}})).is_err());
+        }
+        assert!(validate_local_request(&json!({"method":"workspace_create","params":{"mode":"copy_native"}})).is_err());
+        assert!(validate_local_request(&json!({"method":"workspace_create","params":{"mode":"empty"}})).is_ok());
+        for method in ["health", "logbook_draft", "logbook_save", "logbook_list", "settings_save", "backup_create"] {
+            assert!(validate_local_request(&json!({"method":method,"params":{}})).is_ok());
+        }
+    }
     #[test]
     fn normal_launch_has_no_acceptance() { assert!(report_path(vec!["app".into()]).unwrap().is_none()); }
     #[test]

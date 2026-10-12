@@ -1,5 +1,4 @@
 import Foundation
-import CoreFoundation
 #if os(macOS)
 import XCatIntegrationCore
 import XLogCore
@@ -238,9 +237,7 @@ enum LiveStationMethods {
     }
 
     private static func integer(_ value: Any) throws -> Int64 {
-        guard let number = value as? NSNumber,
-              CFGetTypeID(number) != CFBooleanGetTypeID(),
-              number.doubleValue.isFinite,
+        guard let number = jsonNumber(value),
               number.doubleValue.rounded() == number.doubleValue,
               number.doubleValue >= Double(Int64.min),
               number.doubleValue < Double(Int64.max) else { throw invalidParams() }
@@ -248,10 +245,18 @@ enum LiveStationMethods {
     }
 
     private static func finiteNumber(_ value: Any) throws -> Double? {
-        guard let number = value as? NSNumber,
-              CFGetTypeID(number) != CFBooleanGetTypeID(),
-              number.doubleValue.isFinite else { throw invalidParams() }
+        guard let number = jsonNumber(value) else { throw invalidParams() }
         return number.doubleValue
+    }
+
+    private static func jsonNumber(_ value: Any) -> NSNumber? {
+        // Foundation bridges JSON booleans to NSNumber too. CoreFoundation's
+        // type IDs are unavailable in the Windows toolchain; preserve the JSON
+        // scalar distinction without guessing NSNumber's platform class/type.
+        guard let number = value as? NSNumber, number.doubleValue.isFinite,
+              let encoded = try? JSONSerialization.data(withJSONObject: [number]),
+              encoded != Data("[true]".utf8), encoded != Data("[false]".utf8) else { return nil }
+        return number
     }
 
     #if os(macOS)

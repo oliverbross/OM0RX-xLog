@@ -17,7 +17,11 @@ public actor LiveWorker {
         }
     }
     private let logbookLane: LogbookLane
-    init(logbook: LiveLogbookMethods = .shared) { logbookLane = LogbookLane(service: logbook) }
+    private let localAcceptance: Bool
+    init(logbook: LiveLogbookMethods = .shared, localAcceptance: Bool = false) {
+        logbookLane = LogbookLane(service: logbook)
+        self.localAcceptance = localAcceptance
+    }
 
     func beginTerminalShutdown() {
         terminalShutdown = true
@@ -25,6 +29,7 @@ public actor LiveWorker {
 
     public func shutdown() async {
         beginTerminalShutdown()
+        if localAcceptance { return }
         #if os(macOS)
         await LiveSpotBridge.shared.stopForShutdown()
         await LiveRotorSession.shared.terminate()
@@ -45,12 +50,26 @@ public actor LiveWorker {
                 throw WorkerFailure("invalid_request", "Expected a bounded, correlated request.")
             }
             id = requestID
+            if localAcceptance {
+                guard !terminalShutdown else {
+                    throw WorkerFailure("worker_stopping", "The local acceptance session has ended.")
+                }
+                try LocalAcceptanceSession.validate(method: method, params: params)
+            }
             if terminalShutdown && (method.hasPrefix("station_") || method.hasPrefix("spot_bridge_")) {
                 throw WorkerFailure("worker_stopping", "The station service is shutting down; no new station command was started.")
             }
             if method == "health" {
                 guard params.isEmpty else { throw WorkerFailure("invalid_params", "Health takes no parameters.") }
-                return encode(["id": id, "ok": true, "result": Self.health])
+                var health = Self.health
+                if localAcceptance {
+                    health["mode"] = "isolated_local_acceptance"
+                    health["platform_services"] = false
+                    health["isolated_workspace"] = true
+                    health["network_contact"] = false
+                    health["credentials_accessed"] = false
+                }
+                return encode(["id": id, "ok": true, "result": health])
             }
             if ["parse_adif", "self_test", "integration_self_test", "cluster_classify"].contains(method) {
                 return diagnostics.response(to: data)
@@ -59,7 +78,7 @@ public actor LiveWorker {
             if method.hasPrefix("workspace_") || method.hasPrefix("logbook_") || method.hasPrefix("settings_") || method.hasPrefix("backup_") {
                 result = try await logbookLane.handle(method: method, params: params)
                 #if os(macOS)
-                if ["workspace_create", "logbook_save", "logbook_delete", "logbook_undo", "logbook_import_adif", "backup_restore"].contains(method) {
+                if !localAcceptance && ["workspace_create", "logbook_save", "logbook_delete", "logbook_undo", "logbook_import_adif", "backup_restore"].contains(method) {
                     try? await LiveClusterMethods.shared.refreshContacts()
                 }
                 #endif

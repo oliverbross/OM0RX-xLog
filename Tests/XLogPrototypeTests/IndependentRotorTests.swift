@@ -1,9 +1,9 @@
 import Foundation
 import XCTest
-import XCatIntegrationCore
 @testable import XLogPrototypeSupport
 
 #if os(macOS)
+import XCatIntegrationCore
 private actor RetirementGate {
     private var started = false
     private var startWaiter: CheckedContinuation<Void, Never>?

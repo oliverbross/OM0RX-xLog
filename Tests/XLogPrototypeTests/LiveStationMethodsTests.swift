@@ -12,6 +12,12 @@ final class LiveStationMethodsTests: XCTestCase {
         let params = try XCTUnwrap(JSONSerialization.jsonObject(
             with: Data("{\"port\":14532}".utf8)) as? [String: Any])
         XCTAssertEqual(try LiveStationMethods.Endpoint(params, allowed: []).port, 14_532)
+        for number: NSNumber in [NSNumber(value: Int8(1)), NSNumber(value: UInt8(1)), NSNumber(value: 1.0)] {
+            XCTAssertEqual(try LiveStationMethods.Endpoint(["port": number], allowed: []).port, 1)
+        }
+        for number: NSNumber in [NSNumber(value: Double.nan), NSNumber(value: Double.infinity), NSNumber(value: -Double.infinity)] {
+            XCTAssertThrowsError(try LiveStationMethods.Endpoint(["port": number], allowed: []))
+        }
     }
 
     func testEndpointIsBoundedToLoopback() throws {

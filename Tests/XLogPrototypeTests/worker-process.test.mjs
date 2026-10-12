@@ -5,9 +5,9 @@ import { test } from "node:test";
 const binary = process.argv[2];
 assert.ok(binary, "Pass the built xlog-prototype-worker executable path.");
 
-function exercise(start, onLine, expectedCount) {
+function exercise(start, onLine, expectedCount, args = []) {
   return new Promise((resolve, reject) => {
-    const child = spawn(binary, [], { stdio: ["pipe", "pipe", "pipe"] });
+    const child = spawn(binary, args, { stdio: ["pipe", "pipe", "pipe"] });
     let buffer = "";
     let stderr = "";
     const responses = [];
@@ -98,4 +98,27 @@ test("concurrent worker requests have unique correlated replies under a burst", 
   assert.deepEqual(new Set(responses.map(response => response.id)),
     new Set(Array.from({ length: count }, (_, index) => `burst-${index}`)));
   assert.ok(responses.every(response => response.ok));
+});
+
+test("local UI acceptance uses a real isolated workspace and refuses external services", async () => {
+  const requests = [
+    ["health", {}], ["workspace_create", { mode: "empty" }], ["logbook_list", {}],
+    ["station_connect", {}], ["backup_import", {}],
+  ];
+  const send = (child, index) => {
+    const [method, params] = requests[index];
+    child.stdin.write(JSON.stringify({ id: `isolated-${index}`, method, params }) + "\n");
+  };
+  const replies = await exercise(child => send(child, 0), (child, responses) => {
+    if (responses.length < requests.length) send(child, responses.length);
+  }, requests.length, ["--local-ui-acceptance"]);
+  assert.equal(replies[0].result.mode, "isolated_local_acceptance");
+  assert.equal(replies[0].result.isolated_workspace, true);
+  assert.equal(replies[0].result.platform_services, false);
+  assert.equal(replies[1].ok, true);
+  assert.equal(replies[2].result.total, 0);
+  for (const reply of replies.slice(3)) {
+    assert.equal(reply.ok, false);
+    assert.equal(reply.error.code, "acceptance_restricted");
+  }
 });

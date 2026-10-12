@@ -103,8 +103,9 @@ fn apply_workspace_layout(app: &tauri::AppHandle, layout: WorkspaceLayout) -> ta
 }
 
 #[tauri::command]
-async fn worker_request(window: tauri::WebviewWindow, request: serde_json::Value) -> Result<serde_json::Value, String> {
+async fn worker_request(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, request: serde_json::Value) -> Result<serde_json::Value, String> {
     // Only typed integration operations cross this boundary; never shell commands.
+    if state.path.is_some() { acceptance::validate_local_request(&request)?; }
     let method = request.get("method").and_then(|m| m.as_str()).unwrap_or("");
     if method.starts_with("winkeyer_") {
         winkeyer::validate_surface(window.label())?;
@@ -147,7 +148,8 @@ async fn worker_request(window: tauri::WebviewWindow, request: serde_json::Value
 }
 
 #[tauri::command]
-async fn pick_backup_package(window: tauri::WebviewWindow) -> Result<Option<String>, String> {
+async fn pick_backup_package(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>) -> Result<Option<String>, String> {
+    if state.path.is_some() { return Err("External backup import is disabled in local acceptance.".into()); }
     if window.label() != "main" {
         return Err("Only the main workspace can import a backup".into());
     }
@@ -330,6 +332,10 @@ fn dock_detached_window(window: tauri::WebviewWindow, app: tauri::AppHandle) -> 
 
 fn main() {
     let path = acceptance::report_path(std::env::args()).unwrap_or_else(|error| {
+        eprintln!("{error}");
+        std::process::exit(2);
+    });
+    worker::configure_local_acceptance(path.is_some()).unwrap_or_else(|error| {
         eprintln!("{error}");
         std::process::exit(2);
     });

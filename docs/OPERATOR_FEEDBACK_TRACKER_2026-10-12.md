@@ -47,12 +47,31 @@ explicit Node types dependency. The existing packaged UI harness still targets
 the earlier synthetic screen, not `LiveApp`; its acceptance must be updated
 before current shared-UI parity can be claimed.
 
-Second matrix run `38281076782` at `04ecbc4` advanced both portable builds to
-the station bridge, where Linux and Windows found a missing `CoreFoundation`
-import for strict Boolean-versus-number validation. The explicit import fixes
-that compilation dependency without weakening validation. A JSON-decoded port
-regression covers both Boolean values and a valid numeric port; all nine station
-bridge tests pass locally on Mac. Native CI confirmation is still required.
+Matrix run `38281076782` at `04ecbc4` found unresolved CoreFoundation type IDs
+in the station bridge. Run `38281893795` at `f588213` confirmed the explicit
+import fixes Linux compilation, but Windows does not expose that module. Numeric
+validation now uses Foundation's JSON scalar representation to reject Booleans
+without platform-specific type IDs. Tests cover JSON true/false, numeric ports,
+small integer NSNumber values, NaN and infinities. Linux also exposed an xCat
+import outside the existing macOS-only rotor test guard; the import now shares
+that guard. Native confirmation of these corrections remains pending.
+
+### Isolated current UI acceptance foundation
+
+The native acceptance launch now selects a dedicated worker session with a
+random disposable support directory. Rust rejects hardware and external-service
+requests before direct device dispatch; Swift independently allows only local
+logbook workflows and pure diagnostics. Native-logbook copying, external backup
+import, network services and credentials are excluded. Local mutations do not
+refresh the operator's cluster history. EOF drains admitted local requests,
+closes the database and removes the session's preferences and directory; later
+requests cannot reopen it.
+
+Mac source verification passes 139 XCTest cases, 47 Swift Testing cases,
+five real NDJSON process tests and 92 Rust tests. This is an acceptance foundation,
+not a packaged UI pass: the old UI driver still needs replacement, and browser
+storage must be isolated before running acceptance alongside an operator profile.
+The installed alpha.7 app has not been replaced by this work.
 
 ### Latest alpha.7 checkpoint (CW integration, 13 October)
 
