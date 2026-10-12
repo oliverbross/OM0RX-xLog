@@ -1,0 +1,212 @@
+import { describe, expect, it, vi } from "vitest";
+import { DraftRequestRejected, OperatorDraftSession, readDraftJournal, sameDraftValue,
+  type DraftJournal, type DraftMutation, type DraftSnapshot } from "./operatorDraftSession";
+
+const copy = <T>(value: T): T => structuredClone(value);
+function fixture() {
+  let current: DraftSnapshot = { revision: 0, qso: { id: "draft-1", call: "", start: "2026-10-13T00:00:00Z", band: "20m", mode: "CW" } };
+  const receipts = new Map<string, any>();
+  const contacts: any[] = [];
+  const request = vi.fn(async (method: string, params: any = {}) => {
+    if (method === "logbook_operator_draft") return { draft: copy(current) };
+    if (method === "logbook_operator_draft_receipt") return { receipt: copy(receipts.get(params.operationID) ?? null) };
+    if (method !== "logbook_operator_draft_apply") throw new Error(`Unexpected operation: ${method}`);
+    const mutation = params as DraftMutation;
+    if (receipts.has(mutation.operationID)) return { status: "applied", receipt: copy(receipts.get(mutation.operationID)) };
+    if (mutation.draftID !== current.qso.id || mutation.expectedRevision !== current.revision)
+      return { status: "conflict", draft: copy(current) };
+    if (mutation.action === "save" && !current.qso.call) throw new DraftRequestRejected("A callsign is required.");
+    const savedQSO = mutation.action === "save" ? copy(current.qso) : null;
+    if (savedQSO) contacts.push(savedQSO);
+    current = { revision: current.revision + 1, qso: mutation.action === "replace" ? copy(mutation.qso!) :
+      { ...current.qso, id: `draft-${current.revision + 2}`, call: "" } };
+    const receipt = { mutation: copy(mutation), draft: copy(current), savedQSO };
+    receipts.set(mutation.operationID, receipt);
+    return { status: "applied", receipt: copy(receipt) };
+  });
+  let journal: DraftJournal | null = null;
+  const write = vi.fn((value: DraftJournal) => { journal = copy(value); });
+  const make = (saved: DraftJournal | null = null) => new OperatorDraftSession(request, write, saved);
+  return { request, write, make, contacts, get journal() { return journal; }, get current() { return current; } };
+}
+const type = (session: OperatorDraftSession, call: string) => session.edit({ ...session.getSnapshot().draft!, call });
+const deferred = <T>() => { let resolve!: (value: T) => void; const promise = new Promise<T>(done => { resolve = done; }); return { resolve, promise }; };
+
+describe("workspace operator draft client", () => {
+  it("loads once, journals edits and uses revision-checked Replace", async () => {
+    const f = fixture(), session = f.make();
+    await Promise.all([session.load(), session.load()]);
+    expect(f.request).toHaveBeenCalledTimes(1);
+    type(session, "OM0RX");
+    expect(f.journal?.draft?.call).toBe("OM0RX");
+    await session.flush();
+    expect(f.current.qso.call).toBe("OM0RX");
+    expect(session.dirty).toBe(false);
+    expect(f.request.mock.calls.map(([method]) => method)).toEqual(["logbook_operator_draft", "logbook_operator_draft_apply"]);
+  });
+  it("preserves typing while an earlier Replace is in flight and serializes the next edit", async () => {
+    const f = fixture(), session = f.make(), gate = deferred<void>();
+    await session.load(); type(session, "K1A");
+    const backend = f.request.getMockImplementation()!;
+    let writes = 0;
+    f.request.mockImplementation(async (method, params) => {
+      if (method === "logbook_operator_draft_apply" && ++writes === 1) await gate.promise;
+      return backend(method, params);
+    });
+    const first = session.flush();
+    type(session, "K1ABC"); gate.resolve(); await first;
+    expect(f.current.qso.call).toBe("K1ABC");
+    expect(writes).toBe(2);
+  });
+  it("deduplicates simultaneous Save and writes exactly one contact", async () => {
+    const f = fixture(), session = f.make(); await session.load(); type(session, "K1ABC");
+    const first = session.commit("save"), second = session.commit("save");
+    expect(first).toBe(second);
+    expect(() => type(session, "NEW")).toThrow("Wait");
+    await Promise.all([first, second]);
+    expect(f.contacts).toHaveLength(1);
+    expect(session.getSnapshot().draft?.call).toBe("");
+    expect(session.getSnapshot().locked).toBe(false);
+  });
+  it("recovers a lost Save acknowledgement after reload without replay or duplicate logging", async () => {
+    const f = fixture(), session = f.make(); await session.load(); type(session, "K1ABC"); await session.flush();
+    const backend = f.request.getMockImplementation()!;
+    f.request.mockImplementation(async (method, params) => {
+      const result = await backend(method, params);
+      if (method === "logbook_operator_draft_apply" && params?.action === "save") throw new Error("IPC lost");
+      return result;
+    });
+    await expect(session.commit("save")).rejects.toThrow("IPC lost");
+    expect(f.journal?.pending?.action).toBe("save");
+    expect(session.getSnapshot().locked).toBe(true);
+    const calls = f.request.mock.calls.length;
+    const restored = f.make(readDraftJournal(JSON.stringify(f.journal)));
+    await restored.load();
+    expect(f.contacts).toHaveLength(1);
+    expect(restored.getSnapshot().pending).toBeNull();
+    expect(restored.getSnapshot().locked).toBe(false);
+    expect(f.request.mock.calls.slice(calls).map(([method]) => method)).toEqual(["logbook_operator_draft_receipt", "logbook_operator_draft"]);
+  });
+  it("retries a not-delivered Save with the identical persisted operation", async () => {
+    const f = fixture(), session = f.make(); await session.load(); type(session, "K1ABC"); await session.flush();
+    const backend = f.request.getMockImplementation()!;
+    let failed = false;
+    f.request.mockImplementation(async (method, params) => {
+      if (method === "logbook_operator_draft_apply" && params?.action === "save" && !failed) { failed = true; throw new Error("not delivered"); }
+      return backend(method, params);
+    });
+    await expect(session.commit("save")).rejects.toThrow();
+    const original = copy(session.getSnapshot().pending);
+    await session.reconcile(); expect(session.getSnapshot().pending).toEqual(original);
+    await session.retry();
+    const saves = f.request.mock.calls.filter(([method, params]) => method === "logbook_operator_draft_apply" && params.action === "save");
+    expect(saves).toHaveLength(2); expect(saves[0][1]).toEqual(saves[1][1]); expect(f.contacts).toHaveLength(1);
+  });
+  it("keeps conflicting local text and requires an explicit same-draft resolution", async () => {
+    const f = fixture(), first = f.make(), second = f.make(); await first.load(); await second.load();
+    type(first, "K1ABC"); type(second, "OM0RX"); await first.flush();
+    await expect(second.flush()).rejects.toThrow("another window");
+    expect(second.getSnapshot().draft?.call).toBe("OM0RX"); expect(f.current.qso.call).toBe("K1ABC");
+    second.keepLocal(); await second.flush(); expect(f.current.qso.call).toBe("OM0RX");
+    type(first, "W1AW"); await first.refresh();
+    await first.useShared(); expect(first.getSnapshot().draft?.call).toBe("OM0RX");
+  });
+  it("does not rebase old text into the next contact when another surface logs it", async () => {
+    const f = fixture(), first = f.make(), second = f.make(); await first.load(); type(first, "K1ABC"); await first.flush(); await second.load();
+    type(second, "OM0RX"); await first.commit("save"); await second.refresh();
+    expect(second.getSnapshot().draft?.call).toBe("OM0RX");
+    expect(() => second.keepLocal()).toThrow("saved or cleared");
+    await expect(second.commit("save")).rejects.toThrow(); expect(f.contacts).toHaveLength(1);
+  });
+  it("reconciles worker rejection against the receipt before treating Save as failed", async () => {
+    const f = fixture(), session = f.make(); await session.load();
+    await expect(session.commit("save")).rejects.toThrow("callsign");
+    expect(session.getSnapshot().pending).toBeNull(); expect(session.getSnapshot().locked).toBe(false);
+    type(session, "K1ABC"); await session.flush();
+    const backend = f.request.getMockImplementation()!;
+    f.request.mockImplementation(async (method, params) => {
+      const result = await backend(method, params);
+      if (method === "logbook_operator_draft_apply" && params?.action === "save") throw new DraftRequestRejected("Aggregate refresh failed after commit");
+      return result;
+    });
+    expect((await session.commit("save"))?.call).toBe("K1ABC"); expect(f.contacts).toHaveLength(1);
+  });
+  it("does not send an operation when recovery storage cannot persist its identity", async () => {
+    const f = fixture(), session = f.make(); await session.load(); type(session, "K1ABC");
+    f.write.mockImplementation(() => { throw new Error("disk full"); });
+    await expect(session.commit("save")).rejects.toThrow("disk full");
+    expect(f.request.mock.calls.some(([method]) => method === "logbook_operator_draft_apply")).toBe(false);
+    expect(session.getSnapshot().draft?.call).toBe("K1ABC");
+  });
+  it("retains text newer than an unacknowledged Replace across restart", async () => {
+    const f = fixture(), session = f.make(); await session.load(); type(session, "K1A");
+    const backend = f.request.getMockImplementation()!;
+    f.request.mockImplementation(async (method, params) => { const result = await backend(method, params);
+      if (method === "logbook_operator_draft_apply") throw new Error("lost ack"); return result; });
+    await expect(session.flush()).rejects.toThrow(); type(session, "K1ABC");
+    const restored = f.make(readDraftJournal(JSON.stringify(f.journal))); await restored.load();
+    expect(restored.getSnapshot().draft?.call).toBe("K1ABC"); expect(restored.dirty).toBe(true);
+  });
+  it("compares Swift UUID casing and equivalent ISO timestamp representations semantically", () => {
+    expect(sameDraftValue({ operationID: "AABB", qso: { id: "AABB", start: "2026-10-13T00:00:00Z" } },
+      { qso: { start: "2026-10-13T00:00:00.000Z", id: "aabb" }, operationID: "aabb" })).toBe(true);
+    expect(sameDraftValue({ id: "AABB", dxcc: null, frequencyHz: null, wavelogID: null }, { id: "aabb" })).toBe(true);
+    expect(sameDraftValue({ id: "AABB", name: null }, { id: "aabb" })).toBe(false);
+    expect(readDraftJournal("bad")).toBeNull(); expect(readDraftJournal(JSON.stringify({ base: { revision: -1 } }))).toBeNull();
+  });
+  it("two surfaces cannot log the same canonical draft twice", async () => {
+    const f = fixture(), first = f.make(), second = f.make();
+    await first.load(); type(first, "OM0RX"); await first.flush(); await second.load();
+    const outcomes = await Promise.allSettled([first.commit("save"), second.commit("save")]);
+    expect(outcomes.filter(outcome => outcome.status === "fulfilled")).toHaveLength(1);
+    expect(f.contacts).toHaveLength(1);
+    expect(second.getSnapshot().draft?.call).toBe("OM0RX");
+    expect(second.getSnapshot().conflict?.qso.call).toBe("");
+  });
+  it("refuses a mismatched receipt while retaining recovery identity and local text", async () => {
+    const f = fixture(), session = f.make(); await session.load(); type(session, "OM0RX");
+    const backend = f.request.getMockImplementation()!;
+    f.request.mockImplementation(async (method, params) => {
+      const result = await backend(method, params);
+      if (method === "logbook_operator_draft_apply") result.receipt.mutation.operationID = "wrong-operation";
+      return result;
+    });
+    await expect(session.flush()).rejects.toThrow("verified");
+    expect(session.getSnapshot().draft?.call).toBe("OM0RX"); expect(session.getSnapshot().pending).not.toBeNull();
+  });
+  it("fetches current state after a historical receipt, without rolling back newer remote text", async () => {
+    const f = fixture(), session = f.make(); await session.load(); type(session, "OM0RX");
+    const backend = f.request.getMockImplementation()!;
+    f.request.mockImplementation(async (method, params) => { const result = await backend(method, params);
+      if (method === "logbook_operator_draft_apply") throw new Error("lost ack"); return result; });
+    await expect(session.flush()).rejects.toThrow(); const journal = copy(f.journal);
+    f.request.mockImplementation(backend);
+    const other = f.make(); await other.load(); type(other, "W1AW"); await other.flush();
+    const restored = f.make(journal); await restored.load();
+    expect(restored.getSnapshot().draft?.call).toBe("W1AW");
+    expect(restored.getSnapshot().base?.revision).toBe(f.current.revision);
+  });
+  it("Clear is revision-fenced and never writes a logbook contact", async () => {
+    const f = fixture(), session = f.make(); await session.load(); type(session, "OM0RX");
+    await session.commit("clear"); expect(session.getSnapshot().draft?.call).toBe(""); expect(f.contacts).toHaveLength(0);
+    expect(f.request.mock.calls.filter(([method]) => method === "logbook_operator_draft_apply")).toHaveLength(1);
+  });
+  it("reset clears the recovery journal and ignores an older workspace load", async () => {
+    const f = fixture(), session = f.make(); await session.load();
+    const gate = deferred<any>(); f.request.mockReturnValueOnce(gate.promise);
+    const loading = session.refresh(); session.reset();
+    gate.resolve({ draft: { revision: 12, qso: { id: "old", call: "OLD" } } }); await loading;
+    expect(session.getSnapshot().draft).toBeNull(); expect(readDraftJournal(JSON.stringify(f.journal))).toBeNull();
+  });
+  it("does not let autosave or another action overtake explicit conflict resolution", async () => {
+    const f = fixture(), session = f.make(); await session.load(); type(session, "OM0RX");
+    const gate = deferred<any>(); f.request.mockReturnValueOnce(gate.promise);
+    const resolution = session.useShared();
+    await expect(session.flush()).rejects.toThrow("resolution");
+    await expect(session.commit("save")).rejects.toThrow("pending");
+    expect(() => type(session, "NEW")).toThrow("Wait");
+    expect(() => session.reset()).toThrow("Finish");
+    gate.resolve({ draft: copy(f.current) }); await resolution;
+    expect(session.getSnapshot().draft?.call).toBe(""); expect(f.contacts).toHaveLength(0);
+  });
+});

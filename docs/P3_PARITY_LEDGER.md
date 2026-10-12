@@ -57,6 +57,8 @@ Status: **partial foundation only**. The new database/worker API provides revisi
 
 Checkpoint B extracts **Cluster only**: one native snapshot poller and last-good projection, direct scoped detached Cluster commands, no main-renderer transport relay, and no retry after uncertain delivery. Other polling/projections, QSO selection and automatic actions still depend on the main renderer. 87 Rust and 367 frontend tests pass; production frontend builds. Browser fixtures verify stale-data retention/recovery, not native main-window-absent operation. All-screen undocking and WS-08 sizing remain unaccepted; installed alpha.13 is unchanged. See the workspace plan for precise evidence and open gates.
 
+Checkpoint C implements the frontend draft recovery client and response-correlated transport against the existing database API. It is not yet enabled in the editor. New-contact concurrency and lost-ack recovery have client tests, but UI migration, logged-contact edit revisions, workspace/restore generation fencing and native multiple-window acceptance remain outstanding. This is a dependency for WS-05/07, not completion of those gates.
+
 ### Operator-requested detachable workspaces — 2026-10-12
 
 **Required; acceptance pending.** DX Cluster, World Map and Band Maps must each
