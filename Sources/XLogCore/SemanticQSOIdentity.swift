@@ -38,7 +38,7 @@ public struct SemanticQSOIdentity: Codable, Equatable, Hashable, Sendable {
 
     private static func normalizeTimestamp(_ value: String) -> String {
         value
-            .split(whereSeparator: \Character.isWhitespace)
+            .split(whereSeparator: { $0.isWhitespace })
             .joined(separator: " ")
             .replacingOccurrences(of: " :", with: ":")
             .replacingOccurrences(of: ": ", with: ":")

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1 — 2026-10-12
+
+- Restored Swift 5.10/macOS 14 CI compatibility for semantic QSO timestamp normalization.
+
 ## 0.2.0 — 2026-10-12
 
 - Added a complete local award catalogue for AJD, WAJA, JCC, JCG, AJA, WACA, WAGA, WAPC and WCSA.

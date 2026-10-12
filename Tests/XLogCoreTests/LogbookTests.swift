@@ -102,6 +102,25 @@ private final class UnstablePagedSyncURLProtocol: URLProtocol, @unchecked Sendab
 
 @Suite("OM0RX-xLog core")
 struct LogbookTests {
+    @Test("Semantic identity normalizes mixed timestamp whitespace")
+    func semanticTimestampWhitespace() {
+        let mixedWhitespace = SemanticQSOIdentity(
+            call: " om0rx ",
+            timestamp: "2026-10-12\t 09:30:00",
+            band: "20M",
+            mode: "cw"
+        )
+        let canonical = SemanticQSOIdentity(
+            call: "OM0RX",
+            timestamp: "2026-10-12 09:30:00",
+            band: "20m",
+            mode: "CW"
+        )
+
+        #expect(mixedWhitespace == canonical)
+        #expect(mixedWhitespace.timestamp == "2026-10-12 09:30:00")
+    }
+
     @Test("Local save, history, matrix and deletion")
     func localLifecycle() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

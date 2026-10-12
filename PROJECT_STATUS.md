@@ -1,7 +1,7 @@
 # OM0RX-xLog project status
 
 Last updated: 2026-10-12
-Release `v0.2.0` adds the complete native AJD/WAJA/JCC/JCG/AJA/WACA/WAGA/WAPC/WCSA catalogue, backed by bundled MIT-licensed reference data and live verification against the 67,823-contact local log.
+Release `v0.2.1` adds the complete native AJD/WAJA/JCC/JCG/AJA/WACA/WAGA/WAPC/WCSA catalogue, backed by bundled MIT-licensed reference data and live verification against the 67,823-contact local log, plus Swift 5.10/macOS 14 CI compatibility.
 Latency follow-up: xCat now omits redundant RX-VFO/split writes for simplex
 spot changes (one remote command instead of three; 57 Swift tests pass).
 The Windows source separates radio polling from serialized accessory following
@@ -211,7 +211,7 @@ This register is the release gate for all operator feedback in this build cycle.
 
 Current local evidence at this revision:
 
-- xLog: **38/38** Swift tests pass across seven suites, including the complete nine-award catalogue, Japanese entity dates, case-normalized bands, WAPC matrices, WCSA slot deduplication, database lifecycle, Wavelog reconciliation, CTY resolution, propagation, activation directories, FLEX spot mapping and verified backup recovery.
+- xLog: **39/39** Swift tests pass across seven suites, including the complete nine-award catalogue, Japanese entity dates, case-normalized bands, WAPC matrices, WCSA slot deduplication, database lifecycle, Wavelog reconciliation, CTY resolution, propagation, activation directories, FLEX spot mapping and verified backup recovery.
 - xCat: **56/56** Swift tests pass, including CAT/RigCtl session transmit ownership, atomic frequency-plus-mode dispatch, clearing a prior split before a new spot tune and explicit target-band rotor command parsing/gating; read-only short-lived xLog polling disconnects cannot issue a cleanup unkey against an independently keyed Maestro session.
 - Windows Remote Station Agent final gate at pushed source `90abbb4` / deployed controller `c49dfd3`: **888 Python**, **105 browser/widget**, **105 MSHV safety**, **210 standalone WindowsAgent**, **117 focused station**, and **1 native widget smoke** test passed. Guarded live acceptance used no PTT, TUNE-start, CWX or RF transmission.
 - xCluster: **22/22** Swift tests passing, including the structured xLog handoff and local snapshot contract.
@@ -242,7 +242,7 @@ Current local evidence at this revision:
 - [x] Impeccable finish review returns SHIP with no blocker.
 - [x] Create public `oliverbross/OM0RX-xLog` repository and push `main`.
 - [x] Tag and publish xLog `v0.1.0` with the signed macOS archive.
-- [x] Tag and publish xLog `v0.2.0` with the Developer ID-signed macOS archive and complete nine-award acceptance evidence.
+- [x] Tag and publish xLog `v0.2.1` with the Developer ID-signed macOS archive, Swift 5.10/macOS 14 CI and complete nine-award acceptance evidence.
 - [x] Commit/push xCluster snapshot and award-handoff changes.
 - [x] Tag and publish xCluster `v0.1.6` with the signed macOS archive.
 - [x] Verify public repository descriptions, README rendering and release downloads.

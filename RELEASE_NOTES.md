@@ -1,6 +1,8 @@
-# OM0RX-xLog 0.2.0
+# OM0RX-xLog 0.2.1
 
 The award, intelligence and operator-workflow release of the native, local-first OM0RX macOS logbook.
+
+This patch release includes the complete 0.2.0 feature set and restores Swift 5.10/macOS 14 build compatibility in GitHub CI.
 
 Highlights:
 

@@ -141,7 +141,7 @@ public actor ReferenceDataUpdater {
         var request = URLRequest(url: url, cachePolicy: .reloadRevalidatingCacheData, timeoutInterval: 20)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.setValue("OM0RX-xLog/0.2.0", forHTTPHeaderField: "User-Agent")
+        request.setValue("OM0RX-xLog/0.2.1", forHTTPHeaderField: "User-Agent")
         var state = currentState()
         apply(state.validators["wavelog-catalog.json"], to: &request)
         let (data, response) = try await session.data(for: request)
@@ -190,7 +190,7 @@ public actor ReferenceDataUpdater {
 
     private func download(_ url: URL, minimumBytes: Int, name: String, decompressGzip: Bool = false, validator: ReferenceDataValidator? = nil) async throws -> DownloadResult {
         var request = URLRequest(url: url, cachePolicy: .reloadRevalidatingCacheData, timeoutInterval: 30)
-        request.setValue("OM0RX-xLog/0.2.0", forHTTPHeaderField: "User-Agent")
+        request.setValue("OM0RX-xLog/0.2.1", forHTTPHeaderField: "User-Agent")
         apply(validator, to: &request)
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
@@ -220,7 +220,7 @@ public actor ReferenceDataUpdater {
 
     private func downloadActivationDirectory(_ url: URL, kind: ActivationReferenceKind, validator: ReferenceDataValidator?) async throws -> ActivationDownloadResult {
         var request = URLRequest(url: url, cachePolicy: .reloadRevalidatingCacheData, timeoutInterval: 90)
-        request.setValue("OM0RX-xLog/0.2.0", forHTTPHeaderField: "User-Agent")
+        request.setValue("OM0RX-xLog/0.2.1", forHTTPHeaderField: "User-Agent")
         apply(validator, to: &request)
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
