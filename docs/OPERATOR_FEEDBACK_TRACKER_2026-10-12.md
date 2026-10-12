@@ -69,6 +69,11 @@ PowerShell execution is blocked by the local tool policy; Windows CI must verify
 that staging and packaging path. No compatibility claim for every radio or rotor
 model follows from a dummy-device pass.
 
+Follow-up matrix: `38285494988`, exact source
+`c4e0562c8e74a23ef23d15ba1e051b59826ffa45`. All three native source jobs were
+confirmed running after dispatch. Results, portable dependency audits and current
+UI acceptance remain pending; do not substitute the earlier Mac-only success.
+
 ### Isolated current UI acceptance foundation
 
 The native acceptance launch now selects a dedicated worker session with a
