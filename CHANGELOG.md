@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0 — 2026-10-12
+
+- Added the complete 190-programme, 22-shared-profile worldwide awards research registry as a validated bundled resource.
+- Rebuilt Insights as a searchable and filterable 192-entry awards library, preserving WAPC and WCSA alongside the imported registry.
+- Added explicit live-calculation, research-tracking, blocked and historical states with sponsor sources, source dates, open dependencies and purpose/rule/evidence detail.
+- Separated worked, evidence-eligible and sponsor-credited totals in every live native rule pack; sponsor credit remains unavailable until an authoritative source is imported.
+- Added registry integrity, source URL, profile join, status accounting and delivery-ledger tests, plus a generated per-programme coverage report.
+- Kept all non-executable research records fail-closed: they cannot display qualification readiness or masquerade as implemented rules.
+
 ## 0.2.3 — 2026-10-12
 
 - Added a repeatable Keychain-backed Apple notarization workflow with mandatory acceptance, stapling, Gatekeeper verification and post-staple archive recreation.

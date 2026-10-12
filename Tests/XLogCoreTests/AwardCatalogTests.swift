@@ -9,6 +9,53 @@ struct AwardCatalogTests {
         let snapshot = try AwardCatalogEngine.compute(qsos: [])
         #expect(snapshot.items.map(\.code) == ["AJD", "WAJA", "JCC", "JCG", "AJA", "WACA", "WAGA", "WAPC", "WCSA"])
         #expect(snapshot.referenceDate == "2024-01-01")
+        #expect(snapshot.programmes.count == 192)
+        #expect(snapshot.programmes.filter { $0.deliveryState == .implemented }.count == 9)
+        #expect(snapshot.programmes.filter { $0.deliveryState == .trackingOnly }.count == 124)
+        #expect(snapshot.programmes.filter { $0.deliveryState == .blocked }.count == 56)
+        #expect(snapshot.programmes.filter { $0.deliveryState == .historical }.count == 3)
+        #expect(snapshot.researchDate == "2026-10-11")
+    }
+
+    @Test("The research registry accounts for all 190 programmes and profile joins")
+    func researchRegistryIntegrity() throws {
+        let registry = try AwardRegistry.load()
+        #expect(registry.format == "macos-ham-awards-research-registry")
+        #expect(registry.schemaVersion == "1.0")
+        #expect(registry.programmes.count == 190)
+        #expect(registry.sharedProfiles.count == 22)
+        #expect(Set(registry.programmes.map(\.id)).count == 190)
+        #expect(registry.programmes.filter { $0.researchStatus == .verifiedCore }.count == 131)
+        #expect(registry.programmes.filter { $0.researchStatus == .partial }.count == 56)
+        #expect(registry.programmes.filter { $0.researchStatus == .legacy }.count == 3)
+        #expect(registry.programmes.filter { $0.catalogueGroup == .global }.count == 21)
+        #expect(registry.programmes.filter { $0.catalogueGroup == .europe }.count == 55)
+        #expect(registry.programmes.filter { $0.catalogueGroup == .world }.count == 61)
+        #expect(registry.programmes.filter { $0.catalogueGroup == .specialty }.count == 53)
+
+        let profileIDs = Set(registry.sharedProfiles.keys)
+        let referencedProfiles = Set(registry.programmes.flatMap(\.sharedProfileIDs))
+        #expect(referencedProfiles.isSubset(of: profileIDs))
+    }
+
+    @Test("Official award source links are well formed")
+    func officialSourceLinks() throws {
+        let registry = try AwardRegistry.load()
+        let sourceStrings = registry.programmes.flatMap(\.officialSources).compactMap(\.url)
+        #expect(!sourceStrings.isEmpty)
+        #expect(sourceStrings.allSatisfy { value in
+            guard let url = URL(string: value), let scheme = url.scheme?.lowercased() else { return false }
+            return (scheme == "https" || scheme == "http") && url.host != nil
+        })
+    }
+
+    @Test("Every programme has an explicit delivery disposition")
+    func deliveryLedger() throws {
+        let snapshot = try AwardCatalogEngine.compute(qsos: [])
+        #expect(Set(snapshot.programmes.map(\.id)).count == snapshot.programmes.count)
+        #expect(snapshot.programmes.allSatisfy { !$0.deliveryDetail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })
+        #expect(snapshot.programmes.filter { $0.deliveryState == .implemented }.allSatisfy { $0.progress != nil })
+        #expect(snapshot.programmes.filter { $0.deliveryState != .implemented }.allSatisfy { $0.progress == nil })
     }
 
     @Test("JARL calculations normalize bands and enforce entity dates")
@@ -70,6 +117,19 @@ struct AwardCatalogTests {
         let snapshot = try AwardCatalogEngine.compute(qsos: [qso])
         #expect(try item("JCC", in: snapshot).current == 1)
         #expect(try item("WAPC", in: snapshot).current == 0)
+    }
+
+    @Test("Worked and evidence-eligible totals remain distinct")
+    func evidenceLayers() throws {
+        let workedOnly = QSO(
+            call: "JA8RAW", start: date(2024), band: "20m", mode: "CW", dxcc: 339,
+            state: "01", county: "0102"
+        )
+        let snapshot = try AwardCatalogEngine.compute(qsos: [workedOnly])
+        let jcc = try item("JCC", in: snapshot)
+        #expect(jcc.worked == 1)
+        #expect(jcc.current == 0)
+        #expect(jcc.sponsorCredited == nil)
     }
 
     private func item(_ code: String, in snapshot: AwardCatalogSnapshot) throws -> AwardCatalogItem {

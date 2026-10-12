@@ -3,7 +3,7 @@
 [![macOS 13+](https://img.shields.io/badge/macOS-13%2B-black)](#requirements)
 [![Swift 5.10](https://img.shields.io/badge/Swift-5.10-F05138)](Package.swift)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
-[![Release: v0.2.3](https://img.shields.io/badge/release-v0.2.3-12D6A0.svg)](https://github.com/oliverbross/OM0RX-xLog/releases/tag/v0.2.3)
+[![Release: v0.3.0](https://img.shields.io/badge/release-v0.3.0-12D6A0.svg)](https://github.com/oliverbross/OM0RX-xLog/releases/tag/v0.3.0)
 
 OM0RX-xLog is a fast, local-first amateur-radio logbook for macOS. It is the logging centre of the OM0RX station suite: contacts are committed to a local SQLite database first, enriched from QRZ and current reference data, synchronized in both directions with Wavelog, and connected to the radio through OM0RX-xCat.
 
@@ -29,7 +29,10 @@ Development scope, acceptance evidence and the prioritized backlog are tracked i
 - A hybrid/satellite world map that opens on the operator grid, with high-contrast classified spot labels, prominent semantic-colour DXCC prefixes, a worked/confirmed DXCC entity overlay and an accurate great-circle rotor path with short- and long-path bearings.
 - One, several or all band maps, each with full-band and CW/data/phone presets, pan/zoom controls, allocation lanes and collision-free spot labels.
 - Cluster intelligence controls for callsign/country/note search, worked-state and mode filtering, priority spots and an inline classification inspector without replacing the frequency-accurate band-map workflow.
-- Local worked/confirmed progress for DXCC, WAZ, WAS and four-character Maidenhead fields, plus milestone achievements and mode/band/continent/year operating summaries. These are operator estimates, not award-application certification.
+- A searchable 192-entry awards library: all 190 source-backed research programmes plus the existing WAPC and WCSA native calculators, with geography, sponsor, implementation-state and free-text filters.
+- Nine live native rule packs for AJD, WAJA, JCC, JCG, AJA, WACA, WAGA, WAPC and WCSA, showing separate worked, evidence-eligible and sponsor-credit states without equating a local result with an issued award.
+- Explicit tracking, blocked and historical states for every non-executable programme, including current source links, review dates, open dependencies and a generated per-programme [coverage ledger](docs/AWARDS_COVERAGE.md).
+- Local worked/confirmed progress for DXCC, WAZ, WAS and four-character Maidenhead fields, plus milestone achievements and mode/band/continent/year operating summaries. These remain operator estimates rather than sponsor award certification.
 - Grid-derived local weather from Open-Meteo, shown alongside xCat's live solar and day/night band-condition telemetry with a last-good-data fallback.
 - Structured POTA, SOTA, IOTA, WWFF and castle-reference promotion from cluster comments and special badges into the matching ADIF fields.
 - Fast local search, compact statistics and visible sync state.
@@ -76,7 +79,7 @@ The **Band Maps** settings page configures two independent workspaces:
 
 Band-map text can be scaled from 80–200% for high-density and 4K displays. Panels resize with their window, and frequency spacing plus collision avoidance scale with the available height rather than leaving unused space.
 
-The **Insights** workspace calculates award progress from the complete local SQLite log rather than the limited on-screen QSO table. It separates worked and confirmed entities, zones, US states and grid fields; confirmation means a verified paper-QSL or LoTW receive status in the stored record. Its international catalogue also evaluates AJD, WAJA, JCC, JCG, AJA, WACA, WAGA, WAPC and WCSA, including historical Japanese entity dates, WAPC band/mode matrices and WCSA school slots. It is deliberately labelled as local progress because final eligibility still depends on each award programme's rules and accepted confirmations.
+The **Insights** workspace calculates award progress from the complete local SQLite log rather than the limited on-screen QSO table. Its Awards Library searches and filters 192 entries by region and delivery state. Nine native calculators evaluate AJD, WAJA, JCC, JCG, AJA, WACA, WAGA, WAPC and WCSA, including historical Japanese entity dates, WAPC band/mode matrices and WCSA school slots. Each live detail separates contacts worked from evidence-eligible contacts and leaves sponsor credit explicitly unavailable until authoritative credit is imported. The remaining records are visibly classified as research tracking, blocked with a named dependency, or historical; a research record is never presented as an executable rule pack merely because it is in the catalogue.
 
 The full Log QSO editor presents contact/location, award references, notes, station and QSL fields together on one screen at normal desktop sizes. When xCat station telemetry is available, xLog automatically records transmitted power in ADIF `TX_PWR`: measured RF output is retained for the active QSO, with the current RF-drive setting and then the configured station default used as fallbacks.
 
@@ -179,3 +182,5 @@ OM0RX-xLog is released under the [GNU General Public License v3.0](LICENSE).
 The cluster, award and environmental-intelligence expansion was inspired by Balazs Valkony HA5XB's [HamLedger](https://github.com/valibali/hamledger). The xLog implementation is native Swift/SQLite work designed for the existing OM0RX architecture; no HamLedger source or assets are included.
 
 The extended JARL, WAPC and WCSA award logic and bundled reference datasets are adapted from BI1GHZ's MIT-licensed [ham-award-tools](https://github.com/cebarobot/ham-award-tools), reference commit `f28a04fa5a94368ac4099ce5cec97fcd93ce0849`. Its complete MIT notice is distributed in `Sources/XLogCore/Resources/ham-award-tools-LICENSE.md` and in the packaged application resources.
+
+The worldwide awards research registry is a dated, source-linked implementation input supplied for this project. It retains official source URLs and unresolved questions, contains summaries rather than reproduced rulebooks, and is deliberately gated from qualification claims until a complete executable rule pack and required reference data are audited.

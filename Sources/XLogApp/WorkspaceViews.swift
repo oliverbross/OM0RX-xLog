@@ -148,7 +148,29 @@ private struct ConfirmationStatus: View {
 
 struct InsightsView: View {
     @EnvironmentObject private var model: AppModel
-    @State private var selectedAwardCode = "AJD"
+    @State private var selectedAwardID = "jarl.ajd"
+    @State private var awardSearch = ""
+    @State private var awardDeliveryFilter: AwardDeliveryFilter = .all
+    @State private var awardGroupFilter: AwardGroupFilter = .all
+    @State private var awardModeFilter: AwardModeFilter = .all
+    @State private var awardRoleFilter: AwardRoleFilter = .all
+
+    private var filteredAwardProgrammes: [AwardProgramme] {
+        model.awardCatalog.programmes.filter { programme in
+            let matchesDelivery = awardDeliveryFilter.matches(programme.deliveryState)
+            let matchesGroup = awardGroupFilter.matches(programme.record.catalogueGroup)
+            let matchesMode = awardModeFilter.matches(programme.record)
+            let matchesRole = awardRoleFilter.matches(programme.record)
+            let needle = awardSearch.trimmingCharacters(in: .whitespacesAndNewlines)
+            let matchesSearch = needle.isEmpty || [
+                programme.record.name,
+                programme.record.sponsor,
+                programme.record.id,
+                programme.record.scopeOrCountingFocus,
+            ].contains { $0.localizedCaseInsensitiveContains(needle) }
+            return matchesDelivery && matchesGroup && matchesMode && matchesRole && matchesSearch
+        }
+    }
 
     var body: some View {
         ScrollView {
@@ -176,29 +198,113 @@ struct InsightsView: View {
                     }
                 }
 
-                Panel(title: "International award catalogue", symbol: "rosette") {
-                    if model.awardCatalog.items.isEmpty {
+                Panel(title: "Awards library", symbol: "rosette") {
+                    if model.awardCatalog.programmes.isEmpty {
                         EmptyInsight(text: "Award progress appears after the local log and bundled reference data are available.")
                     } else {
-                        HStack(alignment: .top, spacing: 18) {
-                            VStack(spacing: 0) {
-                                ForEach(model.awardCatalog.items) { award in
-                                    AwardCatalogRow(
-                                        award: award,
-                                        selected: award.code == selectedAwardCode,
-                                        action: { selectedAwardCode = award.code }
-                                    )
-                                    if award.id != model.awardCatalog.items.last?.id {
-                                        Rectangle().fill(XLogTheme.rule).frame(height: 1)
+                        VStack(alignment: .leading, spacing: 14) {
+                            AwardLibrarySummary(programmes: model.awardCatalog.programmes)
+
+                            HStack(spacing: 10) {
+                                TextField("Search programme, sponsor or rule focus", text: $awardSearch)
+                                    .textFieldStyle(.roundedBorder)
+                                    .frame(maxWidth: .infinity)
+                                Picker("State", selection: $awardDeliveryFilter) {
+                                    ForEach(AwardDeliveryFilter.allCases) { filter in
+                                        Text(filter.rawValue).tag(filter)
                                     }
                                 }
+                                .labelsHidden()
+                                .frame(width: 170)
+                                Picker("Region", selection: $awardGroupFilter) {
+                                    ForEach(AwardGroupFilter.allCases) { filter in
+                                        Text(filter.rawValue).tag(filter)
+                                    }
+                                }
+                                .labelsHidden()
+                                .frame(width: 130)
                             }
-                            .frame(width: 345)
 
-                            Rectangle().fill(XLogTheme.rule).frame(width: 1).frame(minHeight: 390)
+                            HStack(spacing: 10) {
+                                Text("Research facets")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(XLogTheme.secondary)
+                                Picker("Mode", selection: $awardModeFilter) {
+                                    ForEach(AwardModeFilter.allCases) { filter in
+                                        Text(filter.rawValue).tag(filter)
+                                    }
+                                }
+                                .labelsHidden()
+                                .frame(width: 140)
+                                Picker("Role", selection: $awardRoleFilter) {
+                                    ForEach(AwardRoleFilter.allCases) { filter in
+                                        Text(filter.rawValue).tag(filter)
+                                    }
+                                }
+                                .labelsHidden()
+                                .frame(width: 150)
+                                Text("Mode and role facets use only explicit wording in the reviewed source record.")
+                                    .font(.caption)
+                                    .foregroundStyle(XLogTheme.secondary)
+                                Spacer()
+                            }
 
-                            if let selected = model.awardCatalog.items.first(where: { $0.code == selectedAwardCode }) ?? model.awardCatalog.items.first {
-                                AwardCatalogDetail(award: selected, referenceDate: model.awardCatalog.referenceDate)
+                            HStack(alignment: .top, spacing: 18) {
+                                VStack(spacing: 0) {
+                                    HStack {
+                                        Text("\(filteredAwardProgrammes.count) PROGRAMMES")
+                                            .font(.caption2.weight(.bold))
+                                            .foregroundStyle(XLogTheme.secondary)
+                                        Spacer()
+                                        if !awardSearch.isEmpty || awardDeliveryFilter != .all || awardGroupFilter != .all
+                                            || awardModeFilter != .all || awardRoleFilter != .all {
+                                            Button("Clear filters") {
+                                                awardSearch = ""
+                                                awardDeliveryFilter = .all
+                                                awardGroupFilter = .all
+                                                awardModeFilter = .all
+                                                awardRoleFilter = .all
+                                            }
+                                            .buttonStyle(.plain)
+                                            .font(.caption)
+                                            .foregroundStyle(XLogTheme.cyan)
+                                        }
+                                    }
+                                    .padding(.horizontal, 10)
+                                    .padding(.bottom, 7)
+
+                                    ScrollView {
+                                        LazyVStack(spacing: 0) {
+                                            ForEach(filteredAwardProgrammes) { programme in
+                                                AwardProgrammeRow(
+                                                    programme: programme,
+                                                    selected: programme.id == selectedAwardID,
+                                                    action: { selectedAwardID = programme.id }
+                                                )
+                                                if programme.id != filteredAwardProgrammes.last?.id {
+                                                    Rectangle().fill(XLogTheme.rule).frame(height: 1)
+                                                }
+                                            }
+                                            if filteredAwardProgrammes.isEmpty {
+                                                EmptyInsight(text: "No award programmes match these filters.")
+                                                    .padding(.vertical, 40)
+                                            }
+                                        }
+                                    }
+                                }
+                                .frame(width: 370, height: 520)
+
+                                Rectangle().fill(XLogTheme.rule).frame(width: 1, height: 520)
+
+                                if let selected = model.awardCatalog.programmes.first(where: { $0.id == selectedAwardID })
+                                    ?? filteredAwardProgrammes.first
+                                    ?? model.awardCatalog.programmes.first {
+                                    AwardProgrammeDetail(
+                                        programme: selected,
+                                        referenceDate: model.awardCatalog.referenceDate,
+                                        researchDate: model.awardCatalog.researchDate
+                                    )
+                                }
                             }
                         }
                     }
@@ -245,105 +351,304 @@ struct InsightsView: View {
     }
 }
 
-private struct AwardCatalogRow: View {
-    let award: AwardCatalogItem
+private enum AwardDeliveryFilter: String, CaseIterable, Identifiable {
+    case all = "All states"
+    case live = "Live calculations"
+    case tracking = "Research tracking"
+    case blocked = "Blocked"
+    case historical = "Historical"
+    var id: String { rawValue }
+
+    func matches(_ state: AwardDeliveryState) -> Bool {
+        switch self {
+        case .all: return true
+        case .live: return state == .implemented
+        case .tracking: return state == .trackingOnly
+        case .blocked: return state == .blocked
+        case .historical: return state == .historical
+        }
+    }
+}
+
+private enum AwardGroupFilter: String, CaseIterable, Identifiable {
+    case all = "All regions"
+    case global = "Global"
+    case europe = "Europe"
+    case world = "World"
+    case specialty = "Specialty"
+    var id: String { rawValue }
+
+    func matches(_ group: AwardCatalogueGroup) -> Bool {
+        self == .all || rawValue.lowercased() == group.rawValue
+    }
+}
+
+private enum AwardModeFilter: String, CaseIterable, Identifiable {
+    case all = "All modes"
+    case cw = "CW stated"
+    case ssb = "SSB stated"
+    case mixed = "Mixed stated"
+    var id: String { rawValue }
+
+    func matches(_ record: AwardProgrammeRecord) -> Bool {
+        guard self != .all else { return true }
+        let modes = record.research["modes"]?.displayText.lowercased() ?? ""
+        switch self {
+        case .all: return true
+        case .cw: return modes.range(of: "\\bcw\\b", options: .regularExpression) != nil
+        case .ssb: return modes.range(of: "\\bssb\\b", options: .regularExpression) != nil
+        case .mixed: return modes.range(of: "\\bmixed\\b", options: .regularExpression) != nil
+        }
+    }
+}
+
+private enum AwardRoleFilter: String, CaseIterable, Identifiable {
+    case all = "All roles"
+    case hunter = "Hunter stated"
+    case activator = "Activator stated"
+    var id: String { rawValue }
+
+    func matches(_ record: AwardProgrammeRecord) -> Bool {
+        guard self != .all else { return true }
+        let text = ([record.name, record.scopeOrCountingFocus]
+            + record.research.values.map(\.displayText))
+            .joined(separator: " ")
+            .lowercased()
+        switch self {
+        case .all: return true
+        case .hunter: return text.contains("hunter") || text.contains("chaser")
+        case .activator: return text.contains("activator") || text.contains("activation")
+        }
+    }
+}
+
+private struct AwardLibrarySummary: View {
+    let programmes: [AwardProgramme]
+
+    var body: some View {
+        HStack(spacing: 0) {
+            summary("Library", programmes.count, XLogTheme.cyan)
+            summary("Live", count(.implemented), XLogTheme.teal)
+            summary("Tracking", count(.trackingOnly), XLogTheme.cyan)
+            summary("Blocked", count(.blocked), XLogTheme.amber)
+            summary("Historical", count(.historical), XLogTheme.secondary)
+            Spacer(minLength: 0)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private func count(_ state: AwardDeliveryState) -> Int {
+        programmes.filter { $0.deliveryState == state }.count
+    }
+
+    private func summary(_ label: String, _ value: Int, _ color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(value.formatted())
+                .font(.title3.bold().monospacedDigit())
+                .foregroundStyle(color)
+            Text(label).font(.caption).foregroundStyle(XLogTheme.secondary)
+        }
+        .frame(minWidth: 86, alignment: .leading)
+    }
+}
+
+private struct AwardProgrammeRow: View {
+    let programme: AwardProgramme
     let selected: Bool
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 11) {
-                Text(award.code)
+                Image(systemName: deliverySymbol(programme.deliveryState))
                     .font(.caption.weight(.bold))
-                    .foregroundStyle(awardColor(award.code))
-                    .frame(width: 48, alignment: .leading)
+                    .foregroundStyle(deliveryColor(programme.deliveryState))
+                    .frame(width: 18)
+                    .accessibilityHidden(true)
+                Text(programme.record.shortCode)
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(programme.progress.map { awardColor($0.code) } ?? deliveryColor(programme.deliveryState))
+                    .frame(width: 64, alignment: .leading)
+                    .lineLimit(1)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(award.title).font(.subheadline.weight(.semibold)).lineLimit(1)
-                    Text(award.programme).font(.caption2).foregroundStyle(XLogTheme.secondary)
+                    Text(programme.record.name).font(.subheadline.weight(.semibold)).lineLimit(1)
+                    Text(programme.record.sponsor).font(.caption2).foregroundStyle(XLogTheme.secondary).lineLimit(1)
                 }
                 Spacer(minLength: 8)
-                Text("\(award.current.formatted()) / \(award.target.formatted())")
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(award.completed ? XLogTheme.teal : XLogTheme.secondary)
+                if let progress = programme.progress {
+                    Text("\(progress.current.formatted()) / \(progress.target.formatted())")
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(progress.completed ? XLogTheme.teal : XLogTheme.secondary)
+                }
             }
             .padding(.horizontal, 10)
-            .frame(minHeight: 43)
+            .frame(minHeight: 46)
             .background(selected ? XLogTheme.raised : Color.clear)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(award.code), \(award.title), \(award.current) of \(award.target)")
-        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityLabel("\(programme.record.name), \(programme.deliveryState.title)")
+        .accessibilityValue(selected ? "Selected" : "")
     }
 }
 
-private struct AwardCatalogDetail: View {
-    let award: AwardCatalogItem
+private struct AwardProgrammeDetail: View {
+    let programme: AwardProgramme
     let referenceDate: String
+    let researchDate: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(award.code)
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundStyle(awardColor(award.code))
-                Text(award.title).font(.title3.weight(.semibold))
-                Spacer()
-                Label(award.completed ? "Target reached" : "In progress", systemImage: award.completed ? "checkmark.seal.fill" : "scope")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(award.completed ? XLogTheme.teal : XLogTheme.secondary)
-            }
-
-            HStack(alignment: .lastTextBaseline, spacing: 7) {
-                Text(award.current.formatted())
-                    .font(.system(size: 42, weight: .bold, design: .rounded)).monospacedDigit()
-                Text("of \(award.target.formatted()) \(award.unit)")
-                    .font(.body.weight(.medium)).foregroundStyle(XLogTheme.secondary)
-            }
-
-            GeometryReader { proxy in
-                ZStack(alignment: .leading) {
-                    Rectangle().fill(XLogTheme.raised)
-                    Rectangle().fill(awardColor(award.code)).frame(width: max(4, proxy.size.width * award.fraction))
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(programme.record.name).font(.title3.weight(.semibold))
+                        Text(programme.record.sponsor).font(.subheadline).foregroundStyle(XLogTheme.secondary)
+                    }
+                    Spacer()
+                    Label(programme.deliveryState.title, systemImage: deliverySymbol(programme.deliveryState))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(deliveryColor(programme.deliveryState))
                 }
-            }
-            .frame(height: 7)
-            .clipShape(Capsule())
 
-            Text(award.detail)
-                .font(.body)
-                .foregroundStyle(XLogTheme.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            if !award.breakdowns.isEmpty {
-                Text("BREAKDOWN").font(.caption2.weight(.bold)).foregroundStyle(XLogTheme.secondary)
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 118), spacing: 8)], alignment: .leading, spacing: 8) {
-                    ForEach(award.breakdowns) { item in
-                        HStack {
-                            Text(item.label).font(.caption.weight(.semibold)).lineLimit(1)
-                            Spacer()
-                            Text(item.target.map { "\(item.value)/\($0)" } ?? item.value.formatted())
-                                .font(.caption.monospacedDigit()).foregroundStyle(XLogTheme.secondary)
+                if let award = programme.progress {
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(alignment: .lastTextBaseline, spacing: 7) {
+                            Text(award.current.formatted())
+                                .font(.system(size: 38, weight: .bold, design: .rounded)).monospacedDigit()
+                                .foregroundStyle(awardColor(award.code))
+                            Text("of \(award.target.formatted()) \(award.unit) evidence-eligible")
+                                .font(.body.weight(.medium)).foregroundStyle(XLogTheme.secondary)
                         }
-                        .padding(.horizontal, 9)
-                        .frame(minHeight: 30)
-                        .background(XLogTheme.raised)
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                        GeometryReader { proxy in
+                            ZStack(alignment: .leading) {
+                                Rectangle().fill(XLogTheme.raised)
+                                Rectangle().fill(awardColor(award.code)).frame(width: max(4, proxy.size.width * award.fraction))
+                            }
+                        }
+                        .frame(height: 7)
+                        .clipShape(Capsule())
+                        HStack(spacing: 18) {
+                            EvidenceLabel(title: "Worked", value: award.worked.formatted())
+                            EvidenceLabel(title: "Evidence-eligible", value: award.current.formatted())
+                            EvidenceLabel(title: "Sponsor-credited", value: award.sponsorCredited?.formatted() ?? "Not imported")
+                        }
+                        Text(award.detail).font(.body).foregroundStyle(XLogTheme.secondary)
+
+                        if !award.breakdowns.isEmpty {
+                            Text("BREAKDOWN").font(.caption2.weight(.bold)).foregroundStyle(XLogTheme.secondary)
+                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 118), spacing: 8)], alignment: .leading, spacing: 8) {
+                                ForEach(award.breakdowns) { item in
+                                    HStack {
+                                        Text(item.label).font(.caption.weight(.semibold)).lineLimit(1)
+                                        Spacer()
+                                        Text(item.target.map { "\(item.value)/\($0)" } ?? item.value.formatted())
+                                            .font(.caption.monospacedDigit()).foregroundStyle(XLogTheme.secondary)
+                                    }
+                                    .padding(.horizontal, 9)
+                                    .frame(minHeight: 30)
+                                    .background(XLogTheme.raised)
+                                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    Text("No eligibility result is asserted for this programme.")
+                        .font(.headline)
+                        .foregroundStyle(deliveryColor(programme.deliveryState))
+                }
+
+                Text(programme.deliveryDetail)
+                    .font(.body)
+                    .foregroundStyle(XLogTheme.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                detailSection("Counting focus", programme.record.scopeOrCountingFocus)
+
+                ForEach(programme.record.research.sorted(by: { $0.key < $1.key }), id: \.key) { entry in
+                    detailSection(entry.key.replacingOccurrences(of: "_", with: " ").capitalized, entry.value.displayText)
+                }
+
+                if !programme.record.openQuestions.isEmpty {
+                    VStack(alignment: .leading, spacing: 7) {
+                        Text("OPEN DEPENDENCIES").font(.caption2.weight(.bold)).foregroundStyle(XLogTheme.amber)
+                        ForEach(programme.record.openQuestions, id: \.self) { question in
+                            Label(question, systemImage: "exclamationmark.circle")
+                                .font(.caption)
+                                .foregroundStyle(XLogTheme.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     }
                 }
-            }
 
-            Spacer(minLength: 0)
-            HStack(spacing: 7) {
-                Image(systemName: "checkmark.shield")
-                Text("Calculated locally from confirmed QSOs")
-                if !referenceDate.isEmpty { Text("· JARL data \(referenceDate)") }
+                if !programme.record.officialSources.isEmpty {
+                    VStack(alignment: .leading, spacing: 7) {
+                        Text("OFFICIAL SOURCES").font(.caption2.weight(.bold)).foregroundStyle(XLogTheme.secondary)
+                        ForEach(Array(programme.record.officialSources.enumerated()), id: \.offset) { index, source in
+                            if let value = source.url, let url = URL(string: value) {
+                                Link(destination: url) {
+                                    Label(url.host ?? "Official source \(index + 1)", systemImage: "arrow.up.right.square")
+                                        .font(.caption)
+                                }
+                            } else if let ref = source.ref {
+                                Text(ref).font(.caption).foregroundStyle(XLogTheme.secondary)
+                            }
+                        }
+                    }
+                }
+
+                HStack(spacing: 7) {
+                    Image(systemName: "checkmark.shield")
+                    Text("Research reviewed \(programme.record.checkedOnUTC.isEmpty ? researchDate : programme.record.checkedOnUTC)")
+                    if programme.progress != nil, !referenceDate.isEmpty { Text("· JARL data \(referenceDate)") }
+                }
+                .font(.caption2)
+                .foregroundStyle(XLogTheme.secondary)
             }
-            .font(.caption2)
-            .foregroundStyle(XLogTheme.secondary)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .padding(.trailing, 8)
         }
-        .frame(maxWidth: .infinity, minHeight: 390, alignment: .topLeading)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .frame(height: 520, alignment: .topLeading)
         .accessibilityElement(children: .contain)
+    }
+
+    private func detailSection(_ title: String, _ text: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title.uppercased()).font(.caption2.weight(.bold)).foregroundStyle(XLogTheme.secondary)
+            Text(text).font(.caption).foregroundStyle(XLogTheme.secondary).fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+private struct EvidenceLabel: View {
+    let title: String
+    let value: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title.uppercased()).font(.caption2.weight(.bold)).foregroundStyle(XLogTheme.secondary)
+            Text(value).font(.caption.weight(.semibold)).lineLimit(2)
+        }
+    }
+}
+
+private func deliveryColor(_ state: AwardDeliveryState) -> Color {
+    switch state {
+    case .implemented: return XLogTheme.teal
+    case .trackingOnly: return XLogTheme.cyan
+    case .blocked: return XLogTheme.amber
+    case .historical: return XLogTheme.secondary
+    }
+}
+
+private func deliverySymbol(_ state: AwardDeliveryState) -> String {
+    switch state {
+    case .implemented: return "checkmark.seal.fill"
+    case .trackingOnly: return "doc.text.magnifyingglass"
+    case .blocked: return "exclamationmark.triangle.fill"
+    case .historical: return "clock.arrow.circlepath"
     }
 }
 

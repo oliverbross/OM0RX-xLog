@@ -17,7 +17,9 @@ public struct AwardCatalogItem: Identifiable, Equatable, Sendable {
     public var code: String
     public var title: String
     public var programme: String
+    public var worked: Int
     public var current: Int
+    public var sponsorCredited: Int?
     public var target: Int
     public var unit: String
     public var detail: String
@@ -30,7 +32,9 @@ public struct AwardCatalogItem: Identifiable, Equatable, Sendable {
         code: String,
         title: String,
         programme: String,
+        worked: Int? = nil,
         current: Int,
+        sponsorCredited: Int? = nil,
         target: Int,
         unit: String,
         detail: String,
@@ -39,7 +43,9 @@ public struct AwardCatalogItem: Identifiable, Equatable, Sendable {
         self.code = code
         self.title = title
         self.programme = programme
+        self.worked = worked ?? current
         self.current = current
+        self.sponsorCredited = sponsorCredited
         self.target = target
         self.unit = unit
         self.detail = detail
@@ -49,11 +55,20 @@ public struct AwardCatalogItem: Identifiable, Equatable, Sendable {
 
 public struct AwardCatalogSnapshot: Equatable, Sendable {
     public var items: [AwardCatalogItem]
+    public var programmes: [AwardProgramme]
     public var referenceDate: String
+    public var researchDate: String
 
-    public init(items: [AwardCatalogItem] = [], referenceDate: String = "") {
+    public init(
+        items: [AwardCatalogItem] = [],
+        programmes: [AwardProgramme] = [],
+        referenceDate: String = "",
+        researchDate: String = ""
+    ) {
         self.items = items
+        self.programmes = programmes
         self.referenceDate = referenceDate
+        self.researchDate = researchDate
     }
 
     public static let empty = AwardCatalogSnapshot()
@@ -165,6 +180,7 @@ public enum AwardCatalogEngine {
         }
 
         let wcsa = wcsaProgress(qsos: confirmedWithoutEQSL, schools: reference.schools)
+        let worked = workedCounts(qsos: qsos, reference: reference)
         let jccTarget = nextMilestone(jcc.count, values: [100, 200, 300, 400, 500, 600, 700, 800])
         let jcgTarget = nextMilestone(jcg.count, values: [100, 200, 300, 400, 500])
         let ajaTarget = nextAJATarget(aja.count)
@@ -173,24 +189,24 @@ public enum AwardCatalogEngine {
             (wcsa.slotCount >= 6 && wcsa.schoolCount >= 2 ? "Silver achieved · Gold next" :
                 (wcsa.slotCount >= 3 && wcsa.schoolCount >= 1 ? "Bronze achieved · Silver next" : "Bronze next"))
 
-        return AwardCatalogSnapshot(items: [
-            AwardCatalogItem(code: "AJD", title: "All Japan Districts", programme: "JARL", current: districts.count, target: 10, unit: "districts", detail: "Confirmed contacts in all ten Japanese call districts."),
-            AwardCatalogItem(code: "WAJA", title: "Worked All Japan Prefectures", programme: "JARL", current: prefectures.count, target: 47, unit: "prefectures", detail: "Confirmed contacts in Japan's 47 prefectures."),
-            AwardCatalogItem(code: "JCC", title: "Japan Century Cities", programme: "JARL", current: jcc.count, target: jccTarget, unit: "cities", detail: "Confirmed city contacts · award levels 100–800."),
-            AwardCatalogItem(code: "JCG", title: "Japan Century Guns", programme: "JARL", current: jcg.count, target: jcgTarget, unit: "guns", detail: "Confirmed Japanese district contacts · award levels 100–500."),
-            AwardCatalogItem(code: "AJA", title: "All Japan Award", programme: "JARL", current: aja.count, target: ajaTarget, unit: "entity-bands", detail: "Unique confirmed JCC, JCG and Ku entities by band · basic award at 1,000."),
-            AwardCatalogItem(code: "WACA", title: "Worked All Cities Award", programme: "JARL", current: waca.count, target: activeCities.count, unit: "active cities", detail: "All current Japanese city entities; deleted entities are excluded."),
-            AwardCatalogItem(code: "WAGA", title: "Worked All Guns Award", programme: "JARL", current: waga.count, target: activeGuns.count, unit: "active guns", detail: "All current Japanese gun entities; deleted entities are excluded."),
+        let liveItems = [
+            AwardCatalogItem(code: "AJD", title: "All Japan Districts", programme: "JARL", worked: worked["AJD"], current: districts.count, target: 10, unit: "districts", detail: "Evidence-eligible contacts in all ten Japanese call districts."),
+            AwardCatalogItem(code: "WAJA", title: "Worked All Japan Prefectures", programme: "JARL", worked: worked["WAJA"], current: prefectures.count, target: 47, unit: "prefectures", detail: "Evidence-eligible contacts in Japan's 47 prefectures."),
+            AwardCatalogItem(code: "JCC", title: "Japan Century Cities", programme: "JARL", worked: worked["JCC"], current: jcc.count, target: jccTarget, unit: "cities", detail: "Evidence-eligible city contacts · award levels 100–800."),
+            AwardCatalogItem(code: "JCG", title: "Japan Century Guns", programme: "JARL", worked: worked["JCG"], current: jcg.count, target: jcgTarget, unit: "guns", detail: "Evidence-eligible Japanese district contacts · award levels 100–500."),
+            AwardCatalogItem(code: "AJA", title: "All Japan Award", programme: "JARL", worked: worked["AJA"], current: aja.count, target: ajaTarget, unit: "entity-bands", detail: "Unique evidence-eligible JCC, JCG and Ku entities by band · basic award at 1,000."),
+            AwardCatalogItem(code: "WACA", title: "Worked All Cities Award", programme: "JARL", worked: worked["WACA"], current: waca.count, target: activeCities.count, unit: "active cities", detail: "All current Japanese city entities; deleted entities are excluded."),
+            AwardCatalogItem(code: "WAGA", title: "Worked All Guns Award", programme: "JARL", worked: worked["WAGA"], current: waga.count, target: activeGuns.count, unit: "active guns", detail: "All current Japanese gun entities; deleted entities are excluded."),
             AwardCatalogItem(
                 code: "WAPC", title: "Worked All Provinces of China", programme: "Mulan DXC",
-                current: wapcMixed.count, target: wapcProvinces.count, unit: "provinces",
+                worked: worked["WAPC"], current: wapcMixed.count, target: wapcProvinces.count, unit: "provinces",
                 detail: "Mainland provinces, autonomous regions, municipalities, Taiwan, Hong Kong and Macau.",
                 breakdowns: wapcBands.map { AwardBreakdown(label: $0, value: wapcByBand[$0]?.count ?? 0, target: 34) }
                     + ["CW", "PHONE", "DATA"].map { AwardBreakdown(label: $0, value: wapcByMode[$0]?.count ?? 0, target: 34) }
             ),
             AwardCatalogItem(
                 code: "WCSA", title: "Worked Chinese Schools Award", programme: "WCSA",
-                current: wcsa.slotCount, target: wcsaTarget, unit: "slots",
+                worked: worked["WCSA"], current: wcsa.slotCount, target: wcsaTarget, unit: "slots",
                 detail: "\(wcsaLevel) · \(wcsa.schoolCount) school\(wcsa.schoolCount == 1 ? "" : "s") confirmed.",
                 breakdowns: [
                     AwardBreakdown(label: "Schools", value: wcsa.schoolCount, target: 3),
@@ -199,7 +215,71 @@ public enum AwardCatalogEngine {
                     AwardBreakdown(label: "Gold", value: min(wcsa.slotCount, 10), target: 10),
                 ]
             ),
-        ], referenceDate: reference.referenceDate)
+        ]
+        let registry = try AwardRegistry.programmes(progress: liveItems)
+        return AwardCatalogSnapshot(
+            items: liveItems,
+            programmes: registry.items,
+            referenceDate: reference.referenceDate,
+            researchDate: registry.researchDate
+        )
+    }
+
+    private static func workedCounts(qsos: [QSO], reference: ReferenceData) -> [String: Int] {
+        var districts = Set<String>()
+        var prefectures = Set<String>()
+        var jcc = Set<String>()
+        var jcg = Set<String>()
+        var aja = Set<String>()
+
+        for original in qsos where isJapan(original) {
+            let mapped = japanFields(original)
+            if let prefecture = mapped.prefecture, let district = district(for: prefecture) {
+                let callDistrict = mapped.call.hasPrefix("J") && mapped.call.count >= 3
+                    ? String(mapped.call[mapped.call.index(mapped.call.startIndex, offsetBy: 2)])
+                    : "1"
+                if callDistrict == district {
+                    districts.insert(district)
+                    prefectures.insert(prefecture)
+                }
+            }
+
+            guard let county = mapped.county, let entity = reference.entities[county] else { continue }
+            let date = yyyymmdd(original.start)
+            guard !(entity.deleted && date > entity.deletedDate) else { continue }
+            switch entity.type {
+            case "city", "designated city": jcc.insert(county)
+            case "ku": jcc.insert(String(county.prefix(4)))
+            case "gun": jcg.insert(county)
+            default: break
+            }
+            guard county != "1001", supportedAJABands.contains(original.band.lowercased()) else { continue }
+            if entity.type == "designated city",
+               let designatedDate = entity.designatedCityDate,
+               !designatedDate.isEmpty,
+               date >= designatedDate { continue }
+            aja.insert("\(county):\(original.band.lowercased())")
+        }
+
+        let activeCities = Set(reference.entities.compactMap { code, entity in
+            !entity.deleted && (entity.type == "city" || entity.type == "designated city") ? code : nil
+        })
+        let activeGuns = Set(reference.entities.compactMap { code, entity in
+            !entity.deleted && entity.type == "gun" ? code : nil
+        })
+        let wapc = Set(qsos.compactMap(wapcProvince)).intersection(wapcProvinces)
+        let wcsa = wcsaProgress(qsos: qsos, schools: reference.schools)
+        return [
+            "AJD": districts.count,
+            "WAJA": prefectures.count,
+            "JCC": jcc.count,
+            "JCG": jcg.count,
+            "AJA": aja.count,
+            "WACA": jcc.intersection(activeCities).count,
+            "WAGA": jcg.intersection(activeGuns).count,
+            "WAPC": wapc.count,
+            "WCSA": wcsa.slotCount,
+        ]
     }
 
     private static func loadReferenceData() throws -> ReferenceData {
