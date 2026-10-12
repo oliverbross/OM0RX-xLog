@@ -67,7 +67,7 @@ public actor LiveWorker {
                 }
                 try LocalAcceptanceSession.validate(method: method, params: params)
             }
-            if terminalShutdown && (method.hasPrefix("station_") || method.hasPrefix("spot_bridge_") || method.hasPrefix("opportunities_") || method.hasPrefix("cluster_") || method.hasPrefix("logbook_operator_draft") || ["weather", "propagation_snapshot", "lookup_call"].contains(method)) {
+            if terminalShutdown && (method.hasPrefix("station_") || method.hasPrefix("spot_bridge_") || method.hasPrefix("opportunities_") || method.hasPrefix("cluster_") || method.hasPrefix("logbook_operator_draft") || method.hasPrefix("logbook_contact") || ["weather", "propagation_snapshot", "lookup_call"].contains(method)) {
                 throw WorkerFailure("worker_stopping", "The worker is shutting down; no new service request was started.")
             }
             if method == "health" {
@@ -94,7 +94,8 @@ public actor LiveWorker {
                 result = try await logbookLane.handle(method: method, params: params)
                 let draftLogged = method == "logbook_operator_draft_apply" && params["action"] as? String == "save"
                     && result["status"] as? String == "applied"
-                if !localAcceptance && (draftLogged || ["workspace_create", "logbook_save", "logbook_delete", "logbook_undo", "logbook_import_adif", "backup_restore"].contains(method)) {
+                let contactChanged = method == "logbook_contact_apply" && result["status"] as? String == "applied"
+                if !localAcceptance && (draftLogged || contactChanged || ["workspace_create", "logbook_save", "logbook_delete", "logbook_undo", "logbook_import_adif", "backup_restore"].contains(method)) {
                     try? await cluster.refreshContacts()
                 }
             } else if method.hasPrefix("opportunities_") {

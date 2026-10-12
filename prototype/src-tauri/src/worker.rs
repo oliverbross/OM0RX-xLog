@@ -20,11 +20,11 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     if !matches!(label, "main" | "monitor" | "world-map" | "band-maps") {
         return Err("This window cannot access the workspace service.".into());
     }
-    // New shared-draft commands are staged behind the current main surface.
+    // New draft and contact-edit commands are staged behind the main surface.
     // Detached editors receive explicit registry capabilities in the next stage;
     // an unknown/new label must not inherit logging rights by default.
-    if request["method"].as_str().is_some_and(|method| method.starts_with("logbook_operator_draft")) && label != "main" {
-        return Err("This window cannot access the operator draft.".into());
+    if request["method"].as_str().is_some_and(|method| method.starts_with("logbook_operator_draft") || method.starts_with("logbook_contact")) && label != "main" {
+        return Err("This window cannot access the logbook editing service.".into());
     }
     if matches!(label, "world-map" | "band-maps") {
         if !matches!(request["method"].as_str(), Some("cluster_snapshot" | "logbook_stats" | "health")) {
@@ -96,6 +96,9 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "logbook_operator_draft",
         "logbook_operator_draft_apply",
         "logbook_operator_draft_receipt",
+        "logbook_contact",
+        "logbook_contact_apply",
+        "logbook_contact_receipt",
         "logbook_catalog",
         "logbook_list",
         "logbook_save",
@@ -629,7 +632,8 @@ mod tests {
 
     #[test]
     fn shared_draft_is_scoped_to_the_authorized_editor() {
-        for method in ["logbook_operator_draft", "logbook_operator_draft_apply", "logbook_operator_draft_receipt"] {
+        for method in ["logbook_operator_draft", "logbook_operator_draft_apply", "logbook_operator_draft_receipt",
+            "logbook_contact", "logbook_contact_apply", "logbook_contact_receipt"] {
             let request = json!({"id":"draft-test","method":method,"params":{}});
             assert!(validate_surface("main", &request).is_ok());
             for label in ["monitor", "world-map", "band-maps", "dx-cluster", "unknown", ""] {

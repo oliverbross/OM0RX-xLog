@@ -57,6 +57,30 @@ struct GeneratedPerformanceTests {
             #expect(history["previous_count"] as? Int == 50)
             #expect(history["dxcc_contact_count"] as? Int == 12_500)
         }
+        // Measure the row-local concurrency boundary independently of aggregate
+        // rebuilds. These timings are diagnostic evidence, not UI/RF latency.
+        let target = try #require(try db.fetch(limit: 1).first)
+        var contactReadTimes: [Double] = [], contactEditTimes: [Double] = []
+        for _ in 0..<100 {
+            let started = ProcessInfo.processInfo.systemUptime
+            let snapshot = try db.contactSnapshot(localID: target.id)
+            contactReadTimes.append((ProcessInfo.processInfo.systemUptime - started) * 1000)
+            #expect(snapshot?.qso.id == target.id)
+        }
+        for index in 0..<25 {
+            let snapshot = try #require(try db.contactSnapshot(localID: target.id))
+            var changed = snapshot.qso; changed.comment = "Generated edit \(index)"
+            let mutation = LogbookContactMutation(operationID: UUID(), contactID: target.id,
+                expectedRevision: snapshot.revision, action: .update, qso: changed)
+            let started = ProcessInfo.processInfo.systemUptime
+            let receipt = try db.applyContactMutation(mutation)
+            contactEditTimes.append((ProcessInfo.processInfo.systemUptime - started) * 1000)
+            #expect(receipt.contact.revision == snapshot.revision + 1)
+        }
+        func p95(_ values: [Double]) -> String {
+            String(format: "%.3f", values.sorted()[Int(ceil(Double(values.count) * 0.95)) - 1])
+        }
+        print("GENERATED_CONTACT_PERFORMANCE qso_count=100000 read_samples=100 read_p95_ms=\(p95(contactReadTimes)) edit_samples=25 edit_p95_ms=\(p95(contactEditTimes))")
         // Simulate the first launch of an existing log that predates the derived
         // index, only in this generated database. Include the migration cost.
         let firstBeforeMigration = try db.fetch(limit: 1)

@@ -160,6 +160,20 @@ Verification: TypeScript, production Vite build and 398 frontend tests across 59
 
 Checkpoint C Mac CI `38321507510` passed; it does not cover the subsequent editor integration. Checkpoint D native transport/UI, packaged acceptance, all-screen undocking, native menus and actual desktop OS gates remain pending. Installed alpha.13 is unchanged.
 
+### Checkpoint E — existing-contact concurrency boundary
+
+The backend now exposes `logbook_contact`, `logbook_contact_apply` and `logbook_contact_receipt` for existing contacts. Update, Delete and Restore require a contact ID, that contact's revision and an operation ID. A SQLite write transaction checks the revision, applies the change, advances the revision through a trigger and writes the receipt atomically. A stale operation returns a conflict snapshot (or null for a removed contact). Reusing an operation ID with different input is rejected; repeating the same operation returns its historical receipt without overwriting newer data.
+
+Per-contact revisions are separate from the aggregate-cache revision: an unrelated QSO edit does not invalidate the open contact. SQLite INSERT/UPDATE/DELETE triggers cover existing native, import, sync and external database writers. Legacy rows read at revision zero without a backfill scan or QSO rewrite. Revision history survives physical removal/reinsertion of an ID. Updates preserve the local ID and Wavelog mapping, validate bounded contact data and mark the contact dirty through the existing save path. No credentials, station policy or connection behaviour changes.
+
+**This API is not yet wired to the existing-contact editor or detached Logbook.** The old `logbook_save` path remains for current logged-contact edits. Next gates are the contact-edit recovery client/UI, native workspace-generation fencing across restore, and explicit detached-window capabilities/lifecycle. Only the main surface may use the new methods; unknown labels and current detached windows remain denied. Shutdown rejects new contact requests. The active new-contact draft is unaffected. The fully undocked gate remains open.
+
+Evidence: 10 focused Swift tests pass (separate connections, competing editors, unrelated edits, generic writers, lost-ack restart, operation-ID misuse, Delete/Undo, physical removal, migration, mapping/data validation, receipt-write rollback, backup receipt retention, bounded worker responses and shutdown). The shared suite passed with 90 Swift Testing cases and the XCTest suites (17 station, 92 prototype, 50 cluster cases; Windows Credential Manager skipped on macOS and two optional benchmarks disabled). That full run preceded the added backup-specific case; the final focused 10-test run covers it. Native core: 73 passed. Rust: 87 binary tests passed; final worker-boundary rerun: 16 passed. Initial test macro `try` errors were corrected; an invalid `cargo --lib` invocation was replaced with the actual binary test target.
+
+Generated 100,000-contact database benchmark, debug build on this Mac: 100 contact reads p95 **0.064 ms**, 25 transactional updates p95 **0.553 ms**; first list 2 ms, stats 21 ms, award progress 225 ms, map statuses 17 ms, award catalogue 604 ms, callsign/country history 247 ms. Fixture import took 31,910 ms and derived-index migration 1,295 ms. These are backend-only measurements, not end-to-end UI, network or RF performance and not a cross-platform claim. Aggregate/lookup/UI performance gates remain open.
+
+Checkpoint D source `0d4358056646562437f0f77cc686497bc4bd826f` passed Mac CI `38323200735` and Mac prototype job `38323200520`; Windows/Linux runtime jobs were skipped in that push workflow. Those results do not cover checkpoint E. No new package is installed; alpha.13 remains the sole installed Integration build.
+
 ## Follow-on: RUMlogNG workflow and feature comparison
 
 User added this reference pass after the canvas/native-window request. Confirmed installed app identity through the native app inventory: `de.dl2rum.RUMlogNG`; it was not running at inspection. Its menus/settings have not yet been audited in this pass. Do not represent remembered features as current observations.

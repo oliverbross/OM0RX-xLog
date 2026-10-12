@@ -33,6 +33,7 @@ public final class LocalAcceptanceSession: @unchecked Sendable {
             "settings_load", "settings_save", "logbook_draft", "logbook_catalog", "logbook_list",
             "logbook_save", "logbook_delete", "logbook_undo", "logbook_stats", "logbook_previous",
             "logbook_operator_draft", "logbook_operator_draft_apply", "logbook_operator_draft_receipt",
+            "logbook_contact", "logbook_contact_apply", "logbook_contact_receipt",
             "logbook_matrix", "logbook_import_adif", "logbook_export_adif",
             "backup_create", "backup_list", "backup_inspect", "backup_restore",
         ]

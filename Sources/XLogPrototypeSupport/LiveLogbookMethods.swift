@@ -215,6 +215,31 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                 } catch OperatorDraftError.existingContact {
                     throw WorkerFailure("draft_existing_contact", "This draft cannot replace an existing logged contact.")
                 } catch OperatorDraftError.invalid { throw invalid() }
+            case "logbook_contact":
+                try requireKeys(params, allowed: ["contactID"], required: ["contactID"])
+                guard let text = params["contactID"] as? String, let id = UUID(uuidString: text) else { throw invalid() }
+                let contact = try readyDatabase().contactSnapshot(localID: id)
+                return ["contact": try contact.map { try json($0) } ?? NSNull()]
+            case "logbook_contact_receipt":
+                try requireKeys(params, allowed: ["operationID"], required: ["operationID"])
+                guard let text = params["operationID"] as? String, let id = UUID(uuidString: text) else { throw invalid() }
+                let receipt = try readyDatabase().contactReceipt(operationID: id)
+                return ["receipt": try receipt.map { try json($0) } ?? NSNull()]
+            case "logbook_contact_apply":
+                try requireKeys(params, allowed: ["operationID", "contactID", "expectedRevision", "action", "qso"],
+                                required: ["operationID", "contactID", "expectedRevision", "action"])
+                _ = try integer(params, "expectedRevision", default: -1, range: 0...9_007_199_254_740_990)
+                guard JSONSerialization.isValidJSONObject(params),
+                      try JSONSerialization.data(withJSONObject: params).count <= 32_000 else { throw invalid() }
+                let mutation: LogbookContactMutation
+                do { mutation = try decode(params) } catch { throw invalid() }
+                do {
+                    return ["status": "applied", "receipt": try json(readyDatabase().applyContactMutation(mutation))]
+                } catch LogbookContactError.conflict(let current) {
+                    return ["status": "conflict", "contact": try current.map { try json($0) } ?? NSNull()]
+                } catch LogbookContactError.operationReused {
+                    throw WorkerFailure("contact_operation_reused", "This operation ID was already used for a different contact change.")
+                } catch LogbookContactError.invalid { throw invalid() }
             case "logbook_save":
                 try requireKeys(params, allowed: ["qso"], required: ["qso"])
                 guard let object = params["qso"] as? [String: Any] else { throw invalid() }

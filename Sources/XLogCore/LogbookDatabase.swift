@@ -227,6 +227,86 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
+    /// One joined SELECT pairs the contact with its revision atomically, including
+    /// pre-migration rows (revision zero) without rewriting/scanning the logbook.
+    public func contactSnapshot(localID: UUID) throws -> LogbookContactSnapshot? {
+        try lock.withLock {
+            try withStatement("SELECT q.record_json, COALESCE(r.revision,0) FROM qsos q LEFT JOIN xlog_contact_revisions r ON r.local_id=q.local_id WHERE q.local_id=?;") { statement in
+                bind(localID.uuidString, to: 1, in: statement)
+                let step = sqlite3_step(statement)
+                if step == SQLITE_DONE { return nil }
+                guard step == SQLITE_ROW, let bytes = sqlite3_column_blob(statement, 0) else { throw error() }
+                let qso = try decoder.decode(QSO.self, from: Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 0))))
+                return LogbookContactSnapshot(revision: sqlite3_column_int64(statement, 1), qso: qso)
+            }
+        }
+    }
+
+    public func contactReceipt(operationID: UUID) throws -> LogbookContactReceipt? {
+        try lock.withLock {
+            try withStatement("SELECT payload FROM xlog_contact_receipts WHERE operation_id=?;") { statement in
+                bind(operationID.uuidString, to: 1, in: statement)
+                let step = sqlite3_step(statement)
+                if step == SQLITE_DONE { return nil }
+                guard step == SQLITE_ROW, let bytes = sqlite3_column_blob(statement, 0) else { throw error() }
+                return try decoder.decode(LogbookContactReceipt.self, from: Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 0))))
+            }
+        }
+    }
+
+    public func applyContactMutation(_ mutation: LogbookContactMutation) throws -> LogbookContactReceipt {
+        try lock.withLock {
+            guard (0..<9_007_199_254_740_991).contains(mutation.expectedRevision) else { throw LogbookContactError.invalid }
+            try execute("BEGIN IMMEDIATE;")
+            do {
+                if let receipt = try contactReceipt(operationID: mutation.operationID) {
+                    guard receipt.mutation == mutation else { throw LogbookContactError.operationReused }
+                    try execute("COMMIT;")
+                    return receipt
+                }
+                let snapshot = try contactSnapshot(localID: mutation.contactID)
+                guard let current = snapshot, current.revision == mutation.expectedRevision else {
+                    throw LogbookContactError.conflict(snapshot)
+                }
+                var updated = current.qso
+                switch mutation.action {
+                case .update:
+                    guard current.qso.deletedAt == nil, let qso = mutation.qso,
+                          qso.id == current.qso.id, qso.wavelogID == current.qso.wavelogID,
+                          qso.deletedAt == nil else { throw LogbookContactError.invalid }
+                    // Reuse bounded contact validation, without forbidding the
+                    // existing remote mapping. The supplied mapping must match.
+                    var validation = qso; validation.wavelogID = nil
+                    do { try validation.validateOperatorDraft(forSave: true) }
+                    catch { throw LogbookContactError.invalid }
+                    updated = qso
+                case .delete:
+                    guard mutation.qso == nil, current.qso.deletedAt == nil else { throw LogbookContactError.invalid }
+                    updated.deletedAt = Date()
+                case .restore:
+                    guard mutation.qso == nil, current.qso.deletedAt != nil else { throw LogbookContactError.invalid }
+                    updated.deletedAt = nil
+                }
+                try save(updated)
+                guard let contact = try contactSnapshot(localID: mutation.contactID), contact.revision == current.revision + 1 else {
+                    throw LogbookDatabaseError.corruptRecord
+                }
+                let receipt = LogbookContactReceipt(mutation: mutation, contact: contact)
+                let payload = try encoder.encode(receipt)
+                try withStatement("INSERT INTO xlog_contact_receipts(operation_id,payload) VALUES(?,?);") { statement in
+                    bind(mutation.operationID.uuidString, to: 1, in: statement)
+                    _ = payload.withUnsafeBytes { sqlite3_bind_blob(statement, 2, $0.baseAddress, Int32($0.count), Self.transient) }
+                    try stepDone(statement)
+                }
+                try execute("COMMIT;")
+                return receipt
+            } catch {
+                try? execute("ROLLBACK;")
+                throw error
+            }
+        }
+    }
+
     /// Initial creation and all mutations use SQLite's write lock as well as the
     /// instance lock, so two service instances cannot accept the same revision.
     public func operatorDraft(initial: QSO) throws -> OperatorDraftSnapshot {
@@ -1322,6 +1402,26 @@ public final class LogbookDatabase: @unchecked Sendable {
         );
         CREATE INDEX IF NOT EXISTS idx_operator_transient_receipts
           ON xlog_operator_receipts(revision) WHERE action <> 'save';
+        CREATE TABLE IF NOT EXISTS xlog_contact_revisions(
+          local_id TEXT PRIMARY KEY,
+          revision INTEGER NOT NULL CHECK(revision >= 0 AND revision <= 9007199254740991)
+        );
+        CREATE TRIGGER IF NOT EXISTS xlog_contact_revision_insert AFTER INSERT ON qsos BEGIN
+          INSERT INTO xlog_contact_revisions(local_id,revision) VALUES(NEW.local_id,1)
+          ON CONFLICT(local_id) DO UPDATE SET revision=revision+1;
+        END;
+        CREATE TRIGGER IF NOT EXISTS xlog_contact_revision_update AFTER UPDATE ON qsos BEGIN
+          INSERT INTO xlog_contact_revisions(local_id,revision) VALUES(NEW.local_id,1)
+          ON CONFLICT(local_id) DO UPDATE SET revision=revision+1;
+        END;
+        CREATE TRIGGER IF NOT EXISTS xlog_contact_revision_delete AFTER DELETE ON qsos BEGIN
+          INSERT INTO xlog_contact_revisions(local_id,revision) VALUES(OLD.local_id,1)
+          ON CONFLICT(local_id) DO UPDATE SET revision=revision+1;
+        END;
+        CREATE TABLE IF NOT EXISTS xlog_contact_receipts(
+          operation_id TEXT PRIMARY KEY,
+          payload BLOB NOT NULL
+        );
         CREATE TABLE IF NOT EXISTS sync_outbox(
           local_id TEXT PRIMARY KEY,
           attempt_count INTEGER NOT NULL DEFAULT 0,

@@ -35,6 +35,8 @@ Exact installed alpha.13 source `e126d6f4ba7009494db76f9fbf49ed4ca44ff8a9` now h
 
 Checkpoint D connects the current Desk/full editor to the shared new-contact draft, with explicit conflict/receipt recovery, separate logged-contact editing, optional legacy-text recovery and a restore lock. Delayed pre-Save/Clear reads cannot introduce false conflicts. TypeScript, Vite and 398 frontend tests passed; isolated browser recovery checked at 1280/800/640 px with Rotor Stop outside the QSO lock. WS-08 additionally tracks clipped date/band controls at intermediate widths. Native/package acceptance remains pending; alpha.13 is still installed. Checkpoint C Mac CI `38321507510` succeeded, separately from these new changes. See checkpoint D in the workspace plan for limits and evidence.
 
+Checkpoint E adds the existing-contact backend needed by detachable Logbook: per-contact revisions, atomic Update/Delete/Undo receipts, stale-edit conflicts, preserved identity/mapping and trigger coverage for every database writer. It is **not yet wired into the contact editor**, and native restore-generation fencing remains required before detached editing authority. Ten focused tests, shared/native Swift regressions and Rust tests pass. On a generated 100,000-contact log, database-only p95 read/update were 0.064/0.553 ms; this is not whole-app speed evidence. See checkpoint E in the workspace plan. Checkpoint D Mac CI `38323200735` and `38323200520` passed; Windows/Linux runtime were skipped, not accepted. Installed alpha.13 remains unchanged.
+
 ### Alpha.8 installed checkpoint
 
 The signed/notarized alpha.8 bundle passed all 21 generated large-log checks
