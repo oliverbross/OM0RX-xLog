@@ -24,11 +24,11 @@ xcrun notarytool submit "$archive" \
     --timeout 2h \
     --output-format plist > "$response"
 
-status="$(plutil -extract status raw "$response")"
+notary_status="$(plutil -extract status raw "$response")"
 submission_id="$(plutil -extract id raw "$response")"
-print "Notary submission: $submission_id ($status)"
+print "Notary submission: $submission_id ($notary_status)"
 
-if [[ "$status" != "Accepted" ]]; then
+if [[ "$notary_status" != "Accepted" ]]; then
     xcrun notarytool log "$submission_id" \
         --keychain-profile "$profile" \
         "$log_file"

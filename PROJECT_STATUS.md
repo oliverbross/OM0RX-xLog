@@ -216,6 +216,7 @@ Current local evidence at this revision:
 - Windows Remote Station Agent final gate at pushed source `90abbb4` / deployed controller `c49dfd3`: **888 Python**, **105 browser/widget**, **105 MSHV safety**, **210 standalone WindowsAgent**, **117 focused station**, and **1 native widget smoke** test passed. Guarded live acceptance used no PTT, TUNE-start, CWX or RF transmission.
 - xCluster: **22/22** Swift tests passing, including the structured xLog handoff and local snapshot contract.
 - Signed release builds pass strict `codesign` verification.
+- Apple notary submission `693349bc-1164-4f98-a25d-a345686edcfe` was accepted; `stapler validate` succeeded and Gatekeeper reports `source=Notarized Developer ID` for the v0.2.3 app. The post-staple ZIP SHA-256 is `36e56bf13a598a37a9531e6e8ed445a270ef844606bd20e1032a594085b13491`.
 - Installed xLog launches and visibly receives the live local xCluster snapshot.
 - Operator Desk, hybrid DXCC map, active-band filtering, clean allocation band map and undocked full-window band map were inspected in the running app.
 - The installed Reference Data screen showed all 348,973 validated activation records immediately at launch while Wavelog synchronization was still running, proving cached POTA/SOTA/IOTA/WWFF data no longer waits behind network sync.
