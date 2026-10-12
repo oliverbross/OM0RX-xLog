@@ -61,6 +61,18 @@ const emptyFilter: Filter = { query: "", bands: [], modes: [], continents: [], c
   specials: [], sources: ["cluster", "rbl"], worked: [], sort: "newest" };
 export const fullClusterColumnsKey = "xlog.integration.full-cluster-columns.v1";
 const defaultColumns = () => ({ ...defaultWorkspacePreferences(), columns: compactClusterColumns.map(([id]) => id) });
+function ColumnWidthInput({ label, width, disabled, onCommit }: { label: string; width: number; disabled: boolean; onCommit: (width: number) => void }) {
+  const [draft, setDraft] = useState(String(width));
+  useEffect(() => { setDraft(String(width)); }, [width]);
+  const commit = () => {
+    const parsed = draft.trim() ? Number(draft) : NaN;
+    const next = Number.isFinite(parsed) ? boundColumnWidth(parsed) : width;
+    setDraft(String(next)); onCommit(next);
+  };
+  return <input type="number" aria-label={`${label} column width`} min={48} max={480} step={10} disabled={disabled}
+    value={draft} onChange={event => setDraft(event.currentTarget.value)} onBlur={commit}
+    onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); } }} />;
+}
 export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, onUndock, onDock, passwordControlsEnabled = true, selectedSpotId }: Props) {
   const panelId = useId();
   const [columnsOpen, setColumnsOpen] = useState(false);
@@ -289,7 +301,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
       <div className="live-cluster-column-fields">{compactClusterColumns.map(([id, label]) => <div key={id}>
         <label><input type="checkbox" aria-label={`Show ${label} column`} checked={visibleColumns.has(id)} disabled={visibleColumns.size === 1 && visibleColumns.has(id)}
           onChange={event => { const checked = event.target.checked; setColumnPreferences(current => ({ ...current, columns: compactClusterColumns.map(([key]) => key).filter(key => key === id ? checked : current.columns.includes(key)) })); }} />{label}</label>
-        <input type="number" aria-label={`${label} column width`} min={48} max={480} step={10} disabled={!visibleColumns.has(id)} value={columnPreferences.widths[id]} onChange={event => resizeColumn(id, event.currentTarget.valueAsNumber)} />
+        <ColumnWidthInput label={label} width={columnPreferences.widths[id]} disabled={!visibleColumns.has(id)} onCommit={width => resizeColumn(id, width)} />
       </div>)}</div>
       <div className="live-cluster-column-actions"><span>Drag column edges or use arrow keys. Widths scale to fit the window.</span><button type="button" onClick={() => setColumnPreferences(defaultColumns())}>Reset columns</button><button type="button" onClick={() => setColumnsOpen(false)}>Done</button></div>
     </section>}

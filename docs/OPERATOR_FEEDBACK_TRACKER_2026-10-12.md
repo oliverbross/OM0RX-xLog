@@ -8,7 +8,7 @@ packaged UI result. Keep unresolved items here across releases.
 ## Current delivery boundary
 
 - Working tree: shared cross-platform xLog; Mac-first delivery.
-- Currently installed: Integration alpha.10, source `5ecf265e1684939aebc2e6de5d90cc82da68afff` (signed package verified). CLUSTER-02 Save retention is verified in this package; wider parity gates remain open.
+- Currently installed: Integration alpha.11, source `73c255233df18078422cc14d62299bae5da93ad7` (signed/notarized, 21 native acceptance checks passed). Native width-entry issue found and being corrected in alpha.12 before release. Wider parity gates remain open.
 - Individual runtime checks and remaining gates are recorded below and in the alpha.7 acceptance report.
 - Restart of Integration was explicitly approved once the build passes.
 - Preserve the latest operator draft, all logbooks/settings/credentials, and
@@ -497,6 +497,22 @@ are recorded with the release checkpoint, not inferred from these source tests.
   show/hide columns, numeric widths, pointer and keyboard resize, reset and saved
   preferences independent of the compact Operator Desk table. Source and tests
   implemented; installed-app verification pending next package.
+
+Installed alpha.11 verification: Log QSO opens directly at Active contact;
+Logbook, World Map, Station Control, Sync, Settings and Chaser no longer show
+the redundant logbook-status strip. DX Cluster has one title and reconnects
+automatically; show/hide controls work without disconnecting. H49A draft and
+67,846 contacts retained. Native numeric width entry exposed premature per-key
+clamping; alpha.12 keeps an editable draft and applies bounds on blur/Enter.
+Regression covers partial typing, empty input, out-of-range input and persistence.
+All 21 signed-app checks passed on 100,002 generated contacts; report in
+`docs/evidence/native-ui-alpha11/mac-signed-large.json`. Notarization
+`8d246f6b-c1a4-4b1b-8c68-ec31efb97e52` accepted. No RF commands used.
+
+Installed Chaser automatic refresh verified without pressing Refresh: POTA 82,
+SOTA 6, WWFF 10, WWBOTA healthy zero, DX calendar 56; 154 total observations.
+Programme tabs are present and the table reaches the bottom pagination rail.
+All 358 frontend tests and TypeScript pass after the numeric-entry correction.
 
 Record the source SHA, exact test evidence, installed version, and observed
 result. Leave partial or failed gates visible. Add newly reported issues here

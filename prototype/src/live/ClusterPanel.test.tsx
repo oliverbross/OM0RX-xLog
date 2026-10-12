@@ -58,6 +58,7 @@ describe("cluster toolbar panels", () => {
     fireEvent.keyDown(handle, { key: "ArrowRight" });
     expect(handle.getAttribute("aria-valuenow")).toBe("106");
     fireEvent.change(screen.getByRole("spinbutton", { name: "MHz column width" }), { target: { value: "200" } });
+    fireEvent.blur(screen.getByRole("spinbutton", { name: "MHz column width" }));
     expect(JSON.parse(localStorage.getItem(fullClusterColumnsKey)!).widths.frequency).toBe(200);
     expect(localStorage.getItem("xlog.integration.operator-workspace.v1")).toBeNull();
     initial.unmount();
@@ -77,6 +78,24 @@ describe("cluster toolbar panels", () => {
     expect(screen.getByRole("separator", { name: "Resize Callsign column" }).getAttribute("aria-valuenow")).toBe("480");
     fireEvent.click(screen.getByRole("button", { name: "Columns" }));
     expect(screen.getByRole("checkbox", { name: "Show Callsign column" }).hasAttribute("disabled")).toBe(true);
+  });
+
+  it("lets operators finish typing a width before bounding and saving it", () => {
+    render(<ClusterPanel passive snapshot={response()} onRequest={vi.fn()} onSelect={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Columns" }));
+    const input = screen.getByRole("spinbutton", { name: "Callsign column width" }) as HTMLInputElement;
+    for (const value of ["", "1", "18", "180"]) {
+      fireEvent.change(input, { target: { value } });
+      expect(input.value).toBe(value);
+      expect(screen.getByRole("separator", { name: "Resize Callsign column" }).getAttribute("aria-valuenow")).toBe("96");
+    }
+    fireEvent.blur(input);
+    expect(input.value).toBe("180");
+    expect(JSON.parse(localStorage.getItem(fullClusterColumnsKey)!).widths.callsign).toBe(180);
+    fireEvent.change(input, { target: { value: "" } }); fireEvent.blur(input);
+    expect(input.value).toBe("180");
+    fireEvent.change(input, { target: { value: "9999" } }); fireEvent.blur(input);
+    expect(input.value).toBe("480");
   });
 
   it("disables unsupported secure-storage and forwarding controls without blocking callsign-only Connect", () => {
