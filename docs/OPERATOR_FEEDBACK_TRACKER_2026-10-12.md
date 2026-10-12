@@ -94,10 +94,13 @@ geometry and restrict external content through their CSP. Ordinary launches do
 not wait for an acceptance IPC check.
 
 Current local verification: 346 frontend tests, TypeScript/Vite build, 94 Rust
-tests and 13 isolated local-logbook tests pass. The driver and private-profile behavior still require native packaged
-execution; these source tests do not establish a UI acceptance pass. The main JS
+tests and 13 isolated local-logbook tests pass. Two native Mac release-executable
+launches now pass all 16 current-UI checks with independent workspaces/private
+browser state; see `NATIVE_LOCAL_UI_ACCEPTANCE_2026-10-13.md` and its raw reports.
+Signed-package and Windows/Linux runtime acceptance remain open. The main JS
 bundle remains 1.66 MB minified and produces a size warning, so startup/performance
-acceptance is still open. The installed alpha.7 app has not been replaced.
+acceptance is still open. The installed alpha.7 app has not been replaced; it was
+reopened after testing with 67,846 contacts and ShackCQ reconnected.
 
 ### Latest alpha.7 checkpoint (CW integration, 13 October)
 
