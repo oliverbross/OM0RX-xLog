@@ -140,6 +140,12 @@ struct LiveOpportunitiesMethodsTests {
         #expect(freshRows.first?["callsign"] as? String == "OM0RX/P")
         #expect(freshRows.first?["frequency_hz"] as? Int64 == 14_074_000)
         #expect(freshRows.first?["reference_status"] as? String == "not_installed")
+        #expect(freshRows.first?["latitude"] as? Double == 48.2)
+        #expect(freshRows.first?["longitude"] as? Double == 18.4)
+        #expect(freshRows.first?["location_source"] as? String == "Public feed")
+        let wire = try JSONSerialization.data(withJSONObject: fresh)
+        let decoded = try #require(JSONSerialization.jsonObject(with: wire) as? [String: Any])
+        #expect((decoded["items"] as? [[String: Any]])?.first?["latitude"] as? Double == 48.2)
 
         let badConfig = URLSessionConfiguration.ephemeral
         badConfig.protocolClasses = [FailedOpportunityProjectionFeed.self]
@@ -247,7 +253,7 @@ private final class ValidOpportunityProjectionFeed: URLProtocol, @unchecked Send
         let response = HTTPURLResponse(url: request.url!, statusCode: 200,
             httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "application/json"])!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-        client?.urlProtocol(self, didLoad: Data(#"[{"activator":"OM0RX/P","reference":"OM-0001","frequency":"14074","mode":"FT8"}]"#.utf8))
+        client?.urlProtocol(self, didLoad: Data(#"[{"activator":"OM0RX/P","reference":"OM-0001","frequency":"14074","mode":"FT8","latitude":48.2,"longitude":18.4}]"#.utf8))
         client?.urlProtocolDidFinishLoading(self)
     }
     override func stopLoading() { }
