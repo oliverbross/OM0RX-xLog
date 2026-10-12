@@ -20,9 +20,7 @@ public enum AwardReferenceParser {
         result.sota = first(#"\b[A-Z0-9]{1,3}/[A-Z0-9]{1,3}-\d{3,4}\b"#, in: text) ?? ""
         result.wwff = first(#"\b[A-Z0-9]{1,4}FF-\d{3,5}\b"#, in: text) ?? ""
 
-        if tags.contains("POTA") || text.contains("POTA") {
-            result.pota = first(#"\b[A-Z0-9]{1,3}-\d{4,5}\b"#, in: text) ?? ""
-        }
+        result.pota = potaReferences(comment: comment, specialTags: specialTags).first ?? ""
 
         let castleTags = ["CASTLE", "WCA", "COTA"]
         if !tags.isDisjoint(with: castleTags) || castleTags.contains(where: text.contains) {
@@ -35,6 +33,20 @@ public enum AwardReferenceParser {
             result.sig = firstTag.uppercased()
         }
         return result
+    }
+
+    /// POTA has a broad identifier shape. Exclude complete references belonging
+    /// to other programmes before matching, including the tail of a SOTA ID.
+    /// Shared by draft extraction, directory resolution and the Chaser projection.
+    public static func potaReferences(comment: String, specialTags: [String] = []) -> [String] {
+        let text = ([comment] + specialTags).joined(separator: " ").uppercased()
+        guard text.contains("POTA") else { return [] }
+        let candidates = text.replacingOccurrences(
+            of: #"\b(?:[A-Z0-9]{1,4}FF-\d{3,5}|[A-Z0-9]{1,3}/[A-Z0-9]{1,3}-\d{3,4}|(?:WCA|COTA|CASTLE)[-:\s]+[A-Z0-9][A-Z0-9/-]{1,24})\b"#,
+            with: " ", options: .regularExpression)
+        guard let expression = try? NSRegularExpression(pattern: #"\b[A-Z0-9]{1,3}-\d{4,5}\b"#) else { return [] }
+        return expression.matches(in: candidates, range: NSRange(candidates.startIndex..., in: candidates))
+            .compactMap { Range($0.range, in: candidates).map { String(candidates[$0]) } }
     }
 
     private static func first(_ pattern: String, in text: String) -> String? {

@@ -123,7 +123,7 @@ public actor LiveWorker {
         let platform = "Linux", mode = "integrated_local", services = false
         #endif
         return ["mode": mode, "platform": platform, "synthetic_only": false,
-                "version": "0.4.0-alpha.8", "local_logbook": true,
+                "version": "0.4.0-alpha.9", "local_logbook": true,
                 "platform_services": services, "public_opportunities": true, "station_io": false,
                 "connections_require_explicit_action": true]
     }

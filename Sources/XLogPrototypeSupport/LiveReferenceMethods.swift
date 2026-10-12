@@ -168,13 +168,8 @@ actor LiveReferenceMethods {
         let castleRaw = [parsed.sigInfo].filter { !$0.isEmpty }
             + matches(#"\b(?:WCA|COTA|CASTLE)[-:\s]+[A-Z0-9][A-Z0-9/-]{1,24}\b"#, in: text)
         let castle = castleRaw.first.flatMap(castleReference)
-        let castleKeys = Set(castleRaw.compactMap(castleReference).map(\.reference))
-        let wwffKeys = Set(matches(#"\b[A-Z0-9]{1,4}FF-\d{3,5}\b"#, in: text))
-        let potaMatches = text.contains("POTA")
-            ? matches(#"\b[A-Z0-9]{1,3}-\d{4,5}\b"#, in: text)
-                .filter { !castleKeys.contains($0) && !wwffKeys.contains($0) } : []
-        let potaPrimary = castleKeys.contains(parsed.pota) || wwffKeys.contains(parsed.pota)
-            ? (potaMatches.first ?? "") : parsed.pota
+        let potaMatches = AwardReferenceParser.potaReferences(comment: comment, specialTags: tags)
+        let potaPrimary = potaMatches.first ?? ""
         let directoryData = try activationDirectory(at: directory)
         let fields: [String: String] = [
             "potaReference": potaPrimary, "sotaReference": parsed.sota,

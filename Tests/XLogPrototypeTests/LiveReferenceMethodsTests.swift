@@ -68,6 +68,13 @@ struct LiveReferenceMethodsTests {
         ])
         #expect((multiple["fields"] as? [String: String])?["potaReference"] == "US-0001")
         #expect((multiple["references"] as? [[String: String]])?.filter { $0["kind"] == "pota" }.map { $0["status"] } == ["verified", "verified"])
+        let mixed = try await resolver.handle(method: "reference_resolve", params: [
+            "comment": "KFF-3017 SOTA W1/AB-1234 WCA F-01234 POTA US-0001 US-0002",
+            "special_tags": ["POTA", "WWFF", "SOTA", "WCA"],
+        ])
+        #expect((mixed["fields"] as? [String: String])?["potaReference"] == "US-0001")
+        #expect((mixed["fields"] as? [String: String])?["wwffReference"] == "KFF-3017")
+        #expect((mixed["references"] as? [[String: String]])?.filter { $0["kind"] == "pota" }.map { $0["reference"] } == ["US-0001", "US-0002"])
     }
 
     @Test("Missing, unknown and changed directories never manufacture validation")

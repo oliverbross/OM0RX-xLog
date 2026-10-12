@@ -8,7 +8,7 @@ packaged UI result. Keep unresolved items here across releases.
 ## Current delivery boundary
 
 - Working tree: shared cross-platform xLog; Mac-first delivery.
-- Currently installed: Integration alpha.7, source `7ae632b8019adb857807d484b5a8f7f8edbceba0` (bundle metadata checked).
+- Currently installed: Integration alpha.8, source `9a7863501d96a06eea859ea589afc88a60101b53` (bundle metadata checked). Public release is held for CHASER-01 below.
 - Individual runtime checks and remaining gates are recorded below and in the alpha.7 acceptance report.
 - Restart of Integration was explicitly approved once the build passes.
 - Preserve the latest operator draft, all logbooks/settings/credentials, and
@@ -18,6 +18,29 @@ packaged UI result. Keep unresolved items here across releases.
 - Commit and push reviewed source; sign/notarize the exact package; update the
   Integration app in place without extra archived app copies and publish an exact
   prerelease. Stable native release must remain available.
+
+### Alpha.8 installed checkpoint
+
+The signed/notarized alpha.8 bundle passed all 21 generated large-log checks
+and is installed. Logbook display measured 72 ms and cold/repeat Awards
+697/31 ms in the isolated native test. The real 67,846-contact workspace and
+automatic cluster reconnection were retained. Exact package and installed
+observations are in `ALPHA8_INSTALLED_ACCEPTANCE_2026-10-13.md`.
+
+**CHASER-01 remains open:** KFF WWFF references appear as duplicate POTA rows
+in the installed Chaser table. Reproduced with K5G / KFF-3017 and KE2CIE /
+KFF-2099, repeated after Refresh view and confirmed with Programme POTA.
+No row was loaded or tuned. Correct programme classification and recheck the
+package before publishing this preview.
+
+Alpha.9 source correction: the shared parser now excludes WWFF references,
+SOTA reference tails and explicitly labelled castle references from POTA
+candidates. Directory resolution uses the same rule. Chaser rows identify their
+programme beside the reference without adding a column. The regression first
+failed against alpha.8 source, then passed after correction. Full frontend
+350/350, native core 73/73, worker 139 XCTest plus 59 Swift Testing cases, and
+TypeScript passed. Installed verification remains open; alpha.8 has not been
+published as a GitHub release.
 
 ### Cross-platform local logbook work after alpha.7
 

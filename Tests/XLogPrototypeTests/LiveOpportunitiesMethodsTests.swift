@@ -12,6 +12,38 @@ import XLogPortableCore
 
 @Suite("Isolated opportunities projection")
 struct LiveOpportunitiesMethodsTests {
+    @Test("Programme tags do not turn WWFF, SOTA or castle references into POTA")
+    func distinctProgrammeReferences() {
+        for comment in ["KFF-3017", "KFF-2099 FFF-0001", "WCA F-01234", "SOTA W1/AB-1234"] {
+            #expect(AwardReferenceParser.extract(comment: comment, specialTags: ["POTA"]).pota.isEmpty)
+        }
+        for comment in ["KFF-3017 POTA US-3051", "WCA F-01234 POTA US-3051",
+                        "POTA SOTA W1/AB-1234 US-3051", "POTA US-3051 KFF-3017"] {
+            #expect(AwardReferenceParser.extract(comment: comment).pota == "US-3051")
+        }
+        #expect(AwardReferenceParser.extract(comment: "KFF-3017 POTA US-3051").wwff == "KFF-3017")
+    }
+
+    @Test("Cluster WWFF observations appear once under WWFF, not also under POTA")
+    func clusterProgrammeIdentity() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        _ = try logbook.handle(method: "workspace_create", params: ["mode": "empty"])
+        let actor = LiveOpportunitiesMethods(logbook: logbook, clusterSpots: {
+            [["id": "wwff", "callsign": "K5G", "comment": "KFF-3017", "specialTags": ["POTA", "WWFF"], "frequencyKHz": 18088.0],
+             ["id": "both", "callsign": "W5MEF", "comment": "KFF-2099 POTA US-3051", "specialTags": ["POTA", "WWFF"], "frequencyKHz": 14250.0]]
+        })
+        let result = try await actor.handle(method: "opportunities_snapshot", params: [:])
+        let rows = try #require(result["items"] as? [[String: Any]])
+        #expect(rows.count == 3)
+        #expect(rows.filter { $0["callsign"] as? String == "K5G" }.count == 1)
+        #expect(rows.filter { $0["kind"] as? String == "pota" }.map { $0["reference"] as? String } == ["US-3051"])
+        #expect(Set(rows.filter { $0["kind"] as? String == "wwff" }.compactMap { $0["reference"] as? String }) == ["KFF-3017", "KFF-2099"])
+        #expect(result["selection_tunes"] as? Bool == false)
+        #expect(result["transmit"] as? Bool == false)
+    }
+
     private struct FixtureFeed: Encodable {
         var items: [PublicOpportunity]
         var lastSuccess: Date

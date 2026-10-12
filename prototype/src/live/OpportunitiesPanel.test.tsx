@@ -15,6 +15,19 @@ const snapshot = { generated_at: "2026-10-12T10:01:00Z", items: [pota, expeditio
 afterEach(cleanup);
 
 describe("read-only opportunities", () => {
+  it("names each programme beside its reference and keeps WWFF out of the POTA filter", async () => {
+    const wwff = { ...pota, id: "cluster:wwff", kind: "wwff", callsign: "K5G", reference: "KFF-3017", name: "Guadalupe River" };
+    const request = vi.fn(async () => ({ ...snapshot, items: [pota, wwff] }));
+    const select = vi.fn();
+    render(<OpportunitiesPanel request={request} onSelect={select} />);
+    expect(await screen.findByText("WWFF · KFF-3017")).toBeTruthy();
+    expect(screen.getByText("POTA · OM-0001")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Programme"), { target: { value: "pota" } });
+    expect(screen.queryByText("WWFF · KFF-3017")).toBeNull();
+    expect(screen.getByText("POTA · OM-0001")).toBeTruthy();
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(select).not.toHaveBeenCalled();
+  });
   it("shows source age, full reference history and only loads a draft on selection", async () => {
     const request = vi.fn(async (_method: string) => snapshot), select = vi.fn();
     render(<OpportunitiesPanel request={request} onSelect={select} />);
