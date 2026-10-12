@@ -51,6 +51,7 @@ export class OperatorDraftSession {
   private action: Promise<DraftQSO | null> | null = null;
   private loading: Promise<void> | null = null;
   private resolving = false;
+  private restoring = false;
   private version = 0;
   private lifecycle = 0;
   constructor(private request: Request, private writeJournal: (journal: DraftJournal) => void,
@@ -119,9 +120,11 @@ export class OperatorDraftSession {
   private acceptReceipt(receipt: Receipt, sentVersion: number) {
     // A successful Replace may race with further typing; preserve the newer text.
     const unchanged = this.version === sentVersion;
+    // Reads issued before this write cannot describe the new canonical state.
+    this.lifecycle++;
     this.update({ base: clone(receipt.draft),
       draft: unchanged || receipt.mutation.action !== "replace" ? clone(receipt.draft.qso) : this.state.draft,
-      pending: null, conflict: null, error: "", locked: !!this.action });
+      pending: null, conflict: null, error: "", locked: !!this.action || this.restoring });
   }
   private async apply(mutation: DraftMutation): Promise<DraftQSO | null> {
     const lifecycle = this.lifecycle, version = this.version;
@@ -222,7 +225,7 @@ export class OperatorDraftSession {
       const result = await this.request("logbook_operator_draft");
       if (lifecycle !== this.lifecycle || this.work || this.action || this.state.pending) throw new Error("The workspace changed. Review its current draft.");
       if (!validDraftSnapshot(result?.draft)) throw new Error("The shared draft response could not be verified.");
-      this.version++;
+      this.lifecycle++; this.version++;
       this.update({ base: clone(result.draft), draft: clone(result.draft.qso), conflict: null, error: "" });
     } finally { this.resolving = false; this.update({ locked: false }, false); }
   }
@@ -236,5 +239,32 @@ export class OperatorDraftSession {
     this.writeJournal({ draft: null, base: null, pending: null });
     this.lifecycle++; this.version++;
     this.update({ draft: null, base: null, pending: null, conflict: null, error: "", locked: false }, false);
+  }
+  async withWorkspaceRestore<T>(restore: () => Promise<T>): Promise<T> {
+    if (this.state.locked || this.action || this.state.pending || this.state.conflict)
+      throw new Error("Resolve the draft operation before restoring a workspace.");
+    this.restoring = true;
+    this.update({ locked: true }, false);
+    try {
+      await this.flush();
+    } catch (cause) {
+      this.restoring = false;
+      const pending = this.getSnapshot().pending;
+      this.update({ locked: !!pending && pending.action !== "replace" }, false);
+      throw cause;
+    }
+    try {
+      const result = await restore();
+      this.writeJournal({ draft: null, base: null, pending: null });
+      this.lifecycle++; this.version++;
+      this.restoring = false;
+      this.update({ draft: null, base: null, pending: null, conflict: null, error: "", locked: false }, false);
+      return result;
+    } catch (cause) {
+      // A timeout cannot prove whether restore happened. Do not issue new draft
+      // writes into an uncertain workspace; process restart retires that worker.
+      this.update({ locked: true, error: "Workspace restore outcome is unconfirmed. Reopen the app before editing another QSO." }, false);
+      throw cause;
+    }
   }
 }

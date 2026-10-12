@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Radio, BookOpen, Network, Map as MapIcon, Settings, Activity, Award, LayoutDashboard, ExternalLink, RefreshCw } from "lucide-react";
 import { workerRequest, openMonitor, openDetachedMap, detachedMapKind, findDetachedSpot,
   onDetachedSpot, onDetachedReady, onDetachedProjection, announceDetachedReady,
@@ -39,6 +39,9 @@ import WorkspaceGate from "./live/WorkspaceGate";
 import SpotBridgePanel from "./live/SpotBridgePanel";
 import { logMode } from "./live/draftRadio";
 import { changedCallDraft, enrichedDraft, normalizedCall } from "./live/draftEnrichment";
+import { OperatorDraftSession, readDraftJournal, type DraftQSO } from "./live/operatorDraftSession";
+import { requestOperatorDraft } from "./live/operatorDraftTransport";
+import { OperatorDraftStatus } from "./live/OperatorDraftStatus";
 import { retireStationProvider } from "./live/stationHandover";
 import RotorPanel from "./live/RotorPanel";
 import { clearConnectedHandoverMessage, ownAutomaticRotorMotion, rotorCommandParams, rotorIntentCurrent, rotorProjection, validRotorSnapshot, type AutomaticRotorIntent, type RotorSnapshot } from "./live/rotorControl";
@@ -62,7 +65,13 @@ const radioProviderLabels: Record<StationProvider, string> = {
   direct_flex_lan: "Direct FLEX · LAN",
   hamlib: "Local station · Hamlib",
 };
-const newDraft = () => localStorage.removeItem("xlog.integration.draft");
+const draftJournalKey = "xlog.integration.operatorDraft.main.v1";
+function storedDraftValue(key: string) { try { return localStorage.getItem(key); } catch { return null; } }
+function legacyDraftValue(): Data | null {
+  try { const value = JSON.parse(storedDraftValue("xlog.integration.draft") || "null");
+    return value?.id && value?.start && value?.call ? value : null;
+  } catch { return null; }
+}
 
 export default function LiveApp() {
   if (detachedCluster) return <DetachedClusterSurface />;
@@ -83,10 +92,22 @@ function MainLiveApp() {
   const preferenceWrite = useRef<Promise<unknown>>(Promise.resolve());
   const preferenceRevision = useRef(0);
   const reloadRevision = useRef(0);
-  const [draft, setDraftState] = useState<Data | null>(null);
+  const [draftSession] = useState(() => new OperatorDraftSession(requestOperatorDraft,
+    journal => localStorage.setItem(draftJournalKey, JSON.stringify(journal)), readDraftJournal(storedDraftValue(draftJournalKey))));
+  const sharedDraft = useSyncExternalStore(draftSession.subscribe, draftSession.getSnapshot);
+  const [editedDraft, setEditedDraft] = useState<Data | null>(null);
+  const editedDraftRef = useRef<Data | null>(null);
+  const editing = useRef(false);
+  const [legacyDraft, setLegacyDraft] = useState(legacyDraftValue);
+  const draft = editedDraft ?? sharedDraft.draft;
   const setDraft = useCallback((next: Data | null | ((current: Data | null) => Data | null)) => {
-    setDraftState(current => changedCallDraft(current, typeof next === "function" ? next(current) : next));
-  }, []);
+    if (draftSession.getSnapshot().locked) return;
+    const current = editing.current ? editedDraftRef.current : draftSession.getSnapshot().draft;
+    const value = changedCallDraft(current, typeof next === "function" ? next(current) : next);
+    if (editing.current) { editedDraftRef.current = value; setEditedDraft(value); }
+    else if (value) draftSession.edit(value as DraftQSO);
+    else draftSession.reset();
+  }, [draftSession]);
   const referenceEdits = useRef<Record<string, number>>({});
   const setOperatorDraft = useCallback((next: Data | null | ((current: Data | null) => Data | null)) => {
     setDraft(current => {
@@ -132,7 +153,6 @@ function MainLiveApp() {
   const spotRotorFence = useRef<{ call: string; confirmed: boolean } | null>(null);
   const providerTransition = useRef(false);
   const selection = useRef(0);
-  const editing = useRef(false);
   const stationPolling = useRef(false);
   const clusterPolling = useRef(false);
   const clusterResumeChecked = useRef(false);
@@ -232,6 +252,7 @@ function MainLiveApp() {
   const cwControls = cwProfile.showOnDesk || cwProfile.macros.some((macro: Data) => macro.enabled && macro.shortcut) || cw.state.armed || cw.state.owner
     ? <CWDesk profile={cwProfile} context={cwContext} controller={cw.controller} state={cw.state} radioProvider={stationProvider} /> : undefined;
   const loadOpportunity = (item: Opportunity) => {
+    if (draftSession.getSnapshot().locked || draftSession.getSnapshot().conflict) { setError("Resolve the current QSO draft operation before loading another contact."); return; }
     if (editing.current) { setError("Finish or clear the contact being edited before loading a new contact."); setView("Log QSO"); return; }
     selection.current++; pendingTune.current = false; disarmAutoRotor();
     spotRotorFence.current = { call: normalizedCall(item.callsign), confirmed: false };
@@ -311,7 +332,7 @@ function MainLiveApp() {
     const state = await request("workspace_status");
     if (state.workspace_exists) {
       await preferenceWrite.current.catch(() => {});
-      const [s, blank, loaded] = await Promise.all([request("settings_load"), request("logbook_draft"), request("workspace_preferences_load")]);
+      const [s, , loaded] = await Promise.all([request("settings_load"), draftSession.load(), request("workspace_preferences_load")]);
       if (revision !== reloadRevision.current) return;
       const prior = loaded.preferences as WorkspacePreferences;
       const migrated = loaded.stored ? null : migrateLegacyBandMaps(prior, localStorage);
@@ -319,11 +340,6 @@ function MainLiveApp() {
       latestWorkspacePreferences.current = preferences;
       setWorkspacePreferences(preferences);
       setSettings(s.settings);
-      setDraft(current => {
-        if (current) return current;
-        try { const saved = JSON.parse(localStorage.getItem("xlog.integration.draft") || "null"); return saved?.id && saved?.start ? saved : blank.qso; }
-        catch { return blank.qso; }
-      });
     }
     if (revision !== reloadRevision.current) return;
     setWorkspace(state);
@@ -331,7 +347,7 @@ function MainLiveApp() {
       if (revision === reloadRevision.current) setStats(totals);
     }).catch(() => { if (revision === reloadRevision.current) setError("Logbook totals could not be loaded. Your draft is available; reopen the workspace to retry."); });
     } finally { if (revision === reloadRevision.current) setWorkspacePending(false); }
-  }, [request]);
+  }, [request, draftSession]);
   const changeBandMapPreferences = (compact: boolean, view: BandMapViewPreferences) => {
     const current = latestWorkspacePreferences.current;
     if (!current || !validBandMapView(view)) return;
@@ -352,8 +368,13 @@ function MainLiveApp() {
   };
   const dataManagementRequest: Request = useCallback(async (method, params = {}) => {
     if (method === "backup_create" || method === "backup_restore") await preferenceWrite.current;
+    if (method === "backup_restore") {
+      if (editing.current) throw new Error("Finish or clear the logged contact edit before restoring a backup.");
+      return draftSession.withWorkspaceRestore(() => request(method, params));
+    }
+    if (method === "backup_create") await draftSession.flush();
     return request(method, params);
-  }, [request]);
+  }, [request, draftSession]);
   useEffect(() => { if (!monitor) void reload().catch(e => setError(e.message)); }, [reload, refresh]);
   useEffect(() => {
     if (monitor) return;
@@ -362,7 +383,24 @@ function MainLiveApp() {
     update(); const timer = setInterval(update, 15_000);
     return () => { active = false; clearInterval(timer); };
   }, [request]);
-  useEffect(() => { if (!monitor && draft) localStorage.setItem("xlog.integration.draft", JSON.stringify(draft)); }, [draft]);
+  useEffect(() => {
+    if (!workspace?.workspace_exists || sharedDraft.locked || sharedDraft.pending || sharedDraft.conflict || !draftSession.dirty) return;
+    const timer = setTimeout(() => { void draftSession.flush().catch(cause => setError(cause instanceof Error ? cause.message : "Draft could not be saved.")); }, 350);
+    return () => clearTimeout(timer);
+  }, [workspace?.workspace_exists, sharedDraft, draftSession]);
+  useEffect(() => {
+    if (!workspace?.workspace_exists) return;
+    let active = true;
+    const timer = setInterval(() => { void draftSession.refresh().catch(cause => {
+      if (active) setError(cause instanceof Error ? cause.message : "Shared draft updates unavailable.");
+    }); }, 1500);
+    return () => { active = false; clearInterval(timer); };
+  }, [workspace?.workspace_exists, draftSession]);
+  useEffect(() => {
+    if (sharedDraft.conflict || sharedDraft.error && (sharedDraft.pending?.action === "save" || sharedDraft.pending?.action === "clear")) {
+      setFollowImmediate(false); disarmAutoRotor(); selection.current++; pendingTune.current = false;
+    }
+  }, [sharedDraft.conflict, sharedDraft.pending?.operationID, sharedDraft.error, disarmAutoRotor]);
   useEffect(() => {
     let disposed = false;
     const pollStation = async () => {
@@ -462,15 +500,22 @@ function MainLiveApp() {
     void request("rotor_goto", { ...intent, bearing: lookup.bearing, label: call, intent_id: id })
       .catch(cause => setError(cause instanceof Error ? cause.message : "Automatic rotor turn failed."));
   }, [autoRotor, draft?.id, draft?.call, lookup, request]);
-  const clear = async () => { editing.current = false; newDraft(); setDraft((await request("logbook_draft")).qso); setSelected(null); };
+  const leaveLoggedEdit = () => { editing.current = false; editedDraftRef.current = null; setEditedDraft(null); };
+  const clear = async () => {
+    if (editing.current) leaveLoggedEdit();
+    else await draftSession.commit("clear");
+    setSelected(null);
+  };
   const save = () => run(async () => {
     if (!draft) return;
-    const result = await request("logbook_save", { qso: draft });
-    setMessage(`${result.qso.call} saved to the integrated logbook. Original logbook unchanged.`);
-    await clear(); setRefresh(n => n + 1);
+    const saved = editing.current ? (await request("logbook_save", { qso: draft })).qso : await draftSession.commit("save");
+    if (editing.current) leaveLoggedEdit();
+    if (saved) setMessage(`${saved.call} saved to the integrated logbook. Original logbook unchanged.`);
+    setSelected(null); setRefresh(n => n + 1);
   });
   const selectSpot = (spot: Data) => {
     if (monitor) return;
+    if (draftSession.getSnapshot().locked || draftSession.getSnapshot().conflict) { setError("Resolve the current QSO draft operation before selecting another spot."); return; }
     if (editing.current) { setError("Finish or clear the contact being edited before selecting a new spot."); setView("Log QSO"); return; }
     const generation = ++selection.current; const hz = Math.round(spot.frequencyKHz * 1000);
     const selectedProvider = provider.current;
@@ -480,7 +525,7 @@ function MainLiveApp() {
     const automaticRequested = autoEnabled.current;
     spotRotorFence.current = { call: normalizedCall(spot.callsign), confirmed: false };
     pendingTune.current = true; editing.current = false; setSelected(spot.id); setReferenceEvidence(null);
-    setDraftState(d => d ? { ...changedCallDraft(d, { ...d, call: spot.callsign }), call: spot.callsign, frequencyHz: hz, band: spot.band, mode: spot.mode,
+    setDraft(d => d ? { ...changedCallDraft(d, { ...d, call: spot.callsign }), call: spot.callsign, frequencyHz: hz, band: spot.band, mode: spot.mode,
       country: spot.country || "", dxcc: spot.adif ?? null, comment: String(spot.comment || ""),
       potaReference: "", sotaReference: "", iota: "", wwffReference: "", sig: "", sigInfo: "" } : d);
     const identity = draftIdentity.current;
@@ -588,15 +633,31 @@ function MainLiveApp() {
     </aside>
     <main aria-label={view}>
       {error && <div className="live-error" role="alert">{error}<button onClick={() => setError("")}>Dismiss</button></div>}
+      {workspace?.workspace_exists && <OperatorDraftStatus state={sharedDraft} session={draftSession} run={operation => run(async () => { await operation(); setRefresh(n => n + 1); })} />}
+      {workspace?.workspace_exists && legacyDraft && <div className="live-message" role="status">
+        Previous local draft: {legacyDraft.call}. Recovering copies its text into a new QSO; it does not log a contact.
+        <button type="button" disabled={sharedDraft.locked || !!sharedDraft.conflict || !!sharedDraft.draft?.call || editing.current} onClick={() => void run(async () => {
+          const current = draftSession.getSnapshot().draft;
+          if (!current || current.call) throw new Error("Use a blank shared draft before recovering old text.");
+          setFollowImmediate(false); disarmAutoRotor();
+          draftSession.edit({ ...legacyDraft, id: current.id, wavelogID: null, deletedAt: null } as DraftQSO);
+          await draftSession.flush(); localStorage.removeItem("xlog.integration.draft"); setLegacyDraft(null);
+        })}>Recover old text as new draft</button>
+        <button type="button" onClick={() => void run(() => navigator.clipboard.writeText(JSON.stringify(legacyDraft, null, 2)))}>Copy previous draft</button>
+        <button type="button" onClick={() => { localStorage.removeItem("xlog.integration.draft"); setLegacyDraft(null); }}>Discard previous draft</button>
+      </div>}
       {message && !message.endsWith("· radio frequency and mode confirmed") && <p className="live-message" role="status">{message}</p>}
       {["Operator Desk", "Log QSO"].includes(view) && referenceEvidence?.call === normalizedCall(draft?.call) && !!referenceEvidence.rows.length &&
         <p className="live-message" role="status">{referenceEvidence.rows.map(row => `${String(row.kind).toUpperCase()} ${row.reference} · ${row.status === "verified" ? `Verified: ${row.name}` : row.status === "not_installed" ? "Directory not installed" : "Not found in installed directory"}`).join(" | ")}</p>}
       {!workspace?.workspace_exists ? <WorkspaceGate workspace={workspace} pending={workspacePending} busy={busy}
         retry={() => void run(reload)} create={mode => void run(async () => { await request("workspace_create", { mode }); await reload(); })} /> : <>
-      {view === "Operator Desk" && <><OperatorDesk cwControls={cwControls} equipment={settings?.stationEquipment} draft={draft} setDraft={setOperatorDraft} save={save} clear={() => void run(clear)} busy={busy} lookup={lookup} previous={previous} request={request} refresh={refresh} onEditor={() => setView("Log QSO")} onReadRadio={readRadioIntoDraft} follow={follow} setFollow={setFollowImmediate} rotor={rotorState} autoRotor={autoRotor} setAutoRotor={changeAutoRotor} onManualRotor={disarmAutoRotor} isEditing={editing.current} intelligenceBands={workspacePreferences?.intelligenceBands} />
+      {view === "Operator Desk" && <><OperatorDesk draftLocked={sharedDraft.locked} cwControls={cwControls} equipment={settings?.stationEquipment} draft={draft} setDraft={setOperatorDraft} save={save} clear={() => void run(clear)} busy={busy || sharedDraft.locked || !!sharedDraft.conflict} lookup={lookup} previous={previous} request={request} refresh={refresh} onEditor={() => setView("Log QSO")} onReadRadio={readRadioIntoDraft} follow={follow} setFollow={setFollowImmediate} rotor={rotorState} autoRotor={autoRotor} setAutoRotor={changeAutoRotor} onManualRotor={disarmAutoRotor} isEditing={editing.current} intelligenceBands={workspacePreferences?.intelligenceBands} />
         <div className="live-desk-bottom"><OperatorWorkspace map={<div className="live-map">{map}</div>} cluster={cluster} selectedSpotId={selected} onSelect={selectSpot} bandMaps={<BandMaps spots={liveSpots} onSelect={selectSpot} radioFrequencyHz={station?.radio?.frequency_hz} compact preferences={workspacePreferences ? bandMapView(workspacePreferences, true) : undefined} onPreferencesChange={value => changeBandMapPreferences(true, value)} />} /></div></>}
-      {view === "Log QSO" && <QSOEditor draft={draft} setDraft={setOperatorDraft} save={save} clear={() => void run(clear)} busy={busy} lookup={lookup} previous={previous} follow={follow} setFollow={setFollowImmediate} request={request} onReadRadio={readRadioIntoDraft} isEditing={editing.current} automaticStationMetadata={automaticStationMetadata} />}
-      {view === "Logbook" && <LogbookPanel onRequest={request} refreshKey={refresh} onEdit={qso => { editing.current = true; setDraft(qso); setFollowImmediate(false); setView("Log QSO"); }} />}
+      {view === "Log QSO" && <QSOEditor draftLocked={sharedDraft.locked} draft={draft} setDraft={setOperatorDraft} save={save} clear={() => void run(clear)} busy={busy || sharedDraft.locked || !!sharedDraft.conflict} lookup={lookup} previous={previous} follow={follow} setFollow={setFollowImmediate} request={request} onReadRadio={readRadioIntoDraft} isEditing={editing.current} automaticStationMetadata={automaticStationMetadata} />}
+      {view === "Logbook" && <LogbookPanel onRequest={request} refreshKey={refresh} onEdit={qso => { void run(async () => {
+        if (draftSession.getSnapshot().locked) throw new Error("Finish the pending draft operation before editing a logged contact.");
+        await draftSession.flush(); editing.current = true; editedDraftRef.current = qso; setEditedDraft(qso); setFollowImmediate(false); setView("Log QSO");
+      }); }} />}
       {view === "DX Cluster" && <ClusterPanel passive snapshot={cluster} selectedSpotId={selected} onRequest={request} onSelect={selectSpot} onUndock={() => void openDetachedCluster().catch(e => setError(e.message))} />}
       {view === "Chaser & DX" && <OpportunitiesPanel request={request} refresh={refresh} onSelect={loadOpportunity} home={stats?.map_home} />}
       {view === "World Map" && <><div className="live-actions"><button type="button" onClick={() => void openDetachedMap("world-map").catch(e => setError(e.message))}><ExternalLink size={14} />Undock World Map</button></div><div className="live-map full">{map}</div></>}

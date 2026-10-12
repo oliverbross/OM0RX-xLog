@@ -16,7 +16,7 @@ export function safeProfileURL(value: unknown): string | null {
 }
 type Props = {
   draft: Data | null; setDraft: (value: SetStateAction<Data | null>) => void;
-  save: () => void | Promise<unknown>; clear: () => void; busy: boolean;
+  save: () => void | Promise<unknown>; clear: () => void; busy: boolean; draftLocked?: boolean;
   lookup: Data | null; previous: Data[]; follow: boolean; setFollow: (value: boolean) => void;
   request?: (method: string, params?: Data) => Promise<any>;
   onReadRadio?: () => void | Promise<void>;
@@ -108,7 +108,7 @@ const bandFor = (hz: number): string => {
   const mhz = hz / 1_000_000; return ranges.find(([min,max]) => mhz >= min && mhz < max)?.[2] ?? "";
 };
 
-export function QSOEditor({ draft, setDraft, save, clear, busy, lookup, previous, follow, setFollow, request, onReadRadio, automaticStationMetadata = [], isEditing = false }: Props) {
+export function QSOEditor({ draft, setDraft, save, clear, busy, draftLocked, lookup, previous, follow, setFollow, request, onReadRadio, automaticStationMetadata = [], isEditing = false }: Props) {
   const [frequencyDraft, setFrequencyDraft] = useState<string | null>(null);
   const [receiveDraft, setReceiveDraft] = useState<string | null>(null);
   const [timeDrafts, setTimeDrafts] = useState<Record<string, { date: string; time: string }>>({});
@@ -223,7 +223,7 @@ export function QSOEditor({ draft, setDraft, save, clear, busy, lookup, previous
     ["observed", "configured", "selected"].includes(item.provenance));
   if (!draft) return <section className="qso-editor" aria-label="Log QSO"><p>Opening logbook…</p></section>;
   return <section className="qso-editor" ref={rootRef} onKeyDown={keyDown} aria-label="Log QSO">
-    <div className="qso-editor-main"><form onSubmit={submit} noValidate>
+    <div className="qso-editor-main"><form inert={draftLocked} aria-busy={draftLocked} onSubmit={submit} noValidate>
       <section className="qso-active" aria-labelledby="qso-active-title">
         <h2 id="qso-active-title"><Radio size={15} aria-hidden="true" /> Active contact</h2>
         <div className="qso-primary">

@@ -1,5 +1,9 @@
 # P1 preserved operator console
 
+## Shared operator draft integration — 13 October 2026
+
+Operate mode, retaining the live editor/desk layout and suite palette. New QSOs use the workspace's revisioned draft and durable Save receipts. Show compact inline recovery and conflict controls only when needed, preserve local text, and never replay a station command while recovering a logbook operation. Lock only QSO entry during Save/Clear or uncertain terminal outcomes; rotor Stop remains reachable. Legacy browser draft text is offered explicitly as recovery, not silently substituted for a newer shared draft. Logged-contact editing remains separate and does not inherit multi-window acceptance.
+
 ## Shared detached Cluster extension — 13 October 2026
 
 This extension targets the live Integration surface, not the historical P1 fixture below. Operate mode; preserve the shipped navy/cyan palette, Cluster table, toolbar, docking action and column controls. Change only transport ownership and truthful loading/stale-service copy. The native shared session supplies Cluster projections and handles permitted Cluster actions. Retain the last verified spots on failure and keep Dock back reachable. Radio tuning/spot selection coordination and restart connection-intent migration remain separate pending session work; do not label this fully undocked acceptance.

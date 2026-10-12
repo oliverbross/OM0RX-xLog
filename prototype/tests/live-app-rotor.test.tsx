@@ -2,10 +2,12 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import LiveApp from "../src/LiveApp";
+import { operatorDraftFixture } from "./operator-draft-fixture";
 
 const bridge = vi.hoisted(() => ({ request: vi.fn(), tune: null as null | ((value: any) => void), rotorGeneration: 4,
   intentId: null as string | null, deferMotion: false, motion: null as null | { resolve: (value: any) => void; reject: (cause: Error) => void } }));
 vi.mock("../src/worker", async original => ({ ...await original<typeof import("../src/worker")>(), workerRequest: bridge.request }));
+vi.mock("../src/live/operatorDraftTransport", () => ({ requestOperatorDraft: async (method: string, params: any = {}) => (await bridge.request(method, params)).result }));
 vi.mock("../src/Map", () => ({ default: () => <div>Map</div> }));
 vi.mock("../src/live/Conditions", () => ({ default: () => <div>Conditions</div> }));
 vi.mock("../src/live/BandMaps", async original => ({ ...await original<typeof import("../src/live/BandMaps")>(),
@@ -40,7 +42,10 @@ async function openRotorSettings() {
 }
 beforeEach(() => {
   localStorage.clear(); bridge.request.mockReset(); bridge.tune = null; bridge.rotorGeneration = 4; bridge.intentId = null; bridge.deferMotion = false; bridge.motion = null;
+  const sharedDraft = operatorDraftFixture({ id: "draft", call: "", start: "2026-10-12T00:00:00Z", frequencyHz: 14074000, mode: "FT8", band: "20m" });
   bridge.request.mockImplementation(async (method: string, params: any = {}) => {
+    const shared = sharedDraft(method, params);
+    if (shared) return { result: shared };
     if (method === "station_tune") return new Promise(resolve => { bridge.tune = result => resolve({ result }); });
     if (method === "rotor_stop") { bridge.rotorGeneration++; bridge.intentId = null; }
     if (method === "rotor_goto") {
@@ -193,7 +198,8 @@ it.each(["Operator Desk", "Log QSO"])("saves exactly once on Command-Enter in %s
   const input = await screen.findByLabelText(view === "Log QSO" ? "Callsign" : "Desk Callsign");
   fireEvent.change(input, { target: { value: "K1ABC" } });
   fireEvent.keyDown(input, { key: "Enter", metaKey: true });
-  await waitFor(() => expect(bridge.request.mock.calls.filter(([method]) => method === "logbook_save")).toHaveLength(1));
+  await waitFor(() => expect(bridge.request.mock.calls.filter(([method, params]) => method === "logbook_operator_draft_apply" && params.action === "save")).toHaveLength(1));
+  expect(bridge.request.mock.calls.some(([method]) => method === "logbook_save")).toBe(false);
 });
 
 it("passes authentic observed radio and configured station provenance to the full editor", async () => {

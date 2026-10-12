@@ -1,18 +1,23 @@
 // @vitest-environment jsdom
 import React from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import LiveApp from "../src/LiveApp";
 import Conditions from "../src/live/Conditions";
 import Monitor from "../src/live/Monitor";
+import { operatorDraftFixture } from "./operator-draft-fixture";
 const calls = vi.hoisted(() => ({ request: vi.fn() }));
 vi.mock("../src/worker", async (importOriginal) => ({ ...await importOriginal<typeof import("../src/worker")>(), workerRequest: calls.request, openMonitor: vi.fn() }));
+vi.mock("../src/live/operatorDraftTransport", () => ({ requestOperatorDraft: async (method: string, params: any = {}) => (await calls.request(method, params)).result }));
 vi.mock("../src/Map", () => ({ default: () => <div>Map surface</div> }));
 let exists = false;
 beforeEach(() => {
   exists = false; localStorage.clear(); calls.request.mockReset();
-  calls.request.mockImplementation(async (method: string) => {
+  const sharedDraft = operatorDraftFixture({ id: "draft", start: "2026-10-12T00:00:00Z", call: "", band: "20m", mode: "SSB" });
+  calls.request.mockImplementation(async (method: string, params: any = {}) => {
+    const shared = sharedDraft(method, params);
+    if (shared) return { ok: true, result: shared };
     const result = method === "workspace_status" ? { workspace_exists: exists, native_log_exists: true }
       : method === "workspace_create" ? (exists = true, { mode: "copy_native" })
       : method === "cluster_snapshot" ? { snapshot: { spots: [], connectedClusters: 0 } }
@@ -37,6 +42,98 @@ it("opens the draft without waiting for slow logbook aggregates", async () => {
   expect(calls.request).toHaveBeenCalledWith("logbook_stats", {});
   expect(screen.getByRole("button", { name: "Monitor" }).closest(".sidebar-foot")).not.toBeNull();
   expect(document.querySelector(".main-station-rail")?.textContent).not.toContain("Monitor");
+});
+
+it("logs through the shared draft receipt and keeps Follow radio enabled on normal Save", async () => {
+  exists = true;
+  render(<LiveApp />);
+  fireEvent.change(await screen.findByLabelText("Callsign"), { target: { value: "K1ABC" } });
+  const follow = within(screen.getByLabelText("Callsign").closest("form")!).getByRole("checkbox", { name: "Follow radio" }) as HTMLInputElement;
+  if (!follow.checked) fireEvent.click(follow);
+  fireEvent.submit(screen.getByLabelText("Callsign").closest("form")!);
+  await waitFor(() => expect((screen.getByLabelText("Callsign") as HTMLInputElement).value).toBe(""));
+  expect(follow.checked).toBe(true);
+  expect(calls.request.mock.calls.filter(([method, params]) => method === "logbook_operator_draft_apply" && params.action === "save")).toHaveLength(1);
+  expect(calls.request.mock.calls.some(([method]) => method === "logbook_save")).toBe(false);
+});
+
+it("recovers a lost Save acknowledgement without a second Save and leaves non-QSO navigation usable", async () => {
+  exists = true;
+  const backend = calls.request.getMockImplementation()!;
+  calls.request.mockImplementation(async (method, params) => {
+    const result = await backend(method, params);
+    if (method === "logbook_operator_draft_apply" && params.action === "save") throw new Error("Acknowledgement lost");
+    return result;
+  });
+  render(<LiveApp />);
+  fireEvent.change(await screen.findByLabelText("Callsign"), { target: { value: "K1ABC" } });
+  fireEvent.submit(screen.getByLabelText("Callsign").closest("form")!);
+  const recovery = await screen.findByRole("alert", { name: "QSO draft recovery" });
+  expect(recovery.textContent).toContain("retained");
+  expect(screen.getByLabelText("Callsign").closest("form")?.hasAttribute("inert")).toBe(true);
+  expect(screen.getByRole("button", { name: "Settings" }).hasAttribute("disabled")).toBe(false);
+  fireEvent.click(screen.getByRole("button", { name: "Check saved operation" }));
+  await waitFor(() => expect(screen.queryByRole("alert", { name: "QSO draft recovery" })).toBeNull());
+  expect((screen.getByLabelText("Callsign") as HTMLInputElement).value).toBe("");
+  expect(calls.request.mock.calls.filter(([method, params]) => method === "logbook_operator_draft_apply" && params.action === "save")).toHaveLength(1);
+});
+
+it("offers legacy local text explicitly as a new draft without logging it automatically", async () => {
+  exists = true;
+  localStorage.setItem("xlog.integration.draft", JSON.stringify({ id: "legacy-id", wavelogID: 12, start: "2026-10-12T00:00:00Z", call: "OLD1", band: "20m", mode: "SSB" }));
+  render(<LiveApp />);
+  const input = await screen.findByLabelText("Callsign") as HTMLInputElement;
+  expect(input.value).toBe("");
+  expect(localStorage.getItem("xlog.integration.draft")).not.toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Recover old text as new draft" }));
+  await waitFor(() => expect(localStorage.getItem("xlog.integration.draft")).toBeNull());
+  expect(input.value).toBe("OLD1");
+  const replace = calls.request.mock.calls.find(([method, params]) => method === "logbook_operator_draft_apply" && params.action === "replace")?.[1];
+  expect(replace.qso).toMatchObject({ id: "draft", call: "OLD1", wavelogID: null });
+  expect(calls.request.mock.calls.some(([method, params]) => method === "logbook_save" || params?.action === "save" || ["station_tune", "rotor_goto"].includes(method))).toBe(false);
+});
+
+it("retains conflicting local text and lets the operator explicitly load the shared draft", async () => {
+  exists = true;
+  const backend = calls.request.getMockImplementation()!;
+  let conflict = false;
+  calls.request.mockImplementation(async (method, params) => {
+    if (method === "logbook_operator_draft_apply" && params.action === "replace") {
+      conflict = true;
+      return { result: { status: "conflict", draft: { revision: 1, qso: { ...params.qso, call: "OTHER" } } } };
+    }
+    if (method === "logbook_operator_draft" && conflict)
+      return { result: { draft: { revision: 1, qso: { id: "draft", call: "OTHER", start: "2026-10-12T00:00:00Z", band: "20m", mode: "SSB" } } } };
+    return backend(method, params);
+  });
+  render(<LiveApp />);
+  fireEvent.change(await screen.findByLabelText("Callsign"), { target: { value: "LOCAL" } });
+  await screen.findByRole("alert", { name: "QSO draft recovery" });
+  expect((screen.getByLabelText("Callsign") as HTMLInputElement).value).toBe("LOCAL");
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Use shared draft" })); });
+  expect((screen.getByLabelText("Callsign") as HTMLInputElement).value).toBe("OTHER");
+  expect(calls.request.mock.calls.some(([method, params]) => method === "logbook_save" || params?.action === "save")).toBe(false);
+});
+
+it.each(["Update QSO", "Clear QSO"])("keeps an existing contact edit separate from the active draft on %s", async action => {
+  exists = true;
+  const contact = { id: "logged-contact", call: "W1AW", start: "2026-10-12T00:00:00Z", band: "20m", mode: "SSB" };
+  const backend = calls.request.getMockImplementation()!;
+  calls.request.mockImplementation(async (method, params) => method === "logbook_list"
+    ? { result: { qsos: [contact], total: 1, offset: 0, limit: 20 } }
+    : method === "logbook_save" ? { result: { qso: params.qso } } : backend(method, params));
+  render(<LiveApp />);
+  fireEvent.change(await screen.findByLabelText("Callsign"), { target: { value: "LOCAL" } });
+  fireEvent.click(screen.getByRole("button", { name: "Logbook" }));
+  fireEvent.doubleClick(await screen.findByText("W1AW"));
+  await waitFor(() => expect((screen.getByLabelText("Callsign") as HTMLInputElement).value).toBe("W1AW"));
+  fireEvent.change(screen.getByLabelText("Callsign"), { target: { value: "W1AW/P" } });
+  fireEvent.click(screen.getByRole("button", { name: action }));
+  await waitFor(() => expect((screen.getByLabelText("Callsign") as HTMLInputElement).value).toBe("LOCAL"));
+  const existing = calls.request.mock.calls.filter(([method]) => method === "logbook_save");
+  expect(existing).toHaveLength(action === "Update QSO" ? 1 : 0);
+  if (existing.length) expect(existing[0][1].qso).toMatchObject({ id: "logged-contact", call: "W1AW/P" });
+  expect(calls.request.mock.calls.filter(([method, params]) => method === "logbook_operator_draft_apply" && params.action !== "replace")).toHaveLength(0);
 });
 
 it.each([{ kind: "pota", reference_kind: "pota", reference: "US-0001", field: "POTA" },

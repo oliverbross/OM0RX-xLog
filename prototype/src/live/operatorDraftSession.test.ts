@@ -198,6 +198,17 @@ describe("workspace operator draft client", () => {
     gate.resolve({ draft: { revision: 12, qso: { id: "old", call: "OLD" } } }); await loading;
     expect(session.getSnapshot().draft).toBeNull(); expect(readDraftJournal(JSON.stringify(f.journal))).toBeNull();
   });
+  it.each(["save", "clear"] as const)("ignores a delayed read from before %s without creating a false conflict", async action => {
+    const f = fixture(), session = f.make(); await session.load(); type(session, "OM0RX"); await session.flush();
+    const old = copy(f.current), gate = deferred<any>();
+    f.request.mockReturnValueOnce(gate.promise);
+    const reading = session.refresh();
+    await session.commit(action);
+    gate.resolve({ draft: old }); await reading;
+    expect(session.getSnapshot().draft?.call).toBe("");
+    expect(session.getSnapshot().conflict).toBeNull();
+    expect(session.getSnapshot().error).toBe("");
+  });
   it("does not let autosave or another action overtake explicit conflict resolution", async () => {
     const f = fixture(), session = f.make(); await session.load(); type(session, "OM0RX");
     const gate = deferred<any>(); f.request.mockReturnValueOnce(gate.promise);
@@ -208,5 +219,50 @@ describe("workspace operator draft client", () => {
     expect(() => session.reset()).toThrow("Finish");
     gate.resolve({ draft: copy(f.current) }); await resolution;
     expect(session.getSnapshot().draft?.call).toBe(""); expect(f.contacts).toHaveLength(0);
+  });
+  it("flushes before restoring and keeps entry locked through the Replace acknowledgement", async () => {
+    const f = fixture(), session = f.make(), gate = deferred<void>();
+    await session.load(); type(session, "OM0RX");
+    const restore = vi.fn(async () => {
+      expect(f.current.qso.call).toBe("OM0RX");
+      expect(session.getSnapshot().locked).toBe(true);
+      expect(() => type(session, "NEW")).toThrow("Wait");
+      await gate.promise;
+      return "restored";
+    });
+    const restoring = session.withWorkspaceRestore(restore);
+    await vi.waitFor(() => expect(restore).toHaveBeenCalledOnce());
+    await expect(session.commit("save")).rejects.toThrow("pending");
+    expect(() => session.reset()).toThrow("Finish");
+    gate.resolve(); expect(await restoring).toBe("restored");
+    expect(session.getSnapshot()).toMatchObject({ draft: null, base: null, pending: null, locked: false });
+    expect(f.journal).toEqual({ draft: null, base: null, pending: null });
+    await session.load(); expect(session.getSnapshot().draft?.call).toBe("OM0RX");
+    expect(f.contacts).toHaveLength(0);
+  });
+  it("does not restore over an unresolved operation or conflicting draft", async () => {
+    const f = fixture(), session = f.make(), other = f.make();
+    await session.load(); await other.load(); type(session, "LOCAL"); type(other, "OTHER"); await other.flush();
+    const restore = vi.fn();
+    await expect(session.withWorkspaceRestore(restore)).rejects.toThrow("another window");
+    expect(session.getSnapshot().locked).toBe(false);
+    await expect(session.withWorkspaceRestore(restore)).rejects.toThrow("Resolve");
+    await session.useShared();
+    f.request.mockRejectedValueOnce(new Error("lost acknowledgement"));
+    await expect(session.commit("save")).rejects.toThrow();
+    await expect(session.withWorkspaceRestore(restore)).rejects.toThrow("Resolve");
+    expect(restore).not.toHaveBeenCalled();
+  });
+  it("leaves an uncertain workspace restore locked without additional draft requests", async () => {
+    const f = fixture(), session = f.make(); await session.load(); type(session, "OM0RX");
+    await expect(session.withWorkspaceRestore(async () => { throw new Error("IPC lost"); })).rejects.toThrow("IPC lost");
+    expect(session.getSnapshot()).toMatchObject({ locked: true, error: expect.stringContaining("unconfirmed") });
+    const count = f.request.mock.calls.length;
+    await session.refresh();
+    expect(() => type(session, "NEW")).toThrow("Wait");
+    expect(() => session.reset()).toThrow("Finish");
+    await expect(session.commit("clear")).rejects.toThrow("pending");
+    expect(f.request).toHaveBeenCalledTimes(count);
+    expect(f.journal?.draft?.call).toBe("OM0RX");
   });
 });
