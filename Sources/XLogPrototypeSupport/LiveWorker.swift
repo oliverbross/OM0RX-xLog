@@ -38,6 +38,7 @@ public actor LiveWorker {
     public func shutdown() async {
         beginTerminalShutdown()
         await publicServices.terminate()
+        await opportunities.terminate()
         if localAcceptance { return }
         #if os(macOS)
         await LiveSpotBridge.shared.stopForShutdown()

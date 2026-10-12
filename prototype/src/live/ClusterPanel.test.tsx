@@ -2,9 +2,9 @@
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { ClusterPanel } from "./ClusterPanel";
+import { ClusterPanel, fullClusterColumnsKey } from "./ClusterPanel";
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); localStorage.clear(); });
 const palette = ["bands", "modes", "continents", "callStatuses", "dxccStatuses", "specials", "sources", "worked", "sort"];
 const response = () => ({ snapshot: { connectedClusters: 1, loadedSpots: 0, contactCount: 42, contactRevision: 1, logbookDataLoaded: true, countryDataLoaded: true,
   connections: [{ serverID: "server", serverName: "ShackCQ", phase: "connected", error: null }], spots: [], console: [] },
@@ -47,6 +47,38 @@ describe("DX Cluster filter colours", () => {
 });
 
 describe("cluster toolbar panels", () => {
+  it("remembers full-table columns and widths independently without any cluster request", () => {
+    const request = vi.fn(async () => ({}));
+    const props = { passive: true, snapshot: response(), onRequest: request, onSelect: vi.fn() };
+    const initial = render(<ClusterPanel {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "Columns" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Show Country column" }));
+    expect(screen.queryByRole("columnheader", { name: /Country/ })).toBeNull();
+    const handle = screen.getByRole("separator", { name: "Resize Callsign column" });
+    fireEvent.keyDown(handle, { key: "ArrowRight" });
+    expect(handle.getAttribute("aria-valuenow")).toBe("106");
+    fireEvent.change(screen.getByRole("spinbutton", { name: "MHz column width" }), { target: { value: "200" } });
+    expect(JSON.parse(localStorage.getItem(fullClusterColumnsKey)!).widths.frequency).toBe(200);
+    expect(localStorage.getItem("xlog.integration.operator-workspace.v1")).toBeNull();
+    initial.unmount();
+    render(<ClusterPanel {...props} />);
+    expect(screen.queryByRole("columnheader", { name: /Country/ })).toBeNull();
+    expect(screen.getByRole("separator", { name: "Resize Callsign column" }).getAttribute("aria-valuenow")).toBe("106");
+    expect(request).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Columns" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reset columns" }));
+    expect(screen.getByRole("columnheader", { name: /Country/ })).toBeTruthy();
+  });
+
+  it("keeps one column visible and bounds invalid saved widths", () => {
+    localStorage.setItem(fullClusterColumnsKey, JSON.stringify({ version: 1, columns: ["callsign", "bogus"], widths: { callsign: 9000 } }));
+    render(<ClusterPanel passive snapshot={response()} onRequest={vi.fn()} onSelect={vi.fn()} />);
+    expect(screen.getAllByRole("columnheader")).toHaveLength(1);
+    expect(screen.getByRole("separator", { name: "Resize Callsign column" }).getAttribute("aria-valuenow")).toBe("480");
+    fireEvent.click(screen.getByRole("button", { name: "Columns" }));
+    expect(screen.getByRole("checkbox", { name: "Show Callsign column" }).hasAttribute("disabled")).toBe(true);
+  });
+
   it("disables unsupported secure-storage and forwarding controls without blocking callsign-only Connect", () => {
     const request = vi.fn(async () => ({}));
     const data = { ...response(), password_storage_available: false, flex_forwarding_available: false };

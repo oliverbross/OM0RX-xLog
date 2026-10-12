@@ -8,7 +8,7 @@ packaged UI result. Keep unresolved items here across releases.
 ## Current delivery boundary
 
 - Working tree: shared cross-platform xLog; Mac-first delivery.
-- Currently installed: Integration alpha.9, source `250053b45ad563df2b1a651fadd498d6f6298be5` (bundle metadata checked). CHASER-01 is verified fixed in this package; wider parity gates remain open.
+- Currently installed: Integration alpha.10, source `5ecf265e1684939aebc2e6de5d90cc82da68afff` (signed package verified). CLUSTER-02 Save retention is verified in this package; wider parity gates remain open.
 - Individual runtime checks and remaining gates are recorded below and in the alpha.7 acceptance report.
 - Restart of Integration was explicitly approved once the build passes.
 - Preserve the latest operator draft, all logbooks/settings/credentials, and
@@ -101,8 +101,60 @@ late callbacks from replaced sockets are rejected independently per server.
 Regression coverage includes multi-server replacement, retained history, palette
 and rules, offline saves, credential failure, terminal shutdown, worker Save
 dispatch, and owned-loopback live option changes on both Mac and portable socket
-implementations. Source tests pass; installed acceptance is pending. Spot retention
+implementations. Local tests: 159 XCTest (one Windows-only skip), 68 Swift Testing,
+353 frontend, TypeScript and five worker-process tests pass. Spot retention
 here means across settings saves and reconnects, not a new disk-backed history.
+
+Alpha.10 installed acceptance: source `5ecf265e1684939aebc2e6de5d90cc82da68afff`,
+Developer ID team `4WCMQ4U946`, notarization
+`008f827a-313f-4a21-8fd8-57afacb79095` Accepted. Strict signature, staple and
+Gatekeeper passed. Archive SHA-256
+`15b1a241416987195b4564216c53710fad309fa7642cb14b14e0743b6a8d4998`.
+All 21 isolated packaged checks pass in
+`evidence/native-ui-alpha10/mac-signed-large.json`, including 100,002 records and
+70/70 map probes. Single-run logbook 82 ms; cold/repeat Awards 717/33 ms; history
+219/213 ms, render 32 ms. These are not p95 measurements.
+
+Installed live Save pressed twice: ShackCQ remained Connected; the second retained
+11 received / 8 shown spots before and after Save. No colour or endpoint was changed
+in the operator's configuration; those cases have automated regression coverage.
+Latest H49A / 24.911000 MHz / 12m / SSB draft survived restart, as did 67,846 contacts.
+Original native app hash remains
+`7a2b244545c9eb2639cde5f0a152c9cfaf40e2e06fde9ad97fd3184e37efdb97`.
+No radio/rotor command was sent. Exact-source OS matrix `38307750798` is pending.
+
+### Chaser usability and parity follow-up (CHASER-02)
+
+New operator screenshots, 13 October: automatically load and refresh public feeds;
+remove per-feed Check requirements; replace Programme dropdown with programme
+tabs below source health; use the full available table area; remove the duplicate
+Chaser page/manual-sync header and bottom public-source prose. Explain that source
+health is live-feed status, not the complete reference directory. Add an optional
+map below the table for references with authoritative coordinates. Compare actual
+ShackCQ source and record missing functionality; do not call the current surface
+full parity. CLUSTER-02 installed acceptance is complete; this is the next stage.
+
+Initial read-only comparison: ShackCQ/Nexus `PotaSotaView.tsx` at
+`12efe3d2970729465add40d62cecd76bbaf5b63f` already has automatic 60-second refresh,
+programme tabs, persistent per-surface band/mode/sort filters, hide-worked-today,
+new-park status, and detached boards. The alpha.11 source now implements automatic
+refresh, programme tabs, saved band/mode/sort filters and the optional map. It
+still lacks worked-today filtering, hunted-reference CSV import, detached Chaser
+boards, and complete activator/contest workflows; those parity gates remain open.
+Its existing reference-history counts are lifetime reference totals, not proof of
+the same activator/reference being worked today. That distinction must remain
+honest. Public spot posting and station tuning are separate safety-gated actions,
+not side effects of opening or refreshing Chaser.
+
+Source checkpoint for alpha.11: full frontend suite 357 passing, TypeScript
+passing; shared Swift suite 159 XCTest cases (one Windows-only skip) and 70 Swift
+Testing cases passing; five worker-process checks passing. Final WWFF epoch-time
+fix passes the nine focused Chaser tests. Browser fixtures checked at 1280x800,
+1440x900 and 2560x1440: table pagination follows available height, optional map
+fits beneath it, programme filters persist, full-cluster columns retain hidden
+state and widths. Impeccable layout detector reports no findings. Evidence in
+`docs/evidence/chaser-cluster-alpha11/`; these are source/browser results, not
+installed alpha.11 or hardware acceptance.
 
 ### Cross-platform local logbook work after alpha.7
 
@@ -434,6 +486,17 @@ and the URL-free QRZ transport error fixture. Exact total and package evidence
 are recorded with the release checkpoint, not inferred from these source tests.
 
 ## Closing a row
+
+### Follow-up: all-screen title strip and full cluster columns (13 October)
+
+- UI-HEADER-ALL: remove the redundant first title/logbook-status strip on every
+  main screen, including Log QSO, Logbook, World Map, Station Control, Sync,
+  Settings, Awards, DX Cluster and Chaser. Central wrapper removed; accessible
+  main-region label remains. Operational warnings and section controls remain.
+- CLUSTER-03: match Newest selector height to the filter buttons; add full-table
+  show/hide columns, numeric widths, pointer and keyboard resize, reset and saved
+  preferences independent of the compact Operator Desk table. Source and tests
+  implemented; installed-app verification pending next package.
 
 Record the source SHA, exact test evidence, installed version, and observed
 result. Leave partial or failed gates visible. Add newly reported issues here

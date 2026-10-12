@@ -596,7 +596,7 @@ function MainLiveApp() {
       <SidebarStation snapshot={stationWithRotor} provider={stationProvider} busy={busy} onAction={action => void run(async () => { await request("station_action", { action }); })} />
       <div className="sidebar-foot"><strong className="teal">{settings?.stationCall || "Station not configured"}</strong><span>{settings?.gridSquare || "Set station grid"}</span></div>
     </aside>
-    <main>{!["Operator Desk", "Band Maps"].includes(view) && <div className="workspace-heading"><h1>{view}</h1><span className="secondary">{workspace?.workspace_exists ? settings?.logbookMode === "local" ? "Standalone local logbook" : "Local logbook · manual Wavelog sync" : workspace ? "Choose a logbook to begin" : workspacePending ? "Opening your workspace" : "Logbook service unavailable"}</span></div>}
+    <main aria-label={view}>
       {error && <div className="live-error" role="alert">{error}<button onClick={() => setError("")}>Dismiss</button></div>}
       {message && !message.endsWith("· radio frequency and mode confirmed") && <p className="live-message" role="status">{message}</p>}
       {["Operator Desk", "Log QSO"].includes(view) && referenceEvidence?.call === normalizedCall(draft?.call) && !!referenceEvidence.rows.length &&
@@ -608,7 +608,7 @@ function MainLiveApp() {
       {view === "Log QSO" && <QSOEditor draft={draft} setDraft={setOperatorDraft} save={save} clear={() => void run(clear)} busy={busy} lookup={lookup} previous={previous} follow={follow} setFollow={setFollowImmediate} request={request} onReadRadio={readRadioIntoDraft} isEditing={editing.current} automaticStationMetadata={automaticStationMetadata} />}
       {view === "Logbook" && <LogbookPanel onRequest={request} refreshKey={refresh} onEdit={qso => { editing.current = true; setDraft(qso); setFollowImmediate(false); setView("Log QSO"); }} />}
       {view === "DX Cluster" && <ClusterPanel passive snapshot={cluster} selectedSpotId={selected} onRequest={request} onSelect={selectSpot} onUndock={() => void openDetachedCluster().catch(e => setError(e.message))} />}
-      {view === "Chaser & DX" && <OpportunitiesPanel request={request} refresh={refresh} onSelect={loadOpportunity} />}
+      {view === "Chaser & DX" && <OpportunitiesPanel request={request} refresh={refresh} onSelect={loadOpportunity} home={stats?.map_home} />}
       {view === "World Map" && <><div className="live-actions"><button type="button" onClick={() => void openDetachedMap("world-map").catch(e => setError(e.message))}><ExternalLink size={14} />Undock World Map</button></div><div className="live-map full">{map}</div></>}
       {view === "Band Maps" && <BandMaps spots={liveSpots} onSelect={selectSpot} radioFrequencyHz={station?.radio?.frequency_hz} onUndock={() => void openDetachedMap("band-maps").catch(e => setError(e.message))} preferences={workspacePreferences ? bandMapView(workspacePreferences, false) : undefined} onPreferencesChange={value => changeBandMapPreferences(false, value)} />}
       {view === "Station Control" && <><div className="live-tabs" role="group" aria-label="Station sections">{["Control and connections", "RUMlog spots"].map(section => <button key={section} aria-pressed={stationSection === section} onClick={() => setStationSection(section)}>{section}</button>)}</div>

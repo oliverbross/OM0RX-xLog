@@ -8,8 +8,8 @@ import XLogCore
 import XLogPortableCore
 #endif
 
-/// Read-only operator opportunities. Public feeds are fetched only after an
-/// explicit refresh; loading this actor never contacts a publisher or a radio.
+/// Read-only operator opportunities. The Chaser view requests an automatic batch;
+/// plain snapshots remain local, and no operation here contacts station hardware.
 actor LiveOpportunitiesMethods {
     static let shared = LiveOpportunitiesMethods()
     private struct Feed: Codable {
@@ -23,6 +23,8 @@ actor LiveOpportunitiesMethods {
     private let clusterSpots: () async -> [[String: Any]]
     private var loaded = false
     private var feeds: [String: Feed] = [:]
+    private var refreshing: [String: Task<Void, Never>] = [:]
+    private var terminated = false
     private var cachedDirectory: (path: String, identity: String, value: ActivationReferenceDirectory)?
     private let names = ["pota", "sota", "wwff", "wwbota", "425dxn"]
 
@@ -43,6 +45,7 @@ actor LiveOpportunitiesMethods {
     }
 
     func handle(method: String, params: [String: Any]) async throws -> [String: Any] {
+        guard !terminated else { throw WorkerFailure("worker_stopping", "The opportunity service has shut down.") }
         _ = try logbook.openedDatabase()
         try loadCache()
         switch method {
@@ -50,17 +53,42 @@ actor LiveOpportunitiesMethods {
             guard params.isEmpty else { throw invalid() }
         case "opportunities_refresh":
             guard Set(params.keys) == ["source"], let source = params["source"] as? String,
-                  names.contains(source) else { throw invalid() }
-            await refresh(source)
+                  names.contains(source) || source == "all" else { throw invalid() }
+            if source == "all" {
+                await withTaskGroup(of: Void.self) { group in
+                    for name in names { group.addTask { await self.refresh(name, automatic: true) } }
+                }
+            } else { await refresh(source) }
         default:
             throw WorkerFailure("method_not_allowed", "Unknown opportunity operation.")
         }
+        guard !terminated else { throw WorkerFailure("worker_stopping", "The opportunity service has shut down.") }
         return try await snapshot()
     }
 
-    private func refresh(_ source: String) async {
+    func terminate() {
+        terminated = true
+        for task in refreshing.values { task.cancel() }
+        refreshing.removeAll()
+    }
+
+    private func refresh(_ source: String, automatic: Bool = false) async {
+        guard !terminated else { return }
+        if let pending = refreshing[source] { await pending.value; return }
+        // Shared across windows/remounts. Slow or unavailable sources cannot
+        // create overlapping downloads or a tight retry loop.
+        let interval: TimeInterval = source == "425dxn" && feeds[source]?.safeError == nil ? 6 * 3_600 : 60
+        if automatic, let attempt = feeds[source]?.lastAttempt, Date().timeIntervalSince(attempt) < interval { return }
+        let task = Task { await self.fetch(source) }
+        refreshing[source] = task
+        await task.value
+        refreshing.removeValue(forKey: source)
+    }
+
+    private func fetch(_ source: String) async {
         var prior = feeds[source] ?? Feed()
         prior.lastAttempt = Date()
+        feeds[source] = prior
         do {
             guard let url = URL(string: OpportunityFeedParser.sourceURL(source)) else { throw OpportunityFeedError.invalidBody }
             var request = URLRequest(url: url)
@@ -68,12 +96,14 @@ actor LiveOpportunitiesMethods {
             request.setValue("application/json", forHTTPHeaderField: "Accept")
             let data = try await OpportunityDownload.fetch(request, configuration: session.configuration)
             let items = try OpportunityFeedParser.parse(data, source: source, observedAt: Date())
+            guard !terminated, !Task.isCancelled else { return }
             prior.items = items
             prior.lastSuccess = Date()
             prior.safeError = nil
             feeds[source] = prior
             try? saveCache()
         } catch {
+            guard !terminated, !Task.isCancelled else { return }
             prior.safeError = "SOURCE_UNAVAILABLE_OR_INVALID"
             feeds[source] = prior
             try? saveCache()
@@ -119,6 +149,8 @@ actor LiveOpportunitiesMethods {
             let evidence = byReference[key]
             let kind = ActivationReferenceKind(rawValue: item.kind)
             let match = kind.flatMap { directory.exactMatch(item.reference, kind: $0) }
+            let directoryLocation = match?.latitude != nil && match?.longitude != nil
+            let feedLocation = item.latitude != nil && item.longitude != nil
             let referenceStatus = kind.map { !directory.hasData(for: $0) ? "not_installed" : match == nil ? "not_found" : "verified" } ?? "not_applicable"
             return ["id": item.id, "kind": item.kind, "callsign": item.callsign,
                     "reference": item.reference, "name": item.name.isEmpty ? match?.name ?? "" : item.name,
@@ -126,6 +158,9 @@ actor LiveOpportunitiesMethods {
                     "observed_at": iso(item.observedAt), "expires_at": iso(item.expiresAt),
                     "source": item.source, "source_url": item.sourceURL, "comment": item.comment,
                     "reference_status": referenceStatus,
+                    "latitude": (directoryLocation ? match?.latitude : feedLocation ? item.latitude : nil) as Any? ?? NSNull(),
+                    "longitude": (directoryLocation ? match?.longitude : feedLocation ? item.longitude : nil) as Any? ?? NSNull(),
+                    "location_source": directoryLocation ? "Reference directory" : feedLocation ? "Public feed" : "Unavailable",
                     "worked_count": evidence?.workedCount ?? 0,
                     "confirmed_count": evidence?.confirmedCount ?? 0,
                     "band_modes": evidence?.bandModes.map { cell in
@@ -138,7 +173,8 @@ actor LiveOpportunitiesMethods {
             let age = feed.lastSuccess.map { now.timeIntervalSince($0) }
             let ttl: TimeInterval = source == "425dxn" ? 25 * 3_600 : 300
             let state = feed.lastSuccess == nil ? "unavailable" : feed.safeError != nil || (age ?? .infinity) > ttl ? "stale" : "current"
-            return ["source": source, "state": state, "count": feed.items.count,
+            return ["source": source, "state": state, "count": feed.items.filter { $0.expiresAt > now }.count,
+                    "refreshing": refreshing[source] != nil,
                     "source_url": OpportunityFeedParser.sourceURL(source),
                     "last_success": feed.lastSuccess.map(iso) as Any? ?? NSNull(),
                     "last_attempt": feed.lastAttempt.map(iso) as Any? ?? NSNull(),

@@ -131,6 +131,8 @@ export default function WorldMap({
   longPath: initialLongPath = false,
   compact = false,
   frequencyHz,
+  spotActionLabel = "Activate to tune",
+  locationLabel = "CTY approximate spot locations",
 }: {
   selected: string | null;
   onSpot?: (spot: MapSpot) => void;
@@ -143,6 +145,8 @@ export default function WorldMap({
   longPath?: boolean;
   compact?: boolean;
   frequencyHz?: number;
+  spotActionLabel?: string;
+  locationLabel?: string;
 }) {
   const mappedSpots = useMemo(() => normalizeMapSpots(data), [data]);
   const detailID = useId();
@@ -160,6 +164,7 @@ export default function WorldMap({
   const [statusFilter, setStatusFilter] = useState<DXCCStatus[]>(["needed", "worked", "confirmed"]);
   const [solarDate, setSolarDate] = useState(() => new Date());
   const callback = useRef(onSpot);
+  const actionLabel = useRef(spotActionLabel); actionLabel.current = spotActionLabel;
   const selection = useRef(selected);
   const preserveCamera = useRef(Boolean(selected));
   const fittedRouteKey = useRef<string | null>(null);
@@ -317,7 +322,7 @@ export default function WorldMap({
           spotMarkersRef.current.set(call, marker);
         }
         const button = marker.getElement();
-        button.setAttribute("aria-label", `${spot.call} · ${mapSpotDetails(spot)[0]}${callback.current ? ". Activate to tune." : ". Inspect spot."}`);
+        button.setAttribute("aria-label", `${spot.call} · ${mapSpotDetails(spot)[0]}${callback.current ? `. ${actionLabel.current}.` : ". Inspect spot."}`);
         button.setAttribute("aria-current", selectedCallRef.current === spot.call ? "true" : "false");
         marker.setLngLat([spot.lon, spot.lat]);
       }
@@ -832,7 +837,7 @@ export default function WorldMap({
       {!compact && <div className="map-legend">
         {routeSummary ? <strong>{target?.call} · {Math.round(routeSummary.distanceKm).toLocaleString()} km · SP {Math.round(routeSummary.shortBearing).toString().padStart(3, "0")}° · LP {Math.round(routeSummary.longBearing).toString().padStart(3, "0")}°</strong>
           : !home && !fixture ? <span>Set your station grid to draw accurate DX paths.</span> : null}
-        <span>{fixture ? "Offline geography · fixture spots" : "CTY approximate spot locations"}</span>
+        <span>{fixture ? "Offline geography · fixture spots" : locationLabel}</span>
         <div className="map-legend-items">
           {overlayMode !== "DXCC" && activeBands.map(band => <span key={band}><i style={{ backgroundColor: paletteColor(band, palette?.band, clusterBandColors) }} />{band}</span>)}
           {overlayMode !== "Spots" && (["needed", "worked", "confirmed"] as DXCCStatus[]).map(status =>

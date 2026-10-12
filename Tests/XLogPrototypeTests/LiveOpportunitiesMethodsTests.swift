@@ -51,6 +51,55 @@ struct LiveOpportunitiesMethodsTests {
         var safeError: String?
     }
 
+    @Test("Public feed coordinates and zone-less UTC timestamps remain authoritative")
+    func publicCoordinatesAndDates() throws {
+        let now = Date(timeIntervalSince1970: 1_791_763_200)
+        let body = Data(#"[{"activator":"OM0RX/P","reference":"OM-0001","frequency":"14074","spotTime":"2026-10-12T10:00:00","latitude":48.2,"longitude":18.4}]"#.utf8)
+        let row = try #require(OpportunityFeedParser.parse(body, source: "pota", observedAt: now).first)
+        #expect(row.latitude == 48.2)
+        #expect(row.longitude == 18.4)
+        #expect(row.observedAt == ISO8601DateFormatter().date(from: "2026-10-12T10:00:00Z"))
+        for source in ["pota", "sota", "wwff", "wwbota", "425dxn"] {
+            #expect(try OpportunityFeedParser.parse(Data("[]".utf8), source: source, observedAt: now).isEmpty)
+        }
+        #expect(throws: OpportunityFeedError.self) {
+            try OpportunityFeedParser.parse(Data("[]".utf8), source: "unknown", observedAt: now)
+        }
+        let invalid = Data(#"[{"activator":"OM0RX/P","reference":"OM-0001","frequency":"14074","latitude":91,"longitude":181}]"#.utf8)
+        let bounded = try #require(OpportunityFeedParser.parse(invalid, source: "pota", observedAt: now).first)
+        #expect(bounded.latitude == nil && bounded.longitude == nil)
+        let wwff = Data(#"[{"activator":"W4Y","reference":"KFF-1260","frequency_khz":14253,"spot_time":1791839870,"spot_time_formatted":"2026-10-12 21:17:50"}]"#.utf8)
+        let timestamped = try #require(OpportunityFeedParser.parse(wwff, source: "wwff", observedAt: now).first)
+        #expect(timestamped.observedAt.timeIntervalSince1970 == 1_791_839_870)
+    }
+
+    @Test("Automatic batches refresh every feed, coalesce concurrent windows and observe cooldowns")
+    func automaticBatches() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        _ = try logbook.handle(method: "workspace_create", params: ["mode": "empty"])
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [EmptyOpportunityProjectionFeed.self]
+        let session = URLSession(configuration: config)
+        defer { session.invalidateAndCancel() }
+        let actor = LiveOpportunitiesMethods(logbook: logbook, session: session, clusterSpots: { [] })
+        async let first = actor.handle(method: "opportunities_refresh", params: ["source": "all"])
+        async let second = actor.handle(method: "opportunities_refresh", params: ["source": "all"])
+        let results = try await [first, second]
+        let sources = try #require(results[0]["sources"] as? [[String: Any]])
+        #expect(sources.count == 5)
+        #expect(sources.allSatisfy { $0["state"] as? String == "current" && $0["count"] as? Int == 0 })
+        let attempts = sources.compactMap { $0["last_attempt"] as? String }
+        #expect(attempts.count == 5)
+        let later = try await actor.handle(method: "opportunities_refresh", params: ["source": "all"])
+        #expect((later["sources"] as? [[String: Any]])?.compactMap { $0["last_attempt"] as? String } == attempts)
+        await actor.terminate()
+        await #expect(throws: WorkerFailure.self) {
+            try await actor.handle(method: "opportunities_refresh", params: ["source": "all"])
+        }
+    }
+
     @Test("Every shared public programme and the DX calendar retain their source evidence")
     func portableProgrammeParsing() throws {
         let now = Date(timeIntervalSince1970: 1_791_763_200)
@@ -211,6 +260,19 @@ private final class FailedOpportunityProjectionFeed: URLProtocol, @unchecked Sen
         let response = HTTPURLResponse(url: request.url!, statusCode: 503,
             httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "text/html"])!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() { }
+}
+
+private final class EmptyOpportunityProjectionFeed: URLProtocol, @unchecked Sendable {
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        let response = HTTPURLResponse(url: request.url!, statusCode: 200,
+            httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "application/json"])!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data("[]".utf8))
         client?.urlProtocolDidFinishLoading(self)
     }
     override func stopLoading() { }

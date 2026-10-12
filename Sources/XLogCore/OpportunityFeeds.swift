@@ -15,14 +15,17 @@ public struct PublicOpportunity: Codable, Equatable, Sendable {
     public var source: String
     public var sourceURL: String
     public var comment: String
+    public var latitude: Double?
+    public var longitude: Double?
 
     public init(id: String, kind: String, callsign: String, reference: String, name: String,
                 frequencyHz: Int64?, mode: String, observedAt: Date, expiresAt: Date,
-                source: String, sourceURL: String, comment: String) {
+                source: String, sourceURL: String, comment: String, latitude: Double? = nil, longitude: Double? = nil) {
         self.id = id; self.kind = kind; self.callsign = callsign; self.reference = reference
         self.name = name; self.frequencyHz = frequencyHz; self.mode = mode
         self.observedAt = observedAt; self.expiresAt = expiresAt
         self.source = source; self.sourceURL = sourceURL; self.comment = comment
+        self.latitude = latitude; self.longitude = longitude
     }
 }
 
@@ -36,16 +39,17 @@ public enum OpportunityFeedParser {
     public static func parse(_ data: Data, source: String, observedAt: Date) throws -> [PublicOpportunity] {
         guard (1...2_097_152).contains(data.count),
               let raw = try? JSONSerialization.jsonObject(with: data),
-              let rows = rows(raw), !rows.isEmpty, rows.count <= 2_000 else {
+              let rows = rows(raw), rows.count <= 2_000 else {
             throw OpportunityFeedError.invalidBody
         }
+        guard ["pota", "sota", "wwff", "wwbota", "425dxn"].contains(source) else { throw OpportunityFeedError.invalidBody }
+        if rows.isEmpty { return [] }
         if source == "425dxn" { return try calendar(rows, observedAt: observedAt) }
-        guard ["pota", "sota", "wwff", "wwbota"].contains(source) else { throw OpportunityFeedError.invalidBody }
         let url = sourceURL(source)
         let opportunities: [PublicOpportunity] = rows.flatMap { row -> [PublicOpportunity] in
             let call = clean(row["activator"] ?? row["activatorCallsign"] ?? row["callsign"] ?? row["call"], max: 28).uppercased()
             guard validCall(call), let hz = frequency(row) else { return [] }
-            let when = date(row["spotTime"] ?? row["timeStamp"] ?? row["spot_time_formatted"] ?? row["time"] ?? row["observedUtc"]) ?? observedAt
+            let when = date(row["spotTime"] ?? row["timeStamp"] ?? row["spot_time"] ?? row["spot_time_formatted"] ?? row["time"] ?? row["observedUtc"]) ?? observedAt
             let mode = clean(row["mode"], max: 20).uppercased()
             let comment = clean(row["comments"] ?? row["comment"] ?? row["remarks"], max: 320)
             let places: [[String: Any]] = source == "wwbota" ?
@@ -58,7 +62,8 @@ public enum OpportunityFeedParser {
                 return PublicOpportunity(id: identity, kind: source, callsign: call, reference: reference,
                     name: name, frequencyHz: hz, mode: mode, observedAt: when,
                     expiresAt: when.addingTimeInterval(source == "pota" ? 1_800 : 3_600),
-                    source: source.uppercased() + " official spots", sourceURL: url, comment: comment)
+                    source: source.uppercased() + " official spots", sourceURL: url, comment: comment,
+                    latitude: coordinate(place["latitude"], limit: 90), longitude: coordinate(place["longitude"], limit: 180))
             }
         }
         guard !opportunities.isEmpty else { throw OpportunityFeedError.noUsableRows }
@@ -126,8 +131,28 @@ public enum OpportunityFeedParser {
     }
     private static func date(_ raw: Any?) -> Date? {
         guard let raw else { return nil }
+        if let seconds = raw as? NSNumber, seconds.doubleValue.isFinite,
+           seconds.doubleValue > 0, seconds.doubleValue < 32_503_680_000 {
+            return Date(timeIntervalSince1970: seconds.doubleValue)
+        }
         let value = String(describing: raw)
-        return ISO8601DateFormatter().date(from: value)
+        let formatter = ISO8601DateFormatter()
+        if let date = formatter.date(from: value) { return date }
+        formatter.formatOptions.insert(.withFractionalSeconds)
+        if let date = formatter.date(from: value) { return date }
+        // POTA publishes UTC timestamps without a zone suffix.
+        if value.range(of: #"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$"#, options: .regularExpression) != nil {
+            formatter.formatOptions.remove(.withFractionalSeconds)
+            if let date = formatter.date(from: value + "Z") { return date }
+            formatter.formatOptions.insert(.withFractionalSeconds)
+            return formatter.date(from: value + "Z")
+        }
+        return nil
+    }
+
+    private static func coordinate(_ raw: Any?, limit: Double) -> Double? {
+        guard let raw, let number = Double(String(describing: raw)), number.isFinite, abs(number) <= limit else { return nil }
+        return number
     }
     public static func sourceURL(_ source: String) -> String {
         switch source {
