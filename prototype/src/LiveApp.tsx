@@ -38,6 +38,7 @@ import { defaultCWProfile } from "./live/cwMacros";
 import { useCW } from "./live/useCW";
 import { OperatorWorkspace } from "./live/OperatorWorkspace";
 import SyncPanel from "./live/SyncPanel";
+import { watchSyncCompletion } from "./live/syncCompletion";
 import ServiceSettings from "./live/ServiceSettings";
 import WorkspaceGate from "./live/WorkspaceGate";
 import SpotBridgePanel from "./live/SpotBridgePanel";
@@ -447,6 +448,10 @@ function MainLiveApp() {
     return request(method, params);
   }, [request, draftSession, contactSession, logbookMutations]);
   useEffect(() => { if (!monitor) void reload().catch(e => setError(e.message)); }, [reload, refresh]);
+  useEffect(() => {
+    if (workspace?.workspace_exists !== true) return;
+    return watchSyncCompletion(request, () => setRefresh(value => value + 1));
+  }, [request, workspace?.workspace_exists]);
   useEffect(() => {
     if (monitor) return;
     let active = true;

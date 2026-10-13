@@ -20,11 +20,13 @@ public actor LiveWorker {
     private let opportunities: LiveOpportunitiesMethods
     private let cluster: LiveClusterMethods
     private let publicServices: LivePublicServiceMethods
+    private let services: LiveServiceMethods
     private let localAcceptance: Bool
     init(logbook: LiveLogbookMethods = .shared, localAcceptance: Bool = false, cluster: LiveClusterMethods? = nil,
          publicServices: LivePublicServiceMethods? = nil) {
         logbookLane = LogbookLane(service: logbook)
         self.publicServices = publicServices ?? LivePublicServiceMethods(logbook: logbook)
+        services = LiveServiceMethods(logbook: logbook)
         let cluster = cluster ?? (logbook === LiveLogbookMethods.shared ? .shared : LiveClusterMethods(logbook: logbook))
         self.cluster = cluster
         opportunities = LiveOpportunitiesMethods(logbook: logbook, clusterSpots: { await cluster.currentSpotRowsIfStarted() })
@@ -35,11 +37,17 @@ public actor LiveWorker {
         terminalShutdown = true
     }
 
+    public func startBackgroundServices() async {
+        guard !localAcceptance, !terminalShutdown else { return }
+        await services.startAutomaticSync()
+    }
+
     public func shutdown() async {
         beginTerminalShutdown()
+        await services.beginTermination()
         await publicServices.terminate()
         await opportunities.terminate()
-        if localAcceptance { return }
+        if localAcceptance { await services.terminate(); return }
         #if os(macOS)
         await LiveSpotBridge.shared.stopForShutdown()
         await LiveRotorSession.shared.terminate()
@@ -47,6 +55,7 @@ public actor LiveWorker {
         await LiveStationSession.shared.terminate()
         #endif
         await cluster.terminate()
+        await services.terminate()
     }
 
     public func response(to data: Data) async -> Data {
@@ -67,7 +76,7 @@ public actor LiveWorker {
                 }
                 try LocalAcceptanceSession.validate(method: method, params: params)
             }
-            if terminalShutdown && (method.hasPrefix("station_") || method.hasPrefix("spot_bridge_") || method.hasPrefix("opportunities_") || method.hasPrefix("cluster_") || method.hasPrefix("logbook_operator_draft") || method.hasPrefix("logbook_contact") || ["weather", "propagation_snapshot", "lookup_call"].contains(method)) {
+            if terminalShutdown && (method.hasPrefix("sync_") || method.hasPrefix("secret_") || method.hasPrefix("station_") || method.hasPrefix("spot_bridge_") || method.hasPrefix("opportunities_") || method.hasPrefix("cluster_") || method.hasPrefix("logbook_operator_draft") || method.hasPrefix("logbook_contact") || ["weather", "propagation_snapshot", "lookup_call"].contains(method)) {
                 throw WorkerFailure("worker_stopping", "The worker is shutting down; no new service request was started.")
             }
             if method == "health" {
@@ -104,6 +113,8 @@ public actor LiveWorker {
                 result = try await cluster.handle(method: method, params: params)
             } else if method == "weather" || method == "propagation_snapshot" {
                 result = try await publicServices.handle(method: method, params: params)
+            } else if method.hasPrefix("sync_") || method.hasPrefix("secret_") {
+                result = try await services.handle(method: method, params: params)
             } else {
                 #if os(macOS)
                 if method.hasPrefix("reference_") {
@@ -113,7 +124,7 @@ public actor LiveWorker {
                 } else if method.hasPrefix("spot_bridge_") {
                     result = try await LiveSpotBridge.shared.handle(method: method, params: params)
                 } else {
-                    result = try await LiveServiceMethods.shared.handle(method: method, params: params)
+                    result = try await services.handle(method: method, params: params)
                 }
                 #else
                 if method == "lookup_call" {

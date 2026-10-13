@@ -1,6 +1,10 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 public struct SyncReport: Equatable, Sendable {
+    public init() {}
     public var pushed = 0
     public var pulled = 0
     public var deleted = 0
@@ -18,6 +22,7 @@ public actor SyncEngine {
     }
 
     public func synchronize() async throws -> SyncReport {
+        try Task.checkCancellation()
         var report = SyncReport()
         var remoteIDs: Set<Int> = []
         var idsByIdentity: [String: [Int]] = [:]
@@ -50,6 +55,7 @@ public actor SyncEngine {
         }
 
         func merge(_ page: WavelogADIFPage) throws -> (matched: Int, unmatched: Int) {
+            try Task.checkCancellation()
             let records = ADIFParser().records(in: page.data.adif)
             guard records.count == page.meta.count else {
                 throw WavelogClientError.invalidData(
@@ -94,6 +100,7 @@ public actor SyncEngine {
             let pageSize = max(1, firstPage.meta.perPage)
             var nextPage = 2
             while nextPage <= firstPage.meta.totalPages {
+                try Task.checkCancellation()
                 let lastPage = min(firstPage.meta.totalPages, nextPage + 3)
                 let client = self.client
                 let pages = try await withThrowingTaskGroup(of: WavelogQSOPage.self) { group in
@@ -131,6 +138,7 @@ public actor SyncEngine {
             let pageSize = max(1, firstADIFPage.meta.perPage)
             var nextPage = 2
             while nextPage <= firstADIFPage.meta.totalPages {
+                try Task.checkCancellation()
                 let lastPage = min(firstADIFPage.meta.totalPages, nextPage + 3)
                 let client = self.client
                 let pages = try await withThrowingTaskGroup(of: WavelogADIFPage.self) { group in
@@ -174,20 +182,26 @@ public actor SyncEngine {
               remoteIDs.count == baselineMeta.total else {
             throw WavelogClientError.invalidResponse
         }
+        try Task.checkCancellation()
         report.conflicts += try database.recordRemoteDeletionConflicts(notIn: remoteIDs)
         report.deleted += try database.removeCleanRemoteRecords(notIn: remoteIDs)
 
         for qso in try database.pending(limit: 500) {
+            try Task.checkCancellation()
             if try database.hasConflict(localID: qso.id) { continue }
             do {
                 if qso.deletedAt != nil {
-                    if let remoteID = qso.wavelogID { try await client.deleteQSO(id: remoteID); report.deleted += 1 }
-                    try database.markSynced(localID: qso.id)
+                    // A prior delete may have succeeded before its response was
+                    // lost. The verified complete scan already proves absence.
+                    if let remoteID = qso.wavelogID, remoteIDs.contains(remoteID) {
+                        try await client.deleteQSO(id: remoteID); report.deleted += 1
+                    }
+                    try database.acknowledgeSynced(qso)
                     continue
                 }
                 if let remoteID = qso.wavelogID {
                     _ = try await client.updateQSO(id: remoteID, fields: WavelogQSOUpdate(qso))
-                    try database.markSynced(localID: qso.id)
+                    try database.acknowledgeSynced(qso)
                 } else {
                     guard let create = WavelogQSOCreate(adif: qso.adifRecord) else {
                         try database.recordSyncFailure(localID: qso.id, message: "This QSO cannot be converted to a valid Wavelog request.")
@@ -195,10 +209,11 @@ public actor SyncEngine {
                         continue
                     }
                     let remote = try await client.createQSO(create)
-                    try database.markSynced(localID: qso.id, wavelogID: remote.id)
+                    try database.acknowledgeSynced(qso, wavelogID: remote.id)
                 }
                 report.pushed += 1
             } catch {
+                try Task.checkCancellation()
                 try database.recordSyncFailure(localID: qso.id, message: error.localizedDescription)
                 report.failed += 1
             }

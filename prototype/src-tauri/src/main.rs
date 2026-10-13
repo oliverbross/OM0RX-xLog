@@ -244,15 +244,19 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     let _telemetry_fence = if station_telemetry::changes_radio(&request) { Some(station_telemetry::owner(&app)?.control()?) } else { None };
     let selection = if station_telemetry::changes_radio(&request) { Some(station_selection::owner(&app)?) } else { None };
     let invalidate = logbook_events::changes_logbook(&request);
+    let check_sync_completion = method == "sync_summary";
     let layout_changed = matches!(method, "workspace_layout_apply" | "workspace_create" | "backup_restore");
     let result = tauri::async_runtime::spawn_blocking(move || if let Some(selection) = selection { selection.control(request) } else { worker::request(request) })
         .await
         .map_err(|_| "Worker task failed".to_string())?;
-    if invalidate {
+    let sync_completed = check_sync_completion && result.as_ref().is_ok_and(|response|
+        app.state::<logbook_events::SyncCompletionObserver>().observe(response));
+    if invalidate || sync_completed {
         // The initiating view already refreshes after its operation. In
         // particular, ADIF batches must not reload that view after every chunk.
+        // A finished sync wakes that view too: sync_run returned before its job.
         for label in ["main", "logbook", "awards"] {
-            if label != window.label() { let _ = app.emit_to(label, "xlog:logbook-changed", ()); }
+            if sync_completed || label != window.label() { let _ = app.emit_to(label, "xlog:logbook-changed", ()); }
         }
     }
     if layout_changed {
@@ -466,6 +470,7 @@ fn main() {
         }))
         .manage(acceptance::Acceptance::new(path))
         .manage(workspace_navigation::WorkspaceNavigation::default())
+        .manage(logbook_events::SyncCompletionObserver::default())
         .setup(|app| {
             acceptance::start_watchdog(app.handle().clone());
             if app.state::<acceptance::Acceptance>().path.is_none() {

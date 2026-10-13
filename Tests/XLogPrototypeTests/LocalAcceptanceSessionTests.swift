@@ -17,7 +17,7 @@ struct LocalAcceptanceSessionTests {
             for method in ["station_connect", "station_radio_control", "station_action", "rotor_goto",
                            "cluster_connect", "cluster_snapshot", "reference_refresh", "qrz_lookup",
                            "opportunities_snapshot", "opportunities_refresh",
-                           "sync_run", "secret_set", "backup_import", "future_service"] {
+                           "sync_run", "sync_configure", "secret_set", "backup_import", "future_service"] {
                 let result = try await request(session, method)
                 #expect(result["ok"] as? Bool == false)
                 #expect((result["error"] as? [String: Any])?["code"] as? String == "acceptance_restricted")

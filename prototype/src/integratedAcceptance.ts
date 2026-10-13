@@ -147,7 +147,10 @@ async function main(report: Json) {
 
   await navigate("Logbook");
   await waitForAcceptance("contact row before edit", () => !!document.querySelector(".live-logbook-table tbody tr"));
-  element<HTMLElement>(".live-logbook-table tbody tr").dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+  // A rendered row can precede refresh completion. Select it, then let the
+  // actual Edit control acknowledge that loading and mutation gates are clear.
+  element<HTMLElement>(".live-logbook-table tbody tr").click();
+  await click("Edit", ".live-logbook-actions button");
   await waitForAcceptance("existing contact editor", () => [...document.querySelectorAll("button")].some(item => item.textContent?.trim() === "Update QSO"));
   await fill('[aria-label="Comment"]', "Revision-safe native edit"); await click("Update QSO");
   await waitForAcceptance("contact editor released", () => ![...document.querySelectorAll("button")].some(item => item.textContent?.trim() === "Update QSO"));
@@ -155,7 +158,8 @@ async function main(report: Json) {
   // Restore the fixture's exact content through the same user-facing editor.
   await navigate("Logbook");
   await waitForAcceptance("edited contact row", () => document.querySelector(".live-logbook-table tbody")?.textContent?.includes("Revision-safe native edit") === true);
-  element<HTMLElement>(".live-logbook-table tbody tr").dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+  element<HTMLElement>(".live-logbook-table tbody tr").click();
+  await click("Edit", ".live-logbook-actions button");
   await waitForAcceptance("second contact editor", () => [...document.querySelectorAll("button")].some(item => item.textContent?.trim() === "Update QSO"));
   await fill('[aria-label="Comment"]', "Isolated native UI acceptance"); await click("Update QSO");
   await waitForAcceptance("restored contact editor released", () => ![...document.querySelectorAll("button")].some(item => item.textContent?.trim() === "Update QSO"));

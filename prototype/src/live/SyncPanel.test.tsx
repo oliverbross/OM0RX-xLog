@@ -17,7 +17,7 @@ describe("Wavelog conflict merge", () => {
       return fixture();
     });
     render(<SyncPanel request={request} onChanged={() => {}} />);
-    await screen.findByText("Automatic synchronization is off. Queued contacts with 0 attempts have not been uploaded yet.");
+    await screen.findByText("Automatic sync off");
     fireEvent.click(screen.getByRole("button", { name: "Check setup" }));
     await screen.findByText(/Setup incomplete: Wavelog API v2 token/);
     expect(request.mock.calls.every(([method]) => ["sync_status", "settings_load", "secret_status"].includes(method))).toBe(true);
@@ -94,5 +94,63 @@ describe("Wavelog conflict merge", () => {
     fireEvent.click(screen.getByRole("button", { name: "Requeue" }));
     await waitFor(() => expect(request).toHaveBeenCalledWith("sync_retry", { id: "qso-1" }));
     expect(request.mock.calls.some(([method]) => method === "sync_run")).toBe(false);
+  });
+});
+
+describe("persistent automatic synchronization controls", () => {
+  it("requires consent and saves an explicit interval without running sync from the view", async () => {
+    let state = { ...fixture(), automatic_sync: false, interval_minutes: 5 };
+    const request = vi.fn(async (method: string, params?: Record<string, any>) => {
+      if (method === "sync_configure") state = { ...state, automatic_sync: params!.enabled, interval_minutes: params!.interval_minutes };
+      return state;
+    });
+    render(<SyncPanel request={request} onChanged={() => {}} />);
+    await screen.findByText("Automatic sync off");
+    const enable = screen.getByRole("button", { name: "Enable automatic sync" });
+    expect(enable.hasAttribute("disabled")).toBe(true);
+    fireEvent.click(screen.getByRole("checkbox"));
+    fireEvent.change(screen.getByLabelText("Sync interval in minutes"), { target: { value: "10" } });
+    expect(request.mock.calls.every(([method]) => method === "sync_status")).toBe(true);
+    fireEvent.click(enable);
+    await screen.findByText("Automatic sync on");
+    expect(request).toHaveBeenCalledWith("sync_configure", { enabled: true, interval_minutes: 10, confirm_single_writer: true });
+    fireEvent.change(screen.getByLabelText("Sync interval in minutes"), { target: { value: "2" } });
+    expect(request.mock.calls.filter(([method]) => method === "sync_configure")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Save interval" }));
+    await waitFor(() => expect(request).toHaveBeenCalledWith("sync_configure", { enabled: true, interval_minutes: 2, confirm_single_writer: true }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Turn off" }).hasAttribute("disabled")).toBe(false));
+    fireEvent.click(screen.getByRole("button", { name: "Turn off" }));
+    await screen.findByText("Automatic sync off");
+    expect(request.mock.calls.some(([method]) => method === "sync_run")).toBe(false);
+  });
+
+  it("does not claim enabled when saving fails", async () => {
+    const request = vi.fn(async (method: string) => {
+      if (method === "sync_configure") throw new Error("Consent could not be saved");
+      return { ...fixture(), automatic_sync: false, interval_minutes: 5 };
+    });
+    render(<SyncPanel request={request} onChanged={() => {}} />);
+    await screen.findByText("Automatic sync off");
+    fireEvent.click(screen.getByRole("checkbox"));
+    fireEvent.click(screen.getByRole("button", { name: "Enable automatic sync" }));
+    await screen.findByText("Consent could not be saved");
+    expect(screen.queryByText("Automatic sync on")).toBeNull();
+  });
+
+  it("reads saved consent on mount and refreshes parent once when a run finishes", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    let state: Record<string, any> = { ...fixture(), automatic_sync: true, interval_minutes: 10, running: true };
+    const request = vi.fn(async (_method: string) => state), changed = vi.fn();
+    render(<SyncPanel request={request} onChanged={changed} />);
+    await screen.findByText("Automatic sync on");
+    expect(screen.getByRole("button", { name: "Turn off" }).hasAttribute("disabled")).toBe(true);
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    state = { ...state, running: false, status: "Completed", finished_at: "2026-10-13T07:00:00Z", next_attempt: "2026-10-13T07:10:00Z", pulled: 67909, pushed: 0, deleted: 0, failed: 0 };
+    await act(async () => { vi.advanceTimersByTime(3000); });
+    expect(changed).toHaveBeenCalledOnce();
+    expect(screen.getByText(/67,909 remote records checked/)).toBeTruthy();
+    await act(async () => { vi.advanceTimersByTime(3000); });
+    expect(changed).toHaveBeenCalledOnce();
+    expect(request.mock.calls.every(args => args.length === 1 && args[0] === "sync_status")).toBe(true);
   });
 });

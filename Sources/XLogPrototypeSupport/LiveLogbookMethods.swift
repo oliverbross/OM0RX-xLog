@@ -18,6 +18,7 @@ public final class LiveLogbookMethods: @unchecked Sendable {
     private var workspace: IntegrationWorkspace?
     private var ctyResolverCache: (source: String, resolver: CTYResolver)?
     private var manualSyncActive = false
+    private let syncAuthorizationKey = "OM0RX-xLog.sync-authorization.v1"
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
 
@@ -73,16 +74,62 @@ public final class LiveLogbookMethods: @unchecked Sendable {
     }
 
     func currentSettings() throws -> XLogSettings {
-        try lock.withLock { IntegrationWorkspace.safeSettings(from: try settingsStore().load()) }
+        try lock.withLock {
+            var settings = IntegrationWorkspace.safeSettings(from: try settingsStore().load())
+            if let authorization = try syncAuthorization(settings: settings) {
+                settings.automaticSync = true
+                settings.syncIntervalMinutes = authorization.intervalMinutes
+            }
+            return settings
+        }
     }
 
-    func beginManualSync() throws {
+    private func syncAuthorization(settings: XLogSettings) throws -> SyncAuthorization? {
+        guard settings.logbookMode == .wavelog,
+              let defaults = workspace?.makeDefaults(), let data = defaults.data(forKey: syncAuthorizationKey),
+              data.count <= 8192, let value = try? JSONDecoder().decode(SyncAuthorization.self, from: data),
+              value.matches(generation: try editGeneration(), service: try currentKeychainService(),
+                            workspacePath: workspaceURL.standardizedFileURL.resolvingSymlinksInPath().path,
+                            endpoint: settings.wavelogURL, stationID: settings.wavelogStationID) else { return nil }
+        return value
+    }
+
+    func configureAutomaticSync(enabled: Bool, intervalMinutes: Int, confirmed: Bool) throws {
+        try lock.withLock {
+            _ = try readyDatabase()
+            guard !manualSyncActive else { throw WorkerFailure("sync_busy", "Wait for the current synchronization to finish.") }
+            guard (1...60).contains(intervalMinutes) else { throw invalid() }
+            guard let defaults = workspace?.makeDefaults() else { throw invalid() }
+            if !enabled { defaults.removeObject(forKey: syncAuthorizationKey); return }
+            guard confirmed else { throw WorkerFailure("sync_confirmation_required", "Confirm this logbook as the only synchronization writer.") }
+            let settings = try settingsStore().load()
+            guard settings.logbookMode == .wavelog, let url = URL(string: settings.wavelogURL) else {
+                throw WorkerFailure("sync_mode_local", "Choose and configure Wavelog mode before enabling automatic sync.")
+            }
+            _ = try WavelogConfiguration(baseURL: url, token: "wl2_configuration_validation", stationID: settings.wavelogStationID)
+            let authorization = SyncAuthorization(version: 1, generation: try editGeneration(), service: try currentKeychainService(),
+                workspacePath: workspaceURL.standardizedFileURL.resolvingSymlinksInPath().path,
+                endpoint: settings.wavelogURL, stationID: settings.wavelogStationID, intervalMinutes: intervalMinutes)
+            let data = try JSONEncoder().encode(authorization)
+            defaults.set(data, forKey: syncAuthorizationKey)
+            guard defaults.data(forKey: syncAuthorizationKey) == data else {
+                throw WorkerFailure("sync_configuration_failed", "Automatic sync consent was not saved.")
+            }
+        }
+    }
+
+    func beginManualSync(expected: XLogSettings? = nil, automatic: Bool = false) throws {
         try lock.withLock {
             _ = try readyDatabase()
             guard !manualSyncActive else { throw WorkerFailure("sync_busy", "Synchronization is already running.") }
-            guard try settingsStore().load().logbookMode == .wavelog else {
+            let settings = try currentSettings()
+            guard settings.logbookMode == .wavelog else {
                 throw WorkerFailure("sync_mode_local", "Choose Wavelog mode in Settings before synchronizing.")
             }
+            if let expected, expected.wavelogURL != settings.wavelogURL || expected.wavelogStationID != settings.wavelogStationID {
+                throw WorkerFailure("sync_configuration_changed", "The Wavelog destination changed before synchronization could start.")
+            }
+            guard !automatic || settings.automaticSync else { throw WorkerFailure("sync_disabled", "Automatic sync is no longer enabled.") }
             manualSyncActive = true
         }
     }
@@ -342,9 +389,8 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                         "count": qsos.count, "offset": offset, "total": try db.stats().qsoCount]
             case "settings_load":
                 try requireKeys(params, allowed: [])
-                let store = try settingsStore()
-                return ["settings": try json(IntegrationWorkspace.safeSettings(from: store.load())),
-                        "automatic_sync": false]
+                let settings = try currentSettings()
+                return ["settings": try json(settings), "automatic_sync": settings.automaticSync]
             case "settings_save":
                 try requireKeys(params, allowed: ["settings"], required: ["settings"])
                 guard let object = params["settings"] as? [String: Any],
@@ -353,11 +399,15 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                 let value: XLogSettings = try decode(object)
                 let safe = IntegrationWorkspace.safeSettings(from: value)
                 let store = try settingsStore()
-                if manualSyncActive && store.load().logbookMode != safe.logbookMode {
-                    throw WorkerFailure("sync_busy", "Wait for synchronization to finish before changing logbook mode.")
+                let previous = store.load()
+                let targetChanged = previous.logbookMode != safe.logbookMode || previous.wavelogURL != safe.wavelogURL || previous.wavelogStationID != safe.wavelogStationID
+                if manualSyncActive && targetChanged {
+                    throw WorkerFailure("sync_busy", "Wait for synchronization to finish before changing the Wavelog destination or mode.")
                 }
+                if targetChanged { workspace?.makeDefaults()?.removeObject(forKey: syncAuthorizationKey) }
                 store.save(safe)
-                return ["settings": try json(safe), "automatic_sync": false]
+                let current = try currentSettings()
+                return ["settings": try json(current), "automatic_sync": current.automaticSync]
             case "workspace_layout_load":
                 try requireKeys(params, allowed: [])
                 let generation = try editGeneration()

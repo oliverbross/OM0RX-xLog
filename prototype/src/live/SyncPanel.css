@@ -4,6 +4,12 @@
 .sync-panel .sync-setup p { margin:0; max-width:75ch; color:#b4c6da; }
 .sync-panel .sync-setup button { flex:none; }
 .sync-panel .sync-confirm { align-items: flex-start; line-height: 1.5; }
+.sync-panel .sync-schedule { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin:16px 0 8px; }
+.sync-panel .sync-enabled { color:var(--teal, #12d6a0); }
+.sync-panel .sync-interval { display:flex; flex-direction:row; align-items:center; gap:6px; margin:0; }
+.sync-panel .sync-interval input { width:65px; min-width:0; font-variant-numeric:tabular-nums; caret-color:var(--cyan, #35c8f5); }
+.sync-panel .sync-evidence { display:flex; flex-wrap:wrap; gap:8px 22px; padding:12px 0; border-block:1px solid var(--border, #243a55); font-variant-numeric:tabular-nums; }
+.sync-panel .sync-evidence span { color:#b4c6da; }
 .sync-panel input[type="checkbox"], .sync-panel input[type="radio"] { flex: 0 0 auto; accent-color: var(--teal, #12d6a0); }
 .sync-panel .sync-count { color: var(--secondary, #92a7bf); font-weight: 400; margin-left: 5px; font-variant-numeric: tabular-nums; }
 .sync-panel .sync-error { color: #ffb4aa; }

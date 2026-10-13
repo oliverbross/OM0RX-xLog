@@ -180,7 +180,9 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "secret_save",
         "secret_status",
         "sync_status",
+        "sync_summary",
         "sync_run",
+        "sync_configure",
         "sync_resolve",
         "sync_retry",
     ]
@@ -593,6 +595,15 @@ fn request_in_session(
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn sync_summary_is_readable_only_by_the_main_workspace() {
+        let request = json!({"id":"summary", "method":"sync_summary", "params":{}});
+        assert!(validate_surface("main", &request).is_ok());
+        for label in ["logbook", "awards", "monitor", "world-map", "band-maps", "dx-cluster", "unknown"] {
+            assert!(validate_surface(label, &request).is_err(), "{label}");
+        }
+    }
 
     #[test]
     fn monitor_allows_only_original_widget_controls() {

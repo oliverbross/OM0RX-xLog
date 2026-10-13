@@ -1,8 +1,15 @@
-#if os(macOS)
 import Foundation
+import CoreFoundation
+#if canImport(CryptoKit)
 import CryptoKit
+#else
+import Crypto
+#endif
+#if canImport(XLogCore)
 import XLogCore
-import XCatIntegrationCore
+#else
+import XLogPortableCore
+#endif
 
 /// Real production services reused by the shared UI. No network job starts on
 /// initialization and synchronization is never automatically enabled on a copy.
@@ -11,30 +18,82 @@ actor LiveServiceMethods {
     private let logbook: LiveLogbookMethods
     private var syncTask: Task<Void, Never>?
     private var syncState: [String: Any] = ["running": false, "status": "Not started"]
+    private var automaticTask: Task<Void, Never>?
+    private var nextAttempt: Date?
+    private var failures = 0
+    private var stopped = false
+    typealias SyncOperation = @Sendable (LogbookDatabase, XLogSettings) async throws -> SyncReport
+    private let operation: SyncOperation?
+    #if os(macOS)
     private var qrzClient: QRZClient?
     private var qrzCredentialDigest: Data?
+    #endif
 
-    init(logbook: LiveLogbookMethods = .shared) { self.logbook = logbook }
+    init(logbook: LiveLogbookMethods = .shared, operation: SyncOperation? = nil) { self.logbook = logbook; self.operation = operation }
+
+    func startAutomaticSync() {
+        guard automaticTask == nil, !stopped else { return }
+        automaticTask = Task { [weak self] in
+            while !Task.isCancelled {
+                if let owner = self { await owner.automaticTick() } else { return }
+                do { try await Task.sleep(nanoseconds: 15_000_000_000) } catch { return }
+            }
+        }
+    }
+
+    func beginTermination() {
+        stopped = true
+        automaticTask?.cancel(); automaticTask = nil
+        syncTask?.cancel()
+    }
+
+    func terminate() async {
+        beginTermination()
+        let running = syncTask
+        await running?.value
+    }
+
+    func automaticTick(now: Date = Date()) {
+        guard !stopped, syncTask == nil else { return }
+        // No workspace (or unreadable consent) is not permission to start a job.
+        guard let settings = try? logbook.currentSettings(), settings.logbookMode == .wavelog, settings.automaticSync else {
+            nextAttempt = nil; return
+        }
+        guard nextAttempt == nil || now >= nextAttempt! else { return }
+        do {
+            try startSync(settings: settings, automatic: true)
+        } catch {
+            // Never expose dependency messages: they may contain records/secrets.
+            failures = min(6, failures + 1)
+            nextAttempt = now.addingTimeInterval(min(3600, 60 * pow(2, Double(failures))))
+            syncState = ["running": false, "status": "Automatic sync could not start; check configuration. Retrying with backoff."]
+        }
+    }
 
     func handle(method: String, params: [String: Any]) async throws -> [String: Any] {
+        guard !stopped else { throw WorkerFailure("worker_stopping", "Synchronization service is shutting down.") }
         switch method {
         case "secret_save":
             let secrets = try workspaceSecrets()
             guard Set(params.keys) == ["account", "value"], let name = params["account"] as? String,
-                  let account = SecretStore.Account(rawValue: name), let value = params["value"] as? String,
+                  let account = WorkspaceCredentialStore.Account(rawValue: name), let value = params["value"] as? String,
                   value.utf8.count <= 8192 else { throw invalid() }
+            if account == .wavelogToken { try logbook.configureAutomaticSync(enabled: false, intervalMinutes: 5, confirmed: false) }
             try secrets.save(value, for: account)
+            #if os(macOS)
             if account == .qrzPassword { qrzClient = nil; qrzCredentialDigest = nil }
+            #endif
             return ["saved": !value.isEmpty]
         case "secret_status":
             let secrets = try workspaceSecrets()
             guard params.isEmpty else { throw invalid() }
             var values: [String: Any] = [:]
-            for account in [SecretStore.Account.wavelogToken, .qrzPassword, .clubLogAPIKey] {
+            for account in [WorkspaceCredentialStore.Account.wavelogToken, .qrzPassword, .clubLogAPIKey] {
                 values[account.rawValue] = !(try secrets.load(account) ?? "").isEmpty
             }
             return values
         case "lookup_call":
+            #if os(macOS)
             let call = try LocalCallsignProfile.validatedCall(params)
             let settings = try logbook.currentSettings()
             let secrets = try workspaceSecrets()
@@ -57,11 +116,35 @@ actor LiveServiceMethods {
             }
             LocalCallsignProfile.addGeometry(to: &profile, grid: settings.gridSquare)
             return profile
+            #else
+            throw WorkerFailure("platform_pending", "QRZ enrichment is not yet available on this platform.")
+            #endif
+        case "sync_summary":
+            guard params.isEmpty else { throw invalid() }
+            let settings = try logbook.currentSettings()
+            var result: [String: Any] = [:]
+            for key in ["running", "status", "completion_id", "finished_at", "pushed", "pulled", "deleted", "conflicts_count", "failed"] {
+                result[key] = syncState[key]
+            }
+            result["automatic_sync"] = settings.automaticSync
+            result["interval_minutes"] = settings.syncIntervalMinutes
+            result["next_attempt"] = settings.automaticSync ? nextAttempt.map { ISO8601DateFormatter().string(from: $0) } as Any? ?? NSNull() : NSNull()
+            result["mode"] = settings.logbookMode.rawValue
+            result["sync_available"] = settings.logbookMode == .wavelog
+            if settings.logbookMode == .local {
+                result["running"] = false
+                result["status"] = "Local logbook · Wavelog sync disabled"
+            }
+            return result
         case "sync_status":
             guard params.isEmpty else { throw invalid() }
             let database = try logbook.openedDatabase()
             var result = syncState
-            let mode = try logbook.currentSettings().logbookMode
+            let settings = try logbook.currentSettings()
+            let mode = settings.logbookMode
+            result["automatic_sync"] = settings.automaticSync
+            result["interval_minutes"] = settings.syncIntervalMinutes
+            result["next_attempt"] = settings.automaticSync ? nextAttempt.map { ISO8601DateFormatter().string(from: $0) } as Any? ?? NSNull() : NSNull()
             result["mode"] = mode.rawValue
             result["sync_available"] = mode == .wavelog
             if mode == .local {
@@ -84,7 +167,9 @@ actor LiveServiceMethods {
             }
             return result
         case "sync_run":
-            guard Set(params.keys) == ["confirm_single_writer"], params["confirm_single_writer"] as? Bool == true else {
+            guard Set(params.keys) == ["confirm_single_writer"],
+                  let confirmed = params["confirm_single_writer"] as? NSNumber,
+                  CFGetTypeID(confirmed) == CFBooleanGetTypeID(), confirmed.boolValue else {
                 throw WorkerFailure("sync_confirmation_required", "Close other Wavelog sync applications and confirm this logbook is the only writer before synchronizing.")
             }
             guard syncTask == nil else { throw WorkerFailure("sync_busy", "Synchronization is already running.") }
@@ -92,25 +177,23 @@ actor LiveServiceMethods {
             guard settings.logbookMode == .wavelog else {
                 throw WorkerFailure("sync_mode_local", "Choose Wavelog mode in Settings before synchronizing.")
             }
-            let secrets = try workspaceSecrets()
-            guard let url = URL(string: settings.wavelogURL), let token = try secrets.load(.wavelogToken) else {
-                throw WorkerFailure("sync_configuration_required", "Configure the Wavelog URL, station ID and token first.")
-            }
-            let configuration = try WavelogConfiguration(baseURL: url, token: token, stationID: settings.wavelogStationID)
-            try logbook.beginManualSync()
-            let engine = SyncEngine(database: try logbook.openedDatabase(), configuration: configuration)
-            syncState = ["running": true, "status": "Synchronizing"]
-            syncTask = Task {
-                do {
-                    let report = try await engine.synchronize()
-                    self.finish(["running": false, "status": report.failed == 0 ? "Completed" : "Completed with failures",
-                        "pushed": report.pushed, "pulled": report.pulled, "deleted": report.deleted,
-                        "conflicts_count": report.conflicts, "failed": report.failed])
-                } catch {
-                    self.finish(["running": false, "status": "Failed; review configuration and outbox before retrying"])
+            try startSync(settings: settings)
+            return syncState
+        case "sync_configure":
+            guard Set(params.keys) == ["enabled", "interval_minutes", "confirm_single_writer"],
+                  let enabled = params["enabled"] as? NSNumber, CFGetTypeID(enabled) == CFBooleanGetTypeID(),
+                  let confirmed = params["confirm_single_writer"] as? NSNumber, CFGetTypeID(confirmed) == CFBooleanGetTypeID(),
+                  let interval = params["interval_minutes"] as? NSNumber, CFGetTypeID(interval) != CFBooleanGetTypeID(),
+                  interval.doubleValue == Double(interval.intValue), (1...60).contains(interval.intValue) else { throw invalid() }
+            guard syncTask == nil else { throw WorkerFailure("sync_busy", "Wait for synchronization to finish before changing its schedule.") }
+            if enabled.boolValue && operation == nil {
+                guard !(try workspaceSecrets().load(.wavelogToken) ?? "").isEmpty else {
+                    throw WorkerFailure("sync_configuration_required", "Save the Wavelog token before enabling automatic synchronization.")
                 }
             }
-            return syncState
+            try logbook.configureAutomaticSync(enabled: enabled.boolValue, intervalMinutes: interval.intValue, confirmed: confirmed.boolValue)
+            nextAttempt = nil; failures = 0
+            return ["automatic_sync": try logbook.currentSettings().automaticSync, "interval_minutes": interval.intValue]
         case "sync_retry":
             guard syncTask == nil else { throw WorkerFailure("sync_busy", "Wait for synchronization to finish before changing the outbox.") }
             guard Set(params.keys) == ["id"], let text = params["id"] as? String, let id = UUID(uuidString: text) else { throw invalid() }
@@ -162,14 +245,46 @@ actor LiveServiceMethods {
         return SHA256.hash(data: try encoder.encode(conflict)).map { String(format: "%02x", $0) }.joined()
     }
 
-    private func finish(_ state: [String: Any]) {
+    private func startSync(settings: XLogSettings, automatic: Bool = false) throws {
+        guard !stopped, syncTask == nil else { throw WorkerFailure("sync_busy", "Synchronization is already running or stopping.") }
+        let run: SyncOperation
+        if let operation { run = operation } else {
+            guard let url = URL(string: settings.wavelogURL), let token = try workspaceSecrets().load(.wavelogToken) else {
+                throw WorkerFailure("sync_configuration_required", "Configure the Wavelog URL, station ID and token first.")
+            }
+            let configuration = try WavelogConfiguration(baseURL: url, token: token, stationID: settings.wavelogStationID)
+            run = { database, _ in try await SyncEngine(database: database, configuration: configuration).synchronize() }
+        }
+        try logbook.beginManualSync(expected: settings, automatic: automatic)
+        let database: LogbookDatabase
+        do { database = try logbook.openedDatabase() }
+        catch { logbook.endManualSync(); throw error }
+        syncState = ["running": true, "status": "Synchronizing"]
+        syncTask = Task {
+            do {
+                try Task.checkCancellation()
+                let report = try await run(database, settings)
+                self.finish(["running": false, "status": report.failed == 0 ? "Completed" : "Completed with failures",
+                    "pushed": report.pushed, "pulled": report.pulled, "deleted": report.deleted,
+                    "conflicts_count": report.conflicts, "failed": report.failed], failed: report.failed > 0, interval: settings.syncIntervalMinutes)
+            } catch {
+                self.finish(["running": false, "status": "Failed; review configuration and outbox before retrying"], failed: true, interval: settings.syncIntervalMinutes)
+            }
+        }
+    }
+
+    private func finish(_ state: [String: Any], failed: Bool, interval: Int) {
         logbook.endManualSync()
-        syncState = state; syncTask = nil
-        Task { try? await LiveClusterMethods.shared.refreshContacts() }
+        syncState = state; syncState["finished_at"] = ISO8601DateFormatter().string(from: Date()); syncTask = nil
+        syncState["completion_id"] = UUID().uuidString
+        failures = failed ? min(6, failures + 1) : 0
+        nextAttempt = Date().addingTimeInterval(min(3600, Double(max(1, interval) * 60) * pow(2, Double(failures))))
+        if !stopped, logbook === LiveLogbookMethods.shared { Task { try? await LiveClusterMethods.shared.refreshContacts() } }
     }
-    private func workspaceSecrets() throws -> SecretStore {
-        SecretStore(service: try logbook.currentKeychainService())
+    private func workspaceSecrets() throws -> WorkspaceCredentialStore {
+        WorkspaceCredentialStore(service: try logbook.currentKeychainService())
     }
+    #if os(macOS)
     private func cachedQRZClient(username: String, password: String) throws -> QRZClient {
         // A new client logs in again. Reuse the XML session only while the
         // workspace credentials are unchanged; never persist the digest/key.
@@ -181,6 +296,6 @@ actor LiveServiceMethods {
         qrzCredentialDigest = identity
         return client
     }
+    #endif
     private func invalid() -> WorkerFailure { WorkerFailure("invalid_params", "Invalid service parameters.") }
 }
-#endif

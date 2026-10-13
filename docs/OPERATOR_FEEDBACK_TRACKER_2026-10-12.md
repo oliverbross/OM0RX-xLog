@@ -21,6 +21,8 @@ packaged UI result. Keep unresolved items here across releases.
 
 ### Configurable workspace and native windows — 13 October
 
+**Current priority: persistent Wavelog sync.** User approval is explicit. The installed manual run imported 60 contacts, including OE1TKS, with all 67,846 original active local identities retained. Three older remote IDs remain missing locally due to the now-fixed semantic-ID collapse. Automatic scheduling, safety/race regression coverage, native completion refresh and explicit Sync controls are implemented in source; they are not yet installed/enabled. See the active-priority section in the workspace plan for exact counts, protections and remaining live acceptance. Do not report “kept on” from a manual run or source-only tests.
+
 Tracked in [the workspace implementation plan](WORKSPACE_CANVAS_AND_NATIVE_WINDOWS_PLAN_2026-10-13.md), WS-01 through WS-08. Preserve the existing docked layout, allow selective undocking of **every screen including Logbook**, and support fully undocked operation. All panels need show/hide, move/resize and saved arrangements. Native menus replace navigation links without dropping station information or existing destinations. RUMlogNG menu/settings/workflow comparison is queued as RUM-01 through RUM-03; its detailed audit is not complete.
 
 The first source stage adds a durable revisioned operator draft and atomic Save/receipt transaction, with 10 focused tests and Rust boundary tests passing. It is not yet wired to the UI. Main-renderer polling/projection extraction, editable logged-contact revisions, canvas, menus, window lifecycle and native/OS acceptance remain open; no full-undocked claim is made.

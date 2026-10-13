@@ -45,6 +45,52 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+it("refreshes when sync has already finished before the first summary response", async () => {
+  exists = true;
+  vi.useFakeTimers();
+  let complete!: (value: unknown) => void, reads = 0, count = 0;
+  const summary = { result: { running: false, completion_id: "first", status: "Completed" } };
+  const backend = calls.request.getMockImplementation()!;
+  calls.request.mockImplementation((method, params) => method === "sync_summary"
+    ? ++reads === 1 ? new Promise(resolve => { complete = resolve; }) : Promise.resolve(summary)
+    : method === "logbook_stats" ? Promise.resolve({ result: { stats: { qso_count: count } } }) : backend(method, params));
+  try {
+    await act(async () => { render(<LiveApp />); });
+    expect(screen.getByText("0 contacts · Integrated logbook")).toBeTruthy();
+    const reloads = calls.request.mock.calls.filter(([method]) => method === "workspace_status").length;
+    count = 17;
+    await act(async () => { complete(summary); });
+    expect(screen.getByText("17 contacts · Integrated logbook")).toBeTruthy();
+    await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });
+    expect(calls.request.mock.calls.filter(([method]) => method === "workspace_status")).toHaveLength(reloads + 1);
+  } finally { cleanup(); vi.useRealTimers(); }
+});
+
+it("refreshes header totals once when background sync completes, even with failures", async () => {
+  exists = true;
+  vi.useFakeTimers();
+  let summary = { running: false, completion_id: "old", status: "Completed" };
+  let count = 0;
+  const backend = calls.request.getMockImplementation()!;
+  calls.request.mockImplementation((method, params) => method === "sync_summary"
+    ? Promise.resolve({ result: summary }) : method === "logbook_stats"
+    ? Promise.resolve({ result: { stats: { qso_count: count } } }) : backend(method, params));
+  try {
+    await act(async () => { render(<LiveApp />); });
+    expect(screen.getByText("0 contacts · Integrated logbook")).toBeTruthy();
+    const reloads = calls.request.mock.calls.filter(([method]) => method === "workspace_status").length;
+    summary = { running: true, completion_id: "old", status: "Synchronizing" };
+    await act(async () => { await vi.advanceTimersByTimeAsync(5_000); });
+    count = 17;
+    summary = { running: false, completion_id: "new", status: "Completed with failures" };
+    await act(async () => { await vi.advanceTimersByTimeAsync(5_000); });
+    expect(screen.getByText("17 contacts · Integrated logbook")).toBeTruthy();
+    await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });
+    expect(calls.request.mock.calls.filter(([method]) => method === "workspace_status")).toHaveLength(reloads + 1);
+    expect(calls.request.mock.calls.some(([method]) => ["sync_run", "sync_status", "station_tune", "settings_save"].includes(method))).toBe(false);
+  } finally { cleanup(); vi.useRealTimers(); }
+});
+
 it("opens the draft without waiting for slow logbook aggregates", async () => {
   exists = true;
   const base = calls.request.getMockImplementation()!;

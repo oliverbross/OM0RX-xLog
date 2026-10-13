@@ -1187,6 +1187,38 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
+    /// A remote acknowledgement covers only the submitted snapshot. Logging
+    /// remains available during a request; newer edits/deletes stay queued.
+    public func acknowledgeSynced(_ submitted: QSO, wavelogID: Int? = nil) throws {
+        try lock.withLock {
+            try execute("BEGIN IMMEDIATE;")
+            do {
+                if var current = try lookup(localID: submitted.id) {
+                    let changed = current != submitted
+                    var baseline = submitted
+                    if let wavelogID { baseline.wavelogID = wavelogID; current.wavelogID = wavelogID }
+                    // An undo that raced a successful remote delete must create
+                    // a new remote record, rather than update the deleted ID.
+                    if changed, submitted.deletedAt != nil { current.wavelogID = nil }
+                    try save(current, markDirty: changed)
+                    let fingerprint = try syncFingerprint(baseline)
+                    try withStatement("UPDATE qsos SET baseline_json = ? WHERE local_id = ?;") { statement in
+                        _ = fingerprint.withUnsafeBytes { bytes in
+                            sqlite3_bind_blob(statement, 1, bytes.baseAddress, Int32(bytes.count), Self.transient)
+                        }
+                        bind(submitted.id.uuidString, to: 2, in: statement)
+                        try stepDone(statement)
+                    }
+                    try clearSyncFailure(localID: submitted.id)
+                }
+                try execute("COMMIT;")
+            } catch {
+                try? execute("ROLLBACK;")
+                throw error
+            }
+        }
+    }
+
     public func possibleDuplicate(call: String, band: String, mode: String, around date: Date, within seconds: TimeInterval = 600) throws -> QSO? {
         try lock.withLock {
             try withStatement("""

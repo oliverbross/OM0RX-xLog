@@ -296,7 +296,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
       <header className="live-logbook-head">
         <div>
           <h2>Logbook</h2>
-          <p>Working copy · {total.toLocaleString()} contacts · synchronization off</p>
+          <p>Local working copy · {total.toLocaleString()} contacts</p>
         </div>
         <div className="live-logbook-actions">
           <form className="live-logbook-search" onSubmit={submitSearch}>

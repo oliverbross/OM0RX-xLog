@@ -73,6 +73,7 @@ if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--self-test"
         exit(1)
     }
     let liveWorker = acceptance?.worker ?? LiveWorker.shared
+    await liveWorker.startBackgroundServices()
     var lines = WorkerLineReader()
     #if os(Windows)
     // Prevent CRT text-mode CRLF translation from altering byte limits/framing.
