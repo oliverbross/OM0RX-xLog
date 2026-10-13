@@ -78,6 +78,22 @@ async function main(report: Json) {
   });
   const draftBeforeLayout = (await worker("logbook_operator_draft")).result.draft.qso;
   await fill('[aria-label="Desk layout"]', "custom");
+  // The preceding roundtrip changes the authoritative revision through another
+  // session. Native invalidation is asynchronous; the rendered desk can still
+  // have the original Traditional revision when this control is selected.
+  // Exercise explicit recovery rather than retrying a stale mutation silently
+  // or assuming a fixed animation/timer delay proves the UI is up to date.
+  const layoutConflict = () => document.querySelector('.canvas-recovery[role="alert"]')?.textContent?.includes("Another window changed the layout.") === true;
+  await waitForAcceptance("custom canvas or reviewed layout conflict", () => {
+    const control = element<HTMLSelectElement>('[aria-label="Desk layout"]');
+    return control.value === "custom" && !control.disabled || layoutConflict();
+  });
+  const layoutConflictRecovered = layoutConflict();
+  if (layoutConflictRecovered) {
+    await click("Use saved layout");
+    await waitForAcceptance("fresh saved layout adopted", () => !layoutConflict() && !element<HTMLSelectElement>('[aria-label="Desk layout"]').disabled);
+    await fill('[aria-label="Desk layout"]', "custom");
+  }
   await waitForAcceptance("custom canvas acknowledged", () => element<HTMLSelectElement>('[aria-label="Desk layout"]').value === "custom" && !element<HTMLSelectElement>('[aria-label="Desk layout"]').disabled);
   await click("Panels");
   const mapToggle = [...document.querySelectorAll<HTMLInputElement>('.canvas-panel-picker input')].find(input => input.parentElement?.textContent?.trim() === "World map");
@@ -96,7 +112,7 @@ async function main(report: Json) {
   await waitForAcceptance("traditional desk restored", () => element<HTMLSelectElement>('[aria-label="Desk layout"]').value === "traditional" && !element<HTMLSelectElement>('[aria-label="Desk layout"]').disabled && !!document.querySelector(".operator-workspace"));
   const layoutAfterControls = (await worker("workspace_layout_load")).result.layout;
   const draftAfterLayout = (await worker("logbook_operator_draft")).result.draft.qso;
-  report.details.workspaceCanvas = { activePreset: layoutAfterControls.document.activePresetID, mapHidePersisted: mapPlacement === "hidden",
+  report.details.workspaceCanvas = { activePreset: layoutAfterControls.document.activePresetID, layoutConflictRecovered, mapHidePersisted: mapPlacement === "hidden",
     locked: layoutAfterControls.document.presets.find((preset: Json) => preset.id === "custom").locked, sameDraft: draftBeforeLayout.id === draftAfterLayout.id && draftBeforeLayout.call === draftAfterLayout.call };
   check("workspace_canvas_controls", report.details.workspaceCanvas.activePreset === "traditional" && report.details.workspaceCanvas.mapHidePersisted && report.details.workspaceCanvas.locked && report.details.workspaceCanvas.sameDraft);
   for (const method of ["self_test", "integration_self_test"]) {

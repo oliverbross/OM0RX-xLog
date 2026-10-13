@@ -1,6 +1,6 @@
 # Configurable Operator Desk and native windows
 
-Status: shared draft, revision-safe contact editing, native Cluster startup intent, radio/rotor telemetry, active radio selection and native menu routing implemented in source. Logbook/Awards repeated-open and Dock-back lifecycles pass isolated Windows/Linux packages through T, including its reduced detached-window startup bundles. U adds the portable layout store and revision-safe edits, not the canvas UI. Full independent-window and canvas acceptance remain open.
+Status: shared draft, revision-safe contact editing, native Cluster startup intent, radio/rotor telemetry, active radio selection and native menu routing implemented in source. Logbook/Awards repeated-open and Dock-back lifecycles pass isolated Windows/Linux packages through V, including reduced detached-window startup bundles and the shared layout roundtrip. W adds the configurable canvas and its native control gate; exact package run is still being verified. Full independent-window, display migration and whole-app performance acceptance remain open.
 Request: 13 October 2026. Baseline: `0cc7ecc` / installed alpha.13.
 
 ## Product contract
@@ -20,7 +20,7 @@ This request extends the ongoing parity programme; it does not mark earlier requ
 
 | ID | Outcome | Status |
 | --- | --- | --- |
-| WS-01 | Every desk panel can be shown/hidden, moved and resized | In progress: stable panel identities and validated placement model; canvas interaction pending |
+| WS-01 | Every desk panel can be shown/hidden, moved and resized | In progress: Custom canvas gestures, lock, hide/show and recovery for registered panels; remaining inventory and native package interaction pending |
 | WS-02 | Settings → Workspace provides panel selection and named layouts | In progress: named preset persistence and scoped revision checks; Settings UI pending |
 | WS-03 | Native menus replace navigation links on all three desktop platforms | In progress: complete screen menu routing in source; sidebar removal/native review pending |
 | WS-04 | Window menu opens/focuses individual native panel windows | In progress: existing four windows plus Logbook and Awards in source; remaining screens pending |
@@ -403,6 +403,14 @@ The temporary visual fixture uses production panels with synthetic data and a me
 Verification: 540 frontend tests across 76 files, TypeScript/Vite, detached-window JavaScript/style-order budgets and 136 Rust tests pass. Eight canvas tests cover gesture commit/cancel, preserved draft input mounting, hide/show geometry, lock, compact rotor access, overlapping locked rotor safety, service failure and geometry validation. The isolated native acceptance harness now requires `workspace_canvas_controls` as check 25: actual Custom creation, map hide/readback/show, locking, return to Traditional and unchanged draft. Exact-source packaged execution of that new check remains pending until after commit.
 
 Still open: Settings/named-preset management, remaining panel registration and independent windows, native placement reconciliation and Windowed restoration, main-window-independent automatic coordination, display migration/anchoring, arbitrary-panel minimum-size behavior, complete 4K scaling and measured whole-app performance. Internal scrolling remains an accessible fallback for undersized content; the requested no-wasted-space/no-scrollbar goal is not declared complete. Installed alpha.13 remains unchanged. No live workspace, contact, credential or equipment setting was altered.
+
+### Checkpoint W packaged verification follow-up
+
+Source `f7d695dd50437f726c7ab741a85f9ac844643262`, matrix `38355009188`: all three build jobs and Windows fresh-runner acceptance pass; Linux runtime-only acceptance fails at `custom canvas acknowledged`. Its retained screenshot shows the explicit stale-layout conflict, not a hung canvas. The preceding acceptance roundtrip writes revisions 1 and 2 in separate sessions, while the rendered desk can still hold revision 0 before its asynchronous invalidation arrives. The harness now waits for either acknowledged Custom or this specific conflict, explicitly adopts the saved layout and selects Custom again once. It never retries an ambiguous write automatically or removes revision protection. The existing hide/show/readback/lock/draft checks remain required; the report records whether conflict recovery was exercised. This corrected harness still needs its own packaged execution.
+
+### Active priority — persistent Wavelog synchronization
+
+The user explicitly approved enabling and keeping synchronization on on 13 October. Read-only live comparison verified 67,909 remote contacts versus 67,846 local contacts, 63 incoming IDs, no active local IDs absent remotely, no pending local changes and no conflicts; latest remote contact OE1TKS. A verified 67,846-contact backup was created before the approved manual run. The installed alpha.13 service remains manual-only: `currentSettings()` applies `safeSettings`, and `LiveServiceMethods` has no persistent automatic scheduler. Do not claim that starting one manual run enables automatic synchronization. Implement opt-in durable ownership/configuration, non-overlapping periodic runs independent of the current screen, visible last outcome/retry status, local-mode disabling, restore/copy safety, conflict retention and tests before claiming this request fulfilled. Never change the original app or credentials as a shortcut.
 
 ## Follow-on: RUMlogNG workflow and feature comparison
 
