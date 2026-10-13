@@ -1,0 +1,44 @@
+# Workspace settings
+
+Mode: Operate. Narrow extension of the incumbent Settings tabs, using the existing shared layout service. Unattended implementation follows the user's explicit named/configurable-workspace request; no visual-world change or concept tournament applies.
+
+## Direction contract
+
+THESIS: Manage named operating arrangements without changing radio connections or losing another window's layout changes.
+
+OWN-WORLD: Inherit the navy settings surface, system typography, compact neutral inputs and teal primary action. Layout controls are a sibling of service settings, not nested in their Save form.
+
+STORY: Inspect a saved arrangement, use it, or duplicate it into an editable copy. Explicit Save stores names, panel visibility and arrange/snap options; conflict recovery retains the unsaved intention.
+
+FIRST VIEWPORT: A compact saved-layout selector and Use/Duplicate/Edit/Delete actions precede the selected layout summary. An inline editor replaces that summary when requested, with a name, layout options and grouped panel choices; Save and Cancel stay adjacent. No duplicate page heading or decorative preview.
+
+FORM: Precisely specified settings extension, code-led; no seed. Keyboard navigation and revision-bound edits are the signature interaction. Unsupported panel/window placements remain visible and preserved, not silently enabled or deleted. Native fully-windowed restoration is not claimed.
+
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
+
+Design system unchanged. No shipping raster assets. Final browser/review evidence is recorded below; native installed acceptance is separate.
+
+## Finished extension and evidence — 2026-10-13
+
+Outcome: ship for the bounded Workspace settings extension after fresh finish review and resolution of its two listed fixes. This dated outcome supersedes the pending browser/review status above. Native installed verification remains pending; full windowed restoration is not supported yet.
+
+The finished surface inherits the existing settings tabs, navy canvas and raised controls, system typography, restrained separators, neutral secondary actions and teal Save action. The saved-layout selector leads directly to Use, Duplicate, Edit and Delete. The inline editor keeps naming, arrange/snap options, grouped panel visibility and adjacent Save/Cancel actions together. At compact width the existing tabs wrap and panel choices become two columns; desktop and 4K keep the choice grid bounded instead of stretching it across the display. Visible focus and disabled controls retain the incumbent interaction language. This is a code-led ordinary extension, with no new visual world or system change.
+
+The disabled-control test now checks the disabled fieldset governing the retained draft. Save feedback distinguishes an active preset ("Layout saved.") from an inactive saved arrangement ("Layout saved. Use layout to switch arrangements."). Workspace controls remain outside the service settings Save form, and service-field drafts remain mounted while changing tabs. Unsupported and separate-window placements are retained rather than silently changed.
+
+Visual evidence uses the production `ServiceSettings` and `WorkspaceSettings` components through `prototype/tests/workspace-settings.tsx`, with a synthetic layout service and no worker, account or station connection. The six required captures show the saved-layout view and focused inline editor:
+
+- `.impeccable/review/workspace-settings-desktop.png`
+- `.impeccable/review/workspace-settings-compact.png`
+- `.impeccable/review/workspace-settings-4k.png`
+- `.impeccable/review/workspace-settings-editor-desktop.png`
+- `.impeccable/review/workspace-settings-editor-compact.png`
+- `.impeccable/review/workspace-settings-editor-4k.png`
+
+These PNGs are review evidence, not shipping raster assets. No raster provenance entry is required for this code-only surface. Browser fixture evidence does not establish installed native behavior, native window restoration or hardware acceptance.
+
+Capture sizes: compact 720 × 900; desktop 1440 × 900; 4K 1920 × 1080 at device scale 2 (3840 × 2160 output). The fresh finish reviewer returned `ship` after checking both fixes in source; root and reviewer inspected all six captures. Implementation verification reported 609 frontend tests across 83 files and a successful build before the final copy assertion, followed by 13 passing focused helper/component tests. Final broader revalidation is recorded separately by the implementing agent.
+
+Existing design-context drift was reported without repair: `DESIGN.md` retains its incumbent prose structure rather than the current canonical token/frontmatter format, and `.impeccable/design.json` is absent. `DESIGN.md` and the sidecar state are preserved. Surface-specific outcomes stay here and do not become global design rules.
+
+Final implementing-agent validation: 612 frontend tests across 84 files, TypeScript/Vite and detached bundle/style gates passed; 155 Rust tests passed. Rebuilt portable Swift passed 124 prototype XCTest cases (two skipped), 56 cluster and 17 station XCTest cases, plus 138 Swift Testing cases across 23 suites. The isolated native suite now requires a Settings preset save/activate/rename/remount/readback check; its actual-component harness passes locally, but packaged execution remains pending. The browser fixture session and development server were closed after verification.

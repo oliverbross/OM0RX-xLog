@@ -158,6 +158,45 @@ it("journals before a scoped CAS write, then adopts only a matching acknowledgem
   expect(events).toEqual(["journal", "write", "clear"]); expect(session.getSnapshot().pending).toBeNull();
   expect(session.getSnapshot().snapshot?.document.activePresetID).toBe("windowed");
 });
+it("refuses captured preset saves after revision, generation or document drift before journaling or writing", async () => {
+  const editingBase = fixture();
+  const preset = { ...structuredClone(editingBase.document.presets[0]), name: "Edited desk" };
+  const save: LayoutChange = { action: "savePreset", presetID: preset.id, preset };
+  for (const mutate of [
+    (snapshot: LayoutSnapshot) => { snapshot.revision++; },
+    (snapshot: LayoutSnapshot) => { snapshot.generation = "87654321-1234-1234-1234-123456789abc"; },
+    (snapshot: LayoutSnapshot) => { snapshot.document.presets[0].panels.find(panel => panel.id === "monitor")!.rect.x = 32; },
+  ]) {
+    const current = structuredClone(editingBase); mutate(current);
+    const request = vi.fn().mockResolvedValueOnce({ layout: editingBase }).mockResolvedValueOnce({ layout: current });
+    const journal = vi.fn(), session = new WorkspaceLayoutSession(request, journal);
+    await session.refresh(); await session.refresh();
+    await expect(session.applyAtBase(save, editingBase)).rejects.toThrow("changed after editing began");
+    expect(journal).not.toHaveBeenCalled(); expect(request).toHaveBeenCalledTimes(2);
+    expect(session.getSnapshot().snapshot).toEqual(current); expect(session.getSnapshot().pending).toBeNull();
+  }
+});
+it("saves against a matching captured base while preserving generation, other roles and immutable inputs", async () => {
+  const base = fixture(); base.revision = 47;
+  const monitor = base.document.presets[0].panels.find(panel => panel.id === "monitor")!;
+  Object.assign(monitor, { placement: "window", rect: { x: 55, y: 66, width: 800, height: 600 }, z: 876 });
+  const original = structuredClone(base), preset = { ...structuredClone(base.document.presets[0]), name: "Renamed desk" };
+  const save: LayoutChange = { action: "savePreset", presetID: preset.id, preset };
+  const request = vi.fn(async (method: string, params?: any) => method.endsWith("load") ? { layout: base }
+    : { status: "applied", layout: { ...base, revision: 48, document: changedLayout(base.document, params) } });
+  const journal = vi.fn(), session = new WorkspaceLayoutSession(request, journal);
+  await session.refresh(); await session.applyAtBase(save, structuredClone(base));
+  expect(request.mock.calls[1][1]).toEqual({ ...save, expectedRevision: 47, generation: base.generation });
+  expect(session.getSnapshot().snapshot?.generation).toBe(base.generation);
+  expect(session.getSnapshot().snapshot?.document.presets[0].panels).toEqual(base.document.presets[0].panels);
+  expect(session.getSnapshot().pending).toBeNull(); expect(base).toEqual(original);
+});
+it("captured-base writes retain the unresolved pending-change guard", async () => {
+  const base = fixture(), request = vi.fn(async () => ({ layout: base })), journal = vi.fn();
+  const session = new WorkspaceLayoutSession(request, journal, { base, change });
+  await session.refresh(); await expect(session.applyAtBase(change, base)).rejects.toThrow("Resolve");
+  expect(journal).not.toHaveBeenCalled(); expect(request).toHaveBeenCalledTimes(1);
+});
 it("refuses a mutation when its recovery journal cannot be saved", async () => {
   const request = vi.fn(async () => ({ layout: fixture() }));
   const session = new WorkspaceLayoutSession(request, () => { throw new Error("disk full"); });

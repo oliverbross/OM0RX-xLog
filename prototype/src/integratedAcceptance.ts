@@ -5,6 +5,7 @@ import workspaceScreens from "./live/workspaceScreens.json";
 import { serveDetachedLifecycle, verifyDetachedLifecycle } from "./detachedAcceptance";
 import { verifyWorkspaceLayoutRoundtrip } from "./workspaceLayoutAcceptance";
 import { verifySpotHistory } from "./spotHistoryAcceptance";
+import { verifyWorkspaceSettings } from "./workspaceSettingsAcceptance";
 
 type Json = Record<string, any>;
 const frame = () => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
@@ -116,6 +117,8 @@ async function main(report: Json) {
   report.details.workspaceCanvas = { activePreset: layoutAfterControls.document.activePresetID, layoutConflictRecovered, mapHidePersisted: mapPlacement === "hidden",
     locked: layoutAfterControls.document.presets.find((preset: Json) => preset.id === "custom").locked, sameDraft: draftBeforeLayout.id === draftAfterLayout.id && draftBeforeLayout.call === draftAfterLayout.call };
   check("workspace_canvas_controls", report.details.workspaceCanvas.activePreset === "traditional" && report.details.workspaceCanvas.mapHidePersisted && report.details.workspaceCanvas.locked && report.details.workspaceCanvas.sameDraft);
+  report.details.workspaceSettings = await verifyWorkspaceSettings({ worker, navigate, fill, click });
+  check("workspace_settings_presets", report.details.workspaceSettings.savedInactive && report.details.workspaceSettings.activated && report.details.workspaceSettings.renamed && report.details.workspaceSettings.remount && report.details.workspaceSettings.sameDraft);
   for (const method of ["self_test", "integration_self_test"]) {
     check(`worker_${method}`, validWorkerResult(method, await worker(method)));
   }
@@ -362,7 +365,7 @@ export async function startIntegratedAcceptance() {
     report.status = "passed";
   } catch (error) {
     report.status = "failed";
-    report.error = error instanceof Error ? error.message : "Integrated UI acceptance failed";
+    report.error = error instanceof Error ? error.message : typeof error === "string" ? error : "Integrated UI acceptance failed";
     report.details.failureMap = mapDetails();
   }
   await invoke(surface ? "acceptance_monitor" : "finish_acceptance", { report });

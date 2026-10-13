@@ -105,6 +105,9 @@ pub fn validate_local_request(request: &Value) -> Result<(), String> {
         "health" | "parse_adif" | "self_test" | "integration_self_test" | "cluster_classify" | "cluster_history"
         | "workspace_status" | "workspace_create" | "workspace_preferences_load" | "workspace_preferences_save"
         | "workspace_layout_load" | "workspace_layout_apply"
+        // Swift validates bounded filters/IDs against the generated private
+        // archive; these methods cannot select a database or admit recordings.
+        | "spot_history_status" | "spot_history_query" | "spot_history_stats" | "spot_history_detail"
         | "settings_load" | "settings_save" | "logbook_draft" | "logbook_catalog" | "logbook_list"
         | "logbook_save" | "logbook_delete" | "logbook_undo" | "logbook_stats" | "logbook_previous"
         | "logbook_operator_draft" | "logbook_operator_draft_apply" | "logbook_operator_draft_receipt"
@@ -122,7 +125,7 @@ pub fn passed(report: &Value) -> bool {
     const REQUIRED: [&str; 17] = ["worker_health", "worker_self_test", "worker_parse_adif", "worker_integration_self_test", "cluster_classification_initial", "cluster_classification_logged", "map_loaded",
         "cluster_selection", "keyboard_log", "logbook_readback", "keyboard_focus", "keyboard_clear",
         "profile_manual", "profile_simulator", "monitor_opened", "monitor_snapshot", "final_desk"];
-    const LOCAL: [&str; 25] = ["isolated_worker", "empty_workspace", "workspace_created", "workspace_layout_roundtrip", "workspace_canvas_controls", "worker_self_test",
+    const LOCAL: [&str; 27] = ["isolated_worker", "empty_workspace", "workspace_created", "workspace_layout_roundtrip", "workspace_canvas_controls", "workspace_settings_presets", "spot_history_archive", "worker_self_test",
         "worker_integration_self_test", "worker_parse_adif", "keyboard_log", "logbook_readback", "keyboard_editor",
         "keyboard_focus", "keyboard_clear", "settings_save_readback", "awards_loaded", "detached_projection",
         "map_loaded", "final_desk", "native_menu_routes", "contact_edit", "contact_delete_undo", "detached_logbook", "detached_awards",
@@ -361,7 +364,7 @@ mod tests {
     }
     #[test]
     fn integrated_local_report_requires_real_workflow_checks_and_gpu_evidence() {
-        let names = ["isolated_worker", "empty_workspace", "workspace_created", "workspace_layout_roundtrip", "workspace_canvas_controls", "worker_self_test",
+        let names = ["isolated_worker", "empty_workspace", "workspace_created", "workspace_layout_roundtrip", "workspace_canvas_controls", "workspace_settings_presets", "spot_history_archive", "worker_self_test",
             "worker_integration_self_test", "worker_parse_adif", "keyboard_log", "logbook_readback", "keyboard_editor",
             "keyboard_focus", "keyboard_clear", "settings_save_readback", "awards_loaded", "detached_projection",
             "map_loaded", "final_desk", "native_menu_routes", "contact_edit", "contact_delete_undo", "detached_logbook", "detached_awards",
@@ -372,12 +375,29 @@ mod tests {
             "landPixelProbes":40,"matchedLandPixels":40,"capturedAt":1}}});
         assert!(passed(&report));
         for name in names {
+            let check = report["checks"].as_object_mut().unwrap().remove(name).unwrap();
+            assert!(!passed(&report), "Missing required check: {name}");
+            report["checks"][name] = check;
             report["checks"][name] = json!(false);
             assert!(!passed(&report));
             report["checks"][name] = json!(true);
         }
         report["details"]["finalMap"]["matchedLandPixels"] = json!(39);
         assert!(!passed(&report));
+    }
+    #[test]
+    fn local_acceptance_allows_only_read_only_spot_history_methods() {
+        for (method, params) in [
+            ("spot_history_status", json!({})),
+            ("spot_history_query", json!({"limit":100})),
+            ("spot_history_stats", json!({"call":"TESTH0"})),
+            ("spot_history_detail", json!({"id":"12345678-1234-1234-1234-123456789abc"})),
+        ] {
+            assert!(validate_local_request(&json!({"method":method,"params":params})).is_ok(), "{method}");
+        }
+        for method in ["spot_history_append", "spot_history_import", "spot_history_clear", "spot_history_delete"] {
+            assert!(validate_local_request(&json!({"method":method,"params":{}})).is_err(), "{method}");
+        }
     }
     #[test]
     fn local_acceptance_cannot_reach_native_hardware_or_external_sources() {

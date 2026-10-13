@@ -46,7 +46,7 @@ export default function OperatorCanvas({ panels, traditional, state, session, su
   return <div className="configurable-desk">
     <div className="canvas-toolbar" aria-label="Workspace layout">
       <label>Layout <select ref={toolbar} aria-label="Desk layout" disabled={blocked} value={active?.id ?? "traditional"} onChange={event => selectLayout(event.target.value)}>
-        <option value="traditional">Traditional</option><option value="custom">Custom</option>
+        <option value="traditional">Traditional</option><option value="custom">{state.snapshot?.document.presets.find(preset => preset.id === "custom")?.name ?? "Custom"}</option>
         {active?.id === "windowed" && <option value="windowed" disabled>Windowed · restoration pending</option>}
         {state.snapshot?.document.presets.filter(preset => !["traditional", "custom", "windowed"].includes(preset.id)).map(preset => <option key={preset.id} value={preset.id}>{preset.name}</option>)}
       </select></label>

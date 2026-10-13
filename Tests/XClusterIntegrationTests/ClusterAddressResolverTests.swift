@@ -79,6 +79,19 @@ final class ClusterAddressResolverTests: XCTestCase {
         let gate = DNSGate()
         defer { gate.release() }
         let resolver = ClusterAddressResolver(maximumConcurrent: 2) { _, _ in gate.wait(); return nil }
+        // Fill both permits before the storm. concurrentPerform may serialize
+        // its callers or occupy the dispatch workers needed by DNS on Windows;
+        // it cannot prove that the resolver has reached capacity by itself.
+        let callers = DispatchGroup()
+        for _ in 0..<2 {
+            callers.enter()
+            Thread.detachNewThread {
+                defer { callers.leave() }
+                let end = DispatchTime.now().uptimeNanoseconds + 5_000_000_000
+                XCTAssertNil(resolver.resolve(host: "fixture.invalid", port: 7300, deadline: end, cancelled: { false }))
+            }
+        }
+        try await waitFor { gate.count == 2 && resolver.outstandingCount == 2 }
         DispatchQueue.concurrentPerform(iterations: 64) { _ in
             let end = DispatchTime.now().uptimeNanoseconds + 500_000_000
             XCTAssertNil(resolver.resolve(host: "fixture.invalid", port: 7300, deadline: end, cancelled: { false }))
@@ -87,6 +100,7 @@ final class ClusterAddressResolverTests: XCTestCase {
         XCTAssertEqual(resolver.outstandingCount, 2)
         gate.release()
         try await waitFor { resolver.outstandingCount == 0 }
+        try await waitFor { callers.wait(timeout: .now()) == .success }
     }
 
     func testLookupFailureReleasesPermit() async throws {

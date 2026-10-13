@@ -1,6 +1,6 @@
 # Spot History first slice — source acceptance
 
-Status: first-slice source implementation and local regression/visual verification passed. Not installed; the running Integration app is not recording this archive yet. New exact-SHA cross-platform CI remains pending.
+Status: first-slice source implementation and local regression/visual verification passed. Not installed; the running Integration app is not recording this archive yet. Matrix 38376219275 found two acceptance/test defects; the corrections below await renewed exact-source CI.
 
 ## Scope
 
@@ -53,8 +53,16 @@ New exact-SHA cross-platform CI, native packaged recording/restart and actual cl
 
 The first exact-source matrix `38373959406` for `fc129e39fc013a5e77f40f2d3e46f111cf62e574` exposed a Windows build failure: `SpotHistoryDatabase.swift:2` imported unavailable `CoreFoundation`. Both new history files now use the existing portable Foundation JSON scalar distinction. New tests reject Boolean values where integers are required, while accepting numeric zero/one in their valid domains; rejected health events leave durable counters/revision unchanged. Actual Windows verification of this correction awaits the new matrix.
 
-Local packaged acceptance now generates 137 synthetic reports into a private temporary archive, closes it, then reads it through the production worker/SQLite path. The new required `spot_history_archive` native check exercises both API pages without duplicate IDs, complete-scope statistics, rendered paging, exact-call filtering (69 reports), escaped original detail, close-focus restoration, empty search and route remount. It verifies the QSO draft is unchanged. The local acceptance allowlist exposes only the four read methods, not recording/seed/delete/export or cluster connection commands. Shutdown closes this injected archive before removing its generated directory; failed initialization also cleans only that directory.
+Local packaged acceptance generates 137 synthetic reports into a private temporary archive, closes it, then reads it through the production worker/SQLite path. The `spot_history_archive` check exercises both API pages without duplicate IDs, complete-scope statistics, rendered paging, exact-call filtering (69 reports), escaped original detail, close-focus restoration, empty search and route remount. It verifies the QSO draft is unchanged. At 6683d1b the Swift allowlist exposed the four read methods, but the preceding Rust gate still denied them and did not require the new check. Those omissions are corrected in the follow-up below; the earlier statement that the complete native gate was wired was premature. Recording/seed/delete/export and cluster connection commands remain denied. Shutdown closes this injected archive before removing its generated directory; failed initialization also cleans only that directory.
 
 These new checks are implemented, not yet executed in a packaged native WebView. The production-component test exercises the same acceptance helper in jsdom; this is not a substitute for the native run. It also does not prove live transport capture or process-restart archive continuity.
 
 Final local follow-up evidence: 590 frontend tests across 81 files, TypeScript/Vite build and detached bundle/style gates passed. Rebuilt portable Swift passed 124 prototype XCTest cases (two skipped), 56 cluster XCTest cases, 17 station XCTest cases, and 138 Swift Testing cases across 23 suites. Ten enabled database tests and eight worker history tests are included. A separate read-only Sol review found no unresolved acceptance-harness isolation issue. The installed app and live archive remain unchanged.
+
+## Exact-source CI diagnosis and correction
+
+Matrix `38376219275`, source `6683d1b0a811fddbeaa7d01657d8371907d035a6`, failed. macOS and Ubuntu build/package jobs passed. Windows compiled past the CoreFoundation issue, then failed the resolver retry-storm test because its fixture assumed two dispatch callers would run concurrently. No Windows package or native runtime acceptance followed. The fixture now starts two dedicated callers and verifies both permits are occupied before the saturation storm; six local resolver tests pass.
+
+Linux's first packaged X11 launch completed 23 workflow checks, then the Rust local-acceptance gate rejected `spot_history_query`. Relaunch, relocation, Wayland and final map checks were not reached. The gate now allows only the four history read methods; the worker retains bounded parameter validation and private-fixture ownership. Rust acceptance requires `spot_history_archive`, rejects missing as well as false required checks, and tests denial of recording/export/delete methods. Twelve local Rust acceptance tests and the isolated Swift history fixture test pass. String rejection messages are now retained in the acceptance report instead of being replaced with a generic failure.
+
+These are source/test corrections, not a successful Windows/Linux runtime rerun. The installed app and live cluster archive remain untouched.

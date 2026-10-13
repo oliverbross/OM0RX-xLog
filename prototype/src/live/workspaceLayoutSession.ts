@@ -154,8 +154,19 @@ export class WorkspaceLayoutSession {
     return this.reading;
   };
   async apply(change: LayoutChange) {
+    await this.applyWithBase(change);
+  }
+  /** Full-preset edits must use the snapshot captured when editing began.
+   * Never silently merge an outdated preset onto a newer shared workspace. */
+  async applyAtBase(change: LayoutChange, base: LayoutSnapshot) {
+    await this.applyWithBase(change, base);
+  }
+  private async applyWithBase(change: LayoutChange, base?: LayoutSnapshot) {
     if (!this.state.snapshot || this.state.pending || this.state.saving || this.recovering || this.state.workspaceChanged)
       throw new Error("Resolve the current layout change before making another.");
+    if (base && (!sameGeneration(this.state.snapshot.generation, base.generation) ||
+        this.state.snapshot.revision !== base.revision || !sameDocument(this.state.snapshot.document, base.document)))
+      throw new Error("The workspace changed after editing began. Reload and review it before saving.");
     changedLayout(this.state.snapshot.document, change);
     const pending = { base: clone(this.state.snapshot), change: clone(change) };
     // Recovery must be durable before sending a potentially successful write.

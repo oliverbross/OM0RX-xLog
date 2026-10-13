@@ -10,8 +10,8 @@ import "./ServiceSettings.css";
 
 type Data = Record<string, any>;
 type Request = (method: string, params?: Data) => Promise<Data>;
-type Props = { values: Data; request: Request; onSaved: (value: Data) => void; dataRequest?: Request; onDataChanged?: () => void; rotorSettings?: ReactNode; cwContext?: CWContext; cwState?: CWState; refreshCW?: () => Promise<void>; cwProvider?: string };
-const tabs = ["Station", "Wavelog", "QRZ", "Reference data", "Rotator", "CW", "Display", "Backups"] as const;
+type Props = { values: Data; request: Request; onSaved: (value: Data) => void; dataRequest?: Request; onDataChanged?: () => void; rotorSettings?: ReactNode; workspaceSettings?: ReactNode; cwContext?: CWContext; cwState?: CWState; refreshCW?: () => Promise<void>; cwProvider?: string };
+const tabs = ["Station", "Wavelog", "QRZ", "Reference data", "Rotator", "CW", "Display", "Workspace", "Backups"] as const;
 type Tab = typeof tabs[number];
 
 function Credential({ account, label, request }: { account: string; label: string; request: Request }) {
@@ -33,7 +33,7 @@ function Credential({ account, label, request }: { account: string; label: strin
     {message && <p role="status">{message}</p>}</div>;
 }
 
-export default function ServiceSettings({ values, request, onSaved, dataRequest, onDataChanged, rotorSettings, cwContext, cwState, refreshCW, cwProvider }: Props) {
+export default function ServiceSettings({ values, request, onSaved, dataRequest, onDataChanged, rotorSettings, workspaceSettings, cwContext, cwState, refreshCW, cwProvider }: Props) {
   const [automaticReferences, setAutomaticReferences] = useState(() => localStorage.getItem(referenceAutoCheckKey) !== "false");
   const [tab, setTab] = useState<Tab>("Station");
   const [form, setForm] = useState(values);
@@ -59,7 +59,8 @@ export default function ServiceSettings({ values, request, onSaved, dataRequest,
       if (next !== null) { event.preventDefault(); setTab(tabs[next]); document.getElementById(`service-tab-${next}`)?.focus(); }
     }}>{name}</button>)}</div>
     <div id="service-settings-panel" role="tabpanel" aria-labelledby={`service-tab-${tabs.indexOf(tab)}`}>
-    <p hidden={tab === "Display" || tab === "CW"}>URLs and account details are grouped with their credentials. Save settings for non-secret fields; each credential has its own secure Save button.</p>
+    <p hidden={tab === "Display" || tab === "CW" || tab === "Workspace"}>URLs and account details are grouped with their credentials. Save settings for non-secret fields; each credential has its own secure Save button.</p>
+    <div hidden={tab !== "Workspace"}>{workspaceSettings ?? <p>Workspace arrangements are unavailable in this view.</p>}</div>
     <div hidden={tab !== "Display"}><DisplaySettings /></div>
     <div hidden={tab !== "Rotator"}>{rotorSettings ?? <p>Rotator settings are unavailable in this view.</p>}</div>
     <section hidden={tab !== "Reference data"}><label><input type="checkbox" checked={automaticReferences} onChange={event => {
@@ -76,10 +77,10 @@ export default function ServiceSettings({ values, request, onSaved, dataRequest,
       <section hidden={tab !== "QRZ"}><h2>QRZ callsign lookup</h2><p>Use your QRZ username and password for XML callsign lookup.</p><label className="service-enable"><input type="checkbox" checked={form.qrzEnabled === true} onChange={event => setForm(current => ({ ...current, qrzEnabled: event.target.checked }))} />Use QRZ XML lookup</label><div className="service-fields">{field("qrzUsername", "QRZ username")}</div><Credential account="qrz-password" label="QRZ password" request={request} /></section>
       <section hidden={tab !== "Reference data"}><h2>Club Log reference data</h2><p>This connection downloads CTY reference data using an API key. It is not a Club Log QSO uploader and does not use a separate account callsign.</p><div className="service-fields">{field("clubLogCTYURL", "Club Log CTY URL", "url")}</div><Credential account="clublog-api-key" label="Club Log API key" request={request} /></section>
       <section hidden={tab !== "Reference data"}><h2>LoTW activity reference</h2><p>This public reference feed does not require your LoTW password.</p><div className="service-fields">{field("lotwActivityURL", "LoTW activity URL", "url")}</div></section>
-      <div className="live-actions" hidden={tab === "Backups" || tab === "Display" || tab === "Rotator"}><button type="submit" className="primary">{busy ? "Saving settings…" : "Save settings"}</button><span role="status">{message}</span></div>
+      <div className="live-actions" hidden={tab === "Backups" || tab === "Display" || tab === "Rotator" || tab === "Workspace"}><button type="submit" className="primary">{busy ? "Saving settings…" : "Save settings"}</button><span role="status">{message}</span></div>
     </fieldset></form>
     <div hidden={tab !== "Reference data" && tab !== "Backups"}>{dataRequest ? <DataManagementPanel onRequest={dataRequest} onChanged={onDataChanged ?? (() => {})} section={tab === "Backups" ? "backups" : "references"} sourceSettings={values} /> : <p>Reference and backup tools are unavailable in this view.</p>}</div>
-    <p className="service-security-note" hidden={tab === "CW"}>Credentials stay in the integrated app’s separate macOS Keychain service. Existing application credentials are not changed. Never paste credentials into a support chat.</p>
+    <p className="service-security-note" hidden={tab === "CW" || tab === "Workspace"}>Credentials stay in the integrated app’s separate macOS Keychain service. Existing application credentials are not changed. Never paste credentials into a support chat.</p>
     </div>
   </section>;
 }
