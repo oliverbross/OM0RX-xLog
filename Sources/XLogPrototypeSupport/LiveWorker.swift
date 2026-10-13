@@ -21,6 +21,9 @@ public actor LiveWorker {
     private let cluster: LiveClusterMethods
     private let publicServices: LivePublicServiceMethods
     private let services: LiveServiceMethods
+    #if os(macOS)
+    private let references: LiveReferenceMethods
+    #endif
     private let localAcceptance: Bool
     private let contactRefresher: @Sendable () async throws -> Void
     private var contactRefreshPending = false
@@ -34,6 +37,9 @@ public actor LiveWorker {
         logbookLane = LogbookLane(service: logbook)
         self.publicServices = publicServices ?? LivePublicServiceMethods(logbook: logbook)
         services = LiveServiceMethods(logbook: logbook)
+        #if os(macOS)
+        references = LiveReferenceMethods(logbook: logbook)
+        #endif
         let cluster = cluster ?? (logbook === LiveLogbookMethods.shared ? .shared : LiveClusterMethods(logbook: logbook))
         self.cluster = cluster
         self.contactRefresher = contactRefresher ?? { try await cluster.refreshContacts() }
@@ -80,11 +86,17 @@ public actor LiveWorker {
     public func startBackgroundServices() async {
         guard !localAcceptance, !terminalShutdown else { return }
         await services.startAutomaticSync()
+        #if os(macOS)
+        await references.startAutomaticChecks()
+        #endif
     }
 
     public func shutdown() async {
         beginTerminalShutdown()
         await services.beginTermination()
+        #if os(macOS)
+        await references.terminate()
+        #endif
         await publicServices.terminate()
         await opportunities.terminate()
         if localAcceptance {
@@ -122,7 +134,7 @@ public actor LiveWorker {
                 }
                 try LocalAcceptanceSession.validate(method: method, params: params)
             }
-            if terminalShutdown && (method.hasPrefix("sync_") || method.hasPrefix("secret_") || method.hasPrefix("station_") || method.hasPrefix("spot_bridge_") || method.hasPrefix("spot_history_") || method.hasPrefix("opportunities_") || method.hasPrefix("cluster_") || method.hasPrefix("logbook_operator_draft") || method.hasPrefix("logbook_contact") || ["weather", "propagation_snapshot", "lookup_call", "workspace_create", "backup_restore"].contains(method)) {
+            if terminalShutdown && (method.hasPrefix("reference_") || method.hasPrefix("sync_") || method.hasPrefix("secret_") || method.hasPrefix("station_") || method.hasPrefix("spot_bridge_") || method.hasPrefix("spot_history_") || method.hasPrefix("opportunities_") || method.hasPrefix("cluster_") || method.hasPrefix("logbook_operator_draft") || method.hasPrefix("logbook_contact") || ["weather", "propagation_snapshot", "lookup_call", "workspace_create", "backup_restore"].contains(method)) {
                 throw WorkerFailure("worker_stopping", "The worker is shutting down; no new service request was started.")
             }
             if method == "health" {
@@ -152,6 +164,9 @@ public actor LiveWorker {
                     // replaced; an old workspace cannot repaint the new one.
                     cancelContactRefresh()
                     workspaceTransitionCount += 1
+                    #if os(macOS)
+                    await references.suspendForWorkspaceChange()
+                    #endif
                     await cluster.invalidateContactsForWorkspaceChange()
                 }
                 do { result = try await logbookLane.handle(method: method, params: params) }
@@ -159,6 +174,9 @@ public actor LiveWorker {
                     // A rejected restore still owns the original workspace;
                     // rebuild its invalidated projection without hiding error.
                     if changingWorkspace {
+                        #if os(macOS)
+                        await references.finishWorkspaceChange()
+                        #endif
                         await cluster.finishWorkspaceChange()
                         workspaceTransitionCount -= 1
                         queueContactRefresh()
@@ -166,12 +184,18 @@ public actor LiveWorker {
                     throw error
                 }
                 if changingWorkspace {
+                    #if os(macOS)
+                    await references.finishWorkspaceChange()
+                    #endif
                     await cluster.finishWorkspaceChange()
                     workspaceTransitionCount -= 1
                 }
                 let draftLogged = method == "logbook_operator_draft_apply" && params["action"] as? String == "save"
                     && result["status"] as? String == "applied"
                 let contactChanged = method == "logbook_contact_apply" && result["status"] as? String == "applied"
+                #if os(macOS)
+                if method == "settings_save" { await references.resetAutomaticDeadline() }
+                #endif
                 if !localAcceptance && (draftLogged || contactChanged || ["workspace_create", "logbook_save", "logbook_delete", "logbook_undo", "logbook_import_adif", "backup_restore"].contains(method)) {
                     queueContactRefresh()
                 }
@@ -183,10 +207,13 @@ public actor LiveWorker {
                 result = try await publicServices.handle(method: method, params: params)
             } else if method.hasPrefix("sync_") || method.hasPrefix("secret_") {
                 result = try await services.handle(method: method, params: params)
+                #if os(macOS)
+                if method == "secret_save" { await references.resetAutomaticDeadline() }
+                #endif
             } else {
                 #if os(macOS)
                 if method.hasPrefix("reference_") {
-                    result = try await LiveReferenceMethods.shared.handle(method: method, params: params)
+                    result = try await references.handle(method: method, params: params)
                 } else if method.hasPrefix("station_") {
                     result = try await LiveStationMethods.handle(method, params: params)
                 } else if method.hasPrefix("spot_bridge_") {

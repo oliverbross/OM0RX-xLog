@@ -86,26 +86,38 @@ private final class ReferenceMetadataURLProtocol: URLProtocol, @unchecked Sendab
     private static var bodies: [String: Data] = [:]
     private static var paths: [String] = []
     private static var conditionalTags: [String?] = []
+    private static var conditionalDates: [String?] = []
+    private static var conditionalNotModified = false
 
-    static func configure(_ statuses: [String: Int], bodies: [String: Data] = [:]) {
+    static func configure(_ statuses: [String: Int], bodies: [String: Data] = [:], conditionalNotModified: Bool = false) {
         lock.withLock {
             self.statuses = statuses
             self.bodies = bodies
             self.paths = []
             self.conditionalTags = []
+            self.conditionalDates = []
+            self.conditionalNotModified = conditionalNotModified
         }
     }
     static func requestedPaths() -> [String] { lock.withLock { paths } }
     static func requestedETags() -> [String?] { lock.withLock { conditionalTags } }
-    override class func canInit(with request: URLRequest) -> Bool { request.url?.host == "fixture.invalid" }
+    static func requestedModifiedDates() -> [String?] { lock.withLock { conditionalDates } }
+    override class func canInit(with request: URLRequest) -> Bool {
+        request.url?.host == "fixture.invalid"
+            || ReferenceDataUpdater.activationSourceURLs.values.contains { $0.host == request.url?.host }
+    }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
 
     override func startLoading() {
         let path = request.url!.path
         let (status, override) = Self.lock.withLock { () -> (Int, Data?) in
             Self.paths.append(path)
-            Self.conditionalTags.append(request.value(forHTTPHeaderField: "If-None-Match"))
-            return (Self.statuses[path] ?? 500, Self.bodies[path])
+            let tag = request.value(forHTTPHeaderField: "If-None-Match")
+            let date = request.value(forHTTPHeaderField: "If-Modified-Since")
+            Self.conditionalTags.append(tag)
+            Self.conditionalDates.append(date)
+            let status = Self.conditionalNotModified && (tag != nil || date != nil) ? 304 : (Self.statuses[path] ?? 500)
+            return (status, Self.bodies[path])
         }
         let body: Data
         if let override { body = override }
@@ -139,12 +151,201 @@ private final class ReferenceMetadataURLProtocol: URLProtocol, @unchecked Sendab
     }()
 }
 
+private enum ReferenceCacheFixtures {
+    static let sourceNames: Set<String> = [
+        "cty.xml", "lotw-user-activity.csv", "wavelog-catalog.json",
+        "pota-parks.csv", "sota-summits.csv", "iota-groups.json", "wwff-directory.csv",
+    ]
+
+    static func activation(_ kind: ActivationReferenceKind, count: Int? = nil) -> Data {
+        let count = count ?? (kind == .iota ? 1_000 : 10_000)
+        let text: String
+        switch kind {
+        case .pota, .wwff:
+            text = "reference,name\n" + (0..<count).map { "US-\($0),Park \($0)\n" }.joined()
+        case .sota:
+            text = "SummitCode,SummitName\n" + (0..<count).map { "W0/AA-\($0),Summit \($0)\n" }.joined()
+        case .iota:
+            text = "[" + (0..<count).map { "{\"refno\":\"EU-\($0)\",\"name\":\"Island \($0)\"}" }.joined(separator: ",") + "]"
+        case .castle:
+            preconditionFailure("Castle is not a downloadable reference source")
+        }
+        return Data((text + String(repeating: " ", count: max(0, 10_000 - text.utf8.count))).utf8)
+    }
+
+    static func writeValidCaches(to directory: URL) throws {
+        try ReferenceMetadataURLProtocol.validCTY.write(to: directory.appendingPathComponent("cty.xml"))
+        try ReferenceMetadataURLProtocol.validLoTW.write(to: directory.appendingPathComponent("lotw-user-activity.csv"))
+        try Data("{\"items\":[]}".utf8).write(to: directory.appendingPathComponent("wavelog-catalog.json"))
+        for kind in ReferenceDataUpdater.activationSourceURLs.keys {
+            try activation(kind).write(to: directory.appendingPathComponent(kind.fileName))
+        }
+    }
+}
+
+/// Sends a valid response body but holds completion until the caller cancels.
+private final class HeldReferenceURLProtocol: URLProtocol, @unchecked Sendable {
+    private static let lock = NSLock()
+    private static var body = Data()
+    private static var started: AsyncStream<URLRequest>.Continuation?
+
+    static func configure(body: Data, started: AsyncStream<URLRequest>.Continuation) {
+        lock.withLock {
+            self.body = body
+            self.started = started
+        }
+    }
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        let (body, started) = Self.lock.withLock { (Self.body, Self.started) }
+        let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil,
+                                       headerFields: ["ETag": "\"replacement\""])!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: body)
+        started?.yield(request)
+    }
+    override func stopLoading() {}
+}
+
 @Suite("Reference data updater", .serialized)
 struct ReferenceDataUpdaterTests {
     private func fixtureUpdater(directory: URL) throws -> ReferenceDataUpdater {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [ReferenceMetadataURLProtocol.self]
         return try ReferenceDataUpdater(directory: directory, session: URLSession(configuration: configuration))
+    }
+
+    @Test("Recent metadata cannot make missing or corrupt reference caches available")
+    func missingAndCorruptCachedSources() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let updater = try fixtureUpdater(directory: directory)
+        let state = ReferenceDataState(sourceMetadata: Dictionary(uniqueKeysWithValues:
+            ReferenceCacheFixtures.sourceNames.map { ($0, ReferenceSourceMetadata(checkedAt: Date(), status: "up_to_date")) }))
+        try JSONEncoder().encode(state).write(to: directory.appendingPathComponent("state.json"))
+
+        #expect(await updater.unavailableCachedSources() == ReferenceCacheFixtures.sourceNames)
+        for name in ReferenceCacheFixtures.sourceNames {
+            try Data(repeating: 0x78, count: 20_000).write(to: directory.appendingPathComponent(name))
+        }
+        #expect(await updater.unavailableCachedSources() == ReferenceCacheFixtures.sourceNames)
+        #expect(await updater.currentState() == state)
+    }
+
+    @Test("Every supported valid cache is available without requiring download metadata")
+    func validCachedSources() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let updater = try fixtureUpdater(directory: directory)
+        try ReferenceCacheFixtures.writeValidCaches(to: directory)
+        #expect(await updater.unavailableCachedSources().isEmpty)
+
+        try FileManager.default.removeItem(at: directory.appendingPathComponent("lotw-user-activity.csv"))
+        #expect(await updater.unavailableCachedSources() == ["lotw-user-activity.csv"])
+    }
+
+    @Test("Cache validation enforces byte minima and activation record minima")
+    func cachedSourceMinimums() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let updater = try fixtureUpdater(directory: directory)
+        try ReferenceCacheFixtures.writeValidCaches(to: directory)
+        let smallCTY = String(decoding: ReferenceMetadataURLProtocol.validCTY, as: UTF8.self)
+            .replacingOccurrences(of: String(repeating: " ", count: 10_000), with: "")
+        try Data(smallCTY.utf8).write(to: directory.appendingPathComponent("cty.xml"))
+        let smallLoTW = (0..<20).map { "K\($0)ABC,2026-10-10\n" }.joined()
+        try Data(smallLoTW.utf8).write(to: directory.appendingPathComponent("lotw-user-activity.csv"))
+        for kind in ReferenceDataUpdater.activationSourceURLs.keys {
+            try ReferenceCacheFixtures.activation(kind, count: 1).write(to: directory.appendingPathComponent(kind.fileName))
+        }
+        #expect(await updater.unavailableCachedSources() == ReferenceCacheFixtures.sourceNames.subtracting(["wavelog-catalog.json"]))
+    }
+
+    @Test("Missing or corrupt caches recover with unconditional requests despite retained validators",
+          arguments: ["cty.xml", "lotw-user-activity.csv", "wavelog-catalog.json", "pota-parks.csv", "sota-summits.csv", "iota-groups.json", "wwff-directory.csv"], [false, true])
+    func unusableCacheDisablesConditionalRequest(name: String, corrupt: Bool) async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let updater = try fixtureUpdater(directory: directory)
+        try ReferenceCacheFixtures.writeValidCaches(to: directory)
+        let cacheURL = directory.appendingPathComponent(name)
+        let replacement = try Data(contentsOf: cacheURL)
+        if corrupt {
+            try Data(repeating: 0x78, count: 20_000).write(to: cacheURL)
+        } else {
+            try FileManager.default.removeItem(at: cacheURL)
+        }
+        let kind = ReferenceDataUpdater.activationSourceURLs.keys.first { $0.fileName == name }
+        let url: URL
+        switch name {
+        case "cty.xml": url = URL(string: "https://fixture.invalid/cty.xml")!
+        case "lotw-user-activity.csv": url = URL(string: "https://fixture.invalid/lotw.csv")!
+        case "wavelog-catalog.json": url = URL(string: "https://fixture.invalid/index.php/api/v2/catalog")!
+        default: url = try #require(kind.flatMap { ReferenceDataUpdater.activationSourceURLs[$0] })
+        }
+        let identity = ReferenceDataUpdater.sourceIdentity(for: url, credential: name == "wavelog-catalog.json" ? "fixture-token" : "")
+        let oldValidator = ReferenceDataValidator(eTag: "\"retained\"", lastModified: "Sat, 10 Oct 2026 10:00:00 GMT", sourceIdentity: identity)
+        let state = ReferenceDataState(validators: [name: oldValidator],
+            sourceMetadata: [name: ReferenceSourceMetadata(checkedAt: Date(), status: "up_to_date")])
+        try JSONEncoder().encode(state).write(to: directory.appendingPathComponent("state.json"))
+        ReferenceMetadataURLProtocol.configure([url.path: 200], bodies: [url.path: replacement], conditionalNotModified: true)
+        let refreshed: ReferenceDataState
+        switch name {
+        case "cty.xml": refreshed = try await updater.refreshClubLog(url, apiKey: "")
+        case "lotw-user-activity.csv": refreshed = try await updater.refreshLoTW(url)
+        case "wavelog-catalog.json":
+            refreshed = try await updater.refreshWavelogCatalog(baseURL: URL(string: "https://fixture.invalid")!, token: "fixture-token")
+        default: refreshed = try await updater.refreshActivationDirectory(try #require(kind))
+        }
+        #expect(ReferenceMetadataURLProtocol.requestedPaths() == [url.path])
+        #expect(ReferenceMetadataURLProtocol.requestedETags() == [nil])
+        #expect(ReferenceMetadataURLProtocol.requestedModifiedDates() == [nil])
+        #expect(refreshed.sourceMetadata[name]?.status == "downloaded")
+        #expect(refreshed.validators[name]?.eTag == "\"fixture\"")
+        #expect(refreshed.validators[name]?.lastModified == nil)
+        #expect(try Data(contentsOf: cacheURL) == replacement)
+        #expect(!(await updater.unavailableCachedSources()).contains(name))
+    }
+
+    @Test("Cancelled downloads retain the last good cache", arguments: ["cty.xml", "lotw-user-activity.csv", "wavelog-catalog.json", "pota-parks.csv"])
+    func cancelledDownloadRetainsCache(name: String) async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [HeldReferenceURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+        let updater = try ReferenceDataUpdater(directory: directory, session: session)
+        try ReferenceCacheFixtures.writeValidCaches(to: directory)
+        let cacheURL = directory.appendingPathComponent(name)
+        let original = try Data(contentsOf: cacheURL)
+        let (requests, started) = AsyncStream<URLRequest>.makeStream()
+        defer { started.finish() }
+        HeldReferenceURLProtocol.configure(body: original, started: started)
+        let task = Task {
+            switch name {
+            case "cty.xml":
+                return try await updater.refreshClubLog(URL(string: "https://fixture.invalid/cty.xml")!, apiKey: "")
+            case "lotw-user-activity.csv":
+                return try await updater.refreshLoTW(URL(string: "https://fixture.invalid/lotw.csv")!)
+            case "wavelog-catalog.json":
+                return try await updater.refreshWavelogCatalog(baseURL: URL(string: "https://fixture.invalid")!, token: "fixture-token")
+            default:
+                return try await updater.refreshActivationDirectory(.pota)
+            }
+        }
+        var iterator = requests.makeAsyncIterator()
+        _ = await iterator.next()
+        task.cancel()
+        let result = await task.result
+        if case .success = result { Issue.record("Cancelled download unexpectedly succeeded") }
+        #expect(try Data(contentsOf: cacheURL) == original)
+        #expect(!FileManager.default.fileExists(atPath: directory.appendingPathComponent(".\(name).download").path))
+        let state = await updater.currentState()
+        #expect(state.sourceMetadata[name]?.downloadedAt == nil)
+        #expect(state.sourceMetadata[name]?.checkedAt == nil)
     }
 
     @Test("Legacy state has no invented download history")

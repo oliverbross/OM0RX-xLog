@@ -111,6 +111,7 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "reference_resolve",
         "reference_refresh",
         "reference_schedule",
+        "reference_configure",
         "opportunities_snapshot",
         "opportunities_refresh",
         "logbook_draft",
@@ -600,6 +601,17 @@ fn request_in_session(
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn reference_scheduling_authority_is_main_only() {
+        for method in ["reference_configure", "reference_schedule", "reference_refresh"] {
+            let request = json!({"id":"reference", "method":method, "params":{}});
+            assert!(validate_surface("main", &request).is_ok());
+            for label in ["logbook", "awards", "monitor", "world-map", "band-maps", "dx-cluster", "unknown"] {
+                assert!(validate_surface(label, &request).is_err(), "{label}: {method}");
+            }
+        }
+    }
 
     #[test]
     fn spot_history_reads_are_scoped_to_main_workspace() {

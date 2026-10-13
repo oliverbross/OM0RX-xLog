@@ -5,7 +5,7 @@ import { EquipmentSettings } from "./StationEquipment";
 import CWSettings from "./CWSettings";
 import { validateCWProfile, type CWContext } from "./cwMacros";
 import type { CWState } from "./cwController";
-import { referenceAutoCheckKey, referenceAutoCheckChanged } from "./referenceSchedule";
+import ReferenceScheduleControl from "./ReferenceScheduleControl";
 import "./ServiceSettings.css";
 
 type Data = Record<string, any>;
@@ -53,7 +53,6 @@ function Credential({ account, label, request, leadingField, visible = false, sh
 }
 
 export default function ServiceSettings({ values, request, onSaved, dataRequest, onDataChanged, rotorSettings, workspaceSettings, syncSettings, requestedTab, requestedTabRevision, cwContext, cwState, refreshCW, cwProvider }: Props) {
-  const [automaticReferences, setAutomaticReferences] = useState(() => localStorage.getItem(referenceAutoCheckKey) !== "false");
   const [tab, setTab] = useState<Tab>(requestedTab ?? "Station");
   useEffect(() => { if (requestedTab) setTab(requestedTab); }, [requestedTab, requestedTabRevision]);
   const [form, setForm] = useState(values);
@@ -84,9 +83,7 @@ export default function ServiceSettings({ values, request, onSaved, dataRequest,
     <div hidden={tab !== "Workspace"}>{workspaceSettings ?? <p>Workspace arrangements are unavailable in this view.</p>}</div>
     <div hidden={tab !== "Display"}><DisplaySettings /></div>
     <div hidden={tab !== "Rotator"}>{rotorSettings ?? <p>Rotator settings are unavailable in this view.</p>}</div>
-    <section hidden={tab !== "Reference data"}><label><input type="checkbox" checked={automaticReferences} onChange={event => {
-      setAutomaticReferences(event.target.checked); localStorage.setItem(referenceAutoCheckKey, String(event.target.checked)); window.dispatchEvent(new Event(referenceAutoCheckChanged));
-    }} />Automatically check reference databases</label><p>Checks run after startup, on return to the app and hourly when due. Validated cached data remains available on failure. This preference saves immediately; it never synchronizes QSOs.</p></section>
+    <ReferenceScheduleControl request={request} visible={tab === "Reference data"} />
     <form onSubmit={event => void save(event)} noValidate><fieldset disabled={busy}>
       <div hidden={tab !== "CW"}><CWSettings value={form.cwProfile} saved={values.cwProfile} onChange={cwProfile => setForm(current => ({ ...current, cwProfile }))} context={cwContext} request={request} state={cwState} refresh={refreshCW} radioProvider={cwProvider} /></div>
       <section hidden={tab !== "Station"}><h2>Station identity</h2><div className="service-fields">{[["operatorCall", "Operator call"], ["stationCall", "Station call"], ["gridSquare", "Station grid"], ["stationLocation", "Station location"], ["defaultPower", "Default power W"], ["defaultRadio", "Radio name"]].map(([key, label]) => field(key, label))}</div></section>
@@ -100,7 +97,7 @@ export default function ServiceSettings({ values, request, onSaved, dataRequest,
       <section hidden={tab !== "Reference data"}><h2>LoTW activity reference</h2><p>This public reference feed does not require your LoTW password.</p><div className="service-fields">{field("lotwActivityURL", "LoTW activity URL", "url")}</div></section>
       <div className="live-actions" hidden={tab === "Backups" || tab === "Display" || tab === "Rotator" || tab === "Workspace" || tab === "Sync"}><button type="submit" className="primary">{busy ? "Saving settings…" : "Save settings"}</button><span role="status">{message}</span></div>
     </fieldset></form>
-    <div hidden={tab !== "Reference data" && tab !== "Backups"}>{dataRequest ? <DataManagementPanel onRequest={dataRequest} onChanged={onDataChanged ?? (() => {})} section={tab === "Backups" ? "backups" : "references"} sourceSettings={values} /> : <p>Reference and backup tools are unavailable in this view.</p>}</div>
+    <div hidden={tab !== "Reference data" && tab !== "Backups"}>{dataRequest ? <DataManagementPanel onRequest={dataRequest} onChanged={onDataChanged ?? (() => {})} visible={tab === "Reference data" || tab === "Backups"} section={tab === "Backups" ? "backups" : "references"} sourceSettings={values} /> : <p>Reference and backup tools are unavailable in this view.</p>}</div>
     <p className="service-security-note" hidden={tab === "CW" || tab === "Workspace" || tab === "Sync"}>Credentials stay in the integrated app’s separate macOS Keychain service. Existing application credentials are not changed. Never paste credentials into a support chat.</p>
     </div>
   </section>;

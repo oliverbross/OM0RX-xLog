@@ -117,6 +117,11 @@ public actor ReferenceDataUpdater {
         var downloaded: Bool
     }
 
+    private struct ValidatedCache {
+        var data: Data
+        var activationCount: Int = 0
+    }
+
     private let directory: URL
     private let session: URLSession
     private let decoder = JSONDecoder()
@@ -177,6 +182,25 @@ public actor ReferenceDataUpdater {
         let url = directory.appendingPathComponent("state.json")
         guard let data = try? Data(contentsOf: url), let state = try? decoder.decode(ReferenceDataState.self, from: data) else { return .init() }
         return state
+    }
+
+    /// Metadata alone cannot establish cache availability: files may have been
+    /// removed or damaged since their last successful check.
+    public func unavailableCachedSources() -> Set<String> {
+        var unavailable = Set<String>()
+        for (name, minimumBytes) in [("cty.xml", 10_000), ("lotw-user-activity.csv", 1_000)] {
+            if validatedCache(name: name, minimumBytes: minimumBytes) == nil { unavailable.insert(name) }
+        }
+        let catalogName = "wavelog-catalog.json"
+        if validatedCache(name: catalogName, minimumBytes: 0) == nil {
+            unavailable.insert(catalogName)
+        }
+        for kind in Self.activationSourceURLs.keys {
+            if validatedCache(name: kind.fileName, minimumBytes: 10_000, activationKind: kind) == nil {
+                unavailable.insert(kind.fileName)
+            }
+        }
+        return unavailable
     }
 
     public func refresh(clubLogURL: URL, clubLogAPIKey: String, lotwURL: URL) async throws -> ReferenceDataState {
@@ -291,22 +315,28 @@ public actor ReferenceDataUpdater {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("OM0RX-xLog/0.2.3", forHTTPHeaderField: "User-Agent")
         let scopedIdentity = Self.sourceIdentity(for: url, credential: token)
-        let priorValidator = matchingValidator(state.validators["wavelog-catalog.json"], identity: scopedIdentity)
+        let matchedValidator = matchingValidator(state.validators["wavelog-catalog.json"], identity: scopedIdentity)
+        let cached = matchedValidator == nil ? nil : validatedCache(name: "wavelog-catalog.json", minimumBytes: 0)
+        let priorValidator = cached == nil ? nil : matchedValidator
         apply(priorValidator, to: &request)
         let result: DownloadResult
         do {
+            try Task.checkCancellation()
             let (data, response) = try await session.data(for: request, delegate: CredentialRedirectBlocker())
+            try Task.checkCancellation()
             guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
             let destination = directory.appendingPathComponent("wavelog-catalog.json")
             if http.statusCode == 304 {
-                guard priorValidator != nil, let cached = try? Data(contentsOf: destination),
-                      (try? JSONSerialization.jsonObject(with: cached)) != nil else { throw URLError(.cannotParseResponse) }
-                result = DownloadResult(bytes: cached.count,
+                guard priorValidator != nil, let cached,
+                      cacheUnchanged(cached, at: destination) else { throw URLError(.cannotParseResponse) }
+                try Task.checkCancellation()
+                result = DownloadResult(bytes: cached.data.count,
                                         validator: mergedValidator(from: http, fallback: priorValidator),
                                         downloaded: false)
             } else {
                 guard 200..<300 ~= http.statusCode,
                       (try? JSONSerialization.jsonObject(with: data)) != nil else { throw URLError(.cannotParseResponse) }
+                try Task.checkCancellation()
                 try data.write(to: destination, options: .atomic)
                 result = DownloadResult(bytes: data.count,
                                         validator: mergedValidator(from: http, fallback: priorValidator),
@@ -378,18 +408,22 @@ public actor ReferenceDataUpdater {
         }
         var request = URLRequest(url: url, cachePolicy: .reloadRevalidatingCacheData, timeoutInterval: 30)
         request.setValue("OM0RX-xLog/0.2.3", forHTTPHeaderField: "User-Agent")
-        apply(validator, to: &request)
+        let cached = validator == nil ? nil : validatedCache(name: name, minimumBytes: minimumBytes)
+        let effectiveValidator = cached == nil ? nil : validator
+        apply(effectiveValidator, to: &request)
+        try Task.checkCancellation()
         let (data, response) = try await (credentialBearing
             ? session.data(for: request, delegate: CredentialRedirectBlocker())
             : session.data(for: request))
+        try Task.checkCancellation()
         guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
         let destination = directory.appendingPathComponent(name)
         if http.statusCode == 304 {
-            guard validator != nil, let cached = try? Data(contentsOf: destination), cached.count >= minimumBytes else {
+            guard effectiveValidator != nil, let cached, cacheUnchanged(cached, at: destination) else {
                 throw URLError(.cannotParseResponse)
             }
-            try validateReference(cached, name: name, xmlURL: destination)
-            return DownloadResult(bytes: cached.count, validator: mergedValidator(from: http, fallback: validator), downloaded: false)
+            try Task.checkCancellation()
+            return DownloadResult(bytes: cached.data.count, validator: mergedValidator(from: http, fallback: effectiveValidator), downloaded: false)
         }
         guard 200..<300 ~= http.statusCode, data.count >= minimumBytes else {
             throw URLError(.cannotParseResponse)
@@ -399,12 +433,42 @@ public actor ReferenceDataUpdater {
         try payload.write(to: temporary, options: .atomic)
         defer { try? FileManager.default.removeItem(at: temporary) }
         try validateReference(payload, name: name, xmlURL: temporary)
+        try Task.checkCancellation()
         if FileManager.default.fileExists(atPath: destination.path) {
             _ = try FileManager.default.replaceItemAt(destination, withItemAt: temporary)
         } else {
             try FileManager.default.moveItem(at: temporary, to: destination)
         }
-        return DownloadResult(bytes: payload.count, validator: mergedValidator(from: http, fallback: validator), downloaded: true)
+        return DownloadResult(bytes: payload.count, validator: mergedValidator(from: http, fallback: effectiveValidator), downloaded: true)
+    }
+
+    /// A conditional request is useful only when its local representation is
+    /// usable. Keep its validated bytes so a 304 need not parse it a second time.
+    private func validatedCache(name: String, minimumBytes: Int,
+                                activationKind: ActivationReferenceKind? = nil) -> ValidatedCache? {
+        let url = directory.appendingPathComponent(name)
+        guard let data = try? Data(contentsOf: url), data.count >= minimumBytes else { return nil }
+        do {
+            if let activationKind {
+                let records = try ActivationReferenceDirectory.parse(data: data, kind: activationKind)
+                guard records.count >= minimumActivationCount(for: activationKind) else { return nil }
+                return ValidatedCache(data: data, activationCount: records.count)
+            }
+            if name == "wavelog-catalog.json" {
+                _ = try JSONSerialization.jsonObject(with: data)
+            } else {
+                try validateReference(data, name: name, xmlURL: url)
+            }
+            return ValidatedCache(data: data)
+        } catch {
+            return nil
+        }
+    }
+
+    private func cacheUnchanged(_ cache: ValidatedCache, at url: URL) -> Bool {
+        // The actor yields during download; an external edit/removal must not
+        // let a 304 bless bytes different from the representation we validated.
+        (try? Data(contentsOf: url)) == cache.data
     }
 
     private func validateReference(_ data: Data, name: String, xmlURL: URL) throws {
@@ -445,28 +509,38 @@ public actor ReferenceDataUpdater {
     private func downloadActivationDirectory(_ url: URL, kind: ActivationReferenceKind, validator: ReferenceDataValidator?) async throws -> ActivationDownloadResult {
         var request = URLRequest(url: url, cachePolicy: .reloadRevalidatingCacheData, timeoutInterval: 90)
         request.setValue("OM0RX-xLog/0.2.3", forHTTPHeaderField: "User-Agent")
-        apply(validator, to: &request)
+        let cached = validator == nil ? nil : validatedCache(name: kind.fileName, minimumBytes: 10_000, activationKind: kind)
+        let effectiveValidator = cached == nil ? nil : validator
+        apply(effectiveValidator, to: &request)
+        try Task.checkCancellation()
         let (data, response) = try await session.data(for: request)
+        try Task.checkCancellation()
         guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
         let destination = directory.appendingPathComponent(kind.fileName)
         let payload: Data
+        let count: Int
         if http.statusCode == 304 {
-            guard validator != nil, let cached = try? Data(contentsOf: destination), cached.count >= 10_000 else {
+            guard effectiveValidator != nil, let cached, cacheUnchanged(cached, at: destination) else {
                 throw URLError(.cannotParseResponse)
             }
-            payload = cached
+            payload = cached.data
+            count = cached.activationCount
         } else {
             guard 200..<300 ~= http.statusCode, data.count >= 10_000 else {
                 throw URLError(.cannotParseResponse)
             }
             payload = data
+            let records = try ActivationReferenceDirectory.parse(data: payload, kind: kind)
+            guard records.count >= minimumActivationCount(for: kind) else { throw URLError(.cannotParseResponse) }
+            count = records.count
         }
-        let records = try ActivationReferenceDirectory.parse(data: payload, kind: kind)
-        guard records.count >= minimumActivationCount(for: kind) else { throw URLError(.cannotParseResponse) }
+        try Task.checkCancellation()
 
         if http.statusCode != 304 {
             let temporary = directory.appendingPathComponent(".\(kind.fileName).download")
             try payload.write(to: temporary, options: .atomic)
+            defer { try? FileManager.default.removeItem(at: temporary) }
+            try Task.checkCancellation()
             if FileManager.default.fileExists(atPath: destination.path) {
                 _ = try FileManager.default.replaceItemAt(destination, withItemAt: temporary)
             } else {
@@ -475,8 +549,8 @@ public actor ReferenceDataUpdater {
         }
         return ActivationDownloadResult(
             bytes: payload.count,
-            count: records.count,
-            validator: mergedValidator(from: http, fallback: validator),
+            count: count,
+            validator: mergedValidator(from: http, fallback: effectiveValidator),
             downloaded: http.statusCode != 304
         )
     }

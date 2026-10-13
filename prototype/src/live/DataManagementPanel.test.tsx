@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import DataManagementPanel, { safeReferenceSource } from "./DataManagementPanel";
 
 const manifest = { createdAt: "2026-10-12T10:00:00Z", qsoCount: 42, pendingSyncCount: 3,
   databaseBytes: 1_048_576, includesReferenceData: true };
 const listing = { backups: [] };
 const reference = { running: false, status: "Current", cty_source: "bundled", state: {} };
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 describe("verified external backup workflow", () => {
   it("uses a native picker, imports a verified copy, then requires separate restore confirmation", async () => {
@@ -65,6 +65,9 @@ describe("reference dataset evidence", () => {
     expect(club.getByText("Workspace CTY in use")).toBeTruthy();
     expect(club.getByText("12,345 bytes recorded")).toBeTruthy();
     expect(club.getByText("Record count not reported")).toBeTruthy();
+    expect(club.getByText("No successful check recorded")).toBeTruthy();
+    expect(club.getByText("Successful refresh/check: Not recorded")).toBeTruthy();
+    expect(club.getByText(/Legacy cache date:/)).toBeTruthy();
     const pota = within(within(table).getByRole("row", { name: /^POTA/ }));
     expect(pota.getByText("1,200 records")).toBeTruthy();
     expect(pota.getByText("Freshness not assessed")).toBeTruthy();
@@ -103,11 +106,14 @@ describe("reference dataset evidence", () => {
     const status = { ...reference, state: { sourceMetadata: {
       "cty.xml": { downloadedAt: "2026-09-01T00:00:00Z", checkedAt: "2026-10-01T00:00:00Z", lastAttemptAt: "2026-10-01T00:00:00Z", status: "up_to_date" },
       "lotw-user-activity.csv": { downloadedAt: "2026-09-01T00:00:00Z", checkedAt: "2026-09-01T00:00:00Z", lastAttemptAt: "2026-10-12T00:00:00Z", status: "failed", lastError: "download_or_validation_failed" },
-      "pota-cache.json": { downloadedAt: "2026-10-12T00:00:00Z", checkedAt: "2026-10-12T00:00:00Z", lastAttemptAt: "2026-10-12T00:00:00Z", status: "downloaded" },
+      "pota-parks.csv": { downloadedAt: "2026-10-12T00:00:00Z", checkedAt: "2026-10-12T00:00:00Z", lastAttemptAt: "2026-10-12T00:00:00Z", status: "downloaded" },
+      "sota-summits.csv": { checkedAt: "2026-10-12T00:00:00Z", status: "up_to_date" },
+      "iota-groups.json": { checkedAt: "2026-10-12T00:00:00Z", status: "up_to_date" },
+      "wwff-directory.csv": { checkedAt: "2026-10-12T00:00:00Z", status: "up_to_date" },
     } } };
     const request = vi.fn(async (method: string) => method === "backup_list" ? listing : status);
     render(<DataManagementPanel section="references" onRequest={request} onChanged={vi.fn()} />);
-    await screen.findByText("Source unchanged at last check");
+    await waitFor(() => expect(screen.getAllByText("Source unchanged at last check")).toHaveLength(4));
     const club = within(screen.getByRole("row", { name: /Club Log CTY/ }));
     expect(club.getByText("Unchanged at the recorded source check")).toBeTruthy();
     expect(club.getByText(/Last download:/).textContent).not.toContain("not tracked");
@@ -118,6 +124,41 @@ describe("reference dataset evidence", () => {
     const pota = within(screen.getByRole("row", { name: /^POTA/ }));
     expect(pota.getByText("Last result: downloaded")).toBeTruthy();
     expect(pota.getByText("Updated at the recorded source check")).toBeTruthy();
+    for (const name of ["SOTA", "IOTA", "WWFF"]) expect(within(screen.getByRole("row", { name: new RegExp(`^${name}`) })).getByText("Source unchanged at last check")).toBeTruthy();
     expect(request.mock.calls.some(([method]) => method === "reference_refresh")).toBe(false);
+  });
+
+  it("observes native background progress while idle, coalesces slow status reads and stops when hidden", async () => {
+    vi.useFakeTimers();
+    let resolveStatus!: (value: any) => void;
+    let reads = 0;
+    const request = vi.fn(async (method: string) => {
+      if (method === "backup_list") return listing;
+      reads++;
+      if (reads === 1) return reference;
+      return new Promise(resolve => { resolveStatus = resolve; });
+    });
+    const view = render(<DataManagementPanel section="references" onRequest={request} onChanged={vi.fn()} />);
+    await act(async () => {});
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+    expect(reads).toBe(2);
+    await act(async () => { await vi.advanceTimersByTimeAsync(9000); });
+    expect(reads).toBe(2);
+    await act(async () => { resolveStatus({ ...reference, running: true, status: "Updating activations" }); });
+    expect(screen.getAllByText("Refresh running")).toHaveLength(4);
+    view.rerender(<DataManagementPanel section="references" visible={false} onRequest={request} onChanged={vi.fn()} />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(9000); });
+    expect(reads).toBe(2);
+    view.unmount();
+    await act(async () => { await vi.advanceTimersByTimeAsync(9000); });
+    expect(reads).toBe(2);
+  });
+
+  it("does not poll reference status while showing only backups", async () => {
+    vi.useFakeTimers();
+    const request = vi.fn(async (method: string) => method === "backup_list" ? listing : reference);
+    render(<DataManagementPanel section="backups" onRequest={request} onChanged={vi.fn()} />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
+    expect(request.mock.calls.filter(([method]) => method === "reference_status")).toHaveLength(1);
   });
 });

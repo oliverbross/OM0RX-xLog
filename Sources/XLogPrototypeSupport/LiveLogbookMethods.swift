@@ -84,6 +84,32 @@ public final class LiveLogbookMethods: @unchecked Sendable {
         }
     }
 
+    // Kept separate from the settings form so an older open form cannot
+    // overwrite an immediately saved preference. Nil needs one-time migration
+    // from the renderer's legacy preference, not implicit network permission.
+    func automaticReferenceChecks() throws -> Bool? {
+        try lock.withLock {
+            _ = try readyDatabase()
+            guard let defaults = workspace?.makeDefaults() else { throw invalid() }
+            return defaults.object(forKey: "OM0RX-xLog.referenceAutoCheck.v1") as? Bool
+        }
+    }
+
+    @discardableResult
+    func configureReferenceChecks(enabled: Bool, onlyIfUnset: Bool) throws -> Bool {
+        try lock.withLock {
+            if onlyIfUnset, let existing = try automaticReferenceChecks() { return existing }
+            _ = try readyDatabase()
+            guard let defaults = workspace?.makeDefaults() else { throw invalid() }
+            let key = "OM0RX-xLog.referenceAutoCheck.v1"
+            defaults.set(enabled, forKey: key)
+            guard defaults.object(forKey: key) as? Bool == enabled else {
+                throw WorkerFailure("reference_configuration_failed", "The reference update preference was not saved.")
+            }
+            return enabled
+        }
+    }
+
     private func syncAuthorization(settings: XLogSettings) throws -> SyncAuthorization? {
         guard settings.logbookMode == .wavelog,
               let defaults = workspace?.makeDefaults(), let data = defaults.data(forKey: syncAuthorizationKey),
@@ -476,6 +502,10 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                 let root = try backupDirectory()
                 let package = root.appendingPathComponent(name).appendingPathExtension(XLogBackupManager.packageExtension)
                 let reference = try referenceDirectoryURL()
+                #if os(macOS)
+                let referenceLease = try ReferenceRefreshLease(directory: reference)
+                defer { referenceLease.release() }
+                #endif
                 let preview = try XLogBackupManager().create(
                     database: db, at: package, settings: try currentSettings(),
                     preferences: try currentBackupPreferences(),
@@ -551,6 +581,10 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                 let db = try readyDatabase()
                 let retainedLayout = restorePreferences ? nil : try db.workspaceLayout()
                 let reference = try referenceDirectoryURL()
+                #if os(macOS)
+                let referenceLease = try ReferenceRefreshLease(directory: reference)
+                defer { referenceLease.release() }
+                #endif
                 let recovery = try workspaceSubdirectory("Recovery", create: true)
                 let rollbackName = "pre-restore-\(UUID().uuidString).\(XLogBackupManager.packageExtension)"
                 let rollback = recovery.appendingPathComponent(rollbackName)

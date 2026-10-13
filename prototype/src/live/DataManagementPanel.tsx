@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Archive, CheckCircle2, DatabaseBackup, RefreshCw } from "lucide-react";
 import "./data-management.css";
@@ -30,11 +30,12 @@ export function safeReferenceSource(value: unknown): string {
   } catch { return "Not reported"; }
 }
 
-export function DataManagementPanel({ onRequest, onChanged, section, sourceSettings = {}, pickBackup = () => invoke<string | null>("pick_backup_package") }: {
+export function DataManagementPanel({ onRequest, onChanged, section, visible = true, sourceSettings = {}, pickBackup = () => invoke<string | null>("pick_backup_package") }: {
   onRequest: Request;
   onChanged: () => void;
   pickBackup?: () => Promise<string | null>;
   section?: "references" | "backups";
+  visible?: boolean;
   sourceSettings?: Record<string, unknown>;
 }) {
   const [backups, setBackups] = useState<Backup[]>([]);
@@ -49,11 +50,22 @@ export function DataManagementPanel({ onRequest, onChanged, section, sourceSetti
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [referenceError, setReferenceError] = useState("");
+  const mounted = useRef(false);
+  const statusFlight = useRef<{ request: Request; promise: Promise<any> } | null>(null);
+  const fetchReferenceStatus = useCallback(() => {
+    if (statusFlight.current?.request === onRequest) return statusFlight.current.promise;
+    const promise = Promise.resolve().then(() => onRequest("reference_status")).finally(() => {
+      if (statusFlight.current?.promise === promise) statusFlight.current = null;
+    });
+    statusFlight.current = { request: onRequest, promise };
+    return promise;
+  }, [onRequest]);
 
   async function reload() {
     const [listing, status] = await Promise.allSettled([
-      onRequest("backup_list"), onRequest("reference_status"),
+      onRequest("backup_list"), fetchReferenceStatus(),
     ]);
+    if (!mounted.current) return;
     if (status.status === "fulfilled") { setReference(status.value); setReferenceError(""); }
     else setReferenceError("Reference status is unavailable. Backup results are unaffected.");
     if (listing.status === "fulfilled") setBackups(listing.value.backups ?? []);
@@ -62,7 +74,8 @@ export function DataManagementPanel({ onRequest, onChanged, section, sourceSetti
 
   useEffect(() => {
     let disposed = false;
-    void Promise.allSettled([onRequest("backup_list"), onRequest("reference_status")])
+    mounted.current = true;
+    void Promise.allSettled([onRequest("backup_list"), fetchReferenceStatus()])
       .then(([listing, status]) => {
         if (disposed) return;
         if (listing.status === "fulfilled") setBackups(listing.value.backups ?? []);
@@ -70,19 +83,23 @@ export function DataManagementPanel({ onRequest, onChanged, section, sourceSetti
         if (status.status === "fulfilled") { setReference(status.value); setReferenceError(""); }
         else setReferenceError("Reference status is unavailable. Its freshness cannot be assessed.");
       });
-    return () => { disposed = true; };
-  }, [onRequest]);
+    return () => { disposed = true; mounted.current = false; };
+  }, [onRequest, fetchReferenceStatus]);
 
   useEffect(() => {
-    if (!reference?.running) return;
+    if (!visible || section === "backups") return;
     let disposed = false;
+    let pending = false;
     const timer = window.setInterval(() => {
-      void onRequest("reference_status")
+      if (pending) return;
+      pending = true;
+      void fetchReferenceStatus()
         .then((status) => { if (!disposed) { setReference(status); setReferenceError(""); } })
-        .catch(() => { if (!disposed) setReferenceError("Reference progress is unavailable. Do not assume the update succeeded."); });
+        .catch(() => { if (!disposed) setReferenceError("Reference progress is unavailable. Do not assume the update succeeded."); })
+        .finally(() => { pending = false; });
     }, 3000);
     return () => { disposed = true; window.clearInterval(timer); };
-  }, [onRequest, reference?.running]);
+  }, [fetchReferenceStatus, visible, section]);
 
   async function act(action: () => Promise<void>) {
     setBusy(true); setError(""); setMessage("");
@@ -104,11 +121,12 @@ export function DataManagementPanel({ onRequest, onChanged, section, sourceSetti
     iota: "https://www.iota-world.org/islands-on-the-air/downloads/download-file.html?path=groups.json",
     wwff: "https://wwff.co/wwff-data/wwff_directory.csv",
   };
+  const activationFiles: Record<string, string> = { pota: "pota-parks.csv", sota: "sota-summits.csv", iota: "iota-groups.json", wwff: "wwff-directory.csv", castle: "castle-cache.json" };
   const datasets = [
     { id: "clublog", name: "Club Log CTY", file: "cty.xml", checked: state.clubLogUpdatedAt, bytes: state.clubLogBytes, source: sourceSettings.clubLogCTYURL, group: "clublog_lotw" },
     { id: "lotw", name: "LoTW activity", file: "lotw-user-activity.csv", checked: state.lotwUpdatedAt, bytes: state.lotwBytes, source: sourceSettings.lotwActivityURL, group: "clublog_lotw" },
     { id: "wavelog", name: "Wavelog catalog", file: "wavelog-catalog.json", checked: state.wavelogCatalogUpdatedAt, bytes: state.wavelogCatalogBytes, source: sourceSettings.wavelogURL, group: "wavelog_catalog" },
-    ...["pota", "sota", "iota", "wwff", "castle"].map(id => ({ id, name: id === "castle" ? "Castle / COTA" : id.toUpperCase(), file: `${id}-cache.json`, checked: state.activationUpdatedAt?.[id], bytes: state.activationBytes?.[id], source: activationSources[id], group: id === "castle" ? "unsupported" : "activations" })),
+    ...["pota", "sota", "iota", "wwff", "castle"].map(id => ({ id, name: id === "castle" ? "Castle / COTA" : id.toUpperCase(), file: activationFiles[id], checked: state.activationUpdatedAt?.[id], bytes: state.activationBytes?.[id], source: activationSources[id], group: id === "castle" ? "unsupported" : "activations" })),
   ];
   const activeGroup = /^Updating (clublog_lotw|activations|wavelog_catalog)$/.exec(reference?.status ?? "")?.[1];
   return <section className="live-data-management" aria-label="Data management">
@@ -165,11 +183,11 @@ export function DataManagementPanel({ onRequest, onChanged, section, sourceSetti
       <p className="secondary" role="status">{reference?.status || "Checking reference cache…"}</p>
       <div className="live-reference-scroll"><table className="live-reference-table" aria-label="Reference dataset evidence"><thead><tr><th scope="col">Dataset / source</th><th scope="col">Version / dates</th><th scope="col">Records / size</th><th scope="col">Download state / freshness</th></tr></thead><tbody>{datasets.map(dataset => {
         const validator = state.validators?.[dataset.file], metadata = state.sourceMetadata?.[dataset.file];
-        const checked = date(metadata?.checkedAt ?? dataset.checked);
+        const checked = date(metadata?.checkedAt);
         const count = state.activationCounts?.[dataset.id];
         const recorded = checked !== "Not recorded";
         return <tr key={dataset.id}><th scope="row"><strong>{dataset.name}</strong><span className="reference-source">{dataset.id === "castle" ? "No official bulk source configured" : safeReferenceSource(dataset.source)}</span><small>{dataset.id === "clublog" ? reference?.cty_source === "workspace_download" ? "Workspace CTY in use" : reference?.cty_source === "bundled" ? "Bundled CTY fallback in use" : "CTY source unknown" : dataset.id === "wavelog" ? "Configured Wavelog endpoint" : dataset.id === "lotw" ? "Configured public activity feed" : "Configured directory source"}</small></th>
-          <td><span>Version: not reported</span><small>ETag: {typeof validator?.eTag === "string" && validator.eTag.trim() ? validator.eTag.slice(0, 160) : "Not reported"}</small><small>Source date: {date(validator?.lastModified)}</small><small>Successful refresh/check: {checked}</small><small>{metadata ? `Last download: ${date(metadata.downloadedAt)}` : "Last download: not tracked separately"}</small>{metadata && <small>Last attempt: {date(metadata.lastAttemptAt)}</small>}</td>
+          <td><span>Version: not reported</span><small>ETag: {typeof validator?.eTag === "string" && validator.eTag.trim() ? validator.eTag.slice(0, 160) : "Not reported"}</small><small>Source date: {date(validator?.lastModified)}</small><small>Successful refresh/check: {checked}</small>{!metadata && dataset.checked && <small>Legacy cache date: {date(dataset.checked)}</small>}<small>{metadata ? `Last download: ${date(metadata.downloadedAt)}` : "Last download: not tracked separately"}</small>{metadata && <small>Last attempt: {date(metadata.lastAttemptAt)}</small>}</td>
           <td><span>{typeof count === "number" && Number.isSafeInteger(count) && count >= 0 ? `${count.toLocaleString()} records` : "Record count not reported"}</span><small>{typeof dataset.bytes === "number" && Number.isSafeInteger(dataset.bytes) && dataset.bytes > 0 ? `${dataset.bytes.toLocaleString()} bytes recorded` : "Size not recorded"}</small></td>
           <td><span className={`reference-evidence ${metadata?.status === "failed" ? "failed" : recorded ? "recorded" : "unknown"}`}>{reference?.running && activeGroup === dataset.group ? "Refresh running" : dataset.id === "castle" ? "Bulk source unavailable" : metadata?.status === "failed" ? "Last attempt failed" : metadata?.status === "downloaded" ? "Last result: downloaded" : metadata?.status === "up_to_date" ? "Source unchanged at last check" : recorded ? "Successful check recorded" : "No successful check recorded"}</span><small>{referenceError ? "Status unavailable; freshness unknown" : metadata?.status === "failed" ? "Latest check failed; freshness unknown" : metadata?.status === "downloaded" ? "Updated at the recorded source check" : metadata?.status === "up_to_date" ? "Unchanged at the recorded source check" : "Freshness not assessed"}</small><small>{metadata ? `Last error: ${typeof metadata.lastError === "string" && /^[a-z0-9_]{1,80}$/i.test(metadata.lastError) ? metadata.lastError : metadata.status === "failed" ? "Details not recorded" : "None reported for last attempt"}` : "Per-dataset errors: not recorded"}</small></td></tr>;
       })}</tbody></table></div>
