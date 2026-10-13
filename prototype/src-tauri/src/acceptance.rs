@@ -15,6 +15,7 @@ pub struct Acceptance {
     monitor: Mutex<Option<Value>>,
     logbook: Mutex<Option<Value>>,
     awards: Mutex<Option<Value>>,
+    window_steps: Mutex<crate::detached_acceptance::Steps>,
     #[cfg(target_os = "linux")]
     browser_contexts: Mutex<Vec<tempfile::TempDir>>,
 }
@@ -120,10 +121,11 @@ pub fn passed(report: &Value) -> bool {
     const REQUIRED: [&str; 17] = ["worker_health", "worker_self_test", "worker_parse_adif", "worker_integration_self_test", "cluster_classification_initial", "cluster_classification_logged", "map_loaded",
         "cluster_selection", "keyboard_log", "logbook_readback", "keyboard_focus", "keyboard_clear",
         "profile_manual", "profile_simulator", "monitor_opened", "monitor_snapshot", "final_desk"];
-    const LOCAL: [&str; 21] = ["isolated_worker", "empty_workspace", "workspace_created", "worker_self_test",
+    const LOCAL: [&str; 23] = ["isolated_worker", "empty_workspace", "workspace_created", "worker_self_test",
         "worker_integration_self_test", "worker_parse_adif", "keyboard_log", "logbook_readback", "keyboard_editor",
         "keyboard_focus", "keyboard_clear", "settings_save_readback", "awards_loaded", "detached_projection",
-        "map_loaded", "final_desk", "native_menu_routes", "contact_edit", "contact_delete_undo", "detached_logbook", "detached_awards"];
+        "map_loaded", "final_desk", "native_menu_routes", "contact_edit", "contact_delete_undo", "detached_logbook", "detached_awards",
+        "detached_logbook_lifecycle", "detached_awards_lifecycle"];
     let required: &[&str] = if report["scope"] == "integrated-local-ui" { &LOCAL } else if report["scope"].is_null() { &REQUIRED } else { return false; };
     let map = &report["details"]["finalMap"];
     let probes = map["landPixelProbes"].as_u64().unwrap_or(0);
@@ -159,6 +161,42 @@ pub fn acceptance_screen(app: tauri::AppHandle, window: tauri::WebviewWindow, st
     // Exercise the production menu handler's navigation path. This verifies the
     // menu model/IPC/rendered route, not physical OS menu clicks or accelerators.
     crate::navigate_workspace(&app, &screen)
+}
+
+#[tauri::command]
+pub async fn acceptance_open_window(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, Acceptance>, kind: String) -> Result<(), String> {
+    state.require()?;
+    if window.label() != "main" || !crate::detached_acceptance::valid_kind(&kind) {
+        return Err("Only the isolated main view may test known windows".into());
+    }
+    let id = format!("workspace_window_{kind}");
+    let menu = app.menu().ok_or("Native application menu is missing")?;
+    let mut found = false;
+    for item in menu.items().map_err(|error| error.to_string())? {
+        if let Some(submenu) = item.as_submenu() {
+            found |= submenu.items().map_err(|error| error.to_string())?.iter().any(|item| item.id().0 == id);
+        }
+    }
+    if !found { return Err("Window is absent from the actual native menu".into()); }
+    crate::open_detached_workspace(app, kind).await
+}
+
+#[tauri::command]
+pub fn acceptance_window_step(window: tauri::WebviewWindow, state: tauri::State<'_, Acceptance>, kind: Option<String>, action: Option<String>) -> Result<Option<crate::detached_acceptance::Step>, String> {
+    state.require()?;
+    state.window_steps.lock().map_err(|_| "Test window steps unavailable")?
+        .access(window.label(), kind.as_deref(), action.as_deref())
+}
+
+#[tauri::command]
+pub fn acceptance_window_state(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, Acceptance>, kind: String) -> Result<Value, String> {
+    state.require()?;
+    if window.label() != "main" || !crate::detached_acceptance::valid_kind(&kind) {
+        return Err("Only the isolated main view may inspect known windows".into());
+    }
+    let slot = if kind == "awards" { &state.awards } else { &state.logbook };
+    let report = slot.lock().map_err(|_| "Detached evidence unavailable")?.clone();
+    Ok(json!({"open":app.get_webview_window(&kind).is_some(),"report":report}))
 }
 
 #[tauri::command]
@@ -325,7 +363,8 @@ mod tests {
         let names = ["isolated_worker", "empty_workspace", "workspace_created", "worker_self_test",
             "worker_integration_self_test", "worker_parse_adif", "keyboard_log", "logbook_readback", "keyboard_editor",
             "keyboard_focus", "keyboard_clear", "settings_save_readback", "awards_loaded", "detached_projection",
-            "map_loaded", "final_desk", "native_menu_routes", "contact_edit", "contact_delete_undo", "detached_logbook", "detached_awards"];
+            "map_loaded", "final_desk", "native_menu_routes", "contact_edit", "contact_delete_undo", "detached_logbook", "detached_awards",
+            "detached_logbook_lifecycle", "detached_awards_lifecycle"];
         let checks: serde_json::Map<String, Value> = names.iter().map(|name| (name.to_string(), json!(true))).collect();
         let mut report = json!({"scope":"integrated-local-ui","status":"passed","embeddedUi":true,"worker":true,
             "checks":checks,"details":{"finalMap":{"tilesLoaded":true,"webgl":true,"visible":true,"error":"",

@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { awaitMap, mapDetails, validWorkerResult, waitForAcceptance } from "./acceptance";
 import { LARGE_LOG_RECORDS, largeLogADIFBatch } from "./acceptanceFixture";
 import workspaceScreens from "./live/workspaceScreens.json";
+import { serveDetachedLifecycle, verifyDetachedLifecycle } from "./detachedAcceptance";
 
 type Json = Record<string, any>;
 const frame = () => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
@@ -133,6 +134,9 @@ async function main(report: Json) {
   check("detached_logbook", logbookWindow?.status === "passed" && logbookWindow?.details?.surface === "logbook" &&
     logbookWindow?.checks?.contact_edit === true && logbookWindow?.checks?.no_radio_controls === true &&
     validSavedContact((await worker("logbook_list")).result));
+  report.details.logbookLifecycle = await verifyDetachedLifecycle("logbook", logbookWindow!, () => navigate("Operator Desk"));
+  await waitForAcceptance("Logbook Dock back route", () => document.querySelector("main")?.getAttribute("aria-label") === "Logbook");
+  check("detached_logbook_lifecycle", report.details.logbookLifecycle.closed === true);
 
   await navigate("Settings");
   await waitForAcceptance("station settings", () => !!document.querySelector(".service-fields input"));
@@ -161,6 +165,9 @@ async function main(report: Json) {
   report.details.detachedAwards = awardsWindow;
   check("detached_awards", awardsWindow?.status === "passed" &&
     awardsWindow?.checks?.catalogue === true && awardsWindow?.checks?.dock_available === true);
+  report.details.awardsLifecycle = await verifyDetachedLifecycle("awards", awardsWindow!, () => navigate("Operator Desk"));
+  await waitForAcceptance("Awards Dock back route", () => document.querySelector("main")?.getAttribute("aria-label") === "Awards");
+  check("detached_awards_lifecycle", report.details.awardsLifecycle.closed === true);
   if (largeLog) {
     report.details.performance.awardsFirstOpenMs = report.details.awardsReadyMs;
     await navigate("Operator Desk");
@@ -266,15 +273,18 @@ export async function startIntegratedAcceptance() {
       return;
     }
     if (surface === "awards") {
+      report.details.instanceID = crypto.randomUUID();
       await waitForAcceptance("detached Awards library", () => document.querySelector(".awards-summary b")?.textContent === "192");
       report.checks.catalogue = !document.querySelector(".awards-error") && (await worker("logbook_catalog", { offset: 0, limit: 1 })).result.catalogue_total === 192;
       report.checks.dock_available = !document.querySelector(".qso-read-radio") &&
         [...document.querySelectorAll("button")].some(item => item.textContent?.trim() === "Dock back");
       report.status = report.checks.catalogue && report.checks.dock_available ? "passed" : "failed";
       await invoke("acceptance_monitor", { report });
+      await serveDetachedLifecycle(report, () => click("Dock back"));
       return;
     }
     if (surface === "logbook") {
+      report.details.instanceID = crypto.randomUUID();
       await waitForAcceptance("detached logbook rows", () => document.querySelector(".live-logbook-table tbody")?.textContent?.includes("W1AW") === true);
       for (const comment of ["Detached native edit", "Isolated native UI acceptance"]) {
         element<HTMLElement>(".live-logbook-table tbody tr").click(); await frame();
@@ -289,12 +299,14 @@ export async function startIntegratedAcceptance() {
       await waitForAcceptance("detached operations settled", () => [...document.querySelectorAll<HTMLButtonElement>("button")].some(item => item.textContent?.trim() === "Dock back" && !item.disabled));
       report.status = report.checks.contact_edit && report.checks.no_radio_controls ? "passed" : "failed";
       await invoke("acceptance_monitor", { report });
+      await serveDetachedLifecycle(report, () => click("Dock back"));
       return;
     }
     if (surface) throw new Error("Unexpected local acceptance surface");
     await main(report);
     report.status = "passed";
   } catch (error) {
+    report.status = "failed";
     report.error = error instanceof Error ? error.message : "Integrated UI acceptance failed";
     report.details.failureMap = mapDetails();
   }

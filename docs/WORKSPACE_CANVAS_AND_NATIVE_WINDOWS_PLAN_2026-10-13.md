@@ -322,6 +322,16 @@ The memory-only browser fixture used 20 synthetic programmes; its Dock callback 
 
 The packaged acceptance harness now requires a real detached Awards catalogue/readback and visible Dock back, and final preparation verifies that this child actually closes. It does not yet exercise the actual Dock back interaction or repeated-open singleton behavior; those native interaction gates remain open. Exact-source package execution, full main-window closure/recreation, other independent screens and canvas/layouts remain pending. Installed alpha.13 is unchanged; no live data or equipment operation was used.
 
+### Checkpoint R — native detached-window lifecycle acceptance
+
+Q is committed/pushed as `31c809665d552c4077283b3ac19566625678120f`. Its Mac push build `38344118854` passed; all-platform run `38344154933` is still running and is not accepted yet.
+
+The isolated packaged harness now exercises repeated opening and the actual child Dock back buttons for both Logbook and Awards. It validates the real native menu model and calls the same production window-opening route; this is not a physical OS menu-click test. A revisioned challenge must be acknowledged by the same live renderer instance after reopening. The main view navigates away before requesting Dock; acceptance requires both native child closure and the correct main-screen route. Old reports, a replacement renderer, a failed child and missing native menu entries cannot satisfy the checks. The required integrated checks increase from 21 to 23.
+
+All handshake commands first require isolated acceptance mode. Only the main test coordinator may issue steps or inspect windows; children read only their own steps. Normal launches cannot use these commands. Production UI and station control behavior are unchanged. Six frontend and two native handshake regressions pass; the full frontend suite passes 507 tests across 71 files, all 109 Rust tests pass, and TypeScript/Vite build passes. Existing bundle/Map split warnings remain. This test-only change does not need a new visual design review.
+
+Exact-source packaged execution of these stronger checks remains pending. It does not claim whole-session independence, physical Mac desktop acceptance, a canvas, all-screen undocking or equipment validation. Installed alpha.13 remains unchanged, and no live contacts or station operations were used.
+
 ## Follow-on: RUMlogNG workflow and feature comparison
 
 User added this reference pass after the canvas/native-window request. Confirmed installed app identity through the native app inventory: `de.dl2rum.RUMlogNG`; it was not running at inspection. Its menus/settings have not yet been audited in this pass. Do not represent remembered features as current observations.

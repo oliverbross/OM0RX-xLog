@@ -11,6 +11,7 @@ mod winkeyer;
 mod cluster_session;
 mod workspace_navigation;
 mod logbook_events;
+mod detached_acceptance;
 
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu, WINDOW_SUBMENU_ID};
 use tauri::{Emitter, LogicalSize, Manager};
@@ -445,6 +446,7 @@ fn main() {
             detached_cluster_ready, cluster_session_selection, dock_detached_window, close_logbook_window,
             acceptance::acceptance_enabled, acceptance::acceptance_large_log, acceptance::acceptance_monitor,
             acceptance::acceptance_screen,
+            acceptance::acceptance_open_window, acceptance::acceptance_window_step, acceptance::acceptance_window_state,
             acceptance::acceptance_monitor_result, acceptance::acceptance_logbook_result, acceptance::acceptance_awards_result, acceptance::acceptance_prepare_final,
             acceptance::finish_acceptance])
         .build(context)
