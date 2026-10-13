@@ -291,8 +291,10 @@ mod tests {
         let original = br#"{"logbook":{"x":100,"y":20,"width":900,"height":700}}"#;
         std::fs::write(directory.path().join("detached-window-geometry.json"), original).unwrap();
         save(directory.path(), "main", &value(200)).unwrap(); save(directory.path(), "awards", &value(300)).unwrap();
-        let document = read(directory.path()).unwrap(); assert_eq!(document.windows.len(), 3);
+        save(directory.path(), "log-qso", &value(400)).unwrap();
+        let document = read(directory.path()).unwrap(); assert_eq!(document.windows.len(), 4);
         assert_eq!(document.windows["logbook"], value(100));
+        assert_eq!(document.windows["log-qso"], value(400));
         assert_eq!(std::fs::read(directory.path().join("detached-window-geometry.json")).unwrap(), original);
     }
     #[test]

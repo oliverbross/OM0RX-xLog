@@ -149,7 +149,7 @@ pub fn acceptance_enabled(state: tauri::State<'_, Acceptance>) -> bool { state.p
 pub fn acceptance_large_log(state: tauri::State<'_, Acceptance>) -> bool { state.path.is_some() && state.large_log }
 
 #[tauri::command]
-pub fn acceptance_screen(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, Acceptance>, screen: String) -> Result<(), String> {
+pub async fn acceptance_screen(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, Acceptance>, screen: String) -> Result<(), String> {
     state.require()?;
     if window.label() != "main" { return Err("Only the isolated main view may test menu navigation".into()); }
     crate::workspace_navigation::screen(&screen).ok_or("Unknown test screen")?;
@@ -164,7 +164,7 @@ pub fn acceptance_screen(app: tauri::AppHandle, window: tauri::WebviewWindow, st
     if !found { return Err("Workspace route is absent from the actual native menu".into()); }
     // Exercise the production menu handler's navigation path. This verifies the
     // menu model/IPC/rendered route, not physical OS menu clicks or accelerators.
-    crate::navigate_workspace(&app, &screen)
+    crate::navigate_workspace(app, screen).await
 }
 
 #[tauri::command]

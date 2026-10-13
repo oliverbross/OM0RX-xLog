@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type RefObject, type SetStateAction } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type RefObject, type SetStateAction } from "react";
 import { Radio, PanelsTopLeft, UserRound, Star, RadioTower, ContactRound, History, Grid3X3, CircleX, CircleCheck } from "lucide-react";
 import "./QSOEditor.css";
 import QSOHeader, { type ReferenceEvidence } from "./QSOHeader";
@@ -29,6 +29,8 @@ type Props = {
   referenceEvidence?: ReferenceEvidence | null;
   powerState?: DraftPowerState | null; powerIntent?: DraftPowerIntent | null; automaticPowerEnabled?: boolean;
   onManualPower?: (value: string) => void; onResumeAutomaticPower?: () => void;
+  onLocalInputState?: (dirty: boolean) => void;
+  onUndock?: () => void;
 };
 type MatrixCell = { band: string; mode: string; worked: boolean; confirmed: boolean };
 type MatrixState = { call: string; adif: number | null; callCells?: MatrixCell[]; countryCells?: MatrixCell[]; callError?: string; countryError?: string };
@@ -131,7 +133,7 @@ export function draftPowerDescription(draft: Data, power?: DraftPowerState | nul
 }
 
 export function QSOEditor({ draft, setDraft, save, clear, busy, draftLocked, lookup, previous, follow, setFollow, request, onReadRadio, automaticStationMetadata = [], isEditing = false, radioControls = true, clearLabel = "Clear QSO", referenceEvidence,
-  powerState, powerIntent, automaticPowerEnabled, onManualPower, onResumeAutomaticPower }: Props) {
+  powerState, powerIntent, automaticPowerEnabled, onManualPower, onResumeAutomaticPower, onLocalInputState, onUndock }: Props) {
   const [frequencyDraft, setFrequencyDraft] = useState<string | null>(null);
   const [receiveDraft, setReceiveDraft] = useState<string | null>(null);
   const [timeDrafts, setTimeDrafts] = useState<Record<string, { date: string; time: string }>>({});
@@ -149,9 +151,59 @@ export function QSOEditor({ draft, setDraft, save, clear, busy, draftLocked, loo
   const update = (key: string, value: unknown) => { if (["frequencyHz", "band", "mode"].includes(key)) setFollow(false); setDraft((current) => current ? { ...current, [key]: value } : current); };
   useEffect(() => { setFrequencyDraft(null); setReceiveDraft(null); setTimeDrafts({}); setNumericDrafts({}); setShowErrors(false); }, [draft?.id]);
   useEffect(() => { if (follow) setFrequencyDraft(null); }, [follow]);
+  const canonicalBuffers = useRef<Record<string, any> | null>(null);
+  useLayoutEffect(() => {
+    const next: Record<string, any> = { id: draft?.id, frequencyHz: draft?.frequencyHz, receiveFrequencyHz: draft?.receiveFrequencyHz,
+      start: draft?.start, end: draft?.end, dxcc: draft?.dxcc };
+    const previous = canonicalBuffers.current;
+    canonicalBuffers.current = next;
+    if (!previous || previous.id !== next.id) return;
+    // A remote same-ID edit must not leave acknowledged text showing an older
+    // value than Save will log. Retain genuinely unfinished/different buffers.
+    const acknowledgedFrequency = (text: string | null, value: unknown) => text !== null &&
+      (text.trim() ? parseFrequency(text) !== null && parseFrequency(text) === value : value == null);
+    if (previous.frequencyHz !== next.frequencyHz)
+      setFrequencyDraft(text => acknowledgedFrequency(text, previous.frequencyHz) ? null : text);
+    if (previous.receiveFrequencyHz !== next.receiveFrequencyHz)
+      setReceiveDraft(text => acknowledgedFrequency(text, previous.receiveFrequencyHz) ? null : text);
+    setTimeDrafts(current => {
+      let changed: typeof current | null = null;
+      for (const [key, parts] of Object.entries(current)) {
+        if (previous[key] === next[key]) continue;
+        const candidate = fromParts(parts.date, parts.time);
+        const acknowledged = key === "end" && !parts.date && !parts.time ? previous[key] == null
+          : validDate(candidate) && Date.parse(candidate) === Date.parse(previous[key] ?? "");
+        if (acknowledged) { changed ??= { ...current }; delete changed[key]; }
+      }
+      return changed ?? current;
+    });
+    setNumericDrafts(current => {
+      let changed: typeof current | null = null;
+      for (const [key, text] of Object.entries(current)) {
+        if (previous[key] === next[key]) continue;
+        const acknowledged = text === "" ? previous[key] == null : /^\d+$/.test(text) && Number(text) === previous[key];
+        if (acknowledged) { changed ??= { ...current }; delete changed[key]; }
+      }
+      return changed ?? current;
+    });
+  }, [draft?.id, draft?.frequencyHz, draft?.receiveFrequencyHz, draft?.start, draft?.end, draft?.dxcc]);
   const currentFrequency = frequencyDraft ?? frequencyText(draft?.frequencyHz);
   const currentReceive = receiveDraft ?? frequencyText(draft?.receiveFrequencyHz);
   const currentTime = (key: "start" | "end") => timeDrafts[key] ?? { date: datePart(draft?.[key]), time: timePart(draft?.[key]) };
+  // Text buffers can contain unfinished input that has not entered the shared
+  // draft. Native close/dock must not mistake it for an acknowledged draft.
+  const bufferedFrequency = (text: string | null, value: unknown) => text !== null &&
+    (text.trim() ? parseFrequency(text) === null || parseFrequency(text) !== value : value != null);
+  const localInputDirty = bufferedFrequency(frequencyDraft, draft?.frequencyHz) ||
+    bufferedFrequency(receiveDraft, draft?.receiveFrequencyHz) ||
+    Object.entries(timeDrafts).some(([key, parts]) => {
+      if (key === "end" && !parts.date && !parts.time) return draft?.end != null;
+      const candidate = fromParts(parts.date, parts.time);
+      return !validDate(candidate) || Date.parse(candidate) !== Date.parse(draft?.[key] ?? "");
+    }) || Object.entries(numericDrafts).some(([key, text]) => text === "" ? draft?.[key] != null :
+      !/^\d+$/.test(text) || Number(text) !== draft?.[key]);
+  useLayoutEffect(() => { onLocalInputState?.(localInputDirty); }, [onLocalInputState, localInputDirty]);
+  useLayoutEffect(() => () => { onLocalInputState?.(false); }, [onLocalInputState]);
   const sameLookup = !!draft && !!lookup && call(lookup.call) !== "" && call(lookup.call) === call(draft.call);
   const profile = sameLookup ? lookup : null;
   const profileImage = safeProfileURL(profile?.imageURL);
@@ -261,7 +313,8 @@ export function QSOEditor({ draft, setDraft, save, clear, busy, draftLocked, loo
   return <section className="qso-editor" ref={rootRef} onKeyDown={keyDown} aria-label="Log QSO">
     <div className="qso-editor-main"><form inert={draftLocked} aria-busy={draftLocked} onSubmit={submit} noValidate>
       <section className="qso-active" aria-labelledby="qso-active-title">
-        <QSOHeader title="Active contact" id="qso-active-title" call={draft.call} evidence={referenceEvidence} />
+        <QSOHeader title="Active contact" id="qso-active-title" call={draft.call} evidence={referenceEvidence}
+          actions={onUndock && <button type="button" disabled={busy || draftLocked || localInputDirty} onClick={onUndock}><PanelsTopLeft size={15} /> Undock</button>} />
         <div className="qso-primary">
           <label className="qso-field qso-call"><span>Callsign</span><input ref={callRef} aria-label="Callsign" value={draft.call ?? ""} maxLength={32} onChange={(event) => update("call", event.target.value.toUpperCase())} autoComplete="off" spellCheck={false} /></label>
           <label className="qso-field qso-frequency"><span>Frequency MHz</span><input aria-label="Frequency MHz" inputMode="decimal" value={currentFrequency} onChange={(event) => changeFrequency("frequencyHz", event.target.value)} /></label>

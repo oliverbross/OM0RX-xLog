@@ -48,6 +48,7 @@ import { logMode } from "./live/draftRadio";
 import { changedCallDraft, enrichedDraft, normalizedCall } from "./live/draftEnrichment";
 import { OperatorDraftSession, readDraftJournal, type DraftQSO } from "./live/operatorDraftSession";
 import { requestOperatorDraft } from "./live/operatorDraftTransport";
+import { connectOperatorDraftChanges, openDetachedQSO } from "./live/operatorDraftWindows";
 import { OperatorDraftStatus } from "./live/OperatorDraftStatus";
 import { LogbookContactSession, readContactJournal } from "./live/logbookContactSession";
 import { LogbookMutationSession, readLogbookMutationJournal } from "./live/logbookMutationSession";
@@ -361,9 +362,7 @@ function MainLiveApp() {
     const shortcut = (event: KeyboardEvent) => {
       if (!(event.metaKey || event.ctrlKey) || event.altKey) return;
       const key = event.key.toLowerCase();
-      if (key === "l" && !event.shiftKey) {
-        event.preventDefault(); setView("Log QSO"); focusAfterView('.qso-call input');
-      } else if (key === "s" && event.shiftKey) {
+      if (key === "s" && event.shiftKey) {
         event.preventDefault(); showSyncSettings(); focusAfterView('[role="tab"][aria-selected="true"]');
       } else if (key === "r" && event.shiftKey) {
         event.preventDefault();
@@ -472,11 +471,7 @@ function MainLiveApp() {
   }, [workspace?.workspace_exists, sharedDraft, draftSession]);
   useEffect(() => {
     if (!workspace?.workspace_exists) return;
-    let active = true;
-    const timer = setInterval(() => { void draftSession.refresh().catch(cause => {
-      if (active) setError(cause instanceof Error ? cause.message : "Shared draft updates unavailable.");
-    }); }, 1500);
-    return () => { active = false; clearInterval(timer); };
+    return connectOperatorDraftChanges(() => draftSession.refresh(), setError);
   }, [workspace?.workspace_exists, draftSession]);
   useEffect(() => {
     if (!workspace?.workspace_exists || !contactEdit.base) return;
@@ -798,7 +793,9 @@ function MainLiveApp() {
         powerState={editing.current ? undefined : sharedDraft.base?.power} powerIntent={editing.current ? undefined : sharedDraft.powerIntent}
         automaticPowerEnabled={settings?.automaticTransmitPower === true}
         onManualPower={!editing.current && typeof settings?.automaticTransmitPower === "boolean" ? setManualDraftPower : undefined}
-        onResumeAutomaticPower={!editing.current && sharedDraft.base?.power ? () => void run(async () => { draftSession.resumeAutomaticPower(); await draftSession.flush(); }) : undefined} />}
+        onResumeAutomaticPower={!editing.current && sharedDraft.base?.power ? () => void run(async () => { draftSession.resumeAutomaticPower(); await draftSession.flush(); }) : undefined}
+        onLocalInputState={!editing.current ? draftSession.setLocalInputPending : undefined}
+        onUndock={!editing.current ? () => void run(async () => { await draftSession.flush(); await openDetachedQSO(); }) : undefined} />}
       {view === "Logbook" && <LogbookPanel onRequest={request} refreshKey={refresh} mutations={logbookMutations} onChanged={() => setRefresh(n => n + 1)} onUndock={() => void openDetachedLogbook().catch(cause => setError(cause.message))} onEdit={qso => { void run(async () => {
         if (draftSession.getSnapshot().locked) throw new Error("Finish the pending draft operation before editing a logged contact.");
         await draftSession.flush(); await contactSession.open(qso.id); setFollowImmediate(false); disarmAutoRotor(); setView("Log QSO");

@@ -17,7 +17,7 @@ const main = "src/LiveApp.tsx";
 assert(manifest[main], "Main workspace bundle is missing");
 const eagerGraph = closure("index.html");
 const eagerCss = new Set([...eagerGraph].flatMap(key => manifest[key].css ?? []));
-for (const name of ["Awards", "Logbook", "Cluster"]) {
+for (const name of ["Awards", "Logbook", "Cluster", "QSO"]) {
   const entry = `src/live/Detached${name}Surface.tsx`;
   const graph = closure(entry, closure("index.html"));
   assert(!graph.has(main), `${name} imports the main station workspace`);

@@ -1,0 +1,334 @@
+// @vitest-environment jsdom
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { DetachedQSOSurface, detachedQSOJournalKey } from "./DetachedQSOSurface";
+import { testWorkspaceGeneration } from "../../tests/operator-draft-fixture";
+import type { DraftMutation, DraftPowerState, DraftSnapshot } from "./operatorDraftSession";
+
+const api = vi.hoisted(() => ({ draft: vi.fn(), read: vi.fn(), changes: vi.fn(), protect: vi.fn(), dock: vi.fn(),
+  refresh: null as (() => Promise<void>) | null, blocked: null as (() => boolean) | null, explain: null as (() => void) | null,
+  closeState: null as ((value: boolean) => void) | null }));
+vi.mock("./operatorDraftTransport", () => ({ requestOperatorDraft: api.draft }));
+vi.mock("../worker", () => ({ workerRequest: api.read }));
+vi.mock("./operatorDraftWindows", () => ({ connectOperatorDraftChanges: api.changes, protectOperatorDraftClose: api.protect }));
+vi.mock("./DetachedClusterBridge", () => ({ dockDetachedWorkspace: api.dock }));
+
+const copy = <T,>(value: T): T => structuredClone(value);
+function backend() {
+  const id = crypto.randomUUID();
+  const qso = { id, call: "K1ABC", start: "2026-10-14T00:00:00Z", end: null, band: "20m", mode: "CW",
+    frequencyHz: 14_025_000, txPower: "100", notes: "", name: "", rstSent: "599", rstReceived: "599", extraFields: { OTHER: "keep" } };
+  const power: DraftPowerState = { revision: 0, enabled: true, fallback: "100", manualOverride: false, selectedValue: "100",
+    contact: { workspaceID: testWorkspaceGeneration, draftID: id, call: "K1ABC", band: "20m", mode: "CW", frequencyHz: 14_025_000 } };
+  let current: DraftSnapshot = { generation: testWorkspaceGeneration, revision: 0, qso, power };
+  const receipts = new Map<string, any>(), contacts: any[] = [];
+  const request = async (method: string, params: any = {}) => {
+    if (method === "logbook_operator_draft") return { draft: copy(current) };
+    if (params.generation !== current.generation) return { status: "workspace_changed", generation: current.generation };
+    if (method === "logbook_operator_draft_receipt") return { receipt: copy(receipts.get(params.operationID) ?? null) };
+    if (method !== "logbook_operator_draft_apply") throw new Error(`Unexpected ${method}`);
+    const mutation = params as DraftMutation;
+    if (receipts.has(mutation.operationID)) return { status: "applied", receipt: copy(receipts.get(mutation.operationID)) };
+    if (mutation.draftID !== current.qso.id || mutation.expectedRevision !== current.revision) return { status: "conflict", draft: copy(current) };
+    const savedQSO = mutation.action === "save" ? copy(current.qso) : null;
+    if (savedQSO) contacts.push(savedQSO);
+    const next = mutation.action === "replace" ? copy(mutation.qso!) : { ...qso, id: crypto.randomUUID(), call: "" };
+    const nextPower = copy(current.power!);
+    nextPower.contact = { workspaceID: testWorkspaceGeneration, draftID: next.id, call: String(next.call).trim().toUpperCase(),
+      band: next.band, mode: next.mode, frequencyHz: next.frequencyHz };
+    if (mutation.powerIntent || mutation.action !== "replace") {
+      nextPower.revision++; nextPower.selectedSample = null; nextPower.selectedContext = null; nextPower.selectedContact = null;
+      nextPower.activeScope = null; nextPower.sessionPeak = null; nextPower.lastObservedAt = null;
+    }
+    if (mutation.powerIntent?.action === "manual") { nextPower.manualOverride = true; nextPower.selectedValue = mutation.powerIntent.value; }
+    if (mutation.powerIntent?.action === "automatic" || mutation.action !== "replace") { nextPower.manualOverride = false; nextPower.selectedValue = nextPower.fallback; }
+    next.txPower = nextPower.selectedValue;
+    current = { generation: testWorkspaceGeneration, revision: current.revision + 1, qso: next, power: nextPower };
+    const receipt = { mutation: copy(mutation), draft: copy(current), savedQSO };
+    receipts.set(mutation.operationID, receipt);
+    return { status: "applied", receipt: copy(receipt) };
+  };
+  const meter = (watts: number) => {
+    const sessionID = crypto.randomUUID(), time = "2026-10-14T00:00:01Z";
+    const sample = { source: "kpa500_output" as const, unit: "W" as const, watts, sessionID,
+      observedAt: time, radioObservedAt: time, receivedAt: time, amplifierObservedAt: time };
+    const context = { providerID: "fixture", selectionID: "fixture", sessionID, sessionStartedAt: "2026-10-14T00:00:00Z",
+      source: "direct_agent" as const, meterSource: "kpa500_output" as const };
+    current = { ...current, qso: { ...current.qso, txPower: String(watts) }, power: { ...current.power!,
+      revision: current.power!.revision + 1, selectedValue: String(watts), selectedSample: sample,
+      selectedContext: context, selectedContact: copy(current.power!.contact), lastContext: context } };
+  };
+  return { request, contacts, meter, get current() { return current; }, change: (draft: DraftSnapshot) => { current = copy(draft); } };
+}
+function journal() { return JSON.parse(localStorage.getItem(detachedQSOJournalKey) || "null"); }
+function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>(done => { resolve = done; }); return { promise, resolve }; }
+beforeEach(() => {
+  vi.resetAllMocks(); localStorage.clear(); api.refresh = null; api.blocked = null; api.explain = null; api.closeState = null;
+  api.changes.mockImplementation(refresh => { api.refresh = refresh; void refresh(); return vi.fn(); });
+  api.protect.mockImplementation((blocked, explain, _failed, closeState) => { api.blocked = blocked; api.explain = explain; api.closeState = closeState; return vi.fn(); });
+  api.dock.mockResolvedValue(undefined);
+  api.read.mockImplementation(async (method, params) => ({ result: method === "lookup_call" ? { call: params.call, source: "Local fixture" }
+    : method === "logbook_previous" ? { qsos: [] } : { cells: [] } }));
+});
+afterEach(() => { cleanup(); vi.useRealTimers(); });
+
+it("loads the canonical full editor with read-only context, no main controller, and closes an acknowledged draft", async () => {
+  const f = backend(); api.draft.mockImplementation(f.request);
+  const view = render(<DetachedQSOSurface />);
+  await screen.findByDisplayValue("K1ABC");
+  expect(screen.getByRole("main", { name: "Detached Log QSO" })).toBeTruthy();
+  expect(screen.queryByText("Follow radio")).toBeNull(); expect(screen.queryByRole("button", { name: /Read radio/i })).toBeNull();
+  expect(api.blocked!()).toBe(false);
+  expect(api.changes.mock.invocationCallOrder[0]).toBeLessThan(api.draft.mock.invocationCallOrder[0]);
+  expect(localStorage.getItem("xlog.integration.operatorDraft.main.v1")).toBeNull();
+  await waitFor(() => expect(api.read.mock.calls.some(([method]) => method === "lookup_call")).toBe(true));
+  expect(api.read.mock.calls.every(([method]) => ["lookup_call", "logbook_previous", "logbook_matrix", "cluster_history"].includes(method))).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Dock back" }));
+  await waitFor(() => expect(api.dock).toHaveBeenCalledOnce());
+  view.unmount();
+  expect(api.changes.mock.results[0].value).toHaveBeenCalledOnce(); expect(api.protect.mock.results[0].value).toHaveBeenCalledOnce();
+});
+
+it("journals and autosaves notes, blocking Close/Dock until the exact Replace is acknowledged", async () => {
+  const f = backend(), held = deferred<void>();
+  api.draft.mockImplementation(async (method, params) => {
+    if (method === "logbook_operator_draft_apply") await held.promise;
+    return f.request(method, params);
+  });
+  render(<DetachedQSOSurface />); await screen.findByDisplayValue("K1ABC");
+  fireEvent.change(screen.getByLabelText("QSO note"), { target: { value: "retained note" } });
+  expect(journal().draft.notes).toBe("retained note"); expect(api.blocked!()).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Dock back" })); expect(api.dock).not.toHaveBeenCalled();
+  await screen.findByText(/Finish the draft fields/);
+  await waitFor(() => expect(journal().pending?.action).toBe("replace"));
+  expect(api.blocked!()).toBe(true);
+  await act(async () => { held.resolve(); });
+  await waitFor(() => expect(api.blocked!()).toBe(false));
+  expect(f.current.qso.notes).toBe("retained note"); expect(f.current.qso.extraFields).toEqual({ OTHER: "keep" });
+});
+
+it("retains an uncertain Save across remount and checks its receipt without creating a second QSO", async () => {
+  const f = backend(); let lose = true;
+  api.draft.mockImplementation(async (method, params) => {
+    const result = await f.request(method, params);
+    if (method === "logbook_operator_draft_apply" && params.action === "save" && lose) { lose = false; throw new Error("Lost acknowledgement"); }
+    return result;
+  });
+  const first = render(<DetachedQSOSurface />); await screen.findByDisplayValue("K1ABC");
+  fireEvent.click(screen.getByRole("button", { name: "Log QSO" }));
+  fireEvent.click(screen.getByRole("button", { name: "Log QSO" }));
+  await waitFor(() => expect(journal().pending?.action).toBe("save"));
+  await screen.findByText(/Draft acknowledgement unavailable/);
+  expect(f.contacts).toHaveLength(1); expect(api.blocked!()).toBe(true);
+  const operation = journal().pending.operationID;
+  first.unmount(); render(<DetachedQSOSurface />);
+  await waitFor(() => expect(journal().pending).toBeNull());
+  expect(f.contacts).toHaveLength(1); expect(api.blocked!()).toBe(false);
+  expect(api.draft.mock.calls.filter(([method, params]) => method === "logbook_operator_draft_apply" && params.action === "save")).toHaveLength(1);
+  expect(api.draft).toHaveBeenCalledWith("logbook_operator_draft_receipt", expect.objectContaining({ operationID: operation }));
+});
+
+it("retains local text on another-window conflict and requires explicit shared-draft recovery", async () => {
+  const f = backend(); api.draft.mockImplementation(f.request);
+  render(<DetachedQSOSurface />); await screen.findByDisplayValue("K1ABC");
+  fireEvent.change(screen.getByLabelText("QSO note"), { target: { value: "my text" } });
+  f.change({ ...f.current, revision: 1, qso: { ...f.current.qso, notes: "other window" } });
+  await act(async () => { await api.refresh!(); });
+  await screen.findByText(/local text is retained/);
+  expect(screen.getByLabelText("QSO note").getAttribute("value") ?? (screen.getByLabelText("QSO note") as HTMLTextAreaElement).value).toBe("my text");
+  expect(api.blocked!()).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Use shared draft" }));
+  await screen.findByDisplayValue("other window"); expect(api.blocked!()).toBe(false);
+});
+
+it("sends explicit same/blank manual power intents and resumes canonical automatic power", async () => {
+  const f = backend(); api.draft.mockImplementation(f.request);
+  render(<DetachedQSOSurface />); await screen.findByDisplayValue("K1ABC");
+  fireEvent.input(screen.getByLabelText("TX power W"), { target: { value: "100" } });
+  expect(journal().powerIntent).toEqual({ action: "manual", value: "100" });
+  fireEvent.input(screen.getByLabelText("TX power W"), { target: { value: "" } });
+  expect(journal().powerIntent).toEqual({ action: "manual", value: "" });
+  await waitFor(() => expect(f.current.power?.manualOverride).toBe(true));
+  expect(f.current.qso.txPower).toBe("");
+  fireEvent.click(screen.getByRole("button", { name: "Use automatic" }));
+  await waitFor(() => expect(f.current.power?.manualOverride).toBe(false));
+  expect(f.current.qso.txPower).toBe("100");
+  expect(api.draft.mock.calls.some(([method, params]) => method === "logbook_operator_draft_apply" && params.powerIntent?.action === "automatic")).toBe(true);
+});
+
+it("merges native power-only wake updates without replacing dirty notes or issuing station work", async () => {
+  const f = backend(); api.draft.mockImplementation(f.request);
+  render(<DetachedQSOSurface />); await screen.findByDisplayValue("K1ABC");
+  fireEvent.change(screen.getByLabelText("QSO note"), { target: { value: "typing through power" } });
+  f.meter(550);
+  await act(async () => { await api.refresh!(); });
+  expect((screen.getByLabelText("QSO note") as HTMLTextAreaElement).value).toBe("typing through power");
+  expect((screen.getByLabelText("TX power W") as HTMLInputElement).value).toBe("550");
+  expect(screen.queryByRole("button", { name: "Use shared draft" })).toBeNull();
+  await waitFor(() => expect(f.current.qso.notes).toBe("typing through power"));
+  expect(f.current.qso.txPower).toBe("550");
+});
+
+it("protects incomplete editor-only buffers and clears idempotently through the shared draft", async () => {
+  const f = backend(); api.draft.mockImplementation(f.request);
+  render(<DetachedQSOSurface />); await screen.findByDisplayValue("K1ABC");
+  fireEvent.change(screen.getByLabelText("Frequency MHz"), { target: { value: "14." } });
+  expect(api.blocked!()).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Dock back" })); expect(api.dock).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByLabelText("Frequency MHz"), { target: { value: "14.025000" } });
+  await waitFor(() => expect(api.blocked!()).toBe(false));
+  fireEvent.click(screen.getByRole("button", { name: "Clear QSO" }));
+  fireEvent.click(screen.getByRole("button", { name: "Clear QSO" }));
+  await waitFor(() => expect(f.current.qso.call).toBe(""));
+  expect(f.contacts).toHaveLength(0);
+  expect(api.draft.mock.calls.filter(([method, params]) => method === "logbook_operator_draft_apply" && params.action === "clear")).toHaveLength(1);
+});
+
+it("fences restored-workspace responses and disables the old editor until explicit review", async () => {
+  const f = backend(); api.draft.mockImplementation(f.request);
+  render(<DetachedQSOSurface />); await screen.findByDisplayValue("K1ABC");
+  f.change({ ...f.current, generation: crypto.randomUUID(), qso: { ...f.current.qso, notes: "restored workspace" } });
+  await act(async () => { await api.refresh!(); });
+  await screen.findByRole("button", { name: "Load current workspace draft" });
+  expect(api.blocked!()).toBe(true);
+  expect(screen.getByRole("button", { name: "Log QSO" }).hasAttribute("disabled")).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Load current workspace draft" }));
+  await screen.findByDisplayValue("restored workspace");
+  await waitFor(() => expect(api.blocked!()).toBe(false));
+  expect(api.draft.mock.calls.every(([method]) => method !== "logbook_operator_draft_apply")).toBe(true);
+});
+
+it("does not apply a delayed old-call lookup or history to the new shared contact", async () => {
+  const f = backend(), oldLookup = deferred<Record<string, any>>(); api.draft.mockImplementation(f.request);
+  api.read.mockImplementation(async (method, params) => ({ result: method === "lookup_call"
+    ? params.call === "K1ABC" ? await oldLookup.promise : { call: params.call, name: "Current operator", source: "Fixture" }
+    : method === "logbook_previous" ? { qsos: [] } : { cells: [] } }));
+  render(<DetachedQSOSurface />); await screen.findByDisplayValue("K1ABC");
+  await waitFor(() => expect(api.read).toHaveBeenCalledWith("lookup_call", { call: "K1ABC" }));
+  fireEvent.change(screen.getByLabelText("Callsign"), { target: { value: "JA1ABC" } });
+  await act(async () => { oldLookup.resolve({ call: "K1ABC", name: "Old operator", country: "Old country" }); });
+  await waitFor(() => expect(api.read).toHaveBeenCalledWith("lookup_call", { call: "JA1ABC" }));
+  await screen.findByText("Current operator");
+  expect(screen.queryByDisplayValue("Old operator")).toBeNull();
+  expect((screen.getByLabelText("Callsign") as HTMLInputElement).value).toBe("JA1ABC");
+  expect((screen.getByLabelText("Name") as HTMLInputElement).value).toBe("");
+  fireEvent.click(screen.getByRole("button", { name: "Fill empty fields from lookup" }));
+  await waitFor(() => expect(f.current.qso.name).toBe("Current operator"));
+  expect(f.current.qso.call).toBe("JA1ABC");
+});
+
+it("keeps delayed lookup display-only after close approval while explicit Fill remains available", async () => {
+  const f = backend(), lookup = deferred<Record<string, any>>(); api.draft.mockImplementation(f.request);
+  api.read.mockImplementation(async (method, params) => ({ result: method === "lookup_call" ? await lookup.promise
+    : method === "logbook_previous" ? { qsos: [] } : { cells: [] } }));
+  render(<DetachedQSOSurface />); await screen.findByDisplayValue("K1ABC");
+  await waitFor(() => expect(api.read).toHaveBeenCalledWith("lookup_call", { call: "K1ABC" }));
+  expect(api.blocked!()).toBe(false);
+  await act(async () => { lookup.resolve({ call: "K1ABC", name: "Late operator", source: "Fixture" }); });
+  await screen.findByText("Late operator");
+  expect(api.blocked!()).toBe(false); expect(f.current.qso.name).toBe("");
+  expect(api.draft.mock.calls.every(([method]) => method !== "logbook_operator_draft_apply")).toBe(true);
+  const fill = screen.getByRole("button", { name: "Fill empty fields from lookup" });
+  expect(fill.hasAttribute("disabled")).toBe(false);
+  fireEvent.click(fill);
+  expect(api.blocked!()).toBe(true);
+  await waitFor(() => expect(f.current.qso.name).toBe("Late operator"));
+  expect(api.blocked!()).toBe(false);
+});
+
+it.each([
+  ["Start UTC date", "", "2026-10-14"],
+  ["Start UTC time", "", "00:00:00"],
+  ["DXCC", "-1", ""],
+])("protects unfinished '%s' text that has not entered the canonical draft", async (label, incomplete, restored) => {
+  const f = backend(); api.draft.mockImplementation(f.request);
+  render(<DetachedQSOSurface />); await screen.findByDisplayValue("K1ABC");
+  const before = copy(f.current.qso);
+  fireEvent.change(screen.getByLabelText(label), { target: { value: incomplete } });
+  expect(api.blocked!()).toBe(true); expect(f.current.qso).toEqual(before);
+  fireEvent.click(screen.getByRole("button", { name: "Dock back" })); expect(api.dock).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByLabelText(label), { target: { value: restored } });
+  await waitFor(() => expect(api.blocked!()).toBe(false));
+});
+
+it("defers a remote Clear wake while unfinished editor-only text is retained", async () => {
+  const f = backend(); api.draft.mockImplementation(f.request);
+  render(<DetachedQSOSurface />); await screen.findByDisplayValue("K1ABC");
+  fireEvent.change(screen.getByLabelText("Frequency MHz"), { target: { value: "14." } });
+  const readCount = api.draft.mock.calls.filter(([method]) => method === "logbook_operator_draft").length;
+  const nextID = crypto.randomUUID();
+  f.change({ ...f.current, revision: 1, qso: { ...f.current.qso, id: nextID, call: "" },
+    power: { ...f.current.power!, contact: { ...f.current.power!.contact, draftID: nextID, call: "" } } });
+  await act(async () => { await api.refresh!(); });
+  expect(api.draft.mock.calls.filter(([method]) => method === "logbook_operator_draft")).toHaveLength(readCount);
+  expect((screen.getByLabelText("Callsign") as HTMLInputElement).value).toBe("K1ABC");
+  expect((screen.getByLabelText("Frequency MHz") as HTMLInputElement).value).toBe("14.");
+  expect(api.blocked!()).toBe(true);
+  fireEvent.change(screen.getByLabelText("Frequency MHz"), { target: { value: "14.025000" } });
+  await act(async () => { await api.refresh!(); });
+  await waitFor(() => expect((screen.getByLabelText("Callsign") as HTMLInputElement).value).toBe(""));
+});
+
+it("rejects an already-in-flight identity replacement when an unfinished buffer appears", async () => {
+  const f = backend(), held = deferred<any>(); api.draft.mockImplementation(f.request);
+  render(<DetachedQSOSurface />); await screen.findByDisplayValue("K1ABC");
+  api.draft.mockImplementation((method, params) => method === "logbook_operator_draft" ? held.promise : f.request(method, params));
+  let refresh!: Promise<void>;
+  await act(async () => { refresh = api.refresh!(); });
+  fireEvent.change(screen.getByLabelText("Start UTC date"), { target: { value: "" } });
+  const nextID = crypto.randomUUID(), next = { ...f.current, revision: 1, qso: { ...f.current.qso, id: nextID, call: "" },
+    power: { ...f.current.power!, contact: { ...f.current.power!.contact, draftID: nextID, call: "" } } };
+  await act(async () => { held.resolve({ draft: next }); await expect(refresh).rejects.toThrow("Finish the draft fields"); });
+  expect((screen.getByLabelText("Callsign") as HTMLInputElement).value).toBe("K1ABC");
+  expect((screen.getByLabelText("Start UTC date") as HTMLInputElement).value).toBe("");
+  expect(api.blocked!()).toBe(true);
+});
+
+it("freezes draft/manual/recovery actions while Dock awaits native main recovery", async () => {
+  const f = backend(), dock = deferred<void>(); api.draft.mockImplementation(f.request); api.dock.mockReturnValue(dock.promise);
+  render(<DetachedQSOSurface />); await screen.findByDisplayValue("K1ABC");
+  fireEvent.click(screen.getByRole("button", { name: "Dock back" }));
+  expect(document.querySelector(".qso-editor-main form")?.hasAttribute("inert")).toBe(true);
+  fireEvent.change(screen.getByLabelText("QSO note"), { target: { value: "racing input" } });
+  fireEvent.input(screen.getByLabelText("TX power W"), { target: { value: "900" } });
+  expect(journal().draft.notes).toBe(""); expect(journal().powerIntent).toBeUndefined();
+  expect(api.blocked!()).toBe(false); // Only Dock's own working flag is exempt.
+  expect(api.draft.mock.calls.every(([method]) => method !== "logbook_operator_draft_apply")).toBe(true);
+  await act(async () => { dock.resolve(); });
+});
+
+it("freezes immediately on approved Close and thaws only after native close failure", async () => {
+  const f = backend(); api.draft.mockImplementation(f.request);
+  render(<DetachedQSOSurface />); await screen.findByDisplayValue("K1ABC");
+  expect(api.blocked!()).toBe(false);
+  act(() => api.closeState!(true));
+  fireEvent.change(screen.getByLabelText("QSO note"), { target: { value: "close race" } });
+  fireEvent.input(screen.getByLabelText("TX power W"), { target: { value: "900" } });
+  expect(journal().draft.notes).toBe(""); expect(journal().powerIntent).toBeUndefined();
+  expect(document.querySelector(".qso-editor-main form")?.hasAttribute("inert")).toBe(true);
+  act(() => api.closeState!(false));
+  fireEvent.change(screen.getByLabelText("QSO note"), { target: { value: "retained after failed close" } });
+  expect(journal().draft.notes).toBe("retained after failed close");
+});
+
+it.each([
+  ["Frequency MHz", "14.026", "frequencyHz", 14_027_000, "14.027000"],
+  ["RX frequency MHz", "14.026", "receiveFrequencyHz", 14_027_000, "14.027000"],
+  ["Start UTC date", "2026-10-15", "start", "2026-10-16T00:00:00Z", "2026-10-16"],
+  ["Start UTC time", "00:01:00", "start", "2026-10-14T00:02:00Z", "00:02:00"],
+  ["DXCC", "281", "dxcc", 339, "339"],
+])("replaces acknowledged '%s' buffers when another window changes the same draft ID", async (label, entered, key, changed, visible) => {
+  const f = backend(); api.draft.mockImplementation(f.request);
+  render(<DetachedQSOSurface />); await screen.findByDisplayValue("K1ABC");
+  fireEvent.change(screen.getByLabelText(label), { target: { value: entered } });
+  await waitFor(() => expect(api.blocked!()).toBe(false));
+  const remoteQSO = { ...f.current.qso, [key]: changed };
+  f.change({ ...f.current, revision: f.current.revision + 1, qso: remoteQSO,
+    power: { ...f.current.power!, contact: { ...f.current.power!.contact, frequencyHz: remoteQSO.frequencyHz } } });
+  await act(async () => { await api.refresh!(); });
+  await waitFor(() => expect((screen.getByLabelText(label) as HTMLInputElement).value).toBe(visible));
+  expect(api.blocked!()).toBe(false);
+  fireEvent.click(screen.getByRole("button", { name: "Log QSO" }));
+  await waitFor(() => expect(f.contacts).toHaveLength(1));
+  expect(f.contacts[0][key]).toBe(changed);
+});

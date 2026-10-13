@@ -220,8 +220,10 @@ mod tests {
         let small = Display { work: Bounds { x: 0, y: 60, width: 1600, height: 1000 }, ..display("laptop", 0, 2.0) };
         assert_eq!(effective_minimum("main", &small, (4.0, 30.0)), (796.0, 470.0));
         assert_eq!(effective_minimum("logbook", &small, (4.0, 30.0)), (640.0, 470.0));
+        assert_eq!(effective_minimum("log-qso", &small, (4.0, 30.0)), (640.0, 470.0));
         assert_eq!(effective_minimum("main", &display("external", 0, 2.0), (4.0, 30.0)), (1000.0, 720.0));
         assert_eq!(effective_minimum("logbook", &display("external", 0, 2.0), (4.0, 30.0)), (640.0, 480.0));
+        assert_eq!(effective_minimum("log-qso", &display("external", 0, 2.0), (4.0, 30.0)), (640.0, 480.0));
     }
     #[test]
     fn wayland_size_changes_preserve_preferred_display_origin_and_dpi() {

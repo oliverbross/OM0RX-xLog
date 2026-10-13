@@ -1,17 +1,20 @@
 import { beforeEach, expect, it, vi } from "vitest";
-const loaded = vi.hoisted(() => ({ main: vi.fn(), awards: vi.fn(), logbook: vi.fn(), cluster: vi.fn() }));
+const loaded = vi.hoisted(() => ({ main: vi.fn(), awards: vi.fn(), logbook: vi.fn(), qso: vi.fn(), cluster: vi.fn() }));
 vi.mock("../src/LiveApp", () => { loaded.main(); return { default: "main-surface" }; });
 vi.mock("../src/live/DetachedAwardsSurface", () => { loaded.awards(); return { DetachedAwardsSurface: "awards-surface" }; });
 vi.mock("../src/live/DetachedLogbookSurface", () => { loaded.logbook(); return { DetachedLogbookSurface: "logbook-surface" }; });
+vi.mock("../src/live/DetachedQSOSurface", () => { loaded.qso(); return { DetachedQSOSurface: "qso-surface" }; });
 vi.mock("../src/live/DetachedClusterSurface", () => { loaded.cluster(); return { DetachedClusterSurface: "cluster-surface" }; });
 beforeEach(() => { vi.resetModules(); Object.values(loaded).forEach(mock => mock.mockClear()); });
 it("loads detached surfaces without evaluating the main station controller", async () => {
   const { loadWindowSurface } = await import("../src/windowSurface");
   expect(await loadWindowSurface("?view=awards")).toBe("awards-surface");
   expect(await loadWindowSurface("?view=logbook&acceptance=local")).toBe("logbook-surface");
+  expect(await loadWindowSurface("?view=log-qso")).toBe("qso-surface");
   expect(await loadWindowSurface("?view=dx-cluster")).toBe("cluster-surface");
   expect(loaded.awards).toHaveBeenCalled(); expect(loaded.logbook).toHaveBeenCalled(); expect(loaded.cluster).toHaveBeenCalled();
   expect(loaded.main).not.toHaveBeenCalled();
+  expect(loaded.qso).toHaveBeenCalledOnce();
 });
 it("retains main, Monitor and map routing", async () => {
   const { loadWindowSurface } = await import("../src/windowSurface");

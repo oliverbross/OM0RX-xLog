@@ -19,6 +19,29 @@ mod workspace_window_runtime;
 
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu, WINDOW_SUBMENU_ID};
 use tauri::{Emitter, LogicalSize, Manager};
+use std::sync::{atomic::{AtomicBool, Ordering}, Mutex};
+
+static MAIN_CREATION: Mutex<()> = Mutex::new(());
+static APP_EXITING: AtomicBool = AtomicBool::new(false);
+const OPERATOR_DRAFT_CHANGED: &str = "xlog:operator-draft-changed";
+fn detached_window_shortcut(kind: &str) -> Option<&'static str> {
+    if kind == "log-qso" { Some("CmdOrCtrl+L") } else { None }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum DraftWake { None, Applied, Workspace }
+impl DraftWake {
+    fn for_request(request: &serde_json::Value) -> Self {
+        if matches!(request["method"].as_str(), Some("workspace_create" | "backup_restore")) { return Self::Workspace; }
+        if request["method"] == "logbook_operator_draft_apply"
+            && matches!(request["params"]["action"].as_str(), Some("replace" | "clear" | "save")) { return Self::Applied; }
+        Self::None
+    }
+    fn confirmed(self, response: Option<&serde_json::Value>) -> bool {
+        self == Self::Workspace || self == Self::Applied
+            && response.is_some_and(|response| response["ok"] == true && response["result"]["status"] == "applied")
+    }
+}
 
 const COMPACT_WORKSPACE_MENU_ID: &str = "workspace_compact";
 const STANDARD_WORKSPACE_MENU_ID: &str = "workspace_standard";
@@ -104,7 +127,8 @@ fn workspace_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     windows.append(&PredefinedMenuItem::separator(app)?)?;
     for window in workspace_windows::SUPPORTED_WINDOWS {
         windows.append(&MenuItem::with_id(app, format!("workspace_window_{}", window.id),
-            window.title.trim_start_matches("OM0RX-xLog — "), true, None::<&str>)?)?;
+            window.title.trim_start_matches("OM0RX-xLog — "), true,
+            detached_window_shortcut(window.id))?)?;
     }
     Ok(menu)
 }
@@ -117,15 +141,40 @@ fn append_screen_group(app: &tauri::AppHandle, menu: &Submenu<tauri::Wry>, group
     Ok(())
 }
 
-fn navigate_workspace(app: &tauri::AppHandle, screen: &str) -> Result<(), String> {
-    let main = app.get_webview_window("main").ok_or("Main workspace is unavailable")?;
-    app.state::<workspace_navigation::WorkspaceNavigation>().request(screen)?;
+fn recover_singleton<T>(creation: &Mutex<()>, existing: impl FnOnce() -> Option<T>, create: impl FnOnce() -> Result<T, String>) -> Result<T, String> {
+    let _creation = creation.lock().map_err(|_| "Main workspace creation unavailable")?;
+    if let Some(window) = existing() { return Ok(window); }
+    create()
+}
+
+// Blocking task only: creating a Windows WebView on the IPC/menu loop can
+// deadlock its native message pump. This never reruns application setup.
+fn ensure_main_workspace(app: &tauri::AppHandle) -> Result<tauri::WebviewWindow, String> {
+    if APP_EXITING.load(Ordering::Acquire) { return Err("Application is shutting down".into()); }
+    let main = recover_singleton(&MAIN_CREATION, || app.get_webview_window("main"), || {
+        if APP_EXITING.load(Ordering::Acquire) { return Err("Application is shutting down".into()); }
+        let config = app.config().app.windows.iter().find(|window| window.label == "main")
+            .ok_or("Main workspace configuration unavailable")?;
+        let main = tauri::WebviewWindowBuilder::from_config(app, config)
+            .map_err(|error| error.to_string())?.build().map_err(|error| error.to_string())?;
+        if app.state::<acceptance::Acceptance>().path.is_none() { detached_geometry::install(&main); }
+        Ok(main)
+    })?;
+    if APP_EXITING.load(Ordering::Acquire) { return Err("Application is shutting down".into()); }
     main.unminimize().map_err(|error| error.to_string())?;
     main.show().map_err(|error| error.to_string())?;
     main.set_focus().map_err(|error| error.to_string())?;
+    Ok(main)
+}
+
+async fn navigate_workspace(app: tauri::AppHandle, screen: String) -> Result<(), String> {
+    app.state::<workspace_navigation::WorkspaceNavigation>().request(&screen)?;
     // The event is only a wake-up. The main view reads the native state and
     // acknowledges a revision, so pre-listener clicks and old acks are safe.
-    app.emit_to("main", "xlog:workspace-navigation", ()).map_err(|error| error.to_string())
+    tauri::async_runtime::spawn_blocking(move || {
+        ensure_main_workspace(&app)?;
+        app.emit_to("main", "xlog:workspace-navigation", ()).map_err(|error| error.to_string())
+    }).await.map_err(|_| "Main workspace task failed".to_string())?
 }
 
 #[tauri::command]
@@ -137,8 +186,9 @@ fn workspace_navigation_ack(window: tauri::WebviewWindow, state: tauri::State<'_
     state.acknowledge(window.label(), revision)
 }
 
-fn apply_workspace_layout(app: &tauri::AppHandle, layout: WorkspaceLayout) -> tauri::Result<()> {
-    if let Some(main) = app.get_webview_window("main") {
+fn apply_workspace_layout(app: &tauri::AppHandle, layout: WorkspaceLayout) -> Result<(), String> {
+    let main = ensure_main_workspace(app)?;
+    (|| -> tauri::Result<()> {
         // A layout preset always targets the main workspace, even when a
         // monitor or detached map has focus on macOS's app-wide menu.
         if main.is_fullscreen()? {
@@ -154,8 +204,8 @@ fn apply_workspace_layout(app: &tauri::AppHandle, layout: WorkspaceLayout) -> ta
         main.center()?;
         main.show()?;
         main.set_focus()?;
-    }
-    Ok(())
+        Ok(())
+    })().map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -198,9 +248,11 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     // Only typed integration operations cross this boundary; never shell commands.
     if state.path.is_some() { acceptance::validate_local_request(&request)?; }
     let method = request.get("method").and_then(|m| m.as_str()).unwrap_or("");
+    // This explicit role gate precedes every native special dispatcher too.
+    if window.label() == "log-qso" { worker::validate_surface(window.label(), &request)?; }
     // Local acceptance permits cluster_history against its synthetic logbook,
     // but must never start the live session's background snapshot service.
-    if state.path.is_none() && cluster_session::handles(method) && !(window.label() == "logbook" && method == "cluster_history") {
+    if state.path.is_none() && cluster_session::handles(method) && !(matches!(window.label(), "logbook" | "log-qso") && method == "cluster_history") {
         cluster_session::validate(window.label(), &request)?;
         let session = cluster_session::owner(&app)?;
         return tauri::async_runtime::spawn_blocking(move || session.request(request))
@@ -246,6 +298,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     let _telemetry_fence = if station_telemetry::changes_radio(&request) { Some(station_telemetry::owner(&app)?.control()?) } else { None };
     let selection = if station_telemetry::changes_radio(&request) { Some(station_selection::owner(&app)?) } else { None };
     let invalidate = logbook_events::changes_logbook(&request);
+    let draft_wake = DraftWake::for_request(&request);
     let check_sync_completion = method == "sync_summary";
     let layout_changed = matches!(method, "workspace_layout_apply" | "workspace_create" | "backup_restore");
     let activate_layout = method == "workspace_layout_apply"
@@ -255,17 +308,22 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
         .map_err(|_| "Worker task failed".to_string())?;
     let sync_completed = check_sync_completion && result.as_ref().is_ok_and(|response|
         app.state::<logbook_events::SyncCompletionObserver>().observe(response));
+    if draft_wake.confirmed(result.as_ref().ok()) {
+        // No draft/contact payload is broadcast. Each editor reloads canonical
+        // state through its scoped IPC and retains its own unresolved journal.
+        for label in ["main", "log-qso"] { let _ = app.emit_to(label, OPERATOR_DRAFT_CHANGED, ()); }
+    }
     if invalidate || sync_completed {
         // The initiating view already refreshes after its operation. In
         // particular, ADIF batches must not reload that view after every chunk.
         // A finished sync wakes that view too: sync_run returned before its job.
-        for label in ["main", "logbook", "awards"] {
+        for label in ["main", "log-qso", "logbook", "awards"] {
             if sync_completed || label != window.label() { let _ = app.emit_to(label, "xlog:logbook-changed", ()); }
         }
     }
     if layout_changed {
         // Wake-only: even an uncertain outcome is reconciled by a fresh read.
-        for label in ["main", "monitor", "world-map", "band-maps", "dx-cluster", "logbook", "awards"] {
+        for label in ["main", "monitor", "world-map", "band-maps", "dx-cluster", "log-qso", "logbook", "awards"] {
             let _ = app.emit_to(label, "xlog:workspace-layout", ());
         }
         let force = activate_layout && result.as_ref().is_ok_and(|response|
@@ -332,7 +390,8 @@ async fn pick_backup_package_native(_window: tauri::WebviewWindow) -> Result<Opt
 }
 
 #[tauri::command]
-async fn open_monitor(app: tauri::AppHandle) -> Result<(), String> {
+async fn open_monitor(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result<(), String> {
+    validate_detached_open(window.label())?;
     // Creating a Windows WebView from a synchronous IPC command can block its
     // message loop. Tauri must dispatch this native window work asynchronously.
     open_detached_workspace(app, "monitor".into()).await
@@ -340,10 +399,13 @@ async fn open_monitor(app: tauri::AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 async fn open_detached_map(app: tauri::AppHandle, window: tauri::WebviewWindow, kind: String) -> Result<(), String> {
-    if window.label() != "main" {
-        return Err("Only the main window can open detached maps".into());
-    }
+    validate_detached_open(window.label())?;
     open_detached_workspace(app, kind).await
+}
+
+fn validate_detached_open(label: &str) -> Result<(), String> {
+    if label == "main" { Ok(()) }
+    else { Err("Only the main workspace can open detached windows".into()) }
 }
 
 async fn open_detached_workspace(app: tauri::AppHandle, kind: String) -> Result<(), String> {
@@ -408,18 +470,25 @@ fn cluster_session_selection(window: tauri::WebviewWindow, app: tauri::AppHandle
 }
 
 #[tauri::command]
-fn dock_detached_window(window: tauri::WebviewWindow, app: tauri::AppHandle) -> Result<(), String> {
-    if !matches!(window.label(), "dx-cluster" | "world-map" | "band-maps" | "logbook" | "awards") {
+async fn dock_detached_window(window: tauri::WebviewWindow, app: tauri::AppHandle) -> Result<(), String> {
+    if !matches!(window.label(), "dx-cluster" | "world-map" | "band-maps" | "log-qso" | "logbook" | "awards") {
         return Err("Only detachable workspaces can dock back".into());
     }
     // The revisioned route survives a main view that has not subscribed yet.
-    navigate_workspace(&app, window.label())?;
+    navigate_workspace(app.clone(), window.label().into()).await?;
     window.close().map_err(|error| error.to_string())?;
     if let Some(main) = app.get_webview_window("main") {
         main.show().map_err(|error| error.to_string())?;
         main.set_focus().map_err(|error| error.to_string())?;
     }
     Ok(())
+}
+
+#[tauri::command]
+async fn close_qso_window(window: tauri::WebviewWindow) -> Result<(), String> {
+    if window.label() != "log-qso" { return Err("Only the Log QSO window can close itself".into()); }
+    detached_geometry::flush(&window);
+    window.destroy().map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -444,31 +513,36 @@ fn main() {
         .menu(workspace_menu)
         .on_menu_event(|app, event| {
             if let Some(screen) = workspace_navigation::menu_screen(&event.id().0) {
-                if let Err(error) = navigate_workspace(app, &screen.id) { eprintln!("Could not open workspace screen: {error}"); }
+                let app = app.clone(); let screen = screen.id.clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Err(error) = navigate_workspace(app, screen).await { eprintln!("Could not open workspace screen: {error}"); }
+                });
                 return;
             }
             if let Some(kind) = event.id().0.strip_prefix("workspace_window_") {
                 if workspace_windows::supports(kind) {
                     let app = app.clone(); let kind = kind.to_owned();
                     tauri::async_runtime::spawn(async move {
-                        let result = if kind == "monitor" { open_monitor(app).await } else { open_detached_workspace(app, kind).await };
+                        // Native menu intent is trusted; renderer IPC must pass
+                        // its own main-only caller gate before reaching this owner.
+                        let result = open_detached_workspace(app, kind).await;
                         if let Err(error) = result { eprintln!("Could not open workspace window: {error}"); }
                     });
                 }
                 return;
             }
             if let Some(layout) = WorkspaceLayout::from_menu_id(&event.id().0) {
-                if let Err(error) = apply_workspace_layout(app, layout) {
+                let app = app.clone();
+                tauri::async_runtime::spawn_blocking(move || if let Err(error) = apply_workspace_layout(&app, layout) {
                     eprintln!("Could not resize main workspace: {error}");
-                }
+                });
             }
         })
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.unminimize();
-                let _ = window.show();
-                let _ = window.set_focus();
-            }
+            let app = app.clone();
+            tauri::async_runtime::spawn_blocking(move || if let Err(error) = ensure_main_workspace(&app) {
+                eprintln!("Could not recover main workspace: {error}");
+            });
         }))
         .manage(acceptance::Acceptance::new(path))
         .manage(workspace_navigation::WorkspaceNavigation::default())
@@ -491,7 +565,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![worker_request, pick_backup_package, open_monitor, open_detached_map,
             workspace_windows_status, workspace_windows_reconcile,
             workspace_navigation_snapshot, workspace_navigation_ack, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_selection_apply,
-            detached_cluster_ready, cluster_session_selection, dock_detached_window, close_logbook_window,
+            detached_cluster_ready, cluster_session_selection, dock_detached_window, close_logbook_window, close_qso_window,
             acceptance::acceptance_enabled, acceptance::acceptance_large_log, acceptance::acceptance_monitor,
             acceptance::acceptance_screen,
             acceptance::acceptance_open_window, acceptance::acceptance_window_step, acceptance::acceptance_window_state,
@@ -501,8 +575,16 @@ fn main() {
         .expect("Application failed to start")
         .run(|app, event| {
             if matches!(event, tauri::RunEvent::ExitRequested { .. }) {
+                APP_EXITING.store(true, Ordering::Release);
                 workspace_window_runtime::shutdown();
                 detached_geometry::shutdown(app);
+            }
+            #[cfg(target_os = "macos")]
+            if matches!(event, tauri::RunEvent::Reopen { .. }) {
+                let app = app.clone();
+                tauri::async_runtime::spawn_blocking(move || if let Err(error) = ensure_main_workspace(&app) {
+                    eprintln!("Could not recover main workspace: {error}");
+                });
             }
             if matches!(event, tauri::RunEvent::Exit) {
                 station_selection::shutdown(); station_telemetry::shutdown(); rotor_telemetry::shutdown(); cluster_session::shutdown(); winkeyer::shutdown(); hamlib::shutdown(); worker::shutdown();
@@ -513,7 +595,8 @@ fn main() {
 
 #[cfg(test)]
 mod workspace_layout_tests {
-    use super::{WorkspaceLayout, COMPACT_WORKSPACE_MENU_ID, STANDARD_WORKSPACE_MENU_ID};
+    use super::{WorkspaceLayout, DraftWake, recover_singleton, detached_window_shortcut, validate_detached_open, COMPACT_WORKSPACE_MENU_ID, STANDARD_WORKSPACE_MENU_ID};
+    use serde_json::json;
 
     #[test]
     fn menu_actions_have_exact_logical_inner_sizes() {
@@ -526,6 +609,71 @@ mod workspace_layout_tests {
         assert_eq!((compact.width, compact.height), (1000.0, 720.0));
         assert_eq!((standard.width, standard.height), (1440.0, 940.0));
         assert_eq!(WorkspaceLayout::from_menu_id("quit"), None);
+    }
+
+    #[test]
+    fn renderer_detached_open_gate_is_main_only_including_monitor_and_log_qso() {
+        assert!(validate_detached_open("main").is_ok());
+        for spec in crate::workspace_windows::SUPPORTED_WINDOWS {
+            assert!(validate_detached_open(spec.id).is_err(), "{}", spec.id);
+        }
+        for label in ["", "unknown", "MAIN"] { assert!(validate_detached_open(label).is_err()); }
+    }
+
+    #[test]
+    fn draft_wakes_only_confirmed_mutations_but_reconcile_uncertain_workspace_changes() {
+        let applied = json!({"ok":true,"result":{"status":"applied"}});
+        for action in ["replace", "clear", "save"] {
+            let wake = DraftWake::for_request(&json!({"method":"logbook_operator_draft_apply","params":{"action":action}}));
+            assert!(wake.confirmed(Some(&applied)));
+            for response in [json!({"ok":true,"result":{"status":"conflict"}}), json!({"ok":true,"result":{"status":"workspace_changed"}}), json!({"ok":false,"result":{"status":"applied"}}), json!({})] {
+                assert!(!wake.confirmed(Some(&response)));
+            }
+            assert!(!wake.confirmed(None));
+        }
+        for method in ["workspace_create", "backup_restore"] {
+            assert!(DraftWake::for_request(&json!({"method":method})).confirmed(None));
+        }
+        for method in ["logbook_operator_draft", "logbook_operator_draft_receipt", "lookup_call", "station_tune", "settings_load"] {
+            assert!(!DraftWake::for_request(&json!({"method":method})).confirmed(Some(&applied)));
+        }
+        assert!(!DraftWake::for_request(&json!({"method":"logbook_operator_draft_apply","params":{"action":"unknown"}})).confirmed(Some(&applied)));
+    }
+
+    #[test]
+    fn log_qso_native_shortcut_is_global_and_does_not_replace_embedded_screen_shortcut() {
+        assert_eq!(detached_window_shortcut("log-qso"), Some("CmdOrCtrl+L"));
+        assert_eq!(crate::workspace_navigation::screen("log-qso").unwrap().shortcut.as_deref(), Some("CmdOrCtrl+2"));
+        for window in crate::workspace_windows::SUPPORTED_WINDOWS {
+            if window.id != "log-qso" { assert_eq!(detached_window_shortcut(window.id), None); }
+        }
+    }
+
+    #[test]
+    fn main_recovery_serializes_concurrent_creators_and_reuses_existing_lifetime() {
+        use std::sync::{atomic::{AtomicUsize, Ordering}, Mutex};
+        let creation = Mutex::new(());
+        let live = Mutex::new(None);
+        let count = AtomicUsize::new(0);
+        std::thread::scope(|scope| {
+            let tasks: Vec<_> = (0..8).map(|_| scope.spawn(|| recover_singleton(&creation, || *live.lock().unwrap(), || {
+                let next = count.fetch_add(1, Ordering::AcqRel) + 1;
+                *live.lock().unwrap() = Some(next);
+                Ok(next)
+            }).unwrap())).collect();
+            for task in tasks { assert_eq!(task.join().unwrap(), 1); }
+        });
+        assert_eq!(count.load(Ordering::Acquire), 1);
+        *live.lock().unwrap() = None;
+        let next = recover_singleton(&creation, || *live.lock().unwrap(), || { *live.lock().unwrap() = Some(2); Ok(2) }).unwrap();
+        assert_eq!(next, 2);
+    }
+
+    #[test]
+    fn failed_main_creation_remains_retryable_without_claiming_a_window() {
+        let creation = std::sync::Mutex::new(());
+        assert!(recover_singleton::<u8>(&creation, || None, || Err("fixture failure".into())).is_err());
+        assert_eq!(recover_singleton(&creation, || None, || Ok(1)).unwrap(), 1);
     }
 
 }

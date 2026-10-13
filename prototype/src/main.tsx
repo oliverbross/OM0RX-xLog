@@ -5,6 +5,7 @@ import { UiScaleProvider } from "./live/uiScale";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { activateMapAcceptance } from "./acceptance";
 import "./surfaceStyles";
+import "./live/DetachedQSOSurface.css";
 import "./live/live.css";
 import "./style.css";
 import "maplibre-gl/dist/maplibre-gl.css";

@@ -1,9 +1,10 @@
 import { Radio } from "lucide-react";
+import type { ReactNode } from "react";
 import "./QSOHeader.css";
 
 export type ReferenceEvidence = { call: string; rows: Array<{ kind?: unknown; reference?: unknown; status?: unknown; name?: unknown }> };
 
-export default function QSOHeader({ title, id, call, evidence, duplicateDate }: { title: string; id?: string; call?: unknown; evidence?: ReferenceEvidence | null; duplicateDate?: string | null }) {
+export default function QSOHeader({ title, id, call, evidence, duplicateDate, actions }: { title: string; id?: string; call?: unknown; evidence?: ReferenceEvidence | null; duplicateDate?: string | null; actions?: ReactNode }) {
   const current = String(call ?? "").trim().toUpperCase();
   const rows = current && evidence?.call.trim().toUpperCase() === current ? evidence.rows : [];
   return <header className="qso-panel-header">
@@ -15,5 +16,6 @@ export default function QSOHeader({ title, id, call, evidence, duplicateDate }: 
       </span>)}
     </span>}
     {duplicateDate && <span className="qso-dupe-status" role="status" title="Previously worked on this band and mode · UTC date">Dupe: Worked on {duplicateDate}</span>}
+    {actions}
   </header>;
 }

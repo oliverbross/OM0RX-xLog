@@ -16,7 +16,7 @@ const RESPONSE_TIMEOUT: Duration = Duration::from_secs(45);
 pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     validate_request(request)?;
     if request["method"] == "workspace_layout_load" {
-        return if matches!(label, "main" | "monitor" | "world-map" | "band-maps" | "dx-cluster" | "logbook" | "awards") {
+        return if matches!(label, "main" | "monitor" | "world-map" | "band-maps" | "dx-cluster" | "log-qso" | "logbook" | "awards") {
             Ok(())
         } else { Err("This window cannot read the shared workspace layout.".into()) };
     }
@@ -25,6 +25,13 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     }
     if request["method"] == "station_power_selection" {
         return Err("Only the native radio owner can publish power selection.".into());
+    }
+    if label == "log-qso" {
+        return if matches!(request["method"].as_str(), Some("logbook_operator_draft"
+            | "logbook_operator_draft_apply" | "logbook_operator_draft_receipt"
+            | "lookup_call" | "logbook_previous" | "logbook_matrix" | "cluster_history")) {
+            Ok(())
+        } else { Err("Log QSO can only edit the shared new-contact draft and read its lookup evidence.".into()) };
     }
     if label == "awards" {
         return if matches!(request["method"].as_str(), Some("logbook_stats" | "logbook_catalog")) {
@@ -649,11 +656,28 @@ mod tests {
     use serde_json::json;
 
     #[test]
+    fn detached_qso_has_only_canonical_draft_and_required_lookup_reads() {
+        for method in ["logbook_operator_draft", "logbook_operator_draft_apply", "logbook_operator_draft_receipt",
+            "lookup_call", "logbook_previous", "logbook_matrix", "cluster_history", "workspace_layout_load"] {
+            assert!(validate_surface("log-qso", &json!({"id":"qso","method":method,"params":{}})).is_ok(), "{method}");
+        }
+        for method in ["settings_load", "settings_save", "workspace_preferences_save", "workspace_layout_apply", "workspace_create",
+            "backup_create", "backup_restore", "sync_summary", "sync_run", "secret_save", "secret_status",
+            "logbook_draft", "logbook_save", "logbook_list", "logbook_contact", "logbook_contact_apply", "logbook_import_adif",
+            "reference_status", "reference_resolve", "reference_refresh", "reference_schedule", "reference_configure",
+            "station_snapshot", "station_power_selection", "station_configuration", "station_connect", "station_disconnect",
+            "station_action", "station_tune", "station_radio_control", "cluster_snapshot", "cluster_resume", "cluster_connect",
+            "rotor_stop", "station_rotor_stop", "hamlib_control", "winkeyer_snapshot", "health"] {
+            assert!(validate_surface("log-qso", &json!({"id":"qso","method":method,"params":{}})).is_err(), "{method}");
+        }
+    }
+
+    #[test]
     fn power_selection_is_native_only_on_every_renderer_surface() {
         let request = json!({"id":"selection", "method":"station_power_selection",
             "params":{"provider":"direct_agent","selection_id":uuid::Uuid::new_v4().to_string()}});
         assert!(validate_request(&request).is_ok());
-        for label in ["main", "monitor", "logbook", "awards", "world-map", "band-maps", "dx-cluster", "unknown", ""] {
+        for label in ["main", "monitor", "log-qso", "logbook", "awards", "world-map", "band-maps", "dx-cluster", "unknown", ""] {
             assert!(validate_surface(label, &request).is_err(), "{label}");
         }
     }
@@ -756,7 +780,7 @@ mod tests {
         for method in ["workspace_layout_load", "workspace_layout_apply"] {
             let request = json!({"id":"layout-test","method":method,"params":{}});
             assert!(validate_surface("main", &request).is_ok());
-            for label in ["monitor", "logbook", "awards", "world-map", "band-maps", "dx-cluster", "unknown"] {
+            for label in ["monitor", "log-qso", "logbook", "awards", "world-map", "band-maps", "dx-cluster", "unknown"] {
                 assert_eq!(validate_surface(label, &request).is_ok(), method == "workspace_layout_load" && label != "unknown", "{label}: {method}");
             }
         }

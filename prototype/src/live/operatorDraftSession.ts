@@ -120,6 +120,9 @@ export class OperatorDraftSession {
   private restoring = false;
   private version = 0;
   private lifecycle = 0;
+  private readSequence = 0;
+  private localInputPending = false;
+  setLocalInputPending = (pending: boolean) => { this.localInputPending = pending; };
   constructor(private request: Request, private writeJournal: (journal: DraftJournal) => void,
     journal: DraftJournal | null = null, private uuid: () => string = () => crypto.randomUUID()) {
     journal = clone(journal);
@@ -173,18 +176,28 @@ export class OperatorDraftSession {
     return this.loading;
   }
   async refresh() {
+    if (this.localInputPending) return;
     if (this.state.workspaceChanged) return;
     if (this.work || this.action || this.state.locked && !this.state.pending) return;
     const lifecycle = this.lifecycle;
     if (this.state.pending) { await this.reconcile(); return; }
-    const result = await this.request("logbook_operator_draft");
-    if (lifecycle !== this.lifecycle || this.work || this.action || this.state.pending) return;
+    const sequence = ++this.readSequence;
+    let result;
+    try { result = await this.request("logbook_operator_draft"); }
+    catch (cause) {
+      if (sequence !== this.readSequence || lifecycle !== this.lifecycle) return;
+      throw cause;
+    }
+    if (this.localInputPending || sequence !== this.readSequence || lifecycle !== this.lifecycle || this.work || this.action || this.state.pending) return;
     if (!validScopedSnapshot(result?.draft)) throw new Error("The shared draft response could not be verified.");
     this.receiveSnapshot(result.draft);
   }
   /** Consume a correlated worker snapshot without issuing another request. */
   receiveSnapshot(current: DraftSnapshot) {
     if (!validScopedSnapshot(current)) throw new Error("The shared draft response could not be verified.");
+    // Wake, reload, settings and direct snapshots share one freshness fence.
+    this.readSequence++;
+    if (this.localInputPending) return;
     if (!this.state.workspaceChanged) this.acceptCurrent(current);
   }
   private acceptCurrent(current: DraftSnapshot) {

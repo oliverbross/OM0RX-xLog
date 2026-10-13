@@ -35,6 +35,46 @@ function fixture() {
 const type = (session: OperatorDraftSession, call: string) => session.edit({ ...session.getSnapshot().draft!, call });
 const deferred = <T>() => { let resolve!: (value: T) => void; const promise = new Promise<T>(done => { resolve = done; }); return { resolve, promise }; };
 
+it("ignores an older overlapping reload after a newer wake response", async () => {
+  const f = fixture(), session = f.make(); await session.load();
+  const old = copy(f.current), gate = deferred<any>();
+  f.request.mockImplementationOnce(() => gate.promise);
+  const loading = session.load();
+  f.current.revision++; f.current.qso.call = "NEWER";
+  await session.refresh(); gate.resolve({ draft: old }); await loading;
+  expect(session.getSnapshot()).toMatchObject({ draft: { call: "NEWER" }, conflict: null, workspaceChanged: false });
+});
+it("fences an in-flight read when a direct canonical snapshot arrives", async () => {
+  const f = fixture(), session = f.make(); await session.load();
+  const old = copy(f.current), gate = deferred<any>();
+  f.request.mockImplementationOnce(() => gate.promise);
+  const loading = session.refresh();
+  f.current.revision++; f.current.qso.call = "DIRECT";
+  session.receiveSnapshot(copy(f.current)); gate.resolve({ draft: old }); await loading;
+  expect(session.getSnapshot()).toMatchObject({ draft: { call: "DIRECT" }, conflict: null });
+});
+it("retains the docked draft during unfinished local input and refreshes after correction", async () => {
+  const f = fixture(), session = f.make(); await session.load();
+  session.setLocalInputPending(true);
+  f.current.revision++; f.current.qso.id = "remote-clear";
+  const before = f.request.mock.calls.length;
+  await session.load(); await session.refresh(); session.receiveSnapshot(copy(f.current));
+  expect(f.request.mock.calls.length).toBe(before);
+  expect(session.getSnapshot().draft?.id).toBe("draft-1");
+  session.setLocalInputPending(false); await session.refresh();
+  expect(session.getSnapshot().draft?.id).toBe("remote-clear");
+});
+it("does not apply a read that began before unfinished field input", async () => {
+  const f = fixture(), session = f.make(); await session.load();
+  const gate = deferred<any>(); f.request.mockImplementationOnce(() => gate.promise);
+  const loading = session.refresh(); session.setLocalInputPending(true);
+  f.current.revision++; f.current.qso.id = "remote-clear";
+  gate.resolve({ draft: copy(f.current) }); await loading;
+  expect(session.getSnapshot().draft?.id).toBe("draft-1");
+  session.setLocalInputPending(false); await session.refresh();
+  expect(session.getSnapshot().draft?.id).toBe("remote-clear");
+});
+
 it("does not replace a restored draft even when its ID and revision match", async () => {
   const f = fixture(), session = f.make(); await session.load(); type(session, "MYTEXT");
   f.current.generation = crypto.randomUUID();

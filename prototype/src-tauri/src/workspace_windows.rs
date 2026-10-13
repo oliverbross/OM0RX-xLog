@@ -9,7 +9,8 @@ pub struct WindowSpec {
     pub width: f64,
     pub height: f64,
 }
-pub const SUPPORTED_WINDOWS: [WindowSpec; 6] = [
+pub const SUPPORTED_WINDOWS: [WindowSpec; 7] = [
+    WindowSpec { id: "log-qso", title: "OM0RX-xLog — Log QSO", width: 800.0, height: 800.0 },
     WindowSpec { id: "monitor", title: "OM0RX-xLog — Station Monitor", width: 780.0, height: 600.0 },
     WindowSpec { id: "world-map", title: "OM0RX-xLog — World Map", width: 1100.0, height: 720.0 },
     WindowSpec { id: "band-maps", title: "OM0RX-xLog — Band Maps", width: 920.0, height: 760.0 },
@@ -169,10 +170,25 @@ mod tests {
     #[test]
     fn registry_covers_only_real_windows() {
         let ids: BTreeSet<_> = SUPPORTED_WINDOWS.iter().map(|window| window.id).collect();
-        assert_eq!(ids.len(), 6);
+        assert_eq!(ids.len(), 7);
+        let capabilities: Value = serde_json::from_str(include_str!("../capabilities/default.json")).unwrap();
+        for id in &ids { assert!(capabilities["windows"].as_array().unwrap().contains(&json!(id))); }
         for window in SUPPORTED_WINDOWS { assert!(supports(window.id)); assert!(window.width >= 640.0 && window.height >= 480.0); }
         for role in ROLES { assert_eq!(supports(role), ids.contains(role)); }
         assert!(!supports("main")); assert!(!supports("unknown"));
+    }
+    #[test]
+    fn qso_window_intent_is_singleton_independent_of_main_and_passive_reads() {
+        let mut planner = WorkspaceWindowPlanner::default();
+        let snapshot = fixture(&["log-qso"]);
+        let plan = planner.plan(&snapshot, false).unwrap();
+        assert_eq!(plan.show, ["log-qso"]);
+        assert!(plan.hide.is_empty());
+        apply(&mut planner, &plan);
+        planner.forget_destroyed("log-qso");
+        assert!(planner.plan(&snapshot, false).unwrap().show.is_empty());
+        assert_eq!(planner.plan(&snapshot, true).unwrap().show, ["log-qso"]);
+        assert!(!supports("main"));
     }
     #[test]
     fn rejects_unsupported_requests_before_any_ownership_change() {
@@ -214,15 +230,15 @@ mod tests {
     #[test]
     fn successful_completion_is_idempotent_and_generation_replacement_reapplies() {
         let mut planner = WorkspaceWindowPlanner::default();
-        let mut snapshot = fixture(&["monitor", "world-map", "band-maps", "dx-cluster", "logbook", "awards"]);
+        let mut snapshot = fixture(&["monitor", "world-map", "band-maps", "dx-cluster", "log-qso", "logbook", "awards"]);
         let plan = planner.plan(&snapshot, false).unwrap(); apply(&mut planner, &plan);
         assert!(planner.plan(&snapshot, false).unwrap().show.is_empty());
         snapshot["revision"] = json!(3); assert!(planner.plan(&snapshot, false).is_err());
         snapshot["generation"] = json!("AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA");
-        let plan = planner.plan(&snapshot, false).unwrap(); assert_eq!(plan.show.len(), 6);
+        let plan = planner.plan(&snapshot, false).unwrap(); assert_eq!(plan.show.len(), 7);
         assert_eq!(plan.generation, "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"); apply(&mut planner, &plan);
         let hidden = fixture(&[]); let plan = planner.plan(&hidden, false).unwrap();
-        assert_eq!(plan.hide.len(), 6); apply(&mut planner, &plan);
+        assert_eq!(plan.hide.len(), 7); apply(&mut planner, &plan);
         assert!(planner.plan(&hidden, false).unwrap().hide.is_empty());
     }
     #[test]
