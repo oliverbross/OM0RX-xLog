@@ -15,18 +15,27 @@
 .live-logbook-search input:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 .live-logbook-feedback { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px; border-radius: 5px; color: var(--teal); background: #102a2c; }
 .live-logbook-feedback.error { color: var(--error); background: #321b25; }
-.live-logbook-table-wrap { flex: 1 1 0; min-height: 60px; overflow: auto; border-top: 1px solid var(--border); }
+.live-logbook-table-wrap { flex: 1 1 0; min-height: 60px; min-width: 0; overflow: auto; border-top: 1px solid var(--border); scrollbar-color: var(--border) var(--panel); }
+.live-logbook-table-wrap:focus-visible { outline: 2px solid var(--cyan); outline-offset: -2px; }
 .live-logbook-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 12px; font-variant-numeric: tabular-nums; }
 .live-logbook-table { table-layout: fixed; }
 .live-logbook-table th { position: sticky; top: 0; z-index: 1; background: #191e23; color: var(--text); font-size: 11px; font-weight: 600; }
 .live-logbook-table th, .live-logbook-table td { padding: 4px 7px; line-height: 20px; vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.live-logbook-table th:nth-child(1) { width: 154px; }
-.live-logbook-table th:nth-child(2) { width: 15%; }
-.live-logbook-table th:nth-child(3) { width: 105px; }
-.live-logbook-table th:nth-child(4) { width: 105px; }
-.live-logbook-table th:nth-child(5) { width: 92px; }
-.live-logbook-table th:nth-child(7), .live-logbook-table th:nth-child(8) { width: 51px; }
-.live-logbook-table th:nth-child(9) { width: 67px; }
+.live-logbook-table th > span:first-child { display: block; overflow: hidden; text-overflow: ellipsis; }
+.live-logbook-table th { padding-right: 12px; }
+.live-logbook-table td[hidden] { display: none; }
+.live-logbook-table .live-logbook-call, .live-logbook-table .live-logbook-call-header { position: sticky; left: 0; background: inherit; z-index: 1; }
+.live-logbook-table .live-logbook-call-header { z-index: 2; background: #191e23; }
+.live-logbook-column-resizer { position: absolute; right: 0; top: 0; bottom: 0; width: 7px; cursor: col-resize; touch-action: none; border-right: 1px solid var(--border); }
+.live-logbook-column-resizer:hover, .live-logbook-column-resizer:focus-visible { background: var(--cyan); outline: 1px solid var(--cyan); outline-offset: -1px; }
+.live-logbook-columns { flex: none; display: flex; flex-direction: column; min-height: 0; padding: 10px; background: var(--panel); border-block: 1px solid var(--border); max-height: 45vh; overflow: hidden; }
+.live-logbook-column-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: 8px 16px; min-height: 0; overflow: auto; scrollbar-color: var(--border) var(--panel); }
+.live-logbook-column-fields > div, .live-logbook-column-fields label { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.live-logbook-column-fields > div { justify-content: space-between; }
+.live-logbook-column-fields input[type="number"] { width: 70px; min-width: 0; }
+.live-logbook-column-fields input:focus-visible, .live-logbook-column-actions button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.live-logbook-column-actions { display: flex; flex: none; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.live-logbook-column-actions p { flex: 1 1 220px; color: var(--secondary); margin: 0; }
 .live-logbook-table td { border-bottom: 0; }
 .live-logbook-table th { padding-block: 7px; border-bottom: 1px solid var(--border); }
 .live-logbook-table tbody tr { background: #202020; cursor: default; }
@@ -62,11 +71,6 @@
 .live-logbook-details-qsl dd { display: flex; flex-wrap: wrap; gap: 6px 12px; }
 .live-logbook-details-qsl dd > span { white-space: nowrap; }
 @container (max-width: 1050px) {
-  .live-logbook-table th:nth-child(n+5), .live-logbook-table td:nth-child(n+5) { display: none; }
-  .live-logbook-table th:nth-child(1) { width: 28%; }
-  .live-logbook-table th:nth-child(2) { width: 30%; }
-  .live-logbook-table th:nth-child(3) { width: 21%; }
-  .live-logbook-table th:nth-child(4) { width: 21%; }
   .live-logbook-head > div:first-child { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
   .live-logbook-head h2, .live-logbook-head p { margin: 0; }
   .live-logbook-actions { justify-content: flex-start; }

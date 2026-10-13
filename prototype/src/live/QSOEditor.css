@@ -20,6 +20,13 @@
 .qso-editor button:disabled { opacity:.5; cursor:not-allowed; }
 .qso-read-radio { align-self:end; }
 .qso-time-row { display:flex; align-items:end; justify-content:space-between; gap:12px; margin-top:12px; }
+.qso-timing { min-width:0; flex:1; }
+.qso-country-identity { display:flex; align-items:baseline; gap:4px; min-width:0; margin-bottom:4px; color:#a5b9cc; font-size:10px; font-weight:650; line-height:1.45; }
+.qso-country-identity>span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.qso-country-identity>small { flex:none; font:inherit; }
+.qso-country-confirmed { color:#12d6a0; }
+.qso-country-worked { color:#ff8c00; }
+.qso-country-new { color:#ff6b5e; }
 .qso-utc { display:flex; align-items:end; gap:6px; min-width:0; flex:1; }
 .qso-utc strong { align-self:center; color:#e5edf7; font-size:11px; }
 .qso-utc label { flex:1; }

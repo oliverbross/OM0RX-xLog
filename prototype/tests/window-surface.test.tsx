@@ -1,9 +1,10 @@
 import { beforeEach, expect, it, vi } from "vitest";
-const loaded = vi.hoisted(() => ({ main: vi.fn(), awards: vi.fn(), logbook: vi.fn(), qso: vi.fn(), cluster: vi.fn() }));
+const loaded = vi.hoisted(() => ({ main: vi.fn(), awards: vi.fn(), logbook: vi.fn(), qso: vi.fn(), cluster: vi.fn(), history: vi.fn() }));
 vi.mock("../src/LiveApp", () => { loaded.main(); return { default: "main-surface" }; });
 vi.mock("../src/live/DetachedAwardsSurface", () => { loaded.awards(); return { DetachedAwardsSurface: "awards-surface" }; });
 vi.mock("../src/live/DetachedLogbookSurface", () => { loaded.logbook(); return { DetachedLogbookSurface: "logbook-surface" }; });
 vi.mock("../src/live/DetachedQSOSurface", () => { loaded.qso(); return { DetachedQSOSurface: "qso-surface" }; });
+vi.mock("../src/live/DetachedSpotHistorySurface", () => { loaded.history(); return { DetachedSpotHistorySurface: "history-surface" }; });
 vi.mock("../src/live/DetachedClusterSurface", () => { loaded.cluster(); return { DetachedClusterSurface: "cluster-surface" }; });
 beforeEach(() => { vi.resetModules(); Object.values(loaded).forEach(mock => mock.mockClear()); });
 it("loads detached surfaces without evaluating the main station controller", async () => {
@@ -11,10 +12,12 @@ it("loads detached surfaces without evaluating the main station controller", asy
   expect(await loadWindowSurface("?view=awards")).toBe("awards-surface");
   expect(await loadWindowSurface("?view=logbook&acceptance=local")).toBe("logbook-surface");
   expect(await loadWindowSurface("?view=log-qso")).toBe("qso-surface");
+  expect(await loadWindowSurface("?view=spot-history")).toBe("history-surface");
   expect(await loadWindowSurface("?view=dx-cluster")).toBe("cluster-surface");
   expect(loaded.awards).toHaveBeenCalled(); expect(loaded.logbook).toHaveBeenCalled(); expect(loaded.cluster).toHaveBeenCalled();
   expect(loaded.main).not.toHaveBeenCalled();
   expect(loaded.qso).toHaveBeenCalledOnce();
+  expect(loaded.history).toHaveBeenCalledOnce();
 });
 it("retains main, Monitor and map routing", async () => {
   const { loadWindowSurface } = await import("../src/windowSurface");
@@ -26,5 +29,12 @@ it("does not fall back to the main station controller after a child chunk fails"
   vi.doMock("../src/live/DetachedAwardsSurface", () => { throw new Error("chunk unavailable"); });
   const { loadWindowSurface } = await import("../src/windowSurface");
   await expect(loadWindowSurface("?view=awards")).rejects.toThrow();
+  expect(loaded.main).not.toHaveBeenCalled();
+});
+
+it("does not mount the main controller when the archive child cannot load", async () => {
+  vi.doMock("../src/live/DetachedSpotHistorySurface", () => { throw new Error("archive chunk unavailable"); });
+  const { loadWindowSurface } = await import("../src/windowSurface");
+  await expect(loadWindowSurface("?view=spot-history")).rejects.toThrow();
   expect(loaded.main).not.toHaveBeenCalled();
 });

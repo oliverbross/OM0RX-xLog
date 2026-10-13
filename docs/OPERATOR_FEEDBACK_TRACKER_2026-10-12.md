@@ -7,6 +7,10 @@ packaged UI result. Keep unresolved items here across releases.
 
 ## Current delivery boundary
 
+- **Current installed baseline — 14 October:** Integration **0.4.0-alpha.15**, source `a2c04468909928f0a9a95372892582750e0f4eb0`, is signed, notarized, installed and published. Installed Mac checks confirm the revised intermediate-width desk, contained RST R, recovered cluster startup and real spot reception with the radio offline. The last verified local count was 67,970, with the NJ9L draft preserved. Detailed evidence is at the end of this document. Earlier checkpoints and “not installed” table entries are historical source-stage evidence, not the current package inventory; inclusion in alpha.15 does not imply every feature has received native/operator acceptance.
+- **Current source-only Mac-first stage — 14 October:** UI-29 (country/DXCC context), UI-39's configurable Logbook-column foundation, an independent Spot History window, and native sync-completion notifications are implemented and undergoing combined verification. RADIO-05 (Clear after QSY) has a shared-draft safety/design review, not a working setting. Alpha.15 remains running while the user tests; this stage does not replace it. Full map/logbook stacking, all-panel undocking, cloud backup and remaining native acceptance remain open.
+- **Full-list clarification — 14 October:** Alpha.15 is not fully windowed or RUMlog-parity complete. Its native inventory has seven supported windows versus 21 panel roles; the new source adds Spot History as the eighth. Maps/Monitor still depend on main-renderer projections. [RUMlog comparison](RUMLOG_WORKFLOW_GAP_AUDIT_2026-10-14.md) records actual native Window-menu observations, official-documentation comparisons and uninspected Settings/menu scope. DATA-10 has existing basic ADI import/export, not the requested complete preview/scope workflow. Performance and live sync acceptance remain separate from source fixes. A fresh read-only local snapshot has 67,972 active contacts, all mapped to Wavelog IDs, zero dirty rows, zero outbox entries and zero conflicts; the remote count was not independently checked.
+
 - **13 October Mac refresh:** User explicitly requested updating the installed app and prioritizing macOS before further Windows/Linux work. Installed signed/notarized `df38763` (Mac resource-packaging correction over `5ab88fb`), with Spot History, shared draft/contact recovery, native menus and saved workspace settings. Verified the installed app loads 67,906 contacts, ShackCQ receives live spots, and the separate archive contains 101 reports. No RF commands were issued by the agent. See [Mac refresh evidence](MAC_REFRESH_2026-10-13.md); this is a bounded installed smoke check, not full parity acceptance. The unfinished native-attempt/status refinement remains uninstalled.
 
 - **13 October Workspace settings / CI follow-up:** Settings now manages named layouts independently of connection settings: inspect, duplicate, rename, choose supported panels, lock/snap, explicitly activate, or delete an inactive custom layout. Traditional remains protected; Spot History is an optional canvas panel. Stale full-preset edits reject before writing and retain the draft. Source tests and synthetic compact/desktop/4K-scaled review pass; native installed verification and remaining windowed roles are open. Exact `6683d1b` CI failed on a Windows resolver test scheduling assumption and a missing Rust history acceptance allowlist; both are corrected in source, not yet runtime reaccepted. See workspace checkpoint Z and the corrected Spot History acceptance evidence.
@@ -17,7 +21,7 @@ packaged UI result. Keep unresolved items here across releases.
 - **HISTORY-01 (13 October):** First Spot History source slice implemented using the audited `om0rx-radio-control` reference and [implementation contract](SPOT_HISTORY_IMPLEMENTATION_PLAN_2026-10-13.md). Separate SQLite archive retains individual reports before live grouping, original source/comment, arrival/report UTC provenance and durable recording-health evidence. Native View/menu route, main-only read API, bounded writer, stable paged search and full-scope statistics are integrated. Full frontend (579), Rust (154) and rebuilt portable Swift suites pass; compact/desktop/4K synthetic browser review passed. [Source acceptance](SPOT_HISTORY_SOURCE_ACCEPTANCE_2026-10-13.md) records exact counts, benchmark and limits. Advanced filters, export/retention, richer charts and detached history remain follow-up scope. New exact-SHA CI and installed acceptance are pending; the running app is not yet recording history.
 
 - Working tree: shared cross-platform xLog; Mac-first delivery.
-- Currently installed: Integration alpha.13, source `df387639b77e55d92821560b0cdc5c54fbe2f945` (signed/notarized Mac refresh; version label remains alpha.13, embedded source/provenance identifies the update). Earlier 21-check acceptance belongs to `e126d6f4`, not this package. Wider parity gates remain open.
+- Historical 13 October installed checkpoint: Integration alpha.13, source `df387639b77e55d92821560b0cdc5c54fbe2f945` (superseded by alpha.15 above). Earlier 21-check acceptance belongs to `e126d6f4`, not this package. Wider parity gates remain open.
 - Individual runtime checks and remaining gates are recorded below and in the alpha.7 acceptance report.
 - Restart of Integration was explicitly approved once the build passes.
 - Preserve the latest operator draft, all logbooks/settings/credentials, and
@@ -932,3 +936,61 @@ Final alpha.15 source verification: all 787 frontend tests in 95 files pass (one
 Alpha.15 installed and published: source `a2c04468909928f0a9a95372892582750e0f4eb0`; Apple notarization `27706580-8b99-4dda-8460-48d99495d939` Accepted, ticket stapled and Gatekeeper accepted. ZIP SHA-256 `3a8b3f6d1a28c57db7f41c89c7d311fa38dc3e9c29a56b7dfc5534474612a351`. Release: https://github.com/oliverbross/OM0RX-xLog/releases/tag/v0.4.0-alpha.15 . Exact installed host/worker hashes match the candidate, version is 0.4.0-alpha.15, and one host/worker pair runs with no Hamlib helper processes. The original app and user data/settings/credentials were not replaced; only Integration was updated in place, without another archived app copy.
 
 Installed WebKit inspection at the operator's current width confirms the three top panels on one row, Active QSO fields reflowed with RST R contained, and no cluster preference warning. ShackCQ received new real spots (0 to 3, including CE2II, H49A and FS5GL) while radio remained offline. Post-restart SQLite: 67,970 contacts, zero dirty, same NJ9L draft ID/revision 137, quick_check ok. No test QSO was inserted, no manual sync or station command issued. CI `38475678099` passes for the release source; cross-platform run `38475678109` is still in progress at handoff and is not claimed as accepted. Broader canvas/all-panel undocking, native main-absent recovery, hardware/Windows/Linux parity and the remaining feedback entries remain open.
+
+## 14 October — continued Mac-first source stage while alpha.15 is tested
+
+Three Sol-high agents implemented and independently reviewed bounded slices in
+parallel. The installed alpha.15 application was not restarted or replaced.
+
+- UI-29: the shared full editor now places compact country/DXCC context above
+  UTC, aligned with the reports. Confirmed/worked/new uses green/orange/red only
+  after matching complete DXCC history is available; stale, missing or failed
+  evidence stays neutral. Logbook-change events invalidate same-call results and
+  fence late replies. Synthetic geometry covers 40 state/width combinations.
+- UI-39 foundation: Logbook has visible-column selection, bounded pointer and
+  keyboard width controls, and separate docked/detached preferences. Callsign
+  remains visible and pinned while the table scrolls. Compact column controls,
+  selection and mutation protections remain tested. This does not implement
+  map replacement, stacked map/logbook rows, column ordering or desk-specific
+  preferences; UI-39 is still partial.
+- Spot History is the eighth independent native window in source, with its own
+  lightweight entry and four read-only archive methods. It reuses the existing
+  archive owner, creates no recorder/cluster connection, and supports Dock back.
+  Scoped IPC denial, singleton planning and frontend recovery tests pass.
+  Desktop, compact and minimum-size actual-component fixtures have no horizontal
+  document overflow or forbidden service access. Main-absent packaged lifecycle
+  and native Dock-back recreation remain unverified.
+- Automatic-sync completion observation moves from the main renderer to a
+  single native owner. It reads only `sync_summary`, waits five seconds after
+  each response, emits payload-free invalidation and fences late shutdown replies.
+  Existing-worker-only transport cannot start/restart a worker and retains the
+  existing generation-announcement barrier. Browser-only fallback remains.
+  This is a notification fix, not a change to reconciliation or deletion policy.
+  Existing 45-second transport-failure retirement behavior remains unchanged;
+  the monitor itself does not recover a retired worker.
+
+The first combined frontend run found one obsolete single-listener test mock;
+it was changed to model independent subscriptions and cleanup, with no deadline
+or production-safety relaxation. Final full frontend run passes **839 tests in
+100 files**, one worker, 156.64 seconds. All **225 Rust tests** pass (207 unit
+plus 18 integration). TypeScript, Vite production build and every detached
+window bundle budget pass. Spot History's complete entry closure is 277,890
+bytes (86,917 gzip), without Main/Map. Existing large-main-chunk and static/dynamic
+Map import warnings remain. No Swift production source changed in this stage;
+its full test suite was not rerun. These results do not replace packaged native
+main-absent, live sync or hardware acceptance.
+
+RADIO-05 remains design-only: clearing after QSY requires authoritative fresh RX
+observations and a native generation/draft/revision fence, plus acknowledgements
+from every active editor protecting unsaved input. First observations,
+reconnects, stale telemetry, unresolved spot tuning and missing acknowledgements
+must not clear a draft. No non-working setting or telemetry-triggered manual
+Clear shortcut was introduced.
+
+Read-only live evidence: 67,972 active local QSOs, all with Wavelog IDs, zero
+dirty rows, outbox entries or conflicts. No manual sync, synthetic live QSO,
+remote write, credential change or hardware action was performed. The direct
+remote count, end-to-end save latency and full-window operation are not proved
+by this snapshot. The [RUMlog gap audit](RUMLOG_WORKFLOW_GAP_AUDIT_2026-10-14.md)
+records partial native menu inspection, primary documentation and remaining
+import/export, Settings, cloud backup and workflow scope.

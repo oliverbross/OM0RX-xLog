@@ -78,7 +78,7 @@ describe("QSOEditor", () => {
     render(<Harness lookup={{ call: "EA7EU", source: "QRZ XML", country: "Spain", dxcc: 281 }} request={request} />);
     fireEvent.change(screen.getByLabelText("Country"), { target: { value: "ENGLAND" } });
     fireEvent.change(screen.getByLabelText("DXCC"), { target: { value: "223" } });
-    await screen.findByText("Spain · DXCC 281");
+    await within(screen.getByRole("region", { name: "Band / mode matrix" })).findByText("Spain · DXCC 281");
     expect(screen.getByText(/Draft country\/DXCC differs from this lookup/)).toBeTruthy();
     expect(value()).toMatchObject({ country: "ENGLAND", dxcc: 223 });
     expect(within(screen.getByRole("complementary", { name: "Contact context" })).getByText("Spain")).toBeTruthy();

@@ -49,12 +49,12 @@ it("keeps polling after a transient read failure", async () => {
   stop();
 });
 
-it("uses native completion events without also refreshing from the poll", async () => {
+it("leaves native completion monitoring entirely to the application owner", async () => {
   native.desktop = true;
   const request = vi.fn().mockResolvedValueOnce({ running: false })
     .mockResolvedValue({ running: false, completion_id: "new" });
   const changed = vi.fn(), stop = watchSyncCompletion(request, changed);
   await vi.advanceTimersByTimeAsync(15_000);
-  expect(request).toHaveBeenCalledTimes(4); expect(changed).not.toHaveBeenCalled();
+  expect(request).not.toHaveBeenCalled(); expect(changed).not.toHaveBeenCalled();
   stop();
 });

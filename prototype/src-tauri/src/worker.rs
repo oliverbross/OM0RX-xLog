@@ -16,7 +16,7 @@ const RESPONSE_TIMEOUT: Duration = Duration::from_secs(45);
 pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     validate_request(request)?;
     if request["method"] == "workspace_layout_load" {
-        return if matches!(label, "main" | "monitor" | "world-map" | "band-maps" | "dx-cluster" | "log-qso" | "logbook" | "awards") {
+        return if matches!(label, "main" | "monitor" | "world-map" | "band-maps" | "dx-cluster" | "log-qso" | "spot-history" | "logbook" | "awards") {
             Ok(())
         } else { Err("This window cannot read the shared workspace layout.".into()) };
     }
@@ -37,6 +37,12 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
         return if matches!(request["method"].as_str(), Some("logbook_stats" | "logbook_catalog")) {
             Ok(())
         } else { Err("Awards can only read local statistics and the awards catalogue.".into()) };
+    }
+    if label == "spot-history" {
+        return if matches!(request["method"].as_str(), Some("spot_history_status" | "spot_history_query"
+            | "spot_history_detail" | "spot_history_stats")) {
+            Ok(())
+        } else { Err("Spot History can only read the local report archive.".into()) };
     }
     if label == "logbook" {
         return if matches!(request["method"].as_str(), Some("logbook_list" | "logbook_contact"
@@ -502,18 +508,32 @@ fn start() -> Result<Arc<Session>, String> {
 }
 
 fn active_session() -> Result<Arc<Session>, String> {
-    session_from_registry(SESSION.get_or_init(|| Mutex::new(None)), start, |session| {
-        if LOCAL_ACCEPTANCE.get() != Some(&true) {
-            let exact_session = session.clone();
-            crate::station_selection::worker_generation_started(
-                session.generation,
-                Arc::new(move |request| {
-                    validate_request(&request)?;
-                    request_in_session(&exact_session, request, RESPONSE_TIMEOUT)
-                }),
-            );
-        }
-    })
+    session_from_registry(SESSION.get_or_init(|| Mutex::new(None)), start, announce_session)
+}
+
+fn announce_session(session: &Arc<Session>) {
+    if LOCAL_ACCEPTANCE.get() != Some(&true) {
+        let exact_session = session.clone();
+        crate::station_selection::worker_generation_started(
+            session.generation,
+            Arc::new(move |request| {
+                validate_request(&request)?;
+                request_in_session(&exact_session, request, RESPONSE_TIMEOUT)
+            }),
+        );
+    }
+}
+
+fn existing_session_from_registry(
+    registry: &Mutex<Option<Arc<Session>>>,
+    started: impl FnOnce(&Arc<Session>),
+) -> Result<Arc<Session>, String> {
+    session_from_registry(registry, || Err("Station service has not started".into()), started)
+}
+
+fn existing_session() -> Result<Arc<Session>, String> {
+    let registry = SESSION.get().ok_or("Station service has not started")?;
+    existing_session_from_registry(registry, announce_session)
 }
 
 fn session_from_registry(
@@ -574,6 +594,16 @@ pub fn shutdown() {
 }
 
 pub fn request(request: Value) -> Result<Value, String> {
+    request_using(request, active_session)
+}
+
+/// Background observation must not create or replace a worker. Normal native
+/// startup/foreground requests retain sole authority to start a generation.
+pub fn request_existing(request: Value) -> Result<Value, String> {
+    request_using(request, existing_session)
+}
+
+fn request_using(request: Value, session: impl FnOnce() -> Result<Arc<Session>, String>) -> Result<Value, String> {
     validate_request(&request)?;
     IN_FLIGHT
         .fetch_update(Ordering::AcqRel, Ordering::Acquire, |count| {
@@ -581,7 +611,7 @@ pub fn request(request: Value) -> Result<Value, String> {
         })
         .map_err(|_| "Prototype worker is busy; try again")?;
     let _slot = RequestSlot;
-    let session = active_session()?;
+    let session = session()?;
     request_in_session(&session, request, RESPONSE_TIMEOUT)
 }
 
@@ -694,17 +724,32 @@ mod tests {
     }
 
     #[test]
-    fn spot_history_reads_are_scoped_to_main_workspace() {
+    fn spot_history_reads_are_scoped_to_main_and_its_archive_window() {
         for method in ["spot_history_status", "spot_history_query", "spot_history_detail", "spot_history_stats"] {
             let request = json!({"id":"history", "method":method, "params":{}});
             assert!(validate_surface("main", &request).is_ok());
-            for label in ["logbook", "awards", "monitor", "world-map", "band-maps", "dx-cluster", "unknown"] {
+            assert!(validate_surface("spot-history", &request).is_ok());
+            for label in ["log-qso", "logbook", "awards", "monitor", "world-map", "band-maps", "dx-cluster", "unknown"] {
                 assert!(validate_surface(label, &request).is_err(), "{label}: {method}");
             }
         }
         for method in ["spot_history_delete", "spot_history_purge", "spot_history_export"] {
             assert!(validate_request(&json!({"id":"history", "method":method, "params":{}})).is_err());
         }
+    }
+
+    #[test]
+    fn spot_history_cannot_start_or_mutate_any_other_service() {
+        for method in ["settings_load", "settings_save", "secret_status", "secret_save", "sync_summary", "sync_run",
+            "workspace_create", "workspace_layout_apply", "backup_create", "backup_restore", "health",
+            "logbook_operator_draft", "logbook_operator_draft_apply", "logbook_contact", "logbook_contact_apply",
+            "logbook_list", "logbook_stats", "lookup_call", "reference_refresh", "station_snapshot",
+            "station_power_selection", "station_connect", "station_tune", "hamlib_snapshot", "hamlib_control",
+            "rotor_snapshot", "rotor_goto", "winkeyer_snapshot", "cluster_snapshot", "cluster_resume_initialize",
+            "cluster_connect", "cluster_disconnect", "cluster_configure", "cluster_command", "cluster_history"] {
+            assert!(validate_surface("spot-history", &json!({"id":"history","method":method,"params":{}})).is_err(), "{method}");
+        }
+        assert!(validate_surface("spot-history", &json!({"id":"history","method":"workspace_layout_load","params":{}})).is_ok());
     }
 
     #[test]
@@ -851,6 +896,22 @@ mod tests {
         }
     }
     #[test]
+    fn existing_only_request_never_starts_an_absent_generation_and_validates_before_lookup() {
+        let registry = Mutex::new(None);
+        let announcements = AtomicUsize::new(0);
+        let request = json!({"id":"native-summary-test","method":"sync_summary","params":{}});
+        let result = request_using(request, || existing_session_from_registry(&registry, |_| {
+            announcements.fetch_add(1, Ordering::AcqRel);
+        }));
+        assert_eq!(result.unwrap_err(), "Station service has not started");
+        assert!(registry.lock().unwrap().is_none());
+        assert_eq!(announcements.load(Ordering::Acquire), 0);
+        let result = request_using(json!({"id":"","method":"sync_summary","params":{}}), || {
+            panic!("invalid requests must not inspect the session")
+        });
+        assert_eq!(result.unwrap_err(), "Invalid request ID");
+    }
+    #[test]
     fn unregistered_and_cluster_windows_do_not_inherit_main_workspace_authority() {
         for label in ["dx-cluster", "logbook", "unknown", ""] {
             for method in ["logbook_save", "settings_save", "station_connect", "station_action", "health"] {
@@ -928,7 +989,11 @@ mod tests {
         )
         .unwrap();
         assert!(Arc::ptr_eq(&first, &reused));
+        let observed = existing_session_from_registry(&registry, |_| panic!("existing child was already announced")).unwrap();
+        assert!(Arc::ptr_eq(&first, &observed));
         first.retire("fixture replacement");
+        assert!(existing_session_from_registry(&registry, |_| panic!("must not announce an absent replacement")).is_err());
+        assert!(registry.lock().unwrap().is_none(), "background observation must leave replacement startup to its normal owner");
         let second = session_from_registry(&registry, || Ok(scripted_session("IFS= read -r request; printf '%s\\n' '{\"id\":\"probe\",\"ok\":true,\"result\":{\"child\":2}}'; cat >/dev/null")), &hook).unwrap();
         assert!(second.generation > first.generation);
         assert_eq!(
@@ -963,7 +1028,7 @@ mod tests {
         let (returned, completed) = mpsc::channel();
         let reuser = std::thread::spawn(move || {
             attempted.send(()).unwrap();
-            let session = session_from_registry(&reusing, || panic!("must reuse published child"), |_| panic!("must announce exactly once")).unwrap();
+            let session = existing_session_from_registry(&reusing, |_| panic!("must announce exactly once")).unwrap();
             returned.send(session.generation).unwrap();
             session
         });

@@ -3,6 +3,8 @@ import { Radio, PanelsTopLeft, UserRound, Star, RadioTower, ContactRound, Histor
 import "./QSOEditor.css";
 import QSOHeader, { type ReferenceEvidence } from "./QSOHeader";
 import type { DraftPowerIntent, DraftPowerState } from "./operatorDraftSession";
+import { dxccIdentity } from "./dxccIdentity";
+import { connectLogbookChanges } from "./logbookWindows";
 
 type Data = Record<string, any>;
 export function safeProfileURL(value: unknown): string | null {
@@ -33,7 +35,7 @@ type Props = {
   onUndock?: () => void;
 };
 type MatrixCell = { band: string; mode: string; worked: boolean; confirmed: boolean };
-type MatrixState = { call: string; adif: number | null; callCells?: MatrixCell[]; countryCells?: MatrixCell[]; callError?: string; countryError?: string };
+type MatrixState = { call: string; adif: number | null; callCells?: MatrixCell[]; countryCells?: MatrixCell[]; countryHistory?: Data; callError?: string; countryError?: string };
 type Field = { key: string; label: string; kind?: "number" | "textarea" | "enum"; options?: string[] };
 const bands = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "4m", "2m", "70cm"];
 const modes = ["CW", "SSB", "FT8", "FT4", "FT2", "RTTY", "PSK", "DIGI", "AM", "FM"];
@@ -140,6 +142,9 @@ export function QSOEditor({ draft, setDraft, save, clear, busy, draftLocked, loo
   const [numericDrafts, setNumericDrafts] = useState<Record<string, string>>({});
   const [showErrors, setShowErrors] = useState(false);
   const [matrix, setMatrix] = useState<MatrixState | null>(null);
+  const [historyRevision, setHistoryRevision] = useState(0);
+  const [historyRefreshError, setHistoryRefreshError] = useState("");
+  const historyReadGeneration = useRef(0);
   const [radioBusy, setRadioBusy] = useState(false);
   const [radioError, setRadioError] = useState("");
   const [failedImage, setFailedImage] = useState<string | null>(null);
@@ -212,26 +217,35 @@ export function QSOEditor({ draft, setDraft, save, clear, busy, draftLocked, loo
   const matchingPrevious = useMemo(() => previous.filter((item) => call(item.call) === call(draft?.call)).slice(0, 6), [previous, draft?.call]);
   const matrixCall = call(draft?.call);
   const matrixADIF = sameLookup && Number.isInteger(lookup?.dxcc) && lookup.dxcc > 0 ? lookup.dxcc as number : null;
+  useEffect(() => connectLogbookChanges(() => {
+    // Revoke in-flight replies synchronously, before React schedules the next
+    // read. A same-call log/confirmation in another window changes this history.
+    historyReadGeneration.current += 1;
+    setMatrix(null);
+    setHistoryRevision(value => value + 1);
+  }, setHistoryRefreshError), []);
   useEffect(() => {
     if (!request || !/^[A-Z0-9/-]{3,32}$/.test(matrixCall)) { setMatrix(null); return; }
     let active = true;
+    const generation = ++historyReadGeneration.current;
+    const currentRead = () => active && historyReadGeneration.current === generation;
     setMatrix({ call: matrixCall, adif: matrixADIF });
     void request("logbook_matrix", { call: matrixCall }).then(value => {
-      if (!active) return;
+      if (!currentRead()) return;
       setMatrix(current => current?.call === matrixCall && current.adif === matrixADIF ?
         { ...current, callCells: Array.isArray(value?.cells) ? value.cells : [],
           callError: Array.isArray(value?.cells) ? undefined : "Call history response is incomplete." } : current);
-    }).catch(() => { if (active) setMatrix(current => current?.call === matrixCall && current.adif === matrixADIF ? { ...current, callError: "Could not read call history." } : current); });
+    }).catch(() => { if (currentRead()) setMatrix(current => current?.call === matrixCall && current.adif === matrixADIF ? { ...current, callError: "Could not read call history." } : current); });
     if (matrixADIF !== null) void request("cluster_history", { call: matrixCall, adif: matrixADIF }).then(value => {
-      if (!active) return;
+      if (!currentRead()) return;
       const history = value?.history;
       const valid = call(history?.call) === matrixCall && history?.adif === matrixADIF && Array.isArray(history?.matrix);
       setMatrix(current => current?.call === matrixCall && current.adif === matrixADIF ?
-        { ...current, countryCells: valid ? history.matrix : undefined,
+        { ...current, countryCells: valid ? history.matrix : undefined, countryHistory: valid ? history : undefined,
           countryError: valid ? undefined : "Country history response does not match this callsign." } : current);
-    }).catch(() => { if (active) setMatrix(current => current?.call === matrixCall && current.adif === matrixADIF ? { ...current, countryError: "Could not read country history." } : current); });
+    }).catch(() => { if (currentRead()) setMatrix(current => current?.call === matrixCall && current.adif === matrixADIF ? { ...current, countryError: "Could not read country history." } : current); });
     return () => { active = false; };
-  }, [request, matrixCall, matrixADIF]);
+  }, [request, matrixCall, matrixADIF, historyRevision]);
   const errors: string[] = [];
   if (draft) {
     const normalized = call(draft.call);
@@ -307,6 +321,9 @@ export function QSOEditor({ draft, setDraft, save, clear, busy, draftLocked, loo
     finally { setRadioBusy(false); }
   };
   const matchingMatrix = matrix?.call === matrixCall && matrix.adif === matrixADIF ? matrix : null;
+  const countryIdentity = dxccIdentity(matrixCall, profile, matchingMatrix?.countryHistory);
+  const countryStatus = countryIdentity.status === "neutral" ? "History unresolved" :
+    countryIdentity.status === "new" ? "New DXCC" : countryIdentity.status === "worked" ? "Worked" : "Confirmed";
   const captured = automaticStationMetadata.filter(item => item && item.label?.trim() && item.value?.trim() &&
     ["observed", "configured", "selected"].includes(item.provenance));
   if (!draft) return <section className="qso-editor" aria-label="Log QSO"><p>Opening logbook…</p></section>;
@@ -322,8 +339,9 @@ export function QSOEditor({ draft, setDraft, save, clear, busy, draftLocked, loo
           <label className="qso-field"><span>Mode</span><select aria-label="Mode" value={draft.mode ?? ""} onChange={(event) => update("mode", event.target.value)}><option value="">Select mode</option>{draft.mode && !modes.includes(draft.mode) && <option value={draft.mode}>{draft.mode}</option>}{modes.map((mode) => <option key={mode}>{mode}</option>)}</select></label>
           {onReadRadio && <button className="qso-read-radio" type="button" onClick={() => void readRadio()} disabled={busy || radioBusy}><Radio size={13} aria-hidden="true" /> {radioBusy ? "Reading…" : "Read radio"}</button>}
         </div>
-        <div className="qso-time-row"><div className="qso-utc"><strong>UTC</strong><label><span>Date</span><input aria-label="Start UTC date" type="date" value={currentTime("start").date} onChange={(event) => changeTime("start", "date", event.target.value)} /></label><label><span>Time</span><input aria-label="Start UTC time" type="time" step={1} value={currentTime("start").time} onChange={(event) => changeTime("start", "time", event.target.value)} /></label></div><div className="qso-reports">{field({ key: "rstSent", label: "RST sent" })}{field({ key: "rstReceived", label: "RST received" })}</div></div>
+        <div className="qso-time-row"><div className="qso-timing"><div className={`qso-country-identity qso-country-${countryIdentity.status}`} aria-label={`${countryIdentity.label}: ${countryStatus}`} title={`${countryIdentity.label}: ${countryStatus}`}><span>{countryIdentity.label}</span>{countryIdentity.status !== "neutral" && <small>· {countryStatus}</small>}</div><div className="qso-utc"><strong>UTC</strong><label><span>Date</span><input aria-label="Start UTC date" type="date" value={currentTime("start").date} onChange={(event) => changeTime("start", "date", event.target.value)} /></label><label><span>Time</span><input aria-label="Start UTC time" type="time" step={1} value={currentTime("start").time} onChange={(event) => changeTime("start", "time", event.target.value)} /></label></div></div><div className="qso-reports">{field({ key: "rstSent", label: "RST sent" })}{field({ key: "rstReceived", label: "RST received" })}</div></div>
         {radioError && <p className="qso-radio-error" role="alert">{radioError}</p>}
+        {historyRefreshError && <p className="qso-radio-error" role="status">{historyRefreshError}</p>}
       </section>
 
       <section className="qso-details" aria-labelledby="qso-details-title">

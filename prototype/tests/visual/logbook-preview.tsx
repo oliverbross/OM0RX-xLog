@@ -1,5 +1,6 @@
-// Development-only interaction fixture. All edits are synthetic and memory-only;
-// no IPC, credentials, radio, files or real contacts.
+// Development-only interaction fixture. Contact edits are synthetic and memory-only;
+// column preferences use this preview origin's browser storage, never native settings.
+// No IPC, credentials, radio, files or real contacts.
 import React, { useEffect, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { LogbookPanel } from "../../src/live/LogbookPanel";
@@ -31,6 +32,7 @@ async function request(method: string, params: Record<string, unknown> = {}) {
 }
 const mutations = new LogbookMutationSession(request, () => {});
 function Preview() {
+  const detached = new URLSearchParams(location.search).get("context") !== "docked";
   const [refresh, setRefresh] = useState(0);
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
@@ -39,7 +41,8 @@ function Preview() {
     return () => { clearTimeout(timer); window.removeEventListener("focus", focus); };
   }, []);
   return <div className="app live monitor-app detached-logbook-app" data-refresh={refresh}><main>
-    <LogbookPanel onRequest={request} mutations={mutations} onEdit={() => {}} onDock={() => {}} refreshKey={refresh} />
+    <LogbookPanel onRequest={request} mutations={mutations} onEdit={() => {}}
+      onDock={detached ? () => {} : undefined} onUndock={!detached ? () => {} : undefined} refreshKey={refresh} />
   </main></div>;
 }
 const host = document.getElementById("root") as HTMLElement & { fixtureRoot?: Root };

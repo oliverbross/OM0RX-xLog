@@ -1,0 +1,2 @@
+.spot-history-fixture .monitor-app { height: calc(100dvh - 21px); min-height: max(480px, calc(100dvh - 21px)); }
+.spot-history-fixture .synthetic-label { margin: 0; height: 21px; box-sizing: border-box; padding: 4px 12px; font-size: 11px; background: #102237; color: #e6edf6; }

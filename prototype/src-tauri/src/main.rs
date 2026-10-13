@@ -249,7 +249,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     if state.path.is_some() { acceptance::validate_local_request(&request)?; }
     let method = request.get("method").and_then(|m| m.as_str()).unwrap_or("");
     // This explicit role gate precedes every native special dispatcher too.
-    if window.label() == "log-qso" { worker::validate_surface(window.label(), &request)?; }
+    if matches!(window.label(), "log-qso" | "spot-history") { worker::validate_surface(window.label(), &request)?; }
     // Local acceptance permits cluster_history against its synthetic logbook,
     // but must never start the live session's background snapshot service.
     if state.path.is_none() && cluster_session::handles(method) && !(matches!(window.label(), "logbook" | "log-qso") && method == "cluster_history") {
@@ -299,31 +299,28 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     let selection = if station_telemetry::changes_radio(&request) { Some(station_selection::owner(&app)?) } else { None };
     let invalidate = logbook_events::changes_logbook(&request);
     let draft_wake = DraftWake::for_request(&request);
-    let check_sync_completion = method == "sync_summary";
     let layout_changed = matches!(method, "workspace_layout_apply" | "workspace_create" | "backup_restore");
     let activate_layout = method == "workspace_layout_apply"
         && request["params"]["action"] == "activatePreset";
     let result = tauri::async_runtime::spawn_blocking(move || if let Some(selection) = selection { selection.control(request) } else { worker::request(request) })
         .await
         .map_err(|_| "Worker task failed".to_string())?;
-    let sync_completed = check_sync_completion && result.as_ref().is_ok_and(|response|
-        app.state::<logbook_events::SyncCompletionObserver>().observe(response));
     if draft_wake.confirmed(result.as_ref().ok()) {
         // No draft/contact payload is broadcast. Each editor reloads canonical
         // state through its scoped IPC and retains its own unresolved journal.
         for label in ["main", "log-qso"] { let _ = app.emit_to(label, OPERATOR_DRAFT_CHANGED, ()); }
     }
-    if invalidate || sync_completed {
+    if invalidate {
         // The initiating view already refreshes after its operation. In
         // particular, ADIF batches must not reload that view after every chunk.
-        // A finished sync wakes that view too: sync_run returned before its job.
+        // The native sync monitor separately wakes all readers on completion.
         for label in ["main", "log-qso", "logbook", "awards"] {
-            if sync_completed || label != window.label() { let _ = app.emit_to(label, "xlog:logbook-changed", ()); }
+            if label != window.label() { let _ = app.emit_to(label, "xlog:logbook-changed", ()); }
         }
     }
     if layout_changed {
         // Wake-only: even an uncertain outcome is reconciled by a fresh read.
-        for label in ["main", "monitor", "world-map", "band-maps", "dx-cluster", "log-qso", "logbook", "awards"] {
+        for label in ["main", "monitor", "world-map", "band-maps", "dx-cluster", "log-qso", "spot-history", "logbook", "awards"] {
             let _ = app.emit_to(label, "xlog:workspace-layout", ());
         }
         let force = activate_layout && result.as_ref().is_ok_and(|response|
@@ -471,7 +468,7 @@ fn cluster_session_selection(window: tauri::WebviewWindow, app: tauri::AppHandle
 
 #[tauri::command]
 async fn dock_detached_window(window: tauri::WebviewWindow, app: tauri::AppHandle) -> Result<(), String> {
-    if !matches!(window.label(), "dx-cluster" | "world-map" | "band-maps" | "log-qso" | "logbook" | "awards") {
+    if !matches!(window.label(), "dx-cluster" | "world-map" | "band-maps" | "log-qso" | "spot-history" | "logbook" | "awards") {
         return Err("Only detachable workspaces can dock back".into());
     }
     // The revisioned route survives a main view that has not subscribed yet.
@@ -546,7 +543,6 @@ fn main() {
         }))
         .manage(acceptance::Acceptance::new(path))
         .manage(workspace_navigation::WorkspaceNavigation::default())
-        .manage(logbook_events::SyncCompletionObserver::default())
         .setup(|app| {
             acceptance::start_watchdog(app.handle().clone());
             if app.state::<acceptance::Acceptance>().path.is_none() {
@@ -557,6 +553,9 @@ fn main() {
                     }
                 });
                 cluster_session::owner(app.handle()).map_err(std::io::Error::other)?;
+                if let Err(error) = logbook_events::start(app.handle()) {
+                    eprintln!("Native sync completion notifications unavailable: {error}");
+                }
                 if let Some(main) = app.get_webview_window("main") { detached_geometry::install(&main); }
                 workspace_window_runtime::refresh(app.handle(), false).map_err(std::io::Error::other)?;
             }
@@ -576,6 +575,7 @@ fn main() {
         .run(|app, event| {
             if matches!(event, tauri::RunEvent::ExitRequested { .. }) {
                 APP_EXITING.store(true, Ordering::Release);
+                logbook_events::shutdown();
                 workspace_window_runtime::shutdown();
                 detached_geometry::shutdown(app);
             }
@@ -587,6 +587,7 @@ fn main() {
                 });
             }
             if matches!(event, tauri::RunEvent::Exit) {
+                logbook_events::shutdown();
                 station_selection::shutdown(); station_telemetry::shutdown(); rotor_telemetry::shutdown(); cluster_session::shutdown(); winkeyer::shutdown(); hamlib::shutdown(); worker::shutdown();
                 app.state::<acceptance::Acceptance>().cleanup_browser_contexts();
             }

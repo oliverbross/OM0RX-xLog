@@ -2,10 +2,10 @@ import { isTauri } from "@tauri-apps/api/core";
 
 type Request = (method: string, params?: Record<string, unknown>) => Promise<any>;
 
-/** Read only the small sync summary. Schedule after each response so a slow
- * worker never accumulates overlapping polls. Native completion events wake all
- * windows; the browser fallback refreshes its own workspace. */
+/** Browser-only fallback. Native owns its single completion channel even when
+ * the main renderer is absent. Schedule after responses; never overlap polls. */
 export function watchSyncCompletion(request: Request, changed: () => void) {
+  if (isTauri()) return () => {};
   let active = true, completion: string | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const poll = async () => {
@@ -15,7 +15,7 @@ export function watchSyncCompletion(request: Request, changed: () => void) {
       const token = typeof summary.completion_id === "string" ? summary.completion_id
         : typeof summary.finished_at === "string" ? summary.finished_at : undefined;
       if (summary.running === false && token) {
-        if (token !== completion && !isTauri()) changed();
+        if (token !== completion) changed();
         completion = token;
       }
     } catch { /* A transient summary failure is retried without hiding the draft. */ }
