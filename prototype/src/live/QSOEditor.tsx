@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type RefObject, type SetStateAction } from "react";
 import { Radio, PanelsTopLeft, UserRound, Star, RadioTower, ContactRound, History, Grid3X3, CircleX, CircleCheck } from "lucide-react";
 import "./QSOEditor.css";
+import QSOHeader, { type ReferenceEvidence } from "./QSOHeader";
 
 type Data = Record<string, any>;
 export function safeProfileURL(value: unknown): string | null {
@@ -24,6 +25,7 @@ type Props = {
   isEditing?: boolean;
   radioControls?: boolean;
   clearLabel?: string;
+  referenceEvidence?: ReferenceEvidence | null;
 };
 type MatrixCell = { band: string; mode: string; worked: boolean; confirmed: boolean };
 type MatrixState = { call: string; adif: number | null; callCells?: MatrixCell[]; countryCells?: MatrixCell[]; callError?: string; countryError?: string };
@@ -110,7 +112,7 @@ const bandFor = (hz: number): string => {
   const mhz = hz / 1_000_000; return ranges.find(([min,max]) => mhz >= min && mhz < max)?.[2] ?? "";
 };
 
-export function QSOEditor({ draft, setDraft, save, clear, busy, draftLocked, lookup, previous, follow, setFollow, request, onReadRadio, automaticStationMetadata = [], isEditing = false, radioControls = true, clearLabel = "Clear QSO" }: Props) {
+export function QSOEditor({ draft, setDraft, save, clear, busy, draftLocked, lookup, previous, follow, setFollow, request, onReadRadio, automaticStationMetadata = [], isEditing = false, radioControls = true, clearLabel = "Clear QSO", referenceEvidence }: Props) {
   const [frequencyDraft, setFrequencyDraft] = useState<string | null>(null);
   const [receiveDraft, setReceiveDraft] = useState<string | null>(null);
   const [timeDrafts, setTimeDrafts] = useState<Record<string, { date: string; time: string }>>({});
@@ -227,7 +229,7 @@ export function QSOEditor({ draft, setDraft, save, clear, busy, draftLocked, loo
   return <section className="qso-editor" ref={rootRef} onKeyDown={keyDown} aria-label="Log QSO">
     <div className="qso-editor-main"><form inert={draftLocked} aria-busy={draftLocked} onSubmit={submit} noValidate>
       <section className="qso-active" aria-labelledby="qso-active-title">
-        <h2 id="qso-active-title"><Radio size={15} aria-hidden="true" /> Active contact</h2>
+        <QSOHeader title="Active contact" id="qso-active-title" call={draft.call} evidence={referenceEvidence} />
         <div className="qso-primary">
           <label className="qso-field qso-call"><span>Callsign</span><input ref={callRef} aria-label="Callsign" value={draft.call ?? ""} maxLength={32} onChange={(event) => update("call", event.target.value.toUpperCase())} autoComplete="off" spellCheck={false} /></label>
           <label className="qso-field qso-frequency"><span>Frequency MHz</span><input aria-label="Frequency MHz" inputMode="decimal" value={currentFrequency} onChange={(event) => changeFrequency("frequencyHz", event.target.value)} /></label>

@@ -658,11 +658,10 @@ function MainLiveApp() {
           return next;
         });
       }).catch(() => { if (selection.current === generation) setError("Spot reference lookup failed. The original spot comment is preserved; check Reference data in Settings."); });
-    setMessage(`Tuning ${spot.callsign} · waiting for observed radio state`); setError("");
+    setMessage(""); setError("");
     void request("station_tune", { frequency_hz: hz, mode: String(spot.mode || "").toUpperCase() }).then(async result => {
       if (selection.current !== generation || provider.current !== selectedProvider) return;
       spotRotorFence.current = { call: normalizedCall(spot.callsign), confirmed: result.confirmed === true };
-      setMessage(result.confirmed ? `${spot.callsign} · radio frequency and mode confirmed` : `${spot.callsign} · request accepted; awaiting observation`);
       if (automaticRequested && rotorIntent && autoEnabled.current && autoEpoch.current === automaticEpoch && result.confirmed) {
         const target = await request("lookup_call", { call: spot.callsign });
         if (selection.current === generation && provider.current === selectedProvider && draftCall.current === normalizedCall(spot.callsign) && autoEnabled.current && autoEpoch.current === automaticEpoch &&
@@ -736,7 +735,7 @@ function MainLiveApp() {
     if (typeof station.radio.frequency_hz === "number" && Number.isFinite(station.radio.frequency_hz)) automaticStationMetadata.push({ label: "Radio frequency", value: `${frequency(station.radio.frequency_hz)} MHz`, provenance: "observed" });
     if (station.radio.mode) automaticStationMetadata.push({ label: "Radio mode", value: station.radio.mode, provenance: "observed" });
   }
-  const deskProps = { draftLocked: editorLocked, cwControls, equipment: settings?.stationEquipment, draft, setDraft: setOperatorDraft, save,
+  const deskProps = { draftLocked: editorLocked, referenceEvidence, cwControls, equipment: settings?.stationEquipment, draft, setDraft: setOperatorDraft, save,
     clear: () => void run(clear), busy: busy || editorBlocked, lookup, previous, request, refresh, onEditor: () => setView("Log QSO"),
     onReadRadio: readRadioIntoDraft, follow, setFollow: setFollowImmediate, rotor: rotorState, autoRotor, setAutoRotor: changeAutoRotor,
     onManualRotor: disarmAutoRotor, isEditing: editing.current, intelligenceBands: workspacePreferences?.intelligenceBands };
@@ -771,8 +770,6 @@ function MainLiveApp() {
         <button type="button" onClick={() => { localStorage.removeItem("xlog.integration.draft"); setLegacyDraft(null); }}>Discard previous draft</button>
       </div>}
       {message && !message.endsWith("· radio frequency and mode confirmed") && <p className="live-message" role="status">{message}</p>}
-      {["Operator Desk", "Log QSO"].includes(view) && referenceEvidence?.call === normalizedCall(draft?.call) && !!referenceEvidence.rows.length &&
-        <p className="live-message" role="status">{referenceEvidence.rows.map(row => `${String(row.kind).toUpperCase()} ${row.reference} · ${row.status === "verified" ? `Verified: ${row.name}` : row.status === "not_installed" ? "Directory not installed" : "Not found in installed directory"}`).join(" | ")}</p>}
       {!workspace?.workspace_exists ? <WorkspaceGate workspace={workspace} pending={workspacePending} busy={busy}
         retry={() => void run(reload)} create={mode => void run(async () => { await request("workspace_create", { mode }); await reload(); })} /> : <>
       {view === "Operator Desk" && <OperatorCanvas {...deskLayout} equipment={deskKind === "none" ? undefined : deskKind} panels={{
@@ -790,7 +787,7 @@ function MainLiveApp() {
         }); }} /> },
         awards: { title: "Awards", content: <IntegratedAwards request={request} refresh={refresh} initialStats={stats?.awards} onUndock={() => void openDetachedAwards().catch(cause => setError(cause.message))} /> },
       }} traditional={<><OperatorDesk {...deskProps} /><div className="live-desk-bottom"><OperatorWorkspace map={<div className="live-map">{map}</div>} cluster={cluster} selectedSpotId={selected} onSelect={selectSpot} bandMaps={deskBands} /></div></>} />}
-      {view === "Log QSO" && <QSOEditor draftLocked={editorLocked} draft={draft} setDraft={setOperatorDraft} save={save} clear={() => void run(clear)} busy={busy || editorBlocked} lookup={lookup} previous={previous} follow={follow} setFollow={setFollowImmediate} request={request} onReadRadio={readRadioIntoDraft} isEditing={editing.current} automaticStationMetadata={automaticStationMetadata} />}
+      {view === "Log QSO" && <QSOEditor referenceEvidence={referenceEvidence} draftLocked={editorLocked} draft={draft} setDraft={setOperatorDraft} save={save} clear={() => void run(clear)} busy={busy || editorBlocked} lookup={lookup} previous={previous} follow={follow} setFollow={setFollowImmediate} request={request} onReadRadio={readRadioIntoDraft} isEditing={editing.current} automaticStationMetadata={automaticStationMetadata} />}
       {view === "Logbook" && <LogbookPanel onRequest={request} refreshKey={refresh} mutations={logbookMutations} onChanged={() => setRefresh(n => n + 1)} onUndock={() => void openDetachedLogbook().catch(cause => setError(cause.message))} onEdit={qso => { void run(async () => {
         if (draftSession.getSnapshot().locked) throw new Error("Finish the pending draft operation before editing a logged contact.");
         await draftSession.flush(); await contactSession.open(qso.id); setFollowImmediate(false); disarmAutoRotor(); setView("Log QSO");

@@ -1,0 +1,6 @@
+.qso-panel-header { display:flex; align-items:center; justify-content:space-between; gap:8px 16px; min-width:0; }
+.qso-panel-header h2 { flex:none; }
+.qso-editor .qso-panel-header { margin-bottom:12px; }
+.qso-editor .qso-panel-header h2 { margin:0; }
+.qso-reference-status { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:4px 12px; min-width:0; margin-left:auto; text-align:right; color:var(--teal,#12d6a0); font-size:11px; line-height:1.4; }
+.qso-reference-status > span { min-width:0; overflow-wrap:anywhere; }

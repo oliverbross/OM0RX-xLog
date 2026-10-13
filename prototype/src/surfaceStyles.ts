@@ -11,6 +11,7 @@ import "./live/DirectFlexPanel.css";
 import "./live/BandMaps.css";
 import "./live/AwardsPanel.css";
 import "./live/QSOEditor.css";
+import "./live/QSOHeader.css";
 import "./live/RotorCompass.css";
 import "./live/OperatorDesk.css";
 import "./live/CW.css";

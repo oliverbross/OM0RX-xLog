@@ -6,10 +6,11 @@ import "./OperatorDesk.css";
 import RotorCompass from "./RotorCompass";
 import { DeskAntenna } from "./StationEquipment";
 import { deskEquipmentKind, equipmentProfile, hasConfiguredRotor } from "./equipmentPreferences";
+import QSOHeader, { type ReferenceEvidence } from "./QSOHeader";
 
 type Data = Record<string, any>;
 type Request = (method: string, params?: Data) => Promise<any>;
-type Props = { draft: Data | null; setDraft: (value: SetStateAction<Data | null>) => void; save: () => void; clear: () => void; busy: boolean; draftLocked?: boolean;
+type Props = { draft: Data | null; setDraft: (value: SetStateAction<Data | null>) => void; save: () => void; clear: () => void; busy: boolean; draftLocked?: boolean; referenceEvidence?: ReferenceEvidence | null;
   lookup: Data | null; previous: Data[]; request: Request; refresh: number; onEditor: () => void; onReadRadio: () => Promise<void>;
   follow: boolean; setFollow: (value: boolean) => void; rotor: RotorSnapshot | null; autoRotor: boolean; setAutoRotor: (value: boolean) => void; onManualRotor: () => void; isEditing?: boolean; intelligenceBands?: string[]; equipment?: unknown; cwControls?: ReactNode };
 const normalizedCall = (value: unknown) => String(value ?? "").trim().toUpperCase();
@@ -26,7 +27,7 @@ export function rotorPathDistance(shortPath: unknown, path: "SP" | "LP"): number
     ? path === "SP" ? shortPath : circumference - shortPath : undefined;
 }
 
-export function DeskQSO({ draft, setDraft, save, clear, busy, draftLocked, onEditor, onReadRadio, follow, setFollow, isEditing, cwControls }: Props) {
+export function DeskQSO({ draft, setDraft, save, clear, busy, draftLocked, onEditor, onReadRadio, follow, setFollow, isEditing, cwControls, referenceEvidence }: Props) {
   const [frequencyText, setFrequencyText] = useState<string | null>(null);
   const [timeText, setTimeText] = useState<{ date: string; time: string } | null>(null);
   const [reading, setReading] = useState(false), [error, setError] = useState("");
@@ -53,7 +54,7 @@ export function DeskQSO({ draft, setDraft, save, clear, busy, draftLocked, onEdi
   const frequencyBand = mhz && validFrequency ? bandForRadio(Math.round(Number(mhz) * 1e6)) : null;
   const canSave = !busy && !reading && /^[A-Z0-9/-]{3,32}$/.test(normalizedCall(draft.call)) && validFrequency && validTime && !!draft.band && !!draft.mode && (!frequencyBand || frequencyBand === draft.band);
   const read = async () => { const identity = draft.id; setReading(true); setError(""); try { await onReadRadio(); if (draftIdentity.current === identity) setFrequencyText(null); } catch (cause) { if (draftIdentity.current === identity) setError(cause instanceof Error ? cause.message : "Radio readback unavailable."); } finally { setReading(false); } };
-  return <section className="desk-panel desk-active" aria-label="Active QSO"><h2><Radio size={15} aria-hidden="true" /> Active QSO</h2><form inert={draftLocked} aria-busy={draftLocked} onSubmit={event => { event.preventDefault(); if (canSave) save(); }} onKeyDown={event => {
+  return <section className="desk-panel desk-active" aria-label="Active QSO"><QSOHeader title="Active QSO" call={draft.call} evidence={referenceEvidence} /><form inert={draftLocked} aria-busy={draftLocked} onSubmit={event => { event.preventDefault(); if (canSave) save(); }} onKeyDown={event => {
     if ((event.metaKey || event.ctrlKey) && event.key === "Enter") { event.preventDefault(); if (canSave) save(); }
     if (event.key === "Escape") { event.preventDefault(); event.currentTarget.querySelector<HTMLInputElement>('[aria-label="Desk Callsign"]')?.focus(); }
   }}>
