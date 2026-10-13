@@ -1,14 +1,9 @@
 import { useEffect, useState } from "react";
-import { invoke, isTauri } from "@tauri-apps/api/core";
 import { workerRequest } from "../worker";
 import AwardsPanel from "./AwardsPanel";
 import { connectLogbookChanges } from "./logbookWindows";
 import { dockDetachedWorkspace } from "./DetachedClusterBridge";
 
-export async function openDetachedAwards() {
-  if (!isTauri()) throw new Error("Undocking requires the desktop application.");
-  await invoke("open_detached_map", { kind: "awards" });
-}
 async function request(method: string, params: Record<string, unknown> = {}) {
   return (await workerRequest(method, params)).result;
 }

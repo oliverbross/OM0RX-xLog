@@ -9,5 +9,5 @@ export default defineConfig({
     strictPort: true,
     fs: { allow: [".."] },
   },
-  build: { target: "es2022" },
+  build: { target: "es2022", manifest: true },
 });

@@ -11,12 +11,10 @@ import { ClusterPanel } from "./live/ClusterPanel";
 import { clusterSessionIntentKey, initializeNativeClusterResume, nativeClusterSession, shouldResumeCluster } from "./live/clusterResume";
 import OpportunitiesPanel, { type Opportunity } from "./live/OpportunitiesPanel";
 import { useReferenceSchedule } from "./live/referenceSchedule";
-import { DetachedClusterSurface } from "./live/DetachedClusterSurface";
 import { openDetachedCluster, dockDetachedWorkspace, onDetachedDock,
   publishClusterSelection } from "./live/DetachedClusterBridge";
 import { LogbookPanel } from "./live/LogbookPanel";
-import { DetachedLogbookSurface } from "./live/DetachedLogbookSurface";
-import { connectLogbookChanges, openDetachedLogbook } from "./live/logbookWindows";
+import { connectLogbookChanges, openDetachedLogbook, openDetachedAwards } from "./live/logbookWindows";
 import StationPanel from "./live/StationPanel";
 import Conditions from "./live/Conditions";
 import Monitor from "./live/Monitor";
@@ -29,7 +27,6 @@ import type { WorkspacePreferences } from "./live/workspacePreferences";
 import type { BandMapViewPreferences } from "./live/BandMaps";
 import { mergeBandMapPreferenceIntent, sameBandMapPreferences } from "./live/detachedBandMapPreferences";
 import IntegratedAwards from "./live/AwardsPanel";
-import { DetachedAwardsSurface, openDetachedAwards } from "./live/DetachedAwardsSurface";
 import QSOEditor from "./live/QSOEditor";
 import OperatorDesk from "./live/OperatorDesk";
 import CWDesk from "./live/CWDesk";
@@ -70,9 +67,6 @@ const screenIcons: Record<string, typeof Radio> = {
 const navigation = workspaceScreens.map(screen => [screen.title, screenIcons[screen.id]] as const);
 const monitor = new URLSearchParams(location.search).get("view") === "monitor";
 const detached = detachedMapKind(new URLSearchParams(location.search).get("view"));
-const detachedCluster = new URLSearchParams(location.search).get("view") === "dx-cluster";
-const detachedLogbook = new URLSearchParams(location.search).get("view") === "logbook";
-const detachedAwards = new URLSearchParams(location.search).get("view") === "awards";
 const frequency = (hz?: number) => typeof hz === "number" && Number.isFinite(hz) ? (hz / 1e6).toFixed(6) : "—";
 const emptySpots: Data[] = [];
 const radioProviderLabels: Record<StationProvider, string> = {
@@ -91,9 +85,6 @@ function legacyDraftValue(): Data | null {
 }
 
 export default function LiveApp() {
-  if (detachedAwards) return <DetachedAwardsSurface />;
-  if (detachedLogbook) return <DetachedLogbookSurface />;
-  if (detachedCluster) return <DetachedClusterSurface />;
   if (detached) return <DetachedMapSurface kind={detached} />;
   if (monitor) return <MonitorSurface />;
   return <MainLiveApp />;

@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { DetachedAwardsSurface, openDetachedAwards } from "./DetachedAwardsSurface";
+import { DetachedAwardsSurface } from "./DetachedAwardsSurface";
+import { openDetachedAwards } from "./logbookWindows";
 const api = vi.hoisted(() => ({ worker: vi.fn(), changes: vi.fn(), dock: vi.fn(), invoke: vi.fn(), desktop: true }));
 vi.mock("../worker", () => ({ workerRequest: api.worker }));
-vi.mock("./logbookWindows", () => ({ connectLogbookChanges: api.changes }));
+vi.mock("./logbookWindows", async original => ({ ...await original<typeof import("./logbookWindows")>(), connectLogbookChanges: api.changes }));
 vi.mock("./DetachedClusterBridge", () => ({ dockDetachedWorkspace: api.dock }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: api.invoke, isTauri: () => api.desktop }));
 afterEach(() => { cleanup(); vi.resetAllMocks(); api.desktop = true; });

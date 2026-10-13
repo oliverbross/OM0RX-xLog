@@ -1,0 +1,27 @@
+import { beforeEach, expect, it, vi } from "vitest";
+const loaded = vi.hoisted(() => ({ main: vi.fn(), awards: vi.fn(), logbook: vi.fn(), cluster: vi.fn() }));
+vi.mock("../src/LiveApp", () => { loaded.main(); return { default: "main-surface" }; });
+vi.mock("../src/live/DetachedAwardsSurface", () => { loaded.awards(); return { DetachedAwardsSurface: "awards-surface" }; });
+vi.mock("../src/live/DetachedLogbookSurface", () => { loaded.logbook(); return { DetachedLogbookSurface: "logbook-surface" }; });
+vi.mock("../src/live/DetachedClusterSurface", () => { loaded.cluster(); return { DetachedClusterSurface: "cluster-surface" }; });
+beforeEach(() => { vi.resetModules(); Object.values(loaded).forEach(mock => mock.mockClear()); });
+it("loads detached surfaces without evaluating the main station controller", async () => {
+  const { loadWindowSurface } = await import("../src/windowSurface");
+  expect(await loadWindowSurface("?view=awards")).toBe("awards-surface");
+  expect(await loadWindowSurface("?view=logbook&acceptance=local")).toBe("logbook-surface");
+  expect(await loadWindowSurface("?view=dx-cluster")).toBe("cluster-surface");
+  expect(loaded.awards).toHaveBeenCalled(); expect(loaded.logbook).toHaveBeenCalled(); expect(loaded.cluster).toHaveBeenCalled();
+  expect(loaded.main).not.toHaveBeenCalled();
+});
+it("retains main, Monitor and map routing", async () => {
+  const { loadWindowSurface } = await import("../src/windowSurface");
+  for (const query of ["", "?view=monitor", "?view=world-map", "?view=band-maps", "?view=unknown"]) {
+    expect(await loadWindowSurface(query)).toBe("main-surface");
+  }
+});
+it("does not fall back to the main station controller after a child chunk fails", async () => {
+  vi.doMock("../src/live/DetachedAwardsSurface", () => { throw new Error("chunk unavailable"); });
+  const { loadWindowSurface } = await import("../src/windowSurface");
+  await expect(loadWindowSurface("?view=awards")).rejects.toThrow();
+  expect(loaded.main).not.toHaveBeenCalled();
+});

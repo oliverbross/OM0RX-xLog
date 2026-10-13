@@ -6,6 +6,10 @@ export async function openDetachedLogbook() {
   if (!isTauri()) throw new Error("Undocking requires the desktop application.");
   await invoke("open_detached_map", { kind: "logbook" });
 }
+export async function openDetachedAwards() {
+  if (!isTauri()) throw new Error("Undocking requires the desktop application.");
+  await invoke("open_detached_map", { kind: "awards" });
+}
 
 /** Notifications carry no contact data or authority. Read after subscribing and
  * on focus too, so a missed startup/background notification cannot strand a view. */
