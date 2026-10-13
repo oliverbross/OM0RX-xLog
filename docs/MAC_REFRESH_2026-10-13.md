@@ -36,3 +36,16 @@ After corrected launch:
 - Original native xLog database SHA-256 remained `500108d92a0fa7f9dab5b651d59ac8dc605c9a396fb4b5c08f73774a36d1d1ec`; the original app was untouched.
 
 Automatic Wavelog code is now installed, but no new sync authorization was enabled and no sync was executed during this refresh. The prior approved persistent-sync request remains an open live acceptance item. Full saved-window/draft preservation, all-screen undocking, performance, other parity gates and any new hardware acceptance are not proven by this smoke check. Windows/Linux follow-up is deferred per the user's priority.
+
+## Later staged update — not installed
+
+Mac CI `38399628607` succeeded for exact source `5277847c3559e7a2f80ee654885b17b9e58fb624`, including portable Swift tests, frontend tests/build, Rust shell tests, helper tests and Mac packaging. Its `xlog-integration-macos-5277847c3559e7a2f80ee654885b17b9e58fb624` artifact was downloaded without rebuilding or mixing later working-tree changes. Embedded `DistributionMetadata/components.json` names that exact commit, and the worker resources occupy the corrected `Contents/Resources/OM0RXXLogPrototype_XLogCore.bundle` location.
+
+- Original CI ZIP SHA-256: `4ed696cf17a861cdc94256e2ef4c06a9ef523d03d62cb1a452e277236ee62e6c`.
+- Staged app/helpers signed with the existing Developer ID Application identity; deep/strict validation passed.
+- Apple notarization `e893de20-abb0-4082-9040-ae21ad3f4e51`: Accepted. Ticket stapling and validation passed; Gatekeeper reports `Notarized Developer ID`.
+- Final archive: `dist/OM0RX-xLog-Integration-5277847-notarized.zip`.
+- Final archive SHA-256: `405b5cdccb112891efbaf930081abd09f5ec3df4e7513b4acf3163a09c293eb1`.
+- Extracted staging app: `/tmp/xlog-mac-5277847-9cou4Z/extracted/OM0RX-xLog Integration.app`.
+
+This package includes the durable-save-first QSO response and the read-only-previewed Wavelog history reconciliation repair. It does not include the later intermediate-width desk CSS adjustment. No installed app was replaced/restarted, no logbook or station write was performed, and no native candidate acceptance was invoked. Installation awaits coordination with the operator's active logging session; installed latency and real synchronization remain unverified. Original apps, data and credentials remain unchanged.
