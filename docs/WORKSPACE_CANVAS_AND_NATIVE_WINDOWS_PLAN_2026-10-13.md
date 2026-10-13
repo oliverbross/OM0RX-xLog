@@ -254,6 +254,12 @@ An isolated production-component browser fixture covers 640×480, 1280×800 and 
 
 All 464 frontend tests across 66 files, TypeScript and Vite build pass. The existing large bundle/ineffective Map import warnings remain. Renewed exact-source packaged acceptance is pending. Installed alpha.13, real contacts, station configuration and original apps remain unchanged. No RF operation was used.
 
+### Checkpoint K verification follow-up — deterministic weather race test
+
+Matrix `38335488098` for `4138e159de367f729565c289e1977d2e4f03e17b` passed its Mac build, but Linux stopped in the portable Swift suite before packaged runtime acceptance: the old-location weather test allowed only 100 ms for a settings write to finish. The fixture now explicitly holds the response until the grid change commits, exercising the same production location fence without relying on machine speed. Production weather logic is unchanged. A full local portable-core run passes, including 96 Swift Testing cases across 19 suites and the XCTest suites. The initial default-package filtered command matched no tests and is not counted as test evidence.
+
+Exact-source cross-platform rerun remains required. Main-window closure is still not supported for the whole application: inspection confirms main-renderer ownership of Follow radio, station/rotor polling and other projections. Do not enable or claim fully undocked operation merely by hiding or recreating that renderer. The independent Logbook and original docked/mixed-mode requirements remain the active delivery scope; alpha.13 is unchanged.
+
 ## Follow-on: RUMlogNG workflow and feature comparison
 
 User added this reference pass after the canvas/native-window request. Confirmed installed app identity through the native app inventory: `de.dl2rum.RUMlogNG`; it was not running at inspection. Its menus/settings have not yet been audited in this pass. Do not represent remembered features as current observations.

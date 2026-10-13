@@ -22,12 +22,22 @@ private actor PublicFeedFixture {
     var count = 0
     var fail = false
     var delay: UInt64 = 0
+    private var held = false
+    private var releases: [CheckedContinuation<Void, Never>] = []
     func configure(fail: Bool = false, delay: UInt64 = 0) { self.fail = fail; self.delay = delay }
+    func hold() { held = true }
+    func release() {
+        held = false
+        let pending = releases
+        releases.removeAll()
+        for continuation in pending { continuation.resume() }
+    }
     func fetch(_ request: URLRequest, _ format: OpportunityDownload.Format, _ limit: Int) async throws -> Data {
         count += 1
         #expect(request.url?.scheme == "https")
         #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
         #expect(limit == 256_000)
+        if held { await withCheckedContinuation { releases.append($0) } }
         if delay > 0 { try await Task.sleep(nanoseconds: delay) }
         if fail { throw URLError(.notConnectedToInternet) }
         return request.url?.host == "www.hamqsl.com" ? solarFixture : weatherFixture
@@ -115,9 +125,14 @@ struct LivePublicServiceMethodsTests {
         #expect(try await first.value["temperature_c"] as? Double == 21.5)
         #expect(try await second.value["condition"] as? String == "Mostly clear")
         #expect(await feed.count == 1)
+        // Settings persistence may take longer than a fixed download delay on CI.
+        // Hold this response until the location change has actually committed.
+        await feed.hold()
         let changed = Task { try await service.handle(method: "weather", params: [:]) }
         try await waitFor { await feed.count == 2 }
-        try setGrid("FN31PR", logbook: logbook)
+        do { try setGrid("FN31PR", logbook: logbook) }
+        catch { await feed.release(); throw error }
+        await feed.release()
         do { _ = try await changed.value; Issue.record("Old-location weather was published") }
         catch let error as WorkerFailure { #expect(error.code == "weather_location_changed") }
         await service.terminate()
