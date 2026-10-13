@@ -7,9 +7,33 @@ export async function openDetachedQSO() {
   await invoke("open_detached_map", { kind: "log-qso" });
 }
 
+export type DraftUpdateFailure = "read" | "subscription";
+type ErrorSetter = (value: string | ((current: string) => string)) => void;
+/** Clear only this reader's warning, never a newer error from another action.
+ * A recovered read cannot repair a failed subscription: keep that warning. */
+export function ownDraftUpdateWarnings(setError: ErrorSetter) {
+  let readWarning: string | null = null, subscriptionWarning: string | null = null;
+  return {
+    failed(message: string, kind: DraftUpdateFailure = "read") {
+      if (kind === "read") readWarning = message;
+      else subscriptionWarning = message;
+      setError(message);
+    },
+    recovered() {
+      const owned = readWarning; readWarning = null;
+      if (owned) setError(current => current === owned ? subscriptionWarning ?? "" : current);
+    },
+    subscribed() {
+      const owned = subscriptionWarning; subscriptionWarning = null;
+      if (owned) setError(current => current === owned ? readWarning ?? "" : current);
+    },
+  };
+}
+
 /** Wake events carry no draft or authority. Subscribe before reading; recover
  * on focus and a bounded poll for native power changes/missed notifications. */
-export function connectOperatorDraftChanges(refresh: () => Promise<void>, failed: (message: string) => void) {
+export function connectOperatorDraftChanges(refresh: () => Promise<void | boolean>,
+  failed: (message: string, kind?: DraftUpdateFailure) => void, recovered: () => void = () => {}, subscribed: () => void = () => {}) {
   let active = true, ready = false, running = false, again = false;
   let stop: (() => void) | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -18,8 +42,8 @@ export function connectOperatorDraftChanges(refresh: () => Promise<void>, failed
     if (!active || !ready) return;
     if (running) { again = true; return; }
     running = true;
-    try { await refresh(); }
-    catch (cause) { if (active) failed(cause instanceof Error ? cause.message : "Shared draft updates unavailable."); }
+    try { if (await refresh() === true && active) recovered(); }
+    catch (cause) { if (active) failed(cause instanceof Error ? cause.message : "Shared draft updates unavailable.", "read"); }
     finally {
       running = false;
       if (active && again) { again = false; schedule(); }
@@ -42,10 +66,10 @@ export function connectOperatorDraftChanges(refresh: () => Promise<void>, failed
   if (isTauri()) {
     void listen("xlog:operator-draft-changed", schedule).then(dispose => {
       if (!active) { dispose(); return; }
-      stop = dispose; start();
+      stop = dispose; subscribed(); start();
     }).catch(() => {
       if (!active) return;
-      failed("Live draft notifications are unavailable; periodic refresh remains active.");
+      failed("Live draft notifications are unavailable; periodic refresh remains active.", "subscription");
       start();
     });
   } else start();

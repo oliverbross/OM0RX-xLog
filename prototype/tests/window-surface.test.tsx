@@ -1,12 +1,15 @@
 import { beforeEach, expect, it, vi } from "vitest";
 const loaded = vi.hoisted(() => ({ main: vi.fn(), awards: vi.fn(), logbook: vi.fn(), qso: vi.fn(), cluster: vi.fn(), history: vi.fn() }));
+const maps = vi.hoisted(() => ({ world: vi.fn(), bands: vi.fn() }));
 vi.mock("../src/LiveApp", () => { loaded.main(); return { default: "main-surface" }; });
 vi.mock("../src/live/DetachedAwardsSurface", () => { loaded.awards(); return { DetachedAwardsSurface: "awards-surface" }; });
 vi.mock("../src/live/DetachedLogbookSurface", () => { loaded.logbook(); return { DetachedLogbookSurface: "logbook-surface" }; });
 vi.mock("../src/live/DetachedQSOSurface", () => { loaded.qso(); return { DetachedQSOSurface: "qso-surface" }; });
 vi.mock("../src/live/DetachedSpotHistorySurface", () => { loaded.history(); return { DetachedSpotHistorySurface: "history-surface" }; });
 vi.mock("../src/live/DetachedClusterSurface", () => { loaded.cluster(); return { DetachedClusterSurface: "cluster-surface" }; });
-beforeEach(() => { vi.resetModules(); Object.values(loaded).forEach(mock => mock.mockClear()); });
+vi.mock("../src/live/DetachedWorldMapSurface", () => { maps.world(); return { DetachedWorldMapSurface: "world-map-surface" }; });
+vi.mock("../src/live/DetachedBandMapsSurface", () => { maps.bands(); return { DetachedBandMapsSurface: "band-maps-surface" }; });
+beforeEach(() => { vi.resetModules(); [...Object.values(loaded), ...Object.values(maps)].forEach(mock => mock.mockClear()); });
 it("loads detached surfaces without evaluating the main station controller", async () => {
   const { loadWindowSurface } = await import("../src/windowSurface");
   expect(await loadWindowSurface("?view=awards")).toBe("awards-surface");
@@ -19,9 +22,12 @@ it("loads detached surfaces without evaluating the main station controller", asy
   expect(loaded.qso).toHaveBeenCalledOnce();
   expect(loaded.history).toHaveBeenCalledOnce();
 });
-it("retains main, Monitor and map routing", async () => {
+it("loads maps independently and retains main/Monitor routing", async () => {
   const { loadWindowSurface } = await import("../src/windowSurface");
-  for (const query of ["", "?view=monitor", "?view=world-map", "?view=band-maps", "?view=unknown"]) {
+  expect(await loadWindowSurface("?view=world-map")).toBe("world-map-surface");
+  expect(await loadWindowSurface("?view=band-maps")).toBe("band-maps-surface");
+  expect(loaded.main).not.toHaveBeenCalled();
+  for (const query of ["", "?view=monitor", "?view=unknown"]) {
     expect(await loadWindowSurface(query)).toBe("main-surface");
   }
 });

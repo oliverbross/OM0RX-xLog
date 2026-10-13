@@ -7,6 +7,7 @@ mod rotor;
 mod rotor_telemetry;
 mod station_telemetry;
 mod station_selection;
+mod map_context;
 mod detached_geometry;
 mod window_geometry;
 mod winkeyer;
@@ -215,6 +216,19 @@ async fn rotor_telemetry_snapshot(window: tauri::WebviewWindow, app: tauri::AppH
 }
 
 #[tauri::command]
+async fn map_context_snapshot(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>) -> Result<serde_json::Value, String> {
+    if state.path.is_some() {
+        state.require()?;
+        map_context::validate(window.label(), false)?;
+        return tauri::async_runtime::spawn_blocking(map_context::acceptance_snapshot).await
+            .map_err(|_| "Isolated map context task failed".to_string())?;
+    }
+    map_context::validate(window.label(), state.path.is_some())?;
+    tauri::async_runtime::spawn_blocking(move || map_context::snapshot(&app)).await
+        .map_err(|_| "Map context task failed".to_string())?
+}
+
+#[tauri::command]
 async fn station_telemetry_snapshot(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>, provider: Option<String>) -> Result<serde_json::Value, String> {
     station_telemetry::validate(window.label(), state.path.is_some(), provider.is_some())?;
     station_telemetry::owner(&app)?.snapshot()
@@ -249,10 +263,10 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     if state.path.is_some() { acceptance::validate_local_request(&request)?; }
     let method = request.get("method").and_then(|m| m.as_str()).unwrap_or("");
     // This explicit role gate precedes every native special dispatcher too.
-    if matches!(window.label(), "log-qso" | "spot-history") { worker::validate_surface(window.label(), &request)?; }
+    if matches!(window.label(), "log-qso" | "spot-history" | "world-map" | "band-maps" | "callsign-intelligence") { worker::validate_surface(window.label(), &request)?; }
     // Local acceptance permits cluster_history against its synthetic logbook,
     // but must never start the live session's background snapshot service.
-    if state.path.is_none() && cluster_session::handles(method) && !(matches!(window.label(), "logbook" | "log-qso") && method == "cluster_history") {
+    if state.path.is_none() && cluster_session::handles(method) && !local_history_reader(window.label(), method) {
         cluster_session::validate(window.label(), &request)?;
         let session = cluster_session::owner(&app)?;
         return tauri::async_runtime::spawn_blocking(move || session.request(request))
@@ -298,6 +312,9 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     let _telemetry_fence = if station_telemetry::changes_radio(&request) { Some(station_telemetry::owner(&app)?.control()?) } else { None };
     let selection = if station_telemetry::changes_radio(&request) { Some(station_selection::owner(&app)?) } else { None };
     let invalidate = logbook_events::changes_logbook(&request);
+    let map_changed = invalidate || matches!(method, "settings_save" | "workspace_preferences_save" | "workspace_band_map_apply" | "workspace_create" | "backup_restore");
+    // Retire metadata before a restore/write can race a map's retained read.
+    if map_changed { map_context::invalidate(); }
     let draft_wake = DraftWake::for_request(&request);
     let layout_changed = matches!(method, "workspace_layout_apply" | "workspace_create" | "backup_restore");
     let activate_layout = method == "workspace_layout_apply"
@@ -308,19 +325,23 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     if draft_wake.confirmed(result.as_ref().ok()) {
         // No draft/contact payload is broadcast. Each editor reloads canonical
         // state through its scoped IPC and retains its own unresolved journal.
-        for label in ["main", "log-qso"] { let _ = app.emit_to(label, OPERATOR_DRAFT_CHANGED, ()); }
+        for label in ["main", "log-qso", "callsign-intelligence"] { let _ = app.emit_to(label, OPERATOR_DRAFT_CHANGED, ()); }
     }
     if invalidate {
         // The initiating view already refreshes after its operation. In
         // particular, ADIF batches must not reload that view after every chunk.
         // The native sync monitor separately wakes all readers on completion.
-        for label in ["main", "log-qso", "logbook", "awards"] {
+        for label in ["main", "log-qso", "logbook", "awards", "callsign-intelligence"] {
             if label != window.label() { let _ = app.emit_to(label, "xlog:logbook-changed", ()); }
         }
     }
+    if map_changed {
+        map_context::invalidate();
+        for label in ["main", "world-map", "band-maps"] { let _ = app.emit_to(label, "xlog:map-context", ()); }
+    }
     if layout_changed {
         // Wake-only: even an uncertain outcome is reconciled by a fresh read.
-        for label in ["main", "monitor", "world-map", "band-maps", "dx-cluster", "log-qso", "spot-history", "logbook", "awards"] {
+        for label in ["main", "monitor", "world-map", "band-maps", "dx-cluster", "log-qso", "spot-history", "logbook", "awards", "callsign-intelligence"] {
             let _ = app.emit_to(label, "xlog:workspace-layout", ());
         }
         let force = activate_layout && result.as_ref().is_ok_and(|response|
@@ -468,17 +489,27 @@ fn cluster_session_selection(window: tauri::WebviewWindow, app: tauri::AppHandle
 
 #[tauri::command]
 async fn dock_detached_window(window: tauri::WebviewWindow, app: tauri::AppHandle) -> Result<(), String> {
-    if !matches!(window.label(), "dx-cluster" | "world-map" | "band-maps" | "log-qso" | "spot-history" | "logbook" | "awards") {
-        return Err("Only detachable workspaces can dock back".into());
-    }
+    let screen = detached_dock_screen(window.label())?;
     // The revisioned route survives a main view that has not subscribed yet.
-    navigate_workspace(app.clone(), window.label().into()).await?;
+    navigate_workspace(app.clone(), screen.into()).await?;
     window.close().map_err(|error| error.to_string())?;
     if let Some(main) = app.get_webview_window("main") {
         main.show().map_err(|error| error.to_string())?;
         main.set_focus().map_err(|error| error.to_string())?;
     }
     Ok(())
+}
+
+fn local_history_reader(label: &str, method: &str) -> bool {
+    method == "cluster_history" && matches!(label, "logbook" | "log-qso" | "callsign-intelligence")
+}
+
+fn detached_dock_screen(label: &str) -> Result<&str, String> {
+    match label {
+        "callsign-intelligence" => Ok("operator-desk"),
+        "dx-cluster" | "world-map" | "band-maps" | "log-qso" | "spot-history" | "logbook" | "awards" => Ok(label),
+        _ => Err("Only detachable workspaces can dock back".into()),
+    }
 }
 
 #[tauri::command]
@@ -506,7 +537,8 @@ fn main() {
     });
     let mut context = tauri::generate_context!();
     acceptance::isolate_browser_storage(context.config_mut(), path.is_some());
-    tauri::Builder::default()
+    let isolated = path.is_some();
+    let builder = tauri::Builder::default()
         .menu(workspace_menu)
         .on_menu_event(|app, event| {
             if let Some(screen) = workspace_navigation::menu_screen(&event.id().0) {
@@ -534,13 +566,16 @@ fn main() {
                     eprintln!("Could not resize main workspace: {error}");
                 });
             }
-        })
-        .plugin(tauri_plugin_single_instance::init(|app, _, _| {
+        });
+    let builder = if acceptance::use_production_singleton(isolated) {
+        builder.plugin(tauri_plugin_single_instance::init(|app, _, _| {
             let app = app.clone();
             tauri::async_runtime::spawn_blocking(move || if let Err(error) = ensure_main_workspace(&app) {
                 eprintln!("Could not recover main workspace: {error}");
             });
         }))
+    } else { builder };
+    builder
         .manage(acceptance::Acceptance::new(path))
         .manage(workspace_navigation::WorkspaceNavigation::default())
         .setup(|app| {
@@ -563,11 +598,12 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![worker_request, pick_backup_package, open_monitor, open_detached_map,
             workspace_windows_status, workspace_windows_reconcile,
-            workspace_navigation_snapshot, workspace_navigation_ack, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_selection_apply,
+            workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_selection_apply,
             detached_cluster_ready, cluster_session_selection, dock_detached_window, close_logbook_window, close_qso_window,
             acceptance::acceptance_enabled, acceptance::acceptance_large_log, acceptance::acceptance_monitor,
             acceptance::acceptance_screen,
             acceptance::acceptance_open_window, acceptance::acceptance_window_step, acceptance::acceptance_window_state,
+            acceptance::acceptance_spot_history_begin, acceptance::acceptance_spot_history_state,
             acceptance::acceptance_monitor_result, acceptance::acceptance_logbook_result, acceptance::acceptance_awards_result, acceptance::acceptance_prepare_final,
             acceptance::finish_acceptance])
         .build(context)
@@ -677,4 +713,29 @@ mod workspace_layout_tests {
         assert_eq!(recover_singleton(&creation, || None, || Ok(1)).unwrap(), 1);
     }
 
+}
+
+#[cfg(test)]
+mod intelligence_window_tests {
+    #[test]
+    fn intelligence_history_exemption_is_local_and_method_specific() {
+        for label in ["callsign-intelligence", "logbook", "log-qso"] {
+            assert!(super::local_history_reader(label, "cluster_history"));
+            for method in ["cluster_snapshot", "cluster_connect", "cluster_disconnect", "cluster_command", "lookup_call"] {
+                assert!(!super::local_history_reader(label, method));
+            }
+        }
+        for label in ["main", "monitor", "world-map", "band-maps", "unknown", ""] {
+            assert!(!super::local_history_reader(label, "cluster_history"));
+        }
+    }
+    #[test]
+    fn intelligence_docks_to_the_existing_desk_without_a_new_main_screen() {
+        let screen = super::detached_dock_screen("callsign-intelligence").unwrap();
+        assert_eq!(screen, "operator-desk"); assert!(crate::workspace_navigation::screen(screen).is_some());
+        for label in ["log-qso", "logbook", "awards", "spot-history", "world-map", "band-maps", "dx-cluster"] {
+            assert_eq!(super::detached_dock_screen(label).unwrap(), label);
+        }
+        for label in ["main", "monitor", "active-qso", "unknown", ""] { assert!(super::detached_dock_screen(label).is_err()); }
+    }
 }

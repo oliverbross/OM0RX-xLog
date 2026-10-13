@@ -250,7 +250,7 @@ struct LiveLogbookMethodsTests {
 
         var currentPreferences = try #require(service.handle(method: "workspace_preferences_load", params: [:])["preferences"] as? [String: Any])
         currentPreferences["deskBandMapBands"] = ["40m"]
-        _ = try service.handle(method: "workspace_preferences_save", params: ["preferences": currentPreferences])
+        _ = try saveWorkspacePreferences(service, currentPreferences)
 
         var draft = try #require(service.handle(method: "logbook_draft", params: [:])["qso"] as? [String: Any])
         draft["call"] = "K2NEW"
@@ -294,7 +294,7 @@ struct LiveLogbookMethodsTests {
         original["detachedBandMapLayout"] = "Single row"
         original["bandMapFontScale"] = 1.5
         original["detachedBandMapModes"] = ["cw", "phone"]
-        _ = try service.handle(method: "workspace_preferences_save", params: ["preferences": original])
+        _ = try saveWorkspacePreferences(service, original)
         let created = try service.handle(method: "backup_create", params: ["name": "preferences"])
         let name = try #require(created["name"] as? String)
         let package = root.appendingPathComponent("OM0RX-xLog-Integrated Preview/Backups/" + name)
@@ -306,7 +306,7 @@ struct LiveLogbookMethodsTests {
         var changed = original
         changed["deskBandMapBands"] = ["10m"]
         changed["detachedBandMapModes"] = []
-        _ = try service.handle(method: "workspace_preferences_save", params: ["preferences": changed])
+        _ = try saveWorkspacePreferences(service, changed)
         let retained = try #require(service.handle(method: "workspace_preferences_load", params: [:])["preferences"] as? [String: Any])
         #expect(retained["deskBandMapBands"] as? [String] == ["10m"])
         _ = try service.handle(method: "backup_restore", params: [
@@ -321,13 +321,13 @@ struct LiveLogbookMethodsTests {
         var invalid = restored
         invalid["deskBandMapBands"] = ["bogus"]
         #expect(throws: WorkerFailure.self) {
-            try service.handle(method: "workspace_preferences_save", params: ["preferences": invalid])
+            try saveWorkspacePreferences(service, invalid)
         }
         #expect((try service.handle(method: "workspace_preferences_load", params: [:])["preferences"] as? [String: Any])?["deskBandMapBands"] as? [String] == ["40m", "20m"])
         invalid = restored
         invalid["detachedBandMapModes"] = ["cw", "cw"]
         #expect(throws: WorkerFailure.self) {
-            try service.handle(method: "workspace_preferences_save", params: ["preferences": invalid])
+            try saveWorkspacePreferences(service, invalid)
         }
     }
 

@@ -241,7 +241,7 @@ pub fn owner(app: &tauri::AppHandle) -> Result<Arc<StationTelemetry>, String> {
                     }
                 }),
                 Arc::new(move |value| {
-                    for label in ["main", "monitor"] {
+                    for label in ["main", "monitor", "world-map", "band-maps"] {
                         let _ = app.emit_to(
                             label,
                             "xlog:station-telemetry",

@@ -556,12 +556,68 @@ These are explicit prerequisites, not a claim that RADIO-05 now works.
 
 ## Follow-on: RUMlogNG workflow and feature comparison
 
-User added this reference pass after the canvas/native-window request. Confirmed installed app identity through the native app inventory: `de.dl2rum.RUMlogNG`; it was not running at inspection. Its menus/settings have not yet been audited in this pass. Do not represent remembered features as current observations.
+User added this reference pass after the canvas/native-window request. The initial inventory identified `de.dl2rum.RUMlogNG`. The later [14 October audit](RUMLOG_WORKFLOW_GAP_AUDIT_2026-10-14.md) records installed version 6.5.1, native top-level/Window menu observations and official-documentation comparisons. Settings inspection remains blocked by native accessibility timeouts. Do not represent documented or remembered features as current native observations.
 
-Track as **RUM-01: reference audit**, **RUM-02: evidence-backed gap matrix**, and **RUM-03: prioritized independent implementations**, all pending. Finish the requested workspace changes before expanding into the broader RUMlog parity programme; inspect menu conventions early enough to inform our menu naming and grouping.
+Track **RUM-01: reference audit** and **RUM-02: evidence-backed gap matrix** as partial; **RUM-03: prioritized independent implementations** is ongoing. Finish the requested workspace changes before expanding into the broader RUMlog parity programme; inspect menu conventions early enough to inform our menu naming and grouping.
 
 Audit the installed app's menu hierarchy and shortcuts, preferences categories, separate windows and layout recovery, log editing/search/import/export, QSL/LoTW/Club Log, awards, cluster/band maps, station/rotor/CW, contest workflows and useful integrations. Record the installed version and observed behaviour, distinguish disabled/unconfigured capabilities from missing features, and avoid changing its configuration or logbook. Do not open secret fields, trigger sync/import, select tuning spots, connect hardware or run station controls as part of the comparison.
 
 Produce a matrix with the observed workflow, xLog counterpart, status (equivalent/partial/missing/not applicable), concrete user benefit, priority, implementation scope and acceptance test. Inspect existing xLog code before declaring a gap. Use the findings to reproduce familiar user-facing conventions and capabilities in our own architecture, not to clone every menu item blindly.
 
 Implement independently from observed behaviour and public documentation. Do not copy proprietary source, icons, artwork or manual text. Do not assume licensing or patent status from the user's general statement; evaluate any specific third-party reuse separately. Keep the modern cross-platform UI, responsiveness and single-session safety contract intact.
+
+## Next ownership stage — 14 October review
+
+The new map readers remove their main-renderer projection dependency, but remain
+inspect-only until the activation workflow below is implemented. This is not
+full operational undocking and must not be advertised as such. Callsign
+Intelligence follows the canonical new-QSO draft; it does not mirror a historical
+contact being edited. The full Windowed preset remains disabled.
+
+### Station Monitor
+
+Extract the existing Monitor component into a direct lazy window entry. Compose
+retained native selection/radio/rotor context without initializing a provider,
+connecting hardware or calling telemetry selection from passive reads. The saved
+selection must seed native telemetry during lifecycle bootstrap; unset stays
+unavailable. The current frontend telemetry helper sends a provider parameter
+which is correctly forbidden to Monitor, so it cannot be reused unchanged.
+
+Preserve Monitor actions through narrow native admission, binding radio commands
+to selection UUID/generation as well as provider (including A→B→A changes).
+Keep existing rotor owner/generation admission and urgent Stop. Connect/reconnect,
+settings, credentials and provider selection remain main-only. Verify actual
+main absence, independent service staleness, worker replacement, lost replies
+without replay, and restore boundaries before claiming parity.
+
+### Spot activation from independent maps and DX Cluster
+
+1. A native coordinator accepts an operation UUID and native-issued spot identity
+   and version. Resolve callsign/frequency/mode from retained ClusterSession state,
+   rejecting changed, removed, stale or old-session reports. Never trust arbitrary
+   renderer frequency/mode under this permission.
+2. Register editable windows and require prepare/freeze acknowledgements. The
+   database cannot see invalid input buffers, unsent journals, pending receipts or
+   historical-contact editing. Missing or vetoed acknowledgements fail closed.
+3. Apply the spot fields through a narrow generation/draft-revision-guarded
+   transaction with a durable receipt, preserving unrelated manual fields and
+   normal automatic-power scope rules. Do not save a contact automatically.
+4. Admit tuning against current native provider/selection identity and retain
+   backend observed simplex, frequency/mode and RX/TX-ownership proof. Move the
+   Hamlib tune normalization out of the renderer; an acknowledgement is not proof
+   of tuning.
+5. Move Auto Rotor arming/epochs/disarm rules to native ownership before preserving
+   automatic turns without main. Restart defaults off. Only the current confirmed
+   tune and matching fresh bearing may authorize motion; Stop/manual motion,
+   disconnect and uncertainty revoke it.
+6. Switch all main/child activation callers together. Keep events wake-only and
+   children denied raw radio/rotor/draft-write APIs. Honor the existing
+   `clusterSpotOpensFullEditor` preference by opening/reusing Log QSO, not a hidden
+   main controller. Preserve reference-enrichment/manual-edit fences.
+
+Same operation ID returns its retained outcome; payload mismatches reject.
+Uncertain replies require status/receipt lookup, never another tune or turn.
+Rapid selections, Save/Clear races, restore, stale editor acknowledgements,
+provider A→B→A and worker restart require explicit tests. Isolated native fixtures
+must exercise all three child roles with main actually destroyed. Hardware
+acceptance remains separate and is not authorized by these source tests.

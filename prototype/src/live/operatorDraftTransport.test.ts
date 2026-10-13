@@ -24,3 +24,13 @@ it("preserves explicit worker rejection for receipt-first reconciliation", async
   await expect(requestOperatorDraft("logbook_operator_draft_apply")).rejects.toBeInstanceOf(DraftRequestRejected);
   expect(native.invoke).toHaveBeenCalledOnce();
 });
+it("preserves native string error detail without treating lost IPC as definite rejection", async () => {
+  native.invoke.mockRejectedValue("Prototype worker is busy; try again");
+  try { await requestOperatorDraft("logbook_operator_draft_apply"); throw new Error("expected failure"); }
+  catch (error) {
+    expect(error).toBeInstanceOf(Error); expect(error).not.toBeInstanceOf(DraftRequestRejected);
+    expect((error as Error).message).toBe("Prototype worker is busy; try again");
+  }
+  native.invoke.mockRejectedValue({ unknown: true });
+  await expect(requestOperatorDraft("logbook_operator_draft")).rejects.toThrow("transport is unavailable");
+});

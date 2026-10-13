@@ -35,6 +35,37 @@ function fixture() {
 const type = (session: OperatorDraftSession, call: string) => session.edit({ ...session.getSnapshot().draft!, call });
 const deferred = <T>() => { let resolve!: (value: T) => void; const promise = new Promise<T>(done => { resolve = done; }); return { resolve, promise }; };
 
+it("reports verified refreshes only after an actual validated draft read", async () => {
+  const f = fixture(), session = f.make();
+  expect(await session.refresh()).toBe(true);
+  // An unchanged but verified response still proves the transport recovered.
+  expect(await session.refresh()).toBe(true);
+  session.setLocalInputPending(true);
+  const calls = f.request.mock.calls.length;
+  expect(await session.refresh()).toBe(false); expect(f.request).toHaveBeenCalledTimes(calls);
+  session.setLocalInputPending(false);
+  f.request.mockResolvedValueOnce({ draft: { invalid: true } as unknown as DraftSnapshot });
+  await expect(session.refresh()).rejects.toThrow("verified");
+});
+it("does not report a fenced in-flight response or changed-workspace skip as recovery", async () => {
+  const f = fixture(), session = f.make(); await session.load();
+  const gate = deferred<any>(); f.request.mockImplementationOnce(() => gate.promise);
+  const read = session.refresh(); session.setLocalInputPending(true);
+  gate.resolve({ draft: copy(f.current) }); expect(await read).toBe(false);
+  session.setLocalInputPending(false); f.current.generation = crypto.randomUUID();
+  expect(await session.refresh()).toBe(true); expect(session.getSnapshot().workspaceChanged).toBe(true);
+  const calls = f.request.mock.calls.length;
+  expect(await session.refresh()).toBe(false); expect(f.request).toHaveBeenCalledTimes(calls);
+});
+it("does not report receipt-only pending reconciliation as a verified draft read", async () => {
+  const f = fixture(), session = f.make(); await session.load(); type(session, "K1ABC");
+  f.request.mockRejectedValueOnce(new Error("IPC lost"));
+  await expect(session.commit("save")).rejects.toThrow("IPC lost");
+  expect(session.getSnapshot().pending).toBeTruthy();
+  expect(await session.refresh()).toBe(false);
+  expect(session.getSnapshot().pending).toBeTruthy();
+});
+
 it("ignores an older overlapping reload after a newer wake response", async () => {
   const f = fixture(), session = f.make(); await session.load();
   const old = copy(f.current), gate = deferred<any>();

@@ -8,6 +8,8 @@ import { verifySpotHistory } from "./spotHistoryAcceptance";
 import { verifyWorkspaceSettings } from "./workspaceSettingsAcceptance";
 import { verifyWorkspaceWindows } from "./workspaceWindowsAcceptance";
 import { createLogbookLayoutAcceptance } from "./logbookLayoutAcceptance";
+import { beginSpotHistoryAbsence, resumeSpotHistoryAbsence, serveSpotHistoryAbsence } from "./spotHistoryWindowAcceptance";
+import { verifyBandMapContext } from "./bandMapWindowAcceptance";
 
 type Json = Record<string, any>;
 const frame = () => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
@@ -246,6 +248,7 @@ async function main(report: Json) {
   const increase = element<HTMLButtonElement>('[aria-label="Increase band map text size"]');
   increase.click(); await frame();
   const scale = element(".band-maps-scale output").textContent;
+  report.details.bandMapContext = await verifyBandMapContext(scale);
   await click("Undock");
   let detached: Json | null = null;
   const deadline = Date.now() + 15_000;
@@ -254,7 +257,9 @@ async function main(report: Json) {
     if (detached) break;
     await new Promise(resolve => setTimeout(resolve, 50));
   }
-  check("detached_projection", detached?.status === "passed" && detached?.scope === "integrated-local-ui" && detached?.details?.surface === "band-maps" && detached.details.scale === scale);
+  check("detached_projection", detached?.status === "passed" && detached?.scope === "integrated-local-ui" && detached?.details?.surface === "band-maps" && detached.details.scale === scale &&
+    detached.details.nativeContext?.synthetic === true && detached.details.nativeContext?.externalOwners === false &&
+    detached.details.nativeContext?.generation === report.details.bandMapContext.generation);
   report.details.detached = detached;
   report.details.spotHistory = await verifySpotHistory({ worker, navigate, fill, click });
   check("spot_history_archive", report.details.spotHistory.nativeTable && report.details.spotHistory.draftUnchanged);
@@ -327,12 +332,23 @@ export async function startIntegratedAcceptance() {
   started = true;
   const surface = new URLSearchParams(location.search).get("view");
   const report: Json = { schema: 1, scope: "integrated-local-ui", status: "failed", embeddedUi: false, worker: false, checks: {}, details: { surface: surface || "main" } };
+  if (!surface) report.details.mainInstanceID = crypto.randomUUID();
   try {
     await waitForAcceptance("integrated UI mount", () => !!document.querySelector(".app.live"));
     report.embeddedUi = true;
+    if (!surface && await resumeSpotHistoryAbsence(report, worker, navigate, awaitMap)) {
+      report.status = "passed";
+      await invoke("finish_acceptance", { report });
+      return;
+    }
+    if (surface === "spot-history") {
+      await serveSpotHistoryAbsence(report, worker, click);
+      return;
+    }
     if (surface === "band-maps") {
-      await waitForAcceptance("main-window band map projection", () => !!document.querySelector(".band-maps-scale output") && !document.body.textContent?.includes("Waiting for the main workspace projection"));
+      await waitForAcceptance("detached native band maps", () => !!document.querySelector(".band-maps-scale output") && !document.querySelector(".live-error"));
       report.details.scale = element(".band-maps-scale output").textContent;
+      report.details.nativeContext = await verifyBandMapContext(report.details.scale);
       report.status = "passed";
       await invoke("acceptance_monitor", { report });
       return;
@@ -370,6 +386,8 @@ export async function startIntegratedAcceptance() {
     if (surface) throw new Error("Unexpected local acceptance surface");
     await main(report);
     report.status = "passed";
+    await beginSpotHistoryAbsence(report, worker);
+    return; // Native coordinator owns progress after destroying this renderer.
   } catch (error) {
     report.status = "failed";
     report.error = error instanceof Error ? error.message : typeof error === "string" ? error : "Integrated UI acceptance failed";

@@ -39,13 +39,26 @@ it("disposes late subscriptions without starting work", async () => {
 it("keeps periodic recovery after subscription failure and reports read failures", async () => {
   api.listen.mockRejectedValue(new Error("unavailable")); const failed = vi.fn(), read = vi.fn().mockRejectedValueOnce(new Error("offline")).mockResolvedValue(undefined);
   const dispose = connectOperatorDraftChanges(read, failed); await vi.advanceTimersByTimeAsync(0);
-  expect(failed).toHaveBeenCalledWith(expect.stringContaining("periodic refresh")); expect(failed).toHaveBeenCalledWith("offline");
+  expect(failed).toHaveBeenCalledWith(expect.stringContaining("periodic refresh"), "subscription"); expect(failed).toHaveBeenCalledWith("offline", "read");
   await vi.advanceTimersByTimeAsync(1620); expect(read).toHaveBeenCalledTimes(2); dispose();
 });
 it("does not report a late read error after disposal", async () => {
   let reject!: (cause: Error) => void; const failed = vi.fn(); api.desktop = false;
   const dispose = connectOperatorDraftChanges(() => new Promise((_, fail) => { reject = fail; }), failed);
   dispose(); reject(new Error("late")); await vi.runAllTimersAsync(); expect(failed).not.toHaveBeenCalled();
+});
+it("reports recovery only for verified reads, not skipped reads or disposed completions", async () => {
+  api.listen.mockResolvedValue(vi.fn());
+  const read = vi.fn().mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+  const recovered = vi.fn(), failed = vi.fn();
+  const dispose = connectOperatorDraftChanges(read, failed, recovered);
+  await vi.advanceTimersByTimeAsync(0); expect(failed).toHaveBeenCalledWith("offline", "read");
+  await vi.advanceTimersByTimeAsync(1500); expect(recovered).not.toHaveBeenCalled();
+  await vi.advanceTimersByTimeAsync(1500); expect(recovered).toHaveBeenCalledOnce();
+  let finish!: (verified: boolean) => void;
+  read.mockImplementation(() => new Promise<boolean>(resolve => { finish = resolve; }));
+  await vi.advanceTimersByTimeAsync(1500); dispose(); finish(true);
+  await vi.runAllTimersAsync(); expect(recovered).toHaveBeenCalledOnce();
 });
 it("guards native close using current draft state and a narrow close command", async () => {
   let close!: () => void, blocked = true; const stop = vi.fn(), explain = vi.fn();

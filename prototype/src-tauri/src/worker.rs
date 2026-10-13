@@ -16,7 +16,7 @@ const RESPONSE_TIMEOUT: Duration = Duration::from_secs(45);
 pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     validate_request(request)?;
     if request["method"] == "workspace_layout_load" {
-        return if matches!(label, "main" | "monitor" | "world-map" | "band-maps" | "dx-cluster" | "log-qso" | "spot-history" | "logbook" | "awards") {
+        return if matches!(label, "main" | "monitor" | "world-map" | "band-maps" | "dx-cluster" | "log-qso" | "spot-history" | "logbook" | "awards" | "callsign-intelligence") {
             Ok(())
         } else { Err("This window cannot read the shared workspace layout.".into()) };
     }
@@ -25,6 +25,15 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     }
     if request["method"] == "station_power_selection" {
         return Err("Only the native radio owner can publish power selection.".into());
+    }
+    if request["method"] == "workspace_band_map_apply" {
+        return if label == "main" || label == "band-maps" && request["params"]["scope"] == "detached" { Ok(()) }
+        else { Err("This window cannot change band-map preferences.".into()) };
+    }
+    if label == "callsign-intelligence" {
+        return if matches!(request["method"].as_str(), Some("logbook_operator_draft" | "lookup_call"
+            | "logbook_previous" | "logbook_matrix" | "cluster_history" | "workspace_preferences_load")) { Ok(()) }
+        else { Err("Callsign Intelligence can only read the shared draft and its lookup evidence.".into()) };
     }
     if label == "log-qso" {
         return if matches!(request["method"].as_str(), Some("logbook_operator_draft"
@@ -116,6 +125,8 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "workspace_create",
         "workspace_preferences_load",
         "workspace_preferences_save",
+        "workspace_band_map_apply",
+        "workspace_map_context",
         "workspace_layout_load",
         "workspace_layout_apply",
         "backup_create",
@@ -470,6 +481,8 @@ static SESSION: OnceLock<Mutex<Option<Arc<Session>>>> = OnceLock::new();
 static SESSION_GENERATION: AtomicU64 = AtomicU64::new(0);
 static SHUTTING_DOWN: AtomicBool = AtomicBool::new(false);
 static LOCAL_ACCEPTANCE: OnceLock<bool> = OnceLock::new();
+pub fn local_acceptance() -> bool { *LOCAL_ACCEPTANCE.get().unwrap_or(&false) }
+pub fn generation() -> u64 { SESSION_GENERATION.load(Ordering::Acquire) }
 
 /// Called once by native main before creating any webviews. A renderer cannot
 /// opt into or out of isolation, or nominate a directory for acceptance data.
@@ -816,6 +829,15 @@ mod tests {
             }
             for method in ["station_tune", "station_action", "station_snapshot", "logbook_save", "sync_run", "settings_save", "secret_save", "workspace_create", "backup_restore", "hamlib_control"] {
                 assert!(validate_surface(label, &json!({"id":"r","method":method,"params":{}})).is_err());
+            }
+        }
+    }
+    #[test]
+    fn only_band_maps_can_patch_its_exact_detached_view_scope() {
+        for scope in ["desk", "detached", "unknown", ""] {
+            let request = json!({"id":"maps","method":"workspace_band_map_apply","params":{"scope":scope,"generation":"fixture","expected":{},"patch":{}}});
+            for label in ["main", "world-map", "band-maps", "monitor", "log-qso", "spot-history", "dx-cluster", "unknown"] {
+                assert_eq!(validate_surface(label, &request).is_ok(), label == "main" || label == "band-maps" && scope == "detached", "{label}:{scope}");
             }
         }
     }
@@ -1231,3 +1253,15 @@ mod tests {
         }
     }
 }
+    #[test]
+    fn callsign_intelligence_can_only_read_canonical_context_and_evidence() {
+        for method in ["logbook_operator_draft", "lookup_call", "logbook_previous", "logbook_matrix", "cluster_history", "workspace_preferences_load", "workspace_layout_load"] {
+            assert!(validate_surface("callsign-intelligence", &serde_json::json!({"id":"intel","method":method,"params":{}})).is_ok(), "{method}");
+        }
+        for method in ["logbook_operator_draft_apply", "logbook_operator_draft_receipt", "logbook_save", "logbook_contact", "logbook_contact_apply", "logbook_import_adif",
+            "settings_load", "settings_save", "secret_status", "secret_save", "workspace_create", "workspace_layout_apply", "workspace_preferences_save", "workspace_band_map_apply",
+            "sync_summary", "sync_run", "backup_create", "backup_restore", "station_snapshot", "station_connect", "station_tune", "station_power_selection",
+            "hamlib_snapshot", "hamlib_control", "rotor_snapshot", "rotor_goto", "winkeyer_snapshot", "cluster_snapshot", "cluster_connect", "cluster_disconnect", "cluster_command"] {
+            assert!(validate_surface("callsign-intelligence", &serde_json::json!({"id":"intel","method":method,"params":{}})).is_err(), "{method}");
+        }
+    }

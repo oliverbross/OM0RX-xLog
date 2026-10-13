@@ -1,6 +1,7 @@
 // Import the actual CSS modules eagerly so Vite deduplicates imports from
 // lazy surfaces. CSS @import aggregation would duplicate their rules in later
 // chunks, overriding the shared typography and layout corrections in live.css.
+import "./Map.css";
 import "./live/ClusterPanel.css";
 import "./live/OpportunitiesPanel.css";
 import "./live/SpotHistoryPanel.css";
@@ -15,6 +16,7 @@ import "./live/QSOEditor.css";
 import "./live/QSOHeader.css";
 import "./live/RotorCompass.css";
 import "./live/OperatorDesk.css";
+import "./live/DetachedCallsignIntelligenceSurface.css";
 import "./live/CW.css";
 import "./live/OperatorWorkspace.css";
 import "./live/OperatorCanvas.css";

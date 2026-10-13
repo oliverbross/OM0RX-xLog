@@ -5,7 +5,7 @@ use std::sync::{
     atomic::{AtomicBool, AtomicU64, Ordering},
     Arc, Condvar, Mutex, OnceLock,
 };
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::Emitter;
 
 type Transport = dyn Fn(Value) -> Result<Value, String> + Send + Sync;
@@ -52,6 +52,7 @@ struct Projection {
     response: Option<Value>,
     selected: Option<String>,
     available: bool,
+    received_at_ms: u64,
 }
 
 pub struct ClusterSession {
@@ -76,6 +77,7 @@ impl ClusterSession {
                 response: None,
                 selected: None,
                 available: false,
+                received_at_ms: 0,
             }),
             started: AtomicBool::new(false),
             stopped: AtomicBool::new(false),
@@ -97,13 +99,13 @@ impl ClusterSession {
             "method":"cluster_resume","params":{}})
     }
 
-    fn projection_value(&self) -> Result<Value, String> {
+    pub fn projection_value(&self) -> Result<Value, String> {
         let state = self
             .projection
             .lock()
             .map_err(|_| "Cluster projection unavailable")?;
         Ok(
-            json!({"revision":state.revision,"response":state.response,"selected":state.selected,"available":state.available}),
+            json!({"revision":state.revision,"response":state.response,"selected":state.selected,"available":state.available,"received_at_ms":state.received_at_ms}),
         )
     }
 
@@ -125,6 +127,7 @@ impl ClusterSession {
             state.revision += 1;
             state.response = Some(payload.clone());
             state.available = true;
+            state.received_at_ms = SystemTime::now().duration_since(UNIX_EPOCH).map(|duration| duration.as_millis() as u64).unwrap_or(0);
             if state.selected.as_ref().is_some_and(|id| {
                 !payload["snapshot"]["spots"]
                     .as_array()
@@ -294,7 +297,9 @@ pub fn owner(app: &tauri::AppHandle) -> Result<Arc<ClusterSession>, String> {
             Arc::new(ClusterSession::new(
                 Arc::new(crate::worker::request),
                 Arc::new(move |projection| {
-                    let _ = app.emit_to("dx-cluster", "xlog:cluster-projection", projection);
+                    for label in ["dx-cluster", "world-map", "band-maps"] {
+                        let _ = app.emit_to(label, "xlog:cluster-projection", &projection);
+                    }
                 }),
             ))
         })
@@ -470,10 +475,13 @@ mod tests {
             Arc::new(|_| {}),
         );
         owner.refresh().unwrap();
+        let observed_at = owner.projection_value().unwrap()["received_at_ms"].clone();
+        assert!(observed_at.as_u64().unwrap() > 0);
         owner.select(Some("spot-a".into())).unwrap();
         assert!(owner.select(Some("unknown".into())).is_err());
         assert_eq!(owner.projection_value().unwrap()["selected"], "spot-a");
         owner.select(None).unwrap();
+        for _ in 0..20 { assert_eq!(owner.projection_value().unwrap()["received_at_ms"], observed_at); }
         assert_eq!(calls.load(Ordering::SeqCst), 1);
     }
 

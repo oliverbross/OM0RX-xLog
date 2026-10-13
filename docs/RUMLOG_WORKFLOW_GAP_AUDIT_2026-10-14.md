@@ -13,8 +13,12 @@ data was copied. No station command, credential change or log mutation was made.
 - Official online documentation was read as a fallback. Its contents page labels
   the documentation version 6.4; documentation is not proof of installed 6.5.1
   behavior. Local bundled-help reads were unavailable through the context tool.
-- xLog comparison baseline: installed alpha.15, source `a2c0446`, plus explicitly
-  marked source-only work in the current stage. User is testing; app stays running.
+- Original comparison baseline: alpha.15, source `a2c0446`. Alpha.16 is now
+  installed (source `03840acb`), adding independent Spot History and Logbook column
+  controls. The user is testing that build while later window work remains source-only.
+- A further read-only inspection attempt confirmed RUMlogNG is already running,
+  but its native accessibility read timed out again before exposing Settings.
+  No RUMlog setting or logbook was changed; the Settings inspection gate remains open.
 
 ## Native menu observations
 

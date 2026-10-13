@@ -562,23 +562,43 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                 } catch WorkspaceLayoutError.invalid { throw invalid() }
             case "workspace_preferences_load":
                 try requireKeys(params, allowed: [])
-                _ = try readyDatabase()
-                guard let defaults = workspace?.makeDefaults() else {
-                    throw WorkerFailure("workspace_required", "Create an isolated logbook first.")
-                }
-                return ["preferences": try json(backupPreferences(from: defaults)),
-                        "stored": defaults.object(forKey: "OM0RX-xLog.deskBandMapBands") != nil]
+                return try preferencesSnapshot()
             case "workspace_preferences_save":
-                try requireKeys(params, allowed: ["preferences"], required: ["preferences"])
-                _ = try readyDatabase()
-                guard let object = params["preferences"] as? [String: Any] else { throw invalid() }
+                try requireKeys(params, allowed: ["preferences", "generation", "expectedRevision"],
+                                required: ["preferences", "generation", "expectedRevision"])
+                let current = try preferencesSnapshot()
+                let expected = try integer(params, "expectedRevision", default: -1, range: 0...9_007_199_254_740_990)
+                if try !matchesEditGeneration(params, current["generation"] as! String) {
+                    return current.merging(["status": "workspace_changed"]) { _, new in new }
+                }
+                guard let object = params["preferences"] as? [String: Any],
+                      Set(object.keys) == Set((current["preferences"] as! [String: Any]).keys) else { throw invalid() }
                 let value: XLogBackupPreferences = try decode(object)
                 try validateBackupPreferences(value)
+                if expected != current["revision"] as? Int { return current.merging(["status": "conflict"]) { _, new in new } }
                 guard let defaults = workspace?.makeDefaults() else {
                     throw WorkerFailure("workspace_required", "Create an isolated logbook first.")
                 }
-                applyBackupPreferences(value, to: defaults)
-                return ["preferences": try json(value)]
+                if !NSDictionary(dictionary: object).isEqual(to: current["preferences"] as! [String: Any]) {
+                    guard expected < 9_007_199_254_740_990 else { throw invalid() }
+                    applyBackupPreferences(value, to: defaults)
+                    defaults.set(expected + 1, forKey: "OM0RX-xLog.workspacePreferencesRevision")
+                }
+                return try preferencesSnapshot().merging(["status": "applied"]) { _, new in new }
+            case "workspace_band_map_apply":
+                return try applyBandMapPreferences(params)
+            case "workspace_map_context":
+                try requireKeys(params, allowed: [])
+                let db = try readyDatabase()
+                var result = try preferencesSnapshot()
+                var statuses = Dictionary(try currentCTYResolver().entities.map { (String($0.adif), "needed") }, uniquingKeysWith: { first, _ in first })
+                for (adif, status) in try db.dxccMapStatuses() { statuses[String(adif)] = status }
+                let settings = try currentSettings()
+                result["home"] = MaidenheadLocator.coordinate(settings.gridSquare).map {
+                    ["lat": $0.latitude, "lon": $0.longitude, "call": settings.stationCall, "grid": settings.gridSquare] as [String: Any]
+                } as Any? ?? NSNull()
+                result["dxccStatuses"] = statuses
+                return result
             case "backup_create":
                 try requireKeys(params, allowed: ["name"])
                 guard !manualSyncActive else { throw WorkerFailure("sync_busy", "Wait for synchronization to finish before backing up.") }
@@ -914,6 +934,58 @@ public final class LiveLogbookMethods: @unchecked Sendable {
         defaults.set(value.clusterSpotOpensFullEditor, forKey: "OM0RX-xLog.clusterSpotOpensFullEditor")
         defaults.set(value.detachedBandMapFollowsRadio, forKey: "OM0RX-xLog.detachedBandMapFollowsRadio")
         defaults.set(value.detachedBandMapModes, forKey: "OM0RX-xLog.detachedBandMapModes")
+    }
+
+    private func preferencesSnapshot() throws -> [String: Any] {
+        _ = try readyDatabase()
+        guard let defaults = workspace?.makeDefaults() else { throw WorkerFailure("workspace_required", "Create an isolated logbook first.") }
+        let revision = defaults.integer(forKey: "OM0RX-xLog.workspacePreferencesRevision")
+        guard (0...9_007_199_254_740_990).contains(revision) else { throw invalid() }
+        return ["preferences": try json(backupPreferences(from: defaults)), "revision": revision,
+                "generation": try editGeneration(), "stored": defaults.object(forKey: "OM0RX-xLog.deskBandMapBands") != nil]
+    }
+
+    /// Compare only fields changed by this control, under the same lock as the
+    /// generation check and write. Unrelated windows' fields are never copied
+    /// back from an old renderer snapshot.
+    private func applyBandMapPreferences(_ params: [String: Any]) throws -> [String: Any] {
+        try requireKeys(params, allowed: ["generation", "scope", "expected", "patch"], required: ["generation", "scope", "expected", "patch"])
+        guard let scope = params["scope"] as? String, ["desk", "detached"].contains(scope),
+              let expected = params["expected"] as? [String: Any], let patch = params["patch"] as? [String: Any],
+              Set(expected.keys) == Set(patch.keys) else { throw invalid() }
+        let fields = scope == "desk" ? ["bands": "deskBandMapBands", "followRadio": "deskBandMapFollowsRadio", "fontScale": "bandMapFontScale"]
+            : ["bands": "detachedBandMapBands", "followRadio": "detachedBandMapFollowsRadio", "fontScale": "bandMapFontScale", "layout": "detachedBandMapLayout", "modes": "detachedBandMapModes"]
+        guard Set(patch.keys).isSubset(of: Set(fields.keys)) else { throw invalid() }
+        let current = try preferencesSnapshot()
+        let original = current["preferences"] as! [String: Any]
+        var next = original, baseline = original
+        for (key, value) in patch {
+            if key == "layout" {
+                guard let layout = value as? String, ["row", "grid"].contains(layout),
+                      let prior = expected[key] as? String, ["row", "grid"].contains(prior) else { throw invalid() }
+                next[fields[key]!] = layout == "row" ? "Single row" : "Adaptive grid"
+                baseline[fields[key]!] = prior == "row" ? "Single row" : "Adaptive grid"
+            } else {
+                next[fields[key]!] = value; baseline[fields[key]!] = expected[key]
+            }
+        }
+        // Validate both client baselines and requested values before any write.
+        let value: XLogBackupPreferences = try decode(next)
+        let prior: XLogBackupPreferences = try decode(baseline)
+        try validateBackupPreferences(value); try validateBackupPreferences(prior)
+        if try !matchesEditGeneration(params, current["generation"] as! String) {
+            return current.merging(["status": "workspace_changed"]) { _, new in new }
+        }
+        if !NSDictionary(dictionary: baseline).isEqual(to: original) {
+            return current.merging(["status": "conflict"]) { _, new in new }
+        }
+        if !NSDictionary(dictionary: next).isEqual(to: original) {
+            let revision = current["revision"] as! Int
+            guard revision < 9_007_199_254_740_990, let defaults = workspace?.makeDefaults() else { throw invalid() }
+            applyBackupPreferences(value, to: defaults)
+            defaults.set(revision + 1, forKey: "OM0RX-xLog.workspacePreferencesRevision")
+        }
+        return try preferencesSnapshot().merging(["status": "applied"]) { _, new in new }
     }
 
     private func newOperatorDraft() throws -> QSO {

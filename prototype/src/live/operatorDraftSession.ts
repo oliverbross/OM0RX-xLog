@@ -172,25 +172,28 @@ export class OperatorDraftSession {
   }
   async load() {
     if (this.loading) return this.loading;
-    this.loading = this.refresh().finally(() => { this.loading = null; });
+    this.loading = this.refresh().then(() => {}).finally(() => { this.loading = null; });
     return this.loading;
   }
-  async refresh() {
-    if (this.localInputPending) return;
-    if (this.state.workspaceChanged) return;
-    if (this.work || this.action || this.state.locked && !this.state.pending) return;
+  /** True only after an actual, validated current read. Skipped/fenced reads
+   * must not be mistaken for transport recovery by the window health UI. */
+  async refresh(): Promise<boolean> {
+    if (this.localInputPending) return false;
+    if (this.state.workspaceChanged) return false;
+    if (this.work || this.action || this.state.locked && !this.state.pending) return false;
     const lifecycle = this.lifecycle;
-    if (this.state.pending) { await this.reconcile(); return; }
+    if (this.state.pending) { await this.reconcile(); return false; }
     const sequence = ++this.readSequence;
     let result;
     try { result = await this.request("logbook_operator_draft"); }
     catch (cause) {
-      if (sequence !== this.readSequence || lifecycle !== this.lifecycle) return;
+      if (sequence !== this.readSequence || lifecycle !== this.lifecycle) return false;
       throw cause;
     }
-    if (this.localInputPending || sequence !== this.readSequence || lifecycle !== this.lifecycle || this.work || this.action || this.state.pending) return;
+    if (this.localInputPending || sequence !== this.readSequence || lifecycle !== this.lifecycle || this.work || this.action || this.state.pending) return false;
     if (!validScopedSnapshot(result?.draft)) throw new Error("The shared draft response could not be verified.");
     this.receiveSnapshot(result.draft);
+    return true;
   }
   /** Consume a correlated worker snapshot without issuing another request. */
   receiveSnapshot(current: DraftSnapshot) {

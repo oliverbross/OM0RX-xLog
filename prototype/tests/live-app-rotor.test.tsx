@@ -6,6 +6,7 @@ import { operatorDraftFixture } from "./operator-draft-fixture";
 
 const bridge = vi.hoisted(() => ({ request: vi.fn(), tune: null as null | ((value: any) => void), rotorGeneration: 4,
   nativeSelection: false, selection: vi.fn(), applySelection: vi.fn(),
+  preferenceView: null as any, preferenceChange: null as null | ((value: any) => void),
   telemetry: vi.fn(), stationTelemetry: vi.fn(), selectTelemetry: vi.fn(), intentId: null as string | null, deferMotion: false, motion: null as null | { resolve: (value: any) => void; reject: (cause: Error) => void } }));
 vi.mock("../src/live/rotorTelemetry", () => ({ connectRotorTelemetry: bridge.telemetry }));
 vi.mock("../src/live/stationTelemetry", () => ({ connectStationTelemetry: bridge.stationTelemetry }));
@@ -15,9 +16,13 @@ vi.mock("../src/live/operatorDraftTransport", () => ({ requestOperatorDraft: asy
 vi.mock("../src/Map", () => ({ default: () => <div>Map</div> }));
 vi.mock("../src/live/Conditions", () => ({ default: () => <div>Conditions</div> }));
 vi.mock("../src/live/BandMaps", async original => ({ ...await original<typeof import("../src/live/BandMaps")>(),
-  default: ({ preferences: view, onPreferencesChange }: any) => <div><output data-testid="map-font">{view?.fontScale}</output><button disabled={!view} onClick={() => onPreferencesChange?.({ ...view, fontScale: Number((view.fontScale + 0.1).toFixed(1)) })}>Increase map font</button></div> }));
+  default: ({ preferences: view, onPreferencesChange }: any) => {
+    bridge.preferenceView = view; bridge.preferenceChange = onPreferencesChange;
+    return <div><output data-testid="map-font">{view?.fontScale}</output><output data-testid="map-bands">{view?.bands.join(",")}</output><button disabled={!view} onClick={() => onPreferencesChange?.({ ...view, fontScale: Number((view.fontScale + 0.1).toFixed(1)) })}>Increase map font</button></div>;
+  } }));
 vi.mock("../src/live/ClusterPanel", () => ({ ClusterPanel: ({ onSelect }: any) => <button onClick={() => onSelect({ id: "spot", callsign: "K1ABC", frequencyKHz: 14074, mode: "FT8", band: "20m" })}>Select test spot</button> }));
 const preferences = { deskBandMapBands: ["20m"], detachedBandMapBands: ["20m"], deskBandMapFollowsRadio: false, detachedBandMapFollowsRadio: false, detachedBandMapLayout: "Single row", bandMapFontScale: 1, intelligenceBands: ["20m"], clusterSpotOpensFullEditor: false };
+const preferenceGeneration = "12345678-1234-4234-8234-123456789abc";
 function controlOneSecondPolls() {
   // Control only the app's 1000ms snapshot intervals. Keep Testing Library's
   // 50ms waits, lookup debounces and all other timers real; no wall-clock sleeps
@@ -46,6 +51,7 @@ async function openRotorSettings() {
 }
 beforeEach(() => {
   localStorage.clear(); bridge.request.mockReset(); bridge.tune = null; bridge.rotorGeneration = 4; bridge.intentId = null; bridge.deferMotion = false; bridge.motion = null;
+  bridge.preferenceView = null; bridge.preferenceChange = null;
   bridge.telemetry.mockReset(); bridge.telemetry.mockReturnValue(null);
   bridge.nativeSelection = false; bridge.selection.mockReset(); bridge.selection.mockReturnValue(null); bridge.applySelection.mockReset();
   bridge.stationTelemetry.mockReset(); bridge.stationTelemetry.mockReturnValue(null); bridge.selectTelemetry.mockReset(); bridge.selectTelemetry.mockResolvedValue(undefined);
@@ -60,7 +66,7 @@ beforeEach(() => {
       if (bridge.deferMotion) return new Promise((resolve, reject) => { bridge.motion = { resolve: result => resolve({ result }), reject }; });
     }
     const result = method === "workspace_status" ? { workspace_exists: true, native_log_exists: true }
-      : method === "workspace_preferences_load" ? { preferences, stored: true }
+      : method === "workspace_preferences_load" ? { preferences, stored: true, generation: preferenceGeneration, revision: 0 }
       : method === "settings_load" ? { settings: { stationCall: "OM0RX", gridSquare: "JN88" } }
       : method === "logbook_stats" ? { stats: { qso_count: 1 } }
       : method === "logbook_draft" ? { qso: { id: "draft", call: "", start: "2026-10-12T00:00:00Z", frequencyHz: 14074000, mode: "FT8", band: "20m" } }
@@ -282,9 +288,13 @@ it("does not overwrite a newer preference save with a late failed-save recovery 
   let recovery: null | ((value: any) => void) = null;
   bridge.request.mockImplementation(async (method: string, params: any = {}) => {
     if (method === "workspace_preferences_load" && ++loads > 1) return new Promise(resolve => { recovery = value => resolve({ result: value }); });
-    if (method === "workspace_preferences_save") {
+    if (method === "workspace_band_map_apply") {
+      // A lost acknowledgement does not establish whether the first field
+      // patch persisted. The later explicit edit has its own verified reply;
+      // this held old recovery read must still never replace that newer value.
       if (++saves === 1) throw new Error("Save unavailable");
-      return { result: { preferences: params.preferences } };
+      return { result: { status: "applied", preferences: { ...preferences, bandMapFontScale: params.patch.fontScale },
+        generation: preferenceGeneration, revision: saves, stored: true } };
     }
     return base(method, params);
   });
@@ -294,8 +304,33 @@ it("does not overwrite a newer preference save with a late failed-save recovery 
   await waitFor(() => expect(recovery).not.toBeNull());
   fireEvent.click(screen.getByRole("button", { name: "Increase map font" }));
   await waitFor(() => expect(saves).toBe(2));
-  await act(async () => { (recovery as unknown as (value: any) => void)({ preferences, stored: true }); });
+  await act(async () => { (recovery as unknown as (value: any) => void)({ preferences, stored: true, generation: preferenceGeneration, revision: 0 }); });
   expect(screen.getByTestId("map-font").textContent).toBe("1.2");
+});
+
+it("preserves two different preference controls emitted from the same rendered frame", async () => {
+  const base = bridge.request.getMockImplementation()!;
+  const replies: ((value: any) => void)[] = [];
+  bridge.request.mockImplementation(async (method, params = {}) => method === "workspace_band_map_apply"
+    ? new Promise(resolve => { replies.push(value => resolve({ result: value })); }) : base(method, params));
+  render(<LiveApp />);
+  await waitFor(() => expect(screen.getByTestId("map-font").textContent).toBe("1"));
+  const rendered = bridge.preferenceView, change = bridge.preferenceChange!;
+  act(() => { change({ ...rendered, fontScale: 1.1 }); change({ ...rendered, bands: ["40m"] }); });
+  await waitFor(() => expect(replies).toHaveLength(1));
+  expect(screen.getByTestId("map-font").textContent).toBe("1.1");
+  expect(screen.getByTestId("map-bands").textContent).toBe("40m");
+  await act(async () => replies[0]({ generation: preferenceGeneration, revision: 1, stored: true, status: "applied",
+    preferences: { ...preferences, bandMapFontScale: 1.1 } }));
+  await waitFor(() => expect(replies).toHaveLength(2));
+  const writes = bridge.request.mock.calls.filter(([method]) => method === "workspace_band_map_apply");
+  expect(writes[0][1].patch).toEqual({ fontScale: 1.1 });
+  expect(writes[1][1].patch).toEqual({ bands: ["40m"] });
+  expect(writes[1][1].expected).toEqual({ bands: ["20m"] });
+  await act(async () => replies[1]({ generation: preferenceGeneration, revision: 2, stored: true, status: "applied",
+    preferences: { ...preferences, bandMapFontScale: 1.1, deskBandMapBands: ["40m"] } }));
+  expect(screen.getByTestId("map-font").textContent).toBe("1.1");
+  expect(screen.getByTestId("map-bands").textContent).toBe("40m");
 });
 
 it("cancels pending automatic motion on independent stop and never replays it", async () => {

@@ -17,7 +17,22 @@ const main = "src/LiveApp.tsx";
 assert(manifest[main], "Main workspace bundle is missing");
 const eagerGraph = closure("index.html");
 const eagerCss = new Set([...eagerGraph].flatMap(key => manifest[key].css ?? []));
-for (const name of ["Awards", "Logbook", "Cluster", "QSO", "SpotHistory"]) {
+// Maps are explicit child entries too. World Map legitimately owns MapLibre;
+// Band Maps must not pay for it or import the main station controller.
+for (const name of ["WorldMap", "BandMaps"]) {
+  const entry = `src/live/Detached${name}Surface.tsx`;
+  const graph = closure(entry, closure("index.html"));
+  assert(!graph.has(main), `${name} imports the main station workspace`);
+  if (name === "BandMaps") assert(!graph.has("src/Map.tsx"), "Band Maps imports World Map");
+  const lateCss = [...graph].flatMap(key => manifest[key].css ?? []).filter(file => !eagerCss.has(file));
+  assert.equal(lateCss.length, 0, `${name} loads late CSS after shared overrides: ${lateCss.join(", ")}`);
+  const files = [...new Set([...graph].map(key => manifest[key].file))];
+  const data = files.map(file => readFileSync(resolve(dist, file)));
+  const bytes = data.reduce((sum, item) => sum + item.length, 0);
+  assert(bytes <= (name === "WorldMap" ? 1_600_000 : 400_000), `${name} startup JavaScript budget exceeded: ${bytes}`);
+  console.log(JSON.stringify({ window: name, bytes, gzip: data.reduce((sum, item) => sum + gzipSync(item).length, 0), files }));
+}
+for (const name of ["Awards", "Logbook", "Cluster", "QSO", "SpotHistory", "CallsignIntelligence"]) {
   const entry = `src/live/Detached${name}Surface.tsx`;
   const graph = closure(entry, closure("index.html"));
   assert(!graph.has(main), `${name} imports the main station workspace`);

@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Radio, BookOpen, Network, History, Map as MapIcon, Settings, Activity, Award, LayoutDashboard, ExternalLink, RefreshCw } from "lucide-react";
 import { workerRequest, openMonitor, openDetachedMap, detachedMapKind, findDetachedSpot,
-  onDetachedSpot, onDetachedReady, onDetachedProjection, announceDetachedReady,
-  publishDetachedProjection, requestDetachedSpot, onDetachedBandMapPreferences, requestDetachedBandMapPreferences,
+  onDetachedSpot,
   onMonitorProjection, onMonitorReady, announceMonitorReady, publishMonitorProjection,
-  type DetachedMapKind, type DetachedMapProjection, type MonitorProjection, type StationProvider } from "./worker";
+  type DetachedMapProjection, type MonitorProjection, type StationProvider } from "./worker";
 import WorldMap from "./Map";
 import type { Spot } from "./model";
 import { ClusterPanel } from "./live/ClusterPanel";
@@ -25,8 +24,11 @@ import { hamlibStationRequest } from "./live/hamlibStation";
 import BandMaps, { bandForRadio } from "./live/BandMaps";
 import { bandMapView, migrateLegacyBandMaps, validBandMapView, withBandMapView } from "./live/workspacePreferences";
 import type { WorkspacePreferences } from "./live/workspacePreferences";
+import { bandMapPatch, checkedPreferenceReply, connectPreferenceInvalidation, validPreferenceSnapshot, type PreferenceSnapshot } from "./live/bandMapPreferenceTransport";
+import { DetachedWorldMapSurface } from "./live/DetachedWorldMapSurface";
+import { DetachedBandMapsSurface } from "./live/DetachedBandMapsSurface";
 import type { BandMapViewPreferences } from "./live/BandMaps";
-import { mergeBandMapPreferenceIntent, sameBandMapPreferences } from "./live/detachedBandMapPreferences";
+import { mergeBandMapPreferenceIntent } from "./live/detachedBandMapPreferences";
 import IntegratedAwards from "./live/AwardsPanel";
 import QSOEditor from "./live/QSOEditor";
 import OperatorDesk, { DeskQSO, DeskIntelligence, DeskRotor } from "./live/OperatorDesk";
@@ -48,7 +50,7 @@ import { logMode } from "./live/draftRadio";
 import { changedCallDraft, enrichedDraft, normalizedCall } from "./live/draftEnrichment";
 import { OperatorDraftSession, readDraftJournal, type DraftQSO } from "./live/operatorDraftSession";
 import { requestOperatorDraft } from "./live/operatorDraftTransport";
-import { connectOperatorDraftChanges, openDetachedQSO } from "./live/operatorDraftWindows";
+import { connectOperatorDraftChanges, openDetachedQSO, ownDraftUpdateWarnings } from "./live/operatorDraftWindows";
 import { OperatorDraftStatus } from "./live/OperatorDraftStatus";
 import { LogbookContactSession, readContactJournal } from "./live/logbookContactSession";
 import { LogbookMutationSession, readLogbookMutationJournal } from "./live/logbookMutationSession";
@@ -93,7 +95,8 @@ function legacyDraftValue(): Data | null {
 }
 
 export default function LiveApp() {
-  if (detached) return <DetachedMapSurface kind={detached} />;
+  if (detached === "world-map") return <DetachedWorldMapSurface />;
+  if (detached === "band-maps") return <DetachedBandMapsSurface />;
   if (monitor) return <MonitorSurface />;
   return <MainLiveApp />;
 }
@@ -109,6 +112,7 @@ function MainLiveApp() {
   const [settings, setSettings] = useState<Data | null>(null);
   const [workspacePreferences, setWorkspacePreferences] = useState<WorkspacePreferences | null>(null);
   const latestWorkspacePreferences = useRef<WorkspacePreferences | null>(null);
+  const latestPreferenceSnapshot = useRef<PreferenceSnapshot | null>(null);
   const preferenceWrite = useRef<Promise<unknown>>(Promise.resolve());
   const preferenceRevision = useRef(0);
   const reloadRevision = useRef(0);
@@ -163,6 +167,7 @@ function MainLiveApp() {
   const [referenceEvidence, setReferenceEvidence] = useState<{ call: string; rows: Data[] } | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [draftUpdateHealth] = useState(() => ownDraftUpdateWarnings(setError));
   const menuSettings = useRef(settings); menuSettings.current = settings;
   const showSyncSettings = useCallback(() => {
     setSettingsTabRequest(previous => ({ tab: "Sync", revision: previous.revision + 1 }));
@@ -409,7 +414,11 @@ function MainLiveApp() {
       if (revision !== reloadRevision.current) return;
       const prior = loaded.preferences as WorkspacePreferences;
       const migrated = loaded.stored ? null : migrateLegacyBandMaps(prior, localStorage);
-      const preferences = migrated ? (await request("workspace_preferences_save", { preferences: migrated })).preferences as WorkspacePreferences : prior;
+      const saved = migrated && validPreferenceSnapshot(loaded) ? await request("workspace_preferences_save", {
+        preferences: migrated, generation: loaded.generation, expectedRevision: loaded.revision,
+      }) : loaded;
+      const preferences = saved.preferences as WorkspacePreferences;
+      latestPreferenceSnapshot.current = validPreferenceSnapshot(saved) ? saved : null;
       latestWorkspacePreferences.current = preferences;
       setWorkspacePreferences(preferences);
       setSettings(s.settings);
@@ -428,21 +437,52 @@ function MainLiveApp() {
   const changeBandMapPreferences = (compact: boolean, view: BandMapViewPreferences) => {
     const current = latestWorkspacePreferences.current;
     if (!current || !validBandMapView(view)) return;
-    const next = withBandMapView(current, compact, view);
+    const base = latestPreferenceSnapshot.current;
+    if (!base) { setError("Reload the workspace before changing shared band-map preferences."); return; }
+    const rendered = workspacePreferences ? bandMapView(workspacePreferences, compact) : bandMapView(current, compact);
+    const latest = bandMapView(current, compact);
+    const mutation = bandMapPatch(base, compact, rendered, view, latest);
+    if (!Object.keys(mutation.patch).length) return;
+    const next = withBandMapView(current, compact, mergeBandMapPreferenceIntent(latest, rendered, view));
     latestWorkspacePreferences.current = next;
     setWorkspacePreferences(next);
     const revision = ++preferenceRevision.current;
-    preferenceWrite.current = preferenceWrite.current.catch(() => {}).then(() => request("workspace_preferences_save", { preferences: next }));
+    preferenceWrite.current = preferenceWrite.current.catch(() => {}).then(async () => {
+      const reply = checkedPreferenceReply(await request("workspace_band_map_apply", mutation));
+      if (revision === preferenceRevision.current) {
+        latestPreferenceSnapshot.current = reply;
+        latestWorkspacePreferences.current = reply.preferences;
+        setWorkspacePreferences(reply.preferences);
+      }
+      if (reply.status !== "applied") throw new Error(reply.status === "workspace_changed"
+        ? "Workspace changed. Reload before changing band-map preferences."
+        : "Another window changed these band-map preferences. Review the current values and try again.");
+    });
     void preferenceWrite.current.catch(cause => {
       if (revision !== preferenceRevision.current) return;
       setError(cause instanceof Error ? cause.message : "Band-map preferences could not be saved.");
       void request("workspace_preferences_load").then(loaded => {
         if (revision !== preferenceRevision.current) return;
         latestWorkspacePreferences.current = loaded.preferences;
+        latestPreferenceSnapshot.current = validPreferenceSnapshot(loaded) ? loaded : null;
         setWorkspacePreferences(loaded.preferences);
       }).catch(() => {});
     });
   };
+  useEffect(() => {
+    let active = true, sequence = 0;
+    const stop = connectPreferenceInvalidation(() => {
+      const read = ++sequence, revision = preferenceRevision.current;
+      void preferenceWrite.current.catch(() => {}).then(() => request("workspace_preferences_load")).then(loaded => {
+        if (active && read === sequence && revision === preferenceRevision.current && validPreferenceSnapshot(loaded)) {
+          latestPreferenceSnapshot.current = loaded;
+          latestWorkspacePreferences.current = loaded.preferences;
+          setWorkspacePreferences(loaded.preferences);
+        }
+      }).catch(() => { /* Explicit preference changes retain their own failure. */ });
+    });
+    return () => { active = false; sequence++; stop?.(); };
+  }, [request]);
   const dataManagementRequest: Request = useCallback(async (method, params = {}) => {
     if (method === "backup_create" || method === "backup_restore") await preferenceWrite.current;
     if (method === "backup_restore") {
@@ -472,8 +512,8 @@ function MainLiveApp() {
   }, [workspace?.workspace_exists, sharedDraft, draftSession]);
   useEffect(() => {
     if (!workspace?.workspace_exists) return;
-    return connectOperatorDraftChanges(() => draftSession.refresh(), setError);
-  }, [workspace?.workspace_exists, draftSession]);
+    return connectOperatorDraftChanges(() => draftSession.refresh(), draftUpdateHealth.failed, draftUpdateHealth.recovered, draftUpdateHealth.subscribed);
+  }, [workspace?.workspace_exists, draftSession, draftUpdateHealth]);
   useEffect(() => {
     if (!workspace?.workspace_exists || !contactEdit.base) return;
     let active = true;
@@ -704,9 +744,7 @@ function MainLiveApp() {
     if (monitor) return;
     let active = true; const subscriptions: Array<() => void> = [];
     void Promise.allSettled([
-      onDetachedSpot(payload => { const spot = findDetachedSpot(payload, latestSpots.current); if (spot) selectCurrentSpot.current(spot); }),
-      onDetachedBandMapPreferences(value => { if (validBandMapView(value)) changeBandMapPreferences(false, value); }),
-      onDetachedReady(kind => { void publishDetachedProjection(kind, latestProjection.current).catch(() => {}); }),
+      onDetachedSpot(payload => { if ((payload as Data)?.kind !== "dx-cluster") return; const spot = findDetachedSpot(payload, latestSpots.current); if (spot) selectCurrentSpot.current(spot); }),
       onDetachedDock(kind => { setView(kind === "dx-cluster" ? "DX Cluster" : kind === "world-map" ? "World Map" : "Band Maps"); }),
       onMonitorReady(() => { void publishMonitorProjection(latestMonitorProjection.current).catch(() => {}); }),
     ]).then(results => { for (const result of results) if (result.status === "fulfilled") { if (active) subscriptions.push(result.value); else result.value(); } });
@@ -715,14 +753,6 @@ function MainLiveApp() {
   useEffect(() => {
     if (!monitor) void publishClusterSelection(selected).catch(() => {});
   }, [selected]);
-  useEffect(() => {
-    if (monitor) return;
-    void publishDetachedProjection("world-map", latestProjection.current).catch(() => {});
-  }, [cluster, stats, selected, mapTarget, station?.radio?.frequency_hz, station?.radio?.observed, station?.radio?.connected]);
-  useEffect(() => {
-    if (monitor) return;
-    void publishDetachedProjection("band-maps", latestProjection.current).catch(() => {});
-  }, [cluster, station?.radio?.frequency_hz, selected, workspacePreferences]);
   useEffect(() => {
     void publishMonitorProjection(latestMonitorProjection.current).catch(() => {});
   }, [station, rotorState, cluster, stats, selected, mapTarget, stationProvider, busy]);
@@ -824,100 +854,6 @@ function MainLiveApp() {
       {view === "Settings" && settings && <ServiceSettings values={settings} request={request} onSaved={value => { setSettings(value); void draftSession.refresh().catch(cause => setError(cause instanceof Error ? cause.message : "Power capture settings could not be refreshed.")); }} requestedTab={settingsTabRequest.tab} requestedTabRevision={settingsTabRequest.revision} syncSettings={settings.logbookMode === "local" ? <p>Standalone local logbook. Wavelog synchronization is disabled in Settings.</p> : <SyncPanel request={request} onChanged={() => setRefresh(n => n + 1)} />} cwContext={cwContext} cwState={cw.state} cwProvider={stationProvider} refreshCW={() => cw.controller.pollWinKeyer()} rotorSettings={<RotorPanel snapshot={rotorState} request={request} onManual={disarmAutoRotor} />} workspaceSettings={<WorkspaceSettings {...deskLayout} equipment={deskKind === "none" ? undefined : deskKind} requiredRotor={deskKind === "rotor" && !!rotorState?.owner} available={["active-qso", "callsign-intelligence", "world-map", "band-maps", "dx-cluster", "logbook", "awards", "spot-history", ...(deskKind === "none" ? [] : [deskKind] as ("rotor" | "antenna")[])]} />} dataRequest={dataManagementRequest} onDataChanged={() => { setSettings(null); setDraft(null); setStats(null); latestWorkspacePreferences.current = null; setWorkspacePreferences(null); setRefresh(n => n + 1); }} />}
       </>}
     </main></div>;
-}
-
-function DetachedMapSurface({ kind }: { kind: DetachedMapKind }) {
-  const [projection, setProjection] = useState<DetachedMapProjection>({ spots: [] });
-  const [optimisticBandMapPreferences, setOptimisticBandMapPreferences] = useState<BandMapViewPreferences | null>(null);
-  const latestBandMapPreferences = useRef<BandMapViewPreferences | null>(null);
-  const authoritativeBandMapPreferences = useRef<BandMapViewPreferences | null>(null);
-  const pendingPreferenceSequence = useRef(0);
-  const pendingPreferences = useRef(false);
-  const preferenceSend = useRef<Promise<void>>(Promise.resolve());
-  const preferenceTimeout = useRef<number | null>(null);
-  const latestRevision = useRef(-1);
-  const [error, setError] = useState("");
-  const [receivedAt, setReceivedAt] = useState(0);
-  const [clock, setClock] = useState(Date.now());
-  useEffect(() => { const timer = window.setInterval(() => setClock(Date.now()), 1_000); return () => window.clearInterval(timer); }, []);
-  useEffect(() => {
-    let active = true; let unlisten: (() => void) | null = null;
-    void onDetachedProjection(value => {
-      if (active && value && Array.isArray(value.spots) && Number.isSafeInteger(value.revision) &&
-        Number(value.revision) > latestRevision.current) {
-        if (kind === "band-maps" && validBandMapView(value.bandMapPreferences)) {
-          authoritativeBandMapPreferences.current = value.bandMapPreferences;
-          if (!pendingPreferences.current || latestBandMapPreferences.current &&
-            sameBandMapPreferences(latestBandMapPreferences.current, value.bandMapPreferences)) {
-            pendingPreferences.current = false;
-            latestBandMapPreferences.current = value.bandMapPreferences;
-            setOptimisticBandMapPreferences(null);
-            if (preferenceTimeout.current !== null) window.clearTimeout(preferenceTimeout.current);
-            preferenceTimeout.current = null;
-          }
-        }
-        latestRevision.current = Number(value.revision); setProjection(value); setReceivedAt(Date.now());
-      }
-    }).then(stop => {
-      if (!active) { stop(); return; }
-      unlisten = stop;
-      void announceDetachedReady(kind).catch(cause => setError(cause instanceof Error ? cause.message : "Map projection unavailable."));
-    }).catch(cause => { if (active) setError(cause instanceof Error ? cause.message : "Map projection unavailable."); });
-    return () => { active = false; unlisten?.(); if (preferenceTimeout.current !== null) window.clearTimeout(preferenceTimeout.current); };
-  }, [kind]);
-  const spots = projection.spots;
-  const mapSpots: Spot[] = spots.filter(s => typeof s.latitude === "number" && typeof s.longitude === "number").map(s => ({
-    id: s.id, call: s.callsign, receivedAt: s.receivedAt, mhz: s.frequencyKHz / 1000, mode: s.mode, band: s.band,
-    country: s.country, grid: "", lon: s.longitude, lat: s.latitude, reporter: s.spotter, note: s.comment,
-    state: s.callStatus === "Confirmed" ? "confirmed" : s.callStatus === "Worked" ? "worked" : "needed",
-    adif: s.adif, callStatus: s.callStatus, statusHex: s.statusHex, bandHex: s.bandHex,
-  }));
-  const select = (spot: { id?: unknown }) => {
-    if (typeof spot.id === "string") void requestDetachedSpot(kind, spot.id).catch(cause => setError(cause instanceof Error ? cause.message : "Spot selection could not reach the main window."));
-  };
-  const changeDetachedBandMapPreferences = (requested: BandMapViewPreferences) => {
-    const rendered = optimisticBandMapPreferences ?? projection.bandMapPreferences;
-    if (!validBandMapView(rendered) || !validBandMapView(requested)) return;
-    const next = mergeBandMapPreferenceIntent(latestBandMapPreferences.current ?? rendered, rendered, requested);
-    if (!validBandMapView(next)) return;
-    latestBandMapPreferences.current = next;
-    pendingPreferences.current = true;
-    setOptimisticBandMapPreferences(next);
-    const sequence = ++pendingPreferenceSequence.current;
-    if (preferenceTimeout.current !== null) window.clearTimeout(preferenceTimeout.current);
-    preferenceTimeout.current = window.setTimeout(() => {
-      if (pendingPreferences.current && pendingPreferenceSequence.current === sequence) {
-        pendingPreferences.current = false;
-        latestBandMapPreferences.current = authoritativeBandMapPreferences.current;
-        setOptimisticBandMapPreferences(null);
-        setError("Band-map preferences were not confirmed by the main workspace. Try again.");
-      }
-    }, 10_000);
-    preferenceSend.current = preferenceSend.current.catch(() => {}).then(() => requestDetachedBandMapPreferences(next));
-    void preferenceSend.current.catch(cause => {
-      if (pendingPreferenceSequence.current !== sequence) return;
-      pendingPreferences.current = false;
-      latestBandMapPreferences.current = authoritativeBandMapPreferences.current;
-      setOptimisticBandMapPreferences(null);
-      if (preferenceTimeout.current !== null) window.clearTimeout(preferenceTimeout.current);
-      preferenceTimeout.current = null;
-      setError(cause instanceof Error ? cause.message : "Band-map preferences could not reach the main window.");
-    });
-  };
-  return <div className="app live monitor-app" style={{ display: "flex", flexDirection: "column" }}>
-    {kind === "world-map" && <header className="station-rail"><strong className="brand teal">OM0RX-xLog</strong><span className="cyan">World Map</span><span className="rail-end">{spots.length} live spots · selection handled by main window</span><button type="button" onClick={() => void dockDetachedWorkspace().catch(() => setError("Could not dock this window. Close it and reopen the workspace in the main app."))}>Dock back</button></header>}
-    <main style={{ flex: 1, minHeight: 0, padding: 14 }}>
-      {error && <p className="live-error" role="alert">{error}</p>}
-      {receivedAt === 0 ? <p className="secondary">Waiting for the main workspace projection…</p> : clock - receivedAt > 5_000 && <p className="live-cluster-note" role="status">Main workspace updates paused; map data below may be stale.</p>}
-      {kind === "world-map" ? <div className="live-map full"><WorldMap data={mapSpots} selected={projection.selected ?? null}
-        palette={projection.palette} home={projection.home} dxccStatuses={projection.dxccStatuses}
-        target={projection.target} frequencyHz={projection.radioFrequencyHz}
-        onSpot={select} /></div> : <BandMaps spots={spots} onSelect={select} radioFrequencyHz={projection.radioFrequencyHz}
-          preferences={optimisticBandMapPreferences ?? projection.bandMapPreferences} onPreferencesChange={changeDetachedBandMapPreferences}
-          onDock={() => void dockDetachedWorkspace().catch(() => setError("Could not dock this window. Close it and reopen the workspace in the main app."))} />}
-      {kind === "world-map" && <p className="secondary">This window displays the main app’s latest read-only projection. Spot selection is validated and handled by the main window.</p>}
-    </main>
-  </div>;
 }
 
 function MonitorSurface() {

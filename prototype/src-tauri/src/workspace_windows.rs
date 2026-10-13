@@ -9,7 +9,8 @@ pub struct WindowSpec {
     pub width: f64,
     pub height: f64,
 }
-pub const SUPPORTED_WINDOWS: [WindowSpec; 8] = [
+pub const SUPPORTED_WINDOWS: [WindowSpec; 9] = [
+    WindowSpec { id: "callsign-intelligence", title: "OM0RX-xLog — Callsign Intelligence", width: 700.0, height: 620.0 },
     WindowSpec { id: "log-qso", title: "OM0RX-xLog — Log QSO", width: 800.0, height: 800.0 },
     WindowSpec { id: "spot-history", title: "OM0RX-xLog — Spot History", width: 1180.0, height: 800.0 },
     WindowSpec { id: "monitor", title: "OM0RX-xLog — Station Monitor", width: 780.0, height: 600.0 },
@@ -171,12 +172,23 @@ mod tests {
     #[test]
     fn registry_covers_only_real_windows() {
         let ids: BTreeSet<_> = SUPPORTED_WINDOWS.iter().map(|window| window.id).collect();
-        assert_eq!(ids.len(), 8);
+        assert_eq!(ids.len(), 9);
         let capabilities: Value = serde_json::from_str(include_str!("../capabilities/default.json")).unwrap();
         for id in &ids { assert!(capabilities["windows"].as_array().unwrap().contains(&json!(id))); }
         for window in SUPPORTED_WINDOWS { assert!(supports(window.id)); assert!(window.width >= 640.0 && window.height >= 480.0); }
         for role in ROLES { assert_eq!(supports(role), ids.contains(role)); }
         assert!(!supports("main")); assert!(!supports("unknown"));
+    }
+    #[test]
+    fn intelligence_window_reuses_singleton_intent_without_a_main_dependency() {
+        let mut planner = WorkspaceWindowPlanner::default();
+        let snapshot = fixture(&["callsign-intelligence"]);
+        let plan = planner.plan(&snapshot, false).unwrap(); assert_eq!(plan.show, ["callsign-intelligence"]);
+        apply(&mut planner, &plan);
+        assert!(planner.plan(&snapshot, false).unwrap().show.is_empty());
+        planner.forget_destroyed("callsign-intelligence");
+        assert!(planner.plan(&snapshot, false).unwrap().show.is_empty());
+        assert_eq!(planner.plan(&snapshot, true).unwrap().show, ["callsign-intelligence"]);
     }
     #[test]
     fn qso_window_intent_is_singleton_independent_of_main_and_passive_reads() {
@@ -209,7 +221,8 @@ mod tests {
         let mut planner = WorkspaceWindowPlanner::default();
         planner.acknowledge_show("logbook").unwrap();
         let error = planner.plan(&fixture(&["active-qso", "callsign-intelligence", "world-map"]), false).unwrap_err();
-        assert!(error.contains("active-qso, callsign-intelligence"));
+        assert!(error.contains("active-qso"));
+        assert!(!error.contains("active-qso, callsign-intelligence"));
         assert_eq!(planner.managed, BTreeSet::from(["logbook".into()]));
         assert!(planner.completed.is_none());
     }

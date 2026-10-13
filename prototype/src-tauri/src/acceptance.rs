@@ -15,6 +15,9 @@ pub struct Acceptance {
     monitor: Mutex<Option<Value>>,
     logbook: Mutex<Option<Value>>,
     awards: Mutex<Option<Value>>,
+    spot_history: Mutex<Option<Value>>,
+    spot_parent_report: Mutex<Option<Value>>,
+    spot_absence: Mutex<Option<crate::detached_acceptance::SpotHistoryAbsence>>,
     window_steps: Mutex<crate::detached_acceptance::Steps>,
     #[cfg(target_os = "linux")]
     browser_contexts: Mutex<Vec<tempfile::TempDir>>,
@@ -44,7 +47,7 @@ impl Acceptance {
         let large_log = path.is_some() && std::env::args().any(|arg| arg == "--acceptance-large-log");
         Self { path, large_log, ..Self::default() }
     }
-    fn require(&self) -> Result<(), String> {
+    pub(crate) fn require(&self) -> Result<(), String> {
         if self.path.is_none() { Err("Acceptance is disabled for normal application launches".into()) } else { Ok(()) }
     }
     /// Wry creates a new ephemeral GTK context for each incognito view, while
@@ -82,6 +85,10 @@ impl Acceptance {
 /// the operator's persistent browser storage as part of a test.
 pub fn isolate_browser_storage(config: &mut tauri::utils::config::Config, enabled: bool) {
     if enabled {
+        // The single-instance plugin derives its macOS socket from this value.
+        // Never let an isolated candidate contact, claim or clean the live app's
+        // singleton, even when launched from a renamed copy of the same bundle.
+        config.identifier = format!("com.oliverbross.xlog.acceptance.r{}", uuid::Uuid::new_v4().simple());
         for window in &mut config.app.windows {
             window.incognito = true;
             window.url = tauri::WebviewUrl::App("index.html?acceptance=local".into());
@@ -90,6 +97,10 @@ pub fn isolate_browser_storage(config: &mut tauri::utils::config::Config, enable
             "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ipc: http://ipc.localhost; worker-src 'self' blob:; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-src 'none'".into()));
     }
 }
+
+/// Only the already validated native CLI gate may disable singleton ownership.
+/// A renderer URL, environment variable or failed report parse cannot opt out.
+pub fn use_production_singleton(isolated: bool) -> bool { !isolated }
 
 fn bounded_object(report: &Value) -> Result<(), String> {
     if !report.is_object() || serde_json::to_vec(report).map_err(|e| e.to_string())?.len() > 60_000 {
@@ -105,6 +116,7 @@ pub fn validate_local_request(request: &Value) -> Result<(), String> {
         "health" | "parse_adif" | "self_test" | "integration_self_test" | "cluster_classify" | "cluster_history"
         | "workspace_status" | "workspace_create" | "workspace_preferences_load" | "workspace_preferences_save"
         | "workspace_layout_load" | "workspace_layout_apply"
+        | "workspace_map_context" | "workspace_band_map_apply"
         // Swift validates bounded filters/IDs against the generated private
         // archive; these methods cannot select a database or admit recordings.
         | "spot_history_status" | "spot_history_query" | "spot_history_stats" | "spot_history_detail"
@@ -125,11 +137,11 @@ pub fn passed(report: &Value) -> bool {
     const REQUIRED: [&str; 17] = ["worker_health", "worker_self_test", "worker_parse_adif", "worker_integration_self_test", "cluster_classification_initial", "cluster_classification_logged", "map_loaded",
         "cluster_selection", "keyboard_log", "logbook_readback", "keyboard_focus", "keyboard_clear",
         "profile_manual", "profile_simulator", "monitor_opened", "monitor_snapshot", "final_desk"];
-    const LOCAL: [&str; 28] = ["isolated_worker", "empty_workspace", "workspace_created", "workspace_layout_roundtrip", "workspace_canvas_controls", "workspace_settings_presets", "workspace_native_windows", "spot_history_archive", "worker_self_test",
+    const LOCAL: [&str; 31] = ["isolated_worker", "empty_workspace", "workspace_created", "workspace_layout_roundtrip", "workspace_canvas_controls", "workspace_settings_presets", "workspace_native_windows", "spot_history_archive", "worker_self_test",
         "worker_integration_self_test", "worker_parse_adif", "keyboard_log", "logbook_readback", "keyboard_editor",
         "keyboard_focus", "keyboard_clear", "settings_save_readback", "awards_loaded", "detached_projection",
         "map_loaded", "final_desk", "native_menu_routes", "contact_edit", "contact_delete_undo", "detached_logbook", "detached_awards",
-        "detached_logbook_lifecycle", "detached_awards_lifecycle"];
+        "detached_logbook_lifecycle", "detached_awards_lifecycle", "detached_spot_history", "spot_history_main_absent", "spot_history_dock_recovery"];
     let required: &[&str] = if report["scope"] == "integrated-local-ui" { &LOCAL } else if report["scope"].is_null() { &REQUIRED } else { return false; };
     let map = &report["details"]["finalMap"];
     let probes = map["landPixelProbes"].as_u64().unwrap_or(0);
@@ -200,7 +212,7 @@ pub fn acceptance_window_step(window: tauri::WebviewWindow, state: tauri::State<
 #[tauri::command]
 pub fn acceptance_window_state(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, Acceptance>, kind: String) -> Result<Value, String> {
     require_window_coordinator(&state, window.label(), &kind)?;
-    let slot = if kind == "awards" { &state.awards } else { &state.logbook };
+    let slot = match kind.as_str() { "awards" => &state.awards, "spot-history" => &state.spot_history, _ => &state.logbook };
     let report = slot.lock().map_err(|_| "Detached evidence unavailable")?.clone();
     let (open, visible, minimized) = if let Some(target) = app.get_webview_window(&kind) {
         (true, target.is_visible().map_err(|error| error.to_string())?,
@@ -212,11 +224,54 @@ pub fn acceptance_window_state(app: tauri::AppHandle, window: tauri::WebviewWind
 #[tauri::command]
 pub fn acceptance_monitor(window: tauri::WebviewWindow, state: tauri::State<'_, Acceptance>, report: Value) -> Result<(), String> {
     state.require()?;
-    if !matches!(window.label(), "monitor" | "band-maps" | "logbook" | "awards") { return Err("Only a tested detached surface may report its readback".into()); }
+    if !matches!(window.label(), "monitor" | "band-maps" | "logbook" | "awards" | "spot-history") { return Err("Only a tested detached surface may report its readback".into()); }
     bounded_object(&report)?;
-    let destination = match window.label() { "logbook" => &state.logbook, "awards" => &state.awards, _ => &state.monitor };
+    if window.label() == "spot-history" && report["status"] == "passed" {
+        let mut proof = state.spot_absence.lock().map_err(|_| "Archive lifecycle unavailable")?;
+        if let Some(proof) = proof.as_mut() {
+            proof.observe_read(report["details"]["instanceID"].as_str().unwrap_or(""),
+                report["details"]["phaseRevision"].as_u64().unwrap_or(0),
+                window.app_handle().get_webview_window("main").is_some(),
+                report["checks"]["archive_read"] == true && report["checks"]["main_absent"] == true)?;
+        }
+    }
+    let destination = match window.label() { "logbook" => &state.logbook, "awards" => &state.awards, "spot-history" => &state.spot_history, _ => &state.monitor };
     *destination.lock().map_err(|_| "Detached evidence unavailable")? = Some(report);
     Ok(())
+}
+
+#[tauri::command]
+pub fn acceptance_spot_history_begin(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, Acceptance>, report: Value) -> Result<(), String> {
+    require_window_coordinator(&state, window.label(), "spot-history")?;
+    bounded_object(&report)?;
+    let initial = state.spot_history.lock().map_err(|_| "Archive evidence unavailable")?.clone().ok_or("Archive renderer is not ready")?;
+    if initial["status"] != "passed" || initial["checks"]["archive_read"] != true || app.get_webview_window("spot-history").is_none() {
+        return Err("Archive renderer has not verified its private fixture".into());
+    }
+    let mut proof = state.spot_absence.lock().map_err(|_| "Archive lifecycle unavailable")?;
+    if proof.is_some() { return Err("Archive absence lifecycle was already armed".into()); }
+    let step = state.window_steps.lock().map_err(|_| "Window steps unavailable")?
+        .access("main", Some("spot-history"), Some("main_absent"))?.ok_or("Archive lifecycle step unavailable")?;
+    let next = crate::detached_acceptance::SpotHistoryAbsence::new(initial["details"]["instanceID"].as_str().unwrap_or(""), step.revision)?;
+    *state.spot_parent_report.lock().map_err(|_| "Acceptance coordinator unavailable")? = Some(report);
+    *proof = Some(next); drop(proof);
+    state.final_prepared.store(false, Ordering::Release);
+    // Exact, acceptance-only target. Hidden/minimized is not a main-absent proof.
+    window.destroy().map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn acceptance_spot_history_state(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, Acceptance>) -> Result<Value, String> {
+    state.require()?;
+    if !matches!(window.label(), "main" | "spot-history") { return Err("Only archive lifecycle participants may inspect this phase".into()); }
+    let proof = state.spot_absence.lock().map_err(|_| "Archive lifecycle unavailable")?;
+    let Some(proof) = proof.as_ref() else { return Ok(json!({"active":false})); };
+    let main_open = app.get_webview_window("main").is_some();
+    let child_open = app.get_webview_window("spot-history").is_some();
+    let report = if window.label() == "main" { state.spot_parent_report.lock().map_err(|_| "Acceptance coordinator unavailable")?.clone() } else { None };
+    let child_report = if window.label() == "main" { state.spot_history.lock().map_err(|_| "Archive evidence unavailable")?.clone() } else { None };
+    Ok(json!({"active":true,"main_open":main_open,"child_open":child_open,"read_proved":proof.read_proved,
+        "revision":proof.revision,"ready":proof.recovered(main_open, child_open),"report":report,"child_report":child_report}))
 }
 
 #[tauri::command]
@@ -245,16 +300,16 @@ pub async fn acceptance_prepare_final(app: tauri::AppHandle, window: tauri::Webv
     state.require()?;
     if window.label() != "main" { return Err("Only the main window may prepare final acceptance".into()); }
     if state.completed.load(Ordering::Acquire) { return Err("Acceptance already completed".into()); }
-    for label in ["monitor", "band-maps", "world-map", "dx-cluster", "logbook", "awards"] {
-        if let Some(detached) = app.get_webview_window(label) { detached.close().map_err(|e| e.to_string())?; }
+    for spec in crate::workspace_windows::SUPPORTED_WINDOWS {
+        if let Some(detached) = app.get_webview_window(spec.id) { detached.close().map_err(|e| e.to_string())?; }
     }
     // Close listeners may defer destruction. A close request alone is not proof
     // that the tested detached window actually completed its lifecycle.
     let observed = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         for _ in 0..100 {
-            if ["monitor", "band-maps", "world-map", "dx-cluster", "logbook", "awards"].iter()
-                .all(|label| observed.get_webview_window(label).is_none()) { return Ok(()); }
+            if crate::workspace_windows::SUPPORTED_WINDOWS.iter()
+                .all(|spec| observed.get_webview_window(spec.id).is_none()) { return Ok(()); }
             std::thread::sleep(std::time::Duration::from_millis(50));
         }
         Err("A detached acceptance window did not close".to_string())
@@ -272,7 +327,11 @@ pub fn finish_acceptance(app: tauri::AppHandle, window: tauri::WebviewWindow, st
     if state.completed.swap(true, Ordering::AcqRel) { return Err("Acceptance already completed".into()); }
     let prepared = state.final_prepared.load(Ordering::Acquire);
     let large_valid = !state.large_log || large_log_passed(&report);
-    let success = prepared && passed(&report) && large_valid;
+    let archive_ready = state.spot_absence.lock().ok().is_some_and(|proof| proof.as_ref().is_some_and(|proof|
+        proof.recovered(app.get_webview_window("main").is_some(), app.get_webview_window("spot-history").is_some())));
+    let success = prepared && passed(&report) && large_valid && (report["scope"] != "integrated-local-ui" || archive_ready);
+    report["acceptance_namespace"] = json!(app.config().identifier);
+    report["production_singleton"] = json!(false);
     report["large_log_requested"] = json!(state.large_log);
     if !prepared && report["error"].is_null() {
         report["error"] = json!("Final native window transition was not prepared");
@@ -362,11 +421,25 @@ mod tests {
             "identifier":"test.xlog.acceptance", "app":{"windows":[{"label":"main"},{"label":"other"}]}
         })).unwrap();
         isolate_browser_storage(&mut config, false);
+        assert_eq!(config.identifier, "test.xlog.acceptance");
+        assert!(use_production_singleton(false));
         assert!(config.app.windows.iter().all(|window| !window.incognito));
         isolate_browser_storage(&mut config, true);
+        assert_ne!(config.identifier, "test.xlog.acceptance");
+        assert!(config.identifier.starts_with("com.oliverbross.xlog.acceptance.r"));
+        assert!(!use_production_singleton(true));
         assert!(config.app.windows.iter().all(|window| window.incognito));
         assert!(config.app.windows.iter().all(|window| window.url == tauri::WebviewUrl::App("index.html?acceptance=local".into())));
         assert!(!config.app.security.csp.unwrap().to_string().contains("https:"));
+    }
+    #[test]
+    fn isolated_runs_have_distinct_singleton_and_application_namespaces() {
+        let mut first: tauri::utils::config::Config = serde_json::from_value(json!({"identifier":"com.oliverbross.xlog.integration"})).unwrap();
+        let mut second = first.clone();
+        isolate_browser_storage(&mut first, true);
+        isolate_browser_storage(&mut second, true);
+        assert_ne!(first.identifier, second.identifier);
+        assert_ne!(first.identifier.replace(['.', '-'], "_"), "com_oliverbross_xlog_integration");
     }
     #[test]
     fn integrated_local_report_requires_real_workflow_checks_and_gpu_evidence() {
@@ -374,7 +447,7 @@ mod tests {
             "worker_integration_self_test", "worker_parse_adif", "keyboard_log", "logbook_readback", "keyboard_editor",
             "keyboard_focus", "keyboard_clear", "settings_save_readback", "awards_loaded", "detached_projection",
             "map_loaded", "final_desk", "native_menu_routes", "contact_edit", "contact_delete_undo", "detached_logbook", "detached_awards",
-            "detached_logbook_lifecycle", "detached_awards_lifecycle"];
+            "detached_logbook_lifecycle", "detached_awards_lifecycle", "detached_spot_history", "spot_history_main_absent", "spot_history_dock_recovery"];
         let checks: serde_json::Map<String, Value> = names.iter().map(|name| (name.to_string(), json!(true))).collect();
         let mut report = json!({"scope":"integrated-local-ui","status":"passed","embeddedUi":true,"worker":true,
             "checks":checks,"details":{"finalMap":{"tilesLoaded":true,"webgl":true,"visible":true,"error":"",
@@ -418,15 +491,24 @@ mod tests {
         }
     }
     #[test]
+    fn local_map_acceptance_uses_only_private_workspace_context_and_preferences() {
+        for method in ["workspace_map_context", "workspace_band_map_apply"] {
+            assert!(validate_local_request(&json!({"method":method,"params":{}})).is_ok());
+        }
+        for method in ["cluster_snapshot", "station_snapshot", "station_power_selection", "sync_summary", "sync_run"] {
+            assert!(validate_local_request(&json!({"method":method,"params":{}})).is_err());
+        }
+    }
+    #[test]
     fn normal_launch_has_no_acceptance() { assert!(report_path(vec!["app".into()]).unwrap().is_none()); }
     #[test]
     fn native_window_controls_require_isolation_main_and_known_bounded_kind() {
         let disabled = Acceptance::default();
         assert!(require_window_coordinator(&disabled, "main", "logbook").is_err());
         let isolated = Acceptance { path: Some(PathBuf::from("isolated-test-report.json")), ..Acceptance::default() };
-        for kind in ["logbook", "awards"] {
+        for kind in ["logbook", "awards", "spot-history"] {
             assert!(require_window_coordinator(&isolated, "main", kind).is_ok());
-            for caller in ["logbook", "awards", "monitor", "world-map", "band-maps", "dx-cluster", "", "MAIN", "unknown"] {
+            for caller in ["logbook", "awards", "spot-history", "monitor", "world-map", "band-maps", "dx-cluster", "", "MAIN", "unknown"] {
                 assert!(require_window_coordinator(&isolated, caller, kind).is_err());
             }
         }

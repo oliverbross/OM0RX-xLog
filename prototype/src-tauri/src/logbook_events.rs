@@ -82,9 +82,11 @@ pub fn start(app: &tauri::AppHandle) -> Result<(), String> {
     let owner = SYNC_MONITOR.get_or_init(|| {
         let app = app.clone();
         Arc::new(SyncCompletionMonitor::new(Arc::new(crate::worker::request_existing), Arc::new(move || {
+            crate::map_context::invalidate();
+            for label in ["world-map", "band-maps"] { let _ = app.emit_to(label, "xlog:map-context", ()); }
             // Wake only; recipients reconcile via their existing scoped reads.
             // No contact, settings, summary or credentials cross this event.
-            for label in ["main", "log-qso", "logbook", "awards"] {
+            for label in ["main", "log-qso", "logbook", "awards", "callsign-intelligence"] {
                 let _ = app.emit_to(label, "xlog:logbook-changed", ());
             }
         }), Duration::from_secs(5)))
