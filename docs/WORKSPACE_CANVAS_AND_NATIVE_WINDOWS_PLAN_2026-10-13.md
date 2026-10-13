@@ -1,6 +1,6 @@
 # Configurable Operator Desk and native windows
 
-Status: shared draft, revision-safe main contact editing and initial native Cluster session implemented in source; canvas, menus and independent-window acceptance remain open.
+Status: shared draft, revision-safe contact editing, initial native Cluster session and native menu routing implemented; detached Logbook is in source verification. Canvas and full independent-window acceptance remain open.
 Request: 13 October 2026. Baseline: `0cc7ecc` / installed alpha.13.
 
 ## Product contract
@@ -23,7 +23,7 @@ This request extends the ongoing parity programme; it does not mark earlier requ
 | WS-01 | Every desk panel can be shown/hidden, moved and resized | Planned |
 | WS-02 | Settings → Workspace provides panel selection and named layouts | Planned |
 | WS-03 | Native menus replace navigation links on all three desktop platforms | In progress: complete screen menu routing in source; sidebar removal/native review pending |
-| WS-04 | Window menu opens/focuses individual native panel windows | Planned |
+| WS-04 | Window menu opens/focuses individual native panel windows | In progress: existing four windows plus Logbook in source; all other screens pending |
 | WS-05 | Docked, mixed and fully undocked arrangements share one live session | In progress: draft/contact foundations and Cluster owner only |
 | WS-06 | Layouts and window geometry survive restart and monitor changes | Planned |
 | WS-07 | Concurrent windows cannot duplicate logging or station actions | In progress: database/client revision and receipt checks; native multi-window gate open |
@@ -229,6 +229,20 @@ Checkpoint I is committed as `1bc5e9587df47928f3403e18d7f9cc8114f6dd05`. Mac CI 
 Local packaged acceptance is **not executed**. The local build wrapper repeatedly stopped compilation at its 120-second limit; a background build did not complete. The CI artifact was retrieved instead. The shell runner then permanently rejected direct `xlog-prototype` invocation, so no isolated report was created. The native inspector inadvertently launched the CI candidate normally before that asynchronous rejection was observed; it was stopped without contact edits or station commands. Its native accessibility tree exposed the Logbook menu and its five destinations, but screenshot capture was unavailable. That limited observation is neither isolated acceptance nor visual/accelerator approval. Do not retry the blocked invocation through another execution route.
 
 Installed alpha.13 was reopened from `/Applications/OM0RX-xLog Integration.app`; one app/worker pair was verified, its 67,846-contact count remained intact, and ShackCQ showed Connected. No candidate was installed and the original native apps were untouched. Native screenshot/finish review remains open. All-screen independent windows, main-view-absent session ownership, canvas/layouts and Windows/Linux desktop acceptance remain open.
+
+I follow-up: all five jobs in `38331060293` passed. Downloaded Windows first/relaunch reports and Linux X11/Wayland reports each confirm all 19 integrated-local checks, including `native_menu_routes`, `contact_edit` and `contact_delete_undo`, with `station_io:false`. Evidence is under `/tmp/xlog-native-menu-Fs5x1I/{windows,linux}`. These are real isolated WebView2/WebKit runs for I, not physical menu/keyboard or radio acceptance, and not evidence for J below.
+
+### Checkpoint J — independent Logbook surface
+
+Logbook now has an Undock action in its existing toolbar and a singleton Window-menu entry. Its detached surface directly reuses `LogbookPanel` and `QSOEditor`, with search, ADIF import/export, Update and Delete/Undo. It does not mount `MainLiveApp`, radio polling, CW controls or Follow radio. Contact and mutation journals use distinct `logbook` keys, leaving the main journals and active new-QSO draft separate. Revision/generation conflicts retain local text; reopening resolves a lost acknowledgement from its receipt without a new write.
+
+Native authority is scoped to local logbook operations and contact lookup/history; station actions, configuration, secrets, sync, new-contact draft mutations and legacy ID-only writes remain denied. Detached country-history reads go directly to the worker and do not start Cluster polling. A native invalidation wakes the other logbook view after possible writes (including failed partial imports/sync), excluding the initiating view. Burst notifications are debounced, focus recovers missed events, and draft typing does not invalidate the logbook.
+
+Close and Dock are protected while an edit or operation is unsettled. The close listener invokes a native command that can destroy only its own Logbook; no generic cross-window destroy permission is granted. Dock uses revisioned native navigation rather than a lossy renderer-to-renderer event. Existing geometry restore/watch is reused; full display-relative layout persistence remains WS-06 work.
+
+Source evidence: 459 frontend tests across 65 files, TypeScript and Vite build pass; 92 Rust tests pass. The final nine focused tests and build also pass after using the scoped native close command. Four rendered detached tests cover journal separation/no radio controls, cross-window edit conflict, lost acknowledgement/reopen and Delete/Undo/reopen/Dock. Five bridge tests cover desktop gating, invalidation coalescing, focus recovery, cleanup and close protection. The local Tauri implementation was checked to confirm that registering a native close listener defers default closing.
+
+The isolated native acceptance harness now requires a real detached Logbook to edit and restore the synthetic contact, report the absence of radio controls, and complete native closure before final map evidence. This new check is not yet executed. Native packaging, visual screenshots/finish review/documentation verdict and installation remain pending. The existing compact table minimum-width/scrolling issue is still WS-08; it is not hidden. This checkpoint is not fully undocked mode: main-window recreation, the other independent screens and migration of all shared station/session ownership remain open.
 
 ## Follow-on: RUMlogNG workflow and feature comparison
 

@@ -8,6 +8,7 @@ mod detached_geometry;
 mod winkeyer;
 mod cluster_session;
 mod workspace_navigation;
+mod logbook_events;
 
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu, WINDOW_SUBMENU_ID};
 use tauri::{Emitter, LogicalSize, Manager};
@@ -95,7 +96,8 @@ fn workspace_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     };
     windows.append(&PredefinedMenuItem::separator(app)?)?;
     for (id, title) in [("workspace_window_monitor", "Station Monitor"), ("workspace_window_world-map", "World Map"),
-        ("workspace_window_band-maps", "Band Maps"), ("workspace_window_dx-cluster", "DX Cluster")] {
+        ("workspace_window_band-maps", "Band Maps"), ("workspace_window_dx-cluster", "DX Cluster"),
+        ("workspace_window_logbook", "Logbook")] {
         windows.append(&MenuItem::with_id(app, id, title, true, None::<&str>)?)?;
     }
     Ok(menu)
@@ -157,7 +159,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     let method = request.get("method").and_then(|m| m.as_str()).unwrap_or("");
     // Local acceptance permits cluster_history against its synthetic logbook,
     // but must never start the live session's background snapshot service.
-    if state.path.is_none() && cluster_session::handles(method) {
+    if state.path.is_none() && cluster_session::handles(method) && !(window.label() == "logbook" && method == "cluster_history") {
         cluster_session::validate(window.label(), &request)?;
         let session = cluster_session::owner(&app)?;
         return tauri::async_runtime::spawn_blocking(move || session.request(request))
@@ -198,9 +200,18 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
             .await.map_err(|_| "Hamlib task failed".to_string())?;
     }
     worker::validate_surface(window.label(), &request)?;
-    tauri::async_runtime::spawn_blocking(move || worker::request(request))
+    let invalidate = logbook_events::changes_logbook(&request);
+    let result = tauri::async_runtime::spawn_blocking(move || worker::request(request))
         .await
-        .map_err(|_| "Worker task failed".to_string())?
+        .map_err(|_| "Worker task failed".to_string())?;
+    if invalidate {
+        // The initiating view already refreshes after its operation. In
+        // particular, ADIF batches must not reload that view after every chunk.
+        for label in ["main", "logbook"] {
+            if label != window.label() { let _ = app.emit_to(label, "xlog:logbook-changed", ()); }
+        }
+    }
+    result
 }
 
 #[tauri::command]
@@ -299,6 +310,7 @@ async fn open_detached_workspace(app: tauri::AppHandle, kind: String) -> Result<
         "world-map" => ("OM0RX-xLog — World Map", 1100.0, 720.0),
         "band-maps" => ("OM0RX-xLog — Band Maps", 920.0, 760.0),
         "dx-cluster" => ("OM0RX-xLog — DX Cluster", 1180.0, 800.0),
+        "logbook" => ("OM0RX-xLog — Logbook", 1280.0, 800.0),
         _ => return Err("Unknown detached map".into()),
     };
     if let Some(existing) = app.get_webview_window(&kind) {
@@ -341,16 +353,23 @@ fn cluster_session_selection(window: tauri::WebviewWindow, app: tauri::AppHandle
 
 #[tauri::command]
 fn dock_detached_window(window: tauri::WebviewWindow, app: tauri::AppHandle) -> Result<(), String> {
-    if !matches!(window.label(), "dx-cluster" | "world-map" | "band-maps") {
+    if !matches!(window.label(), "dx-cluster" | "world-map" | "band-maps" | "logbook") {
         return Err("Only detachable workspaces can dock back".into());
     }
-    app.emit_to("main", "xlog:detached-dock", window.label()).map_err(|error| error.to_string())?;
+    // The revisioned route survives a main view that has not subscribed yet.
+    navigate_workspace(&app, window.label())?;
     window.close().map_err(|error| error.to_string())?;
     if let Some(main) = app.get_webview_window("main") {
         main.show().map_err(|error| error.to_string())?;
         main.set_focus().map_err(|error| error.to_string())?;
     }
     Ok(())
+}
+
+#[tauri::command]
+async fn close_logbook_window(window: tauri::WebviewWindow) -> Result<(), String> {
+    if window.label() != "logbook" { return Err("Only the Logbook window can close itself".into()); }
+    window.destroy().map_err(|error| error.to_string())
 }
 
 fn main() {
@@ -372,7 +391,7 @@ fn main() {
                 return;
             }
             if let Some(kind) = event.id().0.strip_prefix("workspace_window_") {
-                if matches!(kind, "monitor" | "world-map" | "band-maps" | "dx-cluster") {
+                if matches!(kind, "monitor" | "world-map" | "band-maps" | "dx-cluster" | "logbook") {
                     let app = app.clone(); let kind = kind.to_owned();
                     tauri::async_runtime::spawn(async move {
                         let result = if kind == "monitor" { open_monitor(app).await } else { open_detached_workspace(app, kind).await };
@@ -399,10 +418,10 @@ fn main() {
         .setup(|app| { acceptance::start_watchdog(app.handle().clone()); Ok(()) })
         .invoke_handler(tauri::generate_handler![worker_request, pick_backup_package, open_monitor, open_detached_map,
             workspace_navigation_snapshot, workspace_navigation_ack,
-            detached_cluster_ready, cluster_session_selection, dock_detached_window,
+            detached_cluster_ready, cluster_session_selection, dock_detached_window, close_logbook_window,
             acceptance::acceptance_enabled, acceptance::acceptance_large_log, acceptance::acceptance_monitor,
             acceptance::acceptance_screen,
-            acceptance::acceptance_monitor_result, acceptance::acceptance_prepare_final,
+            acceptance::acceptance_monitor_result, acceptance::acceptance_logbook_result, acceptance::acceptance_prepare_final,
             acceptance::finish_acceptance])
         .build(context)
         .expect("Application failed to start")

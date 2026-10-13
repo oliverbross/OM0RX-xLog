@@ -47,6 +47,8 @@ Checkpoint I adds a shared complete screen inventory and native Logbook/Station/
 
 Verification follow-up: H passed all five jobs in all-platform run `38328817888`. I (`1bc5e95`) passed Mac CI `38329953244` and general CI; its CI bundle has verified matching source metadata and an ad-hoc signature. All-platform I run `38331060293` is pending. Local isolated launch was blocked by the command runner and produced no acceptance report; native screenshot capture was unavailable. The briefly opened candidate was stopped, and installed alpha.13 was restored with one app/worker pair, 67,846 contacts and ShackCQ Connected. No new installation or RF test occurred. See checkpoint I in the workspace plan for the exact artifact and limitations.
 
+I subsequently passed all five jobs in `38331060293`; downloaded Windows first/relaunch and Linux X11/Wayland reports verify its 19 integrated-local checks. J adds the actual detached Logbook in source: existing table/editor, isolated recovery journals, revision-safe Update/Delete/Undo, cross-window refresh, scoped permissions and protected Close/Dock. 459 frontend tests, 92 Rust tests and TypeScript/build pass. Its new native detached-window acceptance check, visual review and installation remain pending. The docked layout is retained, and all-screen/full-undocked completion is still open. See checkpoint J in the workspace plan.
+
 ### Alpha.8 installed checkpoint
 
 The signed/notarized alpha.8 bundle passed all 21 generated large-log checks

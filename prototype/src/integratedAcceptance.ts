@@ -117,6 +117,19 @@ async function main(report: Json) {
   await waitForAcceptance("contact restored", () => document.querySelector(".live-logbook-table tbody")?.textContent?.includes("W1AW") === true);
   check("contact_delete_undo", validSavedContact((await worker("logbook_list")).result));
 
+  await click("Undock");
+  let logbookWindow: Json | null = null;
+  const logbookDeadline = Date.now() + 20_000;
+  while (Date.now() < logbookDeadline) {
+    logbookWindow = await invoke<Json | null>("acceptance_logbook_result");
+    if (logbookWindow) break;
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
+  report.details.detachedLogbook = logbookWindow;
+  check("detached_logbook", logbookWindow?.status === "passed" && logbookWindow?.details?.surface === "logbook" &&
+    logbookWindow?.checks?.contact_edit === true && logbookWindow?.checks?.no_radio_controls === true &&
+    validSavedContact((await worker("logbook_list")).result));
+
   await navigate("Settings");
   await waitForAcceptance("station settings", () => !!document.querySelector(".service-fields input"));
   const labels = [...document.querySelectorAll<HTMLLabelElement>(".service-fields label")];
@@ -234,6 +247,23 @@ export async function startIntegratedAcceptance() {
       await waitForAcceptance("main-window band map projection", () => !!document.querySelector(".band-maps-scale output") && !document.body.textContent?.includes("Waiting for the main workspace projection"));
       report.details.scale = element(".band-maps-scale output").textContent;
       report.status = "passed";
+      await invoke("acceptance_monitor", { report });
+      return;
+    }
+    if (surface === "logbook") {
+      await waitForAcceptance("detached logbook rows", () => document.querySelector(".live-logbook-table tbody")?.textContent?.includes("W1AW") === true);
+      for (const comment of ["Detached native edit", "Isolated native UI acceptance"]) {
+        element<HTMLElement>(".live-logbook-table tbody tr").click(); await frame();
+        await waitForAcceptance("detached Edit enabled", () => [...document.querySelectorAll<HTMLButtonElement>("button")].some(item => item.textContent?.trim() === "Edit" && !item.disabled));
+        await click("Edit");
+        await waitForAcceptance("detached contact editor", () => !!document.querySelector('[aria-label="Comment"]'));
+        report.checks.no_radio_controls = !document.querySelector(".qso-read-radio") && !document.querySelector(".qso-footer-context input");
+        await fill('[aria-label="Comment"]', comment); await click("Update QSO");
+        await waitForAcceptance("detached update readback", () => document.querySelector(".live-logbook-table tbody")?.textContent?.includes(comment) === true);
+      }
+      report.checks.contact_edit = validSavedContact((await worker("logbook_list")).result);
+      await waitForAcceptance("detached operations settled", () => [...document.querySelectorAll<HTMLButtonElement>("button")].some(item => item.textContent?.trim() === "Dock back" && !item.disabled));
+      report.status = report.checks.contact_edit && report.checks.no_radio_controls ? "passed" : "failed";
       await invoke("acceptance_monitor", { report });
       return;
     }

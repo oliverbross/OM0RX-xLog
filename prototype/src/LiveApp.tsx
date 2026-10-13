@@ -15,6 +15,8 @@ import { DetachedClusterSurface } from "./live/DetachedClusterSurface";
 import { openDetachedCluster, dockDetachedWorkspace, onDetachedDock,
   publishClusterSelection } from "./live/DetachedClusterBridge";
 import { LogbookPanel } from "./live/LogbookPanel";
+import { DetachedLogbookSurface } from "./live/DetachedLogbookSurface";
+import { connectLogbookChanges, openDetachedLogbook } from "./live/logbookWindows";
 import StationPanel from "./live/StationPanel";
 import Conditions from "./live/Conditions";
 import Monitor from "./live/Monitor";
@@ -65,6 +67,7 @@ const navigation = workspaceScreens.map(screen => [screen.title, screenIcons[scr
 const monitor = new URLSearchParams(location.search).get("view") === "monitor";
 const detached = detachedMapKind(new URLSearchParams(location.search).get("view"));
 const detachedCluster = new URLSearchParams(location.search).get("view") === "dx-cluster";
+const detachedLogbook = new URLSearchParams(location.search).get("view") === "logbook";
 const frequency = (hz?: number) => typeof hz === "number" && Number.isFinite(hz) ? (hz / 1e6).toFixed(6) : "—";
 const emptySpots: Data[] = [];
 const radioProviderLabels: Record<StationProvider, string> = {
@@ -83,6 +86,7 @@ function legacyDraftValue(): Data | null {
 }
 
 export default function LiveApp() {
+  if (detachedLogbook) return <DetachedLogbookSurface />;
   if (detachedCluster) return <DetachedClusterSurface />;
   if (detached) return <DetachedMapSurface kind={detached} />;
   if (monitor) return <MonitorSurface />;
@@ -161,6 +165,7 @@ function MainLiveApp() {
     }
   }, [view, settings?.logbookMode]);
   const [refresh, setRefresh] = useState(0);
+  useEffect(() => connectLogbookChanges(() => setRefresh(value => value + 1), setError), []);
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [follow, setFollow] = useState(true);
@@ -704,7 +709,7 @@ function MainLiveApp() {
       {view === "Operator Desk" && <><OperatorDesk draftLocked={editorLocked} cwControls={cwControls} equipment={settings?.stationEquipment} draft={draft} setDraft={setOperatorDraft} save={save} clear={() => void run(clear)} busy={busy || editorBlocked} lookup={lookup} previous={previous} request={request} refresh={refresh} onEditor={() => setView("Log QSO")} onReadRadio={readRadioIntoDraft} follow={follow} setFollow={setFollowImmediate} rotor={rotorState} autoRotor={autoRotor} setAutoRotor={changeAutoRotor} onManualRotor={disarmAutoRotor} isEditing={editing.current} intelligenceBands={workspacePreferences?.intelligenceBands} />
         <div className="live-desk-bottom"><OperatorWorkspace map={<div className="live-map">{map}</div>} cluster={cluster} selectedSpotId={selected} onSelect={selectSpot} bandMaps={<BandMaps spots={liveSpots} onSelect={selectSpot} radioFrequencyHz={station?.radio?.frequency_hz} compact preferences={workspacePreferences ? bandMapView(workspacePreferences, true) : undefined} onPreferencesChange={value => changeBandMapPreferences(true, value)} />} /></div></>}
       {view === "Log QSO" && <QSOEditor draftLocked={editorLocked} draft={draft} setDraft={setOperatorDraft} save={save} clear={() => void run(clear)} busy={busy || editorBlocked} lookup={lookup} previous={previous} follow={follow} setFollow={setFollowImmediate} request={request} onReadRadio={readRadioIntoDraft} isEditing={editing.current} automaticStationMetadata={automaticStationMetadata} />}
-      {view === "Logbook" && <LogbookPanel onRequest={request} refreshKey={refresh} mutations={logbookMutations} onChanged={() => setRefresh(n => n + 1)} onEdit={qso => { void run(async () => {
+      {view === "Logbook" && <LogbookPanel onRequest={request} refreshKey={refresh} mutations={logbookMutations} onChanged={() => setRefresh(n => n + 1)} onUndock={() => void openDetachedLogbook().catch(cause => setError(cause.message))} onEdit={qso => { void run(async () => {
         if (draftSession.getSnapshot().locked) throw new Error("Finish the pending draft operation before editing a logged contact.");
         await draftSession.flush(); await contactSession.open(qso.id); setFollowImmediate(false); disarmAutoRotor(); setView("Log QSO");
       }); }} />}

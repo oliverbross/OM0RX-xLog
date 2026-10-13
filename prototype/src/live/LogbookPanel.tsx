@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
-import { Download, FileUp, Pencil, RotateCcw, Search, Trash2, Triangle } from "lucide-react";
+import { Download, FileUp, Pencil, RotateCcw, Search, Trash2, Triangle, ExternalLink, PanelsTopLeft } from "lucide-react";
 import "./logbook.css";
 import type { LogbookMutationSession } from "./logbookMutationSession";
 import type { DraftSnapshot } from "./operatorDraftSession";
@@ -103,12 +103,13 @@ function adifBatches(text: string): string[] {
   return batches;
 }
 
-export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChanged }: {
+export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChanged, onUndock, onDock, onBusyChange, disabled = false }: {
   onRequest: Request;
   onEdit: (qso: QSO) => void;
   refreshKey: number;
   mutations: LogbookMutationSession;
   onChanged?: () => void;
+  onUndock?: () => void; onDock?: () => void; onBusyChange?: (busy: boolean) => void; disabled?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
@@ -117,7 +118,8 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
   const [loading, setLoading] = useState(false);
   const [working, setBusy] = useState(false);
   const mutation = useSyncExternalStore(mutations.subscribe, mutations.getSnapshot);
-  const busy = working || mutation.busy || !!mutation.pending || mutation.conflict || mutation.workspaceChanged;
+  const busy = disabled || working || mutation.busy || !!mutation.pending || mutation.conflict || mutation.workspaceChanged;
+  useEffect(() => { onBusyChange?.(busy); }, [busy, onBusyChange]);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<DraftSnapshot | null>(null);
@@ -288,6 +290,8 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
           <button type="button" onClick={() => void exportAll()} disabled={busy}>
             <Download size={14} /> Export all
           </button>
+          {onUndock && <button type="button" onClick={onUndock} disabled={busy}><ExternalLink size={14} /> Undock</button>}
+          {onDock && <button type="button" onClick={onDock} disabled={busy}><PanelsTopLeft size={14} /> Dock back</button>}
         </div>
       </header>
       {error && <p className="live-logbook-feedback error" role="alert">{error}</p>}

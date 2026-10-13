@@ -13,6 +13,7 @@ pub struct Acceptance {
     completed: AtomicBool,
     final_prepared: AtomicBool,
     monitor: Mutex<Option<Value>>,
+    logbook: Mutex<Option<Value>>,
     #[cfg(target_os = "linux")]
     browser_contexts: Mutex<Vec<tempfile::TempDir>>,
 }
@@ -118,10 +119,10 @@ pub fn passed(report: &Value) -> bool {
     const REQUIRED: [&str; 17] = ["worker_health", "worker_self_test", "worker_parse_adif", "worker_integration_self_test", "cluster_classification_initial", "cluster_classification_logged", "map_loaded",
         "cluster_selection", "keyboard_log", "logbook_readback", "keyboard_focus", "keyboard_clear",
         "profile_manual", "profile_simulator", "monitor_opened", "monitor_snapshot", "final_desk"];
-    const LOCAL: [&str; 19] = ["isolated_worker", "empty_workspace", "workspace_created", "worker_self_test",
+    const LOCAL: [&str; 20] = ["isolated_worker", "empty_workspace", "workspace_created", "worker_self_test",
         "worker_integration_self_test", "worker_parse_adif", "keyboard_log", "logbook_readback", "keyboard_editor",
         "keyboard_focus", "keyboard_clear", "settings_save_readback", "awards_loaded", "detached_projection",
-        "map_loaded", "final_desk", "native_menu_routes", "contact_edit", "contact_delete_undo"];
+        "map_loaded", "final_desk", "native_menu_routes", "contact_edit", "contact_delete_undo", "detached_logbook"];
     let required: &[&str] = if report["scope"] == "integrated-local-ui" { &LOCAL } else if report["scope"].is_null() { &REQUIRED } else { return false; };
     let map = &report["details"]["finalMap"];
     let probes = map["landPixelProbes"].as_u64().unwrap_or(0);
@@ -162,9 +163,10 @@ pub fn acceptance_screen(app: tauri::AppHandle, window: tauri::WebviewWindow, st
 #[tauri::command]
 pub fn acceptance_monitor(window: tauri::WebviewWindow, state: tauri::State<'_, Acceptance>, report: Value) -> Result<(), String> {
     state.require()?;
-    if !matches!(window.label(), "monitor" | "band-maps") { return Err("Only a tested detached surface may report its readback".into()); }
+    if !matches!(window.label(), "monitor" | "band-maps" | "logbook") { return Err("Only a tested detached surface may report its readback".into()); }
     bounded_object(&report)?;
-    *state.monitor.lock().map_err(|_| "Monitor evidence unavailable")? = Some(report);
+    let destination = if window.label() == "logbook" { &state.logbook } else { &state.monitor };
+    *destination.lock().map_err(|_| "Detached evidence unavailable")? = Some(report);
     Ok(())
 }
 
@@ -176,13 +178,31 @@ pub fn acceptance_monitor_result(window: tauri::WebviewWindow, state: tauri::Sta
 }
 
 #[tauri::command]
+pub fn acceptance_logbook_result(window: tauri::WebviewWindow, state: tauri::State<'_, Acceptance>) -> Result<Option<Value>, String> {
+    state.require()?;
+    if window.label() != "main" { return Err("Only the main window may read acceptance evidence".into()); }
+    Ok(state.logbook.lock().map_err(|_| "Logbook evidence unavailable")?.clone())
+}
+
+#[tauri::command]
 pub async fn acceptance_prepare_final(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, Acceptance>) -> Result<(), String> {
     state.require()?;
     if window.label() != "main" { return Err("Only the main window may prepare final acceptance".into()); }
     if state.completed.load(Ordering::Acquire) { return Err("Acceptance already completed".into()); }
-    for label in ["monitor", "band-maps", "world-map", "dx-cluster"] {
+    for label in ["monitor", "band-maps", "world-map", "dx-cluster", "logbook"] {
         if let Some(detached) = app.get_webview_window(label) { detached.close().map_err(|e| e.to_string())?; }
     }
+    // Close listeners may defer destruction. A close request alone is not proof
+    // that the tested detached window actually completed its lifecycle.
+    let observed = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        for _ in 0..100 {
+            if ["monitor", "band-maps", "world-map", "dx-cluster", "logbook"].iter()
+                .all(|label| observed.get_webview_window(label).is_none()) { return Ok(()); }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        Err("A detached acceptance window did not close".to_string())
+    }).await.map_err(|_| "Detached close verification failed".to_string())??;
     window.set_focus().map_err(|e| e.to_string())?;
     state.final_prepared.store(true, Ordering::Release);
     Ok(())
@@ -297,7 +317,7 @@ mod tests {
         let names = ["isolated_worker", "empty_workspace", "workspace_created", "worker_self_test",
             "worker_integration_self_test", "worker_parse_adif", "keyboard_log", "logbook_readback", "keyboard_editor",
             "keyboard_focus", "keyboard_clear", "settings_save_readback", "awards_loaded", "detached_projection",
-            "map_loaded", "final_desk", "native_menu_routes", "contact_edit", "contact_delete_undo"];
+            "map_loaded", "final_desk", "native_menu_routes", "contact_edit", "contact_delete_undo", "detached_logbook"];
         let checks: serde_json::Map<String, Value> = names.iter().map(|name| (name.to_string(), json!(true))).collect();
         let mut report = json!({"scope":"integrated-local-ui","status":"passed","embeddedUi":true,"worker":true,
             "checks":checks,"details":{"finalMap":{"tilesLoaded":true,"webgl":true,"visible":true,"error":"",

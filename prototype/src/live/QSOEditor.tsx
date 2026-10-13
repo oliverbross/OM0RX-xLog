@@ -22,6 +22,8 @@ type Props = {
   onReadRadio?: () => void | Promise<void>;
   automaticStationMetadata?: Array<{ label: string; value: string; provenance: "observed" | "configured" | "selected" }>;
   isEditing?: boolean;
+  radioControls?: boolean;
+  clearLabel?: string;
 };
 type MatrixCell = { band: string; mode: string; worked: boolean; confirmed: boolean };
 type MatrixState = { call: string; adif: number | null; callCells?: MatrixCell[]; countryCells?: MatrixCell[]; callError?: string; countryError?: string };
@@ -108,7 +110,7 @@ const bandFor = (hz: number): string => {
   const mhz = hz / 1_000_000; return ranges.find(([min,max]) => mhz >= min && mhz < max)?.[2] ?? "";
 };
 
-export function QSOEditor({ draft, setDraft, save, clear, busy, draftLocked, lookup, previous, follow, setFollow, request, onReadRadio, automaticStationMetadata = [], isEditing = false }: Props) {
+export function QSOEditor({ draft, setDraft, save, clear, busy, draftLocked, lookup, previous, follow, setFollow, request, onReadRadio, automaticStationMetadata = [], isEditing = false, radioControls = true, clearLabel = "Clear QSO" }: Props) {
   const [frequencyDraft, setFrequencyDraft] = useState<string | null>(null);
   const [receiveDraft, setReceiveDraft] = useState<string | null>(null);
   const [timeDrafts, setTimeDrafts] = useState<Record<string, { date: string; time: string }>>({});
@@ -257,7 +259,7 @@ export function QSOEditor({ draft, setDraft, save, clear, busy, draftLocked, loo
       <section className="qso-matrices" aria-labelledby="qso-matrix-title"><h2 id="qso-matrix-title"><Grid3X3 size={15} aria-hidden="true" /> Band / mode matrix</h2><div className="qso-matrix-columns"><div className="qso-matrix-section"><div className="qso-matrix-heading"><h3>Callsign</h3><p title={matrixCall}>{matrixCall || "Callsign unresolved"}</p></div>{!request ? <p>Local matrix is unavailable.</p> : !/^[A-Z0-9/-]{3,32}$/.test(matrixCall) ? <p>Enter a callsign to inspect its local history.</p> : matchingMatrix?.callError ? <p>{matchingMatrix.callError}</p> : matchingMatrix?.callCells ? <StatusMatrix scope="Callsign" cells={matchingMatrix.callCells} /> : <p>Checking local call history…</p>}</div><div className="qso-matrix-section"><div className="qso-matrix-heading"><h3>Country</h3><p title={matrixADIF === null ? "DXCC entity unresolved" : `${profile?.country || "Country unresolved"} · DXCC ${matrixADIF}`}>{matrixADIF === null ? "DXCC entity unresolved" : `${profile?.country || "Country unresolved"} · DXCC ${matrixADIF}`}</p></div>{matrixADIF === null ? <p>Country status needs a resolved DXCC entity.</p> : !request ? <p>Country matrix is unavailable.</p> : matchingMatrix?.countryError ? <p>{matchingMatrix.countryError}</p> : matchingMatrix?.countryCells ? <StatusMatrix scope="Country" cells={matchingMatrix.countryCells} /> : <p>Checking local contacts for this DXCC entity…</p>}</div></div></section>
 
       {(showErrors || errors.length > 0) && <div className="qso-validation" role="alert">{errors.length ? <ul>{errors.map((issue) => <li key={issue}>{issue}</li>)}</ul> : <span>QSO is ready to save.</span>}</div>}
-      <footer className="qso-actions"><div className="qso-footer-context"><label><input type="checkbox" checked={follow} onChange={(event) => setFollow(event.target.checked)} />Follow radio</label><span>Saved to your local logbook.</span></div><div className="qso-footer-buttons"><button type="button" onClick={clear} disabled={busy}><CircleX size={13} aria-hidden="true" /> Clear QSO</button><button className="qso-save" type="submit" disabled={!canSave}><CircleCheck size={13} aria-hidden="true" /> {isEditing ? "Update QSO" : "Log QSO"}</button></div></footer>
+      <footer className="qso-actions"><div className="qso-footer-context">{radioControls && <label><input type="checkbox" checked={follow} onChange={(event) => setFollow(event.target.checked)} />Follow radio</label>}<span>Saved to your local logbook.</span></div><div className="qso-footer-buttons"><button type="button" onClick={clear} disabled={busy}><CircleX size={13} aria-hidden="true" /> {clearLabel}</button><button className="qso-save" type="submit" disabled={!canSave}><CircleCheck size={13} aria-hidden="true" /> {isEditing ? "Update QSO" : "Log QSO"}</button></div></footer>
     </form></div>
     <aside className="qso-inspector" aria-label="Contact context">
       <section aria-labelledby="qso-intelligence-title"><h2 id="qso-intelligence-title"><ContactRound size={15} aria-hidden="true" /> Callsign intelligence</h2>

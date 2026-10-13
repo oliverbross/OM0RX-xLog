@@ -15,14 +15,20 @@ const MAX_IN_FLIGHT: usize = 16;
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(45);
 pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     validate_request(request)?;
+    if label == "logbook" {
+        return if matches!(request["method"].as_str(), Some("logbook_list" | "logbook_contact"
+            | "logbook_contact_apply" | "logbook_contact_receipt" | "logbook_matrix" | "logbook_previous"
+            | "logbook_import_adif" | "logbook_export_adif" | "lookup_call" | "cluster_history")) {
+            Ok(())
+        } else { Err("This window can only read and edit the local logbook.".into()) };
+    }
     // Cluster has a separate scoped session dispatcher. No new window label
     // inherits the main workspace's logbook, credential or station authority.
     if !matches!(label, "main" | "monitor" | "world-map" | "band-maps") {
         return Err("This window cannot access the workspace service.".into());
     }
-    // New draft and contact-edit commands are staged behind the main surface.
-    // Detached editors receive explicit registry capabilities in the next stage;
-    // an unknown/new label must not inherit logging rights by default.
+    // The narrow Logbook contact capability was handled above. No other
+    // detached surface inherits contact editing or the active new-QSO draft.
     if request["method"].as_str().is_some_and(|method| method.starts_with("logbook_operator_draft") || method.starts_with("logbook_contact")) && label != "main" {
         return Err("This window cannot access the logbook editing service.".into());
     }
@@ -639,6 +645,19 @@ mod tests {
             for label in ["monitor", "world-map", "band-maps", "dx-cluster", "unknown", ""] {
                 assert!(validate_surface(label, &request).is_err());
             }
+        }
+    }
+
+    #[test]
+    fn detached_logbook_has_contact_but_not_draft_station_or_configuration_authority() {
+        for method in ["logbook_list", "logbook_contact", "logbook_contact_apply", "logbook_contact_receipt",
+            "logbook_matrix", "logbook_previous", "logbook_import_adif", "logbook_export_adif", "lookup_call", "cluster_history"] {
+            assert!(validate_surface("logbook", &json!({"id":"test", "method":method,"params":{}})).is_ok(), "{method}");
+        }
+        for method in ["logbook_operator_draft", "logbook_operator_draft_apply", "logbook_operator_draft_receipt",
+            "logbook_save", "logbook_delete", "logbook_undo", "backup_restore", "settings_load", "settings_save",
+            "station_tune", "station_connect", "station_action", "rotor_goto", "sync_run", "secret_status", "cluster_connect"] {
+            assert!(validate_surface("logbook", &json!({"id":"test", "method":method,"params":{}})).is_err(), "{method}");
         }
     }
 
