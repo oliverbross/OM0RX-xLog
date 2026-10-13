@@ -8,6 +8,7 @@ mod rotor_telemetry;
 mod station_telemetry;
 mod station_selection;
 mod detached_geometry;
+mod window_geometry;
 mod winkeyer;
 mod cluster_session;
 mod workspace_navigation;
@@ -346,9 +347,9 @@ async fn open_monitor(app: tauri::AppHandle) -> Result<(), String> {
     if let Some(directory) = app.state::<acceptance::Acceptance>().detached_browser_context()? {
         builder = builder.data_directory(directory);
     }
-    builder.build()
-    .map(|_| ())
-    .map_err(|e| e.to_string())
+    let monitor = builder.build().map_err(|e| e.to_string())?;
+    if app.state::<acceptance::Acceptance>().path.is_none() { detached_geometry::install(&monitor); }
+    Ok(())
 }
 
 #[tauri::command]
@@ -385,8 +386,7 @@ async fn open_detached_workspace(app: tauri::AppHandle, kind: String) -> Result<
     }
     let detached = builder.build().map_err(|e| e.to_string())?;
     if app.state::<acceptance::Acceptance>().path.is_none() {
-        detached_geometry::restore(&detached);
-        detached_geometry::watch(&detached);
+        detached_geometry::install(&detached);
     }
     Ok(())
 }
@@ -424,6 +424,7 @@ fn dock_detached_window(window: tauri::WebviewWindow, app: tauri::AppHandle) -> 
 #[tauri::command]
 async fn close_logbook_window(window: tauri::WebviewWindow) -> Result<(), String> {
     if window.label() != "logbook" { return Err("Only the Logbook window can close itself".into()); }
+    detached_geometry::flush(&window);
     window.destroy().map_err(|error| error.to_string())
 }
 
@@ -475,6 +476,7 @@ fn main() {
             acceptance::start_watchdog(app.handle().clone());
             if app.state::<acceptance::Acceptance>().path.is_none() {
                 cluster_session::owner(app.handle()).map_err(std::io::Error::other)?;
+                if let Some(main) = app.get_webview_window("main") { detached_geometry::install(&main); }
             }
             Ok(())
         })
@@ -489,6 +491,9 @@ fn main() {
         .build(context)
         .expect("Application failed to start")
         .run(|app, event| {
+            if matches!(event, tauri::RunEvent::ExitRequested { .. }) {
+                detached_geometry::shutdown(app);
+            }
             if matches!(event, tauri::RunEvent::Exit) {
                 station_selection::shutdown(); station_telemetry::shutdown(); rotor_telemetry::shutdown(); cluster_session::shutdown(); winkeyer::shutdown(); hamlib::shutdown(); worker::shutdown();
                 app.state::<acceptance::Acceptance>().cleanup_browser_contexts();

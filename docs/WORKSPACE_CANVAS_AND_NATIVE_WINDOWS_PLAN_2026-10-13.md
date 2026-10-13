@@ -432,6 +432,28 @@ Final local verification: 549 frontend tests and TypeScript/Vite/bundle gates pa
 
 Committed source `ddbe729556bdb9ddf06512243c6a217be2b86194` was pushed. Its all-platform run `38363722286` caught two portability issues before packaging: Linux's test-start helper exhausted a fixed Task.yield count before the task ran, and Windows lacks the newly imported CoreFoundation module. Follow-up uses an actual XCTest start expectation and bounded wall-clock completion wait; the production Boolean gate now uses the already-established portable Foundation JSON scalar distinction rather than CoreFoundation IDs. Numeric 0/1 still cannot authorize synchronization. Renewed exact-source three-platform verification is required; the installed application remains unchanged.
 
+### Checkpoint X — native geometry recovery foundation
+
+Main, Monitor and existing detached windows now share display-relative logical
+normal bounds with a separate maximized flag. Window recovery clamps to usable
+work area (including native chrome), caps nominal minimum sizes on smaller
+displays and retains preferred placement while a monitor is disconnected.
+The original legacy geometry file survives migration; invalid/future documents
+are not overwritten. Merged atomic writes preserve independent window entries.
+
+Geometry changes debounce for 300 ms. Idle topology checks run no faster than
+two seconds, with no geometry readback or file writes for unchanged topology.
+Native close, forced Logbook destroy and application exit flush pending geometry
+and stop queued tracking. Wayland conservatively restores size/maximized state
+only; it does not invent global coordinates or overwrite previously known
+monitor/origin metadata. Explicit X11 remains position-capable.
+
+Verification: 18 focused geometry/persistence tests, `cargo check`, and the full
+153 Rust/helper tests pass. This does not prove native multi-monitor runtime:
+Windows mixed DPI, unplug/reconnect, maximized/close timing, X11 placement and
+Wayland compositor behavior remain open. No installed app or user geometry was
+changed. Named presets and all-screen detachment remain separate work.
+
 ## Follow-on: RUMlogNG workflow and feature comparison
 
 User added this reference pass after the canvas/native-window request. Confirmed installed app identity through the native app inventory: `de.dl2rum.RUMlogNG`; it was not running at inspection. Its menus/settings have not yet been audited in this pass. Do not represent remembered features as current observations.
