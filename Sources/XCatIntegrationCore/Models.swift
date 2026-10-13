@@ -137,6 +137,53 @@ public struct RemoteStationStatus: Equatable, Sendable {
 
 }
 
+/// Explicit meter evidence, distinct from FLEX's transmitter drive setting.
+/// Only the KPA500 amplifier output meter is supported by this contract.
+public struct MeasuredTransmitPowerObservation: Equatable, Sendable {
+    public enum Source: String, Sendable { case kpa500Output = "kpa500_output" }
+    public let source: Source
+    public let watts: Double
+    public let observedAt: Date
+    public let radioObservedAt: Date
+    public let amplifierObservedAt: Date
+    public let receivedAt: Date
+
+    public init?(watts: Double, observedAt: Date, radioObservedAt: Date,
+                 amplifierObservedAt: Date, receivedAt: Date) {
+        // A source-specific plausibility ceiling, allowing KPA500 meter peaks
+        // above its nominal 500 W rating without admitting arbitrary RF values.
+        guard watts.isFinite, watts > 0, watts <= 1_000 else { return nil }
+        source = .kpa500Output
+        self.watts = watts
+        self.observedAt = observedAt
+        self.radioObservedAt = radioObservedAt
+        self.amplifierObservedAt = amplifierObservedAt
+        self.receivedAt = receivedAt
+        guard isFresh(at: receivedAt) else { return nil }
+    }
+
+    /// Recheck on every consumer read: receipt time never renews meter age.
+    /// The amplifier status envelope uses the agent's 15-second stale limit;
+    /// meter, retained radio observation and transport evidence must each be at
+    /// most 2 seconds old. Context envelope ages are not per-field MOX/fault
+    /// provenance; this is meter evidence for logging, never transmit authority.
+    public func isFresh(at now: Date, sessionStartedAt: Date? = nil) -> Bool {
+        func fresh(_ date: Date, maximumAge: TimeInterval) -> Bool {
+            let timestamp = date.timeIntervalSince1970
+            let age = now.timeIntervalSince(date)
+            return timestamp.isFinite && timestamp > 0 && age.isFinite && age >= 0 && age <= maximumAge
+        }
+        guard fresh(observedAt, maximumAge: 2), fresh(radioObservedAt, maximumAge: 2),
+              fresh(receivedAt, maximumAge: 2), fresh(amplifierObservedAt, maximumAge: 15) else { return false }
+        if let sessionStartedAt {
+            guard sessionStartedAt.timeIntervalSince1970.isFinite,
+                  observedAt >= sessionStartedAt, radioObservedAt >= sessionStartedAt,
+                  receivedAt >= sessionStartedAt else { return false }
+        }
+        return true
+    }
+}
+
 public struct RadioSnapshot: Equatable, Sendable {
     public var frequencyHz: Int64
     public var mode: String
@@ -153,6 +200,7 @@ public struct RadioSnapshot: Equatable, Sendable {
     public var rfPowerLevel: Int?
     public var agentObservedAt: Date?
     public var transportReceivedAt: Date?
+    public var measuredTransmitPower: MeasuredTransmitPowerObservation?
 
     public init(
         frequencyHz: Int64 = 14_074_000,
@@ -168,7 +216,8 @@ public struct RadioSnapshot: Equatable, Sendable {
         rfPowerWatts: Int? = nil,
         rfPowerLevel: Int? = nil,
         agentObservedAt: Date? = nil,
-        transportReceivedAt: Date? = nil
+        transportReceivedAt: Date? = nil,
+        measuredTransmitPower: MeasuredTransmitPowerObservation? = nil
     ) {
         self.frequencyHz = frequencyHz
         self.mode = mode
@@ -183,6 +232,7 @@ public struct RadioSnapshot: Equatable, Sendable {
         self.rfPowerLevel = rfPowerLevel
         self.agentObservedAt = agentObservedAt
         self.transportReceivedAt = transportReceivedAt
+        self.measuredTransmitPower = measuredTransmitPower
         self.vfos = vfos ?? [RadioVFO(
             letter: slice,
             frequencyHz: frequencyHz,

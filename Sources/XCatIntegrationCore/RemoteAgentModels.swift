@@ -297,6 +297,7 @@ enum RemoteAgentStateDecoder {
         } else {
             radio.drive
         }
+        let measuredTransmitPower = measuredPower(radio: radio, kpa: kpa, receivedAt: receivedAt)
         let status = RemoteStationStatus(
             revision: state.revision,
             radioKnown: radioKnown,
@@ -339,9 +340,34 @@ enum RemoteAgentStateDecoder {
             remoteStationStatus: status,
             rfPowerWatts: radio.drive.map { Int($0.rounded()) },
             agentObservedAt: radio.updatedAt.map(Date.init(timeIntervalSince1970:)),
-            transportReceivedAt: receivedAt
+            transportReceivedAt: receivedAt,
+            measuredTransmitPower: measuredTransmitPower
         )
         return RemoteAgentDecodedState(snapshot: snapshot, cwSpeed: radio.cwSpeed ?? 25)
+    }
+
+    private static func measuredPower(radio: RadioDTO, kpa: KPADTO?, receivedAt: Date) -> MeasuredTransmitPowerObservation? {
+        guard radio.connected == true, radio.known == true, radio.stale == false,
+              radio.stationBound == true, radio.mox == true,
+              let kpa, kpa.enabled == true, kpa.connected == true, kpa.operate == true,
+              kpa.quality == "good", kpa.meterComplete == true,
+              kpa.meterError == nil || kpa.meterError == "",
+              kpa.fault == "0" || kpa.fault == "00",
+              let watts = kpa.outputPowerW, let meterTimestamp = kpa.meterSampleObservedAt,
+              let radioObservation = radio.observedAt.flatMap(observationDate),
+              let amplifierTimestamp = kpa.observedAt else { return nil }
+        return MeasuredTransmitPowerObservation(
+            watts: watts, observedAt: Date(timeIntervalSince1970: meterTimestamp),
+            radioObservedAt: radioObservation,
+            amplifierObservedAt: Date(timeIntervalSince1970: amplifierTimestamp), receivedAt: receivedAt)
+    }
+
+    private static func observationDate(_ timestamp: String) -> Date? {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = formatter.date(from: timestamp) { return date }
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter.date(from: timestamp)
     }
 
     private static func kpaSummary(_ state: KPADTO?) -> String {
@@ -475,6 +501,7 @@ private struct RadioDTO: Decodable {
     var activeReceive: VFODTO?
     var transmit: VFODTO?
     var updatedAt: Double?
+    var observedAt: String?
 
     init() {}
 
@@ -491,6 +518,7 @@ private struct RadioDTO: Decodable {
         case xitEnabled = "xit_on"
         case xitOffsetHz = "xit_freq"
         case updatedAt = "updated_at"
+        case observedAt = "observed_at"
     }
 
     var resolvedFrequencyHz: Int64? {
@@ -617,12 +645,22 @@ private struct KPADTO: Decodable {
     let current: Double?
     let firmware: String?
     let quality: String?
+    let observedAt: Double?
+    let meterObservedAt: Double?
+    let meterSampleObservedAt: Double?
+    let meterComplete: Bool?
+    let meterError: String?
 
     enum CodingKeys: String, CodingKey {
         case enabled, connected, operate, fault, band, swr, voltage, current, firmware, quality
         case outputPowerW = "output_power_w"
         case swrLive = "swr_live"
         case temperatureC = "temperature_c"
+        case observedAt = "observed_at"
+        case meterObservedAt = "meter_observed_at"
+        case meterSampleObservedAt = "meter_sample_observed_at"
+        case meterComplete = "meter_complete"
+        case meterError = "meter_error"
     }
 }
 

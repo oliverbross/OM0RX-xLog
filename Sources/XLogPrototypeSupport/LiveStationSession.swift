@@ -54,6 +54,59 @@ struct StationCATRetirement {
     }
 }
 
+struct StationPowerSessionEvent: Sendable {
+    let sequence: UInt64
+    let state: RadioConnectionState
+    let sessionID: UUID
+    let startedAt: Date?
+}
+
+/// Stamp at the synchronous callback boundary, before Tasks can reorder delivery.
+/// Every event carries the attempt identity, so receiving READY first still
+/// installs the identity established by the earlier CONNECTING callback.
+final class StationPowerSessionEventSource: @unchecked Sendable {
+    private let lock = NSLock()
+    private var sequence: UInt64 = 0
+    private var sessionID = UUID()
+    private var startedAt: Date?
+    private var latestEvent: StationPowerSessionEvent?
+
+    func stamp(_ state: RadioConnectionState, at now: Date = Date()) -> StationPowerSessionEvent {
+        lock.withLock {
+            sequence &+= 1
+            if state == .connecting {
+                sessionID = UUID()
+                startedAt = now
+            }
+            let event = StationPowerSessionEvent(sequence: sequence, state: state,
+                                                 sessionID: sessionID, startedAt: startedAt)
+            latestEvent = event
+            return event
+        }
+    }
+
+    func latest() -> StationPowerSessionEvent? { lock.withLock { latestEvent } }
+}
+
+struct StationPowerSessionState {
+    private(set) var lastSequence: UInt64 = 0
+    private(set) var sessionID = UUID()
+    private(set) var startedAt: Date?
+
+    mutating func apply(_ event: StationPowerSessionEvent) -> Bool {
+        guard event.sequence > lastSequence else { return false }
+        lastSequence = event.sequence
+        sessionID = event.sessionID
+        startedAt = event.startedAt
+        return true
+    }
+
+    mutating func reconcile(_ source: StationPowerSessionEventSource) -> RadioConnectionState? {
+        guard let event = source.latest(), apply(event) else { return nil }
+        return event.state
+    }
+}
+
 /// Explicitly connected direct Remote Station Agent owner. This uses the same
 /// authenticated HTTPS/WSS client and authoritative state decoder as xCat.
 actor LiveStationSession {
@@ -68,6 +121,10 @@ actor LiveStationSession {
     private var allowTransmit = false
     private var transmitOwnership = StationTransmitOwnership()
     private var connectionGeneration: UInt64 = 0
+    private var powerEvents: StationPowerSessionEventSource?
+    private var powerSession = StationPowerSessionState()
+    private var powerSessionID: UUID { powerSession.sessionID }
+    private var powerSessionStartedAt: Date? { powerSession.startedAt }
     private var catServers: EmbeddedCATServers?
     private var catConfiguration = EmbeddedCATServers.Configuration()
     private var catListenerEpoch: UInt64 = 0
@@ -146,15 +203,19 @@ actor LiveStationSession {
             guard expectedGeneration == connectionGeneration else { throw lifecycleChanged() }
             let next: RemoteAgentClient
             let generation = connectionGeneration &+ 1
+            let nextPowerEvents = StationPowerSessionEventSource()
             do {
                 next = try RemoteAgentClient(baseURL: endpoint, token: token,
                     onState: { [weak self] state, _ in
-                        Task { await self?.recordState(state, generation: generation) }
+                        let event = nextPowerEvents.stamp(state)
+                        Task { await self?.recordState(event, generation: generation) }
                     })
             } catch {
                 throw WorkerFailure("invalid_params", "Invalid Remote Station Agent connection settings.")
             }
             connectionGeneration = generation
+            powerSession = StationPowerSessionState()
+            powerEvents = nextPowerEvents
             let current = client
             client = nil
             transportState = .stopped
@@ -167,7 +228,7 @@ actor LiveStationSession {
             try requireActive()
             client = next
             baseURL = endpoint
-            transportState = .connecting
+            recordState(nextPowerEvents.stamp(.connecting), generation: generation)
             allowTransmit = transmit
             if enteredToken != nil {
                 try keychain.save(token)
@@ -194,7 +255,8 @@ actor LiveStationSession {
             guard let current = client else {
                 throw WorkerFailure("station_unavailable", "Connect to the Remote Station Agent first.")
             }
-            transportState = .connecting
+            guard let powerEvents else { throw lifecycleChanged() }
+            recordState(powerEvents.stamp(.connecting), generation: generation)
             await current.reconnectNow()
             guard !terminalShutdown, generation == connectionGeneration, client === current else {
                 await current.stop()
@@ -320,18 +382,30 @@ actor LiveStationSession {
     }
 
     func snapshot() async -> [String: Any] {
+        reconcilePowerObservationSession()
         let generation = connectionGeneration
+        let sessionID = powerSessionID
+        let currentClient = client
+        let rotorProjection = await rotor.projection()
+        reconcilePowerObservationSession()
+        guard generation == connectionGeneration, sessionID == powerSessionID,
+              self.client === currentClient else { return await snapshot() }
         guard let client else {
             return ["source": "direct_agent", "available": false, "generation": generation,
                     "transport_state": RadioConnectionState.stopped.rawValue,
-                    "radio": NSNull(), "station": NSNull(), "rotor": await rotor.projection(),
+                    "radio": NSNull(), "station": NSNull(), "rotor": rotorProjection,
+                    "measured_tx_power": NSNull(), "power_session_id": NSNull(),
+                    "power_session_started_at": NSNull(),
                     "propagation": NSNull(), "allow_transmit": false]
         }
         let observed = await client.observedSnapshot()
-        guard generation == connectionGeneration, self.client === client else { return await snapshot() }
-        var result = Self.project(observed, transport: transportState, allowTransmit: allowTransmit)
-        result["generation"] = generation
-        result["rotor"] = await rotor.projection()
+        reconcilePowerObservationSession()
+        guard generation == connectionGeneration, sessionID == powerSessionID,
+              self.client === client else { return await snapshot() }
+        var result = Self.project(observed, transport: transportState, allowTransmit: allowTransmit,
+                                  generation: generation, powerSessionID: powerSessionID,
+                                  powerSessionStartedAt: powerSessionStartedAt)
+        result["rotor"] = rotorProjection
         result["cat_servers"] = ["cat_port": Self.optional(catConfiguration.catPort), "rigctl_port": Self.optional(catConfiguration.rigCtlPort), "allow_transmit": catConfiguration.allowTransmit]
         return result
     }
@@ -347,6 +421,8 @@ actor LiveStationSession {
         lifecycleTransitions += 1
         defer { lifecycleTransitions -= 1 }
         connectionGeneration &+= 1
+        powerSession = StationPowerSessionState()
+        powerEvents = nil
         let current = client
         client = nil
         baseURL = nil
@@ -378,8 +454,14 @@ actor LiveStationSession {
 
     func tune(frequencyHz: Int64, mode: String) async throws -> [String: Any] {
         try await ensureExclusiveWriter()
+        reconcilePowerObservationSession()
         guard let client else { throw WorkerFailure("station_unavailable", "Connect to the Remote Station Agent first.") }
+        let generation = connectionGeneration
+        let sessionID = powerSessionID
         let before = await client.observedSnapshot()
+        reconcilePowerObservationSession()
+        guard generation == connectionGeneration, sessionID == powerSessionID,
+              self.client === client else { throw lifecycleChanged() }
         try requireActive()
         guard before.isConnected, before.remoteStationStatus?.radioKnown == true,
               before.remoteStationStatus?.radioStale == false else {
@@ -390,21 +472,39 @@ actor LiveStationSession {
         do {
             try await client.tuneSimplex(frequencyHz, mode: normalized)
         } catch {
+            reconcilePowerObservationSession()
+            guard generation == connectionGeneration, sessionID == powerSessionID,
+                  self.client === client else { throw lifecycleChanged() }
             throw WorkerFailure("station_rejected", "The Remote Station Agent rejected the tune.")
         }
+        reconcilePowerObservationSession()
+        guard generation == connectionGeneration, sessionID == powerSessionID,
+              self.client === client else { throw lifecycleChanged() }
         let clock = ContinuousClock()
         let deadline = clock.now.advanced(by: .seconds(12))
         while clock.now < deadline {
             try Task.checkCancellation()
             let observed = await client.observedSnapshot()
+            reconcilePowerObservationSession()
+            guard generation == connectionGeneration, sessionID == powerSessionID,
+                  self.client === client else { throw lifecycleChanged() }
             try requireActive()
             if observed.transportReceivedAt.map({ $0 > startedAt }) == true,
                Self.confirmsSimplex(observed, frequencyHz: frequencyHz, mode: normalized) {
-                var result = Self.project(observed, transport: transportState, allowTransmit: allowTransmit)
-                result["rotor"] = await rotor.projection()
+                let rotorProjection = await rotor.projection()
+                reconcilePowerObservationSession()
+                guard generation == connectionGeneration, sessionID == powerSessionID,
+                      self.client === client else { throw lifecycleChanged() }
+                var result = Self.project(observed, transport: transportState, allowTransmit: allowTransmit,
+                                          generation: generation, powerSessionID: sessionID,
+                                          powerSessionStartedAt: powerSessionStartedAt)
+                result["rotor"] = rotorProjection
                 return ["accepted": true, "confirmed": true, "state": result]
             }
             try await Task.sleep(for: .milliseconds(100))
+            reconcilePowerObservationSession()
+            guard generation == connectionGeneration, sessionID == powerSessionID,
+                  self.client === client else { throw lifecycleChanged() }
         }
         throw WorkerFailure("station_timeout", "The radio did not confirm the requested simplex target.")
     }
@@ -533,8 +633,14 @@ actor LiveStationSession {
         }
     }
 
-    private func recordState(_ state: RadioConnectionState, generation: UInt64) {
-        guard client != nil, generation == connectionGeneration else { return }
+    private func recordState(_ event: StationPowerSessionEvent, generation: UInt64) {
+        guard client != nil, generation == connectionGeneration, powerSession.apply(event) else { return }
+        transportState = event.state
+    }
+
+    private func reconcilePowerObservationSession() {
+        guard client != nil, let powerEvents,
+              let state = powerSession.reconcile(powerEvents) else { return }
         transportState = state
     }
 
@@ -756,8 +862,10 @@ actor LiveStationSession {
             && observed.vfo("A")?.isTransmit == true
     }
 
-    private static func project(_ observed: XCatIntegrationCore.RadioSnapshot,
-                                transport: RadioConnectionState, allowTransmit: Bool) -> [String: Any] {
+    static func project(_ observed: XCatIntegrationCore.RadioSnapshot,
+                        transport: RadioConnectionState, allowTransmit: Bool,
+                        generation: UInt64, powerSessionID: UUID,
+                        powerSessionStartedAt: Date?, now: Date = Date()) -> [String: Any] {
         let radio: Any = observed.isConnected ? [
             "observed": true, "connected": true, "frequency_hz": observed.frequencyHz,
             "mode": observed.mode, "receive_frequency_hz": observed.frequencyHz,
@@ -789,9 +897,28 @@ actor LiveStationSession {
              "route_detail": value.routeDetail, "alarm_summary": value.alarmSummary,
              "alarm_messages": value.alarmMessages] as [String: Any]
         } ?? NSNull()
-        return ["source": "direct_agent", "available": observed.isConnected,
-                "transport_state": transport.rawValue, "generated_at": Date().timeIntervalSince1970,
+        let measuredPower: Any
+        if transport == .ready, observed.isConnected, observed.isTransmitting,
+           let observation = observed.measuredTransmitPower, let powerSessionStartedAt,
+           observation.isFresh(at: now, sessionStartedAt: powerSessionStartedAt) {
+            measuredPower = ["source": observation.source.rawValue, "measurement_point": "amplifier_output",
+                             "unit": "W", "watts": observation.watts,
+                             "observed_at": observation.observedAt.timeIntervalSince1970,
+                             "radio_observed_at": observation.radioObservedAt.timeIntervalSince1970,
+                             "amplifier_observed_at": observation.amplifierObservedAt.timeIntervalSince1970,
+                             "received_at": observation.receivedAt.timeIntervalSince1970,
+                             "session_id": powerSessionID.uuidString,
+                             "session_started_at": powerSessionStartedAt.timeIntervalSince1970,
+                             "generation": generation] as [String: Any]
+        } else {
+            measuredPower = NSNull()
+        }
+        return ["source": "direct_agent", "available": observed.isConnected, "generation": generation,
+                "transport_state": transport.rawValue, "generated_at": now.timeIntervalSince1970,
                 "radio": radio, "station": station, "rotor": NSNull(),
+                "measured_tx_power": measuredPower,
+                "power_session_id": optional(powerSessionStartedAt.map { _ in powerSessionID.uuidString }),
+                "power_session_started_at": optional(powerSessionStartedAt?.timeIntervalSince1970),
                 "propagation": NSNull(), "allow_transmit": allowTransmit]
     }
 
