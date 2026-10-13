@@ -15,6 +15,9 @@
 .service-settings input { width:100%; min-width:0; }
 .service-settings .service-enable { flex-direction:row; align-items:center; margin:8px 0 12px; }
 .service-settings input[type="checkbox"] { width:auto; }
+.service-settings .service-default-power { min-width:0; }
+.service-settings .service-default-power .service-enable { margin:7px 0 4px; }
+.service-settings .service-default-power p { font-size:11px; margin:0; }
 .service-settings .service-credential { display:flex; align-items:flex-end; gap:10px; flex-wrap:wrap; max-width:950px; margin-top:12px; }
 .service-settings .service-credential label { flex:1; min-width:min(100%,220px); }
 .service-settings .service-credential p { flex-basis:100%; color:var(--teal); margin:0; }

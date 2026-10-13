@@ -178,6 +178,27 @@ struct OperatorDraftPowerDatabaseTests {
         #expect(try reopened.count() == 1)
     }
 
+    @Test("Workspace restore rebind preserves selected evidence but never capture authority")
+    func rebindWorkspace() throws {
+        let path = url(); defer { try? FileManager.default.removeItem(at: path.deletingLastPathComponent()) }
+        let db = try LogbookDatabase(url: path); defer { db.close() }
+        let workspace = UUID(), context = context()
+        let armed = try ready(db, workspace: workspace, context: context)
+        let scope = try #require(armed.power?.activeScope?.id)
+        let captured = try db.captureOperatorDraftPower(sample: sample(context), scopeID: scope, now: now.addingTimeInterval(1))
+        let nextWorkspace = UUID()
+        let rebound = try db.configureOperatorDraftPower(enabled: true, fallback: "100", workspaceID: nextWorkspace)
+        #expect(rebound.qso.txPower == "500")
+        #expect(rebound.power?.selectedSample == captured.power?.selectedSample)
+        #expect(rebound.power?.workspaceID == nextWorkspace)
+        #expect(rebound.power?.manualOverride == false)
+        #expect(rebound.power?.activeScope == nil)
+        #expect(try db.captureOperatorDraftPower(sample: sample(context, watts: 900, offset: 2),
+            scopeID: scope, now: now.addingTimeInterval(2)) == rebound)
+        let saved = try db.applyOperatorDraft(mutation(rebound, .save), nextDraft: blank()).savedQSO
+        #expect(saved?.extraFields["APP_OM0RXXLOG_POWER_WATTS"] == "500")
+    }
+
     @Test("Receipt failure rolls back QSO, power, draft, and receipt atomically")
     func rollback() throws {
         let path = url(); defer { try? FileManager.default.removeItem(at: path.deletingLastPathComponent()) }

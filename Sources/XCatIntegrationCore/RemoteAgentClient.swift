@@ -70,8 +70,10 @@ public actor RemoteAgentClient: RadioControlling {
     private let endpoint: RemoteAgentEndpoint
     private let token: String
     private let session: URLSession
+    private let enableStream: Bool
     private let onState: StateHandler
     private let onSnapshot: SnapshotHandler
+    private let onObservedSnapshot: SnapshotHandler
 
     private var value = RadioSnapshot(
         isConnected: false,
@@ -101,7 +103,9 @@ public actor RemoteAgentClient: RadioControlling {
         token: String,
         session: URLSession = .shared,
         onState: @escaping StateHandler = { _, _ in },
-        onSnapshot: @escaping SnapshotHandler = { _ in }
+        onSnapshot: @escaping SnapshotHandler = { _ in },
+        onObservedSnapshot: @escaping SnapshotHandler = { _ in },
+        enableStream: Bool = true
     ) throws {
         endpoint = try RemoteAgentEndpoint(baseURL)
         let trimmedToken = token.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -110,8 +114,10 @@ public actor RemoteAgentClient: RadioControlling {
         }
         self.token = trimmedToken
         self.session = session
+        self.enableStream = enableStream
         self.onState = onState
         self.onSnapshot = onSnapshot
+        self.onObservedSnapshot = onObservedSnapshot
     }
 
     public func start() {
@@ -406,6 +412,8 @@ public actor RemoteAgentClient: RadioControlling {
     }
 
     private func openStream(generation currentGeneration: Int) {
+        // HTTP-only clients can supply an isolated transport without opening a socket.
+        guard enableStream else { return }
         let socket = session.webSocketTask(with: endpoint.webSocketRequest(token: token))
         webSocket = socket
         lastStreamMessage = Date()
@@ -490,6 +498,8 @@ public actor RemoteAgentClient: RadioControlling {
     private func apply(_ decoded: RemoteAgentDecodedState) {
         var snapshot = decoded.snapshot
         authoritativeValue = decoded.snapshot
+        // Immutable decoded evidence, before optimistic pending-write overlays.
+        onObservedSnapshot(decoded.snapshot)
         pendingWrites.reconcile(&snapshot)
         value = snapshot
         wordsPerMinute = decoded.cwSpeed

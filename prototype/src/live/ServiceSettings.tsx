@@ -86,7 +86,11 @@ export default function ServiceSettings({ values, request, onSaved, dataRequest,
     <ReferenceScheduleControl request={request} visible={tab === "Reference data"} />
     <form onSubmit={event => void save(event)} noValidate><fieldset disabled={busy}>
       <div hidden={tab !== "CW"}><CWSettings value={form.cwProfile} saved={values.cwProfile} onChange={cwProfile => setForm(current => ({ ...current, cwProfile }))} context={cwContext} request={request} state={cwState} refresh={refreshCW} radioProvider={cwProvider} /></div>
-      <section hidden={tab !== "Station"}><h2>Station identity</h2><div className="service-fields">{[["operatorCall", "Operator call"], ["stationCall", "Station call"], ["gridSquare", "Station grid"], ["stationLocation", "Station location"], ["defaultPower", "Default power W"], ["defaultRadio", "Radio name"]].map(([key, label]) => field(key, label))}</div></section>
+      <section hidden={tab !== "Station"}><h2>Station identity</h2><div className="service-fields">{[["operatorCall", "Operator call"], ["stationCall", "Station call"], ["gridSquare", "Station grid"], ["stationLocation", "Station location"], ["defaultPower", "Default power W"], ["defaultRadio", "Radio name"]].map(([key, label]) => key === "defaultPower" ? <div key={key} className="service-default-power">{field(key, label)}
+        <label className="service-enable"><input type="checkbox" aria-describedby="automatic-power-help" checked={form.automaticTransmitPower === true} disabled={typeof values.automaticTransmitPower !== "boolean"}
+          onChange={event => setForm(current => ({ ...current, automaticTransmitPower: event.target.checked }))} />Automatic measured power</label>
+        <p id="automatic-power-help">{typeof values.automaticTransmitPower !== "boolean" ? "Automatic capture is unavailable in this version." : "Capture KPA500 measured output via the remote station. Default power is the fallback; a TX power edit sets a manual override."}</p>
+      </div> : field(key, label))}</div></section>
       <div hidden={tab !== "Station"}><EquipmentSettings value={form.stationEquipment} onChange={stationEquipment => setForm(current => ({ ...current, stationEquipment }))} /></div>
       <section hidden={tab !== "Station"}><h2>Logbook mode</h2><label>Use xLog as<select aria-label="Logbook mode" value={form.logbookMode ?? "wavelog"} onChange={event => setForm(current => ({ ...current, logbookMode: event.target.value }))}>
         <option value="local">Standalone local logbook</option><option value="wavelog">Local logbook + Wavelog sync</option>

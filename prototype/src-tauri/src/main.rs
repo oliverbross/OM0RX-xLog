@@ -476,6 +476,12 @@ fn main() {
         .setup(|app| {
             acceptance::start_watchdog(app.handle().clone());
             if app.state::<acceptance::Acceptance>().path.is_none() {
+                let selection_app = app.handle().clone();
+                tauri::async_runtime::spawn_blocking(move || {
+                    if let Err(error) = station_selection::owner(&selection_app).and_then(|owner| owner.notify_saved()) {
+                        eprintln!("Native power selection unavailable: {error}");
+                    }
+                });
                 cluster_session::owner(app.handle()).map_err(std::io::Error::other)?;
                 if let Some(main) = app.get_webview_window("main") { detached_geometry::install(&main); }
                 workspace_window_runtime::refresh(app.handle(), false).map_err(std::io::Error::other)?;

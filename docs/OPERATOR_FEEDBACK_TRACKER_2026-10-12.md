@@ -492,7 +492,7 @@ first post-mutation work remains open. No installed app or live-log changes.
 | DATA-09 | Reference databases check at startup and hourly, update automatically in background and display available version/revision metadata | Native scheduling and cache recovery source-verified 13 October; installed acceptance and source semantic versions remain open | All seven supported sources use hourly deadlines; persisted opt-out/migration, native startup/wake ownership, last-good validation, conditional-cache recovery and restore-safe exclusion tested. ETag/source/check/download dates remain distinct; app-binary update/restart remains separate |
 | DATA-10 | Discoverable ADIF import and export in integrated xLog | Requested 13 October; audit/reuse existing ADIF implementation before extending | Import preview, validation and duplicate policy; retain unsupported fields where possible, dates/UTC/modes/references and confirmation data; export scope selection; fixture roundtrip and no unintended sync |
 | BACKUP-01 | Optional cloud backups: Google Drive, OneDrive, Dropbox and FTP destination | Requested 13 October; queued | Explicit destination/account setup, secret-free consistent backup, secure credential storage, upload verification, retention and restore verification; protect existing remote backups. Prefer encrypted transfer (FTPS/SFTP where supported), explicitly disclose plain FTP risks. No account connections or uploads authorized merely by adding this feature |
-| RADIO-04 | Optional Use radio-reported power populates QSO power and ADIF TX_PWR when supplied | Native observation contract and durable canonical power state implemented/tested; runtime capture, setting/UI and installed acceptance remain open | KPA amplifier output has separate source/unit/sample-time/session metadata; legacy mixed drive/watt fields are never accepted. Requires companion actual WS receipt timestamp. Independent power revision, explicit manual intent and atomic Save/provenance now have reducer/database tests; do not initialize capture before native lifecycle ownership and manual-intent UI ship together. No RF tests or deployment |
+| RADIO-04 | Optional Use radio-reported power populates QSO power and ADIF TX_PWR when supplied | Default-off native capture, setting, explicit manual-intent UI and durable power-only merges source-verified; packaged/live acceptance remains open | Qualified KPA500 output through the direct remote agent only; legacy mixed drive/watt fields are never accepted. Requires companion actual WS receipt timestamp. Native provider/session/contact authority, independent power revision and atomic Save/provenance are tested together. No RF tests or deployment; other power sources remain unsupported |
 | RADIO-05 | Optional Clear after QSY setting clears the previous unlogged QSO on confirmed frequency change | Requested 13 October; design in progress | Default off; no clear on initial/reconnected/stale/failed radio read, no clearing existing-contact edits, no erasure of a newly selected cluster spot or newer draft input. Revision/selection fences and shared-draft tests required; never tune merely to test |
 | SYNC-06 | Automatic sync fails before uploading or importing contacts | Source repair, full portable Swift suite and final exact-source read-only preview pass; not installed | Hold entire ambiguous groups and pending edits without guessing IDs; preserve complete-snapshot deletion safeguards. Matched live group proved JSON zero versus omitted ADIF RX; exact decimal-zero equivalence only, positive/malformed/underflow contradictions still rejected. Final 5277847 source preview passed in 113.524s: 67,935 remote IDs, 67,929 unambiguous, six held, 29 IDs not local, zero absent clean/dirty local IDs; three held IDs already local. No live reconciliation/deletions performed |
 | UI-36 | Detached Logbook and DX Cluster tables fill available window height with clean lower edges | Source, 41 focused tests and isolated desktop/compact screenshots pass; not installed | Detached caps removed; Logbook capacity uses actual body-row height. Paging and cluster final-row access verified in synthetic browser fixtures; native window check remains |
@@ -599,13 +599,78 @@ overly strict amplifier-context fencing, and unchecked restored snapshot
 consistency. Amplifier context retains its separate fifteen-second age limit;
 only meter/radio/receipt evidence must follow the new scope/session.
 
-This remains a prerequisite, not an enabled feature. No live draft, logbook,
+At that checkpoint this remained a prerequisite, not an enabled feature. No live draft, logbook,
 radio or installed application was changed. The next block must wire native
 sample ownership onto the logbook lane, add the persisted default-off setting,
 and ship explicit manual-intent transport/UI plus power-only renderer merges
 together. Main-window-absent capture and detached new-QSO editing remain open.
 
+### RADIO-04 native owner and compact controls — 14 October
+
+The next source stage wires the authoritative Remote Agent callback before
+optimistic display overlays into a native FIFO delivery lane. The native
+selection has a persisted UUID and sequence-fenced publications; renderer IPC
+cannot publish selection authority or measured readings. Old startup messages
+cannot supersede newer handover fences. Optional startup publication and
+selection reads never wait for a power RPC; failure is nonfatal and exposes an
+unavailable status. Connect/reconnect/handover still require their safety fence,
+while disconnect and shutdown bypass optional power notification.
+
+Capture checks current observed transmit frequency/mode, source/session,
+workspace, draft and contact. After acquiring the service/SQLite transaction,
+freshness is evaluated against the current clock and a short permission check
+admits the write. Revocation never waits for database I/O: an already admitted
+transaction is ordered before a later revoke, whereas later queued old readings
+are rejected. Successful durable peaks suppress subsequent lower/duplicate
+work; failed writes never establish a speculative peak. Save drains the already
+emitted callback prefix before its atomic QSO/draft/receipt transaction.
+
+Station settings now includes Automatic measured power beside Default power,
+default OFF. Explicit TX power edits (including identical or empty values)
+persist manual intent even before the feature has ever been enabled. Use
+automatic resumes capture; logged-contact edits retain their original behavior.
+Power-only revisions merge into an open draft without overwriting newer notes
+or creating false text conflicts. The compact controls preserve the existing
+console design; synthetic browser checks at 1650 and 1024 px show the settings
+and editor controls fitting, and Use automatic visibly restores the fallback.
+
+Verification: full frontend suite 742 tests in 92 files; TypeScript/Vite build
+and window bundle budgets pass. Full portable Swift run passes 215 Swift Testing
+cases in 32 suites plus 222 reported XCTest cases (two explicitly skipped).
+Full offline Rust tests pass 196 cases, including 21 native selection tests.
+New regressions exercise authoritative callback ordering, database/service lock
+contention, prompt detach/termination, admission-before-revocation, post-wait
+freshness, failed writes, manual intent, native selection ordering, and actual
+React draft refresh. The full-suite concurrency fixtures suspend their waits
+instead of starving Swift's cooperative executor. The unrelated canvas CI race
+now waits for each control to be enabled before clicking; runtime busy guards
+are unchanged.
+
+Boundaries: no installed application, live logbook, settings, credentials or
+radio changed. Real companion timestamp deployment, exact packaged macOS
+acceptance, physical telemetry and other operating systems remain unverified.
+Worker-owned capture is tested without a renderer, not claimed as a real
+main-window-closed station acceptance. Detached new-QSO editing remains open.
+Before the first durable peak or during repeated database failures, delivery
+still preserves FIFO rather than coalescing speculative readings.
+
 ## Longer-term parity gates (not silently closed by this release)
+
+### 14 October — middle-width Operator Desk clarification
+
+The operator confirmed that the wide three-panel layout and narrower stacked
+layout look correct; only the intermediate width needs correction. Keep both
+working layouts. The existing `a3296d2` source change gives Active QSO the full
+row at container widths 1420–1840 px and scales the rotor compass; no additional
+redesign is indicated by the new screenshots. A fresh synthetic browser check
+passes all 18 fixture widths with the rotor and all 18 without it, including
+fractional widths around both breakpoints. The rendered 1650 px fixture keeps
+both RST fields inside Active QSO and the rotor inside its panel.
+
+Installed alpha.13 remains `df387639` with its retained `5ab88fb` frontend; it
+predates this correction. The staged `a1fb4b2` package includes the correction,
+but neither these fixture checks nor the staged package claim an installed-app
+refresh. The running operator session was not interrupted.
 
 13 October source verification (not an installed-app acceptance): all 707 frontend tests across 88 files pass; TypeScript/Vite build and detached-window bundle budgets pass. A paging race exposed by the full run was fixed: the unchanged initial Awards search no longer schedules a delayed reset to page one. Full `XLOG_PORTABLE_ONLY=1 swift test` exits successfully, including the final post-commit publication fences, duplicate lookup and strict sync identity/RX regressions. Existing large-main-chunk and mixed static/dynamic Map import warnings remain. The installed Mac app remains the earlier `df387639` refresh until a separately verified package/restart.
 

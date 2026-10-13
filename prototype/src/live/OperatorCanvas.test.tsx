@@ -62,11 +62,15 @@ it("hides and restores a panel, then removes edit handles when locked", async ()
   fireEvent.keyDown(move, { key: "ArrowRight" }); fireEvent.keyUp(move, { key: "ArrowRight" });
   await waitFor(() => expect(session.getSnapshot().snapshot?.revision).toBe(1));
   const savedRect = session.getSnapshot().snapshot!.document.presets[1].panels.find(panel => panel.id === "world-map")!.rect;
+  await waitFor(() => expect((screen.getByRole("button", { name: "Hide Map" }) as HTMLButtonElement).disabled).toBe(false));
   fireEvent.click(screen.getByRole("button", { name: "Hide Map" }));
   await waitFor(() => expect(screen.queryByText("Map surface")).toBeNull());
+  await waitFor(() => expect((screen.getByRole("button", { name: "Panels" }) as HTMLButtonElement).disabled).toBe(false));
   fireEvent.click(screen.getByRole("button", { name: "Panels" })); fireEvent.click(screen.getByRole("checkbox", { name: "Map" }));
   await screen.findByText("Map surface");
   expect(session.getSnapshot().snapshot!.document.presets[1].panels.find(panel => panel.id === "world-map")!.rect).toEqual(savedRect);
+  // The restored panel renders before perform() releases its busy guard.
+  await waitFor(() => expect((screen.getByRole("button", { name: "Lock layout" }) as HTMLButtonElement).disabled).toBe(false));
   fireEvent.click(screen.getByRole("button", { name: "Lock layout" }));
   await screen.findByRole("button", { name: "Arrange panels" }); expect(screen.queryByRole("button", { name: "Move Active QSO" })).toBeNull();
 });

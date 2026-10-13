@@ -11,11 +11,67 @@ public actor LiveWorker {
     // slow import/backup cannot monopolize the station and service router.
     private actor LogbookLane {
         private let service: LiveLogbookMethods
-        init(service: LiveLogbookMethods) { self.service = service }
+        private let power: NativeDraftPowerGate
+        private var powerStatus = "off"
+        init(service: LiveLogbookMethods, power: NativeDraftPowerGate) {
+            self.service = service; self.power = power
+        }
         func handle(method: String, params: [String: Any]) throws -> [String: Any] {
-            try service.handle(method: method, params: params)
+            var result = try service.handle(method: method, params: params)
+            if ["settings_save", "workspace_create", "backup_restore", "logbook_operator_draft_apply"].contains(method) {
+                reconcilePower()
+            }
+            if method == "logbook_operator_draft" { result["power_capture_status"] = powerStatus }
+            return result
+        }
+
+        func reconcilePower() {
+            let state = power.state()
+            guard !state.suspended else { power.disarm(); return }
+            do {
+                var owner = try service.powerOwnerSnapshot()
+                // Keep legacy manual editing untouched until the feature is
+                // explicitly enabled; never materialize state just by opening.
+                guard owner.settings.automaticTransmitPower || owner.draft.power != nil else {
+                    power.disarm(); powerStatus = "off"; return
+                }
+                owner = try service.configureDraftPower(expectedWorkspaceID: owner.workspaceID)
+                if let context = state.context, owner.settings.automaticTransmitPower,
+                   owner.draft.power?.manualOverride == false, !owner.draft.qso.call.isEmpty {
+                    owner = try service.armDraftPower(context: context, expectedWorkspaceID: owner.workspaceID,
+                        draftID: owner.draft.qso.id, expectedRevision: owner.draft.revision, now: Date())
+                } else if owner.draft.power?.activeScope != nil {
+                    owner = try service.invalidateDraftPower(expectedWorkspaceID: owner.workspaceID)
+                }
+                power.arm(owner.draft, workspaceID: owner.workspaceID, state: state)
+                powerStatus = !owner.settings.automaticTransmitPower ? "off"
+                    : owner.draft.power?.manualOverride == true ? "manual"
+                    : owner.draft.power?.activeScope == nil ? "waiting" : "armed"
+            } catch {
+                power.disarm(); powerStatus = "unavailable"
+            }
+        }
+
+        func capturePower(_ reading: NativeDraftPowerGate.Reading) {
+            guard power.permits(reading) else { return }
+            do {
+                var admitted = false
+                let result = try service.captureDraftPower(sample: reading.sample,
+                    expectedWorkspaceID: reading.lease.workspaceID,
+                    scopeID: reading.lease.scope.id, authorize: {
+                        admitted = power.permits(reading)
+                        return admitted
+                    })
+                if admitted {
+                    power.recordCaptured(reading, draft: result.draft)
+                    if result.draft.power?.selectedSample != nil { powerStatus = "captured" }
+                }
+            } catch { powerStatus = "unavailable" }
         }
     }
+    private let powerCapture: NativeDraftPowerGate
+    private let powerDelivery: NativeDraftPowerDelivery
+    private var powerSelectionSequence: UInt64 = 0
     private let logbookLane: LogbookLane
     private let opportunities: LiveOpportunitiesMethods
     private let cluster: LiveClusterMethods
@@ -33,8 +89,12 @@ public actor LiveWorker {
     private(set) var contactRefreshTask: Task<Void, Never>?
     init(logbook: LiveLogbookMethods = .shared, localAcceptance: Bool = false, cluster: LiveClusterMethods? = nil,
          publicServices: LivePublicServiceMethods? = nil,
+         powerCapture: NativeDraftPowerGate = NativeDraftPowerGate(),
+         powerDelivery: NativeDraftPowerDelivery = NativeDraftPowerDelivery(),
          contactRefresher: (@Sendable () async throws -> Void)? = nil) {
-        logbookLane = LogbookLane(service: logbook)
+        self.powerCapture = powerCapture
+        self.powerDelivery = powerDelivery
+        logbookLane = LogbookLane(service: logbook, power: powerCapture)
         self.publicServices = publicServices ?? LivePublicServiceMethods(logbook: logbook)
         services = LiveServiceMethods(logbook: logbook)
         #if os(macOS)
@@ -49,6 +109,7 @@ public actor LiveWorker {
 
     func beginTerminalShutdown() {
         terminalShutdown = true
+        powerCapture.terminate()
         cancelContactRefresh()
     }
 
@@ -85,11 +146,26 @@ public actor LiveWorker {
 
     public func startBackgroundServices() async {
         guard !localAcceptance, !terminalShutdown else { return }
+        await startPowerCapture()
         await services.startAutomaticSync()
         #if os(macOS)
         await references.startAutomaticChecks()
         #endif
     }
+
+    func startPowerCapture(registerStation: Bool = true) async {
+        guard !localAcceptance, !terminalShutdown else { return }
+        let lane = logbookLane
+        let delivery = powerDelivery
+        powerCapture.install(changed: { delivery.enqueue { await lane.reconcilePower() } },
+                             received: { reading in delivery.enqueue { await lane.capturePower(reading) } })
+        #if os(macOS)
+        if registerStation { await LiveStationSession.shared.installPowerCapture(powerCapture) }
+        #endif
+        await lane.reconcilePower()
+    }
+
+    func drainPowerCapture() async { await powerDelivery.drain() }
 
     public func shutdown() async {
         beginTerminalShutdown()
@@ -157,13 +233,54 @@ public actor LiveWorker {
                 return diagnostics.response(to: data)
             }
             let result: [String: Any]
-            if method == "cluster_history" || method.hasPrefix("workspace_") || method.hasPrefix("logbook_") || method.hasPrefix("settings_") || method.hasPrefix("backup_") {
+            if method == "station_power_selection" {
+                guard !terminalShutdown, Set(params.keys) == ["provider", "selection_id", "sequence"],
+                      let sequenceValue = params["sequence"],
+                      let sequenceData = try? JSONSerialization.data(withJSONObject: [sequenceValue]),
+                      let sequence = try? JSONDecoder().decode([UInt64].self, from: sequenceData).first,
+                      (1...9_007_199_254_740_991).contains(sequence) else {
+                    throw WorkerFailure("invalid_params", "Invalid native selection context.")
+                }
+                let selectedProvider: String?
+                let selectionID: String?
+                if params["provider"] is NSNull, params["selection_id"] is NSNull {
+                    selectedProvider = nil; selectionID = nil
+                } else {
+                    guard let provider = params["provider"] as? String,
+                          ["direct_agent", "direct_flex_lan", "hamlib", "xcat_loopback"].contains(provider),
+                          let selection = params["selection_id"] as? String, UUID(uuidString: selection) != nil else {
+                        throw WorkerFailure("invalid_params", "Invalid native selection context.")
+                    }
+                    selectedProvider = provider; selectionID = selection
+                }
+                // select() revokes the emission/commit lease synchronously.
+                // DB metadata cleanup is queued, never a prerequisite for a
+                // radio disconnect while a long import holds the logbook lane.
+                if sequence > powerSelectionSequence {
+                    powerSelectionSequence = sequence
+                    powerCapture.select(provider: selectedProvider, selectionID: selectionID)
+                    result = ["accepted": true]
+                } else {
+                    // A delayed startup publication cannot restore the context
+                    // retired by a newer provider handover or connection fence.
+                    result = ["accepted": false, "superseded": true]
+                }
+            } else if method == "cluster_history" || method.hasPrefix("workspace_") || method.hasPrefix("logbook_") || method.hasPrefix("settings_") || method.hasPrefix("backup_") {
+                if method == "logbook_operator_draft_apply", params["action"] as? String == "save" {
+                    // Include the callback prefix already emitted before Save
+                    // admission; unstructured actor Tasks alone are not FIFO.
+                    await powerDelivery.drain()
+                    guard !terminalShutdown else {
+                        throw WorkerFailure("worker_stopping", "The worker is shutting down; Save was not started.")
+                    }
+                }
                 let changingWorkspace = !localAcceptance && ["workspace_create", "backup_restore"].contains(method)
                 if changingWorkspace {
                     // Retire queued publications before the database may be
                     // replaced; an old workspace cannot repaint the new one.
                     cancelContactRefresh()
                     workspaceTransitionCount += 1
+                    powerCapture.suspend(true)
                     #if os(macOS)
                     await references.suspendForWorkspaceChange()
                     #endif
@@ -179,6 +296,10 @@ public actor LiveWorker {
                         #endif
                         await cluster.finishWorkspaceChange()
                         workspaceTransitionCount -= 1
+                        if workspaceTransitionCount == 0 {
+                            powerCapture.suspend(false)
+                            await logbookLane.reconcilePower()
+                        }
                         queueContactRefresh()
                     }
                     throw error
@@ -189,6 +310,10 @@ public actor LiveWorker {
                     #endif
                     await cluster.finishWorkspaceChange()
                     workspaceTransitionCount -= 1
+                    if workspaceTransitionCount == 0 {
+                        powerCapture.suspend(false)
+                        await logbookLane.reconcilePower()
+                    }
                 }
                 let draftLogged = method == "logbook_operator_draft_apply" && params["action"] as? String == "save"
                     && result["status"] as? String == "applied"

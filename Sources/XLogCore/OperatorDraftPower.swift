@@ -141,7 +141,7 @@ public struct OperatorDraftPowerState: Codable, Equatable, Sendable {
     private var selectedContact: OperatorDraftPowerContact?
     private var lastContext: OperatorDraftPowerContext?
     private var sessionPeak: OperatorDraftPowerSample?
-    private var lastObservedAt: Date?
+    public private(set) var lastObservedAt: Date?
 
     public init(qso: QSO, workspaceID: UUID) throws {
         fallback = qso.txPower; selectedValue = qso.txPower
@@ -266,6 +266,18 @@ public struct OperatorDraftPowerState: Codable, Equatable, Sendable {
     /// Call once on restore or worker/session invalidation, before rearming.
     public mutating func invalidateSession() throws {
         try advance(); clearEligibility()
+    }
+
+    /// Restore changes the workspace authority, not the contact's historical
+    /// meter evidence. Rebind only the exact canonical draft and retire scopes.
+    public mutating func rebindWorkspace(qso: QSO, workspaceID: UUID) throws {
+        guard contact == OperatorDraftPowerContact(qso: qso, workspaceID: contact.workspaceID),
+              qso.txPower == selectedValue else { throw OperatorDraftPowerError.invalid }
+        guard workspaceID != contact.workspaceID else { return }
+        try advance()
+        contact = OperatorDraftPowerContact(qso: qso, workspaceID: workspaceID)
+        if selectedContact != nil { selectedContact = contact }
+        clearEligibility()
     }
 
     public func applying(to qso: QSO, includeProvenance: Bool = false) -> QSO {

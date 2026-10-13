@@ -400,10 +400,13 @@ public final class LogbookDatabase: @unchecked Sendable {
         try lock.withLock {
             let previousAuthority = operatorPowerScopeID
             let result = try updateOperatorDraftPower { current in
-                let needsMigration = current.power == nil || current.power?.workspaceID != workspaceID
+                let needsMigration = current.power == nil
                 var power = try needsMigration
                     ? OperatorDraftPowerState(qso: current.qso, workspaceID: workspaceID)
                     : current.power!
+                if power.workspaceID != workspaceID {
+                    try power.rebindWorkspace(qso: current.qso, workspaceID: workspaceID)
+                }
                 try power.configure(enabled: enabled, fallback: fallback)
                 // Legacy drafts have no explicit intent record. Preserve an
                 // unfinished contact's value until the operator opts back in.
@@ -447,11 +450,17 @@ public final class LogbookDatabase: @unchecked Sendable {
     /// Meter updates retain the edit revision and do not create typing receipts.
     /// The same SQLite write transaction serializes capture with Save/Replace.
     public func captureOperatorDraftPower(sample: OperatorDraftPowerSample,
-                                           scopeID: UUID, now: Date) throws -> OperatorDraftSnapshot {
+                                           scopeID: UUID, now: Date? = nil,
+                                           authorize: () -> Bool = { true }) throws -> OperatorDraftSnapshot {
         try lock.withLock {
             try updateOperatorDraftPower { current in
                 guard operatorPowerScopeID == scopeID, var power = current.power else { return current }
-                guard try power.accept(sample: sample, expectedScopeID: scopeID, now: now) else { return current }
+                // Freshness is evaluated after database/transaction acquisition
+                // in native calls; an explicit time remains available to tests.
+                guard try power.accept(sample: sample, expectedScopeID: scopeID, now: now ?? Date()) else { return current }
+                // The short native fence is the admission linearization point.
+                // Later revocation may proceed while this admitted write commits.
+                guard authorize() else { return current }
                 return OperatorDraftSnapshot(revision: current.revision,
                     qso: power.applying(to: current.qso), power: power)
             }
@@ -495,7 +504,8 @@ public final class LogbookDatabase: @unchecked Sendable {
     /// returns its original receipt even after another window advances the draft.
     /// Only creating new contacts is exposed here; editing a logged QSO requires
     /// a separate record revision contract and cannot hijack this draft's ID.
-    public func applyOperatorDraft(_ mutation: OperatorDraftMutation, nextDraft: QSO) throws -> OperatorDraftReceipt {
+    public func applyOperatorDraft(_ mutation: OperatorDraftMutation, nextDraft: QSO,
+                                  powerConfiguration: (workspaceID: UUID, enabled: Bool, fallback: String)? = nil) throws -> OperatorDraftReceipt {
         try lock.withLock {
             guard (0..<9_007_199_254_740_991).contains(mutation.expectedRevision) else { throw OperatorDraftError.invalid }
             try execute("BEGIN IMMEDIATE;")
@@ -511,6 +521,13 @@ public final class LogbookDatabase: @unchecked Sendable {
                 }
                 var updated: QSO
                 var power = current.power
+                if power == nil, let intent = mutation.powerIntent {
+                    guard mutation.action == .replace, intent.action == .manual,
+                          let configuration = powerConfiguration else { throw OperatorDraftError.notInitialized }
+                    var initial = try OperatorDraftPowerState(qso: current.qso, workspaceID: configuration.workspaceID)
+                    try initial.configure(enabled: configuration.enabled, fallback: configuration.fallback)
+                    power = initial
+                }
                 var saved: QSO?
                 switch mutation.action {
                 case .replace:

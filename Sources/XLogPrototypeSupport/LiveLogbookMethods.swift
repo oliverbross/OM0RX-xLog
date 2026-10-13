@@ -5,6 +5,13 @@ import XLogCore
 import XLogPortableCore
 #endif
 
+/// Native owner view. Reading this does not enable capture or restore eligibility.
+struct OperatorDraftPowerOwnerSnapshot: Sendable {
+    let workspaceID: UUID
+    let draft: OperatorDraftSnapshot
+    let settings: XLogSettings
+}
+
 /// Shared local bridge to an explicitly created integration workspace. It never opens
 /// LogbookDatabase() without a URL, and it never constructs a Wavelog client.
 public final class LiveLogbookMethods: @unchecked Sendable {
@@ -82,6 +89,80 @@ public final class LiveLogbookMethods: @unchecked Sendable {
             }
             return settings
         }
+    }
+
+    /// Native-only entry points: renderer IPC has no arm/capture capability.
+    /// Keep generation checks and the database operation under the same lock.
+    func powerOwnerSnapshot() throws -> OperatorDraftPowerOwnerSnapshot {
+        try lock.withLock {
+            let workspaceID = try powerWorkspaceID()
+            let settings = try currentSettings()
+            let draft = try readyDatabase().operatorDraft(initial: newOperatorDraft())
+            return OperatorDraftPowerOwnerSnapshot(workspaceID: workspaceID, draft: draft, settings: settings)
+        }
+    }
+
+    func configureDraftPower(expectedWorkspaceID: UUID) throws -> OperatorDraftPowerOwnerSnapshot {
+        try lock.withLock {
+            let workspaceID = try powerWorkspaceID(expected: expectedWorkspaceID)
+            let settings = try currentSettings()
+            let db = try readyDatabase()
+            _ = try db.operatorDraft(initial: newOperatorDraft())
+            let draft = try db.configureOperatorDraftPower(enabled: settings.automaticTransmitPower,
+                fallback: settings.defaultPower, workspaceID: workspaceID)
+            return OperatorDraftPowerOwnerSnapshot(workspaceID: workspaceID, draft: draft, settings: settings)
+        }
+    }
+
+    func armDraftPower(context: OperatorDraftPowerContext, expectedWorkspaceID: UUID,
+                       draftID: UUID, expectedRevision: Int64, now: Date) throws -> OperatorDraftPowerOwnerSnapshot {
+        try lock.withLock {
+            let workspaceID = try powerWorkspaceID(expected: expectedWorkspaceID)
+            let settings = try currentSettings()
+            guard settings.automaticTransmitPower else {
+                throw WorkerFailure("power_capture_disabled", "Automatic transmit power capture is disabled.")
+            }
+            let draft = try readyDatabase().armOperatorDraftPower(context: context, workspaceID: workspaceID,
+                draftID: draftID, expectedRevision: expectedRevision, now: now)
+            return OperatorDraftPowerOwnerSnapshot(workspaceID: workspaceID, draft: draft, settings: settings)
+        }
+    }
+
+    func captureDraftPower(sample: OperatorDraftPowerSample, expectedWorkspaceID: UUID,
+                           scopeID: UUID, now: Date? = nil,
+                           authorize: () -> Bool = { true }) throws -> OperatorDraftPowerOwnerSnapshot {
+        try lock.withLock {
+            let workspaceID = try powerWorkspaceID(expected: expectedWorkspaceID)
+            let settings = try currentSettings()
+            let db = try readyDatabase()
+            let current = try db.operatorDraft(initial: newOperatorDraft())
+            guard current.power?.workspaceID == workspaceID else {
+                throw WorkerFailure("workspace_changed", "Configure power capture for the current workspace before receiving samples.")
+            }
+            guard settings.automaticTransmitPower else {
+                return OperatorDraftPowerOwnerSnapshot(workspaceID: workspaceID, draft: current, settings: settings)
+            }
+            let draft = try db.captureOperatorDraftPower(sample: sample, scopeID: scopeID,
+                                                        now: now, authorize: authorize)
+            return OperatorDraftPowerOwnerSnapshot(workspaceID: workspaceID, draft: draft, settings: settings)
+        }
+    }
+
+    func invalidateDraftPower(expectedWorkspaceID: UUID) throws -> OperatorDraftPowerOwnerSnapshot {
+        try lock.withLock {
+            let workspaceID = try powerWorkspaceID(expected: expectedWorkspaceID)
+            let draft = try readyDatabase().invalidateOperatorDraftPower()
+            return OperatorDraftPowerOwnerSnapshot(workspaceID: workspaceID, draft: draft, settings: try currentSettings())
+        }
+    }
+
+    /// Call only while holding lock; edit-generation.json is outside backup data.
+    private func powerWorkspaceID(expected: UUID? = nil) throws -> UUID {
+        guard let current = UUID(uuidString: try editGeneration()) else { throw invalid() }
+        guard expected == nil || expected == current else {
+            throw WorkerFailure("workspace_changed", "The workspace changed; retire the previous power capture scope.")
+        }
+        return current
     }
 
     // Kept separate from the settings form so an older open form cannot
@@ -270,17 +351,21 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                 let receipt = try readyDatabase().operatorDraftReceipt(operationID: id)
                 return ["receipt": try receipt.map { try scopedReceipt($0, field: "draft", generation: generation) } ?? NSNull()]
             case "logbook_operator_draft_apply":
-                try requireKeys(params, allowed: ["operationID", "draftID", "expectedRevision", "action", "qso", "generation"],
+                try requireKeys(params, allowed: ["operationID", "draftID", "expectedRevision", "action", "qso", "generation", "powerIntent"],
                                 required: ["operationID", "draftID", "expectedRevision", "action", "generation"])
                 let generation = try editGeneration()
                 if try !matchesEditGeneration(params, generation) { return ["status": "workspace_changed", "generation": generation] }
                 _ = try integer(params, "expectedRevision", default: -1, range: 0...9_007_199_254_740_990)
                 guard JSONSerialization.isValidJSONObject(params),
                       try JSONSerialization.data(withJSONObject: params).count <= 32_000 else { throw invalid() }
+                try validatePowerIntent(params)
                 let mutation: OperatorDraftMutation
                 do { mutation = try decode(params) } catch { throw invalid() }
                 do {
-                    let receipt = try readyDatabase().applyOperatorDraft(mutation, nextDraft: newOperatorDraft())
+                    let settings = try currentSettings()
+                    guard let workspaceID = UUID(uuidString: generation) else { throw invalid() }
+                    let receipt = try readyDatabase().applyOperatorDraft(mutation, nextDraft: newOperatorDraft(),
+                        powerConfiguration: (workspaceID, settings.automaticTransmitPower, settings.defaultPower))
                     return ["status": "applied", "receipt": try scopedReceipt(receipt, field: "draft", generation: generation)]
                 } catch OperatorDraftError.conflict(let current) {
                     // Explicit non-applied result gives the client an atomic
@@ -293,6 +378,7 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                 } catch OperatorDraftError.existingContact {
                     throw WorkerFailure("draft_existing_contact", "This draft cannot replace an existing logged contact.")
                 } catch OperatorDraftError.invalid { throw invalid() }
+                catch OperatorDraftPowerError.invalid { throw invalid() }
             case "logbook_contact":
                 try requireKeys(params, allowed: ["contactID"], required: ["contactID"])
                 guard let text = params["contactID"] as? String, let id = UUID(uuidString: text) else { throw invalid() }
@@ -839,6 +925,22 @@ public final class LiveLogbookMethods: @unchecked Sendable {
 
     private func requireKeys(_ params: [String: Any], allowed: Set<String>, required: Set<String> = []) throws {
         guard Set(params.keys).isSubset(of: allowed), required.isSubset(of: Set(params.keys)) else { throw invalid() }
+    }
+
+    private func validatePowerIntent(_ params: [String: Any]) throws {
+        guard let raw = params["powerIntent"] else { return }
+        guard params["action"] as? String == "replace", let intent = raw as? [String: Any],
+              let action = intent["action"] as? String else { throw invalid() }
+        switch action {
+        case "manual":
+            try requireKeys(intent, allowed: ["action", "value"], required: ["action", "value"])
+            guard let value = intent["value"] as? String, value.utf8.count <= 343,
+                  !value.contains("\0") else { throw invalid() }
+        case "automatic":
+            try requireKeys(intent, allowed: ["action"], required: ["action"])
+        default:
+            throw invalid()
+        }
     }
 
     private func string(_ params: [String: Any], _ key: String, max: Int) throws -> String? {

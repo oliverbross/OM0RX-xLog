@@ -36,6 +36,9 @@
 .qso-detail-column h3 { display:flex; align-items:center; gap:7px; margin:0 0 12px; color:#e5edf7; font-size:11px; line-height:1.3; font-weight:700; }
 .qso-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-content:start; gap:8px 10px; }
 .qso-field.qso-wide { grid-column:1/-1; }
+.qso-power-field { min-width:0; }
+.qso-power-source { display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; margin-top:4px; color:#a5b9cc; font-size:10px; line-height:1.4; }
+.qso-editor .qso-power-source button { min-height:24px; padding:2px 6px; white-space:normal; }
 .qso-field textarea { resize:vertical; min-height:84px; line-height:1.45; white-space:pre-wrap; overflow-wrap:anywhere; }
 .qso-captured { margin-bottom:12px; padding:9px; background:#10253b; border-radius:6px; }
 .qso-captured>strong { display:block; margin-bottom:5px; color:#a5b9cc; font-size:10px; text-transform:uppercase; }

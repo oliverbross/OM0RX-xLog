@@ -5,6 +5,24 @@ import ServiceSettings from "./ServiceSettings";
 afterEach(cleanup);
 const values = { operatorCall: "OM0RX", stationCall: "OM0RX", wavelogURL: "https://example.invalid", wavelogStationID: 1, qrzUsername: "operator", qrzEnabled: true, clubLogCTYURL: "https://example.invalid/cty", lotwActivityURL: "https://example.invalid/lotw", preservedUnknown: "retain" };
 describe("grouped service settings", () => {
+  it("defaults measured power capture OFF and saves opt-in only with settings", async () => {
+    const request = vi.fn(async (_method: string, params?: Record<string, any>) => ({ settings: params?.settings }));
+    const profile = { ...values, defaultPower: "100", automaticTransmitPower: false }, saved = vi.fn();
+    render(<ServiceSettings values={profile} request={request} onSaved={saved} />);
+    const toggle = screen.getByRole("checkbox", { name: "Automatic measured power" }) as HTMLInputElement;
+    expect(toggle.checked).toBe(false); expect(toggle.disabled).toBe(false);
+    expect(toggle.closest(".service-default-power")?.contains(screen.getByLabelText("Default power W"))).toBe(true);
+    expect(screen.getByText(/Capture KPA500 measured output/)).toBeTruthy();
+    fireEvent.click(toggle); expect(request).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
+    await waitFor(() => expect(saved).toHaveBeenCalledWith({ ...profile, automaticTransmitPower: true }));
+    expect(request).toHaveBeenCalledWith("settings_save", { settings: { ...profile, automaticTransmitPower: true } });
+  });
+  it("keeps capture dormant when an older worker omits the setting", () => {
+    render(<ServiceSettings values={values} request={vi.fn()} onSaved={vi.fn()} />);
+    expect((screen.getByRole("checkbox", { name: "Automatic measured power" }) as HTMLInputElement).disabled).toBe(true);
+    expect(screen.getByText("Automatic capture is unavailable in this version.")).toBeTruthy();
+  });
   it("applies standalone mode only on Save, retaining Wavelog setup without starting sync", async () => {
     const request = vi.fn(async (_method: string, params?: Record<string, any>) => ({ settings: params?.settings }));
     render(<ServiceSettings values={{ ...values, logbookMode: "wavelog" }} request={request} onSaved={vi.fn()} />);

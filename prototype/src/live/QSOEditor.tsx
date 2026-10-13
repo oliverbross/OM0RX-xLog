@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEven
 import { Radio, PanelsTopLeft, UserRound, Star, RadioTower, ContactRound, History, Grid3X3, CircleX, CircleCheck } from "lucide-react";
 import "./QSOEditor.css";
 import QSOHeader, { type ReferenceEvidence } from "./QSOHeader";
+import type { DraftPowerIntent, DraftPowerState } from "./operatorDraftSession";
 
 type Data = Record<string, any>;
 export function safeProfileURL(value: unknown): string | null {
@@ -26,6 +27,8 @@ type Props = {
   radioControls?: boolean;
   clearLabel?: string;
   referenceEvidence?: ReferenceEvidence | null;
+  powerState?: DraftPowerState | null; powerIntent?: DraftPowerIntent | null; automaticPowerEnabled?: boolean;
+  onManualPower?: (value: string) => void; onResumeAutomaticPower?: () => void;
 };
 type MatrixCell = { band: string; mode: string; worked: boolean; confirmed: boolean };
 type MatrixState = { call: string; adif: number | null; callCells?: MatrixCell[]; countryCells?: MatrixCell[]; callError?: string; countryError?: string };
@@ -112,7 +115,23 @@ const bandFor = (hz: number): string => {
   const mhz = hz / 1_000_000; return ranges.find(([min,max]) => mhz >= min && mhz < max)?.[2] ?? "";
 };
 
-export function QSOEditor({ draft, setDraft, save, clear, busy, draftLocked, lookup, previous, follow, setFollow, request, onReadRadio, automaticStationMetadata = [], isEditing = false, radioControls = true, clearLabel = "Clear QSO", referenceEvidence }: Props) {
+export function draftPowerDescription(draft: Data, power?: DraftPowerState | null, intent?: DraftPowerIntent | null, enabled = false): string {
+  if (intent?.action === "manual") return "Manual override · awaiting save.";
+  if (intent?.action === "automatic") return "Automatic capture · awaiting save.";
+  if (power?.manualOverride) return power.enabled ? "Manual override." : "Manual override · automatic capture off.";
+  if (!power) return enabled ? "Measured output unavailable." : "Automatic capture off.";
+  const contact = power.contact;
+  const sameContact = contact.draftID.toLowerCase() === String(draft.id).toLowerCase() && contact.call === call(draft.call) &&
+    contact.band === String(draft.band ?? "").trim().toLowerCase() && contact.mode === String(draft.mode ?? "").trim().toUpperCase() &&
+    (contact.frequencyHz ?? null) === (draft.frequencyHz ?? null);
+  if (!sameContact) return "Waiting for the current contact to be saved.";
+  if (power.selectedSample) return power.enabled ? "Captured KPA500 output · retained for this contact." : "Captured KPA500 output · automatic capture off.";
+  if (!power.enabled) return "Automatic capture off.";
+  return power.activeScope ? "Default fallback · no measured output captured." : "Default fallback · measured output unavailable.";
+}
+
+export function QSOEditor({ draft, setDraft, save, clear, busy, draftLocked, lookup, previous, follow, setFollow, request, onReadRadio, automaticStationMetadata = [], isEditing = false, radioControls = true, clearLabel = "Clear QSO", referenceEvidence,
+  powerState, powerIntent, automaticPowerEnabled, onManualPower, onResumeAutomaticPower }: Props) {
   const [frequencyDraft, setFrequencyDraft] = useState<string | null>(null);
   const [receiveDraft, setReceiveDraft] = useState<string | null>(null);
   const [timeDrafts, setTimeDrafts] = useState<Record<string, { date: string; time: string }>>({});
@@ -200,6 +219,19 @@ export function QSOEditor({ draft, setDraft, save, clear, busy, draftLocked, loo
   };
   const field = ({ key, label, kind, options }: Field) => {
     const value = draft?.[key];
+    if (key === "txPower") {
+      const managed = !isEditing && (!!onManualPower || !!powerState);
+      const manual = powerIntent?.action === "manual" || !powerIntent && powerState?.manualOverride;
+      const automaticEnabled = powerState?.enabled ?? automaticPowerEnabled ?? false;
+      return <div key={key} className="qso-power-field"><label className="qso-field"><span>{label}</span><input aria-label={label} aria-describedby={managed ? "qso-power-source" : undefined}
+        value={value ?? ""} inputMode="decimal" autoComplete="off" spellCheck={false}
+        onInput={event => { if (!isEditing && onManualPower) onManualPower(event.currentTarget.value); }}
+        onChange={event => { if (isEditing || !onManualPower) update(key, event.target.value); }} /></label>
+        {managed && <div id="qso-power-source" className="qso-power-source"><span>{draftPowerDescription(draft!, powerState, powerIntent, automaticPowerEnabled)}</span>
+          {manual && onResumeAutomaticPower && <button type="button" disabled={busy || draftLocked || !automaticEnabled}
+            title={automaticEnabled ? undefined : "Enable automatic measured power in Station settings first."} onClick={onResumeAutomaticPower}>Use automatic</button>}</div>}
+      </div>;
+    }
     if (kind === "textarea") return <label key={key} className="qso-field qso-wide"><span>{label}</span><textarea aria-label={label} rows={key === "notes" ? 5 : 3} wrap="soft" value={value ?? ""} onChange={(event) => update(key, event.target.value)} /></label>;
     if (key === "receiveFrequencyHz") return <label key={key} className="qso-field"><span>{label}</span><input aria-label={label} inputMode="decimal" value={currentReceive} onChange={(event) => changeFrequency("receiveFrequencyHz", event.target.value)} /></label>;
     if (kind === "enum") return <label key={key} className="qso-field"><span>{label}</span><select aria-label={label} value={value ?? ""} onChange={(event) => update(key, event.target.value)}><option value="">—</option>{value && !options?.includes(String(value)) && <option value={value}>{value}</option>}{options?.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>;

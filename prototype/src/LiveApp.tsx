@@ -146,6 +146,11 @@ function MainLiveApp() {
       return value;
     });
   }, [setDraft]);
+  const setManualDraftPower = useCallback((value: string) => {
+    if (contactSession.getSnapshot().draft) return;
+    try { draftSession.setManualPower(value); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "The manual power edit could not be saved."); }
+  }, [draftSession, contactSession]);
   const draftIdentity = useRef(draft?.id); draftIdentity.current = draft?.id;
   const draftCall = useRef(normalizedCall(draft?.call)); draftCall.current = normalizedCall(draft?.call);
   const [station, setStation] = useState<Data | null>(null);
@@ -789,7 +794,11 @@ function MainLiveApp() {
         awards: { title: "Awards", content: <IntegratedAwards request={request} refresh={refresh} initialStats={stats?.awards} onUndock={() => void openDetachedAwards().catch(cause => setError(cause.message))} /> },
         "spot-history": { title: "Spot History", content: <SpotHistoryPanel request={request} /> },
       }} traditional={<><OperatorDesk {...deskProps} /><div className="live-desk-bottom"><OperatorWorkspace map={<div className="live-map">{map}</div>} cluster={cluster} selectedSpotId={selected} onSelect={selectSpot} bandMaps={deskBands} /></div></>} />}
-      {view === "Log QSO" && <QSOEditor referenceEvidence={referenceEvidence} draftLocked={editorLocked} draft={draft} setDraft={setOperatorDraft} save={save} clear={() => void run(clear)} busy={busy || editorBlocked} lookup={lookup} previous={previous} follow={follow} setFollow={setFollowImmediate} request={request} onReadRadio={readRadioIntoDraft} isEditing={editing.current} automaticStationMetadata={automaticStationMetadata} />}
+      {view === "Log QSO" && <QSOEditor referenceEvidence={referenceEvidence} draftLocked={editorLocked} draft={draft} setDraft={setOperatorDraft} save={save} clear={() => void run(clear)} busy={busy || editorBlocked} lookup={lookup} previous={previous} follow={follow} setFollow={setFollowImmediate} request={request} onReadRadio={readRadioIntoDraft} isEditing={editing.current} automaticStationMetadata={automaticStationMetadata}
+        powerState={editing.current ? undefined : sharedDraft.base?.power} powerIntent={editing.current ? undefined : sharedDraft.powerIntent}
+        automaticPowerEnabled={settings?.automaticTransmitPower === true}
+        onManualPower={!editing.current && typeof settings?.automaticTransmitPower === "boolean" ? setManualDraftPower : undefined}
+        onResumeAutomaticPower={!editing.current && sharedDraft.base?.power ? () => void run(async () => { draftSession.resumeAutomaticPower(); await draftSession.flush(); }) : undefined} />}
       {view === "Logbook" && <LogbookPanel onRequest={request} refreshKey={refresh} mutations={logbookMutations} onChanged={() => setRefresh(n => n + 1)} onUndock={() => void openDetachedLogbook().catch(cause => setError(cause.message))} onEdit={qso => { void run(async () => {
         if (draftSession.getSnapshot().locked) throw new Error("Finish the pending draft operation before editing a logged contact.");
         await draftSession.flush(); await contactSession.open(qso.id); setFollowImmediate(false); disarmAutoRotor(); setView("Log QSO");
@@ -808,7 +817,7 @@ function MainLiveApp() {
           viewProvider === "direct_flex_lan" ? <DirectFlexPanel request={viewedStationRequest} snapshot={stationProvider === viewProvider ? station : null} /> :
           <StationPanel snapshot={stationProvider === viewProvider ? station : null} onRequest={viewedStationRequest} onSnapshot={value => { if (stationProvider === viewProvider && provider.current === viewProvider) setStation(value); }} independentRotor />}</>}</>}
       {(view === "Awards" || awardsOpened) && <div hidden={view !== "Awards"}><IntegratedAwards request={request} refresh={refresh} initialStats={stats?.awards} onUndock={() => void openDetachedAwards().catch(cause => setError(cause.message))} /></div>}
-      {view === "Settings" && settings && <ServiceSettings values={settings} request={request} onSaved={setSettings} requestedTab={settingsTabRequest.tab} requestedTabRevision={settingsTabRequest.revision} syncSettings={settings.logbookMode === "local" ? <p>Standalone local logbook. Wavelog synchronization is disabled in Settings.</p> : <SyncPanel request={request} onChanged={() => setRefresh(n => n + 1)} />} cwContext={cwContext} cwState={cw.state} cwProvider={stationProvider} refreshCW={() => cw.controller.pollWinKeyer()} rotorSettings={<RotorPanel snapshot={rotorState} request={request} onManual={disarmAutoRotor} />} workspaceSettings={<WorkspaceSettings {...deskLayout} equipment={deskKind === "none" ? undefined : deskKind} requiredRotor={deskKind === "rotor" && !!rotorState?.owner} available={["active-qso", "callsign-intelligence", "world-map", "band-maps", "dx-cluster", "logbook", "awards", "spot-history", ...(deskKind === "none" ? [] : [deskKind] as ("rotor" | "antenna")[])]} />} dataRequest={dataManagementRequest} onDataChanged={() => { setSettings(null); setDraft(null); setStats(null); latestWorkspacePreferences.current = null; setWorkspacePreferences(null); setRefresh(n => n + 1); }} />}
+      {view === "Settings" && settings && <ServiceSettings values={settings} request={request} onSaved={value => { setSettings(value); void draftSession.refresh().catch(cause => setError(cause instanceof Error ? cause.message : "Power capture settings could not be refreshed.")); }} requestedTab={settingsTabRequest.tab} requestedTabRevision={settingsTabRequest.revision} syncSettings={settings.logbookMode === "local" ? <p>Standalone local logbook. Wavelog synchronization is disabled in Settings.</p> : <SyncPanel request={request} onChanged={() => setRefresh(n => n + 1)} />} cwContext={cwContext} cwState={cw.state} cwProvider={stationProvider} refreshCW={() => cw.controller.pollWinKeyer()} rotorSettings={<RotorPanel snapshot={rotorState} request={request} onManual={disarmAutoRotor} />} workspaceSettings={<WorkspaceSettings {...deskLayout} equipment={deskKind === "none" ? undefined : deskKind} requiredRotor={deskKind === "rotor" && !!rotorState?.owner} available={["active-qso", "callsign-intelligence", "world-map", "band-maps", "dx-cluster", "logbook", "awards", "spot-history", ...(deskKind === "none" ? [] : [deskKind] as ("rotor" | "antenna")[])]} />} dataRequest={dataManagementRequest} onDataChanged={() => { setSettings(null); setDraft(null); setStats(null); latestWorkspacePreferences.current = null; setWorkspacePreferences(null); setRefresh(n => n + 1); }} />}
       </>}
     </main></div>;
 }

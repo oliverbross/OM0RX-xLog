@@ -22,6 +22,8 @@ public struct XLogSettings: Codable, Equatable, Sendable {
     public var gridSquare: String
     public var stationLocation: String
     public var defaultPower: String
+    /// Opt-in meter capture; existing profiles never enable it during decoding.
+    public var automaticTransmitPower = false
     public var defaultRadio: String
     public var wavelogURL: String
     public var wavelogStationID: Int
@@ -60,7 +62,7 @@ public struct XLogSettings: Codable, Equatable, Sendable {
 
 extension XLogSettings {
     private enum CodingKeys: String, CodingKey {
-        case operatorCall, stationCall, gridSquare, stationLocation, defaultPower, defaultRadio
+        case operatorCall, stationCall, gridSquare, stationLocation, defaultPower, defaultRadio, automaticTransmitPower
         case wavelogURL, wavelogStationID, logbookMode, automaticSync, syncIntervalMinutes
         case qrzUsername, qrzEnabled, xcatHost, xcatRigCtlPort, clubLogCTYURL, lotwActivityURL
         case stationEquipment, cwProfile
@@ -73,6 +75,7 @@ extension XLogSettings {
         gridSquare = try values.decode(String.self, forKey: .gridSquare)
         stationLocation = try values.decode(String.self, forKey: .stationLocation)
         defaultPower = try values.decode(String.self, forKey: .defaultPower)
+        automaticTransmitPower = try values.decodeIfPresent(Bool.self, forKey: .automaticTransmitPower) ?? false
         defaultRadio = try values.decode(String.self, forKey: .defaultRadio)
         wavelogURL = try values.decode(String.self, forKey: .wavelogURL)
         wavelogStationID = try values.decode(Int.self, forKey: .wavelogStationID)

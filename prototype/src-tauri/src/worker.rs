@@ -23,6 +23,9 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     if request["method"] == "cluster_resume" {
         return Err("Only the native session owner can resume a cluster.".into());
     }
+    if request["method"] == "station_power_selection" {
+        return Err("Only the native radio owner can publish power selection.".into());
+    }
     if label == "awards" {
         return if matches!(request["method"].as_str(), Some("logbook_stats" | "logbook_catalog")) {
             Ok(())
@@ -135,6 +138,7 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "settings_load",
         "settings_save",
         "station_snapshot",
+        "station_power_selection",
         "station_radio",
         "station_capabilities",
         "station_tune",
@@ -601,6 +605,16 @@ fn request_in_session(
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn power_selection_is_native_only_on_every_renderer_surface() {
+        let request = json!({"id":"selection", "method":"station_power_selection",
+            "params":{"provider":"direct_agent","selection_id":uuid::Uuid::new_v4().to_string()}});
+        assert!(validate_request(&request).is_ok());
+        for label in ["main", "monitor", "logbook", "awards", "world-map", "band-maps", "dx-cluster", "unknown", ""] {
+            assert!(validate_surface(label, &request).is_err(), "{label}");
+        }
+    }
 
     #[test]
     fn reference_scheduling_authority_is_main_only() {

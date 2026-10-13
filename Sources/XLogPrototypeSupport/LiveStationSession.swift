@@ -5,6 +5,7 @@ import Darwin
 import Foundation
 import Security
 import XCatIntegrationCore
+import XLogCore
 
 /// A failed reply can still mean that the agent started transmitting. Keep the
 /// release obligation until a successful stop, without touching a read-only peer.
@@ -65,6 +66,7 @@ struct StationPowerSessionEvent: Sendable {
 /// Every event carries the attempt identity, so receiving READY first still
 /// installs the identity established by the earlier CONNECTING callback.
 final class StationPowerSessionEventSource: @unchecked Sendable {
+    let id = UUID()
     private let lock = NSLock()
     private var sequence: UInt64 = 0
     private var sessionID = UUID()
@@ -123,6 +125,7 @@ actor LiveStationSession {
     private var connectionGeneration: UInt64 = 0
     private var powerEvents: StationPowerSessionEventSource?
     private var powerSession = StationPowerSessionState()
+    private var powerCapture: NativeDraftPowerGate?
     private var powerSessionID: UUID { powerSession.sessionID }
     private var powerSessionStartedAt: Date? { powerSession.startedAt }
     private var catServers: EmbeddedCATServers?
@@ -131,6 +134,11 @@ actor LiveStationSession {
     private var catRetirement = StationCATRetirement()
     private var lifecycleTransitions = 0
     private var terminalShutdown = false
+
+    func installPowerCapture(_ capture: NativeDraftPowerGate) {
+        // Worker startup registers before requests can explicitly connect.
+        powerCapture = capture
+    }
 
     static let methods: Set<String> = ["station_connect", "station_disconnect", "station_reconnect",
                                         "station_forget", "station_configuration", "station_configuration_save",
@@ -204,11 +212,27 @@ actor LiveStationSession {
             let next: RemoteAgentClient
             let generation = connectionGeneration &+ 1
             let nextPowerEvents = StationPowerSessionEventSource()
+            let capture = powerCapture
             do {
                 next = try RemoteAgentClient(baseURL: endpoint, token: token,
                     onState: { [weak self] state, _ in
                         let event = nextPowerEvents.stamp(state)
+                        capture?.connection(sourceID: nextPowerEvents.id, sequence: event.sequence,
+                            sessionID: event.sessionID, startedAt: event.startedAt, ready: state == .ready)
                         Task { await self?.recordState(event, generation: generation) }
+                    }, onObservedSnapshot: { snapshot in
+                        guard let event = nextPowerEvents.latest(), event.state == .ready,
+                              let startedAt = event.startedAt, snapshot.isConnected, snapshot.isTransmitting,
+                              let meter = snapshot.measuredTransmitPower,
+                              meter.isFresh(at: Date(), sessionStartedAt: startedAt),
+                              snapshot.vfos.filter({ $0.isTransmit }).count == 1,
+                              let tx = snapshot.vfos.first(where: { $0.isTransmit }),
+                              let sample = OperatorDraftPowerSample(watts: meter.watts,
+                                observedAt: meter.observedAt, radioObservedAt: meter.radioObservedAt,
+                                amplifierObservedAt: meter.amplifierObservedAt, receivedAt: meter.receivedAt,
+                                sessionID: event.sessionID) else { return }
+                        capture?.observe(sourceID: nextPowerEvents.id, sample: sample,
+                                         frequencyHz: tx.frequencyHz, mode: tx.mode)
                     })
             } catch {
                 throw WorkerFailure("invalid_params", "Invalid Remote Station Agent connection settings.")
@@ -216,6 +240,8 @@ actor LiveStationSession {
             connectionGeneration = generation
             powerSession = StationPowerSessionState()
             powerEvents = nextPowerEvents
+            capture?.attach(sourceID: nextPowerEvents.id,
+                endpointID: "direct_agent:" + SHA256.hash(data: Data(endpoint.utf8)).map { String(format: "%02x", $0) }.joined())
             let current = client
             client = nil
             transportState = .stopped
@@ -421,6 +447,7 @@ actor LiveStationSession {
         lifecycleTransitions += 1
         defer { lifecycleTransitions -= 1 }
         connectionGeneration &+= 1
+        powerCapture?.detach()
         powerSession = StationPowerSessionState()
         powerEvents = nil
         let current = client
@@ -635,6 +662,10 @@ actor LiveStationSession {
 
     private func recordState(_ event: StationPowerSessionEvent, generation: UInt64) {
         guard client != nil, generation == connectionGeneration, powerSession.apply(event) else { return }
+        if let powerEvents {
+            powerCapture?.connection(sourceID: powerEvents.id, sequence: event.sequence,
+                sessionID: event.sessionID, startedAt: event.startedAt, ready: event.state == .ready)
+        }
         transportState = event.state
     }
 
