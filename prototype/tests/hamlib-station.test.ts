@@ -37,9 +37,8 @@ it("requires exact observed frequency and compatible mode for spot-tune success"
   expect(request.mock.calls[0]).toEqual(["hamlib_control", { device: "radio", action: "tune_simplex", mode: "USB", hz: 14074000 }]);
   await expect(hamlibStationRequest("station_tune", { frequency_hz: 14195000, mode: "USB" }, request)).rejects.toThrow("not both been observed");
 });
-it("read-only snapshot cannot issue connection or command writes", async () => {
+it("read-only radio snapshot cannot write or duplicate independent rotor polling", async () => {
   const request = vi.fn(async (_method: string, _params?: Record<string, any>) => radio);
   await hamlibStationRequest("station_snapshot", {}, request);
-  expect(request.mock.calls.length).toBe(2);
-  expect(request.mock.calls.every(([method]) => method === "hamlib_snapshot")).toBe(true);
+  expect(request.mock.calls).toEqual([["hamlib_snapshot", { device: "radio" }]]);
 });

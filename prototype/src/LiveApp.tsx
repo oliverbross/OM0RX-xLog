@@ -52,6 +52,7 @@ import { ContactEditStatus } from "./live/ContactEditStatus";
 import { connectWorkspaceNavigation, workspaceScreens } from "./live/workspaceNavigation";
 import { retireStationProvider } from "./live/stationHandover";
 import RotorPanel from "./live/RotorPanel";
+import { connectRotorTelemetry } from "./live/rotorTelemetry";
 import { clearConnectedHandoverMessage, ownAutomaticRotorMotion, rotorCommandParams, rotorIntentCurrent, rotorProjection, validRotorSnapshot, type AutomaticRotorIntent, type RotorSnapshot } from "./live/rotorControl";
 import "./live/live.css";
 import appLogo from "../src-tauri/icons/64x64.png";
@@ -510,17 +511,28 @@ function MainLiveApp() {
   }, [request]);
   useEffect(() => {
     let disposed = false;
+    const unavailable = () => {
+      if (disposed) return;
+      disarmAutoRotor();
+      const previous = rotorRef.current;
+      if (previous) { const next = { ...previous, backend_available: false }; rotorRef.current = next; setRotorState(next); }
+    };
+    const stopTelemetry = connectRotorTelemetry(result => {
+      if (disposed || rotorRef.current && result.generation < rotorRef.current.generation) return;
+      const previous = rotorRef.current;
+      const ownMotion = ownAutomaticRotorMotion(automaticMotion.current, result, autoEpoch.current, autoEnabled.current);
+      if (previous && (previous.owner !== result.owner || previous.generation !== result.generation) && !ownMotion) disarmAutoRotor();
+      if (result.state !== "active" && result.owner || result.backend_available === false ||
+          previous && rotorProjection(previous).connected && !rotorProjection(result).connected) disarmAutoRotor();
+      rotorRef.current = result; setRotorState(result);
+    }, unavailable);
+    if (stopTelemetry) return () => { disposed = true; stopTelemetry(); };
+    // Browser fixtures have no native owner; keep their injected read-only path.
     const pollRotor = async () => {
       if (rotorPolling.current) return;
       rotorPolling.current = true;
       try { if (!disposed) await request("rotor_snapshot"); }
-      catch {
-        if (!disposed) {
-          disarmAutoRotor();
-          const previous = rotorRef.current;
-          if (previous) { const next = { ...previous, backend_available: false }; rotorRef.current = next; setRotorState(next); }
-        }
-      } finally { rotorPolling.current = false; }
+      catch { unavailable(); } finally { rotorPolling.current = false; }
     };
     void pollRotor(); const timer = setInterval(() => void pollRotor(), 1000);
     return () => { disposed = true; clearInterval(timer); };

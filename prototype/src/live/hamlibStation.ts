@@ -37,8 +37,11 @@ export function hamlibProjection(radio: Data | null, rotor: Data | null): Data {
 }
 export async function hamlibStationRequest(method: string, params: Data, invoke: Invoke): Promise<Data> {
   const snapshot = async () => {
-    const values = await Promise.allSettled([invoke("hamlib_snapshot", { device: "radio" }), invoke("hamlib_snapshot", { device: "rotor" })]);
-    return hamlibProjection(values[0].status === "fulfilled" ? values[0].value : null, values[1].status === "fulfilled" ? values[1].value : null);
+    // Independent rotor telemetry has its own native owner. Radio refreshes
+    // must not create a second periodic read path to that device.
+    let radio: Data | null = null;
+    try { radio = await invoke("hamlib_snapshot", { device: "radio" }); } catch { /* Project the disconnected radio. */ }
+    return hamlibProjection(radio, null);
   };
   if (method === "station_snapshot") return snapshot();
   if (method === "station_tune") {

@@ -4,6 +4,7 @@ mod worker;
 mod acceptance;
 mod hamlib;
 mod rotor;
+mod rotor_telemetry;
 mod detached_geometry;
 mod winkeyer;
 mod cluster_session;
@@ -150,6 +151,12 @@ fn apply_workspace_layout(app: &tauri::AppHandle, layout: WorkspaceLayout) -> ta
         main.set_focus()?;
     }
     Ok(())
+}
+
+#[tauri::command]
+async fn rotor_telemetry_snapshot(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>) -> Result<serde_json::Value, String> {
+    rotor_telemetry::validate(window.label(), state.path.is_some())?;
+    rotor_telemetry::owner(&app)?.snapshot()
 }
 
 #[tauri::command]
@@ -417,7 +424,7 @@ fn main() {
         .manage(workspace_navigation::WorkspaceNavigation::default())
         .setup(|app| { acceptance::start_watchdog(app.handle().clone()); Ok(()) })
         .invoke_handler(tauri::generate_handler![worker_request, pick_backup_package, open_monitor, open_detached_map,
-            workspace_navigation_snapshot, workspace_navigation_ack,
+            workspace_navigation_snapshot, workspace_navigation_ack, rotor_telemetry_snapshot,
             detached_cluster_ready, cluster_session_selection, dock_detached_window, close_logbook_window,
             acceptance::acceptance_enabled, acceptance::acceptance_large_log, acceptance::acceptance_monitor,
             acceptance::acceptance_screen,
@@ -427,7 +434,7 @@ fn main() {
         .expect("Application failed to start")
         .run(|app, event| {
             if matches!(event, tauri::RunEvent::Exit) {
-                cluster_session::shutdown(); winkeyer::shutdown(); hamlib::shutdown(); worker::shutdown();
+                rotor_telemetry::shutdown(); cluster_session::shutdown(); winkeyer::shutdown(); hamlib::shutdown(); worker::shutdown();
                 app.state::<acceptance::Acceptance>().cleanup_browser_contexts();
             }
         });

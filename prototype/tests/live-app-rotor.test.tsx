@@ -5,7 +5,8 @@ import LiveApp from "../src/LiveApp";
 import { operatorDraftFixture } from "./operator-draft-fixture";
 
 const bridge = vi.hoisted(() => ({ request: vi.fn(), tune: null as null | ((value: any) => void), rotorGeneration: 4,
-  intentId: null as string | null, deferMotion: false, motion: null as null | { resolve: (value: any) => void; reject: (cause: Error) => void } }));
+  telemetry: vi.fn(), intentId: null as string | null, deferMotion: false, motion: null as null | { resolve: (value: any) => void; reject: (cause: Error) => void } }));
+vi.mock("../src/live/rotorTelemetry", () => ({ connectRotorTelemetry: bridge.telemetry }));
 vi.mock("../src/worker", async original => ({ ...await original<typeof import("../src/worker")>(), workerRequest: bridge.request }));
 vi.mock("../src/live/operatorDraftTransport", () => ({ requestOperatorDraft: async (method: string, params: any = {}) => (await bridge.request(method, params)).result }));
 vi.mock("../src/Map", () => ({ default: () => <div>Map</div> }));
@@ -42,6 +43,7 @@ async function openRotorSettings() {
 }
 beforeEach(() => {
   localStorage.clear(); bridge.request.mockReset(); bridge.tune = null; bridge.rotorGeneration = 4; bridge.intentId = null; bridge.deferMotion = false; bridge.motion = null;
+  bridge.telemetry.mockReset(); bridge.telemetry.mockReturnValue(null);
   const sharedDraft = operatorDraftFixture({ id: "draft", call: "", start: "2026-10-12T00:00:00Z", frequencyHz: 14074000, mode: "FT8", band: "20m" });
   bridge.request.mockImplementation(async (method: string, params: any = {}) => {
     const shared = sharedDraft(method, params);
@@ -64,6 +66,24 @@ beforeEach(() => {
       : method === "logbook_previous" ? { qsos: [] } : {};
     return { result };
   });
+});
+
+it("uses native rotor telemetry without a renderer poller and disarms on loss", async () => {
+  let update!: (value: any) => void, unavailable!: () => void;
+  const stop = vi.fn();
+  bridge.telemetry.mockImplementation((changed, failed) => { update = changed; unavailable = failed; return stop; });
+  const view = render(<LiveApp />);
+  await act(async () => update({ owner: "native_dcu1", generation: 4, state: "active", backend_available: true,
+    backend: { connected: true, name: "Antenna", azimuth: 53 } }));
+  const automatic = await screen.findByRole("checkbox", { name: "Auto rotor" });
+  await waitFor(() => expect((automatic as HTMLInputElement).disabled).toBe(false));
+  fireEvent.click(automatic); expect((automatic as HTMLInputElement).checked).toBe(true);
+  await act(async () => unavailable());
+  expect((automatic as HTMLInputElement).checked).toBe(false);
+  expect((automatic as HTMLInputElement).disabled).toBe(true);
+  expect(bridge.request.mock.calls.filter(([method]) => method === "rotor_snapshot")).toHaveLength(0);
+  expect(bridge.request.mock.calls.filter(([method]) => method === "rotor_goto")).toHaveLength(0);
+  view.unmount(); expect(stop).toHaveBeenCalledOnce();
 });
 
 it.each(["before", "after"])("keeps auto armed when its own identified motion is polled %s the reply", async order => {
