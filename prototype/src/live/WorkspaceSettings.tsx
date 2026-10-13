@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { activatePreset, deletePreset, duplicatePreset, maxWorkspacePresets, validatePresetName } from "./workspacePresetActions";
 import { panelMinimum, type LayoutPreset, type LayoutSnapshot, type LayoutState, type WorkspacePanelID, type WorkspaceLayoutSession } from "./workspaceLayoutSession";
 import { operatorWorkspaceKey, readWorkspacePreferences } from "./operatorWorkspacePreferences";
+import { useWorkspaceWindows } from "./useWorkspaceWindows";
 import "./WorkspaceSettings.css";
 
 const names: Record<WorkspacePanelID, string> = {
@@ -15,7 +16,16 @@ type Draft = { base: LayoutSnapshot; preset: LayoutPreset };
 type Props = { state: LayoutState; session: WorkspaceLayoutSession; subscriptionError?: string;
   available: WorkspacePanelID[]; equipment?: "rotor" | "antenna"; requiredRotor?: boolean };
 
+function fitCanvas(preset: LayoutPreset, panel: LayoutPreset["panels"][number]) {
+  const [width, height] = panelMinimum(panel.id);
+  panel.rect = { ...panel.rect, width: Math.max(width, panel.rect.width), height: Math.max(height, panel.rect.height) };
+  panel.rect.x = Math.min(panel.rect.x, Math.max(0, preset.width - panel.rect.width));
+  panel.rect.y = Math.min(panel.rect.y, Math.max(0, preset.height - panel.rect.height));
+  preset.width = Math.max(preset.width, panel.rect.width); preset.height = Math.max(preset.height, panel.rect.height);
+}
+
 export default function WorkspaceSettings({ state, session, subscriptionError, available, equipment, requiredRotor }: Props) {
+  const native = useWorkspaceWindows();
   const [selection, setSelection] = useState("");
   const [draft, setDraft] = useState<Draft | null>(null);
   const [removal, setRemoval] = useState<{ base: LayoutSnapshot; id: string; name: string } | null>(null);
@@ -28,6 +38,11 @@ export default function WorkspaceSettings({ state, session, subscriptionError, a
     ?? snapshot?.document.presets.find(preset => preset.id === snapshot.document.activePresetID);
   const blocked = working || state.saving || !!state.pending || state.workspaceChanged || !snapshot;
   const protectedPreset = selected?.id === "traditional" || selected?.id === "windowed";
+  const nativeAvailable = native.status?.supported ?? [];
+  const activePreset = snapshot?.document.presets.find(preset => preset.id === snapshot.document.activePresetID);
+  const hasSavedWindows = activePreset?.panels.some(panel => panel.placement === "window");
+  const nativeCurrent = native.status?.generation === snapshot?.generation && native.status?.revision === snapshot?.revision
+    && native.status?.presetID === activePreset?.id;
   async function run(action: () => Promise<void> | void) {
     if (working) return;
     setWorking(true); setMessage("");
@@ -55,13 +70,15 @@ export default function WorkspaceSettings({ state, session, subscriptionError, a
     const preset = structuredClone(draft.preset), panel = preset.panels.find(item => item.id === id)!;
     if (panel.placement === "window") return;
     panel.placement = visible ? "canvas" : "hidden";
-    if (visible) {
-      const [width, height] = panelMinimum(id);
-      panel.rect = { ...panel.rect, width: Math.max(width, panel.rect.width), height: Math.max(height, panel.rect.height) };
-      panel.rect.x = Math.min(panel.rect.x, Math.max(0, preset.width - panel.rect.width));
-      panel.rect.y = Math.min(panel.rect.y, Math.max(0, preset.height - panel.rect.height));
-      preset.width = Math.max(preset.width, panel.rect.width); preset.height = Math.max(preset.height, panel.rect.height);
-    }
+    if (visible) fitCanvas(preset, panel);
+    update(preset);
+  }
+  function placement(id: WorkspacePanelID, value: string) {
+    if (!draft || !nativeAvailable.includes(id) || !["canvas", "window", "hidden"].includes(value)
+      || (value === "canvas" && !available.includes(id))) return;
+    const preset = structuredClone(draft.preset), panel = preset.panels.find(item => item.id === id)!;
+    panel.placement = value as typeof panel.placement;
+    if (value === "canvas") fitCanvas(preset, panel);
     update(preset);
   }
   async function save() {
@@ -90,6 +107,13 @@ export default function WorkspaceSettings({ state, session, subscriptionError, a
     {!draft && !removal && <p className="workspace-settings-help">{selected?.id === "windowed" ? "Full windowed restoration is not available yet. Existing window placements are retained." : protectedPreset
       ? "Traditional keeps the familiar docked desk. Duplicate it to choose panels and arrange your own workspace."
       : "Use this layout on the Operator Desk. Edit its panels here; move and resize them on the desk with Arrange panels."}</p>}
+    {(hasSavedWindows || native.error || native.status?.state === "error") && <div className="workspace-native-outcome" role="status">
+      <p>{native.error || (native.status?.state === "error" ? `Layout saved; window placement needs attention. ${native.status.error}`
+        : nativeCurrent && native.status?.state === "applied" ? "Saved window placement applied."
+        : "Saved window placement is waiting for native confirmation.")}</p>
+      <button type="button" disabled={blocked || native.retrying || native.status?.state === "applying" || !!native.status?.stopped}
+        onClick={() => void native.retry()}>Apply saved windows</button>
+    </div>}
     {removal && <div className="workspace-remove"><p>Delete “{removal.name}”? Other layouts and your contacts stay unchanged.</p>
       <button type="button" disabled={blocked} onClick={() => void run(async () => {
         await session.applyAtBase(deletePreset(removal.base.document, removal.id), removal.base);
@@ -99,12 +123,19 @@ export default function WorkspaceSettings({ state, session, subscriptionError, a
       <fieldset disabled={blocked}><label className="workspace-name">Layout name<input ref={nameInput} value={draft.preset.name} onChange={event => update({ name: event.target.value })} /></label>
         <div className="workspace-layout-options"><label><input type="checkbox" checked={draft.preset.locked} onChange={event => update({ locked: event.target.checked })} />Lock panel positions</label>
           <label><input type="checkbox" checked={draft.preset.snap} onChange={event => update({ snap: event.target.checked })} />Snap to grid</label></div>
-        <h3>Operator Desk panels</h3><p className="workspace-settings-help">Choose what appears on the canvas. Position and resize panels on the Operator Desk.</p>
-        <div className="workspace-panel-options">{draft.preset.panels.filter(panel => available.includes(panel.id)).map(panel => <label key={panel.id}>
+        <h3>Panel placement</h3><p className="workspace-settings-help">Choose what appears on the desk or in a separate window. Windows keep their size and position on this computer; switching layouts hides them without discarding edits.</p>
+        <div className="workspace-panel-options">{draft.preset.panels.filter(panel => available.includes(panel.id) || nativeAvailable.includes(panel.id)).map(panel => nativeAvailable.includes(panel.id)
+          ? <label key={panel.id} className="workspace-panel-placement">{names[panel.id]}
+            <select aria-label={`${names[panel.id]} placement`} value={panel.placement} onChange={event => placement(panel.id, event.target.value)}>
+              <option value="hidden">Hidden</option>
+              {available.includes(panel.id) && <option value="canvas">Operator Desk</option>}
+              <option value="window">Separate window</option>
+            </select></label>
+          : <label key={panel.id}>
           <input type="checkbox" checked={panel.placement === "canvas"} disabled={panel.placement === "window" || (panel.id === "rotor" && requiredRotor && panel.placement === "canvas")} onChange={event => visibility(panel.id, event.target.checked)} />
           {names[panel.id]}{panel.placement === "window" ? " · separate window retained" : panel.id === "rotor" && requiredRotor ? " · connected rotor required" : ""}
         </label>)}</div>
-        <details className="workspace-retained"><summary>Other panel placements retained</summary><ul>{draft.preset.panels.filter(panel => !available.includes(panel.id)).map(panel => <li key={panel.id}>{names[panel.id]} — {panel.placement}; unavailable on this canvas</li>)}</ul></details>
+        <details className="workspace-retained"><summary>Other panel placements retained</summary><ul>{draft.preset.panels.filter(panel => !available.includes(panel.id) && !nativeAvailable.includes(panel.id)).map(panel => <li key={panel.id}>{names[panel.id]} — {panel.placement}; unavailable on this canvas</li>)}</ul></details>
       </fieldset>
       <button className="primary" type="submit" disabled={blocked}>Save layout</button>
       <button type="button" disabled={working || state.saving || !!state.pending} onClick={() => { setDraft(null); setMessage(""); }}>Cancel editing</button>

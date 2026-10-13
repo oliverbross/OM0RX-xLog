@@ -18,6 +18,26 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 Design system unchanged. No shipping raster assets. Final browser/review evidence is recorded below; native installed acceptance is separate.
 
+## Current bounded extension — saved native placements
+
+Extend the existing inline choices with a labelled Hidden / Operator Desk / Separate window selector only for roles supported by the native runtime. Monitor offers Hidden / Separate window only. Keep unsupported roles intact and the incomplete built-in Windowed preset unavailable. The saved layout and the native apply outcome are separate: show native errors with Apply saved windows recovery, never imply that a successful database save proves window creation. Switching to a layout hides only its previously managed windows and keeps their drafts alive; manually opened unrelated windows remain untouched. Native geometry remains machine-local. No new design system, page heading, raster or animation is needed. Browser and fresh finish-review evidence for this extension are recorded below.
+
+### Native placement extension finish review — 2026-10-13
+
+Verdict: ship for this bounded Settings extension after correction of the one finish-review finding. The new placement selector now uses the same canvas bounds normalization as the existing visibility control. Returning a valid separate-window rectangle to Operator Desk clamps its origin and expands the preset where needed; it no longer creates an invalid layout that fails Save. The regression test exercises an out-of-bounds window rectangle and confirms a durable layout save with valid canvas bounds. The focused production-component suite passed all 13 tests after this fix.
+
+Fresh browser evidence for the native placement editor:
+
+- `.impeccable/review/workspace-native-desktop.png` — 1440 × 900.
+- `.impeccable/review/workspace-native-compact.png` — 720 × 900.
+- `.impeccable/review/workspace-native-4k.png` — 1920 × 1080 at device scale 2.
+
+The reviewer inspected all three captures and the production component, styles and tests. Placement controls have explicit accessible names, Monitor has no Operator Desk option, unsupported roles remain retained, keyboard focus is visible, and the compact grid and adjacent Save/Cancel actions remain readable without clipping. The native outcome copy confirms application only when generation, revision and active preset match the saved layout; a save or queued retry alone does not establish native completion. Apply saved windows is a separate recovery action and does not save the editor draft.
+
+These captures use the synthetic browser fixture, not actual native window execution. They are review evidence rather than shipping raster assets. Installed native window behavior remains outside this visual verdict. The incumbent DESIGN.md and existing design-context drift were preserved.
+
+The root also exercised Save followed by Use layout in that fixture and inspected `.impeccable/review/workspace-native-applied.png`; this uses a mock native status, not actual window creation. Final local validation: 641 frontend tests, 174 Rust/helper tests, TypeScript/Vite and detached-window size/style gates passed. The main-bundle warning remains open. Browser session and Vite fixture server were closed after inspection.
+
 ## Finished extension and evidence — 2026-10-13
 
 Outcome: ship for the bounded Workspace settings extension after fresh finish review and resolution of its two listed fixes. This dated outcome supersedes the pending browser/review status above. Native installed verification remains pending; full windowed restoration is not supported yet.

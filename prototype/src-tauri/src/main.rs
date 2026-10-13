@@ -14,6 +14,8 @@ mod cluster_session;
 mod workspace_navigation;
 mod logbook_events;
 mod detached_acceptance;
+mod workspace_windows;
+mod workspace_window_runtime;
 
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu, WINDOW_SUBMENU_ID};
 use tauri::{Emitter, LogicalSize, Manager};
@@ -100,10 +102,9 @@ fn workspace_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         menu.append(&windows)?; windows
     };
     windows.append(&PredefinedMenuItem::separator(app)?)?;
-    for (id, title) in [("workspace_window_monitor", "Station Monitor"), ("workspace_window_world-map", "World Map"),
-        ("workspace_window_band-maps", "Band Maps"), ("workspace_window_dx-cluster", "DX Cluster"),
-        ("workspace_window_logbook", "Logbook"), ("workspace_window_awards", "Awards")] {
-        windows.append(&MenuItem::with_id(app, id, title, true, None::<&str>)?)?;
+    for window in workspace_windows::SUPPORTED_WINDOWS {
+        windows.append(&MenuItem::with_id(app, format!("workspace_window_{}", window.id),
+            window.title.trim_start_matches("OM0RX-xLog — "), true, None::<&str>)?)?;
     }
     Ok(menu)
 }
@@ -247,6 +248,8 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     let invalidate = logbook_events::changes_logbook(&request);
     let check_sync_completion = method == "sync_summary";
     let layout_changed = matches!(method, "workspace_layout_apply" | "workspace_create" | "backup_restore");
+    let activate_layout = method == "workspace_layout_apply"
+        && request["params"]["action"] == "activatePreset";
     let result = tauri::async_runtime::spawn_blocking(move || if let Some(selection) = selection { selection.control(request) } else { worker::request(request) })
         .await
         .map_err(|_| "Worker task failed".to_string())?;
@@ -264,6 +267,11 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
         // Wake-only: even an uncertain outcome is reconciled by a fresh read.
         for label in ["main", "monitor", "world-map", "band-maps", "dx-cluster", "logbook", "awards"] {
             let _ = app.emit_to(label, "xlog:workspace-layout", ());
+        }
+        let force = activate_layout && result.as_ref().is_ok_and(|response|
+            response["ok"] == true && response["result"]["status"] == "applied");
+        if let Err(error) = workspace_window_runtime::refresh(&app, force) {
+            eprintln!("Could not reconcile saved workspace windows: {error}");
         }
     }
     result
@@ -327,29 +335,7 @@ async fn pick_backup_package_native(_window: tauri::WebviewWindow) -> Result<Opt
 async fn open_monitor(app: tauri::AppHandle) -> Result<(), String> {
     // Creating a Windows WebView from a synchronous IPC command can block its
     // message loop. Tauri must dispatch this native window work asynchronously.
-    if let Some(window) = app.get_webview_window("monitor") {
-        window.unminimize().map_err(|e| e.to_string())?;
-        window.show().map_err(|e| e.to_string())?;
-        return window.set_focus().map_err(|e| e.to_string());
-    }
-    let mut builder = tauri::WebviewWindowBuilder::new(
-        &app,
-        "monitor",
-        tauri::WebviewUrl::App(if app.state::<acceptance::Acceptance>().path.is_some() {
-            "index.html?view=monitor&acceptance=local".into()
-        } else { "index.html?view=monitor".into() }),
-    )
-    .title("OM0RX-xLog — Station Monitor")
-    .inner_size(780.0, 600.0)
-    .min_inner_size(640.0, 480.0)
-    .always_on_top(false)
-    .incognito(app.state::<acceptance::Acceptance>().path.is_some());
-    if let Some(directory) = app.state::<acceptance::Acceptance>().detached_browser_context()? {
-        builder = builder.data_directory(directory);
-    }
-    let monitor = builder.build().map_err(|e| e.to_string())?;
-    if app.state::<acceptance::Acceptance>().path.is_none() { detached_geometry::install(&monitor); }
-    Ok(())
+    open_detached_workspace(app, "monitor".into()).await
 }
 
 #[tauri::command]
@@ -361,34 +347,49 @@ async fn open_detached_map(app: tauri::AppHandle, window: tauri::WebviewWindow, 
 }
 
 async fn open_detached_workspace(app: tauri::AppHandle, kind: String) -> Result<(), String> {
-    let (title, width, height) = match kind.as_str() {
-        "world-map" => ("OM0RX-xLog — World Map", 1100.0, 720.0),
-        "band-maps" => ("OM0RX-xLog — Band Maps", 920.0, 760.0),
-        "dx-cluster" => ("OM0RX-xLog — DX Cluster", 1180.0, 800.0),
-        "logbook" => ("OM0RX-xLog — Logbook", 1280.0, 800.0),
-        "awards" => ("OM0RX-xLog — Awards", 1280.0, 800.0),
-        _ => return Err("Unknown detached map".into()),
-    };
-    if let Some(existing) = app.get_webview_window(&kind) {
+    tauri::async_runtime::spawn_blocking(move || workspace_window_runtime::open(&app, &kind))
+        .await.map_err(|_| "Native workspace window task failed".to_string())?
+}
+
+// Called only by the serialized native owner, never from the UI message loop.
+fn ensure_workspace_window(app: &tauri::AppHandle, kind: &str, focus: bool) -> Result<bool, String> {
+    let spec = workspace_windows::SUPPORTED_WINDOWS.iter().find(|spec| spec.id == kind)
+        .ok_or("Unknown native workspace window")?;
+    if let Some(existing) = app.get_webview_window(kind) {
         existing.unminimize().map_err(|e| e.to_string())?;
         existing.show().map_err(|e| e.to_string())?;
-        return existing.set_focus().map_err(|e| e.to_string());
+        if focus { existing.set_focus().map_err(|e| e.to_string())?; }
+        return Ok(false);
     }
     let suffix = if app.state::<acceptance::Acceptance>().path.is_some() { "&acceptance=local" } else { "" };
-    let mut builder = tauri::WebviewWindowBuilder::new(&app, &kind, tauri::WebviewUrl::App(format!("index.html?view={kind}{suffix}").into()))
-        .title(title)
-        .inner_size(width, height)
+    let mut builder = tauri::WebviewWindowBuilder::new(app, kind, tauri::WebviewUrl::App(format!("index.html?view={kind}{suffix}").into()))
+        .title(spec.title)
+        .inner_size(spec.width, spec.height)
         .min_inner_size(640.0, 480.0)
+        .focused(focus)
         .always_on_top(false)
         .incognito(app.state::<acceptance::Acceptance>().path.is_some());
     if let Some(directory) = app.state::<acceptance::Acceptance>().detached_browser_context()? {
         builder = builder.data_directory(directory);
     }
     let detached = builder.build().map_err(|e| e.to_string())?;
+    workspace_window_runtime::created(&detached);
     if app.state::<acceptance::Acceptance>().path.is_none() {
         detached_geometry::install(&detached);
     }
-    Ok(())
+    Ok(true)
+}
+
+#[tauri::command]
+fn workspace_windows_status(window: tauri::WebviewWindow, app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    if window.label() != "main" { return Err("Only the main workspace can inspect saved window placement".into()); }
+    workspace_window_runtime::status(&app)
+}
+
+#[tauri::command]
+fn workspace_windows_reconcile(window: tauri::WebviewWindow, app: tauri::AppHandle) -> Result<(), String> {
+    if window.label() != "main" { return Err("Only the main workspace can apply saved window placement".into()); }
+    workspace_window_runtime::refresh(&app, true)
 }
 
 #[tauri::command]
@@ -447,7 +448,7 @@ fn main() {
                 return;
             }
             if let Some(kind) = event.id().0.strip_prefix("workspace_window_") {
-                if matches!(kind, "monitor" | "world-map" | "band-maps" | "dx-cluster" | "logbook" | "awards") {
+                if workspace_windows::supports(kind) {
                     let app = app.clone(); let kind = kind.to_owned();
                     tauri::async_runtime::spawn(async move {
                         let result = if kind == "monitor" { open_monitor(app).await } else { open_detached_workspace(app, kind).await };
@@ -477,10 +478,12 @@ fn main() {
             if app.state::<acceptance::Acceptance>().path.is_none() {
                 cluster_session::owner(app.handle()).map_err(std::io::Error::other)?;
                 if let Some(main) = app.get_webview_window("main") { detached_geometry::install(&main); }
+                workspace_window_runtime::refresh(app.handle(), false).map_err(std::io::Error::other)?;
             }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![worker_request, pick_backup_package, open_monitor, open_detached_map,
+            workspace_windows_status, workspace_windows_reconcile,
             workspace_navigation_snapshot, workspace_navigation_ack, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_selection_apply,
             detached_cluster_ready, cluster_session_selection, dock_detached_window, close_logbook_window,
             acceptance::acceptance_enabled, acceptance::acceptance_large_log, acceptance::acceptance_monitor,
@@ -492,6 +495,7 @@ fn main() {
         .expect("Application failed to start")
         .run(|app, event| {
             if matches!(event, tauri::RunEvent::ExitRequested { .. }) {
+                workspace_window_runtime::shutdown();
                 detached_geometry::shutdown(app);
             }
             if matches!(event, tauri::RunEvent::Exit) {

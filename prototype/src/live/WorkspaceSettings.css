@@ -9,6 +9,10 @@
 .workspace-layout-options { margin-block: 16px 24px; gap: 16px; }
 .workspace-panel-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 12px 20px; max-width: 1100px; }
 .service-settings .workspace-panel-options label, .service-settings .workspace-layout-options label { display: flex; flex-direction: row; align-items: center; gap: 8px; }
+.service-settings .workspace-panel-options .workspace-panel-placement { display: grid; gap: 6px; align-items: start; }
+.workspace-panel-placement select { width: 100%; min-height: 32px; }
+.workspace-native-outcome { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; margin-block: 12px; }
+.workspace-native-outcome p { margin: 0; max-width: 75ch; overflow-wrap: anywhere; }
 .workspace-settings input[type="checkbox"] { flex: 0 0 auto; }
 .workspace-retained { margin-block: 24px; color: var(--muted); }
 .workspace-retained summary { cursor: pointer; }

@@ -7,6 +7,10 @@ import ServiceSettings from "./ServiceSettings";
 import { customDeskPreset } from "./canvasGeometry";
 import { operatorWorkspaceKey } from "./operatorWorkspacePreferences";
 import { changedLayout, panelMinimum, workspacePanelIDs, WorkspaceLayoutSession, type LayoutChange, type LayoutSnapshot, type WorkspacePanelID } from "./workspaceLayoutSession";
+import type { WorkspaceWindowsStatus } from "./useWorkspaceWindows";
+
+const native = vi.hoisted(() => ({ status: null as WorkspaceWindowsStatus | null, error: "", retrying: false, retry: vi.fn(async () => {}) }));
+vi.mock("./useWorkspaceWindows", () => ({ useWorkspaceWindows: () => native }));
 
 const available: WorkspacePanelID[] = ["active-qso", "callsign-intelligence", "rotor", "antenna", "world-map", "band-maps", "dx-cluster", "station-status"];
 const copyID = "desk-87654321-1234-1234-1234-123456789abc";
@@ -25,6 +29,7 @@ function fixture(): LayoutSnapshot {
 }
 
 beforeEach(() => {
+  native.status = null; native.error = ""; native.retrying = false; native.retry.mockClear();
   localStorage.clear();
   vi.spyOn(crypto, "randomUUID").mockReturnValue("87654321-1234-1234-1234-123456789abc");
 });
@@ -55,6 +60,58 @@ function setup(options: { requiredRotor?: boolean; rotorVisible?: boolean; maxim
 const button = (name: string) => screen.getByRole("button", { name }) as HTMLButtonElement;
 const input = (name: string) => screen.getByLabelText(name) as HTMLInputElement;
 const choose = (id: string) => fireEvent.change(screen.getByLabelText("Saved layout"), { target: { value: id } });
+
+it("saves supported native placements without opening windows while editing and retains unrelated roles", async () => {
+  native.status = { supported: ["world-map", "band-maps", "dx-cluster", "logbook", "awards", "monitor"], generation: null, revision: null,
+    presetID: null, state: "idle", shown: [], hidden: [], error: "", stopped: false };
+  const context = setup(); await context.session.refresh(); render(<context.Workspace />);
+  choose("custom"); fireEvent.click(button("Edit layout"));
+  const map = screen.getByLabelText("World map placement");
+  fireEvent.change(map, { target: { value: "window" } });
+  fireEvent.change(screen.getByLabelText("Monitor placement"), { target: { value: "hidden" } });
+  expect(screen.getByLabelText("Monitor placement").textContent).not.toContain("Operator Desk");
+  expect(context.writes()).toHaveLength(0); expect(native.retry).not.toHaveBeenCalled();
+  fireEvent.click(button("Save layout")); await screen.findByText("Layout saved. Use layout to switch arrangements.");
+  const saved = context.current().document.presets[2];
+  expect(saved.panels.find(panel => panel.id === "world-map")!.placement).toBe("window");
+  expect(saved.panels.find(panel => panel.id === "monitor")!.placement).toBe("hidden");
+  expect(saved.panels.find(panel => panel.id === "station-status")!.placement).toBe("window");
+  expect(context.current().document.activePresetID).toBe("traditional"); expect(native.retry).not.toHaveBeenCalled();
+});
+
+it("does not treat a saved layout or older native acknowledgement as confirmed window placement", async () => {
+  const context = setup(); context.replace(snapshot => { snapshot.document.activePresetID = "custom"; });
+  native.status = { supported: ["monitor"], generation: fixture().generation, revision: 6, presetID: "custom", state: "applied",
+    shown: ["monitor"], hidden: [], error: "", stopped: false };
+  await context.session.refresh(); const rendered = render(<context.Workspace />);
+  expect(screen.getByText("Saved window placement is waiting for native confirmation.")).toBeTruthy();
+  expect(screen.queryByText("Saved window placement applied.")).toBeNull();
+  native.status = { ...native.status!, state: "error", error: "Window unavailable" };
+  rendered.rerender(<context.Workspace />);
+  expect(screen.getByText("Layout saved; window placement needs attention. Window unavailable")).toBeTruthy();
+  fireEvent.click(button("Apply saved windows")); expect(native.retry).toHaveBeenCalledOnce(); expect(context.writes()).toHaveLength(0);
+  native.status = { ...native.status!, state: "applied", revision: 7, error: "" };
+  rendered.rerender(<context.Workspace />);
+  expect(screen.getByText("Saved window placement applied.")).toBeTruthy();
+});
+
+it("fits a separate-window rectangle back onto the canvas before saving", async () => {
+  native.status = { supported: ["world-map"], generation: null, revision: null, presetID: null, state: "idle",
+    shown: [], hidden: [], error: "", stopped: false };
+  const context = setup(); context.replace(snapshot => {
+    Object.assign(snapshot.document.presets[2].panels.find(panel => panel.id === "world-map")!,
+      { placement: "window", rect: { x: 1800, y: 950, width: 1100, height: 1200 } });
+  });
+  await context.session.refresh(); render(<context.Workspace />);
+  choose("custom"); fireEvent.click(button("Edit layout"));
+  fireEvent.change(screen.getByLabelText("World map placement"), { target: { value: "canvas" } });
+  fireEvent.click(button("Save layout")); await screen.findByText("Layout saved. Use layout to switch arrangements.");
+  const preset = context.current().document.presets[2], panel = preset.panels.find(panel => panel.id === "world-map")!;
+  expect(panel.placement).toBe("canvas");
+  expect(panel.rect.x + panel.rect.width).toBeLessThanOrEqual(preset.width);
+  expect(panel.rect.y + panel.rect.height).toBeLessThanOrEqual(preset.height);
+  expect(panel.rect.height).toBe(1200); expect(preset.height).toBe(1200);
+});
 
 it("saves a named Traditional duplicate without activating it, then switches only with Use layout", async () => {
   localStorage.setItem(operatorWorkspaceKey, JSON.stringify({ version: 1, activeTab: "cluster", mapPercent: 67 }));

@@ -111,6 +111,7 @@ describe("Spot History scope and paging", () => {
     expect(request.mock.calls.filter(([method]) => method === "spot_history_stats")).toHaveLength(2);
   });
   it("fits rows to the measured area and retains resize paging inside the same snapshot", async () => {
+    vi.useFakeTimers();
     let resized = () => {}, height = 280;
     vi.stubGlobal("ResizeObserver", class { constructor(callback: () => void) { resized = callback; } observe() {} disconnect() {} });
     const size = vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(function (this: HTMLElement) { return this.classList.contains("spot-history-table-wrap") ? height : 0; });
@@ -118,23 +119,35 @@ describe("Spot History scope and paging", () => {
     const request = fixture({ spot_history_query: params => historyPage(Array.from({ length: Number(params?.limit) }, (_, index) => report(`row-${index}`, `FIT${index}`)), Number(params?.watermark ?? 42), "next-page"),
       spot_history_detail: () => ({ observation: report("row-7", "FIT7") }) });
     try {
-      render(<SpotHistoryPanel request={request} />); await screen.findByText("Page 1 · 8 reports shown");
-      fireEvent.click(screen.getByText("FIT7")); fireEvent.click(screen.getByRole("button", { name: "Details" })); await screen.findByLabelText("Report details for FIT7");
-      height = 200; act(() => resized()); await screen.findByText("Page 1 · 5 reports shown");
+      await act(async () => { render(<SpotHistoryPanel request={request} />); });
+      // Advance the measurement debounce explicitly rather than depending on
+      // a wall-clock findBy timeout while parallel CI workers render 100 rows.
+      await act(async () => { await vi.advanceTimersByTimeAsync(120); });
+      expect(screen.getByText("Page 1 · 8 reports shown")).toBeTruthy();
+      fireEvent.click(screen.getByText("FIT7"));
+      await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Details" })); });
+      expect(screen.getByLabelText("Report details for FIT7")).toBeTruthy();
+      height = 200;
+      await act(async () => { resized(); await vi.advanceTimersByTimeAsync(120); });
+      expect(screen.getByText("Page 1 · 5 reports shown")).toBeTruthy();
       expect(screen.getByLabelText("Report details for FIT7")).toBeTruthy();
       expect(screen.getByText("FIT0").closest("tr")!.getAttribute("tabindex")).toBe("0");
       const resizedQuery = request.mock.calls.filter(([method]) => method === "spot_history_query").at(-1)![1]!;
       expect(resizedQuery).toMatchObject({ watermark: 42, limit: 5 }); expect(resizedQuery.cursor).toBeUndefined();
       expect(screen.getByText(/Layout resized; report position and snapshot retained/)).toBeTruthy();
       expect(request.mock.calls.filter(([method]) => method === "spot_history_stats")).toHaveLength(1);
-      fireEvent.click(screen.getByRole("button", { name: "Next" })); await screen.findByText("Page 2 · 5 reports shown");
-      height = 4000; act(() => resized()); await screen.findByText("Page 2 · 100 reports shown");
+      await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Next" })); });
+      expect(screen.getByText("Page 2 · 5 reports shown")).toBeTruthy();
+      height = 4000;
+      await act(async () => { resized(); await vi.advanceTimersByTimeAsync(120); });
+      expect(screen.getByText("Page 2 · 100 reports shown")).toBeTruthy();
       const enlargedQuery = request.mock.calls.filter(([method]) => method === "spot_history_query").at(-1)![1]!;
       expect(enlargedQuery).toMatchObject({ cursor: "next-page", watermark: 42, limit: 100 });
       expect(request.mock.calls.filter(([method]) => method === "spot_history_query").every(([, params]) => Number(params?.limit) <= 100)).toBe(true);
-    } finally { cleanup(); size.mockRestore(); rect.mockRestore(); vi.unstubAllGlobals(); }
+    } finally { cleanup(); size.mockRestore(); rect.mockRestore(); vi.unstubAllGlobals(); vi.useRealTimers(); }
   });
   it("keeps Next navigation after closing details changes the available row count", async () => {
+    vi.useFakeTimers();
     let resized = () => {};
     vi.stubGlobal("ResizeObserver", class { constructor(callback: () => void) { resized = callback; } observe() {} disconnect() {} });
     const size = vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(function (this: HTMLElement) { return this.classList.contains("spot-history-table-wrap") ? document.querySelector(".spot-history-detail") ? 200 : 280 : 0; });
@@ -142,15 +155,22 @@ describe("Spot History scope and paging", () => {
     const request = fixture({ spot_history_query: params => historyPage(Array.from({ length: Number(params?.limit) }, (_, index) => report(`row-${index}`, `FIT${index}`)), Number(params?.watermark ?? 42), "next-page"),
       spot_history_detail: () => ({ observation: report("row-0", "FIT0") }) });
     try {
-      render(<SpotHistoryPanel request={request} />); await screen.findByText("Page 1 · 8 reports shown");
-      fireEvent.click(screen.getByText("FIT0")); fireEvent.click(screen.getByRole("button", { name: "Details" })); await screen.findByLabelText("Report details for FIT0");
-      act(() => resized()); await screen.findByText("Page 1 · 5 reports shown");
-      fireEvent.click(screen.getByRole("button", { name: "Next" })); await screen.findByText("Page 2 · 5 reports shown");
+      await act(async () => { render(<SpotHistoryPanel request={request} />); });
+      await act(async () => { await vi.advanceTimersByTimeAsync(120); });
+      expect(screen.getByText("Page 1 · 8 reports shown")).toBeTruthy();
+      fireEvent.click(screen.getByText("FIT0"));
+      await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Details" })); });
+      expect(screen.getByLabelText("Report details for FIT0")).toBeTruthy();
+      await act(async () => { resized(); await vi.advanceTimersByTimeAsync(120); });
+      expect(screen.getByText("Page 1 · 5 reports shown")).toBeTruthy();
+      await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Next" })); });
+      expect(screen.getByText("Page 2 · 5 reports shown")).toBeTruthy();
       expect(screen.queryByLabelText("Report details for FIT0")).toBeNull();
-      act(() => resized()); await screen.findByText("Page 2 · 8 reports shown");
+      await act(async () => { resized(); await vi.advanceTimersByTimeAsync(120); });
+      expect(screen.getByText("Page 2 · 8 reports shown")).toBeTruthy();
       expect(request.mock.calls.filter(([method]) => method === "spot_history_query").at(-1)![1]).toMatchObject({ cursor: "next-page", watermark: 42, limit: 8 });
       expect(request.mock.calls.filter(([method]) => method === "spot_history_stats")).toHaveLength(1);
-    } finally { cleanup(); size.mockRestore(); rect.mockRestore(); vi.unstubAllGlobals(); }
+    } finally { cleanup(); size.mockRestore(); rect.mockRestore(); vi.unstubAllGlobals(); vi.useRealTimers(); }
   });
   it("refreshes the applied scope even when draft fields have changed", async () => {
     const request = fixture(); render(<SpotHistoryPanel request={request} />); await screen.findByText("310");
