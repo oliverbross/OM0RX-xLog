@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { connectStationTelemetry, selectStationTelemetry } from "./stationTelemetry";
+import { connectStationTelemetry } from "./stationTelemetry";
 const api = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn(), desktop: true }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: api.invoke, isTauri: () => api.desktop }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: api.listen }));
@@ -20,9 +20,6 @@ it("subscribes before reading and startup does not request a provider switch", a
   expect(api.invoke).toHaveBeenCalledWith("station_telemetry_snapshot", { provider: "direct_agent" });
   expect(changed).toHaveBeenCalledOnce(); api.invoke.mockResolvedValue(projection(2)); event({ payload: projection(99) });
   await vi.advanceTimersByTimeAsync(0); expect(changed).toHaveBeenCalledOnce(); dispose();
-});
-it("selects a provider only for explicit handover, without connection or tuning", async () => {
-  await selectStationTelemetry("hamlib"); expect(api.invoke.mock.calls).toEqual([["station_telemetry_snapshot", { provider: "hamlib", select: true }]]);
 });
 it("fails closed on another provider, malformed source, unavailable and stale data", async () => {
   const changed = vi.fn(), failed = vi.fn(); const dispose = connectStationTelemetry("direct_agent", changed, failed)!;
@@ -56,7 +53,7 @@ it("late registration after unmount cannot start a service", async () => {
 it("native failure has no renderer fallback and browser fixtures do not invoke IPC", async () => {
   api.invoke.mockRejectedValue(new Error("isolated")); const failed = vi.fn();
   const dispose = connectStationTelemetry("direct_agent", vi.fn(), failed)!; await vi.advanceTimersByTimeAsync(0); expect(failed).toHaveBeenCalledOnce(); dispose();
-  api.desktop = false; expect(connectStationTelemetry("hamlib", vi.fn(), vi.fn())).toBeNull(); await selectStationTelemetry("hamlib"); expect(api.invoke).toHaveBeenCalledOnce();
+  api.desktop = false; expect(connectStationTelemetry("hamlib", vi.fn(), vi.fn())).toBeNull(); expect(api.invoke).toHaveBeenCalledOnce();
 });
 it("coalesces wake-ups and discards a cached read crossing a local selection change", async () => {
   let resolve!: (value: unknown) => void, selection = 0;

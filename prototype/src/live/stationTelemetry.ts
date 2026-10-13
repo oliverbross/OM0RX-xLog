@@ -3,10 +3,6 @@ import { listen } from "@tauri-apps/api/event";
 import type { StationProvider } from "../worker";
 import { hamlibProjection } from "./hamlibStation";
 
-export async function selectStationTelemetry(provider: StationProvider) {
-  if (isTauri()) await invoke("station_telemetry_snapshot", { provider, select: true });
-}
-
 /** Display stream only. Tune/command confirmation must use explicit readback. */
 export function connectStationTelemetry(provider: StationProvider, changed: (snapshot: Record<string, any>) => void, failed: () => void, context: () => unknown = () => null): (() => void) | null {
   if (!isTauri()) return null;

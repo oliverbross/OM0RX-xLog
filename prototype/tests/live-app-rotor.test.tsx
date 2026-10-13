@@ -5,9 +5,11 @@ import LiveApp from "../src/LiveApp";
 import { operatorDraftFixture } from "./operator-draft-fixture";
 
 const bridge = vi.hoisted(() => ({ request: vi.fn(), tune: null as null | ((value: any) => void), rotorGeneration: 4,
+  nativeSelection: false, selection: vi.fn(), applySelection: vi.fn(),
   telemetry: vi.fn(), stationTelemetry: vi.fn(), selectTelemetry: vi.fn(), intentId: null as string | null, deferMotion: false, motion: null as null | { resolve: (value: any) => void; reject: (cause: Error) => void } }));
 vi.mock("../src/live/rotorTelemetry", () => ({ connectRotorTelemetry: bridge.telemetry }));
-vi.mock("../src/live/stationTelemetry", () => ({ connectStationTelemetry: bridge.stationTelemetry, selectStationTelemetry: bridge.selectTelemetry }));
+vi.mock("../src/live/stationTelemetry", () => ({ connectStationTelemetry: bridge.stationTelemetry }));
+vi.mock("../src/live/stationSelection", () => ({ nativeStationSelection: () => bridge.nativeSelection, connectStationSelection: bridge.selection, applyStationSelection: bridge.applySelection }));
 vi.mock("../src/worker", async original => ({ ...await original<typeof import("../src/worker")>(), workerRequest: bridge.request }));
 vi.mock("../src/live/operatorDraftTransport", () => ({ requestOperatorDraft: async (method: string, params: any = {}) => (await bridge.request(method, params)).result }));
 vi.mock("../src/Map", () => ({ default: () => <div>Map</div> }));
@@ -45,6 +47,7 @@ async function openRotorSettings() {
 beforeEach(() => {
   localStorage.clear(); bridge.request.mockReset(); bridge.tune = null; bridge.rotorGeneration = 4; bridge.intentId = null; bridge.deferMotion = false; bridge.motion = null;
   bridge.telemetry.mockReset(); bridge.telemetry.mockReturnValue(null);
+  bridge.nativeSelection = false; bridge.selection.mockReset(); bridge.selection.mockReturnValue(null); bridge.applySelection.mockReset();
   bridge.stationTelemetry.mockReset(); bridge.stationTelemetry.mockReturnValue(null); bridge.selectTelemetry.mockReset(); bridge.selectTelemetry.mockResolvedValue(undefined);
   const sharedDraft = operatorDraftFixture({ id: "draft", call: "", start: "2026-10-12T00:00:00Z", frequencyHz: 14074000, mode: "FT8", band: "20m" });
   bridge.request.mockImplementation(async (method: string, params: any = {}) => {
@@ -367,6 +370,27 @@ it("preserves rotor ownership across radio handover and clears only the stale gu
   await openRotorSettings();
   expect(screen.getByRole("region", { name: "Independent rotor" })).toBeTruthy();
   expect(screen.getByText("053°")).toBeTruthy();
+});
+
+it("hydrates the native radio choice before polling and applies handover through its native generation", async () => {
+  bridge.nativeSelection = true;
+  let selected!: (value: any) => void;
+  const dispose = vi.fn(); bridge.selection.mockImplementation((_legacy, changed) => { selected = changed; return dispose; });
+  localStorage.setItem("xlog.integration.provider", "direct_agent");
+  const rendered = render(<LiveApp />);
+  await screen.findByRole("checkbox", { name: "Auto rotor" });
+  expect(bridge.request.mock.calls.some(([method]) => method === "station_snapshot")).toBe(false);
+  await act(async () => selected({ provider: "direct_flex_lan", generation: 7 }));
+  await waitFor(() => expect(bridge.request.mock.calls.some(([method, params]) => method === "station_snapshot" && params.provider === "direct_flex_lan")).toBe(true));
+  fireEvent.click(screen.getByRole("button", { name: "Station Control" }));
+  fireEvent.click(screen.getByRole("button", { name: "Local station · Hamlib" }));
+  expect(bridge.applySelection).not.toHaveBeenCalled();
+  bridge.applySelection.mockResolvedValue({ provider: "hamlib", generation: 8 });
+  fireEvent.click(screen.getByRole("button", { name: "Apply radio selection" }));
+  await waitFor(() => expect(bridge.applySelection).toHaveBeenCalledWith("hamlib", 7));
+  expect(bridge.request.mock.calls.some(([method]) => ["station_disconnect", "hamlib_disconnect", "rotor_disconnect", "station_connect", "hamlib_connect"].includes(method))).toBe(false);
+  expect(localStorage.getItem("xlog.integration.provider")).toBe("direct_agent");
+  rendered.unmount(); expect(dispose).toHaveBeenCalledOnce();
 });
 
 it("browses inactive radio tabs without disconnecting or changing the active poll provider", async () => {

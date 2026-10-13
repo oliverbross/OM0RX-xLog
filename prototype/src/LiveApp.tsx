@@ -54,7 +54,8 @@ import { connectWorkspaceNavigation, workspaceScreens } from "./live/workspaceNa
 import { retireStationProvider } from "./live/stationHandover";
 import RotorPanel from "./live/RotorPanel";
 import { connectRotorTelemetry } from "./live/rotorTelemetry";
-import { connectStationTelemetry, selectStationTelemetry } from "./live/stationTelemetry";
+import { connectStationTelemetry } from "./live/stationTelemetry";
+import { applyStationSelection, connectStationSelection, nativeStationSelection } from "./live/stationSelection";
 import { clearConnectedHandoverMessage, ownAutomaticRotorMotion, rotorCommandParams, rotorIntentCurrent, rotorProjection, validRotorSnapshot, type AutomaticRotorIntent, type RotorSnapshot } from "./live/rotorControl";
 import "./live/live.css";
 import appLogo from "../src-tauri/icons/64x64.png";
@@ -186,7 +187,7 @@ function MainLiveApp() {
   const rotorPolling = useRef(false);
   const disarmAutoRotor = useCallback(() => { autoEpoch.current++; automaticMotion.current = null; autoEnabled.current = false; setAutoRotor(false); }, []);
   const changeAutoRotor = (enabled: boolean) => { autoEpoch.current++; automaticMotion.current = null; autoEnabled.current = enabled; setAutoRotor(enabled); };
-  const savedProvider = localStorage.getItem("xlog.integration.provider");
+  const savedProvider = storedDraftValue("xlog.integration.provider");
   const provider = useRef<StationProvider>(savedProvider === "hamlib" || savedProvider === "direct_flex_lan" ? savedProvider : "direct_agent");
   const [stationProvider, setStationProvider] = useState(provider.current);
   const [viewProvider, setViewProvider] = useState(provider.current);
@@ -194,6 +195,9 @@ function MainLiveApp() {
   const pendingTune = useRef(false);
   const spotRotorFence = useRef<{ call: string; confirmed: boolean } | null>(null);
   const providerTransition = useRef(false);
+  const providerGeneration = useRef(-1);
+  const providerReadyRef = useRef(!nativeStationSelection());
+  const [providerReady, setProviderReady] = useState(providerReadyRef.current);
   const selection = useRef(0);
   const stationPolling = useRef(false);
   const clusterPolling = useRef(false);
@@ -205,12 +209,22 @@ function MainLiveApp() {
   const mapProjectionRevision = useRef(0);
   const latestMonitorProjection = useRef<MonitorProjection>({ spots: [], station: null, provider: "direct_agent", controlsEnabled: false });
   useEffect(() => {
+    if (nativeStationSelection()) return;
     const changed = (event: StorageEvent) => {
       if (event.key === "xlog.integration.provider" && event.newValue !== provider.current)
         setError("Radio selection changed in another window. This window retains its active radio until you apply a selection here.");
     };
     window.addEventListener("storage", changed); return () => window.removeEventListener("storage", changed);
   }, []);
+  useEffect(() => connectStationSelection(savedProvider, value => {
+    if (value.generation < providerGeneration.current) return;
+    const changed = provider.current !== value.provider;
+    if (changed) {
+      selection.current++; pendingTune.current = false; disarmAutoRotor(); setStation(null);
+      provider.current = value.provider; setStationProvider(value.provider); setViewProvider(value.provider);
+    }
+    providerGeneration.current = value.generation; providerReadyRef.current = true; setProviderReady(true);
+  }, message => { providerReadyRef.current = false; setProviderReady(false); setError(message); }) ?? undefined, []);
   const request: Request = useCallback(async (method, params = {}) => {
     try {
       if (method === "cluster_connect" || method === "cluster_disconnect") {
@@ -268,6 +282,8 @@ function MainLiveApp() {
         }
       }
       const isStation = method.startsWith("station_");
+      if (!providerReadyRef.current && (isStation || method.startsWith("hamlib_") && params.device === "radio"))
+        throw new Error("Wait for the shared radio selection to load before using the radio.");
       if (providerTransition.current && ((isStation && method !== "station_snapshot") || method === "hamlib_connect" || method === "hamlib_reconnect" || method === "hamlib_control"))
         throw new Error("Wait for station handover to finish before sending another control.");
       if (isStation && params.provider && params.provider !== provider.current)
@@ -365,10 +381,16 @@ function MainLiveApp() {
     selection.current++; pendingTune.current = false; disarmAutoRotor();
     setBusy(true); setError("");
     try {
-      await retireStationProvider(provider.current, async (method, params) => workerRequest(method, params));
-      await selectStationTelemetry(next);
+      if (nativeStationSelection()) {
+        if (!providerReadyRef.current) throw new Error("Wait for the shared radio selection to load before applying a change.");
+        const result = await applyStationSelection(next, providerGeneration.current);
+        providerGeneration.current = result.generation;
+      } else {
+        await retireStationProvider(provider.current, async (method, params) => workerRequest(method, params));
+        localStorage.setItem("xlog.integration.provider", next);
+      }
       provider.current = next; setStationProvider(next);
-      localStorage.setItem("xlog.integration.provider", next); setStation(null);
+      setStation(null);
       setMessage("Previous radio disconnected. Connect the selected radio explicitly.");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Station handover failed."); }
     finally { providerTransition.current = false; setBusy(false); }
@@ -466,6 +488,7 @@ function MainLiveApp() {
     }
   }, [sharedDraft.workspaceChanged, sharedDraft.conflict, sharedDraft.pending?.operationID, sharedDraft.error, disarmAutoRotor]);
   useEffect(() => {
+    if (!providerReady) return;
     let disposed = false;
     const observe = (state: Data) => {
       if (disposed || state.source !== provider.current) return;
@@ -503,7 +526,7 @@ function MainLiveApp() {
     };
     void pollStation(); const timer = setInterval(() => void pollStation(), stationProvider === "hamlib" ? 1000 : 250);
     return () => { disposed = true; clearInterval(timer); };
-  }, [request, stationProvider]);
+  }, [request, stationProvider, providerReady]);
   useEffect(() => {
     let disposed = false;
     const pollCluster = async () => {
