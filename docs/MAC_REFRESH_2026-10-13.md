@@ -49,3 +49,28 @@ Mac CI `38399628607` succeeded for exact source `5277847c3559e7a2f80ee654885b17b
 - Extracted staging app: `/tmp/xlog-mac-5277847-9cou4Z/extracted/OM0RX-xLog Integration.app`.
 
 This package includes the durable-save-first QSO response and the read-only-previewed Wavelog history reconciliation repair. It does not include the later intermediate-width desk CSS adjustment. No installed app was replaced/restarted, no logbook or station write was performed, and no native candidate acceptance was invoked. Installation awaits coordination with the operator's active logging session; installed latency and real synchronization remain unverified. Original apps, data and credentials remain unchanged.
+
+## Latest staged update — a1fb4b2, not installed
+
+Mac CI `38409262607` and general CI `38409262998` both succeeded for exact source
+`a1fb4b2b76224826168ce8c84a28eeed7a8d91e0`. The Mac artifact
+`11821176372` was downloaded intact; its embedded `components.json` identifies
+that same source. No later working-tree changes were mixed into this package.
+
+- Original CI ZIP SHA-256: `226124e3dbb2524dcf92263fb0788e9c278d72dafcffc8fafaa7d867c426c324`.
+- Existing Developer ID Application identity used for the worker, both Hamlib
+  helpers and app; deep/strict signature verification passed.
+- Apple notarization `1a110b9d-4b05-4c91-b71b-12d23838e464`: Accepted.
+  Ticket stapling/validation passed; Gatekeeper reports `Notarized Developer ID`.
+- Final archive: `dist/OM0RX-xLog-Integration-a1fb4b2-notarized.zip`.
+- Final archive SHA-256: `f5e04b6719577c240734cca92b34cfec47a819d6217f881e7e3222dd86e4a218`.
+- Extracted app: `/tmp/xlog-mac-a1fb4b2-PFc3PL/extracted/OM0RX-xLog Integration.app`.
+
+This supersedes the older staged package for the next coordinated installation.
+It also includes the intermediate-width Operator Desk fix, full-editor compact
+context/photo/wrapped notes, and native hourly reference checks with persisted
+opt-out and cache recovery. The later measured-power observation contract is
+not in this artifact. Signing and notarization are package evidence, not native
+runtime, live synchronization, data-migration or physical-radio acceptance.
+The installed app, live workspace and original applications remain untouched;
+restart still awaits coordination with the operator's logging session.
