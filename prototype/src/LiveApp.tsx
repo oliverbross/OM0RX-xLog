@@ -28,7 +28,11 @@ import type { BandMapViewPreferences } from "./live/BandMaps";
 import { mergeBandMapPreferenceIntent, sameBandMapPreferences } from "./live/detachedBandMapPreferences";
 import IntegratedAwards from "./live/AwardsPanel";
 import QSOEditor from "./live/QSOEditor";
-import OperatorDesk from "./live/OperatorDesk";
+import OperatorDesk, { DeskQSO, DeskIntelligence, DeskRotor } from "./live/OperatorDesk";
+import OperatorCanvas from "./live/OperatorCanvas";
+import { useWorkspaceLayout } from "./live/useWorkspaceLayout";
+import { DeskAntenna } from "./live/StationEquipment";
+import { deskEquipmentKind, equipmentProfile, hasConfiguredRotor } from "./live/equipmentPreferences";
 import CWDesk from "./live/CWDesk";
 import { defaultCWProfile } from "./live/cwMacros";
 import { useCW } from "./live/useCW";
@@ -96,6 +100,7 @@ function MainLiveApp() {
   useEffect(() => { if (view === "Awards") setAwardsOpened(true); }, [view]);
   const [workspace, setWorkspace] = useState<Data | null>(null);
   const [workspacePending, setWorkspacePending] = useState(true);
+  const deskLayout = useWorkspaceLayout(workspace?.workspace_exists === true);
   const [settings, setSettings] = useState<Data | null>(null);
   const [workspacePreferences, setWorkspacePreferences] = useState<WorkspacePreferences | null>(null);
   const latestWorkspacePreferences = useRef<WorkspacePreferences | null>(null);
@@ -726,6 +731,12 @@ function MainLiveApp() {
     if (typeof station.radio.frequency_hz === "number" && Number.isFinite(station.radio.frequency_hz)) automaticStationMetadata.push({ label: "Radio frequency", value: `${frequency(station.radio.frequency_hz)} MHz`, provenance: "observed" });
     if (station.radio.mode) automaticStationMetadata.push({ label: "Radio mode", value: station.radio.mode, provenance: "observed" });
   }
+  const deskProps = { draftLocked: editorLocked, cwControls, equipment: settings?.stationEquipment, draft, setDraft: setOperatorDraft, save,
+    clear: () => void run(clear), busy: busy || editorBlocked, lookup, previous, request, refresh, onEditor: () => setView("Log QSO"),
+    onReadRadio: readRadioIntoDraft, follow, setFollow: setFollowImmediate, rotor: rotorState, autoRotor, setAutoRotor: changeAutoRotor,
+    onManualRotor: disarmAutoRotor, isEditing: editing.current, intelligenceBands: workspacePreferences?.intelligenceBands };
+  const deskEquipment = equipmentProfile(settings?.stationEquipment), deskKind = deskEquipmentKind(deskEquipment, rotorState, hasConfiguredRotor(localStorage));
+  const deskBands = <BandMaps spots={liveSpots} onSelect={selectSpot} radioFrequencyHz={station?.radio?.frequency_hz} compact preferences={workspacePreferences ? bandMapView(workspacePreferences, true) : undefined} onPreferencesChange={value => changeBandMapPreferences(true, value)} />;
   return <div className="app live">
     <header className="station-rail main-station-rail"><strong className="brand teal"><img src={appLogo} alt="" width={32} height={32} />OM0RX-xLog</strong><strong className="cyan rail-frequency">{frequency(station?.radio?.frequency_hz)} MHz · {station?.radio?.mode || "Radio offline"}</strong>
       <span className={station?.radio?.connected ? "teal" : "amber"}>{station?.radio?.connected ? "Connected" : "Disconnected"}</span>
@@ -759,8 +770,21 @@ function MainLiveApp() {
         <p className="live-message" role="status">{referenceEvidence.rows.map(row => `${String(row.kind).toUpperCase()} ${row.reference} · ${row.status === "verified" ? `Verified: ${row.name}` : row.status === "not_installed" ? "Directory not installed" : "Not found in installed directory"}`).join(" | ")}</p>}
       {!workspace?.workspace_exists ? <WorkspaceGate workspace={workspace} pending={workspacePending} busy={busy}
         retry={() => void run(reload)} create={mode => void run(async () => { await request("workspace_create", { mode }); await reload(); })} /> : <>
-      {view === "Operator Desk" && <><OperatorDesk draftLocked={editorLocked} cwControls={cwControls} equipment={settings?.stationEquipment} draft={draft} setDraft={setOperatorDraft} save={save} clear={() => void run(clear)} busy={busy || editorBlocked} lookup={lookup} previous={previous} request={request} refresh={refresh} onEditor={() => setView("Log QSO")} onReadRadio={readRadioIntoDraft} follow={follow} setFollow={setFollowImmediate} rotor={rotorState} autoRotor={autoRotor} setAutoRotor={changeAutoRotor} onManualRotor={disarmAutoRotor} isEditing={editing.current} intelligenceBands={workspacePreferences?.intelligenceBands} />
-        <div className="live-desk-bottom"><OperatorWorkspace map={<div className="live-map">{map}</div>} cluster={cluster} selectedSpotId={selected} onSelect={selectSpot} bandMaps={<BandMaps spots={liveSpots} onSelect={selectSpot} radioFrequencyHz={station?.radio?.frequency_hz} compact preferences={workspacePreferences ? bandMapView(workspacePreferences, true) : undefined} onPreferencesChange={value => changeBandMapPreferences(true, value)} />} /></div></>}
+      {view === "Operator Desk" && <OperatorCanvas {...deskLayout} equipment={deskKind === "none" ? undefined : deskKind} panels={{
+        "active-qso": { title: "Active QSO", content: <DeskQSO {...deskProps} /> },
+        "callsign-intelligence": { title: "Callsign intelligence", content: <DeskIntelligence {...deskProps} /> },
+        ...(deskKind === "rotor" ? { rotor: { title: "Rotor", content: <DeskRotor {...deskProps} />, required: !!rotorState?.owner,
+          safetyAction: <button type="button" className="desk-stop" onClick={() => { disarmAutoRotor(); void request("rotor_stop", rotorCommandParams(rotorState)).then(() => setMessage("Stop accepted; watch the observed rotor state.")).catch(cause => setError(cause instanceof Error ? cause.message : "Rotor stop unavailable.")); }}>■ Stop rotor</button> } } : {}),
+        ...(deskKind === "antenna" ? { antenna: { title: "Antenna", content: <DeskAntenna profile={deskEquipment} /> } } : {}),
+        "world-map": { title: "World map", content: <div className="live-map">{map}</div> },
+        "band-maps": { title: "Band maps", content: deskBands },
+        "dx-cluster": { title: "DX Cluster", content: <ClusterPanel passive snapshot={cluster} selectedSpotId={selected} onRequest={request} onSelect={selectSpot} onUndock={() => void openDetachedCluster().catch(e => setError(e.message))} /> },
+        logbook: { title: "Logbook", content: <LogbookPanel onRequest={request} refreshKey={refresh} mutations={logbookMutations} onChanged={() => setRefresh(n => n + 1)} onUndock={() => void openDetachedLogbook().catch(cause => setError(cause.message))} onEdit={qso => { void run(async () => {
+          if (draftSession.getSnapshot().locked) throw new Error("Finish the pending draft operation before editing a logged contact.");
+          await draftSession.flush(); await contactSession.open(qso.id); setFollowImmediate(false); disarmAutoRotor(); setView("Log QSO");
+        }); }} /> },
+        awards: { title: "Awards", content: <IntegratedAwards request={request} refresh={refresh} initialStats={stats?.awards} onUndock={() => void openDetachedAwards().catch(cause => setError(cause.message))} /> },
+      }} traditional={<><OperatorDesk {...deskProps} /><div className="live-desk-bottom"><OperatorWorkspace map={<div className="live-map">{map}</div>} cluster={cluster} selectedSpotId={selected} onSelect={selectSpot} bandMaps={deskBands} /></div></>} />}
       {view === "Log QSO" && <QSOEditor draftLocked={editorLocked} draft={draft} setDraft={setOperatorDraft} save={save} clear={() => void run(clear)} busy={busy || editorBlocked} lookup={lookup} previous={previous} follow={follow} setFollow={setFollowImmediate} request={request} onReadRadio={readRadioIntoDraft} isEditing={editing.current} automaticStationMetadata={automaticStationMetadata} />}
       {view === "Logbook" && <LogbookPanel onRequest={request} refreshKey={refresh} mutations={logbookMutations} onChanged={() => setRefresh(n => n + 1)} onUndock={() => void openDetachedLogbook().catch(cause => setError(cause.message))} onEdit={qso => { void run(async () => {
         if (draftSession.getSnapshot().locked) throw new Error("Finish the pending draft operation before editing a logged contact.");

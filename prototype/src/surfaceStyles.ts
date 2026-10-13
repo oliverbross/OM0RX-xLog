@@ -15,6 +15,7 @@ import "./live/RotorCompass.css";
 import "./live/OperatorDesk.css";
 import "./live/CW.css";
 import "./live/OperatorWorkspace.css";
+import "./live/OperatorCanvas.css";
 import "./live/SyncPanel.css";
 import "./live/ServiceSettings.css";
 import "./live/DisplaySettings.css";

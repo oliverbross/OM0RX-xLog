@@ -122,7 +122,7 @@ pub fn passed(report: &Value) -> bool {
     const REQUIRED: [&str; 17] = ["worker_health", "worker_self_test", "worker_parse_adif", "worker_integration_self_test", "cluster_classification_initial", "cluster_classification_logged", "map_loaded",
         "cluster_selection", "keyboard_log", "logbook_readback", "keyboard_focus", "keyboard_clear",
         "profile_manual", "profile_simulator", "monitor_opened", "monitor_snapshot", "final_desk"];
-    const LOCAL: [&str; 24] = ["isolated_worker", "empty_workspace", "workspace_created", "workspace_layout_roundtrip", "worker_self_test",
+    const LOCAL: [&str; 25] = ["isolated_worker", "empty_workspace", "workspace_created", "workspace_layout_roundtrip", "workspace_canvas_controls", "worker_self_test",
         "worker_integration_self_test", "worker_parse_adif", "keyboard_log", "logbook_readback", "keyboard_editor",
         "keyboard_focus", "keyboard_clear", "settings_save_readback", "awards_loaded", "detached_projection",
         "map_loaded", "final_desk", "native_menu_routes", "contact_edit", "contact_delete_undo", "detached_logbook", "detached_awards",
@@ -361,7 +361,7 @@ mod tests {
     }
     #[test]
     fn integrated_local_report_requires_real_workflow_checks_and_gpu_evidence() {
-        let names = ["isolated_worker", "empty_workspace", "workspace_created", "workspace_layout_roundtrip", "worker_self_test",
+        let names = ["isolated_worker", "empty_workspace", "workspace_created", "workspace_layout_roundtrip", "workspace_canvas_controls", "worker_self_test",
             "worker_integration_self_test", "worker_parse_adif", "keyboard_log", "logbook_readback", "keyboard_editor",
             "keyboard_focus", "keyboard_clear", "settings_save_readback", "awards_loaded", "detached_projection",
             "map_loaded", "final_desk", "native_menu_routes", "contact_edit", "contact_delete_undo", "detached_logbook", "detached_awards",

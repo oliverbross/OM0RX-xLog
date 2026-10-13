@@ -70,6 +70,35 @@ async function main(report: Json) {
   check("workspace_created", (await worker("workspace_status")).result.workspace_exists === true);
   report.details.workspaceLayout = await verifyWorkspaceLayoutRoundtrip();
   check("workspace_layout_roundtrip", report.details.workspaceLayout.staleWriteRejected);
+  // Exercise the actual controls, not just the layout service. The temporary
+  // workspace has no equipment and this sequence never activates a spot.
+  await waitForAcceptance("layout selector ready", () => {
+    const control = document.querySelector<HTMLSelectElement>('[aria-label="Desk layout"]');
+    return !!control && !control.disabled && control.value === "traditional";
+  });
+  const draftBeforeLayout = (await worker("logbook_operator_draft")).result.draft.qso;
+  await fill('[aria-label="Desk layout"]', "custom");
+  await waitForAcceptance("custom canvas acknowledged", () => element<HTMLSelectElement>('[aria-label="Desk layout"]').value === "custom" && !element<HTMLSelectElement>('[aria-label="Desk layout"]').disabled);
+  await click("Panels");
+  const mapToggle = [...document.querySelectorAll<HTMLInputElement>('.canvas-panel-picker input')].find(input => input.parentElement?.textContent?.trim() === "World map");
+  if (!mapToggle) throw new Error("Missing canvas map visibility control");
+  mapToggle.click();
+  await waitForAcceptance("map hidden and saved", () => !mapToggle.checked && !element<HTMLSelectElement>('[aria-label="Desk layout"]').disabled);
+  const hiddenLayout = (await worker("workspace_layout_load")).result.layout;
+  const mapPlacement = hiddenLayout.document.presets.find((preset: Json) => preset.id === "custom").panels.find((panel: Json) => panel.id === "world-map").placement;
+  if (mapPlacement !== "hidden") throw new Error("Canvas visibility did not persist");
+  mapToggle.click();
+  await waitForAcceptance("map restored and saved", () => mapToggle.checked && !element<HTMLSelectElement>('[aria-label="Desk layout"]').disabled);
+  await click("Lock layout");
+  await waitForAcceptance("canvas locked", () => [...document.querySelectorAll("button")].some(item => item.textContent === "Arrange panels"));
+  await waitForAcceptance("locked layout saved", () => !element<HTMLSelectElement>('[aria-label="Desk layout"]').disabled);
+  await fill('[aria-label="Desk layout"]', "traditional");
+  await waitForAcceptance("traditional desk restored", () => element<HTMLSelectElement>('[aria-label="Desk layout"]').value === "traditional" && !element<HTMLSelectElement>('[aria-label="Desk layout"]').disabled && !!document.querySelector(".operator-workspace"));
+  const layoutAfterControls = (await worker("workspace_layout_load")).result.layout;
+  const draftAfterLayout = (await worker("logbook_operator_draft")).result.draft.qso;
+  report.details.workspaceCanvas = { activePreset: layoutAfterControls.document.activePresetID, mapHidePersisted: mapPlacement === "hidden",
+    locked: layoutAfterControls.document.presets.find((preset: Json) => preset.id === "custom").locked, sameDraft: draftBeforeLayout.id === draftAfterLayout.id && draftBeforeLayout.call === draftAfterLayout.call };
+  check("workspace_canvas_controls", report.details.workspaceCanvas.activePreset === "traditional" && report.details.workspaceCanvas.mapHidePersisted && report.details.workspaceCanvas.locked && report.details.workspaceCanvas.sameDraft);
   for (const method of ["self_test", "integration_self_test"]) {
     check(`worker_${method}`, validWorkerResult(method, await worker(method)));
   }
