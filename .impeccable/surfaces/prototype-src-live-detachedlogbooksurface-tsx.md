@@ -47,3 +47,11 @@ Native J run `38333151547` passed all three platform builds, but Windows and Lin
 The refinement preserves compact system typography, navy working surfaces, teal callsigns, cyan band/frequency values, semantic confirmation indicators and the existing table/editor controls. The old docked layout remains available. There is no new visual world, decorative motion or shipping raster asset; the PNGs above are verification captures only.
 
 `DESIGN.md` remains the incumbent visual authority and is unchanged. Its existing headings/frontmatter do not follow the current document reference's canonical schema, and `.impeccable/design.json` is absent. Those pre-existing documentation differences are reported without repair; this ordinary extension adds only this surface record.
+
+## Delete confirmation hardening — 2026-10-13
+
+Scoped finish verdict: **SHIP for the shared Logbook component only; no material review findings.** Geometry-driven page reloads now preserve both visible and pending Delete confirmation for the selected contact. Selection, search, paging, explicit cancellation and data-refresh changes invalidate consent; deletion still requires explicit confirmation and the prepared contact revision.
+
+The finish handoff reports 486 frontend tests passing, including visible/pending resize and selection/search/refresh cancellation cases, plus successful TypeScript and Vite builds. A memory-only browser fixture retained the TEST7/P confirmation through 640 × 480, 1280 × 800 and 3840 × 2160 resizing; Delete followed by Undo restored all 501 synthetic contacts. Reviewed captures are `.impeccable/review/logbook-delete-compact.png`, `logbook-delete-desktop.png` and `logbook-delete-4k.png` in the same directory. They show the existing compact four-column and wider ten-column table with confirmation and paging controls visible.
+
+Source/test diff and captures agree with the existing Operate direction: navy surfaces, compact system typography, dense tables and semantic colours are preserved. No tokens, assets or visual-world changes were introduced; these PNGs are verification captures. The existing DESIGN format/sidecar drift remains untouched. This checkpoint does not approve native runtime behaviour, packaged releases or completion of all-panel undocking.

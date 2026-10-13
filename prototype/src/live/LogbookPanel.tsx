@@ -138,6 +138,13 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
   }, [pageSize, page, selectedID]);
   const preparation = useRef(0);
   const fileInput = useRef<HTMLInputElement>(null);
+  function cancelDelete() { preparation.current++; setConfirmDelete(null); }
+  useEffect(() => {
+    // Data/identity changes invalidate consent; geometry changes do not.
+    // In particular, the confirmation itself reduces measured table capacity.
+    cancelDelete();
+    return () => { preparation.current++; };
+  }, [onRequest, search, refreshKey, selectedID]);
 
   async function readPage(pageOffset: number, pageSearch: string) {
     const first = result<LogbookPage>(await onRequest("logbook_list", { search: pageSearch, offset: pageOffset, limit: Math.min(requestPageSize, pageSize) }));
@@ -154,8 +161,6 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    setConfirmDelete(null);
-    preparation.current++;
     setError("");
     readPage(offset, search)
       .then((response) => {
@@ -171,7 +176,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
         if (!cancelled) { setPage(null); setError(cause instanceof Error ? cause.message : String(cause)); }
       })
       .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; preparation.current++; };
+    return () => { cancelled = true; };
   }, [onRequest, search, offset, refreshKey, pageSize]);
 
   async function reload(pageOffset = offset) {
@@ -184,6 +189,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
 
   function submitSearch(event: FormEvent) {
     event.preventDefault();
+    cancelDelete();
     setOffset(0);
     setSearch(query.trim());
   }
@@ -318,7 +324,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
       {deleting && <div className="live-logbook-feedback" role="group" aria-label={`Delete ${deleting.call}`}>
         <span>Delete {deleting.call} · {utcTime(deleting.start)}? You can undo this deletion.</span>
         <div><button type="button" onClick={() => confirmDelete && void deleteQSO(confirmDelete)} disabled={busy}>Confirm delete</button>
-          <button type="button" onClick={() => setConfirmDelete(null)} disabled={busy}>Cancel</button></div>
+          <button type="button" onClick={cancelDelete} disabled={busy}>Cancel</button></div>
       </div>}
       {details && selected && <dl id="logbook-contact-details" className="live-logbook-details" aria-label={`Details for ${selected.call}`}>
         <div><dt>Callsign</dt><dd>{selected.call}</dd></div>
@@ -339,16 +345,16 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
           <thead><tr><th scope="col">UTC</th><th scope="col">Callsign</th><th scope="col">Band / Mode</th><th scope="col" title="Frequency in MHz">Frequency</th><th scope="col">RST</th><th scope="col">Country</th><th scope="col">QSL</th><th scope="col">LoTW</th><th scope="col">Club Log</th><th scope="col">Comment</th></tr></thead>
           <tbody>
             {rows.map((qso, index) => <tr key={qso.id} tabIndex={0} aria-selected={selectedID === qso.id}
-              onClick={() => { preparation.current++; setSelectedID(qso.id); setConfirmDelete(null); }}
+              onClick={() => { cancelDelete(); setSelectedID(qso.id); }}
               onDoubleClick={() => { if (!busy && !loading) onEdit(qso); }}
               onKeyDown={event => {
                 if (busy || loading) return;
                 if (event.key === "Enter") { event.preventDefault(); setSelectedID(qso.id); onEdit(qso); }
-                else if (event.key === " ") { event.preventDefault(); setSelectedID(qso.id); setConfirmDelete(null); }
+                else if (event.key === " ") { event.preventDefault(); cancelDelete(); setSelectedID(qso.id); }
                 else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
                   event.preventDefault();
                   const next = Math.max(0, Math.min(rows.length - 1, index + (event.key === "ArrowDown" ? 1 : -1)));
-                  setSelectedID(rows[next].id); setConfirmDelete(null);
+                  cancelDelete(); setSelectedID(rows[next].id);
                   (event.currentTarget.parentElement?.children[next] as HTMLElement | undefined)?.focus();
                 }
               }}>
@@ -373,8 +379,8 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
       <footer className="live-logbook-footer">
         <span>{total ? `${offset + 1}–${Math.min(offset + rows.length, total)} of ${total.toLocaleString()}` : "0 contacts"}</span>
         <div>
-          <button type="button" onClick={() => setOffset(Math.max(0, offset - pageSize))} disabled={loading || offset === 0}>Previous</button>
-          <button type="button" onClick={() => setOffset(offset + pageSize)} disabled={loading || offset + pageSize >= total}>Next</button>
+          <button type="button" onClick={() => { cancelDelete(); setOffset(Math.max(0, offset - pageSize)); }} disabled={loading || offset === 0}>Previous</button>
+          <button type="button" onClick={() => { cancelDelete(); setOffset(offset + pageSize); }} disabled={loading || offset + pageSize >= total}>Next</button>
         </div>
       </footer>
     </section>

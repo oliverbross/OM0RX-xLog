@@ -1,6 +1,6 @@
 # Configurable Operator Desk and native windows
 
-Status: shared draft, revision-safe contact editing, native Cluster session, native radio/rotor telemetry and native menu routing implemented in source; detached Logbook has Windows and initial Linux runtime evidence, with a Linux relaunch failure still open. Canvas and full independent-window acceptance remain open.
+Status: shared draft, revision-safe contact editing, native Cluster session, native radio/rotor telemetry and native menu routing implemented in source; detached Logbook has Windows and initial Linux runtime evidence. The shared relaunch Delete-confirmation race is corrected in source, with packaged re-verification pending. Canvas and full independent-window acceptance remain open.
 Request: 13 October 2026. Baseline: `0cc7ecc` / installed alpha.13.
 
 ## Product contract
@@ -279,6 +279,14 @@ Native station/Hamlib writes bracket a telemetry epoch fence. Reads begun before
 Source verification: 106 Rust tests pass, including eight telemetry tests covering read-only routing, singleton polling, command/handover fences and late shutdown reads. The final full frontend run passes all 481 tests across 68 files, including the rendered native-stream/readback test; TypeScript and Vite build also pass. Existing bundle-size/Map split warnings remain. No RF operation, credentials, station policy, installed app or real contact data changed.
 
 Exact prior source `ef624b9f108e1889db79e5f4b28d063b31e3a555` passed all three builds and Windows runtime in `38336361458`, but Linux runtime failed on relaunch. Its first-launch report passes all 20 checks, including detached Logbook. `ui-2.json` reports `Timed out: revision-checked delete confirmation`; relocation/Wayland gates were not reached. Evidence is under `/tmp/xlog-logbook-fit-18G8qM/linux-ef`. Inspection found that `LogbookPanel` clears Delete confirmation and invalidates its preparation whenever measured page capacity changes, including when the confirmation itself consumes height. This is a concrete candidate for reproduction/correction next, not an accepted Linux gate or a reason to weaken the confirmation test. The subsequent rotor-only run `38337551455` is still being tracked separately and does not cover checkpoint M.
+
+### Checkpoint N — responsive Delete confirmation lifetime
+
+Two regression tests reproduce the confirmation/page-capacity defect before the fix, covering a visible confirmation and an in-flight preparation read. Geometry-driven page reloads no longer invalidate the reviewed contact snapshot; changing selection, search, data revision or request adapter still cancels it. Explicit page navigation and Cancel also invalidate pending preparation. Delete retains its existing revision-checked backend mutation contract.
+
+Five new regression cases pass, and the full frontend suite passes 486 tests across 68 files; TypeScript and Vite build pass. The isolated memory-only browser fixture retains TEST7/P confirmation while resizing through 640×480, 1280×800 and 3840×2160. Synthetic Delete and Undo restore 501 contacts; the final document has no overflow. Captures are under `.impeccable/review/logbook-delete-{compact,desktop,4k}.png`. This is shared-component evidence, not native-window or hardware acceptance.
+
+Prior rotor-only matrix `38337551455` completed with all three builds passing and both runtime jobs failing; its inspected Windows relaunch report names the same confirmation timeout. Native-radio source `11de47a` passed its Mac build in `38338765330`. A new exact-source packaged matrix is required after this correction. Alpha.13 remains installed; fully windowed mode, every-screen detachment, canvas, main-window lifecycle and hardware gates remain open. Docked and mixed layouts stay supported requirements, not a migration away from the familiar desk.
 
 ## Follow-on: RUMlogNG workflow and feature comparison
 

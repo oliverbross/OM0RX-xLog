@@ -188,4 +188,55 @@ describe("logbook confirmation visibility", () => {
     expect(screen.queryByText("TEST0")).toBeNull();
     expect((screen.getByRole("button", { name: "Next" }) as HTMLButtonElement).disabled).toBe(true);
   });
+
+  it.each([false, true])("keeps revision-checked Delete through resize (preparation pending: %s)", async pending => {
+    let resize = () => {}, height = 280, release!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    vi.stubGlobal("ResizeObserver", class { constructor(callback: () => void) { resize = callback; } observe() {} disconnect() {} });
+    const size = vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(function (this: HTMLElement) { return this.classList.contains("live-logbook-table-wrap") ? height : 0; });
+    const rect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) { return { height: this.tagName === "THEAD" ? 35 : 28 } as DOMRect; });
+    const backend = contactEditFixture(first);
+    const request = vi.fn(async (method: string, params?: Record<string, unknown>) => {
+      if (method === "logbook_contact" && pending) await gate;
+      return backend.request(method, params) ?? page(backend.contact.qso.deletedAt ? [second] : [first, second]);
+    });
+    try {
+      render(<LogbookPanel mutations={new LogbookMutationSession(request, () => {})} onRequest={request} onEdit={vi.fn()} refreshKey={0} />);
+      await waitFor(() => expect(request.mock.calls.some(([method, params]) => method === "logbook_list" && params?.limit === 8)).toBe(true));
+      fireEvent.click(await screen.findByText("OM0RX"));
+      fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+      if (!pending) await screen.findByRole("button", { name: "Confirm delete" });
+      height = 200; act(() => resize());
+      await waitFor(() => expect(request.mock.calls.some(([method, params]) => method === "logbook_list" && params?.limit === 5)).toBe(true));
+      release();
+      const confirm = await screen.findByRole("button", { name: "Confirm delete" });
+      expect(request.mock.calls.some(([method]) => method === "logbook_contact_apply")).toBe(false);
+      fireEvent.click(confirm);
+      await screen.findByText("1–1 of 1");
+      const mutation = request.mock.calls.find(([method]) => method === "logbook_contact_apply")?.[1];
+      expect(mutation).toMatchObject({ action: "delete", contactID: first.id, expectedRevision: 1 });
+    } finally { release(); cleanup(); size.mockRestore(); rect.mockRestore(); vi.unstubAllGlobals(); }
+  });
+  it.each(["selection", "refresh", "search"])("cancels a pending Delete preparation on %s changes", async reason => {
+    let release!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const backend = contactEditFixture(first);
+    const request = vi.fn(async (method: string, params?: Record<string, unknown>) => {
+      if (method === "logbook_contact") await gate;
+      return backend.request(method, params) ?? page();
+    });
+    const mutations = new LogbookMutationSession(request, () => {}), edit = vi.fn();
+    const view = render(<LogbookPanel mutations={mutations} onRequest={request} onEdit={edit} refreshKey={0} />);
+    fireEvent.click(await screen.findByText("OM0RX")); fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(request.mock.calls.some(([method]) => method === "logbook_contact")).toBe(true));
+    if (reason === "selection") fireEvent.click(screen.getByText("VK8AA"));
+    else if (reason === "refresh") view.rerender(<LogbookPanel mutations={mutations} onRequest={request} onEdit={edit} refreshKey={1} />);
+    else {
+      fireEvent.change(screen.getByRole("textbox", { name: "Search logbook" }), { target: { value: "VK8AA" } });
+      fireEvent.submit(screen.getByRole("textbox", { name: "Search logbook" }).closest("form")!);
+    }
+    await act(async () => { release(); await gate; });
+    expect(screen.queryByRole("button", { name: "Confirm delete" })).toBeNull();
+    expect(request.mock.calls.some(([method]) => method === "logbook_contact_apply")).toBe(false);
+  });
 });
