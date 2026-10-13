@@ -308,6 +308,8 @@ The fresh Impeccable finish reviewer returned **SHIP for the shared component on
 
 Checkpoint O `20f43d50b47f0744be8aa03a13352f787b5acc93` passed Mac package build `38341681017`. P still requires its own packaged cross-platform run; alpha.13 remains installed and no live contact, station control or credential was changed.
 
+P source is committed/pushed as `de8bda4190df37b2c907cdb13207d6278a2ce420`. Mac push run `38342845073` and all-platform matrix `38342874205` are in progress, not accepted. The accompanying surface-record update is documentation only; packaged evidence must continue to name this exact application-source SHA.
+
 ## Follow-on: RUMlogNG workflow and feature comparison
 
 User added this reference pass after the canvas/native-window request. Confirmed installed app identity through the native app inventory: `de.dl2rum.RUMlogNG`; it was not running at inspection. Its menus/settings have not yet been audited in this pass. Do not represent remembered features as current observations.
