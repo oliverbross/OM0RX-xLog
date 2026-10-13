@@ -142,6 +142,52 @@ struct PostCommitContactRefreshTests {
         await finish(worker, cluster, gate)
     }
 
+    @Test("Opt-in generated 68k log durable-save timing",
+          .enabled(if: ProcessInfo.processInfo.environment["XLOG_SAVE_PERF"] == "1"),
+          .timeLimit(.minutes(5)))
+    func generatedLargeLogSaveTiming() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-save-perf-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let gate = ContactPublicationGate()
+        let (logbook, cluster, worker) = try await setup(root, gate)
+        let db = try logbook.openedDatabase()
+        let base = Date(timeIntervalSince1970: 1_577_836_800)
+        for offset in stride(from: 0, to: 68_000, by: 256) {
+            let rows = (offset..<min(offset + 256, 68_000)).map { index in
+                QSO(call: "K1T" + String(index % 2000, radix: 36).uppercased(),
+                    start: base.addingTimeInterval(Double(index) * 60),
+                    band: ["20m", "40m", "15m"][index % 3],
+                    mode: ["CW", "SSB", "FT8"][index % 3], dxcc: 291)
+            }
+            #expect(try db.importBatch(rows) == rows.count)
+        }
+        #expect(try db.count() == 68_000)
+        let disk = try LogbookDatabase(url: db.url)
+        defer { disk.close() }
+        await gate.arm()
+        var milliseconds: [Double] = []
+        for index in 0..<50 {
+            let params = try await saveParams(worker, call: "K2PERF\(index)")
+            let started = ProcessInfo.processInfo.systemUptime
+            let response = try await request(worker, "logbook_operator_draft_apply", params)
+            milliseconds.append((ProcessInfo.processInfo.systemUptime - started) * 1000)
+            #expect(response["ok"] as? Bool == true)
+            // Validate committed rows/receipts independently, outside the timing.
+            let operationID = try #require(UUID(uuidString: params["operationID"] as! String))
+            #expect(try disk.operatorDraftReceipt(operationID: operationID)?.savedQSO?.call == "K2PERF\(index)")
+            #expect(try disk.count() == 68_001 + index)
+        }
+        await gate.started(1)
+        #expect(await gate.calls == 1)
+        let sorted = milliseconds.sorted()
+        let median = (sorted[24] + sorted[25]) / 2
+        let p95 = sorted[Int(ceil(Double(sorted.count) * 0.95)) - 1]
+        print(String(format: "GENERATED_SAVE_PERFORMANCE initial_qsos=68000 samples=50 median_ms=%.3f p95_ms=%.3f max_ms=%.3f background_projection=held", median, p95, sorted.last!))
+        // This isolates durable worker response, not UI paint, transport, sync,
+        // concurrent aggregate contention or installed-app end-to-end latency.
+        await finish(worker, cluster, gate)
+    }
+
     @Test("Restore retires an old projection before replacing its database")
     func workspaceFence() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

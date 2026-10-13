@@ -74,3 +74,29 @@ not in this artifact. Signing and notarization are package evidence, not native
 runtime, live synchronization, data-migration or physical-radio acceptance.
 The installed app, live workspace and original applications remain untouched;
 restart still awaits coordination with the operator's logging session.
+
+## Latest staged update — cd25718, not installed
+
+Mac CI `38426236422` and general CI `38426236751` both succeeded for exact source
+`cd257189c306d3482471c035a8873d6da33c322b`. Mac artifact `11829831409` was
+downloaded without mixing working-tree changes; embedded `components.json`
+identifies that source and the Swift resource bundle occupies the corrected
+`Contents/Resources/OM0RXXLogPrototype_XLogCore.bundle` location.
+
+- Original CI ZIP SHA-256: `2fd6740851928a68f1cf86eb1e97e8652ab1a2c3f6a1e3d90ed93144804a5c77`.
+- Worker, Hamlib helpers and app signed with the existing Developer ID identity;
+  deep/strict validation passed.
+- Apple notarization `05aed763-a596-45b1-b4d7-414b53004765`: Accepted.
+  Stapling/validation passed; Gatekeeper reports `Notarized Developer ID`.
+- Final archive: `dist/OM0RX-xLog-Integration-cd25718-notarized.zip`.
+- Final archive SHA-256: `f64184f26cf42fbdb015e2a847cc19c1fc36d25079772d33d329fdab493afc2c`.
+- Extracted app: `/tmp/xlog-mac-cd25718-m9oSu2/extracted/OM0RX-xLog Integration.app`.
+
+This package adds the default-off native measured-power capture and compact
+manual/automatic controls to the previous staged fixes. It does not include the
+subsequent worker-generation bootstrap correction or large-log benchmark.
+Measured capture still requires the companion's qualified receipt timestamps;
+neither real telemetry nor native worker-restart recovery is accepted by signing
+or CI. No candidate app was launched, installed or used against live data.
+Installed `df387639`, the operator session, station and credentials remain
+unchanged. Coordinated installation and applicable native acceptance remain open.

@@ -4,20 +4,23 @@ use std::{
     io::Write,
     path::PathBuf,
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc, Mutex, OnceLock,
     },
 };
 use tauri::{Emitter, Manager};
-type Transport = dyn Fn(Value) -> Result<Value, String> + Send + Sync;
+pub(crate) type Transport = dyn Fn(Value) -> Result<Value, String> + Send + Sync;
 type Publish = dyn Fn() + Send + Sync;
 struct PowerPublication {
+    worker_generation: u64,
     sequence: u64,
     context: (Option<String>, Option<String>),
+    native_context: (Option<String>, Option<String>),
     status: &'static str,
     error: String,
 }
 struct PowerNotice {
+    worker_generation: u64,
     sequence: u64,
     request: Value,
 }
@@ -29,6 +32,7 @@ struct State {
 }
 pub struct Selection {
     state: Mutex<State>,
+    activity: AtomicUsize,
     path: PathBuf,
     transport: Arc<Transport>,
     publish: Arc<Publish>,
@@ -86,6 +90,7 @@ impl Selection {
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => (None, None, false),
             Err(_) => return Err("Saved radio selection could not be read.".into()),
         };
+        let native_context = (provider.clone(), selection_id.clone());
         let owner = Self {
             state: Mutex::new(State {
                 provider,
@@ -93,12 +98,15 @@ impl Selection {
                 generation: 0,
                 controls: 0,
             }),
+            activity: AtomicUsize::new(0),
             path,
             transport,
             publish,
             power: Arc::new(Mutex::new(PowerPublication {
+                worker_generation: 0,
                 sequence: 0,
                 context: (None, None),
+                native_context,
                 status: "not_attempted",
                 error: String::new(),
             })),
@@ -160,6 +168,14 @@ impl Selection {
             .power
             .lock()
             .map_err(|_| "Power notification status is unavailable")?;
+        Self::allocate_notice(&mut power, provider, selection_id, optional)
+    }
+    fn allocate_notice(
+        power: &mut PowerPublication,
+        provider: Option<&str>,
+        selection_id: Option<&str>,
+        optional: bool,
+    ) -> Result<Option<PowerNotice>, String> {
         let context = (provider.map(str::to_owned), selection_id.map(str::to_owned));
         // A completion wake causes another renderer read. Coalesce that read,
         // including failures, rather than creating a notification feedback loop.
@@ -176,10 +192,17 @@ impl Selection {
         power.error.clear();
         let id = format!("native-power-selection-{}", uuid::Uuid::new_v4());
         Ok(Some(PowerNotice {
+            worker_generation: power.worker_generation,
             sequence: power.sequence,
             request: json!({"id":id,"method":"station_power_selection",
             "params":{"provider":provider,"selection_id":selection_id,"sequence":power.sequence}}),
         }))
+    }
+    fn remember_native_context(&self, state: &State) {
+        self.power
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .native_context = (state.provider.clone(), state.selection_id.clone());
     }
     fn send_power(transport: &Transport, notice: &PowerNotice) -> Result<(), String> {
         let response = transport(notice.request.clone())?;
@@ -196,11 +219,12 @@ impl Selection {
     }
     fn finish_power(
         power: &Mutex<PowerPublication>,
+        worker_generation: u64,
         sequence: u64,
         result: &Result<(), String>,
     ) -> bool {
         let mut power = power.lock().unwrap_or_else(|error| error.into_inner());
-        if power.sequence != sequence {
+        if power.worker_generation != worker_generation || power.sequence != sequence {
             return false;
         }
         power.status = if result.is_ok() {
@@ -222,7 +246,12 @@ impl Selection {
     ) -> Result<(), String> {
         let notice = self.power_notice(provider, selection_id, false)?.unwrap();
         let result = Self::send_power(self.transport.as_ref(), &notice);
-        Self::finish_power(&self.power, notice.sequence, &result);
+        Self::finish_power(
+            &self.power,
+            notice.worker_generation,
+            notice.sequence,
+            &result,
+        );
         result
     }
     fn queue_power(
@@ -238,6 +267,7 @@ impl Selection {
         let publish = self.publish.clone();
         let stopped = self.stopped.clone();
         let sequence = notice.sequence;
+        let worker_generation = notice.worker_generation;
         if std::thread::Builder::new()
             .name("xlog-power-selection".into())
             .spawn(move || {
@@ -246,17 +276,89 @@ impl Selection {
                 } else {
                     Self::send_power(transport.as_ref(), &notice)
                 };
-                if Self::finish_power(&power, notice.sequence, &result) {
+                if Self::finish_power(&power, notice.worker_generation, notice.sequence, &result) {
                     publish();
                 }
             })
             .is_err()
         {
             let result = Err("Power notification could not be queued".to_owned());
-            Self::finish_power(&self.power, sequence, &result);
+            Self::finish_power(&self.power, worker_generation, sequence, &result);
             return result;
         }
         Ok(())
+    }
+    /// Invalidate the old acknowledgement synchronously, without the selection
+    /// state lock: a mandatory handover may own that lock while starting Swift.
+    /// Only the background metadata send waits for native controls to finish.
+    fn worker_started(self: &Arc<Self>, generation: u64, transport: Arc<Transport>) {
+        {
+            let mut power = self.power.lock().unwrap_or_else(|error| error.into_inner());
+            if generation <= power.worker_generation || self.stopped.load(Ordering::Acquire) {
+                return;
+            }
+            power.worker_generation = generation;
+            power.status = "not_attempted";
+            power.error.clear();
+        }
+        let owner = self.clone();
+        if std::thread::Builder::new()
+            .name("xlog-power-bootstrap".into())
+            .spawn(move || {
+                let result = owner.bootstrap_worker(generation, transport.as_ref());
+                if let Err(error) = result {
+                    eprintln!("Native power selection unavailable: {error}");
+                }
+            })
+            .is_err()
+        {
+            let mut power = self.power.lock().unwrap_or_else(|error| error.into_inner());
+            if power.worker_generation == generation {
+                power.status = "unavailable";
+                power.error = "Power notification could not be queued".into();
+            }
+        }
+        (self.publish)();
+    }
+    fn bootstrap_worker(&self, generation: u64, transport: &Transport) -> Result<(), String> {
+        let notice = loop {
+            self.active()?;
+            let mut power = self
+                .power
+                .lock()
+                .map_err(|_| "Power notification status is unavailable")?;
+            if power.worker_generation != generation {
+                return Ok(());
+            }
+            if self.activity.load(Ordering::Acquire) == 0 {
+                let (provider, selection_id) = power.native_context.clone();
+                // The committed native choice is mirrored here so optional
+                // metadata never competes for foreground control's state lock.
+                // Unset stays unset; no renderer preference/default is read.
+                if provider.is_none() {
+                    return Ok(());
+                }
+                break Self::allocate_notice(
+                    &mut power,
+                    provider.as_deref(),
+                    selection_id.as_deref(),
+                    true,
+                )?;
+            }
+            drop(power);
+            // Lifecycle activity begins before its null fence. A bootstrap
+            // allocated just before that activity has an older sequence and
+            // cannot supersede the fence. Never sleep holding either mutex.
+            std::thread::sleep(std::time::Duration::from_millis(25));
+        };
+        let Some(notice) = notice else {
+            return Ok(());
+        };
+        let result = Self::send_power(transport, &notice);
+        if Self::finish_power(&self.power, generation, notice.sequence, &result) {
+            (self.publish)();
+        }
+        result
     }
     /// Startup reads only native saved state. Unset preferences stay unset;
     /// publishing a choice never connects either radio transport.
@@ -285,6 +387,7 @@ impl Selection {
             self.save(provider, &selection_id)?;
             state.provider = Some(provider.into());
             state.selection_id = Some(selection_id);
+            self.remember_native_context(&state);
         }
         // Power publication is optional for reading the selected radio. Its
         // failure is exposed as status, never substituted for the saved choice.
@@ -342,6 +445,7 @@ impl Selection {
         if state.generation >= 9_007_199_254_740_990 {
             return Err("Radio selection generation exhausted.".into());
         }
+        let _activity = ActivityGuard::new(&self.activity);
         let id = format!("native-radio-handover-{}", state.generation);
         let request = if previous == "hamlib" {
             json!({"id":id,"method":"hamlib_disconnect","params":{"device":"radio"}})
@@ -369,6 +473,7 @@ impl Selection {
             state.provider = Some(next.into());
             state.selection_id = Some(next_id.clone());
             state.generation += 1;
+            self.remember_native_context(&state);
             Ok(self.value(&state))
         })();
         let result = match result {
@@ -380,6 +485,7 @@ impl Selection {
                         state.provider = Some(next.into());
                         state.selection_id = Some(next_id);
                         state.generation += 1;
+                        self.remember_native_context(&state);
                         let _ = self.notify_power(None, None);
                         drop(state);
                         (self.publish)();
@@ -436,6 +542,7 @@ impl Selection {
         // capture synchronously before awaiting station retirement.
         let provider = state.provider.clone();
         let selection_id = state.selection_id.clone();
+        let _activity = ActivityGuard::new(&self.activity);
         state.controls += 1;
         drop(state);
         let _guard = ControlGuard(self);
@@ -454,6 +561,18 @@ impl Selection {
         result
     }
 }
+struct ActivityGuard<'a>(&'a AtomicUsize);
+impl<'a> ActivityGuard<'a> {
+    fn new(activity: &'a AtomicUsize) -> Self {
+        activity.fetch_add(1, Ordering::AcqRel);
+        Self(activity)
+    }
+}
+impl Drop for ActivityGuard<'_> {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::AcqRel);
+    }
+}
 struct ControlGuard<'a>(&'a Selection);
 impl Drop for ControlGuard<'_> {
     fn drop(&mut self) {
@@ -465,6 +584,17 @@ impl Drop for ControlGuard<'_> {
 }
 static OWNER: OnceLock<Mutex<Option<Arc<Selection>>>> = OnceLock::new();
 static STOPPED: AtomicBool = AtomicBool::new(false);
+/// Called after worker registry unlock. Never initializes a preference or sends
+/// through worker::request, which would recurse back into active_session.
+pub(crate) fn worker_generation_started(generation: u64, transport: Arc<Transport>) {
+    if let Some(slot) = OWNER.get() {
+        if let Ok(slot) = slot.lock() {
+            if let Some(owner) = slot.as_ref() {
+                owner.worker_started(generation, transport);
+            }
+        }
+    }
+}
 pub fn owner(app: &tauri::AppHandle) -> Result<Arc<Selection>, String> {
     if STOPPED.load(Ordering::Acquire) {
         return Err("Radio session is shutting down.".into());
@@ -535,7 +665,17 @@ mod tests {
     fn initialized(owner: &Selection, legacy: Option<&str>) -> Value {
         owner.initialize(legacy).unwrap();
         wait_for_power(owner);
-        owner.snapshot().unwrap()
+        let selected = owner.snapshot().unwrap();
+        assert_native_context(owner, &selected);
+        selected
+    }
+    fn assert_native_context(owner: &Selection, selected: &Value) {
+        let native = owner.power.lock().unwrap().native_context.clone();
+        assert_eq!(
+            json!({"provider":native.0,"selection_id":native.1}),
+            json!({"provider":selected["provider"],"selection_id":selected["selection_id"]})
+        );
+        assert_eq!(owner.activity.load(Ordering::Acquire), 0);
     }
     fn choice(mut value: Value) -> Value {
         value.as_object_mut().unwrap().remove("power_notification");
@@ -552,6 +692,382 @@ mod tests {
             .unwrap();
         assert!((1..=9_007_199_254_740_991).contains(&sequence));
         params
+    }
+    #[test]
+    fn replacement_bootstraps_same_saved_identity_once_without_a_renderer_read() {
+        let (_directory, selection, ordinary) = fixture();
+        let selected = initialized(&selection, Some("direct_agent"));
+        let owner = Arc::new(selection);
+        let initial_calls = ordinary.lock().unwrap().len();
+        let (sent, received) = std::sync::mpsc::channel();
+        let transport: Arc<Transport> = Arc::new(move |request| {
+            sent.send(request.clone()).unwrap();
+            Ok(reply(&request, true))
+        });
+        owner.worker_started(1, transport.clone());
+        let first = received
+            .recv_timeout(std::time::Duration::from_secs(2))
+            .unwrap();
+        wait_for_power(&owner);
+        owner.worker_started(2, transport.clone());
+        let replacement = received
+            .recv_timeout(std::time::Duration::from_secs(2))
+            .unwrap();
+        wait_for_power(&owner);
+        for request in [&first, &replacement] {
+            assert_eq!(request["method"], "station_power_selection");
+            assert_eq!(request["params"]["provider"], selected["provider"]);
+            assert_eq!(request["params"]["selection_id"], selected["selection_id"]);
+        }
+        assert!(
+            replacement["params"]["sequence"].as_u64().unwrap()
+                > first["params"]["sequence"].as_u64().unwrap()
+        );
+        owner.worker_started(2, transport);
+        owner.notify_saved().unwrap();
+        assert!(received.try_recv().is_err());
+        assert_eq!(ordinary.lock().unwrap().len(), initial_calls);
+        assert_eq!(
+            owner.snapshot().unwrap()["power_notification"]["state"],
+            "ready"
+        );
+    }
+    #[test]
+    fn first_start_from_saved_notification_recovers_even_when_original_notice_is_superseded() {
+        let directory = tempfile::tempdir().unwrap();
+        let selection_id = uuid::Uuid::new_v4().to_string();
+        std::fs::write(
+            directory.path().join("choice.json"),
+            json!({"version":1,"provider":"direct_agent","selection_id":selection_id}).to_string(),
+        )
+        .unwrap();
+        let slot: Arc<Mutex<Option<std::sync::Weak<Selection>>>> = Arc::new(Mutex::new(None));
+        let callback_owner = slot.clone();
+        let (sent, received) = std::sync::mpsc::channel();
+        let originals = Arc::new(Mutex::new(Vec::new()));
+        let recorded = originals.clone();
+        let exact: Arc<Transport> = Arc::new(move |request| {
+            sent.send(request.clone()).unwrap();
+            Ok(reply(&request, true))
+        });
+        let owner = Arc::new(Selection::new(directory.path().join("choice.json"), Arc::new(move |request| {
+            recorded.lock().unwrap().push(request.clone());
+            let owner = callback_owner.lock().unwrap().as_ref().unwrap().upgrade().unwrap();
+            owner.worker_started(1, exact.clone());
+            // A fresh-generation bootstrap can arrive before this original
+            // queued startup notice; its older acknowledgement is nonfatal.
+            Ok(json!({"id":request["id"],"ok":true,"result":{"accepted":false,"superseded":true}}))
+        }), Arc::new(|| {})).unwrap());
+        *slot.lock().unwrap() = Some(Arc::downgrade(&owner));
+        owner.notify_saved().unwrap();
+        let bootstrap = received
+            .recv_timeout(std::time::Duration::from_secs(2))
+            .unwrap();
+        wait_for_power(&owner);
+        assert_eq!(bootstrap["params"]["selection_id"], selection_id);
+        assert!(
+            bootstrap["params"]["sequence"].as_u64().unwrap()
+                > originals.lock().unwrap()[0]["params"]["sequence"]
+                    .as_u64()
+                    .unwrap()
+        );
+        assert_eq!(
+            owner.snapshot().unwrap()["power_notification"]["state"],
+            "ready"
+        );
+    }
+    #[test]
+    fn obsolete_bootstrap_exits_while_handover_holds_selection_state() {
+        let (_directory, selection, _) = fixture();
+        let owner = Arc::new(selection);
+        owner.power.lock().unwrap().worker_generation = 1;
+        let held = owner.state.lock().unwrap();
+        let waiting = owner.clone();
+        let (finished, completed) = std::sync::mpsc::channel();
+        let thread = std::thread::spawn(move || {
+            finished
+                .send(waiting.bootstrap_worker(1, &|_| panic!("obsolete must not send")))
+                .unwrap();
+        });
+        owner.power.lock().unwrap().worker_generation = 2;
+        completed
+            .recv_timeout(std::time::Duration::from_secs(2))
+            .unwrap()
+            .unwrap();
+        thread.join().unwrap();
+        drop(held);
+    }
+    #[test]
+    fn bootstrap_snapshot_does_not_acquire_the_foreground_control_mutex() {
+        let (_directory, selection, _) = fixture();
+        let selected = initialized(&selection, Some("direct_agent"));
+        let owner = Arc::new(selection);
+        {
+            let mut power = owner.power.lock().unwrap();
+            power.worker_generation = 1;
+            power.status = "not_attempted";
+        }
+        let held = owner.state.lock().unwrap();
+        let bootstrapping = owner.clone();
+        let (sent, received) = std::sync::mpsc::channel();
+        let thread = std::thread::spawn(move || {
+            bootstrapping.bootstrap_worker(1, &move |request| {
+                sent.send(request.clone()).unwrap();
+                Ok(reply(&request, true))
+            })
+        });
+        let request = received.recv_timeout(std::time::Duration::from_millis(250));
+        // Always release/join the fixture before asserting, including the
+        // failing-before implementation which waits on this foreground mutex.
+        drop(held);
+        thread.join().unwrap().unwrap();
+        let request =
+            request.expect("optional bootstrap must not acquire the foreground control mutex");
+        assert_eq!(request["params"]["selection_id"], selected["selection_id"]);
+    }
+    #[test]
+    fn replacement_bootstrap_waits_for_mandatory_reconnect_without_superseding_null() {
+        let directory = tempfile::tempdir().unwrap();
+        std::fs::write(directory.path().join("choice.json"), json!({"version":1,"provider":"direct_agent","selection_id":uuid::Uuid::new_v4().to_string()}).to_string()).unwrap();
+        let slot: Arc<Mutex<Option<std::sync::Weak<Selection>>>> = Arc::new(Mutex::new(None));
+        let callback_owner = slot.clone();
+        let (entered, observed) = std::sync::mpsc::channel();
+        let (release, finish) = std::sync::mpsc::channel();
+        let finish = Mutex::new(finish);
+        let owner = Arc::new(
+            Selection::new(
+                directory.path().join("choice.json"),
+                Arc::new(move |request| {
+                    if request["method"] == "station_power_selection"
+                        && request["params"]["provider"].is_null()
+                    {
+                        let owner = callback_owner
+                            .lock()
+                            .unwrap()
+                            .as_ref()
+                            .unwrap()
+                            .upgrade()
+                            .unwrap();
+                        owner.worker_started(
+                            1,
+                            Arc::new(|_| panic!("mandatory reconnect publishes final context")),
+                        );
+                        entered.send(()).unwrap();
+                        finish.lock().unwrap().recv().unwrap();
+                    }
+                    Ok(reply(&request, true))
+                }),
+                Arc::new(|| {}),
+            )
+            .unwrap(),
+        );
+        *slot.lock().unwrap() = Some(Arc::downgrade(&owner));
+        let reconnecting = owner.clone();
+        let thread = std::thread::spawn(move || {
+            reconnecting.control(json!({"id":"reconnect","method":"station_reconnect","params":{"provider":"direct_agent"}}))
+        });
+        observed
+            .recv_timeout(std::time::Duration::from_secs(2))
+            .unwrap();
+        assert_eq!(owner.power.lock().unwrap().sequence, 1);
+        owner.control(json!({"id":"disconnect","method":"station_disconnect","params":{"provider":"direct_agent"}})).unwrap();
+        release.send(()).unwrap();
+        thread.join().unwrap().unwrap();
+        owner
+            .bootstrap_worker(1, &|_| panic!("must coalesce final context"))
+            .unwrap();
+        assert_eq!(owner.power.lock().unwrap().sequence, 2);
+        assert_eq!(
+            owner.snapshot().unwrap()["power_notification"]["state"],
+            "ready"
+        );
+    }
+    #[test]
+    fn previous_worker_ack_cannot_mark_replacement_ready_and_disconnect_stays_prompt() {
+        let (_directory, selection, _) = fixture();
+        initialized(&selection, Some("direct_agent"));
+        let owner = Arc::new(selection);
+        let (sent, received) = std::sync::mpsc::channel();
+        let (release, finish) = std::sync::mpsc::channel();
+        let finish = Mutex::new(finish);
+        owner.worker_started(
+            1,
+            Arc::new(move |request| {
+                sent.send(()).unwrap();
+                finish.lock().unwrap().recv().unwrap();
+                Ok(reply(&request, true))
+            }),
+        );
+        received
+            .recv_timeout(std::time::Duration::from_secs(2))
+            .unwrap();
+        let old_sequence = owner.power.lock().unwrap().sequence;
+        let (sent_new, received_new) = std::sync::mpsc::channel();
+        let (release_new, finish_new) = std::sync::mpsc::channel();
+        let finish_new = Mutex::new(finish_new);
+        owner.worker_started(
+            2,
+            Arc::new(move |request| {
+                sent_new.send(()).unwrap();
+                finish_new.lock().unwrap().recv().unwrap();
+                Ok(reply(&request, true))
+            }),
+        );
+        // Invalidation does not acquire state: urgent source retirement can
+        // finish while either optional worker acknowledgement is still pending.
+        owner.control(json!({"id":"disconnect","method":"station_disconnect","params":{"provider":"direct_agent"}})).unwrap();
+        received_new
+            .recv_timeout(std::time::Duration::from_secs(2))
+            .unwrap();
+        assert!(!Selection::finish_power(
+            &owner.power,
+            1,
+            old_sequence,
+            &Ok(())
+        ));
+        assert_eq!(
+            owner.snapshot().unwrap()["power_notification"]["state"],
+            "pending"
+        );
+        release.send(()).unwrap();
+        assert_eq!(
+            owner.snapshot().unwrap()["power_notification"]["state"],
+            "pending"
+        );
+        release_new.send(()).unwrap();
+        wait_for_power(&owner);
+        assert_eq!(
+            owner.snapshot().unwrap()["power_notification"]["state"],
+            "ready"
+        );
+        owner.worker_started(1, Arc::new(|_| panic!("obsolete generation must not send")));
+        assert_eq!(
+            owner.snapshot().unwrap()["power_notification"]["state"],
+            "ready"
+        );
+    }
+    #[test]
+    fn bootstrap_captured_before_handover_is_sequence_fenced() {
+        let (_directory, selection, _) = fixture();
+        initialized(&selection, Some("direct_agent"));
+        let owner = Arc::new(selection);
+        let (sent, received) = std::sync::mpsc::channel();
+        let (release, finish) = std::sync::mpsc::channel();
+        let finish = Mutex::new(finish);
+        owner.worker_started(
+            1,
+            Arc::new(move |request| {
+                sent.send(request.clone()).unwrap();
+                finish.lock().unwrap().recv().unwrap();
+                Ok(reply(&request, true))
+            }),
+        );
+        let bootstrap = received
+            .recv_timeout(std::time::Duration::from_secs(2))
+            .unwrap();
+        let selected = owner.handover(0, "hamlib").unwrap();
+        assert_eq!(selected["power_notification"]["state"], "ready");
+        assert!(
+            owner.power.lock().unwrap().sequence
+                > bootstrap["params"]["sequence"].as_u64().unwrap()
+        );
+        assert!(!Selection::finish_power(
+            &owner.power,
+            1,
+            bootstrap["params"]["sequence"].as_u64().unwrap(),
+            &Err("superseded".into())
+        ));
+        release.send(()).unwrap();
+        assert_eq!(
+            owner.snapshot().unwrap()["power_notification"]["state"],
+            "ready"
+        );
+    }
+    #[test]
+    fn first_worker_start_during_handover_never_reacquires_its_state_or_supersedes_null() {
+        let directory = tempfile::tempdir().unwrap();
+        std::fs::write(directory.path().join("choice.json"), json!({"version":1,"provider":"direct_agent","selection_id":uuid::Uuid::new_v4().to_string()}).to_string()).unwrap();
+        let slot: Arc<Mutex<Option<std::sync::Weak<Selection>>>> = Arc::new(Mutex::new(None));
+        let callback_owner = slot.clone();
+        let calls = Arc::new(Mutex::new(Vec::new()));
+        let recorded = calls.clone();
+        let owner = Arc::new(
+            Selection::new(
+                directory.path().join("choice.json"),
+                Arc::new(move |request| {
+                    recorded.lock().unwrap().push(request.clone());
+                    if request["method"] == "station_power_selection"
+                        && request["params"]["provider"].is_null()
+                    {
+                        let owner = callback_owner
+                            .lock()
+                            .unwrap()
+                            .as_ref()
+                            .unwrap()
+                            .upgrade()
+                            .unwrap();
+                        assert!(owner.state.try_lock().is_err());
+                        owner.worker_started(
+                            1,
+                            Arc::new(|_| {
+                                panic!("handover's authoritative context was already published")
+                            }),
+                        );
+                    }
+                    Ok(reply(&request, true))
+                }),
+                Arc::new(|| {}),
+            )
+            .unwrap(),
+        );
+        *slot.lock().unwrap() = Some(Arc::downgrade(&owner));
+        let next = owner.handover(0, "hamlib").unwrap();
+        owner
+            .bootstrap_worker(1, &|_| panic!("must coalesce acknowledged context"))
+            .unwrap();
+        let calls = calls.lock().unwrap();
+        assert_eq!(calls.len(), 3);
+        assert!(calls[0]["params"]["provider"].is_null());
+        assert_eq!(calls[1]["method"], "station_disconnect");
+        assert_eq!(calls[2]["params"]["provider"], "hamlib");
+        assert_eq!(calls[2]["params"]["selection_id"], next["selection_id"]);
+        assert_eq!(next["power_notification"]["state"], "ready");
+    }
+    #[test]
+    fn replacement_failure_is_nonfatal_coalesced_and_unset_does_not_default() {
+        let (_directory, selection, _) = fixture();
+        let owner = Arc::new(selection);
+        owner.worker_started(1, Arc::new(|_| panic!("unset must stay unset")));
+        owner
+            .bootstrap_worker(1, &|_| panic!("unset must stay unset"))
+            .unwrap();
+        assert!(!owner.path.exists());
+        assert!(owner.snapshot().unwrap()["provider"].is_null());
+        let (_second_directory, selection, _) = fixture();
+        let owner = Arc::new(selection);
+        initialized(&owner, Some("direct_agent"));
+        let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let recorded = calls.clone();
+        owner.worker_started(
+            2,
+            Arc::new(move |_| {
+                recorded.fetch_add(1, Ordering::AcqRel);
+                Err("fixture unavailable".into())
+            }),
+        );
+        // Use an acknowledgement channel via status polling only after the
+        // bootstrap has allocated a notice, since invalidation starts unattempted.
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+        while owner.snapshot().unwrap()["power_notification"]["state"] != "unavailable" {
+            assert!(std::time::Instant::now() < deadline);
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+        for _ in 0..20 {
+            owner.notify_saved().unwrap();
+            owner.initialize(None).unwrap();
+        }
+        assert_eq!(calls.load(Ordering::Acquire), 1);
+        owner.control(json!({"id":"disconnect","method":"station_disconnect","params":{"provider":"direct_agent"}})).unwrap();
     }
     #[test]
     fn optional_failure_is_visible_without_blocking_reads_or_ordinary_controls() {
@@ -675,6 +1191,7 @@ mod tests {
             .recv_timeout(std::time::Duration::from_secs(2))
             .unwrap();
         let switched = owner.handover(0, "hamlib").unwrap();
+        assert_native_context(&owner, &switched);
         assert_eq!(switched["power_notification"]["state"], "ready");
         release.send(()).unwrap();
         drained
@@ -968,6 +1485,7 @@ mod tests {
         )
         .unwrap();
         assert!(owner.handover(0, "hamlib").is_err());
+        assert_native_context(&owner, &previous);
         assert_eq!(choice(owner.snapshot().unwrap()), choice(previous.clone()));
         let requests = calls.lock().unwrap();
         assert_eq!(requests.len(), 3);
@@ -1001,6 +1519,7 @@ mod tests {
         )
         .unwrap();
         assert!(owner.handover(0, "hamlib").is_err());
+        assert_native_context(&owner, &previous);
         assert_eq!(choice(owner.snapshot().unwrap()), choice(previous.clone()));
         let reopened =
             Selection::new(owner.path.clone(), saved.transport.clone(), Arc::new(|| {})).unwrap();
@@ -1014,6 +1533,53 @@ mod tests {
             power_context(&requests[3]),
             json!({"provider":"direct_agent","selection_id":previous["selection_id"]})
         );
+    }
+    #[test]
+    fn rollback_failure_mirrors_the_persisted_next_native_authority_for_recovery() {
+        let (_directory, saved, _) = fixture();
+        initialized(&saved, Some("direct_agent"));
+        let path = saved.path.clone();
+        let snapshot_path = path.with_extension("snapshot");
+        let preserved = snapshot_path.clone();
+        let owner = Selection::new(
+            saved.path.clone(),
+            Arc::new(move |request| {
+                if request["method"] == "station_power_selection"
+                    && request["params"]["provider"] == "hamlib"
+                {
+                    // Preserve the just-committed synthetic next choice, then make
+                    // only this disposable fixture's target impossible to replace.
+                    std::fs::rename(&path, &preserved).unwrap();
+                    std::fs::create_dir(&path).unwrap();
+                    return Err("fixture next notification failed".into());
+                }
+                Ok(reply(&request, true))
+            }),
+            Arc::new(|| {}),
+        )
+        .unwrap();
+        assert!(owner
+            .handover(0, "hamlib")
+            .unwrap_err()
+            .contains("could not be restored"));
+        let selected = owner.snapshot().unwrap();
+        assert_eq!(selected["provider"], "hamlib");
+        assert_native_context(&owner, &selected);
+        let persisted: Value =
+            serde_json::from_slice(&std::fs::read(snapshot_path).unwrap()).unwrap();
+        assert_eq!(persisted["selection_id"], selected["selection_id"]);
+        {
+            let mut power = owner.power.lock().unwrap();
+            power.worker_generation = 1;
+            power.status = "not_attempted";
+        }
+        owner
+            .bootstrap_worker(1, &move |request| {
+                assert_eq!(request["params"]["provider"], selected["provider"]);
+                assert_eq!(request["params"]["selection_id"], selected["selection_id"]);
+                Ok(reply(&request, true))
+            })
+            .unwrap();
     }
     #[test]
     fn malformed_saved_identity_is_not_overwritten_or_notified() {

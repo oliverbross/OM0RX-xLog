@@ -531,6 +531,29 @@ The isolated native harness now requires `workspace_native_windows` as check 28:
 
 Validation before the subsequent band-map/Chaser/Awards refinements: full frontend 669 tests across 87 files and 180 Rust/helper tests passed; TypeScript/Vite and detached bundle/style gates passed. After the review correction, 69 focused workspace/settings/acceptance tests pass, including both recovery races. Main LiveApp remains about 1.390 MB and carries the existing bundle warning. Source review found no further concrete defects; actual installed check-28 execution remains pending. The running signed/notarized Mac app remains `df38763`; this checkpoint has not been installed and no live layout, credentials or equipment were changed.
 
+### 14 October audit — remaining new-QSO and QSY ownership
+
+At `cd25718`, detached Logbook edits saved contacts; it is not an independent
+new-QSO editor. The next coherent workspace slice is a singleton `log-qso`
+surface reusing `QSOEditor` and the canonical `OperatorDraftSession`, its own
+recovery journal, narrowly scoped native draft/lookup permissions, protected
+Close/Dock and native Cmd/Ctrl+L routing. Main-window recreation is needed for
+Dock back and Show Desk. It must not mount the main app or duplicate radio,
+rotor or spot effects. Acceptance still needs two-writer conflict/recovery,
+idempotent save after a lost reply, main-absent editing and native menu/window
+lifecycle checks. This is planned, not implemented or accepted.
+
+The separate default-off Clear after QSY feature cannot safely use a simple
+renderer frequency watcher. Native revision checks cannot see the current
+350 ms unsaved-input debounce; spot selection currently starts tuning before
+its draft update is acknowledged, and Follow Radio itself dirties the draft.
+Implementation needs trusted observed-RX provenance, command/selection epochs
+and a native writer-protection handshake before an idempotent transactional
+clear. Initial/reconnected/stale observations, pending or failed tune commands,
+new spot drafts and unsent edits must inhibit clearing. Native window ownership,
+not heartbeat expiry, must establish when no editable surface is present.
+These are explicit prerequisites, not a claim that RADIO-05 now works.
+
 ## Follow-on: RUMlogNG workflow and feature comparison
 
 User added this reference pass after the canvas/native-window request. Confirmed installed app identity through the native app inventory: `de.dl2rum.RUMlogNG`; it was not running at inspection. Its menus/settings have not yet been audited in this pass. Do not represent remembered features as current observations.

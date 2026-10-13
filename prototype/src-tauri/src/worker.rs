@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::{
-    atomic::{AtomicBool, AtomicUsize, Ordering},
+    atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
     mpsc, Arc, Mutex, OnceLock, Weak,
 };
 use std::time::{Duration, Instant};
@@ -222,6 +222,8 @@ fn validate_response(response: Value, id: &str) -> Result<Value, String> {
 
 type Reply = Result<Value, String>;
 struct Session {
+    generation: u64,
+    announced: Mutex<bool>,
     child: Mutex<Option<Child>>,
     input: Mutex<Option<ChildStdin>>,
     pending: Mutex<HashMap<String, mpsc::Sender<Reply>>>,
@@ -235,6 +237,13 @@ impl Session {
         let input = child.stdin.take().ok_or("Worker input missing")?;
         let output = child.stdout.take().ok_or("Worker output missing")?;
         let session = Arc::new(Self {
+            generation: SESSION_GENERATION
+                .fetch_update(Ordering::AcqRel, Ordering::Acquire, |value| {
+                    value.checked_add(1)
+                })
+                .map_err(|_| "Station service generation exhausted")?
+                + 1,
+            announced: Mutex::new(false),
             child: Mutex::new(Some(child)),
             input: Mutex::new(Some(input)),
             pending: Mutex::new(HashMap::new()),
@@ -445,6 +454,7 @@ fn read_responses(output: impl Read, weak: Weak<Session>) {
 }
 
 static SESSION: OnceLock<Mutex<Option<Arc<Session>>>> = OnceLock::new();
+static SESSION_GENERATION: AtomicU64 = AtomicU64::new(0);
 static SHUTTING_DOWN: AtomicBool = AtomicBool::new(false);
 static LOCAL_ACCEPTANCE: OnceLock<bool> = OnceLock::new();
 
@@ -485,10 +495,26 @@ fn start() -> Result<Arc<Session>, String> {
 }
 
 fn active_session() -> Result<Arc<Session>, String> {
-    let mut guard = SESSION
-        .get_or_init(|| Mutex::new(None))
-        .lock()
-        .map_err(|_| "Station service lock failed")?;
+    session_from_registry(SESSION.get_or_init(|| Mutex::new(None)), start, |session| {
+        if LOCAL_ACCEPTANCE.get() != Some(&true) {
+            let exact_session = session.clone();
+            crate::station_selection::worker_generation_started(
+                session.generation,
+                Arc::new(move |request| {
+                    validate_request(&request)?;
+                    request_in_session(&exact_session, request, RESPONSE_TIMEOUT)
+                }),
+            );
+        }
+    })
+}
+
+fn session_from_registry(
+    registry: &Mutex<Option<Arc<Session>>>,
+    start: impl FnOnce() -> Result<Arc<Session>, String>,
+    started: impl FnOnce(&Arc<Session>),
+) -> Result<Arc<Session>, String> {
+    let mut guard = registry.lock().map_err(|_| "Station service lock failed")?;
     if SHUTTING_DOWN.load(Ordering::Acquire) {
         return Err("Station service is shutting down".into());
     }
@@ -505,10 +531,26 @@ fn active_session() -> Result<Arc<Session>, String> {
     if guard.is_none() {
         *guard = Some(start()?);
     }
-    guard
+    let session = guard
         .as_ref()
         .cloned()
-        .ok_or("Station service unavailable".into())
+        .ok_or("Station service unavailable")?;
+    drop(guard);
+    // Every caller crosses the same per-child announcement barrier after
+    // registry unlock. A concurrent reuser must not return in the gap before
+    // the creator invalidates the previous generation's metadata status.
+    // The callback may take only metadata locks: never selection state or RPC.
+    {
+        let mut announced = session
+            .announced
+            .lock()
+            .map_err(|_| "Station service announcement failed")?;
+        if !*announced {
+            started(&session);
+            *announced = true;
+        }
+    }
+    Ok(session)
 }
 
 pub fn shutdown() {
@@ -831,6 +873,88 @@ mod tests {
                 .expect("fixture worker"),
         )
         .expect("fixture session")
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn replacement_hook_runs_once_outside_registry_and_addresses_exact_child() {
+        let registry = Mutex::new(None);
+        let generations = Mutex::new(Vec::new());
+        let hook = |session: &Arc<Session>| {
+            assert!(
+                registry.try_lock().is_ok(),
+                "bootstrap must not hold registry lock"
+            );
+            let response = request_in_session(
+                session,
+                json!({"id":"probe","method":"health","params":{}}),
+                Duration::from_secs(2),
+            )
+            .unwrap();
+            generations
+                .lock()
+                .unwrap()
+                .push((session.generation, response["result"]["child"].clone()));
+        };
+        let first = session_from_registry(&registry, || Ok(scripted_session("IFS= read -r request; printf '%s\\n' '{\"id\":\"probe\",\"ok\":true,\"result\":{\"child\":1}}'; cat >/dev/null")), &hook).unwrap();
+        let reused = session_from_registry(
+            &registry,
+            || panic!("must reuse live child"),
+            |_| panic!("must notify only creation"),
+        )
+        .unwrap();
+        assert!(Arc::ptr_eq(&first, &reused));
+        first.retire("fixture replacement");
+        let second = session_from_registry(&registry, || Ok(scripted_session("IFS= read -r request; printf '%s\\n' '{\"id\":\"probe\",\"ok\":true,\"result\":{\"child\":2}}'; cat >/dev/null")), &hook).unwrap();
+        assert!(second.generation > first.generation);
+        assert_eq!(
+            *generations.lock().unwrap(),
+            vec![(first.generation, json!(1)), (second.generation, json!(2))]
+        );
+        second.shutdown_with_grace(Duration::from_secs(1));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn concurrent_reuser_cannot_return_before_generation_announcement_finishes() {
+        let registry = Arc::new(Mutex::new(None));
+        let (entered, observed) = mpsc::channel();
+        let (release, finish) = mpsc::channel();
+        let creating = registry.clone();
+        let creator = std::thread::spawn(move || session_from_registry(
+            &creating,
+            || Ok(scripted_session("cat >/dev/null")),
+            |session| {
+                assert!(creating.try_lock().is_ok());
+                assert!(session.announced.try_lock().is_err());
+                entered.send(()).unwrap();
+                finish.recv().unwrap();
+            },
+        ).unwrap());
+        observed.recv_timeout(Duration::from_secs(2)).unwrap();
+        let published = registry.lock().unwrap().as_ref().unwrap().clone();
+        assert!(published.announced.try_lock().is_err());
+        let reusing = registry.clone();
+        let (attempted, attempting) = mpsc::channel();
+        let (returned, completed) = mpsc::channel();
+        let reuser = std::thread::spawn(move || {
+            attempted.send(()).unwrap();
+            let session = session_from_registry(&reusing, || panic!("must reuse published child"), |_| panic!("must announce exactly once")).unwrap();
+            returned.send(session.generation).unwrap();
+            session
+        });
+        attempting.recv_timeout(Duration::from_secs(2)).unwrap();
+        assert!(completed.recv_timeout(Duration::from_millis(100)).is_err(), "reuser returned before synchronous invalidation completed");
+        // Registry remains free while the announcement is deliberately paused;
+        // native shutdown does not acquire the announcement barrier.
+        assert!(registry.try_lock().is_ok());
+        release.send(()).unwrap();
+        assert_eq!(completed.recv_timeout(Duration::from_secs(2)).unwrap(), published.generation);
+        let created = creator.join().unwrap();
+        let reused = reuser.join().unwrap();
+        assert!(Arc::ptr_eq(&created, &reused));
+        assert!(*published.announced.lock().unwrap());
+        published.shutdown_with_grace(Duration::from_secs(1));
     }
 
     #[cfg(unix)]

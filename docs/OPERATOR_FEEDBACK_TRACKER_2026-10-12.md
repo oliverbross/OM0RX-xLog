@@ -654,6 +654,49 @@ main-window-closed station acceptance. Detached new-QSO editing remains open.
 Before the first durable peak or during repeated database failures, delivery
 still preserves FIFO rather than coalescing speculative readings.
 
+### RADIO-04 worker replacement recovery — 14 October
+
+Follow-up source correction: a replacement Swift worker now receives the saved
+native selection metadata without depending on a renderer read or reconnect.
+Each worker has a monotonic generation and a per-session announcement barrier;
+every caller crosses the barrier after registry unlock, so concurrent reuse
+cannot observe the old generation's ready acknowledgement. Metadata invalidation
+never takes the selection-state lock. Background bootstrap reads a separately
+mirrored native selection and waits cancellably for native controls without
+taking that lock either, then addresses that exact child, not whichever worker is
+current later. Both generation and sequence fence status completions.
+
+New Rust regressions cover exact-child replacement, concurrent reuse,
+saved/unset startup, first-start handover and reconnect null fences, stale
+acknowledgements, cancelled obsolete tasks, prompt disconnect and nonfatal
+failure coalescing. Independent review identified the announcement race; a full
+test rerun also exposed optional bootstrap briefly competing with Disconnect's
+state lock. The separate metadata snapshot removes that competition, with a
+regression requiring bootstrap to complete while that state lock is held.
+Five consecutive complete native-unit runs passed 190 tests each; the final
+offline Cargo run passed all 208 tests across its unit and integration suites.
+This is metadata recovery, not automatic radio reconnection or proof of renewed
+measured samples.
+It is not included in the staged `cd25718` package. Native packaged restart and
+physical telemetry acceptance remain open; the running app was untouched.
+
+### PERF-03 generated large-log save check — 14 October
+
+An opt-in `PostCommitContactRefreshTests.generatedLargeLogSaveTiming` builds a
+new disposable 68,000-contact database, then measures 50 canonical saves through
+`LiveWorker.response`. Each successful reply is checked against its committed
+receipt and contact count through a separate SQLite connection. Contact
+projection is deliberately held throughout; these measurements isolate the
+durable response rather than claiming aggregate-contention or UI timing.
+
+On this Mac, `XLOG_PORTABLE_ONLY=1 XLOG_SAVE_PERF=1 swift test --scratch-path
+.build/power-service-tests --filter PostCommitContactRefreshTests` passed all
+eight tests. Save response median was **1.308 ms**, p95 **2.977 ms**, maximum
+**8.203 ms**; fixture import plus tests completed in 19.815 seconds (build
+excluded). This confirms the local durable-save path need not wait for whole-log
+projection. Webview/IPC latency, realistic simultaneous background work and the
+installed app remain separate acceptance gates. No live log or service was used.
+
 ## Longer-term parity gates (not silently closed by this release)
 
 ### 14 October — middle-width Operator Desk clarification
