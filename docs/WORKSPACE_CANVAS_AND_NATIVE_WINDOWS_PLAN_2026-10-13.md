@@ -432,6 +432,41 @@ Final local verification: 549 frontend tests and TypeScript/Vite/bundle gates pa
 
 Committed source `ddbe729556bdb9ddf06512243c6a217be2b86194` was pushed. Its all-platform run `38363722286` caught two portability issues before packaging: Linux's test-start helper exhausted a fixed Task.yield count before the task ran, and Windows lacks the newly imported CoreFoundation module. Follow-up uses an actual XCTest start expectation and bounded wall-clock completion wait; the production Boolean gate now uses the already-established portable Foundation JSON scalar distinction rather than CoreFoundation IDs. Numeric 0/1 still cannot authorize synchronization. Renewed exact-source three-platform verification is required; the installed application remains unchanged.
 
+### Sync identity preflight and no-op reconciliation follow-up
+
+Source `98019faae242f9fc40c35f5464239abb69d2df33` passes all five jobs in
+`38364874845`: Mac/Windows/Linux builds, Windows fresh-runner and Linux
+runtime-only acceptance. This covers the earlier consent/scheduler portability
+fixes, not the later changes below. Installed alpha.13 is still unchanged.
+
+A synthetic audit reproduced an additional identity bug: JSON IDs were appended
+and then popped in reverse when joining ADIF, so same-call/time/band/frequency
+contacts with different names/comments could acquire each other's remote IDs.
+Synchronization now stages the complete export and joins duplicate groups by
+shared JSON/ADIF fields before any merge, deletion or push. Arbitrary ordering is
+allowed only for provably identical residual payloads compatible with every
+remaining candidate. Unresolvable differences fail closed. Cross-page grouping,
+both endpoint orderings, mixed/identical duplicates and mismatch/no-write cases
+are tested. Numeric frequency conversions reject nonfinite/overflowing input
+without trapping the worker; missing ADIF frequency remains supported.
+
+Unchanged remote merges now compare the full normalized persisted QSO and its
+baseline before skipping writes. This preserves contact revisions, timestamps
+and aggregate caches; real remote changes, clean tombstone resurrection and
+baseline repair still write, while dirty-local conflict rules are unchanged.
+Synthetic database-only 68,000-row evidence: initial import 11.858 s, unchanged
+repeat 3.960 s, zero QSO writes on repeat. These are local fixture timings, not
+network/full-app/production latency claims. Complete-export staging peak memory
+and whole-app responsiveness still need measurement.
+
+Verification: all portable Swift suites pass after the final parser fix
+(122 Swift Testing cases plus XCTest suites); identity suite has 11 tests / 28
+parameter cases, and six no-op tests include the opt-in 68k benchmark. The six
+new header checks bring the frontend total to 555 passing tests; TypeScript,
+Vite and detached style/bundle gates pass. Renewed exact-source platform CI and
+installed authenticated reconciliation remain required. No live account or
+installed application was modified during this source follow-up.
+
 ### Checkpoint X — native geometry recovery foundation
 
 Main, Monitor and existing detached windows now share display-relative logical

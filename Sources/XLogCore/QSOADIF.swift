@@ -12,7 +12,15 @@ public extension QSO {
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
         formatter.dateFormat = "yyyyMMddHHmmss"
         guard let start = formatter.date(from: stamp) else { return nil }
-        let frequencyHz = record["FREQ"].flatMap(Double.init).map { Int64(($0 * 1_000_000).rounded()) }
+        let frequencyHz: Int64?
+        if let text = record["FREQ"] {
+            guard let mhz = Double(text), mhz.isFinite else { return nil }
+            let hertz = mhz * 1_000_000
+            guard hertz.isFinite, let value = Int64(exactly: hertz.rounded()) else { return nil }
+            frequencyHz = value
+        } else {
+            frequencyHz = nil
+        }
         self.init(
             wavelogID: wavelogID,
             call: call,

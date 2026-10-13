@@ -25,7 +25,8 @@ public actor SyncEngine {
         try Task.checkCancellation()
         var report = SyncReport()
         var remoteIDs: Set<Int> = []
-        var idsByIdentity: [String: [Int]] = [:]
+        var jsonByIdentity: [String: [WavelogQSO]] = [:]
+        var adifByIdentity: [String: [QSO]] = [:]
 
         func hasStableMetadata(_ page: WavelogQSOPage, matching baseline: WavelogListMeta) -> Bool {
             page.meta.total == baseline.total &&
@@ -50,11 +51,11 @@ public actor SyncEngine {
             remoteIDs.formUnion(page.data.map(\.id))
             for remote in page.data {
                 guard let qso = QSO(wavelog: remote) else { continue }
-                idsByIdentity[identity(qso), default: []].append(remote.id)
+                jsonByIdentity[identity(qso), default: []].append(remote)
             }
         }
 
-        func merge(_ page: WavelogADIFPage) throws -> (matched: Int, unmatched: Int) {
+        func stage(_ page: WavelogADIFPage) throws {
             try Task.checkCancellation()
             let records = ADIFParser().records(in: page.data.adif)
             guard records.count == page.meta.count else {
@@ -62,24 +63,12 @@ public actor SyncEngine {
                     "ADIF page \(page.meta.page) declared \(page.meta.count) records but contained \(records.count)."
                 )
             }
-            var remoteQSOs: [QSO] = []
-            var unmatched = 0
             for record in records {
-                guard var qso = QSO(adif: record) else {
+                guard let qso = QSO(adif: record) else {
                     throw WavelogClientError.invalidData("ADIF page \(page.meta.page) contained an unreadable QSO.")
                 }
-                let key = identity(qso)
-                guard var ids = idsByIdentity[key], let remoteID = ids.popLast() else {
-                    unmatched += 1
-                    continue
-                }
-                idsByIdentity[key] = ids
-                qso.wavelogID = remoteID
-                remoteQSOs.append(qso)
+                adifByIdentity[identity(qso), default: []].append(qso)
             }
-            report.conflicts += try database.mergeRemoteBatch(remoteQSOs)
-            report.pulled += remoteQSOs.count
-            return (remoteQSOs.count, unmatched)
         }
 
         let firstPage = try await client.listQSOs(page: 1, perPage: 5_000)
@@ -124,7 +113,7 @@ public actor SyncEngine {
             }
         }
 
-        let convertibleJSONCount = idsByIdentity.values.reduce(0) { $0 + $1.count }
+        let convertibleJSONCount = jsonByIdentity.values.reduce(0) { $0 + $1.count }
         let firstADIFPage = try await client.exportADIF(page: 1, perPage: 1_000)
         guard firstADIFPage.meta.page == 1,
               firstADIFPage.meta.total == baselineMeta.total,
@@ -133,7 +122,7 @@ public actor SyncEngine {
         }
         let adifBaselineMeta = firstADIFPage.meta
         var adifRecordCount = firstADIFPage.meta.count
-        var unmatchedADIFCount = try merge(firstADIFPage).unmatched
+        try stage(firstADIFPage)
         if firstADIFPage.meta.hasMore {
             let pageSize = max(1, firstADIFPage.meta.perPage)
             var nextPage = 2
@@ -155,15 +144,27 @@ public actor SyncEngine {
                         throw WavelogClientError.invalidResponse
                     }
                     adifRecordCount += page.meta.count
-                    unmatchedADIFCount += try merge(page).unmatched
+                    try stage(page)
                 }
                 nextPage = lastPage + 1
             }
         }
 
-        let unmatchedJSONCount = idsByIdentity.values.reduce(0) { $0 + $1.count }
+        // Both endpoints paginate independently. Resolve complete identity
+        // groups before writing: neither endpoint's order identifies a QSO.
+        var remoteQSOs: [QSO] = []
+        var unmatchedADIFCount = 0
+        for (key, rows) in adifByIdentity {
+            try Task.checkCancellation()
+            guard let candidates = jsonByIdentity.removeValue(forKey: key) else {
+                unmatchedADIFCount += rows.count
+                continue
+            }
+            remoteQSOs += try joinedADIF(rows, with: candidates)
+        }
+        let unmatchedJSONCount = jsonByIdentity.values.reduce(0) { $0 + $1.count }
         guard adifRecordCount == baselineMeta.total,
-              report.pulled == convertibleJSONCount,
+              remoteQSOs.count == convertibleJSONCount,
               unmatchedJSONCount == 0,
               unmatchedADIFCount == baselineMeta.total - convertibleJSONCount else {
             throw WavelogClientError.invalidData(
@@ -183,6 +184,8 @@ public actor SyncEngine {
             throw WavelogClientError.invalidResponse
         }
         try Task.checkCancellation()
+        report.conflicts += try database.mergeRemoteBatch(remoteQSOs)
+        report.pulled += remoteQSOs.count
         report.conflicts += try database.recordRemoteDeletionConflicts(notIn: remoteIDs)
         report.deleted += try database.removeCleanRemoteRecords(notIn: remoteIDs)
 
@@ -223,6 +226,94 @@ public actor SyncEngine {
     }
 }
 
+private func joinedADIF(_ rows: [QSO], with remotes: [WavelogQSO]) throws -> [QSO] {
+    guard rows.count == remotes.count else {
+        throw WavelogClientError.invalidData("JSON and ADIF identity groups have different record counts.")
+    }
+    if rows.count == 1 {
+        var row = rows[0]
+        row.wavelogID = remotes[0].id
+        return [row]
+    }
+    var pending = rows
+    var candidates = remotes
+    var joined: [QSO] = []
+    while !pending.isEmpty {
+        try Task.checkCancellation()
+        // This also handles identical residual duplicates after a distinct
+        // contact has been uniquely resolved. Export-only/unknown fields must
+        // agree across the complete residual group, and every candidate must
+        // agree with that payload before interchangeable IDs can be assigned.
+        if pending.dropFirst().allSatisfy({ $0.extraFields == pending[0].extraFields }) {
+            guard candidates.allSatisfy({ compatibleADIF(pending[0], with: $0) }) else {
+                throw WavelogClientError.invalidData("JSON and ADIF duplicate fields disagree.")
+            }
+            joined += zip(pending, candidates.sorted { $0.id < $1.id }).map { original, remote in
+                var row = original
+                row.wavelogID = remote.id
+                return row
+            }
+            break
+        }
+        var resolved = false
+        for index in pending.indices {
+            let matches = candidates.indices.filter { compatibleADIF(pending[index], with: candidates[$0]) }
+            guard matches.count == 1 else { continue }
+            var row = pending.remove(at: index)
+            row.wavelogID = candidates.remove(at: matches[0]).id
+            joined.append(row)
+            resolved = true
+            break
+        }
+        guard resolved else {
+            throw WavelogClientError.invalidData(
+                "Distinct ADIF contacts share an identity and cannot be matched to their JSON IDs. No contacts were merged or pushed."
+            )
+        }
+    }
+    return joined
+}
+
+private func compatibleADIF(_ row: QSO, with remote: WavelogQSO) -> Bool {
+    let fields: [(String, String?)] = [
+        ("RST_SENT", remote.rstSent), ("RST_RCVD", remote.rstReceived),
+        ("GRIDSQUARE", remote.gridSquare), ("NAME", remote.name),
+        ("COMMENT", remote.comment), ("NOTES", remote.notes),
+        ("QTH", remote.qth), ("STATE", remote.state), ("CNTY", remote.county),
+        ("IOTA", remote.iota), ("QSL_VIA", remote.qslVia),
+        ("TX_PWR", remote.power), ("CQZ", remote.cqZone), ("ITUZ", remote.ituZone),
+        ("PROP_MODE", remote.propagationMode), ("SAT_NAME", remote.satelliteName),
+        ("SAT_MODE", remote.satelliteMode), ("SOTA_REF", remote.sotaReference),
+        ("POTA_REF", remote.potaReference), ("WWFF_REF", remote.wwffReference),
+        ("BAND_RX", remote.receiveBand),
+    ]
+    for (key, value) in fields {
+        // An omitted JSON field provides no evidence for or against a match.
+        guard let value else { continue }
+        let exported = row.extraFields[key] ?? ""
+        if ["TX_PWR", "CQZ", "ITUZ"].contains(key),
+           let lhs = Decimal(string: exported), let rhs = Decimal(string: value) {
+            guard lhs == rhs else { return false }
+        } else if exported != value {
+            return false
+        }
+    }
+    if let value = remote.receiveFrequency {
+        guard let jsonHz = roundedHertz(value),
+              let exported = row.extraFields["FREQ_RX"],
+              let adifHz = roundedHertz(exported, multiplier: 1_000_000),
+              jsonHz == adifHz else { return false }
+    }
+    return true
+}
+
+private func roundedHertz(_ text: String, multiplier: Double = 1) -> Int64? {
+    guard let value = Double(text), value.isFinite else { return nil }
+    let scaled = value * multiplier
+    guard scaled.isFinite else { return nil }
+    return Int64(exactly: scaled.rounded())
+}
+
 private extension QSO {
     init?(wavelog value: WavelogQSO) {
         let formatter = DateFormatter()
@@ -237,8 +328,8 @@ private extension QSO {
             band: value.band,
             mode: value.mode,
             submode: value.submode ?? "",
-            frequencyHz: value.frequency.flatMap(Double.init).map { Int64($0.rounded()) },
-            receiveFrequencyHz: value.receiveFrequency.flatMap(Double.init).map { Int64($0.rounded()) },
+            frequencyHz: value.frequency.flatMap { roundedHertz($0) },
+            receiveFrequencyHz: value.receiveFrequency.flatMap { roundedHertz($0) },
             receiveBand: value.receiveBand ?? "",
             rstSent: value.rstSent ?? "",
             rstReceived: value.rstReceived ?? "",

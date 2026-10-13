@@ -181,12 +181,7 @@ public final class LogbookDatabase: @unchecked Sendable {
 
     public func save(_ value: QSO, markDirty: Bool = true) throws {
         try lock.withLock {
-            var qso = value
-            qso.call = qso.call.uppercased().trimmingCharacters(in: .whitespacesAndNewlines)
-            qso.band = qso.band.lowercased()
-            qso.mode = qso.mode.uppercased()
-            qso.isDirty = markDirty
-            qso.updatedAt = Date()
+            let qso = normalizedForSave(value, markDirty: markDirty, updatedAt: Date())
             let data = try encoder.encode(qso)
             let sql = """
             INSERT INTO qsos(local_id,wavelog_id,call,qso_start,band,mode,frequency_hz,is_dirty,deleted_at,updated_at,record_json,baseline_json)
@@ -1241,13 +1236,16 @@ public final class LogbookDatabase: @unchecked Sendable {
     @discardableResult
     public func mergeRemote(_ remote: QSO) throws -> Bool {
         try lock.withLock {
-            if let remoteID = remote.wavelogID, let existing = try lookup(wavelogID: remoteID), existing.isDirty {
+            let linked = try remote.wavelogID.flatMap { try lookup(wavelogID: $0) }
+            if let existing = linked, existing.isDirty {
                 if try remoteMatchesBaseline(remote, localID: existing.id) { return false }
                 try recordConflict(local: existing, remote: mergeRemoteFields(remote, preserving: existing))
                 return true
             }
             var value = remote
-            if let remoteID = value.wavelogID, let existing = try lookup(wavelogID: remoteID) {
+            var matched: QSO?
+            if let existing = linked {
+                matched = existing
                 value = mergeRemoteFields(value, preserving: existing)
             }
             // Similar contact fields are only a fallback for a local/imported
@@ -1260,7 +1258,20 @@ public final class LogbookDatabase: @unchecked Sendable {
                     try recordConflict(local: existing, remote: mergeRemoteFields(remote, preserving: existing))
                     return true
                 }
+                matched = existing
                 value = mergeRemoteFields(value, preserving: existing)
+            }
+            // Compare everything save() would persist, including confirmations,
+            // enrichment, unknown ADIF fields and tombstones. The conflict
+            // fingerprint intentionally covers fewer fields. Retain the stored
+            // timestamp only for comparison; a real change still gets a new one.
+            // Missing, stale or damaged clean baselines still need save() to repair them.
+            if let existing = matched {
+                let candidate = normalizedForSave(value, markDirty: false, updatedAt: existing.updatedAt)
+                if candidate == existing,
+                   try remoteMatchesBaseline(candidate, localID: existing.id, invalidBaselineIsMismatch: true) {
+                    return false
+                }
             }
             try save(value, markDirty: false)
             return false
@@ -1540,17 +1551,30 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
-    private func remoteMatchesBaseline(_ remote: QSO, localID: UUID) throws -> Bool {
+    private func remoteMatchesBaseline(_ remote: QSO, localID: UUID, invalidBaselineIsMismatch: Bool = false) throws -> Bool {
         try withStatement("SELECT baseline_json FROM qsos WHERE local_id = ? LIMIT 1;") { statement in
             bind(localID.uuidString, to: 1, in: statement)
             guard sqlite3_step(statement) == SQLITE_ROW, let bytes = sqlite3_column_blob(statement, 0) else { return false }
             let baseline = Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 0)))
+            if invalidBaselineIsMismatch {
+                return (try? decoder.decode(SyncedQSOState.self, from: baseline)) == SyncedQSOState(remote)
+            }
             return try decoder.decode(SyncedQSOState.self, from: baseline) == SyncedQSOState(remote)
         }
     }
 
     private func syncFingerprint(_ value: QSO) throws -> Data {
         try encoder.encode(SyncedQSOState(value))
+    }
+
+    private func normalizedForSave(_ value: QSO, markDirty: Bool, updatedAt: Date) -> QSO {
+        var qso = value
+        qso.call = qso.call.uppercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        qso.band = qso.band.lowercased()
+        qso.mode = qso.mode.uppercased()
+        qso.isDirty = markDirty
+        qso.updatedAt = updatedAt
+        return qso
     }
 
     private func mergeRemoteFields(_ remote: QSO, preserving local: QSO) -> QSO {
