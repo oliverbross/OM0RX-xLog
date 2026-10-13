@@ -36,7 +36,7 @@
 .qso-detail-column h3 { display:flex; align-items:center; gap:7px; margin:0 0 12px; color:#e5edf7; font-size:11px; line-height:1.3; font-weight:700; }
 .qso-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-content:start; gap:8px 10px; }
 .qso-field.qso-wide { grid-column:1/-1; }
-.qso-field textarea { resize:vertical; min-height:84px; line-height:1.45; }
+.qso-field textarea { resize:vertical; min-height:84px; line-height:1.45; white-space:pre-wrap; overflow-wrap:anywhere; }
 .qso-captured { margin-bottom:12px; padding:9px; background:#10253b; border-radius:6px; }
 .qso-captured>strong { display:block; margin-bottom:5px; color:#a5b9cc; font-size:10px; text-transform:uppercase; }
 .qso-captured dl { margin:0; }
@@ -71,13 +71,13 @@
 .qso-inspector h2 { margin-bottom:10px; }
 .qso-inspector h3 { margin:8px 0 5px; color:#b5c8dc; font-size:10px; font-weight:700; }
 .qso-inspector p { margin:3px 0 8px; color:#a5b9cc; font-size:11px; }
-.qso-intelligence { display:flex; justify-content:space-between; gap:8px; align-items:baseline; }
+.qso-intelligence { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:8px; align-items:baseline; }
 .qso-intelligence strong { font-size:12px; }
 .qso-intelligence b { color:#f3b23c; font-size:10px; white-space:nowrap; }
-.qso-profile-summary { display:flex; align-items:start; gap:12px; }
-.qso-profile-identity { min-width:0; flex:1; }
-.qso-inspector .qso-photo-trigger { display:block; flex:0 0 auto; max-width:60%; margin:0; padding:0; min-height:0; border:0; background:transparent; cursor:zoom-in; }
-.qso-profile-photo { display:block; width:176px; max-width:100%; height:auto; max-height:208px; object-fit:contain; border-radius:5px; }
+.qso-profile-summary { display:grid; grid-template-columns:minmax(0,1fr); align-items:start; gap:8px; }
+.qso-profile-identity { min-width:0; text-align:right; overflow-wrap:anywhere; }
+.qso-inspector .qso-photo-trigger { display:block; width:100%; max-width:100%; margin:0; padding:0; min-height:0; border:0; background:transparent; cursor:zoom-in; }
+.qso-profile-photo { display:block; width:100%; height:auto; object-fit:contain; border-radius:5px; }
 .qso-photo-viewer { width:max-content; max-width:calc(100vw - 40px); max-height:calc(100dvh - 40px); margin:auto; padding:14px; border:1px solid #466481; border-radius:8px; background:#0b1728; color:#e6edf6; }
 .qso-photo-viewer::backdrop { background:rgb(0 8 18 / 82%); }
 .qso-photo-viewer header { display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:12px; }

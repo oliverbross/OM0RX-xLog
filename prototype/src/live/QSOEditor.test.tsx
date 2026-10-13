@@ -37,7 +37,7 @@ describe("QSOEditor", () => {
     expect(editorCSS).not.toContain("height:100%");
     expect(editorCSS).not.toContain("min-height:390px");
   });
-  it("shows matched QRZ details and safe bounded photo without mutating the QSO draft", () => {
+  it("shows matched QRZ details below a full-width safe photo without mutating the QSO draft", () => {
     const profile = { call: "EA7EU", source: "QRZ XML", name: "Operator name", country: "Spain", gridSquare: "IM67AA", dxcc: 281,
       imageURL: "https://cdn-bio.qrz.com/e/ea7eu/photo.jpg", nickname: "On-air nickname", websiteURL: "https://station.example.com/", qslManager: "EA1AAA", iota: "EU-005", licenseClass: "Full", qth: "Seville", state: "Andalusia", county: "Seville", email: "radio@example.com" };
     render(<Harness lookup={profile} />);
@@ -46,6 +46,10 @@ describe("QSOEditor", () => {
     expect(image.getAttribute("src")).toBe(profile.imageURL);
     expect(image.getAttribute("referrerpolicy")).toBe("no-referrer");
     expect(image.className).toBe("qso-profile-photo");
+    const trigger = image.closest("button")!;
+    expect(trigger.nextElementSibling?.className).toBe("qso-profile-identity");
+    expect(editorCSS).toContain(".qso-profile-photo { display:block; width:100%; height:auto;");
+    expect(editorCSS).toContain(".qso-profile-identity { min-width:0; text-align:right; overflow-wrap:anywhere;");
     for (const detail of ["Operator name", "QRZ XML", "On-air nickname", "EA1AAA", "EU-005", "Full", "radio@example.com"]) expect(inspector.getByText(detail)).toBeTruthy();
     expect(inspector.getByRole("link", { name: "Station website" }).getAttribute("rel")).toBe("noopener noreferrer");
     expect(value()).toEqual(initial());
@@ -184,11 +188,12 @@ describe("QSOEditor", () => {
     expect(editorCSS).toContain("grid-template-rows:16px 18px"); expect(editorCSS).toContain(".qso-matrix-section+.qso-matrix-section { padding-left:0; border-left:0; }");
     expect(value()).toEqual(initial());
   });
-  it("opens a twice-sized thumbnail in a safe full-size modal, traps focus, closes on Escape and restores focus", () => {
+  it("opens the full-width photo in a safe full-size modal, traps focus, closes on Escape and restores focus", () => {
     const save = vi.fn(), photo = "https://cdn-bio.qrz.com/e/ea7eu/photo.jpg";
     render(<Harness save={save} lookup={{ call: "EA7EU", imageURL: photo, source: "QRZ XML" }} />);
     const trigger = screen.getByRole("button", { name: "View full-size QRZ photo for EA7EU" });
-    expect(trigger.getAttribute("aria-haspopup")).toBe("dialog"); expect(editorCSS).toContain("width:176px"); expect(editorCSS).toContain("max-height:208px");
+    expect(trigger.getAttribute("aria-haspopup")).toBe("dialog");
+    expect(editorCSS).not.toContain("width:176px"); expect(editorCSS).not.toContain("max-height:208px");
     trigger.focus(); fireEvent.click(trigger);
     const dialog = screen.getByRole("dialog", { name: "Full-size QRZ photo for EA7EU" });
     const image = within(dialog).getByRole("img", { name: "EA7EU full-size QRZ profile photo" });
@@ -241,6 +246,19 @@ describe("QSOEditor", () => {
     expect(value()).toMatchObject({ stationLocation: "Home", receiveFrequencyHz: 7035000, dxcc: 281,
       potaReference: "EA-0001", notes: "First line\nSecond line", qslReceived: "Y",
       extraFields: { APP_XLOG_NOTE: "changed" }, customQSOKey: { retain: true } });
+  });
+
+  it("soft-wraps notes without changing long words, whitespace or explicit newlines", () => {
+    const { container } = render(<Harness />);
+    const notes = screen.getByLabelText("QSO note") as HTMLTextAreaElement;
+    const text = `First line\n  ${"long-unbroken-note".repeat(80)}\nLast line  `;
+    expect(notes.wrap).toBe("soft");
+    fireEvent.change(notes, { target: { value: text } });
+    expect(notes.value).toBe(text);
+    expect(value().notes).toBe(text);
+    expect(container.querySelectorAll("input[placeholder], textarea[placeholder]")).toHaveLength(0);
+    expect(screen.getByLabelText("RST sent")).toBeTruthy();
+    expect(editorCSS).toContain("white-space:pre-wrap; overflow-wrap:anywhere;");
   });
 
   it("round-trips every exposed detail field through its native QSO key", () => {
