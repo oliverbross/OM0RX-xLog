@@ -229,7 +229,8 @@ struct OperatorDraftTests {
         let response = try await request("logbook_operator_draft")
         let snapshot = try #require((response["result"] as? [String: Any])?["draft"] as? [String: Any])
         var qso = try #require(snapshot["qso"] as? [String: Any]); qso["call"] = "K1ABC"
-        let params: [String: Any] = ["operationID": UUID().uuidString, "draftID": qso["id"]!, "expectedRevision": 0, "action": "replace", "qso": qso]
+        let generation = try #require(snapshot["generation"] as? String)
+        let params: [String: Any] = ["generation": generation, "operationID": UUID().uuidString, "draftID": qso["id"]!, "expectedRevision": 0, "action": "replace", "qso": qso]
         let changed = try await request("logbook_operator_draft_apply", params)
         #expect((changed["result"] as? [String: Any])?["status"] as? String == "applied")
         var stale = params; stale["operationID"] = UUID().uuidString
@@ -243,10 +244,10 @@ struct OperatorDraftTests {
             #expect(result["ok"] as? Bool == false)
         }
         let savedID = UUID().uuidString
-        let save: [String: Any] = ["operationID": savedID, "draftID": qso["id"]!, "expectedRevision": 1, "action": "save"]
+        let save: [String: Any] = ["generation": generation, "operationID": savedID, "draftID": qso["id"]!, "expectedRevision": 1, "action": "save"]
         #expect(try await request("logbook_operator_draft_apply", save)["ok"] as? Bool == true)
         #expect(try await request("logbook_operator_draft_apply", save)["ok"] as? Bool == true)
-        let receipt = try await request("logbook_operator_draft_receipt", ["operationID": savedID])
+        let receipt = try await request("logbook_operator_draft_receipt", ["generation": generation, "operationID": savedID])
         #expect((receipt["result"] as? [String: Any])?["receipt"] as? [String: Any] != nil)
         #expect(try service.openedDatabase().count() == 1)
         await worker.shutdown()

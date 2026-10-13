@@ -208,11 +208,12 @@ struct LogbookContactTests {
         let reply = try await request("logbook_contact", ["contactID": qso.id.uuidString])
         let contact = try #require((reply["result"] as? [String: Any])?["contact"] as? [String: Any])
         var edited = try #require(contact["qso"] as? [String: Any]); edited["comment"] = "Offline edit"
-        var params: [String: Any] = ["operationID": UUID().uuidString, "contactID": qso.id.uuidString, "expectedRevision": contact["revision"]!, "action": "update", "qso": edited]
+        let generation = try #require(contact["generation"] as? String)
+        var params: [String: Any] = ["generation": generation, "operationID": UUID().uuidString, "contactID": qso.id.uuidString, "expectedRevision": contact["revision"]!, "action": "update", "qso": edited]
         let result = try await request("logbook_contact_apply", params)
         #expect((result["result"] as? [String: Any])?["status"] as? String == "applied")
         #expect(try await request("logbook_contact_apply", params)["ok"] as? Bool == true)
-        let receipt = try await request("logbook_contact_receipt", ["operationID": params["operationID"]!])
+        let receipt = try await request("logbook_contact_receipt", ["generation": generation, "operationID": params["operationID"]!])
         #expect((receipt["result"] as? [String: Any])?["receipt"] as? [String: Any] != nil)
         params["operationID"] = UUID().uuidString
         let conflict = try await request("logbook_contact_apply", params)

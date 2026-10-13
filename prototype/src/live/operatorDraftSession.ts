@@ -1,18 +1,18 @@
 /** Local-first view of the workspace's canonical draft. No radio operations. */
 export type DraftQSO = Record<string, any> & { id: string };
-export type DraftSnapshot = { revision: number; qso: DraftQSO };
+export type DraftSnapshot = { revision: number; qso: DraftQSO; generation?: string };
 export type DraftMutation = { operationID: string; draftID: string; expectedRevision: number;
-  action: "replace" | "clear" | "save"; qso?: DraftQSO };
+  action: "replace" | "clear" | "save"; qso?: DraftQSO; generation?: string };
 type Receipt = { mutation: DraftMutation; draft: DraftSnapshot; savedQSO?: DraftQSO | null };
 type Request = (method: string, params?: Record<string, unknown>) => Promise<any>;
 export type DraftSessionState = { draft: DraftQSO | null; base: DraftSnapshot | null;
-  conflict: DraftSnapshot | null; pending: DraftMutation | null; error: string; locked: boolean };
+  conflict: DraftSnapshot | null; pending: DraftMutation | null; error: string; locked: boolean; workspaceChanged: boolean };
 export type DraftJournal = Pick<DraftSessionState, "draft" | "base" | "pending">;
 const object = (value: any) => value !== null && typeof value === "object" && !Array.isArray(value);
 const clone = <T>(value: T): T => structuredClone(value);
 const stable = (value: any): string => JSON.stringify(value, (key, item) => {
   if (typeof item === "string") {
-    if (["id", "operationID", "draftID", "contactID"].includes(key)) return item.toLowerCase();
+    if (["id", "operationID", "draftID", "contactID", "generation"].includes(key)) return item.toLowerCase();
     if (["start", "end", "createdAt", "updatedAt", "deletedAt"].includes(key) && /^\d{4}-\d\d-\d\dT/.test(item) && Number.isFinite(Date.parse(item)))
       return new Date(item).toISOString();
   }
@@ -28,6 +28,11 @@ export function validDraftSnapshot(value: any): value is DraftSnapshot {
   return object(value) && Number.isSafeInteger(value.revision) && value.revision >= 0 &&
     object(value.qso) && typeof value.qso.id === "string" && value.qso.id.length > 0;
 }
+export const validGeneration = (value: unknown): value is string => typeof value === "string" && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value);
+export const validScopedSnapshot = (value: any): value is DraftSnapshot & { generation: string } => validDraftSnapshot(value) && validGeneration(value.generation);
+export const sameGeneration = (a: unknown, b: unknown) => validGeneration(a) && validGeneration(b) && a.toLowerCase() === b.toLowerCase();
+export const changedWorkspaceResponse = (value: any) => value?.status === "workspace_changed" && validGeneration(value.generation);
+export const workspaceChangedMessage = "This edit may belong to a restored or replaced workspace. Your text is retained; earlier saves may exist in the recovery backup. Review the log before logging again.";
 function validMutation(value: any): value is DraftMutation {
   return object(value) && typeof value.operationID === "string" && typeof value.draftID === "string" &&
     Number.isSafeInteger(value.expectedRevision) && value.expectedRevision >= 0 &&
@@ -57,9 +62,10 @@ export class OperatorDraftSession {
   constructor(private request: Request, private writeJournal: (journal: DraftJournal) => void,
     journal: DraftJournal | null = null, private uuid: () => string = () => crypto.randomUUID()) {
     journal = clone(journal);
+    const workspaceChanged = !!journal?.base && (!validGeneration(journal.base.generation) || !!journal.pending && !sameGeneration(journal.pending.generation, journal.base.generation));
     this.state = { draft: journal?.draft ?? null, base: journal?.base ?? null,
-      pending: journal?.pending ?? null, conflict: null, error: "",
-      locked: !!journal?.pending && journal.pending.action !== "replace" };
+      pending: journal?.pending ?? null, conflict: null, workspaceChanged, error: workspaceChanged ? workspaceChangedMessage : "",
+      locked: !workspaceChanged && !!journal?.pending && journal.pending.action !== "replace" };
   }
   getSnapshot = () => this.state;
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
@@ -85,16 +91,18 @@ export class OperatorDraftSession {
     return this.loading;
   }
   async refresh() {
+    if (this.state.workspaceChanged) return;
     if (this.work || this.action || this.state.locked && !this.state.pending) return;
     const lifecycle = this.lifecycle;
     if (this.state.pending) { await this.reconcile(); return; }
     const result = await this.request("logbook_operator_draft");
     if (lifecycle !== this.lifecycle || this.work || this.action || this.state.pending) return;
-    if (!validDraftSnapshot(result?.draft)) throw new Error("The shared draft response could not be verified.");
+    if (!validScopedSnapshot(result?.draft)) throw new Error("The shared draft response could not be verified.");
     this.acceptCurrent(result.draft);
   }
   private acceptCurrent(current: DraftSnapshot) {
     const base = this.state.base;
+    if (base && !sameGeneration(current.generation, base.generation)) { this.changedWorkspace(); return; }
     if (base && current.revision < base.revision) {
       this.update({ conflict: clone(current), error: "The logbook draft was restored or replaced. Review your local text before continuing." });
       return;
@@ -105,12 +113,14 @@ export class OperatorDraftSession {
     } else this.update({ base: clone(current), draft: clone(current.qso), conflict: null, error: "" });
   }
   private mutation(action: DraftMutation["action"]): DraftMutation {
-    if (!this.state.base) throw new Error("Load the shared draft first.");
+    if (!this.state.base || this.state.workspaceChanged || !validGeneration(this.state.base.generation)) throw new Error("Load the current workspace draft first.");
     return { operationID: this.uuid(), draftID: this.state.base.qso.id, expectedRevision: this.state.base.revision,
-      action, ...(action === "replace" ? { qso: clone(this.state.draft!) } : {}) };
+      generation: this.state.base.generation, action, ...(action === "replace" ? { qso: clone(this.state.draft!) } : {}) };
   }
+  private changedWorkspace() { this.update({ workspaceChanged: true, locked: false, conflict: null, error: workspaceChangedMessage }); }
   private verifiedReceipt(value: any, mutation: DraftMutation): Receipt {
-    if (!object(value) || !sameDraftValue(value.mutation, mutation) || !validDraftSnapshot(value.draft) ||
+    if (!object(value) || !sameDraftValue(value.mutation, mutation) || !validScopedSnapshot(value.draft) ||
+      !sameGeneration(value.draft.generation, mutation.generation) ||
       value.draft.revision !== mutation.expectedRevision + 1 ||
       (mutation.action === "replace" ? value.draft.qso.id !== mutation.draftID : value.draft.qso.id === mutation.draftID) ||
       (mutation.action === "save" && (!object(value.savedQSO) || value.savedQSO.id !== mutation.draftID)))
@@ -134,7 +144,9 @@ export class OperatorDraftSession {
     try {
       const result = await this.request("logbook_operator_draft_apply", mutation);
       if (lifecycle !== this.lifecycle) throw new Error("The workspace changed while the draft operation was running.");
-      if (result?.status === "conflict" && validDraftSnapshot(result.draft)) {
+      if (changedWorkspaceResponse(result)) { this.changedWorkspace(); throw new Error(workspaceChangedMessage); }
+      if (result?.status === "conflict" && validScopedSnapshot(result.draft)) {
+        if (!sameGeneration(result.draft.generation, mutation.generation)) { this.changedWorkspace(); throw new Error(workspaceChangedMessage); }
         this.update({ pending: null, conflict: clone(result.draft), error: "The shared draft changed in another window. Your local text is retained." });
         throw new Error(this.state.error);
       }
@@ -147,8 +159,9 @@ export class OperatorDraftSession {
         // Even a worker error may follow a committed Save whose subsequent
         // aggregate refresh failed. The durable receipt is the authority.
         try {
-          const checked = await this.request("logbook_operator_draft_receipt", { operationID: mutation.operationID });
+          const checked = await this.request("logbook_operator_draft_receipt", { operationID: mutation.operationID, generation: mutation.generation });
           if (lifecycle !== this.lifecycle) throw new Error("Workspace changed.");
+          if (changedWorkspaceResponse(checked)) { this.changedWorkspace(); throw new Error(workspaceChangedMessage); }
           if (checked?.receipt) {
             const receipt = this.verifiedReceipt(checked.receipt, mutation);
             this.acceptReceipt(receipt, version);
@@ -157,12 +170,13 @@ export class OperatorDraftSession {
           if (checked?.receipt === null) this.update({ pending: null, locked: false, error: cause.message });
         } catch { /* An unverified receipt leaves the original operation pending. */ }
       }
-      if (lifecycle === this.lifecycle && this.state.pending)
+      if (lifecycle === this.lifecycle && this.state.pending && !this.state.workspaceChanged)
         this.update({ locked: mutation.action !== "replace", error: "Draft acknowledgement unavailable. Your text and operation ID are retained; check the saved operation before retrying." });
       throw cause;
     }
   }
   async flush() {
+    if (this.state.workspaceChanged) throw new Error(workspaceChangedMessage);
     if (this.resolving) throw new Error("Wait for draft conflict resolution to finish.");
     if (this.work) await this.work;
     if (this.state.pending || this.state.conflict) throw new Error(this.state.error || "Resolve the pending draft operation first.");
@@ -176,7 +190,7 @@ export class OperatorDraftSession {
   }
   commit(action: "save" | "clear"): Promise<DraftQSO | null> {
     if (this.action) return this.action;
-    if (this.state.locked) return Promise.reject(new Error("Check the pending draft operation before another action."));
+    if (this.state.locked || this.state.workspaceChanged) return Promise.reject(new Error("Check the pending draft operation before another action."));
     this.update({ locked: true }, false);
     this.action = (async () => {
       // Clear deliberately discards the local draft but still fences on its base.
@@ -184,15 +198,16 @@ export class OperatorDraftSession {
       else if (this.work) await this.work;
       if (this.state.pending || this.state.conflict) throw new Error(this.state.error || "Resolve the pending draft operation first.");
       return this.apply(this.mutation(action));
-    })().finally(() => { this.action = null; this.update({ locked: !!this.state.pending && this.state.pending.action !== "replace" }, false); });
+    })().finally(() => { this.action = null; this.update({ locked: !this.state.workspaceChanged && !!this.state.pending && this.state.pending.action !== "replace" }, false); });
     return this.action;
   }
   async reconcile() {
     const pending = this.state.pending;
-    if (!pending || this.work || this.action) return;
+    if (!pending || this.work || this.action || this.state.workspaceChanged) return;
     const lifecycle = this.lifecycle, version = this.version;
-    const result = await this.request("logbook_operator_draft_receipt", { operationID: pending.operationID });
+    const result = await this.request("logbook_operator_draft_receipt", { operationID: pending.operationID, generation: pending.generation });
     if (lifecycle !== this.lifecycle || this.work || this.action || this.state.pending !== pending) return;
+    if (changedWorkspaceResponse(result)) { this.changedWorkspace(); return; }
     if (result?.receipt) {
       const receipt = this.verifiedReceipt(result.receipt, pending);
       // On reload, local text may already include edits newer than the sent Replace.
@@ -203,6 +218,7 @@ export class OperatorDraftSession {
     } else this.update({ error: "No receipt is available yet. Retry uses the same operation ID and cannot create a duplicate QSO." });
   }
   async retry() {
+    if (this.state.workspaceChanged) throw new Error(workspaceChangedMessage);
     if (this.work || this.action) return;
     const pending = this.state.pending;
     if (!pending) return this.flush();
@@ -212,25 +228,25 @@ export class OperatorDraftSession {
     this.action = this.apply(pending).then(saved => {
       if (keepTyping) this.update({ draft: local });
       return saved;
-    }).finally(() => { this.action = null; this.update({ locked: !!this.state.pending && this.state.pending.action !== "replace" }, false); });
+    }).finally(() => { this.action = null; this.update({ locked: !this.state.workspaceChanged && !!this.state.pending && this.state.pending.action !== "replace" }, false); });
     await this.action;
     await this.refresh();
   }
   async useShared() {
-    if (this.work || this.action || this.state.pending || this.state.locked) throw new Error("Check the pending operation before replacing local text.");
+    if (this.work || this.action || this.state.pending && !this.state.workspaceChanged || this.state.locked) throw new Error("Check the pending operation before replacing local text.");
     const lifecycle = this.lifecycle;
     this.resolving = true;
     this.update({ locked: true }, false);
     try {
       const result = await this.request("logbook_operator_draft");
-      if (lifecycle !== this.lifecycle || this.work || this.action || this.state.pending) throw new Error("The workspace changed. Review its current draft.");
-      if (!validDraftSnapshot(result?.draft)) throw new Error("The shared draft response could not be verified.");
+      if (lifecycle !== this.lifecycle || this.work || this.action || this.state.pending && !this.state.workspaceChanged) throw new Error("The workspace changed. Review its current draft.");
+      if (!validScopedSnapshot(result?.draft)) throw new Error("The shared draft response could not be verified.");
       this.lifecycle++; this.version++;
-      this.update({ base: clone(result.draft), draft: clone(result.draft.qso), conflict: null, error: "" });
+      this.update({ base: clone(result.draft), draft: clone(result.draft.qso), pending: null, workspaceChanged: false, conflict: null, error: "" });
     } finally { this.resolving = false; this.update({ locked: false }, false); }
   }
   keepLocal() {
-    if (this.work || this.action || this.state.pending || this.state.locked || !this.state.conflict || this.state.conflict.qso.id !== this.state.draft?.id)
+    if (this.work || this.action || this.state.pending || this.state.locked || this.state.workspaceChanged || !this.state.conflict || this.state.conflict.qso.id !== this.state.draft?.id)
       throw new Error("The original draft was saved or cleared. Copy your text before loading the current draft.");
     this.update({ base: clone(this.state.conflict), conflict: null, error: "" });
   }
@@ -238,10 +254,10 @@ export class OperatorDraftSession {
     if (this.work || this.action || this.state.pending || this.state.locked) throw new Error("Finish or reconcile the draft operation before changing the workspace.");
     this.writeJournal({ draft: null, base: null, pending: null });
     this.lifecycle++; this.version++;
-    this.update({ draft: null, base: null, pending: null, conflict: null, error: "", locked: false }, false);
+    this.update({ draft: null, base: null, pending: null, conflict: null, error: "", locked: false, workspaceChanged: false }, false);
   }
   async withWorkspaceRestore<T>(restore: () => Promise<T>): Promise<T> {
-    if (this.state.locked || this.action || this.state.pending || this.state.conflict)
+    if (this.state.locked || this.action || this.state.pending || this.state.conflict || this.state.workspaceChanged)
       throw new Error("Resolve the draft operation before restoring a workspace.");
     this.restoring = true;
     this.update({ locked: true }, false);
@@ -258,7 +274,7 @@ export class OperatorDraftSession {
       this.writeJournal({ draft: null, base: null, pending: null });
       this.lifecycle++; this.version++;
       this.restoring = false;
-      this.update({ draft: null, base: null, pending: null, conflict: null, error: "", locked: false }, false);
+      this.update({ draft: null, base: null, pending: null, conflict: null, error: "", locked: false, workspaceChanged: false }, false);
       return result;
     } catch (cause) {
       // A timeout cannot prove whether restore happened. Do not issue new draft

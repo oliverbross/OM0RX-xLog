@@ -6,7 +6,7 @@ import userEvent from "@testing-library/user-event";
 import LiveApp from "../src/LiveApp";
 import Conditions from "../src/live/Conditions";
 import Monitor from "../src/live/Monitor";
-import { operatorDraftFixture } from "./operator-draft-fixture";
+import { operatorDraftFixture, testWorkspaceGeneration } from "./operator-draft-fixture";
 import { contactEditFixture } from "./contact-edit-fixture";
 import { readContactJournal } from "../src/live/logbookContactSession";
 const calls = vi.hoisted(() => ({ request: vi.fn() }));
@@ -106,10 +106,10 @@ it("retains conflicting local text and lets the operator explicitly load the sha
   calls.request.mockImplementation(async (method, params) => {
     if (method === "logbook_operator_draft_apply" && params.action === "replace") {
       conflict = true;
-      return { result: { status: "conflict", draft: { revision: 1, qso: { ...params.qso, call: "OTHER" } } } };
+      return { result: { status: "conflict", draft: { generation: testWorkspaceGeneration, revision: 1, qso: { ...params.qso, call: "OTHER" } } } };
     }
     if (method === "logbook_operator_draft" && conflict)
-      return { result: { draft: { revision: 1, qso: { id: "draft", call: "OTHER", start: "2026-10-12T00:00:00Z", band: "20m", mode: "SSB" } } } };
+      return { result: { draft: { generation: testWorkspaceGeneration, revision: 1, qso: { id: "draft", call: "OTHER", start: "2026-10-12T00:00:00Z", band: "20m", mode: "SSB" } } } };
     return backend(method, params);
   });
   render(<LiveApp />);
@@ -185,8 +185,8 @@ it("recovers a logged-contact update after renderer restart without replaying it
 it("shows restored contact recovery even when its receipt service is unavailable", async () => {
   exists = true;
   const qso = { id: "logged-contact", call: "W1AW", start: "2026-10-12T00:00:00Z", band: "20m", mode: "SSB" };
-  localStorage.setItem("xlog.integration.contactEdit.main.v1", JSON.stringify({ base: { revision: 1, qso }, draft: qso,
-    pending: { operationID: "unconfirmed", contactID: qso.id, expectedRevision: 1, action: "update", qso } }));
+  localStorage.setItem("xlog.integration.contactEdit.main.v1", JSON.stringify({ base: { generation: testWorkspaceGeneration, revision: 1, qso }, draft: qso,
+    pending: { generation: testWorkspaceGeneration, operationID: "unconfirmed", contactID: qso.id, expectedRevision: 1, action: "update", qso } }));
   const backend = calls.request.getMockImplementation()!;
   calls.request.mockImplementation(async (method, params) => {
     if (method === "logbook_contact_receipt") throw new Error("Receipt service unavailable");
@@ -203,7 +203,7 @@ it("shows restored contact recovery even when its receipt service is unavailable
 it("blocks backup replacement while a contact edit is retained", async () => {
   exists = true;
   const qso = { id: "logged-contact", call: "W1AW", start: "2026-10-12T00:00:00Z", band: "20m", mode: "SSB" };
-  localStorage.setItem("xlog.integration.contactEdit.main.v1", JSON.stringify({ base: { revision: 1, qso }, draft: qso, pending: null }));
+  localStorage.setItem("xlog.integration.contactEdit.main.v1", JSON.stringify({ base: { generation: testWorkspaceGeneration, revision: 1, qso }, draft: qso, pending: null }));
   const contactBackend = contactEditFixture(qso), backend = calls.request.getMockImplementation()!;
   const manifest = { createdAt: "2026-10-12T10:00:00Z", qsoCount: 42, pendingSyncCount: 0, databaseBytes: 1024, includesReferenceData: false };
   calls.request.mockImplementation(async (method, params) => method.startsWith("logbook_contact") ? { result: contactBackend.request(method, params) }
@@ -221,6 +221,22 @@ it("blocks backup replacement while a contact edit is retained", async () => {
   expect(calls.request.mock.calls.some(([method]) => method === "backup_restore")).toBe(false);
 });
 
+it.each(["draft", "contact"])("offers explicit recovery for pre-generation %s text without replaying it", async kind => {
+  exists = true;
+  const qso = { id: "legacy-edit", call: "OLDTEXT", start: "2026-10-12T00:00:00Z", band: "20m", mode: "SSB" };
+  localStorage.setItem(kind === "draft" ? "xlog.integration.operatorDraft.main.v1" : "xlog.integration.contactEdit.main.v1",
+    JSON.stringify({ base: { revision: 1, qso }, draft: qso, pending: null }));
+  render(<LiveApp />);
+  const recovery = await screen.findByRole("alert", { name: kind === "draft" ? "QSO draft recovery" : "Logged contact recovery" });
+  expect((screen.getByLabelText("Callsign") as HTMLInputElement).value).toBe("OLDTEXT");
+  expect(screen.getByLabelText("Callsign").closest("form")?.hasAttribute("inert")).toBe(true);
+  expect(within(recovery).queryByRole("button", { name: /Retry/ })).toBeNull();
+  if (kind === "draft") fireEvent.click(within(recovery).getByRole("button", { name: "Load current workspace draft" }));
+  else fireEvent.click(within(recovery).getByRole("button", { name: "Cancel edit" }));
+  await waitFor(() => expect((screen.getByLabelText("Callsign") as HTMLInputElement).value).toBe(""));
+  expect(calls.request.mock.calls.some(([method]) => ["logbook_contact_apply", "logbook_operator_draft_apply", "station_tune", "rotor_goto"].includes(method))).toBe(false);
+});
+
 it.each([false, true])("retains conflicting logged-contact text and offers only safe recovery (removed=%s)", async removed => {
   exists = true;
   const contact = { id: "logged-contact", call: "W1AW", start: "2026-10-12T00:00:00Z", band: "20m", mode: "SSB" };
@@ -234,7 +250,7 @@ it.each([false, true])("retains conflicting logged-contact text and offers only 
   await waitFor(() => expect((screen.getByLabelText("Callsign") as HTMLInputElement).value).toBe("W1AW"));
   fireEvent.change(screen.getByLabelText("Callsign"), { target: { value: "MYEDIT" } });
   if (removed) contactBackend.remove();
-  else contactBackend.request("logbook_contact_apply", { operationID: "another-window", contactID: contact.id, expectedRevision: 1,
+  else contactBackend.request("logbook_contact_apply", { generation: testWorkspaceGeneration, operationID: "another-window", contactID: contact.id, expectedRevision: 1,
     action: "update", qso: { ...contact, call: "LATEST" } });
   fireEvent.click(screen.getByRole("button", { name: "Update QSO" }));
   const recovery = await screen.findByRole("alert", { name: "Logged contact recovery" });

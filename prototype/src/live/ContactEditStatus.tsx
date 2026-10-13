@@ -4,7 +4,10 @@ export function ContactEditStatus({ state, session, run }: Props) {
   if (!state.error && !state.conflict) return null;
   return <div className="live-error contact-recovery" role="alert" aria-label="Logged contact recovery">
     <span>{state.error}</span>
-    {state.pending ? <>
+    {state.workspaceChanged ? <>
+      <button type="button" disabled={state.locked} onClick={() => void run(() => session.useCurrent())}>Load current workspace contact</button>
+      <button type="button" disabled={state.locked} onClick={() => void run(async () => session.cancel())}>Cancel edit</button>
+    </> : state.pending ? <>
       <button type="button" onClick={() => void run(() => session.reconcile())}>Check contact update</button>
       <button type="button" onClick={() => void run(() => session.retry())}>Retry same update</button>
     </> : <>

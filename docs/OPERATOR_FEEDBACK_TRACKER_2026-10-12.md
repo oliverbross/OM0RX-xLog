@@ -39,6 +39,8 @@ Checkpoint E adds the existing-contact backend needed by detachable Logbook: per
 
 Checkpoint F connects existing-contact Update in the main Desk/full editor to revision checks and durable receipt recovery, retaining the independent new-QSO draft. It covers renderer restart, conflicts/removal, unavailable receipt service, exact retry identity and backup-restore blocking. TypeScript and all 419 frontend tests pass; isolated browser recovery was checked at 1280/800/640 px with evidence under `/tmp/xlog-contact-qa-rOgMqL`. Native restore-generation fencing, table Delete/Undo migration and all-screen undocking—including Logbook—remain open. The old docked layout is preserved. No new package is installed; alpha.13 is unchanged.
 
+Checkpoint G fences draft/contact edits and receipt recovery across backup replacement using a durable workspace generation outside the backup payload. Old and pre-generation journals retain text but cannot replay writes; explicit current-workspace recovery is required. Shared Swift regression tests (96 Swift Testing cases plus XCTest suites), TypeScript, 429 frontend tests and Vite build pass. Narrow/wide recovery UI and actions were checked in an isolated browser fixture. Table Delete/Undo migration and all-screen undocking remain open. See checkpoint G in the workspace plan for evidence and limits. Installed alpha.13 is unchanged.
+
 ### Alpha.8 installed checkpoint
 
 The signed/notarized alpha.8 bundle passed all 21 generated large-log checks

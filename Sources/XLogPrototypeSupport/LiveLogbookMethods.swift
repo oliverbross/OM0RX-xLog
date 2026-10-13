@@ -187,15 +187,20 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                 return ["qso": try json(newOperatorDraft())]
             case "logbook_operator_draft":
                 try requireKeys(params, allowed: [])
-                return ["draft": try json(readyDatabase().operatorDraft(initial: newOperatorDraft()))]
+                let generation = try editGeneration()
+                return ["draft": try scopedSnapshot(readyDatabase().operatorDraft(initial: newOperatorDraft()), generation: generation)]
             case "logbook_operator_draft_receipt":
-                try requireKeys(params, allowed: ["operationID"], required: ["operationID"])
+                try requireKeys(params, allowed: ["operationID", "generation"], required: ["operationID", "generation"])
                 guard let value = params["operationID"] as? String, let id = UUID(uuidString: value) else { throw invalid() }
+                let generation = try editGeneration()
+                if try !matchesEditGeneration(params, generation) { return ["status": "workspace_changed", "generation": generation] }
                 let receipt = try readyDatabase().operatorDraftReceipt(operationID: id)
-                return ["receipt": try receipt.map { try json($0) } ?? NSNull()]
+                return ["receipt": try receipt.map { try scopedReceipt($0, field: "draft", generation: generation) } ?? NSNull()]
             case "logbook_operator_draft_apply":
-                try requireKeys(params, allowed: ["operationID", "draftID", "expectedRevision", "action", "qso"],
-                                required: ["operationID", "draftID", "expectedRevision", "action"])
+                try requireKeys(params, allowed: ["operationID", "draftID", "expectedRevision", "action", "qso", "generation"],
+                                required: ["operationID", "draftID", "expectedRevision", "action", "generation"])
+                let generation = try editGeneration()
+                if try !matchesEditGeneration(params, generation) { return ["status": "workspace_changed", "generation": generation] }
                 _ = try integer(params, "expectedRevision", default: -1, range: 0...9_007_199_254_740_990)
                 guard JSONSerialization.isValidJSONObject(params),
                       try JSONSerialization.data(withJSONObject: params).count <= 32_000 else { throw invalid() }
@@ -203,11 +208,11 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                 do { mutation = try decode(params) } catch { throw invalid() }
                 do {
                     let receipt = try readyDatabase().applyOperatorDraft(mutation, nextDraft: newOperatorDraft())
-                    return ["status": "applied", "receipt": try json(receipt)]
+                    return ["status": "applied", "receipt": try scopedReceipt(receipt, field: "draft", generation: generation)]
                 } catch OperatorDraftError.conflict(let current) {
                     // Explicit non-applied result gives the client an atomic
                     // conflict snapshot without overwriting its pending text.
-                    return ["status": "conflict", "draft": try json(current)]
+                    return ["status": "conflict", "draft": try scopedSnapshot(current, generation: generation)]
                 } catch OperatorDraftError.operationReused {
                     throw WorkerFailure("draft_operation_reused", "This operation ID was already used for a different draft change.")
                 } catch OperatorDraftError.notInitialized {
@@ -218,25 +223,30 @@ public final class LiveLogbookMethods: @unchecked Sendable {
             case "logbook_contact":
                 try requireKeys(params, allowed: ["contactID"], required: ["contactID"])
                 guard let text = params["contactID"] as? String, let id = UUID(uuidString: text) else { throw invalid() }
+                let generation = try editGeneration()
                 let contact = try readyDatabase().contactSnapshot(localID: id)
-                return ["contact": try contact.map { try json($0) } ?? NSNull()]
+                return ["contact": try contact.map { try scopedSnapshot($0, generation: generation) } ?? NSNull(), "generation": generation]
             case "logbook_contact_receipt":
-                try requireKeys(params, allowed: ["operationID"], required: ["operationID"])
+                try requireKeys(params, allowed: ["operationID", "generation"], required: ["operationID", "generation"])
                 guard let text = params["operationID"] as? String, let id = UUID(uuidString: text) else { throw invalid() }
+                let generation = try editGeneration()
+                if try !matchesEditGeneration(params, generation) { return ["status": "workspace_changed", "generation": generation] }
                 let receipt = try readyDatabase().contactReceipt(operationID: id)
-                return ["receipt": try receipt.map { try json($0) } ?? NSNull()]
+                return ["receipt": try receipt.map { try scopedReceipt($0, field: "contact", generation: generation) } ?? NSNull()]
             case "logbook_contact_apply":
-                try requireKeys(params, allowed: ["operationID", "contactID", "expectedRevision", "action", "qso"],
-                                required: ["operationID", "contactID", "expectedRevision", "action"])
+                try requireKeys(params, allowed: ["operationID", "contactID", "expectedRevision", "action", "qso", "generation"],
+                                required: ["operationID", "contactID", "expectedRevision", "action", "generation"])
+                let generation = try editGeneration()
+                if try !matchesEditGeneration(params, generation) { return ["status": "workspace_changed", "generation": generation] }
                 _ = try integer(params, "expectedRevision", default: -1, range: 0...9_007_199_254_740_990)
                 guard JSONSerialization.isValidJSONObject(params),
                       try JSONSerialization.data(withJSONObject: params).count <= 32_000 else { throw invalid() }
                 let mutation: LogbookContactMutation
                 do { mutation = try decode(params) } catch { throw invalid() }
                 do {
-                    return ["status": "applied", "receipt": try json(readyDatabase().applyContactMutation(mutation))]
+                    return ["status": "applied", "receipt": try scopedReceipt(readyDatabase().applyContactMutation(mutation), field: "contact", generation: generation)]
                 } catch LogbookContactError.conflict(let current) {
-                    return ["status": "conflict", "contact": try current.map { try json($0) } ?? NSNull()]
+                    return ["status": "conflict", "contact": try current.map { try scopedSnapshot($0, generation: generation) } ?? NSNull()]
                 } catch LogbookContactError.operationReused {
                     throw WorkerFailure("contact_operation_reused", "This operation ID was already used for a different contact change.")
                 } catch LogbookContactError.invalid { throw invalid() }
@@ -457,6 +467,9 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                                        settings: try currentSettings(),
                                        preferences: try currentBackupPreferences(),
                                        referenceDataURL: fileManager.fileExists(atPath: reference.path) ? reference : nil)
+                // Invalidate old clients durably before any database replacement.
+                // This sidecar is outside the backup payload and survives restart.
+                _ = try editGeneration(rotate: true)
                 db.close()
                 database = nil
                 ctyResolverCache = nil
@@ -488,6 +501,47 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                 throw WorkerFailure("method_not_allowed", "Unknown live logbook method.")
             }
         }
+    }
+
+    private func editGeneration(rotate: Bool = false) throws -> String {
+        _ = try readyDatabase()
+        let url = workspaceURL.appendingPathComponent("edit-generation.json")
+        let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey])
+        if fileManager.fileExists(atPath: url.path) || values?.isSymbolicLink == true {
+            guard values?.isRegularFile == true, values?.isSymbolicLink != true,
+                  (values?.fileSize ?? 129) <= 128 else {
+                throw WorkerFailure("unsafe_workspace", "Workspace edit identity is invalid; editing is unavailable.")
+            }
+            let data = try Data(contentsOf: url)
+            guard let value = try? JSONDecoder().decode(UUID.self, from: data) else {
+                throw WorkerFailure("unsafe_workspace", "Workspace edit identity is invalid; editing is unavailable.")
+            }
+            if !rotate { return value.uuidString.lowercased() }
+        }
+        let value = UUID()
+        try JSONEncoder().encode(value).write(to: url, options: .atomic)
+        try LocalFilePermissions.protectFile(url, fileManager: fileManager)
+        return value.uuidString.lowercased()
+    }
+
+    private func matchesEditGeneration(_ params: [String: Any], _ current: String) throws -> Bool {
+        guard let text = params["generation"] as? String, let value = UUID(uuidString: text) else { throw invalid() }
+        return value.uuidString.lowercased() == current
+    }
+
+    private func scopedSnapshot<T: Encodable>(_ value: T, generation: String) throws -> [String: Any] {
+        guard var object = try json(value) as? [String: Any] else { throw invalid() }
+        object["generation"] = generation
+        return object
+    }
+
+    private func scopedReceipt<T: Encodable>(_ value: T, field: String, generation: String) throws -> [String: Any] {
+        guard var object = try json(value) as? [String: Any],
+              var mutation = object["mutation"] as? [String: Any],
+              var snapshot = object[field] as? [String: Any] else { throw invalid() }
+        mutation["generation"] = generation; snapshot["generation"] = generation
+        object["mutation"] = mutation; object[field] = snapshot
+        return object
     }
 
     private func loadWorkspace() throws {

@@ -125,7 +125,8 @@ it("shares slow refresh reads and avoids rewriting unchanged conflict recovery",
   const count = f.request.mock.calls.length;
   const first = session.refresh(), second = session.refresh();
   expect(f.request.mock.calls.length).toBe(count + 1);
-  f.backend.remove(); resolve({ contact: null }); await Promise.all([first, second]);
+  const generation = f.backend.contact.generation;
+  f.backend.remove(); resolve({ contact: null, generation }); await Promise.all([first, second]);
   const writes = f.write.mock.calls.length;
   await session.refresh(); expect(f.write.mock.calls.length).toBe(writes);
 });
@@ -137,4 +138,33 @@ it("restores unsaved contact text but rejects a mismatched pending journal", asy
   expect(f.make(extra).getSnapshot()).toMatchObject({ conflict: false, current: null });
   expect(readContactJournal("invalid")).toBeNull();
   expect(readContactJournal(JSON.stringify({ ...journal, pending: { action: "delete" } }))).toBeNull();
+});
+it("retains an unresolved edit across restore and never replays it into the replacement workspace", async () => {
+  const f = fixture(), session = f.make(); await session.open("contact"); edit(session, "Old workspace text");
+  f.request.mockRejectedValueOnce(new Error("lost transport")); await expect(session.save()).rejects.toThrow();
+  f.backend.replaceWorkspace(); await session.reconcile();
+  expect(session.getSnapshot()).toMatchObject({ workspaceChanged: true, locked: false, draft: { comment: "Old workspace text" } });
+  const count = f.request.mock.calls.length;
+  await expect(session.retry()).rejects.toThrow("restored"); expect(f.request.mock.calls.length).toBe(count);
+  await session.useCurrent(); expect(session.getSnapshot().workspaceChanged).toBe(false);
+  edit(session, "Reviewed"); await session.save(); expect(f.backend.updates).toBe(1);
+});
+it("rejects a stale update even when restore retained the same contact ID and revision", async () => {
+  const f = fixture(), session = f.make(); await session.open("contact"); edit(session, "Stale");
+  f.backend.replaceWorkspace(); await expect(session.save()).rejects.toThrow("restored");
+  expect(session.getSnapshot().workspaceChanged).toBe(true); expect(f.backend.updates).toBe(0);
+  session.cancel(); expect(f.journal).toBeNull();
+});
+it("marks unchanged reads from a replaced workspace for explicit review", async () => {
+  const f = fixture(), session = f.make(); await session.open("contact");
+  f.backend.replaceWorkspace(); await session.refresh();
+  expect(session.getSnapshot().workspaceChanged).toBe(true); expect(f.backend.updates).toBe(0);
+});
+it("keeps pre-generation recovery text without sending its old pending operation", async () => {
+  const f = fixture(), session = f.make(); await session.open("contact");
+  const journal = structuredClone(f.journal!); delete journal.base.generation;
+  const restored = f.make(journal), count = f.request.mock.calls.length;
+  await restored.refresh(); await expect(restored.save()).rejects.toThrow("Resolve");
+  expect(f.request.mock.calls.length).toBe(count); expect(restored.getSnapshot().draft?.call).toBe("K1ABC");
+  await restored.useCurrent(); expect(restored.getSnapshot().workspaceChanged).toBe(false);
 });

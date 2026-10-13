@@ -115,6 +115,8 @@ Checkpoint E implements revision-fenced Update/Delete/Restore and durable operat
 
 Checkpoint F migrates main Desk/full-editor Update to the revision-safe contact client with retained-text recovery, exact retry identity and explicit conflict resolution. It preserves the separate new-QSO draft and blocks backup restore while an edit is retained. TypeScript and 419 frontend tests pass; browser-only recovery layouts/actions were checked at 1280/800/640 px. Native restore-generation fencing, table Delete/Undo UI, detached Logbook and all-screen capabilities/lifecycle remain pending. No installed/release or full-window acceptance is claimed; original docked layout remains available.
 
+Checkpoint G adds native workspace-generation fencing for draft/contact mutations and receipts across backup restore, plus explicit retained-text recovery for stale/legacy clients. The shared Swift suite, TypeScript, 429 frontend tests and Vite build pass; isolated recovery UI/actions were checked at 1280/640 px. Table Delete/Undo UI, native multi-window ownership/capabilities and exact packaged acceptance remain open. Details are in checkpoint G of the workspace plan; this is not full-undocked acceptance.
+
 ## Closure sequence and non-negotiable checks
 
 1. **Freeze and reconcile source.** Pin final SHAs and dirty diffs for all three native baselines and the integration branch. Import each applicable native golden test/fixture once. Run a static audit confirming no required shared workflow still calls the standalone xCat or xCluster executable. Preserve external compatibility adapters only where they serve third-party applications.

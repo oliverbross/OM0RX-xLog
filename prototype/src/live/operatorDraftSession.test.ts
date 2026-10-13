@@ -1,14 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
+import { testWorkspaceGeneration } from "../../tests/operator-draft-fixture";
 import { DraftRequestRejected, OperatorDraftSession, readDraftJournal, sameDraftValue,
   type DraftJournal, type DraftMutation, type DraftSnapshot } from "./operatorDraftSession";
 
 const copy = <T>(value: T): T => structuredClone(value);
 function fixture() {
-  let current: DraftSnapshot = { revision: 0, qso: { id: "draft-1", call: "", start: "2026-10-13T00:00:00Z", band: "20m", mode: "CW" } };
+  let current: DraftSnapshot = { generation: testWorkspaceGeneration, revision: 0, qso: { id: "draft-1", call: "", start: "2026-10-13T00:00:00Z", band: "20m", mode: "CW" } };
   const receipts = new Map<string, any>();
   const contacts: any[] = [];
   const request = vi.fn(async (method: string, params: any = {}) => {
     if (method === "logbook_operator_draft") return { draft: copy(current) };
+    if (["logbook_operator_draft_receipt", "logbook_operator_draft_apply"].includes(method) && params.generation !== current.generation)
+      return { status: "workspace_changed", generation: current.generation };
     if (method === "logbook_operator_draft_receipt") return { receipt: copy(receipts.get(params.operationID) ?? null) };
     if (method !== "logbook_operator_draft_apply") throw new Error(`Unexpected operation: ${method}`);
     const mutation = params as DraftMutation;
@@ -18,7 +21,7 @@ function fixture() {
     if (mutation.action === "save" && !current.qso.call) throw new DraftRequestRejected("A callsign is required.");
     const savedQSO = mutation.action === "save" ? copy(current.qso) : null;
     if (savedQSO) contacts.push(savedQSO);
-    current = { revision: current.revision + 1, qso: mutation.action === "replace" ? copy(mutation.qso!) :
+    current = { generation: current.generation, revision: current.revision + 1, qso: mutation.action === "replace" ? copy(mutation.qso!) :
       { ...current.qso, id: `draft-${current.revision + 2}`, call: "" } };
     const receipt = { mutation: copy(mutation), draft: copy(current), savedQSO };
     receipts.set(mutation.operationID, receipt);
@@ -31,6 +34,50 @@ function fixture() {
 }
 const type = (session: OperatorDraftSession, call: string) => session.edit({ ...session.getSnapshot().draft!, call });
 const deferred = <T>() => { let resolve!: (value: T) => void; const promise = new Promise<T>(done => { resolve = done; }); return { resolve, promise }; };
+
+it("does not replace a restored draft even when its ID and revision match", async () => {
+  const f = fixture(), session = f.make(); await session.load(); type(session, "MYTEXT");
+  f.current.generation = crypto.randomUUID();
+  await expect(session.flush()).rejects.toThrow("restored");
+  expect(session.getSnapshot()).toMatchObject({ workspaceChanged: true, draft: { call: "MYTEXT" } });
+  const count = f.request.mock.calls.length; await expect(session.retry()).rejects.toThrow("restored");
+  expect(f.request.mock.calls.length).toBe(count); expect(f.current.qso.call).toBe("");
+  await session.useShared(); type(session, "REVIEWED"); await session.flush();
+  expect(f.current.qso.call).toBe("REVIEWED");
+});
+it("does not reconcile an old Save receipt as a current-workspace acknowledgement", async () => {
+  const f = fixture(), session = f.make(); await session.load(); type(session, "K1ABC"); await session.flush();
+  const backend = f.request.getMockImplementation()!;
+  f.request.mockImplementation(async (method, params) => {
+    const result = await backend(method, params);
+    if (method === "logbook_operator_draft_apply" && params.action === "save") throw new Error("Lost acknowledgement");
+    return result;
+  });
+  await expect(session.commit("save")).rejects.toThrow("Lost");
+  f.current.generation = crypto.randomUUID();
+  const restarted = f.make(f.journal); await restarted.load();
+  expect(restarted.getSnapshot()).toMatchObject({ workspaceChanged: true, draft: { call: "K1ABC" } });
+  expect(f.contacts).toHaveLength(1);
+  await expect(restarted.retry()).rejects.toThrow("restored");
+  await restarted.useShared(); expect(restarted.getSnapshot().pending).toBeNull();
+  expect(f.contacts).toHaveLength(1);
+});
+it("requires review after a generation change even when no draft text changed", async () => {
+  const f = fixture(), session = f.make(); await session.load();
+  f.current.generation = crypto.randomUUID(); await session.refresh();
+  expect(session.getSnapshot().workspaceChanged).toBe(true);
+  await expect(session.commit("clear")).rejects.toThrow("Check");
+  await session.useShared(); expect(session.getSnapshot().workspaceChanged).toBe(false);
+});
+it("retains legacy recovery text without binding it silently to the current workspace", async () => {
+  const f = fixture(), session = f.make(); await session.load(); type(session, "LEGACY");
+  const journal = copy(f.journal!); delete journal.base!.generation;
+  const restarted = f.make(journal), count = f.request.mock.calls.length;
+  await restarted.load(); expect(f.request.mock.calls.length).toBe(count);
+  expect(restarted.getSnapshot()).toMatchObject({ workspaceChanged: true, draft: { call: "LEGACY" } });
+  await expect(restarted.flush()).rejects.toThrow("restored");
+  await restarted.useShared(); expect(restarted.getSnapshot().draft?.call).toBe("");
+});
 
 describe("workspace operator draft client", () => {
   it("loads once, journals edits and uses revision-checked Replace", async () => {

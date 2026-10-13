@@ -188,6 +188,18 @@ Isolated browser checks of production recovery/editor components at 1280×800, 8
 
 Checkpoint E source `980e1c4a91a5f1631a664e2be2e61d346abcbeed` passed Mac prototype CI `38324231294`. Matrix `38324265409` has passed the Mac/Windows/Linux build jobs; its separate Windows/Linux runtime acceptance jobs were still queued at this checkpoint's local verification. Those results cover E, not F.
 
+### Checkpoint G — workspace generation across restore
+
+Draft/contact snapshots, mutations and receipt lookups now carry a workspace generation. A validated, protected sidecar outside the backup payload retains it across normal restarts and rotates before database replacement under the existing worker lock. Old operations are rejected even when an older backup reproduces the same contact/draft ID and revision or contains the old receipt. Invalid restore confirmation leaves the generation unchanged; an invalid identity fails before database replacement. A later restore failure may still invalidate clients, intentionally requiring explicit recovery.
+
+Both clients retain old text and uncertain operations, block automatic replay, and offer Copy plus explicit Load current workspace recovery. Pre-generation journals are retained but cannot write until explicitly resolved. Contact cancellation remains available. Follow-radio/automatic rotor and spot-loading paths cannot act on the retained old draft. Table Delete/Undo migration and detached-window capabilities remain separate gates; this does not yet grant detached editing authority.
+
+Evidence: shared Swift regression suite passed (96 Swift Testing cases plus XCTest suites), including five new generation/restore tests. TypeScript, all 429 frontend tests across 61 files and production Vite build pass. Tests cover identical IDs/revisions after restore, lost Save acknowledgement, restored receipts, restart persistence, malformed identity and legacy journal recovery. The final frontend result was rerun after an earlier completed tool result was lost; no still-running duplicate was started. Existing large-bundle/ineffective Map import warnings remain.
+
+The isolated browser warning/action check passed at 1280×800 and 640×600, with no reported exceptions. Evidence: `/tmp/xlog-restore-qa-oHYcVQ/report.md` and screenshots. Impeccable hardening preserved the existing recovery styling, made old-workspace actions explicit and kept them wrapping on narrow windows. The temporary harness was removed; no live workspace or station was accessed. Native/package and physical desktop acceptance remain open; alpha.13 is unchanged.
+
+Checkpoint F source `839aa696b3c246a65d913bc82ab49b19579676a8` passed Mac CI `38326095246` and prototype `38326095238`. Checkpoint E all-platform run `38324265409` is now fully successful, including Windows fresh-runner and Linux runtime-only acceptance; Mac `38324231294` and `38324231297` also succeeded. These results do not cover checkpoint G or prove physical Windows/Linux desktop operation.
+
 ## Follow-on: RUMlogNG workflow and feature comparison
 
 User added this reference pass after the canvas/native-window request. Confirmed installed app identity through the native app inventory: `de.dl2rum.RUMlogNG`; it was not running at inspection. Its menus/settings have not yet been audited in this pass. Do not represent remembered features as current observations.

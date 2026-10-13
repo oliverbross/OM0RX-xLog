@@ -107,10 +107,10 @@ function MainLiveApp() {
   editing.current = !!contactEdit.draft;
   const [legacyDraft, setLegacyDraft] = useState(legacyDraftValue);
   const draft = contactEdit.draft ?? sharedDraft.draft;
-  const editorLocked = sharedDraft.locked || contactEdit.locked;
+  const editorLocked = sharedDraft.locked || contactEdit.locked || sharedDraft.workspaceChanged || contactEdit.workspaceChanged;
   const editorBlocked = editorLocked || !!sharedDraft.conflict || contactEdit.conflict;
   const setDraft = useCallback((next: Data | null | ((current: Data | null) => Data | null)) => {
-    if (draftSession.getSnapshot().locked || contactSession.getSnapshot().locked) return;
+    if (draftSession.getSnapshot().locked || draftSession.getSnapshot().workspaceChanged || contactSession.getSnapshot().locked || contactSession.getSnapshot().workspaceChanged) return;
     const contact = contactSession.getSnapshot().draft;
     const current = contact ?? draftSession.getSnapshot().draft;
     const value = changedCallDraft(current, typeof next === "function" ? next(current) : next);
@@ -262,7 +262,7 @@ function MainLiveApp() {
   const cwControls = cwProfile.showOnDesk || cwProfile.macros.some((macro: Data) => macro.enabled && macro.shortcut) || cw.state.armed || cw.state.owner
     ? <CWDesk profile={cwProfile} context={cwContext} controller={cw.controller} state={cw.state} radioProvider={stationProvider} /> : undefined;
   const loadOpportunity = (item: Opportunity) => {
-    if (draftSession.getSnapshot().locked || draftSession.getSnapshot().conflict || contactSession.getSnapshot().locked) { setError("Resolve the current QSO draft operation before loading another contact."); return; }
+    if (draftSession.getSnapshot().locked || draftSession.getSnapshot().workspaceChanged || draftSession.getSnapshot().conflict || contactSession.getSnapshot().locked || contactSession.getSnapshot().workspaceChanged) { setError("Resolve the current QSO draft operation before loading another contact."); return; }
     if (editing.current) { setError("Finish or clear the contact being edited before loading a new contact."); setView("Log QSO"); return; }
     selection.current++; pendingTune.current = false; disarmAutoRotor();
     spotRotorFence.current = { call: normalizedCall(item.callsign), confirmed: false };
@@ -285,6 +285,8 @@ function MainLiveApp() {
     throw new Error("Apply this radio selection before connecting or sending controls. The active radio has not changed.");
   }, [request, stationProvider, viewProvider]);
   const readRadioIntoDraft = useCallback(async () => {
+    if (draftSession.getSnapshot().workspaceChanged || contactSession.getSnapshot().workspaceChanged)
+      throw new Error("Review the current workspace before reading into this QSO.");
     if (providerTransition.current) throw new Error("Wait for station handover before reading the radio.");
     const generation = selection.current, source = provider.current, identity = draftIdentity.current;
     if (!identity) throw new Error("Open a QSO draft before reading the radio.");
@@ -398,7 +400,7 @@ function MainLiveApp() {
     return () => { active = false; clearInterval(timer); };
   }, [request]);
   useEffect(() => {
-    if (!workspace?.workspace_exists || sharedDraft.locked || sharedDraft.pending || sharedDraft.conflict || !draftSession.dirty) return;
+    if (!workspace?.workspace_exists || sharedDraft.workspaceChanged || sharedDraft.locked || sharedDraft.pending || sharedDraft.conflict || !draftSession.dirty) return;
     const timer = setTimeout(() => { void draftSession.flush().catch(cause => setError(cause instanceof Error ? cause.message : "Draft could not be saved.")); }, 350);
     return () => clearTimeout(timer);
   }, [workspace?.workspace_exists, sharedDraft, draftSession]);
@@ -422,10 +424,10 @@ function MainLiveApp() {
     if (contactEdit.base) { setFollowImmediate(false); disarmAutoRotor(); selection.current++; pendingTune.current = false; }
   }, [contactEdit.base?.qso.id, disarmAutoRotor]);
   useEffect(() => {
-    if (sharedDraft.conflict || sharedDraft.error && (sharedDraft.pending?.action === "save" || sharedDraft.pending?.action === "clear")) {
+    if (sharedDraft.workspaceChanged || sharedDraft.conflict || sharedDraft.error && (sharedDraft.pending?.action === "save" || sharedDraft.pending?.action === "clear")) {
       setFollowImmediate(false); disarmAutoRotor(); selection.current++; pendingTune.current = false;
     }
-  }, [sharedDraft.conflict, sharedDraft.pending?.operationID, sharedDraft.error, disarmAutoRotor]);
+  }, [sharedDraft.workspaceChanged, sharedDraft.conflict, sharedDraft.pending?.operationID, sharedDraft.error, disarmAutoRotor]);
   useEffect(() => {
     let disposed = false;
     const pollStation = async () => {
@@ -512,7 +514,7 @@ function MainLiveApp() {
   }, [draft?.call, request, workspace?.workspace_exists]);
   useEffect(() => {
     const call = normalizedCall(draft?.call);
-    if (!autoRotor || !autoEnabled.current || pendingTune.current || editing.current || !call || normalizedCall(lookup?.call) !== call) return;
+    if (sharedDraft.workspaceChanged || contactEdit.workspaceChanged || !autoRotor || !autoEnabled.current || pendingTune.current || editing.current || !call || normalizedCall(lookup?.call) !== call) return;
     if (spotRotorFence.current?.call === call && !spotRotorFence.current.confirmed) return;
     const rotor = rotorRef.current;
     const key = `${autoEpoch.current}:${draft?.id}:${call}`;
@@ -524,7 +526,7 @@ function MainLiveApp() {
     automaticMotion.current = { ...intent, epoch: autoEpoch.current, id };
     void request("rotor_goto", { ...intent, bearing: lookup.bearing, label: call, intent_id: id })
       .catch(cause => setError(cause instanceof Error ? cause.message : "Automatic rotor turn failed."));
-  }, [autoRotor, draft?.id, draft?.call, lookup, request]);
+  }, [sharedDraft.workspaceChanged, contactEdit.workspaceChanged, autoRotor, draft?.id, draft?.call, lookup, request]);
   const clear = async () => {
     if (contactSession.getSnapshot().draft) contactSession.cancel();
     else await draftSession.commit("clear");
@@ -538,7 +540,7 @@ function MainLiveApp() {
   });
   const selectSpot = (spot: Data) => {
     if (monitor) return;
-    if (draftSession.getSnapshot().locked || draftSession.getSnapshot().conflict || contactSession.getSnapshot().locked) { setError("Resolve the current QSO draft operation before selecting another spot."); return; }
+    if (draftSession.getSnapshot().locked || draftSession.getSnapshot().workspaceChanged || draftSession.getSnapshot().conflict || contactSession.getSnapshot().locked || contactSession.getSnapshot().workspaceChanged) { setError("Resolve the current QSO draft operation before selecting another spot."); return; }
     if (editing.current) { setError("Finish or clear the contact being edited before selecting a new spot."); setView("Log QSO"); return; }
     const generation = ++selection.current; const hz = Math.round(spot.frequencyKHz * 1000);
     const selectedProvider = provider.current;
