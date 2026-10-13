@@ -477,6 +477,39 @@ it("native migration failure is visible and never falls back to automatic Connec
   expect(calls.request.mock.calls.some(([method]) => method === "cluster_connect")).toBe(false);
 });
 
+it("clears only its own migration warning after a confirmed retry", async () => {
+  vi.useFakeTimers(); clusterStartup.native = true;
+  clusterStartup.initialize.mockRejectedValueOnce(new Error("Fixture migration warning")).mockResolvedValue(undefined);
+  try {
+    render(<LiveApp />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(screen.getByText("Fixture migration warning")).toBeTruthy();
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    expect(screen.queryByText("Fixture migration warning")).toBeNull();
+    expect(clusterStartup.initialize).toHaveBeenCalledTimes(2);
+    expect(calls.request.mock.calls.some(([method]) => method === "cluster_connect")).toBe(false);
+  } finally { vi.useRealTimers(); }
+});
+
+it("confirmed migration recovery does not clear a newer unrelated workspace error", async () => {
+  vi.useFakeTimers(); clusterStartup.native = true;
+  clusterStartup.initialize.mockRejectedValueOnce(new Error("Fixture migration warning")).mockResolvedValue(undefined);
+  const base = calls.request.getMockImplementation()!;
+  calls.request.mockImplementation((method: string, params: unknown) => method === "workspace_create"
+    ? Promise.reject(new Error("Newer workspace failure")) : base(method, params));
+  try {
+    render(<LiveApp />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(screen.getByText("Fixture migration warning")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Copy my existing xLog logbook" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(screen.getByText("Newer workspace failure")).toBeTruthy();
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    expect(screen.getByText("Newer workspace failure")).toBeTruthy();
+    expect(clusterStartup.initialize).toHaveBeenCalledTimes(2);
+  } finally { vi.useRealTimers(); }
+});
+
 it("starts with real-data onboarding and only reads; never creates a log or commands hardware implicitly", async () => {
   render(<LiveApp />);
   await waitFor(() => expect(screen.getByRole("button", { name: "Copy my existing xLog logbook" }).hasAttribute("disabled")).toBe(false));

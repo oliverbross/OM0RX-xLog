@@ -71,12 +71,8 @@
 .desk-rotor-actions button[aria-pressed="true"] { background: #195570; border-color: #296b89; color: var(--cyan); }
 .desk-rotor-actions .desk-stop { background: #5a2b29; border-color: #723530; color: #ffb4aa; }
 .live .desk-rotor-result { font-size: 10px; margin: 0; color: var(--secondary); overflow-wrap: anywhere; }
-/* Keep the Active QSO content above its 840px wrap threshold in the three-panel
-   desk; the equipment-free two-panel desk still fits at these middle widths. */
-@container operator-desk (min-width: 1420px) and (max-width: 1840px) {
-  .operator-desk-top:not(.without-equipment) { grid-template-columns: minmax(0, 1fr) 300px; }
-  .operator-desk-top:not(.without-equipment) > .desk-active { grid-column: 1 / -1; }
-}
+/* Keep the three panels together above 1420px. Active QSO's own container
+   reflows its fields first; it does not need a full-width row to remain usable. */
 @container operator-desk (max-width: 1420px) { .operator-desk-top { grid-template-columns: minmax(0, 1fr) 300px; }.desk-active { grid-column: 1 / -1; }.desk-rotor-body { grid-template-columns: minmax(0, 120px) minmax(0, 1fr); }.desk-intelligence { min-height: 245px; }.desk-rotor { min-height: 245px; } }
 @container operator-desk (max-width: 1000px) { .operator-desk-top { grid-template-columns: minmax(0, 1fr) 240px; }.desk-active-primary { grid-template-columns: minmax(0, 1.6fr) 106px 78px minmax(0, 1fr) 58px 68px 54px 54px; gap: 5px; }.desk-active-location { grid-template-columns: 1fr 1fr 80px 1fr 100px; }.desk-panel { padding: 10px; }.desk-rotor-body { gap: 7px; grid-template-columns: 95px minmax(0, 1fr); }.desk-current b { font-size: 24px; }.desk-matrices small { display: block; margin-top: 2px; } }
 @container operator-desk (max-width: 760px) { .desk-active-primary { grid-template-columns: repeat(4, minmax(0, 1fr)); }.desk-active-location { grid-template-columns: repeat(5, minmax(0, 1fr)); }.desk-panel input:not([type="checkbox"]), .desk-panel select { font-size: 11px; padding: 4px 5px; }.desk-matrices { grid-template-columns: 1fr; }.desk-matrices > div + div { border-left: 0; padding-left: 0; }.desk-intelligence { min-height: 270px; } }

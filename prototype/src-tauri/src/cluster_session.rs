@@ -376,6 +376,38 @@ mod tests {
     }
 
     #[test]
+    fn startup_resume_initialization_busy_is_rejected_before_transport_then_confirms() {
+        let (entered, observed) = std::sync::mpsc::channel();
+        let (release, finish) = std::sync::mpsc::channel();
+        let finish = Mutex::new(finish);
+        let calls = Arc::new(Mutex::new(Vec::new()));
+        let recorded = calls.clone();
+        let owner = Arc::new(ClusterSession::new(Arc::new(move |request| {
+            recorded.lock().unwrap().push(request.clone());
+            if request["method"] == "cluster_resume" {
+                entered.send(()).unwrap();
+                finish.lock().unwrap().recv_timeout(Duration::from_secs(3)).unwrap();
+            }
+            let mut response = reply(&request, "initialized");
+            response["result"]["resume_initialized"] = json!(true);
+            Ok(response)
+        }), Arc::new(|_| {})));
+        let reading = owner.clone();
+        let background = std::thread::spawn(move || reading.refresh());
+        observed.recv_timeout(Duration::from_secs(3)).unwrap();
+        let error = owner.request(request("cluster_resume_initialize")).unwrap_err();
+        assert_eq!(error, "Cluster session is busy. Wait for the current action to finish.");
+        assert_eq!(calls.lock().unwrap().len(), 1, "busy initialization never reached the worker");
+        release.send(()).unwrap(); background.join().unwrap().unwrap();
+        assert_eq!(owner.request(request("cluster_resume_initialize")).unwrap()["result"]["resume_initialized"], true);
+        let calls = calls.lock().unwrap();
+        assert_eq!(calls.len(), 2);
+        assert_eq!(calls[1]["method"], "cluster_resume_initialize");
+        assert_eq!(calls[1]["params"], json!({}));
+        assert!(calls.iter().all(|request| !matches!(request["method"].as_str(), Some("cluster_connect" | "cluster_disconnect"))));
+    }
+
+    #[test]
     fn commands_publish_without_a_main_renderer_and_are_never_retried() {
         let calls = Arc::new(AtomicU64::new(0));
         let count = calls.clone();

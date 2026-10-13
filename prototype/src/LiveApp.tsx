@@ -206,6 +206,7 @@ function MainLiveApp() {
   const stationPolling = useRef(false);
   const clusterPolling = useRef(false);
   const clusterResumeChecked = useRef(false);
+  const clusterResumeWarning = useRef<string | null>(null);
   const clusterMutationEpoch = useRef(0);
   const latestSpots = useRef<Data[]>([]);
   const selectCurrentSpot = useRef<(spot: Data) => void>(() => {});
@@ -539,6 +540,9 @@ function MainLiveApp() {
           if (nativeClusterSession() && !clusterResumeChecked.current) {
             await initializeNativeClusterResume();
             clusterResumeChecked.current = true;
+            const warning = clusterResumeWarning.current;
+            if (warning) setError(current => current === warning ? "" : current);
+            clusterResumeWarning.current = null;
           }
           const state = await request("cluster_snapshot");
           if (!nativeClusterSession() && !disposed && !monitor && !clusterResumeChecked.current && state.configuration) {
@@ -553,8 +557,11 @@ function MainLiveApp() {
       }
       catch (cause) {
         // Keep last spots, but do not silently discard a failed legacy migration.
-        if (!disposed && nativeClusterSession() && !clusterResumeChecked.current)
-          setError(cause instanceof Error ? cause.message : "Cluster restart preference could not be initialized.");
+        if (!disposed && nativeClusterSession() && !clusterResumeChecked.current) {
+          const warning = cause instanceof Error ? cause.message : "Cluster restart preference could not be initialized.";
+          clusterResumeWarning.current = warning;
+          setError(warning);
+        }
       }
       finally { clusterPolling.current = false; }
     };
