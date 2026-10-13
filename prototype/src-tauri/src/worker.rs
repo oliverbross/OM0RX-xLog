@@ -15,6 +15,11 @@ const MAX_IN_FLIGHT: usize = 16;
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(45);
 pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     validate_request(request)?;
+    if request["method"] == "workspace_layout_load" {
+        return if matches!(label, "main" | "monitor" | "world-map" | "band-maps" | "dx-cluster" | "logbook" | "awards") {
+            Ok(())
+        } else { Err("This window cannot read the shared workspace layout.".into()) };
+    }
     if request["method"] == "cluster_resume" {
         return Err("Only the native session owner can resume a cluster.".into());
     }
@@ -654,7 +659,7 @@ mod tests {
             let request = json!({"id":"layout-test","method":method,"params":{}});
             assert!(validate_surface("main", &request).is_ok());
             for label in ["monitor", "logbook", "awards", "world-map", "band-maps", "dx-cluster", "unknown"] {
-                assert!(validate_surface(label, &request).is_err(), "{label}: {method}");
+                assert_eq!(validate_surface(label, &request).is_ok(), method == "workspace_layout_load" && label != "unknown", "{label}: {method}");
             }
         }
     }

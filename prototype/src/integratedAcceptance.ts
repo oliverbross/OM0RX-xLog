@@ -3,6 +3,7 @@ import { awaitMap, mapDetails, validWorkerResult, waitForAcceptance } from "./ac
 import { LARGE_LOG_RECORDS, largeLogADIFBatch } from "./acceptanceFixture";
 import workspaceScreens from "./live/workspaceScreens.json";
 import { serveDetachedLifecycle, verifyDetachedLifecycle } from "./detachedAcceptance";
+import { verifyWorkspaceLayoutRoundtrip } from "./workspaceLayoutAcceptance";
 
 type Json = Record<string, any>;
 const frame = () => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
@@ -67,6 +68,8 @@ async function main(report: Json) {
   await click("Create empty logbook");
   await waitForAcceptance("real operator draft", () => !!document.querySelector('[aria-label="Desk Callsign"]'));
   check("workspace_created", (await worker("workspace_status")).result.workspace_exists === true);
+  report.details.workspaceLayout = await verifyWorkspaceLayoutRoundtrip();
+  check("workspace_layout_roundtrip", report.details.workspaceLayout.staleWriteRejected);
   for (const method of ["self_test", "integration_self_test"]) {
     check(`worker_${method}`, validWorkerResult(method, await worker(method)));
   }

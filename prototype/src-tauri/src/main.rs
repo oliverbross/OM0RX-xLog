@@ -244,6 +244,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     let _telemetry_fence = if station_telemetry::changes_radio(&request) { Some(station_telemetry::owner(&app)?.control()?) } else { None };
     let selection = if station_telemetry::changes_radio(&request) { Some(station_selection::owner(&app)?) } else { None };
     let invalidate = logbook_events::changes_logbook(&request);
+    let layout_changed = matches!(method, "workspace_layout_apply" | "workspace_create" | "backup_restore");
     let result = tauri::async_runtime::spawn_blocking(move || if let Some(selection) = selection { selection.control(request) } else { worker::request(request) })
         .await
         .map_err(|_| "Worker task failed".to_string())?;
@@ -252,6 +253,12 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
         // particular, ADIF batches must not reload that view after every chunk.
         for label in ["main", "logbook", "awards"] {
             if label != window.label() { let _ = app.emit_to(label, "xlog:logbook-changed", ()); }
+        }
+    }
+    if layout_changed {
+        // Wake-only: even an uncertain outcome is reconciled by a fresh read.
+        for label in ["main", "monitor", "world-map", "band-maps", "dx-cluster", "logbook", "awards"] {
+            let _ = app.emit_to(label, "xlog:workspace-layout", ());
         }
     }
     result
