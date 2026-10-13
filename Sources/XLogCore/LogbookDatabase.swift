@@ -1218,7 +1218,11 @@ public final class LogbookDatabase: @unchecked Sendable {
             if let remoteID = value.wavelogID, let existing = try lookup(wavelogID: remoteID) {
                 value = mergeRemoteFields(value, preserving: existing)
             }
-            else if let existing = try lookupSemantic(value) {
+            // Similar contact fields are only a fallback for a local/imported
+            // record that has never acquired a remote identity. Wavelog may
+            // legitimately contain distinct IDs with identical QSO fields;
+            // adopting an already-linked row would erase one of those IDs.
+            else if let existing = try lookupSemantic(value, unlinkedOnly: true) {
                 if existing.isDirty {
                     if try remoteMatchesBaseline(remote, localID: existing.id) { return false }
                     try recordConflict(local: existing, remote: mergeRemoteFields(remote, preserving: existing))
@@ -1358,17 +1362,19 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
-    private func lookupSemantic(_ qso: QSO) throws -> QSO? {
+    private func lookupSemantic(_ qso: QSO, unlinkedOnly: Bool = false) throws -> QSO? {
         try withStatement("""
             SELECT record_json FROM qsos
             WHERE call = ? COLLATE NOCASE AND ABS(qso_start - ?) < 1
               AND band = ? COLLATE NOCASE AND mode = ? COLLATE NOCASE
+              AND (? = 0 OR wavelog_id IS NULL)
             LIMIT 1;
             """) { statement in
                 bind(qso.call, to: 1, in: statement)
                 sqlite3_bind_double(statement, 2, qso.start.timeIntervalSince1970)
                 bind(qso.band, to: 3, in: statement)
                 bind(qso.mode, to: 4, in: statement)
+                sqlite3_bind_int(statement, 5, unlinkedOnly ? 1 : 0)
                 return try decodeRows(statement).first
             }
     }
