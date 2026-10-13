@@ -125,7 +125,7 @@ pub fn passed(report: &Value) -> bool {
     const REQUIRED: [&str; 17] = ["worker_health", "worker_self_test", "worker_parse_adif", "worker_integration_self_test", "cluster_classification_initial", "cluster_classification_logged", "map_loaded",
         "cluster_selection", "keyboard_log", "logbook_readback", "keyboard_focus", "keyboard_clear",
         "profile_manual", "profile_simulator", "monitor_opened", "monitor_snapshot", "final_desk"];
-    const LOCAL: [&str; 27] = ["isolated_worker", "empty_workspace", "workspace_created", "workspace_layout_roundtrip", "workspace_canvas_controls", "workspace_settings_presets", "spot_history_archive", "worker_self_test",
+    const LOCAL: [&str; 28] = ["isolated_worker", "empty_workspace", "workspace_created", "workspace_layout_roundtrip", "workspace_canvas_controls", "workspace_settings_presets", "workspace_native_windows", "spot_history_archive", "worker_self_test",
         "worker_integration_self_test", "worker_parse_adif", "keyboard_log", "logbook_readback", "keyboard_editor",
         "keyboard_focus", "keyboard_clear", "settings_save_readback", "awards_loaded", "detached_projection",
         "map_loaded", "final_desk", "native_menu_routes", "contact_edit", "contact_delete_undo", "detached_logbook", "detached_awards",
@@ -169,10 +169,7 @@ pub fn acceptance_screen(app: tauri::AppHandle, window: tauri::WebviewWindow, st
 
 #[tauri::command]
 pub async fn acceptance_open_window(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, Acceptance>, kind: String) -> Result<(), String> {
-    state.require()?;
-    if window.label() != "main" || !crate::detached_acceptance::valid_kind(&kind) {
-        return Err("Only the isolated main view may test known windows".into());
-    }
+    require_window_coordinator(&state, window.label(), &kind)?;
     let id = format!("workspace_window_{kind}");
     let menu = app.menu().ok_or("Native application menu is missing")?;
     let mut found = false;
@@ -185,6 +182,14 @@ pub async fn acceptance_open_window(app: tauri::AppHandle, window: tauri::Webvie
     crate::open_detached_workspace(app, kind).await
 }
 
+fn require_window_coordinator(state: &Acceptance, caller: &str, kind: &str) -> Result<(), String> {
+    state.require()?;
+    if caller != "main" || !crate::detached_acceptance::valid_kind(kind) {
+        return Err("Only the isolated main view may test known windows".into());
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub fn acceptance_window_step(window: tauri::WebviewWindow, state: tauri::State<'_, Acceptance>, kind: Option<String>, action: Option<String>) -> Result<Option<crate::detached_acceptance::Step>, String> {
     state.require()?;
@@ -194,13 +199,14 @@ pub fn acceptance_window_step(window: tauri::WebviewWindow, state: tauri::State<
 
 #[tauri::command]
 pub fn acceptance_window_state(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, Acceptance>, kind: String) -> Result<Value, String> {
-    state.require()?;
-    if window.label() != "main" || !crate::detached_acceptance::valid_kind(&kind) {
-        return Err("Only the isolated main view may inspect known windows".into());
-    }
+    require_window_coordinator(&state, window.label(), &kind)?;
     let slot = if kind == "awards" { &state.awards } else { &state.logbook };
     let report = slot.lock().map_err(|_| "Detached evidence unavailable")?.clone();
-    Ok(json!({"open":app.get_webview_window(&kind).is_some(),"report":report}))
+    let (open, visible, minimized) = if let Some(target) = app.get_webview_window(&kind) {
+        (true, target.is_visible().map_err(|error| error.to_string())?,
+            target.is_minimized().map_err(|error| error.to_string())?)
+    } else { (false, false, false) };
+    Ok(json!({"open":open,"visible":visible,"minimized":minimized,"report":report}))
 }
 
 #[tauri::command]
@@ -364,7 +370,7 @@ mod tests {
     }
     #[test]
     fn integrated_local_report_requires_real_workflow_checks_and_gpu_evidence() {
-        let names = ["isolated_worker", "empty_workspace", "workspace_created", "workspace_layout_roundtrip", "workspace_canvas_controls", "workspace_settings_presets", "spot_history_archive", "worker_self_test",
+        let names = ["isolated_worker", "empty_workspace", "workspace_created", "workspace_layout_roundtrip", "workspace_canvas_controls", "workspace_settings_presets", "workspace_native_windows", "spot_history_archive", "worker_self_test",
             "worker_integration_self_test", "worker_parse_adif", "keyboard_log", "logbook_readback", "keyboard_editor",
             "keyboard_focus", "keyboard_clear", "settings_save_readback", "awards_loaded", "detached_projection",
             "map_loaded", "final_desk", "native_menu_routes", "contact_edit", "contact_delete_undo", "detached_logbook", "detached_awards",
@@ -413,6 +419,22 @@ mod tests {
     }
     #[test]
     fn normal_launch_has_no_acceptance() { assert!(report_path(vec!["app".into()]).unwrap().is_none()); }
+    #[test]
+    fn native_window_controls_require_isolation_main_and_known_bounded_kind() {
+        let disabled = Acceptance::default();
+        assert!(require_window_coordinator(&disabled, "main", "logbook").is_err());
+        let isolated = Acceptance { path: Some(PathBuf::from("isolated-test-report.json")), ..Acceptance::default() };
+        for kind in ["logbook", "awards"] {
+            assert!(require_window_coordinator(&isolated, "main", kind).is_ok());
+            for caller in ["logbook", "awards", "monitor", "world-map", "band-maps", "dx-cluster", "", "MAIN", "unknown"] {
+                assert!(require_window_coordinator(&isolated, caller, kind).is_err());
+            }
+        }
+        for kind in ["main", "monitor", "world-map", "dx-cluster", "Logbook", "", "../logbook", "https://example.invalid"] {
+            assert!(require_window_coordinator(&isolated, "main", kind).is_err());
+        }
+        assert!(require_window_coordinator(&isolated, "main", &"x".repeat(100_000)).is_err());
+    }
     #[test]
     fn report_cli_rejects_missing_relative_and_duplicate_targets() {
         for args in [vec!["--acceptance-report"], vec!["--acceptance-report", "relative.json"],

@@ -40,6 +40,8 @@ The root also exercised Save followed by Use layout in that fixture and inspecte
 
 ## Finished extension and evidence — 2026-10-13
 
+Later request-outcome hardening: Apply saved windows now displays pending until its acknowledged native attempt completes, instead of reusing an older matching applied result. The layout, tokens and controls are unchanged; no new visual capture is claimed. Fresh source review found and corrected a recovery race where an old ticket could clear a replacement request. Focused tests cover delayed acknowledgement, rejected recovery, read uncertainty and the pending Settings copy. Actual native lifecycle acceptance remains separate from these simulated/component checks.
+
 Outcome: ship for the bounded Workspace settings extension after fresh finish review and resolution of its two listed fixes. This dated outcome supersedes the pending browser/review status above. Native installed verification remains pending; full windowed restoration is not supported yet.
 
 The finished surface inherits the existing settings tabs, navy canvas and raised controls, system typography, restrained separators, neutral secondary actions and teal Save action. The saved-layout selector leads directly to Use, Duplicate, Edit and Delete. The inline editor keeps naming, arrange/snap options, grouped panel visibility and adjacent Save/Cancel actions together. At compact width the existing tabs wrap and panel choices become two columns; desktop and 4K keep the choice grid bounded instead of stretching it across the display. Visible focus and disabled controls retain the incumbent interaction language. This is a code-led ordinary extension, with no new visual world or system change.

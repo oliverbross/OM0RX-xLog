@@ -387,9 +387,9 @@ fn workspace_windows_status(window: tauri::WebviewWindow, app: tauri::AppHandle)
 }
 
 #[tauri::command]
-fn workspace_windows_reconcile(window: tauri::WebviewWindow, app: tauri::AppHandle) -> Result<(), String> {
+fn workspace_windows_reconcile(window: tauri::WebviewWindow, app: tauri::AppHandle) -> Result<serde_json::Value, String> {
     if window.label() != "main" { return Err("Only the main workspace can apply saved window placement".into()); }
-    workspace_window_runtime::refresh(&app, true)
+    workspace_window_runtime::refresh(&app, true).map(|attempt| serde_json::json!({"attempt":attempt}))
 }
 
 #[tauri::command]

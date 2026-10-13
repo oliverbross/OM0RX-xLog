@@ -14,10 +14,15 @@ let snapshot: LayoutSnapshot = { revision: 0, generation: "12345678-1234-1234-12
     panels: workspacePanelIDs.map((id, z) => { const [width, height] = panelMinimum(id); return { id, z, placement: "hidden", rect: { x: 0, y: 0, width, height } }; }) }],
 } };
 (globalThis as any).isTauri = true;
-mockIPC(command => {
+let nativeAttempt = 0;
+mockIPC(async command => {
   if (command === "workspace_windows_status") return { supported: [...nativeWorkspaceWindowIDs], generation: snapshot.generation,
-    revision: snapshot.revision, presetID: snapshot.document.activePresetID, state: "applied", shown: [], hidden: [], error: "", stopped: false };
-  if (command === "workspace_windows_reconcile") return emit("xlog:workspace-windows");
+    revision: snapshot.revision, presetID: snapshot.document.activePresetID, state: "applied", shown: [], hidden: [], error: "", stopped: false, attempt: nativeAttempt };
+  if (command === "workspace_windows_reconcile") {
+    const attempt = ++nativeAttempt;
+    await emit("xlog:workspace-windows");
+    return { attempt };
+  }
   throw new Error(`Native operation disabled in fixture: ${command}`);
 }, { shouldMockEvents: true });
 const session = new WorkspaceLayoutSession(async (method, params) => {

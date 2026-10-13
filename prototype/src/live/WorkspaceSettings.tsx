@@ -108,7 +108,8 @@ export default function WorkspaceSettings({ state, session, subscriptionError, a
       ? "Traditional keeps the familiar docked desk. Duplicate it to choose panels and arrange your own workspace."
       : "Use this layout on the Operator Desk. Edit its panels here; move and resize them on the desk with Arrange panels."}</p>}
     {(hasSavedWindows || native.error || native.status?.state === "error") && <div className="workspace-native-outcome" role="status">
-      <p>{native.error || (native.status?.state === "error" ? `Layout saved; window placement needs attention. ${native.status.error}`
+      <p>{native.error || (native.retrying ? "Applying saved windows…"
+        : native.status?.state === "error" ? `Layout saved; window placement needs attention. ${native.status.error}`
         : nativeCurrent && native.status?.state === "applied" ? "Saved window placement applied."
         : "Saved window placement is waiting for native confirmation.")}</p>
       <button type="button" disabled={blocked || native.retrying || native.status?.state === "applying" || !!native.status?.stopped}

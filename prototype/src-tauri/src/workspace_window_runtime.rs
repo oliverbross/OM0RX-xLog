@@ -11,6 +11,7 @@ use tauri::{AppHandle, Emitter, Manager, WebviewWindow, WindowEvent};
 
 const MAX_OPENS: usize = 32;
 const MAX_SUPERSEDED: usize = 8;
+const MAX_ATTEMPT: u64 = 9_007_199_254_740_991;
 static STOPPED: AtomicBool = AtomicBool::new(false);
 static SEQUENCE: AtomicU64 = AtomicU64::new(1);
 static OWNER: OnceLock<Mutex<Option<Arc<Owner>>>> = OnceLock::new();
@@ -32,17 +33,23 @@ fn active() -> Result<(), String> {
 fn idle() -> Value {
     json!({"supported":SUPPORTED_WINDOWS.iter().map(|window| window.id).collect::<Vec<_>>(),
         "generation":null,"revision":null,"presetID":null,"state":"idle","shown":[],"hidden":[],
-        "error":"","stopped":STOPPED.load(Ordering::Acquire)})
+        "error":"","attempt":0,"stopped":STOPPED.load(Ordering::Acquire)})
 }
 
 struct PendingOpen {
     label: String,
     reply: mpsc::Sender<Result<(), String>>,
 }
+#[derive(Clone, Copy)]
+struct PendingRefresh {
+    force: bool,
+    attempt: u64,
+}
 #[derive(Default)]
 struct Queue {
     opens: VecDeque<PendingOpen>,
-    refresh: Option<bool>,
+    refresh: Option<PendingRefresh>,
+    issued_attempt: u64,
     destroyed: BTreeMap<String, u64>,
     // Alternate work categories so continuous menu clicks cannot starve a wake.
     prefer_refresh: bool,
@@ -55,7 +62,7 @@ struct Owner {
 }
 enum Work {
     Open(PendingOpen),
-    Refresh(bool),
+    Refresh(PendingRefresh),
     Destroyed(String, u64),
 }
 impl Queue {
@@ -64,9 +71,9 @@ impl Queue {
             return Some(Work::Destroyed(label, token));
         }
         if self.prefer_refresh || self.opens.is_empty() {
-            if let Some(force) = self.refresh.take() {
+            if let Some(refresh) = self.refresh.take() {
                 self.prefer_refresh = false;
-                return Some(Work::Refresh(force));
+                return Some(Work::Refresh(refresh));
             }
         }
         if let Some(open) = self.opens.pop_front() {
@@ -75,8 +82,18 @@ impl Queue {
         }
         self.refresh.take().map(Work::Refresh)
     }
-    fn refresh(&mut self, force: bool) {
-        self.refresh = Some(self.refresh.unwrap_or(false) || force);
+    fn refresh(&mut self, force: bool) -> Result<u64, String> {
+        // Allocation and queue insertion share the owner's queue lock. A
+        // passive completion cannot satisfy an explicit caller's later ticket.
+        let attempt = self
+            .issued_attempt
+            .checked_add(1)
+            .filter(|attempt| *attempt <= MAX_ATTEMPT)
+            .ok_or("Native workspace window attempts exhausted; restart the application.")?;
+        let force = self.refresh.is_some_and(|refresh| refresh.force) || force;
+        self.refresh = Some(PendingRefresh { force, attempt });
+        self.issued_attempt = attempt;
+        Ok(attempt)
     }
 }
 impl Owner {
@@ -124,10 +141,10 @@ impl Owner {
                     let result = engine.open(&mut host, &open.label);
                     let _ = open.reply.send(result);
                 }
-                Some(Work::Refresh(force)) => {
-                    engine.begin();
+                Some(Work::Refresh(refresh)) => {
+                    engine.begin(refresh.attempt);
                     self.publish(engine.outcome.clone());
-                    let _ = engine.reconcile(&mut host, force);
+                    let _ = engine.reconcile(&mut host, refresh.force);
                     self.publish(engine.outcome.clone());
                 }
                 Some(Work::Destroyed(label, token)) => {
@@ -227,19 +244,20 @@ pub fn open(app: &AppHandle, label: &str) -> Result<(), String> {
         .recv()
         .map_err(|_| "Native workspace window owner unavailable".to_owned())?
 }
-/// Coalesce wakes, retaining an explicit force even if later passive wakes arrive.
-pub fn refresh(app: &AppHandle, force: bool) -> Result<(), String> {
+/// Coalesce wakes, retaining force and the latest accepted ticket. The returned
+/// ticket is queued; only a terminal status at or above it confirms completion.
+pub fn refresh(app: &AppHandle, force: bool) -> Result<u64, String> {
     let owner = owner(app)?;
-    {
+    let attempt = {
         let mut queue = owner
             .queue
             .lock()
             .map_err(|_| "Native workspace window queue unavailable")?;
         active()?;
-        queue.refresh(force);
-    }
+        queue.refresh(force)?
+    };
     owner.wake.notify_one();
-    Ok(())
+    Ok(attempt)
 }
 /// Reading status is inert, including in isolated acceptance before its first layout operation.
 pub fn status(_app: &AppHandle) -> Result<Value, String> {
@@ -371,7 +389,8 @@ impl Default for Engine {
     }
 }
 impl Engine {
-    fn begin(&mut self) {
+    fn begin(&mut self, attempt: u64) {
+        self.outcome["attempt"] = json!(attempt);
         self.outcome["state"] = json!("applying");
         self.outcome["error"] = json!("");
         self.outcome["shown"] = json!([]);
@@ -542,7 +561,7 @@ mod tests {
         json!({"generation":"12345678-1234-1234-1234-123456789abc","revision":revision,"document":{"version":2,"activePresetID":"desk","presets":[{"id":"desk","name":"Desk","width":1920,"height":1080,"locked":true,"snap":true,"panels":panels}]}})
     }
     fn reconcile(engine: &mut Engine, host: &mut FakeHost, force: bool) -> Result<(), String> {
-        engine.begin();
+        engine.begin(engine.outcome["attempt"].as_u64().unwrap() + 1);
         engine.reconcile(host, force)
     }
     #[test]
@@ -628,13 +647,88 @@ mod tests {
     #[test]
     fn queued_refresh_is_bounded_coalesced_and_retains_force() {
         let mut queue = Queue::default();
-        for _ in 0..10000 {
-            queue.refresh(false);
+        for index in 0..10000 {
+            assert_eq!(queue.refresh(false).unwrap(), index + 1);
         }
-        queue.refresh(true);
-        queue.refresh(false);
-        assert!(matches!(queue.next(), Some(Work::Refresh(true))));
+        assert_eq!(queue.refresh(true).unwrap(), 10001);
+        assert_eq!(queue.refresh(false).unwrap(), 10002);
+        assert!(matches!(
+            queue.next(),
+            Some(Work::Refresh(PendingRefresh {
+                force: true,
+                attempt: 10002
+            }))
+        ));
         assert!(queue.next().is_none());
+    }
+    #[test]
+    fn in_flight_and_later_coalesced_refreshes_have_distinct_tickets() {
+        let mut queue = Queue::default();
+        assert_eq!(queue.refresh(false).unwrap(), 1);
+        let Some(Work::Refresh(first)) = queue.next() else {
+            panic!("missing first refresh")
+        };
+        assert_eq!(queue.refresh(true).unwrap(), 2);
+        assert_eq!(queue.refresh(false).unwrap(), 3);
+        assert_eq!(first.attempt, 1);
+        assert!(!first.force);
+        assert!(matches!(
+            queue.next(),
+            Some(Work::Refresh(PendingRefresh {
+                force: true,
+                attempt: 3
+            }))
+        ));
+        assert!(queue.next().is_none());
+    }
+    #[test]
+    fn ticket_exhaustion_preserves_the_already_accepted_queue_entry() {
+        let mut queue = Queue {
+            issued_attempt: MAX_ATTEMPT - 1,
+            ..Queue::default()
+        };
+        assert_eq!(queue.refresh(false).unwrap(), MAX_ATTEMPT);
+        assert!(queue.refresh(true).is_err());
+        assert_eq!(queue.issued_attempt, MAX_ATTEMPT);
+        assert!(matches!(
+            queue.next(),
+            Some(Work::Refresh(PendingRefresh {
+                force: false,
+                attempt: MAX_ATTEMPT
+            }))
+        ));
+        assert!(queue.next().is_none());
+    }
+    #[test]
+    fn attempt_identifies_begin_and_terminal_outcome_but_not_manual_opens() {
+        let mut engine = Engine::default();
+        let mut host = FakeHost::new(vec![layout(1, &["logbook"])]);
+        let initial = engine.outcome.clone();
+        assert_eq!(initial["attempt"], 0);
+        engine.open(&mut host, "awards").unwrap();
+        assert_eq!(engine.outcome, initial);
+        engine.begin(42);
+        assert_eq!(engine.outcome["attempt"], 42);
+        assert_eq!(engine.outcome["state"], "applying");
+        engine.reconcile(&mut host, false).unwrap();
+        assert_eq!(engine.outcome["attempt"], 42);
+        assert_eq!(engine.outcome["state"], "applied");
+        // An accepted ticket does not itself update observed completion.
+        let completed = engine.outcome.clone();
+        let mut queue = Queue {
+            issued_attempt: 42,
+            ..Queue::default()
+        };
+        assert_eq!(queue.refresh(true).unwrap(), 43);
+        assert_eq!(engine.outcome, completed);
+        engine.begin(43);
+        host.fail_show = Some("logbook".into());
+        assert!(engine.reconcile(&mut host, true).is_err());
+        assert_eq!(engine.outcome["attempt"], 43);
+        assert_eq!(engine.outcome["state"], "error");
+        let failed = engine.outcome.clone();
+        engine.open(&mut host, "awards").unwrap();
+        assert_eq!(engine.outcome, failed);
     }
     #[test]
     fn stale_second_read_cannot_hide_current_windows() {

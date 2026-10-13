@@ -7,7 +7,7 @@ const native = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn(), isTauri: vi
 vi.mock("@tauri-apps/api/core", () => ({ invoke: native.invoke, isTauri: native.isTauri }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: native.listen }));
 const idle = () => ({ supported: ["monitor", "world-map", "band-maps", "dx-cluster", "logbook", "awards"],
-  generation: null, revision: null, presetID: null, state: "idle", shown: [], hidden: [], error: "", stopped: false });
+  generation: null, revision: null, presetID: null, state: "idle", shown: [], hidden: [], error: "", stopped: false, attempt: 0 });
 const applied = () => ({ ...idle(), state: "applied", generation: "01234567-89ab-cdef-0123-456789abcdef", revision: 2, presetID: "desk-1" });
 function deferred<T>() { let resolve!: (value: T) => void; let reject!: (value: unknown) => void;
   const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; }
@@ -15,7 +15,7 @@ let wake: (event?: unknown) => void, dispose: ReturnType<typeof vi.fn<() => void
 beforeEach(() => {
   vi.resetAllMocks(); native.isTauri.mockReturnValue(true); dispose = vi.fn();
   native.listen.mockImplementation(async (_event, callback) => { wake = callback; return dispose; });
-  native.invoke.mockImplementation(async command => command === "workspace_windows_status" ? idle() : undefined);
+  native.invoke.mockImplementation(async command => command === "workspace_windows_status" ? idle() : { attempt: 1 });
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
@@ -32,6 +32,7 @@ describe("native workspace status schema", () => {
     { ...applied(), generation: null }, { ...applied(), revision: null }, { ...applied(), presetID: null },
     { generation: "bad" }, { revision: -1 }, { revision: Number.MAX_SAFE_INTEGER + 1 },
     { presetID: "x".repeat(65) }, { error: "x".repeat(4097) }, { stopped: 1 },
+    { attempt: undefined }, { attempt: -1 }, { attempt: 0.5 }, { attempt: Number.MAX_SAFE_INTEGER + 1 },
   ])("rejects malformed or unsupported observations %j", change => {
     expect(() => readWorkspaceWindowsStatus({ ...idle(), ...change })).toThrow("could not be verified");
   });
@@ -94,20 +95,21 @@ it("keeps focus fallback after subscription failure", async () => {
 });
 
 it("retry queues only the saved snapshot, refreshes, and does not invent completion", async () => {
-  const queued = deferred<void>();
+  const queued = deferred<{ attempt: number }>();
   const { result } = renderHook(useWorkspaceWindows);
   await waitFor(() => expect(result.current.status?.state).toBe("idle"));
-  native.invoke.mockImplementation(command => command === "workspace_windows_reconcile" ? queued.promise : Promise.resolve({ ...idle(), state: "applying" }));
+  native.invoke.mockImplementation(command => command === "workspace_windows_reconcile" ? queued.promise : Promise.resolve({ ...idle(), state: "applying", attempt: 1 }));
   let retry!: Promise<void>;
   act(() => { retry = result.current.retry(); void result.current.retry(); });
   expect(result.current.retrying).toBe(true);
   expect(native.invoke.mock.calls.filter(([command]) => command === "workspace_windows_reconcile")).toEqual([["workspace_windows_reconcile"]]);
-  await act(async () => { queued.resolve(); await retry; });
-  expect(result.current.retrying).toBe(false); expect(result.current.status?.state).toBe("applying");
-  native.invoke.mockResolvedValue({ ...idle(), state: "error", error: "could not show world-map", shown: [] });
+  await act(async () => { queued.resolve({ attempt: 1 }); await retry; });
+  expect(result.current.retrying).toBe(true); expect(result.current.status?.state).toBe("applying");
+  native.invoke.mockResolvedValue({ ...idle(), state: "error", error: "could not show world-map", shown: [], attempt: 1 });
   act(() => { wake(); });
   await waitFor(() => expect(result.current.status?.state).toBe("error"));
   expect(result.current.status?.error).toContain("could not show");
+  expect(result.current.retrying).toBe(false);
 });
 
 it("reports retry errors", async () => {
@@ -116,6 +118,131 @@ it("reports retry errors", async () => {
   native.invoke.mockRejectedValue(new Error("queue failed"));
   await act(async () => { await result.current.retry(); });
   expect(result.current.error).toBe("queue failed"); expect(result.current.retrying).toBe(false);
+});
+
+it("keeps a retry pending after an old applied snapshot, applying state, or older terminal outcome", async () => {
+  let snapshot = { ...applied(), attempt: 1 };
+  native.invoke.mockImplementation(async command => command === "workspace_windows_reconcile" ? { attempt: 3 } : snapshot);
+  const { result } = renderHook(useWorkspaceWindows);
+  await waitFor(() => expect(result.current.status?.state).toBe("applied"));
+  await act(async () => { await result.current.retry(); });
+  expect(result.current.retrying).toBe(true);
+  for (const next of [{ ...applied(), attempt: 2 }, { ...applied(), state: "applying", attempt: 3 }]) {
+    snapshot = next; act(() => { wake(); });
+    await waitFor(() => expect(result.current.status).toEqual(next));
+    expect(result.current.retrying).toBe(true);
+  }
+  snapshot = { ...applied(), attempt: 3 }; act(() => { wake(); });
+  await waitFor(() => expect(result.current.retrying).toBe(false));
+});
+
+it("recognizes fast completion before acknowledgement and a newer coalesced terminal attempt", async () => {
+  const queued = deferred<{ attempt: number }>();
+  let snapshot = applied();
+  native.invoke.mockImplementation(command => command === "workspace_windows_reconcile" ? queued.promise : Promise.resolve(snapshot));
+  const { result } = renderHook(useWorkspaceWindows);
+  await waitFor(() => expect(result.current.status?.state).toBe("applied"));
+  let retry!: Promise<void>; act(() => { retry = result.current.retry(); });
+  snapshot = { ...applied(), attempt: 5 }; act(() => { wake(); });
+  await waitFor(() => expect(result.current.status?.attempt).toBe(5));
+  expect(result.current.retrying).toBe(true);
+  await act(async () => { queued.resolve({ attempt: 4 }); await retry; });
+  expect(result.current.retrying).toBe(false); expect(result.current.status?.attempt).toBe(5);
+});
+
+it.each([undefined, {}, { attempt: 0 }, { attempt: -1 }, { attempt: 1.5 }, { attempt: Number.MAX_SAFE_INTEGER + 1 }])
+  ("rejects unverified retry acknowledgement %j", async acknowledgement => {
+    const { result } = renderHook(useWorkspaceWindows);
+    await waitFor(() => expect(result.current.status).not.toBeNull());
+    native.invoke.mockResolvedValueOnce(acknowledgement);
+    await act(async () => { await result.current.retry(); });
+    expect(result.current.error).toContain("acknowledgement could not be verified");
+    expect(result.current.retrying).toBe(false);
+    native.invoke.mockResolvedValue(applied()); act(() => { wake(); });
+    await waitFor(() => expect(result.current.status?.state).toBe("applied"));
+    expect(result.current.error).toContain("acknowledgement could not be verified");
+  });
+
+it("exposes recovery after read failure and retains uncertainty across older applied reads", async () => {
+  let failRead = false, snapshot = { ...applied(), attempt: 1 };
+  native.invoke.mockImplementation(async command => {
+    if (command === "workspace_windows_reconcile") { failRead = true; return { attempt: 2 }; }
+    if (failRead) throw new Error("read unavailable");
+    return snapshot;
+  });
+  const { result } = renderHook(useWorkspaceWindows);
+  await waitFor(() => expect(result.current.status?.state).toBe("applied"));
+  await act(async () => { await result.current.retry(); });
+  expect(result.current.retrying).toBe(false); expect(result.current.status).toBeNull();
+  expect(result.current.error).toContain("could not be confirmed");
+  failRead = false; act(() => { wake(); });
+  await waitFor(() => expect(result.current.status?.attempt).toBe(1));
+  expect(result.current.error).toContain("could not be confirmed");
+  snapshot = { ...applied(), attempt: 2 }; act(() => { wake(); });
+  await waitFor(() => expect(result.current.error).toBe(""));
+});
+
+it("keeps recovery busy when the old attempt completes before the new enqueue acknowledgement", async () => {
+  let failRead = false, snapshot = { ...applied(), attempt: 1 };
+  const recovery = deferred<{ attempt: number }>();
+  let requests = 0;
+  native.invoke.mockImplementation(async command => {
+    if (command === "workspace_windows_reconcile") {
+      if (++requests === 1) { failRead = true; return { attempt: 2 }; }
+      return recovery.promise;
+    }
+    if (failRead) throw new Error("read unavailable");
+    return snapshot;
+  });
+  const { result } = renderHook(useWorkspaceWindows);
+  await waitFor(() => expect(result.current.status?.state).toBe("applied"));
+  await act(async () => { await result.current.retry(); });
+  expect(result.current.retrying).toBe(false);
+  failRead = false;
+  let retry!: Promise<void>;
+  act(() => { retry = result.current.retry(); });
+  snapshot = { ...applied(), attempt: 2 }; act(() => { wake(); });
+  await waitFor(() => expect(result.current.status?.attempt).toBe(2));
+  expect(result.current.retrying).toBe(true);
+  await act(async () => { recovery.resolve({ attempt: 3 }); await retry; });
+  expect(result.current.retrying).toBe(true);
+  snapshot = { ...applied(), attempt: 3 }; act(() => { wake(); });
+  await waitFor(() => expect(result.current.retrying).toBe(false));
+  expect(result.current.error).toBe("");
+});
+
+it("does not let the old terminal attempt erase a rejected recovery enqueue", async () => {
+  let failRead = false, snapshot = { ...applied(), attempt: 1 }, requests = 0;
+  native.invoke.mockImplementation(async command => {
+    if (command === "workspace_windows_reconcile") {
+      if (++requests === 1) { failRead = true; return { attempt: 2 }; }
+      throw new Error("recovery queue failed");
+    }
+    if (failRead) throw new Error("read unavailable");
+    return snapshot;
+  });
+  const { result } = renderHook(useWorkspaceWindows);
+  await waitFor(() => expect(result.current.status?.state).toBe("applied"));
+  await act(async () => { await result.current.retry(); });
+  failRead = false;
+  await act(async () => { await result.current.retry(); });
+  expect(result.current.error).toBe("recovery queue failed");
+  snapshot = { ...applied(), attempt: 2 }; act(() => { wake(); });
+  await waitFor(() => expect(result.current.status?.attempt).toBe(2));
+  expect(result.current.error).toBe("recovery queue failed");
+  expect(result.current.retrying).toBe(false);
+});
+
+it("releases a queued retry on shutdown even when its attempt was never started", async () => {
+  let snapshot = applied();
+  native.invoke.mockImplementation(async command => command === "workspace_windows_reconcile" ? { attempt: 2 } : snapshot);
+  const { result } = renderHook(useWorkspaceWindows);
+  await waitFor(() => expect(result.current.status).not.toBeNull());
+  await act(async () => { await result.current.retry(); });
+  expect(result.current.retrying).toBe(true);
+  snapshot = { ...applied(), stopped: true }; act(() => { wake(); });
+  await waitFor(() => expect(result.current.retrying).toBe(false));
+  expect(result.current.error).toContain("owner has stopped");
 });
 
 it("disposes a late subscription and prevents retained retry or focus work", async () => {

@@ -63,7 +63,7 @@ const choose = (id: string) => fireEvent.change(screen.getByLabelText("Saved lay
 
 it("saves supported native placements without opening windows while editing and retains unrelated roles", async () => {
   native.status = { supported: ["world-map", "band-maps", "dx-cluster", "logbook", "awards", "monitor"], generation: null, revision: null,
-    presetID: null, state: "idle", shown: [], hidden: [], error: "", stopped: false };
+    presetID: null, state: "idle", shown: [], hidden: [], error: "", stopped: false, attempt: 0 };
   const context = setup(); await context.session.refresh(); render(<context.Workspace />);
   choose("custom"); fireEvent.click(button("Edit layout"));
   const map = screen.getByLabelText("World map placement");
@@ -82,7 +82,7 @@ it("saves supported native placements without opening windows while editing and 
 it("does not treat a saved layout or older native acknowledgement as confirmed window placement", async () => {
   const context = setup(); context.replace(snapshot => { snapshot.document.activePresetID = "custom"; });
   native.status = { supported: ["monitor"], generation: fixture().generation, revision: 6, presetID: "custom", state: "applied",
-    shown: ["monitor"], hidden: [], error: "", stopped: false };
+    shown: ["monitor"], hidden: [], error: "", stopped: false, attempt: 1 };
   await context.session.refresh(); const rendered = render(<context.Workspace />);
   expect(screen.getByText("Saved window placement is waiting for native confirmation.")).toBeTruthy();
   expect(screen.queryByText("Saved window placement applied.")).toBeNull();
@@ -95,9 +95,25 @@ it("does not treat a saved layout or older native acknowledgement as confirmed w
   expect(screen.getByText("Saved window placement applied.")).toBeTruthy();
 });
 
+it("keeps an older matching success pending until the current retry finishes", async () => {
+  const context = setup(); context.replace(snapshot => { snapshot.document.activePresetID = "custom"; });
+  native.status = { supported: ["monitor"], generation: fixture().generation, revision: 7, presetID: "custom", state: "applied",
+    shown: ["monitor"], hidden: [], error: "", stopped: false, attempt: 1 };
+  native.retrying = true;
+  await context.session.refresh(); const rendered = render(<context.Workspace />);
+  expect(screen.getByText("Applying saved windows…")).toBeTruthy();
+  expect(screen.queryByText("Saved window placement applied.")).toBeNull();
+  expect(button("Apply saved windows").disabled).toBe(true);
+  native.retrying = false; native.status = { ...native.status!, attempt: 2 };
+  rendered.rerender(<context.Workspace />);
+  expect(screen.getByText("Saved window placement applied.")).toBeTruthy();
+  expect(button("Apply saved windows").disabled).toBe(false);
+  expect(context.writes()).toHaveLength(0);
+});
+
 it("fits a separate-window rectangle back onto the canvas before saving", async () => {
   native.status = { supported: ["world-map"], generation: null, revision: null, presetID: null, state: "idle",
-    shown: [], hidden: [], error: "", stopped: false };
+    shown: [], hidden: [], error: "", stopped: false, attempt: 0 };
   const context = setup(); context.replace(snapshot => {
     Object.assign(snapshot.document.presets[2].panels.find(panel => panel.id === "world-map")!,
       { placement: "window", rect: { x: 1800, y: 950, width: 1100, height: 1200 } });

@@ -6,6 +6,8 @@ import { serveDetachedLifecycle, verifyDetachedLifecycle } from "./detachedAccep
 import { verifyWorkspaceLayoutRoundtrip } from "./workspaceLayoutAcceptance";
 import { verifySpotHistory } from "./spotHistoryAcceptance";
 import { verifyWorkspaceSettings } from "./workspaceSettingsAcceptance";
+import { verifyWorkspaceWindows } from "./workspaceWindowsAcceptance";
+import { createLogbookLayoutAcceptance } from "./logbookLayoutAcceptance";
 
 type Json = Record<string, any>;
 const frame = () => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
@@ -190,6 +192,11 @@ async function main(report: Json) {
   check("detached_logbook", logbookWindow?.status === "passed" && logbookWindow?.details?.surface === "logbook" &&
     logbookWindow?.checks?.contact_edit === true && logbookWindow?.checks?.no_radio_controls === true &&
     validSavedContact((await worker("logbook_list")).result));
+  report.details.workspaceWindows = await verifyWorkspaceWindows({ worker, navigate, fill, click }, logbookWindow!);
+  check("workspace_native_windows", report.details.workspaceWindows.manualWindowRetained && report.details.workspaceWindows.hiddenWithoutClosing
+    && report.details.workspaceWindows.sameRenderer && report.details.workspaceWindows.dirtyEditPreserved
+    && report.details.workspaceWindows.restoredVisible && report.details.workspaceWindows.cancelledWithoutSave
+    && report.details.workspaceWindows.contactUnchanged && report.details.workspaceWindows.operatorDraftUnchanged);
   report.details.logbookLifecycle = await verifyDetachedLifecycle("logbook", logbookWindow!, () => navigate("Operator Desk"));
   await waitForAcceptance("Logbook Dock back route", () => document.querySelector("main")?.getAttribute("aria-label") === "Logbook");
   check("detached_logbook_lifecycle", report.details.logbookLifecycle.closed === true);
@@ -357,7 +364,7 @@ export async function startIntegratedAcceptance() {
       await waitForAcceptance("detached operations settled", () => [...document.querySelectorAll<HTMLButtonElement>("button")].some(item => item.textContent?.trim() === "Dock back" && !item.disabled));
       report.status = report.checks.contact_edit && report.checks.no_radio_controls ? "passed" : "failed";
       await invoke("acceptance_monitor", { report });
-      await serveDetachedLifecycle(report, () => click("Dock back"));
+      await serveDetachedLifecycle(report, () => click("Dock back"), createLogbookLayoutAcceptance({ fill, click }));
       return;
     }
     if (surface) throw new Error("Unexpected local acceptance surface");

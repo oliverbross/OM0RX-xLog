@@ -31,7 +31,7 @@ export async function verifyDetachedLifecycle(kind: Kind, initial: Json, leaveSc
 }
 
 /** Called by the child after publishing its initial report. Dock is its real UI action. */
-export async function serveDetachedLifecycle(report: Json, clickDock: () => Promise<void>) {
+export async function serveDetachedLifecycle(report: Json, clickDock: () => Promise<void>, editorStep?: (action: string) => Promise<Json>) {
   let revision = 0;
   const deadline = Date.now() + 60_000;
   while (Date.now() < deadline) {
@@ -42,6 +42,11 @@ export async function serveDetachedLifecycle(report: Json, clickDock: () => Prom
         report.details.phaseRevision = revision;
         await invoke("acceptance_monitor", { report });
       } else if (step.action === "dock") { await clickDock(); return; }
+      else if (editorStep && report.details.surface === "logbook" && ["editor_prepare", "editor_probe", "editor_cancel"].includes(step.action)) {
+        report.details.workspaceDraft = { action: step.action, ...await editorStep(step.action) };
+        report.details.phaseRevision = revision;
+        await invoke("acceptance_monitor", { report });
+      }
       else throw new Error("Unexpected native window test step");
     }
     await pause();
