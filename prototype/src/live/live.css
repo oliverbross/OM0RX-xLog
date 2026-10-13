@@ -26,6 +26,8 @@
 .sidebar-metrics b { font-size: 16px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .live-error { display: flex; align-items: center; justify-content: space-between; gap: 16px; color: #ffb4aa; background: #382029; border: 1px solid #98514b; padding: 10px; border-radius: 6px; overflow-wrap: anywhere; }
 .live-message { color: var(--teal); padding: 4px 0; }
+.contact-recovery { flex-wrap: wrap; justify-content: flex-start; gap: 8px; }
+.contact-recovery > span { flex: 1 1 360px; }
 .live-onboarding { padding: 28px; background: var(--panel); border: 1px solid var(--border); max-width: 850px; }
 .live-onboarding p { max-width: 75ch; margin: 16px 0; }
 .live-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 12px 0; }

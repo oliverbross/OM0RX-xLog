@@ -42,6 +42,9 @@ import { changedCallDraft, enrichedDraft, normalizedCall } from "./live/draftEnr
 import { OperatorDraftSession, readDraftJournal, type DraftQSO } from "./live/operatorDraftSession";
 import { requestOperatorDraft } from "./live/operatorDraftTransport";
 import { OperatorDraftStatus } from "./live/OperatorDraftStatus";
+import { LogbookContactSession, readContactJournal } from "./live/logbookContactSession";
+import { requestLogbookContact } from "./live/logbookContactTransport";
+import { ContactEditStatus } from "./live/ContactEditStatus";
 import { retireStationProvider } from "./live/stationHandover";
 import RotorPanel from "./live/RotorPanel";
 import { clearConnectedHandoverMessage, ownAutomaticRotorMotion, rotorCommandParams, rotorIntentCurrent, rotorProjection, validRotorSnapshot, type AutomaticRotorIntent, type RotorSnapshot } from "./live/rotorControl";
@@ -66,6 +69,7 @@ const radioProviderLabels: Record<StationProvider, string> = {
   hamlib: "Local station · Hamlib",
 };
 const draftJournalKey = "xlog.integration.operatorDraft.main.v1";
+const contactJournalKey = "xlog.integration.contactEdit.main.v1";
 function storedDraftValue(key: string) { try { return localStorage.getItem(key); } catch { return null; } }
 function legacyDraftValue(): Data | null {
   try { const value = JSON.parse(storedDraftValue("xlog.integration.draft") || "null");
@@ -95,19 +99,25 @@ function MainLiveApp() {
   const [draftSession] = useState(() => new OperatorDraftSession(requestOperatorDraft,
     journal => localStorage.setItem(draftJournalKey, JSON.stringify(journal)), readDraftJournal(storedDraftValue(draftJournalKey))));
   const sharedDraft = useSyncExternalStore(draftSession.subscribe, draftSession.getSnapshot);
-  const [editedDraft, setEditedDraft] = useState<Data | null>(null);
-  const editedDraftRef = useRef<Data | null>(null);
+  const [contactSession] = useState(() => new LogbookContactSession(requestLogbookContact,
+    journal => journal ? localStorage.setItem(contactJournalKey, JSON.stringify(journal)) : localStorage.removeItem(contactJournalKey),
+    readContactJournal(storedDraftValue(contactJournalKey))));
+  const contactEdit = useSyncExternalStore(contactSession.subscribe, contactSession.getSnapshot);
   const editing = useRef(false);
+  editing.current = !!contactEdit.draft;
   const [legacyDraft, setLegacyDraft] = useState(legacyDraftValue);
-  const draft = editedDraft ?? sharedDraft.draft;
+  const draft = contactEdit.draft ?? sharedDraft.draft;
+  const editorLocked = sharedDraft.locked || contactEdit.locked;
+  const editorBlocked = editorLocked || !!sharedDraft.conflict || contactEdit.conflict;
   const setDraft = useCallback((next: Data | null | ((current: Data | null) => Data | null)) => {
-    if (draftSession.getSnapshot().locked) return;
-    const current = editing.current ? editedDraftRef.current : draftSession.getSnapshot().draft;
+    if (draftSession.getSnapshot().locked || contactSession.getSnapshot().locked) return;
+    const contact = contactSession.getSnapshot().draft;
+    const current = contact ?? draftSession.getSnapshot().draft;
     const value = changedCallDraft(current, typeof next === "function" ? next(current) : next);
-    if (editing.current) { editedDraftRef.current = value; setEditedDraft(value); }
+    if (contact && value) contactSession.edit(value as DraftQSO);
     else if (value) draftSession.edit(value as DraftQSO);
     else draftSession.reset();
-  }, [draftSession]);
+  }, [draftSession, contactSession]);
   const referenceEdits = useRef<Record<string, number>>({});
   const setOperatorDraft = useCallback((next: Data | null | ((current: Data | null) => Data | null)) => {
     setDraft(current => {
@@ -252,7 +262,7 @@ function MainLiveApp() {
   const cwControls = cwProfile.showOnDesk || cwProfile.macros.some((macro: Data) => macro.enabled && macro.shortcut) || cw.state.armed || cw.state.owner
     ? <CWDesk profile={cwProfile} context={cwContext} controller={cw.controller} state={cw.state} radioProvider={stationProvider} /> : undefined;
   const loadOpportunity = (item: Opportunity) => {
-    if (draftSession.getSnapshot().locked || draftSession.getSnapshot().conflict) { setError("Resolve the current QSO draft operation before loading another contact."); return; }
+    if (draftSession.getSnapshot().locked || draftSession.getSnapshot().conflict || contactSession.getSnapshot().locked) { setError("Resolve the current QSO draft operation before loading another contact."); return; }
     if (editing.current) { setError("Finish or clear the contact being edited before loading a new contact."); setView("Log QSO"); return; }
     selection.current++; pendingTune.current = false; disarmAutoRotor();
     spotRotorFence.current = { call: normalizedCall(item.callsign), confirmed: false };
@@ -343,11 +353,15 @@ function MainLiveApp() {
     }
     if (revision !== reloadRevision.current) return;
     setWorkspace(state);
+    // Contact receipt availability must not hide its own recovery controls.
+    if (state.workspace_exists) void contactSession.refresh().catch(cause => {
+      if (revision === reloadRevision.current) setError(cause instanceof Error ? cause.message : "Contact updates unavailable.");
+    });
     if (state.workspace_exists) void request("logbook_stats").then(totals => {
       if (revision === reloadRevision.current) setStats(totals);
     }).catch(() => { if (revision === reloadRevision.current) setError("Logbook totals could not be loaded. Your draft is available; reopen the workspace to retry."); });
     } finally { if (revision === reloadRevision.current) setWorkspacePending(false); }
-  }, [request, draftSession]);
+  }, [request, draftSession, contactSession]);
   const changeBandMapPreferences = (compact: boolean, view: BandMapViewPreferences) => {
     const current = latestWorkspacePreferences.current;
     if (!current || !validBandMapView(view)) return;
@@ -369,12 +383,12 @@ function MainLiveApp() {
   const dataManagementRequest: Request = useCallback(async (method, params = {}) => {
     if (method === "backup_create" || method === "backup_restore") await preferenceWrite.current;
     if (method === "backup_restore") {
-      if (editing.current) throw new Error("Finish or clear the logged contact edit before restoring a backup.");
+      if (contactSession.getSnapshot().draft || contactSession.getSnapshot().locked) throw new Error("Finish or clear the logged contact edit before restoring a backup.");
       return draftSession.withWorkspaceRestore(() => request(method, params));
     }
     if (method === "backup_create") await draftSession.flush();
     return request(method, params);
-  }, [request, draftSession]);
+  }, [request, draftSession, contactSession]);
   useEffect(() => { if (!monitor) void reload().catch(e => setError(e.message)); }, [reload, refresh]);
   useEffect(() => {
     if (monitor) return;
@@ -396,6 +410,17 @@ function MainLiveApp() {
     }); }, 1500);
     return () => { active = false; clearInterval(timer); };
   }, [workspace?.workspace_exists, draftSession]);
+  useEffect(() => {
+    if (!workspace?.workspace_exists || !contactEdit.base) return;
+    let active = true;
+    const timer = setInterval(() => { void contactSession.refresh().catch(cause => {
+      if (active) setError(cause instanceof Error ? cause.message : "Contact updates unavailable.");
+    }); }, 1500);
+    return () => { active = false; clearInterval(timer); };
+  }, [workspace?.workspace_exists, contactEdit.base?.qso.id, contactSession]);
+  useEffect(() => {
+    if (contactEdit.base) { setFollowImmediate(false); disarmAutoRotor(); selection.current++; pendingTune.current = false; }
+  }, [contactEdit.base?.qso.id, disarmAutoRotor]);
   useEffect(() => {
     if (sharedDraft.conflict || sharedDraft.error && (sharedDraft.pending?.action === "save" || sharedDraft.pending?.action === "clear")) {
       setFollowImmediate(false); disarmAutoRotor(); selection.current++; pendingTune.current = false;
@@ -500,22 +525,20 @@ function MainLiveApp() {
     void request("rotor_goto", { ...intent, bearing: lookup.bearing, label: call, intent_id: id })
       .catch(cause => setError(cause instanceof Error ? cause.message : "Automatic rotor turn failed."));
   }, [autoRotor, draft?.id, draft?.call, lookup, request]);
-  const leaveLoggedEdit = () => { editing.current = false; editedDraftRef.current = null; setEditedDraft(null); };
   const clear = async () => {
-    if (editing.current) leaveLoggedEdit();
+    if (contactSession.getSnapshot().draft) contactSession.cancel();
     else await draftSession.commit("clear");
     setSelected(null);
   };
   const save = () => run(async () => {
     if (!draft) return;
-    const saved = editing.current ? (await request("logbook_save", { qso: draft })).qso : await draftSession.commit("save");
-    if (editing.current) leaveLoggedEdit();
+    const saved = contactSession.getSnapshot().draft ? await contactSession.save() : await draftSession.commit("save");
     if (saved) setMessage(`${saved.call} saved to the integrated logbook. Original logbook unchanged.`);
     setSelected(null); setRefresh(n => n + 1);
   });
   const selectSpot = (spot: Data) => {
     if (monitor) return;
-    if (draftSession.getSnapshot().locked || draftSession.getSnapshot().conflict) { setError("Resolve the current QSO draft operation before selecting another spot."); return; }
+    if (draftSession.getSnapshot().locked || draftSession.getSnapshot().conflict || contactSession.getSnapshot().locked) { setError("Resolve the current QSO draft operation before selecting another spot."); return; }
     if (editing.current) { setError("Finish or clear the contact being edited before selecting a new spot."); setView("Log QSO"); return; }
     const generation = ++selection.current; const hz = Math.round(spot.frequencyKHz * 1000);
     const selectedProvider = provider.current;
@@ -634,6 +657,7 @@ function MainLiveApp() {
     <main aria-label={view}>
       {error && <div className="live-error" role="alert">{error}<button onClick={() => setError("")}>Dismiss</button></div>}
       {workspace?.workspace_exists && <OperatorDraftStatus state={sharedDraft} session={draftSession} run={operation => run(async () => { await operation(); setRefresh(n => n + 1); })} />}
+      {workspace?.workspace_exists && <ContactEditStatus state={contactEdit} session={contactSession} run={operation => run(async () => { await operation(); setRefresh(n => n + 1); })} />}
       {workspace?.workspace_exists && legacyDraft && <div className="live-message" role="status">
         Previous local draft: {legacyDraft.call}. Recovering copies its text into a new QSO; it does not log a contact.
         <button type="button" disabled={sharedDraft.locked || !!sharedDraft.conflict || !!sharedDraft.draft?.call || editing.current} onClick={() => void run(async () => {
@@ -651,12 +675,12 @@ function MainLiveApp() {
         <p className="live-message" role="status">{referenceEvidence.rows.map(row => `${String(row.kind).toUpperCase()} ${row.reference} · ${row.status === "verified" ? `Verified: ${row.name}` : row.status === "not_installed" ? "Directory not installed" : "Not found in installed directory"}`).join(" | ")}</p>}
       {!workspace?.workspace_exists ? <WorkspaceGate workspace={workspace} pending={workspacePending} busy={busy}
         retry={() => void run(reload)} create={mode => void run(async () => { await request("workspace_create", { mode }); await reload(); })} /> : <>
-      {view === "Operator Desk" && <><OperatorDesk draftLocked={sharedDraft.locked} cwControls={cwControls} equipment={settings?.stationEquipment} draft={draft} setDraft={setOperatorDraft} save={save} clear={() => void run(clear)} busy={busy || sharedDraft.locked || !!sharedDraft.conflict} lookup={lookup} previous={previous} request={request} refresh={refresh} onEditor={() => setView("Log QSO")} onReadRadio={readRadioIntoDraft} follow={follow} setFollow={setFollowImmediate} rotor={rotorState} autoRotor={autoRotor} setAutoRotor={changeAutoRotor} onManualRotor={disarmAutoRotor} isEditing={editing.current} intelligenceBands={workspacePreferences?.intelligenceBands} />
+      {view === "Operator Desk" && <><OperatorDesk draftLocked={editorLocked} cwControls={cwControls} equipment={settings?.stationEquipment} draft={draft} setDraft={setOperatorDraft} save={save} clear={() => void run(clear)} busy={busy || editorBlocked} lookup={lookup} previous={previous} request={request} refresh={refresh} onEditor={() => setView("Log QSO")} onReadRadio={readRadioIntoDraft} follow={follow} setFollow={setFollowImmediate} rotor={rotorState} autoRotor={autoRotor} setAutoRotor={changeAutoRotor} onManualRotor={disarmAutoRotor} isEditing={editing.current} intelligenceBands={workspacePreferences?.intelligenceBands} />
         <div className="live-desk-bottom"><OperatorWorkspace map={<div className="live-map">{map}</div>} cluster={cluster} selectedSpotId={selected} onSelect={selectSpot} bandMaps={<BandMaps spots={liveSpots} onSelect={selectSpot} radioFrequencyHz={station?.radio?.frequency_hz} compact preferences={workspacePreferences ? bandMapView(workspacePreferences, true) : undefined} onPreferencesChange={value => changeBandMapPreferences(true, value)} />} /></div></>}
-      {view === "Log QSO" && <QSOEditor draftLocked={sharedDraft.locked} draft={draft} setDraft={setOperatorDraft} save={save} clear={() => void run(clear)} busy={busy || sharedDraft.locked || !!sharedDraft.conflict} lookup={lookup} previous={previous} follow={follow} setFollow={setFollowImmediate} request={request} onReadRadio={readRadioIntoDraft} isEditing={editing.current} automaticStationMetadata={automaticStationMetadata} />}
+      {view === "Log QSO" && <QSOEditor draftLocked={editorLocked} draft={draft} setDraft={setOperatorDraft} save={save} clear={() => void run(clear)} busy={busy || editorBlocked} lookup={lookup} previous={previous} follow={follow} setFollow={setFollowImmediate} request={request} onReadRadio={readRadioIntoDraft} isEditing={editing.current} automaticStationMetadata={automaticStationMetadata} />}
       {view === "Logbook" && <LogbookPanel onRequest={request} refreshKey={refresh} onEdit={qso => { void run(async () => {
         if (draftSession.getSnapshot().locked) throw new Error("Finish the pending draft operation before editing a logged contact.");
-        await draftSession.flush(); editing.current = true; editedDraftRef.current = qso; setEditedDraft(qso); setFollowImmediate(false); setView("Log QSO");
+        await draftSession.flush(); await contactSession.open(qso.id); setFollowImmediate(false); disarmAutoRotor(); setView("Log QSO");
       }); }} />}
       {view === "DX Cluster" && <ClusterPanel passive snapshot={cluster} selectedSpotId={selected} onRequest={request} onSelect={selectSpot} onUndock={() => void openDetachedCluster().catch(e => setError(e.message))} />}
       {view === "Chaser & DX" && <OpportunitiesPanel request={request} refresh={refresh} onSelect={loadOpportunity} home={stats?.map_home} />}

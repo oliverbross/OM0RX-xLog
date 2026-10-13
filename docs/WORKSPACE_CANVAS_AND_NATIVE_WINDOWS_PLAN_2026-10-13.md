@@ -1,6 +1,6 @@
 # Configurable Operator Desk and native windows
 
-Status: shared-draft foundation and initial native Cluster session implemented in source; canvas, menus and independent-window acceptance remain open.
+Status: shared draft, revision-safe main contact editing and initial native Cluster session implemented in source; canvas, menus and independent-window acceptance remain open.
 Request: 13 October 2026. Baseline: `0cc7ecc` / installed alpha.13.
 
 ## Product contract
@@ -24,9 +24,9 @@ This request extends the ongoing parity programme; it does not mark earlier requ
 | WS-02 | Settings → Workspace provides panel selection and named layouts | Planned |
 | WS-03 | Native menus replace navigation links on all three desktop platforms | Planned |
 | WS-04 | Window menu opens/focuses individual native panel windows | Planned |
-| WS-05 | Docked, mixed and fully undocked arrangements share one live session | Planned |
+| WS-05 | Docked, mixed and fully undocked arrangements share one live session | In progress: draft/contact foundations and Cluster owner only |
 | WS-06 | Layouts and window geometry survive restart and monitor changes | Planned |
-| WS-07 | Concurrent windows cannot duplicate logging or station actions | Planned |
+| WS-07 | Concurrent windows cannot duplicate logging or station actions | In progress: database/client revision and receipt checks; native multi-window gate open |
 | WS-08 | Responsive, accessible and measured fast interaction at laptop/4K sizes | Planned |
 
 ## Interaction defaults
@@ -173,6 +173,20 @@ Evidence: 10 focused Swift tests pass (separate connections, competing editors, 
 Generated 100,000-contact database benchmark, debug build on this Mac: 100 contact reads p95 **0.064 ms**, 25 transactional updates p95 **0.553 ms**; first list 2 ms, stats 21 ms, award progress 225 ms, map statuses 17 ms, award catalogue 604 ms, callsign/country history 247 ms. Fixture import took 31,910 ms and derived-index migration 1,295 ms. These are backend-only measurements, not end-to-end UI, network or RF performance and not a cross-platform claim. Aggregate/lookup/UI performance gates remain open.
 
 Checkpoint D source `0d4358056646562437f0f77cc686497bc4bd826f` passed Mac CI `38323200735` and Mac prototype job `38323200520`; Windows/Linux runtime jobs were skipped in that push workflow. Those results do not cover checkpoint E. No new package is installed; alpha.13 remains the sole installed Integration build.
+
+### Checkpoint F — existing-contact editor recovery
+
+The main Desk/full editor now uses `LogbookContactSession` and a correlated contact-only IPC adapter instead of `logbook_save`. Typing remains local; explicit Update journals the exact operation identity before dispatch. Concurrent Update requests share one operation. Lost acknowledgements and post-commit worker errors are reconciled using durable receipts, including after renderer restart. Retry preserves the same operation ID; a stale/deleted contact retains local text without overwriting or resurrecting it. Recovery offers Copy my edits, Load latest contact where available, or Cancel edit. The separate new-QSO draft remains intact.
+
+Only QSO entry is locked while an update is unresolved; unrelated navigation and rotor Stop retain their existing boundaries. Recovered edits disable Follow radio and automatic rotor intent. Backup replacement is blocked while a contact edit or update is retained. A failed contact-receipt read no longer prevents the workspace and recovery controls from opening. Slow refresh reads are shared, and unchanged conflict state does not rewrite the recovery journal repeatedly.
+
+Evidence: TypeScript, production Vite build and all **419 frontend tests across 61 files** pass. New coverage includes 14 contact-session tests, 2 transport tests and rendered restart/conflict/deleted-contact/unavailable-receipt/backup-restore workflows. The first full run exposed an incomplete preferences test fixture on remount and a 5-second monitor-test timeout; the fixture was corrected, the monitor test passed independently, and the complete single-worker rerun passed. No timeout was increased to mask a failure. The existing large-bundle and ineffective Map dynamic-import warnings remain open performance work.
+
+Isolated browser checks of production recovery/editor components at 1280×800, 800×700 and 640×600 verified readable wrapping, pending recovery, explicit conflict resolution and zero reported browser exceptions. Compact document width was 640 px at a 640 px viewport. Evidence: `/tmp/xlog-contact-qa-rOgMqL/report.md` and screenshots there. The synthetic harness was removed and its browser session closed; it did not access the real workspace or station. This does not close full-editor vertical sizing/WS-08 or native/package acceptance.
+
+**Still pending:** native workspace-generation fencing across backup restore, revision-safe table Delete/Undo UI, capability registry, detachable Logbook/all-screen routes, native menus, canvas/layout persistence, main-renderer-absent session ownership and exact packaged tests. The contact service remains restricted to `main`; no detached edit authority is granted by this checkpoint. Installed alpha.13 is unchanged.
+
+Checkpoint E source `980e1c4a91a5f1631a664e2be2e61d346abcbeed` passed Mac prototype CI `38324231294`. Matrix `38324265409` has passed the Mac/Windows/Linux build jobs; its separate Windows/Linux runtime acceptance jobs were still queued at this checkpoint's local verification. Those results cover E, not F.
 
 ## Follow-on: RUMlogNG workflow and feature comparison
 

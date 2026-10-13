@@ -111,7 +111,9 @@ does not close these requirements without packaged behavior checks.
 
 ### Existing-contact concurrency checkpoint (WS-05/07)
 
-Checkpoint E implements revision-fenced Update/Delete/Restore and durable operation receipts in the database/worker. Per-row triggers cover native/import/sync writers without invalidating edits to unrelated contacts. Ten focused tests pass, with shared/native Swift and Rust regressions also passing; details and measured backend-only 100,000-contact latency are recorded in the workspace plan. The existing-contact UI still uses its previous update path. Recovery UI integration, native restore-generation fencing, detached Logbook and all-screen capabilities/lifecycle remain pending. No installed/release or full-window acceptance is claimed.
+Checkpoint E implements revision-fenced Update/Delete/Restore and durable operation receipts in the database/worker. Per-row triggers cover native/import/sync writers without invalidating edits to unrelated contacts. Ten focused tests pass, with shared/native Swift and Rust regressions also passing; details and measured backend-only 100,000-contact latency are recorded in the workspace plan.
+
+Checkpoint F migrates main Desk/full-editor Update to the revision-safe contact client with retained-text recovery, exact retry identity and explicit conflict resolution. It preserves the separate new-QSO draft and blocks backup restore while an edit is retained. TypeScript and 419 frontend tests pass; browser-only recovery layouts/actions were checked at 1280/800/640 px. Native restore-generation fencing, table Delete/Undo UI, detached Logbook and all-screen capabilities/lifecycle remain pending. No installed/release or full-window acceptance is claimed; original docked layout remains available.
 
 ## Closure sequence and non-negotiable checks
 

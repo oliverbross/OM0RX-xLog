@@ -1,0 +1,164 @@
+import { DraftRequestRejected, sameDraftValue, validDraftSnapshot, type DraftQSO, type DraftSnapshot } from "./operatorDraftSession";
+
+export type ContactMutation = { operationID: string; contactID: string; expectedRevision: number; action: "update"; qso: DraftQSO };
+export type ContactJournal = { base: DraftSnapshot; draft: DraftQSO; pending: ContactMutation | null };
+export type ContactEditState = { base: DraftSnapshot | null; draft: DraftQSO | null; pending: ContactMutation | null;
+  conflict: boolean; current: DraftSnapshot | null; error: string; locked: boolean };
+type Request = (method: string, params?: Record<string, unknown>) => Promise<any>;
+const clone = <T>(value: T): T => structuredClone(value);
+const empty = (): ContactEditState => ({ base: null, draft: null, pending: null, conflict: false, current: null, error: "", locked: false });
+export function readContactJournal(raw: string | null): ContactJournal | null {
+  try {
+    if (!raw || raw.length > 100_000) return null;
+    const value = JSON.parse(raw), pending = value?.pending;
+    if (!validDraftSnapshot(value?.base) || value?.draft?.id !== value.base.qso.id) return null;
+    if (pending != null && (pending.action !== "update" || typeof pending.operationID !== "string" || !pending.operationID ||
+      pending.contactID !== value.base.qso.id || pending.expectedRevision !== value.base.revision ||
+      !sameDraftValue(pending.qso, value.draft))) return null;
+    return { base: value.base, draft: value.draft, pending: pending ?? null };
+  } catch { return null; }
+}
+
+/** Existing contacts are saved only on explicit Update, never on typing. */
+export class LogbookContactSession {
+  private state: ContactEditState;
+  private listeners = new Set<() => void>();
+  private action: Promise<DraftQSO | null> | null = null;
+  private reading: Promise<void> | null = null;
+  private lifecycle = 0;
+  constructor(private request: Request, private writeJournal: (journal: ContactJournal | null) => void,
+    journal: ContactJournal | null = null, private uuid = () => crypto.randomUUID()) {
+    this.state = { ...empty(), ...clone(journal ?? {}), locked: !!journal?.pending,
+      error: journal?.pending ? "An earlier contact update needs its saved receipt checked." : "" };
+  }
+  getSnapshot = () => this.state;
+  subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
+  private update(change: Partial<ContactEditState>, persist = true) {
+    this.state = { ...this.state, ...change };
+    if (persist && this.state.base && this.state.draft) {
+      try { this.writeJournal(clone({ base: this.state.base, draft: this.state.draft, pending: this.state.pending })); }
+      catch { this.state = { ...this.state, error: "Contact recovery could not be saved on this device. Keep this window open." }; }
+    }
+    this.listeners.forEach(listener => listener());
+  }
+  private checked(value: any, id: string): DraftSnapshot | null {
+    if (value === null) return null;
+    if (!validDraftSnapshot(value) || value.qso.id.toLowerCase() !== id.toLowerCase()) throw new Error("The contact response could not be verified.");
+    return value;
+  }
+  async open(id: string) {
+    if (this.state.base || this.state.locked || this.action) throw new Error("Finish or cancel the current contact edit first.");
+    const lifecycle = ++this.lifecycle;
+    this.update({ locked: true }, false);
+    try {
+      const response = await this.request("logbook_contact", { contactID: id });
+      const base = this.checked(response?.contact, id);
+      if (!base || base.qso.deletedAt) throw new Error("This contact was removed. Refresh the logbook before editing.");
+      if (lifecycle !== this.lifecycle) return;
+      this.update({ base: clone(base), draft: clone(base.qso), error: "", conflict: false, current: null });
+    } finally { if (lifecycle === this.lifecycle) this.update({ locked: false }, false); }
+  }
+  edit(qso: DraftQSO) {
+    if (this.state.locked || this.action) throw new Error("Wait for the contact update to finish.");
+    if (!this.state.base || qso.id !== this.state.base.qso.id) throw new Error("The contact identity changed.");
+    this.update({ draft: clone(qso) });
+  }
+  cancel() {
+    if (this.state.locked || this.action || this.state.pending) throw new Error("Check the pending contact update before cancelling.");
+    this.writeJournal(null); this.lifecycle++;
+    this.update(empty(), false);
+  }
+  async refresh() {
+    if (this.action) return;
+    if (this.state.pending) { await this.reconcile(); return; }
+    if (!this.state.base || this.state.locked) return;
+    if (this.reading) return this.reading;
+    const base = this.state.base, lifecycle = this.lifecycle;
+    this.reading = (async () => {
+      const response = await this.request("logbook_contact", { contactID: base.qso.id });
+      if (lifecycle !== this.lifecycle || this.action || this.state.pending || this.state.base !== base) return;
+      const current = this.checked(response?.contact, base.qso.id);
+      if (sameDraftValue(current, base) || this.state.conflict && sameDraftValue(current, this.state.current)) return;
+      this.update({ conflict: true, current: clone(current), error: "This logged contact changed elsewhere. Your unsaved text is retained." });
+    })().finally(() => { this.reading = null; });
+    return this.reading;
+  }
+  async useCurrent() {
+    if (this.action || this.state.pending || this.state.locked || !this.state.base) throw new Error("Check the pending contact update first.");
+    const id = this.state.base.qso.id;
+    this.update({ locked: true }, false);
+    try {
+      const response = await this.request("logbook_contact", { contactID: id });
+      const current = this.checked(response?.contact, id);
+      if (!current || current.qso.deletedAt) throw new Error("This contact was removed. Copy your text, then cancel this edit.");
+      this.lifecycle++;
+      this.update({ base: clone(current), draft: clone(current.qso), conflict: false, current: null, error: "" });
+    } finally { this.update({ locked: false }, false); }
+  }
+  private finish(value: any, pending: ContactMutation): DraftQSO {
+    if (!sameDraftValue(value?.mutation, pending) || !validDraftSnapshot(value?.contact) ||
+      value.contact.qso.id.toLowerCase() !== pending.contactID.toLowerCase() ||
+      value.contact.revision !== pending.expectedRevision + 1 || value.contact.qso.deletedAt)
+      throw new Error("The contact update receipt could not be verified.");
+    // Clear recovery storage before closing the editor. If storage fails, retain
+    // the exact pending identity so the committed update can be reconciled.
+    this.writeJournal(null); this.lifecycle++;
+    this.update(empty(), false);
+    return value.contact.qso;
+  }
+  private async apply(pending: ContactMutation): Promise<DraftQSO> {
+    this.writeJournal(clone({ base: this.state.base!, draft: this.state.draft!, pending }));
+    this.update({ pending, locked: true, error: "" }, false);
+    try {
+      const response = await this.request("logbook_contact_apply", pending);
+      if (response?.status === "conflict") {
+        const current = this.checked(response.contact, pending.contactID);
+        this.update({ pending: null, conflict: true, current, locked: false,
+          error: "This logged contact changed elsewhere. Your unsaved text is retained." });
+        throw new Error(this.state.error);
+      }
+      if (response?.status !== "applied") throw new Error("The contact update result could not be verified.");
+      return this.finish(response.receipt, pending);
+    } catch (cause) {
+      if (this.state.pending && cause instanceof DraftRequestRejected) {
+        try {
+          const result = await this.request("logbook_contact_receipt", { operationID: pending.operationID });
+          if (result?.receipt) return this.finish(result.receipt, pending);
+          if (result?.receipt === null) this.update({ pending: null, locked: false, error: cause.message });
+        } catch { /* Missing evidence is not permission to resend a new update. */ }
+      }
+      if (this.state.pending) this.update({ locked: true,
+        error: "Contact update acknowledgement unavailable. Check the saved operation before retrying; your text is retained." });
+      throw cause;
+    }
+  }
+  save(): Promise<DraftQSO | null> {
+    if (this.action) return this.action;
+    const { base, draft, pending, conflict, locked } = this.state;
+    if (!base || !draft || pending || conflict || locked) return Promise.reject(new Error("Resolve the current contact edit before updating."));
+    return this.perform({ operationID: this.uuid(), contactID: base.qso.id, expectedRevision: base.revision, action: "update", qso: clone(draft) });
+  }
+  private perform(pending: ContactMutation) {
+    this.update({ locked: true }, false);
+    this.action = this.apply(pending).finally(() => {
+      this.action = null; this.update({ locked: !!this.state.pending }, false);
+    });
+    return this.action;
+  }
+  retry() {
+    if (this.action) return this.action;
+    return this.state.pending ? this.perform(this.state.pending) : this.save();
+  }
+  async reconcile(): Promise<DraftQSO | null> {
+    if (this.action) return this.action;
+    const pending = this.state.pending;
+    if (!pending) return null;
+    this.action = (async () => {
+      const result = await this.request("logbook_contact_receipt", { operationID: pending.operationID });
+      if (result?.receipt) return this.finish(result.receipt, pending);
+      this.update({ error: "No contact receipt is available yet. Retry reuses the same operation ID." });
+      return null;
+    })().finally(() => { this.action = null; this.update({ locked: !!this.state.pending }, false); });
+    return this.action;
+  }
+}

@@ -12,7 +12,7 @@ const object = (value: any) => value !== null && typeof value === "object" && !A
 const clone = <T>(value: T): T => structuredClone(value);
 const stable = (value: any): string => JSON.stringify(value, (key, item) => {
   if (typeof item === "string") {
-    if (["id", "operationID", "draftID"].includes(key)) return item.toLowerCase();
+    if (["id", "operationID", "draftID", "contactID"].includes(key)) return item.toLowerCase();
     if (["start", "end", "createdAt", "updatedAt", "deletedAt"].includes(key) && /^\d{4}-\d\d-\d\dT/.test(item) && Number.isFinite(Date.parse(item)))
       return new Date(item).toISOString();
   }

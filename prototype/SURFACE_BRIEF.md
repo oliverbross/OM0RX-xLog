@@ -2,6 +2,8 @@
 
 ## Shared operator draft integration — 13 October 2026
 
+Existing-contact recovery extends this same Operate surface: keep edits local until explicit Update, preserve the separate new-QSO draft, and show inline receipt/conflict recovery only when required. A stale contact is never silently overwritten or resurrected. Copy local text, load the latest contact, and cancel remain explicit actions; uncertain updates lock QSO entry without disabling Rotor Stop. The original docked layout stays available.
+
 Operate mode, retaining the live editor/desk layout and suite palette. New QSOs use the workspace's revisioned draft and durable Save receipts. Show compact inline recovery and conflict controls only when needed, preserve local text, and never replay a station command while recovering a logbook operation. Lock only QSO entry during Save/Clear or uncertain terminal outcomes; rotor Stop remains reachable. Legacy browser draft text is offered explicitly as recovery, not silently substituted for a newer shared draft. Logged-contact editing remains separate and does not inherit multi-window acceptance.
 
 ## Shared detached Cluster extension — 13 October 2026
