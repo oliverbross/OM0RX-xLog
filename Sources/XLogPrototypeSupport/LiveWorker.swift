@@ -22,19 +22,59 @@ public actor LiveWorker {
     private let publicServices: LivePublicServiceMethods
     private let services: LiveServiceMethods
     private let localAcceptance: Bool
+    private let contactRefresher: @Sendable () async throws -> Void
+    private var contactRefreshPending = false
+    private var workspaceTransitionCount = 0
+    private var contactRefreshIdentity: UUID?
+    // Isolated tests may join the exact task, rather than guessing a delay.
+    private(set) var contactRefreshTask: Task<Void, Never>?
     init(logbook: LiveLogbookMethods = .shared, localAcceptance: Bool = false, cluster: LiveClusterMethods? = nil,
-         publicServices: LivePublicServiceMethods? = nil) {
+         publicServices: LivePublicServiceMethods? = nil,
+         contactRefresher: (@Sendable () async throws -> Void)? = nil) {
         logbookLane = LogbookLane(service: logbook)
         self.publicServices = publicServices ?? LivePublicServiceMethods(logbook: logbook)
         services = LiveServiceMethods(logbook: logbook)
         let cluster = cluster ?? (logbook === LiveLogbookMethods.shared ? .shared : LiveClusterMethods(logbook: logbook))
         self.cluster = cluster
+        self.contactRefresher = contactRefresher ?? { try await cluster.refreshContacts() }
         opportunities = LiveOpportunitiesMethods(logbook: logbook, clusterSpots: { await cluster.currentSpotRowsIfStarted() })
         self.localAcceptance = localAcceptance
     }
 
     func beginTerminalShutdown() {
         terminalShutdown = true
+        cancelContactRefresh()
+    }
+
+    private func cancelContactRefresh() {
+        contactRefreshPending = false
+        contactRefreshIdentity = nil
+        contactRefreshTask?.cancel()
+        contactRefreshTask = nil
+    }
+
+    private func queueContactRefresh() {
+        guard !localAcceptance, !terminalShutdown else { return }
+        contactRefreshPending = true
+        guard workspaceTransitionCount == 0 else { return }
+        guard contactRefreshTask == nil else { return }
+        let identity = UUID()
+        contactRefreshIdentity = identity
+        contactRefreshTask = Task(priority: .utility) { [weak self] in
+            await self?.drainContactRefresh(identity)
+        }
+    }
+
+    private func drainContactRefresh(_ identity: UUID) async {
+        while !terminalShutdown, !Task.isCancelled, contactRefreshIdentity == identity, contactRefreshPending {
+            contactRefreshPending = false
+            // The durable mutation response has already been encoded and
+            // returned. A failed projection must not change its receipt.
+            try? await contactRefresher()
+        }
+        guard contactRefreshIdentity == identity else { return }
+        contactRefreshIdentity = nil
+        contactRefreshTask = nil
     }
 
     public func startBackgroundServices() async {
@@ -82,7 +122,7 @@ public actor LiveWorker {
                 }
                 try LocalAcceptanceSession.validate(method: method, params: params)
             }
-            if terminalShutdown && (method.hasPrefix("sync_") || method.hasPrefix("secret_") || method.hasPrefix("station_") || method.hasPrefix("spot_bridge_") || method.hasPrefix("spot_history_") || method.hasPrefix("opportunities_") || method.hasPrefix("cluster_") || method.hasPrefix("logbook_operator_draft") || method.hasPrefix("logbook_contact") || ["weather", "propagation_snapshot", "lookup_call"].contains(method)) {
+            if terminalShutdown && (method.hasPrefix("sync_") || method.hasPrefix("secret_") || method.hasPrefix("station_") || method.hasPrefix("spot_bridge_") || method.hasPrefix("spot_history_") || method.hasPrefix("opportunities_") || method.hasPrefix("cluster_") || method.hasPrefix("logbook_operator_draft") || method.hasPrefix("logbook_contact") || ["weather", "propagation_snapshot", "lookup_call", "workspace_create", "backup_restore"].contains(method)) {
                 throw WorkerFailure("worker_stopping", "The worker is shutting down; no new service request was started.")
             }
             if method == "health" {
@@ -106,12 +146,34 @@ public actor LiveWorker {
             }
             let result: [String: Any]
             if method == "cluster_history" || method.hasPrefix("workspace_") || method.hasPrefix("logbook_") || method.hasPrefix("settings_") || method.hasPrefix("backup_") {
-                result = try await logbookLane.handle(method: method, params: params)
+                let changingWorkspace = !localAcceptance && ["workspace_create", "backup_restore"].contains(method)
+                if changingWorkspace {
+                    // Retire queued publications before the database may be
+                    // replaced; an old workspace cannot repaint the new one.
+                    cancelContactRefresh()
+                    workspaceTransitionCount += 1
+                    await cluster.invalidateContactsForWorkspaceChange()
+                }
+                do { result = try await logbookLane.handle(method: method, params: params) }
+                catch {
+                    // A rejected restore still owns the original workspace;
+                    // rebuild its invalidated projection without hiding error.
+                    if changingWorkspace {
+                        await cluster.finishWorkspaceChange()
+                        workspaceTransitionCount -= 1
+                        queueContactRefresh()
+                    }
+                    throw error
+                }
+                if changingWorkspace {
+                    await cluster.finishWorkspaceChange()
+                    workspaceTransitionCount -= 1
+                }
                 let draftLogged = method == "logbook_operator_draft_apply" && params["action"] as? String == "save"
                     && result["status"] as? String == "applied"
                 let contactChanged = method == "logbook_contact_apply" && result["status"] as? String == "applied"
                 if !localAcceptance && (draftLogged || contactChanged || ["workspace_create", "logbook_save", "logbook_delete", "logbook_undo", "logbook_import_adif", "backup_restore"].contains(method)) {
-                    try? await cluster.refreshContacts()
+                    queueContactRefresh()
                 }
             } else if method.hasPrefix("opportunities_") {
                 result = try await opportunities.handle(method: method, params: params)

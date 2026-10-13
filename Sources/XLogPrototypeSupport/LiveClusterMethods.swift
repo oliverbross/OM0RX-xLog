@@ -34,6 +34,11 @@ public actor LiveClusterMethods {
     private var forwardStatus = "Off"
     private var forwardRetryAfter = Date.distantPast
     private var terminated = false
+    private var contactRefreshRevision: UInt64 = 0
+    private var workspaceTransitionCount = 0
+    private var contactRefreshState = "not_loaded"
+    private var contactRefreshError: String?
+    private let beforeContactPublication: (@Sendable () async throws -> Void)?
     private var history: LiveSpotHistoryMethods?
     private enum ResumeIntent: String, Codable { case automatic, connected, disconnected }
     private struct ResumeRecord: Codable { let version: Int; let intent: ResumeIntent }
@@ -55,10 +60,11 @@ public actor LiveClusterMethods {
          transportFactory: @escaping ClusterTransportFactory = { server, password, reconnect, skimmer, state, line in
              makeClusterTCPTransport(server: server, password: password, reconnect: reconnect,
                                      requestSkimmer: skimmer, onState: state, onLine: line)
-         }) {
+         }, beforeContactPublication: (@Sendable () async throws -> Void)? = nil) {
         self.logbook = logbook
         self.vault = vault
         self.transportFactory = transportFactory
+        self.beforeContactPublication = beforeContactPublication
         self.configurationURL = configurationURL ?? (logbook === LiveLogbookMethods.shared
             ? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
                 .appendingPathComponent("OM0RX-xLog Integration Services/cluster.json")
@@ -67,6 +73,7 @@ public actor LiveClusterMethods {
 
     func terminate() async {
         terminated = true
+        contactRefreshRevision &+= 1
         await service?.terminate()
         await history?.stop()
     }
@@ -181,6 +188,8 @@ public actor LiveClusterMethods {
                 "resume_error": resumeError as Any? ?? NSNull(),
                 "resume_initialized": (try? readResumeIntent()) != nil,
                 "flex_forwarding_available": forwardingAvailable,
+                "contact_refresh_state": contactRefreshState,
+                "contact_refresh_error": contactRefreshError as Any? ?? NSNull(),
                 "password_servers": try currentConfiguration().servers.filter { try vault.load($0.id) != nil }.map { $0.id.uuidString },
                 "forwarding": ["accepted_count": forwardAcceptedCount, "status": forwardStatus]]
     }
@@ -188,7 +197,12 @@ public actor LiveClusterMethods {
     private func connect(_ service: ClusterSessionService) async throws {
         let workspaceStatus = try logbook.handle(method: "workspace_status", params: [:])
         if workspaceStatus["workspace_exists"] as? Bool == true { try await refreshContacts() }
-        else { await service.invalidateContacts() }
+        else {
+            contactRefreshRevision &+= 1
+            let revision = contactRefreshRevision
+            contactRefreshState = "not_loaded"; contactRefreshError = nil
+            await service.invalidateContacts(publicationRevision: revision)
+        }
         try requireRunning()
         var passwords: [UUID: String] = [:]
         for server in try currentConfiguration().servers.filter(\.enabled) { passwords[server.id] = try vault.load(server.id) ?? "" }
@@ -232,22 +246,57 @@ public actor LiveClusterMethods {
     /// Called after local QSO mutations, import, restore or remote reconciliation.
     public func refreshContacts() async throws {
         try requireRunning()
-        let service = try await readyService()
-        let database = try logbook.openedDatabase()
-        let contacts = try database.clusterContactRows()
-        var records: [ClusterContact] = []
-        records.reserveCapacity(contacts.count)
-        let resolver = try? CTYResolver.bundled()
-        for qso in contacts {
-            records.append(ClusterContact(callsign: qso.call, band: qso.band,
-                                          mode: qso.mode,
-                                          adif: qso.dxcc ?? resolver?.resolve(qso.call, at: qso.start)?.adif,
-                                          date: qso.start, paperQSL: qso.qslReceived,
-                                          lotwQSL: qso.lotwReceived))
+        guard workspaceTransitionCount == 0 else {
+            throw WorkerFailure("workspace_changed", "Wait for the workspace replacement to finish.")
         }
-        await service.replaceContacts(records)
+        contactRefreshRevision &+= 1
+        let revision = contactRefreshRevision
+        contactRefreshState = "refreshing"; contactRefreshError = nil
+        do {
+            try Task.checkCancellation()
+            let service = try await readyService(refreshInitialContacts: false)
+            let database = try logbook.openedDatabase()
+            let contacts = try database.clusterContactRows()
+            var records: [ClusterContact] = []
+            records.reserveCapacity(contacts.count)
+            let resolver = try? CTYResolver.bundled()
+            for qso in contacts {
+                try Task.checkCancellation()
+                records.append(ClusterContact(callsign: qso.call, band: qso.band,
+                                              mode: qso.mode,
+                                              adif: qso.dxcc ?? resolver?.resolve(qso.call, at: qso.start)?.adif,
+                                              date: qso.start, paperQSL: qso.qslReceived,
+                                              lotwQSL: qso.lotwReceived))
+            }
+            if let beforeContactPublication { try await beforeContactPublication() }
+            try requireRunning()
+            try Task.checkCancellation()
+            guard revision == contactRefreshRevision, database === (try logbook.openedDatabase()) else {
+                throw WorkerFailure("workspace_changed", "The contact projection belongs to an earlier workspace.")
+            }
+            let published = await service.replaceContacts(records, publicationRevision: revision)
+            try Task.checkCancellation()
+            guard published, revision == contactRefreshRevision, !terminated else { return }
+            contactRefreshState = "current"
+        } catch {
+            if revision == contactRefreshRevision, !terminated {
+                contactRefreshState = "stale"
+                contactRefreshError = "CONTACT_REFRESH_UNAVAILABLE"
+            }
+            throw error
+        }
     }
 
+    func invalidateContactsForWorkspaceChange() async {
+        workspaceTransitionCount += 1
+        contactRefreshRevision &+= 1
+        contactRefreshState = "not_loaded"; contactRefreshError = nil
+        await service?.invalidateContacts(publicationRevision: contactRefreshRevision)
+    }
+
+    func finishWorkspaceChange() {
+        workspaceTransitionCount = max(0, workspaceTransitionCount - 1)
+    }
 
     /// Keep the full in-memory history while fitting a bounded worker response.
     /// Trim oldest console lines first, then least-recent visible spots if needed.
@@ -265,7 +314,7 @@ public actor LiveClusterMethods {
         return (snapshot, truncated)
     }
 
-    private func readyService() async throws -> ClusterSessionService {
+    private func readyService(refreshInitialContacts: Bool = true) async throws -> ClusterSessionService {
         try requireRunning()
         if let service { return service }
         let config: ClusterSessionConfiguration
@@ -286,7 +335,7 @@ public actor LiveClusterMethods {
         forwardStatus = config.forwardSpotsToFlex ? (forwardingAvailable ? "Enabled; connect a cluster and direct-agent station." : "Unavailable on this platform") : "Off"
         service = created
         if let csv = try? CTYResolver.bundledCSV() { await created.replaceCountryCSV(csv) }
-        if (try logbook.handle(method: "workspace_status", params: [:]))["workspace_exists"] as? Bool == true {
+        if refreshInitialContacts, workspaceTransitionCount == 0, (try logbook.handle(method: "workspace_status", params: [:]))["workspace_exists"] as? Bool == true {
             try await refreshContacts()
         }
         return created

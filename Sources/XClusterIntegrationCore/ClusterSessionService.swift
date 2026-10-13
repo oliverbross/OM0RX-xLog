@@ -282,6 +282,7 @@ public actor ClusterSessionService {
     private var historySegments: [UUID: HistorySegment] = [:]
     private var contactCounts: [String: Int] = [:]
     private var contactRevision = 0
+    private var contactPublicationRevision: UInt64 = 0
     private var hasContactSnapshot = false
     private var terminated = false
     private let transportFactory: ClusterTransportFactory
@@ -420,7 +421,14 @@ public actor ClusterSessionService {
         disconnect()
     }
 
-    public func replaceContacts(_ records: [ClusterContact]) {
+    @discardableResult
+    public func replaceContacts(_ records: [ClusterContact], publicationRevision: UInt64? = nil) -> Bool {
+        // A retired worker projection may already be queued on this actor.
+        guard !terminated, !Task.isCancelled else { return false }
+        if let publicationRevision {
+            guard publicationRevision >= contactPublicationRevision else { return false }
+            contactPublicationRevision = publicationRevision
+        }
         var nextCounts: [String: Int] = [:]
         for record in records {
             nextCounts[record.callsign.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(), default: 0] += 1
@@ -436,9 +444,15 @@ public actor ClusterSessionService {
         hasContactSnapshot = true
         contacts = ClusterClassificationIndex(records: records)
         reclassify()
+        return true
     }
 
-    public func invalidateContacts() {
+    public func invalidateContacts(publicationRevision: UInt64? = nil) {
+        guard !terminated else { return }
+        if let publicationRevision {
+            guard publicationRevision >= contactPublicationRevision else { return }
+            contactPublicationRevision = publicationRevision
+        }
         contacts = .empty
         contactCounts.removeAll()
         contactRevision &+= 1
