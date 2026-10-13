@@ -1,5 +1,4 @@
 import Foundation
-import CoreFoundation
 #if canImport(CryptoKit)
 import CryptoKit
 #else
@@ -169,7 +168,7 @@ actor LiveServiceMethods {
         case "sync_run":
             guard Set(params.keys) == ["confirm_single_writer"],
                   let confirmed = params["confirm_single_writer"] as? NSNumber,
-                  CFGetTypeID(confirmed) == CFBooleanGetTypeID(), confirmed.boolValue else {
+                  isJSONBoolean(confirmed), confirmed.boolValue else {
                 throw WorkerFailure("sync_confirmation_required", "Close other Wavelog sync applications and confirm this logbook is the only writer before synchronizing.")
             }
             guard syncTask == nil else { throw WorkerFailure("sync_busy", "Synchronization is already running.") }
@@ -181,10 +180,11 @@ actor LiveServiceMethods {
             return syncState
         case "sync_configure":
             guard Set(params.keys) == ["enabled", "interval_minutes", "confirm_single_writer"],
-                  let enabled = params["enabled"] as? NSNumber, CFGetTypeID(enabled) == CFBooleanGetTypeID(),
-                  let confirmed = params["confirm_single_writer"] as? NSNumber, CFGetTypeID(confirmed) == CFBooleanGetTypeID(),
-                  let interval = params["interval_minutes"] as? NSNumber, CFGetTypeID(interval) != CFBooleanGetTypeID(),
-                  interval.doubleValue == Double(interval.intValue), (1...60).contains(interval.intValue) else { throw invalid() }
+                  let enabled = params["enabled"] as? NSNumber, isJSONBoolean(enabled),
+                  let confirmed = params["confirm_single_writer"] as? NSNumber, isJSONBoolean(confirmed),
+                  let interval = params["interval_minutes"] as? NSNumber, !isJSONBoolean(interval),
+                  interval.doubleValue.isFinite, (1...60).contains(interval.doubleValue),
+                  interval.doubleValue == Double(interval.intValue) else { throw invalid() }
             guard syncTask == nil else { throw WorkerFailure("sync_busy", "Wait for synchronization to finish before changing its schedule.") }
             if enabled.boolValue && operation == nil {
                 guard !(try workspaceSecrets().load(.wavelogToken) ?? "").isEmpty else {
@@ -215,7 +215,7 @@ actor LiveServiceMethods {
                 throw WorkerFailure("conflict_changed", "This contact changed while you were choosing fields. Refresh and review the current values.")
             }
             if let raw = params["use_remote"] {
-                guard let boolean = raw as? NSNumber, CFGetTypeID(boolean) == CFBooleanGetTypeID() else { throw invalid() }
+                guard let boolean = raw as? NSNumber, isJSONBoolean(boolean) else { throw invalid() }
                 try db.resolveConflict(conflict, useRemote: boolean.boolValue)
                 return ["resolved": true, "queued": !boolean.boolValue]
             }
@@ -297,5 +297,11 @@ actor LiveServiceMethods {
         return client
     }
     #endif
+    private func isJSONBoolean(_ number: NSNumber) -> Bool {
+        // Match the portable station boundary: Windows Foundation has no
+        // CoreFoundation type IDs. Preserve true/false versus numeric 0/1.
+        guard let encoded = try? JSONSerialization.data(withJSONObject: [number]) else { return false }
+        return encoded == Data("[true]".utf8) || encoded == Data("[false]".utf8)
+    }
     private func invalid() -> WorkerFailure { WorkerFailure("invalid_params", "Invalid service parameters.") }
 }

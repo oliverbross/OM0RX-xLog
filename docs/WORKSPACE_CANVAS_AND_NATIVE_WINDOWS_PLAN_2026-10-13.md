@@ -430,6 +430,8 @@ Parallel CI investigation confirmed source `509827c` builds on all three platfor
 
 Final local verification: 549 frontend tests and TypeScript/Vite/bundle gates pass; all portable Swift suites pass (Windows Credential Manager roundtrip intentionally skips on macOS); 27 targeted native core tests pass; 146 Rust/helper tests pass. The working tree also contains separately uncommitted geometry work, so exact committed-source CI remains the authoritative package gate. No new application was installed or launched, and no radio or live Wavelog mutation was performed during this source stage.
 
+Committed source `ddbe729556bdb9ddf06512243c6a217be2b86194` was pushed. Its all-platform run `38363722286` caught two portability issues before packaging: Linux's test-start helper exhausted a fixed Task.yield count before the task ran, and Windows lacks the newly imported CoreFoundation module. Follow-up uses an actual XCTest start expectation and bounded wall-clock completion wait; the production Boolean gate now uses the already-established portable Foundation JSON scalar distinction rather than CoreFoundation IDs. Numeric 0/1 still cannot authorize synchronization. Renewed exact-source three-platform verification is required; the installed application remains unchanged.
+
 ## Follow-on: RUMlogNG workflow and feature comparison
 
 User added this reference pass after the canvas/native-window request. Confirmed installed app identity through the native app inventory: `de.dl2rum.RUMlogNG`; it was not running at inspection. Its menus/settings have not yet been audited in this pass. Do not represent remembered features as current observations.

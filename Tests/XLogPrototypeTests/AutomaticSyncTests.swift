@@ -274,10 +274,11 @@ final class AutomaticSyncTests: XCTestCase {
     }
 
     private func completed(_ service: LiveServiceMethods) async throws -> [String: Any] {
-        for _ in 0..<2000 {
+        let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+        while ContinuousClock.now < deadline {
             let status = try await service.handle(method: "sync_status", params: [:])
             if status["running"] as? Bool == false { return status }
-            await Task.yield()
+            try await Task.sleep(nanoseconds: 1_000_000)
         }
         XCTFail("Synthetic sync did not finish")
         return [:]
@@ -312,11 +313,24 @@ private final class EmptySyncHistoryProtocol: URLProtocol, @unchecked Sendable {
 private actor SyncGate {
     var starts = 0
     private var continuation: CheckedContinuation<Void, Never>?
-    func run() async { starts += 1; await withCheckedContinuation { continuation = $0 } }
+    private var startWaiters: [(count: Int, expectation: XCTestExpectation)] = []
+    func run() async {
+        starts += 1
+        let ready = startWaiters.filter { starts >= $0.count }
+        startWaiters.removeAll { starts >= $0.count }
+        for waiter in ready { waiter.expectation.fulfill() }
+        await withCheckedContinuation { continuation = $0 }
+    }
     func finish() { continuation?.resume(); continuation = nil }
     func waitForStart(count: Int = 1) async {
-        for _ in 0..<2000 { if starts >= count { return }; await Task.yield() }
-        XCTFail("Synthetic sync did not start")
+        if starts >= count { return }
+        // Yield counts do not bound elapsed time or guarantee another actor
+        // gets scheduled. Wait for the injected operation's actual start.
+        let started = XCTestExpectation(description: "Synthetic sync operation \(count) started")
+        startWaiters.append((count, started))
+        let result = await XCTWaiter.fulfillment(of: [started], timeout: 5)
+        startWaiters.removeAll { $0.expectation === started }
+        XCTAssertEqual(result, .completed, "Synthetic sync did not start")
     }
 }
 private struct SyncFixture {
