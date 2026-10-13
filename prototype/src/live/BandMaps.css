@@ -54,10 +54,10 @@
 .band-map-gridline[data-edge="upper"] span { top: 2px; }
 .band-map-gridline[data-edge="lower"] span { top: auto; bottom: 3px; }
 .band-map-spot { position: absolute; transform: translate(-50%, -50%); display: flex; align-items: center; justify-content: space-between; gap: 3px; height: calc(22px * var(--band-font-scale)); min-height: calc(22px * var(--band-font-scale)) !important; padding: 1px 5px; border: 1px solid; border-radius: 4px; text-align: left; font: calc(10px * var(--band-font-scale)) ui-monospace, SFMono-Regular, monospace; overflow: hidden; }
-.band-map-spot strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.band-map-spot b { flex: none; font-size: .86em; }
+.band-map-spot strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.band-map-spot b { flex: none; font-size: .86em; white-space: nowrap; }
 .band-map-spot:hover { filter: brightness(1.25); }
-.band-map-overflow { position: absolute; bottom: 4px; right: 5px; max-width: calc(100% - 60px); background: #122b40; color: #fff; border: 1px solid var(--border); border-radius: 4px; padding: 3px 6px; font-size: .8em; }
+.band-map-overflow { position: absolute; bottom: 4px; right: 5px; max-width: calc(100% - var(--band-axis-width, 54px) - 10px); background: #122b40; color: #fff; border: 1px solid var(--border); border-radius: 4px; padding: 3px 6px; font-size: .8em; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .band-map-panel-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 3px 5px; min-height: 28px; padding: 2px 8px; background: var(--control); color: var(--secondary); font: calc(10px * var(--band-font-scale)) ui-monospace, SFMono-Regular, monospace; font-variant-numeric: tabular-nums; }
 .band-map-panel-foot output { white-space: nowrap; }
 .band-map-legend { display: flex; gap: 7px; }

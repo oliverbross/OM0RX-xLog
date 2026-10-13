@@ -117,12 +117,35 @@ function normalizeSpots(spots: BandMapSpot[], band: string, view: ViewRange): Ba
     && text(spot.callsign).trim().length > 0);
 }
 
+export function bandMapLaneGeometry(width: number, fontScale = 1) {
+  // Six frequency digits, their inset and a clear gap must fit at every scale.
+  const axis = Math.max(54, Math.ceil(6 * 9 * fontScale * 0.64 + 14));
+  const laneCount = Math.max(1, Math.min(6, Math.floor((Math.max(180, width) - axis - 12) / (112 * fontScale))));
+  return { axis, laneCount, laneWidth: (width - axis - 8) / laneCount };
+}
+
+export function bandMapOverflowHeight(fontScale = 1): number {
+  // One explicit 1.3em line, padding/borders, bottom inset and label clearance.
+  return Math.ceil(12 * fontScale * 0.8 * 1.3) + 16;
+}
+
+export function bandMapSpotWidth(spots: BandMapSpot[], laneWidth: number, fontScale = 1): number {
+  // Monospace glyphs are normally 0.6em wide; 0.64em leaves room for font
+  // fallback/rounding without measuring text during live cluster updates.
+  // The status uses 0.86 of the callsign font; padding, border and gap add 15px.
+  const contentWidth = Math.max(0, ...spots.map(spot =>
+    (text(spot.callsign).length + opportunityCode(spot).length * 0.86) * 10 * fontScale * 0.64));
+  return Math.min(Math.ceil(contentWidth + 15), Math.max(0, laneWidth - 5));
+}
+
 // Fixed-size lanes guarantee non-overlapping labels even when many spots share one frequency.
 export function placeSpots(spots: BandMapSpot[], view: ViewRange, width: number, height: number, fontScale = 1): { placed: PlacedSpot[]; hidden: number } {
-  const axis = 54;
-  const laneCount = Math.max(1, Math.min(6, Math.floor((Math.max(180, width) - axis - 12) / (112 * fontScale))));
+  const { laneCount } = bandMapLaneGeometry(width, fontScale);
   const slotHeight = Math.max(25, 23 * fontScale);
-  const slotCount = Math.max(1, Math.floor(Math.max(100, height - 8) / slotHeight));
+  const slotsIn = (available: number) => Math.max(0, Math.floor(Math.min(available, Math.max(100, available - 8)) / slotHeight));
+  // A notice needs its own space only when the full chart cannot fit the spots.
+  const usableHeight = spots.length > laneCount * slotsIn(height) ? Math.max(0, height - bandMapOverflowHeight(fontScale)) : height;
+  const slotCount = slotsIn(usableHeight);
   const occupied = Array.from({ length: laneCount }, () => new Set<number>());
   const ordered = [...spots].sort((a, b) => b.frequencyKHz - a.frequencyKHz || text(a.callsign).localeCompare(text(b.callsign)));
   const placed: PlacedSpot[] = [];
@@ -189,6 +212,11 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
   }, [full]);
   const visible = useMemo(() => normalizeSpots(spots, band, view), [spots, band, view]);
   const { placed, hidden } = useMemo(() => placeSpots(visible, view, width, chartHeight, fontScale), [visible, view, width, chartHeight, fontScale]);
+  const { axis, laneWidth } = bandMapLaneGeometry(width, fontScale);
+  const spotWidth = bandMapSpotWidth(visible, laneWidth, fontScale);
+  // Allocation captions can use the chart's right gutter only if a complete
+  // PHONE label fits clear of the last lane; the legend/select cover tight maps.
+  const allocationCaptionsFit = !placed.length || 8 + (laneWidth - spotWidth) / 2 >= Math.ceil(5 * 12 * 0.67 * fontScale * 0.64 + 12);
   const allBandCount = spots.filter((spot) => spot.band === band && finite(spot.frequencyKHz) !== null).length;
   const selectedSegment = full.allocations.find((part) => part.low === view.low && part.high === view.high);
   const segmentName = selectedSegment ? `${selectedSegment.name} portion` : view.low === full.low && view.high === full.high ? "Full band" : "Custom range";
@@ -211,7 +239,7 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
     }}><option>Full band</option>{full.allocations.map((part) => <option key={part.name}>{part.name} portion</option>)}{segmentName === "Custom range" && <option>Custom range</option>}</select></label>
       <div className="band-map-tool-buttons"><button type="button" aria-label={`Pan ${band} up`} title="Pan up" onClick={() => pan(1)}><ArrowUp size={13} /></button><button type="button" aria-label={`Pan ${band} down`} title="Pan down" onClick={() => pan(-1)}><ArrowDown size={13} /></button><button type="button" aria-label={`Zoom ${band} out`} title="Zoom out" onClick={() => zoom(1.55)}><ZoomOut size={13} /></button><button type="button" aria-label={`Zoom ${band} in`} title="Zoom in" onClick={() => zoom(0.62)}><ZoomIn size={13} /></button><button type="button" aria-label={`Reset ${band} range`} title="Full band" onClick={() => setView({ low: full.low, high: full.high })}><RotateCcw size={13} /></button></div>
     </div>
-    <div className={`band-map-chart${zoomed ? " is-zoomed" : ""}${dragging ? " is-dragging" : ""}`} ref={chartRef} aria-label={`${band} spectrum, ${rangeLabel}`}
+    <div className={`band-map-chart${zoomed ? " is-zoomed" : ""}${dragging ? " is-dragging" : ""}`} ref={chartRef} aria-label={`${band} spectrum, ${rangeLabel}`} style={{ "--band-axis-width": `${axis}px` } as CSSProperties}
       onPointerDown={event => {
         if (drag.current) return;
         suppressClick.current = false;
@@ -240,7 +268,7 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
         const high = Math.min(view.high, part.high);
         if (high <= low) return null;
         const span = view.high - view.low;
-        return <div key={part.name} className={`band-map-allocation band-map-${part.name.toLowerCase()}`} style={{ top: `${((view.high - high) / span) * 100}%`, height: `${((high - low) / span) * 100}%` }} aria-hidden="true"><span>{part.name.toUpperCase()}</span></div>;
+        return <div key={part.name} className={`band-map-allocation band-map-${part.name.toLowerCase()}`} style={{ top: `${((view.high - high) / span) * 100}%`, height: `${((high - low) / span) * 100}%` }} aria-hidden="true">{allocationCaptionsFit && <span>{part.name.toUpperCase()}</span>}</div>;
       })}
       {Array.from({ length: 9 }, (_, index) => {
         const fraction = index / 8;
@@ -250,11 +278,9 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
         const color = statusColor(spot);
         const code = opportunityCode(spot);
         const tooltip = `${text(spot.callsign)} · ${(spot.frequencyKHz / 1000).toFixed(6)} MHz · ${text(spot.mode)} · ${text(spot.callStatus)} · ${text(spot.dxccStatus)}${spot.comment ? ` · ${text(spot.comment)}` : ""}`;
-        const lanes = Math.max(1, Math.min(6, Math.floor((Math.max(180, width) - 66) / (112 * fontScale))));
-        const laneWidth = (width - 62) / lanes;
-        return <button key={key} type="button" className="band-map-spot" style={{ top, left: 54 + laneWidth * (lane + 0.5), width: Math.min(126 * fontScale, Math.max(72, laneWidth - 5)), color, borderColor: color, backgroundColor: `${color}28` }} title={tooltip} aria-label={tooltip} onClick={() => onSelect(spot)}><strong>{text(spot.callsign)}</strong><b>{code}</b></button>;
+        return <button key={key} type="button" className="band-map-spot" style={{ top, left: axis + laneWidth * (lane + 0.5), width: spotWidth, color, borderColor: color, backgroundColor: `${color}28` }} title={tooltip} aria-label={tooltip} onClick={() => onSelect(spot)}><strong>{text(spot.callsign)}</strong><b>{code}</b></button>;
       })}
-      {hidden > 0 && <span className="band-map-overflow" role="status">{hidden} more spots; zoom in to separate labels</span>}
+      {hidden > 0 && <span className="band-map-overflow" role="status" aria-label={`${hidden} more spots; zoom in to separate labels`} title={`${hidden} more spots; zoom in to separate labels`}>{hidden} more · zoom in</span>}
     </div>
     <footer className="band-map-panel-foot"><div className="band-map-legend"><span>CW</span><span>Data</span><span>Phone</span></div><output>{rangeLabel}</output></footer>
   </section>;

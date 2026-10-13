@@ -9,6 +9,8 @@ pub struct Screen {
     pub title: String,
     pub group: String,
     pub shortcut: Option<String>,
+    #[serde(default)]
+    pub hidden: bool,
 }
 pub fn screens() -> &'static [Screen] {
     static SCREENS: OnceLock<Vec<Screen>> = OnceLock::new();
@@ -64,6 +66,8 @@ mod tests {
             if let Some(shortcut) = &item.shortcut { assert!(shortcuts.insert(shortcut)); assert!(shortcut.starts_with("CmdOrCtrl+")); }
         }
         assert!(menu_screen("station_tune").is_none()); assert!(screen("unknown").is_none());
+        assert!(screen("sync").unwrap().hidden);
+        assert!(!screen("settings").unwrap().hidden);
     }
     #[test]
     fn pending_navigation_survives_missing_renderer_and_stale_acknowledgement() {

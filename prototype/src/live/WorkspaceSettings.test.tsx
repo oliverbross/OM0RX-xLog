@@ -251,7 +251,10 @@ it("keeps service fields and credentials mounted across Workspace and saves layo
   expect(screen.queryByRole("button", { name: "Save settings" })).toBeNull();
   fireEvent.click(button("Duplicate layout")); fireEvent.change(input("Layout name"), { target: { value: "Saved independently" } });
   fireEvent.click(button("Save layout")); await screen.findByText("Layout saved. Use layout to switch arrangements.");
-  expect(context.writes()).toHaveLength(1); expect(request).not.toHaveBeenCalled();
+  expect(context.writes()).toHaveLength(1);
+  // Opening Wavelog reads presence metadata once; layout Save must not persist
+  // service settings or the unsaved credential.
+  expect(request.mock.calls).toEqual([["secret_status"]]);
   fireEvent.click(screen.getByRole("tab", { name: "Wavelog" }));
   expect(input("Wavelog API v2 token")).toBe(token); expect(token.value).toBe("unit-test-draft-token");
   fireEvent.click(screen.getByRole("tab", { name: "Station" }));

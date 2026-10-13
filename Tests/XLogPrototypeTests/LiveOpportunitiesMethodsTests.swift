@@ -200,6 +200,17 @@ struct LiveOpportunitiesMethodsTests {
         let badSession = URLSession(configuration: badConfig)
         defer { badSession.invalidateAndCancel() }
         let reopened = LiveOpportunitiesMethods(logbook: logbook, session: badSession, clusterSpots: { [] })
+        // Automatic per-source refreshes retain the cross-window/remount cooldown.
+        // The failing transport would make this stale if another download started.
+        let automatic = try await reopened.handle(method: "opportunities_refresh", params: ["source": "pota", "automatic": true])
+        let automaticSource = try #require((automatic["sources"] as? [[String: Any]])?.first { $0["source"] as? String == "pota" })
+        #expect(automaticSource["state"] as? String == "current")
+        #expect(automaticSource["safe_error"] is NSNull)
+        let freshSource = try #require((fresh["sources"] as? [[String: Any]])?.first { $0["source"] as? String == "pota" })
+        #expect(automaticSource["last_attempt"] as? String == freshSource["last_attempt"] as? String)
+        await #expect(throws: WorkerFailure.self) {
+            try await reopened.handle(method: "opportunities_refresh", params: ["source": "pota", "automatic": "true"])
+        }
         let fallback = try await reopened.handle(method: "opportunities_refresh", params: ["source": "pota"])
         let fallbackRows = try #require(fallback["items"] as? [[String: Any]])
         #expect(fallbackRows.first?["id"] as? String == freshRows.first?["id"] as? String)

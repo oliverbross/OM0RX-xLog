@@ -9,6 +9,6 @@
   {"id":"chaser-dx","title":"Chaser & DX","group":"View","shortcut":null},
   {"id":"awards","title":"Awards","group":"Logbook","shortcut":null},
   {"id":"station-control","title":"Station Control","group":"Station","shortcut":null},
-  {"id":"sync","title":"Sync","group":"Logbook","shortcut":null},
+  {"id":"sync","title":"Sync","group":"Logbook","shortcut":null,"hidden":true},
   {"id":"settings","title":"Settings","group":"Station","shortcut":"CmdOrCtrl+,"}
 ]

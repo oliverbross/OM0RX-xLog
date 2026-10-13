@@ -356,6 +356,26 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                 guard let call = try string(params, "call", max: 32), !call.isEmpty else { throw invalid() }
                 let limit = try integer(params, "limit", default: 20, range: 1...25)
                 return ["qsos": try json(try readyDatabase().previous(call: call, limit: limit))]
+            case "logbook_duplicate":
+                try requireKeys(params, allowed: ["call", "band", "mode", "exclude_id"], required: ["call", "band", "mode"])
+                guard let rawCall = try string(params, "call", max: 32),
+                      let rawBand = try string(params, "band", max: 16),
+                      let rawMode = try string(params, "mode", max: 16) else { throw invalid() }
+                let call = rawCall.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+                let band = rawBand.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                let enteredMode = rawMode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+                let mode = ["USB": "SSB", "LSB": "SSB", "CWR": "CW", "RTTYR": "RTTY"][enteredMode] ?? enteredMode
+                guard call.range(of: #"^[A-Z0-9/\-]{2,32}$"#, options: .regularExpression) != nil,
+                      band.range(of: #"^[a-z0-9]{1,16}$"#, options: .regularExpression) != nil,
+                      mode.range(of: #"^[A-Z0-9\-]{1,16}$"#, options: .regularExpression) != nil else { throw invalid() }
+                let excluded: UUID?
+                if params["exclude_id"] != nil {
+                    guard let text = params["exclude_id"] as? String, let id = UUID(uuidString: text) else { throw invalid() }
+                    excluded = id
+                } else { excluded = nil }
+                let last = try readyDatabase().latestWorkedContact(call: call, band: band, mode: mode, excludingID: excluded)
+                return ["call": call, "band": band, "mode": mode,
+                        "last_worked_at": last.map { ISO8601DateFormatter().string(from: $0.start) } as Any? ?? NSNull()]
             case "logbook_matrix":
                 try requireKeys(params, allowed: ["call"], required: ["call"])
                 guard let call = try string(params, "call", max: 32), !call.isEmpty else { throw invalid() }

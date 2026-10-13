@@ -8,7 +8,7 @@ import XLogCore
 import XLogPortableCore
 #endif
 
-/// Read-only operator opportunities. The Chaser view requests an automatic batch;
+/// Read-only operator opportunities. The Chaser view refreshes feeds independently;
 /// plain snapshots remain local, and no operation here contacts station hardware.
 actor LiveOpportunitiesMethods {
     static let shared = LiveOpportunitiesMethods()
@@ -27,6 +27,11 @@ actor LiveOpportunitiesMethods {
     private var terminated = false
     private var cachedDirectory: (path: String, identity: String, value: ActivationReferenceDirectory)?
     private let names = ["pota", "sota", "wwff", "wwbota", "425dxn"]
+    private let timestampFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
 
     init(logbook: LiveLogbookMethods = .shared, session: URLSession? = nil,
          clusterSpots: @escaping () async -> [[String: Any]] = {
@@ -52,13 +57,14 @@ actor LiveOpportunitiesMethods {
         case "opportunities_snapshot":
             guard params.isEmpty else { throw invalid() }
         case "opportunities_refresh":
-            guard Set(params.keys) == ["source"], let source = params["source"] as? String,
+            guard Set(params.keys).isSubset(of: ["source", "automatic"]), let source = params["source"] as? String,
+                  params["automatic"] == nil || params["automatic"] is Bool,
                   names.contains(source) || source == "all" else { throw invalid() }
             if source == "all" {
                 await withTaskGroup(of: Void.self) { group in
                     for name in names { group.addTask { await self.refresh(name, automatic: true) } }
                 }
-            } else { await refresh(source) }
+            } else { await refresh(source, automatic: params["automatic"] as? Bool ?? false) }
         default:
             throw WorkerFailure("method_not_allowed", "Unknown opportunity operation.")
         }
@@ -261,6 +267,8 @@ actor LiveOpportunitiesMethods {
         guard data.count <= 8_388_608 else { throw invalid() }
         try data.write(to: cacheURL(), options: .atomic)
     }
-    private func iso(_ date: Date) -> String { ISO8601DateFormatter().string(from: date) }
+    private func iso(_ date: Date) -> String {
+        timestampFormatter.string(from: date)
+    }
     private func invalid() -> WorkerFailure { WorkerFailure("invalid_params", "Invalid opportunity request or cache.") }
 }

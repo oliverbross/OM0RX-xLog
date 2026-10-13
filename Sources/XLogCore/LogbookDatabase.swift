@@ -689,6 +689,26 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
+    /// Latest exact callsign/band/contact-mode match across the complete log.
+    /// SUBMODE takes precedence; CAT sideband/reverse aliases share logging modes.
+    public func latestWorkedContact(call: String, band: String, mode: String, excludingID: UUID? = nil) throws -> QSO? {
+        try lock.withLock {
+            try withStatement("""
+                SELECT record_json FROM qsos INDEXED BY idx_qsos_call_live_nocase
+                WHERE deleted_at IS NULL AND call = ? COLLATE NOCASE AND band = ? COLLATE NOCASE
+                  AND CASE UPPER(TRIM(COALESCE(NULLIF(TRIM(json_extract(record_json,'$.submode')),''), mode)))
+                    WHEN 'USB' THEN 'SSB' WHEN 'LSB' THEN 'SSB' WHEN 'CWR' THEN 'CW' WHEN 'RTTYR' THEN 'RTTY'
+                    ELSE UPPER(TRIM(COALESCE(NULLIF(TRIM(json_extract(record_json,'$.submode')),''), mode))) END = ?
+                  AND (? IS NULL OR local_id <> ? COLLATE NOCASE)
+                ORDER BY qso_start DESC, local_id ASC LIMIT 1;
+                """) { statement in
+                bind(call, to: 1, in: statement); bind(band, to: 2, in: statement); bind(mode, to: 3, in: statement)
+                bind(excludingID?.uuidString, to: 4, in: statement); bind(excludingID?.uuidString, to: 5, in: statement)
+                return try decodeRows(statement).first
+            }
+        }
+    }
+
     public func stats() throws -> LogbookStats {
         try lock.withLock {
             try refreshAggregateCacheVersion()
@@ -1082,14 +1102,15 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
-    public func pending(limit: Int = 100, includingDeferred: Bool = false) throws -> [QSO] {
+    public func pending(limit: Int = 100, includingDeferred: Bool = false, excluding: (QSO) -> Bool = { _ in false }) throws -> [QSO] {
         try lock.withLock {
+            guard limit > 0 else { return [] }
             let dueClause = includingDeferred ? "" : "AND (o.next_attempt_at IS NULL OR o.next_attempt_at <= ?)"
             let sql = """
                 SELECT q.record_json FROM qsos q
                 LEFT JOIN sync_outbox o ON o.local_id = q.local_id
                 WHERE q.is_dirty = 1 \(dueClause)
-                ORDER BY q.updated_at ASC LIMIT ?;
+                ORDER BY q.updated_at ASC, q.local_id ASC;
                 """
             return try withStatement(sql) { statement in
                 var index: Int32 = 1
@@ -1097,8 +1118,19 @@ public final class LogbookDatabase: @unchecked Sendable {
                     sqlite3_bind_double(statement, index, Date().timeIntervalSince1970)
                     index += 1
                 }
-                sqlite3_bind_int(statement, index, Int32(limit))
-                return try decodeRows(statement)
+                // Apply holds before the accepted-row cap, so held contacts
+                // cannot permanently starve later unrelated uploads.
+                var values: [QSO] = []
+                var step = sqlite3_step(statement)
+                while step == SQLITE_ROW {
+                    guard let bytes = sqlite3_column_blob(statement, 0) else { throw LogbookDatabaseError.corruptRecord }
+                    let value = try decoder.decode(QSO.self, from: Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 0))))
+                    if !excluding(value) { values.append(value) }
+                    if values.count == limit { return values }
+                    step = sqlite3_step(statement)
+                }
+                guard step == SQLITE_DONE else { throw error() }
+                return values
             }
         }
     }
@@ -1234,9 +1266,10 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     @discardableResult
-    public func mergeRemote(_ remote: QSO) throws -> Bool {
+    public func mergeRemote(_ remote: QSO, preservingLocal: (QSO) -> Bool = { _ in false }) throws -> Bool {
         try lock.withLock {
             let linked = try remote.wavelogID.flatMap { try lookup(wavelogID: $0) }
+            if let linked, preservingLocal(linked) { return false }
             if let existing = linked, existing.isDirty {
                 if try remoteMatchesBaseline(remote, localID: existing.id) { return false }
                 try recordConflict(local: existing, remote: mergeRemoteFields(remote, preserving: existing))
@@ -1252,7 +1285,7 @@ public final class LogbookDatabase: @unchecked Sendable {
             // record that has never acquired a remote identity. Wavelog may
             // legitimately contain distinct IDs with identical QSO fields;
             // adopting an already-linked row would erase one of those IDs.
-            else if let existing = try lookupSemantic(value, unlinkedOnly: true) {
+            else if let existing = try lookupSemantic(value, unlinkedOnly: true, excluding: preservingLocal) {
                 if existing.isDirty {
                     if try remoteMatchesBaseline(remote, localID: existing.id) { return false }
                     try recordConflict(local: existing, remote: mergeRemoteFields(remote, preserving: existing))
@@ -1282,13 +1315,13 @@ public final class LogbookDatabase: @unchecked Sendable {
     /// station imports can contain tens of thousands of QSOs, so committing
     /// every row individually would make automatic sync effectively
     /// continuous on a large logbook.
-    public func mergeRemoteBatch(_ remotes: [QSO]) throws -> Int {
+    public func mergeRemoteBatch(_ remotes: [QSO], preservingLocal: (QSO) -> Bool = { _ in false }) throws -> Int {
         try lock.withLock {
             guard !remotes.isEmpty else { return 0 }
             try execute("BEGIN IMMEDIATE;")
             do {
                 var conflicts = 0
-                for remote in remotes where try mergeRemote(remote) {
+                for remote in remotes where try mergeRemote(remote, preservingLocal: preservingLocal) {
                     conflicts += 1
                 }
                 try execute("COMMIT;")
@@ -1405,20 +1438,28 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
-    private func lookupSemantic(_ qso: QSO, unlinkedOnly: Bool = false) throws -> QSO? {
+    private func lookupSemantic(_ qso: QSO, unlinkedOnly: Bool = false, excluding: (QSO) -> Bool = { _ in false }) throws -> QSO? {
         try withStatement("""
             SELECT record_json FROM qsos
             WHERE call = ? COLLATE NOCASE AND ABS(qso_start - ?) < 1
               AND band = ? COLLATE NOCASE AND mode = ? COLLATE NOCASE
               AND (? = 0 OR wavelog_id IS NULL)
-            LIMIT 1;
+            ORDER BY rowid ASC;
             """) { statement in
                 bind(qso.call, to: 1, in: statement)
                 sqlite3_bind_double(statement, 2, qso.start.timeIntervalSince1970)
                 bind(qso.band, to: 3, in: statement)
                 bind(qso.mode, to: 4, in: statement)
                 sqlite3_bind_int(statement, 5, unlinkedOnly ? 1 : 0)
-                return try decodeRows(statement).first
+                var step = sqlite3_step(statement)
+                while step == SQLITE_ROW {
+                    guard let bytes = sqlite3_column_blob(statement, 0) else { throw LogbookDatabaseError.corruptRecord }
+                    let value = try decoder.decode(QSO.self, from: Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 0))))
+                    if !excluding(value) { return value }
+                    step = sqlite3_step(statement)
+                }
+                guard step == SQLITE_DONE else { throw error() }
+                return nil
             }
     }
 

@@ -16,7 +16,12 @@
 .service-settings .service-enable { flex-direction:row; align-items:center; margin:8px 0 12px; }
 .service-settings input[type="checkbox"] { width:auto; }
 .service-settings .service-credential { display:flex; align-items:flex-end; gap:10px; flex-wrap:wrap; max-width:950px; margin-top:12px; }
-.service-settings .service-credential label { flex:1; min-width:220px; }
+.service-settings .service-credential label { flex:1; min-width:min(100%,220px); }
 .service-settings .service-credential p { flex-basis:100%; color:var(--teal); margin:0; }
+.service-settings .service-account-row { max-width:760px; gap:10px; }
+.service-settings .service-account-row label { flex:0 1 260px; min-width:min(100%,180px); }
+.service-settings .service-account-row label:first-child { flex-basis:280px; }
+.service-settings .service-account-row button { flex:none; max-width:100%; }
+.service-settings .service-credential .service-credential-state { color:var(--secondary); }
 .service-settings input:focus-visible { outline:2px solid var(--cyan); outline-offset:2px; }
 @media(max-width:800px) { .service-settings .service-fields { grid-template-columns:1fr; } }

@@ -130,6 +130,26 @@ it("native Sync navigation in standalone mode routes to Settings without startin
   expect(calls.request.mock.calls.some(([method]) => ["sync_run", "sync_status"].includes(method))).toBe(false);
 });
 
+it("keeps Sync inside Settings and supports repeat legacy navigation without changing its schedule", async () => {
+  exists = true;
+  const backend = calls.request.getMockImplementation()!;
+  calls.request.mockImplementation((method, params) => method === "sync_status"
+    ? Promise.resolve({ result: { running: false, automatic_sync: true, interval_minutes: 1, conflicts: [], pending: [] } }) : backend(method, params));
+  render(<LiveApp />); await screen.findByLabelText("Callsign");
+  expect(within(document.querySelector(".sidebar nav")!).queryByRole("button", { name: "Sync" })).toBeNull();
+  await act(async () => nativeMenu.route?.("Sync"));
+  expect(screen.getByRole("main", { name: "Settings" })).toBeTruthy();
+  expect(screen.getByRole("tab", { name: "Sync" }).getAttribute("aria-selected")).toBe("true");
+  expect(await screen.findByText("Automatic sync on")).toBeTruthy();
+  fireEvent.click(screen.getByRole("tab", { name: "Station" }));
+  await act(async () => nativeMenu.route?.("Sync"));
+  expect(screen.getByRole("tab", { name: "Sync" }).getAttribute("aria-selected")).toBe("true");
+  fireEvent.click(screen.getByRole("tab", { name: "Station" }));
+  fireEvent.keyDown(window, { key: "s", ctrlKey: true, shiftKey: true });
+  expect(screen.getByRole("tab", { name: "Sync" }).getAttribute("aria-selected")).toBe("true");
+  expect(calls.request.mock.calls.some(([method]) => ["sync_run", "sync_configure", "settings_save", "station_tune"].includes(method))).toBe(false);
+});
+
 it("logs through the shared draft receipt and keeps Follow radio enabled on normal Save", async () => {
   exists = true;
   render(<LiveApp />);
@@ -402,6 +422,7 @@ it.each([{ kind: "pota", reference_kind: "pota", reference: "US-0001", field: "P
   exists = true;
   const base = calls.request.getMockImplementation()!;
   calls.request.mockImplementation((method: string, params: unknown) => method === "opportunities_snapshot" ? Promise.resolve({ result: {
+    generated_at: "2026-10-12T00:00:00.000Z",
     items: [{ id: "pota:test", ...programme, callsign: "K1ABC", name: "Park", frequency_hz: 14025000, mode: "CW", comment: "", source: "pota", source_url: "", observed_at: "2026-10-12T00:00:00Z", expires_at: "2026-10-12T01:00:00Z", worked_count: 0, confirmed_count: 0 }], sources: [], total_available: 1, history_state: "ready",
   } }) : base(method, params));
   render(<LiveApp />);

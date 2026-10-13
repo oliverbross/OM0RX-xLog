@@ -138,9 +138,14 @@ export function AwardsPanel({ request, refresh, initialStats, onUndock, onDock }
   const [statsRetry, setStatsRetry] = useState(0);
   const [catalogueRetry, setCatalogueRetry] = useState(0);
   const [loading, setLoading] = useState(false);
-  const pageSize = 20;
+  const pageSize = 5;
 
-  useEffect(() => { const timer = window.setTimeout(() => { setOffset(0); setDebouncedSearch(search.trim()); }, 250); return () => window.clearTimeout(timer); }, [search]);
+  useEffect(() => {
+    const nextSearch = search.trim();
+    if (nextSearch === debouncedSearch) return;
+    const timer = window.setTimeout(() => { setOffset(0); setDebouncedSearch(nextSearch); }, 250);
+    return () => window.clearTimeout(timer);
+  }, [search, debouncedSearch]);
   useEffect(() => {
     let active = true;
     setStatsError("");
@@ -197,7 +202,7 @@ export function AwardsPanel({ request, refresh, initialStats, onUndock, onDock }
           return <button type="button" key={programme.id} aria-pressed={selected?.id === programme.id} aria-label={`${programme.name}, ${deliveryLabels[programme.delivery_state] ?? programme.delivery_state}`} onClick={() => setSelectedID(programme.id)}><Icon size={16} className={`awards-state-${programme.delivery_state}`} /><span className="awards-short-code">{programme.shortCode}</span><span className="awards-programme-name"><strong>{programme.name}</strong><small>{programme.sponsor}</small></span>{item && <span className="awards-programme-count">{format(item.current)} / {format(item.target)}</span>}</button>;
         })}</div>
         <div className="awards-pagination"><button type="button" disabled={offset === 0 || loading} onClick={() => setOffset(Math.max(0, offset - pageSize))}>Previous</button><span>{total ? `${offset + 1}–${Math.min(offset + pageSize, total)} / ${format(total)}` : "0 programmes"}</span><button type="button" disabled={loading || offset + pageSize >= total} onClick={() => setOffset(offset + pageSize)}>Next</button></div>
-      </div><div className="awards-detail-wrap">{selected ? <ProgrammeDetail programme={selected} progress={progress} researchDate={catalogue.research_date} referenceDate={catalogue.reference_date} /> : <p className="awards-empty">Select a programme to inspect its evidence and research status.</p>}</div></div>
+      </div><div className="awards-detail-wrap" role="region" aria-label="Selected programme details" tabIndex={0}>{selected ? <ProgrammeDetail programme={selected} progress={progress} researchDate={catalogue.research_date} referenceDate={catalogue.reference_date} /> : <p className="awards-empty">Select a programme to inspect its evidence and research status.</p>}</div></div>
       <RulePacks items={catalogue.items ?? []} /></>}
     </section>
     <div className="awards-bottom"><section className="awards-section" aria-label="Operating mix"><h3>Operating mix</h3>{stats && stats.qso_count > 0 ? <div className="awards-mix"><MixSection title="Mode" counts={stats.mode_counts} /><MixSection title="Top bands" counts={stats.band_counts} limit={7} /><MixSection title="Continents" counts={stats.continent_counts} limit={7} /></div> : <p className="awards-empty">Mode and band summaries appear after the first contact.</p>}</section>

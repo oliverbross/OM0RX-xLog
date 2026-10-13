@@ -7,9 +7,9 @@ import type { RotorSnapshot } from "./rotorControl";
 const initial = { id: "native-qso-id", call: "W7AIT", start: "2026-10-11T22:47:12Z", frequencyHz: 18160000, band: "17m", mode: "SSB", rstSent: "59", rstReceived: "59", name: "C OLHEISER, II", comment: "CQ", gridSquare: "CM97LQ", country: "United States of America", county: "Stanislaus", sig: "", extraFields: { APP_CUSTOM: "Keep me" }, customField: { unchanged: true } };
 const lookup = { call: "W7AIT", name: "C OLHEISER, II", country: "United States of America", dxcc: 291, gridSquare: "CM97LQ", continent: "NA", cqZone: "5", ituZone: "6", source: "CTY approximate", latitude: 37, longitude: -121, bearing: 73, long_path_bearing: 253, distance_km: 12500 };
 const rotor: RotorSnapshot = { owner: "native_dcu1", generation: 4, state: "active", backend_available: true, backend: { connected: true, azimuth: 53, name: "Antenna", status: "Ready" } };
-function Harness({ request = vi.fn(async method => method === "logbook_matrix" ? { cells: [] } : { history: { call: "W7AIT", adif: 291, previous_count: 0, previous: [], dxcc_contact_count: 9109, matrix: [{ band: "17m", mode: "SSB", worked: true, confirmed: true }] } }), info = lookup, rotorState = rotor, save = vi.fn(), clear = vi.fn(), onEditor = vi.fn(), onReadRadio = vi.fn(async () => {}), onManualRotor = vi.fn(), switchDraft = false, initialDraft = initial }: any) {
+function Harness({ request = vi.fn(async method => method === "logbook_matrix" ? { cells: [] } : { history: { call: "W7AIT", adif: 291, previous_count: 0, previous: [], dxcc_contact_count: 9109, matrix: [{ band: "17m", mode: "SSB", worked: true, confirmed: true }] } }), info = lookup, rotorState = rotor, save = vi.fn(), clear = vi.fn(), onEditor = vi.fn(), onReadRadio = vi.fn(async () => {}), onManualRotor = vi.fn(), switchDraft = false, initialDraft = initial, intelligenceBands }: any) {
   const [draft, setDraft] = useState<Record<string, any> | null>(initialDraft), [follow, setFollow] = useState(true), [autoRotor, setAutoRotor] = useState(false);
-  return <><OperatorDesk draft={draft} setDraft={setDraft} save={save} clear={clear} busy={false} lookup={info} previous={[]} request={request} refresh={0} onEditor={onEditor} onReadRadio={onReadRadio} follow={follow} setFollow={setFollow} rotor={rotorState} autoRotor={autoRotor} setAutoRotor={setAutoRotor} onManualRotor={onManualRotor} />{switchDraft && <button onClick={() => setDraft({ ...initial, id: "new-draft", frequencyHz: 7025000, band: "40m" })}>Switch draft</button>}<output data-testid="draft">{JSON.stringify(draft)}</output></>;
+  return <><OperatorDesk draft={draft} setDraft={setDraft} save={save} clear={clear} busy={false} lookup={info} previous={[]} request={request} refresh={0} onEditor={onEditor} onReadRadio={onReadRadio} follow={follow} setFollow={setFollow} rotor={rotorState} autoRotor={autoRotor} setAutoRotor={setAutoRotor} onManualRotor={onManualRotor} intelligenceBands={intelligenceBands} />{switchDraft && <button onClick={() => setDraft({ ...initial, id: "new-draft", frequencyHz: 7025000, band: "40m" })}>Switch draft</button>}<output data-testid="draft">{JSON.stringify(draft)}</output></>;
 }
 const draft = () => JSON.parse(screen.getByTestId("draft").textContent || "{}");
 afterEach(cleanup);
@@ -22,6 +22,49 @@ it("shows all native top-strip fields and actions together with the three panels
   expect((screen.getByLabelText("Desk Frequency MHz") as HTMLInputElement).value).toBe("18.160000");
   for (const name of ["Full editor", "Read radio", "Clear QSO", "Log QSO"]) expect(screen.getByRole("button", { name })).toBeTruthy();
   await waitFor(() => expect(screen.getByLabelText("DXCC 17m: Confirmed")).toBeTruthy());
+});
+it("puts an advisory duplicate date at the far end of the Active QSO header without blocking logging", async () => {
+  const save = vi.fn();
+  const request = vi.fn(async (method: string) => method === "logbook_duplicate"
+    ? { call: "W7AIT", band: "17m", mode: "SSB", last_worked_at: "2026-01-02T23:55:00Z" }
+    : method === "logbook_matrix" ? { cells: [] } : { history: { call: "W7AIT", adif: 291, previous_count: 1, previous: [], matrix: [] } });
+  render(<Harness request={request} save={save} />);
+  const warning = await screen.findByText("Dupe: Worked on 02/01/26");
+  const header = screen.getByRole("heading", { name: "Active QSO" }).parentElement!;
+  expect(warning.parentElement).toBe(header);
+  expect(header.lastElementChild).toBe(warning);
+  expect(warning.getAttribute("role")).toBe("status");
+  const log = screen.getByRole("button", { name: "Log QSO" }) as HTMLButtonElement;
+  expect(log.disabled).toBe(false);
+  fireEvent.click(log);
+  expect(save).toHaveBeenCalledOnce();
+});
+it("keeps field labels and entered defaults while leaving every empty text field without a placeholder", () => {
+  render(<Harness initialDraft={{ ...initial, call: "", name: "", comment: "", gridSquare: "", country: "", county: "", potaReference: "", sotaReference: "", iota: "", wwffReference: "", sigInfo: "" }} />);
+  const active = screen.getByRole("region", { name: "Active QSO" });
+  for (const input of active.querySelectorAll("input")) expect(input.hasAttribute("placeholder")).toBe(false);
+  expect((screen.getByLabelText("Desk RST S") as HTMLInputElement).value).toBe("59");
+  expect((screen.getByLabelText("Desk RST R") as HTMLInputElement).value).toBe("59");
+  expect((screen.getByLabelText("Desk Frequency MHz") as HTMLInputElement).value).toBe("18.160000");
+  expect((screen.getByLabelText("Desk Band") as HTMLSelectElement).value).toBe("17m");
+  expect((screen.getByLabelText("Desk Mode") as HTMLSelectElement).value).toBe("SSB");
+});
+it("shortens metre labels in both compact grids while retaining canonical status matching and full units", async () => {
+  const cells = [{ band: "160m", mode: "CW", worked: true, confirmed: true }, { band: "80m", mode: "CW", worked: true, confirmed: false }];
+  const request = vi.fn(async (method: string) => method === "logbook_matrix" ? { cells }
+    : { history: { call: "W7AIT", adif: 291, previous_count: 0, previous: [], matrix: cells } });
+  render(<Harness request={request} intelligenceBands={["160m", "80m", "70cm"]} />);
+  await waitFor(() => expect(screen.getByLabelText("DXCC 160m: Confirmed")).toBeTruthy());
+  for (const scope of ["Callsign", "DXCC"]) {
+    const confirmed = screen.getByLabelText(`${scope} 160m: Confirmed`);
+    const worked = screen.getByLabelText(`${scope} 80m: Worked`);
+    expect(confirmed.textContent).toBe("● 160");
+    expect(worked.textContent).toBe("○ 80");
+    expect(confirmed.getAttribute("title")).toBe("160m: Confirmed across logged modes");
+    expect(worked.getAttribute("title")).toBe("80m: Worked across logged modes");
+    expect(screen.getByLabelText(`${scope} 70cm: Unworked`).textContent).toBe("— 70cm");
+  }
+  expect(draft().band).toBe("17m");
 });
 it("keeps native QSO identity and unknown metadata while editing references and suspending Follow", async () => {
   render(<Harness />);
@@ -58,6 +101,17 @@ it("renders authoritative whole-log contact totals and last DXCC QSO, not matrix
   expect(request).toHaveBeenCalledWith("logbook_matrix", { call: "W7AIT" });
   expect(request).toHaveBeenCalledWith("cluster_history", { call: "W7AIT", adif: 291 });
   expect(request.mock.calls.some(([method]) => method.startsWith("rotor_") || method === "station_tune")).toBe(false);
+});
+it("abbreviates large counts in both grids while exposing full worked and confirmed meaning", async () => {
+  const request = vi.fn(async (method: string) => method === "logbook_matrix" ? { cells: [] }
+    : { history: { call: "W7AIT", adif: 291, previous_count: 6317, previous_confirmed_count: 2782, previous: [], dxcc_contact_count: 9876543, dxcc_confirmed_count: 1234567, matrix: [] } });
+  render(<Harness request={request} />);
+  await waitFor(() => expect(screen.getByTitle("6,317 worked · 2,782 confirmed")).toBeTruthy());
+  for (const [short, full] of [["6,317 wkd · 2,782 cnf", "6,317 worked · 2,782 confirmed"], ["9,876,543 wkd · 1,234,567 cnf", "9,876,543 worked · 1,234,567 confirmed"]]) {
+    const summary = screen.getByTitle(full);
+    expect(within(summary).getByText(short).getAttribute("aria-hidden")).toBe("true");
+    expect(within(summary).getByText(full).className).toBe("desk-count-full");
+  }
 });
 it("leaves missing confirmed totals unknown rather than deriving them from band cells", async () => {
   render(<Harness />);

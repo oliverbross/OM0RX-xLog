@@ -54,7 +54,7 @@ import { LogbookMutationSession, readLogbookMutationJournal } from "./live/logbo
 import { LogbookMutationStatus } from "./live/LogbookMutationStatus";
 import { requestLogbookContact } from "./live/logbookContactTransport";
 import { ContactEditStatus } from "./live/ContactEditStatus";
-import { connectWorkspaceNavigation, workspaceScreens } from "./live/workspaceNavigation";
+import { connectWorkspaceNavigation, workspaceMenuScreens } from "./live/workspaceNavigation";
 import { retireStationProvider } from "./live/stationHandover";
 import RotorPanel from "./live/RotorPanel";
 import { connectRotorTelemetry } from "./live/rotorTelemetry";
@@ -71,7 +71,7 @@ const screenIcons: Record<string, typeof Radio> = {
   "world-map": MapIcon, "band-maps": Activity, "chaser-dx": Activity, awards: Award,
   "station-control": Radio, sync: RefreshCw, settings: Settings,
 };
-const navigation = workspaceScreens.map(screen => [screen.title, screenIcons[screen.id]] as const);
+const navigation = workspaceMenuScreens.map(screen => [screen.title, screenIcons[screen.id]] as const);
 const monitor = new URLSearchParams(location.search).get("view") === "monitor";
 const detached = detachedMapKind(new URLSearchParams(location.search).get("view"));
 const frequency = (hz?: number) => typeof hz === "number" && Number.isFinite(hz) ? (hz / 1e6).toFixed(6) : "—";
@@ -99,6 +99,7 @@ export default function LiveApp() {
 
 function MainLiveApp() {
   const [view, setView] = useState<string>("Operator Desk");
+  const [settingsTabRequest, setSettingsTabRequest] = useState<{ tab: "Station" | "Sync"; revision: number }>({ tab: "Station", revision: 0 });
   const [awardsOpened, setAwardsOpened] = useState(false);
   useEffect(() => { if (view === "Awards") setAwardsOpened(true); }, [view]);
   const [workspace, setWorkspace] = useState<Data | null>(null);
@@ -157,18 +158,16 @@ function MainLiveApp() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const menuSettings = useRef(settings); menuSettings.current = settings;
+  const showSyncSettings = useCallback(() => {
+    setSettingsTabRequest(previous => ({ tab: "Sync", revision: previous.revision + 1 }));
+    setView("Settings");
+    if (menuSettings.current?.logbookMode === "local")
+      setError("Wavelog sync is disabled in standalone mode. Choose Local logbook + Wavelog sync in Settings to enable it.");
+  }, []);
   useEffect(() => connectWorkspaceNavigation(title => {
-    if (title === "Sync" && menuSettings.current?.logbookMode === "local") {
-      setView("Settings");
-      setError("Wavelog sync is disabled in standalone mode. Choose Local logbook + Wavelog sync in Settings to enable it.");
-    } else setView(title);
-  }, setError), []);
-  useEffect(() => {
-    if (view === "Sync" && settings?.logbookMode === "local") {
-      setView("Settings");
-      setError("Wavelog sync is disabled in standalone mode. Choose Local logbook + Wavelog sync in Settings to enable it.");
-    }
-  }, [view, settings?.logbookMode]);
+    if (title === "Sync") showSyncSettings();
+    else setView(title);
+  }, setError), [showSyncSettings]);
   const [refresh, setRefresh] = useState(0);
   useEffect(() => connectLogbookChanges(() => setRefresh(value => value + 1), setError), []);
   const [busy, setBusy] = useState(false);
@@ -360,14 +359,14 @@ function MainLiveApp() {
       if (key === "l" && !event.shiftKey) {
         event.preventDefault(); setView("Log QSO"); focusAfterView('.qso-call input');
       } else if (key === "s" && event.shiftKey) {
-        event.preventDefault(); setView("Sync"); focusAfterView('.live-sync input[type="checkbox"]');
+        event.preventDefault(); showSyncSettings(); focusAfterView('[role="tab"][aria-selected="true"]');
       } else if (key === "r" && event.shiftKey) {
         event.preventDefault();
         void readRadioIntoDraft().catch(cause => setError(cause instanceof Error ? cause.message : "Radio readback unavailable."));
       }
     };
     window.addEventListener("keydown", shortcut); return () => window.removeEventListener("keydown", shortcut);
-  }, [readRadioIntoDraft]);
+  }, [readRadioIntoDraft, showSyncSettings]);
   const run = async (operation: () => Promise<unknown>) => {
     setBusy(true); setError("");
     try { await operation(); } catch (e) { setError(e instanceof Error ? e.message : "Operation failed"); }
@@ -750,7 +749,7 @@ function MainLiveApp() {
       {workspace?.workspace_exists && <Conditions compact propagation={propagation?.bands?.length ? propagation : station?.propagation || null} request={request} weatherKey={settings?.gridSquare || ""} />}
       <span className="rail-end">{stats?.stats?.qso_count?.toLocaleString() ?? "—"} contacts · Integrated logbook</span>
     </header>
-    <aside className="sidebar"><nav>{navigation.filter(([name]) => name !== "Sync" || settings?.logbookMode !== "local").map(([name, Icon], i) => <div key={name}>{(i === 0 || name === "Station Control") && <div className="nav-group">{i === 0 ? "Station log" : "Services"}</div>}<button aria-current={view === name ? "page" : undefined} onClick={() => setView(name)}><Icon size={17} />{name}</button></div>)}</nav>
+    <aside className="sidebar"><nav>{navigation.map(([name, Icon], i) => <div key={name}>{(i === 0 || name === "Station Control") && <div className="nav-group">{i === 0 ? "Station log" : "Services"}</div>}<button aria-current={view === name ? "page" : undefined} onClick={() => setView(name)}><Icon size={17} />{name}</button></div>)}</nav>
       <SidebarStation snapshot={stationWithRotor} provider={stationProvider} busy={busy} onAction={action => void run(async () => { await request("station_action", { action }); })} />
       <div className="sidebar-foot"><button onClick={() => void openMonitor().catch(e => setError(e.message))}><ExternalLink size={16} />Monitor</button><strong className="teal">{settings?.stationCall || "Station not configured"}</strong><span>{settings?.gridSquare || "Set station grid"}</span></div>
     </aside>
@@ -809,8 +808,7 @@ function MainLiveApp() {
           viewProvider === "direct_flex_lan" ? <DirectFlexPanel request={viewedStationRequest} snapshot={stationProvider === viewProvider ? station : null} /> :
           <StationPanel snapshot={stationProvider === viewProvider ? station : null} onRequest={viewedStationRequest} onSnapshot={value => { if (stationProvider === viewProvider && provider.current === viewProvider) setStation(value); }} independentRotor />}</>}</>}
       {(view === "Awards" || awardsOpened) && <div hidden={view !== "Awards"}><IntegratedAwards request={request} refresh={refresh} initialStats={stats?.awards} onUndock={() => void openDetachedAwards().catch(cause => setError(cause.message))} /></div>}
-      {view === "Settings" && settings && <ServiceSettings values={settings} request={request} onSaved={setSettings} cwContext={cwContext} cwState={cw.state} cwProvider={stationProvider} refreshCW={() => cw.controller.pollWinKeyer()} rotorSettings={<RotorPanel snapshot={rotorState} request={request} onManual={disarmAutoRotor} />} workspaceSettings={<WorkspaceSettings {...deskLayout} equipment={deskKind === "none" ? undefined : deskKind} requiredRotor={deskKind === "rotor" && !!rotorState?.owner} available={["active-qso", "callsign-intelligence", "world-map", "band-maps", "dx-cluster", "logbook", "awards", "spot-history", ...(deskKind === "none" ? [] : [deskKind] as ("rotor" | "antenna")[])]} />} dataRequest={dataManagementRequest} onDataChanged={() => { setSettings(null); setDraft(null); setStats(null); latestWorkspacePreferences.current = null; setWorkspacePreferences(null); setRefresh(n => n + 1); }} />}
-      {view === "Sync" && (settings?.logbookMode === "local" ? <p>Standalone local logbook. Wavelog synchronization is disabled in Settings.</p> : <SyncPanel request={request} onChanged={() => setRefresh(n => n + 1)} />)}
+      {view === "Settings" && settings && <ServiceSettings values={settings} request={request} onSaved={setSettings} requestedTab={settingsTabRequest.tab} requestedTabRevision={settingsTabRequest.revision} syncSettings={settings.logbookMode === "local" ? <p>Standalone local logbook. Wavelog synchronization is disabled in Settings.</p> : <SyncPanel request={request} onChanged={() => setRefresh(n => n + 1)} />} cwContext={cwContext} cwState={cw.state} cwProvider={stationProvider} refreshCW={() => cw.controller.pollWinKeyer()} rotorSettings={<RotorPanel snapshot={rotorState} request={request} onManual={disarmAutoRotor} />} workspaceSettings={<WorkspaceSettings {...deskLayout} equipment={deskKind === "none" ? undefined : deskKind} requiredRotor={deskKind === "rotor" && !!rotorState?.owner} available={["active-qso", "callsign-intelligence", "world-map", "band-maps", "dx-cluster", "logbook", "awards", "spot-history", ...(deskKind === "none" ? [] : [deskKind] as ("rotor" | "antenna")[])]} />} dataRequest={dataManagementRequest} onDataChanged={() => { setSettings(null); setDraft(null); setStats(null); latestWorkspacePreferences.current = null; setWorkspacePreferences(null); setRefresh(n => n + 1); }} />}
       </>}
     </main></div>;
 }

@@ -44,6 +44,10 @@ export function opportunityBand(hz: number | null): string {
   return ([[1.8, 2, "160m"], [3.5, 4, "80m"], [5, 5.5, "60m"], [7, 7.3, "40m"], [10.1, 10.15, "30m"], [14, 14.35, "20m"], [18.068, 18.168, "17m"], [21, 21.45, "15m"], [24.89, 24.99, "12m"], [28, 29.7, "10m"], [50, 54, "6m"], [144, 148, "2m"], [420, 450, "70cm"]] as const).find(([low, high]) => mhz >= low && mhz <= high)?.[2] ?? "Other";
 }
 const preferencesKey = "xlog.integration.chaser.v1";
+const feedNames = ["pota", "sota", "wwff", "wwbota", "425dxn"];
+function priorityFeed(kind: string): string {
+  return ["dxpedition", "special_event", "iota"].includes(kind) ? "425dxn" : feedNames.includes(kind) ? kind : "pota";
+}
 type Preferences = { kind: typeof kinds[number]; band: string; mode: string; sort: string; map: boolean };
 function preferences(): Preferences {
   const defaults: Preferences = { kind: "all", band: "all", mode: "all", sort: "newest", map: false };
@@ -65,31 +69,65 @@ export function OpportunitiesPanel({ request, onSelect, refresh = 0, home }: { r
   const { kind, band, mode, sort, map: showMap } = prefs;
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
+  const [pendingSources, setPendingSources] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [page, setPage] = useState(0), [pageSize, setPageSize] = useState(12);
   const [selected, setSelected] = useState<string | null>(null);
-  const tableRef = useRef<HTMLDivElement>(null), mounted = useRef(false), refreshing = useRef(false);
+  const tableRef = useRef<HTMLDivElement>(null);
   const requestRef = useRef(request); requestRef.current = request;
-  const accept = (value: unknown) => {
-    const next = value as Snapshot;
-    if (mounted.current && Array.isArray(next?.items)) setSnapshot(prior => !prior || next.generated_at >= prior.generated_at ? next : prior);
-  };
-  const reload = async () => {
-    if (refreshing.current) return;
-    refreshing.current = true; setBusy(true); setError("");
-    try { accept(await requestRef.current("opportunities_refresh", { source: "all" })); }
-    catch { if (mounted.current) setError("Feeds could not be refreshed. Previous data is retained; automatic refresh will retry."); }
-    finally { refreshing.current = false; if (mounted.current) setBusy(false); }
-  };
+  const kindRef = useRef(kind); kindRef.current = kind;
+  const reloadRef = useRef<(automatic: boolean) => void>(() => {});
+  const inFlight = useRef(new Map<string, Promise<unknown>>());
+  const responseOrder = useRef(0), acceptedOrder = useRef(0);
   useEffect(() => {
-    mounted.current = true;
+    let active = true, refreshing = false;
     setError("");
-    const read = () => void requestRef.current("opportunities_snapshot").then(accept)
-      .catch(() => { if (mounted.current) setError("Opportunities could not be loaded. Automatic refresh will retry."); });
-    read(); void reload();
+    const load = (key: string, method: string, params?: Record<string, unknown>) => {
+      const pending = inFlight.current.get(key);
+      if (pending) return pending;
+      const next = params ? requestRef.current(method, params) : requestRef.current(method);
+      inFlight.current.set(key, next);
+      void next.then(() => {}, () => {}).finally(() => {
+        if (inFlight.current.get(key) === next) inFlight.current.delete(key);
+      });
+      return next;
+    };
+    const accept = (value: unknown, order: number) => {
+      const next = value as Snapshot;
+      if (!active || !Array.isArray(next?.items) || !Number.isFinite(Date.parse(next.generated_at))) return;
+      setSnapshot(prior => {
+        if (!active) return prior;
+        const newer = !prior || Date.parse(next.generated_at) > Date.parse(prior.generated_at);
+        if (!newer && (next.generated_at !== prior?.generated_at || order < acceptedOrder.current)) return prior;
+        acceptedOrder.current = order;
+        return next;
+      });
+    };
+    const read = () => {
+      const order = ++responseOrder.current;
+      void load("snapshot", "opportunities_snapshot").then(value => accept(value, order))
+        .catch(() => { if (active) setError("Opportunities could not be loaded. Automatic refresh will retry."); });
+    };
+    const reload = (automatic: boolean) => {
+      if (!active || refreshing) return;
+      refreshing = true; setBusy(true); setError("");
+      const priority = priorityFeed(kindRef.current);
+      const sources = [priority, ...feedNames.filter(source => source !== priority)];
+      setPendingSources(sources);
+      // Start the selected programme first; publish each result independently.
+      // A calendar timeout must never hold a ready park/summit feed off screen.
+      void Promise.allSettled(sources.map(source => {
+        const order = ++responseOrder.current;
+        return load(source, "opportunities_refresh", { source, automatic }).then(value => accept(value, order))
+          .catch(() => { if (active) setError("Feeds could not be refreshed. Previous data is retained; automatic refresh will retry."); })
+          .finally(() => { if (active) setPendingSources(prior => prior.filter(value => value !== source)); });
+      })).then(() => { refreshing = false; if (active) setBusy(false); });
+    };
+    reloadRef.current = reload;
+    read(); reload(true);
     const localTimer = window.setInterval(read, 15_000);
-    const feedTimer = window.setInterval(() => void reload(), 60_000);
-    return () => { mounted.current = false; window.clearInterval(localTimer); window.clearInterval(feedTimer); };
+    const feedTimer = window.setInterval(() => reload(true), 60_000);
+    return () => { active = false; window.clearInterval(localTimer); window.clearInterval(feedTimer); };
   }, [refresh]);
   useEffect(() => { try { localStorage.setItem(preferencesKey, JSON.stringify(prefs)); } catch { /* Session-only fallback. */ } }, [prefs]);
   useEffect(() => { setPage(0); }, [kind, band, mode, sort, query]);
@@ -122,22 +160,23 @@ export function OpportunitiesPanel({ request, onSelect, refresh = 0, home }: { r
   return <section className="opportunities" aria-label="Chaser and DX calendar">
     <header className="opportunities-head"><h2>Chaser & DX</h2><span>Automatic live feeds · 60s</span>
       <button type="button" aria-pressed={showMap} onClick={() => setPrefs(current => ({ ...current, map: !current.map }))}>{showMap ? "Hide map" : "Show map"}</button>
-      <button type="button" disabled={busy} onClick={() => void reload()}>{busy ? "Refreshing…" : "Refresh feeds"}</button></header>
+      <button type="button" disabled={busy} onClick={() => reloadRef.current(false)}>{busy ? "Refreshing…" : "Refresh feeds"}</button></header>
     <div className="opportunities-sources" aria-label="Live feed status — not reference databases">
       {(snapshot?.sources ?? []).map(source => <div className="opportunities-source" key={source.source} title="Live feed health. Complete park and summit directories are managed in Settings → Reference data.">
         <strong>{source.source === "425dxn" ? "DX calendar" : source.source.toUpperCase()} feed</strong>
-        <span className={`opportunities-state opportunities-state-${source.state}`}>{source.refreshing ? "Updating" : source.state}</span>
-        <small>{source.safe_error ? "Retrying automatically · " : ""}{source.last_success ? `${source.count} live · ${time(source.last_success)}` : busy ? "Loading automatically…" : "Waiting for automatic retry"}</small>
+        <span className={`opportunities-state opportunities-state-${source.state}`}>{source.refreshing || pendingSources.includes(source.source) ? "Updating" : source.state}</span>
+        <small>{source.safe_error ? "Retrying automatically · " : ""}{source.last_success ? `${source.count} live · ${time(source.last_success)}` : pendingSources.includes(source.source) ? "Loading automatically…" : "Waiting for automatic retry"}</small>
       </div>)}
       {!snapshot && <p>Loading live feeds…</p>}
     </div>
     {error && <p className="opportunities-error" role="alert">{error}</p>}
-    {snapshot && <><div className="opportunities-tabs" role="tablist" aria-label="Programme">{kinds.map((value, index) => <button type="button" key={value} role="tab" aria-selected={kind === value} tabIndex={kind === value ? 0 : -1}
+    <div className="opportunities-tabs" role="tablist" aria-label="Programme">{kinds.map((value, index) => <button type="button" key={value} role="tab" aria-selected={kind === value} tabIndex={kind === value ? 0 : -1}
       onClick={() => setPrefs(current => ({ ...current, kind: value }))} onKeyDown={event => {
         if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
         event.preventDefault(); const next = event.key === "Home" ? 0 : event.key === "End" ? kinds.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + kinds.length) % kinds.length;
         setPrefs(current => ({ ...current, kind: kinds[next] })); (event.currentTarget.parentElement?.children[next] as HTMLButtonElement)?.focus();
       }}>{labels[value]}</button>)}</div>
+    {snapshot && <>
       <div className="opportunities-filters">
       <label className="opportunities-search">Search call or reference<input value={query} onChange={event => setQuery(event.target.value)} /></label>
       <label>Band<select value={band} onChange={event => setPrefs(current => ({ ...current, band: event.target.value }))}><option value="all">All bands</option>{bands.map(value => <option key={value}>{value}</option>)}</select></label>
@@ -152,7 +191,7 @@ export function OpportunitiesPanel({ request, onSelect, refresh = 0, home }: { r
           <td>{item.latest_spot_at ? `Cluster · ${time(item.latest_spot_at)}` : time(item.observed_at)}<small>{officialLink(item.source_url) ? <a href={officialLink(item.source_url)} target="_blank" rel="noreferrer">{item.source}</a> : item.source}</small></td>
           <td title={item.band_modes?.map(cell => `${cell.band} ${cell.mode}: ${cell.worked_count} worked, ${cell.confirmed_count} confirmed`).join(" · ")}>{!item.reference ? "No reference history" : snapshot.history_state === "ready" ? <>{item.worked_count ? `${item.worked_count} worked` : "Unworked reference"}<small>{item.confirmed_count} confirmed</small></> : "Unknown"}</td>
           <td><button type="button" onClick={() => choose(item)} aria-label={`Load ${item.callsign} into QSO draft`}>Load QSO</button></td></tr>)}
-          {!rows.length && <tr><td colSpan={6} className="opportunities-empty">{busy ? "Loading live feeds…" : kind === "iota" ? "No matching IOTA spots or scheduled island operations. Recent cluster comments must contain an IOTA reference." : kind === "castle" ? "No recent castle-tagged cluster spots match these filters." : "No matching activity. Feeds refresh automatically; try another programme or filter."}</td></tr>}
+          {!rows.length && <tr><td colSpan={6} className="opportunities-empty">{(kind === "all" ? busy : kind !== "castle" && pendingSources.includes(priorityFeed(kind))) ? `Loading ${kind === "all" ? "live feeds" : labels[kind]}…` : kind === "iota" ? "No matching IOTA spots or scheduled island operations. Recent cluster comments must contain an IOTA reference." : kind === "castle" ? "No recent castle-tagged cluster spots match these filters." : "No matching activity. Feeds refresh automatically; try another programme or filter."}</td></tr>}
         </tbody></table></div>
       <nav className="opportunities-pagination" aria-label="Chaser pages"><button type="button" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>Previous</button><span>{rows.length ? currentPage * pageSize + 1 : 0}–{Math.min((currentPage + 1) * pageSize, rows.length)} of {rows.length}</span><button type="button" disabled={(currentPage + 1) * pageSize >= rows.length} onClick={() => setPage(currentPage + 1)}>Next</button>{showMap && <span>{mapSpots.length} located · {rows.length - mapSpots.length} without published coordinates · selection loads a draft only</span>}</nav>
       {showMap && <div className="opportunities-map"><Suspense fallback={<p>Loading map…</p>}><OpportunityMap selected={selected} data={mapSpots} home={home} compact fitToDataKey={`${kind}:${band}:${mode}:${query}`}

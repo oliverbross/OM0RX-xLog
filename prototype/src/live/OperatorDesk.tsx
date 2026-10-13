@@ -7,6 +7,7 @@ import RotorCompass from "./RotorCompass";
 import { DeskAntenna } from "./StationEquipment";
 import { deskEquipmentKind, equipmentProfile, hasConfiguredRotor } from "./equipmentPreferences";
 import QSOHeader, { type ReferenceEvidence } from "./QSOHeader";
+import { useDuplicateContact } from "./useDuplicateContact";
 
 type Data = Record<string, any>;
 type Request = (method: string, params?: Data) => Promise<any>;
@@ -27,7 +28,8 @@ export function rotorPathDistance(shortPath: unknown, path: "SP" | "LP"): number
     ? path === "SP" ? shortPath : circumference - shortPath : undefined;
 }
 
-export function DeskQSO({ draft, setDraft, save, clear, busy, draftLocked, onEditor, onReadRadio, follow, setFollow, isEditing, cwControls, referenceEvidence }: Props) {
+export function DeskQSO({ draft, setDraft, save, clear, busy, draftLocked, onEditor, onReadRadio, follow, setFollow, isEditing, cwControls, referenceEvidence, request, refresh }: Props) {
+  const duplicateDate = useDuplicateContact(draft, isEditing, request, refresh);
   const [frequencyText, setFrequencyText] = useState<string | null>(null);
   const [timeText, setTimeText] = useState<{ date: string; time: string } | null>(null);
   const [reading, setReading] = useState(false), [error, setError] = useState("");
@@ -39,7 +41,7 @@ export function DeskQSO({ draft, setDraft, save, clear, busy, draftLocked, onEdi
     if (["frequencyHz", "band", "mode"].includes(key)) setFollow(false);
     setDraft(current => current ? { ...current, [key]: value, ...(key === "sigInfo" && value && !current.sig ? { sig: "COTA" } : {}) } : current);
   };
-  const textField = (key: string, title: string, className = "") => <label className={className}><span>{title}</span><input aria-label={`Desk ${title}`} placeholder={title === "Castle" ? "Castle / COTA" : title} value={draft[key] ?? ""} maxLength={key === "call" ? 32 : undefined} onChange={event => update(key, ["call", "gridSquare"].includes(key) ? event.target.value.toUpperCase() : event.target.value)} autoComplete="off" spellCheck={false} /></label>;
+  const textField = (key: string, title: string, className = "") => <label className={className}><span>{title}</span><input aria-label={`Desk ${title}`} value={draft[key] ?? ""} maxLength={key === "call" ? 32 : undefined} onChange={event => update(key, ["call", "gridSquare"].includes(key) ? event.target.value.toUpperCase() : event.target.value)} autoComplete="off" spellCheck={false} /></label>;
   const selectField = (key: string, title: string, options: string[]) => <label><span>{title}</span><select aria-label={`Desk ${title}`} value={draft[key] ?? ""} onChange={event => update(key, event.target.value)}><option value="">—</option>{draft[key] && !options.includes(draft[key]) && <option>{draft[key]}</option>}{options.map(value => <option key={value}>{value}</option>)}</select></label>;
   const start = utc(draft.start), date = timeText?.date ?? start.slice(0, 10), time = timeText?.time ?? start.slice(11, 19);
   const changeTime = (key: "date" | "time", value: string) => {
@@ -54,12 +56,12 @@ export function DeskQSO({ draft, setDraft, save, clear, busy, draftLocked, onEdi
   const frequencyBand = mhz && validFrequency ? bandForRadio(Math.round(Number(mhz) * 1e6)) : null;
   const canSave = !busy && !reading && /^[A-Z0-9/-]{3,32}$/.test(normalizedCall(draft.call)) && validFrequency && validTime && !!draft.band && !!draft.mode && (!frequencyBand || frequencyBand === draft.band);
   const read = async () => { const identity = draft.id; setReading(true); setError(""); try { await onReadRadio(); if (draftIdentity.current === identity) setFrequencyText(null); } catch (cause) { if (draftIdentity.current === identity) setError(cause instanceof Error ? cause.message : "Radio readback unavailable."); } finally { setReading(false); } };
-  return <section className="desk-panel desk-active" aria-label="Active QSO"><QSOHeader title="Active QSO" call={draft.call} evidence={referenceEvidence} /><form inert={draftLocked} aria-busy={draftLocked} onSubmit={event => { event.preventDefault(); if (canSave) save(); }} onKeyDown={event => {
+  return <section className="desk-panel desk-active" aria-label="Active QSO"><QSOHeader title="Active QSO" call={draft.call} evidence={referenceEvidence} duplicateDate={duplicateDate} /><form inert={draftLocked} aria-busy={draftLocked} onSubmit={event => { event.preventDefault(); if (canSave) save(); }} onKeyDown={event => {
     if ((event.metaKey || event.ctrlKey) && event.key === "Enter") { event.preventDefault(); if (canSave) save(); }
     if (event.key === "Escape") { event.preventDefault(); event.currentTarget.querySelector<HTMLInputElement>('[aria-label="Desk Callsign"]')?.focus(); }
   }}>
     <div className="desk-active-primary">{textField("call", "Callsign", "desk-call")}
-      <label><span>Date</span><input aria-label="Desk UTC date" type="date" value={date} onChange={event => changeTime("date", event.target.value)} /></label>
+      <label className="desk-date"><span>Date</span><input aria-label="Desk UTC date" type="date" value={date} onChange={event => changeTime("date", event.target.value)} /></label>
       <label><span>UTC</span><input aria-label="Desk UTC time" type="time" step={1} value={time} onChange={event => changeTime("time", event.target.value)} /></label>
       <label className="desk-frequency"><span>Frequency MHz</span><input aria-label="Desk Frequency MHz" inputMode="decimal" value={mhz} aria-invalid={!validFrequency} onChange={event => {
         const value = event.target.value; setFollow(false); setFrequencyText(value);
@@ -107,13 +109,17 @@ export function DeskIntelligence({ draft, lookup, previous, request, refresh, in
   const matrix = (scope: string, cells: Data[] | undefined) => <div className="desk-band-matrix" aria-label={`${scope} band status`}>{visibleBands.map(band => {
     const matches = cells?.filter(cell => cell.band === band), confirmed = matches?.some(cell => cell.confirmed === true), worked = confirmed || matches?.some(cell => cell.worked === true);
     const state = cells ? confirmed ? "Confirmed" : worked ? "Worked" : "Unworked" : "Unknown";
-    return <span key={band} className={`is-${state.toLowerCase()}`} aria-label={`${scope} ${band}: ${state}`} title={`${band}: ${state} across logged modes`}>{confirmed ? "●" : worked ? "○" : "—"} {band}</span>;
+    return <span key={band} className={`is-${state.toLowerCase()}`} aria-label={`${scope} ${band}: ${state}`} title={`${band}: ${state} across logged modes`}>{confirmed ? "●" : worked ? "○" : "—"} {band.replace(/^(\d+)m$/, "$1")}</span>;
   })}</div>;
-  const counts = (worked: unknown, confirmed: unknown) => `${finite(worked) ? worked.toLocaleString() : "—"} worked · ${finite(confirmed) ? confirmed.toLocaleString() : "—"} confirmed`;
+  const counts = (worked: unknown, confirmed: unknown) => {
+    const workedText = finite(worked) ? worked.toLocaleString() : "—", confirmedText = finite(confirmed) ? confirmed.toLocaleString() : "—";
+    const full = `${workedText} worked · ${confirmedText} confirmed`;
+    return <small title={full}><span aria-hidden="true">{workedText} wkd · {confirmedText} cnf</span><span className="desk-count-full">{full}</span></small>;
+  };
   return <section className="desk-panel desk-intelligence" aria-label="Callsign and DXCC intelligence"><h2><ContactRound size={15} aria-hidden="true" /> Callsign &amp; DXCC intelligence</h2>
     <div className="desk-identity"><div><strong>{call || "—"}</strong><b>{name || "Name unavailable"}</b><span>{country || "Country unresolved"}</span></div><div className="desk-provenance"><b>{info?.source || (call ? "Lookup pending" : "Enter a callsign")}</b><small>{finite(info?.latitude) && finite(info?.longitude) ? info?.location_source || info?.source || "POSITION RESOLVED" : "NO POSITION"}</small></div></div>
     <dl className="desk-identity-facts">{[["DXCC", adif ? `#${adif}` : "—"], ["GRID", grid || "—"], ["CONT", continent || "—"], ["ZONES", `CQ ${cq || "—"} · ITU ${itu || "—"}`], ["DISTANCE", finite(info?.distance_km) ? `${Math.round(info.distance_km).toLocaleString()} km` : "—"]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
-    <div className="desk-matrices"><div><h3>CALLSIGN <small>{counts(current?.history?.previous_count, current?.history?.previous_confirmed_count)}</small></h3>{matrix("Callsign", current?.callCells)}</div><div><h3>DXCC {adif ? `#${adif}` : "—"} <small>{counts(adif ? current?.history?.dxcc_contact_count : undefined, adif ? current?.history?.dxcc_confirmed_count : undefined)}</small></h3>{matrix("DXCC", adif ? current?.history?.matrix : undefined)}</div></div>
+    <div className="desk-matrices"><div><h3>CALLSIGN {counts(current?.history?.previous_count, current?.history?.previous_confirmed_count)}</h3>{matrix("Callsign", current?.callCells)}</div><div><h3>DXCC {adif ? `#${adif}` : "—"} {counts(adif ? current?.history?.dxcc_contact_count : undefined, adif ? current?.history?.dxcc_confirmed_count : undefined)}</h3>{matrix("DXCC", adif ? current?.history?.matrix : undefined)}</div></div>
     <footer><span>{lastCall ? `CALL LAST · ${utcSummary(lastCall.date ?? lastCall.start)}` : current?.history?.previous_count === 0 ? "CALL · NEW" : "CALL LAST · —"}</span><span>DXCC LAST · {current?.history?.last_dxcc_qso ? utcSummary(current.history.last_dxcc_qso.date ?? current.history.last_dxcc_qso.start) : "Unavailable"}</span></footer>
     {current?.error && <p className="desk-error" role="status">{current.error}</p>}
     {info?.lookup_warning && <p className="desk-error" role="status">{info.lookup_warning}</p>}

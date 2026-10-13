@@ -25,6 +25,7 @@ export default function SyncPanel({ request, onChanged }: Props) {
       const next = await request("sync_status");
       if (mounted.current && revision === sequence.current) {
         setState(next);
+        if (!next.running) setMessage(current => current.startsWith("Synchronization started.") ? "" : current);
         if (!intervalEdited.current) setIntervalMinutes(String(next.interval_minutes || 5));
         if (next.finished_at && finished.current !== next.finished_at) {
           finished.current = next.finished_at;
@@ -93,6 +94,7 @@ export default function SyncPanel({ request, onChanged }: Props) {
     <p className="secondary">{automatic ? "Saved for this logbook and Wavelog destination. Runs while xLog is open; failures retry with backoff." : "Enable once to keep this logbook synchronized whenever xLog is open."}{state?.running ? " Wait for the current run to finish before changing its schedule." : ""}</p>
     <div className="sync-evidence" role="status"><strong>{state?.status || "Reading sync state…"}</strong><span>Last finished: {syncTime(state?.finished_at)}</span><span>Next attempt: {automatic ? state?.running ? "After this run" : state?.next_attempt ? syncTime(state.next_attempt) : "Within 15 seconds" : "Not scheduled"}</span></div>
     {state?.finished_at && typeof state.pulled === "number" && <p className="secondary">{state.pushed} uploaded · {state.pulled.toLocaleString()} remote records checked · {state.deleted} deletions applied · {state.failed} failures</p>}
+    {Number(state?.held) > 0 && <p className="sync-error" role="status">{Number(state?.held).toLocaleString()} remote contacts held: duplicate identities have different ADIF details and cannot be safely matched. These contacts and their pending edits are unchanged; other contacts continue to synchronize. Review the duplicate entries in Wavelog before changing them.</p>}
     {error && <p className="sync-error" role="alert">{error}</p>}
     {message && <p className="sync-success" role="status">{message}</p>}
     <h2>Conflicts <span className="sync-count">{state ? conflicts.length : "—"}</span></h2>

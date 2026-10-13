@@ -109,7 +109,7 @@ pub fn validate_local_request(request: &Value) -> Result<(), String> {
         // archive; these methods cannot select a database or admit recordings.
         | "spot_history_status" | "spot_history_query" | "spot_history_stats" | "spot_history_detail"
         | "settings_load" | "settings_save" | "logbook_draft" | "logbook_catalog" | "logbook_list"
-        | "logbook_save" | "logbook_delete" | "logbook_undo" | "logbook_stats" | "logbook_previous"
+        | "logbook_save" | "logbook_delete" | "logbook_undo" | "logbook_stats" | "logbook_previous" | "logbook_duplicate"
         | "logbook_operator_draft" | "logbook_operator_draft_apply" | "logbook_operator_draft_receipt"
         | "logbook_contact" | "logbook_contact_apply" | "logbook_contact_receipt"
         | "logbook_matrix" | "logbook_import_adif" | "logbook_export_adif"

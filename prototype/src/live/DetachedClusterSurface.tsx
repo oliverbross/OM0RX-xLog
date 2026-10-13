@@ -31,8 +31,8 @@ export function DetachedClusterSurface() {
     return () => { active = false; stop?.(); };
   }, []);
   const dock = () => void dockDetachedWorkspace().catch(() => setError("Could not dock this window. Close it and reopen DX Cluster in the main workspace."));
-  return <div className="app live monitor-app" style={{ display: "flex", flexDirection: "column" }}>
-    <main style={{ flex: 1, minHeight: 0, padding: 14 }}>
+  return <div className="app live monitor-app detached-cluster-app">
+    <main>
       {error && <p className="live-error" role="alert">{error}</p>}
       {projection && (!projection.available || receivedAt > 0 && clock - receivedAt > 5_000) && <p className="live-cluster-note" role="status">Cluster service updates paused; the last received spots remain visible. Refresh to check the service.</p>}
       {!projection?.response && <p className="secondary">Loading the shared cluster session…</p>}

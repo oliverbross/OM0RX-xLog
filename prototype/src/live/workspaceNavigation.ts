@@ -2,6 +2,8 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import screens from "./workspaceScreens.json";
 export const workspaceScreens = screens;
+// Keep legacy routes valid without displaying their former top-level entries.
+export const workspaceMenuScreens = screens.filter(screen => !screen.hidden);
 type Navigation = { revision: number; screen: string };
 export function validWorkspaceNavigation(value: any): value is Navigation {
   return value && Number.isSafeInteger(value.revision) && value.revision > 0 &&

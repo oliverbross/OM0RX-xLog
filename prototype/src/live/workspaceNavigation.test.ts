@@ -1,5 +1,5 @@
 import { expect, it, vi } from "vitest";
-import { connectWorkspaceNavigation, validWorkspaceNavigation, workspaceScreens } from "./workspaceNavigation";
+import { connectWorkspaceNavigation, validWorkspaceNavigation, workspaceScreens, workspaceMenuScreens } from "./workspaceNavigation";
 const tick = async () => { for (let i = 0; i < 12; i++) await Promise.resolve(); };
 function fixture() {
   let wake = () => {};
@@ -9,6 +9,8 @@ function fixture() {
   return { api, stop, navigate, failed, wake: () => wake(), connect: () => connectWorkspaceNavigation(navigate, failed, api) };
 }
 it("has every existing destination and no unknown navigation or CW function-key shortcut", () => {
+  expect(workspaceMenuScreens.some(screen => screen.id === "sync")).toBe(false);
+  expect(workspaceMenuScreens.some(screen => screen.id === "settings")).toBe(true);
   expect(workspaceScreens.map(s => s.title)).toEqual(["Operator Desk", "Log QSO", "Logbook", "DX Cluster", "Spot History", "World Map", "Band Maps", "Chaser & DX", "Awards", "Station Control", "Sync", "Settings"]);
   for (const s of workspaceScreens) {
     expect(validWorkspaceNavigation({ revision: 1, screen: s.id })).toBe(true);

@@ -62,10 +62,9 @@ actor LiveServiceMethods {
         do {
             try startSync(settings: settings, automatic: true)
         } catch {
-            // Never expose dependency messages: they may contain records/secrets.
             failures = min(6, failures + 1)
             nextAttempt = now.addingTimeInterval(min(3600, 60 * pow(2, Double(failures))))
-            syncState = ["running": false, "status": "Automatic sync could not start; check configuration. Retrying with backoff."]
+            syncState = Self.syncFailure(error, phase: "startup")
         }
     }
 
@@ -122,7 +121,7 @@ actor LiveServiceMethods {
             guard params.isEmpty else { throw invalid() }
             let settings = try logbook.currentSettings()
             var result: [String: Any] = [:]
-            for key in ["running", "status", "completion_id", "finished_at", "pushed", "pulled", "deleted", "conflicts_count", "failed"] {
+            for key in ["running", "status", "completion_id", "finished_at", "pushed", "pulled", "deleted", "conflicts_count", "failed", "held", "error_code", "error_phase", "http_status"] {
                 result[key] = syncState[key]
             }
             result["automatic_sync"] = settings.automaticSync
@@ -264,13 +263,76 @@ actor LiveServiceMethods {
             do {
                 try Task.checkCancellation()
                 let report = try await run(database, settings)
-                self.finish(["running": false, "status": report.failed == 0 ? "Completed" : "Completed with failures",
+                self.finish(["running": false, "status": report.failed > 0 ? "Completed with failures" : report.held > 0 ? "Completed; ambiguous remote contacts held for review" : "Completed",
                     "pushed": report.pushed, "pulled": report.pulled, "deleted": report.deleted,
-                    "conflicts_count": report.conflicts, "failed": report.failed], failed: report.failed > 0, interval: settings.syncIntervalMinutes)
+                    "conflicts_count": report.conflicts, "failed": report.failed, "held": report.held], failed: report.failed > 0, interval: settings.syncIntervalMinutes)
             } catch {
-                self.finish(["running": false, "status": "Failed; review configuration and outbox before retrying"], failed: true, interval: settings.syncIntervalMinutes)
+                self.finish(Self.syncFailure(error, phase: "run"), failed: true, interval: settings.syncIntervalMinutes)
             }
         }
+    }
+
+    /// Dependency messages and decoding contexts can contain credentials, URLs
+    /// or contact data. Project only known types and fixed, bounded guidance.
+    private static func syncFailure(_ error: Error, phase: String) -> [String: Any] {
+        let code: String
+        let detail: String
+        var httpStatus: Int?
+        if let error = error as? WavelogClientError {
+            switch error {
+            case .invalidConfiguration, .invalidURL:
+                code = "wavelog_configuration"
+                detail = "Check the Wavelog URL, station ID and API v2 token."
+            case .invalidResponse:
+                code = "wavelog_invalid_response"
+                detail = "Wavelog returned an unexpected response or changing history."
+            case .invalidData:
+                code = "wavelog_reconciliation"
+                detail = "The remote JSON and ADIF histories could not be safely reconciled."
+            case .writeVerificationFailed:
+                code = "wavelog_write_readback"
+                detail = "A remote edit could not be verified by readback."
+            case let .rejected(status, _, _):
+                code = "wavelog_http"
+                if (100...599).contains(status) { httpStatus = status }
+                switch status {
+                case 401, 403: detail = "Check the token's Wavelog access and station permissions."
+                case 404: detail = "Check the Wavelog URL and API v2 availability."
+                case 429: detail = "Wavelog is rate limiting requests; retry after backoff."
+                case 500...599: detail = "Wavelog reported a server error; retry after backoff."
+                default: detail = "Wavelog rejected a request; check its API configuration."
+                }
+            }
+        } else if error is DecodingError {
+            code = "wavelog_decoding"
+            detail = "The Wavelog response did not match the expected API v2 format."
+        } else if let error = error as? URLError {
+            switch error.code {
+            case .timedOut: code = "network_timeout"
+            case .cannotFindHost, .dnsLookupFailed: code = "network_dns"
+            case .secureConnectionFailed, .serverCertificateHasBadDate, .serverCertificateUntrusted,
+                 .serverCertificateHasUnknownRoot, .serverCertificateNotYetValid,
+                 .clientCertificateRejected, .clientCertificateRequired: code = "network_tls"
+            case .cancelled: code = "cancelled"
+            default: code = "network_unavailable"
+            }
+            detail = code == "cancelled" ? "Synchronization was cancelled." : "Check connectivity to Wavelog; retry after backoff."
+        } else if error is CancellationError {
+            code = "cancelled"
+            detail = "Synchronization was cancelled."
+        } else if let error = error as? WorkerFailure,
+                  ["sync_configuration_required", "sync_configuration_changed", "sync_busy", "sync_disabled", "sync_mode_local"].contains(error.code) {
+            code = error.code
+            detail = "Review the saved Wavelog configuration and synchronization authorization."
+        } else {
+            code = "sync_internal"
+            detail = "Synchronization could not complete; review configuration and the local logbook."
+        }
+        let prefix = phase == "startup" ? "Automatic sync could not start" : "Failed"
+        var state: [String: Any] = ["running": false, "status": "\(prefix) · \(httpStatus.map { "HTTP \($0). " } ?? "")\(detail)",
+                                    "error_code": code, "error_phase": phase]
+        if let httpStatus { state["http_status"] = httpStatus }
+        return state
     }
 
     private func finish(_ state: [String: Any], failed: Bool, interval: Int) {

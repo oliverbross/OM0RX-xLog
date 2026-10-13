@@ -98,6 +98,33 @@ describe("Wavelog conflict merge", () => {
 });
 
 describe("persistent automatic synchronization controls", () => {
+  it("reports held ambiguous history separately from failures while automatic sync stays enabled", async () => {
+    const request = vi.fn(async () => ({ ...fixture(), conflicts: [], outbox: [], automatic_sync: true,
+      interval_minutes: 1, status: "Completed; ambiguous remote contacts held for review", held: 2,
+      finished_at: "2026-10-13T12:00:00Z", pushed: 1, pulled: 12, deleted: 0, failed: 0 }));
+    render(<SyncPanel request={request} onChanged={() => {}} />);
+    await screen.findByText("Automatic sync on");
+    expect(screen.getByText(/2 remote contacts held:/).textContent).toContain("other contacts continue to synchronize");
+    expect(screen.getByText(/1 uploaded · 12 remote records checked/)).toBeTruthy();
+  });
+
+  it("removes the started notice after polling reports failure", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    let state: Record<string, any> = { ...fixture(), automatic_sync: true, running: false };
+    const request = vi.fn(async (method: string) => {
+      if (method === "sync_run") state = { ...state, running: true, status: "Synchronizing" };
+      return state;
+    });
+    render(<SyncPanel request={request} onChanged={() => {}} />);
+    await screen.findByText("Automatic sync on");
+    fireEvent.click(screen.getByRole("button", { name: "Synchronize now" }));
+    await screen.findByText("Synchronization started. Progress appears below.");
+    state = { ...state, running: false, status: "Failed · Wavelog rejected a request.", finished_at: "2026-10-13T12:00:00Z" };
+    await act(async () => { vi.advanceTimersByTime(3000); });
+    expect(screen.queryByText("Synchronization started. Progress appears below.")).toBeNull();
+    expect(screen.getByText("Failed · Wavelog rejected a request.")).toBeTruthy();
+  });
+
   it("requires consent and saves an explicit interval without running sync from the view", async () => {
     let state = { ...fixture(), automatic_sync: false, interval_minutes: 5 };
     const request = vi.fn(async (method: string, params?: Record<string, any>) => {

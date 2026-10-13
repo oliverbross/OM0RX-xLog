@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { BAND_RANGES, BandMaps, BandMapsToolbarContext, bandForRadio, opportunityCode, placeSpots, panBandRange, bandMapCapacity } from "./BandMaps";
+import { BAND_RANGES, BandMaps, BandMapsToolbarContext, bandForRadio, opportunityCode, placeSpots, panBandRange, bandMapCapacity, bandMapLaneGeometry, bandMapSpotWidth, bandMapOverflowHeight } from "./BandMaps";
 import type { BandMapViewPreferences } from "./BandMaps";
 
 const spot = (id: string, frequencyKHz: number, band = "20m", callStatus = "New Call", dxccStatus = "Worked") => ({
@@ -169,6 +169,63 @@ describe("native band-map parity", () => {
     expect(bandForRadio(14_070_000)).toBe("20m");
     expect(bandForRadio(1)).toBeNull();
     expect(BAND_RANGES["30m"].allocations.map((part) => part.name)).toEqual(["CW", "Data"]);
+  });
+
+  it("uses compact common chip widths for visible callsigns and composite codes", () => {
+    const spots = [spot("UB3A", 14020), spot("IU1PZC", 14030), spot("OK2JIQ/P", 14040), spot("R5GG", 14050, "20m", "New Band+Mode")];
+    render(<BandMaps spots={spots} onSelect={vi.fn()} />);
+    const chart = screen.getByLabelText(/20m spectrum/);
+    const markers = within(chart).getAllByRole("button") as HTMLButtonElement[];
+    const widths = markers.map(marker => parseFloat(marker.style.width));
+    expect(new Set(widths).size).toBe(1);
+    expect(widths[0]).toBeLessThan(90);
+    expect(within(chart).getByText("OK2JIQ/P")).toBeTruthy();
+    expect(within(chart).getByText("NB+NM")).toBeTruthy();
+    expect(chart.querySelectorAll(".band-map-allocation span").length).toBe(3);
+  });
+
+  it.each([0.8, 1, 2])("fits long calls and composite codes inside narrow lanes at scale %s", scale => {
+    const short = [spot("UB3A", 14020)];
+    const long = [spot("VK8/OK2JIQ/P", 14020, "20m", "New Band+Mode")];
+    expect(bandMapSpotWidth(long, 400, scale)).toBeGreaterThan(bandMapSpotWidth(short, 400, scale));
+    const available = bandMapLaneGeometry(105, scale).laneWidth - 5;
+    expect(bandMapSpotWidth(long, available + 5, scale)).toBeLessThanOrEqual(available);
+    expect(bandMapSpotWidth(long, 4, scale)).toBe(0);
+    const crowded = Array.from({ length: 30 }, (_, index) => spot(`VK8/K${index}/P`, 14070));
+    const result = placeSpots(crowded, { low: 14000, high: 14350 }, 310, 240, scale);
+    expect(result.placed.length + result.hidden).toBe(crowded.length);
+    expect(new Set(result.placed.map(({ lane, top }) => `${lane}:${top}`)).size).toBe(result.placed.length);
+    expect(result.placed.every(({ lane }) => lane < bandMapLaneGeometry(310, scale).laneCount)).toBe(true);
+  });
+
+  it("keeps the frequency axis and crowded labels clear at 200% in a narrow chart", () => {
+    const width = 289, height = 274, scale = 2;
+    const geometry = bandMapLaneGeometry(width, scale);
+    expect(geometry.axis).toBeGreaterThanOrEqual(6 * 9 * scale * 0.64 + 14);
+    const crowded = Array.from({ length: 67 }, (_, index) => spot(`VK8/K${index}/P`, 14070));
+    const result = placeSpots(crowded, { low: 14000, high: 14350 }, width, height, scale);
+    const chipWidth = bandMapSpotWidth(crowded, geometry.laneWidth, scale);
+    expect(result.hidden).toBeGreaterThan(0);
+    for (const placed of result.placed) {
+      const center = geometry.axis + geometry.laneWidth * (placed.lane + 0.5);
+      expect(center - chipWidth / 2).toBeGreaterThan(geometry.axis);
+      expect(center + chipWidth / 2).toBeLessThan(width);
+      expect(placed.top - 22 * scale / 2).toBeGreaterThanOrEqual(0);
+      expect(placed.top + 22 * scale / 2).toBeLessThanOrEqual(height - bandMapOverflowHeight(scale));
+    }
+    expect(result.placed.length + result.hidden).toBe(crowded.length);
+    render(<BandMaps spots={crowded} onSelect={vi.fn()} preferences={{ bands: ["20m"], followRadio: false, layout: "grid", fontScale: scale }} />);
+    const chart = screen.getByLabelText(/20m spectrum/);
+    expect(chart.querySelectorAll(".band-map-allocation span").length).toBe(0);
+    expect(within(screen.getByRole("region", { name: "20m band map" })).getByText("Phone")).toBeTruthy();
+    expect(within(chart).getByRole("status").getAttribute("aria-label")).toContain("zoom in to separate labels");
+  });
+
+  it("retains normal chart capacity without an overflow notice and never places beyond a short chart", () => {
+    const uncrowded = [spot("OM0RX", 14001)];
+    expect(placeSpots(uncrowded, { low: 14000, high: 14350 }, 340, 520).placed[0].top).toBe(487.5);
+    const tiny = placeSpots(uncrowded, { low: 14000, high: 14350 }, 289, 20, 2);
+    expect(tiny.placed).toEqual([]); expect(tiny.hidden).toBe(1);
   });
 
   it("opens multiple real-data bands, preserves choices and protects the final panel", () => {

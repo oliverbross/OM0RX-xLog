@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { AwardsPanel } from "./AwardsPanel";
 
 const stats = { awards: {
@@ -11,7 +11,7 @@ const stats = { awards: {
   achievements: [{ code: "DXCC", title: "DXCC entities", current: 67, target: 100, completed: false }],
 } };
 const catalogue = { reference_date: "2026-09-01", research_date: "2026-09-30", total_programmes: 2,
-  catalogue_total: 192, offset: 0, limit: 20,
+  catalogue_total: 192, offset: 0, limit: 5,
   delivery_counts: { implemented: 9, trackingOnly: 180, blocked: 2, historical: 1 },
   items: [{ code: "AJD", title: "All Japan Districts", worked: 8, current: 7, sponsor_credited: null,
     target: 10, unit: "districts", detail: "Eligible confirmed districts from the local log.",
@@ -27,7 +27,7 @@ const catalogue = { reference_date: "2026-09-01", research_date: "2026-09-30", t
   ],
 };
 const makeRequest = () => vi.fn(async (method: string) => method === "logbook_stats" ? stats : catalogue);
-afterEach(() => cleanup());
+afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 describe("native Insights and Awards presentation", () => {
   it("shows already loaded award totals immediately without a duplicate worker calculation", async () => {
@@ -70,9 +70,58 @@ describe("native Insights and Awards presentation", () => {
     fireEvent.change(screen.getByLabelText("State"), { target: { value: "trackingOnly" } });
     fireEvent.change(screen.getByLabelText("Search programmes"), { target: { value: "castle" } });
     await waitFor(() => expect(request).toHaveBeenCalledWith("logbook_catalog", expect.objectContaining({
-      offset: 0, limit: 20, search: "castle", delivery_state: "trackingOnly",
+      offset: 0, limit: 5, search: "castle", delivery_state: "trackingOnly",
       catalogue_group: "europe", mode_facet: "cw", role_facet: "hunter",
     })));
+  });
+
+  it("pages five programmes at a time and keeps selection and filters usable on later pages", async () => {
+    const programmes = Array.from({ length: 12 }, (_, index) => ({ ...catalogue.programmes[1],
+      id: `programme-${index + 1}`, name: `Programme ${index + 1}` }));
+    const request = vi.fn(async (method: string, params: Record<string, any> = {}) => {
+      if (method === "logbook_stats") return stats;
+      const matches = params.search ? programmes.filter(programme => programme.name === params.search) : programmes;
+      return { ...catalogue, offset: params.offset, limit: params.limit, total_programmes: matches.length,
+        programmes: matches.slice(params.offset, params.offset + params.limit) };
+    });
+    render(<AwardsPanel request={request} refresh={0} />);
+    const library = screen.getByRole("region", { name: "Awards library" });
+    const rows = () => library.querySelectorAll(".awards-programmes button");
+    await screen.findByText("1–5 / 12");
+    expect(rows()).toHaveLength(5);
+    expect((screen.getByRole("button", { name: "Previous" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await screen.findByRole("button", { name: "Programme 10, Blocked" });
+    expect(screen.getByText("6–10 / 12")).toBeTruthy();
+    expect(rows()).toHaveLength(5);
+    fireEvent.click(screen.getByRole("button", { name: "Programme 10, Blocked" }));
+    expect(screen.getByRole("article", { name: "Programme 10 detail" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await screen.findByRole("button", { name: "Programme 12, Blocked" });
+    expect(screen.getByText("11–12 / 12")).toBeTruthy();
+    expect(rows()).toHaveLength(2);
+    expect((screen.getByRole("button", { name: "Next" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Previous" }));
+    await screen.findByRole("button", { name: "Programme 6, Blocked" });
+    fireEvent.change(screen.getByLabelText("Search programmes"), { target: { value: "Programme 12" } });
+    await waitFor(() => expect(rows()).toHaveLength(1));
+    expect(screen.getByText("1–1 / 1")).toBeTruthy();
+    expect(screen.getByRole("article", { name: "Programme 12 detail" })).toBeTruthy();
+    expect(request).toHaveBeenLastCalledWith("logbook_catalog", expect.objectContaining({ offset: 0, limit: 5, search: "Programme 12" }));
+  });
+
+  it("does not reset early pagination when an unchanged initial search settles", async () => {
+    vi.useFakeTimers();
+    const request = vi.fn(async (method: string, params: Record<string, any> = {}) => method === "logbook_stats" ? stats : {
+      ...catalogue, offset: params.offset, limit: 5, total_programmes: 12,
+      programmes: [{ ...catalogue.programmes[1], id: `page-${params.offset}`, name: `Page ${params.offset}` }],
+    });
+    await act(async () => { render(<AwardsPanel request={request} refresh={0} />); });
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Next" })); });
+    expect(screen.getByRole("button", { name: "Page 5, Blocked" })).toBeTruthy();
+    await act(async () => { vi.advanceTimersByTime(300); });
+    expect(screen.getByRole("button", { name: "Page 5, Blocked" })).toBeTruthy();
+    expect(request).toHaveBeenLastCalledWith("logbook_catalog", expect.objectContaining({ offset: 5 }));
   });
 
   it("renders only safe official links and readable projection text", async () => {

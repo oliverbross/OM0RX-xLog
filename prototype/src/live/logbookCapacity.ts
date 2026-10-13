@@ -18,7 +18,11 @@ export function useLogbookCapacity(ref: RefObject<HTMLDivElement | null>, rowCou
     const measure = () => {
       clearTimeout(timer);
       timer = setTimeout(() => {
-        const head = element.querySelector("thead"), row = element.querySelector("tbody tr");
+        const head = element.querySelector("thead");
+        // The first body row shares the collapsed header border, so its rect can
+        // be half a pixel taller than every following row. Multiplying that
+        // border by page capacity can leave a complete extra row unused.
+        const row = element.querySelector("tbody tr:nth-child(2)") ?? element.querySelector("tbody tr");
         if (!head || !row) return;
         const renderedScale = element.offsetHeight > 0 ? element.getBoundingClientRect().height / element.offsetHeight : 1;
         setCapacity(logbookCapacity(element.clientHeight, head.getBoundingClientRect().height, row.getBoundingClientRect().height, renderedScale));
@@ -26,7 +30,7 @@ export function useLogbookCapacity(ref: RefObject<HTMLDivElement | null>, rowCou
     };
     const observer = new ResizeObserver(measure);
     observer.observe(element);
-    for (const target of element.querySelectorAll("thead, tbody tr:first-child")) observer.observe(target);
+    for (const target of element.querySelectorAll("thead, tbody tr:nth-child(-n+2)")) observer.observe(target);
     measure();
     return () => { clearTimeout(timer); observer.disconnect(); };
   }, [ref, rowCount]);

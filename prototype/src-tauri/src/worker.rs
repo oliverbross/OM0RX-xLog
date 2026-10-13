@@ -127,6 +127,7 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "logbook_undo",
         "logbook_stats",
         "logbook_previous",
+        "logbook_duplicate",
         "logbook_matrix",
         "logbook_import_adif",
         "logbook_export_adif",
@@ -714,6 +715,14 @@ mod tests {
             "station_connect", "station_tune", "rotor_goto", "hamlib_control", "settings_load", "settings_save",
             "secret_save", "sync_run", "backup_restore", "cluster_connect", "cluster_resume", "health"] {
             assert!(validate_surface("awards", &json!({"id":"test","method":method,"params":{}})).is_err(), "{method}");
+        }
+    }
+    #[test]
+    fn duplicate_history_query_is_main_only() {
+        let request = json!({"id":"test", "method":"logbook_duplicate", "params":{"call":"W1AW", "band":"20m", "mode":"CW"}});
+        assert!(validate_surface("main", &request).is_ok());
+        for label in ["monitor", "logbook", "awards", "world-map", "band-maps", "dx-cluster", "unknown"] {
+            assert!(validate_surface(label, &request).is_err(), "{label}");
         }
     }
     #[test]

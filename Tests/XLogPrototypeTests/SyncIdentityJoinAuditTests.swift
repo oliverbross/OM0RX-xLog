@@ -12,6 +12,22 @@ import XLogPortableCore
 /// Synthetic audit fixtures only. No request can escape this URLProtocol.
 @Suite("Sync identity join audit", .serialized)
 struct SyncIdentityJoinAuditTests {
+    @Test("Read-only preview validates complete history without a database or remote writes")
+    func readOnlyPreview() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [IdentityJoinAuditProtocol.self]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+        IdentityJoinAuditProtocol.configure(reverseADIF: true, paginated: true)
+        let settings = try WavelogConfiguration(baseURL: URL(string: "https://synthetic.invalid")!, token: "wl2_synthetic", stationID: 1)
+        let preview = try await SyncEngine.previewRemoteHistory(configuration: settings, session: session)
+        let contacts = preview.qsos
+        #expect(preview.heldRemoteIDs.isEmpty)
+        #expect(contacts.count == 2)
+        #expect(Set(contacts.compactMap(\.wavelogID)) == [11, 12])
+        #expect(IdentityJoinAuditProtocol.methods() == Array(repeating: "GET", count: 5))
+    }
+
     @Test("Ancillary fields stay attached to their JSON remote ID regardless of export order and page boundaries", arguments: [false, true], [false, true])
     func remoteIDPreservesAncillaryFields(reverseADIF: Bool, paginated: Bool) async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -58,13 +74,13 @@ struct SyncIdentityJoinAuditTests {
         #expect(contacts.allSatisfy { $0.name == "First" && $0.comment == "first contact" && $0.dxcc == 291 })
     }
 
-    @Test("ADIF-only differences fail before merging, deletion or pushing", arguments: [false, true])
+    @Test("ADIF-only differences hold their entire identity group without merging, deletion or pushing", arguments: [false, true])
     func ambiguousExportDoesNotWrite(paginated: Bool) async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
         let database = try LogbookDatabase(url: root.appendingPathComponent("synthetic.sqlite"))
-        let retained = QSO(wavelogID: 99, call: "RETAIN", band: "40m", mode: "CW", isDirty: false)
-        let pending = QSO(call: "PENDING", band: "80m", mode: "CW")
+        let retained = QSO(wavelogID: 11, call: "RETAIN", band: "40m", mode: "CW", isDirty: false)
+        let pending = QSO(wavelogID: 12, call: "PENDING", band: "80m", mode: "CW")
         try database.save(retained, markDirty: false)
         try database.save(pending)
         let original = try database.fetch(limit: 10)
@@ -75,17 +91,107 @@ struct SyncIdentityJoinAuditTests {
         defer { session.invalidateAndCancel() }
         IdentityJoinAuditProtocol.configure(reverseADIF: false, paginated: paginated, adifOnlyDifference: true)
         let settings = try WavelogConfiguration(baseURL: URL(string: "https://synthetic.invalid")!, token: "wl2_synthetic", stationID: 1)
-        var failedClosed = false
-        do {
-            _ = try await SyncEngine(database: database, configuration: settings, session: session).synchronize()
-        } catch WavelogClientError.invalidData {
-            failedClosed = true
-        }
-        #expect(failedClosed)
+        let report = try await SyncEngine(database: database, configuration: settings, session: session).synchronize()
+        #expect(report.held == 2)
+        #expect(report.pushed == 0 && report.pulled == 0 && report.deleted == 0 && report.failed == 0)
         #expect(try database.fetch(limit: 10) == original)
         #expect(try database.outboxEntries() == originalOutbox)
         #expect(try database.conflicts().isEmpty)
         #expect(IdentityJoinAuditProtocol.methods().allSatisfy { $0 == "GET" })
+    }
+
+    @Test("Ambiguous history does not block unrelated imports and uploads or create duplicate local contacts")
+    func holdsOnlyAmbiguousContacts() async throws {
+        var importedJSON = auditJSON(id: 13, name: "Incoming")
+        importedJSON["call"] = "INCOMING"
+        var importedADIF = auditADIF(name: "Incoming", dxcc: "291")
+        importedADIF.fields["CALL"] = "INCOMING"
+        let fixture = try customFixture(
+            json: [auditJSON(id: 11, name: "First"), auditJSON(id: 12, name: "First"), importedJSON],
+            adif: [auditADIF(name: "First", dxcc: "291"), auditADIF(name: "First", dxcc: "504"), importedADIF]
+        )
+        defer { fixture.session.invalidateAndCancel(); try? FileManager.default.removeItem(at: fixture.root) }
+        let unlinked = try #require(QSO(adif: auditADIF(name: "First", dxcc: "291")))
+        try fixture.database.save(unlinked)
+        let outgoing = QSO(call: "OUTGOING", band: "40m", mode: "CW")
+        try fixture.database.save(outgoing)
+        let report = try await SyncEngine(database: fixture.database, configuration: fixture.settings, session: fixture.session).synchronize()
+        #expect(report.held == 2 && report.pulled == 1 && report.pushed == 1 && report.failed == 0)
+        #expect(try fixture.database.lookup(localID: unlinked.id)?.wavelogID == nil)
+        #expect(try fixture.database.lookup(localID: unlinked.id)?.isDirty == true)
+        #expect(try fixture.database.lookup(localID: outgoing.id)?.wavelogID == 14)
+        #expect(try fixture.database.fetch(limit: 10).contains { $0.call == "INCOMING" && $0.wavelogID == 13 })
+        #expect(IdentityJoinAuditProtocol.methods() == ["GET", "GET", "GET", "POST"])
+    }
+
+    @Test("Held unlinked rows cannot be adopted by another remote frequency", arguments: [false, true])
+    func protectsHeldRowsDuringMerge(dirty: Bool) async throws {
+        var incomingJSON = auditJSON(id: 13, name: "Incoming")
+        incomingJSON["freq"] = 14030000
+        var incomingADIF = auditADIF(name: "Incoming", dxcc: "291")
+        incomingADIF.fields["FREQ"] = "14.030000"
+        let fixture = try customFixture(json: [auditJSON(id: 11, name: "First"), auditJSON(id: 12, name: "First"), incomingJSON],
+            adif: [auditADIF(name: "First", dxcc: "291"), auditADIF(name: "First", dxcc: "504"), incomingADIF])
+        defer { fixture.session.invalidateAndCancel(); try? FileManager.default.removeItem(at: fixture.root) }
+        let local = try #require(QSO(adif: auditADIF(name: "First", dxcc: "291")))
+        try fixture.database.save(local, markDirty: dirty)
+        let before = try fixture.database.lookup(localID: local.id)
+        let report = try await SyncEngine(database: fixture.database, configuration: fixture.settings, session: fixture.session).synchronize()
+        #expect(report.held == 2 && report.pulled == 1 && report.conflicts == 0 && report.pushed == 0)
+        #expect(try fixture.database.lookup(localID: local.id) == before)
+        #expect(try fixture.database.fetch(limit: 10).count == 2)
+        #expect(try fixture.database.conflicts().isEmpty)
+    }
+
+    @Test("More than 500 held pending contacts cannot starve an unrelated upload")
+    func heldPendingDoesNotStarve() async throws {
+        let fixture = try customFixture(json: [auditJSON(id: 11, name: "First"), auditJSON(id: 12, name: "First")],
+            adif: [auditADIF(name: "First", dxcc: "291"), auditADIF(name: "First", dxcc: "504")])
+        defer { fixture.session.invalidateAndCancel(); try? FileManager.default.removeItem(at: fixture.root) }
+        for _ in 0..<501 {
+            let local = try #require(QSO(adif: auditADIF(name: "First", dxcc: "291")))
+            try fixture.database.save(local)
+        }
+        let outgoing = QSO(call: "OUTGOING", band: "40m", mode: "CW")
+        try fixture.database.save(outgoing)
+        let report = try await SyncEngine(database: fixture.database, configuration: fixture.settings, session: fixture.session).synchronize()
+        #expect(report.pushed == 1 && report.failed == 0 && report.held == 2)
+        #expect(try fixture.database.lookup(localID: outgoing.id)?.wavelogID == 14)
+        #expect(try fixture.database.pendingSyncCount() == 501)
+    }
+
+    @Test("Semantic fallback searches past held rows for an unheld local candidate", arguments: [false, true])
+    func semanticFallbackSkipsHeldCandidate(dirty: Bool) async throws {
+        var incomingJSON = auditJSON(id: 13, name: "Incoming")
+        incomingJSON["freq"] = 14030000
+        var incomingADIF = auditADIF(name: "Incoming", dxcc: "291")
+        incomingADIF.fields["FREQ"] = "14.030000"
+        let fixture = try customFixture(json: [auditJSON(id: 11, name: "First"), auditJSON(id: 12, name: "First"), incomingJSON],
+            adif: [auditADIF(name: "First", dxcc: "291"), auditADIF(name: "First", dxcc: "504"), incomingADIF])
+        defer { fixture.session.invalidateAndCancel(); try? FileManager.default.removeItem(at: fixture.root) }
+        let held = try #require(QSO(adif: auditADIF(name: "First", dxcc: "291")))
+        let unheld = try #require(QSO(adif: incomingADIF))
+        try fixture.database.save(held, markDirty: false)
+        try fixture.database.save(unheld, markDirty: dirty)
+        let heldBefore = try fixture.database.lookup(localID: held.id)
+        let report = try await SyncEngine(database: fixture.database, configuration: fixture.settings, session: fixture.session).synchronize()
+        #expect(report.held == 2 && report.pulled == 1 && report.pushed == 0)
+        #expect(try fixture.database.lookup(localID: held.id) == heldBefore)
+        #expect(try fixture.database.fetch(limit: 10).count == 2)
+        #expect(report.conflicts == (dirty ? 1 : 0))
+        if !dirty { #expect(try fixture.database.lookup(localID: unheld.id)?.wavelogID == 13) }
+        #expect(IdentityJoinAuditProtocol.methods().allSatisfy { $0 == "GET" })
+    }
+
+    @Test("Inconsistent duplicate groups still fail before any writes", arguments: [false, true])
+    func inconsistentGroupsFailClosed(hallDeficient: Bool) async throws {
+        if hallDeficient {
+            try await assertCustomFailure(json: [auditJSON(id: 11, name: "A"), auditJSON(id: 12, name: "B"), auditJSON(id: 13, name: "B")],
+                adif: [auditADIF(name: "A", dxcc: "291"), auditADIF(name: "A", dxcc: "504"), auditADIF(name: "B", dxcc: "291")])
+        } else {
+            try await assertCustomFailure(json: [auditJSON(id: 11, name: "C"), auditJSON(id: 12, name: "D")],
+                adif: [auditADIF(name: "A", dxcc: "291"), auditADIF(name: "B", dxcc: "504")])
+        }
     }
 
     @Test("Numeric common fields distinguish duplicates despite JSON and ADIF formatting differences")
@@ -186,6 +292,55 @@ struct SyncIdentityJoinAuditTests {
         #expect(contacts.first(where: { $0.wavelogID == 12 })?.dxcc == 504)
     }
 
+    @Test("Positive receive frequency mismatches remain fail-closed", arguments: ["missing", "0", "14.030000"])
+    func positiveReceiveFrequencyMismatch(exported: String) async throws {
+        var json = [auditJSON(id: 11, name: "First"), auditJSON(id: 12, name: "First")]
+        var adif = [auditADIF(name: "First", dxcc: "291"), auditADIF(name: "First", dxcc: "291")]
+        for index in json.indices {
+            json[index]["freq_rx"] = "14025000"
+            if exported != "missing" { adif[index].fields["FREQ_RX"] = exported }
+        }
+        try await assertCustomFailure(json: json, adif: adif)
+    }
+
+    @Test("Literal JSON zero and omitted ADIF receive frequency both mean unrecorded", arguments: ["0", "0.0", "0e-400"])
+    func unrecordedReceiveFrequency(value: String) async throws {
+        var json = [auditJSON(id: 11, name: "First"), auditJSON(id: 12, name: "Second")]
+        for index in json.indices { json[index]["freq_rx"] = value }
+        let fixture = try customFixture(json: json, adif: [auditADIF(name: "Second", dxcc: "504"), auditADIF(name: "First", dxcc: "291")])
+        defer { fixture.session.invalidateAndCancel(); try? FileManager.default.removeItem(at: fixture.root) }
+        let report = try await SyncEngine(database: fixture.database, configuration: fixture.settings, session: fixture.session).synchronize()
+        #expect(report.pulled == 2 && report.held == 0 && report.failed == 0)
+        let contacts = try fixture.database.fetch(limit: 10)
+        #expect(contacts.first(where: { $0.wavelogID == 11 })?.dxcc == 291)
+        #expect(contacts.first(where: { $0.wavelogID == 12 })?.dxcc == 504)
+        #expect(contacts.allSatisfy { $0.extraFields["FREQ_RX"] == nil })
+        #expect(IdentityJoinAuditProtocol.methods().allSatisfy { $0 == "GET" })
+    }
+
+    @Test("Unrecorded RX normalization does not erase ambiguous ADIF-only details")
+    func unrecordedRXStillHoldsAmbiguity() async throws {
+        var json = [auditJSON(id: 11, name: "First"), auditJSON(id: 12, name: "First")]
+        for index in json.indices { json[index]["freq_rx"] = 0 }
+        let fixture = try customFixture(json: json, adif: [auditADIF(name: "First", dxcc: "291"), auditADIF(name: "First", dxcc: "504")])
+        defer { fixture.session.invalidateAndCancel(); try? FileManager.default.removeItem(at: fixture.root) }
+        let report = try await SyncEngine(database: fixture.database, configuration: fixture.settings, session: fixture.session).synchronize()
+        #expect(report.held == 2 && report.pulled == 0 && report.pushed == 0)
+        #expect(try fixture.database.fetch(limit: 10).isEmpty)
+        #expect(IdentityJoinAuditProtocol.methods().allSatisfy { $0 == "GET" })
+    }
+
+    @Test("Zero-to-transmit defaults and rounded/underflow-to-zero nonzero RX values remain fail-closed", arguments: ["0", "0.4", "-0.4", "1e-400", "-1e-400"])
+    func unprovenReceiveFrequencyMismatch(value: String) async throws {
+        var json = [auditJSON(id: 11, name: "First"), auditJSON(id: 12, name: "First")]
+        var adif = [auditADIF(name: "First", dxcc: "291"), auditADIF(name: "First", dxcc: "291")]
+        for index in json.indices {
+            json[index]["freq_rx"] = value
+            if value == "0" { adif[index].fields["FREQ_RX"] = "14.025000" }
+        }
+        try await assertCustomFailure(json: json, adif: adif)
+    }
+
     private func assertCustomFailure(json: [[String: Any]], adif: [ADIFRecord], declaredADIFCount: Int? = nil) async throws {
         let fixture = try customFixture(json: json, adif: adif, declaredADIFCount: declaredADIFCount)
         defer { fixture.session.invalidateAndCancel(); try? FileManager.default.removeItem(at: fixture.root) }
@@ -258,6 +413,13 @@ private final class IdentityJoinAuditProtocol: URLProtocol {
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
         Self.lock.withLock { Self.recordedMethods.append(request.httpMethod ?? "") }
+        if request.httpMethod == "POST", request.url?.host == "synthetic.invalid" {
+            let response = HTTPURLResponse(url: request.url!, statusCode: 201, httpVersion: nil, headerFields: nil)!
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: try! JSONSerialization.data(withJSONObject: ["data": auditJSON(id: 14, name: "Outgoing")]))
+            client?.urlProtocolDidFinishLoading(self)
+            return
+        }
         guard request.httpMethod == "GET", request.url?.host == "synthetic.invalid" else {
             client?.urlProtocol(self, didFailWithError: URLError(.unsupportedURL))
             return

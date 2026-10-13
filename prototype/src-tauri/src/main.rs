@@ -110,7 +110,7 @@ fn workspace_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
 }
 
 fn append_screen_group(app: &tauri::AppHandle, menu: &Submenu<tauri::Wry>, group: &str) -> tauri::Result<()> {
-    for screen in workspace_navigation::screens().iter().filter(|screen| screen.group == group) {
+    for screen in workspace_navigation::screens().iter().filter(|screen| screen.group == group && !screen.hidden) {
         menu.append(&MenuItem::with_id(app, format!("workspace_screen_{}", screen.id),
             &screen.title, true, screen.shortcut.as_deref())?)?;
     }

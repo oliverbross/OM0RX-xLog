@@ -7,6 +7,11 @@
   background: var(--panel);
   color: #e6edf6;
 }
+.app.live.detached-cluster-app { display:flex; flex-direction:column; height:100dvh; min-height:0; padding:0; overflow:hidden; }
+.detached-cluster-app > main { flex:1 1 0; min-width:0; min-height:0; padding:8px; overflow:auto; }
+.detached-cluster-app .live-cluster { flex:1 1 0; }
+.detached-cluster-app .live-cluster > :not(.live-cluster-table) { flex-shrink:0; }
+.detached-cluster-app .live-cluster-table { flex:1 1 0; min-height:60px; max-height:none; border-block:1px solid var(--border); }
 .live-cluster-head {
   display: flex;
   align-items: center;

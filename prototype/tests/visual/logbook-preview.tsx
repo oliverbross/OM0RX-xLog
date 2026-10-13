@@ -1,7 +1,7 @@
 // Development-only interaction fixture. All edits are synthetic and memory-only;
 // no IPC, credentials, radio, files or real contacts.
 import React, { useEffect, useState } from "react";
-import { createRoot } from "react-dom/client";
+import { createRoot, type Root } from "react-dom/client";
 import { LogbookPanel } from "../../src/live/LogbookPanel";
 import { LogbookMutationSession } from "../../src/live/logbookMutationSession";
 import { contactEditFixture } from "../contact-edit-fixture";
@@ -42,4 +42,6 @@ function Preview() {
     <LogbookPanel onRequest={request} mutations={mutations} onEdit={() => {}} onDock={() => {}} refreshKey={refresh} />
   </main></div>;
 }
-createRoot(document.getElementById("root")!).render(<Preview />);
+const host = document.getElementById("root") as HTMLElement & { fixtureRoot?: Root };
+host.fixtureRoot ??= createRoot(host);
+host.fixtureRoot.render(<Preview />);

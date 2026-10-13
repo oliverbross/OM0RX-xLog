@@ -46,7 +46,7 @@ describe("read-only opportunities", () => {
     fireEvent.click(screen.getByRole("tab", { name: "POTA" }));
     expect(screen.queryByText("WWFF · KFF-3017")).toBeNull();
     expect(screen.getByText("POTA · OM-0001")).toBeTruthy();
-    expect(request).toHaveBeenCalledTimes(2);
+    expect(request).toHaveBeenCalledTimes(6);
     expect(select).not.toHaveBeenCalled();
   });
   it("shows source age, full reference history and only loads a draft on selection", async () => {
@@ -69,7 +69,7 @@ describe("read-only opportunities", () => {
     await screen.findByText("Verified park");
     await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("Previous data is retained"));
     expect(screen.getByText("Verified park")).toBeTruthy();
-    expect(request).toHaveBeenCalledWith("opportunities_refresh", { source: "all" });
+    expect(request.mock.calls.filter(([method]) => method === "opportunities_refresh")).toHaveLength(5);
     expect(screen.queryByRole("button", { name: /Check/ })).toBeNull();
   });
   it("withholds history labels when backend history is not ready and filters without requests", async () => {
@@ -80,7 +80,7 @@ describe("read-only opportunities", () => {
     fireEvent.click(screen.getByRole("tab", { name: "DXpeditions" }));
     expect(screen.queryByText("Verified park")).toBeNull();
     expect(screen.getByText("DX1ABC: DXpedition")).toBeTruthy();
-    expect(request).toHaveBeenCalledTimes(2);
+    expect(request).toHaveBeenCalledTimes(6);
   });
   it("remembers filters and loads map selections only into the draft", async () => {
     const located = { ...pota, latitude: 48, longitude: 18, location_source: "public_feed" };
@@ -106,9 +106,100 @@ describe("read-only opportunities", () => {
     const view = render(<OpportunitiesPanel request={request} onSelect={vi.fn()} />);
     await act(async () => { await Promise.resolve(); });
     await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
-    expect(request.mock.calls.filter(([method]) => method === "opportunities_refresh")).toHaveLength(2);
+    expect(request.mock.calls.filter(([method]) => method === "opportunities_refresh")).toHaveLength(10);
     view.unmount(); const calls = request.mock.calls.length;
     await act(async () => { await vi.advanceTimersByTimeAsync(120_000); });
     expect(request).toHaveBeenCalledTimes(calls);
+  });
+  it("shows selected POTA after 100ms while a 20-second unrelated feed is still pending", async () => {
+    vi.useFakeTimers();
+    localStorage.setItem("xlog.integration.chaser.v1", JSON.stringify({ kind: "pota" }));
+    const empty = { ...snapshot, items: [], total_available: 0, sources: [] };
+    const settled: string[] = [];
+    const startedAt = Date.now();
+    let legacyFirstUsefulAt: number | null = null;
+    // Before: the original loader published on its 15s snapshot poll or when
+    // the all-feed batch finished (20s here), even though POTA was ready at 100ms.
+    const legacyAccept = () => {
+      if (settled.includes("pota") && legacyFirstUsefulAt == null) legacyFirstUsefulAt = Date.now() - startedAt;
+    };
+    legacyAccept();
+    const legacyPoll = window.setInterval(legacyAccept, 15_000);
+    window.setTimeout(legacyAccept, 20_000);
+    const request = vi.fn((method: string, params?: Record<string, unknown>) => {
+      if (method === "opportunities_snapshot") return Promise.resolve(settled.includes("pota")
+        ? { ...snapshot, generated_at: new Date(Date.now()).toISOString(), items: [pota] } : empty);
+      const source = params?.source as string;
+      return new Promise(resolve => window.setTimeout(() => {
+        settled.push(source);
+        resolve({ ...snapshot, generated_at: new Date(Date.now()).toISOString(), items: source === "pota" ? [pota] : [pota, expedition] });
+      }, source === "pota" ? 100 : 20_000));
+    });
+    render(<OpportunitiesPanel request={request} onSelect={vi.fn()} />);
+    expect(screen.getByRole("tab", { name: "POTA" }).getAttribute("aria-selected")).toBe("true");
+    await act(async () => { await vi.advanceTimersByTimeAsync(99); });
+    expect(screen.queryByText("Verified park")).toBeNull();
+    await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+    expect(screen.getByText("Verified park")).toBeTruthy();
+    expect(settled).toEqual(["pota"]);
+    expect(legacyFirstUsefulAt).toBeNull();
+    expect(screen.getByRole("button", { name: "Refreshing…" })).toBeTruthy();
+    expect(request.mock.calls.filter(([method]) => method === "opportunities_refresh").map(([, params]) => params?.source))
+      .toEqual(["pota", "sota", "wwff", "wwbota", "425dxn"]);
+    await act(async () => { await vi.advanceTimersByTimeAsync(19_900); });
+    expect(screen.getByText("Verified park")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Refresh feeds" })).toBeTruthy();
+    expect(legacyFirstUsefulAt).toBe(15_000);
+    window.clearInterval(legacyPoll);
+  });
+  it("prioritises a saved summit programme and keeps its rows through an unrelated failure", async () => {
+    localStorage.setItem("xlog.integration.chaser.v1", JSON.stringify({ kind: "sota" }));
+    const summit = { ...pota, id: "sota:OM0RX", kind: "sota", name: "Selected summit" };
+    let failCalendar!: (reason: Error) => void;
+    const request = vi.fn((method: string, params?: Record<string, unknown>) => {
+      if (params?.source === "425dxn") return new Promise((_resolve, reject) => { failCalendar = reject; });
+      return Promise.resolve({ ...snapshot, items: method === "opportunities_snapshot" ? [] : [summit] });
+    });
+    render(<OpportunitiesPanel request={request} onSelect={vi.fn()} />);
+    await screen.findByText("Selected summit");
+    expect(request.mock.calls.find(([method]) => method === "opportunities_refresh")?.[1]).toEqual({ source: "sota", automatic: true });
+    await act(async () => { failCalendar(Error("calendar timeout")); });
+    expect(screen.getByText("Selected summit")).toBeTruthy();
+    expect(screen.getByRole("alert").textContent).toContain("Previous data is retained");
+    expect(request).toHaveBeenCalledTimes(6);
+  });
+  it("shows cached rows immediately even when every feed download is pending", async () => {
+    const request = vi.fn((method: string) => method === "opportunities_snapshot" ? Promise.resolve(snapshot) : new Promise(() => {}));
+    const view = render(<OpportunitiesPanel request={request} onSelect={vi.fn()} />);
+    expect(await screen.findByText("Verified park")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Refreshing…" })).toBeTruthy();
+    expect(screen.getByText(/Retrying automatically/)).toBeTruthy();
+    view.unmount();
+  });
+  it("ignores an older snapshot that arrives after a fresh feed result", async () => {
+    let finishRead!: (value: unknown) => void;
+    let finishPota!: (value: unknown) => void;
+    const request = vi.fn((method: string, params?: Record<string, unknown>) => {
+      if (method === "opportunities_snapshot") return new Promise(resolve => { finishRead = resolve; });
+      if (params?.source === "pota") return new Promise(resolve => { finishPota = resolve; });
+      return new Promise(() => {});
+    });
+    const view = render(<OpportunitiesPanel request={request} onSelect={vi.fn()} />);
+    await act(async () => { finishPota({ ...snapshot, generated_at: "2026-10-12T10:01:00.100Z", items: [pota] }); });
+    expect(screen.getByText("Verified park")).toBeTruthy();
+    await act(async () => { finishRead({ ...snapshot, generated_at: "2026-10-12T10:01:00.000Z", items: [] }); });
+    expect(screen.getByText("Verified park")).toBeTruthy();
+    view.unmount();
+  });
+  it("shares pending requests across a refresh prop change and ignores the retired lifecycle", async () => {
+    let finish!: (value: unknown) => void;
+    const shared = new Promise(resolve => { finish = resolve; });
+    const request = vi.fn(() => shared);
+    const view = render(<OpportunitiesPanel request={request} onSelect={vi.fn()} refresh={0} />);
+    view.rerender(<OpportunitiesPanel request={request} onSelect={vi.fn()} refresh={1} />);
+    expect(request).toHaveBeenCalledTimes(6);
+    await act(async () => { finish(snapshot); });
+    expect(screen.getByText("Verified park")).toBeTruthy();
+    view.unmount();
   });
 });

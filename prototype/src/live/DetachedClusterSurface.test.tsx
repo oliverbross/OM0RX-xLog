@@ -15,6 +15,7 @@ describe("passive docked DX Cluster presentation", () => {
     const { container } = render(<DetachedClusterSurface />);
     await waitFor(() => expect(bridge.ready).toHaveBeenCalledOnce());
     expect(container.querySelector(".station-rail")).toBeNull();
+    expect(container.querySelector(".detached-cluster-app > main > .live-cluster")).toBeTruthy();
     expect(screen.queryByText("OM0RX-xLog")).toBeNull();
     expect(screen.queryByText("Live data and actions owned by the main workspace")).toBeNull();
     expect(screen.getAllByRole("heading", { name: "DX Cluster" })).toHaveLength(1);

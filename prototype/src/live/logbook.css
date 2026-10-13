@@ -1,6 +1,8 @@
 .live-logbook { display: flex; flex: 1; flex-direction: column; gap: 6px; min-width: 0; min-height: 0; height: 100%; container-type: inline-size; }
 .app.live.detached-logbook-app { display: flex; flex-direction: column; height: 100dvh; min-height: 0; padding: 0; }
-.detached-logbook-app > main { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; padding: 10px; overflow: auto; }
+.detached-logbook-app > main { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; padding: 8px; overflow: auto; }
+.detached-logbook-app .live-logbook { height:auto; }
+.detached-logbook-app .live-logbook-footer { margin-top:0; }
 .live-logbook-head { display: flex; flex: none; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding: 4px 2px 9px; }
 .live-logbook-head h2 { font-size: 16px; line-height: 1.2; }
 .live-logbook-head p { color: var(--secondary); margin-top: 5px; }
