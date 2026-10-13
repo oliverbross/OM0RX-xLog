@@ -593,3 +593,9 @@ Previous alpha.12 all-platform CI `38312294786` succeeded. Exact alpha.13 matrix
 Record the source SHA, exact test evidence, installed version, and observed
 result. Leave partial or failed gates visible. Add newly reported issues here
 before implementation; do not replace this list with a generic “done”.
+
+## 13 October — responsive Logbook and native verification follow-up
+
+The new detached Logbook source (`bfccefa`) built on Mac, Windows and Linux, but both packaged runtime checks stopped at a main Logbook Delete control after an edit refresh; the detached test was not reached. This is tracked as a failed gate, not successful undocking acceptance. Refresh now retains an existing selected contact, backed by a regression test; native acceptance waits for controls to become ready.
+
+The shared Logbook table now fits rows to available height, removes its fixed minimum width, retains all columns on wide windows and exposes compact hidden fields through Details. A selected lower row remains anchored when Details reduces row capacity. Isolated browser checks cover 640×480, 1280×800 and 4K, including long data and lower-row Details; a fresh reviewer scored its one selection finding resolved. Full-editor sizing, native lifecycle, all-screen undocking/canvas and full application performance remain open. Exact-source native recheck and installation remain pending. No station actions or live contact edits were used.

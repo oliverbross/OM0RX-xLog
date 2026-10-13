@@ -16,7 +16,11 @@ function button(name: string, selector = "button") {
   if (!found || found.disabled) throw new Error(`Unavailable rendered button: ${name}`);
   return found;
 }
-async function click(name: string, selector = "button") { button(name, selector).click(); await frame(); }
+async function click(name: string, selector = "button") {
+  await waitForAcceptance(`enabled rendered button: ${name}`, () => [...document.querySelectorAll<HTMLButtonElement>(selector)]
+    .some(control => control.textContent?.trim() === name && control.getClientRects().length > 0 && !control.disabled));
+  button(name, selector).click(); await frame();
+}
 async function navigate(name: string, expected = name) {
   const screen = workspaceScreens.find(screen => screen.title === name);
   if (!screen) throw new Error(`Unknown workspace route: ${name}`);

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import LogbookPanel, { confirmationTone, utcTime } from "./LogbookPanel";
 import { LogbookMutationSession } from "./logbookMutationSession";
 import { contactEditFixture } from "../../tests/contact-edit-fixture";
@@ -113,6 +113,62 @@ describe("logbook confirmation visibility", () => {
     expect(label.querySelector(".is-unrecorded")).toBeTruthy();
     expect(screen.getByRole("img", { name: "Club Log upload not recorded" })).toBeTruthy();
     expect(document.querySelector(".live-logbook-table-wrap")).toBeTruthy();
+  });
+
+  it("reveals full contact values without depending on wide table columns", async () => {
+    const request = vi.fn(async () => page());
+    render(<LogbookPanel mutations={new LogbookMutationSession(request, () => {})} onRequest={request} onEdit={vi.fn()} refreshKey={0} />);
+    fireEvent.click(await screen.findByText("OM0RX"));
+    fireEvent.click(screen.getByRole("button", { name: "Details" }));
+    const details = screen.getByLabelText("Details for OM0RX");
+    expect(within(details).getByText("Slovakia · Oliver")).toBeTruthy();
+    expect(within(details).getByText("Portable from the summit")).toBeTruthy();
+    expect(within(details).getByRole("img", { name: "QSL sent Y, received V" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Details" }));
+    expect(screen.queryByLabelText("Details for OM0RX")).toBeNull();
+  });
+
+  it("keeps the selected contact across refresh and drops it only when no longer present", async () => {
+    let rows = [first, second];
+    const request = vi.fn(async () => page(rows));
+    const mutations = new LogbookMutationSession(request, () => {});
+    const view = render(<LogbookPanel mutations={mutations} onRequest={request} onEdit={vi.fn()} refreshKey={0} />);
+    fireEvent.click(await screen.findByText("OM0RX"));
+    view.rerender(<LogbookPanel mutations={mutations} onRequest={request} onEdit={vi.fn()} refreshKey={1} />);
+    await waitFor(() => expect((screen.getByRole("button", { name: "Delete" }) as HTMLButtonElement).disabled).toBe(false));
+    expect(screen.getByText("OM0RX").closest("tr")?.getAttribute("aria-selected")).toBe("true");
+    rows = [second];
+    view.rerender(<LogbookPanel mutations={mutations} onRequest={request} onEdit={vi.fn()} refreshKey={2} />);
+    await screen.findByText("1–1 of 1");
+    expect((screen.getByRole("button", { name: "Delete" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("adapts row count with bounded requests, preserves selection and keeps last-page navigation reachable", async () => {
+    let resize = () => {};
+    let height = 280;
+    vi.stubGlobal("ResizeObserver", class { constructor(callback: () => void) { resize = callback; } observe() {} disconnect() {} });
+    const size = vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(function (this: HTMLElement) { return this.classList.contains("live-logbook-table-wrap") ? height : 0; });
+    const rect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) { return { height: this.tagName === "THEAD" ? 35 : 28 } as DOMRect; });
+    const request = vi.fn(async (_method: string, params?: Record<string, unknown>) => {
+      const offset = Number(params?.offset ?? 0), limit = Number(params?.limit ?? 20);
+      return { total: 25, offset, limit, qsos: Array.from({ length: Math.min(limit, 25 - offset) }, (_, index) => ({ ...first, id: `qso-${offset + index}`, call: `FIT${offset + index}` })) };
+    });
+    try {
+      render(<LogbookPanel mutations={new LogbookMutationSession(request, () => {})} onRequest={request} onEdit={vi.fn()} refreshKey={0} />);
+      await screen.findByText("1–8 of 25");
+      fireEvent.click(screen.getByText("FIT7")); fireEvent.click(screen.getByRole("button", { name: "Details" }));
+      height = 200; act(() => resize());
+      await screen.findByText("6–10 of 25");
+      expect(screen.getByLabelText("Details for FIT7")).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "Next" }));
+      await screen.findByText("11–15 of 25");
+      expect(screen.queryByLabelText("Details for FIT7")).toBeNull();
+      for (let i = 0; i < 2; i++) { fireEvent.click(screen.getByRole("button", { name: "Next" })); await screen.findByText(`${16 + 5 * i}–${20 + 5 * i} of 25`); }
+      height = 600; act(() => resize());
+      await waitFor(() => expect(request.mock.calls.some(([, params]) => params?.offset === 20 && params?.limit === 20)).toBe(true));
+      expect((screen.getByRole("button", { name: "Next" }) as HTMLButtonElement).disabled).toBe(true);
+      expect(request.mock.calls.every(([, params]) => Number(params?.limit) <= 20)).toBe(true);
+    } finally { cleanup(); size.mockRestore(); rect.mockRestore(); vi.unstubAllGlobals(); }
   });
 
   it("fills a dense 100-row page using bounded worker frames and keeps page navigation aligned", async () => {

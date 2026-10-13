@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 import { Download, FileUp, Pencil, RotateCcw, Search, Trash2, Triangle, ExternalLink, PanelsTopLeft } from "lucide-react";
 import "./logbook.css";
 import type { LogbookMutationSession } from "./logbookMutationSession";
 import type { DraftSnapshot } from "./operatorDraftSession";
+import { useLogbookCapacity } from "./logbookCapacity";
 
 type QSO = Record<string, unknown> & {
   id: string;
@@ -27,7 +28,6 @@ type QSO = Record<string, unknown> & {
 
 type LogbookPage = { qsos: QSO[]; total: number; offset: number; limit: number };
 type Request = (method: string, params?: Record<string, unknown>) => Promise<any>;
-const pageSize = 100;
 // Keep worker responses and ADIF export frames bounded independently of the UI page.
 const requestPageSize = 20;
 const maxADIFBytes = 14_000;
@@ -115,6 +115,9 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
   const [search, setSearch] = useState("");
   const [offset, setOffset] = useState(0);
   const [page, setPage] = useState<LogbookPage | null>(null);
+  const tableArea = useRef<HTMLDivElement>(null);
+  const pageSize = useLogbookCapacity(tableArea, page?.qsos.length ?? 0);
+  const [details, setDetails] = useState(false);
   const [loading, setLoading] = useState(false);
   const [working, setBusy] = useState(false);
   const mutation = useSyncExternalStore(mutations.subscribe, mutations.getSnapshot);
@@ -124,15 +127,24 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
   const [notice, setNotice] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<DraftSnapshot | null>(null);
   const [selectedID, setSelectedID] = useState<string | null>(null);
+  const previousCapacity = useRef(pageSize);
+  useLayoutEffect(() => {
+    if (previousCapacity.current === pageSize) return;
+    previousCapacity.current = pageSize;
+    const index = page?.qsos.findIndex(qso => qso.id === selectedID) ?? -1;
+    // Details consumes table height. Re-anchor before the capacity fetch so a
+    // selected lower row is not dropped by the now-smaller page.
+    if (index >= 0) setOffset(current => Math.floor((current + index) / pageSize) * pageSize);
+  }, [pageSize, page, selectedID]);
   const preparation = useRef(0);
   const fileInput = useRef<HTMLInputElement>(null);
 
   async function readPage(pageOffset: number, pageSearch: string) {
-    const first = result<LogbookPage>(await onRequest("logbook_list", { search: pageSearch, offset: pageOffset, limit: requestPageSize }));
+    const first = result<LogbookPage>(await onRequest("logbook_list", { search: pageSearch, offset: pageOffset, limit: Math.min(requestPageSize, pageSize) }));
     const remainingOffsets: number[] = [];
     for (let next = pageOffset + requestPageSize; next < Math.min(first.total, pageOffset + pageSize); next += requestPageSize) remainingOffsets.push(next);
     const rest = await Promise.all(remainingOffsets.map(async next => result<LogbookPage>(
-      await onRequest("logbook_list", { search: pageSearch, offset: next, limit: requestPageSize }),
+      await onRequest("logbook_list", { search: pageSearch, offset: next, limit: Math.min(requestPageSize, pageOffset + pageSize - next) }),
     )));
     const unique = new Map<string, QSO>();
     for (const qso of [first, ...rest].flatMap(chunk => chunk.qsos)) unique.set(qso.id, qso);
@@ -142,20 +154,25 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    setSelectedID(null);
     setConfirmDelete(null);
     preparation.current++;
     setError("");
     readPage(offset, search)
       .then((response) => {
-        if (!cancelled) setPage(result<LogbookPage>(response));
+        if (!cancelled) {
+          if (offset > 0 && offset >= response.total) setOffset(Math.max(0, Math.floor((response.total - 1) / pageSize) * pageSize));
+          else {
+            setPage(result<LogbookPage>(response));
+            setSelectedID(current => response.qsos.some(qso => qso.id === current) ? current : null);
+          }
+        }
       })
       .catch((cause) => {
         if (!cancelled) { setPage(null); setError(cause instanceof Error ? cause.message : String(cause)); }
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; preparation.current++; };
-  }, [onRequest, search, offset, refreshKey]);
+  }, [onRequest, search, offset, refreshKey, pageSize]);
 
   async function reload(pageOffset = offset) {
     const response = await readPage(pageOffset, search);
@@ -280,6 +297,8 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
             <button type="submit" disabled={loading || busy} aria-label="Search" title="Search"><Search size={14} /></button>
           </form>
           <button type="button" disabled={!selected || busy || loading} onClick={() => selected && onEdit(selected)}><Pencil size={13} /> Edit</button>
+          <button type="button" disabled={!selected || loading} aria-expanded={details && !!selected} aria-controls="logbook-contact-details"
+            onClick={() => setDetails(value => !value)}>Details</button>
           <button type="button" disabled={!selected || busy || loading} onClick={() => selected && void prepareDelete(selected.id)}><Trash2 size={13} /> Delete</button>
           <button type="button" onClick={() => void undoDelete()} disabled={!mutation.undo || busy}><RotateCcw size={13} /> Undo delete</button>
           <input ref={fileInput} type="file" accept=".adi,.adif,text/plain" hidden
@@ -301,7 +320,21 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
         <div><button type="button" onClick={() => confirmDelete && void deleteQSO(confirmDelete)} disabled={busy}>Confirm delete</button>
           <button type="button" onClick={() => setConfirmDelete(null)} disabled={busy}>Cancel</button></div>
       </div>}
-      <div className="live-logbook-table-wrap">
+      {details && selected && <dl id="logbook-contact-details" className="live-logbook-details" aria-label={`Details for ${selected.call}`}>
+        <div><dt>Callsign</dt><dd>{selected.call}</dd></div>
+        <div><dt>UTC</dt><dd>{utcTime(selected.start)}</dd></div>
+        <div><dt>Band / Mode</dt><dd>{selected.band} · {selected.submode || selected.mode}</dd></div>
+        <div><dt>Frequency MHz</dt><dd>{typeof selected.frequencyHz === "number" ? (selected.frequencyHz / 1_000_000).toFixed(6) : "—"}</dd></div>
+        <div><dt>RST sent / received</dt><dd>{selected.rstSent || "—"} / {selected.rstReceived || "—"}</dd></div>
+        <div><dt>Country / Name</dt><dd>{selected.country || "—"}{selected.name ? ` · ${selected.name}` : ""}</dd></div>
+        <div className="live-logbook-details-qsl"><dt>Confirmations</dt><dd>
+          <span>QSL <ConfirmationStatus service="QSL" sent={selected.qslSent} received={selected.qslReceived} /></span>
+          <span>LoTW <ConfirmationStatus service="LoTW" sent={selected.lotwSent} received={selected.lotwReceived} /></span>
+          <span>Club Log <ConfirmationStatus service="Club Log" sent={selected.extraFields?.CLUBLOG_QSO_UPLOAD_STATUS} supportsReceived={false} /></span>
+        </dd></div>
+        <div className="live-logbook-details-comment"><dt>Comment</dt><dd>{selected.comment || "—"}</dd></div>
+      </dl>}
+      <div className="live-logbook-table-wrap" ref={tableArea}>
         <table className="live-logbook-table">
           <thead><tr><th scope="col">UTC</th><th scope="col">Callsign</th><th scope="col">Band / Mode</th><th scope="col" title="Frequency in MHz">Frequency</th><th scope="col">RST</th><th scope="col">Country</th><th scope="col">QSL</th><th scope="col">LoTW</th><th scope="col">Club Log</th><th scope="col">Comment</th></tr></thead>
           <tbody>
@@ -319,12 +352,12 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
                   (event.currentTarget.parentElement?.children[next] as HTMLElement | undefined)?.focus();
                 }
               }}>
-              <td className="mono">{utcTime(qso.start)}</td>
-              <td className="live-logbook-call"><span className={`live-logbook-sync-dot ${qso.isDirty ? "is-pending" : "is-clean"}`} role="img" aria-label={qso.isDirty ? "Pending synchronization" : "No pending changes"} title={qso.isDirty ? "Pending synchronization" : "No pending changes"} />{qso.call}</td>
-              <td className="live-logbook-band">{qso.band} · {qso.submode || qso.mode}</td>
+              <td className="mono" title={utcTime(qso.start)}>{utcTime(qso.start)}</td>
+              <td className="live-logbook-call" title={qso.call}><span className={`live-logbook-sync-dot ${qso.isDirty ? "is-pending" : "is-clean"}`} role="img" aria-label={qso.isDirty ? "Pending synchronization" : "No pending changes"} title={qso.isDirty ? "Pending synchronization" : "No pending changes"} />{qso.call}</td>
+              <td className="live-logbook-band" title={`${qso.band} · ${qso.submode || qso.mode}`}>{qso.band} · {qso.submode || qso.mode}</td>
               <td className="live-logbook-frequency mono">{typeof qso.frequencyHz === "number" ? (qso.frequencyHz / 1_000_000).toFixed(6) : "—"}</td>
               <td className="mono" aria-label={`RST sent ${qso.rstSent || "not recorded"}, received ${qso.rstReceived || "not recorded"}`}>{qso.rstSent || "—"} / {qso.rstReceived || "—"}</td>
-              <td title={qso.name || undefined}>{qso.country || "—"}</td>
+              <td title={[qso.country, qso.name].filter(Boolean).join(" · ") || undefined}>{qso.country || "—"}</td>
               <td><ConfirmationStatus service="QSL" sent={qso.qslSent} received={qso.qslReceived} /></td>
               <td><ConfirmationStatus service="LoTW" sent={qso.lotwSent} received={qso.lotwReceived} /></td>
               <td><ConfirmationStatus service="Club Log" sent={qso.extraFields?.CLUBLOG_QSO_UPLOAD_STATUS} supportsReceived={false} /></td>
