@@ -1,5 +1,4 @@
 import Foundation
-import CoreFoundation
 #if canImport(CryptoKit)
 import CryptoKit
 #else
@@ -458,7 +457,7 @@ public final class SpotHistoryDatabase: @unchecked Sendable {
         if kind == "recording_gap" {
             let count: Int64
             if let value = payload["count"] {
-                guard let number = value as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID(),
+                guard let number = value as? NSNumber, !Self.isJSONBoolean(number),
                       number.doubleValue.isFinite, number.doubleValue >= 0, number.doubleValue < 9_007_199_254_740_992,
                       number.doubleValue.rounded() == number.doubleValue else { throw SpotHistoryDatabaseError.invalidInput("invalid gap count") }
                 count = number.int64Value
@@ -484,6 +483,13 @@ public final class SpotHistoryDatabase: @unchecked Sendable {
                 }
             }
         }
+    }
+
+    private static func isJSONBoolean(_ number: NSNumber) -> Bool {
+        // Windows Foundation has no CoreFoundation type IDs. JSON preserves
+        // true/false separately from numeric 0/1 on every supported platform.
+        guard let encoded = try? JSONSerialization.data(withJSONObject: [number]) else { return false }
+        return encoded == Data("[true]".utf8) || encoded == Data("[false]".utf8)
     }
 
     private func state() throws -> SpotHistoryStatus {

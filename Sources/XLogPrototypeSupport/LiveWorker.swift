@@ -47,7 +47,13 @@ public actor LiveWorker {
         await services.beginTermination()
         await publicServices.terminate()
         await opportunities.terminate()
-        if localAcceptance { await services.terminate(); return }
+        if localAcceptance {
+            // Only the injected local cluster/archive owner is retired here;
+            // process-wide station singletons remain outside acceptance scope.
+            await cluster.terminate()
+            await services.terminate()
+            return
+        }
         #if os(macOS)
         await LiveSpotBridge.shared.stopForShutdown()
         await LiveRotorSession.shared.terminate()

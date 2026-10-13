@@ -20,7 +20,37 @@ public final class LocalAcceptanceSession: @unchecked Sendable {
                                                 attributes: LocalFilePermissions.directoryAttributes)
         directory = root
         service = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
-        worker = LiveWorker(logbook: service, localAcceptance: true)
+        // The archive is generated here, never nominated by the caller and
+        // never copied from a real station. Close and reopen through the normal
+        // worker path to exercise packaged SQLite persistence, not a UI mock.
+        let clusterDirectory = root.appendingPathComponent("Cluster", isDirectory: true)
+        do { try Self.seedSpotHistory(at: clusterDirectory.appendingPathComponent("spot-history.sqlite")) }
+        catch {
+            // Only this freshly generated private directory is eligible for
+            // cleanup; callers cannot supply a path or existing archive.
+            try? FileManager.default.removeItem(at: root)
+            throw error
+        }
+        let cluster = LiveClusterMethods(logbook: service,
+            configurationURL: clusterDirectory.appendingPathComponent("cluster.json"))
+        worker = LiveWorker(logbook: service, localAcceptance: true, cluster: cluster)
+    }
+
+    private static func seedSpotHistory(at url: URL) throws {
+        let database = try SpotHistoryDatabase(url: url)
+        defer { try? database.close() }
+        let session = UUID(), source = UUID(), base = Date().addingTimeInterval(-600)
+        let rows = (0..<137).map { index in
+            let call = index.isMultiple(of: 2) ? "TESTH0" : "TESTH1"
+            let comment = "Synthetic acceptance <not-markup> Ω report \(index)"
+            return SpotHistoryObservation(sessionID: session, sequence: Int64(index + 1), clusterID: source,
+                clusterName: "Isolated fixture", clusterHost: "fixture.invalid", arrivedAt: base.addingTimeInterval(Double(index)),
+                rawLine: "DX de TESTSPOT: 14025.0 \(call) \(comment)", callsign: call, spotter: "TESTSPOT",
+                frequencyKHz: 14025, frequencyText: "14025.0", band: "20m", mode: "CW", source: "fixture",
+                country: "Synthetic", comment: comment, classificationJSON: "{\"fixture\":true}")
+        }
+        _ = try database.append(Array(rows.prefix(100)))
+        _ = try database.append(Array(rows.dropFirst(100)))
     }
 
     // Explicit allowlist: newly added services must not silently become callable
@@ -31,6 +61,7 @@ public final class LocalAcceptanceSession: @unchecked Sendable {
             "health", "parse_adif", "self_test", "integration_self_test", "cluster_classify", "cluster_history",
             "workspace_status", "workspace_create", "workspace_preferences_load", "workspace_preferences_save",
             "workspace_layout_load", "workspace_layout_apply",
+            "spot_history_status", "spot_history_query", "spot_history_stats", "spot_history_detail",
             "settings_load", "settings_save", "logbook_draft", "logbook_catalog", "logbook_list",
             "logbook_save", "logbook_delete", "logbook_undo", "logbook_stats", "logbook_previous",
             "logbook_operator_draft", "logbook_operator_draft_apply", "logbook_operator_draft_receipt",

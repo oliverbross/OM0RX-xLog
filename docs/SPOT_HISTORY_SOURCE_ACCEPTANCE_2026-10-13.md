@@ -48,3 +48,13 @@ The recorder admits at most 4,096 queued jobs, batches at most 100 reports, and 
 ## Remaining acceptance
 
 New exact-SHA cross-platform CI, native packaged recording/restart and actual cluster reception remain separate acceptance gates. A prior permanent local candidate-launch restriction remains in force; it was not bypassed. No hardware, credentials or live database were used by this source work. Advanced filters, export/retention UI, richer charts and detached history remain explicitly tracked follow-up work.
+
+## Portable and packaged-acceptance follow-up
+
+The first exact-source matrix `38373959406` for `fc129e39fc013a5e77f40f2d3e46f111cf62e574` exposed a Windows build failure: `SpotHistoryDatabase.swift:2` imported unavailable `CoreFoundation`. Both new history files now use the existing portable Foundation JSON scalar distinction. New tests reject Boolean values where integers are required, while accepting numeric zero/one in their valid domains; rejected health events leave durable counters/revision unchanged. Actual Windows verification of this correction awaits the new matrix.
+
+Local packaged acceptance now generates 137 synthetic reports into a private temporary archive, closes it, then reads it through the production worker/SQLite path. The new required `spot_history_archive` native check exercises both API pages without duplicate IDs, complete-scope statistics, rendered paging, exact-call filtering (69 reports), escaped original detail, close-focus restoration, empty search and route remount. It verifies the QSO draft is unchanged. The local acceptance allowlist exposes only the four read methods, not recording/seed/delete/export or cluster connection commands. Shutdown closes this injected archive before removing its generated directory; failed initialization also cleans only that directory.
+
+These new checks are implemented, not yet executed in a packaged native WebView. The production-component test exercises the same acceptance helper in jsdom; this is not a substitute for the native run. It also does not prove live transport capture or process-restart archive continuity.
+
+Final local follow-up evidence: 590 frontend tests across 81 files, TypeScript/Vite build and detached bundle/style gates passed. Rebuilt portable Swift passed 124 prototype XCTest cases (two skipped), 56 cluster XCTest cases, 17 station XCTest cases, and 138 Swift Testing cases across 23 suites. Ten enabled database tests and eight worker history tests are included. A separate read-only Sol review found no unresolved acceptance-harness isolation issue. The installed app and live archive remain unchanged.

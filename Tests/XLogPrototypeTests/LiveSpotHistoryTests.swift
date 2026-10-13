@@ -81,9 +81,46 @@ final class LiveSpotHistoryTests: XCTestCase {
         let after = try await request(worker, "spot_history_status")
         XCTAssertEqual((after["error"] as? [String: Any])?["code"] as? String, "worker_stopping")
         let isolated = LiveWorker(logbook: logbook, localAcceptance: true)
-        let denied = try await request(isolated, "spot_history_status")
-        XCTAssertEqual(denied["ok"] as? Bool, false)
+        let allowed = try await request(isolated, "spot_history_status")
+        XCTAssertEqual(allowed["ok"] as? Bool, true)
+        let denied = try await request(isolated, "spot_history_delete")
+        XCTAssertEqual((denied["error"] as? [String: Any])?["code"] as? String, "acceptance_restricted")
         await isolated.shutdown()
+    }
+
+    func testQueryIntegersRejectJSONBooleansAndAcceptNumericZeroAndOne() async throws {
+        let root = try temporary()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let url = root.appendingPathComponent("scalar-validation.sqlite")
+        let recorder = LiveSpotHistoryMethods(url: url)
+        for method in ["spot_history_query", "spot_history_stats"] {
+            for key in ["limit", "watermark"] {
+                for scalar in ["true", "false", "1.5", "-1", "9007199254740992", "\"1\""] {
+                    let params = try XCTUnwrap(JSONSerialization.jsonObject(with: Data("{\"\(key)\":\(scalar)}".utf8)) as? [String: Any])
+                    do {
+                        _ = try await recorder.handle(method: method, params: params)
+                        XCTFail("Accepted invalid \(key) scalar \(scalar) for \(method)")
+                    } catch {
+                        XCTAssertEqual((error as? WorkerFailure)?.code, "invalid_params")
+                    }
+                }
+            }
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: url.path))
+        let database = try SpotHistoryDatabase(url: url)
+        try database.append([SpotHistoryObservation(sessionID: UUID(), sequence: 0, clusterID: UUID(),
+            arrivedAt: Date(), rawLine: "synthetic scalar validation", callsign: "K1ABC", spotter: "W1AW",
+            frequencyKHz: 14025)])
+        database.close()
+        for method in ["spot_history_query", "spot_history_stats"] {
+            for limit in ["1", "1.0"] {
+                for watermark in ["0", "1", "1.0"] {
+                    let params = try XCTUnwrap(JSONSerialization.jsonObject(with: Data("{\"limit\":\(limit),\"watermark\":\(watermark)}".utf8)) as? [String: Any])
+                    _ = try await recorder.handle(method: method, params: params)
+                }
+            }
+        }
+        await recorder.stop()
     }
 
     func testReportsArchiveBeforeGroupingFilteringAndPersistAcrossShutdownReopen() async throws {

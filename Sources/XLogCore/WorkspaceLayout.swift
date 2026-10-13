@@ -9,6 +9,11 @@ public enum WorkspacePanelID: String, Codable, CaseIterable, Sendable {
     case stationControl = "station-control", stationStatus = "station-status"
     case stationIdentity = "station-identity", cw, alerts, propagation
     case settings, sync, awards, chaser = "chaser-dx"
+    case spotHistory = "spot-history", monitor
+
+    fileprivate static let version1Cases: [Self] = [.activeQSO, .logQSO, .logbook, .intelligence, .rotor, .antenna,
+        .worldMap, .bandMaps, .cluster, .stationControl, .stationStatus, .stationIdentity, .cw, .alerts,
+        .propagation, .settings, .sync, .awards, .chaser]
 
     public var minimumSize: (width: Double, height: Double) {
         switch self {
@@ -49,13 +54,16 @@ public struct WorkspaceLayoutPreset: Codable, Equatable, Sendable {
         self.locked = locked; self.snap = snap; self.panels = panels
     }
     public func validate() throws {
+        try validate(panelIDs: WorkspacePanelID.allCases)
+    }
+    fileprivate func validate(panelIDs: [WorkspacePanelID]) throws {
         guard !id.isEmpty, id.utf8.count <= 64,
               id.utf8.allSatisfy({ (97...122).contains($0) || (48...57).contains($0) || $0 == 45 }),
               !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               name.utf8.count <= 100, !name.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains),
               width.isFinite, height.isFinite, (640...16_384).contains(width), (480...16_384).contains(height),
-              panels.count == WorkspacePanelID.allCases.count,
-              Set(panels.map(\.id)).count == panels.count else { throw WorkspaceLayoutError.invalid }
+              panels.count == panelIDs.count,
+              Set(panels.map(\.id)) == Set(panelIDs) else { throw WorkspaceLayoutError.invalid }
         for panel in panels {
             let rect = panel.rect, minimum = panel.id.minimumSize
             guard [rect.x, rect.y, rect.width, rect.height].allSatisfy(\.isFinite),
@@ -68,14 +76,38 @@ public struct WorkspaceLayoutPreset: Codable, Equatable, Sendable {
     }
 }
 public struct WorkspaceLayoutDocument: Codable, Equatable, Sendable {
+    public static let currentVersion = 2
     public var version: Int
     public var activePresetID: String
     public var presets: [WorkspaceLayoutPreset]
     public func validate() throws {
-        guard version == 1, (1...12).contains(presets.count),
+        guard version == Self.currentVersion else { throw WorkspaceLayoutError.invalid }
+        try validate(panelIDs: WorkspacePanelID.allCases)
+    }
+    private func validate(panelIDs: [WorkspacePanelID]) throws {
+        guard (1...12).contains(presets.count),
               Set(presets.map(\.id)).count == presets.count,
               presets.contains(where: { $0.id == activePresetID }) else { throw WorkspaceLayoutError.invalid }
-        try presets.forEach { try $0.validate() }
+        try presets.forEach { try $0.validate(panelIDs: panelIDs) }
+    }
+
+    /// Schema upgrades preserve operator revisions and every existing placement.
+    /// Old backups remain readable; the next committed edit encodes version 2.
+    public func migratedToCurrentVersion() throws -> Self {
+        if version == Self.currentVersion { try validate(); return self }
+        guard version == 1 else { throw WorkspaceLayoutError.invalid }
+        try validate(panelIDs: WorkspacePanelID.version1Cases)
+        var result = self
+        result.version = Self.currentVersion
+        for index in result.presets.indices {
+            for (offset, id) in [WorkspacePanelID.spotHistory, .monitor].enumerated() {
+                result.presets[index].panels.append(WorkspacePanelLayout(id: id, placement: .hidden,
+                    rect: WorkspaceRect(x: 0, y: 0, width: 640, height: 480),
+                    z: WorkspacePanelID.version1Cases.count + offset))
+            }
+        }
+        try result.validate()
+        return result
     }
     public static var defaults: Self {
         let panels = WorkspacePanelID.allCases.enumerated().map { index, id in
@@ -96,12 +128,25 @@ public struct WorkspaceLayoutDocument: Codable, Equatable, Sendable {
         for index in windowed.panels.indices where windowed.panels[index].placement == .canvas {
             windowed.panels[index].placement = .window
         }
-        return Self(version: 1, activePresetID: docked.id, presets: [docked, windowed])
+        return Self(version: Self.currentVersion, activePresetID: docked.id, presets: [docked, windowed])
+    }
+}
+
+extension WorkspaceLayoutDocument {
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        self = try Self(version: values.decode(Int.self, forKey: .version),
+                        activePresetID: values.decode(String.self, forKey: .activePresetID),
+                        presets: values.decode([WorkspaceLayoutPreset].self, forKey: .presets))
+            .migratedToCurrentVersion()
     }
 }
 public struct WorkspaceLayoutSnapshot: Codable, Equatable, Sendable {
     public let revision: Int64
     public let document: WorkspaceLayoutDocument
+    public init(revision: Int64, document: WorkspaceLayoutDocument) {
+        self.revision = revision; self.document = document
+    }
 }
 public enum WorkspaceLayoutError: Error { case invalid, conflict(WorkspaceLayoutSnapshot) }
 

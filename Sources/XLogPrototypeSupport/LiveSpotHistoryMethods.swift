@@ -1,5 +1,4 @@
 import Foundation
-import CoreFoundation
 import XClusterIntegrationCore
 #if canImport(XLogCore)
 import XLogCore
@@ -406,7 +405,7 @@ final class LiveSpotHistoryMethods: @unchecked Sendable {
         }
         func integer(_ key: String) throws -> Int64? {
             guard let value = params[key], !(value is NSNull) else { return nil }
-            guard let number = value as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID(),
+            guard let number = value as? NSNumber, !Self.isJSONBoolean(number),
                   number.doubleValue.isFinite, number.doubleValue >= 0, number.doubleValue < 9_007_199_254_740_992,
                   number.doubleValue.rounded() == number.doubleValue else { throw invalid() }
             return number.int64Value
@@ -432,6 +431,12 @@ final class LiveSpotHistoryMethods: @unchecked Sendable {
             from: from, to: to, band: try text("band", maximum: 32), mode: try text("mode", maximum: 32),
             source: try text("source", maximum: 32), limit: Int(limit), cursor: cursor.isEmpty ? nil : cursor,
             watermark: try integer("watermark"))
+    }
+
+    private static func isJSONBoolean(_ number: NSNumber) -> Bool {
+        // Match the portable service boundary without CoreFoundation type IDs.
+        guard let encoded = try? JSONSerialization.data(withJSONObject: [number]) else { return false }
+        return encoded == Data("[true]".utf8) || encoded == Data("[false]".utf8)
     }
 
     private static func json<T: Encodable>(_ value: T) throws -> Any {

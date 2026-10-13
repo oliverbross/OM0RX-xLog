@@ -489,6 +489,14 @@ Windows mixed DPI, unplug/reconnect, maximized/close timing, X11 placement and
 Wayland compositor behavior remain open. No installed app or user geometry was
 changed. Named presets and all-screen detachment remain separate work.
 
+### Checkpoint Y — complete persisted role inventory
+
+The portable layout document is now version 2, adding `spot-history` and `monitor` to the original 19 roles. Valid version-1 documents explicitly upgrade in memory: all preset IDs, active selection, existing roles/order/placements/rectangles, lock/snap values and operator revision remain unchanged. The two new roles start hidden at 640×480. Simple reads preserve the exact stored v1 bytes; the next successful revision-checked edit persists v2 with one normal revision increment. Malformed inventories and future versions refuse decoding rather than being reset.
+
+The renderer mirrors that migration, including existing pending `savePreset` journals. Generation/revision and intended changes remain intact, with no automatic mutation replay. Old backups restore through the same decoder; contact-only restores retain the current layout. Existing backup inspection does not preflight layout schema before installation, so this is a decode/migration guarantee, not a new malformed-backup rejection gate.
+
+Verification: 15 focused Swift migration/layout tests, 33 frontend session/transport/canvas tests and TypeScript pass. Cases include custom/traditional/windowed presets, unchanged database bytes on read, stale CAS rejection, new-role placement persistence/reopen, old backup preference choices, lost acknowledgements and restore-generation fencing. The integrated local suite passes 590 frontend tests and the rebuilt portable Swift suite (138 Swift Testing cases plus XCTest suites). A separate Sol high read-only review found no actionable migration regression. This adds persistence compatibility only: Settings preset management, remaining panel rendering, native window reconciliation, main-renderer-absent ownership and full-windowed acceptance remain open. No installed application or user arrangement was changed.
+
 ## Follow-on: RUMlogNG workflow and feature comparison
 
 User added this reference pass after the canvas/native-window request. Confirmed installed app identity through the native app inventory: `de.dl2rum.RUMlogNG`; it was not running at inspection. Its menus/settings have not yet been audited in this pass. Do not represent remembered features as current observations.

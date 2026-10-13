@@ -209,6 +209,28 @@ struct SpotHistoryDatabaseTests {
         #expect(stopped.unknownGap)
     }
 
+    @Test("Gap counts accept JSON integers but reject booleans and invalid scalar values")
+    func gapCountScalarValidation() throws {
+        let url = location(); defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let database = try SpotHistoryDatabase(url: url); defer { database.close() }
+        let time = Date(timeIntervalSince1970: 1_700_000_000)
+        for scalar in ["true", "false", "1.5", "-1", "9007199254740992", "\"1\"", "null"] {
+            #expect(throws: SpotHistoryDatabaseError.self) {
+                try database.appendHistoryEvent(id: UUID(), occurredAt: time, kind: "recording_gap",
+                    payloadJSON: "{\"count\":\(scalar)}")
+            }
+        }
+        #expect(try database.healthSummary().knownUnrecorded == 0)
+        #expect(try database.status().revision == 0)
+        #expect(try database.historyEvents().isEmpty)
+        for scalar in ["0", "1", "1.0"] {
+            try database.appendHistoryEvent(id: UUID(), occurredAt: time, kind: "recording_gap",
+                payloadJSON: "{\"count\":\(scalar)}")
+        }
+        #expect(try database.healthSummary().knownUnrecorded == 2)
+        #expect(try database.status().revision == 3)
+    }
+
     @Test("Version 1 health migration is transactional and conservatively marks trimmed evidence")
     func healthMigration() throws {
         let url = location(); defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }

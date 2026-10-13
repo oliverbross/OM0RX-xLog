@@ -9,7 +9,7 @@ function base(): LayoutSnapshot {
   const panels = workspacePanelIDs.map((id, z) => { const [width, height] = panelMinimum(id); return { id, z, placement: "hidden" as const, rect: { x: 0, y: 0, width, height } }; });
   const traditional = { id: "traditional", name: "Traditional", width: 1920, height: 800, locked: true, snap: true, panels };
   return { generation: "12345678-1234-1234-1234-123456789abc", revision: 0,
-    document: { version: 1, activePresetID: "traditional", presets: [traditional] } };
+    document: { version: 2, activePresetID: "traditional", presets: [traditional] } };
 }
 let width = 1280;
 beforeEach(() => {
@@ -112,7 +112,7 @@ it("clamps movement/resize, validates seeded layouts and does not mutate source 
   const initial = base().document.presets[0];
   for (const equipment of [undefined, "rotor", "antenna"] as const) {
     const preset = customDeskPreset(initial, 640, equipment), panel = preset.panels[0];
-    expect(validLayoutDocument({ version: 1, activePresetID: "custom", presets: [preset] })).toBe(true);
+    expect(validLayoutDocument({ version: 2, activePresetID: "custom", presets: [preset] })).toBe(true);
     const moved = adjustPanel(panel, preset, "move", 100000, 100000);
     expect(moved.rect.x + moved.rect.width).toBe(preset.width); expect(moved.rect.y + moved.rect.height).toBe(preset.height);
     const resized = adjustPanel(panel, preset, "resize", -100000, -100000);

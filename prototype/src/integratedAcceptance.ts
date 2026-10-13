@@ -4,6 +4,7 @@ import { LARGE_LOG_RECORDS, largeLogADIFBatch } from "./acceptanceFixture";
 import workspaceScreens from "./live/workspaceScreens.json";
 import { serveDetachedLifecycle, verifyDetachedLifecycle } from "./detachedAcceptance";
 import { verifyWorkspaceLayoutRoundtrip } from "./workspaceLayoutAcceptance";
+import { verifySpotHistory } from "./spotHistoryAcceptance";
 
 type Json = Record<string, any>;
 const frame = () => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
@@ -245,6 +246,8 @@ async function main(report: Json) {
   }
   check("detached_projection", detached?.status === "passed" && detached?.scope === "integrated-local-ui" && detached?.details?.surface === "band-maps" && detached.details.scale === scale);
   report.details.detached = detached;
+  report.details.spotHistory = await verifySpotHistory({ worker, navigate, fill, click });
+  check("spot_history_archive", report.details.spotHistory.nativeTable && report.details.spotHistory.draftUnchanged);
   // Empty workspaces intentionally use standalone mode: Sync is still
   // discoverable in the menu, but directs the operator to the mode setting.
   for (const screen of workspaceScreens) await navigate(screen.title, screen.id === "sync" ? "Settings" : screen.title);

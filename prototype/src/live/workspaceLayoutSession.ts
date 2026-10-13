@@ -1,11 +1,12 @@
-export const workspacePanelIDs = ["active-qso", "log-qso", "logbook", "callsign-intelligence", "rotor", "antenna",
+const version1PanelIDs = ["active-qso", "log-qso", "logbook", "callsign-intelligence", "rotor", "antenna",
   "world-map", "band-maps", "dx-cluster", "station-control", "station-status", "station-identity", "cw", "alerts",
   "propagation", "settings", "sync", "awards", "chaser-dx"] as const;
+export const workspacePanelIDs = [...version1PanelIDs, "spot-history", "monitor"] as const;
 export type WorkspacePanelID = typeof workspacePanelIDs[number];
 export type LayoutRect = { x: number; y: number; width: number; height: number };
 export type PanelLayout = { id: WorkspacePanelID; placement: "canvas" | "window" | "hidden"; rect: LayoutRect; z: number };
 export type LayoutPreset = { id: string; name: string; width: number; height: number; locked: boolean; snap: boolean; panels: PanelLayout[] };
-export type LayoutDocument = { version: 1; activePresetID: string; presets: LayoutPreset[] };
+export type LayoutDocument = { version: 2; activePresetID: string; presets: LayoutPreset[] };
 export type LayoutSnapshot = { revision: number; generation: string; document: LayoutDocument };
 export type LayoutChange = { action: "placePanel"; presetID: string; panel: PanelLayout } |
   { action: "savePreset"; presetID: string; preset: LayoutPreset } |
@@ -32,16 +33,19 @@ export function panelMinimum(id: WorkspacePanelID): [number, number] {
   return [640, 480];
 }
 export function validLayoutDocument(value: any): value is LayoutDocument {
-  if (!object(value) || value.version !== 1 || !Array.isArray(value.presets) || !integer(value.presets.length, 1, 12) ||
+  return validDocument(value, 2, workspacePanelIDs);
+}
+function validDocument(value: any, version: number, ids: readonly WorkspacePanelID[]): boolean {
+  if (!object(value) || value.version !== version || !Array.isArray(value.presets) || !integer(value.presets.length, 1, 12) ||
       new Set(value.presets.map((preset: any) => preset?.id)).size !== value.presets.length ||
       !value.presets.some((preset: any) => preset?.id === value.activePresetID)) return false;
   return value.presets.every((preset: any) => {
     if (!object(preset) || typeof preset.id !== "string" || !/^[a-z0-9-]{1,64}$/.test(preset.id) ||
         typeof preset.name !== "string" || !preset.name.trim() || new TextEncoder().encode(preset.name).length > 100 || /[\p{Cc}\p{Cf}]/u.test(preset.name) ||
         !number(preset.width, 640, 16384) || !number(preset.height, 480, 16384) || typeof preset.locked !== "boolean" || typeof preset.snap !== "boolean" ||
-        !Array.isArray(preset.panels) || preset.panels.length !== workspacePanelIDs.length || new Set(preset.panels.map((panel: any) => panel?.id)).size !== workspacePanelIDs.length) return false;
+        !Array.isArray(preset.panels) || preset.panels.length !== ids.length || new Set(preset.panels.map((panel: any) => panel?.id)).size !== ids.length) return false;
     return preset.panels.every((panel: any) => {
-      if (!object(panel) || !workspacePanelIDs.includes(panel.id) || !["canvas", "window", "hidden"].includes(panel.placement) ||
+      if (!object(panel) || !ids.includes(panel.id) || !["canvas", "window", "hidden"].includes(panel.placement) ||
           !integer(panel.z, 0, 10000) || !object(panel.rect)) return false;
       const r = panel.rect, [width, height] = panelMinimum(panel.id);
       return number(r.x, 0, 16384) && number(r.y, 0, 16384) && number(r.width, width, 16384) && number(r.height, height, 16384) &&
@@ -49,10 +53,24 @@ export function validLayoutDocument(value: any): value is LayoutDocument {
     });
   });
 }
+/** Version upgrades change representation, not the operator's revision or
+ * placements. A v1 backup/journal gains only the two newly known hidden roles. */
+export function migratedLayoutDocument(value: any): LayoutDocument {
+  if (validLayoutDocument(value)) return clone(value);
+  if (!validDocument(value, 1, version1PanelIDs)) throw new Error("The shared workspace layout could not be verified.");
+  const document = clone(value);
+  document.version = 2;
+  for (const preset of document.presets) {
+    for (const [offset, id] of (["spot-history", "monitor"] as const).entries()) {
+      preset.panels.push({ id, placement: "hidden", rect: { x: 0, y: 0, width: 640, height: 480 }, z: version1PanelIDs.length + offset });
+    }
+  }
+  return document;
+}
 export function checkedLayout(value: any): LayoutSnapshot {
-  if (!object(value) || !generation(value.generation) || !integer(value.revision, 0, Number.MAX_SAFE_INTEGER) || !validLayoutDocument(value.document))
+  if (!object(value) || !generation(value.generation) || !integer(value.revision, 0, Number.MAX_SAFE_INTEGER))
     throw new Error("The shared workspace layout could not be verified.");
-  return clone(value);
+  return { ...clone(value), document: migratedLayoutDocument(value.document) };
 }
 export function changedLayout(base: LayoutDocument, change: LayoutChange): LayoutDocument {
   const invalid = () => { throw new Error("Invalid workspace layout change."); };
@@ -78,8 +96,15 @@ export function readLayoutJournal(raw: string | null): LayoutJournal | null {
   if (!raw || raw.length > 300_000) return null;
   try {
     const value = JSON.parse(raw), base = checkedLayout(value.base);
-    changedLayout(base.document, value.change);
-    return { base, change: value.change };
+    let change = clone(value.change);
+    if (value.base.document.version === 1) {
+      if (change?.action === "savePreset") {
+        const migrated = migratedLayoutDocument({ version: 1, activePresetID: change.presetID, presets: [change.preset] });
+        change = { ...change, preset: migrated.presets[0] };
+      } else if (change?.action === "placePanel" && !version1PanelIDs.includes(change.panel?.id)) return null;
+    }
+    changedLayout(base.document, change);
+    return { base, change };
   } catch { return null; }
 }
 export class LayoutRequestRejected extends Error {}

@@ -32,11 +32,50 @@ struct WorkspaceLayoutTests {
             "expectedRevision": snapshot["revision"]!, "action": "activatePreset", "presetID": id])
     }
 
+    private func legacyDocument(activeID: String = "operator-custom") -> WorkspaceLayoutDocument {
+        var document = WorkspaceLayoutDocument.defaults
+        document.version = 1
+        for index in document.presets.indices {
+            document.presets[index].panels.removeAll { $0.id == .spotHistory || $0.id == .monitor }
+        }
+        var custom = document.presets[0]
+        custom.id = "operator-custom"; custom.name = "My DX desk"
+        custom.width = 3072; custom.height = 1728; custom.locked = false; custom.snap = false
+        custom.panels.reverse()
+        for index in custom.panels.indices {
+            custom.panels[index].placement = [.canvas, .window, .hidden][index % 3]
+            custom.panels[index].rect = WorkspaceRect(x: Double(index * 16), y: Double(index * 8),
+                                                      width: 700, height: 500)
+            custom.panels[index].z = 10_000 - index
+        }
+        document.presets.append(custom)
+        document.activePresetID = activeID
+        return document
+    }
+
+    private func store(_ snapshot: WorkspaceLayoutSnapshot, at url: URL) throws -> Data {
+        let data = try JSONEncoder().encode(snapshot)
+        let hex = data.map { String(format: "%02x", $0) }.joined()
+        try sql(url, "INSERT INTO xlog_workspace_layout(singleton,payload) VALUES(1,X'\(hex)') ON CONFLICT(singleton) DO UPDATE SET payload=excluded.payload;")
+        return data
+    }
+
+    private func storedPayload(at url: URL) throws -> Data {
+        var db: OpaquePointer?, statement: OpaquePointer?
+        guard sqlite3_open(url.path, &db) == SQLITE_OK else { throw LogbookDatabaseError.open("fixture") }
+        defer { sqlite3_close(db) }
+        guard sqlite3_prepare_v2(db, "SELECT payload FROM xlog_workspace_layout WHERE singleton=1", -1, &statement, nil) == SQLITE_OK else { throw LogbookDatabaseError.sqlite("fixture") }
+        defer { sqlite3_finalize(statement) }
+        guard sqlite3_step(statement) == SQLITE_ROW, let bytes = sqlite3_column_blob(statement, 0) else { throw LogbookDatabaseError.sqlite("fixture") }
+        return Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 0)))
+    }
+
     @Test("Defaults enumerate every panel once, leave unconfigured equipment hidden and preserve docked/windowed choices")
     func defaultsAndValidation() throws {
         let defaults = WorkspaceLayoutDocument.defaults
         try defaults.validate()
         #expect(defaults.activePresetID == "traditional")
+        #expect(defaults.version == 2)
         #expect(defaults.presets.map(\.id) == ["traditional", "windowed"])
         #expect(defaults.presets.allSatisfy { $0.panels.count == WorkspacePanelID.allCases.count })
         #expect(defaults.presets.allSatisfy { $0.panels.first { $0.id == .rotor }?.placement == .hidden })
@@ -44,6 +83,13 @@ struct WorkspaceLayoutTests {
         #expect(WorkspacePanelID.allCases.contains(.logbook))
         #expect(WorkspacePanelID.allCases.contains(.settings))
         #expect(WorkspacePanelID.allCases.contains(.sync))
+        #expect(WorkspacePanelID.allCases.count == 21)
+        for preset in defaults.presets {
+            for id in [WorkspacePanelID.spotHistory, .monitor] {
+                #expect(preset.panels.first { $0.id == id }?.placement == .hidden)
+                #expect(id.minimumSize.width == 640 && id.minimumSize.height == 480)
+            }
+        }
         // Every surface may be placed on the canvas; defaults are choices,
         // not a restriction to the old desk's fixed set of widgets.
         var canvas = defaults.presets[1]
@@ -52,6 +98,107 @@ struct WorkspaceLayoutTests {
             canvas.panels[index].rect = WorkspaceRect(x: 0, y: 0, width: 640, height: 480)
         }
         try canvas.validate()
+    }
+
+    @Test("Version 1 migrates every old role and preset unchanged, regardless of active mode", arguments: ["traditional", "windowed", "operator-custom"])
+    func legacyMigration(activeID: String) throws {
+        let legacy = legacyDocument(activeID: activeID)
+        let data = try JSONEncoder().encode(WorkspaceLayoutSnapshot(revision: 47, document: legacy))
+        let upgraded = try JSONDecoder().decode(WorkspaceLayoutSnapshot.self, from: data)
+        #expect(upgraded.revision == 47)
+        #expect(upgraded.document.version == 2)
+        #expect(upgraded.document.activePresetID == activeID)
+        #expect(upgraded.document.presets.map(\.id) == legacy.presets.map(\.id))
+        for (prior, current) in zip(legacy.presets, upgraded.document.presets) {
+            var preserved = current
+            preserved.panels.removeLast(2)
+            #expect(preserved == prior)
+            #expect(Array(current.panels.suffix(2)) == [
+                WorkspacePanelLayout(id: .spotHistory, placement: .hidden, rect: .init(x: 0, y: 0, width: 640, height: 480), z: 19),
+                WorkspacePanelLayout(id: .monitor, placement: .hidden, rect: .init(x: 0, y: 0, width: 640, height: 480), z: 20)
+            ])
+        }
+        #expect(try upgraded.document.migratedToCurrentVersion() == upgraded.document)
+        #expect(try JSONDecoder().decode(WorkspaceLayoutSnapshot.self, from: JSONEncoder().encode(upgraded)) == upgraded)
+    }
+
+    @Test("Malformed and future documents cannot use legacy migration to evade validation")
+    func invalidLegacyMigration() throws {
+        let legacy = legacyDocument()
+        var invalid: [WorkspaceLayoutDocument] = []
+        var next = legacy; next.version = 3; invalid.append(next)
+        next = legacy; next.version = 0; invalid.append(next)
+        next = legacy; next.presets[0].panels.removeLast(); invalid.append(next)
+        next = legacy; next.presets[0].panels[1] = next.presets[0].panels[0]; invalid.append(next)
+        next = legacy; next.presets[0].panels[0].id = .monitor; invalid.append(next)
+        next = WorkspaceLayoutDocument.defaults; next.version = 1; invalid.append(next)
+        next = legacy; next.presets[0].panels[0].rect.width = 1; invalid.append(next)
+        next = legacy; next.activePresetID = "missing"; invalid.append(next)
+        next = legacy; next.presets[0].name = "\n"; invalid.append(next)
+        next = legacy; next.presets[0].panels[0].rect.x = 16_384; invalid.append(next)
+        for value in invalid {
+            let data = try JSONEncoder().encode(value)
+            #expect(throws: Error.self) { try JSONDecoder().decode(WorkspaceLayoutDocument.self, from: data) }
+        }
+    }
+
+    @Test("Reading old database layouts leaves bytes and revision intact; CAS edits persist the upgrade")
+    func legacyDatabaseMigration() throws {
+        let root = root(); defer { try? FileManager.default.removeItem(at: root) }
+        let url = root.appendingPathComponent("log.sqlite"), db = try LogbookDatabase(url: url)
+        defer { db.close() }
+        let legacy = WorkspaceLayoutSnapshot(revision: 47, document: legacyDocument())
+        let bytes = try store(legacy, at: url)
+        let read = try db.workspaceLayout()
+        #expect(read.revision == 47 && read.document.version == 2)
+        #expect(try storedPayload(at: url) == bytes)
+        #expect(throws: WorkspaceLayoutError.self) { try db.applyWorkspaceLayout(activate(46)) }
+        #expect(try storedPayload(at: url) == bytes)
+        let edited = try db.applyWorkspaceLayout(activate(47))
+        #expect(edited.revision == 48 && edited.document.activePresetID == "windowed")
+        #expect(edited.document.presets == read.document.presets)
+        #expect(try JSONDecoder().decode(WorkspaceLayoutSnapshot.self, from: storedPayload(at: url)) == edited)
+        #expect(try storedPayload(at: url) != bytes)
+        var current = edited
+        for id in [WorkspacePanelID.spotHistory, .monitor] {
+            var panel = try #require(current.document.presets[1].panels.first { $0.id == id })
+            panel.placement = id == .monitor ? .window : .canvas
+            panel.rect = .init(x: 40, y: 32, width: 700, height: 500)
+            current = try db.applyWorkspaceLayout(.init(expectedRevision: current.revision, action: .placePanel,
+                                                       presetID: "windowed", panel: panel))
+        }
+        db.close()
+        let reopened = try LogbookDatabase(url: url); defer { reopened.close() }
+        #expect(try reopened.workspaceLayout() == current)
+        #expect(current.revision == 50)
+    }
+
+    @Test("Old layout backups upgrade during opted-in restore and contact-only restore retains current roles")
+    func legacyBackupMigration() throws {
+        let root = root(); defer { try? FileManager.default.removeItem(at: root) }
+        let service = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        _ = try service.handle(method: "workspace_create", params: ["mode": "empty"])
+        defer { try? service.openedDatabase().close() }
+        let legacy = WorkspaceLayoutSnapshot(revision: 47, document: legacyDocument())
+        let originalDB = try service.openedDatabase()
+        let bytes = try store(legacy, at: originalDB.url)
+        let before = try load(service)
+        let name = try #require(service.handle(method: "backup_create", params: ["name": "legacy-layout"])["name"] as? String)
+        #expect(try storedPayload(at: originalDB.url) == bytes)
+        _ = try apply(service, before, "traditional")
+        _ = try service.handle(method: "backup_restore", params: ["name": name, "confirm_restore": true,
+                    "restore_settings": false, "restore_preferences": true, "restore_reference_data": false])
+        let restored = try load(service)
+        #expect(restored["revision"] as? Int == 47)
+        #expect((restored["document"] as? [String: Any])?["version"] as? Int == 2)
+        #expect((restored["document"] as? [String: Any])?["activePresetID"] as? String == "operator-custom")
+        #expect(try service.openedDatabase().workspaceLayout().document == legacy.document.migratedToCurrentVersion())
+        #expect(try apply(service, before, "windowed")["status"] as? String == "workspace_changed")
+        _ = try apply(service, restored, "windowed")
+        let retained = try service.openedDatabase().workspaceLayout()
+        _ = try service.handle(method: "backup_restore", params: ["name": name, "confirm_restore": true,
+                    "restore_settings": false, "restore_preferences": false, "restore_reference_data": false])
+        #expect(try service.openedDatabase().workspaceLayout() == retained)
     }
 
     @Test("Acknowledged scoped edits survive reopening without replacing unrelated presets or contacts")
