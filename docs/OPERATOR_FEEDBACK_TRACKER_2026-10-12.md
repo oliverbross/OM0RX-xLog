@@ -45,6 +45,8 @@ Checkpoint H moves table Delete/Undo off the legacy ID-only calls. Confirmation 
 
 Checkpoint I adds a shared complete screen inventory and native Logbook/Station/View routing, including Logbook. Window discovers the four already-implemented detached surfaces; the old sidebar remains until native routing/recovery acceptance. Native pending-route revisions survive early menu clicks and reject stale acknowledgements. Standalone Sync routes to Settings without service mutation. Source tests: Rust 90, frontend 450, TypeScript/build pass. The isolated native acceptance harness now also requires menu routes and logged-contact Update/Delete/Undo; actual execution and native visual review are pending. This is not all-screen undocking or an installed release.
 
+Verification follow-up: H passed all five jobs in all-platform run `38328817888`. I (`1bc5e95`) passed Mac CI `38329953244` and general CI; its CI bundle has verified matching source metadata and an ad-hoc signature. All-platform I run `38331060293` is pending. Local isolated launch was blocked by the command runner and produced no acceptance report; native screenshot capture was unavailable. The briefly opened candidate was stopped, and installed alpha.13 was restored with one app/worker pair, 67,846 contacts and ShackCQ Connected. No new installation or RF test occurred. See checkpoint I in the workspace plan for the exact artifact and limitations.
+
 ### Alpha.8 installed checkpoint
 
 The signed/notarized alpha.8 bundle passed all 21 generated large-log checks
