@@ -200,6 +200,18 @@ The isolated browser warning/action check passed at 1280×800 and 640×600, with
 
 Checkpoint F source `839aa696b3c246a65d913bc82ab49b19579676a8` passed Mac CI `38326095246` and prototype `38326095238`. Checkpoint E all-platform run `38324265409` is now fully successful, including Windows fresh-runner and Linux runtime-only acceptance; Mac `38324231294` and `38324231297` also succeeded. These results do not cover checkpoint G or prove physical Windows/Linux desktop operation.
 
+### Checkpoint H — revision-safe Logbook Delete/Undo
+
+The Logbook table no longer calls ID-only `logbook_delete`/`logbook_undo`. Delete first loads a verified generation/revision snapshot for confirmation. Confirmation applies exactly that revision; Undo uses the committed deletion receipt's revision, never a fresh revision silently read at Undo time. Concurrent changes produce an explicit conflict without overwriting or resurrecting a contact. One latest Undo is retained across view changes and renderer restarts.
+
+A main-view mutation owner journals the exact operation before dispatch, blocks conflicting table writes while unresolved, checks durable receipts and reuses the same operation ID only on explicit Retry. A failed local journal write sends nothing; failure to clear a committed receipt retains the pending identity for reconciliation. Recovery remains visible across navigation. Backup replacement is blocked during an unresolved Delete/Undo; generation checks reject prior Undo after a restore. No radio method or detached permission is added.
+
+Evidence: TypeScript, the complete frontend suite (441 tests / 62 files) and Vite build passed. Ten new operation tests cover stale confirmation/Undo, lost acknowledgement/restart, exact retry, concurrent admission, post-commit errors, invalid receipts, journal failures and restore invalidation. Rendered tests cover keyboard confirmation, navigation/restart/receipt-based Undo and the backup replacement gate. After aligning the journal key with the versioned main-view naming convention, the final 41 focused tests, TypeScript and build passed. An initial final-check invocation collided with removal of the temporary browser fixture and failed with a missing fixture file; it was rerun successfully after fixture removal completed. Existing bundle-size/Map import warnings remain open.
+
+Isolated browser recovery and actions passed at 1280×800 and 640×600, including restored-workspace rejection and explicit discard, with no reported exceptions. Evidence: `/tmp/xlog-restore-qa-oHYcVQ/mutation-report.md`. Impeccable hardening kept recovery controls in the existing wrapping warning style. The table's existing compact minimum-width overflow and compact height utilization remain WS-08 work, not accepted by this check. Temporary fixtures were removed; installed alpha.13 is unchanged.
+
+Checkpoint G is committed/pushed as `b136867e1811ed560f7496cc95cbd039006c1a29`. Mac CI `38327892878` and prototype `38327892886` succeeded. Independent panels/Logbook, all-screen capabilities, remaining shared-session ownership, native menus, canvas/layouts and exact packaged/OS desktop acceptance are still open. The existing docked layout is retained throughout.
+
 ## Follow-on: RUMlogNG workflow and feature comparison
 
 User added this reference pass after the canvas/native-window request. Confirmed installed app identity through the native app inventory: `de.dl2rum.RUMlogNG`; it was not running at inspection. Its menus/settings have not yet been audited in this pass. Do not represent remembered features as current observations.

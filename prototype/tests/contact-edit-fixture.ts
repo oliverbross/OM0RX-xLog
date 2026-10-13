@@ -12,7 +12,9 @@ export function contactEditFixture(qso: Record<string, any>) {
     if (receipts.has(params.operationID)) return { status: "applied", receipt: structuredClone(receipts.get(params.operationID)) };
     if (!contact || params.contactID !== contact.qso.id || params.expectedRevision !== contact.revision)
       return { status: "conflict", contact: structuredClone(contact) };
-    contact = { generation, revision: contact.revision + 1, qso: structuredClone(params.qso) }; updates++;
+    const qso = params.action === "update" ? structuredClone(params.qso) :
+      { ...contact.qso, deletedAt: params.action === "delete" ? "2026-10-13T00:00:00Z" : null };
+    contact = { generation, revision: contact.revision + 1, qso }; updates++;
     const receipt = { mutation: structuredClone(params), contact: structuredClone(contact) };
     receipts.set(params.operationID, receipt);
     return { status: "applied", receipt: structuredClone(receipt) };

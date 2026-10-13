@@ -117,6 +117,8 @@ Checkpoint F migrates main Desk/full-editor Update to the revision-safe contact 
 
 Checkpoint G adds native workspace-generation fencing for draft/contact mutations and receipts across backup restore, plus explicit retained-text recovery for stale/legacy clients. The shared Swift suite, TypeScript, 429 frontend tests and Vite build pass; isolated recovery UI/actions were checked at 1280/640 px. Table Delete/Undo UI, native multi-window ownership/capabilities and exact packaged acceptance remain open. Details are in checkpoint G of the workspace plan; this is not full-undocked acceptance.
 
+Checkpoint H migrates the Logbook table's Delete/Undo UI to the generation/revision-safe worker API, with durable recovery identity, receipt-based Undo, explicit stale-operation handling and a pending-operation restore gate. The 441-test frontend suite, TypeScript/Vite and isolated browser recovery checks pass. This closes the source-level table mutation migration, not detached Logbook or native multi-window acceptance. The old docked layout remains available; alpha.13 remains installed.
+
 ## Closure sequence and non-negotiable checks
 
 1. **Freeze and reconcile source.** Pin final SHAs and dirty diffs for all three native baselines and the integration branch. Import each applicable native golden test/fixture once. Run a static audit confirming no required shared workflow still calls the standalone xCat or xCluster executable. Preserve external compatibility adapters only where they serve third-party applications.

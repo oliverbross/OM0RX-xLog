@@ -43,6 +43,8 @@ import { OperatorDraftSession, readDraftJournal, type DraftQSO } from "./live/op
 import { requestOperatorDraft } from "./live/operatorDraftTransport";
 import { OperatorDraftStatus } from "./live/OperatorDraftStatus";
 import { LogbookContactSession, readContactJournal } from "./live/logbookContactSession";
+import { LogbookMutationSession, readLogbookMutationJournal } from "./live/logbookMutationSession";
+import { LogbookMutationStatus } from "./live/LogbookMutationStatus";
 import { requestLogbookContact } from "./live/logbookContactTransport";
 import { ContactEditStatus } from "./live/ContactEditStatus";
 import { retireStationProvider } from "./live/stationHandover";
@@ -70,6 +72,7 @@ const radioProviderLabels: Record<StationProvider, string> = {
 };
 const draftJournalKey = "xlog.integration.operatorDraft.main.v1";
 const contactJournalKey = "xlog.integration.contactEdit.main.v1";
+const logbookMutationJournalKey = "xlog.integration.logbookMutation.main.v1";
 function storedDraftValue(key: string) { try { return localStorage.getItem(key); } catch { return null; } }
 function legacyDraftValue(): Data | null {
   try { const value = JSON.parse(storedDraftValue("xlog.integration.draft") || "null");
@@ -103,6 +106,10 @@ function MainLiveApp() {
     journal => journal ? localStorage.setItem(contactJournalKey, JSON.stringify(journal)) : localStorage.removeItem(contactJournalKey),
     readContactJournal(storedDraftValue(contactJournalKey))));
   const contactEdit = useSyncExternalStore(contactSession.subscribe, contactSession.getSnapshot);
+  const [logbookMutations] = useState(() => new LogbookMutationSession(requestLogbookContact,
+    journal => localStorage.setItem(logbookMutationJournalKey, JSON.stringify(journal)),
+    readLogbookMutationJournal(storedDraftValue(logbookMutationJournalKey))));
+  const logbookMutation = useSyncExternalStore(logbookMutations.subscribe, logbookMutations.getSnapshot);
   const editing = useRef(false);
   editing.current = !!contactEdit.draft;
   const [legacyDraft, setLegacyDraft] = useState(legacyDraftValue);
@@ -385,12 +392,13 @@ function MainLiveApp() {
   const dataManagementRequest: Request = useCallback(async (method, params = {}) => {
     if (method === "backup_create" || method === "backup_restore") await preferenceWrite.current;
     if (method === "backup_restore") {
+      if (logbookMutations.getSnapshot().busy || logbookMutations.getSnapshot().pending) throw new Error("Resolve the pending logbook Delete/Undo before restoring a backup.");
       if (contactSession.getSnapshot().draft || contactSession.getSnapshot().locked) throw new Error("Finish or clear the logged contact edit before restoring a backup.");
       return draftSession.withWorkspaceRestore(() => request(method, params));
     }
     if (method === "backup_create") await draftSession.flush();
     return request(method, params);
-  }, [request, draftSession, contactSession]);
+  }, [request, draftSession, contactSession, logbookMutations]);
   useEffect(() => { if (!monitor) void reload().catch(e => setError(e.message)); }, [reload, refresh]);
   useEffect(() => {
     if (monitor) return;
@@ -660,6 +668,7 @@ function MainLiveApp() {
       {error && <div className="live-error" role="alert">{error}<button onClick={() => setError("")}>Dismiss</button></div>}
       {workspace?.workspace_exists && <OperatorDraftStatus state={sharedDraft} session={draftSession} run={operation => run(async () => { await operation(); setRefresh(n => n + 1); })} />}
       {workspace?.workspace_exists && <ContactEditStatus state={contactEdit} session={contactSession} run={operation => run(async () => { await operation(); setRefresh(n => n + 1); })} />}
+      {workspace?.workspace_exists && <LogbookMutationStatus state={logbookMutation} session={logbookMutations} run={operation => run(async () => { await operation(); setRefresh(n => n + 1); })} />}
       {workspace?.workspace_exists && legacyDraft && <div className="live-message" role="status">
         Previous local draft: {legacyDraft.call}. Recovering copies its text into a new QSO; it does not log a contact.
         <button type="button" disabled={sharedDraft.locked || !!sharedDraft.conflict || !!sharedDraft.draft?.call || editing.current} onClick={() => void run(async () => {
@@ -680,7 +689,7 @@ function MainLiveApp() {
       {view === "Operator Desk" && <><OperatorDesk draftLocked={editorLocked} cwControls={cwControls} equipment={settings?.stationEquipment} draft={draft} setDraft={setOperatorDraft} save={save} clear={() => void run(clear)} busy={busy || editorBlocked} lookup={lookup} previous={previous} request={request} refresh={refresh} onEditor={() => setView("Log QSO")} onReadRadio={readRadioIntoDraft} follow={follow} setFollow={setFollowImmediate} rotor={rotorState} autoRotor={autoRotor} setAutoRotor={changeAutoRotor} onManualRotor={disarmAutoRotor} isEditing={editing.current} intelligenceBands={workspacePreferences?.intelligenceBands} />
         <div className="live-desk-bottom"><OperatorWorkspace map={<div className="live-map">{map}</div>} cluster={cluster} selectedSpotId={selected} onSelect={selectSpot} bandMaps={<BandMaps spots={liveSpots} onSelect={selectSpot} radioFrequencyHz={station?.radio?.frequency_hz} compact preferences={workspacePreferences ? bandMapView(workspacePreferences, true) : undefined} onPreferencesChange={value => changeBandMapPreferences(true, value)} />} /></div></>}
       {view === "Log QSO" && <QSOEditor draftLocked={editorLocked} draft={draft} setDraft={setOperatorDraft} save={save} clear={() => void run(clear)} busy={busy || editorBlocked} lookup={lookup} previous={previous} follow={follow} setFollow={setFollowImmediate} request={request} onReadRadio={readRadioIntoDraft} isEditing={editing.current} automaticStationMetadata={automaticStationMetadata} />}
-      {view === "Logbook" && <LogbookPanel onRequest={request} refreshKey={refresh} onEdit={qso => { void run(async () => {
+      {view === "Logbook" && <LogbookPanel onRequest={request} refreshKey={refresh} mutations={logbookMutations} onChanged={() => setRefresh(n => n + 1)} onEdit={qso => { void run(async () => {
         if (draftSession.getSnapshot().locked) throw new Error("Finish the pending draft operation before editing a logged contact.");
         await draftSession.flush(); await contactSession.open(qso.id); setFollowImmediate(false); disarmAutoRotor(); setView("Log QSO");
       }); }} />}

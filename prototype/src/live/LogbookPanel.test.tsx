@@ -2,6 +2,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import LogbookPanel, { confirmationTone, utcTime } from "./LogbookPanel";
+import { LogbookMutationSession } from "./logbookMutationSession";
+import { contactEditFixture } from "../../tests/contact-edit-fixture";
 
 const first = {
   id: "contact-1", call: "OM0RX", start: "2026-10-12T10:15:00Z", band: "20m", mode: "CW",
@@ -39,7 +41,7 @@ describe("logbook confirmation visibility", () => {
 
   it("shows native RST, QSL, LoTW, Club Log and comment fields in stable QSO order", async () => {
     const request = vi.fn(async () => page());
-    render(<LogbookPanel onRequest={request} onEdit={vi.fn()} refreshKey={0} />);
+    render(<LogbookPanel mutations={new LogbookMutationSession(request, () => {})} onRequest={request} onEdit={vi.fn()} refreshKey={0} />);
     await screen.findByText("OM0RX");
     expect(screen.getAllByRole("columnheader").map(header => header.textContent)).toEqual([
       "UTC", "Callsign", "Band / Mode", "Frequency", "RST", "Country",
@@ -65,7 +67,7 @@ describe("logbook confirmation visibility", () => {
     const request = vi.fn(async (_method: string, params?: Record<string, unknown>) =>
       params?.search === "OM0RX" ? page([first]) : page());
     const edit = vi.fn();
-    render(<LogbookPanel onRequest={request} onEdit={edit} refreshKey={0} />);
+    render(<LogbookPanel mutations={new LogbookMutationSession(request, () => {})} onRequest={request} onEdit={edit} refreshKey={0} />);
     await screen.findByText("OM0RX");
     fireEvent.change(screen.getByRole("textbox", { name: "Search logbook" }), { target: { value: "OM0RX" } });
     fireEvent.click(screen.getByRole("button", { name: "Search" }));
@@ -80,31 +82,33 @@ describe("logbook confirmation visibility", () => {
   });
 
   it("selects rows with the keyboard and requires confirmation before deleting the selected identity", async () => {
-    let deleted = false;
+    const backend = contactEditFixture(second);
     const request = vi.fn(async (method: string, params?: Record<string, unknown>) => {
-      if (method === "logbook_delete") { expect(params).toEqual({ id: second.id }); deleted = true; return {}; }
-      if (method === "logbook_undo") { expect(params).toEqual({ id: second.id }); deleted = false; return {}; }
-      return page(deleted ? [first] : [first, second]);
+      const contact = backend.request(method, params);
+      if (contact) return contact;
+      return page(backend.contact.qso.deletedAt ? [first] : [first, second]);
     });
     const edit = vi.fn();
-    render(<LogbookPanel onRequest={request} onEdit={edit} refreshKey={0} />);
+    render(<LogbookPanel mutations={new LogbookMutationSession(request, () => {})} onRequest={request} onEdit={edit} refreshKey={0} />);
     const call = await screen.findByText("OM0RX");
     fireEvent.keyDown(call.closest("tr")!, { key: "ArrowDown" });
     expect(screen.getByText("VK8AA").closest("tr")?.getAttribute("aria-selected")).toBe("true");
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
-    expect(request.mock.calls.some(([method]) => method === "logbook_delete")).toBe(false);
-    fireEvent.click(screen.getByRole("button", { name: "Confirm delete" }));
+    expect(request.mock.calls.some(([method]) => method === "logbook_contact_apply")).toBe(false);
+    fireEvent.click(await screen.findByRole("button", { name: "Confirm delete" }));
     await screen.findByText("1–1 of 1");
     expect(screen.queryByText("VK8AA")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Undo delete" }));
     await screen.findByText("VK8AA");
+    expect(request.mock.calls.some(([method]) => ["logbook_delete", "logbook_undo"].includes(method))).toBe(false);
+    expect(request.mock.calls.filter(([method]) => method === "logbook_contact_apply").map(([, p]) => p?.action)).toEqual(["delete", "restore"]);
     fireEvent.doubleClick(screen.getByText("OM0RX"));
     expect(edit).toHaveBeenCalledWith(first);
   });
 
   it("retains an unrecognized Club Log extension value as recorded instead of marking it confirmed", async () => {
     const unusual = { ...first, extraFields: { CLUBLOG_QSO_UPLOAD_STATUS: "X" } };
-    render(<LogbookPanel onRequest={vi.fn(async () => page([unusual, second]))} onEdit={vi.fn()} refreshKey={0} />);
+    render(<LogbookPanel mutations={new LogbookMutationSession(vi.fn(), () => {})} onRequest={vi.fn(async () => page([unusual, second]))} onEdit={vi.fn()} refreshKey={0} />);
     const label = await screen.findByRole("img", { name: "Club Log upload X" });
     expect(label.querySelector(".is-unrecorded")).toBeTruthy();
     expect(screen.getByRole("img", { name: "Club Log upload not recorded" })).toBeTruthy();
@@ -118,7 +122,7 @@ describe("logbook confirmation visibility", () => {
       expect(limit).toBe(20);
       return { total: 121, offset, limit, qsos: Array.from({ length: Math.min(limit, 121 - offset) }, (_, index) => ({ ...first, id: `qso-${offset + index}`, call: `TEST${offset + index}` })) };
     });
-    render(<LogbookPanel onRequest={request} onEdit={vi.fn()} refreshKey={0} />);
+    render(<LogbookPanel mutations={new LogbookMutationSession(request, () => {})} onRequest={request} onEdit={vi.fn()} refreshKey={0} />);
     await screen.findByText("1–100 of 121");
     expect(screen.getAllByRole("row")).toHaveLength(101);
     expect(request.mock.calls.map(([, params]) => params?.offset)).toEqual([0, 20, 40, 60, 80]);

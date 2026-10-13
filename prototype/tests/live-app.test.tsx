@@ -221,6 +221,55 @@ it("blocks backup replacement while a contact edit is retained", async () => {
   expect(calls.request.mock.calls.some(([method]) => method === "backup_restore")).toBe(false);
 });
 
+it("retains an uncertain table deletion through navigation and restart, with receipt-based Undo", async () => {
+  exists = true;
+  const qso = { id: "deleted-contact", call: "W1AW", start: "2026-10-12T00:00:00Z", band: "20m", mode: "CW" };
+  const contactBackend = contactEditFixture(qso), backend = calls.request.getMockImplementation()!;
+  let loseAck = true;
+  calls.request.mockImplementation(async (method, params) => {
+    if (method.startsWith("logbook_contact")) {
+      const result = contactBackend.request(method, params);
+      if (method === "logbook_contact_apply" && loseAck) throw new Error("lost delete acknowledgement");
+      return { result };
+    }
+    if (method === "logbook_list") return { result: { qsos: contactBackend.contact.qso.deletedAt ? [] : [qso],
+      total: contactBackend.contact.qso.deletedAt ? 0 : 1, offset: 0, limit: 20 } };
+    return backend(method, params);
+  });
+  const first = render(<LiveApp />); await screen.findByLabelText("Callsign");
+  fireEvent.click(screen.getByRole("button", { name: "Logbook" }));
+  fireEvent.click(await screen.findByText("W1AW")); fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Confirm delete" }));
+  await waitFor(() => expect(screen.getByRole("alert", { name: "Logbook operation recovery" }).textContent).toContain("acknowledgement"));
+  fireEvent.click(screen.getByRole("button", { name: "Operator Desk" }));
+  expect(screen.getByRole("alert", { name: "Logbook operation recovery" })).toBeTruthy();
+  expect(contactBackend.updates).toBe(1); first.unmount(); loseAck = false;
+  render(<LiveApp />); await screen.findByLabelText("Callsign");
+  fireEvent.click(screen.getByRole("button", { name: "Check logbook operation" }));
+  await waitFor(() => expect(screen.queryByRole("alert", { name: "Logbook operation recovery" })).toBeNull());
+  fireEvent.click(screen.getByRole("button", { name: "Logbook" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Undo delete" }));
+  await screen.findByText("W1AW"); expect(contactBackend.updates).toBe(2);
+  expect(calls.request.mock.calls.some(([method]) => ["logbook_delete", "logbook_undo", "station_tune", "rotor_goto"].includes(method))).toBe(false);
+});
+
+it("blocks backup replacement during an unresolved table operation", async () => {
+  exists = true;
+  localStorage.setItem("xlog.integration.logbookMutation.main.v1", JSON.stringify({ undo: null, pending: {
+    generation: testWorkspaceGeneration, operationID: "pending-delete", contactID: "contact", expectedRevision: 1, action: "delete" } }));
+  const backend = calls.request.getMockImplementation()!;
+  const manifest = { createdAt: "2026-10-12T10:00:00Z", qsoCount: 42, pendingSyncCount: 0, databaseBytes: 1024, includesReferenceData: false };
+  calls.request.mockImplementation(async (method, params) => method === "backup_list" ? { result: { backups: [{ name: "Fixture.xlogbackup" }] } }
+    : method === "backup_inspect" ? { result: { name: "Fixture.xlogbackup", manifest, includes_settings: false } } : backend(method, params));
+  render(<LiveApp />); await screen.findByLabelText("Callsign");
+  fireEvent.click(screen.getByRole("button", { name: "Settings" })); fireEvent.click(await screen.findByRole("tab", { name: "Backups" }));
+  fireEvent.click(await screen.findByText("Fixture.xlogbackup"));
+  fireEvent.click(await screen.findByRole("checkbox", { name: /I understand this replaces/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Restore integrated copy" }));
+  expect(await screen.findByText("Resolve the pending logbook Delete/Undo before restoring a backup.")).toBeTruthy();
+  expect(calls.request.mock.calls.some(([method]) => method === "backup_restore")).toBe(false);
+});
+
 it.each(["draft", "contact"])("offers explicit recovery for pre-generation %s text without replaying it", async kind => {
   exists = true;
   const qso = { id: "legacy-edit", call: "OLDTEXT", start: "2026-10-12T00:00:00Z", band: "20m", mode: "SSB" };

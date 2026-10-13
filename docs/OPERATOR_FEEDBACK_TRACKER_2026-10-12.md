@@ -41,6 +41,8 @@ Checkpoint F connects existing-contact Update in the main Desk/full editor to re
 
 Checkpoint G fences draft/contact edits and receipt recovery across backup replacement using a durable workspace generation outside the backup payload. Old and pre-generation journals retain text but cannot replay writes; explicit current-workspace recovery is required. Shared Swift regression tests (96 Swift Testing cases plus XCTest suites), TypeScript, 429 frontend tests and Vite build pass. Narrow/wide recovery UI and actions were checked in an isolated browser fixture. Table Delete/Undo migration and all-screen undocking remain open. See checkpoint G in the workspace plan for evidence and limits. Installed alpha.13 is unchanged.
 
+Checkpoint H moves table Delete/Undo off the legacy ID-only calls. Confirmation and Undo use exact contact revisions and workspace generations, durable receipts and journal-before-send recovery. The latest Undo survives navigation/restart; unresolved operations block backup replacement. Full frontend suite: 441 passed; TypeScript/Vite pass. Isolated browser recovery/action checks passed at 1280/640 px. See checkpoint H in the workspace plan; compact Logbook sizing, independent windows, native menus and exact packaged acceptance remain open. No new app installed.
+
 ### Alpha.8 installed checkpoint
 
 The signed/notarized alpha.8 bundle passed all 21 generated large-log checks

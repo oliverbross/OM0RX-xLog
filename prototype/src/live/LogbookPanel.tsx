@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 import { Download, FileUp, Pencil, RotateCcw, Search, Trash2, Triangle } from "lucide-react";
 import "./logbook.css";
+import type { LogbookMutationSession } from "./logbookMutationSession";
+import type { DraftSnapshot } from "./operatorDraftSession";
 
 type QSO = Record<string, unknown> & {
   id: string;
@@ -101,22 +103,26 @@ function adifBatches(text: string): string[] {
   return batches;
 }
 
-export function LogbookPanel({ onRequest, onEdit, refreshKey }: {
+export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChanged }: {
   onRequest: Request;
   onEdit: (qso: QSO) => void;
   refreshKey: number;
+  mutations: LogbookMutationSession;
+  onChanged?: () => void;
 }) {
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
   const [offset, setOffset] = useState(0);
   const [page, setPage] = useState<LogbookPage | null>(null);
   const [loading, setLoading] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [working, setBusy] = useState(false);
+  const mutation = useSyncExternalStore(mutations.subscribe, mutations.getSnapshot);
+  const busy = working || mutation.busy || !!mutation.pending || mutation.conflict || mutation.workspaceChanged;
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<DraftSnapshot | null>(null);
   const [selectedID, setSelectedID] = useState<string | null>(null);
-  const [undoID, setUndoID] = useState<string | null>(null);
+  const preparation = useRef(0);
   const fileInput = useRef<HTMLInputElement>(null);
 
   async function readPage(pageOffset: number, pageSearch: string) {
@@ -136,6 +142,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey }: {
     setLoading(true);
     setSelectedID(null);
     setConfirmDelete(null);
+    preparation.current++;
     setError("");
     readPage(offset, search)
       .then((response) => {
@@ -145,7 +152,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey }: {
         if (!cancelled) { setPage(null); setError(cause instanceof Error ? cause.message : String(cause)); }
       })
       .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+    return () => { cancelled = true; preparation.current++; };
   }, [onRequest, search, offset, refreshKey]);
 
   async function reload(pageOffset = offset) {
@@ -162,30 +169,38 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey }: {
     setSearch(query.trim());
   }
 
-  async function deleteQSO(id: string) {
+  async function prepareDelete(id: string) {
+    const ticket = ++preparation.current;
+    setError("");
+    try {
+      const snapshot = await mutations.prepareDelete(id);
+      if (ticket === preparation.current) setConfirmDelete(snapshot);
+    } catch (cause) { if (ticket === preparation.current) setError(cause instanceof Error ? cause.message : String(cause)); }
+  }
+
+  async function deleteQSO(snapshot: DraftSnapshot) {
     setBusy(true); setError(""); setNotice("");
     try {
-      await onRequest("logbook_delete", { id });
-      setUndoID(id);
+      const receipt = await mutations.delete(snapshot);
       setSelectedID(null);
       setConfirmDelete(null);
-      setNotice("QSO deleted from the integrated logbook. Undo is available here.");
-      await reload();
+      if (receipt) setNotice("QSO deleted from the integrated logbook. Undo is available here.");
+      if (onChanged) onChanged(); else await reload();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setConfirmDelete(null);
+      if (!mutations.getSnapshot().error) setError(cause instanceof Error ? cause.message : String(cause));
     } finally { setBusy(false); }
   }
 
   async function undoDelete() {
-    if (!undoID) return;
+    if (!mutation.undo) return;
     setBusy(true); setError("");
     try {
-      await onRequest("logbook_undo", { id: undoID });
-      setUndoID(null);
-      setNotice("QSO restored in the integrated logbook.");
-      await reload();
+      const receipt = await mutations.undo();
+      if (receipt) setNotice("QSO restored in the integrated logbook.");
+      if (onChanged) onChanged(); else await reload();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      if (!mutations.getSnapshot().error) setError(cause instanceof Error ? cause.message : String(cause));
     } finally { setBusy(false); }
   }
 
@@ -248,7 +263,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey }: {
   const total = page?.total ?? 0;
   const rows = page?.qsos ?? [];
   const selected = rows.find(qso => qso.id === selectedID);
-  const deleting = rows.find(qso => qso.id === confirmDelete);
+  const deleting = confirmDelete?.qso as QSO | undefined;
   return (
     <section className="live-logbook" aria-label="Integrated logbook">
       <header className="live-logbook-head">
@@ -263,8 +278,8 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey }: {
             <button type="submit" disabled={loading || busy} aria-label="Search" title="Search"><Search size={14} /></button>
           </form>
           <button type="button" disabled={!selected || busy || loading} onClick={() => selected && onEdit(selected)}><Pencil size={13} /> Edit</button>
-          <button type="button" disabled={!selected || busy || loading} onClick={() => selected && setConfirmDelete(selected.id)}><Trash2 size={13} /> Delete</button>
-          <button type="button" onClick={() => void undoDelete()} disabled={!undoID || busy}><RotateCcw size={13} /> Undo delete</button>
+          <button type="button" disabled={!selected || busy || loading} onClick={() => selected && void prepareDelete(selected.id)}><Trash2 size={13} /> Delete</button>
+          <button type="button" onClick={() => void undoDelete()} disabled={!mutation.undo || busy}><RotateCcw size={13} /> Undo delete</button>
           <input ref={fileInput} type="file" accept=".adi,.adif,text/plain" hidden
             onChange={(event) => { const file = event.target.files?.[0]; if (file) void importFile(file); }} />
           <button type="button" onClick={() => fileInput.current?.click()} disabled={busy}>
@@ -279,7 +294,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey }: {
       {notice && <p className="live-logbook-feedback" role="status">{notice}</p>}
       {deleting && <div className="live-logbook-feedback" role="group" aria-label={`Delete ${deleting.call}`}>
         <span>Delete {deleting.call} · {utcTime(deleting.start)}? You can undo this deletion.</span>
-        <div><button type="button" onClick={() => void deleteQSO(deleting.id)} disabled={busy}>Confirm delete</button>
+        <div><button type="button" onClick={() => confirmDelete && void deleteQSO(confirmDelete)} disabled={busy}>Confirm delete</button>
           <button type="button" onClick={() => setConfirmDelete(null)} disabled={busy}>Cancel</button></div>
       </div>}
       <div className="live-logbook-table-wrap">
@@ -287,7 +302,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey }: {
           <thead><tr><th scope="col">UTC</th><th scope="col">Callsign</th><th scope="col">Band / Mode</th><th scope="col" title="Frequency in MHz">Frequency</th><th scope="col">RST</th><th scope="col">Country</th><th scope="col">QSL</th><th scope="col">LoTW</th><th scope="col">Club Log</th><th scope="col">Comment</th></tr></thead>
           <tbody>
             {rows.map((qso, index) => <tr key={qso.id} tabIndex={0} aria-selected={selectedID === qso.id}
-              onClick={() => { setSelectedID(qso.id); setConfirmDelete(null); }}
+              onClick={() => { preparation.current++; setSelectedID(qso.id); setConfirmDelete(null); }}
               onDoubleClick={() => { if (!busy && !loading) onEdit(qso); }}
               onKeyDown={event => {
                 if (busy || loading) return;
