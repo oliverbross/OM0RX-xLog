@@ -8,7 +8,7 @@ import { workerRequest, openMonitor, openDetachedMap, detachedMapKind, findDetac
 import WorldMap from "./Map";
 import type { Spot } from "./model";
 import { ClusterPanel } from "./live/ClusterPanel";
-import { clusterSessionIntentKey, shouldResumeCluster } from "./live/clusterResume";
+import { clusterSessionIntentKey, initializeNativeClusterResume, nativeClusterSession, shouldResumeCluster } from "./live/clusterResume";
 import OpportunitiesPanel, { type Opportunity } from "./live/OpportunitiesPanel";
 import { useReferenceSchedule } from "./live/referenceSchedule";
 import { DetachedClusterSurface } from "./live/DetachedClusterSurface";
@@ -212,7 +212,7 @@ function MainLiveApp() {
     try {
       if (method === "cluster_connect" || method === "cluster_disconnect") {
         clusterResumeChecked.current = true;
-        try { localStorage.setItem(clusterSessionIntentKey, method === "cluster_connect" ? "connected" : "disconnected"); }
+        try { if (!nativeClusterSession()) localStorage.setItem(clusterSessionIntentKey, method === "cluster_connect" ? "connected" : "disconnected"); }
         catch { /* Storage failure must not prevent an explicit Disconnect. */ }
       }
       const clusterEpoch = method === "cluster_filter" || method === "cluster_configure" || method === "cluster_connect" || method === "cluster_disconnect"
@@ -274,7 +274,10 @@ function MainLiveApp() {
       const result = isStation && requestedProvider === "hamlib"
         ? await hamlibStationRequest(method, params, async (name, args) => (await workerRequest(name, args)).result as Data)
         : (await workerRequest(method, isStation ? { provider: provider.current, ...params } : params)).result as Data;
-      if (method.startsWith("cluster_") && result?.snapshot && clusterEpoch === clusterMutationEpoch.current) setCluster(result);
+      if (method.startsWith("cluster_") && result?.snapshot && clusterEpoch === clusterMutationEpoch.current) {
+        setCluster(result);
+        if (result.resume_error) setError(String(result.resume_error));
+      }
       if (requestedProvider === provider.current && requestedSelection === selection.current) {
         if (method === "station_snapshot" || method === "station_connect" || method === "station_disconnect" || method === "station_reconnect") setStation(result);
         if (result?.state && typeof result.state === "object" && result.state.source) setStation(result.state);
@@ -505,8 +508,12 @@ function MainLiveApp() {
       clusterPolling.current = true;
       try {
         if (!disposed) {
+          if (nativeClusterSession() && !clusterResumeChecked.current) {
+            await initializeNativeClusterResume();
+            clusterResumeChecked.current = true;
+          }
           const state = await request("cluster_snapshot");
-          if (!disposed && !monitor && !clusterResumeChecked.current && state.configuration) {
+          if (!nativeClusterSession() && !disposed && !monitor && !clusterResumeChecked.current && state.configuration) {
             clusterResumeChecked.current = true;
             const active = state.snapshot?.connections?.some((connection: Data) => connection.phase === "connected" || connection.phase === "connecting");
             if (!active && shouldResumeCluster(localStorage.getItem(clusterSessionIntentKey), state.configuration)) {
@@ -516,7 +523,11 @@ function MainLiveApp() {
           }
         }
       }
-      catch { /* Keep the last verified cluster projection until reconnect. */ }
+      catch (cause) {
+        // Keep last spots, but do not silently discard a failed legacy migration.
+        if (!disposed && nativeClusterSession() && !clusterResumeChecked.current)
+          setError(cause instanceof Error ? cause.message : "Cluster restart preference could not be initialized.");
+      }
       finally { clusterPolling.current = false; }
     };
     void pollCluster(); const timer = setInterval(() => void pollCluster(), 1000);

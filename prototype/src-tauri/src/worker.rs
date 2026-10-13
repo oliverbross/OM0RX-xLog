@@ -15,6 +15,9 @@ const MAX_IN_FLIGHT: usize = 16;
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(45);
 pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     validate_request(request)?;
+    if request["method"] == "cluster_resume" {
+        return Err("Only the native session owner can resume a cluster.".into());
+    }
     if label == "logbook" {
         return if matches!(request["method"].as_str(), Some("logbook_list" | "logbook_contact"
             | "logbook_contact_apply" | "logbook_contact_receipt" | "logbook_matrix" | "logbook_previous"
@@ -149,6 +152,8 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "spot_bridge_start",
         "spot_bridge_stop",
         "cluster_snapshot",
+        "cluster_resume",
+        "cluster_resume_initialize",
         "cluster_connect",
         "cluster_disconnect",
         "cluster_configure",

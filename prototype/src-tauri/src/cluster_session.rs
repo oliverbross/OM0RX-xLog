@@ -15,6 +15,7 @@ pub fn handles(method: &str) -> bool {
     matches!(
         method,
         "cluster_snapshot"
+            | "cluster_resume_initialize"
             | "cluster_filter"
             | "cluster_connect"
             | "cluster_disconnect"
@@ -93,7 +94,7 @@ impl ClusterSession {
 
     fn snapshot_request(&self) -> Value {
         json!({"id":format!("native-cluster-{}", self.sequence.fetch_add(1, Ordering::AcqRel)),
-            "method":"cluster_snapshot","params":{}})
+            "method":"cluster_resume","params":{}})
     }
 
     fn projection_value(&self) -> Result<Value, String> {
@@ -327,6 +328,7 @@ mod tests {
     fn surface_capabilities_are_explicit() {
         for method in [
             "cluster_snapshot",
+            "cluster_resume_initialize",
             "cluster_filter",
             "cluster_connect",
             "cluster_disconnect",
@@ -346,6 +348,10 @@ mod tests {
             assert!(validate(label, &request("cluster_connect")).is_err());
         }
         assert!(validate("dx-cluster", &request("station_tune")).is_err());
+        assert!(validate("main", &request("cluster_resume")).is_err());
+        for label in ["main", "monitor", "world-map", "band-maps", "dx-cluster", "logbook"] {
+            assert!(crate::worker::validate_surface(label, &request("cluster_resume")).is_err());
+        }
     }
 
     #[test]

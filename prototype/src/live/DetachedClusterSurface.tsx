@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ClusterPanel } from "./ClusterPanel";
+import { initializeNativeClusterResume } from "./clusterResume";
 import { requestDetachedSpot } from "../worker";
 import { announceDetachedClusterReady, dockDetachedWorkspace, onClusterProjection,
   newerClusterProjection, requestViaSession, type ClusterProjection } from "./DetachedClusterBridge";
@@ -19,11 +20,12 @@ export function DetachedClusterSurface() {
         latestProjection.current = next;
         setProjection(next);
         setReceivedAt(Date.now());
-        if (next.available) setError("");
+        if (next.available) setError(String(next.response?.resume_error || ""));
       }
     }).then(unlisten => {
       if (!active) { unlisten(); return; }
       stop = unlisten;
+      void initializeNativeClusterResume().catch(cause => { if (active) setError(String(cause)); });
       void announceDetachedClusterReady().catch(() => { if (active) setError("Cluster service updates are unavailable. Refresh to retry; no action will be replayed."); });
     }).catch(() => { if (active) setError("Could not subscribe to cluster updates. Close and reopen this window."); });
     return () => { active = false; stop?.(); };

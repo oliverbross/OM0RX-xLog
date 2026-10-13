@@ -11,6 +11,9 @@ import { contactEditFixture } from "./contact-edit-fixture";
 import { readContactJournal } from "../src/live/logbookContactSession";
 const calls = vi.hoisted(() => ({ request: vi.fn() }));
 const nativeMenu = vi.hoisted(() => ({ route: undefined as ((title: string) => void) | undefined }));
+const clusterStartup = vi.hoisted(() => ({ native: false, initialize: vi.fn() }));
+vi.mock("../src/live/clusterResume", async importOriginal => ({ ...await importOriginal<typeof import("../src/live/clusterResume")>(),
+  nativeClusterSession: () => clusterStartup.native, initializeNativeClusterResume: clusterStartup.initialize }));
 vi.mock("../src/live/workspaceNavigation", async importOriginal => ({ ...await importOriginal<typeof import("../src/live/workspaceNavigation")>(),
   connectWorkspaceNavigation: (route: (title: string) => void) => { nativeMenu.route = route; return () => { nativeMenu.route = undefined; }; } }));
 vi.mock("../src/worker", async (importOriginal) => ({ ...await importOriginal<typeof import("../src/worker")>(), workerRequest: calls.request, openMonitor: vi.fn() }));
@@ -20,6 +23,7 @@ vi.mock("../src/Map", () => ({ default: () => <div>Map surface</div> }));
 let exists = false;
 beforeEach(() => {
   exists = false; localStorage.clear(); calls.request.mockReset();
+  clusterStartup.native = false; clusterStartup.initialize.mockReset().mockResolvedValue(undefined);
   const sharedDraft = operatorDraftFixture({ id: "draft", start: "2026-10-12T00:00:00Z", call: "", band: "20m", mode: "SSB" });
   calls.request.mockImplementation(async (method: string, params: any = {}) => {
     const shared = sharedDraft(method, params);
@@ -383,6 +387,26 @@ it("does not reconnect after an explicit disconnect from a prior session", async
   } }) : base(method, params));
   render(<LiveApp />);
   await screen.findByRole("button", { name: "Copy my existing xLog logbook" });
+  expect(calls.request.mock.calls.some(([method]) => method === "cluster_connect")).toBe(false);
+});
+
+it("native views migrate once and leave reconnect to the shared owner", async () => {
+  clusterStartup.native = true;
+  const base = calls.request.getMockImplementation()!;
+  calls.request.mockImplementation((method: string, params: unknown) => method === "cluster_snapshot" ? Promise.resolve({ ok: true, result: {
+    configuration: { reconnect: true, servers: [{ enabled: true }] }, snapshot: { spots: [], connections: [], connectedClusters: 0 },
+  } }) : base(method, params));
+  render(<LiveApp />);
+  await waitFor(() => expect(calls.request).toHaveBeenCalledWith("cluster_snapshot", {}));
+  expect(clusterStartup.initialize).toHaveBeenCalledOnce();
+  expect(calls.request.mock.calls.some(([method]) => ["cluster_connect", "station_connect", "rotor_connect"].includes(method))).toBe(false);
+});
+
+it("native migration failure is visible and never falls back to automatic Connect", async () => {
+  clusterStartup.native = true;
+  clusterStartup.initialize.mockRejectedValue(new Error("Cluster restart preference could not be read."));
+  render(<LiveApp />);
+  expect(await screen.findByText("Cluster restart preference could not be read.")).toBeTruthy();
   expect(calls.request.mock.calls.some(([method]) => method === "cluster_connect")).toBe(false);
 });
 

@@ -124,6 +124,107 @@ struct LiveClusterMethodsTests {
         #expect(fixture.counts.0 == 0)
     }
 
+    @Test("Native startup resumes once without a renderer; explicit Disconnect survives stale migration and restart")
+    func nativeResumeOwnership() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        let url = root.appendingPathComponent("cluster.json")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try JSONEncoder().encode(ClusterSessionConfiguration(servers: [.init(name: "Fixture", host: "cluster.example.invalid", port: 7300, callsign: "OM0RX")])).write(to: url)
+        let fixture = WorkerClusterFixture()
+        func make() -> LiveClusterMethods {
+            LiveClusterMethods(logbook: logbook, configurationURL: url, vault: UnavailableClusterTestVault(), transportFactory: { _, _, _, _, state, line in
+                fixture.callbacks(state: state, line: line); return fixture
+            })
+        }
+        let first = make()
+        _ = try await first.handle(method: "cluster_resume", params: [:])
+        #expect(fixture.counts.0 == 0) // First migration waits for the legacy preference.
+        _ = try await first.handle(method: "cluster_resume_initialize", params: ["intent": "automatic"])
+        _ = try await first.handle(method: "cluster_snapshot", params: [:])
+        #expect(fixture.counts.0 == 0) // Renderer snapshots remain passive.
+        for _ in 0..<3 { _ = try await first.handle(method: "cluster_resume", params: [:]) }
+        #expect(fixture.counts.0 == 1)
+        await first.terminate()
+        let second = make()
+        _ = try await second.handle(method: "cluster_resume", params: [:])
+        #expect(fixture.counts.0 == 2) // No renderer/migration request on restart.
+        _ = try await second.handle(method: "cluster_disconnect", params: [:])
+        _ = try await second.handle(method: "cluster_resume_initialize", params: ["intent": "connected"])
+        await second.terminate()
+        let third = make()
+        _ = try await third.handle(method: "cluster_resume", params: [:])
+        #expect(fixture.counts.0 == 2)
+        _ = try await third.handle(method: "cluster_connect", params: [:])
+        #expect(fixture.counts.0 == 3)
+        await third.terminate()
+    }
+
+    @Test("Native resume respects disabled reconnect and legacy Disconnect")
+    func nativeResumeOptOut() async throws {
+        for intent in ["automatic", "disconnected"] {
+            let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            defer { try? FileManager.default.removeItem(at: root) }
+            let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+            let url = root.appendingPathComponent("cluster.json")
+            try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+            var config = ClusterSessionConfiguration(servers: [.init(name: "Fixture", host: "cluster.example.invalid", port: 7300, callsign: "OM0RX")])
+            config.reconnect = intent == "disconnected"
+            try JSONEncoder().encode(config).write(to: url)
+            let fixture = WorkerClusterFixture()
+            let bridge = LiveClusterMethods(logbook: logbook, configurationURL: url, vault: UnavailableClusterTestVault(), transportFactory: { _, _, _, _, _, _ in fixture })
+            _ = try await bridge.handle(method: "cluster_resume_initialize", params: ["intent": intent])
+            for _ in 0..<3 { _ = try await bridge.handle(method: "cluster_resume", params: [:]) }
+            #expect(fixture.counts.0 == 0)
+            await bridge.terminate()
+        }
+    }
+
+    @Test("Failed persistence cannot block Disconnect or permit automatic reconnect")
+    func disconnectDiskFailure() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        let url = root.appendingPathComponent("cluster.json")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try JSONEncoder().encode(ClusterSessionConfiguration(servers: [.init(name: "Fixture", host: "cluster.example.invalid", port: 7300, callsign: "OM0RX")])).write(to: url)
+        let fixture = WorkerClusterFixture()
+        let bridge = LiveClusterMethods(logbook: logbook, configurationURL: url, vault: UnavailableClusterTestVault(), transportFactory: { _, _, _, _, _, _ in fixture })
+        _ = try await bridge.handle(method: "cluster_connect", params: [:])
+        let intentURL = root.appendingPathComponent("cluster-session.json")
+        try FileManager.default.removeItem(at: intentURL)
+        try FileManager.default.createDirectory(at: intentURL, withIntermediateDirectories: false)
+        do { _ = try await bridge.handle(method: "cluster_disconnect", params: [:]); Issue.record("Persistence failure was hidden") }
+        catch let error as WorkerFailure { #expect(error.code == "cluster_intent_persistence") }
+        #expect(fixture.counts.1 >= 1)
+        _ = try await bridge.handle(method: "cluster_resume", params: [:])
+        #expect(fixture.counts.0 == 1)
+        await bridge.terminate()
+    }
+
+    @Test("Corrupt native intent fails closed and explicit Disconnect repairs it")
+    func corruptNativeIntent() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        let url = root.appendingPathComponent("cluster.json")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try JSONEncoder().encode(ClusterSessionConfiguration(servers: [.init(name: "Fixture", host: "cluster.example.invalid", port: 7300, callsign: "OM0RX")])).write(to: url)
+        try Data("invalid".utf8).write(to: root.appendingPathComponent("cluster-session.json"))
+        let fixture = WorkerClusterFixture()
+        let bridge = LiveClusterMethods(logbook: logbook, configurationURL: url, vault: UnavailableClusterTestVault(), transportFactory: { _, _, _, _, _, _ in fixture })
+        do { _ = try await bridge.handle(method: "cluster_resume", params: [:]); Issue.record("Corrupt intent resumed") }
+        catch { }
+        #expect(fixture.counts.0 == 0)
+        _ = try await bridge.handle(method: "cluster_disconnect", params: [:])
+        let state = try await bridge.handle(method: "cluster_resume_initialize", params: [:])
+        #expect(state["resume_initialized"] as? Bool == true)
+        _ = try await bridge.handle(method: "cluster_resume", params: [:])
+        #expect(fixture.counts.0 == 0)
+        await bridge.terminate()
+    }
+
     @Test("Transferred forwarding settings remain readable and can be disabled on every platform")
     func transferredSettings() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

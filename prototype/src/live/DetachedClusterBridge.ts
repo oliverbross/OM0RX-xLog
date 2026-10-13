@@ -1,6 +1,5 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { clusterSessionIntentKey } from "./clusterResume";
 
 export const detachedClusterMethods = [
   "cluster_snapshot", "cluster_filter", "cluster_connect", "cluster_disconnect",
@@ -70,12 +69,6 @@ export async function onDetachedDock(handler: (kind: string) => void): Promise<U
 export async function requestViaSession(method: string, params: Record<string, unknown> = {}): Promise<unknown> {
   const request = { id: crypto.randomUUID(), method, params };
   if (!validClusterRequest(request)) throw new Error("This action is unavailable in the detached cluster. Use Settings for credentials and station controls.");
-  if (method === "cluster_connect" || method === "cluster_disconnect") {
-    // Same native origin as the desk; preserve explicit Disconnect across app
-    // restarts while connection-intent migration to native storage is pending.
-    try { localStorage.setItem(clusterSessionIntentKey, method === "cluster_connect" ? "connected" : "disconnected"); }
-    catch { /* Storage failure must not prevent explicit Disconnect. */ }
-  }
   const response = await invoke<unknown>("worker_request", { request });
   if (!validClusterResponse(response) || response.id !== request.id)
     throw new Error("The cluster response could not be verified. Refresh its state before trying another action.");

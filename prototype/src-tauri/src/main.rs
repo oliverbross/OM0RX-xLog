@@ -432,7 +432,13 @@ fn main() {
         }))
         .manage(acceptance::Acceptance::new(path))
         .manage(workspace_navigation::WorkspaceNavigation::default())
-        .setup(|app| { acceptance::start_watchdog(app.handle().clone()); Ok(()) })
+        .setup(|app| {
+            acceptance::start_watchdog(app.handle().clone());
+            if app.state::<acceptance::Acceptance>().path.is_none() {
+                cluster_session::owner(app.handle()).map_err(std::io::Error::other)?;
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![worker_request, pick_backup_package, open_monitor, open_detached_map,
             workspace_navigation_snapshot, workspace_navigation_ack, rotor_telemetry_snapshot, station_telemetry_snapshot,
             detached_cluster_ready, cluster_session_selection, dock_detached_window, close_logbook_window,

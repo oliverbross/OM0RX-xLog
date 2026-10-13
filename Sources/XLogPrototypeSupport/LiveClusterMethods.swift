@@ -34,6 +34,13 @@ public actor LiveClusterMethods {
     private var forwardStatus = "Off"
     private var forwardRetryAfter = Date.distantPast
     private var terminated = false
+    private enum ResumeIntent: String, Codable { case automatic, connected, disconnected }
+    private struct ResumeRecord: Codable { let version: Int; let intent: ResumeIntent }
+    private var resumeChecked = false
+    private var resumeError: String?
+    private var resumeLoaded = false
+    private var resumeIntent: ResumeIntent?
+    private var resumeURL: URL { configurationURL.deletingLastPathComponent().appendingPathComponent("cluster-session.json") }
     private var forwardingAvailable: Bool {
         #if os(macOS)
         true
@@ -74,6 +81,27 @@ public actor LiveClusterMethods {
         let service = try await readyService()
         try requireRunning()
         switch method {
+        case "cluster_resume_initialize":
+            try require(params, allowed: ["intent"])
+            let intent: ResumeIntent?
+            if let raw = params["intent"] {
+                guard let string = raw as? String, let value = ResumeIntent(rawValue: string) else { throw invalid() }
+                intent = value
+            } else { intent = nil }
+            // Import the old browser preference only once. A stale renderer must
+            // never reverse a newer native Connect/Disconnect decision.
+            if try readResumeIntent() == nil, let intent { try saveResumeIntent(intent) }
+        case "cluster_resume":
+            try require(params, allowed: [])
+            // Invoked by the native session owner, never by a renderer snapshot.
+            if !resumeChecked, let intent = try readResumeIntent() {
+                resumeChecked = true
+                let config = try currentConfiguration()
+                if intent != .disconnected && config.reconnect && config.servers.contains(where: \.enabled) {
+                    do { try await connect(service) }
+                    catch { resumeError = "Cluster could not resume. Check its connection and use Connect to retry." }
+                }
+            }
         case "cluster_snapshot":
             try require(params, allowed: [])
         case "cluster_configure":
@@ -91,17 +119,19 @@ public actor LiveClusterMethods {
             try saveConfiguration(next)
         case "cluster_connect":
             try require(params, allowed: [])
-            let workspaceStatus = try logbook.handle(method: "workspace_status", params: [:])
-            if workspaceStatus["workspace_exists"] as? Bool == true {
-                try await refreshContacts()
-            } else { await service.invalidateContacts() }
-            try requireRunning()
-            let active = try currentConfiguration().servers.filter(\.enabled)
-            var passwords: [UUID: String] = [:]
-            for server in active { passwords[server.id] = try vault.load(server.id) ?? "" }
-            try await service.connect(passwords: passwords)
+            resumeChecked = true; resumeError = nil
+            try saveResumeIntent(.connected)
+            try await connect(service)
         case "cluster_disconnect":
             try require(params, allowed: [])
+            resumeChecked = true; resumeError = nil
+            // Disk errors must not prevent an explicit disconnect, but must be
+            // reported rather than pretending its restart intent was persisted.
+            do { try saveResumeIntent(.disconnected) }
+            catch {
+                await service.disconnect()
+                throw WorkerFailure("cluster_intent_persistence", "Cluster disconnected, but its restart preference could not be saved. It may reconnect when the app restarts.")
+            }
             await service.disconnect()
         case "cluster_command":
             try require(params, allowed: ["command", "server_id"], required: ["command"])
@@ -141,9 +171,48 @@ public actor LiveClusterMethods {
         return ["configuration": try json(currentConfiguration()),
                 "snapshot": try json(snapshot), "snapshot_truncated": truncated,
                 "password_storage_available": vault.available,
+                "resume_error": resumeError as Any? ?? NSNull(),
+                "resume_initialized": (try? readResumeIntent()) != nil,
                 "flex_forwarding_available": forwardingAvailable,
                 "password_servers": try currentConfiguration().servers.filter { try vault.load($0.id) != nil }.map { $0.id.uuidString },
                 "forwarding": ["accepted_count": forwardAcceptedCount, "status": forwardStatus]]
+    }
+
+    private func connect(_ service: ClusterSessionService) async throws {
+        let workspaceStatus = try logbook.handle(method: "workspace_status", params: [:])
+        if workspaceStatus["workspace_exists"] as? Bool == true { try await refreshContacts() }
+        else { await service.invalidateContacts() }
+        try requireRunning()
+        var passwords: [UUID: String] = [:]
+        for server in try currentConfiguration().servers.filter(\.enabled) { passwords[server.id] = try vault.load(server.id) ?? "" }
+        try await service.connect(passwords: passwords)
+    }
+
+    private func validateResumePath() throws {
+        try validateConfigurationPath()
+        if FileManager.default.fileExists(atPath: resumeURL.path),
+           try resumeURL.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink == true {
+            throw WorkerFailure("unsafe_configuration", "Cluster session intent cannot use a symbolic link.")
+        }
+    }
+    private func readResumeIntent() throws -> ResumeIntent? {
+        if resumeLoaded { return resumeIntent }
+        try validateResumePath()
+        guard FileManager.default.fileExists(atPath: resumeURL.path) else { resumeLoaded = true; return nil }
+        let data = try Data(contentsOf: resumeURL)
+        guard data.count <= 1024 else { throw invalid() }
+        let record = try JSONDecoder().decode(ResumeRecord.self, from: data)
+        guard record.version == 1 else { throw invalid() }
+        resumeIntent = record.intent; resumeLoaded = true
+        return record.intent
+    }
+    private func saveResumeIntent(_ intent: ResumeIntent) throws {
+        try validateResumePath()
+        try FileManager.default.createDirectory(at: resumeURL.deletingLastPathComponent(), withIntermediateDirectories: true,
+                                               attributes: LocalFilePermissions.directoryAttributes)
+        try JSONEncoder().encode(ResumeRecord(version: 1, intent: intent)).write(to: resumeURL, options: .atomic)
+        try LocalFilePermissions.protectFile(resumeURL)
+        resumeIntent = intent; resumeLoaded = true
     }
 
     /// Read an already running cluster without starting services or scanning contacts.
