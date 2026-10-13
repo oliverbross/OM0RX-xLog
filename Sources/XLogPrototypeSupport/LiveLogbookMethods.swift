@@ -358,6 +358,26 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                 }
                 store.save(safe)
                 return ["settings": try json(safe), "automatic_sync": false]
+            case "workspace_layout_load":
+                try requireKeys(params, allowed: [])
+                let generation = try editGeneration()
+                return ["layout": try scopedSnapshot(readyDatabase().workspaceLayout(), generation: generation)]
+            case "workspace_layout_apply":
+                try requireKeys(params, allowed: ["expectedRevision", "action", "presetID", "panel", "preset", "generation"],
+                                required: ["expectedRevision", "action", "presetID", "generation"])
+                let generation = try editGeneration()
+                if try !matchesEditGeneration(params, generation) { return ["status": "workspace_changed", "generation": generation] }
+                _ = try integer(params, "expectedRevision", default: -1, range: 0...9_007_199_254_740_990)
+                guard JSONSerialization.isValidJSONObject(params),
+                      try JSONSerialization.data(withJSONObject: params).count <= 32_000 else { throw invalid() }
+                let mutation: WorkspaceLayoutMutation
+                do { mutation = try decode(params) } catch { throw invalid() }
+                do {
+                    let layout = try readyDatabase().applyWorkspaceLayout(mutation)
+                    return ["status": "applied", "layout": try scopedSnapshot(layout, generation: generation)]
+                } catch WorkspaceLayoutError.conflict(let layout) {
+                    return ["status": "conflict", "layout": try scopedSnapshot(layout, generation: generation)]
+                } catch WorkspaceLayoutError.invalid { throw invalid() }
             case "workspace_preferences_load":
                 try requireKeys(params, allowed: [])
                 _ = try readyDatabase()
@@ -459,6 +479,7 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                     try validateBackupPreferences(preferences)
                 }
                 let db = try readyDatabase()
+                let retainedLayout = restorePreferences ? nil : try db.workspaceLayout()
                 let reference = try referenceDirectoryURL()
                 let recovery = try workspaceSubdirectory("Recovery", create: true)
                 let rollbackName = "pre-restore-\(UUID().uuidString).\(XLogBackupManager.packageExtension)"
@@ -489,6 +510,7 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                         applyBackupPreferences(preferences, to: defaults)
                     }
                     database = try LogbookDatabase(url: workspaceURL.appendingPathComponent("OM0RX-xLog.sqlite"))
+                    if let retainedLayout { try database?.preserveWorkspaceLayoutAfterRestore(retainedLayout) }
                     workspace = try IntegrationWorkspaceBootstrap.open(at: workspaceURL)
                     return ["restored": true, "qso_count": try database?.count() ?? 0,
                             "recovery_backup": rollbackName, "preferences_restored": restorePreferences,

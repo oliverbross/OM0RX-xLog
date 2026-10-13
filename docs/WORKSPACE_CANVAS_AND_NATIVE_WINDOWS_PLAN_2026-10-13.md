@@ -1,6 +1,6 @@
 # Configurable Operator Desk and native windows
 
-Status: shared draft, revision-safe contact editing, native Cluster session/startup intent, native radio/rotor telemetry and native menu routing implemented in source. Logbook checkpoint P passes Windows/Linux packaged checks. Independent Awards is implemented locally; its native verification is pending. Canvas and full independent-window acceptance remain open.
+Status: shared draft, revision-safe contact editing, native Cluster startup intent, radio/rotor telemetry, active radio selection and native menu routing implemented in source. Logbook/Awards repeated-open and Dock-back lifecycles pass isolated Windows/Linux packages through T, including its reduced detached-window startup bundles. U adds the portable layout store and revision-safe edits, not the canvas UI. Full independent-window and canvas acceptance remain open.
 Request: 13 October 2026. Baseline: `0cc7ecc` / installed alpha.13.
 
 ## Product contract
@@ -20,14 +20,14 @@ This request extends the ongoing parity programme; it does not mark earlier requ
 
 | ID | Outcome | Status |
 | --- | --- | --- |
-| WS-01 | Every desk panel can be shown/hidden, moved and resized | Planned |
-| WS-02 | Settings → Workspace provides panel selection and named layouts | Planned |
+| WS-01 | Every desk panel can be shown/hidden, moved and resized | In progress: stable panel identities and validated placement model; canvas interaction pending |
+| WS-02 | Settings → Workspace provides panel selection and named layouts | In progress: named preset persistence and scoped revision checks; Settings UI pending |
 | WS-03 | Native menus replace navigation links on all three desktop platforms | In progress: complete screen menu routing in source; sidebar removal/native review pending |
 | WS-04 | Window menu opens/focuses individual native panel windows | In progress: existing four windows plus Logbook and Awards in source; remaining screens pending |
 | WS-05 | Docked, mixed and fully undocked arrangements share one live session | In progress: draft/contact foundations, Cluster owner and native radio/rotor polling; automatic coordination/projections still pending |
-| WS-06 | Layouts and window geometry survive restart and monitor changes | Planned |
+| WS-06 | Layouts and window geometry survive restart and monitor changes | In progress: portable layouts persist and follow backup preference choice; native display-relative recovery/migration pending |
 | WS-07 | Concurrent windows cannot duplicate logging or station actions | In progress: database/client revision and receipt checks; native multi-window gate open |
-| WS-08 | Responsive, accessible and measured fast interaction at laptop/4K sizes | Planned |
+| WS-08 | Responsive, accessible and measured fast interaction at laptop/4K sizes | In progress: adaptive Logbook and detached bundle budgets; remaining screens and native performance acceptance pending |
 
 ## Interaction defaults
 
@@ -363,6 +363,20 @@ Measured production static JavaScript closure, including the common entry and de
 All 515 frontend tests across 73 files, TypeScript, Vite and the graph/style-order gates pass. Production browser captures at 1280×800 and 640×480 cover all three surfaces in their truthful no-native-worker state. A deliberately blocked Awards chunk shows the load-error screen; removing the block and clicking Reload restores the Awards surface. Captures are `.impeccable/review/startup-{awards,logbook,cluster}-{desktop,compact}.png`, plus `startup-load-error.png` and the Awards baseline. These are browser-renderer checks, not native data or station acceptance.
 
 Fresh Impeccable review initially found an Awards heading change and missing desktop Dock/disclaimer. A single correction replaced CSS aggregation with actual eager module imports; the heading is again 14 px, both actions are visible and the reviewer scored both fixes resolved, disposition **SHIP for the scored fixes**. Pre-existing compact Cluster column compression and Awards scrolling/unused large-screen space remain WS-08 work. Exact-source packaged execution of this optimization remains pending. All-panel detachment, canvas and fully windowed session lifecycle remain open; familiar docked and mixed layouts remain supported requirements.
+
+### Checkpoint U — durable portable canvas/window layout foundation
+
+`WorkspaceLayout.swift` defines stable IDs for all 19 current panel/screen roles, canvas/window/hidden placement, logical-point rectangles, stacking, lock/snap preferences and up to 12 named presets. All roles can be placed on the canvas or detached; the default Traditional and Windowed arrangements expose the current core working panels, with rotor/antenna hidden until configured/selected. Geometry, finite dimensions, readable minimum sizes, version, IDs, singleton membership and active-preset existence are validated. These are data defaults, not a new enabled UI or a claim that every screen can already open independently.
+
+Portable layouts live in their own SQLite table, separate from band-map preferences and contact revisions. Each scoped panel/preset change requires the exact layout revision, using the database transaction lock across separate service connections. Stale writes return the current layout without overwriting it. Lost acknowledgements are reconciled with a read, not blindly retried. Missing pre-feature tables migrate to defaults; corrupt stored layouts fail explicitly rather than silently resetting. `workspace_layout_load/apply` carry the existing workspace generation so restoring a database invalidates old clients even if revisions repeat. Only the main native surface currently has this settings authority; detached views do not gain new control permissions.
+
+Database backups include the portable layout. Restore honors `restore_preferences`: opt-in restores the saved layout, while contact-only restore retains the current layout and still rotates the workspace generation. Machine-specific physical display positions remain separate. Legacy browser split migration, Settings controls, keyboard/pointer canvas manipulation, live layout subscriptions, default recovery UX and native window reconciliation remain required follow-ons.
+
+The new restore regression exposed an existing collision: database/reference recovery filenames had only second-resolution timestamps. Both now include a UUID; four back-to-back restores retain four distinct copies of each. The first layout test run failed on the old database recovery collision; it passed after correction, and the explicit repeated-reference/database regression also passes. No real backup, contact, station setting or installed app was modified.
+
+Verification: 11 new Swift layout tests cover defaults/all roles, scoped persistence/reopen, concurrent CAS writers, invalid geometry/IDs, preset limits, rollback/corruption, old database migration, backup/generation fencing, preference retention, repeated restore and actual isolated worker routing. The full portable Swift run passes 111 Swift Testing cases across 20 suites, plus its XCTest suites (one Windows Credential Manager test is correctly skipped on Mac; optional timing benchmarks are not counted as executed). All 118 Rust tests pass, including the new per-window layout capability check. This is a nonvisual service/data change; it does not need a new visual design review. Exact-source cross-platform packaging remains pending.
+
+T source `a701a6e37587746972728b258dbfe04e478a366b` passes all five jobs in `38348642953`. Inspected manifests and six GUI reports under `/tmp/xlog-logbook-fit-18G8qM/{windows-t,linux-t}` each pass 23 checks, including same-renderer reopening and actual Dock-back closure/main routing for Logbook and Awards. This covers Windows first/relaunch and Linux X11 first/relaunch/relocation plus Wayland with `station_io:false`; Linux reports no development toolchains. It closes T's isolated package gate, not a native launch-speed benchmark, physical Mac desktop acceptance or U.
 
 ## Follow-on: RUMlogNG workflow and feature comparison
 

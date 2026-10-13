@@ -42,7 +42,7 @@ let prototypeCoreTargets: [Target] = [
                   "QRZClient.swift", "ReferenceDataUpdater.swift", "SecretStore.swift",
                   "Solar.swift", "SyncEngine.swift", "TransmitPowerCapture.swift", "XCatClient.swift"],
         sources: ["ADIF.swift", "Models.swift", "QSOADIF.swift", "SemanticQSOIdentity.swift", "WavelogClient.swift",
-                  "LogbookDatabase.swift", "OperatorDraft.swift", "LogbookContact.swift", "IntegrationWorkspace.swift", "Settings.swift", "CWProfile.swift",
+                  "LogbookDatabase.swift", "OperatorDraft.swift", "LogbookContact.swift", "WorkspaceLayout.swift", "IntegrationWorkspace.swift", "Settings.swift", "CWProfile.swift",
                   "BackupManager.swift", "LocalFilePermissions.swift", "LocalFilePath.swift", "CTYResolver.swift", "Geo.swift",
                   "OperatingSupport.swift", "OperatorIntelligence.swift", "AwardCatalog.swift",
                   "AwardRegistry.swift", "AwardReferences.swift", "ClusterSpotFeed.swift",

@@ -88,10 +88,14 @@ the screenshots are nonshipping verification evidence.
 
 ## Remaining acceptance and context limits
 
-This stage has no exact native runtime acceptance or latency benchmark. The
-main/map bundle remains large, and the broader all-window, mixed and docked
-workspace/performance goal remains open. Earlier native evidence does not accept
-this source change.
+Exact-source follow-up: `a701a6e37587746972728b258dbfe04e478a366b` passes all
+five jobs in matrix `38348642953`. Inspected Windows first/relaunch and Linux
+X11 first/relaunch/relocation plus Wayland reports each pass 23 isolated native
+checks, including repeated-open and Dock-back lifecycle for Logbook/Awards,
+with station I/O disabled. This accepts the package behavior, not native startup
+latency or physical Mac desktop appearance. No native latency benchmark exists.
+The main/map bundle remains large, and the broader all-window, mixed and docked
+workspace/performance goal remains open.
 
 This is an ordinary refinement of the incumbent system. `DESIGN.md` retains its
 preexisting noncanonical heading structure and lacks token frontmatter; the

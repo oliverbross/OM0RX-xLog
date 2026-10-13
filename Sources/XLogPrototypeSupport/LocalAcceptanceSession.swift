@@ -30,6 +30,7 @@ public final class LocalAcceptanceSession: @unchecked Sendable {
         let methods: Set<String> = [
             "health", "parse_adif", "self_test", "integration_self_test", "cluster_classify", "cluster_history",
             "workspace_status", "workspace_create", "workspace_preferences_load", "workspace_preferences_save",
+            "workspace_layout_load", "workspace_layout_apply",
             "settings_load", "settings_save", "logbook_draft", "logbook_catalog", "logbook_list",
             "logbook_save", "logbook_delete", "logbook_undo", "logbook_stats", "logbook_previous",
             "logbook_operator_draft", "logbook_operator_draft_apply", "logbook_operator_draft_receipt",

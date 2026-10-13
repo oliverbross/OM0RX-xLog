@@ -95,6 +95,8 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "workspace_create",
         "workspace_preferences_load",
         "workspace_preferences_save",
+        "workspace_layout_load",
+        "workspace_layout_apply",
         "backup_create",
         "backup_list",
         "backup_inspect",
@@ -642,6 +644,17 @@ mod tests {
             }
             for method in ["station_tune", "station_action", "station_snapshot", "logbook_save", "sync_run", "settings_save", "secret_save", "workspace_create", "backup_restore", "hamlib_control"] {
                 assert!(validate_surface(label, &json!({"id":"r","method":method,"params":{}})).is_err());
+            }
+        }
+    }
+
+    #[test]
+    fn portable_layout_does_not_grant_detached_windows_settings_authority() {
+        for method in ["workspace_layout_load", "workspace_layout_apply"] {
+            let request = json!({"id":"layout-test","method":method,"params":{}});
+            assert!(validate_surface("main", &request).is_ok());
+            for label in ["monitor", "logbook", "awards", "world-map", "band-maps", "dx-cluster", "unknown"] {
+                assert!(validate_surface(label, &request).is_err(), "{label}: {method}");
             }
         }
     }

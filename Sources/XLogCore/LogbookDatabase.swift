@@ -331,6 +331,58 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
+    /// Lives in the database so backups include portable layouts atomically.
+    /// Physical display placement remains machine-local in the native shell.
+    public func workspaceLayout() throws -> WorkspaceLayoutSnapshot {
+        try lock.withLock { try readWorkspaceLayout() }
+    }
+
+    /// Restore coordinator only: retain current preferences when an operator
+    /// restores contacts without opting into workspace-preference restoration.
+    /// The caller rotates the workspace generation before replacing the DB.
+    public func preserveWorkspaceLayoutAfterRestore(_ snapshot: WorkspaceLayoutSnapshot) throws {
+        try lock.withLock {
+            guard (0...9_007_199_254_740_991).contains(snapshot.revision) else { throw WorkspaceLayoutError.invalid }
+            try snapshot.document.validate()
+            let payload = try encoder.encode(snapshot)
+            guard payload.count <= 262_144 else { throw WorkspaceLayoutError.invalid }
+            try withStatement("INSERT INTO xlog_workspace_layout(singleton,payload) VALUES(1,?) ON CONFLICT(singleton) DO UPDATE SET payload=excluded.payload;") { statement in
+                _ = payload.withUnsafeBytes { sqlite3_bind_blob(statement, 1, $0.baseAddress, Int32($0.count), Self.transient) }
+                try stepDone(statement)
+            }
+        }
+    }
+
+    public func applyWorkspaceLayout(_ mutation: WorkspaceLayoutMutation) throws -> WorkspaceLayoutSnapshot {
+        try lock.withLock {
+            try execute("BEGIN IMMEDIATE;")
+            do {
+                let next = try mutation.applying(to: readWorkspaceLayout())
+                let payload = try encoder.encode(next)
+                guard payload.count <= 262_144 else { throw WorkspaceLayoutError.invalid }
+                try withStatement("INSERT INTO xlog_workspace_layout(singleton,payload) VALUES(1,?) ON CONFLICT(singleton) DO UPDATE SET payload=excluded.payload;") { statement in
+                    _ = payload.withUnsafeBytes { sqlite3_bind_blob(statement, 1, $0.baseAddress, Int32($0.count), Self.transient) }
+                    try stepDone(statement)
+                }
+                try execute("COMMIT;")
+                return next
+            } catch { try? execute("ROLLBACK;"); throw error }
+        }
+    }
+
+    private func readWorkspaceLayout() throws -> WorkspaceLayoutSnapshot {
+        try withStatement("SELECT payload FROM xlog_workspace_layout WHERE singleton=1;") { statement in
+            let step = sqlite3_step(statement)
+            if step == SQLITE_DONE { return WorkspaceLayoutSnapshot(revision: 0, document: .defaults) }
+            guard step == SQLITE_ROW, let bytes = sqlite3_column_blob(statement, 0),
+                  (1...262_144).contains(Int(sqlite3_column_bytes(statement, 0))) else { throw LogbookDatabaseError.corruptRecord }
+            let value = try decoder.decode(WorkspaceLayoutSnapshot.self, from: Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 0))))
+            guard (0...9_007_199_254_740_991).contains(value.revision) else { throw WorkspaceLayoutError.invalid }
+            try value.document.validate()
+            return value
+        }
+    }
+
     public func operatorDraftReceipt(operationID: UUID) throws -> OperatorDraftReceipt? {
         try lock.withLock {
             try withStatement("SELECT payload FROM xlog_operator_receipts WHERE operation_id = ?;") { statement in
@@ -1390,6 +1442,10 @@ public final class LogbookDatabase: @unchecked Sendable {
           conflict_json BLOB NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_conflicts_detected ON sync_conflicts(detected_at DESC);
+        CREATE TABLE IF NOT EXISTS xlog_workspace_layout(
+          singleton INTEGER PRIMARY KEY CHECK(singleton = 1),
+          payload BLOB NOT NULL
+        );
         CREATE TABLE IF NOT EXISTS xlog_operator_draft(
           singleton INTEGER PRIMARY KEY CHECK(singleton = 1),
           payload BLOB NOT NULL

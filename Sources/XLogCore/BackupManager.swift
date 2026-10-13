@@ -247,7 +247,7 @@ public final class XLogBackupManager: @unchecked Sendable {
         }
 
         let timestamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
-        let rollback = directory.appendingPathComponent("OM0RX-xLog-before-restore-\(timestamp).sqlite")
+        let rollback = directory.appendingPathComponent("OM0RX-xLog-before-restore-\(timestamp)-\(UUID().uuidString).sqlite")
         var preservedURL: URL?
         do {
             for suffix in ["-wal", "-shm"] {
@@ -284,7 +284,7 @@ public final class XLogBackupManager: @unchecked Sendable {
         let staging = parent.appendingPathComponent(".reference-restore-\(UUID().uuidString)", isDirectory: true)
         try fileManager.copyItem(at: source, to: staging)
         let timestamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
-        let rollback = parent.appendingPathComponent("Reference Data-before-restore-\(timestamp)", isDirectory: true)
+        let rollback = parent.appendingPathComponent("Reference Data-before-restore-\(timestamp)-\(UUID().uuidString)", isDirectory: true)
         do {
             var preservedURL: URL?
             if fileManager.fileExists(atPath: liveURL.path) {
