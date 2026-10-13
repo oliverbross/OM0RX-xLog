@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { awaitMap, mapDetails, validWorkerResult, waitForAcceptance } from "./acceptance";
 import { LARGE_LOG_RECORDS, largeLogADIFBatch } from "./acceptanceFixture";
+import workspaceScreens from "./live/workspaceScreens.json";
 
 type Json = Record<string, any>;
 const frame = () => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
@@ -16,7 +17,13 @@ function button(name: string, selector = "button") {
   return found;
 }
 async function click(name: string, selector = "button") { button(name, selector).click(); await frame(); }
-async function navigate(name: string) { await click(name, ".sidebar nav button"); }
+async function navigate(name: string, expected = name) {
+  const screen = workspaceScreens.find(screen => screen.title === name);
+  if (!screen) throw new Error(`Unknown workspace route: ${name}`);
+  await invoke("acceptance_screen", { screen: screen.id });
+  await waitForAcceptance(`native menu route ${name}`, () => document.querySelector("main")?.getAttribute("aria-label") === expected);
+  await frame();
+}
 async function fill(selector: string, value: string) {
   const control = element<HTMLInputElement | HTMLSelectElement>(selector);
   const prototype = control instanceof HTMLSelectElement ? HTMLSelectElement.prototype : HTMLInputElement.prototype;
@@ -85,6 +92,31 @@ async function main(report: Json) {
   await waitForAcceptance("clear unsaved draft", () => element<HTMLInputElement>('[aria-label="Desk Callsign"]').value === "");
   check("keyboard_clear", validSavedContact((await worker("logbook_list")).result));
 
+  await navigate("Logbook");
+  await waitForAcceptance("contact row before edit", () => !!document.querySelector(".live-logbook-table tbody tr"));
+  element<HTMLElement>(".live-logbook-table tbody tr").dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+  await waitForAcceptance("existing contact editor", () => [...document.querySelectorAll("button")].some(item => item.textContent?.trim() === "Update QSO"));
+  await fill('[aria-label="Comment"]', "Revision-safe native edit"); await click("Update QSO");
+  await waitForAcceptance("contact editor released", () => ![...document.querySelectorAll("button")].some(item => item.textContent?.trim() === "Update QSO"));
+  check("contact_edit", (await worker("logbook_list")).result.qsos[0]?.comment === "Revision-safe native edit");
+  // Restore the fixture's exact content through the same user-facing editor.
+  await navigate("Logbook");
+  await waitForAcceptance("edited contact row", () => document.querySelector(".live-logbook-table tbody")?.textContent?.includes("Revision-safe native edit") === true);
+  element<HTMLElement>(".live-logbook-table tbody tr").dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+  await waitForAcceptance("second contact editor", () => [...document.querySelectorAll("button")].some(item => item.textContent?.trim() === "Update QSO"));
+  await fill('[aria-label="Comment"]', "Isolated native UI acceptance"); await click("Update QSO");
+  await waitForAcceptance("restored contact editor released", () => ![...document.querySelectorAll("button")].some(item => item.textContent?.trim() === "Update QSO"));
+  await navigate("Logbook");
+  await waitForAcceptance("contact row before delete", () => !!document.querySelector(".live-logbook-table tbody tr"));
+  element<HTMLElement>(".live-logbook-table tbody tr").click(); await frame(); await click("Delete");
+  await waitForAcceptance("revision-checked delete confirmation", () => [...document.querySelectorAll("button")].some(item => item.textContent?.trim() === "Confirm delete"));
+  await click("Confirm delete");
+  await waitForAcceptance("contact deleted", () => !document.querySelector(".live-logbook-table tbody tr") && [...document.querySelectorAll<HTMLButtonElement>("button")].some(item => item.textContent?.trim() === "Undo delete" && !item.disabled));
+  check("contact_delete_undo", (await worker("logbook_list")).result.total === 0);
+  await click("Undo delete");
+  await waitForAcceptance("contact restored", () => document.querySelector(".live-logbook-table tbody")?.textContent?.includes("W1AW") === true);
+  check("contact_delete_undo", validSavedContact((await worker("logbook_list")).result));
+
   await navigate("Settings");
   await waitForAcceptance("station settings", () => !!document.querySelector(".service-fields input"));
   const labels = [...document.querySelectorAll<HTMLLabelElement>(".service-fields label")];
@@ -126,6 +158,10 @@ async function main(report: Json) {
   }
   check("detached_projection", detached?.status === "passed" && detached?.scope === "integrated-local-ui" && detached?.details?.surface === "band-maps" && detached.details.scale === scale);
   report.details.detached = detached;
+  // Empty workspaces intentionally use standalone mode: Sync is still
+  // discoverable in the menu, but directs the operator to the mode setting.
+  for (const screen of workspaceScreens) await navigate(screen.title, screen.id === "sync" ? "Settings" : screen.title);
+  check("native_menu_routes", true);
   await invoke("acceptance_prepare_final");
   await navigate("Operator Desk");
   await waitForAcceptance("final operator desk", () => !!document.querySelector('[aria-label="Desk Callsign"]'));

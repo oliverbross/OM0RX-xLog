@@ -10,6 +10,9 @@ import { operatorDraftFixture, testWorkspaceGeneration } from "./operator-draft-
 import { contactEditFixture } from "./contact-edit-fixture";
 import { readContactJournal } from "../src/live/logbookContactSession";
 const calls = vi.hoisted(() => ({ request: vi.fn() }));
+const nativeMenu = vi.hoisted(() => ({ route: undefined as ((title: string) => void) | undefined }));
+vi.mock("../src/live/workspaceNavigation", async importOriginal => ({ ...await importOriginal<typeof import("../src/live/workspaceNavigation")>(),
+  connectWorkspaceNavigation: (route: (title: string) => void) => { nativeMenu.route = route; return () => { nativeMenu.route = undefined; }; } }));
 vi.mock("../src/worker", async (importOriginal) => ({ ...await importOriginal<typeof import("../src/worker")>(), workerRequest: calls.request, openMonitor: vi.fn() }));
 vi.mock("../src/live/operatorDraftTransport", () => ({ requestOperatorDraft: async (method: string, params: any = {}) => (await calls.request(method, params)).result }));
 vi.mock("../src/live/logbookContactTransport", () => ({ requestLogbookContact: async (method: string, params: any = {}) => (await calls.request(method, params)).result }));
@@ -48,6 +51,33 @@ it("opens the draft without waiting for slow logbook aggregates", async () => {
   expect(calls.request).toHaveBeenCalledWith("logbook_stats", {});
   expect(screen.getByRole("button", { name: "Monitor" }).closest(".sidebar-foot")).not.toBeNull();
   expect(document.querySelector(".main-station-rail")?.textContent).not.toContain("Monitor");
+});
+
+it("native menu navigation preserves the draft and never changes equipment or starts sync", async () => {
+  exists = true;
+  const backend = calls.request.getMockImplementation()!;
+  calls.request.mockImplementation((method, params) => method === "logbook_list"
+    ? Promise.resolve({ result: { qsos: [], total: 0, offset: 0, limit: 20 } }) : backend(method, params));
+  render(<LiveApp />);
+  fireEvent.change(await screen.findByLabelText("Callsign"), { target: { value: "K1ABC" } });
+  for (const title of ["Settings", "Logbook", "Station Control", "Log QSO", "Operator Desk"]) {
+    await act(async () => nativeMenu.route?.(title));
+    expect(screen.getByRole("main", { name: title })).toBeTruthy();
+  }
+  expect((screen.getByLabelText("Callsign") as HTMLInputElement).value).toBe("K1ABC");
+  expect(calls.request.mock.calls.some(([method]) => ["station_connect", "station_disconnect", "station_tune", "rotor_connect", "rotor_goto", "sync_run", "settings_save"].includes(method))).toBe(false);
+});
+
+it("native Sync navigation in standalone mode routes to Settings without starting synchronization", async () => {
+  exists = true;
+  const backend = calls.request.getMockImplementation()!;
+  calls.request.mockImplementation((method, params) => method === "settings_load"
+    ? Promise.resolve({ result: { settings: { logbookMode: "local", stationCall: "K1ABC" } } }) : backend(method, params));
+  render(<LiveApp />); await screen.findByLabelText("Callsign");
+  await act(async () => nativeMenu.route?.("Sync"));
+  expect(screen.getByRole("main", { name: "Settings" })).toBeTruthy();
+  expect(await screen.findByText(/Wavelog sync is disabled in standalone mode/)).toBeTruthy();
+  expect(calls.request.mock.calls.some(([method]) => ["sync_run", "sync_status"].includes(method))).toBe(false);
 });
 
 it("logs through the shared draft receipt and keeps Follow radio enabled on normal Save", async () => {

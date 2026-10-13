@@ -22,7 +22,7 @@ This request extends the ongoing parity programme; it does not mark earlier requ
 | --- | --- | --- |
 | WS-01 | Every desk panel can be shown/hidden, moved and resized | Planned |
 | WS-02 | Settings → Workspace provides panel selection and named layouts | Planned |
-| WS-03 | Native menus replace navigation links on all three desktop platforms | Planned |
+| WS-03 | Native menus replace navigation links on all three desktop platforms | In progress: complete screen menu routing in source; sidebar removal/native review pending |
 | WS-04 | Window menu opens/focuses individual native panel windows | Planned |
 | WS-05 | Docked, mixed and fully undocked arrangements share one live session | In progress: draft/contact foundations and Cluster owner only |
 | WS-06 | Layouts and window geometry survive restart and monitor changes | Planned |
@@ -211,6 +211,18 @@ Evidence: TypeScript, the complete frontend suite (441 tests / 62 files) and Vit
 Isolated browser recovery and actions passed at 1280×800 and 640×600, including restored-workspace rejection and explicit discard, with no reported exceptions. Evidence: `/tmp/xlog-restore-qa-oHYcVQ/mutation-report.md`. Impeccable hardening kept recovery controls in the existing wrapping warning style. The table's existing compact minimum-width overflow and compact height utilization remain WS-08 work, not accepted by this check. Temporary fixtures were removed; installed alpha.13 is unchanged.
 
 Checkpoint G is committed/pushed as `b136867e1811ed560f7496cc95cbd039006c1a29`. Mac CI `38327892878` and prototype `38327892886` succeeded. Independent panels/Logbook, all-screen capabilities, remaining shared-session ownership, native menus, canvas/layouts and exact packaged/OS desktop acceptance are still open. The existing docked layout is retained throughout.
+
+### Checkpoint I — native menu routing and screen inventory
+
+One bundled screen registry now supplies the main navigation inventory and native Logbook/Station/View menu destinations, including Logbook, Settings and Sync. Platform-default app/Edit/Window/Help items and existing workspace sizes are preserved. Window exposes the four existing detached surfaces (Monitor, World Map, Band Maps and Cluster); no unavailable Logbook window is falsely advertised. Cmd/Ctrl+1…4 navigate Desk, QSO entry, Logbook and Cluster; Cmd/Ctrl+, opens Settings. These modifiers cannot trigger the existing function-key-only CW macros.
+
+The native owner retains the latest menu request until the main view acknowledges its revision. Subscription-before-read recovers early clicks; coalesced reads, monotonic revisions, exact acknowledgements and unmount checks prevent stale replay. Only the actual main webview can consume/acknowledge routing. Menu navigation invokes no worker operation; standalone-mode Sync goes to the mode setting without starting synchronization or mounting its service panel. The sidebar stays until complete routing, window recovery and OS-native interaction are accepted.
+
+The isolated desktop acceptance harness now requires actual native menu entries and the production native-state/IPC/rendered-route path for every screen, plus rendered logged-contact Update and revision-safe Delete/Undo. Its hardware/network isolation is unchanged; the Rust local allowlist adds only the three already-isolated contact methods. This path proves menu model and routing when executed, not physical OS menu clicks or keyboard accelerators.
+
+Source evidence: 90 Rust tests pass, including three registry/retention/authority tests; TypeScript, 450 frontend tests across 63 files and the production build pass. Seven bridge tests and two rendered tests cover early notifications, coalescing, stale revisions, acknowledgement failure, cleanup, retained draft and zero equipment/sync mutations. The final 33 focused tests also pass after the standalone-mode early-routing guard. Native packaged execution, native screenshots/finish review and documentation verdict are still pending. The new native-navigation surface brief records those gates; the established design system is not replaced.
+
+Checkpoint H `66e177898679c476923bbf6389c0d713cabb01dd` is pushed. Its all-platform run `38328817888` was still active at this checkpoint; do not treat it as passed or as evidence for I. Installed alpha.13 is unchanged. All-screen independent windows, main-view-absent session ownership, canvas/layouts and Windows/Linux desktop acceptance remain open.
 
 ## Follow-on: RUMlogNG workflow and feature comparison
 

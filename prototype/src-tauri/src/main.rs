@@ -7,6 +7,7 @@ mod rotor;
 mod detached_geometry;
 mod winkeyer;
 mod cluster_session;
+mod workspace_navigation;
 
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu, WINDOW_SUBMENU_ID};
 use tauri::{Emitter, LogicalSize, Manager};
@@ -65,9 +66,10 @@ fn workspace_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
             }
         }
     }
-    if let Some(view) = existing_view {
+    let view = if let Some(view) = existing_view {
         view.append(&PredefinedMenuItem::separator(app)?)?;
         view.append_items(&[&compact, &standard])?;
+        view
     } else {
         let view = Submenu::with_items(app, "View", true, &[&compact, &standard])?;
         let before_window = items
@@ -75,8 +77,56 @@ fn workspace_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
             .position(|item| item.id().0 == WINDOW_SUBMENU_ID)
             .unwrap_or(items.len());
         menu.insert(&view, before_window)?;
+        view
+    };
+    view.append(&PredefinedMenuItem::separator(app)?)?;
+    append_screen_group(app, &view, "View")?;
+    for group in ["Logbook", "Station"] {
+        let submenu = Submenu::new(app, group, true)?;
+        append_screen_group(app, &submenu, group)?;
+        let before_window = menu.items()?.iter().position(|item| item.id().0 == WINDOW_SUBMENU_ID).unwrap_or(menu.items()?.len());
+        menu.insert(&submenu, before_window)?;
+    }
+    let existing_window = menu.items()?.iter().filter_map(|item| item.as_submenu().cloned())
+        .find(|submenu| submenu.id().0 == WINDOW_SUBMENU_ID);
+    let windows = if let Some(windows) = existing_window { windows } else {
+        let windows = Submenu::with_id(app, WINDOW_SUBMENU_ID, "Window", true)?;
+        menu.append(&windows)?; windows
+    };
+    windows.append(&PredefinedMenuItem::separator(app)?)?;
+    for (id, title) in [("workspace_window_monitor", "Station Monitor"), ("workspace_window_world-map", "World Map"),
+        ("workspace_window_band-maps", "Band Maps"), ("workspace_window_dx-cluster", "DX Cluster")] {
+        windows.append(&MenuItem::with_id(app, id, title, true, None::<&str>)?)?;
     }
     Ok(menu)
+}
+
+fn append_screen_group(app: &tauri::AppHandle, menu: &Submenu<tauri::Wry>, group: &str) -> tauri::Result<()> {
+    for screen in workspace_navigation::screens().iter().filter(|screen| screen.group == group) {
+        menu.append(&MenuItem::with_id(app, format!("workspace_screen_{}", screen.id),
+            &screen.title, true, screen.shortcut.as_deref())?)?;
+    }
+    Ok(())
+}
+
+fn navigate_workspace(app: &tauri::AppHandle, screen: &str) -> Result<(), String> {
+    let main = app.get_webview_window("main").ok_or("Main workspace is unavailable")?;
+    app.state::<workspace_navigation::WorkspaceNavigation>().request(screen)?;
+    main.unminimize().map_err(|error| error.to_string())?;
+    main.show().map_err(|error| error.to_string())?;
+    main.set_focus().map_err(|error| error.to_string())?;
+    // The event is only a wake-up. The main view reads the native state and
+    // acknowledges a revision, so pre-listener clicks and old acks are safe.
+    app.emit_to("main", "xlog:workspace-navigation", ()).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn workspace_navigation_snapshot(window: tauri::WebviewWindow, state: tauri::State<'_, workspace_navigation::WorkspaceNavigation>) -> Result<Option<workspace_navigation::Navigation>, String> {
+    state.snapshot(window.label())
+}
+#[tauri::command]
+fn workspace_navigation_ack(window: tauri::WebviewWindow, state: tauri::State<'_, workspace_navigation::WorkspaceNavigation>, revision: u64) -> Result<(), String> {
+    state.acknowledge(window.label(), revision)
 }
 
 fn apply_workspace_layout(app: &tauri::AppHandle, layout: WorkspaceLayout) -> tauri::Result<()> {
@@ -212,6 +262,7 @@ async fn open_monitor(app: tauri::AppHandle) -> Result<(), String> {
     // Creating a Windows WebView from a synchronous IPC command can block its
     // message loop. Tauri must dispatch this native window work asynchronously.
     if let Some(window) = app.get_webview_window("monitor") {
+        window.unminimize().map_err(|e| e.to_string())?;
         window.show().map_err(|e| e.to_string())?;
         return window.set_focus().map_err(|e| e.to_string());
     }
@@ -240,6 +291,10 @@ async fn open_detached_map(app: tauri::AppHandle, window: tauri::WebviewWindow, 
     if window.label() != "main" {
         return Err("Only the main window can open detached maps".into());
     }
+    open_detached_workspace(app, kind).await
+}
+
+async fn open_detached_workspace(app: tauri::AppHandle, kind: String) -> Result<(), String> {
     let (title, width, height) = match kind.as_str() {
         "world-map" => ("OM0RX-xLog — World Map", 1100.0, 720.0),
         "band-maps" => ("OM0RX-xLog — Band Maps", 920.0, 760.0),
@@ -312,6 +367,20 @@ fn main() {
     tauri::Builder::default()
         .menu(workspace_menu)
         .on_menu_event(|app, event| {
+            if let Some(screen) = workspace_navigation::menu_screen(&event.id().0) {
+                if let Err(error) = navigate_workspace(app, &screen.id) { eprintln!("Could not open workspace screen: {error}"); }
+                return;
+            }
+            if let Some(kind) = event.id().0.strip_prefix("workspace_window_") {
+                if matches!(kind, "monitor" | "world-map" | "band-maps" | "dx-cluster") {
+                    let app = app.clone(); let kind = kind.to_owned();
+                    tauri::async_runtime::spawn(async move {
+                        let result = if kind == "monitor" { open_monitor(app).await } else { open_detached_workspace(app, kind).await };
+                        if let Err(error) = result { eprintln!("Could not open workspace window: {error}"); }
+                    });
+                }
+                return;
+            }
             if let Some(layout) = WorkspaceLayout::from_menu_id(&event.id().0) {
                 if let Err(error) = apply_workspace_layout(app, layout) {
                     eprintln!("Could not resize main workspace: {error}");
@@ -326,10 +395,13 @@ fn main() {
             }
         }))
         .manage(acceptance::Acceptance::new(path))
+        .manage(workspace_navigation::WorkspaceNavigation::default())
         .setup(|app| { acceptance::start_watchdog(app.handle().clone()); Ok(()) })
         .invoke_handler(tauri::generate_handler![worker_request, pick_backup_package, open_monitor, open_detached_map,
+            workspace_navigation_snapshot, workspace_navigation_ack,
             detached_cluster_ready, cluster_session_selection, dock_detached_window,
             acceptance::acceptance_enabled, acceptance::acceptance_large_log, acceptance::acceptance_monitor,
+            acceptance::acceptance_screen,
             acceptance::acceptance_monitor_result, acceptance::acceptance_prepare_final,
             acceptance::finish_acceptance])
         .build(context)

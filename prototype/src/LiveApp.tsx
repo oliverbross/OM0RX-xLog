@@ -47,6 +47,7 @@ import { LogbookMutationSession, readLogbookMutationJournal } from "./live/logbo
 import { LogbookMutationStatus } from "./live/LogbookMutationStatus";
 import { requestLogbookContact } from "./live/logbookContactTransport";
 import { ContactEditStatus } from "./live/ContactEditStatus";
+import { connectWorkspaceNavigation, workspaceScreens } from "./live/workspaceNavigation";
 import { retireStationProvider } from "./live/stationHandover";
 import RotorPanel from "./live/RotorPanel";
 import { clearConnectedHandoverMessage, ownAutomaticRotorMotion, rotorCommandParams, rotorIntentCurrent, rotorProjection, validRotorSnapshot, type AutomaticRotorIntent, type RotorSnapshot } from "./live/rotorControl";
@@ -55,11 +56,12 @@ import appLogo from "../src-tauri/icons/64x64.png";
 
 type Data = Record<string, any>;
 type Request = (method: string, params?: Data) => Promise<any>;
-const navigation = [
-  ["Operator Desk", LayoutDashboard], ["Log QSO", Radio], ["Logbook", BookOpen], ["DX Cluster", Network],
-  ["World Map", MapIcon], ["Band Maps", Activity], ["Chaser & DX", Activity], ["Awards", Award],
-  ["Station Control", Radio], ["Sync", RefreshCw], ["Settings", Settings],
-] as const;
+const screenIcons: Record<string, typeof Radio> = {
+  "operator-desk": LayoutDashboard, "log-qso": Radio, logbook: BookOpen, "dx-cluster": Network,
+  "world-map": MapIcon, "band-maps": Activity, "chaser-dx": Activity, awards: Award,
+  "station-control": Radio, sync: RefreshCw, settings: Settings,
+};
+const navigation = workspaceScreens.map(screen => [screen.title, screenIcons[screen.id]] as const);
 const monitor = new URLSearchParams(location.search).get("view") === "monitor";
 const detached = detachedMapKind(new URLSearchParams(location.search).get("view"));
 const detachedCluster = new URLSearchParams(location.search).get("view") === "dx-cluster";
@@ -145,6 +147,19 @@ function MainLiveApp() {
   const [referenceEvidence, setReferenceEvidence] = useState<{ call: string; rows: Data[] } | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const menuSettings = useRef(settings); menuSettings.current = settings;
+  useEffect(() => connectWorkspaceNavigation(title => {
+    if (title === "Sync" && menuSettings.current?.logbookMode === "local") {
+      setView("Settings");
+      setError("Wavelog sync is disabled in standalone mode. Choose Local logbook + Wavelog sync in Settings to enable it.");
+    } else setView(title);
+  }, setError), []);
+  useEffect(() => {
+    if (view === "Sync" && settings?.logbookMode === "local") {
+      setView("Settings");
+      setError("Wavelog sync is disabled in standalone mode. Choose Local logbook + Wavelog sync in Settings to enable it.");
+    }
+  }, [view, settings?.logbookMode]);
   const [refresh, setRefresh] = useState(0);
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);

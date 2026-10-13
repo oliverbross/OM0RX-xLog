@@ -43,6 +43,8 @@ Checkpoint G fences draft/contact edits and receipt recovery across backup repla
 
 Checkpoint H moves table Delete/Undo off the legacy ID-only calls. Confirmation and Undo use exact contact revisions and workspace generations, durable receipts and journal-before-send recovery. The latest Undo survives navigation/restart; unresolved operations block backup replacement. Full frontend suite: 441 passed; TypeScript/Vite pass. Isolated browser recovery/action checks passed at 1280/640 px. See checkpoint H in the workspace plan; compact Logbook sizing, independent windows, native menus and exact packaged acceptance remain open. No new app installed.
 
+Checkpoint I adds a shared complete screen inventory and native Logbook/Station/View routing, including Logbook. Window discovers the four already-implemented detached surfaces; the old sidebar remains until native routing/recovery acceptance. Native pending-route revisions survive early menu clicks and reject stale acknowledgements. Standalone Sync routes to Settings without service mutation. Source tests: Rust 90, frontend 450, TypeScript/build pass. The isolated native acceptance harness now also requires menu routes and logged-contact Update/Delete/Undo; actual execution and native visual review are pending. This is not all-screen undocking or an installed release.
+
 ### Alpha.8 installed checkpoint
 
 The signed/notarized alpha.8 bundle passed all 21 generated large-log checks

@@ -104,6 +104,7 @@ pub fn validate_local_request(request: &Value) -> Result<(), String> {
         | "settings_load" | "settings_save" | "logbook_draft" | "logbook_catalog" | "logbook_list"
         | "logbook_save" | "logbook_delete" | "logbook_undo" | "logbook_stats" | "logbook_previous"
         | "logbook_operator_draft" | "logbook_operator_draft_apply" | "logbook_operator_draft_receipt"
+        | "logbook_contact" | "logbook_contact_apply" | "logbook_contact_receipt"
         | "logbook_matrix" | "logbook_import_adif" | "logbook_export_adif"
         | "backup_create" | "backup_list" | "backup_inspect" | "backup_restore"
     ));
@@ -117,10 +118,10 @@ pub fn passed(report: &Value) -> bool {
     const REQUIRED: [&str; 17] = ["worker_health", "worker_self_test", "worker_parse_adif", "worker_integration_self_test", "cluster_classification_initial", "cluster_classification_logged", "map_loaded",
         "cluster_selection", "keyboard_log", "logbook_readback", "keyboard_focus", "keyboard_clear",
         "profile_manual", "profile_simulator", "monitor_opened", "monitor_snapshot", "final_desk"];
-    const LOCAL: [&str; 16] = ["isolated_worker", "empty_workspace", "workspace_created", "worker_self_test",
+    const LOCAL: [&str; 19] = ["isolated_worker", "empty_workspace", "workspace_created", "worker_self_test",
         "worker_integration_self_test", "worker_parse_adif", "keyboard_log", "logbook_readback", "keyboard_editor",
         "keyboard_focus", "keyboard_clear", "settings_save_readback", "awards_loaded", "detached_projection",
-        "map_loaded", "final_desk"];
+        "map_loaded", "final_desk", "native_menu_routes", "contact_edit", "contact_delete_undo"];
     let required: &[&str] = if report["scope"] == "integrated-local-ui" { &LOCAL } else if report["scope"].is_null() { &REQUIRED } else { return false; };
     let map = &report["details"]["finalMap"];
     let probes = map["landPixelProbes"].as_u64().unwrap_or(0);
@@ -138,6 +139,25 @@ pub fn acceptance_enabled(state: tauri::State<'_, Acceptance>) -> bool { state.p
 
 #[tauri::command]
 pub fn acceptance_large_log(state: tauri::State<'_, Acceptance>) -> bool { state.path.is_some() && state.large_log }
+
+#[tauri::command]
+pub fn acceptance_screen(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, Acceptance>, screen: String) -> Result<(), String> {
+    state.require()?;
+    if window.label() != "main" { return Err("Only the isolated main view may test menu navigation".into()); }
+    crate::workspace_navigation::screen(&screen).ok_or("Unknown test screen")?;
+    let id = format!("workspace_screen_{screen}");
+    let menu = app.menu().ok_or("Native application menu is missing")?;
+    let mut found = false;
+    for item in menu.items().map_err(|error| error.to_string())? {
+        if let Some(submenu) = item.as_submenu() {
+            found |= submenu.items().map_err(|error| error.to_string())?.iter().any(|item| item.id().0 == id);
+        }
+    }
+    if !found { return Err("Workspace route is absent from the actual native menu".into()); }
+    // Exercise the production menu handler's navigation path. This verifies the
+    // menu model/IPC/rendered route, not physical OS menu clicks or accelerators.
+    crate::navigate_workspace(&app, &screen)
+}
 
 #[tauri::command]
 pub fn acceptance_monitor(window: tauri::WebviewWindow, state: tauri::State<'_, Acceptance>, report: Value) -> Result<(), String> {
@@ -277,7 +297,7 @@ mod tests {
         let names = ["isolated_worker", "empty_workspace", "workspace_created", "worker_self_test",
             "worker_integration_self_test", "worker_parse_adif", "keyboard_log", "logbook_readback", "keyboard_editor",
             "keyboard_focus", "keyboard_clear", "settings_save_readback", "awards_loaded", "detached_projection",
-            "map_loaded", "final_desk"];
+            "map_loaded", "final_desk", "native_menu_routes", "contact_edit", "contact_delete_undo"];
         let checks: serde_json::Map<String, Value> = names.iter().map(|name| (name.to_string(), json!(true))).collect();
         let mut report = json!({"scope":"integrated-local-ui","status":"passed","embeddedUi":true,"worker":true,
             "checks":checks,"details":{"finalMap":{"tilesLoaded":true,"webgl":true,"visible":true,"error":"",
