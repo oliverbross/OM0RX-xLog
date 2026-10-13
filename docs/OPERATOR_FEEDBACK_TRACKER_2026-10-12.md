@@ -492,7 +492,7 @@ first post-mutation work remains open. No installed app or live-log changes.
 | DATA-09 | Reference databases check at startup and hourly, update automatically in background and display available version/revision metadata | Native scheduling and cache recovery source-verified 13 October; installed acceptance and source semantic versions remain open | All seven supported sources use hourly deadlines; persisted opt-out/migration, native startup/wake ownership, last-good validation, conditional-cache recovery and restore-safe exclusion tested. ETag/source/check/download dates remain distinct; app-binary update/restart remains separate |
 | DATA-10 | Discoverable ADIF import and export in integrated xLog | Requested 13 October; audit/reuse existing ADIF implementation before extending | Import preview, validation and duplicate policy; retain unsupported fields where possible, dates/UTC/modes/references and confirmation data; export scope selection; fixture roundtrip and no unintended sync |
 | BACKUP-01 | Optional cloud backups: Google Drive, OneDrive, Dropbox and FTP destination | Requested 13 October; queued | Explicit destination/account setup, secret-free consistent backup, secure credential storage, upload verification, retention and restore verification; protect existing remote backups. Prefer encrypted transfer (FTPS/SFTP where supported), explicitly disclose plain FTP risks. No account connections or uploads authorized merely by adding this feature |
-| RADIO-04 | Optional Use radio-reported power populates QSO power and ADIF TX_PWR when supplied | Explicit native measured-power observation prerequisite implemented and fixture-tested; automatic draft capture and setting remain open | KPA amplifier output has separate source/unit/sample-time/session metadata; legacy mixed drive/watt fields are never accepted. Requires the companion's new actual WS receipt timestamp; old agents remain unsupported for capture. Default-off setting, canonical draft ownership, manual override, durable save/export provenance and installed acceptance still required; no RF tests or deployment |
+| RADIO-04 | Optional Use radio-reported power populates QSO power and ADIF TX_PWR when supplied | Native observation contract and durable canonical power state implemented/tested; runtime capture, setting/UI and installed acceptance remain open | KPA amplifier output has separate source/unit/sample-time/session metadata; legacy mixed drive/watt fields are never accepted. Requires companion actual WS receipt timestamp. Independent power revision, explicit manual intent and atomic Save/provenance now have reducer/database tests; do not initialize capture before native lifecycle ownership and manual-intent UI ship together. No RF tests or deployment |
 | RADIO-05 | Optional Clear after QSY setting clears the previous unlogged QSO on confirmed frequency change | Requested 13 October; design in progress | Default off; no clear on initial/reconnected/stale/failed radio read, no clearing existing-contact edits, no erasure of a newly selected cluster spot or newer draft input. Revision/selection fences and shared-draft tests required; never tune merely to test |
 | SYNC-06 | Automatic sync fails before uploading or importing contacts | Source repair, full portable Swift suite and final exact-source read-only preview pass; not installed | Hold entire ambiguous groups and pending edits without guessing IDs; preserve complete-snapshot deletion safeguards. Matched live group proved JSON zero versus omitted ADIF RX; exact decimal-zero equivalence only, positive/malformed/underflow contradictions still rejected. Final 5277847 source preview passed in 113.524s: 67,935 remote IDs, 67,929 unambiguous, six held, 29 IDs not local, zero absent clean/dirty local IDs; three held IDs already local. No live reconciliation/deletions performed |
 | UI-36 | Detached Logbook and DX Cluster tables fill available window height with clean lower edges | Source, 41 focused tests and isolated desktop/compact screenshots pass; not installed | Detached caps removed; Logbook capacity uses actual body-row height. Paging and cluster final-row access verified in synthetic browser fixtures; native window check remains |
@@ -570,6 +570,40 @@ queued samples; Save must resolve and store the exact effective value and
 provenance in its existing atomic receipt transaction. Renderer-only capture
 does not satisfy main-window-absent operation. Detached new-QSO editing and its
 least-privilege capability path remain separate open workspace gates.
+
+### RADIO-04 durable canonical power state — 14 October
+
+The portable core now persists power state beside the shared operator draft,
+with its own revision independent of typing. Qualified readings accumulate a
+session peak behind native-issued scope identities. Contact, draft, workspace,
+provider and session changes retire eligibility; reopening a database retains
+the selected value but cannot revive capture authority. A newly armed session
+starts a fresh peak. Manual intent is explicit, including the same value and an
+empty value; unrelated stale text replacements cannot overwrite newer power.
+
+Save resolves TX_PWR and APP_OM0RXXLOG_POWER_* provenance inside the existing
+QSO/draft/receipt transaction. Retries return the exact original receipt.
+Manual values carry no measured-power provenance; comments and notes remain
+unchanged. Meter values export as decimal text, not scientific notation.
+Stored snapshots validate the association between QSO identity/value and power
+state before use. Legacy drafts/receipts without power metadata still decode;
+unfinished legacy values are preserved as manual intent when configured.
+
+Verification: 14 reducer tests and 10 database tests, including stale typing,
+manual intent, A-to-B-to-A changes, restart/rearm, concurrent capture/Save,
+receipt/sample-write rollback, rejected arm/configuration, corrupted snapshots,
+and actual ADIF round trips. Full `XLOG_PORTABLE_ONLY=1 swift test` passes,
+including 192 Swift Testing cases in 28 suites plus the XCTest suites.
+Independent review found and verified fixes for authority loss on failed arm,
+overly strict amplifier-context fencing, and unchecked restored snapshot
+consistency. Amplifier context retains its separate fifteen-second age limit;
+only meter/radio/receipt evidence must follow the new scope/session.
+
+This remains a prerequisite, not an enabled feature. No live draft, logbook,
+radio or installed application was changed. The next block must wire native
+sample ownership onto the logbook lane, add the persisted default-off setting,
+and ship explicit manual-intent transport/UI plus power-only renderer merges
+together. Main-window-absent capture and detached new-QSO editing remain open.
 
 ## Longer-term parity gates (not silently closed by this release)
 

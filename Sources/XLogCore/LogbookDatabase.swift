@@ -101,6 +101,9 @@ public final class LogbookDatabase: @unchecked Sendable {
     private var cachedAwardCatalog: AwardCatalogSnapshot?
     private var cachedOpportunityReferences: [OpportunityReferenceHistory]?
     private var cachedClusterContactRows: [ClusterContactRow]?
+    // Eligibility is never restored from disk. A reopened/restored database
+    // requires a new native arm before any persisted scope can receive samples.
+    private var operatorPowerScopeID: UUID?
 
     public let url: URL
 
@@ -390,6 +393,104 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
+    /// Native-owner API, deliberately not a renderer method. The workspace
+    /// owner must fence its current generation before entering this database.
+    public func configureOperatorDraftPower(enabled: Bool, fallback: String,
+                                            workspaceID: UUID) throws -> OperatorDraftSnapshot {
+        try lock.withLock {
+            let previousAuthority = operatorPowerScopeID
+            let result = try updateOperatorDraftPower { current in
+                let needsMigration = current.power == nil || current.power?.workspaceID != workspaceID
+                var power = try needsMigration
+                    ? OperatorDraftPowerState(qso: current.qso, workspaceID: workspaceID)
+                    : current.power!
+                try power.configure(enabled: enabled, fallback: fallback)
+                // Legacy drafts have no explicit intent record. Preserve an
+                // unfinished contact's value until the operator opts back in.
+                if needsMigration && (!current.qso.call.isEmpty || current.qso.txPower != fallback) {
+                    try power.manual(value: current.qso.txPower)
+                }
+                return OperatorDraftSnapshot(revision: current.revision,
+                    qso: power.applying(to: current.qso), power: power)
+            }
+            operatorPowerScopeID = result.power?.activeScope?.id == previousAuthority ? previousAuthority : nil
+            return result
+        }
+    }
+
+    /// Arming is tied to the contact revision inspected by the native owner.
+    /// A later typing change cannot silently attach an old selection to a new QSO.
+    public func armOperatorDraftPower(context: OperatorDraftPowerContext, workspaceID: UUID,
+                                       draftID: UUID, expectedRevision: Int64,
+                                       now: Date) throws -> OperatorDraftSnapshot {
+        try lock.withLock {
+            let previousAuthority = operatorPowerScopeID
+            let result = try updateOperatorDraftPower { current in
+                guard current.qso.id == draftID, current.revision == expectedRevision else {
+                    throw OperatorDraftError.conflict(current)
+                }
+                guard var power = current.power, power.workspaceID == workspaceID else {
+                    throw OperatorDraftError.notInitialized
+                }
+                if previousAuthority == nil || previousAuthority != power.activeScope?.id {
+                    try power.invalidateSession()
+                }
+                _ = try power.arm(context: context, qso: current.qso, workspaceID: workspaceID, now: now)
+                return OperatorDraftSnapshot(revision: current.revision,
+                    qso: power.applying(to: current.qso), power: power)
+            }
+            operatorPowerScopeID = result.power?.activeScope?.id
+            return result
+        }
+    }
+
+    /// Meter updates retain the edit revision and do not create typing receipts.
+    /// The same SQLite write transaction serializes capture with Save/Replace.
+    public func captureOperatorDraftPower(sample: OperatorDraftPowerSample,
+                                           scopeID: UUID, now: Date) throws -> OperatorDraftSnapshot {
+        try lock.withLock {
+            try updateOperatorDraftPower { current in
+                guard operatorPowerScopeID == scopeID, var power = current.power else { return current }
+                guard try power.accept(sample: sample, expectedScopeID: scopeID, now: now) else { return current }
+                return OperatorDraftSnapshot(revision: current.revision,
+                    qso: power.applying(to: current.qso), power: power)
+            }
+        }
+    }
+
+    public func invalidateOperatorDraftPower() throws -> OperatorDraftSnapshot {
+        try lock.withLock {
+            operatorPowerScopeID = nil
+            return try updateOperatorDraftPower { current in
+                guard var power = current.power else { return current }
+                try power.invalidateSession()
+                return OperatorDraftSnapshot(revision: current.revision,
+                    qso: power.applying(to: current.qso), power: power)
+            }
+        }
+    }
+
+    private func updateOperatorDraftPower(
+        _ change: (OperatorDraftSnapshot) throws -> OperatorDraftSnapshot
+    ) throws -> OperatorDraftSnapshot {
+        try execute("BEGIN IMMEDIATE;")
+        do {
+            guard let current = try readOperatorDraft() else { throw OperatorDraftError.notInitialized }
+            let updated = try change(current)
+            guard updated.revision == current.revision, updated.qso.id == current.qso.id else {
+                throw OperatorDraftError.invalid
+            }
+            try updated.qso.validateOperatorDraft(forSave: false)
+            try updated.power?.validate()
+            if updated != current { try writeOperatorDraft(updated) }
+            try execute("COMMIT;")
+            return updated
+        } catch {
+            try? execute("ROLLBACK;")
+            throw error
+        }
+    }
+
     /// Save, draft advance and receipt are one transaction. A repeated operation
     /// returns its original receipt even after another window advances the draft.
     /// Only creating new contacts is exposed here; editing a logged QSO requires
@@ -408,27 +509,55 @@ public final class LogbookDatabase: @unchecked Sendable {
                 guard current.qso.id == mutation.draftID, current.revision == mutation.expectedRevision else {
                     throw OperatorDraftError.conflict(current)
                 }
-                let updated: QSO
+                var updated: QSO
+                var power = current.power
                 var saved: QSO?
                 switch mutation.action {
                 case .replace:
                     guard let replacement = mutation.qso, replacement.id == current.qso.id else { throw OperatorDraftError.invalid }
                     try replacement.validateOperatorDraft(forSave: false)
-                    updated = replacement
+                    if var currentPower = power {
+                        updated = try currentPower.reconcileReplacement(current: current.qso, replacement: replacement,
+                                                                         workspaceID: currentPower.workspaceID)
+                        if let intent = mutation.powerIntent {
+                            switch intent.action {
+                            case .manual:
+                                guard let value = intent.value else { throw OperatorDraftError.invalid }
+                                try currentPower.manual(value: value)
+                            case .automatic:
+                                guard intent.value == nil else { throw OperatorDraftError.invalid }
+                                try currentPower.resumeAutomatic()
+                            }
+                        }
+                        updated = currentPower.applying(to: updated)
+                        power = currentPower
+                    } else {
+                        guard mutation.powerIntent == nil else { throw OperatorDraftError.notInitialized }
+                        updated = replacement
+                    }
                 case .clear, .save:
-                    guard mutation.qso == nil, nextDraft.id != current.qso.id, nextDraft.call.isEmpty else { throw OperatorDraftError.invalid }
+                    guard mutation.qso == nil, mutation.powerIntent == nil,
+                          nextDraft.id != current.qso.id, nextDraft.call.isEmpty else { throw OperatorDraftError.invalid }
                     try nextDraft.validateOperatorDraft(forSave: false)
                     guard try lookup(localID: nextDraft.id) == nil else { throw OperatorDraftError.existingContact }
                     updated = nextDraft
                     if mutation.action == .save {
-                        try current.qso.validateOperatorDraft(forSave: true)
+                        let resolved = power?.applying(to: current.qso, includeProvenance: true) ?? current.qso
+                        try resolved.validateOperatorDraft(forSave: true)
                         guard try lookup(localID: current.qso.id) == nil else { throw OperatorDraftError.existingContact }
-                        try save(current.qso)
+                        try save(resolved)
                         guard let value = try lookup(localID: current.qso.id) else { throw LogbookDatabaseError.corruptRecord }
                         saved = value
                     }
+                    if var nextPower = power {
+                        try nextPower.reset(qso: nextDraft, workspaceID: nextPower.workspaceID)
+                        updated = nextPower.applying(to: nextDraft)
+                        power = nextPower
+                    }
                 }
-                let draft = OperatorDraftSnapshot(revision: current.revision + 1, qso: updated)
+                try updated.validateOperatorDraft(forSave: false)
+                try power?.validate()
+                let draft = OperatorDraftSnapshot(revision: current.revision + 1, qso: updated, power: power)
                 try writeOperatorDraft(draft)
                 let receipt = OperatorDraftReceipt(mutation: mutation, draft: draft, savedQSO: saved)
                 let payload = try encoder.encode(receipt)
@@ -446,6 +575,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                     try stepDone(statement)
                 }
                 try execute("COMMIT;")
+                if draft.power?.activeScope?.id != operatorPowerScopeID { operatorPowerScopeID = nil }
                 return receipt
             } catch {
                 try? execute("ROLLBACK;")
@@ -464,6 +594,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     private func writeOperatorDraft(_ draft: OperatorDraftSnapshot) throws {
+        try draft.validate()
         let payload = try encoder.encode(draft)
         try withStatement("INSERT INTO xlog_operator_draft(singleton, payload) VALUES(1,?) ON CONFLICT(singleton) DO UPDATE SET payload=excluded.payload;") { statement in
             _ = payload.withUnsafeBytes { sqlite3_bind_blob(statement, 1, $0.baseAddress, Int32($0.count), Self.transient) }

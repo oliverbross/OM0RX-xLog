@@ -6,6 +6,47 @@ import Foundation
 public struct OperatorDraftSnapshot: Codable, Equatable, Sendable {
     public let revision: Int64
     public let qso: QSO
+    /// Meter updates have their own revision; they must not race contact typing.
+    /// Absent on legacy drafts and receipts until native capture is configured.
+    public let power: OperatorDraftPowerState?
+
+    public init(revision: Int64, qso: QSO, power: OperatorDraftPowerState? = nil) {
+        self.revision = revision; self.qso = qso; self.power = power
+    }
+
+    public func validate() throws {
+        guard (0...OperatorDraftPowerState.maximumRevision).contains(revision) else {
+            throw OperatorDraftError.invalid
+        }
+        try qso.validateOperatorDraft(forSave: false)
+        if let power {
+            try power.validate()
+            guard power.contact == OperatorDraftPowerContact(qso: qso, workspaceID: power.workspaceID),
+                  qso.txPower == power.selectedValue else { throw OperatorDraftError.invalid }
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey { case revision, qso, power }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        revision = try values.decode(Int64.self, forKey: .revision)
+        qso = try values.decode(QSO.self, forKey: .qso)
+        power = try values.decodeIfPresent(OperatorDraftPowerState.self, forKey: .power)
+        try validate()
+    }
+}
+
+/// Explicit intent is required even when the operator types the current value
+/// again, or deliberately clears it. Comparing strings cannot prove intent.
+public struct OperatorDraftPowerIntent: Codable, Equatable, Sendable {
+    public enum Action: String, Codable, Sendable { case manual, automatic }
+    public let action: Action
+    public let value: String?
+
+    public init(action: Action, value: String? = nil) {
+        self.action = action; self.value = value
+    }
 }
 
 public struct OperatorDraftMutation: Codable, Equatable, Sendable {
@@ -15,10 +56,13 @@ public struct OperatorDraftMutation: Codable, Equatable, Sendable {
     public let expectedRevision: Int64
     public let action: Action
     public let qso: QSO?
+    public let powerIntent: OperatorDraftPowerIntent?
 
-    public init(operationID: UUID, draftID: UUID, expectedRevision: Int64, action: Action, qso: QSO? = nil) {
+    public init(operationID: UUID, draftID: UUID, expectedRevision: Int64, action: Action,
+                qso: QSO? = nil, powerIntent: OperatorDraftPowerIntent? = nil) {
         self.operationID = operationID; self.draftID = draftID
         self.expectedRevision = expectedRevision; self.action = action; self.qso = qso
+        self.powerIntent = powerIntent
     }
 }
 
