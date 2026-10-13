@@ -217,7 +217,7 @@ describe("logbook confirmation visibility", () => {
       expect(mutation).toMatchObject({ action: "delete", contactID: first.id, expectedRevision: 1 });
     } finally { release(); cleanup(); size.mockRestore(); rect.mockRestore(); vi.unstubAllGlobals(); }
   });
-  it.each(["selection", "refresh", "search"])("cancels a pending Delete preparation on %s changes", async reason => {
+  it.each(["selection", "search"])("cancels a pending Delete preparation on %s changes", async reason => {
     let release!: () => void;
     const gate = new Promise<void>(resolve => { release = resolve; });
     const backend = contactEditFixture(first);
@@ -226,11 +226,10 @@ describe("logbook confirmation visibility", () => {
       return backend.request(method, params) ?? page();
     });
     const mutations = new LogbookMutationSession(request, () => {}), edit = vi.fn();
-    const view = render(<LogbookPanel mutations={mutations} onRequest={request} onEdit={edit} refreshKey={0} />);
+    render(<LogbookPanel mutations={mutations} onRequest={request} onEdit={edit} refreshKey={0} />);
     fireEvent.click(await screen.findByText("OM0RX")); fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(request.mock.calls.some(([method]) => method === "logbook_contact")).toBe(true));
     if (reason === "selection") fireEvent.click(screen.getByText("VK8AA"));
-    else if (reason === "refresh") view.rerender(<LogbookPanel mutations={mutations} onRequest={request} onEdit={edit} refreshKey={1} />);
     else {
       fireEvent.change(screen.getByRole("textbox", { name: "Search logbook" }), { target: { value: "VK8AA" } });
       fireEvent.submit(screen.getByRole("textbox", { name: "Search logbook" }).closest("form")!);
@@ -238,5 +237,39 @@ describe("logbook confirmation visibility", () => {
     await act(async () => { release(); await gate; });
     expect(screen.queryByRole("button", { name: "Confirm delete" })).toBeNull();
     expect(request.mock.calls.some(([method]) => method === "logbook_contact_apply")).toBe(false);
+  });
+  it.each([false, true])("retains reviewed Delete on a passive refresh (preparation pending: %s)", async pending => {
+    let release!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const backend = contactEditFixture(first);
+    const request = vi.fn(async (method: string, params?: Record<string, unknown>) => {
+      if (method === "logbook_contact" && pending) await gate;
+      return backend.request(method, params) ?? page();
+    });
+    const mutations = new LogbookMutationSession(request, () => {}), edit = vi.fn();
+    const view = render(<LogbookPanel mutations={mutations} onRequest={request} onEdit={edit} refreshKey={0} />);
+    fireEvent.click(await screen.findByText("OM0RX")); fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    if (!pending) await screen.findByRole("button", { name: "Confirm delete" });
+    view.rerender(<LogbookPanel mutations={mutations} onRequest={request} onEdit={edit} refreshKey={1} />);
+    await act(async () => { release(); await gate; });
+    expect(await screen.findByRole("button", { name: "Confirm delete" })).toBeTruthy();
+    expect(request.mock.calls.some(([method]) => method === "logbook_contact_apply")).toBe(false);
+  });
+  it("cannot delete a contact changed elsewhere while confirmation survives a refresh", async () => {
+    const backend = contactEditFixture(first);
+    const request = vi.fn(async (method: string, params?: Record<string, unknown>) => backend.request(method, params) ?? page([backend.contact.qso]));
+    const mutations = new LogbookMutationSession(request, () => {}), edit = vi.fn();
+    const view = render(<LogbookPanel mutations={mutations} onRequest={request} onEdit={edit} refreshKey={0} />);
+    fireEvent.click(await screen.findByText("OM0RX")); fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    await screen.findByRole("button", { name: "Confirm delete" });
+    backend.request("logbook_contact_apply", { operationID: "other-window", contactID: first.id, generation: backend.contact.generation,
+      expectedRevision: 1, action: "update", qso: { ...first, comment: "Changed elsewhere" } });
+    view.rerender(<LogbookPanel mutations={mutations} onRequest={request} onEdit={edit} refreshKey={1} />);
+    await screen.findByText("Changed elsewhere");
+    fireEvent.click(screen.getByRole("button", { name: "Confirm delete" }));
+    await waitFor(() => expect(mutations.getSnapshot().conflict).toBe(true));
+    expect(backend.contact.qso.deletedAt).toBeUndefined();
+    expect(backend.contact.qso.comment).toBe("Changed elsewhere");
+    expect(request.mock.calls.find(([method]) => method === "logbook_contact_apply")?.[1]?.expectedRevision).toBe(1);
   });
 });

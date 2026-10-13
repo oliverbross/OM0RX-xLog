@@ -1,6 +1,6 @@
 # Configurable Operator Desk and native windows
 
-Status: shared draft, revision-safe contact editing, native Cluster session/startup intent, native radio/rotor telemetry and native menu routing implemented in source. Logbook geometry invalidation is corrected and Linux packaged checks pass, but Windows still loses Delete confirmation. Canvas and full independent-window acceptance remain open.
+Status: shared draft, revision-safe contact editing, native Cluster session/startup intent, native radio/rotor telemetry and native menu routing implemented in source. Logbook geometry and passive-refresh invalidation are corrected locally; Linux packaged checks pass for checkpoint N, but Windows confirmation acceptance still requires a new exact-source run. Canvas and full independent-window acceptance remain open.
 Request: 13 October 2026. Baseline: `0cc7ecc` / installed alpha.13.
 
 ## Product contract
@@ -297,6 +297,16 @@ Explicit Connect records intent before dispatch; Disconnect still stops the clus
 Local evidence: portable Swift suite passes 100 Swift Testing cases plus 50 XCTest cases; Rust passes all 106 binary unit tests. Full frontend passes 495 tests across 69 files before the final isolated-acceptance migration guard; the final 38 focused migration/rendered tests (including that new guard), TypeScript and Vite build pass afterward. Capability tests deny the internal resume operation to every renderer. These are nonvisual ownership/behavior changes; existing bundle-size and Map split warnings remain. Native packaged execution of this checkpoint and live external cluster reconnection remain separate pending gates.
 
 Checkpoint N exact source `63bd46ed46af33e9ad40309a7d2e1a56ac88d0c5`, matrix `38340075754`: all three builds pass. Linux first launch, relaunch, relocated launch and Wayland each pass all 20 isolated native checks, including revision-checked Delete/Undo and detached Logbook editing. Reports inspected under `/tmp/xlog-logbook-fit-18G8qM/linux-n`. Windows fails on first launch with `Timed out: revision-checked delete confirmation`; its screenshot retains the selected W1AW row but has no confirmation or visible error. Evidence: `/tmp/xlog-logbook-fit-18G8qM/windows-n/gui-run-1.json` and `gui-run-1-desktop.png`. The geometry regression fix alone did not resolve the Windows gate. Investigate remaining semantic refresh/focus/preparation ordering with targeted evidence; do not weaken confirmation or acceptance. This matrix predates checkpoint O.
+
+### Checkpoint P — keep reviewed consent across passive refresh
+
+The shared Logbook confirmation previously treated every `refreshKey` change as new operator intent. Native focus recovery schedules such a refresh after 120 ms, so merely returning to the window could cancel pending or visible confirmation. Three new regression cases failed before the correction. Passive refresh now updates the table without discarding consent; selecting another contact, searching, paging or Cancel still invalidates it. The prepared generation/revision is retained unchanged: if another window edits that contact, Confirm produces a conflict and does not delete the new version. No confirmation is skipped and no fresh revision is silently substituted.
+
+All 498 frontend tests across 69 files pass, including 17 Logbook component cases; TypeScript and production Vite build pass. An isolated, memory-only browser fixture now models the debounced focus event. Confirmation survived a verified refresh and resizing through 640×480, 1280×800 and 3840×2160; Delete followed by Undo restored all 501 synthetic contacts. Captures are `.impeccable/review/logbook-focus-{compact,desktop,4k}.png`. Existing bundle-size/Map split warnings remain. This verifies a real passive-refresh defect, not yet the exact cause or resolution of the prior Windows timeout.
+
+The fresh Impeccable finish reviewer returned **SHIP for the shared component only**, with no material findings. The documenter appended the passive-refresh decision and superseded the earlier blanket cancellation rule in the existing surface record. Incumbent DESIGN.md and pre-existing format/sidecar drift remain unchanged; no shipping assets were added.
+
+Checkpoint O `20f43d50b47f0744be8aa03a13352f787b5acc93` passed Mac package build `38341681017`. P still requires its own packaged cross-platform run; alpha.13 remains installed and no live contact, station control or credential was changed.
 
 ## Follow-on: RUMlogNG workflow and feature comparison
 

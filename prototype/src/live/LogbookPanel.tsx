@@ -140,11 +140,13 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
   const fileInput = useRef<HTMLInputElement>(null);
   function cancelDelete() { preparation.current++; setConfirmDelete(null); }
   useEffect(() => {
-    // Data/identity changes invalidate consent; geometry changes do not.
-    // In particular, the confirmation itself reduces measured table capacity.
+    // Changing the selected identity or query cancels consent. A passive table
+    // refresh (including window focus) does not. Delete always submits the
+    // original reviewed revision/generation, so an intervening edit conflicts
+    // rather than silently upgrading consent to a different contact version.
     cancelDelete();
     return () => { preparation.current++; };
-  }, [onRequest, search, refreshKey, selectedID]);
+  }, [onRequest, search, selectedID]);
 
   async function readPage(pageOffset: number, pageSearch: string) {
     const first = result<LogbookPage>(await onRequest("logbook_list", { search: pageSearch, offset: pageOffset, limit: Math.min(requestPageSize, pageSize) }));

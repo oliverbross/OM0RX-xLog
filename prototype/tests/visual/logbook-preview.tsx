@@ -1,6 +1,6 @@
 // Development-only interaction fixture. All edits are synthetic and memory-only;
 // no IPC, credentials, radio, files or real contacts.
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { LogbookPanel } from "../../src/live/LogbookPanel";
 import { LogbookMutationSession } from "../../src/live/logbookMutationSession";
@@ -30,6 +30,16 @@ async function request(method: string, params: Record<string, unknown> = {}) {
   return { qsos: found.slice(offset, offset + limit), total: found.length, offset, limit };
 }
 const mutations = new LogbookMutationSession(request, () => {});
-createRoot(document.getElementById("root")!).render(<div className="app live monitor-app detached-logbook-app"><main>
-  <LogbookPanel onRequest={request} mutations={mutations} onEdit={() => {}} onDock={() => {}} refreshKey={0} />
-</main></div>);
+function Preview() {
+  const [refresh, setRefresh] = useState(0);
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    const focus = () => { clearTimeout(timer); timer = setTimeout(() => setRefresh(value => value + 1), 120); };
+    window.addEventListener("focus", focus);
+    return () => { clearTimeout(timer); window.removeEventListener("focus", focus); };
+  }, []);
+  return <div className="app live monitor-app detached-logbook-app" data-refresh={refresh}><main>
+    <LogbookPanel onRequest={request} mutations={mutations} onEdit={() => {}} onDock={() => {}} refreshKey={refresh} />
+  </main></div>;
+}
+createRoot(document.getElementById("root")!).render(<Preview />);
