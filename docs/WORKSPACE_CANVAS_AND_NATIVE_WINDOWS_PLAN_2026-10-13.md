@@ -1,6 +1,6 @@
 # Configurable Operator Desk and native windows
 
-Status: shared draft, revision-safe contact editing, initial native Cluster session and native menu routing implemented; detached Logbook is in source verification. Canvas and full independent-window acceptance remain open.
+Status: shared draft, revision-safe contact editing, native Cluster session, native radio/rotor telemetry and native menu routing implemented in source; detached Logbook has Windows and initial Linux runtime evidence, with a Linux relaunch failure still open. Canvas and full independent-window acceptance remain open.
 Request: 13 October 2026. Baseline: `0cc7ecc` / installed alpha.13.
 
 ## Product contract
@@ -24,7 +24,7 @@ This request extends the ongoing parity programme; it does not mark earlier requ
 | WS-02 | Settings → Workspace provides panel selection and named layouts | Planned |
 | WS-03 | Native menus replace navigation links on all three desktop platforms | In progress: complete screen menu routing in source; sidebar removal/native review pending |
 | WS-04 | Window menu opens/focuses individual native panel windows | In progress: existing four windows plus Logbook in source; all other screens pending |
-| WS-05 | Docked, mixed and fully undocked arrangements share one live session | In progress: draft/contact foundations and Cluster owner only |
+| WS-05 | Docked, mixed and fully undocked arrangements share one live session | In progress: draft/contact foundations, Cluster owner and native radio/rotor polling; automatic coordination/projections still pending |
 | WS-06 | Layouts and window geometry survive restart and monitor changes | Planned |
 | WS-07 | Concurrent windows cannot duplicate logging or station actions | In progress: database/client revision and receipt checks; native multi-window gate open |
 | WS-08 | Responsive, accessible and measured fast interaction at laptop/4K sizes | Planned |
@@ -269,6 +269,16 @@ The client subscribes before reading retained state, rejects old revisions and s
 Source evidence: all 98 Rust tests pass, including six new owner/capability/shutdown tests. All 472 frontend tests across 67 files, TypeScript and Vite build pass before the final removal of the duplicate Hamlib rotor read; the final focused Hamlib/rotor/client run passes all 33 tests, and TypeScript/Vite pass again after that adjustment. Existing bundle-size and Map import warnings remain. This is a nonvisual ownership change, not new UI/native-window acceptance. Station radio polling, automatic-action orchestration, draft/lookup ownership, other projections and main-window lifecycle still need migration; fully undocked mode is not complete. No hardware or installed-app changes.
 
 Checkpoint K Windows package `4138e159de367f729565c289e1977d2e4f03e17b` passed all 20 isolated native checks on first launch and relaunch in run `38335488098`, including `detached_logbook` with contact editing and no radio controls. Reports were inspected under `/tmp/xlog-logbook-fit-18G8qM/windows-k`. Linux did not reach runtime in that run because its earlier weather test failed. The corrected-test source `ef624b9f108e1889db79e5f4b28d063b31e3a555` has passed Mac and Linux builds in run `38336361458`; the remaining jobs were still running at this record. Neither run covers this subsequent telemetry change.
+
+### Checkpoint M — native radio telemetry and pending Linux relaunch defect
+
+Periodic radio snapshots are now owned by the native process: 250 ms for the embedded remote/direct FLEX providers, 1 s for Hamlib, with one non-overlapping loop and no automatic connection or control operations. The main desktop subscribes to wake-ups and reads retained native state; event payloads themselves are not treated as observations. Reads are coalesced, selection changes fence pending client replies, and stale/mismatched-provider data cannot update Follow radio. Browser fixtures retain their injected adapter. Listener startup cannot undo a later explicit provider handover; explicit selection updates telemetry only after retiring the old radio.
+
+Native station/Hamlib writes bracket a telemetry epoch fence. Reads begun before a command or provider change are discarded; periodic reads are suppressed until overlapping commands finish, and cached state is marked unavailable during the interval. The command transport is unchanged: Tune and Read radio still perform their direct authoritative readbacks, never using display telemetry to declare success. The service is main/Monitor scoped, provider selection is main-only, isolated acceptance cannot start it, and shutdown rejects late reads. These are nonvisual ownership changes; radio connection ownership, automatic-action coordination, main recreation, all-screen windows and the configurable canvas still have open gates.
+
+Source verification: 106 Rust tests pass, including eight telemetry tests covering read-only routing, singleton polling, command/handover fences and late shutdown reads. The final full frontend run passes all 481 tests across 68 files, including the rendered native-stream/readback test; TypeScript and Vite build also pass. Existing bundle-size/Map split warnings remain. No RF operation, credentials, station policy, installed app or real contact data changed.
+
+Exact prior source `ef624b9f108e1889db79e5f4b28d063b31e3a555` passed all three builds and Windows runtime in `38336361458`, but Linux runtime failed on relaunch. Its first-launch report passes all 20 checks, including detached Logbook. `ui-2.json` reports `Timed out: revision-checked delete confirmation`; relocation/Wayland gates were not reached. Evidence is under `/tmp/xlog-logbook-fit-18G8qM/linux-ef`. Inspection found that `LogbookPanel` clears Delete confirmation and invalidates its preparation whenever measured page capacity changes, including when the confirmation itself consumes height. This is a concrete candidate for reproduction/correction next, not an accepted Linux gate or a reason to weaken the confirmation test. The subsequent rotor-only run `38337551455` is still being tracked separately and does not cover checkpoint M.
 
 ## Follow-on: RUMlogNG workflow and feature comparison
 

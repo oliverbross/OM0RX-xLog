@@ -5,6 +5,7 @@ mod acceptance;
 mod hamlib;
 mod rotor;
 mod rotor_telemetry;
+mod station_telemetry;
 mod detached_geometry;
 mod winkeyer;
 mod cluster_session;
@@ -160,6 +161,13 @@ async fn rotor_telemetry_snapshot(window: tauri::WebviewWindow, app: tauri::AppH
 }
 
 #[tauri::command]
+async fn station_telemetry_snapshot(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>, provider: Option<String>, select: Option<bool>) -> Result<serde_json::Value, String> {
+    station_telemetry::validate(window.label(), state.path.is_some(), provider.is_some())?;
+    let owner = station_telemetry::owner(&app)?;
+    if let Some(provider) = provider { owner.select(&provider, select != Some(true)) } else { owner.snapshot() }
+}
+
+#[tauri::command]
 async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, request: serde_json::Value) -> Result<serde_json::Value, String> {
     // Only typed integration operations cross this boundary; never shell commands.
     if state.path.is_some() { acceptance::validate_local_request(&request)?; }
@@ -203,10 +211,12 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
         if window.label() != "main" && !(window.label() == "monitor" && monitor_allowed) {
             return Err("This window cannot control Hamlib devices".into());
         }
+        let _telemetry_fence = if station_telemetry::changes_radio(&request) { Some(station_telemetry::owner(&app)?.control()?) } else { None };
         return tauri::async_runtime::spawn_blocking(move || hamlib::request(request))
             .await.map_err(|_| "Hamlib task failed".to_string())?;
     }
     worker::validate_surface(window.label(), &request)?;
+    let _telemetry_fence = if station_telemetry::changes_radio(&request) { Some(station_telemetry::owner(&app)?.control()?) } else { None };
     let invalidate = logbook_events::changes_logbook(&request);
     let result = tauri::async_runtime::spawn_blocking(move || worker::request(request))
         .await
@@ -424,7 +434,7 @@ fn main() {
         .manage(workspace_navigation::WorkspaceNavigation::default())
         .setup(|app| { acceptance::start_watchdog(app.handle().clone()); Ok(()) })
         .invoke_handler(tauri::generate_handler![worker_request, pick_backup_package, open_monitor, open_detached_map,
-            workspace_navigation_snapshot, workspace_navigation_ack, rotor_telemetry_snapshot,
+            workspace_navigation_snapshot, workspace_navigation_ack, rotor_telemetry_snapshot, station_telemetry_snapshot,
             detached_cluster_ready, cluster_session_selection, dock_detached_window, close_logbook_window,
             acceptance::acceptance_enabled, acceptance::acceptance_large_log, acceptance::acceptance_monitor,
             acceptance::acceptance_screen,
@@ -434,7 +444,7 @@ fn main() {
         .expect("Application failed to start")
         .run(|app, event| {
             if matches!(event, tauri::RunEvent::Exit) {
-                rotor_telemetry::shutdown(); cluster_session::shutdown(); winkeyer::shutdown(); hamlib::shutdown(); worker::shutdown();
+                station_telemetry::shutdown(); rotor_telemetry::shutdown(); cluster_session::shutdown(); winkeyer::shutdown(); hamlib::shutdown(); worker::shutdown();
                 app.state::<acceptance::Acceptance>().cleanup_browser_contexts();
             }
         });

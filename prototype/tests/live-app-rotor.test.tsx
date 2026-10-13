@@ -5,8 +5,9 @@ import LiveApp from "../src/LiveApp";
 import { operatorDraftFixture } from "./operator-draft-fixture";
 
 const bridge = vi.hoisted(() => ({ request: vi.fn(), tune: null as null | ((value: any) => void), rotorGeneration: 4,
-  telemetry: vi.fn(), intentId: null as string | null, deferMotion: false, motion: null as null | { resolve: (value: any) => void; reject: (cause: Error) => void } }));
+  telemetry: vi.fn(), stationTelemetry: vi.fn(), selectTelemetry: vi.fn(), intentId: null as string | null, deferMotion: false, motion: null as null | { resolve: (value: any) => void; reject: (cause: Error) => void } }));
 vi.mock("../src/live/rotorTelemetry", () => ({ connectRotorTelemetry: bridge.telemetry }));
+vi.mock("../src/live/stationTelemetry", () => ({ connectStationTelemetry: bridge.stationTelemetry, selectStationTelemetry: bridge.selectTelemetry }));
 vi.mock("../src/worker", async original => ({ ...await original<typeof import("../src/worker")>(), workerRequest: bridge.request }));
 vi.mock("../src/live/operatorDraftTransport", () => ({ requestOperatorDraft: async (method: string, params: any = {}) => (await bridge.request(method, params)).result }));
 vi.mock("../src/Map", () => ({ default: () => <div>Map</div> }));
@@ -44,6 +45,7 @@ async function openRotorSettings() {
 beforeEach(() => {
   localStorage.clear(); bridge.request.mockReset(); bridge.tune = null; bridge.rotorGeneration = 4; bridge.intentId = null; bridge.deferMotion = false; bridge.motion = null;
   bridge.telemetry.mockReset(); bridge.telemetry.mockReturnValue(null);
+  bridge.stationTelemetry.mockReset(); bridge.stationTelemetry.mockReturnValue(null); bridge.selectTelemetry.mockReset(); bridge.selectTelemetry.mockResolvedValue(undefined);
   const sharedDraft = operatorDraftFixture({ id: "draft", call: "", start: "2026-10-12T00:00:00Z", frequencyHz: 14074000, mode: "FT8", band: "20m" });
   bridge.request.mockImplementation(async (method: string, params: any = {}) => {
     const shared = sharedDraft(method, params);
@@ -66,6 +68,24 @@ beforeEach(() => {
       : method === "logbook_previous" ? { qsos: [] } : {};
     return { result };
   });
+});
+
+it("follows native radio telemetry without polling but Read radio still uses explicit readback", async () => {
+  let update!: (value: any) => void, unavailable!: () => void;
+  const stop = vi.fn();
+  bridge.stationTelemetry.mockImplementation((_provider, changed, failed) => { update = changed; unavailable = failed; return stop; });
+  const view = render(<LiveApp />);
+  await screen.findByLabelText("Desk Frequency MHz");
+  await act(async () => update({ source: "direct_agent", radio: { connected: true, observed: true, frequency_hz: 7050000, mode: "CW" } }));
+  expect((screen.getByLabelText("Desk Frequency MHz") as HTMLInputElement).value).toBe("7.050000");
+  expect(bridge.request.mock.calls.filter(([method]) => method === "station_snapshot")).toHaveLength(0);
+  fireEvent.click(screen.getByRole("button", { name: "Read radio" }));
+  await waitFor(() => expect((screen.getByLabelText("Desk Frequency MHz") as HTMLInputElement).value).toBe("14.074000"));
+  expect(bridge.request.mock.calls.filter(([method]) => method === "station_snapshot")).toHaveLength(1);
+  await act(async () => unavailable());
+  expect((screen.getByLabelText("Desk Frequency MHz") as HTMLInputElement).value).toBe("14.074000");
+  expect(bridge.request.mock.calls.filter(([method]) => method === "station_tune")).toHaveLength(0);
+  view.unmount(); expect(stop).toHaveBeenCalledOnce();
 });
 
 it("uses native rotor telemetry without a renderer poller and disarms on loss", async () => {

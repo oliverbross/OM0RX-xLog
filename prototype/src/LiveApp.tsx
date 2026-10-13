@@ -53,6 +53,7 @@ import { connectWorkspaceNavigation, workspaceScreens } from "./live/workspaceNa
 import { retireStationProvider } from "./live/stationHandover";
 import RotorPanel from "./live/RotorPanel";
 import { connectRotorTelemetry } from "./live/rotorTelemetry";
+import { connectStationTelemetry, selectStationTelemetry } from "./live/stationTelemetry";
 import { clearConnectedHandoverMessage, ownAutomaticRotorMotion, rotorCommandParams, rotorIntentCurrent, rotorProjection, validRotorSnapshot, type AutomaticRotorIntent, type RotorSnapshot } from "./live/rotorControl";
 import "./live/live.css";
 import appLogo from "../src-tauri/icons/64x64.png";
@@ -359,6 +360,7 @@ function MainLiveApp() {
     setBusy(true); setError("");
     try {
       await retireStationProvider(provider.current, async (method, params) => workerRequest(method, params));
+      await selectStationTelemetry(next);
       provider.current = next; setStationProvider(next);
       localStorage.setItem("xlog.integration.provider", next); setStation(null);
       setMessage("Previous radio disconnected. Connect the selected radio explicitly.");
@@ -459,6 +461,26 @@ function MainLiveApp() {
   }, [sharedDraft.workspaceChanged, sharedDraft.conflict, sharedDraft.pending?.operationID, sharedDraft.error, disarmAutoRotor]);
   useEffect(() => {
     let disposed = false;
+    const observe = (state: Data) => {
+      if (disposed || state.source !== provider.current) return;
+      setStation(state);
+      if (state.radio?.connected && state.radio?.observed) setMessage(current => clearConnectedHandoverMessage(current, true));
+      if (latestFollow.current && !pendingTune.current && !editing.current && state.radio?.observed && state.radio?.connected) {
+        setDraft(d => {
+          if (!d) return d;
+          const band = state.station?.band || bandForRadio(state.radio.frequency_hz) || d.band;
+          const mode = logMode(state.radio.mode, d.mode || "");
+          return d.frequencyHz === state.radio.frequency_hz && d.band === band && d.mode === mode
+            ? d : { ...d, frequencyHz: state.radio.frequency_hz, band, mode };
+        });
+      }
+    };
+    const unavailable = () => {
+      if (!disposed) setStation(s => s ? { ...s, available: false, radio: { ...s.radio, connected: false, observed: false }, connection_error: "Station connection unavailable" } : null);
+    };
+    const stopTelemetry = connectStationTelemetry(stationProvider, observe, unavailable, () => selection.current);
+    if (stopTelemetry) return () => { disposed = true; stopTelemetry(); };
+    // Browser fixtures have no native telemetry owner.
     const pollStation = async () => {
       if (stationPolling.current) return;
       stationPolling.current = true;
@@ -467,19 +489,10 @@ function MainLiveApp() {
       try {
         const state = await request("station_snapshot");
         if (disposed || polledProvider !== provider.current || polledSelection !== selection.current) return;
-        setStation(state);
-        if (latestFollow.current && !pendingTune.current && !editing.current && state.radio?.observed && state.radio?.connected) {
-          setDraft(d => {
-            if (!d) return d;
-            const band = state.station?.band || bandForRadio(state.radio.frequency_hz) || d.band;
-            const mode = logMode(state.radio.mode, d.mode || "");
-            return d.frequencyHz === state.radio.frequency_hz && d.band === band && d.mode === mode
-              ? d : { ...d, frequencyHz: state.radio.frequency_hz, band, mode };
-          });
-        }
+        observe(state);
       } catch {
         if (!disposed && polledProvider === provider.current && polledSelection === selection.current)
-          setStation(s => s ? { ...s, available: false, radio: { ...s.radio, connected: false }, connection_error: "Station connection unavailable" } : null);
+          unavailable();
       } finally { stationPolling.current = false; }
     };
     void pollStation(); const timer = setInterval(() => void pollStation(), stationProvider === "hamlib" ? 1000 : 250);

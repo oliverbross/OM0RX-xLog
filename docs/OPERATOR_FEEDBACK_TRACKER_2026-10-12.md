@@ -605,3 +605,7 @@ The next matrix (`38335488098`, source `4138e15`) passed its Mac build but Linux
 Windows first-launch and relaunch reports from that same matrix are now inspected: all 20 native checks pass, including detached Logbook contact editing. The corrected weather-test revision passes Mac/Linux builds; remaining runtime gates are tracked by exact run, not assumed.
 
 The next ownership step moves periodic rotor status to one native read-only poller, with stale-stream fencing and no duplicate rotor reads from Hamlib radio refresh. Explicit motion/Stop and fresh command readbacks remain unchanged. This removes one main-renderer dependency; full station/session independence, every-screen undocking and the canvas are still open. No installed app or equipment has been changed for these tests.
+
+Periodic radio status has now also moved to a native read-only owner. Command/provider changes fence old reads, and explicit Tune/Read radio still use authoritative backend readbacks. Local Rust/client/rendered regression tests cover these boundaries; packaged verification is separate and not yet complete.
+
+Linux runtime for corrected-test source `ef624b9` passed its first launch (all 20 checks) but failed on relaunch waiting for Delete confirmation. Track the suspected confirmation/page-capacity invalidation race in `LogbookPanel`; reproduce and fix without bypassing confirmation or weakening native acceptance. Evidence: `/tmp/xlog-logbook-fit-18G8qM/linux-ef/ui-2.json`. Windows passed first launch/relaunch for that source. Original alpha.13 remains installed.
