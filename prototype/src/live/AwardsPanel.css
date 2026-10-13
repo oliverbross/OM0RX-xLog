@@ -1,8 +1,11 @@
 .awards-workspace { min-width: 0; display: flex; flex-direction: column; gap: 14px; padding: 18px; color: #e6edf6; background: var(--canvas); }
-.awards-page-head { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
+.awards-page-head { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: 12px; }
 .awards-page-head h2 { font-size: 20px; line-height: 1.15; }
 .awards-page-head p { color: var(--secondary); margin-top: 4px; }
-.awards-page-head > span { color: var(--secondary); font-size: 10px; font-weight: 650; letter-spacing: .035em; white-space: nowrap; }
+.awards-window-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.awards-window-actions > span { color: var(--secondary); font-size: 10px; font-weight: 650; letter-spacing: .035em; }
+.app.live.detached-awards-app { display: flex; flex-direction: column; height: 100dvh; min-height: 0; padding: 0; }
+.detached-awards-app > main { flex: 1; min-height: 0; min-width: 0; padding: 0; overflow: auto; }
 .awards-section { min-width: 0; padding: 14px; background: var(--panel); border: 1px solid var(--border); border-radius: 9px; }
 .awards-section h3 { margin: 0 0 14px; font-size: 14px; font-weight: 700; }
 .awards-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }

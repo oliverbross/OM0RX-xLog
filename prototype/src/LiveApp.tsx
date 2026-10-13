@@ -29,6 +29,7 @@ import type { WorkspacePreferences } from "./live/workspacePreferences";
 import type { BandMapViewPreferences } from "./live/BandMaps";
 import { mergeBandMapPreferenceIntent, sameBandMapPreferences } from "./live/detachedBandMapPreferences";
 import IntegratedAwards from "./live/AwardsPanel";
+import { DetachedAwardsSurface, openDetachedAwards } from "./live/DetachedAwardsSurface";
 import QSOEditor from "./live/QSOEditor";
 import OperatorDesk from "./live/OperatorDesk";
 import CWDesk from "./live/CWDesk";
@@ -70,6 +71,7 @@ const monitor = new URLSearchParams(location.search).get("view") === "monitor";
 const detached = detachedMapKind(new URLSearchParams(location.search).get("view"));
 const detachedCluster = new URLSearchParams(location.search).get("view") === "dx-cluster";
 const detachedLogbook = new URLSearchParams(location.search).get("view") === "logbook";
+const detachedAwards = new URLSearchParams(location.search).get("view") === "awards";
 const frequency = (hz?: number) => typeof hz === "number" && Number.isFinite(hz) ? (hz / 1e6).toFixed(6) : "—";
 const emptySpots: Data[] = [];
 const radioProviderLabels: Record<StationProvider, string> = {
@@ -88,6 +90,7 @@ function legacyDraftValue(): Data | null {
 }
 
 export default function LiveApp() {
+  if (detachedAwards) return <DetachedAwardsSurface />;
   if (detachedLogbook) return <DetachedLogbookSurface />;
   if (detachedCluster) return <DetachedClusterSurface />;
   if (detached) return <DetachedMapSurface kind={detached} />;
@@ -761,7 +764,7 @@ function MainLiveApp() {
         {viewProvider === "hamlib" ? <HamlibPanel request={viewedStationRequest} snapshot={stationProvider === viewProvider ? station : null} /> :
           viewProvider === "direct_flex_lan" ? <DirectFlexPanel request={viewedStationRequest} snapshot={stationProvider === viewProvider ? station : null} /> :
           <StationPanel snapshot={stationProvider === viewProvider ? station : null} onRequest={viewedStationRequest} onSnapshot={value => { if (stationProvider === viewProvider && provider.current === viewProvider) setStation(value); }} independentRotor />}</>}</>}
-      {(view === "Awards" || awardsOpened) && <div hidden={view !== "Awards"}><IntegratedAwards request={request} refresh={refresh} initialStats={stats?.awards} /></div>}
+      {(view === "Awards" || awardsOpened) && <div hidden={view !== "Awards"}><IntegratedAwards request={request} refresh={refresh} initialStats={stats?.awards} onUndock={() => void openDetachedAwards().catch(cause => setError(cause.message))} /></div>}
       {view === "Settings" && settings && <ServiceSettings values={settings} request={request} onSaved={setSettings} cwContext={cwContext} cwState={cw.state} cwProvider={stationProvider} refreshCW={() => cw.controller.pollWinKeyer()} rotorSettings={<RotorPanel snapshot={rotorState} request={request} onManual={disarmAutoRotor} />} dataRequest={dataManagementRequest} onDataChanged={() => { setSettings(null); setDraft(null); setStats(null); latestWorkspacePreferences.current = null; setWorkspacePreferences(null); setRefresh(n => n + 1); }} />}
       {view === "Sync" && (settings?.logbookMode === "local" ? <p>Standalone local logbook. Wavelog synchronization is disabled in Settings.</p> : <SyncPanel request={request} onChanged={() => setRefresh(n => n + 1)} />)}
       </>}

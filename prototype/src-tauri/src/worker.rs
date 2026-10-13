@@ -18,6 +18,11 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     if request["method"] == "cluster_resume" {
         return Err("Only the native session owner can resume a cluster.".into());
     }
+    if label == "awards" {
+        return if matches!(request["method"].as_str(), Some("logbook_stats" | "logbook_catalog")) {
+            Ok(())
+        } else { Err("Awards can only read local statistics and the awards catalogue.".into()) };
+    }
     if label == "logbook" {
         return if matches!(request["method"].as_str(), Some("logbook_list" | "logbook_contact"
             | "logbook_contact_apply" | "logbook_contact_receipt" | "logbook_matrix" | "logbook_previous"
@@ -653,6 +658,17 @@ mod tests {
         }
     }
 
+    #[test]
+    fn detached_awards_is_strictly_read_only() {
+        for method in ["logbook_stats", "logbook_catalog"] {
+            assert!(validate_surface("awards", &json!({"id":"test","method":method,"params":{}})).is_ok());
+        }
+        for method in ["logbook_list", "logbook_contact_apply", "logbook_operator_draft_apply", "logbook_save",
+            "station_connect", "station_tune", "rotor_goto", "hamlib_control", "settings_load", "settings_save",
+            "secret_save", "sync_run", "backup_restore", "cluster_connect", "cluster_resume", "health"] {
+            assert!(validate_surface("awards", &json!({"id":"test","method":method,"params":{}})).is_err(), "{method}");
+        }
+    }
     #[test]
     fn detached_logbook_has_contact_but_not_draft_station_or_configuration_authority() {
         for method in ["logbook_list", "logbook_contact", "logbook_contact_apply", "logbook_contact_receipt",

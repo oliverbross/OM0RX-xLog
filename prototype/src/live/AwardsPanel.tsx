@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Award, BookOpen, CheckCircle2, Clock3, ExternalLink, Search } from "lucide-react";
+import { AlertTriangle, Award, BookOpen, CheckCircle2, Clock3, ExternalLink, Search, PanelsTopLeft } from "lucide-react";
 import "./AwardsPanel.css";
 
 type Request = (method: string, params?: Record<string, unknown>) => Promise<any>;
-type Props = { request: Request; refresh: number; initialStats?: AwardsStats | null };
+type Props = { request: Request; refresh: number; initialStats?: AwardsStats | null; onUndock?: () => void; onDock?: () => void };
 type Counts = Record<string, number>;
 type AwardsStats = {
   qso_count: number; dxcc_worked: number; dxcc_confirmed: number;
@@ -122,7 +122,7 @@ function MixSection({ title, counts, limit }: { title: string; counts: Counts; l
   return <div className="awards-mix-section"><h4>{title}</h4>{sorted.length ? sorted.map(([name, count]) => <div className="awards-mix-row" key={name}><span>{name}</span><div aria-hidden="true"><i style={{ width: `${Math.max(2, count / largest * 100)}%` }} /></div><b>{format(count)}</b></div>) : <p>No contacts yet.</p>}</div>;
 }
 
-export function AwardsPanel({ request, refresh, initialStats }: Props) {
+export function AwardsPanel({ request, refresh, initialStats, onUndock, onDock }: Props) {
   const [stats, setStats] = useState<AwardsStats | null>(initialStats ?? null);
   const [catalogue, setCatalogue] = useState<Catalogue | null>(null);
   const [search, setSearch] = useState("");
@@ -171,7 +171,10 @@ export function AwardsPanel({ request, refresh, initialStats }: Props) {
   const changeFilter = (setter: (value: string) => void, value: string) => { setter(value); setOffset(0); setSelectedID(""); };
 
   return <section className="awards-workspace" aria-label="Station intelligence">
-    <header className="awards-page-head"><div><h2>Station intelligence</h2><p>Local award estimates and operating patterns.</p></div><span>LOCAL LOG · NOT AN AWARD APPLICATION</span></header>
+    <header className="awards-page-head"><div><h2>Station intelligence</h2><p>Local award estimates and operating patterns.</p></div><div className="awards-window-actions"><span>LOCAL LOG · NOT AN AWARD APPLICATION</span>
+      {onUndock && <button type="button" onClick={onUndock}><ExternalLink size={14} />Undock</button>}
+      {onDock && <button type="button" onClick={onDock}><PanelsTopLeft size={14} />Dock back</button>}
+    </div></header>
     {statsError && <p className="awards-error" role="alert">{statsError} <button type="button" onClick={() => setStatsRetry((value) => value + 1)}>Retry totals</button></p>}
     <ProgressOverview stats={stats} />
     <section className="awards-section awards-library" aria-label="Awards library"><h3>Awards library</h3>

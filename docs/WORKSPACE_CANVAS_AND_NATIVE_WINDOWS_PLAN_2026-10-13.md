@@ -1,6 +1,6 @@
 # Configurable Operator Desk and native windows
 
-Status: shared draft, revision-safe contact editing, native Cluster session/startup intent, native radio/rotor telemetry and native menu routing implemented in source. Logbook geometry and passive-refresh invalidation are corrected locally; Linux packaged checks pass for checkpoint N, but Windows confirmation acceptance still requires a new exact-source run. Canvas and full independent-window acceptance remain open.
+Status: shared draft, revision-safe contact editing, native Cluster session/startup intent, native radio/rotor telemetry and native menu routing implemented in source. Logbook checkpoint P passes Windows/Linux packaged checks. Independent Awards is implemented locally; its native verification is pending. Canvas and full independent-window acceptance remain open.
 Request: 13 October 2026. Baseline: `0cc7ecc` / installed alpha.13.
 
 ## Product contract
@@ -23,7 +23,7 @@ This request extends the ongoing parity programme; it does not mark earlier requ
 | WS-01 | Every desk panel can be shown/hidden, moved and resized | Planned |
 | WS-02 | Settings → Workspace provides panel selection and named layouts | Planned |
 | WS-03 | Native menus replace navigation links on all three desktop platforms | In progress: complete screen menu routing in source; sidebar removal/native review pending |
-| WS-04 | Window menu opens/focuses individual native panel windows | In progress: existing four windows plus Logbook in source; all other screens pending |
+| WS-04 | Window menu opens/focuses individual native panel windows | In progress: existing four windows plus Logbook and Awards in source; remaining screens pending |
 | WS-05 | Docked, mixed and fully undocked arrangements share one live session | In progress: draft/contact foundations, Cluster owner and native radio/rotor polling; automatic coordination/projections still pending |
 | WS-06 | Layouts and window geometry survive restart and monitor changes | Planned |
 | WS-07 | Concurrent windows cannot duplicate logging or station actions | In progress: database/client revision and receipt checks; native multi-window gate open |
@@ -309,6 +309,18 @@ The fresh Impeccable finish reviewer returned **SHIP for the shared component on
 Checkpoint O `20f43d50b47f0744be8aa03a13352f787b5acc93` passed Mac package build `38341681017`. P still requires its own packaged cross-platform run; alpha.13 remains installed and no live contact, station control or credential was changed.
 
 P source is committed/pushed as `de8bda4190df37b2c907cdb13207d6278a2ce420`. Mac push run `38342845073` and all-platform matrix `38342874205` are in progress, not accepted. The accompanying surface-record update is documentation only; packaged evidence must continue to name this exact application-source SHA.
+
+P follow-up: all five jobs of `38342874205` passed. Downloaded reports under `/tmp/xlog-logbook-fit-18G8qM/{windows-p,linux-p}` confirm all 20 native checks on Windows first launch/relaunch and Linux X11 first/relaunch/relocation and Wayland, including Delete/Undo and detached Logbook editing, with `station_io:false`. Linux manifest confirms three installed-deb launches, one relocated-archive launch and no development toolchains. Both manifests name exact source `de8bda4190df37b2c907cdb13207d6278a2ce420`. This closes the observed confirmation regression for that package matrix, not physical desktop/RF acceptance or subsequent changes.
+
+### Checkpoint Q — independent Awards window
+
+Awards now offers Undock in its existing header and a native Window-menu entry. The singleton native window reuses existing geometry restore/watch and the same AwardsPanel, with Dock back in the header and no duplicate title row. An early renderer route mounts only DetachedAwardsSurface, not MainLiveApp. Its direct shared-worker requests are limited by native authority to `logbook_stats` and `logbook_catalog`; station, credentials, contact mutation, configuration and synchronization are not permitted. Logbook invalidations now also wake Awards; the existing coalesced focus/event bridge refreshes independent totals and programme results.
+
+All 501 frontend tests across 70 files, 107 Rust tests, TypeScript and production Vite build pass. The first targeted run exposed an incomplete async test mock, and the first Rust compile exposed the acceptance-list length change; both were corrected before these full successful runs. Tests cover independent reads/refresh/cleanup, Dock failure visibility, browser undocking rejection and the read-only method boundary. Existing bundle-size/Map split warnings remain.
+
+The memory-only browser fixture used 20 synthetic programmes; its Dock callback worked and search for programme 19 produced one matching row and detail. One text-based wait timed out, then the actual DOM count/detail were verified. Captures at 640×480, 1280×800 and 3840×2160 are `.impeccable/review/awards-window-{compact,desktop,4k}.png`, all opened and reviewed. The fresh reviewer returned **SHIP for this UI extension to native acceptance**, with no material delta findings. Existing Awards scrolling, fixed-height catalogue and unused 4K area remain explicit WS-08 work; these screenshots do not approve a fit-to-window overhaul.
+
+The packaged acceptance harness now requires a real detached Awards catalogue/readback and visible Dock back, and final preparation verifies that this child actually closes. It does not yet exercise the actual Dock back interaction or repeated-open singleton behavior; those native interaction gates remain open. Exact-source package execution, full main-window closure/recreation, other independent screens and canvas/layouts remain pending. Installed alpha.13 is unchanged; no live data or equipment operation was used.
 
 ## Follow-on: RUMlogNG workflow and feature comparison
 

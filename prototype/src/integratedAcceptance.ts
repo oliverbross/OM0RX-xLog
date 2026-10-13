@@ -150,6 +150,17 @@ async function main(report: Json) {
   await waitForAcceptance("bundled awards library", () => document.querySelector(".awards-summary b")?.textContent === "192");
   report.details.awardsReadyMs = Math.round(performance.now() - awardsStarted);
   check("awards_loaded", !document.querySelector(".awards-error"));
+  await click("Undock", ".awards-window-actions button");
+  let awardsWindow: Json | null = null;
+  const awardsDeadline = Date.now() + 20_000;
+  while (Date.now() < awardsDeadline) {
+    awardsWindow = await invoke<Json | null>("acceptance_awards_result");
+    if (awardsWindow) break;
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
+  report.details.detachedAwards = awardsWindow;
+  check("detached_awards", awardsWindow?.status === "passed" &&
+    awardsWindow?.checks?.catalogue === true && awardsWindow?.checks?.dock_available === true);
   if (largeLog) {
     report.details.performance.awardsFirstOpenMs = report.details.awardsReadyMs;
     await navigate("Operator Desk");
@@ -251,6 +262,15 @@ export async function startIntegratedAcceptance() {
       await waitForAcceptance("main-window band map projection", () => !!document.querySelector(".band-maps-scale output") && !document.body.textContent?.includes("Waiting for the main workspace projection"));
       report.details.scale = element(".band-maps-scale output").textContent;
       report.status = "passed";
+      await invoke("acceptance_monitor", { report });
+      return;
+    }
+    if (surface === "awards") {
+      await waitForAcceptance("detached Awards library", () => document.querySelector(".awards-summary b")?.textContent === "192");
+      report.checks.catalogue = !document.querySelector(".awards-error") && (await worker("logbook_catalog", { offset: 0, limit: 1 })).result.catalogue_total === 192;
+      report.checks.dock_available = !document.querySelector(".qso-read-radio") &&
+        [...document.querySelectorAll("button")].some(item => item.textContent?.trim() === "Dock back");
+      report.status = report.checks.catalogue && report.checks.dock_available ? "passed" : "failed";
       await invoke("acceptance_monitor", { report });
       return;
     }

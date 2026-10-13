@@ -99,7 +99,7 @@ fn workspace_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     windows.append(&PredefinedMenuItem::separator(app)?)?;
     for (id, title) in [("workspace_window_monitor", "Station Monitor"), ("workspace_window_world-map", "World Map"),
         ("workspace_window_band-maps", "Band Maps"), ("workspace_window_dx-cluster", "DX Cluster"),
-        ("workspace_window_logbook", "Logbook")] {
+        ("workspace_window_logbook", "Logbook"), ("workspace_window_awards", "Awards")] {
         windows.append(&MenuItem::with_id(app, id, title, true, None::<&str>)?)?;
     }
     Ok(menu)
@@ -224,7 +224,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     if invalidate {
         // The initiating view already refreshes after its operation. In
         // particular, ADIF batches must not reload that view after every chunk.
-        for label in ["main", "logbook"] {
+        for label in ["main", "logbook", "awards"] {
             if label != window.label() { let _ = app.emit_to(label, "xlog:logbook-changed", ()); }
         }
     }
@@ -328,6 +328,7 @@ async fn open_detached_workspace(app: tauri::AppHandle, kind: String) -> Result<
         "band-maps" => ("OM0RX-xLog — Band Maps", 920.0, 760.0),
         "dx-cluster" => ("OM0RX-xLog — DX Cluster", 1180.0, 800.0),
         "logbook" => ("OM0RX-xLog — Logbook", 1280.0, 800.0),
+        "awards" => ("OM0RX-xLog — Awards", 1280.0, 800.0),
         _ => return Err("Unknown detached map".into()),
     };
     if let Some(existing) = app.get_webview_window(&kind) {
@@ -370,7 +371,7 @@ fn cluster_session_selection(window: tauri::WebviewWindow, app: tauri::AppHandle
 
 #[tauri::command]
 fn dock_detached_window(window: tauri::WebviewWindow, app: tauri::AppHandle) -> Result<(), String> {
-    if !matches!(window.label(), "dx-cluster" | "world-map" | "band-maps" | "logbook") {
+    if !matches!(window.label(), "dx-cluster" | "world-map" | "band-maps" | "logbook" | "awards") {
         return Err("Only detachable workspaces can dock back".into());
     }
     // The revisioned route survives a main view that has not subscribed yet.
@@ -408,7 +409,7 @@ fn main() {
                 return;
             }
             if let Some(kind) = event.id().0.strip_prefix("workspace_window_") {
-                if matches!(kind, "monitor" | "world-map" | "band-maps" | "dx-cluster" | "logbook") {
+                if matches!(kind, "monitor" | "world-map" | "band-maps" | "dx-cluster" | "logbook" | "awards") {
                     let app = app.clone(); let kind = kind.to_owned();
                     tauri::async_runtime::spawn(async move {
                         let result = if kind == "monitor" { open_monitor(app).await } else { open_detached_workspace(app, kind).await };
@@ -444,7 +445,7 @@ fn main() {
             detached_cluster_ready, cluster_session_selection, dock_detached_window, close_logbook_window,
             acceptance::acceptance_enabled, acceptance::acceptance_large_log, acceptance::acceptance_monitor,
             acceptance::acceptance_screen,
-            acceptance::acceptance_monitor_result, acceptance::acceptance_logbook_result, acceptance::acceptance_prepare_final,
+            acceptance::acceptance_monitor_result, acceptance::acceptance_logbook_result, acceptance::acceptance_awards_result, acceptance::acceptance_prepare_final,
             acceptance::finish_acceptance])
         .build(context)
         .expect("Application failed to start")
