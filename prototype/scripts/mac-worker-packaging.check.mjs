@@ -3,6 +3,8 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { swiftWorkerBuildSystemArgs } from './swift-worker-build-system.mjs';
 
+// This standalone node:test gate uses .check.mjs so Vitest does not collect it.
+
 const source = name => readFileSync(new URL(name, import.meta.url), 'utf8');
 
 test('Mac staging selects the same Xcode build system as the resource-bearing worker', () => {
@@ -24,6 +26,6 @@ test('Mac packaging resolves Xcode products and retains the strict-signing resou
   assert.match(script, /binary_dir="\$\(XLOG_PORTABLE_ONLY=1 swift build --build-system xcode[^\n]+--show-bin-path\)"/);
   const destinations = [...script.matchAll(/ditto [^\n]*"\$bundle([^"\n]*OM0RXXLogPrototype_XLogCore\.bundle)"/g)].map(match => match[1]);
   assert.deepEqual(destinations, ['/Contents/Resources/OM0RXXLogPrototype_XLogCore.bundle']);
-  assert.match(script, /node --test prototype\/scripts\/mac-worker-packaging\.test\.mjs/);
+  assert.match(script, /node --test prototype\/scripts\/mac-worker-packaging\.check\.mjs/);
   assert.match(script, /codesign --verify --deep --strict "\$bundle"/);
 });

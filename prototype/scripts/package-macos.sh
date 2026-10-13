@@ -3,7 +3,7 @@ set -euo pipefail
 
 root="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$root"
-node --test prototype/scripts/mac-worker-packaging.test.mjs
+node --test prototype/scripts/mac-worker-packaging.check.mjs
 bash prototype/scripts/build-worker.sh
 node prototype/scripts/stage-worker.mjs
 bash prototype/scripts/stage-hamlib-macos.sh
