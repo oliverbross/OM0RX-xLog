@@ -3,6 +3,7 @@
   {"id":"log-qso","title":"Log QSO","group":"Logbook","shortcut":"CmdOrCtrl+2"},
   {"id":"logbook","title":"Logbook","group":"Logbook","shortcut":"CmdOrCtrl+3"},
   {"id":"dx-cluster","title":"DX Cluster","group":"View","shortcut":"CmdOrCtrl+4"},
+  {"id":"spot-history","title":"Spot History","group":"View","shortcut":null},
   {"id":"world-map","title":"World Map","group":"View","shortcut":null},
   {"id":"band-maps","title":"Band Maps","group":"View","shortcut":null},
   {"id":"chaser-dx","title":"Chaser & DX","group":"View","shortcut":null},

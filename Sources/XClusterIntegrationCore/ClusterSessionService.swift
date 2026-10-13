@@ -263,6 +263,12 @@ public typealias ClusterTransportFactory = @Sendable (
 ) -> any ClusterConnectionTransport
 
 public actor ClusterSessionService {
+    private struct HistorySegment {
+        let id = UUID()
+        let server: ClusterServerConfiguration
+        let generation: UUID
+        var sequence: Int64 = 0
+    }
     private var configuration: ClusterSessionConfiguration
     private var contacts = ClusterClassificationIndex.empty
     private var countries = ClusterCountryDirectory.empty
@@ -273,6 +279,7 @@ public actor ClusterSessionService {
     /// Invalidates callbacks queued by an earlier socket, including a reconnect to the same server ID.
     private var connectionGeneration = UUID()
     private var transportGenerations: [UUID: UUID] = [:]
+    private var historySegments: [UUID: HistorySegment] = [:]
     private var contactCounts: [String: Int] = [:]
     private var contactRevision = 0
     private var hasContactSnapshot = false
@@ -280,9 +287,14 @@ public actor ClusterSessionService {
     private let transportFactory: ClusterTransportFactory
     private let onUpdate: (@Sendable (ClusterSessionSnapshot) -> Void)?
     private let onSpot: (@Sendable (ClassifiedClusterSpot, UUID) -> Void)?
+    /// Synchronous admission sinks must return promptly; the host owns bounded storage.
+    private let onObservation: (@Sendable (ClusterSpotObservation) -> Void)?
+    private let onHistoryConnection: (@Sendable (ClusterHistoryConnectionEvent) -> Void)?
 
     public init(configuration: ClusterSessionConfiguration, onUpdate: (@Sendable (ClusterSessionSnapshot) -> Void)? = nil,
                 onSpot: (@Sendable (ClassifiedClusterSpot, UUID) -> Void)? = nil,
+                onObservation: (@Sendable (ClusterSpotObservation) -> Void)? = nil,
+                onHistoryConnection: (@Sendable (ClusterHistoryConnectionEvent) -> Void)? = nil,
                 transportFactory: @escaping ClusterTransportFactory = { server, password, reconnect, requestSkimmer, onState, onLine in
                     makeClusterTCPTransport(server: server, password: password, reconnect: reconnect,
                                             requestSkimmer: requestSkimmer, onState: onState, onLine: onLine)
@@ -290,6 +302,8 @@ public actor ClusterSessionService {
         self.configuration = configuration
         self.onUpdate = onUpdate
         self.onSpot = onSpot
+        self.onObservation = onObservation
+        self.onHistoryConnection = onHistoryConnection
         self.transportFactory = transportFactory
     }
 
@@ -318,6 +332,7 @@ public actor ClusterSessionService {
         let removed = Set(transports.keys).subtracting(retained)
         if !removed.isEmpty || !replacements.isEmpty { connectionGeneration = UUID() }
         for id in removed {
+            closeHistorySegment(serverID: id, at: Date(), phase: .disconnected)
             transportGenerations.removeValue(forKey: id)
             transports.removeValue(forKey: id)?.stop()
         }
@@ -376,9 +391,11 @@ public actor ClusterSessionService {
         let events = ClusterEventSequence()
         let transport = transportFactory(server, password, configuration.reconnect,
                                          configuration.requestSkimmer, { [weak self] phase, error in
-            events.submit { [weak self] in await self?.receiveState(serverID: server.id, generation: generation, phase: phase, error: error) }
+            let arrivedAt = Date()
+            events.submit { [weak self] in await self?.receiveState(serverID: server.id, generation: generation, phase: phase, error: error, arrivedAt: arrivedAt) }
         }, { [weak self] line in
-            events.submit { [weak self] in await self?.receiveLine(line, serverID: server.id, generation: generation) }
+            let arrivedAt = Date()
+            events.submit { [weak self] in await self?.receiveLine(line, serverID: server.id, generation: generation, arrivedAt: arrivedAt) }
         })
         transports[server.id] = transport
         statuses[server.id] = .init(serverID: server.id, serverName: server.name, phase: .connecting, error: nil)
@@ -387,6 +404,8 @@ public actor ClusterSessionService {
 
     public func disconnect() {
         connectionGeneration = UUID()
+        let stoppedAt = Date()
+        for id in Array(historySegments.keys) { closeHistorySegment(serverID: id, at: stoppedAt, phase: .disconnected) }
         transportGenerations.removeAll()
         for transport in transports.values { transport.stop() }
         transports.removeAll()
@@ -495,26 +514,33 @@ public actor ClusterSessionService {
             && snapshot().spots.contains(where: { $0.id == spotID })
     }
 
-    private func receiveState(serverID: UUID, generation: UUID, phase: ClusterConnectionPhase, error: String?) {
+    private func receiveState(serverID: UUID, generation: UUID, phase: ClusterConnectionPhase, error: String?, arrivedAt: Date) {
         guard generation == transportGenerations[serverID], transports[serverID] != nil else { return }
+        if phase == .connected, statuses[serverID]?.phase != .connected,
+           let server = configuration.servers.first(where: { $0.id == serverID }) {
+            closeHistorySegment(serverID: serverID, at: arrivedAt, phase: .disconnected)
+            openHistorySegment(server: server, generation: generation, at: arrivedAt, phase: .connected)
+        } else if phase != .connected {
+            closeHistorySegment(serverID: serverID, at: arrivedAt, phase: phase)
+        }
         statuses[serverID]?.phase = phase
         statuses[serverID]?.error = error
         publish()
     }
 
-    private func receiveLine(_ line: String, serverID: UUID, generation: UUID) {
+    private func receiveLine(_ line: String, serverID: UUID, generation: UUID, arrivedAt: Date) {
         guard generation == transportGenerations[serverID], transports[serverID] != nil,
               let server = configuration.servers.first(where: { $0.id == serverID }) else { return }
         guard line.utf8.count <= ClusterLineParser.maximumLineBytes else { return }
-        if let raw = ClusterLineParser.parse(line, clusterID: serverID, clusterName: server.name) {
-            addSpot(raw)
+        if let raw = ClusterLineParser.parse(line, clusterID: serverID, clusterName: server.name, at: arrivedAt) {
+            addSpot(raw, line: line, server: server, generation: generation, arrivedAt: arrivedAt)
         } else {
             appendConsole(source: server.name, text: line, isCommand: false)
         }
         publish()
     }
 
-    private func addSpot(_ raw: RawSpot) {
+    private func addSpot(_ raw: RawSpot, line: String, server: ClusterServerConfiguration, generation: UUID, arrivedAt: Date) {
         guard raw.callsign.utf8.count <= 32, raw.spotter.utf8.count <= 64 else { return }
         let country = countries.resolve(raw.callsign)
         let band = SpotLogic.band(for: raw.frequencyKHz)
@@ -527,7 +553,7 @@ public actor ClusterSessionService {
         var spot = ClassifiedClusterSpot(
             id: UUID(), receivedAt: raw.receivedAt, clusterName: raw.clusterName, spotter: raw.spotter,
             frequencyKHz: raw.frequencyKHz, frequencyText: raw.frequencyText, callsign: raw.callsign,
-            comment: String(decoding: Data(raw.comment.utf8.prefix(512)), as: UTF8.self),
+            comment: raw.comment,
             band: band, mode: mode, country: country?.name ?? "Unknown", adif: country?.adif,
             continent: country?.continent ?? "", cqZone: country?.cqZone, ituZone: country?.ituZone,
             latitude: country?.latitude, longitude: country?.longitude,
@@ -538,6 +564,24 @@ public actor ClusterSessionService {
             bandHex: configuration.palette.band[band] ?? "#B0B0B0",
             modeHex: configuration.palette.mode[mode] ?? "#B0B0B0"
         )
+        if onObservation != nil {
+            if historySegments[server.id] == nil {
+                openHistorySegment(server: server, generation: generation, at: arrivedAt,
+                                   phase: statuses[server.id]?.phase ?? .connecting)
+            }
+            if var segment = historySegments[server.id] {
+                segment.sequence += 1
+                historySegments[server.id] = segment
+                let (reportedAt, timeBasis, recordKind) = ClusterSpotObservation.reportTime(line: line, raw: raw, arrivedAt: arrivedAt)
+                onObservation?(.init(sessionID: segment.id, sequence: segment.sequence,
+                    clusterID: server.id, clusterName: raw.clusterName, clusterHost: segment.server.host,
+                    clusterPort: segment.server.port, transportGeneration: generation,
+                    arrivedAt: arrivedAt, reportedAt: reportedAt, timeBasis: timeBasis,
+                    recordKind: recordKind, rawLine: line, raw: raw, classified: spot,
+                    contactRevision: contactRevision))
+            }
+        }
+        spot.comment = String(decoding: Data(raw.comment.utf8.prefix(512)), as: UTF8.self)
         if let index = spots.firstIndex(where: { $0.callsign == spot.callsign && abs($0.frequencyKHz - spot.frequencyKHz) <= 0.1
             && raw.receivedAt.timeIntervalSince($0.receivedAt) < 180 }) {
             spot.aggregateCount = spots[index].aggregateCount + 1
@@ -548,6 +592,24 @@ public actor ClusterSessionService {
         let limit = max(min(configuration.maximumSpots, 500) * 2, 400)
         if spots.count > limit { spots.removeLast(spots.count - limit) }
         onSpot?(spot, connectionGeneration)
+    }
+
+    private func openHistorySegment(server: ClusterServerConfiguration, generation: UUID, at date: Date, phase: ClusterConnectionPhase) {
+        guard onObservation != nil || onHistoryConnection != nil else { return }
+        let segment = HistorySegment(server: server, generation: generation)
+        historySegments[server.id] = segment
+        publishHistoryConnection(segment, at: date, phase: phase)
+    }
+
+    private func closeHistorySegment(serverID: UUID, at date: Date, phase: ClusterConnectionPhase) {
+        guard let segment = historySegments.removeValue(forKey: serverID) else { return }
+        publishHistoryConnection(segment, at: date, phase: phase)
+    }
+
+    private func publishHistoryConnection(_ segment: HistorySegment, at date: Date, phase: ClusterConnectionPhase) {
+        onHistoryConnection?(.init(sessionID: segment.id, clusterID: segment.server.id,
+            clusterName: segment.server.name, clusterHost: segment.server.host, clusterPort: segment.server.port,
+            transportGeneration: segment.generation, occurredAt: date, phase: phase))
     }
 
     private func reclassify() {

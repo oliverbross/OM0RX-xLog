@@ -13,4 +13,11 @@ describe("available logbook row capacity", () => {
     expect(logbookCapacity(0, 0, 0)).toBe(100);
     expect(logbookCapacity(500, 35, NaN)).toBe(100);
   });
+  it("fills the same layout at 125%, 150% and 200% UI zoom", () => {
+    for (const zoom of [1.25, 1.5, 2]) {
+      expect(logbookCapacity(680, 35 * zoom, 28 * zoom, zoom)).toBe(22);
+      expect(logbookCapacity(320, 35 * zoom, 28 * zoom, zoom)).toBe(10);
+    }
+    expect(logbookCapacity(680, 35, 28, 0)).toBe(100);
+  });
 });

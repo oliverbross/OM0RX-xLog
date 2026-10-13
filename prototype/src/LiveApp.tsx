@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { Radio, BookOpen, Network, Map as MapIcon, Settings, Activity, Award, LayoutDashboard, ExternalLink, RefreshCw } from "lucide-react";
+import { Radio, BookOpen, Network, History, Map as MapIcon, Settings, Activity, Award, LayoutDashboard, ExternalLink, RefreshCw } from "lucide-react";
 import { workerRequest, openMonitor, openDetachedMap, detachedMapKind, findDetachedSpot,
   onDetachedSpot, onDetachedReady, onDetachedProjection, announceDetachedReady,
   publishDetachedProjection, requestDetachedSpot, onDetachedBandMapPreferences, requestDetachedBandMapPreferences,
@@ -10,6 +10,7 @@ import type { Spot } from "./model";
 import { ClusterPanel } from "./live/ClusterPanel";
 import { clusterSessionIntentKey, initializeNativeClusterResume, nativeClusterSession, shouldResumeCluster } from "./live/clusterResume";
 import OpportunitiesPanel, { type Opportunity } from "./live/OpportunitiesPanel";
+import { SpotHistoryPanel } from "./live/SpotHistoryPanel";
 import { useReferenceSchedule } from "./live/referenceSchedule";
 import { openDetachedCluster, dockDetachedWorkspace, onDetachedDock,
   publishClusterSelection } from "./live/DetachedClusterBridge";
@@ -65,7 +66,7 @@ import appLogo from "../src-tauri/icons/64x64.png";
 type Data = Record<string, any>;
 type Request = (method: string, params?: Data) => Promise<any>;
 const screenIcons: Record<string, typeof Radio> = {
-  "operator-desk": LayoutDashboard, "log-qso": Radio, logbook: BookOpen, "dx-cluster": Network,
+  "operator-desk": LayoutDashboard, "log-qso": Radio, logbook: BookOpen, "dx-cluster": Network, "spot-history": History,
   "world-map": MapIcon, "band-maps": Activity, "chaser-dx": Activity, awards: Award,
   "station-control": Radio, sync: RefreshCw, settings: Settings,
 };
@@ -794,6 +795,7 @@ function MainLiveApp() {
       }); }} />}
       {view === "DX Cluster" && <ClusterPanel passive snapshot={cluster} selectedSpotId={selected} onRequest={request} onSelect={selectSpot} onUndock={() => void openDetachedCluster().catch(e => setError(e.message))} />}
       {view === "Chaser & DX" && <OpportunitiesPanel request={request} refresh={refresh} onSelect={loadOpportunity} home={stats?.map_home} />}
+      {view === "Spot History" && <SpotHistoryPanel request={request} />}
       {view === "World Map" && <><div className="live-actions"><button type="button" onClick={() => void openDetachedMap("world-map").catch(e => setError(e.message))}><ExternalLink size={14} />Undock World Map</button></div><div className="live-map full">{map}</div></>}
       {view === "Band Maps" && <BandMaps spots={liveSpots} onSelect={selectSpot} radioFrequencyHz={station?.radio?.frequency_hz} onUndock={() => void openDetachedMap("band-maps").catch(e => setError(e.message))} preferences={workspacePreferences ? bandMapView(workspacePreferences, false) : undefined} onPreferencesChange={value => changeBandMapPreferences(false, value)} />}
       {view === "Station Control" && <><div className="live-tabs" role="group" aria-label="Station sections">{["Control and connections", "RUMlog spots"].map(section => <button key={section} aria-pressed={stationSection === section} onClick={() => setStationSection(section)}>{section}</button>)}</div>

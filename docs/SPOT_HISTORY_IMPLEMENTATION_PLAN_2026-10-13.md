@@ -1,6 +1,12 @@
 # Spot History implementation plan — 2026-10-13
 
-Status: source audit and proposed implementation contract. The new Spot History page and database are not implemented by this document. This audit inspected source only; it did not open live databases, credentials, applications, network connections, or radio hardware.
+Status: audited implementation contract; first source slice implemented and locally verified. This document distinguishes the intended complete feature from the bounded first slice below. See [source acceptance](SPOT_HISTORY_SOURCE_ACCEPTANCE_2026-10-13.md) for test, review and performance evidence. No live database, credential, application, cluster connection or radio hardware is used by its synthetic tests. Installed recording and packaged acceptance remain unverified.
+
+### First-slice implementation scope
+
+The first slice provides automatic per-report capture into separate SQLite storage, original report details, callsign/spotter exact or prefix search, arrival-UTC range/band/mode/source filters, stable snapshot pagination (maximum 100 rows per worker response), and full-filter statistics. It has a main-workspace page and native View menu entry. It does not replace Previous QSOs or import the reference project's existing archive.
+
+The wider contract below remains the parity ledger: explicit reported-time-axis filtering, additional geographic/special filters, export, optional retention controls, richer charts, and an independently scoped detached history window are not claimed by this first slice. History is retained by default. A database recording only while xLog receives reports cannot reconstruct periods when xLog or its cluster was disconnected.
 
 ## Required result
 
@@ -128,6 +134,6 @@ Source/temp-directory tests must cover:
 
 Use fake transports and injected temporary databases (`Tests/XClusterIntegrationTests/ClusterSessionServiceTests.swift:5–35`) and extend the existing parser boundaries (`ClusterParserBoundaryTests.swift:1–65`). Add focused Swift database/worker and React surface tests. Add portable source inclusion/build checks and Rust allowlist/bounds tests. A synthetic large archive should provide index plans and measured ingest/query/response-size results before performance claims; measure concurrent station/logbook responsiveness separately.
 
-Next implementation slice: separate portable database plus immutable observation model and ordered session sink; bounded query/status/statistics worker API; main Spot History route with callsign/UTC filters, paged rows and summary statistics. Preserve Previous QSOs and cluster connection ownership. Advanced charts, lossless export UI and optional retention controls can follow only with clearly labeled scope; storage/error/shutdown correctness is part of the first slice, not deferred polish.
+Implemented first source slice: separate portable database plus immutable observation model and ordered session sink; bounded query/status/statistics worker API; main Spot History route with callsign/UTC filters, paged rows and summary statistics. Previous QSOs and cluster connection ownership are preserved. Advanced charts, lossless export UI and optional retention controls remain follow-up scope; storage/error/shutdown correctness is covered by the first-slice tests.
 
 Native acceptance remains separate: exact packaged macOS/Windows/Linux worker database availability, permissions/WAL behavior, actual WebView routing and bounded rendering, restart persistence and shutdown drain. X11/Wayland UI behavior and Windows clean-machine SQLite runtime closure need evidence. Physical cluster reception and external server-history completeness are not established by fake transports, source tests or this plan. No RF/hardware evidence is required for a read-only archive page, and no such action was performed during this audit.

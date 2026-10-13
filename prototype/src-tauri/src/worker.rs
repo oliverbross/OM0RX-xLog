@@ -174,6 +174,10 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "cluster_password_set",
         "cluster_console_clear",
         "cluster_history",
+        "spot_history_status",
+        "spot_history_query",
+        "spot_history_detail",
+        "spot_history_stats",
         "lookup_call",
         "weather",
         "propagation_snapshot",
@@ -595,6 +599,20 @@ fn request_in_session(
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn spot_history_reads_are_scoped_to_main_workspace() {
+        for method in ["spot_history_status", "spot_history_query", "spot_history_detail", "spot_history_stats"] {
+            let request = json!({"id":"history", "method":method, "params":{}});
+            assert!(validate_surface("main", &request).is_ok());
+            for label in ["logbook", "awards", "monitor", "world-map", "band-maps", "dx-cluster", "unknown"] {
+                assert!(validate_surface(label, &request).is_err(), "{label}: {method}");
+            }
+        }
+        for method in ["spot_history_delete", "spot_history_purge", "spot_history_export"] {
+            assert!(validate_request(&json!({"id":"history", "method":method, "params":{}})).is_err());
+        }
+    }
 
     #[test]
     fn sync_summary_is_readable_only_by_the_main_workspace() {

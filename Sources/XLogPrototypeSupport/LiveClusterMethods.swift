@@ -34,6 +34,7 @@ public actor LiveClusterMethods {
     private var forwardStatus = "Off"
     private var forwardRetryAfter = Date.distantPast
     private var terminated = false
+    private var history: LiveSpotHistoryMethods?
     private enum ResumeIntent: String, Codable { case automatic, connected, disconnected }
     private struct ResumeRecord: Codable { let version: Int; let intent: ResumeIntent }
     private var resumeChecked = false
@@ -67,6 +68,7 @@ public actor LiveClusterMethods {
     func terminate() async {
         terminated = true
         await service?.terminate()
+        await history?.stop()
     }
 
     private func requireRunning() throws {
@@ -75,6 +77,11 @@ public actor LiveClusterMethods {
 
     public func handle(method: String, params: [String: Any]) async throws -> [String: Any] {
         try requireRunning()
+        if method.hasPrefix("spot_history_") {
+            let result = try await historyService().handle(method: method, params: params)
+            try requireRunning()
+            return result
+        }
         if method == "cluster_history" {
             return try logbook.handle(method: method, params: params)
         }
@@ -271,9 +278,10 @@ public actor LiveClusterMethods {
         } else {
             config = ClusterSessionConfiguration(servers: [])
         }
+        let archive = historyService()
         let created = ClusterSessionService(configuration: config, onSpot: { [weak self] spot, generation in
             Task { await self?.forwardSpotIfEnabled(spot, generation: generation) }
-        }, transportFactory: transportFactory)
+        }, onObservation: { archive.observe($0) }, onHistoryConnection: { archive.connection($0) }, transportFactory: transportFactory)
         configuration = config
         forwardStatus = config.forwardSpotsToFlex ? (forwardingAvailable ? "Enabled; connect a cluster and direct-agent station." : "Unavailable on this platform") : "Off"
         service = created
@@ -291,6 +299,13 @@ public actor LiveClusterMethods {
                 throw WorkerFailure("unsafe_configuration", "Cluster configuration cannot use a symbolic link.")
             }
         }
+    }
+
+    private func historyService() -> LiveSpotHistoryMethods {
+        if let history { return history }
+        let created = LiveSpotHistoryMethods(url: configurationURL.deletingLastPathComponent().appendingPathComponent("spot-history.sqlite"))
+        history = created
+        return created
     }
 
     private func saveConfiguration(_ value: ClusterSessionConfiguration) throws {

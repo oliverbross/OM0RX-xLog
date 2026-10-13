@@ -76,7 +76,7 @@ public actor LiveWorker {
                 }
                 try LocalAcceptanceSession.validate(method: method, params: params)
             }
-            if terminalShutdown && (method.hasPrefix("sync_") || method.hasPrefix("secret_") || method.hasPrefix("station_") || method.hasPrefix("spot_bridge_") || method.hasPrefix("opportunities_") || method.hasPrefix("cluster_") || method.hasPrefix("logbook_operator_draft") || method.hasPrefix("logbook_contact") || ["weather", "propagation_snapshot", "lookup_call"].contains(method)) {
+            if terminalShutdown && (method.hasPrefix("sync_") || method.hasPrefix("secret_") || method.hasPrefix("station_") || method.hasPrefix("spot_bridge_") || method.hasPrefix("spot_history_") || method.hasPrefix("opportunities_") || method.hasPrefix("cluster_") || method.hasPrefix("logbook_operator_draft") || method.hasPrefix("logbook_contact") || ["weather", "propagation_snapshot", "lookup_call"].contains(method)) {
                 throw WorkerFailure("worker_stopping", "The worker is shutting down; no new service request was started.")
             }
             if method == "health" {
@@ -109,7 +109,7 @@ public actor LiveWorker {
                 }
             } else if method.hasPrefix("opportunities_") {
                 result = try await opportunities.handle(method: method, params: params)
-            } else if method.hasPrefix("cluster_") {
+            } else if method.hasPrefix("cluster_") || method.hasPrefix("spot_history_") {
                 result = try await cluster.handle(method: method, params: params)
             } else if method == "weather" || method == "propagation_snapshot" {
                 result = try await publicServices.handle(method: method, params: params)

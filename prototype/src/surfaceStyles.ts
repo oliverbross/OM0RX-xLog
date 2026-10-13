@@ -3,6 +3,7 @@
 // chunks, overriding the shared typography and layout corrections in live.css.
 import "./live/ClusterPanel.css";
 import "./live/OpportunitiesPanel.css";
+import "./live/SpotHistoryPanel.css";
 import "./live/data-management.css";
 import "./live/logbook.css";
 import "./live/AgentConfiguration.css";

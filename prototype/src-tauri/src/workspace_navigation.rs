@@ -51,7 +51,7 @@ mod tests {
     use super::*;
     #[test]
     fn inventory_has_all_existing_screens_unique_ids_titles_and_shortcuts() {
-        let expected = ["operator-desk", "log-qso", "logbook", "dx-cluster", "world-map", "band-maps", "chaser-dx", "awards", "station-control", "sync", "settings"];
+        let expected = ["operator-desk", "log-qso", "logbook", "dx-cluster", "spot-history", "world-map", "band-maps", "chaser-dx", "awards", "station-control", "sync", "settings"];
         assert_eq!(screens().len(), expected.len());
         for id in expected { assert!(screen(id).is_some(), "Missing {id}"); }
         let mut ids = std::collections::HashSet::new();
