@@ -2,9 +2,10 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { DetachedOpportunitiesSurface, requestDetachedOpportunity } from "./DetachedOpportunitiesSurface";
+import { loadWindowSurface } from "../windowSurface";
 
-const api = vi.hoisted(() => ({ worker: vi.fn(), dock: vi.fn(), activate:vi.fn() }));
-vi.mock("./useSpotActivation", () => ({ useSpotActivation: () => ({ status:null, error:"", requesting:false, activate:api.activate, reconcile:vi.fn() }) }));
+const api = vi.hoisted(() => ({ worker: vi.fn(), dock: vi.fn(), activate:vi.fn(), status: null as null | { phase: "uncertain"; operationId: string; tuneConfirmed: boolean; rotor: string } }));
+vi.mock("./useSpotActivation", () => ({ useSpotActivation: () => ({ status:api.status, error:"", requesting:false, activate:api.activate, reconcile:vi.fn() }) }));
 vi.mock("../worker", () => ({ workerRequest: api.worker }));
 vi.mock("./DetachedClusterBridge", () => ({ dockDetachedWorkspace: api.dock }));
 vi.mock("../Map", () => ({ default: () => <div>Opportunity map</div> }));
@@ -16,7 +17,19 @@ const opportunity = { id: "pota:OM0RX:OM-0001", kind: "pota", callsign: "OM0RX/P
 const snapshot = { generated_at: "2026-10-14T05:01:00Z", items: [opportunity], total_available: 1, history_state: "ready",
   sources: [], selection_tunes: false, transmit: false };
 
-afterEach(() => { cleanup(); localStorage.clear(); vi.resetAllMocks(); });
+afterEach(() => { cleanup(); localStorage.clear(); vi.resetAllMocks(); api.status = null; });
+
+it("opens the direct-menu Chaser & DX at its task content without the global uncertain activation banner", async () => {
+  api.worker.mockResolvedValue({ result: snapshot });
+  api.status = { phase: "uncertain", operationId: crypto.randomUUID(), tuneConfirmed: false, rotor: "uncertain" };
+  const Surface = await loadWindowSurface("?view=chaser-dx");
+  render(<Surface />);
+  await screen.findByText("Verified park");
+  expect(screen.queryByText(/Spot activation outcome is uncertain/)).toBeNull();
+  expect(screen.queryByRole("button", { name: /Check activation/ })).toBeNull();
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(screen.getByRole("button", { name: /Load .* into QSO draft/ })).toBeTruthy();
+});
 
 it("owns a main-absent view and delegates draft selection only to the protected native owner", async () => {
   api.worker.mockResolvedValue({ result: snapshot }); api.dock.mockResolvedValue(undefined);
