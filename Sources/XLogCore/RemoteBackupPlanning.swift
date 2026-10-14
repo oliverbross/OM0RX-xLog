@@ -1,6 +1,6 @@
 import Foundation
 
-/// Pure planning only. Authentication, package sealing, upload and verification belong to a future executor.
+/// Validation errors shared by planning and immutable-envelope execution.
 public enum RemoteBackupPlanningError: Error, Equatable, Sendable {
     case invalidDestination, invalidPath, invalidSchedule, invalidRetention
     case invalidPackage, staleContext, invalidReceipt
@@ -183,5 +183,71 @@ public struct RemoteBackupRetentionPlan: Equatable, Sendable {
             return $0.plan.backupID.uuidString < $1.plan.backupID.uuidString
         }
         deletions = Array(verified.dropFirst(keep))
+    }
+}
+
+public enum RemoteBackupExclusiveCreateResult: Equatable, Sendable {
+    case created
+    /// The adapter guarantees this attempt wrote no remote bytes.
+    case notCreated
+    /// A pre-existing object must never be overwritten or claimed by this operation.
+    case conflict
+}
+
+/// Provider adapters must enforce destination transport security and create the named
+/// object exclusively. They receive frozen bytes only; package URLs are never used.
+/// A thrown error may follow a partial or completed write and is therefore uncertain.
+public protocol RemoteBackupUploadTransport: Sendable {
+    func createExclusively(plan: RemoteBackupUploadPlan, bytes: Data) async throws -> RemoteBackupExclusiveCreateResult
+    /// Independently read/hash the remote content; upload acknowledgements and echoed
+    /// client checksums are insufficient evidence of remote content identity.
+    func verifiedRemoteIdentity(plan: RemoteBackupUploadPlan) async throws -> RemoteBackupPackageIdentity
+}
+
+public enum RemoteBackupExecutionError: Error, Equatable, Sendable {
+    case operationInProgress, conflictingOperation
+}
+
+/// Session-scoped idempotency. Keep one coordinator for the application's backup owner.
+/// Receipts are not durable; restart recovery and authenticated receipt storage remain
+/// separate work. Unknown/pre-existing remote objects always remain conflicts.
+public actor RemoteBackupUploadCoordinator {
+    private struct Operation {
+        let plan: RemoteBackupUploadPlan
+        var receipt: RemoteBackupUploadReceipt?
+    }
+    // A backup ID names one object even if destination configuration changes.
+    private var operations: [UUID: Operation] = [:]
+
+    public init() {}
+
+    public func upload(envelope: XLogBackupEnvelope, plan: RemoteBackupUploadPlan,
+                       workspaceGeneration: UInt64, destination: RemoteBackupDestination,
+                       transport: any RemoteBackupUploadTransport) async throws -> RemoteBackupUploadReceipt {
+        try envelope.validate(for: plan, workspaceGeneration: workspaceGeneration, destination: destination)
+        if let operation = operations[plan.backupID] {
+            guard operation.plan == plan else { throw RemoteBackupExecutionError.conflictingOperation }
+            guard let receipt = operation.receipt else { throw RemoteBackupExecutionError.operationInProgress }
+            return receipt
+        }
+        try Task.checkCancellation()
+        operations[plan.backupID] = Operation(plan: plan)
+        let outcome: RemoteBackupUploadOutcome
+        do {
+            switch try await transport.createExclusively(plan: plan, bytes: envelope.data) {
+            case .notCreated, .conflict:
+                outcome = .failed
+            case .created:
+                let identity = try await transport.verifiedRemoteIdentity(plan: plan)
+                outcome = identity == plan.package ? .verified(package: identity, at: Date()) : .uncertain
+            }
+        } catch {
+            // Do not expose provider errors, which may contain credentials, or retry
+            // an ambiguous write. No uncertain result can become a retention candidate.
+            outcome = .uncertain
+        }
+        let receipt = try RemoteBackupUploadReceipt(plan: plan, outcome: outcome)
+        operations[plan.backupID] = Operation(plan: plan, receipt: receipt)
+        return receipt
     }
 }
