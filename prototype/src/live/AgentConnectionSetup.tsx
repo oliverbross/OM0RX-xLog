@@ -3,6 +3,8 @@ import { listen } from "@tauri-apps/api/event";
 import { loadStationSession, stationSessionRequest, type FlexConfiguration, type HamlibConfiguration, type StationReceipt, type StationSession } from "./stationSession";
 import type { StationProvider } from "../worker";
 import { SharedHamlibModelBrowser } from "./HamlibModelPicker";
+import type { MonitorContext } from "./monitorContext";
+import { stationReceiveAvailable } from "./stationReceive";
 
 const journalKey = "xlog.station-session.pending";
 const reviewedKey = "xlog.station-session.reviewed";
@@ -10,13 +12,14 @@ const providerLabels: Record<StationProvider, string> = { direct_agent: "Remote 
 const notice = (receipt: StationReceipt) => receipt.request.action === "select"
   ? receipt.status === "acknowledged" ? "Radio selection acknowledged. Connect the selected radio explicitly."
     : "Radio selection outcome is unknown. Review the selected radio and check this receipt before another request."
+  : receipt.request.action.startsWith("receive_") ? receipt.status === "acknowledged" ? "Receive control request acknowledged. Check fresh observations before another action." : "Receive control outcome is unknown. Check observed state and this receipt before another action."
   : receipt.status === "saved" ? receipt.request.action === "save_hamlib" ? "Hamlib configuration saved. No connection was started." : receipt.request.action === "save_flex" ? "FLEX configuration saved. No connection was started." : "Agent endpoint saved. No connection was started."
   : receipt.status === "acknowledged" ? "Connection request acknowledged. Check observed station state before operating."
   : "Connection outcome is unknown. Check observed station state before issuing another connection request.";
 
 /** Desk and child share one native radio setup, lifecycle and receipt owner. */
-export function AgentConnectionSetup({ connections = false, legacyEndpoint = "", providers = false, onlySelection = false, selectionTarget, hamlib: hamlibSetup = false, flex: flexSetup = false, followSelection = false }: {
-  connections?: boolean; legacyEndpoint?: string; providers?: boolean; onlySelection?: boolean; selectionTarget?: StationProvider; hamlib?: boolean; flex?: boolean; followSelection?: boolean;
+export function AgentConnectionSetup({ connections = false, legacyEndpoint = "", providers = false, onlySelection = false, selectionTarget, hamlib: hamlibSetup = false, flex: flexSetup = false, followSelection = false, receiveContext }: {
+  connections?: boolean; legacyEndpoint?: string; providers?: boolean; onlySelection?: boolean; selectionTarget?: StationProvider; hamlib?: boolean; flex?: boolean; followSelection?: boolean; receiveContext?: MonitorContext | null;
 }) {
   const [state, setState] = useState<StationSession | null>(null), [url, setURL] = useState("");
   const hamlib = hamlibSetup || followSelection && state?.selection.provider === "hamlib";
@@ -24,6 +27,7 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
   const [config, setConfig] = useState<HamlibConfiguration>({ mode: "managed", model: undefined, path: "", baud: 9600 });
   const [flexConfig, setFlexConfig] = useState<FlexConfiguration>({ host: "", port: 4992, station_name: "OM0RX-xLog" });
   const [token, setToken] = useState(""), [transmit, setTransmit] = useState(false);
+  const [receiveMHz, setReceiveMHz] = useState(""), [consumedObservation, setConsumedObservation] = useState("");
   const [busy, setBusy] = useState(false), [message, setMessage] = useState(""), [error, setError] = useState("");
   const [pending, setPending] = useState(() => sessionStorage.getItem(journalKey));
   const [conflict, setConflict] = useState(false);
@@ -72,15 +76,27 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
     return () => { active.current = false; readSequence.current++; stops.forEach(stop => stop()); window.removeEventListener("focus", focused); };
   }, []);
   const target = selectionTarget ?? providerTarget ?? (state?.selection.provider as StationProvider | null) ?? "direct_agent";
-  const execute = async (action: "save" | "connect" | "reconnect" | "disconnect" | "forget" | "select") => {
+  const observation = receiveContext ? `${receiveContext.selection?.selection_id}:${receiveContext.selection?.control_revision}:${receiveContext.radio.received_at_ms}` : "";
+  const receiveHz = receiveMHz.trim() && Number.isFinite(Number(receiveMHz)) ? Math.round(Number(receiveMHz) * 1e6) : 0;
+  const receiveReady = () => observation !== consumedObservation && stationReceiveAvailable(receiveContext ?? null)
+    && state?.selection.provider === receiveContext?.selection?.provider && state?.selection.selection_id === receiveContext?.selection?.selection_id
+    && state?.selection.generation === receiveContext?.selection?.generation;
+  const execute = async (action: "save" | "connect" | "reconnect" | "disconnect" | "forget" | "select" | "receive_frequency") => {
     const base = current.current;
     if (!base || inFlight.current || pending) return;
+    const receive = action === "receive_frequency";
+    if (receive && (!receiveReady() || !Number.isSafeInteger(receiveHz) || receiveHz < 100_000 || receiveHz > 1_000_000_000)) return;
     inFlight.current = true; setBusy(true); setError(""); setMessage("");
     const id = crypto.randomUUID();
     try {
       // Journal identity only: tokens and access-bearing connection details never enter browser storage.
       sessionStorage.setItem(journalKey, id); setPending(id);
-      const receipt = await stationSessionRequest<StationReceipt>({ action: action !== "select" && (hamlib || flex) ? `${action}_${flex ? "flex" : "hamlib"}` : action, operation_id: id, generation: base.generation, revision: base.revision,
+      if (receive) setConsumedObservation(observation);
+      const receipt = await stationSessionRequest<StationReceipt>(receive ? { action, operation_id: id, generation: base.generation, revision: base.revision,
+        provider: "direct_flex_lan", selection_generation: receiveContext!.selection!.generation, selection_id: receiveContext!.selection!.selection_id,
+        control_revision: receiveContext!.selection!.control_revision, connection_generation: receiveContext!.radio.snapshot.generation,
+        frequency_hz: receiveHz }
+        : { action: action !== "select" && (hamlib || flex) ? `${action}_${flex ? "flex" : "hamlib"}` : action, operation_id: id, generation: base.generation, revision: base.revision,
         ...(action === "save" ? flex ? { configuration: { ...flexConfig, host: flexConfig.host.trim(), station_name: flexConfig.station_name.trim() } } : hamlib ? { configuration: config } : { base_url: url.trim() } : { selection_generation: base.selection.generation, selection_id: base.selection.selection_id,
           ...(action === "select" ? { provider: target } : { allow_transmit: ["connect", "reconnect"].includes(action) && transmit }), ...(!hamlib && !flex && action === "connect" && token ? { token } : {}) }) });
       if (!active.current) return;
@@ -99,6 +115,7 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
       if (!active.current) return;
       setError(""); setMessage(receipt ? notice(receipt) : "No operation was admitted under this identity. Refresh setup before trying again.");
       if (!receipt || receipt.status === "saved" || receipt.status === "acknowledged") {
+        if (!receipt) setConsumedObservation("");
         sessionStorage.removeItem(journalKey); setPending(null); await refresh();
       }
     } catch { if (active.current) setError("The receipt is unavailable. Keep this operation pending and check again."); }
@@ -130,6 +147,11 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
         <button type="button" disabled={!selected || !state?.flex || dirty.current || conflict || busy || !!pending} onClick={() => void execute("reconnect")}>Reconnect saved FLEX radio</button>
         <button type="button" disabled={!selected || busy || !!pending} onClick={() => void execute("disconnect")}>Disconnect FLEX radio</button></div>
       <p>Reconnect replaces the connection with saved setup and the current transmit opt-in. No previous radio commands are replayed.</p>
+      {receiveContext !== undefined && <section aria-label="Direct FLEX receive controls"><h3>Receive VFO A</h3>
+        <p>Frequency control requires a fresh observed receive state on VFO A. A request acknowledgement does not confirm the new radio state.</p>
+        <label>Receive frequency MHz<input aria-label="Child receive frequency MHz" inputMode="decimal" value={receiveMHz} onChange={event => setReceiveMHz(event.target.value)} /></label>
+        <button type="button" disabled={!receiveReady() || busy || !!pending || receiveHz < 100_000 || receiveHz > 1_000_000_000} onClick={() => void execute("receive_frequency")}>Set receive VFO A frequency</button>
+      </section>}
       {!selected && <p>Select Direct FLEX LAN before connecting.</p>}
     </>}
     {hamlib && !flex && <><h3>Shared Hamlib radio connection</h3><p>Save configuration for Desk and Station Control, then connect explicitly. Saving does not contact a device. Request transmit permission separately for each connection.</p>

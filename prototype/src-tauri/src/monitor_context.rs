@@ -40,7 +40,7 @@ fn retained(
     let after = selection();
     // A busy/changing radio never removes independent rotor state or Stop.
     let coherent = before.as_ref().ok().zip(after.as_ref().ok()).is_some_and(|(before, after)|
-        ["provider", "generation", "selection_id"].iter().all(|key| before[*key] == after[*key]));
+        ["provider", "generation", "selection_id", "control_revision"].iter().all(|key| before[*key] == after[*key]));
     let selection = after.ok().unwrap_or(Value::Null);
     let radio = radio.ok().filter(|radio| coherent && selection["provider"].is_string()
         && radio["provider"] == selection["provider"] && radio["selection_id"] == selection["selection_id"]
@@ -126,6 +126,13 @@ mod tests {
         let value = retained(|| Ok(choice(3)), || Ok(radio()), || Ok(rotor()));
         assert_eq!(value["selection"], choice(3)); assert_eq!(value["radio"]["available"], false);
         assert_eq!(value["rotor"], rotor());
+    }
+    #[test]
+    fn a_control_between_retained_reads_invalidates_the_radio_without_hiding_the_rotor() {
+        let revision = AtomicU64::new(0);
+        let value = retained(|| { let mut selected = choice(1); selected["control_revision"] = json!(revision.fetch_add(1, Ordering::AcqRel)); Ok(selected) },
+            || Ok(radio()), || Ok(rotor()));
+        assert_eq!(value["radio"]["available"], false); assert_eq!(value["rotor"], rotor());
     }
     #[test]
     fn action_scope_cannot_choose_a_provider_or_send_other_commands() {

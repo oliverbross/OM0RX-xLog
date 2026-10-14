@@ -447,6 +447,12 @@ async fn station_session_request(app: tauri::AppHandle, window: tauri::WebviewWi
     let telemetry = station_telemetry::owner(&app)?;
     let changed = app.clone();
     let result = tauri::async_runtime::spawn_blocking(move || owner.apply(&params, |request, generation, identity| {
+        if request["method"] == "station_radio_control" {
+            let connection = request["params"]["expected_generation"].as_u64().ok_or("Missing exact radio generation.")?;
+            let control = request["params"]["control"].as_str().ok_or("Missing receive control.")?.to_owned();
+            return selection.receive_control(request, generation, identity, params["control_revision"].as_u64().ok_or("Missing radio control revision.")?,
+                || telemetry.receive_control(generation, identity, connection, &control));
+        }
         if let Some(owner) = cw_session_backend::existing() { owner.revoke()?; let _ = owner.stop(); }
         auto_rotor::revoke();
         let _auto_change = auto_rotor::canonical_will_change();

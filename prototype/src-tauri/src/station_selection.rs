@@ -530,6 +530,10 @@ impl Selection {
         }
         self.control_scoped(request, Some((expected, selection_id)), admit)
     }
+    pub fn receive_control<G>(&self, request: Value, expected: u64, identity: &str, control_revision: u64,
+        admit: impl FnOnce() -> Result<G, String>) -> Result<Value, String> {
+        self.control_scoped_dispatch(request, Some((expected, identity, Some(control_revision))), admit, |request| (self.transport)(request))
+    }
     /// Native spot tuning reserves nonurgent radio controls, not a transport or
     /// telemetry mutex. Source identity is rechecked at this admission point.
     pub(crate) fn activation_tune<G>(&self, request: Value, expected: &Value,
@@ -560,15 +564,15 @@ impl Selection {
         result
     }
     fn control_scoped<G>(&self, request: Value, expected: Option<(u64, &str)>, admit: impl FnOnce() -> Result<G, String>) -> Result<Value, String> {
-        self.control_scoped_dispatch(request, expected, admit, |request| (self.transport)(request))
+        self.control_scoped_dispatch(request, expected.map(|(generation, identity)| (generation, identity, None)), admit, |request| (self.transport)(request))
     }
     /// CW retains its worker identity: a restarted worker must never receive a
     /// delayed macro through the ordinary reconnecting transport.
     pub(crate) fn cw_control(&self, request: Value, expected: u64, selection_id: &str,
         dispatch: impl FnOnce(Value) -> Result<Value, String>) -> Result<Value, String> {
-        self.control_scoped_dispatch(request, Some((expected, selection_id)), || Ok(()), dispatch)
+        self.control_scoped_dispatch(request, Some((expected, selection_id, None)), || Ok(()), dispatch)
     }
-    fn control_scoped_dispatch<G>(&self, request: Value, expected: Option<(u64, &str)>, admit: impl FnOnce() -> Result<G, String>,
+    fn control_scoped_dispatch<G>(&self, request: Value, expected: Option<(u64, &str, Option<u64>)>, admit: impl FnOnce() -> Result<G, String>,
         dispatch: impl FnOnce(Value) -> Result<Value, String>) -> Result<Value, String> {
         let mut state = self
             .state
@@ -578,7 +582,8 @@ impl Selection {
         if state.activation_tune && !urgent_release(&request) {
             return Err("A spot tune is in progress; only urgent release controls are available.".into());
         }
-        if expected.is_some_and(|(generation, identity)| state.generation != generation || state.selection_id.as_deref() != Some(identity)) {
+        if expected.is_some_and(|(generation, identity, revision)| state.generation != generation || state.selection_id.as_deref() != Some(identity)
+            || revision.is_some_and(|revision| revision != state.control_revision)) {
             return Err("Selected radio changed. Refresh before sending another monitor action.".into());
         }
         let requested = if request["method"]
@@ -1814,6 +1819,18 @@ mod tests {
             owner.monitor_action(action(), 2, id, || Ok(())).unwrap();
             assert_eq!(calls.lock().unwrap().iter().filter(|request| request["method"] == method).count(), before + 1);
         }
+    }
+    #[test]
+    fn child_receive_control_checks_selection_identity_and_control_revision_before_admission() {
+        let (_directory, owner, calls) = fixture(); let first = initialized(&owner, Some("direct_flex_lan"));
+        let identity = first["selection_id"].as_str().unwrap(); let revision = first["control_revision"].as_u64().unwrap();
+        let request = || json!({"id":"receive-child","method":"station_radio_control","params":{"provider":"direct_flex_lan","control":"set_frequency_a","frequency_hz":14074000,"expected_generation":13}});
+        for (generation, id, control_revision) in [(1, identity, revision), (0, "wrong", revision), (0, identity, revision + 1)] {
+            assert!(owner.receive_control(request(), generation, id, control_revision, || -> Result<(), String> { panic!("stale receive action admitted") }).is_err());
+        }
+        owner.receive_control(request(), 0, identity, revision, || Ok(())).unwrap();
+        assert!(owner.receive_control(request(), 0, identity, revision, || -> Result<(), String> { panic!("duplicate observation admitted") }).is_err());
+        assert_eq!(calls.lock().unwrap().iter().filter(|request| request["method"] == "station_radio_control").count(), 1);
     }
     #[test]
     fn admitted_monitor_action_excludes_handover_without_holding_selection_lock_over_transport() {

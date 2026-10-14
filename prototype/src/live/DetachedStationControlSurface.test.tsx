@@ -111,6 +111,7 @@ it("keeps dock failures visible across observation refresh and allows retry", as
 });
 
 function sharedAgent(loseConnect = false, loseSelection = false, provider = "direct_agent") {
+  let observation = syntheticMonitorContext();
   let state: StationSession = { generation: "shared-setup", revision: 4, base_url: "https://station.example", last_receipt: null,
     hamlib: { mode: "managed", model: 1, path: "", baud: 9600 },
     flex: { host: "192.168.1.50", port: 4992, station_name: "xLog" },
@@ -121,14 +122,14 @@ function sharedAgent(loseConnect = false, loseSelection = false, provider = "dir
     return () => listeners.delete(handler);
   });
   native.invoke.mockImplementation(async (command, args) => {
-    if (command === "monitor_context_snapshot") return syntheticMonitorContext();
+    if (command === "monitor_context_snapshot") return structuredClone(observation);
     if (command !== "station_session_request") throw new Error(`Unexpected authority: ${command}`);
     const params = args.params;
     if (params.action === "snapshot") return structuredClone(state);
     if (params.action === "hamlib_catalogue") return { models: [{ id: 1, manufacturer: "Hamlib", model: "Dummy", maturity: "Stable" }, { id: 3073, manufacturer: "Icom", model: "IC-7300", maturity: "Stable" }] };
     if (params.action === "receipt") return state.last_receipt;
     actions.push(params);
-    const lost = loseConnect && ["connect", "connect_flex", "reconnect_flex"].includes(params.action) || loseSelection && params.action === "select";
+    const lost = loseConnect && ["connect", "connect_flex", "reconnect_flex", "receive_frequency"].includes(params.action) || loseSelection && params.action === "select";
     state = { ...state, revision: state.revision + 1,
       ...(params.action === "save_hamlib" ? { hamlib: params.configuration } : {}),
       ...(params.action === "save_flex" ? { flex: params.configuration } : {}),
@@ -137,7 +138,7 @@ function sharedAgent(loseConnect = false, loseSelection = false, provider = "dir
     if (lost) throw new Error("Lost child acknowledgement");
     return structuredClone(state.last_receipt);
   });
-  return { actions, wake: () => subscribers.get("xlog:station-session")?.forEach(handler => handler()), state: () => state };
+  return { actions, wake: () => subscribers.get("xlog:station-session")?.forEach(handler => handler()), state: () => state, observe: (next: MonitorContext) => { observation = next; } };
 }
 it("independent child mounts passively and sends exact Agent lifecycle actions through the shared owner", async () => {
   const owner = sharedAgent(); render(<DetachedStationControlSurface />); await act(async () => {});
@@ -293,4 +294,65 @@ it("independent child explicitly browses radio models and selection edits only t
   fireEvent.click(screen.getByRole("button", { name: "Save Hamlib configuration" })); await act(async () => {});
   expect(owner.actions).toHaveLength(1); expect(owner.actions[0]).toMatchObject({ action: "save_hamlib", configuration: { model: 3073 } });
   expect(native.worker).not.toHaveBeenCalled();
+});
+function flexReceiveContext(): MonitorContext {
+  const context = syntheticMonitorContext(), identity = crypto.randomUUID();
+  context.selection = { provider: "direct_flex_lan", generation: 8, selection_id: identity, control_revision: 9 };
+  context.radio = { revision: 1, available: true, provider: "direct_flex_lan", selection_id: identity, selection_generation: 8, received_at_ms: Date.now(),
+    snapshot: { source: "direct_flex_lan", generation: 13, generated_at: Date.now() / 1000,
+      radio: { observed: true, observed_at: Date.now() / 1000, connected: true, transmitting: false, receive_vfo: "A", frequency_hz: 14074000, mode: "USB", vfos: [{ letter: "A", receive: true }] },
+      capabilities: { supported_commands: ["set_frequency_a", "set_mode"] } } };
+  return context;
+}
+it("child sends only explicit exact receive frequency requests and waits for a new observation", async () => {
+  const owner = sharedAgent(false, false, "direct_flex_lan"), context = flexReceiveContext();
+  owner.state().selection.selection_id = context.selection!.selection_id; owner.observe(context);
+  render(<DetachedStationControlSurface />); await act(async () => {});
+  expect(owner.actions).toHaveLength(0);
+  expect(screen.queryByRole("button", { name: /PTT|Send CW|Tune carrier|Set receive mode/ })).toBeNull();
+  const frequency = screen.getByRole("button", { name: "Set receive VFO A frequency" });
+  expect(frequency.hasAttribute("disabled")).toBe(true);
+  fireEvent.change(screen.getByLabelText("Child receive frequency MHz"), { target: { value: "14.0751" } });
+  fireEvent.click(frequency); fireEvent.click(frequency); await act(async () => {});
+  expect(owner.actions).toHaveLength(1); expect(owner.actions[0]).toMatchObject({ action: "receive_frequency", revision: 4, provider: "direct_flex_lan",
+    selection_generation: 8, selection_id: context.selection!.selection_id, control_revision: 9, connection_generation: 13, frequency_hz: 14075100 });
+  expect(owner.actions[0]).not.toHaveProperty("allow_transmit");
+  expect(frequency.hasAttribute("disabled")).toBe(true);
+  context.revision++; context.selection!.control_revision = 10; context.radio.received_at_ms++;
+  owner.observe(context); fireEvent.click(screen.getByRole("button", { name: "Refresh observations" })); await act(async () => {});
+  fireEvent.change(screen.getByLabelText("Child receive frequency MHz"), { target: { value: "7.1" } });
+  fireEvent.click(frequency); await act(async () => {});
+  expect(owner.actions).toHaveLength(2); expect(owner.actions[1]).toMatchObject({ action: "receive_frequency", revision: 5, control_revision: 10, connection_generation: 13, frequency_hz: 7100000 });
+  expect(native.worker).not.toHaveBeenCalled();
+});
+it("unknown receive reply survives child remount and checks the original receipt without replay", async () => {
+  const owner = sharedAgent(true, false, "direct_flex_lan"), context = flexReceiveContext();
+  owner.state().selection.selection_id = context.selection!.selection_id; owner.observe(context);
+  const view = render(<DetachedStationControlSurface />); await act(async () => {});
+  fireEvent.change(screen.getByLabelText("Child receive frequency MHz"), { target: { value: "14.075" } });
+  fireEvent.click(screen.getByRole("button", { name: "Set receive VFO A frequency" })); await act(async () => {});
+  const operation = owner.actions[0].operation_id;
+  view.unmount(); render(<DetachedStationControlSurface />); await act(async () => {});
+  expect(screen.getByRole("button", { name: "Set receive VFO A frequency" }).hasAttribute("disabled")).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Check connection setup receipt" })); await act(async () => {});
+  expect(native.invoke).toHaveBeenLastCalledWith("station_session_request", { params: { action: "receipt", operation_id: operation } });
+  expect(owner.actions).toHaveLength(1); expect(screen.getByText(/Receive control outcome is unknown/)).toBeTruthy();
+  expect(native.worker).not.toHaveBeenCalled();
+});
+it.each(["stale", "old radio observation", "transmitting", "unknown PTT", "VFO B", "unsupported", "generation unknown"])("child receive actions fail closed for %s observations", async reason => {
+  const owner = sharedAgent(false, false, "direct_flex_lan"), context = flexReceiveContext();
+  owner.state().selection.selection_id = context.selection!.selection_id;
+  if (reason === "stale") context.radio.received_at_ms -= 6000;
+  if (reason === "old radio observation") context.radio.snapshot.radio.observed_at -= 6;
+  if (reason === "transmitting") context.radio.snapshot.radio.transmitting = true;
+  if (reason === "unknown PTT") context.radio.snapshot.radio.transmitting = null;
+  if (reason === "VFO B") context.radio.snapshot.radio.receive_vfo = "B";
+  if (reason === "unsupported") context.radio.snapshot.capabilities.supported_commands = [];
+  if (reason === "generation unknown") delete context.radio.snapshot.generation;
+  owner.observe(context); render(<DetachedStationControlSurface />); await act(async () => {});
+  fireEvent.change(screen.getByLabelText("Child receive frequency MHz"), { target: { value: "14.075" } });
+  for (const name of ["Set receive VFO A frequency"]) {
+    const button = screen.getByRole("button", { name }); expect(button.hasAttribute("disabled")).toBe(true); fireEvent.click(button);
+  }
+  expect(owner.actions).toHaveLength(0); expect(native.worker).not.toHaveBeenCalled();
 });

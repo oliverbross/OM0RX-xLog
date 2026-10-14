@@ -6,7 +6,7 @@ import { workerRequest } from "../worker";
 
 type Data = Record<string, any>;
 export type MonitorContext = { epoch: string; revision: number; selection: null | {
-  provider: "direct_agent" | "direct_flex_lan" | "hamlib" | null; generation: number; selection_id: string | null;
+  provider: "direct_agent" | "direct_flex_lan" | "hamlib" | null; generation: number; selection_id: string | null; control_revision?: number;
 }; radio: Data; rotor: Data; acceptance?: { synthetic: true; source: "synthetic_memory"; externalOwners: false; readOnly: true } };
 const object = (value: any) => !!value && typeof value === "object" && !Array.isArray(value);
 const integer = (value: any) => Number.isSafeInteger(value) && value >= 0;
@@ -48,7 +48,6 @@ export function monitorStation(context: MonitorContext | null, now = Date.now())
     station: { ...(snapshot?.station ?? {}), radio_stale: !fresh, swr_is_live: fresh && snapshot?.station?.swr_is_live === true },
     rotor: { ...rotor, connected: rotorFresh && rotor.connected === true } };
 }
-
 type Invoke = (command: string, params?: Data) => Promise<any>;
 export async function monitorRadioAction(context: MonitorContext | null, action: unknown, call: Invoke = invoke) {
   if (!context?.selection?.provider || context.acceptance || typeof action !== "string" || !["direct_agent", "direct_flex_lan"].includes(context.selection.provider) ||

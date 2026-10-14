@@ -43,6 +43,7 @@ pub fn validate(label: &str, isolated: bool, action: &str) -> Result<(), String>
         "snapshot" | "receipt" | "hamlib_catalogue" | "save" | "connect" | "disconnect" | "forget" | "select"
             | "save_hamlib" | "connect_hamlib" | "reconnect_hamlib" | "disconnect_hamlib"
             | "save_flex" | "connect_flex" | "reconnect_flex" | "disconnect_flex"
+            | "receive_frequency"
     ) {
         return Err("Unknown Station Control operation.".into());
     }
@@ -82,6 +83,16 @@ fn endpoint(value: &str) -> Result<String, String> {
     Ok(url.to_string().trim_end_matches('/').into())
 }
 fn is_save(action: &str) -> bool { matches!(action, "save" | "save_hamlib" | "save_flex") }
+fn is_receive(action: &str) -> bool { action == "receive_frequency" }
+fn receive_params(value: &Value) -> Result<Value, String> {
+    let action = value["action"].as_str().unwrap_or("");
+    if !is_receive(action) || value["provider"] != "direct_flex_lan"
+        || ["connection_generation", "control_revision"].iter().any(|key| value[*key].as_u64().is_none_or(|number| number > MAX_REVISION)) {
+        return Err("Invalid exact Direct FLEX receive target.".into());
+    }
+    let hz = value["frequency_hz"].as_u64().filter(|hz| (100_000..=1_000_000_000).contains(hz)).ok_or("Receive frequency must be an integer from 100 kHz to 1 GHz.")?;
+    Ok(json!({"provider":"direct_flex_lan","expected_generation":value["connection_generation"],"control":"set_frequency_a","frequency_hz":hz}))
+}
 /// Match the existing direct FLEX private-IP contract without DNS or I/O.
 fn flex_configuration(value: &Value) -> Result<Value, String> {
     let object = value.as_object().ok_or("Invalid FLEX configuration.")?;
@@ -144,6 +155,9 @@ impl Session {
                 vec!["action", "generation", "revision", "base_url"]
             } else if matches!(action, "save_hamlib" | "save_flex") {
                 vec!["action", "generation", "revision", "configuration"]
+            } else if is_receive(action) {
+                vec!["action", "generation", "revision", "selection_generation", "selection_id", "provider", "control_revision", "connection_generation",
+                    "frequency_hz"]
             } else if action == "select" {
                 vec![
                     "action",
@@ -174,6 +188,7 @@ impl Session {
                     "save" | "connect" | "disconnect" | "forget" | "select"
                         | "save_hamlib" | "connect_hamlib" | "reconnect_hamlib" | "disconnect_hamlib"
                         | "save_flex" | "connect_flex" | "reconnect_flex" | "disconnect_flex"
+                        | "receive_frequency"
                 )
                 || is_save(action) != (receipt.status == "saved")
                 || receipt.request["generation"] != saved.generation
@@ -210,6 +225,8 @@ impl Session {
                     receipt.request["provider"]
                         .as_str()
                         .is_none_or(|provider| !crate::station_telemetry::valid_provider(provider))
+                } else if is_receive(action) {
+                    receive_params(&receipt.request).is_err()
                 } else {
                     !receipt.request["allow_transmit"].is_boolean()
                 }
@@ -289,6 +306,7 @@ impl Session {
             "save" | "connect" | "disconnect" | "forget" | "select"
                 | "save_hamlib" | "connect_hamlib" | "reconnect_hamlib" | "disconnect_hamlib"
                 | "save_flex" | "connect_flex" | "reconnect_flex" | "disconnect_flex"
+                | "receive_frequency"
         ) {
             return Err("Unknown Station Control action.".into());
         }
@@ -317,7 +335,11 @@ impl Session {
         } else {
             descriptor["selection_generation"] = params["selection_generation"].clone();
             descriptor["selection_id"] = params["selection_id"].clone();
-            if action == "select" {
+            if is_receive(action) {
+                let receive = receive_params(params)?;
+                for key in ["provider", "control_revision", "connection_generation"] { descriptor[key] = params[key].clone(); }
+                descriptor["frequency_hz"] = receive["frequency_hz"].clone();
+            } else if action == "select" {
                 let provider = params["provider"]
                     .as_str()
                     .filter(|provider| crate::station_telemetry::valid_provider(provider))
@@ -387,6 +409,7 @@ impl Session {
                 .filter(|value| uuid::Uuid::parse_str(value).is_ok())
                 .ok_or("Invalid radio selection identity.")?;
             let mut connection = json!({"provider":if action == "select" { descriptor["provider"].as_str().unwrap() } else { "direct_agent" }});
+            if is_receive(action) { connection = receive_params(&descriptor)?; }
             if matches!(action, "connect_hamlib" | "reconnect_hamlib" | "disconnect_hamlib") {
                 connection = if action == "disconnect_hamlib" { json!({}) } else {
                     state.hamlib.clone().ok_or("Save Hamlib configuration before connecting.")?
@@ -425,7 +448,7 @@ impl Session {
             Some((
                 // FLEX reconnect deliberately creates a new configured session:
                 // never inherit the previous session's transmit permission.
-                json!({"id":id,"method":match action { "connect" | "connect_flex" | "reconnect_flex" => "station_connect", "forget" => "station_forget", "select" => "station_selection_apply", "connect_hamlib" => "hamlib_connect", "reconnect_hamlib" => "hamlib_reconnect", "disconnect_hamlib" => "hamlib_disconnect", _ => "station_disconnect" },"params":connection}),
+                json!({"id":id,"method":match action { "receive_frequency" => "station_radio_control", "connect" | "connect_flex" | "reconnect_flex" => "station_connect", "forget" => "station_forget", "select" => "station_selection_apply", "connect_hamlib" => "hamlib_connect", "reconnect_hamlib" => "hamlib_reconnect", "disconnect_hamlib" => "hamlib_disconnect", _ => "station_disconnect" },"params":connection}),
                 selected_generation,
                 selected_id.to_owned(),
             ))
@@ -593,6 +616,7 @@ mod tests {
             "select",
             "save_hamlib", "connect_hamlib", "reconnect_hamlib", "disconnect_hamlib",
             "save_flex", "connect_flex", "reconnect_flex", "disconnect_flex",
+            "receive_frequency",
         ] {
             for label in ["main", "station-control"] {
                 assert!(validate(label, false, action).is_ok());
@@ -782,6 +806,41 @@ mod tests {
         for response in [json!({"id":"wrong","ok":true,"result":{"models":[]}}), json!({"ok":false}), json!({"ok":true,"result":{"models":{}}})] {
             assert!(hamlib_catalogue(&params, |_| Ok(response)).is_err());
         }
+    }
+    #[test]
+    fn receive_controls_journal_exact_targets_before_dispatch_and_never_replay_unknowns() {
+        let (directory, session, save) = setup();
+        for action in ["receive_frequency"] {
+            let state = session.snapshot().unwrap(); let identity = uuid::Uuid::new_v4().to_string();
+            let mut command = json!({"action":action,"operation_id":uuid::Uuid::new_v4().to_string(),"generation":save["generation"],"revision":state["revision"],
+                "provider":"direct_flex_lan","selection_generation":7,"selection_id":identity,"control_revision":9,"connection_generation":13});
+            command["frequency_hz"] = json!(14074000);
+            let receipt = session.apply(&command, |request, generation, selection_id| {
+                assert_eq!(generation, 7); assert_eq!(selection_id, identity); assert_eq!(request["method"], "station_radio_control");
+                assert_eq!(request["params"]["expected_generation"], 13); assert_eq!(request["params"]["provider"], "direct_flex_lan");
+                assert_eq!(request["params"]["control"], "set_frequency_a");
+                assert_eq!(Session::new(directory.path().join("session.json")).unwrap().receipt(command["operation_id"].as_str().unwrap()).unwrap()["status"], "unknown");
+                Err("reply lost".into())
+            }).unwrap();
+            assert_eq!(receipt["status"], "unknown"); assert_eq!(session.apply(&command, passive).unwrap(), receipt);
+            let reopened = Session::new(directory.path().join("session.json")).unwrap(); assert_eq!(reopened.apply(&command, passive).unwrap(), receipt);
+            let mut conflict = command.clone(); conflict["frequency_hz"] = json!(7100000);
+            assert!(session.apply(&conflict, passive).is_err());
+            conflict = command; conflict["operation_id"] = json!(uuid::Uuid::new_v4().to_string()); assert!(session.apply(&conflict, passive).is_err());
+        }
+    }
+    #[test]
+    fn receive_controls_reject_unsupported_targets_and_failed_storage_without_dispatch() {
+        let (directory, session, save) = setup();
+        let command = json!({"action":"receive_frequency","operation_id":uuid::Uuid::new_v4().to_string(),"generation":save["generation"],"revision":0,
+            "provider":"direct_flex_lan","selection_generation":7,"selection_id":uuid::Uuid::new_v4().to_string(),"control_revision":9,"connection_generation":13,"frequency_hz":14074000});
+        for (key, value) in [("provider", json!("direct_agent")), ("provider", json!("hamlib")), ("frequency_hz", json!(14074000.5)), ("frequency_hz", json!(0)),
+            ("connection_generation", json!(null)), ("control_revision", json!(-1)), ("action", json!("ptt"))] {
+            let mut invalid = command.clone(); invalid[key] = value; assert!(session.apply(&invalid, passive).is_err());
+        }
+        let mut invalid = command.clone(); invalid["action"] = json!("receive_mode"); invalid["mode"] = json!("USB|transmit"); assert!(session.apply(&invalid, passive).is_err());
+        std::fs::create_dir(directory.path().join("session.json")).unwrap();
+        assert!(session.apply(&command, passive).is_err()); assert!(session.snapshot().unwrap()["last_receipt"].is_null());
     }
     #[test]
     fn failed_journal_write_cannot_dispatch_a_connection() {
