@@ -31,7 +31,7 @@ import Testing
         init(_ envelope: XLogBackupEnvelope, blocked: Bool = false) {
             self.envelope = envelope; self.blocked = blocked
         }
-        func capture(workspaceGeneration: UInt64, destination: RemoteBackupDestination) async throws -> XLogBackupEnvelope {
+        func capture(workspaceGeneration: UUID, destination: RemoteBackupDestination) async throws -> XLogBackupEnvelope {
             captures += 1
             if fail { throw RemoteBackupPlanningError.invalidPackage }
             if blocked { await withCheckedContinuation { continuation = $0 } }
@@ -77,7 +77,7 @@ import Testing
             accountID: UUID(), location: .cloudFolder(id: "folder"), schedule: .every(hours: 1))
         // Deliberately different: the due snapshot replaces the placeholder identity.
         let placeholder = try RemoteBackupPackageIdentity(sha256: String(repeating: "0", count: 64), byteCount: 1)
-        return (envelope, try RemoteBackupUploadPlan(workspaceGeneration: 1, destination: destination,
+        return (envelope, try RemoteBackupUploadPlan(workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!, destination: destination,
             backupID: UUID(), package: placeholder), root)
     }
 
@@ -94,16 +94,16 @@ import Testing
         #expect(try await host.advance() == nil)
         clock.set(start.addingTimeInterval(3_600))
         let first = try #require(try await host.advance())
-        let placeholder = try #require(try await scheduler.currentPlan(workspaceGeneration: 1, destination: plan.destination))
+        let placeholder = try #require(try await scheduler.currentPlan(workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!, destination: plan.destination))
         #expect(placeholder.backupID != first.plan.backupID)
         #expect(placeholder.backupID != plan.backupID)
         #expect(placeholder.destination == plan.destination)
         #expect(placeholder.workspaceGeneration == plan.workspaceGeneration)
         #expect(try await scheduler.state(for: placeholder) == .enabled)
         let restarted = try RemoteBackupScheduler(stateDirectory: root.appendingPathComponent("state"))
-        #expect(try await restarted.currentPlan(workspaceGeneration: 1, destination: plan.destination) == placeholder)
+        #expect(try await restarted.currentPlan(workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!, destination: plan.destination) == placeholder)
         await #expect(throws: RemoteBackupPlanningError.staleContext) {
-            try await restarted.currentPlan(workspaceGeneration: 2, destination: plan.destination)
+            try await restarted.currentPlan(workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!, destination: plan.destination)
         }
         #expect(try await host.advance() == nil)
         clock.set(start.addingTimeInterval(7_200))
@@ -113,7 +113,7 @@ import Testing
         #expect(await source.captures == 2)
         #expect(await executor.claims.count == 2)
         try await host.stop()
-        let stopped = try #require(try await scheduler.currentPlan(workspaceGeneration: 1, destination: plan.destination))
+        let stopped = try #require(try await scheduler.currentPlan(workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!, destination: plan.destination))
         #expect(try await scheduler.state(for: stopped) == .disabled)
     }
 
@@ -204,7 +204,7 @@ import Testing
         #expect(try await scheduler.state(for: receipt.plan) == .completed)
         let restarted = try RemoteBackupScheduler(stateDirectory: root.appendingPathComponent("state"))
         #expect(try await restarted.claimDue(envelope: envelope, plan: receipt.plan,
-            workspaceGeneration: 1, destination: plan.destination, at: due) == nil)
+            workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!, destination: plan.destination, at: due) == nil)
         #expect(await source.captures == 1)
         #expect(await executor.claims.count == 1)
     }
@@ -293,7 +293,7 @@ import Testing
                 group.addTask {
                     do {
                         return try await scheduler.claimFreshDue(envelope: envelope, scheduledPlan: plan,
-                            workspaceGeneration: 1, destination: plan.destination, at: due) == nil ? 0 : 1
+                            workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!, destination: plan.destination, at: due) == nil ? 0 : 1
                     } catch { return 0 }
                 }
             }
@@ -310,12 +310,12 @@ import Testing
         let directory = root.appendingPathComponent("state")
         let scheduler = try RemoteBackupScheduler(stateDirectory: directory)
         _ = try await scheduler.enable(plan: plan, at: start)
-        let fresh = try RemoteBackupUploadPlan(workspaceGeneration: 1, destination: plan.destination,
+        let fresh = try RemoteBackupUploadPlan(workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!, destination: plan.destination,
             backupID: UUID(), package: envelope.identity)
         let store = try RemoteBackupOperationStore(directory: directory.appendingPathComponent("claims"))
         _ = try store.reserve(plan: fresh)
         #expect(try await scheduler.claimFreshDue(envelope: envelope, scheduledPlan: plan,
-            workspaceGeneration: 1, destination: plan.destination, at: start.addingTimeInterval(3_600)) == nil)
+            workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!, destination: plan.destination, at: start.addingTimeInterval(3_600)) == nil)
         #expect(try await scheduler.state(for: plan) == .uncertain)
     }
 }

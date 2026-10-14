@@ -10,7 +10,7 @@ import Testing
     private actor Workspace: RemoteBackupWorkspaceSnapshotSource {
         nonisolated let database: LogbookDatabase
         let destination: RemoteBackupDestination
-        var generation: UInt64 = 1
+        var generation: UUID = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
         var settings = XLogSettings.defaults
         var preferences = XLogBackupPreferences(deskBandMapBands: ["20m"], detachedBandMapBands: ["20m"],
             deskBandMapFollowsRadio: true, detachedBandMapLayout: "grid", bandMapFontScale: 1,
@@ -22,7 +22,7 @@ import Testing
             self.database = database; self.destination = destination
         }
 
-        func withActiveSnapshot<T: Sendable>(workspaceGeneration: UInt64, destination: RemoteBackupDestination,
+        func withActiveSnapshot<T: Sendable>(workspaceGeneration: UUID, destination: RemoteBackupDestination,
             capture: @Sendable (RemoteBackupWorkspaceSnapshot) throws -> T) async throws -> T {
             captures += 1
             let result = try capture(RemoteBackupWorkspaceSnapshot(workspaceGeneration: generation,
@@ -32,7 +32,7 @@ import Testing
         }
 
         func changeSettings() { settings.stationLocation = "isolated changed station" }
-        func invalidate() { generation = 2 }
+        func invalidate() { generation = UUID(uuidString: "00000000-0000-0000-0000-000000000002")! }
         func breakPreferences() { preferences.bandMapFontScale = .nan }
         func cancelAfterCapture() { cancelAfter = true }
     }
@@ -50,14 +50,14 @@ import Testing
         defer { workspace.database.close(); try? FileManager.default.removeItem(at: root) }
         let staging = root.appendingPathComponent("staging")
         let source = try RemoteBackupLocalSnapshotSource(workspace: workspace, stagingDirectory: staging)
-        let first = try await source.capture(workspaceGeneration: 1, destination: destination)
+        let first = try await source.capture(workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!, destination: destination)
         #expect(try FileManager.default.contentsOfDirectory(atPath: staging.path).isEmpty)
         #expect(first.preferences?.bandMapFontScale == 1)
         #expect(first.manifest.includesSettings)
         #expect(first.manifest.includesPreferences)
         #expect(!first.manifest.includesReferenceData)
         await workspace.changeSettings()
-        let second = try await source.capture(workspaceGeneration: 1, destination: destination)
+        let second = try await source.capture(workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!, destination: destination)
         #expect(second.settings?.stationLocation == "isolated changed station")
         #expect(first.settings?.stationLocation != second.settings?.stationLocation)
         #expect(first.identity != second.identity)
@@ -74,12 +74,12 @@ import Testing
         let source = try RemoteBackupLocalSnapshotSource(workspace: workspace, stagingDirectory: staging)
         await workspace.breakPreferences()
         await #expect(throws: (any Error).self) {
-            try await source.capture(workspaceGeneration: 1, destination: destination)
+            try await source.capture(workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!, destination: destination)
         }
         #expect(try FileManager.default.contentsOfDirectory(atPath: staging.path).isEmpty)
         await workspace.invalidate()
         await #expect(throws: RemoteBackupPlanningError.staleContext) {
-            try await source.capture(workspaceGeneration: 1, destination: destination)
+            try await source.capture(workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!, destination: destination)
         }
         #expect(try FileManager.default.contentsOfDirectory(atPath: staging.path).isEmpty)
     }
@@ -90,7 +90,7 @@ import Testing
         let staging = root.appendingPathComponent("staging")
         let source = try RemoteBackupLocalSnapshotSource(workspace: workspace, stagingDirectory: staging)
         await workspace.cancelAfterCapture()
-        let task = Task { try await source.capture(workspaceGeneration: 1, destination: destination) }
+        let task = Task { try await source.capture(workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!, destination: destination) }
         await #expect(throws: CancellationError.self) { try await task.value }
         #expect(try FileManager.default.contentsOfDirectory(atPath: staging.path).isEmpty)
     }

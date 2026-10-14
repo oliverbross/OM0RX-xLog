@@ -24,7 +24,7 @@ import Testing
         let envelope = try manager.prepareEnvelope(at: package)
         let destination = try RemoteBackupDestination(id: UUID(), revision: 1, provider: .dropbox,
             accountID: UUID(), location: .cloudFolder(id: "folder"), schedule: .every(hours: 1))
-        let plan = try RemoteBackupUploadPlan(workspaceGeneration: 1, destination: destination,
+        let plan = try RemoteBackupUploadPlan(workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!, destination: destination,
             backupID: UUID(), package: envelope.identity)
         return (envelope, plan, FileManager.default.temporaryDirectory.appendingPathComponent("xlog-scheduler-\(UUID().uuidString)"))
     }
@@ -68,7 +68,7 @@ import Testing
         #expect(try await claim(restarted, envelope, plan, at: start.addingTimeInterval(7_200)) == nil)
         let destination = try RemoteBackupDestination(id: UUID(), revision: 1, provider: .dropbox,
             accountID: UUID(), location: .cloudFolder(id: "folder"))
-        let disabledPlan = try RemoteBackupUploadPlan(workspaceGeneration: 1, destination: destination,
+        let disabledPlan = try RemoteBackupUploadPlan(workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!, destination: destination,
             backupID: UUID(), package: envelope.identity)
         await #expect(throws: RemoteBackupPlanningError.invalidSchedule) {
             try await restarted.enable(plan: disabledPlan, at: start)
@@ -96,7 +96,7 @@ import Testing
         let scheduler = try RemoteBackupScheduler(stateDirectory: root)
         _ = try await scheduler.enable(plan: plan, at: start)
         _ = try #require(try await claim(scheduler, envelope, plan, at: start.addingTimeInterval(3_600)))
-        let next = try RemoteBackupUploadPlan(workspaceGeneration: 1, destination: plan.destination,
+        let next = try RemoteBackupUploadPlan(workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!, destination: plan.destination,
             backupID: UUID(), package: envelope.identity)
         await #expect(throws: RemoteBackupSchedulerError.operationInProgress) {
             try await scheduler.enable(plan: next, at: start)
@@ -120,7 +120,7 @@ import Testing
         let restarted = try RemoteBackupScheduler(stateDirectory: root)
         #expect(try await restarted.state(for: plan) == .completed)
         await #expect(throws: RemoteBackupSchedulerError.alreadyClaimed) { try await restarted.enable(plan: plan, at: start) }
-        let next = try RemoteBackupUploadPlan(workspaceGeneration: 1, destination: plan.destination,
+        let next = try RemoteBackupUploadPlan(workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!, destination: plan.destination,
             backupID: UUID(), package: envelope.identity)
         let nextDue = try await restarted.enable(plan: next, at: start.addingTimeInterval(3_600))
         _ = try #require(try await claim(restarted, envelope, next, at: nextDue))
@@ -190,7 +190,7 @@ import Testing
         _ = try #require(try await claim(scheduler, envelope, plan, at: start.addingTimeInterval(3_600)))
         try FileManager.default.removeItem(at: root.appendingPathComponent(plan.destination.id.uuidString.lowercased() + ".schedule.json"))
         let restarted = try RemoteBackupScheduler(stateDirectory: root)
-        let next = try RemoteBackupUploadPlan(workspaceGeneration: 1, destination: plan.destination,
+        let next = try RemoteBackupUploadPlan(workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!, destination: plan.destination,
             backupID: UUID(), package: envelope.identity)
         await #expect(throws: RemoteBackupSchedulerError.operationInProgress) {
             try await restarted.enable(plan: next, at: start)
@@ -204,11 +204,11 @@ import Testing
         let scheduler = try RemoteBackupScheduler(stateDirectory: root)
         _ = try await scheduler.enable(plan: plan, at: start)
         await #expect(throws: RemoteBackupPlanningError.staleContext) {
-            try await scheduler.claimDue(envelope: envelope, plan: plan, workspaceGeneration: 2,
+            try await scheduler.claimDue(envelope: envelope, plan: plan, workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!,
                 destination: plan.destination, at: start.addingTimeInterval(3_600))
         }
         await #expect(throws: RemoteBackupSchedulerError.invalidClock) {
-            try await scheduler.claimDue(envelope: envelope, plan: plan, workspaceGeneration: 1,
+            try await scheduler.claimDue(envelope: envelope, plan: plan, workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
                 destination: plan.destination, at: Date(timeIntervalSince1970: .infinity))
         }
         #expect(try await scheduler.state(for: plan) == .enabled)

@@ -23,7 +23,7 @@ import Testing
         let envelope = try manager.prepareEnvelope(at: package)
         let destination = try RemoteBackupDestination(id: UUID(), revision: 1, provider: .dropbox,
             accountID: UUID(), location: .cloudFolder(id: "folder"))
-        let plan = try RemoteBackupUploadPlan(workspaceGeneration: 1, destination: destination,
+        let plan = try RemoteBackupUploadPlan(workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!, destination: destination,
             backupID: UUID(), package: envelope.identity)
         return (envelope, plan)
     }
@@ -32,7 +32,7 @@ import Testing
         let (envelope, plan) = try fixture()
         let coordinator = RemoteBackupUploadCoordinator()
         let transport = RecordingBackupTransport(identity: envelope.identity)
-        let receipt = try await coordinator.upload(envelope: envelope, plan: plan, workspaceGeneration: 1,
+        let receipt = try await coordinator.upload(envelope: envelope, plan: plan, workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
             destination: plan.destination, transport: transport)
         guard case .verified(let identity, _) = receipt.outcome else {
             Issue.record("independently matching content must be verified")
@@ -40,7 +40,7 @@ import Testing
         }
         #expect(identity == envelope.identity)
         #expect(await transport.bytes == envelope.data)
-        #expect(try await coordinator.upload(envelope: envelope, plan: plan, workspaceGeneration: 1,
+        #expect(try await coordinator.upload(envelope: envelope, plan: plan, workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
             destination: plan.destination, transport: transport) == receipt)
         #expect(await transport.creates == 1)
         #expect(await transport.verifications == 1)
@@ -51,10 +51,10 @@ import Testing
         let (envelope, plan) = try fixture()
         let coordinator = RemoteBackupUploadCoordinator()
         let transport = RecordingBackupTransport(identity: envelope.identity, mode: mode)
-        let receipt = try await coordinator.upload(envelope: envelope, plan: plan, workspaceGeneration: 1,
+        let receipt = try await coordinator.upload(envelope: envelope, plan: plan, workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
             destination: plan.destination, transport: transport)
         #expect(receipt.outcome == (mode == .conflict || mode == .notCreated ? .failed : .uncertain))
-        #expect(try await coordinator.upload(envelope: envelope, plan: plan, workspaceGeneration: 1,
+        #expect(try await coordinator.upload(envelope: envelope, plan: plan, workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
             destination: plan.destination, transport: transport) == receipt)
         #expect(await transport.creates == 1)
         #expect(await transport.verifications == (mode == .verifyThrows || mode == .mismatch ? 1 : 0))
@@ -65,13 +65,13 @@ import Testing
         let coordinator = RemoteBackupUploadCoordinator()
         let transport = RecordingBackupTransport(identity: envelope.identity)
         await #expect(throws: RemoteBackupPlanningError.staleContext) {
-            try await coordinator.upload(envelope: envelope, plan: plan, workspaceGeneration: 2,
+            try await coordinator.upload(envelope: envelope, plan: plan, workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!,
                 destination: plan.destination, transport: transport)
         }
-        let wrong = try RemoteBackupUploadPlan(workspaceGeneration: 1, destination: plan.destination,
+        let wrong = try RemoteBackupUploadPlan(workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!, destination: plan.destination,
             backupID: plan.backupID, package: RemoteBackupPackageIdentity(sha256: String(repeating: "0", count: 64), byteCount: 1))
         await #expect(throws: RemoteBackupPlanningError.invalidPackage) {
-            try await coordinator.upload(envelope: envelope, plan: wrong, workspaceGeneration: 1,
+            try await coordinator.upload(envelope: envelope, plan: wrong, workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
                 destination: plan.destination, transport: transport)
         }
         #expect(await transport.creates == 0)
@@ -84,19 +84,19 @@ import Testing
         defer { try? FileManager.default.removeItem(at: root) }
         let first = try RemoteBackupUploadCoordinator(stateDirectory: root)
         let writer = RecordingBackupTransport(identity: envelope.identity, mode: mode)
-        let receipt = try await first.upload(envelope: envelope, plan: plan, workspaceGeneration: 1,
+        let receipt = try await first.upload(envelope: envelope, plan: plan, workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
             destination: plan.destination, transport: writer)
         let restarted = try RemoteBackupUploadCoordinator(stateDirectory: root)
         let reader = RecordingBackupTransport(identity: envelope.identity)
-        #expect(try await restarted.upload(envelope: envelope, plan: plan, workspaceGeneration: 1,
+        #expect(try await restarted.upload(envelope: envelope, plan: plan, workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
             destination: plan.destination, transport: reader) == receipt)
         #expect(await reader.creates == 0)
         // An owner created before another owner writes must also honor its reservation.
         let stale = try RemoteBackupUploadCoordinator(stateDirectory: root)
-        let rebound = try RemoteBackupUploadPlan(workspaceGeneration: 2, destination: plan.destination,
+        let rebound = try RemoteBackupUploadPlan(workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!, destination: plan.destination,
             backupID: plan.backupID, package: plan.package)
         await #expect(throws: RemoteBackupExecutionError.conflictingOperation) {
-            try await stale.upload(envelope: envelope, plan: rebound, workspaceGeneration: 2,
+            try await stale.upload(envelope: envelope, plan: rebound, workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!,
                 destination: plan.destination, transport: reader)
         }
         #expect(await reader.creates == 0)
@@ -109,14 +109,14 @@ import Testing
         let coordinator = try RemoteBackupUploadCoordinator(stateDirectory: root)
         let transport = RecordingBackupTransport(identity: envelope.identity, paused: true)
         let first = Task {
-            try await coordinator.upload(envelope: envelope, plan: plan, workspaceGeneration: 1,
+            try await coordinator.upload(envelope: envelope, plan: plan, workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
                 destination: plan.destination, transport: transport)
         }
         await transport.waitUntilStarted()
         try FileManager.default.removeItem(at: root.appendingPathComponent(plan.backupID.uuidString.lowercased() + ".json"))
         await transport.resume()
         await #expect(throws: RemoteBackupPersistenceError.unavailable) { try await first.value }
-        let repeatReceipt = try await coordinator.upload(envelope: envelope, plan: plan, workspaceGeneration: 1,
+        let repeatReceipt = try await coordinator.upload(envelope: envelope, plan: plan, workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
             destination: plan.destination, transport: transport)
         #expect(repeatReceipt.outcome == .uncertain)
         #expect(await transport.creates == 1)
@@ -139,7 +139,7 @@ import Testing
                 accountID: UUID(), location: location,
                 security: provider == .ftp ? .explicitlyAcceptedPlainFTP : .authenticatedEncryptionRequired,
                 schedule: .every(hours: 24), retention: .keepLatestVerified(2))
-            let plan = try RemoteBackupUploadPlan(workspaceGeneration: 9, destination: destination,
+            let plan = try RemoteBackupUploadPlan(workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000009")!, destination: destination,
                 backupID: UUID(), package: envelope.identity)
             #expect(try store.reserve(plan: plan) == nil)
             let receipt = try RemoteBackupUploadReceipt(plan: plan,
@@ -159,7 +159,7 @@ import Testing
         let restarted = try RemoteBackupUploadCoordinator(stateDirectory: root)
         let transport = RecordingBackupTransport(identity: envelope.identity)
         for coordinator in [stale, restarted] {
-            let receipt = try await coordinator.upload(envelope: envelope, plan: plan, workspaceGeneration: 1,
+            let receipt = try await coordinator.upload(envelope: envelope, plan: plan, workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
                 destination: plan.destination, transport: transport)
             #expect(receipt.outcome == .uncertain)
             #expect(receipt.plan == plan)
@@ -247,12 +247,12 @@ import Testing
         let transport = RecordingBackupTransport(identity: envelope.identity)
         let cancelled = Task {
             withUnsafeCurrentTask { $0?.cancel() }
-            return try await coordinator.upload(envelope: envelope, plan: plan, workspaceGeneration: 1,
+            return try await coordinator.upload(envelope: envelope, plan: plan, workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
                 destination: plan.destination, transport: transport)
         }
         await #expect(throws: CancellationError.self) { try await cancelled.value }
         #expect(await transport.creates == 0)
-        _ = try await coordinator.upload(envelope: envelope, plan: plan, workspaceGeneration: 1,
+        _ = try await coordinator.upload(envelope: envelope, plan: plan, workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
             destination: plan.destination, transport: transport)
         #expect(await transport.creates == 1)
     }
@@ -262,18 +262,18 @@ import Testing
         let coordinator = RemoteBackupUploadCoordinator()
         let transport = RecordingBackupTransport(identity: envelope.identity, paused: true)
         let first = Task {
-            try await coordinator.upload(envelope: envelope, plan: plan, workspaceGeneration: 1,
+            try await coordinator.upload(envelope: envelope, plan: plan, workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
                 destination: plan.destination, transport: transport)
         }
         await transport.waitUntilStarted()
         await #expect(throws: RemoteBackupExecutionError.operationInProgress) {
-            try await coordinator.upload(envelope: envelope, plan: plan, workspaceGeneration: 1,
+            try await coordinator.upload(envelope: envelope, plan: plan, workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
                 destination: plan.destination, transport: transport)
         }
-        let rebound = try RemoteBackupUploadPlan(workspaceGeneration: 2, destination: plan.destination,
+        let rebound = try RemoteBackupUploadPlan(workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!, destination: plan.destination,
             backupID: plan.backupID, package: envelope.identity)
         await #expect(throws: RemoteBackupExecutionError.conflictingOperation) {
-            try await coordinator.upload(envelope: envelope, plan: rebound, workspaceGeneration: 2,
+            try await coordinator.upload(envelope: envelope, plan: rebound, workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!,
                 destination: plan.destination, transport: transport)
         }
         await transport.resume()
@@ -281,7 +281,7 @@ import Testing
         #expect(await transport.creates == 1)
         // Context validation still runs before returning a cached receipt.
         await #expect(throws: RemoteBackupPlanningError.staleContext) {
-            try await coordinator.upload(envelope: envelope, plan: plan, workspaceGeneration: 2,
+            try await coordinator.upload(envelope: envelope, plan: plan, workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!,
                 destination: plan.destination, transport: transport)
         }
     }

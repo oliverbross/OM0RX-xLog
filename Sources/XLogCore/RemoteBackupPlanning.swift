@@ -121,21 +121,23 @@ public struct RemoteBackupPackageIdentity: Equatable, Sendable {
 }
 
 public struct RemoteBackupUploadPlan: Equatable, Sendable {
-    public let workspaceGeneration: UInt64
+    /// The durable edit-generation UUID owned by the active workspace. Legacy
+    /// numeric backup identities cannot be mapped safely and must fail closed.
+    public let workspaceGeneration: UUID
     public let destination: RemoteBackupDestination
     public let backupID: UUID
     public let package: RemoteBackupPackageIdentity
     /// Executor must create exclusively; an existing object is a conflict, never an overwrite.
     public var objectName: String { "om0rx-xlog-\(backupID.uuidString.lowercased()).xlogbackup" }
 
-    public init(workspaceGeneration: UInt64, destination: RemoteBackupDestination,
+    public init(workspaceGeneration: UUID, destination: RemoteBackupDestination,
                 backupID: UUID, package: RemoteBackupPackageIdentity) throws {
-        guard workspaceGeneration > 0 else { throw RemoteBackupPlanningError.staleContext }
+        guard workspaceGeneration.uuidString != "00000000-0000-0000-0000-000000000000" else { throw RemoteBackupPlanningError.staleContext }
         self.workspaceGeneration = workspaceGeneration; self.destination = destination
         self.backupID = backupID; self.package = package
     }
 
-    public func validate(workspaceGeneration: UInt64, destination: RemoteBackupDestination) throws {
+    public func validate(workspaceGeneration: UUID, destination: RemoteBackupDestination) throws {
         guard self.workspaceGeneration == workspaceGeneration, self.destination == destination else {
             throw RemoteBackupPlanningError.staleContext
         }
@@ -231,7 +233,7 @@ public actor RemoteBackupUploadCoordinator {
     }
 
     public func upload(envelope: XLogBackupEnvelope, plan: RemoteBackupUploadPlan,
-                       workspaceGeneration: UInt64, destination: RemoteBackupDestination,
+                       workspaceGeneration: UUID, destination: RemoteBackupDestination,
                        transport: any RemoteBackupUploadTransport) async throws -> RemoteBackupUploadReceipt {
         try envelope.validate(for: plan, workspaceGeneration: workspaceGeneration, destination: destination)
         if let operation = operations[plan.backupID] {
@@ -364,7 +366,7 @@ internal struct RemoteBackupOperationStore: Sendable {
             return try records.map { id in
                 let data = try read(url(id, suffix: ".json"), maximum: Self.maximumRecordBytes)
                 let document = try JSONDecoder().decode(RemoteBackupStoredDocument.self, from: data)
-                guard document.version == 1,
+                guard document.version == 2,
                       document.sha256 == BackupPackageSeal.hash(try BackupPackageSeal.encode(document.operation)) else {
                     throw RemoteBackupPersistenceError.invalidState
                 }
@@ -407,7 +409,7 @@ internal struct RemoteBackupOperationStore: Sendable {
     }
 
     private func save(_ operation: RemoteBackupStoredOperation) throws {
-        let document = RemoteBackupStoredDocument(version: 1, operation: operation,
+        let document = RemoteBackupStoredDocument(version: 2, operation: operation,
             sha256: BackupPackageSeal.hash(try BackupPackageSeal.encode(operation)))
         let data = try BackupPackageSeal.encode(document)
         guard data.count <= Self.maximumRecordBytes else { throw RemoteBackupPersistenceError.capacityReached }
@@ -426,7 +428,7 @@ private struct RemoteBackupStoredDocument: Codable {
 /// Decode through validated domain initializers, never synthesized Codable on plans.
 internal struct RemoteBackupStoredOperation: Codable {
     let backupID: UUID
-    let workspaceGeneration: UInt64
+    let workspaceGeneration: UUID
     let destinationID: UUID
     let destinationRevision: UInt64
     let provider: String

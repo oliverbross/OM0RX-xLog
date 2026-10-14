@@ -35,16 +35,16 @@ import Testing
             #expect(envelope.settings == XLogSettings.defaults)
             let destination = try RemoteBackupDestination(id: UUID(), revision: 1, provider: .dropbox,
                 accountID: UUID(), location: .cloudFolder(id: "folder"))
-            let plan = try RemoteBackupUploadPlan(workspaceGeneration: 1, destination: destination,
+            let plan = try RemoteBackupUploadPlan(workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!, destination: destination,
                 backupID: UUID(), package: envelope.identity)
-            try envelope.validate(for: plan, workspaceGeneration: 1, destination: destination)
+            try envelope.validate(for: plan, workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!, destination: destination)
             #expect(throws: RemoteBackupPlanningError.staleContext) {
-                try envelope.validate(for: plan, workspaceGeneration: 2, destination: destination)
+                try envelope.validate(for: plan, workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!, destination: destination)
             }
-            let wrong = try RemoteBackupUploadPlan(workspaceGeneration: 1, destination: destination,
+            let wrong = try RemoteBackupUploadPlan(workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!, destination: destination,
                 backupID: UUID(), package: RemoteBackupPackageIdentity(sha256: String(repeating: "0", count: 64), byteCount: 1))
             #expect(throws: RemoteBackupPlanningError.invalidPackage) {
-                try envelope.validate(for: wrong, workspaceGeneration: 1, destination: destination)
+                try envelope.validate(for: wrong, workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!, destination: destination)
             }
             try Data("changed".utf8).write(to: package.appendingPathComponent("Reference Data/nested.json"))
             #expect(throws: Error.self) { try manager.prepareEnvelope(at: package) }

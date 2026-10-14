@@ -94,7 +94,7 @@ public actor RemoteBackupScheduler {
 
     /// Read only within the caller's exact approved workspace/destination context.
     /// This lets a host recover the fresh placeholder after a successful rearm.
-    public func currentPlan(workspaceGeneration: UInt64, destination: RemoteBackupDestination) throws -> RemoteBackupUploadPlan? {
+    public func currentPlan(workspaceGeneration: UUID, destination: RemoteBackupDestination) throws -> RemoteBackupUploadPlan? {
         try locked(destination.id) {
             guard let record = try read(destination.id) else { return nil }
             let plan = try record.plan()
@@ -105,7 +105,7 @@ public actor RemoteBackupScheduler {
 
     /// Revoke recurrence even while a claimed executor finishes. Reloading under the
     /// lane lock also covers a rearm that won the race with the host's stop request.
-    public func stopRecurrence(workspaceGeneration: UInt64, destination: RemoteBackupDestination) throws {
+    public func stopRecurrence(workspaceGeneration: UUID, destination: RemoteBackupDestination) throws {
         try locked(destination.id) {
             guard var record = try read(destination.id) else { return }
             try record.plan().validate(workspaceGeneration: workspaceGeneration, destination: destination)
@@ -155,7 +155,7 @@ public actor RemoteBackupScheduler {
     /// Caller supplies the current owner context and a fresh, already validated envelope.
     /// Clock anomalies durably suspend the lane; explicit enablement starts a new interval.
     public func claimDue(envelope: XLogBackupEnvelope, plan: RemoteBackupUploadPlan,
-                         workspaceGeneration: UInt64, destination: RemoteBackupDestination,
+                         workspaceGeneration: UUID, destination: RemoteBackupDestination,
                          at now: Date) throws -> RemoteBackupDueClaim? {
         try claim(envelope: envelope, plan: plan, scheduledPlan: plan,
             workspaceGeneration: workspaceGeneration, destination: destination, at: now)
@@ -176,7 +176,7 @@ public actor RemoteBackupScheduler {
     /// Swap the approved lane's placeholder package for fresh sealed bytes atomically,
     /// preserving its consent, destination, generation and due time.
     public func claimFreshDue(envelope: XLogBackupEnvelope, scheduledPlan: RemoteBackupUploadPlan,
-                              workspaceGeneration: UInt64, destination: RemoteBackupDestination,
+                              workspaceGeneration: UUID, destination: RemoteBackupDestination,
                               at now: Date) throws -> RemoteBackupDueClaim? {
         try scheduledPlan.validate(workspaceGeneration: workspaceGeneration, destination: destination)
         let plan = try RemoteBackupUploadPlan(workspaceGeneration: workspaceGeneration,
@@ -197,7 +197,7 @@ public actor RemoteBackupScheduler {
     }
 
     private func claim(envelope: XLogBackupEnvelope, plan: RemoteBackupUploadPlan,
-                       scheduledPlan: RemoteBackupUploadPlan, workspaceGeneration: UInt64,
+                       scheduledPlan: RemoteBackupUploadPlan, workspaceGeneration: UUID,
                        destination: RemoteBackupDestination, at now: Date) throws -> RemoteBackupDueClaim? {
         try validateClock(now)
         try envelope.validate(for: plan, workspaceGeneration: workspaceGeneration, destination: destination)
@@ -276,7 +276,7 @@ public actor RemoteBackupScheduler {
             guard names.contains(url.lastPathComponent) else { return nil }
             let data = try metadata.read(url, maximum: RemoteBackupOperationStore.maximumRecordBytes)
             let document = try JSONDecoder().decode(Document.self, from: data)
-            guard document.version == 1,
+            guard document.version == 2,
                   document.sha256 == BackupPackageSeal.hash(try BackupPackageSeal.encode(document.record)) else {
                 throw RemoteBackupPersistenceError.invalidState
             }
@@ -291,7 +291,7 @@ public actor RemoteBackupScheduler {
         do {
             let plan = try record.plan()
             try record.validateDates()
-            let data = try BackupPackageSeal.encode(Document(version: 1, record: record,
+            let data = try BackupPackageSeal.encode(Document(version: 2, record: record,
                 sha256: BackupPackageSeal.hash(try BackupPackageSeal.encode(record))))
             guard data.count <= RemoteBackupOperationStore.maximumRecordBytes else { throw RemoteBackupPersistenceError.capacityReached }
             let url = recordURL(plan.destination.id)
@@ -313,7 +313,7 @@ public actor RemoteBackupScheduler {
         var enabledAt: Date?
         var dueAt: Date?
         var lastObservedAt: Date?
-        // Missing in version-1 records means no recurring consent.
+        // Missing consent never grants recurrence.
         var recurring: Bool? = nil
 
         func plan() throws -> RemoteBackupUploadPlan {

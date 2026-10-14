@@ -3,7 +3,7 @@ import Foundation
 /// Capture must use the current workspace owner and return newly sealed, validated
 /// bytes (for example through XLogBackupManager.prepareEnvelope), never a package URL.
 public protocol RemoteBackupSnapshotSource: Sendable {
-    func capture(workspaceGeneration: UInt64, destination: RemoteBackupDestination) async throws -> XLogBackupEnvelope
+    func capture(workspaceGeneration: UUID, destination: RemoteBackupDestination) async throws -> XLogBackupEnvelope
 }
 
 public protocol RemoteBackupClaimExecutor: Sendable {

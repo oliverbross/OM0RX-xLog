@@ -22,7 +22,7 @@ public struct XLogBackupEnvelope: Sendable {
         identity = try RemoteBackupPackageIdentity(sha256: BackupPackageSeal.hash(data), byteCount: Int64(data.count))
     }
 
-    public func validate(for plan: RemoteBackupUploadPlan, workspaceGeneration: UInt64,
+    public func validate(for plan: RemoteBackupUploadPlan, workspaceGeneration: UUID,
                          destination: RemoteBackupDestination) throws {
         try plan.validate(workspaceGeneration: workspaceGeneration, destination: destination)
         guard identity == plan.package else { throw RemoteBackupPlanningError.invalidPackage }

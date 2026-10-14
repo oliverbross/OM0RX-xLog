@@ -13,9 +13,9 @@ import XLogPortableCore
         #expect(destination.schedule == .disabled)
         #expect(destination.retention == .keepAll)
         let package = try RemoteBackupPackageIdentity(sha256: String(repeating: "a", count: 64), byteCount: 100)
-        let plan = try RemoteBackupUploadPlan(workspaceGeneration: 1, destination: destination, backupID: UUID(), package: package)
+        let plan = try RemoteBackupUploadPlan(workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!, destination: destination, backupID: UUID(), package: package)
         #expect(throws: RemoteBackupPlanningError.staleContext) {
-            try plan.validate(workspaceGeneration: 2, destination: destination)
+            try plan.validate(workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!, destination: destination)
         }
         let receipt = try RemoteBackupUploadReceipt(plan: plan, outcome: .verified(package: package, at: Date()))
         #expect(RemoteBackupRetentionPlan(destination: destination, receipts: [receipt]).deletions.isEmpty)

@@ -3,14 +3,14 @@ import Foundation
 /// Values must be captured together by the active workspace owner. The database
 /// is used only synchronously while that owner holds its workspace lifetime lease.
 public struct RemoteBackupWorkspaceSnapshot: Sendable {
-    public let workspaceGeneration: UInt64
+    public let workspaceGeneration: UUID
     public let destination: RemoteBackupDestination
     public let database: LogbookDatabase
     public let settings: XLogSettings
     public let preferences: XLogBackupPreferences
     public let referenceDataURL: URL?
 
-    public init(workspaceGeneration: UInt64, destination: RemoteBackupDestination,
+    public init(workspaceGeneration: UUID, destination: RemoteBackupDestination,
                 database: LogbookDatabase, settings: XLogSettings,
                 preferences: XLogBackupPreferences, referenceDataURL: URL? = nil) {
         self.workspaceGeneration = workspaceGeneration; self.destination = destination
@@ -23,7 +23,7 @@ public protocol RemoteBackupWorkspaceSnapshotSource: Sendable {
     /// Execute capture on the workspace owner's isolation domain, without releasing
     /// its context or closing/replacing its database until capture returns. Reject a
     /// stale generation/destination rather than opening a default or replacement DB.
-    func withActiveSnapshot<T: Sendable>(workspaceGeneration: UInt64, destination: RemoteBackupDestination,
+    func withActiveSnapshot<T: Sendable>(workspaceGeneration: UUID, destination: RemoteBackupDestination,
         capture: @Sendable (RemoteBackupWorkspaceSnapshot) throws -> T) async throws -> T
 }
 
@@ -43,12 +43,12 @@ public actor RemoteBackupLocalSnapshotSource: RemoteBackupSnapshotSource {
         staging = try RemoteBackupOperationStore(directory: stagingDirectory)
     }
 
-    public func capture(workspaceGeneration: UInt64, destination: RemoteBackupDestination) async throws -> XLogBackupEnvelope {
+    public func capture(workspaceGeneration: UUID, destination: RemoteBackupDestination) async throws -> XLogBackupEnvelope {
         try Task.checkCancellation()
         let staging = staging
         let envelope = try await workspace.withActiveSnapshot(workspaceGeneration: workspaceGeneration,
             destination: destination) { snapshot in
-            guard workspaceGeneration > 0, snapshot.workspaceGeneration == workspaceGeneration,
+            guard workspaceGeneration.uuidString != "00000000-0000-0000-0000-000000000000", snapshot.workspaceGeneration == workspaceGeneration,
                   snapshot.destination == destination else { throw RemoteBackupPlanningError.staleContext }
             try Task.checkCancellation()
             try staging.validateDirectory()

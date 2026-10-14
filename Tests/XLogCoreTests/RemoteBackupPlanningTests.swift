@@ -12,7 +12,7 @@ import Testing
     private func receipt(_ destination: RemoteBackupDestination, at seconds: Double,
                          id: UUID = UUID(), outcome: RemoteBackupUploadOutcome? = nil) throws -> RemoteBackupUploadReceipt {
         let package = try RemoteBackupPackageIdentity(sha256: String(repeating: "a", count: 64), byteCount: 42)
-        let plan = try RemoteBackupUploadPlan(workspaceGeneration: 1, destination: destination, backupID: id, package: package)
+        let plan = try RemoteBackupUploadPlan(workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!, destination: destination, backupID: id, package: package)
         return try .init(plan: plan, outcome: outcome ?? .verified(package: package, at: Date(timeIntervalSince1970: seconds)))
     }
 
@@ -72,14 +72,14 @@ import Testing
         }
         #expect(throws: RemoteBackupPlanningError.invalidPackage) { try RemoteBackupPackageIdentity(sha256: package.sha256, byteCount: 0) }
         let id = UUID()
-        let plan = try RemoteBackupUploadPlan(workspaceGeneration: 7, destination: dest, backupID: id, package: package)
+        let plan = try RemoteBackupUploadPlan(workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000007")!, destination: dest, backupID: id, package: package)
         #expect(plan.objectName == "om0rx-xlog-\(id.uuidString.lowercased()).xlogbackup")
-        try plan.validate(workspaceGeneration: 7, destination: dest)
-        #expect(throws: RemoteBackupPlanningError.staleContext) { try plan.validate(workspaceGeneration: 8, destination: dest) }
+        try plan.validate(workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000007")!, destination: dest)
+        #expect(throws: RemoteBackupPlanningError.staleContext) { try plan.validate(workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000008")!, destination: dest) }
         let changed = try destination(revision: 2, id: dest.id)
-        #expect(throws: RemoteBackupPlanningError.staleContext) { try plan.validate(workspaceGeneration: 7, destination: changed) }
+        #expect(throws: RemoteBackupPlanningError.staleContext) { try plan.validate(workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000007")!, destination: changed) }
         let switchedAccount = try destination(id: dest.id, account: UUID())
-        #expect(throws: RemoteBackupPlanningError.staleContext) { try plan.validate(workspaceGeneration: 7, destination: switchedAccount) }
+        #expect(throws: RemoteBackupPlanningError.staleContext) { try plan.validate(workspaceGeneration: UUID(uuidString: "00000000-0000-0000-0000-000000000007")!, destination: switchedAccount) }
         let wrongPackage = try RemoteBackupPackageIdentity(sha256: package.sha256, byteCount: 255)
         #expect(throws: RemoteBackupPlanningError.invalidReceipt) {
             try RemoteBackupUploadReceipt(plan: plan, outcome: .verified(package: wrongPackage, at: Date()))
