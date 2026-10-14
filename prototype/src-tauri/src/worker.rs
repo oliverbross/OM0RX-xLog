@@ -15,6 +15,9 @@ const MAX_IN_FLIGHT: usize = 16;
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(45);
 pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     validate_request(request)?;
+    if request["method"].as_str().is_some_and(|method| method.starts_with("spot_draft_")) {
+        return Err("Only the native activation owner can use this method.".into());
+    }
     if request["method"] == "workspace_layout_load" {
         return if matches!(label, "main" | "monitor" | "world-map" | "band-maps" | "dx-cluster" | "log-qso" | "spot-history" | "logbook" | "awards" | "callsign-intelligence") {
             Ok(())
@@ -38,7 +41,7 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     if label == "log-qso" {
         return if matches!(request["method"].as_str(), Some("logbook_operator_draft"
             | "logbook_operator_draft_apply" | "logbook_operator_draft_receipt"
-            | "lookup_call" | "logbook_previous" | "logbook_matrix" | "cluster_history")) {
+            | "lookup_call" | "logbook_previous" | "logbook_matrix" | "cluster_history" | "reference_resolve")) {
             Ok(())
         } else { Err("Log QSO can only edit the shared new-contact draft and read its lookup evidence.".into()) };
     }
@@ -142,6 +145,7 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "logbook_operator_draft",
         "logbook_operator_draft_apply",
         "logbook_operator_draft_receipt",
+        "spot_draft_apply", "spot_draft_status", "spot_draft_stage", "spot_draft_finish", "spot_draft_abandon",
         "logbook_contact",
         "logbook_contact_apply",
         "logbook_contact_receipt",
@@ -319,6 +323,10 @@ impl Session {
         if !self.alive.swap(false, Ordering::AcqRel) {
             return;
         }
+        // A retained local Hamlib rotor outlives Swift. Retire its automatic
+        // authority too, not only permits already pinned to this generation.
+        // Metadata only: never acquire a rotor driver lock or perform I/O.
+        crate::auto_rotor::revoke();
         // Kill first to unblock a writer stuck in a full pipe. Never replay a write:
         // a timeout can mean the physical control already happened.
         self.kill_reap();
@@ -522,6 +530,9 @@ fn active_session() -> Result<Arc<Session>, String> {
 }
 
 fn announce_session(session: &Arc<Session>) {
+    // A fresh canonical worker must require an explicit fresh automatic Arm;
+    // a new follow permit cannot inherit the previous worker's armed state.
+    crate::auto_rotor::revoke();
     if LOCAL_ACCEPTANCE.get() != Some(&true) {
         let exact_session = session.clone();
         crate::station_selection::worker_generation_started(
@@ -613,6 +624,21 @@ pub fn request_existing(request: Value) -> Result<Value, String> {
     request_using(request, existing_session)
 }
 
+/// Pin admission to an already-running worker. An obsolete operation can never
+/// cross a restart by checking the generation before a generic request call.
+pub(crate) fn request_existing_generation(request: Value, expected: u64) -> Result<Value, String> {
+    request_using(request, || {
+        let session = existing_session()?;
+        if session.generation != expected { return Err("Worker generation changed; no request was sent.".into()); }
+        Ok(session)
+    })
+}
+pub(crate) fn require_existing_generation(expected: u64) -> Result<(), String> {
+    let session = existing_session()?;
+    if session.generation != expected { return Err("Worker generation changed; no action was admitted.".into()); }
+    Ok(())
+}
+
 fn request_using(request: Value, session: impl FnOnce() -> Result<Arc<Session>, String>) -> Result<Value, String> {
     validate_request(&request)?;
     IN_FLIGHT
@@ -692,19 +718,29 @@ fn request_in_session(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn native_activation_journal_never_crosses_renderer_surfaces() {
+        for method in ["spot_draft_apply","spot_draft_status","spot_draft_stage","spot_draft_finish","spot_draft_abandon"] {
+            let request=serde_json::json!({"id":"native-only","method":method,"params":{}});
+            super::validate_request(&request).unwrap();
+            for label in ["main","monitor","log-qso","logbook","world-map","band-maps","dx-cluster","awards","spot-history","callsign-intelligence"] {
+                assert!(super::validate_surface(label,&request).is_err(),"{label}:{method}");
+            }
+        }
+    }
     use super::*;
     use serde_json::json;
 
     #[test]
     fn detached_qso_has_only_canonical_draft_and_required_lookup_reads() {
         for method in ["logbook_operator_draft", "logbook_operator_draft_apply", "logbook_operator_draft_receipt",
-            "lookup_call", "logbook_previous", "logbook_matrix", "cluster_history", "workspace_layout_load"] {
+            "lookup_call", "logbook_previous", "logbook_matrix", "cluster_history", "workspace_layout_load", "reference_resolve"] {
             assert!(validate_surface("log-qso", &json!({"id":"qso","method":method,"params":{}})).is_ok(), "{method}");
         }
         for method in ["settings_load", "settings_save", "workspace_preferences_save", "workspace_layout_apply", "workspace_create",
             "backup_create", "backup_restore", "sync_summary", "sync_run", "secret_save", "secret_status",
             "logbook_draft", "logbook_save", "logbook_list", "logbook_contact", "logbook_contact_apply", "logbook_import_adif",
-            "reference_status", "reference_resolve", "reference_refresh", "reference_schedule", "reference_configure",
+            "reference_status", "reference_refresh", "reference_schedule", "reference_configure",
             "station_snapshot", "station_power_selection", "station_configuration", "station_connect", "station_disconnect",
             "station_action", "station_tune", "station_radio_control", "cluster_snapshot", "cluster_resume", "cluster_connect",
             "rotor_stop", "station_rotor_stop", "hamlib_control", "winkeyer_snapshot", "health"] {

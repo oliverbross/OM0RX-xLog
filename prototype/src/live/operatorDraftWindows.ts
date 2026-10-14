@@ -80,17 +80,17 @@ export function connectOperatorDraftChanges(refresh: () => Promise<void | boolea
 }
 
 export function protectOperatorDraftClose(blocked: () => boolean, explain: () => void, failed: (message: string) => void,
-  closingChanged: (closing: boolean) => void = () => {}) {
+  closingChanged: (closing: boolean) => void = () => {}, closeCommand: "close_qso_window" | "close_main_window" = "close_qso_window") {
   if (!isTauri()) return () => {};
   let active = true, closing = false, stop: (() => void) | undefined;
   void getCurrentWindow().listen(TauriEvent.WINDOW_CLOSE_REQUESTED, () => {
     if (!active || closing) return;
     if (blocked()) { explain(); return; }
     closing = true; closingChanged(true);
-    void invoke("close_qso_window").catch(() => {
+    void invoke(closeCommand).catch(() => {
       if (active) {
         closing = false; closingChanged(false);
-        failed("Could not close Log QSO. Try again after resolving the draft.");
+        failed(closeCommand === "close_main_window" ? "Could not close the Desk. Try again after resolving the draft." : "Could not close Log QSO. Try again after resolving the draft.");
       }
     });
   }).then(dispose => { if (active) stop = dispose; else dispose(); })

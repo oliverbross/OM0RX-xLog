@@ -18,7 +18,7 @@ beforeEach(() => {
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(() => ({ x: 0, y: 0, left: 0, top: 0, bottom: 800, right: width, width, height: 800, toJSON() {} }));
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); width = 1280; });
-function setup(custom = false, required = false) {
+function setup(custom = false, required = false, admission: { canChangeLayout?: () => boolean; onChangeInFlight?: (active: boolean) => void } = {}) {
   let snapshot = base(); if (custom) { snapshot.document.presets.push(customDeskPreset(snapshot.document.presets[0], 800)); snapshot.document.activePresetID = "custom"; }
   const request = vi.fn(async (method: string, params?: any) => {
     if (method === "workspace_layout_apply") snapshot = { ...snapshot, revision: snapshot.revision + 1, document: changedLayout(snapshot.document, params) };
@@ -26,7 +26,7 @@ function setup(custom = false, required = false) {
   });
   const session = new WorkspaceLayoutSession(request);
   function Harness() { const state = useSyncExternalStore(session.subscribe, session.getSnapshot);
-    return <OperatorCanvas state={state} session={session} traditional={<p>Traditional controls</p>} panels={{
+    return <OperatorCanvas {...admission} state={state} session={session} traditional={<p>Traditional controls</p>} panels={{
       "active-qso": { title: "Active QSO", content: <input aria-label="Draft text" defaultValue="W1AW" /> },
       "world-map": { title: "Map", content: <p>Map surface</p> },
       "band-maps": { title: "Bands", content: <p>Band surface</p> },
@@ -35,6 +35,29 @@ function setup(custom = false, required = false) {
   }
   return { session, request, Harness };
 }
+it("retains the mounted editor when buffered input vetoes Hide or preset changes", async () => {
+  const { session, request, Harness } = setup(true, false, { canChangeLayout: () => false });
+  await session.refresh(); render(<Harness />);
+  const input = screen.getByLabelText("Draft text"); fireEvent.change(input, { target: { value: "14.." } });
+  fireEvent.click(screen.getByRole("button", { name: "Hide Active QSO" }));
+  expect(screen.getByRole("alert").textContent).toContain("Your text is retained");
+  fireEvent.change(screen.getByLabelText("Desk layout"), { target: { value: "traditional" } });
+  expect(request.mock.calls.filter(([method]) => method === "workspace_layout_apply")).toHaveLength(0);
+  expect(screen.getByLabelText("Draft text")).toBe(input); expect((input as HTMLInputElement).value).toBe("14..");
+});
+it("announces layout admission synchronously and holds it until the awaited update settles", async () => {
+  const changed = vi.fn(), { session, request, Harness } = setup(true, false, { canChangeLayout: () => true, onChangeInFlight: changed });
+  await session.refresh(); render(<Harness />);
+  const backend = request.getMockImplementation()!; let release!: () => void;
+  request.mockImplementation(async (method, params) => {
+    expect(changed).toHaveBeenLastCalledWith(true);
+    await new Promise<void>(resolve => { release = resolve; }); return backend(method, params);
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Hide Active QSO" }));
+  expect(changed).toHaveBeenCalledExactlyOnceWith(true); expect(screen.getByLabelText("Draft text")).toBeTruthy();
+  await act(async () => release());
+  await waitFor(() => expect(changed).toHaveBeenLastCalledWith(false)); expect(screen.queryByLabelText("Draft text")).toBeNull();
+});
 it("creates a custom canvas without altering Traditional and commits activation only after save", async () => {
   const { session, request, Harness } = setup(); await session.refresh(); render(<Harness />);
   fireEvent.change(screen.getByLabelText("Desk layout"), { target: { value: "custom" } });

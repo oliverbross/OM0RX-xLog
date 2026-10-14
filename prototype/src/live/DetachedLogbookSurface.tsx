@@ -11,6 +11,8 @@ import { dockDetachedWorkspace } from "./DetachedClusterBridge";
 import { connectLogbookChanges, protectLogbookClose } from "./logbookWindows";
 import { changedCallDraft } from "./draftEnrichment";
 import type { DraftQSO } from "./operatorDraftSession";
+import { nativeSpotEditor, useSpotEditor } from "./useSpotEditor";
+import { SpotActivationStatus } from "./SpotActivationStatus";
 
 export const detachedContactJournalKey = "xlog.integration.contactEdit.logbook.v1";
 export const detachedMutationJournalKey = "xlog.integration.logbookMutation.logbook.v1";
@@ -22,10 +24,10 @@ async function request(method: string, params: Record<string, unknown> = {}) {
 export function DetachedLogbookSurface() {
   const [contacts] = useState(() => new LogbookContactSession(requestLogbookContact,
     journal => journal ? localStorage.setItem(detachedContactJournalKey, JSON.stringify(journal)) : localStorage.removeItem(detachedContactJournalKey),
-    readContactJournal(stored(detachedContactJournalKey))));
+    readContactJournal(stored(detachedContactJournalKey)), undefined, nativeSpotEditor()));
   const [mutations] = useState(() => new LogbookMutationSession(requestLogbookContact,
     journal => localStorage.setItem(detachedMutationJournalKey, JSON.stringify(journal)),
-    readLogbookMutationJournal(stored(detachedMutationJournalKey))));
+    readLogbookMutationJournal(stored(detachedMutationJournalKey)), undefined, contacts.canAcceptLocalInput));
   const edit = useSyncExternalStore(contacts.subscribe, contacts.getSnapshot);
   const mutation = useSyncExternalStore(mutations.subscribe, mutations.getSnapshot);
   const [refresh, setRefresh] = useState(0), [error, setError] = useState("");
@@ -33,6 +35,9 @@ export function DetachedLogbookSurface() {
   const [lookup, setLookup] = useState<Record<string, any> | null>(null);
   const [previous, setPrevious] = useState<Record<string, any>[]>([]);
   const workingRef = useRef(false), tableBusyRef = useRef(false), docking = useRef(false);
+  const spotEditor = useSpotEditor([contacts], () => workingRef.current || tableBusyRef.current || docking.current || mutations.getSnapshot().busy || mutations.getSnapshot().pending
+    ? { ready: false, reason: "Finish the logbook action or close/Dock operation first." } : { ready: true });
+  const acceptsInput = useCallback(() => contacts.canAcceptLocalInput() && !workingRef.current && !docking.current, [contacts]);
   const run = useCallback(async (action: () => Promise<unknown>) => {
     if (workingRef.current) return;
     workingRef.current = true; setWorking(true); setError("");
@@ -46,7 +51,7 @@ export function DetachedLogbookSurface() {
   useEffect(() => connectLogbookChanges(changed, setError), [changed]);
   useEffect(() => { void run(async () => { await contacts.refresh(); await mutations.reconcile(); }); }, [contacts, mutations, run]);
   const cannotClose = useCallback(() => !docking.current && (!!contacts.getSnapshot().draft || contacts.getSnapshot().locked ||
-    !!mutations.getSnapshot().pending || mutations.getSnapshot().busy || workingRef.current || tableBusyRef.current), [contacts, mutations]);
+    contacts.getSnapshot().activationFrozen || !!mutations.getSnapshot().pending || mutations.getSnapshot().busy || workingRef.current || tableBusyRef.current), [contacts, mutations]);
   const explainClose = useCallback(() => setError("Finish or cancel the contact edit and resolve pending operations before closing or docking this window."), []);
   useEffect(() => protectLogbookClose(cannotClose, explainClose, setError), [cannotClose, explainClose]);
   const tableWorking = useCallback((value: boolean) => { tableBusyRef.current = value; setTableBusy(value); }, []);
@@ -69,20 +74,21 @@ export function DetachedLogbookSurface() {
   return <div className="app live monitor-app detached-logbook-app">
     <main aria-label="Detached Logbook">
       {error && <p className="live-error" role="alert">{error}</p>}
+      <SpotActivationStatus status={spotEditor.status} error={spotEditor.error} reconcile={() => void spotEditor.reconcile()} />
       <ContactEditStatus state={edit} session={contacts} run={run} />
       <LogbookMutationStatus state={mutation} session={mutations} run={run} />
       {edit.draft ? <QSOEditor draft={edit.draft} setDraft={next => {
-        if (edit.locked || edit.workspaceChanged) return;
+        if (!acceptsInput() || edit.locked || edit.workspaceChanged) return;
         const current = contacts.getSnapshot().draft;
         const value = changedCallDraft(current, typeof next === "function" ? next(current) : next);
         if (value) contacts.edit(value as DraftQSO);
       }} save={() => run(async () => { await contacts.save(); changed(); })}
         clear={() => void run(async () => { contacts.cancel(); changed(); })}
-        busy={working || edit.locked || edit.conflict || edit.workspaceChanged}
-        draftLocked={edit.locked || edit.workspaceChanged} isEditing radioControls={false} clearLabel="Cancel edit"
+        busy={working || edit.activationFrozen || edit.locked || edit.conflict || edit.workspaceChanged}
+        draftLocked={edit.activationFrozen || edit.locked || edit.workspaceChanged} canAcceptLocalInput={acceptsInput} isEditing radioControls={false} clearLabel="Cancel edit"
         lookup={lookup} previous={previous} follow={false} setFollow={() => {}} request={request} />
         : <LogbookPanel onRequest={request} refreshKey={refresh} mutations={mutations} onChanged={changed}
-          onBusyChange={tableWorking} disabled={working || edit.locked} onDock={dock}
+          onBusyChange={tableWorking} disabled={working || edit.activationFrozen || edit.locked} onDock={dock}
           onEdit={qso => { if (!tableBusy) void run(() => contacts.open(qso.id)); }} />}
     </main>
   </div>;

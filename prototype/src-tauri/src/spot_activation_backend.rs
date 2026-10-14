@@ -1,0 +1,381 @@
+//! Production activation adapter. Renderers supply identities only; retained
+//! native reports and generation-pinned worker receipts supply every field.
+use crate::{spot_activation::{Backend, Request}, auto_rotor::{self, Permit, Target}};
+use serde_json::{json, Value};
+use std::{collections::BTreeMap, sync::Mutex};
+use tauri::{Emitter, Manager};
+
+const MAX_REVISION: u64 = 9_007_199_254_740_991;
+struct Context {
+    request: Request,
+    worker: u64,
+    generation: String,
+    draft: String,
+    revision: u64,
+    spot: Value,
+    lease: Option<String>,
+    permit: Option<Permit>,
+}
+pub struct NativeBackend { app: tauri::AppHandle, operations: Mutex<BTreeMap<String, Context>> }
+impl NativeBackend {
+    pub fn new(app: tauri::AppHandle) -> Self { Self { app, operations: Mutex::new(BTreeMap::new()) } }
+    fn context<T>(&self, request: &Request, read: impl FnOnce(&Context) -> Result<T, String>) -> Result<T, String> {
+        let operations = self.operations.lock().map_err(|_| "Activation context unavailable")?;
+        let context = operations.get(&request.operation_id).filter(|value| value.request == *request)
+            .ok_or("Activation context is no longer current")?;
+        read(context)
+    }
+    fn control_params(&self, request: &Request, applied: &Value) -> Result<(u64, Value), String> {
+        self.context(request, |context| {
+            validate_receipt(applied, context)?;
+            let lease = valid_uuid(&applied["leaseID"])?;
+            if context.lease.as_deref() != Some(&lease) { return Err("Activation lease changed; no action is permitted.".into()); }
+            Ok((context.worker, json!({"operationID":request.operation_id,"generation":context.generation,"leaseID":lease})))
+        })
+    }
+}
+
+fn valid_uuid(value: &Value) -> Result<String, String> {
+    let id = value.as_str().and_then(|value| uuid::Uuid::parse_str(value).ok()).filter(|id| !id.is_nil())
+        .ok_or("Native activation identity is invalid")?;
+    Ok(id.to_string())
+}
+fn keys(value: &Value, allowed: &[&str]) -> Result<(), String> {
+    if !value.as_object().is_some_and(|value| value.keys().all(|key| allowed.contains(&key.as_str()))) {
+        return Err("Unexpected native activation response fields".into());
+    }
+    Ok(())
+}
+fn result(request: &Value, response: Value) -> Result<Value, String> {
+    keys(&response, &["id", "ok", "result", "error"])?;
+    if response["id"] != request["id"] || !response["ok"].is_boolean() { return Err("Native worker response identity did not match".into()); }
+    if response["ok"] != true {
+        return Err(response["error"]["message"].as_str().unwrap_or("Native worker operation was not confirmed").chars().take(256).collect());
+    }
+    if !response["result"].is_object() || !response["error"].is_null() { return Err("Native worker response was malformed".into()); }
+    Ok(response["result"].clone())
+}
+fn call(worker: u64, method: &str, params: Value) -> Result<Value, String> {
+    let request = json!({"id":format!("native-activation-{}",uuid::Uuid::new_v4()),"method":method,"params":params});
+    let response = crate::worker::request_existing_generation(request.clone(), worker)?;
+    let result = result(&request, response)?;
+    if crate::worker::generation() != worker { return Err("Worker changed before activation acknowledgement; do not replay the operation.".into()); }
+    Ok(result)
+}
+fn validate_draft(draft: &Value) -> Result<(), String> {
+    valid_uuid(&draft["generation"])?; valid_uuid(&draft["qso"]["id"])?;
+    if !draft["revision"].as_u64().is_some_and(|value| value <= MAX_REVISION)
+        || !draft["qso"]["call"].is_string() { return Err("Canonical draft snapshot is invalid".into()); }
+    Ok(())
+}
+fn read_canonical(worker: u64) -> Result<Value, String> {
+    let reply = call(worker, "logbook_operator_draft", json!({}))?;
+    keys(&reply, &["draft", "power_capture_status"])?;
+    validate_draft(&reply["draft"])?;
+    Ok(reply["draft"].clone())
+}
+fn running_worker() -> Result<u64, String> {
+    let mut generation = crate::worker::generation();
+    if generation == 0 {
+        let request = json!({"id":format!("native-activation-health-{}",uuid::Uuid::new_v4()),"method":"health","params":{}});
+        result(&request, crate::worker::request(request.clone())?)?;
+        generation = crate::worker::generation();
+    }
+    if generation == 0 { return Err("Native worker generation is unavailable".into()); }
+    Ok(generation)
+}
+pub fn canonical_editor_state() -> Result<Value, String> { Ok(json!({"draft":read_canonical(running_worker()?)?})) }
+fn precise_lookup_with(call_sign: &str, request: impl FnOnce(&str, Value) -> Result<Value, String>) -> Result<Value, String> {
+    // Preserve the existing native QRZ-coordinate/grid preference and its CTY
+    // fallback. The caller still pins this read to the canonical worker epoch.
+    request("lookup_call", json!({"call":call_sign}))
+}
+fn precise_lookup(worker: u64, call_sign: &str) -> Result<Value, String> {
+    precise_lookup_with(call_sign, |method, params| call(worker, method, params))
+}
+pub fn reconcile_auto() -> Result<Value, String> {
+    if crate::worker::local_acceptance() { return Err("Automatic rotor is unavailable in isolated acceptance".into()); }
+    let worker = running_worker()?;
+    auto_rotor::reconcile_generation(worker, || Target::from_snapshot(&read_canonical(worker)?), |call| precise_lookup(worker, call))
+}
+fn phase(value: &Value) -> bool {
+    matches!(value.as_str(), Some("draft_applied" | "tune_started" | "tune_confirmed" | "rotor_started" | "confirmed" | "failed" | "uncertain"))
+}
+fn terminal(value: &Value) -> bool { matches!(value.as_str(), Some("confirmed" | "failed" | "uncertain")) }
+fn validate_receipt(response: &Value, context: &Context) -> Result<(), String> {
+    keys(response, &["status", "replay", "phase", "receipt", "leaseID"])?;
+    let receipt = &response["receipt"];
+    keys(receipt, &["operationID", "generation", "draft", "phase"])?;
+    validate_draft(&receipt["draft"])?;
+    if valid_uuid(&receipt["operationID"])? != valid_uuid(&json!(context.request.operation_id))?
+        || valid_uuid(&receipt["generation"])? != context.generation
+        || valid_uuid(&receipt["draft"]["generation"])? != context.generation
+        || valid_uuid(&receipt["draft"]["qso"]["id"])? != context.draft
+        || receipt["draft"]["revision"].as_u64() != context.revision.checked_add(1)
+        || receipt["draft"]["qso"]["call"] != context.spot["call"]
+        || receipt["draft"]["qso"]["frequencyHz"] != context.spot["frequencyHz"]
+        || receipt["draft"]["qso"]["mode"].as_str().map(str::to_uppercase) != context.spot["mode"].as_str().map(str::to_uppercase)
+        || receipt["draft"]["qso"]["band"].as_str().map(str::to_lowercase) != context.spot["band"].as_str().map(str::to_lowercase)
+        || receipt["phase"] != "draft_applied" || !phase(&response["phase"]) || !response["replay"].is_boolean() {
+        return Err("Durable activation receipt did not match its canonical operation".into());
+    }
+    if let Some(lease) = response.get("leaseID") { valid_uuid(lease)?; }
+    if terminal(&response["phase"]) && response.get("leaseID").is_some() { return Err("Terminal activation unexpectedly retained an effect lease".into()); }
+    Ok(())
+}
+fn validate_recovery(response: &Value, context: &Context, worker: u64) -> Result<(), String> {
+    if response["status"] == "abandoned" {
+        keys(response, &["status","receipt","replay","generation"])?;
+        if !response["receipt"].is_null() || response["replay"] != true
+            || valid_uuid(&response["generation"])? != context.generation {
+            return Err("Abandoned identity did not match its original workspace".into());
+        }
+        return Ok(());
+    }
+    validate_receipt(response, context)?;
+    if response["status"] != "found" || response["replay"] != true
+        || worker != context.worker && (!terminal(&response["phase"]) || response.get("leaseID").is_some()) {
+        return Err("Activation reservation is still unverified".into());
+    }
+    Ok(())
+}
+fn selection_identity(value: &Value) -> Result<Value, String> {
+    let provider = value["provider"].as_str().filter(|value| crate::station_telemetry::valid_provider(value))
+        .ok_or("Choose a native radio before selecting a spot")?;
+    let identity = valid_uuid(&value["selection_id"])?;
+    let generation = value["generation"].as_u64().filter(|value| *value <= MAX_REVISION).ok_or("Native radio selection generation is invalid")?;
+    let revision = value["control_revision"].as_u64().filter(|value| *value <= MAX_REVISION).ok_or("Native radio control revision is invalid")?;
+    Ok(json!({"provider":provider,"generation":generation,"selection_id":identity,"control_revision":revision}))
+}
+fn tune_request(provider: &str, spot: &Value) -> Result<Value, String> {
+    let hz = spot["frequencyHz"].as_u64().filter(|value| (100..=10_000_000_000).contains(value)).ok_or("Spot frequency is invalid")?;
+    let mode = spot["mode"].as_str().filter(|value| !value.is_empty() && value.len() <= 16 && value.bytes().all(|byte| byte.is_ascii_alphanumeric()))
+        .ok_or("Spot mode is unsupported for native tuning")?.to_uppercase();
+    let id = format!("native-spot-tune-{}",uuid::Uuid::new_v4());
+    if provider == "hamlib" {
+        let mode = match mode.as_str() {
+            "SSB" => if hz < 10_000_000 { "LSB" } else { "USB" },
+            "FT8" | "FT4" | "FT2" | "PSK" | "DIGI" | "DATA" | "DIGU" => "PKTUSB", "DIGL" => "PKTLSB", _ => &mode,
+        };
+        Ok(json!({"id":id,"method":"hamlib_control","params":{"device":"radio","action":"tune_simplex","hz":hz,"mode":mode}}))
+    } else if matches!(provider, "direct_agent" | "direct_flex_lan") {
+        Ok(json!({"id":id,"method":"station_tune","params":{"provider":provider,"frequency_hz":hz,"mode":mode}}))
+    } else { Err("Native radio provider is unsupported".into()) }
+}
+impl Backend for NativeBackend {
+    fn resolve(&self, request: &Request) -> Result<Value, String> {
+        if crate::worker::local_acceptance() { return Err("Live reports are unavailable in isolated acceptance".into()); }
+        crate::cluster_session::owner(&self.app)?.activation_spot(&request.source_epoch, &request.spot_id, &request.spot_version)
+    }
+    fn canonical(&self) -> Result<Value, String> {
+        if crate::worker::local_acceptance() { return Err("Live activation is unavailable in isolated acceptance".into()); }
+        let worker = running_worker()?;
+        let mut draft = read_canonical(worker)?; draft["nativeWorkerGeneration"] = json!(worker); Ok(draft)
+    }
+    fn open_editors(&self) -> Result<Vec<String>, String> {
+        Ok(self.app.webview_windows().into_keys().filter(|label| crate::spot_editor_barrier::editor_role(label)).collect())
+    }
+    fn selection(&self) -> Result<Value, String> { selection_identity(&crate::station_selection::owner(&self.app)?.snapshot()?) }
+    fn apply(&self, request: &Request, base: &Value, spot: &Value) -> Result<Value, String> {
+        if crate::worker::local_acceptance() { return Err("Live activation is unavailable in isolated acceptance".into()); }
+        validate_draft(base)?;
+        let worker = base["nativeWorkerGeneration"].as_u64().filter(|value| *value > 0).ok_or("Activation worker generation is unavailable")?;
+        let generation = valid_uuid(&base["generation"])?; let draft = valid_uuid(&base["qso"]["id"])?;
+        let revision = base["revision"].as_u64().filter(|value| *value < MAX_REVISION).ok_or("Draft revision exhausted")?;
+        {
+            let mut contexts = self.operations.lock().map_err(|_| "Activation context unavailable")?;
+            if contexts.contains_key(&request.operation_id) { return Err("Activation apply was already attempted; read its durable status instead".into()); }
+            contexts.insert(request.operation_id.clone(), Context { request:request.clone(), worker, generation:generation.clone(),
+                draft:draft.clone(), revision, spot:spot.clone(), lease:None, permit:None });
+        }
+        // Fence this target before the worker can commit it. Otherwise a
+        // concurrent ordinary-follow read could turn between commit and reply.
+        let permit = auto_rotor::activation_started(Target { generation:generation.clone(), draft_id:draft.clone(),
+            call:spot["call"].as_str().ok_or("Native report callsign unavailable")?.into() })?;
+        self.operations.lock().map_err(|_| "Activation context unavailable")?.get_mut(&request.operation_id)
+            .ok_or("Activation context unavailable")?.permit = Some(permit);
+        let response = call(worker, "spot_draft_apply", json!({"operationID":request.operation_id,"generation":generation,
+            "draftID":draft,"expectedRevision":revision,"spot":spot}))?;
+        match response["status"].as_str() {
+            Some("conflict") => { keys(&response, &["status","draft"])?; validate_draft(&response["draft"])?; return Ok(response); },
+            Some("workspace_changed") => { keys(&response, &["status","generation"])?; valid_uuid(&response["generation"])?; return Ok(response); },
+            Some("abandoned") => { self.context(request, |context| validate_recovery(&response,context,worker))?; return Ok(response); },
+            Some("applied") => {}, _ => return Err("Activation apply acknowledgement was unrecognized; inspect its receipt before releasing editors".into()),
+        }
+        self.context(request, |context| validate_receipt(&response, context))?;
+        let lease = response.get("leaseID").map(valid_uuid).transpose()?;
+        let mut contexts = self.operations.lock().map_err(|_| "Activation context unavailable")?;
+        let context = contexts.get_mut(&request.operation_id).ok_or("Activation context unavailable")?;
+        context.lease = lease;
+        if response["replay"] != false || context.lease.is_none() { context.permit = None; }
+        Ok(response)
+    }
+    fn stage(&self, request: &Request, applied: &Value, stage: &str) -> Result<Value, String> {
+        let (worker, mut params) = self.control_params(request, applied)?; params["stage"] = json!(stage);
+        let response = call(worker, "spot_draft_stage", params)?;
+        self.context(request, |context| validate_receipt(&response, context))?;
+        if !matches!(response["status"].as_str(), Some("staged" | "already_staged")) || response["phase"] != stage
+            || response["leaseID"] != applied["leaseID"] || response["replay"] != (response["status"] == "already_staged") {
+            return Err("Activation stage acknowledgement was invalid; no effect is permitted".into());
+        }
+        Ok(response)
+    }
+    fn tune(&self, request: &Request, selection: &Value, spot: &Value) -> Result<Value, String> {
+        let worker = self.context(request, |context| if context.spot == *spot { Ok(context.worker) } else { Err("Activation report changed".into()) })?;
+        let selection = selection_identity(selection)?;
+        let provider = selection["provider"].as_str().ok_or("Radio selection unavailable")?;
+        let tune = tune_request(provider, spot)?;
+        let owner = crate::station_selection::owner(&self.app)?;
+        let telemetry = crate::station_telemetry::owner(&self.app)?;
+        let id = tune["id"].clone();
+        let response = owner.activation_tune(tune, &selection, || {
+            crate::worker::require_existing_generation(worker)?;
+            if self.resolve(request)? != *spot { return Err("Spot source changed before control admission".into()); }
+            telemetry.control()
+        }, |request| if provider == "hamlib" {
+            crate::worker::require_existing_generation(worker)?;
+            crate::hamlib::request(request)
+        }
+            else { crate::worker::request_existing_generation(request, worker) })?;
+        let tuned = result(&json!({"id":id}), response)?;
+        if crate::worker::generation() != worker { return Err("Worker changed during tuning; no automatic turn is permitted".into()); }
+        Ok(tuned)
+    }
+    fn rotor(&self, request: &Request, applied: &Value) -> Result<Value, String> {
+        let (worker, permit) = self.context(request, |context| {
+            validate_receipt(applied, context)?;
+            Ok((context.worker, context.permit.clone().ok_or("Automatic rotor activation permit unavailable")?))
+        })?;
+        auto_rotor::activation_confirmed(&permit)?;
+        auto_rotor::complete_activation_generation(&permit, worker, || Target::from_snapshot(&read_canonical(worker)?), |call| precise_lookup(worker, call))
+    }
+    fn finish(&self, request: &Request, applied: &Value, outcome: &str) -> Result<(), String> {
+        let (worker, mut params) = self.control_params(request, applied)?; params["outcome"] = json!(outcome);
+        let response = call(worker, "spot_draft_finish", params)?;
+        self.context(request, |context| validate_receipt(&response, context))?;
+        if response["status"] != "finished" || response["phase"] != outcome || response.get("leaseID").is_some() {
+            return Err("Activation reservation release was not confirmed".into());
+        }
+        if let Ok(mut contexts) = self.operations.lock() {
+            if let Some(context) = contexts.get_mut(&request.operation_id) { context.lease = None; context.permit = None; }
+        }
+        Ok(())
+    }
+    fn durable_status(&self, request: &Request, generation: &str) -> Result<Value, String> {
+        let expected_generation = self.context(request, |context| Ok(context.generation.clone()))?;
+        if valid_uuid(&json!(generation))? != expected_generation { return Err("Activation workspace changed".into()); }
+        let worker = running_worker()?;
+        let mut response = call(worker, "spot_draft_status", json!({"operationID":request.operation_id,"generation":generation}))?;
+        if response["status"] == "not_found" {
+            // Absence is not a FIFO barrier. Durably prevent a queued late
+            // apply before allowing the coordinator to release editor buffers.
+            response = call(worker,"spot_draft_abandon",json!({"operationID":request.operation_id,"generation":generation}))?;
+        }
+        self.context(request, |context| validate_recovery(&response, context, worker))?;
+        if let Some(lease) = response.get("leaseID") {
+            let lease = valid_uuid(lease)?;
+            let mut contexts = self.operations.lock().map_err(|_| "Activation context unavailable")?;
+            contexts.get_mut(&request.operation_id).ok_or("Activation context unavailable")?.lease = Some(lease);
+        }
+        Ok(response)
+    }
+    fn wake(&self) {
+        for label in self.app.webview_windows().into_keys() {
+            let _ = self.app.emit_to(&label, "xlog:spot-activation", ());
+            let _ = self.app.emit_to(&label, "xlog:auto-rotor", ());
+            if crate::spot_editor_barrier::editor_role(&label) || label == "callsign-intelligence" {
+                let _ = self.app.emit_to(&label, "xlog:operator-draft-changed", ());
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn context() -> Context {
+        Context { request:Request { operation_id:uuid::Uuid::new_v4().to_string(),source_epoch:uuid::Uuid::new_v4().to_string(),
+            spot_id:"fixture".into(),spot_version:uuid::Uuid::new_v4().to_string() }, worker:7,
+            generation:uuid::Uuid::new_v4().to_string(),draft:uuid::Uuid::new_v4().to_string(),revision:4,
+            spot:json!({"call":"K1ABC","frequencyHz":14074000,"mode":"FT8","band":"20m"}),
+            lease:Some(uuid::Uuid::new_v4().to_string()),permit:None }
+    }
+    fn receipt(context: &Context) -> Value {
+        json!({"status":"applied","replay":false,"phase":"draft_applied","leaseID":context.lease,
+            "receipt":{"operationID":context.request.operation_id,"generation":context.generation,"phase":"draft_applied",
+                "draft":{"generation":context.generation,"revision":context.revision+1,"qso":{"id":context.draft,
+                    "call":"K1ABC","frequencyHz":14074000,"mode":"FT8","band":"20m"}}}})
+    }
+    #[test]
+    fn automatic_bearing_uses_existing_precise_native_lookup_not_cty_only_route() {
+        let profile = precise_lookup_with("K1ABC", |method, params| {
+            assert_eq!(method, "lookup_call");
+            assert_eq!(params, json!({"call":"K1ABC"}));
+            Ok(json!({"call":"K1ABC","source":"QRZ","location_source":"QRZ coordinates","bearing":287.25}))
+        }).unwrap();
+        assert_eq!(profile["bearing"], 287.25);
+        assert_eq!(profile["location_source"], "QRZ coordinates");
+    }
+    #[test]
+    fn worker_envelope_is_exact_and_never_turns_unknown_success_into_confirmation() {
+        let request = json!({"id":"one"});
+        assert_eq!(result(&request,json!({"id":"one","ok":true,"result":{"confirmed":false}})).unwrap()["confirmed"],false);
+        for response in [json!({"id":"wrong","ok":true,"result":{}}),json!({"id":"one","ok":1,"result":{}}),
+            json!({"id":"one","ok":true,"result":null}),json!({"id":"one","ok":true,"result":{},"extra":true}),
+            json!({"id":"one","ok":false,"result":{"confirmed":true}})] {
+            assert!(result(&request,response).is_err());
+        }
+    }
+    #[test]
+    fn receipt_must_match_operation_workspace_draft_revision_and_native_target() {
+        let context = context(); let valid = receipt(&context); validate_receipt(&valid,&context).unwrap();
+        for path in ["/receipt/operationID","/receipt/generation","/receipt/draft/generation","/receipt/draft/qso/id"] {
+            let mut changed = valid.clone(); *changed.pointer_mut(path).unwrap() = json!(uuid::Uuid::new_v4().to_string());
+            assert!(validate_receipt(&changed,&context).is_err(),"{path}");
+        }
+        for (path,value) in [("/receipt/draft/revision",json!(context.revision)),("/receipt/draft/qso/call",json!("K2ABC")),
+            ("/receipt/draft/qso/frequencyHz",json!(7074000)),("/receipt/draft/qso/mode",json!("CW")),
+            ("/receipt/draft/qso/band",json!("40m")),("/receipt/phase",json!("confirmed")),("/replay",json!(null))] {
+            let mut changed = valid.clone(); *changed.pointer_mut(path).unwrap()=value;
+            assert!(validate_receipt(&changed,&context).is_err(),"{path}");
+        }
+    }
+    #[test]
+    fn replacement_worker_never_relabels_absent_or_live_reservation_as_safe() {
+        let context=context();
+        let absent=json!({"status":"not_found","receipt":null,"replay":true,"generation":context.generation});
+        assert!(validate_recovery(&absent,&context,7).is_err());
+        assert!(validate_recovery(&absent,&context,8).is_err());
+        let mut abandoned=absent.clone();abandoned["status"]=json!("abandoned");
+        validate_recovery(&abandoned,&context,7).unwrap();validate_recovery(&abandoned,&context,8).unwrap();
+        abandoned["generation"]=json!(uuid::Uuid::new_v4().to_string());assert!(validate_recovery(&abandoned,&context,7).is_err());
+        let mut found=receipt(&context);found["status"]=json!("found");found["replay"]=json!(true);
+        validate_recovery(&found,&context,7).unwrap();
+        assert!(validate_recovery(&found,&context,8).is_err());
+        found["phase"]=json!("uncertain");found.as_object_mut().unwrap().remove("leaseID");
+        validate_recovery(&found,&context,8).unwrap();
+        found["leaseID"]=json!(context.lease);
+        assert!(validate_recovery(&found,&context,8).is_err());
+    }
+    #[test]
+    fn selection_comparison_ignores_notification_noise_not_control_or_source_identity() {
+        let value=json!({"provider":"direct_agent","generation":2,"selection_id":uuid::Uuid::new_v4().to_string(),
+            "control_revision":5,"power_notification":{"state":"pending"}});
+        let mut changed=value.clone();changed["power_notification"]=json!({"state":"ready"});
+        assert_eq!(selection_identity(&value).unwrap(),selection_identity(&changed).unwrap());
+        changed["control_revision"]=json!(6);assert_ne!(selection_identity(&value).unwrap(),selection_identity(&changed).unwrap());
+        changed["selection_id"]=json!("invalid");assert!(selection_identity(&changed).is_err());
+    }
+    #[test]
+    fn native_hamlib_tune_mode_mapping_matches_embedded_contract_without_transmit_commands() {
+        for (mode,hz,expected) in [("SSB",7_100_000,"LSB"),("SSB",14_195_000,"USB"),("FT8",14_074_000,"PKTUSB"),("DIGL",7_074_000,"PKTLSB")] {
+            let request=tune_request("hamlib",&json!({"frequencyHz":hz,"mode":mode})).unwrap();
+            assert_eq!(request["method"],"hamlib_control");assert_eq!(request["params"]["action"],"tune_simplex");
+            assert_eq!(request["params"]["mode"],expected);
+        }
+        for spot in [json!({"frequencyHz":0,"mode":"CW"}),json!({"frequencyHz":14025000,"mode":"raw command"}),json!({"frequencyHz":14025000.5,"mode":"CW"})] {
+            assert!(tune_request("direct_agent",&spot).is_err());
+        }
+        assert!(tune_request("xcat_loopback",&json!({"frequencyHz":14025000,"mode":"CW"})).is_err());
+    }
+}

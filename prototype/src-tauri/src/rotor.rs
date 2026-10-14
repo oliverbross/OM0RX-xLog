@@ -1,5 +1,6 @@
 use serde_json::{json, Map, Value};
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
+use std::time::{Duration, Instant};
 
 use crate::{hamlib, worker};
 
@@ -39,6 +40,7 @@ struct State {
     phase: Option<Phase>,
     revision: u64,
     intent_id: Option<String>,
+    last_observed: Option<Instant>,
 }
 
 /// This is the sole in-process rotor ingress. The lock serializes retirement
@@ -46,19 +48,35 @@ struct State {
 /// disconnect. It does not assert that physical movement has ceased.
 pub struct RotorCoordinator {
     state: Mutex<State>,
+    automatic: Arc<crate::auto_rotor::AutomaticRotor>,
 }
 
 impl RotorCoordinator {
     pub fn new() -> Self {
         Self {
             state: Mutex::new(State::default()),
+            automatic: crate::auto_rotor::owner().clone(),
         }
+    }
+    #[cfg(test)]
+    pub(crate) fn with_authority(automatic: Arc<crate::auto_rotor::AutomaticRotor>) -> Self {
+        Self { state: Mutex::new(State::default()), automatic }
     }
 
     pub fn handle<F>(&self, request: Value, backend: F) -> Result<Value, String>
     where
         F: FnOnce(Value) -> Result<Value, String>,
     {
+        self.handle_scoped(request, None, backend)
+    }
+
+    pub(crate) fn handle_automatic<F>(&self, request: Value, permit: &crate::auto_rotor::Permit, backend: F) -> Result<Value, String>
+    where F: FnOnce(Value) -> Result<Value, String> {
+        self.handle_scoped(request, Some(permit), backend)
+    }
+
+    fn handle_scoped<F>(&self, request: Value, automatic: Option<&crate::auto_rotor::Permit>, backend: F) -> Result<Value, String>
+    where F: FnOnce(Value) -> Result<Value, String> {
         let id = request["id"]
             .as_str()
             .filter(|id| !id.is_empty() && id.len() <= 128)
@@ -75,7 +93,15 @@ impl RotorCoordinator {
         if monitor_stop && (params.len() != 1 || !params.contains_key("owner")) {
             return Err("Native Monitor Stop accepts only its observed owner".into());
         }
+        let manual = automatic.is_none() && matches!(method, "rotor_connect" | "rotor_disconnect" | "rotor_goto" | "rotor_park" | "rotor_stop");
+        // Revoke queued automatic work before waiting behind driver transport.
+        // A turn already admitted under the lock remains ordered before Stop.
+        if manual { self.automatic.revoke(); }
         let mut state = self.state.lock().map_err(|_| "Rotor owner lock failed")?;
+        // Also revoke at actual manual admission: an explicit Arm interleaved
+        // while this command waited cannot survive the ensuing manual action.
+        if manual { self.automatic.revoke(); }
+        if automatic.is_some() && method != "rotor_goto" { return Err("Automatic rotor permission only admits a turn.".into()); }
 
         if method == "rotor_snapshot" {
             if !params.is_empty() {
@@ -94,7 +120,7 @@ impl RotorCoordinator {
             } else {
                 (None, false)
             };
-            let current = self.state.lock().map_err(|_| "Rotor owner lock failed")?;
+            let mut current = self.state.lock().map_err(|_| "Rotor owner lock failed")?;
             if current.generation != generation
                 || current.revision != revision
                 || current.owner != owner
@@ -106,6 +132,14 @@ impl RotorCoordinator {
                     "intent_id":current.intent_id,
                     "backend":null,"backend_available":false}),
                 ));
+            }
+            if owner.is_some() {
+                if backend_available && observed_connection(owner.unwrap(), backend_result.as_ref().unwrap()) {
+                    current.last_observed = Some(Instant::now());
+                } else {
+                    current.last_observed = None;
+                    self.automatic.revoke();
+                }
             }
             return Ok(success(
                 id,
@@ -131,6 +165,7 @@ impl RotorCoordinator {
                 state.generation = state.generation.wrapping_add(1);
                 state.owner = Some(owner);
                 state.phase = Some(Phase::Uncertain);
+                state.last_observed = None;
                 state.intent_id = None;
                 let (backend_method, backend_params) = map_new(method, owner, params)?;
                 let reply = backend(envelope(id, backend_method, backend_params))?;
@@ -156,8 +191,14 @@ impl RotorCoordinator {
                 return Err("Rotor generation changed; refresh before sending a command".into());
             }
             let (backend_method, backend_params) = map_new(method, owner, params)?;
+            // This is automatic motion's linearization point. It never holds
+            // the authority mutex while waiting for this serialized driver.
+            if automatic.is_some_and(|permit| !permit.admits() || !automatic_observation(&state)) {
+                return Err("Automatic rotor permission changed before driver admission.".into());
+            }
             if method == "rotor_disconnect" {
                 state.phase = Some(Phase::Uncertain);
+                state.last_observed = None;
                 state.intent_id = None;
             }
             if matches!(method, "rotor_goto" | "rotor_park" | "rotor_stop") {
@@ -234,6 +275,30 @@ impl RotorCoordinator {
             return reply;
         }
         Err("Legacy rotor mutation is unavailable; use rotor_connect, rotor_disconnect, rotor_goto, rotor_stop or rotor_park with the current generation".into())
+    }
+
+    pub(crate) fn automatic_owner(&self) -> Result<Option<(String, u64)>, String> {
+        let state = self.state.try_lock().map_err(|_| "Rotor is busy; automatic turn was not queued.")?;
+        Ok(state.owner.filter(|_| automatic_observation(&state)).map(|owner| (owner.name().to_owned(), state.generation)))
+    }
+    pub(crate) fn with_automatic_owner<T>(&self, owner: &str, generation: u64, action: impl FnOnce() -> Result<T, String>) -> Result<T, String> {
+        let state = self.state.try_lock().map_err(|_| "Rotor is busy; observe it before arming automatic turns.")?;
+        if state.owner.map(Owner::name) != Some(owner) || state.generation != generation || !automatic_observation(&state) {
+            return Err("Observe the current connected rotor before arming automatic turns.".into());
+        }
+        action()
+    }
+}
+
+fn automatic_observation(state: &State) -> bool {
+    state.phase == Some(Phase::Active) && state.last_observed.is_some_and(|observed| observed.elapsed() <= Duration::from_secs(5))
+}
+fn observed_connection(owner: Owner, backend: &Value) -> bool {
+    let number = |value: &Value| value.as_f64().or_else(|| value.as_str().and_then(|value| value.parse::<f64>().ok()))
+        .is_some_and(|value| value.is_finite() && (0.0..=360.0).contains(&value));
+    match owner {
+        Owner::NativeDcu1 => backend["connected"] == true && number(&backend["azimuth"]),
+        Owner::Hamlib => number(&backend["fields"]["position"]["Azimuth"]),
     }
 }
 
@@ -375,20 +440,45 @@ fn validate_new_params(
     Ok(())
 }
 
-pub fn request(request: Value) -> Result<Value, String> {
+fn coordinator() -> &'static RotorCoordinator {
     static COORDINATOR: OnceLock<RotorCoordinator> = OnceLock::new();
-    COORDINATOR
-        .get_or_init(RotorCoordinator::new)
-        .handle(request, |request| {
-            if request["method"]
-                .as_str()
-                .is_some_and(|method| method.starts_with("hamlib_"))
-            {
-                hamlib::request(request)
-            } else {
-                worker::request(request)
-            }
-        })
+    COORDINATOR.get_or_init(RotorCoordinator::new)
+}
+fn dispatch(request: Value) -> Result<Value, String> {
+    if request["method"].as_str().is_some_and(|method| method.starts_with("hamlib_")) {
+        hamlib::request(request)
+    } else {
+        worker::request(request)
+    }
+}
+pub fn request(request: Value) -> Result<Value, String> {
+    coordinator().handle(request, dispatch)
+}
+pub(crate) fn automatic_owner() -> Result<Option<(String, u64)>, String> { coordinator().automatic_owner() }
+pub(crate) fn with_automatic_owner<T>(owner: &str, generation: u64, action: impl FnOnce() -> Result<T, String>) -> Result<T, String> {
+    coordinator().with_automatic_owner(owner, generation, action)
+}
+pub(crate) fn request_automatic_generation(permit: &crate::auto_rotor::Permit, bearing: f64, expected_worker: u64) -> Result<Value, String> {
+    let reply = coordinator().handle_automatic(permit.request(bearing)?, permit, |request| {
+        dispatch_generation(request, expected_worker, || {
+            worker::require_existing_generation(expected_worker)?;
+            Ok(worker::generation())
+        }, worker::request_existing_generation, hamlib::request)
+    })?;
+    Ok(reply["result"].clone())
+}
+
+fn dispatch_generation(request: Value, expected: u64, current: impl FnOnce() -> Result<u64, String>,
+    native: impl FnOnce(Value, u64) -> Result<Value, String>, local: impl FnOnce(Value) -> Result<Value, String>) -> Result<Value, String> {
+    // This check runs inside the coordinator's actual serialized dispatch, not
+    // before waiting for it. The native transport additionally pins its exact
+    // existing Session, closing replacement between this check and worker I/O.
+    if expected == 0 || current()? != expected { return Err("Worker generation changed; automatic rotor turn was not sent.".into()); }
+    if request["method"].as_str().is_some_and(|method| method.starts_with("hamlib_")) {
+        local(request)
+    } else {
+        native(request, expected)
+    }
 }
 
 pub fn monitor_stop(owner: &str) -> Result<Value, String> {
@@ -400,6 +490,43 @@ mod tests {
     use super::*;
     use std::sync::{mpsc, Arc};
     use std::time::Duration;
+
+    #[test]
+    fn automatic_dispatch_rejects_replaced_or_absent_worker_before_any_backend() {
+        for method in ["station_rotor_goto", "hamlib_control"] {
+            for (expected, current) in [(7, 8), (0, 0)] {
+                assert!(dispatch_generation(json!({"method":method}), expected, || Ok(current),
+                    |_, _| panic!("obsolete native turn"), |_| panic!("obsolete local turn")).is_err());
+            }
+        }
+    }
+
+    #[test]
+    fn native_dispatch_keeps_exact_generation_when_replacement_races_after_check() {
+        let received = Mutex::new(Vec::new());
+        let result = dispatch_generation(json!({"method":"station_rotor_goto","params":{"bearing":90}}), 7, || Ok(7),
+            |request, expected| {
+                received.lock().unwrap().push((request["method"].clone(), expected));
+                // The real existing-generation transport rejects the replacement
+                // here. It must not fall back to a generic spawning request.
+                assert_eq!(expected, 7); Err("existing worker is now generation 8".into())
+            }, |_| panic!("native failure fell back to a different backend"));
+        assert!(result.is_err()); assert_eq!(*received.lock().unwrap(), [(json!("station_rotor_goto"), 7)]);
+    }
+
+    #[test]
+    fn local_dispatch_uses_existing_local_owner_without_contacting_or_starting_worker() {
+        let result = dispatch_generation(json!({"method":"hamlib_control","params":{"device":"rotor","action":"goto"}}), 7, || Ok(7),
+            |_, _| panic!("local rotor reached Swift transport"), |request| {
+                assert_eq!(request["params"]["device"], "rotor"); Ok(json!({"accepted":true}))
+            }).unwrap();
+        assert_eq!(result["accepted"], true);
+    }
+    #[test]
+    fn retired_worker_rejects_local_turn_even_when_its_generation_counter_has_not_changed() {
+        assert!(dispatch_generation(json!({"method":"hamlib_control"}), 7,
+            || Err("existing generation 7 is retired".into()), |_, _| panic!("native send"), |_| panic!("local send")).is_err());
+    }
 
     fn call(
         coordinator: &RotorCoordinator,

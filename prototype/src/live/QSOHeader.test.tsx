@@ -5,6 +5,8 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import QSOHeader from "./QSOHeader";
 import { DeskQSO } from "./OperatorDesk";
 import QSOEditor from "./QSOEditor";
+import { SpotActivationClient, activationMessage } from "./spotActivationClient";
+import { SpotActivationStatus } from "./SpotActivationStatus";
 
 afterEach(cleanup);
 const evidence = { call: "H49A", rows: [{ kind: "iota", reference: "OC-047", status: "verified", name: "Solomon Islands" }] };
@@ -36,11 +38,28 @@ it.each(["desk", "editor"])("puts evidence inside the %s QSO header, not above t
   expect(screen.getByRole("status").parentElement).toBe(heading.parentElement);
   expect(heading.parentElement?.closest(kind === "desk" ? ".desk-active" : ".qso-active")).toBeTruthy();
 });
-it("removes the global tuning status row while retaining the authoritative tune fence and errors", () => {
+it("removes the global tuning status row while retaining the authoritative tune fence and errors", async () => {
   const source = readFileSync("src/LiveApp.tsx", "utf8");
   expect(source).not.toContain("waiting for observed radio state");
   expect(source).not.toContain("request accepted; awaiting observation");
   expect(source).not.toContain("referenceEvidence.rows.map");
-  expect(source).toContain("confirmed: result.confirmed === true");
-  expect(source).toContain("setError(e.message)");
+  expect(source).not.toContain('request("station_tune"');
+  const operationId = "00000000-0000-4000-8000-000000000001";
+  const activation = { sourceEpoch: "00000000-0000-4000-8000-000000000002", spotVersion: "00000000-0000-4000-8000-000000000003" };
+  const call = vi.fn(async (command: string) => {
+    if (command === "activate_spot") throw new Error("Native acknowledgement lost");
+    return { operationId, phase: "confirmed", tuneConfirmed: false, rotor: "not_requested", reservationActive: false };
+  });
+  const client = new SpotActivationClient(call, () => operationId);
+  await expect(client.activate({ id: "native-report", activation, frequencyKHz: 28020, mode: "CW" })).rejects.toThrow("lost");
+  expect(call).toHaveBeenCalledExactlyOnceWith("activate_spot", { operationId, spotId: "native-report", ...activation });
+  render(<SpotActivationStatus status={client.getSnapshot().status} error={client.getSnapshot().error} reconcile={() => {}} />);
+  expect(screen.getByRole("alert").textContent).toContain("Activation acknowledgement unavailable");
+  expect(screen.getByRole("button", { name: "Check activation" })).toBeTruthy();
+  await client.refresh();
+  expect(call).toHaveBeenLastCalledWith("spot_activation_status", { operationId });
+  expect(client.getSnapshot().status).toMatchObject({ tuneConfirmed: false });
+  expect(activationMessage(client.getSnapshot().status)).toContain("radio tune is not confirmed");
+  expect(call.mock.calls.filter(([command]) => command === "activate_spot")).toHaveLength(1);
+  client.dispose();
 });

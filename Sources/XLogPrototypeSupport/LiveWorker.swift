@@ -18,7 +18,7 @@ public actor LiveWorker {
         }
         func handle(method: String, params: [String: Any]) throws -> [String: Any] {
             var result = try service.handle(method: method, params: params)
-            if ["settings_save", "workspace_create", "backup_restore", "logbook_operator_draft_apply"].contains(method) {
+            if ["settings_save", "workspace_create", "backup_restore", "logbook_operator_draft_apply", "spot_draft_apply"].contains(method) {
                 reconcilePower()
             }
             if method == "logbook_operator_draft" { result["power_capture_status"] = powerStatus }
@@ -210,7 +210,7 @@ public actor LiveWorker {
                 }
                 try LocalAcceptanceSession.validate(method: method, params: params)
             }
-            if terminalShutdown && (method.hasPrefix("reference_") || method.hasPrefix("sync_") || method.hasPrefix("secret_") || method.hasPrefix("station_") || method.hasPrefix("spot_bridge_") || method.hasPrefix("spot_history_") || method.hasPrefix("opportunities_") || method.hasPrefix("cluster_") || method.hasPrefix("logbook_operator_draft") || method.hasPrefix("logbook_contact") || ["weather", "propagation_snapshot", "lookup_call", "workspace_create", "backup_restore"].contains(method)) {
+            if terminalShutdown && (method.hasPrefix("reference_") || method.hasPrefix("sync_") || method.hasPrefix("secret_") || method.hasPrefix("station_") || method.hasPrefix("spot_bridge_") || method.hasPrefix("spot_history_") || method.hasPrefix("spot_draft_") || method.hasPrefix("opportunities_") || method.hasPrefix("cluster_") || method.hasPrefix("logbook_operator_draft") || method.hasPrefix("logbook_contact") || ["weather", "propagation_snapshot", "lookup_call", "workspace_create", "backup_restore"].contains(method)) {
                 throw WorkerFailure("worker_stopping", "The worker is shutting down; no new service request was started.")
             }
             if method == "health" {
@@ -265,7 +265,7 @@ public actor LiveWorker {
                     // retired by a newer provider handover or connection fence.
                     result = ["accepted": false, "superseded": true]
                 }
-            } else if method == "cluster_history" || method.hasPrefix("workspace_") || method.hasPrefix("logbook_") || method.hasPrefix("settings_") || method.hasPrefix("backup_") {
+            } else if method == "cluster_history" || method.hasPrefix("spot_draft_") || method.hasPrefix("workspace_") || method.hasPrefix("logbook_") || method.hasPrefix("settings_") || method.hasPrefix("backup_") {
                 if method == "logbook_operator_draft_apply", params["action"] as? String == "save" {
                     // Include the callback prefix already emitted before Save
                     // admission; unstructured actor Tasks alone are not FIFO.

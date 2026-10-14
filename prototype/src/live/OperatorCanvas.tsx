@@ -6,15 +6,23 @@ import "./OperatorCanvas.css";
 
 export type CanvasPanel = { title: string; content: ReactNode; required?: boolean; safetyAction?: ReactNode };
 type Props = { panels: Partial<Record<WorkspacePanelID, CanvasPanel>>; traditional: ReactNode; state: LayoutState;
-  session: WorkspaceLayoutSession; subscriptionError?: string; equipment?: "rotor" | "antenna" };
-export default function OperatorCanvas({ panels, traditional, state, session, subscriptionError = "", equipment }: Props) {
+  session: WorkspaceLayoutSession; subscriptionError?: string; equipment?: "rotor" | "antenna";
+  canChangeLayout?: () => boolean; onChangeInFlight?: (active: boolean) => void };
+export default function OperatorCanvas({ panels, traditional, state, session, subscriptionError = "", equipment, canChangeLayout, onChangeInFlight }: Props) {
   const root = useRef<HTMLDivElement>(null), toolbar = useRef<HTMLSelectElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 }), [showPanels, setShowPanels] = useState(false), [currentPanel, setCurrentPanel] = useState<WorkspacePanelID>("active-qso");
   const [error, setError] = useState(""), [working, setWorking] = useState(false);
   const active = state.snapshot?.document.presets.find(preset => preset.id === state.snapshot?.document.activePresetID);
   const custom = active && active.id !== "traditional" && active.id !== "windowed";
   const blocked = working || state.saving || !!state.pending || !state.snapshot;
-  const perform = async (action: () => Promise<void>) => { if (working) return; setWorking(true); setError(""); try { await action(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Layout change failed."); } finally { setWorking(false); } };
+  const performing = useRef(false);
+  const perform = async (action: () => Promise<void>) => {
+    if (performing.current) return;
+    if (canChangeLayout?.() === false) { setError("Finish the buffered QSO fields and pending activation before changing the layout. Your text is retained."); return; }
+    performing.current = true; onChangeInFlight?.(true); setWorking(true); setError("");
+    try { await action(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Layout change failed."); }
+    finally { performing.current = false; onChangeInFlight?.(false); setWorking(false); }
+  };
   useEffect(() => {
     const measure = () => { const box = root.current?.getBoundingClientRect(); if (box) setSize({ width: box.width, height: box.height }); };
     measure(); if (!root.current || typeof ResizeObserver === "undefined") return;

@@ -1,0 +1,25 @@
+import { useEffect, useRef, useState } from "react";
+import { invoke, isTauri } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+import { SpotActivationClient } from "./spotActivationClient";
+
+export function useSpotActivation() {
+  const client = useRef<SpotActivationClient | null>(null);
+  const [state, setState] = useState(() => new SpotActivationClient(invoke).getSnapshot());
+  useEffect(() => {
+    const current = new SpotActivationClient(invoke); client.current = current;
+    const unsubscribe = current.subscribe(() => setState(current.getSnapshot()));
+    let active = true, stop: (() => void) | undefined;
+    const refresh = () => { void current.refresh(); };
+    if (isTauri()) {
+      void listen("xlog:spot-activation", refresh).then(dispose => { if (active) { stop = dispose; refresh(); } else dispose(); }).catch(refresh);
+      window.addEventListener("focus", refresh);
+    }
+    const timer = isTauri() ? window.setInterval(refresh, 1500) : undefined;
+    return () => { active = false; unsubscribe(); stop?.(); clearInterval(timer); window.removeEventListener("focus", refresh); current.dispose(); client.current = null; };
+  }, []);
+  return { ...state, activate: async (spot: Record<string, any>) => {
+    if (!client.current) throw new Error("Wait for spot activation to initialize.");
+    return client.current.activate(spot);
+  }, reconcile: () => client.current?.reconcile() };
+}

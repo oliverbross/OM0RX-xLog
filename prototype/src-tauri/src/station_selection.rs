@@ -29,6 +29,8 @@ struct State {
     selection_id: Option<String>,
     generation: u64,
     controls: usize,
+    control_revision: u64,
+    activation_tune: bool,
 }
 pub struct Selection {
     state: Mutex<State>,
@@ -97,6 +99,8 @@ impl Selection {
                 selection_id,
                 generation: 0,
                 controls: 0,
+                control_revision: 0,
+                activation_tune: false,
             }),
             activity: AtomicUsize::new(0),
             path,
@@ -133,7 +137,7 @@ impl Selection {
     }
     fn value(&self, state: &State) -> Value {
         let power = self.power.lock().unwrap_or_else(|error| error.into_inner());
-        json!({"provider":state.provider,"generation":state.generation,"selection_id":state.selection_id,
+        json!({"provider":state.provider,"generation":state.generation,"selection_id":state.selection_id,"control_revision":state.control_revision,
             "power_notification":{"state":power.status,"error":power.error}})
     }
     fn save(&self, provider: &str, selection_id: &str) -> Result<(), String> {
@@ -445,6 +449,9 @@ impl Selection {
         if state.generation >= 9_007_199_254_740_990 {
             return Err("Radio selection generation exhausted.".into());
         }
+        // Native callers may bypass renderer lifecycle hooks. Retire queued
+        // automatic turns before the old source can be disconnected/replaced.
+        crate::auto_rotor::revoke();
         let _activity = ActivityGuard::new(&self.activity);
         let id = format!("native-radio-handover-{}", state.generation);
         let request = if previous == "hamlib" {
@@ -516,12 +523,44 @@ impl Selection {
         }
         self.control_scoped(request, Some((expected, selection_id)), admit)
     }
+    /// Native spot tuning reserves nonurgent radio controls, not a transport or
+    /// telemetry mutex. Source identity is rechecked at this admission point.
+    pub(crate) fn activation_tune<G>(&self, request: Value, expected: &Value,
+        admit: impl FnOnce() -> Result<G, String>, dispatch: impl FnOnce(Value) -> Result<Value, String>) -> Result<Value, String> {
+        let mut state = self.state.try_lock().map_err(|_| "Radio session is busy; no spot tune was sent.")?;
+        self.active()?;
+        if state.controls != 0 || state.activation_tune
+            || expected["provider"].as_str() != state.provider.as_deref()
+            || expected["generation"].as_u64() != Some(state.generation)
+            || expected["selection_id"].as_str() != state.selection_id.as_deref()
+            || expected["control_revision"].as_u64() != Some(state.control_revision) {
+            return Err("Radio selection or controls changed; no spot tune was sent.".into());
+        }
+        let method = request["method"].as_str();
+        let provider = if method == Some("hamlib_control") && request["params"]["device"] == "radio"
+            && request["params"]["action"] == "tune_simplex" { Some("hamlib") }
+            else if method == Some("station_tune") { request["params"]["provider"].as_str() } else { None };
+        if provider.is_none() || provider != state.provider.as_deref() { return Err("Invalid native spot tune route.".into()); }
+        let next_revision = state.control_revision.checked_add(1).filter(|value| *value <= 9_007_199_254_740_991)
+            .ok_or("Radio control revision exhausted")?;
+        let _admission = admit()?;
+        state.control_revision = next_revision; state.activation_tune = true; state.controls += 1;
+        let _activity = ActivityGuard::new(&self.activity);
+        drop(state);
+        let _guard = ActivationTuneGuard(self);
+        let result = dispatch(request);
+        self.active()?;
+        result
+    }
     fn control_scoped<G>(&self, request: Value, expected: Option<(u64, &str)>, admit: impl FnOnce() -> Result<G, String>) -> Result<Value, String> {
         let mut state = self
             .state
             .try_lock()
             .map_err(|_| "Radio session is busy; wait for its current action.")?;
         self.active()?;
+        if state.activation_tune && !urgent_release(&request) {
+            return Err("A spot tune is in progress; only urgent release controls are available.".into());
+        }
         if expected.is_some_and(|(generation, identity)| state.generation != generation || state.selection_id.as_deref() != Some(identity)) {
             return Err("Selected radio changed. Refresh before sending another monitor action.".into());
         }
@@ -542,6 +581,12 @@ impl Selection {
         // Only quick retained admission runs under this lock. Its guard, not
         // either mutex, lives through transport and excludes stale observations.
         let _admission = admit()?;
+        state.control_revision = state.control_revision.checked_add(1).filter(|value| *value <= 9_007_199_254_740_991)
+            .ok_or("Radio control revision exhausted")?;
+        if matches!(request["method"].as_str(), Some("station_connect" | "station_disconnect" | "station_reconnect"
+            | "station_forget" | "station_configure" | "station_configuration_apply" | "hamlib_connect" | "hamlib_disconnect" | "hamlib_reconnect")) {
+            crate::auto_rotor::revoke();
+        }
         let lifecycle = matches!(
             request["method"].as_str(),
             Some(
@@ -574,6 +619,24 @@ impl Selection {
             }
         }
         result
+    }
+}
+fn urgent_release(request: &Value) -> bool {
+    match request["method"].as_str() {
+        Some("station_action") => request["params"]["action"] == "cancel",
+        Some("station_radio_control") => request["params"]["control"] == "clear_cw"
+            || request["params"]["control"] == "ptt" && request["params"]["enabled"] == false,
+        Some("hamlib_control") => request["params"]["device"] == "radio" &&
+            (request["params"]["action"] == "cw_stop" || request["params"]["action"] == "ptt" && request["params"]["on"] == false
+             || request["params"]["action"] == "tuner" && request["params"]["on"] == false),
+        _ => false,
+    }
+}
+struct ActivationTuneGuard<'a>(&'a Selection);
+impl Drop for ActivationTuneGuard<'_> {
+    fn drop(&mut self) {
+        if let Ok(mut state) = self.0.state.lock() { state.activation_tune = false; state.controls = state.controls.saturating_sub(1); }
+        (self.0.publish)();
     }
 }
 struct ActivityGuard<'a>(&'a AtomicUsize);
@@ -664,6 +727,44 @@ pub fn shutdown() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn activation_admission_rechecks_source_without_sending_or_consuming_revision_on_rejection() {
+        let (_directory, owner, calls) = fixture();
+        let expected = initialized(&owner, Some("direct_agent"));
+        let tune = json!({"id":"tune","method":"station_tune","params":{"provider":"direct_agent","frequency_hz":14025000,"mode":"CW"}});
+        assert!(owner.activation_tune(tune, &expected, || Err::<(),String>("report changed".into()), |_| panic!("rejected source dispatched")).is_err());
+        assert_eq!(owner.snapshot().unwrap()["control_revision"], expected["control_revision"]);
+        assert!(!owner.state.lock().unwrap().activation_tune);
+        assert!(calls.lock().unwrap().iter().all(|request| request["method"] == "station_power_selection"));
+    }
+    #[test]
+    fn prior_radio_control_or_reconnect_invalidates_activation_preparation() {
+        let (_directory, owner, _) = fixture(); let expected = initialized(&owner, Some("direct_agent"));
+        owner.control(json!({"id":"reconnect","method":"station_reconnect","params":{"provider":"direct_agent"}})).unwrap();
+        assert_eq!(owner.snapshot().unwrap()["generation"],expected["generation"]);
+        assert!(owner.activation_tune(json!({"id":"tune","method":"station_tune","params":{"provider":"direct_agent"}}),
+            &expected, || -> Result<(),String> { panic!("obsolete source admitted") }, |_| panic!("obsolete source dispatched")).is_err());
+    }
+    #[test]
+    fn activation_excludes_nonurgent_controls_but_preserves_release_and_cleans_up_after_unknown_reply() {
+        let (_directory, owner, _) = fixture(); let expected = initialized(&owner, Some("direct_agent"));
+        let owner=Arc::new(owner);let pending=owner.clone();
+        let (entered,ready)=std::sync::mpsc::channel();let (release,released)=std::sync::mpsc::channel();
+        let task=std::thread::spawn(move || pending.activation_tune(
+            json!({"id":"tune","method":"station_tune","params":{"provider":"direct_agent"}}),&expected,||Ok(()),|_| {
+                entered.send(()).unwrap();released.recv_timeout(std::time::Duration::from_secs(5)).unwrap();Err("unknown tune reply".into())
+            }));
+        ready.recv_timeout(std::time::Duration::from_secs(2)).unwrap();
+        for method in ["station_connect","station_reconnect","station_disconnect","station_tune"] {
+            assert!(owner.control(json!({"id":method,"method":method,"params":{"provider":"direct_agent"}})).is_err(),"{method}");
+        }
+        assert!(owner.control(json!({"id":"off","method":"station_radio_control","params":{"provider":"direct_agent","control":"ptt","enabled":false}})).is_ok());
+        assert!(owner.control(json!({"id":"cancel","method":"station_action","params":{"provider":"direct_agent","action":"cancel"}})).is_ok());
+        assert!(owner.handover(0,"hamlib").is_err());
+        release.send(()).unwrap();assert!(task.join().unwrap().is_err());
+        assert!(!owner.state.lock().unwrap().activation_tune);assert_eq!(owner.state.lock().unwrap().controls,0);
+        assert!(owner.control(json!({"id":"reconnect","method":"station_reconnect","params":{"provider":"direct_agent"}})).is_ok());
+    }
     fn reply(request: &Value, ok: bool) -> Value {
         json!({"id":request["id"],"ok":ok,"result":{"accepted":true}})
     }
@@ -1396,7 +1497,9 @@ mod tests {
             owner
                 .control(json!({"id":"reconnect","method":method,"params":params}))
                 .unwrap();
-            assert_eq!(owner.snapshot().unwrap(), selected);
+            let mut after_control = selected.clone();
+            after_control["control_revision"] = json!(selected["control_revision"].as_u64().unwrap() + 1);
+            assert_eq!(owner.snapshot().unwrap(), after_control);
             let requests = calls.lock().unwrap();
             assert_eq!(requests.len(), 3);
             assert_eq!(
@@ -1449,7 +1552,9 @@ mod tests {
                     owner.control(json!({"id":"disconnect","method":method,"params":params})),
                     response
                 );
-                assert_eq!(choice(owner.snapshot().unwrap()), choice(selected));
+                let mut after_control = selected;
+                after_control["control_revision"] = json!(after_control["control_revision"].as_u64().unwrap() + 1);
+                assert_eq!(choice(owner.snapshot().unwrap()), choice(after_control));
                 assert_eq!(calls.lock().unwrap().len(), 1);
             }
         }

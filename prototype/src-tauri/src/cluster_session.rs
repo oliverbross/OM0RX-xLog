@@ -53,6 +53,7 @@ struct Projection {
     selected: Option<String>,
     available: bool,
     received_at_ms: u64,
+    identities: crate::spot_identity::SpotIdentities,
 }
 
 pub struct ClusterSession {
@@ -78,6 +79,7 @@ impl ClusterSession {
                 selected: None,
                 available: false,
                 received_at_ms: 0,
+                identities: crate::spot_identity::SpotIdentities::new(crate::worker::generation()),
             }),
             started: AtomicBool::new(false),
             stopped: AtomicBool::new(false),
@@ -109,8 +111,9 @@ impl ClusterSession {
         )
     }
 
-    fn accept(&self, response: &Value) -> Result<(), String> {
+    fn accept(&self, response: &Value, generation: u64) -> Result<(), String> {
         self.active()?;
+        if generation != crate::worker::generation() { return Err("Cluster worker changed before the snapshot was accepted.".into()); }
         let payload = &response["result"];
         if response["ok"] != true
             || !payload["snapshot"]["spots"]
@@ -125,7 +128,9 @@ impl ClusterSession {
                 .lock()
                 .map_err(|_| "Cluster projection unavailable")?;
             state.revision += 1;
-            state.response = Some(payload.clone());
+            let mut annotated = payload.clone();
+            state.identities.annotate(&mut annotated, generation);
+            state.response = Some(annotated);
             state.available = true;
             state.received_at_ms = SystemTime::now().duration_since(UNIX_EPOCH).map(|duration| duration.as_millis() as u64).unwrap_or(0);
             if state.selected.as_ref().is_some_and(|id| {
@@ -154,6 +159,7 @@ impl ClusterSession {
         if let Ok(mut state) = self.projection.lock() {
             state.available = false;
             state.revision += 1;
+            state.identities.invalidate(crate::worker::generation());
         }
         self.emit();
     }
@@ -166,8 +172,8 @@ impl ClusterSession {
             return Ok(());
         };
         self.active()?;
-        let result =
-            (self.transport)(self.snapshot_request()).and_then(|response| self.accept(&response));
+        let generation = crate::worker::generation();
+        let result = (self.transport)(self.snapshot_request()).and_then(|response| self.accept(&response, generation));
         if result.is_err() {
             self.unavailable();
         }
@@ -178,6 +184,17 @@ impl ClusterSession {
         self.refresh()?;
         self.emit();
         Ok(())
+    }
+
+    /// Immutable fields come exclusively from this native retained snapshot.
+    pub fn activation_spot(&self, epoch: &str, id: &str, version: &str) -> Result<Value, String> {
+        self.active()?;
+        let state = self.projection.lock().map_err(|_| "Cluster projection unavailable")?;
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).map_err(|_| "Cluster clock unavailable")?.as_millis() as u64;
+        if !state.available || now.saturating_sub(state.received_at_ms) > 5000 || state.received_at_ms > now + 1000 {
+            return Err("Cluster reports are stale. Refresh before selecting a report.".into());
+        }
+        state.identities.resolve(epoch, id, version, crate::worker::generation())
     }
 
     pub fn request(&self, request: Value) -> Result<Value, String> {
@@ -208,7 +225,13 @@ impl ClusterSession {
             .try_lock()
             .map_err(|_| "Cluster session is busy. Wait for the current action to finish.")?;
         self.active()?;
-        let response = match (self.transport)(request.clone()) {
+        if matches!(request["method"].as_str(), Some("cluster_connect" | "cluster_disconnect" | "cluster_configure")) {
+            // Retire displayed activation tokens before a source/session action,
+            // including uncertain outcomes. No retained report is replayable.
+            self.unavailable();
+        }
+        let generation = crate::worker::generation();
+        let mut response = match (self.transport)(request.clone()) {
             Ok(value) => value,
             Err(error) => {
                 self.unavailable();
@@ -217,10 +240,14 @@ impl ClusterSession {
         };
         self.active()?;
         if response["ok"] == true && request["method"] != "cluster_history" {
-            if let Err(error) = self.accept(&response) {
+            if let Err(error) = self.accept(&response, generation) {
                 self.unavailable();
                 return Err(error);
             }
+            // Direct replies and background projections carry the same native
+            // identity tokens; a fresh window must not need a second refresh.
+            response["result"] = self.projection.lock().map_err(|_| "Cluster projection unavailable")?
+                .response.clone().ok_or("Cluster snapshot unavailable")?;
         } else if request["method"] == "cluster_snapshot" {
             self.unavailable();
         }
@@ -379,6 +406,19 @@ mod tests {
         }
         assert_eq!(calls.load(Ordering::SeqCst), 1);
     }
+    #[test]
+    fn first_direct_reply_has_native_tokens_and_old_worker_payload_is_never_relabelled() {
+        let owner = ClusterSession::new(Arc::new(|request| Ok(json!({"id":request["id"],"ok":true,"result":{
+            "snapshot":{"spots":[{"id":"source-report","callsign":"TEST1","frequencyKHz":14074.0,"mode":"FT8","band":"20m"}]}
+        }}))), Arc::new(|_| {}));
+        let response = owner.request(request("cluster_snapshot")).unwrap();
+        let token = &response["result"]["snapshot"]["spots"][0]["activation"];
+        assert!(token["sourceEpoch"].is_string());
+        assert_eq!(owner.activation_spot(token["sourceEpoch"].as_str().unwrap(), "source-report", token["spotVersion"].as_str().unwrap()).unwrap()["call"], "TEST1");
+        let previous = owner.projection_value().unwrap();
+        assert!(owner.accept(&response, crate::worker::generation().wrapping_add(1)).is_err());
+        assert_eq!(owner.projection_value().unwrap(), previous);
+    }
 
     #[test]
     fn startup_resume_initialization_busy_is_rejected_before_transport_then_confirms() {
@@ -458,7 +498,7 @@ mod tests {
         assert!(owner.request(request("cluster_connect")).is_err());
         assert!(owner.refresh().is_err());
         assert!(owner
-            .accept(&reply(&request("cluster_snapshot"), "late"))
+            .accept(&reply(&request("cluster_snapshot"), "late"), crate::worker::generation())
             .is_err());
         assert_eq!(calls.load(Ordering::SeqCst), 0);
     }
@@ -512,6 +552,10 @@ mod tests {
         let active = owner.clone();
         let command = std::thread::spawn(move || active.request(request("cluster_connect")));
         entered_rx.recv_timeout(Duration::from_secs(3)).unwrap();
+        // Connecting retires old report tokens before transport starts. That
+        // wake is required; only publication after shutdown is prohibited.
+        let before_shutdown = events.load(Ordering::SeqCst);
+        assert_eq!(before_shutdown, 1);
         for _ in 0..20 {
             owner.refresh().unwrap();
         }
@@ -520,7 +564,7 @@ mod tests {
         release_tx.send(()).unwrap();
         assert!(command.join().unwrap().is_err());
         assert_eq!(calls.load(Ordering::SeqCst), 1);
-        assert_eq!(events.load(Ordering::SeqCst), 0);
+        assert_eq!(events.load(Ordering::SeqCst), before_shutdown);
     }
 
     #[test]
@@ -556,7 +600,7 @@ mod tests {
         invalid["params"] = json!({"unexpected":true});
         assert!(owner.request(invalid).is_err());
         assert!(owner
-            .accept(&json!({"ok":true,"result":{"snapshot":{"spots":"bad"}}}))
+            .accept(&json!({"ok":true,"result":{"snapshot":{"spots":"bad"}}}), crate::worker::generation())
             .is_err());
         assert_eq!(
             owner.projection_value().unwrap()["response"]["query"],

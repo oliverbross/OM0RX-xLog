@@ -8,7 +8,7 @@ export const detachedClusterMethods = [
 export type DetachedClusterMethod = typeof detachedClusterMethods[number];
 export type ClusterRequestEnvelope = { id: string; method: DetachedClusterMethod; params: Record<string, unknown> };
 export type ClusterResponseEnvelope = { id: string; ok: boolean; result?: Record<string, unknown>; error?: { message?: string } };
-export type ClusterProjection = { revision: number; response: Record<string, unknown> | null; selected: string | null; available: boolean };
+export type ClusterProjection = { revision: number; response: Record<string, unknown> | null; selected: string | null; available: boolean; received_at_ms?: number };
 
 const record = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === "object" && !Array.isArray(value);
@@ -27,6 +27,7 @@ export function validClusterResponse(value: unknown): value is ClusterResponseEn
 export function validClusterProjection(value: unknown): value is ClusterProjection {
   if (!record(value) || !Number.isSafeInteger(value.revision) || Number(value.revision) < 0 ||
     typeof value.available !== "boolean" ||
+    value.received_at_ms !== undefined && (!Number.isSafeInteger(value.received_at_ms) || Number(value.received_at_ms) < 0) ||
     (value.selected !== null && typeof value.selected !== "string")) return false;
   if (value.response === null) return !value.available;
   if (!record(value.response) || !record(value.response.snapshot)) return false;

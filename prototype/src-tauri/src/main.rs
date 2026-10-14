@@ -9,6 +9,12 @@ mod station_telemetry;
 mod station_selection;
 mod map_context;
 mod monitor_context;
+mod spot_identity;
+mod spot_editor_barrier;
+mod spot_activation;
+mod spot_activation_backend;
+mod auto_rotor;
+mod auto_rotor_reconcile;
 mod detached_geometry;
 mod window_geometry;
 mod winkeyer;
@@ -21,11 +27,99 @@ mod workspace_window_runtime;
 
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu, WINDOW_SUBMENU_ID};
 use tauri::{Emitter, LogicalSize, Manager};
-use std::sync::{atomic::{AtomicBool, Ordering}, Mutex};
+use std::sync::{atomic::{AtomicBool, Ordering}, Arc, Mutex, OnceLock};
 
 static MAIN_CREATION: Mutex<()> = Mutex::new(());
 static APP_EXITING: AtomicBool = AtomicBool::new(false);
 const OPERATOR_DRAFT_CHANGED: &str = "xlog:operator-draft-changed";
+static SPOT_ACTIVATION: OnceLock<Arc<spot_activation::Coordinator>> = OnceLock::new();
+fn activation_owner(app: &tauri::AppHandle) -> Arc<spot_activation::Coordinator> {
+    SPOT_ACTIVATION.get_or_init(|| Arc::new(spot_activation::Coordinator::new(
+        Arc::new(spot_activation_backend::NativeBackend::new(app.clone()))))).clone()
+}
+fn validate_activation_reader(label: &str) -> Result<(), String> {
+    if spot_editor_barrier::editor_role(label) || spot_editor_barrier::activation_role(label) { Ok(()) }
+    else { Err("This window cannot access spot activation.".into()) }
+}
+fn validate_spot_effect(label: &str, isolated: bool, exiting: bool) -> Result<(), String> {
+    if exiting || isolated || !spot_editor_barrier::activation_role(label) {
+        Err("Spot radio actions are unavailable in this window or isolated acceptance.".into())
+    } else { Ok(()) }
+}
+fn validate_editor_transition(label: &str) -> Result<(), String> {
+    if spot_editor_barrier::editor_role(label) {
+        if let Some(owner) = SPOT_ACTIVATION.get() {
+            if owner.snapshot()?["reservationActive"] == true {
+                return Err("Wait for the spot activation outcome before closing or docking this editor.".into());
+            }
+        }
+    }
+    Ok(())
+}
+fn retires_automatic_rotor(request: &serde_json::Value) -> bool {
+    matches!(request["method"].as_str(), Some("workspace_create" | "backup_restore" | "station_connect" | "station_disconnect" | "station_reconnect" | "station_configure"))
+        || request["params"]["device"] == "radio" && matches!(request["method"].as_str(), Some("hamlib_connect" | "hamlib_disconnect" | "hamlib_reconnect"))
+}
+
+#[tauri::command]
+fn spot_editor_register(window: tauri::WebviewWindow, app: tauri::AppHandle, instance: String) -> Result<serde_json::Value, String> {
+    let owner = activation_owner(&app);
+    owner.editors.register(window.label(), &instance)?;
+    owner.snapshot()
+}
+#[tauri::command]
+fn spot_editor_unregister(window: tauri::WebviewWindow, app: tauri::AppHandle, instance: String) -> Result<(), String> {
+    if !spot_editor_barrier::editor_role(window.label()) { return Err("This window is not a QSO editor.".into()); }
+    activation_owner(&app).editors.unregister(window.label(), &instance)
+}
+#[tauri::command]
+fn spot_editor_ack(window: tauri::WebviewWindow, app: tauri::AppHandle, instance: String, barrier_id: String,
+    operation_id: String, ready: bool, reason: Option<String>) -> Result<(), String> {
+    if !spot_editor_barrier::editor_role(window.label()) { return Err("This window is not a QSO editor.".into()); }
+    activation_owner(&app).editors.acknowledge(window.label(), &instance, &operation_id, &barrier_id, ready, reason.as_deref())
+}
+#[tauri::command]
+fn spot_activation_snapshot(window: tauri::WebviewWindow, app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    validate_activation_reader(window.label())?; activation_owner(&app).snapshot()
+}
+#[tauri::command]
+fn spot_activation_status(window: tauri::WebviewWindow, app: tauri::AppHandle, operation_id: String) -> Result<serde_json::Value, String> {
+    validate_activation_reader(window.label())?; activation_owner(&app).status(&operation_id)
+}
+#[tauri::command]
+async fn spot_activation_reconcile(window: tauri::WebviewWindow, app: tauri::AppHandle, operation_id: String) -> Result<serde_json::Value, String> {
+    validate_activation_reader(window.label())?;
+    let owner = activation_owner(&app);
+    tauri::async_runtime::spawn_blocking(move || owner.reconcile(&operation_id)).await.map_err(|_| "Activation reconciliation task failed".to_string())?
+}
+#[tauri::command]
+async fn spot_editor_state(window: tauri::WebviewWindow) -> Result<serde_json::Value, String> {
+    if !spot_editor_barrier::editor_role(window.label()) { return Err("This window is not a QSO editor.".into()); }
+    tauri::async_runtime::spawn_blocking(spot_activation_backend::canonical_editor_state).await.map_err(|_| "Draft read task failed".to_string())?
+}
+#[tauri::command]
+async fn activate_spot(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>,
+    operation_id: String, source_epoch: String, spot_id: String, spot_version: String) -> Result<serde_json::Value, String> {
+    validate_spot_effect(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
+    let owner = activation_owner(&app);
+    let request = spot_activation::Request { operation_id, source_epoch, spot_id, spot_version };
+    tauri::async_runtime::spawn_blocking(move || owner.activate(request)).await.map_err(|_| "Spot activation task failed; inspect its existing operation status before retrying".to_string())?
+}
+#[tauri::command]
+fn auto_rotor_snapshot(window: tauri::WebviewWindow) -> Result<serde_json::Value, String> {
+    if !matches!(window.label(), "main" | "monitor") { return Err("This window cannot read automatic rotor state.".into()); }
+    auto_rotor::snapshot()
+}
+#[tauri::command]
+async fn auto_rotor_set(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>,
+    armed: bool, owner: Option<String>, generation: Option<u64>) -> Result<serde_json::Value, String> {
+    if APP_EXITING.load(Ordering::Acquire) || state.path.is_some() || window.label() != "main" { return Err("Automatic rotor settings are unavailable in this window.".into()); }
+    let result = tauri::async_runtime::spawn_blocking(move || auto_rotor::set_armed(armed, owner.as_deref(), generation))
+        .await.map_err(|_| "Automatic rotor task failed".to_string())?;
+    if armed && result.is_ok() { auto_rotor_reconcile::request(&app); }
+    for label in ["main", "monitor"] { let _ = app.emit_to(label, "xlog:auto-rotor", ()); }
+    result
+}
 fn detached_window_shortcut(kind: &str) -> Option<&'static str> {
     if kind == "log-qso" { Some("CmdOrCtrl+L") } else { None }
 }
@@ -278,6 +372,8 @@ async fn station_selection_snapshot(window: tauri::WebviewWindow, app: tauri::Ap
 #[tauri::command]
 async fn station_selection_apply(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>, expected: u64, provider: String) -> Result<serde_json::Value, String> {
     station_selection::validate(window.label(), state.path.is_some(), true)?;
+    auto_rotor::revoke();
+    let _auto_change = auto_rotor::canonical_will_change();
     let owner = station_selection::owner(&app)?;
     let telemetry = station_telemetry::owner(&app)?;
     let _fence = telemetry.control()?;
@@ -341,12 +437,15 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
         if window.label() != "main" && !(window.label() == "monitor" && monitor_allowed) {
             return Err("This window cannot control Hamlib devices".into());
         }
+        if retires_automatic_rotor(&request) { auto_rotor::revoke(); }
         let _telemetry_fence = if station_telemetry::changes_radio(&request) { Some(station_telemetry::owner(&app)?.control()?) } else { None };
+        let _auto_change = if station_telemetry::changes_radio(&request) { Some(auto_rotor::canonical_will_change()) } else { None };
         let selection = if station_telemetry::changes_radio(&request) { Some(station_selection::owner(&app)?) } else { None };
         return tauri::async_runtime::spawn_blocking(move || if let Some(selection) = selection { selection.control(request) } else { hamlib::request(request) })
             .await.map_err(|_| "Hamlib task failed".to_string())?;
     }
     worker::validate_surface(window.label(), &request)?;
+    if retires_automatic_rotor(&request) { auto_rotor::revoke(); }
     let _telemetry_fence = if station_telemetry::changes_radio(&request) { Some(station_telemetry::owner(&app)?.control()?) } else { None };
     let selection = if station_telemetry::changes_radio(&request) { Some(station_selection::owner(&app)?) } else { None };
     let invalidate = logbook_events::changes_logbook(&request);
@@ -354,16 +453,23 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     // Retire metadata before a restore/write can race a map's retained read.
     if map_changed { map_context::invalidate(); }
     let draft_wake = DraftWake::for_request(&request);
+    let auto_change = if draft_wake != DraftWake::None || station_telemetry::changes_radio(&request) {
+        Some(auto_rotor::canonical_will_change())
+    } else { None };
     let layout_changed = matches!(method, "workspace_layout_apply" | "workspace_create" | "backup_restore");
     let activate_layout = method == "workspace_layout_apply"
         && request["params"]["action"] == "activatePreset";
     let result = tauri::async_runtime::spawn_blocking(move || if let Some(selection) = selection { selection.control(request) } else { worker::request(request) })
         .await
         .map_err(|_| "Worker task failed".to_string())?;
+    drop(auto_change);
     if draft_wake.confirmed(result.as_ref().ok()) {
         // No draft/contact payload is broadcast. Each editor reloads canonical
         // state through its scoped IPC and retains its own unresolved journal.
         for label in ["main", "log-qso", "callsign-intelligence", "monitor"] { let _ = app.emit_to(label, OPERATOR_DRAFT_CHANGED, ()); }
+        if state.path.is_none() {
+            auto_rotor_reconcile::request(&app);
+        }
     }
     if invalidate {
         // The initiating view already refreshes after its operation. In
@@ -528,6 +634,7 @@ fn cluster_session_selection(window: tauri::WebviewWindow, app: tauri::AppHandle
 #[tauri::command]
 async fn dock_detached_window(window: tauri::WebviewWindow, app: tauri::AppHandle) -> Result<(), String> {
     let screen = detached_dock_screen(window.label())?;
+    validate_editor_transition(window.label())?;
     // The revisioned route survives a main view that has not subscribed yet.
     navigate_workspace(app.clone(), screen.into()).await?;
     window.close().map_err(|error| error.to_string())?;
@@ -551,8 +658,17 @@ fn detached_dock_screen(label: &str) -> Result<&str, String> {
 }
 
 #[tauri::command]
+async fn close_main_window(window: tauri::WebviewWindow) -> Result<(), String> {
+    if window.label() != "main" { return Err("Only the main workspace can close itself".into()); }
+    validate_editor_transition(window.label())?;
+    detached_geometry::flush(&window);
+    window.destroy().map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 async fn close_qso_window(window: tauri::WebviewWindow) -> Result<(), String> {
     if window.label() != "log-qso" { return Err("Only the Log QSO window can close itself".into()); }
+    validate_editor_transition(window.label())?;
     detached_geometry::flush(&window);
     window.destroy().map_err(|error| error.to_string())
 }
@@ -560,6 +676,7 @@ async fn close_qso_window(window: tauri::WebviewWindow) -> Result<(), String> {
 #[tauri::command]
 async fn close_logbook_window(window: tauri::WebviewWindow) -> Result<(), String> {
     if window.label() != "logbook" { return Err("Only the Logbook window can close itself".into()); }
+    validate_editor_transition(window.label())?;
     detached_geometry::flush(&window);
     window.destroy().map_err(|error| error.to_string())
 }
@@ -578,6 +695,20 @@ fn main() {
     let isolated = path.is_some();
     let builder = tauri::Builder::default()
         .menu(workspace_menu)
+        .on_window_event(|window, event| {
+            if !spot_editor_barrier::editor_role(window.label()) { return; }
+            if let Some(owner) = SPOT_ACTIVATION.get() {
+                match event {
+                    tauri::WindowEvent::Destroyed => { let _ = owner.editors.destroyed(window.label()); }
+                    tauri::WindowEvent::CloseRequested { api, .. } => {
+                        // A renderer crash or missed close listener cannot remove
+                        // an editor while its shared draft is reserved.
+                        if owner.snapshot().map(|state| state["reservationActive"] == true).unwrap_or(true) { api.prevent_close(); }
+                    }
+                    _ => {}
+                }
+            }
+        })
         .on_menu_event(|app, event| {
             if let Some(screen) = workspace_navigation::menu_screen(&event.id().0) {
                 let app = app.clone(); let screen = screen.id.clone();
@@ -643,9 +774,12 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![worker_request, pick_backup_package, open_monitor, open_detached_map,
+            spot_editor_register, spot_editor_unregister, spot_editor_ack, spot_editor_state,
+            spot_activation_snapshot, spot_activation_status, spot_activation_reconcile, activate_spot,
+            auto_rotor_snapshot, auto_rotor_set,
             workspace_windows_status, workspace_windows_reconcile,
             workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_selection_apply,
-            detached_cluster_ready, cluster_session_selection, dock_detached_window, close_logbook_window, close_qso_window,
+            detached_cluster_ready, cluster_session_selection, dock_detached_window, close_logbook_window, close_qso_window, close_main_window,
             acceptance::acceptance_enabled, acceptance::acceptance_large_log, acceptance::acceptance_monitor,
             acceptance::acceptance_screen,
             acceptance::acceptance_open_window, acceptance::acceptance_window_step, acceptance::acceptance_window_state,
@@ -657,6 +791,8 @@ fn main() {
         .run(|app, event| {
             if matches!(event, tauri::RunEvent::ExitRequested { .. }) {
                 APP_EXITING.store(true, Ordering::Release);
+                auto_rotor::revoke();
+                auto_rotor_reconcile::shutdown();
                 logbook_events::shutdown();
                 workspace_window_runtime::shutdown();
                 detached_geometry::shutdown(app);
@@ -669,6 +805,8 @@ fn main() {
                 });
             }
             if matches!(event, tauri::RunEvent::Exit) {
+                auto_rotor::revoke();
+                auto_rotor_reconcile::shutdown();
                 logbook_events::shutdown();
                 station_selection::shutdown(); station_telemetry::shutdown(); rotor_telemetry::shutdown(); cluster_session::shutdown(); winkeyer::shutdown(); hamlib::shutdown(); worker::shutdown();
                 app.state::<acceptance::Acceptance>().cleanup_browser_contexts();
@@ -679,7 +817,24 @@ fn main() {
 #[cfg(test)]
 mod workspace_layout_tests {
     use super::{WorkspaceLayout, DraftWake, recover_singleton, detached_window_shortcut, validate_detached_open, COMPACT_WORKSPACE_MENU_ID, STANDARD_WORKSPACE_MENU_ID};
+    use super::{spot_editor_barrier, validate_spot_effect, validate_activation_reader, retires_automatic_rotor};
     use serde_json::json;
+
+    #[test]
+    fn spot_activation_capabilities_are_role_scoped_and_never_bypass_isolation_or_shutdown() {
+        for label in ["main", "dx-cluster", "world-map", "band-maps", "log-qso", "logbook", "monitor", "settings", "unknown"] {
+            let writer = spot_editor_barrier::activation_role(label);
+            assert_eq!(validate_spot_effect(label, false, false).is_ok(), writer);
+            assert!(validate_spot_effect(label, true, false).is_err());
+            assert!(validate_spot_effect(label, false, true).is_err());
+            assert_eq!(validate_activation_reader(label).is_ok(), writer || spot_editor_barrier::editor_role(label));
+        }
+        for method in ["workspace_create", "backup_restore", "station_connect", "station_disconnect", "station_reconnect"] {
+            assert!(retires_automatic_rotor(&serde_json::json!({"method":method,"params":{}})));
+        }
+        assert!(!retires_automatic_rotor(&serde_json::json!({"method":"logbook_operator_draft_apply","params":{"action":"replace"}})));
+        assert!(retires_automatic_rotor(&serde_json::json!({"method":"hamlib_disconnect","params":{"device":"radio"}})));
+    }
 
     #[test]
     fn menu_actions_have_exact_logical_inner_sizes() {

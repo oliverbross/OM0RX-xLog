@@ -6,6 +6,7 @@ import { workerRequest } from "../worker";
 import { mapRadioFrequency } from "./mapContext";
 import { useMapContext } from "./useMapContext";
 import { mergeBandMapPreferenceIntent } from "./detachedBandMapPreferences";
+import { SpotActivationStatus } from "./SpotActivationStatus";
 
 export function DetachedBandMapsSurface() {
   const view = useMapContext(), [optimistic, setOptimistic] = useState<BandMapViewPreferences | null>(null);
@@ -49,13 +50,15 @@ export function DetachedBandMapsSurface() {
     {view.error && <p className="live-error" role="alert">{view.error}</p>}
     {preferenceError && <p className="live-error" role="alert">{preferenceError}</p>}
     <div className="live-actions"><strong>Band Maps</strong><button type="button" onClick={view.refresh}>Refresh</button>
+      <SpotActivationStatus inline status={view.activation.status} reconcile={() => {}} />
       <button type="button" disabled={view.docking} onClick={() => void view.dock()}>{view.docking ? "Docking…" : "Dock back"}</button></div>
-    <p className="secondary">Inspect reports here. QSO activation and radio tuning are unavailable in this detached window.</p>
+    <p className="secondary">Select a marker to load the shared QSO and tune the selected radio. Unsaved editor fields block activation.</p>
+    <SpotActivationStatus status={view.activation.status} error={view.activation.error} checking={view.activation.requesting} reconcile={() => void view.activation.reconcile()} />
     {!view.context ? <p className="secondary">Loading shared native band maps…</p> : <>
       {view.stale && <p className="live-cluster-note" role="status">Shared service updates paused; retained reports may be stale. Refresh to retry.</p>}
-      <BandMaps spots={view.spots} onSelect={view.inspect} radioFrequencyHz={mapRadioFrequency(view.context)}
-        preferences={preferences} onPreferencesChange={change} selectionHint="Select a marker to inspect its report. No draft or station change." />
+      <BandMaps spots={view.spots} onSelect={view.activate} radioFrequencyHz={mapRadioFrequency(view.context)}
+        preferences={preferences} onPreferencesChange={change} selectionHint="Select a marker to activate its current native report." />
     </>}
-    {view.selected && <p className="secondary" role="status">Inspected report: {view.selected.callsign}. No draft or station change.</p>}
+    {view.selected && <p className="secondary" role="status">Selected report: {view.selected.callsign}.</p>}
   </main></div>;
 }

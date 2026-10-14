@@ -1,3 +1,4 @@
+import { SpotEditorFence, spotActivationFrozenMessage, validSpotActivationBarrier, type SpotActivationBarrier, type SpotEditorReadiness } from "./spotActivationBarrier";
 /** Local-first view of the workspace's canonical draft. No radio operations. */
 export type DraftQSO = Record<string, any> & { id: string };
 export type DraftPowerIntent = { action: "manual"; value: string } | { action: "automatic"; value?: never };
@@ -20,7 +21,7 @@ type Receipt = { mutation: DraftMutation; draft: DraftSnapshot; savedQSO?: Draft
 type Request = (method: string, params?: Record<string, unknown>) => Promise<any>;
 export type DraftSessionState = { draft: DraftQSO | null; base: DraftSnapshot | null;
   conflict: DraftSnapshot | null; pending: DraftMutation | null; error: string; locked: boolean; workspaceChanged: boolean;
-  powerIntent: DraftPowerIntent | null; powerIntentID: string | null; pendingPowerIntentID: string | null };
+  powerIntent: DraftPowerIntent | null; powerIntentID: string | null; pendingPowerIntentID: string | null; activationFrozen: boolean };
 export type DraftJournal = Pick<DraftSessionState, "draft" | "base" | "pending"> &
   Partial<Pick<DraftSessionState, "powerIntent" | "powerIntentID" | "pendingPowerIntentID">>;
 const object = (value: any) => value !== null && typeof value === "object" && !Array.isArray(value);
@@ -111,6 +112,7 @@ export function readDraftJournal(raw: string | null): DraftJournal | null {
 }
 
 export class OperatorDraftSession {
+  private spotFence = new SpotEditorFence();
   private state: DraftSessionState;
   private listeners = new Set<() => void>();
   private work: Promise<void> | null = null;
@@ -124,7 +126,8 @@ export class OperatorDraftSession {
   private localInputPending = false;
   setLocalInputPending = (pending: boolean) => { this.localInputPending = pending; };
   constructor(private request: Request, private writeJournal: (journal: DraftJournal) => void,
-    journal: DraftJournal | null = null, private uuid: () => string = () => crypto.randomUUID()) {
+    journal: DraftJournal | null = null, private uuid: () => string = () => crypto.randomUUID(), registrationRequired = false) {
+    this.spotFence.setRegistered(!registrationRequired);
     journal = clone(journal);
     const workspaceChanged = !!journal?.base && (!validGeneration(journal.base.generation) || !!journal.pending && !sameGeneration(journal.pending.generation, journal.base.generation));
     const powerIntent = journal?.powerIntent ?? journal?.pending?.powerIntent ?? null;
@@ -132,12 +135,12 @@ export class OperatorDraftSession {
     this.state = { draft: journal?.draft ?? null, base: journal?.base ?? null,
       pending: journal?.pending ?? null, conflict: null, workspaceChanged, error: workspaceChanged ? workspaceChangedMessage : "",
       locked: !workspaceChanged && !!journal?.pending && journal.pending.action !== "replace",
-      powerIntent, powerIntentID, pendingPowerIntentID: journal?.pending?.powerIntent ? journal.pendingPowerIntentID ?? powerIntentID : null };
+      powerIntent, powerIntentID, pendingPowerIntentID: journal?.pending?.powerIntent ? journal.pendingPowerIntentID ?? powerIntentID : null, activationFrozen: this.spotFence.frozen };
   }
   getSnapshot = () => this.state;
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   private update(change: Partial<DraftSessionState>, persist = true) {
-    this.state = { ...this.state, ...change };
+    this.state = { ...this.state, ...change, activationFrozen: this.spotFence.frozen };
     if (persist && this.state.base && this.state.draft) {
       try { this.writeJournal(this.journal()); }
       catch { this.state = { ...this.state, error: "Draft recovery could not be saved on this device. Keep this window open and retry." }; }
@@ -150,12 +153,45 @@ export class OperatorDraftSession {
       ...(pendingPowerIntentID ? { pendingPowerIntentID } : {}) });
   }
   get dirty() { return !!this.state.base && (!!this.state.powerIntent || !sameDraftValue(this.state.draft, this.state.base.qso)); }
+  canAcceptLocalInput = () => !this.spotFence.frozen;
+  canAcceptBackgroundUpdate = () => !this.spotFence.frozen && !this.localInputPending;
+  setSpotEditorRegistered(registered: boolean) { this.spotFence.setRegistered(registered); this.readSequence++; this.update({}, false); }
+  freezeSpotActivation(operationId: string) {
+    const accepted = this.spotFence.freeze(operationId); this.readSequence++; this.update({}, false); return accepted;
+  }
+  prepareSpotActivation(barrier: SpotActivationBarrier): SpotEditorReadiness {
+    const accepted = this.freezeSpotActivation(barrier.operationId);
+    const reject = (reason: string) => ({ ready: false, reason });
+    if (!accepted || !validSpotActivationBarrier(barrier) || !this.spotFence.matches(barrier.operationId)) return reject("Editor registration or activation identity is unverified.");
+    if (this.localInputPending) return reject("Finish the locally buffered draft fields first.");
+    if (this.work || this.action || this.loading || this.state.pending) return reject("Check the pending draft operation first.");
+    if (this.restoring || this.resolving || this.state.locked || this.state.workspaceChanged || this.state.conflict || this.state.error) return reject("Resolve the draft or workspace state first.");
+    if (this.dirty || this.state.powerIntent || this.state.pendingPowerIntentID) return reject("Unsaved draft text or power intent is retained.");
+    const base = this.state.base;
+    if (!base || !this.state.draft || !sameGeneration(base.generation, barrier.generation) ||
+      base.qso.id.toLowerCase() !== barrier.draftId.toLowerCase() || base.revision !== barrier.expectedRevision)
+      return reject("The canonical draft identity or revision changed.");
+    return { ready: true };
+  }
+  /** Called only after a verified matching terminal native status and a fresh
+   * canonical read. Never sends/retries a local pending journal operation. */
+  reconcileSpotActivation(operationId: string, current: DraftSnapshot): boolean {
+    if (!this.spotFence.matches(operationId) || !validScopedSnapshot(current) || this.work || this.action || this.loading || this.restoring || this.resolving) return false;
+    this.readSequence++;
+    if (this.localInputPending) {
+      if (this.state.base && !sameGeneration(current.generation, this.state.base.generation)) this.changedWorkspace();
+      else if (this.state.base && !sameDraftValue(current, this.state.base)) this.update({ conflict: clone(current), error: "The shared draft changed. Your locally buffered fields are retained." });
+    } else this.acceptCurrent(current);
+    this.spotFence.release(operationId); this.update({}, false);
+    return true;
+  }
   setManualPower(value: string) {
     if (!validPowerIntent({ action: "manual", value })) throw new Error("The power value is invalid.");
     this.setPowerIntent({ action: "manual", value });
   }
   resumeAutomaticPower() { this.setPowerIntent({ action: "automatic" }); }
   private setPowerIntent(powerIntent: DraftPowerIntent) {
+    this.spotFence.assertWritable();
     if (this.state.locked) throw new Error("Wait for the current draft action to finish.");
     if (!this.state.base || !this.state.draft || this.state.workspaceChanged) throw new Error("Load the current workspace draft first.");
     if (powerIntent.action === "automatic" && !this.state.base.power) throw new Error("Load the current power-enabled workspace draft first.");
@@ -164,6 +200,7 @@ export class OperatorDraftSession {
       ...(powerIntent.action === "manual" ? { draft: { ...this.state.draft, txPower: powerIntent.value } } : {}) });
   }
   edit(next: DraftQSO) {
+    this.spotFence.assertWritable();
     if (this.state.locked) throw new Error("Wait for the current draft action to finish.");
     if (!this.state.base || next.id !== this.state.base.qso.id) throw new Error("The draft identity changed. Reload the shared draft.");
     if (sameDraftValue(next, this.state.draft)) return;
@@ -178,6 +215,7 @@ export class OperatorDraftSession {
   /** True only after an actual, validated current read. Skipped/fenced reads
    * must not be mistaken for transport recovery by the window health UI. */
   async refresh(): Promise<boolean> {
+    if (this.spotFence.frozen) return false;
     if (this.localInputPending) return false;
     if (this.state.workspaceChanged) return false;
     if (this.work || this.action || this.state.locked && !this.state.pending) return false;
@@ -190,7 +228,7 @@ export class OperatorDraftSession {
       if (sequence !== this.readSequence || lifecycle !== this.lifecycle) return false;
       throw cause;
     }
-    if (this.localInputPending || sequence !== this.readSequence || lifecycle !== this.lifecycle || this.work || this.action || this.state.pending) return false;
+    if (this.spotFence.frozen || this.localInputPending || sequence !== this.readSequence || lifecycle !== this.lifecycle || this.work || this.action || this.state.pending) return false;
     if (!validScopedSnapshot(result?.draft)) throw new Error("The shared draft response could not be verified.");
     this.receiveSnapshot(result.draft);
     return true;
@@ -200,7 +238,7 @@ export class OperatorDraftSession {
     if (!validScopedSnapshot(current)) throw new Error("The shared draft response could not be verified.");
     // Wake, reload, settings and direct snapshots share one freshness fence.
     this.readSequence++;
-    if (this.localInputPending) return;
+    if (this.spotFence.frozen || this.localInputPending) return;
     if (!this.state.workspaceChanged) this.acceptCurrent(current);
   }
   private acceptCurrent(current: DraftSnapshot) {
@@ -263,6 +301,7 @@ export class OperatorDraftSession {
       conflict: null, error: "", locked: !!this.action || this.restoring });
   }
   private async apply(mutation: DraftMutation): Promise<DraftQSO | null> {
+    this.spotFence.assertWritable();
     const lifecycle = this.lifecycle, version = this.version;
     const sentPowerIntentID = mutation === this.state.pending ? this.state.pendingPowerIntentID : mutation.powerIntent ? this.state.powerIntentID : null;
     // Persist the exact operation before it can cross IPC. A retry must reuse it.
@@ -303,9 +342,11 @@ export class OperatorDraftSession {
     }
   }
   async flush() {
+    this.spotFence.assertWritable();
     if (this.state.workspaceChanged) throw new Error(workspaceChangedMessage);
     if (this.resolving) throw new Error("Wait for draft conflict resolution to finish.");
     if (this.work) await this.work;
+    this.spotFence.assertWritable();
     if (this.state.pending || this.state.conflict) throw new Error(this.state.error || "Resolve the pending draft operation first.");
     if (!this.dirty) return;
     this.work = (async () => {
@@ -316,6 +357,7 @@ export class OperatorDraftSession {
     return this.work;
   }
   commit(action: "save" | "clear"): Promise<DraftQSO | null> {
+    if (this.spotFence.frozen) return Promise.reject(new Error(spotActivationFrozenMessage));
     if (this.action) return this.action;
     if (this.state.locked || this.state.workspaceChanged) return Promise.reject(new Error("Check the pending draft operation before another action."));
     this.update({ locked: true }, false);
@@ -329,6 +371,7 @@ export class OperatorDraftSession {
     return this.action;
   }
   async reconcile() {
+    this.spotFence.assertWritable();
     const pending = this.state.pending;
     if (!pending || this.work || this.action || this.state.workspaceChanged) return;
     const lifecycle = this.lifecycle, version = this.version;
@@ -345,6 +388,7 @@ export class OperatorDraftSession {
     } else this.update({ error: "No receipt is available yet. Retry uses the same operation ID and cannot create a duplicate QSO." });
   }
   async retry() {
+    this.spotFence.assertWritable();
     if (this.state.workspaceChanged) throw new Error(workspaceChangedMessage);
     if (this.work || this.action) return;
     const pending = this.state.pending;
@@ -360,12 +404,14 @@ export class OperatorDraftSession {
     await this.refresh();
   }
   async useShared() {
+    this.spotFence.assertWritable();
     if (this.work || this.action || this.state.pending && !this.state.workspaceChanged || this.state.locked) throw new Error("Check the pending operation before replacing local text.");
     const lifecycle = this.lifecycle;
     this.resolving = true;
     this.update({ locked: true }, false);
     try {
       const result = await this.request("logbook_operator_draft");
+      this.spotFence.assertWritable();
       if (lifecycle !== this.lifecycle || this.work || this.action || this.state.pending && !this.state.workspaceChanged) throw new Error("The workspace changed. Review its current draft.");
       if (!validScopedSnapshot(result?.draft)) throw new Error("The shared draft response could not be verified.");
       this.lifecycle++; this.version++;
@@ -374,11 +420,13 @@ export class OperatorDraftSession {
     } finally { this.resolving = false; this.update({ locked: false }, false); }
   }
   keepLocal() {
+    this.spotFence.assertWritable();
     if (this.work || this.action || this.state.pending || this.state.locked || this.state.workspaceChanged || !this.state.conflict || this.state.conflict.qso.id !== this.state.draft?.id)
       throw new Error("The original draft was saved or cleared. Copy your text before loading the current draft.");
     this.update({ base: clone(this.state.conflict), draft: this.mergePower(this.state.draft!, this.state.conflict), conflict: null, error: "" });
   }
   reset() {
+    this.spotFence.assertWritable();
     if (this.work || this.action || this.state.pending || this.state.locked) throw new Error("Finish or reconcile the draft operation before changing the workspace.");
     this.writeJournal({ draft: null, base: null, pending: null });
     this.lifecycle++; this.version++;
@@ -386,12 +434,14 @@ export class OperatorDraftSession {
       conflict: null, error: "", locked: false, workspaceChanged: false }, false);
   }
   async withWorkspaceRestore<T>(restore: () => Promise<T>): Promise<T> {
+    this.spotFence.assertWritable();
     if (this.state.locked || this.action || this.state.pending || this.state.conflict || this.state.workspaceChanged)
       throw new Error("Resolve the draft operation before restoring a workspace.");
     this.restoring = true;
     this.update({ locked: true }, false);
     try {
       await this.flush();
+      this.spotFence.assertWritable();
     } catch (cause) {
       this.restoring = false;
       const pending = this.getSnapshot().pending;

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type SetStateAction, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type SetStateAction, type ReactNode } from "react";
 import { Radio, Navigation, CircleX, CircleCheck } from "lucide-react";
 import { DeskIntelligence } from "./CallsignIntelligence";
 export { DeskIntelligence } from "./CallsignIntelligence";
@@ -15,7 +15,8 @@ type Data = Record<string, any>;
 type Request = (method: string, params?: Data) => Promise<any>;
 type Props = { draft: Data | null; setDraft: (value: SetStateAction<Data | null>) => void; save: () => void; clear: () => void; busy: boolean; draftLocked?: boolean; referenceEvidence?: ReferenceEvidence | null;
   lookup: Data | null; previous: Data[]; request: Request; refresh: number; onEditor: () => void; onReadRadio: () => Promise<void>;
-  follow: boolean; setFollow: (value: boolean) => void; rotor: RotorSnapshot | null; autoRotor: boolean; setAutoRotor: (value: boolean) => void; onManualRotor: () => void; isEditing?: boolean; intelligenceBands?: string[]; equipment?: unknown; cwControls?: ReactNode };
+  follow: boolean; setFollow: (value: boolean) => void; rotor: RotorSnapshot | null; autoRotor: boolean; setAutoRotor: (value: boolean) => void; onManualRotor: () => void; isEditing?: boolean; intelligenceBands?: string[]; equipment?: unknown; cwControls?: ReactNode;
+  canAcceptLocalInput?: () => boolean; onLocalInputState?: (pending: boolean) => void };
 const normalizedCall = (value: unknown) => String(value ?? "").trim().toUpperCase();
 const bands = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "4m", "2m", "70cm"];
 const modes = ["CW", "SSB", "FT8", "FT4", "FT2", "RTTY", "PSK", "DIGI", "AM", "FM"];
@@ -28,7 +29,9 @@ export function rotorPathDistance(shortPath: unknown, path: "SP" | "LP"): number
     ? path === "SP" ? shortPath : circumference - shortPath : undefined;
 }
 
-export function DeskQSO({ draft, setDraft, save, clear, busy, draftLocked, onEditor, onReadRadio, follow, setFollow, isEditing, cwControls, referenceEvidence, request, refresh }: Props) {
+export function DeskQSO({ draft, setDraft: writeDraft, save, clear, busy, draftLocked, onEditor, onReadRadio, follow, setFollow, isEditing, cwControls, referenceEvidence, request, refresh, canAcceptLocalInput, onLocalInputState }: Props) {
+  const acceptsInput = () => !draftLocked && (canAcceptLocalInput?.() ?? true);
+  const setDraft: Props["setDraft"] = value => { if (acceptsInput()) writeDraft(value); };
   const duplicateDate = useDuplicateContact(draft, isEditing, request, refresh);
   const [frequencyText, setFrequencyText] = useState<string | null>(null);
   const [timeText, setTimeText] = useState<{ date: string; time: string } | null>(null);
@@ -36,8 +39,31 @@ export function DeskQSO({ draft, setDraft, save, clear, busy, draftLocked, onEdi
   const draftIdentity = useRef(draft?.id); draftIdentity.current = draft?.id;
   useEffect(() => { setFrequencyText(null); setTimeText(null); setError(""); }, [draft?.id]);
   useEffect(() => { if (follow) setFrequencyText(null); }, [follow]);
+  const canonicalBuffers = useRef<{ id: unknown; frequencyHz: unknown; start: unknown } | null>(null);
+  useLayoutEffect(() => {
+    const next = { id: draft?.id, frequencyHz: draft?.frequencyHz, start: draft?.start };
+    const previous = canonicalBuffers.current; canonicalBuffers.current = next;
+    if (!previous || previous.id !== next.id) return;
+    // Retain unfinished text, but stop showing an acknowledged older value
+    // after a same-ID canonical replacement (including native spot activation).
+    if (previous.frequencyHz !== next.frequencyHz) setFrequencyText(text => text !== null &&
+      (text === "" ? previous.frequencyHz == null : /^\d+(?:\.\d{0,6})?$/.test(text) && Number(text) > 0 &&
+        Math.round(Number(text) * 1e6) === previous.frequencyHz) ? null : text);
+    if (previous.start !== next.start) setTimeText(parts => {
+      if (!parts?.date || !parts.time) return parts;
+      const candidate = `${parts.date}T${parts.time.length === 5 ? parts.time + ":00" : parts.time}Z`;
+      return Number.isFinite(Date.parse(candidate)) && Date.parse(candidate) === Date.parse(String(previous.start ?? "")) ? null : parts;
+    });
+  }, [draft?.id, draft?.frequencyHz, draft?.start]);
+  const pendingInput = frequencyText !== null && (frequencyText === "" ? draft?.frequencyHz != null :
+    !/^\d+(?:\.\d{0,6})?$/.test(frequencyText) || Number(frequencyText) <= 0 || Math.round(Number(frequencyText) * 1e6) !== draft?.frequencyHz) ||
+    timeText !== null && (!timeText.date || !timeText.time || !Number.isFinite(Date.parse(`${timeText.date}T${timeText.time.length === 5 ? timeText.time + ":00" : timeText.time}Z`)) ||
+      Date.parse(`${timeText.date}T${timeText.time.length === 5 ? timeText.time + ":00" : timeText.time}Z`) !== Date.parse(draft?.start ?? ""));
+  useLayoutEffect(() => { onLocalInputState?.(pendingInput); });
+  useLayoutEffect(() => () => onLocalInputState?.(false), [onLocalInputState]);
   if (!draft) return <section className="desk-panel desk-active"><h2><Radio size={15} /> Active QSO</h2><p>Opening logbook…</p></section>;
   const update = (key: string, value: unknown) => {
+    if (!acceptsInput()) return;
     if (["frequencyHz", "band", "mode"].includes(key)) setFollow(false);
     setDraft(current => current ? { ...current, [key]: value, ...(key === "sigInfo" && value && !current.sig ? { sig: "COTA" } : {}) } : current);
   };
@@ -45,6 +71,8 @@ export function DeskQSO({ draft, setDraft, save, clear, busy, draftLocked, onEdi
   const selectField = (key: string, title: string, options: string[]) => <label><span>{title}</span><select aria-label={`Desk ${title}`} value={draft[key] ?? ""} onChange={event => update(key, event.target.value)}><option value="">—</option>{draft[key] && !options.includes(draft[key]) && <option>{draft[key]}</option>}{options.map(value => <option key={value}>{value}</option>)}</select></label>;
   const start = utc(draft.start), date = timeText?.date ?? start.slice(0, 10), time = timeText?.time ?? start.slice(11, 19);
   const changeTime = (key: "date" | "time", value: string) => {
+    if (!acceptsInput()) return;
+    onLocalInputState?.(true);
     const next = { date, time, [key]: value }; setTimeText(next);
     const candidate = `${next.date}T${next.time.length === 5 ? next.time + ":00" : next.time}Z`;
     if (next.date && next.time && Number.isFinite(Date.parse(candidate)) && utc(candidate).slice(0, 10) === next.date) update("start", candidate);
@@ -55,15 +83,17 @@ export function DeskQSO({ draft, setDraft, save, clear, busy, draftLocked, onEdi
   const validTime = !!date && !!time && Number.isFinite(Date.parse(candidate)) && utc(candidate).slice(0, 10) === date;
   const frequencyBand = mhz && validFrequency ? bandForRadio(Math.round(Number(mhz) * 1e6)) : null;
   const canSave = !busy && !reading && /^[A-Z0-9/-]{3,32}$/.test(normalizedCall(draft.call)) && validFrequency && validTime && !!draft.band && !!draft.mode && (!frequencyBand || frequencyBand === draft.band);
-  const read = async () => { const identity = draft.id; setReading(true); setError(""); try { await onReadRadio(); if (draftIdentity.current === identity) setFrequencyText(null); } catch (cause) { if (draftIdentity.current === identity) setError(cause instanceof Error ? cause.message : "Radio readback unavailable."); } finally { setReading(false); } };
-  return <section className="desk-panel desk-active" aria-label="Active QSO"><QSOHeader title="Active QSO" call={draft.call} evidence={referenceEvidence} duplicateDate={duplicateDate} /><form inert={draftLocked} aria-busy={draftLocked} onSubmit={event => { event.preventDefault(); if (canSave) save(); }} onKeyDown={event => {
-    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") { event.preventDefault(); if (canSave) save(); }
+  const read = async () => { if (!acceptsInput()) return; const identity = draft.id; setReading(true); setError(""); try { await onReadRadio(); if (acceptsInput() && draftIdentity.current === identity) setFrequencyText(null); } catch (cause) { if (draftIdentity.current === identity) setError(cause instanceof Error ? cause.message : "Radio readback unavailable."); } finally { setReading(false); } };
+  return <section className="desk-panel desk-active" aria-label="Active QSO"><QSOHeader title="Active QSO" call={draft.call} evidence={referenceEvidence} duplicateDate={duplicateDate} /><form inert={draftLocked} aria-busy={draftLocked} onSubmit={event => { event.preventDefault(); if (acceptsInput() && canSave) save(); }} onKeyDown={event => {
+    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") { event.preventDefault(); if (acceptsInput() && canSave) save(); }
     if (event.key === "Escape") { event.preventDefault(); event.currentTarget.querySelector<HTMLInputElement>('[aria-label="Desk Callsign"]')?.focus(); }
   }}>
     <div className="desk-active-primary">{textField("call", "Callsign", "desk-call")}
       <label className="desk-date"><span>Date</span><input aria-label="Desk UTC date" type="date" value={date} onChange={event => changeTime("date", event.target.value)} /></label>
       <label><span>UTC</span><input aria-label="Desk UTC time" type="time" step={1} value={time} onChange={event => changeTime("time", event.target.value)} /></label>
       <label className="desk-frequency"><span>Frequency MHz</span><input aria-label="Desk Frequency MHz" inputMode="decimal" value={mhz} aria-invalid={!validFrequency} onChange={event => {
+        if (!acceptsInput()) return;
+        onLocalInputState?.(true);
         const value = event.target.value; setFollow(false); setFrequencyText(value);
         if (!value) update("frequencyHz", null);
         else if (/^\d+(?:\.\d{0,6})?$/.test(value) && Number(value) > 0 && Number(value) <= 1_000_000) {
@@ -76,7 +106,7 @@ export function DeskQSO({ draft, setDraft, save, clear, busy, draftLocked, onEdi
     <div className="desk-active-references">{textField("potaReference", "POTA")}{textField("sotaReference", "SOTA")}{textField("iota", "IOTA")}{textField("wwffReference", "WWFF")}{textField("sigInfo", "Castle")}</div>
     {error && <p className="desk-error" role="alert">{error}</p>}
     {(!validFrequency || !validTime || frequencyBand && frequencyBand !== draft.band) && <p className="desk-error" role="alert">Check the UTC date, frequency and band before logging.</p>}
-    <footer className="desk-active-actions"><button type="button" onClick={onEditor}>Full editor</button><button type="button" disabled={busy || reading} onClick={() => void read()}><Radio size={12} />{reading ? "Reading…" : "Read radio"}</button><label className="desk-toggle"><input type="checkbox" checked={follow} onChange={event => setFollow(event.target.checked)} />Follow radio</label><span /><button type="button" disabled={busy} onClick={clear}><CircleX size={12} />Clear QSO</button><button className="desk-log" disabled={!canSave}><CircleCheck size={13} />{isEditing ? "Update QSO" : "Log QSO"}</button></footer>
+    <footer className="desk-active-actions"><button type="button" onClick={() => { if (!acceptsInput()) return; if (pendingInput) { setError("Finish the buffered frequency and UTC fields before changing editor views."); return; } onEditor(); }}>Full editor</button><button type="button" disabled={busy || reading} onClick={() => void read()}><Radio size={12} />{reading ? "Reading…" : "Read radio"}</button><label className="desk-toggle"><input type="checkbox" checked={follow} onChange={event => { if (acceptsInput()) setFollow(event.target.checked); }} />Follow radio</label><span /><button type="button" disabled={busy} onClick={() => { if (acceptsInput()) clear(); }}><CircleX size={12} />Clear QSO</button><button className="desk-log" disabled={!canSave}><CircleCheck size={13} />{isEditing ? "Update QSO" : "Log QSO"}</button></footer>
   </form>{cwControls}</section>;
 }
 

@@ -110,6 +110,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     // Eligibility is never restored from disk. A reopened/restored database
     // requires a new native arm before any persisted scope can receive samples.
     private var operatorPowerScopeID: UUID?
+    private var spotDraftLeaseID: UUID?
 
     public let url: URL
 
@@ -148,6 +149,7 @@ public final class LogbookDatabase: @unchecked Sendable {
         withDatabaseLock {
             guard let handle else { return }
             syncRunID = nil
+            spotDraftLeaseID = nil
             sqlite3_close_v2(handle)
             self.handle = nil
         }
@@ -191,6 +193,7 @@ public final class LogbookDatabase: @unchecked Sendable {
 
     public func save(_ value: QSO, markDirty: Bool = true) throws {
         try withDatabaseLock {
+            if spotDraftLeaseID != nil, try readOperatorDraft()?.qso.id == value.id { throw SpotDraftError.busy }
             let qso = normalizedForSave(value, markDirty: markDirty, updatedAt: Date())
             let data = try encoder.encode(qso)
             let sql = """
@@ -514,6 +517,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     public func applyOperatorDraft(_ mutation: OperatorDraftMutation, nextDraft: QSO,
                                   powerConfiguration: (workspaceID: UUID, enabled: Bool, fallback: String)? = nil) throws -> OperatorDraftReceipt {
         try withDatabaseLock {
+            guard spotDraftLeaseID == nil else { throw SpotDraftError.busy }
             guard (0..<9_007_199_254_740_991).contains(mutation.expectedRevision) else { throw OperatorDraftError.invalid }
             try execute("BEGIN IMMEDIATE;")
             do {
@@ -605,6 +609,197 @@ public final class LogbookDatabase: @unchecked Sendable {
                 try? execute("ROLLBACK;")
                 throw error
             }
+        }
+    }
+
+    public var spotDraftActivationActive: Bool { withDatabaseLock { spotDraftLeaseID != nil } }
+
+    /// Called once by the authoritative worker service, not by every connection
+    /// opened for backup/diagnostics. A new worker may inspect an old receipt but
+    /// can never acquire its effect lease or resume an uncertain radio action.
+    public func recoverSpotDraftActivations() throws {
+        try withDatabaseLock {
+            try execute("BEGIN IMMEDIATE;")
+            do {
+                let records: [SpotDraftRecord] = try withStatement("SELECT payload FROM xlog_spot_draft_receipts WHERE phase NOT IN ('confirmed','failed','uncertain');") { statement in
+                    var values: [SpotDraftRecord] = []
+                    while true {
+                        let step = sqlite3_step(statement)
+                        if step == SQLITE_DONE { return values }
+                        guard step == SQLITE_ROW, let bytes = sqlite3_column_blob(statement, 0) else { throw error() }
+                        values.append(try decoder.decode(SpotDraftRecord.self, from: Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 0)))))
+                    }
+                }
+                for var record in records where !record.phase.terminal {
+                    record.phase = .uncertain
+                    try writeSpotDraftRecord(record)
+                }
+                try execute("COMMIT;")
+                spotDraftLeaseID = nil
+            } catch { try? execute("ROLLBACK;"); throw error }
+        }
+    }
+
+    public func spotDraftRecord(operationID: UUID) throws -> SpotDraftRecord? {
+        try withDatabaseLock {
+            try withStatement("SELECT payload FROM xlog_spot_draft_receipts WHERE operation_id = ?;") { statement in
+                bind(operationID.uuidString, to: 1, in: statement)
+                let step = sqlite3_step(statement)
+                if step == SQLITE_DONE { return nil }
+                guard step == SQLITE_ROW, let bytes = sqlite3_column_blob(statement, 0) else { throw error() }
+                return try decoder.decode(SpotDraftRecord.self, from: Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 0))))
+            }
+        }
+    }
+
+    public func spotDraftLiveLease(for record: SpotDraftRecord) -> UUID? {
+        withDatabaseLock { !record.phase.terminal && spotDraftLeaseID == record.leaseID ? record.leaseID : nil }
+    }
+
+    public func spotDraftAbandonedGeneration(operationID: UUID) throws -> UUID? {
+        try withDatabaseLock {
+            try withStatement("SELECT generation FROM xlog_spot_draft_abandoned WHERE operation_id = ?;") { statement in
+                bind(operationID.uuidString, to: 1, in: statement)
+                let step = sqlite3_step(statement)
+                if step == SQLITE_DONE { return nil }
+                guard step == SQLITE_ROW, let bytes = sqlite3_column_text(statement, 0),
+                      let value = UUID(uuidString: String(cString: bytes)) else { throw LogbookDatabaseError.corruptRecord }
+                return value
+            }
+        }
+    }
+
+    /// Close the status-before-late-apply race. Finding no receipt alone cannot
+    /// release editors: request tasks need not enter the service in stdin order.
+    /// The tombstone and apply share one write transaction admission boundary.
+    /// An existing receipt/lease is returned unchanged, never retired here.
+    public func abandonSpotDraft(operationID: UUID, generation: UUID) throws -> SpotDraftRecord? {
+        try withDatabaseLock {
+            try execute("BEGIN IMMEDIATE;")
+            do {
+                if let record = try spotDraftRecord(operationID: operationID) {
+                    guard record.command.generation == generation else { throw SpotDraftError.operationReused }
+                    try execute("COMMIT;"); return record
+                }
+                if let prior = try spotDraftAbandonedGeneration(operationID: operationID) {
+                    guard prior == generation else { throw SpotDraftError.operationReused }
+                } else {
+                    try withStatement("INSERT INTO xlog_spot_draft_abandoned(operation_id,generation) VALUES(?,?);") { statement in
+                        bind(operationID.uuidString, to: 1, in: statement); bind(generation.uuidString, to: 2, in: statement)
+                        try stepDone(statement)
+                    }
+                }
+                try execute("COMMIT;"); return nil
+            } catch { try? execute("ROLLBACK;"); throw error }
+        }
+    }
+
+    public func applySpotDraft(_ command: SpotDraftCommand) throws -> SpotDraftApplyResult {
+        try withDatabaseLock {
+            try command.validate()
+            try execute("BEGIN IMMEDIATE;")
+            do {
+                if let record = try spotDraftRecord(operationID: command.operationID) {
+                    guard record.command == command else { throw SpotDraftError.operationReused }
+                    try execute("COMMIT;")
+                    return SpotDraftApplyResult(record: record, replay: true, leaseID: spotDraftLiveLease(for: record))
+                }
+                if let generation = try spotDraftAbandonedGeneration(operationID: command.operationID) {
+                    guard generation == command.generation else { throw SpotDraftError.operationReused }
+                    throw SpotDraftError.abandoned
+                }
+                guard spotDraftLeaseID == nil else { throw SpotDraftError.busy }
+                guard let current = try readOperatorDraft() else { throw OperatorDraftError.notInitialized }
+                guard current.qso.id == command.draftID, current.revision == command.expectedRevision else {
+                    throw OperatorDraftError.conflict(current)
+                }
+                guard try lookup(localID: current.qso.id) == nil else { throw OperatorDraftError.existingContact }
+                var qso = command.spot.applying(to: current.qso)
+                var power = current.power
+                if var value = power {
+                    qso = try value.reconcileReplacement(current: current.qso, replacement: qso, workspaceID: value.workspaceID)
+                    qso = value.applying(to: qso); power = value
+                }
+                let draft = OperatorDraftSnapshot(revision: current.revision + 1, qso: qso, power: power)
+                try draft.validate()
+                let leaseID = UUID()
+                let record = SpotDraftRecord(command: command,
+                    receipt: SpotDraftReceipt(operationID: command.operationID, generation: command.generation,
+                                              draft: draft, phase: .draft_applied),
+                    leaseID: leaseID, phase: .draft_applied)
+                try writeOperatorDraft(draft)
+                try writeSpotDraftRecord(record)
+                try execute("COMMIT;")
+                spotDraftLeaseID = leaseID
+                if draft.power?.activeScope?.id != operatorPowerScopeID { operatorPowerScopeID = nil }
+                return SpotDraftApplyResult(record: record, replay: false, leaseID: leaseID)
+            } catch { try? execute("ROLLBACK;"); throw error }
+        }
+    }
+
+    /// True is the *only* send permit. It is returned after the first durable
+    /// transition. A repeated/lost-ack stage is status-only, never a retry permit.
+    public func stageSpotDraft(operationID: UUID, generation: UUID, leaseID: UUID,
+                               stage: SpotDraftPhase) throws -> Bool {
+        try withDatabaseLock {
+            try execute("BEGIN IMMEDIATE;")
+            do {
+                var record = try requireSpotDraftLease(operationID: operationID, generation: generation, leaseID: leaseID)
+                guard !stage.terminal, stage != .draft_applied else { throw SpotDraftError.invalidTransition }
+                if record.phase == stage {
+                    try execute("COMMIT;"); return false
+                }
+                guard record.phase.permits(stage) else { throw SpotDraftError.invalidTransition }
+                record.phase = stage
+                try writeSpotDraftRecord(record)
+                try execute("COMMIT;")
+                return true
+            } catch { try? execute("ROLLBACK;"); throw error }
+        }
+    }
+
+    @discardableResult
+    public func finishSpotDraft(operationID: UUID, generation: UUID, leaseID: UUID,
+                                outcome: SpotDraftPhase) throws -> SpotDraftRecord {
+        try withDatabaseLock {
+            guard outcome.terminal else { throw SpotDraftError.invalidTransition }
+            try execute("BEGIN IMMEDIATE;")
+            do {
+                guard var record = try spotDraftRecord(operationID: operationID), record.command.generation == generation,
+                      record.leaseID == leaseID else { throw SpotDraftError.staleLease }
+                if record.phase.terminal {
+                    guard record.phase == outcome else { throw SpotDraftError.invalidTransition }
+                    try execute("COMMIT;"); return record
+                }
+                _ = try requireSpotDraftLease(operationID: operationID, generation: generation, leaseID: leaseID)
+                guard outcome != .confirmed || [.tune_confirmed, .rotor_started].contains(record.phase) else {
+                    throw SpotDraftError.invalidTransition
+                }
+                record.phase = outcome
+                try writeSpotDraftRecord(record)
+                try execute("COMMIT;")
+                if spotDraftLeaseID == leaseID { spotDraftLeaseID = nil }
+                return record
+            } catch { try? execute("ROLLBACK;"); throw error }
+        }
+    }
+
+    private func requireSpotDraftLease(operationID: UUID, generation: UUID, leaseID: UUID) throws -> SpotDraftRecord {
+        guard spotDraftLeaseID == leaseID,
+              let record = try spotDraftRecord(operationID: operationID), record.leaseID == leaseID,
+              record.command.generation == generation, !record.phase.terminal,
+              let draft = try readOperatorDraft(), draft.qso.id == record.command.draftID,
+              draft.revision == record.receipt.draft.revision else { throw SpotDraftError.staleLease }
+        return record
+    }
+
+    private func writeSpotDraftRecord(_ record: SpotDraftRecord) throws {
+        let payload = try encoder.encode(record)
+        try withStatement("INSERT INTO xlog_spot_draft_receipts(operation_id,payload,phase) VALUES(?,?,?) ON CONFLICT(operation_id) DO UPDATE SET payload=excluded.payload,phase=excluded.phase;") { statement in
+            bind(record.command.operationID.uuidString, to: 1, in: statement)
+            _ = payload.withUnsafeBytes { sqlite3_bind_blob(statement, 2, $0.baseAddress, Int32($0.count), Self.transient) }
+            bind(record.phase.rawValue, to: 3, in: statement)
+            try stepDone(statement)
         }
     }
 
@@ -1841,6 +2036,15 @@ public final class LogbookDatabase: @unchecked Sendable {
           action TEXT NOT NULL CHECK(action IN ('replace','clear','save')),
           revision INTEGER NOT NULL,
           payload BLOB NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS xlog_spot_draft_receipts(
+          operation_id TEXT PRIMARY KEY,
+          payload BLOB NOT NULL,
+          phase TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS xlog_spot_draft_abandoned(
+          operation_id TEXT PRIMARY KEY,
+          generation TEXT NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_operator_transient_receipts
           ON xlog_operator_receipts(revision) WHERE action <> 'save';

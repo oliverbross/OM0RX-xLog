@@ -2,7 +2,7 @@ import { Radio } from "lucide-react";
 import type { ReactNode } from "react";
 import "./QSOHeader.css";
 
-export type ReferenceEvidence = { call: string; rows: Array<{ kind?: unknown; reference?: unknown; status?: unknown; name?: unknown }> };
+export type ReferenceEvidence = { call: string; rows: Array<{ kind?: unknown; reference?: unknown; status?: unknown; name?: unknown }>; error?: string };
 
 export default function QSOHeader({ title, id, call, evidence, duplicateDate, actions }: { title: string; id?: string; call?: unknown; evidence?: ReferenceEvidence | null; duplicateDate?: string | null; actions?: ReactNode }) {
   const current = String(call ?? "").trim().toUpperCase();
@@ -15,6 +15,7 @@ export default function QSOHeader({ title, id, call, evidence, duplicateDate, ac
           ? `Verified: ${String(row.name ?? "")}` : row.status === "not_installed" ? "Directory not installed" : "Not found in installed directory"}
       </span>)}
     </span>}
+    {current && evidence?.call.trim().toUpperCase() === current && evidence.error && <span className="qso-reference-status" role="status" aria-label="Reference verification">{evidence.error}</span>}
     {duplicateDate && <span className="qso-dupe-status" role="status" title="Previously worked on this band and mode · UTC date">Dupe: Worked on {duplicateDate}</span>}
     {actions}
   </header>;

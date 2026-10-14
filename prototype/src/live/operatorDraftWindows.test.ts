@@ -79,3 +79,10 @@ it("freezes edits before approved close, ignores repeated close, and unlocks on 
   expect(changed).toHaveBeenLastCalledWith(false); expect(failed).toHaveBeenCalledOnce();
   close(); expect(api.invoke).toHaveBeenCalledTimes(2); dispose();
 });
+it("uses the main-only close command with the same synchronous admission and no automatic flush", async () => {
+  let close!: () => void; const changed = vi.fn();
+  api.close.mockImplementation(async (_: string, handler: () => void) => { close = handler; return vi.fn(); });
+  api.invoke.mockImplementation(async () => { expect(changed).toHaveBeenLastCalledWith(true); });
+  const dispose = protectOperatorDraftClose(() => false, vi.fn(), vi.fn(), changed, "close_main_window"); await Promise.resolve();
+  close(); close(); expect(api.invoke).toHaveBeenCalledExactlyOnceWith("close_main_window"); dispose();
+});

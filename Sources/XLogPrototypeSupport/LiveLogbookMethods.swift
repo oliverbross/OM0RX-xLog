@@ -32,6 +32,7 @@ public final class LiveLogbookMethods: @unchecked Sendable {
     private var ctyResolverCache: (source: String, resolver: CTYResolver)?
     private var syncLease: LiveLogbookSyncLease?
     private var manualSyncActive: Bool { syncLease != nil }
+    private var spotRecoveryDatabase: LogbookDatabase?
     private let syncAuthorizationKey = "OM0RX-xLog.sync-authorization.v1"
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
@@ -295,6 +296,7 @@ public final class LiveLogbookMethods: @unchecked Sendable {
 
     public func handle(method: String, params: [String: Any]) throws -> [String: Any] {
         try lock.withLock {
+            if method.hasPrefix("spot_draft_") { return try handleSpotDraft(method: method, params: params) }
             switch method {
             case "workspace_status":
                 try requireKeys(params, allowed: [])
@@ -384,6 +386,9 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                 try validatePowerIntent(params)
                 let mutation: OperatorDraftMutation
                 do { mutation = try decode(params) } catch { throw invalid() }
+                guard try !readyDatabase().spotDraftActivationActive else {
+                    throw WorkerFailure("spot_activation_busy", "Wait for the current spot activation before changing this draft.")
+                }
                 do {
                     let settings = try currentSettings()
                     guard let workspaceID = UUID(uuidString: generation) else { throw invalid() }
@@ -686,6 +691,9 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                         "includes_settings": preview.settings != nil,
                         "includes_preferences": preview.preferences != nil]
             case "backup_restore":
+                guard try !readyDatabase().spotDraftActivationActive else {
+                    throw WorkerFailure("spot_activation_busy", "Wait for the current spot activation before restoring.")
+                }
                 try requireKeys(params, allowed: ["name", "confirm_restore", "restore_settings", "restore_preferences", "restore_reference_data"], required: ["name", "confirm_restore"])
                 guard params["confirm_restore"] as? Bool == true else {
                     throw WorkerFailure("restore_confirmation_required", "Confirm the isolated logbook restore before continuing.")
@@ -756,6 +764,94 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                 throw WorkerFailure("method_not_allowed", "Unknown live logbook method.")
             }
         }
+    }
+
+    private func handleSpotDraft(method: String, params: [String: Any]) throws -> [String: Any] {
+        let generation = try editGeneration()
+        let db = try readyDatabase()
+        let common: Set<String> = ["operationID", "generation"]
+        switch method {
+        case "spot_draft_apply":
+            try requireKeys(params, allowed: common.union(["draftID", "expectedRevision", "spot"]),
+                            required: common.union(["draftID", "expectedRevision", "spot"]))
+        case "spot_draft_status", "spot_draft_abandon":
+            try requireKeys(params, allowed: common, required: common)
+        case "spot_draft_stage", "spot_draft_finish":
+            let field = method == "spot_draft_stage" ? "stage" : "outcome"
+            try requireKeys(params, allowed: common.union(["leaseID", field]), required: common.union(["leaseID", field]))
+        default: throw WorkerFailure("method_not_allowed", "Unknown native spot activation method.")
+        }
+        if try !matchesEditGeneration(params, generation) { return ["status": "workspace_changed", "generation": generation] }
+        guard let rawID = params["operationID"] as? String, let operationID = UUID(uuidString: rawID),
+              let workspaceID = UUID(uuidString: generation) else { throw invalid() }
+        func response(_ record: SpotDraftRecord, status: String, replay: Bool) throws -> [String: Any] {
+            var result: [String: Any] = ["status": status, "replay": replay, "phase": record.phase.rawValue]
+            var receipt = try scopedSnapshot(record.receipt, generation: generation)
+            receipt["draft"] = try scopedSnapshot(record.receipt.draft, generation: generation)
+            result["receipt"] = receipt
+            if let leaseID = db.spotDraftLiveLease(for: record) { result["leaseID"] = leaseID.uuidString.lowercased() }
+            return result
+        }
+        func abandoned() -> [String: Any] { ["status":"abandoned", "generation":generation, "receipt":NSNull(), "replay":true] }
+        do {
+            switch method {
+            case "spot_draft_apply":
+                _ = try integer(params, "expectedRevision", default: -1, range: 0...9_007_199_254_740_990)
+                guard let spot = params["spot"] as? [String: Any] else { throw invalid() }
+                try requireKeys(spot, allowed: ["call", "frequencyHz", "band", "mode", "country", "dxcc", "comment", "specialTags"],
+                                required: ["call", "frequencyHz", "band", "mode", "country", "comment", "specialTags"])
+                _ = try integer(spot, "frequencyHz", default: 0, range: 1...1_000_000_000_000)
+                if spot["dxcc"] != nil, !(spot["dxcc"] is NSNull) { _ = try integer(spot, "dxcc", default: 0, range: 1...1_000) }
+                guard JSONSerialization.isValidJSONObject(params), try JSONSerialization.data(withJSONObject: params).count <= 16_384 else { throw invalid() }
+                let command: SpotDraftCommand
+                do { command = try decode(params); try command.validate() } catch { throw invalid() }
+                let result = try db.applySpotDraft(command)
+                return try response(result.record, status: "applied", replay: result.replay)
+            case "spot_draft_status":
+                guard let record = try db.spotDraftRecord(operationID: operationID) else {
+                    if let prior = try db.spotDraftAbandonedGeneration(operationID: operationID) {
+                        guard prior == workspaceID else { return ["status":"workspace_changed", "generation":generation] }
+                        return abandoned()
+                    }
+                    return ["status": "not_found", "receipt": NSNull(), "replay": true, "generation": generation]
+                }
+                guard record.command.generation == workspaceID else { return ["status": "workspace_changed", "generation": generation] }
+                return try response(record, status: "found", replay: true)
+            case "spot_draft_abandon":
+                if let record = try db.abandonSpotDraft(operationID: operationID, generation: workspaceID) {
+                    return try response(record, status:"found", replay:true)
+                }
+                return abandoned()
+            default:
+                let field = method == "spot_draft_stage" ? "stage" : "outcome"
+                guard let rawLease = params["leaseID"] as? String, let leaseID = UUID(uuidString: rawLease),
+                      let rawPhase = params[field] as? String, let phase = SpotDraftPhase(rawValue: rawPhase) else { throw invalid() }
+                if method == "spot_draft_stage" {
+                    let staged = try db.stageSpotDraft(operationID: operationID, generation: workspaceID, leaseID: leaseID, stage: phase)
+                    guard let record = try db.spotDraftRecord(operationID: operationID) else { throw invalid() }
+                    return try response(record, status: staged ? "staged" : "already_staged", replay: !staged)
+                }
+                let record = try db.finishSpotDraft(operationID: operationID, generation: workspaceID, leaseID: leaseID, outcome: phase)
+                return try response(record, status: "finished", replay: true)
+            }
+        } catch OperatorDraftError.conflict(let draft) {
+            return ["status": "conflict", "draft": try scopedSnapshot(draft, generation: generation)]
+        } catch SpotDraftError.operationReused {
+            throw WorkerFailure("spot_operation_reused", "This spot operation ID was already used for a different selection.")
+        } catch SpotDraftError.abandoned {
+            return abandoned()
+        } catch SpotDraftError.busy {
+            throw WorkerFailure("spot_activation_busy", "Another spot activation is in progress.")
+        } catch SpotDraftError.staleLease {
+            throw WorkerFailure("spot_activation_stale", "The spot activation lease is no longer current; no action is permitted.")
+        } catch SpotDraftError.invalidTransition {
+            throw WorkerFailure("spot_activation_phase", "This spot activation phase cannot be advanced.")
+        } catch OperatorDraftError.notInitialized {
+            throw WorkerFailure("draft_not_initialized", "Load the shared operator draft before selecting a spot.")
+        } catch OperatorDraftError.existingContact {
+            throw WorkerFailure("draft_existing_contact", "A spot selection cannot replace a logged contact.")
+        } catch OperatorDraftError.invalid { throw invalid() }
+        catch OperatorDraftPowerError.invalid { throw invalid() }
     }
 
     private func editGeneration(rotate: Bool = false) throws -> String {
@@ -848,6 +944,10 @@ public final class LiveLogbookMethods: @unchecked Sendable {
         try loadWorkspace()
         guard let database else {
             throw WorkerFailure("workspace_required", "Create an isolated logbook workspace first.")
+        }
+        if spotRecoveryDatabase !== database {
+            try database.recoverSpotDraftActivations()
+            spotRecoveryDatabase = database
         }
         return database
     }

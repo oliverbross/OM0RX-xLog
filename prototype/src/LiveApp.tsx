@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { nativeSpotEditor, useSpotEditor } from "./live/useSpotEditor";
+import { useSpotActivation } from "./live/useSpotActivation";
+import { SpotActivationStatus } from "./live/SpotActivationStatus";
+import { useAutoRotor } from "./live/useAutoRotor";
+import { useReferenceEvidence } from "./live/useReferenceEvidence";
 import { Radio, BookOpen, Network, History, Map as MapIcon, Settings, Activity, Award, LayoutDashboard, ExternalLink, RefreshCw } from "lucide-react";
-import { workerRequest, openMonitor, openDetachedMap, detachedMapKind, findDetachedSpot,
-  onDetachedSpot,
+import { workerRequest, openMonitor, openDetachedMap, detachedMapKind,
   type StationProvider } from "./worker";
 import WorldMap from "./Map";
 import type { Spot } from "./model";
@@ -49,7 +53,7 @@ import { logMode } from "./live/draftRadio";
 import { changedCallDraft, enrichedDraft, normalizedCall } from "./live/draftEnrichment";
 import { OperatorDraftSession, readDraftJournal, type DraftQSO } from "./live/operatorDraftSession";
 import { requestOperatorDraft } from "./live/operatorDraftTransport";
-import { connectOperatorDraftChanges, openDetachedQSO, ownDraftUpdateWarnings } from "./live/operatorDraftWindows";
+import { connectOperatorDraftChanges, openDetachedQSO, ownDraftUpdateWarnings, protectOperatorDraftClose } from "./live/operatorDraftWindows";
 import { OperatorDraftStatus } from "./live/OperatorDraftStatus";
 import { LogbookContactSession, readContactJournal } from "./live/logbookContactSession";
 import { LogbookMutationSession, readLogbookMutationJournal } from "./live/logbookMutationSession";
@@ -62,7 +66,7 @@ import RotorPanel from "./live/RotorPanel";
 import { connectRotorTelemetry } from "./live/rotorTelemetry";
 import { connectStationTelemetry } from "./live/stationTelemetry";
 import { applyStationSelection, connectStationSelection, nativeStationSelection } from "./live/stationSelection";
-import { clearConnectedHandoverMessage, ownAutomaticRotorMotion, rotorCommandParams, rotorIntentCurrent, rotorProjection, validRotorSnapshot, type AutomaticRotorIntent, type RotorSnapshot } from "./live/rotorControl";
+import { clearConnectedHandoverMessage, rotorCommandParams, rotorProjection, validRotorSnapshot, type RotorSnapshot } from "./live/rotorControl";
 import "./live/live.css";
 import appLogo from "../src-tauri/icons/64x64.png";
 
@@ -101,7 +105,9 @@ export default function LiveApp() {
 }
 
 function MainLiveApp() {
-  const [view, setView] = useState<string>("Operator Desk");
+  const [view, writeView] = useState<string>("Operator Desk");
+  const viewRef = useRef(view); viewRef.current = view;
+  const editorBufferPending = useRef(false), mainClosing = useRef(false), layoutChanging = useRef(false), editorTransition = useRef(false);
   const [settingsTabRequest, setSettingsTabRequest] = useState<{ tab: "Station" | "Sync"; revision: number }>({ tab: "Station", revision: 0 });
   const [awardsOpened, setAwardsOpened] = useState(false);
   useEffect(() => { if (view === "Awards") setAwardsOpened(true); }, [view]);
@@ -116,23 +122,26 @@ function MainLiveApp() {
   const preferenceRevision = useRef(0);
   const reloadRevision = useRef(0);
   const [draftSession] = useState(() => new OperatorDraftSession(requestOperatorDraft,
-    journal => localStorage.setItem(draftJournalKey, JSON.stringify(journal)), readDraftJournal(storedDraftValue(draftJournalKey))));
+    journal => localStorage.setItem(draftJournalKey, JSON.stringify(journal)), readDraftJournal(storedDraftValue(draftJournalKey)), undefined, nativeSpotEditor()));
   const sharedDraft = useSyncExternalStore(draftSession.subscribe, draftSession.getSnapshot);
   const [contactSession] = useState(() => new LogbookContactSession(requestLogbookContact,
     journal => journal ? localStorage.setItem(contactJournalKey, JSON.stringify(journal)) : localStorage.removeItem(contactJournalKey),
-    readContactJournal(storedDraftValue(contactJournalKey))));
+    readContactJournal(storedDraftValue(contactJournalKey)), undefined, nativeSpotEditor()));
   const contactEdit = useSyncExternalStore(contactSession.subscribe, contactSession.getSnapshot);
   const [logbookMutations] = useState(() => new LogbookMutationSession(requestLogbookContact,
     journal => localStorage.setItem(logbookMutationJournalKey, JSON.stringify(journal)),
-    readLogbookMutationJournal(storedDraftValue(logbookMutationJournalKey))));
+    readLogbookMutationJournal(storedDraftValue(logbookMutationJournalKey)), undefined,
+    () => draftSession.canAcceptLocalInput() && contactSession.canAcceptLocalInput()));
   const logbookMutation = useSyncExternalStore(logbookMutations.subscribe, logbookMutations.getSnapshot);
   const editing = useRef(false);
   editing.current = !!contactEdit.draft;
   const [legacyDraft, setLegacyDraft] = useState(legacyDraftValue);
   const draft = contactEdit.draft ?? sharedDraft.draft;
-  const editorLocked = sharedDraft.locked || contactEdit.locked || sharedDraft.workspaceChanged || contactEdit.workspaceChanged;
+  const editorLocked = sharedDraft.activationFrozen || contactEdit.activationFrozen || sharedDraft.locked || contactEdit.locked || sharedDraft.workspaceChanged || contactEdit.workspaceChanged;
   const editorBlocked = editorLocked || !!sharedDraft.conflict || contactEdit.conflict;
   const setDraft = useCallback((next: Data | null | ((current: Data | null) => Data | null)) => {
+    if (mainClosing.current || layoutChanging.current || editorTransition.current) return;
+    if (!draftSession.canAcceptLocalInput() || !contactSession.canAcceptLocalInput()) return;
     if (draftSession.getSnapshot().locked || draftSession.getSnapshot().workspaceChanged || contactSession.getSnapshot().locked || contactSession.getSnapshot().workspaceChanged) return;
     const contact = contactSession.getSnapshot().draft;
     const current = contact ?? draftSession.getSnapshot().draft;
@@ -141,15 +150,7 @@ function MainLiveApp() {
     else if (value) draftSession.edit(value as DraftQSO);
     else draftSession.reset();
   }, [draftSession, contactSession]);
-  const referenceEdits = useRef<Record<string, number>>({});
-  const setOperatorDraft = useCallback((next: Data | null | ((current: Data | null) => Data | null)) => {
-    setDraft(current => {
-      const value = typeof next === "function" ? next(current) : next;
-      for (const key of ["potaReference", "sotaReference", "iota", "wwffReference", "sig", "sigInfo"])
-        if (current?.[key] !== value?.[key]) referenceEdits.current[key] = (referenceEdits.current[key] ?? 0) + 1;
-      return value;
-    });
-  }, [setDraft]);
+  const setOperatorDraft = setDraft;
   const setManualDraftPower = useCallback((value: string) => {
     if (contactSession.getSnapshot().draft) return;
     try { draftSession.setManualPower(value); }
@@ -163,9 +164,19 @@ function MainLiveApp() {
   const [propagation, setPropagation] = useState<Data | null>(null);
   const [lookup, setLookup] = useState<Data | null>(null);
   const [previous, setPrevious] = useState<Data[]>([]);
-  const [referenceEvidence, setReferenceEvidence] = useState<{ call: string; rows: Data[] } | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const editorInputState = useCallback((pending: boolean) => {
+    editorBufferPending.current = pending;
+    draftSession.setLocalInputPending(!contactSession.getSnapshot().draft && pending);
+  }, [draftSession, contactSession]);
+  const setView = useCallback((next: string) => {
+    if (next === viewRef.current) return;
+    if (editorBufferPending.current || mainClosing.current || layoutChanging.current || editorTransition.current || !draftSession.canAcceptLocalInput() || !contactSession.canAcceptLocalInput()) {
+      setError("Finish the buffered draft fields and check any pending activation before changing views. Your text is retained."); return;
+    }
+    viewRef.current = next; writeView(next);
+  }, [draftSession, contactSession]);
   const [draftUpdateHealth] = useState(() => ownDraftUpdateWarnings(setError));
   const menuSettings = useRef(settings); menuSettings.current = settings;
   const showSyncSettings = useCallback(() => {
@@ -181,27 +192,36 @@ function MainLiveApp() {
   const [refresh, setRefresh] = useState(0);
   useEffect(() => connectLogbookChanges(() => setRefresh(value => value + 1), setError), []);
   const [busy, setBusy] = useState(false);
+  const busyRef = useRef(busy); busyRef.current = busy;
+  const spotEditor = useSpotEditor([draftSession, contactSession], () => busyRef.current || editorBufferPending.current || mainClosing.current || layoutChanging.current || logbookMutations.getSnapshot().busy || logbookMutations.getSnapshot().pending
+    ? { ready: false, reason: "Finish the current logbook or workspace action first." } : { ready: true });
+  const spotActivation = useSpotActivation();
+  const acceptsInput = useCallback(() => !mainClosing.current && !layoutChanging.current && !editorTransition.current && draftSession.canAcceptLocalInput() && contactSession.canAcceptLocalInput(), [draftSession, contactSession]);
+  useEffect(() => protectOperatorDraftClose(() => {
+    const current = draftSession.getSnapshot(), contact = contactSession.getSnapshot(), mutation = logbookMutations.getSnapshot();
+    return busyRef.current || layoutChanging.current || editorBufferPending.current || draftSession.dirty || !!contact.draft || !!mutation.pending || mutation.busy ||
+      current.activationFrozen || contact.activationFrozen || current.locked || contact.locked || !!current.pending || !!contact.pending ||
+      !!current.conflict || contact.conflict || current.workspaceChanged || contact.workspaceChanged;
+  }, () => setError("Finish the draft fields and resolve unsaved or pending QSO changes before closing the Desk."), setError,
+  closing => { mainClosing.current = closing; }, "close_main_window"), [draftSession, contactSession, logbookMutations]);
   const [selected, setSelected] = useState<string | null>(null);
   const [follow, setFollow] = useState(true);
   const latestFollow = useRef(follow);
   latestFollow.current = follow;
   const setFollowImmediate = (value: boolean) => { latestFollow.current = value; setFollow(value); };
-  const [autoRotor, setAutoRotor] = useState(false);
+  const nativeAutoRotor = useAutoRotor(), autoRotor = nativeAutoRotor.state?.armed === true;
   const [rotorState, setRotorState] = useState<RotorSnapshot | null>(null);
   const rotorRef = useRef<RotorSnapshot | null>(null);
-  const autoEnabled = useRef(false), autoEpoch = useRef(0);
-  const automaticMotion = useRef<AutomaticRotorIntent | null>(null);
-  const automaticTarget = useRef("");
   const rotorPolling = useRef(false);
-  const disarmAutoRotor = useCallback(() => { autoEpoch.current++; automaticMotion.current = null; autoEnabled.current = false; setAutoRotor(false); }, []);
-  const changeAutoRotor = (enabled: boolean) => { autoEpoch.current++; automaticMotion.current = null; autoEnabled.current = enabled; setAutoRotor(enabled); };
+  const autoRotorSet = useRef(nativeAutoRotor.set); autoRotorSet.current = nativeAutoRotor.set;
+  const disarmAutoRotor = useCallback(() => { if (nativeSpotEditor()) void autoRotorSet.current(false).catch(cause => setError(cause instanceof Error ? cause.message : "Automatic rotor could not be disarmed.")); }, []);
+  const changeAutoRotor = (enabled: boolean) => { void nativeAutoRotor.set(enabled, rotorRef.current).catch(cause => setError(cause instanceof Error ? cause.message : "Automatic rotor authority is unavailable.")); };
   const savedProvider = storedDraftValue("xlog.integration.provider");
   const provider = useRef<StationProvider>(savedProvider === "hamlib" || savedProvider === "direct_flex_lan" ? savedProvider : "direct_agent");
   const [stationProvider, setStationProvider] = useState(provider.current);
   const [viewProvider, setViewProvider] = useState(provider.current);
   const [stationSection, setStationSection] = useState("Control and connections");
   const pendingTune = useRef(false);
-  const spotRotorFence = useRef<{ call: string; confirmed: boolean } | null>(null);
   const providerTransition = useRef(false);
   const providerGeneration = useRef(-1);
   const providerReadyRef = useRef(!nativeStationSelection());
@@ -212,8 +232,6 @@ function MainLiveApp() {
   const clusterResumeChecked = useRef(false);
   const clusterResumeWarning = useRef<string | null>(null);
   const clusterMutationEpoch = useRef(0);
-  const latestSpots = useRef<Data[]>([]);
-  const selectCurrentSpot = useRef<(spot: Data) => void>(() => {});
   useEffect(() => {
     if (nativeStationSelection()) return;
     const changed = (event: StorageEvent) => {
@@ -241,8 +259,6 @@ function MainLiveApp() {
       const clusterEpoch = method === "cluster_filter" || method === "cluster_configure" || method === "cluster_connect" || method === "cluster_disconnect"
         ? ++clusterMutationEpoch.current : clusterMutationEpoch.current;
       if (method.startsWith("rotor_")) {
-        const ownRequest = method === "rotor_goto" && automaticMotion.current?.id === params.intent_id && automaticMotion.current?.epoch === autoEpoch.current && autoEnabled.current;
-        if (["rotor_connect", "rotor_disconnect", "rotor_stop", "rotor_park"].includes(method) || method === "rotor_goto" && !ownRequest) disarmAutoRotor();
         try {
           if (method === "rotor_stop") {
             const current = (await workerRequest("rotor_snapshot", {})).result;
@@ -255,17 +271,12 @@ function MainLiveApp() {
           const result = (await workerRequest(method, params)).result;
           if (validRotorSnapshot(result) && (!rotorRef.current || result.generation >= rotorRef.current.generation)) {
             const previous = rotorRef.current;
-            const ownMotion = ownAutomaticRotorMotion(automaticMotion.current, result, autoEpoch.current, autoEnabled.current);
-            if (previous && (previous.owner !== result.owner || previous.generation !== result.generation) && !ownMotion) disarmAutoRotor();
-            if (result.state !== "active" && result.owner) disarmAutoRotor();
-            if (result.backend_available === false || method === "rotor_snapshot" && previous && rotorProjection(previous).connected && !rotorProjection(result).connected) disarmAutoRotor();
             const motion = ["rotor_goto", "rotor_stop", "rotor_park"].includes(method);
             const next = motion && previous?.owner === result.owner ? { ...result, backend: previous.backend } : result;
             rotorRef.current = next; setRotorState(next);
           }
           return result;
         } catch (cause) {
-          disarmAutoRotor();
           throw cause;
         } finally {
           // Every motion advances the fence, including lost replies. Refresh the
@@ -275,11 +286,9 @@ function MainLiveApp() {
               const next = (await workerRequest("rotor_snapshot", {})).result;
               if (validRotorSnapshot(next) && (!rotorRef.current || next.generation >= rotorRef.current.generation)) {
                 const previous = rotorRef.current;
-                if (next.state !== "active" || next.backend_available === false || previous && (next.owner !== previous.owner || next.generation !== previous.generation) && !ownAutomaticRotorMotion(automaticMotion.current, next, autoEpoch.current, autoEnabled.current)) disarmAutoRotor();
                 rotorRef.current = next; setRotorState(next);
               }
             } catch {
-              disarmAutoRotor();
               const previous = rotorRef.current;
               const next = previous ? { ...previous, state: "uncertain" as const, backend_available: false } : null;
               rotorRef.current = next; setRotorState(next);
@@ -312,6 +321,7 @@ function MainLiveApp() {
       return result;
     } catch (e) { throw new Error(e instanceof Error ? e.message : "Operation failed"); }
   }, [disarmAutoRotor]);
+  const referenceEvidence = useReferenceEvidence(draft, (contactEdit.draft ? contactEdit.base : sharedDraft.base)?.generation, request, refresh);
   useReferenceSchedule(workspace?.workspace_exists === true, request);
   const cwProfile = settings?.cwProfile ?? defaultCWProfile;
   const cwContext = { MYCALL: settings?.stationCall || settings?.operatorCall || "", CALL: draft?.call || "", RST: draft?.rstSent || "", NAME: draft?.name || "", GRID: settings?.gridSquare || "", SERIAL: String(draft?.extraFields?.STX ?? "") };
@@ -319,10 +329,10 @@ function MainLiveApp() {
   const cwControls = cwProfile.showOnDesk || cwProfile.macros.some((macro: Data) => macro.enabled && macro.shortcut) || cw.state.armed || cw.state.owner
     ? <CWDesk profile={cwProfile} context={cwContext} controller={cw.controller} state={cw.state} radioProvider={stationProvider} /> : undefined;
   const loadOpportunity = (item: Opportunity) => {
+    if (!acceptsInput()) { setError("Wait for the verified spot activation outcome before loading another contact."); return; }
     if (draftSession.getSnapshot().locked || draftSession.getSnapshot().workspaceChanged || draftSession.getSnapshot().conflict || contactSession.getSnapshot().locked || contactSession.getSnapshot().workspaceChanged) { setError("Resolve the current QSO draft operation before loading another contact."); return; }
     if (editing.current) { setError("Finish or clear the contact being edited before loading a new contact."); setView("Log QSO"); return; }
     selection.current++; pendingTune.current = false; disarmAutoRotor();
-    spotRotorFence.current = { call: normalizedCall(item.callsign), confirmed: false };
     editing.current = false; setFollowImmediate(false); setSelected(null);
     setOperatorDraft(current => current ? { ...current, call: item.callsign,
       frequencyHz: item.frequency_hz ?? null, band: item.frequency_hz ? bandForRadio(item.frequency_hz) || current.band : current.band,
@@ -342,12 +352,14 @@ function MainLiveApp() {
     throw new Error("Apply this radio selection before connecting or sending controls. The active radio has not changed.");
   }, [request, stationProvider, viewProvider]);
   const readRadioIntoDraft = useCallback(async () => {
+    if (!acceptsInput()) throw new Error("Wait for the verified spot activation outcome before reading into this draft.");
     if (draftSession.getSnapshot().workspaceChanged || contactSession.getSnapshot().workspaceChanged)
       throw new Error("Review the current workspace before reading into this QSO.");
     if (providerTransition.current) throw new Error("Wait for station handover before reading the radio.");
     const generation = selection.current, source = provider.current, identity = draftIdentity.current;
     if (!identity) throw new Error("Open a QSO draft before reading the radio.");
     const state = await request("station_snapshot");
+    if (!acceptsInput()) throw new Error("The shared editor was frozen during radio readback. Its text is retained.");
     if (generation !== selection.current || source !== provider.current || identity !== draftIdentity.current)
       throw new Error("Station or QSO draft changed during radio readback. Read again.");
     if (!state?.radio?.observed || !state.radio.connected)
@@ -374,9 +386,10 @@ function MainLiveApp() {
     window.addEventListener("keydown", shortcut); return () => window.removeEventListener("keydown", shortcut);
   }, [readRadioIntoDraft, showSyncSettings]);
   const run = async (operation: () => Promise<unknown>) => {
+    busyRef.current = true;
     setBusy(true); setError("");
     try { await operation(); } catch (e) { setError(e instanceof Error ? e.message : "Operation failed"); }
-    finally { setBusy(false); }
+    finally { busyRef.current = false; setBusy(false); }
   };
   const applyProvider = async () => {
     const next = viewProvider;
@@ -502,7 +515,7 @@ function MainLiveApp() {
     return () => { active = false; clearInterval(timer); };
   }, [request]);
   useEffect(() => {
-    if (!workspace?.workspace_exists || sharedDraft.workspaceChanged || sharedDraft.locked || sharedDraft.pending || sharedDraft.conflict || !draftSession.dirty) return;
+    if (!workspace?.workspace_exists || sharedDraft.activationFrozen || sharedDraft.workspaceChanged || sharedDraft.locked || sharedDraft.pending || sharedDraft.conflict || !draftSession.dirty) return;
     const timer = setTimeout(() => { void draftSession.flush().catch(cause => setError(cause instanceof Error ? cause.message : "Draft could not be saved.")); }, 350);
     return () => clearTimeout(timer);
   }, [workspace?.workspace_exists, sharedDraft, draftSession]);
@@ -533,7 +546,7 @@ function MainLiveApp() {
       if (disposed || state.source !== provider.current) return;
       setStation(state);
       if (state.radio?.connected && state.radio?.observed) setMessage(current => clearConnectedHandoverMessage(current, true));
-      if (latestFollow.current && !pendingTune.current && !editing.current && state.radio?.observed && state.radio?.connected) {
+      if (draftSession.canAcceptBackgroundUpdate() && latestFollow.current && !pendingTune.current && !editing.current && state.radio?.observed && state.radio?.connected) {
         setDraft(d => {
           if (!d) return d;
           const band = state.station?.band || bandForRadio(state.radio.frequency_hz) || d.band;
@@ -608,17 +621,11 @@ function MainLiveApp() {
     let disposed = false;
     const unavailable = () => {
       if (disposed) return;
-      disarmAutoRotor();
       const previous = rotorRef.current;
       if (previous) { const next = { ...previous, backend_available: false }; rotorRef.current = next; setRotorState(next); }
     };
     const stopTelemetry = connectRotorTelemetry(result => {
       if (disposed || rotorRef.current && result.generation < rotorRef.current.generation) return;
-      const previous = rotorRef.current;
-      const ownMotion = ownAutomaticRotorMotion(automaticMotion.current, result, autoEpoch.current, autoEnabled.current);
-      if (previous && (previous.owner !== result.owner || previous.generation !== result.generation) && !ownMotion) disarmAutoRotor();
-      if (result.state !== "active" && result.owner || result.backend_available === false ||
-          previous && rotorProjection(previous).connected && !rotorProjection(result).connected) disarmAutoRotor();
       rotorRef.current = result; setRotorState(result);
     }, unavailable);
     if (stopTelemetry) return () => { disposed = true; stopTelemetry(); };
@@ -640,28 +647,13 @@ function MainLiveApp() {
     const timer = setTimeout(() => {
       // A large history query must not hold QRZ details hostage.
       void request("lookup_call", { call })
-        .then(info => { if (!disposed) { setLookup(info); if (baseline && !editing.current) setDraft(current => enrichedDraft(current, baseline, info)); } })
+        .then(info => { if (!disposed) { setLookup(info); if (draftSession.canAcceptBackgroundUpdate() && baseline && !editing.current) setDraft(current => enrichedDraft(current, baseline, info)); } })
         .catch(e => { if (!disposed) setLookup({ call, source: e.message }); });
       void request("logbook_previous", { call, limit: 10 })
         .then(history => { if (!disposed) setPrevious(history.qsos); }).catch(() => { if (!disposed) setPrevious([]); });
     }, 400);
     return () => { disposed = true; clearTimeout(timer); };
   }, [draft?.call, request, workspace?.workspace_exists]);
-  useEffect(() => {
-    const call = normalizedCall(draft?.call);
-    if (sharedDraft.workspaceChanged || contactEdit.workspaceChanged || !autoRotor || !autoEnabled.current || pendingTune.current || editing.current || !call || normalizedCall(lookup?.call) !== call) return;
-    if (spotRotorFence.current?.call === call && !spotRotorFence.current.confirmed) return;
-    const rotor = rotorRef.current;
-    const key = `${autoEpoch.current}:${draft?.id}:${call}`;
-    if (automaticTarget.current === key || !rotor?.owner || !rotorProjection(rotor).connected ||
-        typeof lookup?.bearing !== "number" || !Number.isFinite(lookup.bearing) || lookup.bearing < 0 || lookup.bearing > 360) return;
-    automaticTarget.current = key;
-    const id = crypto.randomUUID();
-    const intent = { owner: rotor.owner, generation: rotor.generation };
-    automaticMotion.current = { ...intent, epoch: autoEpoch.current, id };
-    void request("rotor_goto", { ...intent, bearing: lookup.bearing, label: call, intent_id: id })
-      .catch(cause => setError(cause instanceof Error ? cause.message : "Automatic rotor turn failed."));
-  }, [sharedDraft.workspaceChanged, contactEdit.workspaceChanged, autoRotor, draft?.id, draft?.call, lookup, request]);
   const clear = async () => {
     if (contactSession.getSnapshot().draft) contactSession.cancel();
     else await draftSession.commit("clear");
@@ -673,51 +665,32 @@ function MainLiveApp() {
     if (saved) setMessage(`${saved.call} saved to the integrated logbook. Original logbook unchanged.`);
     setSelected(null); setRefresh(n => n + 1);
   });
+  const editLoggedContact = (qso: Data) => void run(async () => {
+    if (editorBufferPending.current || !acceptsInput()) throw new Error("Finish the buffered draft fields before editing a logged contact. Your text is retained.");
+    const before = draftSession.getSnapshot().base;
+    if (!before || draftSession.getSnapshot().locked) throw new Error("Finish the pending draft operation before editing a logged contact.");
+    editorTransition.current = true;
+    try {
+      await draftSession.flush();
+      const after = draftSession.getSnapshot().base;
+      if (editorBufferPending.current || mainClosing.current || layoutChanging.current || !draftSession.canAcceptLocalInput() || !contactSession.canAcceptLocalInput() ||
+        !after || before.generation !== after.generation || before.qso.id !== after.qso.id)
+        throw new Error("The shared editor changed while opening a logged contact. Your text is retained.");
+      await contactSession.open(qso.id);
+      editorTransition.current = false;
+      setFollowImmediate(false); disarmAutoRotor(); setView("Log QSO");
+    } finally { editorTransition.current = false; }
+  });
   const selectSpot = (spot: Data) => {
     if (monitor) return;
+    if (editorBufferPending.current) { setError("Finish the buffered draft fields before selecting another report. Your text is retained."); return; }
+    if (!acceptsInput()) { setError("Check the existing spot activation before selecting another report."); return; }
     if (draftSession.getSnapshot().locked || draftSession.getSnapshot().workspaceChanged || draftSession.getSnapshot().conflict || contactSession.getSnapshot().locked || contactSession.getSnapshot().workspaceChanged) { setError("Resolve the current QSO draft operation before selecting another spot."); return; }
     if (editing.current) { setError("Finish or clear the contact being edited before selecting a new spot."); setView("Log QSO"); return; }
-    const generation = ++selection.current; const hz = Math.round(spot.frequencyKHz * 1000);
-    const selectedProvider = provider.current;
-    const rotorIntent = rotorRef.current?.owner && rotorProjection(rotorRef.current).connected ?
-      { owner: rotorRef.current.owner, generation: rotorRef.current.generation } : null;
-    const automaticEpoch = autoEpoch.current;
-    const automaticRequested = autoEnabled.current;
-    spotRotorFence.current = { call: normalizedCall(spot.callsign), confirmed: false };
-    pendingTune.current = true; editing.current = false; setSelected(spot.id); setReferenceEvidence(null);
-    setDraft(d => d ? { ...changedCallDraft(d, { ...d, call: spot.callsign }), call: spot.callsign, frequencyHz: hz, band: spot.band, mode: spot.mode,
-      country: spot.country || "", dxcc: spot.adif ?? null, comment: String(spot.comment || ""),
-      potaReference: "", sotaReference: "", iota: "", wwffReference: "", sig: "", sigInfo: "" } : d);
-    const identity = draftIdentity.current;
-    const referenceBaseline = { ...referenceEdits.current };
-    void request("reference_resolve", { comment: String(spot.comment || ""), special_tags: Array.isArray(spot.specialTags) ? spot.specialTags : [] })
-      .then(result => {
-        if (selection.current !== generation || draftIdentity.current !== identity || draftCall.current !== normalizedCall(spot.callsign)) return;
-        setReferenceEvidence({ call: normalizedCall(spot.callsign), rows: result.references || [] });
-        setDraft(current => {
-          if (!current || current.id !== identity || normalizedCall(current.call) !== normalizedCall(spot.callsign)) return current;
-          const next = { ...current };
-          for (const key of ["potaReference", "sotaReference", "iota", "wwffReference", "sig", "sigInfo"])
-            if (!next[key] && (referenceEdits.current[key] ?? 0) === (referenceBaseline[key] ?? 0) && typeof result.fields?.[key] === "string") next[key] = result.fields[key];
-          return next;
-        });
-      }).catch(() => { if (selection.current === generation) setError("Spot reference lookup failed. The original spot comment is preserved; check Reference data in Settings."); });
+    const generation = ++selection.current;
+    pendingTune.current = true; setSelected(spot.id);
     setMessage(""); setError("");
-    void request("station_tune", { frequency_hz: hz, mode: String(spot.mode || "").toUpperCase() }).then(async result => {
-      if (selection.current !== generation || provider.current !== selectedProvider) return;
-      spotRotorFence.current = { call: normalizedCall(spot.callsign), confirmed: result.confirmed === true };
-      if (automaticRequested && rotorIntent && autoEnabled.current && autoEpoch.current === automaticEpoch && result.confirmed) {
-        const target = await request("lookup_call", { call: spot.callsign });
-        if (selection.current === generation && provider.current === selectedProvider && draftCall.current === normalizedCall(spot.callsign) && autoEnabled.current && autoEpoch.current === automaticEpoch &&
-            rotorIntentCurrent(rotorIntent, rotorRef.current) && String(target.call).trim().toUpperCase() === String(spot.callsign).trim().toUpperCase() &&
-            typeof target.bearing === "number" && Number.isFinite(target.bearing) && target.bearing >= 0 && target.bearing <= 360) {
-          const id = crypto.randomUUID();
-          automaticTarget.current = `${automaticEpoch}:${draftIdentity.current}:${normalizedCall(spot.callsign)}`;
-          automaticMotion.current = { ...rotorIntent, epoch: automaticEpoch, id };
-          await request("rotor_goto", { ...rotorIntent, bearing: target.bearing, label: spot.callsign, intent_id: id });
-        }
-      }
-    }).catch(e => { if (selection.current === generation && provider.current === selectedProvider) setError(e.message); })
+    void spotActivation.activate(spot).catch(cause => { if (selection.current === generation) setError(cause instanceof Error ? cause.message : "Spot activation is unavailable. Check its status before selecting again."); })
       .finally(() => { if (selection.current === generation) pendingTune.current = false; });
   };
   const liveSpots: Data[] = cluster?.snapshot?.spots || emptySpots;
@@ -725,15 +698,12 @@ function MainLiveApp() {
     typeof lookup?.latitude === "number" && typeof lookup?.longitude === "number"
       ? { call: draft.call, lat: lookup.latitude, lon: lookup.longitude, country: lookup.country, locationSource: lookup.location_source || lookup.source } : undefined,
     [draft?.call, lookup?.call, lookup?.latitude, lookup?.longitude, lookup?.country, lookup?.location_source, lookup?.source]);
-  latestSpots.current = liveSpots;
-  selectCurrentSpot.current = selectSpot;
   const stationWithRotor = { ...(station || { source: provider.current, radio: null }), rotor: rotorProjection(rotorState),
     rotor_control: rotorState, projection_received_at: Date.now() / 1000 };
   useEffect(() => {
     if (monitor) return;
     let active = true; const subscriptions: Array<() => void> = [];
     void Promise.allSettled([
-      onDetachedSpot(payload => { if ((payload as Data)?.kind !== "dx-cluster") return; const spot = findDetachedSpot(payload, latestSpots.current); if (spot) selectCurrentSpot.current(spot); }),
       onDetachedDock(kind => { setView(kind === "dx-cluster" ? "DX Cluster" : kind === "world-map" ? "World Map" : "Band Maps"); }),
     ]).then(results => { for (const result of results) if (result.status === "fulfilled") { if (active) subscriptions.push(result.value); else result.value(); } });
     return () => { active = false; subscriptions.forEach(unlisten => unlisten()); };
@@ -758,7 +728,8 @@ function MainLiveApp() {
     if (typeof station.radio.frequency_hz === "number" && Number.isFinite(station.radio.frequency_hz)) automaticStationMetadata.push({ label: "Radio frequency", value: `${frequency(station.radio.frequency_hz)} MHz`, provenance: "observed" });
     if (station.radio.mode) automaticStationMetadata.push({ label: "Radio mode", value: station.radio.mode, provenance: "observed" });
   }
-  const deskProps = { draftLocked: editorLocked, referenceEvidence, cwControls, equipment: settings?.stationEquipment, draft, setDraft: setOperatorDraft, save,
+  const deskProps = { draftLocked: editorLocked, canAcceptLocalInput: acceptsInput, onLocalInputState: editorInputState,
+    referenceEvidence, cwControls, equipment: settings?.stationEquipment, draft, setDraft: setOperatorDraft, save,
     clear: () => void run(clear), busy: busy || editorBlocked, lookup, previous, request, refresh, onEditor: () => setView("Log QSO"),
     onReadRadio: readRadioIntoDraft, follow, setFollow: setFollowImmediate, rotor: rotorState, autoRotor, setAutoRotor: changeAutoRotor,
     onManualRotor: disarmAutoRotor, isEditing: editing.current, intelligenceBands: workspacePreferences?.intelligenceBands };
@@ -768,6 +739,7 @@ function MainLiveApp() {
     <header className="station-rail main-station-rail"><strong className="brand teal"><img src={appLogo} alt="" width={32} height={32} />OM0RX-xLog</strong><strong className="cyan rail-frequency">{frequency(station?.radio?.frequency_hz)} MHz · {station?.radio?.mode || "Radio offline"}</strong>
       <span className={station?.radio?.connected ? "teal" : "amber"}>{station?.radio?.connected ? "Connected" : "Disconnected"}</span>
       <span className="rail-cluster-count">{cluster?.snapshot?.connectedClusters || 0} clusters · {liveSpots.length} spots</span>
+      <SpotActivationStatus inline status={spotActivation.status && spotActivation.status.phase !== "idle" ? spotActivation.status : spotEditor.status} reconcile={() => {}} />
       {workspace?.workspace_exists && <Conditions compact propagation={propagation?.bands?.length ? propagation : station?.propagation || null} request={request} weatherKey={settings?.gridSquare || ""} />}
       <span className="rail-end">{stats?.stats?.qso_count?.toLocaleString() ?? "—"} contacts · Integrated logbook</span>
     </header>
@@ -777,6 +749,9 @@ function MainLiveApp() {
     </aside>
     <main aria-label={view}>
       {error && <div className="live-error" role="alert">{error}<button onClick={() => setError("")}>Dismiss</button></div>}
+      <SpotActivationStatus status={spotActivation.status && spotActivation.status.phase !== "idle" ? spotActivation.status : spotEditor.status} error={spotEditor.error || spotActivation.error} checking={spotActivation.requesting}
+        reconcile={() => { if (sharedDraft.activationFrozen || contactEdit.activationFrozen) void spotEditor.reconcile(); else void spotActivation.reconcile(); }} />
+      {nativeAutoRotor.error && <p className="live-error" role="status">{nativeAutoRotor.error}</p>}
       {workspace?.workspace_exists && <OperatorDraftStatus state={sharedDraft} session={draftSession} run={operation => run(async () => { await operation(); setRefresh(n => n + 1); })} />}
       {workspace?.workspace_exists && <ContactEditStatus state={contactEdit} session={contactSession} run={operation => run(async () => { await operation(); setRefresh(n => n + 1); })} />}
       {workspace?.workspace_exists && <LogbookMutationStatus state={logbookMutation} session={logbookMutations} run={operation => run(async () => { await operation(); setRefresh(n => n + 1); })} />}
@@ -790,12 +765,14 @@ function MainLiveApp() {
           await draftSession.flush(); localStorage.removeItem("xlog.integration.draft"); setLegacyDraft(null);
         })}>Recover old text as new draft</button>
         <button type="button" onClick={() => void run(() => navigator.clipboard.writeText(JSON.stringify(legacyDraft, null, 2)))}>Copy previous draft</button>
-        <button type="button" onClick={() => { localStorage.removeItem("xlog.integration.draft"); setLegacyDraft(null); }}>Discard previous draft</button>
+        <button type="button" disabled={!acceptsInput()} onClick={() => { if (!acceptsInput()) return; localStorage.removeItem("xlog.integration.draft"); setLegacyDraft(null); }}>Discard previous draft</button>
       </div>}
       {message && !message.endsWith("· radio frequency and mode confirmed") && <p className="live-message" role="status">{message}</p>}
       {!workspace?.workspace_exists ? <WorkspaceGate workspace={workspace} pending={workspacePending} busy={busy}
         retry={() => void run(reload)} create={mode => void run(async () => { await request("workspace_create", { mode }); await reload(); })} /> : <>
-      {view === "Operator Desk" && <OperatorCanvas {...deskLayout} equipment={deskKind === "none" ? undefined : deskKind} panels={{
+      {view === "Operator Desk" && <OperatorCanvas {...deskLayout} equipment={deskKind === "none" ? undefined : deskKind}
+        canChangeLayout={() => !editorBufferPending.current && !mainClosing.current && !editorTransition.current && draftSession.canAcceptLocalInput() && contactSession.canAcceptLocalInput()}
+        onChangeInFlight={value => { layoutChanging.current = value; }} panels={{
         "active-qso": { title: "Active QSO", content: <DeskQSO {...deskProps} /> },
         "callsign-intelligence": { title: "Callsign intelligence", content: <DeskIntelligence {...deskProps} /> },
         ...(deskKind === "rotor" ? { rotor: { title: "Rotor", content: <DeskRotor {...deskProps} />, required: !!rotorState?.owner,
@@ -804,24 +781,19 @@ function MainLiveApp() {
         "world-map": { title: "World map", content: <div className="live-map">{map}</div> },
         "band-maps": { title: "Band maps", content: deskBands },
         "dx-cluster": { title: "DX Cluster", content: <ClusterPanel passive snapshot={cluster} selectedSpotId={selected} onRequest={request} onSelect={selectSpot} onUndock={() => void openDetachedCluster().catch(e => setError(e.message))} /> },
-        logbook: { title: "Logbook", content: <LogbookPanel onRequest={request} refreshKey={refresh} mutations={logbookMutations} onChanged={() => setRefresh(n => n + 1)} onUndock={() => void openDetachedLogbook().catch(cause => setError(cause.message))} onEdit={qso => { void run(async () => {
-          if (draftSession.getSnapshot().locked) throw new Error("Finish the pending draft operation before editing a logged contact.");
-          await draftSession.flush(); await contactSession.open(qso.id); setFollowImmediate(false); disarmAutoRotor(); setView("Log QSO");
-        }); }} /> },
+        logbook: { title: "Logbook", content: <LogbookPanel onRequest={request} refreshKey={refresh} mutations={logbookMutations} onChanged={() => setRefresh(n => n + 1)} onUndock={() => void openDetachedLogbook().catch(cause => setError(cause.message))} onEdit={editLoggedContact} /> },
         awards: { title: "Awards", content: <IntegratedAwards request={request} refresh={refresh} initialStats={stats?.awards} onUndock={() => void openDetachedAwards().catch(cause => setError(cause.message))} /> },
         "spot-history": { title: "Spot History", content: <SpotHistoryPanel request={request} /> },
       }} traditional={<><OperatorDesk {...deskProps} /><div className="live-desk-bottom"><OperatorWorkspace map={<div className="live-map">{map}</div>} cluster={cluster} selectedSpotId={selected} onSelect={selectSpot} bandMaps={deskBands} /></div></>} />}
       {view === "Log QSO" && <QSOEditor referenceEvidence={referenceEvidence} draftLocked={editorLocked} draft={draft} setDraft={setOperatorDraft} save={save} clear={() => void run(clear)} busy={busy || editorBlocked} lookup={lookup} previous={previous} follow={follow} setFollow={setFollowImmediate} request={request} onReadRadio={readRadioIntoDraft} isEditing={editing.current} automaticStationMetadata={automaticStationMetadata}
+        canAcceptLocalInput={acceptsInput}
         powerState={editing.current ? undefined : sharedDraft.base?.power} powerIntent={editing.current ? undefined : sharedDraft.powerIntent}
         automaticPowerEnabled={settings?.automaticTransmitPower === true}
         onManualPower={!editing.current && typeof settings?.automaticTransmitPower === "boolean" ? setManualDraftPower : undefined}
         onResumeAutomaticPower={!editing.current && sharedDraft.base?.power ? () => void run(async () => { draftSession.resumeAutomaticPower(); await draftSession.flush(); }) : undefined}
-        onLocalInputState={!editing.current ? draftSession.setLocalInputPending : undefined}
+        onLocalInputState={editorInputState}
         onUndock={!editing.current ? () => void run(async () => { await draftSession.flush(); await openDetachedQSO(); }) : undefined} />}
-      {view === "Logbook" && <LogbookPanel onRequest={request} refreshKey={refresh} mutations={logbookMutations} onChanged={() => setRefresh(n => n + 1)} onUndock={() => void openDetachedLogbook().catch(cause => setError(cause.message))} onEdit={qso => { void run(async () => {
-        if (draftSession.getSnapshot().locked) throw new Error("Finish the pending draft operation before editing a logged contact.");
-        await draftSession.flush(); await contactSession.open(qso.id); setFollowImmediate(false); disarmAutoRotor(); setView("Log QSO");
-      }); }} />}
+      {view === "Logbook" && <LogbookPanel onRequest={request} refreshKey={refresh} mutations={logbookMutations} onChanged={() => setRefresh(n => n + 1)} onUndock={() => void openDetachedLogbook().catch(cause => setError(cause.message))} onEdit={editLoggedContact} />}
       {view === "DX Cluster" && <ClusterPanel passive snapshot={cluster} selectedSpotId={selected} onRequest={request} onSelect={selectSpot} onUndock={() => void openDetachedCluster().catch(e => setError(e.message))} />}
       {view === "Chaser & DX" && <OpportunitiesPanel request={request} refresh={refresh} onSelect={loadOpportunity} home={stats?.map_home} />}
       {view === "Spot History" && <SpotHistoryPanel request={request} />}

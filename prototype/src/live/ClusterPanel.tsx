@@ -13,6 +13,7 @@ export type LiveClusterSpot = {
   specialTags: string[]; score: number; scoreReasons: string[];
   aggregateCount: number; aggregateSpotters: string[]; source: string;
   statusHex: string; bandHex: string; modeHex: string;
+  activation?: { sourceEpoch: string; spotVersion: string };
 };
 type Connection = { serverID: string; serverName: string; phase: string; error?: string | null };
 type ConsoleEntry = { receivedAt: number; source: string; text: string; isCommand: boolean };

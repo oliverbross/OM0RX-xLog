@@ -28,7 +28,7 @@ export class LogbookMutationSession {
   private listeners = new Set<() => void>();
   private operation: Promise<DraftSnapshot | null> | null = null;
   constructor(private request: Request, private write: (journal: LogbookMutationJournal) => void,
-    journal: LogbookMutationJournal | null = null, private uuid = () => crypto.randomUUID()) {
+    journal: LogbookMutationJournal | null = null, private uuid = () => crypto.randomUUID(), private canMutate = () => true) {
     this.state = { ...empty(), ...clone(journal), error: journal?.pending ? "Check the previous logbook operation before making another change." : "" };
   }
   getSnapshot = () => this.state;
@@ -41,13 +41,16 @@ export class LogbookMutationSession {
     this.write(clone({ pending: next.pending, undo: next.undo })); this.update(change);
   }
   private ensureReady() {
+    this.assertWritable();
     if (this.state.busy || this.state.pending || this.state.workspaceChanged || this.state.conflict)
       throw new Error("Resolve the previous logbook operation first.");
   }
+  private assertWritable() { if (!this.canMutate()) throw new Error("Wait for the verified spot activation outcome before changing the logbook."); }
   async prepareDelete(id: string): Promise<DraftSnapshot> {
     this.ensureReady(); this.update({ busy: true });
     try {
       const response = await this.request("logbook_contact", { contactID: id });
+      this.assertWritable();
       if (!validScopedSnapshot(response?.contact) || !sameGeneration(response.generation, response.contact.generation) ||
         response.contact.qso.id.toLowerCase() !== id.toLowerCase() || response.contact.qso.deletedAt)
         throw new Error("This contact is no longer available. Refresh the logbook.");
@@ -88,6 +91,7 @@ export class LogbookMutationSession {
     return null;
   }
   private perform(mutation: LogbookMutation) {
+    this.assertWritable();
     // Commit recovery identity before dispatch. A storage failure sends nothing.
     this.persist({ pending: clone(mutation), error: "" });
     return this.run(async () => {
@@ -135,11 +139,13 @@ export class LogbookMutationSession {
     });
   }
   retry() {
+    this.assertWritable();
     if (this.operation) return this.operation;
     if (!this.state.pending || this.state.workspaceChanged) return Promise.reject(new Error("No retry is available. Review the current workspace."));
     return this.perform(this.state.pending);
   }
   dismiss() {
+    this.assertWritable();
     if (this.state.busy || this.state.pending && !this.state.workspaceChanged) throw new Error("Check the pending logbook operation first.");
     this.persist(empty());
   }
