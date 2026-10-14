@@ -13,6 +13,7 @@ import { verifyBandMapContext } from "./bandMapWindowAcceptance";
 import { validMonitorContext } from "./live/monitorContext";
 import { verifyEditorFocus } from "./editorFocusAcceptance";
 import { verifyWorkspaceMenuRoutes } from "./workspaceMenuAcceptance";
+import { verifyADIFTransferRoundtrip } from "./adifTransferAcceptance";
 
 type Json = Record<string, any>;
 const frame = () => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
@@ -140,6 +141,8 @@ async function main(report: Json) {
   call.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", ctrlKey: true, bubbles: true, cancelable: true }));
   await waitForAcceptance("keyboard save and cleared draft", () => element<HTMLInputElement>('[aria-label="Desk Callsign"]').value === "" && document.body.textContent?.includes("W1AW saved") === true);
   check("keyboard_log", validSavedContact((await worker("logbook_list")).result));
+  report.details.adifTransfer = await verifyADIFTransferRoundtrip(worker);
+  check("adif_transfer_roundtrip", report.details.adifTransfer.finalContacts === 1);
   await navigate("Logbook");
   await waitForAcceptance("saved QSO row", () => document.querySelector(".live-logbook-table tbody")?.textContent?.includes("W1AW") === true);
   check("logbook_readback", document.querySelectorAll(".live-logbook-table tbody tr").length === 1);
