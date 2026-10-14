@@ -1,8 +1,8 @@
 # OM0RX-xLog live project board
 
-Last updated: 14 October 2026, after shared revisioned rotor-configuration
-source verification; independent Station Control, Chaser & DX and CW ownership
-are next.
+Last updated: 14 October 2026, after source verification of the independent
+passive Chaser & DX window; Station Control, CW and protected opportunity
+selection ownership are next.
 
 This is the operator-facing project overview. Keep it current after every material
 implementation, validation, installation or acceptance change. Detailed evidence
@@ -36,9 +36,12 @@ or RF action was performed. See
 
 The revision-safe Settings prerequisite is source-verified at `b58163f`, the
 independent Settings child at `0ea919a`, and shared rotor configuration at
-`46c5f1e`. The next bounded stage migrates Station Control, Chaser & DX and CW
-ownership to independent surfaces without duplicating station, rotor, spot or CW
-effects. The global Windowed preset remains disabled.
+`46c5f1e`. Chaser & DX now has an independent main-absent read/refresh surface
+at `42f7b6c`; its protected Load QSO action remains in the Desk until canonical
+draft mutation can move without bypassing editor admission. The next bounded
+stage migrates Station Control and CW ownership, then that protected selection
+path, without duplicating station, rotor, spot or CW effects. The global
+Windowed preset remains disabled.
 
 | Work item | Status | Current evidence / next gate |
 | --- | --- | --- |
@@ -51,7 +54,8 @@ effects. The global Windowed preset remains disabled.
 | Full validation and review | **Source verified** | Frontend **1,049/1,049 across 128 files**, Rust **321/321**, normal Swift **82/82**, full portable Swift, production build and bundle gates pass; `git diff --check` is clean. |
 | Independent native Settings child | **Source verified** | Commit `0ea919a`; tenth singleton native role, open/focus/Dock lifecycle, scoped non-hardware authority, main-absent renderer and dirty/remount/conflict recovery pass. Its Rotator tab now consumes the shared passive configuration source. Not packaged or installed. |
 | Shared revisioned rotor configuration | **Source verified** | Commit `46c5f1e`; SQLite-owned generation/revision state, durable receipts, restore fencing, one-time browser-local migration, Settings Rotator UI and lost-acknowledgement/conflict recovery pass. Browsing/restoring remains passive; the Settings child may read rotor models but cannot connect or issue motion. Frontend **1,057/1,057 across 130 files**, Rust **323/323**, normal Swift **86/86**, full portable Swift and production build pass. The Settings child bundle is 385,114 bytes. Not packaged, installed or hardware-tested. |
-| Independent Station Control, Chaser & DX and CW ownership | **Active / next** | Inventory current owners and migrate one bounded surface at a time with main-absent operation, exact authority, shared state, idempotent recovery and no duplicated effects. |
+| Independent passive Chaser & DX | **Source verified / partial ownership** | Commit `42f7b6c`; the eleventh singleton native role works without the Desk renderer and can only read/refresh public opportunity feeds. It imports neither the main workspace nor draft/station authority. Unfinished Load QSO controls are hidden in the child. Frontend **1,060/1,060 across 131 files**, Rust **324/324**, TypeScript and production build pass; startup graph 270,926 bytes. Not packaged, installed or live-service tested. |
+| Independent Station Control, CW and protected Chaser selection | **Active / next** | Inventory current owners and migrate one bounded surface at a time with main-absent operation, exact authority, shared state, editor admission, idempotent recovery and no duplicated effects. |
 
 ## Dependency-ordered delivery queue
 
@@ -61,15 +65,18 @@ effects. The global Windowed preset remains disabled.
    recovery and main-renderer-independent scoped services (`0ea919a`).
 3. **Source-complete:** shared revisioned rotor-only configuration with passive
    open/restore/browse behavior and exact typed command boundaries (`46c5f1e`).
-4. **Active next:** migrate Station Control, Chaser & DX and CW ownership to
-   independent surfaces.
-5. Finish the remaining panel inventory, native lifecycle/geometry recovery and
+4. **Source-complete at passive scope:** independent Chaser & DX read/refresh
+   window with exact native capability boundary (`42f7b6c`). Protected Load QSO
+   remains embedded until its canonical draft mutation path is migrated.
+5. **Active next:** migrate Station Control and CW ownership, then protected
+   opportunity selection, to independent surfaces.
+6. Finish the remaining panel inventory, native lifecycle/geometry recovery and
    only then enable the full Windowed preset.
-6. Implement RADIO-05 Clear after QSY on trusted observed-RX provenance with
+7. Implement RADIO-05 Clear after QSY on trusted observed-RX provenance with
    editor veto, selection/command epochs and an idempotent native transaction.
-7. Complete ADIF preview/update/export scope (DATA-10), optional cloud backup
+8. Complete ADIF preview/update/export scope (DATA-10), optional cloud backup
    destinations (BACKUP-01) and the remaining evidence-backed RUMlog gaps.
-8. Run packaged cross-platform, large-log performance, live sync and separately
+9. Run packaged cross-platform, large-log performance, live sync and separately
    authorized hardware acceptance. Do not collapse these into source evidence.
 
 ## Workspace/native-window programme
@@ -79,10 +86,10 @@ effects. The global Windowed preset remains disabled.
 | WS-01 | Show/hide/move/resize every desk panel | **In progress** — canvas foundation exists; inventory and native interaction remain. |
 | WS-02 | Settings-managed named layouts | **In progress** — revisioned persistence/UI, independent Settings and shared passive Rotator configuration are source-verified; packaged/native acceptance remains. |
 | WS-03 | Native menus replace navigation | **In progress** — routes exist; sidebar removal awaits native acceptance. |
-| WS-04 | Window menu opens/focuses every panel | **In progress** — ten roles now include independent Settings; remaining screens follow the dependency queue. |
+| WS-04 | Window menu opens/focuses every panel | **In progress** — eleven roles now include independent Settings and passive Chaser & DX; remaining screens follow the dependency queue. |
 | WS-05 | Docked/mixed/undocked share one live session | **In progress** — major draft/cluster/radio/rotor ownership moved; remaining owners open. |
 | WS-06 | Layout/geometry survive restart and display changes | **In progress / acceptance** — persistence/recovery source exists; mixed-DPI/native evidence open. |
-| WS-07 | No duplicate logging or station actions | **In progress** — Settings and rotor-configuration revisions/receipts plus scoped child authority are source-verified; full multi-window gate remains open. |
+| WS-07 | No duplicate logging or station actions | **In progress** — Settings and rotor-configuration revisions/receipts plus scoped child authority are source-verified; passive Chaser has no draft/station authority. Full multi-window gate remains open. |
 | WS-08 | Responsive, accessible, measured laptop/4K UI | **In progress / acceptance** — targeted fixtures pass; whole-app native measurements open. |
 
 ## Operator feedback portfolio

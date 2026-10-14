@@ -1,6 +1,6 @@
 # Configurable Operator Desk and native windows
 
-Status: shared draft, revision-safe contact and Integration Settings editing, an independent scoped Settings child, native Cluster startup intent, radio/rotor telemetry, active radio selection and native menu routing are implemented in source. Logbook/Awards repeated-open and Dock-back lifecycles pass isolated Windows/Linux packages through V, including reduced detached-window startup bundles and the shared layout roundtrip. W adds the configurable canvas and its native control gate; exact package run is still being verified. Shared revisioned rotor configuration, the remaining independent windows, display migration and whole-app performance acceptance remain open.
+Status: shared draft, revision-safe contact and Integration Settings editing, an independent scoped Settings child, shared revisioned rotor configuration, a passive independent Chaser & DX child, native Cluster startup intent, radio/rotor telemetry, active radio selection and native menu routing are implemented in source. Logbook/Awards repeated-open and Dock-back lifecycles pass isolated Windows/Linux packages through V, including reduced detached-window startup bundles and the shared layout roundtrip. W adds the configurable canvas and its native control gate; exact package run is still being verified. Station Control, CW, protected opportunity selection, the remaining independent windows, display migration and whole-app performance acceptance remain open.
 Request: 13 October 2026. Baseline: `0cc7ecc` / installed alpha.13.
 
 ## Product contract
@@ -618,6 +618,33 @@ command-shaped fields. The detached Settings startup graph is 385,114 bytes.
 This is source evidence only: no package was produced or installed, no operator
 data was changed, and no device was connected, armed, keyed or moved. A standalone
 Rotor child and the remaining all-window ownership migrations are still open.
+
+### Checkpoint AD — independent passive Chaser & DX
+
+Chaser & DX is now the eleventh singleton native workspace role. Its detached
+surface starts and operates without the Desk renderer, reads the shared
+opportunity snapshot and can request the existing deduplicated public-feed
+refresh. The renderer and native worker both enforce the exact two-method
+boundary: `opportunities_snapshot` and `opportunities_refresh`. The surface does
+not import the main workspace and has no draft, logbook, settings, Hamlib, radio,
+rotor or CW authority. Dock back remains available with visible failure recovery.
+
+Opportunity selection is deliberately not claimed by this checkpoint. Load QSO
+controls and the action column are hidden in the child because selection still
+requires the Desk's protected editor-admission and canonical-draft coordination.
+The embedded Desk view keeps that existing action. Moving it later must preserve
+dirty/invalid input vetoes and must not introduce a second draft or station owner.
+UI-only Chaser display preferences remain browser-local and are not claimed as
+shared state.
+
+Exact source `42f7b6cad3fed2df9ac83e91dd72bc4c7842e984` passes full frontend
+**1,060/1,060 across 131 files**, Rust **306 unit + 18 integration (324 total)**,
+TypeScript and the production build/bundle gate. The detached startup graph is
+270,926 bytes gzip 85,775 and excludes the main workspace. The unchanged Swift
+sources retain Checkpoint AC's passing evidence and were not rerun for this
+frontend/Rust-only slice. This is source evidence only: no package was produced
+or installed, no public feed was contacted for acceptance, and no operator data,
+station or hardware state was changed.
 
 ### 14 October audit — remaining new-QSO and QSY ownership
 
