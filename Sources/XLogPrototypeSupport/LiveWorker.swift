@@ -103,7 +103,11 @@ public actor LiveWorker {
         self.powerCapture = powerCapture
         self.powerDelivery = powerDelivery
         logbookLane = LogbookLane(service: logbook, power: powerCapture)
-        let backupService = remoteBackup ?? LiveRemoteBackupService(logbook: logbook)
+        let backupVerifier = remoteBackupEnvironment.map {
+            LiveDropboxBackupAccountVerifier(vault: $0.vault, http: $0.http)
+        }
+        let backupService = remoteBackup ?? LiveRemoteBackupService(logbook: logbook,
+            accountVerifier: backupVerifier)
         self.remoteBackup = backupService
         self.remoteBackupPresentation = LiveRemoteBackupPresentation(logbook: logbook, service: backupService, environment: remoteBackupEnvironment)
         self.publicServices = publicServices ?? LivePublicServiceMethods(logbook: logbook)

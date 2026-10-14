@@ -58,6 +58,36 @@ struct SystemNativeBackupCredentialVault: NativeBackupCredentialVault {
     }
 }
 
+/// Authenticates the exact vault item against Dropbox. It neither provisions nor
+/// refreshes credentials and returns only the provider-observed account identity.
+struct LiveDropboxBackupAccountVerifier: NativeDropboxBackupAccountVerifier {
+    let vault: any NativeBackupCredentialVault
+    let http: any DropboxBackupHTTPClient
+
+    init(vault: any NativeBackupCredentialVault = SystemNativeBackupCredentialVault(),
+         http: any DropboxBackupHTTPClient = DropboxBackupURLSessionClient()) {
+        self.vault = vault; self.http = http
+    }
+
+    func verify(_ challenge: NativeDropboxBackupVerificationChallenge) async throws
+        -> NativeDropboxBackupVerifiedAccount {
+        try Task.checkCancellation()
+        let binding = challenge.binding
+        let token: String?
+        do { token = try vault.read(service: binding.keychainService, account: binding.vaultAccount) }
+        catch {
+            if Task.isCancelled || error is CancellationError { throw CancellationError() }
+            throw DropboxBackupError.credentialUnavailable
+        }
+        guard let token else { throw DropboxBackupError.credentialUnavailable }
+        let credential = try DropboxBackupCredential(accountID: binding.destination.accountID,
+            providerAccountID: binding.providerAccountID, accessToken: token)
+        let observed = try await DropboxBackupAccountProbe(http: http).verify(credential)
+        try Task.checkCancellation()
+        return NativeDropboxBackupVerifiedAccount(challenge: challenge, providerAccountID: observed)
+    }
+}
+
 /// Non-secret account identity supplied by a future explicit OAuth/account boundary.
 /// The provider identity is an expectation, never inferred from whichever token is found.
 struct NativeDropboxBackupAccountBinding: Equatable, Sendable {

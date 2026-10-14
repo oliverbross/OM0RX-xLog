@@ -71,6 +71,51 @@ public protocol DropboxBackupHTTPClient: Sendable {
     func send(_ request: URLRequest, maximumResponseBytes: Int) async throws -> DropboxBackupHTTPResponse
 }
 
+/// Bounded provider-account authentication shared by setup verification and upload.
+/// It performs one fixed-endpoint request and returns only the provider-observed dbid.
+public struct DropboxBackupAccountProbe: Sendable {
+    private let http: any DropboxBackupHTTPClient
+
+    public init(http: any DropboxBackupHTTPClient = DropboxBackupURLSessionClient()) {
+        self.http = http
+    }
+
+    public func verify(_ credential: DropboxBackupCredential) async throws -> String {
+        try Task.checkCancellation()
+        var request = URLRequest(url: DropboxBackupTransport.accountURL,
+            cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 30)
+        request.httpMethod = "POST"
+        request.setValue("Bearer " + credential.accessToken, forHTTPHeaderField: "Authorization")
+        request.setValue("identity", forHTTPHeaderField: "Accept-Encoding")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = Data("null".utf8)
+        let response: DropboxBackupHTTPResponse
+        do {
+            response = try await http.send(request,
+                maximumResponseBytes: DropboxBackupTransport.maximumMetadataBytes)
+        } catch let error as DropboxBackupError { throw error }
+        catch {
+            if Task.isCancelled || error is CancellationError { throw CancellationError() }
+            throw DropboxBackupError.requestFailed
+        }
+        try Task.checkCancellation()
+        guard response.url == request.url else { throw DropboxBackupError.redirectRejected }
+        guard response.body.count <= DropboxBackupTransport.maximumMetadataBytes,
+              response.headers.reduce(0, { $0 + $1.key.utf8.count + $1.value.utf8.count })
+                <= DropboxBackupTransport.maximumMetadataBytes else {
+            throw DropboxBackupError.responseTooLarge
+        }
+        guard response.statusCode == 200 else { throw DropboxBackupError.remoteRejected }
+        guard let account = try? JSONDecoder().decode(Account.self, from: response.body),
+              account.account_id == credential.providerAccountID else {
+            throw DropboxBackupError.accountMismatch
+        }
+        return account.account_id
+    }
+
+    private struct Account: Decodable { let account_id: String }
+}
+
 /// Fixed endpoints only. Tokens, response bodies and provider errors are never logged
 /// or persisted. Durable replay protection belongs to RemoteBackupUploadCoordinator.
 public actor DropboxBackupTransport: RemoteBackupUploadTransport {
@@ -178,14 +223,7 @@ public actor DropboxBackupTransport: RemoteBackupUploadTransport {
     }
 
     private func checkedAccount(_ credential: DropboxBackupCredential) async throws -> String {
-        var request = try request(Self.accountURL, credential: credential)
-        request.httpBody = Data("null".utf8)
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        let response = try await exchange(request, maximum: Self.maximumMetadataBytes)
-        guard response.statusCode == 200 else { throw DropboxBackupError.remoteRejected }
-        guard let account = try? JSONDecoder().decode(Account.self, from: response.body),
-              account.account_id == credential.providerAccountID else { throw DropboxBackupError.accountMismatch }
-        return account.account_id
+        try await DropboxBackupAccountProbe(http: http).verify(credential)
     }
 
     private func request(_ url: URL, credential: DropboxBackupCredential) throws -> URLRequest {
@@ -240,7 +278,6 @@ public actor DropboxBackupTransport: RemoteBackupUploadTransport {
         return reason[".tag"] as? String == "conflict"
     }
 
-    private struct Account: Decodable { let account_id: String }
     private struct UploadArguments: Encodable {
         let path: String; let mode: String; let autorename: Bool; let strict_conflict: Bool; let mute: Bool
     }

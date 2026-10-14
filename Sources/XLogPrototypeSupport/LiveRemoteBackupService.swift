@@ -25,10 +25,12 @@ actor LiveRemoteBackupService {
 
     init(logbook: LiveLogbookMethods, clock: any RemoteBackupClock = RemoteBackupSystemClock(),
          accounts: (any NativeDropboxBackupAccountRegistry)? = nil,
+         accountVerifier: (any NativeDropboxBackupAccountVerifier)? = nil,
          ticks: @escaping @Sendable () throws -> any RemoteBackupTickSource = {
              try RemoteBackupPeriodicTickSource(interval: 30)
          }) {
-        let resolvedAccounts = accounts ?? LiveDropboxBackupAccountOwner(logbook: logbook)
+        let resolvedAccounts = accounts ?? LiveDropboxBackupAccountOwner(logbook: logbook,
+            verifier: accountVerifier ?? UnavailableDropboxBackupAccountVerifier())
         self.logbook = logbook; self.clock = clock; self.ticks = ticks; self.accounts = resolvedAccounts
         self.accountOwner = resolvedAccounts as? LiveDropboxBackupAccountOwner
     }

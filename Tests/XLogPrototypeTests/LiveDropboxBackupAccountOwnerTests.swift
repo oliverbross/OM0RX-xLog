@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 import Testing
 @testable import XLogPrototypeSupport
 #if canImport(XLogCore)
@@ -73,6 +76,68 @@ import Testing
                 continuation.resume(returning: NativeDropboxBackupVerifiedAccount(challenge: challenge,
                     providerAccountID: challenge.binding.providerAccountID))
             }
+        }
+    }
+
+    private final class Vault: NativeBackupCredentialVault, @unchecked Sendable {
+        struct Read: Equatable { let service: String; let account: String }
+        private let lock = NSLock()
+        private let value: String?
+        private var reads: [Read] = []
+        init(_ value: String?) { self.value = value }
+        func read(service: String, account: String) throws -> String? {
+            lock.withLock { reads.append(Read(service: service, account: account)) }
+            return value
+        }
+        var recorded: [Read] { lock.withLock { reads } }
+    }
+
+    private actor HTTP: DropboxBackupHTTPClient {
+        let accountID: String
+        var requests: [URLRequest] = []
+        init(accountID: String) { self.accountID = accountID }
+        func send(_ request: URLRequest, maximumResponseBytes: Int) async throws -> DropboxBackupHTTPResponse {
+            requests.append(request)
+            return DropboxBackupHTTPResponse(url: request.url!, statusCode: 200,
+                body: try JSONSerialization.data(withJSONObject: ["account_id": accountID]))
+        }
+    }
+
+    @Test func nativeVerifierReadsOnlyTheExactVaultIdentityAndAuthenticatesObservedAccount() async throws {
+        let f = try Fixture(); defer { f.clean() }
+        let binding = try NativeDropboxBackupAccountBinding(workspaceGeneration: f.plan.workspaceGeneration,
+            destination: f.plan.destination, keychainService: f.workspace.keychainService,
+            providerAccountID: "dbid:fixture")
+        let challenge = NativeDropboxBackupVerificationChallenge(id: UUID(), binding: binding,
+            expectedRegistrationRevision: 0)
+        let vault = Vault("fixture-only-access-value"), http = HTTP(accountID: "dbid:fixture")
+        let verified = try await LiveDropboxBackupAccountVerifier(vault: vault, http: http).verify(challenge)
+        #expect(verified.challenge == challenge)
+        #expect(verified.providerAccountID == "dbid:fixture")
+        #expect(vault.recorded == [Vault.Read(service: binding.keychainService, account: binding.vaultAccount)])
+        let requests = await http.requests
+        #expect(requests.count == 1)
+        #expect(requests[0].url == DropboxBackupTransport.accountURL)
+        #expect(requests[0].httpMethod == "POST")
+        #expect(requests[0].httpBody == Data("null".utf8))
+        #expect(requests[0].value(forHTTPHeaderField: "Authorization") == "Bearer fixture-only-access-value")
+    }
+
+    @Test func nativeVerifierRejectsMissingOrDifferentAccountBeforeRegistration() async throws {
+        let f = try Fixture(); defer { f.clean() }
+        let binding = try NativeDropboxBackupAccountBinding(workspaceGeneration: f.plan.workspaceGeneration,
+            destination: f.plan.destination, keychainService: f.workspace.keychainService,
+            providerAccountID: "dbid:fixture")
+        let challenge = NativeDropboxBackupVerificationChallenge(id: UUID(), binding: binding,
+            expectedRegistrationRevision: 0)
+        let unusedHTTP = HTTP(accountID: "dbid:fixture")
+        await #expect(throws: DropboxBackupError.credentialUnavailable) {
+            try await LiveDropboxBackupAccountVerifier(vault: Vault(nil), http: unusedHTTP).verify(challenge)
+        }
+        #expect(await unusedHTTP.requests.isEmpty)
+        await #expect(throws: DropboxBackupError.accountMismatch) {
+            try await LiveDropboxBackupAccountVerifier(vault: Vault("fixture-only-access-value"),
+                http: HTTP(accountID: "dbid:different")).verify(challenge)
         }
     }
 
