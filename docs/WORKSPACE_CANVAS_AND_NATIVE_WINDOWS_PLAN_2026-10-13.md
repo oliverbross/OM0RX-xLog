@@ -1,6 +1,6 @@
 # Configurable Operator Desk and native windows
 
-Status: shared draft, revision-safe contact and Integration Settings editing, native Cluster startup intent, radio/rotor telemetry, active radio selection and native menu routing are implemented in source. Logbook/Awards repeated-open and Dock-back lifecycles pass isolated Windows/Linux packages through V, including reduced detached-window startup bundles and the shared layout roundtrip. W adds the configurable canvas and its native control gate; exact package run is still being verified. The independent Settings child, full independent-window operation, display migration and whole-app performance acceptance remain open.
+Status: shared draft, revision-safe contact and Integration Settings editing, an independent scoped Settings child, native Cluster startup intent, radio/rotor telemetry, active radio selection and native menu routing are implemented in source. Logbook/Awards repeated-open and Dock-back lifecycles pass isolated Windows/Linux packages through V, including reduced detached-window startup bundles and the shared layout roundtrip. W adds the configurable canvas and its native control gate; exact package run is still being verified. Shared revisioned rotor configuration, the remaining independent windows, display migration and whole-app performance acceptance remain open.
 Request: 13 October 2026. Baseline: `0cc7ecc` / installed alpha.13.
 
 ## Product contract
@@ -134,12 +134,36 @@ tests and nine Settings-session tests pass. Complete validation passes: frontend
 full portable Swift suite, TypeScript, production Vite build and detached bundle
 gates. `git diff --check` is clean.
 
-This is source evidence only. It does not add the native Settings child, package
-or install a new build, prove main-renderer-absent operation, exercise live
-services or authorize hardware. Installed alpha.22 remains unchanged. The next
-bounded stage is the actual singleton Settings child with Dock/open/focus and
-dirty-form/navigation/restart recovery while the main renderer is absent. Rotor,
-Station Control, Chaser and CW migrations remain separate follow-up stages.
+The prerequisite commit itself was source-only and did not add the child; the
+following checkpoint does. It did not package or install a new build, exercise
+live services or authorize hardware. Installed alpha.22 remained unchanged.
+Rotor, Station Control, Chaser and CW migrations remain separate follow-up
+stages.
+
+### Independent Settings child — source verified (14 October)
+
+Commit `0ea919a` adds Settings as the tenth singleton native role. Its renderer
+loads the authoritative revisioned Settings session directly and remains usable
+without the Desk renderer. It exposes the non-hardware Station, Wavelog, Sync,
+QRZ, reference-data, Display, Workspace and local-backup sections; Rotator and CW
+remain excluded until their separately tracked ownership stages.
+
+The native worker admits only the Settings, credential, synchronization,
+reference-data, layout and backup methods for this child. It rejects logbook,
+station, rotor, cluster and WinKeyer authority. Native invalidations cause a fresh
+validated read. Dirty text and uncertain state survive remount in a non-secret
+journal, concurrent changes retain local text for review, and Dock refuses to
+discard unresolved edits. Clean Dock routes to the existing Settings screen.
+
+The full frontend suite passes **1,051/1,051 across 129 files**. Rust passes
+**305 unit + 18 dummy-backend integration tests (323 total)**. TypeScript,
+production Vite and detached bundle gates pass; Settings starts in 350,232 bytes,
+below the shared 400 kB ceiling, without importing the Desk or map UI. This is
+source evidence only: no package or installation was produced, and installed
+alpha.22 remains unchanged. Packaged native and cross-platform main-absent
+acceptance remain open. No external service, operator data or hardware was
+changed. The next dependency-ordered stage is shared revisioned rotor-only
+configuration with passive open/restore/browse behavior.
 
 1. Shared-session and draft safety proven behind existing UI.
 2. Configurable docked canvas and backed-up layouts accepted.
