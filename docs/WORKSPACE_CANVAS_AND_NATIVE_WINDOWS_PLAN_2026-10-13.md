@@ -802,6 +802,24 @@ TypeScript and diff checks. No package was produced or installed, no service or
 hardware was contacted, and no operator-data, station or RF state changed. Direct
 FLEX connection/configuration and hardware profiles remain later slices.
 
+### Checkpoint AL — shared durable Direct FLEX LAN ownership
+
+Desk and independent Station Control now share one validated Direct FLEX LAN setup
+and explicit connect, reconnect and disconnect journal. Saved setup contains only a
+numeric private IP address, TCP port and bounded ASCII station name. Every lifecycle
+request is bound to the setup revision and exact selected FLEX generation/identity,
+is persisted before dispatch and retains unknown outcomes without replay. Raw FLEX
+lifecycle requests can no longer bypass this owner.
+
+Reconnect deliberately creates a replacement session through saved setup and fresh
+default-off transmit consent; it cannot inherit permission from the previous
+session. Existing Swift session retirement continues to revoke owned transmit state.
+Exact source `d4d8bb0` passes **13 native station-session tests**, the additional
+FLEX selection-fence check and **41 focused frontend tests** plus TypeScript and
+diff checks. No package was produced or installed, no service or hardware was
+contacted, and no operator-data, station or RF state changed. Discovery/SmartLink,
+hardware profiles and broader child radio controls remain later slices.
+
 ### 14 October audit — remaining new-QSO and QSY ownership
 
 At `cd25718`, detached Logbook edits saved contacts; it is not an independent
