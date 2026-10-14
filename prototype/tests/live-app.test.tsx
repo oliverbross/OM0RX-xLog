@@ -517,8 +517,19 @@ it("confirmed migration recovery does not clear a newer unrelated workspace erro
 it("starts with real-data onboarding and only reads; never creates a log or commands hardware implicitly", async () => {
   render(<LiveApp />);
   await waitFor(() => expect(screen.getByRole("button", { name: "Copy my existing xLog logbook" }).hasAttribute("disabled")).toBe(false));
-  expect(calls.request.mock.calls.every(([method]) => ["workspace_status", "cluster_snapshot", "station_snapshot", "rotor_snapshot", "propagation_snapshot"].includes(method))).toBe(true);
+  expect(calls.request.mock.calls.every(([method]) => ["workspace_status", "cluster_snapshot", "station_snapshot", "rotor_snapshot"].includes(method))).toBe(true);
   expect(screen.getByText("No sample contacts, spots or station readings are loaded.")).toBeTruthy();
+});
+
+it("embedded propagation reads the shared owner without a renderer fetch timer", async () => {
+  exists = true; vi.useFakeTimers();
+  try {
+    render(<LiveApp />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(screen.getByRole("button", { name: "Refresh propagation" })).toBeTruthy();
+    await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
+    expect(calls.request.mock.calls.filter(([method]) => String(method).startsWith("propagation_"))).toHaveLength(0);
+  } finally { cleanup(); vi.useRealTimers(); }
 });
 
 it("copies only on explicit action and retains the operator callsign through readback refresh", async () => {

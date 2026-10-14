@@ -18,6 +18,7 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     if label == "cw" { return Err("CW can only use the typed shared CW session.".into()); }
     if label == "rotor" { return Err("Rotor can only read retained native rotor telemetry.".into()); }
     if label == "station-status" { return Err("Station Status can only read retained native station observations.".into()); }
+    if label == "propagation" { return Err("Propagation can only use the typed shared public-conditions session.".into()); }
     if request["method"].as_str().is_some_and(|method| method.starts_with("spot_draft_")) {
         return Err("Only the native activation owner can use this method.".into());
     }
@@ -239,6 +240,7 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "lookup_call",
         "weather",
         "propagation_snapshot",
+        "propagation_refresh",
         "secret_save",
         "secret_status",
         "sync_status",
@@ -804,6 +806,13 @@ mod tests {
             "station_snapshot", "station_configuration", "station_configuration_save", "station_power_selection", "station_connect", "station_disconnect", "station_reconnect",
             "station_tune", "station_action", "station_radio_control", "station_rotor_stop", "rotor_stop", "hamlib_snapshot", "hamlib_control", "winkeyer_snapshot", "sync_run", "health"] {
             assert!(validate_surface("station-status", &json!({"id":"status","method":method,"params":{}})).is_err(), "{method}");
+        }
+    }
+    #[test]
+    fn propagation_child_cannot_bypass_shared_refresh_or_reach_worker_device_authority() {
+        for method in ["propagation_snapshot", "propagation_refresh", "weather", "workspace_layout_load", "settings_load", "secret_status", "secret_save",
+            "station_connect", "station_snapshot", "station_radio_control", "rotor_stop", "hamlib_snapshot", "hamlib_control", "winkeyer_snapshot", "sync_run", "health"] {
+            assert!(validate_surface("propagation", &json!({"id":"propagation","method":method,"params":{}})).is_err(), "{method}");
         }
     }
     #[test]

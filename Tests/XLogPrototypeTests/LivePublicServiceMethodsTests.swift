@@ -88,7 +88,7 @@ struct LivePublicServiceMethodsTests {
         await service.terminate()
     }
 
-    @Test("Propagation returns immediately, coalesces polls and retains observation after refresh failure")
+    @Test("Propagation mounts passively, shares explicit refresh and retains observation after failure")
     func propagationCache() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
@@ -97,20 +97,39 @@ struct LivePublicServiceMethodsTests {
         let service = LivePublicServiceMethods(logbook: try workspace(root), now: { clock.now() }, download: { try await feed.fetch($0, $1, $2) })
         #expect(try await service.handle(method: "propagation_snapshot", params: [:])["status"] as? String == "Not loaded")
         for _ in 0..<10 { _ = try await service.handle(method: "propagation_snapshot", params: [:]) }
-        try await waitFor { (try? await service.handle(method: "propagation_snapshot", params: [:])["stale"] as? Bool) == false }
-        let current = try await service.handle(method: "propagation_snapshot", params: [:])
+        #expect(await feed.count == 0)
+        let first = Task { try await service.handle(method: "propagation_refresh", params: [:]) }
+        let second = Task { try await service.handle(method: "propagation_refresh", params: [:]) }
+        let current = try await first.value
+        #expect(try await second.value["solar_flux"] as? Int == 122)
         #expect(current["solar_flux"] as? Int == 122)
         #expect((current["bands"] as? [[String: String]])?.count == 5)
         #expect(await feed.count == 1)
         clock.advance()
         await feed.configure(fail: true)
-        _ = try await service.handle(method: "propagation_snapshot", params: [:])
-        try await waitFor { (try? await service.handle(method: "propagation_snapshot", params: [:])["stale"] as? Bool) == true }
-        let stale = try await service.handle(method: "propagation_snapshot", params: [:])
+        for _ in 0..<10 { _ = try await service.handle(method: "propagation_snapshot", params: [:]) }
+        #expect(await feed.count == 1)
+        let stale = try await service.handle(method: "propagation_refresh", params: [:])
+        #expect(stale["stale"] as? Bool == true)
         #expect(stale["solar_flux"] as? Int == 122)
         #expect(stale["received_at"] as? Double == current["received_at"] as? Double)
         #expect(await feed.count == 2)
         await service.terminate()
+    }
+
+    @Test("Propagation shutdown discards a late injected response and cannot restart refresh")
+    func propagationShutdown() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let feed = PublicFeedFixture(); await feed.hold()
+        let service = LivePublicServiceMethods(logbook: try workspace(root), download: { try await feed.fetch($0, $1, $2) })
+        let pending = Task { try await service.handle(method: "propagation_refresh", params: [:]) }
+        try await waitFor { await feed.count == 1 }
+        await service.terminate(); await feed.release()
+        do { _ = try await pending.value; Issue.record("Late propagation response survived shutdown") }
+        catch let error as WorkerFailure { #expect(error.code == "worker_stopping") }
+        await #expect(throws: WorkerFailure.self) { try await service.handle(method: "propagation_refresh", params: [:]) }
+        #expect(await feed.count == 1)
     }
 
     @Test("Weather uses native decoding, shares concurrent requests and rejects changed grid")
@@ -157,11 +176,11 @@ struct LivePublicServiceMethodsTests {
         try await waitFor { await feed.count == 2 }
         await worker.shutdown()
         #expect(try await pending.value["ok"] as? Bool == false)
-        for method in ["weather", "propagation_snapshot", "lookup_call"] {
+        for method in ["weather", "propagation_snapshot", "propagation_refresh", "lookup_call"] {
             #expect((try await request(worker, method)["error"] as? [String: Any])?["code"] as? String == "worker_stopping")
         }
         let isolated = LiveWorker(logbook: logbook, localAcceptance: true)
-        for method in ["weather", "propagation_snapshot", "lookup_call"] {
+        for method in ["weather", "propagation_snapshot", "propagation_refresh", "lookup_call"] {
             #expect((try await request(isolated, method)["error"] as? [String: Any])?["code"] as? String == "acceptance_restricted")
         }
         let health = try await request(isolated, "health")["result"] as? [String: Any]
@@ -179,7 +198,7 @@ struct LivePublicServiceMethodsTests {
         })
         do { _ = try await service.handle(method: "weather", params: [:]); Issue.record("Missing grid accepted") }
         catch let error as WorkerFailure { #expect(error.code == "grid_required") }
-        for method in ["weather", "propagation_snapshot", "lookup_call"] {
+        for method in ["weather", "propagation_snapshot", "propagation_refresh", "lookup_call"] {
             await #expect(throws: WorkerFailure.self) { try await service.handle(method: method, params: ["unexpected": true]) }
         }
         await service.terminate()

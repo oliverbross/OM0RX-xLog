@@ -13,7 +13,7 @@ vi.mock("@tauri-apps/api/event", () => ({ listen: native.listen }));
 const idle = () => ({ supported: ["monitor", "world-map", "band-maps", "dx-cluster", "logbook", "awards"],
   generation: null, revision: null, presetID: null, state: "idle", shown: [], hidden: [], error: "", stopped: false, attempt: 0 });
 const applied = () => ({ ...idle(), state: "applied", generation: "01234567-89ab-cdef-0123-456789abcdef", revision: 2, presetID: "desk-1" });
-const allNativeRoles = ["callsign-intelligence", "log-qso", "spot-history", "monitor", "world-map", "band-maps", "dx-cluster", "logbook", "awards", "settings", "chaser-dx", "station-control", "cw", "rotor", "station-status"];
+const allNativeRoles = ["callsign-intelligence", "log-qso", "spot-history", "monitor", "world-map", "band-maps", "dx-cluster", "logbook", "awards", "settings", "chaser-dx", "station-control", "cw", "rotor", "station-status", "propagation"];
 function deferred<T>() { let resolve!: (value: T) => void; let reject!: (value: unknown) => void;
   const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; }
 let wake: (event?: unknown) => void, dispose: ReturnType<typeof vi.fn<() => void>>;

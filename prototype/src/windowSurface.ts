@@ -4,6 +4,7 @@ import type { ComponentType } from "react";
  * station controller as an intermediate screen or as a failed-child fallback. */
 export async function loadWindowSurface(search: string): Promise<ComponentType> {
   const view = new URLSearchParams(search).get("view");
+  if (view === "propagation") return (await import("./live/DetachedPropagationSurface")).DetachedPropagationSurface;
   if (view === "station-status") return (await import("./live/DetachedStationStatusSurface")).DetachedStationStatusSurface;
   if (view === "rotor") return (await import("./live/DetachedRotorSurface")).DetachedRotorSurface;
   if (view === "cw") return (await import("./live/DetachedCWSurface")).DetachedCWSurface;

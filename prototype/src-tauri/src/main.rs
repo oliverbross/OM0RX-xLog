@@ -8,6 +8,7 @@ mod rotor_telemetry;
 mod station_telemetry;
 mod station_selection;
 mod station_session;
+mod propagation_session;
 mod map_context;
 mod monitor_context;
 mod spot_identity;
@@ -398,6 +399,15 @@ fn station_status_snapshot(window: tauri::WebviewWindow, state: tauri::State<'_,
 }
 
 #[tauri::command]
+async fn propagation_session_request(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>, action: String) -> Result<serde_json::Value, String> {
+    propagation_session::validate(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
+    if !matches!(action.as_str(), "snapshot" | "refresh") { return Err("Unknown propagation session action.".into()); }
+    let owner = propagation_session::owner(&app)?;
+    if action == "snapshot" { return owner.snapshot(); }
+    tauri::async_runtime::spawn_blocking(move || owner.refresh()).await.map_err(|_| "Propagation refresh could not be confirmed; no request was replayed.".to_string())?
+}
+
+#[tauri::command]
 async fn monitor_context_snapshot(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>) -> Result<serde_json::Value, String> {
     monitor_context::read(window.label(), state.path.is_some(), || monitor_context::snapshot(&app), || {
         state.require()?; monitor_context::acceptance_snapshot()
@@ -496,6 +506,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     // Only typed integration operations cross this boundary; never shell commands.
     if state.path.is_some() { acceptance::validate_local_request(&request)?; }
     let method = request.get("method").and_then(|m| m.as_str()).unwrap_or("");
+    if matches!(method, "propagation_snapshot" | "propagation_refresh") { return Err("Use the shared propagation session.".into()); }
     if state.path.is_none() && (matches!(request["params"]["provider"].as_str(), Some("direct_agent" | "direct_flex_lan")) && matches!(method, "station_connect" | "station_disconnect" | "station_reconnect" | "station_forget")
         || request["params"]["device"] == "radio" && matches!(method, "hamlib_connect" | "hamlib_reconnect" | "hamlib_disconnect")) {
         return Err("Use the shared Station Control connection owner.".into());
@@ -506,7 +517,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
         return Err("Use the shared CW session for CW output controls.".into());
     }
     // This explicit role gate precedes every native special dispatcher too.
-    if matches!(window.label(), "monitor" | "log-qso" | "spot-history" | "world-map" | "band-maps" | "callsign-intelligence" | "station-control" | "cw" | "rotor" | "station-status") { worker::validate_surface(window.label(), &request)?; }
+    if matches!(window.label(), "monitor" | "log-qso" | "spot-history" | "world-map" | "band-maps" | "callsign-intelligence" | "station-control" | "cw" | "rotor" | "station-status" | "propagation") { worker::validate_surface(window.label(), &request)?; }
     if state.path.is_none() && matches!(method, "opportunities_snapshot" | "opportunities_refresh") {
         worker::validate_surface(window.label(), &request)?;
         return tauri::async_runtime::spawn_blocking(move || opportunity_selection::snapshot(request)).await
@@ -793,7 +804,7 @@ fn local_history_reader(label: &str, method: &str) -> bool {
 
 fn detached_dock_screen(label: &str) -> Result<&str, String> {
     match label {
-        "callsign-intelligence" | "cw" | "rotor" | "station-status" => Ok("operator-desk"),
+        "callsign-intelligence" | "cw" | "rotor" | "station-status" | "propagation" => Ok("operator-desk"),
         "dx-cluster" | "world-map" | "band-maps" | "log-qso" | "spot-history" | "logbook" | "awards" | "settings" | "station-control" => Ok(label),
         _ => Err("Only detachable workspaces can dock back".into()),
     }
@@ -845,6 +856,19 @@ async fn show_station_status_desk(window: tauri::WebviewWindow, app: tauri::AppH
 #[tauri::command]
 fn close_station_status_window(window: tauri::WebviewWindow) -> Result<(), String> {
     if window.label() != "station-status" { return Err("Only Station Status can close itself.".into()); }
+    detached_geometry::flush(&window);
+    window.destroy().map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+async fn show_propagation_desk(window: tauri::WebviewWindow, app: tauri::AppHandle) -> Result<(), String> {
+    if window.label() != "propagation" { return Err("Only Propagation can request its Desk route.".into()); }
+    navigate_workspace(app, "operator-desk".into()).await
+}
+
+#[tauri::command]
+fn close_propagation_window(window: tauri::WebviewWindow) -> Result<(), String> {
+    if window.label() != "propagation" { return Err("Only Propagation can close itself.".into()); }
     detached_geometry::flush(&window);
     window.destroy().map_err(|error| error.to_string())
 }
@@ -984,8 +1008,8 @@ fn main() {
             spot_activation_snapshot, spot_activation_status, spot_activation_reconcile, activate_spot, activate_opportunity,
             auto_rotor_snapshot, auto_rotor_set,
             workspace_windows_status, workspace_windows_reconcile,
-            workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot,
-            detached_cluster_ready, cluster_session_selection, dock_detached_window, close_logbook_window, close_qso_window, close_main_window, close_cw_window, show_cw_desk, close_rotor_window, show_rotor_desk, close_station_status_window, show_station_status_desk,
+            workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot, propagation_session_request,
+            detached_cluster_ready, cluster_session_selection, dock_detached_window, close_logbook_window, close_qso_window, close_main_window, close_cw_window, show_cw_desk, close_rotor_window, show_rotor_desk, close_station_status_window, show_station_status_desk, close_propagation_window, show_propagation_desk,
             acceptance::acceptance_enabled, acceptance::acceptance_large_log, acceptance::acceptance_monitor,
             acceptance::acceptance_screen, acceptance::acceptance_desk_size,
             acceptance::acceptance_open_window, acceptance::acceptance_window_step, acceptance::acceptance_window_state,
@@ -997,6 +1021,7 @@ fn main() {
         .run(|app, event| {
             if matches!(event, tauri::RunEvent::ExitRequested { .. }) {
                 APP_EXITING.store(true, Ordering::Release);
+                propagation_session::shutdown();
                 if let Some(owner) = cw_session_backend::existing() { let _ = owner.stop(); }
                 auto_rotor::revoke();
                 auto_rotor_reconcile::shutdown();
@@ -1038,6 +1063,12 @@ mod workspace_layout_tests {
         assert!(crate::workspace_windows::supports("station-status"));
         assert_eq!(super::detached_dock_screen("station-status").unwrap(), "operator-desk");
         assert_eq!(detached_window_shortcut("station-status"), None);
+    }
+    #[test]
+    fn propagation_window_docks_to_recoverable_desk_without_control_shortcuts() {
+        assert!(crate::workspace_windows::supports("propagation"));
+        assert_eq!(super::detached_dock_screen("propagation").unwrap(), "operator-desk");
+        assert_eq!(detached_window_shortcut("propagation"), None);
     }
 
     #[test]

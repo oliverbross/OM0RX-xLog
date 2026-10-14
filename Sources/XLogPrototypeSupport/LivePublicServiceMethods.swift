@@ -49,6 +49,9 @@ actor LivePublicServiceMethods {
             return profile
         case "propagation_snapshot":
             guard params.isEmpty else { throw invalid() }
+            return propagationState
+        case "propagation_refresh":
+            guard params.isEmpty else { throw invalid() }
             if propagationTask == nil && now().timeIntervalSince(propagationLastAttempt ?? .distantPast) >= 600 {
                 propagationLastAttempt = now()
                 let download = self.download
@@ -63,6 +66,10 @@ actor LivePublicServiceMethods {
                     } catch { await self?.propagationFailed() }
                 }
             }
+            // Explicit refresh callers share one bounded, credential-free fetch.
+            // Passive snapshots never start it or require a renderer poll loop.
+            if let pending = propagationTask { await pending.value }
+            guard !stopped else { throw WorkerFailure("worker_stopping", "Public services have stopped.") }
             return propagationState
         case "weather":
             guard params.isEmpty else { throw invalid() }

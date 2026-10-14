@@ -19,7 +19,7 @@ import { openDetachedCluster, dockDetachedWorkspace, onDetachedDock,
 import { LogbookPanel } from "./live/LogbookPanel";
 import { connectLogbookChanges, openDetachedLogbook, openDetachedAwards } from "./live/logbookWindows";
 import StationPanel from "./live/StationPanel";
-import Conditions from "./live/Conditions";
+import SharedPropagationConditions from "./live/SharedPropagationConditions";
 import { DetachedMonitorSurface } from "./live/DetachedMonitorSurface";
 import HamlibPanel from "./live/HamlibPanel";
 import DirectFlexPanel from "./live/DirectFlexPanel";
@@ -184,7 +184,6 @@ function MainLiveApp() {
   const [station, setStation] = useState<Data | null>(null);
   const [cluster, setCluster] = useState<Data | null>(null);
   const [stats, setStats] = useState<Data | null>(null);
-  const [propagation, setPropagation] = useState<Data | null>(null);
   const [lookup, setLookup] = useState<Data | null>(null);
   const [previous, setPrevious] = useState<Data[]>([]);
   const [message, setMessage] = useState("");
@@ -536,13 +535,6 @@ function MainLiveApp() {
     return watchSyncCompletion(request, () => setRefresh(value => value + 1));
   }, [request, workspace?.workspace_exists]);
   useEffect(() => {
-    if (monitor) return;
-    let active = true;
-    const update = () => void request("propagation_snapshot").then(value => { if (active) setPropagation(value); }).catch(() => {});
-    update(); const timer = setInterval(update, 15_000);
-    return () => { active = false; clearInterval(timer); };
-  }, [request]);
-  useEffect(() => {
     if (!workspace?.workspace_exists || sharedDraft.activationFrozen || sharedDraft.workspaceChanged || sharedDraft.locked || sharedDraft.pending || sharedDraft.conflict || !draftSession.dirty) return;
     const timer = setTimeout(() => { void draftSession.flush().catch(cause => setError(cause instanceof Error ? cause.message : "Draft could not be saved.")); }, 350);
     return () => clearTimeout(timer);
@@ -769,7 +761,7 @@ function MainLiveApp() {
       <span className={station?.radio?.connected ? "teal" : "amber"}>{station?.radio?.connected ? "Connected" : "Disconnected"}</span>
       <span className="rail-cluster-count">{cluster?.snapshot?.connectedClusters || 0} clusters · {liveSpots.length} spots</span>
       <SpotActivationStatus inline status={spotActivation.status && spotActivation.status.phase !== "idle" ? spotActivation.status : spotEditor.status} reconcile={() => {}} />
-      {workspace?.workspace_exists && <Conditions compact propagation={propagation?.bands?.length ? propagation : station?.propagation || null} request={request} weatherKey={settings?.gridSquare || ""} />}
+      {workspace?.workspace_exists && <SharedPropagationConditions compact request={request} weatherKey={settings?.gridSquare || ""} />}
       <span className="rail-end">{stats?.stats?.qso_count?.toLocaleString() ?? "—"} contacts · Integrated logbook</span>
     </header>
     <aside className="sidebar"><nav>{navigation.map(([name, Icon], i) => <div key={name}>{(i === 0 || name === "Station Control") && <div className="nav-group">{i === 0 ? "Station log" : "Services"}</div>}<button aria-current={view === name ? "page" : undefined} onClick={() => setView(name)}><Icon size={17} />{name}</button></div>)}</nav>
