@@ -1,7 +1,7 @@
 #if os(macOS)
 import Foundation
 import XCTest
-import XCatIntegrationCore
+@testable import XCatIntegrationCore
 
 private final class ObservedCallbackRecorder: @unchecked Sendable {
     struct Event {
@@ -24,8 +24,14 @@ private final class ObservedCallbackRecorder: @unchecked Sendable {
 private final class ObservedCallbackScript: @unchecked Sendable {
     private let lock = NSLock()
     private var commands: [Double?]
+    private let commandDelay: TimeInterval
+    private let onCommand: @Sendable () -> Void
 
-    init(commands: [Double?]) { self.commands = commands }
+    init(commands: [Double?], commandDelay: TimeInterval = 0, onCommand: @escaping @Sendable () -> Void = {}) {
+        self.commands = commands
+        self.commandDelay = commandDelay
+        self.onCommand = onCommand
+    }
 
     func response(for request: URLRequest) throws -> Data {
         let envelope: [String: Any]
@@ -33,6 +39,8 @@ private final class ObservedCallbackScript: @unchecked Sendable {
         case ("GET", "/api/v1/state"):
             envelope = ["success": true, "state": Self.state(watts: 10)]
         case ("POST", "/api/v1/commands"):
+            onCommand()
+            if commandDelay > 0 { Thread.sleep(forTimeInterval: commandDelay) }
             let watts = try lock.withLock { () throws -> Double? in
                 guard !commands.isEmpty else { throw URLError(.badServerResponse) }
                 return commands.removeFirst()
@@ -50,7 +58,7 @@ private final class ObservedCallbackScript: @unchecked Sendable {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return ["protocol_version": 1, "revision": 42,
-            "capabilities": ["commands": ["set_mode", "set_ptt"]],
+            "capabilities": ["commands": ["set_mode", "set_ptt", "set_frequency_hz"]],
             "radio": ["connected": true, "known": true, "stale": false, "station_bound": true,
                 "mox": true, "frequency_hz": 14_025_000, "mode": "CW",
                 "observed_at": formatter.string(from: observed)],
@@ -94,10 +102,12 @@ private final class ObservedCallbackProtocol: URLProtocol {
 }
 
 final class RemoteAgentObservedSnapshotTests: XCTestCase {
-    private func fixture(commands: [Double?],
+    private func fixture(commands: [Double?], commandDelay: TimeInterval = 0,
+                         onCommand: @escaping @Sendable () -> Void = {},
                          operation: (RemoteAgentClient, ObservedCallbackRecorder) async throws -> Void) async throws {
         let host = "observed-\(UUID().uuidString.lowercased()).invalid"
-        ObservedCallbackProtocol.install(ObservedCallbackScript(commands: commands), host: host)
+        ObservedCallbackProtocol.install(ObservedCallbackScript(commands: commands, commandDelay: commandDelay,
+            onCommand: onCommand), host: host)
         defer { ObservedCallbackProtocol.remove(host: host) }
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [ObservedCallbackProtocol.self]
@@ -165,6 +175,64 @@ final class RemoteAgentObservedSnapshotTests: XCTestCase {
             let final = await client.observedSnapshot()
             XCTAssertEqual(final.measuredTransmitPower?.watts, 125)
             XCTAssertEqual(observed[1].measuredTransmitPower?.watts, 500)
+        }
+    }
+
+    func testAutomaticReconnectRetiresOptimisticWritesAndDelayedFrequencyRetry() async throws {
+        try await fixture(commands: [nil, nil]) { client, recorder in
+            try await client.setMode("USB")
+            try await client.setPrimaryFrequency(14_100_000)
+            let before = await client.snapshot()
+            XCTAssertEqual(before.mode, "USB")
+            XCTAssertEqual(before.frequencyHz, 14_100_000)
+
+            // Simulate the read-only stream watchdog after the Agent disappears.
+            // This exercises the production backoff/reconnect path, with no socket.
+            await client.checkStreamFreshness(generation: 1, at: .distantFuture)
+            let lost = await client.observedSnapshot()
+            XCTAssertFalse(lost.isConnected)
+            let deadline = ContinuousClock.now.advanced(by: .seconds(4))
+            while recorder.observed.count < 2, ContinuousClock.now < deadline {
+                try await Task.sleep(for: .milliseconds(20))
+            }
+            XCTAssertEqual(recorder.observed.count, 2, "Automatic retry must deliver a fresh authoritative observation")
+            let recovered = await client.snapshot()
+            XCTAssertTrue(recovered.isConnected)
+            XCTAssertEqual(recovered.mode, "CW", "A retired connection's mode overlay must not mask the restarted Agent")
+            XCTAssertEqual(recovered.frequencyHz, 14_025_000)
+            // The pre-loss verification would otherwise retry after two seconds,
+            // publish its retired target and notify the authoritative callback.
+            try await Task.sleep(for: .milliseconds(2200))
+            let afterVerificationDeadline = await client.snapshot()
+            XCTAssertEqual(afterVerificationDeadline.frequencyHz, 14_025_000)
+            XCTAssertEqual(recorder.observed.count, 2)
+        }
+    }
+
+    func testStoppedClientDoesNotResumeFromScheduledAutomaticRetry() async throws {
+        try await fixture(commands: []) { client, recorder in
+            await client.checkStreamFreshness(generation: 1, at: .distantFuture)
+            await client.stop()
+            try await Task.sleep(for: .milliseconds(1400))
+            let stopped = await client.observedSnapshot()
+            XCTAssertFalse(stopped.isConnected)
+            XCTAssertEqual(recorder.observed.count, 1)
+        }
+    }
+
+    func testLateCommandReplyCannotRepublishConnectedEvidenceAfterStop() async throws {
+        let sent = expectation(description: "Synthetic command is suspended awaiting its response")
+        try await fixture(commands: [450], commandDelay: 0.3, onCommand: { sent.fulfill() }) { client, recorder in
+            let command = Task { try await client.setTransmit(false) }
+            await fulfillment(of: [sent], timeout: 2)
+            await client.stop()
+            do {
+                try await command.value
+                XCTFail("A command crossing the connection boundary cannot confirm its old response")
+            } catch {}
+            let stopped = await client.snapshot()
+            XCTAssertFalse(stopped.isConnected)
+            XCTAssertEqual(recorder.observed.count, 1, "Late command state must not reach native evidence capture")
         }
     }
 }

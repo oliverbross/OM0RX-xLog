@@ -130,9 +130,7 @@ public actor RemoteAgentClient: RadioControlling {
     public func stop() {
         shouldRun = false
         generation += 1
-        frequencyVerificationTasks.values.forEach { $0.cancel() }
-        frequencyVerificationTasks.removeAll()
-        frequencyVerificationIDs.removeAll()
+        retirePendingWrites()
         reconnectTask?.cancel()
         reconnectTask = nil
         streamTask?.cancel()
@@ -154,9 +152,7 @@ public actor RemoteAgentClient: RadioControlling {
         }
         reconnectAttempt = 0
         generation += 1
-        frequencyVerificationTasks.values.forEach { $0.cancel() }
-        frequencyVerificationTasks.removeAll()
-        frequencyVerificationIDs.removeAll()
+        retirePendingWrites()
         reconnectTask?.cancel()
         reconnectTask = nil
         streamTask?.cancel()
@@ -436,6 +432,8 @@ public actor RemoteAgentClient: RadioControlling {
         do {
             while shouldRun, currentGeneration == generation, !Task.isCancelled {
                 let message = try await socket.receive()
+                // The actor can reconnect or stop while receive is suspended.
+                guard shouldRun, currentGeneration == generation, !Task.isCancelled else { return }
                 let receivedAt = Date()
                 lastStreamMessage = receivedAt
                 let data: Data
@@ -451,15 +449,16 @@ public actor RemoteAgentClient: RadioControlling {
         }
     }
 
-    private func checkStreamFreshness(generation currentGeneration: Int) {
+    func checkStreamFreshness(generation currentGeneration: Int, at now: Date = Date()) {
         guard currentGeneration == generation, shouldRun else { return }
-        if Date().timeIntervalSince(lastStreamMessage) > 35 {
+        if now.timeIntervalSince(lastStreamMessage) > 35 {
             connectionFailed("Remote Agent stream heartbeat timed out", generation: currentGeneration)
         }
     }
 
     private func execute(_ command: RemoteAgentCommand, expectedSpot: FlexSpot? = nil) async throws {
         guard shouldRun else { throw XCatError.notConnected }
+        let commandGeneration = generation
         guard value.remoteStationStatus?.supportedCommands.contains(command.name) == true else {
             throw XCatError.server("Remote Agent does not advertise \(command.name).")
         }
@@ -472,8 +471,10 @@ public actor RemoteAgentClient: RadioControlling {
         )
         var lastError: (any Error)?
         for attempt in 0..<2 {
+            guard shouldRun, commandGeneration == generation, !Task.isCancelled else { throw XCatError.notConnected }
             do {
                 let (data, response) = try await session.data(for: request)
+                guard shouldRun, commandGeneration == generation, !Task.isCancelled else { throw XCatError.notConnected }
                 let receivedAt = Date()
                 try Self.validate(response: response, data: data)
                 let decoded: RemoteAgentDecodedState?
@@ -556,6 +557,7 @@ public actor RemoteAgentClient: RadioControlling {
     private func connectionFailed(_ message: String, generation currentGeneration: Int) {
         guard currentGeneration == generation else { return }
         generation += 1
+        retirePendingWrites()
         streamTask?.cancel()
         streamTask = nil
         watchdogTask?.cancel()
@@ -568,6 +570,13 @@ public actor RemoteAgentClient: RadioControlling {
             return
         }
         scheduleReconnect(message)
+    }
+
+    private func retirePendingWrites() {
+        frequencyVerificationTasks.values.forEach { $0.cancel() }
+        frequencyVerificationTasks.removeAll()
+        frequencyVerificationIDs.removeAll()
+        pendingWrites = PendingRadioWrites()
     }
 
     private func scheduleReconnect(_ message: String) {

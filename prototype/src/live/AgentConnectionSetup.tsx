@@ -186,6 +186,7 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
     {conflict && <p role="alert">Agent setup changed in another window. Your text is retained; reload saved endpoint to review the current setup.</p>}
     </>}
     {connections && !hamlib && !flex && <>
+      <p>Saved Agent setup and connection tests do not confirm the running station session. Check the live station status for current radio observations; an interrupted session retries automatically.</p>
       <label>Agent token<input aria-label="Shared Agent token" type="password" autoComplete="off" value={token} onChange={event => setToken(event.target.value)} /></label>
       <label><input type="checkbox" checked={transmit} onChange={event => setTransmit(event.target.checked)} /> Allow CAT transmit controls for this connection</label>
       <div className="live-station-actionrow"><button type="button" disabled={!selected || !state?.base_url || dirty.current || conflict || busy || !!pending} onClick={() => void execute("connect")}>Connect saved Agent</button>
