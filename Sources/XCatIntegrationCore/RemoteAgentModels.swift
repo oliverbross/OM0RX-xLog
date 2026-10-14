@@ -180,6 +180,36 @@ struct RemoteAgentDecodedState: Equatable, Sendable {
 }
 
 enum RemoteAgentStateDecoder {
+    private static func splitFrequencyMismatch(_ message: String) -> (actual: Int64, expected: Int64)? {
+        let prefix = "FLEX frequency is "
+        let separator = " kHz, expected "
+        let suffix = " kHz"
+        guard message.hasPrefix(prefix), message.hasSuffix(suffix) else { return nil }
+        let body = message.dropFirst(prefix.count).dropLast(suffix.count)
+        guard let separatorRange = body.range(of: separator),
+              body[separatorRange.upperBound...].range(of: separator) == nil,
+              let actual = Int64(body[..<separatorRange.lowerBound]),
+              let expected = Int64(body[separatorRange.upperBound...]) else { return nil }
+        return (actual, expected)
+    }
+
+    private static func isBenignSplitFrequencyDiagnostic(
+        code: String?, message: String?, receiveVFO: RadioVFO?, transmitVFO: RadioVFO?,
+        radio: RadioDTO, station: StationDTO
+    ) -> Bool {
+        guard code == nil || code == "flex-route-readback-mismatch",
+              let message, let mismatch = splitFrequencyMismatch(message),
+              let receiveVFO, let transmitVFO,
+              receiveVFO.letter != transmitVFO.letter,
+              receiveVFO.frequencyHz != transmitVFO.frequencyHz,
+              station.path?.alignment?.lowercased() == "confirmed",
+              radio.mox == false,
+              ["READY", "RX", "UNKEYED"].contains((radio.interlockState ?? "").uppercased()) else { return false }
+        let receiveKHz = Int64((Double(receiveVFO.frequencyHz) / 1_000).rounded())
+        let transmitKHz = Int64((Double(transmitVFO.frequencyHz) / 1_000).rounded())
+        return mismatch.actual == receiveKHz && mismatch.expected == transmitKHz
+    }
+
     static func stateResponse(_ data: Data, receivedAt: Date = Date()) throws -> RemoteAgentDecodedState {
         let response = try JSONDecoder().decode(StateResponse.self, from: data)
         guard response.success else { throw XCatError.server("Remote Agent rejected the state request.") }
@@ -261,9 +291,19 @@ enum RemoteAgentStateDecoder {
         let radioStale = radio.stale != false
         let stationBound = radio.stationBound == true
         let commissioned = station.commissioned == true
-        let issues = (station.issues ?? []).map { $0.message ?? $0.code ?? "Station blocker" }
-        let activeAlarms = (station.alarms?.items ?? []).filter { $0.active != false }
-        let activeAlarmCount = max(activeAlarms.count, station.alarms?.activeCount ?? 0)
+        let issues = (station.issues ?? []).filter {
+            !isBenignSplitFrequencyDiagnostic(code: $0.code, message: $0.message,
+                                               receiveVFO: receiveVFO, transmitVFO: transmitVFO,
+                                               radio: radio, station: station)
+        }.map { $0.message ?? $0.code ?? "Station blocker" }
+        let reportedActiveAlarms = (station.alarms?.items ?? []).filter { $0.active != false }
+        let activeAlarms = reportedActiveAlarms.filter {
+            !isBenignSplitFrequencyDiagnostic(code: $0.code, message: $0.message,
+                                               receiveVFO: receiveVFO, transmitVFO: transmitVFO,
+                                               radio: radio, station: station)
+        }
+        let unlistedActiveAlarmCount = max(0, (station.alarms?.activeCount ?? 0) - reportedActiveAlarms.count)
+        let activeAlarmCount = activeAlarms.count + unlistedActiveAlarmCount
         var inhibitors: [String] = []
         if !radioConnected { inhibitors.append("Radio disconnected") }
         if !radioKnown { inhibitors.append("Radio state unknown") }
@@ -277,9 +317,22 @@ enum RemoteAgentStateDecoder {
         inhibitors.append(contentsOf: issues)
         inhibitors.append(contentsOf: activeAlarms.map { $0.message ?? $0.code ?? "Active station alarm" })
         if activeAlarmCount > 0, activeAlarms.isEmpty { inhibitors.append("Active station alarm") }
-        if let error = state.agent?.lastError, !error.isEmpty { inhibitors.append(error) }
+        if let error = state.agent?.lastError, !error.isEmpty,
+           !isBenignSplitFrequencyDiagnostic(code: nil, message: error,
+                                             receiveVFO: receiveVFO, transmitVFO: transmitVFO,
+                                             radio: radio, station: station) { inhibitors.append(error) }
         var seenInhibitors = Set<String>()
         inhibitors = inhibitors.filter { seenInhibitors.insert($0).inserted }
+
+        var allowedActions = Set(station.allowedActions ?? [])
+        if allowedActions.contains("prepare-route"), capabilities.contains("station_operate"),
+           station.route?.amplifierAllowed == true, commissioned, radioConnected, radioKnown,
+           !radioStale, stationBound, radio.mox == false, inhibitors.isEmpty {
+            // The Agent's station_operate command atomically prepares and verifies
+            // the route before enabling the amplifier.  Requiring an earlier route
+            // proof here creates a client-side deadlock in safe receive.
+            allowedActions.insert("operate")
+        }
 
         let kpa = state.elecraft?.kpa500
         let kat = state.elecraft?.kat500
@@ -306,7 +359,7 @@ enum RemoteAgentStateDecoder {
             commissioned: commissioned,
             coordinatorState: coordinatorState,
             supportedCommands: capabilities,
-            allowedActions: Set(station.allowedActions ?? []),
+            allowedActions: allowedActions,
             inhibitors: inhibitors,
             kpaSummary: kpaSummary(kpa),
             kpaOperate: kpa?.operate,
