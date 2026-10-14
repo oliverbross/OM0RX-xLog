@@ -50,7 +50,7 @@ final class AutomaticReferenceTests: XCTestCase {
         let staleRenderer = try await refs.handle(method: "reference_configure", params: ["enabled": true, "only_if_unset": true])
         XCTAssertEqual(staleRenderer["automatic_check"] as? Bool, false)
         let settings = try fixture.logbook.handle(method: "settings_load", params: [:])["settings"]!
-        _ = try fixture.logbook.handle(method: "settings_save", params: ["settings": settings])
+        _ = try fixture.logbook.saveSettingsForTest(settings)
         XCTAssertEqual(try fixture.logbook.automaticReferenceChecks(), false)
         _ = try await refs.handle(method: "reference_configure", params: ["enabled": true])
         XCTAssertEqual(try reopened.automaticReferenceChecks(), true)

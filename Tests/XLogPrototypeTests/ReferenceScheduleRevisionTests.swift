@@ -85,8 +85,11 @@ final class ReferenceScheduleRevisionTests: XCTestCase {
         var settings = try logbook.currentSettings()
         let lotwURL = URL(string: "https://fixture.invalid/lotw.csv")!
         settings.lotwActivityURL = lotwURL.absoluteString
-        let settingsJSON = try JSONSerialization.jsonObject(with: JSONEncoder().encode(settings))
-        _ = try logbook.handle(method: "settings_save", params: ["settings": settingsJSON])
+        guard let settingsJSON = try JSONSerialization.jsonObject(with: JSONEncoder().encode(settings)) as? [String: Any] else {
+            XCTFail("Could not encode settings fixture")
+            return
+        }
+        _ = try logbook.saveSettingsForTest(settingsJSON)
 
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [RevisionHeldURLProtocol.self]

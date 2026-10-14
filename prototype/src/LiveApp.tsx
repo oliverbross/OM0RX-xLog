@@ -47,6 +47,8 @@ import { DeskMapLogbook } from "./live/DeskMapLogbook";
 import SyncPanel from "./live/SyncPanel";
 import { watchSyncCompletion } from "./live/syncCompletion";
 import ServiceSettings from "./live/ServiceSettings";
+import { SettingsSession, readSettingsJournal } from "./live/settingsSession";
+import { requestSettings } from "./live/settingsTransport";
 import WorkspaceSettings from "./live/WorkspaceSettings";
 import WorkspaceGate from "./live/WorkspaceGate";
 import SpotBridgePanel from "./live/SpotBridgePanel";
@@ -91,6 +93,7 @@ const radioProviderLabels: Record<StationProvider, string> = {
 const draftJournalKey = "xlog.integration.operatorDraft.main.v1";
 const contactJournalKey = "xlog.integration.contactEdit.main.v1";
 const logbookMutationJournalKey = "xlog.integration.logbookMutation.main.v1";
+const settingsJournalKey = "xlog.integration.settings.main.v1";
 function storedDraftValue(key: string) { try { return localStorage.getItem(key); } catch { return null; } }
 function legacyDraftValue(): Data | null {
   try { const value = JSON.parse(storedDraftValue("xlog.integration.draft") || "null");
@@ -118,7 +121,11 @@ function MainLiveApp() {
   const [workspace, setWorkspace] = useState<Data | null>(null);
   const [workspacePending, setWorkspacePending] = useState(true);
   const deskLayout = useWorkspaceLayout(workspace?.workspace_exists === true);
-  const [settings, setSettings] = useState<Data | null>(null);
+  const [settingsSession] = useState(() => new SettingsSession(requestSettings,
+    journal => journal ? localStorage.setItem(settingsJournalKey, JSON.stringify(journal)) : localStorage.removeItem(settingsJournalKey),
+    readSettingsJournal(storedDraftValue(settingsJournalKey))));
+  const settingsState = useSyncExternalStore(settingsSession.subscribe, settingsSession.getSnapshot);
+  const settings = settingsState.draft;
   const [workspacePreferences, setWorkspacePreferences] = useState<WorkspacePreferences | null>(null);
   const latestWorkspacePreferences = useRef<WorkspacePreferences | null>(null);
   const latestPreferenceSnapshot = useRef<PreferenceSnapshot | null>(null);
@@ -428,7 +435,7 @@ function MainLiveApp() {
     const state = await request("workspace_status");
     if (state.workspace_exists) {
       await preferenceWrite.current.catch(() => {});
-      const [s, , loaded] = await Promise.all([request("settings_load"), draftSession.load(), request("workspace_preferences_load")]);
+      const [, , loaded] = await Promise.all([settingsSession.load(), draftSession.load(), request("workspace_preferences_load")]);
       if (revision !== reloadRevision.current) return;
       const prior = loaded.preferences as WorkspacePreferences;
       const migrated = loaded.stored ? null : migrateLegacyBandMaps(prior, localStorage);
@@ -439,7 +446,6 @@ function MainLiveApp() {
       latestPreferenceSnapshot.current = validPreferenceSnapshot(saved) ? saved : null;
       latestWorkspacePreferences.current = preferences;
       setWorkspacePreferences(preferences);
-      setSettings(s.settings);
     }
     if (revision !== reloadRevision.current) return;
     setWorkspace(state);
@@ -451,7 +457,7 @@ function MainLiveApp() {
       if (revision === reloadRevision.current) setStats(totals);
     }).catch(() => { if (revision === reloadRevision.current) setError("Logbook totals could not be loaded. Your draft is available; reopen the workspace to retry."); });
     } finally { if (revision === reloadRevision.current) setWorkspacePending(false); }
-  }, [request, draftSession, contactSession]);
+  }, [request, settingsSession, draftSession, contactSession]);
   const changeBandMapPreferences = (compact: boolean, view: BandMapViewPreferences) => {
     const current = latestWorkspacePreferences.current;
     if (!current || !validBandMapView(view)) return;
@@ -823,7 +829,14 @@ function MainLiveApp() {
           viewProvider === "direct_flex_lan" ? <DirectFlexPanel request={viewedStationRequest} snapshot={stationProvider === viewProvider ? station : null} /> :
           <StationPanel snapshot={stationProvider === viewProvider ? station : null} onRequest={viewedStationRequest} onSnapshot={value => { if (stationProvider === viewProvider && provider.current === viewProvider) setStation(value); }} independentRotor />}</>}</>}
       {(view === "Awards" || awardsOpened) && <div hidden={view !== "Awards"}><IntegratedAwards request={request} refresh={refresh} initialStats={stats?.awards} onUndock={() => void openDetachedAwards().catch(cause => setError(cause.message))} /></div>}
-      {view === "Settings" && settings && <ServiceSettings values={settings} request={request} onSaved={value => { setSettings(value); void draftSession.refresh().catch(cause => setError(cause instanceof Error ? cause.message : "Power capture settings could not be refreshed.")); }} requestedTab={settingsTabRequest.tab} requestedTabRevision={settingsTabRequest.revision} syncSettings={settings.logbookMode === "local" ? <p>Standalone local logbook. Wavelog synchronization is disabled in Settings.</p> : <SyncPanel request={request} onChanged={() => setRefresh(n => n + 1)} />} cwContext={cwContext} cwState={cw.state} cwProvider={stationProvider} refreshCW={() => cw.controller.pollWinKeyer()} rotorSettings={<RotorPanel snapshot={rotorState} request={request} onManual={disarmAutoRotor} />} workspaceSettings={<WorkspaceSettings {...deskLayout} equipment={deskKind === "none" ? undefined : deskKind} requiredRotor={deskKind === "rotor" && !!rotorState?.owner} available={["active-qso", "callsign-intelligence", "world-map", "band-maps", "dx-cluster", "logbook", "awards", "spot-history", ...(deskKind === "none" ? [] : [deskKind] as ("rotor" | "antenna")[])]} />} dataRequest={dataManagementRequest} onDataChanged={() => { setSettings(null); setDraft(null); setStats(null); latestWorkspacePreferences.current = null; setWorkspacePreferences(null); setRefresh(n => n + 1); }} />}
+      {view === "Settings" && settings && <ServiceSettings values={settings} savedValues={settingsState.base?.settings} request={request}
+        onChanged={value => settingsSession.edit(value)} onSave={async value => { await settingsSession.save(value); await draftSession.refresh(); }}
+        saving={settingsState.saving} pending={!!settingsState.pending} conflict={!!settingsState.conflict}
+        workspaceChanged={settingsState.workspaceChanged} sessionError={settingsState.error}
+        onReconcile={async () => { try { await settingsSession.reconcile(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Settings receipt could not be checked."); } }}
+        onRetry={async () => { try { await settingsSession.retry(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Settings save could not be retried."); } }}
+        onUseSaved={() => { try { settingsSession.useSaved(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Saved Settings could not be restored."); } }}
+        requestedTab={settingsTabRequest.tab} requestedTabRevision={settingsTabRequest.revision} syncSettings={settings.logbookMode === "local" ? <p>Standalone local logbook. Wavelog synchronization is disabled in Settings.</p> : <SyncPanel request={request} onChanged={() => setRefresh(n => n + 1)} />} cwContext={cwContext} cwState={cw.state} cwProvider={stationProvider} refreshCW={() => cw.controller.pollWinKeyer()} rotorSettings={<RotorPanel snapshot={rotorState} request={request} onManual={disarmAutoRotor} />} workspaceSettings={<WorkspaceSettings {...deskLayout} equipment={deskKind === "none" ? undefined : deskKind} requiredRotor={deskKind === "rotor" && !!rotorState?.owner} available={["active-qso", "callsign-intelligence", "world-map", "band-maps", "dx-cluster", "logbook", "awards", "spot-history", ...(deskKind === "none" ? [] : [deskKind] as ("rotor" | "antenna")[])]} />} dataRequest={dataManagementRequest} onDataChanged={() => { setDraft(null); setStats(null); latestWorkspacePreferences.current = null; setWorkspacePreferences(null); setRefresh(n => n + 1); }} />}
       </>}
     </main></div>;
 }

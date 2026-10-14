@@ -26,11 +26,11 @@ struct LiveLogbookMethodsTests {
         var missingMode = settings
         missingMode.removeValue(forKey: "logbookMode")
         #expect(throws: WorkerFailure.self) {
-            try service.handle(method: "settings_save", params: ["settings": missingMode])
+            try service.saveSettingsForTest(missingMode)
         }
         #expect(try service.currentSettings().logbookMode == .local)
         settings["logbookMode"] = "wavelog"
-        let saved = try service.handle(method: "settings_save", params: ["settings": settings])
+        let saved = try service.saveSettingsForTest(settings)
         #expect((saved["settings"] as? [String: Any])?["logbookMode"] as? String == "wavelog")
         #expect((saved["settings"] as? [String: Any])?["automaticSync"] as? Bool == false)
         #expect(try db.pendingSyncCount() == pending)
@@ -39,11 +39,11 @@ struct LiveLogbookMethodsTests {
         settings["logbookMode"] = "local"
         let lease = try service.beginManualSync()
         #expect(throws: WorkerFailure.self) {
-            try service.handle(method: "settings_save", params: ["settings": settings])
+            try service.saveSettingsForTest(settings)
         }
         service.endManualSync(lease)
         #expect(try service.currentSettings().logbookMode == .wavelog)
-        _ = try service.handle(method: "settings_save", params: ["settings": settings])
+        _ = try service.saveSettingsForTest(settings)
         #expect(try service.currentSettings().logbookMode == .local)
         #expect(try db.pendingSyncCount() == pending)
     }

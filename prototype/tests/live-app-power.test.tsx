@@ -38,7 +38,7 @@ it("periodically merges measured power with unsaved notes and wires same-value m
       return { result: { status: "applied", receipt } };
     }
     const result = method === "workspace_status" ? { workspace_exists: true, native_log_exists: false }
-      : method === "settings_load" ? { settings: { stationCall: "", gridSquare: "", automaticTransmitPower: true, defaultPower: "100" } }
+      : method === "settings_load" ? { settings: { stationCall: "", gridSquare: "", automaticTransmitPower: true, defaultPower: "100" }, revision: 0, generation: testWorkspaceGeneration }
       : method === "workspace_preferences_load" ? { stored: false }
       : method === "station_snapshot" ? { source: "direct_agent", available: false, radio: null }
       : method === "cluster_snapshot" ? { snapshot: { spots: [], connectedClusters: 0 } }

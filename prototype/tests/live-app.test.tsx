@@ -32,7 +32,7 @@ beforeEach(() => {
       : method === "workspace_create" ? (exists = true, { mode: "copy_native" })
       : method === "cluster_snapshot" ? { snapshot: { spots: [], connectedClusters: 0 } }
       : method === "station_snapshot" ? { source: "xcat_loopback", available: false, radio: null }
-      : method === "settings_load" ? { settings: { stationCall: "", gridSquare: "" } }
+      : method === "settings_load" ? { settings: { stationCall: "", gridSquare: "" }, revision: 0, generation: testWorkspaceGeneration }
       : method === "workspace_preferences_load" ? { stored: true, preferences: { deskBandMapBands: ["20m", "15m"], detachedBandMapBands: ["20m", "15m"],
         deskBandMapFollowsRadio: false, detachedBandMapFollowsRadio: false, detachedBandMapLayout: "Adaptive grid", bandMapFontScale: 1.2,
         intelligenceBands: ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m"], clusterSpotOpensFullEditor: false } }
@@ -122,7 +122,7 @@ it("native Sync navigation in standalone mode routes to Settings without startin
   exists = true;
   const backend = calls.request.getMockImplementation()!;
   calls.request.mockImplementation((method, params) => method === "settings_load"
-    ? Promise.resolve({ result: { settings: { logbookMode: "local", stationCall: "K1ABC" } } }) : backend(method, params));
+    ? Promise.resolve({ result: { settings: { logbookMode: "local", stationCall: "K1ABC" }, revision: 0, generation: testWorkspaceGeneration } }) : backend(method, params));
   render(<LiveApp />); await screen.findByLabelText("Callsign");
   await act(async () => nativeMenu.route?.("Sync"));
   expect(screen.getByRole("main", { name: "Settings" })).toBeTruthy();

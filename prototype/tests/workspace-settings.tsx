@@ -37,7 +37,7 @@ await session.refresh();
 function Fixture() {
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot);
   return <div className="live" style={{ padding: 16, minHeight: "100vh" }}><p>Synthetic layout fixture · no station connection</p>
-    <ServiceSettings values={{ stationCall: "TEST", gridSquare: "AA00aa" }} request={async () => { throw new Error("Service writes disabled in fixture"); }} onSaved={() => {}}
+    <ServiceSettings values={{ stationCall: "TEST", gridSquare: "AA00aa" }} request={async () => { throw new Error("Service writes disabled in fixture"); }} onChanged={() => {}} onSave={async () => {}}
       workspaceSettings={<WorkspaceSettings state={state} session={session} equipment="rotor" requiredRotor available={["active-qso", "callsign-intelligence", "rotor", "world-map", "band-maps", "dx-cluster", "logbook", "awards", "spot-history"]} />} />
   </div>;
 }

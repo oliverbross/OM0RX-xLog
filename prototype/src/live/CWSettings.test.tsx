@@ -11,7 +11,12 @@ const context = { MYCALL: "OM0RX", CALL: "K1ABC", RST: "599" };
 describe("CW preferences and preview never transmit", () => {
   it("edits, previews and navigates without I/O; persists only on explicit Save", async () => {
     const request = vi.fn(async (_method: string, params?: Record<string, any>) => ({ settings: params?.settings }));
-    render(<ServiceSettings values={{ stationCall: "OM0RX" }} request={request} onSaved={vi.fn()} cwContext={context} />);
+    function Editor() {
+      const [values, setValues] = useState<Record<string, any>>({ stationCall: "OM0RX", wavelogStationID: 1 });
+      return <ServiceSettings values={values} request={request} onChanged={setValues}
+        onSave={settings => request("settings_save", { settings }).then(() => {})} cwContext={context} />;
+    }
+    render(<Editor />);
     fireEvent.click(screen.getByRole("tab", { name: "CW" }));
     fireEvent.change(screen.getByLabelText("CW button label"), { target: { value: "My CQ" } });
     fireEvent.change(screen.getByLabelText("CW shortcut"), { target: { value: "F1" } });
@@ -31,7 +36,11 @@ describe("CW preferences and preview never transmit", () => {
 
   it("rejects duplicate shortcuts before any persistence or device request", async () => {
     const request = vi.fn();
-    render(<ServiceSettings values={{}} request={request} onSaved={vi.fn()} />);
+    function Editor() {
+      const [values, setValues] = useState<Record<string, any>>({ wavelogStationID: 1 });
+      return <ServiceSettings values={values} request={request} onChanged={setValues} onSave={async () => {}} />;
+    }
+    render(<Editor />);
     fireEvent.click(screen.getByRole("tab", { name: "CW" }));
     fireEvent.change(screen.getByLabelText("CW shortcut"), { target: { value: "F1" } });
     fireEvent.click(screen.getByRole("tab", { name: /^Call/ }));

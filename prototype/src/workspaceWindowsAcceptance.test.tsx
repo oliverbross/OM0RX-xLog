@@ -123,7 +123,7 @@ async function setup(options: { failure?: Failure; delayedVisibility?: boolean }
   function Harness() {
     const state = useSyncExternalStore(session.subscribe, session.getSnapshot);
     return h("main", { "aria-label": "Settings" }, h(ServiceSettings, {
-      values: { operatorCall: "TEST" }, request, onSaved: vi.fn(), workspaceSettings: h(WorkspaceSettings, {
+      values: { operatorCall: "TEST" }, request, onChanged: vi.fn(), onSave: vi.fn(async () => {}), workspaceSettings: h(WorkspaceSettings, {
         state, session, available: ["active-qso", "callsign-intelligence", "world-map", "band-maps", "dx-cluster", "logbook"],
       }),
     }));

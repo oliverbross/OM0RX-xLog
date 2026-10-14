@@ -1,14 +1,22 @@
 // @vitest-environment jsdom
+import { useState, type ComponentProps } from "react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import ServiceSettings from "./ServiceSettings";
 afterEach(cleanup);
 const values = { operatorCall: "OM0RX", stationCall: "OM0RX", wavelogURL: "https://example.invalid", wavelogStationID: 1, qrzUsername: "operator", qrzEnabled: true, clubLogCTYURL: "https://example.invalid/cty", lotwActivityURL: "https://example.invalid/lotw", preservedUnknown: "retain" };
+type HarnessProps = Omit<ComponentProps<typeof ServiceSettings>, "values" | "onChanged" | "onSave"> & {
+  values: Record<string, any>; onSave?: (value: Record<string, any>) => Promise<void>;
+};
+function SettingsHarness({ values: initial, onSave = async () => {}, ...props }: HarnessProps) {
+  const [values, setValues] = useState(initial);
+  return <ServiceSettings {...props} values={values} onChanged={setValues} onSave={onSave} />;
+}
 describe("grouped service settings", () => {
   it("defaults measured power capture OFF and saves opt-in only with settings", async () => {
-    const request = vi.fn(async (_method: string, params?: Record<string, any>) => ({ settings: params?.settings }));
-    const profile = { ...values, defaultPower: "100", automaticTransmitPower: false }, saved = vi.fn();
-    render(<ServiceSettings values={profile} request={request} onSaved={saved} />);
+    const request = vi.fn();
+    const profile = { ...values, defaultPower: "100", automaticTransmitPower: false }, saved = vi.fn(async () => {});
+    render(<SettingsHarness values={profile} request={request} onSave={saved} />);
     const toggle = screen.getByRole("checkbox", { name: "Automatic measured power" }) as HTMLInputElement;
     expect(toggle.checked).toBe(false); expect(toggle.disabled).toBe(false);
     expect(toggle.closest(".service-default-power")?.contains(screen.getByLabelText("Default power W"))).toBe(true);
@@ -16,25 +24,25 @@ describe("grouped service settings", () => {
     fireEvent.click(toggle); expect(request).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
     await waitFor(() => expect(saved).toHaveBeenCalledWith({ ...profile, automaticTransmitPower: true }));
-    expect(request).toHaveBeenCalledWith("settings_save", { settings: { ...profile, automaticTransmitPower: true } });
+    expect(request).not.toHaveBeenCalled();
   });
   it("keeps capture dormant when an older worker omits the setting", () => {
-    render(<ServiceSettings values={values} request={vi.fn()} onSaved={vi.fn()} />);
+    render(<SettingsHarness values={values} request={vi.fn()} />);
     expect((screen.getByRole("checkbox", { name: "Automatic measured power" }) as HTMLInputElement).disabled).toBe(true);
     expect(screen.getByText("Automatic capture is unavailable in this version.")).toBeTruthy();
   });
   it("applies standalone mode only on Save, retaining Wavelog setup without starting sync", async () => {
-    const request = vi.fn(async (_method: string, params?: Record<string, any>) => ({ settings: params?.settings }));
-    render(<ServiceSettings values={{ ...values, logbookMode: "wavelog" }} request={request} onSaved={vi.fn()} />);
+    const request = vi.fn(), save = vi.fn(async () => {});
+    render(<SettingsHarness values={{ ...values, logbookMode: "wavelog" }} request={request} onSave={save} />);
     fireEvent.change(screen.getByLabelText("Logbook mode"), { target: { value: "local" } });
     expect(request).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
-    await waitFor(() => expect(request).toHaveBeenCalledWith("settings_save", { settings: { ...values, logbookMode: "local" } }));
+    await waitFor(() => expect(save).toHaveBeenCalledWith({ ...values, logbookMode: "local" }));
     expect(request.mock.calls.some(([method]) => method.startsWith("sync_"))).toBe(false);
   });
   it("puts rotator settings in their own tab without applying a connection change", () => {
     const request = vi.fn();
-    render(<ServiceSettings values={values} request={request} onSaved={vi.fn()} rotorSettings={<div>Independent rotor setup</div>} />);
+    render(<SettingsHarness values={values} request={request} rotorSettings={<div>Independent rotor setup</div>} />);
     fireEvent.click(screen.getByRole("tab", { name: "Rotator" }));
     expect(screen.getByRole("tabpanel", { name: "Rotator" }).textContent).toContain("Independent rotor setup");
     expect(screen.queryByRole("button", { name: "Save settings" })).toBeNull();
@@ -42,7 +50,7 @@ describe("grouped service settings", () => {
   });
   it("shows service details and reads only credential presence when Wavelog is first visible", async () => {
     const request = vi.fn(async () => ({ "wavelog-token": false }));
-    render(<ServiceSettings values={values} request={request} onSaved={vi.fn()} />);
+    render(<SettingsHarness values={values} request={request} />);
     expect(screen.getByRole("tabpanel", { name: "Station" })).toBeTruthy();
     fireEvent.click(screen.getByRole("tab", { name: "Wavelog" }));
     expect((screen.getByRole("textbox", { name: "Wavelog URL" }) as HTMLInputElement).value).toBe(values.wavelogURL);
@@ -54,9 +62,9 @@ describe("grouped service settings", () => {
     expect(request).toHaveBeenCalledWith("secret_status");
   });
   it("saves a credential separately, clears its input and never sends it with settings", async () => {
-    const request = vi.fn(async (method: string, params?: Record<string, any>) => method === "settings_save" ? { settings: params?.settings } : { saved: true });
-    const saved = vi.fn();
-    render(<ServiceSettings values={values} request={request} onSaved={saved} />);
+    const request = vi.fn(async () => ({ saved: true }));
+    const saved = vi.fn(async () => {});
+    render(<SettingsHarness values={values} request={request} onSave={saved} />);
     fireEvent.click(screen.getByRole("tab", { name: "Wavelog" }));
     const token = screen.getByLabelText("Wavelog API v2 token") as HTMLInputElement;
     fireEvent.change(token, { target: { value: "unit-test-only-not-a-real-secret" } });
@@ -67,11 +75,12 @@ describe("grouped service settings", () => {
     expect(request).toHaveBeenCalledWith("secret_save", { account: "wavelog-token", value: "unit-test-only-not-a-real-secret" });
     fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
     await waitFor(() => expect(saved).toHaveBeenCalledWith(values));
-    expect(request).toHaveBeenLastCalledWith("settings_save", { settings: values });
+    expect(saved).toHaveBeenCalledWith(values);
+    expect(request).toHaveBeenCalledTimes(2);
   });
   it("keeps unsaved settings and secret inputs across tabs without loading or persisting secret values", async () => {
-    const request = vi.fn(async (_method: string, params?: Record<string, any>) => ({ settings: params?.settings }));
-    render(<ServiceSettings values={values} request={request} onSaved={vi.fn()} />);
+    const request = vi.fn(async () => ({})), save = vi.fn(async () => {});
+    render(<SettingsHarness values={values} request={request} onSave={save} />);
     fireEvent.change(screen.getByLabelText("Station call"), { target: { value: "M7KOD" } });
     fireEvent.click(screen.getByRole("tab", { name: "Wavelog" }));
     fireEvent.change(screen.getByLabelText("Wavelog URL"), { target: { value: "https://new.example.invalid/" } });
@@ -89,14 +98,14 @@ describe("grouped service settings", () => {
     expect(request).toHaveBeenCalledTimes(1);
     expect(request).toHaveBeenCalledWith("secret_status");
     fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
-    await waitFor(() => expect(request).toHaveBeenCalledWith("settings_save", { settings: { ...values, stationCall: "M7KOD", wavelogURL: "https://new.example.invalid/" } }));
+    await waitFor(() => expect(save).toHaveBeenCalledWith({ ...values, stationCall: "M7KOD", wavelogURL: "https://new.example.invalid/" }));
     expect(JSON.stringify(request.mock.calls)).not.toContain("typed-test-token");
     expect(JSON.stringify(request.mock.calls)).not.toContain("typed-test-password");
   });
   it("switches tabs with arrow keys and keeps reference/backup tools mounted without duplicate reads", async () => {
     const request = vi.fn(async () => ({}));
     const dataRequest = vi.fn(async (method: string) => method === "backup_list" ? { backups: [] } : { running: false, status: "Not refreshed in this session", cty_source: "bundled", state: {} });
-    render(<ServiceSettings values={values} request={request} dataRequest={dataRequest} onDataChanged={vi.fn()} onSaved={vi.fn()} />);
+    render(<SettingsHarness values={values} request={request} dataRequest={dataRequest} onDataChanged={vi.fn()} />);
     await waitFor(() => expect(dataRequest).toHaveBeenCalledTimes(2));
     fireEvent.keyDown(screen.getByRole("tab", { name: "Station" }), { key: "ArrowRight" });
     expect(screen.getByRole("tab", { name: "Wavelog" }).getAttribute("aria-selected")).toBe("true");
@@ -115,7 +124,7 @@ describe("grouped service settings", () => {
 
   it("masks saved Wavelog credentials without exposing or claiming to validate a stored secret", async () => {
     const request = vi.fn(async () => ({ "wavelog-token": true }));
-    render(<ServiceSettings values={values} request={request} onSaved={vi.fn()} />);
+    render(<SettingsHarness values={values} request={request} />);
     expect(request).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("tab", { name: "Wavelog" }));
     await screen.findByText("Saved securely. Not verified for this Wavelog URL and station ID.");
@@ -132,7 +141,7 @@ describe("grouped service settings", () => {
 
   it("keeps saved status honest when the presence check fails", async () => {
     const request = vi.fn(async () => { throw new Error("denied"); });
-    render(<ServiceSettings values={values} request={request} onSaved={vi.fn()} requestedTab="Wavelog" />);
+    render(<SettingsHarness values={values} request={request} requestedTab="Wavelog" />);
     await screen.findByText("Saved token status unavailable. Keychain access may need attention.");
     expect((screen.getByLabelText("Wavelog API v2 token") as HTMLInputElement).placeholder).toBe("");
   });
@@ -140,7 +149,7 @@ describe("grouped service settings", () => {
   it("does not let a late presence check erase a newly saved token", async () => {
     let resolveStatus!: (value: Record<string, boolean>) => void;
     const request = vi.fn(async (method: string) => method === "secret_status" ? new Promise<Record<string, boolean>>(resolve => { resolveStatus = resolve; }) : { saved: true });
-    render(<ServiceSettings values={values} request={request} onSaved={vi.fn()} requestedTab="Wavelog" />);
+    render(<SettingsHarness values={values} request={request} requestedTab="Wavelog" />);
     fireEvent.change(screen.getByLabelText("Wavelog API v2 token"), { target: { value: "test-token" } });
     fireEvent.click(screen.getByRole("button", { name: "Save Wavelog API v2 token" }));
     await screen.findByText("Saved securely. Not verified for this Wavelog URL and station ID.");
@@ -153,7 +162,7 @@ describe("grouped service settings", () => {
       if (method === "secret_status") return new Promise<Record<string, boolean>>(() => {});
       throw new Error("denied");
     });
-    render(<ServiceSettings values={values} request={request} onSaved={vi.fn()} requestedTab="Wavelog" />);
+    render(<SettingsHarness values={values} request={request} requestedTab="Wavelog" />);
     const token = screen.getByLabelText("Wavelog API v2 token") as HTMLInputElement;
     fireEvent.change(token, { target: { value: "retry-test-token" } });
     fireEvent.click(screen.getByRole("button", { name: "Save Wavelog API v2 token" }));
@@ -164,7 +173,7 @@ describe("grouped service settings", () => {
   });
 
   it("groups QRZ and Club Log fields with their secure Save button", () => {
-    render(<ServiceSettings values={values} request={vi.fn()} onSaved={vi.fn()} />);
+    render(<SettingsHarness values={values} request={vi.fn()} />);
     fireEvent.click(screen.getByRole("tab", { name: "QRZ" }));
     const qrzRow = screen.getByLabelText("QRZ username").closest(".service-account-row");
     expect(qrzRow?.contains(screen.getByLabelText("QRZ password"))).toBe(true);
@@ -177,16 +186,16 @@ describe("grouped service settings", () => {
 
   it("mounts Sync only when selected and follows requested tabs without changing settings", () => {
     const request = vi.fn();
-    const { rerender } = render(<ServiceSettings values={values} request={request} onSaved={vi.fn()} syncSettings={<button>Run sync fixture</button>} />);
+    const { rerender } = render(<SettingsHarness values={values} request={request} syncSettings={<button>Run sync fixture</button>} />);
     expect(screen.queryByRole("button", { name: "Run sync fixture" })).toBeNull();
-    rerender(<ServiceSettings values={values} request={request} onSaved={vi.fn()} requestedTab="Sync" syncSettings={<button>Run sync fixture</button>} />);
+    rerender(<SettingsHarness values={values} request={request} requestedTab="Sync" syncSettings={<button>Run sync fixture</button>} />);
     const sync = screen.getByRole("button", { name: "Run sync fixture" });
     expect(sync.closest("form")).toBeNull();
     expect(screen.queryByRole("button", { name: "Save settings" })).toBeNull();
     expect(request).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("tab", { name: "Station" }));
     expect(screen.queryByRole("button", { name: "Run sync fixture" })).toBeNull();
-    rerender(<ServiceSettings values={values} request={request} onSaved={vi.fn()} requestedTab="Sync" requestedTabRevision={1} syncSettings={<button>Run sync fixture</button>} />);
+    rerender(<SettingsHarness values={values} request={request} requestedTab="Sync" requestedTabRevision={1} syncSettings={<button>Run sync fixture</button>} />);
     expect(screen.getByRole("button", { name: "Run sync fixture" })).toBeTruthy();
     expect(request).not.toHaveBeenCalled();
   });

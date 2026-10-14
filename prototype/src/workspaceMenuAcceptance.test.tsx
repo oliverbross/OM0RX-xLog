@@ -25,7 +25,7 @@ async function fixture(changed?: "settings" | "draft") {
     // is not a permitted substitute for navigating Settings and its real tab.
     if (!workspaceMenuScreens.some(screen => screen.title === name)) throw new Error("Absent actual native menu item");
     await act(async () => view.rerender(h("main", { "aria-label": name }, name === "Settings" ? h(ServiceSettings, {
-      values: settings, request: settingsRequest, onSaved: vi.fn(),
+      values: settings, request: settingsRequest, onChanged: vi.fn(), onSave: vi.fn(async () => {}),
       syncSettings: h("p", null, "Standalone local logbook. Wavelog synchronization is disabled in Settings."),
     }) : null)));
   });

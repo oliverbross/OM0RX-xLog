@@ -63,7 +63,7 @@ public final class LocalAcceptanceSession: @unchecked Sendable {
             "workspace_layout_load", "workspace_layout_apply",
             "workspace_map_context", "workspace_band_map_apply",
             "spot_history_status", "spot_history_query", "spot_history_stats", "spot_history_detail",
-            "settings_load", "settings_save", "logbook_draft", "logbook_catalog", "logbook_list",
+            "settings_load", "settings_receipt", "settings_save", "logbook_draft", "logbook_catalog", "logbook_list",
             "logbook_save", "logbook_delete", "logbook_undo", "logbook_stats", "logbook_previous", "logbook_duplicate",
             "logbook_operator_draft", "logbook_operator_draft_apply", "logbook_operator_draft_receipt",
             "logbook_contact", "logbook_contact_apply", "logbook_contact_receipt",

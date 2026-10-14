@@ -210,7 +210,7 @@ final class BoundedSyncReconciliationTests: XCTestCase {
         _ = try service.handle(method: "workspace_create", params: ["mode": "empty"])
         var fields = try XCTUnwrap(service.handle(method: "settings_load", params: [:])["settings"] as? [String: Any])
         fields["logbookMode"] = "wavelog"
-        _ = try service.handle(method: "settings_save", params: ["settings": fields])
+        _ = try service.saveSettingsForTest(fields)
         let backup = try service.handle(method: "backup_create", params: ["name": "synthetic"])
         let first = try service.beginManualSync()
         XCTAssertThrowsError(try service.handle(method: "backup_restore", params: ["name": backup["name"]!, "confirm_restore": true]))

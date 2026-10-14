@@ -23,7 +23,7 @@ final class SyncSummaryTests: XCTestCase {
         fields["logbookMode"] = "wavelog"
         fields["wavelogURL"] = "https://sync-summary-fixture.invalid"
         fields["wavelogStationID"] = 1
-        _ = try logbook.handle(method: "settings_save", params: ["settings": fields])
+        _ = try logbook.saveSettingsForTest(fields)
         let service = LiveServiceMethods(logbook: logbook, operation: { _, _ in throw URLError(.networkConnectionLost) })
         let idle = try await service.handle(method: "sync_summary", params: [:])
         XCTAssertNil(idle["conflicts"]); XCTAssertNil(idle["outbox"])
@@ -60,7 +60,7 @@ final class SyncSummaryTests: XCTestCase {
         fields["logbookMode"] = "wavelog"
         fields["wavelogURL"] = "https://sync-diagnostics-fixture.invalid"
         fields["wavelogStationID"] = 1
-        _ = try logbook.handle(method: "settings_save", params: ["settings": fields])
+        _ = try logbook.saveSettingsForTest(fields)
         let privateContent = "private-contact-credential-and-url-" + String(repeating: "x", count: 10_000)
         let cases: [(Error, String, Int?)] = [
             (WavelogClientError.rejected(status: 403, code: privateContent, message: privateContent), "wavelog_http", 403),

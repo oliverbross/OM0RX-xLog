@@ -345,6 +345,139 @@ public final class LogbookDatabase: @unchecked Sendable {
         try withDatabaseLock { try readWorkspaceLayout() }
     }
 
+    /// Seeds legacy Integration settings once, then reads only the database-owned
+    /// snapshot. The caller supplies the isolated UserDefaults value for migration;
+    /// it is never consulted again after this row exists.
+    public func integrationSettings(seed: XLogSettings) throws -> IntegrationSettingsSnapshot {
+        try withDatabaseLock {
+            if let existing = try readIntegrationSettings() { return existing }
+            let snapshot = IntegrationSettingsSnapshot(revision: 0, settings: seed)
+            try snapshot.validate()
+            try execute("BEGIN IMMEDIATE;")
+            do {
+                if let existing = try readIntegrationSettings() {
+                    try execute("COMMIT;")
+                    return existing
+                }
+                try writeIntegrationSettings(snapshot)
+                try execute("COMMIT;")
+                return snapshot
+            } catch {
+                try? execute("ROLLBACK;")
+                throw error
+            }
+        }
+    }
+
+    public func applyIntegrationSettings(_ mutation: IntegrationSettingsMutation) throws -> IntegrationSettingsReceipt {
+        try withDatabaseLock {
+            guard (0...9_007_199_254_740_990).contains(mutation.expectedRevision) else {
+                throw IntegrationSettingsError.invalid
+            }
+            let requested = IntegrationSettingsSnapshot(revision: mutation.expectedRevision, settings: mutation.settings)
+            try requested.validate()
+            try execute("BEGIN IMMEDIATE;")
+            do {
+                if let receipt = try readIntegrationSettingsReceipt(operationID: mutation.operationID) {
+                    guard receipt.mutation == mutation else { throw IntegrationSettingsError.operationReused }
+                    try execute("COMMIT;")
+                    return receipt
+                }
+                guard let current = try readIntegrationSettings() else { throw IntegrationSettingsError.notInitialized }
+                guard current.revision == mutation.expectedRevision else {
+                    throw IntegrationSettingsError.conflict(current)
+                }
+                let next = IntegrationSettingsSnapshot(
+                    revision: current.settings == mutation.settings ? current.revision : current.revision + 1,
+                    settings: mutation.settings
+                )
+                try next.validate()
+                if next != current { try writeIntegrationSettings(next) }
+                let receipt = IntegrationSettingsReceipt(mutation: mutation, snapshot: next)
+                let payload = try encoder.encode(receipt)
+                guard payload.count <= 131_072 else { throw IntegrationSettingsError.invalid }
+                try withStatement("INSERT INTO xlog_settings_receipts(operation_id,payload) VALUES(?,?);") { statement in
+                    bind(mutation.operationID.uuidString, to: 1, in: statement)
+                    _ = payload.withUnsafeBytes { sqlite3_bind_blob(statement, 2, $0.baseAddress, Int32($0.count), Self.transient) }
+                    try stepDone(statement)
+                }
+                try execute("COMMIT;")
+                return receipt
+            } catch {
+                try? execute("ROLLBACK;")
+                throw error
+            }
+        }
+    }
+
+    public func integrationSettingsReceipt(operationID: UUID) throws -> IntegrationSettingsReceipt? {
+        try withDatabaseLock { try readIntegrationSettingsReceipt(operationID: operationID) }
+    }
+
+    /// Restore has already rotated the workspace generation. Replace the restored
+    /// database's settings row and retire receipts from its former generation.
+    public func installIntegrationSettingsAfterRestore(_ snapshot: IntegrationSettingsSnapshot) throws {
+        try withDatabaseLock {
+            try snapshot.validate()
+            try execute("BEGIN IMMEDIATE;")
+            do {
+                try writeIntegrationSettings(snapshot)
+                try execute("DELETE FROM xlog_settings_receipts;")
+                try execute("COMMIT;")
+            } catch {
+                try? execute("ROLLBACK;")
+                throw error
+            }
+        }
+    }
+
+    private func readIntegrationSettings() throws -> IntegrationSettingsSnapshot? {
+        try withStatement("SELECT payload FROM xlog_integration_settings WHERE singleton=1;") { statement in
+            let step = sqlite3_step(statement)
+            if step == SQLITE_DONE { return nil }
+            guard step == SQLITE_ROW, let bytes = sqlite3_column_blob(statement, 0),
+                  (1...65_536).contains(Int(sqlite3_column_bytes(statement, 0))) else {
+                throw LogbookDatabaseError.corruptRecord
+            }
+            let snapshot = try decoder.decode(IntegrationSettingsSnapshot.self,
+                from: Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 0))))
+            try snapshot.validate()
+            return snapshot
+        }
+    }
+
+    private func writeIntegrationSettings(_ snapshot: IntegrationSettingsSnapshot) throws {
+        let payload = try encoder.encode(snapshot)
+        guard payload.count <= 65_536 else { throw IntegrationSettingsError.invalid }
+        try withStatement("INSERT INTO xlog_integration_settings(singleton,payload) VALUES(1,?) ON CONFLICT(singleton) DO UPDATE SET payload=excluded.payload;") { statement in
+            _ = payload.withUnsafeBytes { sqlite3_bind_blob(statement, 1, $0.baseAddress, Int32($0.count), Self.transient) }
+            try stepDone(statement)
+        }
+    }
+
+    private func readIntegrationSettingsReceipt(operationID: UUID) throws -> IntegrationSettingsReceipt? {
+        try withStatement("SELECT payload FROM xlog_settings_receipts WHERE operation_id=?;") { statement in
+            bind(operationID.uuidString, to: 1, in: statement)
+            let step = sqlite3_step(statement)
+            if step == SQLITE_DONE { return nil }
+            guard step == SQLITE_ROW, let bytes = sqlite3_column_blob(statement, 0),
+                  (1...131_072).contains(Int(sqlite3_column_bytes(statement, 0))) else {
+                throw LogbookDatabaseError.corruptRecord
+            }
+            let receipt = try decoder.decode(IntegrationSettingsReceipt.self,
+                from: Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 0))))
+            try receipt.snapshot.validate()
+            guard receipt.mutation.operationID == operationID,
+                  (0...9_007_199_254_740_990).contains(receipt.mutation.expectedRevision),
+                  receipt.snapshot.settings == receipt.mutation.settings,
+                  receipt.snapshot.revision == receipt.mutation.expectedRevision
+                    || receipt.snapshot.revision == receipt.mutation.expectedRevision + 1 else {
+                throw LogbookDatabaseError.corruptRecord
+            }
+            return receipt
+        }
+    }
+
     /// Restore coordinator only: retain current preferences when an operator
     /// restores contacts without opting into workspace-preference restoration.
     /// The caller rotates the workspace generation before replacing the DB.
@@ -2025,6 +2158,14 @@ public final class LogbookDatabase: @unchecked Sendable {
         CREATE INDEX IF NOT EXISTS idx_conflicts_detected ON sync_conflicts(detected_at DESC);
         CREATE TABLE IF NOT EXISTS xlog_workspace_layout(
           singleton INTEGER PRIMARY KEY CHECK(singleton = 1),
+          payload BLOB NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS xlog_integration_settings(
+          singleton INTEGER PRIMARY KEY CHECK(singleton = 1),
+          payload BLOB NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS xlog_settings_receipts(
+          operation_id TEXT PRIMARY KEY,
           payload BLOB NOT NULL
         );
         CREATE TABLE IF NOT EXISTS xlog_operator_draft(

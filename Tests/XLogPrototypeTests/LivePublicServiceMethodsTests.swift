@@ -55,7 +55,7 @@ struct LivePublicServiceMethodsTests {
     private func setGrid(_ grid: String, logbook: LiveLogbookMethods) throws {
         var settings = try #require(logbook.handle(method: "settings_load", params: [:])["settings"] as? [String: Any])
         settings["gridSquare"] = grid
-        _ = try logbook.handle(method: "settings_save", params: ["settings": settings])
+        _ = try logbook.saveSettingsForTest(settings)
     }
     private func waitFor(_ predicate: () async -> Bool) async throws {
         for _ in 0..<200 {

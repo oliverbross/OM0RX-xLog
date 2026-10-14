@@ -32,7 +32,7 @@ struct LiveDraftPowerServiceTests {
     private func saveSettings(_ service: LiveLogbookMethods, enabled: Bool) throws {
         var settings = try service.currentSettings()
         settings.automaticTransmitPower = enabled
-        _ = try service.handle(method: "settings_save", params: ["settings": try object(settings)])
+        _ = try service.saveSettingsForTest(try object(settings))
     }
 
     private func replaceParams(_ owner: OperatorDraftPowerOwnerSnapshot, qso: QSO,

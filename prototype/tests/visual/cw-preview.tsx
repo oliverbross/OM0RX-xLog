@@ -28,7 +28,7 @@ function Fixture() {
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot);
   return <div className="live" style={{ padding: 16 }}><p>CW layout fixture · synthetic data · no worker or hardware connection</p>
     <div className="live-actions"><button onClick={() => { void controller.stop(); setSettings(!settings); }}>{settings ? "Show desk" : "Show settings"}</button></div>
-    {settings ? <ServiceSettings values={values} request={request} onSaved={next => { setValues(next); controller.configure(next.cwProfile, "direct_agent"); }} cwContext={context} cwState={state} />
+    {settings ? <ServiceSettings values={values} request={request} onChanged={setValues} onSave={async next => { setValues(next); controller.configure(next.cwProfile, "direct_agent"); }} cwContext={context} cwState={state} />
       : <OperatorDesk equipment={{ display: "hidden" }} draft={draft} setDraft={setDraft} save={noop} clear={noop} busy={false} lookup={null} previous={[]} request={request} refresh={0} onEditor={noop} onReadRadio={async () => {}} follow={false} setFollow={noop} rotor={null} autoRotor={false} setAutoRotor={noop} onManualRotor={noop}
         cwControls={<CWDesk profile={values.cwProfile} context={context} controller={controller} state={state} />} />}
   </div>;

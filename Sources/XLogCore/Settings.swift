@@ -60,6 +60,72 @@ public struct XLogSettings: Codable, Equatable, Sendable {
     )
 }
 
+/// Integration-only settings state. The original SwiftUI application continues
+/// to use `SettingsStore`; the isolated workspace owns this revisioned snapshot.
+public struct IntegrationSettingsSnapshot: Codable, Equatable, Sendable {
+    public let revision: Int64
+    public let settings: XLogSettings
+
+    public init(revision: Int64, settings: XLogSettings) {
+        self.revision = revision
+        self.settings = settings
+    }
+
+    public func validate() throws {
+        guard (0...9_007_199_254_740_991).contains(revision),
+              (0...Int(Int32.max)).contains(settings.wavelogStationID),
+              (1...1_440).contains(settings.syncIntervalMinutes),
+              (1...65_535).contains(settings.xcatRigCtlPort) else {
+            throw IntegrationSettingsError.invalid
+        }
+        let bounded: [(String, Int)] = [
+            (settings.operatorCall, 64), (settings.stationCall, 64),
+            (settings.gridSquare, 32), (settings.stationLocation, 512),
+            (settings.defaultPower, 32), (settings.defaultRadio, 256),
+            (settings.wavelogURL, 2_048), (settings.qrzUsername, 256),
+            (settings.xcatHost, 512), (settings.clubLogCTYURL, 2_048),
+            (settings.lotwActivityURL, 2_048), (settings.stationEquipment.name, 256),
+        ]
+        guard bounded.allSatisfy({ $0.0.utf8.count <= $0.1 }),
+              settings.stationEquipment.bands.count <= 64,
+              settings.stationEquipment.bands.allSatisfy({ $0.utf8.count <= 32 }),
+              (try? JSONEncoder().encode(settings).count).map({ $0 <= 65_536 }) == true else {
+            throw IntegrationSettingsError.invalid
+        }
+    }
+}
+
+public struct IntegrationSettingsMutation: Codable, Equatable, Sendable {
+    public let operationID: UUID
+    public let expectedRevision: Int64
+    public let settings: XLogSettings
+
+    public init(operationID: UUID, expectedRevision: Int64, settings: XLogSettings) {
+        self.operationID = operationID
+        self.expectedRevision = expectedRevision
+        self.settings = settings
+    }
+}
+
+/// Historical commit result. Replaying the exact mutation returns this receipt;
+/// it is not a fresh read after later settings changes.
+public struct IntegrationSettingsReceipt: Codable, Equatable, Sendable {
+    public let mutation: IntegrationSettingsMutation
+    public let snapshot: IntegrationSettingsSnapshot
+
+    public init(mutation: IntegrationSettingsMutation, snapshot: IntegrationSettingsSnapshot) {
+        self.mutation = mutation
+        self.snapshot = snapshot
+    }
+}
+
+public enum IntegrationSettingsError: Error {
+    case conflict(IntegrationSettingsSnapshot)
+    case operationReused
+    case notInitialized
+    case invalid
+}
+
 extension XLogSettings {
     private enum CodingKeys: String, CodingKey {
         case operatorCall, stationCall, gridSquare, stationLocation, defaultPower, defaultRadio, automaticTransmitPower

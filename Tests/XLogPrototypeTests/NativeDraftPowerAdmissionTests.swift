@@ -56,7 +56,7 @@ struct NativeDraftPowerAdmissionTests {
         let workspace = try IntegrationWorkspaceBootstrap.open(at: service.workspaceDirectoryURL)
         defer { workspace.makeDefaults()?.removePersistentDomain(forName: workspace.defaultsSuiteName) }
         var settings = try service.currentSettings(); settings.automaticTransmitPower = true
-        _ = try service.handle(method: "settings_save", params: ["settings": try json(settings)])
+        _ = try service.saveSettingsForTest(try json(settings))
         let initial = try service.powerOwnerSnapshot()
         let configured = try service.configureDraftPower(expectedWorkspaceID: initial.workspaceID)
         var qso = configured.draft.qso; qso.call = "K1ABC"; qso.mode = "CW"; qso.frequencyHz = 14_025_000

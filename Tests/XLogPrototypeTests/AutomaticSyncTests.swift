@@ -17,7 +17,7 @@ final class AutomaticSyncTests: XCTestCase {
         XCTAssertFalse(try fixture.logbook.currentSettings().automaticSync)
         var fields = try fixture.fields()
         fields["automaticSync"] = true
-        _ = try fixture.logbook.handle(method: "settings_save", params: ["settings": fields])
+        _ = try fixture.logbook.saveSettingsForTest(fields)
         XCTAssertFalse(try fixture.logbook.currentSettings().automaticSync)
         XCTAssertThrowsError(try fixture.logbook.configureAutomaticSync(enabled: true, intervalMinutes: 5, confirmed: false))
         try fixture.logbook.configureAutomaticSync(enabled: true, intervalMinutes: 3, confirmed: true)
@@ -33,17 +33,17 @@ final class AutomaticSyncTests: XCTestCase {
         defer { fixture.clean() }
         try fixture.logbook.configureAutomaticSync(enabled: true, intervalMinutes: 5, confirmed: true)
         var fields = try fixture.fields(); fields["wavelogStationID"] = 2
-        _ = try fixture.logbook.handle(method: "settings_save", params: ["settings": fields])
+        _ = try fixture.logbook.saveSettingsForTest(fields)
         XCTAssertFalse(try fixture.logbook.currentSettings().automaticSync)
         fields["wavelogStationID"] = 1
-        _ = try fixture.logbook.handle(method: "settings_save", params: ["settings": fields])
+        _ = try fixture.logbook.saveSettingsForTest(fields)
         XCTAssertFalse(try fixture.logbook.currentSettings().automaticSync, "Returning to a station is not new consent")
         try fixture.logbook.configureAutomaticSync(enabled: true, intervalMinutes: 5, confirmed: true)
         let generation = fixture.logbook.workspaceDirectoryURL.appendingPathComponent("edit-generation.json")
         try JSONEncoder().encode(UUID()).write(to: generation, options: .atomic)
         XCTAssertFalse(try fixture.logbook.currentSettings().automaticSync)
         fields["logbookMode"] = "local"
-        _ = try fixture.logbook.handle(method: "settings_save", params: ["settings": fields])
+        _ = try fixture.logbook.saveSettingsForTest(fields)
         XCTAssertThrowsError(try fixture.logbook.configureAutomaticSync(enabled: true, intervalMinutes: 5, confirmed: true))
     }
 
@@ -197,7 +197,7 @@ final class AutomaticSyncTests: XCTestCase {
             XCTFail("Overlapping manual run accepted")
         } catch let error as WorkerFailure { XCTAssertEqual(error.code, "sync_busy") }
         var fields = try fixture.fields(); fields["wavelogStationID"] = 2
-        XCTAssertThrowsError(try fixture.logbook.handle(method: "settings_save", params: ["settings": fields]))
+        XCTAssertThrowsError(try fixture.logbook.saveSettingsForTest(fields))
         await gate.finish()
         let status = try await completed(service)
         XCTAssertEqual(status["status"] as? String, "Completed")
@@ -245,7 +245,7 @@ final class AutomaticSyncTests: XCTestCase {
         let service = LiveServiceMethods(logbook: fixture.logbook, operation: { _, _ in await counter.increment(); return SyncReport() })
         await service.automaticTick()
         var fields = try fixture.fields(); fields["logbookMode"] = "local"
-        _ = try fixture.logbook.handle(method: "settings_save", params: ["settings": fields])
+        _ = try fixture.logbook.saveSettingsForTest(fields)
         await service.automaticTick(now: Date.distantFuture)
         let count = await counter.count
         XCTAssertEqual(count, 0)
@@ -342,7 +342,7 @@ private struct SyncFixture {
         _ = try logbook.handle(method: "workspace_create", params: ["mode": "empty"])
         var settings = try fields()
         settings["logbookMode"] = "wavelog"; settings["wavelogURL"] = "https://sync-fixture.invalid"; settings["wavelogStationID"] = 1
-        _ = try logbook.handle(method: "settings_save", params: ["settings": settings])
+        _ = try logbook.saveSettingsForTest(settings)
     }
     func fields() throws -> [String: Any] { try XCTUnwrap(logbook.handle(method: "settings_load", params: [:])["settings"] as? [String: Any]) }
     func clean() {

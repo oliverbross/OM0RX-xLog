@@ -25,7 +25,15 @@ public enum LocalLogbookSelfTest {
         var settings = try service.handle(method: "settings_load", params: [:])["settings"] as? [String: Any] ?? [:]
         try check(settings["logbookMode"] as? String == "local" && settings["automaticSync"] as? Bool == false)
         settings["stationLocation"] = "Synthetic local acceptance"
-        _ = try service.handle(method: "settings_save", params: ["settings": settings])
+        let loadedSettings = try service.handle(method: "settings_load", params: [:])
+        guard let generation = loadedSettings["generation"] as? String,
+              let revision = (loadedSettings["revision"] as? NSNumber)?.int64Value else {
+            throw WorkerFailure("local_self_test_failed", "Revisioned settings snapshot unavailable.")
+        }
+        _ = try service.handle(method: "settings_save", params: [
+            "operationID": UUID().uuidString, "expectedRevision": revision,
+            "generation": generation, "settings": settings,
+        ])
         let adif = "<CALL:5>K1ABC<QSO_DATE:8>20261001<TIME_ON:6>120000<BAND:3>20m<MODE:2>CW<DXCC:3>291<QSL_RCVD:1>Y<APP_FIXTURE:4>KEPT<EOR>"
         try check(try service.handle(method: "logbook_import_adif", params: ["text": adif])["imported"] as? Int == 1)
         let rows = try service.handle(method: "logbook_list", params: ["search": "K1ABC"])["qsos"] as? [[String: Any]] ?? []

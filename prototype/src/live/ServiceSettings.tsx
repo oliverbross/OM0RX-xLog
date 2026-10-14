@@ -10,7 +10,12 @@ import "./ServiceSettings.css";
 
 type Data = Record<string, any>;
 type Request = (method: string, params?: Data) => Promise<Data>;
-type Props = { values: Data; request: Request; onSaved: (value: Data) => void; dataRequest?: Request; onDataChanged?: () => void; rotorSettings?: ReactNode; workspaceSettings?: ReactNode; syncSettings?: ReactNode; requestedTab?: "Station" | "Wavelog" | "Sync"; requestedTabRevision?: number; cwContext?: CWContext; cwState?: CWState; refreshCW?: () => Promise<void>; cwProvider?: string };
+export type ServiceSettingsProps = { values: Data; savedValues?: Data; request: Request; onChanged: (value: Data) => void; onSave: (value: Data) => Promise<void>;
+  saving?: boolean; pending?: boolean; conflict?: boolean; workspaceChanged?: boolean; sessionError?: string;
+  onReconcile?: () => Promise<void>; onRetry?: () => Promise<void>; onUseSaved?: () => void;
+  dataRequest?: Request; onDataChanged?: () => void; rotorSettings?: ReactNode; workspaceSettings?: ReactNode; syncSettings?: ReactNode;
+  requestedTab?: "Station" | "Wavelog" | "Sync"; requestedTabRevision?: number; cwContext?: CWContext; cwState?: CWState;
+  refreshCW?: () => Promise<void>; cwProvider?: string };
 const tabs = ["Station", "Wavelog", "Sync", "QRZ", "Reference data", "Rotator", "CW", "Display", "Workspace", "Backups"] as const;
 type Tab = typeof tabs[number];
 
@@ -52,25 +57,32 @@ function Credential({ account, label, request, leadingField, visible = false, sh
     {message && <p role="status">{message}</p>}{showSavedStatus && status && <p className="service-credential-state" role="status">{status}</p>}</div>;
 }
 
-export default function ServiceSettings({ values, request, onSaved, dataRequest, onDataChanged, rotorSettings, workspaceSettings, syncSettings, requestedTab, requestedTabRevision, cwContext, cwState, refreshCW, cwProvider }: Props) {
+export default function ServiceSettings({ values, savedValues, request, onChanged, onSave, saving = false, pending = false,
+  conflict = false, workspaceChanged = false, sessionError = "", onReconcile, onRetry, onUseSaved, dataRequest, onDataChanged,
+  rotorSettings, workspaceSettings, syncSettings, requestedTab, requestedTabRevision, cwContext, cwState, refreshCW, cwProvider }: ServiceSettingsProps) {
   const [tab, setTab] = useState<Tab>(requestedTab ?? "Station");
   useEffect(() => { if (requestedTab) setTab(requestedTab); }, [requestedTab, requestedTabRevision]);
-  const [form, setForm] = useState(values);
-  const [busy, setBusy] = useState(false);
+  const form = values;
   const [message, setMessage] = useState("");
+  const blocked = pending || conflict || workspaceChanged;
+  const update = (change: Partial<Data>) => {
+    const next = { ...form, ...change };
+    onChanged(next);
+  };
   const field = (key: string, label: string, type = "text") => <label key={key}>{label}<input aria-label={label} type={type} value={form[key] ?? ""}
     min={key === "wavelogStationID" ? 1 : undefined} step={key === "wavelogStationID" ? 1 : undefined}
-    onChange={event => setForm(current => ({ ...current, [key]: key === "wavelogStationID" ? Number(event.target.value) : event.target.value }))} /></label>;
+    onChange={event => update({ [key]: event.target.value })} /></label>;
   const save = async (event: FormEvent) => {
-    event.preventDefault(); if (busy) return;
-    setBusy(true); setMessage("");
+    event.preventDefault(); if (saving || blocked) return;
+    setMessage("");
     try {
-      const saved = { ...form, ...(form.cwProfile ? { cwProfile: validateCWProfile(form.cwProfile) } : {}) };
-      const response = await request("settings_save", { settings: saved });
-      onSaved(response.settings); setForm(response.settings);
+      const rawStationID = String(form.wavelogStationID ?? "");
+      if (!/^\d+$/.test(rawStationID) || !Number.isSafeInteger(Number(rawStationID)) || Number(rawStationID) < 0 || Number(rawStationID) > 2_147_483_647)
+        throw new Error("Wavelog station ID must be a whole number between 0 and 2147483647.");
+      const saved = { ...form, wavelogStationID: Number(rawStationID), ...(form.cwProfile ? { cwProfile: validateCWProfile(form.cwProfile) } : {}) };
+      await onSave(saved);
       setMessage("Settings saved.");
     } catch (error) { setMessage(error instanceof Error ? error.message : "Could not save settings. Check the fields and try again."); }
-    finally { setBusy(false); }
   };
   return <section className="service-settings" aria-label="Station and service settings">
     <div className="service-tabs" role="tablist" aria-label="Settings sections">{tabs.map((name, index) => <button key={name} type="button" role="tab" id={`service-tab-${index}`} aria-controls="service-settings-panel" aria-selected={tab === name} tabIndex={tab === name ? 0 : -1} onClick={() => setTab(name)} onKeyDown={event => {
@@ -84,24 +96,30 @@ export default function ServiceSettings({ values, request, onSaved, dataRequest,
     <div hidden={tab !== "Display"}><DisplaySettings /></div>
     <div hidden={tab !== "Rotator"}>{rotorSettings ?? <p>Rotator settings are unavailable in this view.</p>}</div>
     <ReferenceScheduleControl request={request} visible={tab === "Reference data"} />
-    <form onSubmit={event => void save(event)} noValidate><fieldset disabled={busy}>
-      <div hidden={tab !== "CW"}><CWSettings value={form.cwProfile} saved={values.cwProfile} onChange={cwProfile => setForm(current => ({ ...current, cwProfile }))} context={cwContext} request={request} state={cwState} refresh={refreshCW} radioProvider={cwProvider} /></div>
+    {(sessionError || pending || conflict || workspaceChanged) && <div className="service-settings-recovery" role="status">
+      {sessionError && <p>{sessionError}</p>}
+      {pending && <><button type="button" disabled={saving} onClick={() => void onReconcile?.()}>Check saved Settings</button>
+        <button type="button" disabled={saving} onClick={() => void onRetry?.()}>Retry same save</button></>}
+      {(conflict || workspaceChanged) && <button type="button" disabled={saving} onClick={onUseSaved}>Use saved Settings</button>}
+    </div>}
+    <form onSubmit={event => void save(event)} noValidate><fieldset disabled={saving || blocked}>
+      <div hidden={tab !== "CW"}><CWSettings value={form.cwProfile} saved={(savedValues ?? form).cwProfile} onChange={cwProfile => update({ cwProfile })} context={cwContext} request={request} state={cwState} refresh={refreshCW} radioProvider={cwProvider} /></div>
       <section hidden={tab !== "Station"}><h2>Station identity</h2><div className="service-fields">{[["operatorCall", "Operator call"], ["stationCall", "Station call"], ["gridSquare", "Station grid"], ["stationLocation", "Station location"], ["defaultPower", "Default power W"], ["defaultRadio", "Radio name"]].map(([key, label]) => key === "defaultPower" ? <div key={key} className="service-default-power">{field(key, label)}
-        <label className="service-enable"><input type="checkbox" aria-describedby="automatic-power-help" checked={form.automaticTransmitPower === true} disabled={typeof values.automaticTransmitPower !== "boolean"}
-          onChange={event => setForm(current => ({ ...current, automaticTransmitPower: event.target.checked }))} />Automatic measured power</label>
-        <p id="automatic-power-help">{typeof values.automaticTransmitPower !== "boolean" ? "Automatic capture is unavailable in this version." : "Capture KPA500 measured output via the remote station. Default power is the fallback; a TX power edit sets a manual override."}</p>
+        <label className="service-enable"><input type="checkbox" aria-describedby="automatic-power-help" checked={form.automaticTransmitPower === true} disabled={typeof (savedValues ?? form).automaticTransmitPower !== "boolean"}
+          onChange={event => update({ automaticTransmitPower: event.target.checked })} />Automatic measured power</label>
+        <p id="automatic-power-help">{typeof (savedValues ?? form).automaticTransmitPower !== "boolean" ? "Automatic capture is unavailable in this version." : "Capture KPA500 measured output via the remote station. Default power is the fallback; a TX power edit sets a manual override."}</p>
       </div> : field(key, label))}</div></section>
-      <div hidden={tab !== "Station"}><EquipmentSettings value={form.stationEquipment} onChange={stationEquipment => setForm(current => ({ ...current, stationEquipment }))} /></div>
-      <section hidden={tab !== "Station"}><h2>Logbook mode</h2><label>Use xLog as<select aria-label="Logbook mode" value={form.logbookMode ?? "wavelog"} onChange={event => setForm(current => ({ ...current, logbookMode: event.target.value }))}>
+      <div hidden={tab !== "Station"}><EquipmentSettings value={form.stationEquipment} onChange={stationEquipment => update({ stationEquipment })} /></div>
+      <section hidden={tab !== "Station"}><h2>Logbook mode</h2><label>Use xLog as<select aria-label="Logbook mode" value={form.logbookMode ?? "wavelog"} onChange={event => update({ logbookMode: event.target.value })}>
         <option value="local">Standalone local logbook</option><option value="wavelog">Local logbook + Wavelog sync</option>
       </select></label><p>{form.logbookMode === "local" ? "Contacts stay in this app. Wavelog synchronization and catalog checks are disabled; logging, awards, QRZ, cluster, radio and rotator remain available." : "Contacts are saved locally. Wavelog synchronization follows your Sync settings."} Save settings to apply. Switching modes keeps contacts, pending changes and saved credentials.</p></section>
       <section hidden={tab !== "Wavelog"}><h2>Wavelog synchronization</h2><p>The URL and station ID identify the online logbook; the API v2 token authorizes access. Configure synchronization in Sync.</p><div className="service-fields">{field("wavelogURL", "Wavelog URL", "url")}{field("wavelogStationID", "Wavelog station ID", "number")}</div><Credential account="wavelog-token" label="Wavelog API v2 token" request={request} visible={tab === "Wavelog"} showSavedStatus /></section>
-      <section hidden={tab !== "QRZ"}><h2>QRZ callsign lookup</h2><p>Use your QRZ username and password for XML callsign lookup.</p><label className="service-enable"><input type="checkbox" checked={form.qrzEnabled === true} onChange={event => setForm(current => ({ ...current, qrzEnabled: event.target.checked }))} />Use QRZ XML lookup</label><Credential account="qrz-password" label="QRZ password" request={request} leadingField={field("qrzUsername", "QRZ username")} /></section>
+      <section hidden={tab !== "QRZ"}><h2>QRZ callsign lookup</h2><p>Use your QRZ username and password for XML callsign lookup.</p><label className="service-enable"><input type="checkbox" checked={form.qrzEnabled === true} onChange={event => update({ qrzEnabled: event.target.checked })} />Use QRZ XML lookup</label><Credential account="qrz-password" label="QRZ password" request={request} leadingField={field("qrzUsername", "QRZ username")} /></section>
       <section hidden={tab !== "Reference data"}><h2>Club Log reference data</h2><p>This connection downloads CTY reference data using an API key. It is not a Club Log QSO uploader and does not use a separate account callsign.</p><Credential account="clublog-api-key" label="Club Log API key" request={request} leadingField={field("clubLogCTYURL", "Club Log CTY URL", "url")} /></section>
       <section hidden={tab !== "Reference data"}><h2>LoTW activity reference</h2><p>This public reference feed does not require your LoTW password.</p><div className="service-fields">{field("lotwActivityURL", "LoTW activity URL", "url")}</div></section>
-      <div className="live-actions" hidden={tab === "Backups" || tab === "Display" || tab === "Rotator" || tab === "Workspace" || tab === "Sync"}><button type="submit" className="primary">{busy ? "Saving settings…" : "Save settings"}</button><span role="status">{message}</span></div>
+      <div className="live-actions" hidden={tab === "Backups" || tab === "Display" || tab === "Rotator" || tab === "Workspace" || tab === "Sync"}><button type="submit" className="primary">{saving ? "Saving settings…" : "Save settings"}</button><span role="status">{message}</span></div>
     </fieldset></form>
-    <div hidden={tab !== "Reference data" && tab !== "Backups"}>{dataRequest ? <DataManagementPanel onRequest={dataRequest} onChanged={onDataChanged ?? (() => {})} visible={tab === "Reference data" || tab === "Backups"} section={tab === "Backups" ? "backups" : "references"} sourceSettings={values} /> : <p>Reference and backup tools are unavailable in this view.</p>}</div>
+    <div hidden={tab !== "Reference data" && tab !== "Backups"}>{dataRequest ? <DataManagementPanel onRequest={dataRequest} onChanged={onDataChanged ?? (() => {})} visible={tab === "Reference data" || tab === "Backups"} section={tab === "Backups" ? "backups" : "references"} sourceSettings={savedValues ?? form} /> : <p>Reference and backup tools are unavailable in this view.</p>}</div>
     <p className="service-security-note" hidden={tab === "CW" || tab === "Workspace" || tab === "Sync"}>Credentials stay in the integrated app’s separate macOS Keychain service. Existing application credentials are not changed. Never paste credentials into a support chat.</p>
     </div>
   </section>;

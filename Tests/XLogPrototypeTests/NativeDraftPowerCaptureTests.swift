@@ -47,7 +47,7 @@ struct NativeDraftPowerCaptureTests {
         let workspace = try IntegrationWorkspaceBootstrap.open(at: service.workspaceDirectoryURL)
         defer { workspace.makeDefaults()?.removePersistentDomain(forName: workspace.defaultsSuiteName) }
         var settings = try service.currentSettings(); settings.automaticTransmitPower = true; settings.defaultPower = "100"
-        _ = try service.handle(method: "settings_save", params: ["settings": try object(settings)])
+        _ = try service.saveSettingsForTest(try object(settings))
         let gate = NativeDraftPowerGate(), source = UUID(), session = UUID()
         let delivery = NativeDraftPowerDelivery()
         let worker = LiveWorker(logbook: service, powerCapture: gate, powerDelivery: delivery)

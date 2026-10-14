@@ -84,7 +84,7 @@ function Fixture() {
     <div className="live-actions" role="group" aria-label="Synthetic power state">
       {modes.map(mode => <button key={mode} type="button" onClick={() => chooseMode(mode)}>{mode === "off" ? "Off" : mode === "fallback" ? "Fallback" : mode === "manual" ? "Manual override" : "Captured sample"}</button>)}
     </div>
-    {view === "settings" ? <div className="live-settings"><ServiceSettings key={settingsPreviewRevision} values={settings} request={request} onSaved={saveSettings} /></div>
+    {view === "settings" ? <div className="live-settings"><ServiceSettings key={settingsPreviewRevision} values={settings} request={request} onChanged={setSettings} onSave={async value => saveSettings(value)} /></div>
       : <QSOEditor draft={draft} setDraft={setDraft} save={() => setMessage("Synthetic save only. Nothing was persisted.")}
         clear={() => { const next = syntheticPower(settings.automaticTransmitPower ? "fallback" : "off", String(settings.defaultPower)); setPower(next); setDraft(initialDraft(next.selectedValue)); }}
         busy={false} lookup={{ call: contact.call, name: "Preview operator", country: "Synthetic location", source: "Synthetic fixture", gridSquare: "FM29IK" }}

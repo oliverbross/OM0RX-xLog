@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import LiveApp from "../src/LiveApp";
-import { operatorDraftFixture } from "./operator-draft-fixture";
+import { operatorDraftFixture, testWorkspaceGeneration } from "./operator-draft-fixture";
 import { contactEditFixture } from "./contact-edit-fixture";
 
 const host = vi.hoisted(() => ({ request: vi.fn(), activate: vi.fn(), customCanvas: false,
@@ -46,7 +46,7 @@ beforeEach(() => {
     const scoped = draft(method, params) ?? contact.request(method, params);
     if (scoped) return { result: scoped };
     return { result: method === "workspace_status" ? { workspace_exists: true, native_log_exists: true }
-      : method === "settings_load" ? { settings: { stationCall: "OM0RX", gridSquare: "JN88" } }
+      : method === "settings_load" ? { settings: { stationCall: "OM0RX", gridSquare: "JN88" }, revision: 0, generation: testWorkspaceGeneration }
       : method === "logbook_stats" ? { stats: { qso_count: 1 } }
       : method === "cluster_snapshot" ? { snapshot: { spots: [], connectedClusters: 0 } }
       : method === "station_snapshot" ? { source: params.provider, available: false, radio: null }

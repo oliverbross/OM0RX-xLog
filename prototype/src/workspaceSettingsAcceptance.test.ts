@@ -46,7 +46,7 @@ async function setup(changedDraft = false) {
   function Harness({ route }: { route: string }) {
     const state = useSyncExternalStore(session.subscribe, session.getSnapshot);
     return h("main", { "aria-label": route }, route === "Settings"
-      ? h(ServiceSettings, { values: { operatorCall: "OM0RX" }, request, onSaved: vi.fn(),
+      ? h(ServiceSettings, { values: { operatorCall: "OM0RX" }, request, onChanged: vi.fn(), onSave: vi.fn(async () => {}),
         workspaceSettings: h(WorkspaceSettings, { state, session, available: ["active-qso", "callsign-intelligence", "world-map", "band-maps", "dx-cluster"] }) })
       : h(OperatorCanvas, { state, session, traditional: h("p", null, "Traditional controls"), panels: {
         "active-qso": { title: "Active QSO", content: h("input", { "aria-label": "Draft callsign", defaultValue: "W1AW" }) },

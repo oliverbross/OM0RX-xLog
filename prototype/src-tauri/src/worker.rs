@@ -161,6 +161,7 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "logbook_import_adif",
         "logbook_export_adif",
         "settings_load",
+        "settings_receipt",
         "settings_save",
         "station_snapshot",
         "station_power_selection",
@@ -764,6 +765,18 @@ mod tests {
             let request = json!({"id":"reference", "method":method, "params":{}});
             assert!(validate_surface("main", &request).is_ok());
             for label in ["logbook", "awards", "monitor", "world-map", "band-maps", "dx-cluster", "unknown"] {
+                assert!(validate_surface(label, &request).is_err(), "{label}: {method}");
+            }
+        }
+    }
+
+    #[test]
+    fn revisioned_settings_are_main_only() {
+        for method in ["settings_load", "settings_receipt", "settings_save"] {
+            let request = json!({"id":"settings", "method":method, "params":{}});
+            assert!(validate_surface("main", &request).is_ok(), "main: {method}");
+            for label in ["monitor", "log-qso", "logbook", "awards", "world-map", "band-maps",
+                          "dx-cluster", "spot-history", "callsign-intelligence", "unknown", ""] {
                 assert!(validate_surface(label, &request).is_err(), "{label}: {method}");
             }
         }

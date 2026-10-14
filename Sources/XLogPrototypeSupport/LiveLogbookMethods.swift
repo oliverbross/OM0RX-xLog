@@ -90,7 +90,7 @@ public final class LiveLogbookMethods: @unchecked Sendable {
 
     func currentSettings() throws -> XLogSettings {
         try lock.withLock {
-            var settings = IntegrationWorkspace.safeSettings(from: try settingsStore().load())
+            var settings = try storedSettingsSnapshot().settings
             if let authorization = try syncAuthorization(settings: settings) {
                 settings.automaticSync = true
                 settings.syncIntervalMinutes = authorization.intervalMinutes
@@ -217,7 +217,7 @@ public final class LiveLogbookMethods: @unchecked Sendable {
             guard let defaults = workspace?.makeDefaults() else { throw invalid() }
             if !enabled { defaults.removeObject(forKey: syncAuthorizationKey); return }
             guard confirmed else { throw WorkerFailure("sync_confirmation_required", "Confirm this logbook as the only synchronization writer.") }
-            let settings = try settingsStore().load()
+            let settings = try storedSettingsSnapshot().settings
             guard settings.logbookMode == .wavelog, let url = URL(string: settings.wavelogURL) else {
                 throw WorkerFailure("sync_mode_local", "Choose and configure Wavelog mode before enabling automatic sync.")
             }
@@ -340,6 +340,7 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                 workspace = created
                 ctyResolverCache = nil
                 database = try LogbookDatabase(url: created.databaseURL)
+                _ = try database?.integrationSettings(seed: initialSettings)
                 return ["mode": mode, "qso_count": created.qsoCount,
                         "pending_sync_count": created.pendingSyncCount,
                         "outbox_count": created.outboxCount, "automatic_sync": false]
@@ -549,25 +550,74 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                         "count": qsos.count, "offset": offset, "total": try db.stats().qsoCount]
             case "settings_load":
                 try requireKeys(params, allowed: [])
-                let settings = try currentSettings()
-                return ["settings": try json(settings), "automatic_sync": settings.automaticSync]
+                let generation = try editGeneration()
+                let snapshot = try storedSettingsSnapshot()
+                let settings = try presentedSettings(snapshot.settings)
+                return ["settings": try json(settings), "revision": snapshot.revision,
+                        "generation": generation, "automatic_sync": settings.automaticSync]
+            case "settings_receipt":
+                try requireKeys(params, allowed: ["operationID", "generation"], required: ["operationID", "generation"])
+                guard let raw = params["operationID"] as? String, let operationID = UUID(uuidString: raw) else { throw invalid() }
+                let generation = try editGeneration()
+                if try !matchesEditGeneration(params, generation) {
+                    return ["status": "workspace_changed", "generation": generation]
+                }
+                let receipt = try readyDatabase().integrationSettingsReceipt(operationID: operationID)
+                return ["receipt": try receipt.map { try scopedReceipt($0, field: "snapshot", generation: generation) } ?? NSNull()]
             case "settings_save":
-                try requireKeys(params, allowed: ["settings"], required: ["settings"])
+                try requireKeys(params, allowed: ["operationID", "expectedRevision", "generation", "settings"],
+                                required: ["operationID", "expectedRevision", "generation", "settings"])
+                guard let raw = params["operationID"] as? String, let operationID = UUID(uuidString: raw) else { throw invalid() }
+                let generation = try editGeneration()
+                if try !matchesEditGeneration(params, generation) {
+                    return ["status": "workspace_changed", "generation": generation]
+                }
+                let expectedRevision = try integer(params, "expectedRevision", default: -1, range: 0...9_007_199_254_740_990)
                 guard let object = params["settings"] as? [String: Any],
                       let mode = object["logbookMode"] as? String,
                       LogbookMode(rawValue: mode) != nil else { throw invalid() }
                 let value: XLogSettings = try decode(object)
                 let safe = IntegrationWorkspace.safeSettings(from: value)
-                let store = try settingsStore()
-                let previous = store.load()
-                let targetChanged = previous.logbookMode != safe.logbookMode || previous.wavelogURL != safe.wavelogURL || previous.wavelogStationID != safe.wavelogStationID
+                let database = try readyDatabase()
+                let previous = try storedSettingsSnapshot()
+                let mutation = IntegrationSettingsMutation(operationID: operationID,
+                    expectedRevision: Int64(expectedRevision), settings: safe)
+                if let receipt = try database.integrationSettingsReceipt(operationID: operationID) {
+                    guard receipt.mutation == mutation else {
+                        throw WorkerFailure("settings_operation_reused", "This settings operation ID was already used for different values.")
+                    }
+                    let current = try presentedSettings(receipt.snapshot.settings)
+                    return ["status": "applied", "settings": try json(current),
+                            "revision": receipt.snapshot.revision, "generation": generation,
+                            "receipt": try scopedReceipt(receipt, field: "snapshot", generation: generation),
+                            "automatic_sync": current.automaticSync]
+                }
+                let targetChanged = previous.settings.logbookMode != safe.logbookMode
+                    || previous.settings.wavelogURL != safe.wavelogURL
+                    || previous.settings.wavelogStationID != safe.wavelogStationID
                 if manualSyncActive && targetChanged {
                     throw WorkerFailure("sync_busy", "Wait for synchronization to finish before changing the Wavelog destination or mode.")
                 }
-                if targetChanged { workspace?.makeDefaults()?.removeObject(forKey: syncAuthorizationKey) }
-                store.save(safe)
-                let current = try currentSettings()
-                return ["settings": try json(current), "automatic_sync": current.automaticSync]
+                do {
+                    let receipt = try database.applyIntegrationSettings(mutation)
+                    if targetChanged {
+                        workspace?.makeDefaults()?.removeObject(forKey: syncAuthorizationKey)
+                    }
+                    let current = try presentedSettings(receipt.snapshot.settings)
+                    return ["status": "applied", "settings": try json(current),
+                            "revision": receipt.snapshot.revision, "generation": generation,
+                            "receipt": try scopedReceipt(receipt, field: "snapshot", generation: generation),
+                            "automatic_sync": current.automaticSync]
+                } catch IntegrationSettingsError.conflict(let current) {
+                    let presented = try presentedSettings(current.settings)
+                    return ["status": "conflict", "settings": try json(presented),
+                            "revision": current.revision, "generation": generation,
+                            "automatic_sync": presented.automaticSync]
+                } catch IntegrationSettingsError.operationReused {
+                    throw WorkerFailure("settings_operation_reused", "This settings operation ID was already used for different values.")
+                } catch IntegrationSettingsError.notInitialized {
+                    throw WorkerFailure("settings_not_initialized", "Load settings before saving changes.")
+                } catch IntegrationSettingsError.invalid { throw invalid() }
             case "workspace_layout_load":
                 try requireKeys(params, allowed: [])
                 let generation = try editGeneration()
@@ -717,6 +767,7 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                 }
                 let db = try readyDatabase()
                 let retainedLayout = restorePreferences ? nil : try db.workspaceLayout()
+                let retainedSettings = try storedSettingsSnapshot()
                 let reference = try referenceDirectoryURL()
                 #if os(macOS)
                 let referenceLease = try ReferenceRefreshLease(directory: reference)
@@ -740,20 +791,27 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                     if restoreReference, preview.manifest.includesReferenceData {
                         _ = try manager.installReferenceData(from: package, to: reference)
                     }
-                    if restoreSettings, let settings = preview.settings {
-                        guard let defaults = workspace?.makeDefaults() else {
-                            throw WorkerFailure("workspace_unavailable", "Isolated preferences are unavailable.")
-                        }
-                        SettingsStore(defaults: defaults).save(IntegrationWorkspace.safeSettings(from: settings))
-                    }
                     if restorePreferences, let preferences = preview.preferences,
                        let defaults = workspace?.makeDefaults() {
                         applyBackupPreferences(preferences, to: defaults)
                     }
                     database = try LogbookDatabase(url: workspaceURL.appendingPathComponent("OM0RX-xLog.sqlite"))
                     if let retainedLayout { try database?.preserveWorkspaceLayoutAfterRestore(retainedLayout) }
+                    guard let database else { throw WorkerFailure("workspace_unavailable", "The restored database is unavailable.") }
+                    let restoredSeed = restoreSettings ? preview.settings.map(IntegrationWorkspace.safeSettings(from:)) : nil
+                    let installed = try database.integrationSettings(seed: restoredSeed ?? retainedSettings.settings)
+                    let settingsSnapshot: IntegrationSettingsSnapshot
+                    if let restoredSeed {
+                        settingsSnapshot = IntegrationSettingsSnapshot(
+                            revision: installed.settings == restoredSeed ? installed.revision : min(installed.revision + 1, 9_007_199_254_740_991),
+                            settings: restoredSeed
+                        )
+                    } else {
+                        settingsSnapshot = retainedSettings
+                    }
+                    try database.installIntegrationSettingsAfterRestore(settingsSnapshot)
                     workspace = try IntegrationWorkspaceBootstrap.open(at: workspaceURL)
-                    return ["restored": true, "qso_count": try database?.count() ?? 0,
+                    return ["restored": true, "qso_count": try database.count(),
                             "recovery_backup": rollbackName, "preferences_restored": restorePreferences,
                             "automatic_sync": false]
                 } catch {
@@ -958,6 +1016,20 @@ public final class LiveLogbookMethods: @unchecked Sendable {
             throw WorkerFailure("workspace_unavailable", "Isolated preferences are unavailable.")
         }
         return SettingsStore(defaults: defaults)
+    }
+
+    private func storedSettingsSnapshot() throws -> IntegrationSettingsSnapshot {
+        let seed = IntegrationWorkspace.safeSettings(from: try settingsStore().load())
+        return try readyDatabase().integrationSettings(seed: seed)
+    }
+
+    private func presentedSettings(_ stored: XLogSettings) throws -> XLogSettings {
+        var settings = stored
+        if let authorization = try syncAuthorization(settings: settings) {
+            settings.automaticSync = true
+            settings.syncIntervalMinutes = authorization.intervalMinutes
+        }
+        return settings
     }
 
     private func backupDirectory() throws -> URL {

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { useState } from "react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import ServiceSettings from "./ServiceSettings";
@@ -37,9 +38,14 @@ describe("station equipment", () => {
     expect(profile.bands).toEqual(["20m", "17m", "15m", "12m", "10m"]);
   });
   it("edits antenna settings without hardware requests and saves only explicitly", async () => {
-    const values = { stationCall: "OM0RX", logbookMode: "local" };
+    const values = { stationCall: "OM0RX", logbookMode: "local", wavelogStationID: 1 };
     const request = vi.fn(async (_method: string, params?: Record<string, any>) => ({ settings: params?.settings }));
-    render(<ServiceSettings values={values} request={request} onSaved={vi.fn()} />);
+    function Editor() {
+      const [draft, setDraft] = useState<Record<string, any>>(values);
+      return <ServiceSettings values={draft} request={request} onChanged={setDraft}
+        onSave={settings => request("settings_save", { settings }).then(() => {})} />;
+    }
+    render(<Editor />);
     fireEvent.change(screen.getByLabelText("Operator Desk equipment"), { target: { value: "antenna" } });
     fireEvent.change(screen.getByLabelText("Antenna type"), { target: { value: "wire" } });
     fireEvent.change(screen.getByLabelText("Antenna name"), { target: { value: "Garden wire" } });

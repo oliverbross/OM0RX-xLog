@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import LiveApp from "../src/LiveApp";
-import { operatorDraftFixture } from "./operator-draft-fixture";
+import { operatorDraftFixture, testWorkspaceGeneration } from "./operator-draft-fixture";
 
 const bridge = vi.hoisted(() => ({ request: vi.fn(), native: vi.fn(), tune: null as null | ((value: any) => void), rejectActivation: null as null | ((cause: Error) => void), rotorGeneration: 4,
   autoState: null as any, autoChanged: null as null | ((value: any) => void),
@@ -118,7 +118,7 @@ beforeEach(() => {
     }
     const result = method === "workspace_status" ? { workspace_exists: true, native_log_exists: true }
       : method === "workspace_preferences_load" ? { preferences, stored: true, generation: preferenceGeneration, revision: 0 }
-      : method === "settings_load" ? { settings: { stationCall: "OM0RX", gridSquare: "JN88" } }
+      : method === "settings_load" ? { settings: { stationCall: "OM0RX", gridSquare: "JN88" }, revision: 0, generation: testWorkspaceGeneration }
       : method === "logbook_stats" ? { stats: { qso_count: 1 } }
       : method === "logbook_draft" ? { qso: { id: "draft", call: "", start: "2026-10-12T00:00:00Z", frequencyHz: 14074000, mode: "FT8", band: "20m" } }
       : method === "station_snapshot" ? { source: params.provider, generated_at: Date.now() / 1000, radio: { connected: true, observed: true, frequency_hz: 14074000, mode: "DIGU" } }

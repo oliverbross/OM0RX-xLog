@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import WorkspaceSettings from "./WorkspaceSettings";
@@ -242,8 +242,12 @@ it.each(["retry", "discard"])("retains an unconfirmed draft and recovers only th
 it("keeps service fields and credentials mounted across Workspace and saves layouts independently of settings", async () => {
   const context = setup(); await context.session.refresh();
   const request = vi.fn(async (method: string, params?: Record<string, any>) => method === "settings_save" ? { settings: params?.settings } : { saved: true });
-  render(<ServiceSettings values={{ operatorCall: "OM0RX", stationCall: "OM0RX", wavelogURL: "https://example.invalid", wavelogStationID: 1 }}
-    request={request} onSaved={vi.fn()} workspaceSettings={<context.Workspace />} />);
+    function SettingsPanel() {
+      const [values, setValues] = useState<Record<string, any>>({ operatorCall: "OM0RX", stationCall: "OM0RX", wavelogURL: "https://example.invalid", wavelogStationID: 1 });
+      return <ServiceSettings values={values} request={request} onChanged={setValues}
+        onSave={settings => request("settings_save", { settings }).then(() => {})} workspaceSettings={<context.Workspace />} />;
+    }
+    render(<SettingsPanel />);
   const operator = input("Operator call"); fireEvent.change(operator, { target: { value: "W1AW" } });
   fireEvent.click(screen.getByRole("tab", { name: "Wavelog" }));
   const token = input("Wavelog API v2 token"); fireEvent.change(token, { target: { value: "unit-test-draft-token" } });
