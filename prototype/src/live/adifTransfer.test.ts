@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { expect, it } from "vitest";
-import { adifBatches, decodeADIF, ADIFExportDocument } from "./adifTransfer";
+import { adifBatches, adifImportBatches, decodeADIF, decodeADIFDocument, ADIFExportDocument } from "./adifTransfer";
 
 it("rejects malformed UTF-8 instead of replacing the invalid bytes", () => {
   expect(() => decodeADIF(new Uint8Array([60, 67, 65, 76, 76, 58, 49, 62, 0xff]).buffer)).toThrow("Only UTF-8 ADI or ADX");
@@ -82,7 +82,7 @@ it("converts UTF-8 ADX text, empty fields and extensions into exact byte-counted
   const converted = decode("\uFEFF<?xml version='1.0' encoding='UTF-8'?>" + adx(
     "<CALL>W1AW</CALL><COMMENT>Žilina &amp; &lt;EOR&gt; 😀</COMMENT><NOTES/>" +
     '<APP PROGRAMID="TEST" FIELDNAME="OPAQUE" TYPE="S">value</APP><USERDEF FIELDNAME="CUSTOM">é</USERDEF>',
-    '<USERDEF FIELDID="1" TYPE="S">CUSTOM</USERDEF>'));
+    '<USERDEF FIELDID="1" TYPE="G">CUSTOM</USERDEF>'));
   const comment = "Žilina & <EOR> 😀";
   expect(converted).toBe(`<CALL:4>W1AW<COMMENT:${new TextEncoder().encode(comment).length}>${comment}<NOTES:0><APP_TEST_OPAQUE:5>value<CUSTOM:2>é<EOR>\r\n`);
   expect(adifBatches(converted)).toEqual([converted]);
@@ -175,6 +175,68 @@ it("rejects undefined XSD type indicators without changing supported extension t
   expect(() => decode(adx('<APP PROGRAMID="TEST" FIELDNAME="X" TYPE="Z">value</APP>'))).toThrow();
   expect(() => decode(adx('<USERDEF FIELDNAME="X">value</USERDEF>', '<USERDEF FIELDID="1" TYPE="Z">X</USERDEF>'))).toThrow();
   expect(decode(adx('<APP PROGRAMID="TEST" FIELDNAME="X" TYPE="G">Žilina 😀</APP>'))).toBe(adiRecord({ APP_TEST_X: "Žilina 😀" }));
+});
+
+it("roundtrips exact APP identities, type spelling and USERDEF declarations through explicit versioned metadata", () => {
+  const source = adx('<APP PROGRAMID="Mixed_Name" FIELDNAME="Field_Name" TYPE="n">0012.50</APP>' +
+    '<APP PROGRAMID="Other" FIELDNAME="Untyped">Žilina 😀</APP><USERDEF FIELDNAME="CUSTOM">B</USERDEF>',
+    '<USERDEF FIELDID="17" TYPE="e" ENUM="{A,B}">CUSTOM</USERDEF>');
+  const imported = decodeADIFDocument(new TextEncoder().encode(source).buffer);
+  expect(imported.text).toContain("<APP_MIXED_NAME_FIELD_NAME:7>0012.50");
+  expect(imported.fieldMetadata[0]?.version).toBe(1);
+  const writer = new ADIFExportDocument("adx"); writer.append(imported.text, 1, imported.fieldMetadata);
+  const exported = writer.finish();
+  expect(exported).toContain('<APP PROGRAMID="Mixed_Name" FIELDNAME="Field_Name" TYPE="n">0012.50</APP>');
+  expect(exported).toContain('<APP PROGRAMID="Other" FIELDNAME="Untyped">Žilina 😀</APP>');
+  expect(exported).toContain('<USERDEF FIELDID="17" TYPE="e" ENUM="{A,B}">CUSTOM</USERDEF>');
+  expect(decodeADIFDocument(new TextEncoder().encode(exported).buffer)).toEqual(imported);
+  expect(() => new ADIFExportDocument("adi").append(imported.text, 1, imported.fieldMetadata)).toThrow("requires ADX export");
+  const corrupt = JSON.parse(JSON.stringify(imported.fieldMetadata));
+  corrupt[0].extensions.APP_MIXED_NAME_FIELD_NAME.attributes.TYPE = "";
+  expect(() => new ADIFExportDocument("adx").append(imported.text, 1, corrupt)).toThrow("metadata");
+});
+
+it.each([
+  adx('<USERDEF FIELDNAME="CUSTOM">x</USERDEF>'),
+  adx('<USERDEF FIELDNAME="CUSTOM">x</USERDEF>', '<USERDEF FIELDID="1" TYPE="G">CUSTOM</USERDEF><USERDEF FIELDID="1" TYPE="G">OTHER</USERDEF>'),
+  adx('<USERDEF FIELDNAME="CUSTOM">x</USERDEF>', '<USERDEF FIELDID="1" TYPE="G">CUSTOM</USERDEF><USERDEF FIELDID="2" TYPE="N">CUSTOM</USERDEF>'),
+  adx('<APP PROGRAMID="A_B" FIELDNAME="C">x</APP><APP PROGRAMID="A" FIELDNAME="B_C">y</APP>'),
+  adx('<APP PROGRAMID="TEST" FIELDNAME="X" TYPE="N">NaN</APP>'),
+  adx('<APP PROGRAMID="TEST" FIELDNAME="X" TYPE="S">Žilina</APP>'),
+  adx('<USERDEF FIELDNAME="CUSTOM">C</USERDEF>', '<USERDEF FIELDID="1" TYPE="E" ENUM="{A,B}">CUSTOM</USERDEF>'),
+  adx('<USERDEF FIELDNAME="CUSTOM">2</USERDEF>', '<USERDEF FIELDID="1" TYPE="N" RANGE="{1:3}">CUSTOM</USERDEF>'),
+  adx('<USERDEF FIELDNAME="CUSTOM">A</USERDEF>', '<USERDEF FIELDID="1" TYPE="E" ENUM="{A,B}&#10;">CUSTOM</USERDEF>'),
+  adx('<USERDEF FIELDNAME="CALL">x</USERDEF>', '<USERDEF FIELDID="1" TYPE="G">CALL</USERDEF>'),
+])("rejects lossy, conflicting or unsupported extension metadata: %s", source => {
+  expect(() => decodeADIFDocument(new TextEncoder().encode(source).buffer)).toThrow();
+});
+
+it("rejects conflicting declarations across frozen export frames and unknown metadata versions", () => {
+  const first = decodeADIFDocument(new TextEncoder().encode(adx('<USERDEF FIELDNAME="CUSTOM">A</USERDEF>', '<USERDEF FIELDID="1" TYPE="G">CUSTOM</USERDEF>')).buffer);
+  const other = decodeADIFDocument(new TextEncoder().encode(adx('<USERDEF FIELDNAME="CUSTOM">1</USERDEF>', '<USERDEF FIELDID="1" TYPE="N">CUSTOM</USERDEF>')).buffer);
+  const writer = new ADIFExportDocument("adx"); writer.append(first.text, 1, first.fieldMetadata);
+  expect(() => writer.append(other.text, 1, other.fieldMetadata)).toThrow("metadata");
+  expect(() => writer.finish()).toThrow("incomplete");
+  const unsupported = JSON.parse(JSON.stringify(first.fieldMetadata)); unsupported[0].version = 2;
+  expect(() => new ADIFExportDocument("adx").append(first.text, 1, unsupported)).toThrow("metadata");
+  expect(() => new ADIFExportDocument("adx").append(first.text, 1, [])).toThrow("metadata");
+});
+
+it("splits metadata-heavy import frames without separating metadata from its exact record", () => {
+  const record = '<RECORD><CALL>W1AW</CALL><APP PROGRAMID="Long_Program_Name" FIELDNAME="Long_Field_Name" TYPE="G">Žilina 😀</APP></RECORD>';
+  const document = decodeADIFDocument(new TextEncoder().encode(`<ADX><HEADER/><RECORDS>${record.repeat(101)}</RECORDS></ADX>`).buffer);
+  const frames = adifImportBatches(document);
+  expect(frames.length).toBeGreaterThan(2);
+  expect(frames.map(frame => frame.text).join("")).toBe(document.text);
+  expect(frames.flatMap(frame => frame.fieldMetadata ?? [])).toEqual(document.fieldMetadata);
+  for (const frame of frames) expect(new TextEncoder().encode(JSON.stringify(frame.fieldMetadata)).length).toBeLessThanOrEqual(16_384);
+});
+
+it("freezes declaration metadata when an export frame is admitted", () => {
+  const document = decodeADIFDocument(new TextEncoder().encode(adx('<USERDEF FIELDNAME="CUSTOM">A</USERDEF>', '<USERDEF FIELDID="17" TYPE="G">CUSTOM</USERDEF>')).buffer);
+  const writer = new ADIFExportDocument("adx"); writer.append(document.text, 1, document.fieldMetadata);
+  document.fieldMetadata[0]!.extensions.CUSTOM.declaration!.TYPE = "N";
+  expect(writer.finish()).toContain('<USERDEF FIELDID="17" TYPE="G">CUSTOM</USERDEF>');
 });
 
 it("preserves accepted grid, reference and small enum values exactly across ADX boundaries", () => {

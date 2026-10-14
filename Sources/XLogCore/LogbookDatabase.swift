@@ -195,6 +195,8 @@ public final class LogbookDatabase: @unchecked Sendable {
         try withDatabaseLock {
             if spotDraftLeaseID != nil, try readOperatorDraft()?.qso.id == value.id { throw SpotDraftError.busy }
             let qso = normalizedForSave(value, markDirty: markDirty, updatedAt: Date())
+            try qso.adifFieldMetadata?.validate(fields: qso.adifRecord.fields)
+            if qso.adifFieldMetadata != nil, try encoder.encode(qso).count > 24_576 { throw ADIFPlanningError.invalidPreview }
             let data = try encoder.encode(qso)
             let sql = """
             INSERT INTO qsos(local_id,wavelog_id,call,qso_start,band,mode,frequency_hz,is_dirty,deleted_at,updated_at,record_json,baseline_json)
@@ -2510,6 +2512,7 @@ public final class LogbookDatabase: @unchecked Sendable {
         if value.lotwSent.isEmpty { value.lotwSent = local.lotwSent }
         if value.lotwReceived.isEmpty { value.lotwReceived = local.lotwReceived }
         value.extraFields = local.extraFields.merging(remote.extraFields) { _, remoteValue in remoteValue }
+        value.adifFieldMetadata = local.adifFieldMetadata ?? remote.adifFieldMetadata
         return value
     }
 

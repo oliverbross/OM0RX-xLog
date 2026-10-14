@@ -20,7 +20,7 @@ struct LiveLogbookSyncLease: Sendable {
 
 /// Shared local bridge to an explicitly created integration workspace. It never opens
 /// LogbookDatabase() without a URL, and it never constructs a Wavelog client.
-public final class LiveLogbookMethods: @unchecked Sendable {
+public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, RemoteBackupWorkspaceSnapshotSource, @unchecked Sendable {
     public static let shared = LiveLogbookMethods()
 
     private let lock = NSRecursiveLock()
@@ -114,6 +114,50 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                 settings.syncIntervalMinutes = authorization.intervalMinutes
             }
             return settings
+        }
+    }
+
+    public func withCurrentWorkspaceGeneration<T: Sendable>(_ body: (UUID) throws -> T) throws -> T {
+        try lock.withLock { try body(powerWorkspaceID()) }
+    }
+
+    public func withActiveSnapshot<T: Sendable>(workspaceGeneration: UUID, destination: RemoteBackupDestination,
+        capture: @Sendable (RemoteBackupWorkspaceSnapshot) throws -> T) async throws -> T {
+        try withBackupSnapshot(workspaceGeneration: workspaceGeneration, destination: destination,
+            authorize: {}, capture: capture)
+    }
+
+    func withAuthorizedBackupSnapshot<T: Sendable>(workspaceGeneration: UUID, destination: RemoteBackupDestination,
+        checker: RemoteBackupAuthorizationChecker, capture: @Sendable (RemoteBackupWorkspaceSnapshot) throws -> T) async throws -> T {
+        try withBackupSnapshot(workspaceGeneration: workspaceGeneration, destination: destination, authorize: {
+            try checker.validate(workspaceGeneration: workspaceGeneration, destination: destination)
+        }, capture: capture)
+    }
+
+    private func withBackupSnapshot<T: Sendable>(workspaceGeneration: UUID, destination: RemoteBackupDestination,
+        authorize: () throws -> Void, capture: (RemoteBackupWorkspaceSnapshot) throws -> T) throws -> T {
+        try lock.withLock {
+            _ = try powerWorkspaceID(expected: workspaceGeneration)
+            try authorize()
+            guard !manualSyncActive else {
+                throw WorkerFailure("sync_busy", "Wait for synchronization to finish before backing up.")
+            }
+            let reference = try referenceDirectoryURL()
+            #if os(macOS)
+            let referenceLease = try ReferenceRefreshLease(directory: reference)
+            defer { referenceLease.release() }
+            #endif
+            return try capture(RemoteBackupWorkspaceSnapshot(workspaceGeneration: workspaceGeneration,
+                destination: destination, database: readyDatabase(), settings: currentSettings(),
+                preferences: currentBackupPreferences(), referenceDataURL: reference))
+        }
+    }
+
+    /// Outside every backup payload and created only by an explicit native boundary.
+    func remoteBackupDirectory() throws -> URL {
+        try lock.withLock {
+            _ = try readyDatabase()
+            return try workspaceSubdirectory("Remote Backup", create: true)
         }
     }
 
@@ -543,9 +587,15 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                                                 "worked": $0.worked, "confirmed": $0.confirmed] }]
             case "logbook_import_adif":
                 if params["action"] as? String == "preview" {
-                    try requireKeys(params, allowed: ["action", "text", "token", "generation", "chunk"], required: ["action", "text"])
+                    try requireKeys(params, allowed: ["action", "text", "token", "generation", "chunk", "fieldMetadata"], required: ["action", "text"])
                     guard let text = params["text"] as? String else { throw invalid() }
-                    let preview = ADIFImportPreview(text: text)
+                    let metadata: [ADIFFieldMetadata?]? = try params["fieldMetadata"].map { value in
+                        let data = try JSONSerialization.data(withJSONObject: value)
+                        guard data.count <= 16_384 else { throw invalid() }
+                        return try decoder.decode([ADIFFieldMetadata?].self, from: data)
+                    }
+                    let preview = ADIFImportPreview(text: text, fieldMetadata: metadata)
+                    let metadataBytes = try metadata.map { try encoder.encode($0).count } ?? 0
                     let issues = preview.issues.map { ["record": $0.recordNumber, "message": $0.message] as [String: Any] }
                     guard issues.isEmpty else { return ["records": preview.records.count, "issues": issues] }
                     let generation = try editGeneration()
@@ -570,7 +620,7 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                     }
                     guard adifPreview?.nextChunk == chunk,
                           let count = adifPreview?.recordCount, count + preview.records.count <= 500_000,
-                          adifPreview!.bytes + text.utf8.count <= 32 * 1024 * 1024 else {
+                          adifPreview!.bytes + text.utf8.count + metadataBytes <= 32 * 1024 * 1024 else {
                         throw WorkerFailure("preview_sequence", "The preview sequence or record limit changed. Review the file again.")
                     }
                     let counts = try adifPreview!.index.review(preview)
@@ -600,7 +650,7 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                         adifPreview!.seenUpdateIDs.insert(id)
                     }
                     adifPreview!.updateChunks.append((updateText, targets))
-                    adifPreview!.bytes += text.utf8.count
+                    adifPreview!.bytes += text.utf8.count + metadataBytes
                     adifPreview!.nextChunk += 1
                     adifPreview!.recordCount += preview.records.count
                     return ["records": preview.records.count, "issues": issues, "generation": generation,
@@ -629,12 +679,17 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                     adifPreview = session
                     return ["updated": updated]
                 }
-                try requireKeys(params, allowed: ["text", "generation"], required: ["text"])
+                try requireKeys(params, allowed: ["text", "generation", "fieldMetadata"], required: ["text"])
                 if params["generation"] != nil, try !matchesEditGeneration(params, editGeneration()) {
                     throw WorkerFailure("workspace_changed", "The workspace changed after preview. Review the file again.")
                 }
                 guard let text = params["text"] as? String, text.utf8.count <= 16_384 else { throw invalid() }
-                let preview = ADIFImportPreview(text: text)
+                let metadata: [ADIFFieldMetadata?]? = try params["fieldMetadata"].map { value in
+                    let data = try JSONSerialization.data(withJSONObject: value)
+                    guard data.count <= 16_384 else { throw invalid() }
+                    return try decoder.decode([ADIFFieldMetadata?].self, from: data)
+                }
+                let preview = ADIFImportPreview(text: text, fieldMetadata: metadata)
                 guard preview.issues.isEmpty else { throw invalid() }
                 let records = preview.records
                 let qsos = try records.map { record -> QSO in
@@ -680,6 +735,10 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                     let offset = try integer(params, "offset", default: 0, range: 0...Int(Int32.max))
                     let limit = try integer(params, "limit", default: 20, range: 1...25)
                     let records = export.snapshot.records.dropFirst(offset).prefix(limit)
+                    let metadata: [Any] = try records.map { record in
+                        if let value = record.fieldMetadata { try value.validate(fields: record.fields); return try json(value) }
+                        return NSNull()
+                    }
                     let body = records.map { record in
                         record.fields.keys.sorted().map { key in
                             let value = record.fields[key] ?? ""
@@ -687,15 +746,19 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                         }.joined() + "<EOR>\r\n"
                     }.joined()
                     return ["text": (offset == 0 ? "<ADIF_VER:5>3.1.7<EOH>\r\n" : "") + body, "count": records.count,
-                            "offset": offset, "total": export.snapshot.records.count]
+                            "offset": offset, "total": export.snapshot.records.count, "fieldMetadata": metadata]
                 }
                 try requireKeys(params, allowed: ["limit", "offset"])
                 let limit = try integer(params, "limit", default: 20, range: 1...25)
                 let offset = try integer(params, "offset", default: 0, range: 0...Int(Int32.max))
                 let db = try readyDatabase()
                 let qsos = try db.fetch(limit: limit, offset: offset)
+                let metadata: [Any] = try qsos.map { qso in
+                    if let value = qso.adifFieldMetadata { try value.validate(fields: qso.adifRecord.fields); return try json(value) }
+                    return NSNull()
+                }
                 return ["text": qsos.map(\.adifRecord.adifDocument).joined(),
-                        "count": qsos.count, "offset": offset, "total": try db.stats().qsoCount]
+                        "count": qsos.count, "offset": offset, "total": try db.stats().qsoCount, "fieldMetadata": metadata]
             case "settings_load":
                 try requireKeys(params, allowed: [])
                 let generation = try editGeneration()

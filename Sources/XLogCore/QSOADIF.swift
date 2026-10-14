@@ -65,6 +65,7 @@ public extension QSO {
             extraFields: record.fields,
             isDirty: false
         )
+        adifFieldMetadata = record.fieldMetadata
     }
 
     var adifRecord: ADIFRecord {
@@ -94,6 +95,6 @@ public extension QSO {
         set("MY_GRIDSQUARE", myGrid); set("PROP_MODE", propagationMode); set("EMAIL", email)
         set("QSL_SENT", qslSent); set("QSL_RCVD", qslReceived); set("QSL_SENT_VIA", qslMethod)
         set("QSL_VIA", qslVia); set("LOTW_QSL_SENT", lotwSent); set("LOTW_QSL_RCVD", lotwReceived)
-        return ADIFRecord(fields: fields)
+        return ADIFRecord(fields: fields, fieldMetadata: adifFieldMetadata)
     }
 }

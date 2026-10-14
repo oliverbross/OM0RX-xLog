@@ -4,6 +4,56 @@ const maximumFileBytes = 32 * 1024 * 1024;
 
 export type ADIFExportFormat = "adi" | "adx";
 export type ADIFImportEncoding = "utf-8" | "windows-1252" | "iso-8859-1";
+export type ADIFFieldMetadata = { version: 1; extensions: Record<string, {
+  kind: "APP" | "USERDEF"; attributes: Record<string, string>; declaration?: Record<string, string>;
+}> };
+const sameAttributes = (left: Record<string, string>, right: Record<string, string>) =>
+  Object.keys(left).length === Object.keys(right).length && Object.keys(left).every(key => left[key] === right[key]);
+function metadataError(): never { throw new Error("ADIF extension metadata is invalid or conflicting; no lossless conversion is available."); }
+function validateExtensionValue(type: string | undefined, value: string, declaration?: Record<string, string>): void {
+  if (type === undefined) return;
+  const normalized = type.toUpperCase();
+  if (!/^[bBnNsSiIdDtTmMgGeElL]$/.test(type)) metadataError();
+  if (normalized === "S" && !/^[ -~]*$/.test(value)) metadataError();
+  if (normalized === "M" && !/^[\r\n -~]*$/.test(value)) metadataError();
+  if (normalized === "E" && !/^[ -~]+$/.test(value)) metadataError();
+  if (normalized === "B" && !/^[yn]$/i.test(value)) metadataError();
+  if (normalized === "I" && !/^-?[0-9]+$/.test(value)) metadataError();
+  if (normalized === "N" && !/^-?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)$/.test(value)) metadataError();
+  if (normalized === "D") validateADXValue("QSO_DATE", value);
+  if (normalized === "T") validateADXValue("TIME_ON", value);
+  if (normalized === "L" && !/^[EWNS](?:0[0-9]{2}|1[0-7][0-9]|180) [0-5][0-9]\.[0-9]{3}$/i.test(value)) metadataError();
+  if (!["G", "M"].includes(normalized) && /[\r\n]/.test(value)) metadataError();
+  if (declaration?.ENUM !== undefined && (!/^\{[ -~]*\}$/.test(declaration.ENUM) || /[\r\n]/.test(declaration.ENUM) || normalized !== "E" || !declaration.ENUM.slice(1, -1).split(",").includes(value))) metadataError();
+  // RANGE is preserved structurally, but semantic range interpretation is not
+  // part of version 1. Reject it rather than silently discard its constraint.
+  if (declaration?.RANGE !== undefined) metadataError();
+}
+function validateFieldMetadata(metadata: ADIFFieldMetadata, fields: Map<string, string>): void {
+  if (!metadata || metadata.version !== 1 || !metadata.extensions || typeof metadata.extensions !== "object" || Array.isArray(metadata.extensions) ||
+    Object.keys(metadata).some(key => !["version", "extensions"].includes(key)) || Object.keys(metadata.extensions).length > 128 || utf8.encode(JSON.stringify(metadata)).length > 16_384) metadataError();
+  const ids = new Set<string>();
+  for (const [key, item] of Object.entries(metadata.extensions)) {
+    if (!item || !item.attributes || typeof item.attributes !== "object" || Array.isArray(item.attributes) ||
+      Object.keys(item).some(name => !["kind", "attributes", "declaration"].includes(name)) ||
+      Object.values(item.attributes).some(value => typeof value !== "string") || !/^[A-Z0-9_]+$/.test(key)) metadataError();
+    const { attributes, declaration } = item;
+    if (!/^[A-Za-z0-9_]+$/.test(attributes.FIELDNAME ?? "")) metadataError();
+    if (item.kind === "APP") {
+      if (!/^[A-Za-z0-9_]+$/.test(attributes.PROGRAMID ?? "") || key !== `APP_${attributes.PROGRAMID}_${attributes.FIELDNAME}`.toUpperCase() ||
+        !fields.has(key) || declaration !== undefined || Object.keys(attributes).some(name => !["PROGRAMID", "FIELDNAME", "TYPE"].includes(name))) metadataError();
+      validateExtensionValue(attributes.TYPE, fields.get(key)!);
+    } else {
+      if (item.kind !== "USERDEF" || key !== attributes.FIELDNAME.toUpperCase() || key.startsWith("APP_") || standardADXFields.has(key) || reservedADXFields.has(key) || Object.keys(attributes).length !== 1 || !declaration) metadataError();
+      if (Object.values(declaration).some(value => typeof value !== "string") || Object.keys(declaration).some(name => !["FIELDID", "TYPE", "ENUM", "RANGE"].includes(name)) ||
+        !/^[1-9][0-9]{0,9}$/.test(declaration.FIELDID ?? "") || Number(declaration.FIELDID) > 4294967295 || ids.has(declaration.FIELDID) || !/^[bBnNsSiIdDtTmMgGeElL]$/.test(declaration.TYPE ?? "")) metadataError();
+      ids.add(declaration.FIELDID);
+      if (declaration.RANGE !== undefined) metadataError();
+      if (declaration.ENUM !== undefined && (!/^\{[ -~]*\}$/.test(declaration.ENUM) || /[\r\n]/.test(declaration.ENUM) || declaration.TYPE.toUpperCase() !== "E")) metadataError();
+      if (fields.has(key)) validateExtensionValue(declaration.TYPE, fields.get(key)!, declaration);
+    }
+  }
+}
 
 // QSO element names from the ADIF 3.1.7 ADX schema. Unknown preserved names
 // are declared USERDEF fields rather than invented XML elements.
@@ -100,15 +150,19 @@ function xmlText(value: string): string {
 export class ADIFExportDocument {
   private parts: string[] = [];
   private customFields = new Set<string>();
+  private declarations = new Map<string, { name: string; attributes: Record<string, string> }>();
   private bytes = 0;
   private records = 0;
   private failed = false;
   constructor(readonly format: ADIFExportFormat, private readonly maximumBytes = maximumFileBytes) {}
 
-  append(text: string, expectedRecords: number): void {
+  append(text: string, expectedRecords: number, fieldMetadata?: (ADIFFieldMetadata | null)[]): void {
     if (this.failed) throw new Error("Export has already stopped.");
     try {
       if (!Number.isSafeInteger(expectedRecords) || expectedRecords <= 0) throw new Error("Frozen export record count could not be verified.");
+      if (fieldMetadata && (!Array.isArray(fieldMetadata) || fieldMetadata.length !== expectedRecords ||
+        fieldMetadata.some(value => value !== null && (typeof value !== "object" || Array.isArray(value))))) metadataError();
+      if (this.format === "adi" && fieldMetadata?.some(Boolean)) throw new Error("ADX extension metadata requires ADX export for lossless preservation.");
       if (this.format === "adx") validateXMLText(text);
       const input = utf8.encode(text);
       if (input.length > this.maximumBytes) throw new Error("Export exceeds the 32 MiB file limit.");
@@ -131,11 +185,27 @@ export class ADIFExportDocument {
           }
           if (descriptor === "EOR") {
             if (!fields.size) throw new Error("Frozen export contains an empty record.");
+            const metadata = fieldMetadata?.[count];
+            if (metadata) {
+              validateFieldMetadata(metadata, fields);
+              for (const [key, extension] of Object.entries(metadata.extensions)) {
+                if (extension.kind !== "USERDEF") continue;
+                const next = { name: extension.attributes.FIELDNAME, attributes: { ...extension.declaration! } };
+                const existing = this.declarations.get(key);
+                if (existing && (existing.name !== next.name || !sameAttributes(existing.attributes, next.attributes))) metadataError();
+                if ([...this.declarations].some(([other, value]) => other !== key && value.attributes.FIELDID === next.attributes.FIELDID)) metadataError();
+                this.declarations.set(key, next);
+              }
+            }
             const record: string[] = [];
             for (const [name, value] of fields) {
               validateADXValue(name, value);
               const escaped = xmlText(value);
-              if (name.startsWith("APP_")) {
+              const extension = metadata?.extensions[name];
+              if (extension) {
+                const attributes = Object.entries(extension.attributes).map(([key, value]) => ` ${key}="${xmlText(value)}"`).join("");
+                record.push(`<${extension.kind}${attributes}>${escaped}</${extension.kind}>`);
+              } else if (name.startsWith("APP_")) {
                 const match = /^APP_([A-Z0-9]+)_([A-Z0-9_]+)$/.exec(name);
                 if (!match) throw new Error(`Field ${name} cannot be represented losslessly in ADX. Choose ADI export instead.`);
                 record.push(`<APP PROGRAMID="${match[1]}" FIELDNAME="${match[2]}" TYPE="G">${escaped}</APP>`);
@@ -169,15 +239,49 @@ export class ADIFExportDocument {
 
   finish(): string {
     if (this.failed || !this.records) throw new Error("Export is incomplete.");
+    const declarations = [...this.declarations.values()];
+    const usedIDs = new Set(declarations.map(item => item.attributes.FIELDID));
+    let nextID = 1;
+    for (const name of this.customFields) {
+      if (this.declarations.has(name)) metadataError();
+      while (usedIDs.has(String(nextID))) nextID++;
+      declarations.push({ name, attributes: { FIELDID: String(nextID), TYPE: "G" } }); usedIDs.add(String(nextID++));
+    }
+    if (declarations.length > 128) metadataError();
     const header = this.format === "adx" ? '<?xml version="1.0" encoding="UTF-8"?>\r\n<ADX><HEADER><ADIF_VER>3.1.7</ADIF_VER><PROGRAMID>OM0RX-xLog</PROGRAMID>' +
-      [...this.customFields].map((name, index) => `<USERDEF FIELDID="${index + 1}" TYPE="G">${name}</USERDEF>`).join("") + '</HEADER><RECORDS>\r\n' : "";
+      declarations.map(item => `<USERDEF${Object.entries(item.attributes).map(([key, value]) => ` ${key}="${xmlText(value)}"`).join("")}>${xmlText(item.name)}</USERDEF>`).join("") + '</HEADER><RECORDS>\r\n' : "";
     const footer = this.format === "adx" ? "</RECORDS></ADX>\r\n" : "";
     if (this.bytes + utf8.encode(header + footer).length > this.maximumBytes) throw new Error("Export exceeds the 32 MiB file limit.");
     return header + this.parts.join("") + footer;
   }
 }
 
-export function decodeADIF(bytes: ArrayBuffer, encoding: ADIFImportEncoding = "utf-8"): string {
+export function decodeADIFDocument(bytes: ArrayBuffer, encoding: ADIFImportEncoding = "utf-8"): { text: string; fieldMetadata: (ADIFFieldMetadata | null)[] } {
+  const fieldMetadata: (ADIFFieldMetadata | null)[] = [];
+  return { text: decodeADIF(bytes, encoding, fieldMetadata), fieldMetadata };
+}
+
+/** Bound the metadata sidecar as well as the canonical ADI in each native frame. */
+export function adifImportBatches(document: { text: string; fieldMetadata: (ADIFFieldMetadata | null)[] }): { text: string; fieldMetadata?: (ADIFFieldMetadata | null)[] }[] {
+  const counts: number[] = [];
+  const texts = adifBatches(document.text, 14_000, counts);
+  const result: { text: string; fieldMetadata?: (ADIFFieldMetadata | null)[] }[] = [];
+  function append(text: string, metadata: (ADIFFieldMetadata | null)[]) {
+    if (!metadata.some(Boolean)) { result.push({ text }); return; }
+    if (utf8.encode(JSON.stringify(metadata)).length <= 16_384) { result.push({ text, fieldMetadata: metadata }); return; }
+    if (metadata.length === 1) throw new Error("ADIF extension metadata exceeds the native frame limit.");
+    const subCounts: number[] = [];
+    const parts = adifBatches(text, 14_000, subCounts, Math.ceil(metadata.length / 2));
+    let offset = 0;
+    parts.forEach((part, index) => { append(part, metadata.slice(offset, offset + subCounts[index])); offset += subCounts[index]; });
+  }
+  if (document.fieldMetadata.length && document.fieldMetadata.length !== counts.reduce((sum, value) => sum + value, 0)) metadataError();
+  let offset = 0;
+  texts.forEach((text, index) => { append(text, document.fieldMetadata.slice(offset, offset + counts[index])); offset += counts[index]; });
+  return result;
+}
+
+export function decodeADIF(bytes: ArrayBuffer, encoding: ADIFImportEncoding = "utf-8", fieldMetadata?: (ADIFFieldMetadata | null)[]): string {
   if (bytes.byteLength > 32 * 1024 * 1024) throw new Error("Choose an ADIF file smaller than 32 MiB.");
   if (encoding !== "utf-8" && encoding !== "windows-1252" && encoding !== "iso-8859-1") throw new Error("Choose a supported import encoding.");
   if (encoding !== "utf-8") return legacyADI(new Uint8Array(bytes), encoding);
@@ -188,7 +292,7 @@ export function decodeADIF(bytes: ArrayBuffer, encoding: ADIFImportEncoding = "u
     throw new Error("Only UTF-8 ADI or ADX files are supported. Export UTF-8 and try again.");
   }
   if (text.includes("\0")) throw new Error("Only UTF-8 ADI or ADX files are supported. Export UTF-8 and try again.");
-  return /^\s*<(?:\?|!|(?:[A-Za-z_][\w.-]*:)?ADX(?:\s|\/?>))/.test(text) ? adxToADI(text) : text;
+  return /^\s*<(?:\?|!|(?:[A-Za-z_][\w.-]*:)?ADX(?:\s|\/?>))/.test(text) ? adxToADI(text, fieldMetadata) : text;
 }
 
 // Explicit Windows-1252 mapping: browser decoders may accept its undefined bytes,
@@ -246,7 +350,7 @@ function legacyADI(bytes: Uint8Array, encoding: Exclude<ADIFImportEncoding, "utf
 
 // Normalize ADX at the file boundary so the worker reviews and freezes exactly
 // the same byte-counted ADI that its existing import/update paths already use.
-function adxToADI(text: string): string {
+function adxToADI(text: string, fieldMetadata?: (ADIFFieldMetadata | null)[]): string {
   const declaration = /^\s*<\?xml\s[^?]*\?>/.exec(text)?.[0];
   const encoding = declaration && /\bencoding\s*=\s*['"]([^'"]+)['"]/.exec(declaration)?.[1];
   if (encoding && !/^utf-8$/i.test(encoding)) throw new Error("ADX must declare UTF-8 encoding. Export UTF-8 and try again.");
@@ -285,8 +389,16 @@ function adxToADI(text: string): string {
   if (root.localName !== "ADX") fail();
   const sections = children(root);
   if (sections.length !== 2 || sections[0].localName !== "HEADER" || sections[1].localName !== "RECORDS") fail();
-  // Header metadata is validated but not mapped into contact fields, as with ADI.
-  for (const entry of children(sections[0])) field(entry, true);
+  const declarations = new Map<string, { name: string; attributes: Record<string, string> }>();
+  const declarationIDs = new Set<string>();
+  for (const entry of children(sections[0])) {
+    field(entry, true);
+    if (entry.localName !== "USERDEF") continue;
+    const name = entry.textContent ?? "", key = name.toUpperCase();
+    const attributes = Object.fromEntries(Array.from(entry.attributes).filter(attribute => !attribute.namespaceURI).map(attribute => [attribute.name, attribute.value]));
+    if (declarations.has(key) || declarationIDs.has(attributes.FIELDID)) metadataError();
+    declarations.set(key, { name, attributes }); declarationIDs.add(attributes.FIELDID);
+  }
   const records = children(sections[1]);
   if (!records.length) throw new Error("No complete ADIF records were found.");
   const result: string[] = [];
@@ -296,13 +408,26 @@ function adxToADI(text: string): string {
     const fields = children(record);
     if (!fields.length || fields.length > 128) fail();
     const seen = new Set<string>();
+    const metadata: ADIFFieldMetadata = { version: 1, extensions: Object.fromEntries([...declarations].map(([key, value]) => [key,
+      { kind: "USERDEF", attributes: { FIELDNAME: value.name }, declaration: value.attributes }])) };
     const body = fields.map(element => {
       const [name, value] = field(element);
       if (seen.has(name)) throw new Error(`ADX repeats field ${name}; importing would lose data.`);
       seen.add(name);
+      if (element.localName === "APP") {
+        if (metadata.extensions[name]) metadataError();
+        metadata.extensions[name] = { kind: "APP", attributes: Object.fromEntries(Array.from(element.attributes).filter(attribute => !attribute.namespaceURI).map(attribute => [attribute.name, attribute.value])) };
+      } else if (element.localName === "USERDEF") {
+        if (metadata.extensions[name]?.attributes.FIELDNAME !== element.getAttribute("FIELDNAME")) metadataError();
+      } else if (metadata.extensions[name]) metadataError();
       return `<${name}:${utf8.encode(value).length}>${value}`;
     }).join("") + "<EOR>\r\n";
+    if (Object.keys(metadata.extensions).length) {
+      validateFieldMetadata(metadata, new Map(fields.map(element => field(element))));
+      fieldMetadata?.push(metadata);
+    } else fieldMetadata?.push(null);
     size += utf8.encode(body).length;
+    size += Object.keys(metadata.extensions).length ? utf8.encode(JSON.stringify(metadata)).length : 0;
     if (size > 32 * 1024 * 1024) throw new Error("Converted ADX exceeds the 32 MiB import limit.");
     result.push(body);
   }
@@ -311,7 +436,8 @@ function adxToADI(text: string): string {
 
 // Descriptor lengths are UTF-8 bytes, matching the native xLog ADI writer.
 // EOR-like text inside a length-delimited field must never split a record.
-export function adifBatches(text: string, maximumBytes = 14_000): string[] {
+export function adifBatches(text: string, maximumBytes = 14_000, recordCounts?: number[], maximumRecords = 100): string[] {
+  if (!Number.isSafeInteger(maximumRecords) || maximumRecords < 1 || maximumRecords > 100) throw new Error("Invalid ADIF batch record limit.");
   const bytes = utf8.encode(text);
   if (bytes.length > 32 * 1024 * 1024) throw new Error("Choose an ADIF file smaller than 32 MiB.");
   const batches: string[] = [];
@@ -326,8 +452,9 @@ export function adifBatches(text: string, maximumBytes = 14_000): string[] {
     if (/^EOH$/i.test(descriptor)) continue;
     if (/^EOR$/i.test(descriptor)) {
       if (cursor - start > maximumBytes) throw new Error("An ADIF record exceeds the safe import size.");
-      if (records === 100 || cursor - batchStart > maximumBytes) {
+      if (records === maximumRecords || cursor - batchStart > maximumBytes) {
         batches.push(decoder.decode(bytes.subarray(batchStart, start)));
+        recordCounts?.push(records);
         batchStart = start; records = 0;
       }
       start = cursor; records++;
@@ -339,7 +466,7 @@ export function adifBatches(text: string, maximumBytes = 14_000): string[] {
     cursor += length;
   }
   if (decoder.decode(bytes.subarray(start)).trim()) throw new Error("ADIF ends with an incomplete record.");
-  if (records) batches.push(decoder.decode(bytes.subarray(batchStart)));
+  if (records) { batches.push(decoder.decode(bytes.subarray(batchStart))); recordCounts?.push(records); }
   if (!batches.length) throw new Error("No complete ADIF records were found.");
   return batches;
 }

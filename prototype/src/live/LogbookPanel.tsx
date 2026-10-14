@@ -6,7 +6,7 @@ import type { DraftSnapshot } from "./operatorDraftSession";
 import { useLogbookCapacity } from "./logbookCapacity";
 import { LogbookColumnHeader, LogbookColumns, useLogbookColumns } from "./LogbookColumns";
 import { logbookColumns, type LogbookColumn, type LogbookColumnContext } from "./logbookColumnPreferences";
-import { adifBatches, decodeADIF, ADIFExportDocument, type ADIFExportFormat, type ADIFImportEncoding } from "./adifTransfer";
+import { adifImportBatches, decodeADIFDocument, ADIFExportDocument, type ADIFExportFormat, type ADIFImportEncoding, type ADIFFieldMetadata } from "./adifTransfer";
 
 type QSO = Record<string, unknown> & {
   id: string;
@@ -129,7 +129,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
   useEffect(() => { onBusyChange?.(busy); }, [busy, onBusyChange]);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [importReview, setImportReview] = useState<{ name: string; encoding: ADIFImportEncoding; batches: string[]; records: number; duplicates: number; generation: string; token: string } | null>(null);
+  const [importReview, setImportReview] = useState<{ name: string; encoding: ADIFImportEncoding; batches: string[]; fieldMetadata: (ADIFFieldMetadata | null)[][]; records: number; duplicates: number; generation: string; token: string } | null>(null);
   const [importEncoding, setImportEncoding] = useState<ADIFImportEncoding>("utf-8");
   const [updateDuplicates, setUpdateDuplicates] = useState(false);
   const [updateFields, setUpdateFields] = useState<string[]>([]);
@@ -262,11 +262,15 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
     setError(""); setNotice(""); setImportReview(null); setUpdateDuplicates(false); setUpdateFields([]);
     try {
       if (file.size > 32 * 1024 * 1024) throw new Error("Choose an ADIF file smaller than 32 MiB.");
-      const batches = adifBatches(decodeADIF(await file.arrayBuffer(), importEncoding));
+      const document = decodeADIFDocument(await file.arrayBuffer(), importEncoding);
+      const frames = adifImportBatches(document);
+      const batches = frames.map(frame => frame.text);
+      const fieldMetadata = frames.map(frame => frame.fieldMetadata ?? []);
       let records = 0, duplicates = 0, generation = "", token = "";
       for (const [index, text] of batches.entries()) {
         const preview = result<{ records: number; duplicates: number; generation: string; token: string; issues: { record: number; message: string }[] }>(
-          await onRequest("logbook_import_adif", { action: "preview", text, chunk: index, ...(token ? { token, generation } : {}) }));
+          await onRequest("logbook_import_adif", { action: "preview", text, chunk: index,
+            ...(fieldMetadata[index].some(Boolean) ? { fieldMetadata: fieldMetadata[index] } : {}), ...(token ? { token, generation } : {}) }));
         if (!Array.isArray(preview.issues)) throw new Error("ADIF preview is unavailable. No contacts were imported.");
         if (preview.issues.length) throw new Error(`Batch ${index + 1}, record ${preview.issues[0].record}: ${preview.issues[0].message}`);
         if (!preview.token || !preview.generation || (generation && generation !== preview.generation)) throw new Error("The workspace changed during preview. Review the file again.");
@@ -275,14 +279,14 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
         records += preview.records; duplicates += preview.duplicates;
         setNotice(`Validating ADIF · ${index + 1} of ${batches.length} batches`);
       }
-      if (mounted.current) { setImportReview({ name: file.name, encoding: importEncoding, batches, records, duplicates, generation, token }); setNotice(""); }
+      if (mounted.current) { setImportReview({ name: file.name, encoding: importEncoding, batches, fieldMetadata, records, duplicates, generation, token }); setNotice(""); }
     } catch (cause) { if (mounted.current) setError(cause instanceof Error ? cause.message : String(cause)); }
     finally { finishWorking(); }
   }
 
   async function confirmImport() {
     if (!importReview || (updateDuplicates && !updateFields.length) || !beginWorking()) return;
-    const { batches, generation, token } = importReview;
+    const { batches, fieldMetadata, generation, token } = importReview;
     setImportReview(null); setError(""); setNotice("");
     let imported = 0;
     let skipped = 0;
@@ -299,7 +303,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
           continue;
         }
         const response = result<{ imported: number; skipped_duplicates: number }>(
-          await onRequest("logbook_import_adif", { text: batch, generation }),
+          await onRequest("logbook_import_adif", { text: batch, generation, ...(fieldMetadata[index].some(Boolean) ? { fieldMetadata: fieldMetadata[index] } : {}) }),
         );
         imported += response.imported;
         skipped += response.skipped_duplicates;
@@ -333,13 +337,13 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
       const exportDocument = new ADIFExportDocument(format);
       let exported = 0;
       while (exported < total) {
-        const response = result<{ text: string; count: number }>(
+        const response = result<{ text: string; count: number; fieldMetadata?: (ADIFFieldMetadata | null)[] }>(
           await onRequest("logbook_export_adif", { action: "read", token: snapshot.token, offset: exported, limit: requestPageSize }),
         );
         if (!Number.isSafeInteger(response.count) || response.count <= 0 || response.count > Math.min(requestPageSize, total - exported) || typeof response.text !== "string") {
           throw new Error("Export stopped before the end of the logbook; its frame could not be verified.");
         }
-        exportDocument.append(response.text, response.count);
+        exportDocument.append(response.text, response.count, response.fieldMetadata);
         exported += response.count;
         setNotice(`Preparing ADIF · ${exported.toLocaleString()} of ${total.toLocaleString()} QSOs`);
       }

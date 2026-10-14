@@ -51,6 +51,7 @@ public struct QSO: Codable, Identifiable, Hashable, Sendable {
     public var lotwSent: String
     public var lotwReceived: String
     public var extraFields: [String: String]
+    public var adifFieldMetadata: ADIFFieldMetadata? = nil
     public var isDirty: Bool
     public var deletedAt: Date?
     public var updatedAt: Date

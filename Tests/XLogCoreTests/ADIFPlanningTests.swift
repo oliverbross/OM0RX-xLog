@@ -4,6 +4,30 @@ import Testing
 
 @Suite("Read-only ADIF review and export")
 struct ADIFPlanningTests {
+    @Test("Version-one extension metadata rejects collisions, malformed identities and conflicting declarations")
+    func extensionMetadataValidation() throws {
+        let fields = ["APP_TEST_FIELD": "0012.50", "CUSTOM": "A", "OTHER": "B", "ADDRESS": "Keep ordinary value"]
+        let app = ADIFFieldMetadata.ExtensionField(kind: "APP", attributes: ["PROGRAMID": "Test", "FIELDNAME": "Field", "TYPE": "n"])
+        let custom = ADIFFieldMetadata.ExtensionField(kind: "USERDEF", attributes: ["FIELDNAME": "CUSTOM"], declaration: ["FIELDID": "1", "TYPE": "E", "ENUM": "{A,B}"])
+        let valid = ADIFFieldMetadata(extensions: ["APP_TEST_FIELD": app, "CUSTOM": custom])
+        try valid.validate(fields: fields)
+        var target = try #require(QSO(adif: record(fields))); target.adifFieldMetadata = valid
+        let plan = try ADIFImportPlan(preview: ADIFImportPreview(text: record(["NAME": "New"]).adifDocument), existing: [target], duplicatePolicy: .updateFields(["NAME"]))
+        #expect(plan.updates.first?.record.fieldMetadata == valid)
+        let mismatched = ADIFFieldMetadata(extensions: ["APP_WRONG_FIELD": app])
+        #expect(throws: (any Error).self) { try mismatched.validate(fields: fields) }
+        let reserved = ADIFFieldMetadata(extensions: ["ADDRESS": .init(kind: "USERDEF", attributes: ["FIELDNAME": "ADDRESS"], declaration: ["FIELDID": "1", "TYPE": "G"])])
+        #expect(throws: (any Error).self) { try reserved.validate(fields: fields) }
+        let repeated = ADIFFieldMetadata(extensions: ["CUSTOM": custom, "OTHER": .init(kind: "USERDEF", attributes: ["FIELDNAME": "OTHER"], declaration: ["FIELDID": "1", "TYPE": "G"])])
+        #expect(throws: (any Error).self) { try repeated.validate(fields: fields) }
+        var badValues = fields; badValues["APP_TEST_FIELD"] = "NaN"
+        #expect(throws: (any Error).self) { try valid.validate(fields: badValues) }
+        badValues = fields; badValues["CUSTOM"] = "C"
+        #expect(throws: (any Error).self) { try valid.validate(fields: badValues) }
+        let unknown = Data(#"{"version":1,"extensions":{},"unknown":"discard me"}"#.utf8)
+        #expect(throws: (any Error).self) { try JSONDecoder().decode(ADIFFieldMetadata.self, from: unknown) }
+    }
+
     private func record(_ extra: [String: String] = [:]) -> ADIFRecord {
         ADIFRecord(fields: ["CALL": "K1ABC", "QSO_DATE": "20261014", "TIME_ON": "1234",
                             "BAND": "20m", "MODE": "MFSK", "SUBMODE": "FT8"]

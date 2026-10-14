@@ -73,6 +73,7 @@ public actor LiveWorker {
     private let powerDelivery: NativeDraftPowerDelivery
     private var powerSelectionSequence: UInt64 = 0
     private let logbookLane: LogbookLane
+    let remoteBackup: LiveRemoteBackupService
     private let opportunities: LiveOpportunitiesMethods
     private let cluster: LiveClusterMethods
     private let publicServices: LivePublicServiceMethods
@@ -91,10 +92,12 @@ public actor LiveWorker {
          publicServices: LivePublicServiceMethods? = nil,
          powerCapture: NativeDraftPowerGate = NativeDraftPowerGate(),
          powerDelivery: NativeDraftPowerDelivery = NativeDraftPowerDelivery(),
+         remoteBackup: LiveRemoteBackupService? = nil,
          contactRefresher: (@Sendable () async throws -> Void)? = nil) {
         self.powerCapture = powerCapture
         self.powerDelivery = powerDelivery
         logbookLane = LogbookLane(service: logbook, power: powerCapture)
+        self.remoteBackup = remoteBackup ?? LiveRemoteBackupService(logbook: logbook)
         self.publicServices = publicServices ?? LivePublicServiceMethods(logbook: logbook)
         services = LiveServiceMethods(logbook: logbook)
         #if os(macOS)
@@ -111,6 +114,7 @@ public actor LiveWorker {
         terminalShutdown = true
         powerCapture.terminate()
         cancelContactRefresh()
+        remoteBackup.beginTermination()
     }
 
     private func cancelContactRefresh() {
@@ -169,6 +173,7 @@ public actor LiveWorker {
 
     public func shutdown() async {
         beginTerminalShutdown()
+        await remoteBackup.terminate()
         await services.beginTermination()
         #if os(macOS)
         await references.terminate()
@@ -274,6 +279,7 @@ public actor LiveWorker {
                         throw WorkerFailure("worker_stopping", "The worker is shutting down; Save was not started.")
                     }
                 }
+                if ["workspace_create", "backup_restore"].contains(method) { try await remoteBackup.stop() }
                 let changingWorkspace = !localAcceptance && ["workspace_create", "backup_restore"].contains(method)
                 if changingWorkspace {
                     // Retire queued publications before the database may be

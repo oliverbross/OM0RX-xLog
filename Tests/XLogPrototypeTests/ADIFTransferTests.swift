@@ -9,6 +9,42 @@ import XLogPortableCore
 
 @Suite("Reviewed ADIF transfer")
 struct ADIFTransferTests {
+    @Test("Versioned extension metadata survives persistence and frozen export beside ordinary fields")
+    func fieldMetadataPersistence() throws {
+        try fixture { service, db in
+            let fields: [String: Any] = ["version": 1, "extensions": [
+                "APP_MIXED_NAME_FIELD": ["kind": "APP", "attributes": ["PROGRAMID": "Mixed_Name", "FIELDNAME": "Field", "TYPE": "n"]],
+                "CUSTOM": ["kind": "USERDEF", "attributes": ["FIELDNAME": "CUSTOM"], "declaration": ["FIELDID": "17", "TYPE": "G"]]]]
+            let text = "<CALL:4>W1AW<QSO_DATE:8>20261014<TIME_ON:6>000000<BAND:3>20m<MODE:2>CW<APP_MIXED_NAME_FIELD:7>0012.50<CUSTOM:7>Žilina<EOR>"
+            let preview = try service.handle(method: "logbook_import_adif", params: ["action": "preview", "text": text, "fieldMetadata": [fields]])
+            #expect((preview["issues"] as? [[String: Any]])?.isEmpty == true)
+            _ = try service.handle(method: "logbook_import_adif", params: ["text": text, "generation": preview["generation"]!, "fieldMetadata": [fields]])
+            let saved = try #require(try db.fetchAll().first)
+            #expect(saved.extraFields["APP_MIXED_NAME_FIELD"] == "0012.50" && saved.extraFields["CUSTOM"] == "Žilina")
+            #expect(saved.adifFieldMetadata?.extensions["APP_MIXED_NAME_FIELD"]?.attributes["PROGRAMID"] == "Mixed_Name")
+            var edit = saved.adifRecord.fields; edit["NAME"] = "Updated"
+            let editPreview = try service.handle(method: "logbook_import_adif", params: ["action": "preview", "text": ADIFRecord(fields: edit).adifDocument])
+            _ = try service.handle(method: "logbook_import_adif", params: ["action": "update", "token": editPreview["token"]!, "generation": editPreview["generation"]!, "chunk": 0, "fields": ["NAME"], "confirmed": true])
+            #expect(try db.lookup(localID: saved.id)?.adifFieldMetadata == saved.adifFieldMetadata)
+            var clean = try #require(try db.lookup(localID: saved.id)); clean.wavelogID = 42
+            try db.save(clean, markDirty: false)
+            var remote = clean; remote.adifFieldMetadata = nil; remote.name = "Remote rename"
+            _ = try db.mergeRemote(remote)
+            #expect(try db.lookup(localID: saved.id)?.adifFieldMetadata == saved.adifFieldMetadata)
+            let stored = try JSONEncoder().encode(saved)
+            #expect(try JSONDecoder().decode(QSO.self, from: stored).adifFieldMetadata == saved.adifFieldMetadata)
+            var legacy = try #require(try JSONSerialization.jsonObject(with: stored) as? [String: Any]); legacy.removeValue(forKey: "adifFieldMetadata")
+            #expect(try JSONDecoder().decode(QSO.self, from: JSONSerialization.data(withJSONObject: legacy)).adifFieldMetadata == nil)
+            let start = try service.handle(method: "logbook_export_adif", params: ["action": "begin", "scope": "all"])
+            let exported = try service.handle(method: "logbook_export_adif", params: ["action": "read", "token": start["token"]!])
+            let metadata = try #require(exported["fieldMetadata"] as? [[String: Any]])
+            #expect(metadata.count == 1 && metadata[0]["version"] as? Int == 1)
+            var invalid = fields; invalid["version"] = 2
+            let rejected = try service.handle(method: "logbook_import_adif", params: ["action": "preview", "text": text, "fieldMetadata": [invalid]])
+            #expect(!(rejected["issues"] as? [[String: Any]] ?? []).isEmpty)
+        }
+    }
+
     @Test("Canonical Latin-1 C1 field code points survive native preview, import, export and reviewed updates")
     func latin1C1RoundTrip() throws {
         try fixture { service, db in

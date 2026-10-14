@@ -1,10 +1,135 @@
 import Foundation
 
+private struct ADIFMetadataKey: CodingKey {
+    let stringValue: String
+    var intValue: Int? { nil }
+    init?(stringValue: String) { self.stringValue = stringValue }
+    init?(intValue: Int) { return nil }
+}
+private func checkMetadataKeys(_ decoder: Decoder, allowed: Set<String>) throws {
+    let keys = try decoder.container(keyedBy: ADIFMetadataKey.self).allKeys.map(\.stringValue)
+    guard Set(keys).isSubset(of: allowed) else { throw ADIFPlanningError.invalidPreview }
+}
+
+/// Versioned per-record ADX identity/declarations, carried beside ordinary fields.
+/// No ADIF field name is reserved or repurposed for this contract.
+public struct ADIFFieldMetadata: Codable, Equatable, Hashable, Sendable {
+    // Schema identity fence, not an expansion of the editable field catalogue.
+    private static let standardNames = Set("""
+    ADDRESS ADDRESS_INTL AGE ALTITUDE A_INDEX ANT_AZ ANT_EL ANT_PATH ARRL_SECT AWARD_SUBMITTED AWARD_GRANTED BAND BAND_RX CALL CHECK CLASS
+    CLUBLOG_QSO_UPLOAD_DATE CLUBLOG_QSO_UPLOAD_STATUS CNTY CNTY_ALT COMMENT COMMENT_INTL CONT CONTACTED_OP CONTEST_ID COUNTRY COUNTRY_INTL CQZ CREDIT_SUBMITTED CREDIT_GRANTED
+    DARC_DOK DCL_QSLRDATE DCL_QSLSDATE DCL_QSL_RCVD DCL_QSL_SENT DISTANCE DXCC EMAIL EQ_CALL EQSL_AG EQSL_QSLRDATE EQSL_QSLSDATE EQSL_QSL_RCVD EQSL_QSL_SENT
+    FISTS FISTS_CC FORCE_INIT FREQ FREQ_RX GRIDSQUARE GRIDSQUARE_EXT HAMLOGEU_QSO_UPLOAD_DATE HAMLOGEU_QSO_UPLOAD_STATUS HAMQTH_QSO_UPLOAD_DATE HAMQTH_QSO_UPLOAD_STATUS
+    HRDLOG_QSO_UPLOAD_DATE HRDLOG_QSO_UPLOAD_STATUS IOTA IOTA_ISLAND_ID ITUZ K_INDEX LAT LON LOTW_QSLRDATE LOTW_QSLSDATE LOTW_QSL_RCVD LOTW_QSL_SENT
+    MAX_BURSTS MODE MORSE_KEY_INFO MORSE_KEY_TYPE MS_SHOWER MY_ALTITUDE MY_ANTENNA MY_ANTENNA_INTL MY_ARRL_SECT MY_CITY MY_CITY_INTL MY_CNTY MY_CNTY_ALT
+    MY_COUNTRY MY_COUNTRY_INTL MY_CQ_ZONE MY_DARC_DOK MY_DXCC MY_FISTS MY_GRIDSQUARE MY_GRIDSQUARE_EXT MY_IOTA MY_IOTA_ISLAND_ID MY_ITU_ZONE MY_LAT MY_LON
+    MY_MORSE_KEY_INFO MY_MORSE_KEY_TYPE MY_NAME MY_NAME_INTL MY_POSTAL_CODE MY_POSTAL_CODE_INTL MY_POTA_REF MY_RIG MY_RIG_INTL MY_SIG MY_SIG_INTL MY_SIG_INFO
+    MY_SIG_INFO_INTL MY_SOTA_REF MY_STATE MY_STREET MY_STREET_INTL MY_USACA_COUNTIES MY_VUCC_GRIDS MY_WWFF_REF NAME NAME_INTL NOTES NOTES_INTL NR_BURSTS NR_PINGS
+    OPERATOR OWNER_CALLSIGN PFX POTA_REF PRECEDENCE PROP_MODE PUBLIC_KEY QRZCOM_QSO_DOWNLOAD_DATE QRZCOM_QSO_DOWNLOAD_STATUS QRZCOM_QSO_UPLOAD_DATE QRZCOM_QSO_UPLOAD_STATUS
+    QSLMSG QSLMSG_INTL QSLMSG_RCVD QSLRDATE QSLSDATE QSL_RCVD QSL_RCVD_VIA QSL_SENT QSL_SENT_VIA QSL_VIA QSO_COMPLETE QSO_DATE QSO_DATE_OFF QSO_RANDOM QTH QTH_INTL
+    REGION RIG RIG_INTL RST_RCVD RST_SENT RX_PWR SAT_MODE SAT_NAME SFI SIG SIG_INTL SIG_INFO SIG_INFO_INTL SILENT_KEY SKCC SOTA_REF SRX SRX_STRING STATE STATION_CALLSIGN
+    STX STX_STRING SUBMODE SWL TEN_TEN TIME_OFF TIME_ON TX_PWR UKSMG USACA_COUNTIES VUCC_GRIDS WEB WWFF_REF
+    EOH EOR ADX HEADER RECORDS RECORD APP USERDEF ADIF_VER CREATED_TIMESTAMP PROGRAMID PROGRAMVERSION
+    """.split(whereSeparator: \.isWhitespace).map(String.init))
+    public struct ExtensionField: Codable, Equatable, Hashable, Sendable {
+        public var kind: String
+        public var attributes: [String: String]
+        public var declaration: [String: String]?
+        public init(kind: String, attributes: [String: String], declaration: [String: String]? = nil) {
+            self.kind = kind; self.attributes = attributes; self.declaration = declaration
+        }
+        private enum CodingKeys: String, CodingKey { case kind, attributes, declaration }
+        public init(from decoder: Decoder) throws {
+            try checkMetadataKeys(decoder, allowed: ["kind", "attributes", "declaration"])
+            let values = try decoder.container(keyedBy: CodingKeys.self)
+            kind = try values.decode(String.self, forKey: .kind)
+            attributes = try values.decode([String: String].self, forKey: .attributes)
+            declaration = try values.decodeIfPresent([String: String].self, forKey: .declaration)
+        }
+    }
+    public var version: Int
+    public var extensions: [String: ExtensionField]
+    public init(version: Int = 1, extensions: [String: ExtensionField]) { self.version = version; self.extensions = extensions }
+    private enum CodingKeys: String, CodingKey { case version, extensions }
+    public init(from decoder: Decoder) throws {
+        try checkMetadataKeys(decoder, allowed: ["version", "extensions"])
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        version = try values.decode(Int.self, forKey: .version)
+        extensions = try values.decode([String: ExtensionField].self, forKey: .extensions)
+    }
+    public func validate(fields: [String: String]) throws {
+        guard version == 1, extensions.count <= 128,
+              try JSONEncoder().encode(self).count <= 16_384 else { throw ADIFPlanningError.invalidPreview }
+        func identifier(_ value: String) -> Bool {
+            !value.isEmpty && value.utf8.allSatisfy { (65...90).contains($0) || (97...122).contains($0) || (48...57).contains($0) || $0 == 95 }
+        }
+        func typedValue(_ value: String, type: String?, declaration: [String: String]? = nil) throws {
+            guard value.unicodeScalars.allSatisfy({ scalar in
+                let code = scalar.value
+                return code == 9 || code == 10 || code == 13 || (32...0xd7ff).contains(code) || (0xe000...0xfffd).contains(code) || (0x10000...0x10ffff).contains(code)
+            }) else { throw ADIFPlanningError.invalidPreview }
+            guard let type else { return }
+            let normalized = type.uppercased()
+            func matches(_ pattern: String) -> Bool { value.range(of: pattern, options: .regularExpression) != nil }
+            guard type.utf8.count == 1, "BNSIDTMGEL".contains(normalized),
+                  ["G", "M"].contains(normalized) || !value.contains("\r") && !value.contains("\n") else { throw ADIFPlanningError.invalidPreview }
+            let valid: Bool
+            switch normalized {
+            case "S": valid = matches("^[ -~]*$")
+            case "M": valid = matches("^[\\r\\n -~]*$")
+            case "E": valid = matches("^[ -~]+$")
+            case "B": valid = matches("^[yYnN]$")
+            case "I": valid = matches("^-?[0-9]+$")
+            case "N": valid = matches("^-?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)$")
+            case "T": valid = matches("^(?:[01][0-9]|2[0-3])(?:[0-5][0-9]){1,2}$")
+            case "D":
+                let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.timeZone = TimeZone(secondsFromGMT: 0)
+                formatter.dateFormat = "yyyyMMdd"; formatter.isLenient = false
+                valid = matches("^(?:19[3-9][0-9]|[2-9][0-9]{3})(?:0[1-9]|1[0-2])(?:0[1-9]|[12][0-9]|3[01])$") && formatter.date(from: value).map { formatter.string(from: $0) == value } == true
+            case "L": valid = matches("^[eEwWnNsS](?:0[0-9]{2}|1[0-7][0-9]|180) [0-5][0-9]\\.[0-9]{3}$")
+            default: valid = true
+            }
+            guard valid else { throw ADIFPlanningError.invalidPreview }
+            if let enumeration = declaration?["ENUM"] {
+                guard normalized == "E", enumeration.range(of: #"^\{[ -~]*\}$"#, options: .regularExpression) != nil,
+                      String(enumeration.dropFirst().dropLast()).components(separatedBy: ",").contains(value) else { throw ADIFPlanningError.invalidPreview }
+            }
+        }
+        var declarationIDs = Set<String>()
+        for (key, item) in extensions {
+            guard identifier(key), key == key.uppercased(), let name = item.attributes["FIELDNAME"], identifier(name),
+                  item.attributes["TYPE"].map({ $0.utf8.count == 1 && "BNSIDTMGEL".contains($0.uppercased()) }) ?? true else { throw ADIFPlanningError.invalidPreview }
+            if item.kind == "APP" {
+                guard let program = item.attributes["PROGRAMID"], identifier(program), fields[key] != nil,
+                      key == "APP_\(program)_\(name)".uppercased(), item.declaration == nil,
+                      Set(item.attributes.keys).isSubset(of: ["PROGRAMID", "FIELDNAME", "TYPE"]) else { throw ADIFPlanningError.invalidPreview }
+                try typedValue(fields[key]!, type: item.attributes["TYPE"])
+            } else {
+                guard item.kind == "USERDEF", key == name.uppercased(), !key.hasPrefix("APP_"),
+                      !Self.standardNames.contains(key),
+                      Set(item.attributes.keys) == ["FIELDNAME"] else { throw ADIFPlanningError.invalidPreview }
+                if let declaration = item.declaration {
+                    guard let id = declaration["FIELDID"], let number = UInt32(id), number > 0, String(number) == id,
+                          declarationIDs.insert(id).inserted,
+                          let type = declaration["TYPE"], type.utf8.count == 1, "BNSIDTMGEL".contains(type.uppercased()), declaration["RANGE"] == nil,
+                          Set(declaration.keys).isSubset(of: ["FIELDID", "TYPE", "ENUM", "RANGE"]) else { throw ADIFPlanningError.invalidPreview }
+                    if let enumeration = declaration["ENUM"] {
+                        guard type.uppercased() == "E", !enumeration.contains("\r"), !enumeration.contains("\n"), enumeration.range(of: #"^\{[ -~]*\}$"#, options: .regularExpression) != nil else { throw ADIFPlanningError.invalidPreview }
+                    }
+                    if let value = fields[key] { try typedValue(value, type: type, declaration: declaration) }
+                } else { throw ADIFPlanningError.invalidPreview }
+            }
+        }
+    }
+}
+
 public struct ADIFRecord: Equatable, Sendable {
     public var fields: [String: String]
+    public var fieldMetadata: ADIFFieldMetadata?
 
-    public init(fields: [String: String]) {
+    public init(fields: [String: String], fieldMetadata: ADIFFieldMetadata? = nil) {
         self.fields = fields.reduce(into: [:]) { $0[$1.key.uppercased()] = $1.value }
+        self.fieldMetadata = fieldMetadata
     }
 
     public subscript(_ name: String) -> String? { fields[name.uppercased()] }
@@ -146,7 +271,7 @@ public struct ADIFImportPreview: Sendable {
 
     /// Matches xLog's existing writer: descriptor lengths count UTF-8 bytes.
     /// ADX and other encodings require a separate reader; they are rejected here.
-    public init(text: String, maximumBytes: Int = 16_384, maximumRecords: Int = 128) {
+    public init(text: String, maximumBytes: Int = 16_384, maximumRecords: Int = 128, fieldMetadata: [ADIFFieldMetadata?]? = nil) {
         var records: [ADIFRecord] = [], issues: [Issue] = []
         var fields: [String: String] = [:]
         func report(_ message: String) {
@@ -176,7 +301,9 @@ public struct ADIFImportPreview: Sendable {
             if name == "EOR", parts.count == 1 {
                 guard !fields.isEmpty else { report("Empty record."); break }
                 guard records.count < maximumRecords else { report("Record count exceeds the preview limit."); break }
-                let record = ADIFRecord(fields: fields)
+                let metadata = fieldMetadata.flatMap { records.count < $0.count ? $0[records.count] : nil }
+                let record = ADIFRecord(fields: fields, fieldMetadata: metadata)
+                if let metadata, (try? metadata.validate(fields: fields)) == nil { report("Invalid ADIF field metadata.") }
                 records.append(record); fields.removeAll(); recordStarted = true
                 if !Self.validContact(record) { issues.append(Issue(recordNumber: records.count, message: "Invalid callsign, UTC date/time, band, mode or frequency.")) }
                 continue
@@ -194,6 +321,7 @@ public struct ADIFImportPreview: Sendable {
             fields[name] = value; cursor += length
         }
         if !fields.isEmpty { report("Unterminated record; EOR is required.") }
+        if let fieldMetadata, fieldMetadata.count != records.count { report("ADIF field metadata count does not match records.") }
         if records.isEmpty && issues.isEmpty { report("No contact records were found.") }
         self.records = records; self.issues = issues
     }
@@ -333,7 +461,10 @@ public struct ADIFImportPlan: Sendable {
                 }
             }
             if merged == target.adifRecord.fields { skipped.append(number) }
-            else { updates.append(Entry(recordNumber: number, targetID: target.id, record: ADIFRecord(fields: merged))) }
+            else {
+                try target.adifFieldMetadata?.validate(fields: merged)
+                updates.append(Entry(recordNumber: number, targetID: target.id, record: ADIFRecord(fields: merged, fieldMetadata: target.adifFieldMetadata)))
+            }
         }
         self.inserts = inserts; self.updates = updates; self.duplicates = duplicates; self.skippedRecordNumbers = skipped
     }

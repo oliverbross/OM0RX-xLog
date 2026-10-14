@@ -156,6 +156,29 @@ it("rejects invalid ADX scalar values before creating a native preview", async (
   expect(request.mock.calls.filter(([method]) => method === "logbook_import_adif")).toHaveLength(0);
 });
 
+it("freezes APP identity/type metadata beside canonical ADI and restores it from native ADX export frames", async () => {
+  const { request, pick } = setup(); await screen.findByText("W1AW");
+  const source = '<ADX><HEADER/><RECORDS><RECORD><CALL>W1AW</CALL><QSO_DATE>20261014</QSO_DATE><TIME_ON>000000</TIME_ON><BAND>20m</BAND><MODE>CW</MODE><APP PROGRAMID="Mixed_Name" FIELDNAME="Value" TYPE="n">0012.50</APP></RECORD></RECORDS></ADX>';
+  const metadata = { version: 1, extensions: { APP_MIXED_NAME_VALUE: { kind: "APP", attributes: { PROGRAMID: "Mixed_Name", FIELDNAME: "Value", TYPE: "n" } } } };
+  const canonical = adif.replace("<EOR>", "<APP_MIXED_NAME_VALUE:7>0012.50<EOR>\r\n");
+  await pick(new TextEncoder().encode(source));
+  await screen.findByRole("group", { name: "Review ADIF import" });
+  expect(request).toHaveBeenCalledWith("logbook_import_adif", { action: "preview", text: canonical, chunk: 0, fieldMetadata: [metadata] });
+  fireEvent.click(screen.getByRole("button", { name: "Confirm import" }));
+  await screen.findByText("1 QSOs imported; 0 duplicates skipped.");
+  expect(request).toHaveBeenCalledWith("logbook_import_adif", { text: canonical, generation: "workspace-1", fieldMetadata: [metadata] });
+  const original = request.getMockImplementation()!;
+  request.mockImplementation(async (method, params) => method === "logbook_export_adif" && params?.action === "read"
+    ? { text: canonical, count: 1, fieldMetadata: [metadata] } : original(method, params));
+  const objectURL = vi.fn((_blob: Blob) => "blob:test");
+  Object.defineProperty(URL, "createObjectURL", { configurable: true, value: objectURL });
+  vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+  fireEvent.change(screen.getByRole("combobox", { name: "Export format" }), { target: { value: "adx" } });
+  fireEvent.click(screen.getByRole("button", { name: "Export all" }));
+  await screen.findByText("1 QSOs exported from the integrated logbook.");
+  expect(await blobText(objectURL.mock.calls[0][0] as Blob)).toContain('<APP PROGRAMID="Mixed_Name" FIELDNAME="Value" TYPE="n">0012.50</APP>');
+});
+
 it("rejects invalid ADX grid patterns before native preview without changing ADI admission", async () => {
   const { request, pick } = setup(); await screen.findByText("W1AW");
   await pick(new TextEncoder().encode('<ADX><HEADER/><RECORDS><RECORD><GRIDSQUARE>ZZ99</GRIDSQUARE></RECORD></RECORDS></ADX>'));

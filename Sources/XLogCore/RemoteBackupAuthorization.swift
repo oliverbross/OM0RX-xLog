@@ -26,6 +26,16 @@ public struct RemoteBackupAuthorizationState: Equatable, Sendable {
     public let authorization: RemoteBackupAuthorization?
 }
 
+/// Synchronous validation can run inside a workspace snapshot's lifetime lease.
+/// It reloads durable consent on every use; it does not cache permission.
+public struct RemoteBackupAuthorizationChecker: Sendable {
+    private let check: @Sendable (UUID, RemoteBackupDestination) throws -> Void
+    fileprivate init(check: @escaping @Sendable (UUID, RemoteBackupDestination) throws -> Void) { self.check = check }
+    public func validate(workspaceGeneration: UUID, destination: RemoteBackupDestination) throws {
+        try check(workspaceGeneration, destination)
+    }
+}
+
 /// One approved destination context per owner. Construction and reads never grant
 /// permission. Workspace rotation invalidates consent without guessing identity or
 /// replaying prior work. This owner never starts timers, captures or networking.
@@ -72,6 +82,22 @@ public actor RemoteBackupAuthorizationOwner {
             guard let record = try store.read(), record.workspaceGeneration == current,
                   try record.authorization() == authorization else {
                 throw RemoteBackupAuthorizationError.notAuthorized
+            }
+        }
+    }
+
+    public func checker(for authorization: RemoteBackupAuthorization) -> RemoteBackupAuthorizationChecker {
+        let workspace = workspace, store = store
+        return RemoteBackupAuthorizationChecker { generation, destination in
+            try workspace.withCurrentWorkspaceGeneration { current in
+                guard generation == current, generation == authorization.workspaceGeneration,
+                      destination == authorization.destination else { throw RemoteBackupPlanningError.staleContext }
+                try store.locked {
+                    guard let record = try store.read(), record.workspaceGeneration == current,
+                          try record.authorization() == authorization else {
+                        throw RemoteBackupAuthorizationError.notAuthorized
+                    }
+                }
             }
         }
     }
