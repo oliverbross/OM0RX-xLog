@@ -380,6 +380,32 @@ it("rejects ENUM+RANGE and conflicting RANGE declarations even if equivalent num
   expect(() => writer.append(other.text, 1, other.fieldMetadata)).toThrow();
 });
 
+const adxLocations = ["LAT", "LON", "MY_LAT", "MY_LON"];
+const adxVUCCFields = ["VUCC_GRIDS", "MY_VUCC_GRIDS"];
+it.each([
+  ...adxLocations.flatMap(name => ["N000 00.000", "s090 59.999", "e179 00.001", "W180 59.999"].map(value => [name, value])),
+  ...adxVUCCFields.flatMap(name => ["JN99,jn98", "aa00,RR99,jn99,JN98", "Jn99aA,jN98xX", "AA00aa,rr99XX,JN99ab,jn98CD", "JN99,JN99"].map(value => [name, value])),
+])("preserves exact geographic ADX schema text %s=%s at both boundaries", (name, value) => {
+  const original = adiRecord({ [name]: value });
+  expect(decode(adx(`<${name}>${value}</${name}>`))).toBe(original);
+  const writer = new ADIFExportDocument("adx"); writer.append(original, 1);
+  expect(decode(writer.finish())).toBe(original);
+});
+
+it.each([
+  ...adxLocations.flatMap(name => ["", "N181 00.000", "N090 60.000", "N90 00.000", "N090 0.000", "N090 00.00", "N090 00.0000", "Q090 00.000", "90.000", " N090 00.000", "N090 00.000 ", "N090 00.000\n", "N090\t00.000"].map(value => [name, value])),
+  ...adxVUCCFields.flatMap(name => ["", "JN99", "JN99,JN98,JN97", "JN99,JN98,JN97,JN96,JN95", "JN99,JN98aa", "JN99aa,JN98", "JN99aa12,JN98aa12", "SS99,JN98", "JN99yy,JN98aa", "JN99, JN98", "JN99;JN98", "JN99,JN98,", " JN99,JN98", "JN99,JN98\n"].map(value => [name, value])),
+])("rejects invalid geographic ADX schema text %s=%s and preserves the ADI fallback", (name, value) => {
+  expect(() => decode(adx(`<${name}>${value}</${name}>`))).toThrow(`Field ${name} has an invalid ADX typed value`);
+  const original = adiRecord({ [name]: value });
+  const writer = new ADIFExportDocument("adx");
+  expect(() => writer.append(original, 1)).toThrow(`Field ${name} has an invalid ADX typed value`);
+  expect(() => writer.finish()).toThrow("incomplete");
+  const adi = new ADIFExportDocument("adi"); adi.append(original, 1);
+  expect(adi.finish()).toBe(original);
+  expect(decode(original)).toBe(original);
+});
+
 it("preserves accepted grid, reference and small enum values exactly across ADX boundaries", () => {
   const fields = { GRIDSQUARE: "jn99aa12", MY_GRIDSQUARE: "JN", GRIDSQUARE_EXT: "xx99", MY_GRIDSQUARE_EXT: "aa",
     IOTA: "eu-001", MY_IOTA: "NA-999", SOTA_REF: "om/za-001", MY_SOTA_REF: "EA8/GC-999",

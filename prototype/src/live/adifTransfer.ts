@@ -1,6 +1,8 @@
 const utf8 = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: true });
 const maximumFileBytes = 32 * 1024 * 1024;
+// ADIF 3.1.7 Location lexical type, shared by fields and TYPE=L extensions.
+const adxLocationPattern = /^[EWNS](?:0[0-9]{2}|1[0-7][0-9]|180) [0-5][0-9]\.[0-9]{3}$/i;
 
 export type ADIFExportFormat = "adi" | "adx";
 export type ADIFImportEncoding = "utf-8" | "windows-1252" | "iso-8859-1";
@@ -49,7 +51,7 @@ function validateExtensionValue(type: string | undefined, value: string, declara
   if (normalized === "N" && !/^-?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)$/.test(value)) metadataError();
   if (normalized === "D") validateADXValue("QSO_DATE", value);
   if (normalized === "T") validateADXValue("TIME_ON", value);
-  if (normalized === "L" && !/^[EWNS](?:0[0-9]{2}|1[0-7][0-9]|180) [0-5][0-9]\.[0-9]{3}$/i.test(value)) metadataError();
+  if (normalized === "L" && !adxLocationPattern.test(value)) metadataError();
   if (!["G", "M"].includes(normalized) && /[\r\n]/.test(value)) metadataError();
   if (declaration?.ENUM !== undefined && (!/^\{[ -~]*\}$/.test(declaration.ENUM) || /[\r\n]/.test(declaration.ENUM) || normalized !== "E" || !declaration.ENUM.slice(1, -1).split(",").includes(value))) metadataError();
   const range = declaration && extensionRange(type, declaration);
@@ -126,7 +128,13 @@ const adxIntegerBounds: Readonly<Record<string, readonly [string, string | null]
   IOTA_ISLAND_ID: ["1", "99999999"], MY_IOTA_ISLAND_ID: ["1", "99999999"],
 };
 const potaReferencePattern = "[A-Za-z0-9]{1,4}-[0-9]{4,5}(?:@[A-Za-z]{2}-[A-Za-z0-9]{1,3})?";
+// GridSquareList4or6 requires 2 or 4 comma-separated locators, all the same
+// length. Preserve their order and case; do not infer adjacency or deduplicate.
+const vuccGridPatterns = ["[A-R]{2}[0-9]{2}", "[A-R]{2}[0-9]{2}[A-X]{2}"];
+const adxVUCCPattern = new RegExp(`^(?:${vuccGridPatterns.map(grid => `${grid},${grid}(?:,${grid},${grid})?`).join("|")})$`, "i");
 const adxPatternRules = [
+  { fields: ["LAT", "LON", "MY_LAT", "MY_LON"], pattern: adxLocationPattern },
+  { fields: ["VUCC_GRIDS", "MY_VUCC_GRIDS"], pattern: adxVUCCPattern },
   { fields: ["GRIDSQUARE", "MY_GRIDSQUARE"], pattern: /^[A-R]{2}(?:[0-9]{2}(?:[A-X]{2}(?:[0-9]{2})?)?)?$/i },
   { fields: ["GRIDSQUARE_EXT", "MY_GRIDSQUARE_EXT"], pattern: /^[A-X]{2}(?:[0-9]{2})?$/i },
   { fields: ["IOTA", "MY_IOTA"], pattern: /^(?:NA|SA|EU|AF|OC|AS|AN)-(?!000$)[0-9]{3}$/i },
