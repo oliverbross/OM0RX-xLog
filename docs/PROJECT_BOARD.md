@@ -1,19 +1,14 @@
 # OM0RX-xLog live project board
 
-Last updated: 14 October 2026, after installing signed/notarized alpha.25 from
-exact source `c8ae4e7`. The compact Desk Logbook, retained split-map resizing,
-default-off Clear-after-QSY, reconnect-generation fencing and KPA Operate policy
-fix are now packaged. Installed acceptance proves Operate is no longer rejected
-by the unrelated CAT-transmit checkbox. The launch still stopped instead of
-reconnecting to a healthy saved Agent and required one manual Connect. A guarded
-Operate attempt then reached the Agent but was safely rejected after the observed
-FLEX route changed during apply; KPA remained Standby and output remained 0 W.
-The Agent also left FLEX drive at 25 W rather than restoring the 12 m barefoot
-90 W route. Unattended reconnect and exact Standby rollback remain active defects.
-Full-control startup resume is source-ready at `dd0eb3d` and is being packaged as
-alpha.26. Reconnection itself remains RF-silent, while Tune, PTT, CW and amplifier
-controls are available by default for operator testing; the operator can still
-opt out explicitly. The Windows rollback defect remains separate.
+Last updated: 14 October 2026, after installing signed/notarized alpha.26 from
+exact source `f47f8d5`. A fresh installed launch automatically resumed the saved
+Remote Station Agent and ShackCQ cluster. Full CAT and amplifier controls were
+enabled by default for operator testing, while startup itself issued no Tune,
+PTT, CW, radio, amplifier or rotor action. The station remained Receive,
+interlock READY, KPA Operate and output 0 W. Alpha.26 also packages lossless ADX
+integer-family validation and the generation-bound, receipt-backed Sync mutation
+owner shared by Main and Settings. The Windows Agent's exact failed-apply and
+Standby drive rollback remains a separate active defect.
 
 This is the operator-facing project overview. Keep it current after every material
 implementation, validation, installation or acceptance change. Detailed evidence
@@ -35,19 +30,19 @@ hardware pass.
 
 ## Current installed baseline
 
-**0.4.0-alpha.25**, exact packaged source
-`c8ae4e71df1698bc4ecf9836be24ef84671d9da6`, is installed. The exact app passed
-32/32 station-I/O-disabled packaged native checks, deep Developer ID verification,
-Apple notarization submission `9efbbe6c-0713-4116-8161-64055301e528`, stapling and
-Gatekeeper. Before/after data readback is 68,014 active contacts, zero dirty,
-outbox or conflict rows, QSO revision 68,199 and SQLite quick-check `ok`; the
-workspace payload is byte-identical. One host/worker pair started after installation. The app did
-not reconnect automatically on launch; manual **Connect saved Agent** recovered
-24.940000 MHz USB, RECEIVE, confirmed 12 m route, KPA Standby, KAT READY/fault 0,
-output 0 W and alarms clear. A subsequent authorized guarded Operate check was not
-CAT-consent blocked, but the Agent rejected it when the FLEX route changed to
-24.941000 MHz during apply. No Tune, PTT, CW or rotor-turn command was issued. See
-[alpha.25 evidence](releases/v0.4.0-alpha.25-macos.md).
+**0.4.0-alpha.26**, exact packaged source
+`f47f8d5a9ee4cb4799c7c7876209c6f1676ce294`, is installed. The app passed **32/32**
+station-I/O-disabled packaged native checks, deep Developer ID verification,
+Apple notarization submission `ab939ab4-417c-40dc-a749-9b9d5e168767`, stapling
+and Gatekeeper. Before/after readback remains **68,014 active contacts**, zero
+dirty, outbox or conflict rows, QSO revision **68,204** and SQLite quick-check
+`ok`. Exactly one installed host/worker pair runs. A fresh launch resumed the
+saved Agent at 21.195000 MHz USB and ShackCQ without a manual Connect; Station
+Control observed Receive, READY, KPA Operate, KAT READY/fault 0 and output 0 W.
+The transmit-control opt-in was active and Tune simplex, PTT, VFO/split,
+Standby/Operate controls were available. No Tune, PTT, CW, radio, amplifier or
+rotor command was issued during acceptance. See
+[alpha.26 evidence](releases/v0.4.0-alpha.26-macos.md).
 
 ## Active stage: independent control surfaces
 
@@ -97,7 +92,7 @@ actions. The global Windowed preset remains disabled.
 | Clear after QSY (RADIO-05) | **Installed / default off / live acceptance open** | Commit `1d0b520` clears only after two distinct fresh observed-RX samples agree on the changed receive frequency; arbitrary split TX is ignored rather than inferred. Reconnect, stale data, first samples, radio/cluster selection changes, command epochs, active edits and worker/workspace generation changes veto the transaction. The native-only mutation uses an editor barrier and durable idempotent receipt; urgent release controls remain available. Legacy settings decode OFF. **3 Swift**, **16 Settings UI**, **4 QSY**, **12 cluster**, **18 activation**, **42 station-selection** and **1 native-boundary** focused tests pass. Raw Hamlib remains conservatively ineligible; `direct_agent` and `direct_flex_lan` are supported. |
 | Compact desk-split Logbook | **Installed / visually observed** | Commit `6ef5748` uses the existing explicit Desk presentation context rather than a viewport guess. Alpha.25 visibly shows only Columns, the contact table and pagination in the Desk split; search/import/export/edit/delete/selection controls remain in dedicated, canvas-docked and detached Logbook views. Row Enter/double-click editing and column focus recovery remain available. **39 focused tests** plus TypeScript, diff and packaged acceptance checks pass. |
 | Retained map resizing in split layouts | **Installed / interaction acceptance open** | Commit `c20b7cb` coalesces resize observations to one animation frame, measures the final positive pane size, remembers hidden/reveal transitions and avoids recreating the map. Alpha.25 rendered the retained map and compact Logbook together; camera, selected spot, overlays and markers remain covered across pointer/keyboard split resizing and Map/Logbook/above/below transitions. **34 focused Map/Desk tests** plus TypeScript, diff and packaged acceptance checks pass; extended manual divider interaction remains open. |
-| Windows Agent restart reconnection | **Installed reproduction / alpha.26 source fix / packaged acceptance active** | Alpha.25 launched `stopped / Radio offline` even though the saved Agent was healthy and alpha.23 had shown the same failure after an Agent restart. Manual **Connect saved Agent** recovered `ready / Observed live` without radio action. Installed commit `a8a1e20` correctly fences late stream/command replies but did not start the saved session. Commit `422bd2b` adds one native startup resume through the existing durable selection/control fence, only for the selected saved Direct Agent; follow-up `dd0eb3d` removes the receive-only default so full CAT and amplifier controls remain available for operator testing. Startup still issues only the connection request: it does not Tune, key PTT/CW, change amplifier state or move the rotor. The endpoint's Keychain token is reused, and explicit disconnect/forget, provider changes, newer controls, or pending/unknown receipts prevent automatic resume. **10 startup-filter**, **44 Agent setup/control UI** and TypeScript checks pass. Alpha.26 packaging and actual Agent-restart/app-relaunch acceptance remain open. |
+| Windows Agent restart reconnection | **Done / installed / Agent-restart repetition open** | Alpha.26 installs commits `422bd2b` and `dd0eb3d`: one native startup resume uses the selected saved Direct Agent, existing durable selection/control fence and Keychain token, with full CAT/amplifier controls enabled by default. A fresh installed app launch automatically recovered `ready / Observed live` at 21.195000 MHz USB and ShackCQ connected; the opt-in checkbox was on and Tune simplex, PTT, VFO/split and Standby/Operate were available. Startup itself sent no station action and observed Receive, READY, KPA Operate and output 0 W. Explicit disconnect/forget, provider changes, newer controls or pending/unknown receipts still prevent resume. **10 startup-filter**, **44 Agent setup/control UI** and TypeScript checks pass. Repeating the acceptance across an actual subsequent Windows Agent process restart remains open. |
 | Shared Sync refresh and mutation owner | **Source verified / packaged acceptance open** | Commit `29ea0c0` provides the single native summary monitor and event-driven Main/Settings refresh. Commit `3134f7c` adds one native mutation owner shared by both views, binding workspace generation, owner revision and reviewed state. SQLite receipts persist before dispatch; exact duplicate operation IDs return the receipt, lost/unknown outcomes never replay, renderer recovery reads receipts, and raw renderer mutation authority is denied. **31 Swift**, **34 frontend** and **14 distinct native Sync/monitor tests** plus TypeScript pass. Packaged multi-window recovery remains open before an independent actionable Sync child. |
 | Reviewed ADIF/ADX transfer workflow | **Active after installed alpha.23 / partial DATA-10** | Workflow through canonical DXCC `f380d95`, explicit ISO-8859-1 ADI `efcc329`, scalar/type checks `64e1010`, grid/reference checks `d8ac9d0`, versioned extension metadata `4ac6edb`, exact USERDEF RANGE enforcement `5fcc04f`, structural rejection `00efac8`, AGE/A-index bounds `fcbbe17` and antenna-angle bounds `16a1c4c`. Commit `8f481fb` adds exact, lossless ADX integer-family validation for K-index, SFI, burst/ping/serial counters and membership/reference identifiers without JavaScript-number precision loss; accepted leading zeros and large exact values survive import/export. The transfer suite passes **469/469** focused tests plus TypeScript. Remaining field families, full-schema/package, live external-sync and installed roundtrip acceptance stay open. |
 | Immutable remote-backup execution foundation | **Active after installed alpha.23 / partial BACKUP-01** | UUID-bound durable authorization `52327f3`, live-worker snapshot/lifecycle integration `4ac6edb`, exclusive Dropbox transport `cec2f8f`, native credential seam `ba7c86d`, approval/start owner `eb6bd42` and durable verified registration owner `9a8f2e5` bind exact workspace, destination, account, vault service, dbid, generation and revision. Commit `6cf9665` now persists independently byte-verified Dropbox dbid/object/revision evidence and exposes a passive, default-off native retention review. Legacy proofless, ambiguous, foreign, failed/uncertain, clock-anomalous and required-newest receipts stay protected. **73 native**, **107 portable** and **4 lifecycle** checks pass at injected/mock boundaries. No deletion executor or capability exists; explicit deletion consent, fresh remote revalidation, revision-conditional deletion, durable unknown-outcome recovery, production OAuth and other providers remain open. |
