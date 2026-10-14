@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import ServiceSettings from "./ServiceSettings";
 import SyncPanel from "./SyncPanel";
 import WorkspaceSettings from "./WorkspaceSettings";
@@ -6,13 +6,13 @@ import { dockDetachedWorkspace } from "./DetachedClusterBridge";
 import { readSettingsJournal, SettingsSession, settingsDraftIsDirty } from "./settingsSession";
 import { connectSettingsChanges, requestSettings } from "./settingsTransport";
 import { useWorkspaceLayout } from "./useWorkspaceLayout";
-import RotorPanel from "./RotorPanel";
 import { clearLegacyRotorConfiguration, legacyRotorConfiguration, readRotorConfigurationJournal,
   RotorConfigurationSession, rotorConfigurationDirty } from "./rotorConfigurationSession";
 import { connectRotorConfigurationChanges } from "./rotorConfigurationTransport";
 
 const journalKey = "xlog.integration.settings.detached.v1";
 const rotorJournalKey = "xlog.integration.rotorConfiguration.detached.v1";
+const RotorPanel = lazy(() => import("./RotorPanel"));
 const availableTabs = ["Station", "Wavelog", "Sync", "QRZ", "Reference data", "Rotator", "Display", "Workspace", "Backups"] as const;
 export const detachedSettingsMethods = [
   "settings_load", "settings_receipt", "settings_save", "secret_status", "secret_save",
@@ -88,7 +88,9 @@ export function DetachedSettingsSurface() {
       } }}
       syncSettings={state.draft.logbookMode === "local" ? <p>Standalone local logbook. Wavelog synchronization is disabled in Settings.</p>
         : <SyncPanel request={requestDetachedSettings} onChanged={reload} />}
-      rotorSettings={<RotorPanel snapshot={null} request={requestDetachedSettings} configurationSession={rotorSession} configurationOnly />}
+      rotorSettings={<Suspense fallback={<p role="status">Loading Rotator settings…</p>}>
+        <RotorPanel snapshot={null} request={requestDetachedSettings} configurationSession={rotorSession} configurationOnly />
+      </Suspense>}
       workspaceSettings={<WorkspaceSettings {...layout}
         available={["active-qso", "callsign-intelligence", "world-map", "band-maps", "dx-cluster", "logbook", "awards", "chaser-dx", "spot-history"]} />}
       dataRequest={requestDetachedSettings} onDataChanged={() => { reload(); void layout.session.refresh(); }} />}
