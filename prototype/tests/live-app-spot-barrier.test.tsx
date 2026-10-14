@@ -47,6 +47,10 @@ beforeEach(() => {
     if (scoped) return { result: scoped };
     return { result: method === "workspace_status" ? { workspace_exists: true, native_log_exists: true }
       : method === "settings_load" ? { settings: { stationCall: "OM0RX", gridSquare: "JN88" }, revision: 0, generation: testWorkspaceGeneration }
+      : method === "workspace_rotor_configuration_load" ? { revision: 0, generation: testWorkspaceGeneration, configuration: {
+        owner: "native_dcu1", native_dcu1: { host: "", port: 4001, name: "Rotor" },
+        hamlib: { mode: "managed", path: "", baud: 9600, host: "127.0.0.1", port: 4533, serial: {} },
+      } }
       : method === "logbook_stats" ? { stats: { qso_count: 1 } }
       : method === "cluster_snapshot" ? { snapshot: { spots: [], connectedClusters: 0 } }
       : method === "station_snapshot" ? { source: params.provider, available: false, radio: null }

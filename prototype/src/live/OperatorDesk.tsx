@@ -7,7 +7,7 @@ import { rotorCommandParams, rotorProjection, type RotorSnapshot } from "./rotor
 import "./OperatorDesk.css";
 import RotorCompass from "./RotorCompass";
 import { DeskAntenna } from "./StationEquipment";
-import { deskEquipmentKind, equipmentProfile, hasConfiguredRotor } from "./equipmentPreferences";
+import { deskEquipmentKind, equipmentProfile } from "./equipmentPreferences";
 import QSOHeader, { type ReferenceEvidence } from "./QSOHeader";
 import { useDuplicateContact } from "./useDuplicateContact";
 
@@ -15,7 +15,7 @@ type Data = Record<string, any>;
 type Request = (method: string, params?: Data) => Promise<any>;
 type Props = { draft: Data | null; setDraft: (value: SetStateAction<Data | null>) => void; save: () => void; clear: () => void; busy: boolean; draftLocked?: boolean; referenceEvidence?: ReferenceEvidence | null;
   lookup: Data | null; previous: Data[]; request: Request; refresh: number; onEditor: () => void; onReadRadio: () => Promise<void>;
-  follow: boolean; setFollow: (value: boolean) => void; rotor: RotorSnapshot | null; autoRotor: boolean; setAutoRotor: (value: boolean) => void; onManualRotor: () => void; isEditing?: boolean; intelligenceBands?: string[]; equipment?: unknown; cwControls?: ReactNode;
+  follow: boolean; setFollow: (value: boolean) => void; rotor: RotorSnapshot | null; rotorConfigured?: boolean; autoRotor: boolean; setAutoRotor: (value: boolean) => void; onManualRotor: () => void; isEditing?: boolean; intelligenceBands?: string[]; equipment?: unknown; cwControls?: ReactNode;
   canAcceptLocalInput?: () => boolean; onLocalInputState?: (pending: boolean) => void };
 const normalizedCall = (value: unknown) => String(value ?? "").trim().toUpperCase();
 const bands = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "4m", "2m", "70cm"];
@@ -134,6 +134,6 @@ export function DeskRotor({ draft, lookup, rotor, request, autoRotor, setAutoRot
 
 export default function OperatorDesk(props: Props) {
   const profile = equipmentProfile(props.equipment);
-  const kind = deskEquipmentKind(profile, props.rotor, hasConfiguredRotor(localStorage));
+  const kind = deskEquipmentKind(profile, props.rotor, props.rotorConfigured === true);
   return <div className="operator-desk"><div className={`operator-desk-top${kind === "none" ? " without-equipment" : ""}`}><DeskQSO {...props} /><DeskIntelligence {...props} />{kind === "rotor" ? <DeskRotor {...props} /> : kind === "antenna" ? <DeskAntenna profile={profile} /> : null}</div></div>;
 }

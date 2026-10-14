@@ -4,10 +4,13 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { DetachedSettingsSurface, requestDetachedSettings } from "./DetachedSettingsSurface";
 
 const api = vi.hoisted(() => ({ request: vi.fn(), dock: vi.fn(), changed: undefined as undefined | (() => void),
-  layoutRefresh: vi.fn(async () => {}) }));
+  rotorChanged: undefined as undefined | (() => void), layoutRefresh: vi.fn(async () => {}) }));
 vi.mock("./settingsTransport", () => ({
   requestSettings: api.request,
   connectSettingsChanges: (changed: () => void) => { api.changed = changed; return () => { api.changed = undefined; }; },
+}));
+vi.mock("./rotorConfigurationTransport", () => ({
+  connectRotorConfigurationChanges: (changed: () => void) => { api.rotorChanged = changed; return () => { api.rotorChanged = undefined; }; },
 }));
 vi.mock("./DetachedClusterBridge", () => ({ dockDetachedWorkspace: api.dock }));
 vi.mock("./SyncPanel", () => ({ default: () => <p>Scoped synchronization</p> }));
@@ -21,9 +24,12 @@ const generation = "12345678-1234-1234-1234-123456789abc";
 const values = { logbookMode: "wavelog", operatorCall: "OM0RX", stationCall: "OM0RX", gridSquare: "JN88",
   wavelogStationID: 1, automaticSync: false };
 const snapshot = (revision: number, settings = values) => ({ generation, revision, settings });
+const rotorSnapshot = { generation, revision: 0, configuration: { owner: "native_dcu1",
+  native_dcu1: { host: "", port: 4001, name: "Rotor" },
+  hamlib: { mode: "managed", path: "", baud: 9600, host: "127.0.0.1", port: 4533, serial: {} } } };
 
 beforeEach(() => {
-  localStorage.clear(); api.changed = undefined; api.dock.mockReset(); api.layoutRefresh.mockClear();
+  localStorage.clear(); api.changed = undefined; api.rotorChanged = undefined; api.dock.mockReset(); api.layoutRefresh.mockClear();
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
 
@@ -31,6 +37,8 @@ it("retains a dirty detached form across invalidation and remount, then permits 
   let current = snapshot(0);
   api.request.mockImplementation(async (method: string) => {
     if (method === "settings_load") return structuredClone(current);
+    if (method === "workspace_rotor_configuration_load") return structuredClone(rotorSnapshot);
+    if (method === "hamlib_models") return { models: [] };
     throw new Error(`Unexpected Settings request ${method}`);
   });
   api.dock.mockResolvedValue(undefined);
@@ -38,7 +46,7 @@ it("retains a dirty detached form across invalidation and remount, then permits 
   const operator = await screen.findByRole("textbox", { name: "Operator call" }) as HTMLInputElement;
   fireEvent.change(operator, { target: { value: "VK8DIRTY" } });
   expect(operator.value).toBe("VK8DIRTY");
-  expect(screen.queryByRole("tab", { name: "Rotator" })).toBeNull();
+  expect(screen.getByRole("tab", { name: "Rotator" })).toBeTruthy();
   expect(screen.queryByRole("tab", { name: "CW" })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Dock back" }));
   expect(await screen.findByText(/Resolve or discard/)).toBeTruthy();

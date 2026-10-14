@@ -5,10 +5,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import ServiceSettings from "./ServiceSettings";
 import { DeskAntenna } from "./StationEquipment";
 import { defaultEquipment, deskEquipmentKind, equipmentProfile, hasConfiguredRotor } from "./equipmentPreferences";
+import { defaultRotorConfiguration } from "./rotorConfigurationSession";
 afterEach(() => { cleanup(); localStorage.clear(); });
 describe("station equipment", () => {
   it("hides an unconfigured rotor and preserves owned Stop controls regardless of display preference", () => {
-    expect(hasConfiguredRotor(localStorage)).toBe(false);
+    expect(hasConfiguredRotor(defaultRotorConfiguration())).toBe(false);
     expect(deskEquipmentKind(defaultEquipment, null, false)).toBe("none");
     expect(deskEquipmentKind(defaultEquipment, null, true)).toBe("rotor");
     for (const display of ["automatic", "antenna", "hidden"] as const) {
@@ -17,15 +18,14 @@ describe("station equipment", () => {
     expect(deskEquipmentKind({ ...defaultEquipment, display: "antenna" }, null, false)).toBe("antenna");
     expect(deskEquipmentKind({ ...defaultEquipment, display: "hidden" }, null, true)).toBe("none");
   });
-  it("detects saved rotor setup without treating an empty form or selection alone as configured", () => {
-    localStorage.setItem("xlog.rotor.host", "host.example");
-    expect(hasConfiguredRotor(localStorage)).toBe(true);
-    localStorage.setItem("xlog.integration.rotor", "hamlib");
-    expect(hasConfiguredRotor(localStorage)).toBe(false);
-    localStorage.setItem("xlog.hamlib.rotor", JSON.stringify({ mode: "managed", model: 1, path: "/dev/test" }));
-    expect(hasConfiguredRotor(localStorage)).toBe(true);
-    localStorage.setItem("xlog.hamlib.rotor", "malformed");
-    expect(hasConfiguredRotor(localStorage)).toBe(false);
+  it("detects shared rotor setup without treating an empty form or selection alone as configured", () => {
+    const native = defaultRotorConfiguration(); native.native_dcu1.host = "host.example";
+    expect(hasConfiguredRotor(native)).toBe(true);
+    const hamlib = defaultRotorConfiguration(); hamlib.owner = "hamlib";
+    expect(hasConfiguredRotor(hamlib)).toBe(false);
+    hamlib.hamlib.model = 1; hamlib.hamlib.path = "/dev/test";
+    expect(hasConfiguredRotor(hamlib)).toBe(true);
+    expect(hasConfiguredRotor(null)).toBe(false);
   });
   it("shows configured bands and identity without fabricated live state or controls", () => {
     const profile = equipmentProfile({ display: "antenna", antenna: "vertical", name: "Garden vertical", bands: ["20m", "17m", "15m", "12m", "10m", "20m", "invalid"] });

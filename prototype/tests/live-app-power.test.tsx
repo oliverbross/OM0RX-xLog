@@ -39,6 +39,10 @@ it("periodically merges measured power with unsaved notes and wires same-value m
     }
     const result = method === "workspace_status" ? { workspace_exists: true, native_log_exists: false }
       : method === "settings_load" ? { settings: { stationCall: "", gridSquare: "", automaticTransmitPower: true, defaultPower: "100" }, revision: 0, generation: testWorkspaceGeneration }
+      : method === "workspace_rotor_configuration_load" ? { revision: 0, generation: testWorkspaceGeneration, configuration: {
+        owner: "native_dcu1", native_dcu1: { host: "", port: 4001, name: "Rotor" },
+        hamlib: { mode: "managed", path: "", baud: 9600, host: "127.0.0.1", port: 4533, serial: {} },
+      } }
       : method === "workspace_preferences_load" ? { stored: false }
       : method === "station_snapshot" ? { source: "direct_agent", available: false, radio: null }
       : method === "cluster_snapshot" ? { snapshot: { spots: [], connectedClusters: 0 } }

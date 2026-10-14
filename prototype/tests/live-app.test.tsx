@@ -33,6 +33,10 @@ beforeEach(() => {
       : method === "cluster_snapshot" ? { snapshot: { spots: [], connectedClusters: 0 } }
       : method === "station_snapshot" ? { source: "xcat_loopback", available: false, radio: null }
       : method === "settings_load" ? { settings: { stationCall: "", gridSquare: "" }, revision: 0, generation: testWorkspaceGeneration }
+      : method === "workspace_rotor_configuration_load" ? { revision: 0, generation: testWorkspaceGeneration, configuration: {
+        owner: "native_dcu1", native_dcu1: { host: "", port: 4001, name: "Rotor" },
+        hamlib: { mode: "managed", path: "", baud: 9600, host: "127.0.0.1", port: 4533, serial: {} },
+      } }
       : method === "workspace_preferences_load" ? { stored: true, preferences: { deskBandMapBands: ["20m", "15m"], detachedBandMapBands: ["20m", "15m"],
         deskBandMapFollowsRadio: false, detachedBandMapFollowsRadio: false, detachedBandMapLayout: "Adaptive grid", bandMapFontScale: 1.2,
         intelligenceBands: ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m"], clusterSpotOpensFullEditor: false } }

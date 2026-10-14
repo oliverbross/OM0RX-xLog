@@ -26,8 +26,9 @@ describe("manufacturer-separated Hamlib catalogue", () => {
     expect(JSON.parse(localStorage.getItem("xlog.hamlib.radio")!).model).toBe(2045);
   });
   it("keeps radio/rotor catalogues and model preferences distinct and caches only enumeration", async () => {
-    const request = fake(); localStorage.setItem("xlog.hamlib.radio", JSON.stringify({ mode: "managed", model: 3073 })); localStorage.setItem("xlog.hamlib.rotor", JSON.stringify({ mode: "managed", model: 601 }));
-    const { unmount } = render(<><HamlibDevice device="radio" request={request} /><HamlibDevice device="rotor" request={request} configurationOnly /></>);
+    const request = fake(); localStorage.setItem("xlog.hamlib.radio", JSON.stringify({ mode: "managed", model: 3073 }));
+    const rotor = { mode: "managed", model: 601, path: "/dev/rotor", baud: 9600, host: "127.0.0.1", port: 4533, serial: {} };
+    const { unmount } = render(<><HamlibDevice device="radio" request={request} /><HamlibDevice device="rotor" request={request} configuration={rotor} onConfigurationChange={() => {}} configurationOnly /></>);
     await screen.findByRole("option", { name: "Yaesu GS-232 · 601 · Stable" });
     expect((screen.getByLabelText("Radio model") as HTMLSelectElement).value).toBe("3073"); expect((screen.getByLabelText("Rotor model") as HTMLSelectElement).value).toBe("601");
     expect(within(screen.getByLabelText("Rotor manufacturer")).queryByRole("option", { name: /Icom/ })).toBeNull();

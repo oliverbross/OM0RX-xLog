@@ -126,6 +126,134 @@ public enum IntegrationSettingsError: Error {
     case invalid
 }
 
+public enum RotorConfigurationOwner: String, Codable, Equatable, Sendable {
+    case nativeDCU1 = "native_dcu1"
+    case hamlib
+}
+
+public struct NativeRotorConfiguration: Codable, Equatable, Sendable {
+    public var host: String
+    public var port: Int
+    public var name: String
+
+    public init(host: String = "", port: Int = 4_001, name: String = "Rotor") {
+        self.host = host; self.port = port; self.name = name
+    }
+}
+
+public struct HamlibRotorSerialConfiguration: Codable, Equatable, Sendable {
+    public var dataBits: Int?
+    public var stopBits: Int?
+    public var parity: String?
+    public var handshake: String?
+    public var dtrState: String?
+    public var rtsState: String?
+
+    public init(dataBits: Int? = nil, stopBits: Int? = nil, parity: String? = nil,
+                handshake: String? = nil, dtrState: String? = nil, rtsState: String? = nil) {
+        self.dataBits = dataBits; self.stopBits = stopBits; self.parity = parity
+        self.handshake = handshake; self.dtrState = dtrState; self.rtsState = rtsState
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case dataBits = "data_bits", stopBits = "stop_bits", parity, handshake
+        case dtrState = "dtr_state", rtsState = "rts_state"
+    }
+}
+
+public struct HamlibRotorConfiguration: Codable, Equatable, Sendable {
+    public enum Mode: String, Codable, Sendable { case managed, external }
+    public var mode: Mode
+    public var model: Int?
+    public var path: String
+    public var baud: Int
+    public var host: String
+    public var port: Int
+    public var serial: HamlibRotorSerialConfiguration
+
+    public init(mode: Mode = .managed, model: Int? = nil, path: String = "", baud: Int = 9_600,
+                host: String = "127.0.0.1", port: Int = 4_533,
+                serial: HamlibRotorSerialConfiguration = .init()) {
+        self.mode = mode; self.model = model; self.path = path; self.baud = baud
+        self.host = host; self.port = port; self.serial = serial
+    }
+}
+
+/// Passive connection preferences only. Reading, restoring or changing this value
+/// never connects, arms, moves or stops hardware.
+public struct RotorConfiguration: Codable, Equatable, Sendable {
+    public var owner: RotorConfigurationOwner
+    public var nativeDCU1: NativeRotorConfiguration
+    public var hamlib: HamlibRotorConfiguration
+
+    public static let defaults = RotorConfiguration(owner: .nativeDCU1,
+        nativeDCU1: .init(), hamlib: .init())
+
+    public init(owner: RotorConfigurationOwner, nativeDCU1: NativeRotorConfiguration,
+                hamlib: HamlibRotorConfiguration) {
+        self.owner = owner; self.nativeDCU1 = nativeDCU1; self.hamlib = hamlib
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case owner, nativeDCU1 = "native_dcu1", hamlib
+    }
+
+    public func validate() throws {
+        let serial = hamlib.serial
+        guard nativeDCU1.host.utf8.count <= 512,
+              (1...65_535).contains(nativeDCU1.port),
+              (1...256).contains(nativeDCU1.name.utf8.count),
+              hamlib.model.map({ (1...Int(Int32.max)).contains($0) }) ?? true,
+              hamlib.path.utf8.count <= 512, hamlib.host.utf8.count <= 512,
+              (300...921_600).contains(hamlib.baud), (1...65_535).contains(hamlib.port),
+              serial.dataBits.map({ [7, 8].contains($0) }) ?? true,
+              serial.stopBits.map({ [1, 2].contains($0) }) ?? true,
+              serial.parity.map({ ["None", "Even", "Odd"].contains($0) }) ?? true,
+              serial.handshake.map({ ["None", "XONXOFF", "Hardware"].contains($0) }) ?? true,
+              serial.dtrState.map({ ["Unset", "OFF", "ON"].contains($0) }) ?? true,
+              serial.rtsState.map({ ["Unset", "OFF", "ON"].contains($0) }) ?? true,
+              (try? JSONEncoder().encode(self).count).map({ $0 <= 16_384 }) == true else {
+            throw RotorConfigurationError.invalid
+        }
+    }
+}
+
+public struct RotorConfigurationSnapshot: Codable, Equatable, Sendable {
+    public let revision: Int64
+    public let configuration: RotorConfiguration
+    public init(revision: Int64, configuration: RotorConfiguration) {
+        self.revision = revision; self.configuration = configuration
+    }
+    public func validate() throws {
+        guard (0...9_007_199_254_740_991).contains(revision) else { throw RotorConfigurationError.invalid }
+        try configuration.validate()
+    }
+}
+
+public struct RotorConfigurationMutation: Codable, Equatable, Sendable {
+    public let operationID: UUID
+    public let expectedRevision: Int64
+    public let configuration: RotorConfiguration
+    public init(operationID: UUID, expectedRevision: Int64, configuration: RotorConfiguration) {
+        self.operationID = operationID; self.expectedRevision = expectedRevision; self.configuration = configuration
+    }
+}
+
+public struct RotorConfigurationReceipt: Codable, Equatable, Sendable {
+    public let mutation: RotorConfigurationMutation
+    public let snapshot: RotorConfigurationSnapshot
+    public init(mutation: RotorConfigurationMutation, snapshot: RotorConfigurationSnapshot) {
+        self.mutation = mutation; self.snapshot = snapshot
+    }
+}
+
+public enum RotorConfigurationError: Error {
+    case conflict(RotorConfigurationSnapshot)
+    case operationReused
+    case notInitialized
+    case invalid
+}
+
 extension XLogSettings {
     private enum CodingKeys: String, CodingKey {
         case operatorCall, stationCall, gridSquare, stationLocation, defaultPower, defaultRadio, automaticTransmitPower

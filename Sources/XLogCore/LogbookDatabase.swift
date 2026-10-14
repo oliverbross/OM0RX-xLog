@@ -478,6 +478,133 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
+    public func rotorConfiguration(seed: RotorConfiguration) throws -> RotorConfigurationSnapshot {
+        try withDatabaseLock {
+            if let existing = try readRotorConfiguration() { return existing }
+            let snapshot = RotorConfigurationSnapshot(revision: 0, configuration: seed)
+            try snapshot.validate()
+            try execute("BEGIN IMMEDIATE;")
+            do {
+                if let existing = try readRotorConfiguration() {
+                    try execute("COMMIT;")
+                    return existing
+                }
+                try writeRotorConfiguration(snapshot)
+                try execute("COMMIT;")
+                return snapshot
+            } catch {
+                try? execute("ROLLBACK;")
+                throw error
+            }
+        }
+    }
+
+    public func applyRotorConfiguration(_ mutation: RotorConfigurationMutation) throws -> RotorConfigurationReceipt {
+        try withDatabaseLock {
+            guard (0...9_007_199_254_740_990).contains(mutation.expectedRevision) else {
+                throw RotorConfigurationError.invalid
+            }
+            try mutation.configuration.validate()
+            try execute("BEGIN IMMEDIATE;")
+            do {
+                if let receipt = try readRotorConfigurationReceipt(operationID: mutation.operationID) {
+                    guard receipt.mutation == mutation else { throw RotorConfigurationError.operationReused }
+                    try execute("COMMIT;")
+                    return receipt
+                }
+                guard let current = try readRotorConfiguration() else { throw RotorConfigurationError.notInitialized }
+                guard current.revision == mutation.expectedRevision else {
+                    throw RotorConfigurationError.conflict(current)
+                }
+                let next = RotorConfigurationSnapshot(
+                    revision: current.configuration == mutation.configuration ? current.revision : current.revision + 1,
+                    configuration: mutation.configuration
+                )
+                try next.validate()
+                if next != current { try writeRotorConfiguration(next) }
+                let receipt = RotorConfigurationReceipt(mutation: mutation, snapshot: next)
+                let payload = try encoder.encode(receipt)
+                guard payload.count <= 32_768 else { throw RotorConfigurationError.invalid }
+                try withStatement("INSERT INTO xlog_rotor_configuration_receipts(operation_id,payload) VALUES(?,?);") { statement in
+                    bind(mutation.operationID.uuidString, to: 1, in: statement)
+                    _ = payload.withUnsafeBytes { sqlite3_bind_blob(statement, 2, $0.baseAddress, Int32($0.count), Self.transient) }
+                    try stepDone(statement)
+                }
+                try execute("COMMIT;")
+                return receipt
+            } catch {
+                try? execute("ROLLBACK;")
+                throw error
+            }
+        }
+    }
+
+    public func rotorConfigurationReceipt(operationID: UUID) throws -> RotorConfigurationReceipt? {
+        try withDatabaseLock { try readRotorConfigurationReceipt(operationID: operationID) }
+    }
+
+    public func installRotorConfigurationAfterRestore(_ snapshot: RotorConfigurationSnapshot) throws {
+        try withDatabaseLock {
+            try snapshot.validate()
+            try execute("BEGIN IMMEDIATE;")
+            do {
+                try writeRotorConfiguration(snapshot)
+                try execute("DELETE FROM xlog_rotor_configuration_receipts;")
+                try execute("COMMIT;")
+            } catch {
+                try? execute("ROLLBACK;")
+                throw error
+            }
+        }
+    }
+
+    private func readRotorConfiguration() throws -> RotorConfigurationSnapshot? {
+        try withStatement("SELECT payload FROM xlog_rotor_configuration WHERE singleton=1;") { statement in
+            let step = sqlite3_step(statement)
+            if step == SQLITE_DONE { return nil }
+            guard step == SQLITE_ROW, let bytes = sqlite3_column_blob(statement, 0),
+                  (1...16_384).contains(Int(sqlite3_column_bytes(statement, 0))) else {
+                throw LogbookDatabaseError.corruptRecord
+            }
+            let snapshot = try decoder.decode(RotorConfigurationSnapshot.self,
+                from: Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 0))))
+            try snapshot.validate()
+            return snapshot
+        }
+    }
+
+    private func writeRotorConfiguration(_ snapshot: RotorConfigurationSnapshot) throws {
+        let payload = try encoder.encode(snapshot)
+        guard payload.count <= 16_384 else { throw RotorConfigurationError.invalid }
+        try withStatement("INSERT INTO xlog_rotor_configuration(singleton,payload) VALUES(1,?) ON CONFLICT(singleton) DO UPDATE SET payload=excluded.payload;") { statement in
+            _ = payload.withUnsafeBytes { sqlite3_bind_blob(statement, 1, $0.baseAddress, Int32($0.count), Self.transient) }
+            try stepDone(statement)
+        }
+    }
+
+    private func readRotorConfigurationReceipt(operationID: UUID) throws -> RotorConfigurationReceipt? {
+        try withStatement("SELECT payload FROM xlog_rotor_configuration_receipts WHERE operation_id=?;") { statement in
+            bind(operationID.uuidString, to: 1, in: statement)
+            let step = sqlite3_step(statement)
+            if step == SQLITE_DONE { return nil }
+            guard step == SQLITE_ROW, let bytes = sqlite3_column_blob(statement, 0),
+                  (1...32_768).contains(Int(sqlite3_column_bytes(statement, 0))) else {
+                throw LogbookDatabaseError.corruptRecord
+            }
+            let receipt = try decoder.decode(RotorConfigurationReceipt.self,
+                from: Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 0))))
+            try receipt.snapshot.validate()
+            guard receipt.mutation.operationID == operationID,
+                  (0...9_007_199_254_740_990).contains(receipt.mutation.expectedRevision),
+                  receipt.snapshot.configuration == receipt.mutation.configuration,
+                  receipt.snapshot.revision == receipt.mutation.expectedRevision
+                    || receipt.snapshot.revision == receipt.mutation.expectedRevision + 1 else {
+                throw LogbookDatabaseError.corruptRecord
+            }
+            return receipt
+        }
+    }
+
     /// Restore coordinator only: retain current preferences when an operator
     /// restores contacts without opting into workspace-preference restoration.
     /// The caller rotates the workspace generation before replacing the DB.
@@ -2165,6 +2292,14 @@ public final class LogbookDatabase: @unchecked Sendable {
           payload BLOB NOT NULL
         );
         CREATE TABLE IF NOT EXISTS xlog_settings_receipts(
+          operation_id TEXT PRIMARY KEY,
+          payload BLOB NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS xlog_rotor_configuration(
+          singleton INTEGER PRIMARY KEY CHECK(singleton = 1),
+          payload BLOB NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS xlog_rotor_configuration_receipts(
           operation_id TEXT PRIMARY KEY,
           payload BLOB NOT NULL
         );

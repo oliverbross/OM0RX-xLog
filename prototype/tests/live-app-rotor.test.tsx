@@ -7,6 +7,7 @@ import { operatorDraftFixture, testWorkspaceGeneration } from "./operator-draft-
 const bridge = vi.hoisted(() => ({ request: vi.fn(), native: vi.fn(), tune: null as null | ((value: any) => void), rejectActivation: null as null | ((cause: Error) => void), rotorGeneration: 4,
   autoState: null as any, autoChanged: null as null | ((value: any) => void),
   nativeSelection: false, selection: vi.fn(), applySelection: vi.fn(),
+  rotorConfiguration: null as any,
   preferenceView: null as any, preferenceChange: null as null | ((value: any) => void),
   telemetry: vi.fn(), stationTelemetry: vi.fn(), selectTelemetry: vi.fn(), intentId: null as string | null }));
 vi.mock("../src/live/useAutoRotor", async () => {
@@ -76,6 +77,10 @@ async function openRotorSettings() {
 beforeEach(() => {
   localStorage.clear(); bridge.request.mockReset(); bridge.native.mockReset(); bridge.tune = null; bridge.rejectActivation = null; bridge.rotorGeneration = 4; bridge.intentId = null;
   bridge.autoState = { armed: false, epoch: 0, owner: "native_dcu1", generation: 4, target: null, activation_pending: false, canonical_pending: false, error: "" };
+  bridge.rotorConfiguration = { revision: 0, generation: testWorkspaceGeneration, configuration: {
+    owner: "native_dcu1", native_dcu1: { host: "rotor.example.invalid", port: 4001, name: "Rotor" },
+    hamlib: { mode: "managed", path: "", baud: 9600, host: "127.0.0.1", port: 4533, serial: {} },
+  } };
   bridge.autoChanged = null;
   bridge.preferenceView = null; bridge.preferenceChange = null;
   bridge.telemetry.mockReset(); bridge.telemetry.mockReturnValue(null);
@@ -119,6 +124,14 @@ beforeEach(() => {
     const result = method === "workspace_status" ? { workspace_exists: true, native_log_exists: true }
       : method === "workspace_preferences_load" ? { preferences, stored: true, generation: preferenceGeneration, revision: 0 }
       : method === "settings_load" ? { settings: { stationCall: "OM0RX", gridSquare: "JN88" }, revision: 0, generation: testWorkspaceGeneration }
+      : method === "workspace_rotor_configuration_load" ? structuredClone(bridge.rotorConfiguration)
+      : method === "workspace_rotor_configuration_save" ? (() => {
+        const next = { revision: bridge.rotorConfiguration.revision + 1, generation: testWorkspaceGeneration,
+          configuration: structuredClone(params.configuration) };
+        bridge.rotorConfiguration = next;
+        return { status: "applied", ...next, receipt: { mutation: structuredClone(params), snapshot: structuredClone(next) } };
+      })()
+      : method === "workspace_rotor_configuration_receipt" ? { receipt: null }
       : method === "logbook_stats" ? { stats: { qso_count: 1 } }
       : method === "logbook_draft" ? { qso: { id: "draft", call: "", start: "2026-10-12T00:00:00Z", frequencyHz: 14074000, mode: "FT8", band: "20m" } }
       : method === "station_snapshot" ? { source: params.provider, generated_at: Date.now() / 1000, radio: { connected: true, observed: true, frequency_hz: 14074000, mode: "DIGU" } }

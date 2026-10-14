@@ -116,6 +116,7 @@ pub fn validate_local_request(request: &Value) -> Result<(), String> {
     let allowed = matches!(request["method"].as_str(), Some(
         "health" | "parse_adif" | "self_test" | "integration_self_test" | "cluster_classify" | "cluster_history"
         | "workspace_status" | "workspace_create" | "workspace_preferences_load" | "workspace_preferences_save"
+        | "workspace_rotor_configuration_load" | "workspace_rotor_configuration_receipt" | "workspace_rotor_configuration_save"
         | "workspace_layout_load" | "workspace_layout_apply"
         | "workspace_map_context" | "workspace_band_map_apply"
         // Swift validates bounded filters/IDs against the generated private

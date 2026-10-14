@@ -618,6 +618,63 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                 } catch IntegrationSettingsError.notInitialized {
                     throw WorkerFailure("settings_not_initialized", "Load settings before saving changes.")
                 } catch IntegrationSettingsError.invalid { throw invalid() }
+            case "workspace_rotor_configuration_load":
+                try requireKeys(params, allowed: ["legacy"])
+                let generation = try editGeneration()
+                let seed: RotorConfiguration
+                if let object = params["legacy"] as? [String: Any] {
+                    seed = try rotorConfiguration(object)
+                } else if params["legacy"] == nil {
+                    seed = .defaults
+                } else { throw invalid() }
+                let snapshot = try readyDatabase().rotorConfiguration(seed: seed)
+                return ["configuration": try json(snapshot.configuration), "revision": snapshot.revision,
+                        "generation": generation]
+            case "workspace_rotor_configuration_receipt":
+                try requireKeys(params, allowed: ["operationID", "generation"], required: ["operationID", "generation"])
+                guard let raw = params["operationID"] as? String, let operationID = UUID(uuidString: raw) else { throw invalid() }
+                let generation = try editGeneration()
+                if try !matchesEditGeneration(params, generation) {
+                    return ["status": "workspace_changed", "generation": generation]
+                }
+                let receipt = try readyDatabase().rotorConfigurationReceipt(operationID: operationID)
+                return ["receipt": try receipt.map { try scopedReceipt($0, field: "snapshot", generation: generation) } ?? NSNull()]
+            case "workspace_rotor_configuration_save":
+                try requireKeys(params, allowed: ["operationID", "expectedRevision", "generation", "configuration"],
+                                required: ["operationID", "expectedRevision", "generation", "configuration"])
+                guard let raw = params["operationID"] as? String, let operationID = UUID(uuidString: raw),
+                      let object = params["configuration"] as? [String: Any] else { throw invalid() }
+                let generation = try editGeneration()
+                if try !matchesEditGeneration(params, generation) {
+                    return ["status": "workspace_changed", "generation": generation]
+                }
+                let expectedRevision = try integer(params, "expectedRevision", default: -1, range: 0...9_007_199_254_740_990)
+                let configuration: RotorConfiguration
+                configuration = try rotorConfiguration(object)
+                let mutation = RotorConfigurationMutation(operationID: operationID,
+                    expectedRevision: Int64(expectedRevision), configuration: configuration)
+                let database = try readyDatabase()
+                if let receipt = try database.rotorConfigurationReceipt(operationID: operationID) {
+                    guard receipt.mutation == mutation else {
+                        throw WorkerFailure("rotor_configuration_operation_reused", "This rotor configuration operation ID was already used for different values.")
+                    }
+                    return ["status": "applied", "configuration": try json(receipt.snapshot.configuration),
+                            "revision": receipt.snapshot.revision, "generation": generation,
+                            "receipt": try scopedReceipt(receipt, field: "snapshot", generation: generation)]
+                }
+                do {
+                    let receipt = try database.applyRotorConfiguration(mutation)
+                    return ["status": "applied", "configuration": try json(receipt.snapshot.configuration),
+                            "revision": receipt.snapshot.revision, "generation": generation,
+                            "receipt": try scopedReceipt(receipt, field: "snapshot", generation: generation)]
+                } catch RotorConfigurationError.conflict(let current) {
+                    return ["status": "conflict", "configuration": try json(current.configuration),
+                            "revision": current.revision, "generation": generation]
+                } catch RotorConfigurationError.operationReused {
+                    throw WorkerFailure("rotor_configuration_operation_reused", "This rotor configuration operation ID was already used for different values.")
+                } catch RotorConfigurationError.notInitialized {
+                    throw WorkerFailure("rotor_configuration_not_initialized", "Load rotor configuration before saving changes.")
+                } catch RotorConfigurationError.invalid { throw invalid() }
             case "workspace_layout_load":
                 try requireKeys(params, allowed: [])
                 let generation = try editGeneration()
@@ -768,6 +825,7 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                 let db = try readyDatabase()
                 let retainedLayout = restorePreferences ? nil : try db.workspaceLayout()
                 let retainedSettings = try storedSettingsSnapshot()
+                let retainedRotorConfiguration = try db.rotorConfiguration(seed: .defaults)
                 let reference = try referenceDirectoryURL()
                 #if os(macOS)
                 let referenceLease = try ReferenceRefreshLease(directory: reference)
@@ -810,6 +868,10 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                         settingsSnapshot = retainedSettings
                     }
                     try database.installIntegrationSettingsAfterRestore(settingsSnapshot)
+                    let restoredRotorConfiguration = try database.rotorConfiguration(seed: retainedRotorConfiguration.configuration)
+                    try database.installRotorConfigurationAfterRestore(
+                        restoreSettings ? restoredRotorConfiguration : retainedRotorConfiguration
+                    )
                     workspace = try IntegrationWorkspaceBootstrap.open(at: workspaceURL)
                     return ["restored": true, "qso_count": try database.count(),
                             "recovery_backup": rollbackName, "preferences_restored": restorePreferences,
@@ -1230,6 +1292,24 @@ public final class LiveLogbookMethods: @unchecked Sendable {
     private func decode<T: Decodable>(_ object: [String: Any]) throws -> T {
         guard JSONSerialization.isValidJSONObject(object) else { throw invalid() }
         return try decoder.decode(T.self, from: JSONSerialization.data(withJSONObject: object))
+    }
+
+    private func rotorConfiguration(_ object: [String: Any]) throws -> RotorConfiguration {
+        do {
+            try requireKeys(object, allowed: ["owner", "native_dcu1", "hamlib"],
+                            required: ["owner", "native_dcu1", "hamlib"])
+            guard let native = object["native_dcu1"] as? [String: Any],
+                  let hamlib = object["hamlib"] as? [String: Any],
+                  let serial = hamlib["serial"] as? [String: Any] else { throw invalid() }
+            try requireKeys(native, allowed: ["host", "port", "name"], required: ["host", "port", "name"])
+            try requireKeys(hamlib, allowed: ["mode", "model", "path", "baud", "host", "port", "serial"],
+                            required: ["mode", "path", "baud", "host", "port", "serial"])
+            try requireKeys(serial, allowed: ["data_bits", "stop_bits", "parity", "handshake", "dtr_state", "rts_state"])
+            let value: RotorConfiguration = try decode(object)
+            try value.validate()
+            return value
+        } catch let failure as WorkerFailure { throw failure }
+        catch { throw invalid() }
     }
 
     private func json<T: Encodable>(_ value: T) throws -> Any {

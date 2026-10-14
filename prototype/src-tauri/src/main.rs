@@ -459,7 +459,8 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
         if method.starts_with("hamlib_") {
             let monitor_allowed = method == "hamlib_snapshot" || (method == "hamlib_control"
                 && matches!(request["params"]["action"].as_str(), Some("goto" | "stop")));
-            if window.label() != "main" && !(window.label() == "monitor" && monitor_allowed) {
+            let settings_catalogue = window.label() == "settings" && method == "hamlib_models";
+            if window.label() != "main" && !(window.label() == "monitor" && monitor_allowed) && !settings_catalogue {
                 return Err("This window cannot control Hamlib devices".into());
             }
         } else {
@@ -490,6 +491,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     let invalidate = logbook_events::changes_logbook(&request);
     let map_changed = invalidate || matches!(method, "settings_save" | "workspace_preferences_save" | "workspace_band_map_apply" | "workspace_create" | "backup_restore");
     let settings_changed = matches!(method, "settings_save" | "backup_restore");
+    let rotor_configuration_changed = matches!(method, "workspace_rotor_configuration_save" | "backup_restore");
     // Retire metadata before a restore/write can race a map's retained read.
     if map_changed { map_context::invalidate(); }
     let draft_wake = DraftWake::for_request(&request);
@@ -525,6 +527,9 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     }
     if settings_changed {
         for label in ["main", "settings"] { let _ = app.emit_to(label, "xlog:settings-changed", ()); }
+    }
+    if rotor_configuration_changed {
+        for label in ["main", "settings"] { let _ = app.emit_to(label, "xlog:rotor-configuration-changed", ()); }
     }
     if layout_changed {
         // Wake-only: even an uncertain outcome is reconciled by a fresh read.

@@ -32,6 +32,7 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     if label == "settings" {
         return if matches!(request["method"].as_str(), Some(
             "settings_load" | "settings_receipt" | "settings_save"
+            | "workspace_rotor_configuration_load" | "workspace_rotor_configuration_receipt" | "workspace_rotor_configuration_save"
             | "secret_status" | "secret_save"
             | "sync_status" | "sync_summary" | "sync_run" | "sync_configure" | "sync_resolve" | "sync_retry"
             | "reference_status" | "reference_resolve" | "reference_refresh" | "reference_schedule" | "reference_configure"
@@ -174,6 +175,9 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "settings_load",
         "settings_receipt",
         "settings_save",
+        "workspace_rotor_configuration_load",
+        "workspace_rotor_configuration_receipt",
+        "workspace_rotor_configuration_save",
         "station_snapshot",
         "station_power_selection",
         "station_radio",
@@ -749,7 +753,7 @@ mod tests {
             "lookup_call", "logbook_previous", "logbook_matrix", "cluster_history", "workspace_layout_load", "reference_resolve"] {
             assert!(validate_surface("log-qso", &json!({"id":"qso","method":method,"params":{}})).is_ok(), "{method}");
         }
-        for method in ["settings_load", "settings_save", "workspace_preferences_save", "workspace_layout_apply", "workspace_create",
+        for method in ["settings_load", "settings_save", "workspace_rotor_configuration_load", "workspace_rotor_configuration_save", "workspace_preferences_save", "workspace_layout_apply", "workspace_create",
             "backup_create", "backup_restore", "sync_summary", "sync_run", "secret_save", "secret_status",
             "logbook_draft", "logbook_save", "logbook_list", "logbook_contact", "logbook_contact_apply", "logbook_import_adif",
             "reference_status", "reference_refresh", "reference_schedule", "reference_configure",
@@ -798,6 +802,7 @@ mod tests {
     #[test]
     fn detached_settings_has_no_logbook_station_rotor_cluster_or_cw_authority() {
         for method in ["settings_load", "settings_receipt", "settings_save", "secret_status", "secret_save",
+            "workspace_rotor_configuration_load", "workspace_rotor_configuration_receipt", "workspace_rotor_configuration_save",
             "sync_status", "sync_summary", "sync_run", "sync_configure", "sync_resolve", "sync_retry",
             "reference_status", "reference_resolve", "reference_refresh", "reference_schedule", "reference_configure",
             "backup_create", "backup_list", "backup_inspect", "backup_import", "backup_restore",

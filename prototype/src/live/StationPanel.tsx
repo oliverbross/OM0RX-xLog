@@ -55,9 +55,9 @@ export default function StationPanel({ snapshot, onRequest, onSnapshot, monitor 
   const [tuneMode, setTuneMode] = useState("SSB");
   const [rotorBearing, setRotorBearing] = useState("");
   const [rotorBand, setRotorBand] = useState("20m");
-  const [rotorHost, setRotorHost] = useState(() => localStorage.getItem("xlog.rotor.host") || "");
-  const [rotorPort, setRotorPort] = useState(() => localStorage.getItem("xlog.rotor.port") || "4001");
-  const [rotorName, setRotorName] = useState(() => localStorage.getItem("xlog.rotor.name") || "Rotor");
+  const [rotorHost, setRotorHost] = useState("");
+  const [rotorPort, setRotorPort] = useState("4001");
+  const [rotorName, setRotorName] = useState("Rotor");
   const [vfoMHz, setVFOMHz] = useState("");
   const [vfoLetter, setVFOLetter] = useState("B");
   const [directMode, setDirectMode] = useState("CW");
@@ -121,11 +121,6 @@ export default function StationPanel({ snapshot, onRequest, onSnapshot, monitor 
     try {
       const response = unwrap(await onRequest(method, params));
       if (method === "station_connect") localStorage.setItem("xlog.remote.url", String(params.base_url));
-      if (method === "station_rotor_connect") {
-        localStorage.setItem("xlog.rotor.host", String(params.host));
-        localStorage.setItem("xlog.rotor.port", String(params.port));
-        localStorage.setItem("xlog.rotor.name", String(params.name));
-      }
       if (startedEndpoint !== endpointRef.current) return null;
       const next = (response?.state ?? (response?.source ? response : null)) as StationSnapshot | null;
       if (next) { setLive(next); onSnapshot(next); }
