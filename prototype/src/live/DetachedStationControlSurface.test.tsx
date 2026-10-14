@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { StationControlSurface } from "./DetachedStationControlSurface";
+import { DetachedStationControlSurface, StationControlSurface } from "./DetachedStationControlSurface";
+import { AgentConnectionSetup } from "./AgentConnectionSetup";
+import type { StationSession } from "./stationSession";
 import { syntheticMonitorContext } from "./monitorContextFixtures";
 import type { MonitorContext } from "./monitorContext";
 const native = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn(), worker: vi.fn() }));
@@ -12,6 +14,7 @@ vi.mock("../worker", () => ({ workerRequest: native.worker }));
 let changed: (value: MonitorContext) => void, failed: (message: string) => void;
 beforeEach(() => {
   vi.useFakeTimers(); vi.setSystemTime(new Date("2026-10-14T00:00:00Z")); vi.clearAllMocks();
+  sessionStorage.clear();
   native.invoke.mockImplementation(async command => { if (command === "dock_detached_window") return; if (command !== "monitor_context_snapshot") throw new Error(`Unexpected native command: ${command}`); return syntheticMonitorContext(); });
   native.listen.mockResolvedValue(vi.fn());
 });
@@ -105,4 +108,72 @@ it("keeps dock failures visible across observation refresh and allows retry", as
   expect(screen.getByRole("alert").textContent).toContain("This window remains open");
   fireEvent.click(screen.getByRole("button", { name: "Dock back" })); await act(async () => {});
   expect(native.invoke).toHaveBeenCalledTimes(2); expect(screen.queryByRole("alert")).toBeNull();
+});
+
+function sharedAgent(loseConnect = false) {
+  let state: StationSession = { generation: "shared-setup", revision: 4, base_url: "https://station.example", last_receipt: null,
+    selection: { provider: "direct_agent", generation: 8, selection_id: "selected-radio" } };
+  const actions: Record<string, unknown>[] = [], subscribers = new Map<string, Set<() => void>>();
+  native.listen.mockImplementation(async (name: string, handler: () => void) => {
+    const listeners = subscribers.get(name) ?? new Set<() => void>(); subscribers.set(name, listeners); listeners.add(handler);
+    return () => listeners.delete(handler);
+  });
+  native.invoke.mockImplementation(async (command, args) => {
+    if (command === "monitor_context_snapshot") return syntheticMonitorContext();
+    if (command !== "station_session_request") throw new Error(`Unexpected authority: ${command}`);
+    const params = args.params;
+    if (params.action === "snapshot") return structuredClone(state);
+    if (params.action === "receipt") return state.last_receipt;
+    actions.push(params);
+    state = { ...state, revision: state.revision + 1, last_receipt: { operation_id: params.operation_id, request: { action: params.action },
+      status: loseConnect && params.action === "connect" ? "unknown" : "acknowledged" } };
+    if (loseConnect && params.action === "connect") throw new Error("Lost child acknowledgement");
+    return structuredClone(state.last_receipt);
+  });
+  return { actions, wake: () => subscribers.get("xlog:station-session")?.forEach(handler => handler()), state: () => state };
+}
+it("independent child mounts passively and sends exact Agent lifecycle actions through the shared owner", async () => {
+  const owner = sharedAgent(); render(<DetachedStationControlSurface />); await act(async () => {});
+  expect(owner.actions).toHaveLength(0); expect(native.worker).not.toHaveBeenCalled();
+  expect(native.invoke.mock.calls.every(([command]) => ["monitor_context_snapshot", "station_session_request"].includes(command))).toBe(true);
+  const connect = screen.getByRole("button", { name: "Connect saved Agent" });
+  fireEvent.click(connect); fireEvent.click(connect); await act(async () => {});
+  fireEvent.click(screen.getByRole("button", { name: "Disconnect Agent" })); await act(async () => {});
+  fireEvent.click(screen.getByRole("button", { name: "Forget saved Agent token" })); await act(async () => {});
+  expect(owner.actions.map(action => action.action)).toEqual(["connect", "disconnect", "forget"]);
+  expect(owner.actions.map(action => action.revision)).toEqual([4, 5, 6]);
+  expect(owner.actions.every(action => action.selection_generation === 8 && action.selection_id === "selected-radio")).toBe(true);
+  expect(owner.actions.every(action => action.allow_transmit === false)).toBe(true);
+  expect(native.worker).not.toHaveBeenCalled();
+});
+it("child lost replies survive remount and receipt inspection never resends the operation", async () => {
+  const owner = sharedAgent(true); const view = render(<DetachedStationControlSurface />); await act(async () => {});
+  fireEvent.click(screen.getByRole("button", { name: "Connect saved Agent" })); await act(async () => {});
+  const id = owner.actions[0].operation_id;
+  view.unmount(); render(<DetachedStationControlSurface />); await act(async () => {});
+  expect(screen.getByRole("button", { name: "Connect saved Agent" }).hasAttribute("disabled")).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Check connection setup receipt" })); await act(async () => {});
+  expect(native.invoke).toHaveBeenLastCalledWith("station_session_request", { params: { action: "receipt", operation_id: id } });
+  expect(owner.actions).toHaveLength(1); expect(screen.getByText(/Connection outcome is unknown/)).toBeTruthy();
+  expect(native.worker).not.toHaveBeenCalled();
+});
+it("Desk and child converge on shared revisions and a matching completed receipt clears local pending state", async () => {
+  const owner = sharedAgent();
+  render(<><section aria-label="Desk setup"><AgentConnectionSetup connections /></section><DetachedStationControlSurface /></>);
+  await act(async () => {});
+  const desk = within(screen.getByRole("region", { name: "Desk setup" }));
+  const child = within(screen.getByRole("main", { name: "Detached Station Control" }));
+  fireEvent.click(desk.getByRole("button", { name: "Connect saved Agent" })); await act(async () => {});
+  const receipt = owner.state().last_receipt!;
+  // Another webview can retain an operation observed pending before completion.
+  sessionStorage.setItem("xlog.station-session.pending", receipt.operation_id);
+  await act(async () => owner.wake());
+  expect(sessionStorage.getItem("xlog.station-session.pending")).toBeNull();
+  expect(child.getByRole("button", { name: "Disconnect Agent" }).hasAttribute("disabled")).toBe(false);
+  fireEvent.click(child.getByRole("button", { name: "Disconnect Agent" })); await act(async () => {});
+  await act(async () => owner.wake());
+  expect(owner.actions.map(action => [action.action, action.revision])).toEqual([["connect", 4], ["disconnect", 5]]);
+  expect(desk.getByText(/Last shared operation: disconnect/)).toBeTruthy();
+  expect(child.getByText(/Last shared operation: disconnect/)).toBeTruthy();
+  expect(native.worker).not.toHaveBeenCalled();
 });

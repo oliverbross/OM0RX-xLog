@@ -31,10 +31,7 @@ pub struct Session {
 }
 
 pub fn validate(label: &str, isolated: bool, action: &str) -> Result<(), String> {
-    if isolated
-        || !matches!(label, "main" | "station-control")
-        || label == "station-control" && !matches!(action, "snapshot" | "receipt" | "save")
-    {
+    if isolated || !matches!(label, "main" | "station-control") {
         return Err("This window cannot perform that Station Control operation.".into());
     }
     if !matches!(
@@ -460,16 +457,33 @@ mod tests {
         );
     }
     #[test]
-    fn child_authority_is_only_passive_setup_and_monitor_is_denied() {
-        for action in ["snapshot", "receipt", "save"] {
-            assert!(validate("station-control", false, action).is_ok());
-        }
-        for action in ["connect", "disconnect", "station_action", "save"] {
-            assert!(validate("monitor", false, action).is_err());
-            if action != "save" {
-                assert!(validate("station-control", false, action).is_err());
+    fn child_and_main_admit_only_shared_agent_lifecycle_and_passive_setup() {
+        for action in [
+            "snapshot",
+            "receipt",
+            "save",
+            "connect",
+            "disconnect",
+            "forget",
+        ] {
+            for label in ["main", "station-control"] {
+                assert!(validate(label, false, action).is_ok());
+                assert!(validate(label, true, action).is_err());
             }
-            assert!(validate("main", true, action).is_err());
+            for label in ["monitor", "settings", "chaser-dx", "log-qso"] {
+                assert!(validate(label, false, action).is_err());
+            }
+        }
+        for action in [
+            "station_action",
+            "station_tune",
+            "hamlib_connect",
+            "provider",
+            "station_configuration_save",
+            "",
+        ] {
+            assert!(validate("station-control", false, action).is_err());
+            assert!(validate("main", false, action).is_err());
         }
     }
     #[test]
@@ -505,5 +519,41 @@ mod tests {
             .receipt(command["operation_id"].as_str().unwrap())
             .unwrap()
             .is_null());
+    }
+    #[test]
+    fn child_and_main_replay_one_admitted_operation_without_duplicate_dispatch() {
+        let (directory, session, params) = setup();
+        session.apply(&params, passive).unwrap();
+        for action in ["connect", "disconnect", "forget"] {
+            let state = session.snapshot().unwrap();
+            let id = uuid::Uuid::new_v4().to_string();
+            let selected_id = uuid::Uuid::new_v4().to_string();
+            let command = json!({"action":action,"operation_id":id,"generation":state["generation"],"revision":state["revision"],
+                "selection_generation":9,"selection_id":selected_id,"allow_transmit":false});
+            validate("station-control", false, action).unwrap();
+            let receipt = session
+                .apply(&command, |request, generation, identity| {
+                    assert_eq!(generation, 9);
+                    assert_eq!(identity, selected_id);
+                    assert_eq!(session.receipt(&id).unwrap()["status"], "pending");
+                    assert_eq!(
+                        request["method"],
+                        match action {
+                            "connect" => "station_connect",
+                            "forget" => "station_forget",
+                            _ => "station_disconnect",
+                        }
+                    );
+                    Ok(json!({"id":id,"ok":true}))
+                })
+                .unwrap();
+            validate("main", false, action).unwrap();
+            assert_eq!(session.apply(&command, passive).unwrap(), receipt);
+            let reopened = Session::new(directory.path().join("session.json")).unwrap();
+            assert_eq!(reopened.apply(&command, passive).unwrap(), receipt);
+            let mut stale = command;
+            stale["operation_id"] = json!(uuid::Uuid::new_v4().to_string());
+            assert!(session.apply(&stale, passive).is_err());
+        }
     }
 }

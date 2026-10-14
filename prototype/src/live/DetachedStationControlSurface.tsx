@@ -10,7 +10,7 @@ const frequency = (hz: unknown) => typeof hz === "number" && Number.isFinite(hz)
 const value = (input: unknown) => input == null || input === "" ? "Unavailable" : String(input);
 const providers = { direct_agent: "Remote Station Agent", direct_flex_lan: "Direct FLEX LAN", hamlib: "Local Hamlib" };
 
-/** Retained observations and optional shared endpoint setup. Mounting never
+/** Retained observations and optional shared Agent controls. Mounting never
  * reads credentials, selects a provider, connects a device or sends an action. */
 export function StationControlSurface({ connect = connectMonitorContext, configuration }: Props) {
   const [context, setContext] = useState<MonitorContext | null>(null);
@@ -37,10 +37,10 @@ export function StationControlSurface({ connect = connectMonitorContext, configu
   const provider = context?.selection?.provider, radio = station.radio, safety = station.station;
   return <div className="app live"><main aria-label="Detached Station Control">
     <section className="live-station" aria-label="Station observations">
-      <header className="live-station-head"><div><h2>Station Control</h2><p>Passive station monitoring · independent of Desk</p></div>
+      <header className="live-station-head"><div><h2>Station Control</h2><p>{configuration && !context?.acceptance ? "Shared Agent connection · independent of Desk" : "Passive station monitoring · independent of Desk"}</p></div>
         <div className="live-station-head-actions"><button type="button" onClick={() => connection.current?.refresh()}>Refresh observations</button>
           <button type="button" disabled={docking} onClick={() => void dockBack()}>{docking ? "Docking…" : "Dock back"}</button></div></header>
-      <p role="status">{configuration ? "Agent endpoint setup is shared. Radio selection, connection and station actions require the main station controls." : "Connection setup, radio selection and station actions currently require the main station controls."}</p>
+      <p role="status">{configuration && !context?.acceptance ? "Agent setup and connection are shared. Radio selection and station commands require the main station controls." : "Connection setup, radio selection and station actions currently require the main station controls."}</p>
       {!context?.acceptance && configuration}
       {error && <p className="live-station-error" role="alert">{error}</p>}
       {dockError && <p className="live-station-error" role="alert">{dockError}</p>}
@@ -67,5 +67,5 @@ export function StationControlSurface({ connect = connectMonitorContext, configu
   </main></div>;
 }
 export function DetachedStationControlSurface() {
-  return <StationControlSurface configuration={new URLSearchParams(location.search).get("acceptance") === "local" ? undefined : <AgentConnectionSetup />} />;
+  return <StationControlSurface configuration={new URLSearchParams(location.search).get("acceptance") === "local" ? undefined : <AgentConnectionSetup connections />} />;
 }

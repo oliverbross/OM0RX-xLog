@@ -8,7 +8,7 @@ const notice = (receipt: StationReceipt) => receipt.status === "saved" ? "Agent 
   : receipt.status === "acknowledged" ? "Connection request acknowledged. Check observed station state before operating."
   : "Connection outcome is unknown. Check observed station state before issuing another connection request.";
 
-/** Same non-secret configuration owner in Desk and child. Child has no connection authority. */
+/** Desk and child share one native Agent setup, lifecycle and receipt owner. */
 export function AgentConnectionSetup({ connections = false, legacyEndpoint = "" }: { connections?: boolean; legacyEndpoint?: string }) {
   const [state, setState] = useState<StationSession | null>(null), [url, setURL] = useState("");
   const [token, setToken] = useState(""), [transmit, setTransmit] = useState(false);
@@ -34,6 +34,10 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "" 
         && sessionStorage.getItem(reviewedKey) !== next.last_receipt.operation_id) {
         sessionStorage.setItem(journalKey, next.last_receipt.operation_id); setPending(next.last_receipt.operation_id);
         setMessage(notice(next.last_receipt));
+      }
+      if (next.last_receipt && ["saved", "acknowledged"].includes(next.last_receipt.status)
+        && sessionStorage.getItem(journalKey) === next.last_receipt.operation_id) {
+        sessionStorage.removeItem(journalKey); setPending(null); setMessage(notice(next.last_receipt));
       }
       setError("");
     } catch { if (active.current && sequence === readSequence.current) setError("Shared Agent setup is unavailable. Refresh before making changes."); }
