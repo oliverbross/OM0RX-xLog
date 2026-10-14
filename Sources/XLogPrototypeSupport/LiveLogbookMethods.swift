@@ -122,7 +122,10 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                 return qso
             }
             guard qsos.count == 1 else { throw invalid() }
-            let imported = try readyDatabase().importBatch(qsos)
+            // A WSJT-X Logged ADIF message is an explicit new-contact event, not
+            // a historical file import. Its duplicate check and prospective
+            // online-log enrollment therefore commit atomically.
+            let imported = try readyDatabase().importNewContactsForOnlineLogs(qsos)
             return (imported, qsos.count - imported)
         }
     }

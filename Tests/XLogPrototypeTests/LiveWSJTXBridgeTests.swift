@@ -146,9 +146,13 @@ final class LiveWSJTXBridgeTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: root) }
         let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
         _ = try logbook.handle(method: "workspace_create", params: ["mode": "empty"])
+        let database = try logbook.openedDatabase()
+        _ = try database.configureOnlineLogEnrollment(service: .qrz, enabled: true)
         let text = try XCTUnwrap(try WSJTXMessageParser.loggedADIF(from: datagram())?.text)
         XCTAssertEqual(try logbook.importLoggedADIF(text).imported, 1)
         XCTAssertEqual(try logbook.importLoggedADIF(text).skipped, 1)
+        XCTAssertEqual(try database.onlineLogEnrollmentStatus(service: .qrz).pendingNewContacts, 1)
+        XCTAssertEqual(try database.onlineLogCandidateIDs(service: .qrz).count, 1)
         let status = try logbook.handle(method: "workspace_status", params: [:])
         XCTAssertEqual(status["qso_count"] as? Int, 1)
     }

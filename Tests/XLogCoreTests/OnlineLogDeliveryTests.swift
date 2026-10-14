@@ -248,6 +248,22 @@ struct OnlineLogDeliveryTests {
         #expect(try database.onlineLogCandidateIDs(service: .qrz).isEmpty)
     }
 
+    @Test func explicitIntegrationImportCanEnrollButGenericImportCannot() throws {
+        let (database, root, _) = try database()
+        defer { database.close(); try? FileManager.default.removeItem(at: root) }
+        _ = try database.configureOnlineLogEnrollment(service: .qrz, enabled: true)
+        let historical = QSO(call: "VK4OLD", start: Date(timeIntervalSince1970: 1_700_000_260),
+                             band: "20m", mode: "FT8", myCall: "OM0RX")
+        #expect(try database.importBatch([historical]) == 1)
+        #expect(try database.onlineLogCandidateIDs(service: .qrz).isEmpty)
+
+        let logged = QSO(call: "VK4NEW", start: Date(timeIntervalSince1970: 1_700_000_270),
+                         band: "20m", mode: "FT8", myCall: "OM0RX")
+        #expect(try database.importNewContactsForOnlineLogs([logged]) == 1)
+        #expect(try database.importNewContactsForOnlineLogs([logged]) == 0)
+        #expect(try database.onlineLogCandidateIDs(service: .qrz) == [logged.id])
+    }
+
     @Test func disablingEnrollmentCancelsPendingAndReenableNeverBackfills() throws {
         let (database, root, _) = try database()
         defer { database.close(); try? FileManager.default.removeItem(at: root) }

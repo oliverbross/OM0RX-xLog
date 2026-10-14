@@ -181,7 +181,10 @@ public actor LiveWorker {
         #endif
     }
 
-    private func externalContactChanged() { queueContactRefresh() }
+    private func externalContactChanged() async {
+        queueContactRefresh()
+        await onlineLogs.requestDelivery()
+    }
 
     func startPowerCapture(registerStation: Bool = true) async {
         guard !localAcceptance, !terminalShutdown else { return }

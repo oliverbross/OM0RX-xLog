@@ -1177,13 +1177,17 @@ never backfills the disabled interval. Removing the key disables enrollment
 before the Keychain value is deleted. A local aggregate health view reports only
 enabled state, pending and receipt-state counts, plus the latest safe result; it
 does not expose contact identities, ADIF or secrets to the renderer.
+The receive-only WSJT-X Logged ADIF path now treats only an accepted,
+semantically new record as a prospective contact: the local save and candidate
+registration are atomic, while duplicate packets, file imports, Wavelog pulls,
+edits and confirmation refreshes remain excluded.
 
-Focused online delivery/enrollment **12/12**, native owner **4/4**, Settings **20/20**,
+Focused online delivery/enrollment **13/13**, native owner **4/4**, Settings **20/20**,
 full frontend **2,390/2,390**, Rust **433 unit + 18 integration**, native
-**189/189** and portable **200 XCTest** (four intentional benchmark skips) plus
+**190/190** and portable **200 XCTest** (four intentional benchmark skips) plus
 **391/391 Swift Testing** checks pass; the production frontend build and
 detached-window bundle gate pass.
 No QRZ credential was written and no live request was made. Live account
-acceptance, explicit rejected/uncertain review policy, WSJT-X eligibility and
-independent Club Log/HRDLOG adapters remain open. See
+acceptance, explicit rejected/uncertain review policy and independent Club
+Log/HRDLOG adapters remain open. See
 [the bounded acceptance record](QRZ_UPLOAD_FOUNDATION_ACCEPTANCE_2026-10-15.md).

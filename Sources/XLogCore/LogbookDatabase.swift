@@ -1785,8 +1785,20 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     /// Imports a bounded batch as one transaction, skipping identities already present.
+    /// Generic file and remote imports never join prospective online-log enrollment.
     /// The original QSO and pending outbox state remain intact on any failure.
     public func importBatch(_ values: [QSO]) throws -> Int {
+        try importBatch(values, onlineLogCandidates: false)
+    }
+
+    /// A receive-only logging integration may explicitly identify its accepted
+    /// record as a new operator contact. Duplicate detection and prospective
+    /// enrollment share the same SQLite write transaction.
+    public func importNewContactsForOnlineLogs(_ values: [QSO]) throws -> Int {
+        try importBatch(values, onlineLogCandidates: true)
+    }
+
+    private func importBatch(_ values: [QSO], onlineLogCandidates: Bool) throws -> Int {
         try withDatabaseLock {
             var seen = Set<SemanticQSOIdentity>()
             var imported = 0
@@ -1801,7 +1813,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                     )
                     guard seen.insert(identity).inserted,
                           try lookupSemantic(value) == nil else { continue }
-                    try save(value)
+                    try save(value, markDirty: true, onlineLogCandidate: onlineLogCandidates)
                     imported += 1
                 }
                 try execute("COMMIT;")

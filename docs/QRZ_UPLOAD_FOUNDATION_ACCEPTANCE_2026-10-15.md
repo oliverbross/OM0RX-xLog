@@ -40,6 +40,10 @@ existing log, and did not contact QRZ during source acceptance.
 - Settings health is an aggregate local-only view: enabled state, pending count,
   per-state receipt counts and the latest safe state/time/error code. It never
   exposes a callsign, contact identity, ADIF payload or secret to the renderer.
+- A semantically new contact received through the explicit, receive-only WSJT-X
+  Logged ADIF integration joins prospective enrollment atomically with its local
+  save. Duplicate WSJT-X packets remain suppressed. Generic ADI/ADX imports,
+  Wavelog reconciliation and existing contacts remain excluded.
 - Freezes the exact local contact revision and SHA-256 payload, then commits a
   durable SQLite claim before network I/O. Concurrent claims cannot both send.
 - Stores only bounded receipt state, attempt identity/count, timestamps, an
@@ -60,7 +64,7 @@ eligibility.
 
 ## Verification
 
-- Focused online-delivery/enrollment suite: **12/12 tests pass**, covering exact request
+- Focused online-delivery/enrollment suite: **13/13 tests pass**, covering exact request
   fields/no replace, form encoding, durable delivered no-replay, ambiguous
   no-replay, explicit bounded rate-limit retry, stale edited-contact rejection
   and interrupted-dispatch recovery, prospective-only enrollment, disable/re-enable,
@@ -70,7 +74,7 @@ eligibility.
 - Settings credential and enrollment coverage: **20/20 focused tests pass**; the complete
   frontend suite passes **2,390 tests across 159 files** and the production
   TypeScript/Vite/detached-window bundle gate passes.
-- Native Swift: **189 tests across 26 suites pass**.
+- Native Swift: **190 tests across 26 suites pass**.
 - Portable Swift: **200 XCTest tests pass** with four intentional benchmark
   skips, plus **391 Swift Testing tests across 52 suites**.
 - Rust: **433 unit tests and 18 integration tests pass**.
@@ -85,10 +89,7 @@ written and no live QRZ request was made.
    deliberately selected test contact before release packaging.
 2. Add an explicit operator review/re-arm workflow for rejected or uncertain
    receipts if product policy requires it. Neither state replays automatically.
-3. Define whether WSJT-X-originated contacts are eligible for prospective
-   enrollment. Existing imports, Wavelog updates and confirmation refreshes stay
-   excluded unless a separately reviewed policy changes that boundary.
-4. Implement and accept Club Log and HRDLOG as independent adapters. Wavelog
+3. Implement and accept Club Log and HRDLOG as independent adapters. Wavelog
    remains the richer two-way reconciliation service.
 
 **New contacts from now on** is the only implemented scope. Nothing can silently

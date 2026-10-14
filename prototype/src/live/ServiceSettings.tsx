@@ -103,7 +103,7 @@ function QRZUploadControl({ request, visible, refreshRevision }: { request: Requ
   return <div className="service-online-log" aria-label="QRZ Logbook upload">
     <label className="service-enable"><input type="checkbox" aria-describedby="qrz-upload-help" checked={status?.enabled === true}
       disabled={busy || !status} onChange={event => event.target.checked ? setConfirming(true) : void configure(false)} />Upload new contacts to QRZ Logbook</label>
-    <p id="qrz-upload-help">Only contacts logged after you enable this are eligible. Existing contacts, imports, Wavelog pulls, confirmations and edits are never backfilled.</p>
+    <p id="qrz-upload-help">Only contacts logged manually or received through WSJT-X Logged ADIF after you enable this are eligible. Existing contacts, file imports, Wavelog pulls, confirmations and edits are never backfilled.</p>
     {confirming && status?.enabled !== true && <div className="service-settings-recovery" role="group" aria-label="Confirm QRZ upload enrollment">
       <p>This starts automatic, one-record INSERT uploads for future contacts. Ambiguous outcomes are held for review and never replayed automatically.</p>
       <label><input type="checkbox" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} />I understand and want to enroll new contacts from now on</label>

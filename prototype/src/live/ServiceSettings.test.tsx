@@ -120,7 +120,8 @@ describe("grouped service settings", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "Upload new contacts to QRZ Logbook" }));
     const enable = screen.getByRole("button", { name: "Enable QRZ uploads" }) as HTMLButtonElement;
     expect(enable.disabled).toBe(true);
-    expect(screen.getByText(/Existing contacts, imports, Wavelog pulls/)).toBeTruthy();
+    expect(screen.getByText(/WSJT-X Logged ADIF/)).toBeTruthy();
+    expect(screen.getByText(/Existing contacts, file imports, Wavelog pulls/)).toBeTruthy();
     fireEvent.click(screen.getByRole("checkbox", { name: "I understand and want to enroll new contacts from now on" }));
     fireEvent.click(enable);
     await screen.findByText("QRZ upload enabled for contacts logged from now on.");
