@@ -357,7 +357,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
             onClick={() => setColumnsOpen(value => !value)}>Columns</button>
           <button type="button" disabled={!selected || busy || loading} onClick={() => selected && void prepareDelete(selected.id)}><Trash2 size={13} /> Delete</button>
           <button type="button" onClick={() => void undoDelete()} disabled={!mutation.undo || busy}><RotateCcw size={13} /> Undo delete</button>
-          <input ref={fileInput} type="file" accept=".adi,.adif,text/plain" hidden disabled={busy}
+          <input ref={fileInput} type="file" accept=".adi,.adif,.adx,.xml,text/plain,application/xml,text/xml" hidden disabled={busy}
             onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; if (file) void importFile(file); }} />
           <button type="button" onClick={() => fileInput.current?.click()} disabled={busy}>
             <FileUp size={14} /> Import ADIF

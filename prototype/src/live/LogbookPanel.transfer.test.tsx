@@ -43,6 +43,25 @@ it("rejects invalid UTF-8 bytes before requesting any preview", async () => {
   expect(request.mock.calls.filter(([method]) => method === "logbook_import_adif")).toHaveLength(0);
 });
 
+it("reviews ADX through the frozen ADI path and imports the reviewed normalization only after consent", async () => {
+  const { request, pick } = setup(); await screen.findByText("W1AW");
+  const fields = "<CALL>W1AW</CALL><QSO_DATE>20261014</QSO_DATE><TIME_ON>000000</TIME_ON><BAND>20m</BAND><MODE>CW</MODE>";
+  await pick(new TextEncoder().encode(`<ADX><HEADER/><RECORDS><RECORD>${fields}</RECORD></RECORDS></ADX>`));
+  await screen.findByRole("group", { name: "Review ADIF import" });
+  expect(request).toHaveBeenCalledWith("logbook_import_adif", { action: "preview", text: adif + "\r\n", chunk: 0 });
+  expect(request.mock.calls.filter(([method, params]) => method === "logbook_import_adif" && !params?.action)).toHaveLength(0);
+  fireEvent.click(screen.getByRole("button", { name: "Confirm import" }));
+  await screen.findByText("1 QSOs imported; 0 duplicates skipped.");
+  expect(request).toHaveBeenCalledWith("logbook_import_adif", { text: adif + "\r\n", generation: "workspace-1" });
+});
+
+it("rejects unsafe XML before creating any native preview session", async () => {
+  const { request, pick } = setup(); await screen.findByText("W1AW");
+  await pick(new TextEncoder().encode('<!DOCTYPE ADX SYSTEM "file:///private/local"><ADX/>'));
+  expect((await screen.findByRole("alert")).textContent).toContain("entity declarations");
+  expect(request.mock.calls.filter(([method]) => method === "logbook_import_adif")).toHaveLength(0);
+});
+
 it("requires selected fields and explicit update consent and sends the reviewed context", async () => {
   const { request, pick } = setup(); await screen.findByText("W1AW"); await pick();
   fireEvent.click(screen.getByRole("checkbox", { name: "Update selected fields of reviewed duplicates instead" }));
