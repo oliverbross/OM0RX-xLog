@@ -1,10 +1,10 @@
-//! Shared radio connection setup and durable command admission. No background I/O.
+//! Shared radio connection setup and durable command admission.
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
     io::Write,
     path::PathBuf,
-    sync::{Arc, Mutex, OnceLock},
+    sync::{atomic::{AtomicBool, Ordering}, Arc, Mutex, OnceLock},
 };
 use tauri::Manager;
 
@@ -32,6 +32,7 @@ pub struct Session {
     path: PathBuf,
     state: Mutex<Saved>,
     operation: Mutex<()>,
+    resume_checked: AtomicBool,
 }
 
 pub fn validate(label: &str, isolated: bool, action: &str) -> Result<(), String> {
@@ -245,6 +246,7 @@ impl Session {
             path,
             state: Mutex::new(saved),
             operation: Mutex::new(()),
+            resume_checked: AtomicBool::new(false),
         })
     }
     fn persist(&self, saved: &Saved) -> Result<(), String> {
@@ -288,6 +290,36 @@ impl Session {
             .iter()
             .find(|receipt| receipt.operation_id == id)
             .map_or(Value::Null, |receipt| json!(receipt)))
+    }
+    /// Only native application startup may restore the saved Agent connection.
+    /// Journal a fresh receive-only connect; never replay an uncertain operation
+    /// or override the operator's explicit disconnect/credential removal.
+    pub fn resume_saved_agent(
+        &self,
+        selection: &Value,
+        dispatch: impl FnOnce(Value, u64, &str) -> Result<Value, String>,
+    ) -> Result<Option<Value>, String> {
+        if self.resume_checked.swap(true, Ordering::AcqRel)
+            || selection["provider"] != "direct_agent"
+            || selection["generation"] != 0 || selection["control_revision"] != 0 {
+            return Ok(None);
+        }
+        let state = self.state.lock().map_err(|_| "Station Control state is unavailable.")?;
+        if state.base_url.is_empty()
+            || state.receipts.iter().any(|receipt| matches!(receipt.status.as_str(), "pending" | "unknown"))
+            || state.receipts.iter().rev().find(|receipt| matches!(receipt.request["action"].as_str(),
+                Some("connect" | "disconnect" | "forget")))
+                .is_some_and(|receipt| receipt.request["action"] != "connect") {
+            return Ok(None);
+        }
+        let params = json!({"action":"connect","operation_id":uuid::Uuid::new_v4().to_string(),
+            "generation":state.generation,"revision":state.revision,
+            "selection_generation":selection["generation"],"selection_id":selection["selection_id"],
+            "allow_transmit":false});
+        drop(state);
+        // The existing admission path persists pending before transport, fences
+        // concurrent setup edits, and lets Swift load only this endpoint's token.
+        self.apply(&params, dispatch).map(Some)
     }
     pub fn apply(
         &self,
@@ -522,6 +554,81 @@ mod tests {
     }
     fn passive(_: Value, _: u64, _: &str) -> Result<Value, String> {
         panic!("Configuration touched transport")
+    }
+    fn startup_selection() -> Value {
+        json!({"provider":"direct_agent","generation":0,"control_revision":0,
+            "selection_id":uuid::Uuid::new_v4().to_string()})
+    }
+    #[test]
+    fn startup_resumes_saved_agent_once_receive_only_with_durable_admission() {
+        let (directory, session, save) = setup();
+        session.apply(&save, passive).unwrap();
+        let selection = startup_selection();
+        let receipt = session.resume_saved_agent(&selection, |request, generation, identity| {
+            assert_eq!(generation, 0);
+            assert_eq!(identity, selection["selection_id"].as_str().unwrap());
+            assert_eq!(request["method"], "station_connect");
+            assert_eq!(request["params"], json!({"provider":"direct_agent",
+                "base_url":"https://station.example:8443","allow_transmit":false}));
+            assert_eq!(session.receipt(request["id"].as_str().unwrap()).unwrap()["status"], "pending");
+            let disk: Value = serde_json::from_slice(&std::fs::read(directory.path().join("session.json")).unwrap()).unwrap();
+            assert_eq!(disk["receipts"][1]["status"], "pending");
+            Ok(json!({"id":request["id"],"ok":true}))
+        }).unwrap().unwrap();
+        assert_eq!(receipt["status"], "acknowledged");
+        assert_eq!(receipt["request"]["allow_transmit"], false);
+        assert!(session.resume_saved_agent(&selection, passive).unwrap().is_none());
+    }
+    #[test]
+    fn startup_does_not_connect_unselected_unsaved_or_already_changed_radios() {
+        for provider in [Value::Null, json!("hamlib"), json!("xcat_loopback"), json!("direct_flex_lan")] {
+            let (_directory, session, save) = setup();
+            session.apply(&save, passive).unwrap();
+            let mut selection = startup_selection(); selection["provider"] = provider;
+            assert!(session.resume_saved_agent(&selection, passive).unwrap().is_none());
+        }
+        for key in ["generation", "control_revision"] {
+            let (_directory, session, save) = setup();
+            session.apply(&save, passive).unwrap();
+            let mut selection = startup_selection(); selection[key] = json!(1);
+            assert!(session.resume_saved_agent(&selection, passive).unwrap().is_none());
+        }
+        let (_directory, session, _) = setup();
+        assert!(session.resume_saved_agent(&startup_selection(), passive).unwrap().is_none());
+    }
+    #[test]
+    fn startup_respects_disconnect_forget_and_all_uncertain_receipts_after_restart() {
+        for (action, status) in [("disconnect", "acknowledged"), ("forget", "acknowledged"),
+            ("connect", "unknown"), ("connect", "pending")] {
+            let (directory, session, save) = setup();
+            session.apply(&save, passive).unwrap();
+            let selection = startup_selection();
+            let command = json!({"action":action,"operation_id":uuid::Uuid::new_v4().to_string(),
+                "generation":save["generation"],"revision":1,"selection_generation":0,
+                "selection_id":selection["selection_id"],"allow_transmit":true});
+            session.apply(&command, |request, _, _| Ok(json!({"id":request["id"],"ok":true}))).unwrap();
+            // A later passive endpoint save cannot clear a disconnect or an
+            // uncertain earlier command, even when it is no longer last_receipt.
+            let mut later_save = save.clone();
+            later_save["operation_id"] = json!(uuid::Uuid::new_v4().to_string());
+            later_save["revision"] = json!(2);
+            session.apply(&later_save, passive).unwrap();
+            let mut saved = session.state.lock().unwrap().clone();
+            saved.receipts[1].status = status.into();
+            session.persist(&saved).unwrap();
+            let restored = Session::new(directory.path().join("session.json")).unwrap();
+            assert!(restored.resume_saved_agent(&selection, passive).unwrap().is_none(), "{action}/{status}");
+        }
+    }
+    #[test]
+    fn lost_startup_acknowledgement_is_not_retried_on_next_launch() {
+        let (directory, session, save) = setup();
+        session.apply(&save, passive).unwrap();
+        let selection = startup_selection();
+        let receipt = session.resume_saved_agent(&selection, |_, _, _| Err("transport lost".into())).unwrap().unwrap();
+        assert_eq!(receipt["status"], "unknown");
+        let restored = Session::new(directory.path().join("session.json")).unwrap();
+        assert!(restored.resume_saved_agent(&selection, passive).unwrap().is_none());
     }
     #[test]
     fn shared_setup_is_durable_revision_fenced_and_exactly_replayed() {

@@ -813,6 +813,24 @@ mod tests {
             &expected, || -> Result<(),String> { panic!("obsolete source admitted") }, |_| panic!("obsolete source dispatched")).is_err());
     }
     #[test]
+    fn startup_connect_cannot_override_intervening_controls_or_provider_handover() {
+        for handover in [false, true] {
+            let (_directory, owner, calls) = fixture();
+            let expected = initialized(&owner, Some("direct_agent"));
+            if handover {
+                owner.handover_checked(0, expected["selection_id"].as_str().unwrap(), "hamlib").unwrap();
+            } else {
+                owner.control(json!({"id":"disconnect","method":"station_disconnect","params":{"provider":"direct_agent"}})).unwrap();
+            }
+            let before = calls.lock().unwrap().len();
+            assert!(owner.receive_control(json!({"id":"startup","method":"station_connect",
+                "params":{"provider":"direct_agent","base_url":"https://station.example","allow_transmit":false}}),
+                0, expected["selection_id"].as_str().unwrap(), 0,
+                || -> Result<(), String> { panic!("obsolete startup admitted") }).is_err());
+            assert_eq!(calls.lock().unwrap().len(), before);
+        }
+    }
+    #[test]
     fn activation_excludes_nonurgent_controls_but_preserves_release_and_cleans_up_after_unknown_reply() {
         let (_directory, owner, _) = fixture(); let expected = initialized(&owner, Some("direct_agent"));
         let owner=Arc::new(owner);let pending=owner.clone();

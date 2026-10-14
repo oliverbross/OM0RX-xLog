@@ -1068,9 +1068,17 @@ fn main() {
                         if saved["provider"].is_string() {
                             station_telemetry::owner(&selection_app)?.select_selection(&saved, true)?;
                         }
-                        owner.notify_saved()
+                        owner.notify_saved()?;
+                        // Startup alone restores native saved Agent intent.
+                        // Snapshot/renderer reads remain passive; an intervening
+                        // handover or radio control invalidates this exact view.
+                        station_session::owner(&selection_app)?.resume_saved_agent(&saved, |request, generation, identity| {
+                            owner.receive_control(request, generation, identity, 0,
+                                || station_telemetry::owner(&selection_app)?.control())
+                        })?;
+                        Ok(())
                     }) {
-                        eprintln!("Native power selection unavailable: {error}");
+                        eprintln!("Native station startup unavailable: {error}");
                     }
                 });
                 cluster_session::owner(app.handle()).map_err(std::io::Error::other)?;
