@@ -12,6 +12,81 @@ import XLogPortableCore
 /// Synthetic audit fixtures only. No request can escape this URLProtocol.
 @Suite("Sync identity join audit", .serialized)
 struct SyncIdentityJoinAuditTests {
+    @Test("A clean linked contact receives monotonic service updates without importing its remote sibling", arguments: [false, true])
+    func anchoredConfirmationSnapshots(reverse: Bool) async throws {
+        var stale = auditADIF(name: "First", dxcc: "291")
+        stale.fields["EQSL_QSL_RCVD"] = "N"
+        var fresh = stale
+        fresh.fields.merge(["EQSL_QSL_RCVD": "Y", "EQSL_QSLRDATE": "20260626", "LOTW_QSL_RCVD": "Y",
+                            "LOTW_QSLRDATE": "20260813", "QRZCOM_QSO_DOWNLOAD_STATUS": "Y",
+                            "QRZCOM_QSO_DOWNLOAD_DATE": "20260627", "QRZCOM_QSO_UPLOAD_DATE": "20260626",
+                            "COUNTRY": "Japan", "DISTANCE": "9028.7", "QSLMSG_RCVD": "Confirmed"]) { _, new in new }
+        let rows = reverse ? [fresh, stale] : [stale, fresh]
+        let json = [auditJSON(id: 11, name: "First"), auditJSON(id: 12, name: "First")]
+        let fixture = try customFixture(json: reverse ? json.reversed() : json, adif: rows)
+        defer { fixture.session.invalidateAndCancel(); try? FileManager.default.removeItem(at: fixture.root) }
+        let local = try #require(QSO(adif: stale, wavelogID: 12))
+        try fixture.database.save(local, markDirty: false)
+        let engine = SyncEngine(database: fixture.database, configuration: fixture.settings, session: fixture.session)
+        let report = try await engine.synchronize()
+        let updated = try #require(try fixture.database.lookup(localID: local.id))
+        #expect(report.held == 0 && report.pulled == 1 && report.pushed == 0 && report.conflicts == 0)
+        #expect(updated.wavelogID == 12 && !updated.isDirty)
+        #expect(updated.country == "Japan" && updated.lotwReceived == "Y")
+        #expect(updated.extraFields["EQSL_QSL_RCVD"] == "Y")
+        #expect(updated.extraFields["QSLMSG_RCVD"] == "Confirmed")
+        #expect(try fixture.database.fetch(limit: 10).count == 1)
+        #expect(try fixture.database.outboxEntries().isEmpty)
+        #expect(IdentityJoinAuditProtocol.methods().allSatisfy { $0 == "GET" })
+
+        // Subsequent fresh metadata must advance the same local UUID and ID,
+        // while older siblings cannot regress existing confirmations.
+        fresh.fields["EQSL_QSLRDATE"] = "20261014"
+        fresh.fields["QRZCOM_QSO_DOWNLOAD_DATE"] = "20261014"
+        let subsequent = try customFixture(json: json.reversed(), adif: [fresh, stale])
+        defer { subsequent.session.invalidateAndCancel(); try? FileManager.default.removeItem(at: subsequent.root) }
+        let second = try await engine.synchronize()
+        let final = try #require(try fixture.database.lookup(localID: local.id))
+        #expect(second.held == 0 && second.pulled == 1 && second.pushed == 0)
+        #expect(final.extraFields["EQSL_QSLRDATE"] == "20261014")
+        #expect(final.extraFields["QRZCOM_QSO_DOWNLOAD_DATE"] == "20261014")
+        #expect(final.wavelogID == 12 && final.lotwReceived == "Y")
+        #expect(try fixture.database.fetch(limit: 10).count == 1)
+        #expect(IdentityJoinAuditProtocol.methods().allSatisfy { $0 == "GET" })
+        let identical = try customFixture(json: json, adif: [fresh, fresh])
+        defer { identical.session.invalidateAndCancel(); try? FileManager.default.removeItem(at: identical.root) }
+        let third = try await engine.synchronize()
+        #expect(third.held == 0 && third.pulled == 1 && third.pushed == 0)
+        #expect(try fixture.database.fetch(limit: 10).count == 1)
+        #expect(try fixture.database.lookup(localID: local.id)?.wavelogID == 12)
+        #expect(IdentityJoinAuditProtocol.methods().allSatisfy { $0 == "GET" })
+    }
+
+    @Test("Dirty anchors and conflicting populated enrichment remain held", arguments: ["dirty", "country", "distance", "unknown", "status", "date", "twoLinks", "noLink"])
+    func unsafeConfirmationSnapshots(reason: String) async throws {
+        var stale = auditADIF(name: "First", dxcc: "291")
+        stale.fields["EQSL_QSL_RCVD"] = "N"
+        var fresh = stale
+        fresh.fields["EQSL_QSL_RCVD"] = "Y"
+        if reason == "country" { stale.fields["COUNTRY"] = "Japan"; fresh.fields["COUNTRY"] = "Indonesia" }
+        if reason == "distance" { stale.fields["DISTANCE"] = "100"; fresh.fields["DISTANCE"] = "200" }
+        if reason == "unknown" { stale.fields["APP_TEST_FIELD"] = "old"; fresh.fields["APP_TEST_FIELD"] = "new" }
+        if reason == "status" { fresh.fields["EQSL_QSL_RCVD"] = "I" }
+        if reason == "date" { fresh.fields["EQSL_QSLRDATE"] = "20260230" }
+        let fixture = try customFixture(json: [auditJSON(id: 11, name: "First"), auditJSON(id: 12, name: "First")], adif: [stale, fresh])
+        defer { fixture.session.invalidateAndCancel(); try? FileManager.default.removeItem(at: fixture.root) }
+        let local = try #require(QSO(adif: stale, wavelogID: reason == "noLink" ? nil : 12))
+        try fixture.database.save(local, markDirty: reason == "dirty")
+        if reason == "twoLinks" { try fixture.database.save(try #require(QSO(adif: stale, wavelogID: 11)), markDirty: false) }
+        let before = try fixture.database.fetch(limit: 10)
+        let outbox = try fixture.database.outboxEntries()
+        let report = try await SyncEngine(database: fixture.database, configuration: fixture.settings, session: fixture.session).synchronize()
+        #expect(report.held == 2 && report.pulled == 0 && report.pushed == 0 && report.conflicts == 0)
+        #expect(try fixture.database.fetch(limit: 10) == before)
+        #expect(try fixture.database.outboxEntries() == outbox)
+        #expect(IdentityJoinAuditProtocol.methods().allSatisfy { $0 == "GET" })
+    }
+
     @Test("Read-only preview validates complete history without a database or remote writes")
     func readOnlyPreview() async throws {
         let configuration = URLSessionConfiguration.ephemeral

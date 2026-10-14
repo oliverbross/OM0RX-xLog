@@ -68,6 +68,12 @@ struct RemoteHistoryReadOnlyProbeTests {
             }
             let remote = try await SyncEngine.previewRemoteHistory(configuration: configuration)
             print("READ_ONLY_REMOTE_HISTORY_OK total=\(remote.remoteIDs.count) unambiguous=\(remote.qsos.count) held=\(remote.heldRemoteIDs.count)")
+            if ProcessInfo.processInfo.environment["XLOG_SYNC_DIAGNOSE_HELD"] == "1" {
+                for identity in remote.heldIdentities.sorted() {
+                    print("READ_ONLY_HELD identity=\(identity) remote_ids=\(remote.heldRemoteIDsByIdentity[identity, default: []]) differing_fields=\(remote.heldDifferencesByIdentity[identity, default: []])")
+                    print("READ_ONLY_HELD_VALUE_SHAPES fields=\(remote.heldValueShapesByIdentity[identity, default: []])")
+                }
+            }
             var database: OpaquePointer?
             guard sqlite3_open_v2(workspace.databaseURL.path, &database, SQLITE_OPEN_READONLY, nil) == SQLITE_OK else {
                 Issue.record("Could not inspect local IDs read-only."); return

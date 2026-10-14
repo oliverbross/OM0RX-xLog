@@ -2328,6 +2328,10 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
+    func lookupSyncRemoteID(_ wavelogID: Int) throws -> QSO? {
+        try lookup(wavelogID: wavelogID)
+    }
+
     private func lookup(wavelogID: Int) throws -> QSO? {
         try withStatement("SELECT record_json FROM qsos WHERE wavelog_id = ? LIMIT 1;") { statement in
             sqlite3_bind_int64(statement, 1, Int64(wavelogID))
