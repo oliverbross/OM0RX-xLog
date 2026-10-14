@@ -62,7 +62,7 @@ struct SyncIdentityJoinAuditTests {
         #expect(IdentityJoinAuditProtocol.methods().allSatisfy { $0 == "GET" })
     }
 
-    @Test("Dirty anchors and conflicting populated enrichment remain held", arguments: ["dirty", "country", "distance", "unknown", "status", "date", "twoLinks", "noLink"])
+    @Test("Dirty anchors and conflicting enrichment without an anchored value remain held", arguments: ["dirty", "country", "distance", "message", "unknown", "status", "date", "twoLinks", "noLink"])
     func unsafeConfirmationSnapshots(reason: String) async throws {
         var stale = auditADIF(name: "First", dxcc: "291")
         stale.fields["EQSL_QSL_RCVD"] = "N"
@@ -70,12 +70,17 @@ struct SyncIdentityJoinAuditTests {
         fresh.fields["EQSL_QSL_RCVD"] = "Y"
         if reason == "country" { stale.fields["COUNTRY"] = "Japan"; fresh.fields["COUNTRY"] = "Indonesia" }
         if reason == "distance" { stale.fields["DISTANCE"] = "100"; fresh.fields["DISTANCE"] = "200" }
+        if reason == "message" { stale.fields["QSLMSG_RCVD"] = "First message"; fresh.fields["QSLMSG_RCVD"] = "Second message" }
         if reason == "unknown" { stale.fields["APP_TEST_FIELD"] = "old"; fresh.fields["APP_TEST_FIELD"] = "new" }
         if reason == "status" { fresh.fields["EQSL_QSL_RCVD"] = "I" }
         if reason == "date" { fresh.fields["EQSL_QSLRDATE"] = "20260230" }
         let fixture = try customFixture(json: [auditJSON(id: 11, name: "First"), auditJSON(id: 12, name: "First")], adif: [stale, fresh])
         defer { fixture.session.invalidateAndCancel(); try? FileManager.default.removeItem(at: fixture.root) }
-        let local = try #require(QSO(adif: stale, wavelogID: reason == "noLink" ? nil : 12))
+        var anchor = stale
+        if reason == "country" { anchor.fields.removeValue(forKey: "COUNTRY") }
+        if reason == "distance" { anchor.fields.removeValue(forKey: "DISTANCE") }
+        if reason == "message" { anchor.fields.removeValue(forKey: "QSLMSG_RCVD") }
+        let local = try #require(QSO(adif: anchor, wavelogID: reason == "noLink" ? nil : 12))
         try fixture.database.save(local, markDirty: reason == "dirty")
         if reason == "twoLinks" { try fixture.database.save(try #require(QSO(adif: stale, wavelogID: 11)), markDirty: false) }
         let before = try fixture.database.fetch(limit: 10)
@@ -84,6 +89,37 @@ struct SyncIdentityJoinAuditTests {
         #expect(report.held == 2 && report.pulled == 0 && report.pushed == 0 && report.conflicts == 0)
         #expect(try fixture.database.fetch(limit: 10) == before)
         #expect(try fixture.database.outboxEntries() == outbox)
+        #expect(IdentityJoinAuditProtocol.methods().allSatisfy { $0 == "GET" })
+    }
+
+    @Test("Populated anchor enrichment survives conflicting siblings while fresh confirmations advance", arguments: [false, true])
+    func anchoredEnrichmentSurvivesConflictingSiblings(reverse: Bool) async throws {
+        var stale = auditADIF(name: "First", dxcc: "291")
+        stale.fields.merge(["COUNTRY": "Japan", "DISTANCE": "9028.7", "QSLMSG_RCVD": "Anchor message",
+                            "EQSL_QSL_RCVD": "N", "QRZCOM_QSO_UPLOAD_DATE": "20260626"]) { _, new in new }
+        var fresh = stale
+        fresh.fields.merge(["COUNTRY": "Different country", "DISTANCE": "9030", "QSLMSG_RCVD": "Sibling message",
+                            "EQSL_QSL_RCVD": "Y", "EQSL_QSLRDATE": "20261014",
+                            "LOTW_QSL_RCVD": "Y", "LOTW_QSLRDATE": "20260813",
+                            "QRZCOM_QSO_UPLOAD_DATE": "20261014"]) { _, new in new }
+        let json = [auditJSON(id: 11, name: "First"), auditJSON(id: 12, name: "First")]
+        let fixture = try customFixture(json: reverse ? json.reversed() : json, adif: reverse ? [fresh, stale] : [stale, fresh])
+        defer { fixture.session.invalidateAndCancel(); try? FileManager.default.removeItem(at: fixture.root) }
+        let local = try #require(QSO(adif: stale, wavelogID: 12))
+        try fixture.database.save(local, markDirty: false)
+        let report = try await SyncEngine(database: fixture.database, configuration: fixture.settings, session: fixture.session).synchronize()
+        let updated = try #require(try fixture.database.lookup(localID: local.id))
+        #expect(report.held == 0 && report.pulled == 1 && report.pushed == 0 && report.conflicts == 0)
+        #expect(updated.country == "Japan")
+        #expect(updated.extraFields["DISTANCE"] == "9028.7")
+        #expect(updated.extraFields["QSLMSG_RCVD"] == "Anchor message")
+        #expect(updated.extraFields["EQSL_QSL_RCVD"] == "Y")
+        #expect(updated.extraFields["EQSL_QSLRDATE"] == "20261014")
+        #expect(updated.lotwReceived == "Y")
+        #expect(updated.extraFields["QRZCOM_QSO_UPLOAD_DATE"] == "20261014")
+        #expect(updated.wavelogID == 12 && !updated.isDirty)
+        #expect(try fixture.database.fetch(limit: 10).count == 1)
+        #expect(try fixture.database.outboxEntries().isEmpty)
         #expect(IdentityJoinAuditProtocol.methods().allSatisfy { $0 == "GET" })
     }
 

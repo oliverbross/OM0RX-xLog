@@ -493,7 +493,8 @@ private func varyingADIFFields(_ rows: [QSO]) -> Set<String> {
 
 /// A join ambiguity can still describe successive confirmation snapshots of
 /// one already-linked contact. Coalesce only order-independent progress; a
-/// conflicting name, report, unknown field or populated enrichment stays held.
+/// conflicting name, report or unknown field stays held. Existing contextual
+/// enrichment belongs to the linked anchor and is never replaced by a sibling.
 private let confirmationStatuses: Set<String> = ["EQSL_QSL_SENT", "EQSL_QSL_RCVD", "LOTW_QSL_SENT", "LOTW_QSL_RCVD",
                                  "QRZCOM_QSO_DOWNLOAD_STATUS", "QRZCOM_QSO_UPLOAD_STATUS"]
 private let confirmationDates: Set<String> = ["EQSL_QSLSDATE", "EQSL_QSLRDATE", "LOTW_QSLSDATE", "LOTW_QSLRDATE",
@@ -538,6 +539,10 @@ private func coalescedConfirmationHistory(_ rows: [QSO], anchoredBy local: QSO) 
             }) else { return nil }
             fields[key] = values.max()
         } else {
+            if let existing = anchor[key], !existing.isEmpty {
+                fields[key] = existing
+                continue
+            }
             guard values.count == 1 else { return nil }
             fields[key] = values.first
         }
