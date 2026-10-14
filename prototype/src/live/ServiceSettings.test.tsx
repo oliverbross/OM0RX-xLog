@@ -5,6 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import ServiceSettings from "./ServiceSettings";
 afterEach(cleanup);
 const values = { operatorCall: "OM0RX", stationCall: "OM0RX", wavelogURL: "https://example.invalid", wavelogStationID: 1, qrzUsername: "operator", qrzEnabled: true, clubLogCTYURL: "https://example.invalid/cty", lotwActivityURL: "https://example.invalid/lotw", preservedUnknown: "retain" };
+const qrzUploadOff = { enabled: false, enabled_at: null, pending_new_contacts: 0,
+  states: { dispatching: 0, deferred: 0, delivered: 0, rejected: 0, uncertain: 0 }, latest_state: null };
 type HarnessProps = Omit<ComponentProps<typeof ServiceSettings>, "values" | "onChanged" | "onSave"> & {
   values: Record<string, any>; onSave?: (value: Record<string, any>) => Promise<void>;
 };
@@ -76,7 +78,7 @@ describe("grouped service settings", () => {
     expect(request).not.toHaveBeenCalled();
   });
   it("shows service details and reads only credential presence when Wavelog is first visible", async () => {
-    const request = vi.fn(async () => ({ "wavelog-token": false, "qrz-logbook-key": false }));
+    const request = vi.fn(async (method: string) => method === "online_log_status" ? qrzUploadOff : ({ "wavelog-token": false, "qrz-logbook-key": false }));
     render(<SettingsHarness values={values} request={request} />);
     expect(screen.getByRole("tabpanel", { name: "Station" })).toBeTruthy();
     fireEvent.click(screen.getByRole("tab", { name: "Wavelog" }));
@@ -87,12 +89,12 @@ describe("grouped service settings", () => {
     expect(screen.getByLabelText("QRZ Logbook API key")).toBeTruthy();
     fireEvent.click(screen.getByRole("tab", { name: "Reference data" }));
     expect(screen.getByText(/not a Club Log QSO uploader/)).toBeTruthy();
-    await waitFor(() => expect(request).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(request).toHaveBeenCalledTimes(3));
     expect(request).toHaveBeenCalledWith("secret_status");
   });
   it("saves the separate QRZ Logbook key without enabling or saving upload settings", async () => {
     const request = vi.fn(async (method: string) => method === "secret_status"
-      ? { "qrz-logbook-key": false } : { saved: true });
+      ? { "qrz-logbook-key": false } : method === "online_log_status" ? qrzUploadOff : { saved: true });
     const save = vi.fn(async () => {});
     render(<SettingsHarness values={values} request={request} onSave={save} />);
     fireEvent.click(screen.getByRole("tab", { name: "QRZ" }));
@@ -101,11 +103,44 @@ describe("grouped service settings", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save QRZ Logbook API key" }));
     await screen.findByText("QRZ Logbook API key saved securely.");
     expect(key.value).toBe("");
-    expect(screen.getByText("Saved securely. Upload is still disabled.")).toBeTruthy();
+    expect(screen.getByText("Saved securely. Use the enrollment control below.")).toBeTruthy();
     expect(request).toHaveBeenCalledWith("secret_save", {
       account: "qrz-logbook-key", value: "unit-test-qrz-logbook-key",
     });
     expect(save).not.toHaveBeenCalled();
+  });
+  it("requires explicit prospective-only confirmation before enabling QRZ uploads", async () => {
+    const request = vi.fn(async (method: string) => method === "secret_status" ? { "qrz-logbook-key": true }
+      : method === "online_log_status" ? qrzUploadOff
+      : method === "online_log_configure" ? { ...qrzUploadOff, enabled: true, enabled_at: "2026-10-15T00:00:00Z" }
+      : {});
+    render(<SettingsHarness values={values} request={request} />);
+    fireEvent.click(screen.getByRole("tab", { name: "QRZ" }));
+    await screen.findByText(/Upload is OFF/);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Upload new contacts to QRZ Logbook" }));
+    const enable = screen.getByRole("button", { name: "Enable QRZ uploads" }) as HTMLButtonElement;
+    expect(enable.disabled).toBe(true);
+    expect(screen.getByText(/Existing contacts, imports, Wavelog pulls/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("checkbox", { name: "I understand and want to enroll new contacts from now on" }));
+    fireEvent.click(enable);
+    await screen.findByText("QRZ upload enabled for contacts logged from now on.");
+    expect(request).toHaveBeenCalledWith("online_log_configure", { enabled: true, confirm_new_contacts_only: true });
+  });
+  it("removing the QRZ upload key uses an empty secure write and refreshes disabled status", async () => {
+    let removed = false;
+    const request = vi.fn(async (method: string, params?: Record<string, unknown>) => {
+      if (method === "secret_status") return { "qrz-logbook-key": true };
+      if (method === "secret_save" && params?.value === "") { removed = true; return { saved: false }; }
+      if (method === "online_log_status") return { ...qrzUploadOff, enabled: !removed };
+      return {};
+    });
+    render(<SettingsHarness values={values} request={request} />);
+    fireEvent.click(screen.getByRole("tab", { name: "QRZ" }));
+    const remove = await screen.findByRole("button", { name: "Remove QRZ Logbook API key" });
+    fireEvent.click(remove);
+    await screen.findByText("QRZ Logbook API key removed securely.");
+    expect(request).toHaveBeenCalledWith("secret_save", { account: "qrz-logbook-key", value: "" });
+    await screen.findByText(/Upload is OFF/);
   });
   it("saves a credential separately, clears its input and never sends it with settings", async () => {
     const request = vi.fn(async () => ({ saved: true }));
@@ -125,7 +160,7 @@ describe("grouped service settings", () => {
     expect(request).toHaveBeenCalledTimes(2);
   });
   it("keeps unsaved settings and secret inputs across tabs without loading or persisting secret values", async () => {
-    const request = vi.fn(async () => ({})), save = vi.fn(async () => {});
+    const request = vi.fn(async (_method: string) => ({})), save = vi.fn(async () => {});
     render(<SettingsHarness values={values} request={request} onSave={save} />);
     fireEvent.change(screen.getByLabelText("Station call"), { target: { value: "M7KOD" } });
     fireEvent.click(screen.getByRole("tab", { name: "Wavelog" }));
@@ -141,8 +176,9 @@ describe("grouped service settings", () => {
     expect((screen.getByLabelText("QRZ password") as HTMLInputElement).value).toBe("typed-test-password");
     fireEvent.click(screen.getByRole("tab", { name: "Station" }));
     expect((screen.getByLabelText("Station call") as HTMLInputElement).value).toBe("M7KOD");
-    expect(request).toHaveBeenCalledTimes(2);
+    expect(request).toHaveBeenCalledTimes(4);
     expect(request).toHaveBeenCalledWith("secret_status");
+    expect(request.mock.calls.filter(([method]) => method === "online_log_status")).toHaveLength(2);
     fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
     await waitFor(() => expect(save).toHaveBeenCalledWith({ ...values, stationCall: "M7KOD", wavelogURL: "https://new.example.invalid/" }));
     expect(JSON.stringify(request.mock.calls)).not.toContain("typed-test-token");

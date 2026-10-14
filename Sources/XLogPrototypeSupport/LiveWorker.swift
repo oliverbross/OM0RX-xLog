@@ -251,7 +251,7 @@ public actor LiveWorker {
             if ["sync_run", "sync_configure", "sync_retry", "sync_resolve"].contains(method) {
                 throw WorkerFailure("sync_owner_required", "Use the shared generation-bound Sync mutation owner.")
             }
-            if terminalShutdown && (method.hasPrefix("reference_") || method.hasPrefix("sync_") || method.hasPrefix("secret_") || method.hasPrefix("station_") || method.hasPrefix("spot_bridge_") || method.hasPrefix("wsjtx_") || method.hasPrefix("spot_history_") || method.hasPrefix("spot_draft_") || method.hasPrefix("opportunities_") || method.hasPrefix("cluster_") || method.hasPrefix("logbook_operator_draft") || method.hasPrefix("logbook_contact") || ["weather", "propagation_snapshot", "propagation_refresh", "lookup_call", "workspace_create", "backup_restore"].contains(method)) {
+            if terminalShutdown && (method.hasPrefix("reference_") || method.hasPrefix("sync_") || method.hasPrefix("secret_") || method.hasPrefix("online_log_") || method.hasPrefix("station_") || method.hasPrefix("spot_bridge_") || method.hasPrefix("wsjtx_") || method.hasPrefix("spot_history_") || method.hasPrefix("spot_draft_") || method.hasPrefix("opportunities_") || method.hasPrefix("cluster_") || method.hasPrefix("logbook_operator_draft") || method.hasPrefix("logbook_contact") || ["weather", "propagation_snapshot", "propagation_refresh", "lookup_call", "workspace_create", "backup_restore"].contains(method)) {
                 throw WorkerFailure("worker_stopping", "The worker is shutting down; no new service request was started.")
             }
             if method == "health" {
@@ -323,7 +323,7 @@ public actor LiveWorker {
                     cancelContactRefresh()
                     workspaceTransitionCount += 1
                     powerCapture.suspend(true)
-                    await onlineLogs.suspendForWorkspaceChange()
+                    await onlineLogs.suspendForOwnershipChange()
                     #if os(macOS)
                     await references.suspendForWorkspaceChange()
                     await LiveWSJTXBridge.shared.suspendForWorkspaceChange()
@@ -340,7 +340,7 @@ public actor LiveWorker {
                         await LiveWSJTXBridge.shared.finishWorkspaceChange()
                         #endif
                         await cluster.finishWorkspaceChange()
-                        await onlineLogs.finishWorkspaceChange()
+                        await onlineLogs.finishOwnershipChange()
                         workspaceTransitionCount -= 1
                         if workspaceTransitionCount == 0 {
                             powerCapture.suspend(false)
@@ -356,7 +356,7 @@ public actor LiveWorker {
                     await LiveWSJTXBridge.shared.finishWorkspaceChange()
                     #endif
                     await cluster.finishWorkspaceChange()
-                    await onlineLogs.finishWorkspaceChange()
+                    await onlineLogs.finishOwnershipChange()
                     workspaceTransitionCount -= 1
                     if workspaceTransitionCount == 0 {
                         powerCapture.suspend(false)
@@ -384,8 +384,19 @@ public actor LiveWorker {
                 result = try await cluster.handle(method: method, params: params)
             } else if method == "weather" || method == "propagation_snapshot" || method == "propagation_refresh" {
                 result = try await publicServices.handle(method: method, params: params)
-            } else if method.hasPrefix("sync_") || method.hasPrefix("secret_") {
-                result = try await services.handle(method: method, params: params)
+            } else if method.hasPrefix("sync_") || method.hasPrefix("secret_") || method.hasPrefix("online_log_") {
+                let fencesOnlineDelivery = method == "online_log_configure" ||
+                    (method == "secret_save" && params["account"] as? String == "qrz-logbook-key")
+                if fencesOnlineDelivery { await onlineLogs.suspendForOwnershipChange() }
+                do { result = try await services.handle(method: method, params: params) }
+                catch {
+                    if fencesOnlineDelivery { await onlineLogs.finishOwnershipChange() }
+                    throw error
+                }
+                if fencesOnlineDelivery {
+                    await onlineLogs.finishOwnershipChange()
+                    await onlineLogs.requestDelivery()
+                }
                 #if os(macOS)
                 if method == "secret_save" { await references.resetAutomaticDeadline() }
                 #endif

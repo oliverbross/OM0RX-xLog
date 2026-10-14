@@ -1146,7 +1146,7 @@ by this snapshot. The [RUMlog gap audit](RUMLOG_WORKFLOW_GAP_AUDIT_2026-10-14.md
 records partial native menu inspection, primary documentation and remaining
 import/export, Settings, cloud backup and workflow scope.
 
-## 15 October — QRZ upload-only durability foundation
+## 15 October — QRZ prospective upload enrollment and delivery
 
 The first optional online-log slice is source-complete but deliberately disabled.
 QRZ INSERT requests are now modeled behind a separate vault key, immutable
@@ -1170,11 +1170,20 @@ dispatches as uncertain, reads the QRZ key only when enrollment and at least one
 candidate are present, retains only bounded rate-limit retries, and retires
 delivered, rejected, or uncertain candidates to prevent automatic replay.
 
-Focused online delivery/enrollment **12/12**, native owner **3/3**, Settings **18/18**,
-full frontend **2,388/2,388**, native **189/189** and portable **200 XCTest**
-(four intentional benchmark skips) plus **390/390 Swift Testing** checks pass;
-the production frontend build passes.
-No QRZ credential was written and no live request was made. Enrollment UI,
-credential removal,
-live account acceptance, and independent Club Log/HRDLOG adapters remain open. See
+Settings now exposes that boundary through a default-off **new contacts from now
+on** control. Enabling requires both a saved QRZ Logbook key and a separate
+operator acknowledgement; disabling cancels unsent candidates, and re-enabling
+never backfills the disabled interval. Removing the key disables enrollment
+before the Keychain value is deleted. A local aggregate health view reports only
+enabled state, pending and receipt-state counts, plus the latest safe result; it
+does not expose contact identities, ADIF or secrets to the renderer.
+
+Focused online delivery/enrollment **12/12**, native owner **4/4**, Settings **20/20**,
+full frontend **2,390/2,390**, Rust **433 unit + 18 integration**, native
+**189/189** and portable **200 XCTest** (four intentional benchmark skips) plus
+**391/391 Swift Testing** checks pass; the production frontend build and
+detached-window bundle gate pass.
+No QRZ credential was written and no live request was made. Live account
+acceptance, explicit rejected/uncertain review policy, WSJT-X eligibility and
+independent Club Log/HRDLOG adapters remain open. See
 [the bounded acceptance record](QRZ_UPLOAD_FOUNDATION_ACCEPTANCE_2026-10-15.md).

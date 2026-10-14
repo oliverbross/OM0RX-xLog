@@ -163,14 +163,22 @@ struct OnlineLogDeliveryTests {
             transport: try QRZLogbookTransport(userAgent: "OM0RX-xLog/fixture", http: http))
 
         await #expect(throws: OnlineLogDeliveryError.deliveryUncertain) {
-            try await coordinator.deliver(contactID: uncertain.id, accessKey: "fixture-key")
+            try await coordinator.deliver(contactID: uncertain.id, accessKey: "fixture-key",
+                                          now: Date(timeIntervalSince1970: 100))
         }
         #expect(try database.onlineLogCandidateIDs(service: .qrz) == [rejected.id])
-        let refusal = try await coordinator.deliver(contactID: rejected.id, accessKey: "fixture-key")
+        let refusal = try await coordinator.deliver(contactID: rejected.id, accessKey: "fixture-key",
+                                                    now: Date(timeIntervalSince1970: 200))
         #expect(refusal.state == .rejected)
         #expect(refusal.safeErrorCode == "authentication_rejected")
         #expect(try database.onlineLogCandidateIDs(service: .qrz).isEmpty)
         #expect(await http.requests.count == 2)
+        let summary = try database.onlineLogDeliverySummary(service: .qrz)
+        #expect(summary.counts[.uncertain] == 1)
+        #expect(summary.counts[.rejected] == 1)
+        #expect(summary.latestState == .rejected)
+        #expect(summary.latestAttemptAt == Date(timeIntervalSince1970: 200))
+        #expect(summary.latestSafeErrorCode == "authentication_rejected")
     }
 
     @Test func editedContactInvalidatesPreparedPlanBeforeDispatch() throws {

@@ -21,7 +21,7 @@ export type ServiceSettingsProps = { values: Data; savedValues?: Data; request: 
 const tabs = ["Station", "Wavelog", "Sync", "Integrations", "QRZ", "Reference data", "Rotator", "CW", "Display", "Workspace", "Backups"] as const;
 type Tab = typeof tabs[number];
 
-function Credential({ account, label, request, leadingField, visible = false, showSavedStatus = false, savedStatus, missingStatus }: { account: string; label: string; request: Request; leadingField?: ReactNode; visible?: boolean; showSavedStatus?: boolean; savedStatus?: string; missingStatus?: string }) {
+function Credential({ account, label, request, leadingField, visible = false, showSavedStatus = false, savedStatus, missingStatus, allowRemove = false, onChanged }: { account: string; label: string; request: Request; leadingField?: ReactNode; visible?: boolean; showSavedStatus?: boolean; savedStatus?: string; missingStatus?: string; allowRemove?: boolean; onChanged?: () => void }) {
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -45,18 +45,76 @@ function Credential({ account, label, request, leadingField, visible = false, sh
     setBusy(true); setMessage(""); statusRevision.current++;
     try {
       await request("secret_save", { account, value });
-      setValue(""); setStored("saved"); setMessage(`${label} saved securely.`);
+      setValue(""); setStored("saved"); setMessage(`${label} saved securely.`); onChanged?.();
     } catch {
       setStored(current => current === "checking" ? "unavailable" : current);
       setMessage(`Could not save ${label}. Check the app’s Keychain access and try again.`);
     }
     finally { setBusy(false); }
   };
+  const remove = async () => {
+    if (busy || stored !== "saved") return;
+    setBusy(true); setMessage(""); statusRevision.current++;
+    try {
+      await request("secret_save", { account, value: "" });
+      setValue(""); setStored("missing"); setMessage(`${label} removed securely.`); onChanged?.();
+    } catch { setMessage(`Could not remove ${label}. Check the app’s Keychain access and try again.`); }
+    finally { setBusy(false); }
+  };
   const status = stored === "saved" ? (savedStatus ?? "Saved securely. Not verified for this Wavelog URL and station ID.") : stored === "missing" ? (missingStatus ?? "No saved token. Enter your API v2 token.") : stored === "checking" ? "Checking saved credential…" : stored === "unavailable" ? "Saved credential status unavailable. Keychain access may need attention." : "";
   return <div className={`service-credential${leadingField ? " service-account-row" : ""}`}>{leadingField}<label>{label}<input type="password" aria-label={label} autoComplete="off" value={value} disabled={busy} maxLength={8192} placeholder={showSavedStatus && stored === "saved" ? "•••••••• — saved" : undefined}
     onChange={event => setValue(event.target.value)} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); event.stopPropagation(); void save(); } }} /></label>
     <button type="button" disabled={busy || !value} onClick={() => void save()}>{busy ? "Saving…" : `Save ${label}`}</button>
+    {allowRemove && stored === "saved" && <button type="button" disabled={busy} onClick={() => void remove()}>{`Remove ${label}`}</button>}
     {message && <p role="status">{message}</p>}{showSavedStatus && status && <p className="service-credential-state" role="status">{status}</p>}</div>;
+}
+
+type OnlineLogStatus = { enabled: boolean; enabled_at?: string | null; pending_new_contacts: number;
+  states: Record<string, number>; latest_state?: string | null; latest_attempt_at?: string | null; latest_error_code?: string | null };
+
+function QRZUploadControl({ request, visible, refreshRevision }: { request: Request; visible: boolean; refreshRevision: number }) {
+  const [status, setStatus] = useState<OnlineLogStatus | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [confirming, setConfirming] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+  const [reloadRevision, setReloadRevision] = useState(0);
+  useEffect(() => {
+    if (!visible) return;
+    let current = true; setBusy(true); setMessage("");
+    void request("online_log_status").then(value => { if (current) setStatus(value as OnlineLogStatus); }, () => {
+      if (current) setMessage("QRZ upload status is unavailable. No upload setting was changed.");
+    }).finally(() => { if (current) setBusy(false); });
+    return () => { current = false; };
+  }, [request, visible, refreshRevision, reloadRevision]);
+  const configure = async (enabled: boolean) => {
+    if (busy) return;
+    setBusy(true); setMessage("");
+    try {
+      const next = await request("online_log_configure", { enabled, confirm_new_contacts_only: enabled });
+      setStatus(next as OnlineLogStatus); setConfirming(false); setConfirmed(false);
+      setMessage(enabled ? "QRZ upload enabled for contacts logged from now on." : "QRZ upload disabled. Pending unsent contacts were cancelled.");
+    } catch {
+      setMessage(enabled ? "Could not enable QRZ upload. Save a valid Logbook API key and try again." : "Could not disable QRZ upload. No change was confirmed.");
+    } finally { setBusy(false); }
+  };
+  const states = status?.states ?? {};
+  const attention = (states.rejected ?? 0) + (states.uncertain ?? 0);
+  return <div className="service-online-log" aria-label="QRZ Logbook upload">
+    <label className="service-enable"><input type="checkbox" aria-describedby="qrz-upload-help" checked={status?.enabled === true}
+      disabled={busy || !status} onChange={event => event.target.checked ? setConfirming(true) : void configure(false)} />Upload new contacts to QRZ Logbook</label>
+    <p id="qrz-upload-help">Only contacts logged after you enable this are eligible. Existing contacts, imports, Wavelog pulls, confirmations and edits are never backfilled.</p>
+    {confirming && status?.enabled !== true && <div className="service-settings-recovery" role="group" aria-label="Confirm QRZ upload enrollment">
+      <p>This starts automatic, one-record INSERT uploads for future contacts. Ambiguous outcomes are held for review and never replayed automatically.</p>
+      <label><input type="checkbox" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} />I understand and want to enroll new contacts from now on</label>
+      <button type="button" disabled={busy || !confirmed} onClick={() => void configure(true)}>Enable QRZ uploads</button>
+      <button type="button" disabled={busy} onClick={() => { setConfirming(false); setConfirmed(false); }}>Cancel</button>
+    </div>}
+    {status && <p role="status">Upload is {status.enabled ? "ON" : "OFF"}. {status.pending_new_contacts ?? 0} new contacts pending; {states.delivered ?? 0} delivered; {states.deferred ?? 0} deferred; {attention} require review.</p>}
+    {status?.latest_state && <p>Latest outcome: {status.latest_state.replace(/_/g, " ")}{status.latest_error_code ? ` (${status.latest_error_code.replace(/_/g, " ")})` : ""}.</p>}
+    <button type="button" disabled={busy} onClick={() => { setStatus(null); setMessage(""); setReloadRevision(value => value + 1); }}>Refresh upload status</button>
+    {message && <p role="status">{message}</p>}
+  </div>;
 }
 
 export default function ServiceSettings({ values, savedValues, request, onChanged, onSave, saving = false, pending = false,
@@ -69,6 +127,7 @@ export default function ServiceSettings({ values, savedValues, request, onChange
   useEffect(() => { if (!visibleTabs.includes(tab)) setTab(visibleTabs[0] ?? "Station"); }, [tab, visibleTabs]);
   const form = values;
   const [message, setMessage] = useState("");
+  const [qrzUploadRevision, setQRZUploadRevision] = useState(0);
   const blocked = pending || conflict || workspaceChanged;
   const update = (change: Partial<Data>) => {
     const next = { ...form, ...change };
@@ -126,7 +185,7 @@ export default function ServiceSettings({ values, savedValues, request, onChange
       </select></label><p>{(form.logbookMode ?? "local") === "local" ? "Contacts stay in this app. Wavelog synchronization and catalog checks are disabled; logging, awards, QRZ, cluster, radio and rotator remain available." : "Contacts are saved locally. Wavelog synchronization follows your Sync settings."} Save settings to apply. Switching modes keeps contacts, pending changes and saved credentials. Switching back to Wavelog leaves synchronization off until you explicitly synchronize or enable it in Sync. Wait for any running synchronization to finish before changing modes.</p></section>
       <section hidden={tab !== "Wavelog"}><h2>Wavelog synchronization</h2><p>The URL and station ID identify the online logbook; the API v2 token authorizes access. Configure synchronization in Sync.</p><div className="service-fields">{field("wavelogURL", "Wavelog URL", "url")}{field("wavelogStationID", "Wavelog station ID", "number")}</div><Credential account="wavelog-token" label="Wavelog API v2 token" request={request} visible={tab === "Wavelog"} showSavedStatus /></section>
       <section hidden={tab !== "QRZ"}><h2>QRZ callsign lookup</h2><p>Use your QRZ username and password for XML callsign lookup.</p><label className="service-enable"><input type="checkbox" checked={form.qrzEnabled === true} onChange={event => update({ qrzEnabled: event.target.checked })} />Use QRZ XML lookup</label><Credential account="qrz-password" label="QRZ password" request={request} leadingField={field("qrzUsername", "QRZ username")} />
-        <h2>QRZ Logbook upload credential</h2><p>The Logbook API key is separate from your XML lookup password. Saving it securely does not enable uploads; new-contact enrollment and live account acceptance are not yet available.</p><Credential account="qrz-logbook-key" label="QRZ Logbook API key" request={request} visible={tab === "QRZ"} showSavedStatus savedStatus="Saved securely. Upload is still disabled." missingStatus="No saved QRZ Logbook API key." /></section>
+        <h2>QRZ Logbook upload</h2><p>The Logbook API key is separate from your XML lookup password. Saving it securely does not enable uploads. Removing it also disables uploads and cancels pending unsent contacts.</p><Credential account="qrz-logbook-key" label="QRZ Logbook API key" request={request} visible={tab === "QRZ"} showSavedStatus allowRemove savedStatus="Saved securely. Use the enrollment control below." missingStatus="No saved QRZ Logbook API key." onChanged={() => setQRZUploadRevision(value => value + 1)} /><QRZUploadControl request={request} visible={tab === "QRZ"} refreshRevision={qrzUploadRevision} /></section>
       <section hidden={tab !== "Reference data"}><h2>Club Log reference data</h2><p>This connection downloads CTY reference data using an API key. It is not a Club Log QSO uploader and does not use a separate account callsign.</p><Credential account="clublog-api-key" label="Club Log API key" request={request} leadingField={field("clubLogCTYURL", "Club Log CTY URL", "url")} /></section>
       <section hidden={tab !== "Reference data"}><h2>LoTW activity reference</h2><p>This public reference feed does not require your LoTW password.</p><div className="service-fields">{field("lotwActivityURL", "LoTW activity URL", "url")}</div></section>
       <div className="live-actions" hidden={tab === "Backups" || tab === "Display" || tab === "Rotator" || tab === "Workspace" || tab === "Sync" || tab === "Integrations"}><button type="submit" className="primary">{saving ? "Saving settings…" : "Save settings"}</button><span role="status">{message}</span></div>

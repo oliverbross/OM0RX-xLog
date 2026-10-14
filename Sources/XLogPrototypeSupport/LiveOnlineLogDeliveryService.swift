@@ -86,7 +86,7 @@ actor LiveOnlineLogDeliveryService {
         }
     }
 
-    func suspendForWorkspaceChange() async {
+    func suspendForOwnershipChange() async {
         workspaceTransitions += 1
         let running = deliveryTask
         running?.cancel()
@@ -95,7 +95,7 @@ actor LiveOnlineLogDeliveryService {
         recoveredGeneration = nil
     }
 
-    func finishWorkspaceChange() {
+    func finishOwnershipChange() {
         workspaceTransitions = max(0, workspaceTransitions - 1)
         if workspaceTransitions == 0 { requestDelivery() }
     }

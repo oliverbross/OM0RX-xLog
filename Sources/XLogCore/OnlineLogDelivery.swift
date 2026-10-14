@@ -12,7 +12,7 @@ public enum OnlineLogService: String, Codable, CaseIterable, Sendable {
     case qrz
 }
 
-public enum OnlineLogDeliveryState: String, Codable, Sendable {
+public enum OnlineLogDeliveryState: String, Codable, CaseIterable, Sendable {
     case dispatching
     case deferred
     case delivered
@@ -81,6 +81,14 @@ public struct OnlineLogEnrollmentStatus: Equatable, Sendable {
     public let enabled: Bool
     public let enabledAt: Date?
     public let pendingNewContacts: Int
+}
+
+public struct OnlineLogDeliverySummary: Equatable, Sendable {
+    public let enrollment: OnlineLogEnrollmentStatus
+    public let counts: [OnlineLogDeliveryState: Int]
+    public let latestState: OnlineLogDeliveryState?
+    public let latestAttemptAt: Date?
+    public let latestSafeErrorCode: String?
 }
 
 struct QRZLogbookHTTPResponse: Sendable {

@@ -1,8 +1,8 @@
 # QRZ upload foundation source acceptance — 15 October 2026
 
-This checkpoint implements the bounded, upload-only core required before an
-operator can opt in to sending new contacts to QRZ. It does not enable the
-feature, add settings controls, enroll an existing log, or contact QRZ.
+This checkpoint implements the bounded, upload-only core and its explicit
+operator enrollment surface. It remains disabled by default, never enrolls an
+existing log, and did not contact QRZ during source acceptance.
 
 ## Implemented boundary
 
@@ -31,6 +31,15 @@ feature, add settings controls, enroll an existing log, or contact QRZ.
   retries, and atomically retires delivered, rejected, or uncertain outcomes.
   Interrupted dispatch recovery marks the durable receipt uncertain and removes
   its candidate, so process restart cannot replay an ambiguous INSERT.
+- Settings now exposes a separate, prospective-only enrollment control. Enabling
+  requires a saved QRZ Logbook key and a second explicit acknowledgement that
+  only new contacts saved from that point forward are enrolled. Disabling is
+  immediate and cancels unsent candidates without backfilling when re-enabled.
+- Removing the QRZ Logbook key disables enrollment before deleting the Keychain
+  secret, so a failed or interrupted removal cannot leave uploads armed.
+- Settings health is an aggregate local-only view: enabled state, pending count,
+  per-state receipt counts and the latest safe state/time/error code. It never
+  exposes a callsign, contact identity, ADIF payload or secret to the renderer.
 - Freezes the exact local contact revision and SHA-256 payload, then commits a
   durable SQLite claim before network I/O. Concurrent claims cannot both send.
 - Stores only bounded receipt state, attempt identity/count, timestamps, an
@@ -56,13 +65,15 @@ eligibility.
   no-replay, explicit bounded rate-limit retry, stale edited-contact rejection
   and interrupted-dispatch recovery, prospective-only enrollment, disable/re-enable,
   deletion cancellation, candidate terminal/deferred lifecycle and atomic
-  operator-draft Save capture. The native owner suite passes **3/3** tests.
-- Settings credential coverage: **18/18 focused tests pass**; the complete
-  frontend suite passes **2,388 tests across 159 files** and the production
+  operator-draft Save capture. The native owner suite passes **4/4** tests,
+  including aggregate-only status and disable-cancels-pending behavior.
+- Settings credential and enrollment coverage: **20/20 focused tests pass**; the complete
+  frontend suite passes **2,390 tests across 159 files** and the production
   TypeScript/Vite/detached-window bundle gate passes.
 - Native Swift: **189 tests across 26 suites pass**.
 - Portable Swift: **200 XCTest tests pass** with four intentional benchmark
-  skips, plus **390 Swift Testing tests across 52 suites**.
+  skips, plus **391 Swift Testing tests across 52 suites**.
+- Rust: **433 unit tests and 18 integration tests pass**.
 - Portable source compilation and `git diff --check` pass.
 
 All network behavior above is fixture-backed. No provider credential was read or
@@ -70,19 +81,19 @@ written and no live QRZ request was made.
 
 ## Explicitly open before operator use
 
-1. Add the default-off upload enrollment control, Keychain deletion, and clear
-   health/receipt status. Credential provisioning alone is not enrollment.
-2. Expose the tested prospective enrollment through a clear confirmation UI.
-   **New contacts from now on** remains the only implemented scope; any existing-log
-   backfill would require a separate design and reviewed operator action. Nothing
-   can silently upload the current 68k-contact log.
-3. Expose clear local-only health and receipt status. Edits and confirmation
-   updates require an explicit provider policy; this INSERT-only slice must not
-   pretend to provide two-way sync.
-4. Complete live acceptance with an operator-supplied QRZ Logbook API key and a
+1. Complete live acceptance with an operator-supplied QRZ Logbook API key and a
    deliberately selected test contact before release packaging.
-5. Implement and accept Club Log and HRDLOG as independent adapters. Wavelog
+2. Add an explicit operator review/re-arm workflow for rejected or uncertain
+   receipts if product policy requires it. Neither state replays automatically.
+3. Define whether WSJT-X-originated contacts are eligible for prospective
+   enrollment. Existing imports, Wavelog updates and confirmation refreshes stay
+   excluded unless a separately reviewed policy changes that boundary.
+4. Implement and accept Club Log and HRDLOG as independent adapters. Wavelog
    remains the richer two-way reconciliation service.
+
+**New contacts from now on** is the only implemented scope. Nothing can silently
+upload the existing 68k-contact log. Edits and confirmation updates require an
+explicit provider policy; this INSERT-only slice does not claim two-way sync.
 
 The Windows Remote Station Agent remained intentionally off. No radio,
 amplifier, tuner, rotor, PTT, Tune or CW action was issued. Windows and Linux

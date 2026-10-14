@@ -45,7 +45,7 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
         return if matches!(request["method"].as_str(), Some(
             "settings_load" | "settings_receipt" | "settings_save"
             | "workspace_rotor_configuration_load" | "workspace_rotor_configuration_receipt" | "workspace_rotor_configuration_save"
-            | "secret_status" | "secret_save"
+            | "secret_status" | "secret_save" | "online_log_status" | "online_log_configure"
             | "sync_status" | "sync_summary" | "sync_mutation" | "sync_receipt"
             | "reference_status" | "reference_resolve" | "reference_refresh" | "reference_schedule" | "reference_configure"
             | "backup_create" | "backup_list" | "backup_inspect" | "backup_import" | "backup_restore"
@@ -256,6 +256,8 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "propagation_refresh",
         "secret_save",
         "secret_status",
+        "online_log_status",
+        "online_log_configure",
         "sync_status",
         "sync_summary",
         "sync_run",
@@ -914,7 +916,7 @@ mod tests {
 
     #[test]
     fn detached_settings_has_no_logbook_station_rotor_cluster_or_cw_authority() {
-        for method in ["settings_load", "settings_receipt", "settings_save", "secret_status", "secret_save",
+        for method in ["settings_load", "settings_receipt", "settings_save", "secret_status", "secret_save", "online_log_status", "online_log_configure",
             "workspace_rotor_configuration_load", "workspace_rotor_configuration_receipt", "workspace_rotor_configuration_save",
             "sync_status", "sync_summary", "sync_mutation", "sync_receipt",
             "reference_status", "reference_resolve", "reference_refresh", "reference_schedule", "reference_configure",
@@ -927,6 +929,19 @@ mod tests {
             "cluster_connect", "winkeyer_snapshot", "workspace_create", "workspace_preferences_save",
             "sync_run", "sync_configure", "sync_resolve", "sync_retry"] {
             assert!(validate_surface("settings", &json!({"id":"settings","method":method,"params":{}})).is_err(), "{method}");
+        }
+    }
+
+    #[test]
+    fn online_log_enrollment_is_scoped_to_main_and_settings() {
+        for method in ["online_log_status", "online_log_configure"] {
+            let request = json!({"id":"online-log","method":method,"params":{}});
+            assert!(validate_surface("main", &request).is_ok(), "main: {method}");
+            assert!(validate_surface("settings", &request).is_ok(), "settings: {method}");
+            for label in ["monitor", "log-qso", "logbook", "awards", "world-map", "band-maps",
+                          "dx-cluster", "spot-history", "callsign-intelligence", "station-control", "unknown", ""] {
+                assert!(validate_surface(label, &request).is_err(), "{label}: {method}");
+            }
         }
     }
 

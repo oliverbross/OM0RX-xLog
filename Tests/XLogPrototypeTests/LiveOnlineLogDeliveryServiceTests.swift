@@ -108,4 +108,28 @@ struct LiveOnlineLogDeliveryServiceTests {
         #expect(receipt.safeErrorCode == "interrupted_after_dispatch")
         await service.terminate()
     }
+
+    @Test func serviceStatusIsAggregateOnlyAndDisableCancelsPendingCandidate() async throws {
+        let (logbook, database, root) = try fixture()
+        defer { database.close(); try? FileManager.default.removeItem(at: root) }
+        _ = try database.configureOnlineLogEnrollment(service: .qrz, enabled: true)
+        let qso = QSO(call: "VE1ABC", start: Date(timeIntervalSince1970: 1_700_001_100),
+                      band: "10m", mode: "FT8", myCall: "OM0RX")
+        try database.saveNewContactForOnlineLogs(qso)
+        let services = LiveServiceMethods(logbook: logbook)
+        let status = try await services.handle(method: "online_log_status", params: [:])
+        #expect(status["enabled"] as? Bool == true)
+        #expect(status["pending_new_contacts"] as? Int == 1)
+        #expect(status["states"] as? [String: Int] == [
+            "dispatching": 0, "deferred": 0, "delivered": 0, "rejected": 0, "uncertain": 0,
+        ])
+        #expect(status.values.contains { ($0 as? String) == qso.call } == false)
+
+        let disabled = try await services.handle(method: "online_log_configure", params: [
+            "enabled": NSNumber(value: false), "confirm_new_contacts_only": NSNumber(value: false),
+        ])
+        #expect(disabled["enabled"] as? Bool == false)
+        #expect(disabled["pending_new_contacts"] as? Int == 0)
+        await services.terminate()
+    }
 }

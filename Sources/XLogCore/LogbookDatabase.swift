@@ -353,6 +353,45 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
+    public func onlineLogDeliverySummary(service: OnlineLogService) throws -> OnlineLogDeliverySummary {
+        try withDatabaseLock {
+            var counts = Dictionary(uniqueKeysWithValues: OnlineLogDeliveryState.allCases.map { ($0, 0) })
+            try withStatement("SELECT state,COUNT(*) FROM xlog_online_log_deliveries WHERE service=? GROUP BY state;") { statement in
+                bind(service.rawValue, to: 1, in: statement)
+                var step = sqlite3_step(statement)
+                while step == SQLITE_ROW {
+                    guard let text = sqlite3_column_text(statement, 0),
+                          let state = OnlineLogDeliveryState(rawValue: String(cString: text)) else {
+                        throw LogbookDatabaseError.corruptRecord
+                    }
+                    counts[state] = Int(sqlite3_column_int64(statement, 1))
+                    step = sqlite3_step(statement)
+                }
+                guard step == SQLITE_DONE else { throw error() }
+            }
+            var latestState: OnlineLogDeliveryState?, latestAttemptAt: Date?, latestCode: String?
+            try withStatement("""
+                SELECT state,last_attempt_at,last_error_code FROM xlog_online_log_deliveries
+                WHERE service=? ORDER BY last_attempt_at DESC,local_id DESC LIMIT 1;
+                """) { statement in
+                    bind(service.rawValue, to: 1, in: statement)
+                    let step = sqlite3_step(statement)
+                    if step == SQLITE_ROW {
+                        guard let text = sqlite3_column_text(statement, 0),
+                              let state = OnlineLogDeliveryState(rawValue: String(cString: text)) else {
+                            throw LogbookDatabaseError.corruptRecord
+                        }
+                        latestState = state
+                        latestAttemptAt = Date(timeIntervalSince1970: sqlite3_column_double(statement, 1))
+                        latestCode = sqlite3_column_text(statement, 2).map { String(cString: $0) }
+                    } else if step != SQLITE_DONE { throw error() }
+                }
+            return OnlineLogDeliverySummary(enrollment: try onlineLogEnrollmentStatus(service: service),
+                counts: counts, latestState: latestState, latestAttemptAt: latestAttemptAt,
+                latestSafeErrorCode: latestCode)
+        }
+    }
+
     /// One joined SELECT pairs the contact with its revision atomically, including
     /// pre-migration rows (revision zero) without rewriting/scanning the logbook.
     public func contactSnapshot(localID: UUID) throws -> LogbookContactSnapshot? {

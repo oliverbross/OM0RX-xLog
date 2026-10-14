@@ -74,6 +74,21 @@ actor LiveServiceMethods {
             return try logbook.withSyncOwnerLock { try handleSync(method: method, params: params) }
         }
         switch method {
+        case "online_log_status":
+            guard params.isEmpty else { throw invalid() }
+            return try onlineLogStatus()
+        case "online_log_configure":
+            guard Set(params.keys) == ["enabled", "confirm_new_contacts_only"],
+                  let enabled = params["enabled"] as? NSNumber, isJSONBoolean(enabled),
+                  let confirmation = params["confirm_new_contacts_only"] as? NSNumber,
+                  isJSONBoolean(confirmation), !enabled.boolValue || confirmation.boolValue else { throw invalid() }
+            if enabled.boolValue {
+                guard let key = try workspaceSecrets().load(.qrzLogbookKey), Self.validQRZLogbookKey(key) else {
+                    throw WorkerFailure("credential_required", "Save a valid QRZ Logbook API key before enabling uploads.")
+                }
+            }
+            _ = try logbook.openedDatabase().configureOnlineLogEnrollment(service: .qrz, enabled: enabled.boolValue)
+            return try onlineLogStatus()
         case "secret_save":
             guard Set(params.keys) == ["account", "value"], let name = params["account"] as? String,
                   let account = WorkspaceCredentialStore.Account(rawValue: name), let value = params["value"] as? String,
@@ -86,6 +101,9 @@ actor LiveServiceMethods {
                     journal["revision"] = (journal["revision"] as! NSNumber).int64Value + 1
                     try logbook.openedDatabase().saveSyncMutationJournal(JSONSerialization.data(withJSONObject: journal, options: [.sortedKeys]))
                     try logbook.configureAutomaticSync(enabled: false, intervalMinutes: 5, confirmed: false)
+                }
+                if account == .qrzLogbookKey, value.isEmpty {
+                    _ = try logbook.openedDatabase().configureOnlineLogEnrollment(service: .qrz, enabled: false)
                 }
                 try secrets.save(value, for: account)
             }
@@ -508,6 +526,27 @@ actor LiveServiceMethods {
     }
     private func workspaceSecrets() throws -> WorkspaceCredentialStore {
         WorkspaceCredentialStore(service: try logbook.currentKeychainService())
+    }
+    private func onlineLogStatus() throws -> [String: Any] {
+        let summary = try logbook.openedDatabase().onlineLogDeliverySummary(service: .qrz)
+        return [
+            "service": summary.enrollment.service.rawValue,
+            "enabled": summary.enrollment.enabled,
+            "enabled_at": summary.enrollment.enabledAt.map { ISO8601DateFormatter().string(from: $0) } as Any? ?? NSNull(),
+            "pending_new_contacts": summary.enrollment.pendingNewContacts,
+            "states": Dictionary(uniqueKeysWithValues: OnlineLogDeliveryState.allCases.map {
+                ($0.rawValue, summary.counts[$0] ?? 0)
+            }),
+            "latest_state": summary.latestState?.rawValue as Any? ?? NSNull(),
+            "latest_attempt_at": summary.latestAttemptAt.map { ISO8601DateFormatter().string(from: $0) } as Any? ?? NSNull(),
+            "latest_error_code": summary.latestSafeErrorCode as Any? ?? NSNull(),
+        ]
+    }
+    private static func validQRZLogbookKey(_ value: String) -> Bool {
+        !value.isEmpty && value.utf8.count <= 256 &&
+            !value.unicodeScalars.contains(where: {
+                CharacterSet.whitespacesAndNewlines.contains($0) || CharacterSet.controlCharacters.contains($0)
+            })
     }
     #if os(macOS)
     private func cachedQRZClient(username: String, password: String) throws -> QRZClient {

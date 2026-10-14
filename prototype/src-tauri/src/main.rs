@@ -723,7 +723,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     let invalidate = logbook_events::changes_logbook(&request);
     let map_changed = invalidate || matches!(method, "settings_save" | "workspace_preferences_save" | "workspace_band_map_apply" | "workspace_create" | "backup_restore");
     let settings_changed = matches!(method, "settings_save" | "backup_restore");
-    let sync_changed = matches!(method, "sync_mutation" | "settings_save" | "secret_save" | "workspace_create" | "backup_restore");
+    let sync_changed = matches!(method, "sync_mutation" | "online_log_configure" | "settings_save" | "secret_save" | "workspace_create" | "backup_restore");
     let rotor_configuration_changed = matches!(method, "workspace_rotor_configuration_save" | "backup_restore");
     let rotor_configuration_mutation = state.path.is_none() && (rotor_configuration_changed || method == "workspace_create");
     if rotor_configuration_mutation { rotor_session::invalidate_configuration(); }
