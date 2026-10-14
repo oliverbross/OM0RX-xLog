@@ -10,6 +10,7 @@ import { verifyWorkspaceWindows } from "./workspaceWindowsAcceptance";
 import { createLogbookLayoutAcceptance } from "./logbookLayoutAcceptance";
 import { beginSpotHistoryAbsence, resumeSpotHistoryAbsence, serveSpotHistoryAbsence } from "./spotHistoryWindowAcceptance";
 import { verifyBandMapContext } from "./bandMapWindowAcceptance";
+import { validMonitorContext } from "./live/monitorContext";
 
 type Json = Record<string, any>;
 const frame = () => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
@@ -343,6 +344,19 @@ export async function startIntegratedAcceptance() {
     }
     if (surface === "spot-history") {
       await serveSpotHistoryAbsence(report, worker, click);
+      return;
+    }
+    if (surface === "monitor") {
+      const context = await invoke("monitor_context_snapshot");
+      if (!validMonitorContext(context) || !context.acceptance) throw new Error("Monitor acceptance did not provide isolated synthetic context.");
+      await waitForAcceptance("isolated independent monitor", () => !!document.querySelector('[aria-label="Detached Station Monitor"]') &&
+        document.querySelector(".monitor-vfos")?.textContent?.includes("14.074000") === true);
+      report.checks.synthetic_read_only = !document.querySelector(".monitor-actions button") &&
+        document.body.textContent?.includes("Synthetic isolated observation · read only") === true;
+      report.details.nativeContext = context.acceptance;
+      report.details.boundary = "Memory-only read/render proof; no hardware actions or native window lifecycle acceptance.";
+      report.status = report.checks.synthetic_read_only ? "passed" : "failed";
+      await invoke("acceptance_monitor", { report });
       return;
     }
     if (surface === "band-maps") {

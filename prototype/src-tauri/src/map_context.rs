@@ -16,7 +16,7 @@ fn next_revision() -> Result<u64, String> {
 }
 
 pub fn validate(label: &str, isolated: bool) -> Result<(), String> {
-    if isolated || !matches!(label, "main" | "world-map" | "band-maps") {
+    if isolated || !matches!(label, "main" | "world-map" | "band-maps" | "monitor") {
         return Err("Map context is unavailable in this window.".into());
     }
     Ok(())
@@ -87,7 +87,8 @@ fn matched_radio(before: &Value, after: &Value, mut radio: Value) -> Result<Valu
     if ["provider", "generation", "selection_id"].iter().any(|key| before[*key] != after[*key]) {
         return Err("Radio selection changed while reading map context; refresh to retry.".into());
     }
-    if !before["provider"].is_string() || radio["provider"] != before["provider"] {
+    if !before["provider"].is_string() || radio["provider"] != before["provider"]
+        || radio["selection_id"] != before["selection_id"] || radio["selection_generation"] != before["generation"] {
         radio["available"] = json!(false); radio["snapshot"] = Value::Null;
     }
     Ok(radio)
@@ -114,10 +115,10 @@ mod tests {
     fn value() -> Value { json!({"generation":"fixture", "revision":0,"preferences":{},"dxccStatuses":{}}) }
     #[test]
     fn map_scope_is_exact_and_isolation_never_starts_owners() {
-        for label in ["main", "world-map", "band-maps"] {
+        for label in ["main", "world-map", "band-maps", "monitor"] {
             assert!(validate(label, false).is_ok()); assert!(validate(label, true).is_err());
         }
-        for label in ["monitor", "log-qso", "spot-history", "dx-cluster", "unknown", ""] { assert!(validate(label, false).is_err()); }
+        for label in ["log-qso", "spot-history", "dx-cluster", "unknown", ""] { assert!(validate(label, false).is_err()); }
     }
     #[test]
     fn isolated_adapter_rejects_a_normal_native_process_before_worker_access() {

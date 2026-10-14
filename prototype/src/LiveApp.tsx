@@ -2,8 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { Radio, BookOpen, Network, History, Map as MapIcon, Settings, Activity, Award, LayoutDashboard, ExternalLink, RefreshCw } from "lucide-react";
 import { workerRequest, openMonitor, openDetachedMap, detachedMapKind, findDetachedSpot,
   onDetachedSpot,
-  onMonitorProjection, onMonitorReady, announceMonitorReady, publishMonitorProjection,
-  type DetachedMapProjection, type MonitorProjection, type StationProvider } from "./worker";
+  type StationProvider } from "./worker";
 import WorldMap from "./Map";
 import type { Spot } from "./model";
 import { ClusterPanel } from "./live/ClusterPanel";
@@ -17,7 +16,7 @@ import { LogbookPanel } from "./live/LogbookPanel";
 import { connectLogbookChanges, openDetachedLogbook, openDetachedAwards } from "./live/logbookWindows";
 import StationPanel from "./live/StationPanel";
 import Conditions from "./live/Conditions";
-import Monitor from "./live/Monitor";
+import { DetachedMonitorSurface } from "./live/DetachedMonitorSurface";
 import HamlibPanel from "./live/HamlibPanel";
 import DirectFlexPanel from "./live/DirectFlexPanel";
 import { hamlibStationRequest } from "./live/hamlibStation";
@@ -97,7 +96,7 @@ function legacyDraftValue(): Data | null {
 export default function LiveApp() {
   if (detached === "world-map") return <DetachedWorldMapSurface />;
   if (detached === "band-maps") return <DetachedBandMapsSurface />;
-  if (monitor) return <MonitorSurface />;
+  if (monitor) return <DetachedMonitorSurface />;
   return <MainLiveApp />;
 }
 
@@ -215,9 +214,6 @@ function MainLiveApp() {
   const clusterMutationEpoch = useRef(0);
   const latestSpots = useRef<Data[]>([]);
   const selectCurrentSpot = useRef<(spot: Data) => void>(() => {});
-  const latestProjection = useRef<DetachedMapProjection>({ spots: [] });
-  const mapProjectionRevision = useRef(0);
-  const latestMonitorProjection = useRef<MonitorProjection>({ spots: [], station: null, provider: "direct_agent", controlsEnabled: false });
   useEffect(() => {
     if (nativeStationSelection()) return;
     const changed = (event: StorageEvent) => {
@@ -731,31 +727,20 @@ function MainLiveApp() {
     [draft?.call, lookup?.call, lookup?.latitude, lookup?.longitude, lookup?.country, lookup?.location_source, lookup?.source]);
   latestSpots.current = liveSpots;
   selectCurrentSpot.current = selectSpot;
-  latestProjection.current = { revision: ++mapProjectionRevision.current, spots: liveSpots, palette: cluster?.configuration?.palette,
-    home: stats?.map_home, dxccStatuses: stats?.dxcc_statuses,
-    radioFrequencyHz: station?.radio?.observed && station?.radio?.connected ? station.radio.frequency_hz : undefined, selected, target: mapTarget,
-    bandMapPreferences: workspacePreferences ? bandMapView(workspacePreferences, false) : undefined };
   const stationWithRotor = { ...(station || { source: provider.current, radio: null }), rotor: rotorProjection(rotorState),
     rotor_control: rotorState, projection_received_at: Date.now() / 1000 };
-  latestMonitorProjection.current = { ...latestProjection.current, station: stationWithRotor,
-    provider: provider.current,
-    controlsEnabled: !providerTransition.current && !busy && station?.source === provider.current };
   useEffect(() => {
     if (monitor) return;
     let active = true; const subscriptions: Array<() => void> = [];
     void Promise.allSettled([
       onDetachedSpot(payload => { if ((payload as Data)?.kind !== "dx-cluster") return; const spot = findDetachedSpot(payload, latestSpots.current); if (spot) selectCurrentSpot.current(spot); }),
       onDetachedDock(kind => { setView(kind === "dx-cluster" ? "DX Cluster" : kind === "world-map" ? "World Map" : "Band Maps"); }),
-      onMonitorReady(() => { void publishMonitorProjection(latestMonitorProjection.current).catch(() => {}); }),
     ]).then(results => { for (const result of results) if (result.status === "fulfilled") { if (active) subscriptions.push(result.value); else result.value(); } });
     return () => { active = false; subscriptions.forEach(unlisten => unlisten()); };
   }, [request]);
   useEffect(() => {
     if (!monitor) void publishClusterSelection(selected).catch(() => {});
   }, [selected]);
-  useEffect(() => {
-    void publishMonitorProjection(latestMonitorProjection.current).catch(() => {});
-  }, [station, rotorState, cluster, stats, selected, mapTarget, stationProvider, busy]);
   const mapSpots: Spot[] = useMemo(() => liveSpots.filter(s => typeof s.latitude === "number" && typeof s.longitude === "number").map(s => ({
     id: s.id, call: s.callsign, receivedAt: s.receivedAt, mhz: s.frequencyKHz / 1000, mode: s.mode, band: s.band,
     country: s.country, grid: "", lon: s.longitude, lat: s.latitude, reporter: s.spotter, note: s.comment,
@@ -854,100 +839,6 @@ function MainLiveApp() {
       {view === "Settings" && settings && <ServiceSettings values={settings} request={request} onSaved={value => { setSettings(value); void draftSession.refresh().catch(cause => setError(cause instanceof Error ? cause.message : "Power capture settings could not be refreshed.")); }} requestedTab={settingsTabRequest.tab} requestedTabRevision={settingsTabRequest.revision} syncSettings={settings.logbookMode === "local" ? <p>Standalone local logbook. Wavelog synchronization is disabled in Settings.</p> : <SyncPanel request={request} onChanged={() => setRefresh(n => n + 1)} />} cwContext={cwContext} cwState={cw.state} cwProvider={stationProvider} refreshCW={() => cw.controller.pollWinKeyer()} rotorSettings={<RotorPanel snapshot={rotorState} request={request} onManual={disarmAutoRotor} />} workspaceSettings={<WorkspaceSettings {...deskLayout} equipment={deskKind === "none" ? undefined : deskKind} requiredRotor={deskKind === "rotor" && !!rotorState?.owner} available={["active-qso", "callsign-intelligence", "world-map", "band-maps", "dx-cluster", "logbook", "awards", "spot-history", ...(deskKind === "none" ? [] : [deskKind] as ("rotor" | "antenna")[])]} />} dataRequest={dataManagementRequest} onDataChanged={() => { setSettings(null); setDraft(null); setStats(null); latestWorkspacePreferences.current = null; setWorkspacePreferences(null); setRefresh(n => n + 1); }} />}
       </>}
     </main></div>;
-}
-
-function MonitorSurface() {
-  const [projection, setProjection] = useState<MonitorProjection>({ spots: [], station: null, provider: "direct_agent", controlsEnabled: false });
-  const [error, setError] = useState("");
-  const [receivedAt, setReceivedAt] = useState(0);
-  const [clock, setClock] = useState(Date.now());
-  useEffect(() => { const timer = setInterval(() => setClock(Date.now()), 1_000); return () => clearInterval(timer); }, []);
-  useEffect(() => {
-    let active = true; let unlisten: (() => void) | null = null;
-    void onMonitorProjection(value => { if (active) {
-      setProjection(previous => {
-        const prior = previous.station?.rotor_control, incoming = value.station?.rotor_control;
-        return previous.station && value.station && validRotorSnapshot(prior) && validRotorSnapshot(incoming) && prior.generation > incoming.generation
-          ? { ...value, station: { ...value.station, rotor_control: prior, rotor: previous.station.rotor } } : value;
-      });
-      setReceivedAt(Date.now()); setClock(Date.now());
-    } }).then(stop => {
-      if (!active) { stop(); return; }
-      unlisten = stop;
-      void announceMonitorReady().catch(cause => setError(cause instanceof Error ? cause.message : "Monitor state unavailable."));
-    }).catch(cause => { if (active) setError(cause instanceof Error ? cause.message : "Monitor state unavailable."); });
-    return () => { active = false; unlisten?.(); };
-  }, []);
-  const mapSpots: Spot[] = useMemo(() => projection.spots.filter(s => typeof s.latitude === "number" && typeof s.longitude === "number").map(s => ({
-    id: s.id, call: s.callsign, receivedAt: s.receivedAt, mhz: s.frequencyKHz / 1000, mode: s.mode, band: s.band,
-    country: s.country, grid: "", lon: s.longitude, lat: s.latitude, reporter: s.spotter, note: s.comment,
-    state: s.callStatus === "Confirmed" ? "confirmed" : s.callStatus === "Worked" ? "worked" : "needed",
-    adif: s.adif, callStatus: s.callStatus, statusHex: s.statusHex, bandHex: s.bandHex,
-  })), [projection.spots]);
-  const generatedAt = projection.station?.generated_at;
-  const projectionStale = receivedAt === 0 || clock - receivedAt > 5_000;
-  const stale = projectionStale ||
-    (typeof generatedAt === "number" && Number.isFinite(generatedAt) &&
-      (clock - generatedAt * 1_000 > 5_000 || generatedAt * 1_000 - clock > 5_000));
-  const displayedStation = stale && projection.station ? { ...projection.station,
-    radio: { ...projection.station.radio, observed: false },
-    station: { ...projection.station.station, radio_stale: true },
-    rotor: { ...projection.station.rotor, connected: projectionStale ? false : projection.station.rotor?.connected } } : projection.station;
-  const monitorRotorRequest: Request = async (method, params = {}) => {
-    if (projectionStale || !["rotor_goto", "rotor_stop"].includes(method)) throw new Error("Rotor monitor observation is stale or the command is unavailable.");
-    const captured = projection.station?.rotor_control;
-    const current = (await workerRequest("rotor_snapshot", {})).result;
-    if (!validRotorSnapshot(captured) || !validRotorSnapshot(current) || !captured.owner ||
-        captured.owner !== current.owner || method !== "rotor_stop" && captured.generation !== current.generation)
-      throw new Error("Rotor connection changed. Wait for the next observation before sending another command.");
-    if (method === "rotor_goto" && (!rotorProjection(current).connected || typeof params.bearing !== "number" ||
-        !Number.isFinite(params.bearing) || params.bearing < 0 || params.bearing > 360)) throw new Error("An observed rotor and a bearing from 0° to 360° are required.");
-    const adopt = (next: unknown, observed: boolean) => {
-      if (!validRotorSnapshot(next)) return;
-      setProjection(previous => {
-        const prior = previous.station?.rotor_control;
-        if (!previous.station || !validRotorSnapshot(prior) || next.generation < prior.generation || next.owner !== prior.owner) return previous;
-        const state = observed ? next : { ...next, backend: prior.backend };
-        return { ...previous, station: { ...previous.station, rotor_control: state, rotor: rotorProjection(state) } };
-      });
-    };
-    try {
-      const result = (await workerRequest(method, rotorCommandParams(current, method === "rotor_goto" ? { bearing: params.bearing, label: "Monitor bearing" } : {}))).result;
-      adopt(result, false);
-      return result;
-    } finally {
-      // A lost motion reply also advances ownership generation; do not retry it.
-      try { adopt((await workerRequest("rotor_snapshot", {})).result, true); } catch { /* Main projection will restore authoritative state. */ }
-    }
-  };
-  const monitorRequest: Request = async (method, params = {}) => {
-    if (stale || !projection.controlsEnabled || !projection.station?.radio?.connected) throw new Error("Main station is changing or unavailable.");
-    const source = projection.provider;
-    if (method === "station_action" && source === "direct_agent") {
-      const action = params.action;
-      if (!["operate", "standby", "tune", "cancel"].includes(action) ||
-          !projection.station.station?.allowed_actions?.includes(action)) throw new Error("Station action is unavailable.");
-      const result = (await workerRequest(method, { provider: source, action })).result as Data;
-      if (result?.accepted !== true) throw new Error("Station action was not accepted.");
-      return result;
-    }
-    if (method === "station_action" && source === "direct_flex_lan") {
-      const action = params.action;
-      if ((action !== "tune" && action !== "cancel") ||
-          !projection.station.capabilities?.supported_commands?.includes(action) ||
-          (action === "tune" && projection.station.allow_transmit !== true))
-        throw new Error("Direct FLEX action is unavailable or transmit was not enabled.");
-      const result = (await workerRequest(method, { provider: source, action })).result as Data;
-      if (result?.accepted !== true) throw new Error("Direct FLEX action was not accepted.");
-      return result;
-    }
-    throw new Error("This monitor command is unavailable.");
-  };
-  const map = <WorldMap data={mapSpots} selected={projection.selected ?? null} palette={projection.palette}
-    home={projection.home} dxccStatuses={projection.dxccStatuses} target={projection.target} frequencyHz={!stale ? projection.radioFrequencyHz : undefined} compact />;
-  return <>{error && <p className="live-error" role="alert">{error}</p>}
-    {stale && <p className="live-error" role="status">Main station observation is stale. Reopen the main window before using monitor controls.</p>}
-    <Monitor snapshot={displayedStation} map={map} onRequest={!stale && projection.controlsEnabled ? monitorRequest : undefined} onRotorRequest={!projectionStale && projection.station?.rotor_control?.owner ? monitorRotorRequest : undefined} /></>;
 }
 
 function SidebarStation({ snapshot, provider, busy, onAction }: { snapshot: Data | null; provider: StationProvider; busy: boolean; onAction: (action: string) => void }) {

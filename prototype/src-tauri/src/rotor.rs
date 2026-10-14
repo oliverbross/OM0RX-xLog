@@ -65,10 +65,16 @@ impl RotorCoordinator {
             .ok_or("Invalid request ID")?
             .to_owned();
         let id = id.as_str();
-        let method = request["method"].as_str().ok_or("Method is required")?;
+        let requested_method = request["method"].as_str().ok_or("Method is required")?;
+        // Internal native-only Stop ingress; worker_request never allowlists it.
+        let monitor_stop = requested_method == "monitor_rotor_stop";
+        let method = if monitor_stop { "rotor_stop" } else { requested_method };
         let params = request["params"]
             .as_object()
             .ok_or("Parameters must be an object")?;
+        if monitor_stop && (params.len() != 1 || !params.contains_key("owner")) {
+            return Err("Native Monitor Stop accepts only its observed owner".into());
+        }
         let mut state = self.state.lock().map_err(|_| "Rotor owner lock failed")?;
 
         if method == "rotor_snapshot" {
@@ -143,9 +149,9 @@ impl RotorCoordinator {
                         .into(),
                 );
             }
-            let expected = params["generation"]
+            let expected = if monitor_stop { state.generation } else { params["generation"]
                 .as_u64()
-                .ok_or("Rotor generation is required")?;
+                .ok_or("Rotor generation is required")? };
             if expected != state.generation {
                 return Err("Rotor generation changed; refresh before sending a command".into());
             }
@@ -383,6 +389,10 @@ pub fn request(request: Value) -> Result<Value, String> {
                 worker::request(request)
             }
         })
+}
+
+pub fn monitor_stop(owner: &str) -> Result<Value, String> {
+    request(envelope(&uuid::Uuid::new_v4().to_string(), "monitor_rotor_stop", json!({"owner":owner})))
 }
 
 #[cfg(test)]
@@ -974,5 +984,70 @@ mod tests {
         stop_thread.join().unwrap();
         assert_eq!(stale["result"]["backend"], Value::Null);
         assert_eq!(stale["result"]["backend_available"], false);
+    }
+    #[test]
+    fn native_monitor_stop_uses_current_same_owner_generation_without_presnapshot_or_retries() {
+        let coordinator = RotorCoordinator::new();
+        assert!(coordinator.handle(envelope("none", "monitor_rotor_stop", json!({"owner":"native_dcu1"})), |_| panic!("no owner reached backend")).is_err());
+        let connected = call(&coordinator, "a", "rotor_connect", json!({"owner":"native_dcu1"})).unwrap();
+        let first = connected["result"]["generation"].as_u64().unwrap();
+        let turned = call(&coordinator, "b", "rotor_goto", json!({"owner":"native_dcu1","generation":first,"bearing":90})).unwrap();
+        let generation = turned["result"]["generation"].as_u64().unwrap();
+        assert!(coordinator.handle(envelope("wrong", "monitor_rotor_stop", json!({"owner":"hamlib"})), |_| panic!("changed owner reached backend")).is_err());
+        assert!(coordinator.handle(envelope("extra", "monitor_rotor_stop", json!({"owner":"native_dcu1","generation":first})), |_| panic!("unexpected parameter reached backend")).is_err());
+        let mut calls = 0;
+        assert!(coordinator.handle(envelope("stop", "monitor_rotor_stop", json!({"owner":"native_dcu1"})), |request| {
+            calls += 1; assert_eq!(request["method"], "station_rotor_stop"); Err("lost Stop reply".into())
+        }).is_err());
+        assert_eq!(calls, 1);
+        let current = coordinator.state.lock().unwrap();
+        assert!(current.generation > generation); assert_eq!(current.phase, Some(Phase::Uncertain));
+        let generation = current.generation; drop(current);
+        call(&coordinator, "disconnect", "rotor_disconnect", json!({"owner":"native_dcu1","generation":generation})).unwrap();
+        call(&coordinator, "replace", "rotor_connect", json!({"owner":"hamlib"})).unwrap();
+        assert!(coordinator.handle(envelope("obsolete", "monitor_rotor_stop", json!({"owner":"native_dcu1"})), |_| panic!("retired owner reached backend")).is_err());
+    }
+    #[test]
+    fn native_monitor_stop_can_pass_an_inflight_snapshot_without_device_read_of_its_own() {
+        let coordinator = Arc::new(RotorCoordinator::new());
+        call(&coordinator, "a", "rotor_connect", json!({"owner":"native_dcu1"})).unwrap();
+        let (started_tx, started_rx) = mpsc::channel(); let (release_tx, release_rx) = mpsc::channel();
+        let reading = coordinator.clone();
+        let snapshot = std::thread::spawn(move || reading.handle(envelope("read", "rotor_snapshot", json!({})), |request| {
+            started_tx.send(()).unwrap(); release_rx.recv_timeout(Duration::from_secs(2)).unwrap();
+            Ok(success(request["id"].as_str().unwrap(), json!({"azimuth":12})))
+        }));
+        started_rx.recv_timeout(Duration::from_secs(2)).unwrap();
+        let stopped = coordinator.handle(envelope("stop", "monitor_rotor_stop", json!({"owner":"native_dcu1"})), |request| {
+            assert_eq!(request["method"], "station_rotor_stop"); Ok(success("stop", json!({"accepted":true})))
+        }).unwrap();
+        assert_eq!(stopped["result"]["state"], "active"); release_tx.send(()).unwrap();
+        assert_eq!(snapshot.join().unwrap().unwrap()["result"]["backend_available"], false);
+    }
+    #[test]
+    fn native_monitor_stop_preserves_serialized_driver_order_behind_a_pending_goto() {
+        let coordinator = Arc::new(RotorCoordinator::new());
+        let connected = call(&coordinator, "connect", "rotor_connect", json!({"owner":"native_dcu1"})).unwrap();
+        let generation = connected["result"]["generation"].as_u64().unwrap();
+        let order = Arc::new(Mutex::new(Vec::new()));
+        let (entered_tx, entered_rx) = mpsc::channel(); let (release_tx, release_rx) = mpsc::channel();
+        let turning = coordinator.clone(); let turns = order.clone();
+        let goto = std::thread::spawn(move || turning.handle(envelope("goto", "rotor_goto", json!({"owner":"native_dcu1","generation":generation,"bearing":90})), |request| {
+            turns.lock().unwrap().push(request["method"].as_str().unwrap().to_owned()); entered_tx.send(()).unwrap();
+            release_rx.recv_timeout(Duration::from_secs(2)).unwrap(); Ok(success("goto", json!({"accepted":true})))
+        }));
+        entered_rx.recv_timeout(Duration::from_secs(2)).unwrap();
+        let (started_tx, started_rx) = mpsc::channel(); let (sent_tx, sent_rx) = mpsc::channel();
+        let stopping = coordinator.clone(); let stops = order.clone();
+        let stop = std::thread::spawn(move || {
+            started_tx.send(()).unwrap();
+            stopping.handle(envelope("stop", "monitor_rotor_stop", json!({"owner":"native_dcu1"})), |request| {
+                stops.lock().unwrap().push(request["method"].as_str().unwrap().to_owned()); sent_tx.send(()).unwrap();
+                Ok(success("stop", json!({"accepted":true})))
+            })
+        });
+        started_rx.recv_timeout(Duration::from_secs(2)).unwrap(); assert!(sent_rx.try_recv().is_err());
+        release_tx.send(()).unwrap(); goto.join().unwrap().unwrap(); stop.join().unwrap().unwrap();
+        assert_eq!(*order.lock().unwrap(), ["station_rotor_goto", "station_rotor_stop"]);
     }
 }

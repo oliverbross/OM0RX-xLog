@@ -67,6 +67,7 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     }
     // The narrow Logbook contact capability was handled above. No other
     // detached surface inherits contact editing or the active new-QSO draft.
+    if label == "monitor" && matches!(request["method"].as_str(), Some("logbook_operator_draft" | "lookup_call")) { return Ok(()); }
     if request["method"].as_str().is_some_and(|method| method.starts_with("logbook_operator_draft") || method.starts_with("logbook_contact")) && label != "main" {
         return Err("This window cannot access the logbook editing service.".into());
     }
@@ -83,10 +84,6 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
                 | "station_rotor_goto" | "station_rotor_stop" | "rotor_snapshot"
                 | "rotor_goto" | "rotor_stop",
             ) => true,
-            Some("station_action") => matches!(
-                request["params"]["action"].as_str(),
-                Some("operate" | "standby" | "tune" | "cancel")
-            ),
             _ => false,
         };
         if !allowed {
@@ -792,7 +789,7 @@ mod tests {
                 "monitor",
                 &json!({"id":"r","method":"station_action","params":{"action":action}})
             )
-            .is_ok());
+            .is_err());
         }
         for action in ["rotor_goto", "rotor_stop", "connect", "", "TRANSMIT"] {
             assert!(validate_surface(
@@ -823,6 +820,7 @@ mod tests {
 
     #[test]
     fn detached_maps_allow_only_read_only_projections() {
+        assert!(validate_request(&json!({"id":"internal","method":"monitor_rotor_stop","params":{"owner":"native_dcu1"}})).is_err());
         for label in ["world-map", "band-maps"] {
             for method in ["cluster_snapshot", "logbook_stats", "health"] {
                 assert!(validate_surface(label, &json!({"id":"r","method":method,"params":{}})).is_ok());
@@ -860,7 +858,7 @@ mod tests {
             let request = json!({"id":"draft-test","method":method,"params":{}});
             assert!(validate_surface("main", &request).is_ok());
             for label in ["monitor", "world-map", "band-maps", "dx-cluster", "unknown", ""] {
-                assert!(validate_surface(label, &request).is_err());
+                assert_eq!(validate_surface(label, &request).is_ok(), label == "monitor" && method == "logbook_operator_draft");
             }
         }
     }

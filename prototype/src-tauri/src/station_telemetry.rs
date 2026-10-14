@@ -41,6 +41,8 @@ pub fn changes_radio(request: &Value) -> bool {
 }
 struct State {
     provider: Option<String>,
+    selection_id: Option<String>,
+    selection_generation: Option<u64>,
     epoch: u64,
     revision: u64,
     controls: usize,
@@ -62,6 +64,8 @@ impl StationTelemetry {
             publish,
             state: Mutex::new(State {
                 provider: None,
+                selection_id: None,
+                selection_generation: None,
                 epoch: 0,
                 revision: 0,
                 controls: 0,
@@ -73,7 +77,17 @@ impl StationTelemetry {
             wake: (Mutex::new(()), Condvar::new()),
         }
     }
-    pub fn select(&self, provider: &str, initialize_only: bool) -> Result<Value, String> {
+    #[cfg(test)]
+    fn select(&self, provider: &str, initialize_only: bool) -> Result<Value, String> {
+        self.select_identity(provider, None, None, initialize_only)
+    }
+    pub fn select_selection(&self, selection: &Value, initialize_only: bool) -> Result<Value, String> {
+        let provider = selection["provider"].as_str().ok_or("Native radio selection is unavailable.")?;
+        let id = selection["selection_id"].as_str().filter(|id| uuid::Uuid::parse_str(id).is_ok()).ok_or("Native radio selection identity is invalid.")?;
+        let generation = selection["generation"].as_u64().filter(|value| *value <= 9_007_199_254_740_991).ok_or("Native radio selection generation is invalid.")?;
+        self.select_identity(provider, Some(id), Some(generation), initialize_only)
+    }
+    fn select_identity(&self, provider: &str, selection_id: Option<&str>, selection_generation: Option<u64>, initialize_only: bool) -> Result<Value, String> {
         if !valid_provider(provider) {
             return Err("Unknown radio provider.".into());
         }
@@ -84,14 +98,22 @@ impl StationTelemetry {
             .state
             .lock()
             .map_err(|_| "Radio telemetry unavailable")?;
+        if selection_generation.zip(state.selection_generation).is_some_and(|(incoming, current)| incoming < current) {
+            return Ok(state.projection.clone());
+        }
+        let newer = selection_generation.zip(state.selection_generation).is_some_and(|(incoming, current)| incoming > current);
         // Listener startup cannot undo a later explicit provider handover.
-        if state.provider.is_none()
-            || !initialize_only && state.provider.as_deref() != Some(provider)
+        if state.provider.is_none() || newer
+            || !initialize_only && (state.provider.as_deref() != Some(provider)
+                || state.selection_id.as_deref() != selection_id || state.selection_generation != selection_generation)
         {
             state.provider = Some(provider.into());
+            state.selection_id = selection_id.map(str::to_owned);
+            state.selection_generation = selection_generation;
             state.epoch += 1;
             state.revision += 1;
-            state.projection = json!({"revision":state.revision,"available":false,"provider":provider,"snapshot":null});
+            state.projection = json!({"revision":state.revision,"available":false,"provider":provider,"snapshot":null,
+                "selection_id":state.selection_id,"selection_generation":state.selection_generation});
         }
         Ok(state.projection.clone())
     }
@@ -116,6 +138,36 @@ impl StationTelemetry {
         state.controls += 1;
         // A new subscriber must not mistake a pre-command observation for current.
         state.projection["available"] = json!(false);
+        Ok(ControlFence(self.clone()))
+    }
+    pub fn monitor_control(self: &Arc<Self>, provider: &str, generation: u64, identity: &str, action: &str) -> Result<ControlFence, String> {
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).map_err(|_| "Radio clock unavailable")?.as_millis() as u64;
+        self.monitor_control_at(provider, generation, identity, action, now)
+    }
+    fn monitor_control_at(self: &Arc<Self>, provider: &str, generation: u64, identity: &str, action: &str, now: u64) -> Result<ControlFence, String> {
+        let mut state = self.state.lock().map_err(|_| "Radio telemetry unavailable")?;
+        if self.stopped.load(Ordering::Acquire) { return Err("Radio telemetry has stopped.".into()); }
+        if !matches!(provider, "direct_agent" | "direct_flex_lan") || !matches!(action, "operate" | "standby" | "tune" | "cancel")
+            || provider == "direct_flex_lan" && !matches!(action, "tune" | "cancel") { return Err("Monitor action is unavailable.".into()); }
+        // The selection owner already holds and validates its exact identity.
+        // Cancel cannot initiate TX and must remain reachable during loss or
+        // another in-flight action; backend policy still decides the operation.
+        if action != "cancel" {
+            let value = &state.projection; let snapshot = &value["snapshot"];
+            let age = value["received_at_ms"].as_u64().map(|time| i128::from(now) - i128::from(time));
+            let source_age = snapshot.get("generated_at").map(|time| time.as_f64().map(|time| now as f64 - time * 1000.0));
+            let source_fresh = source_age.is_none() || source_age.is_some_and(|age| age.is_some_and(|age| age.is_finite() && age.abs() <= 5000.0));
+            let allowed = if provider == "direct_agent" { &snapshot["station"]["allowed_actions"] } else { &snapshot["capabilities"]["supported_commands"] };
+            if state.provider.as_deref() != Some(provider) || state.selection_id.as_deref() != Some(identity) || state.selection_generation != Some(generation)
+                || value["available"] != true || !age.is_some_and(|age| (-1000..=5000).contains(&age)) || !source_fresh
+                || snapshot["source"] != provider || snapshot["radio"]["connected"] != true || snapshot["radio"]["observed"] != true || snapshot["station"]["radio_stale"] == true
+                || !allowed.as_array().is_some_and(|allowed| allowed.iter().any(|value| value == action))
+                || action == "tune" && snapshot["allow_transmit"] != true {
+                return Err("The native radio observation is stale, changed or does not permit this action.".into());
+            }
+        }
+        state.epoch += 1; state.controls += 1; state.revision += 1;
+        state.projection["available"] = json!(false); state.projection["revision"] = json!(state.revision);
         Ok(ControlFence(self.clone()))
     }
     fn refresh(&self) {
@@ -169,6 +221,7 @@ impl StationTelemetry {
         let available = result.is_some();
         let snapshot = result.unwrap_or_else(|| state.projection["snapshot"].clone());
         state.projection = json!({"revision":state.revision,"provider":provider,"snapshot":snapshot,"available":available,
+            "selection_id":state.selection_id,"selection_generation":state.selection_generation,
             "received_at_ms":SystemTime::now().duration_since(UNIX_EPOCH).map(|time| time.as_millis() as u64).unwrap_or(0)});
         let projection = state.projection.clone();
         drop(state);
@@ -329,6 +382,64 @@ mod tests {
         drop(second);
         owner.refresh();
         assert_eq!(*count.lock().unwrap(), 2);
+    }
+    #[test]
+    fn same_provider_new_selection_identity_retires_observation_and_stale_bootstrap_cannot_undo_it() {
+        let owner = StationTelemetry::new(Arc::new(|request| Ok(reply(&request))), Arc::new(|_| {}));
+        let first = json!({"provider":"direct_agent","generation":0,"selection_id":uuid::Uuid::new_v4().to_string()});
+        let next = json!({"provider":"direct_agent","generation":2,"selection_id":uuid::Uuid::new_v4().to_string()});
+        owner.select_selection(&first, true).unwrap(); owner.refresh();
+        assert_eq!(owner.snapshot().unwrap()["available"], true);
+        owner.select_selection(&next, false).unwrap();
+        assert_eq!(owner.snapshot().unwrap()["available"], false);
+        assert_eq!(owner.snapshot().unwrap()["snapshot"], Value::Null);
+        owner.select_selection(&first, true).unwrap(); owner.select_selection(&first, false).unwrap();
+        assert_eq!(owner.snapshot().unwrap()["selection_id"], next["selection_id"]);
+        owner.refresh(); assert_eq!(owner.snapshot().unwrap()["selection_generation"], 2);
+    }
+    fn monitor_fixture() -> (Arc<StationTelemetry>, String) {
+        let owner = Arc::new(StationTelemetry::new(Arc::new(|_| panic!("admission must not perform I/O")), Arc::new(|_| {})));
+        let identity = uuid::Uuid::new_v4().to_string();
+        owner.select_selection(&json!({"provider":"direct_agent","generation":2,"selection_id":identity}), true).unwrap();
+        owner.state.lock().unwrap().projection = json!({"revision":1,"provider":"direct_agent","selection_id":identity,"selection_generation":2,
+            "available":true,"received_at_ms":10000,"snapshot":{"source":"direct_agent","generated_at":10.0,"allow_transmit":true,
+                "radio":{"connected":true,"observed":true},"station":{"allowed_actions":["operate","standby","tune","cancel"]}}});
+        (owner, identity)
+    }
+    #[test]
+    fn native_monitor_admission_checks_freshness_identity_policy_and_transmit_permission_without_io() {
+        for change in 0..8 {
+            let (owner, identity) = monitor_fixture();
+            {
+                let mut state = owner.state.lock().unwrap();
+                match change {
+                    0 => state.projection["received_at_ms"] = json!(4000),
+                    1 => state.projection["received_at_ms"] = json!(12000),
+                    2 => state.projection["snapshot"]["generated_at"] = json!(1.0),
+                    3 => state.projection["snapshot"]["generated_at"] = json!(20.0),
+                    4 => state.projection["snapshot"]["allow_transmit"] = json!(false),
+                    5 => state.projection["snapshot"]["station"]["allowed_actions"] = json!([]),
+                    6 => state.projection["available"] = json!(false),
+                    _ => state.selection_id = Some(uuid::Uuid::new_v4().to_string()),
+                }
+            }
+            assert!(owner.monitor_control_at("direct_agent", 2, &identity, "tune", 10000).is_err(), "{change}");
+            assert_eq!(owner.state.lock().unwrap().controls, 0);
+        }
+        let (owner, identity) = monitor_fixture();
+        let admission = owner.monitor_control_at("direct_agent", 2, &identity, "tune", 10000).unwrap();
+        assert_eq!(owner.snapshot().unwrap()["available"], false);
+        assert_eq!(owner.state.lock().unwrap().controls, 1); drop(admission);
+        assert_eq!(owner.state.lock().unwrap().controls, 0);
+    }
+    #[test]
+    fn monitor_cancel_remains_possible_during_stale_disconnected_or_inflight_observation() {
+        let (owner, identity) = monitor_fixture();
+        let inflight = owner.control().unwrap();
+        owner.state.lock().unwrap().projection["snapshot"] = Value::Null;
+        let cancel = owner.monitor_control_at("direct_agent", 2, &identity, "cancel", 100000).unwrap();
+        assert_eq!(owner.state.lock().unwrap().controls, 2); drop(cancel); drop(inflight);
+        assert_eq!(owner.state.lock().unwrap().controls, 0);
     }
     #[test]
     fn late_pre_command_and_pre_handover_reads_are_discarded() {

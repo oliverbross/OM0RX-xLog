@@ -11,6 +11,19 @@ const flex = (overrides: Record<string, any> = {}) => ({ source: "direct_flex_la
   capabilities: { supported_commands: ["tune", "cancel"] }, ...overrides });
 
 describe("direct FLEX detached monitor", () => {
+  it("does not overwrite a later Stop acknowledgement with a pending turn's late failure", async () => {
+    let reject!: (cause: Error) => void;
+    const request = vi.fn((method: string) => method === "rotor_goto" ? new Promise((_resolve, fail) => { reject = fail; }) : Promise.resolve({ confirmed: true }));
+    const view = render(<Monitor snapshot={flex({ rotor: { owner: "native_dcu1", connected: true, name: "Antenna", azimuth: 53 } })} map={<div>Map</div>} onRotorRequest={request} />);
+    fireEvent.change(screen.getByLabelText("Monitor rotor bearing"), { target: { value: "90" } });
+    fireEvent.click(screen.getByRole("button", { name: "Turn" }));
+    fireEvent.click(screen.getByRole("button", { name: "Stop" }));
+    await screen.findByText("Observed confirmation received");
+    reject(new Error("Old turn failed late"));
+    await waitFor(() => expect(screen.queryByText("Old turn failed late")).toBeNull());
+    expect(screen.getByText("Observed confirmation received")).toBeTruthy();
+    view.unmount();
+  });
   it("pairs an independent rotor with FLEX and retains stop when its radio is offline", async () => {
     const stop = vi.fn(async () => ({ backend: { accepted: true, confirmed: false } }));
     render(<Monitor snapshot={flex({ radio: null, rotor: { owner: "native_dcu1", connected: true, name: "Antenna", azimuth: 53 } })} map={<div>Map</div>} onRotorRequest={stop} />);

@@ -17,6 +17,7 @@ import "./live/QSOHeader.css";
 import "./live/RotorCompass.css";
 import "./live/OperatorDesk.css";
 import "./live/DetachedCallsignIntelligenceSurface.css";
+import "./live/DetachedMonitorSurface.css";
 import "./live/CW.css";
 import "./live/OperatorWorkspace.css";
 import "./live/OperatorCanvas.css";

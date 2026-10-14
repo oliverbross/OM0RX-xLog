@@ -10,6 +10,8 @@ export default function Monitor({ snapshot, map, onRequest, onRotorRequest }: { 
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [bearing, setBearing] = useState("");
+  const operation = useRef(0), mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; operation.current++; }; }, []);
   const local = snapshot?.source === "hamlib";
   const flex = snapshot?.source === "direct_flex_lan";
   const showRotor = !flex || !!rotor?.owner;
@@ -17,10 +19,11 @@ export default function Monitor({ snapshot, map, onRequest, onRotorRequest }: { 
   const command = async (method: string, params: Data) => {
     const request = method.startsWith("rotor_") ? onRotorRequest : onRequest;
     if (!request) return;
+    const current = ++operation.current;
     setBusy(true); setMessage("");
-    try { const result = await request(method, params); setMessage(result.confirmed ? "Observed confirmation received" : "Request accepted · watch observed state"); }
-    catch (e) { setMessage(e instanceof Error ? e.message : "Command failed"); }
-    finally { setBusy(false); }
+    try { const result = await request(method, params); if (mounted.current && operation.current === current) setMessage(result.confirmed ? "Observed confirmation received" : "Request accepted · watch observed state"); }
+    catch (e) { if (mounted.current && operation.current === current) setMessage(e instanceof Error ? e.message : "Command failed"); }
+    finally { if (mounted.current && operation.current === current) setBusy(false); }
   };
   useEffect(() => {
     if (typeof rotor?.azimuth !== "number") return;
@@ -35,16 +38,16 @@ export default function Monitor({ snapshot, map, onRequest, onRotorRequest }: { 
   const supported: string[] = Array.isArray(snapshot?.capabilities?.supported_commands) ? snapshot.capabilities.supported_commands : [];
   return <div className={`integrated-monitor${flex && !showRotor ? " flex-radio-only" : ""}`}>
     <section className="monitor-radio">
-      <header><span className="secondary">STATION · {flex ? "DIRECT FLEX LAN" : local ? "LOCAL HAMLIB" : "EMBEDDED xCAT"}</span><b className={fresh && typeof radio?.transmitting === "boolean" ? "teal" : "amber"}>{!fresh ? "OFFLINE" : radio?.transmitting === true ? "TX" : radio?.transmitting === false ? "RX" : "PTT UNKNOWN"}</b></header>
+      <header><span className="secondary">STATION · {flex ? "DIRECT FLEX LAN" : local ? "LOCAL HAMLIB" : snapshot?.source === "direct_agent" ? "EMBEDDED xCAT" : "NO RADIO SELECTED"}</span><b className={fresh && typeof radio?.transmitting === "boolean" ? "teal" : "amber"}>{!fresh ? "OFFLINE" : radio?.transmitting === true ? "TX" : radio?.transmitting === false ? "RX" : "PTT UNKNOWN"}</b></header>
       <div className="monitor-vfos"><strong>A: {frequency(vfo("A"))}</strong><strong>B: {frequency(vfo("B"))}</strong><span>{radio?.mode || "Mode unavailable"}{!flex && ` · ${station?.band || "—"} · ${station?.interlock_state || "No live observation"}`}</span></div>
       {flex ? <p className="monitor-flex-state">{radio?.connected ? `Receive VFO ${radio.receive_vfo || "—"} · Transmit VFO ${radio.transmit_vfo || "—"} · ${radio.split ? "Split" : "Simplex"}` : "Connect direct FLEX from the main station controls."}</p> : <>
       <div className="monitor-meters"><div className="output"><small>TX POWER</small><strong>{value(station?.tx_power_watts, " W")}</strong></div><div className="swr"><small>SWR</small><strong>{value(station?.swr)}</strong><small>{station?.swr_is_live ? "LIVE" : "LAST"}</small></div><div className="drive"><small>RF DRIVE</small><strong>{value(station?.rf_drive_watts, " W")}</strong></div></div>
       {!local && <><section className="monitor-kpa"><strong>KPA500 · {station?.kpa_operate == null ? "Unavailable" : station.kpa_operate ? "OPERATE" : "STBY"}</strong><p>{station?.kpa_detail_primary || "Waiting for amplifier status"}</p><p>{station?.kpa_detail_secondary}</p></section>
       <section className="monitor-kat"><strong>KAT500</strong><p>{station?.kat_detail_primary || "Waiting for tuner status"}</p><p>{station?.kat_detail_secondary}</p></section>
       <section className="monitor-route"><p>{station?.route_detail || "Route unavailable"}</p><b>{station?.route_alignment || "UNKNOWN"}</b></section></>}
-      {!local && onRequest && <div className="monitor-actions"><button disabled={busy || !station?.allowed_actions?.includes(action)} onClick={() => void command("station_action", { action })}>{station?.kpa_operate ? "Standby" : "Operate"}</button><button disabled={busy || !snapshot?.allow_transmit || !station?.allowed_actions?.includes("tune")} onClick={() => void command("station_action", { action: "tune" })}>Tune</button><button disabled={!station?.allowed_actions?.includes("cancel")} onClick={() => void command("station_action", { action: "cancel" })}>Cancel</button></div>}
+      {!local && onRequest && <div className="monitor-actions"><button disabled={busy || !fresh || !station?.allowed_actions?.includes(action)} onClick={() => void command("station_action", { action })}>{station?.kpa_operate ? "Standby" : "Operate"}</button><button disabled={busy || !fresh || !snapshot?.allow_transmit || !station?.allowed_actions?.includes("tune")} onClick={() => void command("station_action", { action: "tune" })}>Tune</button><button onClick={() => void command("station_action", { action: "cancel" })}>Cancel</button></div>}
       </>}
-      {flex && onRequest && <div className="monitor-actions"><button disabled={busy || !fresh || !snapshot?.allow_transmit || !supported.includes("tune")} onClick={() => void command("station_action", { action: "tune" })}>Tune</button><button disabled={busy || !fresh || !supported.includes("cancel")} onClick={() => void command("station_action", { action: "cancel" })}>Cancel tune / release TX</button></div>}
+      {flex && onRequest && <div className="monitor-actions"><button disabled={busy || !fresh || !snapshot?.allow_transmit || !supported.includes("tune")} onClick={() => void command("station_action", { action: "tune" })}>Tune</button><button onClick={() => void command("station_action", { action: "cancel" })}>Cancel tune / release TX</button></div>}
       {flex && !showRotor && <div className="monitor-live-map flex-map">{map}</div>}
       <footer>{flex ? showRotor ? "FLEX radio observation · independent rotor connection" : "FLEX radio observation only · no amplifier, tuner or rotor telemetry" : station?.alarm_summary || "No live alarm observation"}<br />{snapshot?.generated_at ? `Received ${new Date(snapshot.generated_at * 1000).toLocaleTimeString()}` : "Waiting for station"}<p role="status">{message}</p></footer>
     </section>

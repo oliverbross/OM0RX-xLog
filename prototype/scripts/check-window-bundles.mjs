@@ -19,7 +19,7 @@ const eagerGraph = closure("index.html");
 const eagerCss = new Set([...eagerGraph].flatMap(key => manifest[key].css ?? []));
 // Maps are explicit child entries too. World Map legitimately owns MapLibre;
 // Band Maps must not pay for it or import the main station controller.
-for (const name of ["WorldMap", "BandMaps"]) {
+for (const name of ["WorldMap", "BandMaps", "Monitor"]) {
   const entry = `src/live/Detached${name}Surface.tsx`;
   const graph = closure(entry, closure("index.html"));
   assert(!graph.has(main), `${name} imports the main station workspace`);
@@ -29,7 +29,7 @@ for (const name of ["WorldMap", "BandMaps"]) {
   const files = [...new Set([...graph].map(key => manifest[key].file))];
   const data = files.map(file => readFileSync(resolve(dist, file)));
   const bytes = data.reduce((sum, item) => sum + item.length, 0);
-  assert(bytes <= (name === "WorldMap" ? 1_600_000 : 400_000), `${name} startup JavaScript budget exceeded: ${bytes}`);
+  assert(bytes <= (name === "BandMaps" ? 400_000 : 1_600_000), `${name} startup JavaScript budget exceeded: ${bytes}`);
   console.log(JSON.stringify({ window: name, bytes, gzip: data.reduce((sum, item) => sum + gzipSync(item).length, 0), files }));
 }
 for (const name of ["Awards", "Logbook", "Cluster", "QSO", "SpotHistory", "CallsignIntelligence"]) {

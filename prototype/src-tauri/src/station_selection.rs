@@ -508,11 +508,23 @@ impl Selection {
     /// Exclude handover from radio writes, but preserve concurrent urgent actions
     /// such as PTT off / Clear CW. The existing radio backend arbitrates controls.
     pub fn control(&self, request: Value) -> Result<Value, String> {
+        self.control_scoped(request, None, || Ok(()))
+    }
+    pub fn monitor_action<G>(&self, request: Value, expected: u64, selection_id: &str, admit: impl FnOnce() -> Result<G, String>) -> Result<Value, String> {
+        if expected > 9_007_199_254_740_991 || uuid::Uuid::parse_str(selection_id).is_err() {
+            return Err("The observed radio selection is invalid.".into());
+        }
+        self.control_scoped(request, Some((expected, selection_id)), admit)
+    }
+    fn control_scoped<G>(&self, request: Value, expected: Option<(u64, &str)>, admit: impl FnOnce() -> Result<G, String>) -> Result<Value, String> {
         let mut state = self
             .state
             .try_lock()
             .map_err(|_| "Radio session is busy; wait for its current action.")?;
         self.active()?;
+        if expected.is_some_and(|(generation, identity)| state.generation != generation || state.selection_id.as_deref() != Some(identity)) {
+            return Err("Selected radio changed. Refresh before sending another monitor action.".into());
+        }
         let requested = if request["method"]
             .as_str()
             .is_some_and(|method| method.starts_with("hamlib_"))
@@ -527,6 +539,9 @@ impl Selection {
                     .into(),
             );
         }
+        // Only quick retained admission runs under this lock. Its guard, not
+        // either mutex, lives through transport and excludes stale observations.
+        let _admission = admit()?;
         let lifecycle = matches!(
             request["method"].as_str(),
             Some(
@@ -1622,6 +1637,46 @@ mod tests {
             .unwrap()
             .iter()
             .all(|request| request["method"] == "station_power_selection"));
+    }
+    #[test]
+    fn monitor_action_admission_rejects_old_identity_even_after_returning_to_same_provider() {
+        let (_directory, owner, calls) = fixture();
+        let first = initialized(&owner, Some("direct_agent"));
+        let action = || crate::monitor_context::action_request("direct_agent", "standby").unwrap();
+        let id = first["selection_id"].as_str().unwrap();
+        assert!(owner.monitor_action(action(), 0, &uuid::Uuid::new_v4().to_string(), || Ok(())).is_err());
+        owner.handover(0, "hamlib").unwrap(); owner.handover(1, "direct_agent").unwrap();
+        assert!(owner.monitor_action(action(), 0, id, || -> Result<(), String> { panic!("obsolete intent admitted") }).is_err());
+        assert!(owner.monitor_action(action(), 2, id, || -> Result<(), String> { panic!("obsolete intent admitted") }).is_err());
+        assert!(calls.lock().unwrap().iter().all(|request| request["method"] != "station_action"));
+        let current = owner.snapshot().unwrap();
+        assert!(owner.monitor_action(action(), 2, current["selection_id"].as_str().unwrap(), || Err::<(), _>("stale native observation".to_owned())).is_err());
+        assert!(owner.monitor_action(crate::monitor_context::action_request("direct_agent", "cancel").unwrap(), 2, id,
+            || -> Result<(), String> { panic!("stale cancellation identity admitted") }).is_err());
+        assert!(calls.lock().unwrap().iter().all(|request| request["method"] != "station_action"));
+        owner.monitor_action(action(), 2, current["selection_id"].as_str().unwrap(), || Ok(())).unwrap();
+        assert_eq!(calls.lock().unwrap().iter().filter(|request| request["method"] == "station_action").count(), 1);
+    }
+    #[test]
+    fn admitted_monitor_action_excludes_handover_without_holding_selection_lock_over_transport() {
+        let (directory, original, _) = fixture();
+        let gate = Arc::new((Mutex::new(false), std::sync::Condvar::new())); let wait = gate.clone();
+        let (entered, received) = std::sync::mpsc::channel();
+        let owner = Arc::new(Selection::new(directory.path().join("monitor.json"), Arc::new(move |request| {
+            if request["method"] == "station_action" {
+                entered.send(()).unwrap();
+                let _guard = wait.1.wait_while(wait.0.lock().unwrap(), |release| !*release).unwrap();
+            }
+            Ok(reply(&request, true))
+        }), original.publish.clone()).unwrap());
+        let selected = initialized(&owner, Some("direct_agent"));
+        let pending = owner.clone(); let id = selected["selection_id"].as_str().unwrap().to_owned();
+        let task = std::thread::spawn(move || pending.monitor_action(crate::monitor_context::action_request("direct_agent", "cancel").unwrap(), 0, &id, || Ok(())));
+        received.recv_timeout(std::time::Duration::from_secs(2)).unwrap();
+        assert!(owner.snapshot().is_ok());
+        assert!(owner.handover(0, "hamlib").unwrap_err().contains("current radio action"));
+        *gate.0.lock().unwrap() = true; gate.1.notify_all(); task.join().unwrap().unwrap();
+        assert_eq!(owner.snapshot().unwrap()["provider"], "direct_agent");
     }
     #[test]
     fn handover_retires_exact_radio_once_and_rejects_stale_generation() {

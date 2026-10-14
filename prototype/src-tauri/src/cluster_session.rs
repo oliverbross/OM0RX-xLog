@@ -297,7 +297,7 @@ pub fn owner(app: &tauri::AppHandle) -> Result<Arc<ClusterSession>, String> {
             Arc::new(ClusterSession::new(
                 Arc::new(crate::worker::request),
                 Arc::new(move |projection| {
-                    for label in ["dx-cluster", "world-map", "band-maps"] {
+                    for label in ["dx-cluster", "world-map", "band-maps", "monitor"] {
                         let _ = app.emit_to(label, "xlog:cluster-projection", &projection);
                     }
                 }),

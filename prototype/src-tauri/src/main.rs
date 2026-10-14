@@ -8,6 +8,7 @@ mod rotor_telemetry;
 mod station_telemetry;
 mod station_selection;
 mod map_context;
+mod monitor_context;
 mod detached_geometry;
 mod window_geometry;
 mod winkeyer;
@@ -156,8 +157,12 @@ fn ensure_main_workspace(app: &tauri::AppHandle) -> Result<tauri::WebviewWindow,
         if APP_EXITING.load(Ordering::Acquire) { return Err("Application is shutting down".into()); }
         let config = app.config().app.windows.iter().find(|window| window.label == "main")
             .ok_or("Main workspace configuration unavailable")?;
-        let main = tauri::WebviewWindowBuilder::from_config(app, config)
-            .map_err(|error| error.to_string())?.build().map_err(|error| error.to_string())?;
+        let mut builder = tauri::WebviewWindowBuilder::from_config(app, config)
+            .map_err(|error| error.to_string())?;
+        if let Some(directory) = app.state::<acceptance::Acceptance>().detached_browser_context()? {
+            builder = builder.data_directory(directory);
+        }
+        let main = builder.build().map_err(|error| error.to_string())?;
         if app.state::<acceptance::Acceptance>().path.is_none() { detached_geometry::install(&main); }
         Ok(main)
     })?;
@@ -235,13 +240,38 @@ async fn station_telemetry_snapshot(window: tauri::WebviewWindow, app: tauri::Ap
 }
 
 #[tauri::command]
+async fn monitor_context_snapshot(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>) -> Result<serde_json::Value, String> {
+    monitor_context::read(window.label(), state.path.is_some(), || monitor_context::snapshot(&app), || {
+        state.require()?; monitor_context::acceptance_snapshot()
+    })
+}
+
+#[tauri::command]
+async fn monitor_station_action(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>, expected: u64, selection_id: String, provider: String, action: String) -> Result<serde_json::Value, String> {
+    monitor_context::validate(window.label(), state.path.is_some())?;
+    let request = monitor_context::action_request(&provider, &action)?;
+    let selection = station_selection::owner(&app)?;
+    let telemetry = station_telemetry::owner(&app)?;
+    tauri::async_runtime::spawn_blocking(move || selection.monitor_action(request, expected, &selection_id,
+        || telemetry.monitor_control(&provider, expected, &selection_id, &action)))
+        .await.map_err(|_| "Monitor action task failed".to_string())?
+}
+
+#[tauri::command]
+async fn monitor_rotor_stop(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, owner: String) -> Result<serde_json::Value, String> {
+    monitor_context::validate(window.label(), state.path.is_some())?;
+    tauri::async_runtime::spawn_blocking(move || rotor::monitor_stop(&owner))
+        .await.map_err(|_| "Monitor Stop task failed".to_string())?
+}
+
+#[tauri::command]
 async fn station_selection_snapshot(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>, legacy: Option<String>) -> Result<serde_json::Value, String> {
     station_selection::validate(window.label(), state.path.is_some(), legacy.is_some())?;
     let owner = station_selection::owner(&app)?;
     let main = window.label() == "main";
     let value = tauri::async_runtime::spawn_blocking(move || if main { owner.initialize(legacy.as_deref()) } else { owner.snapshot() })
         .await.map_err(|_| "Radio selection task failed".to_string())??;
-    if let Some(provider) = value["provider"].as_str() { station_telemetry::owner(&app)?.select(provider, true)?; }
+    if main && value["provider"].is_string() { station_telemetry::owner(&app)?.select_selection(&value, true)?; }
     Ok(value)
 }
 
@@ -251,10 +281,18 @@ async fn station_selection_apply(window: tauri::WebviewWindow, app: tauri::AppHa
     let owner = station_selection::owner(&app)?;
     let telemetry = station_telemetry::owner(&app)?;
     let _fence = telemetry.control()?;
-    let value = tauri::async_runtime::spawn_blocking(move || owner.handover(expected, &provider))
-        .await.map_err(|_| "Radio handover task failed".to_string())??;
-    telemetry.select(value["provider"].as_str().ok_or("Radio selection was not confirmed")?, false)?;
-    Ok(value)
+    let (result, actual) = tauri::async_runtime::spawn_blocking(move || {
+        let result = owner.handover(expected, &provider);
+        let actual = owner.snapshot();
+        (result, actual)
+    }).await.map_err(|_| "Radio handover task failed".to_string())?;
+    // A failed persisted-next rollback may still change actual authority.
+    // Synchronize display ownership without retrying or masking the failure.
+    let synchronized = actual.and_then(|actual| telemetry.select_selection(&actual, false));
+    match result { Ok(value) => { synchronized?; Ok(value) }, Err(error) => {
+        if let Err(sync_error) = synchronized { eprintln!("Radio telemetry selection unavailable: {sync_error}"); }
+        Err(error)
+    } }
 }
 
 #[tauri::command]
@@ -263,7 +301,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     if state.path.is_some() { acceptance::validate_local_request(&request)?; }
     let method = request.get("method").and_then(|m| m.as_str()).unwrap_or("");
     // This explicit role gate precedes every native special dispatcher too.
-    if matches!(window.label(), "log-qso" | "spot-history" | "world-map" | "band-maps" | "callsign-intelligence") { worker::validate_surface(window.label(), &request)?; }
+    if matches!(window.label(), "monitor" | "log-qso" | "spot-history" | "world-map" | "band-maps" | "callsign-intelligence") { worker::validate_surface(window.label(), &request)?; }
     // Local acceptance permits cluster_history against its synthetic logbook,
     // but must never start the live session's background snapshot service.
     if state.path.is_none() && cluster_session::handles(method) && !local_history_reader(window.label(), method) {
@@ -325,7 +363,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     if draft_wake.confirmed(result.as_ref().ok()) {
         // No draft/contact payload is broadcast. Each editor reloads canonical
         // state through its scoped IPC and retains its own unresolved journal.
-        for label in ["main", "log-qso", "callsign-intelligence"] { let _ = app.emit_to(label, OPERATOR_DRAFT_CHANGED, ()); }
+        for label in ["main", "log-qso", "callsign-intelligence", "monitor"] { let _ = app.emit_to(label, OPERATOR_DRAFT_CHANGED, ()); }
     }
     if invalidate {
         // The initiating view already refreshes after its operation. In
@@ -337,7 +375,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     }
     if map_changed {
         map_context::invalidate();
-        for label in ["main", "world-map", "band-maps"] { let _ = app.emit_to(label, "xlog:map-context", ()); }
+        for label in ["main", "world-map", "band-maps", "monitor"] { let _ = app.emit_to(label, "xlog:map-context", ()); }
     }
     if layout_changed {
         // Wake-only: even an uncertain outcome is reconciled by a fresh read.
@@ -583,7 +621,15 @@ fn main() {
             if app.state::<acceptance::Acceptance>().path.is_none() {
                 let selection_app = app.handle().clone();
                 tauri::async_runtime::spawn_blocking(move || {
-                    if let Err(error) = station_selection::owner(&selection_app).and_then(|owner| owner.notify_saved()) {
+                    if let Err(error) = station_selection::owner(&selection_app).and_then(|owner| {
+                        // Native saved intent seeds display polling once. Passive
+                        // window reads never default, migrate or choose a radio.
+                        let saved = owner.snapshot()?;
+                        if saved["provider"].is_string() {
+                            station_telemetry::owner(&selection_app)?.select_selection(&saved, true)?;
+                        }
+                        owner.notify_saved()
+                    }) {
                         eprintln!("Native power selection unavailable: {error}");
                     }
                 });
@@ -598,7 +644,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![worker_request, pick_backup_package, open_monitor, open_detached_map,
             workspace_windows_status, workspace_windows_reconcile,
-            workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_selection_apply,
+            workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_selection_apply,
             detached_cluster_ready, cluster_session_selection, dock_detached_window, close_logbook_window, close_qso_window,
             acceptance::acceptance_enabled, acceptance::acceptance_large_log, acceptance::acceptance_monitor,
             acceptance::acceptance_screen,

@@ -1,0 +1,23 @@
+.app.live.detached-monitor-app { display: flex; flex-direction: column; height: 100dvh; min-height: 0; padding: 0; }
+.app.live.detached-monitor-app > main { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: auto; padding: 0; gap: 0; }
+.detached-monitor-app .detached-monitor-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; flex: none; margin: 0; }
+.detached-monitor-actions > span { flex: 1 1 200px; }
+.detached-monitor-app > main > p { margin: 0; padding: 8px 10px; }
+.detached-monitor-app .integrated-monitor { height: auto; min-height: 0; flex: 1; overflow: visible; }
+.detached-monitor-app .monitor-map-context { display: flex; flex-direction: column; width: 100%; min-width: 0; min-height: 160px; }
+.detached-monitor-app .monitor-map-context > p { padding: 4px; }
+.detached-monitor-app .monitor-map-context > .map-wrap { flex: 1; }
+.detached-monitor-app .monitor-actions { flex-wrap: wrap; }
+.detached-monitor-app .monitor-target { overflow-wrap: anywhere; }
+@media (min-width: 641px) {
+  .detached-monitor-app .monitor-radio { min-height: 0; overflow: auto; }
+  .detached-monitor-app .monitor-rotor { min-height: 0; overflow: hidden; }
+  .detached-monitor-app .monitor-rotor .monitor-live-map,
+  .detached-monitor-app .monitor-map-context { min-height: 0; }
+  .detached-monitor-app .monitor-rotor > .monitor-actions { flex: none; }
+}
+@media (max-width: 640px) {
+  .detached-monitor-app .integrated-monitor { grid-template-columns: minmax(0, 1fr); }
+  .detached-monitor-app .monitor-radio { border-right: 0; border-bottom: 1px solid var(--border); }
+  .detached-monitor-app .monitor-rotor { min-height: 470px; }
+}
