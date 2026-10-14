@@ -116,6 +116,15 @@ const adxSentFields = new Set(["QSL_SENT", "LOTW_QSL_SENT", "EQSL_QSL_SENT", "DC
 const adxDecimalBounds: Readonly<Record<string, readonly [string, string]>> = {
   AGE: ["0", "120"], A_INDEX: ["0", "400"], ANT_AZ: ["0", "360"], ANT_EL: ["-90", "90"],
 };
+// ADIF 3.1.7 IntegerGE0 / PositiveInteger and their derived inclusive facets.
+// null means the schema supplies no upper bound; retain arbitrarily large IDs
+// within the existing frame limit without converting them to JS Numbers.
+const adxIntegerBounds: Readonly<Record<string, readonly [string, string | null]>> = {
+  K_INDEX: ["0", "9"], SFI: ["0", "300"],
+  NR_BURSTS: ["0", null], NR_PINGS: ["0", null], SRX: ["0", null], STX: ["0", null],
+  FISTS: ["1", null], FISTS_CC: ["1", null], MY_FISTS: ["1", null], TEN_TEN: ["1", null], UKSMG: ["1", null],
+  IOTA_ISLAND_ID: ["1", "99999999"], MY_IOTA_ISLAND_ID: ["1", "99999999"],
+};
 const potaReferencePattern = "[A-Za-z0-9]{1,4}-[0-9]{4,5}(?:@[A-Za-z]{2}-[A-Za-z0-9]{1,3})?";
 const adxPatternRules = [
   { fields: ["GRIDSQUARE", "MY_GRIDSQUARE"], pattern: /^[A-R]{2}(?:[0-9]{2}(?:[A-X]{2}(?:[0-9]{2})?)?)?$/i },
@@ -132,7 +141,12 @@ function validateADXValue(name: string, value: string): void {
   let valid = true;
   const patternRule = adxPatternRules.find(rule => rule.fields.includes(name));
   if (patternRule) valid = patternRule.pattern.test(value);
-  else if (Object.prototype.hasOwnProperty.call(adxDecimalBounds, name)) {
+  else if (Object.prototype.hasOwnProperty.call(adxIntegerBounds, name)) {
+    const [minimum, maximum] = adxIntegerBounds[name];
+    // IntegerGE0 permits signed zero; PositiveInteger requires unsigned digits.
+    valid = (minimum === "0" ? /^-?[0-9]+$/ : /^[0-9]+$/).test(value) && !/[\r\n]/.test(value) &&
+      compareDecimal(value, minimum) >= 0 && (maximum === null || compareDecimal(value, maximum) <= 0);
+  } else if (Object.prototype.hasOwnProperty.call(adxDecimalBounds, name)) {
     const [minimum, maximum] = adxDecimalBounds[name];
     valid = /^-?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)$/.test(value) && !/[\r\n]/.test(value) &&
       compareDecimal(value, minimum) >= 0 && compareDecimal(value, maximum) <= 0;

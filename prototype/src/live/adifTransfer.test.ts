@@ -244,6 +244,38 @@ it.each([
   expect(decode(original)).toBe(original);
 });
 
+const nonnegativeADXIntegers = ["K_INDEX", "SFI", "NR_BURSTS", "NR_PINGS", "SRX", "STX"];
+const positiveADXIntegers = ["FISTS", "FISTS_CC", "MY_FISTS", "TEN_TEN", "UKSMG", "IOTA_ISLAND_ID", "MY_IOTA_ISLAND_ID"];
+it.each([
+  ...nonnegativeADXIntegers.flatMap(name => ["0", "-000", "0001"].map(value => [name, value])),
+  ...positiveADXIntegers.flatMap(name => ["1", "0001"].map(value => [name, value])),
+  ["K_INDEX", "0009"], ["SFI", "00300"], ["IOTA_ISLAND_ID", "099999999"], ["MY_IOTA_ISLAND_ID", "99999999"],
+  ...["NR_BURSTS", "NR_PINGS", "SRX", "STX", "FISTS", "FISTS_CC", "MY_FISTS", "TEN_TEN", "UKSMG"]
+    .map(name => [name, "900719925474099312345678901234567890"]),
+])("preserves exact ADX integer-family text %s=%s in both directions", (name, value) => {
+  const original = adiRecord({ [name]: value });
+  expect(decode(adx(`<${name}>${value}</${name}>`))).toBe(original);
+  const writer = new ADIFExportDocument("adx"); writer.append(original, 1);
+  expect(decode(writer.finish())).toBe(original);
+});
+
+it.each([
+  ...[...nonnegativeADXIntegers, ...positiveADXIntegers].flatMap(name =>
+    ["", "-1", "1.0", ".5", "+1", "1e2", " 1", "1 ", "1\n", "NaN", "1,000"].map(value => [name, value])),
+  ...positiveADXIntegers.flatMap(name => ["0", "000", "-0", "-0001"].map(value => [name, value])),
+  ["K_INDEX", "10"], ["K_INDEX", "00010"], ["SFI", "301"], ["SFI", "9007199254740993"],
+  ["IOTA_ISLAND_ID", "100000000"], ["MY_IOTA_ISLAND_ID", "100000000"],
+])("rejects invalid ADX integer-family text %s=%s at both boundaries while ADI stays exact", (name, value) => {
+  expect(() => decode(adx(`<${name}>${value}</${name}>`))).toThrow(`Field ${name} has an invalid ADX typed value`);
+  const original = adiRecord({ [name]: value });
+  const writer = new ADIFExportDocument("adx");
+  expect(() => writer.append(original, 1)).toThrow(`Field ${name} has an invalid ADX typed value`);
+  expect(() => writer.finish()).toThrow("incomplete");
+  const adi = new ADIFExportDocument("adi"); adi.append(original, 1);
+  expect(adi.finish()).toBe(original);
+  expect(decode(original)).toBe(original);
+});
+
 it("rejects undefined XSD type indicators without changing supported extension text", () => {
   expect(() => decode(adx('<APP PROGRAMID="TEST" FIELDNAME="X" TYPE="Z">value</APP>'))).toThrow();
   expect(() => decode(adx('<USERDEF FIELDNAME="X">value</USERDEF>', '<USERDEF FIELDID="1" TYPE="Z">X</USERDEF>'))).toThrow();
