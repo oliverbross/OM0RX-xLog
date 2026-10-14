@@ -824,7 +824,7 @@ mod tests {
             }
             let before = calls.lock().unwrap().len();
             assert!(owner.receive_control(json!({"id":"startup","method":"station_connect",
-                "params":{"provider":"direct_agent","base_url":"https://station.example","allow_transmit":false}}),
+                "params":{"provider":"direct_agent","base_url":"https://station.example","allow_transmit":true}}),
                 0, expected["selection_id"].as_str().unwrap(), 0,
                 || -> Result<(), String> { panic!("obsolete startup admitted") }).is_err());
             assert_eq!(calls.lock().unwrap().len(), before);

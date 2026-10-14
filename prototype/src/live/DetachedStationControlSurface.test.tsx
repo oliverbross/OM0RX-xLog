@@ -151,7 +151,7 @@ it("independent child mounts passively and sends exact Agent lifecycle actions t
   expect(owner.actions.map(action => action.action)).toEqual(["connect", "disconnect", "forget"]);
   expect(owner.actions.map(action => action.revision)).toEqual([4, 5, 6]);
   expect(owner.actions.every(action => action.selection_generation === 8 && action.selection_id === "selected-radio")).toBe(true);
-  expect(owner.actions.every(action => action.allow_transmit === false)).toBe(true);
+  expect(owner.actions.map(action => action.allow_transmit)).toEqual([true, false, false]);
   expect(native.worker).not.toHaveBeenCalled();
 });
 it("child lost replies survive remount and receipt inspection never resends the operation", async () => {

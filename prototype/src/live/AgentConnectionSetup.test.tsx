@@ -51,10 +51,24 @@ it("Desk connection pins saved configuration and selection while keeping tokens 
   await mount(true);
   fireEvent.change(screen.getByLabelText("Shared Agent token"), { target: { value: "private-token" } });
   fireEvent.click(screen.getByRole("button", { name: "Connect saved Agent" })); await act(async () => {});
-  expect(native.invoke.mock.calls[1][1].params).toMatchObject({ action: "connect", revision: 4, selection_generation: 7, selection_id: "radio-selection", token: "private-token", allow_transmit: false });
+  expect(native.invoke.mock.calls[1][1].params).toMatchObject({ action: "connect", revision: 4, selection_generation: 7, selection_id: "radio-selection", token: "private-token", allow_transmit: true });
   expect(JSON.stringify(sessionStorage)).not.toContain("private-token");
   expect((screen.getByLabelText("Shared Agent token") as HTMLInputElement).value).toBe("");
   expect(screen.getByText(/Connection request acknowledged/)).toBeTruthy();
+});
+it("Agent controls default enabled after connection and remount, with an explicit receive-only opt-out", async () => {
+  const view = await mount(true);
+  const permission = () => screen.getByRole("checkbox", { name: "Allow CAT transmit controls for this connection" }) as HTMLInputElement;
+  expect(permission().checked).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Connect saved Agent" })); await act(async () => {});
+  expect(permission().checked).toBe(true);
+  fireEvent.click(permission());
+  fireEvent.click(screen.getByRole("button", { name: "Connect saved Agent" })); await act(async () => {});
+  expect(native.invoke.mock.calls.filter(([, { params }]) => params.action === "connect").map(([, { params }]) => params.allow_transmit)).toEqual([true, false]);
+  expect(permission().checked).toBe(false);
+  view.unmount(); await mount(true);
+  expect(permission().checked).toBe(true);
+  expect(native.invoke.mock.calls.every(([, { params }]) => ["snapshot", "connect"].includes(params.action))).toBe(true);
 });
 it("lost acknowledgement survives remount and checks the same receipt without resending", async () => {
   const view = await mount(true);

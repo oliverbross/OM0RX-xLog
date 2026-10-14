@@ -27,6 +27,7 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
   const [config, setConfig] = useState<HamlibConfiguration>({ mode: "managed", model: undefined, path: "", baud: 9600 });
   const [flexConfig, setFlexConfig] = useState<FlexConfiguration>({ host: "", port: 4992, station_name: "OM0RX-xLog" });
   const [token, setToken] = useState(""), [transmit, setTransmit] = useState(false);
+  const [agentTransmit, setAgentTransmit] = useState(true);
   const [receiveMHz, setReceiveMHz] = useState(""), [consumedObservation, setConsumedObservation] = useState("");
   const [busy, setBusy] = useState(false), [message, setMessage] = useState(""), [error, setError] = useState("");
   const [pending, setPending] = useState(() => sessionStorage.getItem(journalKey));
@@ -98,7 +99,7 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
         frequency_hz: receiveHz }
         : { action: action !== "select" && (hamlib || flex) ? `${action}_${flex ? "flex" : "hamlib"}` : action, operation_id: id, generation: base.generation, revision: base.revision,
         ...(action === "save" ? flex ? { configuration: { ...flexConfig, host: flexConfig.host.trim(), station_name: flexConfig.station_name.trim() } } : hamlib ? { configuration: config } : { base_url: url.trim() } : { selection_generation: base.selection.generation, selection_id: base.selection.selection_id,
-          ...(action === "select" ? { provider: target } : { allow_transmit: ["connect", "reconnect"].includes(action) && transmit }), ...(!hamlib && !flex && action === "connect" && token ? { token } : {}) }) });
+          ...(action === "select" ? { provider: target } : { allow_transmit: ["connect", "reconnect"].includes(action) && (hamlib || flex ? transmit : agentTransmit) }), ...(!hamlib && !flex && action === "connect" && token ? { token } : {}) }) });
       if (!active.current) return;
       setToken(""); setTransmit(false); setMessage(notice(receipt));
       if (receipt.status === "saved" || receipt.status === "acknowledged") {
@@ -188,7 +189,7 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
     {connections && !hamlib && !flex && <>
       <p>Saved Agent setup and connection tests do not confirm the running station session. Check the live station status for current radio observations; an interrupted session retries automatically.</p>
       <label>Agent token<input aria-label="Shared Agent token" type="password" autoComplete="off" value={token} onChange={event => setToken(event.target.value)} /></label>
-      <label><input type="checkbox" checked={transmit} onChange={event => setTransmit(event.target.checked)} /> Allow CAT transmit controls for this connection</label>
+      <label><input type="checkbox" checked={agentTransmit} onChange={event => setAgentTransmit(event.target.checked)} /> Allow CAT transmit controls for this connection</label>
       <div className="live-station-actionrow"><button type="button" disabled={!selected || !state?.base_url || dirty.current || conflict || busy || !!pending} onClick={() => void execute("connect")}>Connect saved Agent</button>
         <button type="button" disabled={!selected || busy || !!pending} onClick={() => void execute("disconnect")}>Disconnect Agent</button></div>
       <button type="button" disabled={!selected || !state?.base_url || dirty.current || conflict || busy || !!pending} onClick={() => void execute("forget")}>Forget saved Agent token</button>

@@ -292,8 +292,8 @@ impl Session {
             .map_or(Value::Null, |receipt| json!(receipt)))
     }
     /// Only native application startup may restore the saved Agent connection.
-    /// Journal a fresh receive-only connect; never replay an uncertain operation
-    /// or override the operator's explicit disconnect/credential removal.
+    /// Journal a fresh connection with station controls available. Never replay
+    /// an uncertain operation or override explicit disconnect/credential removal.
     pub fn resume_saved_agent(
         &self,
         selection: &Value,
@@ -315,7 +315,7 @@ impl Session {
         let params = json!({"action":"connect","operation_id":uuid::Uuid::new_v4().to_string(),
             "generation":state.generation,"revision":state.revision,
             "selection_generation":selection["generation"],"selection_id":selection["selection_id"],
-            "allow_transmit":false});
+            "allow_transmit":true});
         drop(state);
         // The existing admission path persists pending before transport, fences
         // concurrent setup edits, and lets Swift load only this endpoint's token.
@@ -560,7 +560,7 @@ mod tests {
             "selection_id":uuid::Uuid::new_v4().to_string()})
     }
     #[test]
-    fn startup_resumes_saved_agent_once_receive_only_with_durable_admission() {
+    fn startup_resumes_saved_agent_once_with_controls_enabled_and_no_station_action() {
         let (directory, session, save) = setup();
         session.apply(&save, passive).unwrap();
         let selection = startup_selection();
@@ -569,14 +569,14 @@ mod tests {
             assert_eq!(identity, selection["selection_id"].as_str().unwrap());
             assert_eq!(request["method"], "station_connect");
             assert_eq!(request["params"], json!({"provider":"direct_agent",
-                "base_url":"https://station.example:8443","allow_transmit":false}));
+                "base_url":"https://station.example:8443","allow_transmit":true}));
             assert_eq!(session.receipt(request["id"].as_str().unwrap()).unwrap()["status"], "pending");
             let disk: Value = serde_json::from_slice(&std::fs::read(directory.path().join("session.json")).unwrap()).unwrap();
             assert_eq!(disk["receipts"][1]["status"], "pending");
             Ok(json!({"id":request["id"],"ok":true}))
         }).unwrap().unwrap();
         assert_eq!(receipt["status"], "acknowledged");
-        assert_eq!(receipt["request"]["allow_transmit"], false);
+        assert_eq!(receipt["request"]["allow_transmit"], true);
         assert!(session.resume_saved_agent(&selection, passive).unwrap().is_none());
     }
     #[test]
