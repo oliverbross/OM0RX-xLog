@@ -1,6 +1,6 @@
 # Configurable Operator Desk and native windows
 
-Status: shared draft, revision-safe contact editing, native Cluster startup intent, radio/rotor telemetry, active radio selection and native menu routing implemented in source. Logbook/Awards repeated-open and Dock-back lifecycles pass isolated Windows/Linux packages through V, including reduced detached-window startup bundles and the shared layout roundtrip. W adds the configurable canvas and its native control gate; exact package run is still being verified. Full independent-window, display migration and whole-app performance acceptance remain open.
+Status: shared draft, revision-safe contact and Integration Settings editing, native Cluster startup intent, radio/rotor telemetry, active radio selection and native menu routing are implemented in source. Logbook/Awards repeated-open and Dock-back lifecycles pass isolated Windows/Linux packages through V, including reduced detached-window startup bundles and the shared layout roundtrip. W adds the configurable canvas and its native control gate; exact package run is still being verified. The independent Settings child, full independent-window operation, display migration and whole-app performance acceptance remain open.
 Request: 13 October 2026. Baseline: `0cc7ecc` / installed alpha.13.
 
 ## Product contract
@@ -107,38 +107,38 @@ Required gates:
 
 ## Delivery checkpoints
 
-### Next prerequisite — independent Settings safety (14 October review)
+### Revision-safe Settings prerequisite — source verified (14 October)
 
-Alpha.21 exposes nine native Window roles, but not a Settings child or the global
-Windowed preset. A read-only implementation audit found that `settings_save`
-still replaces an unversioned whole form and `ServiceSettings` keeps unsaved
-text inside the route component. Opening another Settings editor before fixing
-these paths risks lost updates and discarded input. The following is a proposed
-bounded stage, not implemented or accepted behavior:
+Commit `b58163f` completes the source prerequisite for an independent Settings
+child. The Integration database now owns the settings snapshot, workspace
+generation/revision and operation receipts. Legacy values seed once. Save
+requires operation identity and expected generation/revision; exact replay and
+no-op Save return durable receipts, conflicting revisions and mismatched ID reuse
+reject, and backup restore honors `restore_settings`, rotates generation and
+retires old receipts. Active-sync destination guards and explicit consent
+revocation remain in force.
 
-- Store the Integration settings snapshot and operation receipts atomically in
-  its database, with workspace generation and revision. Seed legacy Integration
-  settings once; do not change the original SwiftUI app's settings store.
-- Require operation ID, expected generation/revision and validated non-secret
-  settings on Save. Exact replay returns its historical receipt; mismatched ID
-  reuse rejects. No-op saves retain receipts without incrementing revision.
-- Migrate all Integration writers together: creation, Save and backup restore,
-  plus direct readers. Preserve active-sync destination guards and explicit
-  sync-consent revocation. Restore must honor `restore_settings` and fence old
-  workspace clients and receipts.
-- Add a parent-owned Settings session and recovery journal for non-secret raw
-  form text and pending mutation identity. Keep invalid text and dirty edits
-  through navigation, refresh and lost replies. Do not silently reapply stale
-  forms or include credentials in the journal.
-- Verify concurrent editors, rollback/reopen, receipt replay, no-op Save,
-  simultaneous layout changes, restore with/without settings, active manual and
-  automatic sync, dirty/invalid input and unknown acknowledgements. Merely
-  mounting or recovering the form must not start device/network actions.
+The main application now owns a typed, journaled Settings session rather than
+leaving unsaved text inside `ServiceSettings`. It retains non-secret raw invalid
+or dirty text and pending mutation identity across navigation and uncertain
+acknowledgements. Receipt lookup, exact same-ID retry and explicit adoption of
+saved state are exposed. Secret-like keys are excluded recursively. A clean form
+adopts a newer or restored snapshot automatically; a dirty form remains fenced
+until the operator resolves it.
 
-Likely boundaries: `Sources/XLogCore/LogbookDatabase.swift`, core settings DTOs,
-`Sources/XLogPrototypeSupport/LiveLogbookMethods.swift`/`LiveWorker.swift`, native
-worker IPC/wake handling, and a typed frontend Settings session. Add the actual
-Settings child only after this prerequisite is tested and reviewed. Rotor,
+The worker exposes `settings_load`, revisioned `settings_save` and
+`settings_receipt`; the native allowlist keeps these methods main-only. Four core
+database tests, three end-to-end workspace safety tests, 14 Settings component
+tests and nine Settings-session tests pass. Complete validation passes: frontend
+**1,049/1,049 across 128 files**, Rust **321/321**, normal Swift **82/82**, the
+full portable Swift suite, TypeScript, production Vite build and detached bundle
+gates. `git diff --check` is clean.
+
+This is source evidence only. It does not add the native Settings child, package
+or install a new build, prove main-renderer-absent operation, exercise live
+services or authorize hardware. Installed alpha.22 remains unchanged. The next
+bounded stage is the actual singleton Settings child with Dock/open/focus and
+dirty-form/navigation/restart recovery while the main renderer is absent. Rotor,
 Station Control, Chaser and CW migrations remain separate follow-up stages.
 
 1. Shared-session and draft safety proven behind existing UI.
