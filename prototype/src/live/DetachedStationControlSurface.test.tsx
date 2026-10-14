@@ -113,6 +113,7 @@ it("keeps dock failures visible across observation refresh and allows retry", as
 function sharedAgent(loseConnect = false, loseSelection = false, provider = "direct_agent") {
   let state: StationSession = { generation: "shared-setup", revision: 4, base_url: "https://station.example", last_receipt: null,
     hamlib: { mode: "managed", model: 1, path: "", baud: 9600 },
+    flex: { host: "192.168.1.50", port: 4992, station_name: "xLog" },
     selection: { provider, generation: 8, selection_id: "selected-radio" } };
   const actions: Record<string, unknown>[] = [], subscribers = new Map<string, Set<() => void>>();
   native.listen.mockImplementation(async (name: string, handler: () => void) => {
@@ -126,11 +127,12 @@ function sharedAgent(loseConnect = false, loseSelection = false, provider = "dir
     if (params.action === "snapshot") return structuredClone(state);
     if (params.action === "receipt") return state.last_receipt;
     actions.push(params);
-    const lost = loseConnect && params.action === "connect" || loseSelection && params.action === "select";
+    const lost = loseConnect && ["connect", "connect_flex", "reconnect_flex"].includes(params.action) || loseSelection && params.action === "select";
     state = { ...state, revision: state.revision + 1,
       ...(params.action === "save_hamlib" ? { hamlib: params.configuration } : {}),
+      ...(params.action === "save_flex" ? { flex: params.configuration } : {}),
       ...(params.action === "select" ? { selection: { provider: params.provider, generation: state.selection.generation + 1, selection_id: crypto.randomUUID() } } : {}),
-      last_receipt: { operation_id: params.operation_id, request: { action: params.action }, status: lost ? "unknown" : params.action === "save_hamlib" ? "saved" : "acknowledged" } };
+      last_receipt: { operation_id: params.operation_id, request: { action: params.action }, status: lost ? "unknown" : ["save_hamlib", "save_flex"].includes(params.action) ? "saved" : "acknowledged" } };
     if (lost) throw new Error("Lost child acknowledgement");
     return structuredClone(state.last_receipt);
   });
@@ -234,15 +236,48 @@ it("Desk and independent child share Hamlib setup and explicitly connect with th
   expect(native.invoke.mock.calls.every(([command]) => ["monitor_context_snapshot", "station_session_request"].includes(command))).toBe(true);
   expect(native.worker).not.toHaveBeenCalled();
 });
-it("child keeps FLEX setup in Desk and hides Agent and Hamlib setup and lifecycle controls", async () => {
+it("child exposes shared FLEX setup and hides Agent and Hamlib setup and lifecycle controls", async () => {
   const owner = sharedAgent(false, false, "direct_flex_lan");
   render(<DetachedStationControlSurface />); await act(async () => {});
-  expect(screen.getByText("Direct FLEX LAN connection setup remains in Desk.")).toBeTruthy();
+  expect(screen.getByLabelText("Shared FLEX private IP")).toBeTruthy();
   expect((screen.getByLabelText("Shared radio provider") as HTMLSelectElement).value).toBe("direct_flex_lan");
   expect(screen.getByRole("button", { name: "Apply shared radio selection" })).toBeTruthy();
   expect(screen.queryByLabelText("Shared Agent HTTPS URL")).toBeNull();
   expect(screen.queryByLabelText("Shared Agent token")).toBeNull();
   expect(screen.queryByLabelText("Shared Hamlib connection")).toBeNull();
-  expect(screen.queryByRole("button", { name: /Connect saved|Reconnect saved|Disconnect Agent|Disconnect Hamlib|Save Agent|Save Hamlib|Forget saved/ })).toBeNull();
+  expect(screen.queryByRole("button", { name: /Connect saved Agent|Connect saved Hamlib|Disconnect Agent|Disconnect Hamlib|Save Agent|Save Hamlib|Forget saved/ })).toBeNull();
   expect(owner.actions).toHaveLength(0); expect(native.worker).not.toHaveBeenCalled();
+});
+it("Desk and child share FLEX configuration, then explicitly connect, replace and disconnect through one owner", async () => {
+  const owner = sharedAgent(false, false, "direct_flex_lan");
+  render(<><section aria-label="Desk FLEX setup"><AgentConnectionSetup flex /></section><DetachedStationControlSurface /></>); await act(async () => {});
+  const desk = within(screen.getByRole("region", { name: "Desk FLEX setup" }));
+  const child = within(screen.getByRole("main", { name: "Detached Station Control" }));
+  expect(owner.actions).toHaveLength(0);
+  fireEvent.change(desk.getByLabelText("Shared FLEX private IP"), { target: { value: "100.64.0.5" } });
+  fireEvent.click(desk.getByRole("button", { name: "Save FLEX configuration" })); await act(async () => {});
+  await act(async () => owner.wake());
+  expect((child.getByLabelText("Shared FLEX private IP") as HTMLInputElement).value).toBe("100.64.0.5");
+  fireEvent.click(child.getByRole("checkbox", { name: "Enable FLEX transmit commands for this connection" }));
+  fireEvent.click(child.getByRole("button", { name: "Connect saved FLEX radio" })); await act(async () => {});
+  await act(async () => owner.wake());
+  fireEvent.click(desk.getByRole("button", { name: "Reconnect saved FLEX radio" })); await act(async () => {});
+  await act(async () => owner.wake());
+  fireEvent.click(child.getByRole("button", { name: "Disconnect FLEX radio" })); await act(async () => {});
+  expect(owner.actions.map(action => [action.action, action.revision])).toEqual([["save_flex", 4], ["connect_flex", 5], ["reconnect_flex", 6], ["disconnect_flex", 7]]);
+  expect(owner.actions[1]).toMatchObject({ selection_generation: 8, selection_id: "selected-radio", allow_transmit: true });
+  expect(owner.actions[2]).toMatchObject({ selection_generation: 8, selection_id: "selected-radio", allow_transmit: false });
+  expect(owner.actions[0]).not.toHaveProperty("allow_transmit");
+  expect(native.invoke.mock.calls.every(([command]) => ["monitor_context_snapshot", "station_session_request"].includes(command))).toBe(true);
+  expect(native.worker).not.toHaveBeenCalled();
+});
+it("lost FLEX reconnect acknowledgement survives child remount without replay", async () => {
+  const owner = sharedAgent(true, false, "direct_flex_lan"); const view = render(<DetachedStationControlSurface />); await act(async () => {});
+  fireEvent.click(screen.getByRole("button", { name: "Reconnect saved FLEX radio" })); await act(async () => {});
+  const operation = owner.actions[0].operation_id;
+  view.unmount(); render(<DetachedStationControlSurface />); await act(async () => {});
+  expect(screen.getByRole("button", { name: "Reconnect saved FLEX radio" }).hasAttribute("disabled")).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Check connection setup receipt" })); await act(async () => {});
+  expect(native.invoke).toHaveBeenLastCalledWith("station_session_request", { params: { action: "receipt", operation_id: operation } });
+  expect(owner.actions).toHaveLength(1); expect(screen.getByText(/Connection outcome is unknown/)).toBeTruthy();
 });

@@ -24,6 +24,8 @@ struct Saved {
     base_url: String,
     #[serde(default)]
     hamlib: Option<Value>,
+    #[serde(default)]
+    flex: Option<Value>,
     receipts: Vec<Receipt>,
 }
 pub struct Session {
@@ -40,6 +42,7 @@ pub fn validate(label: &str, isolated: bool, action: &str) -> Result<(), String>
         action,
         "snapshot" | "receipt" | "save" | "connect" | "disconnect" | "forget" | "select"
             | "save_hamlib" | "connect_hamlib" | "reconnect_hamlib" | "disconnect_hamlib"
+            | "save_flex" | "connect_flex" | "reconnect_flex" | "disconnect_flex"
     ) {
         return Err("Unknown Station Control operation.".into());
     }
@@ -64,6 +67,33 @@ fn endpoint(value: &str) -> Result<String, String> {
     }
     Ok(url.to_string().trim_end_matches('/').into())
 }
+fn is_save(action: &str) -> bool { matches!(action, "save" | "save_hamlib" | "save_flex") }
+/// Match the existing direct FLEX private-IP contract without DNS or I/O.
+fn flex_configuration(value: &Value) -> Result<Value, String> {
+    let object = value.as_object().ok_or("Invalid FLEX configuration.")?;
+    if object.len() != 3 || object.keys().any(|key| !["host", "port", "station_name"].contains(&key.as_str())) {
+        return Err("Use only a FLEX private IP, port and station name.".into());
+    }
+    let host = value["host"].as_str().ok_or("Enter a private numeric FLEX IP address.")?;
+    let private = match host.parse::<std::net::IpAddr>() {
+        Ok(std::net::IpAddr::V4(ip)) => {
+            let [a, b, _, _] = ip.octets();
+            a == 10 || a == 127 || a == 172 && (16..=31).contains(&b)
+                || a == 192 && b == 168 || a == 169 && b == 254 || a == 100 && (64..=127).contains(&b)
+        }
+        Ok(std::net::IpAddr::V6(ip)) => {
+            let bytes = ip.octets();
+            ip.is_loopback() || bytes[0] & 0xfe == 0xfc || bytes[0] == 0xfe && bytes[1] & 0xc0 == 0x80
+        }
+        Err(_) => false,
+    };
+    let name = value["station_name"].as_str().ok_or("Enter a FLEX station name.")?;
+    if !private || value["port"].as_u64().is_none_or(|port| !(1..=65535).contains(&port))
+        || name.trim().is_empty() || name.len() > 64 || !name.bytes().all(|byte| (32..=126).contains(&byte) && byte != b'|') {
+        return Err("Use a private numeric FLEX IP, port 1..65535 and an ASCII station name up to 64 characters without |.".into());
+    }
+    Ok(value.clone())
+}
 impl Session {
     fn new(path: PathBuf) -> Result<Self, String> {
         let mut saved = match std::fs::read(&path) {
@@ -76,6 +106,7 @@ impl Session {
                 revision: 0,
                 base_url: String::new(),
                 hamlib: None,
+                flex: None,
                 receipts: vec![],
             },
             Err(_) => return Err("Saved Station Control state could not be read.".into()),
@@ -86,6 +117,7 @@ impl Session {
             || saved.receipts.len() > MAX_RECEIPTS
             || endpoint(&saved.base_url)? != saved.base_url
             || saved.hamlib.as_ref().is_some_and(|value| crate::hamlib::saved_radio_configuration(value).is_err())
+            || saved.flex.as_ref().is_some_and(|value| flex_configuration(value).is_err())
         {
             return Err(
                 "Saved Station Control state is unsupported; it was not overwritten.".into(),
@@ -96,7 +128,7 @@ impl Session {
             let action = receipt.request["action"].as_str().unwrap_or("");
             let keys = if action == "save" {
                 vec!["action", "generation", "revision", "base_url"]
-            } else if action == "save_hamlib" {
+            } else if matches!(action, "save_hamlib" | "save_flex") {
                 vec!["action", "generation", "revision", "configuration"]
             } else if action == "select" {
                 vec![
@@ -127,8 +159,9 @@ impl Session {
                     action,
                     "save" | "connect" | "disconnect" | "forget" | "select"
                         | "save_hamlib" | "connect_hamlib" | "reconnect_hamlib" | "disconnect_hamlib"
+                        | "save_flex" | "connect_flex" | "reconnect_flex" | "disconnect_flex"
                 )
-                || matches!(action, "save" | "save_hamlib") != (receipt.status == "saved")
+                || is_save(action) != (receipt.status == "saved")
                 || receipt.request["generation"] != saved.generation
                 || receipt.request["revision"]
                     .as_u64()
@@ -151,6 +184,8 @@ impl Session {
                 }
             } else if action == "save_hamlib" {
                 crate::hamlib::saved_radio_configuration(&receipt.request["configuration"])?;
+            } else if action == "save_flex" {
+                flex_configuration(&receipt.request["configuration"])?;
             } else if receipt.request["selection_generation"]
                 .as_u64()
                 .is_none_or(|revision| revision > MAX_REVISION)
@@ -208,7 +243,7 @@ impl Session {
             .lock()
             .map_err(|_| "Station Control state is unavailable.")?;
         Ok(
-            json!({"generation":state.generation,"revision":state.revision,"base_url":state.base_url,"hamlib":state.hamlib,
+            json!({"generation":state.generation,"revision":state.revision,"base_url":state.base_url,"hamlib":state.hamlib,"flex":state.flex,
             "last_receipt":state.receipts.last(),"remaining_operations":MAX_RECEIPTS-state.receipts.len()}),
         )
     }
@@ -239,6 +274,7 @@ impl Session {
             action,
             "save" | "connect" | "disconnect" | "forget" | "select"
                 | "save_hamlib" | "connect_hamlib" | "reconnect_hamlib" | "disconnect_hamlib"
+                | "save_flex" | "connect_flex" | "reconnect_flex" | "disconnect_flex"
         ) {
             return Err("Unknown Station Control action.".into());
         }
@@ -262,6 +298,8 @@ impl Session {
             )?);
         } else if action == "save_hamlib" {
             descriptor["configuration"] = crate::hamlib::saved_radio_configuration(&params["configuration"])?;
+        } else if action == "save_flex" {
+            descriptor["configuration"] = flex_configuration(&params["configuration"])?;
         } else {
             descriptor["selection_generation"] = params["selection_generation"].clone();
             descriptor["selection_id"] = params["selection_id"].clone();
@@ -316,7 +354,14 @@ impl Session {
                     .ok_or("Station Control revision exhausted.")?;
             }
         }
-        let request = if matches!(action, "save" | "save_hamlib") {
+        if action == "save_flex" {
+            next.flex = Some(descriptor["configuration"].clone());
+            if next.flex != state.flex {
+                next.revision = next.revision.checked_add(1).filter(|value| *value <= MAX_REVISION)
+                    .ok_or("Station Control revision exhausted.")?;
+            }
+        }
+        let request = if is_save(action) {
             None
         } else {
             let selected_generation = params["selection_generation"]
@@ -334,6 +379,13 @@ impl Session {
                 };
                 connection["device"] = json!("radio");
                 connection["tx_enabled"] = json!(action != "disconnect_hamlib" && params["allow_transmit"] == true);
+            }
+            if matches!(action, "connect_flex" | "reconnect_flex" | "disconnect_flex") {
+                connection = if action == "disconnect_flex" { json!({}) } else {
+                    state.flex.clone().ok_or("Save FLEX configuration before connecting.")?
+                };
+                connection["provider"] = json!("direct_flex_lan");
+                if action != "disconnect_flex" { connection["allow_transmit"] = json!(params["allow_transmit"] == true); }
             }
             if matches!(action, "connect" | "forget") {
                 if state.base_url.is_empty() {
@@ -357,7 +409,9 @@ impl Session {
                 .filter(|value| *value <= MAX_REVISION)
                 .ok_or("Station Control revision exhausted.")?;
             Some((
-                json!({"id":id,"method":match action { "connect" => "station_connect", "forget" => "station_forget", "select" => "station_selection_apply", "connect_hamlib" => "hamlib_connect", "reconnect_hamlib" => "hamlib_reconnect", "disconnect_hamlib" => "hamlib_disconnect", _ => "station_disconnect" },"params":connection}),
+                // FLEX reconnect deliberately creates a new configured session:
+                // never inherit the previous session's transmit permission.
+                json!({"id":id,"method":match action { "connect" | "connect_flex" | "reconnect_flex" => "station_connect", "forget" => "station_forget", "select" => "station_selection_apply", "connect_hamlib" => "hamlib_connect", "reconnect_hamlib" => "hamlib_reconnect", "disconnect_hamlib" => "hamlib_disconnect", _ => "station_disconnect" },"params":connection}),
                 selected_generation,
                 selected_id.to_owned(),
             ))
@@ -365,7 +419,7 @@ impl Session {
         next.receipts.push(Receipt {
             operation_id: id.into(),
             request: descriptor,
-            status: if matches!(action, "save" | "save_hamlib") { "saved" } else { "pending" }.into(),
+            status: if is_save(action) { "saved" } else { "pending" }.into(),
         });
         self.persist(&next)?;
         *state = next;
@@ -523,6 +577,7 @@ mod tests {
             "forget",
             "select",
             "save_hamlib", "connect_hamlib", "reconnect_hamlib", "disconnect_hamlib",
+            "save_flex", "connect_flex", "reconnect_flex", "disconnect_flex",
         ] {
             for label in ["main", "station-control"] {
                 assert!(validate(label, false, action).is_ok());
@@ -606,6 +661,70 @@ mod tests {
         std::fs::create_dir(directory.path().join("session.json")).unwrap();
         let mut blocked = command;
         blocked["operation_id"] = json!(uuid::Uuid::new_v4().to_string()); blocked["revision"] = json!(2);
+        assert!(restored.apply(&blocked, passive).is_err());
+        assert!(restored.receipt(blocked["operation_id"].as_str().unwrap()).unwrap().is_null());
+    }
+    #[test]
+    fn shared_flex_setup_is_durable_and_lifecycle_uses_saved_setup_with_fresh_consent() {
+        let (directory, session, mut save) = setup();
+        save["action"] = json!("save_flex"); save.as_object_mut().unwrap().remove("base_url");
+        save["configuration"] = json!({"host":"192.168.1.50","port":4992,"station_name":"xLog"});
+        assert_eq!(session.apply(&save, passive).unwrap()["status"], "saved");
+        let restored = Session::new(directory.path().join("session.json")).unwrap();
+        assert_eq!(restored.snapshot().unwrap()["flex"], save["configuration"]);
+        assert_eq!(restored.apply(&save, passive).unwrap()["status"], "saved");
+        for (action, permission) in [("connect_flex", true), ("reconnect_flex", false), ("disconnect_flex", false)] {
+            let state = restored.snapshot().unwrap(); let selection_id = uuid::Uuid::new_v4().to_string();
+            let command = json!({"action":action,"operation_id":uuid::Uuid::new_v4().to_string(),"generation":state["generation"],"revision":state["revision"],
+                "selection_generation":17,"selection_id":selection_id,"allow_transmit":permission,"configuration":{"host":"10.9.9.9"},"token":"never-saved"});
+            let receipt = restored.apply(&command, |request, generation, identity| {
+                assert_eq!(generation, 17); assert_eq!(identity, selection_id);
+                let expected = if action == "disconnect_flex" { json!({"provider":"direct_flex_lan"}) }
+                    else { json!({"provider":"direct_flex_lan","host":"192.168.1.50","port":4992,"station_name":"xLog","allow_transmit":permission}) };
+                assert_eq!(request["params"], expected);
+                assert_eq!(request["method"], if action == "disconnect_flex" { "station_disconnect" } else { "station_connect" });
+                let persisted = Session::new(directory.path().join("session.json")).unwrap();
+                assert_eq!(persisted.receipt(command["operation_id"].as_str().unwrap()).unwrap()["status"], "unknown");
+                Ok(json!({"id":request["id"],"ok":true}))
+            }).unwrap();
+            assert_eq!(receipt["status"], "acknowledged"); assert_eq!(restored.apply(&command, passive).unwrap(), receipt);
+            let mut stale = command; stale["operation_id"] = json!(uuid::Uuid::new_v4().to_string());
+            assert!(restored.apply(&stale, passive).is_err());
+        }
+        let disk = std::fs::read_to_string(directory.path().join("session.json")).unwrap();
+        assert!(!disk.contains("never-saved")); assert!(!disk.contains("10.9.9.9"));
+        assert!(restored.snapshot().unwrap()["flex"].get("allow_transmit").is_none());
+    }
+    #[test]
+    fn flex_setup_rejects_secrets_public_addresses_and_malformed_numeric_hosts_without_dispatch() {
+        for host in ["10.0.0.1", "127.0.0.1", "172.16.0.1", "192.168.1.1", "169.254.1.1", "100.64.0.1", "::1", "fc00::1", "fd00::1", "fe80::1"] {
+            assert!(flex_configuration(&json!({"host":host,"port":4992,"station_name":"xLog"})).is_ok());
+        }
+        let (_directory, session, mut save) = setup(); save["action"] = json!("save_flex");
+        for host in ["radio.example", "8.8.8.8", "172.32.0.1", "100.128.0.1", "192.168.001.1", "fd:::1", "fe80::1%en0", "::ffff:192.168.1.1", "user:secret@10.0.0.1"] {
+            save["configuration"] = json!({"host":host,"port":4992,"station_name":"xLog"});
+            assert!(session.apply(&save, passive).is_err(), "{host}");
+        }
+        for config in [json!({"host":"10.0.0.1","port":0,"station_name":"xLog"}),
+            json!({"host":"10.0.0.1","port":4992,"station_name":"bad|command"}),
+            json!({"host":"10.0.0.1","port":4992,"station_name":"xLog","allow_transmit":true}),
+            json!({"host":"10.0.0.1","port":4992,"station_name":"xLog","token":"secret"})] {
+            save["configuration"] = config; assert!(session.apply(&save, passive).is_err());
+        }
+        assert!(session.snapshot().unwrap()["last_receipt"].is_null());
+    }
+    #[test]
+    fn flex_unknown_outcome_and_failed_storage_never_replay_or_dispatch() {
+        let (directory, session, mut save) = setup(); save["action"] = json!("save_flex");
+        save["configuration"] = json!({"host":"100.64.0.1","port":4992,"station_name":"xLog"}); session.apply(&save, passive).unwrap();
+        let command = json!({"action":"reconnect_flex","operation_id":uuid::Uuid::new_v4().to_string(),"generation":save["generation"],"revision":1,
+            "selection_generation":9,"selection_id":uuid::Uuid::new_v4().to_string()});
+        let receipt = session.apply(&command, |request, _, _| { assert_eq!(request["params"]["allow_transmit"], false); Err("unknown".into()) }).unwrap();
+        assert_eq!(receipt["status"], "unknown");
+        let restored = Session::new(directory.path().join("session.json")).unwrap();
+        assert_eq!(restored.apply(&command, passive).unwrap(), receipt);
+        std::fs::remove_file(directory.path().join("session.json")).unwrap(); std::fs::create_dir(directory.path().join("session.json")).unwrap();
+        let mut blocked = command; blocked["operation_id"] = json!(uuid::Uuid::new_v4().to_string()); blocked["revision"] = json!(2);
         assert!(restored.apply(&blocked, passive).is_err());
         assert!(restored.receipt(blocked["operation_id"].as_str().unwrap()).unwrap().is_null());
     }

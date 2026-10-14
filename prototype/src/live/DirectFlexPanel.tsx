@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Activity, Radio, RefreshCw } from "lucide-react";
+import { AgentConnectionSetup } from "./AgentConnectionSetup";
+import { nativeStationSelection } from "./stationSelection";
 import "./StationPanel.css";
 import "./DirectFlexPanel.css";
 
@@ -31,9 +33,10 @@ export function validFlexEndpoint(host: string, port: string, stationName: strin
 }
 
 export default function DirectFlexPanel({ request, snapshot }: Props) {
-  const [host, setHost] = useState(() => localStorage.getItem("xlog.flex.host") || "");
-  const [port, setPort] = useState(() => localStorage.getItem("xlog.flex.port") || "4992");
-  const [stationName, setStationName] = useState(() => localStorage.getItem("xlog.flex.name") || "OM0RX-xLog");
+  const shared = nativeStationSelection();
+  const [host, setHost] = useState(() => shared ? "" : localStorage.getItem("xlog.flex.host") || "");
+  const [port, setPort] = useState(() => shared ? "4992" : localStorage.getItem("xlog.flex.port") || "4992");
+  const [stationName, setStationName] = useState(() => shared ? "OM0RX-xLog" : localStorage.getItem("xlog.flex.name") || "OM0RX-xLog");
   const [allowTransmit, setAllowTransmit] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -65,7 +68,7 @@ export default function DirectFlexPanel({ request, snapshot }: Props) {
       setRFPower(String(radio.rf_power_level));
     }
   }, [connected, radio?.rf_power_level]);
-  useEffect(() => { if (attached) setAllowTransmit(snapshot.allow_transmit === true); }, [attached, snapshot?.allow_transmit]);
+  useEffect(() => { if (!shared && attached) setAllowTransmit(snapshot.allow_transmit === true); }, [attached, snapshot?.allow_transmit, shared]);
   const useObservedValues = () => {
     if (!connected) return;
     frequencyEdited.current = false; modeEdited.current = false;
@@ -131,7 +134,7 @@ export default function DirectFlexPanel({ request, snapshot }: Props) {
       <span className={`live-station-status ${connected ? "is-online" : "is-offline"}`}><i />{connected ? "Observed" : snapshot?.transport_state || "Disconnected"}</span></header>
     <div className="live-station-grid"><div className="live-station-main">
       <section className="live-station-card"><h3>Connection</h3>
-        <form className="live-station-connect" onSubmit={event => void connect(event)}>
+        {shared ? <><AgentConnectionSetup flex /><button type="button" disabled={busy} onClick={() => void act("station_snapshot", {}, "Read state")}><RefreshCw size={14} /> Read state</button></> : <form className="live-station-connect" onSubmit={event => void connect(event)}>
           <div className="flex-connect-fields"><label>Private radio IP address<input aria-label="Private radio IP address" required inputMode="url" value={host} onChange={event => setHost(event.target.value)} placeholder="192.168.1.50" autoComplete="off" /></label>
             <label>TCP port<input aria-label="TCP port" required type="number" min="1" max="65535" value={port} onChange={event => setPort(event.target.value)} /></label>
             <label>Station name<input aria-label="Station name" required maxLength={64} value={stationName} onChange={event => setStationName(event.target.value)} /></label></div>
@@ -142,7 +145,7 @@ export default function DirectFlexPanel({ request, snapshot }: Props) {
             <button type="button" disabled={busy || connected || !attached} onClick={() => void act("station_reconnect", {}, "Reconnect")}>Reconnect</button>
             <button type="button" disabled={busy || !attached} onClick={() => void act("station_disconnect", {}, "Disconnect")}>Disconnect</button>
             <button type="button" disabled={busy} onClick={() => void act("station_snapshot", {}, "Read state")}><RefreshCw size={14} /> Read state</button></div>
-        </form>
+        </form>}
       </section>
       <section className="live-station-card"><h3><Activity size={15} /> Observed FLEX radio</h3>
         <div className="flex-readback"><strong>{formatMHz(radio?.frequency_hz)} <small>MHz</small></strong><span>{radio?.mode || "Mode unavailable"}</span><span className={radio?.transmitting === true ? "amber" : "secondary"}>{!connected ? "No live radio observation" : radio?.transmitting === true ? "TRANSMITTING" : radio?.transmitting === false ? "Receiving" : "PTT state unknown"}</span></div>

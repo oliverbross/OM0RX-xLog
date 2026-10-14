@@ -10,7 +10,7 @@ const frequency = (hz: unknown) => typeof hz === "number" && Number.isFinite(hz)
 const value = (input: unknown) => input == null || input === "" ? "Unavailable" : String(input);
 const providers = { direct_agent: "Remote Station Agent", direct_flex_lan: "Direct FLEX LAN", hamlib: "Local Hamlib" };
 
-/** Retained observations and optional shared Agent controls. Mounting never
+/** Retained observations and optional shared radio connection controls. Mounting never
  * reads credentials, selects a provider, connects a device or sends an action. */
 export function StationControlSurface({ connect = connectMonitorContext, configuration }: Props) {
   const [context, setContext] = useState<MonitorContext | null>(null);
@@ -40,7 +40,7 @@ export function StationControlSurface({ connect = connectMonitorContext, configu
       <header className="live-station-head"><div><h2>Station Control</h2><p>{configuration && !context?.acceptance ? "Shared radio connections · independent of Desk" : "Passive station monitoring · independent of Desk"}</p></div>
         <div className="live-station-head-actions"><button type="button" onClick={() => connection.current?.refresh()}>Refresh observations</button>
           <button type="button" disabled={docking} onClick={() => void dockBack()}>{docking ? "Docking…" : "Dock back"}</button></div></header>
-      <p role="status">{configuration && !context?.acceptance ? "Radio selection and Agent/Hamlib connections are shared. Radio commands and FLEX connection setup require the main station controls." : "Connection setup, radio selection and station actions currently require the main station controls."}</p>
+      <p role="status">{configuration && !context?.acceptance ? "Radio selection and Agent, Hamlib and Direct FLEX LAN connections are shared. Radio commands require the main station controls." : "Connection setup, radio selection and station actions currently require the main station controls."}</p>
       {!context?.acceptance && configuration}
       {error && <p className="live-station-error" role="alert">{error}</p>}
       {dockError && <p className="live-station-error" role="alert">{dockError}</p>}

@@ -1797,6 +1797,25 @@ mod tests {
         }
     }
     #[test]
+    fn shared_flex_lifecycle_rejects_stale_generation_identity_and_provider() {
+        let (_directory, owner, calls) = fixture();
+        let first = initialized(&owner, Some("direct_flex_lan"));
+        let old_id = first["selection_id"].as_str().unwrap();
+        owner.handover(0, "direct_agent").unwrap(); owner.handover(1, "direct_flex_lan").unwrap();
+        let current = owner.snapshot().unwrap(); let id = current["selection_id"].as_str().unwrap();
+        for method in ["station_connect", "station_disconnect"] {
+            let action = || json!({"id":"shared-flex","method":method,"params":{"provider":"direct_flex_lan","host":"10.0.0.1","port":4992,"station_name":"xLog"}});
+            for (generation, identity) in [(0, old_id), (2, old_id), (0, id)] {
+                assert!(owner.monitor_action(action(), generation, identity, || -> Result<(), String> { panic!("stale FLEX lifecycle admitted") }).is_err());
+            }
+            let mut wrong_provider = action(); wrong_provider["params"]["provider"] = json!("direct_agent");
+            assert!(owner.monitor_action(wrong_provider, 2, id, || -> Result<(), String> { panic!("wrong provider admitted") }).is_err());
+            let before = calls.lock().unwrap().iter().filter(|request| request["method"] == method).count();
+            owner.monitor_action(action(), 2, id, || Ok(())).unwrap();
+            assert_eq!(calls.lock().unwrap().iter().filter(|request| request["method"] == method).count(), before + 1);
+        }
+    }
+    #[test]
     fn admitted_monitor_action_excludes_handover_without_holding_selection_lock_over_transport() {
         let (directory, original, _) = fixture();
         let gate = Arc::new((Mutex::new(false), std::sync::Condvar::new())); let wait = gate.clone();

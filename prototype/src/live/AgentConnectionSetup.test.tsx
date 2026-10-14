@@ -16,6 +16,7 @@ beforeEach(() => {
     if (params.action === "snapshot") return structuredClone(state);
     if (params.action === "save") { state = { ...state, revision: 5, base_url: params.base_url }; return { operation_id: params.operation_id, status: "saved", request: { action: "save" } }; }
     if (params.action === "save_hamlib") { state = { ...state, revision: state.revision + 1, hamlib: params.configuration }; return { operation_id: params.operation_id, status: "saved", request: { action: "save_hamlib" } }; }
+    if (params.action === "save_flex") { state = { ...state, revision: state.revision + 1, flex: params.configuration }; return { operation_id: params.operation_id, status: "saved", request: { action: "save_flex" } }; }
     return { operation_id: params.operation_id, status: "acknowledged", request: { action: params.action } };
   });
 });
@@ -150,4 +151,26 @@ it("another window's selection change clears transmit consent before a new Hamli
   await act(async () => native.changed?.()); expect(permission.checked).toBe(false);
   fireEvent.click(screen.getByRole("button", { name: "Connect saved Hamlib radio" })); await act(async () => {});
   expect(native.invoke.mock.calls.at(-2)?.[1].params).toMatchObject({ action: "connect_hamlib", revision: 5, selection_generation: 14, selection_id: "new-selection", allow_transmit: false });
+});
+it("FLEX retains dirty setup on another window's save, reloads explicitly and never stores standing transmit consent", async () => {
+  state = { ...state, flex: { host: "192.168.1.50", port: 4992, station_name: "xLog" }, selection: { provider: "direct_flex_lan", generation: 12, selection_id: "flex-selection" } };
+  render(<AgentConnectionSetup flex />); await act(async () => {});
+  fireEvent.change(screen.getByLabelText("Shared FLEX private IP"), { target: { value: "10.0.0.2" } });
+  fireEvent.click(screen.getByRole("checkbox", { name: "Enable FLEX transmit commands for this connection" }));
+  expect(screen.getByRole("button", { name: "Connect saved FLEX radio" }).hasAttribute("disabled")).toBe(true);
+  state = { ...state, revision: 5, flex: { host: "100.64.0.3", port: 4993, station_name: "other-window" } };
+  await act(async () => native.changed?.());
+  expect((screen.getByLabelText("Shared FLEX private IP") as HTMLInputElement).value).toBe("10.0.0.2");
+  expect(screen.getByRole("button", { name: "Save FLEX configuration" }).hasAttribute("disabled")).toBe(true);
+  expect((screen.getByRole("checkbox", { name: "Enable FLEX transmit commands for this connection" }) as HTMLInputElement).checked).toBe(false);
+  fireEvent.click(screen.getByRole("button", { name: "Reload saved FLEX configuration" })); await act(async () => {});
+  expect((screen.getByLabelText("Shared FLEX private IP") as HTMLInputElement).value).toBe("100.64.0.3");
+  fireEvent.change(screen.getByLabelText("Shared FLEX station name"), { target: { value: " edited-name " } });
+  fireEvent.click(screen.getByRole("checkbox", { name: "Enable FLEX transmit commands for this connection" }));
+  fireEvent.click(screen.getByRole("button", { name: "Save FLEX configuration" })); await act(async () => {});
+  const request = native.invoke.mock.calls.find(([, { params }]) => params.action === "save_flex")![1].params;
+  expect(request).toMatchObject({ revision: 5, configuration: { host: "100.64.0.3", port: 4993, station_name: "edited-name" } });
+  expect(request).not.toHaveProperty("allow_transmit"); expect(request.configuration).not.toHaveProperty("allow_transmit");
+  expect((screen.getByRole("checkbox", { name: "Enable FLEX transmit commands for this connection" }) as HTMLInputElement).checked).toBe(false);
+  expect(native.invoke.mock.calls.every(([command]) => command === "station_session_request")).toBe(true);
 });

@@ -1,7 +1,12 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import DirectFlexPanel, { validFlexEndpoint } from "./DirectFlexPanel";
+const native = vi.hoisted(() => ({ enabled: false, invoke: vi.fn(), listen: vi.fn(async () => () => {}) }));
+vi.mock("@tauri-apps/api/core", () => ({ invoke: native.invoke }));
+vi.mock("@tauri-apps/api/event", () => ({ listen: native.listen }));
+vi.mock("./stationSelection", () => ({ nativeStationSelection: () => native.enabled }));
+beforeEach(() => { native.enabled = false; native.invoke.mockClear(); sessionStorage.clear(); });
 
 const snapshot = (overrides: Record<string, any> = {}) => ({ source: "direct_flex_lan", available: true,
   transport_state: "ready", allow_transmit: false,
@@ -13,6 +18,19 @@ const snapshot = (overrides: Record<string, any> = {}) => ({ source: "direct_fle
 afterEach(() => { cleanup(); localStorage.clear(); });
 
 describe("direct FLEX LAN controls", () => {
+  it("native Desk mounts through shared setup without raw lifecycle authority or inherited transmit consent", async () => {
+    native.enabled = true; native.invoke.mockImplementation(async (_command, { params }) => params.action === "snapshot" ? { generation: "setup", revision: 1, base_url: "", last_receipt: null,
+      flex: { host: "192.168.1.50", port: 4992, station_name: "xLog" }, selection: { provider: "direct_flex_lan", generation: 4, selection_id: "selected" } }
+      : { operation_id: params.operation_id, status: "acknowledged", request: { action: params.action } });
+    const request = vi.fn(); render(<DirectFlexPanel request={request} snapshot={snapshot({ allow_transmit: true })} />);
+    await waitFor(() => expect((screen.getByLabelText("Shared FLEX private IP") as HTMLInputElement).value).toBe("192.168.1.50"));
+    expect(native.invoke).toHaveBeenCalledExactlyOnceWith("station_session_request", { params: { action: "snapshot" } });
+    expect(request).not.toHaveBeenCalled(); expect(screen.queryByRole("button", { name: "Connect FLEX" })).toBeNull();
+    expect((screen.getByRole("checkbox", { name: "Enable FLEX transmit commands for this connection" }) as HTMLInputElement).checked).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Reconnect saved FLEX radio" }));
+    await waitFor(() => expect(native.invoke).toHaveBeenCalledWith("station_session_request", { params: expect.objectContaining({ action: "reconnect_flex", allow_transmit: false, selection_generation: 4, selection_id: "selected" }) }));
+    expect(request).not.toHaveBeenCalled();
+  });
   it("accepts only numeric private addresses and exact endpoint fields", () => {
     expect(validFlexEndpoint("192.168.1.50", "4992", "OM0RX-xLog")).toBe(true);
     expect(validFlexEndpoint("100.64.1.2", "4992", "OM0RX-xLog")).toBe(true);
