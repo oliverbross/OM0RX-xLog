@@ -331,14 +331,22 @@ public final class XLogBackupManager: @unchecked Sendable {
     /// Captures and re-verifies every file, then validates SQLite and settings from
     /// the captured bytes. Executors must consume the returned Data, never reopen URLs.
     public func prepareEnvelope(at packageURL: URL) throws -> XLogBackupEnvelope {
+        try prepareEnvelope(at: packageURL, validationStagingDirectory: nil)
+    }
+
+    internal func prepareEnvelope(at packageURL: URL, validationStagingDirectory: URL?) throws -> XLogBackupEnvelope {
         let (seal, files) = try BackupPackageSeal.verifiedFiles(packageURL, fileManager: fileManager)
         let data = try BackupPackageSeal.encode(BackupPackageSeal.Payload(seal: seal, files: files))
-        return try validateRestoreEnvelope(data)
+        return try validateRestoreEnvelope(data, stagingDirectory: validationStagingDirectory)
     }
 
     /// Validates an untrusted envelope without touching the live database or settings.
     /// The caller must compare its identity with an independently trusted receipt.
     public func validateRestoreEnvelope(_ data: Data) throws -> XLogBackupEnvelope {
+        try validateRestoreEnvelope(data, stagingDirectory: nil)
+    }
+
+    private func validateRestoreEnvelope(_ data: Data, stagingDirectory: URL?) throws -> XLogBackupEnvelope {
         // Base64 JSON expands content; bound input as well as decoded payload.
         guard data.count <= BackupPackageSeal.maximumBytes * 2 else {
             throw XLogBackupError.invalidPackage("envelope exceeds staging limit")
@@ -348,7 +356,7 @@ public final class XLogBackupManager: @unchecked Sendable {
             throw XLogBackupError.invalidPackage("envelope exceeds staging limit")
         }
         try payload.seal.validate(payload.files)
-        let root = fileManager.temporaryDirectory.appendingPathComponent("xlog-envelope-\(UUID().uuidString)")
+        let root = (stagingDirectory ?? fileManager.temporaryDirectory).appendingPathComponent("xlog-envelope-\(UUID().uuidString)")
         defer { try? fileManager.removeItem(at: root) }
         try BackupPackageSeal.materialize(payload.files, at: root, fileManager: fileManager)
         try BackupPackageSeal.encode(payload.seal).write(to: root.appendingPathComponent(BackupPackageSeal.filename))
