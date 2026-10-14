@@ -547,6 +547,46 @@ it.each([
   expect(decode(original)).toBe(original);
 });
 
+const adxCreditNames = `CQDX CQDX_BAND CQDX_MODE CQDX_MOBILE CQDX_QRP CQDX_SATELLITE CQDXFIELD CQDXFIELD_BAND
+  CQDXFIELD_MODE CQDXFIELD_MOBILE CQDXFIELD_QRP CQDXFIELD_SATELLITE CQWAZ_MIXED CQWAZ_BAND CQWAZ_MODE CQWAZ_SATELLITE
+  CQWAZ_EME CQWAZ_MOBILE CQWAZ_QRP CQWPX CQWPX_BAND CQWPX_MODE DXCC DXCC_BAND DXCC_MODE DXCC_SATELLITE EAUSTRALIA
+  ECANADA ECOUNTY_STATE EDX EDX100 EDX100_BAND EDX100_MODE EECHOLINK50 EGRID_BAND EGRID_SATELLITE EPFX300 EPFX300_MODE
+  EWAS EWAS_BAND EWAS_MODE EWAS_SATELLITE EZ40 EZ40_MODE FFMA IOTA IOTA_BASIC IOTA_CONT IOTA_GROUP RDA USACA VUCC_BAND
+  VUCC_SATELLITE WAB WAC WAC_BAND WAE WAE_BAND WAE_MODE WAIP WAIP_BAND WAIP_MODE WAS WAS_BAND WAS_EME WAS_MODE
+  WAS_NOVICE WAS_QRP WAS_SATELLITE WITUZ WITUZ_BAND`.split(/\s+/);
+it.each(["CREDIT_SUBMITTED", "CREDIT_GRANTED"])("preserves every ADX 3.1.7 credit name and confirmation source in %s", name => {
+  const value = adxCreditNames.map((credit, index) => `${index % 2 ? credit.toLowerCase() : credit}:${index % 3 ? "card&eqsl" : "LOTW"}`).join(",");
+  const original = adiRecord({ [name]: value });
+  expect(decode(adx(`<${name}>${value.replace(/&/g, "&amp;")}</${name}>`))).toBe(original);
+  const writer = new ADIFExportDocument("adx"); writer.append(original, 1);
+  expect(decode(writer.finish())).toBe(original);
+});
+
+it.each(["AWARD_SUBMITTED", "AWARD_GRANTED"])("preserves ADX 3.1.7 sponsored-award lists in %s", name => {
+  const value = "adif_program-award_basic,ARRL_DXCC_MIXED_BAND,CQ_WPX_5_BAND,WABAG_book_class-A";
+  const original = adiRecord({ [name]: value });
+  expect(decode(adx(`<${name}>${value}</${name}>`))).toBe(original);
+  const writer = new ADIFExportDocument("adx"); writer.append(original, 1);
+  expect(decode(writer.finish())).toBe(original);
+});
+
+it.each([
+  ["CREDIT_SUBMITTED", ""], ["CREDIT_SUBMITTED", "CQWAZ"], ["CREDIT_GRANTED", "CQDX_FIELD"],
+  ["CREDIT_GRANTED", "DXCC:"], ["CREDIT_GRANTED", "DXCC:CARD&"], ["CREDIT_GRANTED", "DXCC:CARD EQSL"],
+  ["CREDIT_GRANTED", "DXCC:CARD:LOTW"], ["CREDIT_GRANTED", "DXCC,CQWPX,"], ["CREDIT_GRANTED", " DXCC"],
+  ["AWARD_SUBMITTED", ""], ["AWARD_SUBMITTED", "OTHER_PROGRAM_AWARD"], ["AWARD_GRANTED", "ARRL__AWARD"],
+  ["AWARD_GRANTED", "ARRL_PROGRAM_"], ["AWARD_GRANTED", "ARRL_PROGRAM AWARD"], ["AWARD_GRANTED", "ARRL_PROGRAM,AWARD"],
+  ["AWARD_GRANTED", "ARRL_PROGRAM_AWARD,"], ["AWARD_GRANTED", " ARRL_PROGRAM_AWARD"],
+])("rejects invalid ADX award/list schema text %s=%s while preserving ADI", (name, value) => {
+  expect(() => decode(adx(`<${name}>${value.replace(/&/g, "&amp;")}</${name}>`))).toThrow(`Field ${name} has an invalid ADX typed value`);
+  const original = adiRecord({ [name]: value });
+  const writer = new ADIFExportDocument("adx");
+  expect(() => writer.append(original, 1)).toThrow(`Field ${name} has an invalid ADX typed value`);
+  const adi = new ADIFExportDocument("adi"); adi.append(original, 1);
+  expect(adi.finish()).toBe(original);
+  expect(decode(original)).toBe(original);
+});
+
 const adxLocations = ["LAT", "LON", "MY_LAT", "MY_LON"];
 const adxVUCCFields = ["VUCC_GRIDS", "MY_VUCC_GRIDS"];
 it.each([

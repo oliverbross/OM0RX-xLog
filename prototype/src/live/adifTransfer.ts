@@ -150,6 +150,15 @@ const adxMultilineStringFields = new Set("ADDRESS NOTES QSLMSG QSLMSG_RCVD RIG".
 const adxIntlStringFields = new Set(`COMMENT_INTL COUNTRY_INTL MY_ANTENNA_INTL MY_CITY_INTL MY_COUNTRY_INTL MY_NAME_INTL
   MY_POSTAL_CODE_INTL MY_RIG_INTL MY_SIG_INTL MY_SIG_INFO_INTL MY_STREET_INTL NAME_INTL QTH_INTL SIG_INTL SIG_INFO_INTL`.split(/\s+/));
 const adxIntlMultilineStringFields = new Set("ADDRESS_INTL NOTES_INTL QSLMSG_INTL RIG_INTL".split(" "));
+const adxCreditValues = new Set(`CQDX CQDX_BAND CQDX_MODE CQDX_MOBILE CQDX_QRP CQDX_SATELLITE CQDXFIELD CQDXFIELD_BAND
+  CQDXFIELD_MODE CQDXFIELD_MOBILE CQDXFIELD_QRP CQDXFIELD_SATELLITE CQWAZ_MIXED CQWAZ_BAND CQWAZ_MODE CQWAZ_SATELLITE
+  CQWAZ_EME CQWAZ_MOBILE CQWAZ_QRP CQWPX CQWPX_BAND CQWPX_MODE DXCC DXCC_BAND DXCC_MODE DXCC_SATELLITE EAUSTRALIA
+  ECANADA ECOUNTY_STATE EDX EDX100 EDX100_BAND EDX100_MODE EECHOLINK50 EGRID_BAND EGRID_SATELLITE EPFX300 EPFX300_MODE
+  EWAS EWAS_BAND EWAS_MODE EWAS_SATELLITE EZ40 EZ40_MODE FFMA IOTA IOTA_BASIC IOTA_CONT IOTA_GROUP RDA USACA VUCC_BAND
+  VUCC_SATELLITE WAB WAC WAC_BAND WAE WAE_BAND WAE_MODE WAIP WAIP_BAND WAIP_MODE WAS WAS_BAND WAS_EME WAS_MODE
+  WAS_NOVICE WAS_QRP WAS_SATELLITE WITUZ WITUZ_BAND`.split(/\s+/));
+const adxCreditConfirmations = new Set(["CARD", "EQSL", "LOTW"]);
+const adxSponsoredAwardPattern = /^(?:ADIF|ARI|ARRL|CQ|DARC|EQSL|IARU|JARL|RSGB|TAG|WABAG)_[^ ,_]+_[^ ,]+$/i;
 // GridSquareList4or6 requires 2 or 4 comma-separated locators, all the same
 // length. Preserve their order and case; do not infer adjacency or deduplicate.
 const vuccGridPatterns = ["[A-R]{2}[0-9]{2}", "[A-R]{2}[0-9]{2}[A-X]{2}"];
@@ -184,6 +193,16 @@ function validUSCountyList(value: string): boolean {
     return adxUSStateValues.has(state) && /^[A-Za-z][ A-Za-z.'-]*[A-Za-z]$/.test(county);
   });
 }
+function validCreditList(value: string): boolean {
+  return value.length > 0 && value.split(",").every(item => {
+    const parts = item.split(":");
+    if (parts.length > 2 || !adxCreditValues.has(parts[0].toUpperCase())) return false;
+    return parts.length === 1 || (parts[1].length > 0 && parts[1].split("&").every(source => adxCreditConfirmations.has(source.toUpperCase())));
+  });
+}
+function validSponsoredAwardList(value: string): boolean {
+  return value.length > 0 && value.split(",").every(item => adxSponsoredAwardPattern.test(item));
+}
 function validateADXValue(name: string, value: string): void {
   let valid = true;
   const patternRule = adxPatternRules.find(rule => rule.fields.includes(name));
@@ -195,6 +214,8 @@ function validateADXValue(name: string, value: string): void {
   else if (name === "PROP_MODE") valid = adxPropagationModeValues.has(value.toUpperCase());
   else if (name === "REGION") valid = adxRegionValues.has(value.toUpperCase());
   else if (["USACA_COUNTIES", "MY_USACA_COUNTIES"].includes(name)) valid = validUSCountyList(value);
+  else if (["CREDIT_SUBMITTED", "CREDIT_GRANTED"].includes(name)) valid = validCreditList(value);
+  else if (["AWARD_SUBMITTED", "AWARD_GRANTED"].includes(name)) valid = validSponsoredAwardList(value);
   else if (adxStringFields.has(name)) valid = /^[\x20-\x7e]*$/.test(value);
   else if (adxMultilineStringFields.has(name)) valid = /^[\r\n\x20-\x7e]*$/.test(value);
   else if (adxIntlStringFields.has(name)) valid = !/[\r\n]/.test(value);
