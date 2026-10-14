@@ -106,6 +106,16 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
         try lock.withLock { try readyDatabase() }
     }
 
+    /// Admission, dispatch and receipt commit share the workspace-transition lock.
+    /// This never spans asynchronous transport: startSync only schedules its task.
+    func withSyncOwnerLock<T>(_ body: () throws -> T) rethrows -> T { try lock.withLock(body) }
+
+    func syncOwnerContext() throws -> [String: Any] {
+        try lock.withLock {
+            ["generation": try editGeneration(), "settings_revision": try storedSettingsSnapshot().revision]
+        }
+    }
+
     func currentSettings() throws -> XLogSettings {
         try lock.withLock {
             var settings = try storedSettingsSnapshot().settings

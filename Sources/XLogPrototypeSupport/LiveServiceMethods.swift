@@ -70,14 +70,25 @@ actor LiveServiceMethods {
 
     func handle(method: String, params: [String: Any]) async throws -> [String: Any] {
         guard !stopped else { throw WorkerFailure("worker_stopping", "Synchronization service is shutting down.") }
+        if method.hasPrefix("sync_") {
+            return try logbook.withSyncOwnerLock { try handleSync(method: method, params: params) }
+        }
         switch method {
         case "secret_save":
-            let secrets = try workspaceSecrets()
             guard Set(params.keys) == ["account", "value"], let name = params["account"] as? String,
                   let account = WorkspaceCredentialStore.Account(rawValue: name), let value = params["value"] as? String,
                   value.utf8.count <= 8192 else { throw invalid() }
-            if account == .wavelogToken { try logbook.configureAutomaticSync(enabled: false, intervalMinutes: 5, confirmed: false) }
-            try secrets.save(value, for: account)
+            try logbook.withSyncOwnerLock {
+                let secrets = try workspaceSecrets()
+                if account == .wavelogToken {
+                    let generation = try logbook.syncOwnerContext()["generation"] as! String
+                    var journal = try syncJournal(generation: generation)
+                    journal["revision"] = (journal["revision"] as! NSNumber).int64Value + 1
+                    try logbook.openedDatabase().saveSyncMutationJournal(JSONSerialization.data(withJSONObject: journal, options: [.sortedKeys]))
+                    try logbook.configureAutomaticSync(enabled: false, intervalMinutes: 5, confirmed: false)
+                }
+                try secrets.save(value, for: account)
+            }
             #if os(macOS)
             if account == .qrzPassword { qrzClient = nil; qrzCredentialDigest = nil }
             #endif
@@ -117,6 +128,24 @@ actor LiveServiceMethods {
             #else
             throw WorkerFailure("platform_pending", "QRZ enrichment is not yet available on this platform.")
             #endif
+        default: throw WorkerFailure("method_not_allowed", "Unknown service operation.")
+        }
+    }
+
+    private func handleSync(method: String, params: [String: Any]) throws -> [String: Any] {
+        switch method {
+        case "sync_mutation": return try mutateSync(params)
+        case "sync_receipt":
+            guard Set(params.keys) == ["generation", "operation_id"],
+                  let text = params["operation_id"] as? String, let operationID = UUID(uuidString: text) else { throw invalid() }
+            let id = operationID.uuidString
+            let context = try logbook.syncOwnerContext()
+            guard params["generation"] as? String == context["generation"] as? String else {
+                throw WorkerFailure("workspace_changed", "The workspace changed. The previous operation was not replayed.")
+            }
+            let journal = try syncJournal(generation: context["generation"] as! String)
+            let receipt = (journal["receipts"] as! [[String: Any]]).first { $0["operation_id"] as? String == id }
+            return ["receipt": receipt.map(publicSyncReceipt) ?? NSNull()]
         case "sync_summary":
             guard params.isEmpty else { throw invalid() }
             let settings = try logbook.currentSettings()
@@ -163,6 +192,15 @@ actor LiveServiceMethods {
                 ["id": entry.id.uuidString, "call": entry.qso.call, "attempt_count": entry.attemptCount,
                  "waiting": entry.isWaiting, "has_error": entry.lastError != nil]
             }
+            let context = try logbook.syncOwnerContext()
+            let generation = context["generation"] as! String
+            let journal = try syncJournal(generation: generation)
+            var fenced = result
+            fenced.removeValue(forKey: "next_attempt")
+            fenced["workspace"] = context
+            let digest = SHA256.hash(data: try JSONSerialization.data(withJSONObject: fenced, options: [.sortedKeys]))
+                .map { String(format: "%02x", $0) }.joined()
+            result["mutation_owner"] = ["generation": generation, "revision": journal["revision"]!, "context": digest]
             return result
         case "sync_run":
             guard Set(params.keys) == ["confirm_single_writer"],
@@ -229,6 +267,111 @@ actor LiveServiceMethods {
             try db.resolveConflict(conflict, merged: merged)
             return ["resolved": true, "queued": true]
         default: throw WorkerFailure("method_not_allowed", "Unknown service operation.")
+        }
+    }
+
+    private func syncJournal(generation: String) throws -> [String: Any] {
+        guard let data = try logbook.openedDatabase().syncMutationJournal() else {
+            return ["generation": generation, "revision": 0, "receipts": [[String: Any]]()]
+        }
+        guard let journal = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              journal["generation"] is String,
+              let revision = journal["revision"] as? NSNumber, !isJSONBoolean(revision),
+              revision.doubleValue >= 0, revision.doubleValue < 9_007_199_254_740_991,
+              revision.doubleValue == Double(revision.int64Value),
+              let receipts = journal["receipts"] as? [[String: Any]], receipts.count <= 1024,
+              receipts.allSatisfy({ $0["operation_id"] is String && $0["request"] is [String: Any]
+                  && ["pending", "acknowledged", "unknown"].contains($0["status"] as? String ?? "") }) else {
+            throw WorkerFailure("sync_journal_invalid", "Sync ownership records are unreadable. No operation was dispatched.")
+        }
+        guard journal["generation"] as? String == generation else {
+            return ["generation": generation, "revision": 0, "receipts": [[String: Any]]()]
+        }
+        return journal
+    }
+
+    private func publicSyncReceipt(_ receipt: [String: Any]) -> [String: Any] {
+        var result = receipt
+        if result["status"] as? String == "pending" { result["status"] = "unknown" }
+        return result
+    }
+
+    private func mutateSync(_ params: [String: Any]) throws -> [String: Any] {
+        guard Set(params.keys) == ["operation_id", "owner", "method", "params"],
+              let text = params["operation_id"] as? String, let operationID = UUID(uuidString: text),
+              let owner = params["owner"] as? [String: Any], Set(owner.keys) == ["generation", "revision", "context"],
+              let revision = owner["revision"] as? NSNumber, !isJSONBoolean(revision),
+              revision.doubleValue >= 0, revision.doubleValue < 9_007_199_254_740_991,
+              revision.doubleValue == Double(revision.int64Value),
+              let digest = owner["context"] as? String, digest.utf8.count == 64,
+              let method = params["method"] as? String,
+              ["sync_run", "sync_configure", "sync_retry", "sync_resolve"].contains(method),
+              let payload = params["params"] as? [String: Any] else { throw invalid() }
+        let id = operationID.uuidString
+        try validateSyncIntent(method: method, payload: payload)
+        let context = try logbook.syncOwnerContext()
+        let generation = context["generation"] as! String
+        guard owner["generation"] as? String == generation else {
+            throw WorkerFailure("workspace_changed", "The workspace changed. Refresh and review Sync before another action.")
+        }
+        var journal = try syncJournal(generation: generation)
+        var receipts = journal["receipts"] as! [[String: Any]]
+        let descriptor: [String: Any] = ["owner": owner, "method": method, "params": payload]
+        let encoded = try JSONSerialization.data(withJSONObject: descriptor, options: [.sortedKeys])
+        guard encoded.count <= 32_768 else { throw invalid() }
+        if let prior = receipts.first(where: { $0["operation_id"] as? String == id }) {
+            guard try JSONSerialization.data(withJSONObject: prior["request"]!, options: [.sortedKeys]) == encoded else {
+                throw WorkerFailure("sync_operation_reused", "That Sync operation identity was already used for different intent.")
+            }
+            return publicSyncReceipt(prior)
+        }
+        let current = try handleSync(method: "sync_status", params: [:])["mutation_owner"] as! [String: Any]
+        guard NSDictionary(dictionary: current).isEqual(to: owner) else {
+            throw WorkerFailure("sync_changed", "Sync state changed. Refresh and review before another action.")
+        }
+        guard receipts.count < 1024 else { throw WorkerFailure("sync_journal_full", "Sync operation history is full; no operation was dispatched.") }
+        var receipt: [String: Any] = ["operation_id": id, "request": descriptor, "status": "pending"]
+        receipts.append(receipt)
+        journal["revision"] = (journal["revision"] as! NSNumber).int64Value + 1
+        journal["receipts"] = receipts
+        let db = try logbook.openedDatabase()
+        try db.saveSyncMutationJournal(JSONSerialization.data(withJSONObject: journal, options: [.sortedKeys]))
+        do {
+            _ = try handleSync(method: method, params: payload)
+            receipt["status"] = "acknowledged"
+        } catch {
+            // A dispatch error may follow a local write or scheduled transport.
+            // Retain admission and never guess that the action is safe to replay.
+            receipt["status"] = "unknown"
+        }
+        receipts[receipts.count - 1] = receipt; journal["receipts"] = receipts
+        try db.saveSyncMutationJournal(JSONSerialization.data(withJSONObject: journal, options: [.sortedKeys]))
+        return receipt
+    }
+
+    private func validateSyncIntent(method: String, payload: [String: Any]) throws {
+        let keys = Set(payload.keys)
+        func boolean(_ key: String) -> Bool {
+            guard let number = payload[key] as? NSNumber else { return false }
+            return isJSONBoolean(number)
+        }
+        switch method {
+        case "sync_run":
+            guard keys == ["confirm_single_writer"], boolean("confirm_single_writer"),
+                  payload["confirm_single_writer"] as? Bool == true else { throw invalid() }
+        case "sync_configure":
+            guard keys == ["enabled", "interval_minutes", "confirm_single_writer"],
+                  boolean("enabled"), boolean("confirm_single_writer"),
+                  let interval = payload["interval_minutes"] as? NSNumber, !isJSONBoolean(interval),
+                  (1...60).contains(interval.doubleValue), interval.doubleValue == Double(interval.intValue) else { throw invalid() }
+        case "sync_retry", "sync_resolve":
+            guard let id = payload["id"] as? String, UUID(uuidString: id) != nil else { throw invalid() }
+            if method == "sync_retry" { guard keys == ["id"] else { throw invalid() }; return }
+            guard keys == ["id", "remote_fields", "expected_revision"],
+                  let revision = payload["expected_revision"] as? String, revision.utf8.count == 64,
+                  let fields = payload["remote_fields"] as? [String], fields.count <= 100,
+                  Set(fields).count == fields.count, fields.allSatisfy({ $0.utf8.count <= 64 }) else { throw invalid() }
+        default: throw invalid()
         }
     }
 

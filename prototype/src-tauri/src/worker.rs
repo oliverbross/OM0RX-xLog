@@ -15,6 +15,9 @@ const MAX_IN_FLIGHT: usize = 16;
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(45);
 pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     validate_request(request)?;
+    if matches!(request["method"].as_str(), Some("sync_run" | "sync_configure" | "sync_resolve" | "sync_retry")) {
+        return Err("Use the shared generation-bound Sync mutation owner.".into());
+    }
     if label == "cw" { return Err("CW can only use the typed shared CW session.".into()); }
     if label == "rotor" { return Err("Rotor can only read retained native rotor telemetry.".into()); }
     if label == "station-status" { return Err("Station Status can only read retained native station observations.".into()); }
@@ -42,7 +45,7 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
             "settings_load" | "settings_receipt" | "settings_save"
             | "workspace_rotor_configuration_load" | "workspace_rotor_configuration_receipt" | "workspace_rotor_configuration_save"
             | "secret_status" | "secret_save"
-            | "sync_status" | "sync_summary" | "sync_run" | "sync_configure" | "sync_resolve" | "sync_retry"
+            | "sync_status" | "sync_summary" | "sync_mutation" | "sync_receipt"
             | "reference_status" | "reference_resolve" | "reference_refresh" | "reference_schedule" | "reference_configure"
             | "backup_create" | "backup_list" | "backup_inspect" | "backup_import" | "backup_restore"
             | "workspace_layout_load" | "workspace_layout_apply"
@@ -251,6 +254,8 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "sync_configure",
         "sync_resolve",
         "sync_retry",
+        "sync_mutation",
+        "sync_receipt",
     ]
     .contains(&method)
     {
@@ -903,7 +908,7 @@ mod tests {
     fn detached_settings_has_no_logbook_station_rotor_cluster_or_cw_authority() {
         for method in ["settings_load", "settings_receipt", "settings_save", "secret_status", "secret_save",
             "workspace_rotor_configuration_load", "workspace_rotor_configuration_receipt", "workspace_rotor_configuration_save",
-            "sync_status", "sync_summary", "sync_run", "sync_configure", "sync_resolve", "sync_retry",
+            "sync_status", "sync_summary", "sync_mutation", "sync_receipt",
             "reference_status", "reference_resolve", "reference_refresh", "reference_schedule", "reference_configure",
             "backup_create", "backup_list", "backup_inspect", "backup_import", "backup_restore",
             "workspace_layout_load", "workspace_layout_apply"] {
@@ -911,8 +916,26 @@ mod tests {
         }
         for method in ["logbook_operator_draft", "logbook_contact", "logbook_save", "station_snapshot", "station_connect",
             "station_tune", "station_action", "station_power_selection", "rotor_snapshot", "rotor_goto", "cluster_snapshot",
-            "cluster_connect", "winkeyer_snapshot", "workspace_create", "workspace_preferences_save"] {
+            "cluster_connect", "winkeyer_snapshot", "workspace_create", "workspace_preferences_save",
+            "sync_run", "sync_configure", "sync_resolve", "sync_retry"] {
             assert!(validate_surface("settings", &json!({"id":"settings","method":method,"params":{}})).is_err(), "{method}");
+        }
+    }
+
+    #[test]
+    fn sync_mutations_require_one_owner_and_only_sync_surfaces_can_reach_it() {
+        for label in ["main", "settings"] {
+            for method in ["sync_mutation", "sync_receipt"] {
+                assert!(validate_surface(label, &json!({"id":"sync-owner","method":method,"params":{}})).is_ok());
+            }
+            for method in ["sync_run", "sync_configure", "sync_retry", "sync_resolve"] {
+                assert!(validate_surface(label, &json!({"id":"raw-sync","method":method,"params":{}})).is_err());
+            }
+        }
+        for label in ["monitor", "logbook", "log-qso", "world-map", "band-maps", "chaser-dx", "station-control", "station-status"] {
+            for method in ["sync_mutation", "sync_receipt"] {
+                assert!(validate_surface(label, &json!({"id":"foreign-sync","method":method,"params":{}})).is_err(), "{label} {method}");
+            }
         }
     }
 

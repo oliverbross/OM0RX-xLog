@@ -8,15 +8,20 @@ vi.mock("./syncChanges", () => ({ connectSyncChanges: (refresh: () => void) => {
 } }));
 const wakeSync = () => { for (const wake of nativeChanges.wakes) wake(); };
 
-const fixture = () => ({ running: false, status: "Not started", conflicts: [{
+const syncRequest = (implementation: (method: string, params?: Record<string, any>) => Promise<any>) => vi.fn(async (method: string, params?: Record<string, any>) => {
+  if (method !== "sync_mutation") return implementation(method, params);
+  await implementation(params!.method, params!.params);
+  return { operation_id: params!.operation_id, status: "acknowledged", request: { owner: params!.owner, method: params!.method, params: params!.params } };
+});
+const fixture = () => ({ mutation_owner: { generation: "workspace-1", revision: 0, context: "context-1" }, running: false, status: "Not started", conflicts: [{
   id: "conflict-1", revision: "revision-1", localQSO: { call: "OM0RX" }, remoteQSO: { call: "OM0RX" },
   fields: [{ key: "comment", label: "Comment", local: "local note", remote: "remote note" }, { key: "name", label: "Name", local: "Local name", remote: "Remote name" }],
 }], outbox: [{ id: "qso-1", call: "OM0RX", attempt_count: 2, waiting: false, has_error: true }] });
-afterEach(() => { cleanup(); vi.useRealTimers(); });
+afterEach(() => { cleanup(); localStorage.clear(); vi.useRealTimers(); });
 
 describe("Wavelog conflict merge", () => {
   it("explains missing credentials without retrieving a token or starting sync", async () => {
-    const request = vi.fn(async (method: string, _params?: Record<string, any>) => {
+    const request = syncRequest(async (method: string, _params?: Record<string, any>) => {
       if (method === "settings_load") return { settings: { wavelogURL: "https://example.invalid", wavelogStationID: 1 } };
       if (method === "secret_status") return { "wavelog-token": false };
       return fixture();
@@ -29,7 +34,7 @@ describe("Wavelog conflict merge", () => {
   });
 
   it("does not claim authentication merely because a credential is saved", async () => {
-    const request = vi.fn(async (method: string, _params?: Record<string, any>) => {
+    const request = syncRequest(async (method: string, _params?: Record<string, any>) => {
       if (method === "settings_load") return { settings: { wavelogURL: "https://example.invalid", wavelogStationID: 1 } };
       if (method === "secret_status") return { "wavelog-token": true };
       return fixture();
@@ -42,7 +47,7 @@ describe("Wavelog conflict merge", () => {
   });
 
   it("loads read-only and saves selected fields without starting sync", async () => {
-    const request = vi.fn(async (method: string, _params?: Record<string, any>) => method === "sync_status" ? fixture() : { resolved: true });
+    const request = syncRequest(async (method: string, _params?: Record<string, any>) => method === "sync_status" ? fixture() : { resolved: true });
     const changed = vi.fn(); render(<SyncPanel request={request} onChanged={changed} />);
     await screen.findByLabelText("Comment remote");
     expect(request.mock.calls.every(([method]) => method === "sync_status")).toBe(true);
@@ -50,13 +55,13 @@ describe("Wavelog conflict merge", () => {
     fireEvent.click(screen.getByLabelText("Comment remote"));
     fireEvent.click(screen.getByRole("button", { name: "Save merged contact" }));
     await waitFor(() => expect(changed).toHaveBeenCalledOnce());
-    expect(request).toHaveBeenCalledWith("sync_resolve", { id: "conflict-1", remote_fields: ["comment"], expected_revision: "revision-1" });
+    expect(request).toHaveBeenCalledWith("sync_mutation", expect.objectContaining({ method: "sync_resolve", owner: fixture().mutation_owner, params: { id: "conflict-1", remote_fields: ["comment"], expected_revision: "revision-1" } }));
     expect(request.mock.calls.some(([method]) => method === "sync_run")).toBe(false);
     expect(screen.getByText("OM0RX merged locally and queued for the next manual sync.")).toBeTruthy();
   });
 
   it("supports all remote and all local without mutating until save", async () => {
-    const request = vi.fn(async (_method: string, _params?: Record<string, any>) => fixture());
+    const request = syncRequest(async (_method: string, _params?: Record<string, any>) => fixture());
     render(<SyncPanel request={request} onChanged={() => {}} />);
     await screen.findByLabelText("Name remote");
     fireEvent.click(screen.getByRole("button", { name: "All remote" }));
@@ -68,19 +73,19 @@ describe("Wavelog conflict merge", () => {
   });
 
   it("requires single-writer confirmation before explicit synchronization", async () => {
-    const request = vi.fn(async (_method: string, _params?: Record<string, any>) => fixture());
+    const request = syncRequest(async (_method: string, _params?: Record<string, any>) => fixture());
     render(<SyncPanel request={request} onChanged={() => {}} />);
     await screen.findByLabelText("Name local");
     expect(screen.getByRole("button", { name: "Synchronize now" }).hasAttribute("disabled")).toBe(true);
     fireEvent.click(screen.getByRole("checkbox"));
     fireEvent.click(screen.getByRole("button", { name: "Synchronize now" }));
-    await waitFor(() => expect(request).toHaveBeenCalledWith("sync_run", { confirm_single_writer: true }));
+    await waitFor(() => expect(request).toHaveBeenCalledWith("sync_mutation", expect.objectContaining({ method: "sync_run", params: { confirm_single_writer: true } })));
   });
 
   it("requires a new review when a native wake changes the contact revision", async () => {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
     let state = fixture();
-    const request = vi.fn(async (_method: string, _params?: Record<string, any>) => state);
+    const request = syncRequest(async (_method: string, _params?: Record<string, any>) => state);
     render(<SyncPanel request={request} onChanged={() => {}} />);
     await screen.findByLabelText("Comment remote");
     fireEvent.click(screen.getByLabelText("Comment remote"));
@@ -94,18 +99,18 @@ describe("Wavelog conflict merge", () => {
   });
 
   it("shows failed outbox and requeues locally without sync", async () => {
-    const request = vi.fn(async (_method: string, _params?: Record<string, any>) => fixture());
+    const request = syncRequest(async (_method: string, _params?: Record<string, any>) => fixture());
     render(<SyncPanel request={request} onChanged={() => {}} />);
     await screen.findByText("Failed");
     fireEvent.click(screen.getByRole("button", { name: "Requeue" }));
-    await waitFor(() => expect(request).toHaveBeenCalledWith("sync_retry", { id: "qso-1" }));
+    await waitFor(() => expect(request).toHaveBeenCalledWith("sync_mutation", expect.objectContaining({ method: "sync_retry", params: { id: "qso-1" } })));
     expect(request.mock.calls.some(([method]) => method === "sync_run")).toBe(false);
   });
 });
 
 describe("persistent automatic synchronization controls", () => {
   it("reports held ambiguous history separately from failures while automatic sync stays enabled", async () => {
-    const request = vi.fn(async () => ({ ...fixture(), conflicts: [], outbox: [], automatic_sync: true,
+    const request = syncRequest(async () => ({ ...fixture(), conflicts: [], outbox: [], automatic_sync: true,
       interval_minutes: 1, status: "Completed; ambiguous remote contacts held for review", held: 2,
       finished_at: "2026-10-13T12:00:00Z", pushed: 1, pulled: 12, deleted: 0, failed: 0 }));
     render(<SyncPanel request={request} onChanged={() => {}} />);
@@ -117,7 +122,7 @@ describe("persistent automatic synchronization controls", () => {
   it("removes the started notice after a native wake reports failure", async () => {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
     let state: Record<string, any> = { ...fixture(), automatic_sync: true, running: false };
-    const request = vi.fn(async (method: string) => {
+    const request = syncRequest(async (method: string) => {
       if (method === "sync_run") state = { ...state, running: true, status: "Synchronizing" };
       return state;
     });
@@ -133,7 +138,7 @@ describe("persistent automatic synchronization controls", () => {
 
   it("requires consent and saves an explicit interval without running sync from the view", async () => {
     let state = { ...fixture(), automatic_sync: false, interval_minutes: 5 };
-    const request = vi.fn(async (method: string, params?: Record<string, any>) => {
+    const request = syncRequest(async (method: string, params?: Record<string, any>) => {
       if (method === "sync_configure") state = { ...state, automatic_sync: params!.enabled, interval_minutes: params!.interval_minutes };
       return state;
     });
@@ -146,11 +151,11 @@ describe("persistent automatic synchronization controls", () => {
     expect(request.mock.calls.every(([method]) => method === "sync_status")).toBe(true);
     fireEvent.click(enable);
     await screen.findByText("Automatic sync on");
-    expect(request).toHaveBeenCalledWith("sync_configure", { enabled: true, interval_minutes: 10, confirm_single_writer: true });
+    expect(request).toHaveBeenCalledWith("sync_mutation", expect.objectContaining({ method: "sync_configure", params: { enabled: true, interval_minutes: 10, confirm_single_writer: true } }));
     fireEvent.change(screen.getByLabelText("Sync interval in minutes"), { target: { value: "2" } });
-    expect(request.mock.calls.filter(([method]) => method === "sync_configure")).toHaveLength(1);
+    expect(request.mock.calls.filter(([method]) => method === "sync_mutation")).toHaveLength(1);
     fireEvent.click(screen.getByRole("button", { name: "Save interval" }));
-    await waitFor(() => expect(request).toHaveBeenCalledWith("sync_configure", { enabled: true, interval_minutes: 2, confirm_single_writer: true }));
+    await waitFor(() => expect(request).toHaveBeenCalledWith("sync_mutation", expect.objectContaining({ method: "sync_configure", params: { enabled: true, interval_minutes: 2, confirm_single_writer: true } })));
     await waitFor(() => expect(screen.getByRole("button", { name: "Turn off" }).hasAttribute("disabled")).toBe(false));
     fireEvent.click(screen.getByRole("button", { name: "Turn off" }));
     await screen.findByText("Automatic sync off");
@@ -158,7 +163,7 @@ describe("persistent automatic synchronization controls", () => {
   });
 
   it("does not claim enabled when saving fails", async () => {
-    const request = vi.fn(async (method: string) => {
+    const request = syncRequest(async (method: string) => {
       if (method === "sync_configure") throw new Error("Consent could not be saved");
       return { ...fixture(), automatic_sync: false, interval_minutes: 5 };
     });
@@ -173,7 +178,7 @@ describe("persistent automatic synchronization controls", () => {
   it("reads saved consent on mount and refreshes parent once when a run finishes", async () => {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
     let state: Record<string, any> = { ...fixture(), automatic_sync: true, interval_minutes: 10, running: true };
-    const request = vi.fn(async (_method: string) => state), changed = vi.fn();
+    const request = syncRequest(async (_method: string) => state), changed = vi.fn();
     render(<SyncPanel request={request} onChanged={changed} />);
     await screen.findByText("Automatic sync on");
     expect(screen.getByRole("button", { name: "Turn off" }).hasAttribute("disabled")).toBe(true);

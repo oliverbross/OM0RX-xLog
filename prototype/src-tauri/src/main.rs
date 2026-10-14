@@ -618,6 +618,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     let invalidate = logbook_events::changes_logbook(&request);
     let map_changed = invalidate || matches!(method, "settings_save" | "workspace_preferences_save" | "workspace_band_map_apply" | "workspace_create" | "backup_restore");
     let settings_changed = matches!(method, "settings_save" | "backup_restore");
+    let sync_changed = matches!(method, "sync_mutation" | "settings_save" | "secret_save" | "workspace_create" | "backup_restore");
     let rotor_configuration_changed = matches!(method, "workspace_rotor_configuration_save" | "backup_restore");
     // Retire metadata before a restore/write can race a map's retained read.
     if map_changed { map_context::invalidate(); }
@@ -654,6 +655,11 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     }
     if settings_changed {
         for label in ["main", "settings"] { let _ = app.emit_to(label, "xlog:settings-changed", ()); }
+    }
+    if sync_changed {
+        // Ownership admission and unknown outcomes invalidate every Sync view;
+        // completion deduplication remains solely in the native monitor.
+        for label in ["main", "settings"] { let _ = app.emit_to(label, "xlog:sync-changed", ()); }
     }
     if rotor_configuration_changed {
         for label in ["main", "settings"] { let _ = app.emit_to(label, "xlog:rotor-configuration-changed", ()); }

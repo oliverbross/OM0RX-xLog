@@ -160,7 +160,7 @@ pub fn changes_logbook(request: &serde_json::Value) -> bool {
     if method == "logbook_import_adif" && request["params"]["action"] == "preview" { return false; }
     matches!(method, "logbook_save" | "logbook_delete" | "logbook_undo" | "logbook_contact_apply"
         | "logbook_import_adif" | "backup_restore"
-        | "sync_run" | "sync_resolve" | "sync_retry" | "workspace_create")
+        | "sync_run" | "sync_resolve" | "sync_retry" | "sync_mutation" | "workspace_create")
 }
 
 #[cfg(test)]

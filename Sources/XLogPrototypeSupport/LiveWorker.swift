@@ -209,6 +209,9 @@ public actor LiveWorker {
                 throw WorkerFailure("invalid_request", "Expected a bounded, correlated request.")
             }
             id = requestID
+            if ["sync_run", "sync_configure", "sync_retry", "sync_resolve"].contains(method) {
+                throw WorkerFailure("sync_owner_required", "Use the shared generation-bound Sync mutation owner.")
+            }
             if localAcceptance {
                 guard !terminalShutdown else {
                     throw WorkerFailure("worker_stopping", "The local acceptance session has ended.")

@@ -17,7 +17,7 @@ const availableTabs = ["Station", "Wavelog", "Sync", "QRZ", "Reference data", "R
 export const detachedSettingsMethods = [
   "settings_load", "settings_receipt", "settings_save", "secret_status", "secret_save",
   "workspace_rotor_configuration_load", "workspace_rotor_configuration_receipt", "workspace_rotor_configuration_save", "hamlib_models",
-  "sync_status", "sync_summary", "sync_run", "sync_configure", "sync_resolve", "sync_retry",
+  "sync_status", "sync_summary", "sync_mutation", "sync_receipt",
   "reference_status", "reference_resolve", "reference_refresh", "reference_schedule", "reference_configure",
   "backup_create", "backup_list", "backup_inspect", "backup_import", "backup_restore",
 ] as const;
@@ -87,7 +87,7 @@ export function DetachedSettingsSurface() {
         setMessage(cause instanceof Error ? cause.message : "Saved Settings could not be restored.");
       } }}
       syncSettings={state.draft.logbookMode === "local" ? <p>Standalone local logbook. Wavelog synchronization is disabled in Settings.</p>
-        : <SyncPanel request={requestDetachedSettings} onChanged={reload} />}
+      : <SyncPanel request={requestDetachedSettings} onChanged={reload} journalKey="xlog.sync.mutation.settings.v1" />}
       rotorSettings={<Suspense fallback={<p role="status">Loading Rotator settings…</p>}>
         <RotorPanel snapshot={null} request={requestDetachedSettings} configurationSession={rotorSession} configurationOnly />
       </Suspense>}

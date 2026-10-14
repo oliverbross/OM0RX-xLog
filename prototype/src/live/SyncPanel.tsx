@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import "./SyncPanel.css";
 import { connectSyncChanges } from "./syncChanges";
+import { SyncMutationClient } from "./syncMutation";
 
 type Data = Record<string, any>;
 type Request = (method: string, params?: Data) => Promise<Data>;
 type Field = { key: string; label: string; local: string; remote: string };
 type Conflict = { id: string; revision: string; fields: Field[]; localQSO: Data; remoteQSO: Data };
-type Props = { request: Request; onChanged: () => void };
+type Props = { request: Request; onChanged: () => void; journalKey?: string };
 const errorText = (error: unknown) => error instanceof Error ? error.message : "The operation failed. Refresh the current sync state and retry.";
 const syncTime = (value: unknown) => typeof value === "string" && Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleString() : "—";
 
-export default function SyncPanel({ request, onChanged }: Props) {
+export default function SyncPanel({ request, onChanged, journalKey = "xlog.sync.mutation.main.v1" }: Props) {
   const [state, setState] = useState<Data | null>(null);
   const [confirmed, setConfirmed] = useState(false), [busy, setBusy] = useState(false);
   const [error, setError] = useState(""), [message, setMessage] = useState("");
@@ -19,6 +20,9 @@ export default function SyncPanel({ request, onChanged }: Props) {
   const [verified, setVerified] = useState(false);
   const [checkingSetup, setCheckingSetup] = useState(false);
   const [interval, setIntervalMinutes] = useState("5");
+  const [unresolved, setUnresolved] = useState(false);
+  const mutation = useRef<SyncMutationClient | null>(null);
+  if (!mutation.current) mutation.current = new SyncMutationClient(journalKey);
   const intervalEdited = useRef(false), finished = useRef<string | null>(null), changed = useRef(onChanged);
   changed.current = onChanged;
   const mounted = useRef(false), working = useRef(false), sequence = useRef(0), polling = useRef(false);
@@ -30,7 +34,14 @@ export default function SyncPanel({ request, onChanged }: Props) {
       const next = await currentRequest.current("sync_status");
       if (mounted.current && revision === sequence.current) {
         setState(next);
-        setVerified(true);
+        try {
+          await mutation.current!.recover(currentRequest.current);
+          if (!mounted.current || revision !== sequence.current) return;
+          setUnresolved(false); setVerified(!!next.mutation_owner);
+        } catch (cause) {
+          if (!mounted.current || revision !== sequence.current) return;
+          setUnresolved(true); setVerified(false); setError(current => current || errorText(cause));
+        }
         if (!next.running) setMessage(current => current.startsWith("Synchronization started.") ? "" : current);
         if (!intervalEdited.current) setIntervalMinutes(String(next.interval_minutes || 5));
         if (next.finished_at && finished.current !== next.finished_at) {
@@ -59,7 +70,7 @@ export default function SyncPanel({ request, onChanged }: Props) {
     if (working.current) return;
     working.current = true; sequence.current++; setBusy(true); setError(""); setMessage("");
     try {
-      await request(method, params);
+      await mutation.current!.submit(request, state?.mutation_owner, method, params);
       if (mounted.current) { if (method === "sync_configure") intervalEdited.current = false; setMessage(success); await read(); onChanged(); }
     } catch (cause) {
       if (mounted.current) { setError(errorText(cause)); await read(); }
@@ -109,6 +120,10 @@ export default function SyncPanel({ request, onChanged }: Props) {
     {state?.finished_at && typeof state.pulled === "number" && <p className="secondary">{state.pushed} uploaded · {state.pulled.toLocaleString()} remote records checked · {state.deleted} deletions applied · {state.failed} failures</p>}
     {Number(state?.held) > 0 && <p className="sync-error" role="status">{Number(state?.held).toLocaleString()} remote contacts held: duplicate identities have different ADIF details and cannot be safely matched. These contacts and their pending edits are unchanged; other contacts continue to synchronize. Review the duplicate entries in Wavelog before changing them.</p>}
     {error && <p className="sync-error" role="alert">{error}</p>}
+    {unresolved && <button disabled={busy || !state} onClick={() => {
+      try { mutation.current!.discard(); setUnresolved(false); setError(""); void refresh(); }
+      catch (cause) { setError(errorText(cause)); }
+    }}>I reviewed the current state; dismiss unresolved Sync intent</button>}
     {subscriptionError && <p className="sync-error" role="alert">{subscriptionError}</p>}
     {message && <p className="sync-success" role="status">{message}</p>}
     <h2>Conflicts <span className="sync-count">{state ? conflicts.length : "—"}</span></h2>
