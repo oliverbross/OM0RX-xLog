@@ -1,5 +1,28 @@
 # Native large log performance
 
+## Installed alpha.29 functional rerun — 15 October 2026
+
+The signed, notarized installed alpha.29 bundle at exact packaged source
+`db7ed4734826ea90cfd69b345c4d6174778894e5` passed **38/38** isolated native
+checks with `station_io: false`. The generated workspace contained 100,000 ADIF
+fixture records plus two contacts saved through the rendered UI; total readback
+was 100,002. The report is
+`dist/alpha29-db7ed47-installed-large-log.json`.
+
+| Operation | Installed alpha.29 observation |
+| --- | ---: |
+| Import 100,000 generated contacts | 153,744 ms |
+| First Logbook display | 218 ms |
+| First / repeat Awards open | 738 / 117 ms |
+| First / repeat local history | 233 / 232 ms |
+| Rendered callsign history | 29 ms |
+
+The production workspace was not used by the fixture and remained 68,024 active
+contacts, zero dirty/outbox/conflict rows, revision 68,239 and SQLite quick-check
+`ok`. This is packaged large-file functional acceptance only. It is a single run,
+was not controlled against background workload and does not close cold/warm
+median/p95, sync-contention, cross-machine or Windows/Linux performance gates.
+
 The macOS native UI completed a generated 100,000-contact workflow with all 21
 functional checks passing. The latest aggregate-index build reduced first
 logbook display to 80 ms. First Awards open remains above the operator's

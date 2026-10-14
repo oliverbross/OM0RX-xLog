@@ -14,18 +14,29 @@ data was copied. No station command, credential change or log mutation was made.
 - Official online documentation was read as a fallback. Its contents page labels
   the documentation version 6.4; documentation is not proof of installed 6.5.1
   behavior. Local bundled-help reads were unavailable through the context tool.
-- Original comparison baseline: alpha.15, source `a2c0446`. Alpha.27 is the
-  installed baseline; alpha.28 remains source-only until final review, packaging
-  and installed visual acceptance.
-- A further read-only inspection attempt confirmed RUMlogNG is already running,
-  but its native accessibility read timed out again before exposing Settings.
-  No RUMlog setting or logbook was changed.
+- Original comparison baseline: alpha.15, source `a2c0446`. Signed/notarized
+  alpha.29, source `db7ed47`, is now the installed xLog baseline.
+- A 15 October read-only native accessibility inspection opened the installed
+  RUMlogNG 6.5.1 Settings window successfully. It inspected only visible labels,
+  control types and menu structure, then closed Settings. No field, preference,
+  logbook, connection, credential or device state was changed.
 
 The local inventory confirms explicit WSJT-X UDP address/port, CAT, callsign
 checking, QSO-save and activity-window preferences; separate N1MM/Fldigi network
 inputs; Club Log, LoTW and eQSL upload/download surfaces; and multiple independent
 Band Map windows. These are useful workflow signals, not permission to copy
 RUMlog implementation, artwork, text or data.
+
+The live Settings inspection confirmed separate General, TX 1, TX 2,
+microHAM/Fldigi, CW, Phone, QSL, LoTW/eQSL, QRGs, Modes/Sat, DX Cluster,
+DX Alarm, DXCC, Databases and UDP tabs. General groups operator identity,
+units/twilight/date/table sizing, user ADIF-field mappings and auto-start items.
+QRGs exposes editable band edges and CW/Data/Phone segment boundaries;
+Modes/Sat exposes explicit enabled-mode/submode and satellite lists. UDP groups
+Fldigi-compatible spots, N1MM radio/spot/app information, Flex/ADIF and WSJT-X
+inputs with separate save/callsign/PTT/CAT choices. These observations identify
+workflow candidates only; xLog must keep its own data model and stronger
+least-authority/device fences.
 
 ## Native menu observations
 
@@ -49,9 +60,9 @@ merely to look like RUMlog.
 | --- | --- |
 | Independent named windows; saved size/position | Alpha.28 source now has nineteen consistent task roles, thirteen independently keyed Band Maps, saved geometry and a persistent Canvas/Separate Windows choice that restores the exact prior Canvas preset. Packaged simultaneous-window, multiple-display and main-hidden acceptance remains open. |
 | Adjustable, persistent table columns | Logbook and Spot History now have separate docked/detached visibility plus bounded pointer, keyboard and numeric width controls. Callsign/identity remains visible. Column ordering remains a follow-up. [Logbook Table](https://dl2rum.de/RUMlogNG/docs/en/pages/LogbookTable.html) |
-| Import with explicit duplicate/update policy | xLog now previews bounded ADI/ADX input, reports invalid records, shows insert/duplicate counts and applies only explicitly selected update fields against frozen revision-checked targets. Sources through `79ce6b9` cover every published ADIF 3.1.7 record scalar type family at both ADX boundaries, including ordinary/multiline/international strings, credit lists and sponsored-award lists, without weakening ADI fallback. Packaged import/export roundtrip acceptance remains open. [ADIF Import](https://dl2rum.de/RUMlogNG/docs/en/pages/AdifImport.html) |
-| Export selected or searched contacts | xLog now freezes a consistent all/filtered/selected snapshot before paged ADI export. ADX export and activity-specific formats remain open. [Export](https://dl2rum.de/RUMlogNG/docs/en/pages/Export.html) |
-| Settings follow task boundaries | Documented RUMlog groups include General, QRGs, Modes, DXCC, DX Cluster and TRCVR. xLog already separates station, services, reference data, independent rotator, CW, display, workspace and backups. Audit editable band/mode choices and the actual settings interaction before changing taxonomy. Retain Keychain storage, not the older credential-storage model described in that manual. [First Steps](https://dl2rum.de/RUMlogNG/docs/en/pages/FirstSteps.html) |
+| Import with explicit duplicate/update policy | xLog now previews bounded ADI/ADX input, reports invalid records, shows insert/duplicate counts and applies only explicitly selected update fields against frozen revision-checked targets. Sources through `79ce6b9` cover every published ADIF 3.1.7 record scalar type family at both ADX boundaries without weakening ADI fallback. Alpha.29 passes packaged ADX roundtrip and installed 100,002-record functional acceptance. [ADIF Import](https://dl2rum.de/RUMlogNG/docs/en/pages/AdifImport.html) |
+| Export selected or searched contacts | xLog freezes a consistent all/filtered/selected snapshot before paged ADI or ADX export. Packaged ADX semantic roundtrip passes; activity-specific formats remain a separate prioritization decision. [Export](https://dl2rum.de/RUMlogNG/docs/en/pages/Export.html) |
+| Settings follow task boundaries | Installed RUMlog Settings confirms General, QRGs, Modes/Sat, DXCC, DX Cluster and device/service-specific groups. xLog already separates station, services, reference data, independent rotator, CW, display, workspace and backups. Editable band-edge/mode visibility is now evidenced as a candidate, not an automatic taxonomy change. Retain Keychain storage and xLog's revision/authority boundaries. [First Steps](https://dl2rum.de/RUMlogNG/docs/en/pages/FirstSteps.html) |
 | Radio selection/configuration versus actual connection | RUMlog documents an explicit CAT enable choice, interface selection and per-radio options. xLog must retain its separate active/viewed provider, explicit Apply/Connect and independent rotor ownership. Settings navigation must never reconnect or control equipment. Physical Mac acceptance remains separate. [CAT Settings](https://dl2rum.de/RUMlogNG/docs/en/pages/CAT-Prefs.html) |
 | Cluster configuration separate from display filters | RUMlog documents connection profiles, display filtering and a terminal retaining incoming data. xLog has profile/filter/console paths and its separate Spot History archive. Verify changes do not disconnect unrelated sockets or erase received/history records. [DX Cluster Settings](https://dl2rum.de/RUMlogNG/docs/en/pages/Dx-Cluster-Setting.html) |
 | Receive WSJT-X logged contacts | Commit `d9b46da` adds an opt-in receive-only UDP listener for the official big-endian Logged ADIF message type 12. It accepts loopback or IPv4 multicast, starts only from saved explicit enablement, writes through xLog's local semantic duplicate boundary and never sends a WSJT-X packet or station command. Native parser/import coverage is 5/5 and UI/settings coverage is 24/24; live WSJT-X acceptance remains open. [WSJT-X protocol source](https://sourceforge.net/p/wsjt/wsjtx/ci/master/tree/Network/NetworkMessage.hpp) |
@@ -68,8 +79,9 @@ merely to look like RUMlog.
    operator contacts. The fresh alpha.15 read-only local snapshot has 67,972
    mapped contacts and no dirty rows/outbox/conflicts, up from 67,970 at install;
    that is not a direct remote comparison or blanket two-way/hardware acceptance.
-4. Finish DATA-10 schema/packaged roundtrip and production capability for optional
-   cloud backups.
+4. Finish DATA-10 live-sync acceptance and production capability for optional
+   cloud backups. Packaged ADX roundtrip and 100,002-record functional acceptance
+   pass in alpha.29.
 5. Add optional QRZ/Club Log/HRDLOG delivery only behind durable per-service
    receipts, Keychain credentials, bounded retry and truthful upload-only labels.
 6. Audit contest, QSL and alert workflows in bounded read-only stages before
