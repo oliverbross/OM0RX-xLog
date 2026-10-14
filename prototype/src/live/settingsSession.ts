@@ -45,8 +45,15 @@ function validMutation(value: any): value is SettingsMutation {
     object(value.settings) && JSON.stringify(value.settings).length <= 65_536;
 }
 
+// Foundation UUID Codable emits uppercase; JS UUIDs and loaded generations use
+// lowercase. Only validated UUID spellings are normalized. Payload text,
+// revision and all remaining keys (including unexpected keys) stay exact.
+const mutationFingerprint = (value: SettingsMutation) => stable({ ...value,
+  operationID: value.operationID.toLowerCase(), generation: value.generation.toLowerCase() });
+
 function checkedReceiptSnapshot(receipt: any, mutation: SettingsMutation, base: SettingsSnapshot) {
-  if (!object(receipt) || !validMutation(receipt.mutation) || stable(receipt.mutation) !== stable(mutation))
+  if (!object(receipt) || !validMutation(receipt.mutation) || !validMutation(mutation) ||
+      mutationFingerprint(receipt.mutation) !== mutationFingerprint(mutation))
     throw new Error("The Settings receipt did not match the pending save.");
   const committed = checkedSettingsSnapshot(receipt.snapshot);
   const expectedRevision = stable(storedSettings(base.settings)) === stable(mutation.settings)

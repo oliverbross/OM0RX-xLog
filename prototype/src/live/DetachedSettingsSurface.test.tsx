@@ -76,3 +76,32 @@ it("enforces the detached non-hardware method list before IPC", async () => {
   await expect(requestDetachedSettings("winkeyer_send", { text: "TEST" })).rejects.toThrow("unavailable");
   expect(api.request).toHaveBeenCalledOnce();
 });
+
+it("confirms a native UUID Settings receipt, clears recovery and permits Dock without discard", async () => {
+  api.request.mockClear();
+  let current = { ...snapshot(0), generation: generation.toUpperCase() };
+  api.request.mockImplementation(async (method: string, params: any) => {
+    if (method === "settings_load") return structuredClone(current);
+    if (method === "workspace_rotor_configuration_load") return structuredClone(rotorSnapshot);
+    if (method === "settings_save") {
+      current = { ...current, revision: 1, settings: structuredClone(params.settings) };
+      return { status: "applied", ...structuredClone(current), receipt: { mutation: { ...structuredClone(params),
+        operationID: params.operationID.toUpperCase(), generation: params.generation.toUpperCase() }, snapshot: structuredClone(current) } };
+    }
+    throw new Error(`Unexpected Settings request ${method}`);
+  });
+  api.dock.mockResolvedValue(undefined);
+  render(<DetachedSettingsSurface />);
+  const operator = await screen.findByRole("textbox", { name: "Operator call" });
+  fireEvent.change(operator, { target: { value: "VK8Case" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
+  await screen.findByText("Settings saved.");
+  expect(screen.queryByRole("button", { name: "Check saved Settings" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Retry same save" })).toBeNull();
+  expect(localStorage.getItem("xlog.integration.settings.detached.v1")).toBeNull();
+  expect(current.settings.operatorCall).toBe("VK8Case");
+  fireEvent.click(screen.getByRole("button", { name: "Dock back" }));
+  await waitFor(() => expect(api.dock).toHaveBeenCalledOnce());
+  expect(api.request.mock.calls.filter(([method]) => method === "settings_save")).toHaveLength(1);
+  expect(api.request.mock.calls.filter(([method]) => ["settings_receipt", "sync_run", "rotor_connect", "rotor_goto", "station_connect"].includes(method))).toEqual([]);
+});

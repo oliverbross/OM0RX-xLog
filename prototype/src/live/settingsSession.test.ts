@@ -5,7 +5,45 @@ const generation = "12345678-1234-1234-1234-123456789abc";
 const nextGeneration = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
 const settings = { logbookMode: "local", stationCall: "OM0RX", wavelogStationID: 1, automaticSync: false };
 const snapshot = (revision = 0, values = settings, workspace = generation): SettingsSnapshot => ({ revision, generation: workspace, settings: structuredClone(values) });
-const id = "11111111-2222-3333-4444-555555555555";
+const id = "a1b2c3d4-e5f6-47a8-89ab-cdef01234567";
+const nativeMutation = (value: any) => ({ ...structuredClone(value), operationID: value.operationID.toUpperCase(), generation: value.generation.toUpperCase() });
+const nativeSnapshot = (value: SettingsSnapshot) => ({ ...structuredClone(value), generation: value.generation.toUpperCase() });
+
+it.each([false, true])("accepts native UUID receipts for changed=%s Settings saves without altering payload case", async changed => {
+  const committed = { ...settings, stationCall: changed ? "VK8Case" : settings.stationCall };
+  const result = nativeSnapshot(snapshot(changed ? 1 : 0, committed)), writes: Array<SettingsJournal | null> = [];
+  const request = vi.fn(async (method: string, params?: any) => method === "settings_load" ? nativeSnapshot(snapshot()) : {
+    status: "applied", ...result, receipt: { mutation: nativeMutation(params), snapshot: result },
+  });
+  const session = new SettingsSession(request, value => writes.push(structuredClone(value)), null, () => id);
+  await session.load(); session.edit(committed); await session.save(committed);
+  expect(session.getSnapshot()).toMatchObject({ pending: null, error: "", base: { revision: changed ? 1 : 0, generation, settings: committed } });
+  expect(writes.at(-1)).toBeNull(); expect(request.mock.calls.map(([method]) => method)).toEqual(["settings_load", "settings_save"]);
+});
+
+it.each([
+  ["operation identity", (receipt: any) => { receipt.mutation.operationID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"; }],
+  ["workspace identity", (receipt: any) => { receipt.mutation.generation = nextGeneration; }],
+  ["expected revision", (receipt: any) => { receipt.mutation.expectedRevision++; }],
+  ["case-sensitive callsign", (receipt: any) => { receipt.mutation.settings.stationCall = "vk8case"; }],
+  ["case-sensitive nested name", (receipt: any) => { receipt.mutation.settings.stationEquipment.name = "garden a"; }],
+  ["unexpected mutation key", (receipt: any) => { receipt.mutation.unexpected = true; }],
+] as const)("keeps a mismatched %s fenced in both save and receipt recovery", async (_label, alter) => {
+  const committed = { ...settings, stationCall: "VK8Case", stationEquipment: { name: "Garden A" } }, writes: Array<SettingsJournal | null> = [];
+  const request = vi.fn(async (method: string, params?: any) => {
+    if (method === "settings_load") return nativeSnapshot(snapshot());
+    const pending = method === "settings_save" ? params : writes.at(-1)!.pending;
+    const receipt = { mutation: nativeMutation(pending), snapshot: nativeSnapshot(snapshot(1, committed)) }; alter(receipt);
+    return method === "settings_save" ? { status: "applied", ...nativeSnapshot(snapshot(1, committed)), receipt } : { receipt };
+  });
+  const session = new SettingsSession(request, value => writes.push(structuredClone(value)), null, () => id);
+  await session.load(); session.edit(committed);
+  await expect(session.save(committed)).rejects.toThrow("receipt did not match the pending save");
+  await expect(session.reconcile()).rejects.toThrow("receipt did not match the pending save");
+  expect(session.getSnapshot().pending?.operationID).toBe(id); expect(session.getSnapshot().base?.revision).toBe(0);
+  expect(writes.at(-1)?.pending?.settings).toEqual(committed);
+  expect(request.mock.calls.filter(([method]) => method === "settings_save")).toHaveLength(1);
+});
 
 it("validates scoped snapshots and rejects secret-bearing journals", () => {
   expect(checkedSettingsSnapshot(snapshot())).toEqual(snapshot());
@@ -57,12 +95,14 @@ it("lost acknowledgement is reconciled read-only and never blindly replayed", as
   const committed = { ...settings, stationCall: "VK8ABC" };
   const pending = { operationID: id, expectedRevision: 0, generation, settings: committed };
   const journal: SettingsJournal = { version: 1, base: snapshot(), draft: committed, pending };
-  const request = vi.fn(async (method: string) => method === "settings_load" ? snapshot(1, committed)
-    : method === "settings_receipt" ? { receipt: { mutation: pending, snapshot: snapshot(1, committed) } }
+  const request = vi.fn(async (method: string) => method === "settings_load" ? nativeSnapshot(snapshot(1, committed))
+    : method === "settings_receipt" ? { receipt: { mutation: nativeMutation(pending), snapshot: nativeSnapshot(snapshot(1, committed)) } }
     : (() => { throw new Error("unexpected write"); })());
-  const session = new SettingsSession(request, vi.fn(), journal, () => id);
+  const cleared = vi.fn();
+  const session = new SettingsSession(request, cleared, readSettingsJournal(JSON.stringify(journal)), () => id);
   await session.load();
   expect(session.getSnapshot().pending).toBeNull();
+  expect(cleared).toHaveBeenLastCalledWith(null);
   expect(request.mock.calls.map(call => call[0])).toEqual(["settings_load", "settings_receipt", "settings_load"]);
 });
 
