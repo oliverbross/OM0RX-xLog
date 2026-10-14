@@ -744,6 +744,24 @@ operator-data, station or RF state changed. FLEX/Hamlib ownership, provider-
 selection receipts, Agent hardware profiles and active child connections remain
 later slices.
 
+### Checkpoint AI — active Agent lifecycle in Station Control child
+
+The independent Station Control child now uses the same native owner as the Desk
+for Agent connect, disconnect and saved-token removal. Requests retain setup
+revision plus current radio-selection generation/identity fencing, persist before
+transport dispatch, share exact replay/unknown-outcome recovery and synchronously
+revoke CW/Auto rotor through the existing admission path. The child never receives
+raw worker, device, station-command or provider-selection authority, and mounting
+or reading retained observations remains passive.
+
+Shared completion events now clear a matching local pending receipt in either
+surface, so a reply observed through the other window does not strand controls.
+Exact source `cb33921` passes **7 native station-session tests**, **19 focused
+frontend child/setup tests**, TypeScript and diff checks. No package was produced
+or installed, no service or hardware was contacted, and no operator-data, station
+or RF state changed. FLEX/Hamlib, provider selection and hardware-profile ownership
+remain later slices.
+
 ### 14 October audit — remaining new-QSO and QSY ownership
 
 At `cd25718`, detached Logbook edits saved contacts; it is not an independent
