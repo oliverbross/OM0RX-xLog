@@ -463,6 +463,28 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
+    public func remoteBackupCommandJournal() throws -> Data? {
+        try withDatabaseLock {
+            try withStatement("SELECT payload FROM xlog_remote_backup_commands WHERE singleton=1;") { statement in
+                let step = sqlite3_step(statement)
+                if step == SQLITE_DONE { return nil }
+                guard step == SQLITE_ROW, let bytes = sqlite3_column_blob(statement, 0),
+                      (1...1_048_576).contains(Int(sqlite3_column_bytes(statement, 0))) else { throw LogbookDatabaseError.corruptRecord }
+                return Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 0)))
+            }
+        }
+    }
+
+    public func saveRemoteBackupCommandJournal(_ payload: Data) throws {
+        guard (1...1_048_576).contains(payload.count) else { throw LogbookDatabaseError.corruptRecord }
+        try withDatabaseLock {
+            try withStatement("INSERT OR REPLACE INTO xlog_remote_backup_commands(singleton,payload) VALUES(1,?);") { statement in
+                _ = payload.withUnsafeBytes { sqlite3_bind_blob(statement, 1, $0.baseAddress, Int32($0.count), Self.transient) }
+                try stepDone(statement)
+            }
+        }
+    }
+
     /// Seeds legacy Integration settings once, then reads only the database-owned
     /// snapshot. The caller supplies the isolated UserDefaults value for migration;
     /// it is never consulted again after this row exists.
@@ -2420,6 +2442,10 @@ public final class LogbookDatabase: @unchecked Sendable {
           payload BLOB NOT NULL
         );
         CREATE TABLE IF NOT EXISTS xlog_sync_mutation_owner(
+          singleton INTEGER PRIMARY KEY CHECK(singleton = 1),
+          payload BLOB NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS xlog_remote_backup_commands(
           singleton INTEGER PRIMARY KEY CHECK(singleton = 1),
           payload BLOB NOT NULL
         );

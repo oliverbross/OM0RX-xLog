@@ -48,6 +48,7 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
             | "sync_status" | "sync_summary" | "sync_mutation" | "sync_receipt"
             | "reference_status" | "reference_resolve" | "reference_refresh" | "reference_schedule" | "reference_configure"
             | "backup_create" | "backup_list" | "backup_inspect" | "backup_import" | "backup_restore"
+            | "remote_backup_request"
             | "workspace_layout_load" | "workspace_layout_apply"
         )) { Ok(()) } else { Err("Settings can only manage scoped configuration, synchronization, reference data, layouts and backups.".into()) };
     }
@@ -162,6 +163,7 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "backup_inspect",
         "backup_import",
         "backup_restore",
+        "remote_backup_request",
         "reference_status",
         "reference_resolve",
         "reference_refresh",
@@ -936,6 +938,18 @@ mod tests {
             for method in ["sync_mutation", "sync_receipt"] {
                 assert!(validate_surface(label, &json!({"id":"foreign-sync","method":method,"params":{}})).is_err(), "{label} {method}");
             }
+        }
+    }
+
+    #[test]
+    fn remote_backup_presentation_is_scoped_to_main_and_settings() {
+        let request = json!({"id":"backup-ui","method":"remote_backup_request","params":{"action":"snapshot"}});
+        for label in ["main", "settings"] { assert!(validate_surface(label, &request).is_ok()); }
+        for label in ["monitor", "logbook", "log-qso", "world-map", "band-maps", "station-control", "rotor", "cw", "chaser-dx", "awards"] {
+            assert!(validate_surface(label, &request).is_err(), "{label}");
+        }
+        for method in ["remote_backup_delete", "remote_backup_upload", "remote_backup_oauth", "remote_backup_register"] {
+            assert!(validate_request(&json!({"id":"unexposed","method":method,"params":{}})).is_err());
         }
     }
 

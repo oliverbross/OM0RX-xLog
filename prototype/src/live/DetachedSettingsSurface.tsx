@@ -20,6 +20,7 @@ export const detachedSettingsMethods = [
   "sync_status", "sync_summary", "sync_mutation", "sync_receipt",
   "reference_status", "reference_resolve", "reference_refresh", "reference_schedule", "reference_configure",
   "backup_create", "backup_list", "backup_inspect", "backup_import", "backup_restore",
+  "remote_backup_request",
 ] as const;
 
 function storedJournal() {

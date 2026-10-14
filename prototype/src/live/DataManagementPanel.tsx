@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Archive, CheckCircle2, DatabaseBackup, RefreshCw } from "lucide-react";
 import "./data-management.css";
+import RemoteBackupPanel from "./RemoteBackupPanel";
 
 type Request = (method: string, params?: Record<string, unknown>) => Promise<any>;
 type Backup = { name: string };
@@ -176,6 +177,7 @@ export function DataManagementPanel({ onRequest, onChanged, section, visible = t
       </div>}
     </div>
 
+    <RemoteBackupPanel request={onRequest} visible={visible && section !== "references"} />
     <div className="live-data-section" hidden={section === "backups"}>
       <div className="live-data-section-title"><h3>Reference data</h3><span className="secondary">CTY: {reference?.cty_source === "workspace_download" ? "updated workspace data" : "bundled data"}</span></div>
       <p>Download, check and attempt dates appear when tracked. Legacy caches may lack separate records. Freshness reflects only the recorded source check, not the presence of a cache file.</p>

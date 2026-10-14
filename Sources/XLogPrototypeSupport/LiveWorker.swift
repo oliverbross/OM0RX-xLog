@@ -74,6 +74,7 @@ public actor LiveWorker {
     private var powerSelectionSequence: UInt64 = 0
     private let logbookLane: LogbookLane
     let remoteBackup: LiveRemoteBackupService
+    private let remoteBackupPresentation: LiveRemoteBackupPresentation
     private let opportunities: LiveOpportunitiesMethods
     private let cluster: LiveClusterMethods
     private let publicServices: LivePublicServiceMethods
@@ -93,11 +94,14 @@ public actor LiveWorker {
          powerCapture: NativeDraftPowerGate = NativeDraftPowerGate(),
          powerDelivery: NativeDraftPowerDelivery = NativeDraftPowerDelivery(),
          remoteBackup: LiveRemoteBackupService? = nil,
+          remoteBackupEnvironment: NativeRemoteBackupPresentationEnvironment? = nil,
          contactRefresher: (@Sendable () async throws -> Void)? = nil) {
         self.powerCapture = powerCapture
         self.powerDelivery = powerDelivery
         logbookLane = LogbookLane(service: logbook, power: powerCapture)
-        self.remoteBackup = remoteBackup ?? LiveRemoteBackupService(logbook: logbook)
+        let backupService = remoteBackup ?? LiveRemoteBackupService(logbook: logbook)
+        self.remoteBackup = backupService
+        self.remoteBackupPresentation = LiveRemoteBackupPresentation(logbook: logbook, service: backupService, environment: remoteBackupEnvironment)
         self.publicServices = publicServices ?? LivePublicServiceMethods(logbook: logbook)
         services = LiveServiceMethods(logbook: logbook)
         #if os(macOS)
@@ -209,6 +213,9 @@ public actor LiveWorker {
                 throw WorkerFailure("invalid_request", "Expected a bounded, correlated request.")
             }
             id = requestID
+            if terminalShutdown && method == "remote_backup_request" {
+                throw WorkerFailure("worker_stopping", "The worker is shutting down; no backup command was started.")
+            }
             if ["sync_run", "sync_configure", "sync_retry", "sync_resolve"].contains(method) {
                 throw WorkerFailure("sync_owner_required", "Use the shared generation-bound Sync mutation owner.")
             }
@@ -334,6 +341,8 @@ public actor LiveWorker {
                 if !localAcceptance && (draftLogged || contactChanged || imported || ["workspace_create", "logbook_save", "logbook_delete", "logbook_undo", "backup_restore"].contains(method)) {
                     queueContactRefresh()
                 }
+            } else if method == "remote_backup_request" {
+                result = try await remoteBackupPresentation.handle(params)
             } else if method.hasPrefix("opportunities_") {
                 result = try await opportunities.handle(method: method, params: params)
             } else if method.hasPrefix("cluster_") || method.hasPrefix("spot_history_") {

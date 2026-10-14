@@ -144,7 +144,8 @@ describe("grouped service settings", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Backups" }));
     expect(screen.getByRole("button", { name: "Create backup" })).toBeTruthy();
     expect(screen.queryByRole("table", { name: "Reference dataset evidence" })).toBeNull();
-    expect(dataRequest).toHaveBeenCalledTimes(2);
+    expect(dataRequest).toHaveBeenCalledTimes(3);
+    expect(dataRequest).toHaveBeenCalledWith("remote_backup_request", { action: "snapshot" });
     expect(request).toHaveBeenCalledTimes(1);
     expect(request).toHaveBeenCalledWith("secret_status");
   });
