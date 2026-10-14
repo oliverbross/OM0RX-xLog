@@ -12,7 +12,8 @@ This is source acceptance only. Production provisioning remains unavailable, the
 installed alpha.29 does not contain this change, and no Dropbox account, credential,
 provider request, upload, retention deletion or restore was used. Follow-up commit
 `1a5a4ff` adds source-complete authenticated Dropbox account probing without
-claiming production provisioning.
+claiming production provisioning. Commit `d84d225` adds the native-only exact-key
+secure-store save/remove prerequisite, but no OAuth flow invokes it yet.
 
 ## Safety properties
 
@@ -32,13 +33,17 @@ claiming production provisioning.
   only the exact derived vault item, calls only the fixed Dropbox HTTPS account
   endpoint, rejects redirects, oversize metadata and a nonmatching observed dbid,
   and exposes neither the token nor provider response body.
+- Trusted native provisioning code now has an exact-key vault save/remove contract.
+  It validates the derived identity and token before operating-system access, uses
+  background-safe macOS Keychain accessibility, and is not exposed through renderer
+  IPC. Tests exercise rejection paths only and do not read or mutate the real Keychain.
 
 ## Verification
 
 - `swift test`: **174 tests across 25 suites passed**.
 - `XLOG_PORTABLE_ONLY=1 swift test --scratch-path .build/backup-stage`:
   **200 XCTest tests passed** with four intentional benchmark skips, plus
-  **382 Swift Testing tests across 51 suites passed**.
+  **383 Swift Testing tests across 51 suites passed**.
 - Focused native owner suite: **12/12 passed**.
 - Focused live remote-backup service suite: **21/21 passed**, including exact
   approved backup ID/bytes and recurring rejection.
@@ -48,8 +53,9 @@ claiming production provisioning.
 
 ## Remaining dependency gates
 
-1. Register a Dropbox application and add its trusted production-native OAuth and
-   credential-write flow; do not accept account proofs or secrets from renderer state.
+1. Register a Dropbox application and add its trusted production-native OAuth
+   callback/refresh flow; the exact-key credential-write primitive is ready, but do
+   not accept account proofs or secrets from renderer state.
 2. Install the production presentation environment only after that authority exists;
    the account-verification transport is ready but deliberately dormant without it.
 3. Exercise an explicitly authorized live upload and independent download/hash
