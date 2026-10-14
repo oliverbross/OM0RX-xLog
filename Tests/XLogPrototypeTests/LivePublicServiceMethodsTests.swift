@@ -105,15 +105,20 @@ struct LivePublicServiceMethodsTests {
         #expect(current["solar_flux"] as? Int == 122)
         #expect((current["bands"] as? [[String: String]])?.count == 5)
         #expect(await feed.count == 1)
+        // This worker method represents explicit operator intent. Native owns
+        // automatic freshness admission, so a second click must not be silently
+        // swallowed by a worker-side ten-minute gate.
+        _ = try await service.handle(method: "propagation_refresh", params: [:])
+        #expect(await feed.count == 2)
         clock.advance()
         await feed.configure(fail: true)
         for _ in 0..<10 { _ = try await service.handle(method: "propagation_snapshot", params: [:]) }
-        #expect(await feed.count == 1)
+        #expect(await feed.count == 2)
         let stale = try await service.handle(method: "propagation_refresh", params: [:])
         #expect(stale["stale"] as? Bool == true)
         #expect(stale["solar_flux"] as? Int == 122)
         #expect(stale["received_at"] as? Double == current["received_at"] as? Double)
-        #expect(await feed.count == 2)
+        #expect(await feed.count == 3)
         await service.terminate()
     }
 

@@ -18,7 +18,6 @@ actor LivePublicServiceMethods {
     private let now: @Sendable () -> Date
     private var stopped = false
     private var propagationTask: Task<Void, Never>?
-    private var propagationLastAttempt: Date?
     private var propagationState: [String: Any] = ["status": "Not loaded", "source": "N0NBH / HamQSL"]
     private var weatherTask: (id: UUID, url: URL, task: Task<Data, Error>)?
 
@@ -52,8 +51,7 @@ actor LivePublicServiceMethods {
             return propagationState
         case "propagation_refresh":
             guard params.isEmpty else { throw invalid() }
-            if propagationTask == nil && now().timeIntervalSince(propagationLastAttempt ?? .distantPast) >= 600 {
-                propagationLastAttempt = now()
+            if propagationTask == nil {
                 let download = self.download
                 propagationTask = Task { [weak self] in
                     do {

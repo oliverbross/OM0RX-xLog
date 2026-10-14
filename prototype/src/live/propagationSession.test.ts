@@ -4,18 +4,19 @@ import { connectPropagation } from "./propagationSession";
 const frame = (revision = 0) => ({ epoch: "00000000-0000-4000-8000-000000000001", revision, pending: false, snapshot: null, error: "" });
 beforeEach(() => vi.useFakeTimers()); afterEach(() => vi.useRealTimers());
 
-it("subscribes before retained mount, never fetches on a timer and cleans up", async () => {
-  const read = vi.fn(async (_action: "snapshot" | "refresh") => frame()), stop = vi.fn();
+it("subscribes before its initial freshness request, rechecks on cadence and cleans up", async () => {
+  const read = vi.fn(async (_action: "snapshot" | "ensure" | "refresh") => frame()), stop = vi.fn();
   const listen = vi.fn(async (_wake: () => void) => { expect(read).not.toHaveBeenCalled(); return stop; });
   const session = connectPropagation(vi.fn(), vi.fn(), { read, listen });
   await vi.advanceTimersByTimeAsync(0); await vi.advanceTimersByTimeAsync(60 * 60_000);
-  expect(read.mock.calls).toEqual([["snapshot"]]); session.dispose(); expect(stop).toHaveBeenCalledOnce();
+  expect(read.mock.calls.every(call => call[0] === "ensure")).toBe(true);
+  expect(read).toHaveBeenCalledTimes(7); session.dispose(); expect(stop).toHaveBeenCalledOnce();
 });
 it("lost refresh replies only recover retained state and never retry a fetch", async () => {
-  const read = vi.fn(async (action: "snapshot" | "refresh") => { if (action === "refresh") throw new Error("Reply lost"); return frame(); });
+  const read = vi.fn(async (action: "snapshot" | "ensure" | "refresh") => { if (action === "refresh") throw new Error("Reply lost"); return frame(); });
   const failed = vi.fn(), session = connectPropagation(vi.fn(), failed, { read, listen: async () => () => {} });
   await vi.advanceTimersByTimeAsync(0); await session.refresh(); await vi.advanceTimersByTimeAsync(0);
-  expect(read.mock.calls.map(call => call[0])).toEqual(["snapshot", "refresh", "snapshot"]);
+  expect(read.mock.calls.map(call => call[0])).toEqual(["ensure", "refresh", "snapshot"]);
   expect(failed).toHaveBeenCalledWith("Reply lost"); session.dispose();
 });
 it("late old reads cannot replace a newer explicit refresh and notification storms coalesce", async () => {
@@ -28,7 +29,7 @@ it("late old reads cannot replace a newer explicit refresh and notification stor
   await session.refresh(); complete(frame(1)); await vi.advanceTimersByTimeAsync(0);
   expect(changed.mock.calls.every(call => call[0].revision === 3)).toBe(true);
   expect(read.mock.calls.filter(call => call[0] === "refresh")).toHaveLength(1);
-  expect(read.mock.calls.filter(call => call[0] === "snapshot")).toHaveLength(2); session.dispose();
+  expect(read.mock.calls.filter(call => call[0] === "ensure")).toHaveLength(2); session.dispose();
 });
 it("rejects unverified frames and disposes late subscriptions without reading", async () => {
   const failed = vi.fn();
