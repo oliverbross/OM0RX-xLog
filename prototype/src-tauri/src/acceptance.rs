@@ -409,8 +409,16 @@ pub fn start_watchdog(app: tauri::AppHandle) {
         std::thread::sleep(std::time::Duration::from_secs(timeout_seconds));
         let state = app.state::<Acceptance>();
         if !state.completed.swap(true, Ordering::AcqRel) {
+            let open_windows: Vec<_> = app.webview_windows().keys().cloned().collect();
+            let logbook_reported = state.logbook.lock().ok().is_some_and(|value| value.is_some());
+            let awards_reported = state.awards.lock().ok().is_some_and(|value| value.is_some());
+            let monitor_reported = state.monitor.lock().ok().is_some_and(|value| value.is_some());
+            let spot_history_reported = state.spot_history.lock().ok().is_some_and(|value| value.is_some());
             let _ = state.save(&json!({"schema":1,"status":"failed","embeddedUi":false,"worker":false,
-                "platform":std::env::consts::OS,"error":format!("Native UI acceptance exceeded {timeout_seconds} seconds"),"station_io":false}));
+                "platform":std::env::consts::OS,"error":format!("Native UI acceptance exceeded {timeout_seconds} seconds"),
+                "station_io":false,"details":{"open_windows":open_windows,"logbook_reported":logbook_reported,
+                    "awards_reported":awards_reported,"monitor_reported":monitor_reported,
+                    "spot_history_reported":spot_history_reported}}));
             app.exit(1);
         }
     });
