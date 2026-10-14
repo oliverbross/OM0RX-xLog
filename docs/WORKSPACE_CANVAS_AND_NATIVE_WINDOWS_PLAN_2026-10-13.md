@@ -781,6 +781,27 @@ hardware was contacted, and no operator-data, station or RF state changed.
 FLEX/Hamlib connection/configuration and hardware-profile ownership remain later
 slices.
 
+### Checkpoint AK — shared durable Hamlib connection ownership
+
+Desk and independent Station Control now share one non-secret Hamlib radio setup
+and explicit connect, reconnect and disconnect journal. Each lifecycle request is
+bound to the current setup revision and exact selected Hamlib generation/identity,
+is persisted before dispatch and retains unknown outcomes without replay. Mounting
+either surface remains passive, transmit permission resets when another window
+changes setup or selection, and raw radio-Hamlib lifecycle requests can no longer
+bypass the shared owner.
+
+The saved setup permits managed model/path/baud/framing or a loopback external
+daemon only; it stores neither credentials nor standing transmit consent. The
+shared form currently accepts an explicit numeric Hamlib model ID and does not run
+catalogue, device or DNS discovery on mount. When Direct FLEX LAN is selected, the
+child hides Agent/Hamlib lifecycle controls and states that FLEX connection setup
+remains in Desk. Exact source `b958384` passes **10 native station-session tests**,
+the additional Hamlib selection-fence check and **34 focused frontend tests** plus
+TypeScript and diff checks. No package was produced or installed, no service or
+hardware was contacted, and no operator-data, station or RF state changed. Direct
+FLEX connection/configuration and hardware profiles remain later slices.
+
 ### 14 October audit — remaining new-QSO and QSY ownership
 
 At `cd25718`, detached Logbook edits saved contacts; it is not an independent
