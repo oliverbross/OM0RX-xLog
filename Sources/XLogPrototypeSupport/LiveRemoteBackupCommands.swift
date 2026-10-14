@@ -40,7 +40,18 @@ struct NativeRemoteBackupApproval: Equatable, Sendable {
 }
 
 enum NativeRemoteBackupCommandError: Error, Equatable {
-    case accountUnavailable
+    case accountUnavailable, staleRetentionReview
+}
+
+/// A retained native review, not deletion consent. There is deliberately no
+/// executor/IPC deletion route: provider revision-conditional deletion is open.
+struct NativeRemoteBackupRetentionReview: Equatable, Sendable {
+    let id: UUID
+    let review: RemoteBackupRetentionReview
+    fileprivate let plan: RemoteBackupUploadPlan
+    fileprivate let approval: NativeRemoteBackupApproval
+    fileprivate let contextGeneration: UUID
+    fileprivate let history: [RemoteBackupUploadReceipt]
 }
 
 /// Internal command boundary, deliberately not installed in IPC/frontend routes.
@@ -52,11 +63,14 @@ actor LiveRemoteBackupCommands {
     private let logbook: LiveLogbookMethods
     private let accounts: any NativeDropboxBackupAccountRegistry
     private var active: (RemoteBackupUploadPlan, NativeRemoteBackupApproval)?
+    private var retainedRetentionReview: NativeRemoteBackupRetentionReview?
+    private let clock: any RemoteBackupClock
     private var mutating = false
 
     init(service: LiveRemoteBackupService, logbook: LiveLogbookMethods,
-         accounts: any NativeDropboxBackupAccountRegistry = UnregisteredDropboxBackupAccounts()) {
-        self.service = service; self.logbook = logbook; self.accounts = accounts
+         accounts: any NativeDropboxBackupAccountRegistry = UnregisteredDropboxBackupAccounts(),
+         clock: any RemoteBackupClock = RemoteBackupSystemClock()) {
+        self.service = service; self.logbook = logbook; self.accounts = accounts; self.clock = clock
     }
 
     /// Nil means the backup command must remain hidden. Does not read a token or
@@ -78,6 +92,7 @@ actor LiveRemoteBackupCommands {
     func approve(plan: RemoteBackupUploadPlan, account: NativeDropboxBackupRegistration,
                  expectedConfigurationRevision: UInt64, recurring: Bool = false) async throws -> NativeRemoteBackupApproval {
         try beginMutation(); defer { mutating = false }
+        retainedRetentionReview = nil
         guard let service else { throw CancellationError() }
         try Task.checkCancellation()
         try check(plan: plan, account: account)
@@ -103,6 +118,7 @@ actor LiveRemoteBackupCommands {
                vault: any NativeBackupCredentialVault = SystemNativeBackupCredentialVault(),
                http: any DropboxBackupHTTPClient = DropboxBackupURLSessionClient()) async throws {
         try beginMutation(); defer { mutating = false }
+        retainedRetentionReview = nil
         guard let service else { throw CancellationError() }
         try Task.checkCancellation()
         try check(plan: plan, account: approval.registration)
@@ -132,12 +148,14 @@ actor LiveRemoteBackupCommands {
             try await authority.validate(plan: plan, authorization: approval.authorization)
         } catch {
             active = nil
+            retainedRetentionReview = nil
             try await service.stop()
         }
     }
 
     func stop() async throws {
         try beginMutation(); defer { mutating = false }
+        retainedRetentionReview = nil
         guard let service else { throw CancellationError() }
         active = nil
         try await service.stop()
@@ -145,12 +163,68 @@ actor LiveRemoteBackupCommands {
 
     func revoke(expectedWorkspaceGeneration: UUID, expectedConfigurationRevision: UInt64) async throws {
         try beginMutation(); defer { mutating = false }
+        retainedRetentionReview = nil
         guard let service else { throw CancellationError() }
         let authority = try await service.authorizationOwner()
         try await authority.revoke(expectedWorkspaceGeneration: expectedWorkspaceGeneration,
             expectedConfigurationRevision: expectedConfigurationRevision)
         active = nil
         try await service.stop()
+    }
+
+    /// Explicit passive review only. Reads durable upload history; never a remote
+    /// listing, vault read, timer, provider call, retention execution or deletion.
+    func reviewRetention(plan: RemoteBackupUploadPlan, approval: NativeRemoteBackupApproval) async throws -> NativeRemoteBackupRetentionReview {
+        try beginMutation(); defer { mutating = false }
+        retainedRetentionReview = nil
+        let review = try await makeRetentionReview(plan: plan, approval: approval)
+        retainedRetentionReview = review
+        return review
+    }
+
+    /// Fresh confirmation/review seam for a future deletion boundary. Any changed
+    /// receipt, account/consent, stop, restore, shutdown or replacement invalidates
+    /// the retained review. Validation itself still authorizes no remote action.
+    func validateRetentionReview(_ review: NativeRemoteBackupRetentionReview) async throws {
+        try beginMutation(); defer { mutating = false }
+        guard retainedRetentionReview == review else { throw NativeRemoteBackupCommandError.staleRetentionReview }
+        do {
+            let current = try await makeRetentionReview(plan: review.plan, approval: review.approval)
+            guard current.contextGeneration == review.contextGeneration, current.history == review.history,
+                  current.review == review.review else { throw NativeRemoteBackupCommandError.staleRetentionReview }
+        } catch {
+            retainedRetentionReview = nil
+            throw error
+        }
+    }
+
+    private func makeRetentionReview(plan: RemoteBackupUploadPlan, approval: NativeRemoteBackupApproval) async throws -> NativeRemoteBackupRetentionReview {
+        guard let service else { throw CancellationError() }
+        try Task.checkCancellation()
+        let generation = try service.retentionContextGeneration()
+        try check(plan: plan, account: approval.registration)
+        let authority = try await service.authorizationOwner()
+        try await authority.validate(plan: plan, authorization: approval.authorization)
+        let checker = await authority.checker(for: approval.authorization)
+        return try logbook.withCurrentWorkspaceGeneration { current in
+            try Task.checkCancellation()
+            try check(plan: plan, account: approval.registration)
+            try checker.validate(workspaceGeneration: current, destination: plan.destination)
+            let root = try logbook.remoteBackupDirectory()
+            let parent = root.appendingPathComponent("Dropbox Operations")
+            let directory = parent.appendingPathComponent(plan.destination.id.uuidString.lowercased())
+            guard LocalFilePath.contains(directory, in: root) else { throw RemoteBackupPersistenceError.invalidState }
+            if FileManager.default.fileExists(atPath: parent.path) {
+                let values = try parent.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+                guard values.isDirectory == true, values.isSymbolicLink != true else { throw RemoteBackupPersistenceError.invalidState }
+            }
+            let history = try RemoteBackupUploadCoordinator.persistedReceipts(stateDirectory: directory)
+            let review = try RemoteBackupRetentionReview(workspaceGeneration: current, destination: plan.destination,
+                providerAccountID: approval.registration.binding.providerAccountID, receipts: history, at: clock.now())
+            guard try service.retentionContextGeneration() == generation else { throw NativeRemoteBackupCommandError.staleRetentionReview }
+            return NativeRemoteBackupRetentionReview(id: UUID(), review: review, plan: plan, approval: approval,
+                contextGeneration: generation, history: history)
+        }
     }
 
     private func beginMutation() throws {

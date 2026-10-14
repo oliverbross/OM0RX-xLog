@@ -42,7 +42,7 @@ actor LiveRemoteBackupService {
 
     func nativeCommands() -> LiveRemoteBackupCommands {
         if let commandOwner { return commandOwner }
-        let commands = LiveRemoteBackupCommands(service: self, logbook: logbook, accounts: accounts)
+        let commands = LiveRemoteBackupCommands(service: self, logbook: logbook, accounts: accounts, clock: clock)
         commandOwner = commands
         return commands
     }
@@ -176,6 +176,8 @@ actor LiveRemoteBackupService {
     var isRunning: Bool { lifetime.isActive }
     var currentTask: Task<Void, Never>? { lifetime.currentTask }
 
+    nonisolated func retentionContextGeneration() throws -> UUID { try lifetime.reviewGeneration() }
+
     private func run(token: UUID, plan: RemoteBackupUploadPlan, checker: RemoteBackupAuthorizationChecker,
                      scheduler: RemoteBackupScheduler, host: RemoteBackupHostDriver,
                      registrationCheck: @Sendable () throws -> Void) async {
@@ -246,6 +248,7 @@ actor LiveRemoteBackupService {
     private final class Lifetime: @unchecked Sendable {
         private let lock = NSLock()
         private var terminal = false
+        private var contextGeneration = UUID()
         private var token: UUID?
         private var task: Task<Void, Never>?
 
@@ -253,6 +256,13 @@ actor LiveRemoteBackupService {
             try lock.withLock {
                 guard !terminal else { throw CancellationError() }
                 guard token == nil else { throw RemoteBackupSchedulerError.operationInProgress }
+            }
+        }
+
+        func reviewGeneration() throws -> UUID {
+            try lock.withLock {
+                guard !terminal else { throw CancellationError() }
+                return contextGeneration
             }
         }
 
@@ -281,6 +291,7 @@ actor LiveRemoteBackupService {
         func cancel(terminal: Bool) {
             let previous = lock.withLock {
                 self.terminal = self.terminal || terminal
+                contextGeneration = UUID()
                 let previous = task
                 token = nil; task = nil
                 return previous

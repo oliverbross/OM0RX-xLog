@@ -155,13 +155,20 @@ public enum RemoteBackupUploadOutcome: Equatable, Sendable {
 public struct RemoteBackupUploadReceipt: Equatable, Sendable {
     public let plan: RemoteBackupUploadPlan
     public let outcome: RemoteBackupUploadOutcome
-    public init(plan: RemoteBackupUploadPlan, outcome: RemoteBackupUploadOutcome) throws {
+    public let remoteObject: RemoteBackupVerifiedObject?
+    public init(plan: RemoteBackupUploadPlan, outcome: RemoteBackupUploadOutcome,
+                remoteObject: RemoteBackupVerifiedObject? = nil) throws {
         if case .verified(let package, let date) = outcome {
             guard package == plan.package, date.timeIntervalSince1970.isFinite else {
                 throw RemoteBackupPlanningError.invalidReceipt
             }
         }
-        self.plan = plan; self.outcome = outcome
+        if let remoteObject {
+            guard case .verified = outcome, remoteObject.provider == plan.destination.provider else {
+                throw RemoteBackupPlanningError.invalidReceipt
+            }
+        }
+        self.plan = plan; self.outcome = outcome; self.remoteObject = remoteObject
     }
 }
 
@@ -204,6 +211,13 @@ public protocol RemoteBackupUploadTransport: Sendable {
     /// Independently read/hash the remote content; upload acknowledgements and echoed
     /// client checksums are insufficient evidence of remote content identity.
     func verifiedRemoteIdentity(plan: RemoteBackupUploadPlan) async throws -> RemoteBackupPackageIdentity
+    /// Optional pinned provider identity, only after the exact independent byte
+    /// verification above. Legacy adapters remain proofless and retention-protected.
+    func verifiedRemoteObject(plan: RemoteBackupUploadPlan) async throws -> RemoteBackupVerifiedObject?
+}
+
+public extension RemoteBackupUploadTransport {
+    func verifiedRemoteObject(plan: RemoteBackupUploadPlan) async throws -> RemoteBackupVerifiedObject? { nil }
 }
 
 public enum RemoteBackupExecutionError: Error, Equatable, Sendable {
@@ -232,6 +246,16 @@ public actor RemoteBackupUploadCoordinator {
         }
     }
 
+    /// Read-only durable history for explicit native retention review. Never
+    /// creates a missing directory or converts an interrupted claim to success.
+    public static func persistedReceipts(stateDirectory: URL) throws -> [RemoteBackupUploadReceipt] {
+        guard stateDirectory.isFileURL, LocalFilePath.isAbsoluteWithoutTraversal(stateDirectory.path),
+              stateDirectory.standardizedFileURL.pathComponents.count > 1 else { throw RemoteBackupPersistenceError.invalidState }
+        guard FileManager.default.fileExists(atPath: stateDirectory.path) else { return [] }
+        return try RemoteBackupOperationStore(directory: stateDirectory, createIfMissing: false).load()
+            .sorted { $0.plan.backupID.uuidString < $1.plan.backupID.uuidString }
+    }
+
     public func upload(envelope: XLogBackupEnvelope, plan: RemoteBackupUploadPlan,
                        workspaceGeneration: UUID, destination: RemoteBackupDestination,
                        transport: any RemoteBackupUploadTransport) async throws -> RemoteBackupUploadReceipt {
@@ -248,20 +272,24 @@ public actor RemoteBackupUploadCoordinator {
         }
         operations[plan.backupID] = Operation(plan: plan)
         let outcome: RemoteBackupUploadOutcome
+        var remoteObject: RemoteBackupVerifiedObject?
         do {
             switch try await transport.createExclusively(plan: plan, bytes: envelope.data) {
             case .notCreated, .conflict:
                 outcome = .failed
             case .created:
                 let identity = try await transport.verifiedRemoteIdentity(plan: plan)
-                outcome = identity == plan.package ? .verified(package: identity, at: Date()) : .uncertain
+                if identity == plan.package {
+                    remoteObject = try await transport.verifiedRemoteObject(plan: plan)
+                    outcome = .verified(package: identity, at: Date())
+                } else { outcome = .uncertain }
             }
         } catch {
             // Do not expose provider errors, which may contain credentials, or retry
             // an ambiguous write. No uncertain result can become a retention candidate.
             outcome = .uncertain
         }
-        let receipt = try RemoteBackupUploadReceipt(plan: plan, outcome: outcome)
+        let receipt = try RemoteBackupUploadReceipt(plan: plan, outcome: outcome, remoteObject: remoteObject)
         do {
             try store?.complete(receipt)
         } catch {
@@ -288,7 +316,7 @@ internal struct RemoteBackupOperationStore: Sendable {
     static let maximumRecordBytes = 32 * 1_024
     let directory: URL
 
-    init(directory: URL) throws {
+    init(directory: URL, createIfMissing: Bool = true) throws {
         guard directory.isFileURL, LocalFilePath.isAbsoluteWithoutTraversal(directory.path),
               directory.standardizedFileURL.pathComponents.count > 1 else {
             throw RemoteBackupPersistenceError.invalidState
@@ -296,6 +324,7 @@ internal struct RemoteBackupOperationStore: Sendable {
         self.directory = directory
         do {
             if !FileManager.default.fileExists(atPath: directory.path) {
+                guard createIfMissing else { throw RemoteBackupPersistenceError.unavailable }
                 try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
                     attributes: LocalFilePermissions.directoryAttributes)
             }
@@ -404,7 +433,7 @@ internal struct RemoteBackupOperationStore: Sendable {
             guard try load().contains(where: { $0.plan == receipt.plan }) else {
                 throw RemoteBackupPersistenceError.invalidState
             }
-            try save(RemoteBackupStoredOperation(plan: receipt.plan, outcome: receipt.outcome))
+            try save(RemoteBackupStoredOperation(plan: receipt.plan, outcome: receipt.outcome, remoteObject: receipt.remoteObject))
         } catch { throw RemoteBackupPersistenceError.unavailable }
     }
 
@@ -443,8 +472,10 @@ internal struct RemoteBackupStoredOperation: Codable {
     let packageByteCount: Int64
     let status: String
     let verifiedAt: Date?
+    let remoteObject: RemoteBackupVerifiedObject?
 
-    init(plan: RemoteBackupUploadPlan, outcome: RemoteBackupUploadOutcome?) {
+    init(plan: RemoteBackupUploadPlan, outcome: RemoteBackupUploadOutcome?, remoteObject: RemoteBackupVerifiedObject? = nil) {
+        self.remoteObject = remoteObject
         backupID = plan.backupID; workspaceGeneration = plan.workspaceGeneration
         let destination = plan.destination
         destinationID = destination.id; destinationRevision = destination.revision
@@ -492,6 +523,6 @@ internal struct RemoteBackupStoredOperation: Codable {
         default: throw RemoteBackupPersistenceError.invalidState
         }
         guard status == "verified" || verifiedAt == nil else { throw RemoteBackupPersistenceError.invalidState }
-        return try RemoteBackupUploadReceipt(plan: plan, outcome: outcome)
+        return try RemoteBackupUploadReceipt(plan: plan, outcome: outcome, remoteObject: remoteObject)
     }
 }

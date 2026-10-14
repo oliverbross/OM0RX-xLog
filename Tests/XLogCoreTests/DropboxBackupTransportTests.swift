@@ -64,7 +64,10 @@ import Testing
             Step(status: 200, body: bytes, headers: ["Dropbox-API-Result": String(decoding: metadata, as: UTF8.self)])])
         let transport = try DropboxBackupTransport(destination: plan.destination, credentials: credentials, http: http)
         #expect(try await transport.createExclusively(plan: plan, bytes: bytes) == .created)
+        await #expect(throws: DropboxBackupError.operationInProgress) { try await transport.verifiedRemoteObject(plan: plan) }
         #expect(try await transport.verifiedRemoteIdentity(plan: plan) == plan.package)
+        #expect(try await transport.verifiedRemoteObject(plan: plan) == RemoteBackupVerifiedObject(provider: .dropbox,
+            providerAccountID: "dbid:fixture-account", objectID: "id:created-object", revision: "abcdef123456"))
         let requests = await http.requests
         #expect(requests.count == 4)
         #expect(requests[0].url == DropboxBackupTransport.accountURL)
@@ -108,6 +111,9 @@ import Testing
         let receipt = try await executor.execute(claim)
         guard case .verified(let identity, _) = receipt.outcome else { Issue.record("Expected independently verified bytes"); return }
         #expect(identity == envelope.identity)
+        #expect(receipt.remoteObject?.objectID == "id:created-object")
+        #expect(receipt.remoteObject?.revision == "abcdef123456")
+        #expect(try RemoteBackupUploadCoordinator.persistedReceipts(stateDirectory: directory) == [receipt])
         let unused = HTTP([])
         let restarted = try DropboxBackupExecutor(destination: plan.destination, stateDirectory: directory,
             credentials: credentials, http: unused)
@@ -174,6 +180,7 @@ import Testing
         let observed = try await transport.verifiedRemoteIdentity(plan: plan)
         #expect(observed.sha256 == BackupPackageSeal.hash(altered))
         #expect(observed != plan.package)
+        await #expect(throws: DropboxBackupError.operationInProgress) { try await transport.verifiedRemoteObject(plan: plan) }
         let wrong = try metadata(plan, id: "id:foreign-object")
         let other = HTTP([try account(), Step(status: 200, body: uploaded), try account(),
             Step(status: 200, body: bytes, headers: ["Dropbox-API-Result": String(decoding: wrong, as: UTF8.self)])])

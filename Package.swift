@@ -43,7 +43,7 @@ let prototypeCoreTargets: [Target] = [
                   "Solar.swift", "TransmitPowerCapture.swift", "XCatClient.swift"],
         sources: ["ADIF.swift", "Models.swift", "QSOADIF.swift", "SemanticQSOIdentity.swift", "WavelogClient.swift", "SyncEngine.swift",
                   "LogbookDatabase.swift", "SpotHistoryDatabase.swift", "OperatorDraft.swift", "OperatorDraftPower.swift", "SpotDraftActivation.swift", "LogbookContact.swift", "WorkspaceLayout.swift", "IntegrationWorkspace.swift", "Settings.swift", "CWProfile.swift",
-                  "BackupManager.swift", "BackupEnvelope.swift", "RemoteBackupPlanning.swift", "RemoteBackupAuthorization.swift", "RemoteBackupScheduler.swift", "RemoteBackupOwner.swift", "RemoteBackupHostDriver.swift", "RemoteBackupLocalAdapters.swift", "DropboxBackupTransport.swift", "DropboxBackupHTTPClient.swift", "LocalFilePermissions.swift", "LocalFilePath.swift", "CTYResolver.swift", "Geo.swift",
+                  "BackupManager.swift", "BackupEnvelope.swift", "RemoteBackupPlanning.swift", "RemoteBackupRetentionReview.swift", "RemoteBackupAuthorization.swift", "RemoteBackupScheduler.swift", "RemoteBackupOwner.swift", "RemoteBackupHostDriver.swift", "RemoteBackupLocalAdapters.swift", "DropboxBackupTransport.swift", "DropboxBackupHTTPClient.swift", "LocalFilePermissions.swift", "LocalFilePath.swift", "CTYResolver.swift", "Geo.swift",
                   "OperatingSupport.swift", "OperatorIntelligence.swift", "AwardCatalog.swift",
                   "AwardRegistry.swift", "AwardReferences.swift", "ClusterSpotFeed.swift",
                   "ActivationReferenceDirectory.swift", "OpportunityFeeds.swift", "WeatherClient.swift"],

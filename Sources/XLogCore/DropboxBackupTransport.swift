@@ -87,6 +87,7 @@ public actor DropboxBackupTransport: RemoteBackupUploadTransport {
         let plan: RemoteBackupUploadPlan
         var created: Metadata?
         var providerAccountID: String?
+        var verified = false
     }
     // A failed/ambiguous attempt remains reserved for this transport's lifetime.
     private var attempts: [UUID: Attempt] = [:]
@@ -143,7 +144,20 @@ public actor DropboxBackupTransport: RemoteBackupUploadTransport {
         guard downloaded.id == created.id, downloaded.rev == created.rev,
               Int64(response.body.count) == plan.package.byteCount else { throw DropboxBackupError.invalidResponse }
         try Task.checkCancellation()
-        return try RemoteBackupPackageIdentity(sha256: BackupPackageSeal.hash(response.body), byteCount: Int64(response.body.count))
+        let identity = try RemoteBackupPackageIdentity(sha256: BackupPackageSeal.hash(response.body), byteCount: Int64(response.body.count))
+        attempts[plan.backupID]?.verified = identity == plan.package
+        return identity
+    }
+
+    public func verifiedRemoteObject(plan: RemoteBackupUploadPlan) async throws -> RemoteBackupVerifiedObject? {
+        try validate(plan)
+        try Task.checkCancellation()
+        guard let attempt = attempts[plan.backupID], attempt.plan == plan, attempt.verified,
+              let metadata = attempt.created, let account = attempt.providerAccountID else {
+            throw DropboxBackupError.operationInProgress
+        }
+        return try RemoteBackupVerifiedObject(provider: .dropbox, providerAccountID: account,
+            objectID: metadata.id, revision: metadata.rev)
     }
 
     private func validate(_ plan: RemoteBackupUploadPlan) throws {
