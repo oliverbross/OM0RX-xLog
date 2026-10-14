@@ -107,6 +107,40 @@ Required gates:
 
 ## Delivery checkpoints
 
+### Next prerequisite — independent Settings safety (14 October review)
+
+Alpha.21 exposes nine native Window roles, but not a Settings child or the global
+Windowed preset. A read-only implementation audit found that `settings_save`
+still replaces an unversioned whole form and `ServiceSettings` keeps unsaved
+text inside the route component. Opening another Settings editor before fixing
+these paths risks lost updates and discarded input. The following is a proposed
+bounded stage, not implemented or accepted behavior:
+
+- Store the Integration settings snapshot and operation receipts atomically in
+  its database, with workspace generation and revision. Seed legacy Integration
+  settings once; do not change the original SwiftUI app's settings store.
+- Require operation ID, expected generation/revision and validated non-secret
+  settings on Save. Exact replay returns its historical receipt; mismatched ID
+  reuse rejects. No-op saves retain receipts without incrementing revision.
+- Migrate all Integration writers together: creation, Save and backup restore,
+  plus direct readers. Preserve active-sync destination guards and explicit
+  sync-consent revocation. Restore must honor `restore_settings` and fence old
+  workspace clients and receipts.
+- Add a parent-owned Settings session and recovery journal for non-secret raw
+  form text and pending mutation identity. Keep invalid text and dirty edits
+  through navigation, refresh and lost replies. Do not silently reapply stale
+  forms or include credentials in the journal.
+- Verify concurrent editors, rollback/reopen, receipt replay, no-op Save,
+  simultaneous layout changes, restore with/without settings, active manual and
+  automatic sync, dirty/invalid input and unknown acknowledgements. Merely
+  mounting or recovering the form must not start device/network actions.
+
+Likely boundaries: `Sources/XLogCore/LogbookDatabase.swift`, core settings DTOs,
+`Sources/XLogPrototypeSupport/LiveLogbookMethods.swift`/`LiveWorker.swift`, native
+worker IPC/wake handling, and a typed frontend Settings session. Add the actual
+Settings child only after this prerequisite is tested and reviewed. Rotor,
+Station Control, Chaser and CW migrations remain separate follow-up stages.
+
 1. Shared-session and draft safety proven behind existing UI.
 2. Configurable docked canvas and backed-up layouts accepted.
 3. Native menus and independent panels accepted with main renderer absent.

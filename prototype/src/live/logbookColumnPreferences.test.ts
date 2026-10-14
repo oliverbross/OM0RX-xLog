@@ -6,6 +6,22 @@ describe("logbook presentation preferences", () => {
     expect(defaultLogbookColumnPreferences().columns).toEqual(["utc", "call", "bandMode", "frequency", "rst", "country", "qsl", "lotw", "clublog", "comment"]);
     expect(logbookColumnsKey("docked")).not.toBe(logbookColumnsKey("detached"));
     expect(logbookColumnsKey("docked")).not.toContain("cluster");
+    expect(new Set((["docked", "detached", "desk"] as const).map(logbookColumnsKey)).size).toBe(3);
+    expect(logbookColumnsKey("desk")).toBe("xlog.integration.logbook-columns.desk.v1");
+  });
+  it("defaults the Desk to five scan columns without changing docked or detached tables", () => {
+    expect(defaultLogbookColumnPreferences("desk").columns).toEqual(["utc", "call", "bandMode", "frequency", "country"]);
+    expect(defaultLogbookColumnPreferences("docked")).toEqual(defaultLogbookColumnPreferences());
+    expect(defaultLogbookColumnPreferences("detached")).toEqual(defaultLogbookColumnPreferences());
+    expect(defaultLogbookColumnPreferences("desk").widths).toEqual(defaultLogbookColumnPreferences().widths);
+  });
+  it.each([null, "{", "[]", '{"version":2}', '{"version":1,"columns":[]}', '{"version":1,"columns":["unknown"]}'])("uses the Desk defaults for absent or damaged Desk storage: %s", raw => {
+    expect(readLogbookColumnPreferences(raw, "desk")).toEqual(defaultLogbookColumnPreferences("desk"));
+  });
+  it("uses the same validated normalization for optional Desk columns and widths", () => {
+    const value = readLogbookColumnPreferences(JSON.stringify({ version: 1, columns: ["rst", "comment", "rst", "unknown"], widths: { rst: 999, call: -1 } }), "desk");
+    expect(value.columns).toEqual(["call", "rst", "comment"]);
+    expect(value.widths).toMatchObject({ rst: 480, call: 96 });
   });
   it("restores canonical order, removes unknown/duplicate fields and always retains Callsign", () => {
     const value = readLogbookColumnPreferences(JSON.stringify({ version: 1, columns: ["comment", "utc", "utc", "unknown"] }));

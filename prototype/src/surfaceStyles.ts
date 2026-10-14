@@ -20,6 +20,7 @@ import "./live/DetachedCallsignIntelligenceSurface.css";
 import "./live/DetachedMonitorSurface.css";
 import "./live/CW.css";
 import "./live/OperatorWorkspace.css";
+import "./live/DeskMapLogbook.css";
 import "./live/OperatorCanvas.css";
 import "./live/SyncPanel.css";
 import "./live/ServiceSettings.css";

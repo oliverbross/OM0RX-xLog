@@ -43,6 +43,7 @@ import CWDesk from "./live/CWDesk";
 import { defaultCWProfile } from "./live/cwMacros";
 import { useCW } from "./live/useCW";
 import { OperatorWorkspace } from "./live/OperatorWorkspace";
+import { DeskMapLogbook } from "./live/DeskMapLogbook";
 import SyncPanel from "./live/SyncPanel";
 import { watchSyncCompletion } from "./live/syncCompletion";
 import ServiceSettings from "./live/ServiceSettings";
@@ -108,6 +109,9 @@ function MainLiveApp() {
   const [view, writeView] = useState<string>("Operator Desk");
   const viewRef = useRef(view); viewRef.current = view;
   const editorBufferPending = useRef(false), mainClosing = useRef(false), layoutChanging = useRef(false), editorTransition = useRef(false);
+  const logbookWorkingRef = useRef(false);
+  const [logbookWorking, setLogbookWorking] = useState(false);
+  const logbookWorkingChanged = useCallback((value: boolean) => { logbookWorkingRef.current = value; setLogbookWorking(value); }, []);
   const [settingsTabRequest, setSettingsTabRequest] = useState<{ tab: "Station" | "Sync"; revision: number }>({ tab: "Station", revision: 0 });
   const [awardsOpened, setAwardsOpened] = useState(false);
   useEffect(() => { if (view === "Awards") setAwardsOpened(true); }, [view]);
@@ -172,6 +176,7 @@ function MainLiveApp() {
   }, [draftSession, contactSession]);
   const setView = useCallback((next: string) => {
     if (next === viewRef.current) return true;
+    if (logbookWorkingRef.current) { setError("Wait for the logbook operation to finish before changing views."); return false; }
     if (editorBufferPending.current || mainClosing.current || layoutChanging.current || editorTransition.current || !draftSession.canAcceptLocalInput() || !contactSession.canAcceptLocalInput()) {
       setError("Finish the buffered draft fields and check any pending activation before changing views. Your text is retained."); return false;
     }
@@ -192,18 +197,18 @@ function MainLiveApp() {
   }, setError, undefined, retry => {
     const draft = draftSession.subscribe(retry), contact = contactSession.subscribe(retry);
     return () => { draft(); contact(); };
-  }), [showSyncSettings, setView, draftSession, contactSession]);
+  }), [showSyncSettings, setView, draftSession, contactSession, logbookWorking]);
   const [refresh, setRefresh] = useState(0);
   useEffect(() => connectLogbookChanges(() => setRefresh(value => value + 1), setError), []);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(busy); busyRef.current = busy;
-  const spotEditor = useSpotEditor([draftSession, contactSession], () => busyRef.current || editorBufferPending.current || mainClosing.current || layoutChanging.current || logbookMutations.getSnapshot().busy || logbookMutations.getSnapshot().pending
+  const spotEditor = useSpotEditor([draftSession, contactSession], () => busyRef.current || logbookWorkingRef.current || editorBufferPending.current || mainClosing.current || layoutChanging.current || logbookMutations.getSnapshot().busy || logbookMutations.getSnapshot().pending
     ? { ready: false, reason: "Finish the current logbook or workspace action first." } : { ready: true });
   const spotActivation = useSpotActivation();
-  const acceptsInput = useCallback(() => !mainClosing.current && !layoutChanging.current && !editorTransition.current && draftSession.canAcceptLocalInput() && contactSession.canAcceptLocalInput(), [draftSession, contactSession]);
+  const acceptsInput = useCallback(() => !mainClosing.current && !layoutChanging.current && !editorTransition.current && !logbookWorkingRef.current && draftSession.canAcceptLocalInput() && contactSession.canAcceptLocalInput(), [draftSession, contactSession]);
   useEffect(() => protectOperatorDraftClose(() => {
     const current = draftSession.getSnapshot(), contact = contactSession.getSnapshot(), mutation = logbookMutations.getSnapshot();
-    return busyRef.current || layoutChanging.current || editorBufferPending.current || draftSession.dirty || !!contact.draft || !!mutation.pending || mutation.busy ||
+    return busyRef.current || logbookWorkingRef.current || layoutChanging.current || editorBufferPending.current || draftSession.dirty || !!contact.draft || !!mutation.pending || mutation.busy ||
       current.activationFrozen || contact.activationFrozen || current.locked || contact.locked || !!current.pending || !!contact.pending ||
       !!current.conflict || contact.conflict || current.workspaceChanged || contact.workspaceChanged;
   }, () => setError("Finish the draft fields and resolve unsaved or pending QSO changes before closing the Desk."), setError,
@@ -775,7 +780,7 @@ function MainLiveApp() {
       {!workspace?.workspace_exists ? <WorkspaceGate workspace={workspace} pending={workspacePending} busy={busy}
         retry={() => void run(reload)} create={mode => void run(async () => { await request("workspace_create", { mode }); await reload(); })} /> : <>
       {view === "Operator Desk" && <OperatorCanvas {...deskLayout} equipment={deskKind === "none" ? undefined : deskKind}
-        canChangeLayout={() => !editorBufferPending.current && !mainClosing.current && !editorTransition.current && draftSession.canAcceptLocalInput() && contactSession.canAcceptLocalInput()}
+        canChangeLayout={() => !logbookWorkingRef.current && !editorBufferPending.current && !mainClosing.current && !editorTransition.current && draftSession.canAcceptLocalInput() && contactSession.canAcceptLocalInput()}
         onChangeInFlight={value => { layoutChanging.current = value; }} panels={{
         "active-qso": { title: "Active QSO", content: <DeskQSO {...deskProps} /> },
         "callsign-intelligence": { title: "Callsign intelligence", content: <DeskIntelligence {...deskProps} /> },
@@ -785,10 +790,16 @@ function MainLiveApp() {
         "world-map": { title: "World map", content: <div className="live-map">{map}</div> },
         "band-maps": { title: "Band maps", content: deskBands },
         "dx-cluster": { title: "DX Cluster", content: <ClusterPanel passive snapshot={cluster} selectedSpotId={selected} onRequest={request} onSelect={selectSpot} onUndock={() => void openDetachedCluster().catch(e => setError(e.message))} /> },
-        logbook: { title: "Logbook", content: <LogbookPanel onRequest={request} refreshKey={refresh} mutations={logbookMutations} onChanged={() => setRefresh(n => n + 1)} onUndock={() => void openDetachedLogbook().catch(cause => setError(cause.message))} onEdit={editLoggedContact} /> },
+        logbook: { title: "Logbook", content: <LogbookPanel onRequest={request} refreshKey={refresh} mutations={logbookMutations} onWorkingChange={logbookWorkingChanged} onChanged={() => setRefresh(n => n + 1)} onUndock={() => void openDetachedLogbook().catch(cause => setError(cause.message))} onEdit={editLoggedContact} /> },
         awards: { title: "Awards", content: <IntegratedAwards request={request} refresh={refresh} initialStats={stats?.awards} onUndock={() => void openDetachedAwards().catch(cause => setError(cause.message))} /> },
         "spot-history": { title: "Spot History", content: <SpotHistoryPanel request={request} /> },
-      }} traditional={<><OperatorDesk {...deskProps} /><div className="live-desk-bottom"><OperatorWorkspace map={<div className="live-map">{map}</div>} cluster={cluster} selectedSpotId={selected} onSelect={selectSpot} bandMaps={deskBands} /></div></>} />}
+      }} traditional={<><OperatorDesk {...deskProps} /><div className="live-desk-bottom"><OperatorWorkspace map={<DeskMapLogbook map={<div className="live-map">{map}</div>}
+        logbook={<LogbookPanel columnContext="desk" onRequest={request} refreshKey={refresh} mutations={logbookMutations}
+          disabled={editorLocked || busy || editorBufferPending.current || editorTransition.current}
+          onWorkingChange={logbookWorkingChanged} onChanged={() => setRefresh(n => n + 1)} onUndock={() => void openDetachedLogbook().catch(cause => setError(cause.message))} onEdit={editLoggedContact} />}
+        busy={logbookWorking || logbookMutation.busy || !!logbookMutation.pending}
+        canChangeView={() => !logbookWorkingRef.current && !mainClosing.current && !layoutChanging.current && !editorTransition.current && !logbookMutations.getSnapshot().busy && !logbookMutations.getSnapshot().pending} />}
+        cluster={cluster} selectedSpotId={selected} onSelect={selectSpot} bandMaps={deskBands} /></div></>} />}
       {view === "Log QSO" && <QSOEditor referenceEvidence={referenceEvidence} draftLocked={editorLocked} draft={draft} setDraft={setOperatorDraft} save={save} clear={() => void run(clear)} busy={busy || editorBlocked} lookup={lookup} previous={previous} follow={follow} setFollow={setFollowImmediate} request={request} onReadRadio={readRadioIntoDraft} isEditing={editing.current} automaticStationMetadata={automaticStationMetadata}
         canAcceptLocalInput={acceptsInput}
         powerState={editing.current ? undefined : sharedDraft.base?.power} powerIntent={editing.current ? undefined : sharedDraft.powerIntent}
@@ -797,7 +808,7 @@ function MainLiveApp() {
         onResumeAutomaticPower={!editing.current && sharedDraft.base?.power ? () => void run(async () => { draftSession.resumeAutomaticPower(); await draftSession.flush(); }) : undefined}
         onLocalInputState={editorInputState}
         onUndock={!editing.current ? () => void run(async () => { await draftSession.flush(); await openDetachedQSO(); }) : undefined} />}
-      {view === "Logbook" && <LogbookPanel onRequest={request} refreshKey={refresh} mutations={logbookMutations} onChanged={() => setRefresh(n => n + 1)} onUndock={() => void openDetachedLogbook().catch(cause => setError(cause.message))} onEdit={editLoggedContact} />}
+      {view === "Logbook" && <LogbookPanel onRequest={request} refreshKey={refresh} mutations={logbookMutations} onWorkingChange={logbookWorkingChanged} onChanged={() => setRefresh(n => n + 1)} onUndock={() => void openDetachedLogbook().catch(cause => setError(cause.message))} onEdit={editLoggedContact} />}
       {view === "DX Cluster" && <ClusterPanel passive snapshot={cluster} selectedSpotId={selected} onRequest={request} onSelect={selectSpot} onUndock={() => void openDetachedCluster().catch(e => setError(e.message))} />}
       {view === "Chaser & DX" && <OpportunitiesPanel request={request} refresh={refresh} onSelect={loadOpportunity} home={stats?.map_home} />}
       {view === "Spot History" && <SpotHistoryPanel request={request} />}

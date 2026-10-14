@@ -5,7 +5,7 @@ import type { LogbookMutationSession } from "./logbookMutationSession";
 import type { DraftSnapshot } from "./operatorDraftSession";
 import { useLogbookCapacity } from "./logbookCapacity";
 import { LogbookColumnHeader, LogbookColumns, useLogbookColumns } from "./LogbookColumns";
-import { logbookColumns, type LogbookColumn } from "./logbookColumnPreferences";
+import { logbookColumns, type LogbookColumn, type LogbookColumnContext } from "./logbookColumnPreferences";
 
 type QSO = Record<string, unknown> & {
   id: string;
@@ -105,13 +105,15 @@ function adifBatches(text: string): string[] {
   return batches;
 }
 
-export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChanged, onUndock, onDock, onBusyChange, disabled = false }: {
+export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChanged, onUndock, onDock, onBusyChange, onWorkingChange, disabled = false, columnContext }: {
   onRequest: Request;
   onEdit: (qso: QSO) => void;
   refreshKey: number;
   mutations: LogbookMutationSession;
   onChanged?: () => void;
   onUndock?: () => void; onDock?: () => void; onBusyChange?: (busy: boolean) => void; disabled?: boolean;
+  onWorkingChange?: (working: boolean) => void;
+  columnContext?: LogbookColumnContext;
 }) {
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
@@ -123,7 +125,8 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
   const [columnsOpen, setColumnsOpen] = useState(false);
   const columnsID = useId();
   const columnsButton = useRef<HTMLButtonElement>(null);
-  const [columnPreferences, setColumnPreferences] = useLogbookColumns(onDock ? "detached" : "docked");
+  const resolvedColumnContext = columnContext ?? (onDock ? "detached" : "docked");
+  const [columnPreferences, setColumnPreferences] = useLogbookColumns(resolvedColumnContext);
   const visibleColumns = logbookColumns.filter(([id]) => columnPreferences.columns.includes(id));
   const totalColumnWidth = visibleColumns.reduce((total, [id]) => total + columnPreferences.widths[id], 0);
   const hidden = (id: LogbookColumn) => !columnPreferences.columns.includes(id);
@@ -132,6 +135,23 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
   }
   const [loading, setLoading] = useState(false);
   const [working, setBusy] = useState(false);
+  const localWorking = useRef(false), mounted = useRef(false), workingChanged = useRef(onWorkingChange), externallyDisabled = useRef(disabled);
+  workingChanged.current = onWorkingChange;
+  externallyDisabled.current = disabled;
+  useLayoutEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; localWorking.current = false; workingChanged.current?.(false); };
+  }, []);
+  function beginWorking() {
+    const current = mutations.getSnapshot();
+    if (!mounted.current || localWorking.current || externallyDisabled.current || current.busy || current.pending || current.conflict || current.workspaceChanged) return false;
+    localWorking.current = true; setBusy(true); workingChanged.current?.(true);
+    return true;
+  }
+  function finishWorking() {
+    if (!mounted.current) return;
+    localWorking.current = false; setBusy(false); workingChanged.current?.(false);
+  }
   const mutation = useSyncExternalStore(mutations.subscribe, mutations.getSnapshot);
   const busy = disabled || working || mutation.busy || !!mutation.pending || mutation.conflict || mutation.workspaceChanged;
   useEffect(() => { onBusyChange?.(busy); }, [busy, onBusyChange]);
@@ -218,7 +238,8 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
   }
 
   async function deleteQSO(snapshot: DraftSnapshot) {
-    setBusy(true); setError(""); setNotice("");
+    if (!beginWorking()) return;
+    setError(""); setNotice("");
     try {
       const receipt = await mutations.delete(snapshot);
       setSelectedID(null);
@@ -228,23 +249,25 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
     } catch (cause) {
       setConfirmDelete(null);
       if (!mutations.getSnapshot().error) setError(cause instanceof Error ? cause.message : String(cause));
-    } finally { setBusy(false); }
+    } finally { finishWorking(); }
   }
 
   async function undoDelete() {
     if (!mutation.undo) return;
-    setBusy(true); setError("");
+    if (!beginWorking()) return;
+    setError("");
     try {
       const receipt = await mutations.undo();
       if (receipt) setNotice("QSO restored in the integrated logbook.");
       if (onChanged) onChanged(); else await reload();
     } catch (cause) {
       if (!mutations.getSnapshot().error) setError(cause instanceof Error ? cause.message : String(cause));
-    } finally { setBusy(false); }
+    } finally { finishWorking(); }
   }
 
   async function importFile(file: File) {
-    setBusy(true); setError(""); setNotice("");
+    if (!beginWorking()) return;
+    setError(""); setNotice("");
     let imported = 0;
     let skipped = 0;
     try {
@@ -265,13 +288,14 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
     } catch (cause) {
       setError(`${imported} QSOs were imported before the operation stopped. ${cause instanceof Error ? cause.message : String(cause)}`);
     } finally {
-      setBusy(false);
+      finishWorking();
       if (fileInput.current) fileInput.current.value = "";
     }
   }
 
   async function exportAll() {
-    setBusy(true); setError(""); setNotice("");
+    if (!beginWorking()) return;
+    setError(""); setNotice("");
     try {
       const firstPage = result<LogbookPage>(await onRequest("logbook_list", { search: "", offset: 0, limit: 1 }));
       const total = firstPage.total;
@@ -296,7 +320,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
       setNotice(`${exported.toLocaleString()} QSOs exported from the integrated logbook.`);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
-    } finally { setBusy(false); }
+    } finally { finishWorking(); }
   }
 
   const total = page?.total ?? 0;
@@ -323,8 +347,8 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
             onClick={() => setColumnsOpen(value => !value)}>Columns</button>
           <button type="button" disabled={!selected || busy || loading} onClick={() => selected && void prepareDelete(selected.id)}><Trash2 size={13} /> Delete</button>
           <button type="button" onClick={() => void undoDelete()} disabled={!mutation.undo || busy}><RotateCcw size={13} /> Undo delete</button>
-          <input ref={fileInput} type="file" accept=".adi,.adif,text/plain" hidden
-            onChange={(event) => { const file = event.target.files?.[0]; if (file) void importFile(file); }} />
+          <input ref={fileInput} type="file" accept=".adi,.adif,text/plain" hidden disabled={busy}
+            onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; if (file) void importFile(file); }} />
           <button type="button" onClick={() => fileInput.current?.click()} disabled={busy}>
             <FileUp size={14} /> Import ADIF
           </button>
@@ -335,7 +359,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
           {onDock && <button type="button" onClick={onDock} disabled={busy}><PanelsTopLeft size={14} /> Dock back</button>}
         </div>
       </header>
-      {columnsOpen && <LogbookColumns id={columnsID} preferences={columnPreferences} onChange={setColumnPreferences}
+      {columnsOpen && <LogbookColumns id={columnsID} preferences={columnPreferences} onChange={setColumnPreferences} context={resolvedColumnContext}
         onDone={() => { setColumnsOpen(false); columnsButton.current?.focus(); }} />}
       {error && <p className="live-logbook-feedback error" role="alert">{error}</p>}
       {notice && <p className="live-logbook-feedback" role="status">{notice}</p>}

@@ -30,8 +30,9 @@ vi.mock("../src/live/useSpotActivation", () => ({ useSpotActivation: () => ({ st
 vi.mock("../src/Map", () => ({ default: () => <div>Synthetic map</div> }));
 vi.mock("../src/live/Conditions", () => ({ default: () => <div>Synthetic conditions</div> }));
 vi.mock("../src/live/ClusterPanel", () => ({ ClusterPanel: ({ onSelect }: any) => <button onClick={() => onSelect({ id: "retained-native-report" })}>Select synthetic report</button> }));
-vi.mock("../src/live/OperatorWorkspace", () => ({ OperatorWorkspace: ({ onSelect }: any) => <button onClick={() => onSelect({ id: "retained-native-report" })}>Select synthetic report</button> }));
-vi.mock("../src/live/LogbookPanel", () => ({ LogbookPanel: ({ onEdit }: any) => <button onClick={() => onEdit({ id: "historical" })}>Edit synthetic contact</button> }));
+vi.mock("../src/live/OperatorWorkspace", () => ({ OperatorWorkspace: ({ onSelect, map }: any) => <>{map}<button onClick={() => onSelect({ id: "retained-native-report" })}>Select synthetic report</button></> }));
+vi.mock("../src/live/LogbookPanel", () => ({ LogbookPanel: ({ onEdit, onWorkingChange }: any) => <><button onClick={() => onEdit({ id: "historical" })}>Edit synthetic contact</button>
+  <button onClick={() => onWorkingChange?.(true)}>Begin synthetic logbook work</button><button onClick={() => onWorkingChange?.(false)}>Finish synthetic logbook work</button></> }));
 vi.mock("../src/live/OperatorCanvas", () => ({ default: ({ panels, traditional }: any) => host.customCanvas
   ? <>{panels["active-qso"].content}{panels.logbook.content}</> : traditional }));
 
@@ -141,4 +142,43 @@ it("registers main-only clean close and freezes synchronous input before native 
   await act(async () => { host.close?.closing(false); });
   fireEvent.change(input, { target: { value: "14.." } });
   expect(input.value).toBe("14.."); expect(host.close?.blocked()).toBe(true);
+});
+
+it("keeps the same invalid Desk buffer through every bottom map/logbook presentation", async () => {
+  const input = await openEditor(false);
+  fireEvent.change(input, { target: { value: "14.." } });
+  const writesBefore = host.request.mock.calls.filter(([method]) => /draft_(apply|commit)|station_tune|rotor_goto/.test(method)).length;
+  for (const view of ["logbook", "logbook-above", "logbook-below", "map"]) {
+    fireEvent.change(screen.getByLabelText("Desk map and logbook view"), { target: { value: view } });
+    expect(screen.getByLabelText("Desk Frequency MHz")).toBe(input);
+    expect(input.value).toBe("14..");
+  }
+  expect(host.request.mock.calls.filter(([method]) => /draft_(apply|commit)|station_tune|rotor_goto/.test(method))).toHaveLength(writesBefore);
+  expect(host.activate).not.toHaveBeenCalled();
+});
+
+it("guards historical Edit from the Traditional Desk logbook without losing invalid input", async () => {
+  const input = await openEditor(false);
+  fireEvent.change(screen.getByLabelText("Desk map and logbook view"), { target: { value: "logbook" } });
+  fireEvent.change(input, { target: { value: "14.." } });
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Edit synthetic contact" })); });
+  expect(screen.getByLabelText("Desk Frequency MHz")).toBe(input); expect(input.value).toBe("14..");
+  expect(host.request.mock.calls.filter(([method]) => method === "logbook_contact")).toHaveLength(0);
+});
+
+it("retains the Traditional table during local work and blocks close, routes and activation", async () => {
+  await openEditor(false);
+  const choice = screen.getByLabelText("Desk map and logbook view") as HTMLSelectElement;
+  fireEvent.change(choice, { target: { value: "logbook" } });
+  const tableControl = screen.getByRole("button", { name: "Edit synthetic contact" });
+  fireEvent.click(screen.getByRole("button", { name: "Begin synthetic logbook work" }));
+  expect(choice.disabled).toBe(true); expect(host.close?.blocked()).toBe(true);
+  sidebar("Settings"); expect(screen.getByRole("main", { name: "Operator Desk" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Select synthetic report" }));
+  expect(host.activate).not.toHaveBeenCalled();
+  expect(screen.getByRole("button", { name: "Edit synthetic contact" })).toBe(tableControl);
+  fireEvent.click(screen.getByRole("button", { name: "Finish synthetic logbook work" }));
+  expect(choice.disabled).toBe(false); expect(host.close?.blocked()).toBe(false);
+  fireEvent.change(choice, { target: { value: "logbook-above" } });
+  expect(screen.getByRole("button", { name: "Edit synthetic contact" })).toBe(tableControl);
 });

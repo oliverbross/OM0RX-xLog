@@ -2,25 +2,65 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import LogbookPanel from "./LogbookPanel";
-import { logbookColumnsKey } from "./logbookColumnPreferences";
+import { defaultLogbookColumnPreferences, logbookColumnsKey, type LogbookColumnContext } from "./logbookColumnPreferences";
 import { LogbookMutationSession } from "./logbookMutationSession";
 import { contactEditFixture } from "../../tests/contact-edit-fixture";
 
 const contact = { id: "synthetic-column-contact", call: "TEST123/P", start: "2026-10-14T00:00:00Z", band: "20m", mode: "CW",
   rstSent: "599", rstReceived: "579", comment: "Complete synthetic comment", extraFields: { APP_UNKNOWN: "preserved" } };
-function setup(detached = false) {
+function setup(detached = false, columnContext?: LogbookColumnContext) {
   const backend = contactEditFixture(contact);
   const request = vi.fn(async (method: string, params?: Record<string, unknown>) => method === "logbook_list"
     ? { qsos: [contact], total: 1, offset: 0, limit: 20 } : backend.request(method, params));
   const edit = vi.fn();
   const props = { onRequest: request, mutations: new LogbookMutationSession(request, () => {}), onEdit: edit, refreshKey: 0 };
-  const view = render(<LogbookPanel {...props} onDock={detached ? () => {} : undefined} />);
+  const view = render(<LogbookPanel {...props} columnContext={columnContext} onDock={detached ? () => {} : undefined} />);
   return { ...view, props, edit, request };
 }
 beforeEach(() => localStorage.clear());
 afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
 
 describe("shared Logbook column controls", () => {
+  it("uses explicit Desk context even with Dock back and resets only that context", async () => {
+    const docked = JSON.stringify({ ...defaultLogbookColumnPreferences(), columns: ["call", "comment"] });
+    const detached = JSON.stringify({ ...defaultLogbookColumnPreferences(), columns: ["call", "rst"] });
+    localStorage.setItem(logbookColumnsKey("docked"), docked);
+    localStorage.setItem(logbookColumnsKey("detached"), detached);
+    const view = setup(true, "desk"); await screen.findByText(contact.call);
+    expect(screen.getAllByRole("columnheader").map(header => header.textContent)).toEqual(["UTC", "Callsign", "Band / Mode", "Frequency", "Country"]);
+    fireEvent.click(screen.getByRole("button", { name: "Columns" }));
+    fireEvent.click(screen.getByLabelText("Show RST column"));
+    fireEvent.keyDown(screen.getByRole("separator", { name: "Resize Callsign column" }), { key: "ArrowRight" });
+    await waitFor(() => expect(JSON.parse(localStorage.getItem(logbookColumnsKey("desk"))!).columns).toContain("rst"));
+    expect(localStorage.getItem(logbookColumnsKey("docked"))).toBe(docked);
+    expect(localStorage.getItem(logbookColumnsKey("detached"))).toBe(detached);
+    view.unmount(); setup(false, "desk"); await screen.findByText(contact.call);
+    expect(screen.getByRole("columnheader", { name: /^RST/ })).toBeTruthy();
+    expect(screen.getByRole("separator", { name: "Resize Callsign column" }).getAttribute("aria-valuenow")).toBe("160");
+    fireEvent.click(screen.getByRole("button", { name: "Columns" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reset columns" }));
+    expect(screen.getAllByRole("columnheader")).toHaveLength(5);
+    await waitFor(() => expect(JSON.parse(localStorage.getItem(logbookColumnsKey("desk"))!)).toEqual(defaultLogbookColumnPreferences("desk")));
+    expect(localStorage.getItem(logbookColumnsKey("docked"))).toBe(docked);
+    expect(localStorage.getItem(logbookColumnsKey("detached"))).toBe(detached);
+  });
+
+  it("changing explicit presentation context retains selected identity and Delete consent without refetching", async () => {
+    localStorage.setItem(logbookColumnsKey("desk"), JSON.stringify({ ...defaultLogbookColumnPreferences("desk"), columns: ["call", "rst"] }));
+    const view = setup(false, "desk"); await screen.findByText(contact.call);
+    fireEvent.click(screen.getByText(contact.call)); fireEvent.click(screen.getByRole("button", { name: /^Delete$/ }));
+    await screen.findByRole("group", { name: `Delete ${contact.call}` });
+    const calls = view.request.mock.calls.length;
+    view.rerender(<LogbookPanel {...view.props} columnContext="docked" />);
+    expect(screen.getAllByRole("columnheader")).toHaveLength(10);
+    expect(screen.getByRole("group", { name: `Delete ${contact.call}` })).toBeTruthy();
+    view.rerender(<LogbookPanel {...view.props} columnContext="desk" />);
+    expect(screen.getAllByRole("columnheader").map(header => header.textContent)).toEqual(["Callsign", "RST"]);
+    expect(screen.getByRole("group", { name: `Delete ${contact.call}` })).toBeTruthy();
+    expect(view.request).toHaveBeenCalledTimes(calls);
+    fireEvent.click(screen.getByRole("button", { name: /^Edit$/ })); expect(view.edit).toHaveBeenCalledWith(contact);
+  });
+
   it("persists visibility and width independently in docked and detached contexts", async () => {
     const docked = setup(); await screen.findByText(contact.call);
     fireEvent.click(screen.getByRole("button", { name: "Columns" }));

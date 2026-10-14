@@ -4,8 +4,8 @@ import { boundLogbookColumnWidth, defaultLogbookColumnPreferences, logbookColumn
   type LogbookColumnPreferences } from "./logbookColumnPreferences";
 
 function load(context: LogbookColumnContext) {
-  try { return readLogbookColumnPreferences(localStorage.getItem(logbookColumnsKey(context))); }
-  catch { return defaultLogbookColumnPreferences(); }
+  try { return readLogbookColumnPreferences(localStorage.getItem(logbookColumnsKey(context)), context); }
+  catch { return defaultLogbookColumnPreferences(context); }
 }
 
 export function useLogbookColumns(context: LogbookColumnContext) {
@@ -39,8 +39,8 @@ function WidthInput({ id, label, width, disabled, onWidth }: {
     onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); } }} />;
 }
 
-export function LogbookColumns({ id, preferences, onChange, onDone }: {
-  id: string; preferences: LogbookColumnPreferences; onChange: Dispatch<SetStateAction<LogbookColumnPreferences>>; onDone: () => void;
+export function LogbookColumns({ id, preferences, onChange, onDone, context = "docked" }: {
+  id: string; preferences: LogbookColumnPreferences; onChange: Dispatch<SetStateAction<LogbookColumnPreferences>>; onDone: () => void; context?: LogbookColumnContext;
 }) {
   function width(column: LogbookColumn, value: number) {
     onChange(current => ({ ...current, widths: { ...current.widths, [column]: value } }));
@@ -57,7 +57,7 @@ export function LogbookColumns({ id, preferences, onChange, onDone }: {
       </div>;
     })}</div>
     <div className="live-logbook-column-actions"><p>Callsign stays visible. Drag column edges or use arrow keys. Minimum widths are in pixels; wider tables scroll.</p>
-      <button type="button" onClick={() => onChange(defaultLogbookColumnPreferences())}>Reset columns</button>
+      <button type="button" onClick={() => onChange(defaultLogbookColumnPreferences(context))}>Reset columns</button>
       <button type="button" onClick={onDone}>Done</button>
     </div>
   </section>;
