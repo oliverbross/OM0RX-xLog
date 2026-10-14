@@ -19,7 +19,7 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
         return Err("Only the native activation owner can use this method.".into());
     }
     if request["method"] == "workspace_layout_load" {
-        return if matches!(label, "main" | "monitor" | "world-map" | "band-maps" | "dx-cluster" | "log-qso" | "spot-history" | "logbook" | "awards" | "callsign-intelligence") {
+        return if matches!(label, "main" | "monitor" | "world-map" | "band-maps" | "dx-cluster" | "log-qso" | "spot-history" | "logbook" | "awards" | "callsign-intelligence" | "settings") {
             Ok(())
         } else { Err("This window cannot read the shared workspace layout.".into()) };
     }
@@ -28,6 +28,16 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     }
     if request["method"] == "station_power_selection" {
         return Err("Only the native radio owner can publish power selection.".into());
+    }
+    if label == "settings" {
+        return if matches!(request["method"].as_str(), Some(
+            "settings_load" | "settings_receipt" | "settings_save"
+            | "secret_status" | "secret_save"
+            | "sync_status" | "sync_summary" | "sync_run" | "sync_configure" | "sync_resolve" | "sync_retry"
+            | "reference_status" | "reference_resolve" | "reference_refresh" | "reference_schedule" | "reference_configure"
+            | "backup_create" | "backup_list" | "backup_inspect" | "backup_import" | "backup_restore"
+            | "workspace_layout_load" | "workspace_layout_apply"
+        )) { Ok(()) } else { Err("Settings can only manage scoped configuration, synchronization, reference data, layouts and backups.".into()) };
     }
     if request["method"] == "workspace_band_map_apply" {
         return if label == "main" || label == "band-maps" && request["params"]["scope"] == "detached" { Ok(()) }
@@ -63,8 +73,9 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
             Ok(())
         } else { Err("This window can only read and edit the local logbook.".into()) };
     }
-    // Cluster has a separate scoped session dispatcher. No new window label
-    // inherits the main workspace's logbook, credential or station authority.
+    // Cluster has a separate scoped session dispatcher. The explicit Settings
+    // role above is the only child with credential/configuration authority; no
+    // new window label inherits logbook or station authority.
     if !matches!(label, "main" | "monitor" | "world-map" | "band-maps") {
         return Err("This window cannot access the workspace service.".into());
     }
@@ -724,7 +735,7 @@ mod tests {
         for method in ["spot_draft_apply","spot_draft_status","spot_draft_stage","spot_draft_finish","spot_draft_abandon"] {
             let request=serde_json::json!({"id":"native-only","method":method,"params":{}});
             super::validate_request(&request).unwrap();
-            for label in ["main","monitor","log-qso","logbook","world-map","band-maps","dx-cluster","awards","spot-history","callsign-intelligence"] {
+            for label in ["main","monitor","log-qso","logbook","world-map","band-maps","dx-cluster","awards","spot-history","callsign-intelligence","settings"] {
                 assert!(super::validate_surface(label,&request).is_err(),"{label}:{method}");
             }
         }
@@ -754,16 +765,17 @@ mod tests {
         let request = json!({"id":"selection", "method":"station_power_selection",
             "params":{"provider":"direct_agent","selection_id":uuid::Uuid::new_v4().to_string()}});
         assert!(validate_request(&request).is_ok());
-        for label in ["main", "monitor", "log-qso", "logbook", "awards", "world-map", "band-maps", "dx-cluster", "unknown", ""] {
+        for label in ["main", "monitor", "log-qso", "logbook", "awards", "world-map", "band-maps", "dx-cluster", "settings", "unknown", ""] {
             assert!(validate_surface(label, &request).is_err(), "{label}");
         }
     }
 
     #[test]
-    fn reference_scheduling_authority_is_main_only() {
+    fn reference_scheduling_authority_is_scoped_to_settings_surfaces() {
         for method in ["reference_configure", "reference_schedule", "reference_refresh"] {
             let request = json!({"id":"reference", "method":method, "params":{}});
             assert!(validate_surface("main", &request).is_ok());
+            assert!(validate_surface("settings", &request).is_ok());
             for label in ["logbook", "awards", "monitor", "world-map", "band-maps", "dx-cluster", "unknown"] {
                 assert!(validate_surface(label, &request).is_err(), "{label}: {method}");
             }
@@ -771,14 +783,31 @@ mod tests {
     }
 
     #[test]
-    fn revisioned_settings_are_main_only() {
+    fn revisioned_settings_are_scoped_to_main_and_the_settings_window() {
         for method in ["settings_load", "settings_receipt", "settings_save"] {
             let request = json!({"id":"settings", "method":method, "params":{}});
             assert!(validate_surface("main", &request).is_ok(), "main: {method}");
+            assert!(validate_surface("settings", &request).is_ok(), "settings: {method}");
             for label in ["monitor", "log-qso", "logbook", "awards", "world-map", "band-maps",
                           "dx-cluster", "spot-history", "callsign-intelligence", "unknown", ""] {
                 assert!(validate_surface(label, &request).is_err(), "{label}: {method}");
             }
+        }
+    }
+
+    #[test]
+    fn detached_settings_has_no_logbook_station_rotor_cluster_or_cw_authority() {
+        for method in ["settings_load", "settings_receipt", "settings_save", "secret_status", "secret_save",
+            "sync_status", "sync_summary", "sync_run", "sync_configure", "sync_resolve", "sync_retry",
+            "reference_status", "reference_resolve", "reference_refresh", "reference_schedule", "reference_configure",
+            "backup_create", "backup_list", "backup_inspect", "backup_import", "backup_restore",
+            "workspace_layout_load", "workspace_layout_apply"] {
+            assert!(validate_surface("settings", &json!({"id":"settings","method":method,"params":{}})).is_ok(), "{method}");
+        }
+        for method in ["logbook_operator_draft", "logbook_contact", "logbook_save", "station_snapshot", "station_connect",
+            "station_tune", "station_action", "station_power_selection", "rotor_snapshot", "rotor_goto", "cluster_snapshot",
+            "cluster_connect", "winkeyer_snapshot", "workspace_create", "workspace_preferences_save"] {
+            assert!(validate_surface("settings", &json!({"id":"settings","method":method,"params":{}})).is_err(), "{method}");
         }
     }
 
@@ -812,9 +841,10 @@ mod tests {
     }
 
     #[test]
-    fn sync_summary_is_readable_only_by_the_main_workspace() {
+    fn sync_summary_is_readable_only_by_settings_surfaces() {
         let request = json!({"id":"summary", "method":"sync_summary", "params":{}});
         assert!(validate_surface("main", &request).is_ok());
+        assert!(validate_surface("settings", &request).is_ok());
         for label in ["logbook", "awards", "monitor", "world-map", "band-maps", "dx-cluster", "unknown"] {
             assert!(validate_surface(label, &request).is_err(), "{label}");
         }
@@ -890,12 +920,12 @@ mod tests {
     }
 
     #[test]
-    fn portable_layout_does_not_grant_detached_windows_settings_authority() {
+    fn portable_layout_is_readable_by_children_but_writable_only_by_settings_surfaces() {
         for method in ["workspace_layout_load", "workspace_layout_apply"] {
             let request = json!({"id":"layout-test","method":method,"params":{}});
             assert!(validate_surface("main", &request).is_ok());
-            for label in ["monitor", "log-qso", "logbook", "awards", "world-map", "band-maps", "dx-cluster", "unknown"] {
-                assert_eq!(validate_surface(label, &request).is_ok(), method == "workspace_layout_load" && label != "unknown", "{label}: {method}");
+            for label in ["settings", "monitor", "log-qso", "logbook", "awards", "world-map", "band-maps", "dx-cluster", "unknown"] {
+                assert_eq!(validate_surface(label, &request).is_ok(), label == "settings" || method == "workspace_layout_load" && label != "unknown", "{label}: {method}");
             }
         }
     }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import DataManagementPanel from "./DataManagementPanel";
 import DisplaySettings from "./DisplaySettings";
 import { EquipmentSettings } from "./StationEquipment";
@@ -11,10 +11,10 @@ import "./ServiceSettings.css";
 type Data = Record<string, any>;
 type Request = (method: string, params?: Data) => Promise<Data>;
 export type ServiceSettingsProps = { values: Data; savedValues?: Data; request: Request; onChanged: (value: Data) => void; onSave: (value: Data) => Promise<void>;
-  saving?: boolean; pending?: boolean; conflict?: boolean; workspaceChanged?: boolean; sessionError?: string;
+  saving?: boolean; pending?: boolean; conflict?: boolean; workspaceChanged?: boolean; dirty?: boolean; sessionError?: string;
   onReconcile?: () => Promise<void>; onRetry?: () => Promise<void>; onUseSaved?: () => void;
   dataRequest?: Request; onDataChanged?: () => void; rotorSettings?: ReactNode; workspaceSettings?: ReactNode; syncSettings?: ReactNode;
-  requestedTab?: "Station" | "Wavelog" | "Sync"; requestedTabRevision?: number; cwContext?: CWContext; cwState?: CWState;
+  availableTabs?: readonly Tab[]; requestedTab?: "Station" | "Wavelog" | "Sync"; requestedTabRevision?: number; cwContext?: CWContext; cwState?: CWState;
   refreshCW?: () => Promise<void>; cwProvider?: string };
 const tabs = ["Station", "Wavelog", "Sync", "QRZ", "Reference data", "Rotator", "CW", "Display", "Workspace", "Backups"] as const;
 type Tab = typeof tabs[number];
@@ -58,10 +58,13 @@ function Credential({ account, label, request, leadingField, visible = false, sh
 }
 
 export default function ServiceSettings({ values, savedValues, request, onChanged, onSave, saving = false, pending = false,
-  conflict = false, workspaceChanged = false, sessionError = "", onReconcile, onRetry, onUseSaved, dataRequest, onDataChanged,
-  rotorSettings, workspaceSettings, syncSettings, requestedTab, requestedTabRevision, cwContext, cwState, refreshCW, cwProvider }: ServiceSettingsProps) {
-  const [tab, setTab] = useState<Tab>(requestedTab ?? "Station");
-  useEffect(() => { if (requestedTab) setTab(requestedTab); }, [requestedTab, requestedTabRevision]);
+  conflict = false, workspaceChanged = false, dirty = false, sessionError = "", onReconcile, onRetry, onUseSaved, dataRequest, onDataChanged,
+  rotorSettings, workspaceSettings, syncSettings, availableTabs, requestedTab, requestedTabRevision, cwContext, cwState, refreshCW, cwProvider }: ServiceSettingsProps) {
+  const visibleTabs = useMemo(() => availableTabs?.filter((value, index, values) => tabs.includes(value) && values.indexOf(value) === index) ?? tabs, [availableTabs]);
+  const initialTab = requestedTab && visibleTabs.includes(requestedTab) ? requestedTab : visibleTabs[0] ?? "Station";
+  const [tab, setTab] = useState<Tab>(initialTab);
+  useEffect(() => { if (requestedTab && visibleTabs.includes(requestedTab)) setTab(requestedTab); }, [requestedTab, requestedTabRevision, visibleTabs]);
+  useEffect(() => { if (!visibleTabs.includes(tab)) setTab(visibleTabs[0] ?? "Station"); }, [tab, visibleTabs]);
   const form = values;
   const [message, setMessage] = useState("");
   const blocked = pending || conflict || workspaceChanged;
@@ -85,9 +88,9 @@ export default function ServiceSettings({ values, savedValues, request, onChange
     } catch (error) { setMessage(error instanceof Error ? error.message : "Could not save settings. Check the fields and try again."); }
   };
   return <section className="service-settings" aria-label="Station and service settings">
-    <div className="service-tabs" role="tablist" aria-label="Settings sections">{tabs.map((name, index) => <button key={name} type="button" role="tab" id={`service-tab-${index}`} aria-controls="service-settings-panel" aria-selected={tab === name} tabIndex={tab === name ? 0 : -1} onClick={() => setTab(name)} onKeyDown={event => {
-      const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : event.key === "ArrowRight" ? (index + 1) % tabs.length : event.key === "ArrowLeft" ? (index + tabs.length - 1) % tabs.length : null;
-      if (next !== null) { event.preventDefault(); setTab(tabs[next]); document.getElementById(`service-tab-${next}`)?.focus(); }
+    <div className="service-tabs" role="tablist" aria-label="Settings sections">{visibleTabs.map((name, index) => <button key={name} type="button" role="tab" id={`service-tab-${tabs.indexOf(name)}`} aria-controls="service-settings-panel" aria-selected={tab === name} tabIndex={tab === name ? 0 : -1} onClick={() => setTab(name)} onKeyDown={event => {
+      const next = event.key === "Home" ? 0 : event.key === "End" ? visibleTabs.length - 1 : event.key === "ArrowRight" ? (index + 1) % visibleTabs.length : event.key === "ArrowLeft" ? (index + visibleTabs.length - 1) % visibleTabs.length : null;
+      if (next !== null) { event.preventDefault(); const selected = visibleTabs[next]; setTab(selected); document.getElementById(`service-tab-${tabs.indexOf(selected)}`)?.focus(); }
     }}>{name}</button>)}</div>
     <div id="service-settings-panel" role="tabpanel" aria-labelledby={`service-tab-${tabs.indexOf(tab)}`}>
     <p hidden={tab === "Display" || tab === "CW" || tab === "Workspace" || tab === "Sync"}>URLs and account details are grouped with their credentials. Save settings for non-secret fields; each credential has its own secure Save button.</p>
@@ -100,10 +103,10 @@ export default function ServiceSettings({ values, savedValues, request, onChange
       {sessionError && <p>{sessionError}</p>}
       {pending && <><button type="button" disabled={saving} onClick={() => void onReconcile?.()}>Check saved Settings</button>
         <button type="button" disabled={saving} onClick={() => void onRetry?.()}>Retry same save</button></>}
-      {(conflict || workspaceChanged) && <button type="button" disabled={saving} onClick={onUseSaved}>Use saved Settings</button>}
+      {!pending && (dirty || conflict || workspaceChanged) && <button type="button" disabled={saving} onClick={onUseSaved}>Use saved Settings</button>}
     </div>}
     <form onSubmit={event => void save(event)} noValidate><fieldset disabled={saving || blocked}>
-      <div hidden={tab !== "CW"}><CWSettings value={form.cwProfile} saved={(savedValues ?? form).cwProfile} onChange={cwProfile => update({ cwProfile })} context={cwContext} request={request} state={cwState} refresh={refreshCW} radioProvider={cwProvider} /></div>
+      {visibleTabs.includes("CW") && <div hidden={tab !== "CW"}><CWSettings value={form.cwProfile} saved={(savedValues ?? form).cwProfile} onChange={cwProfile => update({ cwProfile })} context={cwContext} request={request} state={cwState} refresh={refreshCW} radioProvider={cwProvider} /></div>}
       <section hidden={tab !== "Station"}><h2>Station identity</h2><div className="service-fields">{[["operatorCall", "Operator call"], ["stationCall", "Station call"], ["gridSquare", "Station grid"], ["stationLocation", "Station location"], ["defaultPower", "Default power W"], ["defaultRadio", "Radio name"]].map(([key, label]) => key === "defaultPower" ? <div key={key} className="service-default-power">{field(key, label)}
         <label className="service-enable"><input type="checkbox" aria-describedby="automatic-power-help" checked={form.automaticTransmitPower === true} disabled={typeof (savedValues ?? form).automaticTransmitPower !== "boolean"}
           onChange={event => update({ automaticTransmitPower: event.target.checked })} />Automatic measured power</label>
@@ -119,7 +122,7 @@ export default function ServiceSettings({ values, savedValues, request, onChange
       <section hidden={tab !== "Reference data"}><h2>LoTW activity reference</h2><p>This public reference feed does not require your LoTW password.</p><div className="service-fields">{field("lotwActivityURL", "LoTW activity URL", "url")}</div></section>
       <div className="live-actions" hidden={tab === "Backups" || tab === "Display" || tab === "Rotator" || tab === "Workspace" || tab === "Sync"}><button type="submit" className="primary">{saving ? "Saving settings…" : "Save settings"}</button><span role="status">{message}</span></div>
     </fieldset></form>
-    <div hidden={tab !== "Reference data" && tab !== "Backups"}>{dataRequest ? <DataManagementPanel onRequest={dataRequest} onChanged={onDataChanged ?? (() => {})} visible={tab === "Reference data" || tab === "Backups"} section={tab === "Backups" ? "backups" : "references"} sourceSettings={savedValues ?? form} /> : <p>Reference and backup tools are unavailable in this view.</p>}</div>
+    {(visibleTabs.includes("Reference data") || visibleTabs.includes("Backups")) && <div hidden={tab !== "Reference data" && tab !== "Backups"}>{dataRequest ? <DataManagementPanel onRequest={dataRequest} onChanged={onDataChanged ?? (() => {})} visible={tab === "Reference data" || tab === "Backups"} section={tab === "Backups" ? "backups" : "references"} sourceSettings={savedValues ?? form} /> : <p>Reference and backup tools are unavailable in this view.</p>}</div>}
     <p className="service-security-note" hidden={tab === "CW" || tab === "Workspace" || tab === "Sync"}>Credentials stay in the integrated app’s separate macOS Keychain service. Existing application credentials are not changed. Never paste credentials into a support chat.</p>
     </div>
   </section>;

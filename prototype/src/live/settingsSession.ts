@@ -30,6 +30,10 @@ const withoutSecrets = (value: any): any => Array.isArray(value) ? value.map(wit
     .map(([key, item]) => [key, withoutSecrets(item)])) : clone(value);
 const nonSecret = (settings: SettingsValues) => withoutSecrets(settings) as SettingsValues;
 
+export function settingsDraftIsDirty(base: SettingsSnapshot | null, draft: SettingsValues | null) {
+  return !!base && !!draft && stable(storedSettings(draft)) !== stable(storedSettings(base.settings));
+}
+
 export function checkedSettingsSnapshot(value: any): SettingsSnapshot {
   if (!object(value) || !uuid(value.generation) || !integer(value.revision) || !object(value.settings) ||
       JSON.stringify(value.settings).length > 65_536) throw new Error("The shared Settings snapshot could not be verified.");
@@ -95,7 +99,7 @@ export class SettingsSession {
     const base = this.state.base, draft = this.state.draft, pending = this.state.pending;
     if (!base || !draft) { this.accept(snapshot); return; }
     this.update({ snapshot });
-    const dirty = stable(storedSettings(draft)) !== stable(storedSettings(base.settings));
+    const dirty = settingsDraftIsDirty(base, draft);
     if (!sameGeneration(base.generation, snapshot.generation)) {
       if (!pending && !dirty) { this.accept(snapshot); return; }
       this.update({ conflict: snapshot, workspaceChanged: true,

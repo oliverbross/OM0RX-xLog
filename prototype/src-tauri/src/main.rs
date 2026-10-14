@@ -489,6 +489,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     let selection = if station_telemetry::changes_radio(&request) { Some(station_selection::owner(&app)?) } else { None };
     let invalidate = logbook_events::changes_logbook(&request);
     let map_changed = invalidate || matches!(method, "settings_save" | "workspace_preferences_save" | "workspace_band_map_apply" | "workspace_create" | "backup_restore");
+    let settings_changed = matches!(method, "settings_save" | "backup_restore");
     // Retire metadata before a restore/write can race a map's retained read.
     if map_changed { map_context::invalidate(); }
     let draft_wake = DraftWake::for_request(&request);
@@ -522,9 +523,12 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
         map_context::invalidate();
         for label in ["main", "world-map", "band-maps", "monitor"] { let _ = app.emit_to(label, "xlog:map-context", ()); }
     }
+    if settings_changed {
+        for label in ["main", "settings"] { let _ = app.emit_to(label, "xlog:settings-changed", ()); }
+    }
     if layout_changed {
         // Wake-only: even an uncertain outcome is reconciled by a fresh read.
-        for label in ["main", "monitor", "world-map", "band-maps", "dx-cluster", "log-qso", "spot-history", "logbook", "awards", "callsign-intelligence"] {
+        for label in ["main", "monitor", "world-map", "band-maps", "dx-cluster", "log-qso", "spot-history", "logbook", "awards", "callsign-intelligence", "settings"] {
             let _ = app.emit_to(label, "xlog:workspace-layout", ());
         }
         let force = activate_layout && result.as_ref().is_ok_and(|response|
@@ -539,8 +543,8 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
 #[tauri::command]
 async fn pick_backup_package(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>) -> Result<Option<String>, String> {
     if state.path.is_some() { return Err("External backup import is disabled in local acceptance.".into()); }
-    if window.label() != "main" {
-        return Err("Only the main workspace can import a backup".into());
+    if !matches!(window.label(), "main" | "settings") {
+        return Err("Only a Settings surface can import a backup".into());
     }
     // The worker separately verifies the manifest and copies the selected
     // package into the isolated workspace before any restore decision.
@@ -645,13 +649,13 @@ fn ensure_workspace_window(app: &tauri::AppHandle, kind: &str, focus: bool) -> R
 
 #[tauri::command]
 fn workspace_windows_status(window: tauri::WebviewWindow, app: tauri::AppHandle) -> Result<serde_json::Value, String> {
-    if window.label() != "main" { return Err("Only the main workspace can inspect saved window placement".into()); }
+    if !matches!(window.label(), "main" | "settings") { return Err("Only a Settings surface can inspect saved window placement".into()); }
     workspace_window_runtime::status(&app)
 }
 
 #[tauri::command]
 fn workspace_windows_reconcile(window: tauri::WebviewWindow, app: tauri::AppHandle) -> Result<serde_json::Value, String> {
-    if window.label() != "main" { return Err("Only the main workspace can apply saved window placement".into()); }
+    if !matches!(window.label(), "main" | "settings") { return Err("Only a Settings surface can apply saved window placement".into()); }
     workspace_window_runtime::refresh(&app, true).map(|attempt| serde_json::json!({"attempt":attempt}))
 }
 
@@ -691,7 +695,7 @@ fn local_history_reader(label: &str, method: &str) -> bool {
 fn detached_dock_screen(label: &str) -> Result<&str, String> {
     match label {
         "callsign-intelligence" => Ok("operator-desk"),
-        "dx-cluster" | "world-map" | "band-maps" | "log-qso" | "spot-history" | "logbook" | "awards" => Ok(label),
+        "dx-cluster" | "world-map" | "band-maps" | "log-qso" | "spot-history" | "logbook" | "awards" | "settings" => Ok(label),
         _ => Err("Only detachable workspaces can dock back".into()),
     }
 }
@@ -1035,7 +1039,7 @@ mod intelligence_window_tests {
     fn intelligence_docks_to_the_existing_desk_without_a_new_main_screen() {
         let screen = super::detached_dock_screen("callsign-intelligence").unwrap();
         assert_eq!(screen, "operator-desk"); assert!(crate::workspace_navigation::screen(screen).is_some());
-        for label in ["log-qso", "logbook", "awards", "spot-history", "world-map", "band-maps", "dx-cluster"] {
+        for label in ["log-qso", "logbook", "awards", "spot-history", "world-map", "band-maps", "dx-cluster", "settings"] {
             assert_eq!(super::detached_dock_screen(label).unwrap(), label);
         }
         for label in ["main", "monitor", "active-qso", "unknown", ""] { assert!(super::detached_dock_screen(label).is_err()); }

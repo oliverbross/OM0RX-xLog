@@ -1,0 +1,70 @@
+// @vitest-environment jsdom
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { DetachedSettingsSurface, requestDetachedSettings } from "./DetachedSettingsSurface";
+
+const api = vi.hoisted(() => ({ request: vi.fn(), dock: vi.fn(), changed: undefined as undefined | (() => void),
+  layoutRefresh: vi.fn(async () => {}) }));
+vi.mock("./settingsTransport", () => ({
+  requestSettings: api.request,
+  connectSettingsChanges: (changed: () => void) => { api.changed = changed; return () => { api.changed = undefined; }; },
+}));
+vi.mock("./DetachedClusterBridge", () => ({ dockDetachedWorkspace: api.dock }));
+vi.mock("./SyncPanel", () => ({ default: () => <p>Scoped synchronization</p> }));
+vi.mock("./WorkspaceSettings", () => ({ default: () => <p>Scoped workspace layouts</p> }));
+vi.mock("./useWorkspaceLayout", () => ({ useWorkspaceLayout: () => ({
+  state: { snapshot: null, pending: null, conflict: null, saving: false, error: "", workspaceChanged: false },
+  session: { refresh: api.layoutRefresh }, subscriptionError: "",
+}) }));
+
+const generation = "12345678-1234-1234-1234-123456789abc";
+const values = { logbookMode: "wavelog", operatorCall: "OM0RX", stationCall: "OM0RX", gridSquare: "JN88",
+  wavelogStationID: 1, automaticSync: false };
+const snapshot = (revision: number, settings = values) => ({ generation, revision, settings });
+
+beforeEach(() => {
+  localStorage.clear(); api.changed = undefined; api.dock.mockReset(); api.layoutRefresh.mockClear();
+});
+afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
+
+it("retains a dirty detached form across invalidation and remount, then permits Dock only after explicit discard", async () => {
+  let current = snapshot(0);
+  api.request.mockImplementation(async (method: string) => {
+    if (method === "settings_load") return structuredClone(current);
+    throw new Error(`Unexpected Settings request ${method}`);
+  });
+  api.dock.mockResolvedValue(undefined);
+  const first = render(<DetachedSettingsSurface />);
+  const operator = await screen.findByRole("textbox", { name: "Operator call" }) as HTMLInputElement;
+  fireEvent.change(operator, { target: { value: "VK8DIRTY" } });
+  expect(operator.value).toBe("VK8DIRTY");
+  expect(screen.queryByRole("tab", { name: "Rotator" })).toBeNull();
+  expect(screen.queryByRole("tab", { name: "CW" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Dock back" }));
+  expect(await screen.findByText(/Resolve or discard/)).toBeTruthy();
+  expect(api.dock).not.toHaveBeenCalled();
+
+  current = snapshot(1, { ...values, operatorCall: "VK8SAVED" });
+  await act(async () => { api.changed?.(); });
+  await screen.findByText(/changed in another window/);
+  expect((screen.getByRole("textbox", { name: "Operator call" }) as HTMLInputElement).value).toBe("VK8DIRTY");
+  first.unmount();
+
+  render(<DetachedSettingsSurface />);
+  await screen.findByText(/changed in another window/);
+  expect((screen.getByRole("textbox", { name: "Operator call" }) as HTMLInputElement).value).toBe("VK8DIRTY");
+  fireEvent.click(screen.getByRole("button", { name: "Use saved Settings" }));
+  await waitFor(() => expect((screen.getByRole("textbox", { name: "Operator call" }) as HTMLInputElement).value).toBe("VK8SAVED"));
+  fireEvent.click(screen.getByRole("button", { name: "Dock back" }));
+  await waitFor(() => expect(api.dock).toHaveBeenCalledOnce());
+  expect(localStorage.getItem("xlog.integration.settings.detached.v1")).toBeNull();
+});
+
+it("enforces the detached non-hardware method list before IPC", async () => {
+  api.request.mockResolvedValue({});
+  await requestDetachedSettings("secret_status");
+  expect(api.request).toHaveBeenCalledWith("secret_status", {});
+  await expect(requestDetachedSettings("station_tune", { frequency_hz: 14_025_000 })).rejects.toThrow("unavailable");
+  await expect(requestDetachedSettings("winkeyer_send", { text: "TEST" })).rejects.toThrow("unavailable");
+  expect(api.request).toHaveBeenCalledOnce();
+});

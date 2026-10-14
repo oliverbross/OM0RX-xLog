@@ -13,5 +13,6 @@ export async function loadWindowSurface(search: string): Promise<ComponentType> 
   if (view === "log-qso") return (await import("./live/DetachedQSOSurface")).DetachedQSOSurface;
   if (view === "spot-history") return (await import("./live/DetachedSpotHistorySurface")).DetachedSpotHistorySurface;
   if (view === "dx-cluster") return (await import("./live/DetachedClusterSurface")).DetachedClusterSurface;
+  if (view === "settings") return (await import("./live/DetachedSettingsSurface")).DetachedSettingsSurface;
   return (await import("./LiveApp")).default;
 }

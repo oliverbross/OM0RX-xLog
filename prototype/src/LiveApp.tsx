@@ -47,8 +47,8 @@ import { DeskMapLogbook } from "./live/DeskMapLogbook";
 import SyncPanel from "./live/SyncPanel";
 import { watchSyncCompletion } from "./live/syncCompletion";
 import ServiceSettings from "./live/ServiceSettings";
-import { SettingsSession, readSettingsJournal } from "./live/settingsSession";
-import { requestSettings } from "./live/settingsTransport";
+import { SettingsSession, readSettingsJournal, settingsDraftIsDirty } from "./live/settingsSession";
+import { connectSettingsChanges, requestSettings } from "./live/settingsTransport";
 import WorkspaceSettings from "./live/WorkspaceSettings";
 import WorkspaceGate from "./live/WorkspaceGate";
 import SpotBridgePanel from "./live/SpotBridgePanel";
@@ -177,6 +177,7 @@ function MainLiveApp() {
   const [previous, setPrevious] = useState<Data[]>([]);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  useEffect(() => connectSettingsChanges(() => { void settingsSession.load(); }, setError), [settingsSession]);
   const editorInputState = useCallback((pending: boolean) => {
     editorBufferPending.current = pending;
     draftSession.setLocalInputPending(!contactSession.getSnapshot().draft && pending);
@@ -832,7 +833,7 @@ function MainLiveApp() {
       {view === "Settings" && settings && <ServiceSettings values={settings} savedValues={settingsState.base?.settings} request={request}
         onChanged={value => settingsSession.edit(value)} onSave={async value => { await settingsSession.save(value); await draftSession.refresh(); }}
         saving={settingsState.saving} pending={!!settingsState.pending} conflict={!!settingsState.conflict}
-        workspaceChanged={settingsState.workspaceChanged} sessionError={settingsState.error}
+        workspaceChanged={settingsState.workspaceChanged} dirty={settingsDraftIsDirty(settingsState.base, settingsState.draft)} sessionError={settingsState.error}
         onReconcile={async () => { try { await settingsSession.reconcile(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Settings receipt could not be checked."); } }}
         onRetry={async () => { try { await settingsSession.retry(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Settings save could not be retried."); } }}
         onUseSaved={() => { try { settingsSession.useSaved(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Saved Settings could not be restored."); } }}

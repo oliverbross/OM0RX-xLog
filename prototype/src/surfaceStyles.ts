@@ -24,6 +24,7 @@ import "./live/DeskMapLogbook.css";
 import "./live/OperatorCanvas.css";
 import "./live/SyncPanel.css";
 import "./live/ServiceSettings.css";
+import "./live/WorkspaceSettings.css";
 import "./live/DisplaySettings.css";
 import "./live/StationEquipment.css";
 import "./live/RotorPanel.css";
