@@ -548,9 +548,16 @@ actor LiveStationSession {
               station.allowedActions.contains(name) else {
             throw WorkerFailure("station_action_blocked", "The station does not currently allow this action.")
         }
-        if action != .standby && action != .cancel {
+        if Self.requiresTransmitOptIn(action) {
             guard lifecycleTransitions == 0, allowTransmit, station.inhibitors.isEmpty else {
                 throw WorkerFailure("station_action_blocked", "Transmit control is not enabled or the station has inhibitors.")
+            }
+        } else if action == .operate {
+            // Operate is the Agent's guarded amplifier-state transaction, not an
+            // RF-producing CAT control. The Agent remains authoritative for its
+            // advertised action, current route and hardware interlocks.
+            guard lifecycleTransitions == 0, station.inhibitors.isEmpty else {
+                throw WorkerFailure("station_action_blocked", "The station has inhibitors or its connection is changing.")
             }
         }
         transmitOwnership.beginAction(action)
@@ -561,6 +568,10 @@ actor LiveStationSession {
         } catch {
             throw WorkerFailure("station_rejected", "The Remote Station Agent rejected the action.")
         }
+    }
+
+    static func requiresTransmitOptIn(_ action: RemoteStationAction) -> Bool {
+        action == .tune
     }
 
     private func radioControl(_ params: [String: Any]) async throws -> [String: Any] {

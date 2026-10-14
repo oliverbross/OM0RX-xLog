@@ -112,6 +112,13 @@ final class LiveStationMethodsTests: XCTestCase {
         XCTAssertTrue(ownership.releases.isEmpty)
     }
 
+    func testOperateIsNotClassifiedAsAnRFProducingTransmitControl() {
+        XCTAssertFalse(LiveStationSession.requiresTransmitOptIn(.operate))
+        XCTAssertFalse(LiveStationSession.requiresTransmitOptIn(.standby))
+        XCTAssertFalse(LiveStationSession.requiresTransmitOptIn(.cancel))
+        XCTAssertTrue(LiveStationSession.requiresTransmitOptIn(.tune))
+    }
+
     func testDirectEndpointRequiresCredentialFreeHTTPS() throws {
         XCTAssertEqual(try LiveStationSession.validatedURL("https://station.example/"),
                        "https://station.example/")
