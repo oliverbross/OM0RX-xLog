@@ -55,7 +55,7 @@ export default function OperatorCanvas({ panels, traditional, state, session, su
     <div className="canvas-toolbar" aria-label="Workspace layout">
       <label>Layout <select ref={toolbar} aria-label="Desk layout" disabled={blocked} value={active?.id ?? "traditional"} onChange={event => selectLayout(event.target.value)}>
         <option value="traditional">Traditional</option><option value="custom">{state.snapshot?.document.presets.find(preset => preset.id === "custom")?.name ?? "Custom"}</option>
-        {active?.id === "windowed" && <option value="windowed" disabled>Windowed · restoration pending</option>}
+        {active?.id === "windowed" && <option value="windowed" disabled>Separate Windows</option>}
         {state.snapshot?.document.presets.filter(preset => !["traditional", "custom", "windowed"].includes(preset.id)).map(preset => <option key={preset.id} value={preset.id}>{preset.name}</option>)}
       </select></label>
       {custom && <><button type="button" disabled={blocked} aria-pressed={!active.locked} onClick={() => savePreset({ ...active, locked: !active.locked })}>{active.locked ? "Arrange panels" : "Lock layout"}</button>
@@ -66,7 +66,6 @@ export default function OperatorCanvas({ panels, traditional, state, session, su
       <span role="status">{state.saving || working ? "Saving layout…" : !state.snapshot ? "Loading layout…" : custom && !active.locked ? compact ? "Expand the window to arrange panels." : "Click a panel’s arrow to edit · Drag its title to move or any edge/corner to resize · Click the arrow again to finish" : ""}</span>
       {custom && Object.entries(panels).filter(([, panel]) => panel?.required && panel.safetyAction).map(([id, panel]) => <span className="canvas-safety-action" key={id}>{panel!.safetyAction}</span>)}
     </div>
-    {active?.id === "windowed" && <p className="canvas-empty" role="status">The saved Windowed preset is not yet restored automatically. Traditional controls remain available; use the Window menu to open individual windows.</p>}
     {(error || state.error || subscriptionError) && <div className="canvas-recovery" role="alert"><span>{error || state.error || subscriptionError}</span>
       <button type="button" disabled={working || state.saving} onClick={() => void perform(() => session.refresh())}>Reload layout</button>
       {state.pending && <><button type="button" disabled={working || state.saving || !!state.conflict || state.workspaceChanged} onClick={() => void perform(() => session.retry())}>Retry change</button>

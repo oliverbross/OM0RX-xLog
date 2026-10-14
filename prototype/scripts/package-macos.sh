@@ -14,7 +14,7 @@ npx tauri build --bundles app
 # CI/development defaults to ad-hoc signing. An explicitly selected Developer
 # ID identity enables hardened-runtime release signing; notarization remains a
 # separate acceptance step, never inferred from a valid code signature.
-bundle="$root/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog Integration.app"
+bundle="$root/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app"
 binary_dir="$(XLOG_PORTABLE_ONLY=1 swift build --build-system xcode --package-path "$root" --scratch-path "$root/.build/prototype-worker" -c release --show-bin-path)"
 ditto "$binary_dir/OM0RXXLogPrototype_XLogCore.bundle" "$bundle/Contents/Resources/OM0RXXLogPrototype_XLogCore.bundle"
 ditto "$root/prototype/src-tauri/binaries/hamlib-4.7.2-notices" "$bundle/Contents/Resources/Hamlib-Licenses"
@@ -28,4 +28,4 @@ for component in "$bundle/Contents/MacOS/xlog-prototype-worker" "$bundle/Content
   fi
 done
 codesign --verify --deep --strict "$bundle"
-printf 'Integration bundle verified (notarization separate): %s\n' "$bundle"
+printf 'OM0RX-xLog bundle verified (notarization separate): %s\n' "$bundle"

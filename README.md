@@ -11,7 +11,7 @@ Created and maintained by **Oliver Bross, OM0RX**.
 
 ## Shared-app Mac integration — development alpha
 
-The `codex/unified-xlog-integration-p2` branch now builds **OM0RX-xLog Integration
+The `codex/unified-xlog-integration-p2` branch now builds **OM0RX-xLog
 0.4.0-alpha.6**: the shared Tauri/React app with persistent real logbook, xCluster,
 embedded xCat Remote Agent services, and bundled Hamlib radio/rotor helpers. It has a separate bundle and an isolated
 verified logbook copy; the working native apps and original data are preserved.

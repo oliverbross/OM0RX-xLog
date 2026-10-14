@@ -1,7 +1,7 @@
 # Unified xLog prototype — P1, not the production app
 
 Current P2 iteration is **Mac-first real integration**: the runtime now builds
-`OM0RX-xLog Integration.app` (`0.4.0-alpha.1`) with actual persistent services, not
+`OM0RX-xLog.app` (`0.4.0-alpha.28`) with actual persistent services, not
 the older fixture-only preview. See [current setup and acceptance](../docs/P2_MAC_LIVE_INTEGRATION.md).
 The earlier Prototype app and stable native apps remain installed and unchanged.
 Automatic CI selects Mac only. The historic Windows/Linux packaging machinery
@@ -40,7 +40,7 @@ npm run tauri -- build --no-bundle
 
 Run `npm run tauri -- dev` after staging for the isolated desktop window. For browser-only visual preview use `npm run dev`; it explicitly reports that native worker IPC is unavailable. Never treat the preview as worker acceptance.
 
-macOS `.app` development bundle: run `bash prototype/scripts/package-macos.sh` from the repository root (after `npm ci` in `prototype`). It builds, ad-hoc signs and strictly verifies the isolated bundle without using Apple credentials. This is **not notarization**. It is named **OM0RX-xLog Integration**, identifier `com.oliverbross.xlog.integration`, with the existing xLog artwork. No installer modifies Applications. Native title bars/file dialogs remain platform-specific.
+macOS `.app` development bundle: run `bash prototype/scripts/package-macos.sh` from the repository root (after `npm ci` in `prototype`). It builds, signs and strictly verifies the isolated bundle. Notarization remains a separate acceptance step. It is named **OM0RX-xLog**, retains identifier `com.oliverbross.xlog.integration` for installed-data and Keychain continuity, and uses the shared xLog identity. No installer modifies Applications. Native title bars/file dialogs remain platform-specific.
 
 ## Windows
 

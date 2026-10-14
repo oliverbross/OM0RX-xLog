@@ -166,6 +166,10 @@ input[aria-label="Frequency MHz"],
   color: var(--teal);
   min-width: 144px;
 }
+.brand img {
+  flex: none;
+  object-fit: contain;
+}
 .rail-item {
   display: flex;
   gap: 7px;

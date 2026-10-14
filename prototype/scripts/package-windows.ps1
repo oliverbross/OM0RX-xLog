@@ -348,7 +348,7 @@ try {
     }
     Copy-Item (Join-Path $PSScriptRoot 'accept-windows.ps1') (Join-Path $package 'accept-windows.ps1')
     @'
-OM0RX-xLog Integration portable test package
+OM0RX-xLog portable test package
 Intended desktop target: x86_64 Windows 11, pending user desktop acceptance.
 Native CI reference: Windows Server 2022. Windows 10 is not accepted here.
 Launch xlog-prototype.exe from this extracted directory. All four executables and

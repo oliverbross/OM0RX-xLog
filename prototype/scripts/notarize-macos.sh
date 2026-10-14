@@ -2,10 +2,10 @@
 # Notarize the already-built shared app; never rebuild the stable native app.
 set -euo pipefail
 root="$(cd "$(dirname "$0")/../.." && pwd)"
-bundle="$root/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog Integration.app"
+bundle="$root/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app"
 profile="${NOTARY_PROFILE:-OM0RX-notary}"
 version="$(plutil -extract CFBundleShortVersionString raw "$bundle/Contents/Info.plist")"
-archive="$root/dist/OM0RX-xLog-Integration-$version-macOS-arm64.zip"
+archive="$root/dist/OM0RX-xLog-$version-macOS-arm64.zip"
 codesign --verify --deep --strict "$bundle"
 case "${1:-submit}" in
   submit)

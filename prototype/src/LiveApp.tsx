@@ -76,7 +76,7 @@ import { connectStationSelection, nativeStationSelection } from "./live/stationS
 import { AgentConnectionSetup } from "./live/AgentConnectionSetup";
 import { clearConnectedHandoverMessage, rotorCommandParams, rotorProjection, validRotorSnapshot, type RotorSnapshot } from "./live/rotorControl";
 import "./live/live.css";
-import appLogo from "../src-tauri/icons/64x64.png";
+import appLogo from "./assets/xlog-logo-mark.png";
 
 type Data = Record<string, any>;
 type Request = (method: string, params?: Data) => Promise<any>;

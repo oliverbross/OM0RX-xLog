@@ -88,7 +88,7 @@ export async function workerRequest(
 ) {
   if (!desktop)
     throw new Error(
-      "The browser cannot connect to station services. Launch OM0RX-xLog Integration on your desktop.",
+      "The browser cannot connect to station services. Launch OM0RX-xLog on your desktop.",
     );
   const response = await invoke<{
     id: string;

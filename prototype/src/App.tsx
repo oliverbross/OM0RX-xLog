@@ -24,6 +24,7 @@ import {
   FlaskConical,
   PanelLeft,
 } from "lucide-react";
+import appLogo from "./assets/xlog-logo-mark.png";
 import WorldMap from "./Map";
 import {
   bands,
@@ -586,7 +587,7 @@ export default function App() {
           <PanelLeft size={17} />
         </button>
         <div className="brand">
-          <BookOpen size={17} />
+          <img src={appLogo} alt="" width={24} height={24} />
           <strong>OM0RX-xLog</strong>
         </div>
         <div className="rail-item">
