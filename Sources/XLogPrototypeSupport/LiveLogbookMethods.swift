@@ -36,6 +36,16 @@ public final class LiveLogbookMethods: @unchecked Sendable {
     private let syncAuthorizationKey = "OM0RX-xLog.sync-authorization.v1"
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
+    private var adifExport: (token: String, generation: String, created: Date, snapshot: ADIFExportSnapshot)?
+    private struct ADIFPreviewSession {
+        let token: String
+        let generation: String
+        let created: Date
+        var index: ADIFDuplicatePreviewIndex
+        var nextChunk = 0
+        var recordCount = 0
+    }
+    private var adifPreview: ADIFPreviewSession?
 
     public init(fileManager: FileManager = .default, supportDirectory: URL? = nil,
                 inheritNativePreferences: Bool = true) {
@@ -524,12 +534,44 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                 return ["cells": cells.map { ["band": $0.band, "mode": $0.mode,
                                                 "worked": $0.worked, "confirmed": $0.confirmed] }]
             case "logbook_import_adif":
-                try requireKeys(params, allowed: ["text"], required: ["text"])
+                if params["action"] as? String == "preview" {
+                    try requireKeys(params, allowed: ["action", "text", "token", "generation", "chunk"], required: ["action", "text"])
+                    guard let text = params["text"] as? String else { throw invalid() }
+                    let preview = ADIFImportPreview(text: text)
+                    let issues = preview.issues.map { ["record": $0.recordNumber, "message": $0.message] as [String: Any] }
+                    guard issues.isEmpty else { return ["records": preview.records.count, "issues": issues] }
+                    let generation = try editGeneration()
+                    let chunk = try integer(params, "chunk", default: 0, range: 0...9_999)
+                    if params["token"] == nil {
+                        guard chunk == 0, params["generation"] == nil else { throw invalid() }
+                        adifPreview = ADIFPreviewSession(token: UUID().uuidString, generation: generation,
+                                                        created: Date(), index: ADIFDuplicatePreviewIndex(existing: try readyDatabase().fetchAll()))
+                    } else {
+                        guard params["token"] as? String == adifPreview?.token,
+                              params["generation"] as? String == generation,
+                              adifPreview?.generation == generation,
+                              let created = adifPreview?.created, Date().timeIntervalSince(created) < 300 else {
+                            throw WorkerFailure("preview_expired", "The preview expired or the workspace changed. Review the file again.")
+                        }
+                    }
+                    guard adifPreview?.nextChunk == chunk,
+                          let count = adifPreview?.recordCount, count + preview.records.count <= 500_000 else {
+                        throw WorkerFailure("preview_sequence", "The preview sequence or record limit changed. Review the file again.")
+                    }
+                    let counts = try adifPreview!.index.review(preview)
+                    adifPreview!.nextChunk += 1
+                    adifPreview!.recordCount += preview.records.count
+                    return ["records": preview.records.count, "issues": issues, "generation": generation,
+                            "token": adifPreview!.token, "inserts": counts.inserts, "duplicates": counts.duplicates]
+                }
+                try requireKeys(params, allowed: ["text", "generation"], required: ["text"])
+                if params["generation"] != nil, try !matchesEditGeneration(params, editGeneration()) {
+                    throw WorkerFailure("workspace_changed", "The workspace changed after preview. Review the file again.")
+                }
                 guard let text = params["text"] as? String, text.utf8.count <= 16_384 else { throw invalid() }
-                let records = ADIFParser().records(in: text)
-                let terminators = try NSRegularExpression(pattern: "<EOR\\s*>", options: .caseInsensitive)
-                    .numberOfMatches(in: text, range: NSRange(text.startIndex..., in: text))
-                guard records.count > 0, records.count == terminators, records.count <= 128 else { throw invalid() }
+                let preview = ADIFImportPreview(text: text)
+                guard preview.issues.isEmpty else { throw invalid() }
+                let records = preview.records
                 let qsos = try records.map { record -> QSO in
                     if let raw = record["FREQ"] {
                         guard let frequency = Double(raw), frequency.isFinite,
@@ -541,6 +583,47 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                 let imported = try readyDatabase().importBatch(qsos)
                 return ["imported": imported, "skipped_duplicates": qsos.count - imported]
             case "logbook_export_adif":
+                if let action = params["action"] as? String {
+                    if action == "begin" {
+                        try requireKeys(params, allowed: ["action", "scope", "search", "ids"], required: ["action", "scope"])
+                        let db = try readyDatabase()
+                        let snapshot: ADIFExportSnapshot
+                        switch params["scope"] as? String {
+                        case "all":
+                            guard params["search"] == nil, params["ids"] == nil else { throw invalid() }
+                            snapshot = try db.adifExportSnapshot(scope: .all)
+                        case "filtered":
+                            guard params["ids"] == nil, let search = try string(params, "search", max: 128), !search.isEmpty else { throw invalid() }
+                            snapshot = ADIFExportSnapshot(contacts: try db.fetch(limit: Int(Int32.max), search: search), scope: .all)
+                        case "selected":
+                            guard params["search"] == nil, let rawIDs = params["ids"] as? [String], (1...128).contains(rawIDs.count) else { throw invalid() }
+                            let ids = try Set(rawIDs.map { raw -> UUID in guard let id = UUID(uuidString: raw) else { throw invalid() }; return id })
+                            snapshot = try db.adifExportSnapshot(scope: .selected(ids))
+                            guard snapshot.contactIDs.count == ids.count else { throw WorkerFailure("export_selection_changed", "A selected contact is no longer available. Select it again.") }
+                        default: throw invalid()
+                        }
+                        let token = UUID().uuidString
+                        adifExport = (token, try editGeneration(), Date(), snapshot)
+                        return ["token": token, "total": snapshot.records.count]
+                    }
+                    guard action == "read" else { throw invalid() }
+                    try requireKeys(params, allowed: ["action", "token", "offset", "limit"], required: ["action", "token"])
+                    guard let export = adifExport, params["token"] as? String == export.token,
+                          export.generation == (try editGeneration()), Date().timeIntervalSince(export.created) < 300 else {
+                        throw WorkerFailure("export_expired", "The export snapshot expired or the workspace changed. Start the export again.")
+                    }
+                    let offset = try integer(params, "offset", default: 0, range: 0...Int(Int32.max))
+                    let limit = try integer(params, "limit", default: 20, range: 1...25)
+                    let records = export.snapshot.records.dropFirst(offset).prefix(limit)
+                    let body = records.map { record in
+                        record.fields.keys.sorted().map { key in
+                            let value = record.fields[key] ?? ""
+                            return "<\(key):\(value.utf8.count)>\(value)"
+                        }.joined() + "<EOR>\r\n"
+                    }.joined()
+                    return ["text": (offset == 0 ? "<ADIF_VER:5>3.1.7<EOH>\r\n" : "") + body, "count": records.count,
+                            "offset": offset, "total": export.snapshot.records.count]
+                }
                 try requireKeys(params, allowed: ["limit", "offset"])
                 let limit = try integer(params, "limit", default: 20, range: 1...25)
                 let offset = try integer(params, "offset", default: 0, range: 0...Int(Int32.max))

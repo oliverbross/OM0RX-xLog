@@ -6,6 +6,7 @@ import type { DraftSnapshot } from "./operatorDraftSession";
 import { useLogbookCapacity } from "./logbookCapacity";
 import { LogbookColumnHeader, LogbookColumns, useLogbookColumns } from "./LogbookColumns";
 import { logbookColumns, type LogbookColumn, type LogbookColumnContext } from "./logbookColumnPreferences";
+import { adifBatches, decodeADIF } from "./adifTransfer";
 
 type QSO = Record<string, unknown> & {
   id: string;
@@ -32,8 +33,6 @@ type LogbookPage = { qsos: QSO[]; total: number; offset: number; limit: number }
 type Request = (method: string, params?: Record<string, unknown>) => Promise<any>;
 // Keep worker responses and ADIF export frames bounded independently of the UI page.
 const requestPageSize = 20;
-const maxADIFBytes = 14_000;
-const utf8 = new TextEncoder();
 
 function result<T>(response: any): T {
   return (response && typeof response === "object" && "result" in response
@@ -76,33 +75,6 @@ function ConfirmationStatus({ service, sent, received, supportsReceived = true }
     <Triangle aria-hidden="true" className={`is-${confirmationTone(sent)}`} size={10} fill="currentColor" strokeWidth={0} />
     <Triangle aria-hidden="true" className={`is-down ${supportsReceived ? `is-${confirmationTone(received)}` : "is-unavailable"}`} size={10} fill="currentColor" strokeWidth={0} />
   </span>;
-}
-
-function adifBatches(text: string): string[] {
-  const endOfRecord = /<eor\s*>/gi;
-  const batches: string[] = [];
-  let previous = 0;
-  let batch = "";
-  let count = 0;
-  for (const match of text.matchAll(endOfRecord)) {
-    const record = text.slice(previous, match.index! + match[0].length);
-    previous = match.index! + match[0].length;
-    if (utf8.encode(record).byteLength > maxADIFBytes) {
-      throw new Error("An ADIF record exceeds the safe import size. Nothing after that record was imported.");
-    }
-    if (count >= 100 || utf8.encode(batch + record).byteLength > maxADIFBytes) {
-      batches.push(batch);
-      batch = "";
-      count = 0;
-    }
-    batch += record;
-    count++;
-  }
-  if (text.slice(previous).trim()) {
-    throw new Error("ADIF ends with an incomplete record. Choose a complete export.");
-  }
-  if (batch) batches.push(batch);
-  return batches;
 }
 
 export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChanged, onUndock, onDock, onBusyChange, onWorkingChange, disabled = false, columnContext }: {
@@ -157,6 +129,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
   useEffect(() => { onBusyChange?.(busy); }, [busy, onBusyChange]);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [importReview, setImportReview] = useState<{ name: string; batches: string[]; records: number; duplicates: number; generation: string } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<DraftSnapshot | null>(null);
   const [selectedID, setSelectedID] = useState<string | null>(null);
   const previousCapacity = useRef(pageSize);
@@ -267,16 +240,37 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
 
   async function importFile(file: File) {
     if (!beginWorking()) return;
-    setError(""); setNotice("");
+    setError(""); setNotice(""); setImportReview(null);
+    try {
+      if (file.size > 32 * 1024 * 1024) throw new Error("Choose an ADIF file smaller than 32 MiB.");
+      const batches = adifBatches(decodeADIF(await file.arrayBuffer()));
+      let records = 0, duplicates = 0, generation = "", token = "";
+      for (const [index, text] of batches.entries()) {
+        const preview = result<{ records: number; duplicates: number; generation: string; token: string; issues: { record: number; message: string }[] }>(
+          await onRequest("logbook_import_adif", { action: "preview", text, chunk: index, ...(token ? { token, generation } : {}) }));
+        if (!Array.isArray(preview.issues)) throw new Error("ADIF preview is unavailable. No contacts were imported.");
+        if (preview.issues.length) throw new Error(`Batch ${index + 1}, record ${preview.issues[0].record}: ${preview.issues[0].message}`);
+        if (!preview.token || !preview.generation || (generation && generation !== preview.generation)) throw new Error("The workspace changed during preview. Review the file again.");
+        token = preview.token;
+        generation = preview.generation;
+        records += preview.records; duplicates += preview.duplicates;
+        setNotice(`Validating ADIF · ${index + 1} of ${batches.length} batches`);
+      }
+      if (mounted.current) { setImportReview({ name: file.name, batches, records, duplicates, generation }); setNotice(""); }
+    } catch (cause) { if (mounted.current) setError(cause instanceof Error ? cause.message : String(cause)); }
+    finally { finishWorking(); }
+  }
+
+  async function confirmImport() {
+    if (!importReview || !beginWorking()) return;
+    const { batches, generation } = importReview;
+    setImportReview(null); setError(""); setNotice("");
     let imported = 0;
     let skipped = 0;
     try {
-      const text = await file.text();
-      const batches = adifBatches(text);
-      if (!batches.length) throw new Error("No complete ADIF records were found.");
       for (const [index, batch] of batches.entries()) {
         const response = result<{ imported: number; skipped_duplicates: number }>(
-          await onRequest("logbook_import_adif", { text: batch }),
+          await onRequest("logbook_import_adif", { text: batch, generation }),
         );
         imported += response.imported;
         skipped += response.skipped_duplicates;
@@ -293,18 +287,20 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
     }
   }
 
-  async function exportAll() {
+  async function exportAll(scope: "all" | "filtered" | "selected" = "all") {
     if (!beginWorking()) return;
     setError(""); setNotice("");
     try {
-      const firstPage = result<LogbookPage>(await onRequest("logbook_list", { search: "", offset: 0, limit: 1 }));
-      const total = firstPage.total;
+      const snapshot = result<{ token: string; total: number }>(await onRequest("logbook_export_adif", {
+        action: "begin", scope, ...(scope === "filtered" ? { search } : scope === "selected" ? { ids: [selectedID] } : {}),
+      }));
+      const total = snapshot.total;
       if (!total) throw new Error("There are no QSOs to export.");
       const parts: string[] = [];
       let exported = 0;
       while (exported < total) {
         const response = result<{ text: string; count: number }>(
-          await onRequest("logbook_export_adif", { offset: exported, limit: requestPageSize }),
+          await onRequest("logbook_export_adif", { action: "read", token: snapshot.token, offset: exported, limit: requestPageSize }),
         );
         if (response.count <= 0) throw new Error("Export stopped before the end of the logbook.");
         parts.push(response.text);
@@ -355,6 +351,8 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
           <button type="button" onClick={() => void exportAll()} disabled={busy}>
             <Download size={14} /> Export all
           </button>
+          <button type="button" onClick={() => void exportAll("filtered")} disabled={busy || loading || !search || !total}>Export filtered</button>
+          <button type="button" onClick={() => void exportAll("selected")} disabled={busy || loading || !selected}>Export selected</button>
           {onUndock && <button type="button" onClick={onUndock} disabled={busy}><ExternalLink size={14} /> Undock</button>}
           {onDock && <button type="button" onClick={onDock} disabled={busy}><PanelsTopLeft size={14} /> Dock back</button>}
         </div>
@@ -363,6 +361,12 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
         onDone={() => { setColumnsOpen(false); columnsButton.current?.focus(); }} />}
       {error && <p className="live-logbook-feedback error" role="alert">{error}</p>}
       {notice && <p className="live-logbook-feedback" role="status">{notice}</p>}
+      {importReview && <div className="live-logbook-feedback" role="group" aria-label="Review ADIF import">
+        <p>{importReview.name} · {importReview.records.toLocaleString()} validated records. Duplicate policy: skip existing contacts and repeated records; existing fields remain unchanged.</p>
+        <p>{importReview.duplicates.toLocaleString()} duplicates found during preview. Counts are checked again during import.</p>
+        <button type="button" disabled={busy} onClick={() => void confirmImport()}>Confirm import</button>
+        <button type="button" disabled={busy} onClick={() => setImportReview(null)}>Cancel import</button>
+      </div>}
       {deleting && <div className="live-logbook-feedback" role="group" aria-label={`Delete ${deleting.call}`}>
         <span>Delete {deleting.call} · {utcTime(deleting.start)}? You can undo this deletion.</span>
         <div><button type="button" onClick={() => confirmDelete && void deleteQSO(confirmDelete)} disabled={busy}>Confirm delete</button>

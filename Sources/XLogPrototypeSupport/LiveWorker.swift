@@ -321,7 +321,8 @@ public actor LiveWorker {
                 #if os(macOS)
                 if method == "settings_save" { await references.resetAutomaticDeadline() }
                 #endif
-                if !localAcceptance && (draftLogged || contactChanged || ["workspace_create", "logbook_save", "logbook_delete", "logbook_undo", "logbook_import_adif", "backup_restore"].contains(method)) {
+                let imported = method == "logbook_import_adif" && params["action"] as? String != "preview"
+                if !localAcceptance && (draftLogged || contactChanged || imported || ["workspace_create", "logbook_save", "logbook_delete", "logbook_undo", "backup_restore"].contains(method)) {
                     queueContactRefresh()
                 }
             } else if method.hasPrefix("opportunities_") {

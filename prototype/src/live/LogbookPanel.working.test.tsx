@@ -12,7 +12,7 @@ const deferred = <T,>() => { let resolve!: (value: T) => void; const promise = n
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 it.each(["disabled", "busy", "pending", "conflict", "workspaceChanged"])("does not admit a file selected after the ready picker became %s", async blocker => {
-  const working = vi.fn(), text = vi.fn().mockResolvedValue("<CALL:5>TEST1<EOR>");
+  const working = vi.fn(), text = vi.fn().mockResolvedValue(new TextEncoder().encode("<CALL:5>TEST1<EOR>").buffer);
   const request = vi.fn(async (_method: string) => page()), mutations = new LogbookMutationSession(request, () => {}), edit = vi.fn();
   const props = { mutations, onRequest: request, onEdit: edit, refreshKey: 0, onWorkingChange: working };
   const view = render(<LogbookPanel {...props} />); await screen.findByText(contact.call);
@@ -25,14 +25,14 @@ it.each(["disabled", "busy", "pending", "conflict", "workspaceChanged"])("does n
     // No render is required: operation admission must inspect the live session.
     vi.spyOn(mutations, "getSnapshot").mockReturnValue({ ...mutations.getSnapshot(), [blocker]: true } as any);
   }
-  const file = new File([], "synthetic.adi"); Object.defineProperty(file, "text", { value: text });
+  const file = new File([], "synthetic.adi"); Object.defineProperty(file, "arrayBuffer", { value: text });
   await act(async () => { fireEvent.change(input, { target: { files: [file] } }); });
   expect(text).not.toHaveBeenCalled(); expect(working).not.toHaveBeenCalled();
   expect(request.mock.calls.some(([method]) => method === "logbook_import_adif")).toBe(false);
 });
 
 it("clears a rejected picker selection so the same File can be selected explicitly after unlock", async () => {
-  const working = vi.fn(), text = vi.fn().mockResolvedValue("<CALL:5>TEST1<EOR>");
+  const working = vi.fn(), text = vi.fn().mockResolvedValue(new TextEncoder().encode("<CALL:5>TEST1<EOR>").buffer);
   const request = vi.fn(async (method: string) => method === "logbook_import_adif" ? { imported: 1, skipped_duplicates: 0 } : page());
   const mutations = new LogbookMutationSession(request, () => {});
   const props = { mutations, onRequest: request, onEdit: vi.fn(), refreshKey: 0, onWorkingChange: working };
@@ -41,7 +41,7 @@ it("clears a rejected picker selection so the same File can be selected explicit
   vi.spyOn(input, "click").mockImplementation(() => {});
   fireEvent.click(screen.getByRole("button", { name: "Import ADIF" }));
   view.rerender(<LogbookPanel {...props} disabled />);
-  const file = new File([], "synthetic.adi"); Object.defineProperty(file, "text", { value: text });
+  const file = new File([], "synthetic.adi"); Object.defineProperty(file, "arrayBuffer", { value: text });
   // jsdom does not populate the browser's displayed fake path on file selection.
   Object.defineProperty(input, "value", { configurable: true, writable: true, value: "C:\\fakepath\\synthetic.adi" });
   await act(async () => { fireEvent.change(input, { target: { files: [file] } }); });
@@ -73,14 +73,14 @@ it.each(["Import", "Export"])("reports held %s synchronously and releases intrin
   expect(working).not.toHaveBeenCalled();
   if (operation === "Import") {
     const file = new File([], "synthetic.adi", { type: "text/plain" });
-    Object.defineProperty(file, "text", { value: () => { expect(working).toHaveBeenLastCalledWith(true); return gate.promise; } });
+    Object.defineProperty(file, "arrayBuffer", { value: () => { expect(working).toHaveBeenLastCalledWith(true); return gate.promise; } });
     fireEvent.change(view.container.querySelector('input[type="file"]')!, { target: { files: [file] } });
   } else fireEvent.click(screen.getByRole("button", { name: "Export all" }));
   expect(working.mock.calls).toEqual([[true]]);
   expect((screen.getByRole("button", { name: "Export all" }) as HTMLButtonElement).disabled).toBe(true);
   view.rerender(<Host forced />); view.rerender(<Host />); view.rerender(<Host forced />);
   expect(working.mock.calls).toEqual([[true]]);
-  await act(async () => { gate.resolve(operation === "Import" ? "<CALL:5>TEST1<EOR>" : { text: "", count: 0 }); });
+  await act(async () => { gate.resolve(operation === "Import" ? new TextEncoder().encode("<CALL:5>TEST1<EOR>").buffer : { text: "", count: 0 }); });
   await waitFor(() => expect(working.mock.calls).toEqual([[true], [false]]));
   // External disabled remains true, but must not latch the intrinsic signal.
   expect(aggregate).toHaveBeenLastCalledWith(true);

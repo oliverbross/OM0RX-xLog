@@ -228,6 +228,45 @@ public enum ADIFPlanningError: Error, Equatable {
     case invalidPreview, ambiguousDuplicate(recordNumber: Int), identityFieldUpdate
 }
 
+/// Read-only duplicate counts for a sequence of bounded preview chunks. Existing
+/// contacts are indexed once; this index never authorizes a persistence operation.
+public struct ADIFDuplicatePreviewIndex: Sendable {
+    private let existing: [SemanticQSOIdentity: Int]
+    private var seen = Set<SemanticQSOIdentity>()
+
+    public init(existing contacts: [QSO]) {
+        let formatter = ISO8601DateFormatter()
+        var counts: [SemanticQSOIdentity: Int] = [:]
+        for qso in contacts where qso.deletedAt == nil {
+            counts[Self.identity(qso, formatter), default: 0] += 1
+        }
+        existing = counts
+    }
+
+    public mutating func review(_ preview: ADIFImportPreview) throws -> (inserts: Int, duplicates: Int) {
+        guard preview.issues.isEmpty else { throw ADIFPlanningError.invalidPreview }
+        let formatter = ISO8601DateFormatter()
+        // Validate the whole chunk before advancing session state.
+        let keys = try preview.records.enumerated().map { index, record in
+            guard let qso = QSO(adif: record) else { throw ADIFPlanningError.invalidPreview }
+            let key = Self.identity(qso, formatter)
+            guard (existing[key] ?? 0) <= 1 else { throw ADIFPlanningError.ambiguousDuplicate(recordNumber: index + 1) }
+            return key
+        }
+        var inserts = 0, duplicates = 0
+        for key in keys {
+            if !seen.insert(key).inserted || existing[key] != nil { duplicates += 1 }
+            else { inserts += 1 }
+        }
+        return (inserts, duplicates)
+    }
+
+    private static func identity(_ qso: QSO, _ formatter: ISO8601DateFormatter) -> SemanticQSOIdentity {
+        SemanticQSOIdentity(call: qso.call, timestamp: formatter.string(from: qso.start),
+                            band: qso.band, mode: qso.submode.isEmpty ? qso.mode : qso.submode)
+    }
+}
+
 /// Describes intended changes only: callers must separately authorize persistence,
 /// stale-target checks and sync behavior before applying any proposed record.
 public struct ADIFImportPlan: Sendable {

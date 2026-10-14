@@ -126,6 +126,7 @@ impl SyncCompletionObserver {
 pub fn changes_logbook(request: &serde_json::Value) -> bool {
     let method = request["method"].as_str().unwrap_or("");
     if method == "logbook_operator_draft_apply" { return request["params"]["action"] == "save"; }
+    if method == "logbook_import_adif" && request["params"]["action"] == "preview" { return false; }
     matches!(method, "logbook_save" | "logbook_delete" | "logbook_undo" | "logbook_contact_apply"
         | "logbook_import_adif" | "backup_restore"
         | "sync_run" | "sync_resolve" | "sync_retry" | "workspace_create")
@@ -268,6 +269,7 @@ mod tests {
     }
     #[test]
     fn writes_invalidate_but_read_and_hardware_requests_do_not() {
+        assert!(!changes_logbook(&json!({"method":"logbook_import_adif","params":{"action":"preview"}})));
         for method in ["logbook_save", "logbook_contact_apply", "logbook_import_adif", "backup_restore", "sync_run"] {
             assert!(changes_logbook(&json!({"method":method})));
         }
