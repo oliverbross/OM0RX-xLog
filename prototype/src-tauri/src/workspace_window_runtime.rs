@@ -353,7 +353,13 @@ impl Host for NativeHost {
     fn hide(&mut self, label: &str) -> Result<(), String> {
         active()?;
         if let Some(window) = self.app.get_webview_window(label) {
-            window.hide().map_err(|error| error.to_string())?;
+            if label == "cw" {
+                if let Some(owner) = crate::cw_session_backend::existing() { owner.prepare_close(label)?; }
+            }
+            if let Err(error) = window.hide() {
+                if label == "cw" { if let Some(owner) = crate::cw_session_backend::existing() { let _ = owner.allow_window(label); } }
+                return Err(error.to_string());
+            }
         }
         Ok(())
     }

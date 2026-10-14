@@ -34,7 +34,9 @@ export class SharedCWSession {
       if (!this.disposed) {
         if (action === "send" || action === "arm" || action === "stop") this.uncertain = true;
         this.update({ armed: false, error: cause instanceof Error ? cause.message : String(cause) });
-        if (action === "arm") await this.action("stop");
+        // An Arm rejection/lost reply must release only our lease: another
+        // window may have won admission after our last observed snapshot.
+        if (action === "arm") await this.action("unregister");
       }
     }
   }
@@ -43,6 +45,9 @@ export class SharedCWSession {
   arm = () => this.action("arm", { expectedRevision: this.state.revision });
   send = (macro: CWMacro, _previewContext?: CWContext) => this.action("send", { expectedRevision: this.state.revision, lease: this.state.lease, macroID: macro.id });
   stop = () => this.action("stop");
+  // Focus/renderer lifecycle releases only this client's lease. Explicit Stop
+  // remains global so any visible CW control can clear retained output.
+  release = () => this.action("unregister");
   activate = () => { this.disposed = false; };
   acknowledgeStopped = () => { void this.action("acknowledge", { expectedRevision: this.state.revision, confirmed: true }); };
   dispose = () => { this.disposed = true; void this.action("unregister"); };

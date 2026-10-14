@@ -15,6 +15,7 @@ const MAX_IN_FLIGHT: usize = 16;
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(45);
 pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     validate_request(request)?;
+    if label == "cw" { return Err("CW can only use the typed shared CW session.".into()); }
     if request["method"].as_str().is_some_and(|method| method.starts_with("spot_draft_")) {
         return Err("Only the native activation owner can use this method.".into());
     }
@@ -776,6 +777,14 @@ mod tests {
             "cluster_snapshot", "cluster_connect", "cluster_resume", "settings_load", "settings_save", "secret_status", "secret_save", "sync_run",
             "workspace_create", "workspace_layout_apply", "logbook_operator_draft", "logbook_list", "backup_restore", "health"] {
             assert!(validate_surface("station-control", &json!({"id":"station","method":method,"params":{}})).is_err(), "{method}");
+        }
+    }
+    #[test]
+    fn cw_child_has_no_raw_worker_or_device_authority() {
+        for method in ["workspace_layout_load", "settings_load", "settings_save", "secret_save", "secret_status", "logbook_operator_draft",
+            "station_snapshot", "station_connect", "station_configuration", "station_radio_control", "station_action", "station_tune",
+            "hamlib_snapshot", "hamlib_connect", "hamlib_control", "winkeyer_snapshot", "winkeyer_control", "rotor_stop", "cluster_snapshot", "health"] {
+            assert!(validate_surface("cw", &json!({"id":"cw","method":method,"params":{}})).is_err(), "{method}");
         }
     }
     #[test]

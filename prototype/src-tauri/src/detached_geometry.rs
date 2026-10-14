@@ -148,6 +148,9 @@ fn install_inner(window: &tauri::WebviewWindow) -> Result<(), String> {
         let Ok(mut tracking) = events.lock() else { return; };
         if tracking.closed { return; }
         if matches!(event, WindowEvent::CloseRequested { .. }) {
+            // CW uses asynchronous native Stop/guard admission. A prevented
+            // close is not the end of this geometry lifetime.
+            if observed.label() == "cw" { return; }
             tracking.closed = true; drop(tracking);
             record(&observed, &event_directory, &events, None, true); return;
         }

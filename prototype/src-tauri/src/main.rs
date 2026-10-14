@@ -179,7 +179,7 @@ async fn auto_rotor_set(window: tauri::WebviewWindow, app: tauri::AppHandle, sta
     result
 }
 fn detached_window_shortcut(kind: &str) -> Option<&'static str> {
-    if kind == "log-qso" { Some("CmdOrCtrl+L") } else { None }
+    match kind { "log-qso" => Some("CmdOrCtrl+L"), "cw" => Some("CmdOrCtrl+Shift+K"), _ => None }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -474,9 +474,7 @@ async fn station_session_request(app: tauri::AppHandle, window: tauri::WebviewWi
 #[tauri::command]
 async fn cw_session_request(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>,
     client: String, sequence: u64, params: serde_json::Value) -> Result<serde_json::Value, String> {
-    if window.label() != "main" || state.path.is_some() || APP_EXITING.load(Ordering::Acquire) {
-        return Err("Shared CW controls are available only in the main workspace.".into());
-    }
+    cw_session::validate_surface(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire), params["action"].as_str().unwrap_or(""))?;
     let focused = window.is_focused().unwrap_or(false) && window.is_visible().unwrap_or(false);
     if matches!(params["action"].as_str(), Some("arm" | "send"))
         && SPOT_ACTIVATION.get().is_some_and(|owner| owner.snapshot().map_or(true, |state| state["reservationActive"] == true)) {
@@ -502,7 +500,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
         return Err("Use the shared CW session for CW output controls.".into());
     }
     // This explicit role gate precedes every native special dispatcher too.
-    if matches!(window.label(), "monitor" | "log-qso" | "spot-history" | "world-map" | "band-maps" | "callsign-intelligence" | "station-control") { worker::validate_surface(window.label(), &request)?; }
+    if matches!(window.label(), "monitor" | "log-qso" | "spot-history" | "world-map" | "band-maps" | "callsign-intelligence" | "station-control" | "cw") { worker::validate_surface(window.label(), &request)?; }
     if state.path.is_none() && matches!(method, "opportunities_snapshot" | "opportunities_refresh") {
         worker::validate_surface(window.label(), &request)?;
         return tauri::async_runtime::spawn_blocking(move || opportunity_selection::snapshot(request)).await
@@ -704,6 +702,9 @@ fn ensure_workspace_window(app: &tauri::AppHandle, kind: &str, focus: bool) -> R
     let spec = workspace_windows::SUPPORTED_WINDOWS.iter().find(|spec| spec.id == kind)
         .ok_or("Unknown native workspace window")?;
     if let Some(existing) = app.get_webview_window(kind) {
+        if kind == "cw" && !existing.is_visible().unwrap_or(true) {
+            if let Some(owner) = cw_session_backend::existing() { owner.allow_window(kind)?; }
+        }
         existing.unminimize().map_err(|e| e.to_string())?;
         existing.show().map_err(|e| e.to_string())?;
         if focus { existing.set_focus().map_err(|e| e.to_string())?; }
@@ -720,6 +721,7 @@ fn ensure_workspace_window(app: &tauri::AppHandle, kind: &str, focus: bool) -> R
     if let Some(directory) = app.state::<acceptance::Acceptance>().detached_browser_context()? {
         builder = builder.data_directory(directory);
     }
+    if kind == "cw" { if let Some(owner) = cw_session_backend::existing() { owner.allow_window(kind)?; } }
     let detached = builder.build().map_err(|e| e.to_string())?;
     workspace_window_runtime::created(&detached);
     if app.state::<acceptance::Acceptance>().path.is_none() {
@@ -759,6 +761,16 @@ fn cluster_session_selection(window: tauri::WebviewWindow, app: tauri::AppHandle
 async fn dock_detached_window(window: tauri::WebviewWindow, app: tauri::AppHandle) -> Result<(), String> {
     let screen = detached_dock_screen(window.label())?;
     validate_editor_transition(window.label())?;
+    if window.label() == "cw" {
+        prepare_cw_close().await?;
+        let result = async {
+            navigate_workspace(app, screen.into()).await?;
+            detached_geometry::flush(&window);
+            window.destroy().map_err(|error| error.to_string())
+        }.await;
+        if result.is_err() { if let Some(owner) = cw_session_backend::existing() { let _ = owner.allow_window("cw"); } }
+        return result;
+    }
     // The revisioned route survives a main view that has not subscribed yet.
     navigate_workspace(app.clone(), screen.into()).await?;
     window.close().map_err(|error| error.to_string())?;
@@ -775,10 +787,34 @@ fn local_history_reader(label: &str, method: &str) -> bool {
 
 fn detached_dock_screen(label: &str) -> Result<&str, String> {
     match label {
-        "callsign-intelligence" => Ok("operator-desk"),
+        "callsign-intelligence" | "cw" => Ok("operator-desk"),
         "dx-cluster" | "world-map" | "band-maps" | "log-qso" | "spot-history" | "logbook" | "awards" | "settings" | "station-control" => Ok(label),
         _ => Err("Only detachable workspaces can dock back".into()),
     }
+}
+
+async fn prepare_cw_close() -> Result<(), String> {
+    if let Some(owner) = cw_session_backend::existing() {
+        tauri::async_runtime::spawn_blocking(move || owner.prepare_close("cw")).await
+            .map_err(|_| "CW close could not be verified; use Stop before retrying.".to_string())??;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn close_cw_window(window: tauri::WebviewWindow) -> Result<(), String> {
+    if window.label() != "cw" { return Err("Only the CW window can close itself.".into()); }
+    prepare_cw_close().await?;
+    detached_geometry::flush(&window);
+    let result = window.destroy().map_err(|error| error.to_string());
+    if result.is_err() { if let Some(owner) = cw_session_backend::existing() { let _ = owner.allow_window("cw"); } }
+    result
+}
+
+#[tauri::command]
+async fn show_cw_desk(window: tauri::WebviewWindow, app: tauri::AppHandle) -> Result<(), String> {
+    if window.label() != "cw" { return Err("Only CW can request its Desk route.".into()); }
+    navigate_workspace(app, "operator-desk".into()).await
 }
 
 #[tauri::command]
@@ -820,11 +856,18 @@ fn main() {
     let builder = tauri::Builder::default()
         .menu(workspace_menu)
         .on_window_event(|window, event| {
+            if window.label() == "cw" {
+                // The renderer requests the typed asynchronous Stop/guard path.
+                // A missing listener or renderer crash must not bypass it.
+                if let tauri::WindowEvent::CloseRequested { api, .. } = event { api.prevent_close(); }
+            }
             if matches!(event, tauri::WindowEvent::Focused(false) | tauri::WindowEvent::Destroyed) {
                 if let Some(owner) = cw_session_backend::existing() {
-                    let _ = owner.revoke_window(window.label());
-                    let label = window.label().to_owned();
-                    tauri::async_runtime::spawn_blocking(move || { let _ = owner.release_window(&label); });
+                    if let Ok(clients) = owner.revoke_window_clients(window.label()) {
+                        // Pin retiring client identities before dispatch: a late
+                        // callback must not release a replacement window's lease.
+                        tauri::async_runtime::spawn_blocking(move || { let _ = owner.release_clients(&clients); });
+                    }
                 }
             }
             if !spot_editor_barrier::editor_role(window.label()) { return; }
@@ -910,7 +953,7 @@ fn main() {
             auto_rotor_snapshot, auto_rotor_set,
             workspace_windows_status, workspace_windows_reconcile,
             workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot,
-            detached_cluster_ready, cluster_session_selection, dock_detached_window, close_logbook_window, close_qso_window, close_main_window,
+            detached_cluster_ready, cluster_session_selection, dock_detached_window, close_logbook_window, close_qso_window, close_main_window, close_cw_window, show_cw_desk,
             acceptance::acceptance_enabled, acceptance::acceptance_large_log, acceptance::acceptance_monitor,
             acceptance::acceptance_screen, acceptance::acceptance_desk_size,
             acceptance::acceptance_open_window, acceptance::acceptance_window_step, acceptance::acceptance_window_state,
@@ -1075,9 +1118,10 @@ mod workspace_layout_tests {
     #[test]
     fn log_qso_native_shortcut_is_global_and_does_not_replace_embedded_screen_shortcut() {
         assert_eq!(detached_window_shortcut("log-qso"), Some("CmdOrCtrl+L"));
+        assert_eq!(detached_window_shortcut("cw"), Some("CmdOrCtrl+Shift+K"));
         assert_eq!(crate::workspace_navigation::screen("log-qso").unwrap().shortcut.as_deref(), Some("CmdOrCtrl+2"));
         for window in crate::workspace_windows::SUPPORTED_WINDOWS {
-            if window.id != "log-qso" { assert_eq!(detached_window_shortcut(window.id), None); }
+            if !matches!(window.id, "log-qso" | "cw") { assert_eq!(detached_window_shortcut(window.id), None); }
         }
     }
 

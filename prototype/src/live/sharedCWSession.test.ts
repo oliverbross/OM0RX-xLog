@@ -31,11 +31,11 @@ describe("native shared CW renderer adapter", () => {
     expect(session.getSnapshot().armed).toBe(false); expect(session.getSnapshot().error).toMatch(/lost/);
     expect(transport.mock.calls.filter(call => call[2].action === "send")).toHaveLength(1);
   });
-  it("lost Arm acknowledgement requests Stop and cleanup unregisters without replay", async () => {
+  it("lost Arm acknowledgement releases only this registration, never another window's lease", async () => {
     const transport = vi.fn<CWTransport>(async (client, _, params) => {
       if (params.action === "arm") throw new Error("IPC reply lost"); return snapshot(client);
     });
     const session = new SharedCWSession(transport); await session.refresh(); await session.arm(); session.dispose(); await Promise.resolve();
-    expect(transport.mock.calls.map(call => call[2].action)).toEqual(["snapshot", "arm", "stop", "unregister"]);
+    expect(transport.mock.calls.map(call => call[2].action)).toEqual(["snapshot", "arm", "unregister", "unregister"]);
   });
 });
