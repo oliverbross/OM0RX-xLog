@@ -132,6 +132,62 @@ struct AwardCatalogTests {
         #expect(jcc.sponsorCredited == nil)
     }
 
+    @Test("JARL date cutoffs use the UTC contact day, including exact boundaries")
+    func entityDateBoundaries() throws {
+        let formatter = ISO8601DateFormatter()
+        func progress(county: String, instant: String) throws -> AwardCatalogSnapshot {
+            let value = QSO(call: "JA8DATE", start: try #require(formatter.date(from: instant)),
+                            band: "20m", mode: "CW", dxcc: 339, state: "01", county: county,
+                            qslReceived: "Y")
+            return try AwardCatalogEngine.compute(qsos: [value])
+        }
+        for (instant, expected) in [("1973-11-30T23:59:59Z", 1), ("1973-12-01T00:00:00Z", 0)] {
+            let snapshot = try progress(county: "0132", instant: instant)
+            for code in ["JCC", "AJA"] {
+                let award = try item(code, in: snapshot)
+                #expect(award.worked == expected)
+                #expect(award.current == expected)
+            }
+        }
+        for (instant, expected) in [("1972-03-31T23:59:59Z", 1), ("1972-04-01T00:00:00Z", 0)] {
+            let snapshot = try progress(county: "0101", instant: instant)
+            let aja = try item("AJA", in: snapshot)
+            #expect(aja.worked == expected)
+            #expect(aja.current == expected)
+            #expect(try item("JCC", in: snapshot).current == 1)
+        }
+    }
+
+    @Test("Generated catalogue calculation preserves every programme at scale",
+          .enabled(if: ProcessInfo.processInfo.environment["XLOG_GENERATED_PERF"] == "1"))
+    func generatedCatalogPerformance() throws {
+        // Disposable in-memory contacts only; no operator database or services.
+        let fixture = [
+            qso(call: "JA8CITY", band: "20m", mode: "CW", dxcc: 339, state: "01", county: "0102"),
+            qso(call: "JA8GUN", band: "40m", mode: "SSB", dxcc: 339, state: "01", county: "01001"),
+            qso(call: "JA8OLD", band: "15m", mode: "CW", dxcc: 339, state: "01", county: "0132", year: 1973),
+            qso(call: "JA8DES", band: "20m", mode: "CW", dxcc: 339, state: "01", county: "0101"),
+            qso(call: "BY1QH/P", band: "20m", mode: "FT8", dxcc: 318, state: "BJ"),
+            qso(call: "BV1SYN", band: "40m", mode: "SSB", dxcc: 386),
+            QSO(call: "JA8RAW", start: date(2024), band: "2m", mode: "CW", dxcc: 339,
+                state: "01", county: "0102", extraFields: ["eqsl_qsl_rcvd": "y"]),
+            QSO(call: "JA8NONE", start: date(2024), band: "6m", mode: "CW", dxcc: 339,
+                state: "01", county: "01001"),
+        ]
+        let expected = try AwardCatalogEngine.compute(qsos: fixture)
+        #expect(expected.items.map(\.worked) == [1, 1, 3, 1, 5, 2, 1, 2, 1])
+        #expect(expected.items.map(\.current) == [1, 1, 3, 1, 4, 2, 1, 2, 1])
+        let contacts = (0..<100_000).map { AwardCatalogContact(fixture[$0 % fixture.count]) }
+        var times: [Double] = []
+        for _ in 0..<5 {
+            let started = ProcessInfo.processInfo.systemUptime
+            let actual = try AwardCatalogEngine.compute(contacts: contacts)
+            times.append((ProcessInfo.processInfo.systemUptime - started) * 1_000)
+            #expect(actual == expected)
+        }
+        print("GENERATED_AWARD_CATALOG contacts=100000 samples=5 median_ms=\(times.sorted()[2]) max_ms=\(times.max() ?? 0) samples_ms=\(times)")
+    }
+
     private func item(_ code: String, in snapshot: AwardCatalogSnapshot) throws -> AwardCatalogItem {
         try #require(snapshot.items.first(where: { $0.code == code }))
     }

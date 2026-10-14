@@ -200,7 +200,9 @@ public enum AwardCatalogEngine {
             }
 
             guard let county = mapped.county, let entity = reference.entities[county] else { continue }
-            let date = yyyymmdd(original.start)
+            // Active ordinary entities have no date-dependent rule. Avoid
+            // constructing a calendar and formatted date for those contacts.
+            let date = entity.deleted || entity.type == "designated city" ? yyyymmdd(original.start) : ""
             guard !(entity.deleted && date > entity.deletedDate) else { continue }
 
             switch entity.type {
@@ -304,7 +306,7 @@ public enum AwardCatalogEngine {
             }
 
             guard let county = mapped.county, let entity = reference.entities[county] else { continue }
-            let date = yyyymmdd(original.start)
+            let date = entity.deleted || entity.type == "designated city" ? yyyymmdd(original.start) : ""
             guard !(entity.deleted && date > entity.deletedDate) else { continue }
             switch entity.type {
             case "city", "designated city": jcc.insert(county)
