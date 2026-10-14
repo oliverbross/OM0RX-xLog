@@ -1,9 +1,8 @@
 # OM0RX-xLog live project board
 
-Last updated: 14 October 2026, after source verification of the shared native CW
-owner, the reviewed ADIF transfer workflow and the remote-backup planning core.
-Full Station Control and protected opportunity selection are the active next
-window-ownership stages.
+Last updated: 14 October 2026, after source verification of selected-field ADIF
+duplicate updates, sealed backup envelopes and protected Chaser draft selection.
+Full Station Control ownership is the active next window-ownership stage.
 
 This is the operator-facing project overview. Keep it current after every material
 implementation, validation, installation or acceptance change. Detailed evidence
@@ -40,10 +39,11 @@ independent Settings child at `0ea919a`, shared rotor configuration at `46c5f1e`
 passive Chaser & DX at `42f7b6c` and passive Station Control at `ed1cc04`. One
 native CW session owner now serializes Desk arm/send/Stop at `2cb7bac`; WinKeyer
 remains independent of radio selection and teardown cannot leave registered
-clients behind. No CW child is exposed yet. The next bounded stages complete
-Station Control actions and the protected Chaser selection path without
-duplicating station, rotor, spot, draft or CW effects. The global Windowed preset
-remains disabled.
+clients behind. Protected Chaser selection now resolves retained native feed
+identities and uses the existing activation owner at `617fd0e`; it creates a draft
+only and cannot duplicate radio, rotor or CW effects. No CW child is exposed yet.
+The next bounded stage completes Station Control provider/configuration/action
+ownership. The global Windowed preset remains disabled.
 
 | Work item | Status | Current evidence / next gate |
 | --- | --- | --- |
@@ -56,14 +56,14 @@ remains disabled.
 | Full validation and review | **Source verified** | Frontend **1,049/1,049 across 128 files**, Rust **321/321**, normal Swift **82/82**, full portable Swift, production build and bundle gates pass; `git diff --check` is clean. |
 | Independent native Settings child | **Source verified** | Commit `0ea919a`; tenth singleton native role, open/focus/Dock lifecycle, scoped non-hardware authority, main-absent renderer and dirty/remount/conflict recovery pass. Its Rotator tab now consumes the shared passive configuration source. Not packaged or installed. |
 | Shared revisioned rotor configuration | **Source verified** | Commit `46c5f1e`; SQLite-owned generation/revision state, durable receipts, restore fencing, one-time browser-local migration, Settings Rotator UI and lost-acknowledgement/conflict recovery pass. Browsing/restoring remains passive; the Settings child may read rotor models but cannot connect or issue motion. Frontend **1,057/1,057 across 130 files**, Rust **323/323**, normal Swift **86/86**, full portable Swift and production build pass. The Settings child bundle is 385,114 bytes. Not packaged, installed or hardware-tested. |
-| Independent passive Chaser & DX | **Source verified / partial ownership** | Commit `42f7b6c`; the eleventh singleton native role works without the Desk renderer and can only read/refresh public opportunity feeds. It imports neither the main workspace nor draft/station authority. Unfinished Load QSO controls are hidden in the child. Frontend **1,060/1,060 across 131 files**, Rust **324/324**, TypeScript and production build pass; startup graph 270,926 bytes. Not packaged, installed or live-service tested. |
+| Independent Chaser & DX selection | **Source verified / partial ownership** | Passive child `42f7b6c`; protected draft selection `617fd0e`. Native-issued retained feed tokens are re-resolved against current worker generation and row version, then one activation owner applies a revision-fenced draft with durable receipt recovery. The child still cannot issue station, rotor or CW effects; active CW requires explicit Stop. Focused Swift, frontend and native tests pass. Not packaged, installed or live-service tested. |
 | Independent passive Station Control | **Source verified / partial ownership** | Commit `ed1cc04`; the twelfth singleton native role reads retained native provider/radio/safety observations without a renderer poller. All worker/device/configuration/session methods are denied before special dispatch; monitor actions remain monitor-only. Dock back and stale/unavailable recovery pass. Frontend **1,071/1,071 across 132 files**, Rust **327/327**, TypeScript and production build pass; startup graph 271,237 bytes. Connection/provider/action ownership remains in the Desk. Not packaged, installed or hardware-tested. |
-| Reviewed ADIF transfer workflow | **Source verified / partial DATA-10** | Planning core `5e09866`; integrated skip-duplicates import and frozen all/filtered/selected export at `7017f1c`. UTF-8 ADI is byte-bounded, preview is read-only and token/generation/order fenced, confirmation is explicit, and apply reparses plus rechecks the live database. ADX/alternate encodings, selected-field update UI/apply, multiple-row selection and packaged roundtrip remain open. |
-| Remote-backup planning core | **Source verified / partial BACKUP-01** | Commit `7061b3f`; validated Google Drive/OneDrive/Dropbox folder identities and FTP/FTPS/SFTP endpoints, explicit plain-FTP risk acceptance, default-off scheduling, immutable generation/destination/package upload plans, independently verified receipts and conservative exact-destination retention planning pass normal and portable tests. No credentials, provider adapters, networking, upload, remote deletion, scheduler, restore or UI exists yet. |
+| Reviewed ADIF transfer workflow | **Source verified / partial DATA-10** | Planning core `5e09866`; integrated skip-duplicates import and frozen all/filtered/selected export at `7017f1c`; selected-field duplicate updates at `054da74`. The 17-field UI/apply path is explicit, byte/order/generation fenced, atomically rechecks duplicate identity and contact revision, skips new/repeated records, preserves unselected/unsupported data and produces ordinary pending-sync edits. ADX/alternate encodings, a broader field catalogue, multiple-row selection and packaged roundtrip remain open. |
+| Sealed remote-backup foundation | **Source verified / partial BACKUP-01** | Planning core `7061b3f`; sealed format-v2 package/envelope at `b75dd03`. Every payload byte is included in a deterministic SHA-256 identity, untrusted restore envelopes are bounded and path-safe, and staged database/reference bytes are reverified before replacement. Legacy v1 database restore remains supported. Hashes provide integrity, not authentication or encryption; credentials, provider executors, trusted remote receipts, networking, scheduling/retention execution and UI remain open. |
 | Awards calculator bounded optimization | **Source verified / PERF acceptance open** | Commit `aad3886`; active ordinary JARL entities avoid unnecessary UTC date construction while deleted/designated-date rules retain exact UTC boundaries. The generated 100,000-contact calculator median improved **26.6–35.0%** across observed runs and all nine award totals remained exact. This is not packaged cold-open, database or UI median/p95 evidence. |
 | Existing programme-reference feedback audit | **Source verified at existing scope** | Existing display-only POTA/SOTA/IOTA/WWFF/WWBOTA evidence is generation/draft/call fenced and never replaces operator input. **8 frontend** and **3 portable Swift** focused tests pass. User-observed POTA success is not proof of every live feed or packaged state. |
 | Shared native CW owner | **Source verified / partial windowing** | Commit `2cb7bac`; the Desk uses one native client/session owner for arm/send/Stop with provider/selection generations, revisioned snapshots, priority Stop and deterministic unregister/teardown cleanup. WinKeyer does not require a selected radio. Focused native/frontend gates and the aggregate full suites pass. No independent CW child, package, installation, physical keyer, radio or RF acceptance yet. |
-| Full Station Control and protected Chaser selection | **Active / next** | Migrate provider/configuration/action ownership and protected opportunity-to-draft mutation with exact child authority, shared state, editor admission, idempotent recovery and no duplicated effects. |
+| Full Station Control ownership | **Active / next** | Migrate provider selection, connection/configuration and command/receipt ownership into one native shared owner, then expose exact child actions without duplicating polling or hardware effects. |
 
 ## Dependency-ordered delivery queue
 
@@ -73,24 +73,24 @@ remains disabled.
    recovery and main-renderer-independent scoped services (`0ea919a`).
 3. **Source-complete:** shared revisioned rotor-only configuration with passive
    open/restore/browse behavior and exact typed command boundaries (`46c5f1e`).
-4. **Source-complete at passive scope:** independent Chaser & DX read/refresh
-   window with exact native capability boundary (`42f7b6c`). Protected Load QSO
-   remains embedded until its canonical draft mutation path is migrated.
+4. **Source-complete at protected-selection scope:** independent Chaser & DX
+   read/refresh (`42f7b6c`) plus native-token, editor-admitted draft selection
+   (`617fd0e`). Station/rotor/CW effects and packaged/live acceptance remain open.
 5. **Source-complete at passive scope:** independent Station Control retained
    observations with no worker/device authority (`ed1cc04`). Provider selection,
    connection, configuration and actions remain embedded.
 6. **Source-complete at shared-owner scope:** one native CW session owns Desk
    arm/send/Stop (`2cb7bac`). An independent CW child and packaged/hardware
    acceptance remain open.
-7. **Active next:** complete Station Control actions and protected opportunity
-   selection without creating second station, draft or CW owners.
+7. **Active next:** complete Station Control provider/configuration/action ownership
+   without creating a second station, radio or device owner.
 8. Finish the remaining panel inventory, native lifecycle/geometry recovery and
    only then enable the full Windowed preset.
 9. Implement RADIO-05 Clear after QSY on trusted observed-RX provenance with
    editor veto, selection/command epochs and an idempotent native transaction.
-10. Finish DATA-10 selected-field update/stale-target apply and encoding decisions;
-    build BACKUP-01 credential/provider/upload/verification/restore executors and
-    UI; then close the remaining evidence-backed RUMlog gaps.
+10. Finish DATA-10 ADX/encoding, broader field and multi-row decisions; build
+    BACKUP-01 credential/provider/upload/trusted-receipt/scheduler/UI stages on the
+    sealed envelope; then close the remaining evidence-backed RUMlog gaps.
 11. Run packaged cross-platform, large-log performance, live sync and separately
    authorized hardware acceptance. Do not collapse these into source evidence.
 
@@ -104,7 +104,7 @@ remains disabled.
 | WS-04 | Window menu opens/focuses every panel | **In progress** — twelve roles now include independent Settings, passive Chaser & DX and passive Station Control; remaining screens follow the dependency queue. |
 | WS-05 | Docked/mixed/undocked share one live session | **In progress** — major draft/cluster/radio/rotor ownership and the Desk CW session moved; remaining child/action owners open. |
 | WS-06 | Layout/geometry survive restart and display changes | **In progress / acceptance** — persistence/recovery source exists; mixed-DPI/native evidence open. |
-| WS-07 | No duplicate logging or station actions | **In progress** — Settings and rotor-configuration revisions/receipts plus scoped child authority are source-verified; passive Chaser has no draft/station authority. Full multi-window gate remains open. |
+| WS-07 | No duplicate logging or station actions | **In progress** — Settings and rotor-configuration receipts plus one protected Chaser draft-activation owner are source-verified; Chaser has no raw station/rotor/CW authority. Full multi-window gate remains open. |
 | WS-08 | Responsive, accessible, measured laptop/4K UI | **In progress / acceptance** — targeted fixtures pass; whole-app native measurements open. |
 
 ## Operator feedback portfolio
@@ -116,7 +116,7 @@ acceptance. Consult the detailed tracker before closing any individual item.
 | --- | --- | --- |
 | **Done / installed at stated scope** | UI-17, UI-26, UI-39, CW-01, CW-02, CW-03, CLUSTER-01, SYNC-01 | Some rows retain explicit hardware, alternate-OS or accessibility limits. |
 | **Implemented in installed alpha.22 source; row-specific acceptance open** | UI-01–08, UI-10–16, UI-22–25, UI-27–38, UI-40–41, MAP-01–04, DATA-01–07, RADIO-01–04, PERF-02–03, SYNC-06 | Perform the packaged visual, live-service, latency, real-feed or hardware checks named in the tracker; no RF inference. |
-| **Active / partial** | UI-09, UI-18–21, SYNC-02, DATA-08–11, BACKUP-01, PERF-01, WS-01–08, RUM-01–03, SHIP-01 | DATA-10 has reviewed skip-import and frozen export but still needs selected-field update/encoding work; BACKUP-01 has a pure planning core but no executor or UI; DATA-11's existing feedback path is audited. Finish remaining implementation, then collect representative packaged evidence. |
+| **Active / partial** | UI-09, UI-18–21, SYNC-02, DATA-08–11, BACKUP-01, PERF-01, WS-01–08, RUM-01–03, SHIP-01 | DATA-10 now has reviewed skip-import, frozen export and 17-field fenced duplicate updates; ADX/encoding, broader fields and multi-row selection remain. BACKUP-01 has planning plus a sealed immutable envelope, but no provider executor, trusted remote receipt, scheduler or UI. DATA-11's existing feedback path is audited. Finish remaining implementation, then collect representative packaged evidence. |
 | **Queued implementation** | RADIO-05 | Follow the dependency queue and safety acceptance in the tracker. |
 
 ## Major acceptance campaigns still open
@@ -129,8 +129,8 @@ acceptance. Consult the detailed tracker before closing any individual item.
 - **Station:** RADIO-01–04 physical/remote evidence only when separately
   authorized; Australia–Slovakia WAN delay must remain distinct from
   Windows-local device time. No RF action is implied by this board.
-- **Data portability:** DATA-10 packaged roundtrip, selected-field update/stale-target
-  apply, ADX/encoding decisions, multiple-row selection and large-file acceptance.
+- **Data portability:** DATA-10 packaged roundtrip, ADX/encoding decisions, broader
+  selected-field coverage, multiple-row selection and large-file acceptance.
 - **Backups:** BACKUP-01 secure account setup, encrypted transfer where available,
   retention, upload verification and tested restore without altering existing
   remote backups.

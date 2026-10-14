@@ -698,6 +698,29 @@ diff checks. Later aggregate full-suite source verification includes this owner.
 No package was produced or installed, no physical keyer or radio was contacted,
 and no transmit/RF action or operator-data change occurred.
 
+### Checkpoint AG — protected Chaser draft selection
+
+Desk and independent Chaser selections now pass only a native-issued retained-feed
+token to the existing activation owner. The native bridge re-resolves that token
+against the current worker generation and exact row version, rejecting removed,
+changed, expired or ambiguous opportunities. Frequency-less calendar entries and
+explicit POTA/SOTA/IOTA/WWFF references are retained as ordinary draft context.
+
+The activation owner remains singular: editor admission, workspace/draft revision
+fences, durable receipts and lost-reply recovery are reused instead of duplicated
+inside the child. The operation mutates only the canonical draft. Main Follow is
+stopped before reconciliation; Auto rotor and CW leases are revoked, and active CW
+requires the operator to Stop explicitly before selection. Chaser retains no raw
+radio, rotor, draft-write or CW permission.
+
+Exact source `617fd0efaa8ecafe8c6f9637851437fcd93fb1bf` passes **14 portable
+Swift draft-journal tests**, focused frontend opportunities/editor/client tests,
+TypeScript and focused native activation plus authority tests. This is source
+evidence only: no package was produced or installed, no public feed or hardware
+was contacted, and no operator-data, station or RF state changed. Full Station
+Control provider/configuration/action ownership and broader packaged/native
+lifecycle acceptance remain open.
+
 ### 14 October audit — remaining new-QSO and QSY ownership
 
 At `cd25718`, detached Logbook edits saved contacts; it is not an independent
