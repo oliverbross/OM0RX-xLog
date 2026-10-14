@@ -36,9 +36,23 @@ EQSL_QSLRDATE EQSL_QSLSDATE DCL_QSLRDATE DCL_QSLSDATE CLUBLOG_QSO_UPLOAD_DATE HA
 HAMQTH_QSO_UPLOAD_DATE HRDLOG_QSO_UPLOAD_DATE QRZCOM_QSO_DOWNLOAD_DATE QRZCOM_QSO_UPLOAD_DATE`.split(/\s+/));
 const adxReceivedFields = new Set(["QSL_RCVD", "LOTW_QSL_RCVD", "EQSL_QSL_RCVD", "DCL_QSL_RCVD"]);
 const adxSentFields = new Set(["QSL_SENT", "LOTW_QSL_SENT", "EQSL_QSL_SENT", "DCL_QSL_SENT"]);
+const potaReferencePattern = "[A-Za-z0-9]{1,4}-[0-9]{4,5}(?:@[A-Za-z]{2}-[A-Za-z0-9]{1,3})?";
+const adxPatternRules = [
+  { fields: ["GRIDSQUARE", "MY_GRIDSQUARE"], pattern: /^[A-R]{2}(?:[0-9]{2}(?:[A-X]{2}(?:[0-9]{2})?)?)?$/i },
+  { fields: ["GRIDSQUARE_EXT", "MY_GRIDSQUARE_EXT"], pattern: /^[A-X]{2}(?:[0-9]{2})?$/i },
+  { fields: ["IOTA", "MY_IOTA"], pattern: /^(?:NA|SA|EU|AF|OC|AS|AN)-(?!000$)[0-9]{3}$/i },
+  { fields: ["SOTA_REF", "MY_SOTA_REF"], pattern: /^[A-Z0-9]{1,8}\/[A-Z]{2}-(?!000$)[0-9]{3}$/i },
+  { fields: ["POTA_REF", "MY_POTA_REF"], pattern: new RegExp(`^${potaReferencePattern}(?:,${potaReferencePattern})*$`) },
+  { fields: ["WWFF_REF", "MY_WWFF_REF"], pattern: /^[A-Z0-9]{1,4}FF-[0-9]{4}$/i },
+  { fields: ["DARC_DOK", "MY_DARC_DOK"], pattern: /^[0-9A-Z]+$/i },
+  { fields: ["CONT"], pattern: /^(?:NA|SA|EU|AF|OC|AS|AN)$/i },
+  { fields: ["ANT_PATH"], pattern: /^[GOSL]$/i },
+];
 function validateADXValue(name: string, value: string): void {
   let valid = true;
-  if (["FREQ", "FREQ_RX", "TX_PWR", "RX_PWR"].includes(name)) {
+  const patternRule = adxPatternRules.find(rule => rule.fields.includes(name));
+  if (patternRule) valid = patternRule.pattern.test(value);
+  else if (["FREQ", "FREQ_RX", "TX_PWR", "RX_PWR"].includes(name)) {
     valid = /^-?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)$/.test(value);
     if (["TX_PWR", "RX_PWR"].includes(name) && value.startsWith("-")) valid &&= /^-0*(?:\.0*)?$/.test(value);
   } else if (["DXCC", "MY_DXCC"].includes(name)) {
@@ -57,7 +71,10 @@ function validateADXValue(name: string, value: string): void {
   else if (adxSentFields.has(name)) valid = /^[ynrqi]$/i.test(value);
   else if (["QSL_SENT_VIA", "QSL_RCVD_VIA"].includes(name)) valid = /^[bde]$/i.test(value);
   else if (["SWL", "QSO_RANDOM", "FORCE_INIT", "SILENT_KEY"].includes(name)) valid = /^[yn]$/i.test(value);
-  if (!valid) throw new Error(`Field ${name} has an invalid ADX typed value. Use ADI to preserve non-schema values.`);
+  else return;
+  // JS '$' also matches before a final newline; scalar/reference values must
+  // consume the entire field rather than accepting an unvalidated line ending.
+  if (!valid || /[\r\n]/.test(value)) throw new Error(`Field ${name} has an invalid ADX typed value. Use ADI to preserve non-schema values.`);
 }
 
 function validateXMLText(value: string): void {

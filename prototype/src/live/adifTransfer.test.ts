@@ -177,6 +177,38 @@ it("rejects undefined XSD type indicators without changing supported extension t
   expect(decode(adx('<APP PROGRAMID="TEST" FIELDNAME="X" TYPE="G">Žilina 😀</APP>'))).toBe(adiRecord({ APP_TEST_X: "Žilina 😀" }));
 });
 
+it("preserves accepted grid, reference and small enum values exactly across ADX boundaries", () => {
+  const fields = { GRIDSQUARE: "jn99aa12", MY_GRIDSQUARE: "JN", GRIDSQUARE_EXT: "xx99", MY_GRIDSQUARE_EXT: "aa",
+    IOTA: "eu-001", MY_IOTA: "NA-999", SOTA_REF: "om/za-001", MY_SOTA_REF: "EA8/GC-999",
+    POTA_REF: "sk-0001,US-12345@US-NY", MY_POTA_REF: "DE-00001@DE-BY",
+    WWFF_REF: "omff-0001", MY_WWFF_REF: "VKFF-0000", DARC_DOK: "a01", MY_DARC_DOK: "01",
+    CONT: "eu", ANT_PATH: "s", COMMENT: "Žilina 😀" };
+  const original = adiRecord(fields);
+  const writer = new ADIFExportDocument("adx"); writer.append(original, 1);
+  expect(decode(writer.finish())).toBe(original);
+});
+
+it.each([
+  ["GRIDSQUARE", "SS99"], ["GRIDSQUARE", "JN99yy"], ["GRIDSQUARE", "JN9"], ["GRIDSQUARE", "JN99aa123"],
+  ["MY_GRIDSQUARE", ""], ["GRIDSQUARE_EXT", "yz"], ["MY_GRIDSQUARE_EXT", "aa9"],
+  ["IOTA", "EU-000"], ["IOTA", "ZZ-001"], ["MY_IOTA", "EU-0001"],
+  ["SOTA_REF", "OM/ZA-000"], ["SOTA_REF", "OM/Z-001"], ["MY_SOTA_REF", "123456789/ZA-001"],
+  ["POTA_REF", "SK-001"], ["POTA_REF", "SK-000001"], ["POTA_REF", "SK-0001, US-0001"],
+  ["POTA_REF", "SK-0001@USA-NY"], ["MY_POTA_REF", "SK-0001,"],
+  ["WWFF_REF", "OM-0001"], ["MY_WWFF_REF", "OMFF-001"], ["DARC_DOK", "A-01"], ["MY_DARC_DOK", "Ž01"],
+  ["CONT", "Europe"], ["CONT", ""], ["ANT_PATH", "short"],
+  ["GRIDSQUARE", "JN99\n"], ["IOTA", "EU-001\n"], ["DARC_DOK", "A01\n"], ["CONT", "EU\n"],
+  ["CQZ", "15\n"], ["TX_PWR", "100\n"], ["SWL", "Y\n"],
+])("rejects unsupported ADX pattern %s=%s while preserving the ADI fallback", (name, value) => {
+  expect(() => decode(adx(`<${name}>${value}</${name}>`))).toThrow(`Field ${name} has an invalid ADX typed value`);
+  const original = adiRecord({ [name]: value });
+  const xml = new ADIFExportDocument("adx");
+  expect(() => xml.append(original, 1)).toThrow(`Field ${name} has an invalid ADX typed value`);
+  const adi = new ADIFExportDocument("adi"); adi.append(original, 1);
+  expect(adi.finish()).toBe(original);
+  expect(decode(original)).toBe(original);
+});
+
 it("exports ADX from multiple frozen frames with extensions, Unicode, XML escapes and exact CR preservation", () => {
   const writer = new ADIFExportDocument("adx");
   const first = adiRecord({ CALL: "W1AW", COMMENT: 'Žilina <EOR> & "quoted" 😀', NOTES: "line1\r\nline2\rline3", APP_TEST_OPAQUE: "é", CUSTOM: "", CLUBLOG_QSO_UPLOAD_STATUS: "Y" });

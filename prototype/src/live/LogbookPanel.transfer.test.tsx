@@ -156,6 +156,16 @@ it("rejects invalid ADX scalar values before creating a native preview", async (
   expect(request.mock.calls.filter(([method]) => method === "logbook_import_adif")).toHaveLength(0);
 });
 
+it("rejects invalid ADX grid patterns before native preview without changing ADI admission", async () => {
+  const { request, pick } = setup(); await screen.findByText("W1AW");
+  await pick(new TextEncoder().encode('<ADX><HEADER/><RECORDS><RECORD><GRIDSQUARE>ZZ99</GRIDSQUARE></RECORD></RECORDS></ADX>'));
+  expect((await screen.findByRole("alert")).textContent).toContain("Field GRIDSQUARE has an invalid ADX typed value");
+  expect(request.mock.calls.filter(([method]) => method === "logbook_import_adif")).toHaveLength(0);
+  await pick(new TextEncoder().encode(adif.replace("<EOR>", "<GRIDSQUARE:4>ZZ99<EOR>")));
+  await screen.findByRole("group", { name: "Review ADIF import" });
+  expect(request.mock.calls.filter(([, params]) => params?.action === "preview")).toHaveLength(1);
+});
+
 it("requires selected fields and explicit update consent and sends the reviewed context", async () => {
   const { request, pick } = setup(); await screen.findByText("W1AW"); await pick();
   fireEvent.click(screen.getByRole("checkbox", { name: "Update selected fields of reviewed duplicates instead" }));
