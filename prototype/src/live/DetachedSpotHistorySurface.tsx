@@ -1,7 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
 import { workerRequest } from "../worker";
 import { SpotHistoryPanel } from "./SpotHistoryPanel";
-import { dockDetachedWorkspace } from "./DetachedClusterBridge";
 import "./DetachedSpotHistorySurface.css";
 
 export const detachedSpotHistoryMethods = [
@@ -20,26 +18,7 @@ export async function requestDetachedSpotHistory(method: string, params: Record<
 }
 
 export function DetachedSpotHistorySurface() {
-  const [error, setError] = useState(""), [docking, setDocking] = useState(false);
-  const mounted = useRef(true), dockingRef = useRef(false);
-  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
-  const dock = useCallback(async () => {
-    if (dockingRef.current) return;
-    dockingRef.current = true; setDocking(true); setError("");
-    try { await dockDetachedWorkspace(); }
-    catch {
-      if (mounted.current) setError("Could not dock Spot History. The archive remains open; try Dock back again.");
-    } finally {
-      dockingRef.current = false;
-      if (mounted.current) setDocking(false);
-    }
-  }, []);
   return <div className="app live monitor-app detached-spot-history-app"><main aria-label="Detached Spot History">
-    <div className="live-actions detached-history-actions">
-      <strong>Spot History</strong><span className="secondary">Retained local reports · read only</span>
-      <button type="button" disabled={docking} onClick={() => void dock()}>{docking ? "Docking…" : "Dock back"}</button>
-    </div>
-    {error && <p className="live-error" role="alert">{error}</p>}
     <SpotHistoryPanel request={requestDetachedSpotHistory} />
   </main></div>;
 }

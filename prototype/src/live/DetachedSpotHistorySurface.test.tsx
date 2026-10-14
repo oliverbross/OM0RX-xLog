@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { DetachedSpotHistorySurface, detachedSpotHistoryMethods, requestDetachedSpotHistory } from "./DetachedSpotHistorySurface";
 
 const api = vi.hoisted(() => ({ worker: vi.fn(), dock: vi.fn() }));
@@ -30,7 +30,7 @@ function archive() {
   };
   return { request, update() { call = "TEST2/P"; watermark++; } };
 }
-beforeEach(() => { api.worker.mockReset(); api.dock.mockReset().mockResolvedValue(undefined); });
+beforeEach(() => { localStorage.clear(); api.worker.mockReset(); api.dock.mockReset().mockResolvedValue(undefined); });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 it("reads and refreshes the real archive panel directly without a main projection or new service owner", async () => {
@@ -38,7 +38,9 @@ it("reads and refreshes the real archive panel directly without a main projectio
   render(<DetachedSpotHistorySurface />);
   await screen.findByText("TEST0/P");
   expect(screen.getByRole("main", { name: "Detached Spot History" })).toBeTruthy();
-  expect(screen.getByText("Retained local reports · read only")).toBeTruthy();
+  expect(screen.queryByText("Retained local reports · read only")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Dock back" })).toBeNull();
+  expect(screen.getByRole("main").firstElementChild?.getAttribute("aria-label")).toBe("Spot history archive");
   expect(screen.queryByText(/waiting for the main/i)).toBeNull();
   fixture.update();
   fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
@@ -63,22 +65,6 @@ it("keeps archive failures visible and retries a read without starting connectio
   fireEvent.click(screen.getByRole("button", { name: "Retry history" }));
   await screen.findByText("TEST0/P");
   expect(api.worker.mock.calls.every(([method]) => detachedSpotHistoryMethods.includes(method))).toBe(true);
-});
-
-it("serializes Dock back and retains the archive after native main recovery fails", async () => {
-  let reject!: (cause: Error) => void;
-  api.worker.mockImplementation(archive().request);
-  api.dock.mockReturnValueOnce(new Promise((_, failed) => { reject = failed; }));
-  render(<DetachedSpotHistorySurface />); await screen.findByText("TEST0/P");
-  const button = screen.getByRole("button", { name: "Dock back" });
-  fireEvent.click(button); fireEvent.click(button);
-  expect(api.dock).toHaveBeenCalledOnce();
-  expect(screen.getByRole("button", { name: "Docking…" }).hasAttribute("disabled")).toBe(true);
-  await act(async () => { reject(new Error("main creation failed")); });
-  await screen.findByText("Could not dock Spot History. The archive remains open; try Dock back again.");
-  expect(screen.getByText("TEST0/P")).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Dock back" }));
-  await waitFor(() => expect(api.dock).toHaveBeenCalledTimes(2));
 });
 
 it("rejects mutations, station/session operations and malformed responses at its own bridge", async () => {

@@ -1,6 +1,8 @@
 import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { ChevronLeft, ChevronRight, RefreshCw, Search } from "lucide-react";
 import { useLogbookCapacity } from "./logbookCapacity";
+import { SpotHistoryColumnHeader, SpotHistoryColumns, useSpotHistoryColumns } from "./SpotHistoryColumns";
+import { spotHistoryColumns, type SpotHistoryColumn } from "./spotHistoryColumnPreferences";
 import "./SpotHistoryPanel.css";
 
 type Request = (method: string, params?: Record<string, unknown>) => Promise<any>;
@@ -66,6 +68,11 @@ function Distribution({ label, buckets }: { label: string; buckets: Bucket[] }) 
 
 export function SpotHistoryPanel({ request }: { request: Request }) {
   const id = useId();
+  const [columnPreferences, setColumnPreferences] = useSpotHistoryColumns();
+  const [columnsOpen, setColumnsOpen] = useState(false);
+  const visibleColumns = new Set(columnPreferences.columns);
+  const tableWidth = columnPreferences.columns.reduce((sum, column) => sum + columnPreferences.widths[column], 0);
+  const resizeColumn = (column: SpotHistoryColumn, width: number) => setColumnPreferences(current => ({ ...current, widths: { ...current.widths, [column]: width } }));
   const [draft, setDraft] = useState(initialDraft);
   const [scope, setScope] = useState(() => spotHistoryFilters(initialDraft()));
   const [scopeRange, setScopeRange] = useState<Draft["range"]>("24h");
@@ -205,7 +212,9 @@ export function SpotHistoryPanel({ request }: { request: Request }) {
       <label>Source<input aria-label="History source" value={draft.source} onChange={event => update("source", event.target.value)} placeholder="Any source" /></label>
       <button type="submit"><Search size={13} aria-hidden="true" />Search</button>
       <button type="button" onClick={refresh} disabled={loading}><RefreshCw size={13} aria-hidden="true" />Refresh</button>
+      <button type="button" aria-expanded={columnsOpen} aria-controls={`${id}-columns`} onClick={() => setColumnsOpen(open => !open)}>Columns</button>
     </form>
+    {columnsOpen && <SpotHistoryColumns id={`${id}-columns`} preferences={columnPreferences} onChange={setColumnPreferences} onDone={() => setColumnsOpen(false)} />}
     {validation && <p className="spot-history-message error" role="alert">{validation}</p>}
     <div className="spot-history-health" role="status">
       <span className={unavailable || statusError ? "error" : status?.recording.state === "degraded" || gap ? "warning" : status?.recording.state === "recording" ? "recording" : ""}>
@@ -248,13 +257,13 @@ export function SpotHistoryPanel({ request }: { request: Request }) {
       </dl>}
     </section>}
     <div ref={tableArea} className="spot-history-table-wrap" tabIndex={0} aria-label="History reports table" aria-busy={loading}>
-      <table className="spot-history-table"><caption className="spot-history-sr-only">Individual cluster reports, newest received first. Select a report and open Details to read all stored fields.</caption>
-        <colgroup><col className="history-utc" /><col className="history-call" /><col className="history-frequency" /><col className="history-band-mode" /><col className="history-extra" /><col className="history-extra" /><col className="history-extra" /><col className="history-comment history-extra" /></colgroup>
-        <thead><tr><th scope="col">Received UTC</th><th scope="col">Callsign</th><th scope="col">kHz</th><th scope="col">Band / Mode</th><th scope="col" className="history-extra">Spotter</th><th scope="col" className="history-extra">Source / Cluster</th><th scope="col" className="history-extra">Country</th><th scope="col" className="history-extra">Comment</th></tr></thead>
+      <table className="spot-history-table" style={{ width: tableWidth, minWidth: "100%" }}><caption className="spot-history-sr-only">Individual cluster reports, newest received first. Select a report and open Details to read all stored fields.</caption>
+        <colgroup>{columnPreferences.columns.map(column => <col key={column} style={{ width: columnPreferences.widths[column] }} />)}</colgroup>
+        <thead><tr>{spotHistoryColumns.filter(([column]) => visibleColumns.has(column)).map(([column, label]) => <SpotHistoryColumnHeader key={column} column={column} label={label} width={columnPreferences.widths[column]} onWidth={resizeColumn} />)}</tr></thead>
         <tbody>{page?.rows.map((row, index) => <tr key={row.id} ref={node => { if (node) rows.current.set(row.id, node); else rows.current.delete(row.id); }}
           aria-selected={selectedID === row.id} tabIndex={selectedID === row.id || (!selectionOnPage && index === 0) ? 0 : -1} onClick={() => select(row)} onDoubleClick={() => { setSelectedID(row.id); setSelectedReport(row); setDetailOpen(true); }} onKeyDown={event => rowKey(event, row, index)}>
-          <td title={`${spotHistoryUTC(row.arrivedAt)} UTC`} className="history-data">{spotHistoryUTC(row.arrivedAt)}</td><td className="history-call-value" title={row.callsign}>{row.callsign}</td><td className="history-frequency-value history-data">{row.frequencyText || row.frequencyKHz}</td><td>{row.band || "—"} / {row.mode || "—"}</td>
-          <td className="history-extra" title={row.spotter}>{row.spotter}</td><td className="history-extra" title={`${row.source} / ${row.clusterName}`}>{row.source} / {row.clusterName}</td><td className="history-extra" title={row.country}>{row.country || "—"}</td><td className="history-extra" title={`${row.comment}${row.commentTruncated ? " (shortened; open Details)" : ""}`}>{row.comment}</td>
+          <td hidden={!visibleColumns.has("utc")} title={`${spotHistoryUTC(row.arrivedAt)} UTC`} className="history-data">{spotHistoryUTC(row.arrivedAt)}</td><td hidden={!visibleColumns.has("call")} className="history-call-value" title={row.callsign}>{row.callsign}</td><td hidden={!visibleColumns.has("frequency")} className="history-frequency-value history-data">{row.frequencyText || row.frequencyKHz}</td><td hidden={!visibleColumns.has("bandMode")}>{row.band || "—"} / {row.mode || "—"}</td>
+          <td hidden={!visibleColumns.has("spotter")} title={row.spotter}>{row.spotter}</td><td hidden={!visibleColumns.has("source")} title={`${row.source} / ${row.clusterName}`}>{row.source} / {row.clusterName}</td><td hidden={!visibleColumns.has("country")} title={row.country}>{row.country || "—"}</td><td hidden={!visibleColumns.has("comment")} title={`${row.comment}${row.commentTruncated ? " (shortened; open Details)" : ""}`}>{row.comment}</td>
         </tr>)}</tbody>
       </table>
       {(!page?.rows.length || loading || error) && <div className="spot-history-empty" role={error ? "alert" : "status"}>

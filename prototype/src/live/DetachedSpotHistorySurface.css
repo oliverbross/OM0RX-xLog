@@ -1,4 +1,1 @@
 .detached-spot-history-app main { flex: 1 1 auto; }
-.detached-spot-history-app .detached-history-actions { flex: none; flex-wrap: wrap; }
-.detached-history-actions strong { font-size: 13px; }
-.detached-history-actions .secondary { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
