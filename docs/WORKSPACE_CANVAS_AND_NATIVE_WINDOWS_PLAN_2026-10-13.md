@@ -820,6 +820,28 @@ diff checks. No package was produced or installed, no service or hardware was
 contacted, and no operator-data, station or RF state changed. Discovery/SmartLink,
 hardware profiles and broader child radio controls remain later slices.
 
+### Checkpoint AM — explicit shared Hamlib model browser
+
+The shared Hamlib setup in Desk and independent Station Control now offers an
+explicit Load radio model catalogue action. Only that click invokes a fixed
+radio-only catalogue read; mounting, selecting a provider and editing setup remain
+passive. Manufacturer/search/model filtering reuses the existing Hamlib catalogue
+normalization, and choosing a model changes only the unsaved shared draft before a
+separate Save and Connect.
+
+The scoped native request cannot be expanded into rotor scanning, capabilities,
+connection lifecycle or arbitrary Hamlib methods. Failed loading exposes retry and
+an explicitly unverified manual-ID fallback. Exact source `702cddf` passes **15
+native station-session tests** and **41 focused frontend tests** plus TypeScript and
+diff checks. No package was produced or installed, no service or hardware was
+contacted, and no operator-data, station or RF state changed.
+
+Shared hardware-profile apply was not added. The Remote Agent currently exposes an
+unconditional full-configuration PUT without revision, ETag, If-Match or preserved
+unknown-field conditional semantics, so a child apply could overwrite a concurrent
+writer. The existing Desk editor remains available; no duplicate dead profile store
+was created. Conditional Agent writes are the prerequisite for resuming that slice.
+
 ### 14 October audit — remaining new-QSO and QSY ownership
 
 At `cd25718`, detached Logbook edits saved contacts; it is not an independent

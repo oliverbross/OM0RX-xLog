@@ -1,9 +1,9 @@
 # OM0RX-xLog live project board
 
-Last updated: 14 October 2026, after source verification of shared durable Direct
-FLEX connection ownership, explicit strict Windows-1252 ADI import and verified-
-only recurring backup rearm through injected host ticks. Hardware-profile
-configuration is the active next Station Control stage.
+Last updated: 14 October 2026, after source verification of an explicit shared
+Hamlib model browser, canonical DXCC duplicate updates and private local backup
+snapshot/tick adapters. Hardware-profile apply is dependency-blocked on an Agent
+conditional-write contract; safe exact child radio actions are the active next stage.
 
 This is the operator-facing project overview. Keep it current after every material
 implementation, validation, installation or acceptance change. Detailed evidence
@@ -50,9 +50,12 @@ shared across Desk and child at `0500729`, including exact generation/selection-
 handover fences and lost-reply recovery. Hamlib setup and explicit lifecycle now
 use that same owner at `b958384`; raw radio-Hamlib lifecycle requests are denied.
 Direct FLEX private-IP setup and lifecycle now use the same owner at `d4d8bb0`,
-with fresh per-connection transmit consent and no raw lifecycle bypass. The next
-bounded stage moves hardware-profile configuration and safe exact child actions.
-The global Windowed preset remains disabled.
+with fresh per-connection transmit consent and no raw lifecycle bypass. The shared
+Hamlib setup gains an explicit, passive-until-clicked radio model browser at
+`702cddf`. Hardware-profile apply cannot safely move until the Remote Agent exposes
+revision/ETag conditional configuration writes; its current unconditional full PUT
+could overwrite another writer. The next bounded stage is safe exact child radio
+actions. The global Windowed preset remains disabled.
 
 | Work item | Status | Current evidence / next gate |
 | --- | --- | --- |
@@ -66,13 +69,13 @@ The global Windowed preset remains disabled.
 | Independent native Settings child | **Source verified** | Commit `0ea919a`; tenth singleton native role, open/focus/Dock lifecycle, scoped non-hardware authority, main-absent renderer and dirty/remount/conflict recovery pass. Its Rotator tab now consumes the shared passive configuration source. Not packaged or installed. |
 | Shared revisioned rotor configuration | **Source verified** | Commit `46c5f1e`; SQLite-owned generation/revision state, durable receipts, restore fencing, one-time browser-local migration, Settings Rotator UI and lost-acknowledgement/conflict recovery pass. Browsing/restoring remains passive; the Settings child may read rotor models but cannot connect or issue motion. Frontend **1,057/1,057 across 130 files**, Rust **323/323**, normal Swift **86/86**, full portable Swift and production build pass. The Settings child bundle is 385,114 bytes. Not packaged, installed or hardware-tested. |
 | Independent Chaser & DX selection | **Source verified / partial ownership** | Passive child `42f7b6c`; protected draft selection `617fd0e`. Native-issued retained feed tokens are re-resolved against current worker generation and row version, then one activation owner applies a revision-fenced draft with durable receipt recovery. The child still cannot issue station, rotor or CW effects; active CW requires explicit Stop. Focused Swift, frontend and native tests pass. Not packaged, installed or live-service tested. |
-| Shared Station Control owner | **Source verified / partial ownership** | Passive child `ed1cc04`; shared Agent setup/lifecycle `e95968e`/`cb33921`; journaled provider selection `0500729`; shared Hamlib `b958384`; shared Direct FLEX `d4d8bb0`. Desk and child now share one durable setup/lifecycle owner for all three providers. FLEX accepts only numeric private addresses, persists no credentials/standing transmit permission, reconnects with fresh consent and cannot bypass the journal. **13 native session**, the additional FLEX selection-fence check and **41 frontend** tests plus TypeScript/diff checks pass. Hardware profiles, discovery/SmartLink and broader child radio controls remain open. |
-| Reviewed ADIF/ADX transfer workflow | **Source verified / partial DATA-10** | Planning `5e09866`; skip-import/frozen export `7017f1c`; selected-field updates `054da74`; UTF-8 ADX import `843ec3b`; multi-row page export `67bca5c`; frozen ADX export `5d7bbd6`; 32-field updates `cdfaf31`; strict Windows-1252 ADI import `b7fc2f3`. Encoding is an explicit choice, undefined bytes/NUL fail closed and source byte lengths are rewritten to canonical UTF-8 before the existing frozen path. **82 frontend** and **7 native ADIF transfer** tests plus TypeScript pass for the latest slice. Other legacy encodings, typed-field decisions, full XSD/package acceptance and packaged roundtrip remain open. |
-| Immutable remote-backup execution foundation | **Source verified / partial BACKUP-01** | Planning `7061b3f`; sealed envelope `b75dd03`; exclusive coordinator `f5b74df`; durable recovery `b154061`; scheduler claims `f1d8ed3`; fresh-snapshot owner `edf390e`; verified recurring host seam `83aab64`. Recurring consent persists only when explicitly enabled; only an exact verified receipt rearms a fresh identity, while stop, failure, uncertainty and clock review prevent replay/rearm. **38 native** and **35 portable-manifest** focused backup tests pass. Production app lifecycle/timer, snapshot/provider adapters, credentials, authenticated remote receipts, retention and UI remain open. |
+| Shared Station Control owner | **Source verified / partial ownership** | Passive child `ed1cc04`; shared Agent `e95968e`/`cb33921`; provider selection `0500729`; shared Hamlib `b958384`; shared Direct FLEX `d4d8bb0`; explicit Hamlib catalogue `702cddf`. Desk and child share one durable setup/lifecycle owner for all three providers. Hamlib catalogue load is explicit, fixed to radio models and only edits the unsaved draft. **15 native session** and **41 frontend** tests plus TypeScript/diff checks pass for the latest slice. Hardware-profile apply is blocked on Agent CAS/ETag; discovery/SmartLink and broader child radio controls remain open. |
+| Reviewed ADIF/ADX transfer workflow | **Source verified / partial DATA-10** | Planning `5e09866`; frozen workflow `7017f1c`; UTF-8 ADX `843ec3b`; multi-row export `67bca5c`; ADX export `5d7bbd6`; 32-field updates `cdfaf31`; Windows-1252 `b7fc2f3`; canonical DXCC `f380d95`. DXCC is the 33rd reviewed field: canonical decimal 0–1000 only, with absent/present-empty/zero semantics preserved and invalid selected values rejected atomically. **83 frontend** plus focused native transfer tests with 12 rejection cases and TypeScript pass. Other typed fields with ambiguous rounding/mapping, other encodings, full XSD/package acceptance and packaged roundtrip remain open. |
+| Immutable remote-backup execution foundation | **Source verified / partial BACKUP-01** | Planning through recurring host seam `83aab64`; private local snapshot/tick adapters `7970974`. The injected workspace owner holds a synchronous active-context lease while fresh SQLite/settings/preferences are sealed and revalidated; all staging is removed before immutable bytes return. Cancellable periodic ticks and a system clock now implement the host seam. **49 native** and **46 portable-manifest** focused backup/envelope tests pass. Live app lifecycle/workspace wiring, provider adapters, credentials, authenticated remote receipts, retention and UI remain open; crash-orphan cleanup is not claimed. |
 | Awards calculator bounded optimization | **Source verified / PERF acceptance open** | Commit `aad3886`; active ordinary JARL entities avoid unnecessary UTC date construction while deleted/designated-date rules retain exact UTC boundaries. The generated 100,000-contact calculator median improved **26.6–35.0%** across observed runs and all nine award totals remained exact. This is not packaged cold-open, database or UI median/p95 evidence. |
 | Existing programme-reference feedback audit | **Source verified at existing scope** | Existing display-only POTA/SOTA/IOTA/WWFF/WWBOTA evidence is generation/draft/call fenced and never replaces operator input. **8 frontend** and **3 portable Swift** focused tests pass. User-observed POTA success is not proof of every live feed or packaged state. |
 | Shared native CW owner | **Source verified / partial windowing** | Commit `2cb7bac`; the Desk uses one native client/session owner for arm/send/Stop with provider/selection generations, revisioned snapshots, priority Stop and deterministic unregister/teardown cleanup. WinKeyer does not require a selected radio. Focused native/frontend gates and the aggregate full suites pass. No independent CW child, package, installation, physical keyer, radio or RF acceptance yet. |
-| Remaining Station Control ownership | **Active / next** | Extend the shared owner across hardware-profile configuration and safe exact child radio actions without duplicating polling or device effects; discovery/SmartLink remains a separate explicit decision. |
+| Remaining Station Control ownership | **Active / dependency split** | Implement safe exact child radio actions next. Hardware-profile apply requires Agent-side config revision/ETag plus conditional PUT/If-Match and unknown-field preservation; do not create duplicate dead storage or disable the existing Desk editor. Discovery/SmartLink remains separate. |
 
 ## Dependency-ordered delivery queue
 
@@ -94,17 +97,17 @@ The global Windowed preset remains disabled.
 6. **Source-complete at shared-owner scope:** one native CW session owns Desk
    arm/send/Stop (`2cb7bac`). An independent CW child and packaged/hardware
    acceptance remain open.
-7. **Active next:** extend Station Control ownership to hardware-profile
-   configuration and safe exact child actions without creating a second station,
-   radio or device owner.
+7. **Active next:** extend Station Control ownership to safe exact child radio
+   actions without creating a second station, radio or device owner. Resume shared
+   hardware-profile apply only after the Remote Agent gains conditional writes.
 8. Finish the remaining panel inventory, native lifecycle/geometry recovery and
    only then enable the full Windowed preset.
 9. Implement RADIO-05 Clear after QSY on trusted observed-RX provenance with
    editor veto, selection/command epochs and an idempotent native transaction.
 10. Finish DATA-10 remaining encoding/typed-field decisions and full XSD/package
-    acceptance; wire BACKUP-01 production app lifecycle/timing plus snapshot and
-    real provider/credential/authenticated-receipt/UI stages on the durable owner;
-    then close remaining RUMlog gaps.
+    acceptance; wire BACKUP-01 live app/workspace ownership plus real provider/
+    credential/authenticated-receipt/UI stages on the durable local adapters; then
+    close remaining RUMlog gaps.
 11. Run packaged cross-platform, large-log performance, live sync and separately
    authorized hardware acceptance. Do not collapse these into source evidence.
 
@@ -130,7 +133,7 @@ acceptance. Consult the detailed tracker before closing any individual item.
 | --- | --- | --- |
 | **Done / installed at stated scope** | UI-17, UI-26, UI-39, CW-01, CW-02, CW-03, CLUSTER-01, SYNC-01 | Some rows retain explicit hardware, alternate-OS or accessibility limits. |
 | **Implemented in installed alpha.22 source; row-specific acceptance open** | UI-01–08, UI-10–16, UI-22–25, UI-27–38, UI-40–41, MAP-01–04, DATA-01–07, RADIO-01–04, PERF-02–03, SYNC-06 | Perform the packaged visual, live-service, latency, real-feed or hardware checks named in the tracker; no RF inference. |
-| **Active / partial** | UI-09, UI-18–21, SYNC-02, DATA-08–11, BACKUP-01, PERF-01, WS-01–08, RUM-01–03, SHIP-01 | DATA-10 has reviewed UTF-8/Windows-1252 ADI plus UTF-8 ADX import, frozen ADI/ADX export and 32-field duplicate updates; other encodings, typed fields and full XSD/package acceptance remain. BACKUP-01 has durable planning, sealed bytes, exclusive coordination/recovery, fresh capture and verified recurring host seams, but no production lifecycle/timer, provider adapter, authenticated remote receipt or UI. DATA-11's feedback path is audited. |
+| **Active / partial** | UI-09, UI-18–21, SYNC-02, DATA-08–11, BACKUP-01, PERF-01, WS-01–08, RUM-01–03, SHIP-01 | DATA-10 has reviewed UTF-8/Windows-1252 ADI plus UTF-8 ADX import, frozen ADI/ADX export and 33-field duplicate updates including canonical DXCC; other encodings/typed fields and full XSD/package acceptance remain. BACKUP-01 has durable planning through private local capture and recurring ticks, but no live app/workspace wiring, provider adapter, authenticated remote receipt or UI. DATA-11's feedback path is audited. |
 | **Queued implementation** | RADIO-05 | Follow the dependency queue and safety acceptance in the tracker. |
 
 ## Major acceptance campaigns still open
