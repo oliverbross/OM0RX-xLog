@@ -16,7 +16,8 @@ async function configuredSession() {
       const next = { revision: snapshot.revision + (JSON.stringify(snapshot.configuration) === JSON.stringify(params.configuration) ? 0 : 1),
         generation: workspaceGeneration, configuration: structuredClone(params.configuration) };
       snapshot = next;
-      return { status: "applied", ...next, receipt: { mutation: structuredClone(params), snapshot: structuredClone(next) } };
+      return { status: "applied", ...next, receipt: { mutation: { ...structuredClone(params),
+        operationID: params.operationID.toUpperCase(), generation: params.generation.toUpperCase() }, snapshot: structuredClone(next) } };
     }
     if (method === "workspace_rotor_configuration_receipt") return { receipt: null };
     throw new Error(`Unexpected configuration method ${method}`);
@@ -28,6 +29,19 @@ async function configuredSession() {
 afterEach(cleanup);
 beforeEach(() => localStorage.clear());
 describe("independent rotor panel", () => {
+  it("confirms a revision-zero DCU-1 settings save with a native UUID receipt and no hardware call", async () => {
+    const configuration = await configuredSession(), request = vi.fn();
+    render(<RotorPanel snapshot={null} request={request} configurationOnly configurationSession={configuration.session} />);
+    fireEvent.change(screen.getByLabelText("Rotor TCP host"), { target: { value: "Arco.Example.Invalid" } });
+    fireEvent.change(screen.getByLabelText("Rotor name"), { target: { value: "ARCO Garden" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save rotor configuration" }));
+    await screen.findByText("Rotor configuration saved. No connection or motion was started.");
+    expect(configuration.session.getSnapshot().base?.revision).toBe(1);
+    expect(configuration.session.getSnapshot().pending).toBeNull(); expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Check save" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Use saved values" })).toBeNull();
+    expect(request).not.toHaveBeenCalled();
+  });
   it("does not connect or move on mount; explicit motion carries the owner generation", async () => {
     const configuration = await configuredSession();
     const request = vi.fn(async () => ({ ...initial, backend: { accepted: true, confirmed: false } }));

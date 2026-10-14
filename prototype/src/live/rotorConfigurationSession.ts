@@ -86,8 +86,15 @@ function validMutation(value: any): value is RotorConfigurationMutation {
     stable(checkedRotorConfiguration(value.configuration)) === stable(value.configuration); } catch { return false; }
 }
 
+// Foundation UUID Codable emits uppercase; JS UUIDs and loaded generations use
+// lowercase. Normalize only validated UUID spellings, never the payload text or
+// the remaining mutation keys (including unexpected keys).
+const mutationFingerprint = (value: RotorConfigurationMutation) => stable({ ...value,
+  operationID: value.operationID.toLowerCase(), generation: value.generation.toLowerCase() });
+
 function receiptSnapshot(receipt: any, mutation: RotorConfigurationMutation, base: RotorConfigurationSnapshot) {
-  if (!object(receipt) || !validMutation(receipt.mutation) || stable(receipt.mutation) !== stable(mutation))
+  if (!object(receipt) || !validMutation(receipt.mutation) || !validMutation(mutation) ||
+      mutationFingerprint(receipt.mutation) !== mutationFingerprint(mutation))
     throw new Error("The rotor configuration receipt did not match the pending save.");
   const committed = checkedRotorConfigurationSnapshot(receipt.snapshot);
   const expected = stable(base.configuration) === stable(mutation.configuration) ? mutation.expectedRevision : mutation.expectedRevision + 1;

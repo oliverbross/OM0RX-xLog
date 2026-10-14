@@ -5,7 +5,9 @@ import { clearLegacyRotorConfiguration, defaultRotorConfiguration, legacyRotorCo
 
 const generation = "12345678-1234-4234-8234-123456789abc";
 const operationID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
-const snapshot = () => ({ revision: 0, generation, configuration: defaultRotorConfiguration() });
+const snapshot = () => ({ revision: 0, generation: generation.toUpperCase(), configuration: defaultRotorConfiguration() });
+// Foundation UUID Codable uses uppercase, including the scoped workspace UUID.
+const nativeMutation = (params: any) => ({ ...structuredClone(params), operationID: params.operationID.toUpperCase(), generation: params.generation.toUpperCase() });
 
 function backend() {
   let current = snapshot(), receipt: any = null, loseReply = false;
@@ -14,13 +16,13 @@ function backend() {
     if (method === "workspace_rotor_configuration_receipt") return { receipt: structuredClone(receipt) };
     if (method === "workspace_rotor_configuration_save") {
       if (receipt) {
-        if (JSON.stringify(receipt.mutation) !== JSON.stringify(params)) throw new Error("operation reused");
+        if (JSON.stringify(receipt.mutation) !== JSON.stringify(nativeMutation(params))) throw new Error("operation reused");
         return { status: "applied", ...structuredClone(receipt.snapshot), receipt: structuredClone(receipt) };
       }
       if (params.expectedRevision !== current.revision) return { status: "conflict", ...structuredClone(current) };
       current = { revision: current.revision + (JSON.stringify(current.configuration) === JSON.stringify(params.configuration) ? 0 : 1),
-        generation, configuration: structuredClone(params.configuration) };
-      receipt = { mutation: structuredClone(params), snapshot: structuredClone(current) };
+        generation: generation.toUpperCase(), configuration: structuredClone(params.configuration) };
+      receipt = { mutation: nativeMutation(params), snapshot: structuredClone(current) };
       if (loseReply) throw new Error("reply lost");
       return { status: "applied", ...structuredClone(current), receipt: structuredClone(receipt) };
     }
@@ -33,6 +35,53 @@ function backend() {
 beforeEach(() => localStorage.clear());
 
 describe("shared rotor configuration session", () => {
+  it("accepts native UUID serialization for revision-zero DCU-1 save without case-folding payload text", async () => {
+    const service = backend(), written: any[] = [];
+    const session = new RotorConfigurationSession(service.request, value => written.push(value), null, () => operationID);
+    await session.load();
+    const draft = structuredClone(session.getSnapshot().draft!);
+    draft.native_dcu1.host = "Arco.Example.Invalid"; draft.native_dcu1.name = "ARCO Garden";
+    session.edit(draft); await session.save(draft);
+    expect(session.getSnapshot()).toMatchObject({ pending: null, error: "", saving: false, base: { revision: 1, generation, configuration: draft } });
+    expect(written.at(-1)).toBeNull();
+    expect(service.request.mock.calls.map(([method]) => method)).toEqual(["workspace_rotor_configuration_load", "workspace_rotor_configuration_save"]);
+  });
+  it.each([
+    ["operation identity", (receipt: any) => { receipt.mutation.operationID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"; }],
+    ["workspace identity", (receipt: any) => { receipt.mutation.generation = "87654321-4321-4321-8321-cba987654321"; }],
+    ["expected revision", (receipt: any) => { receipt.mutation.expectedRevision++; }],
+    ["case-sensitive host", (receipt: any) => { receipt.mutation.configuration.native_dcu1.host = "arco.example.invalid"; }],
+    ["case-sensitive name", (receipt: any) => { receipt.mutation.configuration.native_dcu1.name = "arco garden"; }],
+    ["unexpected mutation key", (receipt: any) => { receipt.mutation.unexpected = true; }],
+  ] as const)("still rejects a different %s in both acknowledgement and recovery", async (_label, alter) => {
+    const service = backend(), written: any[] = [];
+    const request = vi.fn(async (method: any, params?: any) => {
+      const response = await service.request(method, params);
+      if (response.receipt) alter(response.receipt);
+      return response;
+    });
+    const session = new RotorConfigurationSession(request, value => written.push(value), null, () => operationID);
+    await session.load(); const draft = structuredClone(session.getSnapshot().draft!);
+    draft.native_dcu1.host = "Arco.Example.Invalid"; draft.native_dcu1.name = "ARCO Garden"; session.edit(draft);
+    await expect(session.save(draft)).rejects.toThrow("receipt did not match the pending save");
+    await expect(session.reconcile()).rejects.toThrow("receipt did not match the pending save");
+    expect(session.getSnapshot().pending?.operationID).toBe(operationID);
+    expect(session.getSnapshot().base?.revision).toBe(0); expect(written.at(-1)?.pending?.configuration).toEqual(draft);
+    expect(service.request.mock.calls.filter(([method]) => method === "workspace_rotor_configuration_save")).toHaveLength(1);
+  });
+  it("recovers the native-cased receipt from a restored pending journal without replaying the save", async () => {
+    const service = backend(), written: any[] = [];
+    const session = new RotorConfigurationSession(service.request, value => written.push(value), null, () => operationID);
+    await session.load(); const draft = structuredClone(session.getSnapshot().draft!);
+    draft.native_dcu1.host = "Arco.Example.Invalid"; draft.native_dcu1.name = "ARCO Garden"; session.edit(draft); service.lose();
+    await expect(session.save(draft)).rejects.toThrow("reply lost");
+    const journal = readRotorConfigurationJournal(JSON.stringify(written.at(-1)))!;
+    const recovered = new RotorConfigurationSession(service.request, value => written.push(value), journal);
+    await recovered.load();
+    expect(recovered.getSnapshot()).toMatchObject({ pending: null, error: "", base: { revision: 1, configuration: draft } });
+    expect(written.at(-1)).toBeNull();
+    expect(service.request.mock.calls.filter(([method]) => method === "workspace_rotor_configuration_save")).toHaveLength(1);
+  });
   it("migrates bounded legacy values once and preserves the radio configuration", () => {
     localStorage.setItem("xlog.integration.rotor", "hamlib");
     localStorage.setItem("xlog.rotor.host", "rotor.example.invalid");
