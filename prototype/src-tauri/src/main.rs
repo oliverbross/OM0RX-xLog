@@ -685,7 +685,7 @@ async fn dock_detached_window(window: tauri::WebviewWindow, app: tauri::AppHandl
 }
 
 fn local_history_reader(label: &str, method: &str) -> bool {
-    method == "cluster_history" && matches!(label, "logbook" | "log-qso" | "callsign-intelligence")
+    method == "cluster_history" && matches!(label, "main" | "logbook" | "log-qso" | "callsign-intelligence")
 }
 
 fn detached_dock_screen(label: &str) -> Result<&str, String> {
@@ -820,7 +820,7 @@ fn main() {
             workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_selection_apply,
             detached_cluster_ready, cluster_session_selection, dock_detached_window, close_logbook_window, close_qso_window, close_main_window,
             acceptance::acceptance_enabled, acceptance::acceptance_large_log, acceptance::acceptance_monitor,
-            acceptance::acceptance_screen,
+            acceptance::acceptance_screen, acceptance::acceptance_desk_size,
             acceptance::acceptance_open_window, acceptance::acceptance_window_step, acceptance::acceptance_window_state,
             acceptance::acceptance_spot_history_begin, acceptance::acceptance_spot_history_state,
             acceptance::acceptance_monitor_result, acceptance::acceptance_logbook_result, acceptance::acceptance_awards_result, acceptance::acceptance_prepare_final,
@@ -1019,13 +1019,15 @@ mod workspace_layout_tests {
 mod intelligence_window_tests {
     #[test]
     fn intelligence_history_exemption_is_local_and_method_specific() {
-        for label in ["callsign-intelligence", "logbook", "log-qso"] {
+        // The Operator Desk lives in `main`; its history must use the local
+        // logbook even when the live cluster session is unavailable or busy.
+        for label in ["main", "callsign-intelligence", "logbook", "log-qso"] {
             assert!(super::local_history_reader(label, "cluster_history"));
             for method in ["cluster_snapshot", "cluster_connect", "cluster_disconnect", "cluster_command", "lookup_call"] {
                 assert!(!super::local_history_reader(label, method));
             }
         }
-        for label in ["main", "monitor", "world-map", "band-maps", "unknown", ""] {
+        for label in ["monitor", "world-map", "band-maps", "unknown", ""] {
             assert!(!super::local_history_reader(label, "cluster_history"));
         }
     }

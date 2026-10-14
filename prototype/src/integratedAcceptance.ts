@@ -6,6 +6,7 @@ import { serveDetachedLifecycle, verifyDetachedLifecycle } from "./detachedAccep
 import { verifyWorkspaceLayoutRoundtrip } from "./workspaceLayoutAcceptance";
 import { verifySpotHistory } from "./spotHistoryAcceptance";
 import { verifyWorkspaceSettings } from "./workspaceSettingsAcceptance";
+import { verifyDeskMapLogbook } from "./deskMapLogbookAcceptance";
 import { verifyWorkspaceWindows } from "./workspaceWindowsAcceptance";
 import { createLogbookLayoutAcceptance } from "./logbookLayoutAcceptance";
 import { beginSpotHistoryAbsence, resumeSpotHistoryAbsence, serveSpotHistoryAbsence } from "./spotHistoryWindowAcceptance";
@@ -157,6 +158,17 @@ async function main(report: Json) {
   await click("Clear QSO", ".desk-active button");
   await waitForAcceptance("clear unsaved draft", () => element<HTMLInputElement>('[aria-label="Desk Callsign"]').value === "");
   check("keyboard_clear", validSavedContact((await worker("logbook_list")).result));
+
+  try {
+    report.details.deskMapLogbookSize = await invoke("acceptance_desk_size", { action: "expand" });
+    await waitForAcceptance("expanded native Desk viewport", () => window.innerHeight >= 1200);
+    await frame();
+    report.details.deskMapLogbook = await verifyDeskMapLogbook({ worker, navigate, fill, click });
+  } finally {
+    await invoke("acceptance_desk_size", { action: "restore" });
+    await frame();
+  }
+  check("desk_map_logbook", true);
 
   await navigate("Logbook");
   await waitForAcceptance("contact row before edit", () => !!document.querySelector(".live-logbook-table tbody tr"));

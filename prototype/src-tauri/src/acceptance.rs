@@ -19,6 +19,7 @@ pub struct Acceptance {
     spot_parent_report: Mutex<Option<Value>>,
     spot_absence: Mutex<Option<crate::detached_acceptance::SpotHistoryAbsence>>,
     window_steps: Mutex<crate::detached_acceptance::Steps>,
+    desk_original_size: Mutex<Option<tauri::PhysicalSize<u32>>>,
     #[cfg(target_os = "linux")]
     browser_contexts: Mutex<Vec<tempfile::TempDir>>,
 }
@@ -137,9 +138,9 @@ pub fn passed(report: &Value) -> bool {
     const REQUIRED: [&str; 17] = ["worker_health", "worker_self_test", "worker_parse_adif", "worker_integration_self_test", "cluster_classification_initial", "cluster_classification_logged", "map_loaded",
         "cluster_selection", "keyboard_log", "logbook_readback", "keyboard_focus", "keyboard_clear",
         "profile_manual", "profile_simulator", "monitor_opened", "monitor_snapshot", "final_desk"];
-    const LOCAL: [&str; 31] = ["isolated_worker", "empty_workspace", "workspace_created", "workspace_layout_roundtrip", "workspace_canvas_controls", "workspace_settings_presets", "workspace_native_windows", "spot_history_archive", "worker_self_test",
+    const LOCAL: [&str; 32] = ["isolated_worker", "empty_workspace", "workspace_created", "workspace_layout_roundtrip", "workspace_canvas_controls", "workspace_settings_presets", "workspace_native_windows", "spot_history_archive", "worker_self_test",
         "worker_integration_self_test", "worker_parse_adif", "keyboard_log", "logbook_readback", "keyboard_editor",
-        "keyboard_focus", "keyboard_clear", "settings_save_readback", "awards_loaded", "detached_projection",
+        "keyboard_focus", "keyboard_clear", "desk_map_logbook", "settings_save_readback", "awards_loaded", "detached_projection",
         "map_loaded", "final_desk", "native_menu_routes", "contact_edit", "contact_delete_undo", "detached_logbook", "detached_awards",
         "detached_logbook_lifecycle", "detached_awards_lifecycle", "detached_spot_history", "spot_history_main_absent", "spot_history_dock_recovery"];
     let required: &[&str] = if report["scope"] == "integrated-local-ui" { &LOCAL } else if report["scope"].is_null() { &REQUIRED } else { return false; };
@@ -159,6 +160,34 @@ pub fn acceptance_enabled(state: tauri::State<'_, Acceptance>) -> bool { state.p
 
 #[tauri::command]
 pub fn acceptance_large_log(state: tauri::State<'_, Acceptance>) -> bool { state.path.is_some() && state.large_log }
+
+fn require_desk_size(state: &Acceptance, caller: &str, action: &str) -> Result<(), String> {
+    state.require()?;
+    if caller != "main" || !matches!(action, "expand" | "restore") {
+        return Err("Only the isolated main view may use fixed Desk acceptance sizing".into());
+    }
+    Ok(())
+}
+
+// Fixed isolated fixture geometry only, not a general renderer window-size API.
+// Synchronous command runs on the UI thread; restore uses original physical
+// pixels so scale conversion cannot accumulate a different operator size.
+#[tauri::command]
+pub fn acceptance_desk_size(window: tauri::WebviewWindow, state: tauri::State<'_, Acceptance>, action: String) -> Result<Value, String> {
+    require_desk_size(&state, window.label(), &action)?;
+    let mut original = state.desk_original_size.lock().map_err(|_| "Desk acceptance sizing unavailable")?;
+    if action == "expand" {
+        if original.is_some() { return Err("Desk acceptance sizing is already active".into()); }
+        *original = Some(window.inner_size().map_err(|error| error.to_string())?);
+        window.set_size(tauri::LogicalSize::new(1440.0, 1400.0)).map_err(|error| error.to_string())?;
+    } else {
+        let size = original.as_ref().ok_or("Desk acceptance sizing was not started")?;
+        window.set_size(*size).map_err(|error| error.to_string())?;
+        *original = None;
+    }
+    let size = window.inner_size().map_err(|error| error.to_string())?;
+    Ok(json!({"action":action,"width":size.width,"height":size.height,"scale":window.scale_factor().map_err(|error| error.to_string())?}))
+}
 
 #[tauri::command]
 pub async fn acceptance_screen(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, Acceptance>, screen: String) -> Result<(), String> {
@@ -445,7 +474,7 @@ mod tests {
     fn integrated_local_report_requires_real_workflow_checks_and_gpu_evidence() {
         let names = ["isolated_worker", "empty_workspace", "workspace_created", "workspace_layout_roundtrip", "workspace_canvas_controls", "workspace_settings_presets", "workspace_native_windows", "spot_history_archive", "worker_self_test",
             "worker_integration_self_test", "worker_parse_adif", "keyboard_log", "logbook_readback", "keyboard_editor",
-            "keyboard_focus", "keyboard_clear", "settings_save_readback", "awards_loaded", "detached_projection",
+            "keyboard_focus", "keyboard_clear", "desk_map_logbook", "settings_save_readback", "awards_loaded", "detached_projection",
             "map_loaded", "final_desk", "native_menu_routes", "contact_edit", "contact_delete_undo", "detached_logbook", "detached_awards",
             "detached_logbook_lifecycle", "detached_awards_lifecycle", "detached_spot_history", "spot_history_main_absent", "spot_history_dock_recovery"];
         let checks: serde_json::Map<String, Value> = names.iter().map(|name| (name.to_string(), json!(true))).collect();
@@ -463,6 +492,20 @@ mod tests {
         }
         report["details"]["finalMap"]["matchedLandPixels"] = json!(39);
         assert!(!passed(&report));
+    }
+    #[test]
+    fn desk_acceptance_sizing_is_exact_isolated_main_only() {
+        let enabled = Acceptance::new(Some(PathBuf::from("/tmp/private-acceptance.json")));
+        for action in ["expand", "restore"] {
+            assert!(require_desk_size(&enabled, "main", action).is_ok());
+            assert!(require_desk_size(&Acceptance::default(), "main", action).is_err());
+            for child in ["logbook", "log-qso", "world-map", "monitor", "unknown"] {
+                assert!(require_desk_size(&enabled, child, action).is_err());
+            }
+        }
+        for action in ["", "1440x1400", "resize", "Expand"] {
+            assert!(require_desk_size(&enabled, "main", action).is_err());
+        }
     }
     #[test]
     fn local_acceptance_allows_only_read_only_spot_history_methods() {
