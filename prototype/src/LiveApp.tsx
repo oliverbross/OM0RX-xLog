@@ -404,8 +404,9 @@ function MainLiveApp() {
     if (editing.current) { setError("Finish or clear the contact being edited before loading a new contact."); setView("Log QSO"); return; }
     selection.current++; pendingTune.current = false; disarmAutoRotor();
     editing.current = false; setFollowImmediate(false); setSelected(null);
-    void opportunityActivation.activate(item).then(outcome => {
+    void opportunityActivation.activate(item).then(async outcome => {
       if (outcome?.phase === "confirmed" && outcome.draftOnly) {
+        await draftSession.refresh();
         setView("Log QSO"); setMessage("Chaser selection loaded into the shared draft. Radio follow and Auto rotor are off; no station command was sent.");
       } else if (outcome?.error) setError(String(outcome.error));
     }).catch(cause => setError(cause instanceof Error ? cause.message : "Opportunity acknowledgement unavailable. Check its existing activation before selecting again."));

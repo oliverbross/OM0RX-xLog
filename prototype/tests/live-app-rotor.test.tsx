@@ -476,7 +476,7 @@ it("preserves rotor ownership across radio handover and clears only the stale gu
   expect(screen.getByText("053°")).toBeTruthy();
 });
 
-it("hydrates the native radio choice before polling and applies handover through its native generation", async () => {
+it("hydrates the native radio choice before polling and delegates handover to the shared station session", async () => {
   bridge.nativeSelection = true;
   let selected!: (value: any) => void;
   const dispose = vi.fn(); bridge.selection.mockImplementation((_legacy, changed) => { selected = changed; return dispose; });
@@ -489,9 +489,8 @@ it("hydrates the native radio choice before polling and applies handover through
   fireEvent.click(screen.getByRole("button", { name: "Station Control" }));
   fireEvent.click(screen.getByRole("button", { name: "Local station · Hamlib" }));
   expect(bridge.applySelection).not.toHaveBeenCalled();
-  bridge.applySelection.mockResolvedValue({ provider: "hamlib", generation: 8 });
-  fireEvent.click(screen.getByRole("button", { name: "Apply radio selection" }));
-  await waitFor(() => expect(bridge.applySelection).toHaveBeenCalledWith("hamlib", 7));
+  fireEvent.click(screen.getByRole("button", { name: "Apply shared radio selection" }));
+  expect(bridge.applySelection).not.toHaveBeenCalled();
   expect(bridge.request.mock.calls.some(([method]) => ["station_disconnect", "hamlib_disconnect", "rotor_disconnect", "station_connect", "hamlib_connect"].includes(method))).toBe(false);
   expect(localStorage.getItem("xlog.integration.provider")).toBe("direct_agent");
   rendered.unmount(); expect(dispose).toHaveBeenCalledOnce();

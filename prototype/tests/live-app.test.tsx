@@ -12,6 +12,7 @@ import { readContactJournal } from "../src/live/logbookContactSession";
 const calls = vi.hoisted(() => ({ request: vi.fn() }));
 const nativeMenu = vi.hoisted(() => ({ route: undefined as ((title: string) => void) | undefined }));
 const clusterStartup = vi.hoisted(() => ({ native: false, initialize: vi.fn() }));
+const activation = vi.hoisted(() => ({ activate: vi.fn() }));
 vi.mock("../src/live/clusterResume", async importOriginal => ({ ...await importOriginal<typeof import("../src/live/clusterResume")>(),
   nativeClusterSession: () => clusterStartup.native, initializeNativeClusterResume: clusterStartup.initialize }));
 vi.mock("../src/live/workspaceNavigation", async importOriginal => ({ ...await importOriginal<typeof import("../src/live/workspaceNavigation")>(),
@@ -19,14 +20,17 @@ vi.mock("../src/live/workspaceNavigation", async importOriginal => ({ ...await i
 vi.mock("../src/worker", async (importOriginal) => ({ ...await importOriginal<typeof import("../src/worker")>(), workerRequest: calls.request, openMonitor: vi.fn() }));
 vi.mock("../src/live/operatorDraftTransport", () => ({ requestOperatorDraft: async (method: string, params: any = {}) => (await calls.request(method, params)).result }));
 vi.mock("../src/live/logbookContactTransport", () => ({ requestLogbookContact: async (method: string, params: any = {}) => (await calls.request(method, params)).result }));
+vi.mock("../src/live/useSpotActivation", () => ({ useSpotActivation: () => ({ status: null, error: "", requesting: false, checked: false,
+  activate: activation.activate, reconcile: vi.fn(), retire: vi.fn() }) }));
 vi.mock("../src/Map", () => ({ default: () => <div>Map surface</div> }));
-let exists = false;
+let exists = false, draftBackend: ReturnType<typeof operatorDraftFixture>;
 beforeEach(() => {
   exists = false; localStorage.clear(); calls.request.mockReset();
   clusterStartup.native = false; clusterStartup.initialize.mockReset().mockResolvedValue(undefined);
-  const sharedDraft = operatorDraftFixture({ id: "draft", start: "2026-10-12T00:00:00Z", call: "", band: "20m", mode: "SSB" });
+  activation.activate.mockReset();
+  draftBackend = operatorDraftFixture({ id: "draft", start: "2026-10-12T00:00:00Z", call: "", band: "20m", mode: "SSB" });
   calls.request.mockImplementation(async (method: string, params: any = {}) => {
-    const shared = sharedDraft(method, params);
+    const shared = draftBackend(method, params);
     if (shared) return { ok: true, result: shared };
     const result = method === "workspace_status" ? { workspace_exists: exists, native_log_exists: true }
       : method === "workspace_create" ? (exists = true, { mode: "copy_native" })
@@ -421,13 +425,22 @@ it.each([false, true])("retains conflicting logged-contact text and offers only 
   expect(contactBackend.updates).toBe(removed ? 0 : 1);
 });
 
-it.each([{ kind: "pota", reference_kind: "pota", reference: "US-0001", field: "POTA" },
-  { kind: "dxpedition", reference_kind: "iota", reference: "EU-001", field: "IOTA" }])("loads $kind reference into a draft without tuning or moving a rotor", async (programme) => {
+it.each([{ kind: "pota", reference_kind: "pota", reference: "US-0001", field: "POTA", draftKey: "potaReference" },
+  { kind: "dxpedition", reference_kind: "iota", reference: "EU-001", field: "IOTA", draftKey: "iota" }])("loads $kind reference into a draft without tuning or moving a rotor", async (programme) => {
   exists = true;
   const base = calls.request.getMockImplementation()!;
+  activation.activate.mockImplementation(async item => {
+    const qso = { id: "draft", start: "2026-10-12T00:00:00Z", call: item.callsign, frequencyHz: item.frequency_hz,
+      band: "20m", mode: item.mode, [programme.draftKey]: programme.reference };
+    draftBackend("logbook_operator_draft_apply", { operationID: "00000000-0000-4000-8000-000000000099", generation: testWorkspaceGeneration,
+      draftID: "draft", expectedRevision: 0, action: "replace", qso });
+    return { operationId: "00000000-0000-4000-8000-000000000098", phase: "confirmed", reservationActive: false,
+      draftOnly: true, tuneConfirmed: false, rotor: "not_requested" };
+  });
   calls.request.mockImplementation((method: string, params: unknown) => method === "opportunities_snapshot" ? Promise.resolve({ result: {
     generated_at: "2026-10-12T00:00:00.000Z",
-    items: [{ id: "pota:test", ...programme, callsign: "K1ABC", name: "Park", frequency_hz: 14025000, mode: "CW", comment: "", source: "pota", source_url: "", observed_at: "2026-10-12T00:00:00Z", expires_at: "2026-10-12T01:00:00Z", worked_count: 0, confirmed_count: 0 }], sources: [], total_available: 1, history_state: "ready",
+    items: [{ id: "pota:test", ...programme, callsign: "K1ABC", name: "Park", frequency_hz: 14025000, mode: "CW", comment: "", source: "pota", source_url: "", observed_at: "2026-10-12T00:00:00Z", expires_at: "2026-10-12T01:00:00Z", worked_count: 0, confirmed_count: 0,
+      activation: { sourceEpoch: "00000000-0000-4000-8000-000000000096", spotVersion: "00000000-0000-4000-8000-000000000097" } }], sources: [], total_available: 1, history_state: "ready",
   } }) : base(method, params));
   render(<LiveApp />);
   await screen.findByLabelText("Callsign");

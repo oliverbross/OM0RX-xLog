@@ -3,7 +3,6 @@ import { activatePreset, deletePreset, duplicatePreset, maxWorkspacePresets, val
 import { panelMinimum, type LayoutPreset, type LayoutSnapshot, type LayoutState, type WorkspacePanelID, type WorkspaceLayoutSession } from "./workspaceLayoutSession";
 import { operatorWorkspaceKey, readWorkspacePreferences } from "./operatorWorkspacePreferences";
 import { useWorkspaceWindows } from "./useWorkspaceWindows";
-import "./WorkspaceSettings.css";
 import { protectWorkspaceModeEditor } from "./workspaceMode";
 
 const names: Record<WorkspacePanelID, string> = {

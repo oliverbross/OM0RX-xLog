@@ -15,26 +15,31 @@ beforeEach(() => {
   native.listen.mockImplementation(async (_name, wake) => { wakes.add(wake); return () => { wakes.delete(wake); }; });
   native.invoke.mockImplementation(async (command, args) => {
     if (command !== "propagation_session_request") return;
-    if (args.action === "refresh") { current = { ...current, revision: current.revision + 2, snapshot: source() }; wakes.forEach(wake => wake()); }
+    const stale = !current.snapshot || Date.now() / 1000 - current.snapshot.received_at >= 600;
+    if (args.action === "refresh" || args.action === "ensure" && stale)
+      current = { ...current, revision: current.revision + 2, snapshot: source() };
+    if (args.action === "refresh") wakes.forEach(wake => wake());
     return structuredClone(current);
   });
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
-it("mounts passively, hides weather/device controls and fetches only after explicit Refresh", async () => {
+it("ensures fresh shared conditions on mount and cadence while hiding weather/device controls", async () => {
   const { unmount } = render(<DetachedPropagationSurface />);
   await act(async () => { await vi.advanceTimersByTimeAsync(0); });
-  expect(native.invoke.mock.calls).toEqual([["propagation_session_request", { action: "snapshot" }]]);
+  expect(native.invoke.mock.calls).toEqual([["propagation_session_request", { action: "ensure" }]]);
   expect(screen.queryByRole("button", { name: "Refresh weather" })).toBeNull();
-  expect(screen.getAllByLabelText("Day: Unknown")).toHaveLength(5);
-  await act(async () => { await vi.advanceTimersByTimeAsync(60 * 60_000); });
-  expect(native.invoke).toHaveBeenCalledOnce();
+  expect(screen.getByLabelText("Day: good")).toBeTruthy();
+  const firstReceived = current.snapshot.received_at;
+  await act(async () => { await vi.advanceTimersByTimeAsync(600_000); });
+  expect(current.snapshot.received_at).toBeGreaterThan(firstReceived);
+  expect(native.invoke.mock.calls.filter(call => call[1]?.action === "ensure")).toHaveLength(2);
   await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Refresh propagation" })); });
   expect(screen.getByLabelText("Day: good")).toBeTruthy();
   expect(native.invoke.mock.calls.filter(call => call[1]?.action === "refresh")).toHaveLength(1);
   unmount(); expect(wakes.size).toBe(0);
 });
-it("embedded and independent views share the same explicit refresh and retain its source timestamp", async () => {
+it("embedded and independent views share explicit refresh and native freshness cadence", async () => {
   const weather = vi.fn();
   render(<><div aria-label="Embedded"><SharedPropagationConditions compact request={weather} includeWeather={false} /></div><DetachedPropagationSurface /></>);
   await act(async () => { await vi.advanceTimersByTimeAsync(0); });
@@ -43,8 +48,8 @@ it("embedded and independent views share the same explicit refresh and retain it
   expect(screen.getAllByLabelText("Day: good")).toHaveLength(2); expect(weather).not.toHaveBeenCalled();
   const received = current.snapshot.received_at, calls = native.invoke.mock.calls.length;
   await act(async () => { await vi.advanceTimersByTimeAsync(660_000); });
-  expect(current.snapshot.received_at).toBe(received); expect(native.invoke).toHaveBeenCalledTimes(calls);
-  expect(screen.getByText("HF propagation · cached")).toBeTruthy();
+  expect(current.snapshot.received_at).toBeGreaterThan(received); expect(native.invoke.mock.calls.length).toBeGreaterThan(calls);
+  expect(screen.queryByText("HF propagation · cached")).toBeNull();
   expect(native.invoke.mock.calls.filter(call => call[1]?.action === "refresh")).toHaveLength(1);
 });
 it("starts with the propagation task and exposes only its explicit refresh", async () => {
@@ -53,5 +58,5 @@ it("starts with the propagation task and exposes only its explicit refresh", asy
   expect(screen.queryByRole("heading", { name: /^Propagation$/ })).toBeNull();
   expect(screen.getAllByRole("button").map(button => button.textContent)).toEqual(["Refresh propagation"]);
   expect(screen.queryByText(/Opening this window reads retained/)).toBeNull();
-  expect(native.invoke.mock.calls).toEqual([["propagation_session_request", { action: "snapshot" }]]);
+  expect(native.invoke.mock.calls).toEqual([["propagation_session_request", { action: "ensure" }]]);
 });

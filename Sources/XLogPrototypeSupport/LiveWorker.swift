@@ -4,7 +4,7 @@ import Foundation
 /// echoed into diagnostics. Creating a worker does not connect hardware or open
 /// the original application's database.
 public actor LiveWorker {
-    public static let shared = LiveWorker()
+    public static let shared = LiveWorker(ownsProcessSessions: true)
     private let diagnostics = PrototypeWorker()
     private var terminalShutdown = false
     // Disk-backed logbook work is synchronous. Run it on its own actor so a
@@ -83,6 +83,9 @@ public actor LiveWorker {
     private let references: LiveReferenceMethods
     #endif
     private let localAcceptance: Bool
+    /// Only the process singleton owns hardware/service singletons. Disposable
+    /// workers used by acceptance and unit tests must never terminate them.
+    private let ownsProcessSessions: Bool
     private let contactRefresher: @Sendable () async throws -> Void
     private var contactRefreshPending = false
     private var workspaceTransitionCount = 0
@@ -95,7 +98,8 @@ public actor LiveWorker {
          powerDelivery: NativeDraftPowerDelivery = NativeDraftPowerDelivery(),
          remoteBackup: LiveRemoteBackupService? = nil,
           remoteBackupEnvironment: NativeRemoteBackupPresentationEnvironment? = nil,
-         contactRefresher: (@Sendable () async throws -> Void)? = nil) {
+          contactRefresher: (@Sendable () async throws -> Void)? = nil,
+          ownsProcessSessions: Bool = false) {
         self.powerCapture = powerCapture
         self.powerDelivery = powerDelivery
         logbookLane = LogbookLane(service: logbook, power: powerCapture)
@@ -112,6 +116,7 @@ public actor LiveWorker {
         self.contactRefresher = contactRefresher ?? { try await cluster.refreshContacts() }
         opportunities = LiveOpportunitiesMethods(logbook: logbook, clusterSpots: { await cluster.currentSpotRowsIfStarted() })
         self.localAcceptance = localAcceptance
+        self.ownsProcessSessions = ownsProcessSessions
     }
 
     func beginTerminalShutdown() {
@@ -158,10 +163,12 @@ public actor LiveWorker {
         await services.startAutomaticSync()
         #if os(macOS)
         await references.startAutomaticChecks()
-        await LiveWSJTXBridge.shared.install { [weak self] in
-            Task { await self?.externalContactChanged() }
+        if ownsProcessSessions {
+            await LiveWSJTXBridge.shared.install { [weak self] in
+                Task { await self?.externalContactChanged() }
+            }
+            await LiveWSJTXBridge.shared.startIfEnabled()
         }
-        await LiveWSJTXBridge.shared.startIfEnabled()
         #endif
     }
 
@@ -174,7 +181,7 @@ public actor LiveWorker {
         powerCapture.install(changed: { delivery.enqueue { await lane.reconcilePower() } },
                              received: { reading in delivery.enqueue { await lane.capturePower(reading) } })
         #if os(macOS)
-        if registerStation { await LiveStationSession.shared.installPowerCapture(powerCapture) }
+        if registerStation && ownsProcessSessions { await LiveStationSession.shared.installPowerCapture(powerCapture) }
         #endif
         await lane.reconcilePower()
     }
@@ -187,7 +194,7 @@ public actor LiveWorker {
         await services.beginTermination()
         #if os(macOS)
         await references.terminate()
-        await LiveWSJTXBridge.shared.stopForShutdown()
+        if ownsProcessSessions { await LiveWSJTXBridge.shared.stopForShutdown() }
         #endif
         await publicServices.terminate()
         await opportunities.terminate()
@@ -199,10 +206,12 @@ public actor LiveWorker {
             return
         }
         #if os(macOS)
-        await LiveSpotBridge.shared.stopForShutdown()
-        await LiveRotorSession.shared.terminate()
-        await LiveFlexSession.shared.terminate()
-        await LiveStationSession.shared.terminate()
+        if ownsProcessSessions {
+            await LiveSpotBridge.shared.stopForShutdown()
+            await LiveRotorSession.shared.terminate()
+            await LiveFlexSession.shared.terminate()
+            await LiveStationSession.shared.terminate()
+        }
         #endif
         await cluster.terminate()
         await services.terminate()
@@ -223,14 +232,14 @@ public actor LiveWorker {
             if terminalShutdown && method == "remote_backup_request" {
                 throw WorkerFailure("worker_stopping", "The worker is shutting down; no backup command was started.")
             }
-            if ["sync_run", "sync_configure", "sync_retry", "sync_resolve"].contains(method) {
-                throw WorkerFailure("sync_owner_required", "Use the shared generation-bound Sync mutation owner.")
-            }
             if localAcceptance {
                 guard !terminalShutdown else {
                     throw WorkerFailure("worker_stopping", "The local acceptance session has ended.")
                 }
                 try LocalAcceptanceSession.validate(method: method, params: params)
+            }
+            if ["sync_run", "sync_configure", "sync_retry", "sync_resolve"].contains(method) {
+                throw WorkerFailure("sync_owner_required", "Use the shared generation-bound Sync mutation owner.")
             }
             if terminalShutdown && (method.hasPrefix("reference_") || method.hasPrefix("sync_") || method.hasPrefix("secret_") || method.hasPrefix("station_") || method.hasPrefix("spot_bridge_") || method.hasPrefix("wsjtx_") || method.hasPrefix("spot_history_") || method.hasPrefix("spot_draft_") || method.hasPrefix("opportunities_") || method.hasPrefix("cluster_") || method.hasPrefix("logbook_operator_draft") || method.hasPrefix("logbook_contact") || ["weather", "propagation_snapshot", "propagation_refresh", "lookup_call", "workspace_create", "backup_restore"].contains(method)) {
                 throw WorkerFailure("worker_stopping", "The worker is shutting down; no new service request was started.")

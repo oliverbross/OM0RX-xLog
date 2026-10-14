@@ -82,7 +82,7 @@ it("recovers a lost update acknowledgement after reopening without a second writ
   await screen.findByText("Already committed"); expect(backend.updates).toBe(1);
   expect(localStorage.getItem(detachedContactJournalKey)).toBeNull();
 });
-it("deletes and restores with receipts, retains undo after remount, and docks when settled", async () => {
+it("deletes and restores with receipts, retains undo after remount, and keeps detached chrome out of the task", async () => {
   render(<DetachedLogbookSurface />); fireEvent.click(await screen.findByText("W1AW"));
   fireEvent.click(screen.getByRole("button", { name: "Delete" }));
   fireEvent.click(await screen.findByRole("button", { name: "Confirm delete" }));
@@ -92,8 +92,6 @@ it("deletes and restores with receipts, retains undo after remount, and docks wh
   await waitFor(() => expect((screen.getByRole("button", { name: "Undo delete" }) as HTMLButtonElement).disabled).toBe(false));
   fireEvent.click(screen.getByRole("button", { name: "Undo delete" }));
   await screen.findByText("W1AW");
-  await waitFor(() => expect((screen.getByRole("button", { name: "Dock back" }) as HTMLButtonElement).disabled).toBe(false));
-  api.dock.mockImplementation(async () => { expect(api.blocked?.()).toBe(false); });
-  fireEvent.click(screen.getByRole("button", { name: "Dock back" }));
-  await waitFor(() => expect(api.dock).toHaveBeenCalledOnce()); expect(backend.updates).toBe(2);
+  expect(screen.queryByRole("button", { name: "Dock back" })).toBeNull();
+  expect(api.dock).not.toHaveBeenCalled(); expect(api.blocked?.()).toBe(false); expect(backend.updates).toBe(2);
 });

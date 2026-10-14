@@ -152,3 +152,28 @@
 .live .sidebar-foot > button { justify-content: center; width: 100%; margin-bottom: 4px; }
 .live .sidebar-foot > strong { font-size: 18px; line-height: 1.2; overflow-wrap: anywhere; }
 .live .sidebar-foot > span { font-size: 14px; font-weight: 600; letter-spacing: .03em; }
+
+/* Workspace settings are shared eagerly so detached Settings never loads a
+   late stylesheet after the global task-window overrides. */
+.workspace-settings { min-width: 0; padding-block: 12px; }
+.workspace-preset-toolbar, .workspace-preset-actions, .workspace-layout-options, .workspace-recovery { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
+.workspace-preset-toolbar > label { display: grid; gap: 6px; min-width: 200px; flex: 1 1 240px; max-width: 440px; }
+.workspace-preset-toolbar select { width: 100%; min-height: 32px; }
+.workspace-settings-help { max-width: 72ch; color: var(--muted); margin-block: 12px 20px; }
+.workspace-preset-editor { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin-top: 16px; }
+.workspace-preset-editor fieldset { width: 100%; min-width: 0; border: 0; padding: 0; margin: 0; }
+.workspace-name { display: grid; gap: 6px; max-width: 440px; }
+.workspace-layout-options { margin-block: 16px 24px; gap: 16px; }
+.workspace-panel-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 12px 20px; max-width: 1100px; }
+.service-settings .workspace-panel-options label, .service-settings .workspace-layout-options label { display: flex; flex-direction: row; align-items: center; gap: 8px; }
+.service-settings .workspace-panel-options .workspace-panel-placement { display: grid; gap: 6px; align-items: start; }
+.workspace-panel-placement select { width: 100%; min-height: 32px; }
+.workspace-native-outcome { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; margin-block: 12px; }
+.workspace-native-outcome p { margin: 0; max-width: 75ch; overflow-wrap: anywhere; }
+.workspace-settings input[type="checkbox"] { flex: 0 0 auto; }
+.workspace-retained { margin-block: 24px; color: var(--muted); }
+.workspace-retained summary { cursor: pointer; }
+.workspace-retained ul { columns: 2 260px; padding-left: 20px; line-height: 1.8; }
+.workspace-settings-feedback { max-width: 75ch; overflow-wrap: anywhere; }
+.workspace-settings input { caret-color: var(--accent, #00cfa6); }
+.workspace-settings :focus-visible { outline: 2px solid var(--accent, #00cfa6); outline-offset: 3px; }
