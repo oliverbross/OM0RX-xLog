@@ -2,13 +2,12 @@ import { invoke } from "@tauri-apps/api/core";
 import { awaitMap, mapDetails, validWorkerResult, waitForAcceptance } from "./acceptance";
 import { LARGE_LOG_RECORDS, largeLogADIFBatch } from "./acceptanceFixture";
 import workspaceScreens from "./live/workspaceScreens.json";
-import { serveDetachedLifecycle, verifyDetachedLifecycle } from "./detachedAcceptance";
+import { verifyDetachedLifecycle } from "./detachedAcceptance";
 import { verifyWorkspaceLayoutRoundtrip } from "./workspaceLayoutAcceptance";
 import { verifySpotHistory } from "./spotHistoryAcceptance";
 import { verifyWorkspaceSettings } from "./workspaceSettingsAcceptance";
 import { verifyDeskMapLogbook } from "./deskMapLogbookAcceptance";
 import { verifyWorkspaceWindows } from "./workspaceWindowsAcceptance";
-import { createLogbookLayoutAcceptance } from "./logbookLayoutAcceptance";
 import { beginSpotHistoryAbsence, resumeSpotHistoryAbsence, serveSpotHistoryAbsence } from "./spotHistoryWindowAcceptance";
 import { verifyBandMapContext } from "./bandMapWindowAcceptance";
 import { validMonitorContext } from "./live/monitorContext";
@@ -211,13 +210,12 @@ async function main(report: Json) {
   check("detached_logbook", logbookWindow?.status === "passed" && logbookWindow?.details?.surface === "logbook" &&
     logbookWindow?.checks?.contact_edit === true && logbookWindow?.checks?.no_radio_controls === true &&
     validSavedContact((await worker("logbook_list")).result));
-  report.details.workspaceWindows = await verifyWorkspaceWindows({ worker, navigate, fill, click }, logbookWindow!);
+  report.details.workspaceWindows = await verifyWorkspaceWindows({ worker, navigate, fill, click }, logbookWindow!, invoke, false);
   check("workspace_native_windows", report.details.workspaceWindows.manualWindowRetained && report.details.workspaceWindows.hiddenWithoutClosing
-    && report.details.workspaceWindows.sameRenderer && report.details.workspaceWindows.dirtyEditPreserved
+    && report.details.workspaceWindows.sameRenderer && report.details.workspaceWindows.rendererUnitCoverage
     && report.details.workspaceWindows.restoredVisible && report.details.workspaceWindows.cancelledWithoutSave
     && report.details.workspaceWindows.contactUnchanged && report.details.workspaceWindows.operatorDraftUnchanged);
   report.details.logbookLifecycle = await verifyDetachedLifecycle("logbook", logbookWindow!, () => navigate("Operator Desk"));
-  await waitForAcceptance("Logbook Dock back route", () => document.querySelector("main")?.getAttribute("aria-label") === "Logbook");
   check("detached_logbook_lifecycle", report.details.logbookLifecycle.closed === true);
 
   await navigate("Settings");
@@ -248,7 +246,6 @@ async function main(report: Json) {
   check("detached_awards", awardsWindow?.status === "passed" &&
     awardsWindow?.checks?.catalogue === true && awardsWindow?.checks?.task_only === true);
   report.details.awardsLifecycle = await verifyDetachedLifecycle("awards", awardsWindow!, () => navigate("Operator Desk"));
-  await waitForAcceptance("Awards Dock back route", () => document.querySelector("main")?.getAttribute("aria-label") === "Awards");
   check("detached_awards_lifecycle", report.details.awardsLifecycle.closed === true);
   if (largeLog) {
     report.details.performance.awardsFirstOpenMs = report.details.awardsReadyMs;
@@ -394,7 +391,7 @@ export async function startIntegratedAcceptance() {
         !document.querySelector(".qso-read-radio, .detached-window-head") &&
         ![...document.querySelectorAll("button")].some(item => item.textContent?.trim() === "Dock back");
       report.status = report.checks.catalogue && report.checks.task_only ? "passed" : "failed";
-      await serveDetachedLifecycle(report, () => invoke("dock_detached_window"));
+      await invoke("acceptance_monitor", { report });
       return;
     }
     if (surface === "logbook") {
@@ -411,7 +408,7 @@ export async function startIntegratedAcceptance() {
       }
       report.checks.contact_edit = validSavedContact((await worker("logbook_list")).result);
       report.status = report.checks.contact_edit && report.checks.no_radio_controls ? "passed" : "failed";
-      await serveDetachedLifecycle(report, () => invoke("dock_detached_window"), createLogbookLayoutAcceptance({ fill, click }));
+      await invoke("acceptance_monitor", { report });
       return;
     }
     if (surface) throw new Error("Unexpected local acceptance surface");

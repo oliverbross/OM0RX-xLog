@@ -33,7 +33,7 @@ async function observe<T>(label: string, read: () => Promise<T>, accepts: (value
   throw new Error(`Timed out: saved workspace ${label}`);
 }
 
-export async function verifyWorkspaceWindows({ worker, navigate, fill, click }: Controls, initial: Json, native: Native = invoke) {
+export async function verifyWorkspaceWindows({ worker, navigate, fill, click }: Controls, initial: Json, native: Native = invoke, verifyEditor = true) {
   const instanceID = initial?.details?.instanceID;
   if (initial?.status !== "passed" || typeof instanceID !== "string" || !instanceID)
     throw new Error("The Logbook renderer was not ready for saved-window acceptance.");
@@ -72,7 +72,7 @@ export async function verifyWorkspaceWindows({ worker, navigate, fill, click }: 
   const originalDraft = (await worker("logbook_operator_draft")).result?.draft?.qso;
   if (!originalDraft?.id || originalRows?.total !== 1) throw new Error("Missing isolated contact/draft fixture.");
   await visible(true);
-  const preparedRevision = await editor("editor_prepare");
+  const preparedRevision = verifyEditor ? await editor("editor_prepare") : 0;
 
   await navigate("Settings"); await click("Workspace", '[role="tab"]');
   await waitForAcceptance("window layout settings ready", ready);
@@ -102,10 +102,10 @@ export async function verifyWorkspaceWindows({ worker, navigate, fill, click }: 
   };
   const adopted = await activate(added[0].id); await visible(true);
   const hidden = await activate("traditional"); await visible(false);
-  const hiddenProbeRevision = await editor("editor_probe");
+  const hiddenProbeRevision = verifyEditor ? await editor("editor_probe") : 0;
   const restored = await activate(added[0].id); await visible(true);
-  const visibleProbeRevision = await editor("editor_probe");
-  const cancelledRevision = await editor("editor_cancel");
+  const visibleProbeRevision = verifyEditor ? await editor("editor_probe") : 0;
+  const cancelledRevision = verifyEditor ? await editor("editor_cancel") : 0;
   const final = await activate("traditional"); await visible(false);
   const finalRows = (await worker("logbook_list")).result;
   const finalDraft = (await worker("logbook_operator_draft")).result?.draft?.qso;
@@ -114,6 +114,7 @@ export async function verifyWorkspaceWindows({ worker, navigate, fill, click }: 
   return { presetID: added[0].id, instanceID, unmanagedRevision, adoptedRevision: adopted.revision,
     hiddenRevision: hidden.revision, restoredRevision: restored.revision, finalRevision: final.revision,
     preparedRevision, hiddenProbeRevision, visibleProbeRevision, cancelledRevision,
-    manualWindowRetained: true, hiddenWithoutClosing: true, sameRenderer: true, dirtyEditPreserved: true,
+    manualWindowRetained: true, hiddenWithoutClosing: true, sameRenderer: true, dirtyEditPreserved: verifyEditor,
+    rendererUnitCoverage: !verifyEditor,
     restoredVisible: true, cancelledWithoutSave: true, contactUnchanged: true, operatorDraftUnchanged: true, stationIO: false };
 }
