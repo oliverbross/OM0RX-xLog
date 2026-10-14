@@ -33,6 +33,15 @@ packaged UI result. Keep unresolved items here across releases.
   from the three held pairs absent locally. See
   [live acceptance evidence](LIVE_WAVELOG_SYNC_ACCEPTANCE_2026-10-15.md).
 
+- **Live HF propagation refresh accepted, 15 October:** A new default-disabled
+  probe used the production bounded HTTPS transport/parser shipped in alpha.29
+  against N0NBH/HamQSL. Two explicit refreshes completed in 4.440 seconds; the
+  second returned current SFI 136, A 13, K 2 and five day/night band groups with
+  `stale: false`. The ordinary seven-test public-service suite passes with this
+  network probe skipped. Installed-header visual freshness and provider-outage
+  observation remain open. See
+  [live propagation evidence](LIVE_PROPAGATION_ACCEPTANCE_2026-10-15.md).
+
 - **Journaled exact Direct FLEX receive frequency — source verified, 14 October:** Exact source `568ffb0` is committed. Independent Station Control can set Direct FLEX VFO A receive frequency only when retained evidence is under five seconds old, explicitly RX/PTT-off on VFO A, advertises the capability and matches exact setup, selection, selection-control and connection generations. Admission is durable before dispatch; unknown replies never replay and the same observed sample cannot issue twice. **53 frontend**, **4 receive-native**, **77 station-owner** and **9 monitor-context** focused checks plus TypeScript/diff checks pass. Agent/Hamlib receive controls stay hidden; FLEX mode stays hidden because the backend targets mutable `selectedSliceID` rather than an atomic explicit VFO. No hardware, RF, service or operator-data action occurred.
 
 - **Explicit lossless ISO-8859-1 ADI import — source verified, 14 October:** Exact source `efcc329` is committed. Latin-1 is a third explicit import choice beside UTF-8 and strict Windows-1252. Each source byte maps to the identical Unicode point, source lengths are rewritten to canonical UTF-8, all C1 values survive native preview/import/export/reviewed update and UTF-8 ADX roundtrip, and NUL rejects. ADX input remains UTF-8-only. **64 utility**, **23 component** and focused native transfer tests plus TypeScript/diff checks pass. No guessing, operator-data change or service action occurred.

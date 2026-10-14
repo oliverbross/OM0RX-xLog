@@ -122,6 +122,32 @@ struct LivePublicServiceMethodsTests {
         await service.terminate()
     }
 
+    @Test("Live propagation feed refreshes through the production transport",
+          .enabled(if: ProcessInfo.processInfo.environment["XLOG_PROPAGATION_LIVE_PROBE"] == "1"))
+    func livePropagationRefresh() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let service = LivePublicServiceMethods(logbook: try workspace(root))
+
+        let first = try await service.handle(method: "propagation_refresh", params: [:])
+        #expect(first["status"] as? String == "Current")
+        #expect(first["stale"] as? Bool == false)
+        #expect(first["source"] as? String == "N0NBH / HamQSL")
+        #expect(first["received_at"] as? Double != nil)
+        #expect(first["solar_flux"] as? Int != nil)
+        #expect(first["a_index"] as? Int != nil)
+        #expect(first["k_index"] as? Int != nil)
+        #expect((first["bands"] as? [[String: Any]])?.count == 5)
+
+        let second = try await service.handle(method: "propagation_refresh", params: [:])
+        #expect(second["status"] as? String == "Current")
+        #expect(second["stale"] as? Bool == false)
+        #expect((second["received_at"] as? Double ?? 0) >= (first["received_at"] as? Double ?? .infinity))
+        #expect((second["bands"] as? [[String: Any]])?.count == 5)
+        print("LIVE_PROPAGATION_OK sfi=\(second["solar_flux"] ?? "-") a=\(second["a_index"] ?? "-") k=\(second["k_index"] ?? "-") bands=\((second["bands"] as? [[String: Any]])?.count ?? 0)")
+        await service.terminate()
+    }
+
     @Test("Propagation shutdown discards a late injected response and cannot restart refresh")
     func propagationShutdown() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
