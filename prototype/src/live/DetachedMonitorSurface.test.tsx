@@ -5,11 +5,23 @@ import { MonitorSurface } from "./DetachedMonitorSurface";
 import { syntheticMonitorContext } from "./monitorContextFixtures";
 import type { MonitorContext } from "./monitorContext";
 import { syntheticMapContext } from "./mapContextFixtures";
+const automatic = vi.hoisted(() => ({ state: null as any, error: "", set: vi.fn(), changed: undefined as undefined | (() => void) }));
+vi.mock("./useAutoRotor", async () => {
+  const { useEffect, useState } = await import("react");
+  return { useAutoRotor: () => {
+    const [, render] = useState(0);
+    useEffect(() => { automatic.changed = () => render(value => value + 1); return () => { automatic.changed = undefined; }; }, []);
+    return { state: automatic.state, error: automatic.error, set: automatic.set, refresh: vi.fn() };
+  } };
+});
 vi.mock("../Map", () => ({ default: () => <div>Optional map component</div> }));
 let changed!: (value: MonitorContext) => void, failed!: (message: string) => void;
 const noTarget = () => ({ refresh: vi.fn(), dispose: vi.fn() });
 const map = (_changed: any, fail: (value: string) => void) => { fail("Synthetic metadata unavailable"); return { refresh: vi.fn(), dispose: vi.fn() }; };
-beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date("2026-10-14T00:00:00Z")); });
+beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date("2026-10-14T00:00:00Z"));
+  automatic.state = { armed: false, epoch: 0, owner: null, generation: null, target: null, activation_pending: false, canonical_pending: false, error: "" };
+  automatic.error = ""; automatic.set.mockReset().mockResolvedValue(undefined);
+});
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 function setup(value = syntheticMonitorContext()) {
   const refresh = vi.fn(), dispose = vi.fn(), radioAction = vi.fn().mockResolvedValue({ accepted: true }), rotorAction = vi.fn().mockResolvedValue({ accepted: true });
@@ -58,6 +70,74 @@ it("isolated synthetic context remains read-only even if supplied connected obse
   const value = syntheticMonitorContext(); value.acceptance = { synthetic: true, source: "synthetic_memory", externalOwners: false, readOnly: true };
   setup(value); expect(screen.getByText("Synthetic isolated observation · read only")).toBeTruthy();
   for (const name of ["Standby", "Tune", "Cancel", "Turn", "Stop"]) expect(screen.queryByRole("button", { name })).toBeNull();
+  expect(screen.queryByRole("checkbox", { name: "Auto rotor" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Turn automatic rotor off" })).toBeNull();
+  expect(automatic.set).not.toHaveBeenCalled();
+});
+
+it("arms through native authority using the retained exact owner/generation without a Desk", async () => {
+  setup();
+  const checkbox = screen.getByRole("checkbox", { name: "Auto rotor" }) as HTMLInputElement;
+  expect(checkbox.disabled).toBe(false);
+  fireEvent.click(checkbox); await act(async () => {});
+  expect(automatic.set).toHaveBeenCalledExactlyOnceWith(true, expect.objectContaining({ owner: "native_dcu1", generation: 4 }));
+  expect(checkbox.checked).toBe(false); // A request is not an armed acknowledgement.
+  act(() => { automatic.state = { ...automatic.state, armed: true, epoch: 1, owner: "native_dcu1", generation: 4 }; automatic.changed?.(); });
+  expect(checkbox.checked).toBe(true);
+});
+it.each(["stale", "failed", "disconnected", "uncertain"])("keeps Off and Stop while %s rotor context prevents Arm", async kind => {
+  const value = syntheticMonitorContext();
+  if (kind === "stale") value.rotor.received_at_ms -= 6000;
+  if (kind === "disconnected") value.rotor.snapshot.backend.connected = false;
+  if (kind === "uncertain") value.rotor.snapshot.state = "uncertain";
+  const view = setup(value);
+  if (kind === "failed") act(() => failed("Native observations unavailable"));
+  expect((screen.getByRole("checkbox", { name: "Auto rotor" }) as HTMLInputElement).disabled).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Turn automatic rotor off" }));
+  fireEvent.click(screen.getByRole("button", { name: "Stop" })); await act(async () => {});
+  expect(automatic.set).toHaveBeenCalledExactlyOnceWith(false, undefined);
+  expect(view.rotorAction).toHaveBeenCalledWith(expect.anything(), "rotor_stop", {});
+});
+it("keeps Off available before status arrives and during a pending Arm, without retrying either", async () => {
+  let resolve!: () => void;
+  automatic.set.mockImplementation((armed: boolean) => armed ? new Promise<void>(done => { resolve = done; }) : Promise.resolve());
+  setup(); const checkbox = screen.getByRole("checkbox", { name: "Auto rotor" }) as HTMLInputElement;
+  fireEvent.click(checkbox); expect(checkbox.disabled).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Turn automatic rotor off" }));
+  expect(automatic.set.mock.calls.map(([armed]) => armed)).toEqual([true, false]);
+  await act(async () => { resolve(); }); expect(checkbox.checked).toBe(false);
+  act(() => { automatic.state = null; automatic.changed?.(); });
+  expect(checkbox.disabled).toBe(true); expect(screen.getByText("Auto rotor unavailable")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Turn automatic rotor off" })); await act(async () => {});
+  expect(automatic.set.mock.calls.map(([armed]) => armed)).toEqual([true, false, false]);
+});
+it("keeps an acknowledged armed state disarmable after observations become stale", async () => {
+  automatic.state = { ...automatic.state, armed: true, epoch: 1, owner: "native_dcu1", generation: 4 };
+  setup(); await act(async () => { await vi.advanceTimersByTimeAsync(6000); });
+  const checkbox = screen.getByRole("checkbox", { name: "Auto rotor" }) as HTMLInputElement;
+  expect(checkbox.checked).toBe(true); expect(checkbox.disabled).toBe(false);
+  fireEvent.click(checkbox); await act(async () => {});
+  expect(automatic.set).toHaveBeenCalledExactlyOnceWith(false, undefined);
+  expect(checkbox.checked).toBe(true); // Only native acknowledgement changes it.
+});
+it("rechecks freshness at click admission even before a new render commits", async () => {
+  setup(); const checkbox = screen.getByRole("checkbox", { name: "Auto rotor" });
+  const stale = syntheticMonitorContext(); stale.rotor.received_at_ms -= 6000;
+  act(() => { changed(stale); fireEvent.click(checkbox); });
+  expect(automatic.set).not.toHaveBeenCalled();
+});
+it("does not redirect a rejected Arm after native ownership changes and displays the error", async () => {
+  automatic.set.mockRejectedValue(new Error("Rotor owner changed. Refresh before arming."));
+  setup(); fireEvent.click(screen.getByRole("checkbox", { name: "Auto rotor" })); await act(async () => {});
+  expect(screen.getByRole("alert").textContent).toContain("Rotor owner changed");
+  const next = syntheticMonitorContext(); next.rotor.snapshot = { owner: "hamlib", generation: 8, state: "active", backend_available: true,
+    backend: { fields: { position: { Azimuth: "53" } } } };
+  act(() => changed(next));
+  expect(automatic.set).toHaveBeenCalledTimes(1);
+  expect((screen.getByRole("checkbox", { name: "Auto rotor" }) as HTMLInputElement).checked).toBe(false);
+  automatic.set.mockResolvedValue(undefined);
+  fireEvent.click(screen.getByRole("checkbox", { name: "Auto rotor" })); await act(async () => {});
+  expect(automatic.set).toHaveBeenLastCalledWith(true, expect.objectContaining({ owner: "hamlib", generation: 8 }));
 });
 it("keeps metadata/target errors separate and cleans up each independent stream", () => {
   const value = syntheticMonitorContext(), stopCore = vi.fn(), stopMap = vi.fn(), stopTarget = vi.fn();

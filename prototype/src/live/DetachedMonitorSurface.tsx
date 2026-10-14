@@ -4,6 +4,8 @@ import WorldMap from "../Map";
 import { connectMapContext, mapClusterFresh, mapSpots, type MapContext } from "./mapContext";
 import { connectMonitorContext, freshMonitorProjection, monitorRadioAction, monitorRadioFresh, monitorRotorAction, monitorStation, type MonitorContext } from "./monitorContext";
 import { connectMonitorTarget, type MonitorTarget } from "./monitorTarget";
+import { useAutoRotor } from "./useAutoRotor";
+import { rotorProjection, validRotorSnapshot } from "./rotorControl";
 import "./DetachedMonitorSurface.css";
 
 type Connection = { refresh: () => void; dispose: () => void };
@@ -27,6 +29,8 @@ export function MonitorSurface({ connectCore = connectMonitorContext, connectMap
   const [context, setContext] = useState<MonitorContext | null>(null), [map, setMap] = useState<MapContext | null>(null);
   const [error, setError] = useState(""), [mapError, setMapError] = useState(""), [clock, setClock] = useState(Date.now());
   const [target, setTarget] = useState<MonitorTarget | null>(null), [targetError, setTargetError] = useState("");
+  const automatic = useAutoRotor(), [autoError, setAutoError] = useState(""), [arming, setArming] = useState(false);
+  const armingRef = useRef(false);
   const latest = useRef<MonitorContext | null>(null), core = useRef<Connection | null>(null), maps = useRef<Connection | null>(null), targets = useRef<Connection | null>(null);
   const active = useRef(true), authority = useRef(false);
   useEffect(() => {
@@ -44,6 +48,22 @@ export function MonitorSurface({ connectCore = connectMonitorContext, connectMap
   }, [connectTarget]);
   const freshRadio = authority.current && monitorRadioFresh(context, clock), freshRotor = authority.current && freshMonitorProjection(context?.rotor, clock);
   const synthetic = !!context?.acceptance, mapStale = !!mapError || !mapClusterFresh(map, clock);
+  const armed = automatic.state?.armed === true;
+  const retainedRotor = validRotorSnapshot(context?.rotor?.snapshot) ? context!.rotor.snapshot : null;
+  const canArm = !synthetic && !!automatic.state && !automatic.error && freshRotor &&
+    !!retainedRotor?.owner && rotorProjection(retainedRotor).connected === true;
+  const changeAutomatic = async (enabled: boolean) => {
+    if (synthetic || latest.current?.acceptance) return;
+    // Check the retained identity again at the event boundary, not only render.
+    const current = latest.current, rotor = current?.rotor?.snapshot;
+    if (enabled && (!automatic.state || automatic.error || armingRef.current || !authority.current || !freshMonitorProjection(current?.rotor) ||
+      !validRotorSnapshot(rotor) || !rotor.owner || !rotorProjection(rotor).connected)) return;
+    if (enabled) { armingRef.current = true; setArming(true); }
+    setAutoError("");
+    try { await automatic.set(enabled, enabled ? rotor : undefined); }
+    catch (cause) { if (active.current) setAutoError(cause instanceof Error ? cause.message : "Automatic rotor control failed. Refresh its native status before trying again."); }
+    finally { if (enabled) { armingRef.current = false; if (active.current) setArming(false); } }
+  };
   const station = monitorStation(context, clock);
   if (!authority.current) { station.radio.observed = false; station.station.radio_stale = true; station.station.swr_is_live = false; station.rotor.connected = false; }
   const radioRequest = async (method: string, params: Record<string, any> = {}) => {
@@ -58,7 +78,13 @@ export function MonitorSurface({ connectCore = connectMonitorContext, connectMap
   };
   return <div className="app live monitor-app detached-monitor-app"><main aria-label="Detached Station Monitor">
     <div className="live-actions detached-monitor-actions"><strong>Station Monitor</strong><span className="secondary" role="status">{synthetic ? "Synthetic isolated observation · read only" : "Shared native observations · independent of Desk"}</span>
+      {!synthetic && <><label title={canArm ? "Follow the canonical QSO target using the observed native rotor." : "Refresh a connected rotor observation before arming. Off remains available."}>
+        <input type="checkbox" aria-label="Auto rotor" checked={armed} disabled={!armed && (!canArm || arming)}
+          onChange={event => { void changeAutomatic(event.target.checked); }} />{automatic.state ? "Auto rotor" : "Auto rotor unavailable"}</label>
+        <button type="button" aria-label="Turn automatic rotor off" title="Disarm automatic turns. Use Stop to stop the current move."
+          onClick={() => { void changeAutomatic(false); }}>Off</button></>}
       <button type="button" onClick={() => { core.current?.refresh(); maps.current?.refresh(); targets.current?.refresh(); }}>Refresh</button></div>
+    {!synthetic && (autoError || automatic.error) && <p className="live-error" role="alert">{autoError || automatic.error}</p>}
     {error && <p className="live-error" role="alert">{error}</p>}
     {!context && <p className="secondary" role="status">Loading retained native station observations…</p>}
     {context && !context.selection?.provider && <p className="secondary" role="status">No radio selected. Choose and connect a radio in the main station controls.</p>}

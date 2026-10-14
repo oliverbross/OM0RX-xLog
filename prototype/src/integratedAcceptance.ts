@@ -11,6 +11,7 @@ import { createLogbookLayoutAcceptance } from "./logbookLayoutAcceptance";
 import { beginSpotHistoryAbsence, resumeSpotHistoryAbsence, serveSpotHistoryAbsence } from "./spotHistoryWindowAcceptance";
 import { verifyBandMapContext } from "./bandMapWindowAcceptance";
 import { validMonitorContext } from "./live/monitorContext";
+import { verifyEditorFocus } from "./editorFocusAcceptance";
 
 type Json = Record<string, any>;
 const frame = () => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
@@ -141,8 +142,10 @@ async function main(report: Json) {
   await navigate("Logbook");
   await waitForAcceptance("saved QSO row", () => document.querySelector(".live-logbook-table tbody")?.textContent?.includes("W1AW") === true);
   check("logbook_readback", document.querySelectorAll(".live-logbook-table tbody tr").length === 1);
-  window.dispatchEvent(new KeyboardEvent("keydown", { key: "l", ctrlKey: true, bubbles: true, cancelable: true }));
-  await waitForAcceptance("full editor shortcut", () => document.activeElement?.matches(".qso-call input") === true);
+  // keyboard_editor proves focus inside the full editor, not an OS shortcut.
+  // Cmd/Ctrl+L now belongs to the native detached Log QSO window; the main
+  // Log QSO route is independently available from the native menu (Cmd/Ctrl+2).
+  report.details.editorFocus = await verifyEditorFocus({ navigate, worker });
   check("keyboard_editor", true);
   await navigate("Operator Desk");
   await fill('[aria-label="Desk Callsign"]', "TEST2");

@@ -2,7 +2,8 @@
 //! rotor transport lives here. Callers supply canonical reads and lookup work.
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::sync::{atomic::{AtomicBool, AtomicU64, Ordering}, Arc, Mutex, OnceLock, Weak};
+use std::sync::{atomic::{AtomicU64, Ordering}, Arc, Mutex, OnceLock, Weak};
+const MAX_EPOCH: u64 = 9_007_199_254_740_991;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Target {
@@ -40,8 +41,9 @@ struct State {
     error: String,
 }
 pub struct AutomaticRotor {
-    armed: AtomicBool,
-    epoch: AtomicU64,
+    // Epoch and armed permission are one atomic value. Revocation cannot be
+    // followed by a delayed independent `armed = true` store from an old Arm.
+    authority: AtomicU64,
     state: Mutex<State>,
 }
 /// Not deserializable and never minted by a renderer. Clones retain the same
@@ -61,58 +63,82 @@ pub struct Permit {
 pub struct CanonicalChange { authority: Arc<AutomaticRotor> }
 impl Drop for CanonicalChange {
     fn drop(&mut self) {
-        self.authority.epoch.fetch_add(1, Ordering::AcqRel);
+        self.authority.advance_epoch(false);
         if let Ok(mut state) = self.authority.state.lock() {
             state.canonical_pending = state.canonical_pending.saturating_sub(1);
-            state.sequence = state.sequence.wrapping_add(1); state.target = None;
+            state.sequence = state.sequence.saturating_add(1); state.target = None;
             state.activation = false; state.confirmed = false; state.attempted = None;
         }
     }
 }
 impl AutomaticRotor {
-    fn new() -> Self { Self { armed: AtomicBool::new(false), epoch: AtomicU64::new(0), state: Mutex::new(State::default()) } }
+    fn new() -> Self { Self { authority: AtomicU64::new(0), state: Mutex::new(State::default()) } }
+    fn epoch(&self) -> u64 { self.authority.load(Ordering::Acquire) >> 1 }
+    fn armed(&self) -> bool { self.authority.load(Ordering::Acquire) & 1 != 0 }
+    fn permits_epoch(&self, epoch: u64) -> bool { self.authority.load(Ordering::Acquire) == (epoch << 1 | 1) }
+    fn advance_epoch(&self, disarm: bool) {
+        let _ = self.authority.fetch_update(Ordering::AcqRel, Ordering::Acquire, |value| {
+            let next = value.checked_add(2).filter(|next| next >> 1 <= MAX_EPOCH);
+            Some(next.map(|next| if disarm { next & !1 } else { next }).unwrap_or(MAX_EPOCH << 1))
+        });
+    }
     fn snapshot(&self) -> Result<Value, String> {
         let state = self.state.lock().map_err(|_| "Automatic rotor state unavailable")?;
-        Ok(json!({"armed":self.armed.load(Ordering::Acquire),"epoch":self.epoch.load(Ordering::Acquire),
+        let authority = self.authority.load(Ordering::Acquire);
+        Ok(json!({"armed":authority & 1 != 0,"epoch":authority >> 1,
             "owner":state.owner,"generation":state.generation,"target":state.target,
             "activation_pending":state.activation && !state.confirmed,"canonical_pending":state.canonical_pending > 0,"error":state.error}))
     }
-    fn arm(&self, owner: &str, generation: u64) -> Result<Value, String> {
+    fn arm_at_epoch(&self, owner: &str, generation: u64, expected_epoch: u64) -> Result<Value, String> {
         let mut state = self.state.lock().map_err(|_| "Automatic rotor state unavailable")?;
-        self.epoch.fetch_add(1, Ordering::AcqRel);
+        self.admit_arm(expected_epoch, || {})?;
         state.owner = Some(owner.into()); state.generation = Some(generation);
         state.attempted = None; state.attempted_target = None; state.error.clear();
-        self.armed.store(true, Ordering::Release);
         drop(state); self.snapshot()
     }
+    fn admit_arm(&self, expected_epoch: u64, before_admission: impl FnOnce()) -> Result<(), String> {
+        let authority = self.authority.load(Ordering::Acquire);
+        if authority >> 1 != expected_epoch { return Err("Automatic rotor permission changed before arming. Review its current state.".into()); }
+        let next = authority.checked_add(2).filter(|value| value >> 1 <= MAX_EPOCH).map(|value| value | 1).ok_or("Automatic rotor epoch exhausted")?;
+        before_admission();
+        // The same atomic CAS admits Arm and sets its epoch. A Stop before it
+        // makes it fail; a Stop after it clears permission atomically.
+        self.authority.compare_exchange(authority, next, Ordering::AcqRel, Ordering::Acquire)
+            .map_err(|_| "Automatic rotor permission changed while arming. Review its current state.")?;
+        Ok(())
+    }
+    #[cfg(test)]
+    fn arm(&self, owner: &str, generation: u64) -> Result<Value, String> { self.arm_at_epoch(owner, generation, self.epoch()) }
     pub(crate) fn revoke(&self) {
         // Revoke before taking any lock: a queued automatic turn cannot become
         // valid while a manual Stop waits behind an already-admitted driver RPC.
-        self.armed.store(false, Ordering::Release);
-        self.epoch.fetch_add(1, Ordering::AcqRel);
+        self.revoke_authority();
         if let Ok(mut state) = self.state.lock() { state.attempted = None; state.error.clear(); }
+    }
+    fn revoke_authority(&self) {
+        self.advance_epoch(true);
     }
     fn note_reconcile_error(&self, expected_epoch: u64, error: &str) {
         if let Ok(mut state) = self.state.lock() {
-            if self.armed.load(Ordering::Acquire) && self.epoch.load(Ordering::Acquire) == expected_epoch {
+            if self.permits_epoch(expected_epoch) {
                 state.error = error.chars().take(1024).collect();
             }
         }
     }
     fn fail_permit(&self, permit: &Permit, error: &str) {
         if let Ok(mut state) = self.state.lock() {
-            if self.epoch.load(Ordering::Acquire) == permit.epoch && state.sequence == permit.sequence {
-                self.armed.store(false, Ordering::Release);
-                self.epoch.fetch_add(1, Ordering::AcqRel);
+            let authority = self.authority.load(Ordering::Acquire);
+            if authority >> 1 == permit.epoch && state.sequence == permit.sequence &&
+                self.authority.compare_exchange(authority, authority.checked_add(2).filter(|value| value >> 1 <= MAX_EPOCH).unwrap_or(MAX_EPOCH << 1) & !1, Ordering::AcqRel, Ordering::Acquire).is_ok() {
                 state.attempted = None; state.error = error.chars().take(1024).collect();
             }
         }
     }
     fn canonical_will_change(self: &Arc<Self>) -> CanonicalChange {
-        self.epoch.fetch_add(1, Ordering::AcqRel);
+        self.advance_epoch(false);
         if let Ok(mut state) = self.state.lock() {
             state.canonical_pending += 1;
-            state.sequence = state.sequence.wrapping_add(1); state.target = None;
+            state.sequence = state.sequence.saturating_add(1); state.target = None;
             state.activation = false; state.confirmed = false; state.attempted = None;
         }
         CanonicalChange { authority: self.clone() }
@@ -122,12 +148,15 @@ impl AutomaticRotor {
         let mut state = self.state.lock().map_err(|_| "Automatic rotor state unavailable")?;
         if activation { state.unconfirmed = Some(target.clone()); }
         if activation || state.target.as_ref() != Some(&target) {
-            state.sequence = state.sequence.wrapping_add(1); state.target = Some(target.clone());
+            let Some(sequence) = state.sequence.checked_add(1) else {
+                self.revoke_authority(); return Err("Automatic rotor target sequence exhausted".into());
+            };
+            state.sequence = sequence; state.target = Some(target.clone());
             state.activation = activation || state.unconfirmed.as_ref() == Some(&target);
             state.confirmed = !state.activation; state.attempted = None;
         }
         let (owner, generation) = rotor.map(|(owner, generation)| (Some(owner), Some(generation))).unwrap_or((None, None));
-        Ok(Permit { authority: Arc::downgrade(self), epoch: self.epoch.load(Ordering::Acquire), sequence: state.sequence,
+        Ok(Permit { authority: Arc::downgrade(self), epoch: self.epoch(), sequence: state.sequence,
             target, owner, generation, intent: uuid::Uuid::new_v4().to_string() })
     }
     fn confirmed(&self, permit: &Permit) -> Result<(), String> {
@@ -138,9 +167,9 @@ impl AutomaticRotor {
         state.confirmed = true; state.unconfirmed = None; Ok(())
     }
     fn authorized(&self, permit: &Permit, claimed: bool) -> bool {
-        if !self.armed.load(Ordering::Acquire) || self.epoch.load(Ordering::Acquire) != permit.epoch { return false; }
+        if !self.permits_epoch(permit.epoch) { return false; }
         let Ok(state) = self.state.lock() else { return false; };
-        state.canonical_pending == 0 && state.sequence == permit.sequence && state.target.as_ref() == Some(&permit.target) && state.confirmed &&
+        self.permits_epoch(permit.epoch) && state.canonical_pending == 0 && state.sequence == permit.sequence && state.target.as_ref() == Some(&permit.target) && state.confirmed &&
             (!claimed || state.attempted.as_deref() == Some(&permit.intent))
     }
     fn turn(self: &Arc<Self>, permit: &Permit, read: impl Fn() -> Result<Target, String>,
@@ -164,7 +193,7 @@ impl AutomaticRotor {
         if read()?.normalized()? != permit.target { return Err("Canonical QSO changed during automatic lookup.".into()); }
         {
             let mut state = self.state.lock().map_err(|_| "Automatic rotor state unavailable")?;
-            if !self.armed.load(Ordering::Acquire) || self.epoch.load(Ordering::Acquire) != permit.epoch ||
+            if !self.permits_epoch(permit.epoch) ||
                 state.canonical_pending != 0 || state.sequence != permit.sequence || state.target.as_ref() != Some(&permit.target) || !state.confirmed {
                 return Err("Automatic rotor permission was revoked during lookup.".into());
             }
@@ -178,7 +207,7 @@ impl AutomaticRotor {
         match dispatch(permit, bearing.unwrap()) {
             Ok(result) => {
                 if let Ok(mut state) = self.state.lock() {
-                    if self.epoch.load(Ordering::Acquire) == permit.epoch && state.sequence == permit.sequence {
+                    if self.epoch() == permit.epoch && state.sequence == permit.sequence {
                         state.generation = result["generation"].as_u64().or(state.generation);
                         state.error.clear();
                     }
@@ -198,11 +227,11 @@ pub(crate) fn owner() -> &'static Arc<AutomaticRotor> {
     OWNER.get_or_init(|| Arc::new(AutomaticRotor::new()))
 }
 pub fn snapshot() -> Result<Value, String> { owner().snapshot() }
-pub fn set_armed(armed: bool, expected_owner: Option<&str>, expected_generation: Option<u64>) -> Result<Value, String> {
+pub fn set_armed(armed: bool, expected_owner: Option<&str>, expected_generation: Option<u64>, expected_epoch: u64) -> Result<Value, String> {
     if !armed { revoke(); return snapshot(); }
     let expected_owner = expected_owner.ok_or("Observe a connected rotor before enabling automatic turns.")?;
     let expected_generation = expected_generation.ok_or("Observe the rotor generation before enabling automatic turns.")?;
-    crate::rotor::with_automatic_owner(expected_owner, expected_generation, || owner().arm(expected_owner, expected_generation))
+    crate::rotor::with_automatic_owner(expected_owner, expected_generation, || owner().arm_at_epoch(expected_owner, expected_generation, expected_epoch))
 }
 pub fn revoke() { owner().revoke(); }
 pub fn note_reconcile_error(expected_epoch: u64, error: &str) { owner().note_reconcile_error(expected_epoch, error); }
@@ -210,7 +239,7 @@ pub fn canonical_will_change() -> CanonicalChange { owner().canonical_will_chang
 pub fn activation_started(target: Target) -> Result<Permit, String> {
     // An optional busy/unavailable rotor must not prevent loading a QSO or
     // tuning the independently selected radio. No rotor permit is minted.
-    let rotor = if owner().armed.load(Ordering::Acquire) { crate::rotor::automatic_owner().unwrap_or(None) } else { None };
+    let rotor = if owner().armed() { crate::rotor::automatic_owner().unwrap_or(None) } else { None };
     owner().begin(target, true, rotor)
 }
 pub fn activation_confirmed(permit: &Permit) -> Result<(), String> {
@@ -225,7 +254,7 @@ pub fn complete_activation_generation(permit: &Permit, expected_worker: u64,
 }
 pub fn reconcile_generation(expected_worker: u64, read: impl Fn() -> Result<Target, String>,
     lookup: impl Fn(&str) -> Result<Value, String>) -> Result<Value, String> {
-    if !owner().armed.load(Ordering::Acquire) { return Ok(json!({"requested":false,"skipped":"Automatic rotor is off."})); }
+    if !owner().armed() { return Ok(json!({"requested":false,"skipped":"Automatic rotor is off."})); }
     let target = read()?;
     let permit = owner().begin(target, false, crate::rotor::automatic_owner()?)?;
     owner().turn(&permit, read, lookup, |permit, bearing| crate::rotor::request_automatic_generation(permit, bearing, expected_worker))
@@ -252,6 +281,48 @@ mod tests {
         owner.begin(target(call), activation, Some(("native_dcu1".into(), 7))).unwrap()
     }
     #[test]
+    fn stop_between_arm_read_and_atomic_admission_never_restores_permission() {
+        let owner = armed(); let permit = begin(&owner, "OM0RX", false);
+        let epoch = owner.epoch(); assert!(owner.authorized(&permit, false));
+        let result = owner.admit_arm(epoch, || {
+            // This is Stop's pre-metadata-lock transition. It can run while
+            // Arm holds metadata, without waiting for any driver or owner lock.
+            owner.revoke_authority();
+            assert!(!owner.armed()); assert!(!owner.authorized(&permit, false));
+        });
+        assert!(result.is_err()); assert!(!owner.armed());
+        assert!(!owner.authorized(&permit, false));
+        assert_eq!(owner.epoch(), epoch + 1);
+    }
+    #[test]
+    fn pending_arm_epoch_cannot_cross_manual_stop_but_new_explicit_arm_can() {
+        let owner = armed(); let old_epoch = owner.epoch();
+        owner.revoke(); let stopped_epoch = owner.epoch();
+        assert!(owner.arm_at_epoch("native_dcu1", 7, old_epoch).is_err());
+        assert!(!owner.armed());
+        owner.arm_at_epoch("native_dcu1", 7, stopped_epoch).unwrap();
+        let current = owner.epoch(); assert!(owner.armed());
+        assert!(owner.arm_at_epoch("native_dcu1", 7, old_epoch).is_err());
+        assert!(owner.armed()); assert_eq!(owner.epoch(), current);
+    }
+    #[test]
+    fn exhausted_epoch_stays_off_without_wrapping_or_revalidating_old_permits() {
+        let owner = armed(); let permit = begin(&owner, "OM0RX", false);
+        owner.authority.store(MAX_EPOCH << 1, Ordering::Release);
+        assert!(owner.arm_at_epoch("native_dcu1", 7, MAX_EPOCH).is_err());
+        owner.revoke(); let change = owner.canonical_will_change(); drop(change);
+        assert_eq!(owner.epoch(), MAX_EPOCH); assert!(!owner.armed());
+        assert!(!owner.authorized(&permit, false));
+    }
+    #[test]
+    fn exhausted_target_sequence_revokes_instead_of_retaining_an_old_permit() {
+        let owner = armed(); let mut permit = begin(&owner, "OM0RX", false);
+        owner.state.lock().unwrap().sequence = u64::MAX; permit.sequence = u64::MAX;
+        assert!(owner.authorized(&permit, false));
+        assert!(owner.begin(target("K1ABC"), true, Some(("native_dcu1".into(), 7))).is_err());
+        assert!(!owner.armed()); assert!(!owner.authorized(&permit, false));
+    }
+    #[test]
     fn restart_off_and_activation_requires_current_confirmation() {
         let fresh = Arc::new(AutomaticRotor::new());
         assert_eq!(fresh.snapshot().unwrap()["armed"], false);
@@ -273,14 +344,14 @@ mod tests {
     }
     #[test]
     fn reconcile_error_is_visible_only_for_its_current_armed_epoch() {
-        let owner = armed(); let epoch = owner.epoch.load(Ordering::Acquire);
+        let owner = armed(); let epoch = owner.epoch();
         owner.note_reconcile_error(epoch, "Local lookup unavailable");
         assert_eq!(owner.snapshot().unwrap()["error"], "Local lookup unavailable");
         owner.arm("native_dcu1", 7).unwrap(); owner.note_reconcile_error(epoch, "stale before Arm");
         assert_eq!(owner.snapshot().unwrap()["error"], "");
-        let armed_epoch = owner.epoch.load(Ordering::Acquire); owner.revoke();
+        let armed_epoch = owner.epoch(); owner.revoke();
         owner.note_reconcile_error(armed_epoch, "stale before Stop");
-        owner.note_reconcile_error(owner.epoch.load(Ordering::Acquire), "off does not report automatic follow errors");
+        owner.note_reconcile_error(owner.epoch(), "off does not report automatic follow errors");
         assert_eq!(owner.snapshot().unwrap()["error"], "");
     }
     #[test]

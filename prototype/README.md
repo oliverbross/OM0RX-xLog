@@ -69,6 +69,8 @@ The workflow tests Linux packages in a network-disabled, non-root Ubuntu 24.04 r
 
 The explicit `--acceptance-report /absolute/new/report.json` switch exercises the actual embedded WebView and Swift helper, synthetic spot selection, keyboard logging, loaded map geometry and detached monitor readback. It records 14 observed checks, then exits; it is disabled in normal launches. Report targets must be new files. See the [current packaging acceptance ledger](../docs/P1_RUNTIME_ACCEPTANCE.md) for executed results and remaining gates, rather than assuming the existence of a script establishes a pass.
 
+In current `integrated-local-ui` reports, `keyboard_editor` specifically verifies the main native Log QSO menu route and the editor's Escape-to-callsign focus behavior, with the canonical draft unchanged. `details.editorFocus.physicalAccelerator` is `false`: this does not test physical OS key delivery or Cmd/Ctrl+L, which now opens the independent native Log QSO window.
+
 ## Isolation and licensing
 
 The shell exposes only diagnostic worker requests and monitor creation; it has no shell/network/filesystem plugin. IPC has bounded framing, IDs, method allowlisting, four concurrent requests and an eight-second kill/reap deadline. The P1 shell intentionally uses one worker per request; persistent provider ownership/recovery belongs to P2.

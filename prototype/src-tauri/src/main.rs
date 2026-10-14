@@ -110,11 +110,50 @@ fn auto_rotor_snapshot(window: tauri::WebviewWindow) -> Result<serde_json::Value
     if !matches!(window.label(), "main" | "monitor") { return Err("This window cannot read automatic rotor state.".into()); }
     auto_rotor::snapshot()
 }
+fn validate_auto_rotor_set(label: &str, isolated: bool, exiting: bool) -> Result<(), String> {
+    if exiting || isolated || !matches!(label, "main" | "monitor") {
+        Err("Automatic rotor settings are unavailable in this window.".into())
+    } else { Ok(()) }
+}
+#[derive(Clone, Copy)]
+struct AutomaticRotorCommand { sequence: u64, epoch: u64 }
+#[derive(Default)]
+struct AutomaticRotorCommands(Mutex<u64>);
+impl AutomaticRotorCommands {
+    fn begin(&self, armed: bool, epoch: impl FnOnce() -> Result<u64, String>, revoke: impl FnOnce()) -> Result<AutomaticRotorCommand, String> {
+        let mut sequence = self.0.lock().map_err(|_| "Automatic rotor command ordering unavailable")?;
+        // Runs at IPC ingress, before scheduling any task. This mutex protects
+        // metadata only: no driver, lookup or reconciliation work runs here.
+        if !armed { revoke(); }
+        match sequence.checked_add(1).filter(|value| *value <= 9_007_199_254_740_991) {
+            Some(next) => *sequence = next,
+            None => {
+                // Retire every previously issued identity; Off still revoked
+                // above even though no further Arm command can be admitted.
+                *sequence = u64::MAX;
+                return Err("Automatic rotor command sequence exhausted".into());
+            }
+        }
+        Ok(AutomaticRotorCommand { sequence: *sequence, epoch: epoch()? })
+    }
+    fn apply<T>(&self, command: AutomaticRotorCommand, action: impl FnOnce(u64) -> Result<T, String>) -> Result<T, String> {
+        let sequence = self.0.lock().map_err(|_| "Automatic rotor command ordering unavailable")?;
+        if *sequence != command.sequence { return Err("A newer automatic rotor request superseded this one. Check its current state.".into()); }
+        // set_armed performs only short owner validation (try_lock) and atomic
+        // permission admission. Never put driver I/O inside this callback.
+        action(command.epoch)
+    }
+}
+static AUTOMATIC_ROTOR_COMMANDS: AutomaticRotorCommands = AutomaticRotorCommands(Mutex::new(0));
 #[tauri::command]
 async fn auto_rotor_set(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>,
     armed: bool, owner: Option<String>, generation: Option<u64>) -> Result<serde_json::Value, String> {
-    if APP_EXITING.load(Ordering::Acquire) || state.path.is_some() || window.label() != "main" { return Err("Automatic rotor settings are unavailable in this window.".into()); }
-    let result = tauri::async_runtime::spawn_blocking(move || auto_rotor::set_armed(armed, owner.as_deref(), generation))
+    validate_auto_rotor_set(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
+    let command = AUTOMATIC_ROTOR_COMMANDS.begin(armed, || auto_rotor::snapshot()?["epoch"].as_u64().ok_or_else(|| "Automatic rotor epoch unavailable".into()), auto_rotor::revoke)?;
+    let result = tauri::async_runtime::spawn_blocking(move || AUTOMATIC_ROTOR_COMMANDS.apply(command, |epoch| {
+        if APP_EXITING.load(Ordering::Acquire) { return Err("Automatic rotor settings are unavailable during shutdown.".into()); }
+        auto_rotor::set_armed(armed, owner.as_deref(), generation, epoch)
+    }))
         .await.map_err(|_| "Automatic rotor task failed".to_string())?;
     if armed && result.is_ok() { auto_rotor_reconcile::request(&app); }
     for label in ["main", "monitor"] { let _ = app.emit_to(label, "xlog:auto-rotor", ()); }
@@ -817,8 +856,68 @@ fn main() {
 #[cfg(test)]
 mod workspace_layout_tests {
     use super::{WorkspaceLayout, DraftWake, recover_singleton, detached_window_shortcut, validate_detached_open, COMPACT_WORKSPACE_MENU_ID, STANDARD_WORKSPACE_MENU_ID};
-    use super::{spot_editor_barrier, validate_spot_effect, validate_activation_reader, retires_automatic_rotor};
+    use super::{spot_editor_barrier, validate_spot_effect, validate_activation_reader, retires_automatic_rotor, validate_auto_rotor_set, AutomaticRotorCommands};
     use serde_json::json;
+
+    #[test]
+    fn automatic_rotor_set_allows_only_main_and_monitor_and_never_isolation_or_shutdown() {
+        for label in ["main", "monitor"] {
+            assert!(validate_auto_rotor_set(label, false, false).is_ok(), "{label}");
+        }
+        for label in crate::workspace_windows::SUPPORTED_WINDOWS.iter().map(|window| window.id)
+            .chain(["main", "rotor", "settings", "station-control", "sync", "unknown", "", "MAIN", "Monitor"]) {
+            assert_eq!(validate_auto_rotor_set(label, false, false).is_ok(), matches!(label, "main" | "monitor"), "{label}");
+            for (isolated, exiting) in [(true, false), (false, true), (true, true)] {
+                assert!(validate_auto_rotor_set(label, isolated, exiting).is_err(), "{label} isolated={isolated} exiting={exiting}");
+            }
+        }
+    }
+
+    #[test]
+    fn delayed_arm_cannot_survive_a_later_off_request() {
+        use std::sync::{atomic::{AtomicBool, Ordering}, mpsc, Arc};
+        let commands = Arc::new(AutomaticRotorCommands::default());
+        let armed = Arc::new(AtomicBool::new(false));
+        let old = commands.begin(true, || Ok(0), || panic!("Arm cannot revoke")).unwrap();
+        let (ready, entered) = mpsc::channel(); let (release, resumed) = mpsc::channel();
+        let background = commands.clone(); let changed = armed.clone();
+        let delayed = std::thread::spawn(move || {
+            ready.send(()).unwrap(); resumed.recv_timeout(std::time::Duration::from_secs(10)).unwrap();
+            background.apply(old, |_| { changed.store(true, Ordering::Release); Ok(()) })
+        });
+        entered.recv_timeout(std::time::Duration::from_secs(10)).unwrap();
+        let off = commands.begin(false, || Ok(1), || armed.store(false, Ordering::Release)).unwrap();
+        commands.apply(off, |_| { armed.store(false, Ordering::Release); Ok(()) }).unwrap();
+        release.send(()).unwrap(); assert!(delayed.join().unwrap().is_err());
+        assert!(!armed.load(Ordering::Acquire));
+    }
+
+    #[test]
+    fn newer_explicit_arm_wins_without_old_arm_or_off_replay() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        let commands = AutomaticRotorCommands::default(); let armed = AtomicBool::new(false);
+        let old_arm = commands.begin(true, || Ok(0), || panic!("Arm cannot revoke")).unwrap();
+        let old_off = commands.begin(false, || Ok(1), || armed.store(false, Ordering::Release)).unwrap();
+        let new_arm = commands.begin(true, || Ok(1), || panic!("Arm cannot revoke")).unwrap();
+        commands.apply(new_arm, |epoch| { assert_eq!(epoch, 1); armed.store(true, Ordering::Release); Ok(()) }).unwrap();
+        for old in [old_arm, old_off] {
+            assert!(commands.apply(old, |_| { armed.store(false, Ordering::Release); Ok(()) }).is_err());
+        }
+        assert!(armed.load(Ordering::Acquire));
+    }
+
+    #[test]
+    fn exhausted_command_sequence_still_revokes_off_and_retires_the_last_arm() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        let commands = AutomaticRotorCommands(std::sync::Mutex::new(9_007_199_254_740_990));
+        let armed = AtomicBool::new(true);
+        let last = commands.begin(true, || Ok(0), || panic!("Arm cannot revoke")).unwrap();
+        assert!(commands.begin(false, || Ok(1), || armed.store(false, Ordering::Release)).is_err());
+        assert!(!armed.load(Ordering::Acquire));
+        assert!(commands.apply(last, |_| { armed.store(true, Ordering::Release); Ok(()) }).is_err());
+        assert!(commands.begin(true, || Ok(1), || panic!("Arm cannot revoke")).is_err());
+        assert!(!armed.load(Ordering::Acquire));
+    }
 
     #[test]
     fn spot_activation_capabilities_are_role_scoped_and_never_bypass_isolation_or_shutdown() {
