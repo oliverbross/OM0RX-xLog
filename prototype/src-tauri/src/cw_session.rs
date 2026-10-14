@@ -1,0 +1,403 @@
+//! Process-owned CW authority. Clients carry observations and leases, never text.
+use serde_json::{json, Value};
+use std::{collections::BTreeMap, sync::{Arc, Mutex}, time::Instant};
+
+pub trait Backend: Send + Sync {
+    fn canonical(&self) -> Result<Value, String>;
+    fn inspect(&self, canonical: &Value, capabilities: bool) -> Result<Value, String>;
+    fn output(&self, target: &Value, action: &str, text: Option<&str>, intent: u64) -> Result<Value, String>;
+    fn keyer_snapshot(&self) -> Result<Option<Value>, String> { Ok(None) }
+}
+struct Client { label: String, sequence: u64, seen: u64 }
+struct State {
+    revision: u64, epoch: u64, clients: BTreeMap<String, Client>, canonical: Value,
+    holder: Option<String>, lease: Option<String>, target: Value, owner: Value, winkeyer: Value,
+    armed_until: u64, pending: bool, stopping: bool, releases: usize, intent: u64,
+    message: String, error: String,
+}
+pub struct Session { state: Mutex<State>, backend: Arc<dyn Backend>, clock: Arc<dyn Fn() -> u64 + Send + Sync> }
+impl Session {
+    pub fn new(backend: Arc<dyn Backend>) -> Self {
+        let start = Instant::now(); Self::with_clock(backend, Arc::new(move || start.elapsed().as_millis() as u64))
+    }
+    fn with_clock(backend: Arc<dyn Backend>, clock: Arc<dyn Fn() -> u64 + Send + Sync>) -> Self {
+        Self { backend, clock, state: Mutex::new(State { revision: 0, epoch: 0, clients: BTreeMap::new(), canonical: Value::Null,
+            holder: None, lease: None, target: Value::Null, owner: Value::Null, winkeyer: Value::Null, armed_until: 0, pending: false, stopping: false, releases: 0,
+            intent: 0, message: "CW disarmed".into(), error: String::new() }) }
+    }
+    fn lock(&self) -> Result<std::sync::MutexGuard<'_, State>, String> { self.state.lock().map_err(|_| "CW session unavailable".into()) }
+    fn snapshot_locked(&self, state: &State) -> Value {
+        json!({"revision":state.revision,"armed":state.armed_until > (self.clock)(),"pending":state.pending || state.stopping,
+            "owner":state.owner,"message":state.message,"error":state.error,"winkeyer":state.winkeyer,
+            "client":state.holder,"lease":state.lease,"canonical":state.canonical})
+    }
+    pub fn snapshot(&self) -> Result<Value, String> { let state = self.lock()?; Ok(self.snapshot_locked(&state)) }
+    fn change(state: &mut State) { state.revision += 1; }
+    fn check(state: &State, client: &str, params: &Value, lease: bool) -> Result<(), String> {
+        if params["expectedRevision"].as_u64() != Some(state.revision) { return Err("CW observation changed; refresh and explicitly try again.".into()); }
+        if lease && (state.holder.as_deref() != Some(client) || params["lease"].as_str() != state.lease.as_deref() || state.lease.is_none()) {
+            return Err("This client does not own the CW arm lease.".into());
+        }
+        Ok(())
+    }
+    fn refresh(&self) -> Result<(), String> {
+        let canonical = self.backend.canonical()?;
+        let changed = { let mut state = self.lock()?;
+            if canonical == state.canonical { false } else { state.canonical = canonical; Self::change(&mut state); true }
+        };
+        if changed { self.stop()?; }
+        let revision = self.lock()?.revision;
+        if let Some(value) = self.backend.keyer_snapshot()? {
+            let mut state = self.lock()?;
+            if state.revision == revision && !state.pending && !state.stopping && state.owner["output"] == "winkeyer"
+                && value["generation"] == state.owner["generation"] && value["phase"] == "ready" && value["owns_output"] == false && value["pending_characters"] == 0 {
+                state.owner = Value::Null; Self::change(&mut state);
+            }
+            state.winkeyer = value;
+        }
+        Ok(())
+    }
+    pub fn request(&self, label: &str, client: &str, sequence: u64, focused: bool, params: &Value) -> Result<Value, String> {
+        if uuid::Uuid::parse_str(client).is_err() || sequence == 0 || sequence > 9_007_199_254_740_991 { return Err("Invalid CW client identity".into()); }
+        let action = params["action"].as_str().unwrap_or("");
+        { let mut state = self.lock()?;
+            if !state.clients.contains_key(client) {
+                if action != "snapshot" { return Err("Register this CW client before using controls.".into()); }
+                if state.clients.len() >= 32 { return Err("Too many CW clients".into()); }
+                state.clients.insert(client.into(), Client { label: label.into(), sequence: 0, seen: (self.clock)() });
+            }
+            let entry = state.clients.get_mut(client).unwrap();
+            if entry.label != label || sequence <= entry.sequence { return Err("CW request was already consumed; no operation was replayed.".into()); }
+            entry.sequence = sequence; entry.seen = (self.clock)();
+        }
+        // Stop and unregister stay available without focus or fresh canonical I/O.
+        match action {
+            "stop" => { self.stop()?; },
+            "unregister" => { self.release_client(client)?; },
+            "snapshot" => { if !focused { self.release_client(client)?; } self.refresh()?; self.tick()?; },
+            "arm" | "send" | "acknowledge" => {
+                if !focused { self.release_client(client)?; return Err("Focus the CW controls before using them.".into()); }
+                self.refresh()?;
+                match action { "arm" => self.arm(client, params)?, "send" => self.send(client, params)?, _ => self.acknowledge(params)? }
+            },
+            _ => return Err("Unknown CW session action".into()),
+        }
+        self.snapshot()
+    }
+    fn arm(&self, client: &str, params: &Value) -> Result<(), String> {
+        let (canonical, epoch) = { let mut state = self.lock()?; Self::check(&state, client, params, false)?;
+            if state.pending || state.stopping || !state.owner.is_null() || state.holder.is_some() { return Err("Stop the current CW lease before arming.".into()); }
+            state.epoch += 1; state.pending = true; state.error.clear(); state.holder = Some(client.into());
+            state.lease = Some(uuid::Uuid::new_v4().to_string()); Self::change(&mut state); (state.canonical.clone(), state.epoch)
+        };
+        let result = (|| {
+            let target = self.backend.inspect(&canonical, true)?;
+            { let mut state = self.lock()?; self.current(&state, epoch, client)?;
+                state.intent = state.intent.max(target["last_intent"].as_u64().unwrap_or(0)); state.target = target.clone();
+                if target["output"] == "winkeyer" { state.owner = target.clone(); Self::change(&mut state); }
+            }
+            if target["output"] == "winkeyer" { self.backend.output(&target, "arm", None, 0)?; }
+            // Canonical revisions are checked again after slow hardware reads.
+            if self.backend.canonical()? != canonical { return Err("CW settings or new-QSO context changed while arming.".into()); }
+            let mut state = self.lock()?; self.current(&state, epoch, client)?;
+            state.armed_until = (self.clock)() + 60_000; state.owner = Value::Null;
+            state.message = "CW armed for 60 seconds".into(); Ok(())
+        })();
+        self.complete(epoch, result, false)
+    }
+    fn current(&self, state: &State, epoch: u64, client: &str) -> Result<(), String> {
+        if state.epoch != epoch || state.holder.as_deref() != Some(client) || state.stopping ||
+            !state.clients.get(client).is_some_and(|entry| (self.clock)().saturating_sub(entry.seen) < 3_000) {
+            return Err("CW lease or focus changed; nothing further was queued.".into());
+        }
+        Ok(())
+    }
+    fn send(&self, client: &str, params: &Value) -> Result<(), String> {
+        let (canonical, target, epoch, text) = { let mut state = self.lock()?; Self::check(&state, client, params, true)?;
+            if state.pending || state.stopping || state.armed_until <= (self.clock)() || state.target.is_null() { return Err("Arm CW before sending a macro.".into()); }
+            let text = expand(&state.canonical, params["macroID"].as_u64().ok_or("Choose a saved CW macro")?, state.target["limit"].as_u64().unwrap_or(80) as usize)?;
+            state.pending = true; state.error.clear(); Self::change(&mut state);
+            (state.canonical.clone(), state.target.clone(), state.epoch, text)
+        };
+        let result = (|| {
+            let observed = self.backend.inspect(&canonical, false)?;
+            if self.backend.canonical()? != canonical { return Err("CW settings or new-QSO context changed; arm again.".into()); }
+            let intent = { let mut state = self.lock()?; self.current(&state, epoch, client)?;
+                if state.armed_until <= (self.clock)() { return Err("CW arming expired during readback; arm again.".into()); }
+                if !same_target(&target, &observed) { return Err("Output connection changed. Arm the new connection explicitly.".into()); }
+                if !state.owner.is_null() && !same_target(&state.owner, &target) { return Err("Stop the previous CW output first.".into()); }
+                state.intent = state.intent.max(observed["last_intent"].as_u64().unwrap_or(0)).checked_add(1).ok_or("CW intent exhausted")?;
+                state.owner = target.clone(); Self::change(&mut state); state.intent
+            };
+            self.backend.output(&target, "send", Some(&text), intent)?; Ok(())
+        })();
+        self.complete(epoch, result, true)
+    }
+    fn complete(&self, epoch: u64, result: Result<(), String>, sending: bool) -> Result<(), String> {
+        let cleanup = { let mut state = self.lock()?;
+            let cancelled = state.epoch != epoch;
+            if let Err(error) = &result { state.error = error.clone(); state.armed_until = 0; }
+            if cancelled || result.is_err() && (!sending || state.owner.is_null()) { state.armed_until = 0; state.stopping = true; }
+            if !cancelled && result.is_ok() && sending { state.message = "Macro accepted · RF not verified".into(); }
+            state.pending = false; Self::change(&mut state);
+            if state.stopping { state.releases += 1; Some(if !state.owner.is_null() { state.owner.clone() } else if state.target["output"] == "winkeyer" { state.target.clone() } else { Value::Null }) } else { None }
+        };
+        if let Some(target) = cleanup { self.finish_release(&target)?; }
+        result
+    }
+    pub fn stop(&self) -> Result<(), String> {
+        let target = { let mut state = self.lock()?;
+            state.epoch += 1; state.armed_until = 0; state.lease = None; state.message = "CW disarmed".into();
+            Self::change(&mut state);
+            if state.stopping { return Ok(()); }
+            state.stopping = true; state.releases += 1;
+            if !state.owner.is_null() { state.owner.clone() } else if state.target["output"] == "winkeyer" { state.target.clone() } else { Value::Null }
+        };
+        self.finish_release(&target)
+    }
+    fn finish_release(&self, target: &Value) -> Result<(), String> {
+        let result = if target.is_null() { Ok(json!({})) } else { self.backend.output(target, "stop", None, 0) };
+        let mut state = self.lock()?;
+        // A pending send/arm will release again after settling, even if this
+        // immediate Stop succeeded. Never clear its retained output guard early.
+        state.releases -= 1;
+        if !state.pending && state.releases == 0 {
+            state.stopping = false; state.target = Value::Null; state.holder = None; state.lease = None;
+            if result.is_ok() { state.owner = Value::Null; state.error.clear(); }
+        }
+        if let Err(error) = &result { if !target.is_null() { state.owner = target.clone(); } state.error = error.clone(); }
+        Self::change(&mut state); result.map(|_| ())
+    }
+    fn acknowledge(&self, params: &Value) -> Result<(), String> {
+        let mut state = self.lock()?; Self::check(&state, "", params, false)?;
+        if state.pending || state.stopping || params["confirmed"] != true { return Err("Verify idle output after pending operations settle.".into()); }
+        state.epoch += 1; state.armed_until = 0; state.owner = Value::Null; state.target = Value::Null;
+        state.holder = None; state.lease = None; state.error.clear(); state.message = "Operator confirmed CW stopped; re-arm explicitly.".into(); Self::change(&mut state); Ok(())
+    }
+    fn release_client(&self, client: &str) -> Result<(), String> {
+        let holds = self.lock()?.holder.as_deref() == Some(client);
+        let stopped = if holds { self.stop() } else { Ok(()) };
+        // Registration belongs to the renderer lifecycle; an uncertain output
+        // belongs to the session guard and must outlive a destroyed renderer.
+        self.lock()?.clients.remove(client);
+        stopped
+    }
+    pub fn release_window(&self, label: &str) -> Result<(), String> {
+        let clients: Vec<String> = self.lock()?.clients.iter().filter(|(_, entry)| entry.label == label).map(|(id, _)| id.clone()).collect();
+        let mut first_error = None;
+        for client in clients {
+            if let Err(error) = self.release_client(&client) { if first_error.is_none() { first_error = Some(error); } }
+        }
+        match first_error { Some(error) => Err(error), None => Ok(()) }
+    }
+    pub fn revoke_window(&self, label: &str) -> Result<(), String> {
+        let mut state = self.lock()?;
+        if state.holder.as_ref().and_then(|id| state.clients.get(id)).is_some_and(|entry| entry.label == label) {
+            state.epoch += 1; state.armed_until = 0; state.lease = None; Self::change(&mut state);
+        } Ok(())
+    }
+    pub fn revoke(&self) -> Result<(), String> {
+        let mut state = self.lock()?; state.epoch += 1; state.armed_until = 0; state.lease = None; Self::change(&mut state); Ok(())
+    }
+    pub fn tick(&self) -> Result<(), String> {
+        let expired = { let state = self.lock()?;
+            state.holder.as_ref().is_some_and(|holder| state.armed_until > 0 && state.armed_until <= (self.clock)() ||
+                !state.clients.get(holder).is_some_and(|entry| (self.clock)().saturating_sub(entry.seen) < 3_000))
+        };
+        if expired { self.stop()?; } Ok(())
+    }
+}
+fn same_target(a: &Value, b: &Value) -> bool {
+    ["output", "provider", "generation", "worker", "selection"].iter().all(|key| a[key] == b[key])
+}
+fn allowed(byte: u8) -> bool { byte.is_ascii_alphanumeric() || b" /?=+.,-".contains(&byte) }
+fn expand(canonical: &Value, id: u64, limit: usize) -> Result<String, String> {
+    let macro_value = canonical["profile"]["macros"].as_array().and_then(|values| values.iter().find(|value| value["id"] == id && value["enabled"] == true)).ok_or("This macro is disabled or is not saved.")?;
+    let source = macro_value["text"].as_str().ok_or("Invalid CW template")?;
+    if source.trim().is_empty() || source.len() > 512 { return Err("Use a CW template of 1–512 characters.".into()); }
+    let mut rest = source; let mut expanded = String::new();
+    while let Some(start) = rest.find('{') {
+        expanded.push_str(&rest[..start]); let after = &rest[start + 1..];
+        let end = after.find('}').ok_or("Invalid CW placeholder")?; let token = &after[..end];
+        if !["MYCALL", "CALL", "RST", "NAME", "GRID", "SERIAL"].contains(&token) { return Err("Unknown CW placeholder".into()); }
+        let value = canonical["context"][token].as_str().unwrap_or("").trim();
+        if value.is_empty() { return Err(format!("Fill {token} before sending this macro.")); }
+        if !value.bytes().all(allowed) { return Err(format!("{token} contains characters this CW output cannot send.")); }
+        expanded.push_str(value); rest = &after[end + 1..];
+    }
+    expanded.push_str(rest);
+    if !expanded.bytes().all(allowed) { return Err("Raw keyer commands and control characters are not allowed.".into()); }
+    let text = expanded.split(' ').filter(|part| !part.is_empty()).collect::<Vec<_>>().join(" ").to_ascii_uppercase();
+    if text.len() > limit { return Err(format!("Expanded CW is {} characters; this output allows {limit}. Shorten the macro.", text.len())); }
+    Ok(text)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::{atomic::{AtomicBool, AtomicU64, Ordering}, mpsc};
+    struct Fake {
+        canonical: Mutex<Value>, target: Mutex<Value>, writes: Mutex<Vec<(String, Option<String>, u64)>>,
+        lost_send: AtomicBool, stop_fails: AtomicBool,
+        gate: Mutex<Option<(mpsc::Sender<()>, mpsc::Receiver<()>)>>,
+        arm_gate: Mutex<Option<(mpsc::Sender<()>, mpsc::Receiver<()>)>>,
+    }
+    impl Backend for Fake {
+        fn canonical(&self) -> Result<Value, String> { Ok(self.canonical.lock().unwrap().clone()) }
+        fn inspect(&self, _: &Value, _: bool) -> Result<Value, String> { Ok(self.target.lock().unwrap().clone()) }
+        fn output(&self, _: &Value, action: &str, text: Option<&str>, intent: u64) -> Result<Value, String> {
+            self.writes.lock().unwrap().push((action.into(), text.map(str::to_owned), intent));
+            if action == "arm" {
+                if let Some((entered, resume)) = self.arm_gate.lock().unwrap().take() { entered.send(()).unwrap(); resume.recv().unwrap(); }
+            }
+            if action == "send" {
+                let gate = self.gate.lock().unwrap().take();
+                if let Some((entered, resume)) = gate { entered.send(()).unwrap(); resume.recv().unwrap(); }
+                if self.lost_send.load(Ordering::SeqCst) { return Err("Reply lost".into()); }
+            }
+            if action == "stop" && self.stop_fails.load(Ordering::SeqCst) { return Err("Stop unconfirmed".into()); }
+            Ok(json!({"accepted":true}))
+        }
+    }
+    fn fixture() -> (Arc<Session>, Arc<Fake>, Arc<AtomicU64>) {
+        let backend = Arc::new(Fake { canonical: Mutex::new(json!({"settingsRevision":1,"draftRevision":2,
+            "profile":{"macros":[{"id":1,"enabled":true,"text":"{CALL} DE {MYCALL} {RST} K"}]},
+            "context":{"CALL":"K1ABC","MYCALL":"OM0RX","RST":"599"}})),
+            target: Mutex::new(json!({"output":"radio","provider":"direct_agent","generation":7,"worker":4,"selection":"choice","limit":128})),
+            writes: Mutex::new(vec![]), lost_send: AtomicBool::new(false), stop_fails: AtomicBool::new(false), gate: Mutex::new(None), arm_gate: Mutex::new(None) });
+        let clock = Arc::new(AtomicU64::new(0)); let ticking = clock.clone();
+        (Arc::new(Session::with_clock(backend.clone(), Arc::new(move || ticking.load(Ordering::SeqCst)))), backend, clock)
+    }
+    struct Client { id: String, sequence: u64 }
+    impl Client {
+        fn new() -> Self { Self { id: uuid::Uuid::new_v4().to_string(), sequence: 0 } }
+        fn call(&mut self, session: &Session, action: &str) -> Result<Value, String> {
+            let snapshot = session.snapshot()?; self.sequence += 1;
+            session.request("main", &self.id, self.sequence, true, &json!({"action":action,"expectedRevision":snapshot["revision"],"lease":snapshot["lease"],"macroID":1,"confirmed":true}))
+        }
+    }
+    fn ready(client: &mut Client, session: &Session) { client.call(session, "snapshot").unwrap(); client.call(session, "arm").unwrap(); }
+    #[test]
+    fn two_clients_cannot_share_or_steal_an_arm_lease() {
+        let (session, backend, _) = fixture(); let mut first = Client::new(); let mut second = Client::new();
+        ready(&mut first, &session); second.call(&session, "snapshot").unwrap();
+        assert!(second.call(&session, "arm").is_err()); assert!(second.call(&session, "send").is_err());
+        first.call(&session, "send").unwrap(); assert_eq!(backend.writes.lock().unwrap().len(), 1);
+        second.call(&session, "stop").unwrap(); assert_eq!(session.snapshot().unwrap()["armed"], false);
+        second.call(&session, "arm").unwrap(); assert!(first.call(&session, "send").is_err());
+    }
+    #[test]
+    fn stale_observations_and_duplicate_requests_never_dispatch() {
+        let (session, backend, _) = fixture(); let mut client = Client::new();
+        let old = client.call(&session, "snapshot").unwrap(); client.call(&session, "arm").unwrap(); client.sequence += 1;
+        let stale = json!({"action":"send","expectedRevision":old["revision"],"lease":session.snapshot().unwrap()["lease"],"macroID":1});
+        assert!(session.request("main", &client.id, client.sequence, true, &stale).is_err());
+        assert!(session.request("main", &client.id, client.sequence, true, &json!({"action":"stop"})).is_err());
+        assert!(backend.writes.lock().unwrap().is_empty());
+    }
+    #[test]
+    fn canonical_revision_change_disarms_and_uses_only_new_qso_context() {
+        let (session, backend, _) = fixture(); let mut client = Client::new(); ready(&mut client, &session);
+        backend.canonical.lock().unwrap()["draftRevision"] = json!(3);
+        assert!(client.call(&session, "send").is_err()); assert!(backend.writes.lock().unwrap().is_empty());
+        client.call(&session, "arm").unwrap(); client.call(&session, "send").unwrap();
+        assert_eq!(backend.writes.lock().unwrap()[0].1.as_deref(), Some("K1ABC DE OM0RX 599 K"));
+        backend.canonical.lock().unwrap()["settingsRevision"] = json!(2);
+        client.call(&session, "snapshot").unwrap(); assert_eq!(session.snapshot().unwrap()["armed"], false);
+    }
+    #[test]
+    fn stop_is_immediate_and_releases_again_after_late_send() {
+        let (session, backend, _) = fixture(); let mut client = Client::new(); ready(&mut client, &session);
+        let (entered, wait) = mpsc::channel(); let (resume, receiver) = mpsc::channel(); *backend.gate.lock().unwrap() = Some((entered, receiver));
+        let sending = session.clone(); let thread = std::thread::spawn(move || client.call(&sending, "send"));
+        wait.recv_timeout(std::time::Duration::from_secs(2)).unwrap(); session.stop().unwrap();
+        assert_eq!(backend.writes.lock().unwrap().iter().map(|value| value.0.as_str()).collect::<Vec<_>>(), vec!["send","stop"]);
+        let before = session.snapshot().unwrap()["revision"].as_u64().unwrap();
+        session.stop().unwrap();
+        assert!(session.snapshot().unwrap()["revision"].as_u64().unwrap() > before, "Repeated Stop must publish its revocation even while release is pending");
+        assert_eq!(backend.writes.lock().unwrap().len(), 2, "Repeated Stop must not replay output");
+        assert!(!session.snapshot().unwrap()["owner"].is_null()); resume.send(()).unwrap(); thread.join().unwrap().unwrap();
+        assert_eq!(backend.writes.lock().unwrap().iter().map(|value| value.0.as_str()).collect::<Vec<_>>(), vec!["send","stop","stop"]);
+        assert!(session.snapshot().unwrap()["owner"].is_null());
+    }
+    #[test]
+    fn lost_ack_retains_guard_and_never_replays_text() {
+        let (session, backend, _) = fixture(); let mut client = Client::new(); ready(&mut client, &session);
+        backend.lost_send.store(true, Ordering::SeqCst); assert!(client.call(&session, "send").is_err());
+        assert!(!session.snapshot().unwrap()["owner"].is_null()); assert!(client.call(&session, "arm").is_err());
+        backend.stop_fails.store(true, Ordering::SeqCst); assert!(client.call(&session, "stop").is_err());
+        assert_eq!(session.snapshot().unwrap()["owner"]["generation"], 7);
+        client.call(&session, "acknowledge").unwrap(); assert!(session.snapshot().unwrap()["owner"].is_null());
+        assert_eq!(backend.writes.lock().unwrap().iter().filter(|value| value.0 == "send").count(), 1);
+    }
+    #[test]
+    fn late_winkeyer_arm_is_released_after_stop_and_cannot_restore_a_lease() {
+        let (session, backend, _) = fixture(); backend.target.lock().unwrap()["output"] = json!("winkeyer");
+        let mut client = Client::new(); client.call(&session, "snapshot").unwrap();
+        let (entered, wait) = mpsc::channel(); let (resume, receiver) = mpsc::channel(); *backend.arm_gate.lock().unwrap() = Some((entered, receiver));
+        let arming = session.clone(); let thread = std::thread::spawn(move || client.call(&arming, "arm"));
+        wait.recv_timeout(std::time::Duration::from_secs(2)).unwrap(); session.stop().unwrap();
+        assert_eq!(backend.writes.lock().unwrap().iter().map(|value| value.0.as_str()).collect::<Vec<_>>(), vec!["arm","stop"]);
+        resume.send(()).unwrap(); assert!(thread.join().unwrap().is_err());
+        assert_eq!(backend.writes.lock().unwrap().iter().map(|value| value.0.as_str()).collect::<Vec<_>>(), vec!["arm","stop","stop"]);
+        assert_eq!(session.snapshot().unwrap()["armed"], false); assert!(session.snapshot().unwrap()["owner"].is_null());
+    }
+    #[test]
+    fn focus_loss_window_destruction_and_missing_heartbeat_revoke_leases() {
+        let (session, _, clock) = fixture(); let mut client = Client::new(); ready(&mut client, &session);
+        session.release_window("main").unwrap(); assert_eq!(session.snapshot().unwrap()["armed"], false);
+        ready(&mut client, &session); clock.store(3_001, Ordering::SeqCst); session.tick().unwrap(); assert_eq!(session.snapshot().unwrap()["armed"], false);
+        client.call(&session, "arm").unwrap(); client.sequence += 1;
+        assert!(session.request("main", &client.id, client.sequence, false, &json!({"action":"send"})).is_err());
+        assert_eq!(session.snapshot().unwrap()["armed"], false);
+    }
+    #[test]
+    fn failed_stop_does_not_leak_destroyed_or_unregistered_clients_or_release_the_guard() {
+        for destroyed in [false, true] {
+            let (session, backend, _) = fixture();
+            let mut owner = Client { id: "00000000-0000-0000-0000-000000000001".into(), sequence: 0 };
+            let mut observer = Client { id: "00000000-0000-0000-0000-000000000002".into(), sequence: 0 };
+            ready(&mut owner, &session); observer.call(&session, "snapshot").unwrap(); owner.call(&session, "send").unwrap();
+            backend.stop_fails.store(true, Ordering::SeqCst);
+            let result = if destroyed { session.release_window("main").map(|_| Value::Null) } else { owner.call(&session, "unregister") };
+            assert_eq!(result.unwrap_err(), "Stop unconfirmed");
+            assert!(!session.lock().unwrap().clients.contains_key(&owner.id));
+            if destroyed { assert!(session.lock().unwrap().clients.is_empty(), "Window cleanup must continue after the first Stop error"); }
+            let guarded = session.snapshot().unwrap();
+            assert_eq!(guarded["owner"]["generation"], 7); assert_eq!(guarded["error"], "Stop unconfirmed");
+            assert!(guarded["lease"].is_null()); assert_eq!(guarded["armed"], false);
+            for _ in 0..40 {
+                let mut replacement = Client::new(); replacement.call(&session, "snapshot").unwrap();
+                assert!(replacement.call(&session, "arm").is_err(), "A new renderer must not steal uncertain output");
+                assert!(replacement.call(&session, "send").is_err());
+                replacement.call(&session, "unregister").unwrap();
+            }
+            assert_eq!(session.snapshot().unwrap()["owner"]["generation"], 7);
+            assert_eq!(backend.writes.lock().unwrap().iter().filter(|value| value.0 == "send").count(), 1);
+        }
+    }
+    #[test]
+    fn expiry_and_exact_connection_generation_block_send() {
+        let (session, backend, clock) = fixture(); let mut client = Client::new(); ready(&mut client, &session);
+        clock.store(60_001, Ordering::SeqCst); assert!(client.call(&session, "send").is_err()); session.tick().unwrap();
+        client.call(&session, "arm").unwrap(); backend.target.lock().unwrap()["generation"] = json!(8);
+        assert!(client.call(&session, "send").is_err()); assert!(backend.writes.lock().unwrap().is_empty());
+    }
+    #[test]
+    fn winkeyer_intents_continue_from_backend_and_unregister_releases_arm() {
+        let (session, backend, _) = fixture(); backend.target.lock().unwrap()["output"] = json!("winkeyer"); backend.target.lock().unwrap()["last_intent"] = json!(38);
+        let mut client = Client::new(); ready(&mut client, &session); client.call(&session, "send").unwrap(); client.call(&session, "send").unwrap();
+        let writes = backend.writes.lock().unwrap().clone(); assert_eq!(writes[0].0, "arm"); assert_eq!(writes[1].2, 39); assert_eq!(writes[2].2, 40);
+        client.call(&session, "unregister").unwrap(); assert_eq!(backend.writes.lock().unwrap().last().unwrap().0, "stop");
+    }
+    #[test]
+    fn macro_validation_rejects_injection_missing_tokens_and_output_limits() {
+        let (session, backend, _) = fixture(); let mut canonical = backend.canonical.lock().unwrap().clone();
+        canonical["context"]["CALL"] = json!("K1ABC\n"); assert!(expand(&canonical, 1, 128).is_ok());
+        canonical["context"]["CALL"] = json!("K1{ABC}"); assert!(expand(&canonical, 1, 128).is_err());
+        canonical["context"]["CALL"] = json!(""); assert!(expand(&canonical, 1, 128).is_err());
+        canonical["profile"]["macros"][0]["text"] = json!("C".repeat(81)); assert!(expand(&canonical, 1, 80).is_err()); assert!(expand(&canonical, 1, 128).is_ok());
+        canonical["profile"]["macros"][0]["text"] = json!("{UNKNOWN}"); assert!(expand(&canonical, 1, 128).is_err());
+        assert!(session.snapshot().unwrap()["owner"].is_null());
+    }
+}

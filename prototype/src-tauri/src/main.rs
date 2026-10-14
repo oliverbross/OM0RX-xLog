@@ -18,6 +18,8 @@ mod auto_rotor_reconcile;
 mod detached_geometry;
 mod window_geometry;
 mod winkeyer;
+mod cw_session;
+mod cw_session_backend;
 mod cluster_session;
 mod workspace_navigation;
 mod logbook_events;
@@ -411,6 +413,9 @@ async fn station_selection_snapshot(window: tauri::WebviewWindow, app: tauri::Ap
 #[tauri::command]
 async fn station_selection_apply(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>, expected: u64, provider: String) -> Result<serde_json::Value, String> {
     station_selection::validate(window.label(), state.path.is_some(), true)?;
+    if let Some(owner) = cw_session_backend::existing() {
+        owner.revoke()?; tauri::async_runtime::spawn_blocking(move || { let _ = owner.stop(); });
+    }
     auto_rotor::revoke();
     let _auto_change = auto_rotor::canonical_will_change();
     let owner = station_selection::owner(&app)?;
@@ -431,12 +436,34 @@ async fn station_selection_apply(window: tauri::WebviewWindow, app: tauri::AppHa
 }
 
 #[tauri::command]
+async fn cw_session_request(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>,
+    client: String, sequence: u64, params: serde_json::Value) -> Result<serde_json::Value, String> {
+    if window.label() != "main" || state.path.is_some() || APP_EXITING.load(Ordering::Acquire) {
+        return Err("Shared CW controls are available only in the main workspace.".into());
+    }
+    let focused = window.is_focused().unwrap_or(false) && window.is_visible().unwrap_or(false);
+    let owner = cw_session_backend::owner(&app); let label = window.label().to_owned();
+    tauri::async_runtime::spawn_blocking(move || owner.request(&label, &client, sequence, focused, &params))
+        .await.map_err(|_| "CW session task failed; use Stop before retrying.".to_string())?
+}
+
+#[tauri::command]
 async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, request: serde_json::Value) -> Result<serde_json::Value, String> {
     // Only typed integration operations cross this boundary; never shell commands.
     if state.path.is_some() { acceptance::validate_local_request(&request)?; }
     let method = request.get("method").and_then(|m| m.as_str()).unwrap_or("");
+    if matches!(method, "winkeyer_arm" | "winkeyer_send" | "winkeyer_stop")
+        || method == "station_radio_control" && matches!(request["params"]["control"].as_str(), Some("send_cw" | "clear_cw"))
+        || method == "hamlib_control" && matches!(request["params"]["action"].as_str(), Some("cw" | "cw_stop")) {
+        return Err("Use the shared CW session for CW output controls.".into());
+    }
     // This explicit role gate precedes every native special dispatcher too.
     if matches!(window.label(), "monitor" | "log-qso" | "spot-history" | "world-map" | "band-maps" | "callsign-intelligence" | "station-control") { worker::validate_surface(window.label(), &request)?; }
+    if matches!(method, "settings_save" | "backup_restore" | "workspace_create" | "logbook_operator_draft_apply") || retires_automatic_rotor(&request) {
+        if let Some(owner) = cw_session_backend::existing() {
+            owner.revoke()?; tauri::async_runtime::spawn_blocking(move || { let _ = owner.stop(); });
+        }
+    }
     // Local acceptance permits cluster_history against its synthetic logbook,
     // but must never start the live session's background snapshot service.
     if state.path.is_none() && cluster_session::handles(method) && !local_history_reader(window.label(), method) {
@@ -744,6 +771,13 @@ fn main() {
     let builder = tauri::Builder::default()
         .menu(workspace_menu)
         .on_window_event(|window, event| {
+            if matches!(event, tauri::WindowEvent::Focused(false) | tauri::WindowEvent::Destroyed) {
+                if let Some(owner) = cw_session_backend::existing() {
+                    let _ = owner.revoke_window(window.label());
+                    let label = window.label().to_owned();
+                    tauri::async_runtime::spawn_blocking(move || { let _ = owner.release_window(&label); });
+                }
+            }
             if !spot_editor_barrier::editor_role(window.label()) { return; }
             if let Some(owner) = SPOT_ACTIVATION.get() {
                 match event {
@@ -821,7 +855,7 @@ fn main() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![worker_request, pick_backup_package, open_monitor, open_detached_map,
+        .invoke_handler(tauri::generate_handler![worker_request, cw_session_request, pick_backup_package, open_monitor, open_detached_map,
             spot_editor_register, spot_editor_unregister, spot_editor_ack, spot_editor_state,
             spot_activation_snapshot, spot_activation_status, spot_activation_reconcile, activate_spot,
             auto_rotor_snapshot, auto_rotor_set,
@@ -839,6 +873,7 @@ fn main() {
         .run(|app, event| {
             if matches!(event, tauri::RunEvent::ExitRequested { .. }) {
                 APP_EXITING.store(true, Ordering::Release);
+                if let Some(owner) = cw_session_backend::existing() { let _ = owner.stop(); }
                 auto_rotor::revoke();
                 auto_rotor_reconcile::shutdown();
                 logbook_events::shutdown();

@@ -40,8 +40,7 @@ import { useWorkspaceLayout } from "./live/useWorkspaceLayout";
 import { DeskAntenna } from "./live/StationEquipment";
 import { deskEquipmentKind, equipmentProfile, hasConfiguredRotor } from "./live/equipmentPreferences";
 import CWDesk from "./live/CWDesk";
-import { defaultCWProfile } from "./live/cwMacros";
-import { useCW } from "./live/useCW";
+import { useSharedCW } from "./live/useSharedCW";
 import { OperatorWorkspace } from "./live/OperatorWorkspace";
 import { DeskMapLogbook } from "./live/DeskMapLogbook";
 import SyncPanel from "./live/SyncPanel";
@@ -353,11 +352,10 @@ function MainLiveApp() {
   }, [disarmAutoRotor]);
   const referenceEvidence = useReferenceEvidence(draft, (contactEdit.draft ? contactEdit.base : sharedDraft.base)?.generation, request, refresh);
   useReferenceSchedule(workspace?.workspace_exists === true, request);
-  const cwProfile = settings?.cwProfile ?? defaultCWProfile;
-  const cwContext = { MYCALL: settings?.stationCall || settings?.operatorCall || "", CALL: draft?.call || "", RST: draft?.rstSent || "", NAME: draft?.name || "", GRID: settings?.gridSquare || "", SERIAL: String(draft?.extraFields?.STX ?? "") };
-  const cw = useCW(request, cwProfile, stationProvider, cwContext, `${view}:${draft?.id}:${draft?.call}:${draft?.frequencyHz}:${draft?.mode}`);
-  const cwControls = cwProfile.showOnDesk || cwProfile.macros.some((macro: Data) => macro.enabled && macro.shortcut) || cw.state.armed || cw.state.owner
-    ? <CWDesk profile={cwProfile} context={cwContext} controller={cw.controller} state={cw.state} radioProvider={stationProvider} /> : undefined;
+  const cw = useSharedCW(`${view}:${draft?.id}:${draft?.call}:${draft?.frequencyHz}:${draft?.mode}`);
+  const cwProfile = cw.profile, cwContext = cw.context;
+  const cwControls = cwProfile.showOnDesk || cwProfile.macros.some((macro: Data) => macro.enabled && macro.shortcut) || cw.state.armed || cw.state.owner || cw.state.lease || cw.state.pending
+    ? <CWDesk profile={cwProfile} context={cwContext} controller={cw.controller} state={cw.state} radioProvider={cw.provider} /> : undefined;
   const loadOpportunity = (item: Opportunity) => {
     if (!acceptsInput()) { setError("Wait for the verified spot activation outcome before loading another contact."); return; }
     if (draftSession.getSnapshot().locked || draftSession.getSnapshot().workspaceChanged || draftSession.getSnapshot().conflict || contactSession.getSnapshot().locked || contactSession.getSnapshot().workspaceChanged) { setError("Resolve the current QSO draft operation before loading another contact."); return; }

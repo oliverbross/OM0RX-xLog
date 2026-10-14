@@ -553,6 +553,16 @@ impl Selection {
         result
     }
     fn control_scoped<G>(&self, request: Value, expected: Option<(u64, &str)>, admit: impl FnOnce() -> Result<G, String>) -> Result<Value, String> {
+        self.control_scoped_dispatch(request, expected, admit, |request| (self.transport)(request))
+    }
+    /// CW retains its worker identity: a restarted worker must never receive a
+    /// delayed macro through the ordinary reconnecting transport.
+    pub(crate) fn cw_control(&self, request: Value, expected: u64, selection_id: &str,
+        dispatch: impl FnOnce(Value) -> Result<Value, String>) -> Result<Value, String> {
+        self.control_scoped_dispatch(request, Some((expected, selection_id)), || Ok(()), dispatch)
+    }
+    fn control_scoped_dispatch<G>(&self, request: Value, expected: Option<(u64, &str)>, admit: impl FnOnce() -> Result<G, String>,
+        dispatch: impl FnOnce(Value) -> Result<Value, String>) -> Result<Value, String> {
         let mut state = self
             .state
             .try_lock()
@@ -610,7 +620,7 @@ impl Selection {
             if lifecycle {
                 self.notify_power(None, None)?;
             }
-            (self.transport)(request)
+            dispatch(request)
         })();
         self.active()?;
         if lifecycle {
