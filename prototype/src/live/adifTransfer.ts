@@ -10,6 +10,33 @@ export type ADIFFieldMetadata = { version: 1; extensions: Record<string, {
 const sameAttributes = (left: Record<string, string>, right: Record<string, string>) =>
   Object.keys(left).length === Object.keys(right).length && Object.keys(left).every(key => left[key] === right[key]);
 function metadataError(): never { throw new Error("ADIF extension metadata is invalid or conflicting; no lossless conversion is available."); }
+// Exact decimal comparison is bounded by the existing native field/frame limit.
+// Normalized pieces are comparison-only; stored values and RANGE stay untouched.
+function compareDecimal(left: string, right: string): number {
+  function parts(value: string) {
+    if (value.length > 16_384) metadataError();
+    const negative = value.startsWith("-");
+    const [whole, decimal = ""] = (negative ? value.slice(1) : value).split(".");
+    const integer = whole.replace(/^0+/, "") || "0", fraction = decimal.replace(/0+$/, "");
+    return { negative: negative && (integer !== "0" || fraction !== ""), integer, fraction };
+  }
+  const a = parts(left), b = parts(right);
+  if (a.negative !== b.negative) return a.negative ? -1 : 1;
+  let magnitude = a.integer.length === b.integer.length ? (a.integer < b.integer ? -1 : a.integer > b.integer ? 1 : 0) : a.integer.length < b.integer.length ? -1 : 1;
+  if (!magnitude) {
+    const length = Math.max(a.fraction.length, b.fraction.length);
+    const first = a.fraction.padEnd(length, "0"), second = b.fraction.padEnd(length, "0");
+    magnitude = first < second ? -1 : first > second ? 1 : 0;
+  }
+  return a.negative ? -magnitude : magnitude;
+}
+function extensionRange(type: string, declaration: Record<string, string>): [string, string] | undefined {
+  if (declaration.RANGE === undefined) return;
+  if (!["N", "I"].includes(type.toUpperCase()) || declaration.ENUM !== undefined) metadataError();
+  const match = /^\{(-?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)):(-?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+))\}$/.exec(declaration.RANGE);
+  if (!match || match[0] !== declaration.RANGE || compareDecimal(match[1], match[2]) >= 0) metadataError();
+  return [match[1], match[2]];
+}
 function validateExtensionValue(type: string | undefined, value: string, declaration?: Record<string, string>): void {
   if (type === undefined) return;
   const normalized = type.toUpperCase();
@@ -25,9 +52,8 @@ function validateExtensionValue(type: string | undefined, value: string, declara
   if (normalized === "L" && !/^[EWNS](?:0[0-9]{2}|1[0-7][0-9]|180) [0-5][0-9]\.[0-9]{3}$/i.test(value)) metadataError();
   if (!["G", "M"].includes(normalized) && /[\r\n]/.test(value)) metadataError();
   if (declaration?.ENUM !== undefined && (!/^\{[ -~]*\}$/.test(declaration.ENUM) || /[\r\n]/.test(declaration.ENUM) || normalized !== "E" || !declaration.ENUM.slice(1, -1).split(",").includes(value))) metadataError();
-  // RANGE is preserved structurally, but semantic range interpretation is not
-  // part of version 1. Reject it rather than silently discard its constraint.
-  if (declaration?.RANGE !== undefined) metadataError();
+  const range = declaration && extensionRange(type, declaration);
+  if (range && (compareDecimal(value, range[0]) < 0 || compareDecimal(value, range[1]) > 0)) metadataError();
 }
 function validateFieldMetadata(metadata: ADIFFieldMetadata, fields: Map<string, string>): void {
   if (!metadata || metadata.version !== 1 || !metadata.extensions || typeof metadata.extensions !== "object" || Array.isArray(metadata.extensions) ||
@@ -48,7 +74,7 @@ function validateFieldMetadata(metadata: ADIFFieldMetadata, fields: Map<string, 
       if (Object.values(declaration).some(value => typeof value !== "string") || Object.keys(declaration).some(name => !["FIELDID", "TYPE", "ENUM", "RANGE"].includes(name)) ||
         !/^[1-9][0-9]{0,9}$/.test(declaration.FIELDID ?? "") || Number(declaration.FIELDID) > 4294967295 || ids.has(declaration.FIELDID) || !/^[bBnNsSiIdDtTmMgGeElL]$/.test(declaration.TYPE ?? "")) metadataError();
       ids.add(declaration.FIELDID);
-      if (declaration.RANGE !== undefined) metadataError();
+      extensionRange(declaration.TYPE, declaration);
       if (declaration.ENUM !== undefined && (!/^\{[ -~]*\}$/.test(declaration.ENUM) || /[\r\n]/.test(declaration.ENUM) || declaration.TYPE.toUpperCase() !== "E")) metadataError();
       if (fields.has(key)) validateExtensionValue(declaration.TYPE, fields.get(key)!, declaration);
     }

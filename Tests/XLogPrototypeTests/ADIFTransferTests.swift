@@ -9,6 +9,30 @@ import XLogPortableCore
 
 @Suite("Reviewed ADIF transfer")
 struct ADIFTransferTests {
+    @Test("Ranged USERDEF metadata persists, exports exact bounds and rejects invalid native saves")
+    func rangedMetadataPersistence() throws {
+        try fixture { service, db in
+            let range = "{9007199254740992:9007199254740993}", value = "9007199254740993"
+            let metadata: [String: Any] = ["version": 1, "extensions": ["CUSTOM": ["kind": "USERDEF", "attributes": ["FIELDNAME": "CUSTOM"], "declaration": ["FIELDID": "17", "TYPE": "N", "RANGE": range]]]]
+            let text = "<CALL:4>W1AW<QSO_DATE:8>20261014<TIME_ON:6>000000<BAND:3>20m<MODE:2>CW<CUSTOM:16>\(value)<EOR>"
+            let preview = try service.handle(method: "logbook_import_adif", params: ["action": "preview", "text": text, "fieldMetadata": [metadata]])
+            #expect((preview["issues"] as? [[String: Any]])?.isEmpty == true)
+            _ = try service.handle(method: "logbook_import_adif", params: ["text": text, "generation": preview["generation"]!, "fieldMetadata": [metadata]])
+            let saved = try #require(try db.fetchAll().first)
+            #expect(saved.extraFields["CUSTOM"] == value)
+            #expect(saved.adifFieldMetadata?.extensions["CUSTOM"]?.declaration?["RANGE"] == range)
+            var invalid = saved; invalid.extraFields["CUSTOM"] = "9007199254740993.0000000001"
+            #expect(throws: (any Error).self) { try db.save(invalid) }
+            #expect(try db.lookup(localID: saved.id)?.extraFields["CUSTOM"] == value)
+            let start = try service.handle(method: "logbook_export_adif", params: ["action": "begin", "scope": "all"])
+            let exported = try service.handle(method: "logbook_export_adif", params: ["action": "read", "token": start["token"]!])
+            let data = try JSONSerialization.data(withJSONObject: exported["fieldMetadata"]!)
+            let decoded = try JSONDecoder().decode([ADIFFieldMetadata?].self, from: data)
+            let exportedMetadata = try #require(decoded.compactMap { $0 }.first)
+            #expect(exportedMetadata.extensions["CUSTOM"]?.declaration?["RANGE"] == range)
+        }
+    }
+
     @Test("Versioned extension metadata survives persistence and frozen export beside ordinary fields")
     func fieldMetadataPersistence() throws {
         try fixture { service, db in

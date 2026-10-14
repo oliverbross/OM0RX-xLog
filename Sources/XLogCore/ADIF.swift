@@ -11,6 +11,44 @@ private func checkMetadataKeys(_ decoder: Decoder, allowed: Set<String>) throws 
     guard Set(keys).isSubset(of: allowed) else { throw ADIFPlanningError.invalidPreview }
 }
 
+/// Comparison-only canonical pieces; original field/declaration text is retained.
+private struct ADIFMetadataDecimal {
+    let negative: Bool
+    let integer: String
+    let fraction: String
+    init(_ value: String) throws {
+        guard value.utf8.count <= 16_384 else { throw ADIFPlanningError.invalidPreview }
+        let signed = value.hasPrefix("-")
+        let parts = (signed ? String(value.dropFirst()) : value).split(separator: ".", omittingEmptySubsequences: false)
+        let digits = String(parts[0].drop(while: { $0 == "0" }))
+        integer = digits.isEmpty ? "0" : digits
+        fraction = parts.count == 2 ? String(String(parts[1]).reversed().drop(while: { $0 == "0" }).reversed()) : ""
+        negative = signed && (integer != "0" || !fraction.isEmpty)
+    }
+    static func compare(_ left: String, _ right: String) throws -> Int {
+        let a = try Self(left), b = try Self(right)
+        if a.negative != b.negative { return a.negative ? -1 : 1 }
+        var magnitude = a.integer.count == b.integer.count ? (a.integer < b.integer ? -1 : a.integer > b.integer ? 1 : 0) : a.integer.count < b.integer.count ? -1 : 1
+        if magnitude == 0 {
+            let length = max(a.fraction.count, b.fraction.count)
+            let first = a.fraction.padding(toLength: length, withPad: "0", startingAt: 0)
+            let second = b.fraction.padding(toLength: length, withPad: "0", startingAt: 0)
+            magnitude = first < second ? -1 : first > second ? 1 : 0
+        }
+        return a.negative ? -magnitude : magnitude
+    }
+}
+
+private func adifExtensionRange(type: String, declaration: [String: String]) throws -> (String, String)? {
+    guard let range = declaration["RANGE"] else { return nil }
+    let pattern = #"^\{(-?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)):(-?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+))\}$"#
+    guard ["N", "I"].contains(type.uppercased()), declaration["ENUM"] == nil,
+          range.range(of: pattern, options: .regularExpression) == range.startIndex..<range.endIndex else { throw ADIFPlanningError.invalidPreview }
+    let bounds = range.dropFirst().dropLast().split(separator: ":", omittingEmptySubsequences: false).map(String.init)
+    guard try ADIFMetadataDecimal.compare(bounds[0], bounds[1]) < 0 else { throw ADIFPlanningError.invalidPreview }
+    return (bounds[0], bounds[1])
+}
+
 /// Versioned per-record ADX identity/declarations, carried beside ordinary fields.
 /// No ADIF field name is reserved or repurposed for this contract.
 public struct ADIFFieldMetadata: Codable, Equatable, Hashable, Sendable {
@@ -94,6 +132,10 @@ public struct ADIFFieldMetadata: Codable, Equatable, Hashable, Sendable {
                 guard normalized == "E", enumeration.range(of: #"^\{[ -~]*\}$"#, options: .regularExpression) != nil,
                       String(enumeration.dropFirst().dropLast()).components(separatedBy: ",").contains(value) else { throw ADIFPlanningError.invalidPreview }
             }
+            if let declaration, let range = try adifExtensionRange(type: type, declaration: declaration) {
+                guard try ADIFMetadataDecimal.compare(value, range.0) >= 0,
+                      try ADIFMetadataDecimal.compare(value, range.1) <= 0 else { throw ADIFPlanningError.invalidPreview }
+            }
         }
         var declarationIDs = Set<String>()
         for (key, item) in extensions {
@@ -111,8 +153,9 @@ public struct ADIFFieldMetadata: Codable, Equatable, Hashable, Sendable {
                 if let declaration = item.declaration {
                     guard let id = declaration["FIELDID"], let number = UInt32(id), number > 0, String(number) == id,
                           declarationIDs.insert(id).inserted,
-                          let type = declaration["TYPE"], type.utf8.count == 1, "BNSIDTMGEL".contains(type.uppercased()), declaration["RANGE"] == nil,
+                          let type = declaration["TYPE"], type.utf8.count == 1, "BNSIDTMGEL".contains(type.uppercased()),
                           Set(declaration.keys).isSubset(of: ["FIELDID", "TYPE", "ENUM", "RANGE"]) else { throw ADIFPlanningError.invalidPreview }
+                    _ = try adifExtensionRange(type: type, declaration: declaration)
                     if let enumeration = declaration["ENUM"] {
                         guard type.uppercased() == "E", !enumeration.contains("\r"), !enumeration.contains("\n"), enumeration.range(of: #"^\{[ -~]*\}$"#, options: .regularExpression) != nil else { throw ADIFPlanningError.invalidPreview }
                     }

@@ -4,6 +4,32 @@ import Testing
 
 @Suite("Read-only ADIF review and export")
 struct ADIFPlanningTests {
+    @Test("USERDEF numeric ranges compare exactly while retaining original lexical text", arguments: [
+        ["N", "{001.:0003.00}", "0002.500"], ["N", "{-.5:.5}", "-0.000"], ["N", "{-10:-2}", "-2"],
+        ["N", "{9007199254740992:9007199254740993}", "9007199254740993"],
+        ["N", "{.00000000000000000001:.00000000000000000002}", ".00000000000000000002"],
+        ["I", "{-.5:1.5}", "0001"], ["I", "{-999999999999999999999:999999999999999999999}", "-999999999999999999999"]
+    ])
+    func exactUserdefRange(_ values: [String]) throws {
+        let metadata = ADIFFieldMetadata(extensions: ["CUSTOM": .init(kind: "USERDEF", attributes: ["FIELDNAME": "CUSTOM"], declaration: ["FIELDID": "1", "TYPE": values[0], "RANGE": values[1]])])
+        try metadata.validate(fields: ["CUSTOM": values[2]])
+        let decoded = try JSONDecoder().decode(ADIFFieldMetadata.self, from: JSONEncoder().encode(metadata))
+        #expect(decoded.extensions["CUSTOM"]?.declaration?["RANGE"] == values[1])
+    }
+
+    @Test("USERDEF rejects malformed, conflicting and out-of-range declarations", arguments: [
+        ["N", "{1:3}", "0.999999999999999999999"], ["N", "{1:3}", "3.000000000000000000001"],
+        ["N", "{9007199254740992:9007199254740993}", "9007199254740993.0000000001"],
+        ["N", "{-10:-2}", "-10.00000000000000001"], ["N", "{-0.:0.000}", "0"],
+        ["N", "{3:1}", "2"], ["N", "{1:1}", "1"], ["N", "{+1:3}", "2"], ["N", "{1e0:3}", "2"],
+        ["N", "{1,0:3}", "2"], ["N", "{1:3} ", "2"], ["N", "{1:3}\n", "2"], ["N", "{.:3}", "2"],
+        ["N", "{1::3}", "2"], ["N", "{1:}", "2"], ["S", "{1:3}", "2"], ["E", "{1:3}", "2"], ["I", "{1:3}", "2.0"]
+    ])
+    func invalidUserdefRange(_ values: [String]) throws {
+        let metadata = ADIFFieldMetadata(extensions: ["CUSTOM": .init(kind: "USERDEF", attributes: ["FIELDNAME": "CUSTOM"], declaration: ["FIELDID": "1", "TYPE": values[0], "RANGE": values[1]])])
+        #expect(throws: (any Error).self) { try metadata.validate(fields: ["CUSTOM": values[2]]) }
+    }
+
     @Test("Version-one extension metadata rejects collisions, malformed identities and conflicting declarations")
     func extensionMetadataValidation() throws {
         let fields = ["APP_TEST_FIELD": "0012.50", "CUSTOM": "A", "OTHER": "B", "ADDRESS": "Keep ordinary value"]

@@ -204,7 +204,7 @@ it.each([
   adx('<APP PROGRAMID="TEST" FIELDNAME="X" TYPE="N">NaN</APP>'),
   adx('<APP PROGRAMID="TEST" FIELDNAME="X" TYPE="S">Žilina</APP>'),
   adx('<USERDEF FIELDNAME="CUSTOM">C</USERDEF>', '<USERDEF FIELDID="1" TYPE="E" ENUM="{A,B}">CUSTOM</USERDEF>'),
-  adx('<USERDEF FIELDNAME="CUSTOM">2</USERDEF>', '<USERDEF FIELDID="1" TYPE="N" RANGE="{1:3}">CUSTOM</USERDEF>'),
+  adx('<USERDEF FIELDNAME="CUSTOM">2</USERDEF>', '<USERDEF FIELDID="1" TYPE="N" RANGE="{1:1}">CUSTOM</USERDEF>'),
   adx('<USERDEF FIELDNAME="CUSTOM">A</USERDEF>', '<USERDEF FIELDID="1" TYPE="E" ENUM="{A,B}&#10;">CUSTOM</USERDEF>'),
   adx('<USERDEF FIELDNAME="CALL">x</USERDEF>', '<USERDEF FIELDID="1" TYPE="G">CALL</USERDEF>'),
 ])("rejects lossy, conflicting or unsupported extension metadata: %s", source => {
@@ -237,6 +237,42 @@ it("freezes declaration metadata when an export frame is admitted", () => {
   const writer = new ADIFExportDocument("adx"); writer.append(document.text, 1, document.fieldMetadata);
   document.fieldMetadata[0]!.extensions.CUSTOM.declaration!.TYPE = "N";
   expect(writer.finish()).toContain('<USERDEF FIELDID="17" TYPE="G">CUSTOM</USERDEF>');
+});
+
+it.each([
+  ["n", "{001.:0003.00}", "0002.500"], ["N", "{-.5:.5}", "-0.000"], ["N", "{-10:-2}", "-2"],
+  ["N", "{9007199254740992:9007199254740993}", "9007199254740993"],
+  ["N", "{.00000000000000000001:.00000000000000000002}", ".00000000000000000002"],
+  ["I", "{-.5:1.5}", "0001"], ["I", "{-999999999999999999999:999999999999999999999}", "-999999999999999999999"],
+])("preserves exact ranged USERDEF metadata and values: %s %s %s", (type, range, value) => {
+  const source = adx(`<USERDEF FIELDNAME="CUSTOM">${value}</USERDEF>`, `<USERDEF FIELDID="17" TYPE="${type}" RANGE="${range}">CUSTOM</USERDEF>`);
+  const document = decodeADIFDocument(new TextEncoder().encode(source).buffer);
+  const writer = new ADIFExportDocument("adx"); writer.append(document.text, 1, document.fieldMetadata);
+  const xml = writer.finish();
+  expect(xml).toContain(`TYPE="${type}" RANGE="${range}"`);
+  expect(decodeADIFDocument(new TextEncoder().encode(xml).buffer)).toEqual(document);
+});
+
+it.each([
+  ["N", "{1:3}", "0.999999999999999999999"], ["N", "{1:3}", "3.000000000000000000001"],
+  ["N", "{9007199254740992:9007199254740993}", "9007199254740993.0000000001"],
+  ["N", "{-10:-2}", "-10.00000000000000001"], ["N", "{-0.:0.000}", "0"],
+  ["N", "{3:1}", "2"], ["N", "{1:1}", "1"], ["N", "{+1:3}", "2"], ["N", "{1e0:3}", "2"],
+  ["N", "{1,0:3}", "2"], ["N", "{1:3} ", "2"], ["N", "{1:3}\n", "2"], ["N", "{.:3}", "2"],
+  ["N", "{1::3}", "2"], ["N", "{1:}", "2"], ["S", "{1:3}", "2"], ["E", "{1:3}", "2"], ["I", "{1:3}", "2.0"],
+])("rejects malformed, inapplicable or out-of-range USERDEF at both boundaries: %s %s %s", (type, range, value) => {
+  const metadata = { version: 1 as const, extensions: { CUSTOM: { kind: "USERDEF" as const, attributes: { FIELDNAME: "CUSTOM" }, declaration: { FIELDID: "17", TYPE: type, RANGE: range } } } };
+  expect(() => new ADIFExportDocument("adx").append(adiRecord({ CUSTOM: value }), 1, [metadata])).toThrow();
+  const escapedRange = range.replace(/\n/g, "&#10;");
+  expect(() => decodeADIFDocument(new TextEncoder().encode(adx(`<USERDEF FIELDNAME="CUSTOM">${value}</USERDEF>`, `<USERDEF FIELDID="17" TYPE="${type}" RANGE="${escapedRange}">CUSTOM</USERDEF>`)).buffer)).toThrow();
+});
+
+it("rejects ENUM+RANGE and conflicting RANGE declarations even if equivalent numerically", () => {
+  expect(() => decodeADIFDocument(new TextEncoder().encode(adx('<USERDEF FIELDNAME="CUSTOM">2</USERDEF>', '<USERDEF FIELDID="1" TYPE="N" ENUM="{1,2,3}" RANGE="{1:3}">CUSTOM</USERDEF>')).buffer)).toThrow();
+  const first = decodeADIFDocument(new TextEncoder().encode(adx('<USERDEF FIELDNAME="CUSTOM">2</USERDEF>', '<USERDEF FIELDID="1" TYPE="N" RANGE="{1:3}">CUSTOM</USERDEF>')).buffer);
+  const other = decodeADIFDocument(new TextEncoder().encode(adx('<USERDEF FIELDNAME="CUSTOM">2</USERDEF>', '<USERDEF FIELDID="1" TYPE="N" RANGE="{01:3.0}">CUSTOM</USERDEF>')).buffer);
+  const writer = new ADIFExportDocument("adx"); writer.append(first.text, 1, first.fieldMetadata);
+  expect(() => writer.append(other.text, 1, other.fieldMetadata)).toThrow();
 });
 
 it("preserves accepted grid, reference and small enum values exactly across ADX boundaries", () => {
