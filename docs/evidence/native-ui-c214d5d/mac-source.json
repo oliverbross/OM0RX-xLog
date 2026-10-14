@@ -1,0 +1,342 @@
+{
+  "acceptance_namespace": "com.oliverbross.xlog.acceptance.r05ec0e3b4b8a4fa385997392d64fca42",
+  "arch": "aarch64",
+  "checks": {
+    "adif_transfer_roundtrip": true,
+    "awards_loaded": true,
+    "contact_delete_undo": true,
+    "contact_edit": true,
+    "desk_map_logbook": true,
+    "detached_awards": true,
+    "detached_awards_lifecycle": true,
+    "detached_logbook": true,
+    "detached_logbook_lifecycle": true,
+    "detached_projection": true,
+    "detached_spot_history": true,
+    "empty_workspace": true,
+    "final_desk": true,
+    "isolated_worker": true,
+    "keyboard_clear": true,
+    "keyboard_editor": true,
+    "keyboard_focus": true,
+    "keyboard_log": true,
+    "logbook_readback": true,
+    "map_loaded": true,
+    "native_menu_routes": true,
+    "settings_save_readback": true,
+    "spot_history_archive": true,
+    "spot_history_dock_recovery": true,
+    "spot_history_main_absent": true,
+    "worker_integration_self_test": true,
+    "worker_parse_adif": true,
+    "worker_self_test": true,
+    "workspace_canvas_controls": true,
+    "workspace_created": true,
+    "workspace_layout_roundtrip": true,
+    "workspace_native_windows": true,
+    "workspace_settings_presets": true
+  },
+  "details": {
+    "adifTransfer": {
+      "adxBytes": 661,
+      "exported": 1,
+      "finalContacts": 1,
+      "imported": 0,
+      "previewDuplicates": 1,
+      "skippedDuplicates": 1
+    },
+    "awardsLifecycle": {
+      "closed": true,
+      "instanceID": "47c65876-3358-4181-8aa8-ed569684f6ed"
+    },
+    "awardsReadyMs": 170,
+    "bandMapContext": {
+      "externalOwners": false,
+      "generation": "ca5d1558-ecd3-4a11-98e2-1bf361b36749",
+      "revision": 1,
+      "scale": "110%",
+      "source": "isolated_local_worker",
+      "synthetic": true
+    },
+    "deskMapLogbook": {
+      "choices": [
+        "Map",
+        "Logbook",
+        "Logbook above map",
+        "Logbook below map"
+      ],
+      "columnsIndependent": true,
+      "keyboardDivider": true,
+      "maximum": 68,
+      "minimum": 39,
+      "restoredMap": true,
+      "retainedMap": true,
+      "retainedTable": true,
+      "routeRemount": true,
+      "sameDraft": true,
+      "stationIO": false
+    },
+    "deskMapLogbookSize": {
+      "action": "expand",
+      "height": 1880,
+      "scale": 2,
+      "width": 2880
+    },
+    "detached": {
+      "checks": {
+        "focused_chrome": true
+      },
+      "details": {
+        "focusedBand": "20m",
+        "nativeContext": {
+          "externalOwners": false,
+          "generation": "ca5d1558-ecd3-4a11-98e2-1bf361b36749",
+          "revision": 0,
+          "scale": null,
+          "source": "isolated_local_worker",
+          "synthetic": true
+        },
+        "surface": "band-maps"
+      },
+      "embeddedUi": true,
+      "schema": 1,
+      "scope": "integrated-local-ui",
+      "status": "passed",
+      "worker": false
+    },
+    "detachedAwards": {
+      "checks": {
+        "catalogue": true,
+        "task_only": true
+      },
+      "details": {
+        "instanceID": "47c65876-3358-4181-8aa8-ed569684f6ed",
+        "surface": "awards"
+      },
+      "embeddedUi": true,
+      "schema": 1,
+      "scope": "integrated-local-ui",
+      "status": "passed",
+      "worker": false
+    },
+    "detachedLogbook": {
+      "checks": {
+        "contact_edit": true,
+        "no_radio_controls": true
+      },
+      "details": {
+        "instanceID": "8a6bf4f6-1728-4cc6-b764-4b3bf6adb97c",
+        "surface": "logbook"
+      },
+      "embeddedUi": true,
+      "schema": 1,
+      "scope": "integrated-local-ui",
+      "status": "passed",
+      "worker": false
+    },
+    "editorFocus": {
+      "entry": "native-menu-route",
+      "focusAction": "Escape",
+      "physicalAccelerator": false,
+      "sameDraft": true,
+      "screen": "log-qso"
+    },
+    "finalMap": {
+      "canvasHeight": 466,
+      "canvasWidth": 1412,
+      "capturedAt": 1792019344436,
+      "error": "",
+      "landFeatures": 342,
+      "landPixelProbes": 74,
+      "loaded": true,
+      "matchedLandPixels": 74,
+      "pixelMismatches": [],
+      "renderedLandFeatures": 328,
+      "tilesLoaded": true,
+      "visible": true,
+      "webgl": true
+    },
+    "logbookLifecycle": {
+      "closed": true,
+      "instanceID": "8a6bf4f6-1728-4cc6-b764-4b3bf6adb97c"
+    },
+    "mainInstanceID": "01cf85fd-7ada-48a9-b0b6-31f53c0cfd96",
+    "nativeMenuRoutes": {
+      "draftUnchanged": true,
+      "nativeRoutes": [
+        "operator-desk",
+        "log-qso",
+        "logbook",
+        "dx-cluster",
+        "spot-history",
+        "world-map",
+        "band-maps",
+        "chaser-dx",
+        "awards",
+        "station-control",
+        "settings"
+      ],
+      "settingsSync": true,
+      "settingsUnchanged": true,
+      "stationIO": false
+    },
+    "spotHistory": {
+      "distinctCalls": 2,
+      "draftUnchanged": true,
+      "emptySearch": true,
+      "escapedText": true,
+      "filteredReports": 69,
+      "nativeTable": true,
+      "network": false,
+      "originalSource": true,
+      "remount": true,
+      "retainedReports": 137,
+      "stationIO": false,
+      "uniquePageIDs": 137
+    },
+    "spotHistoryWindow": {
+      "beforeDraft": {
+        "antennaPath": "",
+        "band": "20m",
+        "call": "",
+        "comment": "",
+        "continent": "",
+        "country": "",
+        "county": "",
+        "cqZone": "",
+        "dok": "",
+        "email": "",
+        "extraFields": {},
+        "gridSquare": "",
+        "id": "B8B9BB82-E4B6-44F5-BAB2-76243EA2A3C5",
+        "iota": "",
+        "isDirty": true,
+        "ituZone": "",
+        "lotwReceived": "",
+        "lotwSent": "",
+        "mode": "SSB",
+        "myCall": "OM0RX",
+        "myGrid": "",
+        "name": "",
+        "notes": "",
+        "operatorCall": "OM0RX",
+        "potaReference": "",
+        "propagationMode": "",
+        "qslMessage": "",
+        "qslMethod": "",
+        "qslReceived": "",
+        "qslSent": "",
+        "qslVia": "",
+        "qth": "",
+        "radio": "OM0RX-xCat",
+        "receiveBand": "",
+        "rstReceived": "59",
+        "rstSent": "59",
+        "sig": "",
+        "sigInfo": "",
+        "sotaReference": "",
+        "start": "2026-10-14T23:08:55Z",
+        "state": "",
+        "stationLocation": "",
+        "submode": "",
+        "txPower": "100",
+        "updatedAt": "2026-10-14T23:08:55Z",
+        "wwffReference": ""
+      },
+      "child": {
+        "checks": {
+          "archive_read": true,
+          "main_absent": true
+        },
+        "details": {
+          "after": {
+            "originalSource": true,
+            "reports": 137,
+            "uniqueIDs": 137,
+            "watermark": 137
+          },
+          "before": {
+            "originalSource": true,
+            "reports": 137,
+            "uniqueIDs": 137,
+            "watermark": 137
+          },
+          "instanceID": "42817316-880c-4afb-b3f1-c099d7ca08d2",
+          "phaseRevision": 1,
+          "surface": "spot-history"
+        },
+        "embeddedUi": true,
+        "schema": 1,
+        "scope": "integrated-local-ui",
+        "status": "passed",
+        "worker": true
+      },
+      "draftUnchanged": true,
+      "instanceID": "42817316-880c-4afb-b3f1-c099d7ca08d2",
+      "recoveredMainInstanceID": "990d93a8-a519-4d70-be07-ed304fe90865"
+    },
+    "surface": "main",
+    "workspaceCanvas": {
+      "activePreset": "traditional",
+      "layoutConflictRecovered": false,
+      "locked": true,
+      "mapHidePersisted": true,
+      "sameDraft": true
+    },
+    "workspaceLayout": {
+      "initialRevision": 0,
+      "restoredRevision": 2,
+      "roles": 21,
+      "savedRevision": 1,
+      "staleWriteRejected": true,
+      "stationIO": false
+    },
+    "workspaceSettings": {
+      "activated": true,
+      "activePreset": "traditional",
+      "deskMatches": true,
+      "initialRevision": 8,
+      "presetID": "desk-a795f98b-21ab-4f25-a23a-4e9011259e8e",
+      "remount": true,
+      "renamed": true,
+      "renamedRevision": 11,
+      "restoredRevision": 12,
+      "sameDraft": true,
+      "savedInactive": true,
+      "savedRevision": 9,
+      "stationIO": false
+    },
+    "workspaceWindows": {
+      "adoptedRevision": 14,
+      "cancelledRevision": 0,
+      "cancelledWithoutSave": true,
+      "contactUnchanged": true,
+      "dirtyEditPreserved": false,
+      "finalRevision": 17,
+      "hiddenProbeRevision": 0,
+      "hiddenRevision": 15,
+      "hiddenWithoutClosing": true,
+      "instanceID": "8a6bf4f6-1728-4cc6-b764-4b3bf6adb97c",
+      "manualWindowRetained": true,
+      "operatorDraftUnchanged": true,
+      "preparedRevision": 0,
+      "presetID": "desk-b93e2787-6291-4053-9520-cb531e1b451c",
+      "rendererUnitCoverage": true,
+      "restoredRevision": 16,
+      "restoredVisible": true,
+      "sameRenderer": true,
+      "stationIO": false,
+      "unmanagedRevision": 13,
+      "visibleProbeRevision": 0
+    }
+  },
+  "embeddedUi": true,
+  "large_log_requested": false,
+  "platform": "macos",
+  "production_singleton": false,
+  "schema": 1,
+  "scope": "integrated-local-ui",
+  "station_io": false,
+  "status": "passed",
+  "worker": true
+}

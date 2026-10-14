@@ -79,8 +79,10 @@ merely to look like RUMlog.
    held-record visibility is source ready: Sync now shows each same-identity
    group, its exact Wavelog IDs, differing field names and value shapes without
    guessing a merge. A 15 October read-only probe confirmed 68,036 remote IDs,
-   68,030 unambiguous and the same three two-ID held groups. Packaged visual
-   acceptance of that review UI remains open.
+   68,030 unambiguous and the same three two-ID held groups. The uninstalled
+   `c214d5d` macOS source bundle passes 33/33 isolated checks with station I/O
+   disabled; its fixture does not seed held rows, so operator/live visual
+   acceptance of that review content remains open.
 4. Finish DATA-10 live-sync acceptance and production capability for optional
    cloud backups. Packaged ADX roundtrip and 100,002-record functional acceptance
    pass in alpha.29.

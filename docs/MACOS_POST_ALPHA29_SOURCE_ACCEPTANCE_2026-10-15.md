@@ -99,3 +99,31 @@ rebuilt ad-hoc development bundle remains uninstalled.
 This is not a notarized or installed candidate, live Club Log/QRZ/WSJT-X
 acceptance, or hardware/RF acceptance. No credential, operator logbook,
 online-log provider or station device was accessed.
+
+## Held Wavelog record review source follow-up
+
+Exact source `c214d5dcf6dfccb707379b1aeb471428f696c85f` adds the
+read-only held-record review details to Sync. The rebuilt ad-hoc development
+bundle remains uninstalled.
+
+- Strict deep code-signature verification passes. The arm64 host SHA-256 is
+  `e6ce67aca0b79dafda06062919cf387ee1c1ce0f6bb996a04e51c955bf33bfe9`;
+  the universal worker SHA-256 is
+  `2070977245bce075eb0bb206f4b64ef0832c7bf0822b329dcc8b9feb0368d14c`.
+- The staged distribution metadata names the exact source above. The production
+  frontend and detached-window bundle gate passed while packaging.
+- A fresh isolated run passes **33/33** checks with `embeddedUi: true`,
+  `worker: true`, no false check and `station_io: false`; see
+  [mac-source.json](evidence/native-ui-c214d5d/mac-source.json). The randomized
+  acceptance namespace and incognito/private workspace exited cleanly.
+- Source validation for this change passes frontend **2,391/2,391**, native
+  Swift **194/194**, portable XStation **17**, XLogPrototype XCTest **201** with
+  four intentional skips, and Swift Testing **392/392**. Compact 360 px and
+  desktop 1000 px source-component geometry showed no horizontal overflow.
+
+The isolated package fixture does not create ambiguous Wavelog history, so this
+run proves the package, renderer, worker and station-I/O-disabled boundary but
+does not claim packaged observation of the held-group content. The exact live
+record IDs remain untouched; operator/live visual confirmation, installation,
+notarization and provider acceptance remain open. No credential, operator
+logbook, online service or station device was accessed.

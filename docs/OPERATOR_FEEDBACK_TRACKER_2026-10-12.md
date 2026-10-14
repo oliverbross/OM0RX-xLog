@@ -1245,3 +1245,12 @@ edits unchanged, and continues synchronizing unrelated contacts. Full ADIF value
 credentials and automatic merge/delete actions are not exposed. Core join,
 native status/summary projection, focused UI tests and the production frontend
 build pass. Packaged visual acceptance remains open.
+
+The exact `c214d5d` source was subsequently rebuilt as the uninstalled macOS
+development bundle. Strict deep signing passes and a fresh isolated run reports
+33/33 checks, embedded UI and staged worker present, no false check and
+`station_io: false`; the acceptance namespace exited cleanly. The fixture does
+not create ambiguous Wavelog rows, so this is package/runtime evidence rather
+than a claim that the held-group content was observed inside the package. The
+source component remains responsive at 360 px and 1000 px; operator/live visual
+follow-up is still open. No credential, logbook, provider or hardware was used.
