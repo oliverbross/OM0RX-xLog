@@ -223,6 +223,9 @@ actor LiveServiceMethods {
                   interval.doubleValue.isFinite, (1...60).contains(interval.doubleValue),
                   interval.doubleValue == Double(interval.intValue) else { throw invalid() }
             guard syncTask == nil else { throw WorkerFailure("sync_busy", "Wait for synchronization to finish before changing its schedule.") }
+            if enabled.boolValue, try logbook.currentSettings().logbookMode != .wavelog {
+                throw WorkerFailure("sync_mode_local", "Choose Wavelog mode in Settings before enabling synchronization.")
+            }
             if enabled.boolValue && operation == nil {
                 guard !(try workspaceSecrets().load(.wavelogToken) ?? "").isEmpty else {
                     throw WorkerFailure("sync_configuration_required", "Save the Wavelog token before enabling automatic synchronization.")

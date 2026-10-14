@@ -119,6 +119,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
     func currentSettings() throws -> XLogSettings {
         try lock.withLock {
             var settings = try storedSettingsSnapshot().settings
+            settings.automaticSync = false
             if let authorization = try syncAuthorization(settings: settings) {
                 settings.automaticSync = true
                 settings.syncIntervalMinutes = authorization.intervalMinutes
@@ -277,7 +278,8 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
               data.count <= 8192, let value = try? JSONDecoder().decode(SyncAuthorization.self, from: data),
               value.matches(generation: try editGeneration(), service: try currentKeychainService(),
                             workspacePath: workspaceURL.standardizedFileURL.resolvingSymlinksInPath().path,
-                            endpoint: settings.wavelogURL, stationID: settings.wavelogStationID) else { return nil }
+                            endpoint: settings.wavelogURL, stationID: settings.wavelogStationID,
+                            targetRevision: try storedSettingsSnapshot().syncTargetRevision) else { return nil }
         return value
     }
 
@@ -294,9 +296,10 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                 throw WorkerFailure("sync_mode_local", "Choose and configure Wavelog mode before enabling automatic sync.")
             }
             _ = try WavelogConfiguration(baseURL: url, token: "wl2_configuration_validation", stationID: settings.wavelogStationID)
-            let authorization = SyncAuthorization(version: 1, generation: try editGeneration(), service: try currentKeychainService(),
+            let authorization = SyncAuthorization(version: 2, generation: try editGeneration(), service: try currentKeychainService(),
                 workspacePath: workspaceURL.standardizedFileURL.resolvingSymlinksInPath().path,
-                endpoint: settings.wavelogURL, stationID: settings.wavelogStationID, intervalMinutes: intervalMinutes)
+                endpoint: settings.wavelogURL, stationID: settings.wavelogStationID, intervalMinutes: intervalMinutes,
+                targetRevision: try storedSettingsSnapshot().syncTargetRevision)
             let data = try JSONEncoder().encode(authorization)
             defaults.set(data, forKey: syncAuthorizationKey)
             guard defaults.data(forKey: syncAuthorizationKey) == data else {
@@ -1358,6 +1361,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
 
     private func presentedSettings(_ stored: XLogSettings) throws -> XLogSettings {
         var settings = stored
+        settings.automaticSync = false
         if let authorization = try syncAuthorization(settings: settings) {
             settings.automaticSync = true
             settings.syncIntervalMinutes = authorization.intervalMinutes

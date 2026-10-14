@@ -505,9 +505,13 @@ public final class LogbookDatabase: @unchecked Sendable {
                 guard current.revision == mutation.expectedRevision else {
                     throw IntegrationSettingsError.conflict(current)
                 }
+                let targetChanged = current.settings.logbookMode != mutation.settings.logbookMode
+                    || current.settings.wavelogURL != mutation.settings.wavelogURL
+                    || current.settings.wavelogStationID != mutation.settings.wavelogStationID
                 let next = IntegrationSettingsSnapshot(
                     revision: current.settings == mutation.settings ? current.revision : current.revision + 1,
-                    settings: mutation.settings
+                    settings: mutation.settings,
+                    syncTargetRevision: current.syncTargetRevision + (targetChanged ? 1 : 0)
                 )
                 try next.validate()
                 if next != current { try writeIntegrationSettings(next) }

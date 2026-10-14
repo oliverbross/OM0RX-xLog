@@ -67,14 +67,27 @@ public struct XLogSettings: Codable, Equatable, Sendable {
 public struct IntegrationSettingsSnapshot: Codable, Equatable, Sendable {
     public let revision: Int64
     public let settings: XLogSettings
+    /// Advances atomically with every mode/destination change. Returning to a
+    /// previous destination cannot revive consent left by an interrupted save.
+    public let syncTargetRevision: Int64
 
-    public init(revision: Int64, settings: XLogSettings) {
+    public init(revision: Int64, settings: XLogSettings, syncTargetRevision: Int64 = 0) {
         self.revision = revision
         self.settings = settings
+        self.syncTargetRevision = syncTargetRevision
+    }
+
+    private enum CodingKeys: String, CodingKey { case revision, settings, syncTargetRevision }
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        revision = try values.decode(Int64.self, forKey: .revision)
+        settings = try values.decode(XLogSettings.self, forKey: .settings)
+        syncTargetRevision = try values.decodeIfPresent(Int64.self, forKey: .syncTargetRevision) ?? 0
     }
 
     public func validate() throws {
         guard (0...9_007_199_254_740_991).contains(revision),
+              (0...revision).contains(syncTargetRevision),
               (0...Int(Int32.max)).contains(settings.wavelogStationID),
               (1...1_440).contains(settings.syncIntervalMinutes),
               (1...65_535).contains(settings.xcatRigCtlPort) else {

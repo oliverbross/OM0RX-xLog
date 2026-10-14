@@ -56,6 +56,17 @@ describe("grouped service settings", () => {
     await waitFor(() => expect(save).toHaveBeenCalledWith({ ...values, logbookMode: "local" }));
     expect(request.mock.calls.some(([method]) => method.startsWith("sync_"))).toBe(false);
   });
+  it("defaults missing mode to local and switching back only saves settings", async () => {
+    const request = vi.fn(), save = vi.fn(async () => {});
+    render(<SettingsHarness values={values} request={request} onSave={save} />);
+    expect((screen.getByLabelText("Logbook mode") as HTMLSelectElement).value).toBe("local");
+    expect(screen.getByText(/Switching back to Wavelog leaves synchronization off/)).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Logbook mode"), { target: { value: "wavelog" } });
+    expect(save).not.toHaveBeenCalled(); expect(request).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
+    await waitFor(() => expect(save).toHaveBeenCalledWith({ ...values, logbookMode: "wavelog" }));
+    expect(request).not.toHaveBeenCalled();
+  });
   it("puts rotator settings in their own tab without applying a connection change", () => {
     const request = vi.fn();
     render(<SettingsHarness values={values} request={request} rotorSettings={<div>Independent rotor setup</div>} />);

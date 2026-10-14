@@ -20,6 +20,14 @@ const fixture = () => ({ mutation_owner: { generation: "workspace-1", revision: 
 afterEach(() => { cleanup(); localStorage.clear(); vi.useRealTimers(); });
 
 describe("Wavelog conflict merge", () => {
+  it("keeps local mode passive and disables remote setup and synchronization", async () => {
+    const request = syncRequest(async () => ({ ...fixture(), mode: "local", sync_available: false }));
+    render(<SyncPanel request={request} onChanged={vi.fn()} />);
+    await screen.findByText(/Standalone local mode keeps your contacts/);
+    for (const name of ["Check setup", "Synchronize now", "Enable automatic sync"])
+      expect((screen.getByRole("button", { name }) as HTMLButtonElement).disabled).toBe(true);
+    expect(request.mock.calls.every(([method]) => method === "sync_status")).toBe(true);
+  });
   it("explains missing credentials without retrieving a token or starting sync", async () => {
     const request = syncRequest(async (method: string, _params?: Record<string, any>) => {
       if (method === "settings_load") return { settings: { wavelogURL: "https://example.invalid", wavelogStationID: 1 } };
