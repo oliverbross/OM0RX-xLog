@@ -1,4 +1,10 @@
 .service-settings { min-width:0; }
+.app.live.detached-settings-app { display:flex; flex-direction:column; width:100%; height:100dvh; min-height:0; padding:0; }
+.detached-settings-app > main { flex:1; min-width:0; min-height:0; width:100%; padding:12px; overflow:auto; }
+.detached-settings-app .service-settings .service-fields,
+.detached-settings-app .service-settings .service-credential,
+.detached-settings-app .service-settings .service-account-row { max-width:none; }
+.detached-settings-app .service-settings .service-account-row label { flex:1; }
 .service-settings [hidden] { display:none!important; }
 .service-tabs { display:flex; gap:5px; flex-wrap:wrap; padding-bottom:10px; margin-bottom:12px; border-bottom:1px solid var(--border); }
 .service-tabs button { padding:6px 15px; font-weight:650; }

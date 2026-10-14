@@ -6,7 +6,6 @@ import { requestOperatorDraft } from "./operatorDraftTransport";
 import { OperatorDraftStatus } from "./OperatorDraftStatus";
 import { changedCallDraft, normalizedCall } from "./draftEnrichment";
 import { connectOperatorDraftChanges, protectOperatorDraftClose } from "./operatorDraftWindows";
-import { dockDetachedWorkspace } from "./DetachedClusterBridge";
 import { nativeSpotEditor, useSpotEditor } from "./useSpotEditor";
 import { useReferenceEvidence } from "./useReferenceEvidence";
 import "./DetachedQSOSurface.css";
@@ -40,10 +39,10 @@ export function DetachedQSOSurface() {
   const [working, setWorking] = useState(false), [closing, setClosing] = useState(false);
   const [lookup, setLookup] = useState<Record<string, any> | null>(null);
   const [previous, setPrevious] = useState<Record<string, any>[]>([]);
-  const workingRef = useRef(false), closingRef = useRef(false), docking = useRef(false), mounted = useRef(true);
-  useSpotEditor([session], () => workingRef.current || closingRef.current || docking.current || localInput.current
+  const workingRef = useRef(false), closingRef = useRef(false), mounted = useRef(true);
+  useSpotEditor([session], () => workingRef.current || closingRef.current || localInput.current
     ? { ready: false, reason: "Finish the buffered fields or close/Dock operation first." } : { ready: true });
-  const acceptsInput = useCallback(() => session.canAcceptLocalInput() && !workingRef.current && !closingRef.current && !docking.current, [session]);
+  const acceptsInput = useCallback(() => session.canAcceptLocalInput() && !workingRef.current && !closingRef.current, [session]);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const report = useCallback((text: string) => { if (mounted.current) setError(text); }, []);
   const run = useCallback(async (action: () => Promise<unknown>) => {
@@ -72,7 +71,7 @@ export function DetachedQSOSurface() {
   }, [session, state, report, closing]);
   const cannotClose = useCallback(() => {
     const current = session.getSnapshot();
-    return workingRef.current && !docking.current || localInput.current || session.dirty || !!current.pending ||
+    return workingRef.current || localInput.current || session.dirty || !!current.pending ||
       current.activationFrozen || current.locked || !!current.conflict || current.workspaceChanged;
   }, [session]);
   const explainClose = useCallback(() => report("Finish the draft fields and resolve unsaved or pending QSO changes before closing or docking this window."), [report]);
@@ -111,11 +110,6 @@ export function DetachedQSOSurface() {
     }, 400);
     return () => { active = false; clearTimeout(timer); };
   }, [state.draft?.id, state.draft?.call, state.base?.generation, state.workspaceChanged, session]);
-  const dock = () => {
-    if (cannotClose()) { explainClose(); return; }
-    docking.current = true;
-    void run(dockDetachedWorkspace).finally(() => { docking.current = false; });
-  };
   const blocked = state.activationFrozen || state.locked || state.workspaceChanged || !!state.conflict || !!state.pending;
   return <div className="app live monitor-app detached-qso-app"><main aria-label="Detached Log QSO">
     {error && <p className="live-error" role="alert">{error}</p>}
@@ -135,9 +129,6 @@ export function DetachedQSOSurface() {
         session.setManualPower(value); setMessage("");
       }}
       onResumeAutomaticPower={state.base?.power ? () => void run(async () => { session.resumeAutomaticPower(); await session.flush(); }) : undefined} />
-    <div className="live-actions detached-qso-actions">
-      {message && <span className="secondary" role="status">{message}</span>}
-      <button type="button" onClick={dock} disabled={working || closing}>Dock back</button>
-    </div>
+    {message && <p className="secondary" role="status">{message}</p>}
   </main></div>;
 }

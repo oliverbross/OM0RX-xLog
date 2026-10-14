@@ -1,0 +1,17 @@
+.app.live.detached-reference-app { display: flex; flex-direction: column; width: 100%; height: 100dvh; min-height: 0; padding: 0; }
+.detached-reference-app > main { display: flex; flex-direction: column; flex: 1; width: 100%; min-width: 0; min-height: 0; padding: 12px; overflow: auto; }
+.detached-reference-app main > section { width: 100%; min-width: 0; }
+.detached-reference-app p, .detached-reference-app dd { overflow-wrap: anywhere; }
+.detached-reference-app dl { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(0, 2fr); gap: 8px 16px; margin: 16px 0; }
+.detached-reference-app dt, .detached-reference-metadata { color: var(--secondary); }
+.detached-reference-app dd { margin: 0; }
+.detached-reference-app .live-station-readback { padding: 0; border: 0; background: none; }
+.detached-reference-app .live-station-readback strong { font-size: clamp(24px, 5vw, 40px); overflow-wrap: anywhere; }
+.detached-propagation-app .live-conditions { display: flex; flex-direction: column; align-items: stretch; width: 100%; min-width: 0; gap: 16px; }
+.detached-propagation-app .condition-indices { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.detached-propagation-app .condition-indices button { margin-left: auto; }
+.detached-propagation-app .condition-bands { width: 100%; max-width: none; flex: none; }
+.detached-propagation-app .condition-bands > div { min-width: 0; }
+.detached-propagation-app .condition-source { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; }
+.detached-antenna-app .desk-antenna { width: 100%; min-width: 0; }
+@media (max-width: 380px) { .detached-reference-app dl { grid-template-columns: minmax(0, 1fr); gap: 4px; } .detached-reference-app dd { margin-bottom: 8px; } }

@@ -64,7 +64,7 @@ function preferences(): Preferences {
   return defaults;
 }
 
-export function OpportunitiesPanel({ request, onSelect, onDock, refresh = 0, home }: { request: Request; onSelect?: (item: Opportunity) => void; onDock?: () => void; refresh?: number; home?: { call?: string; lat: number; lon: number } | null }) {
+export function OpportunitiesPanel({ request, onSelect, onDock, refresh = 0, home, taskOnly = false }: { request: Request; onSelect?: (item: Opportunity) => void; onDock?: () => void; refresh?: number; home?: { call?: string; lat: number; lon: number } | null; taskOnly?: boolean }) {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [prefs, setPrefs] = useState(preferences);
   const { kind, band, mode, sort, map: showMap } = prefs;
@@ -159,7 +159,7 @@ export function OpportunitiesPanel({ request, onSelect, onDock, refresh = 0, hom
   })), [rows]);
   const choose = (item: Opportunity) => { if (!onSelect) return; setSelected(item.id); onSelect(item); };
   return <section className="opportunities" aria-label="Chaser and DX calendar">
-    <header className="opportunities-head"><h2>Chaser & DX</h2><span>Automatic live feeds · 60s</span>
+    <header className="opportunities-head">{!taskOnly && <h2>Chaser & DX</h2>}<span>Automatic live feeds · 60s</span>
       <button type="button" aria-pressed={showMap} onClick={() => setPrefs(current => ({ ...current, map: !current.map }))}>{showMap ? "Hide map" : "Show map"}</button>
       <button type="button" disabled={busy} onClick={() => reloadRef.current(false)}>{busy ? "Refreshing…" : "Refresh feeds"}</button>
       {onDock && <button type="button" onClick={onDock}>Dock back</button>}</header>

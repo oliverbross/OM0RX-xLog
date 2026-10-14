@@ -77,15 +77,16 @@ export function MonitorSurface({ connectCore = connectMonitorContext, connectMap
     finally { if (active.current) core.current?.refresh(); }
   };
   return <div className="app live monitor-app detached-monitor-app"><main aria-label="Detached Station Monitor">
-    <div className="live-actions detached-monitor-actions"><strong>Station Monitor</strong><span className="secondary" role="status">{synthetic ? "Synthetic isolated observation · read only" : "Shared native observations · independent of Desk"}</span>
+    {synthetic && <p className="secondary" role="status">Synthetic isolated observation · read only</p>}
+    {!synthetic && <div className="live-actions detached-monitor-actions">
       {!synthetic && <><label title={canArm ? "Follow the canonical QSO target using the observed native rotor." : "Refresh a connected rotor observation before arming. Off remains available."}>
         <input type="checkbox" aria-label="Auto rotor" checked={armed} disabled={!armed && (!canArm || arming)}
           onChange={event => { void changeAutomatic(event.target.checked); }} />{automatic.state ? "Auto rotor" : "Auto rotor unavailable"}</label>
         <button type="button" aria-label="Turn automatic rotor off" title="Disarm automatic turns. Use Stop to stop the current move."
           onClick={() => { void changeAutomatic(false); }}>Off</button></>}
-      <button type="button" onClick={() => { core.current?.refresh(); maps.current?.refresh(); targets.current?.refresh(); }}>Refresh</button></div>
+      </div>}
     {!synthetic && (autoError || automatic.error) && <p className="live-error" role="alert">{autoError || automatic.error}</p>}
-    {error && <p className="live-error" role="alert">{error}</p>}
+    {error && <p className="live-error" role="alert">{error} <button type="button" onClick={() => { core.current?.refresh(); maps.current?.refresh(); targets.current?.refresh(); }}>Retry observations</button></p>}
     {!context && <p className="secondary" role="status">Loading retained native station observations…</p>}
     {context && !context.selection?.provider && <p className="secondary" role="status">No radio selected. Choose and connect a radio in the main station controls.</p>}
     {context?.selection?.provider && !freshRadio && <p className="live-error" role="status">Radio observation unavailable or stale. Only selection-fenced Cancel remains available.</p>}

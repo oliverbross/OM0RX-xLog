@@ -7,7 +7,6 @@ import { LogbookMutationSession, readLogbookMutationJournal } from "./logbookMut
 import { requestLogbookContact } from "./logbookContactTransport";
 import { ContactEditStatus } from "./ContactEditStatus";
 import { LogbookMutationStatus } from "./LogbookMutationStatus";
-import { dockDetachedWorkspace } from "./DetachedClusterBridge";
 import { connectLogbookChanges, protectLogbookClose } from "./logbookWindows";
 import { changedCallDraft } from "./draftEnrichment";
 import type { DraftQSO } from "./operatorDraftSession";
@@ -33,10 +32,10 @@ export function DetachedLogbookSurface() {
   const [working, setWorking] = useState(false), [tableBusy, setTableBusy] = useState(false);
   const [lookup, setLookup] = useState<Record<string, any> | null>(null);
   const [previous, setPrevious] = useState<Record<string, any>[]>([]);
-  const workingRef = useRef(false), tableBusyRef = useRef(false), docking = useRef(false);
-  useSpotEditor([contacts], () => workingRef.current || tableBusyRef.current || docking.current || mutations.getSnapshot().busy || mutations.getSnapshot().pending
+  const workingRef = useRef(false), tableBusyRef = useRef(false);
+  useSpotEditor([contacts], () => workingRef.current || tableBusyRef.current || mutations.getSnapshot().busy || mutations.getSnapshot().pending
     ? { ready: false, reason: "Finish the logbook action or close/Dock operation first." } : { ready: true });
-  const acceptsInput = useCallback(() => contacts.canAcceptLocalInput() && !workingRef.current && !docking.current, [contacts]);
+  const acceptsInput = useCallback(() => contacts.canAcceptLocalInput() && !workingRef.current, [contacts]);
   const run = useCallback(async (action: () => Promise<unknown>) => {
     if (workingRef.current) return;
     workingRef.current = true; setWorking(true); setError("");
@@ -49,7 +48,7 @@ export function DetachedLogbookSurface() {
   }, [contacts]);
   useEffect(() => connectLogbookChanges(changed, setError), [changed]);
   useEffect(() => { void run(async () => { await contacts.refresh(); await mutations.reconcile(); }); }, [contacts, mutations, run]);
-  const cannotClose = useCallback(() => !docking.current && (!!contacts.getSnapshot().draft || contacts.getSnapshot().locked ||
+  const cannotClose = useCallback(() => (!!contacts.getSnapshot().draft || contacts.getSnapshot().locked ||
     contacts.getSnapshot().activationFrozen || !!mutations.getSnapshot().pending || mutations.getSnapshot().busy || workingRef.current || tableBusyRef.current), [contacts, mutations]);
   const explainClose = useCallback(() => setError("Finish or cancel the contact edit and resolve pending operations before closing or docking this window."), []);
   useEffect(() => protectLogbookClose(cannotClose, explainClose, setError), [cannotClose, explainClose]);
@@ -65,11 +64,6 @@ export function DetachedLogbookSurface() {
     }, 250);
     return () => { active = false; clearTimeout(timer); };
   }, [edit.draft?.call, refresh]);
-  const dock = () => {
-    if (cannotClose()) { explainClose(); return; }
-    docking.current = true;
-    void run(dockDetachedWorkspace).finally(() => { docking.current = false; });
-  };
   return <div className="app live monitor-app detached-logbook-app">
     <main aria-label="Detached Logbook">
       {error && <p className="live-error" role="alert">{error}</p>}
@@ -86,7 +80,7 @@ export function DetachedLogbookSurface() {
         draftLocked={edit.activationFrozen || edit.locked || edit.workspaceChanged} canAcceptLocalInput={acceptsInput} isEditing radioControls={false} clearLabel="Cancel edit"
         lookup={lookup} previous={previous} follow={false} setFollow={() => {}} request={request} />
         : <LogbookPanel taskToolbar onRequest={request} refreshKey={refresh} mutations={mutations} onChanged={changed}
-          onBusyChange={tableWorking} disabled={working || edit.activationFrozen || edit.locked} onDock={dock}
+          onBusyChange={tableWorking} disabled={working || edit.activationFrozen || edit.locked} columnContext="detached"
           onEdit={qso => { if (!tableBusy) void run(() => contacts.open(qso.id)); }} />}
     </main>
   </div>;

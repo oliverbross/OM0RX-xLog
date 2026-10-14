@@ -84,16 +84,15 @@ it("loads the canonical full editor with read-only context, no main controller, 
   expect(screen.getByRole("main", { name: "Detached Log QSO" })).toBeTruthy();
   expect(screen.queryByText(/Draft saved locally|Global activation warning|Check activation/)).toBeNull();
   expect(document.querySelector(".station-rail")).toBeNull();
-  const editor = document.querySelector(".qso-editor")!;
-  expect(editor.compareDocumentPosition(screen.getByRole("button", { name: "Dock back" })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(document.querySelector(".qso-editor")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Dock back" })).toBeNull();
   expect(screen.queryByText("Follow radio")).toBeNull(); expect(screen.queryByRole("button", { name: /Read radio/i })).toBeNull();
   expect(api.blocked!()).toBe(false);
   expect(api.changes.mock.invocationCallOrder[0]).toBeLessThan(api.draft.mock.invocationCallOrder[0]);
   expect(localStorage.getItem("xlog.integration.operatorDraft.main.v1")).toBeNull();
   await waitFor(() => expect(api.read.mock.calls.some(([method]) => method === "lookup_call")).toBe(true));
   expect(api.read.mock.calls.every(([method]) => ["lookup_call", "logbook_previous", "logbook_matrix", "cluster_history"].includes(method))).toBe(true);
-  fireEvent.click(screen.getByRole("button", { name: "Dock back" }));
-  await waitFor(() => expect(api.dock).toHaveBeenCalledOnce());
+  expect(api.dock).not.toHaveBeenCalled();
   view.unmount();
   expect(api.changes.mock.results[0].value).toHaveBeenCalledOnce(); expect(api.protect.mock.results[0].value).toHaveBeenCalledOnce();
 });
@@ -107,7 +106,7 @@ it("journals and autosaves notes, blocking Close/Dock until the exact Replace is
   render(<DetachedQSOSurface />); await screen.findByDisplayValue("K1ABC");
   fireEvent.change(screen.getByLabelText("QSO note"), { target: { value: "retained note" } });
   expect(journal().draft.notes).toBe("retained note"); expect(api.blocked!()).toBe(true);
-  fireEvent.click(screen.getByRole("button", { name: "Dock back" })); expect(api.dock).not.toHaveBeenCalled();
+  act(() => api.explain!()); expect(api.dock).not.toHaveBeenCalled();
   await screen.findByText(/Finish the draft fields/);
   await waitFor(() => expect(journal().pending?.action).toBe("replace"));
   expect(api.blocked!()).toBe(true);
@@ -183,7 +182,7 @@ it("protects incomplete editor-only buffers and clears idempotently through the 
   render(<DetachedQSOSurface />); await screen.findByDisplayValue("K1ABC");
   fireEvent.change(screen.getByLabelText("Frequency MHz"), { target: { value: "14." } });
   expect(api.blocked!()).toBe(true);
-  fireEvent.click(screen.getByRole("button", { name: "Dock back" })); expect(api.dock).not.toHaveBeenCalled();
+  act(() => api.explain!()); expect(api.dock).not.toHaveBeenCalled();
   fireEvent.change(screen.getByLabelText("Frequency MHz"), { target: { value: "14.025000" } });
   await waitFor(() => expect(api.blocked!()).toBe(false));
   fireEvent.click(screen.getByRole("button", { name: "Clear QSO" }));
@@ -255,7 +254,7 @@ it.each([
   const before = copy(f.current.qso);
   fireEvent.change(screen.getByLabelText(label), { target: { value: incomplete } });
   expect(api.blocked!()).toBe(true); expect(f.current.qso).toEqual(before);
-  fireEvent.click(screen.getByRole("button", { name: "Dock back" })); expect(api.dock).not.toHaveBeenCalled();
+  act(() => api.explain!()); expect(api.dock).not.toHaveBeenCalled();
   fireEvent.change(screen.getByLabelText(label), { target: { value: restored } });
   await waitFor(() => expect(api.blocked!()).toBe(false));
 });
@@ -293,17 +292,12 @@ it("rejects an already-in-flight identity replacement when an unfinished buffer 
   expect(api.blocked!()).toBe(true);
 });
 
-it("freezes draft/manual/recovery actions while Dock awaits native main recovery", async () => {
-  const f = backend(), dock = deferred<void>(); api.draft.mockImplementation(f.request); api.dock.mockReturnValue(dock.promise);
+it("leaves window navigation to the native lifecycle and keeps close protection registered", async () => {
+  const f = backend(); api.draft.mockImplementation(f.request);
   render(<DetachedQSOSurface />); await screen.findByDisplayValue("K1ABC");
-  fireEvent.click(screen.getByRole("button", { name: "Dock back" }));
-  expect(document.querySelector(".qso-editor-main form")?.hasAttribute("inert")).toBe(true);
-  fireEvent.change(screen.getByLabelText("QSO note"), { target: { value: "racing input" } });
-  fireEvent.input(screen.getByLabelText("TX power W"), { target: { value: "900" } });
-  expect(journal().draft.notes).toBe(""); expect(journal().powerIntent).toBeUndefined();
-  expect(api.blocked!()).toBe(false); // Only Dock's own working flag is exempt.
-  expect(api.draft.mock.calls.every(([method]) => method !== "logbook_operator_draft_apply")).toBe(true);
-  await act(async () => { dock.resolve(); });
+  expect(screen.queryByRole("button", { name: /Show Desk|Dock back|Close window/ })).toBeNull();
+  expect(api.protect).toHaveBeenCalledOnce(); expect(api.blocked!()).toBe(false);
+  expect(api.dock).not.toHaveBeenCalled();
 });
 
 it("freezes immediately on approved Close and thaws only after native close failure", async () => {

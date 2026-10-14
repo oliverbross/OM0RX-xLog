@@ -27,8 +27,8 @@ function AntennaDiagram({ type }: { type: StationEquipment["antenna"] }) {
   </svg>;
 }
 
-export function DeskAntenna({ profile }: { profile: StationEquipment }) {
-  return <section className="desk-panel desk-antenna" aria-label="Configured antenna"><h2><RadioTower size={15} aria-hidden="true" />Antenna</h2>
+export function DeskAntenna({ profile, taskOnly = false }: { profile: StationEquipment; taskOnly?: boolean }) {
+  return <section className="desk-panel desk-antenna" aria-label="Configured antenna">{!taskOnly && <h2><RadioTower size={15} aria-hidden="true" />Antenna</h2>}
     <div className="desk-antenna-body"><AntennaDiagram type={profile.antenna} /><div><strong>{profile.name || antennaTypes[profile.antenna]}</strong>{profile.name && <span>{antennaTypes[profile.antenna]}</span>}<small>Configured · no telemetry</small></div></div>
     <div className="desk-antenna-bands" aria-label="Configured antenna bands">{profile.bands.length ? profile.bands.map(band => <span key={band}>{band}</span>) : <small>No bands specified</small>}</div>
   </section>;

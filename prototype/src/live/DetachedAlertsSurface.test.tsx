@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { DetachedAlertsSurface } from "./DetachedAlertsSurface";
 const native = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn(), stop: vi.fn() }));
@@ -20,7 +20,7 @@ it("mounts with one retained native read and no timer, worker, hardware or ackno
   expect(native.invoke.mock.calls).toEqual([["alerts_snapshot"]]); expect(native.listen).toHaveBeenCalledWith("xlog:alerts", expect.any(Function));
   expect(screen.getByRole("status").textContent).toContain("not a live all-clear");
   expect(screen.getByText("Radio safety inhibitors reported (2)")).toBeTruthy();
-  expect(screen.getAllByRole("button").map(button => button.textContent)).toEqual(["Show Desk", "Dock back", "Close Alerts"]);
+  expect(screen.queryByRole("button")).toBeNull(); expect(screen.queryByRole("heading", { name: "Alerts" })).toBeNull();
   expect(screen.queryByRole("textbox")).toBeNull(); unmount(); expect(native.stop).toHaveBeenCalledOnce();
 });
 it("never turns absent reports or a failed read into all-clear", async () => {
@@ -31,13 +31,10 @@ it("never turns absent reports or a failed read into all-clear", async () => {
   await act(async () => { wake(); await vi.advanceTimersByTimeAsync(0); });
   expect(screen.getByRole("status").textContent).toContain("Reports unavailable or changing");
 });
-it("uses fixed Desk/Dock/Close routes and failed transitions remain open", async () => {
+it("keeps coverage and report presence with compact retained-data status", async () => {
   render(<DetachedAlertsSurface />); await act(async () => { await vi.advanceTimersByTimeAsync(0); });
-  native.invoke.mockImplementation(async command => { if (command !== "show_alerts_desk") throw Error("Window unavailable"); });
-  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Show Desk" })); });
-  expect(native.invoke).toHaveBeenCalledWith("show_alerts_desk");
-  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Dock back" })); });
-  expect(screen.getByRole("alert").textContent).toContain("Alerts remains open");
-  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Close Alerts" })); });
-  expect(native.invoke).toHaveBeenCalledWith("close_alerts_window");
+  expect(screen.getByRole("status").textContent).toBe("Retained data · not a live all-clear");
+  expect(screen.getAllByText("Retained report present")).toHaveLength(2);
+  expect(screen.getByText("Coverage: Agent safety inhibitors, alarms and rotor uncertainty.")).toBeTruthy();
+  expect(native.invoke.mock.calls).toEqual([["alerts_snapshot"]]);
 });

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { DetachedStationIdentitySurface } from "./DetachedStationIdentitySurface";
 const native = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn(), stop: vi.fn() }));
@@ -21,9 +21,9 @@ it("mounts through the retained projection only, with no Settings/defaults/devic
   const { unmount } = render(<DetachedStationIdentitySurface />);
   await act(async () => { await vi.advanceTimersByTimeAsync(0); });
   expect(native.invoke.mock.calls).toEqual([["station_identity_snapshot"]]);
-  expect(screen.getByRole("status").textContent).toBe("Verified saved identity");
+  expect(screen.queryByRole("status")).toBeNull();
   expect(screen.getByText("OM0RX/P")).toBeTruthy(); expect(screen.getByText("JN88TQ")).toBeTruthy();
-  expect(screen.getAllByRole("button").map(button => button.textContent)).toEqual(["Show Desk", "Dock back", "Close Identity"]);
+  expect(screen.queryByRole("button")).toBeNull(); expect(screen.queryByRole("heading", { name: "Station Identity" })).toBeNull();
   expect(screen.queryByRole("textbox")).toBeNull(); expect(screen.queryByRole("checkbox")).toBeNull();
   await act(async () => { await vi.advanceTimersByTimeAsync(60_000); }); expect(native.invoke).toHaveBeenCalledOnce();
   unmount(); expect(native.stop).toHaveBeenCalledOnce();
@@ -42,20 +42,12 @@ it("invalidates on native changes, retains the old identity honestly and accepts
   const next = frame(3); next.snapshot.station_call = "K1ABC"; next.snapshot.settings_revision = 0;
   next.snapshot.workspace_generation = crypto.randomUUID(); native.invoke.mockResolvedValue(next);
   await act(async () => { wake(); await vi.advanceTimersByTimeAsync(0); });
-  expect(screen.getByText("K1ABC")).toBeTruthy(); expect(screen.getByRole("status").textContent).toBe("Verified saved identity");
+  expect(screen.getByText("K1ABC")).toBeTruthy(); expect(screen.queryByRole("status")).toBeNull();
 });
-it("uses fixed lifecycle routes and keeps failed Close/Dock transitions open", async () => {
+it("starts with saved identity and preserves revision and generation data", async () => {
   render(<DetachedStationIdentitySurface />); await act(async () => { await vi.advanceTimersByTimeAsync(0); });
-  const original = native.invoke.getMockImplementation()!;
-  native.invoke.mockImplementation(async command => {
-    if (["dock_detached_window", "close_station_identity_window"].includes(command)) throw new Error("Window unavailable");
-    return original(command);
-  });
-  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Show Desk" })); });
-  expect(native.invoke).toHaveBeenCalledWith("show_station_identity_desk");
-  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Dock back" })); });
-  expect(screen.getByRole("alert").textContent).toContain("Station Identity remains open");
-  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Close Identity" })); });
-  expect(native.invoke).toHaveBeenCalledWith("close_station_identity_window");
-  expect(native.invoke.mock.calls.every(call => ["station_identity_snapshot", "show_station_identity_desk", "dock_detached_window", "close_station_identity_window"].includes(call[0]))).toBe(true);
+  expect(screen.getByLabelText("Saved station identity").firstElementChild?.className).toBe("live-station-readback");
+  expect(screen.getByText("Saved settings revision").nextElementSibling?.textContent).toBe("7");
+  expect(screen.getByText("Workspace generation").nextElementSibling?.textContent).toBe(frame().snapshot.workspace_generation);
+  expect(native.invoke.mock.calls).toEqual([["station_identity_snapshot"]]);
 });

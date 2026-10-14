@@ -33,6 +33,9 @@ function setup(value = syntheticMonitorContext()) {
 it("renders native radio/rotor without main or optional metadata and keeps existing actions", async () => {
   const view = setup();
   expect(screen.getByRole("main", { name: "Detached Station Monitor" })).toBeTruthy();
+  expect(screen.queryByText("Station Monitor", { exact: true })).toBeNull();
+  expect(screen.queryByRole("button", { name: /^Refresh$/ })).toBeNull();
+  expect(screen.queryByText(/independent of Desk/)).toBeNull();
   expect(screen.getByText("A: 14.074000")).toBeTruthy(); expect(screen.getByText("053°")).toBeTruthy();
   expect(screen.getByText("Optional map unavailable")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Standby" })); await act(async () => {});
@@ -50,6 +53,8 @@ it("stale or failed observations disable TX and turn but retain explicit native 
   await act(async () => {});
   expect(view.radioAction).toHaveBeenCalledWith(expect.anything(), "cancel"); expect(view.rotorAction).toHaveBeenCalledWith(expect.anything(), "rotor_stop", {});
   act(() => failed("Retained context unavailable"));
+  fireEvent.click(screen.getByRole("button", { name: "Retry observations" }));
+  expect(view.refresh).toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Stop" })); await act(async () => {});
   expect(view.rotorAction).toHaveBeenCalledTimes(2); expect(screen.queryByText("LIVE")).toBeNull();
 });

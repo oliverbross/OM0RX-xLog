@@ -41,8 +41,8 @@ it("owns a main-absent view and delegates draft selection only to the protected 
   await waitFor(() => expect(api.activate).toHaveBeenCalledWith(opportunity));
   expect([...new Set(api.worker.mock.calls.map(([method]) => method))].sort()).toEqual(["opportunities_refresh", "opportunities_snapshot"]);
   expect(api.worker.mock.calls.every(([method]) => ["opportunities_refresh", "opportunities_snapshot"].includes(method))).toBe(true);
-  fireEvent.click(screen.getByRole("button", { name: "Dock back" }));
-  await waitFor(() => expect(api.dock).toHaveBeenCalledOnce());
+  expect(screen.queryByRole("button", { name: "Dock back" })).toBeNull();
+  expect(screen.queryByRole("heading", { name: "Chaser & DX" })).toBeNull();
 });
 
 it("rejects every method outside the exact passive feed boundary", async () => {
@@ -51,9 +51,9 @@ it("rejects every method outside the exact passive feed boundary", async () => {
   expect(api.worker).not.toHaveBeenCalled();
 });
 
-it("keeps docking failure visible without loading the main application", async () => {
-  api.worker.mockResolvedValue({ result: snapshot }); api.dock.mockRejectedValue(new Error("missing main"));
+it("keeps task-local selection failure visible without loading the main application", async () => {
+  api.worker.mockResolvedValue({ result: snapshot }); api.activate.mockRejectedValue(new Error("Selection unavailable"));
   render(<DetachedOpportunitiesSurface />); await screen.findByText("Verified park");
-  fireEvent.click(screen.getByRole("button", { name: "Dock back" }));
-  expect((await screen.findByRole("alert")).textContent).toMatch(/Could not dock Chaser & DX/);
+  fireEvent.click(screen.getByRole("button", { name: /Load .* into QSO draft/ }));
+  expect((await screen.findByRole("alert")).textContent).toBe("Selection unavailable");
 });

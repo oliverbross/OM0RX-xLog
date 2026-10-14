@@ -82,7 +82,7 @@ export function CallsignIntelligenceSurface({ request = requestDetachedIntellige
       <button type="button" onClick={refresh} disabled={state.reading}>Retry intelligence</button>}
     {preferences?.generation === generation && preferences.error && <p className="live-error" role="status">{preferences.error}</p>}
     {!state.available && !state.error && <p role="status" className="secondary">Loading the shared new-QSO draft…</p>}
-    <div className="detached-intelligence-content"><DeskIntelligence draft={snapshot?.qso ?? null}
+    <div className="detached-intelligence-content"><DeskIntelligence taskOnly draft={snapshot?.qso ?? null}
       lookup={lookup?.key === identity ? lookup.profile : null} previous={previous?.key === identity ? previous.rows : []}
       request={request} refresh={historyRefresh} contextKey={identity} intelligenceBands={preferences?.generation === generation ? preferences.bands : undefined}
       emptyMessage={state.error ? "Shared draft unavailable" : "Enter a callsign in Log QSO"} /></div>

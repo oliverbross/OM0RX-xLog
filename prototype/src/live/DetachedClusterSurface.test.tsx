@@ -10,7 +10,7 @@ vi.mock("./DetachedClusterBridge", async original => ({ ...await original<typeof
 afterEach(cleanup);
 
 describe("passive docked DX Cluster presentation", () => {
-  it("retains toolbar docking while waiting for the native shared session", async () => {
+  it("starts with cluster task controls while waiting for the native session", async () => {
     bridge.dock.mockClear(); bridge.ready.mockClear(); bridge.request.mockClear();
     const { container } = render(<DetachedClusterSurface />);
     await waitFor(() => expect(bridge.ready).toHaveBeenCalledOnce());
@@ -18,11 +18,10 @@ describe("passive docked DX Cluster presentation", () => {
     expect(container.querySelector(".detached-cluster-app > main > .live-cluster")).toBeTruthy();
     expect(screen.queryByText("OM0RX-xLog")).toBeNull();
     expect(screen.queryByText("Live data and actions owned by the main workspace")).toBeNull();
-    expect(screen.getAllByRole("heading", { name: "DX Cluster" })).toHaveLength(1);
+    expect(screen.queryByRole("heading", { name: "DX Cluster" })).toBeNull();
     expect(screen.getByText("Loading the shared cluster session…")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Dock back" }).closest(".live-cluster-actions")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Dock back" }));
-    await waitFor(() => expect(bridge.dock).toHaveBeenCalledOnce());
+    expect(screen.queryByRole("button", { name: "Dock back" })).toBeNull();
+    expect(screen.getByRole("button", { name: /^Connect$/ })).toBeTruthy();
     expect(bridge.request).not.toHaveBeenCalled();
   });
   it("receives native projections and distinguishes service failure from disconnected clusters", async () => {
@@ -35,7 +34,7 @@ describe("passive docked DX Cluster presentation", () => {
     expect(screen.queryByText(/updates paused/)).toBeNull();
     act(() => bridge.handler?.({ revision: 2, response, available: false, selected: null }));
     expect(screen.getByText(/Cluster service updates paused/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Dock back" }).hasAttribute("disabled")).toBe(false);
+    expect(screen.getByRole("button", { name: /^Refresh$/ }).hasAttribute("disabled")).toBe(false);
     act(() => bridge.handler?.({ revision: 1, response, available: true, selected: null }));
     expect(screen.getByText(/updates paused/)).toBeTruthy();
     act(() => bridge.handler?.({ revision: 3, response, available: true, selected: null }));

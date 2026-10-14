@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { DetachedAntennaSurface } from "./DetachedAntennaSurface";
 const native = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn(), stop: vi.fn() }));
@@ -19,8 +19,8 @@ afterEach(() => { cleanup(); vi.useRealTimers(); });
 it("reuses Desk antenna rendering with one retained native read and no timer or control", async () => {
   const { unmount } = render(<DetachedAntennaSurface />); await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
   expect(native.invoke.mock.calls).toEqual([["antenna_snapshot"]]); expect(screen.getByText("Garden")).toBeTruthy();
-  expect(screen.getByText("Configured · no telemetry")).toBeTruthy(); expect(screen.getByRole("status").textContent).toContain("Verified saved profile");
-  expect(screen.getAllByRole("button").map(button => button.textContent)).toEqual(["Show Desk", "Dock back", "Close Antenna"]);
+  expect(screen.getByText("Configured · no telemetry")).toBeTruthy();
+  expect(screen.queryByRole("button")).toBeNull(); expect(screen.queryByRole("heading", { name: "Antenna reference" })).toBeNull();
   expect(screen.queryByRole("textbox")).toBeNull(); expect(screen.queryByRole("combobox")).toBeNull(); unmount(); expect(native.stop).toHaveBeenCalledOnce();
 });
 it("does not infer a fixed antenna from missing, automatic or hidden saved settings", async () => {
@@ -36,10 +36,15 @@ it("invalidates saved profile availability while retaining a clearly marked refe
   await act(async () => { wake(); await vi.advanceTimersByTimeAsync(0); });
   expect(screen.getByRole("status").textContent).toContain("retained reference only"); expect(screen.getByText("Garden")).toBeTruthy();
 });
-it("uses fixed Desk/Dock/Close routes and leaves failed transitions open", async () => {
+it("starts with the configured profile and secondary revision metadata", async () => {
   render(<DetachedAntennaSurface />); await act(async () => { await vi.advanceTimersByTimeAsync(0); });
-  native.invoke.mockImplementation(async command => { if (command !== "show_antenna_desk") throw Error("Window unavailable"); });
-  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Show Desk" })); }); expect(native.invoke).toHaveBeenCalledWith("show_antenna_desk");
-  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Dock back" })); }); expect(screen.getByRole("alert").textContent).toContain("Antenna remains open");
-  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Close Antenna" })); }); expect(native.invoke).toHaveBeenCalledWith("close_antenna_window");
+  expect(screen.getByLabelText("Saved antenna profile").firstElementChild?.getAttribute("aria-label")).toBe("Configured antenna");
+  expect(screen.getByText("Saved settings revision").closest("dl")?.className).toBe("detached-reference-metadata");
+  expect(native.invoke.mock.calls).toEqual([["antenna_snapshot"]]);
+});
+it("shows a compact configuration empty state without an invented antenna", async () => {
+  native.invoke.mockResolvedValue({ ...frame(), available: false, snapshot: null });
+  render(<DetachedAntennaSurface />); await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  expect(screen.getByRole("status").textContent).toBe("No saved antenna profile. Configure an antenna in Settings → Display.");
+  expect(screen.queryByLabelText("Configured antenna")).toBeNull(); expect(screen.queryByRole("button")).toBeNull();
 });

@@ -41,7 +41,7 @@ type History = { call: string; previous_count: number; previous: HistoryRow[]; a
   country: string; cq_zone?: number | null; grid: string; dxcc_contact_count: number;
   matrix: { band: string; mode: string; worked: boolean; confirmed: boolean }[] };
 type Props = { snapshot: unknown; onRequest: Request; onSelect: (spot: LiveClusterSpot) => void;
-  passive?: boolean; onUndock?: () => void; onDock?: () => void; passwordControlsEnabled?: boolean; selectedSpotId?: string | null };
+  passive?: boolean; onUndock?: () => void; onDock?: () => void; passwordControlsEnabled?: boolean; selectedSpotId?: string | null; taskOnly?: boolean };
 
 const bands = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "2m", "70cm"];
 const modes = ["CW", "SSB", "FT8", "FT4", "FT2", "RTTY", "PSK", "DIGI", "AM", "FM"];
@@ -74,7 +74,7 @@ function ColumnWidthInput({ label, width, disabled, onCommit }: { label: string;
     value={draft} onChange={event => setDraft(event.currentTarget.value)} onBlur={commit}
     onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); } }} />;
 }
-export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, onUndock, onDock, passwordControlsEnabled = true, selectedSpotId }: Props) {
+export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, onUndock, onDock, passwordControlsEnabled = true, selectedSpotId, taskOnly = false }: Props) {
   const panelId = useId();
   const [columnsOpen, setColumnsOpen] = useState(false);
   const [columnPreferences, setColumnPreferences] = useState(() => {
@@ -246,7 +246,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
 
   return <section className="live-cluster" aria-label="Live DX Cluster">
     <header className="live-cluster-head">
-      <div><h2>DX Cluster</h2><p>{connected} live · {live?.spots.length ?? 0} shown / {live?.loadedSpots ?? 0} received · {live?.contactCount ?? 0} log contacts</p></div>
+      <div>{!taskOnly && <h2>DX Cluster</h2>}<p>{connected} live · {live?.spots.length ?? 0} shown / {live?.loadedSpots ?? 0} received · {live?.contactCount ?? 0} log contacts</p></div>
       <div className="live-cluster-actions">
         <div className="live-cluster-connection-summary" role="status" aria-label="Cluster connections">{allConnections.length ? allConnections.map(connection => {
           const phase = connection.phase.toLowerCase(), label = phase.charAt(0).toUpperCase() + phase.slice(1);
@@ -401,7 +401,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
           <button type="button" disabled={!canEditPasswords || busy || !passwordDrafts[server.id] || !savedServerIDs.includes(server.id)} title={!canEditPasswords ? passwordUnavailableReason : !savedServerIDs.includes(server.id) ? "Save cluster settings first" : undefined} onClick={() => { void request("cluster_password_set", { server_id: server.id, password: passwordDrafts[server.id] }, "Password saved securely"); setPasswordDrafts((drafts) => ({ ...drafts, [server.id]: "" })); }}>Save password</button>
           <button type="button" disabled={!canEditPasswords || busy || !passwordServers.includes(server.id)} title={!canEditPasswords ? passwordUnavailableReason : undefined} onClick={() => void request("cluster_password_set", { server_id: server.id, password: "" }, "Password removed")}>Remove password</button>
         </div>)}
-        {!passwordStorageAvailable ? <p>Secure password storage is not yet available on this platform. Callsign-only clusters can still connect.</p> : !passwordControlsEnabled && <p>Dock back to the main workspace to manage passwords.</p>}
+        {!passwordStorageAvailable ? <p>Secure password storage is not yet available on this platform. Callsign-only clusters can still connect.</p> : !passwordControlsEnabled && <p>Manage passwords in the main workspace.</p>}
         <button type="button" disabled={configuration.servers.length >= 16} onClick={() => setConfiguration({ ...configuration, servers: [...configuration.servers, { id: crypto.randomUUID(), name: "", host: "", port: 7300, callsign: "", enabled: true }] })}>Add server</button>
         <details><summary>Command presets</summary><div className="live-cluster-rules"><p>Saved commands are stored with cluster settings. Do not put passwords or tokens in presets.</p>{configuration.commandPresets.map((preset) => <div key={preset.id}>
           <label>Name<input value={preset.name} maxLength={80} onChange={(event) => setConfiguration({ ...configuration, commandPresets: configuration.commandPresets.map((item) => item.id === preset.id ? { ...item, name: event.target.value } : item) })} /></label>

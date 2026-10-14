@@ -5,7 +5,7 @@ import "./OperatorDesk.css";
 type Data = Record<string, any>;
 export type IntelligenceRequest = (method: string, params?: Data) => Promise<any>;
 export type DeskIntelligenceProps = { draft: Data | null; lookup: Data | null; previous: Data[];
-  request: IntelligenceRequest; refresh: number; intelligenceBands?: string[]; contextKey?: string; emptyMessage?: string };
+  request: IntelligenceRequest; refresh: number; intelligenceBands?: string[]; contextKey?: string; emptyMessage?: string; taskOnly?: boolean };
 const normalizedCall = (value: unknown) => String(value ?? "").trim().toUpperCase();
 const bands = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "4m", "2m", "70cm"];
 const displayedBands = bands.slice(0, 10);
@@ -14,7 +14,7 @@ const utcSummary = (value: unknown) => typeof value === "string" && Number.isFin
 const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 
 type Evidence = { contextKey: string; call: string; adif: number | null; callCells?: Data[]; history?: Data; error?: string };
-export function DeskIntelligence({ draft, lookup, previous, request, refresh, intelligenceBands, contextKey = "", emptyMessage = "Enter a callsign" }: DeskIntelligenceProps) {
+export function DeskIntelligence({ draft, lookup, previous, request, refresh, intelligenceBands, contextKey = "", emptyMessage = "Enter a callsign", taskOnly = false }: DeskIntelligenceProps) {
   const call = normalizedCall(draft?.call), sameLookup = call && normalizedCall(lookup?.call) === call;
   const info = sameLookup ? lookup : null;
   const adif = info && Number.isInteger(info.dxcc) && info.dxcc > 0 ? info.dxcc as number : null;
@@ -49,7 +49,7 @@ export function DeskIntelligence({ draft, lookup, previous, request, refresh, in
     const full = `${workedText} worked · ${confirmedText} confirmed`;
     return <small title={full}><span aria-hidden="true">{workedText} wkd · {confirmedText} cnf</span><span className="desk-count-full">{full}</span></small>;
   };
-  return <section className="desk-panel desk-intelligence" aria-label="Callsign and DXCC intelligence"><h2><ContactRound size={15} aria-hidden="true" /> Callsign &amp; DXCC intelligence</h2>
+  return <section className="desk-panel desk-intelligence" aria-label="Callsign and DXCC intelligence">{!taskOnly && <h2><ContactRound size={15} aria-hidden="true" /> Callsign &amp; DXCC intelligence</h2>}
     <div className="desk-identity"><div><strong>{call || "—"}</strong><b>{name || "Name unavailable"}</b><span>{country || "Country unresolved"}</span></div><div className="desk-provenance"><b>{info?.source || (call ? "Lookup pending" : emptyMessage)}</b><small>{finite(info?.latitude) && finite(info?.longitude) ? info?.location_source || info?.source || "POSITION RESOLVED" : "NO POSITION"}</small></div></div>
     <dl className="desk-identity-facts">{[["DXCC", adif ? `#${adif}` : "—"], ["GRID", grid || "—"], ["CONT", continent || "—"], ["ZONES", `CQ ${cq || "—"} · ITU ${itu || "—"}`], ["DISTANCE", finite(info?.distance_km) ? `${Math.round(info.distance_km).toLocaleString()} km` : "—"]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
     <div className="desk-matrices"><div><h3>CALLSIGN {counts(current?.history?.previous_count, current?.history?.previous_confirmed_count)}</h3>{matrix("Callsign", current?.callCells)}</div><div><h3>DXCC {adif ? `#${adif}` : "—"} {counts(adif ? current?.history?.dxcc_contact_count : undefined, adif ? current?.history?.dxcc_confirmed_count : undefined)}</h3>{matrix("DXCC", adif ? current?.history?.matrix : undefined)}</div></div>

@@ -47,19 +47,11 @@ it("embedded and independent views share the same explicit refresh and retain it
   expect(screen.getByText("HF propagation · cached")).toBeTruthy();
   expect(native.invoke.mock.calls.filter(call => call[1]?.action === "refresh")).toHaveLength(1);
 });
-it("Close/Dock failure keeps the child open, uses fixed lifecycle routes and never starts a fetch", async () => {
+it("starts with the propagation task and exposes only its explicit refresh", async () => {
   render(<DetachedPropagationSurface />);
   await act(async () => { await vi.advanceTimersByTimeAsync(0); });
-  const original = native.invoke.getMockImplementation()!;
-  native.invoke.mockImplementation(async (command, args) => {
-    if (["close_propagation_window", "dock_detached_window"].includes(command)) throw new Error("Window unavailable");
-    return original(command, args);
-  });
-  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Show Desk" })); });
-  expect(native.invoke).toHaveBeenCalledWith("show_propagation_desk");
-  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Dock back" })); });
-  expect(screen.getByRole("alert").textContent).toContain("Propagation remains open");
-  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Close Propagation" })); });
-  expect(native.invoke).toHaveBeenCalledWith("close_propagation_window");
-  expect(native.invoke.mock.calls.filter(call => call[1]?.action === "refresh")).toHaveLength(0);
+  expect(screen.queryByRole("heading", { name: /^Propagation$/ })).toBeNull();
+  expect(screen.getAllByRole("button").map(button => button.textContent)).toEqual(["Refresh propagation"]);
+  expect(screen.queryByText(/Opening this window reads retained/)).toBeNull();
+  expect(native.invoke.mock.calls).toEqual([["propagation_session_request", { action: "snapshot" }]]);
 });

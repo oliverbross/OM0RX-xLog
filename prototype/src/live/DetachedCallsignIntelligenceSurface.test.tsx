@@ -38,6 +38,7 @@ it("follows the canonical draft without the main renderer or any editing/hardwar
   await screen.findByText("Example operator"); await screen.findByLabelText("Callsign 20m: Worked");
   expect(screen.queryByText("Following the saved new-QSO draft · read only")).toBeNull();
   expect(screen.queryByRole("button", { name: /Refresh|Dock back/ })).toBeNull();
+  expect(screen.queryByRole("heading", { name: "Callsign & DXCC intelligence" })).toBeNull();
   expect(screen.getByRole("main").firstElementChild?.classList.contains("detached-intelligence-content")).toBe(true);
   expect(screen.queryByRole("textbox")).toBeNull(); expect(screen.queryByRole("button", { name: /Log QSO|Read radio|Full editor/ })).toBeNull();
   await act(async () => { for (let index = 0; index < 4; index++) await wakeDraft(); });

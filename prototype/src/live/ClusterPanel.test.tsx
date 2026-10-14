@@ -118,7 +118,7 @@ describe("cluster toolbar panels", () => {
     await waitFor(() => expect(screen.getByText(/Callsign-only clusters can still connect/)).toBeTruthy());
     rerender(<ClusterPanel passive passwordControlsEnabled={false} snapshot={{ ...response(), password_storage_available: true }} onRequest={request} onSelect={vi.fn()} />);
     expect(screen.getByLabelText("Password · none").hasAttribute("disabled")).toBe(true);
-    expect(screen.getByText("Dock back to the main workspace to manage passwords.")).toBeTruthy();
+    expect(screen.getByText("Manage passwords in the main workspace.")).toBeTruthy();
   });
   it("lets a transferred unavailable forwarding preference be turned off before saving", () => {
     const data = response(); data.configuration.forwardSpotsToFlex = true;
