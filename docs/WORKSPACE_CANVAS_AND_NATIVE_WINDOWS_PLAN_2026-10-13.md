@@ -762,6 +762,25 @@ or installed, no service or hardware was contacted, and no operator-data, statio
 or RF state changed. FLEX/Hamlib, provider selection and hardware-profile ownership
 remain later slices.
 
+### Checkpoint AJ — shared journaled radio-provider selection
+
+Desk and independent Station Control now apply Direct Agent, Direct FLEX LAN or
+Hamlib selection through the same durable native station-session journal. The
+request carries the exact prior selection generation and identity into the
+existing native handover owner; admission is persisted before the previous
+provider is retired, and A→B→A, restart, lost-reply and remount paths cannot
+repeat transport or accept a stale identity. Selecting a provider still does not
+connect it, and mounting either surface remains passive.
+
+The raw provider-selection IPC path has been removed from the renderers. Both
+surfaces share receipt lookup and explicit unknown-outcome review, while the child
+retains no raw worker or device authority. Exact source `0500729` passes **8
+station-journal**, **14 handover-safety** and **26 focused frontend** tests plus
+TypeScript and diff checks. No package was produced or installed, no service or
+hardware was contacted, and no operator-data, station or RF state changed.
+FLEX/Hamlib connection/configuration and hardware-profile ownership remain later
+slices.
+
 ### 14 October audit — remaining new-QSO and QSY ownership
 
 At `cd25718`, detached Logbook edits saved contacts; it is not an independent
