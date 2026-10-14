@@ -90,7 +90,7 @@ const standardADXFields = new Set(`ADDRESS ADDRESS_INTL AGE ALTITUDE A_INDEX ANT
 AWARD_SUBMITTED AWARD_GRANTED BAND BAND_RX CALL CHECK CLASS CLUBLOG_QSO_UPLOAD_DATE CLUBLOG_QSO_UPLOAD_STATUS
 CNTY CNTY_ALT COMMENT COMMENT_INTL CONT CONTACTED_OP CONTEST_ID COUNTRY COUNTRY_INTL CQZ CREDIT_SUBMITTED CREDIT_GRANTED
 DARC_DOK DCL_QSLRDATE DCL_QSLSDATE DCL_QSL_RCVD DCL_QSL_SENT DISTANCE DXCC EMAIL EQ_CALL EQSL_AG EQSL_QSLRDATE
-EQSL_QSLSDATE EQSL_QSL_RCVD EQSL_QSL_SENT FISTS FISTS_CC FORCE_INIT FREQ FREQ_RX GRIDSQUARE GRIDSQUARE_EXT
+ EQSL_QSLSDATE EQSL_QSL_RCVD EQSL_QSL_SENT FISTS FISTS_CC FORCE_INIT FREQ FREQ_RX GRIDSQUARE GRIDSQUARE_EXT GUEST_OP
 HAMLOGEU_QSO_UPLOAD_DATE HAMLOGEU_QSO_UPLOAD_STATUS HAMQTH_QSO_UPLOAD_DATE HAMQTH_QSO_UPLOAD_STATUS
 HRDLOG_QSO_UPLOAD_DATE HRDLOG_QSO_UPLOAD_STATUS IOTA IOTA_ISLAND_ID ITUZ K_INDEX LAT LON LOTW_QSLRDATE LOTW_QSLSDATE
 LOTW_QSL_RCVD LOTW_QSL_SENT MAX_BURSTS MODE MORSE_KEY_INFO MORSE_KEY_TYPE MS_SHOWER MY_ALTITUDE MY_ANTENNA MY_ANTENNA_INTL
@@ -103,7 +103,7 @@ QRZCOM_QSO_DOWNLOAD_DATE QRZCOM_QSO_DOWNLOAD_STATUS QRZCOM_QSO_UPLOAD_DATE QRZCO
 QSLMSG_RCVD QSLRDATE QSLSDATE QSL_RCVD QSL_RCVD_VIA QSL_SENT QSL_SENT_VIA QSL_VIA QSO_COMPLETE QSO_DATE QSO_DATE_OFF
 QSO_RANDOM QTH QTH_INTL REGION RIG RIG_INTL RST_RCVD RST_SENT RX_PWR SAT_MODE SAT_NAME SFI SIG SIG_INTL SIG_INFO
 SIG_INFO_INTL SILENT_KEY SKCC SOTA_REF SRX SRX_STRING STATE STATION_CALLSIGN STX STX_STRING SUBMODE SWL TEN_TEN
-TIME_OFF TIME_ON TX_PWR UKSMG USACA_COUNTIES VUCC_GRIDS WEB WWFF_REF`.split(/\s+/));
+ TIME_OFF TIME_ON TX_PWR UKSMG USACA_COUNTIES VE_PROV VUCC_GRIDS WEB WWFF_REF`.split(/\s+/));
 const reservedADXFields = new Set(["EOH", "EOR", "ADX", "HEADER", "RECORDS", "RECORD", "APP", "USERDEF", "ADIF_VER", "CREATED_TIMESTAMP", "PROGRAMID", "PROGRAMVERSION"]);
 
 // Bounded scalar subset of ADIF 3.1.7 adx317.xsd, shared by both directions.
@@ -130,6 +130,17 @@ const adxIntegerBounds: Readonly<Record<string, readonly [string, string | null]
   IOTA_ISLAND_ID: ["1", "99999999"], MY_IOTA_ISLAND_ID: ["1", "99999999"],
 };
 const potaReferencePattern = "[A-Za-z0-9]{1,4}-[0-9]{4,5}(?:@[A-Za-z]{2}-[A-Za-z0-9]{1,3})?";
+const adxBandValues = new Set(`2190M 630M 560M 160M 80M 60M 40M 30M 20M 17M 15M 12M 10M 8M 6M 5M 4M 2M
+  1.25M 70CM 33CM 23CM 13CM 9CM 6CM 3CM 1.25CM 6MM 4MM 2.5MM 2MM 1MM SUBMM`.split(/\s+/));
+const adxModeValues = new Set(`AM ARDOP ATV CHIP CLO CONTESTI CW DIGITALVOICE DOMINO DYNAMIC FAX FM FSK441 FSK FT8 HELL
+  ISCAT JT4 JT6M JT9 JT44 JT65 MFSK MSK144 MTONE MT63 OFDM OLIVIA OPERA PAC PAX PKT PSK PSK2K Q15 QRA64 ROS RTTY
+  RTTYM SSB SSTV T10 THOR THRB TOR V4 VOI WINMOR WSPR`.split(/\s+/));
+const adxARRLSectionValues = new Set(`AL AK AB AR AZ BC CO CT DE EB EMA ENY EPA EWA GA GH GTA ID IL IN IA KS KY LAX LA
+  ME MB MAR MDC MI MN MS MO MT NE NV NB NH NM NLI NL NC ND NTX NFL NNJ NNY NT NWT NS OH OK ON ONE ONN ONS ORG OR PAC
+  PE PR QC RI SV SDG SF SJV SB SCV SK SC SD STX SFL SNJ TN TER VI UT VT VA WCF WTX WV WMA WNY WPA WWA WI WY`.split(/\s+/));
+const adxMorseKeyValues = new Set("SK SS BUG FAB SP DP CPU".split(" "));
+const adxPropagationModeValues = new Set("AS AUE AUR BS ECH EME ES F2 FAI INTERNET ION IRL MS RPT RS SAT TEP TR GWAVE LOS".split(" "));
+const adxRegionValues = new Set("NONE IV AI SY BI SI KO ET".split(" "));
 // GridSquareList4or6 requires 2 or 4 comma-separated locators, all the same
 // length. Preserve their order and case; do not infer adjacency or deduplicate.
 const vuccGridPatterns = ["[A-R]{2}[0-9]{2}", "[A-R]{2}[0-9]{2}[A-X]{2}"];
@@ -157,6 +168,12 @@ function validateADXValue(name: string, value: string): void {
   let valid = true;
   const patternRule = adxPatternRules.find(rule => rule.fields.includes(name));
   if (patternRule) valid = patternRule.pattern.test(value);
+  else if (["BAND", "BAND_RX"].includes(name)) valid = adxBandValues.has(value.toUpperCase());
+  else if (name === "MODE") valid = adxModeValues.has(value.toUpperCase());
+  else if (["ARRL_SECT", "MY_ARRL_SECT"].includes(name)) valid = adxARRLSectionValues.has(value.toUpperCase());
+  else if (["MORSE_KEY_TYPE", "MY_MORSE_KEY_TYPE"].includes(name)) valid = adxMorseKeyValues.has(value.toUpperCase());
+  else if (name === "PROP_MODE") valid = adxPropagationModeValues.has(value.toUpperCase());
+  else if (name === "REGION") valid = adxRegionValues.has(value.toUpperCase());
   else if (Object.prototype.hasOwnProperty.call(adxIntegerBounds, name)) {
     const [minimum, maximum] = adxIntegerBounds[name];
     // IntegerGE0 permits signed zero; PositiveInteger requires unsigned digits.

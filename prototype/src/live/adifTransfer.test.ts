@@ -437,6 +437,51 @@ it.each(Object.keys(adxStatusValues).flatMap(name =>
     expect(decode(original)).toBe(original);
   });
 
+const adxStaticEnumerationValues: Record<string, string[]> = {
+  BAND: ["2190m", "1.25M", "70cm", "2.5mm", "submm"],
+  BAND_RX: ["160M", "23cm", "1MM"],
+  MODE: ["cw", "DIGITALVOICE", "FSK441", "jt65", "SSB", "WSPR"],
+  ARRL_SECT: ["al", "EMA", "NLI", "org", "WCF"],
+  MY_ARRL_SECT: ["AK", "GTA", "NTX", "ONE", "wwa"],
+  MORSE_KEY_TYPE: ["sk", "SS", "bug", "FAB", "CPU"],
+  MY_MORSE_KEY_TYPE: ["sp", "DP"],
+  PROP_MODE: ["as", "AUE", "internet", "RPT", "gwave", "LOS"],
+  REGION: ["none", "IV", "ai", "SY", "et"],
+};
+it.each(Object.entries(adxStaticEnumerationValues).flatMap(([name, values]) => values.map(value => [name, value])))
+  ("preserves exact ADX static enumeration %s=%s at both boundaries", (name, value) => {
+    const original = adiRecord({ [name]: value });
+    expect(decode(adx(`<${name}>${value}</${name}>`))).toBe(original);
+    const writer = new ADIFExportDocument("adx"); writer.append(original, 1);
+    expect(decode(writer.finish())).toBe(original);
+  });
+
+it.each([
+  ["BAND", "11m"], ["BAND_RX", "20"], ["MODE", "USB"], ["MODE", "FT4"],
+  ["ARRL_SECT", "ZZ"], ["MY_ARRL_SECT", "DX"], ["MORSE_KEY_TYPE", "PADDLE"],
+  ["MY_MORSE_KEY_TYPE", ""], ["PROP_MODE", "GROUNDWAVE"], ["REGION", "EU"],
+  ...Object.keys(adxStaticEnumerationValues).map(name => [name, `${adxStaticEnumerationValues[name][0]}\n`]),
+])("rejects invalid ADX static enumeration %s=%s while preserving ADI", (name, value) => {
+  expect(() => decode(adx(`<${name}>${value}</${name}>`))).toThrow(`Field ${name} has an invalid ADX typed value`);
+  const original = adiRecord({ [name]: value });
+  const writer = new ADIFExportDocument("adx");
+  expect(() => writer.append(original, 1)).toThrow(`Field ${name} has an invalid ADX typed value`);
+  expect(() => writer.finish()).toThrow("incomplete");
+  const adi = new ADIFExportDocument("adi"); adi.append(original, 1);
+  expect(adi.finish()).toBe(original);
+  expect(decode(original)).toBe(original);
+});
+
+it("recognizes all ADIF 3.1.7 record elements, including GUEST_OP and VE_PROV", () => {
+  const original = adiRecord({ GUEST_OP: "K1ABC", VE_PROV: "NS" });
+  expect(decode(adx("<GUEST_OP>K1ABC</GUEST_OP><VE_PROV>NS</VE_PROV>"))).toBe(original);
+  const writer = new ADIFExportDocument("adx"); writer.append(original, 1);
+  const xml = writer.finish();
+  expect(xml).toContain("<GUEST_OP>K1ABC</GUEST_OP>");
+  expect(xml).toContain("<VE_PROV>NS</VE_PROV>");
+  expect(xml).not.toContain("<USERDEF");
+});
+
 const adxLocations = ["LAT", "LON", "MY_LAT", "MY_LON"];
 const adxVUCCFields = ["VUCC_GRIDS", "MY_VUCC_GRIDS"];
 it.each([

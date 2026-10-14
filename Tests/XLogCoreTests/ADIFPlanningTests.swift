@@ -32,7 +32,8 @@ struct ADIFPlanningTests {
 
     @Test("Version-one extension metadata rejects collisions, malformed identities and conflicting declarations")
     func extensionMetadataValidation() throws {
-        let fields = ["APP_TEST_FIELD": "0012.50", "CUSTOM": "A", "OTHER": "B", "ADDRESS": "Keep ordinary value"]
+        let fields = ["APP_TEST_FIELD": "0012.50", "CUSTOM": "A", "OTHER": "B", "ADDRESS": "Keep ordinary value",
+                      "GUEST_OP": "K1ABC", "VE_PROV": "NS"]
         let app = ADIFFieldMetadata.ExtensionField(kind: "APP", attributes: ["PROGRAMID": "Test", "FIELDNAME": "Field", "TYPE": "n"])
         let custom = ADIFFieldMetadata.ExtensionField(kind: "USERDEF", attributes: ["FIELDNAME": "CUSTOM"], declaration: ["FIELDID": "1", "TYPE": "E", "ENUM": "{A,B}"])
         let valid = ADIFFieldMetadata(extensions: ["APP_TEST_FIELD": app, "CUSTOM": custom])
@@ -44,6 +45,10 @@ struct ADIFPlanningTests {
         #expect(throws: (any Error).self) { try mismatched.validate(fields: fields) }
         let reserved = ADIFFieldMetadata(extensions: ["ADDRESS": .init(kind: "USERDEF", attributes: ["FIELDNAME": "ADDRESS"], declaration: ["FIELDID": "1", "TYPE": "G"])])
         #expect(throws: (any Error).self) { try reserved.validate(fields: fields) }
+        for field in ["GUEST_OP", "VE_PROV"] {
+            let current = ADIFFieldMetadata(extensions: [field: .init(kind: "USERDEF", attributes: ["FIELDNAME": field], declaration: ["FIELDID": "1", "TYPE": "G"])])
+            #expect(throws: (any Error).self) { try current.validate(fields: fields) }
+        }
         let repeated = ADIFFieldMetadata(extensions: ["CUSTOM": custom, "OTHER": .init(kind: "USERDEF", attributes: ["FIELDNAME": "OTHER"], declaration: ["FIELDID": "1", "TYPE": "G"])])
         #expect(throws: (any Error).self) { try repeated.validate(fields: fields) }
         var badValues = fields; badValues["APP_TEST_FIELD"] = "NaN"
