@@ -8,12 +8,6 @@ function checked(value: any): StationSelection {
     throw new Error("Native radio selection was not confirmed.");
   return value;
 }
-export async function applyStationSelection(provider: StationProvider, expected: number): Promise<StationSelection> {
-  if (!nativeStationSelection()) throw new Error("Native radio selection requires the desktop app.");
-  const result = checked(await invoke("station_selection_apply", { provider, expected }));
-  if (result.provider !== provider || result.generation < expected) throw new Error("Native radio handover was not confirmed.");
-  return result;
-}
 /** Browser storage is a one-time migration hint, never a native authority. */
 export function connectStationSelection(legacy: string | null, changed: (value: StationSelection) => void, failed: (message: string) => void) {
   if (!nativeStationSelection()) return null;

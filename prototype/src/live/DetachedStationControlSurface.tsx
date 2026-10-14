@@ -40,7 +40,7 @@ export function StationControlSurface({ connect = connectMonitorContext, configu
       <header className="live-station-head"><div><h2>Station Control</h2><p>{configuration && !context?.acceptance ? "Shared Agent connection · independent of Desk" : "Passive station monitoring · independent of Desk"}</p></div>
         <div className="live-station-head-actions"><button type="button" onClick={() => connection.current?.refresh()}>Refresh observations</button>
           <button type="button" disabled={docking} onClick={() => void dockBack()}>{docking ? "Docking…" : "Dock back"}</button></div></header>
-      <p role="status">{configuration && !context?.acceptance ? "Agent setup and connection are shared. Radio selection and station commands require the main station controls." : "Connection setup, radio selection and station actions currently require the main station controls."}</p>
+      <p role="status">{configuration && !context?.acceptance ? "Radio selection and Agent connection are shared. Radio commands and FLEX/Hamlib connection setup require the main station controls." : "Connection setup, radio selection and station actions currently require the main station controls."}</p>
       {!context?.acceptance && configuration}
       {error && <p className="live-station-error" role="alert">{error}</p>}
       {dockError && <p className="live-station-error" role="alert">{dockError}</p>}
@@ -67,5 +67,5 @@ export function StationControlSurface({ connect = connectMonitorContext, configu
   </main></div>;
 }
 export function DetachedStationControlSurface() {
-  return <StationControlSurface configuration={new URLSearchParams(location.search).get("acceptance") === "local" ? undefined : <AgentConnectionSetup connections />} />;
+  return <StationControlSurface configuration={new URLSearchParams(location.search).get("acceptance") === "local" ? undefined : <AgentConnectionSetup connections providers />} />;
 }

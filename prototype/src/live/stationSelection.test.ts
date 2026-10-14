@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { applyStationSelection, connectStationSelection, nativeStationSelection } from "./stationSelection";
+import { connectStationSelection, nativeStationSelection } from "./stationSelection";
 const api = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn(), desktop: true }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: api.invoke, isTauri: () => api.desktop }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: api.listen }));
@@ -22,10 +22,6 @@ it("hydrates authoritative native choice, ignores stale generations and recovers
   api.invoke.mockResolvedValue({ provider: "direct_flex_lan", generation: 5 }); window.dispatchEvent(new Event("focus")); await settle();
   expect(changed).toHaveBeenCalledTimes(2); expect(failed).not.toHaveBeenCalled(); dispose(); expect(stop).toHaveBeenCalledOnce();
 });
-it("applies through the native generation-checked handover, never renderer disconnect or connect", async () => {
-  expect(await applyStationSelection("hamlib", 3)).toEqual({ provider: "hamlib", generation: 4 });
-  expect(api.invoke.mock.calls).toEqual([["station_selection_apply", { provider: "hamlib", expected: 3 }]]);
-});
 it("does not fall back to browser state on native failure or malformed readback", async () => {
   const changed = vi.fn(), failed = vi.fn(); api.invoke.mockRejectedValue(new Error("Saved radio selection is invalid"));
   const dispose = connectStationSelection("direct_agent", changed, failed)!; await settle();
@@ -44,5 +40,5 @@ it("late registration cannot hydrate and browser fixtures cannot invoke native h
   const dispose = connectStationSelection(null, vi.fn(), vi.fn())!; dispose(); resolve(stop); await settle();
   expect(stop).toHaveBeenCalledOnce(); expect(api.invoke).not.toHaveBeenCalled();
   api.desktop = false; expect(nativeStationSelection()).toBe(false); expect(connectStationSelection(null, vi.fn(), vi.fn())).toBeNull();
-  await expect(applyStationSelection("hamlib", 4)).rejects.toThrow("requires the desktop"); expect(api.invoke).not.toHaveBeenCalled();
+  expect(api.invoke).not.toHaveBeenCalled();
 });

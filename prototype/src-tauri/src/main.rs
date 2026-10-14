@@ -428,31 +428,6 @@ async fn station_selection_snapshot(window: tauri::WebviewWindow, app: tauri::Ap
 }
 
 #[tauri::command]
-async fn station_selection_apply(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>, expected: u64, provider: String) -> Result<serde_json::Value, String> {
-    station_selection::validate(window.label(), state.path.is_some(), true)?;
-    if let Some(owner) = cw_session_backend::existing() {
-        owner.revoke()?; tauri::async_runtime::spawn_blocking(move || { let _ = owner.stop(); });
-    }
-    auto_rotor::revoke();
-    let _auto_change = auto_rotor::canonical_will_change();
-    let owner = station_selection::owner(&app)?;
-    let telemetry = station_telemetry::owner(&app)?;
-    let _fence = telemetry.control()?;
-    let (result, actual) = tauri::async_runtime::spawn_blocking(move || {
-        let result = owner.handover(expected, &provider);
-        let actual = owner.snapshot();
-        (result, actual)
-    }).await.map_err(|_| "Radio handover task failed".to_string())?;
-    // A failed persisted-next rollback may still change actual authority.
-    // Synchronize display ownership without retrying or masking the failure.
-    let synchronized = actual.and_then(|actual| telemetry.select_selection(&actual, false));
-    match result { Ok(value) => { synchronized?; Ok(value) }, Err(error) => {
-        if let Err(sync_error) = synchronized { eprintln!("Radio telemetry selection unavailable: {sync_error}"); }
-        Err(error)
-    } }
-}
-
-#[tauri::command]
 async fn station_session_request(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, params: serde_json::Value) -> Result<serde_json::Value, String> {
     let action = params["action"].as_str().unwrap_or("");
     station_session::validate(window.label(), state.path.is_some(), action)?;
@@ -471,7 +446,16 @@ async fn station_session_request(app: tauri::AppHandle, window: tauri::WebviewWi
         if let Some(owner) = cw_session_backend::existing() { owner.revoke()?; let _ = owner.stop(); }
         auto_rotor::revoke();
         let _auto_change = auto_rotor::canonical_will_change();
-        selection.monitor_action(request, generation, identity, || telemetry.control())
+        if request["method"] == "station_selection_apply" {
+            let _fence = telemetry.control()?;
+            let result = selection.handover_checked(generation, identity, request["params"]["provider"].as_str().ok_or("Unknown radio provider.")?);
+            // A failed rollback may still change persisted selection authority.
+            let synchronized = selection.snapshot().and_then(|actual| telemetry.select_selection(&actual, false));
+            match result {
+                Ok(_) => { synchronized?; Ok(serde_json::json!({"id":request["id"],"ok":true})) },
+                Err(error) => { if let Err(sync_error) = synchronized { eprintln!("Radio telemetry selection unavailable: {sync_error}"); } Err(error) }
+            }
+        } else { selection.monitor_action(request, generation, identity, || telemetry.control()) }
     })).await.map_err(|_| "Station Control task ended; inspect the operation receipt before retrying.".to_string())?;
     for label in ["main", "station-control"] { let _ = changed.emit_to(label, "xlog:station-session", ()); }
     result
@@ -914,7 +898,7 @@ fn main() {
             spot_activation_snapshot, spot_activation_status, spot_activation_reconcile, activate_spot, activate_opportunity,
             auto_rotor_snapshot, auto_rotor_set,
             workspace_windows_status, workspace_windows_reconcile,
-            workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_selection_apply,
+            workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot,
             detached_cluster_ready, cluster_session_selection, dock_detached_window, close_logbook_window, close_qso_window, close_main_window,
             acceptance::acceptance_enabled, acceptance::acceptance_large_log, acceptance::acceptance_monitor,
             acceptance::acceptance_screen, acceptance::acceptance_desk_size,

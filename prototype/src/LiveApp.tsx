@@ -70,7 +70,8 @@ import { retireStationProvider } from "./live/stationHandover";
 import RotorPanel from "./live/RotorPanel";
 import { connectRotorTelemetry } from "./live/rotorTelemetry";
 import { connectStationTelemetry } from "./live/stationTelemetry";
-import { applyStationSelection, connectStationSelection, nativeStationSelection } from "./live/stationSelection";
+import { connectStationSelection, nativeStationSelection } from "./live/stationSelection";
+import { AgentConnectionSetup } from "./live/AgentConnectionSetup";
 import { clearConnectedHandoverMessage, rotorCommandParams, rotorProjection, validRotorSnapshot, type RotorSnapshot } from "./live/rotorControl";
 import "./live/live.css";
 import appLogo from "../src-tauri/icons/64x64.png";
@@ -425,20 +426,15 @@ function MainLiveApp() {
     finally { busyRef.current = false; setBusy(false); }
   };
   const applyProvider = async () => {
+    if (nativeStationSelection()) return;
     const next = viewProvider;
     if (provider.current === next || providerTransition.current) return;
     providerTransition.current = true;
     selection.current++; pendingTune.current = false; disarmAutoRotor();
     setBusy(true); setError("");
     try {
-      if (nativeStationSelection()) {
-        if (!providerReadyRef.current) throw new Error("Wait for the shared radio selection to load before applying a change.");
-        const result = await applyStationSelection(next, providerGeneration.current);
-        providerGeneration.current = result.generation;
-      } else {
-        await retireStationProvider(provider.current, async (method, params) => workerRequest(method, params));
-        localStorage.setItem("xlog.integration.provider", next);
-      }
+      await retireStationProvider(provider.current, async (method, params) => workerRequest(method, params));
+      localStorage.setItem("xlog.integration.provider", next);
       provider.current = next; setStationProvider(next);
       setStation(null);
       setMessage("Previous radio disconnected. Connect the selected radio explicitly.");
@@ -841,7 +837,7 @@ function MainLiveApp() {
       {view === "Station Control" && <><div className="live-tabs" role="group" aria-label="Station sections">{["Control and connections", "RUMlog spots"].map(section => <button key={section} aria-pressed={stationSection === section} onClick={() => setStationSection(section)}>{section}</button>)}</div>
         {stationSection === "RUMlog spots" ? <SpotBridgePanel request={request} provider={stationProvider} /> : <><div className="live-station-provider" role="group" aria-label="Radio connection type">
         {([ ["direct_agent", "Remote station · embedded xCat"], ["direct_flex_lan", "Direct FLEX · LAN"], ["hamlib", "Local station · Hamlib"] ] as const).map(([id, label]) => <button key={id} className={viewProvider === id ? "selected" : ""} aria-pressed={viewProvider === id} disabled={busy} onClick={() => setViewProvider(id)}>{label}</button>)}
-        {viewProvider !== stationProvider && <button type="button" disabled={busy} onClick={() => void applyProvider()}>Apply radio selection</button>}
+        {nativeStationSelection() ? <AgentConnectionSetup providers onlySelection selectionTarget={viewProvider} /> : viewProvider !== stationProvider && <button type="button" disabled={busy} onClick={() => void applyProvider()}>Apply radio selection</button>}
         <span>Active radio: {radioProviderLabels[stationProvider]}. {viewProvider === stationProvider ? "Your independent rotor stays connected." : "Viewing only. Apply radio selection to disconnect the active radio; your independent rotor stays connected."}</span></div>
         {viewProvider === "hamlib" ? <HamlibPanel request={viewedStationRequest} snapshot={stationProvider === viewProvider ? station : null} /> :
           viewProvider === "direct_flex_lan" ? <DirectFlexPanel request={viewedStationRequest} snapshot={stationProvider === viewProvider ? station : null} /> :

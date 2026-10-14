@@ -110,7 +110,7 @@ it("keeps dock failures visible across observation refresh and allows retry", as
   expect(native.invoke).toHaveBeenCalledTimes(2); expect(screen.queryByRole("alert")).toBeNull();
 });
 
-function sharedAgent(loseConnect = false) {
+function sharedAgent(loseConnect = false, loseSelection = false) {
   let state: StationSession = { generation: "shared-setup", revision: 4, base_url: "https://station.example", last_receipt: null,
     selection: { provider: "direct_agent", generation: 8, selection_id: "selected-radio" } };
   const actions: Record<string, unknown>[] = [], subscribers = new Map<string, Set<() => void>>();
@@ -125,9 +125,11 @@ function sharedAgent(loseConnect = false) {
     if (params.action === "snapshot") return structuredClone(state);
     if (params.action === "receipt") return state.last_receipt;
     actions.push(params);
-    state = { ...state, revision: state.revision + 1, last_receipt: { operation_id: params.operation_id, request: { action: params.action },
-      status: loseConnect && params.action === "connect" ? "unknown" : "acknowledged" } };
-    if (loseConnect && params.action === "connect") throw new Error("Lost child acknowledgement");
+    const lost = loseConnect && params.action === "connect" || loseSelection && params.action === "select";
+    state = { ...state, revision: state.revision + 1,
+      ...(params.action === "select" ? { selection: { provider: params.provider, generation: state.selection.generation + 1, selection_id: crypto.randomUUID() } } : {}),
+      last_receipt: { operation_id: params.operation_id, request: { action: params.action }, status: lost ? "unknown" : "acknowledged" } };
+    if (lost) throw new Error("Lost child acknowledgement");
     return structuredClone(state.last_receipt);
   });
   return { actions, wake: () => subscribers.get("xlog:station-session")?.forEach(handler => handler()), state: () => state };
@@ -175,5 +177,40 @@ it("Desk and child converge on shared revisions and a matching completed receipt
   expect(owner.actions.map(action => [action.action, action.revision])).toEqual([["connect", 4], ["disconnect", 5]]);
   expect(desk.getByText(/Last shared operation: disconnect/)).toBeTruthy();
   expect(child.getByText(/Last shared operation: disconnect/)).toBeTruthy();
+  expect(native.worker).not.toHaveBeenCalled();
+});
+it("child selection uses exact current identities across Agent to Hamlib to Agent without connection effects", async () => {
+  const owner = sharedAgent(); render(<DetachedStationControlSurface />); await act(async () => {});
+  expect(owner.actions).toHaveLength(0);
+  fireEvent.change(screen.getByLabelText("Shared radio provider"), { target: { value: "hamlib" } });
+  const apply = screen.getByRole("button", { name: "Apply shared radio selection" });
+  fireEvent.click(apply); fireEvent.click(apply); await act(async () => {});
+  const intermediate = owner.state().selection.selection_id;
+  fireEvent.change(screen.getByLabelText("Shared radio provider"), { target: { value: "direct_agent" } });
+  fireEvent.click(screen.getByRole("button", { name: "Apply shared radio selection" })); await act(async () => {});
+  expect(owner.actions.map(action => [action.action, action.provider, action.revision, action.selection_generation, action.selection_id]))
+    .toEqual([["select", "hamlib", 4, 8, "selected-radio"], ["select", "direct_agent", 5, 9, intermediate]]);
+  expect(owner.state().selection.selection_id).not.toBe("selected-radio");
+  expect(owner.actions.every(action => !("allow_transmit" in action) && !("base_url" in action))).toBe(true);
+  expect(native.worker).not.toHaveBeenCalled();
+});
+it("Desk provider-only apply uses the same journaled selector without exposing connection controls", async () => {
+  const owner = sharedAgent(); render(<AgentConnectionSetup providers onlySelection selectionTarget="direct_flex_lan" />); await act(async () => {});
+  expect(owner.actions).toHaveLength(0); expect(screen.queryByRole("button", { name: "Connect saved Agent" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Apply shared radio selection" })); await act(async () => {});
+  expect(owner.actions).toHaveLength(1); expect(owner.actions[0]).toMatchObject({ action: "select", provider: "direct_flex_lan", selection_generation: 8, selection_id: "selected-radio" });
+  expect(screen.getByText(/Radio selection acknowledged/)).toBeTruthy(); expect(native.worker).not.toHaveBeenCalled();
+});
+it("lost provider-selection replies recover on child remount and never replay retirement", async () => {
+  const owner = sharedAgent(false, true); const view = render(<DetachedStationControlSurface />); await act(async () => {});
+  fireEvent.change(screen.getByLabelText("Shared radio provider"), { target: { value: "hamlib" } });
+  fireEvent.click(screen.getByRole("button", { name: "Apply shared radio selection" })); await act(async () => {});
+  const operation = owner.actions[0].operation_id;
+  view.unmount(); render(<DetachedStationControlSurface />); await act(async () => {});
+  expect((screen.getByLabelText("Shared radio provider") as HTMLSelectElement).value).toBe("hamlib");
+  expect(screen.getByRole("button", { name: "Apply shared radio selection" }).hasAttribute("disabled")).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Check connection setup receipt" })); await act(async () => {});
+  expect(native.invoke).toHaveBeenLastCalledWith("station_session_request", { params: { action: "receipt", operation_id: operation } });
+  expect(owner.actions).toHaveLength(1); expect(screen.getByText(/Radio selection outcome is unknown/)).toBeTruthy();
   expect(native.worker).not.toHaveBeenCalled();
 });

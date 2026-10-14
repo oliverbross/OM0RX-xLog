@@ -36,7 +36,7 @@ pub fn validate(label: &str, isolated: bool, action: &str) -> Result<(), String>
     }
     if !matches!(
         action,
-        "snapshot" | "receipt" | "save" | "connect" | "disconnect" | "forget"
+        "snapshot" | "receipt" | "save" | "connect" | "disconnect" | "forget" | "select"
     ) {
         return Err("Unknown Station Control operation.".into());
     }
@@ -91,6 +91,15 @@ impl Session {
             let action = receipt.request["action"].as_str().unwrap_or("");
             let keys = if action == "save" {
                 vec!["action", "generation", "revision", "base_url"]
+            } else if action == "select" {
+                vec![
+                    "action",
+                    "generation",
+                    "revision",
+                    "selection_generation",
+                    "selection_id",
+                    "provider",
+                ]
             } else {
                 vec![
                     "action",
@@ -107,7 +116,10 @@ impl Session {
                     receipt.status.as_str(),
                     "saved" | "pending" | "acknowledged" | "unknown"
                 )
-                || !matches!(action, "save" | "connect" | "disconnect" | "forget")
+                || !matches!(
+                    action,
+                    "save" | "connect" | "disconnect" | "forget" | "select"
+                )
                 || (action == "save") != (receipt.status == "saved")
                 || receipt.request["generation"] != saved.generation
                 || receipt.request["revision"]
@@ -135,7 +147,13 @@ impl Session {
                 || receipt.request["selection_id"]
                     .as_str()
                     .is_none_or(|id| uuid::Uuid::parse_str(id).is_err())
-                || !receipt.request["allow_transmit"].is_boolean()
+                || if action == "select" {
+                    receipt.request["provider"]
+                        .as_str()
+                        .is_none_or(|provider| !crate::station_telemetry::valid_provider(provider))
+                } else {
+                    !receipt.request["allow_transmit"].is_boolean()
+                }
             {
                 return Err("Saved Station Control selection receipt is invalid.".into());
             }
@@ -207,7 +225,10 @@ impl Session {
         let action = params["action"]
             .as_str()
             .ok_or("Missing Station Control action.")?;
-        if !matches!(action, "save" | "connect" | "disconnect" | "forget") {
+        if !matches!(
+            action,
+            "save" | "connect" | "disconnect" | "forget" | "select"
+        ) {
             return Err("Unknown Station Control action.".into());
         }
         let id = params["operation_id"]
@@ -231,7 +252,15 @@ impl Session {
         } else {
             descriptor["selection_generation"] = params["selection_generation"].clone();
             descriptor["selection_id"] = params["selection_id"].clone();
-            descriptor["allow_transmit"] = json!(params["allow_transmit"] == true);
+            if action == "select" {
+                let provider = params["provider"]
+                    .as_str()
+                    .filter(|provider| crate::station_telemetry::valid_provider(provider))
+                    .ok_or("Unknown radio provider.")?;
+                descriptor["provider"] = json!(provider);
+            } else {
+                descriptor["allow_transmit"] = json!(params["allow_transmit"] == true);
+            }
         }
         let mut state = self
             .state
@@ -278,7 +307,7 @@ impl Session {
                 .as_str()
                 .filter(|value| uuid::Uuid::parse_str(value).is_ok())
                 .ok_or("Invalid radio selection identity.")?;
-            let mut connection = json!({"provider":"direct_agent"});
+            let mut connection = json!({"provider":if action == "select" { descriptor["provider"].as_str().unwrap() } else { "direct_agent" }});
             if matches!(action, "connect" | "forget") {
                 if state.base_url.is_empty() {
                     return Err("Save an Agent endpoint before connecting.".into());
@@ -301,7 +330,7 @@ impl Session {
                 .filter(|value| *value <= MAX_REVISION)
                 .ok_or("Station Control revision exhausted.")?;
             Some((
-                json!({"id":id,"method":match action { "connect" => "station_connect", "forget" => "station_forget", _ => "station_disconnect" },"params":connection}),
+                json!({"id":id,"method":match action { "connect" => "station_connect", "forget" => "station_forget", "select" => "station_selection_apply", _ => "station_disconnect" },"params":connection}),
                 selected_generation,
                 selected_id.to_owned(),
             ))
@@ -465,6 +494,7 @@ mod tests {
             "connect",
             "disconnect",
             "forget",
+            "select",
         ] {
             for label in ["main", "station-control"] {
                 assert!(validate(label, false, action).is_ok());
@@ -555,5 +585,43 @@ mod tests {
             stale["operation_id"] = json!(uuid::Uuid::new_v4().to_string());
             assert!(session.apply(&stale, passive).is_err());
         }
+    }
+    #[test]
+    fn provider_selection_journals_before_dispatch_and_recovers_without_repeating_retirement() {
+        let (directory, session, params) = setup();
+        let id = uuid::Uuid::new_v4().to_string();
+        let identity = uuid::Uuid::new_v4().to_string();
+        let request = json!({"action":"select","operation_id":id,"generation":params["generation"],"revision":0,
+            "selection_generation":6,"selection_id":identity,"provider":"hamlib"});
+        let receipt = session
+            .apply(&request, |command, generation, selection_id| {
+                assert_eq!(command["method"], "station_selection_apply");
+                assert_eq!(command["params"], json!({"provider":"hamlib"}));
+                assert_eq!(generation, 6);
+                assert_eq!(selection_id, identity);
+                assert_eq!(session.receipt(&id).unwrap()["status"], "pending");
+                let persisted = Session::new(directory.path().join("session.json")).unwrap();
+                assert_eq!(persisted.receipt(&id).unwrap()["status"], "unknown");
+                Ok(json!({"id":id,"ok":true}))
+            })
+            .unwrap();
+        assert_eq!(receipt["status"], "acknowledged");
+        assert_eq!(session.apply(&request, passive).unwrap(), receipt);
+        let reopened = Session::new(directory.path().join("session.json")).unwrap();
+        assert_eq!(reopened.apply(&request, passive).unwrap(), receipt);
+        let mut reused = request.clone();
+        reused["provider"] = json!("direct_flex_lan");
+        assert!(reopened.apply(&reused, passive).is_err());
+        let mut unknown = request;
+        unknown["operation_id"] = json!(uuid::Uuid::new_v4().to_string());
+        unknown["revision"] = json!(1);
+        let receipt = session
+            .apply(&unknown, |_, _, _| {
+                Err("retirement acknowledgement lost".into())
+            })
+            .unwrap();
+        assert_eq!(receipt["status"], "unknown");
+        let reopened = Session::new(directory.path().join("session.json")).unwrap();
+        assert_eq!(reopened.apply(&unknown, passive).unwrap(), receipt);
     }
 }

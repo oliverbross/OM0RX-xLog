@@ -419,7 +419,14 @@ impl Selection {
             .map(|state| self.value(&state))
             .map_err(|_| "Radio session is busy; wait for its current action.".into())
     }
+    #[cfg(test)]
     pub fn handover(&self, expected: u64, next: &str) -> Result<Value, String> {
+        self.handover_identity(expected, None, next)
+    }
+    pub fn handover_checked(&self, expected: u64, identity: &str, next: &str) -> Result<Value, String> {
+        self.handover_identity(expected, Some(identity), next)
+    }
+    fn handover_identity(&self, expected: u64, identity: Option<&str>, next: &str) -> Result<Value, String> {
         if !crate::station_telemetry::valid_provider(next) {
             return Err("Unknown radio provider.".into());
         }
@@ -440,7 +447,7 @@ impl Selection {
             .selection_id
             .clone()
             .ok_or("Radio selection identity is unavailable")?;
-        if state.generation != expected {
+        if state.generation != expected || identity.is_some_and(|identity| state.selection_id.as_deref() != Some(identity)) {
             return Err("Radio selection changed. Review it before applying again.".into());
         }
         if previous == next {
@@ -1792,6 +1799,23 @@ mod tests {
         assert!(owner.handover(0, "hamlib").unwrap_err().contains("current radio action"));
         *gate.0.lock().unwrap() = true; gate.1.notify_all(); task.join().unwrap().unwrap();
         assert_eq!(owner.snapshot().unwrap()["provider"], "direct_agent");
+    }
+    #[test]
+    fn checked_handover_rejects_prior_identity_after_a_b_a_and_after_restart() {
+        let (_directory, owner, calls) = fixture();
+        let first = initialized(&owner, Some("direct_agent"));
+        let original = first["selection_id"].as_str().unwrap();
+        let wrong = uuid::Uuid::new_v4().to_string();
+        assert!(owner.handover_checked(0, &wrong, "hamlib").is_err());
+        let second = owner.handover_checked(0, original, "hamlib").unwrap();
+        let current = owner.handover_checked(1, second["selection_id"].as_str().unwrap(), "direct_agent").unwrap();
+        let count = calls.lock().unwrap().len();
+        assert!(owner.handover_checked(0, original, "hamlib").is_err());
+        assert!(owner.handover_checked(2, original, "hamlib").is_err());
+        assert_eq!(calls.lock().unwrap().len(), count);
+        let reopened = Selection::new(owner.path.clone(), owner.transport.clone(), Arc::new(|| {})).unwrap();
+        assert!(reopened.handover_checked(0, original, "hamlib").is_err());
+        assert_eq!(reopened.snapshot().unwrap()["selection_id"], current["selection_id"]);
     }
     #[test]
     fn handover_retires_exact_radio_once_and_rejects_stale_generation() {
