@@ -142,10 +142,12 @@ could overwrite another writer. The next bounded stage is safe exact child radio
 
 ## Dependency-ordered delivery queue
 
-1. **Source-complete:** revision-safe Settings, including restore and
-   unknown-outcome recovery (`b58163f`). Packaged acceptance remains later.
-2. **Source-complete:** independent Settings child with dirty-form/navigation/restart
-   recovery and main-renderer-independent scoped services (`0ea919a`).
+1. **Installed at isolated-package scope:** revision-safe Settings, including
+   restore and unknown-outcome recovery (`b58163f`); alpha.29 packaged acceptance
+   exercises Settings save/readback with station I/O disabled.
+2. **Installed / operator visual acceptance open:** independent Settings child
+   with dirty-form/navigation/restart recovery and main-renderer-independent
+   scoped services (`0ea919a`).
 3. **Source-complete:** shared revisioned rotor-only configuration with passive
    open/restore/browse behavior and exact typed command boundaries (`46c5f1e`).
 4. **Source-complete at protected-selection scope:** independent Chaser & DX
@@ -164,15 +166,16 @@ could overwrite another writer. The next bounded stage is safe exact child radio
 7. **Dependency-split:** Direct FLEX exact receive frequency is source-complete;
    exact mode needs an explicit-slice backend, and hardware-profile apply needs
    Agent conditional writes. Do not duplicate owners while those prerequisites are absent.
-8. **Active next:** Station Identity, retained Alerts, saved Antenna Reference,
-   compact desk-split Logbook and the single-owner Sync refresh prerequisite are
-    source-complete at their bounded scopes. Generation-bound Sync mutation
-    ownership is also source-complete. Finish the remaining panel inventory and
-    native lifecycle/geometry recovery; only then enable the full Windowed preset.
+8. **Installed / operator visual acceptance open:** all nineteen detached task
+   roles, compact desk-split Logbook and Canvas/Separate Windows are packaged.
+   Alpha.29's source and installed 33-check runs cover native routes, detached
+   lifecycles, main-window-absent Spot History recovery, Band Map state and
+   workspace persistence without station I/O. Mixed-display visual acceptance
+   and remaining shared provider/action ownership stay open.
 9. Package and live-accept RADIO-05 Clear after QSY, now source-complete with
    trusted observed-RX provenance, editor veto, selection/command epochs and an
    idempotent native transaction. Keep the default OFF until the operator opts in.
-10. Finish DATA-10 remaining XSD/RANGE/live-sync/package acceptance; complete
+10. Finish DATA-10 live-sync/large-file acceptance; complete
     BACKUP-01 production provisioning, frozen-plan preparation and authenticated
     provider capability, then add revision-conditional retention deletion on the
     now-wired review owner; then close
@@ -187,7 +190,7 @@ could overwrite another writer. The next bounded stage is safe exact child radio
 | WS-01 | Show/hide/move/resize every desk panel | **Source complete / acceptance** — `5a74363` implements the requested model: each arrow toggles edit mode, title bars move, all eight edges/corners resize, Lock exits editing, Fit is secondary and internal content reflows or scrolls. Canvas **26/26**, transport **5/5** and TypeScript pass; installed multiple-display interaction remains open. |
 | WS-02 | Settings-managed named layouts | **In progress** — revisioned persistence/UI, independent Settings and shared passive Rotator configuration are source-verified; packaged/native acceptance remains. |
 | WS-03 | Native menus replace navigation | **Source complete / acceptance** — `33dfae7` adds checked native Canvas/Separate Windows choices, persists the mode and exact prior Canvas preset, retains open task windows and hides the main canvas only after authoritative save. Dirty editors, layout transactions and armed/pending CW veto the switch; the switch emits no device action. TypeScript, **59 frontend**, **66 Rust** and **16 Swift** layout tests pass. |
-| WS-04 | Window menu opens/focuses every panel | **In progress** — nineteen roles now include independent Settings, passive Chaser & DX, Station Control, CW, Rotor, Station Status, Propagation, Station Identity, retained Alerts and saved Antenna Reference; remaining screens follow the dependency queue. |
+| WS-04 | Window menu opens/focuses every panel | **Source complete / packaged acceptance** — all nineteen task roles are available with consistent task-first chrome; alpha.29's source and installed native runs exercise menu routing, detached lifecycles and main-window-absent recovery. Operator multi-display visual acceptance remains open. |
 | WS-05 | Docked/mixed/undocked share one live session | **In progress** — major draft/cluster/radio/rotor ownership, Desk CW and shared Desk/child Agent lifecycle moved; remaining provider/action owners open. |
 | WS-06 | Layout/geometry survive restart and display changes | **In progress / acceptance** — persistence/recovery source exists; `3cb27f4` prevents a cancelled close from retiring a still-live window's geometry tracker, with **22 focused native geometry tests**. Mixed-DPI/native evidence remains open. |
 | WS-07 | No duplicate logging or station actions | **In progress** — Settings and rotor-configuration receipts plus one protected Chaser draft-activation owner are source-verified; Chaser has no raw station/rotor/CW authority. Full multi-window gate remains open. |
@@ -201,8 +204,8 @@ acceptance. Consult the detailed tracker before closing any individual item.
 | Status | IDs | Remaining boundary |
 | --- | --- | --- |
 | **Done / installed at stated scope** | UI-17, UI-26, UI-39, CW-01, CW-02, CW-03, CLUSTER-01, SYNC-01 | Some rows retain explicit hardware, alternate-OS or accessibility limits. |
-| **Implemented in installed alpha.27 source; row-specific acceptance open** | UI-01–08, UI-10–16, UI-22–25, UI-27–38, UI-40–41, MAP-01–04, DATA-01–07, RADIO-01–05, PERF-02–03, SYNC-06 | Perform the packaged visual, live-service, latency, real-feed or hardware checks named in the tracker; no RF inference. RADIO-05 remains default-off until separately authorized live acceptance. |
-| **Active / partial** | UI-09, UI-18–21, SYNC-02, DATA-08–11, BACKUP-01, PERF-01, WS-01–08, RUM-01–03, SHIP-01 | DATA-10 has reviewed UTF-8/Windows-1252/ISO-8859-1 ADI, UTF-8 ADX, 33-field duplicate updates, versioned APP/USERDEF metadata with exact RANGE semantics, strict structural rejection and every published 3.1.7 record scalar type family; live-sync/package/roundtrip acceptance remains. BACKUP-01 now has UUID-bound durable consent, default-off live-worker lifecycle, exclusive independently verified Dropbox execution, just-in-time workspace-vault credentials, native capability-gated setup/approval/start/status/recovery UI and durable verified-registration metadata, but no production OAuth verifier/provisioner, frozen-plan preparation, retention execution or other providers. DATA-11's feedback path is audited. Agent-restart lifecycle hardening awaits installed restart acceptance; exact Standby drive rollback remains an active Agent defect. |
+| **Implemented in installed alpha.29 source; row-specific acceptance open** | UI-01–08, UI-10–16, UI-22–25, UI-27–38, UI-40–41, MAP-01–04, DATA-01–07, RADIO-01–05, PERF-02–03, SYNC-06 | Perform the packaged visual, live-service, latency, real-feed or hardware checks named in the tracker; no RF inference. RADIO-05 remains default-off until separately authorized live acceptance. |
+| **Active / partial** | UI-09, UI-18–21, SYNC-02, DATA-08–11, BACKUP-01, PERF-01, WS-01–08, RUM-01–03, SHIP-01 | DATA-10 has reviewed UTF-8/Windows-1252/ISO-8859-1 ADI, UTF-8 ADX, 33-field duplicate updates, versioned APP/USERDEF metadata with exact RANGE semantics, strict structural rejection and every published 3.1.7 record scalar type family. Alpha.29 adds a passing packaged ADX semantic round trip; live-sync and large-file acceptance remain. BACKUP-01 now has UUID-bound durable consent, default-off live-worker lifecycle, exclusive independently verified Dropbox execution, just-in-time workspace-vault credentials, native capability-gated setup/approval/start/status/recovery UI and durable verified-registration metadata, but no production OAuth verifier/provisioner, frozen-plan preparation, retention execution or other providers. DATA-11's feedback path is audited. Agent-restart lifecycle hardening awaits installed restart acceptance; exact Standby drive rollback remains an active Agent defect. |
 
 ## Major acceptance campaigns still open
 
@@ -214,8 +217,9 @@ acceptance. Consult the detailed tracker before closing any individual item.
 - **Station:** RADIO-01–04 physical/remote evidence only when separately
   authorized; Australia–Slovakia WAN delay must remain distinct from
   Windows-local device time. No RF action is implied by this board.
-- **Data portability:** DATA-10 packaged roundtrip, remaining legacy-encoding
-  decisions, live-sync behavior and large-file acceptance.
+- **Data portability:** DATA-10 remaining legacy-encoding decisions, live-sync
+  behavior and large-file acceptance; packaged ADX semantic roundtrip passes in
+  alpha.29.
 - **Backups:** BACKUP-01 secure account setup, encrypted transfer where available,
   retention, upload verification and tested restore without altering existing
   remote backups.
