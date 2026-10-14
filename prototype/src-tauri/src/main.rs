@@ -34,7 +34,7 @@ mod detached_acceptance;
 mod workspace_windows;
 mod workspace_window_runtime;
 
-use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu, WINDOW_SUBMENU_ID};
+use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu, WINDOW_SUBMENU_ID};
 use tauri::{Emitter, LogicalSize, Manager};
 use std::sync::{atomic::{AtomicBool, Ordering}, Arc, Mutex, OnceLock};
 
@@ -299,6 +299,11 @@ fn workspace_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         menu.append(&windows)?; windows
     };
     windows.append(&PredefinedMenuItem::separator(app)?)?;
+    let modes = Submenu::with_id(app, "workspace_mode_menu", "Workspace Mode", true)?;
+    modes.append(&CheckMenuItem::with_id(app, "workspace_mode_canvas", "Canvas", true, true, None::<&str>)?)?;
+    modes.append(&CheckMenuItem::with_id(app, "workspace_mode_windows", "Separate Windows", true, false, None::<&str>)?)?;
+    windows.append(&modes)?;
+    windows.append(&PredefinedMenuItem::separator(app)?)?;
     for window in workspace_windows::SUPPORTED_WINDOWS {
         windows.append(&MenuItem::with_id(app, format!("workspace_window_{}", window.id),
             window.title.trim_start_matches("OM0RX-xLog — "), true,
@@ -351,6 +356,16 @@ fn ensure_main_workspace(app: &tauri::AppHandle) -> Result<tauri::WebviewWindow,
 }
 
 async fn navigate_workspace(app: tauri::AppHandle, screen: String) -> Result<(), String> {
+    if screen.starts_with("workspace-mode-") {
+        let native = app.clone();
+        tauri::async_runtime::spawn_blocking(move || {
+            let id = format!("workspace-mode-menu-{}", uuid::Uuid::new_v4());
+            let reply = worker::request(serde_json::json!({"id":id,"method":"workspace_layout_load","params":{}}))?;
+            if reply["id"] != id || reply["ok"] != true { return Err("The saved workspace mode could not be read.".into()); }
+            update_workspace_mode_checks(&native, reply["result"]["layout"]["document"]["activePresetID"] == "windowed")?;
+            workspace_mode_ready()
+        }).await.map_err(|_| "Workspace mode guard could not be checked.".to_string())??;
+    }
     app.state::<workspace_navigation::WorkspaceNavigation>().request(&screen)?;
     // The event is only a wake-up. The main view reads the native state and
     // acknowledges a revision, so pre-listener clicks and old acks are safe.
@@ -360,6 +375,31 @@ async fn navigate_workspace(app: tauri::AppHandle, screen: String) -> Result<(),
     }).await.map_err(|_| "Main workspace task failed".to_string())?
 }
 
+fn workspace_mode_ready() -> Result<(), String> {
+    // Focusing or hiding an armed CW client invokes its existing safety Stop.
+    // Refuse the mode change before altering focus rather than issuing that effect.
+    if let Some(owner) = cw_session_backend::existing() {
+        let state = owner.snapshot()?;
+        if state["armed"] == true || state["pending"] == true || !state["owner"].is_null() || !state["lease"].is_null() {
+            return Err("Stop and disarm CW before switching workspace modes.".into());
+        }
+    }
+    Ok(())
+}
+
+fn update_workspace_mode_checks(app: &tauri::AppHandle, windows: bool) -> Result<(), String> {
+    if let Some(menu) = app.menu() {
+        let modes = menu.get(WINDOW_SUBMENU_ID).and_then(|item| item.as_submenu().cloned())
+            .and_then(|window| window.get("workspace_mode_menu"))
+            .and_then(|item| item.as_submenu().cloned()).ok_or("Workspace Mode menu is unavailable.")?;
+        for (id, checked) in [("workspace_mode_canvas", !windows), ("workspace_mode_windows", windows)] {
+            let item = modes.get(id).and_then(|item| item.as_check_menuitem().cloned()).ok_or("Workspace Mode choice is unavailable.")?;
+            item.set_checked(checked).map_err(|error| error.to_string())?;
+        }
+    }
+    Ok(())
+}
+
 #[tauri::command]
 fn workspace_navigation_snapshot(window: tauri::WebviewWindow, state: tauri::State<'_, workspace_navigation::WorkspaceNavigation>) -> Result<Option<workspace_navigation::Navigation>, String> {
     state.snapshot(window.label())
@@ -367,6 +407,29 @@ fn workspace_navigation_snapshot(window: tauri::WebviewWindow, state: tauri::Sta
 #[tauri::command]
 fn workspace_navigation_ack(window: tauri::WebviewWindow, state: tauri::State<'_, workspace_navigation::WorkspaceNavigation>, revision: u64) -> Result<(), String> {
     state.acknowledge(window.label(), revision)
+}
+
+// Presentation follows a fresh SQLite-owned revision. The renderer supplies only
+// its editor veto; it cannot choose a mode or submit hardware actions here.
+#[tauri::command]
+async fn workspace_mode_present(window: tauri::WebviewWindow, app: tauri::AppHandle,
+    generation: String, revision: u64, hide_main: bool) -> Result<(), String> {
+    if window.label() != "main" { return Err("Only the main workspace presents its mode.".into()); }
+    tauri::async_runtime::spawn_blocking(move || {
+        let id = format!("workspace-mode-{}", uuid::Uuid::new_v4());
+        let reply = worker::request(serde_json::json!({"id":id,"method":"workspace_layout_load","params":{}}))?;
+        let layout = &reply["result"]["layout"];
+        if reply["id"] != id || reply["ok"] != true || layout["generation"] != generation || layout["revision"] != revision {
+            return Err("The workspace mode changed. Reload its saved layout before continuing.".into());
+        }
+        let windows = layout["document"]["activePresetID"] == "windowed";
+        update_workspace_mode_checks(&app, windows)?;
+        if let Some(main) = app.get_webview_window("main") {
+            if windows && hide_main { workspace_mode_ready()?; main.hide().map_err(|error| error.to_string())?; }
+            else { main.show().map_err(|error| error.to_string())?; }
+        }
+        Ok(())
+    }).await.map_err(|_| "Workspace mode presentation failed.".to_string())?
 }
 
 fn apply_workspace_layout(app: &tauri::AppHandle, layout: WorkspaceLayout) -> Result<(), String> {
@@ -443,10 +506,14 @@ fn antenna_snapshot(window: tauri::WebviewWindow, state: tauri::State<'_, accept
 #[tauri::command]
 async fn propagation_session_request(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>, action: String) -> Result<serde_json::Value, String> {
     propagation_session::validate(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
-    if !matches!(action.as_str(), "snapshot" | "refresh") { return Err("Unknown propagation session action.".into()); }
+    if !matches!(action.as_str(), "snapshot" | "ensure" | "refresh") { return Err("Unknown propagation session action.".into()); }
     let owner = propagation_session::owner(&app)?;
     if action == "snapshot" { return owner.snapshot(); }
-    tauri::async_runtime::spawn_blocking(move || owner.refresh()).await.map_err(|_| "Propagation refresh could not be confirmed; no request was replayed.".to_string())?
+    tauri::async_runtime::spawn_blocking(move || if action == "ensure" {
+        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
+            .map_err(|_| "System clock is unavailable.".to_string())?.as_secs_f64();
+        owner.ensure_fresh(now)
+    } else { owner.refresh() }).await.map_err(|_| "Propagation refresh could not be confirmed; no request was replayed.".to_string())?
 }
 
 #[tauri::command]
@@ -1037,6 +1104,13 @@ fn main() {
             }
         })
         .on_menu_event(|app, event| {
+            if let Some(mode) = workspace_navigation::mode_route(&event.id().0) {
+                let app = app.clone(); let mode = mode.to_owned();
+                tauri::async_runtime::spawn(async move {
+                    if let Err(error) = navigate_workspace(app, mode).await { eprintln!("Could not switch workspace mode: {error}"); }
+                });
+                return;
+            }
             if let Some(screen) = workspace_navigation::menu_screen(&event.id().0) {
                 let app = app.clone(); let screen = screen.id.clone();
                 tauri::async_runtime::spawn(async move {
@@ -1119,7 +1193,7 @@ fn main() {
             spot_editor_register, spot_editor_unregister, spot_editor_ack, spot_editor_state,
             spot_activation_snapshot, spot_activation_status, spot_activation_reconcile, activate_spot, activate_opportunity,
             auto_rotor_snapshot, auto_rotor_set,
-            workspace_windows_status, workspace_windows_reconcile,
+            workspace_windows_status, workspace_windows_reconcile, workspace_mode_present,
             workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot, propagation_session_request, station_identity_snapshot, alerts_snapshot, antenna_snapshot,
             detached_cluster_ready, cluster_session_selection, dock_detached_window, close_logbook_window, close_qso_window, close_main_window, close_cw_window, show_cw_desk, close_rotor_window, show_rotor_desk, close_station_status_window, show_station_status_desk, close_propagation_window, show_propagation_desk, close_station_identity_window, show_station_identity_desk, close_alerts_window, show_alerts_desk, close_antenna_window, show_antenna_desk,
             acceptance::acceptance_enabled, acceptance::acceptance_large_log, acceptance::acceptance_monitor,

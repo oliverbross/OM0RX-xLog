@@ -6,12 +6,12 @@ export type WorkspacePanelID = typeof workspacePanelIDs[number];
 export type LayoutRect = { x: number; y: number; width: number; height: number };
 export type PanelLayout = { id: WorkspacePanelID; placement: "canvas" | "window" | "hidden"; rect: LayoutRect; z: number };
 export type LayoutPreset = { id: string; name: string; width: number; height: number; locked: boolean; snap: boolean; panels: PanelLayout[] };
-export type LayoutDocument = { version: 2; activePresetID: string; presets: LayoutPreset[] };
+export type LayoutDocument = { version: 2; activePresetID: string; presets: LayoutPreset[]; lastCanvasPresetID?: string };
 export type LayoutSnapshot = { revision: number; generation: string; document: LayoutDocument };
 export type LayoutChange = { action: "placePanel"; presetID: string; panel: PanelLayout } |
   { action: "savePreset"; presetID: string; preset: LayoutPreset } |
   { action: "activatePreset" | "deletePreset"; presetID: string };
-export type LayoutJournal = { base: LayoutSnapshot; change: LayoutChange };
+export type LayoutJournal = { base: LayoutSnapshot; change: LayoutChange; legacyModeReturn?: true };
 export type LayoutState = { snapshot: LayoutSnapshot | null; pending: LayoutJournal | null; conflict: LayoutSnapshot | null;
   saving: boolean; error: string; workspaceChanged: boolean };
 type Request = (method: "workspace_layout_load" | "workspace_layout_apply", params?: Record<string, unknown>) => Promise<any>;
@@ -39,6 +39,8 @@ function validDocument(value: any, version: number, ids: readonly WorkspacePanel
   if (!object(value) || value.version !== version || !Array.isArray(value.presets) || !integer(value.presets.length, 1, 12) ||
       new Set(value.presets.map((preset: any) => preset?.id)).size !== value.presets.length ||
       !value.presets.some((preset: any) => preset?.id === value.activePresetID)) return false;
+  if (value.lastCanvasPresetID !== undefined && (typeof value.lastCanvasPresetID !== "string" || value.lastCanvasPresetID === "windowed" ||
+      !value.presets.some((preset: any) => preset?.id === value.lastCanvasPresetID))) return false;
   return value.presets.every((preset: any) => {
     if (!object(preset) || typeof preset.id !== "string" || !/^[a-z0-9-]{1,64}$/.test(preset.id) ||
         typeof preset.name !== "string" || !preset.name.trim() || new TextEncoder().encode(preset.name).length > 100 || /[\p{Cc}\p{Cf}]/u.test(preset.name) ||
@@ -85,9 +87,12 @@ export function changedLayout(base: LayoutDocument, change: LayoutChange): Layou
     if (change.preset?.id !== change.presetID) return invalid();
     if (index < 0) document.presets.push(clone(change.preset)); else document.presets[index] = clone(change.preset);
   } else if (change.action === "activatePreset") {
-    if (index < 0) return invalid(); document.activePresetID = change.presetID;
+    if (index < 0) return invalid();
+    if (change.presetID === "windowed" && document.activePresetID !== "windowed") document.lastCanvasPresetID = document.activePresetID;
+    document.activePresetID = change.presetID;
   } else if (change.action === "deletePreset") {
     if (index < 0 || document.activePresetID === change.presetID) return invalid(); document.presets.splice(index, 1);
+    if (document.lastCanvasPresetID === change.presetID) delete document.lastCanvasPresetID;
   } else return invalid();
   if (!validLayoutDocument(document)) return invalid();
   return document;
@@ -104,7 +109,7 @@ export function readLayoutJournal(raw: string | null): LayoutJournal | null {
       } else if (change?.action === "placePanel" && !version1PanelIDs.includes(change.panel?.id)) return null;
     }
     changedLayout(base.document, change);
-    return { base, change };
+    return { base, change, ...(value.base.document.version === 1 || value.legacyModeReturn === true ? { legacyModeReturn: true as const } : {}) };
   } catch { return null; }
 }
 export class LayoutRequestRejected extends Error {}
@@ -132,7 +137,9 @@ export class WorkspaceLayoutSession {
       this.update({ snapshot: value, workspaceChanged: true, conflict: value, error: "The workspace was restored or replaced. Review its layout before discarding or reapplying your change." }); return;
     }
     const desired = changedLayout(pending.base.document, pending.change);
-    if (value.revision === pending.base.revision + 1 && sameDocument(value.document, desired)) {
+    const legacyDesired = clone(desired);
+    if (pending.legacyModeReturn && !value.document.lastCanvasPresetID) delete legacyDesired.lastCanvasPresetID;
+    if (value.revision === pending.base.revision + 1 && sameDocument(value.document, legacyDesired)) {
       this.journal(null); this.update({ snapshot: value, pending: null, conflict: null, workspaceChanged: false, error: "" });
     } else if (value.revision === pending.base.revision && sameDocument(value.document, pending.base.document)) {
       this.update({ snapshot: value, conflict: null, error: "The layout change is not confirmed. Review it, then retry or discard it." });

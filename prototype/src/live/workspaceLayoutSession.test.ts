@@ -104,7 +104,10 @@ it("upgrades every old journal operation and reconciles an old or upgraded ackno
     const pending = readLayoutJournal(JSON.stringify({ base, change: operation })); expect(pending).not.toBeNull();
     expect(pending!.base.revision).toBe(47); expect(pending!.base.generation).toBe(base.generation);
     const acknowledged = oldChangedSnapshot(base, operation);
-    expect(changedLayout(pending!.base.document, pending!.change)).toEqual(checkedLayout(acknowledged).document);
+    const desired = changedLayout(pending!.base.document, pending!.change);
+    if (operation.action === "activatePreset") expect(desired.lastCanvasPresetID).toBe(base.document.activePresetID);
+    delete desired.lastCanvasPresetID; // Old worker acknowledgements predate return-to-Canvas metadata.
+    expect(desired).toEqual(checkedLayout(acknowledged).document);
     for (const response of [acknowledged, checkedLayout(acknowledged)]) {
       const request = vi.fn(async () => ({ layout: response })), journal = vi.fn();
       const session = new WorkspaceLayoutSession(request, journal, pending);

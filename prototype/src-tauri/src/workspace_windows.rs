@@ -72,9 +72,13 @@ impl WorkspaceWindowPlanner {
             return Err("The native workspace snapshot is stale. Reload the saved layout.".into());
         }
         let changed = self.completed.as_ref().is_none_or(|(previous, _)| previous != &intent);
+        let mode_changed = self.completed.as_ref().is_some_and(|(previous, _)|
+            (previous.preset_id == "windowed") != (intent.preset_id == "windowed"));
         Ok(Plan {
             show: if force || changed { desired.iter().cloned().collect() } else { vec![] },
-            hide: self.managed.difference(&desired).cloned().collect(),
+            // Switching application modes leaves existing task windows open.
+            // In particular it must never close a CW surface and emit Stop.
+            hide: if mode_changed { vec![] } else { self.managed.difference(&desired).cloned().collect() },
             generation: intent.generation.clone(), revision, preset_id: intent.preset_id.clone(), intent,
         })
     }
@@ -88,7 +92,13 @@ impl WorkspaceWindowPlanner {
     }
     /// Call only after every planned native operation succeeds. A partial batch
     /// keeps its per-action ownership, but remains retryable at the same intent.
-    pub fn complete(&mut self, plan: &Plan) { self.completed = Some((plan.intent.clone(), plan.revision)); }
+    pub fn complete(&mut self, plan: &Plan) {
+        if self.completed.as_ref().is_some_and(|(previous, _)|
+            (previous.preset_id == "windowed") != (plan.intent.preset_id == "windowed")) {
+            self.managed.retain(|role| plan.intent.placements.iter().any(|(id, placement)| id == role && placement == "window"));
+        }
+        self.completed = Some((plan.intent.clone(), plan.revision));
+    }
     /// Forget the destroyed instance, not the saved intent. A passive refresh
     /// cannot reopen it; a changed placement, explicit apply, or startup can.
     pub fn forget_destroyed(&mut self, label: &str) { self.managed.remove(label); }
@@ -160,7 +170,18 @@ fn checked(snapshot: &Value) -> Result<(Intent, u64, BTreeSet<String>), String> 
         placements.sort();
         if id == active { active_placements = Some(placements); }
     }
-    let placements = active_placements.ok_or_else(invalid)?;
+    let mut placements = active_placements.ok_or_else(invalid)?;
+    // The original built-in preset predates the independent QSO surface.
+    // Resolve its compact Canvas role to the existing QSO singleton, without
+    // rewriting any saved panel geometry or creating another draft owner.
+    if active == "windowed" {
+        if placements.iter().any(|(role, placement)| role == "active-qso" && placement == "window") {
+            for (role, placement) in &mut placements {
+                if role == "active-qso" { *placement = "hidden".into(); }
+                if role == "log-qso" { *placement = "window".into(); }
+            }
+        }
+    }
     let unsupported: Vec<_> = placements.iter().filter(|(role, placement)| placement == "window" && !supports(role)).map(|(role, _)| role.as_str()).collect();
     if !unsupported.is_empty() { return Err(format!("This saved layout requests native windows that are not available yet: {}.", unsupported.join(", "))); }
     let desired = placements.iter().filter(|(_, placement)| placement == "window").map(|(role, _)| role.clone()).collect();
@@ -213,6 +234,31 @@ mod tests {
         for window in SUPPORTED_WINDOWS { assert!(supports(window.id)); assert!(window.width >= 640.0 && window.height >= 480.0); }
         for role in ROLES { assert_eq!(supports(role), ids.contains(role)); }
         assert!(!supports("main")); assert!(!supports("unknown"));
+    }
+    #[test]
+    fn separate_mode_resolves_legacy_qso_and_never_requires_main() {
+        let mut snapshot = fixture(&["active-qso", "world-map"]);
+        snapshot["document"]["activePresetID"] = json!("windowed");
+        snapshot["document"]["presets"][0]["id"] = json!("windowed");
+        let plan = WorkspaceWindowPlanner::default().plan(&snapshot, false).unwrap();
+        assert_eq!(plan.show, ["log-qso", "world-map"]);
+        assert!(!plan.show.iter().any(|id| id == "main" || id == "active-qso"));
+        for window in SUPPORTED_WINDOWS { assert!(supports(window.id)); }
+    }
+    #[test]
+    fn mode_switches_preserve_open_tasks_and_cannot_close_cw_or_emit_stop() {
+        let mut planner = WorkspaceWindowPlanner::default();
+        let canvas = fixture(&["cw", "logbook"]);
+        let plan = planner.plan(&canvas, false).unwrap(); apply(&mut planner, &plan);
+        let mut windows = fixture(&["world-map"]);
+        windows["revision"] = json!(5);
+        windows["document"]["activePresetID"] = json!("windowed");
+        windows["document"]["presets"][0]["id"] = json!("windowed");
+        let plan = planner.plan(&windows, false).unwrap(); assert!(plan.hide.is_empty()); apply(&mut planner, &plan);
+        assert!(planner.plan(&windows, false).unwrap().hide.is_empty());
+        let mut returned = canvas; returned["revision"] = json!(6);
+        let plan = planner.plan(&returned, false).unwrap(); assert!(plan.hide.is_empty()); apply(&mut planner, &plan);
+        assert!(planner.plan(&returned, false).unwrap().hide.is_empty());
     }
     #[test]
     fn cw_window_intent_is_singleton_passive_and_independent_of_main() {

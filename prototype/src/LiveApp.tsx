@@ -37,6 +37,8 @@ import QSOEditor from "./live/QSOEditor";
 import OperatorDesk, { DeskQSO, DeskIntelligence, DeskRotor } from "./live/OperatorDesk";
 import OperatorCanvas from "./live/OperatorCanvas";
 import { useWorkspaceLayout } from "./live/useWorkspaceLayout";
+import { presentWorkspaceMode, switchWorkspaceMode, workspaceMode, workspaceModeEditorBusy } from "./live/workspaceMode";
+import { WorkspaceModeSurface } from "./live/WorkspaceModeSurface";
 import { DeskAntenna } from "./live/StationEquipment";
 import { deskEquipmentKind, equipmentProfile, hasConfiguredRotor } from "./live/equipmentPreferences";
 import CWDesk from "./live/CWDesk";
@@ -49,7 +51,7 @@ import ServiceSettings from "./live/ServiceSettings";
 import { SettingsSession, readSettingsJournal, settingsDraftIsDirty } from "./live/settingsSession";
 import { connectSettingsChanges, requestSettings } from "./live/settingsTransport";
 import { clearLegacyRotorConfiguration, legacyRotorConfiguration, readRotorConfigurationJournal,
-  RotorConfigurationSession } from "./live/rotorConfigurationSession";
+  RotorConfigurationSession, rotorConfigurationDirty } from "./live/rotorConfigurationSession";
 import { connectRotorConfigurationChanges, requestRotorConfiguration } from "./live/rotorConfigurationTransport";
 import WorkspaceSettings from "./live/WorkspaceSettings";
 import WorkspaceGate from "./live/WorkspaceGate";
@@ -125,6 +127,7 @@ function MainLiveApp() {
   const [workspace, setWorkspace] = useState<Data | null>(null);
   const [workspacePending, setWorkspacePending] = useState(true);
   const deskLayout = useWorkspaceLayout(workspace?.workspace_exists === true);
+  const modeAction = useRef<(title: string) => Promise<boolean>>(async () => false);
   const [settingsSession] = useState(() => new SettingsSession(requestSettings,
     journal => journal ? localStorage.setItem(settingsJournalKey, JSON.stringify(journal)) : localStorage.removeItem(settingsJournalKey),
     readSettingsJournal(storedDraftValue(settingsJournalKey))));
@@ -213,10 +216,11 @@ function MainLiveApp() {
     return true;
   }, [setView]);
   useEffect(() => connectWorkspaceNavigation(title => {
+    if (title.startsWith("Workspace Mode: ")) return modeAction.current(title);
     return title === "Sync" ? showSyncSettings() : setView(title);
   }, setError, undefined, retry => {
-    const draft = draftSession.subscribe(retry), contact = contactSession.subscribe(retry);
-    return () => { draft(); contact(); };
+    const draft = draftSession.subscribe(retry), contact = contactSession.subscribe(retry), layout = deskLayout.session.subscribe(retry);
+    return () => { draft(); contact(); layout(); };
   }), [showSyncSettings, setView, draftSession, contactSession, logbookWorking]);
   const [refresh, setRefresh] = useState(0);
   useEffect(() => connectLogbookChanges(() => setRefresh(value => value + 1), setError), []);
@@ -232,6 +236,35 @@ function MainLiveApp() {
       ? { ready: false, reason: "Finish the current logbook or workspace action first." } : { ready: true };
   });
   const spotActivation = useSpotActivation();
+  const canChangeMode = (ownTransition = false) => {
+    const current = draftSession.getSnapshot(), contact = contactSession.getSnapshot(), mutation = logbookMutations.getSnapshot();
+    return !busyRef.current && !logbookWorkingRef.current && !editorBufferPending.current && !mainClosing.current && (ownTransition || !layoutChanging.current) && !editorTransition.current &&
+      !workspaceModeEditorBusy() && !draftSession.dirty && !contact.draft && !mutation.pending && !mutation.busy &&
+      draftSession.canAcceptLocalInput() && contactSession.canAcceptLocalInput() && !current.pending && !contact.pending &&
+      !current.conflict && !contact.conflict && !current.workspaceChanged && !contact.workspaceChanged &&
+      !settingsDraftIsDirty(settingsState.base, settingsState.draft) && !settingsState.pending && !rotorConfigurationState.pending &&
+      !settingsState.saving && !settingsState.conflict && !settingsState.workspaceChanged &&
+      !rotorConfigurationState.saving && !rotorConfigurationState.conflict && !rotorConfigurationState.workspaceChanged &&
+      !rotorConfigurationDirty(rotorConfigurationState.base, rotorConfigurationState.draft);
+  };
+  modeAction.current = async title => {
+    const allowed = canChangeMode();
+    if (allowed) layoutChanging.current = true;
+    try { return await switchWorkspaceMode(deskLayout.session, title.endsWith("Separate Windows") ? "windows" : "canvas", () => allowed && canChangeMode(true)); }
+    catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Workspace mode could not be changed.");
+      const snapshot = deskLayout.session.getSnapshot().snapshot;
+      if (snapshot) void presentWorkspaceMode(snapshot, false).catch(() => {});
+      return true;
+    }
+    finally { if (allowed) layoutChanging.current = false; }
+  };
+  const separateWindows = workspaceMode(deskLayout.state.snapshot) === "windows" && canChangeMode(true) && !deskLayout.state.pending && !deskLayout.state.saving;
+  useEffect(() => {
+    const state = deskLayout.state;
+    if (state.snapshot && !state.pending && !state.saving && !state.conflict && !state.workspaceChanged)
+      void presentWorkspaceMode(state.snapshot, separateWindows).catch(cause => setError(cause instanceof Error ? cause.message : "Workspace mode presentation failed."));
+  }, [deskLayout.state.snapshot, deskLayout.state.pending, deskLayout.state.saving, separateWindows]);
   const acceptsInput = useCallback(() => !mainClosing.current && !layoutChanging.current && !editorTransition.current && !logbookWorkingRef.current && draftSession.canAcceptLocalInput() && contactSession.canAcceptLocalInput(), [draftSession, contactSession]);
   useEffect(() => protectOperatorDraftClose(() => {
     const current = draftSession.getSnapshot(), contact = contactSession.getSnapshot(), mutation = logbookMutations.getSnapshot();
@@ -764,11 +797,11 @@ function MainLiveApp() {
       {workspace?.workspace_exists && <SharedPropagationConditions compact request={request} weatherKey={settings?.gridSquare || ""} />}
       <span className="rail-end">{stats?.stats?.qso_count?.toLocaleString() ?? "—"} contacts · Integrated logbook</span>
     </header>
-    <aside className="sidebar"><nav>{navigation.map(([name, Icon], i) => <div key={name}>{(i === 0 || name === "Station Control") && <div className="nav-group">{i === 0 ? "Station log" : "Services"}</div>}<button aria-current={view === name ? "page" : undefined} onClick={() => setView(name)}><Icon size={17} />{name}</button></div>)}</nav>
+    <aside className="sidebar" style={separateWindows ? { display: "none" } : undefined}><nav>{navigation.map(([name, Icon], i) => <div key={name}>{(i === 0 || name === "Station Control") && <div className="nav-group">{i === 0 ? "Station log" : "Services"}</div>}<button aria-current={view === name ? "page" : undefined} onClick={() => setView(name)}><Icon size={17} />{name}</button></div>)}</nav>
       <SidebarStation snapshot={stationWithRotor} provider={stationProvider} busy={busy} onAction={action => void run(async () => { await request("station_action", { action }); })} />
       <div className="sidebar-foot"><button onClick={() => void openMonitor().catch(e => setError(e.message))}><ExternalLink size={16} />Monitor</button><strong className="teal">{settings?.stationCall || "Station not configured"}</strong><span>{settings?.gridSquare || "Set station grid"}</span></div>
     </aside>
-    <main aria-label={view}>
+    <main aria-label={separateWindows ? "Separate Windows" : view} style={separateWindows ? { gridColumn: "1 / -1" } : undefined}>
       {error && <div className="live-error" role="alert">{error}<button onClick={() => setError("")}>Dismiss</button></div>}
       <SpotActivationStatus status={spotActivation.status && spotActivation.status.phase !== "idle" ? spotActivation.status : spotEditor.status} error={spotEditor.error || spotActivation.error} checking={spotActivation.requesting}
         retire={() => { void Promise.resolve(spotActivation.retire()).then(async retired => { if (retired) { await spotEditor.reconcile(); setError(""); } }); }}
@@ -790,6 +823,7 @@ function MainLiveApp() {
         <button type="button" disabled={!acceptsInput()} onClick={() => { if (!acceptsInput()) return; localStorage.removeItem("xlog.integration.draft"); setLegacyDraft(null); }}>Discard previous draft</button>
       </div>}
       {message && !message.endsWith("· radio frequency and mode confirmed") && <p className="live-message" role="status">{message}</p>}
+      <WorkspaceModeSurface separateWindows={separateWindows}>
       {!workspace?.workspace_exists ? <WorkspaceGate workspace={workspace} pending={workspacePending} busy={busy}
         retry={() => void run(reload)} create={mode => void run(async () => { await request("workspace_create", { mode }); await reload(); })} /> : <>
       {view === "Operator Desk" && <OperatorCanvas {...deskLayout} equipment={deskKind === "none" ? undefined : deskKind}
@@ -845,6 +879,7 @@ function MainLiveApp() {
         onUseSaved={() => { try { settingsSession.useSaved(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Saved Settings could not be restored."); } }}
         requestedTab={settingsTabRequest.tab} requestedTabRevision={settingsTabRequest.revision} syncSettings={settings.logbookMode === "local" ? <p>Standalone local logbook. Wavelog synchronization is disabled in Settings.</p> : <SyncPanel request={request} onChanged={() => setRefresh(n => n + 1)} />} cwContext={cwContext} cwState={cw.state} cwProvider={stationProvider} refreshCW={() => cw.controller.pollWinKeyer()} rotorSettings={<RotorPanel snapshot={rotorState} request={request} onManual={disarmAutoRotor} configurationSession={rotorConfigurationSession} />} workspaceSettings={<WorkspaceSettings {...deskLayout} equipment={deskKind === "none" ? undefined : deskKind} requiredRotor={deskKind === "rotor" && !!rotorState?.owner} available={["active-qso", "callsign-intelligence", "world-map", "band-maps", "dx-cluster", "logbook", "awards", "chaser-dx", "spot-history", ...(deskKind === "none" ? [] : [deskKind] as ("rotor" | "antenna")[])]} />} dataRequest={dataManagementRequest} onDataChanged={() => { setDraft(null); setStats(null); latestWorkspacePreferences.current = null; setWorkspacePreferences(null); setRefresh(n => n + 1); }} />}
       </>}
+      </WorkspaceModeSurface>
     </main></div>;
 }
 

@@ -220,6 +220,27 @@ struct WorkspaceLayoutTests {
         #expect(try reopened.workspaceLayout() == after)
     }
 
+    @Test("Application mode and the exact Canvas layout survive reopening without rewriting panels")
+    func modePersistence() throws {
+        let root = root(); defer { try? FileManager.default.removeItem(at: root) }
+        let url = root.appendingPathComponent("log.sqlite"), db = try LogbookDatabase(url: url)
+        let original = try db.workspaceLayout()
+        var custom = original.document.presets[0]; custom.id = "my-desk"; custom.name = "My desk"
+        _ = try db.applyWorkspaceLayout(.init(expectedRevision: 0, action: .savePreset, presetID: custom.id, preset: custom))
+        _ = try db.applyWorkspaceLayout(activate(1, custom.id))
+        let windows = try db.applyWorkspaceLayout(activate(2))
+        #expect(windows.document.lastCanvasPresetID == custom.id)
+        db.close()
+        let reopened = try LogbookDatabase(url: url); defer { reopened.close() }
+        let saved = try reopened.workspaceLayout()
+        #expect(saved == windows)
+        let canvas = try reopened.applyWorkspaceLayout(activate(3, try #require(saved.document.lastCanvasPresetID)))
+        #expect(canvas.document.activePresetID == custom.id)
+        #expect(canvas.document.presets == windows.document.presets)
+        let legacy = try JSONDecoder().decode(WorkspaceLayoutDocument.self, from: JSONEncoder().encode(original.document))
+        #expect(legacy.lastCanvasPresetID == nil)
+    }
+
     @Test("Concurrent windows cannot both commit the same layout revision")
     func concurrentWrites() async throws {
         let root = root(); defer { try? FileManager.default.removeItem(at: root) }

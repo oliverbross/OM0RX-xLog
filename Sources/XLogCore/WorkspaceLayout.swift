@@ -80,6 +80,7 @@ public struct WorkspaceLayoutDocument: Codable, Equatable, Sendable {
     public var version: Int
     public var activePresetID: String
     public var presets: [WorkspaceLayoutPreset]
+    public var lastCanvasPresetID: String? = nil
     public func validate() throws {
         guard version == Self.currentVersion else { throw WorkspaceLayoutError.invalid }
         try validate(panelIDs: WorkspacePanelID.allCases)
@@ -89,6 +90,9 @@ public struct WorkspaceLayoutDocument: Codable, Equatable, Sendable {
               Set(presets.map(\.id)).count == presets.count,
               presets.contains(where: { $0.id == activePresetID }) else { throw WorkspaceLayoutError.invalid }
         try presets.forEach { try $0.validate(panelIDs: panelIDs) }
+        if let lastCanvasPresetID {
+            guard lastCanvasPresetID != "windowed", presets.contains(where: { $0.id == lastCanvasPresetID }) else { throw WorkspaceLayoutError.invalid }
+        }
     }
 
     /// Schema upgrades preserve operator revisions and every existing placement.
@@ -137,7 +141,8 @@ extension WorkspaceLayoutDocument {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         self = try Self(version: values.decode(Int.self, forKey: .version),
                         activePresetID: values.decode(String.self, forKey: .activePresetID),
-                        presets: values.decode([WorkspaceLayoutPreset].self, forKey: .presets))
+                        presets: values.decode([WorkspaceLayoutPreset].self, forKey: .presets),
+                        lastCanvasPresetID: values.decodeIfPresent(String.self, forKey: .lastCanvasPresetID))
             .migratedToCurrentVersion()
     }
 }
@@ -180,8 +185,12 @@ public struct WorkspaceLayoutMutation: Codable, Equatable, Sendable {
         case .deletePreset:
             guard let index, panel == nil, preset == nil, presetID != document.activePresetID else { throw WorkspaceLayoutError.invalid }
             document.presets.remove(at: index)
+            if document.lastCanvasPresetID == presetID { document.lastCanvasPresetID = nil }
         case .activatePreset:
             guard index != nil, panel == nil, preset == nil else { throw WorkspaceLayoutError.invalid }
+            if presetID == "windowed", document.activePresetID != "windowed" {
+                document.lastCanvasPresetID = document.activePresetID
+            }
             document.activePresetID = presetID
         }
         try document.validate()

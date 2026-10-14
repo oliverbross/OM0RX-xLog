@@ -28,6 +28,14 @@ it("subscribes before reading a menu click retained before the renderer started"
   expect(f.navigate).toHaveBeenCalledWith("Logbook"); expect(f.api.ack).toHaveBeenCalledWith(1);
   disconnect(); expect(f.stop).toHaveBeenCalledOnce();
 });
+it("delivers the retained native workspace mode command and awaits persistence before acknowledgement", async () => {
+  const f = fixture(); f.api.read.mockResolvedValue({ revision: 1, screen: "workspace-mode-windows" });
+  let finish!: () => void;
+  f.navigate.mockImplementation(() => new Promise<void>(resolve => { finish = resolve; }));
+  f.connect(); await tick();
+  expect(f.navigate).toHaveBeenCalledWith("Workspace Mode: Separate Windows"); expect(f.api.ack).not.toHaveBeenCalled();
+  finish(); await tick(); expect(f.api.ack).toHaveBeenCalledWith(1);
+});
 it("coalesces wake-ups while reading and then delivers the newest request", async () => {
   const f = fixture(); let resolve!: (value: unknown) => void;
   f.api.read.mockReturnValueOnce(new Promise(done => { resolve = done; }));

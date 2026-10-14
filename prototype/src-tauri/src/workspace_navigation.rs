@@ -19,6 +19,9 @@ pub fn screens() -> &'static [Screen] {
 }
 pub fn screen(id: &str) -> Option<&'static Screen> { screens().iter().find(|screen| screen.id == id) }
 pub fn menu_screen(id: &str) -> Option<&'static Screen> { screen(id.strip_prefix("workspace_screen_")?) }
+pub fn mode_route(id: &str) -> Option<&'static str> {
+    match id { "workspace_mode_canvas" => Some("workspace-mode-canvas"), "workspace_mode_windows" => Some("workspace-mode-windows"), _ => None }
+}
 
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 pub struct Navigation { pub revision: u64, pub screen: String }
@@ -28,7 +31,7 @@ struct State { revision: u64, pending: Option<Navigation> }
 pub struct WorkspaceNavigation(Mutex<State>);
 impl WorkspaceNavigation {
     pub fn request(&self, id: &str) -> Result<Navigation, String> {
-        screen(id).ok_or("Unknown workspace screen")?;
+        if screen(id).is_none() && !["workspace-mode-canvas", "workspace-mode-windows"].contains(&id) { return Err("Unknown workspace screen".into()); }
         let mut state = self.0.lock().map_err(|_| "Workspace navigation unavailable")?;
         if state.revision >= 9_007_199_254_740_990 { return Err("Workspace navigation revision exhausted".into()); }
         state.revision += 1;
@@ -51,6 +54,18 @@ impl WorkspaceNavigation {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn workspace_mode_choices_use_the_retained_main_navigation_channel() {
+        let state = WorkspaceNavigation::default();
+        for (id, route) in [("workspace_mode_canvas", "workspace-mode-canvas"), ("workspace_mode_windows", "workspace-mode-windows")] {
+            assert_eq!(mode_route(id), Some(route));
+            let pending = state.request(route).unwrap();
+            assert_eq!(state.snapshot("main").unwrap(), Some(pending.clone()));
+            assert!(state.snapshot("cw").is_err());
+            state.acknowledge("main", pending.revision).unwrap();
+        }
+        assert!(mode_route("workspace_mode_radio").is_none());
+    }
     #[test]
     fn inventory_has_all_existing_screens_unique_ids_titles_and_shortcuts() {
         let expected = ["operator-desk", "log-qso", "logbook", "dx-cluster", "spot-history", "world-map", "band-maps", "chaser-dx", "awards", "station-control", "sync", "settings"];

@@ -89,6 +89,5 @@ export function deletePreset(document: LayoutDocument, presetID: string): Layout
 
 export function activatePreset(document: LayoutDocument, presetID: string): LayoutChange {
   presetIn(document, presetID);
-  if (presetID === "windowed") throw new Error("Windowed workspace activation is not available here.");
   return checkedChange(document, { action: "activatePreset", presetID });
 }

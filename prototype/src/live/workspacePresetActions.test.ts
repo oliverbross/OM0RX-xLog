@@ -90,5 +90,5 @@ it("removes only inactive custom presets and keeps Windowed activation unavailab
   for (const id of ["traditional", "windowed"]) expect(() => deletePreset(document, id)).toThrow("built-in");
   expect(activatePreset(document, "traditional")).toEqual({ action: "activatePreset", presetID: "traditional" });
   expect(activatePreset(document, "custom")).toEqual({ action: "activatePreset", presetID: "custom" });
-  expect(() => activatePreset(document, "windowed")).toThrow("not available");
+    expect(activatePreset(document, "windowed")).toEqual({ action: "activatePreset", presetID: "windowed" });
 });

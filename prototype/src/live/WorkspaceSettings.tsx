@@ -4,6 +4,7 @@ import { panelMinimum, type LayoutPreset, type LayoutSnapshot, type LayoutState,
 import { operatorWorkspaceKey, readWorkspacePreferences } from "./operatorWorkspacePreferences";
 import { useWorkspaceWindows } from "./useWorkspaceWindows";
 import "./WorkspaceSettings.css";
+import { protectWorkspaceModeEditor } from "./workspaceMode";
 
 const names: Record<WorkspacePanelID, string> = {
   "active-qso": "Active QSO", "log-qso": "Log QSO", logbook: "Logbook", "callsign-intelligence": "Callsign intelligence",
@@ -31,6 +32,7 @@ export default function WorkspaceSettings({ state, session, subscriptionError, a
   const [removal, setRemoval] = useState<{ base: LayoutSnapshot; id: string; name: string } | null>(null);
   const [working, setWorking] = useState(false);
   const [message, setMessage] = useState("");
+  useEffect(() => { if (draft || removal || working) return protectWorkspaceModeEditor(); }, [draft, removal, working]);
   const nameInput = useRef<HTMLInputElement>(null);
   useEffect(() => { if (draft) nameInput.current?.focus(); }, [draft?.preset.id]);
   const snapshot = state.snapshot;
@@ -104,7 +106,7 @@ export default function WorkspaceSettings({ state, session, subscriptionError, a
         <button type="button" disabled={blocked || !!draft || !!removal || protectedPreset || selected?.id === snapshot?.document.activePresetID} onClick={() => { if (snapshot && selected) setRemoval({ base: structuredClone(snapshot), id: selected.id, name: selected.name }); }}>Delete layout</button>
       </div>
     </div>
-    {!draft && !removal && <p className="workspace-settings-help">{selected?.id === "windowed" ? "Full windowed restoration is not available yet. Existing window placements are retained." : protectedPreset
+    {!draft && !removal && <p className="workspace-settings-help">{selected?.id === "windowed" ? "Use Window → Workspace Mode → Separate Windows to work in independent task windows. Each window remembers its position and size." : protectedPreset
       ? "Traditional keeps the familiar docked desk. Duplicate it to choose panels and arrange your own workspace."
       : "Use this layout on the Operator Desk. Edit its panels here; move and resize them on the desk with Arrange panels."}</p>}
     {(hasSavedWindows || native.error || native.status?.state === "error") && <div className="workspace-native-outcome" role="status">
