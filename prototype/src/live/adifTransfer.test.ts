@@ -101,6 +101,39 @@ it("accepts XML namespaces, comments, processing instructions and CDATA field te
     .toBe("<COMMENT:10><EOR> & é<EOR>\r\n");
 });
 
+it("retains uniform namespace aliases, advisory schema hints and exact extension metadata", () => {
+  const source = '<a:ADX xmlns:a="urn:adif" xmlns:b="urn:adif" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:adif https://example.invalid/never-fetch.xsd">\n' +
+    '<b:HEADER><a:USERDEF FIELDID="17" TYPE="g">Mixed_Custom</a:USERDEF></b:HEADER>\t<b:RECORDS>\r\n<b:RECORD>' +
+    '<a:COMMENT>Žilina 😀</a:COMMENT><b:USERDEF FIELDNAME="Mixed_Custom">未知</b:USERDEF>' +
+    '<a:APP PROGRAMID="Mixed_App" FIELDNAME="Opaque_Name" TYPE="g">é</a:APP></b:RECORD></b:RECORDS></a:ADX>';
+  const imported = decodeADIFDocument(new TextEncoder().encode(source).buffer);
+  const writer = new ADIFExportDocument("adx"); writer.append(imported.text, 1, imported.fieldMetadata);
+  expect(decodeADIFDocument(new TextEncoder().encode(writer.finish()).buffer)).toEqual(imported);
+  expect(decode(adx("<CALL>W1AW</CALL>").replace("<ADX>", '<ADX xmlns:s="http://www.w3.org/2001/XMLSchema-instance" s:noNamespaceSchemaLocation="https://example.invalid/never-fetch.xsd">')))
+    .toBe(adiRecord({ CALL: "W1AW" }));
+});
+
+it.each([
+  adx("<CUSTOM>silently reclassified</CUSTOM>"),
+  adx("<call>W1AW</call>"),
+  adx("<ADIF_VER>3.1.7</ADIF_VER>"),
+  adx("<CALL>W1AW</CALL>", "<CALL>lost</CALL>"),
+  adx("<CALL>W1AW</CALL>", '<APP PROGRAMID="TEST" FIELDNAME="LOST">value</APP>'),
+  ...["ADIF_VER", "CREATED_TIMESTAMP", "PROGRAMID", "PROGRAMVERSION"].map(name =>
+    adx("<CALL>W1AW</CALL>", `<${name}>first</${name}><${name}>second</${name}>`)),
+  ...["ADX", "HEADER", "RECORDS", "RECORD"].map(name =>
+    adx("<CALL>W1AW</CALL>").replace(`<${name}>`, `<${name} unknown="lost">`)),
+  adx("<CALL>W1AW</CALL>").replace("<ADX>", '<ADX xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true">'),
+  adx("<CALL>W1AW</CALL>").replace("<HEADER>", '<HEADER xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="ignored.xsd">'),
+  ...["HEADER", "RECORDS", "RECORD", "CALL"].map(name =>
+    adx("<CALL>W1AW</CALL>").replace(`<${name}>`, `<${name} xmlns="urn:foreign">`)),
+  '<ADX xmlns="urn:adif"><HEADER/><RECORDS><RECORD><CALL xmlns="">W1AW</CALL></RECORD></RECORDS></ADX>',
+  adx("<CALL>W1AW</CALL>").replace("<RECORDS>", "<RECORDS>\u00a0"),
+  adx("<CALL>W1AW</CALL>").replace("<HEADER>", "<HEADER>\uFEFF"),
+])("rejects misplaced, foreign or silently discarded ADX structure before preview: %s", source => {
+  expect(() => decode(source)).toThrow("invalid or unsupported XML structure");
+});
+
 it.each([
   '<!DOCTYPE ADX [<!ENTITY custom "value">]>' + adx("<COMMENT>&custom;</COMMENT>"),
   '<!DOCTYPE ADX SYSTEM "https://example.invalid/external.dtd">' + adx("<CALL>W1AW</CALL>"),

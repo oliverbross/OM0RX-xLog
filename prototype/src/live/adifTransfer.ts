@@ -385,14 +385,31 @@ function adxToADI(text: string, fieldMetadata?: (ADIFFieldMetadata | null)[]): s
   const document = new DOMParser().parseFromString(text, "application/xml");
   const fail = (): never => { throw new Error("ADX contains invalid or unsupported XML structure or fields."); };
   if (document.getElementsByTagName("parsererror").length) fail();
+  const root = document.documentElement;
+  const headerFields = new Set(["ADIF_VER", "CREATED_TIMESTAMP", "PROGRAMID", "PROGRAMVERSION"]);
+  // Retain the existing uniform-namespace import compatibility, but never
+  // reinterpret a foreign vocabulary (including xmlns="" resets) as ADIF.
+  function vocabulary(element: Element): void {
+    if (element.namespaceURI !== root.namespaceURI) fail();
+  }
+  function container(element: Element, schemaHints = false): void {
+    vocabulary(element);
+    if (Array.from(element.attributes).some(attribute =>
+      attribute.namespaceURI !== "http://www.w3.org/2000/xmlns/" && !(schemaHints &&
+        attribute.namespaceURI === "http://www.w3.org/2001/XMLSchema-instance" &&
+        ["schemaLocation", "noNamespaceSchemaLocation"].includes(attribute.localName)))) fail();
+    // Schema hints are advisory only: never fetch schemas or external resources.
+  }
   function children(element: Element): Element[] {
     if (Array.from(element.childNodes).some(node =>
-      (node.nodeType === 3 && node.textContent?.trim()) || node.nodeType === 4)) fail();
+      (node.nodeType === 3 && /[^\t\r\n ]/.test(node.textContent ?? "")) || node.nodeType === 4)) fail();
     return Array.from(element.children);
   }
   function field(element: Element, header = false): [string, string] {
+    vocabulary(element);
     if (element.children.length) fail();
     let name = element.localName;
+    if (header ? !headerFields.has(name) && name !== "USERDEF" : !standardADXFields.has(name) && !["APP", "USERDEF"].includes(name)) fail();
     let attributes: string[] = [];
     if (name === "APP") {
       const program = element.getAttribute("PROGRAMID"), fieldName = element.getAttribute("FIELDNAME");
@@ -411,15 +428,21 @@ function adxToADI(text: string, fieldMetadata?: (ADIFFieldMetadata | null)[]): s
     if (!header) validateADXValue(name, element.textContent ?? "");
     return [name, element.textContent ?? ""];
   }
-  const root = document.documentElement;
   if (root.localName !== "ADX") fail();
+  container(root, true);
   const sections = children(root);
   if (sections.length !== 2 || sections[0].localName !== "HEADER" || sections[1].localName !== "RECORDS") fail();
+  sections.forEach(section => container(section));
   const declarations = new Map<string, { name: string; attributes: Record<string, string> }>();
   const declarationIDs = new Set<string>();
+  const seenHeaderFields = new Set<string>();
   for (const entry of children(sections[0])) {
     field(entry, true);
-    if (entry.localName !== "USERDEF") continue;
+    if (entry.localName !== "USERDEF") {
+      if (seenHeaderFields.has(entry.localName)) fail();
+      seenHeaderFields.add(entry.localName);
+      continue;
+    }
     const name = entry.textContent ?? "", key = name.toUpperCase();
     const attributes = Object.fromEntries(Array.from(entry.attributes).filter(attribute => !attribute.namespaceURI).map(attribute => [attribute.name, attribute.value]));
     if (declarations.has(key) || declarationIDs.has(attributes.FIELDID)) metadataError();
@@ -431,6 +454,7 @@ function adxToADI(text: string, fieldMetadata?: (ADIFFieldMetadata | null)[]): s
   let size = 0;
   for (const record of records) {
     if (record.localName !== "RECORD") fail();
+    container(record);
     const fields = children(record);
     if (!fields.length || fields.length > 128) fail();
     const seen = new Set<string>();
