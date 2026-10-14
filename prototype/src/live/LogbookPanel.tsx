@@ -6,7 +6,7 @@ import type { DraftSnapshot } from "./operatorDraftSession";
 import { useLogbookCapacity } from "./logbookCapacity";
 import { LogbookColumnHeader, LogbookColumns, useLogbookColumns } from "./LogbookColumns";
 import { logbookColumns, type LogbookColumn, type LogbookColumnContext } from "./logbookColumnPreferences";
-import { adifBatches, decodeADIF } from "./adifTransfer";
+import { adifBatches, decodeADIF, ADIFExportDocument, type ADIFExportFormat } from "./adifTransfer";
 
 type QSO = Record<string, unknown> & {
   id: string;
@@ -138,6 +138,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
   // Export checks are separate from the active contact used by Edit/Details/Delete.
   // They belong only to this loaded page, never to unseen search results.
   const [exportSelection, setExportSelection] = useState<string[]>([]);
+  const [exportFormat, setExportFormat] = useState<ADIFExportFormat>("adi");
   const previousCapacity = useRef(pageSize);
   useLayoutEffect(() => {
     if (previousCapacity.current === pageSize) return;
@@ -307,6 +308,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
   }
 
   async function exportAll(scope: "all" | "filtered" | "selected" = "all") {
+    const format = exportFormat;
     const ids = (page?.qsos ?? []).filter(qso => exportSelection.includes(qso.id)).map(qso => qso.id);
     if (scope === "selected" && (loading || !ids.length)) return;
     if (!beginWorking()) return;
@@ -316,22 +318,25 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
         action: "begin", scope, ...(scope === "filtered" ? { search } : scope === "selected" ? { ids } : {}),
       }));
       const total = snapshot.total;
+      if (!Number.isSafeInteger(total) || total < 0 || typeof snapshot.token !== "string" || !snapshot.token) throw new Error("Export snapshot could not be verified.");
       if (!total) throw new Error("There are no QSOs to export.");
-      const parts: string[] = [];
+      const exportDocument = new ADIFExportDocument(format);
       let exported = 0;
       while (exported < total) {
         const response = result<{ text: string; count: number }>(
           await onRequest("logbook_export_adif", { action: "read", token: snapshot.token, offset: exported, limit: requestPageSize }),
         );
-        if (response.count <= 0) throw new Error("Export stopped before the end of the logbook.");
-        parts.push(response.text);
+        if (!Number.isSafeInteger(response.count) || response.count <= 0 || response.count > Math.min(requestPageSize, total - exported) || typeof response.text !== "string") {
+          throw new Error("Export stopped before the end of the logbook; its frame could not be verified.");
+        }
+        exportDocument.append(response.text, response.count);
         exported += response.count;
         setNotice(`Preparing ADIF · ${exported.toLocaleString()} of ${total.toLocaleString()} QSOs`);
       }
-      const url = URL.createObjectURL(new Blob([parts.join("")], { type: "text/plain;charset=utf-8" }));
+      const url = URL.createObjectURL(new Blob([exportDocument.finish()], { type: format === "adx" ? "application/xml;charset=utf-8" : "text/plain;charset=utf-8" }));
       const link = document.createElement("a");
       link.href = url;
-      link.download = `OM0RX-xLog-integrated-${new Date().toISOString().slice(0, 10)}.adi`;
+      link.download = `OM0RX-xLog-integrated-${new Date().toISOString().slice(0, 10)}.${format}`;
       link.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
       setNotice(`${exported.toLocaleString()} QSOs exported from the integrated logbook.`);
@@ -370,6 +375,9 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
           <button type="button" onClick={() => fileInput.current?.click()} disabled={busy}>
             <FileUp size={14} /> Import ADIF
           </button>
+          <label>Export format <select value={exportFormat} disabled={busy} onChange={event => setExportFormat(event.target.value as ADIFExportFormat)}>
+            <option value="adi">ADI</option><option value="adx">ADX (XML)</option>
+          </select></label>
           <button type="button" onClick={() => void exportAll()} disabled={busy}>
             <Download size={14} /> Export all
           </button>

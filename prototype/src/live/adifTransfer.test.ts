@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { expect, it } from "vitest";
-import { adifBatches, decodeADIF } from "./adifTransfer";
+import { adifBatches, decodeADIF, ADIFExportDocument } from "./adifTransfer";
 
 it("rejects malformed UTF-8 instead of replacing the invalid bytes", () => {
   expect(() => decodeADIF(new Uint8Array([60, 67, 65, 76, 76, 58, 49, 62, 0xff]).buffer)).toThrow("Only UTF-8 ADI or ADX");
@@ -72,4 +72,60 @@ it("batches only complete records with byte and record bounds", () => {
 });
 it.each(["no records", "<CALL:4>W1", "<CALL:4>W1AW", "<CALL:x>W1AW<EOR>"])("rejects incomplete or malformed input %s", text => {
   expect(() => adifBatches(text)).toThrow();
+});
+
+const adiRecord = (fields: Record<string, string>) => Object.entries(fields).map(([name, value]) => `<${name}:${new TextEncoder().encode(value).length}>${value}`).join("") + "<EOR>\r\n";
+
+it("exports ADX from multiple frozen frames with extensions, Unicode, XML escapes and exact CR preservation", () => {
+  const writer = new ADIFExportDocument("adx");
+  const first = adiRecord({ CALL: "W1AW", COMMENT: 'Žilina <EOR> & "quoted" 😀', NOTES: "line1\r\nline2\rline3", APP_TEST_OPAQUE: "é", CUSTOM: "", CLUBLOG_QSO_UPLOAD_STATUS: "Y" });
+  const second = adiRecord({ CALL: "K1ABC", CUSTOM: "new", ANOTHER: "x" });
+  writer.append("<ADIF_VER:5>3.1.7<EOH>\r\n" + first, 1);
+  writer.append(second, 1);
+  const xml = writer.finish();
+  const document = new DOMParser().parseFromString(xml, "application/xml");
+  expect(document.querySelector("parsererror")).toBeNull();
+  expect(xml).toContain('&lt;EOR&gt; &amp; &quot;quoted&quot;');
+  expect(xml).toContain("line1&#13;\nline2&#13;line3");
+  expect(xml).toContain('<APP PROGRAMID="TEST" FIELDNAME="OPAQUE" TYPE="G">é</APP>');
+  expect(xml).toContain('<USERDEF FIELDID="1" TYPE="G">CUSTOM</USERDEF>');
+  expect(xml).toContain('<USERDEF FIELDNAME="CUSTOM"></USERDEF>');
+  expect(xml).toContain("<CLUBLOG_QSO_UPLOAD_STATUS>Y</CLUBLOG_QSO_UPLOAD_STATUS>");
+  expect(document.querySelectorAll("HEADER USERDEF")).toHaveLength(2);
+  expect(decode(xml)).toBe(first + second);
+});
+
+it("keeps ADI output as the exact original frozen frames", () => {
+  const writer = new ADIFExportDocument("adi");
+  const first = "<ADIF_VER:5>3.1.7<EOH>\r\n" + adiRecord({ CALL: "W1AW" });
+  const second = adiRecord({ CALL: "K1ABC" });
+  writer.append(first, 1); writer.append(second, 1);
+  expect(writer.finish()).toBe(first + second);
+});
+
+it.each([
+  "<CALL:4>W1AW<CALL:4>K1AB<EOR>", "<CALL:10>short<EOR>", "<CALL:4>W1AW", "<EOR>",
+  "<CALL:2>é<CALL:1>x<EOR>", "<CALL:4:S>W1AW<EOR>", "<CALL:4>W1AW<EOR>trailing",
+  adiRecord({ APP_BROKEN: "value" }), adiRecord({ HEADER: "value" }), adiRecord({ PROGRAMID: "value" }),
+  adiRecord({ NOTES: "bad\0value" }), adiRecord({ NOTES: "bad\u0001value" }), adiRecord({ NOTES: "\ufffe" }),
+  "<NOTES:3>\ud800<EOR>", "<PROGRAMID:4>test<EOH><CALL:4>W1AW<EOR>",
+])("fails closed on frozen fields that cannot be converted losslessly: %s", source => {
+  const writer = new ADIFExportDocument("adx");
+  expect(() => writer.append(source, 1)).toThrow();
+  expect(() => writer.finish()).toThrow("incomplete");
+});
+
+it("rejects count mismatches, input/output size overruns and oversized custom dictionaries", () => {
+  const record = adiRecord({ CALL: "W1AW" });
+  expect(() => new ADIFExportDocument("adx").append(record, 2)).toThrow("count");
+  expect(() => new ADIFExportDocument("adi").append(record, NaN)).toThrow("count");
+  expect(() => new ADIFExportDocument("adi", 10).append(record, 1)).toThrow("file limit");
+  const expanded = new ADIFExportDocument("adx", 60);
+  expect(() => expanded.append(adiRecord({ NOTES: "&".repeat(30) }), 1)).toThrow("file limit");
+  const headerBound = new ADIFExportDocument("adx", 100);
+  headerBound.append(record, 1);
+  expect(() => headerBound.finish()).toThrow("file limit");
+  const dictionary = new ADIFExportDocument("adx");
+  for (let index = 0; index < 128; index++) dictionary.append(adiRecord({ [`CUSTOM_${index}`]: "value" }), 1);
+  expect(() => dictionary.append(adiRecord({ CUSTOM_MORE: "value" }), 1)).toThrow("custom field");
 });
