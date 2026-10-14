@@ -9,7 +9,7 @@ pub struct WindowSpec {
     pub width: f64,
     pub height: f64,
 }
-pub const SUPPORTED_WINDOWS: [WindowSpec; 16] = [
+pub const SUPPORTED_WINDOWS: [WindowSpec; 17] = [
     WindowSpec { id: "callsign-intelligence", title: "OM0RX-xLog — Callsign Intelligence", width: 700.0, height: 620.0 },
     WindowSpec { id: "log-qso", title: "OM0RX-xLog — Log QSO", width: 800.0, height: 800.0 },
     WindowSpec { id: "spot-history", title: "OM0RX-xLog — Spot History", width: 1180.0, height: 800.0 },
@@ -26,6 +26,7 @@ pub const SUPPORTED_WINDOWS: [WindowSpec; 16] = [
     WindowSpec { id: "rotor", title: "OM0RX-xLog — Rotor", width: 700.0, height: 600.0 },
     WindowSpec { id: "station-status", title: "OM0RX-xLog — Station Status", width: 780.0, height: 650.0 },
     WindowSpec { id: "propagation", title: "OM0RX-xLog — Propagation", width: 800.0, height: 600.0 },
+    WindowSpec { id: "station-identity", title: "OM0RX-xLog — Station Identity", width: 780.0, height: 650.0 },
 ];
 pub fn supports(label: &str) -> bool { SUPPORTED_WINDOWS.iter().any(|window| window.id == label) }
 
@@ -179,7 +180,7 @@ mod tests {
     #[test]
     fn registry_covers_only_real_windows() {
         let ids: BTreeSet<_> = SUPPORTED_WINDOWS.iter().map(|window| window.id).collect();
-        assert_eq!(ids.len(), 16);
+        assert_eq!(ids.len(), 17);
         let capabilities: Value = serde_json::from_str(include_str!("../capabilities/default.json")).unwrap();
         for id in &ids { assert!(capabilities["windows"].as_array().unwrap().contains(&json!(id))); }
         for window in SUPPORTED_WINDOWS { assert!(supports(window.id)); assert!(window.width >= 640.0 && window.height >= 480.0); }
@@ -222,6 +223,15 @@ mod tests {
         apply(&mut planner, &plan); planner.forget_destroyed("propagation");
         assert!(planner.plan(&snapshot, false).unwrap().show.is_empty());
         assert_eq!(planner.plan(&snapshot, true).unwrap().show, ["propagation"]);
+    }
+    #[test]
+    fn station_identity_window_is_singleton_and_passive_after_manual_close() {
+        let mut planner = WorkspaceWindowPlanner::default();
+        let snapshot = fixture(&["station-identity"]);
+        let plan = planner.plan(&snapshot, false).unwrap(); assert_eq!(plan.show, ["station-identity"]);
+        apply(&mut planner, &plan); planner.forget_destroyed("station-identity");
+        assert!(planner.plan(&snapshot, false).unwrap().show.is_empty());
+        assert_eq!(planner.plan(&snapshot, true).unwrap().show, ["station-identity"]);
     }
     #[test]
     fn station_control_intent_does_not_depend_on_main_or_reopen_after_passive_reads() {
@@ -303,7 +313,7 @@ mod tests {
         planner.acknowledge_show("logbook").unwrap();
         assert_eq!(planner.plan(&fixture(&["awards"]), false).unwrap().hide, ["logbook"]);
         assert_eq!(planner.plan(&fixture(&["logbook", "awards"]), false).unwrap().show, ["awards", "logbook"]);
-        assert!(planner.acknowledge_show("station-identity").is_err());
+        assert!(planner.acknowledge_show("active-qso").is_err());
         assert!(planner.acknowledge_hide("main").is_err());
     }
     #[test]

@@ -32,7 +32,7 @@ for (const name of ["WorldMap", "BandMaps", "Monitor"]) {
   assert(bytes <= (name === "BandMaps" ? 400_000 : 1_600_000), `${name} startup JavaScript budget exceeded: ${bytes}`);
   console.log(JSON.stringify({ window: name, bytes, gzip: data.reduce((sum, item) => sum + gzipSync(item).length, 0), files }));
 }
-for (const name of ["Awards", "Logbook", "Cluster", "QSO", "SpotHistory", "CallsignIntelligence", "Settings", "Opportunities", "StationControl", "CW", "Rotor", "StationStatus", "Propagation"]) {
+for (const name of ["Awards", "Logbook", "Cluster", "QSO", "SpotHistory", "CallsignIntelligence", "Settings", "Opportunities", "StationControl", "CW", "Rotor", "StationStatus", "Propagation", "StationIdentity"]) {
   const entry = `src/live/Detached${name}Surface.tsx`;
   const graph = closure(entry, closure("index.html"));
   assert(!graph.has(main), `${name} imports the main station workspace`);

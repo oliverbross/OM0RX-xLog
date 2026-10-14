@@ -7,6 +7,8 @@ const cw = vi.hoisted(() => vi.fn());
 const rotor = vi.hoisted(() => vi.fn());
 const status = vi.hoisted(() => vi.fn());
 const propagation = vi.hoisted(() => vi.fn());
+const identity = vi.hoisted(() => vi.fn());
+vi.mock("../src/live/DetachedStationIdentitySurface", () => { identity(); return { DetachedStationIdentitySurface: "station-identity-surface" }; });
 vi.mock("../src/live/DetachedPropagationSurface", () => { propagation(); return { DetachedPropagationSurface: "propagation-surface" }; });
 vi.mock("../src/live/DetachedStationStatusSurface", () => { status(); return { DetachedStationStatusSurface: "station-status-surface" }; });
 vi.mock("../src/live/DetachedRotorSurface", () => { rotor(); return { DetachedRotorSurface: "rotor-surface" }; });
@@ -21,7 +23,12 @@ vi.mock("../src/live/DetachedSpotHistorySurface", () => { loaded.history(); retu
 vi.mock("../src/live/DetachedClusterSurface", () => { loaded.cluster(); return { DetachedClusterSurface: "cluster-surface" }; });
 vi.mock("../src/live/DetachedWorldMapSurface", () => { maps.world(); return { DetachedWorldMapSurface: "world-map-surface" }; });
 vi.mock("../src/live/DetachedBandMapsSurface", () => { maps.bands(); return { DetachedBandMapsSurface: "band-maps-surface" }; });
-beforeEach(() => { vi.resetModules(); [...Object.values(loaded), ...Object.values(maps), monitor, station, cw, rotor, status, propagation].forEach(mock => mock.mockClear()); });
+beforeEach(() => { vi.resetModules(); [...Object.values(loaded), ...Object.values(maps), monitor, station, cw, rotor, status, propagation, identity].forEach(mock => mock.mockClear()); });
+it("loads Station Identity without evaluating the main station controller", async () => {
+  const { loadWindowSurface } = await import("../src/windowSurface");
+  expect(await loadWindowSurface("?view=station-identity")).toBe("station-identity-surface");
+  expect(identity).toHaveBeenCalledOnce(); expect(loaded.main).not.toHaveBeenCalled();
+});
 it("loads Propagation without evaluating the main station controller", async () => {
   const { loadWindowSurface } = await import("../src/windowSurface");
   expect(await loadWindowSurface("?view=propagation")).toBe("propagation-surface");
@@ -113,4 +120,9 @@ it("does not fall back to main when Propagation cannot load", async () => {
   const { loadWindowSurface } = await import("../src/windowSurface");
   await expect(loadWindowSurface("?view=propagation")).rejects.toThrow();
   expect(loaded.main).not.toHaveBeenCalled();
+});
+it("does not fall back to main when Station Identity cannot load", async () => {
+  vi.doMock("../src/live/DetachedStationIdentitySurface", () => { throw new Error("Identity chunk unavailable"); });
+  const { loadWindowSurface } = await import("../src/windowSurface");
+  await expect(loadWindowSurface("?view=station-identity")).rejects.toThrow(); expect(loaded.main).not.toHaveBeenCalled();
 });

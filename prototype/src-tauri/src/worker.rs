@@ -19,6 +19,7 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     if label == "rotor" { return Err("Rotor can only read retained native rotor telemetry.".into()); }
     if label == "station-status" { return Err("Station Status can only read retained native station observations.".into()); }
     if label == "propagation" { return Err("Propagation can only use the typed shared public-conditions session.".into()); }
+    if label == "station-identity" { return Err("Station Identity can only read its retained non-secret projection.".into()); }
     if request["method"].as_str().is_some_and(|method| method.starts_with("spot_draft_")) {
         return Err("Only the native activation owner can use this method.".into());
     }
@@ -352,6 +353,7 @@ impl Session {
         if !self.alive.swap(false, Ordering::AcqRel) {
             return;
         }
+        crate::station_identity::retire(self.generation);
         // A retained local Hamlib rotor outlives Swift. Retire its automatic
         // authority too, not only permits already pinned to this generation.
         // Metadata only: never acquire a rotor driver lock or perform I/O.
@@ -689,7 +691,10 @@ fn request_using(request: Value, session: impl FnOnce() -> Result<Arc<Session>, 
         .map_err(|_| "Prototype worker is busy; try again")?;
     let _slot = RequestSlot;
     let session = session()?;
-    request_in_session(&session, request, RESPONSE_TIMEOUT)
+    let identity = crate::station_identity::begin(&request, session.generation);
+    let response = request_in_session(&session, request, RESPONSE_TIMEOUT);
+    crate::station_identity::finish(identity, &response);
+    response
 }
 
 fn request_in_session(
@@ -813,6 +818,13 @@ mod tests {
         for method in ["propagation_snapshot", "propagation_refresh", "weather", "workspace_layout_load", "settings_load", "secret_status", "secret_save",
             "station_connect", "station_snapshot", "station_radio_control", "rotor_stop", "hamlib_snapshot", "hamlib_control", "winkeyer_snapshot", "sync_run", "health"] {
             assert!(validate_surface("propagation", &json!({"id":"propagation","method":method,"params":{}})).is_err(), "{method}");
+        }
+    }
+    #[test]
+    fn station_identity_child_cannot_read_seed_or_write_settings_or_call_devices() {
+        for method in ["settings_load", "settings_save", "settings_receipt", "secret_status", "secret_save", "workspace_status", "workspace_layout_load", "workspace_create",
+            "station_connect", "station_configuration", "station_radio_control", "rotor_stop", "hamlib_snapshot", "hamlib_control", "winkeyer_snapshot", "sync_run", "health"] {
+            assert!(validate_surface("station-identity", &json!({"id":"identity","method":method,"params":{}})).is_err(), "{method}");
         }
     }
     #[test]
