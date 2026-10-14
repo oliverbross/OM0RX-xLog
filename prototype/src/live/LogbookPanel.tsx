@@ -129,7 +129,10 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
   useEffect(() => { onBusyChange?.(busy); }, [busy, onBusyChange]);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [importReview, setImportReview] = useState<{ name: string; batches: string[]; records: number; duplicates: number; generation: string } | null>(null);
+  const [importReview, setImportReview] = useState<{ name: string; batches: string[]; records: number; duplicates: number; generation: string; token: string } | null>(null);
+  const [updateDuplicates, setUpdateDuplicates] = useState(false);
+  const [updateFields, setUpdateFields] = useState<string[]>([]);
+  const updateFieldOptions = ["NAME", "QTH", "GRIDSQUARE", "COMMENT", "NOTES", "RST_SENT", "RST_RCVD", "QSL_SENT", "QSL_RCVD", "QSL_SENT_VIA", "QSL_VIA", "LOTW_QSL_SENT", "LOTW_QSL_RCVD", "IOTA", "SOTA_REF", "POTA_REF", "WWFF_REF"];
   const [confirmDelete, setConfirmDelete] = useState<DraftSnapshot | null>(null);
   const [selectedID, setSelectedID] = useState<string | null>(null);
   const previousCapacity = useRef(pageSize);
@@ -240,7 +243,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
 
   async function importFile(file: File) {
     if (!beginWorking()) return;
-    setError(""); setNotice(""); setImportReview(null);
+    setError(""); setNotice(""); setImportReview(null); setUpdateDuplicates(false); setUpdateFields([]);
     try {
       if (file.size > 32 * 1024 * 1024) throw new Error("Choose an ADIF file smaller than 32 MiB.");
       const batches = adifBatches(decodeADIF(await file.arrayBuffer()));
@@ -256,19 +259,29 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
         records += preview.records; duplicates += preview.duplicates;
         setNotice(`Validating ADIF · ${index + 1} of ${batches.length} batches`);
       }
-      if (mounted.current) { setImportReview({ name: file.name, batches, records, duplicates, generation }); setNotice(""); }
+      if (mounted.current) { setImportReview({ name: file.name, batches, records, duplicates, generation, token }); setNotice(""); }
     } catch (cause) { if (mounted.current) setError(cause instanceof Error ? cause.message : String(cause)); }
     finally { finishWorking(); }
   }
 
   async function confirmImport() {
-    if (!importReview || !beginWorking()) return;
-    const { batches, generation } = importReview;
+    if (!importReview || (updateDuplicates && !updateFields.length) || !beginWorking()) return;
+    const { batches, generation, token } = importReview;
     setImportReview(null); setError(""); setNotice("");
     let imported = 0;
     let skipped = 0;
+    let updated = 0;
     try {
       for (const [index, batch] of batches.entries()) {
+        if (updateDuplicates) {
+          const response = result<{ updated: number }>(await onRequest("logbook_import_adif", {
+            action: "update", token, generation, chunk: index, fields: updateFields, confirmed: true,
+          }));
+          if (!Number.isSafeInteger(response.updated) || response.updated < 0) throw new Error("The update result could not be verified.");
+          updated += response.updated;
+          setNotice(`Updating ${index + 1} of ${batches.length} batches · ${updated} changed`);
+          continue;
+        }
         const response = result<{ imported: number; skipped_duplicates: number }>(
           await onRequest("logbook_import_adif", { text: batch, generation }),
         );
@@ -278,9 +291,10 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
       }
       setOffset(0);
       await reload(0);
-      setNotice(`${imported} QSOs imported; ${skipped} duplicates skipped.`);
+      setNotice(updateDuplicates ? `${updated} duplicate QSOs updated. New and repeated records were skipped.` : `${imported} QSOs imported; ${skipped} duplicates skipped.`);
     } catch (cause) {
-      setError(`${imported} QSOs were imported before the operation stopped. ${cause instanceof Error ? cause.message : String(cause)}`);
+      setError(`${imported} QSOs imported; ${updated} updates acknowledged before the operation stopped. The last batch may have committed if its reply was lost; inspect the logbook before reviewing again. ${cause instanceof Error ? cause.message : String(cause)}`);
+      await reload(0);
     } finally {
       finishWorking();
       if (fileInput.current) fileInput.current.value = "";
@@ -362,9 +376,14 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
       {error && <p className="live-logbook-feedback error" role="alert">{error}</p>}
       {notice && <p className="live-logbook-feedback" role="status">{notice}</p>}
       {importReview && <div className="live-logbook-feedback" role="group" aria-label="Review ADIF import">
-        <p>{importReview.name} · {importReview.records.toLocaleString()} validated records. Duplicate policy: skip existing contacts and repeated records; existing fields remain unchanged.</p>
+        <p>{importReview.name} · {importReview.records.toLocaleString()} validated records. {updateDuplicates ? "Duplicate policy: update only selected fields of reviewed existing contacts." : "Duplicate policy: skip existing contacts and repeated records; existing fields remain unchanged."}</p>
         <p>{importReview.duplicates.toLocaleString()} duplicates found during preview. Counts are checked again during import.</p>
-        <button type="button" disabled={busy} onClick={() => void confirmImport()}>Confirm import</button>
+        <label><input type="checkbox" disabled={busy} checked={updateDuplicates} onChange={event => setUpdateDuplicates(event.target.checked)} /> Update selected fields of reviewed duplicates instead</label>
+        {updateDuplicates && <fieldset disabled={busy}><legend>Fields to replace</legend>
+          <p>Only present incoming values replace selected fields; present empty values clear them. New records and repeated duplicates are skipped. Unselected and unsupported fields are preserved. Changes become pending edits and may upload through configured synchronization.</p>
+          {updateFieldOptions.map(field => <label key={field}><input type="checkbox" checked={updateFields.includes(field)} onChange={event => setUpdateFields(current => event.target.checked ? [...current, field] : current.filter(value => value !== field))} />{field}</label>)}
+        </fieldset>}
+        <button type="button" disabled={busy || (updateDuplicates && !updateFields.length)} onClick={() => void confirmImport()}>{updateDuplicates ? "Confirm duplicate updates" : "Confirm import"}</button>
         <button type="button" disabled={busy} onClick={() => setImportReview(null)}>Cancel import</button>
       </div>}
       {deleting && <div className="live-logbook-feedback" role="group" aria-label={`Delete ${deleting.call}`}>

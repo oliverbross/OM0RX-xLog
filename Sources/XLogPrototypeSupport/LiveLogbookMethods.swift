@@ -44,6 +44,14 @@ public final class LiveLogbookMethods: @unchecked Sendable {
         var index: ADIFDuplicatePreviewIndex
         var nextChunk = 0
         var recordCount = 0
+        var bytes = 0
+        var existingByIdentity: [SemanticQSOIdentity: [QSO]] = [:]
+        var existingByID: [UUID: QSO] = [:]
+        var updateChunks: [(text: String, targets: [UUID: LogbookContactSnapshot])] = []
+        var seenUpdateIDs = Set<UUID>()
+        var nextApply = 0
+        var selectedFields: Set<String>?
+        var applied: [Int: Int] = [:]
     }
     private var adifPreview: ADIFPreviewSession?
 
@@ -544,8 +552,14 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                     let chunk = try integer(params, "chunk", default: 0, range: 0...9_999)
                     if params["token"] == nil {
                         guard chunk == 0, params["generation"] == nil else { throw invalid() }
+                        let existing = try readyDatabase().fetchAll()
+                        let formatter = ISO8601DateFormatter()
                         adifPreview = ADIFPreviewSession(token: UUID().uuidString, generation: generation,
-                                                        created: Date(), index: ADIFDuplicatePreviewIndex(existing: try readyDatabase().fetchAll()))
+                                                        created: Date(), index: ADIFDuplicatePreviewIndex(existing: existing),
+                                                        existingByIdentity: Dictionary(grouping: existing, by: { qso in
+                            SemanticQSOIdentity(call: qso.call, timestamp: formatter.string(from: qso.start), band: qso.band,
+                                                mode: qso.submode.isEmpty ? qso.mode : qso.submode)
+                        }), existingByID: Dictionary(uniqueKeysWithValues: existing.map { ($0.id, $0) }))
                     } else {
                         guard params["token"] as? String == adifPreview?.token,
                               params["generation"] as? String == generation,
@@ -555,14 +569,63 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                         }
                     }
                     guard adifPreview?.nextChunk == chunk,
-                          let count = adifPreview?.recordCount, count + preview.records.count <= 500_000 else {
+                          let count = adifPreview?.recordCount, count + preview.records.count <= 500_000,
+                          adifPreview!.bytes + text.utf8.count <= 32 * 1024 * 1024 else {
                         throw WorkerFailure("preview_sequence", "The preview sequence or record limit changed. Review the file again.")
                     }
                     let counts = try adifPreview!.index.review(preview)
+                    let formatter = ISO8601DateFormatter()
+                    var candidates: [UUID: QSO] = [:]
+                    for record in preview.records {
+                        guard let qso = QSO(adif: record) else { throw invalid() }
+                        let key = SemanticQSOIdentity(call: qso.call, timestamp: formatter.string(from: qso.start), band: qso.band,
+                                                     mode: qso.submode.isEmpty ? qso.mode : qso.submode)
+                        for match in adifPreview!.existingByIdentity[key] ?? [] { candidates[match.id] = match }
+                    }
+                    let plan = try ADIFImportPlan(preview: preview, existing: Array(candidates.values),
+                                                  duplicatePolicy: .updateFields(ADIFImportPlan.editableFields))
+                    var targets: [UUID: LogbookContactSnapshot] = [:]
+                    var updateText = ""
+                    for entry in plan.duplicates {
+                        guard let id = entry.targetID, !adifPreview!.seenUpdateIDs.contains(id) else { continue }
+                        guard let snapshot = try readyDatabase().contactSnapshot(localID: id),
+                              snapshot.qso == adifPreview!.existingByID[id] else {
+                            throw WorkerFailure("preview_changed", "A duplicate changed during preview. Review the file again.")
+                        }
+                        targets[id] = snapshot
+                        // Retain the incoming values, not the planner's merged record.
+                        updateText += preview.records[entry.recordNumber - 1].adifDocument.replacingOccurrences(of: "<ADIF_VER:5>3.1.7<EOH>\r\n", with: "", options: .anchored)
+                        adifPreview!.seenUpdateIDs.insert(id)
+                    }
+                    adifPreview!.updateChunks.append((updateText, targets))
+                    adifPreview!.bytes += text.utf8.count
                     adifPreview!.nextChunk += 1
                     adifPreview!.recordCount += preview.records.count
                     return ["records": preview.records.count, "issues": issues, "generation": generation,
                             "token": adifPreview!.token, "inserts": counts.inserts, "duplicates": counts.duplicates]
+                }
+                if params["action"] as? String == "update" {
+                    try requireKeys(params, allowed: ["action", "token", "generation", "chunk", "fields", "confirmed"],
+                                    required: ["action", "token", "generation", "chunk", "fields", "confirmed"])
+                    guard params["confirmed"] as? Bool == true else { throw invalid() }
+                    guard var session = adifPreview, params["token"] as? String == session.token,
+                          params["generation"] as? String == session.generation, try editGeneration() == session.generation,
+                          Date().timeIntervalSince(session.created) < 300 else {
+                        throw WorkerFailure("preview_expired", "The preview expired or the workspace changed. Review the file again.")
+                    }
+                    guard let raw = params["fields"] as? [String], (1...ADIFImportPlan.editableFields.count).contains(raw.count),
+                          Set(raw).count == raw.count, Set(raw).isSubset(of: ADIFImportPlan.editableFields) else { throw invalid() }
+                    let fields = Set(raw)
+                    guard session.selectedFields == nil || session.selectedFields == fields else { throw invalid() }
+                    let chunk = try integer(params, "chunk", default: -1, range: 0...9_999)
+                    guard chunk < session.updateChunks.count, chunk <= session.nextApply else { throw invalid() }
+                    if let count = session.applied[chunk] { return ["updated": count] }
+                    let batch = session.updateChunks[chunk]
+                    let updated = batch.text.isEmpty ? 0 : try readyDatabase().applyADIFUpdates(
+                        preview: ADIFImportPreview(text: batch.text), fields: fields, expected: batch.targets)
+                    session.selectedFields = fields; session.applied[chunk] = updated; session.nextApply += 1
+                    adifPreview = session
+                    return ["updated": updated]
                 }
                 try requireKeys(params, allowed: ["text", "generation"], required: ["text"])
                 if params["generation"] != nil, try !matchesEditGeneration(params, editGeneration()) {

@@ -270,6 +270,8 @@ public struct ADIFDuplicatePreviewIndex: Sendable {
 /// Describes intended changes only: callers must separately authorize persistence,
 /// stale-target checks and sync behavior before applying any proposed record.
 public struct ADIFImportPlan: Sendable {
+    public static let editableFields: Set<String> = ["NAME", "QTH", "GRIDSQUARE", "COMMENT", "NOTES", "RST_SENT", "RST_RCVD",
+        "QSL_SENT", "QSL_RCVD", "QSL_SENT_VIA", "QSL_VIA", "LOTW_QSL_SENT", "LOTW_QSL_RCVD", "IOTA", "SOTA_REF", "POTA_REF", "WWFF_REF"]
     public enum DuplicatePolicy: Sendable {
         case skip
         /// Only present incoming values replace the explicitly selected fields.
@@ -283,6 +285,7 @@ public struct ADIFImportPlan: Sendable {
     }
     public let inserts: [Entry]
     public let updates: [Entry]
+    public let duplicates: [Entry]
     public let skippedRecordNumbers: [Int]
 
     public init(preview: ADIFImportPreview, existing: [QSO], duplicatePolicy: DuplicatePolicy) throws {
@@ -301,7 +304,7 @@ public struct ADIFImportPlan: Sendable {
                                 band: qso.band, mode: qso.submode.isEmpty ? qso.mode : qso.submode)
         }
         let indexed = Dictionary(grouping: existing.filter { $0.deletedAt == nil }, by: identity)
-        var seen = Set<SemanticQSOIdentity>(), inserts: [Entry] = [], updates: [Entry] = [], skipped: [Int] = []
+        var seen = Set<SemanticQSOIdentity>(), inserts: [Entry] = [], updates: [Entry] = [], duplicates: [Entry] = [], skipped: [Int] = []
         for (index, record) in preview.records.enumerated() {
             guard let qso = QSO(adif: record) else { throw ADIFPlanningError.invalidPreview }
             let key = identity(qso), number = index + 1
@@ -311,12 +314,13 @@ public struct ADIFImportPlan: Sendable {
             guard let target = matches.first else {
                 inserts.append(Entry(recordNumber: number, targetID: nil, record: record)); continue
             }
+            duplicates.append(Entry(recordNumber: number, targetID: target.id, record: record))
             var merged = target.adifRecord.fields
             for field in selected { if let value = record[field] { merged[field] = value } }
             if merged == target.adifRecord.fields { skipped.append(number) }
             else { updates.append(Entry(recordNumber: number, targetID: target.id, record: ADIFRecord(fields: merged))) }
         }
-        self.inserts = inserts; self.updates = updates; self.skippedRecordNumbers = skipped
+        self.inserts = inserts; self.updates = updates; self.duplicates = duplicates; self.skippedRecordNumbers = skipped
     }
 }
 

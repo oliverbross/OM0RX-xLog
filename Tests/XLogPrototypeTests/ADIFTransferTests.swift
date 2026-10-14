@@ -94,4 +94,75 @@ struct ADIFTransferTests {
         }
         try body(service, db)
     }
+
+    @Test("Selected updates preserve unrelated fields and mapping, create ordinary pending edits and replay safely")
+    func selectedUpdates() throws {
+        try fixture { service, db in
+            var original = QSO(wavelogID: 42, call: "W1AW", band: "20m", mode: "CW", name: "Old", comment: "Keep", extraFields: ["APP_OTHER": "opaque"])
+            original.notes = "Clear me"
+            try db.save(original, markDirty: false)
+            var incoming = original.adifRecord.fields
+            incoming["NAME"] = "New"; incoming["NOTES"] = ""; incoming["COMMENT"] = "Not selected"
+            incoming["QSL_RCVD"] = "Y"; incoming["POTA_REF"] = "US-0001"; incoming["APP_OTHER"] = "discard"
+            let preview = try service.handle(method: "logbook_import_adif", params: ["action": "preview", "text": ADIFRecord(fields: incoming).adifDocument])
+            let command: [String: Any] = ["action": "update", "token": preview["token"]!, "generation": preview["generation"]!, "chunk": 0,
+                "fields": ["NAME", "NOTES", "QSL_RCVD", "POTA_REF"], "confirmed": true]
+            #expect(try db.pending().isEmpty)
+            #expect(try service.handle(method: "logbook_import_adif", params: command)["updated"] as? Int == 1)
+            let saved = try #require(try db.lookup(localID: original.id))
+            #expect(saved.name == "New" && saved.notes.isEmpty && saved.comment == "Keep")
+            #expect(saved.qslReceived == "Y" && saved.potaReference == "US-0001")
+            #expect(saved.wavelogID == 42 && saved.extraFields == original.extraFields && saved.isDirty)
+            #expect(try db.pending().count == 1)
+            let revision = try db.contactSnapshot(localID: original.id)?.revision
+            #expect(try service.handle(method: "logbook_import_adif", params: command)["updated"] as? Int == 1)
+            #expect(try db.contactSnapshot(localID: original.id)?.revision == revision)
+            for invalid in [["CALL"], ["APP_OTHER"], ["NAME", "NAME"], []] {
+                #expect(throws: WorkerFailure.self) { try service.handle(method: "logbook_import_adif", params: command.merging(["fields": invalid]) { _, value in value }) }
+            }
+            #expect(throws: WorkerFailure.self) { try service.handle(method: "logbook_import_adif", params: command.merging(["confirmed": false]) { _, value in value }) }
+        }
+    }
+
+    @Test("A stale target aborts its complete batch and repeated records apply only once across chunks")
+    func staleAndRepeated() throws {
+        try fixture { service, db in
+            let first = QSO(call: "W1AW", band: "20m", mode: "CW", name: "First")
+            var second = QSO(call: "K1ABC", band: "40m", mode: "CW", name: "Second")
+            try db.save(first); try db.save(second)
+            func incoming(_ qso: QSO, _ name: String) -> String {
+                var fields = qso.adifRecord.fields; fields["NAME"] = name
+                return ADIFRecord(fields: fields).adifDocument.replacingOccurrences(of: "<ADIF_VER:5>3.1.7<EOH>\r\n", with: "", options: .anchored)
+            }
+            let preview = try service.handle(method: "logbook_import_adif", params: ["action": "preview", "text": incoming(first, "Changed") + incoming(second, "Changed")])
+            let command: [String: Any] = ["action": "update", "token": preview["token"]!, "generation": preview["generation"]!, "chunk": 0, "fields": ["NAME"], "confirmed": true]
+            second.comment = "Concurrent edit"; try db.save(second)
+            #expect(throws: (any Error).self) { try service.handle(method: "logbook_import_adif", params: command) }
+            #expect(try db.lookup(localID: first.id)?.name == "First")
+            let next = try service.handle(method: "logbook_import_adif", params: ["action": "preview", "text": incoming(first, "Once")])
+            _ = try service.handle(method: "logbook_import_adif", params: ["action": "preview", "text": incoming(first, "Twice"), "token": next["token"]!, "generation": next["generation"]!, "chunk": 1])
+            let apply = command.merging(["token": next["token"]!, "generation": next["generation"]!]) { _, value in value }
+            #expect(try service.handle(method: "logbook_import_adif", params: apply)["updated"] as? Int == 1)
+            #expect(try service.handle(method: "logbook_import_adif", params: apply.merging(["chunk": 1]) { _, value in value })["updated"] as? Int == 0)
+            #expect(try db.lookup(localID: first.id)?.name == "Once")
+        }
+    }
+
+    @Test("Apply rechecks current duplicate ambiguity and rejects changed workspace, token and order")
+    func applyFences() throws {
+        try fixture { service, db in
+            let original = QSO(call: "W1AW", band: "20m", mode: "CW", name: "Old")
+            try db.save(original)
+            var fields = original.adifRecord.fields; fields["NAME"] = "New"
+            let preview = try service.handle(method: "logbook_import_adif", params: ["action": "preview", "text": ADIFRecord(fields: fields).adifDocument])
+            let command: [String: Any] = ["action": "update", "token": preview["token"]!, "generation": preview["generation"]!, "chunk": 0, "fields": ["NAME"], "confirmed": true]
+            let replacements: [[String: Any]] = [["generation": "stale"], ["token": "stale"], ["chunk": 1]]
+            for replacement in replacements {
+                #expect(throws: WorkerFailure.self) { try service.handle(method: "logbook_import_adif", params: command.merging(replacement) { _, value in value }) }
+            }
+            var duplicate = original; duplicate.id = UUID(); try db.save(duplicate)
+            #expect(throws: (any Error).self) { try service.handle(method: "logbook_import_adif", params: command) }
+            #expect(try db.lookup(localID: original.id)?.name == "Old")
+        }
+    }
 }

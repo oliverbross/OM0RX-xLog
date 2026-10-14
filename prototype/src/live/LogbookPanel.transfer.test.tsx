@@ -9,6 +9,7 @@ const contact = { id: "1d9961f9-3eb1-42ca-8d0a-063eb21b4577", call: "W1AW", star
 const adif = "<CALL:4>W1AW<QSO_DATE:8>20261014<TIME_ON:6>000000<BAND:3>20m<MODE:2>CW<EOR>";
 function setup(issue = false) {
   const request = vi.fn(async (method: string, params?: Record<string, unknown>) => {
+    if (method === "logbook_import_adif" && params?.action === "update") return { updated: 1 };
     if (method === "logbook_import_adif") return params?.action === "preview"
       ? { records: 1, duplicates: 0, inserts: 1, generation: "workspace-1", token: "preview-1", issues: issue ? [{ record: 1, message: "Invalid UTC date" }] : [] }
       : { imported: 1, skipped_duplicates: 0 };
@@ -40,6 +41,33 @@ it("rejects invalid UTF-8 bytes before requesting any preview", async () => {
   await pick(new Uint8Array([0xff]));
   expect((await screen.findByRole("alert")).textContent).toContain("Only UTF-8 ADI");
   expect(request.mock.calls.filter(([method]) => method === "logbook_import_adif")).toHaveLength(0);
+});
+
+it("requires selected fields and explicit update consent and sends the reviewed context", async () => {
+  const { request, pick } = setup(); await screen.findByText("W1AW"); await pick();
+  fireEvent.click(screen.getByRole("checkbox", { name: "Update selected fields of reviewed duplicates instead" }));
+  expect((screen.getByRole("button", { name: "Confirm duplicate updates" }) as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(screen.getByRole("checkbox", { name: "NAME" }));
+  fireEvent.click(screen.getByRole("checkbox", { name: "POTA_REF" }));
+  expect(request.mock.calls.filter(([, params]) => params?.action === "update")).toHaveLength(0);
+  fireEvent.click(screen.getByRole("button", { name: "Confirm duplicate updates" }));
+  await screen.findByText("1 duplicate QSOs updated. New and repeated records were skipped.");
+  expect(request).toHaveBeenCalledWith("logbook_import_adif", { action: "update", token: "preview-1", generation: "workspace-1", chunk: 0, fields: ["NAME", "POTA_REF"], confirmed: true });
+});
+
+it("reports acknowledged updates and uncertain last-batch outcome after partial failure", async () => {
+  const { request, pick } = setup(); await screen.findByText("W1AW");
+  const original = request.getMockImplementation()!;
+  request.mockImplementation(async (method, params) => {
+    if (method === "logbook_import_adif" && params?.action === "update" && params.chunk === 1) throw new Error("Target changed");
+    return original(method, params);
+  });
+  await pick(new TextEncoder().encode(adif.repeat(101)));
+  fireEvent.click(screen.getByRole("checkbox", { name: "Update selected fields of reviewed duplicates instead" }));
+  fireEvent.click(screen.getByRole("checkbox", { name: "NAME" }));
+  fireEvent.click(screen.getByRole("button", { name: "Confirm duplicate updates" }));
+  expect((await screen.findByRole("alert")).textContent).toContain("1 updates acknowledged");
+  expect(screen.getByRole("alert").textContent).toContain("last batch may have committed");
 });
 
 it("continues later chunks with the native preview token and generation", async () => {

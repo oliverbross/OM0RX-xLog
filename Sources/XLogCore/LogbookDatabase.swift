@@ -250,6 +250,75 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
+    /// A bounded ADIF update batch is all-or-nothing. The SQLite write lock also
+    /// fences other database connections between duplicate lookup and save.
+    public func applyADIFUpdates(preview: ADIFImportPreview, fields: Set<String>,
+                                 expected: [UUID: LogbookContactSnapshot]) throws -> Int {
+        try withDatabaseLock {
+            guard !fields.isEmpty, fields.isSubset(of: ADIFImportPlan.editableFields),
+                  preview.records.count <= 128, expected.count <= 128 else { throw LogbookContactError.invalid }
+            try execute("BEGIN IMMEDIATE;")
+            do {
+                var candidates: [UUID: QSO] = [:]
+                for record in preview.records {
+                    guard let incoming = QSO(adif: record) else { throw LogbookContactError.invalid }
+                    let matches = try withStatement("""
+                        SELECT record_json FROM qsos WHERE deleted_at IS NULL
+                        AND qso_start >= ? AND qso_start < ? LIMIT 129;
+                        """) { statement in
+                        let second = floor(incoming.start.timeIntervalSince1970)
+                        sqlite3_bind_double(statement, 1, second); sqlite3_bind_double(statement, 2, second + 1)
+                        return try decodeRows(statement)
+                    }
+                    // Keep identity normalization in the shared planner. Reject
+                    // pathological same-second populations rather than truncate.
+                    guard matches.count <= 128 else { throw LogbookContactError.invalid }
+                    for match in matches { candidates[match.id] = match }
+                }
+                let plan = try ADIFImportPlan(preview: preview, existing: Array(candidates.values), duplicatePolicy: .updateFields(fields))
+                // Even no-op targets must still match the reviewed revision.
+                let matches = try ADIFImportPlan(preview: preview, existing: expected.values.map(\.qso), duplicatePolicy: .updateFields(fields))
+                guard Set(plan.updates.compactMap(\.targetID)) == Set(matches.updates.compactMap(\.targetID)) else { throw LogbookContactError.invalid }
+                for (id, reviewed) in expected {
+                    guard try contactSnapshot(localID: id) == reviewed else { throw LogbookContactError.conflict(try contactSnapshot(localID: id)) }
+                }
+                for entry in plan.updates {
+                    guard let id = entry.targetID, var qso = expected[id]?.qso else { throw LogbookContactError.invalid }
+                    // Change only supported selected properties. All other QSO
+                    // metadata, remote mapping and unknown ADIF fields survive.
+                    for field in fields {
+                        guard let value = entry.record[field] else { continue }
+                        switch field {
+                        case "NAME": qso.name = value
+                        case "QTH": qso.qth = value
+                        case "GRIDSQUARE": qso.gridSquare = value
+                        case "COMMENT": qso.comment = value
+                        case "NOTES": qso.notes = value
+                        case "RST_SENT": qso.rstSent = value
+                        case "RST_RCVD": qso.rstReceived = value
+                        case "QSL_SENT": qso.qslSent = value
+                        case "QSL_RCVD": qso.qslReceived = value
+                        case "QSL_SENT_VIA": qso.qslMethod = value
+                        case "QSL_VIA": qso.qslVia = value
+                        case "LOTW_QSL_SENT": qso.lotwSent = value
+                        case "LOTW_QSL_RCVD": qso.lotwReceived = value
+                        case "IOTA": qso.iota = value
+                        case "SOTA_REF": qso.sotaReference = value
+                        case "POTA_REF": qso.potaReference = value
+                        case "WWFF_REF": qso.wwffReference = value
+                        default: throw LogbookContactError.invalid
+                        }
+                    }
+                    var validation = qso; validation.wavelogID = nil
+                    try validation.validateOperatorDraft(forSave: true)
+                    try save(qso)
+                }
+                try execute("COMMIT;")
+                return plan.updates.count
+            } catch { try? execute("ROLLBACK;"); throw error }
+        }
+    }
+
     public func contactReceipt(operationID: UUID) throws -> LogbookContactReceipt? {
         try withDatabaseLock {
             try withStatement("SELECT payload FROM xlog_contact_receipts WHERE operation_id=?;") { statement in
