@@ -4,7 +4,7 @@ use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::{atomic::{AtomicBool, Ordering}, Mutex};
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 #[derive(Default)]
 pub struct Acceptance {
@@ -235,8 +235,18 @@ fn require_window_coordinator(state: &Acceptance, caller: &str, kind: &str) -> R
 #[tauri::command]
 pub fn acceptance_window_step(window: tauri::WebviewWindow, state: tauri::State<'_, Acceptance>, kind: Option<String>, action: Option<String>) -> Result<Option<crate::detached_acceptance::Step>, String> {
     state.require()?;
-    state.window_steps.lock().map_err(|_| "Test window steps unavailable")?
-        .access(window.label(), kind.as_deref(), action.as_deref())
+    let caller = window.label().to_owned();
+    let target = kind.clone();
+    let step = state.window_steps.lock().map_err(|_| "Test window steps unavailable")?
+        .access(&caller, kind.as_deref(), action.as_deref())?;
+    if caller == "main" {
+        if let (Some(target), Some(step)) = (target, step.as_ref()) {
+            let detached = window.app_handle().get_webview_window(&target)
+                .ok_or("The tested detached window is not open")?;
+            detached.emit("xlog:acceptance-window-step", step).map_err(|error| error.to_string())?;
+        }
+    }
+    Ok(step)
 }
 
 #[tauri::command]

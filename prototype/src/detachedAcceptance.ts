@@ -1,5 +1,6 @@
 // Isolated packaged acceptance only. No automatic path in normal app launches.
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 type Json = Record<string, any>;
 type Kind = "logbook" | "awards";
 const pause = () => new Promise(resolve => setTimeout(resolve, 50));
@@ -35,8 +36,22 @@ export async function verifyDetachedLifecycle(kind: Kind, initial: Json, leaveSc
 export async function serveDetachedLifecycle(report: Json, closeChild: () => Promise<void>, editorStep?: (action: string) => Promise<Json>) {
   let revision = 0;
   const deadline = Date.now() + 60_000;
-  while (Date.now() < deadline) {
-    const step = await invoke<Json | null>("acceptance_window_step", {});
+  const pending: Json[] = [];
+  let wake: (() => void) | null = null;
+  const stop = await listen<Json>("xlog:acceptance-window-step", event => {
+    pending.push(event.payload);
+    wake?.(); wake = null;
+  });
+  try {
+    // Readiness is visible to the parent only after this listener exists.
+    await invoke("acceptance_monitor", { report });
+    while (Date.now() < deadline) {
+      if (!pending.length) await Promise.race([
+        new Promise<void>(resolve => { wake = resolve; }),
+        pause(),
+      ]);
+      const step = pending.shift() ?? null;
+      if (!step) continue;
     if (step && Number.isSafeInteger(step.revision) && step.revision > revision) {
       revision = step.revision;
       if (step.action === "probe") {
@@ -50,7 +65,9 @@ export async function serveDetachedLifecycle(report: Json, closeChild: () => Pro
       }
       else throw new Error("Unexpected native window test step");
     }
-    await pause();
+    }
+  } finally {
+    stop();
   }
   throw new Error("Detached window lifecycle coordinator timed out");
 }

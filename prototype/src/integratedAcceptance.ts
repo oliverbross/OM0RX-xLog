@@ -394,10 +394,7 @@ export async function startIntegratedAcceptance() {
         !document.querySelector(".qso-read-radio, .detached-window-head") &&
         ![...document.querySelectorAll("button")].some(item => item.textContent?.trim() === "Dock back");
       report.status = report.checks.catalogue && report.checks.task_only ? "passed" : "failed";
-      await Promise.all([
-        invoke("acceptance_monitor", { report }),
-        serveDetachedLifecycle(report, () => invoke("dock_detached_window")),
-      ]);
+      await serveDetachedLifecycle(report, () => invoke("dock_detached_window"));
       return;
     }
     if (surface === "logbook") {
@@ -414,10 +411,7 @@ export async function startIntegratedAcceptance() {
       }
       report.checks.contact_edit = validSavedContact((await worker("logbook_list")).result);
       report.status = report.checks.contact_edit && report.checks.no_radio_controls ? "passed" : "failed";
-      await Promise.all([
-        invoke("acceptance_monitor", { report }),
-        serveDetachedLifecycle(report, () => invoke("dock_detached_window"), createLogbookLayoutAcceptance({ fill, click })),
-      ]);
+      await serveDetachedLifecycle(report, () => invoke("dock_detached_window"), createLogbookLayoutAcceptance({ fill, click }));
       return;
     }
     if (surface) throw new Error("Unexpected local acceptance surface");
