@@ -721,6 +721,29 @@ was contacted, and no operator-data, station or RF state changed. Full Station
 Control provider/configuration/action ownership and broader packaged/native
 lifecycle acceptance remain open.
 
+### Checkpoint AH — shared Agent setup and connection receipts
+
+The first active Station Control ownership slice replaces the duplicated Desk
+Agent endpoint/connection path with one native owner. Non-secret endpoint setup is
+durable and revision-fenced. Connection, disconnection and saved-token removal are
+also bound to the current native radio-selection identity; admission is persisted
+before transport dispatch, exact retries return the retained receipt, and lost or
+crash-interrupted replies remain unknown rather than being replayed.
+
+The Desk owns active requests in this slice. The independent Station Control child
+may save/reload the shared endpoint and inspect receipts, but retains no connection
+or hardware-command authority. Tokens, raw Agent responses and external errors are
+never written to the receipt journal. The preceding browser-local endpoint appears
+only as an explicit one-time import when native state is untouched; mounting stays
+passive and an intentionally cleared native endpoint cannot revive it.
+
+Exact source `e95968e` passes **6 focused Rust station-session tests** and **21
+focused frontend setup/child/selection tests**, TypeScript and diff checks. No
+package was produced or installed, no service or hardware was contacted, and no
+operator-data, station or RF state changed. FLEX/Hamlib ownership, provider-
+selection receipts, Agent hardware profiles and active child connections remain
+later slices.
+
 ### 14 October audit — remaining new-QSO and QSY ownership
 
 At `cd25718`, detached Logbook edits saved contacts; it is not an independent
