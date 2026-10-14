@@ -114,9 +114,11 @@ EQSL_QSLRDATE EQSL_QSLSDATE DCL_QSLRDATE DCL_QSLSDATE CLUBLOG_QSO_UPLOAD_DATE HA
 HAMQTH_QSO_UPLOAD_DATE HRDLOG_QSO_UPLOAD_DATE QRZCOM_QSO_DOWNLOAD_DATE QRZCOM_QSO_UPLOAD_DATE`.split(/\s+/));
 const adxReceivedFields = new Set(["QSL_RCVD", "LOTW_QSL_RCVD", "EQSL_QSL_RCVD", "DCL_QSL_RCVD"]);
 const adxSentFields = new Set(["QSL_SENT", "LOTW_QSL_SENT", "EQSL_QSL_SENT", "DCL_QSL_SENT"]);
-// ADIF 3.1.7 inclusive numeric facets; compare exact decimals, never rounded Numbers.
-const adxDecimalBounds: Readonly<Record<string, readonly [string, string]>> = {
+// ADIF 3.1.7 Number/NumberGE0 inclusive facets; null means no schema bound.
+// Compare exact decimals, never rounded Numbers, and retain their lexical text.
+const adxDecimalBounds: Readonly<Record<string, readonly [string | null, string | null]>> = {
   AGE: ["0", "120"], A_INDEX: ["0", "400"], ANT_AZ: ["0", "360"], ANT_EL: ["-90", "90"],
+  ALTITUDE: [null, null], MY_ALTITUDE: [null, null], DISTANCE: ["0", null], MAX_BURSTS: ["0", null],
 };
 // ADIF 3.1.7 IntegerGE0 / PositiveInteger and their derived inclusive facets.
 // null means the schema supplies no upper bound; retain arbitrarily large IDs
@@ -163,7 +165,7 @@ function validateADXValue(name: string, value: string): void {
   } else if (Object.prototype.hasOwnProperty.call(adxDecimalBounds, name)) {
     const [minimum, maximum] = adxDecimalBounds[name];
     valid = /^-?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)$/.test(value) && !/[\r\n]/.test(value) &&
-      compareDecimal(value, minimum) >= 0 && compareDecimal(value, maximum) <= 0;
+      (minimum === null || compareDecimal(value, minimum) >= 0) && (maximum === null || compareDecimal(value, maximum) <= 0);
   } else if (["FREQ", "FREQ_RX", "TX_PWR", "RX_PWR"].includes(name)) {
     valid = /^-?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)$/.test(value);
     if (["TX_PWR", "RX_PWR"].includes(name) && value.startsWith("-")) valid &&= /^-0*(?:\.0*)?$/.test(value);

@@ -244,6 +244,31 @@ it.each([
   expect(decode(original)).toBe(original);
 });
 
+const remainingADXNumbers = ["ALTITUDE", "MY_ALTITUDE", "DISTANCE", "MAX_BURSTS"];
+it.each([
+  ...remainingADXNumbers.flatMap(name => ["0", "-0.000", "-.000", "001.500", ".0000000000000000000000001", "9007199254740993.1234567890123456789", "0001."].map(value => [name, value])),
+  ...["ALTITUDE", "MY_ALTITUDE"].flatMap(name => ["-430.500", "-.1234567890123456789", "-9007199254740993.1234567890123456789"].map(value => [name, value])),
+])("preserves unbounded ADX Number/NumberGE0 %s=%s exactly in both directions", (name, value) => {
+  const original = adiRecord({ [name]: value });
+  expect(decode(adx(`<${name}>${value}</${name}>`))).toBe(original);
+  const writer = new ADIFExportDocument("adx"); writer.append(original, 1);
+  expect(decode(writer.finish())).toBe(original);
+});
+
+it.each([
+  ...remainingADXNumbers.flatMap(name => ["", ".", "-.", "+1", "1e2", "NaN", "Infinity", "1,000", "1.2.3", "--1", " 1", "1 ", "1\n", "1\t"].map(value => [name, value])),
+  ...["DISTANCE", "MAX_BURSTS"].flatMap(name => ["-1", "-.0000000000000000000000001", "-9007199254740993.123456789"].map(value => [name, value])),
+])("rejects invalid ADX Number/NumberGE0 %s=%s and preserves the ADI fallback", (name, value) => {
+  expect(() => decode(adx(`<${name}>${value}</${name}>`))).toThrow(`Field ${name} has an invalid ADX typed value`);
+  const original = adiRecord({ [name]: value });
+  const writer = new ADIFExportDocument("adx");
+  expect(() => writer.append(original, 1)).toThrow(`Field ${name} has an invalid ADX typed value`);
+  expect(() => writer.finish()).toThrow("incomplete");
+  const adi = new ADIFExportDocument("adi"); adi.append(original, 1);
+  expect(adi.finish()).toBe(original);
+  expect(decode(original)).toBe(original);
+});
+
 const nonnegativeADXIntegers = ["K_INDEX", "SFI", "NR_BURSTS", "NR_PINGS", "SRX", "STX"];
 const positiveADXIntegers = ["FISTS", "FISTS_CC", "MY_FISTS", "TEN_TEN", "UKSMG", "IOTA_ISLAND_ID", "MY_IOTA_ISLAND_ID"];
 it.each([
