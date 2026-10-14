@@ -87,7 +87,7 @@ public struct XLogBackupPreferences: Codable, Equatable, Sendable {
 }
 
 public struct XLogBackupManifest: Codable, Equatable, Sendable {
-    public static let currentFormatVersion = 1
+    public static let currentFormatVersion = 2
 
     public var formatVersion: Int
     public var createdAt: Date
@@ -190,6 +190,9 @@ public final class XLogBackupManager: @unchecked Sendable {
             to: temporary.appendingPathComponent("manifest.json"),
             options: .atomic
         )
+        let payload = try BackupPackageSeal.capture(temporary, fileManager: fileManager)
+        try BackupPackageSeal.encode(BackupPackageSeal.make(payload)).write(
+            to: temporary.appendingPathComponent(BackupPackageSeal.filename), options: .atomic)
         _ = try inspect(at: temporary)
         try fileManager.moveItem(at: temporary, to: packageURL)
         committed = true
@@ -207,8 +210,11 @@ public final class XLogBackupManager: @unchecked Sendable {
             throw XLogBackupError.invalidPackage("manifest.json is missing")
         }
         let manifest = try decoder.decode(XLogBackupManifest.self, from: manifestData)
-        guard manifest.formatVersion == XLogBackupManifest.currentFormatVersion else {
+        guard [1, XLogBackupManifest.currentFormatVersion].contains(manifest.formatVersion) else {
             throw XLogBackupError.invalidPackage("unsupported format version \(manifest.formatVersion)")
+        }
+        if manifest.formatVersion >= 2 || fileManager.fileExists(atPath: packageURL.appendingPathComponent(BackupPackageSeal.filename).path) {
+            _ = try BackupPackageSeal.verifiedFiles(packageURL, fileManager: fileManager)
         }
         guard fileManager.fileExists(atPath: databaseURL.path) else {
             throw XLogBackupError.invalidPackage("OM0RX-xLog.sqlite is missing")
@@ -233,13 +239,21 @@ public final class XLogBackupManager: @unchecked Sendable {
     }
 
     public func installDatabase(from packageURL: URL, to liveURL: URL) throws -> URL? {
-        _ = try inspect(at: packageURL)
-        let source = packageURL.appendingPathComponent("OM0RX-xLog.sqlite")
+        let preview = try inspect(at: packageURL)
         let directory = liveURL.deletingLastPathComponent()
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
         let staging = directory.appendingPathComponent(".restore-\(UUID().uuidString).sqlite")
-        try fileManager.copyItem(at: source, to: staging)
         do {
+            if preview.manifest.formatVersion >= 2 {
+                let (_, files) = try BackupPackageSeal.verifiedFiles(packageURL, fileManager: fileManager)
+                try files["OM0RX-xLog.sqlite"]!.write(to: staging, options: .atomic)
+            } else {
+                try fileManager.copyItem(at: packageURL.appendingPathComponent("OM0RX-xLog.sqlite"), to: staging)
+            }
+            // Verify the bytes actually staged, not the source path checked earlier.
+            guard try sha256(of: staging) == preview.manifest.databaseSHA256 else {
+                throw XLogBackupError.checksumMismatch
+            }
             _ = try inspectDatabase(at: staging)
         } catch {
             try? fileManager.removeItem(at: staging)
@@ -278,11 +292,22 @@ public final class XLogBackupManager: @unchecked Sendable {
 
     @discardableResult
     public func installReferenceData(from packageURL: URL, to liveURL: URL) throws -> URL? {
-        guard let source = referenceDataURL(in: packageURL) else { return nil }
+        let envelope = try prepareEnvelope(at: packageURL)
+        let files = try decoder.decode(BackupPackageSeal.Payload.self, from: envelope.data).files
+        let manifest = try decoder.decode(XLogBackupManifest.self, from: files["manifest.json"]!)
+        guard manifest.includesReferenceData else { return nil }
         let parent = liveURL.deletingLastPathComponent()
         try fileManager.createDirectory(at: parent, withIntermediateDirectories: true)
         let staging = parent.appendingPathComponent(".reference-restore-\(UUID().uuidString)", isDirectory: true)
-        try fileManager.copyItem(at: source, to: staging)
+        let referenceFiles = Dictionary(uniqueKeysWithValues: files.compactMap { path, data in
+            path.hasPrefix("Reference Data/") ? (String(path.dropFirst("Reference Data/".count)), data) : nil
+        })
+        do {
+            try BackupPackageSeal.materialize(referenceFiles, at: staging, fileManager: fileManager)
+        } catch {
+            try? fileManager.removeItem(at: staging)
+            throw error
+        }
         let timestamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
         let rollback = parent.appendingPathComponent("Reference Data-before-restore-\(timestamp)-\(UUID().uuidString)", isDirectory: true)
         do {
@@ -301,6 +326,41 @@ public final class XLogBackupManager: @unchecked Sendable {
             }
             throw XLogBackupError.restoreFailed("Reference Data: \(error.localizedDescription)")
         }
+    }
+
+    /// Captures and re-verifies every file, then validates SQLite and settings from
+    /// the captured bytes. Executors must consume the returned Data, never reopen URLs.
+    public func prepareEnvelope(at packageURL: URL) throws -> XLogBackupEnvelope {
+        let (seal, files) = try BackupPackageSeal.verifiedFiles(packageURL, fileManager: fileManager)
+        let data = try BackupPackageSeal.encode(BackupPackageSeal.Payload(seal: seal, files: files))
+        return try validateRestoreEnvelope(data)
+    }
+
+    /// Validates an untrusted envelope without touching the live database or settings.
+    /// The caller must compare its identity with an independently trusted receipt.
+    public func validateRestoreEnvelope(_ data: Data) throws -> XLogBackupEnvelope {
+        // Base64 JSON expands content; bound input as well as decoded payload.
+        guard data.count <= BackupPackageSeal.maximumBytes * 2 else {
+            throw XLogBackupError.invalidPackage("envelope exceeds staging limit")
+        }
+        let payload = try decoder.decode(BackupPackageSeal.Payload.self, from: data)
+        guard payload.files.values.reduce(Int64(0), { $0 + Int64($1.count) }) <= Int64(BackupPackageSeal.maximumBytes) else {
+            throw XLogBackupError.invalidPackage("envelope exceeds staging limit")
+        }
+        try payload.seal.validate(payload.files)
+        let root = fileManager.temporaryDirectory.appendingPathComponent("xlog-envelope-\(UUID().uuidString)")
+        defer { try? fileManager.removeItem(at: root) }
+        try BackupPackageSeal.materialize(payload.files, at: root, fileManager: fileManager)
+        try BackupPackageSeal.encode(payload.seal).write(to: root.appendingPathComponent(BackupPackageSeal.filename))
+        let preview = try inspect(at: root)
+        guard preview.manifest.includesSettings == (payload.files["settings.json"] != nil),
+              preview.manifest.includesPreferences == (payload.files["preferences.json"] != nil),
+              payload.files["Reference Data"] == nil,
+              preview.manifest.databaseBytes == Int64(payload.files["OM0RX-xLog.sqlite"]!.count),
+              preview.manifest.includesReferenceData || !payload.files.keys.contains(where: { $0.hasPrefix("Reference Data/") }) else {
+            throw XLogBackupError.invalidPackage("payload presence or database size differs from manifest")
+        }
+        return try XLogBackupEnvelope(data: data, preview: preview)
     }
 
     private func decodeIfPresent<T: Decodable>(_ type: T.Type, at url: URL) throws -> T? {
