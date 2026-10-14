@@ -112,6 +112,8 @@ EQSL_QSLRDATE EQSL_QSLSDATE DCL_QSLRDATE DCL_QSLSDATE CLUBLOG_QSO_UPLOAD_DATE HA
 HAMQTH_QSO_UPLOAD_DATE HRDLOG_QSO_UPLOAD_DATE QRZCOM_QSO_DOWNLOAD_DATE QRZCOM_QSO_UPLOAD_DATE`.split(/\s+/));
 const adxReceivedFields = new Set(["QSL_RCVD", "LOTW_QSL_RCVD", "EQSL_QSL_RCVD", "DCL_QSL_RCVD"]);
 const adxSentFields = new Set(["QSL_SENT", "LOTW_QSL_SENT", "EQSL_QSL_SENT", "DCL_QSL_SENT"]);
+// ADIF 3.1.7 NumberGE0 facets; compare exact decimals, never rounded Numbers.
+const adxDecimalUpperBounds: Readonly<Record<string, string>> = { AGE: "120", A_INDEX: "400" };
 const potaReferencePattern = "[A-Za-z0-9]{1,4}-[0-9]{4,5}(?:@[A-Za-z]{2}-[A-Za-z0-9]{1,3})?";
 const adxPatternRules = [
   { fields: ["GRIDSQUARE", "MY_GRIDSQUARE"], pattern: /^[A-R]{2}(?:[0-9]{2}(?:[A-X]{2}(?:[0-9]{2})?)?)?$/i },
@@ -128,7 +130,10 @@ function validateADXValue(name: string, value: string): void {
   let valid = true;
   const patternRule = adxPatternRules.find(rule => rule.fields.includes(name));
   if (patternRule) valid = patternRule.pattern.test(value);
-  else if (["FREQ", "FREQ_RX", "TX_PWR", "RX_PWR"].includes(name)) {
+  else if (Object.prototype.hasOwnProperty.call(adxDecimalUpperBounds, name)) {
+    valid = /^-?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)$/.test(value) && !/[\r\n]/.test(value) &&
+      compareDecimal(value, "0") >= 0 && compareDecimal(value, adxDecimalUpperBounds[name]) <= 0;
+  } else if (["FREQ", "FREQ_RX", "TX_PWR", "RX_PWR"].includes(name)) {
     valid = /^-?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)$/.test(value);
     if (["TX_PWR", "RX_PWR"].includes(name) && value.startsWith("-")) valid &&= /^-0*(?:\.0*)?$/.test(value);
   } else if (["DXCC", "MY_DXCC"].includes(name)) {

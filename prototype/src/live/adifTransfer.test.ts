@@ -186,6 +186,21 @@ it("preserves valid ADX scalar spellings exactly in both directions without floa
 });
 
 it.each([
+  ["AGE", "0"], ["AGE", "-0.000"], ["AGE", ".5"], ["AGE", "00120.000"],
+  ["AGE", "119.9999999999999999999999999"], ["A_INDEX", "000."], ["A_INDEX", "0400.000"],
+  ["A_INDEX", "399.9999999999999999999999999"],
+])("preserves exact bounded numeric ADX text %s=%s at both boundaries", (name, value) => {
+  const original = adiRecord({ [name]: value });
+  expect(decode(adx(`<${name}>${value}</${name}>`))).toBe(original);
+  const writer = new ADIFExportDocument("adx"); writer.append(original, 1);
+  expect(decode(writer.finish())).toBe(original);
+});
+
+it.each([
+  ["AGE", "120.0000000000000000000000001"], ["AGE", "121"], ["AGE", "-0.0000000000000000000000001"],
+  ["AGE", ""], ["AGE", " 120"], ["AGE", "120\n"], ["AGE", "+120"], ["AGE", "1e2"],
+  ["A_INDEX", "400.0000000000000000000000001"], ["A_INDEX", "401"], ["A_INDEX", "-1"],
+  ["A_INDEX", "NaN"], ["A_INDEX", "."], ["A_INDEX", "1.2.3"], ["A_INDEX", "1,5"],
   ["DXCC", "523"], ["DXCC", "1000"], ["DXCC", "0291"], ["DXCC", ""], ["MY_DXCC", "-1"],
   ["CQZ", "0"], ["CQZ", "41"], ["ITUZ", "91"], ["MY_CQ_ZONE", "15.0"], ["MY_ITU_ZONE", " 28"],
   ["FREQ", "1e3"], ["FREQ", "NaN"], ["FREQ_RX", "+14.074"], ["FREQ", "14,074"],
