@@ -45,6 +45,13 @@ closed cleanly. Alpha.28, the prior 0.3.0 and alpha.27 apps are recoverable from
 Trash and the rechecked 1.7 GB backup remains intact. See
 [alpha.29 evidence](releases/v0.4.0-alpha.29-macos.md).
 
+Post-alpha.29 source `468bbfd30974238789e37422aa21aeb0c7480270` is now
+packaged as an ad-hoc macOS development
+bundle and passes the isolated native suite with every emitted check green and
+`station_io: false`; it is not installed, notarized or accepted against the
+operator workspace. See the
+[post-alpha.29 source-bundle report](MACOS_POST_ALPHA29_SOURCE_ACCEPTANCE_2026-10-15.md).
+
 The installed alpha.29 source retains alpha.28's full-control defaults across
 Remote Agent, Hamlib, Direct FLEX and local CAT-client connection surfaces
 (`e04acef`), while
