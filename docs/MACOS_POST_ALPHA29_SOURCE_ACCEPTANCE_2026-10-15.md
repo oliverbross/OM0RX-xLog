@@ -127,3 +127,36 @@ does not claim packaged observation of the held-group content. The exact live
 record IDs remain untouched; operator/live visual confirmation, installation,
 notarization and provider acceptance remain open. No credential, operator
 logbook, online service or station device was accessed.
+
+## QLog-inspired passive DX alerts source follow-up
+
+Exact source `527a419e55044b253a4d9a9f267c59c304e93317` adds the
+default-off native DX-alert rule owner and passive Alerts task-window workflow
+selected from the RUMlog and QLog comparisons. The rebuilt ad-hoc development
+bundle remains uninstalled.
+
+- Strict deep code-signature verification passes. The arm64 host SHA-256 is
+  `77c1a74f48c017a84774e1283749f3e61bbb117033a9cf102b6390e9f8de0115`;
+  the universal worker SHA-256 is
+  `2070977245bce075eb0bb206f4b64ef0832c7bf0822b329dcc8b9feb0368d14c`.
+  The staged distribution metadata names the exact source above and the bundle
+  identifies itself as `OM0RX-xLog`.
+- A fresh isolated run passes **33/33** checks with `embeddedUi: true`,
+  `worker: true`, no false check and `station_io: false`; see
+  [mac-source.json](evidence/native-ui-527a419/mac-source.json). The randomized
+  acceptance namespace and incognito/private workspace exited cleanly.
+- Alert-specific validation passes **6 focused Rust tests** and **5 focused
+  renderer tests**, plus the production frontend and detached-window bundle
+  gate. The full Rust run passed **438 unit tests** and its integration runs.
+  In the parallel full renderer run, 156 files passed and four unrelated
+  timing-sensitive files exceeded their five-second test limit; each of those
+  files passed on an independent single-worker rerun. This is therefore not
+  recorded as an all-green monolithic renderer run.
+
+The isolated fixture does not seed a live cluster stream or native delivery
+notification, so it proves package integrity, the existing renderer/worker
+contract and the station-I/O-disabled boundary—not live alert matching. Native
+popup, bell, speech and outbound UDP remain separate default-off adapter work.
+Operator visual acceptance, installation, notarization and live cluster
+acceptance remain open. No credential, operator logbook, online service or
+station device was accessed.

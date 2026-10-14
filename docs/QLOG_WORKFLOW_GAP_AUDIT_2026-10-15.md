@@ -76,5 +76,8 @@ identity and bounded semantic repeat merging; a responsive recent-alert table;
 and test, clear, add, clone, remove and save actions. Six focused Rust tests,
 five focused renderer tests and the production bundle check pass. The code uses
 xLog's own retained classifications and identities, starts no second poller and
-offers no tune, transmit, CW, rotor or station action. Packaged macOS, operator
-and delivery-adapter acceptance remain separate gates.
+offers no tune, transmit, CW, rotor or station action. The ad-hoc macOS source
+bundle at exact source `527a419e55044b253a4d9a9f267c59c304e93317` passes strict
+deep signature verification and the isolated **33/33** integrated acceptance
+run with `station_io: false`. Operator, live-cluster and delivery-adapter
+acceptance remain separate gates.
