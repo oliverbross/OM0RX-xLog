@@ -8,7 +8,7 @@ public enum RemoteBackupSchedulerError: Error, Equatable, Sendable {
     case operationInProgress, alreadyClaimed, invalidClock
 }
 
-/// The scheduler hands frozen content to a future executor, never package URLs.
+/// The scheduler hands frozen content to an executor, never package URLs.
 /// A claim is issued once; persistently unknown prior work cannot be reclaimed.
 public struct RemoteBackupDueClaim: Sendable {
     public let plan: RemoteBackupUploadPlan
@@ -19,8 +19,8 @@ public struct RemoteBackupDueClaim: Sendable {
 
 /// Durable, explicitly enabled schedule lanes, one active plan per destination ID.
 /// Each run needs a fresh immutable plan. After a known completion, explicit enablement
-/// with a fresh plan arms its next interval; snapshot capture and recurring orchestration
-/// belong to the future backup owner. This type performs no networking or restore work.
+/// with a fresh plan arms its next interval; snapshot capture belongs to the injected
+/// backup owner. This type performs no networking or restore work.
 public actor RemoteBackupScheduler {
     /// A gap over one day requires clock review, including legitimate long suspends.
     /// Longer configured intervals therefore require observations at least daily.
@@ -94,20 +94,65 @@ public actor RemoteBackupScheduler {
     public func claimDue(envelope: XLogBackupEnvelope, plan: RemoteBackupUploadPlan,
                          workspaceGeneration: UInt64, destination: RemoteBackupDestination,
                          at now: Date) throws -> RemoteBackupDueClaim? {
+        try claim(envelope: envelope, plan: plan, scheduledPlan: plan,
+            workspaceGeneration: workspaceGeneration, destination: destination, at: now)
+    }
+
+    /// Observe clocks even before a snapshot is needed. Observation never reserves work.
+    public func observeDue(plan: RemoteBackupUploadPlan, at now: Date) throws -> Bool {
+        try validateClock(now)
+        return try locked(plan.destination.id) {
+            guard var record = try read(plan.destination.id) else { return false }
+            try record.validate(plan)
+            let due = observe(&record, at: now)
+            try save(record)
+            return due
+        }
+    }
+
+    /// Swap the approved lane's placeholder package for fresh sealed bytes atomically,
+    /// preserving its consent, destination, generation and due time.
+    public func claimFreshDue(envelope: XLogBackupEnvelope, scheduledPlan: RemoteBackupUploadPlan,
+                              workspaceGeneration: UInt64, destination: RemoteBackupDestination,
+                              at now: Date) throws -> RemoteBackupDueClaim? {
+        try scheduledPlan.validate(workspaceGeneration: workspaceGeneration, destination: destination)
+        let plan = try RemoteBackupUploadPlan(workspaceGeneration: workspaceGeneration,
+            destination: destination, backupID: UUID(), package: envelope.identity)
+        return try claim(envelope: envelope, plan: plan, scheduledPlan: scheduledPlan,
+            workspaceGeneration: workspaceGeneration, destination: destination, at: now)
+    }
+
+    private func observe(_ record: inout Record, at now: Date) -> Bool {
+        guard record.state == .enabled else { return false }
+        let gap = now.timeIntervalSince(record.lastObservedAt!)
+        if gap < 0 || gap > Self.maximumObservationGap {
+            record.state = .clockReviewRequired
+            return false
+        }
+        record.lastObservedAt = now
+        return now >= record.dueAt!
+    }
+
+    private func claim(envelope: XLogBackupEnvelope, plan: RemoteBackupUploadPlan,
+                       scheduledPlan: RemoteBackupUploadPlan, workspaceGeneration: UInt64,
+                       destination: RemoteBackupDestination, at now: Date) throws -> RemoteBackupDueClaim? {
         try validateClock(now)
         try envelope.validate(for: plan, workspaceGeneration: workspaceGeneration, destination: destination)
         return try locked(plan.destination.id) {
             guard var record = try read(plan.destination.id) else { return nil }
-            try record.validate(plan)
-            guard record.state == .enabled else { return nil }
-            let gap = now.timeIntervalSince(record.lastObservedAt!)
-            if gap < 0 || gap > Self.maximumObservationGap {
-                record.state = .clockReviewRequired
+            try record.validate(scheduledPlan)
+            guard observe(&record, at: now) else { try save(record); return nil }
+            // A fresh UUID must not bypass a reservation left by an interrupted
+            // snapshot claim before its replacement lane record could be saved.
+            if try claims.load().contains(where: {
+                guard $0.plan.destination.id == plan.destination.id else { return false }
+                if case .uncertain = $0.outcome { return true }
+                return false
+            }) {
+                record.state = .uncertain
                 try save(record)
                 return nil
             }
-            record.lastObservedAt = now
-            guard now >= record.dueAt! else { try save(record); return nil }
             // Reserve before handing out bytes. If saving the lane then fails, this
             // durable reservation still prevents replay by another owner or restart.
             if try claims.reserve(plan: plan) != nil {
@@ -115,6 +160,7 @@ public actor RemoteBackupScheduler {
                 try save(record)
                 return nil
             }
+            record.operation = RemoteBackupStoredOperation(plan: plan, outcome: nil)
             record.state = .claimed
             try save(record)
             return RemoteBackupDueClaim(plan: plan, envelope: envelope, dueAt: record.dueAt!, claimedAt: now)
@@ -199,7 +245,7 @@ public actor RemoteBackupScheduler {
     }
 
     private struct Record: Codable {
-        let operation: RemoteBackupStoredOperation
+        var operation: RemoteBackupStoredOperation
         var state: RemoteBackupScheduleState
         var enabledAt: Date?
         var dueAt: Date?
