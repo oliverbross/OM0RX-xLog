@@ -19,10 +19,13 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
         return Err("Only the native activation owner can use this method.".into());
     }
     if request["method"] == "workspace_layout_load" {
-        return if matches!(label, "main" | "monitor" | "world-map" | "band-maps" | "dx-cluster" | "log-qso" | "spot-history" | "logbook" | "awards" | "callsign-intelligence" | "settings" | "chaser-dx") {
+        return if matches!(label, "main" | "monitor" | "world-map" | "band-maps" | "dx-cluster" | "log-qso" | "spot-history" | "logbook" | "awards" | "callsign-intelligence" | "settings" | "chaser-dx" | "station-control") {
             Ok(())
         } else { Err("This window cannot read the shared workspace layout.".into()) };
     }
+    // Passive station windows use retained native context only. They must not
+    // reach worker reads (which can start sessions) or any special dispatcher.
+    if label == "station-control" { return Err("Station Control can only read retained native observations and workspace placement.".into()); }
     if request["method"] == "cluster_resume" {
         return Err("Only the native session owner can resume a cluster.".into());
     }
@@ -752,6 +755,17 @@ mod tests {
     use super::*;
     use serde_json::json;
 
+    #[test]
+    fn station_control_only_reads_layout_and_cannot_reach_worker_or_native_dispatchers() {
+        assert!(validate_surface("station-control", &json!({"id":"station","method":"workspace_layout_load","params":{}})).is_ok());
+        for method in ["station_snapshot", "station_configuration", "station_configuration_save", "station_connect", "station_disconnect", "station_reconnect",
+            "station_action", "station_tune", "station_radio_control", "station_power_selection", "station_rotor_snapshot", "station_rotor_goto", "station_rotor_stop",
+            "hamlib_snapshot", "hamlib_connect", "hamlib_reconnect", "hamlib_control", "rotor_snapshot", "rotor_goto", "rotor_stop", "winkeyer_snapshot",
+            "cluster_snapshot", "cluster_connect", "cluster_resume", "settings_load", "settings_save", "secret_status", "secret_save", "sync_run",
+            "workspace_create", "workspace_layout_apply", "logbook_operator_draft", "logbook_list", "backup_restore", "health"] {
+            assert!(validate_surface("station-control", &json!({"id":"station","method":method,"params":{}})).is_err(), "{method}");
+        }
+    }
     #[test]
     fn detached_qso_has_only_canonical_draft_and_required_lookup_reads() {
         for method in ["logbook_operator_draft", "logbook_operator_draft_apply", "logbook_operator_draft_receipt",

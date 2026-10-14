@@ -2,6 +2,8 @@ import { beforeEach, expect, it, vi } from "vitest";
 const loaded = vi.hoisted(() => ({ main: vi.fn(), awards: vi.fn(), logbook: vi.fn(), qso: vi.fn(), cluster: vi.fn(), history: vi.fn() }));
 const maps = vi.hoisted(() => ({ world: vi.fn(), bands: vi.fn() }));
 const monitor = vi.hoisted(() => vi.fn());
+const station = vi.hoisted(() => vi.fn());
+vi.mock("../src/live/DetachedStationControlSurface", () => { station(); return { DetachedStationControlSurface: "station-control-surface" }; });
 vi.mock("../src/live/DetachedMonitorSurface", () => { monitor(); return { DetachedMonitorSurface: "monitor-surface" }; });
 vi.mock("../src/LiveApp", () => { loaded.main(); return { default: "main-surface" }; });
 vi.mock("../src/live/DetachedAwardsSurface", () => { loaded.awards(); return { DetachedAwardsSurface: "awards-surface" }; });
@@ -11,7 +13,12 @@ vi.mock("../src/live/DetachedSpotHistorySurface", () => { loaded.history(); retu
 vi.mock("../src/live/DetachedClusterSurface", () => { loaded.cluster(); return { DetachedClusterSurface: "cluster-surface" }; });
 vi.mock("../src/live/DetachedWorldMapSurface", () => { maps.world(); return { DetachedWorldMapSurface: "world-map-surface" }; });
 vi.mock("../src/live/DetachedBandMapsSurface", () => { maps.bands(); return { DetachedBandMapsSurface: "band-maps-surface" }; });
-beforeEach(() => { vi.resetModules(); [...Object.values(loaded), ...Object.values(maps), monitor].forEach(mock => mock.mockClear()); });
+beforeEach(() => { vi.resetModules(); [...Object.values(loaded), ...Object.values(maps), monitor, station].forEach(mock => mock.mockClear()); });
+it("loads Station Control without evaluating the main station controller", async () => {
+  const { loadWindowSurface } = await import("../src/windowSurface");
+  expect(await loadWindowSurface("?view=station-control")).toBe("station-control-surface");
+  expect(station).toHaveBeenCalledOnce(); expect(loaded.main).not.toHaveBeenCalled();
+});
 it("loads detached surfaces without evaluating the main station controller", async () => {
   const { loadWindowSurface } = await import("../src/windowSurface");
   expect(await loadWindowSurface("?view=awards")).toBe("awards-surface");
@@ -46,5 +53,12 @@ it("does not mount the main controller when the archive child cannot load", asyn
   vi.doMock("../src/live/DetachedSpotHistorySurface", () => { throw new Error("archive chunk unavailable"); });
   const { loadWindowSurface } = await import("../src/windowSurface");
   await expect(loadWindowSurface("?view=spot-history")).rejects.toThrow();
+  expect(loaded.main).not.toHaveBeenCalled();
+});
+
+it("does not fall back to main when Station Control cannot load", async () => {
+  vi.doMock("../src/live/DetachedStationControlSurface", () => { throw new Error("station chunk unavailable"); });
+  const { loadWindowSurface } = await import("../src/windowSurface");
+  await expect(loadWindowSurface("?view=station-control")).rejects.toThrow();
   expect(loaded.main).not.toHaveBeenCalled();
 });

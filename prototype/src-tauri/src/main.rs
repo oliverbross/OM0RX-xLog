@@ -436,7 +436,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     if state.path.is_some() { acceptance::validate_local_request(&request)?; }
     let method = request.get("method").and_then(|m| m.as_str()).unwrap_or("");
     // This explicit role gate precedes every native special dispatcher too.
-    if matches!(window.label(), "monitor" | "log-qso" | "spot-history" | "world-map" | "band-maps" | "callsign-intelligence") { worker::validate_surface(window.label(), &request)?; }
+    if matches!(window.label(), "monitor" | "log-qso" | "spot-history" | "world-map" | "band-maps" | "callsign-intelligence" | "station-control") { worker::validate_surface(window.label(), &request)?; }
     // Local acceptance permits cluster_history against its synthetic logbook,
     // but must never start the live session's background snapshot service.
     if state.path.is_none() && cluster_session::handles(method) && !local_history_reader(window.label(), method) {
@@ -700,7 +700,7 @@ fn local_history_reader(label: &str, method: &str) -> bool {
 fn detached_dock_screen(label: &str) -> Result<&str, String> {
     match label {
         "callsign-intelligence" => Ok("operator-desk"),
-        "dx-cluster" | "world-map" | "band-maps" | "log-qso" | "spot-history" | "logbook" | "awards" | "settings" => Ok(label),
+        "dx-cluster" | "world-map" | "band-maps" | "log-qso" | "spot-history" | "logbook" | "awards" | "settings" | "station-control" => Ok(label),
         _ => Err("Only detachable workspaces can dock back".into()),
     }
 }
@@ -1044,8 +1044,9 @@ mod intelligence_window_tests {
     fn intelligence_docks_to_the_existing_desk_without_a_new_main_screen() {
         let screen = super::detached_dock_screen("callsign-intelligence").unwrap();
         assert_eq!(screen, "operator-desk"); assert!(crate::workspace_navigation::screen(screen).is_some());
-        for label in ["log-qso", "logbook", "awards", "spot-history", "world-map", "band-maps", "dx-cluster", "settings"] {
+        for label in ["log-qso", "logbook", "awards", "spot-history", "world-map", "band-maps", "dx-cluster", "settings", "station-control"] {
             assert_eq!(super::detached_dock_screen(label).unwrap(), label);
+            assert!(crate::workspace_navigation::screen(label).is_some());
         }
         for label in ["main", "monitor", "active-qso", "unknown", ""] { assert!(super::detached_dock_screen(label).is_err()); }
     }

@@ -9,7 +9,7 @@ pub struct WindowSpec {
     pub width: f64,
     pub height: f64,
 }
-pub const SUPPORTED_WINDOWS: [WindowSpec; 11] = [
+pub const SUPPORTED_WINDOWS: [WindowSpec; 12] = [
     WindowSpec { id: "callsign-intelligence", title: "OM0RX-xLog — Callsign Intelligence", width: 700.0, height: 620.0 },
     WindowSpec { id: "log-qso", title: "OM0RX-xLog — Log QSO", width: 800.0, height: 800.0 },
     WindowSpec { id: "spot-history", title: "OM0RX-xLog — Spot History", width: 1180.0, height: 800.0 },
@@ -21,6 +21,7 @@ pub const SUPPORTED_WINDOWS: [WindowSpec; 11] = [
     WindowSpec { id: "awards", title: "OM0RX-xLog — Awards", width: 1280.0, height: 800.0 },
     WindowSpec { id: "settings", title: "OM0RX-xLog — Settings", width: 1100.0, height: 800.0 },
     WindowSpec { id: "chaser-dx", title: "OM0RX-xLog — Chaser & DX", width: 1180.0, height: 800.0 },
+    WindowSpec { id: "station-control", title: "OM0RX-xLog — Station Control", width: 900.0, height: 700.0 },
 ];
 pub fn supports(label: &str) -> bool { SUPPORTED_WINDOWS.iter().any(|window| window.id == label) }
 
@@ -174,12 +175,24 @@ mod tests {
     #[test]
     fn registry_covers_only_real_windows() {
         let ids: BTreeSet<_> = SUPPORTED_WINDOWS.iter().map(|window| window.id).collect();
-        assert_eq!(ids.len(), 11);
+        assert_eq!(ids.len(), 12);
         let capabilities: Value = serde_json::from_str(include_str!("../capabilities/default.json")).unwrap();
         for id in &ids { assert!(capabilities["windows"].as_array().unwrap().contains(&json!(id))); }
         for window in SUPPORTED_WINDOWS { assert!(supports(window.id)); assert!(window.width >= 640.0 && window.height >= 480.0); }
         for role in ROLES { assert_eq!(supports(role), ids.contains(role)); }
         assert!(!supports("main")); assert!(!supports("unknown"));
+    }
+    #[test]
+    fn station_control_intent_does_not_depend_on_main_or_reopen_after_passive_reads() {
+        let mut planner = WorkspaceWindowPlanner::default();
+        let snapshot = fixture(&["station-control"]);
+        let plan = planner.plan(&snapshot, false).unwrap();
+        assert_eq!(plan.show, ["station-control"]); assert!(plan.hide.is_empty());
+        apply(&mut planner, &plan);
+        assert!(planner.plan(&snapshot, false).unwrap().show.is_empty());
+        planner.forget_destroyed("station-control");
+        assert!(planner.plan(&snapshot, false).unwrap().show.is_empty());
+        assert_eq!(planner.plan(&snapshot, true).unwrap().show, ["station-control"]);
     }
     #[test]
     fn intelligence_window_reuses_singleton_intent_without_a_main_dependency() {
@@ -249,7 +262,7 @@ mod tests {
         planner.acknowledge_show("logbook").unwrap();
         assert_eq!(planner.plan(&fixture(&["awards"]), false).unwrap().hide, ["logbook"]);
         assert_eq!(planner.plan(&fixture(&["logbook", "awards"]), false).unwrap().show, ["awards", "logbook"]);
-        assert!(planner.acknowledge_show("station-control").is_err());
+        assert!(planner.acknowledge_show("station-identity").is_err());
         assert!(planner.acknowledge_hide("main").is_err());
     }
     #[test]
