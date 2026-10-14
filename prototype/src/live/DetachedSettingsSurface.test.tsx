@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { DetachedSettingsSurface, requestDetachedSettings } from "./DetachedSettingsSurface";
+import { loadWindowSurface } from "../windowSurface";
 
 const api = vi.hoisted(() => ({ request: vi.fn(), dock: vi.fn(), changed: undefined as undefined | (() => void),
   rotorChanged: undefined as undefined | (() => void), layoutRefresh: vi.fn(async () => {}) }));
@@ -33,7 +34,7 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
 
-it("retains a dirty detached form across invalidation and remount, then permits Dock only after explicit discard", async () => {
+it("opens at the settings form and retains dirty text across invalidation and remount until explicit discard", async () => {
   let current = snapshot(0);
   api.request.mockImplementation(async (method: string) => {
     if (method === "settings_load") return structuredClone(current);
@@ -42,14 +43,18 @@ it("retains a dirty detached form across invalidation and remount, then permits 
     throw new Error(`Unexpected Settings request ${method}`);
   });
   api.dock.mockResolvedValue(undefined);
-  const first = render(<DetachedSettingsSurface />);
+  const Surface = await loadWindowSurface("?view=settings");
+  const first = render(<Surface />);
   const operator = await screen.findByRole("textbox", { name: "Operator call" }) as HTMLInputElement;
   fireEvent.change(operator, { target: { value: "VK8DIRTY" } });
   expect(operator.value).toBe("VK8DIRTY");
   expect(screen.getByRole("tab", { name: "Rotator" })).toBeTruthy();
   expect(screen.queryByRole("tab", { name: "CW" })).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "Dock back" }));
-  expect(await screen.findByText(/Resolve or discard/)).toBeTruthy();
+  expect(screen.queryByText("Settings", { selector: "strong" })).toBeNull();
+  expect(screen.queryByText("Shared, revision-checked configuration")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Dock back" })).toBeNull();
+  expect(document.querySelector("main > .live-actions")).toBeNull();
+  expect(localStorage.getItem("xlog.integration.settings.detached.v1")).not.toBeNull();
   expect(api.dock).not.toHaveBeenCalled();
 
   current = snapshot(1, { ...values, operatorCall: "VK8SAVED" });
@@ -63,8 +68,7 @@ it("retains a dirty detached form across invalidation and remount, then permits 
   expect((screen.getByRole("textbox", { name: "Operator call" }) as HTMLInputElement).value).toBe("VK8DIRTY");
   fireEvent.click(screen.getByRole("button", { name: "Use saved Settings" }));
   await waitFor(() => expect((screen.getByRole("textbox", { name: "Operator call" }) as HTMLInputElement).value).toBe("VK8SAVED"));
-  fireEvent.click(screen.getByRole("button", { name: "Dock back" }));
-  await waitFor(() => expect(api.dock).toHaveBeenCalledOnce());
+  expect(api.dock).not.toHaveBeenCalled();
   expect(localStorage.getItem("xlog.integration.settings.detached.v1")).toBeNull();
 });
 
@@ -77,7 +81,7 @@ it("enforces the detached non-hardware method list before IPC", async () => {
   expect(api.request).toHaveBeenCalledOnce();
 });
 
-it("confirms a native UUID Settings receipt, clears recovery and permits Dock without discard", async () => {
+it("confirms a native UUID Settings receipt and clears recovery without discard", async () => {
   api.request.mockClear();
   let current = { ...snapshot(0), generation: generation.toUpperCase() };
   api.request.mockImplementation(async (method: string, params: any) => {
@@ -100,8 +104,7 @@ it("confirms a native UUID Settings receipt, clears recovery and permits Dock wi
   expect(screen.queryByRole("button", { name: "Retry same save" })).toBeNull();
   expect(localStorage.getItem("xlog.integration.settings.detached.v1")).toBeNull();
   expect(current.settings.operatorCall).toBe("VK8Case");
-  fireEvent.click(screen.getByRole("button", { name: "Dock back" }));
-  await waitFor(() => expect(api.dock).toHaveBeenCalledOnce());
+  expect(api.dock).not.toHaveBeenCalled();
   expect(api.request.mock.calls.filter(([method]) => method === "settings_save")).toHaveLength(1);
   expect(api.request.mock.calls.filter(([method]) => ["settings_receipt", "sync_run", "rotor_connect", "rotor_goto", "station_connect"].includes(method))).toEqual([]);
 });

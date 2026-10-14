@@ -77,7 +77,7 @@ function ConfirmationStatus({ service, sent, received, supportsReceived = true }
   </span>;
 }
 
-export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChanged, onUndock, onDock, onBusyChange, onWorkingChange, disabled = false, columnContext }: {
+export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChanged, onUndock, onDock, onBusyChange, onWorkingChange, disabled = false, columnContext, taskToolbar = false }: {
   onRequest: Request;
   onEdit: (qso: QSO) => void;
   refreshKey: number;
@@ -86,6 +86,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
   onUndock?: () => void; onDock?: () => void; onBusyChange?: (busy: boolean) => void; disabled?: boolean;
   onWorkingChange?: (working: boolean) => void;
   columnContext?: LogbookColumnContext;
+  taskToolbar?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
@@ -367,13 +368,18 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
   const deleting = confirmDelete?.qso as QSO | undefined;
   const columnsControl = <button type="button" ref={columnsButton} aria-expanded={columnsOpen} aria-controls={columnsID}
     onClick={() => setColumnsOpen(value => !value)}>Columns</button>;
+  const selectionControls = <>
+    <button type="button" disabled={busy || loading || !rows.length || exportIDs.length === rows.length}
+      onClick={() => setExportSelection(rows.map(qso => qso.id))}>Select page</button>
+    <button type="button" disabled={busy || loading || !exportIDs.length} onClick={() => setExportSelection([])}>Clear selection</button>
+  </>;
   return (
     <section className="live-logbook" aria-label="Integrated logbook">
-      {compact ? <div className="live-logbook-compact-actions">{columnsControl}</div> : <header className="live-logbook-head">
-        <div>
+      {compact ? <div className="live-logbook-compact-actions">{columnsControl}</div> : <header className={`live-logbook-head${taskToolbar ? " live-logbook-task-toolbar" : ""}`}>
+        {!taskToolbar && <div>
           <h2>Logbook</h2>
           <p>Local working copy · {total.toLocaleString()} contacts</p>
-        </div>
+        </div>}
         <div className="live-logbook-actions">
           <form className="live-logbook-search" onSubmit={submitSearch}>
             <input value={query} onChange={(event) => setQuery(event.target.value)} maxLength={128}
@@ -386,6 +392,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
           {columnsControl}
           <button type="button" disabled={!selected || busy || loading} onClick={() => selected && void prepareDelete(selected.id)}><Trash2 size={13} /> Delete</button>
           <button type="button" onClick={() => void undoDelete()} disabled={!mutation.undo || busy}><RotateCcw size={13} /> Undo delete</button>
+          {taskToolbar ? selectionControls : <>
           <input ref={fileInput} type="file" accept=".adi,.adif,.adx,.xml,text/plain,application/xml,text/xml" hidden disabled={busy}
             onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; if (file) void importFile(file); }} />
           <button type="button" onClick={() => fileInput.current?.click()} disabled={busy}>
@@ -405,6 +412,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
           <button type="button" onClick={() => void exportAll("selected")} disabled={busy || loading || !exportIDs.length}>Export selected</button>
           {onUndock && <button type="button" onClick={onUndock} disabled={busy}><ExternalLink size={14} /> Undock</button>}
           {onDock && <button type="button" onClick={onDock} disabled={busy}><PanelsTopLeft size={14} /> Dock back</button>}
+          </>}
         </div>
       </header>}
       {columnsOpen && <LogbookColumns id={columnsID} preferences={columnPreferences} onChange={setColumnPreferences} context={resolvedColumnContext}
@@ -443,11 +451,9 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
         </dd></div>
         <div className="live-logbook-details-comment"><dt>Comment</dt><dd>{selected.comment || "—"}</dd></div>
       </dl>}
-      {!compact && <div className="live-logbook-export-selection" role="group" aria-label="Export selection">
+      {!compact && !taskToolbar && <div className="live-logbook-export-selection" role="group" aria-label="Export selection">
         <span aria-live="polite">{exportIDs.length} selected on this page</span>
-        <button type="button" disabled={busy || loading || !rows.length || exportIDs.length === rows.length}
-          onClick={() => setExportSelection(rows.map(qso => qso.id))}>Select page</button>
-        <button type="button" disabled={busy || loading || !exportIDs.length} onClick={() => setExportSelection([])}>Clear selection</button>
+        {selectionControls}
         <span>Selection clears when the page refreshes or changes.</span>
       </div>}
       <div className="live-logbook-table-wrap" ref={tableArea} role="region" aria-label="Logbook contacts, scroll for more columns" tabIndex={0}>

@@ -17,6 +17,10 @@
 .live-logbook-search svg { color: var(--secondary); margin-left: 5px; }
 .live-logbook-search input { width: 245px; min-width: 150px; min-height: 29px; }
 .live-logbook-search input:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.live-logbook-task-toolbar { padding: 0; }
+.live-logbook-head.live-logbook-task-toolbar > .live-logbook-actions { width: 100%; justify-content: flex-start; flex-wrap: wrap; gap: 4px; }
+.live-logbook-task-toolbar .live-logbook-search { flex: 1 1 120px; min-width: 120px; }
+.live-logbook-task-toolbar .live-logbook-search input { width: 100%; min-width: 0; }
 .live-logbook-feedback { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px; border-radius: 5px; color: var(--teal); background: #102a2c; }
 .live-logbook-feedback.error { color: var(--error); background: #321b25; }
 .live-logbook-table-wrap { flex: 1 1 0; min-height: 60px; min-width: 0; overflow: auto; border-top: 1px solid var(--border); scrollbar-color: var(--border) var(--panel); }

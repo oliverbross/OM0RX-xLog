@@ -41,7 +41,7 @@ function Preview() {
     return () => { clearTimeout(timer); window.removeEventListener("focus", focus); };
   }, []);
   return <div className="app live monitor-app detached-logbook-app" data-refresh={refresh}><main>
-    <LogbookPanel onRequest={request} mutations={mutations} onEdit={() => {}}
+    <LogbookPanel taskToolbar={detached} onRequest={request} mutations={mutations} onEdit={() => {}}
       onDock={detached ? () => {} : undefined} onUndock={!detached ? () => {} : undefined} refreshKey={refresh} />
   </main></div>;
 }

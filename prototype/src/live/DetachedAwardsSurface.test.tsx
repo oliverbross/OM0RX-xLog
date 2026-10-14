@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { DetachedAwardsSurface } from "./DetachedAwardsSurface";
 import { openDetachedAwards } from "./logbookWindows";
+import { loadWindowSurface } from "../windowSurface";
 const api = vi.hoisted(() => ({ worker: vi.fn(), changes: vi.fn(), dock: vi.fn(), invoke: vi.fn(), desktop: true }));
 vi.mock("../worker", () => ({ workerRequest: api.worker }));
 vi.mock("./logbookWindows", async original => ({ ...await original<typeof import("./logbookWindows")>(), connectLogbookChanges: api.changes }));
@@ -15,22 +16,26 @@ it("owns read-only totals/catalogue requests and refresh without mounting the ma
   const stop = vi.fn(); api.changes.mockImplementation(callback => { refresh = callback; return stop; });
   api.worker.mockImplementation(async (method: string) => ({ result: method === "logbook_stats" ? { awards: { qso_count: 1 } } :
     { total_programmes: 0, catalogue_total: 192, programmes: [], items: [] } }));
-  const view = render(<DetachedAwardsSurface />);
+  const Surface = await loadWindowSurface("?view=awards");
+  const view = render(<Surface />);
   await screen.findByText("192");
   expect(screen.getByRole("main", { name: "Detached Awards" })).toBeTruthy();
+  expect(screen.queryByRole("heading", { name: "Station intelligence" })).toBeNull();
+  expect(screen.queryByText("Local award estimates and operating patterns.")).toBeNull();
+  expect(screen.queryByText("LOCAL LOG · NOT AN AWARD APPLICATION")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Dock back" })).toBeNull();
+  expect(document.querySelector(".awards-page-head")).toBeNull();
   expect([...new Set(api.worker.mock.calls.map(([method]) => method))].sort()).toEqual(["logbook_catalog", "logbook_stats"]);
   refresh();
   await waitFor(() => expect(api.worker.mock.calls.filter(([method]) => method === "logbook_stats")).toHaveLength(2));
-  fireEvent.click(screen.getByRole("button", { name: "Dock back" }));
-  await waitFor(() => expect(api.dock).toHaveBeenCalledOnce());
+  expect(api.dock).not.toHaveBeenCalled();
   view.unmount(); expect(stop).toHaveBeenCalledOnce();
 });
-it("shows worker and docking errors without a mutation or silent fallback", async () => {
+it("shows worker errors without a mutation or silent fallback", async () => {
   api.changes.mockReturnValue(() => {}); api.worker.mockRejectedValue(new Error("offline"));
   api.dock.mockRejectedValue(new Error("missing main")); render(<DetachedAwardsSurface />);
   await screen.findByText(/Awards library is unavailable/);
-  fireEvent.click(screen.getByRole("button", { name: "Dock back" }));
-  await screen.findByText(/Could not dock Awards/);
+  expect(screen.queryByRole("button", { name: "Dock back" })).toBeNull();
   expect(api.worker.mock.calls.every(([method]) => ["logbook_catalog", "logbook_stats"].includes(method))).toBe(true);
 });
 it("opens a singleton native route and does not pretend to undock in a browser", async () => {

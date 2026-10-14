@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createLogbookLayoutAcceptance, workspaceDraftMarker } from "./logbookLayoutAcceptance";
 import { DetachedLogbookSurface, detachedContactJournalKey } from "./live/DetachedLogbookSurface";
@@ -49,6 +50,31 @@ async function setup(originalComment = "Original stored comment") {
   });
   return { backend, view, fill, click, action: createLogbookLayoutAcceptance({ fill, click }) };
 }
+
+it("opens a direct-menu Logbook with only a compact task toolbar above the table", async () => {
+  await setup();
+  const toolbar = document.querySelector<HTMLElement>(".live-logbook-task-toolbar")!;
+  expect(toolbar).not.toBeNull();
+  expect(within(toolbar).getByRole("textbox", { name: "Search logbook" })).toBeTruthy();
+  expect(within(toolbar).getAllByRole("button").map(button => button.getAttribute("aria-label") || button.textContent?.trim())).toEqual([
+    "Search", "Edit", "Details", "Columns", "Delete", "Undo delete", "Select page", "Clear selection",
+  ]);
+  expect(screen.queryByRole("heading", { name: "Logbook" })).toBeNull();
+  expect(screen.queryByText(/Local working copy|Selection clears/)).toBeNull();
+  for (const name of ["Import ADIF", "Export all", "Export filtered", "Export selected", "Dock back"])
+    expect(screen.queryByRole("button", { name })).toBeNull();
+  expect(screen.queryByRole("combobox", { name: "Import encoding" })).toBeNull();
+  expect(screen.queryByRole("combobox", { name: "Export format" })).toBeNull();
+  expect(document.querySelector(".live-logbook-export-selection")).toBeNull();
+  expect(toolbar.compareDocumentPosition(screen.getByRole("table")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  const css = readFileSync(`${process.cwd()}/src/live/logbook.css`, "utf8");
+  expect(css).toMatch(/\.live-logbook-head\.live-logbook-task-toolbar > \.live-logbook-actions\s*\{[^}]*justify-content: flex-start;[^}]*flex-wrap: wrap;/);
+  expect(css).toMatch(/\.live-logbook-task-toolbar \.live-logbook-search\s*\{[^}]*flex: 1 1 120px;[^}]*min-width: 120px;/);
+  fireEvent.click(screen.getByRole("button", { name: "Select page" }));
+  expect(screen.getByRole<HTMLInputElement>("checkbox", { name: /for export/ }).checked).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Clear selection" }));
+  expect(screen.getByRole<HTMLInputElement>("checkbox", { name: /for export/ }).checked).toBe(false);
+});
 
 it("prepares, probes while hidden, and cancels a real unsaved detached contact edit without backend writes", async () => {
   const context = await setup();

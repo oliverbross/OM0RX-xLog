@@ -2,7 +2,6 @@ import { lazy, Suspense, useCallback, useEffect, useState, useSyncExternalStore 
 import ServiceSettings from "./ServiceSettings";
 import SyncPanel from "./SyncPanel";
 import WorkspaceSettings from "./WorkspaceSettings";
-import { dockDetachedWorkspace } from "./DetachedClusterBridge";
 import { readSettingsJournal, SettingsSession, settingsDraftIsDirty } from "./settingsSession";
 import { connectSettingsChanges, requestSettings } from "./settingsTransport";
 import { useWorkspaceLayout } from "./useWorkspaceLayout";
@@ -38,7 +37,6 @@ export async function requestDetachedSettings(method: string, params: Record<str
 
 export function DetachedSettingsSurface() {
   const [message, setMessage] = useState("");
-  const [docking, setDocking] = useState(false);
   const [settingsSession] = useState(() => new SettingsSession(requestDetachedSettings,
     journal => journal ? localStorage.setItem(journalKey, JSON.stringify(journal)) : localStorage.removeItem(journalKey), storedJournal()));
   const state = useSyncExternalStore(settingsSession.subscribe, settingsSession.getSnapshot);
@@ -57,25 +55,10 @@ export function DetachedSettingsSurface() {
   }, [settingsSession, rotorSession]);
   useEffect(() => { reload(); return connectSettingsChanges(reload, setMessage); }, [reload]);
   useEffect(() => connectRotorConfigurationChanges(() => { void rotorSession.load(); }, setMessage), [rotorSession]);
-  const dock = useCallback(async () => {
-    if (docking) return;
-    if (dirty || state.pending || state.conflict || state.workspaceChanged || state.saving ||
-        rotorState.pending || rotorState.conflict || rotorState.workspaceChanged || rotorState.saving) {
-      setMessage("Resolve or discard the current Settings change before docking. Your text remains saved in this window.");
-      return;
-    }
-    setDocking(true); setMessage("");
-    try { await dockDetachedWorkspace(); }
-    catch { setMessage("Could not dock Settings. This window and its recovery journal remain available."); }
-    finally { setDocking(false); }
-  }, [dirty, docking, state.conflict, state.pending, state.saving, state.workspaceChanged,
-    rotorState.conflict, rotorState.pending, rotorState.saving, rotorState.workspaceChanged]);
   const recover = (action: () => Promise<void> | void, fallback: string) => Promise.resolve().then(action)
     .catch(cause => setMessage(cause instanceof Error ? cause.message : fallback));
 
   return <div className="app live monitor-app detached-settings-app"><main aria-label="Detached Settings">
-    <div className="live-actions"><strong>Settings</strong><span className="secondary">Shared, revision-checked configuration</span>
-      <button type="button" disabled={docking} onClick={() => void dock()}>{docking ? "Docking…" : "Dock back"}</button></div>
     {message && <p className="live-error" role="alert">{message}</p>}
     {!state.draft ? <p role="status">Loading Settings…</p> : <ServiceSettings
       values={state.draft} savedValues={state.base?.settings} request={requestDetachedSettings}

@@ -85,7 +85,7 @@ export function DetachedLogbookSurface() {
         busy={working || edit.activationFrozen || edit.locked || edit.conflict || edit.workspaceChanged}
         draftLocked={edit.activationFrozen || edit.locked || edit.workspaceChanged} canAcceptLocalInput={acceptsInput} isEditing radioControls={false} clearLabel="Cancel edit"
         lookup={lookup} previous={previous} follow={false} setFollow={() => {}} request={request} />
-        : <LogbookPanel onRequest={request} refreshKey={refresh} mutations={mutations} onChanged={changed}
+        : <LogbookPanel taskToolbar onRequest={request} refreshKey={refresh} mutations={mutations} onChanged={changed}
           onBusyChange={tableWorking} disabled={working || edit.activationFrozen || edit.locked} onDock={dock}
           onEdit={qso => { if (!tableBusy) void run(() => contacts.open(qso.id)); }} />}
     </main>
