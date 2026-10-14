@@ -1,6 +1,6 @@
 # Configurable Operator Desk and native windows
 
-Status: shared draft, revision-safe contact and Integration Settings editing, an independent scoped Settings child, shared revisioned rotor configuration, a passive independent Chaser & DX child, native Cluster startup intent, radio/rotor telemetry, active radio selection and native menu routing are implemented in source. Logbook/Awards repeated-open and Dock-back lifecycles pass isolated Windows/Linux packages through V, including reduced detached-window startup bundles and the shared layout roundtrip. W adds the configurable canvas and its native control gate; exact package run is still being verified. Station Control, CW, protected opportunity selection, the remaining independent windows, display migration and whole-app performance acceptance remain open.
+Status: shared draft, revision-safe contact and Integration Settings editing, an independent scoped Settings child, shared revisioned rotor configuration, passive independent Chaser & DX and Station Control children, native Cluster startup intent, radio/rotor telemetry, active radio selection and native menu routing are implemented in source. Logbook/Awards repeated-open and Dock-back lifecycles pass isolated Windows/Linux packages through V, including reduced detached-window startup bundles and the shared layout roundtrip. W adds the configurable canvas and its native control gate; exact package run is still being verified. A shared native CW owner, full Station Control actions, protected opportunity selection, the remaining independent windows, display migration and whole-app performance acceptance remain open.
 Request: 13 October 2026. Baseline: `0cc7ecc` / installed alpha.13.
 
 ## Product contract
@@ -645,6 +645,42 @@ sources retain Checkpoint AC's passing evidence and were not rerun for this
 frontend/Rust-only slice. This is source evidence only: no package was produced
 or installed, no public feed was contacted for acceptance, and no operator data,
 station or hardware state was changed.
+
+### Checkpoint AE — independent passive Station Control
+
+Station Control is now the twelfth singleton native workspace role. Its detached
+surface starts without the Desk renderer and reads only the already-retained
+native radio-selection, radio-telemetry and station-safety projection. It does
+not create a renderer poller, initialize or select a provider, read credentials,
+connect a radio or dispatch a station action. It follows the native Direct Agent,
+Direct FLEX LAN or Hamlib selection honestly and shows stale/unavailable state
+without relabelling retained values as live. Dock back uses the existing native
+Desk route and leaves a recoverable visible error if docking fails.
+
+The native boundary is deliberately stricter than the existing Station Monitor.
+`station-control` is admitted only to retained monitor-context reads and shared
+layout placement; every worker method is rejected before cluster, WinKeyer,
+Hamlib, rotor or worker dispatch. Monitor action admission remains monitor-only.
+The current embedded Station Control still owns provider selection, connection,
+configuration and actions. Reusing its hard-coded Agent panel in the child would
+misrepresent FLEX/Hamlib ownership and duplicate renderer polling, so unfinished
+controls remain hidden.
+
+Exact source `ed1cc0478b4341c10c742b335c2b7340c4c1eb54` passes full frontend
+**1,071/1,071 across 132 files**, Rust **309 unit + 18 integration (327 total)**,
+TypeScript and the production build/bundle gate. The Station Control startup
+graph is 271,237 bytes gzip 86,277 and excludes the main workspace and Map. The
+unchanged Swift sources retain Checkpoint AC's passing evidence and were not
+rerun for this frontend/Rust-only slice. No package was produced or installed,
+no external service or hardware was contacted, and no operator data or station
+state was changed.
+
+The CW ownership audit found that `useCW` currently creates one renderer-local
+controller per mount. A second copy could arm independently or stop another
+window's backend-global WinKeyer output. The next CW stage therefore creates one
+native owner for arm/send/Stop, saved macro/profile revision, canonical new-QSO
+context, provider/connection generation and uncertain-output recovery; the
+existing Desk controls must migrate to it before a CW child is exposed.
 
 ### 14 October audit — remaining new-QSO and QSY ownership
 
