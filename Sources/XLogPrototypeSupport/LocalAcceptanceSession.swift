@@ -38,7 +38,7 @@ public final class LocalAcceptanceSession: @unchecked Sendable {
 
     private static func seedSpotHistory(at url: URL) throws {
         let database = try SpotHistoryDatabase(url: url)
-        defer { try? database.close() }
+        defer { database.close() }
         let session = UUID(), source = UUID(), base = Date().addingTimeInterval(-600)
         let rows = (0..<137).map { index in
             let call = index.isMultiple(of: 2) ? "TESTH0" : "TESTH1"

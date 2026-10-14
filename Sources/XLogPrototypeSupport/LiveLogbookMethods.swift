@@ -496,7 +496,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                         return ["status": "applied", "receipt": try scopedReceipt(receipt, field: "draft", generation: generation)]
                     }
                     guard try currentSettings().clearAfterQSY else { return ["status": "disabled", "generation": generation] }
-                    guard try !db.spotDraftActivationActive else {
+                    guard !db.spotDraftActivationActive else {
                         throw WorkerFailure("spot_activation_busy", "Wait for the current spot activation before clearing this draft.")
                     }
                     let blank = try newOperatorDraft()
