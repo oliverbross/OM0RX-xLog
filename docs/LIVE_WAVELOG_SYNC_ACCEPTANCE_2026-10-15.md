@@ -67,3 +67,30 @@ local contact is absent remotely.
 This closes live Wavelog reconciliation and persisted automatic-start acceptance
 for alpha.29. It does not resolve the three source duplicate pairs in Wavelog;
 they must be reviewed there before either member is changed or removed.
+
+## Later read-only identity recheck and review UI
+
+A later read-only probe, after additional ordinary logging, fetched 68,036 remote
+IDs. It found 68,030 unambiguous records and the same six held IDs in the same
+three two-ID identity groups. Three remote IDs were not linked locally, exactly
+one alternate ID from each held group; no clean or dirty local ID was absent from
+the remote history. The probe issued GET requests only and made no local or
+remote writes.
+
+The changed field shapes explain why the six records must not be described as
+six ordinary duplicates:
+
+- JG1IVI differs in `COUNTRY`, `DISTANCE`, eQSL, LoTW, QRZ download and received
+  QSL-message fields. Service fields are empty-versus-populated, while country
+  and distance also have conflicting populated representations.
+- K8DLD differs only in QRZ download date/status, empty-versus-populated.
+- YF3ARV differs in `COUNTRY`, LoTW, QRZ download and QRZ upload fields. Service
+  fields are empty-versus-populated; country and QRZ upload date include
+  conflicting populated representations.
+
+Post-alpha.29 source now projects the held identity, exact Wavelog record IDs,
+differing field names and value shapes into Sync status. The Sync panel presents
+each group through compact progressive disclosure and explicitly explains that
+confirmation-service updates may be legitimate while the JSON/ADIF histories do
+not provide a safe row-to-ID join. It does not expose full ADIF values, merge,
+edit or delete either record. Packaged visual acceptance remains open.

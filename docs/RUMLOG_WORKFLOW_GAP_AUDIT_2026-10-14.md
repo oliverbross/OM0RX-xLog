@@ -74,11 +74,13 @@ merely to look like RUMlog.
    geometry recovery and main-hidden operation.
 2. Performance: packaged local Save latency under sync load, cold Awards/startup,
    selected-feed first paint and realistic large-log percentile measurements.
-3. Sync: native completion notifications without the main renderer, explicit
-   conflict/held-record visibility and two-way live acceptance without synthetic
-   operator contacts. The fresh alpha.15 read-only local snapshot has 67,972
-   mapped contacts and no dirty rows/outbox/conflicts, up from 67,970 at install;
-   that is not a direct remote comparison or blanket two-way/hardware acceptance.
+3. Sync: native completion notifications without the main renderer and two-way
+   live acceptance without synthetic operator contacts remain open. Explicit
+   held-record visibility is source ready: Sync now shows each same-identity
+   group, its exact Wavelog IDs, differing field names and value shapes without
+   guessing a merge. A 15 October read-only probe confirmed 68,036 remote IDs,
+   68,030 unambiguous and the same three two-ID held groups. Packaged visual
+   acceptance of that review UI remains open.
 4. Finish DATA-10 live-sync acceptance and production capability for optional
    cloud backups. Packaged ADX roundtrip and 100,002-record functional acceptance
    pass in alpha.29.

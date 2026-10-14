@@ -14,6 +14,16 @@
 .sync-panel .sync-count { color: var(--secondary, #92a7bf); font-weight: 400; margin-left: 5px; font-variant-numeric: tabular-nums; }
 .sync-panel .sync-error { color: #ffb4aa; }
 .sync-panel .sync-success { color: var(--teal, #12d6a0); }
+.sync-panel .sync-held { max-width: 75ch; margin: 12px 0; padding: 10px 0; border-block: 1px solid #6f5627; color: #f5ce86; }
+.sync-panel .sync-held > p { margin: 0; }
+.sync-panel .sync-held > p + * { margin-top: 9px; }
+.sync-panel .sync-held-groups { border-top: 1px solid #55472d; }
+.sync-panel .sync-held-group { padding: 7px 0; border-bottom: 1px solid #55472d; color: var(--text, #e6edf6); }
+.sync-panel .sync-held-group summary { color: #f5ce86; cursor: pointer; }
+.sync-panel .sync-held-group dl { display: grid; gap: 6px; margin: 9px 0 2px 18px; }
+.sync-panel .sync-held-group dl > div { display: grid; grid-template-columns: minmax(104px, 0.28fr) 1fr; gap: 10px; min-width: 0; }
+.sync-panel .sync-held-group dt { color: var(--secondary, #92a7bf); }
+.sync-panel .sync-held-group dd { margin: 0; min-width: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .sync-panel .sync-conflict { padding: 13px 0; }
 .sync-panel summary { overflow-wrap: anywhere; line-height: 1.5; }
 .sync-panel .sync-merge { padding-top: 8px; }
@@ -36,4 +46,4 @@
 .sync-panel .sync-outbox { min-width: 360px; }
 .sync-panel .sync-outbox th, .sync-panel .sync-outbox td { padding: 8px; text-align: left; border-bottom: 1px solid var(--border, #243a55); }
 .sync-panel::selection, .sync-panel ::selection { background: #215067; color: #e6edf6; }
-@media (max-width: 640px) { .sync-panel .sync-merge-save { align-items: stretch; flex-direction: column; } .sync-panel .sync-merge-save button { width: 100%; } }
+@media (max-width: 640px) { .sync-panel .sync-merge-save { align-items: stretch; flex-direction: column; } .sync-panel .sync-merge-save button { width: 100%; } .sync-panel .sync-held-group dl > div { grid-template-columns: 1fr; gap: 2px; } }

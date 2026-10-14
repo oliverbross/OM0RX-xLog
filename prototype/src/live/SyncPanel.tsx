@@ -7,9 +7,24 @@ type Data = Record<string, any>;
 type Request = (method: string, params?: Data) => Promise<Data>;
 type Field = { key: string; label: string; local: string; remote: string };
 type Conflict = { id: string; revision: string; fields: Field[]; localQSO: Data; remoteQSO: Data };
+type HeldGroup = { identity: string; remote_ids: number[]; differing_fields: string[]; value_shapes: string[] };
 type Props = { request: Request; onChanged: () => void; journalKey?: string };
 const errorText = (error: unknown) => error instanceof Error ? error.message : "The operation failed. Refresh the current sync state and retry.";
 const syncTime = (value: unknown) => typeof value === "string" && Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleString() : "—";
+const heldIdentityLabel = (identity: string) => {
+  const [call, , band, mode] = identity.split("|");
+  return [call, band, mode].filter(Boolean).join(" · ") || "Held Wavelog records";
+};
+const heldGroupsFrom = (value: unknown): HeldGroup[] => !Array.isArray(value) ? [] : value.flatMap(item => {
+  if (!item || typeof item !== "object") return [];
+  const group = item as Data;
+  return [{
+    identity: typeof group.identity === "string" ? group.identity : "",
+    remote_ids: Array.isArray(group.remote_ids) ? group.remote_ids.filter(Number.isInteger) : [],
+    differing_fields: Array.isArray(group.differing_fields) ? group.differing_fields.filter((field): field is string => typeof field === "string") : [],
+    value_shapes: Array.isArray(group.value_shapes) ? group.value_shapes.filter((shape): shape is string => typeof shape === "string") : [],
+  }];
+});
 
 export default function SyncPanel({ request, onChanged, journalKey = "xlog.sync.mutation.main.v1" }: Props) {
   const [state, setState] = useState<Data | null>(null);
@@ -101,6 +116,7 @@ export default function SyncPanel({ request, onChanged, journalKey = "xlog.sync.
     } finally { if (mounted.current) setCheckingSetup(false); }
   };
   const conflicts: Conflict[] = state?.conflicts || [];
+  const heldGroups = heldGroupsFrom(state?.held_groups);
   return <section className="live-sync sync-panel" aria-label="Wavelog synchronization">
     <h2>Wavelog synchronization</h2>
     <button type="button" disabled={busy || checkingSetup} onClick={() => { setError(""); void refresh(); }}>Refresh Sync state</button>
@@ -119,7 +135,18 @@ export default function SyncPanel({ request, onChanged, journalKey = "xlog.sync.
     <div className="sync-evidence" role="status"><strong>{state?.status || "Reading sync state…"}</strong><span>Last finished: {syncTime(state?.finished_at)}</span><span>Next attempt: {automatic ? state?.running ? "After this run" : state?.next_attempt ? syncTime(state.next_attempt) : "Within 15 seconds" : "Not scheduled"}</span></div>
     {state && !verified && <p className="secondary" role="status">Sync state is being refreshed or is unavailable. Retained values are display only; actions are disabled.</p>}
     {state?.finished_at && typeof state.pulled === "number" && <p className="secondary">{state.pushed} uploaded · {state.pulled.toLocaleString()} remote records checked · {state.deleted} deletions applied · {state.failed} failures</p>}
-    {Number(state?.held) > 0 && <p className="sync-error" role="status">{Number(state?.held).toLocaleString()} remote contacts held: duplicate identities have different ADIF details and cannot be safely matched. These contacts and their pending edits are unchanged; other contacts continue to synchronize. Review the duplicate entries in Wavelog before changing them.</p>}
+    {Number(state?.held) > 0 && <div className="sync-held">
+      <p role="status"><strong>{Number(state?.held).toLocaleString()} Wavelog records held for review.</strong> The same logging identity appears under multiple distinct Wavelog record IDs. Confirmation services may legitimately update ADIF fields, but xLog cannot determine which exported row belongs to which ID. These contacts and their pending edits remain unchanged; other contacts continue to synchronize.</p>
+      {heldGroups.length > 0 && <div className="sync-held-groups" aria-label="Held Wavelog record groups">{heldGroups.map(group => <details className="sync-held-group" key={`${group.identity}:${group.remote_ids.join(",")}`}>
+        <summary>{heldIdentityLabel(group.identity)} · {group.remote_ids.length.toLocaleString()} Wavelog IDs · {group.differing_fields.length.toLocaleString()} differing {group.differing_fields.length === 1 ? "field" : "fields"}</summary>
+        <dl>
+          <div><dt>Wavelog IDs</dt><dd>{group.remote_ids.join(", ") || "Unavailable"}</dd></div>
+          <div><dt>Differing fields</dt><dd>{group.differing_fields.join(", ") || "No field names available"}</dd></div>
+          {group.value_shapes.length > 0 && <div><dt>Difference shape</dt><dd>{group.value_shapes.join(" · ")}</dd></div>}
+        </dl>
+      </details>)}</div>}
+      <p>Review the listed record IDs in Wavelog before editing or removing either record.</p>
+    </div>}
     {error && <p className="sync-error" role="alert">{error}</p>}
     {unresolved && <button disabled={busy || !state} onClick={() => {
       try { mutation.current!.discard(); setUnresolved(false); setError(""); void refresh(); }

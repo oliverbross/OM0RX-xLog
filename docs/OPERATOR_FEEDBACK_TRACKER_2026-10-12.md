@@ -1221,3 +1221,27 @@ credential was written and no live provider request was made. Live account and
 installed visual acceptance remain open; HRDLOG remains blocked on confirming a
 current official contract. See the
 [bounded Club Log acceptance](CLUB_LOG_UPLOAD_FOUNDATION_ACCEPTANCE_2026-10-15.md).
+
+## 15 October — Wavelog held-record diagnosis and review UI
+
+A fresh read-only production-history probe fetched 68,036 Wavelog IDs: 68,030
+were unambiguous and six remained held in the same three exact-identity pairs
+for JG1IVI, K8DLD and YF3ARV. Three remote IDs were absent locally, exactly the
+alternate member of each pair; no clean or dirty local ID was absent remotely.
+The probe used GET requests only and changed neither logbook.
+
+The operator was correct that online-service confirmation refreshes account for
+many field differences: eQSL, LoTW and QRZ fields are commonly
+empty-versus-populated. They do not, however, create a second Wavelog record ID.
+K8DLD differs only in QRZ confirmation data; JG1IVI and YF3ARV also have
+conflicting populated enrichment values. Because Wavelog's JSON and ADIF
+histories do not expose a stable row-to-ID join for these groups, choosing one
+automatically would risk attaching valid confirmation data to the wrong record.
+
+Post-alpha.29 source now reports the three groups explicitly in Sync: callsign,
+band/mode, exact Wavelog IDs, differing ADIF field names and value-shape summaries.
+It explains that confirmation changes may be valid, keeps both members and pending
+edits unchanged, and continues synchronizing unrelated contacts. Full ADIF values,
+credentials and automatic merge/delete actions are not exposed. Core join,
+native status/summary projection, focused UI tests and the production frontend
+build pass. Packaged visual acceptance remains open.

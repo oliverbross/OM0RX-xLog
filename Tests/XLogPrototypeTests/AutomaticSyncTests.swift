@@ -215,6 +215,32 @@ final class AutomaticSyncTests: XCTestCase {
         await service.terminate()
     }
 
+    func testHeldContactGroupsAreProjectedIntoStatusAndSummary() async throws {
+        let fixture = try SyncFixture()
+        defer { fixture.clean() }
+        let group = SyncHeldContactGroup(
+            identity: "K1ABC|1782488895|17m|FT8|18101575",
+            remoteIDs: [174610, 174611],
+            differingFields: ["QRZCOM_QSO_DOWNLOAD_DATE", "QRZCOM_QSO_DOWNLOAD_STATUS"],
+            valueShapes: ["QRZCOM_QSO_DOWNLOAD_DATE: empty and populated"]
+        )
+        let service = LiveServiceMethods(logbook: fixture.logbook, operation: { _, _ in
+            var report = SyncReport()
+            report.held = 2
+            report.heldGroups = [group]
+            return report
+        })
+        _ = try await service.handle(method: "sync_run", params: ["confirm_single_writer": true])
+        let status = try await completed(service)
+        XCTAssertEqual(status["held"] as? Int, 2)
+        let statusGroups = try XCTUnwrap(status["held_groups"] as? [[String: Any]])
+        XCTAssertEqual(statusGroups.first?["remote_ids"] as? [Int], [174610, 174611])
+        XCTAssertEqual(statusGroups.first?["differing_fields"] as? [String], group.differingFields)
+        let summary = try await service.handle(method: "sync_summary", params: [:])
+        XCTAssertEqual((summary["held_groups"] as? [[String: Any]])?.first?["identity"] as? String, group.identity)
+        await service.terminate()
+    }
+
     func testFailureBackoffAndShutdownDoNotReplayJobs() async throws {
         let fixture = try SyncFixture()
         defer { fixture.clean() }

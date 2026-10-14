@@ -3,6 +3,20 @@ import Foundation
 import FoundationNetworking
 #endif
 
+public struct SyncHeldContactGroup: Equatable, Sendable {
+    public let identity: String
+    public let remoteIDs: [Int]
+    public let differingFields: [String]
+    public let valueShapes: [String]
+
+    public init(identity: String, remoteIDs: [Int], differingFields: [String], valueShapes: [String]) {
+        self.identity = identity
+        self.remoteIDs = remoteIDs
+        self.differingFields = differingFields
+        self.valueShapes = valueShapes
+    }
+}
+
 public struct SyncReport: Equatable, Sendable {
     public init() {}
     public var pushed = 0
@@ -11,6 +25,7 @@ public struct SyncReport: Equatable, Sendable {
     public var conflicts = 0
     public var failed = 0
     public var held = 0
+    public var heldGroups: [SyncHeldContactGroup] = []
 }
 
 public struct RemoteHistoryPreview: Sendable {
@@ -249,6 +264,14 @@ public actor SyncEngine {
         let protectedIdentities = snapshot.heldIdentities
         var report = SyncReport()
         report.held = snapshot.heldRemoteIDs.count
+        report.heldGroups = snapshot.heldIdentities.sorted().map { identity in
+            SyncHeldContactGroup(
+                identity: identity,
+                remoteIDs: snapshot.heldRemoteIDsByIdentity[identity, default: []],
+                differingFields: snapshot.heldDifferencesByIdentity[identity, default: []],
+                valueShapes: snapshot.heldValueShapesByIdentity[identity, default: []]
+            )
+        }
         func held(_ qso: QSO) -> Bool {
             qso.wavelogID.map(protectedIDs.contains) == true || protectedIdentities.contains(historyIdentity(qso))
         }

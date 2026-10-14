@@ -184,7 +184,7 @@ actor LiveServiceMethods {
             let settings = try logbook.currentSettings()
             let database = try logbook.openedDatabase()
             var result: [String: Any] = [:]
-            for key in ["running", "status", "completion_id", "finished_at", "pushed", "pulled", "deleted", "conflicts_count", "failed", "held", "error_code", "error_phase", "http_status"] {
+            for key in ["running", "status", "completion_id", "finished_at", "pushed", "pulled", "deleted", "conflicts_count", "failed", "held", "held_groups", "error_code", "error_phase", "http_status"] {
                 result[key] = syncState[key]
             }
             result["automatic_sync"] = settings.automaticSync
@@ -460,7 +460,11 @@ actor LiveServiceMethods {
                 let report = try await run(lease.database, settings)
                 self.finish(["running": false, "status": report.failed > 0 ? "Completed with failures" : report.held > 0 ? "Completed; ambiguous remote contacts held for review" : "Completed",
                     "pushed": report.pushed, "pulled": report.pulled, "deleted": report.deleted,
-                    "conflicts_count": report.conflicts, "failed": report.failed, "held": report.held], failed: report.failed > 0, interval: settings.syncIntervalMinutes, lease: lease)
+                    "conflicts_count": report.conflicts, "failed": report.failed, "held": report.held,
+                    "held_groups": report.heldGroups.map { group in
+                        ["identity": group.identity, "remote_ids": group.remoteIDs,
+                         "differing_fields": group.differingFields, "value_shapes": group.valueShapes] as [String: Any]
+                    }], failed: report.failed > 0, interval: settings.syncIntervalMinutes, lease: lease)
             } catch {
                 self.finish(Self.syncFailure(error, phase: "run"), failed: true, interval: settings.syncIntervalMinutes, lease: lease)
             }

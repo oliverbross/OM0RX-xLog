@@ -120,10 +120,17 @@ describe("persistent automatic synchronization controls", () => {
   it("reports held ambiguous history separately from failures while automatic sync stays enabled", async () => {
     const request = syncRequest(async () => ({ ...fixture(), conflicts: [], outbox: [], automatic_sync: true,
       interval_minutes: 1, status: "Completed; ambiguous remote contacts held for review", held: 2,
+      held_groups: [{ identity: "K8DLD|1782488895|17m|FT8|18101575", remote_ids: [174610, 174611],
+        differing_fields: ["QRZCOM_QSO_DOWNLOAD_DATE", "QRZCOM_QSO_DOWNLOAD_STATUS"],
+        value_shapes: ["QRZCOM_QSO_DOWNLOAD_DATE: empty and populated"] }],
       finished_at: "2026-10-13T12:00:00Z", pushed: 1, pulled: 12, deleted: 0, failed: 0 }));
     render(<SyncPanel request={request} onChanged={() => {}} />);
     await screen.findByText("Automatic sync on");
-    expect(screen.getByText(/2 remote contacts held:/).textContent).toContain("other contacts continue to synchronize");
+    expect(screen.getByText(/2 Wavelog records held for review/).parentElement?.textContent).toContain("other contacts continue to synchronize");
+    expect(screen.getByText(/K8DLD · 17m · FT8/).textContent).toContain("2 Wavelog IDs");
+    fireEvent.click(screen.getByText(/K8DLD · 17m · FT8/));
+    expect(screen.getByText("174610, 174611")).toBeTruthy();
+    expect(screen.getByText("QRZCOM_QSO_DOWNLOAD_DATE: empty and populated")).toBeTruthy();
     expect(screen.getByText(/1 uploaded · 12 remote records checked/)).toBeTruthy();
   });
 
