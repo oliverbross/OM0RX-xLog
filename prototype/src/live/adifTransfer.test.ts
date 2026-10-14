@@ -20,6 +20,36 @@ it.each([0x81, 0x8d, 0x8f, 0x90, 0x9d, 0])("rejects undefined Windows-1252 bytes
   expect(() => decodeADIF(legacyBytes(`<NOTES:1>${String.fromCharCode(byte)}<EOR>`), "windows-1252")).toThrow("undefined byte or NUL");
 });
 
+it("maps every non-NUL ISO-8859-1 byte to its identical Unicode code point, including all C1 controls", () => {
+  const value = String.fromCharCode(...Array.from({ length: 255 }, (_, index) => index + 1));
+  const canonical = decodeADIF(legacyBytes(`<NOTES:255>${value}<EOR>`), "iso-8859-1");
+  expect(canonical).toBe(`<NOTES:383>${value}<EOR>`);
+  expect(adifBatches(canonical)).toEqual([canonical]);
+  expect(decodeADIF(legacyBytes("<COMMENT:1>\x80<EOR>"), "iso-8859-1")).toBe("<COMMENT:2>\u0080<EOR>");
+  expect(decodeADIF(legacyBytes("<COMMENT:1>\x80<EOR>"), "windows-1252")).toBe("<COMMENT:3>€<EOR>");
+  expect(() => decodeADIF(legacyBytes("<NOTES:1>\0<EOR>"), "iso-8859-1")).toThrow("ISO-8859-1 input contains NUL");
+});
+
+it("enforces ISO-8859-1 source, expanded output, record and batch bounds", () => {
+  const record = "<COMMENT:1>\xe9<EOR>";
+  const canonical = decodeADIF(legacyBytes(record.repeat(101)), "iso-8859-1");
+  expect(adifBatches(canonical)).toEqual(["<COMMENT:2>é<EOR>".repeat(100), "<COMMENT:2>é<EOR>"]);
+  expect(() => adifBatches(decodeADIF(legacyBytes(`<COMMENT:7000>${"\xe9".repeat(7000)}<EOR>`), "iso-8859-1"))).toThrow("safe import size");
+  expect(() => decodeADIF(new ArrayBuffer(32 * 1024 * 1024 + 1), "iso-8859-1")).toThrow("smaller than 32 MiB");
+  const value = "\xff".repeat(16 * 1024 * 1024);
+  expect(() => decodeADIF(legacyBytes(`<COMMENT:${value.length}>${value}<EOR>`), "iso-8859-1")).toThrow("Converted ADI exceeds");
+  expect(() => decodeADIF(legacyBytes("<COMMENT:99>short<EOR>"), "iso-8859-1")).toThrow("truncated field");
+  expect(() => decodeADIF(legacyBytes("<ADX/>"), "iso-8859-1")).toThrow("ADX requires UTF-8");
+});
+
+it("preserves ISO-8859-1 C1 field text through UTF-8 ADX export and reimport", () => {
+  const controls = String.fromCharCode(...Array.from({ length: 32 }, (_, index) => index + 0x80));
+  const canonical = decodeADIF(legacyBytes(`<NOTES:32>${controls}<EOR>\r\n`), "iso-8859-1");
+  const writer = new ADIFExportDocument("adx");
+  writer.append(canonical, 1);
+  expect(decodeADIF(new TextEncoder().encode(writer.finish()).buffer)).toBe(canonical);
+});
+
 it.each(["<COMMENT:99>short<EOR>", "<COMMENT:-1>x<EOR>", "<COMMENT:1:SS>x<EOR>", "<COMMENT:1>x<EOR>trailing", "<COMMENT:1>x<>"])("rejects malformed legacy descriptors: %s", source => {
   expect(() => decodeADIF(legacyBytes(source), "windows-1252")).toThrow();
 });

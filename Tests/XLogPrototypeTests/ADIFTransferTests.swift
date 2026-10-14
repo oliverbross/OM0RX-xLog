@@ -9,6 +9,30 @@ import XLogPortableCore
 
 @Suite("Reviewed ADIF transfer")
 struct ADIFTransferTests {
+    @Test("Canonical Latin-1 C1 field code points survive native preview, import, export and reviewed updates")
+    func latin1C1RoundTrip() throws {
+        try fixture { service, db in
+            let controls = String(String.UnicodeScalarView((0x80...0x9f).compactMap(UnicodeScalar.init)))
+            let text = "<CALL:4>W1AW<QSO_DATE:8>20261014<TIME_ON:6>000000<BAND:3>20m<MODE:2>CW" +
+                "<NOTES:64>\(controls)<APP_LATIN1:64>\(controls)<EOR>"
+            let preview = try service.handle(method: "logbook_import_adif", params: ["action": "preview", "text": text])
+            #expect((preview["issues"] as? [[String: Any]])?.isEmpty == true)
+            _ = try service.handle(method: "logbook_import_adif", params: ["text": text, "generation": preview["generation"]!])
+            let original = try #require(try db.fetchAll().first)
+            #expect(original.notes == controls && original.extraFields["APP_LATIN1"] == controls)
+            let exportStart = try service.handle(method: "logbook_export_adif", params: ["action": "begin", "scope": "all"])
+            let exported = try service.handle(method: "logbook_export_adif", params: ["action": "read", "token": exportStart["token"]!])
+            let roundTrip = ADIFImportPreview(text: exported["text"] as? String ?? "")
+            #expect(roundTrip.issues.isEmpty)
+            #expect(roundTrip.records.first?["NOTES"] == controls && roundTrip.records.first?["APP_LATIN1"] == controls)
+            let replacement = controls + "é"
+            let updatePreview = try service.handle(method: "logbook_import_adif", params: ["action": "preview", "text": text.replacingOccurrences(of: "<NOTES:64>\(controls)", with: "<NOTES:66>\(replacement)")])
+            _ = try service.handle(method: "logbook_import_adif", params: ["action": "update", "token": updatePreview["token"]!, "generation": updatePreview["generation"]!, "chunk": 0, "fields": ["NOTES"], "confirmed": true])
+            let saved = try #require(try db.lookup(localID: original.id))
+            #expect(saved.notes == replacement && saved.extraFields["APP_LATIN1"] == controls)
+        }
+    }
+
     @Test("Preview rejects malformed input and reports duplicates without writes")
     func preview() throws {
         try fixture { service, db in

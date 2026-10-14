@@ -387,6 +387,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
           </button>
           <label>Import encoding <select value={importEncoding} disabled={busy || !!importReview} onChange={event => setImportEncoding(event.target.value as ADIFImportEncoding)}>
             <option value="utf-8">UTF-8 (ADI / ADX)</option><option value="windows-1252">Windows-1252 (ADI only)</option>
+            <option value="iso-8859-1">ISO-8859-1 / Latin-1 (ADI only)</option>
           </select></label>
           <label>Export format <select value={exportFormat} disabled={busy} onChange={event => setExportFormat(event.target.value as ADIFExportFormat)}>
             <option value="adi">ADI</option><option value="adx">ADX (XML)</option>
@@ -405,7 +406,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
       {error && <p className="live-logbook-feedback error" role="alert">{error}</p>}
       {notice && <p className="live-logbook-feedback" role="status">{notice}</p>}
       {importReview && <div className="live-logbook-feedback" role="group" aria-label="Review ADIF import">
-        <p>Source encoding: {importReview.encoding === "utf-8" ? "UTF-8" : "Windows-1252"}. Review uses normalized UTF-8 ADI.</p>
+        <p>Source encoding: {importReview.encoding === "utf-8" ? "UTF-8" : importReview.encoding === "windows-1252" ? "Windows-1252" : "ISO-8859-1"}. Review uses normalized UTF-8 ADI.</p>
         <p>{importReview.name} · {importReview.records.toLocaleString()} validated records. {updateDuplicates ? "Duplicate policy: update only selected fields of reviewed existing contacts." : "Duplicate policy: skip existing contacts and repeated records; existing fields remain unchanged."}</p>
         <p>{importReview.duplicates.toLocaleString()} duplicates found during preview. Counts are checked again during import.</p>
         <label><input type="checkbox" disabled={busy} checked={updateDuplicates} onChange={event => setUpdateDuplicates(event.target.checked)} /> Update selected fields of reviewed duplicates instead</label>

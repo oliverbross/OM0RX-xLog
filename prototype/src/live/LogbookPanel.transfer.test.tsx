@@ -113,6 +113,23 @@ it("rejects undefined legacy bytes and legacy ADX before native preview", async 
   expect(request.mock.calls.filter(([method]) => method === "logbook_import_adif")).toHaveLength(0);
 });
 
+it("freezes explicit ISO-8859-1 source encoding and exact C1 text for duplicate updates", async () => {
+  const { request, pick } = setup(); await screen.findByText("W1AW");
+  const encoding = screen.getByRole("combobox", { name: "Import encoding" }) as HTMLSelectElement;
+  fireEvent.change(encoding, { target: { value: "iso-8859-1" } });
+  const source = adif.replace("<EOR>", "<NOTES:3>\x80\x81\xe9<EOR>");
+  await pick(Uint8Array.from(source, character => character.charCodeAt(0)));
+  await screen.findByRole("group", { name: "Review ADIF import" });
+  expect(screen.getByText("Source encoding: ISO-8859-1. Review uses normalized UTF-8 ADI.")).toBeTruthy();
+  expect(encoding.disabled).toBe(true);
+  expect(request).toHaveBeenCalledWith("logbook_import_adif", { action: "preview", text: adif.replace("<EOR>", "<NOTES:6>\u0080\u0081é<EOR>"), chunk: 0 });
+  fireEvent.click(screen.getByRole("checkbox", { name: "Update selected fields of reviewed duplicates instead" }));
+  fireEvent.click(screen.getByRole("checkbox", { name: "NOTES" }));
+  fireEvent.click(screen.getByRole("button", { name: "Confirm duplicate updates" }));
+  await screen.findByText("1 duplicate QSOs updated. New and repeated records were skipped.");
+  expect(request).toHaveBeenCalledWith("logbook_import_adif", { action: "update", token: "preview-1", generation: "workspace-1", chunk: 0, fields: ["NOTES"], confirmed: true });
+});
+
 it("reviews ADX through the frozen ADI path and imports the reviewed normalization only after consent", async () => {
   const { request, pick } = setup(); await screen.findByText("W1AW");
   const fields = "<CALL>W1AW</CALL><QSO_DATE>20261014</QSO_DATE><TIME_ON>000000</TIME_ON><BAND>20m</BAND><MODE>CW</MODE>";

@@ -3,7 +3,7 @@ const decoder = new TextDecoder("utf-8", { fatal: true });
 const maximumFileBytes = 32 * 1024 * 1024;
 
 export type ADIFExportFormat = "adi" | "adx";
-export type ADIFImportEncoding = "utf-8" | "windows-1252";
+export type ADIFImportEncoding = "utf-8" | "windows-1252" | "iso-8859-1";
 
 // QSO element names from the ADIF 3.1.7 ADX schema. Unknown preserved names
 // are declared USERDEF fields rather than invented XML elements.
@@ -129,8 +129,8 @@ export class ADIFExportDocument {
 
 export function decodeADIF(bytes: ArrayBuffer, encoding: ADIFImportEncoding = "utf-8"): string {
   if (bytes.byteLength > 32 * 1024 * 1024) throw new Error("Choose an ADIF file smaller than 32 MiB.");
-  if (encoding !== "utf-8" && encoding !== "windows-1252") throw new Error("Choose a supported import encoding.");
-  if (encoding === "windows-1252") return legacyADI(new Uint8Array(bytes));
+  if (encoding !== "utf-8" && encoding !== "windows-1252" && encoding !== "iso-8859-1") throw new Error("Choose a supported import encoding.");
+  if (encoding !== "utf-8") return legacyADI(new Uint8Array(bytes), encoding);
   let text: string;
   try {
     text = decoder.decode(bytes);
@@ -143,9 +143,11 @@ export function decodeADIF(bytes: ArrayBuffer, encoding: ADIFImportEncoding = "u
 
 // Explicit Windows-1252 mapping: browser decoders may accept its undefined bytes,
 // and ISO-8859-1 decoder labels are aliases for Windows-1252 in the web runtime.
+// ISO-8859-1 maps each byte to the identical Unicode code point, including C1
+// controls. Field text preserves those through native ADI/JSON persistence.
 // Every mapped character occupies one source byte, so source descriptor lengths
 // remain usable until each field is rewritten with its canonical UTF-8 length.
-function legacyADI(bytes: Uint8Array): string {
+function legacyADI(bytes: Uint8Array, encoding: Exclude<ADIFImportEncoding, "utf-8">): string {
   const controls = [0x20ac, 0, 0x201a, 0x0192, 0x201e, 0x2026, 0x2020, 0x2021,
     0x02c6, 0x2030, 0x0160, 0x2039, 0x0152, 0, 0x017d, 0,
     0, 0x2018, 0x2019, 0x201c, 0x201d, 0x2022, 0x2013, 0x2014,
@@ -153,8 +155,10 @@ function legacyADI(bytes: Uint8Array): string {
   const chunks: string[] = [];
   for (let start = 0; start < bytes.length; start += 8192) {
     const points = Array.from(bytes.subarray(start, start + 8192), byte => {
-      const point = byte >= 0x80 && byte <= 0x9f ? controls[byte - 0x80] : byte;
-      if (!point) throw new Error("Windows-1252 input contains an undefined byte or NUL. Export UTF-8 and try again.");
+      const point = encoding === "windows-1252" && byte >= 0x80 && byte <= 0x9f ? controls[byte - 0x80] : byte;
+      if (!point) throw new Error(encoding === "windows-1252"
+        ? "Windows-1252 input contains an undefined byte or NUL. Export UTF-8 and try again."
+        : "ISO-8859-1 input contains NUL. Export UTF-8 and try again.");
       return point;
     });
     chunks.push(String.fromCharCode(...points));
