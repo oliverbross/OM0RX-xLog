@@ -1,5 +1,21 @@
 import { panelMinimum, type LayoutPreset, type PanelLayout, type LayoutRect } from "./workspaceLayoutSession";
 
+export const resizeEdges = ["n", "ne", "e", "se", "s", "sw", "w", "nw"] as const;
+export type ResizeEdge = typeof resizeEdges[number];
+
+/** Resize selected edges while anchoring the opposite edges in canvas units. */
+export function resizePanel(panel: PanelLayout, preset: LayoutPreset, edge: ResizeEdge, dx: number, dy: number): PanelLayout {
+  if (![dx, dy].every(Number.isFinite)) return panel;
+  const step = preset.snap ? 8 : 1, snap = (value: number) => Math.round(value / step) * step;
+  const [minWidth, minHeight] = panelMinimum(panel.id), r = panel.rect;
+  let { x, y, width, height } = r;
+  if (edge.includes("w")) { x = Math.max(0, Math.min(r.x + r.width - minWidth, snap(r.x + dx))); width = r.x + r.width - x; }
+  if (edge.includes("e")) width = Math.max(minWidth, Math.min(preset.width - r.x, snap(r.width + dx)));
+  if (edge.includes("n")) { y = Math.max(0, Math.min(r.y + r.height - minHeight, snap(r.y + dy))); height = r.y + r.height - y; }
+  if (edge.includes("s")) height = Math.max(minHeight, Math.min(preset.height - r.y, snap(r.height + dy)));
+  return { ...panel, rect: { x, y, width, height }, z: Math.min(10000, Math.max(...preset.panels.map(item => item.z)) + 1) };
+}
+
 export function adjustPanel(panel: PanelLayout, preset: LayoutPreset, kind: "move" | "resize", dx: number, dy: number): PanelLayout {
   if (![dx, dy].every(Number.isFinite)) return panel;
   const step = preset.snap ? 8 : 1, snap = (value: number) => Math.round(value / step) * step;

@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Grip, MoveDiagonal2, X } from "lucide-react";
-import { adjustPanel, customDeskPreset, fitPanelHeight } from "./canvasGeometry";
+import { adjustPanel, customDeskPreset, fitPanelHeight, resizeEdges, resizePanel, type ResizeEdge } from "./canvasGeometry";
 import { panelMinimum, type LayoutPreset, type LayoutState, type PanelLayout, type WorkspacePanelID, type WorkspaceLayoutSession } from "./workspaceLayoutSession";
 import "./OperatorCanvas.css";
 
@@ -63,7 +63,7 @@ export default function OperatorCanvas({ panels, traditional, state, session, su
         {!active.locked && <label><input type="checkbox" disabled={blocked} checked={active.snap} onChange={event => savePreset({ ...active, snap: event.target.checked })} />Snap</label>}
         {compact && visible.length > 0 && <label>Panel <select aria-label="Visible desk panel" value={selected} onChange={event => setCurrentPanel(event.target.value as WorkspacePanelID)}>{visible.map(panel => <option key={panel.id} value={panel.id}>{panels[panel.id]!.title}</option>)}</select></label>}
       </>}
-      <span role="status">{state.saving || working ? "Saving layout…" : !state.snapshot ? "Loading layout…" : custom && !active.locked ? compact ? "Expand the window to move panels." : "Drag a title to move · Drag Resize at the bottom right to size · Arrow keys adjust the focused handle · Shift = larger step · Esc cancels" : ""}</span>
+      <span role="status">{state.saving || working ? "Saving layout…" : !state.snapshot ? "Loading layout…" : custom && !active.locked ? compact ? "Expand the window to arrange panels." : "Click a panel’s arrow to edit · Drag its title to move or any edge/corner to resize · Click the arrow again to finish" : ""}</span>
       {custom && Object.entries(panels).filter(([, panel]) => panel?.required && panel.safetyAction).map(([id, panel]) => <span className="canvas-safety-action" key={id}>{panel!.safetyAction}</span>)}
     </div>
     {active?.id === "windowed" && <p className="canvas-empty" role="status">The saved Windowed preset is not yet restored automatically. Traditional controls remain available; use the Window menu to open individual windows.</p>}
@@ -84,49 +84,54 @@ export default function OperatorCanvas({ panels, traditional, state, session, su
 }
 
 function PanelFrame({ panel, preset, item, compact, hidden, disabled, revision, onChange, onHide }: { panel: PanelLayout; preset: LayoutPreset; item: CanvasPanel; compact: boolean; hidden: boolean; disabled: boolean; revision: string; onChange: (value: PanelLayout) => void; onHide: () => void }) {
-  const frame = useRef<HTMLDivElement>(null), drag = useRef<{ kind: "move" | "resize"; x: number; y: number; scaleX: number; scaleY: number } | null>(null);
-  const content = useRef<HTMLDivElement>(null), tools = useRef<HTMLDivElement>(null), resizeTools = useRef<HTMLDivElement>(null);
+  const frame = useRef<HTMLDivElement>(null), drag = useRef<{ kind: "move" | ResizeEdge; x: number; y: number; scaleX: number; scaleY: number } | null>(null);
+  const content = useRef<HTMLDivElement>(null), tools = useRef<HTMLDivElement>(null);
   const instructionsID = useId();
   const contentSized = panel.id === "callsign-intelligence" || panel.id === "rotor";
+  const [unlocked, setUnlocked] = useState(false);
+  const editing = unlocked && !preset.locked && !compact;
   const [preview, setPreview] = useState<PanelLayout | null>(null), latest = useRef<PanelLayout | null>(null);
   const update = (value: PanelLayout | null) => { latest.current = value; setPreview(value); };
   const cancel = () => { drag.current = null; update(null); };
-  useEffect(() => { cancel(); }, [revision, compact, preset.locked]);
-  const commit = () => { const value = latest.current; cancel(); if (value && JSON.stringify(value.rect) !== JSON.stringify(panel.rect)) onChange(value); };
+  useEffect(() => { cancel(); }, [revision, compact, preset.locked, disabled]);
+  useEffect(() => { setUnlocked(false); cancel(); }, [compact, preset.locked, preset.id]);
+  const commit = () => { const value = latest.current; cancel(); if (!disabled && editing && value && JSON.stringify(value.rect) !== JSON.stringify(panel.rect)) onChange(value); };
   const geometry = (preview ?? panel).rect;
   const fitHeight = () => {
-    if (disabled || drag.current || latest.current) return;
+    if (disabled || !editing || drag.current || latest.current) return;
     const area = frame.current?.parentElement?.getBoundingClientRect(), body = content.current?.firstElementChild?.getBoundingClientRect();
     if (!area?.height || !body?.height) return;
-    const height = body.height + (tools.current?.getBoundingClientRect().height ?? 0) + (resizeTools.current?.getBoundingClientRect().height ?? 0);
+    const height = body.height + (tools.current?.getBoundingClientRect().height ?? 0);
     const fitted = fitPanelHeight(panel, preset, height * preset.height / area.height);
     if (fitted.rect.height !== panel.rect.height) onChange(fitted);
   };
   const style: CSSProperties = compact ? {} : { left: `${geometry.x / preset.width * 100}%`, top: `${geometry.y / preset.height * 100}%`, width: `${geometry.width / preset.width * 100}%`, height: `${geometry.height / preset.height * 100}%`, zIndex: (preview ?? panel).z };
-  const handle = (kind: "move" | "resize") => ({
+  const adjust = (value: PanelLayout, kind: "move" | ResizeEdge, dx: number, dy: number) =>
+    kind === "move" ? adjustPanel(value, preset, "move", dx, dy) : resizePanel(value, preset, kind, dx, dy);
+  const handle = (kind: "move" | ResizeEdge) => ({
     onPointerDown: (event: React.PointerEvent<HTMLButtonElement>) => {
-      if (event.button !== 0 || disabled) return; event.preventDefault(); event.currentTarget.focus();
+      if (event.button !== 0 || disabled || !editing) return; event.preventDefault(); event.currentTarget.focus();
       const box = frame.current?.parentElement?.getBoundingClientRect(); if (!box?.width || !box.height) return;
       drag.current = { kind, x: event.clientX, y: event.clientY, scaleX: preset.width / box.width, scaleY: preset.height / box.height }; event.currentTarget.setPointerCapture(event.pointerId);
     },
-    onPointerMove: (event: React.PointerEvent<HTMLButtonElement>) => { const d = drag.current; if (d) update(adjustPanel(panel, preset, d.kind, (event.clientX - d.x) * d.scaleX, (event.clientY - d.y) * d.scaleY)); },
+    onPointerMove: (event: React.PointerEvent<HTMLButtonElement>) => { const d = drag.current; if (d && editing && !disabled) update(adjust(panel, d.kind, (event.clientX - d.x) * d.scaleX, (event.clientY - d.y) * d.scaleY)); },
     onPointerUp: commit, onPointerCancel: cancel, onLostPointerCapture: cancel,
     onKeyDown: (event: React.KeyboardEvent<HTMLButtonElement>) => {
       if (event.key === "Escape") { event.preventDefault(); cancel(); return; }
-      if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key) || disabled) return;
+      if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key) || disabled || !editing) return;
       event.preventDefault(); const step = event.shiftKey ? 32 : 8;
-      update(adjustPanel(latest.current ?? panel, preset, kind, event.key === "ArrowLeft" ? -step : event.key === "ArrowRight" ? step : 0, event.key === "ArrowUp" ? -step : event.key === "ArrowDown" ? step : 0));
+      update(adjust(latest.current ?? panel, kind, event.key === "ArrowLeft" ? -step : event.key === "ArrowRight" ? step : 0, event.key === "ArrowUp" ? -step : event.key === "ArrowDown" ? step : 0));
     },
     onKeyUp: (event: React.KeyboardEvent<HTMLButtonElement>) => { if (event.key.startsWith("Arrow")) commit(); }, onBlur: () => { if (!drag.current) commit(); },
   });
-  return <div ref={frame} className={`canvas-frame${!preset.locked && !compact ? " is-editing" : ""}`} style={style} hidden={hidden} aria-label={`${item.title} panel`}>
-    {!preset.locked && !compact && <div ref={tools} className="canvas-frame-tools"><button type="button" disabled={disabled} aria-label={`Move ${item.title}`} aria-describedby={instructionsID} title="Drag the title to move; arrow keys move, Shift takes a larger step, Escape cancels" {...handle("move")}><Grip size={14} /><span>{item.title}</span></button>
+  const edgeNames: Record<ResizeEdge, string> = { n: "top edge", ne: "top right corner", e: "right edge", se: "bottom right corner", s: "bottom edge", sw: "bottom left corner", w: "left edge", nw: "top left corner" };
+  return <div ref={frame} className={`canvas-frame${editing ? " is-editing" : ""}`} style={style} hidden={hidden} aria-label={`${item.title} panel`}>
+    {!preset.locked && !compact && <div ref={tools} className="canvas-frame-tools"><button type="button" disabled={!editing} aria-disabled={disabled || !editing} aria-label={`Move ${item.title}`} aria-describedby={instructionsID} title={editing ? "Drag this title to move; arrow keys move, Shift takes a larger step, Escape cancels" : "Click the arrow to unlock this panel first"} {...handle("move")}><Grip size={14} /><span>{item.title}</span></button>
+      {editing && contentSized && <button type="button" disabled={disabled} aria-label={`Fit height of ${item.title}`} title="Trim unused height, keeping this panel's position and width" onClick={fitHeight}>Fit height</button>}
+      <button type="button" disabled={disabled} className="canvas-edit-toggle" aria-label={`Edit ${item.title} layout`} aria-pressed={editing} aria-describedby={instructionsID} title={editing ? "Finish arranging this panel" : "Unlock this panel to move or resize"} onClick={() => { cancel(); setUnlocked(value => !value); }}><MoveDiagonal2 size={16} /></button>
       <button type="button" disabled={disabled || item.required} aria-label={`Hide ${item.title}`} onClick={onHide}><X size={14} /></button></div>}
     <div ref={content} className={`canvas-panel-content${contentSized ? " is-content-sized" : ""}`}>{item.content}</div>
-    {!preset.locked && !compact && <div ref={resizeTools} className="canvas-frame-resize-tools">
-      <span id={instructionsID} className="canvas-handle-instructions">Drag the title to move or Resize to change width and height. Arrow keys adjust the focused handle; Shift takes a larger step. Escape cancels.</span>
-      {contentSized && <button type="button" disabled={disabled} aria-label={`Fit height of ${item.title}`} title="Trim unused height, keeping this panel's position and width" onClick={fitHeight}>Fit height</button>}
-      <button type="button" className="canvas-resize" disabled={disabled} aria-label={`Resize ${item.title}`} aria-describedby={instructionsID} title="Drag to resize; arrow keys resize, Shift takes a larger step, Escape cancels" {...handle("resize")}><MoveDiagonal2 size={16} /><span>Resize</span></button>
-    </div>}
+    {!preset.locked && !compact && <span id={instructionsID} className="canvas-handle-instructions">Click the arrow to unlock or finish. When unlocked, drag the title to move or any side or corner to resize. Arrow keys adjust the focused handle; Shift takes a larger step. Escape cancels a gesture.</span>}
+    {editing && resizeEdges.map(edge => <button key={edge} type="button" className={`canvas-edge canvas-edge-${edge}`} aria-disabled={disabled} aria-label={`Resize ${item.title} ${edgeNames[edge]}`} aria-describedby={instructionsID} title={`Resize ${edgeNames[edge]}; arrow keys adjust, Shift takes a larger step, Escape cancels`} {...handle(edge)} />)}
   </div>;
 }
