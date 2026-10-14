@@ -17,6 +17,7 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     validate_request(request)?;
     if label == "cw" { return Err("CW can only use the typed shared CW session.".into()); }
     if label == "rotor" { return Err("Rotor can only read retained native rotor telemetry.".into()); }
+    if label == "station-status" { return Err("Station Status can only read retained native station observations.".into()); }
     if request["method"].as_str().is_some_and(|method| method.starts_with("spot_draft_")) {
         return Err("Only the native activation owner can use this method.".into());
     }
@@ -795,6 +796,14 @@ mod tests {
             "station_rotor_snapshot", "station_rotor_connect", "station_rotor_goto", "station_rotor_stop",
             "hamlib_snapshot", "hamlib_connect", "hamlib_control", "station_action", "station_connect", "sync_run", "health"] {
             assert!(validate_surface("rotor", &json!({"id":"rotor","method":method,"params":{}})).is_err(), "{method}");
+        }
+    }
+    #[test]
+    fn station_status_has_no_raw_worker_radio_connection_or_control_authority() {
+        for method in ["workspace_layout_load", "settings_load", "settings_save", "secret_save", "secret_status", "logbook_operator_draft",
+            "station_snapshot", "station_configuration", "station_configuration_save", "station_power_selection", "station_connect", "station_disconnect", "station_reconnect",
+            "station_tune", "station_action", "station_radio_control", "station_rotor_stop", "rotor_stop", "hamlib_snapshot", "hamlib_control", "winkeyer_snapshot", "sync_run", "health"] {
+            assert!(validate_surface("station-status", &json!({"id":"status","method":method,"params":{}})).is_err(), "{method}");
         }
     }
     #[test]

@@ -3,7 +3,7 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { WorkspacePanelID } from "./workspaceLayoutSession";
 
-export const nativeWorkspaceWindowIDs = ["callsign-intelligence", "log-qso", "spot-history", "monitor", "world-map", "band-maps", "dx-cluster", "logbook", "awards", "settings", "chaser-dx", "station-control", "cw", "rotor"] as const satisfies readonly WorkspacePanelID[];
+export const nativeWorkspaceWindowIDs = ["callsign-intelligence", "log-qso", "spot-history", "monitor", "world-map", "band-maps", "dx-cluster", "logbook", "awards", "settings", "chaser-dx", "station-control", "cw", "rotor", "station-status"] as const satisfies readonly WorkspacePanelID[];
 export type NativeWorkspaceWindowID = typeof nativeWorkspaceWindowIDs[number];
 export type WorkspaceWindowsStatus = {
   supported: WorkspacePanelID[];

@@ -50,9 +50,21 @@ fn retained(
 
 pub fn snapshot(app: &tauri::AppHandle) -> Result<Value, String> {
     let selection = crate::station_selection::owner(app);
-    let mut value = retained(|| selection.as_ref().map_err(Clone::clone).and_then(|owner| owner.snapshot()),
+    let value = retained(|| selection.as_ref().map_err(Clone::clone).and_then(|owner| owner.snapshot()),
         || crate::station_telemetry::owner(app)?.snapshot(),
         || crate::rotor_telemetry::owner(app)?.snapshot());
+    stamp(value)
+}
+
+pub fn status_read(label: &str, isolated: bool, read: impl FnOnce() -> Result<Value, String>) -> Result<Value, String> {
+    if label != "station-status" || isolated { return Err("Station Status observations are unavailable in this window.".into()); }
+    read()
+}
+pub fn status_snapshot() -> Result<Value, String> {
+    stamp(retained(crate::station_selection::retained_snapshot,
+        crate::station_telemetry::retained_snapshot, || Ok(unavailable())))
+}
+fn stamp(mut value: Value) -> Result<Value, String> {
     let revision = REVISION.fetch_update(Ordering::AcqRel, Ordering::Acquire,
         |value| value.checked_add(1).filter(|next| *next <= 9_007_199_254_740_991))
         .map_err(|_| "Monitor context revision exhausted.")?;
@@ -76,6 +88,20 @@ pub fn action_request(provider: &str, action: &str) -> Result<Value, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn station_status_reads_are_narrow_passive_and_never_inherit_monitor_controls() {
+        assert_eq!(status_read("station-status", false, || Ok(json!({"retained":true}))).unwrap(), json!({"retained":true}));
+        assert!(status_read("station-status", true, || panic!("live owner reached in isolation")).is_err());
+        for label in ["main", "monitor", "station-control", "station-identity", "rotor", "unknown", ""] {
+            assert!(status_read(label, false, || panic!("wrong role reached owner")).is_err());
+        }
+        assert!(validate("station-status", false).is_err());
+        assert!(crate::station_selection::validate("station-status", false, false).is_err());
+        assert!(crate::station_telemetry::validate("station-status", false, false).is_err());
+        for action in ["snapshot", "save", "connect", "select", "hamlib_catalogue", "connect_hamlib", "connect_flex", "receive"] {
+            assert!(crate::station_session::validate("station-status", false, action).is_err(), "{action}");
+        }
+    }
     fn choice(generation: u64) -> Value { json!({"provider":"direct_agent","generation":generation,"selection_id":format!("selection-{generation}")}) }
     fn radio() -> Value { json!({"provider":"direct_agent","selection_id":"selection-1","selection_generation":1,"available":true,"received_at_ms":42,"snapshot":{"source":"direct_agent"}}) }
     fn rotor() -> Value { json!({"available":true,"received_at_ms":20,"snapshot":{"owner":"hamlib","generation":4,"state":"active"}}) }

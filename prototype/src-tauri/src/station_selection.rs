@@ -684,6 +684,17 @@ impl Drop for ControlGuard<'_> {
 }
 static OWNER: OnceLock<Mutex<Option<Arc<Selection>>>> = OnceLock::new();
 static STOPPED: AtomicBool = AtomicBool::new(false);
+fn retained(owner: Option<&Selection>, stopped: bool) -> Result<Value, String> {
+    if stopped { return Err("Radio session is shutting down.".into()); }
+    match owner { Some(owner) => owner.snapshot(), None => Ok(Value::Null) }
+}
+/// Never opens/migrates saved selection, initializes defaults or notifies a
+/// worker. A not-yet-created owner is truthfully unavailable to passive views.
+pub fn retained_snapshot() -> Result<Value, String> {
+    let owner = OWNER.get().map(|slot| slot.try_lock().map(|owner| owner.clone())
+        .map_err(|_| "Radio selection is unavailable".to_string())).transpose()?.flatten();
+    retained(owner.as_deref(), STOPPED.load(Ordering::Acquire))
+}
 /// Called after worker registry unlock. Never initializes a preference or sends
 /// through worker::request, which would recurse back into active_session.
 pub(crate) fn worker_generation_started(generation: u64, transport: Arc<Transport>) {
@@ -725,7 +736,7 @@ pub fn owner(app: &tauri::AppHandle) -> Result<Arc<Selection>, String> {
             }
         }),
         Arc::new(move || {
-            for label in ["main", "monitor"] {
+            for label in ["main", "monitor", "station-status"] {
                 let _ = events.emit_to(label, "xlog:station-selection", ());
             }
         }),
@@ -749,6 +760,14 @@ pub fn shutdown() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn status_retained_selection_reads_never_default_persist_or_notify() {
+        assert_eq!(retained(None, false).unwrap(), Value::Null);
+        let (_directory, owner, calls) = fixture();
+        for _ in 0..20 { assert!(retained(Some(&owner), false).unwrap()["provider"].is_null()); }
+        assert!(!owner.path.exists()); assert!(calls.lock().unwrap().is_empty());
+        assert!(retained(None, true).is_err()); assert!(retained(Some(&owner), true).is_err());
+    }
     #[test]
     fn activation_admission_rechecks_source_without_sending_or_consuming_revision_on_rejection() {
         let (_directory, owner, calls) = fixture();

@@ -303,6 +303,18 @@ impl Drop for ControlFence {
 }
 static OWNER: OnceLock<Arc<StationTelemetry>> = OnceLock::new();
 static STOPPED: AtomicBool = AtomicBool::new(false);
+fn retained(owner: Option<&StationTelemetry>, stopped: bool) -> Result<Value, String> {
+    if stopped { return Err("Radio telemetry has stopped.".into()); }
+    match owner {
+        Some(owner) => owner.snapshot(),
+        None => Ok(json!({"revision":0,"available":false,"provider":null,"snapshot":null})),
+    }
+}
+/// Observation children may read only an already existing projection. This
+/// path never creates the owner, selects a provider or starts device polling.
+pub fn retained_snapshot() -> Result<Value, String> {
+    retained(OWNER.get().map(Arc::as_ref), STOPPED.load(Ordering::Acquire))
+}
 pub fn owner(app: &tauri::AppHandle) -> Result<Arc<StationTelemetry>, String> {
     if STOPPED.load(Ordering::Acquire) {
         return Err("Radio telemetry has stopped.".into());
@@ -319,7 +331,7 @@ pub fn owner(app: &tauri::AppHandle) -> Result<Arc<StationTelemetry>, String> {
                     }
                 }),
                 Arc::new(move |value| {
-                    for label in ["main", "monitor", "world-map", "band-maps"] {
+                    for label in ["main", "monitor", "world-map", "band-maps", "station-status"] {
                         let _ = app.emit_to(
                             label,
                             "xlog:station-telemetry",
@@ -358,6 +370,15 @@ mod tests {
         assert!(validate("main", true, false).is_err());
         assert!(validate("logbook", false, false).is_err());
         assert!(!valid_provider("other"));
+    }
+    #[test]
+    fn status_retained_reads_never_create_start_select_or_refresh_a_poller() {
+        assert_eq!(retained(None, false).unwrap()["available"], false);
+        let owner = StationTelemetry::new(Arc::new(|_| panic!("retained read performed I/O")), Arc::new(|_| {}));
+        for _ in 0..20 { assert_eq!(retained(Some(&owner), false).unwrap()["revision"], 0); }
+        assert!(!owner.started.load(Ordering::Acquire));
+        assert!(owner.state.lock().unwrap().provider.is_none());
+        assert!(retained(None, true).is_err()); assert!(retained(Some(&owner), true).is_err());
     }
     #[test]
     fn reads_are_passive_and_startup_cannot_reverse_handover() {
