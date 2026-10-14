@@ -12,7 +12,7 @@ type Read = dyn Fn(Value) -> Result<Value, String> + Send + Sync;
 type Publish = dyn Fn(Value) + Send + Sync;
 
 pub fn validate(label: &str, isolated: bool) -> Result<(), String> {
-    if isolated || !matches!(label, "main" | "monitor") {
+    if isolated || !matches!(label, "main" | "monitor" | "rotor") {
         return Err("Rotor telemetry is unavailable in this window.".into());
     }
     Ok(())
@@ -127,6 +127,18 @@ fn valid_snapshot(value: &Value) -> bool {
 
 static OWNER: OnceLock<Arc<RotorTelemetry>> = OnceLock::new();
 static STOPPED: AtomicBool = AtomicBool::new(false);
+fn retained(owner: Option<&RotorTelemetry>, stopped: bool) -> Result<Value, String> {
+    if stopped { return Err("Rotor telemetry has stopped.".into()); }
+    match owner {
+        Some(owner) => owner.snapshot(),
+        None => Ok(json!({"revision":0,"available":false,"snapshot":null})),
+    }
+}
+/// Child admission never creates the poller or calls a device. It can only
+/// observe a stream already owned by the application.
+pub fn retained_snapshot() -> Result<Value, String> {
+    retained(OWNER.get().map(Arc::as_ref), STOPPED.load(Ordering::Acquire))
+}
 pub fn owner(app: &tauri::AppHandle) -> Result<Arc<RotorTelemetry>, String> {
     if STOPPED.load(Ordering::Acquire) {
         return Err("Rotor telemetry has stopped.".into());
@@ -137,7 +149,7 @@ pub fn owner(app: &tauri::AppHandle) -> Result<Arc<RotorTelemetry>, String> {
             Arc::new(RotorTelemetry::new(
                 Arc::new(crate::rotor::request),
                 Arc::new(move |value| {
-                    for label in ["main", "monitor"] {
+                    for label in ["main", "monitor", "rotor"] {
                         let _ = app.emit_to(label, "xlog:rotor-telemetry", &value);
                     }
                 }),
@@ -166,7 +178,7 @@ mod tests {
     }
     #[test]
     fn only_live_station_views_may_subscribe() {
-        for label in ["main", "monitor"] {
+        for label in ["main", "monitor", "rotor"] {
             assert!(validate(label, false).is_ok());
             assert!(validate(label, true).is_err());
         }
@@ -196,6 +208,21 @@ mod tests {
             assert_eq!(owner.snapshot().unwrap()["available"], true);
         }
         assert_eq!(calls.load(Ordering::Relaxed), 1);
+    }
+    #[test]
+    fn child_retained_reads_do_not_create_start_or_refresh_a_poller() {
+        assert_eq!(retained(None, false).unwrap(), json!({"revision":0,"available":false,"snapshot":null}));
+        let calls = Arc::new(AtomicU64::new(0)); let count = calls.clone();
+        let owner = RotorTelemetry::new(Arc::new(move |request| {
+            count.fetch_add(1, Ordering::Relaxed); Ok(reply(&request))
+        }), Arc::new(|_| {}));
+        for _ in 0..20 { assert_eq!(retained(Some(&owner), false).unwrap()["revision"], 0); }
+        assert!(!owner.started.load(Ordering::Acquire)); assert_eq!(calls.load(Ordering::Relaxed), 0);
+        owner.refresh();
+        let projection = owner.snapshot().unwrap();
+        for _ in 0..20 { assert_eq!(retained(Some(&owner), false).unwrap(), projection); }
+        assert_eq!(calls.load(Ordering::Relaxed), 1);
+        assert!(retained(None, true).is_err()); assert!(retained(Some(&owner), true).is_err());
     }
     #[test]
     fn failed_reads_retain_last_good_but_remove_availability() {

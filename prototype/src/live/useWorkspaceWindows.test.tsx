@@ -13,7 +13,7 @@ vi.mock("@tauri-apps/api/event", () => ({ listen: native.listen }));
 const idle = () => ({ supported: ["monitor", "world-map", "band-maps", "dx-cluster", "logbook", "awards"],
   generation: null, revision: null, presetID: null, state: "idle", shown: [], hidden: [], error: "", stopped: false, attempt: 0 });
 const applied = () => ({ ...idle(), state: "applied", generation: "01234567-89ab-cdef-0123-456789abcdef", revision: 2, presetID: "desk-1" });
-const allNativeRoles = ["callsign-intelligence", "log-qso", "spot-history", "monitor", "world-map", "band-maps", "dx-cluster", "logbook", "awards", "settings", "chaser-dx", "station-control", "cw"];
+const allNativeRoles = ["callsign-intelligence", "log-qso", "spot-history", "monitor", "world-map", "band-maps", "dx-cluster", "logbook", "awards", "settings", "chaser-dx", "station-control", "cw", "rotor"];
 function deferred<T>() { let resolve!: (value: T) => void; let reject!: (value: unknown) => void;
   const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; }
 let wake: (event?: unknown) => void, dispose: ReturnType<typeof vi.fn<() => void>>;
@@ -44,8 +44,8 @@ describe("native workspace status schema", () => {
     expect(readWorkspaceWindowsStatus({ ...idle(), state: "applying" }).state).toBe("applying");
   });
   it.each([
-    { state: "done" }, { supported: ["rotor"] }, { supported: ["monitor", "monitor"] },
-    { supported: [...allNativeRoles, "unknown"] }, { shown: ["logbook", "logbook"] }, { hidden: ["rotor"] },
+    { state: "done" }, { supported: ["antenna"] }, { supported: ["monitor", "monitor"] },
+    { supported: [...allNativeRoles, "unknown"] }, { shown: ["logbook", "logbook"] }, { hidden: ["antenna"] },
     { supported: ["world-map"], shown: ["monitor"] }, { state: "applied" },
     { ...applied(), generation: null }, { ...applied(), revision: null }, { ...applied(), presetID: null },
     { generation: "bad" }, { revision: -1 }, { revision: Number.MAX_SAFE_INTEGER + 1 },
@@ -60,7 +60,7 @@ describe("native workspace status schema", () => {
   });
 });
 
-it("renders and saves the actual Workspace Settings Logbook placement after a ten-role native read", async () => {
+it("renders and saves actual Workspace Settings placements after a complete native read", async () => {
   const panels = workspacePanelIDs.map((id, z) => { const [width, height] = panelMinimum(id);
     return { id, z, placement: "hidden" as const, rect: { x: 0, y: 0, width, height } }; });
   let snapshot: LayoutSnapshot = { generation: "01234567-89ab-cdef-0123-456789abcdef", revision: 7,
@@ -85,7 +85,8 @@ it("renders and saves the actual Workspace Settings Logbook placement after a te
   expect(screen.getByLabelText("Log QSO placement")).toBeTruthy();
   expect(screen.getByLabelText("Spot History placement")).toBeTruthy();
   expect(screen.getByLabelText("Callsign intelligence placement")).toBeTruthy();
-  expect(screen.queryByLabelText("Rotor placement")).toBeNull();
+  expect(screen.getByLabelText("Rotor placement")).toBeTruthy();
+  expect(screen.queryByLabelText("Antenna placement")).toBeNull();
   expect(request.mock.calls.filter(([method]) => method === "workspace_layout_apply")).toHaveLength(0);
   fireEvent.change(placement, { target: { value: "window" } });
   fireEvent.click(screen.getByRole("button", { name: "Save layout" }));

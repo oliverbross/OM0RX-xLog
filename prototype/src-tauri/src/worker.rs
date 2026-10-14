@@ -16,6 +16,7 @@ const RESPONSE_TIMEOUT: Duration = Duration::from_secs(45);
 pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     validate_request(request)?;
     if label == "cw" { return Err("CW can only use the typed shared CW session.".into()); }
+    if label == "rotor" { return Err("Rotor can only read retained native rotor telemetry.".into()); }
     if request["method"].as_str().is_some_and(|method| method.starts_with("spot_draft_")) {
         return Err("Only the native activation owner can use this method.".into());
     }
@@ -785,6 +786,15 @@ mod tests {
             "station_snapshot", "station_connect", "station_configuration", "station_radio_control", "station_action", "station_tune",
             "hamlib_snapshot", "hamlib_connect", "hamlib_control", "winkeyer_snapshot", "winkeyer_control", "rotor_stop", "cluster_snapshot", "health"] {
             assert!(validate_surface("cw", &json!({"id":"cw","method":method,"params":{}})).is_err(), "{method}");
+        }
+    }
+    #[test]
+    fn rotor_observation_child_has_no_raw_worker_or_motion_authority() {
+        for method in ["workspace_layout_load", "settings_load", "settings_save", "secret_save", "secret_status", "logbook_operator_draft",
+            "rotor_snapshot", "rotor_connect", "rotor_disconnect", "rotor_goto", "rotor_stop", "rotor_park",
+            "station_rotor_snapshot", "station_rotor_connect", "station_rotor_goto", "station_rotor_stop",
+            "hamlib_snapshot", "hamlib_connect", "hamlib_control", "station_action", "station_connect", "sync_run", "health"] {
+            assert!(validate_surface("rotor", &json!({"id":"rotor","method":method,"params":{}})).is_err(), "{method}");
         }
     }
     #[test]

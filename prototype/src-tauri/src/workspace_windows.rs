@@ -9,7 +9,7 @@ pub struct WindowSpec {
     pub width: f64,
     pub height: f64,
 }
-pub const SUPPORTED_WINDOWS: [WindowSpec; 13] = [
+pub const SUPPORTED_WINDOWS: [WindowSpec; 14] = [
     WindowSpec { id: "callsign-intelligence", title: "OM0RX-xLog — Callsign Intelligence", width: 700.0, height: 620.0 },
     WindowSpec { id: "log-qso", title: "OM0RX-xLog — Log QSO", width: 800.0, height: 800.0 },
     WindowSpec { id: "spot-history", title: "OM0RX-xLog — Spot History", width: 1180.0, height: 800.0 },
@@ -23,6 +23,7 @@ pub const SUPPORTED_WINDOWS: [WindowSpec; 13] = [
     WindowSpec { id: "chaser-dx", title: "OM0RX-xLog — Chaser & DX", width: 1180.0, height: 800.0 },
     WindowSpec { id: "station-control", title: "OM0RX-xLog — Station Control", width: 900.0, height: 700.0 },
     WindowSpec { id: "cw", title: "OM0RX-xLog — CW", width: 900.0, height: 480.0 },
+    WindowSpec { id: "rotor", title: "OM0RX-xLog — Rotor", width: 700.0, height: 600.0 },
 ];
 pub fn supports(label: &str) -> bool { SUPPORTED_WINDOWS.iter().any(|window| window.id == label) }
 
@@ -176,7 +177,7 @@ mod tests {
     #[test]
     fn registry_covers_only_real_windows() {
         let ids: BTreeSet<_> = SUPPORTED_WINDOWS.iter().map(|window| window.id).collect();
-        assert_eq!(ids.len(), 13);
+        assert_eq!(ids.len(), 14);
         let capabilities: Value = serde_json::from_str(include_str!("../capabilities/default.json")).unwrap();
         for id in &ids { assert!(capabilities["windows"].as_array().unwrap().contains(&json!(id))); }
         for window in SUPPORTED_WINDOWS { assert!(supports(window.id)); assert!(window.width >= 640.0 && window.height >= 480.0); }
@@ -192,6 +193,15 @@ mod tests {
         planner.forget_destroyed("cw");
         assert!(planner.plan(&snapshot, false).unwrap().show.is_empty());
         assert_eq!(planner.plan(&snapshot, true).unwrap().show, ["cw"]);
+    }
+    #[test]
+    fn rotor_observation_window_is_singleton_and_not_reopened_by_passive_reads() {
+        let mut planner = WorkspaceWindowPlanner::default();
+        let snapshot = fixture(&["rotor"]);
+        let plan = planner.plan(&snapshot, false).unwrap(); assert_eq!(plan.show, ["rotor"]);
+        apply(&mut planner, &plan); planner.forget_destroyed("rotor");
+        assert!(planner.plan(&snapshot, false).unwrap().show.is_empty());
+        assert_eq!(planner.plan(&snapshot, true).unwrap().show, ["rotor"]);
     }
     #[test]
     fn station_control_intent_does_not_depend_on_main_or_reopen_after_passive_reads() {
