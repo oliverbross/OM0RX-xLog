@@ -1780,6 +1780,23 @@ mod tests {
         assert_eq!(calls.lock().unwrap().iter().filter(|request| request["method"] == "station_action").count(), 1);
     }
     #[test]
+    fn shared_hamlib_lifecycle_rejects_old_identity_and_generation_after_returning_to_hamlib() {
+        let (_directory, owner, calls) = fixture();
+        let first = initialized(&owner, Some("hamlib"));
+        let old_id = first["selection_id"].as_str().unwrap();
+        owner.handover(0, "direct_agent").unwrap(); owner.handover(1, "hamlib").unwrap();
+        let current = owner.snapshot().unwrap(); let id = current["selection_id"].as_str().unwrap();
+        for method in ["hamlib_connect", "hamlib_reconnect", "hamlib_disconnect"] {
+            let action = || json!({"id":"shared-lifecycle","method":method,"params":{"device":"radio","mode":"managed","model":1}});
+            for (generation, identity) in [(0, old_id), (2, old_id), (0, id)] {
+                assert!(owner.monitor_action(action(), generation, identity, || -> Result<(), String> { panic!("stale lifecycle admitted") }).is_err());
+            }
+            let before = calls.lock().unwrap().iter().filter(|request| request["method"] == method).count();
+            owner.monitor_action(action(), 2, id, || Ok(())).unwrap();
+            assert_eq!(calls.lock().unwrap().iter().filter(|request| request["method"] == method).count(), before + 1);
+        }
+    }
+    #[test]
     fn admitted_monitor_action_excludes_handover_without_holding_selection_lock_over_transport() {
         let (directory, original, _) = fixture();
         let gate = Arc::new((Mutex::new(false), std::sync::Condvar::new())); let wait = gate.clone();

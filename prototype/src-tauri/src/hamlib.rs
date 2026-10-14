@@ -389,6 +389,35 @@ fn validate_connection_config(params: &Value) -> Result<(), String> {
     }
 }
 
+/// Closed, non-secret radio setup for the shared journal. Validation performs
+/// no DNS, device discovery, process startup or network I/O.
+pub(crate) fn saved_radio_configuration(value: &Value) -> Result<Value, String> {
+    let object = value.as_object().ok_or("Invalid saved Hamlib configuration.")?;
+    let keys: &[&str] = match value["mode"].as_str() {
+        Some("managed") => &["mode", "model", "path", "baud", "serial"],
+        Some("external") => &["mode", "host", "port"],
+        _ => return Err("Choose managed or external Hamlib mode.".into()),
+    };
+    if object.keys().any(|key| !keys.contains(&key.as_str())) {
+        return Err("Unsupported saved Hamlib option.".into());
+    }
+    if value["mode"] == "managed" {
+        if let Some(path) = value.get("path") {
+            let path = path.as_str().ok_or("Invalid Hamlib device path.")?;
+            if path.len() > 256 || path.chars().any(|c| c.is_control()) || path.contains(['@', '?', '#']) || path.contains("://") {
+                return Err("Use a device path or host:port without credentials.".into());
+            }
+        }
+        validate_connection_config(value)?;
+    } else {
+        if !matches!(value["host"].as_str(), Some("127.0.0.1" | "::1" | "localhost"))
+            || value["port"].as_u64().is_none_or(|port| !(1..=65535).contains(&port)) {
+            return Err("Use a loopback Hamlib host and port 1..65535.".into());
+        }
+    }
+    Ok(value.clone())
+}
+
 fn start_external(device: Device, params: &Value, generation: u64) -> Result<Session, String> {
     let address = loopback_address(params)?;
     let (reader, writer) = connect_stream(address)?;

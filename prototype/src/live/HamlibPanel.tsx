@@ -1,18 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { hamlibManufacturers, loadHamlibCatalogue, type HamlibModel } from "./hamlibCatalogue";
+import { AgentConnectionSetup } from "./AgentConnectionSetup";
+import { nativeStationSelection } from "./stationSelection";
 type Data = Record<string, any>;
 type Request = (method: string, params?: Data) => Promise<Data>;
 export default function HamlibPanel({ request, snapshot }: { request: Request; snapshot: Data | null }) {
+  const shared = nativeStationSelection();
   return <section className="live-station"><header className="live-station-head"><div><h2>Local station · Hamlib</h2><p>Radio and rotor connect directly from xLog. No xCat application or Windows agent is required.</p></div></header>
-    <div className="live-station-grid"><HamlibDevice device="radio" request={request} state={snapshot?.hamlib?.radio} /></div></section>;
+    {shared && <AgentConnectionSetup hamlib />}
+    <div className="live-station-grid"><HamlibDevice device="radio" request={request} state={snapshot?.hamlib?.radio} hideSetup={shared} connectionControls={!shared} /></div></section>;
 }
 export function HamlibDevice({ device, request, state, configurationOnly = false, connectionOwned = false, connectionSelectionAllowed = true,
-  configuration, onConfigurationChange, onBeforeConnection, connectionControls = true, configurationBusy = false }:
+  configuration, onConfigurationChange, onBeforeConnection, connectionControls = true, configurationBusy = false, hideSetup = false }:
   { device: "radio" | "rotor"; request: Request; state?: Data | null; configurationOnly?: boolean; connectionOwned?: boolean;
     connectionSelectionAllowed?: boolean; configuration?: Data; onConfigurationChange?: (value: Data) => void;
-    onBeforeConnection?: (value: Data) => Promise<void>; connectionControls?: boolean; configurationBusy?: boolean }) {
+    onBeforeConnection?: (value: Data) => Promise<void>; connectionControls?: boolean; configurationBusy?: boolean; hideSetup?: boolean }) {
   const key = `xlog.hamlib.${device}`;
-  const [localConfig, setLocalConfig] = useState<Data>(() => { try { return device === "radio" ? JSON.parse(localStorage.getItem(key) || "null") || { mode: "managed", path: "", baud: 9600, host: "127.0.0.1", port: 4532 } : { mode: "managed", path: "", baud: 9600, host: "127.0.0.1", port: 4533, serial: {} }; } catch { return { mode: "managed" }; } });
+  const [localConfig, setLocalConfig] = useState<Data>(() => { if (hideSetup) return { mode: "managed" }; try { return device === "radio" ? JSON.parse(localStorage.getItem(key) || "null") || { mode: "managed", path: "", baud: 9600, host: "127.0.0.1", port: 4532 } : { mode: "managed", path: "", baud: 9600, host: "127.0.0.1", port: 4533, serial: {} }; } catch { return { mode: "managed" }; } });
   const config = configuration ?? localConfig;
   const [models, setModels] = useState<HamlibModel[]>([]), [search, setSearch] = useState(""), [manufacturer, setManufacturer] = useState("");
   const [catalogueLoading, setCatalogueLoading] = useState(true);
@@ -50,7 +54,7 @@ export function HamlibDevice({ device, request, state, configurationOnly = false
       .catch(cause => { if (version === catalogueVersion.current) setError(cause instanceof Error ? cause.message : "Device catalogue unavailable."); })
       .finally(() => { if (version === catalogueVersion.current) setCatalogueLoading(false); });
   };
-  useEffect(() => { setModels([]); setSearch(""); setManufacturer(""); void loadModels(); return () => { catalogueVersion.current++; }; }, [device, request]);
+  useEffect(() => { if (hideSetup) return; setModels([]); setSearch(""); setManufacturer(""); void loadModels(); return () => { catalogueVersion.current++; }; }, [device, request, hideSetup]);
   useEffect(() => {
     if (!connectionControls) { setHealth(null); return; }
     let active = true, checking = false;
@@ -71,7 +75,7 @@ export function HamlibDevice({ device, request, state, configurationOnly = false
   const modelReady = config.mode === "external" || !!selectedModel;
   const connected = health ? health.connected === true : !!state;
   return <section className="live-station-card hamlib-device"><h3>{device === "radio" ? "Radio" : "Rotator"} <span className={connected ? "teal" : "secondary"}>{connected ? "Connected" : "Disconnected"}</span></h3>
-    <form className="live-station-connect" onSubmit={e => { e.preventDefault(); void connect("hamlib_connect", "Connection"); }}>
+    {!hideSetup && <form className="live-station-connect" onSubmit={e => { e.preventDefault(); void connect("hamlib_connect", "Connection"); }}>
       <label>Connection<select value={config.mode} onChange={e => update("mode", e.target.value)}><option value="managed">Built-in Hamlib · serial / device TCP</option><option value="external">Existing local Hamlib daemon</option></select></label>
       {config.mode === "managed" ? <><label>Manufacturer<select aria-label={`${deviceLabel} manufacturer`} value={manufacturer} onChange={event => setManufacturer(event.target.value)}><option value="">All manufacturers</option>{manufacturers.map(group => <option key={group.key} value={group.key}>{group.name} · {group.count}</option>)}</select></label>
         <label>Find model<input aria-label={`Find ${device} model`} value={search} onChange={e => setSearch(e.target.value)} placeholder="Model name, ID or maturity" /></label>
@@ -89,7 +93,7 @@ export function HamlibDevice({ device, request, state, configurationOnly = false
         ].map(([key, label, choices]) => <label key={String(key)}>{String(label)}<select value={config.serial?.[String(key)] ?? ""} onChange={e => serial(String(key), ["data_bits", "stop_bits"].includes(String(key)) ? Number(e.target.value) : e.target.value)}><option value="">Model default</option>{(choices as (string | number)[]).map(value => <option key={value} value={value}>{value}</option>)}</select></label>)}</div></details></> : <><label>Local daemon host<input value={config.host || "127.0.0.1"} onChange={e => update("host", e.target.value)} /></label><label>Port<input type="number" min="1" max="65535" value={config.port || ""} onChange={e => update("port", Number(e.target.value))} /></label></>}
       {device === "radio" && <label><input type="checkbox" checked={tx} onChange={e => setTX(e.target.checked)} />Enable transmit commands for this connection</label>}
       {connectionControls && <div className="live-actions"><button disabled={busy || configurationBusy || connected || connectionOwned || !modelReady || !connectionSelectionAllowed}>Connect {device}</button><button type="button" disabled={busy || configurationBusy || !modelReady || !connectionSelectionAllowed} onClick={() => void connect("hamlib_reconnect", "Reconnect")}>Reconnect {device}</button><button type="button" disabled={busy || (!connected && !connectionOwned) || !connectionSelectionAllowed} onClick={() => void act("hamlib_disconnect", {}, "Disconnect")}>Disconnect</button><button type="button" disabled={busy || (!connected && !selectedModel)} onClick={() => void act("hamlib_capabilities", connected ? {} : { model: Number(config.model) }, "Capabilities").then(result => result && setCapabilities(result))}>Read capabilities</button></div>}
-    </form>
+    </form>}
     {error && <p className="live-station-error" role="alert">{error}</p>}{message && <p role="status">{message}</p>}
     {health?.reconnect_required && <p className="amber" role="status">The {device} connection needs attention. Check its cable, power and connection settings, then reconnect. No previous control command will be replayed.</p>}
     {capabilities && <details><summary>Reported Hamlib capabilities</summary><pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{typeof capabilities.text === "string" ? capabilities.text : JSON.stringify(capabilities, null, 2)}</pre></details>}

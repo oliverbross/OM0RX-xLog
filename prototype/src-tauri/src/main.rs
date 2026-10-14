@@ -482,7 +482,8 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     // Only typed integration operations cross this boundary; never shell commands.
     if state.path.is_some() { acceptance::validate_local_request(&request)?; }
     let method = request.get("method").and_then(|m| m.as_str()).unwrap_or("");
-    if state.path.is_none() && request["params"]["provider"] == "direct_agent" && matches!(method, "station_connect" | "station_disconnect" | "station_reconnect" | "station_forget") {
+    if state.path.is_none() && (request["params"]["provider"] == "direct_agent" && matches!(method, "station_connect" | "station_disconnect" | "station_reconnect" | "station_forget")
+        || request["params"]["device"] == "radio" && matches!(method, "hamlib_connect" | "hamlib_reconnect" | "hamlib_disconnect")) {
         return Err("Use the shared Station Control connection owner.".into());
     }
     if matches!(method, "winkeyer_arm" | "winkeyer_send" | "winkeyer_stop")

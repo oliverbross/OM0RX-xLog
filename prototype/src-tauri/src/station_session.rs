@@ -1,4 +1,4 @@
-//! Shared Agent connection setup and durable command admission. No background I/O.
+//! Shared radio connection setup and durable command admission. No background I/O.
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
@@ -22,6 +22,8 @@ struct Saved {
     generation: String,
     revision: u64,
     base_url: String,
+    #[serde(default)]
+    hamlib: Option<Value>,
     receipts: Vec<Receipt>,
 }
 pub struct Session {
@@ -37,6 +39,7 @@ pub fn validate(label: &str, isolated: bool, action: &str) -> Result<(), String>
     if !matches!(
         action,
         "snapshot" | "receipt" | "save" | "connect" | "disconnect" | "forget" | "select"
+            | "save_hamlib" | "connect_hamlib" | "reconnect_hamlib" | "disconnect_hamlib"
     ) {
         return Err("Unknown Station Control operation.".into());
     }
@@ -72,6 +75,7 @@ impl Session {
                 generation: uuid::Uuid::new_v4().to_string(),
                 revision: 0,
                 base_url: String::new(),
+                hamlib: None,
                 receipts: vec![],
             },
             Err(_) => return Err("Saved Station Control state could not be read.".into()),
@@ -81,6 +85,7 @@ impl Session {
             || saved.revision > MAX_REVISION
             || saved.receipts.len() > MAX_RECEIPTS
             || endpoint(&saved.base_url)? != saved.base_url
+            || saved.hamlib.as_ref().is_some_and(|value| crate::hamlib::saved_radio_configuration(value).is_err())
         {
             return Err(
                 "Saved Station Control state is unsupported; it was not overwritten.".into(),
@@ -91,6 +96,8 @@ impl Session {
             let action = receipt.request["action"].as_str().unwrap_or("");
             let keys = if action == "save" {
                 vec!["action", "generation", "revision", "base_url"]
+            } else if action == "save_hamlib" {
+                vec!["action", "generation", "revision", "configuration"]
             } else if action == "select" {
                 vec![
                     "action",
@@ -119,8 +126,9 @@ impl Session {
                 || !matches!(
                     action,
                     "save" | "connect" | "disconnect" | "forget" | "select"
+                        | "save_hamlib" | "connect_hamlib" | "reconnect_hamlib" | "disconnect_hamlib"
                 )
-                || (action == "save") != (receipt.status == "saved")
+                || matches!(action, "save" | "save_hamlib") != (receipt.status == "saved")
                 || receipt.request["generation"] != saved.generation
                 || receipt.request["revision"]
                     .as_u64()
@@ -141,6 +149,8 @@ impl Session {
                 if endpoint(url)? != url {
                     return Err("Saved Agent endpoint is invalid.".into());
                 }
+            } else if action == "save_hamlib" {
+                crate::hamlib::saved_radio_configuration(&receipt.request["configuration"])?;
             } else if receipt.request["selection_generation"]
                 .as_u64()
                 .is_none_or(|revision| revision > MAX_REVISION)
@@ -198,7 +208,7 @@ impl Session {
             .lock()
             .map_err(|_| "Station Control state is unavailable.")?;
         Ok(
-            json!({"generation":state.generation,"revision":state.revision,"base_url":state.base_url,
+            json!({"generation":state.generation,"revision":state.revision,"base_url":state.base_url,"hamlib":state.hamlib,
             "last_receipt":state.receipts.last(),"remaining_operations":MAX_RECEIPTS-state.receipts.len()}),
         )
     }
@@ -228,6 +238,7 @@ impl Session {
         if !matches!(
             action,
             "save" | "connect" | "disconnect" | "forget" | "select"
+                | "save_hamlib" | "connect_hamlib" | "reconnect_hamlib" | "disconnect_hamlib"
         ) {
             return Err("Unknown Station Control action.".into());
         }
@@ -249,6 +260,8 @@ impl Session {
                     .as_str()
                     .ok_or("Missing Agent endpoint.")?
             )?);
+        } else if action == "save_hamlib" {
+            descriptor["configuration"] = crate::hamlib::saved_radio_configuration(&params["configuration"])?;
         } else {
             descriptor["selection_generation"] = params["selection_generation"].clone();
             descriptor["selection_id"] = params["selection_id"].clone();
@@ -296,7 +309,14 @@ impl Session {
                     .ok_or("Station Control revision exhausted.")?;
             }
         }
-        let request = if action == "save" {
+        if action == "save_hamlib" {
+            next.hamlib = Some(descriptor["configuration"].clone());
+            if next.hamlib != state.hamlib {
+                next.revision = next.revision.checked_add(1).filter(|value| *value <= MAX_REVISION)
+                    .ok_or("Station Control revision exhausted.")?;
+            }
+        }
+        let request = if matches!(action, "save" | "save_hamlib") {
             None
         } else {
             let selected_generation = params["selection_generation"]
@@ -308,6 +328,13 @@ impl Session {
                 .filter(|value| uuid::Uuid::parse_str(value).is_ok())
                 .ok_or("Invalid radio selection identity.")?;
             let mut connection = json!({"provider":if action == "select" { descriptor["provider"].as_str().unwrap() } else { "direct_agent" }});
+            if matches!(action, "connect_hamlib" | "reconnect_hamlib" | "disconnect_hamlib") {
+                connection = if action == "disconnect_hamlib" { json!({}) } else {
+                    state.hamlib.clone().ok_or("Save Hamlib configuration before connecting.")?
+                };
+                connection["device"] = json!("radio");
+                connection["tx_enabled"] = json!(action != "disconnect_hamlib" && params["allow_transmit"] == true);
+            }
             if matches!(action, "connect" | "forget") {
                 if state.base_url.is_empty() {
                     return Err("Save an Agent endpoint before connecting.".into());
@@ -330,7 +357,7 @@ impl Session {
                 .filter(|value| *value <= MAX_REVISION)
                 .ok_or("Station Control revision exhausted.")?;
             Some((
-                json!({"id":id,"method":match action { "connect" => "station_connect", "forget" => "station_forget", "select" => "station_selection_apply", _ => "station_disconnect" },"params":connection}),
+                json!({"id":id,"method":match action { "connect" => "station_connect", "forget" => "station_forget", "select" => "station_selection_apply", "connect_hamlib" => "hamlib_connect", "reconnect_hamlib" => "hamlib_reconnect", "disconnect_hamlib" => "hamlib_disconnect", _ => "station_disconnect" },"params":connection}),
                 selected_generation,
                 selected_id.to_owned(),
             ))
@@ -338,7 +365,7 @@ impl Session {
         next.receipts.push(Receipt {
             operation_id: id.into(),
             request: descriptor,
-            status: if action == "save" { "saved" } else { "pending" }.into(),
+            status: if matches!(action, "save" | "save_hamlib") { "saved" } else { "pending" }.into(),
         });
         self.persist(&next)?;
         *state = next;
@@ -495,6 +522,7 @@ mod tests {
             "disconnect",
             "forget",
             "select",
+            "save_hamlib", "connect_hamlib", "reconnect_hamlib", "disconnect_hamlib",
         ] {
             for label in ["main", "station-control"] {
                 assert!(validate(label, false, action).is_ok());
@@ -515,6 +543,71 @@ mod tests {
             assert!(validate("station-control", false, action).is_err());
             assert!(validate("main", false, action).is_err());
         }
+    }
+    #[test]
+    fn shared_hamlib_setup_is_passive_durable_and_lifecycle_uses_only_saved_configuration() {
+        let (directory, session, mut save) = setup();
+        save["action"] = json!("save_hamlib");
+        save.as_object_mut().unwrap().remove("base_url");
+        save["configuration"] = json!({"mode":"managed","model":1,"path":"","baud":9600,"serial":{"data_bits":8,"parity":"None"}});
+        session.apply(&save, passive).unwrap();
+        let restored = Session::new(directory.path().join("session.json")).unwrap();
+        assert_eq!(restored.snapshot().unwrap()["hamlib"], save["configuration"]);
+        assert_eq!(restored.apply(&save, passive).unwrap()["status"], "saved");
+        for (action, method) in [("connect_hamlib", "hamlib_connect"), ("reconnect_hamlib", "hamlib_reconnect"), ("disconnect_hamlib", "hamlib_disconnect")] {
+            let state = restored.snapshot().unwrap();
+            let selection_id = uuid::Uuid::new_v4().to_string();
+            let command = json!({"action":action,"operation_id":uuid::Uuid::new_v4().to_string(),"generation":state["generation"],"revision":state["revision"],
+                "selection_generation":13,"selection_id":selection_id,"allow_transmit":false,"configuration":{"model":999},"device":"rotor"});
+            let receipt = restored.apply(&command, |request, generation, identity| {
+                assert_eq!(generation, 13); assert_eq!(identity, selection_id);
+                assert_eq!(request["method"], method); assert_eq!(request["params"]["device"], "radio");
+                assert_eq!(request["params"]["tx_enabled"], false);
+                if action != "disconnect_hamlib" { assert_eq!(request["params"]["model"], 1); }
+                let persisted = Session::new(directory.path().join("session.json")).unwrap();
+                assert_eq!(persisted.receipt(command["operation_id"].as_str().unwrap()).unwrap()["status"], "unknown");
+                Ok(json!({"id":request["id"],"ok":true}))
+            }).unwrap();
+            assert_eq!(receipt["status"], "acknowledged");
+            assert_eq!(restored.apply(&command, passive).unwrap(), receipt);
+            let mut stale = command.clone(); stale["operation_id"] = json!(uuid::Uuid::new_v4().to_string());
+            assert!(restored.apply(&stale, passive).is_err());
+        }
+        let disk = std::fs::read_to_string(directory.path().join("session.json")).unwrap();
+        assert!(!disk.contains("tx_enabled")); assert!(!disk.contains("\"model\":999"));
+    }
+    #[test]
+    fn hamlib_invalid_or_secret_setup_and_unknown_lifecycle_never_replay() {
+        let (directory, session, mut save) = setup();
+        save["action"] = json!("save_hamlib");
+        for config in [json!({"mode":"external","host":"station.example","port":4532}),
+            json!({"mode":"external","host":"127.0.0.1","port":0}),
+            json!({"mode":"managed","model":1,"token":"secret"}),
+            json!({"mode":"managed","model":1,"tx_enabled":true}),
+            json!({"mode":"managed","model":1,"path":"tcp://user:secret@host"}),
+            json!({"mode":"managed","model":1,"serial":{"unknown":"value"}})] {
+            save["configuration"] = config;
+            assert!(session.apply(&save, passive).is_err());
+            assert!(session.snapshot().unwrap()["last_receipt"].is_null());
+        }
+        save["configuration"] = json!({"mode":"external","host":"127.0.0.1","port":4532});
+        session.apply(&save, passive).unwrap();
+        let command = json!({"action":"reconnect_hamlib","operation_id":uuid::Uuid::new_v4().to_string(),"generation":save["generation"],"revision":1,
+            "selection_generation":5,"selection_id":uuid::Uuid::new_v4().to_string(),"allow_transmit":true});
+        let receipt = session.apply(&command, |request, _, _| {
+            assert_eq!(request["params"]["tx_enabled"], true);
+            Err("sensitive transport error".into())
+        }).unwrap();
+        assert_eq!(receipt["status"], "unknown");
+        let restored = Session::new(directory.path().join("session.json")).unwrap();
+        assert_eq!(restored.apply(&command, passive).unwrap(), receipt);
+        assert!(restored.snapshot().unwrap()["hamlib"].get("tx_enabled").is_none());
+        std::fs::remove_file(directory.path().join("session.json")).unwrap();
+        std::fs::create_dir(directory.path().join("session.json")).unwrap();
+        let mut blocked = command;
+        blocked["operation_id"] = json!(uuid::Uuid::new_v4().to_string()); blocked["revision"] = json!(2);
+        assert!(restored.apply(&blocked, passive).is_err());
+        assert!(restored.receipt(blocked["operation_id"].as_str().unwrap()).unwrap().is_null());
     }
     #[test]
     fn endpoints_reject_access_bearing_values_and_invalid_setup_never_dispatches() {

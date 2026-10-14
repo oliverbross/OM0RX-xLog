@@ -1,12 +1,25 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { HamlibDevice } from "./HamlibPanel";
+import HamlibPanel, { HamlibDevice } from "./HamlibPanel";
 import { hamlibManufacturers, normalizeHamlibModels } from "./hamlibCatalogue";
 const radioModels = [{ id: 1, manufacturer: "Hamlib", model: "Dummy", maturity: "Stable" }, { id: 2045, manufacturer: "Elecraft", model: "KX3", maturity: "Stable" },
   { id: 2046, manufacturer: "Elecraft", model: "K4", maturity: "Beta" }, { id: 3073, manufacturer: "Icom", model: "IC-7300", maturity: "Stable" }];
+const native = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn(async () => () => {}) }));
+vi.mock("@tauri-apps/api/core", () => ({ invoke: native.invoke }));
+vi.mock("@tauri-apps/api/event", () => ({ listen: native.listen }));
+vi.mock("./stationSelection", () => ({ nativeStationSelection: () => true }));
 beforeEach(() => localStorage.clear()); afterEach(cleanup);
 const fake = () => vi.fn(async (method: string, params?: Record<string, any>) => method === "hamlib_models" ? { models: params?.device === "rotor" ? [{ id: 601, manufacturer: "Yaesu", model: "GS-232", maturity: "Stable" }] : radioModels } : { connected: false });
+it("native Desk uses passive shared setup and exposes no raw radio connection form", async () => {
+  native.invoke.mockClear(); native.invoke.mockResolvedValue({ generation: "setup", revision: 1, base_url: "", last_receipt: null,
+    hamlib: { mode: "managed", model: 3073, path: "/dev/test-fixture", baud: 9600 }, selection: { provider: "hamlib", generation: 4, selection_id: "selection" } });
+  const request = fake(); render(<HamlibPanel request={request} snapshot={null} />);
+  await waitFor(() => expect((screen.getByLabelText("Shared Hamlib model ID") as HTMLInputElement).value).toBe("3073"));
+  expect(native.invoke).toHaveBeenCalledExactlyOnceWith("station_session_request", { params: { action: "snapshot" } });
+  expect(request).not.toHaveBeenCalled(); expect(screen.queryByRole("button", { name: "Connect radio" })).toBeNull();
+  expect(screen.getByRole("button", { name: "Connect saved Hamlib radio" })).toBeTruthy();
+});
 describe("manufacturer-separated Hamlib catalogue", () => {
   it("normalizes manufacturer groups, retains distinct IDs and excludes malformed or duplicate rows", () => {
     const models = normalizeHamlibModels([...radioModels, { id: 999, manufacturer: "elecraft", model: "Prototype", maturity: "Alpha" }, radioModels[1], { id: -1, manufacturer: "Bad", model: "Bad" }, { id: 1000, model: "No manufacturer" }]);

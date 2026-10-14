@@ -15,6 +15,7 @@ beforeEach(() => {
   native.invoke.mockImplementation(async (_command, { params }) => {
     if (params.action === "snapshot") return structuredClone(state);
     if (params.action === "save") { state = { ...state, revision: 5, base_url: params.base_url }; return { operation_id: params.operation_id, status: "saved", request: { action: "save" } }; }
+    if (params.action === "save_hamlib") { state = { ...state, revision: state.revision + 1, hamlib: params.configuration }; return { operation_id: params.operation_id, status: "saved", request: { action: "save_hamlib" } }; }
     return { operation_id: params.operation_id, status: "acknowledged", request: { action: params.action } };
   });
 });
@@ -97,4 +98,56 @@ it("receipt recovery does not overwrite edits made after a lost save acknowledge
   fireEvent.click(screen.getByRole("button", { name: "Check connection setup receipt" })); await act(async () => {});
   expect((screen.getByLabelText("Shared Agent HTTPS URL") as HTMLInputElement).value).toBe("https://new-edit.example");
   expect(screen.getByText(/Agent setup changed in another window/)).toBeTruthy();
+});
+it("shared Hamlib mount is passive and pins saved configuration and exact selection for explicit connection", async () => {
+  state = { ...state, hamlib: { mode: "managed", model: 1, path: "", baud: 9600 }, selection: { provider: "hamlib", generation: 12, selection_id: "hamlib-selection" } };
+  render(<AgentConnectionSetup hamlib />); await act(async () => {});
+  expect(native.invoke).toHaveBeenCalledExactlyOnceWith("station_session_request", { params: { action: "snapshot" } });
+  expect(screen.queryByLabelText("Shared Agent token")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Connect saved Hamlib radio" })); await act(async () => {});
+  expect(native.invoke.mock.calls[1][1].params).toMatchObject({ action: "connect_hamlib", revision: 4, selection_generation: 12, selection_id: "hamlib-selection", allow_transmit: false });
+  expect(native.invoke.mock.calls[1][1].params).not.toHaveProperty("configuration");
+  expect(native.invoke.mock.calls.every(([command]) => command === "station_session_request")).toBe(true);
+});
+it("Hamlib drafts survive another window's revision and saved framing is shared without transmit permission", async () => {
+  state = { ...state, hamlib: { mode: "managed", model: 1, path: "", baud: 9600 }, selection: { provider: "hamlib", generation: 12, selection_id: "hamlib-selection" } };
+  render(<AgentConnectionSetup hamlib />); await act(async () => {});
+  fireEvent.change(screen.getByLabelText("Shared Hamlib model ID"), { target: { value: "3073" } });
+  fireEvent.change(screen.getByLabelText("Shared Hamlib Parity"), { target: { value: "Even" } });
+  fireEvent.click(screen.getByRole("checkbox", { name: "Enable Hamlib transmit commands for this connection" }));
+  expect(screen.getByRole("button", { name: "Connect saved Hamlib radio" }).hasAttribute("disabled")).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Save Hamlib configuration" })); await act(async () => {});
+  const request = native.invoke.mock.calls[1][1].params;
+  expect(request).toMatchObject({ action: "save_hamlib", configuration: { mode: "managed", model: 3073, serial: { parity: "Even" } } });
+  expect(request).not.toHaveProperty("allow_transmit"); expect(request.configuration).not.toHaveProperty("tx_enabled");
+  fireEvent.change(screen.getByLabelText("Shared Hamlib model ID"), { target: { value: "123" } });
+  state = { ...state, revision: 6, hamlib: { mode: "external", host: "127.0.0.1", port: 4534 } };
+  await act(async () => native.changed?.());
+  expect((screen.getByLabelText("Shared Hamlib model ID") as HTMLInputElement).value).toBe("123");
+  expect(screen.getByRole("button", { name: "Save Hamlib configuration" }).hasAttribute("disabled")).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Reload saved Hamlib configuration" })); await act(async () => {});
+  expect((screen.getByLabelText("Shared Hamlib port") as HTMLInputElement).value).toBe("4534");
+});
+it("unknown Hamlib reconnect survives remount and checks its original receipt without replay", async () => {
+  state = { ...state, hamlib: { mode: "external", host: "127.0.0.1", port: 4532 }, selection: { provider: "hamlib", generation: 12, selection_id: "hamlib-selection" } };
+  const view = render(<AgentConnectionSetup hamlib />); await act(async () => {});
+  native.invoke.mockRejectedValueOnce(new Error("lost reply"));
+  fireEvent.click(screen.getByRole("button", { name: "Reconnect saved Hamlib radio" })); await act(async () => {});
+  const id = native.invoke.mock.calls[1][1].params.operation_id; view.unmount();
+  render(<AgentConnectionSetup hamlib />); await act(async () => {});
+  expect(screen.getByRole("button", { name: "Reconnect saved Hamlib radio" }).hasAttribute("disabled")).toBe(true);
+  native.invoke.mockResolvedValueOnce({ operation_id: id, status: "unknown", request: { action: "reconnect_hamlib" } });
+  fireEvent.click(screen.getByRole("button", { name: "Check connection setup receipt" })); await act(async () => {});
+  expect(native.invoke).toHaveBeenLastCalledWith("station_session_request", { params: { action: "receipt", operation_id: id } });
+  expect(native.invoke.mock.calls.filter(([, { params }]) => params.action === "reconnect_hamlib")).toHaveLength(1);
+});
+it("another window's selection change clears transmit consent before a new Hamlib connection", async () => {
+  state = { ...state, hamlib: { mode: "external", host: "127.0.0.1", port: 4532 }, selection: { provider: "hamlib", generation: 12, selection_id: "first-selection" } };
+  render(<AgentConnectionSetup hamlib />); await act(async () => {});
+  const permission = screen.getByRole("checkbox", { name: "Enable Hamlib transmit commands for this connection" }) as HTMLInputElement;
+  fireEvent.click(permission); expect(permission.checked).toBe(true);
+  state = { ...state, revision: 5, selection: { provider: "hamlib", generation: 14, selection_id: "new-selection" } };
+  await act(async () => native.changed?.()); expect(permission.checked).toBe(false);
+  fireEvent.click(screen.getByRole("button", { name: "Connect saved Hamlib radio" })); await act(async () => {});
+  expect(native.invoke.mock.calls.at(-2)?.[1].params).toMatchObject({ action: "connect_hamlib", revision: 5, selection_generation: 14, selection_id: "new-selection", allow_transmit: false });
 });

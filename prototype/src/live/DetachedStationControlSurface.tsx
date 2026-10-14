@@ -37,10 +37,10 @@ export function StationControlSurface({ connect = connectMonitorContext, configu
   const provider = context?.selection?.provider, radio = station.radio, safety = station.station;
   return <div className="app live"><main aria-label="Detached Station Control">
     <section className="live-station" aria-label="Station observations">
-      <header className="live-station-head"><div><h2>Station Control</h2><p>{configuration && !context?.acceptance ? "Shared Agent connection · independent of Desk" : "Passive station monitoring · independent of Desk"}</p></div>
+      <header className="live-station-head"><div><h2>Station Control</h2><p>{configuration && !context?.acceptance ? "Shared radio connections · independent of Desk" : "Passive station monitoring · independent of Desk"}</p></div>
         <div className="live-station-head-actions"><button type="button" onClick={() => connection.current?.refresh()}>Refresh observations</button>
           <button type="button" disabled={docking} onClick={() => void dockBack()}>{docking ? "Docking…" : "Dock back"}</button></div></header>
-      <p role="status">{configuration && !context?.acceptance ? "Radio selection and Agent connection are shared. Radio commands and FLEX/Hamlib connection setup require the main station controls." : "Connection setup, radio selection and station actions currently require the main station controls."}</p>
+      <p role="status">{configuration && !context?.acceptance ? "Radio selection and Agent/Hamlib connections are shared. Radio commands and FLEX connection setup require the main station controls." : "Connection setup, radio selection and station actions currently require the main station controls."}</p>
       {!context?.acceptance && configuration}
       {error && <p className="live-station-error" role="alert">{error}</p>}
       {dockError && <p className="live-station-error" role="alert">{dockError}</p>}
@@ -67,5 +67,5 @@ export function StationControlSurface({ connect = connectMonitorContext, configu
   </main></div>;
 }
 export function DetachedStationControlSurface() {
-  return <StationControlSurface configuration={new URLSearchParams(location.search).get("acceptance") === "local" ? undefined : <AgentConnectionSetup connections providers />} />;
+  return <StationControlSurface configuration={new URLSearchParams(location.search).get("acceptance") === "local" ? undefined : <AgentConnectionSetup connections providers followSelection />} />;
 }
