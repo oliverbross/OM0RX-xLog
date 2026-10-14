@@ -4,6 +4,7 @@ mod worker;
 mod acceptance;
 mod hamlib;
 mod rotor;
+mod rotor_session;
 mod rotor_telemetry;
 mod station_telemetry;
 mod station_selection;
@@ -593,7 +594,8 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
         } else {
             worker::validate_surface(window.label(), &request)?;
         }
-        return tauri::async_runtime::spawn_blocking(move || rotor::request(request))
+        let shared = state.path.is_none();
+        return tauri::async_runtime::spawn_blocking(move || if shared { rotor_session::request(request) } else { rotor::request(request) })
             .await.map_err(|_| "Rotor task failed".to_string())?;
     }
     if method.starts_with("hamlib_") {
@@ -620,6 +622,8 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     let settings_changed = matches!(method, "settings_save" | "backup_restore");
     let sync_changed = matches!(method, "sync_mutation" | "settings_save" | "secret_save" | "workspace_create" | "backup_restore");
     let rotor_configuration_changed = matches!(method, "workspace_rotor_configuration_save" | "backup_restore");
+    let rotor_configuration_mutation = state.path.is_none() && (rotor_configuration_changed || method == "workspace_create");
+    if rotor_configuration_mutation { rotor_session::invalidate_configuration(); }
     // Retire metadata before a restore/write can race a map's retained read.
     if map_changed { map_context::invalidate(); }
     let draft_wake = DraftWake::for_request(&request);
@@ -629,7 +633,9 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     let layout_changed = matches!(method, "workspace_layout_apply" | "workspace_create" | "backup_restore");
     let activate_layout = method == "workspace_layout_apply"
         && request["params"]["action"] == "activatePreset";
-    let result = tauri::async_runtime::spawn_blocking(move || if let Some(selection) = selection { selection.control(request) } else { worker::request(request) })
+    let result = tauri::async_runtime::spawn_blocking(move || if let Some(selection) = selection { selection.control(request) }
+        else if rotor_configuration_mutation { rotor_session::configuration_change(|| worker::request(request)) }
+        else { worker::request(request) })
         .await
         .map_err(|_| "Worker task failed".to_string())?;
     drop(auto_change);
@@ -1065,6 +1071,7 @@ fn main() {
                 let activation = activation_owner(app.handle());
                 qsy_clear::install(app.handle(), activation.editors.clone());
                 station_identity::install(app.handle());
+                rotor_session::install(app.handle()).map_err(std::io::Error::other)?;
                 let selection_app = app.handle().clone();
                 tauri::async_runtime::spawn_blocking(move || {
                     if let Err(error) = station_selection::owner(&selection_app).and_then(|owner| {
@@ -1085,6 +1092,9 @@ fn main() {
                         Ok(())
                     }) {
                         eprintln!("Native station startup unavailable: {error}");
+                    }
+                    if let Err(error) = rotor_session::resume() {
+                        eprintln!("Native rotor startup unavailable: {error}");
                     }
                 });
                 cluster_session::owner(app.handle()).map_err(std::io::Error::other)?;
@@ -1114,6 +1124,7 @@ fn main() {
         .run(|app, event| {
             if matches!(event, tauri::RunEvent::ExitRequested { .. }) {
                 APP_EXITING.store(true, Ordering::Release);
+                rotor_session::shutdown();
                 station_identity::shutdown();
                 propagation_session::shutdown();
                 if let Some(owner) = cw_session_backend::existing() { let _ = owner.stop(); }
@@ -1134,7 +1145,7 @@ fn main() {
                 auto_rotor::revoke();
                 auto_rotor_reconcile::shutdown();
                 logbook_events::shutdown();
-                station_selection::shutdown(); station_telemetry::shutdown(); rotor_telemetry::shutdown(); cluster_session::shutdown(); winkeyer::shutdown(); hamlib::shutdown(); worker::shutdown();
+                rotor_session::shutdown(); station_selection::shutdown(); station_telemetry::shutdown(); rotor_telemetry::shutdown(); cluster_session::shutdown(); winkeyer::shutdown(); hamlib::shutdown(); worker::shutdown();
                 app.state::<acceptance::Acceptance>().cleanup_browser_contexts();
             }
         });

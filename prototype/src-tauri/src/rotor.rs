@@ -67,15 +67,15 @@ impl RotorCoordinator {
     where
         F: FnOnce(Value) -> Result<Value, String>,
     {
-        self.handle_scoped(request, None, backend)
+        self.handle_scoped(request, None, false, backend)
     }
 
     pub(crate) fn handle_automatic<F>(&self, request: Value, permit: &crate::auto_rotor::Permit, backend: F) -> Result<Value, String>
     where F: FnOnce(Value) -> Result<Value, String> {
-        self.handle_scoped(request, Some(permit), backend)
+        self.handle_scoped(request, Some(permit), false, backend)
     }
 
-    fn handle_scoped<F>(&self, request: Value, automatic: Option<&crate::auto_rotor::Permit>, backend: F) -> Result<Value, String>
+    fn handle_scoped<F>(&self, request: Value, automatic: Option<&crate::auto_rotor::Permit>, startup: bool, backend: F) -> Result<Value, String>
     where F: FnOnce(Value) -> Result<Value, String> {
         let id = request["id"]
             .as_str()
@@ -98,6 +98,9 @@ impl RotorCoordinator {
         // A turn already admitted under the lock remains ordered before Stop.
         if manual { self.automatic.revoke(); }
         let mut state = self.state.lock().map_err(|_| "Rotor owner lock failed")?;
+        if startup && (method != "rotor_connect" || state.owner.is_some() || state.generation != 0 || state.revision != 0) {
+            return Err("Rotor owner changed; startup connection was not sent.".into());
+        }
         // Also revoke at actual manual admission: an explicit Arm interleaved
         // while this command waited cannot survive the ensuing manual action.
         if manual { self.automatic.revoke(); }
@@ -454,6 +457,9 @@ fn dispatch(request: Value) -> Result<Value, String> {
 pub fn request(request: Value) -> Result<Value, String> {
     coordinator().handle(request, dispatch)
 }
+pub(crate) fn request_startup(request: Value) -> Result<Value, String> {
+    coordinator().handle_scoped(request, None, true, dispatch)
+}
 pub(crate) fn automatic_owner() -> Result<Option<(String, u64)>, String> { coordinator().automatic_owner() }
 pub(crate) fn with_automatic_owner<T>(owner: &str, generation: u64, action: impl FnOnce() -> Result<T, String>) -> Result<T, String> {
     coordinator().with_automatic_owner(owner, generation, action)
@@ -490,6 +496,27 @@ mod tests {
     use super::*;
     use std::sync::{mpsc, Arc};
     use std::time::Duration;
+
+    #[test]
+    fn startup_connection_is_fenced_by_prior_owner_activity_and_cannot_be_motion() {
+        let coordinator = RotorCoordinator::new();
+        let connect = json!({"id":"startup","method":"rotor_connect",
+            "params":{"owner":"native_dcu1","host":"rotor.example.invalid","port":4001,"name":"ARCO"}});
+        coordinator.handle_scoped(connect.clone(), None, true, |request| {
+            assert_eq!(request["method"], "station_rotor_connect");
+            assert_eq!(request["params"], json!({"provider":"direct_agent","host":"rotor.example.invalid","port":4001,"name":"ARCO"}));
+            Ok(success("startup", json!({"connected":false})))
+        }).unwrap();
+        assert!(coordinator.handle_scoped(connect.clone(), None, true, |_| panic!("Second startup connection")).is_err());
+        coordinator.handle(json!({"id":"disconnect","method":"rotor_disconnect","params":{"owner":"native_dcu1","generation":1}}),
+            |_| Ok(success("disconnect", json!({})))).unwrap();
+        assert!(coordinator.handle_scoped(connect, None, true, |_| panic!("Startup reversed disconnect")).is_err());
+        let fresh = RotorCoordinator::new();
+        for method in ["rotor_goto", "rotor_stop", "rotor_park", "rotor_disconnect"] {
+            assert!(fresh.handle_scoped(json!({"id":"motion","method":method,"params":{"owner":"native_dcu1","generation":0,"bearing":90}}),
+                None, true, |_| panic!("Startup issued motion")).is_err());
+        }
+    }
 
     #[test]
     fn automatic_dispatch_rejects_replaced_or_absent_worker_before_any_backend() {
