@@ -42,7 +42,8 @@ public struct RemoteBackupVerifiedObject: Equatable, Sendable, Codable {
 }
 
 public enum RemoteBackupRetentionProtection: Equatable, Sendable {
-    case keepAll, foreignContext, unverified, missingRemoteIdentity, foreignAccount, ambiguousIdentity, newestVerified, clockReview
+    case keepAll, foreignContext, unverified, missingRemoteIdentity, foreignAccount, ambiguousIdentity
+    case deletionClaimed, newestVerified, clockReview
 }
 
 public struct RemoteBackupProtectedReceipt: Equatable, Sendable {
@@ -60,7 +61,7 @@ public struct RemoteBackupRetentionReview: Equatable, Sendable {
     public let protected: [RemoteBackupProtectedReceipt]
 
     public init(workspaceGeneration: UUID, destination: RemoteBackupDestination, providerAccountID: String,
-                receipts: [RemoteBackupUploadReceipt], at now: Date) throws {
+                receipts: [RemoteBackupUploadReceipt], deletionClaims: Set<UUID> = [], at now: Date) throws {
         guard workspaceGeneration.uuidString != "00000000-0000-0000-0000-000000000000",
               now.timeIntervalSince1970.isFinite, now.timeIntervalSince1970 >= 0,
               destination.provider == .dropbox else { throw RemoteBackupPlanningError.staleContext }
@@ -81,6 +82,7 @@ public struct RemoteBackupRetentionReview: Equatable, Sendable {
             let reason: RemoteBackupRetentionProtection?
             if destination.retention.latestVerifiedCount == nil { reason = .keepAll }
             else if receipt.plan.workspaceGeneration != workspaceGeneration || receipt.plan.destination != destination { reason = .foreignContext }
+            else if deletionClaims.contains(receipt.plan.backupID) { reason = .deletionClaimed }
             else if case .verified = receipt.outcome {
                 if let object = receipt.remoteObject {
                     let key = "\(object.provider.rawValue)\n\(object.providerAccountID)\n\(object.objectID)"
@@ -107,5 +109,75 @@ public struct RemoteBackupRetentionReview: Equatable, Sendable {
             protected += eligible.prefix(keep).map { RemoteBackupProtectedReceipt(receipt: $0, reason: .newestVerified) }
         }
         self.protected = protected
+    }
+}
+
+public protocol RemoteBackupDeletionTransport: Sendable {
+    /// Delete only when the provider's current object revision still equals the
+    /// independently verified revision retained in the candidate receipt.
+    func deleteIfRevisionMatches(candidate: RemoteBackupUploadReceipt) async throws -> RemoteBackupVerifiedObject
+}
+
+public enum RemoteBackupDeletionError: Error, Equatable, Sendable {
+    /// A request may have reached the provider. The durable claim prevents replay.
+    case executionUncertain
+}
+
+public struct RemoteBackupDeletionReceipt: Equatable, Sendable {
+    public let candidate: RemoteBackupUploadReceipt
+    public let remoteObject: RemoteBackupVerifiedObject
+    public let deletedAt: Date
+
+    public init(candidate: RemoteBackupUploadReceipt, remoteObject: RemoteBackupVerifiedObject,
+                deletedAt: Date) throws {
+        guard candidate.remoteObject == remoteObject,
+              case .verified(let package, _) = candidate.outcome,
+              package == candidate.plan.package,
+              deletedAt.timeIntervalSince1970.isFinite, deletedAt.timeIntervalSince1970 >= 0 else {
+            throw RemoteBackupPlanningError.invalidReceipt
+        }
+        self.candidate = candidate; self.remoteObject = remoteObject; self.deletedAt = deletedAt
+    }
+}
+
+/// One durable, non-replayable deletion claim per backup ID. The marker is
+/// written before transport. A crash, cancellation or lost reply therefore remains
+/// uncertain and protected from a second delete attempt.
+public actor RemoteBackupDeletionCoordinator {
+    private let store: RemoteBackupOperationStore
+
+    public init(stateDirectory: URL) throws {
+        store = try RemoteBackupOperationStore(directory: stateDirectory)
+    }
+
+    public static func claimedBackupIDs(stateDirectory: URL) throws -> Set<UUID> {
+        Set(try RemoteBackupUploadCoordinator.persistedReceipts(stateDirectory: stateDirectory)
+            .map(\.plan.backupID))
+    }
+
+    public func delete(candidate: RemoteBackupUploadReceipt, workspaceGeneration: UUID,
+                       destination: RemoteBackupDestination,
+                       transport: any RemoteBackupDeletionTransport,
+                       at now: Date = Date()) async throws -> RemoteBackupDeletionReceipt {
+        try candidate.plan.validate(workspaceGeneration: workspaceGeneration, destination: destination)
+        guard case .verified(let package, _) = candidate.outcome, package == candidate.plan.package,
+              let expected = candidate.remoteObject, expected.provider == destination.provider else {
+            throw RemoteBackupPlanningError.invalidReceipt
+        }
+        try Task.checkCancellation()
+        if try store.reserve(plan: candidate.plan) != nil {
+            throw RemoteBackupExecutionError.operationInProgress
+        }
+        do {
+            let observed = try await transport.deleteIfRevisionMatches(candidate: candidate)
+            guard observed == expected else { throw RemoteBackupPlanningError.invalidReceipt }
+            let receipt = try RemoteBackupDeletionReceipt(candidate: candidate,
+                remoteObject: observed, deletedAt: now)
+            try store.complete(candidate)
+            return receipt
+        } catch {
+            // The preflight claim remains durable. Never replay an ambiguous delete.
+            throw RemoteBackupDeletionError.executionUncertain
+        }
     }
 }

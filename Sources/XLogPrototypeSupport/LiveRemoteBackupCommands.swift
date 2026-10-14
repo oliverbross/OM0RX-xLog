@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 #if canImport(XLogCore)
 import XLogCore
 #else
@@ -43,8 +46,8 @@ enum NativeRemoteBackupCommandError: Error, Equatable {
     case accountUnavailable, staleRetentionReview
 }
 
-/// A retained native review, not deletion consent. There is deliberately no
-/// executor/IPC deletion route: provider revision-conditional deletion is open.
+/// A retained native review, not deletion consent. A separate native-only command
+/// must consume this exact review before one revision-conditional deletion attempt.
 struct NativeRemoteBackupRetentionReview: Equatable, Sendable {
     let id: UUID
     let review: RemoteBackupRetentionReview
@@ -200,6 +203,50 @@ actor LiveRemoteBackupCommands {
         }
     }
 
+    /// Explicitly consumes one retained review and one selected candidate. The
+    /// deletion claim is persisted before the provider request and is never replayed
+    /// after an error or lost response. This native-only boundary is not exposed via IPC.
+    func deleteRetentionCandidate(_ backupID: UUID, from review: NativeRemoteBackupRetentionReview,
+                                  vault: any NativeBackupCredentialVault = SystemNativeBackupCredentialVault(),
+                                  http: any DropboxBackupHTTPClient = DropboxBackupURLSessionClient()) async throws
+        -> RemoteBackupDeletionReceipt {
+        try beginMutation(); defer { mutating = false }
+        guard retainedRetentionReview == review else {
+            throw NativeRemoteBackupCommandError.staleRetentionReview
+        }
+        retainedRetentionReview = nil
+        guard let service else { throw CancellationError() }
+        guard await !service.isRunning else { throw RemoteBackupSchedulerError.operationInProgress }
+        let current = try await makeRetentionReview(plan: review.plan, approval: review.approval)
+        guard current.contextGeneration == review.contextGeneration,
+              current.history == review.history, current.review == review.review,
+              let candidate = current.review.candidates.first(where: { $0.plan.backupID == backupID }) else {
+            throw NativeRemoteBackupCommandError.staleRetentionReview
+        }
+        let authority = try await service.authorizationOwner()
+        let checker = await authority.checker(for: review.approval.authorization)
+        let registrationCheck = makeCheck(plan: review.plan, account: review.approval.registration)
+        let contextGeneration = review.contextGeneration
+        let check: @Sendable () throws -> Void = {
+            guard try service.retentionContextGeneration() == contextGeneration else {
+                throw NativeRemoteBackupCommandError.staleRetentionReview
+            }
+            try registrationCheck()
+            try checker.validate(workspaceGeneration: review.plan.workspaceGeneration,
+                destination: review.plan.destination)
+        }
+        try check()
+        let source = LiveDropboxBackupCredentialSource(logbook: logbook,
+            binding: review.approval.registration.binding, checker: checker, vault: vault)
+        let transport = try DropboxBackupTransport(destination: review.plan.destination,
+            credentials: source, http: RetentionCheckedHTTP(client: http, check: check))
+        let deletionDirectory = try retentionDirectories(plan: review.plan).deletions
+        let coordinator = try RemoteBackupDeletionCoordinator(stateDirectory: deletionDirectory)
+        return try await coordinator.delete(candidate: candidate,
+            workspaceGeneration: review.plan.workspaceGeneration,
+            destination: review.plan.destination, transport: transport, at: clock.now())
+    }
+
     private func makeRetentionReview(plan: RemoteBackupUploadPlan, approval: NativeRemoteBackupApproval) async throws -> NativeRemoteBackupRetentionReview {
         guard let service else { throw CancellationError() }
         try Task.checkCancellation()
@@ -212,20 +259,45 @@ actor LiveRemoteBackupCommands {
             try Task.checkCancellation()
             try check(plan: plan, account: approval.registration)
             try checker.validate(workspaceGeneration: current, destination: plan.destination)
-            let root = try logbook.remoteBackupDirectory()
-            let parent = root.appendingPathComponent("Dropbox Operations")
-            let directory = parent.appendingPathComponent(plan.destination.id.uuidString.lowercased())
-            guard LocalFilePath.contains(directory, in: root) else { throw RemoteBackupPersistenceError.invalidState }
-            if FileManager.default.fileExists(atPath: parent.path) {
-                let values = try parent.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
-                guard values.isDirectory == true, values.isSymbolicLink != true else { throw RemoteBackupPersistenceError.invalidState }
-            }
-            let history = try RemoteBackupUploadCoordinator.persistedReceipts(stateDirectory: directory)
+            let directories = try retentionDirectories(plan: plan)
+            let history = try RemoteBackupUploadCoordinator.persistedReceipts(stateDirectory: directories.uploads)
+            let claims = try RemoteBackupDeletionCoordinator.claimedBackupIDs(stateDirectory: directories.deletions)
             let review = try RemoteBackupRetentionReview(workspaceGeneration: current, destination: plan.destination,
-                providerAccountID: approval.registration.binding.providerAccountID, receipts: history, at: clock.now())
+                providerAccountID: approval.registration.binding.providerAccountID, receipts: history,
+                deletionClaims: claims, at: clock.now())
             guard try service.retentionContextGeneration() == generation else { throw NativeRemoteBackupCommandError.staleRetentionReview }
             return NativeRemoteBackupRetentionReview(id: UUID(), review: review, plan: plan, approval: approval,
                 contextGeneration: generation, history: history)
+        }
+    }
+
+    private func retentionDirectories(plan: RemoteBackupUploadPlan) throws -> (uploads: URL, deletions: URL) {
+        let root = try logbook.remoteBackupDirectory()
+        func child(_ name: String) throws -> URL {
+            let parent = root.appendingPathComponent(name)
+            let directory = parent.appendingPathComponent(plan.destination.id.uuidString.lowercased())
+            guard LocalFilePath.contains(directory, in: root) else {
+                throw RemoteBackupPersistenceError.invalidState
+            }
+            if FileManager.default.fileExists(atPath: parent.path) {
+                let values = try parent.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+                guard values.isDirectory == true, values.isSymbolicLink != true else {
+                    throw RemoteBackupPersistenceError.invalidState
+                }
+            }
+            return directory
+        }
+        return (try child("Dropbox Operations"), try child("Dropbox Deletions"))
+    }
+
+    private struct RetentionCheckedHTTP: DropboxBackupHTTPClient {
+        let client: any DropboxBackupHTTPClient
+        let check: @Sendable () throws -> Void
+        func send(_ request: URLRequest, maximumResponseBytes: Int) async throws -> DropboxBackupHTTPResponse {
+            try check()
+            let response = try await client.send(request, maximumResponseBytes: maximumResponseBytes)
+            try check()
+            return response
         }
     }
 

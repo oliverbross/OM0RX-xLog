@@ -57,6 +57,70 @@ import Testing
             "size": plan.package.byteCount, "content_hash": String(repeating: "0", count: 64)])
     }
 
+    private func deletionCandidate(_ plan: RemoteBackupUploadPlan) throws -> RemoteBackupUploadReceipt {
+        try RemoteBackupUploadReceipt(plan: plan,
+            outcome: .verified(package: plan.package, at: Date(timeIntervalSince1970: 1)),
+            remoteObject: RemoteBackupVerifiedObject(provider: .dropbox,
+                providerAccountID: "dbid:fixture-account", objectID: "id:created-object",
+                revision: "abcdef123456"))
+    }
+
+    @Test func revisionConditionalDeletionIsDurablyClaimedAndNeverReplayed() async throws {
+        let (plan, _, credentials) = try fixture()
+        let candidate = try deletionCandidate(plan)
+        let deleted = try JSONSerialization.data(withJSONObject: ["metadata": [
+            "id": "id:created-object", "name": plan.objectName, "rev": "abcdef123456",
+            "size": plan.package.byteCount, "content_hash": String(repeating: "0", count: 64)]])
+        let http = HTTP([try account(), Step(status: 200, body: deleted)])
+        let transport = try DropboxBackupTransport(destination: plan.destination,
+            credentials: credentials, http: http)
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("xlog-dropbox-deletion-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let coordinator = try RemoteBackupDeletionCoordinator(stateDirectory: root)
+        let receipt = try await coordinator.delete(candidate: candidate,
+            workspaceGeneration: plan.workspaceGeneration, destination: plan.destination,
+            transport: transport, at: Date(timeIntervalSince1970: 2))
+        #expect(receipt.candidate == candidate)
+        #expect(receipt.deletedAt == Date(timeIntervalSince1970: 2))
+        #expect(try RemoteBackupDeletionCoordinator.claimedBackupIDs(stateDirectory: root) == [plan.backupID])
+        let requests = await http.requests
+        #expect(requests.map(\.url) == [DropboxBackupTransport.accountURL, DropboxBackupTransport.deleteURL])
+        let body = try #require(requests[1].httpBody)
+        let arguments = try #require(JSONSerialization.jsonObject(with: body) as? [String: String])
+        #expect(arguments == ["path": "id:created-object", "parent_rev": "abcdef123456"])
+        let unused = HTTP([])
+        let restarted = try RemoteBackupDeletionCoordinator(stateDirectory: root)
+        let replay = try DropboxBackupTransport(destination: plan.destination, credentials: credentials, http: unused)
+        await #expect(throws: RemoteBackupExecutionError.operationInProgress) {
+            try await restarted.delete(candidate: candidate, workspaceGeneration: plan.workspaceGeneration,
+                destination: plan.destination, transport: replay)
+        }
+        #expect(await unused.requests.isEmpty)
+    }
+
+    @Test func ambiguousDeletionRemainsClaimedWithoutRetry() async throws {
+        let (plan, _, credentials) = try fixture()
+        let candidate = try deletionCandidate(plan)
+        let http = HTTP([try account(), Step(status: 200, body: Data(), fail: true)])
+        let transport = try DropboxBackupTransport(destination: plan.destination,
+            credentials: credentials, http: http)
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("xlog-dropbox-deletion-uncertain-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let coordinator = try RemoteBackupDeletionCoordinator(stateDirectory: root)
+        await #expect(throws: RemoteBackupDeletionError.executionUncertain) {
+            try await coordinator.delete(candidate: candidate, workspaceGeneration: plan.workspaceGeneration,
+                destination: plan.destination, transport: transport)
+        }
+        #expect(try RemoteBackupDeletionCoordinator.claimedBackupIDs(stateDirectory: root) == [plan.backupID])
+        await #expect(throws: RemoteBackupExecutionError.operationInProgress) {
+            try await coordinator.delete(candidate: candidate, workspaceGeneration: plan.workspaceGeneration,
+                destination: plan.destination, transport: transport)
+        }
+        #expect(await http.requests.count == 2)
+    }
+
     @Test func strictExclusiveCreateAndRevisionDownloadHashExactBytes() async throws {
         let (plan, bytes, credentials) = try fixture()
         let metadata = try metadata(plan)

@@ -54,6 +54,18 @@ import Testing
         #expect(try review(keepAll, [receipt(keepAll, at: 1), receipt(keepAll, at: 2)]).candidates.isEmpty)
     }
 
+    @Test func priorDeletionClaimsAreVisibleButNeverCandidates() throws {
+        let destination = try destination(), old = try receipt(destination, at: 1)
+        let newest = try receipt(destination, at: 2)
+        let value = try RemoteBackupRetentionReview(workspaceGeneration: generation,
+            destination: destination, providerAccountID: "dbid:fixture",
+            receipts: [old, newest], deletionClaims: [old.plan.backupID],
+            at: Date(timeIntervalSince1970: 100))
+        #expect(value.candidates.isEmpty)
+        #expect(value.protected.contains { $0.receipt == old && $0.reason == .deletionClaimed })
+        #expect(value.protected.contains { $0.receipt == newest && $0.reason == .newestVerified })
+    }
+
     @Test func ambiguousBackupAndRemoteObjectIdentitiesAlwaysRemainProtected() throws {
         let destination = try destination(), newest = try receipt(destination, at: 90)
         let duplicate = try receipt(destination, at: 1), otherGeneration = try receipt(destination, at: 2,

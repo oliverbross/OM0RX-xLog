@@ -118,12 +118,13 @@ public struct DropboxBackupAccountProbe: Sendable {
 
 /// Fixed endpoints only. Tokens, response bodies and provider errors are never logged
 /// or persisted. Durable replay protection belongs to RemoteBackupUploadCoordinator.
-public actor DropboxBackupTransport: RemoteBackupUploadTransport {
+public actor DropboxBackupTransport: RemoteBackupUploadTransport, RemoteBackupDeletionTransport {
     public static let maximumPackageBytes = 150 * 1_024 * 1_024
     static let maximumMetadataBytes = 32 * 1_024
     static let accountURL = URL(string: "https://api.dropboxapi.com/2/users/get_current_account")!
     static let uploadURL = URL(string: "https://content.dropboxapi.com/2/files/upload")!
     static let downloadURL = URL(string: "https://content.dropboxapi.com/2/files/download")!
+    static let deleteURL = URL(string: "https://api.dropboxapi.com/2/files/delete_v2")!
 
     private let destination: RemoteBackupDestination
     private let credentials: any DropboxBackupCredentialSource
@@ -205,6 +206,35 @@ public actor DropboxBackupTransport: RemoteBackupUploadTransport {
             objectID: metadata.id, revision: metadata.rev)
     }
 
+    public func deleteIfRevisionMatches(candidate: RemoteBackupUploadReceipt) async throws -> RemoteBackupVerifiedObject {
+        try validate(candidate.plan)
+        guard case .verified(let package, _) = candidate.outcome, package == candidate.plan.package,
+              let expected = candidate.remoteObject, expected.provider == .dropbox else {
+            throw DropboxBackupError.invalidPackage
+        }
+        let credential = try await checkedCredential()
+        guard try await checkedAccount(credential) == expected.providerAccountID else {
+            throw DropboxBackupError.accountMismatch
+        }
+        var request = try request(Self.deleteURL, credential: credential)
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(DeleteArguments(path: expected.objectID,
+            parent_rev: expected.revision))
+        guard let body = request.httpBody, body.count <= 4_096 else {
+            throw DropboxBackupError.invalidResponse
+        }
+        let response = try await exchange(request, maximum: Self.maximumMetadataBytes)
+        guard response.statusCode == 200,
+              let result = try? JSONDecoder().decode(DeleteResult.self, from: response.body),
+              result.metadata.id == expected.objectID,
+              result.metadata.rev == expected.revision,
+              result.metadata.name == candidate.plan.objectName,
+              result.metadata.size == candidate.plan.package.byteCount else {
+            throw DropboxBackupError.remoteRejected
+        }
+        return expected
+    }
+
     private func validate(_ plan: RemoteBackupUploadPlan) throws {
         guard plan.destination == destination else { throw RemoteBackupPlanningError.staleContext }
         guard plan.package.byteCount <= Int64(Self.maximumPackageBytes) else { throw DropboxBackupError.invalidPackage }
@@ -282,6 +312,8 @@ public actor DropboxBackupTransport: RemoteBackupUploadTransport {
         let path: String; let mode: String; let autorename: Bool; let strict_conflict: Bool; let mute: Bool
     }
     private struct DownloadArguments: Encodable { let path: String }
+    private struct DeleteArguments: Encodable { let path: String; let parent_rev: String }
+    private struct DeleteResult: Decodable { let metadata: Metadata }
     private struct Metadata: Decodable, Sendable {
         let id: String; let name: String; let rev: String; let size: Int64
         let is_downloadable: Bool?

@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 import Testing
 @testable import XLogPrototypeSupport
 #if canImport(XLogCore)
@@ -16,6 +19,26 @@ import Testing
         func remove() { lock.withLock { value = nil } }
         func withRegistration<T: Sendable>(workspaceGeneration: UUID, accountID: UUID, keychainService: String,
             _ body: (NativeDropboxBackupRegistration?) throws -> T) throws -> T { try lock.withLock { try body(value) } }
+    }
+    private struct Vault: NativeBackupCredentialVault {
+        func read(service: String, account: String) throws -> String? { "fixture-token" }
+    }
+    private actor HTTP: DropboxBackupHTTPClient {
+        let candidate: RemoteBackupUploadReceipt
+        var requests: [URLRequest] = []
+        init(_ candidate: RemoteBackupUploadReceipt) { self.candidate = candidate }
+        func send(_ request: URLRequest, maximumResponseBytes: Int) async throws -> DropboxBackupHTTPResponse {
+            requests.append(request)
+            if request.url == DropboxBackupTransport.accountURL {
+                return DropboxBackupHTTPResponse(url: request.url!, statusCode: 200,
+                    body: try JSONSerialization.data(withJSONObject: ["account_id": "dbid:fixture"]))
+            }
+            let object = try #require(candidate.remoteObject)
+            return DropboxBackupHTTPResponse(url: request.url!, statusCode: 200,
+                body: try JSONSerialization.data(withJSONObject: ["metadata": [
+                    "id": object.objectID, "name": candidate.plan.objectName,
+                    "rev": object.revision, "size": candidate.plan.package.byteCount]]))
+        }
     }
     private struct Fixture {
         let logbook: LiveLogbookMethods
@@ -42,6 +65,7 @@ import Testing
         }
         var backupDirectory: URL { workspace.directoryURL.appendingPathComponent("Remote Backup") }
         var operations: URL { backupDirectory.appendingPathComponent("Dropbox Operations").appendingPathComponent(plan.destination.id.uuidString.lowercased()) }
+        var deletions: URL { backupDirectory.appendingPathComponent("Dropbox Deletions").appendingPathComponent(plan.destination.id.uuidString.lowercased()) }
         func approved() async throws -> (LiveRemoteBackupCommands, NativeRemoteBackupApproval) {
             let commands = await service.nativeCommands()
             return (commands, try await commands.approve(plan: plan, account: registration, expectedConfigurationRevision: 0))
@@ -63,6 +87,35 @@ import Testing
             UserDefaults.standard.removePersistentDomain(forName: workspace.defaultsSuiteName)
             try? FileManager.default.removeItem(at: root)
         }
+    }
+
+    @Test func selectedCandidateUsesConditionalDeleteAndBecomesProtectedFromReplay() async throws {
+        let f = try Fixture(); defer { f.clean() }
+        let old = try f.append(at: 1), newest = try f.append(at: 2)
+        let (commands, approval) = try await f.approved()
+        let review = try await commands.reviewRetention(plan: f.plan, approval: approval)
+        #expect(review.review.candidates == [old])
+        let http = HTTP(old)
+        let receipt = try await commands.deleteRetentionCandidate(old.plan.backupID, from: review,
+            vault: Vault(), http: http)
+        #expect(receipt.candidate == old)
+        #expect(receipt.deletedAt == Date(timeIntervalSince1970: 10_000))
+        let requests = await http.requests
+        #expect(requests.map(\.url) == [DropboxBackupTransport.accountURL, DropboxBackupTransport.deleteURL])
+        let body = try #require(requests.last?.httpBody)
+        let arguments = try #require(JSONSerialization.jsonObject(with: body) as? [String: String])
+        #expect(arguments["path"] == old.remoteObject?.objectID)
+        #expect(arguments["parent_rev"] == old.remoteObject?.revision)
+        #expect(try RemoteBackupDeletionCoordinator.claimedBackupIDs(stateDirectory: f.deletions) == [old.plan.backupID])
+        let refreshed = try await commands.reviewRetention(plan: f.plan, approval: approval)
+        #expect(refreshed.review.candidates.isEmpty)
+        #expect(refreshed.review.protected.contains { $0.receipt == old && $0.reason == .deletionClaimed })
+        #expect(refreshed.review.protected.contains { $0.receipt == newest && $0.reason == .newestVerified })
+        await #expect(throws: NativeRemoteBackupCommandError.staleRetentionReview) {
+            try await commands.deleteRetentionCandidate(old.plan.backupID, from: review,
+                vault: Vault(), http: http)
+        }
+        #expect(await http.requests.count == 2)
     }
 
     @Test func explicitReviewUsesDurablePinnedHistoryAndNeverStartsOrCreatesAnExecutor() async throws {
