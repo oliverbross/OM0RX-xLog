@@ -7,7 +7,11 @@ it("rejects malformed UTF-8 instead of replacing the invalid bytes", () => {
   expect(decodeADIF(new TextEncoder().encode("<COMMENT:2>é<EOR>").buffer)).toContain("é");
 });
 
-const legacyBytes = (text: string) => Uint8Array.from(text, character => character.charCodeAt(0)).buffer;
+const legacyBytes = (text: string) => {
+  const bytes = new Uint8Array(text.length);
+  for (let index = 0; index < text.length; index++) bytes[index] = text.charCodeAt(index);
+  return bytes.buffer;
+};
 it("decodes only explicitly selected Windows-1252 and rewrites lengths before batching", () => {
   const source = "Legacy export\r\n<ADIF_VER:5>3.1.7<EOH>\r\n<COMMENT:11:S>\x8eilina<EOR><NOTES:0><CUSTOM:4>\x80\x93\xe9\xff<EOR>\r\n";
   expect(() => decodeADIF(legacyBytes(source))).toThrow("Only UTF-8");
@@ -136,6 +140,42 @@ it.each(["no records", "<CALL:4>W1", "<CALL:4>W1AW", "<CALL:x>W1AW<EOR>"])("reje
 });
 
 const adiRecord = (fields: Record<string, string>) => Object.entries(fields).map(([name, value]) => `<${name}:${new TextEncoder().encode(value).length}>${value}`).join("") + "<EOR>\r\n";
+
+it("preserves valid ADX scalar spellings exactly in both directions without floating-point conversion", () => {
+  const fields = { DXCC: "522", MY_DXCC: "0", CQZ: "015", ITUZ: "090", MY_CQ_ZONE: "01", MY_ITU_ZONE: "90",
+    FREQ: "14.074000", FREQ_RX: ".1250", TX_PWR: "9007199254740993.1234567890", RX_PWR: "-0.000",
+    QSO_DATE: "20240229", QSO_DATE_OFF: "20240301", TIME_ON: "235959", TIME_OFF: "0000", QSLRDATE: "20261014",
+    LOTW_QSLSDATE: "20261014", QSL_SENT: "q", QSL_RCVD: "i", LOTW_QSL_RCVD: "y", EQSL_QSL_SENT: "r",
+    QSL_SENT_VIA: "b", QSL_RCVD_VIA: "D", SWL: "n", QSO_RANDOM: "Y", FORCE_INIT: "y", SILENT_KEY: "N" };
+  const original = adiRecord(fields);
+  const writer = new ADIFExportDocument("adx"); writer.append(original, 1);
+  expect(decode(writer.finish())).toBe(original);
+});
+
+it.each([
+  ["DXCC", "523"], ["DXCC", "1000"], ["DXCC", "0291"], ["DXCC", ""], ["MY_DXCC", "-1"],
+  ["CQZ", "0"], ["CQZ", "41"], ["ITUZ", "91"], ["MY_CQ_ZONE", "15.0"], ["MY_ITU_ZONE", " 28"],
+  ["FREQ", "1e3"], ["FREQ", "NaN"], ["FREQ_RX", "+14.074"], ["FREQ", "14,074"],
+  ["TX_PWR", "-0.0000000000000000000000001"], ["RX_PWR", "-1"], ["TX_PWR", ""],
+  ["QSO_DATE", "20260230"], ["QSO_DATE", "19291231"], ["QSLRDATE", "2026-10-14"], ["LOTW_QSLSDATE", ""],
+  ["TIME_ON", "2400"], ["TIME_OFF", "1234567"], ["QSL_RCVD", "V"], ["LOTW_QSL_SENT", "yes"],
+  ["EQSL_QSL_RCVD", ""], ["QSL_SENT_VIA", "bureau"], ["SWL", "true"], ["QSO_RANDOM", "1"],
+])("rejects non-schema ADX scalar %s=%s at both boundaries while ADI stays exact", (name, value) => {
+  expect(() => decode(adx(`<${name}>${value}</${name}>`))).toThrow(`Field ${name} has an invalid ADX typed value`);
+  const original = adiRecord({ [name]: value });
+  const xml = new ADIFExportDocument("adx");
+  expect(() => xml.append(original, 1)).toThrow(`Field ${name} has an invalid ADX typed value`);
+  expect(() => xml.finish()).toThrow("incomplete");
+  const adi = new ADIFExportDocument("adi"); adi.append(original, 1);
+  expect(adi.finish()).toBe(original);
+  expect(decode(original)).toBe(original);
+});
+
+it("rejects undefined XSD type indicators without changing supported extension text", () => {
+  expect(() => decode(adx('<APP PROGRAMID="TEST" FIELDNAME="X" TYPE="Z">value</APP>'))).toThrow();
+  expect(() => decode(adx('<USERDEF FIELDNAME="X">value</USERDEF>', '<USERDEF FIELDID="1" TYPE="Z">X</USERDEF>'))).toThrow();
+  expect(decode(adx('<APP PROGRAMID="TEST" FIELDNAME="X" TYPE="G">Žilina 😀</APP>'))).toBe(adiRecord({ APP_TEST_X: "Žilina 😀" }));
+});
 
 it("exports ADX from multiple frozen frames with extensions, Unicode, XML escapes and exact CR preservation", () => {
   const writer = new ADIFExportDocument("adx");

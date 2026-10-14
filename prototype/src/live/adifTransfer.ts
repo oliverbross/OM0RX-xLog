@@ -28,6 +28,38 @@ SIG_INFO_INTL SILENT_KEY SKCC SOTA_REF SRX SRX_STRING STATE STATION_CALLSIGN STX
 TIME_OFF TIME_ON TX_PWR UKSMG USACA_COUNTIES VUCC_GRIDS WEB WWFF_REF`.split(/\s+/));
 const reservedADXFields = new Set(["EOH", "EOR", "ADX", "HEADER", "RECORDS", "RECORD", "APP", "USERDEF", "ADIF_VER", "CREATED_TIMESTAMP", "PROGRAMID", "PROGRAMVERSION"]);
 
+// Bounded scalar subset of ADIF 3.1.7 adx317.xsd, shared by both directions.
+// Preserve accepted lexical text exactly; never round through JS floating point.
+// This does not claim full XSD validation (including all string/enumeration types).
+const adxDateFields = new Set(`QSO_DATE QSO_DATE_OFF QSLRDATE QSLSDATE LOTW_QSLRDATE LOTW_QSLSDATE
+EQSL_QSLRDATE EQSL_QSLSDATE DCL_QSLRDATE DCL_QSLSDATE CLUBLOG_QSO_UPLOAD_DATE HAMLOGEU_QSO_UPLOAD_DATE
+HAMQTH_QSO_UPLOAD_DATE HRDLOG_QSO_UPLOAD_DATE QRZCOM_QSO_DOWNLOAD_DATE QRZCOM_QSO_UPLOAD_DATE`.split(/\s+/));
+const adxReceivedFields = new Set(["QSL_RCVD", "LOTW_QSL_RCVD", "EQSL_QSL_RCVD", "DCL_QSL_RCVD"]);
+const adxSentFields = new Set(["QSL_SENT", "LOTW_QSL_SENT", "EQSL_QSL_SENT", "DCL_QSL_SENT"]);
+function validateADXValue(name: string, value: string): void {
+  let valid = true;
+  if (["FREQ", "FREQ_RX", "TX_PWR", "RX_PWR"].includes(name)) {
+    valid = /^-?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)$/.test(value);
+    if (["TX_PWR", "RX_PWR"].includes(name) && value.startsWith("-")) valid &&= /^-0*(?:\.0*)?$/.test(value);
+  } else if (["DXCC", "MY_DXCC"].includes(name)) {
+    valid = /^(?:0|[1-9][0-9]{0,2})$/.test(value) && Number(value) <= 522;
+  } else if (["CQZ", "MY_CQ_ZONE", "ITUZ", "MY_ITU_ZONE"].includes(name)) {
+    const digits = value.replace(/^0+/, "");
+    valid = /^[0-9]+$/.test(value) && digits.length > 0 && digits.length <= 2 && Number(digits) <= (name.includes("CQ") ? 40 : 90);
+  } else if (adxDateFields.has(name)) {
+    valid = /^(?:19[3-9][0-9]|[2-9][0-9]{3})(?:0[1-9]|1[0-2])(?:0[1-9]|[12][0-9]|3[01])$/.test(value);
+    if (valid) {
+      const year = Number(value.slice(0, 4)), month = Number(value.slice(4, 6)), day = Number(value.slice(6, 8));
+      valid = new Date(Date.UTC(year, month - 1, day)).getUTCDate() === day;
+    }
+  } else if (["TIME_ON", "TIME_OFF"].includes(name)) valid = /^(?:[01][0-9]|2[0-3])(?:[0-5][0-9]){1,2}$/.test(value);
+  else if (adxReceivedFields.has(name)) valid = /^[ynri]$/i.test(value);
+  else if (adxSentFields.has(name)) valid = /^[ynrqi]$/i.test(value);
+  else if (["QSL_SENT_VIA", "QSL_RCVD_VIA"].includes(name)) valid = /^[bde]$/i.test(value);
+  else if (["SWL", "QSO_RANDOM", "FORCE_INIT", "SILENT_KEY"].includes(name)) valid = /^[yn]$/i.test(value);
+  if (!valid) throw new Error(`Field ${name} has an invalid ADX typed value. Use ADI to preserve non-schema values.`);
+}
+
 function validateXMLText(value: string): void {
   // XML 1.0 cannot represent these values, even as character references. Reject
   // unpaired surrogates too, before TextEncoder could replace them silently.
@@ -84,6 +116,7 @@ export class ADIFExportDocument {
             if (!fields.size) throw new Error("Frozen export contains an empty record.");
             const record: string[] = [];
             for (const [name, value] of fields) {
+              validateADXValue(name, value);
               const escaped = xmlText(value);
               if (name.startsWith("APP_")) {
                 const match = /^APP_([A-Z0-9]+)_([A-Z0-9_]+)$/.exec(name);
@@ -225,9 +258,10 @@ function adxToADI(text: string): string {
       if (header && !/^[1-9][0-9]*$/.test(element.getAttribute("FIELDID") ?? "")) fail();
     }
     if (Array.from(element.attributes).some(attribute => attribute.namespaceURI !== "http://www.w3.org/2000/xmlns/" && !attributes.includes(attribute.name))) fail();
-    if (element.hasAttribute("TYPE") && !/^[A-Za-z]$/.test(element.getAttribute("TYPE")!)) fail();
+    if (element.hasAttribute("TYPE") && !/^[bBnNsSiIdDtTmMgGeElL]$/.test(element.getAttribute("TYPE")!)) fail();
     name = name.toUpperCase();
     if (!/^[A-Z0-9_]+$/.test(name) || ["EOH", "EOR", "ADX", "HEADER", "RECORDS", "RECORD", "APP", "USERDEF"].includes(name)) fail();
+    if (!header) validateADXValue(name, element.textContent ?? "");
     return [name, element.textContent ?? ""];
   }
   const root = document.documentElement;

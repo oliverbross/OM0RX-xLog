@@ -149,6 +149,13 @@ it("rejects unsafe XML before creating any native preview session", async () => 
   expect(request.mock.calls.filter(([method]) => method === "logbook_import_adif")).toHaveLength(0);
 });
 
+it("rejects invalid ADX scalar values before creating a native preview", async () => {
+  const { request, pick } = setup(); await screen.findByText("W1AW");
+  await pick(new TextEncoder().encode('<ADX><HEADER/><RECORDS><RECORD><DXCC>1000</DXCC></RECORD></RECORDS></ADX>'));
+  expect((await screen.findByRole("alert")).textContent).toContain("Field DXCC has an invalid ADX typed value");
+  expect(request.mock.calls.filter(([method]) => method === "logbook_import_adif")).toHaveLength(0);
+});
+
 it("requires selected fields and explicit update consent and sends the reviewed context", async () => {
   const { request, pick } = setup(); await screen.findByText("W1AW"); await pick();
   fireEvent.click(screen.getByRole("checkbox", { name: "Update selected fields of reviewed duplicates instead" }));
