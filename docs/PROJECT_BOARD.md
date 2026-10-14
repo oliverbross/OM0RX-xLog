@@ -1,7 +1,8 @@
 # OM0RX-xLog live project board
 
-Last updated: 14 October 2026, after independent Settings source verification;
-shared revisioned rotor configuration is next.
+Last updated: 14 October 2026, after shared revisioned rotor-configuration
+source verification; independent Station Control, Chaser & DX and CW ownership
+are next.
 
 This is the operator-facing project overview. Keep it current after every material
 implementation, validation, installation or acceptance change. Detailed evidence
@@ -31,12 +32,13 @@ Map/Logbook layout and offline local callsign/DXCC history were observed. The
 or RF action was performed. See
 [alpha.22 evidence](releases/v0.4.0-alpha.22-macos.md).
 
-## Active stage: shared revisioned rotor configuration
+## Active stage: independent control surfaces
 
-The revision-safe Settings prerequisite is source-verified at `b58163f`, and the
-independent Settings child is source-verified at `0ea919a`. The next bounded
-stage moves rotor configuration out of browser-local state without connecting,
-arming or moving hardware. The global Windowed preset remains disabled.
+The revision-safe Settings prerequisite is source-verified at `b58163f`, the
+independent Settings child at `0ea919a`, and shared rotor configuration at
+`46c5f1e`. The next bounded stage migrates Station Control, Chaser & DX and CW
+ownership to independent surfaces without duplicating station, rotor, spot or CW
+effects. The global Windowed preset remains disabled.
 
 | Work item | Status | Current evidence / next gate |
 | --- | --- | --- |
@@ -47,8 +49,9 @@ arming or moving hardware. The global Windowed preset remains disabled.
 | Parent-owned raw Settings form | **Source verified** | The journaled session preserves raw invalid text, concurrent changes, lost acknowledgement and same-ID retry; nine focused tests pass. Secret-like keys are rejected recursively. |
 | Settings UI recovery | **Source verified** | Check receipt, retry same save and adopt saved values are exposed; 14 component tests plus nine session tests pass and TypeScript is clean. |
 | Full validation and review | **Source verified** | Frontend **1,049/1,049 across 128 files**, Rust **321/321**, normal Swift **82/82**, full portable Swift, production build and bundle gates pass; `git diff --check` is clean. |
-| Independent native Settings child | **Source verified** | Commit `0ea919a`; tenth singleton native role, open/focus/Dock lifecycle, scoped non-hardware authority, main-absent renderer, dirty/remount/conflict recovery and 350,232-byte detached bundle pass. Frontend **1,051/1,051 across 129 files** and Rust **323/323** pass. Not packaged or installed. |
-| Shared revisioned rotor configuration | **Active / next** | Replace browser-local rotor configuration with shared rotor-only revision/generation state. Opening, restoring and browsing must remain passive; only exact typed commands may reach the rotor owner. |
+| Independent native Settings child | **Source verified** | Commit `0ea919a`; tenth singleton native role, open/focus/Dock lifecycle, scoped non-hardware authority, main-absent renderer and dirty/remount/conflict recovery pass. Its Rotator tab now consumes the shared passive configuration source. Not packaged or installed. |
+| Shared revisioned rotor configuration | **Source verified** | Commit `46c5f1e`; SQLite-owned generation/revision state, durable receipts, restore fencing, one-time browser-local migration, Settings Rotator UI and lost-acknowledgement/conflict recovery pass. Browsing/restoring remains passive; the Settings child may read rotor models but cannot connect or issue motion. Frontend **1,057/1,057 across 130 files**, Rust **323/323**, normal Swift **86/86**, full portable Swift and production build pass. The Settings child bundle is 385,114 bytes. Not packaged, installed or hardware-tested. |
+| Independent Station Control, Chaser & DX and CW ownership | **Active / next** | Inventory current owners and migrate one bounded surface at a time with main-absent operation, exact authority, shared state, idempotent recovery and no duplicated effects. |
 
 ## Dependency-ordered delivery queue
 
@@ -56,9 +59,10 @@ arming or moving hardware. The global Windowed preset remains disabled.
    unknown-outcome recovery (`b58163f`). Packaged acceptance remains later.
 2. **Source-complete:** independent Settings child with dirty-form/navigation/restart
    recovery and main-renderer-independent scoped services (`0ea919a`).
-3. **Active next:** move Rotor configuration to shared revisioned rotor-only state; keep opening,
-   restoring and browsing passive, and admit only exact typed commands.
-4. Migrate Station Control, Chaser & DX and CW ownership to independent surfaces.
+3. **Source-complete:** shared revisioned rotor-only configuration with passive
+   open/restore/browse behavior and exact typed command boundaries (`46c5f1e`).
+4. **Active next:** migrate Station Control, Chaser & DX and CW ownership to
+   independent surfaces.
 5. Finish the remaining panel inventory, native lifecycle/geometry recovery and
    only then enable the full Windowed preset.
 6. Implement RADIO-05 Clear after QSY on trusted observed-RX provenance with
@@ -73,12 +77,12 @@ arming or moving hardware. The global Windowed preset remains disabled.
 | ID | Outcome | Status |
 | --- | --- | --- |
 | WS-01 | Show/hide/move/resize every desk panel | **In progress** — canvas foundation exists; inventory and native interaction remain. |
-| WS-02 | Settings-managed named layouts | **In progress** — revisioned persistence/UI and Settings safety are source-verified; independent Settings window is next. |
+| WS-02 | Settings-managed named layouts | **In progress** — revisioned persistence/UI, independent Settings and shared passive Rotator configuration are source-verified; packaged/native acceptance remains. |
 | WS-03 | Native menus replace navigation | **In progress** — routes exist; sidebar removal awaits native acceptance. |
 | WS-04 | Window menu opens/focuses every panel | **In progress** — ten roles now include independent Settings; remaining screens follow the dependency queue. |
 | WS-05 | Docked/mixed/undocked share one live session | **In progress** — major draft/cluster/radio/rotor ownership moved; remaining owners open. |
 | WS-06 | Layout/geometry survive restart and display changes | **In progress / acceptance** — persistence/recovery source exists; mixed-DPI/native evidence open. |
-| WS-07 | No duplicate logging or station actions | **In progress** — Settings revisions/receipts and its scoped child authority are source-verified; full multi-window gate remains open. |
+| WS-07 | No duplicate logging or station actions | **In progress** — Settings and rotor-configuration revisions/receipts plus scoped child authority are source-verified; full multi-window gate remains open. |
 | WS-08 | Responsive, accessible, measured laptop/4K UI | **In progress / acceptance** — targeted fixtures pass; whole-app native measurements open. |
 
 ## Operator feedback portfolio

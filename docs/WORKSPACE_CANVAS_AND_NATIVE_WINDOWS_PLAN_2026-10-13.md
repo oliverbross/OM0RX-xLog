@@ -589,6 +589,36 @@ The isolated native harness now requires `workspace_native_windows` as check 28:
 
 Validation before the subsequent band-map/Chaser/Awards refinements: full frontend 669 tests across 87 files and 180 Rust/helper tests passed; TypeScript/Vite and detached bundle/style gates passed. After the review correction, 69 focused workspace/settings/acceptance tests pass, including both recovery races. Main LiveApp remains about 1.390 MB and carries the existing bundle warning. Source review found no further concrete defects; actual installed check-28 execution remains pending. The running signed/notarized Mac app remains `df38763`; this checkpoint has not been installed and no live layout, credentials or equipment were changed.
 
+### Checkpoint AC — shared revisioned rotor configuration
+
+Rotor connection preferences are now a SQLite-owned, workspace-generation and
+revision-checked document instead of independent browser-local values. The
+document has bounded native-DCU1 and Hamlib fields, durable operation receipts,
+exact replay/no-op/reused-ID semantics, conflict detection and restore receipt
+retirement. Existing browser values are admitted once as a passive seed and then
+removed; the remaining browser journal holds only non-secret in-progress form
+text and uncertain save intent.
+
+The main Desk and independent Settings child consume the same snapshot. Settings
+now exposes a Rotator tab that can browse models and edit/save configuration
+without polling, connecting, arming or moving hardware. Dock is blocked while a
+rotor edit, conflict, changed workspace or uncertain save remains unresolved.
+Only the main renderer retains connection and motion controls, and a connect or
+reconnect first persists and rereads the exact chosen configuration. Native
+surface gates admit the Settings child to the three rotor-configuration methods
+and read-only rotor model catalogue only; raw Hamlib control and all native rotor
+commands remain denied. Configuration-change events are wake-only.
+
+Source checkpoint `46c5f1e` passes frontend **1,057/1,057 across 130 files**,
+Rust **305 unit + 18 integration (323 total)**, normal Swift **86/86**, the full
+portable Swift command, TypeScript and the production build. Four core rotor
+database tests and four end-to-end rotor-configuration safety tests cover
+migration, validation, receipts, conflicts, restore and rejection of unknown
+command-shaped fields. The detached Settings startup graph is 385,114 bytes.
+This is source evidence only: no package was produced or installed, no operator
+data was changed, and no device was connected, armed, keyed or moved. A standalone
+Rotor child and the remaining all-window ownership migrations are still open.
+
 ### 14 October audit — remaining new-QSO and QSY ownership
 
 At `cd25718`, detached Logbook edits saved contacts; it is not an independent
