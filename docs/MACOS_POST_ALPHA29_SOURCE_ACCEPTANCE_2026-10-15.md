@@ -77,3 +77,25 @@ current ad-hoc development bundle was rebuilt at the same path without replacing
 This is still development-source evidence, not a notarized or installed
 candidate, live QRZ/WSJT-X acceptance, or hardware/RF acceptance. No credential,
 operator logbook, online-log provider or station device was accessed.
+
+## Club Log source follow-up
+
+Exact source `6df02197138d1ff3e7f622595c2671ca668182dc` adds the
+independent, default-off Club Log real-time owner and Settings workflow. The
+rebuilt ad-hoc development bundle remains uninstalled.
+
+- Strict deep code-signature verification passes. The arm64 host SHA-256 is
+  `ac5de6224b48ecc7e43424661846b621329102ad7cf94cef5279691221b92301`;
+  the universal worker SHA-256 is
+  `841db845af6cbdf181655d123f388f0d10d7b8d7aecbc842eee2bf9d35464b25`.
+- A fresh run passes **33/33** checks with `embeddedUi: true`, `worker: true`
+  and `station_io: false`; see
+  [mac-source.json](evidence/native-ui-6df0219/mac-source.json).
+- Full source gates pass: frontend **2,391/2,391**, Rust **433 unit + 18
+  integration**, native Swift **194/194**, portable **200 XCTest** with four
+  intentional benchmark skips plus **392 Swift Testing**, and the production
+  frontend/detached-window bundle gate.
+
+This is not a notarized or installed candidate, live Club Log/QRZ/WSJT-X
+acceptance, or hardware/RF acceptance. No credential, operator logbook,
+online-log provider or station device was accessed.

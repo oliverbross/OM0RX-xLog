@@ -51,11 +51,11 @@ bundle and passes the isolated native suite with every emitted check green and
 `station_io: false`; it is not installed, notarized or accepted against the
 operator workspace. See the
 [post-alpha.29 source-bundle report](MACOS_POST_ALPHA29_SOURCE_ACCEPTANCE_2026-10-15.md).
-The same report now records the later QRZ/WSJT-X checkpoint
-`6e3ca278fa3034886c582bd020dbd55f7a8b128d`: its rebuilt ad-hoc bundle
-passes a fresh **33/33** isolated run with `station_io: false`. The first cold
-run exceeded the harness deadline and is not counted as a pass. The app remains
-uninstalled and live provider/device acceptance remains open.
+The same report records the QRZ/WSJT-X checkpoint `6e3ca27` and the later
+Club Log checkpoint `6df02197138d1ff3e7f622595c2671ca668182dc`: the latest
+rebuilt ad-hoc bundle passes a fresh **33/33** isolated run with
+`station_io: false`. The app remains uninstalled and live provider/device
+acceptance remains open.
 
 The installed alpha.29 source retains alpha.28's full-control defaults across
 Remote Agent, Hamlib, Direct FLEX and local CAT-client connection surfaces

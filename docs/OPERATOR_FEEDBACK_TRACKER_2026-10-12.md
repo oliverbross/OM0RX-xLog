@@ -1214,7 +1214,9 @@ firewall the user's IP.
 Native Swift **194/194**, portable **200 XCTest** with four intentional skips plus
 **392/392 Swift Testing**, Settings/detached Settings **24/24**, full frontend
 **2,391/2,391**, Rust **433 unit + 18 integration**, and the production frontend
-build pass. No Club Log
+build pass. The exact `6df0219` ad-hoc macOS source bundle also passes strict
+deep signature verification and a fresh isolated **33/33** native run with
+`embeddedUi: true`, `worker: true` and `station_io: false`. No Club Log
 credential was written and no live provider request was made. Live account and
 installed visual acceptance remain open; HRDLOG remains blocked on confirming a
 current official contract. See the

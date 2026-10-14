@@ -53,6 +53,13 @@ and the official [batch-versus-real-time warning](https://clublog.freshdesk.com/
   frontend suite passes **2,391 tests across 159 files**, and the production
   TypeScript/Vite/detached-window bundle gate passes.
 - Rust: **433 unit tests and 18 dummy-backend integration tests pass**.
+- The ad-hoc macOS development bundle built from exact commit `6df0219` passes
+  strict deep signature verification and a fresh **33/33** isolated native run
+  with `embeddedUi: true`, `worker: true` and `station_io: false`. Evidence:
+  [mac-source.json](evidence/native-ui-6df0219/mac-source.json). The arm64 host
+  SHA-256 is `ac5de6224b48ecc7e43424661846b621329102ad7cf94cef5279691221b92301`;
+  the universal worker SHA-256 is
+  `841db845af6cbdf181655d123f388f0d10d7b8d7aecbc842eee2bf9d35464b25`.
 
 All provider behavior is fixture-backed. No Club Log credential was read or
 written and no live Club Log request was made. Live account acceptance remains
@@ -63,7 +70,7 @@ required before release use.
 1. Complete a deliberately bounded live upload with an operator-supplied Club
    Log API key, account email, Application Password and owned callsign.
 2. Verify the installed Settings layout and refusal/status wording at compact and
-   wide sizes in the next macOS candidate.
+   wide sizes in the next signed/notarized macOS candidate.
 3. Implement HRDLOG only after its current official upload contract and failure
    policy can be verified; do not infer that policy from third-party clients.
 
