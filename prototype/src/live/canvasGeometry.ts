@@ -10,6 +10,14 @@ export function adjustPanel(panel: PanelLayout, preset: LayoutPreset, kind: "mov
   return { ...panel, rect, z: Math.min(10000, Math.max(...preset.panels.map(item => item.z)) + 1) };
 }
 
+/** Trim unused height only: never move neighbours or create a new overlap. */
+export function fitPanelHeight(panel: PanelLayout, preset: LayoutPreset, measuredHeight: number): PanelLayout {
+  if (!Number.isFinite(measuredHeight) || measuredHeight <= 0) return panel;
+  const step = preset.snap ? 8 : 1;
+  const height = Math.min(panel.rect.height, Math.max(panelMinimum(panel.id)[1], Math.ceil(measuredHeight / step) * step));
+  return { ...panel, rect: { ...panel.rect, height } };
+}
+
 export function customDeskPreset(base: LayoutPreset, height: number, equipment?: "rotor" | "antenna"): LayoutPreset {
   const preset = structuredClone(base);
   preset.id = "custom"; preset.name = "Custom"; preset.locked = false; preset.width = 1920; preset.height = Math.max(640, Math.min(2160, height));

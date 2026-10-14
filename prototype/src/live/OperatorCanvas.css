@@ -10,17 +10,24 @@
 .canvas-frame[hidden] { display:none; }
 .canvas-panel-content { container:operator-desk / inline-size; flex:1; min-width:0; min-height:0; overflow:auto; border-radius:10px; }
 .canvas-panel-content > .desk-panel { min-height:100%; box-sizing:border-box; }
+/* Compact information panels follow their contents, within the saved frame.
+   Larger content still scrolls; only an explicit Fit height saves new geometry. */
+.canvas-panel-content.is-content-sized > .desk-panel { min-height:0; height:auto; }
+.canvas-panel-content.is-content-sized .desk-rotor-body { flex:none; }
 .canvas-panel-content > .live-map, .canvas-panel-content .map-wrap, .canvas-panel-content > .band-maps { height:100%; min-height:0; }
 .canvas-panel-content .band-map-chart { flex:1; min-height:96px; }
 .canvas-frame-tools { display:flex; gap:4px; padding:2px 4px; background:var(--panel); border:1px solid var(--border); border-radius:6px 6px 0 0; }
 .live .canvas-frame-tools button { min-height:24px; padding:2px 4px; display:flex; align-items:center; gap:6px; font-size:11px; }
 .canvas-frame-tools button:first-child { flex:1; cursor:move; touch-action:none; text-align:left; }
 .canvas-frame.is-editing .canvas-panel-content { border-radius:0 0 8px 8px; }
-.live .canvas-resize { min-height:24px; width:24px; padding:3px; cursor:nwse-resize; touch-action:none; }
+.canvas-frame-resize-tools { display:flex; flex:none; justify-content:flex-end; gap:4px; padding:2px 4px; background:var(--panel); border:1px solid var(--border); border-radius:0 0 6px 6px; }
+.live .canvas-frame-resize-tools button { display:inline-flex; align-items:center; gap:6px; min-height:32px; padding:4px 8px; font-size:11px; }
+.live .canvas-frame-resize-tools .canvas-resize { min-width:80px; cursor:nwse-resize; touch-action:none; color:var(--cyan); border-color:var(--cyan); }
+.canvas-handle-instructions { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
 .canvas-frame.is-editing .band-maps-head > div:first-child { display:none; }
 .canvas-frame.is-editing .band-maps-head { padding:4px 8px; }
 .canvas-frame.is-editing .band-maps-head-controls { gap:4px; justify-content:flex-start; }
-.canvas-toolbar :focus-visible, .canvas-frame-tools :focus-visible, .canvas-resize:focus-visible { outline:2px solid var(--cyan); outline-offset:2px; }
+.canvas-toolbar :focus-visible, .canvas-frame-tools :focus-visible, .canvas-frame-resize-tools :focus-visible { outline:2px solid var(--cyan); outline-offset:2px; }
 .canvas-panel-picker { display:flex; flex-wrap:wrap; gap:8px 16px; border:1px solid var(--border); padding:8px 10px; margin:0; }
 .canvas-panel-picker legend { font-size:11px; color:var(--secondary); }
 .canvas-panel-picker label { display:flex; align-items:center; gap:5px; font-size:12px; }

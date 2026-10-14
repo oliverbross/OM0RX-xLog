@@ -3,7 +3,7 @@ import { useSyncExternalStore } from "react";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import OperatorCanvas from "./OperatorCanvas";
-import { adjustPanel, customDeskPreset } from "./canvasGeometry";
+import { adjustPanel, customDeskPreset, fitPanelHeight } from "./canvasGeometry";
 import { changedLayout, panelMinimum, validLayoutDocument, workspacePanelIDs, WorkspaceLayoutSession, type LayoutSnapshot } from "./workspaceLayoutSession";
 function base(): LayoutSnapshot {
   const panels = workspacePanelIDs.map((id, z) => { const [width, height] = panelMinimum(id); return { id, z, placement: "hidden" as const, rect: { x: 0, y: 0, width, height } }; });
@@ -30,7 +30,8 @@ function setup(custom = false, required = false, admission: { canChangeLayout?: 
       "active-qso": { title: "Active QSO", content: <input aria-label="Draft text" defaultValue="W1AW" /> },
       "world-map": { title: "Map", content: <p>Map surface</p> },
       "band-maps": { title: "Bands", content: <p>Band surface</p> },
-      rotor: { title: "Rotor", required, content: <button>Stop rotor</button>, safetyAction: <button>Always available Stop</button> },
+      "callsign-intelligence": { title: "Callsign intelligence", content: <section className="desk-panel desk-intelligence">Callsign details</section> },
+      rotor: { title: "Rotor", required, content: <section className="desk-panel desk-rotor"><button>Stop rotor</button></section>, safetyAction: <button>Always available Stop</button> },
     }} />;
   }
   return { session, request, Harness };
@@ -145,4 +146,81 @@ it("clamps movement/resize, validates seeded layouts and does not mutate source 
     const resized = adjustPanel(panel, preset, "resize", -100000, -100000);
     expect(resized.rect.width).toBe(520); expect(resized.rect.height).toBe(240); expect(panel.rect.x).toBe(0);
   }
+});
+
+it("exposes named resize grips with keyboard instructions and commits only the final keyboard size", async () => {
+  const { session, request, Harness } = setup(true); await session.refresh(); render(<Harness />);
+  const resize = screen.getByRole("button", { name: "Resize Active QSO" });
+  expect(resize.textContent).toContain("Resize");
+  expect(resize.closest(".canvas-frame-resize-tools")).toBeTruthy();
+  expect(document.getElementById(resize.getAttribute("aria-describedby")!)?.textContent).toContain("Escape cancels");
+  const before = session.getSnapshot().snapshot!.document.presets[1], panel = before.panels[0];
+  fireEvent.keyDown(resize, { key: "ArrowDown", shiftKey: true });
+  expect(request).toHaveBeenCalledTimes(1);
+  fireEvent.keyDown(resize, { key: "Escape" }); fireEvent.keyUp(resize, { key: "ArrowDown" });
+  expect(request).toHaveBeenCalledTimes(1);
+  fireEvent.keyDown(resize, { key: "ArrowLeft", shiftKey: true }); fireEvent.keyUp(resize, { key: "ArrowLeft" });
+  await waitFor(() => expect(session.getSnapshot().snapshot?.revision).toBe(1));
+  expect(session.getSnapshot().snapshot!.document.presets[1].panels[0].rect).toEqual(adjustPanel(panel, before, "resize", -32, 0).rect);
+});
+
+it("commits a pointer resize once and retains cancellation on the visible corner grip", async () => {
+  const { session, request, Harness } = setup(true); await session.refresh(); render(<Harness />);
+  const before = session.getSnapshot().snapshot!.document.presets[1], panel = before.panels[0];
+  const resize = screen.getByRole("button", { name: "Resize Active QSO" });
+  fireEvent.pointerDown(resize, { button: 0, clientX: 100, clientY: 100 });
+  fireEvent.pointerMove(resize, { clientX: 20, clientY: 60 });
+  expect(request).toHaveBeenCalledTimes(1);
+  fireEvent.pointerUp(resize); fireEvent.lostPointerCapture(resize);
+  await waitFor(() => expect(session.getSnapshot().snapshot?.revision).toBe(1));
+  expect(session.getSnapshot().snapshot!.document.presets[1].panels[0].rect).toEqual(adjustPanel(panel, before, "resize", -120, -40).rect);
+  fireEvent.pointerDown(resize, { button: 0, clientX: 100, clientY: 100 });
+  fireEvent.pointerMove(resize, { clientX: 60, clientY: 40 }); fireEvent.pointerCancel(resize); fireEvent.pointerUp(resize);
+  expect(request).toHaveBeenCalledTimes(2);
+});
+
+it("fits measured information content only on request, retaining position, width, neighbours and mounted content", async () => {
+  const { session, request, Harness } = setup(true); await session.refresh();
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+    const height = this.matches(".desk-panel") ? 120 : this.matches(".canvas-frame-tools, .canvas-frame-resize-tools") ? 36 : 800;
+    return { x: 0, y: 0, left: 0, top: 0, bottom: height, right: width, width, height, toJSON() {} };
+  });
+  render(<Harness />);
+  const details = screen.getByText("Callsign details"), before = structuredClone(session.getSnapshot().snapshot!.document.presets[1]);
+  expect(details.closest(".is-content-sized")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Fit height of Map" })).toBeNull();
+  expect(request).toHaveBeenCalledTimes(1);
+  fireEvent.click(screen.getByRole("button", { name: "Fit height of Callsign intelligence" }));
+  await waitFor(() => expect(session.getSnapshot().snapshot?.revision).toBe(1));
+  const after = session.getSnapshot().snapshot!.document.presets[1];
+  expect(after.panels.find(panel => panel.id === "callsign-intelligence")!.rect.height).toBe(240);
+  expect(after.panels).toEqual(before.panels.map(panel => panel.id === "callsign-intelligence" ? { ...panel, rect: { ...panel.rect, height: 240 } } : panel));
+  expect(screen.getByText("Callsign details")).toBe(details);
+});
+
+it("keeps fit and resize changes behind the buffered-input admission gate", async () => {
+  const { session, request, Harness } = setup(true, false, { canChangeLayout: () => false });
+  await session.refresh();
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+    const height = this.matches(".desk-panel") ? 120 : this.matches(".canvas-frame-tools, .canvas-frame-resize-tools") ? 36 : 800;
+    return { x: 0, y: 0, left: 0, top: 0, bottom: height, right: width, width, height, toJSON() {} };
+  });
+  render(<Harness />);
+  fireEvent.click(screen.getByRole("button", { name: "Fit height of Callsign intelligence" }));
+  expect(screen.getByRole("alert").textContent).toContain("Your text is retained");
+  const resize = screen.getByRole("button", { name: "Resize Active QSO" });
+  fireEvent.keyDown(resize, { key: "ArrowLeft" }); fireEvent.keyUp(resize, { key: "ArrowLeft" });
+  expect(screen.getByRole("alert").textContent).toContain("Your text is retained");
+  expect(request).toHaveBeenCalledTimes(1);
+});
+
+it("trims height with upward snapping and minimums without growing or changing overlaps", () => {
+  const preset = customDeskPreset(base().document.presets[0], 800), panel = preset.panels.find(item => item.id === "callsign-intelligence")!;
+  expect(fitPanelHeight(panel, preset, 249).rect).toEqual({ ...panel.rect, height: 256 });
+  expect(fitPanelHeight(panel, preset, 20).rect.height).toBe(240);
+  expect(fitPanelHeight(panel, preset, 500).rect).toEqual(panel.rect);
+  expect(fitPanelHeight(panel, preset, NaN)).toBe(panel);
+  expect(fitPanelHeight(panel, preset, 0)).toBe(panel);
+  expect(fitPanelHeight(panel, { ...preset, snap: false }, 249.2).rect.height).toBe(250);
+  expect(panel.rect.height).toBe(340);
 });

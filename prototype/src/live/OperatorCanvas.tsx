@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Grip, MoveDiagonal2, X } from "lucide-react";
-import { adjustPanel, customDeskPreset } from "./canvasGeometry";
+import { adjustPanel, customDeskPreset, fitPanelHeight } from "./canvasGeometry";
 import { panelMinimum, type LayoutPreset, type LayoutState, type PanelLayout, type WorkspacePanelID, type WorkspaceLayoutSession } from "./workspaceLayoutSession";
 import "./OperatorCanvas.css";
 
@@ -63,7 +63,7 @@ export default function OperatorCanvas({ panels, traditional, state, session, su
         {!active.locked && <label><input type="checkbox" disabled={blocked} checked={active.snap} onChange={event => savePreset({ ...active, snap: event.target.checked })} />Snap</label>}
         {compact && visible.length > 0 && <label>Panel <select aria-label="Visible desk panel" value={selected} onChange={event => setCurrentPanel(event.target.value as WorkspacePanelID)}>{visible.map(panel => <option key={panel.id} value={panel.id}>{panels[panel.id]!.title}</option>)}</select></label>}
       </>}
-      <span role="status">{state.saving || working ? "Saving layout…" : !state.snapshot ? "Loading layout…" : custom && !active.locked ? compact ? "Expand the window to move panels." : "Drag handles · Arrow keys move · Shift = larger step · Esc cancels" : ""}</span>
+      <span role="status">{state.saving || working ? "Saving layout…" : !state.snapshot ? "Loading layout…" : custom && !active.locked ? compact ? "Expand the window to move panels." : "Drag a title to move · Drag Resize at the bottom right to size · Arrow keys adjust the focused handle · Shift = larger step · Esc cancels" : ""}</span>
       {custom && Object.entries(panels).filter(([, panel]) => panel?.required && panel.safetyAction).map(([id, panel]) => <span className="canvas-safety-action" key={id}>{panel!.safetyAction}</span>)}
     </div>
     {active?.id === "windowed" && <p className="canvas-empty" role="status">The saved Windowed preset is not yet restored automatically. Traditional controls remain available; use the Window menu to open individual windows.</p>}
@@ -85,12 +85,23 @@ export default function OperatorCanvas({ panels, traditional, state, session, su
 
 function PanelFrame({ panel, preset, item, compact, hidden, disabled, revision, onChange, onHide }: { panel: PanelLayout; preset: LayoutPreset; item: CanvasPanel; compact: boolean; hidden: boolean; disabled: boolean; revision: string; onChange: (value: PanelLayout) => void; onHide: () => void }) {
   const frame = useRef<HTMLDivElement>(null), drag = useRef<{ kind: "move" | "resize"; x: number; y: number; scaleX: number; scaleY: number } | null>(null);
+  const content = useRef<HTMLDivElement>(null), tools = useRef<HTMLDivElement>(null), resizeTools = useRef<HTMLDivElement>(null);
+  const instructionsID = useId();
+  const contentSized = panel.id === "callsign-intelligence" || panel.id === "rotor";
   const [preview, setPreview] = useState<PanelLayout | null>(null), latest = useRef<PanelLayout | null>(null);
   const update = (value: PanelLayout | null) => { latest.current = value; setPreview(value); };
   const cancel = () => { drag.current = null; update(null); };
   useEffect(() => { cancel(); }, [revision, compact, preset.locked]);
   const commit = () => { const value = latest.current; cancel(); if (value && JSON.stringify(value.rect) !== JSON.stringify(panel.rect)) onChange(value); };
   const geometry = (preview ?? panel).rect;
+  const fitHeight = () => {
+    if (disabled || drag.current || latest.current) return;
+    const area = frame.current?.parentElement?.getBoundingClientRect(), body = content.current?.firstElementChild?.getBoundingClientRect();
+    if (!area?.height || !body?.height) return;
+    const height = body.height + (tools.current?.getBoundingClientRect().height ?? 0) + (resizeTools.current?.getBoundingClientRect().height ?? 0);
+    const fitted = fitPanelHeight(panel, preset, height * preset.height / area.height);
+    if (fitted.rect.height !== panel.rect.height) onChange(fitted);
+  };
   const style: CSSProperties = compact ? {} : { left: `${geometry.x / preset.width * 100}%`, top: `${geometry.y / preset.height * 100}%`, width: `${geometry.width / preset.width * 100}%`, height: `${geometry.height / preset.height * 100}%`, zIndex: (preview ?? panel).z };
   const handle = (kind: "move" | "resize") => ({
     onPointerDown: (event: React.PointerEvent<HTMLButtonElement>) => {
@@ -109,9 +120,13 @@ function PanelFrame({ panel, preset, item, compact, hidden, disabled, revision, 
     onKeyUp: (event: React.KeyboardEvent<HTMLButtonElement>) => { if (event.key.startsWith("Arrow")) commit(); }, onBlur: () => { if (!drag.current) commit(); },
   });
   return <div ref={frame} className={`canvas-frame${!preset.locked && !compact ? " is-editing" : ""}`} style={style} hidden={hidden} aria-label={`${item.title} panel`}>
-    {!preset.locked && !compact && <div className="canvas-frame-tools"><button type="button" disabled={disabled} aria-label={`Move ${item.title}`} title="Move with drag or arrow keys" {...handle("move")}><Grip size={14} /><span>{item.title}</span></button>
-      <button type="button" className="canvas-resize" disabled={disabled} aria-label={`Resize ${item.title}`} title="Resize with drag or arrow keys" {...handle("resize")}><MoveDiagonal2 size={14} /></button>
+    {!preset.locked && !compact && <div ref={tools} className="canvas-frame-tools"><button type="button" disabled={disabled} aria-label={`Move ${item.title}`} aria-describedby={instructionsID} title="Drag the title to move; arrow keys move, Shift takes a larger step, Escape cancels" {...handle("move")}><Grip size={14} /><span>{item.title}</span></button>
       <button type="button" disabled={disabled || item.required} aria-label={`Hide ${item.title}`} onClick={onHide}><X size={14} /></button></div>}
-    <div className="canvas-panel-content">{item.content}</div>
+    <div ref={content} className={`canvas-panel-content${contentSized ? " is-content-sized" : ""}`}>{item.content}</div>
+    {!preset.locked && !compact && <div ref={resizeTools} className="canvas-frame-resize-tools">
+      <span id={instructionsID} className="canvas-handle-instructions">Drag the title to move or Resize to change width and height. Arrow keys adjust the focused handle; Shift takes a larger step. Escape cancels.</span>
+      {contentSized && <button type="button" disabled={disabled} aria-label={`Fit height of ${item.title}`} title="Trim unused height, keeping this panel's position and width" onClick={fitHeight}>Fit height</button>}
+      <button type="button" className="canvas-resize" disabled={disabled} aria-label={`Resize ${item.title}`} aria-describedby={instructionsID} title="Drag to resize; arrow keys resize, Shift takes a larger step, Escape cancels" {...handle("resize")}><MoveDiagonal2 size={16} /><span>Resize</span></button>
+    </div>}
   </div>;
 }
