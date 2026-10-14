@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { ClusterPanel } from "./ClusterPanel";
 import { initializeNativeClusterResume } from "./clusterResume";
 import { useSpotActivation } from "./useSpotActivation";
-import { SpotActivationStatus } from "./SpotActivationStatus";
 import { announceDetachedClusterReady, dockDetachedWorkspace, onClusterProjection,
   newerClusterProjection, requestViaSession, type ClusterProjection } from "./DetachedClusterBridge";
 
@@ -36,8 +35,6 @@ export function DetachedClusterSurface() {
   return <div className="app live monitor-app detached-cluster-app">
     <main>
       {error && <p className="live-error" role="alert">{error}</p>}
-      <SpotActivationStatus status={activation.status} error={activation.error} checking={activation.requesting} reconcile={() => void activation.reconcile()}
-        retire={() => { void Promise.resolve(activation.retire()).then(retired => { if (retired) setError(""); }); }} />
       {projection && (!projection.available || receivedAt > 0 && clock - receivedAt > 5_000) && <p className="live-cluster-note" role="status">Cluster service updates paused; the last received spots remain visible. Refresh to check the service.</p>}
       {!projection?.response && <p className="secondary">Loading the shared cluster session…</p>}
       <ClusterPanel passive snapshot={projection?.response ?? null} selectedSpotId={projection?.selected ?? null} onRequest={requestViaSession} onDock={dock}

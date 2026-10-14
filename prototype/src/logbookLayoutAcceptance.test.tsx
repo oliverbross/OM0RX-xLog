@@ -4,12 +4,16 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createLogbookLayoutAcceptance, workspaceDraftMarker } from "./logbookLayoutAcceptance";
 import { DetachedLogbookSurface, detachedContactJournalKey } from "./live/DetachedLogbookSurface";
 import { contactEditFixture } from "../tests/contact-edit-fixture";
+import { loadWindowSurface } from "./windowSurface";
 
 const api = vi.hoisted(() => ({ worker: vi.fn(), contacts: vi.fn(), changes: vi.fn(), protect: vi.fn(), dock: vi.fn() }));
 vi.mock("./worker", () => ({ workerRequest: api.worker }));
 vi.mock("./live/logbookContactTransport", () => ({ requestLogbookContact: api.contacts }));
 vi.mock("./live/logbookWindows", () => ({ connectLogbookChanges: api.changes, protectLogbookClose: api.protect }));
 vi.mock("./live/DetachedClusterBridge", () => ({ dockDetachedWorkspace: api.dock }));
+vi.mock("./live/useSpotEditor", () => ({ nativeSpotEditor: () => false, useSpotEditor: () => ({
+  status: { phase: "uncertain", tuneConfirmed: false, rotor: "uncertain" }, error: "Global activation warning", reconcile: vi.fn(),
+}) }));
 beforeEach(() => {
   vi.resetAllMocks(); localStorage.clear();
   api.changes.mockReturnValue(() => {}); api.protect.mockReturnValue(() => {});
@@ -24,9 +28,12 @@ async function setup(originalComment = "Original stored comment") {
     ? { qsos: [structuredClone(qso)], total: 1, offset: 0, limit: 20 }
     : method === "logbook_matrix" ? { cells: [] }
     : method === "logbook_previous" ? { qsos: [] } : {} }));
-  const view = render(<DetachedLogbookSurface />);
+  const Surface = await loadWindowSurface("?view=logbook");
+  const view = render(<Surface />);
   await screen.findByText("W1AW");
   await waitFor(() => expect(screen.getByRole("button", { name: "Edit" })).toBeTruthy());
+  expect(screen.queryByText(/Global activation warning|Check activation|Draft saved locally/)).toBeNull();
+  expect(document.querySelector(".station-rail")).toBeNull();
   const fill = vi.fn(async (selector: string, value: string) => {
     const input = document.querySelector<HTMLInputElement>(selector);
     if (!input) throw new Error(`Missing acceptance field: ${selector}`);

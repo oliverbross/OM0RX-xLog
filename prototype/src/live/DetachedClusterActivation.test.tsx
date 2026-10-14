@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { DetachedClusterSurface } from "./DetachedClusterSurface";
+import { loadWindowSurface } from "../windowSurface";
 const bridge = vi.hoisted(() => ({ call: vi.fn(), receive: null as null | ((value: any) => void), stop: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ isTauri: () => true, invoke: bridge.call }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: async () => vi.fn() }));
@@ -24,6 +25,16 @@ beforeEach(() => {
   });
 });
 afterEach(cleanup);
+it("opens the direct-menu cluster without a global activation banner", async () => {
+  bridge.call.mockResolvedValue({ phase: "uncertain", operationId: crypto.randomUUID(), tuneConfirmed: false, rotor: "uncertain", barrier: null });
+  const Surface = await loadWindowSurface("?view=dx-cluster");
+  render(<Surface />); await waitFor(() => expect(bridge.receive).not.toBeNull());
+  act(() => bridge.receive?.(projection()));
+  expect(screen.getByRole("button", { name: "Activate TEST1" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /Check activation/ })).toBeNull();
+  expect(screen.queryByText(/Spot activation outcome uncertain/)).toBeNull();
+  expect(bridge.call).toHaveBeenCalledWith("spot_activation_snapshot", {});
+});
 it("activates from a detached cluster without a Desk relay and never freshens stale reports on projection delivery", async () => {
   const view = render(<DetachedClusterSurface />); await waitFor(() => expect(bridge.receive).not.toBeNull());
   act(() => bridge.receive?.(projection())); fireEvent.click(screen.getByRole("button", { name: "Activate TEST1" }));

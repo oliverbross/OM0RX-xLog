@@ -3,6 +3,8 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { CallsignIntelligenceSurface, requestDetachedIntelligence, detachedIntelligenceMethods } from "./DetachedCallsignIntelligenceSurface";
 import { testWorkspaceGeneration } from "../../tests/operator-draft-fixture";
+import { readFileSync } from "node:fs";
+import { loadWindowSurface } from "../windowSurface";
 const hooks = vi.hoisted(() => ({ draft: vi.fn(), history: vi.fn(), read: vi.fn(), draftRead: vi.fn() }));
 vi.mock("../worker", () => ({ workerRequest: hooks.read }));
 vi.mock("./operatorDraftTransport", () => ({ requestOperatorDraft: hooks.draftRead }));
@@ -34,7 +36,9 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 it("follows the canonical draft without the main renderer or any editing/hardware method", async () => {
   const request = reader(); render(<CallsignIntelligenceSurface request={request} />);
   await screen.findByText("Example operator"); await screen.findByLabelText("Callsign 20m: Worked");
-  expect(screen.getByText("Following the saved new-QSO draft · read only")).toBeTruthy();
+  expect(screen.queryByText("Following the saved new-QSO draft · read only")).toBeNull();
+  expect(screen.queryByRole("button", { name: /Refresh|Dock back/ })).toBeNull();
+  expect(screen.getByRole("main").firstElementChild?.classList.contains("detached-intelligence-content")).toBe(true);
   expect(screen.queryByRole("textbox")).toBeNull(); expect(screen.queryByRole("button", { name: /Log QSO|Read radio|Full editor/ })).toBeNull();
   await act(async () => { for (let index = 0; index < 4; index++) await wakeDraft(); });
   expect(request.mock.calls.filter(([method]) => method === "lookup_call")).toHaveLength(1);
@@ -82,7 +86,7 @@ it("hides prior identity when the draft becomes unavailable and retries without 
   request.mockRejectedValueOnce(new Error("Shared draft temporarily unavailable"));
   await act(async () => { await wakeDraft().catch(() => {}); });
   expect(screen.queryByText("Example operator")).toBeNull(); expect(screen.getByRole("alert").textContent).toContain("temporarily unavailable");
-  fireEvent.click(screen.getByRole("button", { name: "Refresh" })); await screen.findByText("Example operator");
+  fireEvent.click(screen.getByRole("button", { name: "Retry intelligence" })); await screen.findByText("Example operator");
 });
 
 it("shows unavailable lookup/history rather than claiming unworked or a stale country", async () => {
@@ -94,11 +98,14 @@ it("shows unavailable lookup/history rather than claiming unworked or a stale co
   expect(screen.queryByText("Synthetic country")).toBeNull();
 });
 
-it("keeps Dock failure visible and retryable without a station action", async () => {
-  const dock = vi.fn().mockRejectedValueOnce(new Error("unavailable")).mockResolvedValue(undefined);
-  render(<CallsignIntelligenceSurface request={reader()} dock={dock} />); await screen.findByText("Example operator");
-  fireEvent.click(screen.getByRole("button", { name: "Dock back" })); await screen.findByText(/reader remains open/);
-  fireEvent.click(screen.getByRole("button", { name: "Dock back" })); await waitFor(() => expect(dock).toHaveBeenCalledTimes(2));
+it("routes a direct menu window to the task surface with intrinsic height and narrow-window reflow", async () => {
+  const Surface = await loadWindowSurface("?view=callsign-intelligence");
+  expect(Surface.name).toBe("DetachedCallsignIntelligenceSurface");
+  const css = readFileSync(`${process.cwd()}/src/live/DetachedCallsignIntelligenceSurface.css`, "utf8");
+  expect(css).toMatch(/\.detached-intelligence-content\s*\{[^}]*container: detached-intelligence \/ inline-size;[^}]*flex: none;/);
+  expect(css).toMatch(/\.detached-intelligence-content \.desk-intelligence\s*\{\s*min-height: 0;/);
+  expect(css).toContain("@container detached-intelligence (max-width: 640px)");
+  expect(css).toContain(".desk-matrices { grid-template-columns: 1fr; }");
 });
 
 it("has an independent frontend read allowlist as well as native enforcement", async () => {

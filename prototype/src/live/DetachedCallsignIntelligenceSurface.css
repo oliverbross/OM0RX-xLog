@@ -1,9 +1,7 @@
 .app.live.detached-intelligence-app { display: flex; flex-direction: column; height: 100dvh; min-height: 0; padding: 0; }
 .detached-intelligence-app > main { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; overflow: auto; padding: 8px; gap: 8px; }
-.detached-intelligence-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: none; }
-.detached-intelligence-actions > span { flex: 1 1 240px; }
-.detached-intelligence-content { container: detached-intelligence / inline-size; min-width: 0; flex: 1; }
-.detached-intelligence-content .desk-intelligence { min-height: 100%; }
+.detached-intelligence-content { container: detached-intelligence / inline-size; min-width: 0; flex: none; }
+.detached-intelligence-content .desk-intelligence { min-height: 0; }
 @container detached-intelligence (max-width: 640px) {
   .desk-matrices { grid-template-columns: 1fr; }
   .desk-matrices > div + div { border-left: 0; padding-left: 0; border-top: 1px solid var(--border); padding-top: 8px; }

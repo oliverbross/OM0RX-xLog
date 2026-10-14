@@ -8,7 +8,6 @@ import { changedCallDraft, normalizedCall } from "./draftEnrichment";
 import { connectOperatorDraftChanges, protectOperatorDraftClose } from "./operatorDraftWindows";
 import { dockDetachedWorkspace } from "./DetachedClusterBridge";
 import { nativeSpotEditor, useSpotEditor } from "./useSpotEditor";
-import { SpotActivationStatus } from "./SpotActivationStatus";
 import { useReferenceEvidence } from "./useReferenceEvidence";
 import "./DetachedQSOSurface.css";
 
@@ -42,7 +41,7 @@ export function DetachedQSOSurface() {
   const [lookup, setLookup] = useState<Record<string, any> | null>(null);
   const [previous, setPrevious] = useState<Record<string, any>[]>([]);
   const workingRef = useRef(false), closingRef = useRef(false), docking = useRef(false), mounted = useRef(true);
-  const spotEditor = useSpotEditor([session], () => workingRef.current || closingRef.current || docking.current || localInput.current
+  useSpotEditor([session], () => workingRef.current || closingRef.current || docking.current || localInput.current
     ? { ready: false, reason: "Finish the buffered fields or close/Dock operation first." } : { ready: true });
   const acceptsInput = useCallback(() => session.canAcceptLocalInput() && !workingRef.current && !closingRef.current && !docking.current, [session]);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
@@ -119,12 +118,7 @@ export function DetachedQSOSurface() {
   };
   const blocked = state.activationFrozen || state.locked || state.workspaceChanged || !!state.conflict || !!state.pending;
   return <div className="app live monitor-app detached-qso-app"><main aria-label="Detached Log QSO">
-    <div className="live-actions detached-qso-actions">
-      <span className="secondary" role="status">{state.activationFrozen ? "Shared editor protected during spot activation." : message || (!state.base ? "Loading shared QSO draft…" : blocked ? "Review QSO draft recovery." : session.dirty ? "Draft changes awaiting local save." : "Draft saved locally.")}</span>
-      <button type="button" onClick={dock} disabled={working || closing}>Dock back</button>
-    </div>
     {error && <p className="live-error" role="alert">{error}</p>}
-    <SpotActivationStatus status={spotEditor.status} error={spotEditor.error} reconcile={() => void spotEditor.reconcile()} />
     <OperatorDraftStatus state={state} session={session} run={run} />
     <QSOEditor referenceEvidence={referenceEvidence} draft={state.draft} setDraft={setDraft} save={() => run(async () => {
       const saved = await session.commit("save");
@@ -141,5 +135,9 @@ export function DetachedQSOSurface() {
         session.setManualPower(value); setMessage("");
       }}
       onResumeAutomaticPower={state.base?.power ? () => void run(async () => { session.resumeAutomaticPower(); await session.flush(); }) : undefined} />
+    <div className="live-actions detached-qso-actions">
+      {message && <span className="secondary" role="status">{message}</span>}
+      <button type="button" onClick={dock} disabled={working || closing}>Dock back</button>
+    </div>
   </main></div>;
 }

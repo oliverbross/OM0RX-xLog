@@ -6,7 +6,6 @@ import { normalizedCall } from "./draftEnrichment";
 import { requestOperatorDraft } from "./operatorDraftTransport";
 import { connectOperatorDraftChanges, ownDraftUpdateWarnings } from "./operatorDraftWindows";
 import { connectLogbookChanges } from "./logbookWindows";
-import { dockDetachedWorkspace } from "./DetachedClusterBridge";
 import "./DetachedCallsignIntelligenceSurface.css";
 
 export const detachedIntelligenceMethods = ["logbook_operator_draft", "lookup_call", "logbook_previous",
@@ -20,19 +19,19 @@ export async function requestDetachedIntelligence(method: string, params: Record
 const validBands = new Set(["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "4m", "2m", "70cm"]);
 
 // Injectable reads support synthetic component tests without a native session.
-export function CallsignIntelligenceSurface({ request = requestDetachedIntelligence, dock = dockDetachedWorkspace }: {
-  request?: IntelligenceRequest; dock?: () => Promise<void>;
+export function CallsignIntelligenceSurface({ request = requestDetachedIntelligence }: {
+  request?: IntelligenceRequest;
 }) {
   const [follower] = useState(() => new CanonicalDraftFollower(() => request("logbook_operator_draft", {})));
   const state = useSyncExternalStore(follower.subscribe, follower.getSnapshot);
   const [cache] = useState(() => new CallsignLookupCache(request));
-  const [warning, setWarning] = useState(""), [historyWarning, setHistoryWarning] = useState(""), [dockError, setDockError] = useState("");
+  const [warning, setWarning] = useState(""), [historyWarning, setHistoryWarning] = useState("");
   const [health] = useState(() => ownDraftUpdateWarnings(setWarning));
   const [historyRefresh, setHistoryRefresh] = useState(0), [lookupRefresh, setLookupRefresh] = useState(0), [preferencesRefresh, setPreferencesRefresh] = useState(0);
   const [lookup, setLookup] = useState<{ key: string; profile: Record<string, any> } | null>(null);
   const [previous, setPrevious] = useState<{ key: string; rows: Record<string, any>[] } | null>(null);
   const [preferences, setPreferences] = useState<{ generation: string; bands?: string[]; error?: string } | null>(null);
-  const [docking, setDocking] = useState(false), dockingRef = useRef(false), mounted = useRef(true);
+  const mounted = useRef(true);
   const snapshot = state.available ? state.snapshot : null, identity = intelligenceIdentity(snapshot);
   const generation = snapshot?.generation ?? "", call = normalizedCall(snapshot?.qso.call);
   const matched = /^[A-Z0-9/-]{3,32}$/.test(call);
@@ -76,20 +75,11 @@ export function CallsignIntelligenceSurface({ request = requestDetachedIntellige
     void follower.refresh().then(verified => { if (mounted.current && verified) health.recovered(); })
       .catch(cause => { if (mounted.current) health.failed(cause instanceof Error ? cause.message : "Shared draft unavailable."); });
   }, [cache, identity, follower, health]);
-  const dockBack = async () => {
-    if (dockingRef.current) return;
-    dockingRef.current = true; setDocking(true); setDockError("");
-    try { await dock(); }
-    catch { if (mounted.current) setDockError("Could not dock Callsign Intelligence. The reader remains open; try again."); }
-    finally { dockingRef.current = false; if (mounted.current) setDocking(false); }
-  };
   return <div className="app live monitor-app detached-intelligence-app"><main aria-label="Detached Callsign Intelligence">
-    <div className="live-actions detached-intelligence-actions"><span role="status" className="secondary">Following the saved new-QSO draft · read only</span>
-      <button type="button" onClick={refresh} disabled={state.reading || docking}>Refresh</button>
-      <button type="button" onClick={() => void dockBack()} disabled={docking}>{docking ? "Docking…" : "Dock back"}</button></div>
     {(warning || state.error) && <p className="live-error" role="alert">{warning || state.error}</p>}
     {historyWarning && <p className="live-error" role="status">{historyWarning}</p>}
-    {dockError && <p className="live-error" role="alert">{dockError}</p>}
+    {(warning || state.error || lookup?.key === identity && lookup.profile.lookup_warning) &&
+      <button type="button" onClick={refresh} disabled={state.reading}>Retry intelligence</button>}
     {preferences?.generation === generation && preferences.error && <p className="live-error" role="status">{preferences.error}</p>}
     {!state.available && !state.error && <p role="status" className="secondary">Loading the shared new-QSO draft…</p>}
     <div className="detached-intelligence-content"><DeskIntelligence draft={snapshot?.qso ?? null}

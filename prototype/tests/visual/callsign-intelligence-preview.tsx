@@ -22,4 +22,4 @@ async function request(method: string, params: Record<string, any> = {}) {
     last_dxcc_qso: { date: "2026-01-11T01:47:00Z" }, matrix: cells } };
   throw new Error(`Unsupported synthetic read ${method}`);
 }
-createRoot(document.getElementById("root")!).render(<React.StrictMode><CallsignIntelligenceSurface request={request} dock={async () => { throw new Error("Synthetic Dock unavailable"); }} /></React.StrictMode>);
+createRoot(document.getElementById("root")!).render(<React.StrictMode><CallsignIntelligenceSurface request={request} /></React.StrictMode>);

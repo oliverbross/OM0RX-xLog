@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { DetachedQSOSurface, detachedQSOJournalKey } from "./DetachedQSOSurface";
 import { testWorkspaceGeneration } from "../../tests/operator-draft-fixture";
 import type { DraftMutation, DraftPowerState, DraftSnapshot } from "./operatorDraftSession";
+import { loadWindowSurface } from "../windowSurface";
 
 const api = vi.hoisted(() => ({ draft: vi.fn(), read: vi.fn(), changes: vi.fn(), protect: vi.fn(), dock: vi.fn(),
   refresh: null as (() => Promise<void>) | null, blocked: null as (() => boolean) | null, explain: null as (() => void) | null,
@@ -12,6 +13,9 @@ vi.mock("./operatorDraftTransport", () => ({ requestOperatorDraft: api.draft }))
 vi.mock("../worker", () => ({ workerRequest: api.read }));
 vi.mock("./operatorDraftWindows", () => ({ connectOperatorDraftChanges: api.changes, protectOperatorDraftClose: api.protect }));
 vi.mock("./DetachedClusterBridge", () => ({ dockDetachedWorkspace: api.dock }));
+vi.mock("./useSpotEditor", () => ({ nativeSpotEditor: () => false, useSpotEditor: () => ({
+  status: { phase: "uncertain", tuneConfirmed: false, rotor: "uncertain" }, error: "Global activation warning", reconcile: vi.fn(),
+}) }));
 
 const copy = <T,>(value: T): T => structuredClone(value);
 function backend() {
@@ -74,9 +78,14 @@ afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 it("loads the canonical full editor with read-only context, no main controller, and closes an acknowledged draft", async () => {
   const f = backend(); api.draft.mockImplementation(f.request);
-  const view = render(<DetachedQSOSurface />);
+  const Surface = await loadWindowSurface("?view=log-qso");
+  const view = render(<Surface />);
   await screen.findByDisplayValue("K1ABC");
   expect(screen.getByRole("main", { name: "Detached Log QSO" })).toBeTruthy();
+  expect(screen.queryByText(/Draft saved locally|Global activation warning|Check activation/)).toBeNull();
+  expect(document.querySelector(".station-rail")).toBeNull();
+  const editor = document.querySelector(".qso-editor")!;
+  expect(editor.compareDocumentPosition(screen.getByRole("button", { name: "Dock back" })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(screen.queryByText("Follow radio")).toBeNull(); expect(screen.queryByRole("button", { name: /Read radio/i })).toBeNull();
   expect(api.blocked!()).toBe(false);
   expect(api.changes.mock.invocationCallOrder[0]).toBeLessThan(api.draft.mock.invocationCallOrder[0]);

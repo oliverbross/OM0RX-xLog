@@ -12,7 +12,6 @@ import { connectLogbookChanges, protectLogbookClose } from "./logbookWindows";
 import { changedCallDraft } from "./draftEnrichment";
 import type { DraftQSO } from "./operatorDraftSession";
 import { nativeSpotEditor, useSpotEditor } from "./useSpotEditor";
-import { SpotActivationStatus } from "./SpotActivationStatus";
 
 export const detachedContactJournalKey = "xlog.integration.contactEdit.logbook.v1";
 export const detachedMutationJournalKey = "xlog.integration.logbookMutation.logbook.v1";
@@ -35,7 +34,7 @@ export function DetachedLogbookSurface() {
   const [lookup, setLookup] = useState<Record<string, any> | null>(null);
   const [previous, setPrevious] = useState<Record<string, any>[]>([]);
   const workingRef = useRef(false), tableBusyRef = useRef(false), docking = useRef(false);
-  const spotEditor = useSpotEditor([contacts], () => workingRef.current || tableBusyRef.current || docking.current || mutations.getSnapshot().busy || mutations.getSnapshot().pending
+  useSpotEditor([contacts], () => workingRef.current || tableBusyRef.current || docking.current || mutations.getSnapshot().busy || mutations.getSnapshot().pending
     ? { ready: false, reason: "Finish the logbook action or close/Dock operation first." } : { ready: true });
   const acceptsInput = useCallback(() => contacts.canAcceptLocalInput() && !workingRef.current && !docking.current, [contacts]);
   const run = useCallback(async (action: () => Promise<unknown>) => {
@@ -74,7 +73,6 @@ export function DetachedLogbookSurface() {
   return <div className="app live monitor-app detached-logbook-app">
     <main aria-label="Detached Logbook">
       {error && <p className="live-error" role="alert">{error}</p>}
-      <SpotActivationStatus status={spotEditor.status} error={spotEditor.error} reconcile={() => void spotEditor.reconcile()} />
       <ContactEditStatus state={edit} session={contacts} run={run} />
       <LogbookMutationStatus state={mutation} session={mutations} run={run} />
       {edit.draft ? <QSOEditor draft={edit.draft} setDraft={next => {
