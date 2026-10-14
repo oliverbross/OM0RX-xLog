@@ -25,6 +25,12 @@ feature, add settings controls, enroll an existing log, or contact QRZ.
   Enrollment state, the new-QSO insert and candidate registration share a SQLite
   write transaction across app connections. Disabling cancels unsent membership;
   re-enabling starts a fresh boundary and never backfills the disabled interval.
+- A native worker-owned serial loop runs without a mounted renderer. It reads the
+  separate QRZ key only when enrollment is active and candidates exist, fences
+  workspace replacement and shutdown, retains candidates only for bounded 429
+  retries, and atomically retires delivered, rejected, or uncertain outcomes.
+  Interrupted dispatch recovery marks the durable receipt uncertain and removes
+  its candidate, so process restart cannot replay an ambiguous INSERT.
 - Freezes the exact local contact revision and SHA-256 payload, then commits a
   durable SQLite claim before network I/O. Concurrent claims cannot both send.
 - Stores only bounded receipt state, attempt identity/count, timestamps, an
@@ -45,17 +51,18 @@ eligibility.
 
 ## Verification
 
-- Focused online-delivery/enrollment suite: **9/9 tests pass**, covering exact request
+- Focused online-delivery/enrollment suite: **12/12 tests pass**, covering exact request
   fields/no replace, form encoding, durable delivered no-replay, ambiguous
   no-replay, explicit bounded rate-limit retry, stale edited-contact rejection
   and interrupted-dispatch recovery, prospective-only enrollment, disable/re-enable,
-  deletion cancellation and atomic operator-draft Save capture.
+  deletion cancellation, candidate terminal/deferred lifecycle and atomic
+  operator-draft Save capture. The native owner suite passes **3/3** tests.
 - Settings credential coverage: **18/18 focused tests pass**; the complete
   frontend suite passes **2,388 tests across 159 files** and the production
   TypeScript/Vite/detached-window bundle gate passes.
-- Native Swift: **186 tests across 26 suites pass**.
+- Native Swift: **189 tests across 26 suites pass**.
 - Portable Swift: **200 XCTest tests pass** with four intentional benchmark
-  skips, plus **387 Swift Testing tests across 51 suites**.
+  skips, plus **390 Swift Testing tests across 52 suites**.
 - Portable source compilation and `git diff --check` pass.
 
 All network behavior above is fixture-backed. No provider credential was read or
@@ -69,9 +76,9 @@ written and no live QRZ request was made.
    **New contacts from now on** remains the only implemented scope; any existing-log
    backfill would require a separate design and reviewed operator action. Nothing
    can silently upload the current 68k-contact log.
-3. Wire the native background owner and recovery call without depending on a
-   mounted renderer. Edits and confirmation updates require an explicit provider
-   policy; this INSERT-only slice must not pretend to provide two-way sync.
+3. Expose clear local-only health and receipt status. Edits and confirmation
+   updates require an explicit provider policy; this INSERT-only slice must not
+   pretend to provide two-way sync.
 4. Complete live acceptance with an operator-supplied QRZ Logbook API key and a
    deliberately selected test contact before release packaging.
 5. Implement and accept Club Log and HRDLOG as independent adapters. Wavelog

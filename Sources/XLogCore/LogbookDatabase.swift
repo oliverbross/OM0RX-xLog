@@ -427,6 +427,9 @@ public final class LogbookDatabase: @unchecked Sendable {
                                                                 contactRevision: plan.contact.revision) {
                     guard existing.payloadSHA256 == plan.payloadSHA256 else { throw OnlineLogDeliveryError.operationMismatch }
                     if existing.attemptID == attemptID || existing.state != .deferred {
+                        if Self.isTerminalOnlineLogDelivery(existing.state) {
+                            try retireOnlineLogCandidate(service: plan.service, contactID: plan.contact.qso.id)
+                        }
                         try execute("COMMIT;")
                         return OnlineLogDeliveryClaim(receipt: existing, shouldDispatch: false)
                     }
@@ -484,6 +487,9 @@ public final class LogbookDatabase: @unchecked Sendable {
                     contactRevision: plan.contact.revision), existing.payloadSHA256 == plan.payloadSHA256,
                       existing.attemptID == attemptID else { throw OnlineLogDeliveryError.operationMismatch }
                 if existing.state != .dispatching {
+                    if Self.isTerminalOnlineLogDelivery(existing.state) {
+                        try retireOnlineLogCandidate(service: plan.service, contactID: plan.contact.qso.id)
+                    }
                     try execute("COMMIT;")
                     return existing
                 }
@@ -530,6 +536,9 @@ public final class LogbookDatabase: @unchecked Sendable {
                                                                   contactRevision: plan.contact.revision) else {
                     throw LogbookDatabaseError.corruptRecord
                 }
+                if Self.isTerminalOnlineLogDelivery(receipt.state) {
+                    try retireOnlineLogCandidate(service: plan.service, contactID: plan.contact.qso.id)
+                }
                 try execute("COMMIT;")
                 return receipt
             } catch { try? execute("ROLLBACK;"); throw error }
@@ -548,9 +557,33 @@ public final class LogbookDatabase: @unchecked Sendable {
                     return Int(sqlite3_column_int(statement, 0))
                 }
                 try execute("UPDATE xlog_online_log_deliveries SET state='uncertain',next_attempt_at=NULL,last_error_code='interrupted_after_dispatch' WHERE state='dispatching';")
+                try execute("""
+                    DELETE FROM xlog_online_log_candidates
+                    WHERE EXISTS (
+                      SELECT 1 FROM xlog_online_log_deliveries d
+                      WHERE d.service=xlog_online_log_candidates.service
+                        AND d.local_id=xlog_online_log_candidates.local_id
+                        AND d.state IN ('delivered','rejected','uncertain')
+                    );
+                    """)
                 try execute("COMMIT;")
                 return count
             } catch { try? execute("ROLLBACK;"); throw error }
+        }
+    }
+
+    private static func isTerminalOnlineLogDelivery(_ state: OnlineLogDeliveryState) -> Bool {
+        switch state {
+        case .delivered, .rejected, .uncertain: true
+        case .dispatching, .deferred: false
+        }
+    }
+
+    private func retireOnlineLogCandidate(service: OnlineLogService, contactID: UUID) throws {
+        try withStatement("DELETE FROM xlog_online_log_candidates WHERE service=? AND local_id=?;") { statement in
+            bind(service.rawValue, to: 1, in: statement)
+            bind(contactID.uuidString, to: 2, in: statement)
+            try stepDone(statement)
         }
     }
 

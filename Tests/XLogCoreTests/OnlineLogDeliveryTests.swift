@@ -125,6 +125,54 @@ struct OnlineLogDeliveryTests {
         #expect(await http.requests.count == 3)
     }
 
+    @Test func candidateRemainsOnlyForBoundedDeferredRetry() async throws {
+        let (database, root, _) = try database()
+        defer { database.close(); try? FileManager.default.removeItem(at: root) }
+        _ = try database.configureOnlineLogEnrollment(service: .qrz, enabled: true)
+        let qso = QSO(call: "JA1ABC", start: Date(timeIntervalSince1970: 1_700_000_050),
+                      band: "20m", mode: "CW", myCall: "OM0RX")
+        try database.saveNewContactForOnlineLogs(qso)
+        let rateLimit = Step(status: 429, headers: ["Retry-After": "10"], body: Data())
+        let http = HTTP([rateLimit, Step()])
+        let coordinator = QRZLogbookDeliveryCoordinator(database: database,
+            transport: try QRZLogbookTransport(userAgent: "OM0RX-xLog/fixture", http: http))
+
+        let deferred = try await coordinator.deliver(contactID: qso.id, accessKey: "fixture-key",
+            now: Date(timeIntervalSince1970: 100))
+        #expect(deferred.state == .deferred)
+        #expect(try database.onlineLogCandidateIDs(service: .qrz) == [qso.id])
+        let delivered = try await coordinator.deliver(contactID: qso.id, accessKey: "fixture-key",
+            now: Date(timeIntervalSince1970: 130))
+        #expect(delivered.state == .delivered)
+        #expect(try database.onlineLogCandidateIDs(service: .qrz).isEmpty)
+    }
+
+    @Test func rejectedAndUncertainInsertOutcomesRetireCandidateWithoutReplay() async throws {
+        let (database, root, _) = try database()
+        defer { database.close(); try? FileManager.default.removeItem(at: root) }
+        _ = try database.configureOnlineLogEnrollment(service: .qrz, enabled: true)
+        let uncertain = QSO(call: "JA2ABC", start: Date(timeIntervalSince1970: 1_700_000_060),
+                            band: "20m", mode: "CW", myCall: "OM0RX")
+        let rejected = QSO(call: "JA3ABC", start: Date(timeIntervalSince1970: 1_700_000_070),
+                           band: "20m", mode: "CW", myCall: "OM0RX")
+        try database.saveNewContactForOnlineLogs(uncertain)
+        try database.saveNewContactForOnlineLogs(rejected)
+        let auth = Step(body: Data("RESULT=AUTH&REASON=bad+key".utf8))
+        let http = HTTP([Step(fails: true), auth])
+        let coordinator = QRZLogbookDeliveryCoordinator(database: database,
+            transport: try QRZLogbookTransport(userAgent: "OM0RX-xLog/fixture", http: http))
+
+        await #expect(throws: OnlineLogDeliveryError.deliveryUncertain) {
+            try await coordinator.deliver(contactID: uncertain.id, accessKey: "fixture-key")
+        }
+        #expect(try database.onlineLogCandidateIDs(service: .qrz) == [rejected.id])
+        let refusal = try await coordinator.deliver(contactID: rejected.id, accessKey: "fixture-key")
+        #expect(refusal.state == .rejected)
+        #expect(refusal.safeErrorCode == "authentication_rejected")
+        #expect(try database.onlineLogCandidateIDs(service: .qrz).isEmpty)
+        #expect(await http.requests.count == 2)
+    }
+
     @Test func editedContactInvalidatesPreparedPlanBeforeDispatch() throws {
         let (database, root, qso) = try database()
         defer { database.close(); try? FileManager.default.removeItem(at: root) }
@@ -149,6 +197,19 @@ struct OnlineLogDeliveryTests {
         #expect(recovered.state == .uncertain)
         #expect(recovered.safeErrorCode == "interrupted_after_dispatch")
         #expect(try database.claimOnlineLogDelivery(plan, attemptID: UUID()).shouldDispatch == false)
+    }
+
+    @Test func interruptedCandidateIsRetiredDuringStartupRecovery() throws {
+        let (database, root, _) = try database()
+        defer { database.close(); try? FileManager.default.removeItem(at: root) }
+        _ = try database.configureOnlineLogEnrollment(service: .qrz, enabled: true)
+        let qso = QSO(call: "KH6ABC", start: Date(timeIntervalSince1970: 1_700_000_080),
+                      band: "15m", mode: "SSB", myCall: "OM0RX")
+        try database.saveNewContactForOnlineLogs(qso)
+        let plan = try database.prepareOnlineLogDelivery(service: .qrz, contactID: qso.id)
+        #expect(try database.claimOnlineLogDelivery(plan, attemptID: UUID()).shouldDispatch)
+        #expect(try database.recoverInterruptedOnlineLogDeliveries() == 1)
+        #expect(try database.onlineLogCandidateIDs(service: .qrz).isEmpty)
     }
 
     @Test func enrollmentQueuesOnlyExplicitlyFlaggedNewContacts() throws {

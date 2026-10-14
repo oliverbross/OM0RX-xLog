@@ -79,6 +79,7 @@ public actor LiveWorker {
     private let cluster: LiveClusterMethods
     private let publicServices: LivePublicServiceMethods
     private let services: LiveServiceMethods
+    private let onlineLogs: LiveOnlineLogDeliveryService
     #if os(macOS)
     private let references: LiveReferenceMethods
     #endif
@@ -98,6 +99,7 @@ public actor LiveWorker {
          powerDelivery: NativeDraftPowerDelivery = NativeDraftPowerDelivery(),
          remoteBackup: LiveRemoteBackupService? = nil,
           remoteBackupEnvironment: NativeRemoteBackupPresentationEnvironment? = nil,
+         onlineLogs: LiveOnlineLogDeliveryService? = nil,
           contactRefresher: (@Sendable () async throws -> Void)? = nil,
           ownsProcessSessions: Bool = false) {
         self.powerCapture = powerCapture
@@ -112,6 +114,7 @@ public actor LiveWorker {
         self.remoteBackupPresentation = LiveRemoteBackupPresentation(logbook: logbook, service: backupService, environment: remoteBackupEnvironment)
         self.publicServices = publicServices ?? LivePublicServiceMethods(logbook: logbook)
         services = LiveServiceMethods(logbook: logbook)
+        self.onlineLogs = onlineLogs ?? LiveOnlineLogDeliveryService(logbook: logbook)
         #if os(macOS)
         references = LiveReferenceMethods(logbook: logbook)
         #endif
@@ -123,11 +126,12 @@ public actor LiveWorker {
         self.ownsProcessSessions = ownsProcessSessions
     }
 
-    func beginTerminalShutdown() {
+    func beginTerminalShutdown() async {
         terminalShutdown = true
         powerCapture.terminate()
         cancelContactRefresh()
         remoteBackup.beginTermination()
+        await onlineLogs.beginTermination()
     }
 
     private func cancelContactRefresh() {
@@ -165,6 +169,7 @@ public actor LiveWorker {
         guard !localAcceptance, !terminalShutdown else { return }
         await startPowerCapture()
         await services.startAutomaticSync()
+        await onlineLogs.startAutomaticDelivery()
         #if os(macOS)
         await references.startAutomaticChecks()
         if ownsProcessSessions {
@@ -193,7 +198,8 @@ public actor LiveWorker {
     func drainPowerCapture() async { await powerDelivery.drain() }
 
     public func shutdown() async {
-        beginTerminalShutdown()
+        await beginTerminalShutdown()
+        await onlineLogs.terminate()
         await remoteBackup.terminate()
         await services.beginTermination()
         #if os(macOS)
@@ -317,6 +323,7 @@ public actor LiveWorker {
                     cancelContactRefresh()
                     workspaceTransitionCount += 1
                     powerCapture.suspend(true)
+                    await onlineLogs.suspendForWorkspaceChange()
                     #if os(macOS)
                     await references.suspendForWorkspaceChange()
                     await LiveWSJTXBridge.shared.suspendForWorkspaceChange()
@@ -333,6 +340,7 @@ public actor LiveWorker {
                         await LiveWSJTXBridge.shared.finishWorkspaceChange()
                         #endif
                         await cluster.finishWorkspaceChange()
+                        await onlineLogs.finishWorkspaceChange()
                         workspaceTransitionCount -= 1
                         if workspaceTransitionCount == 0 {
                             powerCapture.suspend(false)
@@ -348,6 +356,7 @@ public actor LiveWorker {
                     await LiveWSJTXBridge.shared.finishWorkspaceChange()
                     #endif
                     await cluster.finishWorkspaceChange()
+                    await onlineLogs.finishWorkspaceChange()
                     workspaceTransitionCount -= 1
                     if workspaceTransitionCount == 0 {
                         powerCapture.suspend(false)
@@ -363,6 +372,9 @@ public actor LiveWorker {
                 let imported = method == "logbook_import_adif" && params["action"] as? String != "preview"
                 if !localAcceptance && (draftLogged || contactChanged || imported || ["workspace_create", "logbook_save", "logbook_delete", "logbook_undo", "backup_restore"].contains(method)) {
                     queueContactRefresh()
+                }
+                if !localAcceptance && (draftLogged || method == "logbook_save") {
+                    await onlineLogs.requestDelivery()
                 }
             } else if method == "remote_backup_request" {
                 result = try await remoteBackupPresentation.handle(params)

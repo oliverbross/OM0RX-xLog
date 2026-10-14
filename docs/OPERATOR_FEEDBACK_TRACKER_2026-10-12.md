@@ -1164,12 +1164,17 @@ uploads. A default-off database enrollment journal now captures only genuinely
 new contacts from explicitly eligible logging paths. It never scans the existing
 log, runs under the same SQLite write transaction as Save, cancels pending
 membership on deletion/disable, and does not retroactively include contacts from
-a disabled interval or ordinary import/sync/update paths.
+a disabled interval or ordinary import/sync/update paths. The native worker now
+owns a renderer-independent, serial delivery loop: it recovers interrupted
+dispatches as uncertain, reads the QRZ key only when enrollment and at least one
+candidate are present, retains only bounded rate-limit retries, and retires
+delivered, rejected, or uncertain candidates to prevent automatic replay.
 
-Focused online delivery/enrollment **9/9**, Settings **18/18**, full frontend **2,388/2,388**,
-native **186/186** and portable **200 XCTest** (four intentional benchmark skips)
-plus **387/387 Swift Testing** checks pass; the production frontend build passes.
+Focused online delivery/enrollment **12/12**, native owner **3/3**, Settings **18/18**,
+full frontend **2,388/2,388**, native **189/189** and portable **200 XCTest**
+(four intentional benchmark skips) plus **390/390 Swift Testing** checks pass;
+the production frontend build passes.
 No QRZ credential was written and no live request was made. Enrollment UI,
-native scheduling, credential removal,
+credential removal,
 live account acceptance, and independent Club Log/HRDLOG adapters remain open. See
 [the bounded acceptance record](QRZ_UPLOAD_FOUNDATION_ACCEPTANCE_2026-10-15.md).
