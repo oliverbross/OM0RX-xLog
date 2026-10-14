@@ -208,9 +208,9 @@ public enum RemoteBackupExecutionError: Error, Equatable, Sendable {
     case operationInProgress, conflictingOperation
 }
 
-/// Session-scoped idempotency. Keep one coordinator for the application's backup owner.
-/// Receipts are not durable; restart recovery and authenticated receipt storage remain
-/// separate work. Unknown/pre-existing remote objects always remain conflicts.
+/// Keep one coordinator for the application's backup owner. The directory initializer
+/// persists reservations before transport and recovers interrupted writes as uncertain.
+/// Unknown/pre-existing remote objects always remain conflicts.
 public actor RemoteBackupUploadCoordinator {
     private struct Operation {
         let plan: RemoteBackupUploadPlan
@@ -218,8 +218,17 @@ public actor RemoteBackupUploadCoordinator {
     }
     // A backup ID names one object even if destination configuration changes.
     private var operations: [UUID: Operation] = [:]
+    private let store: RemoteBackupOperationStore?
 
-    public init() {}
+    public init() { store = nil }
+
+    public init(stateDirectory: URL) throws {
+        let store = try RemoteBackupOperationStore(directory: stateDirectory)
+        self.store = store
+        for receipt in try store.load() {
+            operations[receipt.plan.backupID] = Operation(plan: receipt.plan, receipt: receipt)
+        }
+    }
 
     public func upload(envelope: XLogBackupEnvelope, plan: RemoteBackupUploadPlan,
                        workspaceGeneration: UInt64, destination: RemoteBackupDestination,
@@ -231,6 +240,10 @@ public actor RemoteBackupUploadCoordinator {
             return receipt
         }
         try Task.checkCancellation()
+        if let receipt = try store?.reserve(plan: plan) {
+            operations[plan.backupID] = Operation(plan: plan, receipt: receipt)
+            return receipt
+        }
         operations[plan.backupID] = Operation(plan: plan)
         let outcome: RemoteBackupUploadOutcome
         do {
@@ -247,7 +260,236 @@ public actor RemoteBackupUploadCoordinator {
             outcome = .uncertain
         }
         let receipt = try RemoteBackupUploadReceipt(plan: plan, outcome: outcome)
+        do {
+            try store?.complete(receipt)
+        } catch {
+            // A reserved operation remains non-replayable even if its final state
+            // cannot be saved. Never report durable verification on a failed save.
+            operations[plan.backupID] = Operation(plan: plan,
+                receipt: try RemoteBackupUploadReceipt(plan: plan, outcome: .uncertain))
+            throw error
+        }
         operations[plan.backupID] = Operation(plan: plan, receipt: receipt)
         return receipt
+    }
+}
+
+public enum RemoteBackupPersistenceError: Error, Equatable, Sendable {
+    case invalidState, unavailable, capacityReached
+}
+
+/// Dedicated, app-private metadata only: no envelope bytes, secrets or provider errors.
+/// The digest detects accidental corruption; it is not authentication against local
+/// users able to rewrite this private directory. Records never authorize remote deletion.
+internal struct RemoteBackupOperationStore: Sendable {
+    static let maximumOperations = 1_024
+    static let maximumRecordBytes = 32 * 1_024
+    let directory: URL
+
+    init(directory: URL) throws {
+        guard directory.isFileURL, LocalFilePath.isAbsoluteWithoutTraversal(directory.path),
+              directory.standardizedFileURL.pathComponents.count > 1 else {
+            throw RemoteBackupPersistenceError.invalidState
+        }
+        self.directory = directory
+        do {
+            if !FileManager.default.fileExists(atPath: directory.path) {
+                try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
+                    attributes: LocalFilePermissions.directoryAttributes)
+            }
+            try validateDirectory()
+        } catch let error as RemoteBackupPersistenceError { throw error }
+        catch { throw RemoteBackupPersistenceError.unavailable }
+    }
+
+    private func validateDirectory() throws {
+        let values = try directory.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+        guard values.isDirectory == true, values.isSymbolicLink != true else {
+            throw RemoteBackupPersistenceError.invalidState
+        }
+        #if !os(Windows)
+        let attributes = try FileManager.default.attributesOfItem(atPath: directory.path)
+        guard let permissions = attributes[.posixPermissions] as? NSNumber,
+              permissions.intValue & 0o077 == 0 else {
+            throw RemoteBackupPersistenceError.invalidState
+        }
+        #endif
+    }
+
+    private func url(_ id: UUID, suffix: String) -> URL {
+        directory.appendingPathComponent(id.uuidString.lowercased() + suffix)
+    }
+
+    private func read(_ url: URL, maximum: Int) throws -> Data {
+        let values = try url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey])
+        guard values.isRegularFile == true, values.isSymbolicLink != true,
+              let size = values.fileSize, size <= maximum else {
+            throw RemoteBackupPersistenceError.invalidState
+        }
+        #if !os(Windows)
+        let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+        guard let permissions = attributes[.posixPermissions] as? NSNumber,
+              permissions.intValue & 0o077 == 0 else {
+            throw RemoteBackupPersistenceError.invalidState
+        }
+        #endif
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+        let data = try handle.read(upToCount: maximum + 1) ?? Data()
+        guard data.count <= maximum else { throw RemoteBackupPersistenceError.invalidState }
+        return data
+    }
+
+    func load() throws -> [RemoteBackupUploadReceipt] {
+        do {
+            try validateDirectory()
+            let files = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+            guard files.count <= Self.maximumOperations * 2 else { throw RemoteBackupPersistenceError.capacityReached }
+            var reservations = Set<UUID>(), records = Set<UUID>()
+            for file in files {
+                let suffix: String
+                if file.lastPathComponent.hasSuffix(".reserved") { suffix = ".reserved" }
+                else if file.lastPathComponent.hasSuffix(".json") { suffix = ".json" }
+                else { throw RemoteBackupPersistenceError.invalidState }
+                let name = String(file.lastPathComponent.dropLast(suffix.count))
+                guard let id = UUID(uuidString: name), id.uuidString.lowercased() == name else {
+                    throw RemoteBackupPersistenceError.invalidState
+                }
+                if suffix == ".reserved" {
+                    guard try read(file, maximum: 0).isEmpty else { throw RemoteBackupPersistenceError.invalidState }
+                    reservations.insert(id)
+                } else { records.insert(id) }
+            }
+            guard reservations == records else { throw RemoteBackupPersistenceError.invalidState }
+            return try records.map { id in
+                let data = try read(url(id, suffix: ".json"), maximum: Self.maximumRecordBytes)
+                let document = try JSONDecoder().decode(RemoteBackupStoredDocument.self, from: data)
+                guard document.version == 1,
+                      document.sha256 == BackupPackageSeal.hash(try BackupPackageSeal.encode(document.operation)) else {
+                    throw RemoteBackupPersistenceError.invalidState
+                }
+                let receipt = try document.operation.receipt()
+                guard receipt.plan.backupID == id else { throw RemoteBackupPersistenceError.invalidState }
+                return receipt
+            }
+        } catch let error as RemoteBackupPersistenceError { throw error }
+        catch { throw RemoteBackupPersistenceError.invalidState }
+    }
+
+    /// An exclusive marker precedes the atomic pending record. A crash between them
+    /// leaves an invalid store that fails closed instead of silently forgetting a write.
+    func reserve(plan: RemoteBackupUploadPlan) throws -> RemoteBackupUploadReceipt? {
+        let existing = try load()
+        if let receipt = existing.first(where: { $0.plan.backupID == plan.backupID }) {
+            guard receipt.plan == plan else { throw RemoteBackupExecutionError.conflictingOperation }
+            return receipt
+        }
+        guard existing.count < Self.maximumOperations else { throw RemoteBackupPersistenceError.capacityReached }
+        do {
+            try Data().write(to: url(plan.backupID, suffix: ".reserved"), options: .withoutOverwriting)
+            try LocalFilePermissions.protectFile(url(plan.backupID, suffix: ".reserved"))
+            try save(RemoteBackupStoredOperation(plan: plan, outcome: nil))
+            return nil
+        } catch {
+            // Concurrent/stale coordinators cannot replace an existing reservation.
+            // A partial reservation or any I/O failure leaves transport untouched.
+            throw RemoteBackupPersistenceError.unavailable
+        }
+    }
+
+    func complete(_ receipt: RemoteBackupUploadReceipt) throws {
+        do {
+            guard try load().contains(where: { $0.plan == receipt.plan }) else {
+                throw RemoteBackupPersistenceError.invalidState
+            }
+            try save(RemoteBackupStoredOperation(plan: receipt.plan, outcome: receipt.outcome))
+        } catch { throw RemoteBackupPersistenceError.unavailable }
+    }
+
+    private func save(_ operation: RemoteBackupStoredOperation) throws {
+        let document = RemoteBackupStoredDocument(version: 1, operation: operation,
+            sha256: BackupPackageSeal.hash(try BackupPackageSeal.encode(operation)))
+        let data = try BackupPackageSeal.encode(document)
+        guard data.count <= Self.maximumRecordBytes else { throw RemoteBackupPersistenceError.capacityReached }
+        let target = url(operation.backupID, suffix: ".json")
+        try data.write(to: target, options: .atomic)
+        try LocalFilePermissions.protectFile(target)
+    }
+}
+
+private struct RemoteBackupStoredDocument: Codable {
+    let version: Int
+    let operation: RemoteBackupStoredOperation
+    let sha256: String
+}
+
+/// Decode through validated domain initializers, never synthesized Codable on plans.
+private struct RemoteBackupStoredOperation: Codable {
+    let backupID: UUID
+    let workspaceGeneration: UInt64
+    let destinationID: UUID
+    let destinationRevision: UInt64
+    let provider: String
+    let accountID: UUID
+    let cloudFolderID: String?
+    let endpoint: String?
+    let directory: String?
+    let plainFTP: Bool
+    let scheduleHours: Int?
+    let retainedCount: Int?
+    let packageSHA256: String
+    let packageByteCount: Int64
+    let status: String
+    let verifiedAt: Date?
+
+    init(plan: RemoteBackupUploadPlan, outcome: RemoteBackupUploadOutcome?) {
+        backupID = plan.backupID; workspaceGeneration = plan.workspaceGeneration
+        let destination = plan.destination
+        destinationID = destination.id; destinationRevision = destination.revision
+        provider = destination.provider.rawValue; accountID = destination.accountID
+        switch destination.location {
+        case .cloudFolder(let id): cloudFolderID = id; endpoint = nil; directory = nil
+        case .server(let url, let path): cloudFolderID = nil; endpoint = url.absoluteString; directory = path
+        }
+        plainFTP = destination.security == .explicitlyAcceptedPlainFTP
+        scheduleHours = destination.schedule.intervalHours; retainedCount = destination.retention.latestVerifiedCount
+        packageSHA256 = plan.package.sha256; packageByteCount = plan.package.byteCount
+        switch outcome {
+        case nil: status = "pending"; verifiedAt = nil
+        case .failed: status = "failed"; verifiedAt = nil
+        case .uncertain: status = "uncertain"; verifiedAt = nil
+        case .verified(_, let date): status = "verified"; verifiedAt = date
+        }
+    }
+
+    func receipt() throws -> RemoteBackupUploadReceipt {
+        guard let provider = RemoteBackupProvider(rawValue: provider) else { throw RemoteBackupPersistenceError.invalidState }
+        let location: RemoteBackupLocation
+        if let cloudFolderID {
+            guard endpoint == nil, directory == nil else { throw RemoteBackupPersistenceError.invalidState }
+            location = .cloudFolder(id: cloudFolderID)
+        } else {
+            guard let endpoint, let url = URL(string: endpoint), let directory else { throw RemoteBackupPersistenceError.invalidState }
+            location = .server(endpoint: url, directory: directory)
+        }
+        let destination = try RemoteBackupDestination(id: destinationID, revision: destinationRevision,
+            provider: provider, accountID: accountID, location: location,
+            security: plainFTP ? .explicitlyAcceptedPlainFTP : .authenticatedEncryptionRequired,
+            schedule: try scheduleHours.map { try .every(hours: $0) } ?? .disabled,
+            retention: try retainedCount.map { try .keepLatestVerified($0) } ?? .keepAll)
+        let package = try RemoteBackupPackageIdentity(sha256: packageSHA256, byteCount: packageByteCount)
+        let plan = try RemoteBackupUploadPlan(workspaceGeneration: workspaceGeneration, destination: destination,
+            backupID: backupID, package: package)
+        let outcome: RemoteBackupUploadOutcome
+        switch status {
+        case "pending", "uncertain": outcome = .uncertain
+        case "failed": outcome = .failed
+        case "verified":
+            guard let verifiedAt else { throw RemoteBackupPersistenceError.invalidState }
+            outcome = .verified(package: package, at: verifiedAt)
+        default: throw RemoteBackupPersistenceError.invalidState
+        }
+        guard status == "verified" || verifiedAt == nil else { throw RemoteBackupPersistenceError.invalidState }
+        return try RemoteBackupUploadReceipt(plan: plan, outcome: outcome)
     }
 }
