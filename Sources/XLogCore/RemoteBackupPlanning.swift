@@ -302,7 +302,7 @@ internal struct RemoteBackupOperationStore: Sendable {
         catch { throw RemoteBackupPersistenceError.unavailable }
     }
 
-    private func validateDirectory() throws {
+    func validateDirectory() throws {
         let values = try directory.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
         guard values.isDirectory == true, values.isSymbolicLink != true else {
             throw RemoteBackupPersistenceError.invalidState
@@ -320,7 +320,7 @@ internal struct RemoteBackupOperationStore: Sendable {
         directory.appendingPathComponent(id.uuidString.lowercased() + suffix)
     }
 
-    private func read(_ url: URL, maximum: Int) throws -> Data {
+    func read(_ url: URL, maximum: Int) throws -> Data {
         let values = try url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey])
         guard values.isRegularFile == true, values.isSymbolicLink != true,
               let size = values.fileSize, size <= maximum else {
@@ -424,7 +424,7 @@ private struct RemoteBackupStoredDocument: Codable {
 }
 
 /// Decode through validated domain initializers, never synthesized Codable on plans.
-private struct RemoteBackupStoredOperation: Codable {
+internal struct RemoteBackupStoredOperation: Codable {
     let backupID: UUID
     let workspaceGeneration: UInt64
     let destinationID: UUID
