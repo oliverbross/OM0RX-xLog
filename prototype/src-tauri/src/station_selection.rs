@@ -31,6 +31,7 @@ struct State {
     controls: usize,
     control_revision: u64,
     activation_tune: bool,
+    qsy_fence: bool,
 }
 pub struct Selection {
     state: Mutex<State>,
@@ -101,6 +102,7 @@ impl Selection {
                 controls: 0,
                 control_revision: 0,
                 activation_tune: false,
+                qsy_fence: false,
             }),
             activity: AtomicUsize::new(0),
             path,
@@ -419,6 +421,19 @@ impl Selection {
             .map(|state| self.value(&state))
             .map_err(|_| "Radio session is busy; wait for its current action.".into())
     }
+    pub fn fence_qsy_epoch(self: &Arc<Self>, expected: &Value) -> Result<QSYEpochFence, String> {
+        let mut state = self.state.try_lock().map_err(|_| "Radio session is busy; QSY clear was not admitted.")?;
+        self.active()?;
+        if state.controls != 0 || state.activation_tune || state.qsy_fence
+            || expected["provider"].as_str() != state.provider.as_deref()
+            || expected["generation"].as_u64() != Some(state.generation)
+            || expected["selection_id"].as_str() != state.selection_id.as_deref()
+            || expected["control_revision"].as_u64() != Some(state.control_revision) {
+            return Err("Radio selection or command epoch changed before QSY clear.".into());
+        }
+        state.qsy_fence = true;
+        Ok(QSYEpochFence(self.clone()))
+    }
     #[cfg(test)]
     pub fn handover(&self, expected: u64, next: &str) -> Result<Value, String> {
         self.handover_identity(expected, None, next)
@@ -435,7 +450,7 @@ impl Selection {
             .try_lock()
             .map_err(|_| "Radio session is busy; wait for its current action.")?;
         self.active()?;
-        if state.controls != 0 {
+        if state.controls != 0 || state.qsy_fence {
             return Err("Wait for the current radio action before changing radios.".into());
         }
         let previous = state
@@ -540,7 +555,7 @@ impl Selection {
         admit: impl FnOnce() -> Result<G, String>, dispatch: impl FnOnce(Value) -> Result<Value, String>) -> Result<Value, String> {
         let mut state = self.state.try_lock().map_err(|_| "Radio session is busy; no spot tune was sent.")?;
         self.active()?;
-        if state.controls != 0 || state.activation_tune
+        if state.controls != 0 || state.activation_tune || state.qsy_fence
             || expected["provider"].as_str() != state.provider.as_deref()
             || expected["generation"].as_u64() != Some(state.generation)
             || expected["selection_id"].as_str() != state.selection_id.as_deref()
@@ -579,6 +594,9 @@ impl Selection {
             .try_lock()
             .map_err(|_| "Radio session is busy; wait for its current action.")?;
         self.active()?;
+        if state.qsy_fence && !urgent_release(&request) {
+            return Err("Wait for the confirmed QSY draft update before sending another radio command.".into());
+        }
         if state.activation_tune && !urgent_release(&request) {
             return Err("A spot tune is in progress; only urgent release controls are available.".into());
         }
@@ -658,6 +676,13 @@ struct ActivationTuneGuard<'a>(&'a Selection);
 impl Drop for ActivationTuneGuard<'_> {
     fn drop(&mut self) {
         if let Ok(mut state) = self.0.state.lock() { state.activation_tune = false; state.controls = state.controls.saturating_sub(1); }
+        (self.0.publish)();
+    }
+}
+pub struct QSYEpochFence(Arc<Selection>);
+impl Drop for QSYEpochFence {
+    fn drop(&mut self) {
+        if let Ok(mut state) = self.0.state.lock() { state.qsy_fence = false; }
         (self.0.publish)();
     }
 }
@@ -1522,6 +1547,24 @@ mod tests {
             power_context(&requests[2]),
             json!({"provider":"hamlib","selection_id":switched["selection_id"]})
         );
+    }
+    #[test]
+    fn qsy_epoch_fence_blocks_selection_and_nonurgent_commands_but_not_release_controls() {
+        let (_directory, owner, calls) = fixture();
+        initialized(&owner, Some("direct_agent"));
+        calls.lock().unwrap().clear();
+        let owner = Arc::new(owner);
+        let expected = owner.snapshot().unwrap();
+        let fence = owner.fence_qsy_epoch(&expected).unwrap();
+        assert!(owner.handover_checked(expected["generation"].as_u64().unwrap(),
+            expected["selection_id"].as_str().unwrap(), "hamlib").is_err());
+        assert!(owner.control(json!({"id":"operate","method":"station_action",
+            "params":{"provider":"direct_agent","action":"operate"}})).is_err());
+        assert!(owner.control(json!({"id":"cancel","method":"station_action",
+            "params":{"provider":"direct_agent","action":"cancel"}})).is_ok());
+        drop(fence);
+        assert!(owner.control(json!({"id":"standby","method":"station_action",
+            "params":{"provider":"direct_agent","action":"standby"}})).is_ok());
     }
     #[test]
     fn reconnect_invalidates_before_transport_then_restores_stable_choice() {

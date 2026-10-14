@@ -31,6 +31,22 @@ describe("grouped service settings", () => {
     expect((screen.getByRole("checkbox", { name: "Automatic measured power" }) as HTMLInputElement).disabled).toBe(true);
     expect(screen.getByText("Automatic capture is unavailable in this version.")).toBeTruthy();
   });
+  it("defaults Clear after QSY OFF and persists only the explicit opt-in", async () => {
+    const request = vi.fn(), saved = vi.fn(async () => {});
+    const profile = { ...values, clearAfterQSY: false };
+    render(<SettingsHarness values={profile} request={request} onSave={saved} />);
+    const toggle = screen.getByRole("checkbox", { name: "Clear unlogged QSO after QSY" }) as HTMLInputElement;
+    expect(toggle.checked).toBe(false); expect(toggle.disabled).toBe(false);
+    fireEvent.click(toggle);
+    fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
+    await waitFor(() => expect(saved).toHaveBeenCalledWith({ ...profile, clearAfterQSY: true }));
+    expect(request).not.toHaveBeenCalled();
+  });
+  it("keeps Clear after QSY unavailable when an older worker omits it", () => {
+    render(<SettingsHarness values={values} request={vi.fn()} />);
+    expect((screen.getByRole("checkbox", { name: "Clear unlogged QSO after QSY" }) as HTMLInputElement).disabled).toBe(true);
+    expect(screen.getByText("Clear after QSY is unavailable in this version.")).toBeTruthy();
+  });
   it("applies standalone mode only on Save, retaining Wavelog setup without starting sync", async () => {
     const request = vi.fn(), save = vi.fn(async () => {});
     render(<SettingsHarness values={{ ...values, logbookMode: "wavelog" }} request={request} onSave={save} />);

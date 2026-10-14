@@ -113,6 +113,11 @@ export default function ServiceSettings({ values, savedValues, request, onChange
         <p id="automatic-power-help">{typeof (savedValues ?? form).automaticTransmitPower !== "boolean" ? "Automatic capture is unavailable in this version." : "Capture KPA500 measured output via the remote station. Default power is the fallback; a TX power edit sets a manual override."}</p>
       </div> : field(key, label))}</div></section>
       <div hidden={tab !== "Station"}><EquipmentSettings value={form.stationEquipment} onChange={stationEquipment => update({ stationEquipment })} /></div>
+      <section hidden={tab !== "Station"}><h2>Draft behavior</h2>
+        <label className="service-enable"><input type="checkbox" aria-describedby="clear-after-qsy-help" checked={form.clearAfterQSY === true} disabled={typeof (savedValues ?? form).clearAfterQSY !== "boolean"}
+          onChange={event => update({ clearAfterQSY: event.target.checked })} />Clear unlogged QSO after QSY</label>
+        <p id="clear-after-qsy-help">{typeof (savedValues ?? form).clearAfterQSY !== "boolean" ? "Clear after QSY is unavailable in this version." : "After a confirmed receive-frequency change, start a fresh draft at the observed receive frequency. Active edits, selections, commands and stale or reconnected radio observations veto the clear."}</p>
+      </section>
       <section hidden={tab !== "Station"}><h2>Logbook mode</h2><label>Use xLog as<select aria-label="Logbook mode" value={form.logbookMode ?? "wavelog"} onChange={event => update({ logbookMode: event.target.value })}>
         <option value="local">Standalone local logbook</option><option value="wavelog">Local logbook + Wavelog sync</option>
       </select></label><p>{form.logbookMode === "local" ? "Contacts stay in this app. Wavelog synchronization and catalog checks are disabled; logging, awards, QRZ, cluster, radio and rotator remain available." : "Contacts are saved locally. Wavelog synchronization follows your Sync settings."} Save settings to apply. Switching modes keeps contacts, pending changes and saved credentials.</p></section>

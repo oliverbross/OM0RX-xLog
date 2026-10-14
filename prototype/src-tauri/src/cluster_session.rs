@@ -2,7 +2,7 @@
 //! cannot create a second cluster poller or become the command transport.
 use serde_json::{json, Value};
 use std::sync::{
-    atomic::{AtomicBool, AtomicU64, Ordering},
+    atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
     Arc, Condvar, Mutex, OnceLock,
 };
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -49,6 +49,7 @@ pub fn validate(label: &str, request: &Value) -> Result<(), String> {
 
 struct Projection {
     revision: u64,
+    selection_revision: u64,
     response: Option<Value>,
     selected: Option<String>,
     available: bool,
@@ -64,7 +65,13 @@ pub struct ClusterSession {
     started: AtomicBool,
     stopped: AtomicBool,
     sequence: AtomicU64,
+    selection_holds: AtomicUsize,
     wake: (Mutex<()>, Condvar),
+}
+
+pub struct SelectionFence(Arc<ClusterSession>);
+impl Drop for SelectionFence {
+    fn drop(&mut self) { self.0.selection_holds.fetch_sub(1, Ordering::AcqRel); }
 }
 
 impl ClusterSession {
@@ -75,6 +82,7 @@ impl ClusterSession {
             command: Mutex::new(()),
             projection: Mutex::new(Projection {
                 revision: 0,
+                selection_revision: 0,
                 response: None,
                 selected: None,
                 available: false,
@@ -84,6 +92,7 @@ impl ClusterSession {
             started: AtomicBool::new(false),
             stopped: AtomicBool::new(false),
             sequence: AtomicU64::new(0),
+            selection_holds: AtomicUsize::new(0),
             wake: (Mutex::new(()), Condvar::new()),
         }
     }
@@ -107,8 +116,15 @@ impl ClusterSession {
             .lock()
             .map_err(|_| "Cluster projection unavailable")?;
         Ok(
-            json!({"revision":state.revision,"response":state.response,"selected":state.selected,"available":state.available,"received_at_ms":state.received_at_ms}),
+            json!({"revision":state.revision,"selection_revision":state.selection_revision,"response":state.response,"selected":state.selected,"available":state.available,"received_at_ms":state.received_at_ms}),
         )
+    }
+
+    pub fn fence_selection(self: &Arc<Self>, expected_revision: u64) -> Result<SelectionFence, String> {
+        let state = self.projection.lock().map_err(|_| "Cluster projection unavailable")?;
+        if state.selection_revision != expected_revision { return Err("Cluster selection changed before QSY clear.".into()); }
+        self.selection_holds.fetch_add(1, Ordering::AcqRel);
+        Ok(SelectionFence(self.clone()))
     }
 
     fn accept(&self, response: &Value, generation: u64) -> Result<(), String> {
@@ -141,6 +157,7 @@ impl ClusterSession {
                     .any(|spot| spot["id"].as_str() == Some(id))
             }) {
                 state.selected = None;
+                state.selection_revision += 1;
             }
         }
         self.emit();
@@ -262,6 +279,9 @@ impl ClusterSession {
             .projection
             .lock()
             .map_err(|_| "Cluster projection unavailable")?;
+        if self.selection_holds.load(Ordering::Acquire) != 0 {
+            return Err("Wait for the confirmed QSY draft update before selecting another spot.".into());
+        }
         if let Some(id) = &selected {
             if id.is_empty()
                 || id.len() > 128
@@ -277,6 +297,7 @@ impl ClusterSession {
         }
         if state.selected != selected {
             state.selected = selected;
+            state.selection_revision += 1;
             state.revision += 1;
         }
         drop(state);
@@ -523,6 +544,18 @@ mod tests {
         owner.select(None).unwrap();
         for _ in 0..20 { assert_eq!(owner.projection_value().unwrap()["received_at_ms"], observed_at); }
         assert_eq!(calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn qsy_transaction_fence_vetoes_a_new_cluster_selection_until_release() {
+        let owner = Arc::new(ClusterSession::new(
+            Arc::new(|request| Ok(reply(&request, ""))), Arc::new(|_| {})));
+        owner.refresh().unwrap();
+        let revision = owner.projection_value().unwrap()["selection_revision"].as_u64().unwrap();
+        let fence = owner.fence_selection(revision).unwrap();
+        assert!(owner.select(Some("spot-a".into())).is_err());
+        drop(fence);
+        owner.select(Some("spot-a".into())).unwrap();
     }
 
     #[test]

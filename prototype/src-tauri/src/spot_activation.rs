@@ -39,9 +39,9 @@ pub trait Backend: Send + Sync {
 struct Operation { request: Request, outcome: Value, generation: Option<String>, running: bool }
 #[derive(Default)]
 struct State { active: Option<String>, latest: Option<String>, operations: BTreeMap<String, Operation> }
-pub struct Coordinator { state: Mutex<State>, pub editors: EditorBarrier, backend: Arc<dyn Backend> }
+pub struct Coordinator { state: Mutex<State>, pub editors: Arc<EditorBarrier>, backend: Arc<dyn Backend> }
 impl Coordinator {
-    pub fn new(backend: Arc<dyn Backend>) -> Self { Self { state:Mutex::new(State::default()), editors:EditorBarrier::default(), backend } }
+    pub fn new(backend: Arc<dyn Backend>) -> Self { Self { state:Mutex::new(State::default()), editors:Arc::new(EditorBarrier::default()), backend } }
     pub fn snapshot(&self) -> Result<Value, String> {
         let state = self.state.lock().map_err(|_| "Spot activation unavailable")?;
         let mut result = state.active.as_ref().or(state.latest.as_ref()).and_then(|id| state.operations.get(id)).map(|operation| operation.outcome.clone())

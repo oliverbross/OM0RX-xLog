@@ -17,6 +17,7 @@ mod spot_identity;
 mod spot_editor_barrier;
 mod spot_activation;
 mod spot_activation_backend;
+mod qsy_clear;
 mod opportunity_selection;
 mod auto_rotor;
 mod auto_rotor_reconcile;
@@ -40,9 +41,17 @@ static MAIN_CREATION: Mutex<()> = Mutex::new(());
 static APP_EXITING: AtomicBool = AtomicBool::new(false);
 const OPERATOR_DRAFT_CHANGED: &str = "xlog:operator-draft-changed";
 static SPOT_ACTIVATION: OnceLock<Arc<spot_activation::Coordinator>> = OnceLock::new();
-fn activation_owner(app: &tauri::AppHandle) -> Arc<spot_activation::Coordinator> {
+pub(crate) fn activation_owner(app: &tauri::AppHandle) -> Arc<spot_activation::Coordinator> {
     SPOT_ACTIVATION.get_or_init(|| Arc::new(spot_activation::Coordinator::new(
         Arc::new(spot_activation_backend::NativeBackend::new(app.clone()))))).clone()
+}
+fn combined_activation_snapshot(app: &tauri::AppHandle) -> Result<serde_json::Value, String> {
+    let spot = activation_owner(app).snapshot()?;
+    let spot_active = spot["reservationActive"] == true
+        || matches!(spot["phase"].as_str(), Some("preparing" | "draft_applied" | "tuning"));
+    if spot_active { return Ok(spot); }
+    if let Some(qsy) = qsy_clear::snapshot().filter(|value| value["operationId"].is_string()) { return Ok(qsy); }
+    Ok(spot)
 }
 fn validate_activation_reader(label: &str) -> Result<(), String> {
     if label == "chaser-dx" || spot_editor_barrier::editor_role(label) || spot_editor_barrier::activation_role(label) { Ok(()) }
@@ -63,6 +72,9 @@ fn validate_editor_transition(label: &str) -> Result<(), String> {
                 return Err("Wait for the spot activation outcome before closing or docking this editor.".into());
             }
         }
+        if qsy_clear::reservation_active() {
+            return Err("Wait for the QSY draft-clear outcome before closing or docking this editor.".into());
+        }
     }
     Ok(())
 }
@@ -75,7 +87,7 @@ fn retires_automatic_rotor(request: &serde_json::Value) -> bool {
 fn spot_editor_register(window: tauri::WebviewWindow, app: tauri::AppHandle, instance: String) -> Result<serde_json::Value, String> {
     let owner = activation_owner(&app);
     owner.editors.register(window.label(), &instance)?;
-    owner.snapshot()
+    combined_activation_snapshot(&app)
 }
 #[tauri::command]
 fn spot_editor_unregister(window: tauri::WebviewWindow, app: tauri::AppHandle, instance: String) -> Result<(), String> {
@@ -90,15 +102,17 @@ fn spot_editor_ack(window: tauri::WebviewWindow, app: tauri::AppHandle, instance
 }
 #[tauri::command]
 fn spot_activation_snapshot(window: tauri::WebviewWindow, app: tauri::AppHandle) -> Result<serde_json::Value, String> {
-    validate_activation_reader(window.label())?; activation_owner(&app).snapshot()
+    validate_activation_reader(window.label())?; combined_activation_snapshot(&app)
 }
 #[tauri::command]
 fn spot_activation_status(window: tauri::WebviewWindow, app: tauri::AppHandle, operation_id: String) -> Result<serde_json::Value, String> {
-    validate_activation_reader(window.label())?; activation_owner(&app).status(&operation_id)
+    validate_activation_reader(window.label())?;
+    if qsy_clear::owns(&operation_id) { Ok(qsy_clear::snapshot().unwrap()) } else { activation_owner(&app).status(&operation_id) }
 }
 #[tauri::command]
 async fn spot_activation_reconcile(window: tauri::WebviewWindow, app: tauri::AppHandle, operation_id: String) -> Result<serde_json::Value, String> {
     validate_activation_reader(window.label())?;
+    if qsy_clear::owns(&operation_id) { return Ok(qsy_clear::snapshot().unwrap()); }
     let owner = activation_owner(&app);
     tauri::async_runtime::spawn_blocking(move || owner.reconcile(&operation_id)).await.map_err(|_| "Activation reconciliation task failed".to_string())?
 }
@@ -111,6 +125,7 @@ async fn spot_editor_state(window: tauri::WebviewWindow) -> Result<serde_json::V
 async fn activate_spot(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>,
     operation_id: String, source_epoch: String, spot_id: String, spot_version: String) -> Result<serde_json::Value, String> {
     validate_spot_effect(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
+    qsy_clear::retire_terminal();
     let owner = activation_owner(&app);
     let request = spot_activation::Request { operation_id, source_epoch, spot_id, spot_version };
     tauri::async_runtime::spawn_blocking(move || owner.activate(request)).await.map_err(|_| "Spot activation task failed; inspect its existing operation status before retrying".to_string())?
@@ -122,6 +137,7 @@ async fn activate_opportunity(window: tauri::WebviewWindow, app: tauri::AppHandl
     if !opportunity_selection::owns(&source_epoch) {
         return Err("Opportunity draft selection is unavailable in this window or source.".into());
     }
+    qsy_clear::retire_terminal();
     let owner = activation_owner(&app);
     let request = spot_activation::Request { operation_id, source_epoch, spot_id, spot_version };
     tauri::async_runtime::spawn_blocking(move || owner.activate(request)).await
@@ -995,6 +1011,9 @@ fn main() {
                     _ => {}
                 }
             }
+            if matches!(event, tauri::WindowEvent::CloseRequested { .. }) && qsy_clear::reservation_active() {
+                if let tauri::WindowEvent::CloseRequested { api, .. } = event { api.prevent_close(); }
+            }
         })
         .on_menu_event(|app, event| {
             if let Some(screen) = workspace_navigation::menu_screen(&event.id().0) {
@@ -1037,6 +1056,8 @@ fn main() {
         .setup(|app| {
             acceptance::start_watchdog(app.handle().clone());
             if app.state::<acceptance::Acceptance>().path.is_none() {
+                let activation = activation_owner(app.handle());
+                qsy_clear::install(app.handle(), activation.editors.clone());
                 station_identity::install(app.handle());
                 let selection_app = app.handle().clone();
                 tauri::async_runtime::spawn_blocking(move || {
