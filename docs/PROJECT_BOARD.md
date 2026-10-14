@@ -1,8 +1,8 @@
 # OM0RX-xLog live project board
 
-Last updated: 15 October 2026, after installing signed/notarized alpha.28 from
-exact source `ab60d7dc347d84ef8b28e02bbc00bd3c94efe0fb`. The renamed
-`/Applications/OM0RX-xLog.app` passes **32/32** isolated native checks from both
+Last updated: 15 October 2026, after installing signed/notarized alpha.29 from
+exact source `db7ed4734826ea90cfd69b345c4d6174778894e5`.
+`/Applications/OM0RX-xLog.app` passes **33/33** isolated native checks from both
 the source bundle and installed copy with `station_io: false`; Apple notarization,
 Stapler and Gatekeeper pass. The operator intentionally left the Windows Remote
 Station Agent off, so live reconnect, KPA/KAT/radio/rotor and RF acceptance were
@@ -29,20 +29,21 @@ hardware pass.
 
 ## Current installed baseline
 
-**0.4.0-alpha.28**, exact packaged source
-`ab60d7dc347d84ef8b28e02bbc00bd3c94efe0fb`, is installed as
+**0.4.0-alpha.29**, exact packaged source
+`db7ed4734826ea90cfd69b345c4d6174778894e5`, is installed as
 `/Applications/OM0RX-xLog.app`. Both exact-source and installed acceptance reports
-pass **32/32** station-I/O-disabled native checks. Apple accepted submission
-`8957933a-7be0-44e6-81f3-c1ee5c2f7d06`; deep Developer ID verification,
-Stapler and Gatekeeper pass. Immediate pre-install/post-launch readback remains
+pass **33/33** station-I/O-disabled native checks. Apple accepted submission
+`32bab250-0cbf-4100-a8fd-602587414954`; deep Developer ID verification,
+Stapler and Gatekeeper pass. Immediate pre-install/post-acceptance readback remains
 **68,024 active contacts**, zero dirty, outbox or conflict rows, QSO revision
 **68,239** and SQLite quick-check `ok`. One installed host/worker pair started and
-closed cleanly. The prior 0.3.0 and alpha.27 apps are recoverable from Trash and
-the rechecked 1.7 GB backup. See
-[alpha.28 evidence](releases/v0.4.0-alpha.28-macos.md).
+closed cleanly. Alpha.28, the prior 0.3.0 and alpha.27 apps are recoverable from
+Trash and the rechecked 1.7 GB backup remains intact. See
+[alpha.29 evidence](releases/v0.4.0-alpha.29-macos.md).
 
-The installed alpha.28 source adds full-control defaults across Remote Agent,
-Hamlib, Direct FLEX and local CAT-client connection surfaces (`e04acef`), while
+The installed alpha.29 source retains alpha.28's full-control defaults across
+Remote Agent, Hamlib, Direct FLEX and local CAT-client connection surfaces
+(`e04acef`), while
 retaining an explicit receive-only choice and all real hardware/interlock gates.
 It also adds four ADX decimal families (`9b3a203`) and keeps native geometry
 tracking alive when an unsaved-edit or reservation guard cancels a close
@@ -65,7 +66,11 @@ Window menu can open 13 independently keyed Band Maps with per-band CW, Phone
   desktop/in-app brand assets while retaining the existing bundle identifier for
   data and Keychain continuity. `d9b46da` adds opt-in, receive-only WSJT-X Logged
   ADIF intake with local semantic duplicate suppression. These changes are
-  source-verified and included in the installed alpha.28 bundle.
+  source-verified and included in the installed alpha.29 bundle. Alpha.29 also
+  completes reviewed ADX record-field validation and closes all twelve actionable
+  findings from the final UI/runtime, station-safety and data/sync review at
+  `db7ed47`, including connection-generation fencing, shutdown release ordering,
+  Wavelog destination protection and conflict-safe bounded synchronization.
 
 ## Active stage: independent control surfaces
 
@@ -108,7 +113,7 @@ could overwrite another writer. The next bounded stage is safe exact child radio
 | Backup restore semantics | **Source verified** | Restore rotates generation, honors `restore_settings`, preserves current settings when excluded and retires old receipts. |
 | Parent-owned raw Settings form | **Source verified** | The journaled session preserves raw invalid text, concurrent changes, lost acknowledgement and same-ID retry; nine focused tests pass. Secret-like keys are rejected recursively. |
 | Settings UI recovery | **Source verified** | Check receipt, retry same save and adopt saved values are exposed. Commit `5a34062` also accepts native uppercase UUID spelling while keeping revisions, payloads and unexpected keys exact; **20 focused tests** plus TypeScript pass. |
-| Full validation and review | **Source verified** | Frontend **1,049/1,049 across 128 files**, Rust **321/321**, normal Swift **82/82**, full portable Swift, production build and bundle gates pass; `git diff --check` is clean. |
+| Full validation and review | **Packaged / installed** | Frontend **2,387/2,387 across 159 files**, Rust **432 unit + 18 integration**, native Swift **173/173 across 25 suites**, and full portable Swift (XStation **17**, XLogPrototype XCTest **200** with four intentional benchmark skips, XCluster **56**, Swift Testing **376/376 across 51 suites**) pass. Production build, bundle gates, source and installed **33/33** native acceptance, Developer ID, notarization, Stapler, Gatekeeper and `git diff --check` pass at `db7ed47`. |
 | Independent native Settings child | **Installed / visual acceptance open** | Commit `0ea919a`; tenth singleton native role, open/focus/Dock lifecycle, scoped non-hardware authority, main-absent renderer and dirty/remount/conflict recovery pass. Its Rotator tab consumes the shared passive configuration source. Included in alpha.23; exhaustive child-window visual/recovery acceptance remains open. |
 | Shared revisioned rotor configuration | **Done / installed for saved DCU-1 reconnect / motion acceptance open** | Commit `46c5f1e` provides SQLite-owned generation/revision state, durable receipts, restore fencing and Settings Rotator UI. Commit `73c2bc1` adds a native, once-only saved DCU-1 startup connection with durable pending/acknowledged/unknown lifecycle receipts, exact workspace/config/owner fences and explicit-disconnect suppression. Its only mapped backend request is `station_rotor_connect`; no Turn, Stop or motion request exists in startup. Alpha.27 automatically resumed saved ARCO after relaunch and displayed observed 173 degrees, Connected and Stopped without a motion request. **67 native** and **25 rotor frontend** tests plus TypeScript pass. Physical-motion acceptance remains open; Hamlib rotor startup remains explicit. |
 | Independent Chaser & DX selection | **Source recovery fix ready / installed acceptance open** | Passive child `42f7b6c`; protected draft selection `617fd0e`. Commit `cad8913` closes the alpha.27 stale-receipt regression: terminal uncertain operations with no active native reservation permit a fresh selection immediately, while explicit Check/retire recovery survives remount and cannot replay the old Tune or rotor effect. **50 focused frontend** and **29 native activation/authority** tests plus TypeScript pass. The child still cannot issue station, rotor or CW effects; active CW requires explicit Stop. Installed live-service selection acceptance remains open. |
@@ -117,7 +122,7 @@ could overwrite another writer. The next bounded stage is safe exact child radio
 | Clear after QSY (RADIO-05) | **Installed / default off / live acceptance open** | Commit `1d0b520` clears only after two distinct fresh observed-RX samples agree on the changed receive frequency; arbitrary split TX is ignored rather than inferred. Reconnect, stale data, first samples, radio/cluster selection changes, command epochs, active edits and worker/workspace generation changes veto the transaction. The native-only mutation uses an editor barrier and durable idempotent receipt; urgent release controls remain available. Legacy settings decode OFF. **3 Swift**, **16 Settings UI**, **4 QSY**, **12 cluster**, **18 activation**, **42 station-selection** and **1 native-boundary** focused tests pass. Raw Hamlib remains conservatively ineligible; `direct_agent` and `direct_flex_lan` are supported. |
 | Compact desk-split Logbook | **Installed / visually observed** | Commit `6ef5748` uses the existing explicit Desk presentation context rather than a viewport guess. Alpha.25 visibly shows only Columns, the contact table and pagination in the Desk split; search/import/export/edit/delete/selection controls remain in dedicated, canvas-docked and detached Logbook views. Row Enter/double-click editing and column focus recovery remain available. **39 focused tests** plus TypeScript, diff and packaged acceptance checks pass. |
 | Retained map resizing in split layouts | **Source regression fix ready / installed acceptance open** | User evidence exposed competing MapLibre/application resize observers, a hidden 400×300 fallback and repeated wrapped-world camera fitting. Commit `29b5077` makes the application the single resize owner, repaints after the final positive geometry frame and never refits the camera for a pure pane-size change. **36 focused Map/Desk tests** plus TypeScript pass. Installed divider and above/below visual acceptance remains open. |
-| Detached task surfaces and multi-Band Maps | **Installed / packaged acceptance passed / operator visual follow-up open** | Commits `5db24db`, `3fcc4e0`, `a8f9192`, `0a96ede` and `cfa7638` remove unrelated global banners/header strips from all nineteen direct-menu task roles while preserving functional recovery and safety evidence. Detached Logbook has the requested compact one-line controls. Spot History persists column visibility and width controls (`1c37043`). The Window menu opens 13 independently keyed Band Maps with compact CW/Phone/Data settings (`401e86d`). Exact-source and installed 32-check acceptance prove retained renderer/window lifecycles, Band Map state and Spot History main-destruction recovery; browser QA covered 14 task surfaces at 360×640 without horizontal overflow. Operator multi-display review remains open. |
+| Detached task surfaces and multi-Band Maps | **Installed / packaged acceptance passed / operator visual follow-up open** | Commits `5db24db`, `3fcc4e0`, `a8f9192`, `0a96ede` and `cfa7638` remove unrelated global banners/header strips from all nineteen direct-menu task roles while preserving functional recovery and safety evidence. Detached Logbook has the requested compact one-line controls. Spot History persists column visibility and width controls (`1c37043`). The Window menu opens 13 independently keyed Band Maps with compact CW/Phone/Data settings (`401e86d`). Exact-source and installed alpha.29 33-check acceptance prove retained renderer/window lifecycles, Band Map state and Spot History main-destruction recovery; browser QA covered 14 task surfaces at 360×640 without horizontal overflow. Operator multi-display review remains open. |
 | Propagation freshness | **Installed / real-network acceptance open** | Commit `6787270` removes the worker-side click throttle, coalesces concurrent fetches, adds a native ten-minute cache TTL and probes freshness every 60 seconds plus mount/focus. Explicit Refresh always attempts a new fetch; a lost reply recovers retained evidence without replaying a network request. Frontend **4/4**, native **5/5** and Swift service **6/6** focused checks pass. The isolated package cannot contact N0NBH/HamQSL, so real-network freshness remains an operator acceptance item. |
 | WSJT-X Logged ADIF intake | **Installed / live WSJT-X acceptance open** | Commit `d9b46da` adds explicit receive-only loopback/multicast UDP intake for official message type 12. One accepted WSJT-X Log QSO action writes locally through the existing ADIF and semantic duplicate boundary; no packet, CAT, PTT, Tune, CW or radio command can be emitted. Native **5/5**, Settings/UI **24/24**, Rust authority **44/44** and TypeScript checks pass. |
 | Optional QRZ / Club Log / HRDLOG delivery | **Researched / queued** | Official contracts show these are independent upload services, not replacements for Wavelog's two-way reconciliation. QRZ needs a per-logbook API key; Club Log needs a product API key and user Application Password and requires immediate disablement after HTTP 403; HRDLOG uses a dedicated upload code. Implement only with Keychain secrets, per-service durable receipts, bounded retry, truthful upload-only wording and fixture plus live-account acceptance. No credential or live request was used during the RUMlog audit. |

@@ -7,6 +7,20 @@ packaged UI result. Keep unresolved items here across releases.
 
 ## Current delivery boundary
 
+- **Alpha.29 installed after final review, 15 October:** Exact source
+  `db7ed4734826ea90cfd69b345c4d6174778894e5` is signed, Apple-notarized and
+  installed as `/Applications/OM0RX-xLog.app`. Three independent review passes
+  found twelve actionable UI/runtime, station-safety and data/sync defects; all
+  were fixed with regression coverage. Frontend **2,387/2,387**, Rust **432 unit
+  + 18 integration**, native Swift **173/173**, full portable Swift, production
+  build and bundle checks pass. The source and installed packages each pass
+  **33/33** isolated native checks with `station_io: false`, including the new
+  packaged ADX semantic round trip. Logbook readback remained **68,024** active,
+  zero dirty/outbox/conflict rows, revision **68,239**, quick-check `ok`. The
+  Remote Agent was intentionally off: no radio, amplifier, tuner, rotor, PTT,
+  Tune or CW command was issued. Live hardware, propagation/WSJT-X and operator
+  visual acceptance remain open; Windows/Linux packaging remains deferred.
+
 - **Journaled exact Direct FLEX receive frequency — source verified, 14 October:** Exact source `568ffb0` is committed. Independent Station Control can set Direct FLEX VFO A receive frequency only when retained evidence is under five seconds old, explicitly RX/PTT-off on VFO A, advertises the capability and matches exact setup, selection, selection-control and connection generations. Admission is durable before dispatch; unknown replies never replay and the same observed sample cannot issue twice. **53 frontend**, **4 receive-native**, **77 station-owner** and **9 monitor-context** focused checks plus TypeScript/diff checks pass. Agent/Hamlib receive controls stay hidden; FLEX mode stays hidden because the backend targets mutable `selectedSliceID` rather than an atomic explicit VFO. No hardware, RF, service or operator-data action occurred.
 
 - **Explicit lossless ISO-8859-1 ADI import — source verified, 14 October:** Exact source `efcc329` is committed. Latin-1 is a third explicit import choice beside UTF-8 and strict Windows-1252. Each source byte maps to the identical Unicode point, source lengths are rewritten to canonical UTF-8, all C1 values survive native preview/import/export/reviewed update and UTF-8 ADX roundtrip, and NUL rejects. ADX input remains UTF-8-only. **64 utility**, **23 component** and focused native transfer tests plus TypeScript/diff checks pass. No guessing, operator-data change or service action occurred.
