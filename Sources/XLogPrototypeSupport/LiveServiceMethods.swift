@@ -334,6 +334,14 @@ actor LiveServiceMethods {
         guard NSDictionary(dictionary: current).isEqual(to: owner) else {
             throw WorkerFailure("sync_changed", "Sync state changed. Refresh and review before another action.")
         }
+        if receipts.count >= 1024 {
+            var removalsRemaining = receipts.count - 511
+            receipts.removeAll { receipt in
+                guard removalsRemaining > 0, receipt["status"] as? String == "acknowledged" else { return false }
+                removalsRemaining -= 1
+                return true
+            }
+        }
         guard receipts.count < 1024 else { throw WorkerFailure("sync_journal_full", "Sync operation history is full; no operation was dispatched.") }
         var receipt: [String: Any] = ["operation_id": id, "request": descriptor, "status": "pending"]
         receipts.append(receipt)

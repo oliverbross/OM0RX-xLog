@@ -1,5 +1,10 @@
 import Foundation
 import Testing
+#if canImport(XLogCore)
+import XLogCore
+#else
+import XLogPortableCore
+#endif
 @testable import XLogPrototypeSupport
 
 @Suite("Revision-safe Integration Settings")
@@ -125,5 +130,28 @@ struct SettingsSessionSafetyTests {
         let restored = try load(service)
         #expect(restored.generation != retained.generation)
         #expect(restored.settings["stationCall"] as? String == "VK8BACKUP")
+    }
+
+    @Test("A linked logbook cannot silently retarget its Wavelog identities")
+    func linkedDestinationChangeIsBlocked() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let service = LiveLogbookMethods(supportDirectory: root)
+        _ = try service.handle(method: "workspace_create", params: ["mode": "empty"])
+        let database = try service.openedDatabase()
+        try database.save(QSO(wavelogID: 42, call: "OM0RX", band: "20m", mode: "CW"), markDirty: false)
+        let base = try load(service)
+        var changed = base.settings
+        changed["wavelogURL"] = "https://different.invalid"
+        changed["wavelogStationID"] = 99
+        do {
+            _ = try save(service, operationID: UUID(), expectedRevision: base.revision,
+                         generation: base.generation, settings: changed)
+            Issue.record("A linked logbook changed Wavelog destination without migration")
+        } catch let failure as WorkerFailure {
+            #expect(failure.code == "sync_destination_change_blocked")
+        }
+        #expect(try load(service).settings["wavelogURL"] as? String == base.settings["wavelogURL"] as? String)
+        #expect(try database.linkedRemoteCount() == 1)
     }
 }

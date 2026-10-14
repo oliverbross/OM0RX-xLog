@@ -1395,6 +1395,10 @@ public final class LogbookDatabase: @unchecked Sendable {
         try scalarCount("SELECT COUNT(*) FROM sync_outbox;")
     }
 
+    public func linkedRemoteCount() throws -> Int {
+        try scalarCount("SELECT COUNT(*) FROM qsos WHERE wavelog_id IS NOT NULL;")
+    }
+
     private func scalarCount(_ sql: String) throws -> Int {
         try withDatabaseLock {
             try withStatement(sql) { statement in
@@ -2207,7 +2211,9 @@ public final class LogbookDatabase: @unchecked Sendable {
                 SELECT q.rowid,q.is_dirty,CASE WHEN q.is_dirty=1 THEN q.record_json ELSE NULL END,o.next_attempt_at
                 FROM qsos q
                 LEFT JOIN sync_outbox o ON o.local_id=q.local_id
-                WHERE q.rowid > ? AND q.rowid <= ? ORDER BY q.rowid LIMIT 128;
+                WHERE q.rowid > ? AND q.rowid <= ?
+                  AND NOT EXISTS (SELECT 1 FROM sync_conflicts c WHERE c.local_id = q.local_id)
+                ORDER BY q.rowid LIMIT 128;
                 """) { statement in
                 sqlite3_bind_int64(statement, 1, cursor)
                 sqlite3_bind_int64(statement, 2, through)
@@ -2251,30 +2257,60 @@ public final class LogbookDatabase: @unchecked Sendable {
 
     public func resolveConflict(_ conflict: SyncConflict, useRemote: Bool) throws {
         try withDatabaseLock {
-            if useRemote {
+            try execute("BEGIN IMMEDIATE;")
+            do {
                 var remote = conflict.remoteQSO
                 remote.id = conflict.localQSO.id
-                try save(remote, markDirty: false)
-            } else {
-                try save(conflict.localQSO, markDirty: true)
-            }
-            try withStatement("DELETE FROM sync_conflicts WHERE conflict_id = ?;") { statement in
-                bind(conflict.id.uuidString, to: 1, in: statement)
-                try stepDone(statement)
+                if useRemote {
+                    try save(remote, markDirty: false)
+                } else {
+                    try save(conflict.localQSO, markDirty: true)
+                    try updateSyncBaseline(remote, localID: conflict.localQSO.id)
+                }
+                try deleteConflict(conflict.id)
+                try execute("COMMIT;")
+            } catch {
+                try? execute("ROLLBACK;")
+                throw error
             }
         }
     }
 
     public func resolveConflict(_ conflict: SyncConflict, merged: QSO) throws {
         try withDatabaseLock {
-            var value = merged
-            value.id = conflict.localQSO.id
-            value.wavelogID = conflict.remoteQSO.wavelogID ?? conflict.localQSO.wavelogID
-            try save(value, markDirty: true)
-            try withStatement("DELETE FROM sync_conflicts WHERE conflict_id = ?;") { statement in
-                bind(conflict.id.uuidString, to: 1, in: statement)
-                try stepDone(statement)
+            try execute("BEGIN IMMEDIATE;")
+            do {
+                var value = merged
+                value.id = conflict.localQSO.id
+                value.wavelogID = conflict.remoteQSO.wavelogID ?? conflict.localQSO.wavelogID
+                try save(value, markDirty: true)
+                var remote = conflict.remoteQSO
+                remote.id = conflict.localQSO.id
+                try updateSyncBaseline(remote, localID: conflict.localQSO.id)
+                try deleteConflict(conflict.id)
+                try execute("COMMIT;")
+            } catch {
+                try? execute("ROLLBACK;")
+                throw error
             }
+        }
+    }
+
+    private func updateSyncBaseline(_ remote: QSO, localID: UUID) throws {
+        let fingerprint = try syncFingerprint(remote)
+        try withStatement("UPDATE qsos SET baseline_json = ? WHERE local_id = ?;") { statement in
+            _ = fingerprint.withUnsafeBytes { bytes in
+                sqlite3_bind_blob(statement, 1, bytes.baseAddress, Int32(bytes.count), Self.transient)
+            }
+            bind(localID.uuidString, to: 2, in: statement)
+            try stepDone(statement)
+        }
+    }
+
+    private func deleteConflict(_ id: UUID) throws {
+        try withStatement("DELETE FROM sync_conflicts WHERE conflict_id = ?;") { statement in
+            bind(id.uuidString, to: 1, in: statement)
+            try stepDone(statement)
         }
     }
 
@@ -2349,14 +2385,15 @@ public final class LogbookDatabase: @unchecked Sendable {
         try withStatement("""
             SELECT record_json FROM qsos
             WHERE call = ? COLLATE NOCASE AND ABS(qso_start - ?) < 1
-              AND band = ? COLLATE NOCASE AND mode = ? COLLATE NOCASE
+              AND band = ? COLLATE NOCASE
+              AND UPPER(COALESCE(NULLIF(TRIM(json_extract(record_json, '$.submode')), ''), mode)) = ? COLLATE NOCASE
               AND (? = 0 OR wavelog_id IS NULL)
             ORDER BY rowid ASC;
             """) { statement in
                 bind(qso.call, to: 1, in: statement)
                 sqlite3_bind_double(statement, 2, qso.start.timeIntervalSince1970)
                 bind(qso.band, to: 3, in: statement)
-                bind(qso.mode, to: 4, in: statement)
+                bind((qso.submode.isEmpty ? qso.mode : qso.submode).uppercased(), to: 4, in: statement)
                 sqlite3_bind_int(statement, 5, unlinkedOnly ? 1 : 0)
                 var step = sqlite3_step(statement)
                 while step == SQLITE_ROW {

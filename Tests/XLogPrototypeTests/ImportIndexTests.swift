@@ -26,7 +26,9 @@ struct ImportIndexTests {
         let query = """
             EXPLAIN QUERY PLAN SELECT record_json FROM qsos
             WHERE call = 'k1abc' COLLATE NOCASE AND ABS(qso_start - 1700000000) < 1
-              AND band = '20M' COLLATE NOCASE AND mode = 'cw' COLLATE NOCASE LIMIT 1;
+              AND band = '20M' COLLATE NOCASE
+              AND UPPER(COALESCE(NULLIF(TRIM(json_extract(record_json, '$.submode')), ''), mode)) = 'CW' COLLATE NOCASE
+              LIMIT 1;
             """
         #expect(sqlite3_prepare_v2(handle, query, -1, &statement, nil) == SQLITE_OK)
         defer { sqlite3_finalize(statement) }
@@ -46,5 +48,13 @@ struct ImportIndexTests {
         let separate = QSO(call: "K1ABC", start: start.addingTimeInterval(1), band: "20m", mode: "CW")
         #expect(try database.importBatch([separate]) == 1)
         #expect(try database.count() == 1)
+
+        let digitalStart = start.addingTimeInterval(10)
+        let ft8 = QSO(call: "K1DIG", start: digitalStart, band: "20m", mode: "MFSK", submode: "FT8")
+        try database.save(ft8)
+        let ft4 = QSO(call: "K1DIG", start: digitalStart, band: "20m", mode: "MFSK", submode: "FT4")
+        #expect(try database.importBatch([ft4]) == 1)
+        let equivalentFT8 = QSO(call: "K1DIG", start: digitalStart, band: "20m", mode: "FT8")
+        #expect(try database.importBatch([equivalentFT8]) == 0)
     }
 }

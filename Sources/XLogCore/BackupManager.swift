@@ -290,8 +290,17 @@ public final class XLogBackupManager: @unchecked Sendable {
         return fileManager.fileExists(atPath: url.path) ? url : nil
     }
 
+    /// Validate every reference-data byte before a restore replaces the live
+    /// database, preventing a legacy or damaged package from being half-restored.
+    public func preflightReferenceDataInstallation(from packageURL: URL) throws {
+        let preview = try inspect(at: packageURL)
+        guard preview.manifest.includesReferenceData else { return }
+        _ = try prepareEnvelope(at: packageURL)
+    }
+
     @discardableResult
     public func installReferenceData(from packageURL: URL, to liveURL: URL) throws -> URL? {
+        try preflightReferenceDataInstallation(from: packageURL)
         let envelope = try prepareEnvelope(at: packageURL)
         let files = try decoder.decode(BackupPackageSeal.Payload.self, from: envelope.data).files
         let manifest = try decoder.decode(XLogBackupManifest.self, from: files["manifest.json"]!)

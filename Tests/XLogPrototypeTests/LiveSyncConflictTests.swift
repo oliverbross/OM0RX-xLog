@@ -41,6 +41,14 @@ final class LiveSyncConflictTests: XCTestCase {
         XCTAssertTrue(merged.isDirty)
         XCTAssertTrue(try fixture.database.conflicts().isEmpty)
         XCTAssertEqual(try fixture.database.outboxEntries().map(\.id), [fixture.local.id])
+        var sameRemote = fixture.local
+        sameRemote.id = UUID()
+        sameRemote.isDirty = false
+        sameRemote.name = "Remote name"
+        sameRemote.comment = "remote note"
+        XCTAssertFalse(try fixture.database.mergeRemote(sameRemote))
+        XCTAssertTrue(try fixture.database.conflicts().isEmpty,
+                      "A reviewed remote baseline must not recreate the same conflict on the next sync")
     }
 
     func testInvalidFieldSelectionsNeverMutateOrResolveConflict() async throws {

@@ -142,6 +142,7 @@ import Testing
             defer { restored.close() }
             #expect(try restored.fetch().first?.call == "OM0RX")
             #expect(throws: Error.self) { try manager.prepareEnvelope(at: package) }
+            #expect(throws: Error.self) { try manager.preflightReferenceDataInstallation(from: package) }
             #expect(throws: Error.self) { try manager.installReferenceData(from: package, to: root.appendingPathComponent("live-refs")) }
         }
     }

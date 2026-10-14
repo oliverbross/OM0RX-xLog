@@ -197,6 +197,30 @@ final class BoundedSyncReconciliationTests: XCTestCase {
         }
     }
 
+    func testConflictedRowsCannotStarveLaterPendingUploads() async throws {
+        try await withDatabase { db in
+            for index in 0..<129 {
+                var local = QSO(wavelogID: index + 1, call: "K\(index)CON", band: "20m", mode: "CW")
+                try db.save(local, markDirty: false)
+                local.comment = "local"
+                try db.save(local)
+                var remote = local
+                remote.id = UUID()
+                remote.isDirty = false
+                remote.comment = "remote"
+                XCTAssertTrue(try db.mergeRemote(remote))
+            }
+            let upload = QSO(call: "K1READY", band: "20m", mode: "CW")
+            try db.save(upload)
+            let run = try db.beginSyncReconciliation()
+            defer { db.endSyncReconciliation(run) }
+            let upper = try db.syncUpperRowID(run: run)
+            let step = try db.pendingSyncStep(after: 0, through: upper, due: Date(), run: run)
+            XCTAssertEqual(step.rows.map(\.id), [upload.id])
+            XCTAssertTrue(step.done)
+        }
+    }
+
     func testWorkspaceLeaseBlocksRestoreAndStaleReleaseCannotEndNewRun() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("sync-lease-\(UUID().uuidString)")
         let service = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)

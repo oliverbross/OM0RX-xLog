@@ -146,4 +146,24 @@ final class SyncMutationOwnerTests: XCTestCase {
         do { _ = try await service.handle(method: "sync_status", params: [:]); XCTFail("Corruption silently reset") }
         catch let error as WorkerFailure { XCTAssertEqual(error.code, "sync_journal_invalid") }
     }
+
+    func testAcknowledgedJournalHistoryRollsOverWithoutBlockingNewMutations() async throws {
+        let (root, logbook, service) = try fixture(); defer { try? FileManager.default.removeItem(at: root) }
+        let status = try await service.handle(method: "sync_status", params: [:])
+        let owner = status["mutation_owner"] as! [String: Any]
+        let generation = owner["generation"] as! String
+        let receipts: [[String: Any]] = (0..<1024).map { index in
+            ["operation_id": UUID().uuidString, "request": ["historical": index], "status": "acknowledged"]
+        }
+        let journal: [String: Any] = ["generation": generation, "revision": 1024, "receipts": receipts]
+        try logbook.openedDatabase().saveSyncMutationJournal(
+            JSONSerialization.data(withJSONObject: journal, options: [.sortedKeys])
+        )
+        let request = try await intent(service)
+        let receipt = try await service.handle(method: "sync_mutation", params: request)
+        XCTAssertEqual(receipt["status"] as? String, "acknowledged")
+        let saved = try XCTUnwrap(logbook.openedDatabase().syncMutationJournal())
+        let savedJournal = try JSONSerialization.jsonObject(with: saved) as! [String: Any]
+        XCTAssertEqual((savedJournal["receipts"] as! [Any]).count, 512)
+    }
 }

@@ -260,7 +260,10 @@ function MainLiveApp() {
     }
     finally { if (allowed) layoutChanging.current = false; }
   };
-  const separateWindows = workspaceMode(deskLayout.state.snapshot) === "windows" && canChangeMode(true) && !deskLayout.state.pending && !deskLayout.state.saving;
+  // Presentation follows the committed workspace mode. Draft dirtiness gates an
+  // explicit mode change, but must never make a saved separate-window workspace
+  // flash the canvas back into view while background radio-follow autosaves.
+  const separateWindows = workspaceMode(deskLayout.state.snapshot) === "windows";
   useEffect(() => {
     const state = deskLayout.state;
     if (state.snapshot && !state.pending && !state.saving && !state.conflict && !state.workspaceChanged)

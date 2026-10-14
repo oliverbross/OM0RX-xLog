@@ -11,8 +11,13 @@ public actor CATCommandProcessor {
     }
 
     public func handle(_ rawCommand: String) async -> String? {
-        let command = rawCommand.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !command.isEmpty else { return nil }
+        let withoutNewlines = rawCommand.trimmingCharacters(in: .newlines)
+        // KY uses an all-space payload to clear CW. Preserve its trailing spaces;
+        // ordinary CAT commands continue to accept surrounding whitespace.
+        let command = withoutNewlines.uppercased().hasPrefix("KY")
+            ? withoutNewlines
+            : withoutNewlines.trimmingCharacters(in: .whitespaces)
+        guard !command.trimmingCharacters(in: .whitespaces).isEmpty else { return nil }
 
         let snapshot = await radio.snapshot()
         switch command.uppercased() {

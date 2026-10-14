@@ -112,6 +112,7 @@ public actor SimulatedRadio: RadioControlling {
 
     public func sendCW(_ text: String) { cwText = text }
     public func clearCW() { cwText = "" }
+    public func queuedCW() -> String { cwText }
     public func setTransmit(_ mode: CATTransmitMode) {
         value.isTransmitting = true
         onSnapshot(value)

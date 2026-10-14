@@ -6,6 +6,19 @@ import XCatIntegrationCore
 @testable import XLogPrototypeSupport
 
 final class EmbeddedCATServersTests: XCTestCase {
+    func testWhitespaceOnlyKYClearsCWInsteadOfBecomingAQuery() async throws {
+        let radio = SimulatedRadio()
+        let processor = CATCommandProcessor(radio: radio, allowTransmit: true)
+        let sent = await processor.handle("KY TEST")
+        XCTAssertNil(sent)
+        let queued = await radio.queuedCW()
+        XCTAssertEqual(queued, "TEST")
+        let cleared = await processor.handle("KY                        ")
+        XCTAssertNil(cleared)
+        let empty = await radio.queuedCW()
+        XCTAssertEqual(empty, "")
+    }
+
     func testDisabledDefaultAndDuplicatePortValidation() throws {
         let radio = SimulatedRadio()
         let disabled = EmbeddedCATServers(

@@ -517,17 +517,21 @@ public actor RemoteAgentClient: RadioControlling {
     private func scheduleFrequencyVerification(_ frequencyHz: Int64, vfo: String) {
         let letter = vfo.uppercased()
         let verificationID = UUID()
+        let verificationGeneration = generation
         frequencyVerificationTasks[letter]?.cancel()
         frequencyVerificationIDs[letter] = verificationID
         frequencyVerificationTasks[letter] = Task { [weak self] in
             try? await Task.sleep(for: .seconds(2))
             guard !Task.isCancelled else { return }
-            await self?.verifyFrequency(frequencyHz, vfo: letter, verificationID: verificationID)
+            await self?.verifyFrequency(frequencyHz, vfo: letter, verificationID: verificationID,
+                                        connectionGeneration: verificationGeneration)
         }
     }
 
-    private func verifyFrequency(_ frequencyHz: Int64, vfo: String, verificationID: UUID) async {
-        guard shouldRun, frequencyVerificationIDs[vfo] == verificationID else { return }
+    private func verifyFrequency(_ frequencyHz: Int64, vfo: String, verificationID: UUID,
+                                 connectionGeneration: Int) async {
+        guard shouldRun, generation == connectionGeneration,
+              frequencyVerificationIDs[vfo] == verificationID else { return }
         if authoritativeValue.vfo(vfo)?.frequencyHz == frequencyHz {
             frequencyVerificationTasks[vfo] = nil
             frequencyVerificationIDs[vfo] = nil
@@ -535,21 +539,27 @@ public actor RemoteAgentClient: RadioControlling {
         }
         do {
             try await execute(.frequency(frequencyHz, vfo: vfo))
-            guard !Task.isCancelled, frequencyVerificationIDs[vfo] == verificationID else { return }
+            guard !Task.isCancelled, generation == connectionGeneration,
+                  frequencyVerificationIDs[vfo] == verificationID else { return }
             pendingWrites.expectFrequency(frequencyHz, vfo: vfo)
             publishPendingWrites()
             try? await Task.sleep(for: .seconds(4))
-            guard !Task.isCancelled, frequencyVerificationIDs[vfo] == verificationID else { return }
+            guard !Task.isCancelled, generation == connectionGeneration,
+                  frequencyVerificationIDs[vfo] == verificationID else { return }
             if authoritativeValue.vfo(vfo)?.frequencyHz != frequencyHz {
                 pendingWrites.cancelFrequency(vfo: vfo)
                 publishPendingWrites()
                 transition(.ready, "FLEX did not confirm \(vfo) at \(frequencyHz) Hz")
             }
         } catch {
+            guard !Task.isCancelled, shouldRun, generation == connectionGeneration,
+                  frequencyVerificationIDs[vfo] == verificationID else { return }
             pendingWrites.cancelFrequency(vfo: vfo)
             publishPendingWrites()
             transition(.ready, "Frequency retry failed: \(error.localizedDescription)")
         }
+        guard generation == connectionGeneration,
+              frequencyVerificationIDs[vfo] == verificationID else { return }
         frequencyVerificationTasks[vfo] = nil
         frequencyVerificationIDs[vfo] = nil
     }

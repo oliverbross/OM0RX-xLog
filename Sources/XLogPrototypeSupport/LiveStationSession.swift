@@ -134,6 +134,8 @@ actor LiveStationSession {
     private var catRetirement = StationCATRetirement()
     private var lifecycleTransitions = 0
     private var terminalShutdown = false
+    private var directTransmitAcquisitions = 0
+    private var directTransmitDrainWaiters: [CheckedContinuation<Void, Never>] = []
 
     func installPowerCapture(_ capture: NativeDraftPowerGate) {
         // Worker startup registers before requests can explicitly connect.
@@ -456,6 +458,7 @@ actor LiveStationSession {
         transportState = .stopped
         allowTransmit = false
         await stopCATServers()
+        await drainDirectTransmitAcquisitions()
         if let current { await stop(current) }
     }
 
@@ -561,6 +564,9 @@ actor LiveStationSession {
             }
         }
         transmitOwnership.beginAction(action)
+        let acquiresTransmit = Self.requiresTransmitOptIn(action)
+        if acquiresTransmit { beginDirectTransmitAcquisition() }
+        defer { if acquiresTransmit { finishDirectTransmitAcquisition() } }
         do {
             try await client.performStationAction(action)
             transmitOwnership.completeAction(action)
@@ -661,6 +667,8 @@ actor LiveStationSession {
             }
         }
         transmitOwnership.beginControl(control, enabled: needsTransmitOptIn)
+        if needsTransmitOptIn { beginDirectTransmitAcquisition() }
+        defer { if needsTransmitOptIn { finishDirectTransmitAcquisition() } }
         do {
             try await command(client)
             guard generation == connectionGeneration, self.client === client else { throw lifecycleChanged() }
@@ -684,6 +692,26 @@ actor LiveStationSession {
         guard client != nil, let powerEvents,
               let state = powerSession.reconcile(powerEvents) else { return }
         transportState = state
+    }
+
+    private func beginDirectTransmitAcquisition() {
+        directTransmitAcquisitions += 1
+    }
+
+    private func finishDirectTransmitAcquisition() {
+        precondition(directTransmitAcquisitions > 0)
+        directTransmitAcquisitions -= 1
+        guard directTransmitAcquisitions == 0 else { return }
+        let waiters = directTransmitDrainWaiters
+        directTransmitDrainWaiters.removeAll()
+        waiters.forEach { $0.resume() }
+    }
+
+    private func drainDirectTransmitAcquisitions() async {
+        guard directTransmitAcquisitions > 0 else { return }
+        await withCheckedContinuation { continuation in
+            directTransmitDrainWaiters.append(continuation)
+        }
     }
 
     private func stop(_ current: RemoteAgentClient) async {

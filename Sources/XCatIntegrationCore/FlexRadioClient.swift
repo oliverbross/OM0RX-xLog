@@ -268,8 +268,18 @@ public actor FlexRadioClient: RadioControlling {
         if enabled {
             guard state == .ready, value.isConnected, selectedSliceID != nil else { throw XCatError.notConnected }
         }
-        if !enabled { try await sendCommand("transmit tune 0") }
-        try await sendCommand("xmit \(enabled ? 1 : 0)")
+        if enabled {
+            try await sendCommand("xmit 1")
+            return
+        }
+        // Both releases are safety-critical. A failed tune-off reply must not
+        // prevent the independent PTT-off command from being attempted.
+        var releaseError: Error?
+        do { try await sendCommand("transmit tune 0") } catch { releaseError = error }
+        do { try await sendCommand("xmit 0") } catch {
+            if releaseError == nil { releaseError = error }
+        }
+        if let releaseError { throw releaseError }
     }
 
     public func setRFPower(_ watts: Int) async throws {

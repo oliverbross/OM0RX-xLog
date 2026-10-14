@@ -1114,6 +1114,11 @@ final class AppModel: ObservableObject {
         isWorking = true
         Task {
             do {
+                if preview.manifest.includesReferenceData, referenceDataURL != nil {
+                    try await Task.detached {
+                        try manager.preflightReferenceDataInstallation(from: preview.packageURL)
+                    }.value
+                }
                 _ = try await Task.detached {
                     try manager.create(
                         database: database,
