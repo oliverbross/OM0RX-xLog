@@ -1,7 +1,11 @@
 // @vitest-environment jsdom
-import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import { useSyncExternalStore } from "react";
+import { readFileSync } from "node:fs";
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { readWorkspaceWindowsStatus, useWorkspaceWindows } from "./useWorkspaceWindows";
+import { nativeWorkspaceWindowIDs, readWorkspaceWindowsStatus, useWorkspaceWindows } from "./useWorkspaceWindows";
+import WorkspaceSettings from "./WorkspaceSettings";
+import { changedLayout, panelMinimum, workspacePanelIDs, WorkspaceLayoutSession, type LayoutSnapshot } from "./workspaceLayoutSession";
 
 const native = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn(), isTauri: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: native.invoke, isTauri: native.isTauri }));
@@ -9,6 +13,7 @@ vi.mock("@tauri-apps/api/event", () => ({ listen: native.listen }));
 const idle = () => ({ supported: ["monitor", "world-map", "band-maps", "dx-cluster", "logbook", "awards"],
   generation: null, revision: null, presetID: null, state: "idle", shown: [], hidden: [], error: "", stopped: false, attempt: 0 });
 const applied = () => ({ ...idle(), state: "applied", generation: "01234567-89ab-cdef-0123-456789abcdef", revision: 2, presetID: "desk-1" });
+const allNativeRoles = ["callsign-intelligence", "log-qso", "spot-history", "monitor", "world-map", "band-maps", "dx-cluster", "logbook", "awards"];
 function deferred<T>() { let resolve!: (value: T) => void; let reject!: (value: unknown) => void;
   const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; }
 let wake: (event?: unknown) => void, dispose: ReturnType<typeof vi.fn<() => void>>;
@@ -20,6 +25,18 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 describe("native workspace status schema", () => {
+  it("matches the exact native supported-window registry rather than all workspace roles", () => {
+    const source = readFileSync("src-tauri/src/workspace_windows.rs", "utf8");
+    const registry = source.slice(source.indexOf("pub const SUPPORTED_WINDOWS:"), source.indexOf("\n];") + 3);
+    const roles = [...registry.matchAll(/WindowSpec \{ id: "([^"]+)"/g)].map(match => match[1]);
+    expect(roles).toEqual(allNativeRoles);
+    expect([...nativeWorkspaceWindowIDs]).toEqual(roles);
+    expect(() => readWorkspaceWindowsStatus({ ...idle(), supported: [...workspacePanelIDs] })).toThrow("could not be verified");
+  });
+  it("accepts the actual nine-role payload including new roles shown and hidden", () => {
+    const value = { ...applied(), supported: allNativeRoles, shown: ["callsign-intelligence", "log-qso"], hidden: ["spot-history"] };
+    expect(readWorkspaceWindowsStatus(value)).toEqual(value);
+  });
   it("accepts bounded native observations and a supported subset", () => {
     const value = { ...idle(), supported: ["world-map"], shown: ["world-map"], state: "applied",
       generation: "01234567-89ab-cdef-0123-456789abcdef", revision: 2, presetID: "desk-1" };
@@ -28,6 +45,7 @@ describe("native workspace status schema", () => {
   });
   it.each([
     { state: "done" }, { supported: ["rotor"] }, { supported: ["monitor", "monitor"] },
+    { supported: [...allNativeRoles, "unknown"] }, { shown: ["logbook", "logbook"] }, { hidden: ["rotor"] },
     { supported: ["world-map"], shown: ["monitor"] }, { state: "applied" },
     { ...applied(), generation: null }, { ...applied(), revision: null }, { ...applied(), presetID: null },
     { generation: "bad" }, { revision: -1 }, { revision: Number.MAX_SAFE_INTEGER + 1 },
@@ -40,6 +58,43 @@ describe("native workspace status schema", () => {
     expect(readWorkspaceWindowsStatus({ ...applied(), shown: ["world-map"], hidden: ["world-map"] }))
       .toMatchObject({ state: "applied", shown: ["world-map"], hidden: ["world-map"] });
   });
+});
+
+it("renders and saves the actual Workspace Settings Logbook placement after a nine-role native read", async () => {
+  const panels = workspacePanelIDs.map((id, z) => { const [width, height] = panelMinimum(id);
+    return { id, z, placement: "hidden" as const, rect: { x: 0, y: 0, width, height } }; });
+  let snapshot: LayoutSnapshot = { generation: "01234567-89ab-cdef-0123-456789abcdef", revision: 7,
+    document: { version: 2, activePresetID: "traditional", presets: ["traditional", "windowed"].map(id => ({
+      id, name: id === "traditional" ? "Traditional" : "Windowed", width: 1920, height: 1080, locked: true, snap: true, panels: structuredClone(panels),
+    })) } };
+  native.invoke.mockResolvedValue({ ...applied(), supported: allNativeRoles, generation: snapshot.generation, revision: snapshot.revision, presetID: "traditional" });
+  const request = vi.fn(async (method: string, params?: any) => {
+    if (method === "workspace_layout_apply") snapshot = { ...snapshot, revision: snapshot.revision + 1, document: changedLayout(snapshot.document, params) };
+    return { status: "applied", layout: structuredClone(snapshot) };
+  });
+  const session = new WorkspaceLayoutSession(request); await session.refresh();
+  function Harness() {
+    const state = useSyncExternalStore(session.subscribe, session.getSnapshot);
+    return <WorkspaceSettings state={state} session={session} available={["active-qso", "world-map", "band-maps", "dx-cluster", "logbook"]} />;
+  }
+  render(<Harness />);
+  await waitFor(() => expect(native.invoke).toHaveBeenCalledWith("workspace_windows_status"));
+  fireEvent.click(screen.getByRole("button", { name: "Duplicate layout" }));
+  const placement = await screen.findByLabelText("Logbook placement");
+  expect(placement.tagName).toBe("SELECT"); expect((placement as HTMLSelectElement).disabled).toBe(false);
+  expect(screen.getByLabelText("Log QSO placement")).toBeTruthy();
+  expect(screen.getByLabelText("Spot History placement")).toBeTruthy();
+  expect(screen.getByLabelText("Callsign intelligence placement")).toBeTruthy();
+  expect(screen.queryByLabelText("Rotor placement")).toBeNull();
+  expect(request.mock.calls.filter(([method]) => method === "workspace_layout_apply")).toHaveLength(0);
+  fireEvent.change(placement, { target: { value: "window" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save layout" }));
+  await screen.findByText("Layout saved. Use layout to switch arrangements.");
+  expect(snapshot.document.activePresetID).toBe("traditional");
+  const saved = snapshot.document.presets.find(preset => !["traditional", "windowed"].includes(preset.id))!;
+  expect(saved.panels.find(panel => panel.id === "logbook")?.placement).toBe("window");
+  expect(request.mock.calls.every(([method]) => ["workspace_layout_load", "workspace_layout_apply"].includes(method))).toBe(true);
+  expect(native.invoke.mock.calls.every(([method]) => method === "workspace_windows_status")).toBe(true);
 });
 
 it("is inert outside Tauri, including retry and focus", async () => {

@@ -3,6 +3,7 @@ import { createElement as h, useSyncExternalStore } from "react";
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { verifyWorkspaceWindows } from "./workspaceWindowsAcceptance";
+import { nativeWorkspaceWindowIDs } from "./live/useWorkspaceWindows";
 import { workspaceDraftMarker } from "./logbookLayoutAcceptance";
 import WorkspaceSettings from "./live/WorkspaceSettings";
 import ServiceSettings from "./live/ServiceSettings";
@@ -16,7 +17,7 @@ vi.mock("./live/useWorkspaceWindows", async importOriginal => ({
 const presetID = "desk-87654321-1234-1234-1234-123456789abc";
 const instanceID = "same-logbook-renderer";
 const initial = { status: "passed", details: { instanceID } };
-const supported = ["monitor", "world-map", "band-maps", "dx-cluster", "logbook", "awards"];
+const supported = [...nativeWorkspaceWindowIDs];
 type Failure = "instance" | "closed" | "dirty" | "contact" | "draft" | "stale" | "phase";
 function fixture(): LayoutSnapshot {
   const panels = workspacePanelIDs.map((id, z) => { const [width, height] = panelMinimum(id);
