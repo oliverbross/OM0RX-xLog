@@ -4,10 +4,13 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import type { MapSpot } from "./MapSpots";
 import { DeskMapLogbook } from "./live/DeskMapLogbook";
 
-const harness = vi.hoisted(() => ({ maps: [] as any[], startReady: true }));
+const harness = vi.hoisted(() => ({ maps: [] as any[], startReady: true, nativeResize: false }));
 vi.mock("maplibre-gl", () => {
   class FakeMap {
     element: HTMLElement;
+    canvas = document.createElement("canvas");
+    canvasSize = { width: 1000, height: 500 };
+    nativeObserver?: ResizeObserver;
     handlers = new Map<string, Function[]>();
     sources = new Map<string, any>();
     ready = harness.startReady;
@@ -23,6 +26,13 @@ vi.mock("maplibre-gl", () => {
       this.element = options.container;
       this.layers = options.style.layers;
       Object.defineProperties(this.element, { clientWidth: { value: 1000, configurable: true }, clientHeight: { value: 500, configurable: true } });
+      Object.defineProperties(this.canvas, { clientWidth: { get: () => this.canvasSize.width }, clientHeight: { get: () => this.canvasSize.height } });
+      if (harness.nativeResize && options.trackResize !== false) {
+        // MapLibre 6's built-in observer has no hidden-size guard: resize uses
+        // a 400x300 viewport when client dimensions are zero.
+        this.nativeObserver = new ResizeObserver(() => this.resize());
+        this.nativeObserver.observe(this.element);
+      }
       for (const key of Object.keys(options.style.sources)) this.sources.set(key, { setData: vi.fn() });
       harness.maps.push(this);
     }
@@ -46,7 +56,7 @@ vi.mock("maplibre-gl", () => {
       [...(this.handlers.get(name) ?? [])].forEach(handler => handler(event));
     }
     getContainer() { return this.element; }
-    getCanvas() { return this.element; }
+    getCanvas() { return this.canvas; }
     getZoom() { return this.zoom; }
     project() { return { x: 400, y: 200 }; }
     getLayer() { return true; }
@@ -64,8 +74,8 @@ vi.mock("maplibre-gl", () => {
     fitBounds(bounds: [[number, number], [number, number]], options: any) { this.fitCalls.push({ bounds, options }); }
     jumpTo() {}
     easeTo(options: any) { this.easeCalls.push(options); }
-    resize = vi.fn();
-    triggerRepaint() {}
+    resize = vi.fn(() => { this.canvasSize = { width: this.element.clientWidth || 400, height: this.element.clientHeight || 300 }; });
+    triggerRepaint = vi.fn();
     setLayoutProperty(...args: any[]) { this.layoutCalls.push(args); }
     setPaintProperty() {}
     setFeatureState(...args: any[]) { this.featureStateCalls.push(args); }
@@ -97,6 +107,7 @@ const spot = (changes: Partial<MapSpot> = {}): MapSpot => ({
 beforeEach(() => {
   harness.maps.length = 0;
   harness.startReady = true;
+  harness.nativeResize = false;
   vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
   vi.stubGlobal("fetch", vi.fn());
   vi.stubGlobal("matchMedia", () => ({ matches: false }));
@@ -104,18 +115,18 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 function resizeHarness() {
-  const observers = new Map<Element, () => void>(), frames = new Map<number, FrameRequestCallback>();
+  const observers = new Map<Element, Set<() => void>>(), frames = new Map<number, FrameRequestCallback>();
   let nextFrame = 0;
   vi.stubGlobal("ResizeObserver", class {
     elements: Element[] = [];
     constructor(private callback: () => void) {}
-    observe(element: Element) { this.elements.push(element); observers.set(element, this.callback); }
-    disconnect() { this.elements.forEach(element => observers.delete(element)); }
+    observe(element: Element) { this.elements.push(element); const callbacks = observers.get(element) ?? new Set(); callbacks.add(this.callback); observers.set(element, callbacks); }
+    disconnect() { this.elements.forEach(element => { const callbacks = observers.get(element); callbacks?.delete(this.callback); if (!callbacks?.size) observers.delete(element); }); }
   });
   vi.stubGlobal("requestAnimationFrame", vi.fn((callback: FrameRequestCallback) => { frames.set(++nextFrame, callback); return nextFrame; }));
   vi.stubGlobal("cancelAnimationFrame", vi.fn((id: number) => frames.delete(id)));
   return {
-    notify: (element: Element) => act(() => observers.get(element)?.()),
+    notify: (element: Element) => act(() => observers.get(element)?.forEach(callback => callback())),
     flush: () => act(() => { const pending = [...frames.values()]; frames.clear(); pending.forEach(callback => callback(0)); }),
     frames, observers,
   };
@@ -145,6 +156,44 @@ describe("map container resizing", () => {
     resize.notify(map.element); expect(resize.frames.size).toBe(1);
     result.unmount(); expect(resize.observers.size).toBe(0); expect(resize.frames.size).toBe(0);
     resize.flush(); expect(map.resize).not.toHaveBeenCalled(); expect(map.remove).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps one visible-size owner through hide/reveal and repairs a stale same-size canvas", () => {
+    harness.nativeResize = true;
+    const resize = resizeHarness();
+    render(<WorldMap data={[spot()]} selected={null} />);
+    const map = harness.maps[0];
+    let width = 1000, height = 500;
+    Object.defineProperties(map.element, { clientWidth: { get: () => width }, clientHeight: { get: () => height } });
+    const fits = map.fitCalls.length;
+    width = 0; height = 0; resize.notify(map.element);
+    fireEvent.focus(window); resize.flush();
+    expect(map.resize).not.toHaveBeenCalled();
+    expect(map.nativeObserver).toBeUndefined();
+    width = 1000; height = 500; resize.notify(map.element); resize.flush();
+    expect(map.canvasSize).toEqual({ width, height });
+    expect(map.resize).toHaveBeenCalledTimes(1);
+    // Same CSS size does not prove that the retained render viewport agrees.
+    map.canvasSize = { width: 400, height: 300 };
+    resize.notify(map.element); resize.flush();
+    expect(map.canvasSize).toEqual({ width, height });
+    expect(map.resize).toHaveBeenCalledTimes(2);
+    expect(map.triggerRepaint).toHaveBeenCalledTimes(2);
+    expect(map.fitCalls).toHaveLength(fits);
+    expect(harness.maps).toHaveLength(1);
+  });
+
+  it("preserves an unselected camera when a Desk-sized viewport becomes very wide and shallow", () => {
+    const resize = resizeHarness();
+    render(<WorldMap data={[spot()]} selected={null} />);
+    const map = harness.maps[0], fits = map.fitCalls.length, eases = map.easeCalls.length;
+    Object.defineProperties(map.element, { clientWidth: { value: 1800 }, clientHeight: { value: 180 } });
+    resize.notify(map.element); resize.flush();
+    expect(map.canvasSize).toEqual({ width: 1800, height: 180 });
+    expect(map.fitCalls).toHaveLength(fits);
+    expect(map.easeCalls).toHaveLength(eases);
+    expect(map.resize).toHaveBeenCalledTimes(1);
+    expect(harness.maps).toHaveLength(1);
   });
 
   it("resizes the retained Desk map after split drags, keyboard changes and all view transitions", () => {

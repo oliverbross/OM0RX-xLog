@@ -339,7 +339,7 @@ export default function WorldMap({
     };
     redrawRef.current = redrawLabels;
     const repaint = () => {
-      if (disposed) return;
+      if (disposed || !element.clientWidth || !element.clientHeight) return;
       map.resize();
       map.triggerRepaint();
     };
@@ -410,6 +410,9 @@ export default function WorldMap({
     try {
       map = new maplibregl.Map({
         container: container.current,
+        // This retained map has one visible-size owner below. MapLibre's own
+        // observer otherwise resizes hidden panes to its 400x300 fallback.
+        trackResize: false,
         center: [-15, 38],
         zoom: 1.65,
         attributionControl: false,
@@ -588,10 +591,14 @@ export default function WorldMap({
           resizeFrame = null;
           if (disposed) return;
           const nextWidth = element.clientWidth, nextHeight = element.clientHeight;
-          if (!nextWidth || !nextHeight || (width === nextWidth && height === nextHeight)) return;
+          const canvas = map.getCanvas();
+          if (!nextWidth || !nextHeight || (width === nextWidth && height === nextHeight
+            && canvas.clientWidth === nextWidth && canvas.clientHeight === nextHeight)) return;
           width = nextWidth; height = nextHeight;
           map.resize();
-          if (!preserveCamera.current && !selection.current) fitFixture();
+          // A layout change only updates the viewport. Refitting a shallow
+          // split can zoom out to several wrapped worlds and discard the camera.
+          map.triggerRepaint();
           redrawLabels();
         });
       });
