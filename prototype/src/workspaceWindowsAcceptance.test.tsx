@@ -195,7 +195,7 @@ it.each(["stale", "phase"] as const)("times out on %s native evidence with a det
   // Begin fake time only after the production Settings actions have settled;
   // their own act scopes remain independent of this native observation loop.
   await context.observationWaiting;
-  await vi.advanceTimersByTimeAsync(20_100);
+  await vi.advanceTimersByTimeAsync(30_100);
   expect((await outcome).error?.message).toContain(failure === "stale" ? "native placement" : "editor acknowledgement");
   expect(context.trace).not.toContain("editor:editor_cancel:visible=true");
 });

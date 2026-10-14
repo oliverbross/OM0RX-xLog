@@ -21,7 +21,10 @@ const stable = (value: any): any => Array.isArray(value) ? value.map(stable) : v
 const same = (left: unknown, right: unknown) => JSON.stringify(stable(left)) === JSON.stringify(stable(right));
 
 async function observe<T>(label: string, read: () => Promise<T>, accepts: (value: T) => boolean) {
-  const deadline = Date.now() + 20_000;
+  // Child-side DOM probes use the same 20-second bound. Keep the native
+  // coordinator outside that boundary so a child failure report wins the race
+  // over a less useful parent-side timeout.
+  const deadline = Date.now() + 30_000;
   while (Date.now() < deadline) {
     const value = await read();
     if (accepts(value)) return value;
