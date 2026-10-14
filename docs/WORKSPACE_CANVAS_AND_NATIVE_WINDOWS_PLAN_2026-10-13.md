@@ -675,12 +675,28 @@ rerun for this frontend/Rust-only slice. No package was produced or installed,
 no external service or hardware was contacted, and no operator data or station
 state was changed.
 
-The CW ownership audit found that `useCW` currently creates one renderer-local
-controller per mount. A second copy could arm independently or stop another
-window's backend-global WinKeyer output. The next CW stage therefore creates one
-native owner for arm/send/Stop, saved macro/profile revision, canonical new-QSO
-context, provider/connection generation and uncertain-output recovery; the
-existing Desk controls must migrate to it before a CW child is exposed.
+### Checkpoint AF — shared native CW session owner
+
+The CW ownership prerequisite is now implemented without exposing an unfinished
+child. The Desk registers with one native session owner for arm, send and Stop;
+clients consume one revisioned snapshot rather than constructing renderer-local
+controllers. Output is fenced by provider and radio-selection generations,
+priority Stop remains available while ordinary sends are serialized, and
+uncertain backend outcomes remain visible instead of being converted to success.
+WinKeyer output deliberately does not require a selected radio.
+
+Unmount, Dock and shutdown unregister every matching client even when a defensive
+Stop fails. Repeated Stop while already stopping still advances the revision, so
+observers cannot mistake a new operator intent for an old state. The existing
+Desk controls use this owner; a CW child is still hidden until native lifecycle,
+macro/profile sharing, canonical new-QSO context and main-absent recovery are
+completed and accepted.
+
+Exact source `2cb7bac5c6933ffcf5d562ab3c245b9ff8f0cf16` passes **14 native CW**,
+**36 station-selection** and **43 focused frontend** tests, plus TypeScript and
+diff checks. Later aggregate full-suite source verification includes this owner.
+No package was produced or installed, no physical keyer or radio was contacted,
+and no transmit/RF action or operator-data change occurred.
 
 ### 14 October audit — remaining new-QSO and QSY ownership
 
