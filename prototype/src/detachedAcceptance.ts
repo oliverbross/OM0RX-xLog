@@ -26,12 +26,13 @@ export async function verifyDetachedLifecycle(kind: Kind, initial: Json, leaveSc
   if (observed.report.details.instanceID !== instanceID) throw new Error(`${kind} reopening replaced its renderer`);
   await leaveScreen();
   await invoke("acceptance_window_step", { kind, action: "dock" });
-  await waitState(kind, "Dock back closure", state => state.open === false);
+  await waitState(kind, "native closure", state => state.open === false);
   return { instanceID, probeRevision: probe.revision, closed: true };
 }
 
-/** Called by the child after publishing its initial report. Dock is its real UI action. */
-export async function serveDetachedLifecycle(report: Json, clickDock: () => Promise<void>, editorStep?: (action: string) => Promise<Json>) {
+/** Called by the child after publishing its initial report. The isolated test
+ * uses the real native close/dock command without adding test-only UI chrome. */
+export async function serveDetachedLifecycle(report: Json, closeChild: () => Promise<void>, editorStep?: (action: string) => Promise<Json>) {
   let revision = 0;
   const deadline = Date.now() + 60_000;
   while (Date.now() < deadline) {
@@ -41,7 +42,7 @@ export async function serveDetachedLifecycle(report: Json, clickDock: () => Prom
       if (step.action === "probe") {
         report.details.phaseRevision = revision;
         await invoke("acceptance_monitor", { report });
-      } else if (step.action === "dock") { await clickDock(); return; }
+      } else if (step.action === "dock") { await closeChild(); return; }
       else if (editorStep && report.details.surface === "logbook" && ["editor_prepare", "editor_probe", "editor_cancel"].includes(step.action)) {
         report.details.workspaceDraft = { action: step.action, ...await editorStep(step.action) };
         report.details.phaseRevision = revision;

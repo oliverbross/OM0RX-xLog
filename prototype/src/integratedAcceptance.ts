@@ -246,7 +246,7 @@ async function main(report: Json) {
   }
   report.details.detachedAwards = awardsWindow;
   check("detached_awards", awardsWindow?.status === "passed" &&
-    awardsWindow?.checks?.catalogue === true && awardsWindow?.checks?.dock_available === true);
+    awardsWindow?.checks?.catalogue === true && awardsWindow?.checks?.task_only === true);
   report.details.awardsLifecycle = await verifyDetachedLifecycle("awards", awardsWindow!, () => navigate("Operator Desk"));
   await waitForAcceptance("Awards Dock back route", () => document.querySelector("main")?.getAttribute("aria-label") === "Awards");
   check("detached_awards_lifecycle", report.details.awardsLifecycle.closed === true);
@@ -390,11 +390,12 @@ export async function startIntegratedAcceptance() {
       report.details.instanceID = crypto.randomUUID();
       await waitForAcceptance("detached Awards library", () => document.querySelector(".awards-summary b")?.textContent === "192");
       report.checks.catalogue = !document.querySelector(".awards-error") && (await worker("logbook_catalog", { offset: 0, limit: 1 })).result.catalogue_total === 192;
-      report.checks.dock_available = !document.querySelector(".qso-read-radio") &&
-        [...document.querySelectorAll("button")].some(item => item.textContent?.trim() === "Dock back");
-      report.status = report.checks.catalogue && report.checks.dock_available ? "passed" : "failed";
+      report.checks.task_only = !!document.querySelector('.detached-awards-app main[aria-label="Detached Awards"]') &&
+        !document.querySelector(".qso-read-radio, .detached-window-head") &&
+        ![...document.querySelectorAll("button")].some(item => item.textContent?.trim() === "Dock back");
+      report.status = report.checks.catalogue && report.checks.task_only ? "passed" : "failed";
       await invoke("acceptance_monitor", { report });
-      await serveDetachedLifecycle(report, () => click("Dock back"));
+      await serveDetachedLifecycle(report, () => invoke("dock_detached_window"));
       return;
     }
     if (surface === "logbook") {
@@ -410,10 +411,9 @@ export async function startIntegratedAcceptance() {
         await waitForAcceptance("detached update readback", () => document.querySelector(".live-logbook-table tbody")?.textContent?.includes(comment) === true);
       }
       report.checks.contact_edit = validSavedContact((await worker("logbook_list")).result);
-      await waitForAcceptance("detached operations settled", () => [...document.querySelectorAll<HTMLButtonElement>("button")].some(item => item.textContent?.trim() === "Dock back" && !item.disabled));
       report.status = report.checks.contact_edit && report.checks.no_radio_controls ? "passed" : "failed";
       await invoke("acceptance_monitor", { report });
-      await serveDetachedLifecycle(report, () => click("Dock back"), createLogbookLayoutAcceptance({ fill, click }));
+      await serveDetachedLifecycle(report, () => invoke("dock_detached_window"), createLogbookLayoutAcceptance({ fill, click }));
       return;
     }
     if (surface) throw new Error("Unexpected local acceptance surface");
