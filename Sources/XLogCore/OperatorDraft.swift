@@ -82,6 +82,38 @@ public enum OperatorDraftError: Error {
     case existingContact
 }
 
+/// Pure field projection only. The caller must separately establish Follow
+/// intent, current draft/selection identity and fresh authoritative telemetry.
+public enum OperatorDraftRadioFollow {
+    public static func applying(to previous: QSO, frequencyHz: Int64,
+                                observedMode: String, enabled: Bool) throws -> QSO {
+        guard enabled else { return previous }
+        let radioMode = observedMode.uppercased()
+        guard (1...1_000_000_000_000).contains(frequencyHz),
+              (1...16).contains(radioMode.utf8.count),
+              radioMode.utf8.allSatisfy({ (65...90).contains($0) || (48...57).contains($0) || $0 == 95 || $0 == 45 }) else {
+            throw OperatorDraftError.invalid
+        }
+        var result = previous
+        result.frequencyHz = frequencyHz
+        let band = BandPlan.band(for: frequencyHz)
+        if !band.isEmpty { result.band = band }
+        // Keep parity with prototype/src/live/draftRadio.ts: a data carrier is
+        // not evidence of FT8 rather than another chosen digital contact mode.
+        let digital = ["FT8", "FT4", "FT2", "PSK", "PSK31", "PSK63", "JT65", "JT9", "MFSK", "OLIVIA", "DATA", "DIGI"]
+        switch radioMode {
+        case "PKTUSB", "PKTLSB", "DIGU", "DIGL", "DATA", "DIGI":
+            let current = previous.mode.uppercased()
+            result.mode = digital.contains(current) ? current : "DIGI"
+        case "USB", "LSB": result.mode = "SSB"
+        case "CWR": result.mode = "CW"
+        case "RTTYR": result.mode = "RTTY"
+        default: result.mode = radioMode
+        }
+        return result
+    }
+}
+
 extension QSO {
     /// In-progress drafts may have an empty/partial callsign. Logging requires a
     /// complete call. Keep drafts bounded without manufacturing radio values.

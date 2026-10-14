@@ -12,6 +12,7 @@ import { beginSpotHistoryAbsence, resumeSpotHistoryAbsence, serveSpotHistoryAbse
 import { verifyBandMapContext } from "./bandMapWindowAcceptance";
 import { validMonitorContext } from "./live/monitorContext";
 import { verifyEditorFocus } from "./editorFocusAcceptance";
+import { verifyWorkspaceMenuRoutes } from "./workspaceMenuAcceptance";
 
 type Json = Record<string, any>;
 const frame = () => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
@@ -267,10 +268,9 @@ async function main(report: Json) {
   report.details.detached = detached;
   report.details.spotHistory = await verifySpotHistory({ worker, navigate, fill, click });
   check("spot_history_archive", report.details.spotHistory.nativeTable && report.details.spotHistory.draftUnchanged);
-  // Empty workspaces intentionally use standalone mode: Sync is still
-  // discoverable in the menu, but directs the operator to the mode setting.
-  for (const screen of workspaceScreens) await navigate(screen.title, screen.id === "sync" ? "Settings" : screen.title);
-  check("native_menu_routes", true);
+  report.details.nativeMenuRoutes = await verifyWorkspaceMenuRoutes({ worker, navigate, click });
+  check("native_menu_routes", report.details.nativeMenuRoutes.settingsSync
+    && report.details.nativeMenuRoutes.settingsUnchanged && report.details.nativeMenuRoutes.draftUnchanged);
   await invoke("acceptance_prepare_final");
   await navigate("Operator Desk");
   await waitForAcceptance("final operator desk", () => !!document.querySelector('[aria-label="Desk Callsign"]'));
