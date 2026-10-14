@@ -14,6 +14,11 @@ beforeEach(() => {
   native.listen.mockImplementation(async (_name, changed) => { native.changed = changed; return vi.fn(); });
   native.invoke.mockImplementation(async (_command, { params }) => {
     if (params.action === "snapshot") return structuredClone(state);
+    if (params.action === "hamlib_catalogue") return { models: [
+      { id: 1, manufacturer: "Hamlib", model: "Dummy", maturity: "Stable" },
+      { id: 3073, manufacturer: "Icom", model: "IC-7300", maturity: "Stable" },
+      { id: 2045, manufacturer: "Elecraft", model: "KX3", maturity: "Stable" },
+    ] };
     if (params.action === "save") { state = { ...state, revision: 5, base_url: params.base_url }; return { operation_id: params.operation_id, status: "saved", request: { action: "save" } }; }
     if (params.action === "save_hamlib") { state = { ...state, revision: state.revision + 1, hamlib: params.configuration }; return { operation_id: params.operation_id, status: "saved", request: { action: "save_hamlib" } }; }
     if (params.action === "save_flex") { state = { ...state, revision: state.revision + 1, flex: params.configuration }; return { operation_id: params.operation_id, status: "saved", request: { action: "save_flex" } }; }
@@ -173,4 +178,34 @@ it("FLEX retains dirty setup on another window's save, reloads explicitly and ne
   expect(request).not.toHaveProperty("allow_transmit"); expect(request.configuration).not.toHaveProperty("allow_transmit");
   expect((screen.getByRole("checkbox", { name: "Enable FLEX transmit commands for this connection" }) as HTMLInputElement).checked).toBe(false);
   expect(native.invoke.mock.calls.every(([command]) => command === "station_session_request")).toBe(true);
+});
+it("Hamlib catalogue loads only on request, filters without selection changes and chooses a draft without saving or connecting", async () => {
+  state = { ...state, hamlib: { mode: "managed", model: 2045, path: "/dev/test", baud: 9600 }, selection: { provider: "hamlib", generation: 12, selection_id: "hamlib-selection" } };
+  render(<AgentConnectionSetup hamlib />); await act(async () => {});
+  expect(native.invoke.mock.calls.map(([, { params }]) => params.action)).toEqual(["snapshot"]);
+  expect(screen.queryByLabelText("Shared Hamlib catalogue model")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Load radio model catalogue" })); await act(async () => {});
+  expect(native.invoke).toHaveBeenLastCalledWith("station_session_request", { params: { action: "hamlib_catalogue" } });
+  fireEvent.change(screen.getByLabelText("Shared Hamlib catalogue manufacturer"), { target: { value: "icom" } });
+  expect((screen.getByLabelText("Shared Hamlib catalogue model") as HTMLSelectElement).value).toBe("2045");
+  expect(screen.getByRole("option", { name: /Elecraft KX3.*selected; outside filter/ })).toBeTruthy();
+  fireEvent.change(screen.getByLabelText("Shared Hamlib catalogue search"), { target: { value: "7300" } });
+  fireEvent.change(screen.getByLabelText("Shared Hamlib catalogue model"), { target: { value: "3073" } });
+  expect((screen.getByLabelText("Shared Hamlib model ID") as HTMLInputElement).value).toBe("3073");
+  expect(screen.getByRole("button", { name: "Connect saved Hamlib radio" }).hasAttribute("disabled")).toBe(true);
+  expect(native.invoke.mock.calls.map(([, { params }]) => params.action)).toEqual(["snapshot", "hamlib_catalogue"]);
+  expect(state.hamlib?.model).toBe(2045);
+});
+it("unavailable model catalogue hides selection controls and offers an honest manual fallback and explicit retry", async () => {
+  state = { ...state, selection: { provider: "hamlib", generation: 12, selection_id: "hamlib-selection" } };
+  render(<AgentConnectionSetup hamlib />); await act(async () => {});
+  native.invoke.mockRejectedValueOnce(new Error("helper unavailable"));
+  fireEvent.click(screen.getByRole("button", { name: "Load radio model catalogue" })); await act(async () => {});
+  expect(screen.queryByLabelText("Shared Hamlib catalogue model")).toBeNull();
+  expect(screen.getByText(/manual entry does not verify backend support/)).toBeTruthy();
+  fireEvent.change(screen.getByLabelText("Shared Hamlib model ID"), { target: { value: "2045" } });
+  expect(native.invoke.mock.calls).toHaveLength(2);
+  fireEvent.click(screen.getByRole("button", { name: "Reload radio model catalogue" })); await act(async () => {});
+  expect((screen.getByLabelText("Shared Hamlib catalogue model") as HTMLSelectElement).value).toBe("2045");
+  expect(native.invoke.mock.calls.map(([, { params }]) => params.action)).toEqual(["snapshot", "hamlib_catalogue", "hamlib_catalogue"]);
 });

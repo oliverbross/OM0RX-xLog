@@ -432,6 +432,10 @@ async fn station_session_request(app: tauri::AppHandle, window: tauri::WebviewWi
     let action = params["action"].as_str().unwrap_or("");
     station_session::validate(window.label(), state.path.is_some(), action)?;
     if APP_EXITING.load(Ordering::Acquire) { return Err("Station Control is shutting down.".into()); }
+    if action == "hamlib_catalogue" {
+        return tauri::async_runtime::spawn_blocking(move || station_session::hamlib_catalogue(&params, hamlib::request))
+            .await.map_err(|_| "Radio model catalogue task failed.".to_string())?;
+    }
     let owner = station_session::owner(&app)?;
     if action == "snapshot" {
         let mut value = owner.snapshot()?;

@@ -12,13 +12,19 @@ vi.mock("./stationSelection", () => ({ nativeStationSelection: () => true }));
 beforeEach(() => localStorage.clear()); afterEach(cleanup);
 const fake = () => vi.fn(async (method: string, params?: Record<string, any>) => method === "hamlib_models" ? { models: params?.device === "rotor" ? [{ id: 601, manufacturer: "Yaesu", model: "GS-232", maturity: "Stable" }] : radioModels } : { connected: false });
 it("native Desk uses passive shared setup and exposes no raw radio connection form", async () => {
-  native.invoke.mockClear(); native.invoke.mockResolvedValue({ generation: "setup", revision: 1, base_url: "", last_receipt: null,
+  native.invoke.mockClear(); native.invoke.mockImplementation(async (_command, { params }) => params.action === "hamlib_catalogue" ? { models: radioModels } : { generation: "setup", revision: 1, base_url: "", last_receipt: null,
     hamlib: { mode: "managed", model: 3073, path: "/dev/test-fixture", baud: 9600 }, selection: { provider: "hamlib", generation: 4, selection_id: "selection" } });
   const request = fake(); render(<HamlibPanel request={request} snapshot={null} />);
   await waitFor(() => expect((screen.getByLabelText("Shared Hamlib model ID") as HTMLInputElement).value).toBe("3073"));
   expect(native.invoke).toHaveBeenCalledExactlyOnceWith("station_session_request", { params: { action: "snapshot" } });
   expect(request).not.toHaveBeenCalled(); expect(screen.queryByRole("button", { name: "Connect radio" })).toBeNull();
   expect(screen.getByRole("button", { name: "Connect saved Hamlib radio" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Load radio model catalogue" }));
+  await screen.findByRole("option", { name: "Elecraft KX3 · 2045 · Stable" });
+  fireEvent.change(screen.getByLabelText("Shared Hamlib catalogue model"), { target: { value: "2045" } });
+  expect((screen.getByLabelText("Shared Hamlib model ID") as HTMLInputElement).value).toBe("2045");
+  expect(native.invoke.mock.calls.map(([, { params }]) => params.action)).toEqual(["snapshot", "hamlib_catalogue"]);
+  expect(request).not.toHaveBeenCalled();
 });
 describe("manufacturer-separated Hamlib catalogue", () => {
   it("normalizes manufacturer groups, retains distinct IDs and excludes malformed or duplicate rows", () => {

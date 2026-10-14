@@ -125,6 +125,7 @@ function sharedAgent(loseConnect = false, loseSelection = false, provider = "dir
     if (command !== "station_session_request") throw new Error(`Unexpected authority: ${command}`);
     const params = args.params;
     if (params.action === "snapshot") return structuredClone(state);
+    if (params.action === "hamlib_catalogue") return { models: [{ id: 1, manufacturer: "Hamlib", model: "Dummy", maturity: "Stable" }, { id: 3073, manufacturer: "Icom", model: "IC-7300", maturity: "Stable" }] };
     if (params.action === "receipt") return state.last_receipt;
     actions.push(params);
     const lost = loseConnect && ["connect", "connect_flex", "reconnect_flex"].includes(params.action) || loseSelection && params.action === "select";
@@ -280,4 +281,16 @@ it("lost FLEX reconnect acknowledgement survives child remount without replay", 
   fireEvent.click(screen.getByRole("button", { name: "Check connection setup receipt" })); await act(async () => {});
   expect(native.invoke).toHaveBeenLastCalledWith("station_session_request", { params: { action: "receipt", operation_id: operation } });
   expect(owner.actions).toHaveLength(1); expect(screen.getByText(/Connection outcome is unknown/)).toBeTruthy();
+});
+it("independent child explicitly browses radio models and selection edits only the shared setup draft", async () => {
+  const owner = sharedAgent(false, false, "hamlib"); render(<DetachedStationControlSurface />); await act(async () => {});
+  expect(native.invoke.mock.calls.every(([command, args]) => command === "monitor_context_snapshot" || args?.params.action === "snapshot")).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Load radio model catalogue" })); await act(async () => {});
+  expect(native.invoke).toHaveBeenLastCalledWith("station_session_request", { params: { action: "hamlib_catalogue" } });
+  fireEvent.change(screen.getByLabelText("Shared Hamlib catalogue model"), { target: { value: "3073" } });
+  expect(owner.actions).toHaveLength(0); expect(owner.state().hamlib?.model).toBe(1);
+  expect((screen.getByLabelText("Shared Hamlib model ID") as HTMLInputElement).value).toBe("3073");
+  fireEvent.click(screen.getByRole("button", { name: "Save Hamlib configuration" })); await act(async () => {});
+  expect(owner.actions).toHaveLength(1); expect(owner.actions[0]).toMatchObject({ action: "save_hamlib", configuration: { model: 3073 } });
+  expect(native.worker).not.toHaveBeenCalled();
 });

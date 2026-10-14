@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { hamlibManufacturers, loadHamlibCatalogue, type HamlibModel } from "./hamlibCatalogue";
+import { useEffect, useRef, useState } from "react";
+import { loadHamlibCatalogue, type HamlibModel } from "./hamlibCatalogue";
+import { HamlibModelPicker } from "./HamlibModelPicker";
 import { AgentConnectionSetup } from "./AgentConnectionSetup";
 import { nativeStationSelection } from "./stationSelection";
 type Data = Record<string, any>;
@@ -18,7 +19,7 @@ export function HamlibDevice({ device, request, state, configurationOnly = false
   const key = `xlog.hamlib.${device}`;
   const [localConfig, setLocalConfig] = useState<Data>(() => { if (hideSetup) return { mode: "managed" }; try { return device === "radio" ? JSON.parse(localStorage.getItem(key) || "null") || { mode: "managed", path: "", baud: 9600, host: "127.0.0.1", port: 4532 } : { mode: "managed", path: "", baud: 9600, host: "127.0.0.1", port: 4533, serial: {} }; } catch { return { mode: "managed" }; } });
   const config = configuration ?? localConfig;
-  const [models, setModels] = useState<HamlibModel[]>([]), [search, setSearch] = useState(""), [manufacturer, setManufacturer] = useState("");
+  const [models, setModels] = useState<HamlibModel[]>([]);
   const [catalogueLoading, setCatalogueLoading] = useState(true);
   const catalogueVersion = useRef(0);
   const [ports, setPorts] = useState<Data[]>([]), [capabilities, setCapabilities] = useState<Data | null>(null);
@@ -54,7 +55,7 @@ export function HamlibDevice({ device, request, state, configurationOnly = false
       .catch(cause => { if (version === catalogueVersion.current) setError(cause instanceof Error ? cause.message : "Device catalogue unavailable."); })
       .finally(() => { if (version === catalogueVersion.current) setCatalogueLoading(false); });
   };
-  useEffect(() => { if (hideSetup) return; setModels([]); setSearch(""); setManufacturer(""); void loadModels(); return () => { catalogueVersion.current++; }; }, [device, request, hideSetup]);
+  useEffect(() => { if (hideSetup) return; setModels([]); void loadModels(); return () => { catalogueVersion.current++; }; }, [device, request, hideSetup]);
   useEffect(() => {
     if (!connectionControls) { setHealth(null); return; }
     let active = true, checking = false;
@@ -67,20 +68,13 @@ export function HamlibDevice({ device, request, state, configurationOnly = false
     void check(); const timer = setInterval(() => void check(), 3000);
     return () => { active = false; clearInterval(timer); };
   }, [device, request, connectionControls]);
-  const manufacturers = useMemo(() => hamlibManufacturers(models), [models]);
-  const filtered = useMemo(() => models.filter(model => (!manufacturer || model.manufacturer.toLowerCase() === manufacturer) && model.search.includes(search.trim().toLowerCase())), [models, manufacturer, search]);
   const selectedModel = models.find(model => model.id === Number(config.model));
-  const selectedOutsideFilter = !!config.model && !filtered.some(model => model.id === Number(config.model));
-  const deviceLabel = device === "radio" ? "Radio" : "Rotor";
   const modelReady = config.mode === "external" || !!selectedModel;
   const connected = health ? health.connected === true : !!state;
   return <section className="live-station-card hamlib-device"><h3>{device === "radio" ? "Radio" : "Rotator"} <span className={connected ? "teal" : "secondary"}>{connected ? "Connected" : "Disconnected"}</span></h3>
     {!hideSetup && <form className="live-station-connect" onSubmit={e => { e.preventDefault(); void connect("hamlib_connect", "Connection"); }}>
       <label>Connection<select value={config.mode} onChange={e => update("mode", e.target.value)}><option value="managed">Built-in Hamlib · serial / device TCP</option><option value="external">Existing local Hamlib daemon</option></select></label>
-      {config.mode === "managed" ? <><label>Manufacturer<select aria-label={`${deviceLabel} manufacturer`} value={manufacturer} onChange={event => setManufacturer(event.target.value)}><option value="">All manufacturers</option>{manufacturers.map(group => <option key={group.key} value={group.key}>{group.name} · {group.count}</option>)}</select></label>
-        <label>Find model<input aria-label={`Find ${device} model`} value={search} onChange={e => setSearch(e.target.value)} placeholder="Model name, ID or maturity" /></label>
-        <label>Model<select aria-label={`${deviceLabel} model`} required value={config.model || ""} onChange={e => update("model", Number(e.target.value))}><option value="">Choose hardware…</option>{selectedOutsideFilter && <option value={config.model}>{selectedModel ? `${selectedModel.manufacturer} ${selectedModel.model} · ${selectedModel.id} · ${selectedModel.maturity} (selected; outside filter)` : `Saved model ${config.model} · not in this catalogue`}</option>}{filtered.map(m => <option key={m.id} value={m.id}>{m.manufacturer} {m.model} · {m.id} · {m.maturity}</option>)}</select></label>
-        <p className="live-station-helper" role="status">{catalogueLoading ? "Loading bundled device catalogue…" : `${filtered.length} matching ${device} models · ${models.length} listed. Catalogue support is not physical-device verification.`}</p>
+      {config.mode === "managed" ? <><HamlibModelPicker key={device} device={device} models={models} loading={catalogueLoading} selected={Number(config.model)} onSelect={id => update("model", id)} />
         {!catalogueLoading && !models.length && <button type="button" onClick={() => void loadModels(true)}>Reload device catalogue</button>}
         {!catalogueLoading && !!config.model && !selectedModel && <p className="amber">Choose a model from the current bundled catalogue before connecting.</p>}
         <label>Serial device or device TCP address<input required={config.model !== 1} value={config.path || ""} onChange={e => update("path", e.target.value)} placeholder="/dev/cu.usbserial, COM3, or host:port" /></label>

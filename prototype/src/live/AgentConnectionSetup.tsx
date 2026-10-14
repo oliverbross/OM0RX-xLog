@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { loadStationSession, stationSessionRequest, type FlexConfiguration, type HamlibConfiguration, type StationReceipt, type StationSession } from "./stationSession";
 import type { StationProvider } from "../worker";
+import { SharedHamlibModelBrowser } from "./HamlibModelPicker";
 
 const journalKey = "xlog.station-session.pending";
 const reviewedKey = "xlog.station-session.reviewed";
@@ -133,7 +134,8 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
     </>}
     {hamlib && !flex && <><h3>Shared Hamlib radio connection</h3><p>Save configuration for Desk and Station Control, then connect explicitly. Saving does not contact a device. Request transmit permission separately for each connection.</p>
       <fieldset disabled={!state || busy}><label>Hamlib connection<select aria-label="Shared Hamlib connection" value={config.mode} onChange={event => updateConfig(event.target.value === "external" ? { mode: "external", host: "127.0.0.1", port: 4532 } : { mode: "managed", path: "", baud: 9600 })}><option value="managed">Built-in Hamlib</option><option value="external">Existing local Hamlib daemon</option></select></label>
-      {config.mode === "managed" ? <><label>Hamlib model ID<input aria-label="Shared Hamlib model ID" type="number" min="1" value={config.model ?? ""} onChange={event => updateConfig({ ...config, model: Number(event.target.value) })} /></label>
+      {config.mode === "managed" ? <><SharedHamlibModelBrowser selected={config.model} onSelect={id => updateConfig({ ...config, model: id })} />
+        <label>Hamlib model ID (manual entry)<input aria-label="Shared Hamlib model ID" type="number" min="1" value={config.model ?? ""} onChange={event => updateConfig({ ...config, model: Number(event.target.value) })} /></label>
         <label>Serial device or device TCP address<input aria-label="Shared Hamlib device path" value={config.path ?? ""} onChange={event => updateConfig({ ...config, path: event.target.value })} /></label>
         <label>Serial baud<input aria-label="Shared Hamlib baud" type="number" min="300" max="921600" value={config.baud ?? 9600} onChange={event => updateConfig({ ...config, baud: Number(event.target.value) })} /></label>
         <details><summary>Serial framing and control lines</summary>{[

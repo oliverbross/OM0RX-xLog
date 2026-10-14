@@ -40,13 +40,27 @@ pub fn validate(label: &str, isolated: bool, action: &str) -> Result<(), String>
     }
     if !matches!(
         action,
-        "snapshot" | "receipt" | "save" | "connect" | "disconnect" | "forget" | "select"
+        "snapshot" | "receipt" | "hamlib_catalogue" | "save" | "connect" | "disconnect" | "forget" | "select"
             | "save_hamlib" | "connect_hamlib" | "reconnect_hamlib" | "disconnect_hamlib"
             | "save_flex" | "connect_flex" | "reconnect_flex" | "disconnect_flex"
     ) {
         return Err("Unknown Station Control operation.".into());
     }
     Ok(())
+}
+/// An explicit catalogue read has fixed radio-only arguments and cannot become
+/// a device scan, capability probe, lifecycle operation or arbitrary request.
+pub fn hamlib_catalogue(params: &Value, dispatch: impl FnOnce(Value) -> Result<Value, String>) -> Result<Value, String> {
+    if params.as_object().is_none_or(|object| object.len() != 1) || params["action"] != "hamlib_catalogue" {
+        return Err("Invalid radio model catalogue request.".into());
+    }
+    let id = uuid::Uuid::new_v4().to_string();
+    let response = dispatch(json!({"id":id,"method":"hamlib_models","params":{"device":"radio"}}))
+        .map_err(|_| "Bundled radio model catalogue is unavailable.")?;
+    if response["id"] != id || response["ok"] != true || !response["result"]["models"].is_array() {
+        return Err("Bundled radio model catalogue is unavailable.".into());
+    }
+    Ok(json!({"models":response["result"]["models"]}))
 }
 fn endpoint(value: &str) -> Result<String, String> {
     if value.is_empty() {
@@ -571,6 +585,7 @@ mod tests {
         for action in [
             "snapshot",
             "receipt",
+            "hamlib_catalogue",
             "save",
             "connect",
             "disconnect",
@@ -742,6 +757,31 @@ mod tests {
         params["base_url"] = json!("https://station.example?token=secret");
         assert!(session.apply(&params, passive).is_err());
         assert!(session.snapshot().unwrap()["last_receipt"].is_null());
+    }
+    #[test]
+    fn explicit_catalogue_has_only_fixed_radio_inventory_authority_and_no_journal_mutation() {
+        let (_directory, session, _) = setup();
+        let before = session.snapshot().unwrap();
+        let result = hamlib_catalogue(&json!({"action":"hamlib_catalogue"}), |request| {
+            assert_eq!(request["method"], "hamlib_models"); assert_eq!(request["params"], json!({"device":"radio"}));
+            assert!(uuid::Uuid::parse_str(request["id"].as_str().unwrap()).is_ok());
+            Ok(json!({"id":request["id"],"ok":true,"result":{"models":[{"id":1,"manufacturer":"Hamlib","model":"Dummy","maturity":"Stable"}],"unrelated":"not-exposed"}}))
+        }).unwrap();
+        assert_eq!(result, json!({"models":[{"id":1,"manufacturer":"Hamlib","model":"Dummy","maturity":"Stable"}]}));
+        assert_eq!(session.snapshot().unwrap(), before);
+        for params in [json!({"action":"hamlib_catalogue","device":"rotor"}), json!({"action":"hamlib_catalogue","method":"hamlib_connect"}),
+            json!({"action":"hamlib_catalogue","params":{"device":"radio"}}), json!({"action":"hamlib_connect"})] {
+            assert!(hamlib_catalogue(&params, |_| panic!("expanded authority dispatched")).is_err());
+        }
+        assert!(session.apply(&json!({"action":"hamlib_catalogue"}), passive).is_err());
+    }
+    #[test]
+    fn catalogue_failure_never_exposes_raw_errors_or_accepts_unmatched_response() {
+        let params = json!({"action":"hamlib_catalogue"});
+        assert_eq!(hamlib_catalogue(&params, |_| Err("sensitive external detail".into())).unwrap_err(), "Bundled radio model catalogue is unavailable.");
+        for response in [json!({"id":"wrong","ok":true,"result":{"models":[]}}), json!({"ok":false}), json!({"ok":true,"result":{"models":{}}})] {
+            assert!(hamlib_catalogue(&params, |_| Ok(response)).is_err());
+        }
     }
     #[test]
     fn failed_journal_write_cannot_dispatch_a_connection() {
