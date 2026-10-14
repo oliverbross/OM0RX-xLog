@@ -158,8 +158,14 @@ public actor LiveWorker {
         await services.startAutomaticSync()
         #if os(macOS)
         await references.startAutomaticChecks()
+        await LiveWSJTXBridge.shared.install { [weak self] in
+            Task { await self?.externalContactChanged() }
+        }
+        await LiveWSJTXBridge.shared.startIfEnabled()
         #endif
     }
+
+    private func externalContactChanged() { queueContactRefresh() }
 
     func startPowerCapture(registerStation: Bool = true) async {
         guard !localAcceptance, !terminalShutdown else { return }
@@ -181,6 +187,7 @@ public actor LiveWorker {
         await services.beginTermination()
         #if os(macOS)
         await references.terminate()
+        await LiveWSJTXBridge.shared.stopForShutdown()
         #endif
         await publicServices.terminate()
         await opportunities.terminate()
@@ -225,7 +232,7 @@ public actor LiveWorker {
                 }
                 try LocalAcceptanceSession.validate(method: method, params: params)
             }
-            if terminalShutdown && (method.hasPrefix("reference_") || method.hasPrefix("sync_") || method.hasPrefix("secret_") || method.hasPrefix("station_") || method.hasPrefix("spot_bridge_") || method.hasPrefix("spot_history_") || method.hasPrefix("spot_draft_") || method.hasPrefix("opportunities_") || method.hasPrefix("cluster_") || method.hasPrefix("logbook_operator_draft") || method.hasPrefix("logbook_contact") || ["weather", "propagation_snapshot", "propagation_refresh", "lookup_call", "workspace_create", "backup_restore"].contains(method)) {
+            if terminalShutdown && (method.hasPrefix("reference_") || method.hasPrefix("sync_") || method.hasPrefix("secret_") || method.hasPrefix("station_") || method.hasPrefix("spot_bridge_") || method.hasPrefix("wsjtx_") || method.hasPrefix("spot_history_") || method.hasPrefix("spot_draft_") || method.hasPrefix("opportunities_") || method.hasPrefix("cluster_") || method.hasPrefix("logbook_operator_draft") || method.hasPrefix("logbook_contact") || ["weather", "propagation_snapshot", "propagation_refresh", "lookup_call", "workspace_create", "backup_restore"].contains(method)) {
                 throw WorkerFailure("worker_stopping", "The worker is shutting down; no new service request was started.")
             }
             if method == "health" {
@@ -299,6 +306,7 @@ public actor LiveWorker {
                     powerCapture.suspend(true)
                     #if os(macOS)
                     await references.suspendForWorkspaceChange()
+                    await LiveWSJTXBridge.shared.suspendForWorkspaceChange()
                     #endif
                     await cluster.invalidateContactsForWorkspaceChange()
                 }
@@ -309,6 +317,7 @@ public actor LiveWorker {
                     if changingWorkspace {
                         #if os(macOS)
                         await references.finishWorkspaceChange()
+                        await LiveWSJTXBridge.shared.finishWorkspaceChange()
                         #endif
                         await cluster.finishWorkspaceChange()
                         workspaceTransitionCount -= 1
@@ -323,6 +332,7 @@ public actor LiveWorker {
                 if changingWorkspace {
                     #if os(macOS)
                     await references.finishWorkspaceChange()
+                    await LiveWSJTXBridge.shared.finishWorkspaceChange()
                     #endif
                     await cluster.finishWorkspaceChange()
                     workspaceTransitionCount -= 1
@@ -362,6 +372,8 @@ public actor LiveWorker {
                     result = try await LiveStationMethods.handle(method, params: params)
                 } else if method.hasPrefix("spot_bridge_") {
                     result = try await LiveSpotBridge.shared.handle(method: method, params: params)
+                } else if method.hasPrefix("wsjtx_") {
+                    result = try await LiveWSJTXBridge.shared.handle(method: method, params: params)
                 } else {
                     result = try await services.handle(method: method, params: params)
                 }

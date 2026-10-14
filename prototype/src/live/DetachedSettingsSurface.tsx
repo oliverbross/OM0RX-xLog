@@ -12,7 +12,7 @@ import { connectRotorConfigurationChanges } from "./rotorConfigurationTransport"
 const journalKey = "xlog.integration.settings.detached.v1";
 const rotorJournalKey = "xlog.integration.rotorConfiguration.detached.v1";
 const RotorPanel = lazy(() => import("./RotorPanel"));
-const availableTabs = ["Station", "Wavelog", "Sync", "QRZ", "Reference data", "Rotator", "Display", "Workspace", "Backups"] as const;
+const availableTabs = ["Station", "Wavelog", "Sync", "Integrations", "QRZ", "Reference data", "Rotator", "Display", "Workspace", "Backups"] as const;
 export const detachedSettingsMethods = [
   "settings_load", "settings_receipt", "settings_save", "secret_status", "secret_save",
   "workspace_rotor_configuration_load", "workspace_rotor_configuration_receipt", "workspace_rotor_configuration_save", "hamlib_models",
@@ -20,6 +20,7 @@ export const detachedSettingsMethods = [
   "reference_status", "reference_resolve", "reference_refresh", "reference_schedule", "reference_configure",
   "backup_create", "backup_list", "backup_inspect", "backup_import", "backup_restore",
   "remote_backup_request",
+  "wsjtx_snapshot", "wsjtx_configure", "wsjtx_start", "wsjtx_stop",
 ] as const;
 
 function storedJournal() {

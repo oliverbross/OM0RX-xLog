@@ -106,6 +106,27 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
         try lock.withLock { try readyDatabase() }
     }
 
+    /// Receive-only digital-mode integrations use the same parser and semantic
+    /// duplicate boundary as manual imports without touching the operator draft.
+    func importLoggedADIF(_ text: String) throws -> (imported: Int, skipped: Int) {
+        try lock.withLock {
+            guard text.utf8.count <= 16_384 else { throw invalid() }
+            let preview = ADIFImportPreview(text: text)
+            guard preview.issues.isEmpty else { throw invalid() }
+            let qsos = try preview.records.map { record -> QSO in
+                if let raw = record["FREQ"] {
+                    guard let frequency = Double(raw), frequency.isFinite,
+                          frequency >= 0, frequency <= 1_000_000 else { throw invalid() }
+                }
+                guard let qso = QSO(adif: record) else { throw invalid() }
+                return qso
+            }
+            guard qsos.count == 1 else { throw invalid() }
+            let imported = try readyDatabase().importBatch(qsos)
+            return (imported, qsos.count - imported)
+        }
+    }
+
     /// Admission, dispatch and receipt commit share the workspace-transition lock.
     /// This never spans asynchronous transport: startSync only schedules its task.
     func withSyncOwnerLock<T>(_ body: () throws -> T) rethrows -> T { try lock.withLock(body) }

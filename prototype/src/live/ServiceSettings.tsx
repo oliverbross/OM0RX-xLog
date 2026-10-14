@@ -6,6 +6,7 @@ import CWSettings from "./CWSettings";
 import { validateCWProfile, type CWContext } from "./cwMacros";
 import type { CWState } from "./cwController";
 import ReferenceScheduleControl from "./ReferenceScheduleControl";
+import WSJTXPanel from "./WSJTXPanel";
 import "./ServiceSettings.css";
 
 type Data = Record<string, any>;
@@ -14,9 +15,10 @@ export type ServiceSettingsProps = { values: Data; savedValues?: Data; request: 
   saving?: boolean; pending?: boolean; conflict?: boolean; workspaceChanged?: boolean; dirty?: boolean; sessionError?: string;
   onReconcile?: () => Promise<void>; onRetry?: () => Promise<void>; onUseSaved?: () => void;
   dataRequest?: Request; onDataChanged?: () => void; rotorSettings?: ReactNode; workspaceSettings?: ReactNode; syncSettings?: ReactNode;
+  onExternalContact?: () => void;
   availableTabs?: readonly Tab[]; requestedTab?: "Station" | "Wavelog" | "Sync"; requestedTabRevision?: number; cwContext?: CWContext; cwState?: CWState;
   refreshCW?: () => Promise<void>; cwProvider?: string };
-const tabs = ["Station", "Wavelog", "Sync", "QRZ", "Reference data", "Rotator", "CW", "Display", "Workspace", "Backups"] as const;
+const tabs = ["Station", "Wavelog", "Sync", "Integrations", "QRZ", "Reference data", "Rotator", "CW", "Display", "Workspace", "Backups"] as const;
 type Tab = typeof tabs[number];
 
 function Credential({ account, label, request, leadingField, visible = false, showSavedStatus = false }: { account: string; label: string; request: Request; leadingField?: ReactNode; visible?: boolean; showSavedStatus?: boolean }) {
@@ -59,7 +61,7 @@ function Credential({ account, label, request, leadingField, visible = false, sh
 
 export default function ServiceSettings({ values, savedValues, request, onChanged, onSave, saving = false, pending = false,
   conflict = false, workspaceChanged = false, dirty = false, sessionError = "", onReconcile, onRetry, onUseSaved, dataRequest, onDataChanged,
-  rotorSettings, workspaceSettings, syncSettings, availableTabs, requestedTab, requestedTabRevision, cwContext, cwState, refreshCW, cwProvider }: ServiceSettingsProps) {
+  rotorSettings, workspaceSettings, syncSettings, onExternalContact, availableTabs, requestedTab, requestedTabRevision, cwContext, cwState, refreshCW, cwProvider }: ServiceSettingsProps) {
   const visibleTabs = useMemo(() => availableTabs?.filter((value, index, values) => tabs.includes(value) && values.indexOf(value) === index) ?? tabs, [availableTabs]);
   const initialTab = requestedTab && visibleTabs.includes(requestedTab) ? requestedTab : visibleTabs[0] ?? "Station";
   const [tab, setTab] = useState<Tab>(initialTab);
@@ -93,11 +95,12 @@ export default function ServiceSettings({ values, savedValues, request, onChange
       if (next !== null) { event.preventDefault(); const selected = visibleTabs[next]; setTab(selected); document.getElementById(`service-tab-${tabs.indexOf(selected)}`)?.focus(); }
     }}>{name}</button>)}</div>
     <div id="service-settings-panel" role="tabpanel" aria-labelledby={`service-tab-${tabs.indexOf(tab)}`}>
-    <p hidden={tab === "Display" || tab === "CW" || tab === "Workspace" || tab === "Sync"}>URLs and account details are grouped with their credentials. Save settings for non-secret fields; each credential has its own secure Save button.</p>
+    <p hidden={tab === "Display" || tab === "CW" || tab === "Workspace" || tab === "Sync" || tab === "Integrations"}>URLs and account details are grouped with their credentials. Save settings for non-secret fields; each credential has its own secure Save button.</p>
     {tab === "Sync" && <div>{syncSettings ?? <p>Synchronization tools are unavailable in this view.</p>}</div>}
     <div hidden={tab !== "Workspace"}>{workspaceSettings ?? <p>Workspace arrangements are unavailable in this view.</p>}</div>
     <div hidden={tab !== "Display"}><DisplaySettings /></div>
     <div hidden={tab !== "Rotator"}>{rotorSettings ?? <p>Rotator settings are unavailable in this view.</p>}</div>
+    {tab === "Integrations" && <WSJTXPanel request={request} onImported={onExternalContact} />}
     <ReferenceScheduleControl request={request} visible={tab === "Reference data"} />
     {(sessionError || pending || conflict || workspaceChanged) && <div className="service-settings-recovery" role="status">
       {sessionError && <p>{sessionError}</p>}
@@ -125,10 +128,10 @@ export default function ServiceSettings({ values, savedValues, request, onChange
       <section hidden={tab !== "QRZ"}><h2>QRZ callsign lookup</h2><p>Use your QRZ username and password for XML callsign lookup.</p><label className="service-enable"><input type="checkbox" checked={form.qrzEnabled === true} onChange={event => update({ qrzEnabled: event.target.checked })} />Use QRZ XML lookup</label><Credential account="qrz-password" label="QRZ password" request={request} leadingField={field("qrzUsername", "QRZ username")} /></section>
       <section hidden={tab !== "Reference data"}><h2>Club Log reference data</h2><p>This connection downloads CTY reference data using an API key. It is not a Club Log QSO uploader and does not use a separate account callsign.</p><Credential account="clublog-api-key" label="Club Log API key" request={request} leadingField={field("clubLogCTYURL", "Club Log CTY URL", "url")} /></section>
       <section hidden={tab !== "Reference data"}><h2>LoTW activity reference</h2><p>This public reference feed does not require your LoTW password.</p><div className="service-fields">{field("lotwActivityURL", "LoTW activity URL", "url")}</div></section>
-      <div className="live-actions" hidden={tab === "Backups" || tab === "Display" || tab === "Rotator" || tab === "Workspace" || tab === "Sync"}><button type="submit" className="primary">{saving ? "Saving settings…" : "Save settings"}</button><span role="status">{message}</span></div>
+      <div className="live-actions" hidden={tab === "Backups" || tab === "Display" || tab === "Rotator" || tab === "Workspace" || tab === "Sync" || tab === "Integrations"}><button type="submit" className="primary">{saving ? "Saving settings…" : "Save settings"}</button><span role="status">{message}</span></div>
     </fieldset></form>
     {(visibleTabs.includes("Reference data") || visibleTabs.includes("Backups")) && <div hidden={tab !== "Reference data" && tab !== "Backups"}>{dataRequest ? <DataManagementPanel onRequest={dataRequest} onChanged={onDataChanged ?? (() => {})} visible={tab === "Reference data" || tab === "Backups"} section={tab === "Backups" ? "backups" : "references"} sourceSettings={savedValues ?? form} /> : <p>Reference and backup tools are unavailable in this view.</p>}</div>}
-    <p className="service-security-note" hidden={tab === "CW" || tab === "Workspace" || tab === "Sync"}>Credentials stay in the integrated app’s separate macOS Keychain service. Existing application credentials are not changed. Never paste credentials into a support chat.</p>
+    <p className="service-security-note" hidden={tab === "CW" || tab === "Workspace" || tab === "Sync" || tab === "Integrations"}>Credentials stay in the integrated app’s separate macOS Keychain service. Existing application credentials are not changed. Never paste credentials into a support chat.</p>
     </div>
   </section>;
 }

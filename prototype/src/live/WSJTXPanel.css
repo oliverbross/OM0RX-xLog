@@ -1,0 +1,12 @@
+.wsjtx-panel { display:grid; gap:14px; min-width:0; }
+.wsjtx-panel > header { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; }
+.wsjtx-panel h2, .wsjtx-panel p { margin:0; }
+.wsjtx-panel header p { color:var(--muted); max-width:76ch; margin-top:4px; }
+.wsjtx-panel .wsjtx-safety { padding:10px 12px; border:1px solid var(--line); border-radius:8px; background:var(--panel); }
+.wsjtx-fields { display:grid; grid-template-columns:minmax(190px, 2fr) minmax(120px, 1fr); gap:12px; max-width:560px; }
+.wsjtx-fields label { display:grid; gap:5px; }
+.wsjtx-panel footer { display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px 18px; color:var(--muted); border-top:1px solid var(--line); padding-top:12px; }
+@media (max-width:560px) {
+  .wsjtx-panel > header, .wsjtx-panel footer { align-items:flex-start; flex-direction:column; }
+  .wsjtx-fields { grid-template-columns:1fr; }
+}

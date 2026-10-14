@@ -50,6 +50,7 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
             | "reference_status" | "reference_resolve" | "reference_refresh" | "reference_schedule" | "reference_configure"
             | "backup_create" | "backup_list" | "backup_inspect" | "backup_import" | "backup_restore"
             | "remote_backup_request"
+            | "wsjtx_snapshot" | "wsjtx_configure" | "wsjtx_start" | "wsjtx_stop"
             | "workspace_layout_load" | "workspace_layout_apply"
         )) { Ok(()) } else { Err("Settings can only manage scoped configuration, synchronization, reference data, layouts and backups.".into()) };
     }
@@ -230,6 +231,10 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "spot_bridge_configure",
         "spot_bridge_start",
         "spot_bridge_stop",
+        "wsjtx_snapshot",
+        "wsjtx_configure",
+        "wsjtx_start",
+        "wsjtx_stop",
         "cluster_snapshot",
         "cluster_resume",
         "cluster_resume_initialize",
@@ -1026,18 +1031,23 @@ mod tests {
             "station_cat_servers",
             "station_radio_control",
             "logbook_save",
-            "sync_run",
             "settings_save",
             "propagation_snapshot",
             "spot_bridge_snapshot",
             "spot_bridge_configure",
             "spot_bridge_start",
             "spot_bridge_stop",
+            "wsjtx_snapshot",
+            "wsjtx_configure",
+            "wsjtx_start",
+            "wsjtx_stop",
         ] {
             let request = json!({"id":"r","method":method,"params":{}});
             assert!(validate_surface("monitor", &request).is_err());
             assert!(validate_surface("main", &request).is_ok());
         }
+        assert!(validate_surface("monitor", &json!({"id":"r","method":"sync_run","params":{}})).is_err());
+        assert!(validate_surface("main", &json!({"id":"r","method":"sync_run","params":{}})).is_err());
     }
 
     #[test]
