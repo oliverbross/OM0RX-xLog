@@ -10,6 +10,7 @@ import XLogPortableCore
 /// supply an account proof, vault identity, destination, package or plan.
 struct NativeRemoteBackupOffer: Sendable {
     let plan: RemoteBackupUploadPlan
+    let envelope: XLogBackupEnvelope
     let providerAccountID: String
 }
 
@@ -100,6 +101,8 @@ actor LiveRemoteBackupPresentation {
                 let prepared = try await environment.prepare(generation)
                 try logbook.withCurrentWorkspaceGeneration { current in
                     try prepared.plan.validate(workspaceGeneration: current, destination: prepared.plan.destination)
+                    try prepared.envelope.validate(for: prepared.plan, workspaceGeneration: current,
+                        destination: prepared.plan.destination)
                     _ = try NativeDropboxBackupAccountBinding(workspaceGeneration: current, destination: prepared.plan.destination,
                         keychainService: logbook.currentKeychainService(), providerAccountID: prepared.providerAccountID)
                 }
@@ -126,7 +129,8 @@ actor LiveRemoteBackupPresentation {
             case "start":
                 let prepared = try requireOffer(generation)
                 guard let approval else { throw stale() }
-                try await commands.start(plan: prepared.plan, approval: approval, vault: environment.vault, http: environment.http)
+                try await commands.start(plan: prepared.plan, approval: approval,
+                    preparedEnvelope: prepared.envelope, vault: environment.vault, http: environment.http)
             case "stop": try await commands.stop()
             case "revoke":
                 try await commands.revoke(expectedWorkspaceGeneration: generation, expectedConfigurationRevision: configurationRevision)

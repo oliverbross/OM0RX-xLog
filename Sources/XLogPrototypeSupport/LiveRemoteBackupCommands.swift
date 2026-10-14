@@ -115,6 +115,7 @@ actor LiveRemoteBackupCommands {
     }
 
     func start(plan: RemoteBackupUploadPlan, approval: NativeRemoteBackupApproval,
+               preparedEnvelope: XLogBackupEnvelope? = nil,
                vault: any NativeBackupCredentialVault = SystemNativeBackupCredentialVault(),
                http: any DropboxBackupHTTPClient = DropboxBackupURLSessionClient()) async throws {
         try beginMutation(); defer { mutating = false }
@@ -124,7 +125,8 @@ actor LiveRemoteBackupCommands {
         try check(plan: plan, account: approval.registration)
         let registrationCheck = makeCheck(plan: plan, account: approval.registration)
         try await service.startDropbox(plan: plan, authorization: approval.authorization,
-            binding: approval.registration.binding, vault: vault, http: http,
+            binding: approval.registration.binding, preparedEnvelope: preparedEnvelope,
+            vault: vault, http: http,
             registrationCheck: registrationCheck)
         do {
             try Task.checkCancellation()

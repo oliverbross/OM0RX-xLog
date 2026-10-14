@@ -29,6 +29,7 @@ public actor RemoteBackupHostDriver {
     public func start(plan: RemoteBackupUploadPlan, recurring: Bool = false) async throws {
         try Task.checkCancellation()
         guard context == nil, !advancing else { throw RemoteBackupSchedulerError.operationInProgress }
+        try await owner.validateStart(recurring: recurring)
         epoch &+= 1
         let startingEpoch = epoch
         context = plan

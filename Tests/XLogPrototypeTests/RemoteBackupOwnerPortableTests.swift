@@ -141,6 +141,22 @@ import Testing
         }
     }
 
+    @Test func preparedClaimModeRejectsRecurringBeforeEnablingOrCapturing() async throws {
+        let (envelope, plan, root) = try fixture()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let scheduler = try RemoteBackupScheduler(stateDirectory: root.appendingPathComponent("state"))
+        let source = Source(envelope), ticks = Ticks()
+        let owner = RemoteBackupOwner(scheduler: scheduler, source: source, executor: Executor(),
+            claimMode: .preparedOneShot)
+        let host = RemoteBackupHostDriver(scheduler: scheduler, owner: owner, clock: Clock(start), ticks: ticks)
+        await #expect(throws: RemoteBackupPlanningError.invalidSchedule) {
+            try await host.start(plan: plan, recurring: true)
+        }
+        #expect(try await scheduler.state(for: plan) == .disabled)
+        #expect(await source.captures == 0)
+        #expect(await ticks.calls == 0)
+    }
+
     @Test func recurringUncertainOutcomeCannotRearm() async throws {
         let (envelope, plan, root) = try fixture()
         defer { try? FileManager.default.removeItem(at: root) }

@@ -487,6 +487,57 @@ import Testing
         #expect(try FileManager.default.contentsOfDirectory(atPath: staging.path).isEmpty)
     }
 
+    @Test func preparedOneShotClaimsTheExactApprovedBackupIDAndBytes() async throws {
+        let (logbook, root, workspace) = try fixture()
+        defer { clean(logbook, root, workspace) }
+        let ticks = Ticks(), clock = Clock(), executor = Executor()
+        let service = LiveRemoteBackupService(logbook: logbook, clock: clock, ticks: { ticks })
+        let generation = try logbook.withCurrentWorkspaceGeneration { $0 }
+        let destination = try RemoteBackupDestination(id: UUID(), revision: 1, provider: .dropbox,
+            accountID: UUID(), location: .cloudFolder(id: "id:prepared-folder"), schedule: .every(hours: 1))
+        let source = try RemoteBackupLocalSnapshotSource(workspace: logbook,
+            stagingDirectory: workspace.directoryURL.appendingPathComponent("prepared-staging"))
+        let envelope = try await source.capture(workspaceGeneration: generation, destination: destination)
+        let approved = try RemoteBackupUploadPlan(workspaceGeneration: generation, destination: destination,
+            backupID: UUID(), package: envelope.identity)
+        let authority = try await service.authorizationOwner()
+        let grant = try await authority.approve(plan: approved, expectedConfigurationRevision: 0)
+
+        try await service.start(plan: approved, authorization: grant, executor: executor,
+            preparedEnvelope: envelope)
+        let task = try #require(await service.currentTask)
+        await ticks.probe.wait()
+        clock.due(); ticks.emit(); await task.value
+
+        let claim = try #require(await executor.claims.first)
+        #expect(claim.plan == approved)
+        #expect(claim.envelope.identity == envelope.identity)
+        #expect(claim.envelope.data == envelope.data)
+        #expect(await executor.claims.count == 1)
+        #expect(await service.isRunning == false)
+    }
+
+    @Test func preparedEnvelopeCannotBeReusedAsARecurringSchedule() async throws {
+        let (logbook, root, workspace) = try fixture()
+        defer { clean(logbook, root, workspace) }
+        let service = LiveRemoteBackupService(logbook: logbook)
+        let generation = try logbook.withCurrentWorkspaceGeneration { $0 }
+        let destination = try RemoteBackupDestination(id: UUID(), revision: 1, provider: .dropbox,
+            accountID: UUID(), location: .cloudFolder(id: "id:prepared-recurring"), schedule: .every(hours: 1))
+        let source = try RemoteBackupLocalSnapshotSource(workspace: logbook,
+            stagingDirectory: workspace.directoryURL.appendingPathComponent("prepared-recurring-staging"))
+        let envelope = try await source.capture(workspaceGeneration: generation, destination: destination)
+        let approved = try RemoteBackupUploadPlan(workspaceGeneration: generation, destination: destination,
+            backupID: UUID(), package: envelope.identity)
+        let authority = try await service.authorizationOwner()
+        let grant = try await authority.approve(plan: approved, expectedConfigurationRevision: 0, recurring: true)
+        await #expect(throws: RemoteBackupPlanningError.invalidSchedule) {
+            try await service.start(plan: approved, authorization: grant, executor: Executor(),
+                preparedEnvelope: envelope)
+        }
+        #expect(await service.isRunning == false)
+    }
+
     @Test func revokedConsentIsCheckedAgainInsideCaptureLease() async throws {
         let (logbook, root, workspace) = try fixture()
         defer { clean(logbook, root, workspace) }

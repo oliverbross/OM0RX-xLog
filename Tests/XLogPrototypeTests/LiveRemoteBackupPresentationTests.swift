@@ -47,21 +47,28 @@ final class LiveRemoteBackupPresentationTests: XCTestCase {
         let owner: LiveRemoteBackupPresentation, environment: NativeRemoteBackupPresentationEnvironment
         let probe = Probe(), vault = NoVault(), http = NoHTTP()
         init(failVerification: Bool = false, available: Bool = true) throws {
-            root = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-backup-ui-" + UUID().uuidString)
-            logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
-            _ = try logbook.handle(method: "workspace_create", params: ["mode": "empty"])
-            let accounts = LiveDropboxBackupAccountOwner(logbook: logbook, verifier: Verifier(probe: probe, fail: failVerification))
+            let createdRoot = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-backup-ui-" + UUID().uuidString)
+            let createdLogbook = LiveLogbookMethods(supportDirectory: createdRoot, inheritNativePreferences: false)
+            root = createdRoot
+            logbook = createdLogbook
+            _ = try createdLogbook.handle(method: "workspace_create", params: ["mode": "empty"])
+            let accounts = LiveDropboxBackupAccountOwner(logbook: createdLogbook, verifier: Verifier(probe: probe, fail: failVerification))
             let ticks = IdleTicks()
-            service = LiveRemoteBackupService(logbook: logbook, clock: Clock(), accounts: accounts, ticks: { ticks })
+            let createdService = LiveRemoteBackupService(logbook: createdLogbook, clock: Clock(), accounts: accounts, ticks: { ticks })
+            service = createdService
             let destination = try RemoteBackupDestination(id: UUID(), revision: 1, provider: .dropbox,
                 accountID: UUID(), location: .cloudFolder(id: "id:fixture-folder"), schedule: .every(hours: 1))
             let probe = probe
             environment = NativeRemoteBackupPresentationEnvironment(prepare: { generation in
                 await probe.prepared()
+                let source = try RemoteBackupLocalSnapshotSource(workspace: createdLogbook,
+                    stagingDirectory: createdRoot.appendingPathComponent("prepare-staging"))
+                let envelope = try await source.capture(workspaceGeneration: generation, destination: destination)
                 return NativeRemoteBackupOffer(plan: try RemoteBackupUploadPlan(workspaceGeneration: generation,
-                    destination: destination, backupID: UUID(), package: RemoteBackupPackageIdentity(sha256: String(repeating: "a", count: 64), byteCount: 1)), providerAccountID: "dbid:fixture")
+                    destination: destination, backupID: UUID(), package: envelope.identity),
+                    envelope: envelope, providerAccountID: "dbid:fixture")
             }, vault: vault, http: http)
-            owner = LiveRemoteBackupPresentation(logbook: logbook, service: service, environment: available ? environment : nil)
+            owner = LiveRemoteBackupPresentation(logbook: createdLogbook, service: createdService, environment: available ? environment : nil)
         }
         func cleanup() {
             if let workspace = try? IntegrationWorkspaceBootstrap.open(at: logbook.workspaceDirectoryURL) {

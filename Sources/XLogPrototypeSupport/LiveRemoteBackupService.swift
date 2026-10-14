@@ -83,6 +83,7 @@ actor LiveRemoteBackupService {
     /// is read until a due claim executes, and no renderer route calls this method.
     func startDropbox(plan: RemoteBackupUploadPlan, authorization: RemoteBackupAuthorization,
                       binding: NativeDropboxBackupAccountBinding,
+                      preparedEnvelope: XLogBackupEnvelope? = nil,
                       vault: any NativeBackupCredentialVault = SystemNativeBackupCredentialVault(),
                       http: any DropboxBackupHTTPClient = DropboxBackupURLSessionClient(),
                       registrationCheck: @escaping @Sendable () throws -> Void = {}) async throws {
@@ -104,11 +105,13 @@ actor LiveRemoteBackupService {
             .appendingPathComponent(plan.destination.id.uuidString.lowercased())
         let executor = try DropboxBackupExecutor(destination: plan.destination, stateDirectory: directory,
             credentials: source, http: RegisteredHTTP(client: http, check: registrationCheck))
-        try await start(plan: plan, authorization: authorization, executor: executor, registrationCheck: registrationCheck)
+        try await start(plan: plan, authorization: authorization, executor: executor,
+            preparedEnvelope: preparedEnvelope, registrationCheck: registrationCheck)
     }
 
     func start(plan: RemoteBackupUploadPlan, authorization: RemoteBackupAuthorization,
                executor: any RemoteBackupClaimExecutor,
+               preparedEnvelope: XLogBackupEnvelope? = nil,
                registrationCheck: @escaping @Sendable () throws -> Void = {}) async throws {
         guard !stopping, !starting else { throw RemoteBackupSchedulerError.operationInProgress }
         starting = true
@@ -124,10 +127,20 @@ actor LiveRemoteBackupService {
             let directory = try logbook.remoteBackupDirectory()
             let scheduler = try RemoteBackupScheduler(stateDirectory: directory.appendingPathComponent("Schedules"))
             let workspace = AuthorizedWorkspace(logbook: logbook, checker: checker, check: registrationCheck)
-            let source = try RemoteBackupLocalSnapshotSource(workspace: workspace,
-                stagingDirectory: directory.appendingPathComponent("Staging"))
+            if let preparedEnvelope {
+                guard !authorization.recurring else { throw RemoteBackupPlanningError.invalidSchedule }
+                try preparedEnvelope.validate(for: plan, workspaceGeneration: plan.workspaceGeneration,
+                    destination: plan.destination)
+            }
+            let source: any RemoteBackupSnapshotSource = if let preparedEnvelope {
+                PreparedSnapshotSource(envelope: preparedEnvelope, checker: checker, check: registrationCheck)
+            } else {
+                try RemoteBackupLocalSnapshotSource(workspace: workspace,
+                    stagingDirectory: directory.appendingPathComponent("Staging"))
+            }
             let owner = RemoteBackupOwner(scheduler: scheduler, source: source,
-                executor: AuthorizedExecutor(executor: executor, checker: checker, check: registrationCheck))
+                executor: AuthorizedExecutor(executor: executor, checker: checker, check: registrationCheck),
+                claimMode: preparedEnvelope == nil ? .freshSnapshot : .preparedOneShot)
             let host = RemoteBackupHostDriver(scheduler: scheduler, owner: owner, clock: clock, ticks: try ticks())
             created = host
             try checker.validate(workspaceGeneration: plan.workspaceGeneration, destination: plan.destination)
@@ -207,6 +220,21 @@ actor LiveRemoteBackupService {
                 try check()
                 return try capture(snapshot)
             }
+        }
+    }
+
+    /// Keeps the native-prepared package in memory and rechecks both durable
+    /// authorities at the due boundary. The exact approved bytes and backup ID
+    /// are claimed once; recurring schedules must use fresh capture instead.
+    private struct PreparedSnapshotSource: RemoteBackupSnapshotSource {
+        let envelope: XLogBackupEnvelope
+        let checker: RemoteBackupAuthorizationChecker
+        let check: @Sendable () throws -> Void
+        func capture(workspaceGeneration: UUID, destination: RemoteBackupDestination) async throws -> XLogBackupEnvelope {
+            try Task.checkCancellation()
+            try check()
+            try checker.validate(workspaceGeneration: workspaceGeneration, destination: destination)
+            return envelope
         }
     }
 
