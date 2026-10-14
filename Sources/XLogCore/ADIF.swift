@@ -271,7 +271,9 @@ public struct ADIFDuplicatePreviewIndex: Sendable {
 /// stale-target checks and sync behavior before applying any proposed record.
 public struct ADIFImportPlan: Sendable {
     public static let editableFields: Set<String> = ["NAME", "QTH", "GRIDSQUARE", "COMMENT", "NOTES", "RST_SENT", "RST_RCVD",
-        "QSL_SENT", "QSL_RCVD", "QSL_SENT_VIA", "QSL_VIA", "LOTW_QSL_SENT", "LOTW_QSL_RCVD", "IOTA", "SOTA_REF", "POTA_REF", "WWFF_REF"]
+        "QSL_SENT", "QSL_RCVD", "QSL_SENT_VIA", "QSL_VIA", "LOTW_QSL_SENT", "LOTW_QSL_RCVD", "IOTA", "SOTA_REF", "POTA_REF", "WWFF_REF",
+        "COUNTRY", "CONT", "CQZ", "ITUZ", "STATE", "CNTY", "SIG", "SIG_INFO", "DARC_DOK", "TX_PWR",
+        "OPERATOR", "STATION_CALLSIGN", "MY_GRIDSQUARE", "PROP_MODE", "EMAIL"]
     public enum DuplicatePolicy: Sendable {
         case skip
         /// Only present incoming values replace the explicitly selected fields.

@@ -124,6 +124,39 @@ struct ADIFTransferTests {
         }
     }
 
+    @Test("Expanded metadata fields persist exactly, preserve absent values and clear present empty values")
+    func expandedMetadataUpdates() throws {
+        try fixture { service, db in
+            let values = ["COUNTRY": "Slovensko Žilina 😀", "CONT": "EU", "CQZ": "15", "ITUZ": "28",
+                          "STATE": "Žilinský", "CNTY": "Žilina", "SIG": "Local group 😀", "SIG_INFO": "Žilina <EOR>",
+                          "DARC_DOK": "A01", "TX_PWR": "12.50", "OPERATOR": "OM0RX/P", "STATION_CALLSIGN": "OM0RX",
+                          "MY_GRIDSQUARE": "JN99aa", "PROP_MODE": "SAT", "EMAIL": "operator@example.invalid"]
+            let original = QSO(wavelogID: 42, call: "W1AW", band: "20m", mode: "CW", comment: "Keep",
+                               extraFields: ["APP_OTHER": "opaque", "DXCC": "291"])
+            try db.save(original, markDirty: false)
+            func update(_ changes: [String: String]) throws {
+                let fields = original.adifRecord.fields.merging(changes) { _, value in value }
+                let preview = try service.handle(method: "logbook_import_adif", params: ["action": "preview", "text": ADIFRecord(fields: fields).adifDocument])
+                #expect(try service.handle(method: "logbook_import_adif", params: ["action": "update", "token": preview["token"]!,
+                    "generation": preview["generation"]!, "chunk": 0, "fields": Array(values.keys), "confirmed": true])["updated"] as? Int == 1)
+            }
+            try update(values)
+            let saved = try #require(try db.lookup(localID: original.id))
+            for (field, value) in values { #expect(saved.adifRecord[field] == value) }
+            #expect(saved.id == original.id && saved.start == original.start && saved.wavelogID == 42)
+            #expect(saved.comment == "Keep" && saved.extraFields == original.extraFields && saved.isDirty)
+            let revision = try db.contactSnapshot(localID: original.id)?.revision
+            try update(["COUNTRY": "Česko"])
+            let partial = try #require(try db.lookup(localID: original.id))
+            for (field, value) in values { #expect(partial.adifRecord[field] == (field == "COUNTRY" ? "Česko" : value)) }
+            #expect(try db.contactSnapshot(localID: original.id)?.revision == revision.map { $0 + 1 })
+            try update(values.mapValues { _ in "" })
+            let cleared = try #require(try db.lookup(localID: original.id))
+            for field in values.keys { #expect(cleared.adifRecord[field] == nil) }
+            #expect(cleared.extraFields == original.extraFields && cleared.wavelogID == 42 && cleared.comment == "Keep")
+        }
+    }
+
     @Test("A stale target aborts its complete batch and repeated records apply only once across chunks")
     func staleAndRepeated() throws {
         try fixture { service, db in

@@ -112,6 +112,22 @@ it("requires selected fields and explicit update consent and sends the reviewed 
   expect(request).toHaveBeenCalledWith("logbook_import_adif", { action: "update", token: "preview-1", generation: "workspace-1", chunk: 0, fields: ["NAME", "POTA_REF"], confirmed: true });
 });
 
+it("offers modeled metadata fields for ADX updates and sends exact ADIF names only", async () => {
+  const { request, pick } = setup(); await screen.findByText("W1AW");
+  await pick(new TextEncoder().encode(`<ADX><HEADER/><RECORDS><RECORD><CALL>W1AW</CALL><QSO_DATE>20261014</QSO_DATE><TIME_ON>000000</TIME_ON><BAND>20m</BAND><MODE>CW</MODE><COUNTRY>Žilina 😀</COUNTRY><SIG_INFO>Žilina &lt;EOR&gt;</SIG_INFO><TX_PWR>12.50</TX_PWR></RECORD></RECORDS></ADX>`));
+  fireEvent.click(screen.getByRole("checkbox", { name: "Update selected fields of reviewed duplicates instead" }));
+  const fields = ["COUNTRY", "CONT", "CQZ", "ITUZ", "STATE", "CNTY", "SIG", "SIG_INFO", "DARC_DOK", "TX_PWR", "OPERATOR", "STATION_CALLSIGN", "MY_GRIDSQUARE", "PROP_MODE", "EMAIL"];
+  for (const field of fields) fireEvent.click(screen.getByRole("checkbox", { name: new RegExp(`\\(${field}\\)$`) }));
+  expect(screen.queryByRole("checkbox", { name: /DXCC/ })).toBeNull();
+  expect(request.mock.calls.filter(([, params]) => params?.action === "update")).toHaveLength(0);
+  const preview = request.mock.calls.find(([, params]) => params?.action === "preview")![1]!;
+  expect(preview.text).toContain("<COUNTRY:12>Žilina 😀");
+  expect(preview.text).toContain("<SIG_INFO:13>Žilina <EOR>");
+  fireEvent.click(screen.getByRole("button", { name: "Confirm duplicate updates" }));
+  await screen.findByText("1 duplicate QSOs updated. New and repeated records were skipped.");
+  expect(request).toHaveBeenCalledWith("logbook_import_adif", { action: "update", token: "preview-1", generation: "workspace-1", chunk: 0, fields, confirmed: true });
+});
+
 it("reports acknowledged updates and uncertain last-batch outcome after partial failure", async () => {
   const { request, pick } = setup(); await screen.findByText("W1AW");
   const original = request.getMockImplementation()!;

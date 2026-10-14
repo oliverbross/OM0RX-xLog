@@ -132,7 +132,15 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
   const [importReview, setImportReview] = useState<{ name: string; batches: string[]; records: number; duplicates: number; generation: string; token: string } | null>(null);
   const [updateDuplicates, setUpdateDuplicates] = useState(false);
   const [updateFields, setUpdateFields] = useState<string[]>([]);
-  const updateFieldOptions = ["NAME", "QTH", "GRIDSQUARE", "COMMENT", "NOTES", "RST_SENT", "RST_RCVD", "QSL_SENT", "QSL_RCVD", "QSL_SENT_VIA", "QSL_VIA", "LOTW_QSL_SENT", "LOTW_QSL_RCVD", "IOTA", "SOTA_REF", "POTA_REF", "WWFF_REF"];
+  const updateFieldOptions: [string, string][] = [
+    ...["NAME", "QTH", "GRIDSQUARE", "COMMENT", "NOTES", "RST_SENT", "RST_RCVD", "QSL_SENT", "QSL_RCVD", "QSL_SENT_VIA", "QSL_VIA", "LOTW_QSL_SENT", "LOTW_QSL_RCVD", "IOTA", "SOTA_REF", "POTA_REF", "WWFF_REF"].map(field => [field, field] as [string, string]),
+    ["COUNTRY", "Country (COUNTRY)"], ["CONT", "Continent (CONT)"], ["CQZ", "CQ zone (CQZ)"], ["ITUZ", "ITU zone (ITUZ)"],
+    ["STATE", "State (STATE)"], ["CNTY", "County (CNTY)"], ["SIG", "Special interest group (SIG)"],
+    ["SIG_INFO", "Special interest group information (SIG_INFO)"], ["DARC_DOK", "DARC DOK (DARC_DOK)"],
+    ["TX_PWR", "Transmit power in watts (TX_PWR)"], ["OPERATOR", "Operator callsign (OPERATOR)"],
+    ["STATION_CALLSIGN", "Station callsign (STATION_CALLSIGN)"], ["MY_GRIDSQUARE", "Station grid (MY_GRIDSQUARE)"],
+    ["PROP_MODE", "Propagation mode (PROP_MODE)"], ["EMAIL", "Email (EMAIL)"],
+  ];
   const [confirmDelete, setConfirmDelete] = useState<DraftSnapshot | null>(null);
   const [selectedID, setSelectedID] = useState<string | null>(null);
   // Export checks are separate from the active contact used by Edit/Details/Delete.
@@ -397,7 +405,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
         <label><input type="checkbox" disabled={busy} checked={updateDuplicates} onChange={event => setUpdateDuplicates(event.target.checked)} /> Update selected fields of reviewed duplicates instead</label>
         {updateDuplicates && <fieldset disabled={busy}><legend>Fields to replace</legend>
           <p>Only present incoming values replace selected fields; present empty values clear them. New records and repeated duplicates are skipped. Unselected and unsupported fields are preserved. Changes become pending edits and may upload through configured synchronization.</p>
-          {updateFieldOptions.map(field => <label key={field}><input type="checkbox" checked={updateFields.includes(field)} onChange={event => setUpdateFields(current => event.target.checked ? [...current, field] : current.filter(value => value !== field))} />{field}</label>)}
+          {updateFieldOptions.map(([field, label]) => <label key={field}><input type="checkbox" checked={updateFields.includes(field)} onChange={event => setUpdateFields(current => event.target.checked ? [...current, field] : current.filter(value => value !== field))} />{label}</label>)}
         </fieldset>}
         <button type="button" disabled={busy || (updateDuplicates && !updateFields.length)} onClick={() => void confirmImport()}>{updateDuplicates ? "Confirm duplicate updates" : "Confirm import"}</button>
         <button type="button" disabled={busy} onClick={() => setImportReview(null)}>Cancel import</button>

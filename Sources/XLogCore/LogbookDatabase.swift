@@ -306,6 +306,21 @@ public final class LogbookDatabase: @unchecked Sendable {
                         case "SOTA_REF": qso.sotaReference = value
                         case "POTA_REF": qso.potaReference = value
                         case "WWFF_REF": qso.wwffReference = value
+                        case "COUNTRY": qso.country = value
+                        case "CONT": qso.continent = value
+                        case "CQZ": qso.cqZone = value
+                        case "ITUZ": qso.ituZone = value
+                        case "STATE": qso.state = value
+                        case "CNTY": qso.county = value
+                        case "SIG": qso.sig = value
+                        case "SIG_INFO": qso.sigInfo = value
+                        case "DARC_DOK": qso.dok = value
+                        case "TX_PWR": qso.txPower = value
+                        case "OPERATOR": qso.operatorCall = value
+                        case "STATION_CALLSIGN": qso.myCall = value
+                        case "MY_GRIDSQUARE": qso.myGrid = value
+                        case "PROP_MODE": qso.propagationMode = value
+                        case "EMAIL": qso.email = value
                         default: throw LogbookContactError.invalid
                         }
                     }
