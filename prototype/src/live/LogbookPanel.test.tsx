@@ -143,6 +143,47 @@ describe("logbook confirmation visibility", () => {
     expect((screen.getByRole("button", { name: "Delete" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
+  it("clears export checks on refresh and search while keeping active-row behavior separate", async () => {
+    const request = vi.fn(async () => page());
+    const mutations = new LogbookMutationSession(request, () => {});
+    const edit = vi.fn();
+    const view = render(<LogbookPanel mutations={mutations} onRequest={request} onEdit={edit} refreshKey={0} />);
+    fireEvent.click(await screen.findByText("OM0RX"));
+    const checkbox = screen.getByRole("checkbox", { name: /Select VK8AA .* for export/ });
+    fireEvent.keyDown(checkbox, { key: "Enter" });
+    expect(edit).not.toHaveBeenCalled();
+    fireEvent.click(checkbox);
+    view.rerender(<LogbookPanel mutations={mutations} onRequest={request} onEdit={edit} refreshKey={1} />);
+    await waitFor(() => expect((screen.getByRole("button", { name: "Select page" }) as HTMLButtonElement).disabled).toBe(false));
+    expect(screen.getByText("0 selected on this page")).toBeTruthy();
+    expect((screen.getByRole("checkbox", { name: /Select VK8AA .* for export/ }) as HTMLInputElement).checked).toBe(false);
+    expect(screen.getByText("OM0RX").closest("tr")?.getAttribute("aria-selected")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Select page" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Search logbook" }), { target: { value: "OM0RX" } });
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+    await waitFor(() => expect(request).toHaveBeenCalledWith("logbook_list", { search: "OM0RX", offset: 0, limit: 20 }));
+    expect(screen.getByText("0 selected on this page")).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Export selected" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("drops page export selection when navigating and never restores hidden checked rows", async () => {
+    const request = vi.fn(async (_method: string, params?: Record<string, unknown>) => {
+      const offset = Number(params?.offset ?? 0), limit = Number(params?.limit ?? 20);
+      return { total: 101, offset, limit, qsos: Array.from({ length: Math.min(limit, 101 - offset) }, (_, index) => ({ ...first, id: `qso-${offset + index}`, call: `PAGE${offset + index}` })) };
+    });
+    render(<LogbookPanel mutations={new LogbookMutationSession(request, () => {})} onRequest={request} onEdit={vi.fn()} refreshKey={0} />);
+    await screen.findByText("1–100 of 101");
+    fireEvent.click(screen.getByRole("button", { name: "Select page" }));
+    expect(screen.getByText("100 selected on this page")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await screen.findByText("101–101 of 101");
+    expect(screen.getByText("0 selected on this page")).toBeTruthy();
+    expect((screen.getByRole("checkbox", { name: /Select PAGE100 .* for export/ }) as HTMLInputElement).checked).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Previous" }));
+    await screen.findByText("1–100 of 101");
+    expect(screen.getByText("0 selected on this page")).toBeTruthy();
+  });
+
   it("adapts row count with bounded requests, preserves selection and keeps last-page navigation reachable", async () => {
     let resize = () => {};
     let height = 280;

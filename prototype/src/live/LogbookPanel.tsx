@@ -135,6 +135,9 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
   const updateFieldOptions = ["NAME", "QTH", "GRIDSQUARE", "COMMENT", "NOTES", "RST_SENT", "RST_RCVD", "QSL_SENT", "QSL_RCVD", "QSL_SENT_VIA", "QSL_VIA", "LOTW_QSL_SENT", "LOTW_QSL_RCVD", "IOTA", "SOTA_REF", "POTA_REF", "WWFF_REF"];
   const [confirmDelete, setConfirmDelete] = useState<DraftSnapshot | null>(null);
   const [selectedID, setSelectedID] = useState<string | null>(null);
+  // Export checks are separate from the active contact used by Edit/Details/Delete.
+  // They belong only to this loaded page, never to unseen search results.
+  const [exportSelection, setExportSelection] = useState<string[]>([]);
   const previousCapacity = useRef(pageSize);
   useLayoutEffect(() => {
     if (previousCapacity.current === pageSize) return;
@@ -170,6 +173,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
 
   useEffect(() => {
     let cancelled = false;
+    setExportSelection([]);
     setLoading(true);
     setError("");
     readPage(offset, search)
@@ -190,6 +194,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
   }, [onRequest, search, offset, refreshKey, pageSize]);
 
   async function reload(pageOffset = offset) {
+    setExportSelection([]);
     const response = await readPage(pageOffset, search);
     if (response.total > 0 && pageOffset >= response.total) {
       setOffset(Math.floor((response.total - 1) / pageSize) * pageSize);
@@ -302,11 +307,13 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
   }
 
   async function exportAll(scope: "all" | "filtered" | "selected" = "all") {
+    const ids = (page?.qsos ?? []).filter(qso => exportSelection.includes(qso.id)).map(qso => qso.id);
+    if (scope === "selected" && (loading || !ids.length)) return;
     if (!beginWorking()) return;
     setError(""); setNotice("");
     try {
       const snapshot = result<{ token: string; total: number }>(await onRequest("logbook_export_adif", {
-        action: "begin", scope, ...(scope === "filtered" ? { search } : scope === "selected" ? { ids: [selectedID] } : {}),
+        action: "begin", scope, ...(scope === "filtered" ? { search } : scope === "selected" ? { ids } : {}),
       }));
       const total = snapshot.total;
       if (!total) throw new Error("There are no QSOs to export.");
@@ -336,6 +343,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
   const total = page?.total ?? 0;
   const rows = page?.qsos ?? [];
   const selected = rows.find(qso => qso.id === selectedID);
+  const exportIDs = rows.filter(qso => exportSelection.includes(qso.id)).map(qso => qso.id);
   const deleting = confirmDelete?.qso as QSO | undefined;
   return (
     <section className="live-logbook" aria-label="Integrated logbook">
@@ -366,7 +374,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
             <Download size={14} /> Export all
           </button>
           <button type="button" onClick={() => void exportAll("filtered")} disabled={busy || loading || !search || !total}>Export filtered</button>
-          <button type="button" onClick={() => void exportAll("selected")} disabled={busy || loading || !selected}>Export selected</button>
+          <button type="button" onClick={() => void exportAll("selected")} disabled={busy || loading || !exportIDs.length}>Export selected</button>
           {onUndock && <button type="button" onClick={onUndock} disabled={busy}><ExternalLink size={14} /> Undock</button>}
           {onDock && <button type="button" onClick={onDock} disabled={busy}><PanelsTopLeft size={14} /> Dock back</button>}
         </div>
@@ -405,6 +413,13 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
         </dd></div>
         <div className="live-logbook-details-comment"><dt>Comment</dt><dd>{selected.comment || "—"}</dd></div>
       </dl>}
+      <div className="live-logbook-export-selection" role="group" aria-label="Export selection">
+        <span aria-live="polite">{exportIDs.length} selected on this page</span>
+        <button type="button" disabled={busy || loading || !rows.length || exportIDs.length === rows.length}
+          onClick={() => setExportSelection(rows.map(qso => qso.id))}>Select page</button>
+        <button type="button" disabled={busy || loading || !exportIDs.length} onClick={() => setExportSelection([])}>Clear selection</button>
+        <span>Selection clears when the page refreshes or changes.</span>
+      </div>
       <div className="live-logbook-table-wrap" ref={tableArea} role="region" aria-label="Logbook contacts, scroll for more columns" tabIndex={0}>
         <table className="live-logbook-table" style={{ minWidth: totalColumnWidth }}>
           <colgroup>{visibleColumns.map(([id]) => <col key={id} style={{ width: `${columnPreferences.widths[id] / totalColumnWidth * 100}%` }} />)}</colgroup>
@@ -415,6 +430,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
               onClick={() => { cancelDelete(); setSelectedID(qso.id); }}
               onDoubleClick={() => { if (!busy && !loading) onEdit(qso); }}
               onKeyDown={event => {
+                if (event.target !== event.currentTarget) return;
                 if (busy || loading) return;
                 if (event.key === "Enter") { event.preventDefault(); setSelectedID(qso.id); onEdit(qso); }
                 else if (event.key === " ") { event.preventDefault(); cancelDelete(); setSelectedID(qso.id); }
@@ -426,7 +442,11 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
                 }
               }}>
               <td hidden={hidden("utc")} className="mono" title={utcTime(qso.start)}>{utcTime(qso.start)}</td>
-              <td className="live-logbook-call" title={qso.call}><span className={`live-logbook-sync-dot ${qso.isDirty ? "is-pending" : "is-clean"}`} role="img" aria-label={qso.isDirty ? "Pending synchronization" : "No pending changes"} title={qso.isDirty ? "Pending synchronization" : "No pending changes"} />{qso.call}</td>
+              <td className="live-logbook-call" title={qso.call}>
+                <input type="checkbox" aria-label={`Select ${qso.call} ${utcTime(qso.start)} for export`} checked={exportIDs.includes(qso.id)} disabled={busy || loading}
+                  onClick={event => event.stopPropagation()} onDoubleClick={event => event.stopPropagation()}
+                  onChange={event => setExportSelection(current => event.target.checked ? [...current, qso.id] : current.filter(id => id !== qso.id))} />
+                <span className={`live-logbook-sync-dot ${qso.isDirty ? "is-pending" : "is-clean"}`} role="img" aria-label={qso.isDirty ? "Pending synchronization" : "No pending changes"} title={qso.isDirty ? "Pending synchronization" : "No pending changes"} />{qso.call}</td>
               <td hidden={hidden("bandMode")} className="live-logbook-band" title={`${qso.band} · ${qso.submode || qso.mode}`}>{qso.band} · {qso.submode || qso.mode}</td>
               <td hidden={hidden("frequency")} className="live-logbook-frequency mono">{typeof qso.frequencyHz === "number" ? (qso.frequencyHz / 1_000_000).toFixed(6) : "—"}</td>
               <td hidden={hidden("rst")} className="mono" aria-label={`RST sent ${qso.rstSent || "not recorded"}, received ${qso.rstReceived || "not recorded"}`}>{qso.rstSent || "—"} / {qso.rstReceived || "—"}</td>

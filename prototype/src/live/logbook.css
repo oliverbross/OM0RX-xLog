@@ -49,6 +49,10 @@
 .live-logbook-band { font-weight: 600; }
 .live-logbook-sync-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 5px; vertical-align: middle; background: var(--teal); }
 .live-logbook-sync-dot.is-pending { background: var(--amber); }
+.live-logbook-export-selection { display: flex; flex: none; flex-wrap: wrap; align-items: center; gap: 6px 10px; color: var(--secondary); }
+.live-logbook-export-selection button { min-height: 25px; padding: 3px 7px; }
+.live-logbook-call input[type="checkbox"] { margin: 0 6px 0 0; vertical-align: middle; accent-color: var(--teal); }
+.live-logbook-call input:focus-visible, .live-logbook-export-selection button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 .live-logbook-pending { color: var(--amber); }
 .live-logbook-confirmation { display: inline-flex; align-items: center; gap: 3px; vertical-align: middle; }
 .live-logbook-confirmation .is-down { transform: rotate(180deg); }
