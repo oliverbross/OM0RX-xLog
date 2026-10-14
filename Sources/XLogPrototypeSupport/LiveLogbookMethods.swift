@@ -582,8 +582,10 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                                                      mode: qso.submode.isEmpty ? qso.mode : qso.submode)
                         for match in adifPreview!.existingByIdentity[key] ?? [] { candidates[match.id] = match }
                     }
+                    // Freeze duplicate targets before the operator selects fields;
+                    // validate typed replacements only in the selected apply plan.
                     let plan = try ADIFImportPlan(preview: preview, existing: Array(candidates.values),
-                                                  duplicatePolicy: .updateFields(ADIFImportPlan.editableFields))
+                                                  duplicatePolicy: .skip)
                     var targets: [UUID: LogbookContactSnapshot] = [:]
                     var updateText = ""
                     for entry in plan.duplicates {

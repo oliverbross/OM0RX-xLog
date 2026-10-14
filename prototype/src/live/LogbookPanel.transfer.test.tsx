@@ -150,7 +150,7 @@ it("offers modeled metadata fields for ADX updates and sends exact ADIF names on
   fireEvent.click(screen.getByRole("checkbox", { name: "Update selected fields of reviewed duplicates instead" }));
   const fields = ["COUNTRY", "CONT", "CQZ", "ITUZ", "STATE", "CNTY", "SIG", "SIG_INFO", "DARC_DOK", "TX_PWR", "OPERATOR", "STATION_CALLSIGN", "MY_GRIDSQUARE", "PROP_MODE", "EMAIL"];
   for (const field of fields) fireEvent.click(screen.getByRole("checkbox", { name: new RegExp(`\\(${field}\\)$`) }));
-  expect(screen.queryByRole("checkbox", { name: /DXCC/ })).toBeNull();
+  expect(screen.getByRole("checkbox", { name: "DXCC entity code (DXCC)" })).toBeTruthy();
   expect(request.mock.calls.filter(([, params]) => params?.action === "update")).toHaveLength(0);
   const preview = request.mock.calls.find(([, params]) => params?.action === "preview")![1]!;
   expect(preview.text).toContain("<COUNTRY:12>Žilina 😀");
@@ -158,6 +158,19 @@ it("offers modeled metadata fields for ADX updates and sends exact ADIF names on
   fireEvent.click(screen.getByRole("button", { name: "Confirm duplicate updates" }));
   await screen.findByText("1 duplicate QSOs updated. New and repeated records were skipped.");
   expect(request).toHaveBeenCalledWith("logbook_import_adif", { action: "update", token: "preview-1", generation: "workspace-1", chunk: 0, fields, confirmed: true });
+});
+
+it("reviews ADX DXCC updates through the same frozen context with a descriptive field label", async () => {
+  const { request, pick } = setup(); await screen.findByText("W1AW");
+  await pick(new TextEncoder().encode(`<ADX><HEADER/><RECORDS><RECORD><CALL>W1AW</CALL><QSO_DATE>20261014</QSO_DATE><TIME_ON>000000</TIME_ON><BAND>20m</BAND><MODE>CW</MODE><DXCC>504</DXCC></RECORD></RECORDS></ADX>`));
+  fireEvent.click(screen.getByRole("checkbox", { name: "Update selected fields of reviewed duplicates instead" }));
+  fireEvent.click(screen.getByRole("checkbox", { name: "DXCC entity code (DXCC)" }));
+  expect(screen.getByText(/DXCC requires an integer from 0 to 1000/)).toBeTruthy();
+  expect(request.mock.calls.find(([, params]) => params?.action === "preview")?.[1]?.text).toContain("<DXCC:3>504");
+  expect(request.mock.calls.filter(([, params]) => params?.action === "update")).toHaveLength(0);
+  fireEvent.click(screen.getByRole("button", { name: "Confirm duplicate updates" }));
+  await screen.findByText("1 duplicate QSOs updated. New and repeated records were skipped.");
+  expect(request).toHaveBeenCalledWith("logbook_import_adif", { action: "update", token: "preview-1", generation: "workspace-1", chunk: 0, fields: ["DXCC"], confirmed: true });
 });
 
 it("reports acknowledged updates and uncertain last-batch outcome after partial failure", async () => {

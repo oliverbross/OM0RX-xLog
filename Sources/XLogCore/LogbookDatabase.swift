@@ -307,6 +307,12 @@ public final class LogbookDatabase: @unchecked Sendable {
                         case "POTA_REF": qso.potaReference = value
                         case "WWFF_REF": qso.wwffReference = value
                         case "COUNTRY": qso.country = value
+                        case "DXCC":
+                            if value.isEmpty { qso.dxcc = nil }
+                            else {
+                                guard let code = Int(value) else { throw LogbookContactError.invalid }
+                                qso.dxcc = code
+                            }
                         case "CONT": qso.continent = value
                         case "CQZ": qso.cqZone = value
                         case "ITUZ": qso.ituZone = value

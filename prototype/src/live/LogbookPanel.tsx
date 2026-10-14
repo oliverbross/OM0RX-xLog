@@ -141,6 +141,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
     ["TX_PWR", "Transmit power in watts (TX_PWR)"], ["OPERATOR", "Operator callsign (OPERATOR)"],
     ["STATION_CALLSIGN", "Station callsign (STATION_CALLSIGN)"], ["MY_GRIDSQUARE", "Station grid (MY_GRIDSQUARE)"],
     ["PROP_MODE", "Propagation mode (PROP_MODE)"], ["EMAIL", "Email (EMAIL)"],
+    ["DXCC", "DXCC entity code (DXCC)"],
   ];
   const [confirmDelete, setConfirmDelete] = useState<DraftSnapshot | null>(null);
   const [selectedID, setSelectedID] = useState<string | null>(null);
@@ -410,6 +411,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
         <label><input type="checkbox" disabled={busy} checked={updateDuplicates} onChange={event => setUpdateDuplicates(event.target.checked)} /> Update selected fields of reviewed duplicates instead</label>
         {updateDuplicates && <fieldset disabled={busy}><legend>Fields to replace</legend>
           <p>Only present incoming values replace selected fields; present empty values clear them. New records and repeated duplicates are skipped. Unselected and unsupported fields are preserved. Changes become pending edits and may upload through configured synchronization.</p>
+          <p>DXCC requires an integer from 0 to 1000 without leading zeros, signs or whitespace; 0 means outside a DXCC entity.</p>
           {updateFieldOptions.map(([field, label]) => <label key={field}><input type="checkbox" checked={updateFields.includes(field)} onChange={event => setUpdateFields(current => event.target.checked ? [...current, field] : current.filter(value => value !== field))} />{label}</label>)}
         </fieldset>}
         <button type="button" disabled={busy || (updateDuplicates && !updateFields.length)} onClick={() => void confirmImport()}>{updateDuplicates ? "Confirm duplicate updates" : "Confirm import"}</button>

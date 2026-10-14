@@ -226,6 +226,7 @@ public struct ADIFImportPreview: Sendable {
 
 public enum ADIFPlanningError: Error, Equatable {
     case invalidPreview, ambiguousDuplicate(recordNumber: Int), identityFieldUpdate
+    case invalidUpdateValue(field: String)
 }
 
 /// Read-only duplicate counts for a sequence of bounded preview chunks. Existing
@@ -273,7 +274,7 @@ public struct ADIFImportPlan: Sendable {
     public static let editableFields: Set<String> = ["NAME", "QTH", "GRIDSQUARE", "COMMENT", "NOTES", "RST_SENT", "RST_RCVD",
         "QSL_SENT", "QSL_RCVD", "QSL_SENT_VIA", "QSL_VIA", "LOTW_QSL_SENT", "LOTW_QSL_RCVD", "IOTA", "SOTA_REF", "POTA_REF", "WWFF_REF",
         "COUNTRY", "CONT", "CQZ", "ITUZ", "STATE", "CNTY", "SIG", "SIG_INFO", "DARC_DOK", "TX_PWR",
-        "OPERATOR", "STATION_CALLSIGN", "MY_GRIDSQUARE", "PROP_MODE", "EMAIL"]
+        "OPERATOR", "STATION_CALLSIGN", "MY_GRIDSQUARE", "PROP_MODE", "EMAIL", "DXCC"]
     public enum DuplicatePolicy: Sendable {
         case skip
         /// Only present incoming values replace the explicitly selected fields.
@@ -318,7 +319,19 @@ public struct ADIFImportPlan: Sendable {
             }
             duplicates.append(Entry(recordNumber: number, targetID: target.id, record: record))
             var merged = target.adifRecord.fields
-            for field in selected { if let value = record[field] { merged[field] = value } }
+            for field in selected {
+                if let value = record[field] {
+                    if field == "DXCC", !value.isEmpty {
+                        // Keep the existing local DXCC numeric envelope, including
+                        // ADIF's explicit 0 (known to be outside a DXCC entity).
+                        // Reject normalization, overflow and lossy integer input.
+                        guard let code = Int(value), (0...1_000).contains(code), String(code) == value else {
+                            throw ADIFPlanningError.invalidUpdateValue(field: field)
+                        }
+                    }
+                    merged[field] = value
+                }
+            }
             if merged == target.adifRecord.fields { skipped.append(number) }
             else { updates.append(Entry(recordNumber: number, targetID: target.id, record: ADIFRecord(fields: merged))) }
         }

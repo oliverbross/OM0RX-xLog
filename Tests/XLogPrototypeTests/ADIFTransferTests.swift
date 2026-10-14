@@ -157,6 +157,63 @@ struct ADIFTransferTests {
         }
     }
 
+    @Test("Canonical DXCC updates preserve absence, distinguish zero and empty, and replay safely")
+    func typedDXCCUpdates() throws {
+        try fixture { service, db in
+            let original = QSO(wavelogID: 42, call: "W1AW", band: "20m", mode: "CW", dxcc: 291,
+                               comment: "Žilina 😀", extraFields: ["APP_OTHER": "opaque", "DXCC": "291"])
+            try db.save(original, markDirty: false)
+            func command(_ changes: [String: String], omitDXCC: Bool = false) throws -> [String: Any] {
+                var fields = original.adifRecord.fields.merging(changes) { _, value in value }
+                if omitDXCC { fields.removeValue(forKey: "DXCC") }
+                let preview = try service.handle(method: "logbook_import_adif", params: ["action": "preview", "text": ADIFRecord(fields: fields).adifDocument])
+                return ["action": "update", "token": preview["token"]!, "generation": preview["generation"]!, "chunk": 0,
+                        "fields": ["DXCC", "NAME"], "confirmed": true]
+            }
+            for value in ["504", "0", "1000", ""] {
+                let apply = try command(["DXCC": value])
+                #expect(try service.handle(method: "logbook_import_adif", params: apply)["updated"] as? Int == 1)
+                let saved = try #require(try db.lookup(localID: original.id))
+                #expect(saved.dxcc == (value.isEmpty ? nil : Int(value)))
+                #expect(saved.adifRecord["DXCC"] == (value.isEmpty ? nil : value))
+                #expect(saved.comment == original.comment && saved.extraFields == original.extraFields && saved.wavelogID == 42)
+                let revision = try db.contactSnapshot(localID: original.id)?.revision
+                #expect(try service.handle(method: "logbook_import_adif", params: apply)["updated"] as? Int == 1)
+                #expect(try db.contactSnapshot(localID: original.id)?.revision == revision)
+            }
+            _ = try service.handle(method: "logbook_import_adif", params: command(["DXCC": "504"]))
+            _ = try service.handle(method: "logbook_import_adif", params: command(["NAME": "Žilina"], omitDXCC: true))
+            #expect(try db.lookup(localID: original.id)?.dxcc == 504)
+            let stale = try command(["DXCC": "291"])
+            var concurrent = try #require(try db.lookup(localID: original.id)); concurrent.comment = "Concurrent"
+            try db.save(concurrent)
+            #expect(throws: (any Error).self) { try service.handle(method: "logbook_import_adif", params: stale) }
+            #expect(try db.lookup(localID: original.id)?.dxcc == 504)
+        }
+    }
+
+    @Test("Selected DXCC rejects noncanonical, overflowing and out-of-range values atomically", arguments: [
+        "0291", "+291", "-1", "-0", " 291", "291 ", "291.0", "2.91e2", "２９１", "1001", "9223372036854775808", "invalid"
+    ])
+    func invalidDXCCUpdate(_ value: String) throws {
+        try fixture { service, db in
+            let original = QSO(call: "W1AW", band: "20m", mode: "CW", name: "Old", dxcc: 291)
+            try db.save(original, markDirty: false)
+            let before = try db.contactSnapshot(localID: original.id)
+            var fields = original.adifRecord.fields; fields["DXCC"] = value; fields["NAME"] = "Do not save"
+            let preview = try service.handle(method: "logbook_import_adif", params: ["action": "preview", "text": ADIFRecord(fields: fields).adifDocument])
+            let apply: [String: Any] = ["action": "update", "token": preview["token"]!, "generation": preview["generation"]!, "chunk": 0,
+                                        "fields": ["DXCC", "NAME"], "confirmed": true]
+            #expect(throws: ADIFPlanningError.invalidUpdateValue(field: "DXCC")) { try service.handle(method: "logbook_import_adif", params: apply) }
+            #expect(try db.contactSnapshot(localID: original.id) == before)
+            #expect(try db.pending().isEmpty)
+            // Unselected typed input never changes or invalidates the local value.
+            _ = try service.handle(method: "logbook_import_adif", params: apply.merging(["fields": ["NAME"]]) { _, value in value })
+            #expect(try db.lookup(localID: original.id)?.dxcc == 291)
+            #expect(try db.lookup(localID: original.id)?.name == "Do not save")
+        }
+    }
+
     @Test("A stale target aborts its complete batch and repeated records apply only once across chunks")
     func staleAndRepeated() throws {
         try fixture { service, db in
