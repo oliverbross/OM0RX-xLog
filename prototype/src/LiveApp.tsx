@@ -171,24 +171,28 @@ function MainLiveApp() {
     draftSession.setLocalInputPending(!contactSession.getSnapshot().draft && pending);
   }, [draftSession, contactSession]);
   const setView = useCallback((next: string) => {
-    if (next === viewRef.current) return;
+    if (next === viewRef.current) return true;
     if (editorBufferPending.current || mainClosing.current || layoutChanging.current || editorTransition.current || !draftSession.canAcceptLocalInput() || !contactSession.canAcceptLocalInput()) {
-      setError("Finish the buffered draft fields and check any pending activation before changing views. Your text is retained."); return;
+      setError("Finish the buffered draft fields and check any pending activation before changing views. Your text is retained."); return false;
     }
     viewRef.current = next; writeView(next);
+    return true;
   }, [draftSession, contactSession]);
   const [draftUpdateHealth] = useState(() => ownDraftUpdateWarnings(setError));
   const menuSettings = useRef(settings); menuSettings.current = settings;
   const showSyncSettings = useCallback(() => {
+    if (!setView("Settings")) return false;
     setSettingsTabRequest(previous => ({ tab: "Sync", revision: previous.revision + 1 }));
-    setView("Settings");
     if (menuSettings.current?.logbookMode === "local")
       setError("Wavelog sync is disabled in standalone mode. Choose Local logbook + Wavelog sync in Settings to enable it.");
-  }, []);
+    return true;
+  }, [setView]);
   useEffect(() => connectWorkspaceNavigation(title => {
-    if (title === "Sync") showSyncSettings();
-    else setView(title);
-  }, setError), [showSyncSettings]);
+    return title === "Sync" ? showSyncSettings() : setView(title);
+  }, setError, undefined, retry => {
+    const draft = draftSession.subscribe(retry), contact = contactSession.subscribe(retry);
+    return () => { draft(); contact(); };
+  }), [showSyncSettings, setView, draftSession, contactSession]);
   const [refresh, setRefresh] = useState(0);
   useEffect(() => connectLogbookChanges(() => setRefresh(value => value + 1), setError), []);
   const [busy, setBusy] = useState(false);

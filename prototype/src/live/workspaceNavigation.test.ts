@@ -1,5 +1,7 @@
 import { expect, it, vi } from "vitest";
 import { connectWorkspaceNavigation, validWorkspaceNavigation, workspaceScreens, workspaceMenuScreens } from "./workspaceNavigation";
+import { OperatorDraftSession } from "./operatorDraftSession";
+import { SpotActivationEditor } from "./spotActivation";
 const tick = async () => { for (let i = 0; i < 12; i++) await Promise.resolve(); };
 function fixture() {
   let wake = () => {};
@@ -57,4 +59,42 @@ it("disposes a subscription which finishes after unmount", async () => {
   const f = fixture(); let finish!: (stop: () => void) => void;
   f.api.listen.mockReturnValue(new Promise(done => { finish = done; })); const disconnect = f.connect(); disconnect();
   finish(f.stop); await tick(); expect(f.stop).toHaveBeenCalledOnce(); expect(f.api.read).not.toHaveBeenCalled();
+});
+
+it("retains Dock's native route until the recreated editor has actually registered", async () => {
+  const f = fixture(); f.api.read.mockResolvedValue({ revision: 9, screen: "spot-history" });
+  const snapshot = { generation: "10000000-0000-4000-8000-000000000001", revision: 0, qso: { id: "draft", call: "" } };
+  const session = new OperatorDraftSession(async () => ({ draft: structuredClone(snapshot) }), vi.fn(), null, undefined, true);
+  await session.load();
+  const editor = new SpotActivationEditor([session], async () => ({ draft: snapshot }));
+  let route = "Operator Desk", release!: () => void;
+  const navigate = vi.fn((title: string) => {
+    if (!session.canAcceptLocalInput()) return false;
+    route = title; return true;
+  });
+  const disconnect = connectWorkspaceNavigation(navigate, f.failed, f.api, retry => session.subscribe(retry));
+  const registration = new Promise<void>(resolve => { release = resolve; }).then(() =>
+    editor.registeredWith({ phase: "idle", operationId: null, barrier: null }));
+  await tick();
+  expect(route).toBe("Operator Desk"); expect(f.api.ack).not.toHaveBeenCalled();
+  expect(session.canAcceptLocalInput()).toBe(false);
+  release(); await registration; await tick();
+  expect(route).toBe("Spot History"); expect(f.api.ack).toHaveBeenCalledExactlyOnceWith(9);
+  expect(navigate.mock.calls).toEqual([["Spot History"], ["Spot History"]]);
+  expect(f.failed).not.toHaveBeenCalled(); disconnect();
+});
+
+it("never acknowledges a guarded route and retries only the newest retained intent on readiness", async () => {
+  const f = fixture(); f.api.read.mockResolvedValue({ revision: 1, screen: "spot-history" });
+  let blocked = true, retry!: () => void;
+  const navigate = vi.fn((_title: string) => !blocked), stopReadiness = vi.fn();
+  const disconnect = connectWorkspaceNavigation(navigate, f.failed, f.api, notify => { retry = notify; return stopReadiness; });
+  await tick(); expect(f.api.ack).not.toHaveBeenCalled();
+  retry(); await tick(); expect(f.api.ack).not.toHaveBeenCalled();
+  f.api.read.mockResolvedValue({ revision: 2, screen: "settings" }); blocked = false;
+  retry(); await tick();
+  expect(navigate).toHaveBeenLastCalledWith("Settings"); expect(f.api.ack).toHaveBeenCalledExactlyOnceWith(2);
+  const reads = f.api.read.mock.calls.length; retry(); await tick(); expect(f.api.read).toHaveBeenCalledTimes(reads);
+  disconnect(); expect(stopReadiness).toHaveBeenCalledOnce(); retry(); await tick();
+  expect(f.api.read).toHaveBeenCalledTimes(reads);
 });
