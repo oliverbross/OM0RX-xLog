@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { useState, type ComponentProps } from "react";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import ServiceSettings from "./ServiceSettings";
 afterEach(cleanup);
@@ -85,11 +85,12 @@ describe("grouped service settings", () => {
     expect((screen.getByRole("textbox", { name: "Wavelog URL" }) as HTMLInputElement).value).toBe(values.wavelogURL);
     fireEvent.click(screen.getByRole("tab", { name: "QRZ" }));
     expect((screen.getByRole("textbox", { name: "QRZ username" }) as HTMLInputElement).value).toBe("operator");
+    fireEvent.click(screen.getByRole("tab", { name: "Online logs" }));
     expect(screen.getByText(/Saving it securely does not enable uploads/)).toBeTruthy();
     expect(screen.getByLabelText("QRZ Logbook API key")).toBeTruthy();
     fireEvent.click(screen.getByRole("tab", { name: "Reference data" }));
-    expect(screen.getByText(/not a Club Log QSO uploader/)).toBeTruthy();
-    await waitFor(() => expect(request).toHaveBeenCalledTimes(3));
+    expect(screen.getByText(/Saving it here never enables uploads/)).toBeTruthy();
+    await waitFor(() => expect(request).toHaveBeenCalledWith("online_log_status", { service: "club_log" }));
     expect(request).toHaveBeenCalledWith("secret_status");
   });
   it("saves the separate QRZ Logbook key without enabling or saving upload settings", async () => {
@@ -97,7 +98,7 @@ describe("grouped service settings", () => {
       ? { "qrz-logbook-key": false } : method === "online_log_status" ? qrzUploadOff : { saved: true });
     const save = vi.fn(async () => {});
     render(<SettingsHarness values={values} request={request} onSave={save} />);
-    fireEvent.click(screen.getByRole("tab", { name: "QRZ" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Online logs" }));
     const key = screen.getByLabelText("QRZ Logbook API key") as HTMLInputElement;
     fireEvent.change(key, { target: { value: "unit-test-qrz-logbook-key" } });
     fireEvent.click(screen.getByRole("button", { name: "Save QRZ Logbook API key" }));
@@ -115,17 +116,18 @@ describe("grouped service settings", () => {
       : method === "online_log_configure" ? { ...qrzUploadOff, enabled: true, enabled_at: "2026-10-15T00:00:00Z" }
       : {});
     render(<SettingsHarness values={values} request={request} />);
-    fireEvent.click(screen.getByRole("tab", { name: "QRZ" }));
-    await screen.findByText(/Upload is OFF/);
-    fireEvent.click(screen.getByRole("checkbox", { name: "Upload new contacts to QRZ Logbook" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Online logs" }));
+    const qrzUpload = screen.getByLabelText("QRZ upload");
+    await within(qrzUpload).findByText(/Upload is OFF/);
+    fireEvent.click(within(qrzUpload).getByRole("checkbox", { name: "Upload new contacts to QRZ" }));
     const enable = screen.getByRole("button", { name: "Enable QRZ uploads" }) as HTMLButtonElement;
     expect(enable.disabled).toBe(true);
-    expect(screen.getByText(/WSJT-X Logged ADIF/)).toBeTruthy();
-    expect(screen.getByText(/Existing contacts, file imports, Wavelog pulls/)).toBeTruthy();
+    expect(within(qrzUpload).getByText(/WSJT-X Logged ADIF/)).toBeTruthy();
+    expect(within(qrzUpload).getByText(/Existing contacts, file imports, Wavelog pulls/)).toBeTruthy();
     fireEvent.click(screen.getByRole("checkbox", { name: "I understand and want to enroll new contacts from now on" }));
     fireEvent.click(enable);
     await screen.findByText("QRZ upload enabled for contacts logged from now on.");
-    expect(request).toHaveBeenCalledWith("online_log_configure", { enabled: true, confirm_new_contacts_only: true });
+    expect(request).toHaveBeenCalledWith("online_log_configure", { service: "qrz", enabled: true, confirm_new_contacts_only: true });
   });
   it("removing the QRZ upload key uses an empty secure write and refreshes disabled status", async () => {
     let removed = false;
@@ -136,12 +138,36 @@ describe("grouped service settings", () => {
       return {};
     });
     render(<SettingsHarness values={values} request={request} />);
-    fireEvent.click(screen.getByRole("tab", { name: "QRZ" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Online logs" }));
     const remove = await screen.findByRole("button", { name: "Remove QRZ Logbook API key" });
     fireEvent.click(remove);
     await screen.findByText("QRZ Logbook API key removed securely.");
     expect(request).toHaveBeenCalledWith("secret_save", { account: "qrz-logbook-key", value: "" });
-    await screen.findByText(/Upload is OFF/);
+    await within(screen.getByLabelText("QRZ upload")).findByText(/Upload is OFF/);
+  });
+  it("keeps Club Log separate, requires confirmation and explains refusal shutdown", async () => {
+    const request = vi.fn(async (method: string, params?: Record<string, unknown>) => method === "secret_status" ? {
+      "qrz-logbook-key": false, "clublog-email": true, "clublog-application-password": true,
+      "clublog-callsign": true, "clublog-api-key": true,
+    } : method === "online_log_status" ? qrzUploadOff
+      : method === "online_log_configure" ? { ...qrzUploadOff, enabled: true } : {});
+    render(<SettingsHarness values={values} request={request} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Online logs" }));
+    expect((screen.getByLabelText("Club Log account email") as HTMLInputElement).type).toBe("text");
+    expect((screen.getByLabelText("Club Log Application Password") as HTMLInputElement).type).toBe("password");
+    expect((screen.getByLabelText("Club Log callsign") as HTMLInputElement).type).toBe("text");
+    const clubLog = screen.getByLabelText("Club Log upload");
+    await within(clubLog).findByText(/Upload is OFF/);
+    expect(within(clubLog).getByText(/immediately switches Club Log upload off/)).toBeTruthy();
+    fireEvent.click(within(clubLog).getByRole("checkbox", { name: "Upload new contacts to Club Log" }));
+    const enable = within(clubLog).getByRole("button", { name: "Enable Club Log uploads" }) as HTMLButtonElement;
+    expect(enable.disabled).toBe(true);
+    fireEvent.click(within(clubLog).getByRole("checkbox", { name: "I understand and want to enroll new contacts from now on" }));
+    fireEvent.click(enable);
+    await within(clubLog).findByText("Club Log upload enabled for contacts logged from now on.");
+    expect(request).toHaveBeenCalledWith("online_log_configure", {
+      service: "club_log", enabled: true, confirm_new_contacts_only: true,
+    });
   });
   it("saves a credential separately, clears its input and never sends it with settings", async () => {
     const request = vi.fn(async () => ({ saved: true }));
@@ -177,9 +203,9 @@ describe("grouped service settings", () => {
     expect((screen.getByLabelText("QRZ password") as HTMLInputElement).value).toBe("typed-test-password");
     fireEvent.click(screen.getByRole("tab", { name: "Station" }));
     expect((screen.getByLabelText("Station call") as HTMLInputElement).value).toBe("M7KOD");
-    expect(request).toHaveBeenCalledTimes(4);
+    expect(request).toHaveBeenCalledTimes(1);
     expect(request).toHaveBeenCalledWith("secret_status");
-    expect(request.mock.calls.filter(([method]) => method === "online_log_status")).toHaveLength(2);
+    expect(request.mock.calls.filter(([method]) => method === "online_log_status")).toHaveLength(0);
     fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
     await waitFor(() => expect(save).toHaveBeenCalledWith({ ...values, stationCall: "M7KOD", wavelogURL: "https://new.example.invalid/" }));
     expect(JSON.stringify(request.mock.calls)).not.toContain("typed-test-token");
@@ -202,7 +228,7 @@ describe("grouped service settings", () => {
     expect(screen.queryByRole("table", { name: "Reference dataset evidence" })).toBeNull();
     expect(dataRequest).toHaveBeenCalledTimes(3);
     expect(dataRequest).toHaveBeenCalledWith("remote_backup_request", { action: "snapshot" });
-    expect(request).toHaveBeenCalledTimes(1);
+    expect(request).toHaveBeenCalledTimes(2);
     expect(request).toHaveBeenCalledWith("secret_status");
   });
 

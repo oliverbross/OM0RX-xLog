@@ -89,8 +89,9 @@ written and no live QRZ request was made.
    deliberately selected test contact before release packaging.
 2. Add an explicit operator review/re-arm workflow for rejected or uncertain
    receipts if product policy requires it. Neither state replays automatically.
-3. Implement and accept Club Log and HRDLOG as independent adapters. Wavelog
-   remains the richer two-way reconciliation service.
+3. Accept the now-independent Club Log adapter with a deliberately selected live
+   contact; implement HRDLOG only after its official current contract is verified.
+   Wavelog remains the richer two-way reconciliation service.
 
 **New contacts from now on** is the only implemented scope. Nothing can silently
 upload the existing 68k-contact log. Edits and confirmation updates require an

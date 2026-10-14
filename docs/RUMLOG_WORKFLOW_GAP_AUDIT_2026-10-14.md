@@ -66,7 +66,7 @@ merely to look like RUMlog.
 | Radio selection/configuration versus actual connection | RUMlog documents an explicit CAT enable choice, interface selection and per-radio options. xLog must retain its separate active/viewed provider, explicit Apply/Connect and independent rotor ownership. Settings navigation must never reconnect or control equipment. Physical Mac acceptance remains separate. [CAT Settings](https://dl2rum.de/RUMlogNG/docs/en/pages/CAT-Prefs.html) |
 | Cluster configuration separate from display filters | RUMlog documents connection profiles, display filtering and a terminal retaining incoming data. xLog has profile/filter/console paths and its separate Spot History archive. Verify changes do not disconnect unrelated sockets or erase received/history records. [DX Cluster Settings](https://dl2rum.de/RUMlogNG/docs/en/pages/Dx-Cluster-Setting.html) |
 | Receive WSJT-X logged contacts | Commit `d9b46da` adds an opt-in receive-only UDP listener for the official big-endian Logged ADIF message type 12. It accepts loopback or IPv4 multicast, starts only from saved explicit enablement, writes through xLog's local semantic duplicate boundary and never sends a WSJT-X packet or station command. Native parser/import coverage is 5/5 and UI/settings coverage is 24/24; live WSJT-X acceptance remains open. [WSJT-X protocol source](https://sourceforge.net/p/wsjt/wsjtx/ci/master/tree/Network/NetworkMessage.hpp) |
-| Optional online log services | QRZ now has a source-complete INSERT owner with a separate vault key, explicit default-off prospective enrollment, exact-revision/payload claims, durable receipts, ambiguous-outcome no-replay, bounded 429-only retry, credential removal and aggregate-only local health. Only new manual or WSJT-X Logged ADIF contacts after enablement are eligible; generic imports, Wavelog pulls, edits and confirmation refreshes never backfill. It made no live request, so account acceptance remains open. Keep Wavelog as the richer two-way reconciliation service. Club Log and HRDLOG remain unimplemented independent adapters; Club Log must disable automatic delivery immediately on HTTP 403. [QRZ acceptance](QRZ_UPLOAD_FOUNDATION_ACCEPTANCE_2026-10-15.md) · [QRZ API](https://www.qrz.com/docs/logbook/QRZLogbookAPI.html) · [Club Log API keys](https://clublog.freshdesk.com/support/solutions/articles/54910-api-keys) · [Club Log upload safety](https://clublog.freshdesk.com/support/solutions/articles/54905) |
+| Optional online log services | QRZ and Club Log now have independent source-complete upload owners with separate vault credentials, explicit default-off prospective enrollment, exact-revision/payload claims, durable receipts, ambiguous-outcome no-replay, credential removal and aggregate-only local health. Only new manual or WSJT-X Logged ADIF contacts after each provider is enabled are eligible; generic imports, Wavelog pulls, edits and confirmation refreshes never backfill. Club Log uses only `realtime.php`; every known non-200 atomically records rejection, disables only Club Log and cancels its queue to prevent repeated bad requests and firewall escalation. Neither provider made a live request, so account acceptance remains open. Keep Wavelog as the richer two-way reconciliation service. HRDLOG remains unimplemented pending a current official contract. [QRZ acceptance](QRZ_UPLOAD_FOUNDATION_ACCEPTANCE_2026-10-15.md) · [Club Log acceptance](CLUB_LOG_UPLOAD_FOUNDATION_ACCEPTANCE_2026-10-15.md) · [QRZ API](https://www.qrz.com/docs/logbook/QRZLogbookAPI.html) · [Club Log API keys](https://clublog.freshdesk.com/support/solutions/articles/54910-api-keys) · [Club Log upload safety](https://clublog.freshdesk.com/support/solutions/articles/54905) |
 
 ## Large requirements remain open
 
@@ -82,10 +82,10 @@ merely to look like RUMlog.
 4. Finish DATA-10 live-sync acceptance and production capability for optional
    cloud backups. Packaged ADX roundtrip and 100,002-record functional acceptance
    pass in alpha.29.
-5. Complete QRZ live-account acceptance and decide the explicit review/re-arm
-   policy for rejected or uncertain receipts; add Club Log/HRDLOG independently
-   behind the same durable receipt, vault, bounded-retry and truthful upload-only
-   boundaries.
+5. Complete QRZ and Club Log live-account acceptance and decide the explicit
+   review/re-arm policy for rejected or uncertain receipts. Add HRDLOG only after
+   its current official contract is verified, behind the same durable receipt,
+   vault and truthful upload-only boundaries.
 6. Audit contest, QSL and alert workflows in bounded read-only stages before
    selecting further implementations.
 

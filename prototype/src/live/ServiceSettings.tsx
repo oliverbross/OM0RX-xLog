@@ -18,10 +18,10 @@ export type ServiceSettingsProps = { values: Data; savedValues?: Data; request: 
   onExternalContact?: () => void;
   availableTabs?: readonly Tab[]; requestedTab?: "Station" | "Wavelog" | "Sync"; requestedTabRevision?: number; cwContext?: CWContext; cwState?: CWState;
   refreshCW?: () => Promise<void>; cwProvider?: string };
-const tabs = ["Station", "Wavelog", "Sync", "Integrations", "QRZ", "Reference data", "Rotator", "CW", "Display", "Workspace", "Backups"] as const;
+const tabs = ["Station", "Wavelog", "Sync", "Integrations", "QRZ", "Online logs", "Reference data", "Rotator", "CW", "Display", "Workspace", "Backups"] as const;
 type Tab = typeof tabs[number];
 
-function Credential({ account, label, request, leadingField, visible = false, showSavedStatus = false, savedStatus, missingStatus, allowRemove = false, onChanged }: { account: string; label: string; request: Request; leadingField?: ReactNode; visible?: boolean; showSavedStatus?: boolean; savedStatus?: string; missingStatus?: string; allowRemove?: boolean; onChanged?: () => void }) {
+function Credential({ account, label, request, leadingField, visible = false, showSavedStatus = false, savedStatus, missingStatus, allowRemove = false, inputType = "password", onChanged }: { account: string; label: string; request: Request; leadingField?: ReactNode; visible?: boolean; showSavedStatus?: boolean; savedStatus?: string; missingStatus?: string; allowRemove?: boolean; inputType?: "password" | "text"; onChanged?: () => void }) {
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -62,7 +62,7 @@ function Credential({ account, label, request, leadingField, visible = false, sh
     finally { setBusy(false); }
   };
   const status = stored === "saved" ? (savedStatus ?? "Saved securely. Not verified for this Wavelog URL and station ID.") : stored === "missing" ? (missingStatus ?? "No saved token. Enter your API v2 token.") : stored === "checking" ? "Checking saved credential…" : stored === "unavailable" ? "Saved credential status unavailable. Keychain access may need attention." : "";
-  return <div className={`service-credential${leadingField ? " service-account-row" : ""}`}>{leadingField}<label>{label}<input type="password" aria-label={label} autoComplete="off" value={value} disabled={busy} maxLength={8192} placeholder={showSavedStatus && stored === "saved" ? "•••••••• — saved" : undefined}
+  return <div className={`service-credential${leadingField ? " service-account-row" : ""}`}>{leadingField}<label>{label}<input type={inputType} aria-label={label} autoComplete="off" value={value} disabled={busy} maxLength={8192} placeholder={showSavedStatus && stored === "saved" ? (inputType === "password" ? "•••••••• — saved" : "Saved securely") : undefined}
     onChange={event => setValue(event.target.value)} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); event.stopPropagation(); void save(); } }} /></label>
     <button type="button" disabled={busy || !value} onClick={() => void save()}>{busy ? "Saving…" : `Save ${label}`}</button>
     {allowRemove && stored === "saved" && <button type="button" disabled={busy} onClick={() => void remove()}>{`Remove ${label}`}</button>}
@@ -72,7 +72,7 @@ function Credential({ account, label, request, leadingField, visible = false, sh
 type OnlineLogStatus = { enabled: boolean; enabled_at?: string | null; pending_new_contacts: number;
   states: Record<string, number>; latest_state?: string | null; latest_attempt_at?: string | null; latest_error_code?: string | null };
 
-function QRZUploadControl({ request, visible, refreshRevision }: { request: Request; visible: boolean; refreshRevision: number }) {
+function OnlineLogUploadControl({ request, visible, refreshRevision, service, provider }: { request: Request; visible: boolean; refreshRevision: number; service: "qrz" | "club_log"; provider: "QRZ" | "Club Log" }) {
   const [status, setStatus] = useState<OnlineLogStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -82,32 +82,34 @@ function QRZUploadControl({ request, visible, refreshRevision }: { request: Requ
   useEffect(() => {
     if (!visible) return;
     let current = true; setBusy(true); setMessage("");
-    void request("online_log_status").then(value => { if (current) setStatus(value as OnlineLogStatus); }, () => {
-      if (current) setMessage("QRZ upload status is unavailable. No upload setting was changed.");
+    void request("online_log_status", { service }).then(value => { if (current) setStatus(value as OnlineLogStatus); }, () => {
+      if (current) setMessage(`${provider} upload status is unavailable. No upload setting was changed.`);
     }).finally(() => { if (current) setBusy(false); });
     return () => { current = false; };
-  }, [request, visible, refreshRevision, reloadRevision]);
+  }, [provider, request, service, visible, refreshRevision, reloadRevision]);
   const configure = async (enabled: boolean) => {
     if (busy) return;
     setBusy(true); setMessage("");
     try {
-      const next = await request("online_log_configure", { enabled, confirm_new_contacts_only: enabled });
+      const next = await request("online_log_configure", { service, enabled, confirm_new_contacts_only: enabled });
       setStatus(next as OnlineLogStatus); setConfirming(false); setConfirmed(false);
-      setMessage(enabled ? "QRZ upload enabled for contacts logged from now on." : "QRZ upload disabled. Pending unsent contacts were cancelled.");
+      setMessage(enabled ? `${provider} upload enabled for contacts logged from now on.` : `${provider} upload disabled. Pending unsent contacts were cancelled.`);
     } catch {
-      setMessage(enabled ? "Could not enable QRZ upload. Save a valid Logbook API key and try again." : "Could not disable QRZ upload. No change was confirmed.");
+      setMessage(enabled ? `Could not enable ${provider} upload. Save every required credential and try again.` : `Could not disable ${provider} upload. No change was confirmed.`);
     } finally { setBusy(false); }
   };
   const states = status?.states ?? {};
   const attention = (states.rejected ?? 0) + (states.uncertain ?? 0);
-  return <div className="service-online-log" aria-label="QRZ Logbook upload">
-    <label className="service-enable"><input type="checkbox" aria-describedby="qrz-upload-help" checked={status?.enabled === true}
-      disabled={busy || !status} onChange={event => event.target.checked ? setConfirming(true) : void configure(false)} />Upload new contacts to QRZ Logbook</label>
-    <p id="qrz-upload-help">Only contacts logged manually or received through WSJT-X Logged ADIF after you enable this are eligible. Existing contacts, file imports, Wavelog pulls, confirmations and edits are never backfilled.</p>
-    {confirming && status?.enabled !== true && <div className="service-settings-recovery" role="group" aria-label="Confirm QRZ upload enrollment">
+  const helpID = `${service}-upload-help`;
+  return <div className="service-online-log" aria-label={`${provider} upload`}>
+    <label className="service-enable"><input type="checkbox" aria-describedby={helpID} checked={status?.enabled === true}
+      disabled={busy || !status} onChange={event => event.target.checked ? setConfirming(true) : void configure(false)} />Upload new contacts to {provider}</label>
+    <p id={helpID}>Only contacts logged manually or received through WSJT-X Logged ADIF after you enable this are eligible. Existing contacts, file imports, Wavelog pulls, confirmations and edits are never backfilled.</p>
+    {provider === "Club Log" && <p>Any known HTTP refusal immediately switches Club Log upload off and cancels its remaining queue, preventing repeated bad requests from triggering Club Log’s firewall.</p>}
+    {confirming && status?.enabled !== true && <div className="service-settings-recovery" role="group" aria-label={`Confirm ${provider} upload enrollment`}>
       <p>This starts automatic, one-record INSERT uploads for future contacts. Ambiguous outcomes are held for review and never replayed automatically.</p>
       <label><input type="checkbox" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} />I understand and want to enroll new contacts from now on</label>
-      <button type="button" disabled={busy || !confirmed} onClick={() => void configure(true)}>Enable QRZ uploads</button>
+      <button type="button" disabled={busy || !confirmed} onClick={() => void configure(true)}>Enable {provider} uploads</button>
       <button type="button" disabled={busy} onClick={() => { setConfirming(false); setConfirmed(false); }}>Cancel</button>
     </div>}
     {status && <p role="status">Upload is {status.enabled ? "ON" : "OFF"}. {status.pending_new_contacts ?? 0} new contacts pending; {states.delivered ?? 0} delivered; {states.deferred ?? 0} deferred; {attention} require review.</p>}
@@ -127,7 +129,7 @@ export default function ServiceSettings({ values, savedValues, request, onChange
   useEffect(() => { if (!visibleTabs.includes(tab)) setTab(visibleTabs[0] ?? "Station"); }, [tab, visibleTabs]);
   const form = values;
   const [message, setMessage] = useState("");
-  const [qrzUploadRevision, setQRZUploadRevision] = useState(0);
+  const [onlineLogRevision, setOnlineLogRevision] = useState(0);
   const blocked = pending || conflict || workspaceChanged;
   const update = (change: Partial<Data>) => {
     const next = { ...form, ...change };
@@ -154,7 +156,7 @@ export default function ServiceSettings({ values, savedValues, request, onChange
       if (next !== null) { event.preventDefault(); const selected = visibleTabs[next]; setTab(selected); document.getElementById(`service-tab-${tabs.indexOf(selected)}`)?.focus(); }
     }}>{name}</button>)}</div>
     <div id="service-settings-panel" role="tabpanel" aria-labelledby={`service-tab-${tabs.indexOf(tab)}`}>
-    <p hidden={tab === "Display" || tab === "CW" || tab === "Workspace" || tab === "Sync" || tab === "Integrations"}>URLs and account details are grouped with their credentials. Save settings for non-secret fields; each credential has its own secure Save button.</p>
+    <p hidden={tab === "Display" || tab === "CW" || tab === "Workspace" || tab === "Sync" || tab === "Integrations" || tab === "Online logs"}>URLs and account details are grouped with their credentials. Save settings for non-secret fields; each credential has its own secure Save button.</p>
     {tab === "Sync" && <div>{syncSettings ?? <p>Synchronization tools are unavailable in this view.</p>}</div>}
     <div hidden={tab !== "Workspace"}>{workspaceSettings ?? <p>Workspace arrangements are unavailable in this view.</p>}</div>
     <div hidden={tab !== "Display"}><DisplaySettings /></div>
@@ -184,11 +186,16 @@ export default function ServiceSettings({ values, savedValues, request, onChange
         <option value="local">Standalone local logbook</option><option value="wavelog">Local logbook + Wavelog sync</option>
       </select></label><p>{(form.logbookMode ?? "local") === "local" ? "Contacts stay in this app. Wavelog synchronization and catalog checks are disabled; logging, awards, QRZ, cluster, radio and rotator remain available." : "Contacts are saved locally. Wavelog synchronization follows your Sync settings."} Save settings to apply. Switching modes keeps contacts, pending changes and saved credentials. Switching back to Wavelog leaves synchronization off until you explicitly synchronize or enable it in Sync. Wait for any running synchronization to finish before changing modes.</p></section>
       <section hidden={tab !== "Wavelog"}><h2>Wavelog synchronization</h2><p>The URL and station ID identify the online logbook; the API v2 token authorizes access. Configure synchronization in Sync.</p><div className="service-fields">{field("wavelogURL", "Wavelog URL", "url")}{field("wavelogStationID", "Wavelog station ID", "number")}</div><Credential account="wavelog-token" label="Wavelog API v2 token" request={request} visible={tab === "Wavelog"} showSavedStatus /></section>
-      <section hidden={tab !== "QRZ"}><h2>QRZ callsign lookup</h2><p>Use your QRZ username and password for XML callsign lookup.</p><label className="service-enable"><input type="checkbox" checked={form.qrzEnabled === true} onChange={event => update({ qrzEnabled: event.target.checked })} />Use QRZ XML lookup</label><Credential account="qrz-password" label="QRZ password" request={request} leadingField={field("qrzUsername", "QRZ username")} />
-        <h2>QRZ Logbook upload</h2><p>The Logbook API key is separate from your XML lookup password. Saving it securely does not enable uploads. Removing it also disables uploads and cancels pending unsent contacts.</p><Credential account="qrz-logbook-key" label="QRZ Logbook API key" request={request} visible={tab === "QRZ"} showSavedStatus allowRemove savedStatus="Saved securely. Use the enrollment control below." missingStatus="No saved QRZ Logbook API key." onChanged={() => setQRZUploadRevision(value => value + 1)} /><QRZUploadControl request={request} visible={tab === "QRZ"} refreshRevision={qrzUploadRevision} /></section>
-      <section hidden={tab !== "Reference data"}><h2>Club Log reference data</h2><p>This connection downloads CTY reference data using an API key. It is not a Club Log QSO uploader and does not use a separate account callsign.</p><Credential account="clublog-api-key" label="Club Log API key" request={request} leadingField={field("clubLogCTYURL", "Club Log CTY URL", "url")} /></section>
+      <section hidden={tab !== "QRZ"}><h2>QRZ callsign lookup</h2><p>Use your QRZ username and password for XML callsign lookup.</p><label className="service-enable"><input type="checkbox" checked={form.qrzEnabled === true} onChange={event => update({ qrzEnabled: event.target.checked })} />Use QRZ XML lookup</label><Credential account="qrz-password" label="QRZ password" request={request} leadingField={field("qrzUsername", "QRZ username")} /></section>
+      <section hidden={tab !== "Online logs"}><h2>QRZ Logbook upload</h2><p>The Logbook API key is separate from your XML lookup password. Saving it securely does not enable uploads. Removing it also disables uploads and cancels pending unsent contacts.</p><Credential account="qrz-logbook-key" label="QRZ Logbook API key" request={request} visible={tab === "Online logs"} showSavedStatus allowRemove savedStatus="Saved securely. Use the enrollment control below." missingStatus="No saved QRZ Logbook API key." onChanged={() => setOnlineLogRevision(value => value + 1)} /><OnlineLogUploadControl request={request} visible={tab === "Online logs"} refreshRevision={onlineLogRevision} service="qrz" provider="QRZ" />
+        <h2>Club Log real-time upload</h2><p>Use your Club Log account email, an Application Password and the callsign owned by that account. The Club Log API key is shared with the CTY download in Reference data. Saving credentials never enables uploads.</p>
+        <Credential account="clublog-email" label="Club Log account email" inputType="text" request={request} visible={tab === "Online logs"} showSavedStatus allowRemove savedStatus="Saved securely." missingStatus="No saved Club Log account email." onChanged={() => setOnlineLogRevision(value => value + 1)} />
+        <Credential account="clublog-application-password" label="Club Log Application Password" request={request} visible={tab === "Online logs"} showSavedStatus allowRemove savedStatus="Saved securely." missingStatus="No saved Club Log Application Password." onChanged={() => setOnlineLogRevision(value => value + 1)} />
+        <Credential account="clublog-callsign" label="Club Log callsign" inputType="text" request={request} visible={tab === "Online logs"} showSavedStatus allowRemove savedStatus="Saved securely." missingStatus="No saved Club Log callsign." onChanged={() => setOnlineLogRevision(value => value + 1)} />
+        <OnlineLogUploadControl request={request} visible={tab === "Online logs"} refreshRevision={onlineLogRevision} service="club_log" provider="Club Log" /></section>
+      <section hidden={tab !== "Reference data"}><h2>Club Log reference data</h2><p>The API key authorizes CTY downloads and can also support the separately enrolled real-time uploader. Saving it here never enables uploads; removing it disables Club Log uploads and cancels their pending queue.</p><Credential account="clublog-api-key" label="Club Log API key" request={request} leadingField={field("clubLogCTYURL", "Club Log CTY URL", "url")} visible={tab === "Reference data"} showSavedStatus allowRemove savedStatus="Saved securely for Club Log services." missingStatus="No saved Club Log API key." onChanged={() => setOnlineLogRevision(value => value + 1)} /></section>
       <section hidden={tab !== "Reference data"}><h2>LoTW activity reference</h2><p>This public reference feed does not require your LoTW password.</p><div className="service-fields">{field("lotwActivityURL", "LoTW activity URL", "url")}</div></section>
-      <div className="live-actions" hidden={tab === "Backups" || tab === "Display" || tab === "Rotator" || tab === "Workspace" || tab === "Sync" || tab === "Integrations"}><button type="submit" className="primary">{saving ? "Saving settings…" : "Save settings"}</button><span role="status">{message}</span></div>
+      <div className="live-actions" hidden={tab === "Backups" || tab === "Display" || tab === "Rotator" || tab === "Workspace" || tab === "Sync" || tab === "Integrations" || tab === "Online logs"}><button type="submit" className="primary">{saving ? "Saving settings…" : "Save settings"}</button><span role="status">{message}</span></div>
     </fieldset></form>
     {(visibleTabs.includes("Reference data") || visibleTabs.includes("Backups")) && <div hidden={tab !== "Reference data" && tab !== "Backups"}>{dataRequest ? <DataManagementPanel onRequest={dataRequest} onChanged={onDataChanged ?? (() => {})} visible={tab === "Reference data" || tab === "Backups"} section={tab === "Backups" ? "backups" : "references"} sourceSettings={savedValues ?? form} /> : <p>Reference and backup tools are unavailable in this view.</p>}</div>}
     <p className="service-security-note" hidden={tab === "CW" || tab === "Workspace" || tab === "Sync" || tab === "Integrations"}>Credentials stay in the integrated app’s separate macOS Keychain service. Existing application credentials are not changed. Never paste credentials into a support chat.</p>

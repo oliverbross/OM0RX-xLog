@@ -132,4 +132,28 @@ struct LiveOnlineLogDeliveryServiceTests {
         #expect(disabled["pending_new_contacts"] as? Int == 0)
         await services.terminate()
     }
+
+    @Test func serviceStatusAndDisableRemainProviderScoped() async throws {
+        let (logbook, database, root) = try fixture()
+        defer { database.close(); try? FileManager.default.removeItem(at: root) }
+        _ = try database.configureOnlineLogEnrollment(service: .qrz, enabled: true)
+        _ = try database.configureOnlineLogEnrollment(service: .clubLog, enabled: true)
+        let qso = QSO(call: "VE2ABC", start: Date(timeIntervalSince1970: 1_700_001_200),
+                      band: "10m", mode: "FT8", myCall: "OM0RX")
+        try database.saveNewContactForOnlineLogs(qso)
+        let services = LiveServiceMethods(logbook: logbook)
+
+        let club = try await services.handle(method: "online_log_status", params: ["service": "club_log"])
+        #expect(club["service"] as? String == "club_log")
+        #expect(club["enabled"] as? Bool == true)
+        #expect(club["pending_new_contacts"] as? Int == 1)
+        _ = try await services.handle(method: "online_log_configure", params: [
+            "service": "club_log", "enabled": NSNumber(value: false),
+            "confirm_new_contacts_only": NSNumber(value: false),
+        ])
+        #expect(try database.onlineLogCandidateIDs(service: .clubLog).isEmpty)
+        #expect(try database.onlineLogCandidateIDs(service: .qrz) == [qso.id])
+        #expect(try database.onlineLogEnrollmentStatus(service: .qrz).enabled)
+        await services.terminate()
+    }
 }

@@ -10,6 +10,7 @@ import Crypto
 
 public enum OnlineLogService: String, Codable, CaseIterable, Sendable {
     case qrz
+    case clubLog = "club_log"
 }
 
 public enum OnlineLogDeliveryState: String, Codable, CaseIterable, Sendable {
@@ -91,14 +92,14 @@ public struct OnlineLogDeliverySummary: Equatable, Sendable {
     public let latestSafeErrorCode: String?
 }
 
-struct QRZLogbookHTTPResponse: Sendable {
+struct OnlineLogHTTPResponse: Sendable {
     let statusCode: Int
     let headers: [String: String]
     let body: Data
 }
 
-protocol QRZLogbookHTTPClient: Sendable {
-    func send(_ request: URLRequest, maximumResponseBytes: Int) async throws -> QRZLogbookHTTPResponse
+protocol OnlineLogHTTPClient: Sendable {
+    func send(_ request: URLRequest, maximumResponseBytes: Int) async throws -> OnlineLogHTTPResponse
 }
 
 /// One-record, upload-only QRZ transport. It never requests replacement,
@@ -106,14 +107,14 @@ protocol QRZLogbookHTTPClient: Sendable {
 public struct QRZLogbookTransport: Sendable {
     public static let endpoint = URL(string: "https://logbook.qrz.com/api")!
     private static let maximumResponseBytes = 8_192
-    private let http: QRZLogbookHTTPClient
+    private let http: OnlineLogHTTPClient
     private let userAgent: String
 
     public init(userAgent: String = "OM0RX-xLog/0.4") throws {
-        try self.init(userAgent: userAgent, http: QRZLogbookURLSessionClient())
+        try self.init(userAgent: userAgent, http: OnlineLogURLSessionClient(endpoint: Self.endpoint))
     }
 
-    init(userAgent: String, http: QRZLogbookHTTPClient) throws {
+    init(userAgent: String, http: OnlineLogHTTPClient) throws {
         let agent = userAgent.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !agent.isEmpty, agent.utf8.count <= 128,
               !agent.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) else {
@@ -130,7 +131,7 @@ public struct QRZLogbookTransport: Sendable {
               !adif.isEmpty, adif.utf8.count <= 65_536 else {
             return .rejected(code: "invalid_configuration")
         }
-        let body = Self.formBody([
+        let body = onlineLogFormBody([
             ("KEY", key),
             ("ACTION", "INSERT"),
             ("ADIF", adif),
@@ -187,38 +188,151 @@ public struct QRZLogbookTransport: Sendable {
         return fields
     }
 
-    /// `URLComponents` follows generic URL query rules and leaves `+` literal.
-    /// HTML form decoding treats that byte as a space, so encode from UTF-8
-    /// bytes here to preserve every ADIF value exactly.
-    private static func formBody(_ fields: [(String, String)]) -> Data {
-        Data(fields.map { "\(formComponent($0.0))=\(formComponent($0.1))" }
-            .joined(separator: "&").utf8)
-    }
-
-    private static func formComponent(_ value: String) -> String {
-        let hex = Array("0123456789ABCDEF".utf8)
-        var encoded: [UInt8] = []
-        encoded.reserveCapacity(value.utf8.count)
-        for byte in value.utf8 {
-            switch byte {
-            case 65...90, 97...122, 48...57, 45, 46, 95, 126:
-                encoded.append(byte)
-            case 32:
-                encoded.append(43)
-            default:
-                encoded.append(37)
-                encoded.append(hex[Int(byte >> 4)])
-                encoded.append(hex[Int(byte & 0x0F)])
-            }
-        }
-        return String(decoding: encoded, as: UTF8.self)
-    }
-
     private static func retryDate(headers: [String: String], now: Date) -> Date? {
         let value = headers.first { $0.key.caseInsensitiveCompare("Retry-After") == .orderedSame }?.value
         guard let value, let seconds = TimeInterval(value), seconds.isFinite, seconds >= 0 else { return nil }
         return now.addingTimeInterval(min(seconds, 3_600))
     }
+}
+
+public struct ClubLogCredentials: Equatable, Sendable {
+    public let email: String
+    public let applicationPassword: String
+    public let callsign: String
+    public let apiKey: String
+
+    public init(email: String, applicationPassword: String, callsign: String, apiKey: String) {
+        self.email = email
+        self.applicationPassword = applicationPassword
+        self.callsign = callsign
+        self.apiKey = apiKey
+    }
+
+    public var isValid: Bool {
+        let normalizedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedCallsign = callsign.trimmingCharacters(in: .whitespacesAndNewlines)
+        return validOnlineLogValue(normalizedEmail, maximumBytes: 320) &&
+            normalizedEmail.contains("@") &&
+            validOnlineLogValue(applicationPassword, maximumBytes: 256) &&
+            validOnlineLogValue(normalizedCallsign, maximumBytes: 64) &&
+            validOnlineLogValue(apiKey, maximumBytes: 256)
+    }
+}
+
+/// One-record, upload-only Club Log transport. It uses the documented real-time
+/// endpoint, never the batch endpoint, and never logs credentials or ADIF.
+public struct ClubLogTransport: Sendable {
+    public static let endpoint = URL(string: "https://clublog.org/realtime.php")!
+    private static let maximumResponseBytes = 8_192
+    private let http: OnlineLogHTTPClient
+    private let userAgent: String
+
+    public init(userAgent: String = "OM0RX-xLog/0.4") throws {
+        try self.init(userAgent: userAgent, http: OnlineLogURLSessionClient(endpoint: Self.endpoint))
+    }
+
+    init(userAgent: String, http: OnlineLogHTTPClient) throws {
+        let agent = userAgent.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard validOnlineLogValue(agent, maximumBytes: 128) else {
+            throw OnlineLogDeliveryError.invalidPlan
+        }
+        self.userAgent = agent
+        self.http = http
+    }
+
+    public func upload(adif: String, credentials: ClubLogCredentials) async -> OnlineLogDeliveryResolution {
+        let email = credentials.email.trimmingCharacters(in: .whitespacesAndNewlines)
+        let callsign = credentials.callsign.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        guard credentials.isValid,
+              !adif.isEmpty, adif.utf8.count <= 65_536 else {
+            return .rejected(code: "invalid_configuration")
+        }
+        let body = onlineLogFormBody([
+            ("email", email),
+            ("password", credentials.applicationPassword),
+            ("callsign", callsign),
+            ("api", credentials.apiKey),
+            ("adif", adif),
+        ])
+        var request = URLRequest(url: Self.endpoint)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 30
+        request.httpBody = body
+        request.setValue("application/x-www-form-urlencoded; charset=utf-8", forHTTPHeaderField: "Content-Type")
+        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
+        request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
+        do {
+            let response = try await http.send(request, maximumResponseBytes: Self.maximumResponseBytes)
+            guard response.statusCode == 200 else {
+                return .rejected(code: response.statusCode == 403 ? "authentication_rejected" : "http_rejected")
+            }
+            return .delivered(remoteID: nil)
+        } catch is CancellationError {
+            return .uncertain(code: "cancelled_after_dispatch")
+        } catch {
+            return .uncertain(code: "transport_unknown")
+        }
+    }
+}
+
+/// Coordinates Club Log's non-idempotent real-time upload with the durable
+/// claim. A known HTTP refusal disables future enrollment in the same commit.
+public struct ClubLogDeliveryCoordinator: Sendable {
+    private let database: LogbookDatabase
+    private let transport: ClubLogTransport
+
+    public init(database: LogbookDatabase, transport: ClubLogTransport) {
+        self.database = database
+        self.transport = transport
+    }
+
+    public func deliver(contactID: UUID, credentials: ClubLogCredentials,
+                        attemptID: UUID = UUID(), now: Date = Date()) async throws -> OnlineLogDeliveryReceipt {
+        let plan = try database.prepareOnlineLogDelivery(service: .clubLog, contactID: contactID)
+        let claim = try database.claimOnlineLogDelivery(plan, attemptID: attemptID, at: now)
+        guard claim.shouldDispatch else {
+            if claim.receipt.state == .dispatching || claim.receipt.state == .uncertain {
+                throw OnlineLogDeliveryError.deliveryUncertain
+            }
+            return claim.receipt
+        }
+        let resolution = await transport.upload(adif: plan.adif, credentials: credentials)
+        let receipt = try database.resolveOnlineLogDelivery(plan, attemptID: attemptID, resolution: resolution,
+                                                            disableEnrollmentOnRejection: true, at: now)
+        if receipt.state == .uncertain { throw OnlineLogDeliveryError.deliveryUncertain }
+        return receipt
+    }
+}
+
+/// `URLComponents` follows generic URL query rules and leaves `+` literal.
+/// HTML form decoding treats that byte as a space, so encode from UTF-8 bytes.
+private func onlineLogFormBody(_ fields: [(String, String)]) -> Data {
+    Data(fields.map { "\(onlineLogFormComponent($0.0))=\(onlineLogFormComponent($0.1))" }
+        .joined(separator: "&").utf8)
+}
+
+private func onlineLogFormComponent(_ value: String) -> String {
+    let hex = Array("0123456789ABCDEF".utf8)
+    var encoded: [UInt8] = []
+    encoded.reserveCapacity(value.utf8.count)
+    for byte in value.utf8 {
+        switch byte {
+        case 65...90, 97...122, 48...57, 45, 46, 95, 126: encoded.append(byte)
+        case 32: encoded.append(43)
+        default:
+            encoded.append(37)
+            encoded.append(hex[Int(byte >> 4)])
+            encoded.append(hex[Int(byte & 0x0F)])
+        }
+    }
+    return String(decoding: encoded, as: UTF8.self)
+}
+
+private func validOnlineLogValue(_ value: String, maximumBytes: Int) -> Bool {
+    !value.isEmpty && value.utf8.count <= maximumBytes &&
+        !value.unicodeScalars.contains(where: {
+            CharacterSet.whitespacesAndNewlines.contains($0) || CharacterSet.controlCharacters.contains($0)
+        })
 }
 
 /// Coordinates the durable pre-dispatch claim with the non-idempotent provider.
@@ -248,9 +362,12 @@ public struct QRZLogbookDeliveryCoordinator: Sendable {
     }
 }
 
-private final class QRZLogbookURLSessionClient: QRZLogbookHTTPClient, @unchecked Sendable {
-    func send(_ request: URLRequest, maximumResponseBytes: Int) async throws -> QRZLogbookHTTPResponse {
-        guard request.url == QRZLogbookTransport.endpoint, request.httpMethod == "POST",
+final class OnlineLogURLSessionClient: OnlineLogHTTPClient, @unchecked Sendable {
+    private let endpoint: URL
+    init(endpoint: URL) { self.endpoint = endpoint }
+
+    func send(_ request: URLRequest, maximumResponseBytes: Int) async throws -> OnlineLogHTTPResponse {
+        guard request.url == endpoint, request.httpMethod == "POST",
               (1...8_192).contains(maximumResponseBytes) else { throw OnlineLogDeliveryError.invalidPlan }
         let operation = Operation(request: request, maximum: maximumResponseBytes)
         return try await withTaskCancellationHandler {
@@ -259,13 +376,18 @@ private final class QRZLogbookURLSessionClient: QRZLogbookHTTPClient, @unchecked
         } onCancel: { operation.cancel() }
     }
 
+    static func accepts(_ response: HTTPURLResponse, for request: URLRequest,
+                        maximumResponseBytes: Int) -> Bool {
+        response.url == request.url && response.expectedContentLength <= Int64(maximumResponseBytes)
+    }
+
     private final class Operation: NSObject, URLSessionDataDelegate, @unchecked Sendable {
         private let lock = NSLock()
         private let request: URLRequest
         private let maximum: Int
         private var session: URLSession?
         private var task: URLSessionDataTask?
-        private var continuation: CheckedContinuation<QRZLogbookHTTPResponse, Error>?
+        private var continuation: CheckedContinuation<OnlineLogHTTPResponse, Error>?
         private var response: HTTPURLResponse?
         private var body = Data()
         private var failed = false
@@ -273,7 +395,7 @@ private final class QRZLogbookURLSessionClient: QRZLogbookHTTPClient, @unchecked
 
         init(request: URLRequest, maximum: Int) { self.request = request; self.maximum = maximum }
 
-        func start(_ continuation: CheckedContinuation<QRZLogbookHTTPResponse, Error>) {
+        func start(_ continuation: CheckedContinuation<OnlineLogHTTPResponse, Error>) {
             lock.lock()
             if cancelled {
                 lock.unlock(); continuation.resume(throwing: CancellationError()); return
@@ -305,8 +427,11 @@ private final class QRZLogbookURLSessionClient: QRZLogbookHTTPClient, @unchecked
         func urlSession(_ session: URLSession, task: URLSessionTask,
                         willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest,
                         completionHandler: @escaping (URLRequest?) -> Void) {
-            lock.withLock { failed = true }
-            completionHandler(nil); task.cancel()
+            // Never follow a provider redirect: it could forward credentials or
+            // ADIF away from the fixed endpoint. Preserve the original HTTP
+            // response so each provider can apply its documented failure policy.
+            lock.withLock { self.response = response }
+            completionHandler(nil)
         }
 
         func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge,
@@ -325,8 +450,11 @@ private final class QRZLogbookURLSessionClient: QRZLogbookHTTPClient, @unchecked
         func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse,
                         completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
             let accepted = lock.withLock {
-                guard let http = response as? HTTPURLResponse, http.url == QRZLogbookTransport.endpoint,
-                      http.expectedContentLength <= Int64(maximum) else { failed = true; return false }
+                guard let http = response as? HTTPURLResponse,
+                      OnlineLogURLSessionClient.accepts(http, for: request,
+                                                        maximumResponseBytes: maximum) else {
+                    failed = true; return false
+                }
                 self.response = http; return true
             }
             completionHandler(accepted ? .allow : .cancel)
@@ -344,14 +472,14 @@ private final class QRZLogbookURLSessionClient: QRZLogbookHTTPClient, @unchecked
             lock.lock()
             guard let continuation else { lock.unlock(); return }
             self.continuation = nil
-            let result: Result<QRZLogbookHTTPResponse, Error>
+            let result: Result<OnlineLogHTTPResponse, Error>
             if cancelled { result = .failure(CancellationError()) }
             else if failed || error != nil { result = .failure(OnlineLogDeliveryError.deliveryUncertain) }
             else if let response {
                 let headers = response.allHeaderFields.reduce(into: [String: String]()) {
                     $0[String(describing: $1.key)] = String(describing: $1.value)
                 }
-                result = .success(QRZLogbookHTTPResponse(statusCode: response.statusCode, headers: headers, body: body))
+                result = .success(OnlineLogHTTPResponse(statusCode: response.statusCode, headers: headers, body: body))
             } else { result = .failure(OnlineLogDeliveryError.deliveryUncertain) }
             body = Data(); self.task = nil; self.session = nil
             lock.unlock()

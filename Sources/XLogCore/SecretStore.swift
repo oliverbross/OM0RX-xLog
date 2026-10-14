@@ -18,6 +18,9 @@ public struct SecretStore: Sendable {
         case qrzPassword = "qrz-password"
         case qrzLogbookKey = "qrz-logbook-key"
         case clubLogAPIKey = "clublog-api-key"
+        case clubLogEmail = "clublog-email"
+        case clubLogApplicationPassword = "clublog-application-password"
+        case clubLogCallsign = "clublog-callsign"
     }
     public static let service = "com.oliverbross.OM0RXXLog"
     private let serviceName: String

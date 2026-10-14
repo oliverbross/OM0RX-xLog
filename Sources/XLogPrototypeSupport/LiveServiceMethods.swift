@@ -75,20 +75,30 @@ actor LiveServiceMethods {
         }
         switch method {
         case "online_log_status":
-            guard params.isEmpty else { throw invalid() }
-            return try onlineLogStatus()
+            guard params.isEmpty || Set(params.keys) == ["service"] else { throw invalid() }
+            return try onlineLogStatus(service: try onlineLogService(params))
         case "online_log_configure":
-            guard Set(params.keys) == ["enabled", "confirm_new_contacts_only"],
+            let keys = Set(params.keys)
+            guard keys == ["enabled", "confirm_new_contacts_only"] ||
+                    keys == ["service", "enabled", "confirm_new_contacts_only"],
                   let enabled = params["enabled"] as? NSNumber, isJSONBoolean(enabled),
                   let confirmation = params["confirm_new_contacts_only"] as? NSNumber,
                   isJSONBoolean(confirmation), !enabled.boolValue || confirmation.boolValue else { throw invalid() }
+            let service = try onlineLogService(params)
             if enabled.boolValue {
-                guard let key = try workspaceSecrets().load(.qrzLogbookKey), Self.validQRZLogbookKey(key) else {
-                    throw WorkerFailure("credential_required", "Save a valid QRZ Logbook API key before enabling uploads.")
+                switch service {
+                case .qrz:
+                    guard let key = try workspaceSecrets().load(.qrzLogbookKey), Self.validQRZLogbookKey(key) else {
+                        throw WorkerFailure("credential_required", "Save a valid QRZ Logbook API key before enabling uploads.")
+                    }
+                case .clubLog:
+                    guard try clubLogCredentials()?.isValid == true else {
+                        throw WorkerFailure("credential_required", "Save a valid Club Log API key, email, application password and callsign before enabling uploads.")
+                    }
                 }
             }
-            _ = try logbook.openedDatabase().configureOnlineLogEnrollment(service: .qrz, enabled: enabled.boolValue)
-            return try onlineLogStatus()
+            _ = try logbook.openedDatabase().configureOnlineLogEnrollment(service: service, enabled: enabled.boolValue)
+            return try onlineLogStatus(service: service)
         case "secret_save":
             guard Set(params.keys) == ["account", "value"], let name = params["account"] as? String,
                   let account = WorkspaceCredentialStore.Account(rawValue: name), let value = params["value"] as? String,
@@ -105,6 +115,9 @@ actor LiveServiceMethods {
                 if account == .qrzLogbookKey, value.isEmpty {
                     _ = try logbook.openedDatabase().configureOnlineLogEnrollment(service: .qrz, enabled: false)
                 }
+                if [.clubLogAPIKey, .clubLogEmail, .clubLogApplicationPassword, .clubLogCallsign].contains(account), value.isEmpty {
+                    _ = try logbook.openedDatabase().configureOnlineLogEnrollment(service: .clubLog, enabled: false)
+                }
                 try secrets.save(value, for: account)
             }
             #if os(macOS)
@@ -116,7 +129,8 @@ actor LiveServiceMethods {
             guard params.isEmpty else { throw invalid() }
             var values: [String: Any] = [:]
             for account in [WorkspaceCredentialStore.Account.wavelogToken, .qrzPassword,
-                            .qrzLogbookKey, .clubLogAPIKey] {
+                            .qrzLogbookKey, .clubLogAPIKey, .clubLogEmail,
+                            .clubLogApplicationPassword, .clubLogCallsign] {
                 values[account.rawValue] = !(try secrets.load(account) ?? "").isEmpty
             }
             return values
@@ -527,8 +541,8 @@ actor LiveServiceMethods {
     private func workspaceSecrets() throws -> WorkspaceCredentialStore {
         WorkspaceCredentialStore(service: try logbook.currentKeychainService())
     }
-    private func onlineLogStatus() throws -> [String: Any] {
-        let summary = try logbook.openedDatabase().onlineLogDeliverySummary(service: .qrz)
+    private func onlineLogStatus(service: OnlineLogService) throws -> [String: Any] {
+        let summary = try logbook.openedDatabase().onlineLogDeliverySummary(service: service)
         return [
             "service": summary.enrollment.service.rawValue,
             "enabled": summary.enrollment.enabled,
@@ -541,6 +555,20 @@ actor LiveServiceMethods {
             "latest_attempt_at": summary.latestAttemptAt.map { ISO8601DateFormatter().string(from: $0) } as Any? ?? NSNull(),
             "latest_error_code": summary.latestSafeErrorCode as Any? ?? NSNull(),
         ]
+    }
+    private func onlineLogService(_ params: [String: Any]) throws -> OnlineLogService {
+        guard let value = params["service"] else { return .qrz }
+        guard let raw = value as? String, let service = OnlineLogService(rawValue: raw) else { throw invalid() }
+        return service
+    }
+    private func clubLogCredentials() throws -> ClubLogCredentials? {
+        let secrets = try workspaceSecrets()
+        guard let email = try secrets.load(.clubLogEmail),
+              let password = try secrets.load(.clubLogApplicationPassword),
+              let callsign = try secrets.load(.clubLogCallsign),
+              let apiKey = try secrets.load(.clubLogAPIKey) else { return nil }
+        return ClubLogCredentials(email: email, applicationPassword: password,
+                                  callsign: callsign, apiKey: apiKey)
     }
     private static func validQRZLogbookKey(_ value: String) -> Bool {
         !value.isEmpty && value.utf8.count <= 256 &&

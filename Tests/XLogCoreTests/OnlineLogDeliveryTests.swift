@@ -14,15 +14,15 @@ struct OnlineLogDeliveryTests {
         var fails = false
     }
 
-    private actor HTTP: QRZLogbookHTTPClient {
+    private actor HTTP: OnlineLogHTTPClient {
         var steps: [Step]
         var requests: [URLRequest] = []
         init(_ steps: [Step]) { self.steps = steps }
-        func send(_ request: URLRequest, maximumResponseBytes: Int) async throws -> QRZLogbookHTTPResponse {
+        func send(_ request: URLRequest, maximumResponseBytes: Int) async throws -> OnlineLogHTTPResponse {
             requests.append(request)
             let step = steps.removeFirst()
             if step.fails { throw URLError(.timedOut, userInfo: [NSLocalizedDescriptionKey: "secret-provider-detail"]) }
-            return QRZLogbookHTTPResponse(statusCode: step.status, headers: step.headers, body: step.body)
+            return OnlineLogHTTPResponse(statusCode: step.status, headers: step.headers, body: step.body)
         }
     }
 
@@ -51,13 +51,102 @@ struct OnlineLogDeliveryTests {
         let encoded = String(decoding: try #require(request.httpBody), as: UTF8.self)
         #expect(encoded.contains("A%2BB+%26+C%3DD"))
         #expect(!encoded.contains("A+B"))
-        let items = try #require(URLComponents(string: "?\(encoded)")?.queryItems)
-        let values = Dictionary(uniqueKeysWithValues: items.map { ($0.name, $0.value ?? "") })
+        let values = try Dictionary(uniqueKeysWithValues: encoded.split(separator: "&").map { field -> (String, String) in
+            let pieces = field.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+            let name = try #require(String(pieces[0]).removingPercentEncoding)
+            let value = try #require(String(pieces[1]).replacingOccurrences(of: "+", with: " ").removingPercentEncoding)
+            return (name, value)
+        })
         #expect(Set(values.keys) == ["KEY", "ACTION", "ADIF"])
         #expect(values["ACTION"] == "INSERT")
         #expect(values["ADIF"]?.contains("<EOR>") == true)
         #expect(values["ADIF"]?.contains("<EOH>") == false)
         #expect(values["OPTION"] == nil)
+    }
+
+    @Test func clubLogUsesOnlyRealtimeFormAndPreservesADIFBytes() async throws {
+        let http = HTTP([Step(body: Data("OK".utf8))])
+        let transport = try ClubLogTransport(userAgent: "OM0RX-xLog/fixture", http: http)
+        let adif = ADIFRecord(fields: [
+            "CALL": "VK8NSB", "QSO_DATE": "20231114", "TIME_ON": "221320", "BAND": "20m", "MODE": "CW",
+            "COMMENT": "A+B & C=D",
+        ]).recordDocument
+        let outcome = await transport.upload(adif: adif, credentials: ClubLogCredentials(
+            email: "operator@example.invalid", applicationPassword: "app-pass", callsign: "om0rx", apiKey: "api-key"))
+        #expect(outcome == .delivered(remoteID: nil))
+        let request = try #require(await http.requests.first)
+        #expect(request.url == ClubLogTransport.endpoint)
+        #expect(request.httpMethod == "POST")
+        let encoded = String(decoding: try #require(request.httpBody), as: UTF8.self)
+        #expect(encoded.contains("A%2BB+%26+C%3DD"))
+        let values = try Dictionary(uniqueKeysWithValues: encoded.split(separator: "&").map { field -> (String, String) in
+            let pieces = field.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+            let name = try #require(String(pieces[0]).removingPercentEncoding)
+            let value = try #require(String(pieces[1]).replacingOccurrences(of: "+", with: " ").removingPercentEncoding)
+            return (name, value)
+        })
+        #expect(Set(values.keys) == ["email", "password", "callsign", "api", "adif"])
+        #expect(values["email"] == "operator@example.invalid")
+        #expect(values["password"] == "app-pass")
+        #expect(values["callsign"] == "OM0RX")
+        #expect(values["api"] == "api-key")
+        #expect(values["adif"] == adif)
+        #expect(encoded.contains("clear=") == false)
+    }
+
+    @Test func sharedHTTPClientAcceptsOnlyTheRequestedProviderEndpoint() throws {
+        let clubRequest = URLRequest(url: ClubLogTransport.endpoint)
+        let clubResponse = try #require(HTTPURLResponse(
+            url: ClubLogTransport.endpoint, statusCode: 200, httpVersion: "HTTP/1.1",
+            headerFields: ["Content-Length": "2"]))
+        let qrzResponse = try #require(HTTPURLResponse(
+            url: QRZLogbookTransport.endpoint, statusCode: 200, httpVersion: "HTTP/1.1",
+            headerFields: ["Content-Length": "2"]))
+
+        #expect(OnlineLogURLSessionClient.accepts(clubResponse, for: clubRequest,
+                                                  maximumResponseBytes: 8_192))
+        #expect(!OnlineLogURLSessionClient.accepts(qrzResponse, for: clubRequest,
+                                                   maximumResponseBytes: 8_192))
+    }
+
+    @Test func clubLogKnownHTTPFailureAtomicallyDisablesEnrollmentAndCancelsQueue() async throws {
+        let (database, root, _) = try database()
+        defer { database.close(); try? FileManager.default.removeItem(at: root) }
+        _ = try database.configureOnlineLogEnrollment(service: .clubLog, enabled: true)
+        let first = QSO(call: "JA1ABC", start: Date(timeIntervalSince1970: 1_700_000_100),
+                        band: "20m", mode: "CW", myCall: "OM0RX")
+        let second = QSO(call: "JA2ABC", start: Date(timeIntervalSince1970: 1_700_000_110),
+                         band: "20m", mode: "CW", myCall: "OM0RX")
+        try database.saveNewContactForOnlineLogs(first)
+        try database.saveNewContactForOnlineLogs(second)
+        let http = HTTP([Step(status: 403, body: Data("Forbidden".utf8))])
+        let coordinator = ClubLogDeliveryCoordinator(database: database,
+            transport: try ClubLogTransport(userAgent: "OM0RX-xLog/fixture", http: http))
+        let receipt = try await coordinator.deliver(contactID: first.id, credentials: ClubLogCredentials(
+            email: "operator@example.invalid", applicationPassword: "app-pass", callsign: "OM0RX", apiKey: "api-key"),
+            now: Date(timeIntervalSince1970: 200))
+        #expect(receipt.state == .rejected)
+        #expect(receipt.safeErrorCode == "authentication_rejected")
+        #expect(try database.onlineLogEnrollmentStatus(service: .clubLog).enabled == false)
+        #expect(try database.onlineLogCandidateIDs(service: .clubLog).isEmpty)
+        #expect(await http.requests.count == 1)
+    }
+
+    @Test func independentEnrollmentDoesNotCrossQueueServices() throws {
+        let (database, root, _) = try database()
+        defer { database.close(); try? FileManager.default.removeItem(at: root) }
+        _ = try database.configureOnlineLogEnrollment(service: .qrz, enabled: true)
+        let qrzOnly = QSO(call: "JA3ABC", start: Date(timeIntervalSince1970: 1_700_000_120),
+                          band: "20m", mode: "CW", myCall: "OM0RX")
+        try database.saveNewContactForOnlineLogs(qrzOnly)
+        #expect(try database.onlineLogCandidateIDs(service: .qrz) == [qrzOnly.id])
+        #expect(try database.onlineLogCandidateIDs(service: .clubLog).isEmpty)
+        _ = try database.configureOnlineLogEnrollment(service: .clubLog, enabled: true)
+        let both = QSO(call: "JA4ABC", start: Date(timeIntervalSince1970: 1_700_000_130),
+                       band: "20m", mode: "CW", myCall: "OM0RX")
+        try database.saveNewContactForOnlineLogs(both)
+        #expect(try database.onlineLogCandidateIDs(service: .qrz) == [qrzOnly.id, both.id])
+        #expect(try database.onlineLogCandidateIDs(service: .clubLog) == [both.id])
     }
 
     @Test func deliveredReceiptSurvivesRestartAndPreventsReplay() async throws {

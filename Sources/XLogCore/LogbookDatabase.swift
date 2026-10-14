@@ -518,6 +518,7 @@ public final class LogbookDatabase: @unchecked Sendable {
 
     public func resolveOnlineLogDelivery(_ plan: OnlineLogDeliveryPlan, attemptID: UUID,
                                          resolution: OnlineLogDeliveryResolution,
+                                         disableEnrollmentOnRejection: Bool = false,
                                          at date: Date = Date()) throws -> OnlineLogDeliveryReceipt {
         try withDatabaseLock {
             try execute("BEGIN IMMEDIATE;")
@@ -577,6 +578,19 @@ public final class LogbookDatabase: @unchecked Sendable {
                 }
                 if Self.isTerminalOnlineLogDelivery(receipt.state) {
                     try retireOnlineLogCandidate(service: plan.service, contactID: plan.contact.qso.id)
+                }
+                if disableEnrollmentOnRejection, receipt.state == .rejected {
+                    try withStatement("""
+                        INSERT INTO xlog_online_log_enrollments(service,active,enabled_at) VALUES(?,0,NULL)
+                        ON CONFLICT(service) DO UPDATE SET active=0,enabled_at=NULL;
+                        """) { statement in
+                            bind(plan.service.rawValue, to: 1, in: statement)
+                            try stepDone(statement)
+                        }
+                    try withStatement("DELETE FROM xlog_online_log_candidates WHERE service=?;") { statement in
+                        bind(plan.service.rawValue, to: 1, in: statement)
+                        try stepDone(statement)
+                    }
                 }
                 try execute("COMMIT;")
                 return receipt

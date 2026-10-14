@@ -1191,3 +1191,31 @@ No QRZ credential was written and no live request was made. Live account
 acceptance, explicit rejected/uncertain review policy and independent Club
 Log/HRDLOG adapters remain open. See
 [the bounded acceptance record](QRZ_UPLOAD_FOUNDATION_ACCEPTANCE_2026-10-15.md).
+
+## 15 October — Club Log prospective real-time delivery
+
+Club Log is now a second independent, default-off provider rather than a Wavelog
+sync mode or QRZ side effect. It has separate vault values for account email,
+Application Password and owned callsign, and shares only the existing Club Log
+developer API key used by the reference-data connection. Settings has a dedicated
+**Online logs** section with separate QRZ and Club Log enrollment, confirmation,
+credential removal and aggregate status. Detached Settings now exposes the same
+narrow online-log methods.
+
+The transport posts one byte-accurately encoded ADIF record only to Club Log's
+`realtime.php`; it never uses `putlogs.php` for automatic delivery. A durable
+exact-revision/payload claim precedes I/O, and ambiguous outcomes never replay.
+Every known non-200 response is terminal: the receipt, provider disable and
+cancellation of the remaining Club Log queue commit atomically. QRZ state and
+candidates remain untouched. This implements Club Log's explicit instruction to
+stop after HTTP failures, especially 403, before repeated bad credentials can
+firewall the user's IP.
+
+Native Swift **194/194**, portable **200 XCTest** with four intentional skips plus
+**392/392 Swift Testing**, Settings/detached Settings **24/24**, full frontend
+**2,391/2,391**, Rust **433 unit + 18 integration**, and the production frontend
+build pass. No Club Log
+credential was written and no live provider request was made. Live account and
+installed visual acceptance remain open; HRDLOG remains blocked on confirming a
+current official contract. See the
+[bounded Club Log acceptance](CLUB_LOG_UPLOAD_FOUNDATION_ACCEPTANCE_2026-10-15.md).

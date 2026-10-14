@@ -10,6 +10,9 @@ struct WorkspaceCredentialStore {
         case qrzPassword = "qrz-password"
         case qrzLogbookKey = "qrz-logbook-key"
         case clubLogAPIKey = "clublog-api-key"
+        case clubLogEmail = "clublog-email"
+        case clubLogApplicationPassword = "clublog-application-password"
+        case clubLogCallsign = "clublog-callsign"
     }
     let service: String
     func load(_ account: Account) throws -> String? {
