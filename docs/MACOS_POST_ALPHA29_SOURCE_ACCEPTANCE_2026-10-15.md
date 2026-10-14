@@ -50,3 +50,30 @@ or station authority.
 - The Windows Remote Station Agent was intentionally off. No radio, amplifier,
   tuner, rotor, PTT, Tune or CW action was issued. Windows and Linux builds remain
   deferred until the operator accepts a macOS candidate.
+
+## QRZ/WSJT-X source follow-up
+
+Exact source `6e3ca278fa3034886c582bd020dbd55f7a8b128d` adds the
+default-off, prospective QRZ enrollment UI/native owner and limits WSJT-X
+eligibility to semantically new Logged ADIF contacts after enrollment. The
+current ad-hoc development bundle was rebuilt at the same path without replacing
+`/Applications/OM0RX-xLog.app`.
+
+- Strict deep code-signature verification passes. The host SHA-256 is
+  `d0d697370a8df03eeb35c87eaad38e37a506f203d5e93f8ece886226d2ff5f3e`;
+  the worker SHA-256 is
+  `8d569e9ce78d22f210afc95f5e8c01325437bf3ae60543f64322aaa820c37135`.
+- The first cold isolated launch reached Monitor but exceeded the 90-second
+  harness deadline before the other task surfaces reported. It was not counted
+  as a pass. A fresh second run completed **33/33** checks with
+  `embeddedUi: true`, `worker: true` and `station_io: false`; the compact
+  evidence record is
+  [mac-source.json](evidence/native-ui-6e3ca27/mac-source.json).
+- Full source gates pass: frontend **2,390/2,390**, Rust **433 unit + 18
+  integration**, native Swift **190/190**, portable **200 XCTest** with four
+  intentional benchmark skips plus **391 Swift Testing**, and the production
+  frontend/detached-window bundle gate.
+
+This is still development-source evidence, not a notarized or installed
+candidate, live QRZ/WSJT-X acceptance, or hardware/RF acceptance. No credential,
+operator logbook, online-log provider or station device was accessed.
