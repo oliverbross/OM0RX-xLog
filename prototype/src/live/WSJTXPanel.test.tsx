@@ -42,6 +42,15 @@ describe("WSJT-X receive-only logging", () => {
     expect(request).not.toHaveBeenCalledWith("wsjtx_start");
   });
 
+  it("can disable an enabled listener after a bind failure left it stopped", async () => {
+    const enabled = snapshot({ configuration: { enabled: true, address: "127.0.0.1", port: 2237 }, status: "Could not start" });
+    const request = vi.fn(async (method: string) => method === "wsjtx_stop" ? snapshot() : enabled);
+    render(<WSJTXPanel request={request} />);
+    const stop = await screen.findByRole("button", { name: "Stop listening" });
+    expect((stop as HTMLButtonElement).disabled).toBe(false); fireEvent.click(stop);
+    await waitFor(() => expect(request).toHaveBeenCalledWith("wsjtx_stop"));
+  });
+
   it("reports a newly observed import to the parent", async () => {
     let reads = 0;
     const onImported = vi.fn();

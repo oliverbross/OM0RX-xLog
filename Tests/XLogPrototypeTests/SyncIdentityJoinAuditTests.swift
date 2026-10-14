@@ -12,8 +12,8 @@ import XLogPortableCore
 /// Synthetic audit fixtures only. No request can escape this URLProtocol.
 @Suite("Sync identity join audit", .serialized)
 struct SyncIdentityJoinAuditTests {
-    @Test("A clean linked contact receives monotonic service updates without importing its remote sibling", arguments: [false, true])
-    func anchoredConfirmationSnapshots(reverse: Bool) async throws {
+    @Test("Ambiguous confirmation siblings remain held without changing a linked contact", arguments: [false, true])
+    func ambiguousConfirmationSnapshots(reverse: Bool) async throws {
         var stale = auditADIF(name: "First", dxcc: "291")
         stale.fields["EQSL_QSL_RCVD"] = "N"
         var fresh = stale
@@ -27,38 +27,13 @@ struct SyncIdentityJoinAuditTests {
         defer { fixture.session.invalidateAndCancel(); try? FileManager.default.removeItem(at: fixture.root) }
         let local = try #require(QSO(adif: stale, wavelogID: 12))
         try fixture.database.save(local, markDirty: false)
-        let engine = SyncEngine(database: fixture.database, configuration: fixture.settings, session: fixture.session)
-        let report = try await engine.synchronize()
-        let updated = try #require(try fixture.database.lookup(localID: local.id))
-        #expect(report.held == 0 && report.pulled == 1 && report.pushed == 0 && report.conflicts == 0)
-        #expect(updated.wavelogID == 12 && !updated.isDirty)
-        #expect(updated.country == "Japan" && updated.lotwReceived == "Y")
-        #expect(updated.extraFields["EQSL_QSL_RCVD"] == "Y")
-        #expect(updated.extraFields["QSLMSG_RCVD"] == "Confirmed")
+        let before = try #require(try fixture.database.lookup(localID: local.id))
+        let report = try await SyncEngine(database: fixture.database, configuration: fixture.settings, session: fixture.session).synchronize()
+        let after = try #require(try fixture.database.lookup(localID: local.id))
+        #expect(report.held == 2 && report.pulled == 0 && report.pushed == 0 && report.conflicts == 0)
+        #expect(after == before)
         #expect(try fixture.database.fetch(limit: 10).count == 1)
         #expect(try fixture.database.outboxEntries().isEmpty)
-        #expect(IdentityJoinAuditProtocol.methods().allSatisfy { $0 == "GET" })
-
-        // Subsequent fresh metadata must advance the same local UUID and ID,
-        // while older siblings cannot regress existing confirmations.
-        fresh.fields["EQSL_QSLRDATE"] = "20261014"
-        fresh.fields["QRZCOM_QSO_DOWNLOAD_DATE"] = "20261014"
-        let subsequent = try customFixture(json: json.reversed(), adif: [fresh, stale])
-        defer { subsequent.session.invalidateAndCancel(); try? FileManager.default.removeItem(at: subsequent.root) }
-        let second = try await engine.synchronize()
-        let final = try #require(try fixture.database.lookup(localID: local.id))
-        #expect(second.held == 0 && second.pulled == 1 && second.pushed == 0)
-        #expect(final.extraFields["EQSL_QSLRDATE"] == "20261014")
-        #expect(final.extraFields["QRZCOM_QSO_DOWNLOAD_DATE"] == "20261014")
-        #expect(final.wavelogID == 12 && final.lotwReceived == "Y")
-        #expect(try fixture.database.fetch(limit: 10).count == 1)
-        #expect(IdentityJoinAuditProtocol.methods().allSatisfy { $0 == "GET" })
-        let identical = try customFixture(json: json, adif: [fresh, fresh])
-        defer { identical.session.invalidateAndCancel(); try? FileManager.default.removeItem(at: identical.root) }
-        let third = try await engine.synchronize()
-        #expect(third.held == 0 && third.pulled == 1 && third.pushed == 0)
-        #expect(try fixture.database.fetch(limit: 10).count == 1)
-        #expect(try fixture.database.lookup(localID: local.id)?.wavelogID == 12)
         #expect(IdentityJoinAuditProtocol.methods().allSatisfy { $0 == "GET" })
     }
 
@@ -89,37 +64,6 @@ struct SyncIdentityJoinAuditTests {
         #expect(report.held == 2 && report.pulled == 0 && report.pushed == 0 && report.conflicts == 0)
         #expect(try fixture.database.fetch(limit: 10) == before)
         #expect(try fixture.database.outboxEntries() == outbox)
-        #expect(IdentityJoinAuditProtocol.methods().allSatisfy { $0 == "GET" })
-    }
-
-    @Test("Populated anchor enrichment survives conflicting siblings while fresh confirmations advance", arguments: [false, true])
-    func anchoredEnrichmentSurvivesConflictingSiblings(reverse: Bool) async throws {
-        var stale = auditADIF(name: "First", dxcc: "291")
-        stale.fields.merge(["COUNTRY": "Japan", "DISTANCE": "9028.7", "QSLMSG_RCVD": "Anchor message",
-                            "EQSL_QSL_RCVD": "N", "QRZCOM_QSO_UPLOAD_DATE": "20260626"]) { _, new in new }
-        var fresh = stale
-        fresh.fields.merge(["COUNTRY": "Different country", "DISTANCE": "9030", "QSLMSG_RCVD": "Sibling message",
-                            "EQSL_QSL_RCVD": "Y", "EQSL_QSLRDATE": "20261014",
-                            "LOTW_QSL_RCVD": "Y", "LOTW_QSLRDATE": "20260813",
-                            "QRZCOM_QSO_UPLOAD_DATE": "20261014"]) { _, new in new }
-        let json = [auditJSON(id: 11, name: "First"), auditJSON(id: 12, name: "First")]
-        let fixture = try customFixture(json: reverse ? json.reversed() : json, adif: reverse ? [fresh, stale] : [stale, fresh])
-        defer { fixture.session.invalidateAndCancel(); try? FileManager.default.removeItem(at: fixture.root) }
-        let local = try #require(QSO(adif: stale, wavelogID: 12))
-        try fixture.database.save(local, markDirty: false)
-        let report = try await SyncEngine(database: fixture.database, configuration: fixture.settings, session: fixture.session).synchronize()
-        let updated = try #require(try fixture.database.lookup(localID: local.id))
-        #expect(report.held == 0 && report.pulled == 1 && report.pushed == 0 && report.conflicts == 0)
-        #expect(updated.country == "Japan")
-        #expect(updated.extraFields["DISTANCE"] == "9028.7")
-        #expect(updated.extraFields["QSLMSG_RCVD"] == "Anchor message")
-        #expect(updated.extraFields["EQSL_QSL_RCVD"] == "Y")
-        #expect(updated.extraFields["EQSL_QSLRDATE"] == "20261014")
-        #expect(updated.lotwReceived == "Y")
-        #expect(updated.extraFields["QRZCOM_QSO_UPLOAD_DATE"] == "20261014")
-        #expect(updated.wavelogID == 12 && !updated.isDirty)
-        #expect(try fixture.database.fetch(limit: 10).count == 1)
-        #expect(try fixture.database.outboxEntries().isEmpty)
         #expect(IdentityJoinAuditProtocol.methods().allSatisfy { $0 == "GET" })
     }
 
@@ -183,6 +127,18 @@ struct SyncIdentityJoinAuditTests {
         #expect(report.pulled == 2)
         #expect(Set(contacts.compactMap(\.wavelogID)) == [11, 12])
         #expect(contacts.allSatisfy { $0.name == "First" && $0.comment == "first contact" && $0.dxcc == 291 })
+
+        IdentityJoinAuditProtocol.configure(reverseADIF: true, paginated: paginated, identicalADIF: true)
+        let second = try await SyncEngine(database: database, configuration: settings, session: session).synchronize()
+        #expect(second.held == 0 && second.pulled == 2 && second.pushed == 0)
+        var edited = try #require(try database.fetch(limit: 10).first(where: { $0.wavelogID == 11 }))
+        edited.notes = "local edit"
+        try database.save(edited)
+        IdentityJoinAuditProtocol.configure(reverseADIF: false, paginated: paginated, identicalADIF: true)
+        let third = try await SyncEngine(database: database, configuration: settings, session: session).synchronize()
+        #expect(third.held == 0)
+        #expect(third.pushed == 1)
+        #expect(third.failed == 0)
     }
 
     @Test("ADIF-only differences hold their entire identity group without merging, deletion or pushing", arguments: [false, true])
@@ -528,6 +484,14 @@ private final class IdentityJoinAuditProtocol: URLProtocol {
             let response = HTTPURLResponse(url: request.url!, statusCode: 201, httpVersion: nil, headerFields: nil)!
             client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
             client?.urlProtocol(self, didLoad: try! JSONSerialization.data(withJSONObject: ["data": auditJSON(id: 14, name: "Outgoing")]))
+            client?.urlProtocolDidFinishLoading(self)
+            return
+        }
+        if request.httpMethod == "PATCH", request.url?.host == "synthetic.invalid",
+           let path = request.url?.lastPathComponent, let id = Int(path) {
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: try! JSONSerialization.data(withJSONObject: ["data": auditJSON(id: id, name: "First")]))
             client?.urlProtocolDidFinishLoading(self)
             return
         }

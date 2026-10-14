@@ -16,9 +16,9 @@ function checked(value: any): PropagationProjection {
   }
   return value;
 }
-/** Renderers request freshness on mount, focus and a ten-minute cadence. Native
+/** Renderers request freshness on mount, focus and a one-minute freshness probe. Native
  * owns TTL/concurrency admission and its terminal projection; lost manual
- * replies trigger retained reads, never another fetch. */
+ * replies and native notifications trigger retained reads, never another fetch. */
 export function connectPropagation(changed: (value: PropagationProjection) => void, failed: (message: string) => void,
   adapter: Adapter = { read: action => invoke("propagation_session_request", { action }), listen: wake => listen("xlog:propagation", wake) }) {
   let active = true, ready = false, reading = false, again = false, ensureQueued = false, refreshing = false, wakeEpoch = 0;
@@ -40,10 +40,11 @@ export function connectPropagation(changed: (value: PropagationProjection) => vo
     } while (active && again);
     reading = false;
   };
-  const wake = () => { if (!active) return; wakeEpoch++; void recover(true); };
-  window.addEventListener("focus", wake);
-  const timer = window.setInterval(wake, 600_000);
-  void adapter.listen(wake).then(dispose => {
+  const ensureWake = () => { if (!active) return; wakeEpoch++; void recover(true); };
+  const notificationWake = () => { if (!active) return; wakeEpoch++; void recover(false); };
+  window.addEventListener("focus", ensureWake);
+  const timer = window.setInterval(ensureWake, 60_000);
+  void adapter.listen(notificationWake).then(dispose => {
     if (!active) { dispose(); return; }
     stop = dispose; ready = true; void recover(true);
   }).catch(() => {
@@ -59,6 +60,6 @@ export function connectPropagation(changed: (value: PropagationProjection) => vo
       catch (cause) { if (active) failed(cause instanceof Error ? cause.message : "Propagation refresh could not be confirmed. It was not retried."); }
       finally { refreshing = false; if (active) void recover(); }
     },
-    dispose() { active = false; wakeEpoch++; stop?.(); window.clearInterval(timer); window.removeEventListener("focus", wake); },
+    dispose() { active = false; wakeEpoch++; stop?.(); window.clearInterval(timer); window.removeEventListener("focus", ensureWake); },
   };
 }

@@ -8,9 +8,9 @@ it("subscribes before its initial freshness request, rechecks on cadence and cle
   const read = vi.fn(async (_action: "snapshot" | "ensure" | "refresh") => frame()), stop = vi.fn();
   const listen = vi.fn(async (_wake: () => void) => { expect(read).not.toHaveBeenCalled(); return stop; });
   const session = connectPropagation(vi.fn(), vi.fn(), { read, listen });
-  await vi.advanceTimersByTimeAsync(0); await vi.advanceTimersByTimeAsync(60 * 60_000);
+  await vi.advanceTimersByTimeAsync(0); await vi.advanceTimersByTimeAsync(3 * 60_000);
   expect(read.mock.calls.every(call => call[0] === "ensure")).toBe(true);
-  expect(read).toHaveBeenCalledTimes(7); session.dispose(); expect(stop).toHaveBeenCalledOnce();
+  expect(read).toHaveBeenCalledTimes(4); session.dispose(); expect(stop).toHaveBeenCalledOnce();
 });
 it("lost refresh replies only recover retained state and never retry a fetch", async () => {
   const read = vi.fn(async (action: "snapshot" | "ensure" | "refresh") => { if (action === "refresh") throw new Error("Reply lost"); return frame(); });
@@ -29,7 +29,17 @@ it("late old reads cannot replace a newer explicit refresh and notification stor
   await session.refresh(); complete(frame(1)); await vi.advanceTimersByTimeAsync(0);
   expect(changed.mock.calls.every(call => call[0].revision === 3)).toBe(true);
   expect(read.mock.calls.filter(call => call[0] === "refresh")).toHaveLength(1);
-  expect(read.mock.calls.filter(call => call[0] === "ensure")).toHaveLength(2); session.dispose();
+  expect(read.mock.calls.filter(call => call[0] === "ensure")).toHaveLength(1);
+  expect(read.mock.calls.filter(call => call[0] === "snapshot")).toHaveLength(1); session.dispose();
+});
+it("native notifications read retained failures without starting another freshness fetch", async () => {
+  let wake!: () => void;
+  const read = vi.fn(async (action: "snapshot" | "ensure" | "refresh") => action === "snapshot"
+    ? { ...frame(2), error: "Upstream unavailable" } : frame(1));
+  const session = connectPropagation(vi.fn(), vi.fn(), { read, listen: async callback => { wake = callback; return () => {}; } });
+  await vi.advanceTimersByTimeAsync(0); wake(); await vi.advanceTimersByTimeAsync(0);
+  expect(read.mock.calls.map(call => call[0])).toEqual(["ensure", "snapshot"]);
+  session.dispose();
 });
 it("rejects unverified frames and disposes late subscriptions without reading", async () => {
   const failed = vi.fn();

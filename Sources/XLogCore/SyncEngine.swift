@@ -21,12 +21,6 @@ public struct RemoteHistoryPreview: Sendable {
     public let heldRemoteIDsByIdentity: [String: [Int]]
     public let heldDifferencesByIdentity: [String: [String]]
     public let heldValueShapesByIdentity: [String: [String]]
-    fileprivate let heldGroups: [String: HeldHistoryGroup]
-}
-
-fileprivate struct HeldHistoryGroup: Sendable {
-    let rows: [QSO]
-    let remoteIDs: [Int]
 }
 
 private enum HistoryJoinError: Error { case ambiguous }
@@ -188,7 +182,6 @@ public actor SyncEngine {
         var heldRemoteIDsByIdentity: [String: [Int]] = [:]
         var heldDifferencesByIdentity: [String: [String]] = [:]
         var heldValueShapesByIdentity: [String: [String]] = [:]
-        var heldGroups: [String: HeldHistoryGroup] = [:]
         var unmatchedADIFCount = 0
         for (key, rows) in adifByIdentity {
             try Task.checkCancellation()
@@ -198,9 +191,6 @@ public actor SyncEngine {
             }
             do {
                 remoteQSOs += try joinedADIF(rows, with: candidates)
-                if rows.count > 1, hasSameNonConfirmationPayload(rows) {
-                    heldGroups[key] = HeldHistoryGroup(rows: rows, remoteIDs: candidates.map(\.id))
-                }
             } catch HistoryJoinError.ambiguous {
                 // Hold the entire identity group, including any partially
                 // resolved members. Never assign an arbitrary ID or overwrite
@@ -217,7 +207,6 @@ public actor SyncEngine {
                     let shape = populated.count > 1 ? "conflicting populated values" : populated.isEmpty ? "empty representations" : "empty and populated"
                     return "\(field): \(shape)"
                 }
-                heldGroups[key] = HeldHistoryGroup(rows: rows, remoteIDs: candidates.map(\.id))
             }
         }
         let unmatchedJSONCount = jsonByIdentity.values.reduce(0) { $0 + $1.count }
@@ -246,7 +235,7 @@ public actor SyncEngine {
                                     heldRemoteIDs: heldRemoteIDs, heldIdentities: heldIdentities,
                                     heldRemoteIDsByIdentity: heldRemoteIDsByIdentity,
                                     heldDifferencesByIdentity: heldDifferencesByIdentity,
-                                    heldValueShapesByIdentity: heldValueShapesByIdentity, heldGroups: heldGroups)
+                                    heldValueShapesByIdentity: heldValueShapesByIdentity)
     }
 
     public func synchronize() async throws -> SyncReport {
@@ -254,41 +243,15 @@ public actor SyncEngine {
         let run = try database.beginSyncReconciliation()
         defer { database.endSyncReconciliation(run) }
         let snapshot = try await Self.readRemoteHistory(client: client)
-        var remoteQSOs = snapshot.qsos
+        let remoteQSOs = snapshot.qsos
         let remoteIDs = snapshot.remoteIDs
-        var protectedIDs = snapshot.heldRemoteIDs
-        var protectedIdentities = snapshot.heldIdentities
-        var suppressedRemoteIDs: Set<Int> = []
+        let protectedIDs = snapshot.heldRemoteIDs
+        let protectedIdentities = snapshot.heldIdentities
         var report = SyncReport()
         report.held = snapshot.heldRemoteIDs.count
         func held(_ qso: QSO) -> Bool {
             qso.wavelogID.map(protectedIDs.contains) == true || protectedIdentities.contains(historyIdentity(qso))
         }
-        for (identity, group) in snapshot.heldGroups {
-            try validateSyncRun()
-            // Resolve only against one existing clean remote link, atomically
-            // with the save. Never manufacture an ID-to-export-row pairing or
-            // adopt an unlinked contact from an ambiguous group.
-            let outcome = try database.withSyncDatabaseLock(run) {
-                let linked = try group.remoteIDs.compactMap { try database.lookupSyncRemoteID($0) }
-                guard !linked.isEmpty else { return (anchored: false, resolved: false) }
-                guard linked.count == 1, let local = linked.first,
-                      !local.isDirty, local.deletedAt == nil, historyIdentity(local) == identity,
-                      let merged = coalescedConfirmationHistory(group.rows, anchoredBy: local) else { return (anchored: true, resolved: false) }
-                try database.mergeRemote(merged)
-                return (anchored: true, resolved: true)
-            }
-            if outcome.anchored {
-                let ids = Set(group.remoteIDs)
-                suppressedRemoteIDs.formUnion(ids)
-                report.held += ids.subtracting(protectedIDs).count
-                protectedIDs.formUnion(ids)
-                protectedIdentities.insert(identity)
-                if outcome.resolved { report.held -= ids.count; report.pulled += 1 }
-            }
-            try await betweenReconciliationSteps()
-        }
-        remoteQSOs.removeAll { $0.wavelogID.map(suppressedRemoteIDs.contains) == true }
         for offset in stride(from: 0, to: remoteQSOs.count, by: 128) {
             try validateSyncRun()
             report.conflicts += try database.mergeRemoteSyncStep(remoteQSOs[offset..<min(offset + 128, remoteQSOs.count)],
@@ -489,65 +452,6 @@ private func varyingADIFFields(_ rows: [QSO]) -> Set<String> {
     return Set(keys.filter { key in
         Set(rows.map { $0.extraFields[key] }).count > 1
     })
-}
-
-/// A join ambiguity can still describe successive confirmation snapshots of
-/// one already-linked contact. Coalesce only order-independent progress; a
-/// conflicting name, report or unknown field stays held. Existing contextual
-/// enrichment belongs to the linked anchor and is never replaced by a sibling.
-private let confirmationStatuses: Set<String> = ["EQSL_QSL_SENT", "EQSL_QSL_RCVD", "LOTW_QSL_SENT", "LOTW_QSL_RCVD",
-                                 "QRZCOM_QSO_DOWNLOAD_STATUS", "QRZCOM_QSO_UPLOAD_STATUS"]
-private let confirmationDates: Set<String> = ["EQSL_QSLSDATE", "EQSL_QSLRDATE", "LOTW_QSLSDATE", "LOTW_QSLRDATE",
-                              "QRZCOM_QSO_DOWNLOAD_DATE", "QRZCOM_QSO_UPLOAD_DATE"]
-private let confirmationEnrichments: Set<String> = ["COUNTRY", "DISTANCE", "QSLMSG_RCVD"]
-private let confirmationFields = confirmationStatuses.union(confirmationDates).union(confirmationEnrichments)
-
-private func hasSameNonConfirmationPayload(_ rows: [QSO]) -> Bool {
-    guard let first = rows.first?.adifRecord else { return false }
-    let fixed = first.fields.filter { !confirmationFields.contains($0.key) }
-    return rows.allSatisfy {
-        let record = $0.adifRecord
-        return record.fields.filter { !confirmationFields.contains($0.key) } == fixed && record.fieldMetadata == first.fieldMetadata
-    }
-}
-
-private func coalescedConfirmationHistory(_ rows: [QSO], anchoredBy local: QSO) -> QSO? {
-    let records = rows.map(\.adifRecord)
-    guard let first = records.first else { return nil }
-    let fixed = first.fields.filter { !confirmationFields.contains($0.key) }
-    guard hasSameNonConfirmationPayload(rows) else { return nil }
-    let anchor = local.adifRecord.fields
-    guard fixed.allSatisfy({ anchor[$0.key] == $0.value }) else { return nil }
-    var fields = first.fields
-    let formatter = DateFormatter()
-    formatter.locale = Locale(identifier: "en_US_POSIX")
-    formatter.timeZone = TimeZone(secondsFromGMT: 0)
-    formatter.dateFormat = "yyyyMMdd"
-    formatter.isLenient = false
-    for key in confirmationFields {
-        // Include the clean anchor so stale sibling snapshots cannot retract
-        // a confirmation or clear enrichment learned on an earlier run.
-        let values = Set((records.map { $0.fields[key] ?? "" } + [anchor[key] ?? ""]).filter { !$0.isEmpty })
-        guard !values.isEmpty else { fields.removeValue(forKey: key); continue }
-        if confirmationStatuses.contains(key) {
-            guard values.isSubset(of: ["N", "Y"]) else { return nil }
-            fields[key] = values.contains("Y") ? "Y" : "N"
-        } else if confirmationDates.contains(key) {
-            guard values.allSatisfy({ value in
-                value.count == 8 && value.allSatisfy(\.isNumber) &&
-                    formatter.date(from: value).map { formatter.string(from: $0) == value } == true
-            }) else { return nil }
-            fields[key] = values.max()
-        } else {
-            if let existing = anchor[key], !existing.isEmpty {
-                fields[key] = existing
-                continue
-            }
-            guard values.count == 1 else { return nil }
-            fields[key] = values.first
-        }
-    }
-    return QSO(adif: ADIFRecord(fields: fields, fieldMetadata: first.fieldMetadata), wavelogID: local.wavelogID)
 }
 
 private func compatibleADIF(_ row: QSO, with remote: WavelogQSO) -> Bool {

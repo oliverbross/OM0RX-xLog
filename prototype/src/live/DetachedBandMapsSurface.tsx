@@ -25,13 +25,9 @@ export function DetachedBandMapsSurface() {
     setModes(modes);
     try { localStorage.setItem(`xlog.detached.band-map.${band}.modes`, JSON.stringify(modes)); } catch { /* Keep session settings if persistence is unavailable. */ }
   };
-  // Old shared activation receipts do not belong to a newly opened map. Keep
-  // current request failures and unresolved reservations visible for recovery.
-  const status = view.activation.status;
-  const showActivation = view.activation.requesting || !!view.activation.error || !!(status && "reservationActive" in status && status.reservationActive);
   return <div className="app live monitor-app detached-map-app detached-band-map-app"><main>
     {view.error && <p className="live-error" role="alert">{view.error}</p>}
-    {showActivation && <SpotActivationStatus status={view.activation.status} error={view.activation.error} checking={view.activation.requesting} reconcile={() => void view.activation.reconcile()} />}
+    <SpotActivationStatus status={view.activation.status} error={view.activation.error} checking={view.activation.requesting} reconcile={() => void view.activation.reconcile()} />
     <BandMaps focusedBand={band} spots={view.spots} onSelect={view.activate} radioFrequencyHz={view.context ? mapRadioFrequency(view.context) : undefined}
       preferences={preferences} onPreferencesChange={change} />
   </main></div>;

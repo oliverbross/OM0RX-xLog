@@ -33,7 +33,7 @@ it("ensures fresh shared conditions on mount and cadence while hiding weather/de
   const firstReceived = current.snapshot.received_at;
   await act(async () => { await vi.advanceTimersByTimeAsync(600_000); });
   expect(current.snapshot.received_at).toBeGreaterThan(firstReceived);
-  expect(native.invoke.mock.calls.filter(call => call[1]?.action === "ensure")).toHaveLength(2);
+  expect(native.invoke.mock.calls.filter(call => call[1]?.action === "ensure")).toHaveLength(11);
   await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Refresh propagation" })); });
   expect(screen.getByLabelText("Day: good")).toBeTruthy();
   expect(native.invoke.mock.calls.filter(call => call[1]?.action === "refresh")).toHaveLength(1);

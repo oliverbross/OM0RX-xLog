@@ -13,7 +13,7 @@ vi.mock("./live/logbookContactTransport", () => ({ requestLogbookContact: api.co
 vi.mock("./live/logbookWindows", () => ({ connectLogbookChanges: api.changes, protectLogbookClose: api.protect }));
 vi.mock("./live/DetachedClusterBridge", () => ({ dockDetachedWorkspace: api.dock }));
 vi.mock("./live/useSpotEditor", () => ({ nativeSpotEditor: () => false, useSpotEditor: () => ({
-  status: { phase: "uncertain", tuneConfirmed: false, rotor: "uncertain" }, error: "Global activation warning", reconcile: vi.fn(),
+  status: null, error: "", reconcile: vi.fn(),
 }) }));
 beforeEach(() => {
   vi.resetAllMocks(); localStorage.clear();

@@ -37,6 +37,7 @@ mod workspace_window_runtime;
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu, WINDOW_SUBMENU_ID};
 use tauri::{Emitter, LogicalSize, Manager};
 use std::sync::{atomic::{AtomicBool, Ordering}, Arc, Mutex, OnceLock};
+use std::time::{Duration, Instant};
 
 static MAIN_CREATION: Mutex<()> = Mutex::new(());
 static APP_EXITING: AtomicBool = AtomicBool::new(false);
@@ -365,6 +366,14 @@ async fn navigate_workspace(app: tauri::AppHandle, screen: String) -> Result<(),
             update_workspace_mode_checks(&native, reply["result"]["layout"]["document"]["activePresetID"] == "windowed")?;
             workspace_mode_ready()
         }).await.map_err(|_| "Workspace mode guard could not be checked.".to_string())??;
+    } else if workspace_windows::supports(&screen) {
+        let direct = tauri::async_runtime::spawn_blocking(|| {
+            let id = format!("workspace-menu-mode-{}", uuid::Uuid::new_v4());
+            let reply = worker::request(serde_json::json!({"id":id,"method":"workspace_layout_load","params":{}}))?;
+            Ok::<bool, String>(reply["id"] == id && reply["ok"] == true
+                && reply["result"]["layout"]["document"]["activePresetID"] == "windowed")
+        }).await.map_err(|_| "Workspace mode could not be checked.".to_string()).unwrap_or(Ok(false))?;
+        if direct { return open_detached_workspace(app, screen).await; }
     }
     app.state::<workspace_navigation::WorkspaceNavigation>().request(&screen)?;
     // The event is only a wake-up. The main view reads the native state and
@@ -385,6 +394,24 @@ fn workspace_mode_ready() -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+fn wait_for_workspace_windows(app: &tauri::AppHandle, generation: &str, revision: u64) -> Result<(), String> {
+    let attempt = workspace_window_runtime::refresh(app, true)?;
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        let status = workspace_window_runtime::status(app)?;
+        if status["state"] == "error" || status["stopped"] == true {
+            return Err(status["error"].as_str().unwrap_or("The separate windows could not be opened.").into());
+        }
+        if status["state"] == "applied" && status["attempt"].as_u64().is_some_and(|value| value >= attempt)
+            && status["generation"] == generation && status["revision"].as_u64() == Some(revision) {
+            if status["shown"].as_array().is_some_and(|windows| !windows.is_empty()) { return Ok(()); }
+            return Err("The Separate Windows preset must keep at least one task window visible.".into());
+        }
+        if Instant::now() >= deadline { return Err("Separate windows did not finish opening; the main window remains available.".into()); }
+        std::thread::sleep(Duration::from_millis(10));
+    }
 }
 
 fn update_workspace_mode_checks(app: &tauri::AppHandle, windows: bool) -> Result<(), String> {
@@ -425,7 +452,11 @@ async fn workspace_mode_present(window: tauri::WebviewWindow, app: tauri::AppHan
         let windows = layout["document"]["activePresetID"] == "windowed";
         update_workspace_mode_checks(&app, windows)?;
         if let Some(main) = app.get_webview_window("main") {
-            if windows && hide_main { workspace_mode_ready()?; main.hide().map_err(|error| error.to_string())?; }
+            if windows && hide_main {
+                workspace_mode_ready()?;
+                wait_for_workspace_windows(&app, &generation, revision)?;
+                main.hide().map_err(|error| error.to_string())?;
+            }
             else { main.show().map_err(|error| error.to_string())?; }
         }
         Ok(())

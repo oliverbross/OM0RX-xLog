@@ -82,7 +82,7 @@ it("loads the canonical full editor with read-only context, no main controller, 
   const view = render(<Surface />);
   await screen.findByDisplayValue("K1ABC");
   expect(screen.getByRole("main", { name: "Detached Log QSO" })).toBeTruthy();
-  expect(screen.queryByText(/Draft saved locally|Global activation warning|Check activation/)).toBeNull();
+  expect(screen.getByRole("button", { name: "Check activation" })).toBeTruthy();
   expect(document.querySelector(".station-rail")).toBeNull();
   expect(document.querySelector(".qso-editor")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Dock back" })).toBeNull();

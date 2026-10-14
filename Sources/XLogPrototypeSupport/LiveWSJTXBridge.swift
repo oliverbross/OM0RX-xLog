@@ -191,6 +191,8 @@ public actor LiveWSJTXBridge {
     private var configuration: WSJTXBridgeConfiguration?
     private var receiver: WSJTXDatagramReceiving?
     private var receiverGeneration: UUID?
+    private var workspaceSuspensionDepth = 0
+    private var terminalShutdown = false
     private var onImported: (@Sendable () -> Void)?
     private var receivedCount = 0
     private var importedCount = 0
@@ -221,13 +223,25 @@ public actor LiveWSJTXBridge {
     public func install(onImported: @escaping @Sendable () -> Void) { self.onImported = onImported }
 
     public func startIfEnabled() {
+        guard !terminalShutdown, workspaceSuspensionDepth == 0 else { return }
         guard (try? workspaceAvailable()) == true, let config = try? load(), config.enabled else { return }
         try? startReceiver(config)
     }
 
-    public func suspendForWorkspaceChange() { stopReceiver(); configuration = nil; status = "Paused for workspace change" }
-    public func finishWorkspaceChange() { configuration = nil; startIfEnabled() }
-    public func stopForShutdown() { stopReceiver(); status = "Worker stopped" }
+    public func suspendForWorkspaceChange() {
+        workspaceSuspensionDepth += 1
+        stopReceiver(); configuration = nil; status = "Paused for workspace change"
+    }
+    public func finishWorkspaceChange() {
+        guard workspaceSuspensionDepth > 0 else { return }
+        workspaceSuspensionDepth -= 1
+        guard workspaceSuspensionDepth == 0, !terminalShutdown else { return }
+        configuration = nil; startIfEnabled()
+    }
+    public func stopForShutdown() {
+        terminalShutdown = true
+        stopReceiver(); status = "Worker stopped"
+    }
 
     public func handle(method: String, params: [String: Any]) throws -> [String: Any] {
         switch method {
@@ -236,6 +250,7 @@ public actor LiveWSJTXBridge {
             return try snapshot()
         case "wsjtx_configure":
             try require(params, allowed: ["configuration"], required: ["configuration"])
+            try requireStartAvailable()
             try requireWorkspace()
             guard let value = params["configuration"] as? [String: Any] else { throw invalid() }
             let next = try decode(value)
@@ -245,6 +260,7 @@ public actor LiveWSJTXBridge {
             return try snapshot()
         case "wsjtx_start":
             try require(params, allowed: [])
+            try requireStartAvailable()
             try requireWorkspace()
             let config = try load()
             guard config.enabled else { throw WorkerFailure("wsjtx_disabled", "Enable WSJT-X logging before starting the listener.") }
@@ -289,6 +305,7 @@ public actor LiveWSJTXBridge {
     }
 
     private func startReceiver(_ config: WSJTXBridgeConfiguration) throws {
+        try requireStartAvailable()
         if receiver != nil { return }
         let generation = UUID(); receiverGeneration = generation
         let ingress = self.ingress
@@ -309,6 +326,15 @@ public actor LiveWSJTXBridge {
 
     private func stopReceiver() {
         receiverGeneration = nil; receiver?.stop(); receiver = nil
+    }
+
+    private func requireStartAvailable() throws {
+        if terminalShutdown {
+            throw WorkerFailure("worker_stopping", "The WSJT-X listener cannot start while the application is shutting down.")
+        }
+        if workspaceSuspensionDepth > 0 {
+            throw WorkerFailure("workspace_transition", "The WSJT-X listener cannot start while the workspace is changing.")
+        }
     }
 
     private func receiverEvent(_ event: String, generation: UUID) {

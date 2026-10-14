@@ -149,6 +149,7 @@ actor LiveServiceMethods {
         case "sync_summary":
             guard params.isEmpty else { throw invalid() }
             let settings = try logbook.currentSettings()
+            let database = try logbook.openedDatabase()
             var result: [String: Any] = [:]
             for key in ["running", "status", "completion_id", "finished_at", "pushed", "pulled", "deleted", "conflicts_count", "failed", "held", "error_code", "error_phase", "http_status"] {
                 result[key] = syncState[key]
@@ -158,6 +159,7 @@ actor LiveServiceMethods {
             result["next_attempt"] = settings.automaticSync ? nextAttempt.map { ISO8601DateFormatter().string(from: $0) } as Any? ?? NSNull() : NSNull()
             result["mode"] = settings.logbookMode.rawValue
             result["sync_available"] = settings.logbookMode == .wavelog
+            result["logbook_revision"] = try database.currentRevision()
             if settings.logbookMode == .local {
                 result["running"] = false
                 result["status"] = "Local logbook · Wavelog sync disabled"

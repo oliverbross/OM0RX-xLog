@@ -1499,6 +1499,12 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
+    /// Monotonic durable invalidation token. It exposes no contact data and is
+    /// used by native observers to wake logbook views after background imports.
+    public func currentRevision() throws -> Int64 {
+        try withDatabaseLock { try qsoRevision() }
+    }
+
     public func awardProgress() throws -> AwardProgressSnapshot {
         try withDatabaseLock {
             try refreshAggregateCacheVersion()

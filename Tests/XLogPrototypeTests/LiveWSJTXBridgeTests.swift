@@ -86,6 +86,50 @@ final class LiveWSJTXBridgeTests: XCTestCase {
         XCTAssertNil(receiver.started)
     }
 
+    func testNestedWorkspaceSuspensionPreventsLateStartsAndRestartsOnlyAfterFinalResume() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-wsjtx-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let receiver = FakeWSJTXReceiver()
+        let bridge = LiveWSJTXBridge(configurationURL: directory.appendingPathComponent("wsjtx.json"),
+            workspaceAvailable: { true }, importer: { _ in (0, 1) }, receiverFactory: { _, _ in receiver })
+        let initial = try await bridge.handle(method: "wsjtx_snapshot", params: [:])
+        var configuration = initial["configuration"] as! [String: Any]
+        configuration["enabled"] = true
+        _ = try await bridge.handle(method: "wsjtx_configure", params: ["configuration": configuration])
+        _ = try await bridge.handle(method: "wsjtx_start", params: [:])
+        await bridge.suspendForWorkspaceChange(); await bridge.suspendForWorkspaceChange()
+        do {
+            _ = try await bridge.handle(method: "wsjtx_start", params: [:])
+            XCTFail("A suspended workspace must not restart the listener")
+        } catch let failure as WorkerFailure { XCTAssertEqual(failure.code, "workspace_transition") }
+        await bridge.finishWorkspaceChange()
+        let stillSuspended = try await bridge.handle(method: "wsjtx_snapshot", params: [:])
+        XCTAssertEqual(stillSuspended["running"] as? Bool, false)
+        await bridge.finishWorkspaceChange()
+        let resumed = try await bridge.handle(method: "wsjtx_snapshot", params: [:])
+        XCTAssertEqual(resumed["running"] as? Bool, true)
+    }
+
+    func testTerminalShutdownCannotBeReopenedByLateWorkspaceCompletion() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-wsjtx-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let receiver = FakeWSJTXReceiver()
+        let bridge = LiveWSJTXBridge(configurationURL: directory.appendingPathComponent("wsjtx.json"),
+            workspaceAvailable: { true }, importer: { _ in (0, 1) }, receiverFactory: { _, _ in receiver })
+        let initial = try await bridge.handle(method: "wsjtx_snapshot", params: [:])
+        var configuration = initial["configuration"] as! [String: Any]
+        configuration["enabled"] = true
+        _ = try await bridge.handle(method: "wsjtx_configure", params: ["configuration": configuration])
+        await bridge.suspendForWorkspaceChange(); await bridge.stopForShutdown(); await bridge.finishWorkspaceChange()
+        await bridge.startIfEnabled()
+        let stopped = try await bridge.handle(method: "wsjtx_snapshot", params: [:])
+        XCTAssertEqual(stopped["running"] as? Bool, false)
+        do {
+            _ = try await bridge.handle(method: "wsjtx_start", params: [:])
+            XCTFail("A terminal bridge must not restart")
+        } catch let failure as WorkerFailure { XCTAssertEqual(failure.code, "worker_stopping") }
+    }
+
     func testRealLogbookImportLeavesOneLocalContact() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-wsjtx-log-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: root) }

@@ -19,14 +19,14 @@ const snapshot = { generated_at: "2026-10-14T05:01:00Z", items: [opportunity], t
 
 afterEach(() => { cleanup(); localStorage.clear(); vi.resetAllMocks(); api.status = null; });
 
-it("opens the direct-menu Chaser & DX at its task content without the global uncertain activation banner", async () => {
+it("keeps uncertain activation recovery available in direct-menu Chaser & DX", async () => {
   api.worker.mockResolvedValue({ result: snapshot });
   api.status = { phase: "uncertain", operationId: crypto.randomUUID(), tuneConfirmed: false, rotor: "uncertain" };
   const Surface = await loadWindowSurface("?view=chaser-dx");
   render(<Surface />);
   await screen.findByText("Verified park");
-  expect(screen.queryByText(/Spot activation outcome is uncertain/)).toBeNull();
-  expect(screen.queryByRole("button", { name: /Check activation/ })).toBeNull();
+  expect(screen.getByText(/Spot activation outcome is uncertain/)).toBeTruthy();
+  expect(screen.getByRole("button", { name: /Check activation/ })).toBeTruthy();
   expect(screen.queryByRole("alert")).toBeNull();
   expect(screen.getByRole("button", { name: /Load .* into QSO draft/ })).toBeTruthy();
 });

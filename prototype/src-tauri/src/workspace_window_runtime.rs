@@ -101,6 +101,11 @@ impl Owner {
         if let Ok(mut outcome) = self.outcome.lock() {
             *outcome = value;
         }
+        // Never leave the operator with no usable surface if an asynchronous
+        // Separate Windows reconciliation fails after the main window hid.
+        if self.outcome.lock().is_ok_and(|outcome| outcome["state"] == "error") {
+            if let Some(main) = self.app.get_webview_window("main") { let _ = main.show(); }
+        }
         // The payload is a wake only. Consumers read the native snapshot.
         let _ = self.app.emit("xlog:workspace-windows", ());
     }

@@ -17,6 +17,7 @@ pub struct SyncCompletionMonitor {
     changed: Arc<Publish>,
     changes: SyncSummaryChanges,
     observer: SyncCompletionObserver,
+    logbook: LogbookRevisionObserver,
     interval: Duration,
     reading: Mutex<()>,
     stopped: Mutex<bool>,
@@ -26,7 +27,8 @@ pub struct SyncCompletionMonitor {
 
 impl SyncCompletionMonitor {
     fn new(read: Arc<Read>, publish: Arc<Publish>, interval: Duration) -> Self {
-        Self { read, publish, changed: Arc::new(|| {}), changes: SyncSummaryChanges::default(), interval, observer: SyncCompletionObserver::default(), reading: Mutex::new(()),
+        Self { read, publish, changed: Arc::new(|| {}), changes: SyncSummaryChanges::default(), interval,
+            observer: SyncCompletionObserver::default(), logbook: LogbookRevisionObserver::default(), reading: Mutex::new(()),
             stopped: Mutex::new(false), wake: Condvar::new(), started: AtomicBool::new(false) }
     }
     fn observing(mut self, changed: Arc<Publish>) -> Self { self.changed = changed; self }
@@ -44,7 +46,8 @@ impl SyncCompletionMonitor {
             // State wakes and completion invalidations have separate cursors:
             // progress/errors may refresh views, but never consume completion.
             if self.changes.observe(&response) { (self.changed)(); }
-            if response.as_ref().is_ok_and(|value| self.observer.observe(value)) { (self.publish)(); }
+            let completed = response.as_ref().is_ok_and(|value| self.observer.observe(value));
+            if completed || self.logbook.observe(&response) { (self.publish)(); }
         }
     }
 
@@ -154,6 +157,19 @@ impl SyncCompletionObserver {
     }
 }
 
+#[derive(Default)]
+struct LogbookRevisionObserver(Mutex<Option<i64>>);
+impl LogbookRevisionObserver {
+    fn observe(&self, response: &Result<Value, String>) -> bool {
+        let Some(next) = response.as_ref().ok().filter(|value| value["ok"] == true)
+            .and_then(|value| value["result"]["logbook_revision"].as_i64()) else { return false; };
+        let Ok(mut last) = self.0.lock() else { return false; };
+        let changed = last.is_some_and(|value| value != next);
+        *last = Some(next);
+        changed
+    }
+}
+
 pub fn changes_logbook(request: &serde_json::Value) -> bool {
     let method = request["method"].as_str().unwrap_or("");
     if method == "logbook_operator_draft_apply" { return request["params"]["action"] == "save"; }
@@ -206,6 +222,17 @@ mod tests {
         let mut private = first.clone(); private["result"]["unexpected_private_field"] = json!("not part of refresh identity");
         assert!(!changes.observe(&Ok(private)));
         let completions = SyncCompletionObserver::default(); assert!(completions.observe(&first)); assert!(!completions.observe(&first));
+    }
+
+    #[test]
+    fn durable_logbook_revision_wakes_after_background_import_without_a_sync_completion() {
+        let observer = LogbookRevisionObserver::default();
+        let summary = |revision| Ok(json!({"ok":true,"result":{"running":false,"logbook_revision":revision}}));
+        assert!(!observer.observe(&summary(7)));
+        assert!(!observer.observe(&summary(7)));
+        assert!(observer.observe(&summary(8)));
+        assert!(!observer.observe(&Err("worker absent".into())));
+        assert!(!observer.observe(&summary(8)));
     }
 
     #[test]

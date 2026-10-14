@@ -7,6 +7,7 @@ import { OperatorDraftStatus } from "./OperatorDraftStatus";
 import { changedCallDraft, normalizedCall } from "./draftEnrichment";
 import { connectOperatorDraftChanges, protectOperatorDraftClose } from "./operatorDraftWindows";
 import { nativeSpotEditor, useSpotEditor } from "./useSpotEditor";
+import { SpotActivationStatus } from "./SpotActivationStatus";
 import { useReferenceEvidence } from "./useReferenceEvidence";
 import "./DetachedQSOSurface.css";
 
@@ -40,7 +41,7 @@ export function DetachedQSOSurface() {
   const [lookup, setLookup] = useState<Record<string, any> | null>(null);
   const [previous, setPrevious] = useState<Record<string, any>[]>([]);
   const workingRef = useRef(false), closingRef = useRef(false), mounted = useRef(true);
-  useSpotEditor([session], () => workingRef.current || closingRef.current || localInput.current
+  const spotEditor = useSpotEditor([session], () => workingRef.current || closingRef.current || localInput.current
     ? { ready: false, reason: "Finish the buffered fields or close/Dock operation first." } : { ready: true });
   const acceptsInput = useCallback(() => session.canAcceptLocalInput() && !workingRef.current && !closingRef.current, [session]);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
@@ -113,6 +114,7 @@ export function DetachedQSOSurface() {
   const blocked = state.activationFrozen || state.locked || state.workspaceChanged || !!state.conflict || !!state.pending;
   return <div className="app live monitor-app detached-qso-app"><main aria-label="Detached Log QSO">
     {error && <p className="live-error" role="alert">{error}</p>}
+    <SpotActivationStatus status={spotEditor.status} error={spotEditor.error} reconcile={() => void spotEditor.reconcile()} />
     <OperatorDraftStatus state={state} session={session} run={run} />
     <QSOEditor referenceEvidence={referenceEvidence} draft={state.draft} setDraft={setDraft} save={() => run(async () => {
       const saved = await session.commit("save");

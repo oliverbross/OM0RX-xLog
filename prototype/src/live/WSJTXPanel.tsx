@@ -81,7 +81,7 @@ export default function WSJTXPanel({ request, onImported }: { request: Request; 
       <p>Use <code>127.0.0.1</code> for one computer, or the same IPv4 multicast group configured in WSJT-X when several applications need the feed. The WSJT-X default port is <code>2237</code>.</p>
       <div className="live-actions"><button type="button" disabled={busy || !validWSJTXConfiguration(draft)} onClick={() => void save(false)}>Save settings</button>
         <button type="button" className="primary" disabled={busy || !validWSJTXConfiguration(draft)} onClick={() => void save(true)}>Save and listen</button>
-        <button type="button" disabled={busy || !snapshot?.running} onClick={() => void stop()}>Stop listening</button>
+        <button type="button" disabled={busy || !(snapshot?.running || snapshot?.configuration.enabled)} onClick={() => void stop()}>Stop listening</button>
         {dirty && <span className="amber">Unsaved changes</span>}</div>
       {!validWSJTXConfiguration(draft) && <p role="alert">Use 127.0.0.1 or an IPv4 multicast address from 224.0.0.0–239.255.255.255, and a port from 1–65535.</p>}
     </> : <p role="status">Loading WSJT-X settings…</p>}
