@@ -52,7 +52,7 @@ export default function StationPanel({ snapshot, onRequest, onSnapshot, monitor 
   const [port, setPort] = useState("14532");
   const [agentURL, setAgentURL] = useState(() => localStorage.getItem("xlog.remote.url") || "");
   const [token, setToken] = useState("");
-  const [allowTransmit, setAllowTransmit] = useState(false);
+  const [allowTransmit, setAllowTransmit] = useState(true);
   const [tuneMHz, setTuneMHz] = useState("");
   const [tuneMode, setTuneMode] = useState("SSB");
   const [rotorBearing, setRotorBearing] = useState("");
@@ -71,7 +71,7 @@ export default function StationPanel({ snapshot, onRequest, onSnapshot, monitor 
   const [agentConfig, setAgentConfig] = useState<Record<string, any> | null>(null);
   const [catPort, setCATPort] = useState("15002");
   const [rigctlPort, setRigctlPort] = useState("14532");
-  const [catTransmit, setCATTransmit] = useState(false);
+  const [catTransmit, setCATTransmit] = useState(true);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -259,7 +259,7 @@ export default function StationPanel({ snapshot, onRequest, onSnapshot, monitor 
             <button type="button" disabled={busy || !can("set_split")} onClick={() => void radioControl("set_split", { enabled: !radio?.split }, `Split ${radio?.split ? "off" : "on"}`)}>Split {radio?.split ? "off" : "on"}</button></div>
           <form className="live-station-inline" onSubmit={(event) => void setVFO(event)}><label>VFO<select aria-label="Set frequency VFO" value={vfoLetter} onChange={(event) => setVFOLetter(event.target.value)}><option>A</option><option>B</option></select></label><label>Frequency MHz<input aria-label="Set VFO frequency MHz" inputMode="decimal" value={vfoMHz} onChange={(event) => setVFOMHz(event.target.value)} placeholder="14.074000" /></label><button type="submit" disabled={busy || !can("set_frequency_hz")}>Set VFO frequency</button></form>
           <div className="live-station-inline"><label>Radio mode<select aria-label="Direct radio mode" value={directMode} onChange={(event) => setDirectMode(event.target.value)}>{modes.map((mode) => <option key={mode}>{mode}</option>)}</select></label><button type="button" disabled={busy || !can("set_mode")} onClick={() => void radioControl("set_mode", { mode: directMode }, "Radio mode change")}>Set mode</button></div>
-          <p className="live-station-helper">PTT and CW require an explicit transmit opt-in, commissioned station and clear inhibitors. No command is sent by polling or opening this view.</p>
+          <p className="live-station-helper">PTT and CW are available by default when the station is commissioned and its real inhibitors are clear. Opening or polling this view never sends a command.</p>
         </section>}
         {!independentRotor && <section className="live-station-card"><h3><Antenna size={15} /> Rotor</h3>
           {rotor ? <><p>{rotor.name || "Rotor"} · {rotor.connected ? value(rotor.status) : "Disconnected"} · azimuth {value(rotor.azimuth, "°")}{rotor.moving ? ` · moving ${rotor.motion_direction ?? ""}` : ""}</p>

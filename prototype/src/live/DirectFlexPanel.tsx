@@ -37,7 +37,7 @@ export default function DirectFlexPanel({ request, snapshot }: Props) {
   const [host, setHost] = useState(() => shared ? "" : localStorage.getItem("xlog.flex.host") || "");
   const [port, setPort] = useState(() => shared ? "4992" : localStorage.getItem("xlog.flex.port") || "4992");
   const [stationName, setStationName] = useState(() => shared ? "OM0RX-xLog" : localStorage.getItem("xlog.flex.name") || "OM0RX-xLog");
-  const [allowTransmit, setAllowTransmit] = useState(false);
+  const [allowTransmit, setAllowTransmit] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -140,7 +140,7 @@ export default function DirectFlexPanel({ request, snapshot }: Props) {
             <label>Station name<input aria-label="Station name" required maxLength={64} value={stationName} onChange={event => setStationName(event.target.value)} /></label></div>
           <label className="live-station-checkbox"><input type="checkbox" checked={allowTransmit} disabled={busy || attached} onChange={event => setAllowTransmit(event.target.checked)} />Enable transmit commands for this connection only</label>
           {attached && <p className="live-station-helper">Transmit permission is fixed for this connection. Disconnect before changing it.</p>}
-          <p className="live-station-helper">Receive and observation work without transmit opt-in. A radio command is complete only when a fresh readback confirms it.</p>
+          <p className="live-station-helper">Full controls are enabled by default and can be explicitly changed to receive-only before connecting. A radio command is complete only when a fresh readback confirms it.</p>
           <div className="live-station-actionrow"><button className="primary" disabled={busy || attached || !validFlexEndpoint(host.trim(), port, stationName)}>Connect FLEX</button>
             <button type="button" disabled={busy || connected || !attached} onClick={() => void act("station_reconnect", {}, "Reconnect")}>Reconnect</button>
             <button type="button" disabled={busy || !attached} onClick={() => void act("station_disconnect", {}, "Disconnect")}>Disconnect</button>

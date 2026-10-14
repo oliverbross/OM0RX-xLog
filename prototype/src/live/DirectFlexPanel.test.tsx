@@ -18,7 +18,7 @@ const snapshot = (overrides: Record<string, any> = {}) => ({ source: "direct_fle
 afterEach(() => { cleanup(); localStorage.clear(); });
 
 describe("direct FLEX LAN controls", () => {
-  it("native Desk mounts through shared setup without raw lifecycle authority or inherited transmit consent", async () => {
+  it("native Desk mounts through shared setup with full controls by default and no raw lifecycle authority", async () => {
     native.enabled = true; native.invoke.mockImplementation(async (_command, { params }) => params.action === "snapshot" ? { generation: "setup", revision: 1, base_url: "", last_receipt: null,
       flex: { host: "192.168.1.50", port: 4992, station_name: "xLog" }, selection: { provider: "direct_flex_lan", generation: 4, selection_id: "selected" } }
       : { operation_id: params.operation_id, status: "acknowledged", request: { action: params.action } });
@@ -26,9 +26,9 @@ describe("direct FLEX LAN controls", () => {
     await waitFor(() => expect((screen.getByLabelText("Shared FLEX private IP") as HTMLInputElement).value).toBe("192.168.1.50"));
     expect(native.invoke).toHaveBeenCalledExactlyOnceWith("station_session_request", { params: { action: "snapshot" } });
     expect(request).not.toHaveBeenCalled(); expect(screen.queryByRole("button", { name: "Connect FLEX" })).toBeNull();
-    expect((screen.getByRole("checkbox", { name: "Enable FLEX transmit commands for this connection" }) as HTMLInputElement).checked).toBe(false);
+    expect((screen.getByRole("checkbox", { name: "Enable FLEX transmit commands for this connection" }) as HTMLInputElement).checked).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Reconnect saved FLEX radio" }));
-    await waitFor(() => expect(native.invoke).toHaveBeenCalledWith("station_session_request", { params: expect.objectContaining({ action: "reconnect_flex", allow_transmit: false, selection_generation: 4, selection_id: "selected" }) }));
+    await waitFor(() => expect(native.invoke).toHaveBeenCalledWith("station_session_request", { params: expect.objectContaining({ action: "reconnect_flex", allow_transmit: true, selection_generation: 4, selection_id: "selected" }) }));
     expect(request).not.toHaveBeenCalled();
   });
   it("accepts only numeric private addresses and exact endpoint fields", () => {
@@ -56,7 +56,7 @@ describe("direct FLEX LAN controls", () => {
     fireEvent.click(screen.getByRole("button", { name: "Connect FLEX" }));
     await waitFor(() => expect(request).toHaveBeenCalledWith("station_connect", {
       provider: "direct_flex_lan", host: "192.168.1.50", port: 4992,
-      station_name: "OM0RX-xLog", allow_transmit: false,
+      station_name: "OM0RX-xLog", allow_transmit: true,
     }));
     expect(request).toHaveBeenCalledTimes(1);
   });

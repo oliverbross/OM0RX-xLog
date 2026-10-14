@@ -234,7 +234,7 @@ it("Desk and independent child share Hamlib setup and explicitly connect with th
   await act(async () => owner.wake());
   fireEvent.click(desk.getByRole("button", { name: "Disconnect Hamlib radio" })); await act(async () => {});
   expect(owner.actions.map(action => [action.action, action.revision])).toEqual([["save_hamlib", 4], ["connect_hamlib", 5], ["disconnect_hamlib", 6]]);
-  expect(owner.actions[1]).toMatchObject({ selection_generation: 8, selection_id: "selected-radio", allow_transmit: false });
+  expect(owner.actions[1]).toMatchObject({ selection_generation: 8, selection_id: "selected-radio", allow_transmit: true });
   expect(native.invoke.mock.calls.every(([command]) => ["monitor_context_snapshot", "station_session_request"].includes(command))).toBe(true);
   expect(native.worker).not.toHaveBeenCalled();
 });
@@ -267,8 +267,8 @@ it("Desk and child share FLEX configuration, then explicitly connect, replace an
   await act(async () => owner.wake());
   fireEvent.click(child.getByRole("button", { name: "Disconnect FLEX radio" })); await act(async () => {});
   expect(owner.actions.map(action => [action.action, action.revision])).toEqual([["save_flex", 4], ["connect_flex", 5], ["reconnect_flex", 6], ["disconnect_flex", 7]]);
-  expect(owner.actions[1]).toMatchObject({ selection_generation: 8, selection_id: "selected-radio", allow_transmit: true });
-  expect(owner.actions[2]).toMatchObject({ selection_generation: 8, selection_id: "selected-radio", allow_transmit: false });
+  expect(owner.actions[1]).toMatchObject({ selection_generation: 8, selection_id: "selected-radio", allow_transmit: false });
+  expect(owner.actions[2]).toMatchObject({ selection_generation: 8, selection_id: "selected-radio", allow_transmit: true });
   expect(owner.actions[0]).not.toHaveProperty("allow_transmit");
   expect(native.invoke.mock.calls.every(([command]) => ["monitor_context_snapshot", "station_session_request"].includes(command))).toBe(true);
   expect(native.worker).not.toHaveBeenCalled();

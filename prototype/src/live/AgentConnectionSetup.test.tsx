@@ -125,7 +125,7 @@ it("shared Hamlib mount is passive and pins saved configuration and exact select
   expect(native.invoke).toHaveBeenCalledExactlyOnceWith("station_session_request", { params: { action: "snapshot" } });
   expect(screen.queryByLabelText("Shared Agent token")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Connect saved Hamlib radio" })); await act(async () => {});
-  expect(native.invoke.mock.calls[1][1].params).toMatchObject({ action: "connect_hamlib", revision: 4, selection_generation: 12, selection_id: "hamlib-selection", allow_transmit: false });
+  expect(native.invoke.mock.calls[1][1].params).toMatchObject({ action: "connect_hamlib", revision: 4, selection_generation: 12, selection_id: "hamlib-selection", allow_transmit: true });
   expect(native.invoke.mock.calls[1][1].params).not.toHaveProperty("configuration");
   expect(native.invoke.mock.calls.every(([command]) => command === "station_session_request")).toBe(true);
 });
@@ -161,17 +161,17 @@ it("unknown Hamlib reconnect survives remount and checks its original receipt wi
   expect(native.invoke).toHaveBeenLastCalledWith("station_session_request", { params: { action: "receipt", operation_id: id } });
   expect(native.invoke.mock.calls.filter(([, { params }]) => params.action === "reconnect_hamlib")).toHaveLength(1);
 });
-it("another window's selection change clears transmit consent before a new Hamlib connection", async () => {
+it("another window's selection change restores the full-control default for a new Hamlib connection", async () => {
   state = { ...state, hamlib: { mode: "external", host: "127.0.0.1", port: 4532 }, selection: { provider: "hamlib", generation: 12, selection_id: "first-selection" } };
   render(<AgentConnectionSetup hamlib />); await act(async () => {});
   const permission = screen.getByRole("checkbox", { name: "Enable Hamlib transmit commands for this connection" }) as HTMLInputElement;
-  fireEvent.click(permission); expect(permission.checked).toBe(true);
+  expect(permission.checked).toBe(true); fireEvent.click(permission); expect(permission.checked).toBe(false);
   state = { ...state, revision: 5, selection: { provider: "hamlib", generation: 14, selection_id: "new-selection" } };
-  await act(async () => native.changed?.()); expect(permission.checked).toBe(false);
+  await act(async () => native.changed?.()); expect(permission.checked).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: "Connect saved Hamlib radio" })); await act(async () => {});
-  expect(native.invoke.mock.calls.at(-2)?.[1].params).toMatchObject({ action: "connect_hamlib", revision: 5, selection_generation: 14, selection_id: "new-selection", allow_transmit: false });
+  expect(native.invoke.mock.calls.at(-2)?.[1].params).toMatchObject({ action: "connect_hamlib", revision: 5, selection_generation: 14, selection_id: "new-selection", allow_transmit: true });
 });
-it("FLEX retains dirty setup on another window's save, reloads explicitly and never stores standing transmit consent", async () => {
+it("FLEX retains dirty setup, restores full controls at a new revision and never stores permission in configuration", async () => {
   state = { ...state, flex: { host: "192.168.1.50", port: 4992, station_name: "xLog" }, selection: { provider: "direct_flex_lan", generation: 12, selection_id: "flex-selection" } };
   render(<AgentConnectionSetup flex />); await act(async () => {});
   fireEvent.change(screen.getByLabelText("Shared FLEX private IP"), { target: { value: "10.0.0.2" } });
@@ -181,7 +181,7 @@ it("FLEX retains dirty setup on another window's save, reloads explicitly and ne
   await act(async () => native.changed?.());
   expect((screen.getByLabelText("Shared FLEX private IP") as HTMLInputElement).value).toBe("10.0.0.2");
   expect(screen.getByRole("button", { name: "Save FLEX configuration" }).hasAttribute("disabled")).toBe(true);
-  expect((screen.getByRole("checkbox", { name: "Enable FLEX transmit commands for this connection" }) as HTMLInputElement).checked).toBe(false);
+  expect((screen.getByRole("checkbox", { name: "Enable FLEX transmit commands for this connection" }) as HTMLInputElement).checked).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: "Reload saved FLEX configuration" })); await act(async () => {});
   expect((screen.getByLabelText("Shared FLEX private IP") as HTMLInputElement).value).toBe("100.64.0.3");
   fireEvent.change(screen.getByLabelText("Shared FLEX station name"), { target: { value: " edited-name " } });
@@ -190,7 +190,7 @@ it("FLEX retains dirty setup on another window's save, reloads explicitly and ne
   const request = native.invoke.mock.calls.find(([, { params }]) => params.action === "save_flex")![1].params;
   expect(request).toMatchObject({ revision: 5, configuration: { host: "100.64.0.3", port: 4993, station_name: "edited-name" } });
   expect(request).not.toHaveProperty("allow_transmit"); expect(request.configuration).not.toHaveProperty("allow_transmit");
-  expect((screen.getByRole("checkbox", { name: "Enable FLEX transmit commands for this connection" }) as HTMLInputElement).checked).toBe(false);
+  expect((screen.getByRole("checkbox", { name: "Enable FLEX transmit commands for this connection" }) as HTMLInputElement).checked).toBe(true);
   expect(native.invoke.mock.calls.every(([command]) => command === "station_session_request")).toBe(true);
 });
 it("Hamlib catalogue loads only on request, filters without selection changes and chooses a draft without saving or connecting", async () => {

@@ -26,7 +26,7 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
   const flex = flexSetup || followSelection && state?.selection.provider === "direct_flex_lan";
   const [config, setConfig] = useState<HamlibConfiguration>({ mode: "managed", model: undefined, path: "", baud: 9600 });
   const [flexConfig, setFlexConfig] = useState<FlexConfiguration>({ host: "", port: 4992, station_name: "OM0RX-xLog" });
-  const [token, setToken] = useState(""), [transmit, setTransmit] = useState(false);
+  const [token, setToken] = useState(""), [transmit, setTransmit] = useState(true);
   const [agentTransmit, setAgentTransmit] = useState(true);
   const [receiveMHz, setReceiveMHz] = useState(""), [consumedObservation, setConsumedObservation] = useState("");
   const [busy, setBusy] = useState(false), [message, setMessage] = useState(""), [error, setError] = useState("");
@@ -42,7 +42,7 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
       const next = await loadStationSession();
       if (!active.current || sequence !== readSequence.current) return;
       if (next.generation !== current.current?.generation || next.revision !== current.current?.revision
-        || next.selection.selection_id !== current.current?.selection.selection_id) setTransmit(false);
+        || next.selection.selection_id !== current.current?.selection.selection_id) setTransmit(true);
       if (adopt || !dirty.current) {
         const hint = !adopt && !current.current && !next.base_url && next.revision === 0 && !next.last_receipt ? legacyEndpoint : "";
         current.current = next; setState(next); setURL(hint || next.base_url); dirty.current = !!hint; setConflict(false);
@@ -101,7 +101,7 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
         ...(action === "save" ? flex ? { configuration: { ...flexConfig, host: flexConfig.host.trim(), station_name: flexConfig.station_name.trim() } } : hamlib ? { configuration: config } : { base_url: url.trim() } : { selection_generation: base.selection.generation, selection_id: base.selection.selection_id,
           ...(action === "select" ? { provider: target } : { allow_transmit: ["connect", "reconnect"].includes(action) && (hamlib || flex ? transmit : agentTransmit) }), ...(!hamlib && !flex && action === "connect" && token ? { token } : {}) }) });
       if (!active.current) return;
-      setToken(""); setTransmit(false); setMessage(notice(receipt));
+      setToken(""); setMessage(notice(receipt));
       if (receipt.status === "saved" || receipt.status === "acknowledged") {
         sessionStorage.removeItem(journalKey); setPending(null); await refresh(action === "save");
       }
