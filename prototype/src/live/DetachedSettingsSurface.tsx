@@ -90,7 +90,7 @@ export function DetachedSettingsSurface() {
         : <SyncPanel request={requestDetachedSettings} onChanged={reload} />}
       rotorSettings={<RotorPanel snapshot={null} request={requestDetachedSettings} configurationSession={rotorSession} configurationOnly />}
       workspaceSettings={<WorkspaceSettings {...layout}
-        available={["active-qso", "callsign-intelligence", "world-map", "band-maps", "dx-cluster", "logbook", "awards", "spot-history"]} />}
+        available={["active-qso", "callsign-intelligence", "world-map", "band-maps", "dx-cluster", "logbook", "awards", "chaser-dx", "spot-history"]} />}
       dataRequest={requestDetachedSettings} onDataChanged={() => { reload(); void layout.session.refresh(); }} />}
   </main></div>;
 }

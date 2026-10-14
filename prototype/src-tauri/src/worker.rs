@@ -19,7 +19,7 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
         return Err("Only the native activation owner can use this method.".into());
     }
     if request["method"] == "workspace_layout_load" {
-        return if matches!(label, "main" | "monitor" | "world-map" | "band-maps" | "dx-cluster" | "log-qso" | "spot-history" | "logbook" | "awards" | "callsign-intelligence" | "settings") {
+        return if matches!(label, "main" | "monitor" | "world-map" | "band-maps" | "dx-cluster" | "log-qso" | "spot-history" | "logbook" | "awards" | "callsign-intelligence" | "settings" | "chaser-dx") {
             Ok(())
         } else { Err("This window cannot read the shared workspace layout.".into()) };
     }
@@ -60,6 +60,11 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
         return if matches!(request["method"].as_str(), Some("logbook_stats" | "logbook_catalog")) {
             Ok(())
         } else { Err("Awards can only read local statistics and the awards catalogue.".into()) };
+    }
+    if label == "chaser-dx" {
+        return if matches!(request["method"].as_str(), Some("opportunities_snapshot" | "opportunities_refresh")) {
+            Ok(())
+        } else { Err("Chaser & DX can only read and refresh public opportunity feeds.".into()) };
     }
     if label == "spot-history" {
         return if matches!(request["method"].as_str(), Some("spot_history_status" | "spot_history_query"
@@ -929,7 +934,7 @@ mod tests {
         for method in ["workspace_layout_load", "workspace_layout_apply"] {
             let request = json!({"id":"layout-test","method":method,"params":{}});
             assert!(validate_surface("main", &request).is_ok());
-            for label in ["settings", "monitor", "log-qso", "logbook", "awards", "world-map", "band-maps", "dx-cluster", "unknown"] {
+            for label in ["settings", "monitor", "log-qso", "logbook", "awards", "chaser-dx", "world-map", "band-maps", "dx-cluster", "unknown"] {
                 assert_eq!(validate_surface(label, &request).is_ok(), label == "settings" || method == "workspace_layout_load" && label != "unknown", "{label}: {method}");
             }
         }
@@ -956,6 +961,16 @@ mod tests {
             "station_connect", "station_tune", "rotor_goto", "hamlib_control", "settings_load", "settings_save",
             "secret_save", "sync_run", "backup_restore", "cluster_connect", "cluster_resume", "health"] {
             assert!(validate_surface("awards", &json!({"id":"test","method":method,"params":{}})).is_err(), "{method}");
+        }
+    }
+    #[test]
+    fn detached_chaser_can_only_read_and_refresh_public_opportunities() {
+        for method in ["opportunities_snapshot", "opportunities_refresh"] {
+            assert!(validate_surface("chaser-dx", &json!({"id":"test","method":method,"params":{}})).is_ok(), "{method}");
+        }
+        for method in ["logbook_operator_draft", "logbook_operator_draft_apply", "station_connect", "station_tune",
+            "rotor_goto", "hamlib_control", "settings_load", "secret_save", "sync_run", "backup_restore", "cluster_connect", "health"] {
+            assert!(validate_surface("chaser-dx", &json!({"id":"test","method":method,"params":{}})).is_err(), "{method}");
         }
     }
     #[test]

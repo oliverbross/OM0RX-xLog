@@ -63,7 +63,7 @@ function preferences(): Preferences {
   return defaults;
 }
 
-export function OpportunitiesPanel({ request, onSelect, refresh = 0, home }: { request: Request; onSelect: (item: Opportunity) => void; refresh?: number; home?: { call?: string; lat: number; lon: number } | null }) {
+export function OpportunitiesPanel({ request, onSelect, onDock, refresh = 0, home }: { request: Request; onSelect?: (item: Opportunity) => void; onDock?: () => void; refresh?: number; home?: { call?: string; lat: number; lon: number } | null }) {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [prefs, setPrefs] = useState(preferences);
   const { kind, band, mode, sort, map: showMap } = prefs;
@@ -156,11 +156,13 @@ export function OpportunitiesPanel({ request, onSelect, refresh = 0, home }: { r
     country: item.name, grid: "", lat: item.latitude!, lon: item.longitude!, reporter: item.source, note: `${item.reference} · ${activity(item)} · ${item.location_source}`,
     receivedAt: new Date(item.observed_at).valueOf(), state: item.confirmed_count ? "confirmed" : item.worked_count ? "worked" : "needed",
   })), [rows]);
-  const choose = (item: Opportunity) => { setSelected(item.id); onSelect(item); };
+  const choose = (item: Opportunity) => { if (!onSelect) return; setSelected(item.id); onSelect(item); };
   return <section className="opportunities" aria-label="Chaser and DX calendar">
     <header className="opportunities-head"><h2>Chaser & DX</h2><span>Automatic live feeds · 60s</span>
       <button type="button" aria-pressed={showMap} onClick={() => setPrefs(current => ({ ...current, map: !current.map }))}>{showMap ? "Hide map" : "Show map"}</button>
-      <button type="button" disabled={busy} onClick={() => reloadRef.current(false)}>{busy ? "Refreshing…" : "Refresh feeds"}</button></header>
+      <button type="button" disabled={busy} onClick={() => reloadRef.current(false)}>{busy ? "Refreshing…" : "Refresh feeds"}</button>
+      {onDock && <button type="button" onClick={onDock}>Dock back</button>}</header>
+    {!onSelect && <p className="secondary">Read-only independent view. Dock back before loading an opportunity into the shared QSO draft.</p>}
     <div className="opportunities-sources" aria-label="Live feed status — not reference databases">
       {(snapshot?.sources ?? []).map(source => <div className="opportunities-source" key={source.source} title="Live feed health. Complete park and summit directories are managed in Settings → Reference data.">
         <strong>{source.source === "425dxn" ? "DX calendar" : source.source.toUpperCase()} feed</strong>
@@ -184,19 +186,19 @@ export function OpportunitiesPanel({ request, onSelect, refresh = 0, home }: { r
       <label>Sort<select value={sort} onChange={event => setPrefs(current => ({ ...current, sort: event.target.value }))}><option value="newest">Newest</option><option value="callsign">Callsign</option><option value="reference">Reference</option><option value="frequency">Frequency</option><option value="unworked">Unworked first</option></select></label>
       <span aria-live="polite">{rows.length} matching · {snapshot.total_available} available</span></div>
       {snapshot.history_state !== "ready" && <p className="opportunities-warning">Logbook history is unavailable; worked and confirmed labels are withheld.</p>}
-      <div className="opportunities-table-wrap" ref={tableRef}><table><thead><tr><th>Call / operation</th><th>Reference</th><th>Band / mode</th><th>Evidence</th><th>History</th><th>Action</th></tr></thead>
+      <div className="opportunities-table-wrap" ref={tableRef}><table><thead><tr><th>Call / operation</th><th>Reference</th><th>Band / mode</th><th>Evidence</th><th>History</th>{onSelect && <th>Action</th>}</tr></thead>
         <tbody>{pageRows.map(item => <tr key={item.id} className={selected === item.id ? "is-selected" : ""}><td><strong>{item.callsign}</strong><small title={item.name}>{item.name || (item.kind === "dxpedition" || item.kind === "special_event" ? item.source : "Name unavailable")}</small></td>
           <td><span className={item.reference_status === "verified" ? "opportunities-verified" : ""}>{item.reference ? `${labels[item.reference_kind || item.kind] || item.kind} · ${item.reference}` : labels[item.kind] || item.kind}</span><small title={item.location_source}>{item.location_accuracy === "reference_area" ? "Approximate IOTA group area" : item.reference_status === "not_found" ? "Not in installed directory" : item.reference_status === "not_installed" ? "Directory not installed" : ""}</small></td>
           <td title={activity(item)}>{item.frequency_hz == null ? activity(item) : mhz(item.frequency_hz)}<small>{item.frequency_hz == null ? "Not a live frequency report" : `${item.mode || "Mode not supplied"} · ${activity(item)}`}</small></td>
           <td>{item.latest_spot_at ? `Cluster · ${time(item.latest_spot_at)}` : time(item.observed_at)}<small>{officialLink(item.source_url) ? <a href={officialLink(item.source_url)} target="_blank" rel="noreferrer">{item.source}</a> : item.source}</small></td>
           <td title={item.band_modes?.map(cell => `${cell.band} ${cell.mode}: ${cell.worked_count} worked, ${cell.confirmed_count} confirmed`).join(" · ")}>{!item.reference ? "No reference history" : snapshot.history_state === "ready" ? <>{item.worked_count ? `${item.worked_count} worked` : "Unworked reference"}<small>{item.confirmed_count} confirmed</small></> : "Unknown"}</td>
-          <td><button type="button" onClick={() => choose(item)} aria-label={`Load ${item.callsign} into QSO draft`}>Load QSO</button></td></tr>)}
-          {!rows.length && <tr><td colSpan={6} className="opportunities-empty">{(kind === "all" ? busy : kind !== "castle" && pendingSources.includes(priorityFeed(kind))) ? `Loading ${kind === "all" ? "live feeds" : labels[kind]}…` : kind === "iota" ? "No matching IOTA spots or scheduled island operations. Recent cluster comments must contain an IOTA reference." : kind === "castle" ? "No recent castle-tagged cluster spots match these filters." : "No matching activity. Feeds refresh automatically; try another programme or filter."}</td></tr>}
+          {onSelect && <td><button type="button" onClick={() => choose(item)} aria-label={`Load ${item.callsign} into QSO draft`}>Load QSO</button></td>}</tr>)}
+          {!rows.length && <tr><td colSpan={onSelect ? 6 : 5} className="opportunities-empty">{(kind === "all" ? busy : kind !== "castle" && pendingSources.includes(priorityFeed(kind))) ? `Loading ${kind === "all" ? "live feeds" : labels[kind]}…` : kind === "iota" ? "No matching IOTA spots or scheduled island operations. Recent cluster comments must contain an IOTA reference." : kind === "castle" ? "No recent castle-tagged cluster spots match these filters." : "No matching activity. Feeds refresh automatically; try another programme or filter."}</td></tr>}
         </tbody></table></div>
       <nav className="opportunities-pagination" aria-label="Chaser pages"><button type="button" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>Previous</button><span>{rows.length ? currentPage * pageSize + 1 : 0}–{Math.min((currentPage + 1) * pageSize, rows.length)} of {rows.length}</span><button type="button" disabled={(currentPage + 1) * pageSize >= rows.length} onClick={() => setPage(currentPage + 1)}>Next</button>{showMap && <span>{mapSpots.length} located · {rows.length - mapSpots.length} without published coordinates · selection loads a draft only</span>}</nav>
       {showMap && <div className="opportunities-map"><Suspense fallback={<p>Loading map…</p>}><OpportunityMap selected={selected} data={mapSpots} home={home} compact fitToDataKey={`${kind}:${band}:${mode}:${query}`}
-        spotActionLabel="Load QSO draft only" locationLabel="Published reference locations · IOTA group centres are approximate"
-        onSpot={spot => { const item = rows.find(row => row.id === spot.id); if (item) choose(item); }} /></Suspense></div>}
+        spotActionLabel={onSelect ? "Load QSO draft only" : undefined} locationLabel="Published reference locations · IOTA group centres are approximate"
+        onSpot={onSelect ? spot => { const item = rows.find(row => row.id === spot.id); if (item) choose(item); } : undefined} /></Suspense></div>}
     </>}
   </section>;
 }

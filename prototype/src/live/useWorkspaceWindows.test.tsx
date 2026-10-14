@@ -13,7 +13,7 @@ vi.mock("@tauri-apps/api/event", () => ({ listen: native.listen }));
 const idle = () => ({ supported: ["monitor", "world-map", "band-maps", "dx-cluster", "logbook", "awards"],
   generation: null, revision: null, presetID: null, state: "idle", shown: [], hidden: [], error: "", stopped: false, attempt: 0 });
 const applied = () => ({ ...idle(), state: "applied", generation: "01234567-89ab-cdef-0123-456789abcdef", revision: 2, presetID: "desk-1" });
-const allNativeRoles = ["callsign-intelligence", "log-qso", "spot-history", "monitor", "world-map", "band-maps", "dx-cluster", "logbook", "awards", "settings"];
+const allNativeRoles = ["callsign-intelligence", "log-qso", "spot-history", "monitor", "world-map", "band-maps", "dx-cluster", "logbook", "awards", "settings", "chaser-dx"];
 function deferred<T>() { let resolve!: (value: T) => void; let reject!: (value: unknown) => void;
   const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; }
 let wake: (event?: unknown) => void, dispose: ReturnType<typeof vi.fn<() => void>>;
@@ -33,7 +33,7 @@ describe("native workspace status schema", () => {
     expect([...nativeWorkspaceWindowIDs]).toEqual(roles);
     expect(() => readWorkspaceWindowsStatus({ ...idle(), supported: [...workspacePanelIDs] })).toThrow("could not be verified");
   });
-  it("accepts the actual ten-role payload including new roles shown and hidden", () => {
+  it("accepts the actual eleven-role payload including new roles shown and hidden", () => {
     const value = { ...applied(), supported: allNativeRoles, shown: ["callsign-intelligence", "log-qso"], hidden: ["spot-history"] };
     expect(readWorkspaceWindowsStatus(value)).toEqual(value);
   });
