@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import "./SyncPanel.css";
+import { connectSyncChanges } from "./syncChanges";
 
 type Data = Record<string, any>;
 type Request = (method: string, params?: Data) => Promise<Data>;
@@ -14,17 +15,22 @@ export default function SyncPanel({ request, onChanged }: Props) {
   const [confirmed, setConfirmed] = useState(false), [busy, setBusy] = useState(false);
   const [error, setError] = useState(""), [message, setMessage] = useState("");
   const [setupMessage, setSetupMessage] = useState("");
+  const [subscriptionError, setSubscriptionError] = useState("");
+  const [verified, setVerified] = useState(false);
   const [checkingSetup, setCheckingSetup] = useState(false);
   const [interval, setIntervalMinutes] = useState("5");
   const intervalEdited = useRef(false), finished = useRef<string | null>(null), changed = useRef(onChanged);
   changed.current = onChanged;
   const mounted = useRef(false), working = useRef(false), sequence = useRef(0), polling = useRef(false);
+  const refreshPending = useRef(false);
+  const currentRequest = useRef(request); currentRequest.current = request;
   const read = useCallback(async () => {
     const revision = ++sequence.current;
     try {
-      const next = await request("sync_status");
+      const next = await currentRequest.current("sync_status");
       if (mounted.current && revision === sequence.current) {
         setState(next);
+        setVerified(true);
         if (!next.running) setMessage(current => current.startsWith("Synchronization started.") ? "" : current);
         if (!intervalEdited.current) setIntervalMinutes(String(next.interval_minutes || 5));
         if (next.finished_at && finished.current !== next.finished_at) {
@@ -32,18 +38,23 @@ export default function SyncPanel({ request, onChanged }: Props) {
           changed.current();
         }
       }
-    } catch (cause) { if (mounted.current && revision === sequence.current) setError(errorText(cause)); }
-  }, [request]);
+    } catch (cause) { if (mounted.current && revision === sequence.current) { setVerified(false); setError(errorText(cause)); } }
+  }, []);
+  const refresh = useCallback(async () => {
+    sequence.current++; setVerified(false);
+    refreshPending.current = true;
+    if (polling.current || working.current || !mounted.current) return;
+    polling.current = true;
+    try {
+      do { refreshPending.current = false; await read(); }
+      while (mounted.current && refreshPending.current && !working.current);
+    } finally { polling.current = false; }
+  }, [read]);
   useEffect(() => {
     mounted.current = true;
-    const poll = async () => {
-      if (polling.current || working.current) return;
-      polling.current = true;
-      try { await read(); } finally { polling.current = false; }
-    };
-    void poll(); const timer = setInterval(() => void poll(), 3000);
-    return () => { mounted.current = false; sequence.current++; clearInterval(timer); };
-  }, [read]);
+    const dispose = connectSyncChanges(() => { void refresh(); }, setSubscriptionError);
+    return () => { mounted.current = false; sequence.current++; dispose(); };
+  }, [refresh, request]);
   const act = async (method: string, params: Data, success: string) => {
     if (working.current) return;
     working.current = true; sequence.current++; setBusy(true); setError(""); setMessage("");
@@ -52,11 +63,11 @@ export default function SyncPanel({ request, onChanged }: Props) {
       if (mounted.current) { if (method === "sync_configure") intervalEdited.current = false; setMessage(success); await read(); onChanged(); }
     } catch (cause) {
       if (mounted.current) { setError(errorText(cause)); await read(); }
-    } finally { working.current = false; if (mounted.current) setBusy(false); }
+    } finally { working.current = false; if (mounted.current) { setBusy(false); if (refreshPending.current) void refresh(); } }
   };
-  const locked = busy || state?.running === true;
+  const locked = busy || state?.running === true || !verified;
   const automatic = state?.automatic_sync === true;
-  const available = !!state && state.sync_available !== false;
+  const available = verified && !!state && state.sync_available !== false;
   const validInterval = /^\d+$/.test(interval) && Number(interval) >= 1 && Number(interval) <= 60;
   const configure = (enabled: boolean) => act("sync_configure", {
     enabled, interval_minutes: enabled ? Number(interval) : Number(state?.interval_minutes || 5), confirm_single_writer: confirmed || automatic,
@@ -81,6 +92,7 @@ export default function SyncPanel({ request, onChanged }: Props) {
   const conflicts: Conflict[] = state?.conflicts || [];
   return <section className="live-sync sync-panel" aria-label="Wavelog synchronization">
     <h2>Wavelog synchronization</h2>
+    <button type="button" disabled={busy || checkingSetup} onClick={() => { setError(""); void refresh(); }}>Refresh Sync state</button>
     <p>Sync sends pending local changes and reconciles Wavelog edits and deletions. Stop the original xLog and every other sync writer before using this logbook as the active Wavelog writer.</p>
     <div className="sync-setup"><button disabled={locked || checkingSetup} onClick={() => void checkSetup()}>{checkingSetup ? "Checking setup…" : "Check setup"}</button><p aria-live="polite">{setupMessage || "Queued contacts with 0 attempts have not been uploaded yet. Conflicting edits always need your review."}</p></div>
     {!automatic && <label className="sync-confirm"><input type="checkbox" checked={confirmed} disabled={locked} onChange={event => setConfirmed(event.target.checked)} />I have stopped the other sync applications; this logbook is the only writer.</label>}
@@ -93,9 +105,11 @@ export default function SyncPanel({ request, onChanged }: Props) {
     {!validInterval && <p className="sync-error">Choose a whole number from 1 to 60 minutes.</p>}
     <p className="secondary">{automatic ? "Saved for this logbook and Wavelog destination. Runs while xLog is open; failures retry with backoff." : "Enable once to keep this logbook synchronized whenever xLog is open."}{state?.running ? " Wait for the current run to finish before changing its schedule." : ""}</p>
     <div className="sync-evidence" role="status"><strong>{state?.status || "Reading sync state…"}</strong><span>Last finished: {syncTime(state?.finished_at)}</span><span>Next attempt: {automatic ? state?.running ? "After this run" : state?.next_attempt ? syncTime(state.next_attempt) : "Within 15 seconds" : "Not scheduled"}</span></div>
+    {state && !verified && <p className="secondary" role="status">Sync state is being refreshed or is unavailable. Retained values are display only; actions are disabled.</p>}
     {state?.finished_at && typeof state.pulled === "number" && <p className="secondary">{state.pushed} uploaded · {state.pulled.toLocaleString()} remote records checked · {state.deleted} deletions applied · {state.failed} failures</p>}
     {Number(state?.held) > 0 && <p className="sync-error" role="status">{Number(state?.held).toLocaleString()} remote contacts held: duplicate identities have different ADIF details and cannot be safely matched. These contacts and their pending edits are unchanged; other contacts continue to synchronize. Review the duplicate entries in Wavelog before changing them.</p>}
     {error && <p className="sync-error" role="alert">{error}</p>}
+    {subscriptionError && <p className="sync-error" role="alert">{subscriptionError}</p>}
     {message && <p className="sync-success" role="status">{message}</p>}
     <h2>Conflicts <span className="sync-count">{state ? conflicts.length : "—"}</span></h2>
     <p className="secondary">Compare changed fields, choose which values to keep, then save the merged contact. This queues a local change for the next {automatic ? "automatic" : "manual"} sync.</p>

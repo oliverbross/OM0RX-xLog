@@ -2,6 +2,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import SyncPanel from "./SyncPanel";
+const nativeChanges = vi.hoisted(() => ({ wakes: new Set<() => void>() }));
+vi.mock("./syncChanges", () => ({ connectSyncChanges: (refresh: () => void) => {
+  nativeChanges.wakes.add(refresh); refresh(); return () => { nativeChanges.wakes.delete(refresh); };
+} }));
+const wakeSync = () => { for (const wake of nativeChanges.wakes) wake(); };
 
 const fixture = () => ({ running: false, status: "Not started", conflicts: [{
   id: "conflict-1", revision: "revision-1", localQSO: { call: "OM0RX" }, remoteQSO: { call: "OM0RX" },
@@ -30,6 +35,7 @@ describe("Wavelog conflict merge", () => {
       return fixture();
     });
     render(<SyncPanel request={request} onChanged={() => {}} />);
+    await screen.findByText("Automatic sync off");
     fireEvent.click(screen.getByRole("button", { name: "Check setup" }));
     await screen.findByText(/Server authentication is not yet verified/);
     expect(request.mock.calls.some(([method]) => method === "sync_run")).toBe(false);
@@ -71,7 +77,7 @@ describe("Wavelog conflict merge", () => {
     await waitFor(() => expect(request).toHaveBeenCalledWith("sync_run", { confirm_single_writer: true }));
   });
 
-  it("requires a new review when polling changes the contact revision", async () => {
+  it("requires a new review when a native wake changes the contact revision", async () => {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
     let state = fixture();
     const request = vi.fn(async (_method: string, _params?: Record<string, any>) => state);
@@ -79,7 +85,7 @@ describe("Wavelog conflict merge", () => {
     await screen.findByLabelText("Comment remote");
     fireEvent.click(screen.getByLabelText("Comment remote"));
     state = { ...fixture(), conflicts: [{ ...fixture().conflicts[0], revision: "revision-2" }] };
-    await act(async () => { vi.advanceTimersByTime(3000); });
+    await act(async () => { wakeSync(); });
     expect(screen.getByRole("alert").textContent).toContain("changed while you were choosing");
     expect(screen.getByRole("button", { name: "Save merged contact" }).hasAttribute("disabled")).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Review updated values" }));
@@ -108,7 +114,7 @@ describe("persistent automatic synchronization controls", () => {
     expect(screen.getByText(/1 uploaded · 12 remote records checked/)).toBeTruthy();
   });
 
-  it("removes the started notice after polling reports failure", async () => {
+  it("removes the started notice after a native wake reports failure", async () => {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
     let state: Record<string, any> = { ...fixture(), automatic_sync: true, running: false };
     const request = vi.fn(async (method: string) => {
@@ -120,7 +126,7 @@ describe("persistent automatic synchronization controls", () => {
     fireEvent.click(screen.getByRole("button", { name: "Synchronize now" }));
     await screen.findByText("Synchronization started. Progress appears below.");
     state = { ...state, running: false, status: "Failed · Wavelog rejected a request.", finished_at: "2026-10-13T12:00:00Z" };
-    await act(async () => { vi.advanceTimersByTime(3000); });
+    await act(async () => { wakeSync(); });
     expect(screen.queryByText("Synchronization started. Progress appears below.")).toBeNull();
     expect(screen.getByText("Failed · Wavelog rejected a request.")).toBeTruthy();
   });
@@ -173,11 +179,71 @@ describe("persistent automatic synchronization controls", () => {
     expect(screen.getByRole("button", { name: "Turn off" }).hasAttribute("disabled")).toBe(true);
     expect(screen.queryByRole("checkbox")).toBeNull();
     state = { ...state, running: false, status: "Completed", finished_at: "2026-10-13T07:00:00Z", next_attempt: "2026-10-13T07:10:00Z", pulled: 67909, pushed: 0, deleted: 0, failed: 0 };
-    await act(async () => { vi.advanceTimersByTime(3000); });
+    await act(async () => { wakeSync(); });
     expect(changed).toHaveBeenCalledOnce();
     expect(screen.getByText(/67,909 remote records checked/)).toBeTruthy();
-    await act(async () => { vi.advanceTimersByTime(3000); });
+    await act(async () => { wakeSync(); });
     expect(changed).toHaveBeenCalledOnce();
     expect(request.mock.calls.every(args => args.length === 1 && args[0] === "sync_status")).toBe(true);
   });
+});
+
+it("two Sync views share native refresh wakes and never create renderer timers", async () => {
+  vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+  const first = vi.fn(async (_method: string) => fixture()), second = vi.fn(async (_method: string) => fixture());
+  const view = render(<><SyncPanel request={first} onChanged={vi.fn()} /><SyncPanel request={second} onChanged={vi.fn()} /></>);
+  await waitFor(() => { expect(first).toHaveBeenCalledTimes(1); expect(second).toHaveBeenCalledTimes(1); });
+  await act(async () => { vi.advanceTimersByTime(60_000); });
+  expect(first).toHaveBeenCalledTimes(1); expect(second).toHaveBeenCalledTimes(1);
+  await act(async () => { wakeSync(); });
+  expect(first).toHaveBeenCalledTimes(2); expect(second).toHaveBeenCalledTimes(2);
+  expect(first.mock.calls.every(args => args.length === 1 && args[0] === "sync_status")).toBe(true);
+  view.unmount(); expect(nativeChanges.wakes.size).toBe(0);
+});
+
+it("coalesces native wakes and does not apply an older in-flight response", async () => {
+  let finish!: (value: Record<string, any>) => void;
+  const request = vi.fn().mockImplementationOnce(() => new Promise(done => { finish = done; }))
+    .mockResolvedValue({ ...fixture(), status: "Latest native refresh" });
+  render(<SyncPanel request={request} onChanged={vi.fn()} />);
+  await act(async () => { for (let i = 0; i < 20; i++) wakeSync(); });
+  expect(request).toHaveBeenCalledOnce();
+  await act(async () => { finish({ ...fixture(), status: "Obsolete response" }); });
+  expect(request).toHaveBeenCalledTimes(2); expect(screen.getByText("Latest native refresh")).toBeTruthy();
+  expect(screen.queryByText("Obsolete response")).toBeNull();
+});
+
+it("disables mutations while an invalidated native observation is being reloaded", async () => {
+  let finish!: (value: Record<string, any>) => void;
+  const request = vi.fn().mockResolvedValueOnce(fixture()).mockImplementationOnce(() => new Promise(done => { finish = done; }));
+  render(<SyncPanel request={request} onChanged={vi.fn()} />);
+  await screen.findByText("Automatic sync off"); fireEvent.click(screen.getByRole("checkbox"));
+  expect(screen.getByRole("button", { name: "Synchronize now" }).hasAttribute("disabled")).toBe(false);
+  await act(async () => { wakeSync(); });
+  expect(screen.getByRole("button", { name: "Synchronize now" }).hasAttribute("disabled")).toBe(true);
+  expect(screen.getByRole("button", { name: "Save merged contact" }).hasAttribute("disabled")).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Synchronize now" })); expect(request).toHaveBeenCalledTimes(2);
+  await act(async () => { finish(fixture()); });
+  expect(screen.getByRole("button", { name: "Synchronize now" }).hasAttribute("disabled")).toBe(false);
+});
+
+it("drops a late response when the view changes request sources and refreshes only the new source", async () => {
+  let finish!: (value: Record<string, any>) => void;
+  const first = vi.fn(() => new Promise<Record<string, any>>(done => { finish = done; }));
+  const second = vi.fn(async () => ({ ...fixture(), status: "New request source" }));
+  const view = render(<SyncPanel request={first} onChanged={vi.fn()} />);
+  view.rerender(<SyncPanel request={second} onChanged={vi.fn()} />);
+  await act(async () => { finish({ ...fixture(), status: "Old request source" }); });
+  expect(first).toHaveBeenCalledOnce(); expect(second).toHaveBeenCalledOnce();
+  expect(screen.getByText("New request source")).toBeTruthy(); expect(screen.queryByText("Old request source")).toBeNull();
+});
+
+it("offers explicit read-only recovery after a failed observation without a timer or mutation", async () => {
+  const request = vi.fn().mockRejectedValueOnce(Error("Observation unavailable")).mockResolvedValue(fixture());
+  render(<SyncPanel request={request} onChanged={vi.fn()} />);
+  await screen.findByText("Observation unavailable");
+  fireEvent.click(screen.getByRole("button", { name: "Refresh Sync state" }));
+  await screen.findByText("Automatic sync off");
+  expect(request.mock.calls.map(([method]) => method)).toEqual(["sync_status", "sync_status"]);
+  expect(screen.queryByText("Observation unavailable")).toBeNull();
 });

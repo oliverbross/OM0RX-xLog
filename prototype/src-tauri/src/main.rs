@@ -628,7 +628,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
         // The initiating view already refreshes after its operation. In
         // particular, ADIF batches must not reload that view after every chunk.
         // The native sync monitor separately wakes all readers on completion.
-        for label in ["main", "log-qso", "logbook", "awards", "callsign-intelligence"] {
+        for label in ["main", "settings", "log-qso", "logbook", "awards", "callsign-intelligence"] {
             if label != window.label() { let _ = app.emit_to(label, "xlog:logbook-changed", ()); }
         }
     }

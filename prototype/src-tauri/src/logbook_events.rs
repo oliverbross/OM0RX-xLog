@@ -14,6 +14,8 @@ type Publish = dyn Fn() + Send + Sync;
 pub struct SyncCompletionMonitor {
     read: Arc<Read>,
     publish: Arc<Publish>,
+    changed: Arc<Publish>,
+    changes: SyncSummaryChanges,
     observer: SyncCompletionObserver,
     interval: Duration,
     reading: Mutex<()>,
@@ -24,9 +26,10 @@ pub struct SyncCompletionMonitor {
 
 impl SyncCompletionMonitor {
     fn new(read: Arc<Read>, publish: Arc<Publish>, interval: Duration) -> Self {
-        Self { read, publish, interval, observer: SyncCompletionObserver::default(), reading: Mutex::new(()),
+        Self { read, publish, changed: Arc::new(|| {}), changes: SyncSummaryChanges::default(), interval, observer: SyncCompletionObserver::default(), reading: Mutex::new(()),
             stopped: Mutex::new(false), wake: Condvar::new(), started: AtomicBool::new(false) }
     }
+    fn observing(mut self, changed: Arc<Publish>) -> Self { self.changed = changed; self }
 
     fn is_stopped(&self) -> bool { self.stopped.lock().map(|stopped| *stopped).unwrap_or(true) }
 
@@ -37,8 +40,11 @@ impl SyncCompletionMonitor {
         // Serialize publication admission with stop; do not merely check an
         // atomic then emit. This metadata lock is NEVER held across worker I/O.
         let Ok(stopped) = self.stopped.lock() else { return; };
-        if !*stopped && response.as_ref().is_ok_and(|value| self.observer.observe(value)) {
-            (self.publish)();
+        if !*stopped {
+            // State wakes and completion invalidations have separate cursors:
+            // progress/errors may refresh views, but never consume completion.
+            if self.changes.observe(&response) { (self.changed)(); }
+            if response.as_ref().is_ok_and(|value| self.observer.observe(value)) { (self.publish)(); }
         }
     }
 
@@ -81,6 +87,7 @@ static SYNC_MONITOR: OnceLock<Arc<SyncCompletionMonitor>> = OnceLock::new();
 pub fn start(app: &tauri::AppHandle) -> Result<(), String> {
     let owner = SYNC_MONITOR.get_or_init(|| {
         let app = app.clone();
+        let updates = app.clone();
         Arc::new(SyncCompletionMonitor::new(Arc::new(crate::worker::request_existing), Arc::new(move || {
             crate::map_context::invalidate();
             for label in ["world-map", "band-maps", "monitor"] { let _ = app.emit_to(label, "xlog:map-context", ()); }
@@ -89,9 +96,33 @@ pub fn start(app: &tauri::AppHandle) -> Result<(), String> {
             for label in ["main", "log-qso", "logbook", "awards", "callsign-intelligence"] {
                 let _ = app.emit_to(label, "xlog:logbook-changed", ());
             }
-        }), Duration::from_secs(5)))
+        }), Duration::from_secs(5)).observing(Arc::new(move || {
+            // Wakes only: no summary, contacts, settings or credentials escape.
+            for label in ["main", "settings"] { let _ = updates.emit_to(label, "xlog:sync-changed", ()); }
+        })))
     });
     owner.start()
+}
+
+/// Only the existing sequential native summary channel feeds this cursor.
+/// Renderer reads cannot roll it backwards or introduce another poll schedule.
+#[derive(Default)]
+struct SyncSummaryChanges(Mutex<Option<Value>>);
+impl SyncSummaryChanges {
+    fn observe(&self, response: &Result<Value, String>) -> bool {
+        let next = response.as_ref().ok().filter(|value| value["ok"] == true && value["result"]["running"].is_boolean())
+            .map(|value| {
+                let mut summary = serde_json::Map::new();
+                for key in ["running", "status", "completion_id", "finished_at", "pushed", "pulled", "deleted", "conflicts_count", "failed", "held",
+                    "error_code", "error_phase", "http_status", "automatic_sync", "interval_minutes", "next_attempt", "mode", "sync_available"] {
+                    if let Some(value) = value["result"].get(key) { summary.insert(key.into(), value.clone()); }
+                }
+                Value::Object(summary)
+            }).unwrap_or(Value::Null);
+        let Ok(mut last) = self.0.lock() else { return false; };
+        if last.as_ref() == Some(&next) { return false; }
+        *last = Some(next); true
+    }
 }
 
 pub fn shutdown() {
@@ -141,6 +172,53 @@ mod tests {
 
     fn completed(token: &str, status: &str) -> Value {
         json!({"ok":true,"result":{"running":false,"completion_id":token,"status":status}})
+    }
+
+    #[test]
+    fn sync_refresh_uses_one_native_summary_schedule_and_separate_completion_cursor() {
+        let replies = Mutex::new(VecDeque::from([
+            Ok(json!({"ok":true,"result":{"running":false,"status":"Not started"}})),
+            Ok(json!({"ok":true,"result":{"running":false,"status":"Not started"}})),
+            Ok(json!({"ok":true,"result":{"running":true,"status":"Synchronizing"}})),
+            Ok(completed("one", "Completed")), Ok(completed("one", "Completed")),
+        ]));
+        let changed = Arc::new(AtomicUsize::new(0)); let changes = changed.clone();
+        let completed = Arc::new(AtomicUsize::new(0)); let completions = completed.clone();
+        let reads = Arc::new(AtomicUsize::new(0)); let counts = reads.clone();
+        let owner = SyncCompletionMonitor::new(Arc::new(move |request| {
+            assert_eq!(request["method"], "sync_summary"); assert_eq!(request["params"], json!({}));
+            counts.fetch_add(1, Ordering::AcqRel); replies.lock().unwrap().pop_front().unwrap()
+        }), Arc::new(move || { completions.fetch_add(1, Ordering::AcqRel); }), Duration::ZERO)
+            .observing(Arc::new(move || { changes.fetch_add(1, Ordering::AcqRel); }));
+        for (index, (expected_changes, expected_completed)) in [(1, 0), (1, 0), (2, 0), (3, 1), (3, 1)].into_iter().enumerate() {
+            owner.poll(); assert_eq!(reads.load(Ordering::Acquire), index + 1);
+            assert_eq!(changed.load(Ordering::Acquire), expected_changes); assert_eq!(completed.load(Ordering::Acquire), expected_completed);
+        }
+    }
+
+    #[test]
+    fn sync_refresh_errors_invalidate_once_and_recovery_does_not_consume_completion() {
+        let changes = SyncSummaryChanges::default();
+        assert!(changes.observe(&Err("worker absent".into())));
+        assert!(!changes.observe(&Err("worker retired".into())));
+        assert!(!changes.observe(&Ok(json!({"ok":false}))));
+        let first = completed("one", "Completed"); assert!(changes.observe(&Ok(first.clone())));
+        let mut private = first.clone(); private["result"]["unexpected_private_field"] = json!("not part of refresh identity");
+        assert!(!changes.observe(&Ok(private)));
+        let completions = SyncCompletionObserver::default(); assert!(completions.observe(&first)); assert!(!completions.observe(&first));
+    }
+
+    #[test]
+    fn sync_refresh_shutdown_rejects_late_summary_wakes_without_waiting_for_worker_io() {
+        let (entered, reading) = mpsc::channel(); let (release, proceed) = mpsc::channel(); let proceed = Mutex::new(proceed);
+        let changes = Arc::new(AtomicUsize::new(0)); let counts = changes.clone();
+        let owner = Arc::new(SyncCompletionMonitor::new(Arc::new(move |_| {
+            entered.send(()).unwrap(); proceed.lock().unwrap().recv().unwrap(); Ok(completed("late", "Completed"))
+        }), Arc::new(|| panic!("stopped completion published")), Duration::ZERO)
+            .observing(Arc::new(move || { counts.fetch_add(1, Ordering::AcqRel); })));
+        let pending = owner.clone(); let reader = std::thread::spawn(move || pending.poll());
+        reading.recv_timeout(Duration::from_secs(2)).unwrap(); owner.stop(); release.send(()).unwrap(); reader.join().unwrap();
+        assert_eq!(changes.load(Ordering::Acquire), 0);
     }
 
     #[test]
