@@ -37,11 +37,11 @@ struct LiveLogbookMethodsTests {
         #expect(try service.currentSettings().logbookMode == .wavelog)
 
         settings["logbookMode"] = "local"
-        try service.beginManualSync()
+        let lease = try service.beginManualSync()
         #expect(throws: WorkerFailure.self) {
             try service.handle(method: "settings_save", params: ["settings": settings])
         }
-        service.endManualSync()
+        service.endManualSync(lease)
         #expect(try service.currentSettings().logbookMode == .wavelog)
         _ = try service.handle(method: "settings_save", params: ["settings": settings])
         #expect(try service.currentSettings().logbookMode == .local)

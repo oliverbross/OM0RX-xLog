@@ -10,6 +10,8 @@ public enum LogbookDatabaseError: Error, LocalizedError {
     case sqlite(String)
     case corruptRecord
     case closed
+    case syncBusy
+    case syncRunChanged
 
     public var errorDescription: String? {
         switch self {
@@ -17,6 +19,8 @@ public enum LogbookDatabaseError: Error, LocalizedError {
         case let .sqlite(message): return "xLog database error: \(message)"
         case .corruptRecord: return "A stored QSO could not be decoded."
         case .closed: return "The xLog database is closed."
+        case .syncBusy: return "Synchronization is already running for this database."
+        case .syncRunChanged: return "The synchronization database session changed."
         }
     }
 }
@@ -90,6 +94,8 @@ public struct ContactHistoryRow: Decodable, Sendable {
 public final class LogbookDatabase: @unchecked Sendable {
     private var handle: OpaquePointer?
     private let lock = NSRecursiveLock()
+    let syncAdmission = SyncDatabaseAdmission()
+    private var syncRunID: UUID?
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
     private static let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
@@ -139,15 +145,16 @@ public final class LogbookDatabase: @unchecked Sendable {
     deinit { close() }
 
     public func close() {
-        lock.withLock {
+        withDatabaseLock {
             guard let handle else { return }
+            syncRunID = nil
             sqlite3_close_v2(handle)
             self.handle = nil
         }
     }
 
     public func backup(to destination: URL) throws {
-        try lock.withLock {
+        try withDatabaseLock {
             guard let handle else { throw LogbookDatabaseError.closed }
             let fileManager = FileManager.default
             try fileManager.createDirectory(
@@ -183,7 +190,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     public func save(_ value: QSO, markDirty: Bool = true) throws {
-        try lock.withLock {
+        try withDatabaseLock {
             let qso = normalizedForSave(value, markDirty: markDirty, updatedAt: Date())
             let data = try encoder.encode(qso)
             let sql = """
@@ -228,7 +235,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     /// One joined SELECT pairs the contact with its revision atomically, including
     /// pre-migration rows (revision zero) without rewriting/scanning the logbook.
     public func contactSnapshot(localID: UUID) throws -> LogbookContactSnapshot? {
-        try lock.withLock {
+        try withDatabaseLock {
             try withStatement("SELECT q.record_json, COALESCE(r.revision,0) FROM qsos q LEFT JOIN xlog_contact_revisions r ON r.local_id=q.local_id WHERE q.local_id=?;") { statement in
                 bind(localID.uuidString, to: 1, in: statement)
                 let step = sqlite3_step(statement)
@@ -241,7 +248,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     public func contactReceipt(operationID: UUID) throws -> LogbookContactReceipt? {
-        try lock.withLock {
+        try withDatabaseLock {
             try withStatement("SELECT payload FROM xlog_contact_receipts WHERE operation_id=?;") { statement in
                 bind(operationID.uuidString, to: 1, in: statement)
                 let step = sqlite3_step(statement)
@@ -253,7 +260,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     public func applyContactMutation(_ mutation: LogbookContactMutation) throws -> LogbookContactReceipt {
-        try lock.withLock {
+        try withDatabaseLock {
             guard (0..<9_007_199_254_740_991).contains(mutation.expectedRevision) else { throw LogbookContactError.invalid }
             try execute("BEGIN IMMEDIATE;")
             do {
@@ -308,7 +315,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     /// Initial creation and all mutations use SQLite's write lock as well as the
     /// instance lock, so two service instances cannot accept the same revision.
     public func operatorDraft(initial: QSO) throws -> OperatorDraftSnapshot {
-        try lock.withLock {
+        try withDatabaseLock {
             if let existing = try readOperatorDraft() { return existing }
             try execute("BEGIN IMMEDIATE;")
             do {
@@ -332,14 +339,14 @@ public final class LogbookDatabase: @unchecked Sendable {
     /// Lives in the database so backups include portable layouts atomically.
     /// Physical display placement remains machine-local in the native shell.
     public func workspaceLayout() throws -> WorkspaceLayoutSnapshot {
-        try lock.withLock { try readWorkspaceLayout() }
+        try withDatabaseLock { try readWorkspaceLayout() }
     }
 
     /// Restore coordinator only: retain current preferences when an operator
     /// restores contacts without opting into workspace-preference restoration.
     /// The caller rotates the workspace generation before replacing the DB.
     public func preserveWorkspaceLayoutAfterRestore(_ snapshot: WorkspaceLayoutSnapshot) throws {
-        try lock.withLock {
+        try withDatabaseLock {
             guard (0...9_007_199_254_740_991).contains(snapshot.revision) else { throw WorkspaceLayoutError.invalid }
             try snapshot.document.validate()
             let payload = try encoder.encode(snapshot)
@@ -352,7 +359,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     public func applyWorkspaceLayout(_ mutation: WorkspaceLayoutMutation) throws -> WorkspaceLayoutSnapshot {
-        try lock.withLock {
+        try withDatabaseLock {
             try execute("BEGIN IMMEDIATE;")
             do {
                 let next = try mutation.applying(to: readWorkspaceLayout())
@@ -382,7 +389,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     public func operatorDraftReceipt(operationID: UUID) throws -> OperatorDraftReceipt? {
-        try lock.withLock {
+        try withDatabaseLock {
             try withStatement("SELECT payload FROM xlog_operator_receipts WHERE operation_id = ?;") { statement in
                 bind(operationID.uuidString, to: 1, in: statement)
                 let step = sqlite3_step(statement)
@@ -397,7 +404,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     /// owner must fence its current generation before entering this database.
     public func configureOperatorDraftPower(enabled: Bool, fallback: String,
                                             workspaceID: UUID) throws -> OperatorDraftSnapshot {
-        try lock.withLock {
+        try withDatabaseLock {
             let previousAuthority = operatorPowerScopeID
             let result = try updateOperatorDraftPower { current in
                 let needsMigration = current.power == nil
@@ -426,7 +433,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     public func armOperatorDraftPower(context: OperatorDraftPowerContext, workspaceID: UUID,
                                        draftID: UUID, expectedRevision: Int64,
                                        now: Date) throws -> OperatorDraftSnapshot {
-        try lock.withLock {
+        try withDatabaseLock {
             let previousAuthority = operatorPowerScopeID
             let result = try updateOperatorDraftPower { current in
                 guard current.qso.id == draftID, current.revision == expectedRevision else {
@@ -452,7 +459,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     public func captureOperatorDraftPower(sample: OperatorDraftPowerSample,
                                            scopeID: UUID, now: Date? = nil,
                                            authorize: () -> Bool = { true }) throws -> OperatorDraftSnapshot {
-        try lock.withLock {
+        try withDatabaseLock {
             try updateOperatorDraftPower { current in
                 guard operatorPowerScopeID == scopeID, var power = current.power else { return current }
                 // Freshness is evaluated after database/transaction acquisition
@@ -468,7 +475,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     public func invalidateOperatorDraftPower() throws -> OperatorDraftSnapshot {
-        try lock.withLock {
+        try withDatabaseLock {
             operatorPowerScopeID = nil
             return try updateOperatorDraftPower { current in
                 guard var power = current.power else { return current }
@@ -506,7 +513,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     /// a separate record revision contract and cannot hijack this draft's ID.
     public func applyOperatorDraft(_ mutation: OperatorDraftMutation, nextDraft: QSO,
                                   powerConfiguration: (workspaceID: UUID, enabled: Bool, fallback: String)? = nil) throws -> OperatorDraftReceipt {
-        try lock.withLock {
+        try withDatabaseLock {
             guard (0..<9_007_199_254_740_991).contains(mutation.expectedRevision) else { throw OperatorDraftError.invalid }
             try execute("BEGIN IMMEDIATE;")
             do {
@@ -620,7 +627,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     public func fetch(limit: Int = 500, search: String = "", offset: Int = 0) throws -> [QSO] {
-        try lock.withLock {
+        try withDatabaseLock {
             let needle = search.trimmingCharacters(in: .whitespacesAndNewlines)
             let filtered = !needle.isEmpty
             let sql = filtered
@@ -644,7 +651,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     /// One SQLite read statement gives consumers a consistent contact view even
     /// while another connection appends to the logbook.
     public func fetchAll() throws -> [QSO] {
-        try lock.withLock {
+        try withDatabaseLock {
             try withStatement("SELECT record_json FROM qsos WHERE deleted_at IS NULL ORDER BY qso_start DESC;") {
                 try decodeRows($0)
             }
@@ -655,7 +662,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     /// Project from JSON so even an imported row with divergent scalar index
     /// columns has the same values as the former full-QSO decode.
     public func clusterContactRows() throws -> [ClusterContactRow] {
-        try lock.withLock {
+        try withDatabaseLock {
             try refreshAggregateCacheVersion()
             if let cachedClusterContactRows { return cachedClusterContactRows }
             let cacheKey = "cluster-contacts-v1"
@@ -727,7 +734,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     private func historyCandidates<T: Decodable>(call: String, adif: Int?, as type: T.Type) throws -> [T] {
-        try lock.withLock {
+        try withDatabaseLock {
             if let adif {
                 return try withStatement("""
                     WITH candidates AS (
@@ -759,7 +766,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     public func count(search: String = "") throws -> Int {
-        try lock.withLock {
+        try withDatabaseLock {
             let needle = search.trimmingCharacters(in: .whitespacesAndNewlines)
             let filtered = !needle.isEmpty
             let sql = filtered
@@ -788,7 +795,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     private func scalarCount(_ sql: String) throws -> Int {
-        try lock.withLock {
+        try withDatabaseLock {
             try withStatement(sql) { statement in
                 guard sqlite3_step(statement) == SQLITE_ROW else {
                     throw LogbookDatabaseError.sqlite(String(cString: sqlite3_errmsg(handle)))
@@ -801,7 +808,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     /// Imports a bounded batch as one transaction, skipping identities already present.
     /// The original QSO and pending outbox state remain intact on any failure.
     public func importBatch(_ values: [QSO]) throws -> Int {
-        try lock.withLock {
+        try withDatabaseLock {
             var seen = Set<SemanticQSOIdentity>()
             var imported = 0
             try execute("BEGIN IMMEDIATE;")
@@ -828,7 +835,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     public func previous(call: String, limit: Int = 20) throws -> [QSO] {
-        try lock.withLock {
+        try withDatabaseLock {
             try withStatement("SELECT record_json FROM qsos WHERE deleted_at IS NULL AND call = ? COLLATE NOCASE ORDER BY qso_start DESC LIMIT ?;") { statement in
                 bind(call, to: 1, in: statement)
                 sqlite3_bind_int(statement, 2, Int32(limit))
@@ -840,7 +847,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     /// Latest exact callsign/band/contact-mode match across the complete log.
     /// SUBMODE takes precedence; CAT sideband/reverse aliases share logging modes.
     public func latestWorkedContact(call: String, band: String, mode: String, excludingID: UUID? = nil) throws -> QSO? {
-        try lock.withLock {
+        try withDatabaseLock {
             try withStatement("""
                 SELECT record_json FROM qsos INDEXED BY idx_qsos_call_live_nocase
                 WHERE deleted_at IS NULL AND call = ? COLLATE NOCASE AND band = ? COLLATE NOCASE
@@ -858,7 +865,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     public func stats() throws -> LogbookStats {
-        try lock.withLock {
+        try withDatabaseLock {
             try refreshAggregateCacheVersion()
             let yearStart = Calendar(identifier: .gregorian).date(from: Calendar.current.dateComponents([.year], from: Date()))?.timeIntervalSince1970 ?? 0
             if let cachedStats, cachedStatsYearStart == yearStart { return cachedStats }
@@ -892,7 +899,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     public func awardProgress() throws -> AwardProgressSnapshot {
-        try lock.withLock {
+        try withDatabaseLock {
             try refreshAggregateCacheVersion()
             if let cachedAwards { return cachedAwards }
             // Bump this key if progress calculation semantics change.
@@ -978,7 +985,7 @@ public final class LogbookDatabase: @unchecked Sendable {
 
     /// One aggregate query for the map; never decode every QSO on every radio poll.
     public func dxccMapStatuses() throws -> [Int: String] {
-        try lock.withLock {
+        try withDatabaseLock {
             try refreshAggregateCacheVersion()
             if let cachedDXCCStatuses { return cachedDXCCStatuses }
             let cacheKey = "dxcc-map-v1"
@@ -1008,7 +1015,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     public func awardCatalog() throws -> AwardCatalogSnapshot {
-        try lock.withLock {
+        try withDatabaseLock {
             try refreshAggregateCacheVersion()
             if let cachedAwardCatalog { return cachedAwardCatalog }
             let cacheKey = try AwardCatalogEngine.persistedCacheKey.get()
@@ -1051,7 +1058,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     /// Single narrow projection for worked/confirmed reference history. It
     /// does not decode QSO records or classify a missing/failed DB as "new".
     public func opportunityReferenceHistory() throws -> [OpportunityReferenceHistory] {
-        try lock.withLock {
+        try withDatabaseLock {
             try refreshAggregateCacheVersion()
             if let cachedOpportunityReferences { return cachedOpportunityReferences }
             struct Key: Hashable { let kind: String; let reference: String }
@@ -1187,7 +1194,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     public func bandModeMatrix(call: String) throws -> Set<BandModeCell> {
-        try lock.withLock {
+        try withDatabaseLock {
             // A history page is not an award matrix: an older confirmation
             // must remain visible even after thousands of recent contacts.
             try withStatement("""
@@ -1211,7 +1218,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     public func dxccSummary(dxcc: Int) throws -> DXCCSummary {
-        try lock.withLock {
+        try withDatabaseLock {
             let predicate = "deleted_at IS NULL AND CAST(json_extract(record_json,'$.dxcc') AS INTEGER) = ?"
             let counts = try withStatement("""
                 SELECT COUNT(*),
@@ -1251,7 +1258,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     public func pending(limit: Int = 100, includingDeferred: Bool = false, excluding: (QSO) -> Bool = { _ in false }) throws -> [QSO] {
-        try lock.withLock {
+        try withDatabaseLock {
             guard limit > 0 else { return [] }
             let dueClause = includingDeferred ? "" : "AND (o.next_attempt_at IS NULL OR o.next_attempt_at <= ?)"
             let sql = """
@@ -1284,7 +1291,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     public func outboxEntries(limit: Int = 500) throws -> [SyncOutboxEntry] {
-        try lock.withLock {
+        try withDatabaseLock {
             try withStatement("""
                 SELECT q.record_json, COALESCE(o.attempt_count, 0), o.last_attempt_at, o.next_attempt_at, o.last_error
                 FROM qsos q LEFT JOIN sync_outbox o ON o.local_id = q.local_id
@@ -1308,7 +1315,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     public func recordSyncFailure(localID: UUID, message: String, at date: Date = Date()) throws {
-        try lock.withLock {
+        try withDatabaseLock {
             let previousAttempts = try withStatement("SELECT attempt_count FROM sync_outbox WHERE local_id = ? LIMIT 1;") { statement -> Int in
                 bind(localID.uuidString, to: 1, in: statement)
                 return sqlite3_step(statement) == SQLITE_ROW ? Int(sqlite3_column_int(statement, 0)) : 0
@@ -1335,7 +1342,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     public func retrySync(localID: UUID) throws {
-        try lock.withLock {
+        try withDatabaseLock {
             try withStatement("UPDATE sync_outbox SET next_attempt_at = NULL WHERE local_id = ?;") { statement in
                 bind(localID.uuidString, to: 1, in: statement)
                 try stepDone(statement)
@@ -1344,7 +1351,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     public func clearSyncFailure(localID: UUID) throws {
-        try lock.withLock {
+        try withDatabaseLock {
             try withStatement("DELETE FROM sync_outbox WHERE local_id = ?;") { statement in
                 bind(localID.uuidString, to: 1, in: statement)
                 try stepDone(statement)
@@ -1353,7 +1360,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     public func markSynced(localID: UUID, wavelogID: Int? = nil) throws {
-        try lock.withLock {
+        try withDatabaseLock {
             guard var qso = try lookup(localID: localID) else { return }
             if let wavelogID { qso.wavelogID = wavelogID }
             qso.isDirty = false
@@ -1365,7 +1372,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     /// A remote acknowledgement covers only the submitted snapshot. Logging
     /// remains available during a request; newer edits/deletes stay queued.
     public func acknowledgeSynced(_ submitted: QSO, wavelogID: Int? = nil) throws {
-        try lock.withLock {
+        try withDatabaseLock {
             try execute("BEGIN IMMEDIATE;")
             do {
                 if var current = try lookup(localID: submitted.id) {
@@ -1395,7 +1402,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     public func possibleDuplicate(call: String, band: String, mode: String, around date: Date, within seconds: TimeInterval = 600) throws -> QSO? {
-        try lock.withLock {
+        try withDatabaseLock {
             try withStatement("""
                 SELECT record_json FROM qsos
                 WHERE deleted_at IS NULL AND call = ? COLLATE NOCASE AND band = ? COLLATE NOCASE
@@ -1415,7 +1422,7 @@ public final class LogbookDatabase: @unchecked Sendable {
 
     @discardableResult
     public func mergeRemote(_ remote: QSO, preservingLocal: (QSO) -> Bool = { _ in false }) throws -> Bool {
-        try lock.withLock {
+        try withDatabaseLock {
             let linked = try remote.wavelogID.flatMap { try lookup(wavelogID: $0) }
             if let linked, preservingLocal(linked) { return false }
             if let existing = linked, existing.isDirty {
@@ -1464,7 +1471,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     /// every row individually would make automatic sync effectively
     /// continuous on a large logbook.
     public func mergeRemoteBatch(_ remotes: [QSO], preservingLocal: (QSO) -> Bool = { _ in false }) throws -> Int {
-        try lock.withLock {
+        try withDatabaseLock {
             guard !remotes.isEmpty else { return 0 }
             try execute("BEGIN IMMEDIATE;")
             do {
@@ -1481,8 +1488,149 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
+    // One owner spans all awaits, including the remote read and upload phase.
+    // Closing this particular connection invalidates its ephemeral run token.
+    func beginSyncReconciliation() throws -> SyncDatabaseRun {
+        try withDatabaseLock {
+            guard handle != nil else { throw LogbookDatabaseError.closed }
+            guard syncRunID == nil else { throw LogbookDatabaseError.syncBusy }
+            let run = SyncDatabaseRun(id: UUID()); syncRunID = run.id; return run
+        }
+    }
+
+    func endSyncReconciliation(_ run: SyncDatabaseRun) {
+        withDatabaseLock { if syncRunID == run.id { syncRunID = nil } }
+    }
+
+    /// Never call back into the service/workspace owner from this closure.
+    /// The service lease is checked BEFORE entering here (service -> DB order).
+    func withSyncDatabaseLock<T>(_ run: SyncDatabaseRun, _ body: () throws -> T) throws -> T {
+        try Task.checkCancellation()
+        try syncAdmission.beginBackground()
+        defer { syncAdmission.endBackground() }
+        return try lock.withLock {
+            try Task.checkCancellation()
+            guard handle != nil, syncRunID == run.id else { throw LogbookDatabaseError.syncRunChanged }
+            return try body()
+        }
+    }
+
+    func mergeRemoteSyncStep(_ remotes: ArraySlice<QSO>, run: SyncDatabaseRun,
+                             preservingLocal: (QSO) -> Bool) throws -> Int {
+        guard remotes.count <= 128 else { throw LogbookDatabaseError.syncRunChanged }
+        return try withSyncDatabaseLock(run) {
+            try execute("BEGIN IMMEDIATE;")
+            do {
+                var conflicts = 0
+                for remote in remotes {
+                    try Task.checkCancellation()
+                    if try mergeRemote(remote, preservingLocal: preservingLocal) { conflicts += 1 }
+                }
+                try Task.checkCancellation()
+                try execute("COMMIT;")
+                return conflicts
+            } catch { try? execute("ROLLBACK;"); throw error }
+        }
+    }
+
+    func syncUpperRowID(run: SyncDatabaseRun) throws -> Int64 {
+        try withSyncDatabaseLock(run) {
+            try withStatement("SELECT COALESCE(MAX(rowid),0) FROM qsos;") {
+                guard sqlite3_step($0) == SQLITE_ROW else { throw error() }
+                return sqlite3_column_int64($0, 0)
+            }
+        }
+    }
+
+    /// A bounded keyset traversal, not OFFSET or a decoded all-contact snapshot.
+    /// The high-water mark bounds traversal; current dirty state decides writes.
+    func reconcileRemoteDeletionStep(notIn remoteIDs: Set<Int>, after: Int64, through: Int64,
+                                     run: SyncDatabaseRun) throws -> SyncDeletionStep {
+        try withSyncDatabaseLock(run) {
+            try execute("BEGIN IMMEDIATE;")
+            do {
+                let rows: [(Int64, QSO?)] = try withStatement("""
+                    SELECT rowid,wavelog_id,deleted_at,record_json FROM qsos
+                    WHERE rowid > ? AND rowid <= ?
+                    ORDER BY rowid LIMIT 128;
+                    """) { statement in
+                    sqlite3_bind_int64(statement, 1, after); sqlite3_bind_int64(statement, 2, through)
+                    var rows: [(Int64, QSO?)] = []
+                    var step = sqlite3_step(statement)
+                    while step == SQLITE_ROW {
+                        try Task.checkCancellation()
+                        let rowID = sqlite3_column_int64(statement, 0)
+                        let remoteID = Int(sqlite3_column_int64(statement, 1))
+                        var value: QSO?
+                        if sqlite3_column_type(statement, 1) != SQLITE_NULL,
+                           sqlite3_column_type(statement, 2) == SQLITE_NULL, !remoteIDs.contains(remoteID) {
+                            guard let bytes = sqlite3_column_blob(statement, 3) else { throw LogbookDatabaseError.corruptRecord }
+                            value = try decoder.decode(QSO.self, from: Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 3))))
+                        }
+                        rows.append((rowID, value)); step = sqlite3_step(statement)
+                    }
+                    guard step == SQLITE_DONE else { throw error() }
+                    return rows
+                }
+                var conflicts = 0, deleted = 0
+                for (_, candidate) in rows {
+                    try Task.checkCancellation()
+                    guard var current = candidate else { continue }
+                    if current.isDirty {
+                        if try !hasConflict(localID: current.id) {
+                            var removed = current; removed.isDirty = false; removed.deletedAt = Date()
+                            try recordConflict(local: current, remote: removed); conflicts += 1
+                        }
+                    } else {
+                        current.deletedAt = Date(); try save(current, markDirty: false); deleted += 1
+                    }
+                }
+                try Task.checkCancellation()
+                try execute("COMMIT;")
+                return SyncDeletionStep(cursor: rows.last?.0 ?? through, done: rows.count < 128,
+                                        conflicts: conflicts, deleted: deleted)
+            } catch { try? execute("ROLLBACK;"); throw error }
+        }
+    }
+
+    func pendingSyncStep(after cursor: Int64, through: Int64, due: Date,
+                         run: SyncDatabaseRun) throws -> SyncPendingStep {
+        try withSyncDatabaseLock(run) {
+            try withStatement("""
+                SELECT q.rowid,q.is_dirty,CASE WHEN q.is_dirty=1 THEN q.record_json ELSE NULL END,o.next_attempt_at
+                FROM qsos q
+                LEFT JOIN sync_outbox o ON o.local_id=q.local_id
+                WHERE q.rowid > ? AND q.rowid <= ? ORDER BY q.rowid LIMIT 128;
+                """) { statement in
+                sqlite3_bind_int64(statement, 1, cursor)
+                sqlite3_bind_int64(statement, 2, through)
+                var rows: [QSO] = [], next = cursor, scanned = 0
+                var step = sqlite3_step(statement)
+                while step == SQLITE_ROW {
+                    try Task.checkCancellation()
+                    next = sqlite3_column_int64(statement, 0)
+                    scanned += 1
+                    if sqlite3_column_int(statement, 1) == 1,
+                       sqlite3_column_type(statement, 3) == SQLITE_NULL || sqlite3_column_double(statement, 3) <= due.timeIntervalSince1970 {
+                        guard let bytes = sqlite3_column_blob(statement, 2) else { throw LogbookDatabaseError.corruptRecord }
+                        rows.append(try decoder.decode(QSO.self, from: Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 2)))))
+                    }
+                    step = sqlite3_step(statement)
+                }
+                guard step == SQLITE_DONE else { throw error() }
+                return SyncPendingStep(cursor: next, done: scanned < 128, rows: rows)
+            }
+        }
+    }
+
+    func withDatabaseLock<T>(_ body: () throws -> T) rethrows -> T {
+        syncAdmission.beginForeground()
+        defer { syncAdmission.endForeground() }
+        return try lock.withLock(body)
+    }
+
     public func conflicts() throws -> [SyncConflict] {
-        try lock.withLock {
+        try withDatabaseLock {
             try withStatement("SELECT conflict_json FROM sync_conflicts ORDER BY detected_at DESC;") { statement in
                 var values: [SyncConflict] = []
                 while sqlite3_step(statement) == SQLITE_ROW {
@@ -1495,7 +1643,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     public func resolveConflict(_ conflict: SyncConflict, useRemote: Bool) throws {
-        try lock.withLock {
+        try withDatabaseLock {
             if useRemote {
                 var remote = conflict.remoteQSO
                 remote.id = conflict.localQSO.id
@@ -1511,7 +1659,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     public func resolveConflict(_ conflict: SyncConflict, merged: QSO) throws {
-        try lock.withLock {
+        try withDatabaseLock {
             var value = merged
             value.id = conflict.localQSO.id
             value.wavelogID = conflict.remoteQSO.wavelogID ?? conflict.localQSO.wavelogID
@@ -1524,7 +1672,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     public func hasConflict(localID: UUID) throws -> Bool {
-        try lock.withLock {
+        try withDatabaseLock {
             try withStatement("SELECT 1 FROM sync_conflicts WHERE local_id = ? LIMIT 1;") { statement in
                 bind(localID.uuidString, to: 1, in: statement)
                 return sqlite3_step(statement) == SQLITE_ROW
@@ -1534,7 +1682,7 @@ public final class LogbookDatabase: @unchecked Sendable {
 
     @discardableResult
     public func recordRemoteDeletionConflicts(notIn remoteIDs: Set<Int>) throws -> Int {
-        try lock.withLock {
+        try withDatabaseLock {
             let dirtyRemote = try withStatement("SELECT record_json FROM qsos WHERE wavelog_id IS NOT NULL AND is_dirty = 1 AND deleted_at IS NULL;") {
                 try decodeRows($0)
             }
@@ -1558,7 +1706,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     public func removeCleanRemoteRecords(notIn remoteIDs: Set<Int>) throws -> Int {
-        try lock.withLock {
+        try withDatabaseLock {
             let candidates = try withStatement("SELECT record_json FROM qsos WHERE wavelog_id IS NOT NULL AND is_dirty = 0 AND deleted_at IS NULL;") {
                 try decodeRows($0)
             }
@@ -1574,7 +1722,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     public func lookup(localID: UUID) throws -> QSO? {
-        try lock.withLock {
+        try withDatabaseLock {
             try lookup(sql: "SELECT record_json FROM qsos WHERE local_id = ? LIMIT 1;", value: localID.uuidString)
         }
     }
@@ -1904,6 +2052,46 @@ private struct SyncedQSOState: Codable, Equatable {
         txPower = value.txPower
         propagationMode = value.propagationMode
         qslVia = value.qslVia
+    }
+}
+
+struct SyncDatabaseRun: Equatable, Sendable { let id: UUID }
+struct SyncDeletionStep: Sendable { let cursor: Int64; let done: Bool; let conflicts: Int; let deleted: Int }
+struct SyncPendingStep: Sendable { let cursor: Int64; let done: Bool; let rows: [QSO] }
+
+/// Only admission state lives here; the existing NSRecursiveLock still owns
+/// every database operation. Never hold this condition while waiting for it.
+final class SyncDatabaseAdmission: @unchecked Sendable {
+    private let condition = NSCondition()
+    private let waitObserver: (@Sendable () -> Void)?
+    private var foreground = 0
+    private var background = false
+    init(waitObserver: (@Sendable () -> Void)? = nil) { self.waitObserver = waitObserver }
+    func beginForeground() { condition.lock(); foreground += 1; condition.broadcast(); condition.unlock() }
+    // Internal deterministic test rendezvous; no IPC/public API or production
+    // caller. A background step may observe a registered mutex waiter here.
+    func waitForForegroundRegistrations(_ count: Int, until deadline: Date) -> Bool {
+        condition.lock(); defer { condition.unlock() }
+        while foreground < count {
+            if !condition.wait(until: deadline) { return foreground >= count }
+        }
+        return true
+    }
+    func endForeground() {
+        condition.lock(); foreground -= 1; condition.broadcast(); condition.unlock()
+    }
+    func beginBackground() throws {
+        condition.lock(); defer { condition.unlock() }
+        while foreground > 0 || background {
+            try Task.checkCancellation()
+            waitObserver?() // Nonblocking test rendezvous; absent in production.
+            // Cancellable wait, not a CPU spin or a scheduling-speed assertion.
+            _ = condition.wait(until: Date().addingTimeInterval(0.05))
+        }
+        try Task.checkCancellation(); background = true
+    }
+    func endBackground() {
+        condition.lock(); background = false; condition.broadcast(); condition.unlock()
     }
 }
 

@@ -30,10 +30,18 @@ private func historyIdentity(_ qso: QSO) -> String {
 public actor SyncEngine {
     private let database: LogbookDatabase
     private let client: WavelogClient
+    private let validateRun: @Sendable () throws -> Void
+    // Internal rendezvous permits deterministic scheduling tests without IPC.
+    var betweenReconciliationSteps: @Sendable () async throws -> Void = { await Task.yield() }
+    func setReconciliationStepObserver(_ observer: @escaping @Sendable () async throws -> Void) {
+        betweenReconciliationSteps = observer
+    }
 
-    public init(database: LogbookDatabase, configuration: WavelogConfiguration, session: URLSession = .shared) {
+    public init(database: LogbookDatabase, configuration: WavelogConfiguration, session: URLSession = .shared,
+                validateRun: @escaping @Sendable () throws -> Void = {}) {
         self.database = database
         self.client = WavelogClient(configuration: configuration, session: session)
+        self.validateRun = validateRun
     }
 
     /// Validates the same complete remote snapshot used by synchronization,
@@ -212,6 +220,9 @@ public actor SyncEngine {
     }
 
     public func synchronize() async throws -> SyncReport {
+        try validateSyncRun()
+        let run = try database.beginSyncReconciliation()
+        defer { database.endSyncReconciliation(run) }
         let snapshot = try await Self.readRemoteHistory(client: client)
         let remoteQSOs = snapshot.qsos
         let remoteIDs = snapshot.remoteIDs
@@ -220,48 +231,103 @@ public actor SyncEngine {
         func held(_ qso: QSO) -> Bool {
             qso.wavelogID.map(snapshot.heldRemoteIDs.contains) == true || snapshot.heldIdentities.contains(historyIdentity(qso))
         }
-        report.conflicts += try database.mergeRemoteBatch(remoteQSOs, preservingLocal: held)
+        for offset in stride(from: 0, to: remoteQSOs.count, by: 128) {
+            try validateSyncRun()
+            report.conflicts += try database.mergeRemoteSyncStep(remoteQSOs[offset..<min(offset + 128, remoteQSOs.count)],
+                                                                 run: run, preservingLocal: held)
+            try await betweenReconciliationSteps()
+        }
         report.pulled += remoteQSOs.count
-        report.conflicts += try database.recordRemoteDeletionConflicts(notIn: remoteIDs)
-        report.deleted += try database.removeCleanRemoteRecords(notIn: remoteIDs)
+        try validateSyncRun()
+        let upperRowID = try database.syncUpperRowID(run: run)
+        var deletionCursor: Int64 = 0
+        while true {
+            try validateSyncRun()
+            let step = try database.reconcileRemoteDeletionStep(notIn: remoteIDs, after: deletionCursor,
+                                                                through: upperRowID, run: run)
+            report.conflicts += step.conflicts; report.deleted += step.deleted
+            deletionCursor = step.cursor
+            try await betweenReconciliationSteps()
+            if step.done { break }
+        }
 
-        for qso in try database.pending(limit: 500, excluding: held) {
-            try Task.checkCancellation()
+        // Retain oldest-update order and the accepted-row cap, while held or
+        // deferred contacts cannot force one all-history locked JSON decode.
+        var pending: [QSO] = []
+        var pendingCursor: Int64 = 0
+        var seen = Set<UUID>()
+        let due = Date()
+        while true {
+            try validateSyncRun()
+            let step = try database.pendingSyncStep(after: pendingCursor, through: upperRowID, due: due, run: run)
+            pendingCursor = step.cursor
+            for qso in step.rows where seen.insert(qso.id).inserted && !held(qso) {
+                pending.append(qso)
+            }
+            pending.sort {
+                $0.updatedAt == $1.updatedAt ? $0.id.uuidString < $1.id.uuidString : $0.updatedAt < $1.updatedAt
+            }
+            if pending.count > 500 { pending.removeLast(pending.count - 500) }
+            try await betweenReconciliationSteps()
+            if step.done { break }
+        }
+
+        for candidate in pending {
+            try validateSyncRun()
+            guard let qso = try database.withSyncDatabaseLock(run, { try database.lookup(localID: candidate.id) }),
+                  qso.isDirty else { continue }
             // Preserve both pending edits/deletes of held IDs and unlinked
             // local contacts which could otherwise create another duplicate.
             if held(qso) { continue }
-            if try database.hasConflict(localID: qso.id) { continue }
+            if try database.withSyncDatabaseLock(run, { try database.hasConflict(localID: qso.id) }) { continue }
             do {
                 if qso.deletedAt != nil {
                     // A prior delete may have succeeded before its response was
                     // lost. The verified complete scan already proves absence.
                     if let remoteID = qso.wavelogID, remoteIDs.contains(remoteID) {
+                        try validateForNetwork(run)
                         try await client.deleteQSO(id: remoteID); report.deleted += 1
                     }
-                    try database.acknowledgeSynced(qso)
+                    try validateSyncRun()
+                    try database.withSyncDatabaseLock(run) { try database.acknowledgeSynced(qso) }
                     continue
                 }
                 if let remoteID = qso.wavelogID {
+                    try validateForNetwork(run)
                     _ = try await client.updateQSO(id: remoteID, fields: WavelogQSOUpdate(qso))
-                    try database.acknowledgeSynced(qso)
+                    try validateSyncRun()
+                    try database.withSyncDatabaseLock(run) { try database.acknowledgeSynced(qso) }
                 } else {
                     guard let create = WavelogQSOCreate(adif: qso.adifRecord) else {
-                        try database.recordSyncFailure(localID: qso.id, message: "This QSO cannot be converted to a valid Wavelog request.")
+                        try validateSyncRun()
+                        try database.withSyncDatabaseLock(run) { try database.recordSyncFailure(localID: qso.id, message: "This QSO cannot be converted to a valid Wavelog request.") }
                         report.failed += 1
                         continue
                     }
+                    try validateForNetwork(run)
                     let remote = try await client.createQSO(create)
-                    try database.acknowledgeSynced(qso, wavelogID: remote.id)
+                    try validateSyncRun()
+                    try database.withSyncDatabaseLock(run) { try database.acknowledgeSynced(qso, wavelogID: remote.id) }
                 }
                 report.pushed += 1
             } catch {
-                try Task.checkCancellation()
-                try database.recordSyncFailure(localID: qso.id, message: error.localizedDescription)
+                try validateSyncRun()
+                try database.withSyncDatabaseLock(run) { try database.recordSyncFailure(localID: qso.id, message: error.localizedDescription) }
                 report.failed += 1
             }
         }
 
         return report
+    }
+
+    private func validateSyncRun() throws {
+        try Task.checkCancellation()
+        try validateRun()
+    }
+
+    private func validateForNetwork(_ run: SyncDatabaseRun) throws {
+        try validateSyncRun()
+        try database.withSyncDatabaseLock(run) {}
     }
 }
 

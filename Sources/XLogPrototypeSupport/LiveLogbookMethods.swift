@@ -12,6 +12,12 @@ struct OperatorDraftPowerOwnerSnapshot: Sendable {
     let settings: XLogSettings
 }
 
+struct LiveLogbookSyncLease: Sendable {
+    let id: UUID
+    let database: LogbookDatabase
+    let generation: String
+}
+
 /// Shared local bridge to an explicitly created integration workspace. It never opens
 /// LogbookDatabase() without a URL, and it never constructs a Wavelog client.
 public final class LiveLogbookMethods: @unchecked Sendable {
@@ -24,7 +30,8 @@ public final class LiveLogbookMethods: @unchecked Sendable {
     private var database: LogbookDatabase?
     private var workspace: IntegrationWorkspace?
     private var ctyResolverCache: (source: String, resolver: CTYResolver)?
-    private var manualSyncActive = false
+    private var syncLease: LiveLogbookSyncLease?
+    private var manualSyncActive: Bool { syncLease != nil }
     private let syncAuthorizationKey = "OM0RX-xLog.sync-authorization.v1"
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
@@ -225,7 +232,8 @@ public final class LiveLogbookMethods: @unchecked Sendable {
         }
     }
 
-    func beginManualSync(expected: XLogSettings? = nil, automatic: Bool = false) throws {
+    @discardableResult
+    func beginManualSync(expected: XLogSettings? = nil, automatic: Bool = false) throws -> LiveLogbookSyncLease {
         try lock.withLock {
             _ = try readyDatabase()
             guard !manualSyncActive else { throw WorkerFailure("sync_busy", "Synchronization is already running.") }
@@ -237,12 +245,27 @@ public final class LiveLogbookMethods: @unchecked Sendable {
                 throw WorkerFailure("sync_configuration_changed", "The Wavelog destination changed before synchronization could start.")
             }
             guard !automatic || settings.automaticSync else { throw WorkerFailure("sync_disabled", "Automatic sync is no longer enabled.") }
-            manualSyncActive = true
+            let lease = LiveLogbookSyncLease(id: UUID(), database: try readyDatabase(), generation: try editGeneration())
+            syncLease = lease
+            return lease
         }
     }
 
-    func endManualSync() {
-        lock.withLock { manualSyncActive = false }
+    func validateManualSync(_ lease: LiveLogbookSyncLease) throws {
+        try lock.withLock {
+            guard syncLease?.id == lease.id, database === lease.database,
+                  try editGeneration() == lease.generation else {
+                throw WorkerFailure("sync_configuration_changed", "The synchronization workspace changed.")
+            }
+        }
+    }
+
+    @discardableResult
+    func endManualSync(_ lease: LiveLogbookSyncLease) -> Bool {
+        lock.withLock {
+            guard syncLease?.id == lease.id else { return false }
+            syncLease = nil; return true
+        }
     }
 
     func currentCTYResolver() throws -> CTYResolver {

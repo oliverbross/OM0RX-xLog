@@ -246,28 +246,34 @@ actor LiveServiceMethods {
 
     private func startSync(settings: XLogSettings, automatic: Bool = false) throws {
         guard !stopped, syncTask == nil else { throw WorkerFailure("sync_busy", "Synchronization is already running or stopping.") }
-        let run: SyncOperation
-        if let operation { run = operation } else {
+        let configuration: WavelogConfiguration?
+        if operation != nil { configuration = nil } else {
             guard let url = URL(string: settings.wavelogURL), let token = try workspaceSecrets().load(.wavelogToken) else {
                 throw WorkerFailure("sync_configuration_required", "Configure the Wavelog URL, station ID and token first.")
             }
-            let configuration = try WavelogConfiguration(baseURL: url, token: token, stationID: settings.wavelogStationID)
-            run = { database, _ in try await SyncEngine(database: database, configuration: configuration).synchronize() }
+            configuration = try WavelogConfiguration(baseURL: url, token: token, stationID: settings.wavelogStationID)
         }
-        try logbook.beginManualSync(expected: settings, automatic: automatic)
-        let database: LogbookDatabase
-        do { database = try logbook.openedDatabase() }
-        catch { logbook.endManualSync(); throw error }
+        let lease = try logbook.beginManualSync(expected: settings, automatic: automatic)
+        let owner = logbook
+        let run: SyncOperation
+        if let operation { run = operation } else {
+            guard let configuration else { _ = owner.endManualSync(lease); throw invalid() }
+            run = { database, _ in
+                try await SyncEngine(database: database, configuration: configuration,
+                    validateRun: { try owner.validateManualSync(lease) }).synchronize()
+            }
+        }
         syncState = ["running": true, "status": "Synchronizing"]
         syncTask = Task {
             do {
                 try Task.checkCancellation()
-                let report = try await run(database, settings)
+                try owner.validateManualSync(lease)
+                let report = try await run(lease.database, settings)
                 self.finish(["running": false, "status": report.failed > 0 ? "Completed with failures" : report.held > 0 ? "Completed; ambiguous remote contacts held for review" : "Completed",
                     "pushed": report.pushed, "pulled": report.pulled, "deleted": report.deleted,
-                    "conflicts_count": report.conflicts, "failed": report.failed, "held": report.held], failed: report.failed > 0, interval: settings.syncIntervalMinutes)
+                    "conflicts_count": report.conflicts, "failed": report.failed, "held": report.held], failed: report.failed > 0, interval: settings.syncIntervalMinutes, lease: lease)
             } catch {
-                self.finish(Self.syncFailure(error, phase: "run"), failed: true, interval: settings.syncIntervalMinutes)
+                self.finish(Self.syncFailure(error, phase: "run"), failed: true, interval: settings.syncIntervalMinutes, lease: lease)
             }
         }
     }
@@ -335,8 +341,8 @@ actor LiveServiceMethods {
         return state
     }
 
-    private func finish(_ state: [String: Any], failed: Bool, interval: Int) {
-        logbook.endManualSync()
+    private func finish(_ state: [String: Any], failed: Bool, interval: Int, lease: LiveLogbookSyncLease) {
+        guard logbook.endManualSync(lease) else { return }
         syncState = state; syncState["finished_at"] = ISO8601DateFormatter().string(from: Date()); syncTask = nil
         syncState["completion_id"] = UUID().uuidString
         failures = failed ? min(6, failures + 1) : 0
