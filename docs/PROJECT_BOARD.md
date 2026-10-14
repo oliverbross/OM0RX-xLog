@@ -248,8 +248,10 @@ acceptance. Consult the detailed tracker before closing any individual item.
 - **Cross-platform/windowing:** macOS, Windows and Linux route parity,
   main-renderer-absent operation, mixed DPI/negative origins, monitor disconnect,
   maximize/restore and window recovery.
-- **RUMlog comparison:** finish read-only Settings/menu evidence, then implement
-  only prioritized independent benefits; do not expose empty imitation features.
+- **RUMlog comparison:** RUM-01/02 read-only Settings, menu and installed-bundle
+  help evidence is complete. The selected next RUM-03 benefit is a passive,
+  opt-in custom DX-alert rule foundation over existing cluster classifications;
+  do not expose RF authority or empty contest/QSL imitation features.
 
 ## Update discipline
 

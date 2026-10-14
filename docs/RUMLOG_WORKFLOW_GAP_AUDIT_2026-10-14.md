@@ -11,9 +11,11 @@ data was copied. No station command, credential change or log mutation was made.
   menus and expanded Window menu. A later local resource/default-key inventory
   inspected names only; it did not open a log, reveal a saved value or change a
   RUMlog preference.
-- Official online documentation was read as a fallback. Its contents page labels
-  the documentation version 6.4; documentation is not proof of installed 6.5.1
-  behavior. Local bundled-help reads were unavailable through the context tool.
+- Official online documentation was initially read as a fallback. Its contents
+  page labels the documentation version 6.4, so it is not proof of installed
+  6.5.1 behavior. A later read-only filesystem pass directly inspected the
+  English help bundled inside the installed 6.5.1 application; no application
+  launch, saved preference, logbook or device connection was involved.
 - Original comparison baseline: alpha.15, source `a2c0446`. Signed/notarized
   alpha.29, source `db7ed47`, is now the installed xLog baseline.
 - A 15 October read-only native accessibility inspection opened the installed
@@ -54,6 +56,36 @@ remove the fallback sidebar until navigation, keyboard access and main-window
 recovery are accepted on Mac. Do not add empty QSL/Contest/Online menu categories
 merely to look like RUMlog.
 
+## Bundled-help workflow audit
+
+The installed 6.5.1 bundle provides local English help for DX alarms, contest
+operation, paper QSL, LoTW and eQSL. This is stronger version-local evidence than
+the earlier online 6.4 fallback, while remaining documentation rather than live
+workflow acceptance.
+
+- DX Alarm rules distinguish DXCC, band, mode, slot and IOTA novelty against the
+  logbook, allow confirmation-source choices, and offer color-only or opt-in
+  spoken delivery. Callsign wildcards can track named stations. xLog already has
+  authoritative cluster call/DXCC classifications and a retained Alerts surface,
+  so a notification-only rule owner is a good architectural fit.
+- Contest operation is a separate, specialized real-time log with scoring,
+  multiplier/duplicate checks, exchange/CW workflows and Cabrillo/REG1TEST
+  export. The help also documents material limits such as first-radio-only
+  support. This is not a small extension of the ordinary logbook and must not be
+  represented by empty menu entries or a partial imitation.
+- Paper QSL, LoTW and eQSL are separate upload/download workflows. xLog currently
+  preserves their ADIF confirmation fields and receives fresh confirmations
+  through Wavelog; standalone service owners would require separate provider,
+  credential, receipt and reconciliation contracts before implementation.
+
+The next independent RUM-03 source slice is therefore the custom DX-alert
+foundation requested as NIGHT-05: an opt-in, pure condition model and evaluator
+over retained cluster classification, with bounded deduplication/rate limiting
+and a passive dashboard. It must expose no Tune, PTT, CW, rotor, radio or station
+command and must not reuse the existing safety-alert report as a live all-clear.
+Native popup, bell and speech delivery remain later opt-in adapters after the
+rule owner and test action are accepted.
+
 ## Prioritized gaps
 
 | Requirement / useful convention | xLog evidence and next acceptance |
@@ -65,6 +97,7 @@ merely to look like RUMlog.
 | Settings follow task boundaries | Installed RUMlog Settings confirms General, QRGs, Modes/Sat, DXCC, DX Cluster and device/service-specific groups. xLog already separates station, services, reference data, independent rotator, CW, display, workspace and backups. Editable band-edge/mode visibility is now evidenced as a candidate, not an automatic taxonomy change. Retain Keychain storage and xLog's revision/authority boundaries. [First Steps](https://dl2rum.de/RUMlogNG/docs/en/pages/FirstSteps.html) |
 | Radio selection/configuration versus actual connection | RUMlog documents an explicit CAT enable choice, interface selection and per-radio options. xLog must retain its separate active/viewed provider, explicit Apply/Connect and independent rotor ownership. Settings navigation must never reconnect or control equipment. Physical Mac acceptance remains separate. [CAT Settings](https://dl2rum.de/RUMlogNG/docs/en/pages/CAT-Prefs.html) |
 | Cluster configuration separate from display filters | RUMlog documents connection profiles, display filtering and a terminal retaining incoming data. xLog has profile/filter/console paths and its separate Spot History archive. Verify changes do not disconnect unrelated sockets or erase received/history records. [DX Cluster Settings](https://dl2rum.de/RUMlogNG/docs/en/pages/Dx-Cluster-Setting.html) |
+| Opt-in DX alert rules without RF authority | Installed 6.5.1 bundled help confirms novelty dimensions, confirmation-source choices, color-only/spoken delivery and wildcard station watches. xLog already owns the required cluster classifications; the selected next slice is a pure persisted rule/evaluation boundary with deduplication, rate limiting and a passive dashboard. Sound, speech and native popup remain explicit later opt-ins; alerts can never issue station actions. |
 | Receive WSJT-X logged contacts | Commit `d9b46da` adds an opt-in receive-only UDP listener for the official big-endian Logged ADIF message type 12. It accepts loopback or IPv4 multicast, starts only from saved explicit enablement, writes through xLog's local semantic duplicate boundary and never sends a WSJT-X packet or station command. Native parser/import coverage is 5/5 and UI/settings coverage is 24/24; live WSJT-X acceptance remains open. [WSJT-X protocol source](https://sourceforge.net/p/wsjt/wsjtx/ci/master/tree/Network/NetworkMessage.hpp) |
 | Optional online log services | QRZ and Club Log now have independent source-complete upload owners with separate vault credentials, explicit default-off prospective enrollment, exact-revision/payload claims, durable receipts, ambiguous-outcome no-replay, credential removal and aggregate-only local health. Only new manual or WSJT-X Logged ADIF contacts after each provider is enabled are eligible; generic imports, Wavelog pulls, edits and confirmation refreshes never backfill. Club Log uses only `realtime.php`; every known non-200 atomically records rejection, disables only Club Log and cancels its queue to prevent repeated bad requests and firewall escalation. Neither provider made a live request, so account acceptance remains open. Keep Wavelog as the richer two-way reconciliation service. HRDLOG remains unimplemented pending a current official contract. [QRZ acceptance](QRZ_UPLOAD_FOUNDATION_ACCEPTANCE_2026-10-15.md) · [Club Log acceptance](CLUB_LOG_UPLOAD_FOUNDATION_ACCEPTANCE_2026-10-15.md) · [QRZ API](https://www.qrz.com/docs/logbook/QRZLogbookAPI.html) · [Club Log API keys](https://clublog.freshdesk.com/support/solutions/articles/54910-api-keys) · [Club Log upload safety](https://clublog.freshdesk.com/support/solutions/articles/54905) |
 
@@ -90,11 +123,14 @@ merely to look like RUMlog.
    review/re-arm policy for rejected or uncertain receipts. Add HRDLOG only after
    its current official contract is verified, behind the same durable receipt,
    vault and truthful upload-only boundaries.
-6. Audit contest, QSL and alert workflows in bounded read-only stages before
-   selecting further implementations.
+6. The installed-bundle contest, QSL and alert read-only audit is complete.
+   Implement the selected notification-only DX-alert foundation before any
+   delivery adapter; keep contest and direct LoTW/eQSL as separately scoped
+   programmes rather than empty parity surfaces.
 
 RUM-01 and RUM-02 are **source complete at the read-only comparison boundary**.
 RUM-03 remains an ongoing sequence of independently implemented, reviewed and
 separately accepted slices. WSJT-X receive-only intake and QRZ's prospective
-upload owner/UI are source-complete; live account and installed integration
+upload owner/UI are source-complete; the next selected slice is the passive
+custom DX-alert rule foundation. Live account and installed integration
 acceptance remain open.
