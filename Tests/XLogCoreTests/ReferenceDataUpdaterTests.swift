@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import XLogCore
 
-private final class ConditionalReferenceURLProtocol: URLProtocol, @unchecked Sendable {
+private final class ConditionalReferenceURLProtocol: URLProtocol {
     struct RequestHeaders: Equatable {
         var ifNoneMatch: String?
         var ifModifiedSince: String?
@@ -80,7 +80,7 @@ private final class ConditionalReferenceURLProtocol: URLProtocol, @unchecked Sen
     }()
 }
 
-private final class ReferenceMetadataURLProtocol: URLProtocol, @unchecked Sendable {
+private final class ReferenceMetadataURLProtocol: URLProtocol {
     private static let lock = NSLock()
     private static var statuses: [String: Int] = [:]
     private static var bodies: [String: Data] = [:]
@@ -184,7 +184,7 @@ private enum ReferenceCacheFixtures {
 }
 
 /// Sends a valid response body but holds completion until the caller cancels.
-private final class HeldReferenceURLProtocol: URLProtocol, @unchecked Sendable {
+private final class HeldReferenceURLProtocol: URLProtocol {
     private static let lock = NSLock()
     private static var body = Data()
     private static var started: AsyncStream<URLRequest>.Continuation?

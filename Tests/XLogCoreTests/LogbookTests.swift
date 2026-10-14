@@ -36,7 +36,7 @@ private func adifResponse(
     return try! JSONEncoder().encode(response)
 }
 
-private final class SyncURLProtocol: URLProtocol, @unchecked Sendable {
+private final class SyncURLProtocol: URLProtocol {
     private static let lock = NSLock()
     private static var recordedMethods: [String] = []
 
@@ -59,7 +59,7 @@ private final class SyncURLProtocol: URLProtocol, @unchecked Sendable {
     override func stopLoading() {}
 }
 
-private final class PagedSyncURLProtocol: URLProtocol, @unchecked Sendable {
+private final class PagedSyncURLProtocol: URLProtocol {
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
@@ -79,7 +79,7 @@ private final class PagedSyncURLProtocol: URLProtocol, @unchecked Sendable {
     override func stopLoading() {}
 }
 
-private final class UnstablePagedSyncURLProtocol: URLProtocol, @unchecked Sendable {
+private final class UnstablePagedSyncURLProtocol: URLProtocol {
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {

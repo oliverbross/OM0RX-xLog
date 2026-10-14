@@ -289,7 +289,7 @@ private actor SyncCounter {
     var count = 0
     func increment() { count += 1 }
 }
-private final class EmptySyncHistoryProtocol: URLProtocol, @unchecked Sendable {
+private final class EmptySyncHistoryProtocol: URLProtocol {
     private static let lock = NSLock()
     private static var recorded: [String] = []
     static func reset() { lock.lock(); defer { lock.unlock() }; recorded = [] }

@@ -15,6 +15,18 @@ private final class FakeWSJTXReceiver: WSJTXDatagramReceiving, @unchecked Sendab
     func stop() { stopCount += 1 }
 }
 
+private final class ImportCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = 0
+
+    func nextResult() -> (Int, Int) {
+        lock.withLock {
+            value += 1
+            return value == 1 ? (1, 0) : (0, 1)
+        }
+    }
+}
+
 final class LiveWSJTXBridgeTests: XCTestCase {
     private func append(_ value: UInt32, to data: inout Data) {
         data.append(UInt8((value >> 24) & 0xff)); data.append(UInt8((value >> 16) & 0xff))
@@ -47,12 +59,11 @@ final class LiveWSJTXBridgeTests: XCTestCase {
     func testOptInListenerImportsOnceAndCountsSemanticDuplicate() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-wsjtx-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: directory) }
-        let lock = NSLock(); var importedCalls = 0
+        let importedCalls = ImportCounter()
         let receiver = FakeWSJTXReceiver()
         let bridge = LiveWSJTXBridge(configurationURL: directory.appendingPathComponent("wsjtx.json"),
-            workspaceAvailable: { true }, importer: { _ in
-                lock.withLock { importedCalls += 1; return importedCalls == 1 ? (1, 0) : (0, 1) }
-            }, receiverFactory: { handler, _ in receiver.onDatagram = handler; return receiver })
+            workspaceAvailable: { true }, importer: { _ in importedCalls.nextResult() },
+            receiverFactory: { handler, _ in receiver.onDatagram = handler; return receiver })
         let initial = try await bridge.handle(method: "wsjtx_snapshot", params: [:])
         var configuration = initial["configuration"] as! [String: Any]
         configuration["enabled"] = true; configuration["address"] = "239.255.0.1"; configuration["port"] = 2_237

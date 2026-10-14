@@ -305,7 +305,7 @@ struct LiveOpportunitiesMethodsTests {
     }
 }
 
-private final class ValidOpportunityProjectionFeed: URLProtocol, @unchecked Sendable {
+private final class ValidOpportunityProjectionFeed: URLProtocol {
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
@@ -318,7 +318,7 @@ private final class ValidOpportunityProjectionFeed: URLProtocol, @unchecked Send
     override func stopLoading() { }
 }
 
-private final class FailedOpportunityProjectionFeed: URLProtocol, @unchecked Sendable {
+private final class FailedOpportunityProjectionFeed: URLProtocol {
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
@@ -330,7 +330,7 @@ private final class FailedOpportunityProjectionFeed: URLProtocol, @unchecked Sen
     override func stopLoading() { }
 }
 
-private final class EmptyOpportunityProjectionFeed: URLProtocol, @unchecked Sendable {
+private final class EmptyOpportunityProjectionFeed: URLProtocol {
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
