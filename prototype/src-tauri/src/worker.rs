@@ -14,6 +14,7 @@ static IN_FLIGHT: AtomicUsize = AtomicUsize::new(0);
 const MAX_IN_FLIGHT: usize = 16;
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(45);
 pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
+    let label = crate::workspace_windows::surface_role(label);
     validate_request(request)?;
     if matches!(request["method"].as_str(), Some("sync_run" | "sync_configure" | "sync_resolve" | "sync_retry")) {
         return Err("Use the shared generation-bound Sync mutation owner.".into());

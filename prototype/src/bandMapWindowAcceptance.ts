@@ -3,8 +3,8 @@ import { validMapContext } from "./live/mapContext";
 
 /** This verifies only the explicitly labelled isolated fixture, never live RF
  * observations. The real map surface must separately have rendered its scale. */
-export async function verifyBandMapContext(scale: string | null) {
-  if (!scale || !/^\d+%$/.test(scale)) throw new Error("Missing rendered band-map scale");
+export async function verifyBandMapContext(scale: string | null, focused = false) {
+  if (!focused && (!scale || !/^\d+%$/.test(scale))) throw new Error("Missing rendered band-map scale");
   const deadline = Date.now() + 15_000;
   do {
     const value: any = await invoke("map_context_snapshot");
@@ -18,7 +18,7 @@ export async function verifyBandMapContext(scale: string | null) {
       value.cluster.selected !== null || value.cluster.response?.snapshot?.spots?.length !== 0) {
       throw new Error("Isolated band-map context could not be verified without external owners");
     }
-    if (`${Math.round(value.metadata.preferences.bandMapFontScale * 100)}%` === scale) {
+    if (focused || `${Math.round(value.metadata.preferences.bandMapFontScale * 100)}%` === scale) {
       return { synthetic: true, source: "isolated_local_worker", externalOwners: false,
         generation: value.metadata.generation, revision: value.metadata.revision, scale };
     }

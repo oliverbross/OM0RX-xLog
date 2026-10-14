@@ -274,7 +274,7 @@ async function main(report: Json) {
     if (detached) break;
     await new Promise(resolve => setTimeout(resolve, 50));
   }
-  check("detached_projection", detached?.status === "passed" && detached?.scope === "integrated-local-ui" && detached?.details?.surface === "band-maps" && detached.details.scale === scale &&
+  check("detached_projection", detached?.status === "passed" && detached?.scope === "integrated-local-ui" && detached?.details?.surface === "band-maps" && detached.details.focusedBand === "20m" &&
     detached.details.nativeContext?.synthetic === true && detached.details.nativeContext?.externalOwners === false &&
     detached.details.nativeContext?.generation === report.details.bandMapContext.generation);
   report.details.detached = detached;
@@ -375,9 +375,13 @@ export async function startIntegratedAcceptance() {
       return;
     }
     if (surface === "band-maps") {
-      await waitForAcceptance("detached native band maps", () => !!document.querySelector(".band-maps-scale output") && !document.querySelector(".live-error"));
-      report.details.scale = element(".band-maps-scale output").textContent;
-      report.details.nativeContext = await verifyBandMapContext(report.details.scale);
+      await waitForAcceptance("detached native band map", () => !!document.querySelector('.band-maps-focused [aria-label="20m band map"]') && !document.querySelector(".live-error"));
+      report.checks.focused_chrome = document.querySelectorAll(".band-map-panel").length === 1 &&
+        !document.querySelector(".band-maps-head, .band-maps-intelligence, .band-maps-scale") &&
+        !!document.querySelector('[aria-label="20m mode visibility settings"]');
+      if (!report.checks.focused_chrome) throw new Error("Detached band map contains workspace chrome or lacks mode settings");
+      report.details.focusedBand = "20m";
+      report.details.nativeContext = await verifyBandMapContext(null, true);
       report.status = "passed";
       await invoke("acceptance_monitor", { report });
       return;

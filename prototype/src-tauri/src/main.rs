@@ -304,6 +304,11 @@ fn workspace_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
             window.title.trim_start_matches("OM0RX-xLog — "), true,
             detached_window_shortcut(window.id))?)?;
     }
+    let band_maps = Submenu::new(app, "Open Band Map", true)?;
+    for band in workspace_windows::BAND_MAP_BANDS {
+        band_maps.append(&MenuItem::with_id(app, format!("workspace_window_band-map-{band}"), format!("{band} Band Map"), true, None::<&str>)?)?;
+    }
+    windows.append(&band_maps)?;
     Ok(menu)
 }
 
@@ -554,7 +559,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
         return Err("Use the shared CW session for CW output controls.".into());
     }
     // This explicit role gate precedes every native special dispatcher too.
-    if matches!(window.label(), "monitor" | "log-qso" | "spot-history" | "world-map" | "band-maps" | "callsign-intelligence" | "station-control" | "cw" | "rotor" | "station-status" | "propagation" | "station-identity" | "alerts" | "antenna") { worker::validate_surface(window.label(), &request)?; }
+    if matches!(workspace_windows::surface_role(window.label()), "monitor" | "log-qso" | "spot-history" | "world-map" | "band-maps" | "callsign-intelligence" | "station-control" | "cw" | "rotor" | "station-status" | "propagation" | "station-identity" | "alerts" | "antenna") { worker::validate_surface(window.label(), &request)?; }
     if state.path.is_none() && matches!(method, "opportunities_snapshot" | "opportunities_refresh") {
         worker::validate_surface(window.label(), &request)?;
         return tauri::async_runtime::spawn_blocking(move || opportunity_selection::snapshot(request)).await
@@ -657,7 +662,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     }
     if map_changed {
         map_context::invalidate();
-        for label in ["main", "world-map", "band-maps", "monitor"] { let _ = app.emit_to(label, "xlog:map-context", ()); }
+        let _ = app.emit("xlog:map-context", ());
     }
     if settings_changed {
         for label in ["main", "settings"] { let _ = app.emit_to(label, "xlog:settings-changed", ()); }
@@ -764,7 +769,8 @@ async fn open_detached_workspace(app: tauri::AppHandle, kind: String) -> Result<
 
 // Called only by the serialized native owner, never from the UI message loop.
 fn ensure_workspace_window(app: &tauri::AppHandle, kind: &str, focus: bool) -> Result<bool, String> {
-    let spec = workspace_windows::SUPPORTED_WINDOWS.iter().find(|spec| spec.id == kind)
+    let role = workspace_windows::surface_role(kind);
+    let spec = workspace_windows::SUPPORTED_WINDOWS.iter().find(|spec| spec.id == role)
         .ok_or("Unknown native workspace window")?;
     if let Some(existing) = app.get_webview_window(kind) {
         if kind == "cw" && !existing.is_visible().unwrap_or(true) {
@@ -776,10 +782,13 @@ fn ensure_workspace_window(app: &tauri::AppHandle, kind: &str, focus: bool) -> R
         return Ok(false);
     }
     let suffix = if app.state::<acceptance::Acceptance>().path.is_some() { "&acceptance=local" } else { "" };
-    let mut builder = tauri::WebviewWindowBuilder::new(app, kind, tauri::WebviewUrl::App(format!("index.html?view={kind}{suffix}").into()))
-        .title(spec.title)
-        .inner_size(spec.width, spec.height)
-        .min_inner_size(640.0, 480.0)
+    let band = workspace_windows::band_map_band(kind);
+    let route = band.map(|band| format!("band-maps&band={band}")).unwrap_or_else(|| kind.into());
+    let title = band.map(|band| format!("OM0RX-xLog — {band} Band Map")).unwrap_or_else(|| spec.title.into());
+    let mut builder = tauri::WebviewWindowBuilder::new(app, kind, tauri::WebviewUrl::App(format!("index.html?view={route}{suffix}").into()))
+        .title(title)
+        .inner_size(if role == "band-maps" { 380.0 } else { spec.width }, spec.height)
+        .min_inner_size(if role == "band-maps" { 280.0 } else { 640.0 }, 480.0)
         .focused(focus)
         .always_on_top(false)
         .incognito(app.state::<acceptance::Acceptance>().path.is_some());

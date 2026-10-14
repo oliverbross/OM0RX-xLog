@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { CSSProperties } from "react";
-import { ArrowDown, ArrowUp, RotateCcw, X, ZoomIn, ZoomOut } from "lucide-react";
+import { ArrowDown, ArrowUp, RotateCcw, Settings, X, ZoomIn, ZoomOut } from "lucide-react";
 import { clusterBandColors, clusterStatusColors, paletteColor } from "./clusterPalette";
 import "./BandMaps.css";
 
@@ -19,7 +19,7 @@ export function bandMapCapacity(width: number, height: number, singleRow: boolea
 }
 export type BandMapViewPreferences = { bands: string[]; followRadio: boolean; layout: "row" | "grid"; fontScale: number; modes?: BandMapMode[] };
 type Props = { spots: BandMapSpot[]; onSelect: (spot: BandMapSpot) => void; radioFrequencyHz?: number; compact?: boolean;
-  preferences?: BandMapViewPreferences; onPreferencesChange?: (next: BandMapViewPreferences) => void; onDock?: () => void; onUndock?: () => void; selectionHint?: string };
+  preferences?: BandMapViewPreferences; onPreferencesChange?: (next: BandMapViewPreferences) => void; onDock?: () => void; onUndock?: () => void; selectionHint?: string; focusedBand?: string };
 type Allocation = { name: "CW" | "Data" | "Phone"; low: number; high: number };
 type Range = { low: number; high: number; allocations: Allocation[] };
 type ViewRange = { low: number; high: number };
@@ -168,9 +168,9 @@ export function placeSpots(spots: BandMapSpot[], view: ViewRange, width: number,
   return { placed, hidden };
 }
 
-function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontScale, hidden: panelHidden = false }: {
+function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontScale, hidden: panelHidden = false, modeSettings }: {
   band: string; spots: BandMapSpot[]; onSelect: Props["onSelect"]; onRemove: () => void;
-  canRemove: boolean; compact: boolean; fontScale: number; hidden?: boolean;
+  canRemove: boolean; compact: boolean; fontScale: number; hidden?: boolean; modeSettings?: { modes: readonly BandMapMode[]; setModes: (modes: BandMapMode[]) => void };
 }) {
   const full = BAND_RANGES[band];
   const [view, setView] = useState<ViewRange>({ low: full.low, high: full.high });
@@ -232,7 +232,10 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
     return { low, high: low + span };
   });
   return <section className="band-map-panel" hidden={panelHidden} aria-label={`${band} band map`} style={{ "--band-accent": bandColor(band, spots), "--band-font-scale": fontScale } as CSSProperties}>
-    <header className="band-map-panel-head"><span className="band-map-accent" aria-hidden="true" /><strong>{band}</strong><small>{visible.length}/{allBandCount} spots</small><button type="button" title={`Close ${band} band map`} aria-label={`Close ${band} band map`} disabled={!canRemove} onClick={onRemove}><X size={13} /></button></header>
+    <header className="band-map-panel-head"><span className="band-map-accent" aria-hidden="true" /><strong>{band}</strong><small>{visible.length}/{allBandCount} spots</small>{modeSettings ? <details className="band-maps-mode-picker band-map-settings" onKeyDown={event => { if (event.key === "Escape") { event.currentTarget.open = false; event.currentTarget.querySelector("summary")?.focus(); } }}>
+      <summary aria-label={`${band} mode visibility settings`} title="Mode visibility"><Settings size={15} /></summary>
+      <div className="band-maps-mode-options" role="group" aria-label={`${band} visible modes`}>{BAND_MAP_MODES.map(mode => <label key={mode}><input type="checkbox" checked={modeSettings.modes.includes(mode)} onChange={event => modeSettings.setModes(BAND_MAP_MODES.filter(item => item === mode ? event.target.checked : modeSettings.modes.includes(item)))} />{mode === "cw" ? "CW" : mode === "phone" ? "SSB / Phone" : "Data"}</label>)}</div>
+    </details> : <button type="button" title={`Close ${band} band map`} aria-label={`Close ${band} band map`} disabled={!canRemove} onClick={onRemove}><X size={13} /></button>}</header>
     <div className="band-map-panel-tools"><label><span className="sr-only">{band} allocation</span><select aria-label={`${band} allocation`} value={segmentName} onChange={(event) => {
       const part = full.allocations.find((item) => `${item.name} portion` === event.target.value);
       setView(part ? { low: part.low, high: part.high } : { low: full.low, high: full.high });
@@ -286,7 +289,7 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
   </section>;
 }
 
-export function BandMaps({ spots, onSelect, radioFrequencyHz, compact = false, preferences, onPreferencesChange, onDock, onUndock, selectionHint = "Select a marker to load it into the logger." }: Props) {
+export function BandMaps({ spots, onSelect, radioFrequencyHz, compact = false, preferences, onPreferencesChange, onDock, onUndock, focusedBand, selectionHint = "Select a marker to load it into the logger." }: Props) {
   const toolbarHost = useContext(BandMapsToolbarContext);
   const [localBands, setLocalBands] = useState(() => storedBands(compact));
   const [localFollow, setLocalFollow] = useState(() => storedFlag(compact, "followRadio", false));
@@ -298,8 +301,8 @@ export function BandMaps({ spots, onSelect, radioFrequencyHz, compact = false, p
     try { const value = Number(localStorage.getItem(storageKey(compact, "fontScale"))); return value >= 0.8 && value <= 2 ? value : 1; }
     catch { return 1; }
   });
-  const bands = preferences?.bands ?? localBands;
-  const follow = preferences?.followRadio ?? localFollow;
+  const bands = focusedBand ? [focusedBand] : preferences?.bands ?? localBands;
+  const follow = focusedBand ? false : preferences?.followRadio ?? localFollow;
   const layout = preferences?.layout ?? localLayout;
   const fontScale = preferences?.fontScale ?? localFontScale;
   const panelsRef = useRef<HTMLDivElement>(null);
@@ -389,9 +392,9 @@ export function BandMaps({ spots, onSelect, radioFrequencyHz, compact = false, p
         {onUndock && <button type="button" onClick={onUndock}>Undock</button>}
         {onDock && <button type="button" onClick={onDock}>Dock back</button>}
       </div>;
-  return <section className={`band-maps${compact ? " band-maps-compact" : ""}`} aria-label="Band maps">
-    {compact && toolbarHost ? createPortal(toolbarControls, toolbarHost) : <header className="band-maps-head"><div><h2>Band maps</h2></div>{toolbarControls}</header>}
-    {!compact && <div className="band-maps-intelligence"><label className="band-maps-search">Search <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Call, country or note" /></label><label>Status <select value={status} onChange={(event) => setStatus(event.target.value)}><option value="all">All</option><option value="needed">Needed</option><option value="worked">Worked</option><option value="confirmed">Confirmed</option><option value="priority">Priority</option></select></label>
+  return <section className={`band-maps${compact ? " band-maps-compact" : ""}${focusedBand ? " band-maps-focused" : ""}`} aria-label="Band maps">
+    {!focusedBand && (compact && toolbarHost ? createPortal(toolbarControls, toolbarHost) : <header className="band-maps-head"><div><h2>Band maps</h2></div>{toolbarControls}</header>)}
+    {!compact && !focusedBand && <div className="band-maps-intelligence"><label className="band-maps-search">Search <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Call, country or note" /></label><label>Status <select value={status} onChange={(event) => setStatus(event.target.value)}><option value="all">All</option><option value="needed">Needed</option><option value="worked">Worked</option><option value="confirmed">Confirmed</option><option value="priority">Priority</option></select></label>
       <details className="band-maps-mode-picker" onKeyDown={event => { if (event.key === "Escape") { event.currentTarget.open = false; event.currentTarget.querySelector("summary")?.focus(); } }}>
         <summary>Modes · {modes.length === 3 ? "All" : modes.length === 0 ? "None" : modes.map(mode => mode === "cw" ? "CW" : mode === "data" ? "Data" : "Phone").join(" + ")}</summary>
         <div className="band-maps-mode-options" role="group" aria-label="Band map modes">
@@ -401,7 +404,7 @@ export function BandMaps({ spots, onSelect, radioFrequencyHz, compact = false, p
       </details>
       <span className="band-maps-count">{filtered.length} of {spots.length} spots</span><span className="band-maps-selected">{selected ? `${text(selected.callsign)} · ${opportunityCode(selected)} · ${text(selected.callStatus)} · ${text(selected.dxccStatus)}` : selectionHint}</span>{(query || status !== "all" || modes.length !== 3) && <button type="button" onClick={() => { setQuery(""); setStatus("all"); setModes([...BAND_MAP_MODES]); }}>Clear filters</button>}</div>}
     <div ref={panelsRef} className={`band-maps-panels band-maps-${compact || layout === "row" ? "row" : "grid"}`} style={{ gridTemplateColumns: `repeat(${Math.max(1, Math.min(columns, visibleCount))}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${Math.max(1, Math.ceil(visibleCount / columns))}, minmax(0, 1fr))` }}>
-      {bands.map((band, index) => <BandPanel key={band} band={band} spots={filtered} onSelect={choose} onRemove={() => remove(band)} canRemove={bands.length > 1} compact={compact} fontScale={fontScale} hidden={index < firstBand || index >= firstBand + capacity} />)}
+      {bands.map((band, index) => <BandPanel key={band} band={band} spots={filtered} onSelect={choose} onRemove={() => remove(band)} canRemove={bands.length > 1} compact={compact} fontScale={fontScale} hidden={index < firstBand || index >= firstBand + capacity} modeSettings={focusedBand ? { modes, setModes } : undefined} />)}
     </div>
   </section>;
 }

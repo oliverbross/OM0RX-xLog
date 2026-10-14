@@ -28,6 +28,7 @@ pub fn handles(method: &str) -> bool {
 }
 
 pub fn validate(label: &str, request: &Value) -> Result<(), String> {
+    let label = crate::workspace_windows::surface_role(label);
     crate::worker::validate_request(request)?;
     let method = request["method"].as_str().unwrap_or("");
     if !handles(method)

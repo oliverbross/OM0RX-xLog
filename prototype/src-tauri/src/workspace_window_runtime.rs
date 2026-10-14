@@ -583,6 +583,20 @@ mod tests {
         assert_eq!(engine.outcome["hidden"], json!(["logbook"]));
     }
     #[test]
+    fn independent_band_windows_keep_instance_labels_and_survive_preset_reconciliation() {
+        let mut engine = Engine::default();
+        let mut host = FakeHost::new(vec![layout(1, &[])]);
+        engine.open(&mut host, "band-map-20m").unwrap();
+        engine.open(&mut host, "band-map-40m").unwrap();
+        assert_eq!(host.operations, ["show:band-map-20m:true", "show:band-map-40m:true"]);
+        host.operations.clear();
+        reconcile(&mut engine, &mut host, false).unwrap();
+        assert!(host.operations.is_empty());
+        engine.planner.forget_destroyed("band-map-20m");
+        engine.open(&mut host, "band-map-20m").unwrap();
+        assert_eq!(host.operations, ["show:band-map-20m:true"]);
+    }
+    #[test]
     fn superseding_layout_is_opened_before_any_old_hide() {
         let mut engine = Engine::default();
         let mut host = FakeHost::new(vec![layout(1, &["logbook"])]);

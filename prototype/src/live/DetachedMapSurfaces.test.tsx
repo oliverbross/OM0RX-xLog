@@ -11,18 +11,20 @@ vi.mock("../Map", () => ({ default: (props: any) => <div data-testid="world-map"
 </div> }));
 vi.mock("./BandMaps", () => ({ BAND_ORDER: ["20m", "40m"], BAND_MAP_MODES: ["cw", "data", "phone"],
   default: (props: any) => <div data-testid="band-maps">{props.preferences?.bands.join(",")}
-    <button onClick={() => props.onPreferencesChange({ ...props.preferences, bands: ["40m"] })}>Use 40m</button>
+    <button onClick={() => props.onPreferencesChange({ ...props.preferences, modes: ["cw"] })}>CW only</button>
     {props.spots.map((spot: any) => <button key={spot.id} onClick={() => props.onSelect(spot)}>Inspect {spot.callsign}</button>)}
   </div> }));
 import { syntheticMapContext } from "./mapContextFixtures";
 import { DetachedWorldMapSurface } from "./DetachedWorldMapSurface";
 import { DetachedBandMapsSurface } from "./DetachedBandMapsSurface";
+import { loadWindowSurface } from "../windowSurface";
 let current = syntheticMapContext();
 const token = { sourceEpoch: "00000000-0000-4000-8000-000000000010", spotVersion: "00000000-0000-4000-8000-000000000011" };
 const idle = { phase: "idle", operationId: null, barrier: null };
 const mapReads = () => bridge.invoke.mock.calls.filter(([method]) => method === "map_context_snapshot").length;
 beforeEach(() => {
   current = syntheticMapContext(); bridge.invoke.mockReset(); bridge.request.mockReset(); bridge.listen.mockReset(); bridge.events.clear();
+  localStorage.clear(); window.history.replaceState({}, "", "/");
   current.cluster.response!.snapshot.spots[0].activation = token;
   bridge.invoke.mockImplementation(async (method, params) => {
     if (method === "map_context_snapshot") return structuredClone(current);
@@ -35,9 +37,14 @@ beforeEach(() => {
 afterEach(cleanup);
 
 it("World Map activates only the current native report identity without renderer draft or radio writes", async () => {
-  render(<DetachedWorldMapSurface />);
+  const Surface = await loadWindowSurface("?view=world-map");
+  render(<Surface />);
   await screen.findByRole("button", { name: "Inspect TEST0/P" });
   expect(screen.getByTestId("world-map").textContent).toContain("TESTHOME · 14025000");
+  expect(document.querySelector(".station-rail")).toBeNull();
+  expect(screen.queryByRole("button", { name: /Refresh|Dock back|Check activation/ })).toBeNull();
+  expect(screen.queryByText(/Select a report to load|retained live reports/)).toBeNull();
+  expect(screen.getByRole("main").firstElementChild?.classList.contains("live-map")).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: "Inspect TEST0/P" }));
   expect(screen.getByText(/Selected report: TEST0\/P/)).toBeTruthy();
   await waitFor(() => expect(bridge.invoke.mock.calls.filter(([method]) => method === "activate_spot")).toHaveLength(1));
@@ -48,54 +55,36 @@ it("World Map activates only the current native report identity without renderer
   expect(bridge.invoke.mock.calls.every(([method]) => ["map_context_snapshot", "spot_activation_snapshot", "activate_spot"].includes(method))).toBe(true);
 });
 
-it("Band Maps waits for explicit preference acknowledgement and retains the queued optimistic choice", async () => {
-  let acknowledge: ((value: unknown) => void) | undefined;
-  bridge.request.mockImplementation(() => new Promise(resolve => { acknowledge = resolve; }));
+it("direct Band Maps menu route opens one default pinned map without global chrome", async () => {
   render(<DetachedBandMapsSurface />);
-  await screen.findByRole("button", { name: "Use 40m" });
-  fireEvent.click(screen.getByRole("button", { name: "Use 40m" }));
-  await waitFor(() => expect(bridge.request).toHaveBeenCalledOnce());
-  expect(bridge.request.mock.calls[0]).toEqual(["workspace_band_map_apply", {
-    generation: current.metadata.generation, scope: "detached", expected: { bands: ["20m", "40m"] }, patch: { bands: ["40m"] },
-  }]);
+  await screen.findByRole("button", { name: "Inspect TEST0/P" });
+  expect(screen.getByTestId("band-maps").textContent).toMatch(/^20m/);
+  expect(screen.queryByText("Band Maps")).toBeNull();
+  expect(screen.queryByRole("button", { name: /Refresh|Dock back|Check activation/ })).toBeNull();
+  expect(screen.queryByText(/Select a marker|shared native band maps/)).toBeNull();
   act(() => { current.revision++; bridge.events.get("xlog:map-context")?.(); });
   await waitFor(() => expect(mapReads()).toBe(2));
-  expect(screen.getByTestId("band-maps").textContent).toMatch(/^40m/);
-  current.metadata = { ...current.metadata, revision: 1, preferences: { ...current.metadata.preferences, detachedBandMapBands: ["40m"] } }; current.revision++;
-  await act(async () => { acknowledge?.({ result: { ...current.metadata, status: "applied" } }); });
-  await waitFor(() => expect(mapReads()).toBe(3));
-  expect(screen.getByTestId("band-maps").textContent).toMatch(/^40m/);
+  expect(screen.getByTestId("band-maps").textContent).toMatch(/^20m/);
+  expect(bridge.request).not.toHaveBeenCalled();
 });
 
-it("preference conflict stays visible across successful context polls and never retries the operation", async () => {
-  bridge.request.mockResolvedValue({ result: { ...current.metadata, status: "conflict" } });
-  render(<DetachedBandMapsSurface />); await screen.findByRole("button", { name: "Use 40m" });
-  fireEvent.click(screen.getByRole("button", { name: "Use 40m" }));
-  await screen.findByRole("alert"); expect(screen.getByRole("alert").textContent).toContain("Another window");
-  act(() => { current.revision++; bridge.events.get("xlog:map-context")?.(); });
-  await waitFor(() => expect(mapReads()).toBeGreaterThanOrEqual(3));
-  expect(screen.getByRole("alert").textContent).toContain("Another window");
-  expect(bridge.request).toHaveBeenCalledOnce();
+it("band-specific windows retain independent mode choices and never alter shared layout preferences", async () => {
+  window.history.replaceState({}, "", "/?view=band-maps&band=40m");
+  const first = render(<DetachedBandMapsSurface />);
+  expect(screen.getByTestId("band-maps").textContent).toMatch(/^40m/);
+  fireEvent.click(screen.getByRole("button", { name: "CW only" }));
+  expect(JSON.parse(localStorage.getItem("xlog.detached.band-map.40m.modes")!)).toEqual(["cw"]);
+  first.unmount(); window.history.replaceState({}, "", "/?view=band-maps&band=20m");
+  render(<DetachedBandMapsSurface />);
+  expect(screen.getByTestId("band-maps").textContent).toMatch(/^20m/);
+  expect(localStorage.getItem("xlog.detached.band-map.20m.modes")).toBeNull();
+  expect(bridge.request).not.toHaveBeenCalled();
 });
 
-it("a failed Dock is single flight and leaves the map open with a persistent retry message", async () => {
-  let rejectDock: ((error: Error) => void) | undefined;
-  bridge.invoke.mockImplementation(async method => {
-    if (method === "map_context_snapshot") return structuredClone(current);
-    if (method === "spot_activation_snapshot") return idle;
-    if (method === "dock_detached_window") return new Promise((_, reject) => { rejectDock = reject; });
-    throw new Error(`Unexpected command ${method}`);
-  });
-  render(<DetachedWorldMapSurface />); await screen.findByRole("button", { name: "Inspect TEST0/P" });
-  fireEvent.click(screen.getByRole("button", { name: "Dock back" }));
-  expect((screen.getByRole("button", { name: "Docking…" }) as HTMLButtonElement).disabled).toBe(true);
-  await act(async () => rejectDock?.(new Error("fixture recovery failure")));
-  expect(screen.getByRole("alert").textContent).toContain("remains open");
-  const readsBeforeWake = mapReads();
-  act(() => { current.revision++; bridge.events.get("xlog:map-context")?.(); });
-  await waitFor(() => expect(mapReads()).toBeGreaterThan(readsBeforeWake));
-  expect(screen.getByRole("alert").textContent).toContain("remains open");
-  expect(screen.getByTestId("world-map")).toBeTruthy();
+it("invalid band query falls back to the safe default", () => {
+  window.history.replaceState({}, "", "/?view=band-maps&band=unknown");
+  render(<DetachedBandMapsSurface />);
+  expect(screen.getByTestId("band-maps").textContent).toMatch(/^20m/);
 });
 
 it("Band Maps activate the current report through the same native identity, while stale reports never dispatch", async () => {
@@ -103,7 +92,9 @@ it("Band Maps activate the current report through the same native identity, whil
   fireEvent.click(screen.getByRole("button", { name: "Inspect TEST0/P" }));
   await waitFor(() => expect(bridge.invoke.mock.calls.filter(([method]) => method === "activate_spot")).toHaveLength(1));
   current.revision++; current.cluster.received_at_ms -= 10000;
-  act(() => bridge.events.get("xlog:map-context")?.()); await waitFor(() => expect(screen.getByText(/retained reports may be stale/)).toBeTruthy());
+  const reads = mapReads();
+  act(() => bridge.events.get("xlog:map-context")?.()); await waitFor(() => expect(mapReads()).toBeGreaterThan(reads));
   fireEvent.click(screen.getByRole("button", { name: "Inspect TEST0/P" }));
+  expect(screen.getByRole("alert").textContent).toContain("Refresh shared cluster state");
   expect(bridge.invoke.mock.calls.filter(([method]) => method === "activate_spot")).toHaveLength(1); expect(bridge.request).not.toHaveBeenCalled();
 });

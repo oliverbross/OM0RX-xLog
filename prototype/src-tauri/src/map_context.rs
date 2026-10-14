@@ -16,6 +16,7 @@ fn next_revision() -> Result<u64, String> {
 }
 
 pub fn validate(label: &str, isolated: bool) -> Result<(), String> {
+    let label = crate::workspace_windows::surface_role(label);
     if isolated || !matches!(label, "main" | "world-map" | "band-maps" | "monitor") {
         return Err("Map context is unavailable in this window.".into());
     }

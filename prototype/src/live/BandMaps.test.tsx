@@ -13,6 +13,26 @@ beforeEach(() => localStorage.clear());
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe("native band-map parity", () => {
+  it("focused window keeps one band despite radio and workspace preferences and exposes modes only through its gear", () => {
+    const change = vi.fn(), select = vi.fn();
+    const preferences: BandMapViewPreferences = { bands: ["20m", "40m"], followRadio: true, layout: "grid", fontScale: 1, modes: ["cw", "phone", "data"] };
+    const props = { focusedBand: "40m", spots: [spot("CW40", 7020, "40m"), { ...spot("SSB40", 7120, "40m"), mode: "SSB" }, spot("CW20", 14020)], onSelect: select, preferences, onPreferencesChange: change };
+    const { rerender } = render(<BandMaps {...props} radioFrequencyHz={14025000} />);
+    expect(screen.getByRole("region", { name: "40m band map" })).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "20m band map" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Band maps" })).toBeNull();
+    expect(screen.queryByLabelText("Add band map")).toBeNull();
+    expect(screen.queryByLabelText("Follow radio")).toBeNull();
+    expect(screen.queryByText("Search")).toBeNull();
+    expect(change).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByLabelText("40m mode visibility settings"));
+    fireEvent.click(screen.getByRole("checkbox", { name: "SSB / Phone" }));
+    expect(change).toHaveBeenCalledWith({ ...preferences, modes: ["cw", "data"] });
+    rerender(<BandMaps {...props} preferences={{ ...preferences, modes: ["cw"] }} radioFrequencyHz={21025000} />);
+    expect(screen.queryByRole("button", { name: /SSB40 ·/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /CW40 ·/ })); expect(select).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("button", { name: /CW20 ·/ })).toBeNull();
+  });
   it("puts optional Undock immediately beside Add band map, preserves Dock back and removes redundant subtitle", () => {
     const undock = vi.fn(), dock = vi.fn(), select = vi.fn();
     render(<BandMaps spots={[]} onSelect={select} onUndock={undock} onDock={dock} />);

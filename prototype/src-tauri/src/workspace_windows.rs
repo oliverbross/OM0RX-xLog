@@ -30,7 +30,14 @@ pub const SUPPORTED_WINDOWS: [WindowSpec; 19] = [
     WindowSpec { id: "alerts", title: "OM0RX-xLog — Alerts", width: 780.0, height: 600.0 },
     WindowSpec { id: "antenna", title: "OM0RX-xLog — Antenna Reference", width: 780.0, height: 600.0 },
 ];
-pub fn supports(label: &str) -> bool { SUPPORTED_WINDOWS.iter().any(|window| window.id == label) }
+pub const BAND_MAP_BANDS: [&str; 13] = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "2m", "70cm"];
+pub fn band_map_band(label: &str) -> Option<&str> {
+    label.strip_prefix("band-map-").filter(|band| BAND_MAP_BANDS.contains(band))
+}
+/// Instance identity remains in native labels/geometry; capabilities use the
+/// existing narrow map role, only after exact band validation.
+pub fn surface_role(label: &str) -> &str { if band_map_band(label).is_some() { "band-maps" } else { label } }
+pub fn supports(label: &str) -> bool { SUPPORTED_WINDOWS.iter().any(|window| window.id == surface_role(label)) }
 
 const ROLES: [&str; 21] = ["active-qso", "log-qso", "logbook", "callsign-intelligence", "rotor", "antenna",
     "world-map", "band-maps", "dx-cluster", "station-control", "station-status", "station-identity",
@@ -164,6 +171,24 @@ fn checked(snapshot: &Value) -> Result<(Intent, u64, BTreeSet<String>), String> 
 mod tests {
     use super::*;
     use serde_json::json;
+    #[test]
+    fn band_instances_are_exactly_validated_and_keep_only_map_capabilities() {
+        for band in BAND_MAP_BANDS {
+            let label = format!("band-map-{band}");
+            assert!(supports(&label));
+            assert_eq!(band_map_band(&label), Some(band));
+            assert_eq!(surface_role(&label), "band-maps");
+            assert!(crate::map_context::validate(&label, false).is_ok());
+            assert!(crate::map_context::validate(&label, true).is_err());
+            assert!(crate::spot_editor_barrier::activation_role(&label));
+            assert!(!crate::spot_editor_barrier::editor_role(&label));
+            assert!(crate::worker::validate_surface(&label, &json!({"id":"test","method":"settings_save","params":{}})).is_err());
+        }
+        for label in ["band-map-", "band-map-20M", "band-map-20m-extra", "band-map-unknown"] {
+            assert!(!supports(label));
+            assert!(!crate::spot_editor_barrier::activation_role(label));
+        }
+    }
     fn fixture(windows: &[&str]) -> Value {
         let panels: Vec<_> = ROLES.iter().enumerate().map(|(z, id)| {
             let (width, height) = minimum(id);

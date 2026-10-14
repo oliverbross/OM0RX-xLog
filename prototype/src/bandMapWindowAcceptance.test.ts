@@ -12,6 +12,11 @@ function context(scale = 1.2): any {
     selection: { provider: null }, radio: { available: false, provider: null, snapshot: null } };
 }
 beforeEach(() => { bridge.invoke.mockReset(); });
+it("verifies a focused map fixture independently from workspace toolbar scale", async () => {
+  bridge.invoke.mockResolvedValue(context(1.7));
+  await expect(verifyBandMapContext(null, true)).resolves.toMatchObject({ synthetic: true, externalOwners: false });
+  expect(bridge.invoke).toHaveBeenCalledOnce();
+});
 afterEach(() => { vi.useRealTimers(); });
 it("requires native fixture provenance and durable scale matching the actual rendered control", async () => {
   const value = context(); bridge.invoke.mockResolvedValue(value);
