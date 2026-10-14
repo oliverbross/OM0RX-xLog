@@ -47,10 +47,14 @@ describe("shared Logbook column controls", () => {
 
   it("changing explicit presentation context retains selected identity and Delete consent without refetching", async () => {
     localStorage.setItem(logbookColumnsKey("desk"), JSON.stringify({ ...defaultLogbookColumnPreferences("desk"), columns: ["call", "rst"] }));
-    const view = setup(false, "desk"); await screen.findByText(contact.call);
+    const view = setup(false, "docked"); await screen.findByText(contact.call);
     fireEvent.click(screen.getByText(contact.call)); fireEvent.click(screen.getByRole("button", { name: /^Delete$/ }));
     await screen.findByRole("group", { name: `Delete ${contact.call}` });
     const calls = view.request.mock.calls.length;
+    view.rerender(<LogbookPanel {...view.props} columnContext="desk" />);
+    expect(screen.getAllByRole("columnheader").map(header => header.textContent)).toEqual(["Callsign", "RST"]);
+    expect(screen.queryByRole("button", { name: /^Delete$/ })).toBeNull();
+    expect(screen.getByRole("group", { name: `Delete ${contact.call}` })).toBeTruthy();
     view.rerender(<LogbookPanel {...view.props} columnContext="docked" />);
     expect(screen.getAllByRole("columnheader")).toHaveLength(10);
     expect(screen.getByRole("group", { name: `Delete ${contact.call}` })).toBeTruthy();
@@ -58,7 +62,7 @@ describe("shared Logbook column controls", () => {
     expect(screen.getAllByRole("columnheader").map(header => header.textContent)).toEqual(["Callsign", "RST"]);
     expect(screen.getByRole("group", { name: `Delete ${contact.call}` })).toBeTruthy();
     expect(view.request).toHaveBeenCalledTimes(calls);
-    fireEvent.click(screen.getByRole("button", { name: /^Edit$/ })); expect(view.edit).toHaveBeenCalledWith(contact);
+    fireEvent.keyDown(screen.getByText(contact.call).closest("tr")!, { key: "Enter" }); expect(view.edit).toHaveBeenCalledWith(contact);
   });
 
   it("persists visibility and width independently in docked and detached contexts", async () => {

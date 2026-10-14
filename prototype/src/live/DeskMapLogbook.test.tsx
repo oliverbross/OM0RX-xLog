@@ -134,7 +134,7 @@ it.each([false, true])("retains actual-table reviewed Delete through hiding, reo
   });
   const mutations = new LogbookMutationSession(request, () => {});
   const result = render(<DeskMapLogbook map={<div>Memory-only map</div>} logbook={<LogbookPanel
-    mutations={mutations} onRequest={request} onEdit={vi.fn()} refreshKey={0} columnContext="desk" />} />);
+    mutations={mutations} onRequest={request} onEdit={vi.fn()} refreshKey={0} />} />);
   await act(async () => { view("logbook"); });
   await notifyResize();
   fireEvent.click(screen.getByText(contact.call));

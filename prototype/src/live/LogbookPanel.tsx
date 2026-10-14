@@ -98,6 +98,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
   const columnsID = useId();
   const columnsButton = useRef<HTMLButtonElement>(null);
   const resolvedColumnContext = columnContext ?? (onDock ? "detached" : "docked");
+  const compact = resolvedColumnContext === "desk";
   const [columnPreferences, setColumnPreferences] = useLogbookColumns(resolvedColumnContext);
   const visibleColumns = logbookColumns.filter(([id]) => columnPreferences.columns.includes(id));
   const totalColumnWidth = visibleColumns.reduce((total, [id]) => total + columnPreferences.widths[id], 0);
@@ -364,9 +365,11 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
   const selected = rows.find(qso => qso.id === selectedID);
   const exportIDs = rows.filter(qso => exportSelection.includes(qso.id)).map(qso => qso.id);
   const deleting = confirmDelete?.qso as QSO | undefined;
+  const columnsControl = <button type="button" ref={columnsButton} aria-expanded={columnsOpen} aria-controls={columnsID}
+    onClick={() => setColumnsOpen(value => !value)}>Columns</button>;
   return (
     <section className="live-logbook" aria-label="Integrated logbook">
-      <header className="live-logbook-head">
+      {compact ? <div className="live-logbook-compact-actions">{columnsControl}</div> : <header className="live-logbook-head">
         <div>
           <h2>Logbook</h2>
           <p>Local working copy · {total.toLocaleString()} contacts</p>
@@ -380,8 +383,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
           <button type="button" disabled={!selected || busy || loading} onClick={() => selected && onEdit(selected)}><Pencil size={13} /> Edit</button>
           <button type="button" disabled={!selected || loading} aria-expanded={details && !!selected} aria-controls="logbook-contact-details"
             onClick={() => setDetails(value => !value)}>Details</button>
-          <button type="button" ref={columnsButton} aria-expanded={columnsOpen} aria-controls={columnsID}
-            onClick={() => setColumnsOpen(value => !value)}>Columns</button>
+          {columnsControl}
           <button type="button" disabled={!selected || busy || loading} onClick={() => selected && void prepareDelete(selected.id)}><Trash2 size={13} /> Delete</button>
           <button type="button" onClick={() => void undoDelete()} disabled={!mutation.undo || busy}><RotateCcw size={13} /> Undo delete</button>
           <input ref={fileInput} type="file" accept=".adi,.adif,.adx,.xml,text/plain,application/xml,text/xml" hidden disabled={busy}
@@ -404,7 +406,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
           {onUndock && <button type="button" onClick={onUndock} disabled={busy}><ExternalLink size={14} /> Undock</button>}
           {onDock && <button type="button" onClick={onDock} disabled={busy}><PanelsTopLeft size={14} /> Dock back</button>}
         </div>
-      </header>
+      </header>}
       {columnsOpen && <LogbookColumns id={columnsID} preferences={columnPreferences} onChange={setColumnPreferences} context={resolvedColumnContext}
         onDone={() => { setColumnsOpen(false); columnsButton.current?.focus(); }} />}
       {error && <p className="live-logbook-feedback error" role="alert">{error}</p>}
@@ -427,7 +429,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
         <div><button type="button" onClick={() => confirmDelete && void deleteQSO(confirmDelete)} disabled={busy}>Confirm delete</button>
           <button type="button" onClick={cancelDelete} disabled={busy}>Cancel</button></div>
       </div>}
-      {details && selected && <dl id="logbook-contact-details" className="live-logbook-details" aria-label={`Details for ${selected.call}`}>
+      {!compact && details && selected && <dl id="logbook-contact-details" className="live-logbook-details" aria-label={`Details for ${selected.call}`}>
         <div><dt>Callsign</dt><dd>{selected.call}</dd></div>
         <div><dt>UTC</dt><dd>{utcTime(selected.start)}</dd></div>
         <div><dt>Band / Mode</dt><dd>{selected.band} · {selected.submode || selected.mode}</dd></div>
@@ -441,13 +443,13 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
         </dd></div>
         <div className="live-logbook-details-comment"><dt>Comment</dt><dd>{selected.comment || "—"}</dd></div>
       </dl>}
-      <div className="live-logbook-export-selection" role="group" aria-label="Export selection">
+      {!compact && <div className="live-logbook-export-selection" role="group" aria-label="Export selection">
         <span aria-live="polite">{exportIDs.length} selected on this page</span>
         <button type="button" disabled={busy || loading || !rows.length || exportIDs.length === rows.length}
           onClick={() => setExportSelection(rows.map(qso => qso.id))}>Select page</button>
         <button type="button" disabled={busy || loading || !exportIDs.length} onClick={() => setExportSelection([])}>Clear selection</button>
         <span>Selection clears when the page refreshes or changes.</span>
-      </div>
+      </div>}
       <div className="live-logbook-table-wrap" ref={tableArea} role="region" aria-label="Logbook contacts, scroll for more columns" tabIndex={0}>
         <table className="live-logbook-table" style={{ minWidth: totalColumnWidth }}>
           <colgroup>{visibleColumns.map(([id]) => <col key={id} style={{ width: `${columnPreferences.widths[id] / totalColumnWidth * 100}%` }} />)}</colgroup>
@@ -471,9 +473,9 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
               }}>
               <td hidden={hidden("utc")} className="mono" title={utcTime(qso.start)}>{utcTime(qso.start)}</td>
               <td className="live-logbook-call" title={qso.call}>
-                <input type="checkbox" aria-label={`Select ${qso.call} ${utcTime(qso.start)} for export`} checked={exportIDs.includes(qso.id)} disabled={busy || loading}
+                {!compact && <input type="checkbox" aria-label={`Select ${qso.call} ${utcTime(qso.start)} for export`} checked={exportIDs.includes(qso.id)} disabled={busy || loading}
                   onClick={event => event.stopPropagation()} onDoubleClick={event => event.stopPropagation()}
-                  onChange={event => setExportSelection(current => event.target.checked ? [...current, qso.id] : current.filter(id => id !== qso.id))} />
+                  onChange={event => setExportSelection(current => event.target.checked ? [...current, qso.id] : current.filter(id => id !== qso.id))} />}
                 <span className={`live-logbook-sync-dot ${qso.isDirty ? "is-pending" : "is-clean"}`} role="img" aria-label={qso.isDirty ? "Pending synchronization" : "No pending changes"} title={qso.isDirty ? "Pending synchronization" : "No pending changes"} />{qso.call}</td>
               <td hidden={hidden("bandMode")} className="live-logbook-band" title={`${qso.band} · ${qso.submode || qso.mode}`}>{qso.band} · {qso.submode || qso.mode}</td>
               <td hidden={hidden("frequency")} className="live-logbook-frequency mono">{typeof qso.frequencyHz === "number" ? (qso.frequencyHz / 1_000_000).toFixed(6) : "—"}</td>

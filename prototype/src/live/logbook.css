@@ -9,6 +9,9 @@
 .live-logbook-actions, .live-logbook-footer, .live-logbook-footer > div { display: flex; gap: 6px; align-items: center; }
 .live-logbook-actions { flex-wrap: wrap; justify-content: flex-end; }
 .live-logbook-actions button { min-height: 25px; padding: 3px 7px; white-space: nowrap; }
+.live-logbook-compact-actions { display: flex; flex: none; justify-content: flex-end; }
+.live-logbook-compact-actions button { min-height: 25px; padding: 3px 7px; }
+.live-logbook-compact-actions button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 .live-logbook-actions select:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 .live-logbook-search { display: flex; align-items: center; gap: 5px; }
 .live-logbook-search svg { color: var(--secondary); margin-left: 5px; }
