@@ -51,6 +51,214 @@ import Testing
         }
     }
 
+    private final class Accounts: NativeDropboxBackupAccountRegistry, @unchecked Sendable {
+        private let lock = NSRecursiveLock()
+        private var registration: NativeDropboxBackupRegistration?
+        func set(_ registration: NativeDropboxBackupRegistration?) { lock.withLock { self.registration = registration } }
+        func withRegistration<T: Sendable>(workspaceGeneration: UUID, accountID: UUID, keychainService: String,
+            _ body: (NativeDropboxBackupRegistration?) throws -> T) throws -> T {
+            try lock.withLock { try body(registration) }
+        }
+    }
+
+    private func registration(_ plan: RemoteBackupUploadPlan, _ workspace: IntegrationWorkspace,
+                              revision: UInt64 = 1) throws -> NativeDropboxBackupRegistration {
+        try NativeDropboxBackupRegistration(revision: revision,
+            binding: NativeDropboxBackupAccountBinding(workspaceGeneration: plan.workspaceGeneration,
+                destination: plan.destination, keychainService: workspace.keychainService,
+                providerAccountID: "dbid:fixture-owner"))
+    }
+
+    @Test func nativeCommandsStayHiddenAndRejectApprovalWithoutRegisteredAccount() async throws {
+        let (logbook, root, workspace) = try fixture()
+        defer { clean(logbook, root, workspace) }
+        let service = LiveRemoteBackupService(logbook: logbook)
+        let commands = await service.nativeCommands(), planned = try plan(logbook)
+        #expect(commands === (await service.nativeCommands()))
+        #expect(try await commands.availableAccount(for: planned) == nil)
+        let invented = try registration(planned, workspace)
+        await #expect(throws: NativeRemoteBackupCommandError.accountUnavailable) {
+            try await commands.approve(plan: planned, account: invented, expectedConfigurationRevision: 0)
+        }
+        try await commands.reconcile()
+        #expect(await service.isRunning == false)
+        #expect(!FileManager.default.fileExists(atPath: workspace.directoryURL.appendingPathComponent("Remote Backup").path))
+    }
+
+    @Test func nativeApprovalAndReconcileNeverStartAndRecurringConsentRemainsExplicit() async throws {
+        let (logbook, root, workspace) = try fixture()
+        defer { clean(logbook, root, workspace) }
+        let accounts = Accounts(), ticks = Ticks()
+        let service = LiveRemoteBackupService(logbook: logbook, accounts: accounts, ticks: { ticks })
+        let commands = await service.nativeCommands(), planned = try plan(logbook)
+        let registered = try registration(planned, workspace); accounts.set(registered)
+        #expect(try await commands.availableAccount(for: planned) == registered)
+        let approval = try await commands.approve(plan: planned, account: registered, expectedConfigurationRevision: 0)
+        #expect(!approval.authorization.recurring)
+        try await commands.reconcile()
+        #expect(await service.isRunning == false)
+        #expect(await ticks.probe.calls == 0)
+        let recurring = try await commands.approve(plan: planned, account: registered,
+            expectedConfigurationRevision: 1, recurring: true)
+        #expect(recurring.authorization.recurring)
+        #expect(await service.isRunning == false)
+        await #expect(throws: RemoteBackupAuthorizationError.staleRevision) {
+            try await commands.approve(plan: planned, account: registered, expectedConfigurationRevision: 1)
+        }
+    }
+
+    @Test func nativeExplicitStartUsesRegisteredAccountAndProducesVerifiedOneShot() async throws {
+        let (logbook, root, workspace) = try fixture()
+        defer { clean(logbook, root, workspace) }
+        let accounts = Accounts(), ticks = Ticks(), clock = Clock(), vault = Vault(), http = DropboxHTTP()
+        let service = LiveRemoteBackupService(logbook: logbook, clock: clock, accounts: accounts, ticks: { ticks })
+        let commands = await service.nativeCommands(), planned = try plan(logbook)
+        let registered = try registration(planned, workspace); accounts.set(registered)
+        let approval = try await commands.approve(plan: planned, account: registered, expectedConfigurationRevision: 0)
+        try await commands.start(plan: planned, approval: approval, vault: vault, http: http)
+        let task = try #require(await service.currentTask)
+        await ticks.probe.wait()
+        #expect(vault.recorded.isEmpty)
+        #expect(await http.calls == 0)
+        clock.due(); ticks.emit(); await task.value
+        #expect(await http.calls == 4)
+        #expect(await service.isRunning == false)
+        try await commands.reconcile()
+        #expect(await service.isRunning == false)
+    }
+
+    @Test func nativeStaleRegistrationAndRevokedApprovalRejectBeforeCredentialRead() async throws {
+        let (logbook, root, workspace) = try fixture()
+        defer { clean(logbook, root, workspace) }
+        let accounts = Accounts(), vault = Vault(), http = DropboxHTTP()
+        let service = LiveRemoteBackupService(logbook: logbook, accounts: accounts)
+        let commands = await service.nativeCommands(), planned = try plan(logbook)
+        let registered = try registration(planned, workspace); accounts.set(registered)
+        let approval = try await commands.approve(plan: planned, account: registered, expectedConfigurationRevision: 0)
+        accounts.set(try registration(planned, workspace, revision: 2))
+        await #expect(throws: NativeRemoteBackupCommandError.accountUnavailable) {
+            try await commands.start(plan: planned, approval: approval, vault: vault, http: http)
+        }
+        accounts.set(registered)
+        let authority = try await service.authorizationOwner()
+        try await authority.revoke(expectedWorkspaceGeneration: planned.workspaceGeneration, expectedConfigurationRevision: 1)
+        await #expect(throws: RemoteBackupAuthorizationError.notAuthorized) {
+            try await commands.start(plan: planned, approval: approval, vault: vault, http: http)
+        }
+        #expect(vault.recorded.isEmpty)
+        #expect(await http.calls == 0)
+    }
+
+    @Test func accountRemovalIsCheckedInsideDueCaptureWithoutExplicitReconcile() async throws {
+        let (logbook, root, workspace) = try fixture()
+        defer { clean(logbook, root, workspace) }
+        let accounts = Accounts(), ticks = Ticks(), clock = Clock(), vault = Vault(), http = DropboxHTTP()
+        let service = LiveRemoteBackupService(logbook: logbook, clock: clock, accounts: accounts, ticks: { ticks })
+        let commands = await service.nativeCommands(), planned = try plan(logbook)
+        let registered = try registration(planned, workspace); accounts.set(registered)
+        let approval = try await commands.approve(plan: planned, account: registered, expectedConfigurationRevision: 0, recurring: true)
+        try await commands.start(plan: planned, approval: approval, vault: vault, http: http)
+        let task = try #require(await service.currentTask)
+        await ticks.probe.wait()
+        accounts.set(nil); clock.due(); ticks.emit(); await task.value
+        #expect(await service.isRunning == false)
+        #expect(vault.recorded.isEmpty)
+        #expect(await http.calls == 0)
+        let staging = workspace.directoryURL.appendingPathComponent("Remote Backup/Staging")
+        #expect(try FileManager.default.contentsOfDirectory(atPath: staging.path).isEmpty)
+        accounts.set(registered); try await commands.reconcile()
+        #expect(await service.isRunning == false)
+    }
+
+    @Test func nativeReconcileCancelsPendingTickOnAccountReplacementAndNeverRestarts() async throws {
+        let (logbook, root, workspace) = try fixture()
+        defer { clean(logbook, root, workspace) }
+        let accounts = Accounts(), ticks = Ticks(), vault = Vault(), http = DropboxHTTP()
+        let service = LiveRemoteBackupService(logbook: logbook, accounts: accounts, ticks: { ticks })
+        let commands = await service.nativeCommands(), planned = try plan(logbook)
+        let registered = try registration(planned, workspace); accounts.set(registered)
+        let approval = try await commands.approve(plan: planned, account: registered, expectedConfigurationRevision: 0, recurring: true)
+        try await commands.start(plan: planned, approval: approval, vault: vault, http: http)
+        let task = try #require(await service.currentTask)
+        await ticks.probe.wait()
+        accounts.set(try registration(planned, workspace, revision: 2))
+        try await commands.reconcile(); await task.value
+        #expect(await service.isRunning == false)
+        accounts.set(registered); try await commands.reconcile()
+        #expect(await service.isRunning == false)
+        #expect(vault.recorded.isEmpty)
+        #expect(await http.calls == 0)
+    }
+
+    @Test func nativeRevokeCancelsAndDurablyRejectsTheOldApproval() async throws {
+        let (logbook, root, workspace) = try fixture()
+        defer { clean(logbook, root, workspace) }
+        let accounts = Accounts(), ticks = Ticks(), vault = Vault(), http = DropboxHTTP()
+        let service = LiveRemoteBackupService(logbook: logbook, accounts: accounts, ticks: { ticks })
+        let commands = await service.nativeCommands(), planned = try plan(logbook)
+        let registered = try registration(planned, workspace); accounts.set(registered)
+        let approval = try await commands.approve(plan: planned, account: registered, expectedConfigurationRevision: 0, recurring: true)
+        try await commands.start(plan: planned, approval: approval, vault: vault, http: http)
+        let task = try #require(await service.currentTask)
+        await ticks.probe.wait()
+        try await commands.revoke(expectedWorkspaceGeneration: planned.workspaceGeneration, expectedConfigurationRevision: 1)
+        await task.value
+        #expect(await service.isRunning == false)
+        await #expect(throws: RemoteBackupAuthorizationError.notAuthorized) {
+            try await commands.start(plan: planned, approval: approval, vault: vault, http: http)
+        }
+        #expect(vault.recorded.isEmpty)
+        #expect(await http.calls == 0)
+    }
+
+    @Test func accountRemovalDuringMockWritePreservesUncertaintyAndCannotReplay() async throws {
+        let (logbook, root, workspace) = try fixture()
+        defer { clean(logbook, root, workspace) }
+        let accounts = Accounts(), ticks = Ticks(), clock = Clock(), vault = Vault()
+        let http = DropboxHTTP { path in if path == "/2/files/upload" { accounts.set(nil) } }
+        let service = LiveRemoteBackupService(logbook: logbook, clock: clock, accounts: accounts, ticks: { ticks })
+        let commands = await service.nativeCommands(), planned = try plan(logbook)
+        let registered = try registration(planned, workspace); accounts.set(registered)
+        let approval = try await commands.approve(plan: planned, account: registered, expectedConfigurationRevision: 0, recurring: true)
+        try await commands.start(plan: planned, approval: approval, vault: vault, http: http)
+        let task = try #require(await service.currentTask)
+        await ticks.probe.wait()
+        clock.due(); ticks.emit(); await task.value
+        #expect(await service.isRunning == false)
+        #expect(await http.calls == 2)
+        let metadata = try metadataContents(in: workspace.directoryURL.appendingPathComponent("Remote Backup"))
+        #expect(metadata.contains { $0.contains("uncertain") })
+        accounts.set(registered)
+        await #expect(throws: RemoteBackupSchedulerError.operationInProgress) {
+            try await commands.start(plan: planned, approval: approval, vault: vault, http: http)
+        }
+        #expect(await http.calls == 2)
+    }
+
+    @Test func nativeReconcileStopsOnActualWorkspaceRotationAndOldReceiptCannotStart() async throws {
+        let (logbook, root, workspace) = try fixture()
+        defer { clean(logbook, root, workspace) }
+        let backup = try logbook.handle(method: "backup_create", params: ["name": "command-generation"])
+        let name = try #require(backup["name"] as? String)
+        let accounts = Accounts(), ticks = Ticks(), vault = Vault(), http = DropboxHTTP()
+        let service = LiveRemoteBackupService(logbook: logbook, accounts: accounts, ticks: { ticks })
+        let commands = await service.nativeCommands(), planned = try plan(logbook)
+        let registered = try registration(planned, workspace); accounts.set(registered)
+        let approval = try await commands.approve(plan: planned, account: registered, expectedConfigurationRevision: 0, recurring: true)
+        try await commands.start(plan: planned, approval: approval, vault: vault, http: http)
+        let task = try #require(await service.currentTask)
+        await ticks.probe.wait()
+        _ = try logbook.handle(method: "backup_restore", params: ["name": name, "confirm_restore": true,
+            "restore_settings": false, "restore_preferences": false, "restore_reference_data": false])
+        try await commands.reconcile(); await task.value
+        #expect(await service.isRunning == false)
+        await #expect(throws: RemoteBackupPlanningError.staleContext) {
+            try await commands.start(plan: planned, approval: approval, vault: vault, http: http)
+        }
+        #expect(vault.recorded.isEmpty)
+        #expect(await http.calls == 0)
+    }
+
     private func fixture() throws -> (LiveLogbookMethods, URL, IntegrationWorkspace) {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-live-backup-\(UUID().uuidString)")
         let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
@@ -101,11 +309,14 @@ import Testing
 
     private actor DropboxHTTP: DropboxBackupHTTPClient {
         var calls = 0
+        private let onRequest: @Sendable (String) -> Void
         private var bytes = Data()
         private var metadata = Data()
+        init(onRequest: @escaping @Sendable (String) -> Void = { _ in }) { self.onRequest = onRequest }
         func send(_ request: URLRequest, maximumResponseBytes: Int) async throws -> DropboxBackupHTTPResponse {
             calls += 1
             let url = request.url!
+            onRequest(url.path)
             switch url.path {
             case "/2/users/get_current_account":
                 return DropboxBackupHTTPResponse(url: url, statusCode: 200,

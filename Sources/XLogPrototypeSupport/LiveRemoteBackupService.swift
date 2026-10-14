@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 #if canImport(XLogCore)
 import XLogCore
 #else
@@ -11,6 +14,8 @@ actor LiveRemoteBackupService {
     private let logbook: LiveLogbookMethods
     private let clock: any RemoteBackupClock
     private let ticks: @Sendable () throws -> any RemoteBackupTickSource
+    private let accounts: any NativeDropboxBackupAccountRegistry
+    private var commandOwner: LiveRemoteBackupCommands?
     private nonisolated let lifetime = Lifetime()
     private var driver: RemoteBackupHostDriver?
     private var stopping = false
@@ -18,10 +23,11 @@ actor LiveRemoteBackupService {
     private var cleanup: Task<Void, Error>?
 
     init(logbook: LiveLogbookMethods, clock: any RemoteBackupClock = RemoteBackupSystemClock(),
+         accounts: any NativeDropboxBackupAccountRegistry = UnregisteredDropboxBackupAccounts(),
          ticks: @escaping @Sendable () throws -> any RemoteBackupTickSource = {
              try RemoteBackupPeriodicTickSource(interval: 30)
          }) {
-        self.logbook = logbook; self.clock = clock; self.ticks = ticks
+        self.logbook = logbook; self.clock = clock; self.ticks = ticks; self.accounts = accounts
     }
 
     /// A future native command boundary owns approval; no constructor/start path
@@ -29,6 +35,13 @@ actor LiveRemoteBackupService {
     func authorizationOwner() throws -> RemoteBackupAuthorizationOwner {
         try RemoteBackupAuthorizationOwner(workspace: logbook,
             stateDirectory: logbook.remoteBackupDirectory().appendingPathComponent("Authorization"))
+    }
+
+    func nativeCommands() -> LiveRemoteBackupCommands {
+        if let commandOwner { return commandOwner }
+        let commands = LiveRemoteBackupCommands(service: self, logbook: logbook, accounts: accounts)
+        commandOwner = commands
+        return commands
     }
 
     func dropboxAccountBinding(plan: RemoteBackupUploadPlan, authorization: RemoteBackupAuthorization,
@@ -48,8 +61,10 @@ actor LiveRemoteBackupService {
     func startDropbox(plan: RemoteBackupUploadPlan, authorization: RemoteBackupAuthorization,
                       binding: NativeDropboxBackupAccountBinding,
                       vault: any NativeBackupCredentialVault = SystemNativeBackupCredentialVault(),
-                      http: any DropboxBackupHTTPClient = DropboxBackupURLSessionClient()) async throws {
+                      http: any DropboxBackupHTTPClient = DropboxBackupURLSessionClient(),
+                      registrationCheck: @escaping @Sendable () throws -> Void = {}) async throws {
         try Task.checkCancellation()
+        try registrationCheck()
         guard !stopping, !starting else { throw RemoteBackupSchedulerError.operationInProgress }
         try lifetime.checkStartAllowed()
         let authority = try authorizationOwner()
@@ -60,19 +75,23 @@ actor LiveRemoteBackupService {
                   try logbook.currentKeychainService() == binding.keychainService else { throw DropboxBackupError.accountMismatch }
             try checker.validate(workspaceGeneration: current, destination: plan.destination)
         }
-        let source = LiveDropboxBackupCredentialSource(logbook: logbook, binding: binding, checker: checker, vault: vault)
+        let source = RegisteredCredentials(source: LiveDropboxBackupCredentialSource(logbook: logbook,
+            binding: binding, checker: checker, vault: vault), check: registrationCheck)
         let directory = try logbook.remoteBackupDirectory().appendingPathComponent("Dropbox Operations")
             .appendingPathComponent(plan.destination.id.uuidString.lowercased())
-        let executor = try DropboxBackupExecutor(destination: plan.destination, stateDirectory: directory, credentials: source, http: http)
-        try await start(plan: plan, authorization: authorization, executor: executor)
+        let executor = try DropboxBackupExecutor(destination: plan.destination, stateDirectory: directory,
+            credentials: source, http: RegisteredHTTP(client: http, check: registrationCheck))
+        try await start(plan: plan, authorization: authorization, executor: executor, registrationCheck: registrationCheck)
     }
 
     func start(plan: RemoteBackupUploadPlan, authorization: RemoteBackupAuthorization,
-               executor: any RemoteBackupClaimExecutor) async throws {
+               executor: any RemoteBackupClaimExecutor,
+               registrationCheck: @escaping @Sendable () throws -> Void = {}) async throws {
         guard !stopping, !starting else { throw RemoteBackupSchedulerError.operationInProgress }
         starting = true
         defer { starting = false }
         try Task.checkCancellation()
+        try registrationCheck()
         let token = try lifetime.begin()
         var created: RemoteBackupHostDriver?
         do {
@@ -81,21 +100,23 @@ actor LiveRemoteBackupService {
             let checker = await authority.checker(for: authorization)
             let directory = try logbook.remoteBackupDirectory()
             let scheduler = try RemoteBackupScheduler(stateDirectory: directory.appendingPathComponent("Schedules"))
-            let workspace = AuthorizedWorkspace(logbook: logbook, checker: checker)
+            let workspace = AuthorizedWorkspace(logbook: logbook, checker: checker, check: registrationCheck)
             let source = try RemoteBackupLocalSnapshotSource(workspace: workspace,
                 stagingDirectory: directory.appendingPathComponent("Staging"))
             let owner = RemoteBackupOwner(scheduler: scheduler, source: source,
-                executor: AuthorizedExecutor(executor: executor, checker: checker))
+                executor: AuthorizedExecutor(executor: executor, checker: checker, check: registrationCheck))
             let host = RemoteBackupHostDriver(scheduler: scheduler, owner: owner, clock: clock, ticks: try ticks())
             created = host
             try checker.validate(workspaceGeneration: plan.workspaceGeneration, destination: plan.destination)
+            try registrationCheck()
             guard lifetime.permits(token) else { throw CancellationError() }
             try await host.start(plan: plan, recurring: authorization.recurring)
             guard lifetime.permits(token), !Task.isCancelled else { throw CancellationError() }
             driver = host
             let task = Task { [weak self] in
                 guard let self else { return }
-                await self.run(token: token, plan: plan, checker: checker, scheduler: scheduler, host: host)
+                await self.run(token: token, plan: plan, checker: checker, scheduler: scheduler, host: host,
+                    registrationCheck: registrationCheck)
             }
             lifetime.install(task, token: token)
         } catch {
@@ -129,9 +150,11 @@ actor LiveRemoteBackupService {
     var currentTask: Task<Void, Never>? { lifetime.currentTask }
 
     private func run(token: UUID, plan: RemoteBackupUploadPlan, checker: RemoteBackupAuthorizationChecker,
-                     scheduler: RemoteBackupScheduler, host: RemoteBackupHostDriver) async {
+                     scheduler: RemoteBackupScheduler, host: RemoteBackupHostDriver,
+                     registrationCheck: @Sendable () throws -> Void) async {
         while lifetime.permits(token), !Task.isCancelled {
             do {
+                try registrationCheck()
                 try checker.validate(workspaceGeneration: plan.workspaceGeneration, destination: plan.destination)
                 _ = try await host.advance()
                 guard lifetime.permits(token), !Task.isCancelled,
@@ -147,19 +170,49 @@ actor LiveRemoteBackupService {
     private struct AuthorizedWorkspace: RemoteBackupWorkspaceSnapshotSource {
         let logbook: LiveLogbookMethods
         let checker: RemoteBackupAuthorizationChecker
+        let check: @Sendable () throws -> Void
         func withActiveSnapshot<T: Sendable>(workspaceGeneration: UUID, destination: RemoteBackupDestination,
             capture: @Sendable (RemoteBackupWorkspaceSnapshot) throws -> T) async throws -> T {
             try await logbook.withAuthorizedBackupSnapshot(workspaceGeneration: workspaceGeneration,
-                destination: destination, checker: checker, capture: capture)
+                destination: destination, checker: checker) { snapshot in
+                try check()
+                return try capture(snapshot)
+            }
         }
     }
 
     private struct AuthorizedExecutor: RemoteBackupClaimExecutor {
         let executor: any RemoteBackupClaimExecutor
         let checker: RemoteBackupAuthorizationChecker
+        let check: @Sendable () throws -> Void
         func execute(_ claim: RemoteBackupDueClaim) async throws -> RemoteBackupUploadReceipt {
+            try check()
             try checker.validate(workspaceGeneration: claim.plan.workspaceGeneration, destination: claim.plan.destination)
             return try await executor.execute(claim)
+        }
+    }
+
+    private struct RegisteredCredentials: DropboxBackupCredentialSource {
+        let source: LiveDropboxBackupCredentialSource
+        let check: @Sendable () throws -> Void
+        func credential(for accountID: UUID) async throws -> DropboxBackupCredential {
+            try check()
+            let credential = try await source.credential(for: accountID)
+            try check()
+            return credential
+        }
+    }
+
+    private struct RegisteredHTTP: DropboxBackupHTTPClient {
+        let client: any DropboxBackupHTTPClient
+        let check: @Sendable () throws -> Void
+        func send(_ request: URLRequest, maximumResponseBytes: Int) async throws -> DropboxBackupHTTPResponse {
+            try check()
+            let response = try await client.send(request, maximumResponseBytes: maximumResponseBytes)
+            // If account authority changed during a write, the existing coordinator
+            // records uncertainty rather than treating the result as replayable.
+            try check()
+            return response
         }
     }
 
