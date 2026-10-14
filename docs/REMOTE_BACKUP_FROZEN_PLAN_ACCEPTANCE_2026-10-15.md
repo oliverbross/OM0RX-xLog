@@ -13,7 +13,9 @@ installed alpha.29 does not contain this change, and no Dropbox account, credent
 provider request, upload, retention deletion or restore was used. Follow-up commit
 `1a5a4ff` adds source-complete authenticated Dropbox account probing without
 claiming production provisioning. Commit `d84d225` adds the native-only exact-key
-secure-store save/remove prerequisite, but no OAuth flow invokes it yet.
+secure-store save/remove prerequisite, but no OAuth flow invokes it yet. Commit
+`b437387` adds source-only, separately confirmed revision-conditional retention
+deletion without exposing remote deletion through IPC.
 
 ## Safety properties
 
@@ -37,13 +39,18 @@ secure-store save/remove prerequisite, but no OAuth flow invokes it yet.
   It validates the derived identity and token before operating-system access, uses
   background-safe macOS Keychain accessibility, and is not exposed through renderer
   IPC. Tests exercise rejection paths only and do not read or mutate the real Keychain.
+- A retention deletion consumes one exact retained review and selected candidate,
+  rechecks workspace/destination/account/consent around credential and HTTP access,
+  and sends only the pinned Dropbox object ID plus `parent_rev`. A durable marker is
+  written first, so a completed or ambiguous attempt cannot be replayed; later reviews
+  retain the upload receipt with `deletionClaimed` protection.
 
 ## Verification
 
-- `swift test`: **174 tests across 25 suites passed**.
+- `swift test`: **177 tests across 25 suites passed**.
 - `XLOG_PORTABLE_ONLY=1 swift test --scratch-path .build/backup-stage`:
   **200 XCTest tests passed** with four intentional benchmark skips, plus
-  **383 Swift Testing tests across 51 suites passed**.
+  **387 Swift Testing tests across 51 suites passed**.
 - Focused native owner suite: **12/12 passed**.
 - Focused live remote-backup service suite: **21/21 passed**, including exact
   approved backup ID/bytes and recurring rejection.
@@ -59,7 +66,6 @@ secure-store save/remove prerequisite, but no OAuth flow invokes it yet.
 2. Install the production presentation environment only after that authority exists;
    the account-verification transport is ready but deliberately dormant without it.
 3. Exercise an explicitly authorized live upload and independent download/hash
-   receipt before calling provider capability accepted.
-4. Add separately confirmed, revision-conditional retention deletion and restore
-   acceptance. Google Drive, OneDrive and FTP-family transports remain later
+   receipt, then a selected conditional deletion, before calling provider capability accepted.
+4. Add restore acceptance. Google Drive, OneDrive and FTP-family transports remain later
    provider-specific work rather than aliases for Dropbox behavior.
