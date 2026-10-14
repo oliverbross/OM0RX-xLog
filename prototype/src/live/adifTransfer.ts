@@ -142,6 +142,14 @@ const adxMorseKeyValues = new Set("SK SS BUG FAB SP DP CPU".split(" "));
 const adxPropagationModeValues = new Set("AS AUE AUR BS ECH EME ES F2 FAI INTERNET ION IRL MS RPT RS SAT TEP TR GWAVE LOS".split(" "));
 const adxRegionValues = new Set("NONE IV AI SY BI SI KO ET".split(" "));
 const adxUSStateValues = new Set("AL AK AZ AR CA CO CT DE FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY".split(" "));
+const adxStringFields = new Set(`CALL CHECK CLASS COMMENT CONTACTED_OP CONTEST_ID COUNTRY EMAIL EQ_CALL GUEST_OP MORSE_KEY_INFO
+  MY_ANTENNA MY_CITY MY_COUNTRY MY_MORSE_KEY_INFO MY_NAME MY_POSTAL_CODE MY_RIG MY_SIG MY_SIG_INFO MY_STREET NAME OPERATOR
+  OWNER_CALLSIGN PFX PRECEDENCE PUBLIC_KEY QSL_VIA QTH RST_RCVD RST_SENT SAT_MODE SAT_NAME SIG SIG_INFO SKCC SRX_STRING
+  STATION_CALLSIGN STX_STRING VE_PROV WEB`.split(/\s+/));
+const adxMultilineStringFields = new Set("ADDRESS NOTES QSLMSG QSLMSG_RCVD RIG".split(" "));
+const adxIntlStringFields = new Set(`COMMENT_INTL COUNTRY_INTL MY_ANTENNA_INTL MY_CITY_INTL MY_COUNTRY_INTL MY_NAME_INTL
+  MY_POSTAL_CODE_INTL MY_RIG_INTL MY_SIG_INTL MY_SIG_INFO_INTL MY_STREET_INTL NAME_INTL QTH_INTL SIG_INTL SIG_INFO_INTL`.split(/\s+/));
+const adxIntlMultilineStringFields = new Set("ADDRESS_INTL NOTES_INTL QSLMSG_INTL RIG_INTL".split(" "));
 // GridSquareList4or6 requires 2 or 4 comma-separated locators, all the same
 // length. Preserve their order and case; do not infer adjacency or deduplicate.
 const vuccGridPatterns = ["[A-R]{2}[0-9]{2}", "[A-R]{2}[0-9]{2}[A-X]{2}"];
@@ -187,6 +195,10 @@ function validateADXValue(name: string, value: string): void {
   else if (name === "PROP_MODE") valid = adxPropagationModeValues.has(value.toUpperCase());
   else if (name === "REGION") valid = adxRegionValues.has(value.toUpperCase());
   else if (["USACA_COUNTIES", "MY_USACA_COUNTIES"].includes(name)) valid = validUSCountyList(value);
+  else if (adxStringFields.has(name)) valid = /^[\x20-\x7e]*$/.test(value);
+  else if (adxMultilineStringFields.has(name)) valid = /^[\r\n\x20-\x7e]*$/.test(value);
+  else if (adxIntlStringFields.has(name)) valid = !/[\r\n]/.test(value);
+  else if (adxIntlMultilineStringFields.has(name)) valid = true;
   else if (Object.prototype.hasOwnProperty.call(adxIntegerBounds, name)) {
     const [minimum, maximum] = adxIntegerBounds[name];
     // IntegerGE0 permits signed zero; PositiveInteger requires unsigned digits.
@@ -218,7 +230,8 @@ function validateADXValue(name: string, value: string): void {
   else return;
   // JS '$' also matches before a final newline; scalar/reference values must
   // consume the entire field rather than accepting an unvalidated line ending.
-  if (!valid || /[\r\n]/.test(value)) throw new Error(`Field ${name} has an invalid ADX typed value. Use ADI to preserve non-schema values.`);
+  const multiline = adxMultilineStringFields.has(name) || adxIntlMultilineStringFields.has(name);
+  if (!valid || (!multiline && /[\r\n]/.test(value))) throw new Error(`Field ${name} has an invalid ADX typed value. Use ADI to preserve non-schema values.`);
 }
 
 function validateADXHeaderValue(name: string, value: string): void {

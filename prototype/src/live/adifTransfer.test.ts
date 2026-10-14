@@ -48,7 +48,7 @@ it("enforces ISO-8859-1 source, expanded output, record and batch bounds", () =>
 
 it("preserves ISO-8859-1 C1 field text through UTF-8 ADX export and reimport", () => {
   const controls = String.fromCharCode(...Array.from({ length: 32 }, (_, index) => index + 0x80));
-  const canonical = decodeADIF(legacyBytes(`<NOTES:32>${controls}<EOR>\r\n`), "iso-8859-1");
+  const canonical = decodeADIF(legacyBytes(`<NOTES_INTL:32>${controls}<EOR>\r\n`), "iso-8859-1");
   const writer = new ADIFExportDocument("adx");
   writer.append(canonical, 1);
   expect(decodeADIF(new TextEncoder().encode(writer.finish()).buffer)).toBe(canonical);
@@ -96,11 +96,11 @@ it.each([
 
 it("converts UTF-8 ADX text, empty fields and extensions into exact byte-counted ADI", () => {
   const converted = decode("\uFEFF<?xml version='1.0' encoding='UTF-8'?>" + adx(
-    "<CALL>W1AW</CALL><COMMENT>Žilina &amp; &lt;EOR&gt; 😀</COMMENT><NOTES/>" +
+    "<CALL>W1AW</CALL><COMMENT_INTL>Žilina &amp; &lt;EOR&gt; 😀</COMMENT_INTL><NOTES/>" +
     '<APP PROGRAMID="TEST" FIELDNAME="OPAQUE" TYPE="S">value</APP><USERDEF FIELDNAME="CUSTOM">é</USERDEF>',
     '<USERDEF FIELDID="1" TYPE="G">CUSTOM</USERDEF>'));
   const comment = "Žilina & <EOR> 😀";
-  expect(converted).toBe(`<CALL:4>W1AW<COMMENT:${new TextEncoder().encode(comment).length}>${comment}<NOTES:0><APP_TEST_OPAQUE:5>value<CUSTOM:2>é<EOR>\r\n`);
+  expect(converted).toBe(`<CALL:4>W1AW<COMMENT_INTL:${new TextEncoder().encode(comment).length}>${comment}<NOTES:0><APP_TEST_OPAQUE:5>value<CUSTOM:2>é<EOR>\r\n`);
   expect(adifBatches(converted)).toEqual([converted]);
 });
 
@@ -113,14 +113,14 @@ it("keeps record order and uses the existing bounded batcher for ADX", () => {
 });
 
 it("accepts XML namespaces, comments, processing instructions and CDATA field text", () => {
-  expect(decode('<a:ADX xmlns:a="urn:adif"><a:HEADER/><!-- metadata --><a:RECORDS><?export value?><a:RECORD><a:COMMENT><![CDATA[<EOR> & é]]></a:COMMENT></a:RECORD></a:RECORDS></a:ADX>'))
-    .toBe("<COMMENT:10><EOR> & é<EOR>\r\n");
+  expect(decode('<a:ADX xmlns:a="urn:adif"><a:HEADER/><!-- metadata --><a:RECORDS><?export value?><a:RECORD><a:COMMENT_INTL><![CDATA[<EOR> & é]]></a:COMMENT_INTL></a:RECORD></a:RECORDS></a:ADX>'))
+    .toBe("<COMMENT_INTL:10><EOR> & é<EOR>\r\n");
 });
 
 it("retains uniform namespace aliases, advisory schema hints and exact extension metadata", () => {
   const source = '<a:ADX xmlns:a="urn:adif" xmlns:b="urn:adif" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:adif https://example.invalid/never-fetch.xsd">\n' +
     '<b:HEADER><a:USERDEF FIELDID="17" TYPE="g">Mixed_Custom</a:USERDEF></b:HEADER>\t<b:RECORDS>\r\n<b:RECORD>' +
-    '<a:COMMENT>Žilina 😀</a:COMMENT><b:USERDEF FIELDNAME="Mixed_Custom">未知</b:USERDEF>' +
+    '<a:COMMENT_INTL>Žilina 😀</a:COMMENT_INTL><b:USERDEF FIELDNAME="Mixed_Custom">未知</b:USERDEF>' +
     '<a:APP PROGRAMID="Mixed_App" FIELDNAME="Opaque_Name" TYPE="g">é</a:APP></b:RECORD></b:RECORDS></a:ADX>';
   const imported = decodeADIFDocument(new TextEncoder().encode(source).buffer);
   const writer = new ADIFExportDocument("adx"); writer.append(imported.text, 1, imported.fieldMetadata);
@@ -511,6 +511,42 @@ it.each([
   expect(decode(original)).toBe(original);
 });
 
+const adxStringFamilies: Record<string, string[]> = {
+  ascii: `CALL CHECK CLASS COMMENT CONTACTED_OP CONTEST_ID COUNTRY EMAIL EQ_CALL GUEST_OP MORSE_KEY_INFO MY_ANTENNA MY_CITY
+    MY_COUNTRY MY_MORSE_KEY_INFO MY_NAME MY_POSTAL_CODE MY_RIG MY_SIG MY_SIG_INFO MY_STREET NAME OPERATOR OWNER_CALLSIGN
+    PFX PRECEDENCE PUBLIC_KEY QSL_VIA QTH RST_RCVD RST_SENT SAT_MODE SAT_NAME SIG SIG_INFO SKCC SRX_STRING STATION_CALLSIGN
+    STX_STRING VE_PROV WEB`.split(/\s+/),
+  multiline: "ADDRESS NOTES QSLMSG QSLMSG_RCVD RIG".split(" "),
+  international: `COMMENT_INTL COUNTRY_INTL MY_ANTENNA_INTL MY_CITY_INTL MY_COUNTRY_INTL MY_NAME_INTL MY_POSTAL_CODE_INTL
+    MY_RIG_INTL MY_SIG_INTL MY_SIG_INFO_INTL MY_STREET_INTL NAME_INTL QTH_INTL SIG_INTL SIG_INFO_INTL`.split(/\s+/),
+  internationalMultiline: "ADDRESS_INTL NOTES_INTL QSLMSG_INTL RIG_INTL".split(" "),
+};
+it.each([
+  ...adxStringFamilies.ascii.map(name => [name, 'ASCII <EOR> & "quoted"']),
+  ...adxStringFamilies.multiline.map(name => [name, "line 1\r\nline 2"]),
+  ...adxStringFamilies.international.map(name => [name, "Žilina 😀"]),
+  ...adxStringFamilies.internationalMultiline.map(name => [name, "Žilina 😀\r\n未知"]),
+])("preserves ADX string-family text %s at both boundaries", (name, value) => {
+  const original = adiRecord({ [name]: value });
+  expect(decode(adx(`<${name}>${value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\r/g, "&#13;")}</${name}>`))).toBe(original);
+  const writer = new ADIFExportDocument("adx"); writer.append(original, 1);
+  expect(decode(writer.finish())).toBe(original);
+});
+
+it.each([
+  ...adxStringFamilies.ascii.map(name => [name, "Žilina"]),
+  ...adxStringFamilies.multiline.map(name => [name, "Žilina"]),
+  ...adxStringFamilies.international.map(name => [name, "line 1\nline 2"]),
+])("rejects invalid ADX string-family text %s while preserving ADI", (name, value) => {
+  expect(() => decode(adx(`<${name}>${value}</${name}>`))).toThrow(`Field ${name} has an invalid ADX typed value`);
+  const original = adiRecord({ [name]: value });
+  const writer = new ADIFExportDocument("adx");
+  expect(() => writer.append(original, 1)).toThrow(`Field ${name} has an invalid ADX typed value`);
+  const adi = new ADIFExportDocument("adi"); adi.append(original, 1);
+  expect(adi.finish()).toBe(original);
+  expect(decode(original)).toBe(original);
+});
+
 const adxLocations = ["LAT", "LON", "MY_LAT", "MY_LON"];
 const adxVUCCFields = ["VUCC_GRIDS", "MY_VUCC_GRIDS"];
 it.each([
@@ -542,7 +578,7 @@ it("preserves accepted grid, reference and small enum values exactly across ADX 
     IOTA: "eu-001", MY_IOTA: "NA-999", SOTA_REF: "om/za-001", MY_SOTA_REF: "EA8/GC-999",
     POTA_REF: "sk-0001,US-12345@US-NY", MY_POTA_REF: "DE-00001@DE-BY",
     WWFF_REF: "omff-0001", MY_WWFF_REF: "VKFF-0000", DARC_DOK: "a01", MY_DARC_DOK: "01",
-    CONT: "eu", ANT_PATH: "s", COMMENT: "Žilina 😀" };
+    CONT: "eu", ANT_PATH: "s", COMMENT_INTL: "Žilina 😀" };
   const original = adiRecord(fields);
   const writer = new ADIFExportDocument("adx"); writer.append(original, 1);
   expect(decode(writer.finish())).toBe(original);
@@ -571,7 +607,7 @@ it.each([
 
 it("exports ADX from multiple frozen frames with extensions, Unicode, XML escapes and exact CR preservation", () => {
   const writer = new ADIFExportDocument("adx");
-  const first = adiRecord({ CALL: "W1AW", COMMENT: 'Žilina <EOR> & "quoted" 😀', NOTES: "line1\r\nline2\rline3", APP_TEST_OPAQUE: "é", CUSTOM: "", CLUBLOG_QSO_UPLOAD_STATUS: "Y" });
+  const first = adiRecord({ CALL: "W1AW", COMMENT_INTL: 'Žilina <EOR> & "quoted" 😀', NOTES: "line1\r\nline2\rline3", APP_TEST_OPAQUE: "é", CUSTOM: "", CLUBLOG_QSO_UPLOAD_STATUS: "Y" });
   const second = adiRecord({ CALL: "K1ABC", CUSTOM: "new", ANOTHER: "x" });
   writer.append("<ADIF_VER:5>3.1.7<EOH>\r\n" + first, 1);
   writer.append(second, 1);
