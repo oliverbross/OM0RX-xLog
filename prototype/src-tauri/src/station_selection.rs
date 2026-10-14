@@ -739,6 +739,7 @@ pub fn owner(app: &tauri::AppHandle) -> Result<Arc<Selection>, String> {
             for label in ["main", "monitor", "station-status"] {
                 let _ = events.emit_to(label, "xlog:station-selection", ());
             }
+            let _ = events.emit_to("alerts", "xlog:alerts", ());
         }),
     )?);
     *slot = Some(owner.clone());

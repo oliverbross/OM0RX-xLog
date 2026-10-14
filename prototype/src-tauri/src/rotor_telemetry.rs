@@ -149,6 +149,7 @@ pub fn owner(app: &tauri::AppHandle) -> Result<Arc<RotorTelemetry>, String> {
             Arc::new(RotorTelemetry::new(
                 Arc::new(crate::rotor::request),
                 Arc::new(move |value| {
+                    let _ = app.emit_to("alerts", "xlog:alerts", ());
                     for label in ["main", "monitor", "rotor"] {
                         let _ = app.emit_to(label, "xlog:rotor-telemetry", &value);
                     }
