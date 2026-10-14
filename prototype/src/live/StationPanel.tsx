@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Activity, AlertTriangle, Antenna, LockKeyhole, Radio, RefreshCw, RotateCcw, ShieldAlert } from "lucide-react";
 import "./StationPanel.css";
 import AgentConfiguration from "./AgentConfiguration";
+import { AgentConnectionSetup } from "./AgentConnectionSetup";
+import { nativeStationSelection } from "./stationSelection";
 
 type Request = (method: string, params?: Record<string, unknown>) => Promise<any>;
 type RadioState = {
@@ -269,14 +271,14 @@ export default function StationPanel({ snapshot, onRequest, onSnapshot, monitor 
       <aside className="live-station-side">
         <section className="live-station-card"><h3>{isDirect ? "Direct agent connection" : "Companion connection"}</h3>
           {isDirect ? <><p className="live-station-helper">Use the existing Remote Station Agent HTTPS endpoint. Its token is stored in the macOS Keychain, never in the logbook.</p>
-            {!isMonitor && <form className="live-station-connect" onSubmit={(event) => void connect(event)}><label>Agent HTTPS URL<input aria-label="Agent HTTPS URL" type="url" required placeholder="https://station.example:8443" value={agentURL} onChange={(event) => setAgentURL(event.target.value)} /></label>
+            {!isMonitor && (nativeStationSelection() ? <AgentConnectionSetup connections legacyEndpoint={agentURL} /> : <form className="live-station-connect" onSubmit={(event) => void connect(event)}><label>Agent HTTPS URL<input aria-label="Agent HTTPS URL" type="url" required placeholder="https://station.example:8443" value={agentURL} onChange={(event) => setAgentURL(event.target.value)} /></label>
               <label>Agent token<input aria-label="Agent token" type="password" autoComplete="off" placeholder="Enter token or use saved Keychain token" value={token} onChange={(event) => setToken(event.target.value)} /></label>
               <label className="live-station-checkbox"><input type="checkbox" checked={allowTransmit} onChange={(event) => setAllowTransmit(event.target.checked)} /> Allow CAT transmit controls for this connection</label>
               <div className="live-station-actionrow"><button type="submit" disabled={busy || !agentURL.trim()}><LockKeyhole size={13} /> Connect</button>
                 <button type="button" disabled={busy || !agentURL.trim()} onClick={() => void command("station_connect", { provider: "direct_agent", base_url: agentURL.trim(), allow_transmit: allowTransmit }, "Reconnect request")}><RotateCcw size={13} /> Reconnect</button>
                 <button type="button" disabled={busy} onClick={() => void command("station_disconnect", { provider: "direct_agent" }, "Disconnect")}>Disconnect radio</button></div>
               <button type="button" className="live-station-quiet" disabled={busy || !agentURL.trim()} onClick={() => void command("station_forget", { provider: "direct_agent", base_url: agentURL.trim() }, "Saved token removal")}>Forget saved token for this URL</button>
-            </form>}</> : <><p className="live-station-helper">Read from the standalone xCat loopback service. xCat remains radio owner; this view does not launch it.</p>
+            </form>)}</> : <><p className="live-station-helper">Read from the standalone xCat loopback service. xCat remains radio owner; this view does not launch it.</p>
             {!isMonitor && <div className="live-station-connect"><label>Host<input aria-label="xCat loopback host" value={host} onChange={(event) => setHost(event.target.value)} /></label><label>Port<input aria-label="xCat loopback port" inputMode="numeric" value={port} onChange={(event) => setPort(event.target.value)} /></label></div>}</>}
         </section>
         <section className="live-station-card"><h3>Source and freshness</h3><dl><dt>Provider</dt><dd>{value(live?.source)}</dd><dt>Radio</dt><dd>{connected ? "Observed" : "Unavailable"}</dd>

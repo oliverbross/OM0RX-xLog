@@ -7,6 +7,7 @@ mod rotor;
 mod rotor_telemetry;
 mod station_telemetry;
 mod station_selection;
+mod station_session;
 mod map_context;
 mod monitor_context;
 mod spot_identity;
@@ -452,6 +453,31 @@ async fn station_selection_apply(window: tauri::WebviewWindow, app: tauri::AppHa
 }
 
 #[tauri::command]
+async fn station_session_request(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, params: serde_json::Value) -> Result<serde_json::Value, String> {
+    let action = params["action"].as_str().unwrap_or("");
+    station_session::validate(window.label(), state.path.is_some(), action)?;
+    if APP_EXITING.load(Ordering::Acquire) { return Err("Station Control is shutting down.".into()); }
+    let owner = station_session::owner(&app)?;
+    if action == "snapshot" {
+        let mut value = owner.snapshot()?;
+        value["selection"] = station_selection::owner(&app)?.snapshot()?;
+        return Ok(value);
+    }
+    if action == "receipt" { return owner.receipt(params["operation_id"].as_str().ok_or("Missing operation identity.")?); }
+    let selection = station_selection::owner(&app)?;
+    let telemetry = station_telemetry::owner(&app)?;
+    let changed = app.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || owner.apply(&params, |request, generation, identity| {
+        if let Some(owner) = cw_session_backend::existing() { owner.revoke()?; let _ = owner.stop(); }
+        auto_rotor::revoke();
+        let _auto_change = auto_rotor::canonical_will_change();
+        selection.monitor_action(request, generation, identity, || telemetry.control())
+    })).await.map_err(|_| "Station Control task ended; inspect the operation receipt before retrying.".to_string())?;
+    for label in ["main", "station-control"] { let _ = changed.emit_to(label, "xlog:station-session", ()); }
+    result
+}
+
+#[tauri::command]
 async fn cw_session_request(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>,
     client: String, sequence: u64, params: serde_json::Value) -> Result<serde_json::Value, String> {
     if window.label() != "main" || state.path.is_some() || APP_EXITING.load(Ordering::Acquire) {
@@ -472,6 +498,9 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     // Only typed integration operations cross this boundary; never shell commands.
     if state.path.is_some() { acceptance::validate_local_request(&request)?; }
     let method = request.get("method").and_then(|m| m.as_str()).unwrap_or("");
+    if state.path.is_none() && request["params"]["provider"] == "direct_agent" && matches!(method, "station_connect" | "station_disconnect" | "station_reconnect" | "station_forget") {
+        return Err("Use the shared Station Control connection owner.".into());
+    }
     if matches!(method, "winkeyer_arm" | "winkeyer_send" | "winkeyer_stop")
         || method == "station_radio_control" && matches!(request["params"]["control"].as_str(), Some("send_cw" | "clear_cw"))
         || method == "hamlib_control" && matches!(request["params"]["action"].as_str(), Some("cw" | "cw_stop")) {
@@ -880,7 +909,7 @@ fn main() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![worker_request, cw_session_request, pick_backup_package, open_monitor, open_detached_map,
+        .invoke_handler(tauri::generate_handler![worker_request, cw_session_request, station_session_request, pick_backup_package, open_monitor, open_detached_map,
             spot_editor_register, spot_editor_unregister, spot_editor_ack, spot_editor_state,
             spot_activation_snapshot, spot_activation_status, spot_activation_reconcile, activate_spot, activate_opportunity,
             auto_rotor_snapshot, auto_rotor_set,

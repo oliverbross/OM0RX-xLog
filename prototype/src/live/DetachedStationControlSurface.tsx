@@ -1,18 +1,18 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { connectMonitorContext, monitorRadioFresh, monitorStation, type MonitorContext } from "./monitorContext";
 import { dockDetachedWorkspace } from "./DetachedClusterBridge";
+import { AgentConnectionSetup } from "./AgentConnectionSetup";
 import "./StationPanel.css";
 
 type Connection = { refresh: () => void; dispose: () => void };
-type Props = { connect?: (changed: (value: MonitorContext) => void, failed: (message: string) => void) => Connection };
+type Props = { connect?: (changed: (value: MonitorContext) => void, failed: (message: string) => void) => Connection; configuration?: ReactNode };
 const frequency = (hz: unknown) => typeof hz === "number" && Number.isFinite(hz) ? `${(hz / 1e6).toFixed(6)} MHz` : "Unavailable";
 const value = (input: unknown) => input == null || input === "" ? "Unavailable" : String(input);
 const providers = { direct_agent: "Remote Station Agent", direct_flex_lan: "Direct FLEX LAN", hamlib: "Local Hamlib" };
 
-/** Passive retained observations only. Connection configuration and command
- * ownership still belong to the main station controls; mounting never reads
- * credentials, selects a provider, connects a device or sends an action. */
-export function StationControlSurface({ connect = connectMonitorContext }: Props) {
+/** Retained observations and optional shared endpoint setup. Mounting never
+ * reads credentials, selects a provider, connects a device or sends an action. */
+export function StationControlSurface({ connect = connectMonitorContext, configuration }: Props) {
   const [context, setContext] = useState<MonitorContext | null>(null);
   const [error, setError] = useState(""), [clock, setClock] = useState(Date.now());
   const [docking, setDocking] = useState(false), [dockError, setDockError] = useState("");
@@ -40,7 +40,8 @@ export function StationControlSurface({ connect = connectMonitorContext }: Props
       <header className="live-station-head"><div><h2>Station Control</h2><p>Passive station monitoring · independent of Desk</p></div>
         <div className="live-station-head-actions"><button type="button" onClick={() => connection.current?.refresh()}>Refresh observations</button>
           <button type="button" disabled={docking} onClick={() => void dockBack()}>{docking ? "Docking…" : "Dock back"}</button></div></header>
-      <p role="status">Connection setup, radio selection and station actions currently require the main station controls.</p>
+      <p role="status">{configuration ? "Agent endpoint setup is shared. Radio selection, connection and station actions require the main station controls." : "Connection setup, radio selection and station actions currently require the main station controls."}</p>
+      {!context?.acceptance && configuration}
       {error && <p className="live-station-error" role="alert">{error}</p>}
       {dockError && <p className="live-station-error" role="alert">{dockError}</p>}
       {!context && <p role="status">Loading retained native station observations…</p>}
@@ -65,4 +66,6 @@ export function StationControlSurface({ connect = connectMonitorContext }: Props
     </section>
   </main></div>;
 }
-export function DetachedStationControlSurface() { return <StationControlSurface />; }
+export function DetachedStationControlSurface() {
+  return <StationControlSurface configuration={new URLSearchParams(location.search).get("acceptance") === "local" ? undefined : <AgentConnectionSetup />} />;
+}
