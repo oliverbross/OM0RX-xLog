@@ -161,6 +161,16 @@ function validateADXValue(name: string, value: string): void {
   if (!valid || /[\r\n]/.test(value)) throw new Error(`Field ${name} has an invalid ADX typed value. Use ADI to preserve non-schema values.`);
 }
 
+function validateADXHeaderValue(name: string, value: string): void {
+  let valid = true;
+  if (name === "ADIF_VER") valid = /^3\.[0-9]\.[0-9]$/.test(value);
+  else if (name === "CREATED_TIMESTAMP") {
+    valid = /^(?:19[3-9][0-9]|[2-9][0-9]{3})(?:0[1-9]|1[0-2])(?:0[1-9]|[12][0-9]|3[01]) (?:[01][0-9]|2[0-3])(?:[0-5][0-9]){2}$/.test(value);
+  } else if (["PROGRAMID", "PROGRAMVERSION"].includes(name)) valid = /^[\x20-\x7e]*$/.test(value);
+  else return;
+  if (!valid) throw new Error(`Header field ${name} has an invalid ADX schema value.`);
+}
+
 function validateXMLText(value: string): void {
   // XML 1.0 cannot represent these values, even as character references. Reject
   // unpaired surrogates too, before TextEncoder could replace them silently.
@@ -433,8 +443,10 @@ function adxToADI(text: string, fieldMetadata?: (ADIFFieldMetadata | null)[]): s
     if (element.hasAttribute("TYPE") && !/^[bBnNsSiIdDtTmMgGeElL]$/.test(element.getAttribute("TYPE")!)) fail();
     name = name.toUpperCase();
     if (!/^[A-Z0-9_]+$/.test(name) || ["EOH", "EOR", "ADX", "HEADER", "RECORDS", "RECORD", "APP", "USERDEF"].includes(name)) fail();
-    if (!header) validateADXValue(name, element.textContent ?? "");
-    return [name, element.textContent ?? ""];
+    const value = element.textContent ?? "";
+    if (header) validateADXHeaderValue(name, value);
+    else validateADXValue(name, value);
+    return [name, value];
   }
   if (root.localName !== "ADX") fail();
   container(root, true);
@@ -444,13 +456,18 @@ function adxToADI(text: string, fieldMetadata?: (ADIFFieldMetadata | null)[]): s
   const declarations = new Map<string, { name: string; attributes: Record<string, string> }>();
   const declarationIDs = new Set<string>();
   const seenHeaderFields = new Set<string>();
-  for (const entry of children(sections[0])) {
-    field(entry, true);
+  const headerEntries = children(sections[0]);
+  for (const entry of headerEntries) {
+    if (entry.localName === "USERDEF") continue;
+    if (seenHeaderFields.has(entry.localName)) fail();
+    seenHeaderFields.add(entry.localName);
+  }
+  for (const entry of headerEntries) {
     if (entry.localName !== "USERDEF") {
-      if (seenHeaderFields.has(entry.localName)) fail();
-      seenHeaderFields.add(entry.localName);
+      field(entry, true);
       continue;
     }
+    field(entry, true);
     const name = entry.textContent ?? "", key = name.toUpperCase();
     const attributes = Object.fromEntries(Array.from(entry.attributes).filter(attribute => !attribute.namespaceURI).map(attribute => [attribute.name, attribute.value]));
     if (declarations.has(key) || declarationIDs.has(attributes.FIELDID)) metadataError();

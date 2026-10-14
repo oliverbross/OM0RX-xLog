@@ -78,6 +78,22 @@ it.each(["<?xml version='1.0'?><ADX/>", "<ADX/>"])("rejects incomplete ADX %s", 
 const decode = (text: string) => decodeADIF(new TextEncoder().encode(text).buffer);
 const adx = (fields: string, header = "<ADIF_VER>3.1.7</ADIF_VER>") => `<ADX><HEADER>${header}</HEADER><RECORDS><RECORD>${fields}</RECORD></RECORDS></ADX>`;
 
+it("accepts generic-schema ADX header scalar values", () => {
+  const header = "<ADIF_VER>3.1.7</ADIF_VER><CREATED_TIMESTAMP>20261014 015959</CREATED_TIMESTAMP>" +
+    "<PROGRAMID>OM0RX xLog</PROGRAMID><PROGRAMVERSION>0.4.0-alpha.24</PROGRAMVERSION>";
+  expect(decode(adx("<CALL>W1AW</CALL>", header))).toBe("<CALL:4>W1AW<EOR>\r\n");
+});
+
+it.each([
+  "<ADIF_VER>3.1.17</ADIF_VER>",
+  "<CREATED_TIMESTAMP>20261301 000000</CREATED_TIMESTAMP>",
+  "<CREATED_TIMESTAMP>20261014T015959</CREATED_TIMESTAMP>",
+  "<PROGRAMID>OM0RX Žilina</PROGRAMID>",
+  "<PROGRAMVERSION>alpha\t24</PROGRAMVERSION>",
+])("rejects ADX header values outside the generic schema: %s", header => {
+  expect(() => decode(adx("<CALL>W1AW</CALL>", header))).toThrow("invalid ADX schema value");
+});
+
 it("converts UTF-8 ADX text, empty fields and extensions into exact byte-counted ADI", () => {
   const converted = decode("\uFEFF<?xml version='1.0' encoding='UTF-8'?>" + adx(
     "<CALL>W1AW</CALL><COMMENT>Žilina &amp; &lt;EOR&gt; 😀</COMMENT><NOTES/>" +
