@@ -10,7 +10,9 @@ that reviewed plan with a newly captured package.
 
 This is source acceptance only. Production provisioning remains unavailable, the
 installed alpha.29 does not contain this change, and no Dropbox account, credential,
-provider request, upload, retention deletion or restore was used.
+provider request, upload, retention deletion or restore was used. Follow-up commit
+`1a5a4ff` adds source-complete authenticated Dropbox account probing without
+claiming production provisioning.
 
 ## Safety properties
 
@@ -26,13 +28,17 @@ provider request, upload, retention deletion or restore was used.
   recurring execution keeps the separate fresh-snapshot-per-interval path.
 - Stop, cancellation, workspace rotation, account replacement and consent revocation
   keep their existing fail-closed behavior.
+- Setup verification and upload share one bounded provider-account probe. It reads
+  only the exact derived vault item, calls only the fixed Dropbox HTTPS account
+  endpoint, rejects redirects, oversize metadata and a nonmatching observed dbid,
+  and exposes neither the token nor provider response body.
 
 ## Verification
 
-- `swift test`: **173 tests across 25 suites passed**.
+- `swift test`: **174 tests across 25 suites passed**.
 - `XLOG_PORTABLE_ONLY=1 swift test --scratch-path .build/backup-stage`:
   **200 XCTest tests passed** with four intentional benchmark skips, plus
-  **379 Swift Testing tests across 51 suites passed**.
+  **382 Swift Testing tests across 51 suites passed**.
 - Focused native owner suite: **12/12 passed**.
 - Focused live remote-backup service suite: **21/21 passed**, including exact
   approved backup ID/bytes and recurring rejection.
@@ -42,10 +48,10 @@ provider request, upload, retention deletion or restore was used.
 
 ## Remaining dependency gates
 
-1. Add a trusted production-native Dropbox provisioning flow and credential write
-   path; do not accept account proofs or secrets from renderer state.
-2. Verify the authenticated account ID against Dropbox and install the production
-   presentation environment only after that authority exists.
+1. Register a Dropbox application and add its trusted production-native OAuth and
+   credential-write flow; do not accept account proofs or secrets from renderer state.
+2. Install the production presentation environment only after that authority exists;
+   the account-verification transport is ready but deliberately dormant without it.
 3. Exercise an explicitly authorized live upload and independent download/hash
    receipt before calling provider capability accepted.
 4. Add separately confirmed, revision-conditional retention deletion and restore
