@@ -141,6 +141,7 @@ const adxARRLSectionValues = new Set(`AL AK AB AR AZ BC CO CT DE EB EMA ENY EPA 
 const adxMorseKeyValues = new Set("SK SS BUG FAB SP DP CPU".split(" "));
 const adxPropagationModeValues = new Set("AS AUE AUR BS ECH EME ES F2 FAI INTERNET ION IRL MS RPT RS SAT TEP TR GWAVE LOS".split(" "));
 const adxRegionValues = new Set("NONE IV AI SY BI SI KO ET".split(" "));
+const adxUSStateValues = new Set("AL AK AZ AR CA CO CT DE FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY".split(" "));
 // GridSquareList4or6 requires 2 or 4 comma-separated locators, all the same
 // length. Preserve their order and case; do not infer adjacency or deduplicate.
 const vuccGridPatterns = ["[A-R]{2}[0-9]{2}", "[A-R]{2}[0-9]{2}[A-X]{2}"];
@@ -163,7 +164,18 @@ const adxPatternRules = [
   { fields: ["DARC_DOK", "MY_DARC_DOK"], pattern: /^[0-9A-Z]+$/i },
   { fields: ["CONT"], pattern: /^(?:NA|SA|EU|AF|OC|AS|AN)$/i },
   { fields: ["ANT_PATH"], pattern: /^[GOSL]$/i },
+  { fields: ["STATE", "MY_STATE", "CNTY", "MY_CNTY"], pattern: /^[\x20-\x7e]+$/ },
+  { fields: ["CNTY_ALT", "MY_CNTY_ALT"], pattern: /^NZ_REGIONS:[A-Z](?:[ -](?=[A-Z])|[A-Z]){4,16}\/[A-Z](?:[ -](?=[A-Z])|[A-Z]){3,20}$/i },
+  { fields: ["SUBMODE"], pattern: /^[\x21-\x7e][\x20-\x7e]+[\x21-\x7e]$/ },
 ];
+function validUSCountyList(value: string): boolean {
+  return value.split(":").every(item => {
+    const separator = item.indexOf(",");
+    if (separator < 0 || item.indexOf(",", separator + 1) >= 0) return false;
+    const state = item.slice(0, separator).toUpperCase(), county = item.slice(separator + 1);
+    return adxUSStateValues.has(state) && /^[A-Za-z][ A-Za-z.'-]*[A-Za-z]$/.test(county);
+  });
+}
 function validateADXValue(name: string, value: string): void {
   let valid = true;
   const patternRule = adxPatternRules.find(rule => rule.fields.includes(name));
@@ -174,6 +186,7 @@ function validateADXValue(name: string, value: string): void {
   else if (["MORSE_KEY_TYPE", "MY_MORSE_KEY_TYPE"].includes(name)) valid = adxMorseKeyValues.has(value.toUpperCase());
   else if (name === "PROP_MODE") valid = adxPropagationModeValues.has(value.toUpperCase());
   else if (name === "REGION") valid = adxRegionValues.has(value.toUpperCase());
+  else if (["USACA_COUNTIES", "MY_USACA_COUNTIES"].includes(name)) valid = validUSCountyList(value);
   else if (Object.prototype.hasOwnProperty.call(adxIntegerBounds, name)) {
     const [minimum, maximum] = adxIntegerBounds[name];
     // IntegerGE0 permits signed zero; PositiveInteger requires unsigned digits.

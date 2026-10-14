@@ -482,6 +482,35 @@ it("recognizes all ADIF 3.1.7 record elements, including GUEST_OP and VE_PROV", 
   expect(xml).not.toContain("<USERDEF");
 });
 
+it.each([
+  ["STATE", "NS"], ["MY_STATE", "New South Wales"], ["CNTY", "VA,Richmond"], ["MY_CNTY", "Zilina"],
+  ["CNTY_ALT", "NZ_REGIONS:Hawkes Bay/Hastings"], ["MY_CNTY_ALT", "nz_regions:West-Coast/Buller"],
+  ["SUBMODE", "FT8"], ["SUBMODE", "FM-N"], ["USACA_COUNTIES", "VA,Richmond"],
+  ["USACA_COUNTIES", "TX,De Witt:LA,St. John the Baptist"], ["MY_USACA_COUNTIES", "AK,Prince of Wales-Hyder"],
+])("preserves ADX subdivision/list schema text %s=%s at both boundaries", (name, value) => {
+  const original = adiRecord({ [name]: value });
+  expect(decode(adx(`<${name}>${value}</${name}>`))).toBe(original);
+  const writer = new ADIFExportDocument("adx"); writer.append(original, 1);
+  expect(decode(writer.finish())).toBe(original);
+});
+
+it.each([
+  ["STATE", ""], ["MY_STATE", "Žilina"], ["CNTY", "line\nbreak"], ["MY_CNTY", "\t"],
+  ["CNTY_ALT", "NZ_REGIONS:West  Coast/Buller"], ["CNTY_ALT", "NZ_REGIONS:West Coast/Bul"],
+  ["MY_CNTY_ALT", "NZ_REGIONS:West Coast/Buller/Extra"], ["SUBMODE", "FT"], ["SUBMODE", " FT8"],
+  ["SUBMODE", "FT8 "], ["SUBMODE", "F\n8"], ["USACA_COUNTIES", ""], ["USACA_COUNTIES", "DC,Washington"],
+  ["USACA_COUNTIES", "VA,Richmond:"], ["USACA_COUNTIES", "VA Richmond"], ["USACA_COUNTIES", "VA,R"],
+  ["MY_USACA_COUNTIES", "VA,Richmond,City"], ["MY_USACA_COUNTIES", "VA,Žilina"],
+])("rejects invalid ADX subdivision/list schema text %s=%s while preserving ADI", (name, value) => {
+  expect(() => decode(adx(`<${name}>${value}</${name}>`))).toThrow(`Field ${name} has an invalid ADX typed value`);
+  const original = adiRecord({ [name]: value });
+  const writer = new ADIFExportDocument("adx");
+  expect(() => writer.append(original, 1)).toThrow(`Field ${name} has an invalid ADX typed value`);
+  const adi = new ADIFExportDocument("adi"); adi.append(original, 1);
+  expect(adi.finish()).toBe(original);
+  expect(decode(original)).toBe(original);
+});
+
 const adxLocations = ["LAT", "LON", "MY_LAT", "MY_LON"];
 const adxVUCCFields = ["VUCC_GRIDS", "MY_VUCC_GRIDS"];
 it.each([
