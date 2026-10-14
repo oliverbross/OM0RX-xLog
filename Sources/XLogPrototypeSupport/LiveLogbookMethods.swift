@@ -593,7 +593,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                       qso.frequencyHz.map({ (1...1_000_000_000_000).contains($0) }) ?? true,
                       qso.receiveFrequencyHz.map({ (1...1_000_000_000_000).contains($0) }) ?? true else { throw invalid() }
                 let db = try readyDatabase()
-                try db.save(qso)
+                try db.saveNewContactForOnlineLogs(qso)
                 guard let saved = try db.lookup(localID: qso.id) else { throw WorkerFailure("not_found", "Saved QSO was not found.") }
                 return ["qso": try json(saved)]
             case "logbook_delete", "logbook_undo":

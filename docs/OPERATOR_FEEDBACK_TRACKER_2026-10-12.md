@@ -1160,12 +1160,16 @@ and fixed form encoding that otherwise could have changed a literal ADIF `+` int
 a space. Settings now provisions the separate QRZ Logbook API key through the
 workspace vault, reports presence without reading it into the renderer, clears
 the masked input after confirmed save, and explicitly says this does not enable
-uploads.
+uploads. A default-off database enrollment journal now captures only genuinely
+new contacts from explicitly eligible logging paths. It never scans the existing
+log, runs under the same SQLite write transaction as Save, cancels pending
+membership on deletion/disable, and does not retroactively include contacts from
+a disabled interval or ordinary import/sync/update paths.
 
-Focused online delivery **6/6**, Settings **18/18**, full frontend **2,388/2,388**,
-native **183/183** and portable **200 XCTest** (four intentional benchmark skips)
+Focused online delivery/enrollment **9/9**, Settings **18/18**, full frontend **2,388/2,388**,
+native **186/186** and portable **200 XCTest** (four intentional benchmark skips)
 plus **387/387 Swift Testing** checks pass; the production frontend build passes.
-No QRZ credential was written and no live request was made. Default-off enrollment,
-native scheduling, explicit new-contacts-only activation, credential removal,
+No QRZ credential was written and no live request was made. Enrollment UI,
+native scheduling, credential removal,
 live account acceptance, and independent Club Log/HRDLOG adapters remain open. See
 [the bounded acceptance record](QRZ_UPLOAD_FOUNDATION_ACCEPTANCE_2026-10-15.md).

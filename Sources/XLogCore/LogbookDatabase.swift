@@ -192,8 +192,28 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     public func save(_ value: QSO, markDirty: Bool = true) throws {
+        try save(value, markDirty: markDirty, onlineLogCandidate: false)
+    }
+
+    /// The prospective-enrollment check and insert share a SQLite write lock,
+    /// so another connection cannot enable/disable between the contact commit
+    /// and candidate registration.
+    public func saveNewContactForOnlineLogs(_ value: QSO, markDirty: Bool = true) throws {
+        try withDatabaseLock {
+            try execute("BEGIN IMMEDIATE;")
+            do {
+                try save(value, markDirty: markDirty, onlineLogCandidate: true)
+                try execute("COMMIT;")
+            } catch { try? execute("ROLLBACK;"); throw error }
+        }
+    }
+
+    private func save(_ value: QSO, markDirty: Bool, onlineLogCandidate: Bool) throws {
         try withDatabaseLock {
             if spotDraftLeaseID != nil, try readOperatorDraft()?.qso.id == value.id { throw SpotDraftError.busy }
+            let isNewOnlineLogCandidate: Bool
+            if onlineLogCandidate { isNewOnlineLogCandidate = try lookup(localID: value.id) == nil }
+            else { isNewOnlineLogCandidate = false }
             let qso = normalizedForSave(value, markDirty: markDirty, updatedAt: Date())
             try qso.adifFieldMetadata?.validate(fields: qso.adifRecord.fields)
             if qso.adifFieldMetadata != nil, try encoder.encode(qso).count > 24_576 { throw ADIFPlanningError.invalidPreview }
@@ -233,7 +253,103 @@ public final class LogbookDatabase: @unchecked Sendable {
                 }
                 try stepDone(statement)
             }
+            if isNewOnlineLogCandidate, qso.deletedAt == nil {
+                try withStatement("""
+                    INSERT OR IGNORE INTO xlog_online_log_candidates(service,local_id,enrolled_at)
+                    SELECT service,?,? FROM xlog_online_log_enrollments WHERE active=1;
+                    """) { statement in
+                        bind(qso.id.uuidString, to: 1, in: statement)
+                        sqlite3_bind_double(statement, 2, qso.updatedAt.timeIntervalSince1970)
+                        try stepDone(statement)
+                    }
+            } else if qso.deletedAt != nil {
+                // A contact deleted before first delivery is cancelled. Restoring
+                // it later is an edit, not a newly logged QSO, so it stays out.
+                try withStatement("DELETE FROM xlog_online_log_candidates WHERE local_id=?;") { statement in
+                    bind(qso.id.uuidString, to: 1, in: statement)
+                    try stepDone(statement)
+                }
+            }
             invalidateQSOAggregates()
+        }
+    }
+
+    /// Enrollment is explicit and prospective. Enabling never scans existing
+    /// rows; disabling drops only unsent candidate membership, not contacts or
+    /// provider receipts. Re-enabling starts another new-contacts-only boundary.
+    public func configureOnlineLogEnrollment(service: OnlineLogService, enabled: Bool,
+                                             at date: Date = Date()) throws -> OnlineLogEnrollmentStatus {
+        try withDatabaseLock {
+            try execute("BEGIN IMMEDIATE;")
+            do {
+                try withStatement("""
+                    INSERT INTO xlog_online_log_enrollments(service,active,enabled_at) VALUES(?,?,?)
+                    ON CONFLICT(service) DO UPDATE SET active=excluded.active,enabled_at=excluded.enabled_at;
+                    """) { statement in
+                        bind(service.rawValue, to: 1, in: statement)
+                        sqlite3_bind_int(statement, 2, enabled ? 1 : 0)
+                        if enabled { sqlite3_bind_double(statement, 3, date.timeIntervalSince1970) }
+                        else { sqlite3_bind_null(statement, 3) }
+                        try stepDone(statement)
+                    }
+                if !enabled {
+                    try withStatement("DELETE FROM xlog_online_log_candidates WHERE service=?;") { statement in
+                        bind(service.rawValue, to: 1, in: statement)
+                        try stepDone(statement)
+                    }
+                }
+                let status = try onlineLogEnrollmentStatus(service: service)
+                try execute("COMMIT;")
+                return status
+            } catch { try? execute("ROLLBACK;"); throw error }
+        }
+    }
+
+    public func onlineLogEnrollmentStatus(service: OnlineLogService) throws -> OnlineLogEnrollmentStatus {
+        try withDatabaseLock {
+            var enabled = false, enabledAt: Date?
+            try withStatement("SELECT active,enabled_at FROM xlog_online_log_enrollments WHERE service=?;") { statement in
+                bind(service.rawValue, to: 1, in: statement)
+                let step = sqlite3_step(statement)
+                if step == SQLITE_ROW {
+                    enabled = sqlite3_column_int(statement, 0) == 1
+                    if sqlite3_column_type(statement, 1) != SQLITE_NULL {
+                        enabledAt = Date(timeIntervalSince1970: sqlite3_column_double(statement, 1))
+                    }
+                } else if step != SQLITE_DONE { throw error() }
+            }
+            let count = try withStatement("SELECT COUNT(*) FROM xlog_online_log_candidates WHERE service=?;") { statement in
+                bind(service.rawValue, to: 1, in: statement)
+                guard sqlite3_step(statement) == SQLITE_ROW else { throw error() }
+                return Int(sqlite3_column_int64(statement, 0))
+            }
+            return OnlineLogEnrollmentStatus(service: service, enabled: enabled,
+                                             enabledAt: enabledAt, pendingNewContacts: count)
+        }
+    }
+
+    public func onlineLogCandidateIDs(service: OnlineLogService, limit: Int = 100) throws -> [UUID] {
+        try withDatabaseLock {
+            guard (1...500).contains(limit) else { throw OnlineLogDeliveryError.invalidPlan }
+            return try withStatement("""
+                SELECT c.local_id FROM xlog_online_log_candidates c
+                JOIN qsos q ON q.local_id=c.local_id
+                WHERE c.service=? AND q.deleted_at IS NULL ORDER BY c.enrolled_at,c.local_id LIMIT ?;
+                """) { statement in
+                    bind(service.rawValue, to: 1, in: statement)
+                    sqlite3_bind_int(statement, 2, Int32(limit))
+                    var values: [UUID] = []
+                    var step = sqlite3_step(statement)
+                    while step == SQLITE_ROW {
+                        guard let text = sqlite3_column_text(statement, 0),
+                              let id = UUID(uuidString: String(cString: text)) else {
+                            throw LogbookDatabaseError.corruptRecord
+                        }
+                        values.append(id); step = sqlite3_step(statement)
+                    }
+                    guard step == SQLITE_DONE else { throw error() }
+                    return values
+                }
         }
     }
 
@@ -1163,7 +1279,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                         let resolved = power?.applying(to: current.qso, includeProvenance: true) ?? current.qso
                         try resolved.validateOperatorDraft(forSave: true)
                         guard try lookup(localID: current.qso.id) == nil else { throw OperatorDraftError.existingContact }
-                        try save(resolved)
+                        try save(resolved, markDirty: true, onlineLogCandidate: true)
                         guard let value = try lookup(localID: current.qso.id) else { throw LogbookDatabaseError.corruptRecord }
                         saved = value
                     }
@@ -2754,6 +2870,19 @@ public final class LogbookDatabase: @unchecked Sendable {
         );
         CREATE INDEX IF NOT EXISTS idx_online_log_delivery_due
           ON xlog_online_log_deliveries(service,state,next_attempt_at);
+        CREATE TABLE IF NOT EXISTS xlog_online_log_enrollments(
+          service TEXT PRIMARY KEY,
+          active INTEGER NOT NULL CHECK(active IN (0,1)),
+          enabled_at REAL
+        );
+        CREATE TABLE IF NOT EXISTS xlog_online_log_candidates(
+          service TEXT NOT NULL,
+          local_id TEXT NOT NULL,
+          enrolled_at REAL NOT NULL,
+          PRIMARY KEY(service,local_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_online_log_candidates_due
+          ON xlog_online_log_candidates(service,enrolled_at,local_id);
         """)
         try? execute("ALTER TABLE qsos ADD COLUMN baseline_json BLOB;")
     }

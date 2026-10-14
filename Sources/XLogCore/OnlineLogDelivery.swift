@@ -76,6 +76,13 @@ public enum OnlineLogDeliveryError: Error, Equatable {
     case deliveryUncertain
 }
 
+public struct OnlineLogEnrollmentStatus: Equatable, Sendable {
+    public let service: OnlineLogService
+    public let enabled: Bool
+    public let enabledAt: Date?
+    public let pendingNewContacts: Int
+}
+
 struct QRZLogbookHTTPResponse: Sendable {
     let statusCode: Int
     let headers: [String: String]

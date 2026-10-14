@@ -150,4 +150,70 @@ struct OnlineLogDeliveryTests {
         #expect(recovered.safeErrorCode == "interrupted_after_dispatch")
         #expect(try database.claimOnlineLogDelivery(plan, attemptID: UUID()).shouldDispatch == false)
     }
+
+    @Test func enrollmentQueuesOnlyExplicitlyFlaggedNewContacts() throws {
+        let (database, root, existing) = try database()
+        defer { database.close(); try? FileManager.default.removeItem(at: root) }
+        let enabledAt = Date(timeIntervalSince1970: 200)
+        let enabled = try database.configureOnlineLogEnrollment(service: .qrz, enabled: true, at: enabledAt)
+        #expect(enabled.enabled && enabled.enabledAt == enabledAt && enabled.pendingNewContacts == 0)
+        #expect(try database.onlineLogCandidateIDs(service: .qrz).isEmpty)
+
+        var edited = existing; edited.comment = "confirmation or operator edit"
+        try database.saveNewContactForOnlineLogs(edited)
+        #expect(try database.onlineLogCandidateIDs(service: .qrz).isEmpty)
+
+        let imported = QSO(call: "K1ABC", start: Date(timeIntervalSince1970: 1_700_000_100),
+                           band: "20m", mode: "SSB", myCall: "OM0RX")
+        try database.save(imported)
+        let logged = QSO(call: "ZL1ABC", start: Date(timeIntervalSince1970: 1_700_000_200),
+                         band: "15m", mode: "CW", myCall: "OM0RX")
+        try database.saveNewContactForOnlineLogs(logged)
+        #expect(try database.onlineLogCandidateIDs(service: .qrz) == [logged.id])
+        #expect(try database.onlineLogEnrollmentStatus(service: .qrz).pendingNewContacts == 1)
+        var deleted = logged; deleted.deletedAt = Date(timeIntervalSince1970: 1_700_000_250)
+        try database.save(deleted)
+        #expect(try database.onlineLogCandidateIDs(service: .qrz).isEmpty)
+        deleted.deletedAt = nil
+        try database.save(deleted)
+        #expect(try database.onlineLogCandidateIDs(service: .qrz).isEmpty)
+    }
+
+    @Test func disablingEnrollmentCancelsPendingAndReenableNeverBackfills() throws {
+        let (database, root, _) = try database()
+        defer { database.close(); try? FileManager.default.removeItem(at: root) }
+        _ = try database.configureOnlineLogEnrollment(service: .qrz, enabled: true)
+        let first = QSO(call: "VK1ABC", start: Date(timeIntervalSince1970: 1_700_000_300),
+                        band: "40m", mode: "CW", myCall: "OM0RX")
+        try database.saveNewContactForOnlineLogs(first)
+        let disabled = try database.configureOnlineLogEnrollment(service: .qrz, enabled: false)
+        #expect(!disabled.enabled && disabled.enabledAt == nil && disabled.pendingNewContacts == 0)
+
+        let whileDisabled = QSO(call: "VK2ABC", start: Date(timeIntervalSince1970: 1_700_000_400),
+                                band: "20m", mode: "SSB", myCall: "OM0RX")
+        try database.saveNewContactForOnlineLogs(whileDisabled)
+        _ = try database.configureOnlineLogEnrollment(service: .qrz, enabled: true)
+        #expect(try database.onlineLogCandidateIDs(service: .qrz).isEmpty)
+        let afterReenable = QSO(call: "VK3ABC", start: Date(timeIntervalSince1970: 1_700_000_500),
+                                band: "10m", mode: "FT8", myCall: "OM0RX")
+        try database.saveNewContactForOnlineLogs(afterReenable)
+        #expect(try database.onlineLogCandidateIDs(service: .qrz) == [afterReenable.id])
+    }
+
+    @Test func operatorDraftSaveJoinsProspectiveEnrollmentAtomically() throws {
+        let (database, root, _) = try database()
+        defer { database.close(); try? FileManager.default.removeItem(at: root) }
+        _ = try database.configureOnlineLogEnrollment(service: .qrz, enabled: true)
+        let logged = QSO(call: "ZS1ABC", start: Date(timeIntervalSince1970: 1_700_000_600),
+                         band: "20m", mode: "CW", frequencyHz: 14_030_000, myCall: "OM0RX")
+        let draft = try database.operatorDraft(initial: logged)
+        let mutation = OperatorDraftMutation(operationID: UUID(), draftID: draft.qso.id,
+                                             expectedRevision: draft.revision, action: .save)
+        let next = QSO(call: "", band: "20m", mode: "CW")
+        let receipt = try database.applyOperatorDraft(mutation, nextDraft: next)
+        #expect(receipt.savedQSO?.id == logged.id)
+        #expect(try database.onlineLogCandidateIDs(service: .qrz) == [logged.id])
+        #expect(try database.applyOperatorDraft(mutation, nextDraft: next) == receipt)
+        #expect(try database.onlineLogEnrollmentStatus(service: .qrz).pendingNewContacts == 1)
+    }
 }

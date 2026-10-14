@@ -18,6 +18,13 @@ feature, add settings controls, enroll an existing log, or contact QRZ.
 - Settings can save that separate key and reports only whether it is present.
   The field is masked, clears after a confirmed save, and explicitly states that
   saving the credential does not enable uploads.
+- The database now has a default-off, prospective enrollment journal. Enabling
+  it never scans existing contacts. Only a genuinely new QSO saved through an
+  explicitly eligible logging path joins the candidate list; ordinary imports,
+  Wavelog pulls, confirmation refreshes, edits, deletes and restores do not.
+  Enrollment state, the new-QSO insert and candidate registration share a SQLite
+  write transaction across app connections. Disabling cancels unsent membership;
+  re-enabling starts a fresh boundary and never backfills the disabled interval.
 - Freezes the exact local contact revision and SHA-256 payload, then commits a
   durable SQLite claim before network I/O. Concurrent claims cannot both send.
 - Stores only bounded receipt state, attempt identity/count, timestamps, an
@@ -38,14 +45,15 @@ eligibility.
 
 ## Verification
 
-- Focused online-delivery suite: **6/6 tests pass**, covering exact request
+- Focused online-delivery/enrollment suite: **9/9 tests pass**, covering exact request
   fields/no replace, form encoding, durable delivered no-replay, ambiguous
   no-replay, explicit bounded rate-limit retry, stale edited-contact rejection
-  and interrupted-dispatch recovery.
+  and interrupted-dispatch recovery, prospective-only enrollment, disable/re-enable,
+  deletion cancellation and atomic operator-draft Save capture.
 - Settings credential coverage: **18/18 focused tests pass**; the complete
   frontend suite passes **2,388 tests across 159 files** and the production
   TypeScript/Vite/detached-window bundle gate passes.
-- Native Swift: **183 tests across 26 suites pass**.
+- Native Swift: **186 tests across 26 suites pass**.
 - Portable Swift: **200 XCTest tests pass** with four intentional benchmark
   skips, plus **387 Swift Testing tests across 51 suites**.
 - Portable source compilation and `git diff --check` pass.
@@ -57,10 +65,10 @@ written and no live QRZ request was made.
 
 1. Add the default-off upload enrollment control, Keychain deletion, and clear
    health/receipt status. Credential provisioning alone is not enrollment.
-2. Make initial enrollment explicit: **new contacts from now on** must be the
-   safe default; any existing-log backfill requires a separately reviewed,
-   bounded operator action. Enabling must never silently upload the current
-   68k-contact log.
+2. Expose the tested prospective enrollment through a clear confirmation UI.
+   **New contacts from now on** remains the only implemented scope; any existing-log
+   backfill would require a separate design and reviewed operator action. Nothing
+   can silently upload the current 68k-contact log.
 3. Wire the native background owner and recovery call without depending on a
    mounted renderer. Edits and confirmation updates require an explicit provider
    policy; this INSERT-only slice must not pretend to provide two-way sync.
