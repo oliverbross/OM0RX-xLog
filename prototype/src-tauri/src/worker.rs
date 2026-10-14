@@ -19,7 +19,7 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     if label == "rotor" { return Err("Rotor can only read retained native rotor telemetry.".into()); }
     if label == "station-status" { return Err("Station Status can only read retained native station observations.".into()); }
     if label == "propagation" { return Err("Propagation can only use the typed shared public-conditions session.".into()); }
-    if matches!(label, "station-identity" | "alerts") { return Err("This display can only read its retained non-secret projection.".into()); }
+    if matches!(label, "station-identity" | "alerts" | "antenna") { return Err("This display can only read its retained non-secret projection.".into()); }
     if request["method"].as_str().is_some_and(|method| method.starts_with("spot_draft_")) {
         return Err("Only the native activation owner can use this method.".into());
     }
@@ -832,6 +832,13 @@ mod tests {
         for method in ["settings_load", "secret_status", "workspace_status", "station_snapshot", "station_connect", "station_action",
             "rotor_snapshot", "rotor_stop", "hamlib_snapshot", "hamlib_control", "winkeyer_stop", "sync_run", "health"] {
             assert!(validate_surface("alerts", &json!({"id":"alerts","method":method,"params":{}})).is_err(), "{method}");
+        }
+    }
+    #[test]
+    fn antenna_child_cannot_seed_settings_or_reach_worker_or_hardware_authority() {
+        for method in ["settings_load", "settings_save", "secret_status", "workspace_status", "station_configuration", "station_connect",
+            "station_action", "rotor_snapshot", "rotor_stop", "hamlib_snapshot", "hamlib_control", "winkeyer_stop", "sync_run", "health"] {
+            assert!(validate_surface("antenna", &json!({"id":"antenna","method":method,"params":{}})).is_err(), "{method}");
         }
     }
     #[test]

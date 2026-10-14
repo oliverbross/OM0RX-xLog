@@ -9,6 +9,8 @@ const status = vi.hoisted(() => vi.fn());
 const propagation = vi.hoisted(() => vi.fn());
 const identity = vi.hoisted(() => vi.fn());
 const alerts = vi.hoisted(() => vi.fn());
+const antenna = vi.hoisted(() => vi.fn());
+vi.mock("../src/live/DetachedAntennaSurface", () => { antenna(); return { DetachedAntennaSurface: "antenna-surface" }; });
 vi.mock("../src/live/DetachedAlertsSurface", () => { alerts(); return { DetachedAlertsSurface: "alerts-surface" }; });
 vi.mock("../src/live/DetachedStationIdentitySurface", () => { identity(); return { DetachedStationIdentitySurface: "station-identity-surface" }; });
 vi.mock("../src/live/DetachedPropagationSurface", () => { propagation(); return { DetachedPropagationSurface: "propagation-surface" }; });
@@ -25,7 +27,18 @@ vi.mock("../src/live/DetachedSpotHistorySurface", () => { loaded.history(); retu
 vi.mock("../src/live/DetachedClusterSurface", () => { loaded.cluster(); return { DetachedClusterSurface: "cluster-surface" }; });
 vi.mock("../src/live/DetachedWorldMapSurface", () => { maps.world(); return { DetachedWorldMapSurface: "world-map-surface" }; });
 vi.mock("../src/live/DetachedBandMapsSurface", () => { maps.bands(); return { DetachedBandMapsSurface: "band-maps-surface" }; });
-beforeEach(() => { vi.resetModules(); [...Object.values(loaded), ...Object.values(maps), monitor, station, cw, rotor, status, propagation, identity, alerts].forEach(mock => mock.mockClear()); });
+beforeEach(() => { vi.resetModules(); [...Object.values(loaded), ...Object.values(maps), monitor, station, cw, rotor, status, propagation, identity, alerts, antenna].forEach(mock => mock.mockClear()); });
+it("loads Antenna without evaluating the main station controller", async () => {
+  const { loadWindowSurface } = await import("../src/windowSurface");
+  expect(await loadWindowSurface("?view=antenna")).toBe("antenna-surface");
+  expect(antenna).toHaveBeenCalledOnce(); expect(loaded.main).not.toHaveBeenCalled();
+});
+it("cannot fall back to the main station controller if the Antenna chunk fails", async () => {
+  vi.doMock("../src/live/DetachedAntennaSurface", () => { throw new Error("Antenna chunk unavailable"); });
+  const { loadWindowSurface } = await import("../src/windowSurface");
+  await expect(loadWindowSurface("?view=antenna")).rejects.toThrow(); expect(loaded.main).not.toHaveBeenCalled();
+  vi.doUnmock("../src/live/DetachedAntennaSurface");
+});
 it("loads Station Identity without evaluating the main station controller", async () => {
   const { loadWindowSurface } = await import("../src/windowSurface");
   expect(await loadWindowSurface("?view=station-identity")).toBe("station-identity-surface");

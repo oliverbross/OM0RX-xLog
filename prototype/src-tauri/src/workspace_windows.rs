@@ -9,7 +9,7 @@ pub struct WindowSpec {
     pub width: f64,
     pub height: f64,
 }
-pub const SUPPORTED_WINDOWS: [WindowSpec; 18] = [
+pub const SUPPORTED_WINDOWS: [WindowSpec; 19] = [
     WindowSpec { id: "callsign-intelligence", title: "OM0RX-xLog — Callsign Intelligence", width: 700.0, height: 620.0 },
     WindowSpec { id: "log-qso", title: "OM0RX-xLog — Log QSO", width: 800.0, height: 800.0 },
     WindowSpec { id: "spot-history", title: "OM0RX-xLog — Spot History", width: 1180.0, height: 800.0 },
@@ -28,6 +28,7 @@ pub const SUPPORTED_WINDOWS: [WindowSpec; 18] = [
     WindowSpec { id: "propagation", title: "OM0RX-xLog — Propagation", width: 800.0, height: 600.0 },
     WindowSpec { id: "station-identity", title: "OM0RX-xLog — Station Identity", width: 780.0, height: 650.0 },
     WindowSpec { id: "alerts", title: "OM0RX-xLog — Alerts", width: 780.0, height: 600.0 },
+    WindowSpec { id: "antenna", title: "OM0RX-xLog — Antenna Reference", width: 780.0, height: 600.0 },
 ];
 pub fn supports(label: &str) -> bool { SUPPORTED_WINDOWS.iter().any(|window| window.id == label) }
 
@@ -181,7 +182,7 @@ mod tests {
     #[test]
     fn registry_covers_only_real_windows() {
         let ids: BTreeSet<_> = SUPPORTED_WINDOWS.iter().map(|window| window.id).collect();
-        assert_eq!(ids.len(), 18);
+        assert_eq!(ids.len(), 19);
         let capabilities: Value = serde_json::from_str(include_str!("../capabilities/default.json")).unwrap();
         for id in &ids { assert!(capabilities["windows"].as_array().unwrap().contains(&json!(id))); }
         for window in SUPPORTED_WINDOWS { assert!(supports(window.id)); assert!(window.width >= 640.0 && window.height >= 480.0); }
@@ -206,6 +207,15 @@ mod tests {
         apply(&mut planner, &plan); planner.forget_destroyed("alerts");
         assert!(planner.plan(&snapshot, false).unwrap().show.is_empty());
         assert_eq!(planner.plan(&snapshot, true).unwrap().show, ["alerts"]);
+    }
+    #[test]
+    fn antenna_window_is_singleton_and_passive_after_manual_close() {
+        let mut planner = WorkspaceWindowPlanner::default();
+        let snapshot = fixture(&["antenna"]);
+        let plan = planner.plan(&snapshot, false).unwrap(); assert_eq!(plan.show, ["antenna"]);
+        apply(&mut planner, &plan); planner.forget_destroyed("antenna");
+        assert!(planner.plan(&snapshot, false).unwrap().show.is_empty());
+        assert_eq!(planner.plan(&snapshot, true).unwrap().show, ["antenna"]);
     }
     #[test]
     fn rotor_observation_window_is_singleton_and_not_reopened_by_passive_reads() {
