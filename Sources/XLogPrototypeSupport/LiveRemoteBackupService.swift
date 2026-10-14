@@ -5,7 +5,7 @@ import XLogCore
 import XLogPortableCore
 #endif
 
-/// Native-only, default-off worker owner. No IPC route or provider is installed.
+/// Native-only, default-off worker owner. No IPC enable route is installed.
 /// Construction does not open a workspace, create metadata, or start a timer.
 actor LiveRemoteBackupService {
     private let logbook: LiveLogbookMethods
@@ -29,6 +29,42 @@ actor LiveRemoteBackupService {
     func authorizationOwner() throws -> RemoteBackupAuthorizationOwner {
         try RemoteBackupAuthorizationOwner(workspace: logbook,
             stateDirectory: logbook.remoteBackupDirectory().appendingPathComponent("Authorization"))
+    }
+
+    func dropboxAccountBinding(plan: RemoteBackupUploadPlan, authorization: RemoteBackupAuthorization,
+                               providerAccountID: String) async throws -> NativeDropboxBackupAccountBinding {
+        let authority = try authorizationOwner()
+        try await authority.validate(plan: plan, authorization: authorization)
+        let checker = await authority.checker(for: authorization)
+        return try logbook.withCurrentWorkspaceGeneration { current in
+            try checker.validate(workspaceGeneration: current, destination: plan.destination)
+            return try NativeDropboxBackupAccountBinding(workspaceGeneration: current, destination: plan.destination,
+                keychainService: logbook.currentKeychainService(), providerAccountID: providerAccountID)
+        }
+    }
+
+    /// Explicit native boundary only. Existing consent supplies recurrence; no token
+    /// is read until a due claim executes, and no renderer route calls this method.
+    func startDropbox(plan: RemoteBackupUploadPlan, authorization: RemoteBackupAuthorization,
+                      binding: NativeDropboxBackupAccountBinding,
+                      vault: any NativeBackupCredentialVault = SystemNativeBackupCredentialVault(),
+                      http: any DropboxBackupHTTPClient = DropboxBackupURLSessionClient()) async throws {
+        try Task.checkCancellation()
+        guard !stopping, !starting else { throw RemoteBackupSchedulerError.operationInProgress }
+        try lifetime.checkStartAllowed()
+        let authority = try authorizationOwner()
+        try await authority.validate(plan: plan, authorization: authorization)
+        let checker = await authority.checker(for: authorization)
+        try logbook.withCurrentWorkspaceGeneration { current in
+            guard binding.workspaceGeneration == current, binding.destination == plan.destination,
+                  try logbook.currentKeychainService() == binding.keychainService else { throw DropboxBackupError.accountMismatch }
+            try checker.validate(workspaceGeneration: current, destination: plan.destination)
+        }
+        let source = LiveDropboxBackupCredentialSource(logbook: logbook, binding: binding, checker: checker, vault: vault)
+        let directory = try logbook.remoteBackupDirectory().appendingPathComponent("Dropbox Operations")
+            .appendingPathComponent(plan.destination.id.uuidString.lowercased())
+        let executor = try DropboxBackupExecutor(destination: plan.destination, stateDirectory: directory, credentials: source, http: http)
+        try await start(plan: plan, authorization: authorization, executor: executor)
     }
 
     func start(plan: RemoteBackupUploadPlan, authorization: RemoteBackupAuthorization,
@@ -132,6 +168,13 @@ actor LiveRemoteBackupService {
         private var terminal = false
         private var token: UUID?
         private var task: Task<Void, Never>?
+
+        func checkStartAllowed() throws {
+            try lock.withLock {
+                guard !terminal else { throw CancellationError() }
+                guard token == nil else { throw RemoteBackupSchedulerError.operationInProgress }
+            }
+        }
 
         func begin() throws -> UUID {
             try lock.withLock {
