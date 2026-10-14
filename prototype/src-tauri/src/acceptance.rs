@@ -242,8 +242,15 @@ pub fn acceptance_window_step(window: tauri::WebviewWindow, state: tauri::State<
 #[tauri::command]
 pub fn acceptance_close_window(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, Acceptance>, kind: String) -> Result<(), String> {
     require_window_coordinator(&state, window.label(), &kind)?;
-    app.get_webview_window(&kind).ok_or("The tested detached window is not open")?
-        .destroy().map_err(|error| error.to_string())
+    let target = app.get_webview_window(&kind).ok_or("The tested detached window is not open")?;
+    // Return the main renderer's IPC acknowledgement before tearing down the
+    // child WebView. WebKit can otherwise wait for the child page while the
+    // caller waits for this command, even though the native window is gone.
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        let _ = target.destroy();
+    });
+    Ok(())
 }
 
 #[tauri::command]
