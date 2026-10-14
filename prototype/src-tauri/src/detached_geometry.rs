@@ -91,6 +91,17 @@ struct Tracking {
     persisted: bool,
     closed: bool,
 }
+#[derive(Clone, Copy)]
+enum LifetimeEvent { CloseRequested, Destroyed }
+fn lifetime_event(tracking: &mut Tracking, event: LifetimeEvent) -> bool {
+    if tracking.closed { return false; }
+    match event {
+        // Other listeners can prevent this close (for example, unsaved edits).
+        // Save a snapshot, but keep observing the same native window lifetime.
+        LifetimeEvent::CloseRequested => true,
+        LifetimeEvent::Destroyed => { tracking.closed = true; false },
+    }
+}
 struct Registration { directory: PathBuf, tracking: Weak<Mutex<Tracking>> }
 fn registrations() -> &'static Mutex<HashMap<String, Registration>> {
     static WINDOWS: OnceLock<Mutex<HashMap<String, Registration>>> = OnceLock::new();
@@ -141,7 +152,7 @@ fn install_inner(window: &tauri::WebviewWindow) -> Result<(), String> {
     let observed = window.clone(); let events = state.clone(); let event_directory = directory.clone();
     window.on_window_event(move |event| {
         if matches!(event, WindowEvent::Destroyed) {
-            if let Ok(mut state) = events.lock() { state.closed = true; }
+            if let Ok(mut state) = events.lock() { lifetime_event(&mut state, LifetimeEvent::Destroyed); }
             return;
         }
         if !matches!(event, WindowEvent::Moved(_) | WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } | WindowEvent::CloseRequested { .. }) { return; }
@@ -151,7 +162,8 @@ fn install_inner(window: &tauri::WebviewWindow) -> Result<(), String> {
             // CW uses asynchronous native Stop/guard admission. A prevented
             // close is not the end of this geometry lifetime.
             if observed.label() == "cw" { return; }
-            tracking.closed = true; drop(tracking);
+            if !lifetime_event(&mut tracking, LifetimeEvent::CloseRequested) { return; }
+            drop(tracking);
             record(&observed, &event_directory, &events, None, true); return;
         }
         tracking.changed = Instant::now(); tracking.dirty = true;
@@ -338,6 +350,44 @@ mod tests {
         assert!(observation(&state, state.baseline, &state.displays, 1.0, false, false).is_none());
         assert_eq!(read(directory.path()).unwrap().windows["logbook"], final_snapshot);
         assert_eq!(geometry::restore(&final_snapshot, &state.displays, (0.0, 0.0)), Some(moved));
+    }
+    #[test]
+    fn cancelled_close_keeps_geometry_tracking_for_later_moves_and_final_destroy() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut state = tracking();
+        let before_close = Bounds { x: 200, y: 100, ..state.baseline };
+        assert!(lifetime_event(&mut state, LifetimeEvent::CloseRequested));
+        let snapshot = observation(&state, before_close, &state.displays, 1.0, false, true).unwrap();
+        save(directory.path(), "settings", &snapshot).unwrap();
+        state.saved = snapshot;
+        // The existing unsaved-edit close guard keeps this native window alive.
+        // A subsequent move must still become the new saved preference.
+        assert!(!state.closed);
+        let after_cancel = Bounds { x: 400, y: 200, ..state.baseline };
+        let moved = observation(&state, after_cancel, &state.displays, 1.0, false, false).unwrap();
+        save(directory.path(), "settings", &moved).unwrap();
+        assert_eq!(geometry::restore(&read(directory.path()).unwrap().windows["settings"], &state.displays, (0.0, 0.0)), Some(after_cancel));
+        assert!(!lifetime_event(&mut state, LifetimeEvent::Destroyed));
+        assert!(state.closed);
+        assert!(observation(&state, before_close, &state.displays, 1.0, false, false).is_none());
+        assert!(!lifetime_event(&mut state, LifetimeEvent::CloseRequested));
+    }
+    #[test]
+    fn cancelled_close_during_monitor_recovery_preserves_preference_and_later_tracking() {
+        let mut state = tracking();
+        let preferred = state.saved.clone();
+        let original_displays = state.displays.clone();
+        let fallback = vec![Display { name: Some("laptop".into()), work: Bounds { x: 0, y: 28, width: 800, height: 600 }, scale: 1.0 }];
+        let recovered = geometry::restore(&preferred, &fallback, (0.0, 0.0)).unwrap();
+        assert!(lifetime_event(&mut state, LifetimeEvent::CloseRequested));
+        assert_eq!(observation(&state, recovered, &fallback, 1.0, false, true), Some(preferred.clone()));
+        assert!(!state.closed);
+        state.displays = fallback; state.baseline = recovered; state.settling = true;
+        assert!(observation(&state, recovered, &state.displays, 1.0, false, false).is_none());
+        assert_eq!(geometry::restore(&state.saved, &original_displays, (0.0, 0.0)), Some(Bounds { x: 100, y: 60, width: 900, height: 700 }));
+        state.settling = false;
+        let moved = Bounds { x: 80, y: 80, width: 640, height: 480 };
+        assert!(observation(&state, moved, &state.displays, 1.0, false, false).is_some());
     }
     #[test]
     fn final_flush_during_recovery_retains_preferred_monitor() {
