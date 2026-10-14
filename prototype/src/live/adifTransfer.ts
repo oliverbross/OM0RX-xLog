@@ -133,6 +133,12 @@ const potaReferencePattern = "[A-Za-z0-9]{1,4}-[0-9]{4,5}(?:@[A-Za-z]{2}-[A-Za-z
 const vuccGridPatterns = ["[A-R]{2}[0-9]{2}", "[A-R]{2}[0-9]{2}[A-X]{2}"];
 const adxVUCCPattern = new RegExp(`^(?:${vuccGridPatterns.map(grid => `${grid},${grid}(?:,${grid},${grid})?`).join("|")})$`, "i");
 const adxPatternRules = [
+  // Exchange/completion enums have distinct alphabets in ADIF 3.1.7;
+  // validate each family without rewriting its accepted case.
+  { fields: ["CLUBLOG_QSO_UPLOAD_STATUS", "HAMLOGEU_QSO_UPLOAD_STATUS", "HAMQTH_QSO_UPLOAD_STATUS", "HRDLOG_QSO_UPLOAD_STATUS", "QRZCOM_QSO_UPLOAD_STATUS"], pattern: /^[YNM]$/i },
+  { fields: ["QRZCOM_QSO_DOWNLOAD_STATUS"], pattern: /^[YNI]$/i },
+  { fields: ["EQSL_AG"], pattern: /^[YNU]$/i },
+  { fields: ["QSO_COMPLETE"], pattern: /^(?:Y|N|NIL|\?)$/i },
   { fields: ["LAT", "LON", "MY_LAT", "MY_LON"], pattern: adxLocationPattern },
   { fields: ["VUCC_GRIDS", "MY_VUCC_GRIDS"], pattern: adxVUCCPattern },
   { fields: ["GRIDSQUARE", "MY_GRIDSQUARE"], pattern: /^[A-R]{2}(?:[0-9]{2}(?:[A-X]{2}(?:[0-9]{2})?)?)?$/i },

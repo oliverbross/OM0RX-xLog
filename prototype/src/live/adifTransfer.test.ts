@@ -380,6 +380,38 @@ it("rejects ENUM+RANGE and conflicting RANGE declarations even if equivalent num
   expect(() => writer.append(other.text, 1, other.fieldMetadata)).toThrow();
 });
 
+const adxStatusValues: Record<string, string[]> = {
+  CLUBLOG_QSO_UPLOAD_STATUS: ["Y", "N", "M", "y", "n", "m"],
+  HAMLOGEU_QSO_UPLOAD_STATUS: ["Y", "N", "M", "y", "n", "m"],
+  HAMQTH_QSO_UPLOAD_STATUS: ["Y", "N", "M", "y", "n", "m"],
+  HRDLOG_QSO_UPLOAD_STATUS: ["Y", "N", "M", "y", "n", "m"],
+  QRZCOM_QSO_UPLOAD_STATUS: ["Y", "N", "M", "y", "n", "m"],
+  QRZCOM_QSO_DOWNLOAD_STATUS: ["Y", "N", "I", "y", "n", "i"],
+  EQSL_AG: ["Y", "N", "U", "y", "n", "u"],
+  QSO_COMPLETE: ["Y", "N", "NIL", "?", "y", "n", "nil", "NiL"],
+};
+it.each(Object.entries(adxStatusValues).flatMap(([name, values]) => values.map(value => [name, value])))
+  ("preserves exact ADX exchange/completion enum %s=%s at both boundaries", (name, value) => {
+    const original = adiRecord({ [name]: value });
+    expect(decode(adx(`<${name}>${value}</${name}>`))).toBe(original);
+    const writer = new ADIFExportDocument("adx"); writer.append(original, 1);
+    expect(decode(writer.finish())).toBe(original);
+  });
+
+it.each(Object.keys(adxStatusValues).flatMap(name =>
+  ["", "YES", "true", "1", "YY", " Y", "Y ", "Y\n", "Y\r", "Y\t", "R", "Q", "M", "I", "U", "NIL", "?"].filter(value =>
+    !adxStatusValues[name].includes(value)).map(value => [name, value])))
+  ("rejects invalid or wrong-family ADX status %s=%s while preserving ADI", (name, value) => {
+    expect(() => decode(adx(`<${name}>${value}</${name}>`))).toThrow(`Field ${name} has an invalid ADX typed value`);
+    const original = adiRecord({ [name]: value });
+    const writer = new ADIFExportDocument("adx");
+    expect(() => writer.append(original, 1)).toThrow(`Field ${name} has an invalid ADX typed value`);
+    expect(() => writer.finish()).toThrow("incomplete");
+    const adi = new ADIFExportDocument("adi"); adi.append(original, 1);
+    expect(adi.finish()).toBe(original);
+    expect(decode(original)).toBe(original);
+  });
+
 const adxLocations = ["LAT", "LON", "MY_LAT", "MY_LON"];
 const adxVUCCFields = ["VUCC_GRIDS", "MY_VUCC_GRIDS"];
 it.each([
