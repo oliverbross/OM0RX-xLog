@@ -76,17 +76,36 @@ describe("grouped service settings", () => {
     expect(request).not.toHaveBeenCalled();
   });
   it("shows service details and reads only credential presence when Wavelog is first visible", async () => {
-    const request = vi.fn(async () => ({ "wavelog-token": false }));
+    const request = vi.fn(async () => ({ "wavelog-token": false, "qrz-logbook-key": false }));
     render(<SettingsHarness values={values} request={request} />);
     expect(screen.getByRole("tabpanel", { name: "Station" })).toBeTruthy();
     fireEvent.click(screen.getByRole("tab", { name: "Wavelog" }));
     expect((screen.getByRole("textbox", { name: "Wavelog URL" }) as HTMLInputElement).value).toBe(values.wavelogURL);
     fireEvent.click(screen.getByRole("tab", { name: "QRZ" }));
     expect((screen.getByRole("textbox", { name: "QRZ username" }) as HTMLInputElement).value).toBe("operator");
+    expect(screen.getByText(/Saving it securely does not enable uploads/)).toBeTruthy();
+    expect(screen.getByLabelText("QRZ Logbook API key")).toBeTruthy();
     fireEvent.click(screen.getByRole("tab", { name: "Reference data" }));
     expect(screen.getByText(/not a Club Log QSO uploader/)).toBeTruthy();
-    await waitFor(() => expect(request).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(request).toHaveBeenCalledTimes(2));
     expect(request).toHaveBeenCalledWith("secret_status");
+  });
+  it("saves the separate QRZ Logbook key without enabling or saving upload settings", async () => {
+    const request = vi.fn(async (method: string) => method === "secret_status"
+      ? { "qrz-logbook-key": false } : { saved: true });
+    const save = vi.fn(async () => {});
+    render(<SettingsHarness values={values} request={request} onSave={save} />);
+    fireEvent.click(screen.getByRole("tab", { name: "QRZ" }));
+    const key = screen.getByLabelText("QRZ Logbook API key") as HTMLInputElement;
+    fireEvent.change(key, { target: { value: "unit-test-qrz-logbook-key" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save QRZ Logbook API key" }));
+    await screen.findByText("QRZ Logbook API key saved securely.");
+    expect(key.value).toBe("");
+    expect(screen.getByText("Saved securely. Upload is still disabled.")).toBeTruthy();
+    expect(request).toHaveBeenCalledWith("secret_save", {
+      account: "qrz-logbook-key", value: "unit-test-qrz-logbook-key",
+    });
+    expect(save).not.toHaveBeenCalled();
   });
   it("saves a credential separately, clears its input and never sends it with settings", async () => {
     const request = vi.fn(async () => ({ saved: true }));
@@ -122,7 +141,7 @@ describe("grouped service settings", () => {
     expect((screen.getByLabelText("QRZ password") as HTMLInputElement).value).toBe("typed-test-password");
     fireEvent.click(screen.getByRole("tab", { name: "Station" }));
     expect((screen.getByLabelText("Station call") as HTMLInputElement).value).toBe("M7KOD");
-    expect(request).toHaveBeenCalledTimes(1);
+    expect(request).toHaveBeenCalledTimes(2);
     expect(request).toHaveBeenCalledWith("secret_status");
     fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
     await waitFor(() => expect(save).toHaveBeenCalledWith({ ...values, stationCall: "M7KOD", wavelogURL: "https://new.example.invalid/" }));
@@ -170,7 +189,7 @@ describe("grouped service settings", () => {
   it("keeps saved status honest when the presence check fails", async () => {
     const request = vi.fn(async () => { throw new Error("denied"); });
     render(<SettingsHarness values={values} request={request} requestedTab="Wavelog" />);
-    await screen.findByText("Saved token status unavailable. Keychain access may need attention.");
+    await screen.findByText("Saved credential status unavailable. Keychain access may need attention.");
     expect((screen.getByLabelText("Wavelog API v2 token") as HTMLInputElement).placeholder).toBe("");
   });
 
@@ -196,12 +215,12 @@ describe("grouped service settings", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save Wavelog API v2 token" }));
     await screen.findByText(/Could not save Wavelog API v2 token/);
     expect(token.value).toBe("retry-test-token");
-    expect(screen.getByText(/Saved token status unavailable/)).toBeTruthy();
-    expect(screen.queryByText("Checking saved token…")).toBeNull();
+    expect(screen.getByText(/Saved credential status unavailable/)).toBeTruthy();
+    expect(screen.queryByText("Checking saved credential…")).toBeNull();
   });
 
   it("groups QRZ and Club Log fields with their secure Save button", () => {
-    render(<SettingsHarness values={values} request={vi.fn()} />);
+    render(<SettingsHarness values={values} request={vi.fn(async () => ({}))} />);
     fireEvent.click(screen.getByRole("tab", { name: "QRZ" }));
     const qrzRow = screen.getByLabelText("QRZ username").closest(".service-account-row");
     expect(qrzRow?.contains(screen.getByLabelText("QRZ password"))).toBe(true);

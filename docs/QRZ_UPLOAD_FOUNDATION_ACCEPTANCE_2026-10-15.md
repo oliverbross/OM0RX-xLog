@@ -15,6 +15,9 @@ feature, add settings controls, enroll an existing log, or contact QRZ.
 - Reserves a separate `qrz-logbook-key` Keychain/vault account. The upload key is
   not the existing QRZ XML lookup password and is never stored in preferences,
   SQLite receipts or error text.
+- Settings can save that separate key and reports only whether it is present.
+  The field is masked, clears after a confirmed save, and explicitly states that
+  saving the credential does not enable uploads.
 - Freezes the exact local contact revision and SHA-256 payload, then commits a
   durable SQLite claim before network I/O. Concurrent claims cannot both send.
 - Stores only bounded receipt state, attempt identity/count, timestamps, an
@@ -39,6 +42,9 @@ eligibility.
   fields/no replace, form encoding, durable delivered no-replay, ambiguous
   no-replay, explicit bounded rate-limit retry, stale edited-contact rejection
   and interrupted-dispatch recovery.
+- Settings credential coverage: **18/18 focused tests pass**; the complete
+  frontend suite passes **2,388 tests across 159 files** and the production
+  TypeScript/Vite/detached-window bundle gate passes.
 - Native Swift: **183 tests across 26 suites pass**.
 - Portable Swift: **200 XCTest tests pass** with four intentional benchmark
   skips, plus **387 Swift Testing tests across 51 suites**.
@@ -49,8 +55,8 @@ written and no live QRZ request was made.
 
 ## Explicitly open before operator use
 
-1. Add a default-off settings surface with truthful **upload-only** wording,
-   Keychain save/delete and clear health/receipt status.
+1. Add the default-off upload enrollment control, Keychain deletion, and clear
+   health/receipt status. Credential provisioning alone is not enrollment.
 2. Make initial enrollment explicit: **new contacts from now on** must be the
    safe default; any existing-log backfill requires a separately reviewed,
    bounded operator action. Enabling must never silently upload the current

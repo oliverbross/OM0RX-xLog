@@ -97,7 +97,8 @@ actor LiveServiceMethods {
             let secrets = try workspaceSecrets()
             guard params.isEmpty else { throw invalid() }
             var values: [String: Any] = [:]
-            for account in [WorkspaceCredentialStore.Account.wavelogToken, .qrzPassword, .clubLogAPIKey] {
+            for account in [WorkspaceCredentialStore.Account.wavelogToken, .qrzPassword,
+                            .qrzLogbookKey, .clubLogAPIKey] {
                 values[account.rawValue] = !(try secrets.load(account) ?? "").isEmpty
             }
             return values

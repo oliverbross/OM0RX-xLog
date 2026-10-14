@@ -40,7 +40,7 @@ function syntheticPower(mode: Mode, fallback = "100"): DraftPowerState {
 }
 const request = async (method: string, values: Data = {}): Promise<Data> => {
   if (method === "settings_save") return { settings: structuredClone(values.settings) };
-  if (method === "secret_status") return { "wavelog-token": false, "qrz-password": false, "clublog-api-key": false };
+  if (method === "secret_status") return { "wavelog-token": false, "qrz-password": false, "qrz-logbook-key": false, "clublog-api-key": false };
   if (method === "secret_save") return { saved: true };
   if (method === "logbook_matrix") return { cells: [] };
   if (method === "cluster_history") return { history: { call: contact.call, adif: null, matrix: [], previous: [] } };

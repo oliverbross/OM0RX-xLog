@@ -1157,11 +1157,15 @@ response, cancellation or interrupted-process outcomes never replay automaticall
 The transport uses the fixed HTTPS endpoint, rejects redirects, bounds response
 streaming to 8 KiB and never sends QRZ's destructive replace option. Review found
 and fixed form encoding that otherwise could have changed a literal ADIF `+` into
-a space.
+a space. Settings now provisions the separate QRZ Logbook API key through the
+workspace vault, reports presence without reading it into the renderer, clears
+the masked input after confirmed save, and explicitly says this does not enable
+uploads.
 
-Focused **6/6**, native **183/183** and portable **200 XCTest** (four intentional
-benchmark skips) plus **387/387 Swift Testing** checks pass. No QRZ credential was
-read or written and no live request was made. Settings/UI, default-off enrollment,
-native scheduling, explicit new-contacts-only activation, live account acceptance,
-and independent Club Log/HRDLOG adapters remain open. See
+Focused online delivery **6/6**, Settings **18/18**, full frontend **2,388/2,388**,
+native **183/183** and portable **200 XCTest** (four intentional benchmark skips)
+plus **387/387 Swift Testing** checks pass; the production frontend build passes.
+No QRZ credential was written and no live request was made. Default-off enrollment,
+native scheduling, explicit new-contacts-only activation, credential removal,
+live account acceptance, and independent Club Log/HRDLOG adapters remain open. See
 [the bounded acceptance record](QRZ_UPLOAD_FOUNDATION_ACCEPTANCE_2026-10-15.md).
