@@ -20,6 +20,7 @@ impl Request {
 }
 
 pub trait Backend: Send + Sync {
+    fn draft_only(&self, _request: &Request) -> bool { false }
     fn resolve(&self, request: &Request) -> Result<Value, String>;
     fn canonical(&self) -> Result<Value, String>;
     fn open_editors(&self) -> Result<Vec<String>, String>;
@@ -81,7 +82,7 @@ impl Coordinator {
         }
         if durable["phase"] == "confirmed" {
             operation.outcome["phase"] = json!("confirmed");
-            operation.outcome["tuneConfirmed"] = json!(true);
+            operation.outcome["tuneConfirmed"] = json!(!self.backend.draft_only(&request));
             operation.outcome.as_object_mut().unwrap().remove("error");
         }
         let value = operation.outcome.clone();
@@ -91,6 +92,7 @@ impl Coordinator {
     fn publish(&self, request: &Request, phase: &str, draft: Option<&Value>, error: Option<&str>, rotor: &str, tune_confirmed: bool, reservation_active: bool) -> Result<Value, String> {
         let mut value = json!({"operationId":request.operation_id,"phase":phase,"draft":draft,
             "tuneConfirmed":tune_confirmed,"rotor":rotor,"reservationActive":reservation_active});
+        if self.backend.draft_only(request) { value["draftOnly"] = json!(true); }
         if let Some(error) = error { value["error"] = json!(error); }
         let mut state = self.state.lock().map_err(|_| "Spot activation unavailable")?;
         let operation = state.operations.get_mut(&request.operation_id).ok_or("Activation outcome missing")?;
@@ -111,6 +113,7 @@ impl Coordinator {
                 // the rejected identity too, so a lost IPC reply can be checked
                 // without inventing a retry or becoming permanently stranded.
                 let outcome = json!({"operationId":request.operation_id,"phase":"blocked",
+                    "draftOnly":self.backend.draft_only(&request),
                     "tuneConfirmed":false,"rotor":"not_requested","reservationActive":false,
                     "error":"Wait for the current spot activation to finish."});
                 state.operations.insert(request.operation_id.clone(), Operation { request, outcome:outcome.clone(), generation:None, running:false });
@@ -119,7 +122,7 @@ impl Coordinator {
             state.active = Some(request.operation_id.clone());
             state.latest = Some(request.operation_id.clone());
             state.operations.insert(request.operation_id.clone(), Operation { request:request.clone(), generation:None, running:true,
-                outcome:json!({"operationId":request.operation_id,"phase":"preparing","tuneConfirmed":false,"rotor":"not_requested","reservationActive":true}) });
+                outcome:json!({"operationId":request.operation_id,"phase":"preparing","draftOnly":self.backend.draft_only(&request),"tuneConfirmed":false,"rotor":"not_requested","reservationActive":true}) });
         }
         let mut applied = None;
         let mut effect_started = false;
@@ -129,7 +132,8 @@ impl Coordinator {
         let result = (|| {
             let spot = self.backend.resolve(&request)?;
             let base = self.backend.canonical()?;
-            let selection = self.backend.selection()?;
+            let draft_only = self.backend.draft_only(&request);
+            let selection = if draft_only { Value::Null } else { self.backend.selection()? };
             let generation = base["generation"].as_str().ok_or("Workspace generation unavailable")?;
             self.state.lock().map_err(|_| "Spot activation unavailable")?.operations.get_mut(&request.operation_id)
                 .ok_or("Activation outcome missing")?.generation = Some(generation.into());
@@ -142,7 +146,7 @@ impl Coordinator {
             let mut current_members = self.backend.open_editors()?; current_members.sort();
             let mut expected_members = membership; expected_members.sort();
             if current_members != expected_members { return Err("Editor windows changed during preparation. Select the spot again.".into()); }
-            if self.backend.resolve(&request)? != spot || self.backend.selection()? != selection {
+            if self.backend.resolve(&request)? != spot || !draft_only && self.backend.selection()? != selection {
                 return Err("Spot or radio selection changed during preparation. Select it again.".into());
             }
             reservation_active = true; // lost apply reply may still have acquired the worker lease
@@ -169,6 +173,11 @@ impl Coordinator {
                 return Err("This activation already has a durable receipt. Its tune will not be repeated.".into());
             }
             reservation_active = true;
+            if draft_only {
+                self.backend.finish(&request, &result, "confirmed")?;
+                reservation_active = false;
+                return self.publish(&request, "confirmed", Some(&result["receipt"]["draft"]), None, "not_requested", false, false);
+            }
             self.publish(&request, "draft_applied", Some(&result["receipt"]["draft"]), None, "not_requested", false, true)?;
             if self.backend.stage(&request, &result, "tune_started")?["status"] != "staged" {
                 return Err("The tune has already been admitted or its receipt is unavailable. It will not be repeated.".into());
@@ -231,12 +240,13 @@ mod tests {
         fn call(&self, name: &str) { self.calls.lock().unwrap().push(name.into()); }
     }
     impl Backend for Fake {
+        fn draft_only(&self, _: &Request) -> bool { matches!(self.mode.load(Ordering::SeqCst),14..=16) }
         fn resolve(&self, _: &Request) -> Result<Value, String> {
             let changed = self.mode.load(Ordering::SeqCst) == 7 && self.calls.lock().unwrap().iter().any(|call| call == "tune_started");
             Ok(json!({"call":"TEST1","frequencyHz":if changed { 14075000 } else { 14074000 },"mode":"FT8"}))
         }
         fn canonical(&self) -> Result<Value, String> { Ok(self.base.clone()) }
-        fn open_editors(&self) -> Result<Vec<String>, String> { Ok(if self.mode.load(Ordering::SeqCst) == 1 { vec!["main".into()] } else { vec![] }) }
+        fn open_editors(&self) -> Result<Vec<String>, String> { Ok(if matches!(self.mode.load(Ordering::SeqCst),1 | 15) { vec!["main".into()] } else { vec![] }) }
         fn selection(&self) -> Result<Value, String> { Ok(json!({"provider":"fixture","generation":1})) }
         fn apply(&self, _: &Request, _: &Value, _: &Value) -> Result<Value, String> {
             self.call("apply"); if self.mode.load(Ordering::SeqCst) == 4 { return Err("lost apply reply".into()); }
@@ -262,7 +272,7 @@ mod tests {
             if self.mode.load(Ordering::SeqCst) == 8 { Err("lost rotor reply".into()) } else { Ok(json!({"requested":false})) }
         }
         fn finish(&self, _: &Request, _: &Value, outcome: &str) -> Result<(), String> {
-            self.call(outcome); if matches!(self.mode.load(Ordering::SeqCst), 3 | 10) { Err("lost release".into()) } else { Ok(()) }
+            self.call(outcome); if matches!(self.mode.load(Ordering::SeqCst), 3 | 10 | 16) { Err("lost release".into()) } else { Ok(()) }
         }
         fn durable_status(&self, _: &Request, _: &str) -> Result<Value, String> {
             self.call("status");
@@ -271,7 +281,7 @@ mod tests {
                 13 => return Ok(json!({"status":"abandoned"})),
                 _ => {},
             }
-            if self.mode.load(Ordering::SeqCst) == 10 {
+            if matches!(self.mode.load(Ordering::SeqCst),10 | 16) {
                 Ok(json!({"status":"found","phase":"confirmed","receipt":{"draft":self.base}}))
             } else { Ok(json!({"status":"found","phase":"draft_applied","leaseID":"fixture-lease","receipt":{"draft":self.base}})) }
         }
@@ -288,6 +298,27 @@ mod tests {
         let snapshot = owner.snapshot().unwrap(); assert_eq!(snapshot["phase"], "confirmed");
         assert_eq!(snapshot["barrier"], Value::Null); assert!(snapshot.get("error").is_none());
         let mut reused = request; reused.spot_id = "other".into(); assert!(owner.activate(reused).is_err());
+    }
+    #[test]
+    fn opportunity_uses_the_same_journal_and_barrier_but_never_stages_station_effects() {
+        let backend = Arc::new(Fake::new()); backend.mode.store(14, Ordering::SeqCst);
+        let owner = Coordinator::new(backend.clone()); let request = request();
+        let result = owner.activate(request.clone()).unwrap();
+        assert_eq!(result["phase"], "confirmed"); assert_eq!(result["draftOnly"], true); assert_eq!(result["tuneConfirmed"], false);
+        assert_eq!(result["reservationActive"], false); assert_eq!(owner.snapshot().unwrap()["barrier"], Value::Null);
+        assert_eq!(*backend.calls.lock().unwrap(), ["apply", "confirmed"]);
+        assert_eq!(owner.activate(request).unwrap(), result); assert_eq!(backend.calls.lock().unwrap().len(), 2);
+    }
+    #[test]
+    fn opportunity_editor_admission_and_lost_finish_recovery_never_authorize_a_tune() {
+        let backend = Arc::new(Fake::new()); backend.mode.store(15, Ordering::SeqCst);
+        let owner = Coordinator::new(backend.clone());
+        assert_eq!(owner.activate(request()).unwrap()["phase"],"blocked"); assert!(backend.calls.lock().unwrap().is_empty());
+        backend.mode.store(16,Ordering::SeqCst); let request = request();
+        let uncertain = owner.activate(request.clone()).unwrap(); assert_eq!(uncertain["reservationActive"],true);
+        let recovered = owner.reconcile(&request.operation_id).unwrap(); assert_eq!(recovered["phase"],"confirmed");
+        assert_eq!(recovered["tuneConfirmed"],false); assert_eq!(recovered["reservationActive"],false);
+        assert_eq!(*backend.calls.lock().unwrap(),["apply","confirmed","failed","status"]);
     }
     #[test]
     fn nil_operation_is_rejected_before_it_can_create_an_unrecoverable_receipt() {

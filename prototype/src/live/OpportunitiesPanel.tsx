@@ -4,6 +4,7 @@ import "./OpportunitiesPanel.css";
 const OpportunityMap = lazy(() => import("../Map"));
 
 export type Opportunity = {
+  activation?: { sourceEpoch: string; spotVersion: string };
   id: string; kind: string; callsign: string; reference: string; name: string;
   frequency_hz: number | null; mode: string; observed_at: string; expires_at: string;
   source: string; source_url: string; comment: string; reference_status: string;

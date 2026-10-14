@@ -641,6 +641,18 @@ pub fn shutdown() {
 pub fn request(request: Value) -> Result<Value, String> {
     request_using(request, active_session)
 }
+/// Return the generation of the actual request session, never a later global
+/// sample which could relabel a reply after a concurrent worker replacement.
+pub(crate) fn request_with_generation(request: Value) -> Result<(u64, Value), String> {
+    let mut generation = 0;
+    let response = request_using(request, || {
+        let session = active_session()?;
+        generation = session.generation;
+        Ok(session)
+    })?;
+    require_existing_generation(generation)?;
+    Ok((generation, response))
+}
 
 /// Background observation must not create or replace a worker. Normal native
 /// startup/foreground requests retain sole authority to start a generation.

@@ -3,23 +3,37 @@ import Foundation
 /// Trusted native spot selection, never an arbitrary renderer QSO replacement.
 public struct SpotDraftSelection: Codable, Equatable, Sendable {
     public let call: String
-    public let frequencyHz: Int64
+    public let frequencyHz: Int64?
     public let band: String
     public let mode: String
     public let country: String
     public let dxcc: Int?
     public let comment: String
     public let specialTags: [String]
+    public let opportunity: OpportunityDraftReference?
+
+    public struct OpportunityDraftReference: Codable, Equatable, Sendable {
+        public let kind: String
+        public let reference: String
+        public let referenceKind: String
+    }
 
     public func validate() throws {
         let normalized = call.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         guard (2...32).contains(normalized.utf8.count),
               normalized.utf8.allSatisfy({ (65...90).contains($0) || (48...57).contains($0) || $0 == 47 || $0 == 45 }),
-              (1...1_000_000_000_000).contains(frequencyHz),
-              (1...16).contains(band.utf8.count), (1...16).contains(mode.utf8.count),
+              frequencyHz.map({ (1...1_000_000_000_000).contains($0) }) ?? (opportunity != nil),
+              (opportunity != nil ? (0...16) : (1...16)).contains(band.utf8.count),
+              (opportunity != nil ? (0...16) : (1...16)).contains(mode.utf8.count),
               country.utf8.count <= 256, dxcc.map({ (1...1_000).contains($0) }) ?? true,
               comment.utf8.count <= 8_192, specialTags.count <= 32,
               specialTags.allSatisfy({ $0.utf8.count <= 128 }) else { throw SpotDraftError.invalid }
+        if let opportunity {
+            guard ["pota", "sota", "wwff", "wwbota", "iota", "castle", "dxpedition", "special_event"].contains(opportunity.kind),
+                  opportunity.reference.utf8.count <= 128,
+                  ["pota", "sota", "wwff", "wwbota", "iota", "castle", "dxpedition", "special_event"].contains(opportunity.referenceKind)
+            else { throw SpotDraftError.invalid }
+        }
     }
 
     func applying(to previous: QSO) -> QSO {
@@ -30,7 +44,9 @@ public struct SpotDraftSelection: Codable, Equatable, Sendable {
             qso.state = ""; qso.county = ""; qso.qth = ""; qso.email = ""
         }
         qso.call = call.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-        qso.frequencyHz = frequencyHz; qso.band = band.lowercased(); qso.mode = mode.uppercased()
+        qso.frequencyHz = frequencyHz
+        qso.band = opportunity != nil ? frequencyHz.map(BandPlan.band(for:)) ?? previous.band : band.lowercased()
+        qso.mode = opportunity != nil && mode.isEmpty ? previous.mode : mode.uppercased()
         qso.country = country; qso.dxcc = dxcc; qso.comment = comment
         // A spot's references replace the previous selection even for the same
         // call. Reuse the local parser; no asynchronous enrichment can overwrite
@@ -39,6 +55,15 @@ public struct SpotDraftSelection: Codable, Equatable, Sendable {
         qso.potaReference = refs.pota; qso.sotaReference = refs.sota
         qso.iota = refs.iota; qso.wwffReference = refs.wwff
         qso.sig = refs.sig; qso.sigInfo = refs.sigInfo
+        if let opportunity {
+            qso.potaReference = opportunity.kind == "pota" ? opportunity.reference : ""
+            qso.sotaReference = opportunity.kind == "sota" ? opportunity.reference : ""
+            qso.iota = opportunity.kind == "iota" || opportunity.referenceKind == "iota" ? opportunity.reference : ""
+            qso.wwffReference = opportunity.kind == "wwff" ? opportunity.reference : ""
+            qso.sig = ["castle", "wwbota"].contains(opportunity.kind) ? opportunity.kind.uppercased() : ""
+            qso.sigInfo = qso.sig.isEmpty ? "" : opportunity.reference
+            return qso
+        }
         if !refs.sigInfo.isEmpty, ["WCA", "COTA", "CASTLE"].contains(refs.sig) {
             for programme in ["WCA", "COTA", "CASTLE"] {
                 for separator in [" ", "-", ":", "/"] where refs.sigInfo.hasPrefix(programme + separator) {

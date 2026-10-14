@@ -114,8 +114,9 @@ fn validate_receipt(response: &Value, context: &Context) -> Result<(), String> {
         || receipt["draft"]["revision"].as_u64() != context.revision.checked_add(1)
         || receipt["draft"]["qso"]["call"] != context.spot["call"]
         || receipt["draft"]["qso"]["frequencyHz"] != context.spot["frequencyHz"]
-        || receipt["draft"]["qso"]["mode"].as_str().map(str::to_uppercase) != context.spot["mode"].as_str().map(str::to_uppercase)
-        || receipt["draft"]["qso"]["band"].as_str().map(str::to_lowercase) != context.spot["band"].as_str().map(str::to_lowercase)
+        || context.spot.get("opportunity").is_none() && (
+            receipt["draft"]["qso"]["mode"].as_str().map(str::to_uppercase) != context.spot["mode"].as_str().map(str::to_uppercase)
+            || receipt["draft"]["qso"]["band"].as_str().map(str::to_lowercase) != context.spot["band"].as_str().map(str::to_lowercase))
         || receipt["phase"] != "draft_applied" || !phase(&response["phase"]) || !response["replay"].is_boolean() {
         return Err("Durable activation receipt did not match its canonical operation".into());
     }
@@ -163,8 +164,10 @@ fn tune_request(provider: &str, spot: &Value) -> Result<Value, String> {
     } else { Err("Native radio provider is unsupported".into()) }
 }
 impl Backend for NativeBackend {
+    fn draft_only(&self, request: &Request) -> bool { crate::opportunity_selection::owns(&request.source_epoch) }
     fn resolve(&self, request: &Request) -> Result<Value, String> {
         if crate::worker::local_acceptance() { return Err("Live reports are unavailable in isolated acceptance".into()); }
+        if self.draft_only(request) { return crate::opportunity_selection::resolve(request); }
         crate::cluster_session::owner(&self.app)?.activation_spot(&request.source_epoch, &request.spot_id, &request.spot_version)
     }
     fn canonical(&self) -> Result<Value, String> {
@@ -190,10 +193,22 @@ impl Backend for NativeBackend {
         }
         // Fence this target before the worker can commit it. Otherwise a
         // concurrent ordinary-follow read could turn between commit and reply.
-        let permit = auto_rotor::activation_started(Target { generation:generation.clone(), draft_id:draft.clone(),
-            call:spot["call"].as_str().ok_or("Native report callsign unavailable")?.into() })?;
-        self.operations.lock().map_err(|_| "Activation context unavailable")?.get_mut(&request.operation_id)
-            .ok_or("Activation context unavailable")?.permit = Some(permit);
+        if self.draft_only(request) {
+            if let Some(owner) = crate::cw_session_backend::existing() {
+                owner.revoke()?;
+                let state = owner.snapshot()?;
+                if state["pending"] == true || !state["owner"].is_null() {
+                    return Err("Use CW Stop and verify its outcome before loading an opportunity. The draft is unchanged.".into());
+                }
+            }
+            // Draft-only selection always retires follow intent before commit.
+            auto_rotor::revoke();
+        } else {
+            let permit = auto_rotor::activation_started(Target { generation:generation.clone(), draft_id:draft.clone(),
+                call:spot["call"].as_str().ok_or("Native report callsign unavailable")?.into() })?;
+            self.operations.lock().map_err(|_| "Activation context unavailable")?.get_mut(&request.operation_id)
+                .ok_or("Activation context unavailable")?.permit = Some(permit);
+        }
         let response = call(worker, "spot_draft_apply", json!({"operationID":request.operation_id,"generation":generation,
             "draftID":draft,"expectedRevision":revision,"spot":spot}))?;
         match response["status"].as_str() {

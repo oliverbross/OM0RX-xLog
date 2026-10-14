@@ -8,6 +8,7 @@ export function activationMessage(status: SpotActivationSnapshot | null): string
   if (status.phase === "preparing") return "Checking shared editors before loading this spot…";
   if (status.phase === "draft_applied") return "Spot loaded. Waiting for native radio admission…";
   if (status.phase === "tuning") return "Spot loaded. Waiting for observed radio confirmation…";
+  if (status.phase === "confirmed" && status.draftOnly) return "Chaser selection loaded into the shared draft. Radio follow and Auto rotor are off; no station command was sent.";
   if (status.phase === "confirmed") return `${status.tuneConfirmed ? "Spot loaded · observed radio tune confirmed." : "Spot loaded; radio tune is not confirmed."}${status.error ? ` ${status.error}` : ""}${status.rotor && status.rotor !== "not_requested" ? ` Rotor: ${status.rotor.replaceAll("_", " ")}.` : ""}`;
   if (status.phase === "uncertain") return "Spot activation outcome is uncertain. Check the existing operation; no tune will be replayed.";
   return status.error || (status.phase === "blocked" ? "Spot activation was blocked. Finish the shared editor operation first." : "Spot activation failed. Check its status before selecting another report.");
@@ -21,7 +22,7 @@ export class SpotActivationClient {
   private active = true;
   private version = 0;
   private reading: Promise<void> | null = null;
-  constructor(private call: Call, private uuid: () => string = () => crypto.randomUUID()) {}
+  constructor(private call: Call, private uuid: () => string = () => crypto.randomUUID(), private command: "activate_spot" | "activate_opportunity" = "activate_spot") {}
   getSnapshot = () => this.state;
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   private update(change: Partial<State>) { if (this.active) { this.state = { ...this.state, ...change }; this.listeners.forEach(listener => listener()); } }
@@ -46,7 +47,7 @@ export class SpotActivationClient {
     this.operation = operationId; const version = ++this.version;
     this.update({ requesting: true, checked: false, status: null, error: "" });
     try {
-      const result = await this.call("activate_spot", { operationId, sourceEpoch: spot.activation.sourceEpoch, spotId: spot.id, spotVersion: spot.activation.spotVersion });
+      const result = await this.call(this.command, { operationId, sourceEpoch: spot.activation.sourceEpoch, spotId: spot.id, spotVersion: spot.activation.spotVersion });
       if (this.active && version === this.version && !(this.state.status?.operationId === operationId && terminal(this.state.status))) this.accept(result, operationId);
       return result;
     } catch (cause) {

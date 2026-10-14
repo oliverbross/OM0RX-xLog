@@ -3,7 +3,8 @@ import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { DetachedOpportunitiesSurface, requestDetachedOpportunity } from "./DetachedOpportunitiesSurface";
 
-const api = vi.hoisted(() => ({ worker: vi.fn(), dock: vi.fn() }));
+const api = vi.hoisted(() => ({ worker: vi.fn(), dock: vi.fn(), activate:vi.fn() }));
+vi.mock("./useSpotActivation", () => ({ useSpotActivation: () => ({ status:null, error:"", requesting:false, activate:api.activate, reconcile:vi.fn() }) }));
 vi.mock("../worker", () => ({ workerRequest: api.worker }));
 vi.mock("./DetachedClusterBridge", () => ({ dockDetachedWorkspace: api.dock }));
 vi.mock("../Map", () => ({ default: () => <div>Opportunity map</div> }));
@@ -17,13 +18,14 @@ const snapshot = { generated_at: "2026-10-14T05:01:00Z", items: [opportunity], t
 
 afterEach(() => { cleanup(); localStorage.clear(); vi.resetAllMocks(); });
 
-it("owns a passive main-absent opportunity view and hides unfinished draft controls", async () => {
+it("owns a main-absent view and delegates draft selection only to the protected native owner", async () => {
   api.worker.mockResolvedValue({ result: snapshot }); api.dock.mockResolvedValue(undefined);
+  api.activate.mockResolvedValue({ phase:"confirmed", draftOnly:true });
   render(<DetachedOpportunitiesSurface />);
   expect(await screen.findByText("Verified park")).toBeTruthy();
   expect(screen.getByRole("main", { name: "Detached Chaser & DX" })).toBeTruthy();
-  expect(screen.getByText(/Read-only independent view/)).toBeTruthy();
-  expect(screen.queryByRole("button", { name: /Load .* into QSO draft/ })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: /Load .* into QSO draft/ }));
+  await waitFor(() => expect(api.activate).toHaveBeenCalledWith(opportunity));
   expect([...new Set(api.worker.mock.calls.map(([method]) => method))].sort()).toEqual(["opportunities_refresh", "opportunities_snapshot"]);
   expect(api.worker.mock.calls.every(([method]) => ["opportunities_refresh", "opportunities_snapshot"].includes(method))).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: "Dock back" }));

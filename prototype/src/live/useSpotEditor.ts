@@ -5,14 +5,14 @@ import type { SpotActivationSnapshot, SpotEditorParticipant } from "./spotActiva
 import type { SpotEditorReadiness } from "./spotActivationBarrier";
 
 export const nativeSpotEditor = () => isTauri();
-export function useSpotEditor(participants: readonly SpotEditorParticipant[], readiness: () => SpotEditorReadiness) {
+export function useSpotEditor(participants: readonly SpotEditorParticipant[], readiness: (snapshot: SpotActivationSnapshot) => SpotEditorReadiness) {
   const members = useRef(participants), ready = useRef(readiness); ready.current = readiness;
   const [status, setStatus] = useState<SpotActivationSnapshot | null>(null), [error, setError] = useState("");
   const current = useRef<ReturnType<typeof connectSpotEditor> | null>(null), disposal = useRef<Promise<void>>(Promise.resolve());
   useEffect(() => {
     if (!nativeSpotEditor()) return;
     let active = true;
-    const connection = connectSpotEditor(members.current, () => ready.current(), snapshot => { if (active) { setStatus(snapshot); setError(""); } },
+    const connection = connectSpotEditor(members.current, snapshot => ready.current(snapshot), snapshot => { if (active) { setStatus(snapshot); setError(""); } },
       message => { if (active) setError(message); }, undefined, disposal.current);
     current.current = connection;
     return () => { active = false; current.current = null; disposal.current = connection.dispose(); };

@@ -36,6 +36,14 @@ async function ready() {
 }
 afterEach(() => vi.useRealTimers());
 
+it("retires opportunity follow synchronously before a terminal remount reads and releases the shared draft", async () => {
+  const f = fixture(); await f.session.load(); let following = true;
+  const read = vi.fn(async () => { expect(following).toBe(false); expect(f.session.canAcceptLocalInput()).toBe(false); return { draft:copy(f.current) }; });
+  const editor = new SpotActivationEditor([f.session],read,snapshot => { if (snapshot.phase !== "idle" && snapshot.draftOnly) following = false; return { ready:true }; });
+  await editor.registeredWith({ ...terminal("confirmed"),draftOnly:true });
+  expect(following).toBe(false); expect(f.session.canAcceptLocalInput()).toBe(true); expect(read).toHaveBeenCalledOnce();
+});
+
 it("starts editors read-only until actual verified registration and freezes synchronously before every readiness callback", async () => {
   const f = fixture(); await f.session.load();
   const local = vi.fn(() => { expect(f.session.canAcceptLocalInput()).toBe(false); return { ready: true }; });

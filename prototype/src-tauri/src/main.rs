@@ -13,6 +13,7 @@ mod spot_identity;
 mod spot_editor_barrier;
 mod spot_activation;
 mod spot_activation_backend;
+mod opportunity_selection;
 mod auto_rotor;
 mod auto_rotor_reconcile;
 mod detached_geometry;
@@ -40,13 +41,16 @@ fn activation_owner(app: &tauri::AppHandle) -> Arc<spot_activation::Coordinator>
         Arc::new(spot_activation_backend::NativeBackend::new(app.clone()))))).clone()
 }
 fn validate_activation_reader(label: &str) -> Result<(), String> {
-    if spot_editor_barrier::editor_role(label) || spot_editor_barrier::activation_role(label) { Ok(()) }
+    if label == "chaser-dx" || spot_editor_barrier::editor_role(label) || spot_editor_barrier::activation_role(label) { Ok(()) }
     else { Err("This window cannot access spot activation.".into()) }
 }
 fn validate_spot_effect(label: &str, isolated: bool, exiting: bool) -> Result<(), String> {
     if exiting || isolated || !spot_editor_barrier::activation_role(label) {
         Err("Spot radio actions are unavailable in this window or isolated acceptance.".into())
     } else { Ok(()) }
+}
+fn validate_opportunity_effect(label: &str, isolated: bool, exiting: bool) -> Result<(), String> {
+    if isolated || exiting || !matches!(label, "main" | "chaser-dx") { Err("Opportunity draft selection is unavailable in this window.".into()) } else { Ok(()) }
 }
 fn validate_editor_transition(label: &str) -> Result<(), String> {
     if spot_editor_barrier::editor_role(label) {
@@ -106,6 +110,18 @@ async fn activate_spot(window: tauri::WebviewWindow, app: tauri::AppHandle, stat
     let owner = activation_owner(&app);
     let request = spot_activation::Request { operation_id, source_epoch, spot_id, spot_version };
     tauri::async_runtime::spawn_blocking(move || owner.activate(request)).await.map_err(|_| "Spot activation task failed; inspect its existing operation status before retrying".to_string())?
+}
+#[tauri::command]
+async fn activate_opportunity(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>,
+    operation_id: String, source_epoch: String, spot_id: String, spot_version: String) -> Result<serde_json::Value, String> {
+    validate_opportunity_effect(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
+    if !opportunity_selection::owns(&source_epoch) {
+        return Err("Opportunity draft selection is unavailable in this window or source.".into());
+    }
+    let owner = activation_owner(&app);
+    let request = spot_activation::Request { operation_id, source_epoch, spot_id, spot_version };
+    tauri::async_runtime::spawn_blocking(move || owner.activate(request)).await
+        .map_err(|_| "Opportunity acknowledgement unavailable; inspect the existing operation before selecting again".to_string())?
 }
 #[tauri::command]
 fn auto_rotor_snapshot(window: tauri::WebviewWindow) -> Result<serde_json::Value, String> {
@@ -442,6 +458,10 @@ async fn cw_session_request(app: tauri::AppHandle, window: tauri::WebviewWindow,
         return Err("Shared CW controls are available only in the main workspace.".into());
     }
     let focused = window.is_focused().unwrap_or(false) && window.is_visible().unwrap_or(false);
+    if matches!(params["action"].as_str(), Some("arm" | "send"))
+        && SPOT_ACTIVATION.get().is_some_and(|owner| owner.snapshot().map_or(true, |state| state["reservationActive"] == true)) {
+        return Err("Wait for the protected draft selection before arming or sending CW. Stop remains available.".into());
+    }
     let owner = cw_session_backend::owner(&app); let label = window.label().to_owned();
     tauri::async_runtime::spawn_blocking(move || owner.request(&label, &client, sequence, focused, &params))
         .await.map_err(|_| "CW session task failed; use Stop before retrying.".to_string())?
@@ -459,6 +479,11 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     }
     // This explicit role gate precedes every native special dispatcher too.
     if matches!(window.label(), "monitor" | "log-qso" | "spot-history" | "world-map" | "band-maps" | "callsign-intelligence" | "station-control") { worker::validate_surface(window.label(), &request)?; }
+    if state.path.is_none() && matches!(method, "opportunities_snapshot" | "opportunities_refresh") {
+        worker::validate_surface(window.label(), &request)?;
+        return tauri::async_runtime::spawn_blocking(move || opportunity_selection::snapshot(request)).await
+            .map_err(|_| "Opportunity feed task failed".to_string())?;
+    }
     if matches!(method, "settings_save" | "backup_restore" | "workspace_create" | "logbook_operator_draft_apply") || retires_automatic_rotor(&request) {
         if let Some(owner) = cw_session_backend::existing() {
             owner.revoke()?; tauri::async_runtime::spawn_blocking(move || { let _ = owner.stop(); });
@@ -857,7 +882,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![worker_request, cw_session_request, pick_backup_package, open_monitor, open_detached_map,
             spot_editor_register, spot_editor_unregister, spot_editor_ack, spot_editor_state,
-            spot_activation_snapshot, spot_activation_status, spot_activation_reconcile, activate_spot,
+            spot_activation_snapshot, spot_activation_status, spot_activation_reconcile, activate_spot, activate_opportunity,
             auto_rotor_snapshot, auto_rotor_set,
             workspace_windows_status, workspace_windows_reconcile,
             workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_selection_apply,
@@ -965,12 +990,14 @@ mod workspace_layout_tests {
 
     #[test]
     fn spot_activation_capabilities_are_role_scoped_and_never_bypass_isolation_or_shutdown() {
-        for label in ["main", "dx-cluster", "world-map", "band-maps", "log-qso", "logbook", "monitor", "settings", "unknown"] {
+        for label in ["main", "dx-cluster", "world-map", "band-maps", "log-qso", "logbook", "monitor", "settings", "chaser-dx", "station-control", "unknown"] {
             let writer = spot_editor_barrier::activation_role(label);
             assert_eq!(validate_spot_effect(label, false, false).is_ok(), writer);
             assert!(validate_spot_effect(label, true, false).is_err());
             assert!(validate_spot_effect(label, false, true).is_err());
-            assert_eq!(validate_activation_reader(label).is_ok(), writer || spot_editor_barrier::editor_role(label));
+            assert_eq!(validate_activation_reader(label).is_ok(), label == "chaser-dx" || writer || spot_editor_barrier::editor_role(label));
+            assert_eq!(crate::validate_opportunity_effect(label,false,false).is_ok(), matches!(label,"main" | "chaser-dx"));
+            assert!(crate::validate_opportunity_effect(label,true,false).is_err()); assert!(crate::validate_opportunity_effect(label,false,true).is_err());
         }
         for method in ["workspace_create", "backup_restore", "station_connect", "station_disconnect", "station_reconnect"] {
             assert!(retires_automatic_rotor(&serde_json::json!({"method":method,"params":{}})));

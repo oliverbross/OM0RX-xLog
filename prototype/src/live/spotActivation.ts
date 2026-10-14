@@ -5,6 +5,7 @@ export type SpotActivationPhase = "preparing" | "draft_applied" | "tuning" | "bl
 export type SpotActivationSnapshot = { operationId: null; phase: "idle"; barrier: null } | {
   operationId: string; phase: SpotActivationPhase; barrier?: SpotActivationBarrier | null;
   admitted?: boolean; reservationActive?: boolean; error?: string; tuneConfirmed?: boolean; rotor?: string;
+  draftOnly?: boolean;
 };
 export type SpotEditorAck = SpotEditorReadiness & { operationId: string; barrierId: string };
 export type SpotEditorParticipant = {
@@ -20,6 +21,7 @@ export function validSpotActivationSnapshot(value: any): value is SpotActivation
   return validSpotOperation(value.operationId) && ["preparing", "draft_applied", "tuning", "blocked", "confirmed", "failed", "uncertain"].includes(value.phase) &&
     (value.admitted === undefined || typeof value.admitted === "boolean") &&
     (value.reservationActive === undefined || typeof value.reservationActive === "boolean") &&
+    (value.draftOnly === undefined || typeof value.draftOnly === "boolean") &&
     (value.barrier == null || validSpotActivationBarrier(value.barrier) && value.barrier.operationId === value.operationId) &&
     (value.error === undefined || typeof value.error === "string") &&
     (!terminal(value.phase) || typeof value.tuneConfirmed === "boolean" && typeof value.rotor === "string");
@@ -34,7 +36,7 @@ export class SpotActivationEditor {
   private completed = new Set<string>();
   private version = 0;
   constructor(private participants: readonly SpotEditorParticipant[], private readCanonical: () => Promise<unknown>,
-    private localReadiness: () => SpotEditorReadiness = () => ({ ready: true })) {
+    private localReadiness: (snapshot: SpotActivationSnapshot) => SpotEditorReadiness = () => ({ ready: true })) {
     participants.forEach(participant => participant.setSpotEditorRegistered(false));
   }
   get frozen() { return !this.registered || this.operation !== null; }
@@ -67,9 +69,10 @@ export class SpotActivationEditor {
     if (snapshot.phase === "idle") return null; // Missing status cannot release an existing operation.
     if (this.completed.has(snapshot.operationId)) return null;
     this.freeze(snapshot.operationId); // Synchronous, before readiness or any await.
+    const localReadiness = this.localReadiness(snapshot);
     if (snapshot.phase === "preparing") {
       if (!snapshot.barrier) return null;
-      const results = [this.localReadiness(), ...this.participants.map(participant => participant.prepareSpotActivation(snapshot.barrier!))];
+      const results = [localReadiness, ...this.participants.map(participant => participant.prepareSpotActivation(snapshot.barrier!))];
       const rejected = !this.registered ? { ready: false, reason: "Editor registration is not confirmed." } : results.find(result => !result.ready);
       return { operationId: snapshot.operationId, barrierId: snapshot.barrier!.barrierId, ready: !rejected,
         ...(rejected ? { reason: rejected.reason || "Finish the local editor operation first." } : {}) };

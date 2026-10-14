@@ -66,6 +66,46 @@ struct SpotDraftActivationTests {
         }
     }
 
+    @Test("Opportunity selection supports a calendar without frequency and cannot stage station effects")
+    func opportunityDraftOnly() throws {
+        try fixture { service, _ in
+            let initial = try snapshot(service), previous = try #require(initial["qso"] as? [String: Any])
+            var request = try command(initial, call: "OM0RX/P")
+            request["spot"] = ["call":"OM0RX/P", "frequencyHz":NSNull(), "band":"", "mode":"", "country":"",
+                "comment":"Calendar selection", "specialTags":[],
+                "opportunity":["kind":"dxpedition", "reference":"EU-001", "referenceKind":"iota"]] as [String:Any]
+            let applied = try service.handle(method:"spot_draft_apply", params:request)
+            let selected = try #require(scopedReceiptDraft(applied)["qso"] as? [String:Any])
+            #expect(selected["frequencyHz"] == nil || selected["frequencyHz"] is NSNull)
+            #expect(selected["band"] as? String == previous["band"] as? String)
+            #expect(selected["mode"] as? String == previous["mode"] as? String)
+            #expect(selected["iota"] as? String == "EU-001")
+            #expect(selected["potaReference"] as? String == "")
+            var stage = try control(request, applied); stage["stage"] = "tune_started"
+            #expect(throws:WorkerFailure.self) { try service.handle(method:"spot_draft_stage", params:stage) }
+            var finish = try control(request, applied); finish["outcome"] = "confirmed"
+            #expect(try service.handle(method:"spot_draft_finish", params:finish)["phase"] as? String == "confirmed")
+            #expect(try service.handle(method:"spot_draft_apply", params:request)["replay"] as? Bool == true)
+            #expect(try service.handle(method:"spot_draft_apply", params:request)["leaseID"] == nil)
+        }
+    }
+
+    @Test("Opportunity references are explicit and independent of misleading comment tags")
+    func opportunityReferenceMapping() throws {
+        for (kind, field) in [("pota","potaReference"), ("sota","sotaReference"), ("wwff","wwffReference"), ("wwbota","sigInfo"), ("castle","sigInfo")] {
+            try fixture { service, _ in
+                var request = try command(snapshot(service))
+                var spot = try #require(request["spot"] as? [String:Any])
+                spot["opportunity"] = ["kind":kind,"reference":"EXPLICIT-1","referenceKind":kind]
+                request["spot"] = spot
+                let selected = try #require(scopedReceiptDraft(service.handle(method:"spot_draft_apply", params:request))["qso"] as? [String:Any])
+                #expect(selected[field] as? String == "EXPLICIT-1")
+                #expect(selected["band"] as? String == "20m")
+                if kind != "pota" { #expect(selected["potaReference"] as? String == "") }
+            }
+        }
+    }
+
     @Test("Only exact immutable payload retries; identities, integer values and unknown keys are strict")
     func invalidCommands() throws {
         try fixture { service, _ in

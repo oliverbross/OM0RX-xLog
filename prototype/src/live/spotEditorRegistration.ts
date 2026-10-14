@@ -8,7 +8,7 @@ type Adapter = { call: (command: string, params?: Record<string, unknown>) => Pr
 const native: Adapter = { call: invoke, listen: wake => listen("xlog:spot-activation", wake) };
 /** Each registration lifetime gets a nonce. Cleanup waits for its own register
  * reply before unregistering; a StrictMode remount may await disposed below. */
-export function connectSpotEditor(participants: readonly SpotEditorParticipant[], readiness: () => SpotEditorReadiness,
+export function connectSpotEditor(participants: readonly SpotEditorParticipant[], readiness: (snapshot: SpotActivationSnapshot) => SpotEditorReadiness,
   changed: (snapshot: SpotActivationSnapshot) => void, failed: (message: string) => void,
   adapter: Adapter = native, before: Promise<unknown> = Promise.resolve(), instance: string = crypto.randomUUID()) {
   const editor = new SpotActivationEditor(participants, () => adapter.call("spot_editor_state"), readiness);

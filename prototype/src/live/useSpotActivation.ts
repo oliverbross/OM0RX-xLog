@@ -3,11 +3,11 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { SpotActivationClient } from "./spotActivationClient";
 
-export function useSpotActivation() {
+export function useSpotActivation(command: "activate_spot" | "activate_opportunity" = "activate_spot") {
   const client = useRef<SpotActivationClient | null>(null);
   const [state, setState] = useState(() => new SpotActivationClient(invoke).getSnapshot());
   useEffect(() => {
-    const current = new SpotActivationClient(invoke); client.current = current;
+    const current = new SpotActivationClient(invoke, undefined, command); client.current = current;
     const unsubscribe = current.subscribe(() => setState(current.getSnapshot()));
     let active = true, stop: (() => void) | undefined;
     const refresh = () => { void current.refresh(); };
@@ -17,7 +17,7 @@ export function useSpotActivation() {
     }
     const timer = isTauri() ? window.setInterval(refresh, 1500) : undefined;
     return () => { active = false; unsubscribe(); stop?.(); clearInterval(timer); window.removeEventListener("focus", refresh); current.dispose(); client.current = null; };
-  }, []);
+  }, [command]);
   return { ...state, activate: async (spot: Record<string, any>) => {
     if (!client.current) throw new Error("Wait for spot activation to initialize.");
     return client.current.activate(spot);

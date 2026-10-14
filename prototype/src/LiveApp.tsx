@@ -222,8 +222,15 @@ function MainLiveApp() {
   useEffect(() => connectLogbookChanges(() => setRefresh(value => value + 1), setError), []);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(busy); busyRef.current = busy;
-  const spotEditor = useSpotEditor([draftSession, contactSession], () => busyRef.current || logbookWorkingRef.current || editorBufferPending.current || mainClosing.current || layoutChanging.current || logbookMutations.getSnapshot().busy || logbookMutations.getSnapshot().pending
-    ? { ready: false, reason: "Finish the current logbook or workspace action first." } : { ready: true });
+  const spotEditor = useSpotEditor([draftSession, contactSession], snapshot => {
+    if (snapshot.phase !== "idle" && snapshot.draftOnly) {
+      // Synchronous with freeze, before either readiness acknowledgement or
+      // terminal reconciliation can release background draft updates.
+      selection.current++; pendingTune.current = false; setFollowImmediate(false); setSelected(null);
+    }
+    return busyRef.current || logbookWorkingRef.current || editorBufferPending.current || mainClosing.current || layoutChanging.current || logbookMutations.getSnapshot().busy || logbookMutations.getSnapshot().pending
+      ? { ready: false, reason: "Finish the current logbook or workspace action first." } : { ready: true };
+  });
   const spotActivation = useSpotActivation();
   const acceptsInput = useCallback(() => !mainClosing.current && !layoutChanging.current && !editorTransition.current && !logbookWorkingRef.current && draftSession.canAcceptLocalInput() && contactSession.canAcceptLocalInput(), [draftSession, contactSession]);
   useEffect(() => protectOperatorDraftClose(() => {
@@ -356,20 +363,18 @@ function MainLiveApp() {
   const cwProfile = cw.profile, cwContext = cw.context;
   const cwControls = cwProfile.showOnDesk || cwProfile.macros.some((macro: Data) => macro.enabled && macro.shortcut) || cw.state.armed || cw.state.owner || cw.state.lease || cw.state.pending
     ? <CWDesk profile={cwProfile} context={cwContext} controller={cw.controller} state={cw.state} radioProvider={cw.provider} /> : undefined;
+  const opportunityActivation = useSpotActivation("activate_opportunity");
   const loadOpportunity = (item: Opportunity) => {
     if (!acceptsInput()) { setError("Wait for the verified spot activation outcome before loading another contact."); return; }
     if (draftSession.getSnapshot().locked || draftSession.getSnapshot().workspaceChanged || draftSession.getSnapshot().conflict || contactSession.getSnapshot().locked || contactSession.getSnapshot().workspaceChanged) { setError("Resolve the current QSO draft operation before loading another contact."); return; }
     if (editing.current) { setError("Finish or clear the contact being edited before loading a new contact."); setView("Log QSO"); return; }
     selection.current++; pendingTune.current = false; disarmAutoRotor();
     editing.current = false; setFollowImmediate(false); setSelected(null);
-    setOperatorDraft(current => current ? { ...current, call: item.callsign,
-      frequencyHz: item.frequency_hz ?? null, band: item.frequency_hz ? bandForRadio(item.frequency_hz) || current.band : current.band,
-      mode: item.mode ? logMode(item.mode, current.mode || "") : current.mode, comment: item.comment,
-      potaReference: item.kind === "pota" ? item.reference : "", sotaReference: item.kind === "sota" ? item.reference : "",
-      iota: item.kind === "iota" || item.reference_kind === "iota" ? item.reference : "", wwffReference: item.kind === "wwff" ? item.reference : "",
-      sig: ["castle", "wwbota"].includes(item.kind) ? item.kind.toUpperCase() : "",
-      sigInfo: ["castle", "wwbota"].includes(item.kind) ? item.reference : "" } : current);
-    setView("Log QSO"); setMessage("Chaser selection loaded into the draft only. Radio follow and Auto rotor are off; no station command was sent.");
+    void opportunityActivation.activate(item).then(outcome => {
+      if (outcome?.phase === "confirmed" && outcome.draftOnly) {
+        setView("Log QSO"); setMessage("Chaser selection loaded into the shared draft. Radio follow and Auto rotor are off; no station command was sent.");
+      } else if (outcome?.error) setError(String(outcome.error));
+    }).catch(cause => setError(cause instanceof Error ? cause.message : "Opportunity acknowledgement unavailable. Check its existing activation before selecting again."));
   };
   const viewedStationRequest: Request = useCallback(async (method, params = {}) => {
     if (viewProvider === stationProvider) return request(method, params);

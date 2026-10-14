@@ -1,5 +1,5 @@
 import { expect, it, vi } from "vitest";
-import { SpotActivationClient } from "./spotActivationClient";
+import { activationMessage, SpotActivationClient } from "./spotActivationClient";
 const operationId = "00000000-0000-4000-8000-000000000001";
 const token = { sourceEpoch: "00000000-0000-4000-8000-000000000002", spotVersion: "00000000-0000-4000-8000-000000000003" };
 const report = { id: "report", activation: token, frequencyKHz: -100, mode: "arbitrary", callsign: "UNTRUSTED" };
@@ -11,6 +11,18 @@ it("submits only native-issued opaque identity, never renderer tuning or QSO fie
   await client.activate(report);
   expect(call).toHaveBeenCalledExactlyOnceWith("activate_spot", { operationId, sourceEpoch: token.sourceEpoch, spotId: "report", spotVersion: token.spotVersion });
   expect(uuid).toHaveBeenCalledOnce();
+});
+it("uses the exact opportunity command and recovers lost replies without resubmitting or claiming a tune", async () => {
+  const confirmed = { ...result(), draftOnly:true, tuneConfirmed:false };
+  const call = vi.fn(async (command: string) => { if (command === "activate_opportunity") throw new Error("lost reply"); return confirmed; });
+  const client = new SpotActivationClient(call, () => operationId, "activate_opportunity");
+  await expect(client.activate(report)).rejects.toThrow("lost reply");
+  await expect(client.activate(report)).rejects.toThrow("existing");
+  await client.refresh();
+  expect(call).toHaveBeenNthCalledWith(1,"activate_opportunity",{ operationId, sourceEpoch:token.sourceEpoch, spotId:report.id, spotVersion:token.spotVersion });
+  expect(call).toHaveBeenLastCalledWith("spot_activation_status",{ operationId });
+  expect(activationMessage(client.getSnapshot().status)).toContain("no station command was sent");
+  expect(call.mock.calls.filter(([command]) => command.startsWith("activate_"))).toHaveLength(1);
 });
 it("does not allocate an operation for an unannotated, malformed, or removed identity", async () => {
   const call = vi.fn(), uuid = vi.fn(() => operationId), client = new SpotActivationClient(call, uuid);
