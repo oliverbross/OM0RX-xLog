@@ -16,6 +16,7 @@ public struct SecretStore: Sendable {
     public enum Account: String, Sendable {
         case wavelogToken = "wavelog-token"
         case qrzPassword = "qrz-password"
+        case qrzLogbookKey = "qrz-logbook-key"
         case clubLogAPIKey = "clublog-api-key"
     }
     public static let service = "com.oliverbross.OM0RXXLog"

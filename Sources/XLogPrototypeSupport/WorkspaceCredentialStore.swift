@@ -5,7 +5,12 @@ import XLogCore
 
 /// Identical account names across OS vaults; macOS retains its existing service.
 struct WorkspaceCredentialStore {
-    enum Account: String { case wavelogToken = "wavelog-token", qrzPassword = "qrz-password", clubLogAPIKey = "clublog-api-key" }
+    enum Account: String {
+        case wavelogToken = "wavelog-token"
+        case qrzPassword = "qrz-password"
+        case qrzLogbookKey = "qrz-logbook-key"
+        case clubLogAPIKey = "clublog-api-key"
+    }
     let service: String
     func load(_ account: Account) throws -> String? {
         #if os(macOS)

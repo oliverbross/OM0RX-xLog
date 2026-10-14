@@ -252,6 +252,192 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
+    public func prepareOnlineLogDelivery(service: OnlineLogService, contactID: UUID) throws -> OnlineLogDeliveryPlan {
+        try withDatabaseLock {
+            guard let contact = try contactSnapshot(localID: contactID), contact.qso.deletedAt == nil else {
+                throw OnlineLogDeliveryError.staleContact
+            }
+            return try OnlineLogDeliveryPlan(service: service, contact: contact,
+                                             adif: contact.qso.adifRecord.recordDocument)
+        }
+    }
+
+    public func onlineLogDeliveryReceipt(service: OnlineLogService, contactID: UUID,
+                                         contactRevision: Int64) throws -> OnlineLogDeliveryReceipt? {
+        try withDatabaseLock {
+            try withStatement("""
+                SELECT payload_sha256,state,attempt_id,attempt_count,last_attempt_at,next_attempt_at,remote_id,last_error_code
+                FROM xlog_online_log_deliveries WHERE service=? AND local_id=? AND contact_revision=?;
+                """) { statement in
+                    bind(service.rawValue, to: 1, in: statement)
+                    bind(contactID.uuidString, to: 2, in: statement)
+                    sqlite3_bind_int64(statement, 3, contactRevision)
+                    let step = sqlite3_step(statement)
+                    if step == SQLITE_DONE { return nil }
+                    guard step == SQLITE_ROW,
+                          let hash = sqlite3_column_text(statement, 0).map({ String(cString: $0) }),
+                          let stateText = sqlite3_column_text(statement, 1).map({ String(cString: $0) }),
+                          let state = OnlineLogDeliveryState(rawValue: stateText),
+                          let attemptText = sqlite3_column_text(statement, 2).map({ String(cString: $0) }),
+                          let attemptID = UUID(uuidString: attemptText) else { throw LogbookDatabaseError.corruptRecord }
+                    let next = sqlite3_column_type(statement, 5) == SQLITE_NULL
+                        ? nil : Date(timeIntervalSince1970: sqlite3_column_double(statement, 5))
+                    return OnlineLogDeliveryReceipt(service: service, contactID: contactID,
+                        contactRevision: contactRevision, payloadSHA256: hash, state: state,
+                        attemptID: attemptID, attemptCount: Int(sqlite3_column_int(statement, 3)),
+                        lastAttemptAt: Date(timeIntervalSince1970: sqlite3_column_double(statement, 4)),
+                        nextAttemptAt: next,
+                        remoteID: sqlite3_column_text(statement, 6).map { String(cString: $0) },
+                        safeErrorCode: sqlite3_column_text(statement, 7).map { String(cString: $0) })
+                }
+        }
+    }
+
+    /// Persist the exact immutable contact revision before any provider request.
+    /// Replaying the same or a terminal claim never authorizes another request.
+    public func claimOnlineLogDelivery(_ plan: OnlineLogDeliveryPlan, attemptID: UUID,
+                                       at date: Date = Date()) throws -> OnlineLogDeliveryClaim {
+        try withDatabaseLock {
+            try execute("BEGIN IMMEDIATE;")
+            do {
+                // The write transaction closes the review-to-claim race across
+                // separate LogbookDatabase connections to the same SQLite file.
+                guard let current = try contactSnapshot(localID: plan.contact.qso.id), current == plan.contact,
+                      try OnlineLogDeliveryPlan(service: plan.service, contact: current,
+                                                adif: current.qso.adifRecord.recordDocument) == plan else {
+                    throw OnlineLogDeliveryError.staleContact
+                }
+                if let existing = try onlineLogDeliveryReceipt(service: plan.service, contactID: plan.contact.qso.id,
+                                                                contactRevision: plan.contact.revision) {
+                    guard existing.payloadSHA256 == plan.payloadSHA256 else { throw OnlineLogDeliveryError.operationMismatch }
+                    if existing.attemptID == attemptID || existing.state != .deferred {
+                        try execute("COMMIT;")
+                        return OnlineLogDeliveryClaim(receipt: existing, shouldDispatch: false)
+                    }
+                    guard existing.attemptCount < 3 else {
+                        try execute("COMMIT;")
+                        return OnlineLogDeliveryClaim(receipt: existing, shouldDispatch: false)
+                    }
+                    if let due = existing.nextAttemptAt, due > date { throw OnlineLogDeliveryError.notDue }
+                    try withStatement("""
+                        UPDATE xlog_online_log_deliveries SET state='dispatching',attempt_id=?,attempt_count=?,
+                          last_attempt_at=?,next_attempt_at=NULL,remote_id=NULL,last_error_code=NULL
+                        WHERE service=? AND local_id=? AND contact_revision=?;
+                        """) { statement in
+                            bind(attemptID.uuidString, to: 1, in: statement)
+                            sqlite3_bind_int(statement, 2, Int32(existing.attemptCount + 1))
+                            sqlite3_bind_double(statement, 3, date.timeIntervalSince1970)
+                            bind(plan.service.rawValue, to: 4, in: statement)
+                            bind(plan.contact.qso.id.uuidString, to: 5, in: statement)
+                            sqlite3_bind_int64(statement, 6, plan.contact.revision)
+                            try stepDone(statement)
+                        }
+                } else {
+                    try withStatement("""
+                        INSERT INTO xlog_online_log_deliveries(
+                          service,local_id,contact_revision,payload_sha256,state,attempt_id,attempt_count,last_attempt_at
+                        ) VALUES(?,?,?,?,?,?,1,?);
+                        """) { statement in
+                            bind(plan.service.rawValue, to: 1, in: statement)
+                            bind(plan.contact.qso.id.uuidString, to: 2, in: statement)
+                            sqlite3_bind_int64(statement, 3, plan.contact.revision)
+                            bind(plan.payloadSHA256, to: 4, in: statement)
+                            bind(OnlineLogDeliveryState.dispatching.rawValue, to: 5, in: statement)
+                            bind(attemptID.uuidString, to: 6, in: statement)
+                            sqlite3_bind_double(statement, 7, date.timeIntervalSince1970)
+                            try stepDone(statement)
+                        }
+                }
+                guard let receipt = try onlineLogDeliveryReceipt(service: plan.service, contactID: plan.contact.qso.id,
+                                                                  contactRevision: plan.contact.revision) else {
+                    throw LogbookDatabaseError.corruptRecord
+                }
+                try execute("COMMIT;")
+                return OnlineLogDeliveryClaim(receipt: receipt, shouldDispatch: true)
+            } catch { try? execute("ROLLBACK;"); throw error }
+        }
+    }
+
+    public func resolveOnlineLogDelivery(_ plan: OnlineLogDeliveryPlan, attemptID: UUID,
+                                         resolution: OnlineLogDeliveryResolution,
+                                         at date: Date = Date()) throws -> OnlineLogDeliveryReceipt {
+        try withDatabaseLock {
+            try execute("BEGIN IMMEDIATE;")
+            do {
+                guard let existing = try onlineLogDeliveryReceipt(service: plan.service, contactID: plan.contact.qso.id,
+                    contactRevision: plan.contact.revision), existing.payloadSHA256 == plan.payloadSHA256,
+                      existing.attemptID == attemptID else { throw OnlineLogDeliveryError.operationMismatch }
+                if existing.state != .dispatching {
+                    try execute("COMMIT;")
+                    return existing
+                }
+                let state: OnlineLogDeliveryState
+                var nextAttempt: Date?, remoteID: String?, code: String?
+                switch resolution {
+                case .delivered(let identifier):
+                    guard identifier.map({ !$0.isEmpty && $0.utf8.count <= 64 && $0.allSatisfy(\.isNumber) }) ?? true else {
+                        throw OnlineLogDeliveryError.invalidPlan
+                    }
+                    state = .delivered; remoteID = identifier
+                case .rateLimited(let providerDate):
+                    if existing.attemptCount >= 3 { state = .rejected; code = "retry_limit" }
+                    else {
+                        state = .deferred; code = "rate_limited"
+                        let floor = date.addingTimeInterval(30 * pow(2, Double(existing.attemptCount - 1)))
+                        let ceiling = date.addingTimeInterval(3_600)
+                        nextAttempt = max(floor, min(providerDate ?? floor, ceiling))
+                    }
+                case .rejected(let value): state = .rejected; code = value
+                case .uncertain(let value): state = .uncertain; code = value
+                }
+                if let code {
+                    guard !code.isEmpty, code.utf8.count <= 64,
+                          code.utf8.allSatisfy({ (48...57).contains($0) || (97...122).contains($0) || $0 == 95 }) else {
+                        throw OnlineLogDeliveryError.invalidPlan
+                    }
+                }
+                try withStatement("""
+                    UPDATE xlog_online_log_deliveries SET state=?,next_attempt_at=?,remote_id=?,last_error_code=?
+                    WHERE service=? AND local_id=? AND contact_revision=? AND attempt_id=?;
+                    """) { statement in
+                        bind(state.rawValue, to: 1, in: statement)
+                        if let nextAttempt { sqlite3_bind_double(statement, 2, nextAttempt.timeIntervalSince1970) }
+                        else { sqlite3_bind_null(statement, 2) }
+                        bind(remoteID, to: 3, in: statement); bind(code, to: 4, in: statement)
+                        bind(plan.service.rawValue, to: 5, in: statement)
+                        bind(plan.contact.qso.id.uuidString, to: 6, in: statement)
+                        sqlite3_bind_int64(statement, 7, plan.contact.revision)
+                        bind(attemptID.uuidString, to: 8, in: statement)
+                        try stepDone(statement)
+                    }
+                guard let receipt = try onlineLogDeliveryReceipt(service: plan.service, contactID: plan.contact.qso.id,
+                                                                  contactRevision: plan.contact.revision) else {
+                    throw LogbookDatabaseError.corruptRecord
+                }
+                try execute("COMMIT;")
+                return receipt
+            } catch { try? execute("ROLLBACK;"); throw error }
+        }
+    }
+
+    /// Call once when a worker starts. A process that died after claiming an
+    /// INSERT cannot know whether QRZ committed it, so startup never retries it.
+    public func recoverInterruptedOnlineLogDeliveries() throws -> Int {
+        try withDatabaseLock {
+            try execute("BEGIN IMMEDIATE;")
+            do {
+                let count = try withStatement("SELECT COUNT(*) FROM xlog_online_log_deliveries WHERE state='dispatching';") {
+                    statement -> Int in
+                    guard sqlite3_step(statement) == SQLITE_ROW else { throw error() }
+                    return Int(sqlite3_column_int(statement, 0))
+                }
+                try execute("UPDATE xlog_online_log_deliveries SET state='uncertain',next_attempt_at=NULL,last_error_code='interrupted_after_dispatch' WHERE state='dispatching';")
+                try execute("COMMIT;")
+                return count
+            } catch { try? execute("ROLLBACK;"); throw error }
+        }
+    }
+
     /// A bounded ADIF update batch is all-or-nothing. The SQLite write lock also
     /// fences other database connections between duplicate lookup and save.
     public func applyADIFUpdates(preview: ADIFImportPreview, fields: Set<String>,
@@ -2552,6 +2738,22 @@ public final class LogbookDatabase: @unchecked Sendable {
           next_attempt_at REAL,
           last_error TEXT
         );
+        CREATE TABLE IF NOT EXISTS xlog_online_log_deliveries(
+          service TEXT NOT NULL,
+          local_id TEXT NOT NULL,
+          contact_revision INTEGER NOT NULL CHECK(contact_revision >= 0 AND contact_revision <= 9007199254740991),
+          payload_sha256 TEXT NOT NULL,
+          state TEXT NOT NULL CHECK(state IN ('dispatching','deferred','delivered','rejected','uncertain')),
+          attempt_id TEXT NOT NULL,
+          attempt_count INTEGER NOT NULL CHECK(attempt_count >= 1 AND attempt_count <= 3),
+          last_attempt_at REAL NOT NULL,
+          next_attempt_at REAL,
+          remote_id TEXT,
+          last_error_code TEXT,
+          PRIMARY KEY(service,local_id,contact_revision)
+        );
+        CREATE INDEX IF NOT EXISTS idx_online_log_delivery_due
+          ON xlog_online_log_deliveries(service,state,next_attempt_at);
         """)
         try? execute("ALTER TABLE qsos ADD COLUMN baseline_json BLOB;")
     }

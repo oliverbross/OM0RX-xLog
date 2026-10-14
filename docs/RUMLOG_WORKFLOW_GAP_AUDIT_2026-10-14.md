@@ -66,7 +66,7 @@ merely to look like RUMlog.
 | Radio selection/configuration versus actual connection | RUMlog documents an explicit CAT enable choice, interface selection and per-radio options. xLog must retain its separate active/viewed provider, explicit Apply/Connect and independent rotor ownership. Settings navigation must never reconnect or control equipment. Physical Mac acceptance remains separate. [CAT Settings](https://dl2rum.de/RUMlogNG/docs/en/pages/CAT-Prefs.html) |
 | Cluster configuration separate from display filters | RUMlog documents connection profiles, display filtering and a terminal retaining incoming data. xLog has profile/filter/console paths and its separate Spot History archive. Verify changes do not disconnect unrelated sockets or erase received/history records. [DX Cluster Settings](https://dl2rum.de/RUMlogNG/docs/en/pages/Dx-Cluster-Setting.html) |
 | Receive WSJT-X logged contacts | Commit `d9b46da` adds an opt-in receive-only UDP listener for the official big-endian Logged ADIF message type 12. It accepts loopback or IPv4 multicast, starts only from saved explicit enablement, writes through xLog's local semantic duplicate boundary and never sends a WSJT-X packet or station command. Native parser/import coverage is 5/5 and UI/settings coverage is 24/24; live WSJT-X acceptance remains open. [WSJT-X protocol source](https://sourceforge.net/p/wsjt/wsjtx/ci/master/tree/Network/NetworkMessage.hpp) |
-| Optional online log services | Keep Wavelog as the richer two-way reconciliation service. QRZ documents an ADIF-over-POST Logbook API with per-logbook keys; Club Log documents separate real-time and batch APIs and requires a product API key plus user Application Password; HRDLOG provides a dedicated upload code. Implement these as independent durable upload adapters, never as assumed two-way sync. Club Log must disable automatic delivery immediately on HTTP 403, and no connector should ship before fixture, durable receipt and live account acceptance. [QRZ API](https://www.qrz.com/docs/logbook/QRZLogbookAPI.html) · [Club Log API keys](https://clublog.freshdesk.com/support/solutions/articles/54910-api-keys) · [Club Log upload safety](https://clublog.freshdesk.com/support/solutions/articles/54905) |
+| Optional online log services | QRZ now has a source-only INSERT foundation with a separate vault key, exact-revision/payload claims, durable receipts, ambiguous-outcome no-replay and bounded 429-only retry. It is not wired to settings or a scheduler and made no live request; explicit new-contact enrollment and live account acceptance remain gates. Keep Wavelog as the richer two-way reconciliation service. Club Log and HRDLOG remain unimplemented independent adapters; Club Log must disable automatic delivery immediately on HTTP 403. [QRZ acceptance](QRZ_UPLOAD_FOUNDATION_ACCEPTANCE_2026-10-15.md) · [QRZ API](https://www.qrz.com/docs/logbook/QRZLogbookAPI.html) · [Club Log API keys](https://clublog.freshdesk.com/support/solutions/articles/54910-api-keys) · [Club Log upload safety](https://clublog.freshdesk.com/support/solutions/articles/54905) |
 
 ## Large requirements remain open
 
@@ -82,11 +82,14 @@ merely to look like RUMlog.
 4. Finish DATA-10 live-sync acceptance and production capability for optional
    cloud backups. Packaged ADX roundtrip and 100,002-record functional acceptance
    pass in alpha.29.
-5. Add optional QRZ/Club Log/HRDLOG delivery only behind durable per-service
-   receipts, Keychain credentials, bounded retry and truthful upload-only labels.
+5. Finish QRZ opt-in UI, new-contact enrollment, native scheduling and live
+   account acceptance; add Club Log/HRDLOG independently behind the same durable
+   receipt, vault, bounded-retry and truthful upload-only boundaries.
 6. Audit contest, QSL and alert workflows in bounded read-only stages before
    selecting further implementations.
 
 RUM-01 and RUM-02 are **source complete at the read-only comparison boundary**.
 RUM-03 remains an ongoing sequence of independently implemented, reviewed and
-separately accepted slices; WSJT-X receive-only intake is the latest completed slice.
+separately accepted slices. WSJT-X receive-only intake is source-complete; QRZ's
+durable upload foundation is the latest source-complete slice, with UI and live
+acceptance still open.

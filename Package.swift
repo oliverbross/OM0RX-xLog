@@ -41,7 +41,7 @@ let prototypeCoreTargets: [Target] = [
         exclude: ["DXCCBoundaries.swift", "FlexSpotForwarder.swift",
                   "QRZClient.swift", "ReferenceDataUpdater.swift", "SecretStore.swift",
                   "Solar.swift", "TransmitPowerCapture.swift", "XCatClient.swift"],
-        sources: ["ADIF.swift", "Models.swift", "QSOADIF.swift", "SemanticQSOIdentity.swift", "WavelogClient.swift", "SyncEngine.swift",
+        sources: ["ADIF.swift", "Models.swift", "QSOADIF.swift", "SemanticQSOIdentity.swift", "OnlineLogDelivery.swift", "WavelogClient.swift", "SyncEngine.swift",
                   "LogbookDatabase.swift", "SpotHistoryDatabase.swift", "OperatorDraft.swift", "OperatorDraftPower.swift", "SpotDraftActivation.swift", "LogbookContact.swift", "WorkspaceLayout.swift", "IntegrationWorkspace.swift", "Settings.swift", "CWProfile.swift",
                   "BackupManager.swift", "BackupEnvelope.swift", "RemoteBackupPlanning.swift", "RemoteBackupRetentionReview.swift", "RemoteBackupAuthorization.swift", "RemoteBackupScheduler.swift", "RemoteBackupOwner.swift", "RemoteBackupHostDriver.swift", "RemoteBackupLocalAdapters.swift", "DropboxBackupTransport.swift", "DropboxBackupHTTPClient.swift", "LocalFilePermissions.swift", "LocalFilePath.swift", "CTYResolver.swift", "Geo.swift",
                   "OperatingSupport.swift", "OperatorIntelligence.swift", "AwardCatalog.swift",

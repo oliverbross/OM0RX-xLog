@@ -1145,3 +1145,23 @@ remote count, end-to-end save latency and full-window operation are not proved
 by this snapshot. The [RUMlog gap audit](RUMLOG_WORKFLOW_GAP_AUDIT_2026-10-14.md)
 records partial native menu inspection, primary documentation and remaining
 import/export, Settings, cloud backup and workflow scope.
+
+## 15 October — QRZ upload-only durability foundation
+
+The first optional online-log slice is source-complete but deliberately disabled.
+QRZ INSERT requests are now modeled behind a separate vault key, immutable
+contact-revision and ADIF-payload hash, and a SQLite claim committed before I/O.
+Delivered, rejected, deferred and uncertain outcomes survive restart. Only an
+explicit HTTP 429 can retry, for at most three total attempts; ambiguous network,
+response, cancellation or interrupted-process outcomes never replay automatically.
+The transport uses the fixed HTTPS endpoint, rejects redirects, bounds response
+streaming to 8 KiB and never sends QRZ's destructive replace option. Review found
+and fixed form encoding that otherwise could have changed a literal ADIF `+` into
+a space.
+
+Focused **6/6**, native **183/183** and portable **200 XCTest** (four intentional
+benchmark skips) plus **387/387 Swift Testing** checks pass. No QRZ credential was
+read or written and no live request was made. Settings/UI, default-off enrollment,
+native scheduling, explicit new-contacts-only activation, live account acceptance,
+and independent Club Log/HRDLOG adapters remain open. See
+[the bounded acceptance record](QRZ_UPLOAD_FOUNDATION_ACCEPTANCE_2026-10-15.md).

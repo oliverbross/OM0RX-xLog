@@ -195,11 +195,17 @@ public struct ADIFRecord: Equatable, Sendable {
     }
 
     public var adifDocument: String {
+        "<ADIF_VER:5>3.1.7<EOH>\r\n\(recordDocument)\r\n"
+    }
+
+    /// A single ADIF record without a file header. Online logbook INSERT APIs
+    /// accept one record and do not need xLog's export-document preamble.
+    public var recordDocument: String {
         let body = fields.keys.sorted().map { key in
             let value = fields[key] ?? ""
             return "<\(key):\(value.utf8.count)>\(value)"
         }.joined()
-        return "<ADIF_VER:5>3.1.7<EOH>\r\n\(body)<EOR>\r\n"
+        return "\(body)<EOR>"
     }
 }
 
