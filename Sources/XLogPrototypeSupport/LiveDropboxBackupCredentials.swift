@@ -20,29 +20,26 @@ protocol NativeBackupCredentialVault: Sendable {
     func read(service: String, account: String) throws -> String?
 }
 
-struct SystemNativeBackupCredentialVault: NativeBackupCredentialVault {
+/// Trusted native OAuth/provisioning code may write or remove only one already
+/// derived service/account identity. This protocol is never exposed through IPC.
+protocol NativeBackupCredentialProvisioningVault: NativeBackupCredentialVault {
+    func save(_ value: String, service: String, account: String) throws
+    func remove(service: String, account: String) throws
+}
+
+struct SystemNativeBackupCredentialVault: NativeBackupCredentialProvisioningVault {
     func read(service: String, account: String) throws -> String? {
-        let prefix = "dropbox-backup-v1-"
-        let suffix = account.dropFirst(prefix.count)
-        guard service.hasPrefix("com.oliverbross.OM0RXXLog.Integration."), service.utf8.count <= 128,
-              !service.utf8.contains(where: { $0 < 32 || $0 == 127 }),
-              account.hasPrefix(prefix), suffix.utf8.count == 64,
-              suffix.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }) else {
-            throw DropboxBackupError.accountMismatch
-        }
+        try validate(service: service, account: account)
         #if os(macOS)
         let context = LAContext()
         context.interactionNotAllowed = true
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-            kSecAttrSynchronizable as String: false,
+        var query = identity(service: service, account: account)
+        query.merge([
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne,
             // A background backup must not display an unlock/access prompt.
             kSecUseAuthenticationContext as String: context,
-        ]
+        ], uniquingKeysWith: { _, new in new })
         var result: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
         if status == errSecItemNotFound { return nil }
@@ -56,6 +53,62 @@ struct SystemNativeBackupCredentialVault: NativeBackupCredentialVault {
         catch { throw DropboxBackupError.credentialUnavailable }
         #endif
     }
+
+    func save(_ value: String, service: String, account: String) throws {
+        try validate(service: service, account: account)
+        guard !value.isEmpty, value.utf8.count <= 8_192,
+              value.utf8.allSatisfy({ (33...126).contains($0) }) else {
+            throw DropboxBackupError.invalidCredential
+        }
+        #if os(macOS)
+        let query = identity(service: service, account: account)
+        let updates: [String: Any] = [kSecValueData as String: Data(value.utf8),
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly]
+        let status = SecItemUpdate(query as CFDictionary, updates as CFDictionary)
+        if status == errSecItemNotFound {
+            var item = query; updates.forEach { item[$0.key] = $0.value }
+            guard SecItemAdd(item as CFDictionary, nil) == errSecSuccess else {
+                throw DropboxBackupError.credentialUnavailable
+            }
+        } else if status != errSecSuccess { throw DropboxBackupError.credentialUnavailable }
+        #else
+        do { try NativeCredentialStore(service: service).save(value, account: account) }
+        catch { throw DropboxBackupError.credentialUnavailable }
+        #endif
+    }
+
+    func remove(service: String, account: String) throws {
+        try validate(service: service, account: account)
+        #if os(macOS)
+        let status = SecItemDelete(identity(service: service, account: account) as CFDictionary)
+        guard status == errSecSuccess || status == errSecItemNotFound else {
+            throw DropboxBackupError.credentialUnavailable
+        }
+        #else
+        do { try NativeCredentialStore(service: service).remove(account) }
+        catch { throw DropboxBackupError.credentialUnavailable }
+        #endif
+    }
+
+    private func validate(service: String, account: String) throws {
+        let prefix = "dropbox-backup-v1-"
+        let suffix = account.dropFirst(prefix.count)
+        guard service.hasPrefix("com.oliverbross.OM0RXXLog.Integration."), service.utf8.count <= 128,
+              !service.utf8.contains(where: { $0 < 32 || $0 == 127 }),
+              account.hasPrefix(prefix), suffix.utf8.count == 64,
+              suffix.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }) else {
+            throw DropboxBackupError.accountMismatch
+        }
+    }
+
+    #if os(macOS)
+    private func identity(service: String, account: String) -> [String: Any] {
+        [kSecClass as String: kSecClassGenericPassword,
+         kSecAttrService as String: service,
+         kSecAttrAccount as String: account,
+         kSecAttrSynchronizable as String: false]
+    }
+    #endif
 }
 
 /// Authenticates the exact vault item against Dropbox. It neither provisions nor

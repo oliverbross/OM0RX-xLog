@@ -103,6 +103,28 @@ import Testing
         }
     }
 
+    @Test func systemProvisioningVaultRejectsInvalidInputsBeforeSecureStoreAccess() throws {
+        let vault = SystemNativeBackupCredentialVault()
+        let service = "com.oliverbross.OM0RXXLog.Integration.fixture"
+        let account = "dropbox-backup-v1-" + String(repeating: "a", count: 64)
+
+        #expect(throws: DropboxBackupError.accountMismatch) {
+            try vault.save("fixture-token", service: "invalid-service", account: account)
+        }
+        #expect(throws: DropboxBackupError.accountMismatch) {
+            try vault.remove(service: service, account: "dropbox-backup-v1-not-a-hash")
+        }
+        #expect(throws: DropboxBackupError.invalidCredential) {
+            try vault.save("", service: service, account: account)
+        }
+        #expect(throws: DropboxBackupError.invalidCredential) {
+            try vault.save("contains space", service: service, account: account)
+        }
+        #expect(throws: DropboxBackupError.invalidCredential) {
+            try vault.save(String(repeating: "x", count: 8_193), service: service, account: account)
+        }
+    }
+
     @Test func nativeVerifierReadsOnlyTheExactVaultIdentityAndAuthenticatesObservedAccount() async throws {
         let f = try Fixture(); defer { f.clean() }
         let binding = try NativeDropboxBackupAccountBinding(workspaceGeneration: f.plan.workspaceGeneration,
