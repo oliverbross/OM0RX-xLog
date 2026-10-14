@@ -1,0 +1,939 @@
+//! Passive DX opportunity alert owner.
+//! It observes the single native cluster projection, persists only bounded
+//! non-secret rule configuration, and exposes no radio or station capability.
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
+use std::collections::{HashSet, VecDeque};
+use std::io::Write;
+use std::path::{Path, PathBuf};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex, OnceLock,
+};
+use std::time::{SystemTime, UNIX_EPOCH};
+use tauri::{Emitter, Manager};
+
+const MAX_REVISION: u64 = 9_007_199_254_740_991;
+const MAX_RULES: usize = 32;
+const MAX_ENTRIES: usize = 200;
+const MAX_SEEN: usize = 4_096;
+const FILE_LIMIT: usize = 262_144;
+const CALL_STATUSES: [&str; 7] = [
+    "New Call",
+    "New Band",
+    "New Mode",
+    "New Band+Mode",
+    "Worked",
+    "Confirmed",
+    "Unknown",
+];
+const DXCC_STATUSES: [&str; 10] = [
+    "ATNO",
+    "C/New Band",
+    "C/New Mode",
+    "C/New Band+Mode",
+    "W/New Band",
+    "W/New Mode",
+    "W/New Band+Mode",
+    "Worked",
+    "Confirmed",
+    "Unknown",
+];
+const BANDS: [&str; 13] = [
+    "160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "2m", "70cm",
+];
+const MODE_GROUPS: [&str; 3] = ["cw", "data", "phone"];
+
+type Publish = dyn Fn() + Send + Sync;
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Rule {
+    id: String,
+    name: String,
+    enabled: bool,
+    callsign_glob: String,
+    bands: Vec<String>,
+    modes: Vec<String>,
+    call_statuses: Vec<String>,
+    dxcc_statuses: Vec<String>,
+    specials: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct EditableConfiguration {
+    enabled: bool,
+    dedup_seconds: u64,
+    retention_minutes: u64,
+    rules: Vec<Rule>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct Configuration {
+    version: u64,
+    generation: String,
+    revision: u64,
+    enabled: bool,
+    dedup_seconds: u64,
+    retention_minutes: u64,
+    rules: Vec<Rule>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Entry {
+    id: String,
+    test: bool,
+    callsign: String,
+    frequency_khz: f64,
+    band: String,
+    mode: String,
+    call_status: String,
+    dxcc_status: String,
+    special_tags: Vec<String>,
+    rule_names: Vec<String>,
+    count: u64,
+    first_seen_ms: u64,
+    last_seen_ms: u64,
+}
+
+#[derive(Clone, Debug)]
+struct Spot {
+    source_key: String,
+    callsign: String,
+    frequency_khz: f64,
+    band: String,
+    mode: String,
+    mode_group: String,
+    call_status: String,
+    dxcc_status: String,
+    special_tags: Vec<String>,
+}
+
+struct State {
+    configuration: Configuration,
+    storage_error: Option<String>,
+    epoch: String,
+    revision: u64,
+    source_revision: u64,
+    source_available: bool,
+    source_received_at_ms: u64,
+    baselined: bool,
+    baseline_next: bool,
+    seen: HashSet<String>,
+    seen_order: VecDeque<String>,
+    entries: VecDeque<Entry>,
+}
+
+pub struct Owner {
+    path: PathBuf,
+    publish: Arc<Publish>,
+    stopped: AtomicBool,
+    state: Mutex<State>,
+}
+
+fn now_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+fn identifier(value: &str) -> bool {
+    (1..=64).contains(&value.len())
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+}
+
+fn valid_uuid(value: &str) -> bool {
+    uuid::Uuid::parse_str(value).is_ok()
+}
+
+fn visible_text(value: &str, maximum: usize) -> bool {
+    !value.trim().is_empty()
+        && value.len() <= maximum
+        && !value.chars().any(|character| character.is_control())
+}
+
+fn normalized_unique(values: &[String], maximum: usize) -> bool {
+    values.len() <= maximum
+        && values.iter().all(|value| !value.is_empty())
+        && values.iter().collect::<HashSet<_>>().len() == values.len()
+}
+
+impl Rule {
+    fn validate(&self) -> Result<(), String> {
+        if !identifier(&self.id)
+            || !visible_text(&self.name, 80)
+            || self.callsign_glob.len() > 32
+            || !self.callsign_glob.bytes().all(|byte| {
+                byte.is_ascii_uppercase()
+                    || byte.is_ascii_digit()
+                    || matches!(byte, b'/' | b'*' | b'?')
+            })
+            || !normalized_unique(&self.bands, BANDS.len())
+            || self
+                .bands
+                .iter()
+                .any(|value| !BANDS.contains(&value.as_str()))
+            || !normalized_unique(&self.modes, MODE_GROUPS.len())
+            || self
+                .modes
+                .iter()
+                .any(|value| !MODE_GROUPS.contains(&value.as_str()))
+            || !normalized_unique(&self.call_statuses, CALL_STATUSES.len())
+            || self
+                .call_statuses
+                .iter()
+                .any(|value| !CALL_STATUSES.contains(&value.as_str()))
+            || !normalized_unique(&self.dxcc_statuses, DXCC_STATUSES.len())
+            || self
+                .dxcc_statuses
+                .iter()
+                .any(|value| !DXCC_STATUSES.contains(&value.as_str()))
+            || !normalized_unique(&self.specials, 16)
+            || self.specials.iter().any(|value| {
+                value.len() > 16
+                    || !value.bytes().all(|byte| {
+                        byte.is_ascii_uppercase() || byte.is_ascii_digit() || byte == b'-'
+                    })
+            })
+            || self.callsign_glob.is_empty()
+                && self.bands.is_empty()
+                && self.modes.is_empty()
+                && self.call_statuses.is_empty()
+                && self.dxcc_statuses.is_empty()
+                && self.specials.is_empty()
+        {
+            return Err("A DX alert rule is invalid or has no condition.".into());
+        }
+        Ok(())
+    }
+
+    fn matches(&self, spot: &Spot) -> bool {
+        self.enabled
+            && (self.callsign_glob.is_empty() || glob_matches(&self.callsign_glob, &spot.callsign))
+            && (self.bands.is_empty() || self.bands.contains(&spot.band))
+            && (self.modes.is_empty() || self.modes.contains(&spot.mode_group))
+            && (self.call_statuses.is_empty() || self.call_statuses.contains(&spot.call_status))
+            && (self.dxcc_statuses.is_empty() || self.dxcc_statuses.contains(&spot.dxcc_status))
+            && (self.specials.is_empty()
+                || spot
+                    .special_tags
+                    .iter()
+                    .any(|tag| self.specials.contains(tag)))
+    }
+}
+
+impl EditableConfiguration {
+    fn validate(&self) -> Result<(), String> {
+        if !(15..=3_600).contains(&self.dedup_seconds)
+            || !(1..=1_440).contains(&self.retention_minutes)
+            || self.rules.len() > MAX_RULES
+            || self
+                .rules
+                .iter()
+                .map(|rule| &rule.id)
+                .collect::<HashSet<_>>()
+                .len()
+                != self.rules.len()
+        {
+            return Err("DX alert settings are outside their supported bounds.".into());
+        }
+        for rule in &self.rules {
+            rule.validate()?;
+        }
+        Ok(())
+    }
+}
+
+impl Configuration {
+    fn default_off() -> Self {
+        Self {
+            version: 1,
+            generation: uuid::Uuid::new_v4().to_string(),
+            revision: 0,
+            enabled: false,
+            dedup_seconds: 300,
+            retention_minutes: 120,
+            rules: vec![Rule {
+                id: "new-dxcc".into(),
+                name: "New DXCC".into(),
+                enabled: true,
+                callsign_glob: String::new(),
+                bands: vec![],
+                modes: vec![],
+                call_statuses: vec![],
+                dxcc_statuses: vec!["ATNO".into()],
+                specials: vec![],
+            }],
+        }
+    }
+
+    fn validate(&self) -> Result<(), String> {
+        if self.version != 1 || !valid_uuid(&self.generation) || self.revision > MAX_REVISION {
+            return Err("The saved DX alert configuration is invalid.".into());
+        }
+        EditableConfiguration {
+            enabled: self.enabled,
+            dedup_seconds: self.dedup_seconds,
+            retention_minutes: self.retention_minutes,
+            rules: self.rules.clone(),
+        }
+        .validate()
+    }
+}
+
+fn glob_matches(pattern: &str, value: &str) -> bool {
+    let (pattern, value) = (pattern.as_bytes(), value.as_bytes());
+    let mut current = vec![false; value.len() + 1];
+    current[0] = true;
+    for token in pattern {
+        let mut next = vec![false; value.len() + 1];
+        if *token == b'*' {
+            next[0] = current[0];
+        }
+        for index in 1..=value.len() {
+            next[index] = if *token == b'*' {
+                next[index - 1] || current[index]
+            } else {
+                current[index - 1] && (*token == b'?' || *token == value[index - 1])
+            };
+        }
+        current = next;
+    }
+    current[value.len()]
+}
+
+fn mode_group(mode: &str) -> &'static str {
+    match mode.trim().to_ascii_uppercase().as_str() {
+        "CW" | "CWR" => "cw",
+        "SSB" | "USB" | "LSB" | "AM" | "FM" | "PHONE" => "phone",
+        _ => "data",
+    }
+}
+
+fn bounded_text(value: &Value, key: &str, maximum: usize) -> Option<String> {
+    value[key]
+        .as_str()
+        .map(str::trim)
+        .filter(|text| {
+            !text.is_empty()
+                && text.len() <= maximum
+                && !text.chars().any(|character| character.is_control())
+        })
+        .map(str::to_owned)
+}
+
+fn spot(value: &Value) -> Option<Spot> {
+    let source_key = value["activation"]["sourceEpoch"]
+        .as_str()
+        .zip(value["activation"]["spotVersion"].as_str())
+        .filter(|(epoch, version)| valid_uuid(epoch) && !version.is_empty() && version.len() <= 128)
+        .map(|(epoch, version)| format!("{epoch}:{version}"))
+        .or_else(|| bounded_text(value, "id", 128))?;
+    let callsign = bounded_text(value, "callsign", 32)?.to_ascii_uppercase();
+    let frequency_khz = value["frequencyKHz"].as_f64().filter(|frequency| {
+        frequency.is_finite() && *frequency >= 0.0 && *frequency <= 10_000_000.0
+    })?;
+    let band = bounded_text(value, "band", 16)?;
+    let mode = bounded_text(value, "mode", 24)?;
+    let call_status = bounded_text(value, "callStatus", 32)?;
+    let dxcc_status = bounded_text(value, "dxccStatus", 32)?;
+    if !BANDS.contains(&band.as_str())
+        || !CALL_STATUSES.contains(&call_status.as_str())
+        || !DXCC_STATUSES.contains(&dxcc_status.as_str())
+    {
+        return None;
+    }
+    let special_tags: Vec<String> = value["specialTags"]
+        .as_array()?
+        .iter()
+        .filter_map(|tag| tag.as_str())
+        .filter(|tag| {
+            !tag.is_empty()
+                && tag.len() <= 16
+                && tag
+                    .bytes()
+                    .all(|byte| byte.is_ascii_uppercase() || byte.is_ascii_digit() || byte == b'-')
+        })
+        .take(16)
+        .map(str::to_owned)
+        .collect();
+    Some(Spot {
+        source_key,
+        callsign,
+        frequency_khz,
+        band,
+        mode: mode.clone(),
+        mode_group: mode_group(&mode).into(),
+        call_status,
+        dxcc_status,
+        special_tags,
+    })
+}
+
+fn read(path: &Path) -> (Configuration, Option<String>) {
+    match std::fs::read(path) {
+        Ok(bytes) if bytes.len() <= FILE_LIMIT => match serde_json::from_slice::<Configuration>(&bytes) {
+            Ok(configuration) if configuration.validate().is_ok() => (configuration, None),
+            _ => (Configuration::default_off(), Some("Saved DX alert rules could not be verified. Saving replaces that file with the reviewed settings.".into())),
+        },
+        Ok(_) => (Configuration::default_off(), Some("Saved DX alert rules are too large. Saving replaces that file with the reviewed settings.".into())),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => (Configuration::default_off(), None),
+        Err(_) => (Configuration::default_off(), Some("Saved DX alert rules could not be read. Check the application configuration permissions before saving.".into())),
+    }
+}
+
+fn persist(path: &Path, configuration: &Configuration) -> Result<(), String> {
+    let directory = path.parent().ok_or("DX alert storage is unavailable.")?;
+    std::fs::create_dir_all(directory)
+        .map_err(|_| "DX alert storage could not be created.".to_string())?;
+    let mut file = tempfile::NamedTempFile::new_in(directory)
+        .map_err(|_| "DX alert settings could not be staged.".to_string())?;
+    serde_json::to_writer(file.as_file_mut(), configuration)
+        .map_err(|_| "DX alert settings could not be encoded.".to_string())?;
+    file.flush()
+        .and_then(|_| file.as_file().sync_all())
+        .map_err(|_| "DX alert settings could not be sealed.".to_string())?;
+    file.persist(path)
+        .map_err(|_| "DX alert settings could not be saved atomically.".to_string())?;
+    Ok(())
+}
+
+impl State {
+    fn remember(&mut self, key: String) -> bool {
+        if !self.seen.insert(key.clone()) {
+            return false;
+        }
+        self.seen_order.push_back(key);
+        while self.seen_order.len() > MAX_SEEN {
+            if let Some(oldest) = self.seen_order.pop_front() {
+                self.seen.remove(&oldest);
+            }
+        }
+        true
+    }
+
+    fn purge(&mut self, now: u64) {
+        let maximum_age = self.configuration.retention_minutes.saturating_mul(60_000);
+        self.entries
+            .retain(|entry| entry.test || now.saturating_sub(entry.last_seen_ms) <= maximum_age);
+        while self.entries.len() > MAX_ENTRIES {
+            self.entries.pop_back();
+        }
+    }
+
+    fn snapshot(&self) -> Value {
+        json!({
+            "epoch": self.epoch,
+            "revision": self.revision,
+            "configuration": self.configuration,
+            "storageError": self.storage_error,
+            "source": {
+                "available": self.source_available,
+                "baselined": self.baselined,
+                "revision": self.source_revision,
+                "receivedAtMs": self.source_received_at_ms,
+            },
+            "entries": self.entries,
+            "limits": { "maximumRules": MAX_RULES, "maximumEntries": MAX_ENTRIES },
+        })
+    }
+}
+
+impl Owner {
+    fn new(path: PathBuf, publish: Arc<Publish>) -> Self {
+        let (configuration, storage_error) = read(&path);
+        Self {
+            path,
+            publish,
+            stopped: AtomicBool::new(false),
+            state: Mutex::new(State {
+                configuration,
+                storage_error,
+                epoch: uuid::Uuid::new_v4().to_string(),
+                revision: 0,
+                source_revision: 0,
+                source_available: false,
+                source_received_at_ms: 0,
+                baselined: false,
+                baseline_next: true,
+                seen: HashSet::new(),
+                seen_order: VecDeque::new(),
+                entries: VecDeque::new(),
+            }),
+        }
+    }
+
+    pub fn snapshot(&self) -> Result<Value, String> {
+        if self.stopped.load(Ordering::Acquire) {
+            return Err("DX alerts are shutting down.".into());
+        }
+        let mut state = self
+            .state
+            .lock()
+            .map_err(|_| "DX alert state is unavailable")?;
+        state.purge(now_ms());
+        Ok(state.snapshot())
+    }
+
+    pub fn save(
+        &self,
+        expected_generation: &str,
+        expected_revision: u64,
+        editable: Value,
+    ) -> Result<Value, String> {
+        if self.stopped.load(Ordering::Acquire) {
+            return Err("DX alerts are shutting down.".into());
+        }
+        let editable: EditableConfiguration = serde_json::from_value(editable)
+            .map_err(|_| "DX alert settings could not be verified.".to_string())?;
+        editable.validate()?;
+        let mut state = self
+            .state
+            .lock()
+            .map_err(|_| "DX alert state is unavailable")?;
+        if state.configuration.generation != expected_generation
+            || state.configuration.revision != expected_revision
+        {
+            return Err(
+                "DX alert settings changed in another window. Reload them before saving.".into(),
+            );
+        }
+        let revision = state
+            .configuration
+            .revision
+            .checked_add(1)
+            .filter(|value| *value <= MAX_REVISION)
+            .ok_or("DX alert settings revision exhausted.")?;
+        let next = Configuration {
+            version: 1,
+            generation: state.configuration.generation.clone(),
+            revision,
+            enabled: editable.enabled,
+            dedup_seconds: editable.dedup_seconds,
+            retention_minutes: editable.retention_minutes,
+            rules: editable.rules,
+        };
+        persist(&self.path, &next)?;
+        state.configuration = next;
+        state.storage_error = None;
+        state.baseline_next = true;
+        state.baselined = false;
+        state.seen.clear();
+        state.seen_order.clear();
+        state.revision = state.revision.saturating_add(1).min(MAX_REVISION);
+        let snapshot = state.snapshot();
+        drop(state);
+        (self.publish)();
+        Ok(snapshot)
+    }
+
+    pub fn test_alert(&self) -> Result<Value, String> {
+        if self.stopped.load(Ordering::Acquire) {
+            return Err("DX alerts are shutting down.".into());
+        }
+        let mut state = self
+            .state
+            .lock()
+            .map_err(|_| "DX alert state is unavailable")?;
+        let now = now_ms();
+        state.entries.push_front(Entry {
+            id: uuid::Uuid::new_v4().to_string(),
+            test: true,
+            callsign: "TEST".into(),
+            frequency_khz: 14_074.0,
+            band: "20m".into(),
+            mode: "FT8".into(),
+            call_status: "New Call".into(),
+            dxcc_status: "ATNO".into(),
+            special_tags: vec![],
+            rule_names: vec!["Test alert".into()],
+            count: 1,
+            first_seen_ms: now,
+            last_seen_ms: now,
+        });
+        state.purge(now);
+        state.revision = state.revision.saturating_add(1).min(MAX_REVISION);
+        let snapshot = state.snapshot();
+        drop(state);
+        (self.publish)();
+        Ok(snapshot)
+    }
+
+    pub fn clear(&self) -> Result<Value, String> {
+        if self.stopped.load(Ordering::Acquire) {
+            return Err("DX alerts are shutting down.".into());
+        }
+        let mut state = self
+            .state
+            .lock()
+            .map_err(|_| "DX alert state is unavailable")?;
+        state.entries.clear();
+        state.revision = state.revision.saturating_add(1).min(MAX_REVISION);
+        let snapshot = state.snapshot();
+        drop(state);
+        (self.publish)();
+        Ok(snapshot)
+    }
+
+    pub fn observe(&self, projection: &Value) -> Result<bool, String> {
+        if self.stopped.load(Ordering::Acquire) {
+            return Ok(false);
+        }
+        let revision = projection["revision"]
+            .as_u64()
+            .filter(|value| *value <= MAX_REVISION)
+            .ok_or("DX alert source revision is invalid.")?;
+        let available = projection["available"]
+            .as_bool()
+            .ok_or("DX alert source availability is invalid.")?;
+        let received_at_ms = projection["received_at_ms"].as_u64().unwrap_or(0);
+        let values: &[Value] = if available {
+            projection["response"]["snapshot"]["spots"]
+                .as_array()
+                .filter(|spots| spots.len() <= 500)
+                .ok_or("DX alert source spots are invalid.")?
+                .as_slice()
+        } else {
+            &[]
+        };
+        let parsed: Vec<Spot> = values.iter().filter_map(spot).collect();
+        let mut state = self
+            .state
+            .lock()
+            .map_err(|_| "DX alert state is unavailable")?;
+        let availability_changed = state.source_available != available;
+        state.source_revision = revision;
+        state.source_available = available;
+        state.source_received_at_ms = received_at_ms;
+        if !available {
+            if availability_changed {
+                state.baseline_next = true;
+                state.baselined = false;
+                state.seen.clear();
+                state.seen_order.clear();
+                state.revision = state.revision.saturating_add(1).min(MAX_REVISION);
+                drop(state);
+                (self.publish)();
+                return Ok(true);
+            }
+            return Ok(false);
+        }
+        if state.baseline_next {
+            for spot in parsed {
+                state.remember(spot.source_key);
+            }
+            state.baseline_next = false;
+            state.baselined = true;
+            state.revision = state.revision.saturating_add(1).min(MAX_REVISION);
+            drop(state);
+            (self.publish)();
+            return Ok(true);
+        }
+        let now = now_ms();
+        let mut changed = false;
+        for spot in parsed {
+            if !state.remember(spot.source_key.clone()) || !state.configuration.enabled {
+                continue;
+            }
+            let rules: Vec<_> = state
+                .configuration
+                .rules
+                .iter()
+                .filter(|rule| rule.matches(&spot))
+                .collect();
+            if rules.is_empty() {
+                continue;
+            }
+            let mut rule_names: Vec<String> = rules.iter().map(|rule| rule.name.clone()).collect();
+            rule_names.sort();
+            rule_names.dedup();
+            let semantic = format!(
+                "{}\u{1f}{}\u{1f}{}\u{1f}{}",
+                spot.callsign,
+                spot.band,
+                spot.mode_group,
+                rule_names.join("\u{1e}")
+            );
+            let dedup_ms = state.configuration.dedup_seconds.saturating_mul(1_000);
+            if let Some(entry) = state.entries.iter_mut().find(|entry| {
+                !entry.test
+                    && format!(
+                        "{}\u{1f}{}\u{1f}{}\u{1f}{}",
+                        entry.callsign,
+                        entry.band,
+                        mode_group(&entry.mode),
+                        entry.rule_names.join("\u{1e}")
+                    ) == semantic
+                    && now.saturating_sub(entry.last_seen_ms) <= dedup_ms
+            }) {
+                entry.count = entry.count.saturating_add(1).min(MAX_REVISION);
+                entry.last_seen_ms = now;
+                entry.frequency_khz = spot.frequency_khz;
+                entry.mode = spot.mode;
+                entry.call_status = spot.call_status;
+                entry.dxcc_status = spot.dxcc_status;
+                entry.special_tags = spot.special_tags;
+                changed = true;
+                continue;
+            }
+            state.entries.push_front(Entry {
+                id: uuid::Uuid::new_v4().to_string(),
+                test: false,
+                callsign: spot.callsign,
+                frequency_khz: spot.frequency_khz,
+                band: spot.band,
+                mode: spot.mode,
+                call_status: spot.call_status,
+                dxcc_status: spot.dxcc_status,
+                special_tags: spot.special_tags,
+                rule_names,
+                count: 1,
+                first_seen_ms: now,
+                last_seen_ms: now,
+            });
+            changed = true;
+        }
+        state.purge(now);
+        if changed {
+            state.revision = state.revision.saturating_add(1).min(MAX_REVISION);
+        }
+        drop(state);
+        if changed {
+            (self.publish)();
+        }
+        Ok(changed)
+    }
+
+    fn stop(&self) {
+        self.stopped.store(true, Ordering::Release);
+    }
+}
+
+static OWNER: OnceLock<Arc<Owner>> = OnceLock::new();
+
+pub fn install(app: &tauri::AppHandle) -> Result<Arc<Owner>, String> {
+    let path = app
+        .path()
+        .app_config_dir()
+        .map_err(|_| "DX alert storage is unavailable.")?
+        .join("dx-alert-rules.json");
+    Ok(OWNER
+        .get_or_init(|| {
+            let app = app.clone();
+            Arc::new(Owner::new(
+                path,
+                Arc::new(move || {
+                    let _ = app.emit_to("alerts", "xlog:dx-alerts", ());
+                }),
+            ))
+        })
+        .clone())
+}
+pub fn existing() -> Option<Arc<Owner>> {
+    OWNER.get().cloned()
+}
+pub fn shutdown() {
+    if let Some(owner) = OWNER.get() {
+        owner.stop();
+    }
+}
+pub fn validate(label: &str, isolated: bool, exiting: bool) -> Result<(), String> {
+    if crate::workspace_windows::surface_role(label) != "alerts" || isolated || exiting {
+        return Err("DX alerts are unavailable in this window.".into());
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    fn owner(directory: &Path) -> Owner {
+        Owner::new(directory.join("dx-alert-rules.json"), Arc::new(|| {}))
+    }
+    fn editable(enabled: bool, rules: Vec<Rule>) -> Value {
+        serde_json::to_value(EditableConfiguration {
+            enabled,
+            dedup_seconds: 300,
+            retention_minutes: 120,
+            rules,
+        })
+        .unwrap()
+    }
+    fn rule(id: &str, name: &str, dxcc: &[&str]) -> Rule {
+        Rule {
+            id: id.into(),
+            name: name.into(),
+            enabled: true,
+            callsign_glob: String::new(),
+            bands: vec![],
+            modes: vec![],
+            call_statuses: vec![],
+            dxcc_statuses: dxcc.iter().map(|value| (*value).into()).collect(),
+            specials: vec![],
+        }
+    }
+    fn spot(id: &str, callsign: &str, dxcc_status: &str) -> Value {
+        json!({"id":id,"callsign":callsign,
+        "frequencyKHz":14074.0,"band":"20m","mode":"FT8","callStatus":"New Call","dxccStatus":dxcc_status,
+        "specialTags":[],"activation":{"sourceEpoch":"00000000-0000-4000-8000-000000000001","spotVersion":id}})
+    }
+    fn projection(revision: u64, spots: Vec<Value>) -> Value {
+        json!({"revision":revision,"available":true,
+        "received_at_ms":revision * 1000,"response":{"snapshot":{"spots":spots}}})
+    }
+
+    #[test]
+    fn default_is_off_and_first_projection_only_establishes_a_baseline() {
+        let directory = tempfile::tempdir().unwrap();
+        let owner = owner(directory.path());
+        owner
+            .observe(&projection(1, vec![spot("one", "OM0RX", "ATNO")]))
+            .unwrap();
+        let value = owner.snapshot().unwrap();
+        assert_eq!(value["configuration"]["enabled"], false);
+        assert_eq!(value["source"]["baselined"], true);
+        assert_eq!(value["entries"], json!([]));
+    }
+
+    #[test]
+    fn named_rules_merge_new_source_reports_and_stable_identity_blocks_snapshot_replay() {
+        let directory = tempfile::tempdir().unwrap();
+        let owner = owner(directory.path());
+        let initial = owner.snapshot().unwrap();
+        let rules = vec![
+            rule("new-dxcc", "New DXCC", &["ATNO"]),
+            rule("all-new", "All new", &["ATNO", "C/New Band"]),
+        ];
+        owner
+            .save(
+                initial["configuration"]["generation"].as_str().unwrap(),
+                0,
+                editable(true, rules),
+            )
+            .unwrap();
+        owner
+            .observe(&projection(1, vec![spot("baseline", "OLD1", "ATNO")]))
+            .unwrap();
+        owner
+            .observe(&projection(
+                2,
+                vec![
+                    spot("baseline", "OLD1", "ATNO"),
+                    spot("fresh-a", "NEW1", "ATNO"),
+                ],
+            ))
+            .unwrap();
+        owner
+            .observe(&projection(
+                3,
+                vec![
+                    spot("fresh-a", "NEW1", "ATNO"),
+                    spot("fresh-b", "NEW1", "ATNO"),
+                ],
+            ))
+            .unwrap();
+        let value = owner.snapshot().unwrap();
+        let entries = value["entries"].as_array().unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0]["callsign"], "NEW1");
+        assert_eq!(entries[0]["count"], 2);
+        assert_eq!(entries[0]["ruleNames"], json!(["All new", "New DXCC"]));
+    }
+
+    #[test]
+    fn save_is_revision_checked_atomic_and_invalid_rules_never_replace_saved_state() {
+        let directory = tempfile::tempdir().unwrap();
+        let owner = owner(directory.path());
+        let before = owner.snapshot().unwrap();
+        let generation = before["configuration"]["generation"].as_str().unwrap();
+        let saved = owner
+            .save(
+                generation,
+                0,
+                editable(true, vec![rule("new-dxcc", "New DXCC", &["ATNO"])]),
+            )
+            .unwrap();
+        assert_eq!(saved["configuration"]["revision"], 1);
+        assert!(owner.save(generation, 0, editable(false, vec![])).is_err());
+        let invalid = Rule {
+            id: "all".into(),
+            name: "Everything".into(),
+            enabled: true,
+            callsign_glob: String::new(),
+            bands: vec![],
+            modes: vec![],
+            call_statuses: vec![],
+            dxcc_statuses: vec![],
+            specials: vec![],
+        };
+        assert!(owner
+            .save(generation, 1, editable(true, vec![invalid]))
+            .is_err());
+        let (reloaded, error) = read(&directory.path().join("dx-alert-rules.json"));
+        assert!(error.is_none());
+        assert!(reloaded.enabled);
+        assert_eq!(reloaded.revision, 1);
+    }
+
+    #[test]
+    fn test_and_clear_are_dashboard_only_and_publishing_is_bounded() {
+        let directory = tempfile::tempdir().unwrap();
+        let publishes = Arc::new(AtomicU64::new(0));
+        let count = publishes.clone();
+        let owner = Owner::new(
+            directory.path().join("dx-alert-rules.json"),
+            Arc::new(move || {
+                count.fetch_add(1, Ordering::SeqCst);
+            }),
+        );
+        assert_eq!(owner.test_alert().unwrap()["entries"][0]["test"], true);
+        assert_eq!(publishes.load(Ordering::SeqCst), 1);
+        assert_eq!(owner.clear().unwrap()["entries"], json!([]));
+        assert_eq!(publishes.load(Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn safe_globs_and_surface_gate_are_explicit() {
+        assert!(glob_matches("VP2*", "VP2MUW"));
+        assert!(glob_matches("?M0RX", "OM0RX"));
+        assert!(!glob_matches("VP2?", "VP2MUW"));
+        assert!(validate("alerts", false, false).is_ok());
+        assert!(validate("main", false, false).is_err());
+        assert!(validate("alerts", true, false).is_err());
+        assert!(validate("alerts", false, true).is_err());
+    }
+
+    #[test]
+    fn reconnect_rebaselines_without_replaying_reports_as_alerts() {
+        let directory = tempfile::tempdir().unwrap();
+        let owner = owner(directory.path());
+        let initial = owner.snapshot().unwrap();
+        owner
+            .save(
+                initial["configuration"]["generation"].as_str().unwrap(),
+                0,
+                editable(true, vec![rule("new-dxcc", "New DXCC", &["ATNO"])]),
+            )
+            .unwrap();
+        owner
+            .observe(&projection(1, vec![spot("old", "OLD1", "ATNO")]))
+            .unwrap();
+        assert!(owner
+            .observe(&json!({"revision":2,"available":false,"received_at_ms":0}))
+            .unwrap());
+        assert_eq!(owner.snapshot().unwrap()["source"]["baselined"], false);
+        owner
+            .observe(&projection(3, vec![spot("during-outage", "NEW1", "ATNO")]))
+            .unwrap();
+        assert_eq!(owner.snapshot().unwrap()["entries"], json!([]));
+        assert_eq!(owner.snapshot().unwrap()["source"]["baselined"], true);
+    }
+}

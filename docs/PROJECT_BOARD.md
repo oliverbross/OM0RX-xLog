@@ -252,6 +252,15 @@ acceptance. Consult the detailed tracker before closing any individual item.
   help evidence is complete. The selected next RUM-03 benefit is a passive,
   opt-in custom DX-alert rule foundation over existing cluster classifications;
   do not expose RF authority or empty contest/QSL imitation features.
+- **QLog comparison:** QLOG-01/02 read-only current-source inventory and gap
+  decisions are complete at upstream commit `cbb75f2`. Named rules, structured
+  spot conditions, merged repeat counts, expiry and separate delivery adapters
+  inform the same alert slice. xLog improves the boundary with native
+  generation/revision ownership, stable spot identities, explicit rate limits
+  and no implicit tune action. QLOG-03 source implementation is complete with
+  focused native/renderer tests and a passing production bundle check; packaged
+  macOS and operator acceptance remain open. See the
+  [QLog audit](QLOG_WORKFLOW_GAP_AUDIT_2026-10-15.md).
 
 ## Update discipline
 

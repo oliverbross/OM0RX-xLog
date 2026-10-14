@@ -15,3 +15,28 @@
 .detached-propagation-app .condition-source { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; }
 .detached-antenna-app .desk-antenna { width: 100%; min-width: 0; }
 @media (max-width: 380px) { .detached-reference-app dl { grid-template-columns: minmax(0, 1fr); gap: 4px; } .detached-reference-app dd { margin-bottom: 8px; } }
+.detached-alerts-app main { gap:12px; }
+.detached-alerts-app section { padding:12px; border:1px solid var(--border); border-radius:8px; background:var(--panel); }
+.detached-alerts-app h2,.detached-alerts-app h3 { margin:0; font-size:14px; }
+.dx-alert-head,.dx-alert-actions,.dx-alert-rule-head { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+.dx-alert-head { justify-content:space-between; }
+.dx-alert-actions { justify-content:flex-end; }
+.dx-alert-state { margin:5px 0 0; color:var(--secondary); font-size:11px; }
+.dx-alert-state.is-live { color:var(--teal); }
+.dx-alert-settings { margin-top:10px; }
+.dx-alert-settings summary { cursor:pointer; color:var(--cyan); font-weight:700; }
+.dx-alert-global,.dx-alert-rule-fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; margin-top:10px; }
+.dx-alert-global label,.dx-alert-rule-fields label { display:grid; gap:4px; color:var(--secondary); font-size:11px; }
+.dx-alert-global label:first-child { display:flex; align-items:center; }
+.dx-alert-rule { margin-top:10px; padding:9px; border:1px solid var(--border); border-radius:6px; background:var(--canvas); }
+.dx-alert-rule-head input[type="text"] { flex:1 1 160px; min-width:0; }
+.dx-alert-rule-head label { display:flex; align-items:center; gap:6px; }
+.dx-alert-error { color:var(--error); }
+.dx-alert-message { color:var(--teal); }
+.dx-alert-table { margin-top:10px; overflow:auto; border:1px solid var(--border); border-radius:6px; }
+.dx-alert-table table { width:100%; min-width:580px; border-collapse:collapse; table-layout:auto; }
+.dx-alert-table th,.dx-alert-table td { padding:7px 9px; border-bottom:1px solid var(--border); text-align:left; white-space:nowrap; }
+.dx-alert-table tbody tr:last-child td { border-bottom:0; }
+.dx-alert-table .dx-call { color:var(--teal); font-weight:800; }
+.dx-alert-empty { margin:12px 0 0; color:var(--secondary); }
+@media (max-width:520px) { .detached-alerts-app section { padding:9px; } .dx-alert-head,.dx-alert-actions { align-items:stretch; } .dx-alert-actions button { flex:1; } }

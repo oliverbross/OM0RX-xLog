@@ -346,6 +346,9 @@ pub fn owner(app: &tauri::AppHandle) -> Result<Arc<ClusterSession>, String> {
             Arc::new(ClusterSession::new(
                 Arc::new(crate::worker::request),
                 Arc::new(move |projection| {
+                    if let Some(alerts) = crate::dx_alerts::existing() {
+                        if let Err(error) = alerts.observe(&projection) { eprintln!("DX alert observation unavailable: {error}"); }
+                    }
                     for label in ["dx-cluster", "world-map", "band-maps", "monitor"] {
                         let _ = app.emit_to(label, "xlog:cluster-projection", &projection);
                     }
