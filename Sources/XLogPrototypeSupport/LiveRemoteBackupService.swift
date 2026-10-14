@@ -15,6 +15,7 @@ actor LiveRemoteBackupService {
     private let clock: any RemoteBackupClock
     private let ticks: @Sendable () throws -> any RemoteBackupTickSource
     private let accounts: any NativeDropboxBackupAccountRegistry
+    private nonisolated let accountOwner: LiveDropboxBackupAccountOwner?
     private var commandOwner: LiveRemoteBackupCommands?
     private nonisolated let lifetime = Lifetime()
     private var driver: RemoteBackupHostDriver?
@@ -23,11 +24,13 @@ actor LiveRemoteBackupService {
     private var cleanup: Task<Void, Error>?
 
     init(logbook: LiveLogbookMethods, clock: any RemoteBackupClock = RemoteBackupSystemClock(),
-         accounts: any NativeDropboxBackupAccountRegistry = UnregisteredDropboxBackupAccounts(),
+         accounts: (any NativeDropboxBackupAccountRegistry)? = nil,
          ticks: @escaping @Sendable () throws -> any RemoteBackupTickSource = {
              try RemoteBackupPeriodicTickSource(interval: 30)
          }) {
-        self.logbook = logbook; self.clock = clock; self.ticks = ticks; self.accounts = accounts
+        let resolvedAccounts = accounts ?? LiveDropboxBackupAccountOwner(logbook: logbook)
+        self.logbook = logbook; self.clock = clock; self.ticks = ticks; self.accounts = resolvedAccounts
+        self.accountOwner = resolvedAccounts as? LiveDropboxBackupAccountOwner
     }
 
     /// A future native command boundary owns approval; no constructor/start path
@@ -42,6 +45,26 @@ actor LiveRemoteBackupService {
         let commands = LiveRemoteBackupCommands(service: self, logbook: logbook, accounts: accounts)
         commandOwner = commands
         return commands
+    }
+
+    func accountRegistrationState() throws -> NativeDropboxBackupAccountState {
+        guard let accountOwner else { throw NativeDropboxBackupAccountError.verificationUnavailable }
+        return try accountOwner.state()
+    }
+
+    /// Explicit native-only provisioning metadata boundary. Verification is
+    /// unavailable by default; it never grants consent or starts/resumes a lane.
+    func registerDropboxAccount(plan: RemoteBackupUploadPlan, providerAccountID: String,
+                                expectedRevision: UInt64) async throws -> NativeDropboxBackupRegistration {
+        guard let accountOwner else { throw NativeDropboxBackupAccountError.verificationUnavailable }
+        try await stop()
+        return try await accountOwner.register(plan: plan, providerAccountID: providerAccountID, expectedRevision: expectedRevision)
+    }
+
+    func removeDropboxAccount(expectedWorkspaceGeneration: UUID, expectedRevision: UInt64) async throws {
+        guard let accountOwner else { throw NativeDropboxBackupAccountError.verificationUnavailable }
+        try accountOwner.remove(expectedWorkspaceGeneration: expectedWorkspaceGeneration, expectedRevision: expectedRevision)
+        try await stop()
     }
 
     func dropboxAccountBinding(plan: RemoteBackupUploadPlan, authorization: RemoteBackupAuthorization,
@@ -127,9 +150,13 @@ actor LiveRemoteBackupService {
     }
 
     /// Synchronous cancellation is available at terminal EOF, before actor cleanup.
-    nonisolated func beginTermination() { lifetime.cancel(terminal: true) }
+    nonisolated func beginTermination() {
+        accountOwner?.cancelPendingVerification(terminal: true)
+        lifetime.cancel(terminal: true)
+    }
 
     func stop() async throws {
+        accountOwner?.cancelPendingVerification()
         lifetime.cancel(terminal: false)
         if let cleanup { try await cleanup.value; return }
         stopping = true
