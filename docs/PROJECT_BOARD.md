@@ -1,10 +1,10 @@
 # OM0RX-xLog live project board
 
 Last updated: 14 October 2026, after source verification of independent guarded CW,
-passive Rotor and passive Station Status windows, UUID-bound live-worker backup
-ownership, and lossless versioned ADX extension metadata. Hardware-profile apply
-remains dependency-blocked as recorded below; provider/credential backup work and
-the remaining window inventory follow the delivery queue.
+passive Rotor, Station Status and Propagation windows, UUID-bound live-worker and
+exclusive Dropbox backup ownership, and lossless versioned ADX extension metadata
+including exact USERDEF ranges. Hardware-profile apply remains dependency-blocked
+as recorded below; credentials/UI and the remaining window inventory follow the queue.
 
 This is the operator-facing project overview. Keep it current after every material
 implementation, validation, installation or acceptance change. Detailed evidence
@@ -43,7 +43,9 @@ native CW session owner serializes Desk and independent CW arm/send/Stop at
 `2cb7bac` and `423bb73`; WinKeyer remains independent of radio selection and
 guarded teardown cannot hide pending or unknown output. Passive Rotor `adb125f`
 and Station Status `39c447d` windows consume retained native owners without
-starting device polling or gaining control authority. Protected Chaser selection
+starting device polling or gaining control authority. Propagation `b969c68` removes
+the renderer timer/duplicate downloader in favor of one explicit shared refresh and
+a passive independent child. Protected Chaser selection
 now resolves retained native feed
 identities and uses the existing activation owner at `617fd0e`; it creates a draft
 only and cannot duplicate radio, rotor or CW effects.
@@ -74,12 +76,13 @@ actions. The global Windowed preset remains disabled.
 | Shared revisioned rotor configuration | **Source verified** | Commit `46c5f1e`; SQLite-owned generation/revision state, durable receipts, restore fencing, one-time browser-local migration, Settings Rotator UI and lost-acknowledgement/conflict recovery pass. Browsing/restoring remains passive; the Settings child may read rotor models but cannot connect or issue motion. Frontend **1,057/1,057 across 130 files**, Rust **323/323**, normal Swift **86/86**, full portable Swift and production build pass. The Settings child bundle is 385,114 bytes. Not packaged, installed or hardware-tested. |
 | Independent Chaser & DX selection | **Source verified / partial ownership** | Passive child `42f7b6c`; protected draft selection `617fd0e`. Native-issued retained feed tokens are re-resolved against current worker generation and row version, then one activation owner applies a revision-fenced draft with durable receipt recovery. The child still cannot issue station, rotor or CW effects; active CW requires explicit Stop. Focused Swift, frontend and native tests pass. Not packaged, installed or live-service tested. |
 | Shared Station Control owner | **Source verified / partial ownership** | Provider setup/lifecycle through `d4d8bb0`, explicit Hamlib catalogue `702cddf`, and exact Direct FLEX receive-frequency action `568ffb0`. The child action requires fresh observed RX/PTT-off VFO A evidence, capability support, exact setup/selection/control/connection generations and a durable receipt; one observed sample cannot issue twice. **53 frontend**, **4 receive-native**, **77 station-owner** and **9 monitor-context** focused checks plus TypeScript pass. Agent/Hamlib receive controls and FLEX mode remain hidden because their backends lack the same exact target guarantees. Hardware profiles remain CAS-blocked. |
-| Reviewed ADIF/ADX transfer workflow | **Source verified / partial DATA-10** | Workflow through canonical DXCC `f380d95`, explicit ISO-8859-1 ADI `efcc329`, scalar/type checks `64e1010`, grid/reference checks `d8ac9d0` and versioned extension metadata `4ac6edb`. APP identity/type and declared USERDEF FIELDID/TYPE/ENUM now survive ADX import, native persistence and frozen ADX export without synthetic fields or a database migration. Metadata-bearing records fail closed for plain ADI; v1 rejects RANGE and undeclared USERDEF. Final focused evidence: **168 transfer/component**, **10 core ADIF** and **11 native transfer** tests plus TypeScript. Full XSD, live external-sync and packaged roundtrip remain open. |
-| Immutable remote-backup execution foundation | **Source verified / partial BACKUP-01** | UUID-bound durable authorization `52327f3` and live-worker snapshot/lifecycle integration `4ac6edb` now use the real workspace UUID, exact destination revision and explicit default-off recurring consent. Restore/replacement/shutdown cancel the owned task; authorization is rechecked inside capture/execution leases and legacy numeric records fail closed. Focused evidence includes **56 native backup tests**, **58 portable backup/lifecycle tests** and **4 worker lifecycle cases**. Real provider transports/executors, credential/OAuth storage, authenticated receipts, approval/start UI, retention and crash-orphan cleanup remain open. |
+| Reviewed ADIF/ADX transfer workflow | **Source verified / partial DATA-10** | Workflow through canonical DXCC `f380d95`, explicit ISO-8859-1 ADI `efcc329`, scalar/type checks `64e1010`, grid/reference checks `d8ac9d0`, versioned extension metadata `4ac6edb` and exact USERDEF RANGE enforcement `5fcc04f`. APP identity/type and declared USERDEF FIELDID/TYPE/ENUM/RANGE survive ADX import, native persistence and frozen ADX export without synthetic fields or a database migration. Numeric/integer ranges compare exact decimal strings with inclusive bounds and no floating-point rounding. Metadata-bearing records fail closed for plain ADI. Latest focused evidence: **194 frontend** and **12 core ADIF** tests plus TypeScript; native transfer integration is part of the alpha.23 preflight. Full XSD, live external-sync and packaged roundtrip remain open. |
+| Immutable remote-backup execution foundation | **Source verified / partial BACKUP-01** | UUID-bound durable authorization `52327f3`, live-worker snapshot/lifecycle integration `4ac6edb` and exclusive Dropbox transport `cec2f8f` now use the real workspace UUID, exact destination revision and explicit default-off recurring consent. Dropbox binds the configured/provider account, creates without overwrite, rejects redirects, then downloads the exact created revision and independently hashes its bytes. **66 native** and **68 portable-manifest** focused tests pass with all HTTP mocked. Restore/replacement/shutdown cancel owned work; legacy numeric records fail closed. OAuth/credential source wiring, approval/start UI, retention and other providers remain open. |
 | Awards calculator bounded optimization | **Source verified / PERF acceptance open** | Commit `aad3886`; active ordinary JARL entities avoid unnecessary UTC date construction while deleted/designated-date rules retain exact UTC boundaries. The generated 100,000-contact calculator median improved **26.6–35.0%** across observed runs and all nine award totals remained exact. This is not packaged cold-open, database or UI median/p95 evidence. |
 | Existing programme-reference feedback audit | **Source verified at existing scope** | Existing display-only POTA/SOTA/IOTA/WWFF/WWBOTA evidence is generation/draft/call fenced and never replaces operator input. **8 frontend** and **3 portable Swift** focused tests pass. User-observed POTA success is not proof of every live feed or packaged state. |
 | Shared native CW owner and independent CW child | **Source verified / partial windowing** | Owner `2cb7bac`; child `423bb73`. Desk and child share one provider/selection-fenced session; passive mount sends no output, only saved macro IDs cross IPC, and protected Close/Dock retains pending or unknown output. Registration-scoped cleanup cannot Stop another window's lease. **74 focused frontend** plus native CW/permission/window tests pass. No package, installation, physical keyer, radio or RF acceptance yet. |
 | Passive independent Rotor and Station Status | **Source verified / partial windowing** | Rotor `adb125f` reads retained telemetry only and exposes no motion/setup/Stop authority. Station Status `39c447d` uses event-driven retained selection/telemetry with exact provider/generation/identity matching and exposes no connection, radio, transmit or rotor authority. Focused frontend/native permission, registry, lifecycle and owner tests pass. Neither child starts polling; packaged visual and hardware acceptance remain open. |
+| Shared Propagation owner and independent child | **Source verified / partial windowing** | Commit `b969c68`; passive snapshot and explicit awaited/coalesced refresh share the existing injected Swift fetch/cache through one native projection. The prior 15-second main-renderer timer is removed. Child mount is passive, weather/control authority is hidden, and missing worker state is reported rather than silently created. **6 Swift**, **7 native propagation**, **16 registry**, **74 frontend** and **3 Main integration** focused checks pass. No real network or packaged visual acceptance. |
 | Remaining Station Control ownership | **Active / dependency split** | Direct FLEX exact receive frequency is implemented; exact mode is blocked because the backend targets mutable `selectedSliceID`. Hardware-profile apply requires Agent-side config revision/ETag plus conditional PUT/If-Match. Agent/Hamlib action parity and discovery/SmartLink remain separate. |
 
 ## Dependency-ordered delivery queue
@@ -106,8 +109,8 @@ actions. The global Windowed preset remains disabled.
 7. **Dependency-split:** Direct FLEX exact receive frequency is source-complete;
    exact mode needs an explicit-slice backend, and hardware-profile apply needs
    Agent conditional writes. Do not duplicate owners while those prerequisites are absent.
-8. **Active next:** finish the remaining panel inventory and shared propagation/
-   sync/antenna prerequisites, then native lifecycle/geometry recovery; only then
+8. **Active next:** finish the remaining panel inventory and shared sync/antenna
+   prerequisites, then native lifecycle/geometry recovery; only then
    enable the full Windowed preset.
 9. Implement RADIO-05 Clear after QSY on trusted observed-RX provenance with
    editor veto, selection/command epochs and an idempotent native transaction.
@@ -125,7 +128,7 @@ actions. The global Windowed preset remains disabled.
 | WS-01 | Show/hide/move/resize every desk panel | **In progress** — canvas foundation exists; inventory and native interaction remain. |
 | WS-02 | Settings-managed named layouts | **In progress** — revisioned persistence/UI, independent Settings and shared passive Rotator configuration are source-verified; packaged/native acceptance remains. |
 | WS-03 | Native menus replace navigation | **In progress** — routes exist; sidebar removal awaits native acceptance. |
-| WS-04 | Window menu opens/focuses every panel | **In progress** — fifteen roles now include independent Settings, passive Chaser & DX, Station Control, CW, Rotor and Station Status; remaining screens follow the dependency queue. |
+| WS-04 | Window menu opens/focuses every panel | **In progress** — sixteen roles now include independent Settings, passive Chaser & DX, Station Control, CW, Rotor, Station Status and Propagation; remaining screens follow the dependency queue. |
 | WS-05 | Docked/mixed/undocked share one live session | **In progress** — major draft/cluster/radio/rotor ownership, Desk CW and shared Desk/child Agent lifecycle moved; remaining provider/action owners open. |
 | WS-06 | Layout/geometry survive restart and display changes | **In progress / acceptance** — persistence/recovery source exists; mixed-DPI/native evidence open. |
 | WS-07 | No duplicate logging or station actions | **In progress** — Settings and rotor-configuration receipts plus one protected Chaser draft-activation owner are source-verified; Chaser has no raw station/rotor/CW authority. Full multi-window gate remains open. |
@@ -140,7 +143,7 @@ acceptance. Consult the detailed tracker before closing any individual item.
 | --- | --- | --- |
 | **Done / installed at stated scope** | UI-17, UI-26, UI-39, CW-01, CW-02, CW-03, CLUSTER-01, SYNC-01 | Some rows retain explicit hardware, alternate-OS or accessibility limits. |
 | **Implemented in installed alpha.22 source; row-specific acceptance open** | UI-01–08, UI-10–16, UI-22–25, UI-27–38, UI-40–41, MAP-01–04, DATA-01–07, RADIO-01–04, PERF-02–03, SYNC-06 | Perform the packaged visual, live-service, latency, real-feed or hardware checks named in the tracker; no RF inference. |
-| **Active / partial** | UI-09, UI-18–21, SYNC-02, DATA-08–11, BACKUP-01, PERF-01, WS-01–08, RUM-01–03, SHIP-01 | DATA-10 has reviewed UTF-8/Windows-1252/ISO-8859-1 ADI, UTF-8 ADX, 33-field duplicate updates, 58 typed/pattern checks and versioned APP/USERDEF metadata; full XSD/RANGE/live-sync/package acceptance remains. BACKUP-01 now has UUID-bound durable consent and default-off live-worker snapshot/lifecycle wiring, but no provider executor, credential/authenticated remote receipt, approval UI or retention execution. DATA-11's feedback path is audited. |
+| **Active / partial** | UI-09, UI-18–21, SYNC-02, DATA-08–11, BACKUP-01, PERF-01, WS-01–08, RUM-01–03, SHIP-01 | DATA-10 has reviewed UTF-8/Windows-1252/ISO-8859-1 ADI, UTF-8 ADX, 33-field duplicate updates, 58 typed/pattern checks and versioned APP/USERDEF metadata with exact RANGE semantics; full XSD/live-sync/package acceptance remains. BACKUP-01 now has UUID-bound durable consent, default-off live-worker lifecycle and an exclusive independently verified Dropbox executor, but no OAuth credential source, approval UI, retention execution or other providers. DATA-11's feedback path is audited. |
 | **Queued implementation** | RADIO-05 | Follow the dependency queue and safety acceptance in the tracker. |
 
 ## Major acceptance campaigns still open
