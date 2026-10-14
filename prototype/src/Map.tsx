@@ -577,17 +577,32 @@ export default function WorldMap({
           setError(`${message} Logging and cluster selection remain available.`);
         }
       });
+      let resizeFrame: number | null = null;
+      let width = element.clientWidth, height = element.clientHeight;
       const resize = new ResizeObserver(() => {
-        map.resize();
-        if (!preserveCamera.current && !selection.current) fitFixture();
+        // A retained Desk map can be hidden or change split rows several times
+        // in one layout pass. Measure its final size before resizing WebGL.
+        if (!element.clientWidth || !element.clientHeight) { width = 0; height = 0; }
+        if (resizeFrame !== null) return;
+        resizeFrame = window.requestAnimationFrame(() => {
+          resizeFrame = null;
+          if (disposed) return;
+          const nextWidth = element.clientWidth, nextHeight = element.clientHeight;
+          if (!nextWidth || !nextHeight || (width === nextWidth && height === nextHeight)) return;
+          width = nextWidth; height = nextHeight;
+          map.resize();
+          if (!preserveCamera.current && !selection.current) fitFixture();
+          redrawLabels();
+        });
       });
-      resize.observe(container.current);
+      resize.observe(element);
       return () => {
         disposed = true;
         document.removeEventListener("xlog-native-acceptance", requestEvidence);
         document.removeEventListener("xlog-native-map-evidence", requestEvidence);
         window.removeEventListener("focus", repaint);
         resize.disconnect();
+        if (resizeFrame !== null) window.cancelAnimationFrame(resizeFrame);
         markersRef.current.forEach(marker => marker.remove());
         markersRef.current.clear();
         spotMarkersRef.current.forEach(marker => marker.remove());

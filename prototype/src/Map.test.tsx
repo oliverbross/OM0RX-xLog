@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { MapSpot } from "./MapSpots";
+import { DeskMapLogbook } from "./live/DeskMapLogbook";
 
 const harness = vi.hoisted(() => ({ maps: [] as any[], startReady: true }));
 vi.mock("maplibre-gl", () => {
@@ -21,7 +22,7 @@ vi.mock("maplibre-gl", () => {
     constructor(options: any) {
       this.element = options.container;
       this.layers = options.style.layers;
-      Object.defineProperties(this.element, { clientWidth: { value: 1000 }, clientHeight: { value: 500 } });
+      Object.defineProperties(this.element, { clientWidth: { value: 1000, configurable: true }, clientHeight: { value: 500, configurable: true } });
       for (const key of Object.keys(options.style.sources)) this.sources.set(key, { setData: vi.fn() });
       harness.maps.push(this);
     }
@@ -63,12 +64,12 @@ vi.mock("maplibre-gl", () => {
     fitBounds(bounds: [[number, number], [number, number]], options: any) { this.fitCalls.push({ bounds, options }); }
     jumpTo() {}
     easeTo(options: any) { this.easeCalls.push(options); }
-    resize() {}
+    resize = vi.fn();
     triggerRepaint() {}
     setLayoutProperty(...args: any[]) { this.layoutCalls.push(args); }
     setPaintProperty() {}
     setFeatureState(...args: any[]) { this.featureStateCalls.push(args); }
-    remove() {}
+    remove = vi.fn();
   }
   class Marker {
     element: HTMLElement;
@@ -101,6 +102,90 @@ beforeEach(() => {
   vi.stubGlobal("matchMedia", () => ({ matches: false }));
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+
+function resizeHarness() {
+  const observers = new Map<Element, () => void>(), frames = new Map<number, FrameRequestCallback>();
+  let nextFrame = 0;
+  vi.stubGlobal("ResizeObserver", class {
+    elements: Element[] = [];
+    constructor(private callback: () => void) {}
+    observe(element: Element) { this.elements.push(element); observers.set(element, this.callback); }
+    disconnect() { this.elements.forEach(element => observers.delete(element)); }
+  });
+  vi.stubGlobal("requestAnimationFrame", vi.fn((callback: FrameRequestCallback) => { frames.set(++nextFrame, callback); return nextFrame; }));
+  vi.stubGlobal("cancelAnimationFrame", vi.fn((id: number) => frames.delete(id)));
+  return {
+    notify: (element: Element) => act(() => observers.get(element)?.()),
+    flush: () => act(() => { const pending = [...frames.values()]; frames.clear(); pending.forEach(callback => callback(0)); }),
+    frames, observers,
+  };
+}
+
+describe("map container resizing", () => {
+  it("coalesces observer deliveries using final dimensions and skips unchanged or hidden sizes", () => {
+    const resize = resizeHarness();
+    render(<WorldMap data={[spot()]} selected="feed-1" />);
+    const map = harness.maps[0];
+    let width = 1000, height = 500;
+    Object.defineProperties(map.element, { clientWidth: { get: () => width }, clientHeight: { get: () => height } });
+    resize.notify(map.element); resize.flush(); expect(map.resize).not.toHaveBeenCalled();
+    height = 250; resize.notify(map.element); height = 220; resize.notify(map.element); width = 800; resize.notify(map.element);
+    expect(map.resize).not.toHaveBeenCalled(); expect(resize.frames.size).toBe(1);
+    resize.flush(); expect(map.resize).toHaveBeenCalledTimes(1);
+    resize.notify(map.element); resize.flush(); expect(map.resize).toHaveBeenCalledTimes(1);
+    width = 0; height = 0; resize.notify(map.element); resize.flush(); expect(map.resize).toHaveBeenCalledTimes(1);
+    width = 800; height = 220; resize.notify(map.element); resize.flush(); expect(map.resize).toHaveBeenCalledTimes(2);
+    expect(harness.maps).toHaveLength(1);
+  });
+
+  it("cancels pending resize work and disconnects the observer when unmounted", () => {
+    const resize = resizeHarness();
+    const result = render(<WorldMap selected={null} />), map = harness.maps[0];
+    Object.defineProperty(map.element, "clientHeight", { value: 250 });
+    resize.notify(map.element); expect(resize.frames.size).toBe(1);
+    result.unmount(); expect(resize.observers.size).toBe(0); expect(resize.frames.size).toBe(0);
+    resize.flush(); expect(map.resize).not.toHaveBeenCalled(); expect(map.remove).toHaveBeenCalledTimes(1);
+  });
+
+  it("resizes the retained Desk map after split drags, keyboard changes and all view transitions", () => {
+    localStorage.clear();
+    const resize = resizeHarness();
+    const result = render(<DeskMapLogbook map={<WorldMap data={[spot()]} selected="feed-1" />} logbook={<div>Logbook</div>} />);
+    const map = harness.maps[0], panes = result.container.querySelector<HTMLElement>(".desk-map-logbook-panes")!;
+    const mapPane = result.container.querySelector<HTMLElement>(".desk-map-logbook-map")!;
+    Object.defineProperty(panes, "getBoundingClientRect", { value: () => ({ height: 610 }) });
+    Object.defineProperty(map.element, "clientHeight", { get: () => mapPane.hidden ? 0
+      : panes.classList.contains("is-stacked") ? Number.parseFloat(panes.style.gridTemplateRows.split(" ")[Number(mapPane.style.gridRow) - 1]) : 610 });
+    Object.defineProperty(map.element, "clientWidth", { get: () => mapPane.hidden ? 0 : 1000 });
+    resize.notify(panes); resize.notify(map.element); resize.flush(); map.resize.mockClear();
+    const selected = map.element.querySelector('[aria-current="true"]');
+    const fits = map.fitCalls.length, eases = map.easeCalls.length;
+    fireEvent.change(screen.getByLabelText("Map overlay"), { target: { value: "Spots" } });
+    const changeView = (value: string) => {
+      fireEvent.change(screen.getByLabelText("Desk map and logbook view"), { target: { value } });
+      resize.notify(map.element); resize.flush();
+    };
+    changeView("logbook-below"); expect(map.resize).toHaveBeenCalledTimes(1);
+    const divider = screen.getByRole("separator", { name: "Map and Logbook height" });
+    fireEvent.keyDown(divider, { key: "ArrowUp" }); resize.notify(map.element); resize.flush();
+    expect(map.resize).toHaveBeenCalledTimes(2);
+    const pointer = (type: string, y: number) => {
+      const event = new Event(type, { bubbles: true }); Object.assign(event, { button: 0, pointerId: 7, clientY: y }); fireEvent(divider, event);
+    };
+    pointer("pointerdown", 300); pointer("pointermove", 330); resize.notify(map.element);
+    pointer("pointermove", 360); resize.notify(map.element); pointer("pointerup", 360);
+    expect(map.resize).toHaveBeenCalledTimes(2); resize.flush(); expect(map.resize).toHaveBeenCalledTimes(3);
+    changeView("logbook-above"); expect(map.resize).toHaveBeenCalledTimes(3); // same dimensions, different row
+    changeView("logbook"); expect(map.resize).toHaveBeenCalledTimes(3);
+    changeView("logbook-below"); expect(map.resize).toHaveBeenCalledTimes(4);
+    changeView("map"); expect(map.resize).toHaveBeenCalledTimes(5);
+    expect(harness.maps).toHaveLength(1); expect(map.remove).not.toHaveBeenCalled();
+    expect(map.element.querySelector('[aria-current="true"]')).toBe(selected);
+    expect(screen.getByLabelText<HTMLSelectElement>("Map overlay").value).toBe("Spots");
+    expect(map.fitCalls).toHaveLength(fits); expect(map.easeCalls).toHaveLength(eases);
+    localStorage.clear();
+  });
+});
 
 describe("map spot inspection", () => {
   it("fits programme data once per filter and preserves the camera during background refresh", () => {
