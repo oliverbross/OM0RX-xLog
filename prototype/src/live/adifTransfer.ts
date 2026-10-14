@@ -3,6 +3,7 @@ const decoder = new TextDecoder("utf-8", { fatal: true });
 const maximumFileBytes = 32 * 1024 * 1024;
 
 export type ADIFExportFormat = "adi" | "adx";
+export type ADIFImportEncoding = "utf-8" | "windows-1252";
 
 // QSO element names from the ADIF 3.1.7 ADX schema. Unknown preserved names
 // are declared USERDEF fields rather than invented XML elements.
@@ -126,8 +127,10 @@ export class ADIFExportDocument {
   }
 }
 
-export function decodeADIF(bytes: ArrayBuffer): string {
+export function decodeADIF(bytes: ArrayBuffer, encoding: ADIFImportEncoding = "utf-8"): string {
   if (bytes.byteLength > 32 * 1024 * 1024) throw new Error("Choose an ADIF file smaller than 32 MiB.");
+  if (encoding !== "utf-8" && encoding !== "windows-1252") throw new Error("Choose a supported import encoding.");
+  if (encoding === "windows-1252") return legacyADI(new Uint8Array(bytes));
   let text: string;
   try {
     text = decoder.decode(bytes);
@@ -136,6 +139,55 @@ export function decodeADIF(bytes: ArrayBuffer): string {
   }
   if (text.includes("\0")) throw new Error("Only UTF-8 ADI or ADX files are supported. Export UTF-8 and try again.");
   return /^\s*<(?:\?|!|(?:[A-Za-z_][\w.-]*:)?ADX(?:\s|\/?>))/.test(text) ? adxToADI(text) : text;
+}
+
+// Explicit Windows-1252 mapping: browser decoders may accept its undefined bytes,
+// and ISO-8859-1 decoder labels are aliases for Windows-1252 in the web runtime.
+// Every mapped character occupies one source byte, so source descriptor lengths
+// remain usable until each field is rewritten with its canonical UTF-8 length.
+function legacyADI(bytes: Uint8Array): string {
+  const controls = [0x20ac, 0, 0x201a, 0x0192, 0x201e, 0x2026, 0x2020, 0x2021,
+    0x02c6, 0x2030, 0x0160, 0x2039, 0x0152, 0, 0x017d, 0,
+    0, 0x2018, 0x2019, 0x201c, 0x201d, 0x2022, 0x2013, 0x2014,
+    0x02dc, 0x2122, 0x0161, 0x203a, 0x0153, 0, 0x017e, 0x0178];
+  const chunks: string[] = [];
+  for (let start = 0; start < bytes.length; start += 8192) {
+    const points = Array.from(bytes.subarray(start, start + 8192), byte => {
+      const point = byte >= 0x80 && byte <= 0x9f ? controls[byte - 0x80] : byte;
+      if (!point) throw new Error("Windows-1252 input contains an undefined byte or NUL. Export UTF-8 and try again.");
+      return point;
+    });
+    chunks.push(String.fromCharCode(...points));
+  }
+  const text = chunks.join("");
+  if (/^\s*<(?:\?|!|(?:[A-Za-z_][\w.-]*:)?ADX(?:\s|\/?>))/.test(text)) {
+    throw new Error("ADX requires UTF-8. Choose UTF-8 import encoding and a UTF-8 ADX file.");
+  }
+  let cursor = text.indexOf("<"), size = 0;
+  if (cursor < 0) throw new Error("No ADIF descriptors were found.");
+  const output: string[] = [];
+  function append(part: string) {
+    size += utf8.encode(part).length;
+    if (size > maximumFileBytes) throw new Error("Converted ADI exceeds the 32 MiB import limit.");
+    output.push(part);
+  }
+  append(text.slice(0, cursor));
+  while (cursor < text.length) {
+    const whitespace = /^[\t\n\r ]+/.exec(text.slice(cursor))?.[0];
+    if (whitespace) { append(whitespace); cursor += whitespace.length; continue; }
+    const close = text.indexOf(">", cursor);
+    if (text[cursor] !== "<" || close < 0) throw new Error("ADIF contains an invalid or unfinished descriptor.");
+    const descriptor = text.slice(cursor + 1, close);
+    cursor = close + 1;
+    if (/^(EOH|EOR)$/i.test(descriptor)) { append(`<${descriptor.toUpperCase()}>`); continue; }
+    const match = /^([A-Z0-9_]+):([0-9]+)(?::([A-Z]))?$/i.exec(descriptor);
+    const length = match ? Number(match[2]) : NaN;
+    if (!match || !Number.isSafeInteger(length) || length > text.length - cursor) throw new Error("ADIF contains an invalid or truncated field.");
+    const value = text.slice(cursor, cursor + length);
+    append(`<${match[1].toUpperCase()}:${utf8.encode(value).length}${match[3] ? `:${match[3].toUpperCase()}` : ""}>`);
+    append(value); cursor += length;
+  }
+  return output.join("");
 }
 
 // Normalize ADX at the file boundary so the worker reviews and freezes exactly

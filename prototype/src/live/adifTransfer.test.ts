@@ -6,6 +6,37 @@ it("rejects malformed UTF-8 instead of replacing the invalid bytes", () => {
   expect(() => decodeADIF(new Uint8Array([60, 67, 65, 76, 76, 58, 49, 62, 0xff]).buffer)).toThrow("Only UTF-8 ADI or ADX");
   expect(decodeADIF(new TextEncoder().encode("<COMMENT:2>é<EOR>").buffer)).toContain("é");
 });
+
+const legacyBytes = (text: string) => Uint8Array.from(text, character => character.charCodeAt(0)).buffer;
+it("decodes only explicitly selected Windows-1252 and rewrites lengths before batching", () => {
+  const source = "Legacy export\r\n<ADIF_VER:5>3.1.7<EOH>\r\n<COMMENT:11:S>\x8eilina<EOR><NOTES:0><CUSTOM:4>\x80\x93\xe9\xff<EOR>\r\n";
+  expect(() => decodeADIF(legacyBytes(source))).toThrow("Only UTF-8");
+  const canonical = decodeADIF(legacyBytes(source), "windows-1252");
+  expect(canonical).toBe("Legacy export\r\n<ADIF_VER:5>3.1.7<EOH>\r\n<COMMENT:12:S>Žilina<EOR><NOTES:0><CUSTOM:10>€“éÿ<EOR>\r\n");
+  expect(adifBatches(canonical)).toEqual([canonical]);
+});
+
+it.each([0x81, 0x8d, 0x8f, 0x90, 0x9d, 0])("rejects undefined Windows-1252 bytes and NUL: %s", byte => {
+  expect(() => decodeADIF(legacyBytes(`<NOTES:1>${String.fromCharCode(byte)}<EOR>`), "windows-1252")).toThrow("undefined byte or NUL");
+});
+
+it.each(["<COMMENT:99>short<EOR>", "<COMMENT:-1>x<EOR>", "<COMMENT:1:SS>x<EOR>", "<COMMENT:1>x<EOR>trailing", "<COMMENT:1>x<>"])("rejects malformed legacy descriptors: %s", source => {
+  expect(() => decodeADIF(legacyBytes(source), "windows-1252")).toThrow();
+});
+
+it("preserves legacy record counts and applies bounds after UTF-8 expansion", () => {
+  const record = "<COMMENT:1>\x80<EOR>";
+  const canonical = decodeADIF(legacyBytes(record.repeat(101)), "windows-1252");
+  expect(adifBatches(canonical)).toEqual(["<COMMENT:3>€<EOR>".repeat(100), "<COMMENT:3>€<EOR>"]);
+  expect(() => adifBatches(decodeADIF(legacyBytes(`<COMMENT:7000>${"\x80".repeat(7000)}<EOR>`), "windows-1252"))).toThrow("safe import size");
+  expect(() => decodeADIF(new ArrayBuffer(32 * 1024 * 1024 + 1), "windows-1252")).toThrow("smaller than 32 MiB");
+  const value = "\xff".repeat(16 * 1024 * 1024);
+  expect(() => decodeADIF(legacyBytes(`<COMMENT:${value.length}>${value}<EOR>`), "windows-1252")).toThrow("Converted ADI exceeds");
+});
+
+it.each(["<ADX/>", "<?xml version='1.0'?><ADX/>", "<a:ADX xmlns:a='urn:adif'/>"])("keeps ADX UTF-8-only when legacy decoding is selected: %s", source => {
+  expect(() => decodeADIF(legacyBytes(source), "windows-1252")).toThrow("ADX requires UTF-8");
+});
 it.each(["<?xml version='1.0'?><ADX/>", "<ADX/>"])("rejects incomplete ADX %s", text => {
   expect(() => decodeADIF(new TextEncoder().encode(text).buffer)).toThrow("invalid or unsupported XML");
 });

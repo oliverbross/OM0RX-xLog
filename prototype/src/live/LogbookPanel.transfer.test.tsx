@@ -81,6 +81,38 @@ it("rejects invalid UTF-8 bytes before requesting any preview", async () => {
   expect(request.mock.calls.filter(([method]) => method === "logbook_import_adif")).toHaveLength(0);
 });
 
+it("requires explicit legacy encoding and freezes canonical UTF-8 in import review", async () => {
+  const { request, pick } = setup(); await screen.findByText("W1AW");
+  const encoding = screen.getByRole("combobox", { name: "Import encoding" }) as HTMLSelectElement;
+  expect(encoding.value).toBe("utf-8");
+  const source = adif.replace("<EOR>", "<COMMENT:11>\x8eilina<EOR><EOR>");
+  const bytes = Uint8Array.from(source, character => character.charCodeAt(0));
+  await pick(bytes);
+  expect((await screen.findByRole("alert")).textContent).toContain("Only UTF-8");
+  expect(request.mock.calls.filter(([method]) => method === "logbook_import_adif")).toHaveLength(0);
+  fireEvent.change(encoding, { target: { value: "windows-1252" } });
+  await pick(bytes);
+  await screen.findByRole("group", { name: "Review ADIF import" });
+  expect(screen.getByText("Source encoding: Windows-1252. Review uses normalized UTF-8 ADI.")).toBeTruthy();
+  expect(encoding.disabled).toBe(true);
+  const canonical = adif.replace("<EOR>", "<COMMENT:12>Žilina<EOR><EOR>");
+  expect(request).toHaveBeenCalledWith("logbook_import_adif", { action: "preview", text: canonical, chunk: 0 });
+  fireEvent.click(screen.getByRole("button", { name: "Confirm import" }));
+  await screen.findByText("1 QSOs imported; 0 duplicates skipped.");
+  expect(request).toHaveBeenCalledWith("logbook_import_adif", { text: canonical, generation: "workspace-1" });
+  expect(encoding.disabled).toBe(false);
+});
+
+it("rejects undefined legacy bytes and legacy ADX before native preview", async () => {
+  const { request, pick } = setup(); await screen.findByText("W1AW");
+  fireEvent.change(screen.getByRole("combobox", { name: "Import encoding" }), { target: { value: "windows-1252" } });
+  await pick(new Uint8Array([0x81]));
+  expect((await screen.findByRole("alert")).textContent).toContain("undefined byte");
+  await pick(new TextEncoder().encode("<ADX/>"));
+  expect((await screen.findByRole("alert")).textContent).toContain("ADX requires UTF-8");
+  expect(request.mock.calls.filter(([method]) => method === "logbook_import_adif")).toHaveLength(0);
+});
+
 it("reviews ADX through the frozen ADI path and imports the reviewed normalization only after consent", async () => {
   const { request, pick } = setup(); await screen.findByText("W1AW");
   const fields = "<CALL>W1AW</CALL><QSO_DATE>20261014</QSO_DATE><TIME_ON>000000</TIME_ON><BAND>20m</BAND><MODE>CW</MODE>";
