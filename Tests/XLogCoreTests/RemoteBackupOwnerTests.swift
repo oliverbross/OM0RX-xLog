@@ -9,6 +9,19 @@ import Testing
 @Suite struct RemoteBackupOwnerTests {
     private let start = Date(timeIntervalSince1970: 10_000)
 
+    private final class Clock: RemoteBackupClock, @unchecked Sendable {
+        private let lock = NSLock()
+        private var date: Date
+        init(_ date: Date) { self.date = date }
+        func now() -> Date { lock.withLock { date } }
+        func set(_ date: Date) { lock.withLock { self.date = date } }
+    }
+
+    private actor Ticks: RemoteBackupTickSource {
+        var calls = 0
+        func nextTick() async throws -> Bool { calls += 1; return true }
+    }
+
     private actor Source: RemoteBackupSnapshotSource {
         let envelope: XLogBackupEnvelope
         var captures = 0
@@ -31,13 +44,21 @@ import Testing
     private actor Executor: RemoteBackupClaimExecutor {
         var claims: [RemoteBackupDueClaim] = []
         let throwsError: Bool
+        var failReceipt = false
+        var blocked = false
+        var continuation: CheckedContinuation<Void, Never>?
         init(throwsError: Bool = false) { self.throwsError = throwsError }
         func execute(_ claim: RemoteBackupDueClaim) async throws -> RemoteBackupUploadReceipt {
             claims.append(claim)
+            if blocked { await withCheckedContinuation { continuation = $0 } }
             if throwsError { throw RemoteBackupPlanningError.invalidReceipt }
+            if failReceipt { return try RemoteBackupUploadReceipt(plan: claim.plan, outcome: .failed) }
             return try RemoteBackupUploadReceipt(plan: claim.plan,
                 outcome: .verified(package: claim.envelope.identity, at: claim.claimedAt))
         }
+        func setFailedReceipt() { failReceipt = true }
+        func block() { blocked = true }
+        func release() { blocked = false; continuation?.resume(); continuation = nil }
     }
 
     private func fixture() throws -> (XLogBackupEnvelope, RemoteBackupUploadPlan, URL) {
@@ -58,6 +79,107 @@ import Testing
         let placeholder = try RemoteBackupPackageIdentity(sha256: String(repeating: "0", count: 64), byteCount: 1)
         return (envelope, try RemoteBackupUploadPlan(workspaceGeneration: 1, destination: destination,
             backupID: UUID(), package: placeholder), root)
+    }
+
+    @Test func recurringDriverUsesFreshIdentityAndExactContextAcrossIntervals() async throws {
+        let (envelope, plan, root) = try fixture()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let scheduler = try RemoteBackupScheduler(stateDirectory: root.appendingPathComponent("state"))
+        let source = Source(envelope), executor = Executor(), ticks = Ticks(), clock = Clock(start)
+        let owner = RemoteBackupOwner(scheduler: scheduler, source: source, executor: executor)
+        let host = RemoteBackupHostDriver(scheduler: scheduler, owner: owner, clock: clock, ticks: ticks)
+        #expect(try await host.advance() == nil)
+        #expect(await ticks.calls == 0)
+        try await host.start(plan: plan, recurring: true)
+        #expect(try await host.advance() == nil)
+        clock.set(start.addingTimeInterval(3_600))
+        let first = try #require(try await host.advance())
+        let placeholder = try #require(try await scheduler.currentPlan(workspaceGeneration: 1, destination: plan.destination))
+        #expect(placeholder.backupID != first.plan.backupID)
+        #expect(placeholder.backupID != plan.backupID)
+        #expect(placeholder.destination == plan.destination)
+        #expect(placeholder.workspaceGeneration == plan.workspaceGeneration)
+        #expect(try await scheduler.state(for: placeholder) == .enabled)
+        let restarted = try RemoteBackupScheduler(stateDirectory: root.appendingPathComponent("state"))
+        #expect(try await restarted.currentPlan(workspaceGeneration: 1, destination: plan.destination) == placeholder)
+        await #expect(throws: RemoteBackupPlanningError.staleContext) {
+            try await restarted.currentPlan(workspaceGeneration: 2, destination: plan.destination)
+        }
+        #expect(try await host.advance() == nil)
+        clock.set(start.addingTimeInterval(7_200))
+        let second = try #require(try await host.advance())
+        #expect(second.plan.backupID != first.plan.backupID)
+        #expect(second.plan.backupID != placeholder.backupID)
+        #expect(await source.captures == 2)
+        #expect(await executor.claims.count == 2)
+        try await host.stop()
+        let stopped = try #require(try await scheduler.currentPlan(workspaceGeneration: 1, destination: plan.destination))
+        #expect(try await scheduler.state(for: stopped) == .disabled)
+    }
+
+    @Test(arguments: [false, true])
+    func defaultOnceAndFailureNeverRearm(failed: Bool) async throws {
+        let (envelope, plan, root) = try fixture()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let scheduler = try RemoteBackupScheduler(stateDirectory: root.appendingPathComponent("state"))
+        let executor = Executor(), clock = Clock(start)
+        if failed { await executor.setFailedReceipt() }
+        let owner = RemoteBackupOwner(scheduler: scheduler, source: Source(envelope), executor: executor)
+        let host = RemoteBackupHostDriver(scheduler: scheduler, owner: owner, clock: clock, ticks: Ticks())
+        try await host.start(plan: plan, recurring: failed)
+        clock.set(start.addingTimeInterval(3_600))
+        let receipt = try #require(try await host.advance())
+        #expect(try await scheduler.state(for: receipt.plan) == .completed)
+        #expect(try await host.advance() == nil)
+        #expect(await executor.claims.count == 1)
+        if failed {
+            let forged = try RemoteBackupUploadReceipt(plan: receipt.plan,
+                outcome: .verified(package: receipt.plan.package, at: clock.now()))
+            await #expect(throws: RemoteBackupPlanningError.invalidReceipt) {
+                try await scheduler.rearm(after: forged, at: clock.now())
+            }
+        }
+    }
+
+    @Test func recurringUncertainOutcomeCannotRearm() async throws {
+        let (envelope, plan, root) = try fixture()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let scheduler = try RemoteBackupScheduler(stateDirectory: root.appendingPathComponent("state"))
+        let executor = Executor(throwsError: true), clock = Clock(start)
+        let owner = RemoteBackupOwner(scheduler: scheduler, source: Source(envelope), executor: executor)
+        let host = RemoteBackupHostDriver(scheduler: scheduler, owner: owner, clock: clock, ticks: Ticks())
+        try await host.start(plan: plan, recurring: true)
+        clock.set(start.addingTimeInterval(3_600))
+        await #expect(throws: RemoteBackupOwnerError.executionUncertain) { try await host.advance() }
+        let claim = try #require(await executor.claims.first)
+        #expect(try await scheduler.state(for: claim.plan) == .uncertain)
+        let forged = try RemoteBackupUploadReceipt(plan: claim.plan,
+            outcome: .verified(package: claim.plan.package, at: clock.now()))
+        #expect(try await scheduler.rearm(after: forged, at: clock.now()) == nil)
+        #expect(try await host.advance() == nil)
+        #expect(await executor.claims.count == 1)
+    }
+
+    @Test(arguments: [false, true])
+    func stopOrClockJumpDuringExecutionPreventsRearm(stop: Bool) async throws {
+        let (envelope, plan, root) = try fixture()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let scheduler = try RemoteBackupScheduler(stateDirectory: root.appendingPathComponent("state"))
+        let executor = Executor(), clock = Clock(start)
+        await executor.block()
+        let owner = RemoteBackupOwner(scheduler: scheduler, source: Source(envelope), executor: executor)
+        let host = RemoteBackupHostDriver(scheduler: scheduler, owner: owner, clock: clock, ticks: Ticks())
+        try await host.start(plan: plan, recurring: true)
+        clock.set(start.addingTimeInterval(3_600))
+        let task = Task { try await host.advance() }
+        while await executor.continuation == nil { await Task.yield() }
+        if stop { try await host.stop() }
+        else { clock.set(start.addingTimeInterval(3_600 + 86_401)) }
+        await executor.release()
+        let receipt = try #require(try await task.value)
+        #expect(try await scheduler.state(for: receipt.plan) == (stop ? .completed : .clockReviewRequired))
+        #expect(try await scheduler.rearm(after: receipt, at: clock.now()) == nil)
+        #expect(await executor.claims.count == 1)
     }
 
     @Test func defaultOffThenFreshFrozenClaimAndNoReplay() async throws {

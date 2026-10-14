@@ -18,8 +18,8 @@ public struct RemoteBackupDueClaim: Sendable {
 }
 
 /// Durable, explicitly enabled schedule lanes, one active plan per destination ID.
-/// Each run needs a fresh immutable plan. After a known completion, explicit enablement
-/// with a fresh plan arms its next interval; snapshot capture belongs to the injected
+/// Each run needs a fresh immutable plan. Verified completion can carry explicit
+/// recurring consent into its next interval; snapshot capture belongs to the injected
 /// backup owner. This type performs no networking or restore work.
 public actor RemoteBackupScheduler {
     /// A gap over one day requires clock review, including legitimate long suspends.
@@ -44,15 +44,17 @@ public actor RemoteBackupScheduler {
     /// Explicit consent is required even when the destination has a configured interval.
     /// Repeating enable for an already-enabled identical plan does not postpone its due time.
     @discardableResult
-    public func enable(plan: RemoteBackupUploadPlan, at now: Date) throws -> Date {
+    public func enable(plan: RemoteBackupUploadPlan, at now: Date, recurring: Bool = false) throws -> Date {
         try validateClock(now)
         guard let hours = plan.destination.schedule.intervalHours else { throw RemoteBackupPlanningError.invalidSchedule }
         return try locked(plan.destination.id) {
-            if let current = try read(plan.destination.id) {
+            if var current = try read(plan.destination.id) {
                 switch current.state {
                 case .claimed, .uncertain: throw RemoteBackupSchedulerError.operationInProgress
                 case .enabled:
                     try current.validate(plan)
+                    current.recurring = recurring
+                    try save(current)
                     return current.dueAt!
                 case .completed:
                     guard try current.plan().backupID != plan.backupID else { throw RemoteBackupSchedulerError.alreadyClaimed }
@@ -71,7 +73,7 @@ public actor RemoteBackupScheduler {
             let due = now.addingTimeInterval(TimeInterval(hours) * 3_600)
             try validateClock(due)
             try save(Record(operation: RemoteBackupStoredOperation(plan: plan, outcome: nil), state: .enabled,
-                enabledAt: now, dueAt: due, lastObservedAt: now))
+                enabledAt: now, dueAt: due, lastObservedAt: now, recurring: recurring))
             return due
         }
     }
@@ -84,8 +86,69 @@ public actor RemoteBackupScheduler {
                 throw RemoteBackupSchedulerError.operationInProgress
             }
             record.state = .disabled
+            record.recurring = false
             record.enabledAt = nil; record.dueAt = nil; record.lastObservedAt = nil
             try save(record)
+        }
+    }
+
+    /// Read only within the caller's exact approved workspace/destination context.
+    /// This lets a host recover the fresh placeholder after a successful rearm.
+    public func currentPlan(workspaceGeneration: UInt64, destination: RemoteBackupDestination) throws -> RemoteBackupUploadPlan? {
+        try locked(destination.id) {
+            guard let record = try read(destination.id) else { return nil }
+            let plan = try record.plan()
+            try plan.validate(workspaceGeneration: workspaceGeneration, destination: destination)
+            return plan
+        }
+    }
+
+    /// Revoke recurrence even while a claimed executor finishes. Reloading under the
+    /// lane lock also covers a rearm that won the race with the host's stop request.
+    public func stopRecurrence(workspaceGeneration: UInt64, destination: RemoteBackupDestination) throws {
+        try locked(destination.id) {
+            guard var record = try read(destination.id) else { return }
+            try record.plan().validate(workspaceGeneration: workspaceGeneration, destination: destination)
+            record.recurring = false
+            if record.state == .enabled {
+                record.state = .disabled
+                record.enabledAt = nil; record.dueAt = nil; record.lastObservedAt = nil
+            }
+            try save(record)
+        }
+    }
+
+    /// Only a durably recorded verified receipt may carry explicit recurring consent
+    /// forward. Failed, uncertain, interrupted and clock-review lanes cannot rearm.
+    @discardableResult
+    public func rearm(after receipt: RemoteBackupUploadReceipt, at now: Date) throws -> RemoteBackupUploadPlan? {
+        try validateClock(now)
+        return try locked(receipt.plan.destination.id) {
+            guard var record = try read(receipt.plan.destination.id) else { return nil }
+            try record.validate(receipt.plan)
+            guard record.state == .completed, record.recurring == true,
+                  case .verified = receipt.outcome else { return nil }
+            let history = try claims.load()
+            guard history.contains(receipt), !history.contains(where: {
+                guard $0.plan.destination.id == receipt.plan.destination.id else { return false }
+                if case .uncertain = $0.outcome { return true }
+                return false
+            }) else { throw RemoteBackupPlanningError.invalidReceipt }
+            let gap = now.timeIntervalSince(record.lastObservedAt!)
+            guard gap >= 0, gap <= Self.maximumObservationGap else {
+                record.state = .clockReviewRequired
+                try save(record)
+                return nil
+            }
+            let next = try RemoteBackupUploadPlan(workspaceGeneration: receipt.plan.workspaceGeneration,
+                destination: receipt.plan.destination, backupID: UUID(), package: receipt.plan.package)
+            let due = now.addingTimeInterval(TimeInterval(next.destination.schedule.intervalHours!) * 3_600)
+            try validateClock(due)
+            record.operation = RemoteBackupStoredOperation(plan: next, outcome: nil)
+            record.state = .enabled
+            record.enabledAt = now; record.dueAt = due; record.lastObservedAt = now
+            try save(record)
+            return next
         }
     }
 
@@ -250,6 +313,8 @@ public actor RemoteBackupScheduler {
         var enabledAt: Date?
         var dueAt: Date?
         var lastObservedAt: Date?
+        // Missing in version-1 records means no recurring consent.
+        var recurring: Bool? = nil
 
         func plan() throws -> RemoteBackupUploadPlan {
             guard operation.status == "pending", operation.verifiedAt == nil else { throw RemoteBackupPersistenceError.invalidState }
