@@ -55,8 +55,10 @@ export async function serveSpotHistoryAbsence(report: Json, worker: Worker, clic
       await stateUntil(state => state.main_open === false && state.revision === step.revision);
       report.checks.main_absent = true; report.details.phaseRevision = step.revision;
       await invoke("acceptance_monitor", { report });
-      // This is the shipped child UI action, not a test-only main creator.
-      await click("Dock back");
+      // Detached task windows intentionally omit redundant workspace chrome.
+      // Exercise the shipped child-only recovery command without reintroducing
+      // the removed Dock back button solely for acceptance.
+      await invoke("dock_detached_window");
       return;
     }
     await pause();

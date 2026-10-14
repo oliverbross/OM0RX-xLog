@@ -60,7 +60,7 @@ it("rejects a purported recovery in the same renderer", async () => {
   api.invoke.mockResolvedValue({ active: true, report: { details: { mainInstanceID: "same" } } });
   await expect(resumeSpotHistoryAbsence({ details: { mainInstanceID: "same" } }, fixture(), vi.fn(), vi.fn())).rejects.toThrow("replace the destroyed renderer");
 });
-it("reads and exercises the actual child table while native main presence is false, then uses Dock back", async () => {
+it("reads and exercises the child table while main is absent, then uses native recovery", async () => {
   const wrap = document.createElement("div"); wrap.className = "spot-history-table-wrap"; wrap.setAttribute("aria-busy", "false");
   const summary = document.createElement("div"); summary.className = "spot-history-summary"; summary.innerHTML = "<strong>137</strong>";
   const table = document.createElement("table"); table.className = "spot-history-table"; table.innerHTML = "<tbody><tr><td>Synthetic</td></tr></tbody>";
@@ -75,6 +75,7 @@ it("reads and exercises the actual child table while native main presence is fal
   const report = { checks: {}, details: {}, status: "failed", worker: false };
   await serveSpotHistoryAbsence(report, fixture(), click);
   expect(report.checks).toMatchObject({ archive_read: true, main_absent: true });
-  expect(click.mock.calls.map(([name]) => name)).toEqual(["Refresh", "Details", "Close details", "Dock back"]);
+  expect(click.mock.calls.map(([name]) => name)).toEqual(["Refresh", "Details", "Close details"]);
+  expect(api.invoke.mock.calls.some(([method]) => method === "dock_detached_window")).toBe(true);
   expect(api.invoke.mock.calls.filter(([method]) => method === "acceptance_monitor")).toHaveLength(2);
 });
