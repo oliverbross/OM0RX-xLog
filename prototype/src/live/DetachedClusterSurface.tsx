@@ -36,12 +36,14 @@ export function DetachedClusterSurface() {
   return <div className="app live monitor-app detached-cluster-app">
     <main>
       {error && <p className="live-error" role="alert">{error}</p>}
-      <SpotActivationStatus status={activation.status} error={activation.error} checking={activation.requesting} reconcile={() => void activation.reconcile()} />
+      <SpotActivationStatus status={activation.status} error={activation.error} checking={activation.requesting} reconcile={() => void activation.reconcile()}
+        retire={() => { void Promise.resolve(activation.retire()).then(retired => { if (retired) setError(""); }); }} />
       {projection && (!projection.available || receivedAt > 0 && clock - receivedAt > 5_000) && <p className="live-cluster-note" role="status">Cluster service updates paused; the last received spots remain visible. Refresh to check the service.</p>}
       {!projection?.response && <p className="secondary">Loading the shared cluster session…</p>}
       <ClusterPanel passive snapshot={projection?.response ?? null} selectedSpotId={projection?.selected ?? null} onRequest={requestViaSession} onDock={dock}
         onSelect={spot => {
           if (!projection?.available || !receivedAt || Date.now() - receivedAt > 5_000 || receivedAt - Date.now() > 1000) { setError("Refresh cluster state before selecting a spot."); return; }
+          setError("");
           void activation.activate(spot).catch(cause => setError(cause instanceof Error ? cause.message : "Spot activation is unavailable. Check its status before selecting again."));
         }}
         passwordControlsEnabled={false} />

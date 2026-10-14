@@ -771,6 +771,7 @@ function MainLiveApp() {
     <main aria-label={view}>
       {error && <div className="live-error" role="alert">{error}<button onClick={() => setError("")}>Dismiss</button></div>}
       <SpotActivationStatus status={spotActivation.status && spotActivation.status.phase !== "idle" ? spotActivation.status : spotEditor.status} error={spotEditor.error || spotActivation.error} checking={spotActivation.requesting}
+        retire={() => { void Promise.resolve(spotActivation.retire()).then(async retired => { if (retired) { await spotEditor.reconcile(); setError(""); } }); }}
         reconcile={() => { if (sharedDraft.activationFrozen || contactEdit.activationFrozen) void spotEditor.reconcile(); else void spotActivation.reconcile(); }} />
       {nativeAutoRotor.error && <p className="live-error" role="status">{nativeAutoRotor.error}</p>}
       {workspace?.workspace_exists && <OperatorDraftStatus state={sharedDraft} session={draftSession} run={operation => run(async () => { await operation(); setRefresh(n => n + 1); })} />}

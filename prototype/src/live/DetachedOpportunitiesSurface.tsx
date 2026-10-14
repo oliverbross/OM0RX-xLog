@@ -26,7 +26,8 @@ export function DetachedOpportunitiesSurface() {
   };
   return <div className="app live monitor-app detached-opportunities-app"><main aria-label="Detached Chaser & DX">
     {error && <p className="live-error" role="alert">{error}</p>}
-    <SpotActivationStatus status={activation.status} error={activation.error} checking={activation.requesting} reconcile={() => void activation.reconcile()} />
+    <SpotActivationStatus status={activation.status} error={activation.error} checking={activation.requesting} reconcile={() => void activation.reconcile()}
+      retire={() => { void Promise.resolve(activation.retire()).then(retired => { if (retired) setError(""); }); }} />
     {activation.status?.phase === "confirmed" && activation.status.draftOnly && <p role="status">{activationMessage(activation.status)}</p>}
     <OpportunitiesPanel request={requestDetachedOpportunity} onDock={dock} onSelect={item => {
       setError(""); void activation.activate(item).catch(cause => setError(cause instanceof Error ? cause.message : "Opportunity selection could not be verified."));

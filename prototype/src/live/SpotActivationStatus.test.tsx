@@ -16,3 +16,10 @@ it("keeps uncertain/failed cleanup actionable without replaying activation", () 
   render(<SpotActivationStatus status={{ operationId, phase: "confirmed", tuneConfirmed: true, rotor: "not_requested", reservationActive: true }} reconcile={check} />);
   expect(screen.getByText(/cleanup is unconfirmed/)).toBeTruthy(); fireEvent.click(screen.getByRole("button", { name: "Check activation" })); expect(check).toHaveBeenCalledOnce();
 });
+it("offers explicit receipt-only retirement and honestly permits a new selection once the reservation is closed", () => {
+  const retire = vi.fn();
+  render(<SpotActivationStatus status={{ operationId, phase: "uncertain", tuneConfirmed: false, rotor: "uncertain", reservationActive: false }} reconcile={vi.fn()} retire={retire} />);
+  expect(screen.getByText(/You can select a new report/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Check receipt and retire old activation" }));
+  expect(retire).toHaveBeenCalledOnce();
+});

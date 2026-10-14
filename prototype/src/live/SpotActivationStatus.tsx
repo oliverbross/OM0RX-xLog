@@ -1,7 +1,7 @@
 import { activationMessage } from "./spotActivationClient";
 import type { SpotActivationSnapshot } from "./spotActivation";
-export function SpotActivationStatus({ status, error, checking = false, reconcile, inline = false }: {
-  status: SpotActivationSnapshot | null; error?: string; checking?: boolean; reconcile: () => void; inline?: boolean;
+export function SpotActivationStatus({ status, error, checking = false, reconcile, retire, inline = false }: {
+  status: SpotActivationSnapshot | null; error?: string; checking?: boolean; reconcile: () => void; retire?: () => void; inline?: boolean;
 }) {
   const progress = status && ["preparing", "draft_applied", "tuning"].includes(status.phase);
   if (inline) return progress ? <span className="secondary" role="status">Activating selected report…</span> : null;
@@ -10,5 +10,6 @@ export function SpotActivationStatus({ status, error, checking = false, reconcil
   const text = error || (status?.phase !== "idle" && status?.reservationActive === true ? "Activation cleanup is unconfirmed. Check the existing operation; editors remain protected." : activationMessage(status));
   if (!text) return null;
   return <div className="live-cluster-note live-actions" role={error ? "alert" : "status"}><span>{text}</span>{(status?.operationId || error) &&
-    <button type="button" disabled={checking} onClick={reconcile}>{checking ? "Checking…" : "Check activation"}</button>}</div>;
+    <button type="button" disabled={checking} onClick={reconcile}>{checking ? "Checking…" : "Check activation"}</button>}{retire && !progress && (status?.operationId || error) &&
+    <button type="button" disabled={checking} onClick={retire}>Check receipt and retire old activation</button>}</div>;
 }

@@ -85,6 +85,52 @@ fn running_worker() -> Result<u64, String> {
     Ok(generation)
 }
 pub fn canonical_editor_state() -> Result<Value, String> { Ok(json!({"draft":read_canonical(running_worker()?)?})) }
+/// Only explicit recovery calls this path. The current worker transaction either
+/// tombstones a missing draft apply or returns its exact durable lease/receipt.
+/// There is no effect staging, station command or rotor call here.
+fn recover_missing_with(operation_id: &str, mut request: impl FnMut(&str, Value) -> Result<Value, String>) -> Result<Value, String> {
+    let operation = valid_uuid(&json!(operation_id))?;
+    let current = request("logbook_operator_draft", json!({}))?;
+    validate_draft(&current["draft"])?;
+    let generation = valid_uuid(&current["draft"]["generation"])?;
+    let params = json!({"operationID":operation,"generation":generation});
+    let mut receipt = request("spot_draft_abandon", params.clone())?;
+    if receipt["status"] == "abandoned" {
+        keys(&receipt, &["status","receipt","replay","generation"])?;
+        if receipt["replay"] != true || !receipt["receipt"].is_null() || valid_uuid(&receipt["generation"])? != generation {
+            return Err("Missing activation identity could not be tombstoned.".into());
+        }
+    } else {
+        let validate = |value: &Value| -> Result<(), String> {
+            keys(value, &["status","replay","phase","receipt","leaseID"])?;
+            keys(&value["receipt"], &["operationID","generation","phase","draft"])?;
+            validate_draft(&value["receipt"]["draft"])?;
+            if valid_uuid(&value["receipt"]["operationID"])? != operation
+                || valid_uuid(&value["receipt"]["generation"])? != generation
+                || valid_uuid(&value["receipt"]["draft"]["generation"])? != generation
+                || value["receipt"]["phase"] != "draft_applied" || value["replay"] != true || !phase(&value["phase"])
+                || terminal(&value["phase"]) && value.get("leaseID").is_some() { return Err("Recovered activation receipt did not match.".into()); }
+            Ok(())
+        };
+        validate(&receipt)?;
+        if receipt["status"] != "found" { return Err("Activation receipt was unavailable.".into()); }
+        if let Some(lease) = receipt.get("leaseID") {
+            let mut finish = params; finish["leaseID"] = json!(valid_uuid(lease)?); finish["outcome"] = json!("uncertain");
+            receipt = request("spot_draft_finish", finish)?;
+            validate(&receipt)?;
+            if receipt["status"] != "finished" || receipt["phase"] != "uncertain" || receipt.get("leaseID").is_some() {
+                return Err("Activation lease retirement was not confirmed.".into());
+            }
+        }
+    }
+    // Re-read current draft after retirement; historical receipts cannot replace
+    // operator edits made since the original selection.
+    let current = request("logbook_operator_draft", json!({}))?;
+    validate_draft(&current["draft"])?;
+    if valid_uuid(&current["draft"]["generation"])? != generation { return Err("Workspace changed during activation recovery.".into()); }
+    Ok(json!({"operationId":operation_id,"phase":"uncertain","reservationActive":false,"tuneConfirmed":false,
+        "rotor":"not_replayed","draft":current["draft"],"error":"Previous activation identity retired. Review the observed radio and rotor state; uncertain effects were not replayed. A new report can be selected."}))
+}
 fn precise_lookup_with(call_sign: &str, request: impl FnOnce(&str, Value) -> Result<Value, String>) -> Result<Value, String> {
     // Preserve the existing native QRZ-coordinate/grid preference and its CTY
     // fallback. The caller still pins this read to the canonical worker epoch.
@@ -164,6 +210,11 @@ fn tune_request(provider: &str, spot: &Value) -> Result<Value, String> {
     } else { Err("Native radio provider is unsupported".into()) }
 }
 impl Backend for NativeBackend {
+    fn recover_missing(&self, operation_id: &str) -> Result<Value, String> {
+        if crate::worker::local_acceptance() { return Err("Live activation recovery is unavailable in isolated acceptance".into()); }
+        let worker = running_worker()?;
+        recover_missing_with(operation_id, |method, params| call(worker, method, params))
+    }
     fn draft_only(&self, request: &Request) -> bool { crate::opportunity_selection::owns(&request.source_epoch) }
     fn resolve(&self, request: &Request) -> Result<Value, String> {
         if crate::worker::local_acceptance() { return Err("Live reports are unavailable in isolated acceptance".into()); }
@@ -314,6 +365,45 @@ mod tests {
             generation:uuid::Uuid::new_v4().to_string(),draft:uuid::Uuid::new_v4().to_string(),revision:4,
             spot:json!({"call":"K1ABC","frequencyHz":14074000,"mode":"FT8","band":"20m"}),
             lease:Some(uuid::Uuid::new_v4().to_string()),permit:None }
+    }
+    #[test]
+    fn missing_retirement_tombstones_before_canonical_read_and_never_dispatches_effects() {
+        let context = context(); let mut calls = vec![];
+        let draft = receipt(&context)["receipt"]["draft"].clone();
+        let recovered = recover_missing_with(&context.request.operation_id, |method, params| {
+            calls.push(method.to_owned());
+            match method {
+                "logbook_operator_draft" => Ok(json!({"draft":draft})),
+                "spot_draft_abandon" => {
+                    assert_eq!(params["operationID"],context.request.operation_id);
+                    Ok(json!({"status":"abandoned","receipt":null,"replay":true,"generation":context.generation}))
+                },
+                _ => panic!("unexpected effect: {method}"),
+            }
+        }).unwrap();
+        assert_eq!(calls,["logbook_operator_draft","spot_draft_abandon","logbook_operator_draft"]);
+        assert_eq!(recovered["reservationActive"],false); assert_eq!(recovered["tuneConfirmed"],false);
+    }
+    #[test]
+    fn orphan_receipt_releases_only_its_exact_lease_without_staging_or_replaying_effects() {
+        let context = context(); let mut calls = vec![];
+        let mut recovered = receipt(&context); recovered["status"] = json!("found"); recovered["replay"] = json!(true);
+        let draft = recovered["receipt"]["draft"].clone();
+        let result = recover_missing_with(&context.request.operation_id, |method, params| {
+            calls.push(method.to_owned());
+            match method {
+                "logbook_operator_draft" => Ok(json!({"draft":draft})),
+                "spot_draft_abandon" => Ok(recovered.clone()),
+                "spot_draft_finish" => {
+                    assert_eq!(params["leaseID"], json!(context.lease)); assert_eq!(params["outcome"], "uncertain");
+                    let mut finished = recovered.clone(); finished["status"] = json!("finished"); finished["phase"] = json!("uncertain");
+                    finished.as_object_mut().unwrap().remove("leaseID"); Ok(finished)
+                },
+                _ => panic!("unexpected effect: {method}"),
+            }
+        }).unwrap();
+        assert_eq!(calls,["logbook_operator_draft","spot_draft_abandon","spot_draft_finish","logbook_operator_draft"]);
+        assert_eq!(result["reservationActive"],false);
     }
     fn receipt(context: &Context) -> Value {
         json!({"status":"applied","replay":false,"phase":"draft_applied","leaseID":context.lease,

@@ -3,6 +3,7 @@ import { OperatorDraftSession, type DraftJournal, type DraftMutation, type Draft
 import { LogbookContactSession } from "./logbookContactSession";
 import { SpotActivationEditor, validSpotActivationSnapshot, type SpotActivationSnapshot } from "./spotActivation";
 import { type SpotActivationBarrier } from "./spotActivationBarrier";
+import { SpotActivationClient } from "./spotActivationClient";
 
 const generation = "00000000-0000-4000-8000-000000000001", operationId = "00000000-0000-4000-8000-000000000002";
 const barrierId = "00000000-0000-4000-8000-000000000003";
@@ -35,6 +36,27 @@ async function ready() {
   return Object.assign(f, { editor });
 }
 afterEach(() => vi.useRealTimers());
+
+it("releases the Desk's frozen editor after uncertain receipt recovery and permits the next explicit DX selection without replay", async () => {
+  const f = fixture(); await f.session.load();
+  const editor = new SpotActivationEditor([f.session], f.read);
+  const stale = { ...terminal("uncertain"), reservationActive: true };
+  await editor.registeredWith(stale);
+  expect(f.session.canAcceptLocalInput()).toBe(false);
+  const closed = { ...stale, reservationActive: false }, nextId = crypto.randomUUID();
+  const native = vi.fn(async (command: string) => {
+    if (command === "spot_activation_snapshot") return stale;
+    if (command === "spot_activation_reconcile") { await editor.observe(closed); return closed; }
+    if (command === "activate_spot") return { ...terminal("confirmed"), operationId: nextId, reservationActive: false };
+    throw Error(`Unexpected recovery action ${command}`);
+  });
+  const client = new SpotActivationClient(native, () => nextId);
+  await client.refresh(); expect(await client.retire()).toBe(true);
+  expect(f.session.canAcceptLocalInput()).toBe(true); expect(f.read).toHaveBeenCalledOnce();
+  await client.activate({ id: "next-dx-report", activation: { sourceEpoch: crypto.randomUUID(), spotVersion: crypto.randomUUID() } });
+  expect(native.mock.calls.map(([command]) => command)).toEqual(["spot_activation_snapshot", "spot_activation_reconcile", "activate_spot"]);
+  expect(f.request.mock.calls.every(([method]) => method === "logbook_operator_draft")).toBe(true);
+});
 
 it("retires opportunity follow synchronously before a terminal remount reads and releases the shared draft", async () => {
   const f = fixture(); await f.session.load(); let following = true;

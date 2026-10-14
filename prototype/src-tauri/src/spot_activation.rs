@@ -33,33 +33,57 @@ pub trait Backend: Send + Sync {
     fn rotor(&self, request: &Request, applied: &Value) -> Result<Value, String>;
     fn finish(&self, request: &Request, applied: &Value, outcome: &str) -> Result<(), String>;
     fn durable_status(&self, request: &Request, generation: &str) -> Result<Value, String>;
+    fn recover_missing(&self, _operation_id: &str) -> Result<Value, String> { Err("This activation cannot yet be retired safely. Check its durable receipt.".into()) }
     fn wake(&self);
 }
 
 struct Operation { request: Request, outcome: Value, generation: Option<String>, running: bool }
 #[derive(Default)]
-struct State { active: Option<String>, latest: Option<String>, operations: BTreeMap<String, Operation> }
+struct State { active: Option<String>, latest: Option<String>, operations: BTreeMap<String, Operation>, retired: BTreeMap<String, Value>, recovering: bool }
 pub struct Coordinator { state: Mutex<State>, pub editors: Arc<EditorBarrier>, backend: Arc<dyn Backend> }
 impl Coordinator {
     pub fn new(backend: Arc<dyn Backend>) -> Self { Self { state:Mutex::new(State::default()), editors:Arc::new(EditorBarrier::default()), backend } }
     pub fn snapshot(&self) -> Result<Value, String> {
         let state = self.state.lock().map_err(|_| "Spot activation unavailable")?;
-        let mut result = state.active.as_ref().or(state.latest.as_ref()).and_then(|id| state.operations.get(id)).map(|operation| operation.outcome.clone())
+        let mut result = state.active.as_ref().or(state.latest.as_ref()).and_then(|id| state.operations.get(id).map(|operation| operation.outcome.clone()).or_else(|| state.retired.get(id).cloned()))
             .unwrap_or_else(|| json!({"phase":"idle","operationId":null}));
         result["barrier"] = self.editors.snapshot()?; Ok(result)
     }
     pub fn status(&self, operation: &str) -> Result<Value, String> {
-        self.state.lock().map_err(|_| "Spot activation unavailable")?.operations.get(operation).map(|value| value.outcome.clone())
+        let state = self.state.lock().map_err(|_| "Spot activation unavailable")?;
+        state.operations.get(operation).map(|value| value.outcome.clone()).or_else(|| state.retired.get(operation).cloned())
             .ok_or_else(|| "This activation is not retained by this native session. Check the durable draft receipt; do not automatically tune again.".into())
     }
     /// Recovery only reads the durable receipt and releases an exact lease.
     /// It cannot apply a draft, stage an effect, tune, or turn the rotor.
     pub fn reconcile(&self, operation_id: &str) -> Result<Value, String> {
+        if uuid::Uuid::parse_str(operation_id).is_err() { return Err("Invalid activation identity".into()); }
+        {
+            let mut state = self.state.lock().map_err(|_| "Spot activation unavailable")?;
+            if let Some(retired) = state.retired.get(operation_id) { return Ok(retired.clone()); }
+            if !state.operations.contains_key(operation_id) {
+                if state.active.is_some() || state.recovering { return Err("Another activation is active. Wait for it before retiring an old identity.".into()); }
+                if state.operations.len() + state.retired.len() >= 4096 { return Err("Activation history is full. Restart safely before continuing.".into()); }
+                state.recovering = true;
+                drop(state);
+                let recovered = self.backend.recover_missing(operation_id);
+                let mut state = self.state.lock().map_err(|_| "Spot activation unavailable")?;
+                state.recovering = false;
+                let recovered = recovered?;
+                if recovered["operationId"] != operation_id || recovered["reservationActive"] != false
+                    || !matches!(recovered["phase"].as_str(), Some("blocked" | "confirmed" | "failed" | "uncertain")) {
+                    return Err("Activation retirement could not be verified.".into());
+                }
+                state.retired.insert(operation_id.into(), recovered.clone());
+                state.latest = Some(operation_id.into());
+                drop(state); self.backend.wake(); return Ok(recovered);
+            }
+        }
         let (request, generation) = {
             let state = self.state.lock().map_err(|_| "Spot activation unavailable")?;
             let operation = state.operations.get(operation_id).ok_or("Activation outcome missing")?;
             if operation.running { return Err("This activation is still running. Wait for its outcome before reconciling a reservation.".into()); }
-            if operation.outcome["reservationActive"] != true { return Ok(operation.outcome.clone()); }
+            if operation.outcome["reservationActive"] != true && operation.outcome["phase"] != "uncertain" { return Ok(operation.outcome.clone()); }
             (operation.request.clone(), operation.generation.clone().ok_or("Activation workspace unavailable")?)
         };
         let durable = self.backend.durable_status(&request, &generation)?;
@@ -103,12 +127,13 @@ impl Coordinator {
         request.validate()?;
         {
             let mut state = self.state.lock().map_err(|_| "Spot activation unavailable")?;
+            if state.retired.contains_key(&request.operation_id) { return Err("This activation identity was retired. Select a report with a new identity; no old effect was replayed.".into()); }
             if let Some(prior) = state.operations.get(&request.operation_id) {
                 return if prior.request == request { Ok(prior.outcome.clone()) } else { Err("This operation identity was already used for another spot.".into()) };
             }
             // Fail closed rather than evicting identities which could be replayed.
-            if state.operations.len() >= 4096 { return Err("This session has reached its activation history limit. Restart safely before selecting another spot.".into()); }
-            if state.active.is_some() {
+            if state.operations.len() + state.retired.len() >= 4096 { return Err("This session has reached its activation history limit. Restart safely before selecting another spot.".into()); }
+            if state.active.is_some() || state.recovering {
                 // Another window may click before its first status read. Retain
                 // the rejected identity too, so a lost IPC reply can be checked
                 // without inventing a retry or becoming permanently stranded.
@@ -240,6 +265,10 @@ mod tests {
         fn call(&self, name: &str) { self.calls.lock().unwrap().push(name.into()); }
     }
     impl Backend for Fake {
+        fn recover_missing(&self, operation: &str) -> Result<Value, String> {
+            self.call("recover_missing");
+            Ok(json!({"operationId":operation,"phase":"uncertain","reservationActive":false,"tuneConfirmed":false,"rotor":"not_replayed"}))
+        }
         fn draft_only(&self, _: &Request) -> bool { matches!(self.mode.load(Ordering::SeqCst),14..=16) }
         fn resolve(&self, _: &Request) -> Result<Value, String> {
             let changed = self.mode.load(Ordering::SeqCst) == 7 && self.calls.lock().unwrap().iter().any(|call| call == "tune_started");
@@ -395,6 +424,23 @@ mod tests {
             assert_eq!(*backend.calls.lock().unwrap(), ["apply", "status", "uncertain"]);
             assert_eq!(owner.editors.snapshot().unwrap(), Value::Null);
         }
+    }
+    #[test]
+    fn missing_identity_retirement_cannot_replay_it_and_allows_a_new_explicit_selection() {
+        let backend = Arc::new(Fake::new()); let owner = Coordinator::new(backend.clone()); let old = request();
+        assert!(owner.status(&old.operation_id).is_err()); assert!(backend.calls.lock().unwrap().is_empty());
+        let retired = owner.reconcile(&old.operation_id).unwrap();
+        assert_eq!(retired["reservationActive"], false); assert_eq!(*backend.calls.lock().unwrap(), ["recover_missing"]);
+        assert!(owner.activate(old).is_err());
+        assert_eq!(owner.activate(request()).unwrap()["phase"], "confirmed");
+        assert_eq!(backend.calls.lock().unwrap().iter().filter(|call| *call == "tune").count(), 1);
+    }
+    #[test]
+    fn missing_identity_cannot_retire_a_different_live_reservation() {
+        let backend = Arc::new(Fake::new()); backend.mode.store(4, Ordering::SeqCst); let owner = Coordinator::new(backend.clone());
+        owner.activate(request()).unwrap();
+        assert!(owner.reconcile(&request().operation_id).is_err());
+        assert!(!backend.calls.lock().unwrap().iter().any(|call| call == "recover_missing"));
     }
     #[test]
     fn explicit_conflict_proves_no_reservation_and_does_not_send_effects() {

@@ -10,7 +10,9 @@ export function activationMessage(status: SpotActivationSnapshot | null): string
   if (status.phase === "tuning") return "Spot loaded. Waiting for observed radio confirmation…";
   if (status.phase === "confirmed" && status.draftOnly) return "Chaser selection loaded into the shared draft. Radio follow and Auto rotor are off; no station command was sent.";
   if (status.phase === "confirmed") return `${status.tuneConfirmed ? "Spot loaded · observed radio tune confirmed." : "Spot loaded; radio tune is not confirmed."}${status.error ? ` ${status.error}` : ""}${status.rotor && status.rotor !== "not_requested" ? ` Rotor: ${status.rotor.replaceAll("_", " ")}.` : ""}`;
-  if (status.phase === "uncertain") return "Spot activation outcome is uncertain. Check the existing operation; no tune will be replayed.";
+  if (status.phase === "uncertain") return status.reservationActive === false
+    ? "Previous activation outcome is uncertain; its reservation is closed. Review the observed radio and rotor state. You can select a new report; no old tune or turn will be replayed."
+    : "Spot activation outcome is uncertain. Check the existing operation; no tune will be replayed.";
   return status.error || (status.phase === "blocked" ? "Spot activation was blocked. Finish the shared editor operation first." : "Spot activation failed. Check its status before selecting another report.");
 }
 /** Holds the exact operation identity after lost IPC. Only an explicit user
@@ -22,14 +24,15 @@ export class SpotActivationClient {
   private active = true;
   private version = 0;
   private reading: Promise<void> | null = null;
+  private retired = new Set<string>();
   constructor(private call: Call, private uuid: () => string = () => crypto.randomUUID(), private command: "activate_spot" | "activate_opportunity" = "activate_spot") {}
   getSnapshot = () => this.state;
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   private update(change: Partial<State>) { if (this.active) { this.state = { ...this.state, ...change }; this.listeners.forEach(listener => listener()); } }
-  private resolved() { const status = this.state.status; return !!status && status.phase !== "idle" && terminal(status) && status.reservationActive !== true &&
-    (status.phase !== "uncertain" || this.state.checked); }
+  private resolved() { const status = this.state.status; return !!status && status.phase !== "idle" && terminal(status) && status.reservationActive === false; }
   private accept(value: unknown, expected?: string) {
     if (!validSpotActivationSnapshot(value) || expected && value.operationId !== expected) throw new Error("The activation status could not be correlated. Check the existing operation before selecting another report.");
+    if (value.operationId && this.retired.has(value.operationId)) return;
     const previous = this.state.status;
     if (previous?.operationId === value.operationId && terminal(previous) && (!terminal(value) ||
       previous.phase !== "idle" && value.phase !== "idle" && previous.reservationActive === false && value.reservationActive === true)) return;
@@ -76,6 +79,18 @@ export class SpotActivationClient {
       if (this.active && version === this.version) { this.accept(result, operationId); this.update({ checked: true }); }
     } catch (cause) { if (this.active && version === this.version) this.update({ error: cause instanceof Error ? cause.message : "The existing activation could not be reconciled. No tune was replayed." }); }
     finally { if (version === this.version) this.update({ requesting: false }); }
+  }
+  /** Explicit retirement only after native receipt/lease recovery confirms a
+   * terminal, closed reservation. Never sends another activation or effect. */
+  async retire() {
+    if (!this.active || !this.operation || this.state.requesting) return false;
+    const operationId = this.operation;
+    await this.reconcile();
+    if (!this.active || this.operation !== operationId || !this.resolved() || !this.state.checked) return false;
+    this.retired.add(operationId); this.version++;
+    this.operation = null;
+    this.update({ status: { operationId: null, phase: "idle", barrier: null }, error: "", checked: false });
+    return true;
   }
   dispose() { this.active = false; this.version++; this.listeners.clear(); }
 }
