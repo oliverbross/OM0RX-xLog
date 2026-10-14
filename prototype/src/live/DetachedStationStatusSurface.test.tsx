@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { DetachedStationStatusSurface } from "./DetachedStationStatusSurface";
 import type { MonitorContext } from "./monitorContext";
+import { readFileSync } from "node:fs";
+const taskStyles = readFileSync("src/live/DetachedTaskSurface.css", "utf8");
 const native = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn(), worker: vi.fn(), stop: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: native.invoke }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: native.listen }));
@@ -37,7 +39,7 @@ it("mounts through retained-only native status, exposes no control authority and
   expect(native.invoke.mock.calls).toEqual([["station_status_snapshot"]]);
   expect(screen.getByRole("status").textContent).toContain("Observed current");
   expect(screen.getByText("14.074000 MHz")).toBeTruthy(); expect(value("PTT")).toBe("Receive");
-  expect(screen.getAllByRole("button").map(button => button.textContent)).toEqual(["Show Desk", "Dock back", "Close Status"]);
+  expect(screen.queryByRole("button")).toBeNull();
   expect(screen.queryByRole("textbox")).toBeNull(); expect(screen.queryByRole("checkbox")).toBeNull();
   await act(async () => { await vi.advanceTimersByTimeAsync(20_000); });
   expect(native.invoke).toHaveBeenCalledOnce(); expect(native.worker).not.toHaveBeenCalled();
@@ -68,18 +70,18 @@ it("does not refresh the age of cached source or Hamlib fields when a native pro
   expect(screen.getByRole("status").textContent).not.toContain("Observed current"); expect(value("PTT")).toBe("Unavailable");
 });
 
-it("keeps failed Dock/Close transitions open and uses only fixed native lifecycle routes", async () => {
-  render(<DetachedStationStatusSurface />);
+it("starts at station data in a responsive full-width task window without wrapper chrome", async () => {
+  const { container } = render(<DetachedStationStatusSurface />);
   await act(async () => { await vi.advanceTimersByTimeAsync(0); });
-  native.invoke.mockImplementation(async command => {
-    if (["dock_detached_window", "close_station_status_window"].includes(command)) throw new Error("Window unavailable");
-    return command === "station_status_snapshot" ? fixture() : undefined;
-  });
-  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Show Desk" })); });
-  expect(native.invoke).toHaveBeenCalledWith("show_station_status_desk");
-  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Dock back" })); });
-  expect(screen.getByRole("alert").textContent).toContain("Station Status remains open");
-  expect(screen.getByRole("button", { name: "Close Status" }).hasAttribute("disabled")).toBe(false);
-  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Close Status" })); });
-  expect(native.invoke).toHaveBeenCalledWith("close_station_status_window"); expect(native.worker).not.toHaveBeenCalled();
+  expect(container.firstElementChild?.classList.contains("detached-task-app")).toBe(true);
+  expect(screen.queryByRole("heading", { name: "Station Status" })).toBeNull();
+  expect(screen.queryByRole("button")).toBeNull();
+  expect(screen.queryByText(/independent of Desk|Radio selection, connection setup/)).toBeNull();
+  expect(screen.getByText("14.074000 MHz")).toBeTruthy();
+  expect(screen.getByText("Retained station safety")).toBeTruthy();
+  expect(taskStyles).toMatch(/\.app\.live\.detached-task-app\s*\{[^}]*display: flex/);
+  expect(taskStyles).toContain("min-width: 0");
+  expect(taskStyles).not.toContain("190px");
+  expect(native.invoke.mock.calls).toEqual([["station_status_snapshot"]]);
+  expect(native.worker).not.toHaveBeenCalled();
 });

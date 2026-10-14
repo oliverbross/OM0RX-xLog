@@ -6,6 +6,8 @@ import { AgentConnectionSetup } from "./AgentConnectionSetup";
 import type { StationSession } from "./stationSession";
 import { syntheticMonitorContext } from "./monitorContextFixtures";
 import type { MonitorContext } from "./monitorContext";
+import { readFileSync } from "node:fs";
+const detachedStyles = readFileSync("src/live/DetachedStationControlSurface.css", "utf8");
 const native = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn(), worker: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: native.invoke }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: native.listen }));
@@ -24,25 +26,29 @@ function setup(value = syntheticMonitorContext()) {
   const connect = (accept: typeof changed, reject: typeof failed) => { changed = accept; failed = reject; accept(value); return { refresh, dispose }; };
   return { ...render(<StationControlSurface connect={connect} />), refresh, dispose };
 }
-it("mounts and refreshes through retained native context only, without a worker request", async () => {
+it("mounts through retained native context only, without wrapper actions or a worker request", async () => {
   const view = render(<StationControlSurface />);
   await act(async () => {});
   expect(native.invoke).toHaveBeenCalledExactlyOnceWith("monitor_context_snapshot");
   expect(screen.getByText("Observed live")).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Refresh observations" }));
-  await act(async () => {});
   expect(native.invoke.mock.calls.every(([command]) => command === "monitor_context_snapshot")).toBe(true);
-  expect(native.invoke).toHaveBeenCalledTimes(2); expect(native.worker).not.toHaveBeenCalled();
+  expect(screen.queryByRole("button")).toBeNull();
+  expect(native.invoke).toHaveBeenCalledOnce(); expect(native.worker).not.toHaveBeenCalled();
   view.unmount();
 });
-it("renders retained station state with refresh and docking but no device controls", () => {
+it("renders retained station state in a full-width task shell without wrapper chrome", () => {
   const view = setup();
   expect(screen.getByRole("main", { name: "Detached Station Control" })).toBeTruthy();
   expect(screen.getByText("14.074000 MHz")).toBeTruthy();
   expect(screen.getByText("Observed live")).toBeTruthy();
-  expect(screen.getAllByRole("button")).toHaveLength(2);
-  fireEvent.click(screen.getByRole("button", { name: "Refresh observations" }));
-  expect(view.refresh).toHaveBeenCalledOnce();
+  expect(screen.queryByRole("button")).toBeNull();
+  expect(screen.queryByRole("heading", { name: "Station Control" })).toBeNull();
+  expect(view.container.firstElementChild?.classList.contains("detached-station-control-app")).toBe(true);
+  expect(detachedStyles).toMatch(/\.app\.live\.detached-station-control-app\s*\{[^}]*display: flex/);
+  expect(detachedStyles).toContain("grid-template-columns: minmax(0, 1fr)");
+  expect(detachedStyles).toContain("grid-template-columns: minmax(0, 3fr) minmax(0, 2fr)");
+  expect(detachedStyles).toContain("min-width: 0");
+  expect(detachedStyles).not.toMatch(/190px|200px/);
   expect(screen.queryByRole("textbox")).toBeNull();
   expect(screen.queryByRole("checkbox")).toBeNull();
   view.unmount(); expect(view.dispose).toHaveBeenCalledOnce();
@@ -73,41 +79,13 @@ it("explains absent native selection and never initializes or connects it", () =
   const value = syntheticMonitorContext(); value.selection = null; value.radio = { available: false, snapshot: null };
   setup(value);
   expect(screen.getByText(/No radio selected/)).toBeTruthy();
-  expect(screen.getByText(/Connection setup, radio selection and station actions/)).toBeTruthy();
-  expect(screen.getAllByRole("button")).toHaveLength(2);
+  expect(screen.queryByRole("button")).toBeNull();
 });
 it("labels isolated observations and remains passive even when actions are advertised", () => {
   const value = syntheticMonitorContext(); value.acceptance = { synthetic: true, source: "synthetic_memory", externalOwners: false, readOnly: true };
   setup(value);
   expect(screen.getByText("Synthetic isolated observation · read only")).toBeTruthy();
-  expect(screen.getAllByRole("button")).toHaveLength(2);
-});
-it("docks through the existing native helper and prevents duplicate pending requests", async () => {
-  let finish!: () => void;
-  native.invoke.mockImplementation(async command => {
-    if (command !== "dock_detached_window") throw new Error("Unexpected device request");
-    return new Promise<void>(resolve => { finish = resolve; });
-  });
-  setup();
-  const button = screen.getByRole("button", { name: "Dock back" });
-  fireEvent.click(button); fireEvent.click(button);
-  expect(native.invoke).toHaveBeenCalledExactlyOnceWith("dock_detached_window");
-  expect(screen.getByRole("button", { name: "Docking…" }).hasAttribute("disabled")).toBe(true);
-  await act(async () => finish());
-  expect(screen.getByRole("button", { name: "Dock back" }).hasAttribute("disabled")).toBe(false);
-  expect(native.worker).not.toHaveBeenCalled();
-});
-it("keeps dock failures visible across observation refresh and allows retry", async () => {
-  native.invoke.mockRejectedValueOnce(new Error("Native docking failed")).mockResolvedValueOnce(undefined);
-  const view = setup();
-  fireEvent.click(screen.getByRole("button", { name: "Dock back" })); await act(async () => {});
-  expect(screen.getByRole("alert").textContent).toContain("Could not dock Station Control");
-  fireEvent.click(screen.getByRole("button", { name: "Refresh observations" }));
-  act(() => changed(syntheticMonitorContext()));
-  expect(view.refresh).toHaveBeenCalledOnce();
-  expect(screen.getByRole("alert").textContent).toContain("This window remains open");
-  fireEvent.click(screen.getByRole("button", { name: "Dock back" })); await act(async () => {});
-  expect(native.invoke).toHaveBeenCalledTimes(2); expect(screen.queryByRole("alert")).toBeNull();
+  expect(screen.queryByRole("button")).toBeNull();
 });
 
 function sharedAgent(loseConnect = false, loseSelection = false, provider = "direct_agent") {
@@ -138,11 +116,15 @@ function sharedAgent(loseConnect = false, loseSelection = false, provider = "dir
     if (lost) throw new Error("Lost child acknowledgement");
     return structuredClone(state.last_receipt);
   });
-  return { actions, wake: () => subscribers.get("xlog:station-session")?.forEach(handler => handler()), state: () => state, observe: (next: MonitorContext) => { observation = next; } };
+  return { actions, wake: () => subscribers.get("xlog:station-session")?.forEach(handler => handler()), observeWake: () => subscribers.get("xlog:station-telemetry")?.forEach(handler => handler()), state: () => state, observe: (next: MonitorContext) => { observation = next; } };
 }
 it("independent child mounts passively and sends exact Agent lifecycle actions through the shared owner", async () => {
   const owner = sharedAgent(); render(<DetachedStationControlSurface />); await act(async () => {});
   expect(owner.actions).toHaveLength(0); expect(native.worker).not.toHaveBeenCalled();
+  expect(screen.queryByRole("button", { name: /Refresh observations|Dock back/ })).toBeNull();
+  expect(screen.queryByText(/independent of Desk|Saved Agent endpoint is shared|Saved Agent setup and connection tests/)).toBeNull();
+  expect(screen.getByLabelText("Shared radio provider")).toBeTruthy();
+  expect(screen.getByLabelText("Shared Agent token")).toBeTruthy();
   expect(native.invoke.mock.calls.every(([command]) => ["monitor_context_snapshot", "station_session_request"].includes(command))).toBe(true);
   const connect = screen.getByRole("button", { name: "Connect saved Agent" });
   fireEvent.click(connect); fireEvent.click(connect); await act(async () => {});
@@ -319,7 +301,7 @@ it("child sends only explicit exact receive frequency requests and waits for a n
   expect(owner.actions[0]).not.toHaveProperty("allow_transmit");
   expect(frequency.hasAttribute("disabled")).toBe(true);
   context.revision++; context.selection!.control_revision = 10; context.radio.received_at_ms++;
-  owner.observe(context); fireEvent.click(screen.getByRole("button", { name: "Refresh observations" })); await act(async () => {});
+  owner.observe(context); await act(async () => { owner.observeWake(); });
   fireEvent.change(screen.getByLabelText("Child receive frequency MHz"), { target: { value: "7.1" } });
   fireEvent.click(frequency); await act(async () => {});
   expect(owner.actions).toHaveLength(2); expect(owner.actions[1]).toMatchObject({ action: "receive_frequency", revision: 5, control_revision: 10, connection_generation: 13, frequency_hz: 7100000 });

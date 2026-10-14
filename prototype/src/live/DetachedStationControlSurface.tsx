@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { connectMonitorContext, monitorRadioFresh, monitorStation, type MonitorContext } from "./monitorContext";
-import { dockDetachedWorkspace } from "./DetachedClusterBridge";
 import { AgentConnectionSetup } from "./AgentConnectionSetup";
 import "./StationPanel.css";
+import "./DetachedStationControlSurface.css";
 
 type Connection = { refresh: () => void; dispose: () => void };
 type Props = { connect?: (changed: (value: MonitorContext) => void, failed: (message: string) => void) => Connection; configuration?: ReactNode | ((context: MonitorContext | null) => ReactNode) };
@@ -15,38 +15,24 @@ const providers = { direct_agent: "Remote Station Agent", direct_flex_lan: "Dire
 export function StationControlSurface({ connect = connectMonitorContext, configuration }: Props) {
   const [context, setContext] = useState<MonitorContext | null>(null);
   const [error, setError] = useState(""), [clock, setClock] = useState(Date.now());
-  const [docking, setDocking] = useState(false), [dockError, setDockError] = useState("");
-  const mounted = useRef(false), dockingRef = useRef(false);
-  const connection = useRef<Connection | null>(null);
   useEffect(() => {
     let active = true;
-    mounted.current = true;
     const retained = connect(next => { if (active) { setContext(next); setError(""); } }, message => { if (active) setError(message); });
-    connection.current = retained;
     const timer = window.setInterval(() => setClock(Date.now()), 1000);
-    return () => { active = false; mounted.current = false; retained.dispose(); connection.current = null; clearInterval(timer); };
+    return () => { active = false; retained.dispose(); clearInterval(timer); };
   }, [connect]);
-  const dockBack = async () => {
-    if (dockingRef.current) return;
-    dockingRef.current = true; setDocking(true); setDockError("");
-    try { await dockDetachedWorkspace(); }
-    catch { if (mounted.current) setDockError("Could not dock Station Control. This window remains open; try Dock back again."); }
-    finally { dockingRef.current = false; if (mounted.current) setDocking(false); }
-  };
   const fresh = !error && monitorRadioFresh(context, clock), station = monitorStation(context, clock);
   const provider = context?.selection?.provider, radio = station.radio, safety = station.station;
-  return <div className="app live"><main aria-label="Detached Station Control">
-    <section className="live-station" aria-label="Station observations">
-      <header className="live-station-head"><div><h2>Station Control</h2><p>{configuration && !context?.acceptance ? "Shared radio connections · independent of Desk" : "Passive station monitoring · independent of Desk"}</p></div>
-        <div className="live-station-head-actions"><button type="button" onClick={() => connection.current?.refresh()}>Refresh observations</button>
-          <button type="button" disabled={docking} onClick={() => void dockBack()}>{docking ? "Docking…" : "Dock back"}</button></div></header>
-      <p role="status">{configuration && !context?.acceptance ? "Radio selection and connections are shared. Direct FLEX receive VFO A frequency is available with fresh observations; other radio commands remain in Desk." : "Connection setup, radio selection and station actions currently require the main station controls."}</p>
-      {!context?.acceptance && (typeof configuration === "function" ? configuration(fresh ? context : null) : configuration)}
+  return <div className="app live detached-station-control-app"><main aria-label="Detached Station Control">
+    {!context?.acceptance && configuration && <section className="detached-station-setup" aria-label="Radio connections">
+      {typeof configuration === "function" ? configuration(fresh ? context : null) : configuration}
+    </section>}
+    <section className="live-station detached-station-observations" aria-label="Station observations">
+      <h2>Observed station state</h2>
       {error && <p className="live-station-error" role="alert">{error}</p>}
-      {dockError && <p className="live-station-error" role="alert">{dockError}</p>}
       {!context && <p role="status">Loading retained native station observations…</p>}
       {context?.acceptance && <p role="status">Synthetic isolated observation · read only</p>}
-      {context && !provider && <p role="status">No radio selected. Select and connect a radio in the main station controls.</p>}
+      {context && !provider && <p role="status">No radio selected. Select and connect a radio{configuration ? " above" : " in the main station controls"}.</p>}
       {provider && <><p>{providers[provider]} · <span role="status">{fresh ? "Observed live" : "Observation unavailable or stale · retained values"}</span></p>
         <div className="live-station-readback"><div><span>Observed receive</span><strong>{frequency(radio.receive_frequency_hz ?? radio.frequency_hz)}</strong><span>{value(radio.mode)}</span></div></div>
         <dl><dt>Transmit frequency</dt><dd>{frequency(radio.transmit_frequency_hz)}</dd>
@@ -67,5 +53,5 @@ export function StationControlSurface({ connect = connectMonitorContext, configu
   </main></div>;
 }
 export function DetachedStationControlSurface() {
-  return <StationControlSurface configuration={new URLSearchParams(location.search).get("acceptance") === "local" ? undefined : context => <AgentConnectionSetup connections providers followSelection receiveContext={context} />} />;
+  return <StationControlSurface configuration={new URLSearchParams(location.search).get("acceptance") === "local" ? undefined : context => <AgentConnectionSetup connections providers followSelection compact receiveContext={context} />} />;
 }

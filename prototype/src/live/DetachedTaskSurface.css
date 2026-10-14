@@ -1,0 +1,22 @@
+.app.live.detached-task-app { display: flex; flex-direction: column; width: 100%; height: 100dvh; min-height: 0; padding: 0; }
+.detached-task-app > main { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; width: 100%; padding: 16px; overflow: auto; }
+.detached-task-app main > section { width: 100%; min-width: 0; }
+.detached-task-app button, .detached-task-app select { max-width: 100%; white-space: normal; }
+.detached-task-app p { overflow-wrap: anywhere; }
+.detached-station-status-app .live-station { min-height: 0; overflow: visible; max-width: 1100px; }
+.detached-station-status-app dl { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px 16px; margin: 16px 0; }
+.detached-station-status-app dt { color: var(--secondary); }
+.detached-station-status-app dd { margin: 0; overflow-wrap: anywhere; }
+.detached-station-status-app .live-station-readback { padding: 16px; background: var(--panel); }
+.detached-station-status-app .live-station-readback strong { font-size: clamp(20px, 4vw, 38px); overflow-wrap: anywhere; }
+.detached-station-status-app .live-station-card { padding: 16px 0; border: 0; background: none; }
+.detached-cw-app .cw-desk { margin: 0; padding: 0; border: 0; }
+.detached-cw-app .cw-desk-row { flex-wrap: wrap; gap: 8px; }
+.detached-cw-app .cw-desk-row select { flex: 0 1 180px; }
+.detached-rotor-observation { display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; justify-items: center; gap: 16px; }
+.detached-rotor-app .rotor-dial { width: min(100%, 560px); max-width: 100%; height: auto; aspect-ratio: 1; }
+.detached-rotor-app .live-station-readback { padding: 0; border: 0; background: none; text-align: center; }
+.detached-rotor-app dl { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px 16px; margin: 0; max-width: 560px; width: 100%; }
+.detached-rotor-app dt { color: var(--secondary); }
+.detached-rotor-app dd { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 480px) { .detached-task-app > main { padding: 12px; } }

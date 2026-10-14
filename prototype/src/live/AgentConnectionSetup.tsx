@@ -18,8 +18,8 @@ const notice = (receipt: StationReceipt) => receipt.request.action === "select"
   : "Connection outcome is unknown. Check observed station state before issuing another connection request.";
 
 /** Desk and child share one native radio setup, lifecycle and receipt owner. */
-export function AgentConnectionSetup({ connections = false, legacyEndpoint = "", providers = false, onlySelection = false, selectionTarget, hamlib: hamlibSetup = false, flex: flexSetup = false, followSelection = false, receiveContext }: {
-  connections?: boolean; legacyEndpoint?: string; providers?: boolean; onlySelection?: boolean; selectionTarget?: StationProvider; hamlib?: boolean; flex?: boolean; followSelection?: boolean; receiveContext?: MonitorContext | null;
+export function AgentConnectionSetup({ connections = false, legacyEndpoint = "", providers = false, onlySelection = false, selectionTarget, hamlib: hamlibSetup = false, flex: flexSetup = false, followSelection = false, compact = false, receiveContext }: {
+  connections?: boolean; legacyEndpoint?: string; providers?: boolean; onlySelection?: boolean; selectionTarget?: StationProvider; hamlib?: boolean; flex?: boolean; followSelection?: boolean; compact?: boolean; receiveContext?: MonitorContext | null;
 }) {
   const [state, setState] = useState<StationSession | null>(null), [url, setURL] = useState("");
   const hamlib = hamlibSetup || followSelection && state?.selection.provider === "hamlib";
@@ -126,14 +126,14 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
   const updateConfig = (next: HamlibConfiguration) => { dirty.current = true; setConfig(next); };
   return <div className="live-station-connect" aria-label={onlySelection ? "Shared radio selection" : flex ? "Shared FLEX connection setup" : hamlib ? "Shared Hamlib connection setup" : "Shared Agent connection setup"}>
     {providers && <div>
-      <p>Selected radio: {state?.selection.provider ? providerLabels[state.selection.provider as StationProvider] : "Unavailable"}. Applying a different provider retires the previous radio. Connect the selected radio explicitly.</p>
+      <p>Selected radio: {state?.selection.provider ? providerLabels[state.selection.provider as StationProvider] : "Unavailable"}{compact ? "" : ". Applying a different provider retires the previous radio. Connect the selected radio explicitly."}</p>
       {selectionTarget ? <p>Requested radio: {providerLabels[selectionTarget]}</p> : <label>Radio provider<select aria-label="Shared radio provider" value={target} disabled={!state || busy || !!pending} onChange={event => setProviderTarget(event.target.value as StationProvider)}>
         {(Object.keys(providerLabels) as StationProvider[]).map(provider => <option key={provider} value={provider}>{providerLabels[provider]}</option>)}
       </select></label>}
       <button type="button" disabled={!state?.selection.selection_id || state.selection.provider === target || busy || !!pending || !!error}
         onClick={() => void execute("select")}>Apply shared radio selection</button>
     </div>}
-    {flex && <><h3>Shared Direct FLEX LAN connection</h3><p>Save a private numeric radio IP, TCP port and station name for Desk and Station Control. Saving does not contact a radio. Request transmit permission separately for each connection.</p>
+    {flex && <><h3>{compact ? "Direct FLEX LAN connection" : "Shared Direct FLEX LAN connection"}</h3>{!compact && <p>Save a private numeric radio IP, TCP port and station name for Desk and Station Control. Saving does not contact a radio. Request transmit permission separately for each connection.</p>}
       <fieldset disabled={!state || busy}>
         <label>Private radio IP address<input aria-label="Shared FLEX private IP" value={flexConfig.host} autoComplete="off" placeholder="192.168.1.50" onChange={event => { dirty.current = true; setFlexConfig({ ...flexConfig, host: event.target.value }); }} /></label>
         <label>TCP port<input aria-label="Shared FLEX TCP port" type="number" min="1" max="65535" value={flexConfig.port} onChange={event => { dirty.current = true; setFlexConfig({ ...flexConfig, port: Number(event.target.value) }); }} /></label>
@@ -147,15 +147,15 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
       <div className="live-station-actionrow"><button type="button" disabled={!selected || !state?.flex || dirty.current || conflict || busy || !!pending} onClick={() => void execute("connect")}>Connect saved FLEX radio</button>
         <button type="button" disabled={!selected || !state?.flex || dirty.current || conflict || busy || !!pending} onClick={() => void execute("reconnect")}>Reconnect saved FLEX radio</button>
         <button type="button" disabled={!selected || busy || !!pending} onClick={() => void execute("disconnect")}>Disconnect FLEX radio</button></div>
-      <p>Reconnect replaces the connection with saved setup and the current transmit opt-in. No previous radio commands are replayed.</p>
+      {!compact && <p>Reconnect replaces the connection with saved setup and the current transmit opt-in. No previous radio commands are replayed.</p>}
       {receiveContext !== undefined && <section aria-label="Direct FLEX receive controls"><h3>Receive VFO A</h3>
-        <p>Frequency control requires a fresh observed receive state on VFO A. A request acknowledgement does not confirm the new radio state.</p>
+        {!compact && <p>Frequency control requires a fresh observed receive state on VFO A. A request acknowledgement does not confirm the new radio state.</p>}
         <label>Receive frequency MHz<input aria-label="Child receive frequency MHz" inputMode="decimal" value={receiveMHz} onChange={event => setReceiveMHz(event.target.value)} /></label>
         <button type="button" disabled={!receiveReady() || busy || !!pending || receiveHz < 100_000 || receiveHz > 1_000_000_000} onClick={() => void execute("receive_frequency")}>Set receive VFO A frequency</button>
       </section>}
       {!selected && <p>Select Direct FLEX LAN before connecting.</p>}
     </>}
-    {hamlib && !flex && <><h3>Shared Hamlib radio connection</h3><p>Save configuration for Desk and Station Control, then connect explicitly. Saving does not contact a device. Request transmit permission separately for each connection.</p>
+    {hamlib && !flex && <><h3>{compact ? "Hamlib radio connection" : "Shared Hamlib radio connection"}</h3>{!compact && <p>Save configuration for Desk and Station Control, then connect explicitly. Saving does not contact a device. Request transmit permission separately for each connection.</p>}
       <fieldset disabled={!state || busy}><label>Hamlib connection<select aria-label="Shared Hamlib connection" value={config.mode} onChange={event => updateConfig(event.target.value === "external" ? { mode: "external", host: "127.0.0.1", port: 4532 } : { mode: "managed", path: "", baud: 9600 })}><option value="managed">Built-in Hamlib</option><option value="external">Existing local Hamlib daemon</option></select></label>
       {config.mode === "managed" ? <><SharedHamlibModelBrowser selected={config.model} onSelect={id => updateConfig({ ...config, model: id })} />
         <label>Hamlib model ID (manual entry)<input aria-label="Shared Hamlib model ID" type="number" min="1" value={config.model ?? ""} onChange={event => updateConfig({ ...config, model: Number(event.target.value) })} /></label>
@@ -177,7 +177,7 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
         <button type="button" disabled={!selected || busy || !!pending} onClick={() => void execute("disconnect")}>Disconnect Hamlib radio</button></div>
       {!selected && <p>Select Local Hamlib before connecting.</p>}
     </>}
-    {!onlySelection && !hamlib && !flex && <><p>Saved Agent endpoint is shared across windows. Saving it does not connect a radio.</p>
+    {!onlySelection && !hamlib && !flex && <>{!compact && <p>Saved Agent endpoint is shared across windows. Saving it does not connect a radio.</p>}
     <label>Agent HTTPS URL<input aria-label="Shared Agent HTTPS URL" type="url" value={url} disabled={!state || busy}
       placeholder="https://station.example:8443" onChange={event => { dirty.current = true; setLegacyHint(false); setURL(event.target.value); }} /></label>
     <div className="live-station-actionrow"><button type="button" disabled={!state || busy || !!pending || conflict} onClick={() => void execute("save")}>{legacyHint ? "Import previous Agent endpoint" : "Save Agent endpoint"}</button>
@@ -187,7 +187,7 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
     {conflict && <p role="alert">Agent setup changed in another window. Your text is retained; reload saved endpoint to review the current setup.</p>}
     </>}
     {connections && !hamlib && !flex && <>
-      <p>Saved Agent setup and connection tests do not confirm the running station session. Check the live station status for current radio observations; an interrupted session retries automatically.</p>
+      {!compact && <p>Saved Agent setup and connection tests do not confirm the running station session. Check the live station status for current radio observations; an interrupted session retries automatically.</p>}
       <label>Agent token<input aria-label="Shared Agent token" type="password" autoComplete="off" value={token} onChange={event => setToken(event.target.value)} /></label>
       <label><input type="checkbox" checked={agentTransmit} onChange={event => setAgentTransmit(event.target.checked)} /> Allow CAT transmit controls for this connection</label>
       <div className="live-station-actionrow"><button type="button" disabled={!selected || !state?.base_url || dirty.current || conflict || busy || !!pending} onClick={() => void execute("connect")}>Connect saved Agent</button>

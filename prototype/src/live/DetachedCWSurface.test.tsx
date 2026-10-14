@@ -3,6 +3,8 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { DetachedCWSurface } from "./DetachedCWSurface";
 import { defaultCWProfile } from "./cwMacros";
+import { readFileSync } from "node:fs";
+const taskStyles = readFileSync("src/live/DetachedTaskSurface.css", "utf8");
 
 const native = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn(), dispose: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: native.invoke, isTauri: () => true }));
@@ -49,7 +51,7 @@ it("mounts passively and sends only a saved macro ID through the shared owner af
 });
 const profileMacroID = () => defaultCWProfile.macros[0].id;
 
-it("uses native protected Close/Dock, keeps failed transitions open and recovers controls", async () => {
+it("uses native protected titlebar close, keeps failed transitions open and recovers controls", async () => {
   render(<DetachedCWSurface />);
   await waitFor(() => expect(native.listen).toHaveBeenCalledOnce());
   const original = native.invoke.getMockImplementation()!;
@@ -59,17 +61,24 @@ it("uses native protected Close/Dock, keeps failed transitions open and recovers
   });
   await act(async () => { closeRequested(); });
   expect(screen.getByRole("alert").textContent).toContain("CW remains open. Stop unconfirmed");
-  expect(screen.getByRole("button", { name: "Close CW" }).hasAttribute("disabled")).toBe(false);
-  fireEvent.click(screen.getByRole("button", { name: "Dock back" }));
-  await waitFor(() => expect(native.invoke).toHaveBeenCalledWith("dock_detached_window"));
-  await waitFor(() => expect(screen.getByRole("button", { name: "Dock back" }).hasAttribute("disabled")).toBe(false));
+  expect(screen.getByRole("button", { name: "Arm CW" }).hasAttribute("disabled")).toBe(false);
+  await act(async () => { closeRequested(); });
+  expect(native.invoke.mock.calls.filter(([command]) => command === "close_cw_window")).toHaveLength(2);
   expect(actions().every(action => action === "snapshot")).toBe(true);
 });
 
-it("routes Show Desk through a fixed native recreation route and unregisters on unmount", async () => {
-  const { unmount } = render(<DetachedCWSurface />);
+it("starts at functional controls in a responsive full-width task window and unregisters on unmount", async () => {
+  const { unmount, container } = render(<DetachedCWSurface />);
   await waitFor(() => expect(native.listen).toHaveBeenCalledOnce());
-  fireEvent.click(screen.getByRole("button", { name: "Show Desk" }));
-  await waitFor(() => expect(native.invoke).toHaveBeenCalledWith("show_cw_desk"));
+  expect(container.firstElementChild?.classList.contains("detached-task-app")).toBe(true);
+  expect(screen.queryByRole("heading")).toBeNull();
+  expect(screen.queryByText(/Shared saved macros|Arm explicitly in the focused/)).toBeNull();
+  expect(screen.queryByRole("button", { name: /Show Desk|Dock back|Close CW/ })).toBeNull();
+  expect(screen.getByRole("button", { name: "Arm CW" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Stop" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: /^CQ/ })).toBeTruthy();
+  expect(taskStyles).toMatch(/\.app\.live\.detached-task-app\s*\{[^}]*display: flex/);
+  expect(taskStyles).toContain("flex-wrap: wrap");
+  expect(taskStyles).not.toContain("190px");
   unmount(); expect(actions().at(-1)).toBe("unregister"); expect(native.dispose).toHaveBeenCalledOnce();
 });
