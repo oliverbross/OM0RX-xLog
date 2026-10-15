@@ -48,6 +48,7 @@ import Testing
             "sftp://user@backup.example", "sftp://user:secret@backup.example",
             "sftp://backup.example/path", "sftp://backup.example/%2F", "sftp://backup.example?q=x",
             "sftp://backup.example?", "sftp://backup.example#fragment", "sftp://backup.example#",
+            "sftp://backup.example:", "sftp://backup.example:/", "sftp://[::1]:",
             "sftp://backup.example:0", "sftp://backup.example:65536", "sftp://backup.example:abc",
             "sftp://back up.example", "sftp://backup.example\n"] {
             #expect(throws: (any Error).self) { try configuration(endpoint: endpoint) }

@@ -54,6 +54,7 @@ public struct SFTPBackupConfiguration: Equatable, Sendable {
               endpoint.utf8.count <= 4_096,
               !endpoint.unicodeScalars.contains(where: { CharacterSet.whitespacesAndNewlines.contains($0)
                   || CharacterSet.controlCharacters.contains($0) }),
+              !Self.hasExplicitEmptyPort(endpoint),
               var parts = URLComponents(string: endpoint), parts.scheme == "sftp",
               let host = parts.host, !host.isEmpty,
               host.utf8.allSatisfy({ $0 > 32 && $0 < 127 && $0 != 37 }),
@@ -93,6 +94,12 @@ public struct SFTPBackupConfiguration: Equatable, Sendable {
     fileprivate static func validText(_ value: String, maximum: Int) -> Bool {
         !value.isEmpty && value.utf8.count <= maximum
             && value.unicodeScalars.allSatisfy { !CharacterSet.controlCharacters.contains($0) }
+    }
+
+    private static func hasExplicitEmptyPort(_ endpoint: String) -> Bool {
+        guard endpoint.hasPrefix("sftp://") else { return false }
+        let authority = endpoint.dropFirst("sftp://".count).prefix { !"/?#".contains($0) }
+        return authority.last == ":"
     }
 }
 
