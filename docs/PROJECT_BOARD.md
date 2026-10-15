@@ -25,6 +25,17 @@ passes 92/92. Synthetic responsive QA covers nine task surfaces at 360×640 and
 close the explicitly listed Agent, installed-live, multi-display or hardware
 acceptance boundaries.
 
+A post-Hamlib three-pass review then confirmed nine additional defects in eight
+correctness, data-safety, station-safety and window-lifecycle areas. Exact
+source `c7beb576779351da269812dd65a60963ea7374ed` closes all eight with focused
+regressions. The current full gates pass **2,399/2,399 frontend**, **445 Rust
+unit + 21 integration**, **396 portable Swift tests in 52 suites**, **195
+native Swift tests in 26 suites**, TypeScript and the production bundle build.
+The exact-source uninstalled Mac candidate passes strict deep signing and
+isolated **33/33** integrated-local-UI acceptance with `station_io: false`.
+This does not change the installed alpha.29 baseline or close the Agent,
+hardware, RF, live-provider, multi-display or Windows/Linux package boundaries.
+
 This is the operator-facing project overview. Keep it current after every material
 implementation, validation, installation or acceptance change. Detailed evidence
 and historical wording remain in the

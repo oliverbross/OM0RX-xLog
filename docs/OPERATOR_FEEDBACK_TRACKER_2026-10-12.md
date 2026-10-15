@@ -42,6 +42,24 @@ packaged UI result. Keep unresolved items here across releases.
   observation remain open. See
   [live propagation evidence](LIVE_PROPAGATION_ACCEPTANCE_2026-10-15.md).
 
+- **Post-Hamlib full review remediated — source verified, 15 October:** Three
+  independent passes confirmed nine defects in eight correctness, data-safety,
+  station-safety and native-window lifecycle areas. Exact source
+  `c7beb576779351da269812dd65a60963ea7374ed` fixes shutdown release budgeting,
+  restore destination/online-log isolation, remote-deletion identity handling,
+  per-candidate provider revocation, credential ownership fencing, stale Agent
+  revisions, hostile numeric telemetry, stale FLEX callbacks and Settings/main
+  recovery visibility. Full **2,399 frontend**, **445 Rust unit + 21
+  integration**, **396 portable Swift** and **195 native Swift** checks plus
+  TypeScript and production build pass. The uninstalled exact-source Mac
+  candidate passes strict deep-signature verification and isolated **33/33**
+  integrated-local-UI acceptance with `station_io: false`; host SHA-256 is
+  `2528e163727cbec5e4023f77312325838962e8652c95e4125c5364976fcf4a2f` and
+  worker SHA-256 is
+  `68279e1c7aeaf963d012ef6da66f4ef4d6355d969fc80d9af6e2378748153e4a`.
+  The Agent remained off; no station, hardware, RF or operator-data action
+  occurred, and the candidate was not installed.
+
 - **Journaled exact Hamlib receive frequency and mode — packaged isolated, 15 October:** Exact source `5a847a7` adds narrow receive-only VFO-A controls to Desk and independent Station Control. UI and native admission both require fresh raw Hamlib VFO/PTT evidence proving VFO A and PTT off plus exact setup, selection, control and connection generations. One rigctld session lock covers prechecks, one target write and exact frequency-or-mode/VFO/PTT readback; the code never selects a VFO or changes split implicitly. Unknown replies never replay, and DIGU/DIGL map explicitly to PKTUSB/PKTLSB. Full **2,399 frontend** and **466 Rust** checks pass; the exact uninstalled Mac package passes strict signing and isolated **33/33** acceptance with `station_io: false`. Installed physical Hamlib acceptance remains open. See [package acceptance](HAMLIB_EXACT_RECEIVE_CONTROL_SOURCE_ACCEPTANCE_2026-10-15.md).
 
 - **Journaled exact Direct FLEX receive frequency — source verified, 14 October:** Exact source `568ffb0` is committed. Independent Station Control can set Direct FLEX VFO A receive frequency only when retained evidence is under five seconds old, explicitly RX/PTT-off on VFO A, advertises the capability and matches exact setup, selection, selection-control and connection generations. Admission is durable before dispatch; unknown replies never replay and the same observed sample cannot issue twice. **53 frontend**, **4 receive-native**, **77 station-owner** and **9 monitor-context** focused checks plus TypeScript/diff checks pass. Agent/Hamlib receive controls stay hidden. No hardware, RF, service or operator-data action occurred.

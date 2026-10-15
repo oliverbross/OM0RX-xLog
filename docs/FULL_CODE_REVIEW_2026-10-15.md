@@ -45,6 +45,38 @@ back into view during a background draft save.
 No additional product-code patch was necessary during this final pass: each
 reported issue was already present in current source with a focused regression.
 
+## Post-Hamlib review supplement
+
+After the exact Hamlib receive-control work, three independent review passes
+rechecked the complete branch for correctness, data safety, station safety and
+native-window/runtime behavior. They confirmed nine concrete defects grouped
+into eight remediation areas. Exact source
+`c7beb576779351da269812dd65a60963ea7374ed` closes all eight areas and adds
+focused regressions:
+
+1. terminal shutdown reserves most of the host grace period for actual CW,
+   Tune and PTT release instead of spending it on ordinary command retries;
+2. keep-settings restore cannot combine one Wavelog destination's local IDs
+   with another destination's settings, and every restore disables prior
+   QRZ/Club Log delivery enrollment and queued candidates;
+3. keeping local or merged content after a remote deletion detaches the
+   vanished Wavelog identity before future synchronization;
+4. automatic online-log delivery rechecks enrollment and candidate ownership
+   before every cached dispatch, while every QRZ and Club Log credential change
+   fences the delivery owner;
+5. older Remote Agent revisions cannot overwrite newer authoritative stream
+   state;
+6. oversized legacy frequency and RF-drive telemetry is rejected rather than
+   reaching trapping integer conversions;
+7. delayed Direct FLEX send callbacks are fenced by connection generation and
+   cannot fail a new connection's reused sequence number; and
+8. main and detached Settings have separate recovery journals, while Separate
+   Windows mode keeps the main recovery surface visible whenever unresolved
+   layout state needs operator action.
+
+The review and all regressions were source/package-local. The Windows Remote
+Station Agent remained off and no station or RF action was issued.
+
 ## Verification
 
 - Portable Swift review set: **66 XCTest + 26 Swift Testing = 92 passed**. This
@@ -56,6 +88,18 @@ reported issue was already present in current source with a focused regression.
 - Complete React suite: **2,394 passed in 160 files**.
 - Rust/Tauri suite: **460 passed**.
 - TypeScript/Vite production build and detached-window bundle check: passed.
+- Post-Hamlib current-source rerun: **2,399/2,399 React tests in 160 files**,
+  **445 Rust unit + 21 Rust integration**, **396 portable Swift tests in 52
+  suites**, **195 native Swift tests in 26 suites**, TypeScript and the
+  production bundle build all pass.
+- The uninstalled macOS candidate built from exact source
+  `c7beb576779351da269812dd65a60963ea7374ed` passes strict deep-signature
+  verification and isolated **33/33** integrated-local-UI acceptance with
+  `station_io: false`. The arm64 host SHA-256 is
+  `2528e163727cbec5e4023f77312325838962e8652c95e4125c5364976fcf4a2f`; the
+  universal x86_64/arm64 worker SHA-256 is
+  `68279e1c7aeaf963d012ef6da66f4ef4d6355d969fc80d9af6e2378748153e4a`.
+  The acceptance process exited cleanly and the candidate was not installed.
 - Responsive browser QA: nine representative task surfaces at **360×640** and
   **1280×800** had document width equal to viewport width and zero controls
   escaping horizontally. The real Desk-component geometry fixture passed all
