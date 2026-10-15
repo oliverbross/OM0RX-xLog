@@ -363,10 +363,15 @@ async function measureLargeNavigation(report: Json, check: (name: string, condit
   check("large_navigation_ready", Object.values(samples).every(values => values.length === 5 && values.every(value => Number.isFinite(value) && value >= 0)));
 }
 
-let started = false;
 export async function startIntegratedAcceptance() {
-  if (started || !await invoke<boolean>("acceptance_enabled")) return;
-  started = true;
+  const root = document.documentElement;
+  if (root.dataset.integratedAcceptance) return;
+  root.dataset.integratedAcceptance = "checking";
+  if (!await invoke<boolean>("acceptance_enabled")) {
+    delete root.dataset.integratedAcceptance;
+    return;
+  }
+  root.dataset.integratedAcceptance = "active";
   const surface = new URLSearchParams(location.search).get("view");
   const report: Json = { schema: 1, scope: "integrated-local-ui", status: "failed", embeddedUi: false, worker: false, checks: {}, details: { surface: surface || "main" } };
   if (!surface) report.details.mainInstanceID = crypto.randomUUID();
