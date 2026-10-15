@@ -128,6 +128,8 @@ export default function ServiceSettings({ values, savedValues, request, onChange
   useEffect(() => { if (requestedTab && visibleTabs.includes(requestedTab)) setTab(requestedTab); }, [requestedTab, requestedTabRevision, visibleTabs]);
   useEffect(() => { if (!visibleTabs.includes(tab)) setTab(visibleTabs[0] ?? "Station"); }, [tab, visibleTabs]);
   const form = values;
+  const ftpBackup = { protocol: "disabled", endpoint: "", directory: "/OM0RX-xLog", username: "", plainFTPConfirmed: false,
+    ...(form.ftpBackup ?? {}) };
   const [message, setMessage] = useState("");
   const [onlineLogRevision, setOnlineLogRevision] = useState(0);
   const blocked = pending || conflict || workspaceChanged;
@@ -135,6 +137,7 @@ export default function ServiceSettings({ values, savedValues, request, onChange
     const next = { ...form, ...change };
     onChanged(next);
   };
+  const updateFTPBackup = (change: Partial<Data>) => update({ ftpBackup: { ...ftpBackup, ...change } });
   const field = (key: string, label: string, type = "text") => <label key={key}>{label}<input aria-label={label} type={type} value={form[key] ?? ""}
     min={key === "wavelogStationID" ? 1 : undefined} step={key === "wavelogStationID" ? 1 : undefined}
     onChange={event => update({ [key]: event.target.value })} /></label>;
@@ -195,6 +198,29 @@ export default function ServiceSettings({ values, savedValues, request, onChange
         <OnlineLogUploadControl request={request} visible={tab === "Online logs"} refreshRevision={onlineLogRevision} service="club_log" provider="Club Log" /></section>
       <section hidden={tab !== "Reference data"}><h2>Club Log reference data</h2><p>The API key authorizes CTY downloads and can also support the separately enrolled real-time uploader. Saving it here never enables uploads; removing it disables Club Log uploads and cancels their pending queue.</p><Credential account="clublog-api-key" label="Club Log API key" request={request} leadingField={field("clubLogCTYURL", "Club Log CTY URL", "url")} visible={tab === "Reference data"} showSavedStatus allowRemove savedStatus="Saved securely for Club Log services." missingStatus="No saved Club Log API key." onChanged={() => setOnlineLogRevision(value => value + 1)} /></section>
       <section hidden={tab !== "Reference data"}><h2>LoTW activity reference</h2><p>This public reference feed does not require your LoTW password.</p><div className="service-fields">{field("lotwActivityURL", "LoTW activity URL", "url")}</div></section>
+      <section hidden={tab !== "Backups"}><h2>FTP / FTPS remote backup</h2>
+        <p>Optional remote backup uses plain FTP only with explicit insecure consent, or implicit FTPS with certificate and hostname validation. SFTP is not available until a separately host-key-pinned transport is implemented.</p>
+        <div className="service-fields">
+          <label>Remote backup protocol<select aria-label="Remote backup protocol" value={ftpBackup.protocol}
+            onChange={event => updateFTPBackup({ protocol: event.target.value,
+              plainFTPConfirmed: event.target.value === "ftp" ? ftpBackup.plainFTPConfirmed : false })}>
+            <option value="disabled">Disabled</option><option value="ftps">Implicit FTPS</option><option value="ftp">Plain FTP</option>
+          </select></label>
+          <label>FTP server endpoint<input aria-label="FTP server endpoint" type="url" value={ftpBackup.endpoint} maxLength={2048}
+            placeholder={ftpBackup.protocol === "ftps" ? "ftps://backup.example.net:990" : "ftp://backup.example.net:21"}
+            onChange={event => updateFTPBackup({ endpoint: event.target.value })} /></label>
+          <label>Remote directory<input aria-label="Remote directory" value={ftpBackup.directory} maxLength={4096}
+            onChange={event => updateFTPBackup({ directory: event.target.value })} /></label>
+          <label>FTP username<input aria-label="FTP username" autoComplete="off" value={ftpBackup.username} maxLength={512}
+            onChange={event => updateFTPBackup({ username: event.target.value })} /></label>
+        </div>
+        {ftpBackup.protocol === "ftp" && <label className="service-enable"><input type="checkbox" checked={ftpBackup.plainFTPConfirmed === true}
+          onChange={event => updateFTPBackup({ plainFTPConfirmed: event.target.checked })} />I understand plain FTP sends the username, password and backup without encryption.</label>}
+        <Credential account="ftp-backup-password" label="FTP / FTPS password" request={request} visible={tab === "Backups"}
+          showSavedStatus allowRemove savedStatus="Saved securely. It has not been sent to the server."
+          missingStatus="No saved FTP / FTPS password." />
+        <div className="live-actions"><button type="submit" className="primary">{saving ? "Saving settings…" : "Save backup settings"}</button><span role="status">{tab === "Backups" ? message : ""}</span></div>
+      </section>
       <div className="live-actions" hidden={tab === "Backups" || tab === "Display" || tab === "Rotator" || tab === "Workspace" || tab === "Sync" || tab === "Integrations" || tab === "Online logs"}><button type="submit" className="primary">{saving ? "Saving settings…" : "Save settings"}</button><span role="status">{message}</span></div>
     </fieldset></form>
     {(visibleTabs.includes("Reference data") || visibleTabs.includes("Backups")) && <div hidden={tab !== "Reference data" && tab !== "Backups"}>{dataRequest ? <DataManagementPanel onRequest={dataRequest} onChanged={onDataChanged ?? (() => {})} visible={tab === "Reference data" || tab === "Backups"} section={tab === "Backups" ? "backups" : "references"} sourceSettings={savedValues ?? form} /> : <p>Reference and backup tools are unavailable in this view.</p>}</div>}

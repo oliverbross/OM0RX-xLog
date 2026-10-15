@@ -130,7 +130,7 @@ actor LiveServiceMethods {
             var values: [String: Any] = [:]
             for account in [WorkspaceCredentialStore.Account.wavelogToken, .qrzPassword,
                             .qrzLogbookKey, .clubLogAPIKey, .clubLogEmail,
-                            .clubLogApplicationPassword, .clubLogCallsign] {
+                            .clubLogApplicationPassword, .clubLogCallsign, .ftpBackupPassword] {
                 values[account.rawValue] = !(try secrets.load(account) ?? "").isEmpty
             }
             return values

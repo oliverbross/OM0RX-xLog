@@ -203,13 +203,37 @@ describe("grouped service settings", () => {
     expect((screen.getByLabelText("QRZ password") as HTMLInputElement).value).toBe("typed-test-password");
     fireEvent.click(screen.getByRole("tab", { name: "Station" }));
     expect((screen.getByLabelText("Station call") as HTMLInputElement).value).toBe("M7KOD");
-    expect(request).toHaveBeenCalledTimes(1);
+    expect(request).toHaveBeenCalledTimes(2);
     expect(request).toHaveBeenCalledWith("secret_status");
     expect(request.mock.calls.filter(([method]) => method === "online_log_status")).toHaveLength(0);
     fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
     await waitFor(() => expect(save).toHaveBeenCalledWith({ ...values, stationCall: "M7KOD", wavelogURL: "https://new.example.invalid/" }));
     expect(JSON.stringify(request.mock.calls)).not.toContain("typed-test-token");
     expect(JSON.stringify(request.mock.calls)).not.toContain("typed-test-password");
+  });
+  it("saves an implicit-FTPS destination and password through separate settings and Keychain paths", async () => {
+    const request = vi.fn(async (method: string) => method === "secret_status"
+      ? { "ftp-backup-password": false } : { saved: true });
+    const save = vi.fn(async () => {});
+    render(<SettingsHarness values={values} request={request} onSave={save} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Backups" }));
+    fireEvent.change(screen.getByLabelText("Remote backup protocol"), { target: { value: "ftps" } });
+    fireEvent.change(screen.getByLabelText("FTP server endpoint"), { target: { value: "ftps://backup.example.test:990" } });
+    fireEvent.change(screen.getByLabelText("Remote directory"), { target: { value: "/xlog" } });
+    fireEvent.change(screen.getByLabelText("FTP username"), { target: { value: "operator" } });
+    const password = screen.getByLabelText("FTP / FTPS password") as HTMLInputElement;
+    fireEvent.change(password, { target: { value: "test-password" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save FTP / FTPS password" }));
+    await screen.findByText("FTP / FTPS password saved securely.");
+    expect(request).toHaveBeenCalledWith("secret_save", {
+      account: "ftp-backup-password", value: "test-password",
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save backup settings" }));
+    await waitFor(() => expect(save).toHaveBeenCalledWith({ ...values, ftpBackup: {
+      protocol: "ftps", endpoint: "ftps://backup.example.test:990", directory: "/xlog",
+      username: "operator", plainFTPConfirmed: false,
+    } }));
+    expect(JSON.stringify(save.mock.calls)).not.toContain("test-password");
   });
   it("switches tabs with arrow keys and keeps reference/backup tools mounted without duplicate reads", async () => {
     const request = vi.fn(async () => ({}));
@@ -228,7 +252,7 @@ describe("grouped service settings", () => {
     expect(screen.queryByRole("table", { name: "Reference dataset evidence" })).toBeNull();
     expect(dataRequest).toHaveBeenCalledTimes(3);
     expect(dataRequest).toHaveBeenCalledWith("remote_backup_request", { action: "snapshot" });
-    expect(request).toHaveBeenCalledTimes(2);
+    expect(request).toHaveBeenCalledTimes(3);
     expect(request).toHaveBeenCalledWith("secret_status");
   });
 

@@ -13,6 +13,7 @@ struct WorkspaceCredentialStore {
         case clubLogEmail = "clublog-email"
         case clubLogApplicationPassword = "clublog-application-password"
         case clubLogCallsign = "clublog-callsign"
+        case ftpBackupPassword = "ftp-backup-password"
     }
     let service: String
     func load(_ account: Account) throws -> String? {

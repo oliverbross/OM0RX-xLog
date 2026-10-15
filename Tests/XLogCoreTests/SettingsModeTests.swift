@@ -9,6 +9,7 @@ struct SettingsModeTests {
         #expect(XLogSettings.defaults.logbookMode == .local)
         #expect(IntegrationWorkspace.safeSettings().logbookMode == .local)
         #expect(IntegrationWorkspace.safeSettings().automaticSync == false)
+        #expect(XLogSettings.defaults.ftpBackup.protocol == .disabled)
     }
 
     @Test("Existing settings without a mode retain Wavelog behavior and round-trip explicitly")
@@ -18,6 +19,7 @@ struct SettingsModeTests {
         defer { defaults.removePersistentDomain(forName: suite) }
         var object = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(XLogSettings.defaults)) as? [String: Any])
         object.removeValue(forKey: "logbookMode")
+        object.removeValue(forKey: "ftpBackup")
         object["wavelogStationID"] = 42
         object["stationCall"] = "TEST1"
         defaults.set(try JSONSerialization.data(withJSONObject: object), forKey: "OM0RX-xLog.settings.v1")
@@ -26,6 +28,7 @@ struct SettingsModeTests {
         #expect(migrated.logbookMode == .wavelog)
         #expect(migrated.wavelogStationID == 42)
         #expect(migrated.stationCall == "TEST1")
+        #expect(migrated.ftpBackup.protocol == .disabled)
         store.save(migrated)
         let saved = try #require(defaults.data(forKey: "OM0RX-xLog.settings.v1"))
         #expect(try JSONDecoder().decode(XLogSettings.self, from: saved).logbookMode == .wavelog)
@@ -38,5 +41,26 @@ struct SettingsModeTests {
         object["logbookMode"] = "automatic"
         let data = try JSONSerialization.data(withJSONObject: object)
         #expect(throws: DecodingError.self) { try JSONDecoder().decode(XLogSettings.self, from: data) }
+    }
+
+    @Test("FTP settings require exact scheme and explicit plain-text consent")
+    func ftpValidation() throws {
+        var settings = XLogSettings.defaults
+        settings.ftpBackup.protocol = .ftp
+        settings.ftpBackup.endpoint = "ftp://backup.example.test:21"
+        settings.ftpBackup.directory = "/xlog"
+        settings.ftpBackup.username = "operator"
+        #expect(throws: IntegrationSettingsError.self) {
+            try IntegrationSettingsSnapshot(revision: 1, settings: settings).validate()
+        }
+        settings.ftpBackup.plainFTPConfirmed = true
+        try IntegrationSettingsSnapshot(revision: 1, settings: settings).validate()
+        settings.ftpBackup.protocol = .ftps
+        settings.ftpBackup.endpoint = "ftps://backup.example.test:990"
+        #expect(throws: IntegrationSettingsError.self) {
+            try IntegrationSettingsSnapshot(revision: 1, settings: settings).validate()
+        }
+        settings.ftpBackup.plainFTPConfirmed = false
+        try IntegrationSettingsSnapshot(revision: 1, settings: settings).validate()
     }
 }

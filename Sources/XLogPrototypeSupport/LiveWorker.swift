@@ -111,7 +111,14 @@ public actor LiveWorker {
         let backupService = remoteBackup ?? LiveRemoteBackupService(logbook: logbook,
             accountVerifier: backupVerifier)
         self.remoteBackup = backupService
-        self.remoteBackupPresentation = LiveRemoteBackupPresentation(logbook: logbook, service: backupService, environment: remoteBackupEnvironment)
+        #if os(macOS)
+        let ftpPresentation = ownsProcessSessions && remoteBackupEnvironment == nil
+            ? LiveFTPBackupPresentation(logbook: logbook, service: backupService) : nil
+        #else
+        let ftpPresentation: LiveFTPBackupPresentation? = nil
+        #endif
+        self.remoteBackupPresentation = LiveRemoteBackupPresentation(logbook: logbook,
+            service: backupService, environment: remoteBackupEnvironment, ftp: ftpPresentation)
         self.publicServices = publicServices ?? LivePublicServiceMethods(logbook: logbook)
         services = LiveServiceMethods(logbook: logbook)
         self.onlineLogs = onlineLogs ?? LiveOnlineLogDeliveryService(logbook: logbook)
@@ -319,6 +326,7 @@ public actor LiveWorker {
                     }
                 }
                 if ["workspace_create", "backup_restore"].contains(method) { try await remoteBackup.stop() }
+                if method == "settings_save" { await remoteBackupPresentation.retireConfiguration() }
                 let changingWorkspace = !localAcceptance && ["workspace_create", "backup_restore"].contains(method)
                 if changingWorkspace {
                     // Retire queued publications before the database may be
@@ -389,6 +397,9 @@ public actor LiveWorker {
                 result = try await publicServices.handle(method: method, params: params)
             } else if method.hasPrefix("sync_") || method.hasPrefix("secret_") || method.hasPrefix("online_log_") {
                 let fencesOnlineDelivery = Self.fencesOnlineLogDelivery(method: method, params: params)
+                let changesFTPBackupCredential = method == "secret_save"
+                    && params["account"] as? String == "ftp-backup-password"
+                if changesFTPBackupCredential { await remoteBackupPresentation.retireConfiguration() }
                 if fencesOnlineDelivery { await onlineLogs.suspendForOwnershipChange() }
                 do { result = try await services.handle(method: method, params: params) }
                 catch {

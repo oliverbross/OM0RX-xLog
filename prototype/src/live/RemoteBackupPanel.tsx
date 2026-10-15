@@ -70,19 +70,25 @@ export default function RemoteBackupPanel({ request, visible }: { request: Reque
     finally { working.current = false; if (live.current) { setBusy(false); setConfirmed(false); await read(); } }
   };
   const locked = busy || !verified || pending || state?.busy === true;
+  const provider = state?.provider === "ftp" ? "plain FTP" : state?.provider === "ftps" ? "implicit FTPS" : "Dropbox";
+  const ftpFamily = state?.provider === "ftp" || state?.provider === "ftps";
   if (!visible) return null;
   return <section className="live-data-section" aria-label="Remote backup account and status">
     <div className="live-data-section-title"><h3>Remote backup</h3><button type="button" disabled={busy} onClick={() => void read()}>Refresh remote backup status</button></div>
     {!state ? <p>Reading remote backup availability…</p> : !state.available
       ? <p>Remote backup account setup and execution are unavailable in this build. Continue using verified local backups above.</p>
+      : state.configured === false
+      ? <p>Remote backup is disabled. Save an FTP or implicit-FTPS destination and its password above; saving either does not connect or start a backup.</p>
       : <>
-        <p>Review the native account and frozen backup, verify its registration, approve this one backup, then explicitly start it. Approval and reopening this screen never start or resume a backup.</p>
-        <button type="button" disabled={locked || state.running} onClick={() => void act("prepare")}>Review native Dropbox setup</button>
+        <p>{ftpFamily
+          ? `Prepare one frozen backup for ${provider}, check the saved credential locally, approve that exact backup, then explicitly start it. No server is contacted before Start.`
+          : "Review the native account and frozen backup, verify its registration, approve this one backup, then explicitly start it. Approval and reopening this screen never start or resume a backup."}</p>
+        <button type="button" disabled={locked || state.running} onClick={() => void act("prepare")}>{ftpFamily ? `Prepare ${provider} backup` : "Review native Dropbox setup"}</button>
         {state.prepared && <>
-          <dl><dt>Account</dt><dd>{state.account}</dd><dt>Destination folder</dt><dd>{state.folder}</dd><dt>Backup</dt><dd>{state.backup_id} · {state.byte_count?.toLocaleString()} bytes</dd></dl>
-          <p role="status">{state.running ? "Backup execution is active. This is not verified completion." : state.upload_outcome ? "Backup execution finished; review its durable outcome below." : state.approved ? "Approved; waiting for explicit Start." : state.registered ? "Native account registration verified; backup not approved." : "Account registration requires native verification."}</p>
+          <dl><dt>Account</dt><dd>{state.account}</dd>{state.endpoint && <><dt>Endpoint</dt><dd>{state.endpoint}</dd></>}<dt>Destination folder</dt><dd>{state.folder}</dd><dt>Backup</dt><dd>{state.backup_id} · {state.byte_count?.toLocaleString()} bytes</dd></dl>
+          <p role="status">{state.running ? "Backup execution is active. This is not verified completion." : state.upload_outcome ? "Backup execution finished; review its durable outcome below." : state.approved ? "Approved; waiting for explicit Start." : state.registered ? (ftpFamily ? "Saved credentials checked locally; the server has not been contacted. Backup not approved." : "Native account registration verified; backup not approved.") : (ftpFamily ? "Check the saved credentials locally before approval. This does not contact the server." : "Account registration requires native verification.")}</p>
           {state.upload_outcome && <p role="status">Durable upload outcome: {state.upload_outcome}.{state.remote_identity_recorded ? " Provider object identity is recorded." : " No pinned provider object identity is recorded."}</p>}
-          <button type="button" disabled={locked || state.running || state.registered} onClick={() => void act("verify_account")}>Verify native account registration</button>
+          <button type="button" disabled={locked || state.running || state.registered} onClick={() => void act("verify_account")}>{ftpFamily ? "Check saved FTP credentials" : "Verify native account registration"}</button>
           <label><input type="checkbox" disabled={locked || state.running || !state.registered} checked={confirmed} onChange={event => setConfirmed(event.target.checked)} />I approve this account, destination and one backup.</label>
           <button type="button" disabled={locked || state.running || !state.registered || !confirmed} onClick={() => void act("approve")}>Approve one backup</button>
           <button type="button" disabled={locked || state.running || !!state.upload_outcome || !state.registered || !state.approved} onClick={() => void act("start")}>Start approved backup</button>
@@ -97,6 +103,7 @@ export default function RemoteBackupPanel({ request, visible }: { request: Reque
     <p className="secondary">Remote deletion is unavailable. Retention review cannot delete backups. Unknown outcomes require a status review and are never retried automatically.</p>
     {state?.retention_review && <p role="status">Retained evidence review: {state.retention_review.protected} protected · {state.retention_review.candidates} candidates for a future review. No deletion is authorized.</p>}
     {state?.staged_restore && <p role="status">Verified remote backup staged locally as {state.staged_restore.name} ({state.staged_restore.qso_count?.toLocaleString()} contacts). Inspect it under Local backups before an explicit restore.</p>}
+    {state?.last_error_code && <p role="alert" className="live-data-feedback error">Last backup command did not complete: {state.last_error_code}. Refresh and review the durable status; the command will not be replayed.</p>}
     {error && <p role="alert" className="live-data-feedback error">{error}</p>}
     {pending && <button type="button" disabled={busy || !state} onClick={() => {
       try { localStorage.removeItem(key); setPending(false); void read(); } catch (cause) { setError(message(cause)); }

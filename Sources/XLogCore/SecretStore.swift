@@ -21,6 +21,7 @@ public struct SecretStore: Sendable {
         case clubLogEmail = "clublog-email"
         case clubLogApplicationPassword = "clublog-application-password"
         case clubLogCallsign = "clublog-callsign"
+        case ftpBackupPassword = "ftp-backup-password"
     }
     public static let service = "com.oliverbross.OM0RXXLog"
     private let serviceName: String

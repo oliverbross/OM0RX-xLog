@@ -5,6 +5,24 @@ public enum LogbookMode: String, Codable, Equatable, Sendable {
     case wavelog
 }
 
+public enum FTPBackupProtocol: String, Codable, Equatable, Sendable {
+    case disabled
+    case ftp
+    case ftps
+}
+
+/// Non-secret FTP-family backup configuration. The password is stored under a
+/// separate workspace Keychain account and is never encoded with Settings.
+public struct FTPBackupSettings: Codable, Equatable, Sendable {
+    public var `protocol`: FTPBackupProtocol = .disabled
+    public var endpoint: String = ""
+    public var directory: String = "/OM0RX-xLog"
+    public var username: String = ""
+    public var plainFTPConfirmed = false
+
+    public init() {}
+}
+
 /// Descriptive station equipment, never a request to connect or switch hardware.
 public struct StationEquipment: Codable, Equatable, Sendable {
     public enum Display: String, Codable, Sendable { case automatic, antenna, hidden }
@@ -40,6 +58,7 @@ public struct XLogSettings: Codable, Equatable, Sendable {
     public var lotwActivityURL: String
     public var stationEquipment = StationEquipment()
     public var cwProfile: CWProfile? = nil
+    public var ftpBackup = FTPBackupSettings()
 
     public static let defaults = XLogSettings(
         operatorCall: "OM0RX",
@@ -100,13 +119,31 @@ public struct IntegrationSettingsSnapshot: Codable, Equatable, Sendable {
             (settings.wavelogURL, 2_048), (settings.qrzUsername, 256),
             (settings.xcatHost, 512), (settings.clubLogCTYURL, 2_048),
             (settings.lotwActivityURL, 2_048), (settings.stationEquipment.name, 256),
+            (settings.ftpBackup.endpoint, 2_048), (settings.ftpBackup.directory, 4_096),
+            (settings.ftpBackup.username, 512),
         ]
         guard bounded.allSatisfy({ $0.0.utf8.count <= $0.1 }),
               settings.stationEquipment.bands.count <= 64,
               settings.stationEquipment.bands.allSatisfy({ $0.utf8.count <= 32 }),
+              Self.validFTPBackup(settings.ftpBackup),
               (try? JSONEncoder().encode(settings).count).map({ $0 <= 65_536 }) == true else {
             throw IntegrationSettingsError.invalid
         }
+    }
+
+    private static func validFTPBackup(_ value: FTPBackupSettings) -> Bool {
+        guard !value.endpoint.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains),
+              !value.directory.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains),
+              !value.username.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains) else { return false }
+        if value.protocol == .disabled { return !value.plainFTPConfirmed }
+        guard !value.username.isEmpty, let endpoint = URL(string: value.endpoint) else { return false }
+        let provider: RemoteBackupProvider = value.protocol == .ftp ? .ftp : .ftps
+        let security: RemoteBackupTransportSecurity = value.protocol == .ftp
+            ? .explicitlyAcceptedPlainFTP : .authenticatedEncryptionRequired
+        guard (value.protocol == .ftp) == value.plainFTPConfirmed else { return false }
+        return (try? RemoteBackupDestination(id: UUID(), revision: 1, provider: provider,
+            accountID: UUID(), location: .server(endpoint: endpoint, directory: value.directory),
+            security: security)) != nil
     }
 }
 
@@ -274,7 +311,7 @@ extension XLogSettings {
         case operatorCall, stationCall, gridSquare, stationLocation, defaultPower, defaultRadio, automaticTransmitPower, clearAfterQSY
         case wavelogURL, wavelogStationID, logbookMode, automaticSync, syncIntervalMinutes
         case qrzUsername, qrzEnabled, xcatHost, xcatRigCtlPort, clubLogCTYURL, lotwActivityURL
-        case stationEquipment, cwProfile
+        case stationEquipment, cwProfile, ftpBackup
     }
 
     public init(from decoder: Decoder) throws {
@@ -302,6 +339,7 @@ extension XLogSettings {
         lotwActivityURL = try values.decode(String.self, forKey: .lotwActivityURL)
         stationEquipment = try values.decodeIfPresent(StationEquipment.self, forKey: .stationEquipment) ?? StationEquipment()
         cwProfile = try values.decodeIfPresent(CWProfile.self, forKey: .cwProfile)
+        ftpBackup = try values.decodeIfPresent(FTPBackupSettings.self, forKey: .ftpBackup) ?? FTPBackupSettings()
     }
 }
 

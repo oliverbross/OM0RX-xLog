@@ -111,3 +111,18 @@ it("stages only a verified pinned upload for the existing explicit restore workf
   expect(request.mock.calls.some(([, params]) => params.action === "stage_restore")).toBe(true);
   expect(screen.getByText(/Inspect it under Local backups before an explicit restore/)).toBeTruthy();
 });
+
+it("explains implicit FTPS boundaries and exposes a durable safe failure code", async () => {
+  const state = { ...initial(), configured: true, provider: "ftps", prepared: true,
+    account: "ftpsacct:fixture", endpoint: "ftps://backup.example.test:990",
+    folder: "/xlog", backup_id: "backup", byte_count: 123,
+    last_error_code: "credential_unavailable" };
+  const request = vi.fn(async () => state);
+  render(<RemoteBackupPanel request={request} visible />);
+  await screen.findByText(/No server is contacted before Start/);
+  expect(screen.getByRole("button", { name: "Prepare implicit FTPS backup" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Check saved FTP credentials" })).toBeTruthy();
+  expect(screen.getByText("ftps://backup.example.test:990")).toBeTruthy();
+  expect(screen.getByRole("alert").textContent).toContain("credential_unavailable");
+  expect(request).toHaveBeenCalledExactlyOnceWith("remote_backup_request", { action: "snapshot" });
+});

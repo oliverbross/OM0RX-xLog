@@ -28,6 +28,7 @@ actor LiveRemoteBackupPresentation {
     private let logbook: LiveLogbookMethods
     private let service: LiveRemoteBackupService
     private let environment: NativeRemoteBackupPresentationEnvironment?
+    private let ftp: LiveFTPBackupPresentation?
     private var token: UUID?
     private var offer: NativeRemoteBackupOffer?
     private var registration: NativeDropboxBackupRegistration?
@@ -39,11 +40,19 @@ actor LiveRemoteBackupPresentation {
     private var mutating = false
 
     init(logbook: LiveLogbookMethods, service: LiveRemoteBackupService,
-         environment: NativeRemoteBackupPresentationEnvironment? = nil) {
-        self.logbook = logbook; self.service = service; self.environment = environment
+         environment: NativeRemoteBackupPresentationEnvironment? = nil,
+         ftp: LiveFTPBackupPresentation? = nil) {
+        self.logbook = logbook; self.service = service; self.environment = environment; self.ftp = ftp
+    }
+
+    func retireConfiguration() async {
+        if environment == nil, let ftp { await ftp.retireConfiguration(); return }
+        token = nil; offer = nil; registration = nil; approval = nil; retention = nil; stagedRestore = nil
+        try? await service.stop()
     }
 
     func handle(_ params: [String: Any]) async throws -> [String: Any] {
+        if environment == nil, let ftp { return try await ftp.handle(params) }
         guard let action = params["action"] as? String else { throw invalid() }
         if action == "snapshot" {
             guard Set(params.keys) == ["action"] else { throw invalid() }
@@ -191,7 +200,8 @@ actor LiveRemoteBackupPresentation {
             if !registered { retention = nil }
             var result: [String: Any] = ["owner": ["generation": current.uuidString, "revision": journal.revision,
                 "token": currentOffer == nil ? NSNull() : token?.uuidString as Any? ?? NSNull()],
-                "available": environment != nil, "prepared": currentOffer != nil, "registered": registered,
+                "available": environment != nil, "configured": environment != nil,
+                "provider": "dropbox", "prepared": currentOffer != nil, "registered": registered,
                 "approved": currentOffer != nil && approval != nil, "running": running, "busy": mutating,
                 "retention_deletion_available": false, "last_receipt": journal.receipts.last.map(publicReceipt) ?? NSNull()]
             if let currentOffer {
