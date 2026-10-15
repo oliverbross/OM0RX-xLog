@@ -45,13 +45,14 @@ it("does not retry an uncertain radio action", async () => {
   const call = vi.fn().mockRejectedValue(new Error("Lost acknowledgement"));
   await expect(monitorRadioAction(syntheticMonitorContext(), "tune", call)).rejects.toThrow("Lost acknowledgement"); expect(call).toHaveBeenCalledOnce();
 });
-it("fences rotor motion by owner/generation and observes but never replays a lost motion reply", async () => {
+it("routes one owner/generation-fenced motion intent and never replays a lost reply", async () => {
   const context = syntheticMonitorContext(), snapshot = context.rotor.snapshot;
-  const request = vi.fn(async (method: string) => { if (method === "rotor_goto") throw new Error("lost reply"); return snapshot; });
+  const request = vi.fn(async (_method: string, _params?: Record<string, any>): Promise<any> => { throw new Error("lost reply"); });
   await expect(monitorRotorAction(context, "rotor_goto", { bearing: 90 }, request)).rejects.toThrow("lost reply");
-  expect(request.mock.calls.map(([method]) => method)).toEqual(["rotor_snapshot", "rotor_goto", "rotor_snapshot"]);
-  request.mockResolvedValue({ ...snapshot, owner: "hamlib" });
-  await expect(monitorRotorAction(context, "rotor_goto", { bearing: 90 }, request)).rejects.toThrow("ownership changed");
+  expect(request).toHaveBeenCalledExactlyOnceWith("rotor_goto", { owner: "native_dcu1", generation: snapshot.generation, bearing: 90, label: "Monitor bearing" });
+  request.mockResolvedValue({ accepted: true }); await monitorRotorAction(context, "rotor_goto", { bearing: 90 }, request);
+  expect(request).toHaveBeenLastCalledWith("rotor_goto", { owner: "native_dcu1", generation: snapshot.generation, bearing: 90, label: "Monitor bearing" });
+  expect(request).toHaveBeenCalledTimes(2);
 });
 it("sends stale-owner Stop only through native current-owner admission without a preceding read or retry", async () => {
   const context = syntheticMonitorContext(); context.rotor.available = false; context.rotor.received_at_ms -= 60000;

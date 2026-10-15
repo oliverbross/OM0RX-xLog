@@ -3,20 +3,24 @@ import { Antenna } from "lucide-react";
 import { HamlibDevice } from "./HamlibPanel";
 import { rotorCommandParams, rotorProjection, validRotorSnapshot, type RotorSnapshot } from "./rotorControl";
 import { RotorConfigurationSession, rotorConfigurationDirty, type RotorConfiguration } from "./rotorConfigurationSession";
+import { ManualRotorStatus } from "./ManualRotorControl";
+import { manualRotorGotoSession, type ManualRotorGotoSession } from "./manualRotorGoto";
 import "./RotorPanel.css";
 
 type Data = Record<string, any>;
 type Request = (method: string, params?: Data) => Promise<Data>;
 type Props = { snapshot: RotorSnapshot | null; request: Request; onManual?: () => void;
-  configurationSession: RotorConfigurationSession; configurationOnly?: boolean };
+  configurationSession: RotorConfigurationSession; configurationOnly?: boolean; rotorSession?: ManualRotorGotoSession };
 
-export default function RotorPanel({ snapshot, request, onManual = () => {}, configurationSession, configurationOnly = false }: Props) {
+export default function RotorPanel({ snapshot, request, onManual = () => {}, configurationSession, configurationOnly = false,
+  rotorSession = manualRotorGotoSession() }: Props) {
   const configurationState = useSyncExternalStore(configurationSession.subscribe, configurationSession.getSnapshot);
   const configuration = configurationState.draft;
   const owner = configuration?.owner ?? "native_dcu1";
   const [hamlibOpened, setHamlibOpened] = useState(owner === "hamlib");
   const viewedOwner = useRef(owner); viewedOwner.current = owner;
   const latest = useRef(snapshot); latest.current = snapshot;
+  const manualFeedback = useRef<string | null>(null);
   const [bearing, setBearing] = useState("");
   const [busy, setBusy] = useState(false), [error, setError] = useState(""), [message, setMessage] = useState("");
   const current = rotorProjection(snapshot);
@@ -24,10 +28,12 @@ export default function RotorPanel({ snapshot, request, onManual = () => {}, con
   useEffect(() => { if (owner === "hamlib") setHamlibOpened(true); }, [owner]);
 
   const edit = (next: RotorConfiguration) => {
+    manualFeedback.current = null;
     try { configurationSession.edit(next); setError(""); setMessage(""); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Rotor configuration is unavailable."); }
   };
   const saveConfiguration = async () => {
+    manualFeedback.current = null;
     if (!configuration) throw new Error("Rotor configuration is still loading.");
     await configurationSession.save(configuration);
     const state = configurationSession.getSnapshot();
@@ -43,16 +49,20 @@ export default function RotorPanel({ snapshot, request, onManual = () => {}, con
       throw new Error(state.error || "Resolve the rotor configuration before connecting.");
   };
   const run = async (operation: () => Promise<Data>, label: string) => {
-    onManual(); setBusy(true); setError(""); setMessage("");
+    manualFeedback.current = null; onManual(); setBusy(true); setError(""); setMessage("");
     try {
       const result = await operation(), backend = result?.backend;
       setMessage(backend?.accepted === true || backend?.state === "accepted" ? `${label} accepted; watch the observed bearing.` : `${label} completed.`);
       return result;
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Rotor operation failed."); throw cause; }
+    } catch (cause) {
+      manualFeedback.current = label === "Rotor move" ? rotorSession.getSnapshot().pending : null;
+      setError(cause instanceof Error ? cause.message : "Rotor operation failed."); throw cause;
+    }
     finally { setBusy(false); }
   };
   const applySelection = async () => {
     if (!configuration || busy || configurationState.saving) return;
+    manualFeedback.current = null;
     try {
       if (latest.current?.owner && latest.current.owner !== owner) {
         const departing = latest.current;
@@ -122,13 +132,16 @@ export default function RotorPanel({ snapshot, request, onManual = () => {}, con
         </form></section></div>
       {!configurationOnly && <section className="live-station-card"><h3>Observed antenna</h3><strong className="rotor-panel-bearing cyan">{typeof current.azimuth === "number" ? `${Math.round(current.azimuth).toString().padStart(3, "0")}°` : "—"}</strong><p>{current.name} · {current.status}</p>{current.target_label && <p>Target {current.target_label} · {current.target_bearing ?? "—"}°</p>}
         <form className="live-station-inline" onSubmit={event => { event.preventDefault(); if (bearing.trim() && Number.isFinite(Number(bearing)) && Number(bearing) >= 0 && Number(bearing) <= 360) void run(() => request("rotor_goto", rotorCommandParams(latest.current, { bearing: Number(bearing), label: "Manual bearing" })), "Rotor move").catch(() => {}); }}><label>Bearing °<input aria-label="Rotor bearing degrees" type="number" min="0" max="360" value={bearing} onChange={event => setBearing(event.target.value)} /></label><button disabled={busy || !current.connected || !bearing.trim()}>Turn rotor</button><button type="button" disabled={!snapshot?.owner} onClick={() => void run(() => request("rotor_stop", rotorCommandParams(latest.current)), "Rotor stop").catch(() => {})}>Stop rotor</button>{snapshot?.owner === "hamlib" && <button type="button" disabled={busy || !current.connected} onClick={() => void run(() => request("rotor_park", rotorCommandParams(latest.current)), "Rotor park").catch(() => {})}>Park rotor</button>}</form>
+        <ManualRotorStatus session={rotorSession} onResolved={operation => {
+          if (manualFeedback.current === operation) { manualFeedback.current = null; setError(""); setMessage(""); }
+        }} />
         <p className="live-station-helper">Motion needs an explicit action. Stop requests motion release; disconnect closes the transport. No previous turn is replayed after reconnect.</p>
       </section>}</div>
     {configurationState.error && <p className="live-station-error" role="alert">{configurationState.error}</p>}
     {(configurationState.pending || configurationState.conflict || configurationState.workspaceChanged) && <div className="live-actions">
-      {configurationState.pending && <button type="button" disabled={configurationState.saving} onClick={() => void configurationSession.reconcile().catch(cause => setError(cause.message))}>Check save</button>}
-      {configurationState.pending && !configurationState.workspaceChanged && <button type="button" disabled={configurationState.saving} onClick={() => void configurationSession.retry().catch(cause => setError(cause.message))}>Retry same save</button>}
-      {configurationState.snapshot && <button type="button" disabled={configurationState.saving} onClick={() => { try { configurationSession.useSaved(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Saved rotor configuration is unavailable."); } }}>Use saved values</button>}
+      {configurationState.pending && <button type="button" disabled={configurationState.saving} onClick={() => { manualFeedback.current = null; void configurationSession.reconcile().catch(cause => setError(cause.message)); }}>Check save</button>}
+      {configurationState.pending && !configurationState.workspaceChanged && <button type="button" disabled={configurationState.saving} onClick={() => { manualFeedback.current = null; void configurationSession.retry().catch(cause => setError(cause.message)); }}>Retry same save</button>}
+      {configurationState.snapshot && <button type="button" disabled={configurationState.saving} onClick={() => { manualFeedback.current = null; try { configurationSession.useSaved(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Saved rotor configuration is unavailable."); } }}>Use saved values</button>}
     </div>}
     {error && <p className="live-station-error" role="alert">{error}</p>}{message && <p role="status">{message}</p>}
   </section>;

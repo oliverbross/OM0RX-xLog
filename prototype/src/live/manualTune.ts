@@ -7,14 +7,13 @@ type State = { pending: string | null; busy: boolean; message: string; reviewabl
 type Transport = { snapshot: () => Promise<StationSession>; request: (params: Record<string, unknown>) => Promise<StationReceipt | null> };
 const native: Transport = { snapshot: loadStationSession, request: stationSessionRequest };
 const storage = { read: () => { try { return sessionStorage.getItem(key); } catch { return "unverified"; } },
-  write: (id: string | null) => { if (id) sessionStorage.setItem(key, id); else sessionStorage.removeItem(key); },
-  reviewed: () => sessionStorage.getItem(`${key}.reviewed`), review: (id: string) => sessionStorage.setItem(`${key}.reviewed`,id) };
+  write: (id: string | null) => { if (id) sessionStorage.setItem(key, id); else sessionStorage.removeItem(key); } };
 
 /** One renderer intent journal; durable admission and deduplication are native. */
 export class ManualTuneSession {
   private state: State;
   private listeners = new Set<() => void>();
-  constructor(private transport: Transport = native, private journal: {read:()=>string|null;write:(id:string|null)=>void;reviewed?:()=>string|null;review?:(id:string)=>void} = storage) {
+  constructor(private transport: Transport = native, private journal: {read:()=>string|null;write:(id:string|null)=>void} = storage) {
     this.state = { pending: journal.read(), busy: false, message: "", reviewable: false };
   }
   getSnapshot = () => this.state;
@@ -26,8 +25,9 @@ export class ManualTuneSession {
     this.update({ busy: true, message: "" });
     try {
       const base = await this.transport.snapshot();
-      if (base.last_receipt?.request.action === "manual_tune" && ["pending", "unknown"].includes(base.last_receipt.status) && this.journal.reviewed?.() !== base.last_receipt.operation_id) {
-        this.journal.write(base.last_receipt.operation_id); this.update({ pending: base.last_receipt.operation_id });
+      const unresolved = base.manual_tune_receipt ?? (base.last_receipt?.request.action === "manual_tune" ? base.last_receipt : null);
+      if (unresolved && ["pending", "unknown"].includes(unresolved.status)) {
+        this.journal.write(unresolved.operation_id); this.update({ pending: unresolved.operation_id });
         throw new Error("The previous manual tune outcome is unknown. Check its receipt and observed radio state.");
       }
       const selection = context?.selection ?? base.selection, radio = context?.radio ?? base.radio;
@@ -52,15 +52,21 @@ export class ManualTuneSession {
     try {
       const receipt = await this.transport.request({ action: "receipt", operation_id: operation });
       if (receipt && (receipt.operation_id !== operation || receipt.request.action !== "manual_tune")) throw new Error("Manual tune receipt does not match its retained operation.");
-      if (!receipt || receipt.status === "confirmed") {
-        this.journal.write(null); this.update({ pending: null, reviewable:false, message: receipt ? "Recovered confirmed manual tune receipt. No tune was repeated." : "No manual tune was admitted under this identity. No tune was repeated." });
+      if (!receipt || receipt.status === "confirmed" || receipt.status === "reviewed") {
+        this.journal.write(null); this.update({ pending: null, reviewable:false, message: receipt?.status === "reviewed" ? "Recovered durable review of the unknown tune. No tune was repeated."
+          : receipt ? "Recovered confirmed manual tune receipt. No tune was repeated." : "No manual tune was admitted under this identity. No tune was repeated." });
       } else this.update({ reviewable:receipt.status==="unknown", message: "Manual tune outcome remains unknown. Review observed radio state; no tune was repeated." });
     } finally { this.update({ busy: false }); }
   }
-  review() {
-    if (!this.state.pending || this.state.busy || !this.state.reviewable || !this.journal.review) return;
-    this.journal.review(this.state.pending); this.journal.write(null);
-    this.update({pending:null,reviewable:false,message:"Previous tune remains unknown and will not be repeated. A new tune requires a new explicit request."});
+  async review() {
+    const operation = this.state.pending; if (!operation || this.state.busy || !this.state.reviewable) return;
+    this.update({ busy: true });
+    try {
+      const receipt = await this.transport.request({ action:"review", operation_id:operation, reviewed_action:"manual_tune" });
+      if (!receipt || receipt.operation_id !== operation || receipt.request.action !== "manual_tune" || receipt.status !== "reviewed")
+        throw new Error("Manual tune review acknowledgement could not be verified.");
+      this.journal.write(null); this.update({pending:null,reviewable:false,message:"Previous tune remains unknown and was durably reviewed. A new tune requires a new explicit request."});
+    } finally { this.update({ busy:false }); }
   }
 }
 let shared: ManualTuneSession | undefined;

@@ -3,11 +3,16 @@ import { manualTuneSession, type ManualTuneSession } from "./manualTune";
 import type { StationProvider } from "../worker";
 import type { MonitorContext } from "./monitorContext";
 
-export function ManualTuneStatus({ session = manualTuneSession() }: { session?: ManualTuneSession }) {
+export function ManualTuneStatus({ session = manualTuneSession(), onResolved }: { session?: ManualTuneSession; onResolved?: (operationId: string) => void }) {
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot), [error, setError] = useState("");
+  const recover = async (action: () => Promise<void>, fallback: string) => {
+    const operation = session.getSnapshot().pending; setError("");
+    try { await action(); if (operation && !session.getSnapshot().pending) onResolved?.(operation); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : fallback); }
+  };
   return <>{state.message && <p role="status">{state.message}</p>}{error && <p role="alert">{error}</p>}
-    {state.pending && <button type="button" disabled={state.busy} onClick={() => void session.check().catch(cause => setError(cause instanceof Error ? cause.message : "Manual tune receipt unavailable."))}>Check manual tune receipt</button>}
-    {state.reviewable && <button type="button" disabled={state.busy} onClick={() => { try { session.review(); } catch { setError("Manual tune review could not be retained."); } }}>I have reviewed observed radio state</button>}</>;
+    {state.pending && <button type="button" disabled={state.busy} onClick={() => void recover(() => session.check(), "Manual tune receipt unavailable.")}>Check manual tune receipt</button>}
+    {state.reviewable && <button type="button" disabled={state.busy} onClick={() => void recover(() => session.review(), "Manual tune review could not be retained.")}>I have reviewed observed radio state</button>}</>;
 }
 export function ManualSimplexTune({ provider, context, session = manualTuneSession() }: { provider: StationProvider; context?: MonitorContext | null; session?: ManualTuneSession }) {
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot);
@@ -19,6 +24,6 @@ export function ManualSimplexTune({ provider, context, session = manualTuneSessi
     <button type="button" disabled={state.busy || !!state.pending || !!context?.acceptance || hz < 100_000 || hz > 1_000_000_000} onClick={() => {
       setError(""); void session.tune(provider, hz, mode, context).catch(cause => setError(cause instanceof Error ? cause.message : "Manual tune was not confirmed."));
     }}>Tune simplex</button>
-    {error && <p role="alert">{error}</p>}<ManualTuneStatus session={session} />
+    {error && <p role="alert">{error}</p>}<ManualTuneStatus session={session} onResolved={() => setError("")} />
   </section>;
 }

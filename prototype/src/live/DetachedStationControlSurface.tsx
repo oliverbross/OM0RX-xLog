@@ -2,18 +2,20 @@ import { useEffect, useState, type ReactNode } from "react";
 import { connectMonitorContext, monitorRadioFresh, monitorStation, type MonitorContext } from "./monitorContext";
 import { AgentConnectionSetup } from "./AgentConnectionSetup";
 import { ManualSimplexTune } from "./ManualSimplexTune";
+import { ManualRotorControl, ManualRotorStatus } from "./ManualRotorControl";
+import { manualRotorGotoSession, type ManualRotorGotoSession } from "./manualRotorGoto";
 import "./StationPanel.css";
 import "./DetachedStationControlSurface.css";
 
 type Connection = { refresh: () => void; dispose: () => void };
-type Props = { connect?: (changed: (value: MonitorContext) => void, failed: (message: string) => void) => Connection; configuration?: ReactNode | ((context: MonitorContext | null) => ReactNode) };
+type Props = { connect?: (changed: (value: MonitorContext) => void, failed: (message: string) => void) => Connection; configuration?: ReactNode | ((context: MonitorContext | null) => ReactNode); rotorControls?: boolean; rotorSession?: ManualRotorGotoSession };
 const frequency = (hz: unknown) => typeof hz === "number" && Number.isFinite(hz) ? `${(hz / 1e6).toFixed(6)} MHz` : "Unavailable";
 const value = (input: unknown) => input == null || input === "" ? "Unavailable" : String(input);
 const providers = { direct_agent: "Remote Station Agent", direct_flex_lan: "Direct FLEX LAN", hamlib: "Local Hamlib" };
 
 /** Retained observations and optional shared radio connection controls. Mounting never
  * reads credentials, selects a provider, connects a device or sends an action. */
-export function StationControlSurface({ connect = connectMonitorContext, configuration }: Props) {
+export function StationControlSurface({ connect = connectMonitorContext, configuration, rotorControls = false, rotorSession = manualRotorGotoSession() }: Props) {
   const [context, setContext] = useState<MonitorContext | null>(null);
   const [error, setError] = useState(""), [clock, setClock] = useState(Date.now());
   useEffect(() => {
@@ -28,6 +30,8 @@ export function StationControlSurface({ connect = connectMonitorContext, configu
     {!context?.acceptance && configuration && <section className="detached-station-setup" aria-label="Radio connections">
       {typeof configuration === "function" ? configuration(fresh ? context : null) : configuration}
     </section>}
+    {rotorControls && !context?.acceptance && (context?.rotor?.snapshot?.owner
+      ? <ManualRotorControl context={context} session={rotorSession} /> : <ManualRotorStatus session={rotorSession} />)}
     <section className="live-station detached-station-observations" aria-label="Station observations">
       <h2>Observed station state</h2>
       {error && <p className="live-station-error" role="alert">{error}</p>}
@@ -54,6 +58,6 @@ export function StationControlSurface({ connect = connectMonitorContext, configu
   </main></div>;
 }
 export function DetachedStationControlSurface() {
-  return <StationControlSurface configuration={new URLSearchParams(location.search).get("acceptance") === "local" ? undefined : context => <><AgentConnectionSetup connections providers followSelection compact receiveContext={context} />
+  return <StationControlSurface rotorControls configuration={new URLSearchParams(location.search).get("acceptance") === "local" ? undefined : context => <><AgentConnectionSetup connections providers followSelection compact receiveContext={context} />
     {context?.selection?.provider && <ManualSimplexTune provider={context.selection.provider} context={context} />}</>} />;
 }

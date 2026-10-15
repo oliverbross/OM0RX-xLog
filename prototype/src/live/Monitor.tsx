@@ -3,7 +3,7 @@ type Data = Record<string, any>;
 const frequency = (hz: unknown) => typeof hz === "number" && Number.isFinite(hz) ? (hz / 1e6).toFixed(6) : "—";
 const value = (input: unknown, suffix = "") => input == null ? "—" : `${input}${suffix}`;
 
-export default function Monitor({ snapshot, map, onRequest, onRotorRequest }: { snapshot: Data | null; map: ReactNode; onRequest?: (method: string, params?: Data) => Promise<any>; onRotorRequest?: (method: string, params?: Data) => Promise<any> }) {
+export default function Monitor({ snapshot, map, onRequest, onRotorRequest, commandOperationId, resolvedCommandOperation }: { snapshot: Data | null; map: ReactNode; onRequest?: (method: string, params?: Data) => Promise<any>; onRotorRequest?: (method: string, params?: Data) => Promise<any>; commandOperationId?: () => string | null; resolvedCommandOperation?: string | null }) {
   const radio = snapshot?.radio, station = snapshot?.station, rotor = snapshot?.rotor;
   const [angle, setAngle] = useState(0);
   const previous = useRef<number | null>(null);
@@ -11,7 +11,13 @@ export default function Monitor({ snapshot, map, onRequest, onRotorRequest }: { 
   const [busy, setBusy] = useState(false);
   const [bearing, setBearing] = useState("");
   const operation = useRef(0), mounted = useRef(true);
+  const messageOperation = useRef<string | null>(null);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; operation.current++; }; }, []);
+  useEffect(() => {
+    if (resolvedCommandOperation && messageOperation.current === resolvedCommandOperation) {
+      messageOperation.current = null; setMessage("");
+    }
+  }, [resolvedCommandOperation]);
   const local = snapshot?.source === "hamlib";
   const flex = snapshot?.source === "direct_flex_lan";
   const showRotor = !flex || !!rotor?.owner;
@@ -20,9 +26,12 @@ export default function Monitor({ snapshot, map, onRequest, onRotorRequest }: { 
     const request = method.startsWith("rotor_") ? onRotorRequest : onRequest;
     if (!request) return;
     const current = ++operation.current;
-    setBusy(true); setMessage("");
+    messageOperation.current = null; setBusy(true); setMessage("");
     try { const result = await request(method, params); if (mounted.current && operation.current === current) setMessage(result.confirmed ? "Observed confirmation received" : "Request accepted · watch observed state"); }
-    catch (e) { if (mounted.current && operation.current === current) setMessage(e instanceof Error ? e.message : "Command failed"); }
+    catch (e) { if (mounted.current && operation.current === current) {
+      messageOperation.current = method === "rotor_goto" ? commandOperationId?.() ?? null : null;
+      setMessage(e instanceof Error ? e.message : "Command failed");
+    } }
     finally { if (mounted.current && operation.current === current) setBusy(false); }
   };
   useEffect(() => {

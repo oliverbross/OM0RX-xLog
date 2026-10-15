@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
-export type StationReceipt = { operation_id: string; status: "pending" | "unknown" | "saved" | "acknowledged" | "confirmed"; request: { action: string } };
+export type StationReceipt = { operation_id: string; status: "pending" | "unknown" | "saved" | "acknowledged" | "confirmed" | "reviewed"; request: { action: string } };
 export type StationSession = {
-  generation: string; revision: number; base_url: string; last_receipt: StationReceipt | null;
+  generation: string; revision: number; base_url: string; last_receipt: StationReceipt | null; manual_tune_receipt?: StationReceipt | null;
   hamlib?: HamlibConfiguration | null;
   flex?: FlexConfiguration | null;
   selection: { provider: string | null; generation: number; selection_id: string | null; control_revision?: number };

@@ -193,6 +193,11 @@ impl RotorCoordinator {
             if expected != state.generation {
                 return Err("Rotor generation changed; refresh before sending a command".into());
             }
+            if automatic.is_none() && method == "rotor_goto" && !automatic_observation(&state) {
+                return Err("Refresh the current rotor observation before manual Goto.".into());
+            }
+            let target_bearing = (method == "rotor_goto").then(|| params.get("bearing").cloned().unwrap_or(Value::Null));
+            let target_label = (method == "rotor_goto").then(|| params.get("label").cloned().unwrap_or(Value::Null));
             let (backend_method, backend_params) = map_new(method, owner, params)?;
             // This is automatic motion's linearization point. It never holds
             // the authority mutex while waiting for this serialized driver.
@@ -237,6 +242,8 @@ impl RotorCoordinator {
                 json!({"owner":state.owner.map(Owner::name),
                 "generation":state.generation, "state":phase_name(state.phase),
                 "intent_id":state.intent_id,
+                 "target_bearing":target_bearing,
+                 "target_label":target_label,
                 "backend":value}),
             ));
         }
@@ -457,6 +464,10 @@ fn dispatch(request: Value) -> Result<Value, String> {
 pub fn request(request: Value) -> Result<Value, String> {
     coordinator().handle(request, dispatch)
 }
+pub(crate) fn request_manual_generation(request: Value, expected_worker: u64) -> Result<Value, String> {
+    coordinator().handle(request, |request| dispatch_manual_generation(request, expected_worker,
+        || Ok(worker::generation()), worker::request_existing_generation, hamlib::request))
+}
 pub(crate) fn request_startup(request: Value) -> Result<Value, String> {
     coordinator().handle_scoped(request, None, true, dispatch)
 }
@@ -485,6 +496,13 @@ fn dispatch_generation(request: Value, expected: u64, current: impl FnOnce() -> 
     } else {
         native(request, expected)
     }
+}
+
+fn dispatch_manual_generation(request: Value, expected: u64, current: impl FnOnce() -> Result<u64, String>,
+    native: impl FnOnce(Value, u64) -> Result<Value, String>, local: impl FnOnce(Value) -> Result<Value, String>) -> Result<Value, String> {
+    if request["method"].as_str().is_some_and(|method| method.starts_with("hamlib_")) { return local(request); }
+    if expected == 0 || current()? != expected { return Err("Worker generation changed; manual rotor Goto was not sent.".into()); }
+    native(request, expected)
 }
 
 pub fn monitor_stop(owner: &str) -> Result<Value, String> {
@@ -550,6 +568,17 @@ mod tests {
         assert_eq!(result["accepted"], true);
     }
     #[test]
+    fn manual_dispatch_keeps_hamlib_worker_independent_and_pins_native_generation() {
+        let local = dispatch_manual_generation(json!({"method":"hamlib_control"}), 0, || panic!("Hamlib read worker generation"),
+            |_,_| panic!("Hamlib reached native worker"), |_| Ok(json!({"state":"accepted"}))).unwrap();
+        assert_eq!(local["state"], "accepted");
+        assert!(dispatch_manual_generation(json!({"method":"station_rotor_goto"}), 7, || Ok(8),
+            |_,_| panic!("stale native worker used"), |_| panic!("native reached Hamlib")).is_err());
+        let native = dispatch_manual_generation(json!({"method":"station_rotor_goto"}), 7, || Ok(7),
+            |request, generation| { assert_eq!(generation, 7); Ok(request) }, |_| panic!("native reached Hamlib")).unwrap();
+        assert_eq!(native["method"], "station_rotor_goto");
+    }
+    #[test]
     fn retired_worker_rejects_local_turn_even_when_its_generation_counter_has_not_changed() {
         assert!(dispatch_generation(json!({"method":"hamlib_control"}), 7,
             || Err("existing generation 7 is retired".into()), |_, _| panic!("native send"), |_| panic!("local send")).is_err());
@@ -568,6 +597,20 @@ mod tests {
                 "params":request["params"]}),
             ))
         })
+    }
+
+    fn observe(coordinator: &RotorCoordinator, id: &str, owner: Owner) -> Value {
+        let observed = coordinator
+            .handle(envelope(id, "rotor_snapshot", json!({})), |request| {
+                let result = match owner {
+                    Owner::NativeDcu1 => json!({"connected":true,"azimuth":42}),
+                    Owner::Hamlib => json!({"fields":{"position":{"Azimuth":"42"}}}),
+                };
+                Ok(success(request["id"].as_str().unwrap(), result))
+            })
+            .unwrap();
+        assert_eq!(observed["result"]["backend_available"], true);
+        observed
     }
 
     #[test]
@@ -619,6 +662,7 @@ mod tests {
         )
         .unwrap();
         let generation = connected["result"]["generation"].as_u64().unwrap();
+        observe(&coordinator, "observed", Owner::Hamlib);
         assert!(call(
             &coordinator,
             "b",
@@ -658,10 +702,12 @@ mod tests {
             &coordinator,
             "e",
             "rotor_goto",
-            json!({"owner":"hamlib","generation":generation,"bearing":90}),
+             json!({"owner":"hamlib","generation":generation,"bearing":90,"label":"Exact target"}),
         )
         .unwrap();
         assert_eq!(mapped["result"]["backend"]["params"]["action"], "goto");
+         assert_eq!(mapped["result"]["target_bearing"], 90);
+         assert_eq!(mapped["result"]["target_label"], "Exact target");
         assert!(mapped["result"]["generation"].as_u64().unwrap() > generation);
     }
 
@@ -765,6 +811,7 @@ mod tests {
         )
         .unwrap();
         let old_generation = connected["result"]["generation"].as_u64().unwrap();
+        observe(&coordinator, "observed", Owner::NativeDcu1);
 
         // The automatic lookup captured its intent before the operator's
         // manual turn, but resolves and reaches the host afterwards.
@@ -809,6 +856,7 @@ mod tests {
         .unwrap();
         let before = connected["result"]["generation"].as_u64().unwrap();
         assert_eq!(connected["result"]["intent_id"], Value::Null);
+        observe(&coordinator, "observed", Owner::Hamlib);
         let auto = call(
             &coordinator,
             "auto",
@@ -826,7 +874,7 @@ mod tests {
         assert!(auto["result"]["backend"]["params"]
             .get("intent_id")
             .is_none());
-        let observed = call(&coordinator, "observed", "rotor_snapshot", json!({})).unwrap();
+        let observed = observe(&coordinator, "observed-after-auto", Owner::Hamlib);
         assert_eq!(observed["result"]["intent_id"], auto["result"]["intent_id"]);
 
         let manual = call(
@@ -901,6 +949,7 @@ mod tests {
         )
         .unwrap();
         let before = connected["result"]["generation"].as_u64().unwrap();
+        observe(&coordinator, "observed", Owner::Hamlib);
         let result = coordinator.handle(
             envelope(
                 "manual",
@@ -1042,6 +1091,7 @@ mod tests {
         )
         .unwrap();
         let generation = connected["result"]["generation"].as_u64().unwrap();
+        observe(&coordinator, "observed", Owner::Hamlib);
         let moved = call(
             &coordinator,
             "b",
@@ -1145,6 +1195,7 @@ mod tests {
         assert!(coordinator.handle(envelope("none", "monitor_rotor_stop", json!({"owner":"native_dcu1"})), |_| panic!("no owner reached backend")).is_err());
         let connected = call(&coordinator, "a", "rotor_connect", json!({"owner":"native_dcu1"})).unwrap();
         let first = connected["result"]["generation"].as_u64().unwrap();
+        observe(&coordinator, "observed", Owner::NativeDcu1);
         let turned = call(&coordinator, "b", "rotor_goto", json!({"owner":"native_dcu1","generation":first,"bearing":90})).unwrap();
         let generation = turned["result"]["generation"].as_u64().unwrap();
         assert!(coordinator.handle(envelope("wrong", "monitor_rotor_stop", json!({"owner":"hamlib"})), |_| panic!("changed owner reached backend")).is_err());
@@ -1179,10 +1230,28 @@ mod tests {
         assert_eq!(snapshot.join().unwrap().unwrap()["result"]["backend_available"], false);
     }
     #[test]
+    fn failed_snapshot_revokes_same_generation_manual_goto_before_motion_dispatch() {
+        let coordinator = RotorCoordinator::new();
+        let connected = call(&coordinator, "connect", "rotor_connect", json!({"owner":"native_dcu1"})).unwrap();
+        let generation = connected["result"]["generation"].as_u64().unwrap();
+        coordinator.handle(envelope("observed", "rotor_snapshot", json!({})), |request|
+            Ok(success(request["id"].as_str().unwrap(), json!({"connected":true,"azimuth":42})))).unwrap();
+        assert!(automatic_observation(&coordinator.state.lock().unwrap()));
+        let failed = coordinator.handle(envelope("failed", "rotor_snapshot", json!({})), |_| Err("snapshot unavailable".into())).unwrap();
+        assert_eq!(failed["result"]["generation"], generation); assert_eq!(failed["result"]["backend_available"], false);
+        assert!(!automatic_observation(&coordinator.state.lock().unwrap()));
+        let motion_calls = std::sync::atomic::AtomicUsize::new(0);
+        assert!(coordinator.handle(envelope("goto", "rotor_goto", json!({"owner":"native_dcu1","generation":generation,"bearing":90})), |_| {
+            motion_calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst); Ok(success("goto", json!({"accepted":true})))
+        }).is_err());
+        assert_eq!(motion_calls.load(std::sync::atomic::Ordering::SeqCst), 0);
+    }
+    #[test]
     fn native_monitor_stop_preserves_serialized_driver_order_behind_a_pending_goto() {
         let coordinator = Arc::new(RotorCoordinator::new());
         let connected = call(&coordinator, "connect", "rotor_connect", json!({"owner":"native_dcu1"})).unwrap();
         let generation = connected["result"]["generation"].as_u64().unwrap();
+        observe(&coordinator, "observed", Owner::NativeDcu1);
         let order = Arc::new(Mutex::new(Vec::new()));
         let (entered_tx, entered_rx) = mpsc::channel(); let (release_tx, release_rx) = mpsc::channel();
         let turning = coordinator.clone(); let turns = order.clone();

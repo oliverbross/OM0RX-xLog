@@ -34,19 +34,25 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 it("stops a pending turn through native current-owner admission and ignores older context revisions and motion replies", async () => {
-  let generation = 2, resolveMove!: (value: any) => void;
+  let generation = 2, resolveMove!: (value: any) => void, moveOperation = "";
   const stopGenerations: number[] = [];
   context.rotor.snapshot.generation = generation;
   const original = structuredClone(context);
   const rotor = (revision = generation, azimuth = 90) => ({ owner: "native_dcu1", generation: revision, state: "active",
     backend_available: true, backend: { connected: true, azimuth } });
-  bridge.request.mockImplementation(async method => {
-    if (method === "rotor_goto") { generation++; return new Promise(resolve => { resolveMove = result => resolve({ result }); }); }
-    if (method === "rotor_snapshot") return { result: rotor(generation === 2 ? 2 : 3, 75) };
-    throw new Error(`Unexpected worker command: ${method}`);
-  });
   bridge.invoke.mockImplementation(async (command, params) => {
     if (command === "monitor_context_snapshot") return context;
+    if (command === "manual_rotor_request") {
+      const request = (params as any).params;
+      if (request.action === "snapshot") return { generation: "12345678-1234-4234-8234-123456789abc", revision: 4,
+        last_receipt: null, worker_generation: 9, rotor: { ...context.rotor, received_at_ms: Date.now() } };
+      if (request.action === "manual_rotor_goto") {
+        moveOperation = request.operation_id; generation++;
+        return new Promise(resolve => { resolveMove = result => resolve({ operation_id: moveOperation,
+          status: "acknowledged", request: { action: "manual_rotor_goto" }, result }); });
+      }
+      throw new Error(`Unexpected manual rotor action: ${request.action}`);
+    }
     if (command !== "monitor_rotor_stop") throw new Error(`Unexpected native command: ${command}`);
     expect(params).toEqual({ owner: "native_dcu1" });
     // Native substitutes its current generation under the owner lock; the
@@ -60,17 +66,20 @@ it("stops a pending turn through native current-owner admission and ignores olde
   await settle();
   fireEvent.change(screen.getByRole("spinbutton", { name: "Monitor rotor bearing" }), { target: { value: "75" } });
   fireEvent.click(screen.getByRole("button", { name: "Turn" })); await settle();
-  expect(bridge.request).toHaveBeenCalledWith("rotor_goto", { owner: "native_dcu1", generation: 2, bearing: 75, label: "Monitor bearing" });
+  expect(bridge.invoke.mock.calls.some(([command, args]) => command === "manual_rotor_request" &&
+    (args as any).params.action === "manual_rotor_goto" && (args as any).params.rotor_owner === "native_dcu1" &&
+    (args as any).params.rotor_generation === 2 && (args as any).params.bearing === 75 &&
+    (args as any).params.label === "Monitor bearing")).toBe(true);
   expect(screen.getByRole("button", { name: "Turn" }).hasAttribute("disabled")).toBe(true);
 
   await wake();
   fireEvent.click(screen.getByRole("button", { name: "Stop" })); await settle();
   expect(stopGenerations).toEqual([3]); expect(screen.getByText("120°")).toBeTruthy();
   expect(screen.getByText("Observed confirmation received")).toBeTruthy();
-  expect(bridge.request.mock.calls.map(([method]) => method)).toEqual(["rotor_snapshot", "rotor_goto"]);
+  expect(bridge.request).not.toHaveBeenCalled();
 
   await act(async () => resolveMove({ ...rotor(3, 75), accepted: true, confirmed: false })); await settle();
-  expect(bridge.request.mock.calls.map(([method]) => method)).toEqual(["rotor_snapshot", "rotor_goto", "rotor_snapshot"]);
+  expect(bridge.request).not.toHaveBeenCalled();
   expect(screen.getByText("120°")).toBeTruthy();
   expect(screen.getByText("Observed confirmation received")).toBeTruthy();
   expect(screen.queryByText("Request accepted · watch observed state")).toBeNull();

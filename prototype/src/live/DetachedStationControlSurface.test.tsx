@@ -4,6 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { DetachedStationControlSurface, StationControlSurface } from "./DetachedStationControlSurface";
 import { AgentConnectionSetup } from "./AgentConnectionSetup";
 import type { StationSession } from "./stationSession";
+import { ManualRotorGotoSession } from "./manualRotorGoto";
 import { syntheticMonitorContext } from "./monitorContextFixtures";
 import type { MonitorContext } from "./monitorContext";
 import { readFileSync } from "node:fs";
@@ -87,6 +88,19 @@ it("labels isolated observations and remains passive even when actions are adver
   setup(value);
   expect(screen.getByText("Synthetic isolated observation · read only")).toBeTruthy();
   expect(screen.queryByRole("button")).toBeNull();
+});
+it("keeps rotor receipt recovery visible across owner loss and remount without duplicating controls", () => {
+  const operation = crypto.randomUUID(); let pending: string | null = operation;
+  const transport = { snapshot: vi.fn(), request: vi.fn(async () => ({ operation_id:operation,status:"acknowledged" as const,request:{action:"manual_rotor_goto"} })) };
+  const journal = { read:() => pending, write:(value:string|null) => { pending=value; } };
+  const value = syntheticMonitorContext(); value.rotor = { available:false, revision:2, received_at_ms:Date.now(), snapshot:null };
+  const connect = (accept: (value:MonitorContext)=>void) => { accept(value); return { refresh:vi.fn(), dispose:vi.fn() }; };
+  const first = render(<StationControlSurface connect={connect} rotorControls rotorSession={new ManualRotorGotoSession(transport, journal)} />);
+  expect(screen.getByRole("button", { name:"Check rotor receipt" })).toBeTruthy();
+  expect(screen.queryByLabelText("Manual rotor bearing degrees")).toBeNull();
+  first.unmount();
+  render(<StationControlSurface connect={connect} rotorControls rotorSession={new ManualRotorGotoSession(transport, journal)} />);
+  expect(screen.getAllByRole("button", { name:"Check rotor receipt" })).toHaveLength(1);
 });
 
 function sharedAgent(loseConnect = false, loseSelection = false, provider = "direct_agent") {

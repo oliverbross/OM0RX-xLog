@@ -7,6 +7,20 @@ packaged UI result. Keep unresolved items here across releases.
 
 ## Current delivery boundary
 
+- **Shared manual Rotor Goto owner, 16 October:** Desk Rotor, standalone Rotor,
+  Station Control and Station Monitor now use one durable native one-shot owner.
+  Exact station, rotor-observation, selected-owner and worker generations fence
+  admission; a fresh native observation is rechecked under the serialized rotor
+  lock immediately before dispatch. Acknowledgement requires exact owner, new
+  generation, target bearing and target label. Pre-dispatch receipts preserve
+  lost outcomes as `unknown`, prevent replay and allow only explicit read-only
+  receipt checking or a persisted review. Recovery stays visible after owner
+  loss, survives restart/compaction and cannot clear newer Stop, disconnect or
+  configuration feedback. Raw renderer Goto is denied. Complete frontend
+  **2,548/2,548**, Rust **519/519**, TypeScript, production bundle and diff checks
+  pass. Source only: alpha.31 remains installed and no station, hardware, radio,
+  rotor, RF, service or operator-data action occurred.
+
 - **Shared manual simplex tune owner, 16 October:** Main Agent/FLEX/Hamlib and
   standalone Station Control now use one native, one-shot tune owner. Exact
   station-session, selection, command and connection epochs fence admission;

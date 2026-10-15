@@ -5,6 +5,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import RotorPanel from "./RotorPanel";
 import type { RotorSnapshot } from "./rotorControl";
 import { defaultRotorConfiguration, RotorConfigurationSession } from "./rotorConfigurationSession";
+import { ManualRotorGotoSession } from "./manualRotorGoto";
 
 const initial: RotorSnapshot = { owner: "native_dcu1", generation: 4, state: "active", backend: { connected: true, name: "Antenna", azimuth: 53 } };
 const workspaceGeneration = "12345678-1234-4234-8234-123456789abc";
@@ -54,6 +55,51 @@ describe("independent rotor panel", () => {
     await waitFor(() => expect(request).toHaveBeenCalledExactlyOnceWith("rotor_goto", { owner: "native_dcu1", generation: 4, bearing: 90, label: "Manual bearing" }));
     expect(manual).toHaveBeenCalledOnce();
     expect(await screen.findByText("Rotor move accepted; watch the observed bearing.")).toBeTruthy();
+  });
+  it("clears its lost-reply error and message after terminal manual-turn receipt recovery", async () => {
+    const configuration = await configuredSession(); let pending: string | null = null;
+    const receipt = vi.fn().mockRejectedValueOnce(new Error("panel turn reply lost"));
+    const journal = { read: () => pending, write: (value: string | null) => { pending = value; } };
+    const rotorSession = new ManualRotorGotoSession({ snapshot: async () => ({ generation: "station", revision: 4, last_receipt: null,
+      worker_generation: 9, rotor: { available: true, revision: 12, received_at_ms: Date.now(), snapshot: { ...initial, backend_available: true } } }),
+      request: receipt }, journal);
+    const request = vi.fn(async (method: string, params: any) => {
+      if (method !== "rotor_goto") throw new Error("Unexpected operation");
+      return rotorSession.goto(params.owner, params.generation, params.bearing, params.label);
+    });
+    render(<RotorPanel snapshot={initial} request={request} configurationSession={configuration.session} rotorSession={rotorSession} />);
+    fireEvent.change(screen.getByLabelText("Rotor bearing degrees"), { target: { value: "90" } });
+    fireEvent.click(screen.getByRole("button", { name: "Turn rotor" }));
+    expect((await screen.findByRole("alert")).textContent).toContain("panel turn reply lost");
+    const operation = pending!;
+    receipt.mockResolvedValueOnce({ operation_id: operation, status: "acknowledged", request: { action: "manual_rotor_goto" } });
+    fireEvent.click(screen.getByRole("button", { name: "Check rotor receipt" }));
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    expect(screen.queryByText(/Rotor move accepted/)).toBeNull();
+  });
+  it("keeps a newer Stop failure when an older lost Goto receipt resolves", async () => {
+    const configuration = await configuredSession(); let pending: string | null = null;
+    const receipt = vi.fn().mockRejectedValueOnce(new Error("old Goto reply lost"));
+    const journal = { read: () => pending, write: (value: string | null) => { pending = value; } };
+    const rotorSession = new ManualRotorGotoSession({ snapshot: async () => ({ generation: "station", revision: 4, last_receipt: null,
+      worker_generation: 9, rotor: { available: true, revision: 12, received_at_ms: Date.now(), snapshot: { ...initial, backend_available: true } } }),
+      request: receipt }, journal);
+    const request = vi.fn(async (method: string, params: any) => {
+      if (method === "rotor_goto") return rotorSession.goto(params.owner, params.generation, params.bearing, params.label);
+      if (method === "rotor_stop") throw new Error("newer Stop failed");
+      throw new Error("Unexpected operation");
+    });
+    render(<RotorPanel snapshot={initial} request={request} configurationSession={configuration.session} rotorSession={rotorSession} />);
+    fireEvent.change(screen.getByLabelText("Rotor bearing degrees"), { target: { value: "90" } });
+    fireEvent.click(screen.getByRole("button", { name: "Turn rotor" }));
+    expect((await screen.findByRole("alert")).textContent).toContain("old Goto reply lost");
+    fireEvent.click(screen.getByRole("button", { name: "Stop rotor" }));
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("newer Stop failed"));
+    const operation = pending!;
+    receipt.mockResolvedValueOnce({ operation_id: operation, status: "acknowledged", request: { action: "manual_rotor_goto" } });
+    fireEvent.click(screen.getByRole("button", { name: "Check rotor receipt" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Check rotor receipt" })).toBeNull());
+    expect(screen.getByRole("alert").textContent).toContain("newer Stop failed");
   });
   it("offers stop and disconnect for an uncertain owned connection", async () => {
     const configuration = await configuredSession();

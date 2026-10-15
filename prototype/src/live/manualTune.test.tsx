@@ -8,6 +8,7 @@ afterEach(cleanup);
 function fixture() {
   let pending: string | null = null;
   const state: StationSession = { generation:"setup", revision:3, base_url:"", last_receipt:null, worker_generation:5,
+    manual_tune_receipt:null,
     selection:{provider:"direct_flex_lan",generation:7,selection_id:"selection",control_revision:11},
     radio:{provider:"direct_flex_lan",selection_id:"selection",selection_generation:7,snapshot:{generation:13}} };
   const snapshot = vi.fn(async () => structuredClone(state));
@@ -73,13 +74,53 @@ it("standalone controls tune without a main renderer and expose read-only receip
   await act(async()=>{fireEvent.click(screen.getByRole("button",{name:"Tune simplex"}));});
   expect(f.request).toHaveBeenCalledOnce(); expect(screen.getByText(/confirmed by authoritative/)).toBeTruthy();
 });
+it("clears the initiating tune lost-reply error after terminal Check recovery",async()=>{
+  const f=fixture();f.request.mockRejectedValueOnce(new Error("tune reply lost"));
+  render(<ManualSimplexTune provider="direct_flex_lan" session={f.session}/>);
+  fireEvent.change(screen.getByLabelText("Simplex frequency MHz"),{target:{value:"14.074000"}});
+  await act(async()=>{fireEvent.click(screen.getByRole("button",{name:"Tune simplex"}));});
+  expect(screen.getByRole("alert").textContent).toContain("tune reply lost");const operation=f.pending!;
+  f.request.mockResolvedValueOnce({operation_id:operation,status:"confirmed",request:{action:"manual_tune"}});
+  await act(async()=>{fireEvent.click(screen.getByRole("button",{name:"Check manual tune receipt"}));});
+  expect(screen.queryByRole("alert")).toBeNull();expect(f.request).toHaveBeenCalledTimes(2);
+});
+it("clears the initiating tune unknown-outcome error after exact durable review",async()=>{
+  const f=fixture();f.request.mockImplementationOnce(async p=>({operation_id:p.operation_id as string,status:"unknown",request:{action:"manual_tune"}}));
+  render(<ManualSimplexTune provider="direct_flex_lan" session={f.session}/>);
+  fireEvent.change(screen.getByLabelText("Simplex frequency MHz"),{target:{value:"14.074000"}});
+  await act(async()=>{fireEvent.click(screen.getByRole("button",{name:"Tune simplex"}));});
+  expect(screen.getByRole("alert").textContent).toContain("outcome is unknown");const operation=f.pending!;
+  f.request.mockResolvedValueOnce({operation_id:operation,status:"reviewed",request:{action:"manual_tune"}});
+  await act(async()=>{fireEvent.click(screen.getByRole("button",{name:"I have reviewed observed radio state"}));});
+  expect(screen.queryByRole("alert")).toBeNull();
+});
 it("reviewing a verified unknown never repeats it and permits only a new explicit request", async()=>{
-  const f=fixture(); let reviewed:string|null=null;
-  const session=new ManualTuneSession({snapshot:f.snapshot,request:f.request},{...f.journal,reviewed:()=>reviewed,review:id=>{reviewed=id;}});
-  f.request.mockImplementation(async p=>({operation_id:p.operation_id as string,status:"unknown",request:{action:"manual_tune"}}));
+  const f=fixture(); const session=new ManualTuneSession({snapshot:f.snapshot,request:f.request},f.journal);
+  f.request.mockImplementation(async p=> p.action === "review"
+    ? (f.state.manual_tune_receipt=null,{operation_id:p.operation_id as string,status:"reviewed",request:{action:"manual_tune"}})
+    : ({operation_id:p.operation_id as string,status:p.frequency_hz === 7100000 ? "confirmed" : "unknown",request:{action:"manual_tune"}}));
   await expect(session.tune("direct_flex_lan",14074000,"USB")).rejects.toThrow(/unknown/);
-  const operation=f.pending;session.review();expect(reviewed).toBe(operation);expect(f.pending).toBeNull();expect(f.request).toHaveBeenCalledOnce();
-  f.state.last_receipt={operation_id:operation!,status:"unknown",request:{action:"manual_tune"}};
-  f.request.mockImplementation(async p=>({operation_id:p.operation_id as string,status:"confirmed",request:{action:"manual_tune"}}));
-  await session.tune("direct_flex_lan",7100000,"LSB");expect(f.request).toHaveBeenCalledTimes(2);expect(f.request.mock.calls[1][0].operation_id).not.toBe(operation);
+  const operation=f.pending!;f.state.manual_tune_receipt={operation_id:operation,status:"unknown",request:{action:"manual_tune"}};
+  await session.review();expect(f.pending).toBeNull();expect(f.request.mock.calls[1][0]).toEqual({action:"review",operation_id:operation,reviewed_action:"manual_tune"});
+  await session.tune("direct_flex_lan",7100000,"LSB");expect(f.request).toHaveBeenCalledTimes(3);expect(f.request.mock.calls[2][0].operation_id).not.toBe(operation);
+});
+it("clears stale receipt and review errors after verified tune recovery",async()=>{
+  const f=fixture();f.request.mockRejectedValueOnce(new Error("reply lost"));
+  await expect(f.session.tune("direct_flex_lan",14074000,"USB")).rejects.toThrow("reply lost");const operation=f.pending!;
+  render(<ManualSimplexTune provider="direct_flex_lan" session={f.session}/>);
+  f.request.mockRejectedValueOnce(new Error("receipt unavailable"));
+  await act(async()=>{fireEvent.click(screen.getByRole("button",{name:"Check manual tune receipt"}));});expect(screen.getByRole("alert").textContent).toContain("receipt unavailable");
+  f.request.mockResolvedValueOnce({operation_id:operation,status:"unknown",request:{action:"manual_tune"}});
+  await act(async()=>{fireEvent.click(screen.getByRole("button",{name:"Check manual tune receipt"}));});expect(screen.queryByRole("alert")).toBeNull();
+  f.request.mockRejectedValueOnce(new Error("review unavailable"));
+  await act(async()=>{fireEvent.click(screen.getByRole("button",{name:"I have reviewed observed radio state"}));});expect(screen.getByRole("alert").textContent).toContain("review unavailable");
+  f.request.mockResolvedValueOnce({operation_id:operation,status:"reviewed",request:{action:"manual_tune"}});
+  await act(async()=>{fireEvent.click(screen.getByRole("button",{name:"I have reviewed observed radio state"}));});expect(screen.queryByRole("alert")).toBeNull();expect(f.pending).toBeNull();
+});
+it("recovers a lost durable tune-review acknowledgement without retuning",async()=>{
+  const f=fixture();f.request.mockImplementation(async p=>({operation_id:p.operation_id as string,status:"unknown",request:{action:"manual_tune"}}));
+  await expect(f.session.tune("direct_flex_lan",14074000,"USB")).rejects.toThrow(/unknown/);const operation=f.pending!;
+  f.request.mockRejectedValueOnce(new Error("review reply lost"));await expect(f.session.review()).rejects.toThrow("review reply lost");
+  f.request.mockResolvedValueOnce({operation_id:operation,status:"reviewed",request:{action:"manual_tune"}});
+  await f.session.check();expect(f.pending).toBeNull();expect(f.request.mock.calls.at(-1)?.[0]).toEqual({action:"receipt",operation_id:operation});
 });

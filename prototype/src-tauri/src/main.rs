@@ -22,6 +22,7 @@ mod spot_activation_backend;
 mod qsy_clear;
 mod radio_read;
 mod manual_tune;
+mod manual_rotor;
 mod radio_follow;
 mod opportunity_selection;
 mod auto_rotor;
@@ -101,6 +102,12 @@ fn validate_editor_transition(label: &str) -> Result<(), String> {
 fn retires_automatic_rotor(request: &serde_json::Value) -> bool {
     matches!(request["method"].as_str(), Some("workspace_create" | "backup_restore" | "station_connect" | "station_disconnect" | "station_reconnect" | "station_configure"))
         || request["params"]["device"] == "radio" && matches!(request["method"].as_str(), Some("hamlib_connect" | "hamlib_disconnect" | "hamlib_reconnect"))
+}
+fn is_raw_manual_rotor_goto(request: &serde_json::Value) -> bool {
+    matches!(request["method"].as_str(), Some("rotor_goto" | "station_rotor_goto"))
+        || request["method"] == "station_action" && request["params"]["action"] == "rotor_goto"
+        || request["method"] == "hamlib_control" && request["params"]["device"] == "rotor"
+            && request["params"]["action"] == "goto"
 }
 
 #[tauri::command]
@@ -764,12 +771,19 @@ async fn station_session_request(app: tauri::AppHandle, window: tauri::WebviewWi
     let owner = station_session::owner(&app)?;
     if action == "snapshot" {
         let mut value = owner.snapshot()?;
+        value["manual_tune_receipt"] = owner.unresolved_receipt("manual_tune")?;
         value["selection"] = station_selection::owner(&app)?.snapshot()?;
         value["radio"] = station_telemetry::retained_snapshot().unwrap_or(serde_json::Value::Null);
         value["worker_generation"] = serde_json::json!(worker::generation());
         return Ok(value);
     }
     if action == "receipt" { return owner.receipt(params["operation_id"].as_str().ok_or("Missing operation identity.")?); }
+    if action == "review" {
+        if params.as_object().is_none_or(|value| value.len() != 3) || params["reviewed_action"] != "manual_tune" {
+            return Err("Invalid manual tune review request.".into());
+        }
+        return owner.review(params["operation_id"].as_str().ok_or("Missing operation identity.")?, "manual_tune");
+    }
     let selection = station_selection::owner(&app)?;
     let telemetry = station_telemetry::owner(&app)?;
     let changed = app.clone();
@@ -805,6 +819,37 @@ async fn station_session_request(app: tauri::AppHandle, window: tauri::WebviewWi
 }
 
 #[tauri::command]
+async fn manual_rotor_request(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, params: serde_json::Value) -> Result<serde_json::Value, String> {
+    let action = params["action"].as_str().unwrap_or("");
+    manual_rotor::validate_surface(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire), action)?;
+    let owner = station_session::owner(&app)?;
+    if action == "snapshot" {
+        let station = owner.snapshot()?;
+        return Ok(serde_json::json!({"generation":station["generation"],"revision":station["revision"],
+            "last_receipt":owner.unresolved_receipt("manual_rotor_goto")?,"worker_generation":worker::generation(),
+            "rotor":rotor_telemetry::retained_snapshot()?}));
+    }
+    if action == "receipt" {
+        let receipt = owner.receipt(params["operation_id"].as_str().ok_or("Missing operation identity.")?)?;
+        if !receipt.is_null() && receipt["request"]["action"] != "manual_rotor_goto" {
+            return Err("That operation identity does not belong to manual rotor Goto.".into());
+        }
+        return Ok(receipt);
+    }
+    if action == "review" {
+        if params.as_object().is_none_or(|value| value.len() != 3) || params["reviewed_action"] != "manual_rotor_goto" {
+            return Err("Invalid manual rotor review request.".into());
+        }
+        return owner.review(params["operation_id"].as_str().ok_or("Missing operation identity.")?, "manual_rotor_goto");
+    }
+    let changed = app.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || owner.apply(&params, |request, _, _| manual_rotor::execute(&params, request)))
+        .await.map_err(|_| "Manual rotor task ended; inspect its receipt before retrying.".to_string())?;
+    for label in ["main", "station-control", "monitor"] { let _ = changed.emit_to(label, "xlog:station-session", ()); }
+    result
+}
+
+#[tauri::command]
 async fn cw_session_request(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>,
     client: String, sequence: u64, params: serde_json::Value) -> Result<serde_json::Value, String> {
     cw_session::validate_surface(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire), params["action"].as_str().unwrap_or(""))?;
@@ -826,6 +871,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     if method == "station_tune" || method == "hamlib_control" && request["params"]["device"] == "radio" && request["params"]["action"] == "tune_simplex" {
         return Err("Use the shared manual simplex tune owner.".into());
     }
+    if is_raw_manual_rotor_goto(&request) { return Err("Use the shared manual rotor Goto owner.".into()); }
     if matches!(method, "propagation_snapshot" | "propagation_refresh") { return Err("Use the shared propagation session.".into()); }
     if state.path.is_none() && (matches!(request["params"]["provider"].as_str(), Some("direct_agent" | "direct_flex_lan")) && matches!(method, "station_connect" | "station_disconnect" | "station_reconnect" | "station_forget")
         || request["params"]["device"] == "radio" && matches!(method, "hamlib_connect" | "hamlib_reconnect" | "hamlib_disconnect")) {
@@ -864,7 +910,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
         return tauri::async_runtime::spawn_blocking(move || winkeyer::request(request))
             .await.map_err(|_| "WinKeyer task failed".to_string())?;
     }
-    if method == "station_action" && matches!(request["params"]["action"].as_str(), Some("rotor_goto" | "rotor_stop")) {
+    if method == "station_action" && request["params"]["action"] == "rotor_stop" {
         return Err("Legacy xCat rotor actions require migration to the selected rotor owner".into());
     }
     let hamlib_rotor = method.starts_with("hamlib_") && request["params"]["device"] == "rotor";
@@ -1416,7 +1462,7 @@ fn main() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![worker_request, cw_session_request, station_session_request, pick_backup_package, open_monitor, open_detached_map,
+        .invoke_handler(tauri::generate_handler![worker_request, cw_session_request, station_session_request, manual_rotor_request, pick_backup_package, open_monitor, open_detached_map,
             spot_editor_register, spot_editor_unregister, spot_editor_ack, spot_editor_state,
             spot_activation_snapshot, spot_activation_status, spot_activation_reconcile, activate_spot, activate_opportunity,
             operator_draft_read_radio,
@@ -1469,7 +1515,7 @@ fn main() {
 #[cfg(test)]
 mod workspace_layout_tests {
     use super::{WorkspaceLayout, DraftWake, recover_singleton, detached_window_shortcut, validate_detached_open, COMPACT_WORKSPACE_MENU_ID, STANDARD_WORKSPACE_MENU_ID};
-    use super::{spot_editor_barrier, validate_spot_effect, validate_activation_reader, retires_automatic_rotor, validate_auto_rotor_read, validate_auto_rotor_set, validate_radio_read, validate_follow_settlement, validate_rotor_stop, AutomaticRotorCommands};
+    use super::{spot_editor_barrier, validate_spot_effect, validate_activation_reader, retires_automatic_rotor, is_raw_manual_rotor_goto, validate_auto_rotor_read, validate_auto_rotor_set, validate_radio_read, validate_follow_settlement, validate_rotor_stop, AutomaticRotorCommands};
     use serde_json::json;
 
     #[test]
@@ -1477,6 +1523,21 @@ mod workspace_layout_tests {
         assert!(crate::workspace_windows::supports("rotor"));
         assert_eq!(super::detached_dock_screen("rotor").unwrap(), "operator-desk");
         assert_eq!(detached_window_shortcut("rotor"), None);
+    }
+    #[test]
+    fn every_legacy_renderer_rotor_goto_route_is_owned_by_the_durable_session() {
+        for request in [
+            json!({"method":"rotor_goto","params":{}}),
+            json!({"method":"station_rotor_goto","params":{}}),
+            json!({"method":"station_action","params":{"action":"rotor_goto"}}),
+            json!({"method":"hamlib_control","params":{"device":"rotor","action":"goto"}}),
+        ] { assert!(is_raw_manual_rotor_goto(&request)); }
+        for request in [
+            json!({"method":"rotor_stop","params":{}}),
+            json!({"method":"station_rotor_stop","params":{}}),
+            json!({"method":"hamlib_control","params":{"device":"rotor","action":"stop"}}),
+            json!({"method":"hamlib_control","params":{"device":"radio","action":"goto"}}),
+        ] { assert!(!is_raw_manual_rotor_goto(&request)); }
     }
     #[test]
     fn station_status_window_docks_to_recoverable_desk_without_control_shortcuts() {

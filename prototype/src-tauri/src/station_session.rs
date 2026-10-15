@@ -44,7 +44,7 @@ pub fn validate(label: &str, isolated: bool, action: &str) -> Result<(), String>
         "snapshot" | "receipt" | "hamlib_catalogue" | "save" | "connect" | "disconnect" | "forget" | "select"
             | "save_hamlib" | "connect_hamlib" | "reconnect_hamlib" | "disconnect_hamlib"
             | "save_flex" | "connect_flex" | "reconnect_flex" | "disconnect_flex"
-            | "receive_frequency" | "receive_mode" | "manual_tune"
+            | "receive_frequency" | "receive_mode" | "manual_tune" | "review"
     ) {
         return Err("Unknown Station Control operation.".into());
     }
@@ -178,6 +178,8 @@ impl Session {
                 vec!["action", "generation", "revision", "configuration"]
             } else if action == "manual_tune" {
                 vec!["action", "generation", "revision", "selection_generation", "selection_id", "provider", "control_revision", "connection_generation", "worker_generation", "frequency_hz", "mode"]
+            } else if action == "manual_rotor_goto" {
+                vec!["action", "generation", "revision", "rotor_owner", "rotor_generation", "rotor_revision", "worker_generation", "bearing", "label"]
             } else if is_receive(action) {
                 let mut keys = vec!["action", "generation", "revision", "selection_generation", "selection_id", "provider", "control_revision", "connection_generation"];
                 keys.push(if action == "receive_frequency" { "frequency_hz" } else { "mode" });
@@ -205,17 +207,18 @@ impl Session {
                 || !identities.insert(&receipt.operation_id)
                 || !matches!(
                     receipt.status.as_str(),
-                    "saved" | "pending" | "acknowledged" | "unknown" | "confirmed"
+                    "saved" | "pending" | "acknowledged" | "unknown" | "confirmed" | "reviewed"
                 )
                 || !matches!(
                     action,
                     "save" | "connect" | "disconnect" | "forget" | "select"
                         | "save_hamlib" | "connect_hamlib" | "reconnect_hamlib" | "disconnect_hamlib"
                         | "save_flex" | "connect_flex" | "reconnect_flex" | "disconnect_flex"
-                        | "receive_frequency" | "receive_mode" | "manual_tune"
+                        | "receive_frequency" | "receive_mode" | "manual_tune" | "manual_rotor_goto"
                 )
                 || is_save(action) != (receipt.status == "saved")
                 || receipt.status == "confirmed" && action != "manual_tune"
+                || receipt.status == "reviewed" && !matches!(action, "manual_tune" | "manual_rotor_goto")
                 || receipt.request["generation"] != saved.generation
                 || receipt.request["revision"]
                     .as_u64()
@@ -240,6 +243,11 @@ impl Session {
                 crate::hamlib::saved_radio_configuration(&receipt.request["configuration"])?;
             } else if action == "save_flex" {
                 flex_configuration(&receipt.request["configuration"])?;
+            } else if action == "manual_rotor_goto" {
+                if crate::manual_rotor::params(&receipt.request).is_err() {
+                    return Err("Saved manual rotor receipt is invalid; it was not overwritten.".into());
+                }
+                continue;
             } else if receipt.request["selection_generation"]
                 .as_u64()
                 .is_none_or(|revision| revision > MAX_REVISION)
@@ -317,6 +325,38 @@ impl Session {
             .find(|receipt| receipt.operation_id == id)
             .map_or(Value::Null, |receipt| json!(receipt)))
     }
+    pub fn unresolved_receipt(&self, action: &str) -> Result<Value, String> {
+        let state = self
+            .state
+            .lock()
+            .map_err(|_| "Station Control state is unavailable.")?;
+        Ok(state
+            .receipts
+            .iter()
+            .rev()
+            .find(|receipt| receipt.request["action"] == action && matches!(receipt.status.as_str(), "pending" | "unknown"))
+            .map_or(Value::Null, |receipt| json!(receipt)))
+    }
+    pub fn review(&self, id: &str, action: &str) -> Result<Value, String> {
+        let _operation = self.operation.try_lock().map_err(|_| "Another Station Control operation is in progress.")?;
+        if !matches!(action, "manual_tune" | "manual_rotor_goto") || uuid::Uuid::parse_str(id).is_err() {
+            return Err("Invalid exact manual operation review.".into());
+        }
+        let mut state = self.state.lock().map_err(|_| "Station Control state is unavailable.")?;
+        let Some(index) = state.receipts.iter().position(|receipt| receipt.operation_id == id) else {
+            return Err("That manual operation receipt is no longer available.".into());
+        };
+        if state.receipts[index].request["action"] != action {
+            return Err("That operation identity belongs to a different manual action.".into());
+        }
+        if state.receipts[index].status == "reviewed" { return Ok(json!(&state.receipts[index])); }
+        if state.receipts[index].status != "unknown" {
+            return Err("Only an unknown manual operation can be acknowledged as reviewed.".into());
+        }
+        let mut next = state.clone(); next.receipts[index].status = "reviewed".into();
+        self.persist(&next)?; *state = next;
+        Ok(json!(&state.receipts[index]))
+    }
     /// Only native application startup may restore the saved Agent connection.
     /// Journal a fresh connection with station controls available. Never replay
     /// an uncertain operation or override explicit disconnect/credential removal.
@@ -364,7 +404,7 @@ impl Session {
             "save" | "connect" | "disconnect" | "forget" | "select"
                 | "save_hamlib" | "connect_hamlib" | "reconnect_hamlib" | "disconnect_hamlib"
                 | "save_flex" | "connect_flex" | "reconnect_flex" | "disconnect_flex"
-                | "receive_frequency" | "receive_mode" | "manual_tune"
+                | "receive_frequency" | "receive_mode" | "manual_tune" | "manual_rotor_goto"
         ) {
             return Err("Unknown Station Control action.".into());
         }
@@ -391,11 +431,16 @@ impl Session {
         } else if action == "save_flex" {
             descriptor["configuration"] = flex_configuration(&params["configuration"])?;
         } else {
-            descriptor["selection_generation"] = params["selection_generation"].clone();
-            descriptor["selection_id"] = params["selection_id"].clone();
+            if action != "manual_rotor_goto" {
+                descriptor["selection_generation"] = params["selection_generation"].clone();
+                descriptor["selection_id"] = params["selection_id"].clone();
+            }
             if action == "manual_tune" {
                 crate::manual_tune::params(params)?;
                 for key in ["provider", "control_revision", "connection_generation", "worker_generation", "frequency_hz", "mode"] { descriptor[key] = params[key].clone(); }
+            } else if action == "manual_rotor_goto" {
+                crate::manual_rotor::params(params)?;
+                for key in ["rotor_owner", "rotor_generation", "rotor_revision", "worker_generation", "bearing", "label"] { descriptor[key] = params[key].clone(); }
             } else if is_receive(action) {
                 let receive = receive_params(params)?;
                 for key in ["provider", "control_revision", "connection_generation"] { descriptor[key] = params[key].clone(); }
@@ -431,11 +476,15 @@ impl Session {
                     .into(),
             );
         }
+        if matches!(action, "manual_tune" | "manual_rotor_goto") && state.receipts.iter().any(|receipt|
+            receipt.request["action"] == action && matches!(receipt.status.as_str(), "pending" | "unknown")) {
+            return Err("Review the unresolved manual operation before starting another one; no action was sent.".into());
+        }
         let mut next = state.clone();
         if next.receipts.len() == MAX_RECEIPTS {
             let lifecycle = next.receipts.iter().rposition(|receipt| matches!(receipt.request["action"].as_str(), Some("connect" | "disconnect" | "forget")));
             if let Some(index) = next.receipts.iter().enumerate().find_map(|(index, receipt)|
-                (Some(index) != lifecycle && matches!(receipt.status.as_str(), "saved" | "acknowledged" | "confirmed")).then_some(index)) {
+                (Some(index) != lifecycle && matches!(receipt.status.as_str(), "saved" | "acknowledged" | "confirmed" | "reviewed")).then_some(index)) {
                 next.receipts.remove(index);
             } else {
                 return Err("Station Control operation journal has no safely removable receipt; no action was sent.".into());
@@ -468,17 +517,19 @@ impl Session {
         let request = if is_save(action) {
             None
         } else {
-            let selected_generation = params["selection_generation"]
-                .as_u64()
-                .filter(|value| *value <= MAX_REVISION)
-                .ok_or("Invalid radio selection generation.")?;
-            let selected_id = params["selection_id"]
-                .as_str()
-                .filter(|value| uuid::Uuid::parse_str(value).is_ok())
-                .ok_or("Invalid radio selection identity.")?;
+            let (selected_generation, selected_id) = if action == "manual_rotor_goto" {
+                (0, String::new())
+            } else {
+                let generation = params["selection_generation"].as_u64().filter(|value| *value <= MAX_REVISION)
+                    .ok_or("Invalid radio selection generation.")?;
+                let identity = params["selection_id"].as_str().filter(|value| uuid::Uuid::parse_str(value).is_ok())
+                    .ok_or("Invalid radio selection identity.")?.to_owned();
+                (generation, identity)
+            };
             let mut connection = json!({"provider":if action == "select" { descriptor["provider"].as_str().unwrap() } else { "direct_agent" }});
             if is_receive(action) { connection = receive_params(&descriptor)?; }
             if action == "manual_tune" { connection = crate::manual_tune::params(&descriptor)?; }
+            if action == "manual_rotor_goto" { connection = crate::manual_rotor::params(&descriptor)?; }
             if matches!(action, "connect_hamlib" | "reconnect_hamlib" | "disconnect_hamlib") {
                 connection = if action == "disconnect_hamlib" { json!({}) } else {
                     state.hamlib.clone().ok_or("Save Hamlib configuration before connecting.")?
@@ -517,9 +568,9 @@ impl Session {
             Some((
                 // FLEX reconnect deliberately creates a new configured session:
                 // never inherit the previous session's transmit permission.
-                json!({"id":id,"method":match action { "manual_tune" if connection["provider"] == "hamlib" => "hamlib_control", "manual_tune" => "station_tune", "receive_frequency" | "receive_mode" if connection["provider"] == "hamlib" => "hamlib_control", "receive_frequency" | "receive_mode" => "station_radio_control", "connect" | "connect_flex" | "reconnect_flex" => "station_connect", "forget" => "station_forget", "select" => "station_selection_apply", "connect_hamlib" => "hamlib_connect", "reconnect_hamlib" => "hamlib_reconnect", "disconnect_hamlib" => "hamlib_disconnect", _ => "station_disconnect" },"params":connection}),
+                json!({"id":id,"method":match action { "manual_rotor_goto" => "rotor_goto", "manual_tune" if connection["provider"] == "hamlib" => "hamlib_control", "manual_tune" => "station_tune", "receive_frequency" | "receive_mode" if connection["provider"] == "hamlib" => "hamlib_control", "receive_frequency" | "receive_mode" => "station_radio_control", "connect" | "connect_flex" | "reconnect_flex" => "station_connect", "forget" => "station_forget", "select" => "station_selection_apply", "connect_hamlib" => "hamlib_connect", "reconnect_hamlib" => "hamlib_reconnect", "disconnect_hamlib" => "hamlib_disconnect", _ => "station_disconnect" },"params":connection}),
                 selected_generation,
-                selected_id.to_owned(),
+                selected_id,
             ))
         };
         next.receipts.push(Receipt {
@@ -547,7 +598,9 @@ impl Session {
             .as_ref()
             .is_ok_and(|response| response["id"] == id && response["ok"] == true)
         {
-            if action == "manual_tune" { if crate::manual_tune::confirmed(&receipt.request, result.as_ref().unwrap()) { "confirmed" } else { "unknown" } } else { "acknowledged" }
+            if action == "manual_tune" { if crate::manual_tune::confirmed(&receipt.request, result.as_ref().unwrap()) { "confirmed" } else { "unknown" } }
+            else if action == "manual_rotor_goto" { if crate::manual_rotor::acknowledged(&receipt.request, result.as_ref().unwrap()) { "acknowledged" } else { "unknown" } }
+            else { "acknowledged" }
         } else {
             "unknown"
         }
@@ -631,7 +684,7 @@ mod tests {
     }
     #[test]
     fn manual_tune_compacts_terminal_receipts_but_never_unresolved_receipts() {
-        let (_directory, session, save) = setup();
+        let (directory, session, save) = setup();
         let generation = save["generation"].clone();
         let selection_id = uuid::Uuid::new_v4().to_string();
         let unresolved_id = uuid::Uuid::new_v4().to_string();
@@ -639,19 +692,26 @@ mod tests {
             "provider":"direct_flex_lan","selection_generation":3,"selection_id":selection_id,"control_revision":0,
             "connection_generation":7,"worker_generation":11,"frequency_hz":14074000,"mode":"USB"});
         assert_eq!(session.apply(&unresolved, |_,_,_| Err("reply lost".into())).unwrap()["status"], "unknown");
-        for revision in 1..(MAX_RECEIPTS as u64 + 8) {
-            let id = uuid::Uuid::new_v4().to_string();
-            let command = json!({"action":"manual_tune","operation_id":id,"generation":generation,"revision":revision,
-                "provider":"direct_flex_lan","selection_generation":3,"selection_id":selection_id,"control_revision":revision,
-                "connection_generation":7,"worker_generation":11,"frequency_hz":14074000,"mode":"USB"});
-            let receipt = session.apply(&command, |_,_,_| Ok(json!({"id":id,"ok":true,"result":{"confirmed":true,
-                "state":{"source":"direct_flex_lan","generation":7,"radio":{"connected":true,"observed":true,"transmitting":false,
-                "frequency_hz":14074000,"transmit_frequency_hz":14074000,"mode":"USB","receive_vfo":"A","transmit_vfo":"A","split":false,
-                "vfos":[{"letter":"A","receive":true,"transmit":true}]}}}}))).unwrap();
-            assert_eq!(receipt["status"], "confirmed");
+        for _ in 0..(MAX_RECEIPTS + 8) {
+            let snapshot = session.snapshot().unwrap();
+            let command = json!({"action":"save","operation_id":uuid::Uuid::new_v4().to_string(),"generation":generation,
+                "revision":snapshot["revision"],"base_url":"https://station.example:8443"});
+            assert_eq!(session.apply(&command, passive).unwrap()["status"], "saved");
         }
         assert_eq!(session.state.lock().unwrap().receipts.len(), MAX_RECEIPTS);
         assert_eq!(session.receipt(&unresolved_id).unwrap()["status"], "unknown");
+        let mut fresh = unresolved.clone(); fresh["operation_id"] = json!(uuid::Uuid::new_v4().to_string());
+        fresh["revision"] = session.snapshot().unwrap()["revision"].clone();
+        let mut calls = 0; assert!(session.apply(&fresh, |_,_,_| { calls += 1; panic!("unreviewed tune dispatched") }).is_err()); assert_eq!(calls, 0);
+        assert!(session.review(&unresolved_id, "manual_rotor_goto").is_err());
+        assert_eq!(session.review(&unresolved_id, "manual_tune").unwrap()["status"], "reviewed");
+        assert_eq!(Session::new(directory.path().join("session.json")).unwrap().receipt(&unresolved_id).unwrap()["status"], "reviewed");
+        let id = fresh["operation_id"].as_str().unwrap().to_owned();
+        let receipt = session.apply(&fresh, |_,_,_| Ok(json!({"id":id,"ok":true,"result":{"confirmed":true,
+            "state":{"source":"direct_flex_lan","generation":7,"radio":{"connected":true,"observed":true,"transmitting":false,
+            "frequency_hz":14074000,"transmit_frequency_hz":14074000,"mode":"USB","receive_vfo":"A","transmit_vfo":"A","split":false,
+            "vfos":[{"letter":"A","receive":true,"transmit":true}]}}}}))).unwrap();
+        assert_eq!(receipt["status"], "confirmed");
     }
 
     #[test]
@@ -689,6 +749,65 @@ mod tests {
         }).unwrap_err();
         assert!(error.contains("could not be saved"));
         assert_eq!(session.receipt(&id).unwrap()["status"], "unknown");
+    }
+    #[test]
+    fn manual_rotor_goto_is_journaled_once_and_restart_only_reads_its_receipt() {
+        for owner in ["native_dcu1", "hamlib"] {
+            let (directory, session, save) = setup();
+            let id = uuid::Uuid::new_v4().to_string();
+            let command = json!({"action":"manual_rotor_goto","operation_id":id,"generation":save["generation"],"revision":0,
+                "rotor_owner":owner,"rotor_generation":7,"rotor_revision":3,"worker_generation":if owner == "hamlib" { 0 } else { 11 },
+                "bearing":92.5,"label":"Manual bearing"});
+            let receipt = session.apply(&command, |request, generation, identity| {
+                assert_eq!(generation, 0); assert_eq!(identity, "");
+                assert_eq!(session.receipt(&id).unwrap()["status"], "pending");
+                assert_eq!(request["method"], "rotor_goto"); assert_eq!(request["params"]["owner"], owner);
+                assert_eq!(request["params"]["generation"], 7); assert_eq!(request["params"]["bearing"], 92.5);
+                Ok(json!({"id":id,"ok":true,"result":{"owner":owner,"generation":8,"state":"active",
+                    "target_bearing":92.5,"target_label":"Manual bearing","backend":{"accepted":true}}}))
+            }).unwrap();
+            assert_eq!(receipt["status"], "acknowledged");
+            assert_eq!(session.apply(&command, passive).unwrap(), receipt);
+            assert_eq!(Session::new(directory.path().join("session.json")).unwrap().apply(&command, passive).unwrap(), receipt);
+            let mut changed = command.clone(); changed["bearing"] = json!(180); assert!(session.apply(&changed, passive).is_err());
+        }
+    }
+    #[test]
+    fn manual_rotor_lost_reply_and_failed_pre_dispatch_storage_never_repeat() {
+        let (_directory, session, save) = setup();
+        let command = json!({"action":"manual_rotor_goto","operation_id":uuid::Uuid::new_v4().to_string(),"generation":save["generation"],"revision":0,
+            "rotor_owner":"native_dcu1","rotor_generation":7,"rotor_revision":3,"worker_generation":11,"bearing":92.5,"label":"K1ABC"});
+        let receipt = session.apply(&command, |_,_,_| Err("Reply lost".into())).unwrap();
+        assert_eq!(receipt["status"], "unknown"); assert_eq!(session.apply(&command, passive).unwrap(), receipt);
+        let (directory, failed, snapshot) = setup(); std::fs::create_dir_all(directory.path().join("session.json")).unwrap();
+        let mut request = command.clone(); request["generation"] = snapshot["generation"].clone();
+        assert!(failed.apply(&request, passive).is_err());
+    }
+    #[test]
+    fn manual_rotor_unresolved_receipt_survives_later_operations_and_compaction() {
+        let (directory, session, save) = setup();
+        let id = uuid::Uuid::new_v4().to_string();
+        let command = json!({"action":"manual_rotor_goto","operation_id":id,"generation":save["generation"],"revision":0,
+            "rotor_owner":"hamlib","rotor_generation":7,"rotor_revision":3,"worker_generation":0,"bearing":92.5,"label":"K1ABC"});
+        assert_eq!(session.apply(&command, |_,_,_| Err("Reply lost".into())).unwrap()["status"], "unknown");
+        for _ in 0..(MAX_RECEIPTS + 4) {
+            let snapshot = session.snapshot().unwrap();
+            let request = json!({"action":"save","operation_id":uuid::Uuid::new_v4().to_string(),"generation":snapshot["generation"],
+                "revision":snapshot["revision"],"base_url":"https://station.example:8443"});
+            session.apply(&request, passive).unwrap();
+        }
+        assert_eq!(session.unresolved_receipt("manual_rotor_goto").unwrap()["operation_id"], id);
+        let restored = Session::new(directory.path().join("session.json")).unwrap();
+        assert_eq!(restored.unresolved_receipt("manual_rotor_goto").unwrap()["status"], "unknown");
+        assert!(restored.unresolved_receipt("manual_tune").unwrap().is_null());
+        let mut fresh = command.clone(); fresh["operation_id"] = json!(uuid::Uuid::new_v4().to_string());
+        fresh["revision"] = session.snapshot().unwrap()["revision"].clone();
+        let mut calls = 0; assert!(session.apply(&fresh, |_,_,_| { calls += 1; panic!("unreviewed rotor turn dispatched") }).is_err()); assert_eq!(calls, 0);
+        assert_eq!(session.review(&id, "manual_rotor_goto").unwrap()["status"], "reviewed");
+        assert_eq!(Session::new(directory.path().join("session.json")).unwrap().receipt(&id).unwrap()["status"], "reviewed");
+        let next_id = fresh["operation_id"].as_str().unwrap().to_owned();
+        assert_eq!(session.apply(&fresh, |_,_,_| Ok(json!({"id":next_id,"ok":true,"result":{"owner":"hamlib","generation":8,
+            "state":"active","target_bearing":92.5,"target_label":"K1ABC","backend":{"state":"accepted"}}}))).unwrap()["status"], "acknowledged");
     }
     fn setup() -> (tempfile::TempDir, Session, Value) {
         let directory = tempfile::tempdir().unwrap();

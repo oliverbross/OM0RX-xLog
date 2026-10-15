@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { hamlibProjection } from "./hamlibStation";
 import { rotorCommandParams, rotorProjection, validRotorSnapshot, type RotorSnapshot } from "./rotorControl";
-import { workerRequest } from "../worker";
+import { manualRotorGotoSession } from "./manualRotorGoto";
 
 type Data = Record<string, any>;
 export type MonitorContext = { epoch: string; revision: number; selection: null | {
@@ -62,7 +62,10 @@ export async function monitorRadioAction(context: MonitorContext | null, action:
   return reply.result;
 }
 export async function monitorRotorAction(context: MonitorContext | null, method: string, params: Data = {},
-  request: (method: string, params?: Data) => Promise<any> = async (method, params) => (await workerRequest(method, params)).result,
+  request: (method: string, params?: Data) => Promise<any> = async (method, params = {}) => {
+    if (method !== "rotor_goto") throw new Error("Unsupported manual rotor operation.");
+    return manualRotorGotoSession().goto(params.owner, params.generation, params.bearing, String(params.label ?? "Monitor bearing"));
+  },
   stop: (owner: string) => Promise<any> = async owner => {
     const reply: any = await invoke("monitor_rotor_stop", { owner });
     if (reply?.ok !== true || !object(reply.result)) throw new Error(reply?.error?.message || "Stop was not acknowledged; check observed state before retrying.");
@@ -72,13 +75,9 @@ export async function monitorRotorAction(context: MonitorContext | null, method:
   if (!context || context.acceptance || method !== "rotor_stop" && !freshMonitorProjection(context.rotor) || !validRotorSnapshot(captured) || !captured.owner ||
       !["rotor_goto", "rotor_stop"].includes(method)) throw new Error("Refresh the independent rotor observation before using its controls.");
   if (method === "rotor_stop") return stop(captured.owner);
-  const current = await request("rotor_snapshot", {});
-  if (!validRotorSnapshot(current) || current.owner !== captured.owner || !current.owner || method !== "rotor_stop" && current.generation !== captured.generation)
-    throw new Error("Rotor ownership changed. Refresh before sending another command.");
-  if (method === "rotor_goto" && (!rotorProjection(current).connected || typeof params.bearing !== "number" || !Number.isFinite(params.bearing) || params.bearing < 0 || params.bearing > 360))
+  if (!rotorProjection(captured).connected || typeof params.bearing !== "number" || !Number.isFinite(params.bearing) || params.bearing < 0 || params.bearing > 360)
     throw new Error("An observed rotor and a bearing from 0° to 360° are required.");
-  try { return await request(method, rotorCommandParams(current, method === "rotor_goto" ? { bearing: params.bearing, label: "Monitor bearing" } : {})); }
-  finally { try { await request("rotor_snapshot", {}); } catch { /* Lost replies are observed, never replayed. */ } }
+  return request(method, rotorCommandParams(captured, { bearing: params.bearing, label: "Monitor bearing" }));
 }
 
 type Adapter = { read: () => Promise<any>; listen: (name: string, wake: () => void) => Promise<() => void> };

@@ -3,6 +3,7 @@ import { nativeSpotEditor, useSpotEditor } from "./live/useSpotEditor";
 import { activationDisablesFollow, validSpotActivationSnapshot } from "./live/spotActivation";
 import { invoke } from "@tauri-apps/api/core";
 import { manualTuneSession } from "./live/manualTune";
+import { manualRotorGotoSession } from "./live/manualRotorGoto";
 import { loadReadRadioJournal, type ReadRadioJournal } from "./live/readRadioJournal";
 import { useSpotActivation } from "./live/useSpotActivation";
 import { SpotActivationStatus } from "./live/SpotActivationStatus";
@@ -377,6 +378,8 @@ function MainLiveApp() {
       }
       const clusterEpoch = method === "cluster_filter" || method === "cluster_configure" || method === "cluster_connect" || method === "cluster_disconnect"
         ? ++clusterMutationEpoch.current : clusterMutationEpoch.current;
+      if (method === "rotor_goto" && nativeStationSelection())
+        return manualRotorGotoSession().goto(params.owner, params.generation, params.bearing, String(params.label ?? "Manual bearing"));
       if (method.startsWith("rotor_")) {
         if (method === "rotor_stop" && nativeSpotEditor()) {
           // Match detached Stop: do not put device snapshots before or after

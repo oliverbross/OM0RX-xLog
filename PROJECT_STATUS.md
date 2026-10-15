@@ -2,6 +2,25 @@
 
 Last updated: 2026-10-16
 
+## Shared manual Rotor Goto owner — source complete; package/hardware acceptance open
+
+Desk Rotor, standalone Rotor, Station Control and Station Monitor now route each
+explicit Goto through one native durable owner. Admission binds the station,
+rotor-observation, selected-owner and worker generations, rechecks a fresh native
+observation under the serialized rotor lock and dispatches exactly once. A result
+is acknowledged only when its owner, new generation, target bearing and target
+label exactly match the immutable request; raw renderer Goto is denied.
+
+The operation is journaled before dispatch. Lost replies remain `unknown`, block
+another Goto and can only be checked or durably reviewed without replay. The
+review decision survives restart and compaction. Recovery remains visible when a
+rotor owner disappears, and resolving an older Goto cannot erase a newer Stop,
+disconnect or configuration failure. Complete frontend **2,548/2,548** and Rust
+**519/519** across the unit and Hamlib integration targets pass, along with the
+production TypeScript/Vite/window build and diff checks. Source only: alpha.31
+remains installed; no station, hardware, radio, rotor, RF, service or operator-
+data action occurred.
+
 ## Shared manual simplex tune owner — source complete; package/hardware acceptance open
 
 Main Agent/FLEX/Hamlib controls and standalone Station Control now route explicit

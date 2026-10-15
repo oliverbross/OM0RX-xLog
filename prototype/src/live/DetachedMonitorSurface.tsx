@@ -6,6 +6,8 @@ import { connectMonitorContext, freshMonitorProjection, monitorRadioAction, moni
 import { connectMonitorTarget, type MonitorTarget } from "./monitorTarget";
 import { useAutoRotor } from "./useAutoRotor";
 import { rotorProjection, validRotorSnapshot } from "./rotorControl";
+import { ManualRotorStatus } from "./ManualRotorControl";
+import { manualRotorGotoSession, type ManualRotorGotoSession } from "./manualRotorGoto";
 import "./DetachedMonitorSurface.css";
 
 type Connection = { refresh: () => void; dispose: () => void };
@@ -14,6 +16,7 @@ type Props = {
   connectMap?: (changed: (value: MapContext) => void, failed: (message: string) => void) => Connection;
   connectTarget?: (changed: (value: MonitorTarget | null) => void, failed: (message: string) => void) => Connection;
   radioAction?: typeof monitorRadioAction; rotorAction?: typeof monitorRotorAction;
+  rotorSession?: ManualRotorGotoSession;
   renderMap?: (value: MapContext | null, stale: boolean) => ReactNode;
 };
 function OptionalMap({ context, stale, target, frequencyHz }: { context: MapContext | null; stale: boolean; target: MonitorTarget | null; frequencyHz?: number }) {
@@ -25,11 +28,12 @@ function OptionalMap({ context, stale, target, frequencyHz }: { context: MapCont
   </div>;
 }
 export function MonitorSurface({ connectCore = connectMonitorContext, connectMap = connectMapContext, radioAction = monitorRadioAction,
-  rotorAction = monitorRotorAction, connectTarget = connectMonitorTarget, renderMap }: Props) {
+  rotorAction = monitorRotorAction, rotorSession = manualRotorGotoSession(), connectTarget = connectMonitorTarget, renderMap }: Props) {
   const [context, setContext] = useState<MonitorContext | null>(null), [map, setMap] = useState<MapContext | null>(null);
   const [error, setError] = useState(""), [mapError, setMapError] = useState(""), [clock, setClock] = useState(Date.now());
   const [target, setTarget] = useState<MonitorTarget | null>(null), [targetError, setTargetError] = useState("");
   const automatic = useAutoRotor(), [autoError, setAutoError] = useState(""), [arming, setArming] = useState(false);
+  const [resolvedCommandOperation, setResolvedCommandOperation] = useState<string | null>(null);
   const armingRef = useRef(false);
   const latest = useRef<MonitorContext | null>(null), core = useRef<Connection | null>(null), maps = useRef<Connection | null>(null), targets = useRef<Connection | null>(null);
   const active = useRef(true), authority = useRef(false);
@@ -73,7 +77,12 @@ export function MonitorSurface({ connectCore = connectMonitorContext, connectMap
   };
   const rotorRequest = async (method: string, params: Record<string, any> = {}) => {
     if (!authority.current && method !== "rotor_stop") throw new Error("Refresh native rotor observations before sending this action.");
-    try { return await rotorAction(latest.current, method, params); }
+    try {
+      return method === "rotor_goto" && rotorAction === monitorRotorAction
+        ? await rotorAction(latest.current, method, params, async (_method, next = {}) =>
+          rotorSession.goto(next.owner, next.generation, next.bearing, String(next.label ?? "Monitor bearing")))
+        : await rotorAction(latest.current, method, params);
+    }
     finally { if (active.current) core.current?.refresh(); }
   };
   return <div className="app live monitor-app detached-monitor-app"><main aria-label="Detached Station Monitor">
@@ -86,6 +95,7 @@ export function MonitorSurface({ connectCore = connectMonitorContext, connectMap
           onClick={() => { void changeAutomatic(false); }}>Off</button></>}
       </div>}
     {!synthetic && (autoError || automatic.error) && <p className="live-error" role="alert">{autoError || automatic.error}</p>}
+    {!synthetic && <ManualRotorStatus session={rotorSession} onResolved={setResolvedCommandOperation} />}
     {error && <p className="live-error" role="alert">{error} <button type="button" onClick={() => { core.current?.refresh(); maps.current?.refresh(); targets.current?.refresh(); }}>Retry observations</button></p>}
     {!context && <p className="secondary" role="status">Loading retained native station observations…</p>}
     {context && !context.selection?.provider && <p className="secondary" role="status">No radio selected. Choose and connect a radio in the main station controls.</p>}
@@ -95,7 +105,9 @@ export function MonitorSurface({ connectCore = connectMonitorContext, connectMap
     <Monitor snapshot={station} map={renderMap ? renderMap(map, mapStale) : <OptionalMap context={map} stale={mapStale} target={target}
       frequencyHz={freshRadio ? station.radio.receive_frequency_hz ?? station.radio.frequency_hz : undefined} />}
       onRequest={context?.selection?.provider && !synthetic ? radioRequest : undefined}
-      onRotorRequest={context?.rotor?.snapshot?.owner && !synthetic ? rotorRequest : undefined} />
+      onRotorRequest={context?.rotor?.snapshot?.owner && !synthetic ? rotorRequest : undefined}
+      commandOperationId={() => rotorSession.getSnapshot().pending}
+      resolvedCommandOperation={resolvedCommandOperation} />
   </main></div>;
 }
 export function DetachedMonitorSurface() { return <MonitorSurface />; }
