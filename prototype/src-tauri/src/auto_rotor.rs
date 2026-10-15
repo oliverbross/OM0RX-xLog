@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::sync::{atomic::{AtomicU64, Ordering}, Arc, Mutex, OnceLock, Weak};
 const MAX_EPOCH: u64 = 9_007_199_254_740_991;
+pub(crate) const CLIENT_WINDOWS: [&str; 3] = ["main", "monitor", "rotor"];
+pub(crate) fn client_role(label: &str) -> bool { CLIENT_WINDOWS.contains(&label) }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Target {

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import RotorCompass from "./RotorCompass";
 import { connectRotorTelemetry } from "./rotorTelemetry";
-import { rotorProjection, type RotorSnapshot } from "./rotorControl";
+import { rotorProjection, validRotorSnapshot, type RotorSnapshot } from "./rotorControl";
 import { useAutoRotor } from "./useAutoRotor";
 import "./DetachedTaskSurface.css";
 
@@ -10,9 +11,10 @@ import "./DetachedTaskSurface.css";
 export function DetachedRotorSurface() {
   const [snapshot, setSnapshot] = useState<RotorSnapshot | null>(null), [available, setAvailable] = useState(false);
   const [clock, setClock] = useState(Date.now());
-  const automatic = useAutoRotor(), [autoError, setAutoError] = useState(""), [arming, setArming] = useState(false);
+  const automatic = useAutoRotor(), [autoError, setAutoError] = useState(""), [stopError, setStopError] = useState("");
+  const [arming, setArming] = useState(false), [stopping, setStopping] = useState(false);
   const latest = useRef({ snapshot, available }); latest.current = { snapshot, available };
-  const active = useRef(true), armingRef = useRef(false);
+  const active = useRef(true), armingRef = useRef(false), stoppingRef = useRef(false);
   useEffect(() => {
     active.current = true;
     const dispose = connectRotorTelemetry(value => { setSnapshot(value); setAvailable(true); }, () => setAvailable(false));
@@ -36,6 +38,20 @@ export function DetachedRotorSurface() {
     catch (cause) { if (active.current) setAutoError(cause instanceof Error ? cause.message : "Automatic rotor control failed."); }
     finally { if (enabled) { armingRef.current = false; if (active.current) setArming(false); } }
   };
+  const stopCurrent = async () => {
+    const owner = latest.current.snapshot?.owner;
+    if (!owner || stoppingRef.current) return;
+    stoppingRef.current = true; setStopping(true); setStopError("");
+    try {
+      const reply: any = await invoke("monitor_rotor_stop", { owner });
+      if (reply?.ok !== true || !validRotorSnapshot(reply.result))
+        throw new Error(reply?.error?.message || "Rotor Stop was not acknowledged. Check the observed state before trying again.");
+    } catch (cause) {
+      if (active.current) setStopError(cause instanceof Error ? cause.message : "Rotor Stop outcome is unknown. Check the observed state before trying again.");
+    } finally {
+      stoppingRef.current = false; if (active.current) setStopping(false);
+    }
+  };
   return <div className="app live detached-task-app detached-rotor-app"><main aria-label="Detached Rotor"><section className="detached-rotor-observation" aria-label="Rotor state">
     <p role="status">{current ? "Current observed bearing" : snapshot ? "Position unavailable or stale" : "No rotor observation available"}</p>
     <div className="detached-rotor-visual"><RotorCompass connected={current} azimuth={rotor.azimuth} path="SP" />
@@ -45,10 +61,13 @@ export function DetachedRotorSurface() {
       <label title="Follow the resolved callsign using the native rotor. Selected spots wait for confirmed radio tuning. Stop or reconnect disables automatic turns.">
         <input type="checkbox" aria-label="Auto rotor" checked={armed} disabled={!armed && (!canArm || arming)}
           onChange={event => { void changeAutomatic(event.target.checked); }} />{automatic.state ? "Auto rotor" : "Auto rotor unavailable"}</label>
-      <button type="button" aria-label="Turn automatic rotor off" title="Disarm automatic turns. Use Stop on the Desk to stop the current move."
+      <button type="button" aria-label="Turn automatic rotor off" title="Disarm future automatic turns."
         onClick={() => { void changeAutomatic(false); }}>Off</button>
+      <button type="button" aria-label="Stop rotor" disabled={!snapshot?.owner || stopping}
+        title="Stop the current move through the native rotor owner. No move is replayed."
+        onClick={() => { void stopCurrent(); }}>{stopping ? "Stopping…" : "Stop"}</button>
     </div>
-    {(autoError || automatic.error) && <p className="live-error" role="alert">{autoError || automatic.error}</p>}
+    {(stopError || autoError || automatic.error) && <p className="live-error" role="alert">{stopError || autoError || automatic.error}</p>}
     <dl><dt>Rotor</dt><dd>{snapshot?.owner ? String(rotor.name) : "No retained owner"}</dd>
       <dt>Connection</dt><dd>{available ? String(rotor.status) : "Unavailable or stale"}</dd>
       <dt>Generation</dt><dd>{snapshot?.generation ?? "Unavailable"}</dd>

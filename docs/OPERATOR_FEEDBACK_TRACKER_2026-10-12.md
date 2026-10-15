@@ -7,6 +7,19 @@ packaged UI result. Keep unresolved items here across releases.
 
 ## Current delivery boundary
 
+- **Detached Rotor Auto/Stop and QSO success overlay, 16 October:** The standalone
+  Rotor surface now shares the native automatic-following owner/events and the
+  current-owner urgent Stop ingress. Exact role, owner/generation, isolation and
+  shutdown fences remain; Stop is not pre-read or replayed after an uncertain
+  reply, and the child receives no raw rotor worker authority. Focused renderer
+  **13/13**, full frontend **2,465/2,465**, Rust **482/482** and production-build
+  gates pass. Synthetic 360x480, 640x480 and 900x600 checks retain the dial,
+  Auto/Off, Stop and details without horizontal overflow. Separately, installed
+  alpha.31 already shows successful logging as a non-layout-shifting one-second
+  `QSO logged` status overlay; its focused overlay/detached-QSO checks pass
+  **38/38**. Errors remain persistent. No new package was installed and no station,
+  rotor, RF, provider or operator-data action occurred.
+
 - **Current-HEAD follow-up review remediated — packaged isolated, 15 October:**
   Exact source `bd38acec940cf5af58499e87cc47cf210ceaf8d8` closes restore-time
   online-log replay, atomic provider/candidate claim validation, retained
@@ -673,7 +686,7 @@ first post-mutation work remains open. No installed app or live-log changes.
 | UI-13 | App logo/larger brand; bold frequency/mode; propagation in header with Day/Night and colored SFI/A/K; no update row | Implemented; component tests | Pending wide/laptop layout check |
 | UI-14 | Hide routine spot tune-success prose without hiding failures/unconfirmed state | Implemented | Pending alpha.5 |
 | UI-15 | Resizable map/right pane; Band maps and Cluster tabs; compact cluster configurable columns and widths, independent of full cluster | Implemented; focused component/integration tests; full frontend 255/255 | Pending splitter, persistence, tab and column checks |
-| UI-16 | Rotor dial shrinks automatically to available space; it must not enlarge the top row and leave blank space in QSO/intelligence; bottom edges aligned | Traditional middle-width transition fixed in source; 18-width synthetic geometry checks with/without equipment and visual review pass; not installed | Equipment-present desk stacks Active QSO at 1840px content width; proportional rotor dial preserves target space. Wide and equipment-free layouts retained. Custom canvas, display scaling, offline/long status and native operator acceptance remain open; no hardware commands |
+| UI-16 | Rotor dial shrinks automatically to available space; it must not enlarge the top row and leave blank space in QSO/intelligence; bottom edges aligned | Traditional middle-width transition fixed in source; detached Rotor retains dial, Auto/Off, Stop and details at 360x480, 640x480 and 900x600 without horizontal overflow; not installed | Equipment-present desk stacks Active QSO at 1840px content width; proportional rotor dial preserves target space. Wide and equipment-free layouts retained. Custom canvas, display scaling, offline/long status, mixed-display and native operator acceptance remain open; no hardware commands |
 | UI-27 | Center station callsign and grid horizontally in the sidebar footer beneath Monitor | Source and isolated rendered fixture pass; not installed | Existing Monitor/call/grid order and text sizes retained; inherited center alignment, no station value or action changes |
 | UI-28 | QRZ image fills the intelligence card content width; move the current right-side name, country and QRZ source below the image | Source, focused tests and isolated landscape/portrait/missing-image checks pass; not installed | Full-width natural aspect ratio, right-aligned details below, safe URL/failure handling and full-size modal preserved. Portraits remain uncropped and therefore taller; existing Station website link is not relabeled as QRZ |
 | UI-29 | Show country/DXCC name below callsign and above UTC, on the RST Sent label line: green confirmed, orange worked, red new | Source implemented and tested; included in installed alpha.22 source | Complete history gates confirmed/worked/new color; stale, missing or failed evidence stays neutral. Synthetic geometry covers 40 state/width combinations; packaged visual acceptance remains open |
@@ -710,7 +723,7 @@ first post-mutation work remains open. No installed app or live-log changes.
 | DATA-06 | Per-dataset downloaded/checked/attempt dates, count/version, cache/error freshness; no fabricated legacy dates | Implemented; updater/component tests | Pending actual cache display |
 | DATA-07 | Reject malformed CTY/LoTW downloads and cached 304 success; preserve known cache; correct Wavelog catalog index.php URL | Implemented; 5 focused updater tests | LoTW real-feed compatibility remains to verify |
 | DATA-08 | Awards opens immediately with retained/cached results | Warm caches and retained view implemented; bounded JARL core optimization at `aad3886`; five-run packaged 100,002-contact distribution at `cb5d450` | **Packaged isolated acceptance:** first open median/p95 1,151/1,522 ms and repeat 66/91 ms, all 39/39 functional gates. First open remains the slower path; physical cold disk, operator data and live contention remain open |
-| RADIO-01 | Auto rotor turns resolved typed calls; selected spots wait for confirmed radio tune; Stop/reconnect disarm | Implemented; fence/regression tests | Pending packaged/hardware acceptance, not claimed by synthetic tests |
+| RADIO-01 | Auto rotor turns resolved typed calls; selected spots wait for confirmed radio tune; Stop/reconnect disarm | Desk, Monitor and detached Rotor share exact-role native Auto state/events; detached Stop reuses current-owner ingress, revokes Auto first and is never replayed after lost acknowledgement. Fence/regression and responsive checks pass | Pending packaged/hardware acceptance, not claimed by synthetic tests; detached child has no raw rotor worker/configuration authority |
 | RADIO-02 | Browsing Station Control provider tabs must never disconnect/change active radio; explicit Save/apply action | Active/view provider separation implemented; 19 focused tests and full 242-test frontend suite pass | Pending live tab-only check |
 | RADIO-03 | Frequency/mode and callsign remain coherent after spot selection, including remote latency | Existing guarded tune/readback plus stale-selection fences | Real radio/Maestro acceptance remains distinct |
 | SYNC-01 | M7KOD reaches Wavelog without duplicate/lost edits | Previously verified remote ID 178693, dirty=0, outbox=0 | Complete for that QSO; no blanket sync parity claim |

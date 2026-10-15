@@ -30,6 +30,7 @@ it("subscribes to retained observations without starting device polling or motio
   expect(screen.getByRole("status").textContent).toBe("No rotor observation available");
   expect(screen.getByRole("checkbox", { name: "Auto rotor" })).toHaveProperty("disabled", true);
   expect(screen.getByRole("button", { name: "Turn automatic rotor off" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Stop rotor" })).toHaveProperty("disabled", true);
   expect(automatic.set).not.toHaveBeenCalled();
   await act(async () => { await vi.advanceTimersByTimeAsync(20_000); });
   expect(native.invoke).toHaveBeenCalledOnce();
@@ -67,6 +68,7 @@ it("reflows the compass, automatic controls and retained details without wrapper
   expect(container.firstElementChild?.classList.contains("detached-task-app")).toBe(true);
   expect(screen.queryByRole("heading")).toBeNull();
   expect(screen.getByRole("button", { name: "Turn automatic rotor off" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Stop rotor" })).toBeTruthy();
   expect(screen.queryByText(/independent of Desk|Connection setup, turning/)).toBeNull();
   expect(screen.getByRole("img")).toBeTruthy();
   expect(taskStyles).toMatch(/\.app\.live\.detached-task-app\s*\{[^}]*display: flex/);
@@ -111,4 +113,25 @@ it("reports an automatic-controller failure without claiming a changed bearing o
   expect(screen.getByRole("alert").textContent).toBe("Owner changed; refresh");
   expect(screen.getByText("123.4°")).toBeTruthy();
   expect(native.invoke.mock.calls).toEqual([["rotor_telemetry_snapshot"]]);
+});
+
+it("stops through the native same-owner ingress even when the retained position is stale", async () => {
+  const retained = observation(); retained.snapshot.backend.observed_at -= 20;
+  native.invoke.mockImplementation(async command => command === "rotor_telemetry_snapshot" ? retained :
+    command === "monitor_rotor_stop" ? { ok: true, result: snapshot() } : Promise.reject(new Error(`Unexpected ${command}`)));
+  render(<DetachedRotorSurface />);
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  expect(screen.getByRole("status").textContent).toBe("Position unavailable or stale");
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Stop rotor" })); });
+  expect(native.invoke.mock.calls).toEqual([["rotor_telemetry_snapshot"], ["monitor_rotor_stop", { owner: "native_dcu1" }]]);
+});
+
+it("reports an uncertain Stop once and does not retry it", async () => {
+  native.invoke.mockImplementation(async command => command === "rotor_telemetry_snapshot" ? observation() :
+    command === "monitor_rotor_stop" ? Promise.reject(new Error("Stop acknowledgement lost")) : Promise.reject(new Error(`Unexpected ${command}`)));
+  render(<DetachedRotorSurface />);
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Stop rotor" })); });
+  expect(screen.getByRole("alert").textContent).toBe("Stop acknowledgement lost");
+  expect(native.invoke.mock.calls.filter(([command]) => command === "monitor_rotor_stop")).toHaveLength(1);
 });

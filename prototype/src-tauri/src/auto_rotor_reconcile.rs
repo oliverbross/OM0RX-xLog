@@ -63,7 +63,7 @@ pub fn request(app: &tauri::AppHandle) {
             result
         }), Arc::new(move |result| {
             if let Err(error) = result { eprintln!("Automatic rotor reconciliation unavailable: {error}"); }
-            for label in ["main", "monitor"] { let _ = app.emit_to(label, "xlog:auto-rotor", ()); }
+            for label in crate::auto_rotor::CLIENT_WINDOWS { let _ = app.emit_to(label, "xlog:auto-rotor", ()); }
         })))
     });
     if STOPPED.load(Ordering::Acquire) { owner.shutdown(); return; }

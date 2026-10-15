@@ -2,6 +2,23 @@
 
 Last updated: 2026-10-16
 
+## Independent Rotor Auto and Stop — source complete; package/hardware acceptance open
+
+The standalone Rotor window now shares the native automatic-following state and
+urgent Stop ingress used by the integrated surfaces. Exact window-role,
+owner/generation, isolation and shutdown gates prevent a second controller; Stop
+revokes automatic following first and is never replayed after a lost acknowledgement.
+Focused renderer checks pass **13/13**, the complete frontend suite
+**2,465/2,465**, the Rust suites **482/482**, and the production build passes.
+Rendered 360x480, 640x480 and 900x600 checks have no horizontal overflow. This is
+source/synthetic evidence only: alpha.31 remains installed, and no rotor, radio,
+station or RF command was issued.
+
+The installed alpha.31 already replaces the persistent green successful-save line
+with a non-layout-shifting, one-second `QSO logged` status overlay. Focused overlay
+and detached-QSO coverage passes **38/38**. Save errors remain persistent and are
+not converted into transient success feedback.
+
 ## WSJT-X CQ alerts and local novelty — source complete; package/external acceptance open
 
 The default-off receiver supplies bounded, receive-only schema-2/3 FT8/FT4 CQ

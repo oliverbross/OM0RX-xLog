@@ -149,13 +149,23 @@ async fn activate_opportunity(window: tauri::WebviewWindow, app: tauri::AppHandl
         .map_err(|_| "Opportunity acknowledgement unavailable; inspect the existing operation before selecting again".to_string())?
 }
 #[tauri::command]
-fn auto_rotor_snapshot(window: tauri::WebviewWindow) -> Result<serde_json::Value, String> {
-    if !matches!(window.label(), "main" | "monitor") { return Err("This window cannot read automatic rotor state.".into()); }
+fn auto_rotor_snapshot(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>) -> Result<serde_json::Value, String> {
+    validate_auto_rotor_read(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
     auto_rotor::snapshot()
 }
+fn validate_auto_rotor_read(label: &str, isolated: bool, exiting: bool) -> Result<(), String> {
+    if exiting || isolated || !auto_rotor::client_role(label) {
+        Err("This window cannot read automatic rotor state.".into())
+    } else { Ok(()) }
+}
 fn validate_auto_rotor_set(label: &str, isolated: bool, exiting: bool) -> Result<(), String> {
-    if exiting || isolated || !matches!(label, "main" | "monitor") {
+    if exiting || isolated || !auto_rotor::client_role(label) {
         Err("Automatic rotor settings are unavailable in this window.".into())
+    } else { Ok(()) }
+}
+fn validate_rotor_stop(label: &str, isolated: bool, exiting: bool) -> Result<(), String> {
+    if exiting || isolated || !matches!(label, "main" | "monitor" | "rotor") {
+        Err("Rotor Stop is unavailable in this window.".into())
     } else { Ok(()) }
 }
 #[derive(Clone, Copy)]
@@ -199,7 +209,7 @@ async fn auto_rotor_set(window: tauri::WebviewWindow, app: tauri::AppHandle, sta
     }))
         .await.map_err(|_| "Automatic rotor task failed".to_string())?;
     if armed && result.is_ok() { auto_rotor_reconcile::request(&app); }
-    for label in ["main", "monitor"] { let _ = app.emit_to(label, "xlog:auto-rotor", ()); }
+    for label in auto_rotor::CLIENT_WINDOWS { let _ = app.emit_to(label, "xlog:auto-rotor", ()); }
     result
 }
 fn detached_window_shortcut(kind: &str) -> Option<&'static str> {
@@ -665,9 +675,9 @@ async fn monitor_station_action(window: tauri::WebviewWindow, app: tauri::AppHan
 
 #[tauri::command]
 async fn monitor_rotor_stop(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, owner: String) -> Result<serde_json::Value, String> {
-    monitor_context::validate(window.label(), state.path.is_some())?;
+    validate_rotor_stop(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
     tauri::async_runtime::spawn_blocking(move || rotor::monitor_stop(&owner))
-        .await.map_err(|_| "Monitor Stop task failed".to_string())?
+        .await.map_err(|_| "Rotor Stop task failed".to_string())?
 }
 
 #[tauri::command]
@@ -1374,7 +1384,7 @@ fn main() {
 #[cfg(test)]
 mod workspace_layout_tests {
     use super::{WorkspaceLayout, DraftWake, recover_singleton, detached_window_shortcut, validate_detached_open, COMPACT_WORKSPACE_MENU_ID, STANDARD_WORKSPACE_MENU_ID};
-    use super::{spot_editor_barrier, validate_spot_effect, validate_activation_reader, retires_automatic_rotor, validate_auto_rotor_set, AutomaticRotorCommands};
+    use super::{spot_editor_barrier, validate_spot_effect, validate_activation_reader, retires_automatic_rotor, validate_auto_rotor_read, validate_auto_rotor_set, validate_rotor_stop, AutomaticRotorCommands};
     use serde_json::json;
 
     #[test]
@@ -1415,15 +1425,28 @@ mod workspace_layout_tests {
     }
 
     #[test]
-    fn automatic_rotor_set_allows_only_main_and_monitor_and_never_isolation_or_shutdown() {
-        for label in ["main", "monitor"] {
+    fn automatic_rotor_set_allows_only_live_rotor_surfaces_and_never_isolation_or_shutdown() {
+        for label in crate::auto_rotor::CLIENT_WINDOWS {
             assert!(validate_auto_rotor_set(label, false, false).is_ok(), "{label}");
         }
         for label in crate::workspace_windows::SUPPORTED_WINDOWS.iter().map(|window| window.id)
             .chain(["main", "rotor", "settings", "station-control", "sync", "unknown", "", "MAIN", "Monitor"]) {
-            assert_eq!(validate_auto_rotor_set(label, false, false).is_ok(), matches!(label, "main" | "monitor"), "{label}");
+            assert_eq!(validate_auto_rotor_read(label, false, false).is_ok(), crate::auto_rotor::client_role(label), "{label}");
+            assert_eq!(validate_auto_rotor_set(label, false, false).is_ok(), crate::auto_rotor::client_role(label), "{label}");
             for (isolated, exiting) in [(true, false), (false, true), (true, true)] {
+                assert!(validate_auto_rotor_read(label, isolated, exiting).is_err(), "{label} isolated={isolated} exiting={exiting}");
                 assert!(validate_auto_rotor_set(label, isolated, exiting).is_err(), "{label} isolated={isolated} exiting={exiting}");
+            }
+        }
+    }
+
+    #[test]
+    fn rotor_stop_is_available_only_to_live_main_monitor_and_rotor_surfaces() {
+        for label in crate::workspace_windows::SUPPORTED_WINDOWS.iter().map(|window| window.id)
+            .chain(["main", "rotor", "monitor", "station-status", "station-control", "unknown", "", "MAIN", "Monitor"]) {
+            assert_eq!(validate_rotor_stop(label, false, false).is_ok(), matches!(label, "main" | "monitor" | "rotor"), "{label}");
+            for (isolated, exiting) in [(true, false), (false, true), (true, true)] {
+                assert!(validate_rotor_stop(label, isolated, exiting).is_err(), "{label} isolated={isolated} exiting={exiting}");
             }
         }
     }

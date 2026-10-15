@@ -842,6 +842,30 @@ unknown-field conditional semantics, so a child apply could overwrite a concurre
 writer. The existing Desk editor remains available; no duplicate dead profile store
 was created. Conditional Agent writes are the prerequisite for resuming that slice.
 
+### Checkpoint AN — independent Rotor Auto and Stop parity
+
+The standalone Rotor surface now uses the existing retained native rotor owner for
+both automatic following and urgent Stop. Automatic-state snapshot, set and wake
+events admit only the exact `main`, `monitor` and `rotor` roles and remain denied in
+isolated acceptance and during shutdown. Stop reuses the current-owner,
+generation-checked native ingress: it revokes automatic following before waiting,
+does not pre-read or retry the device command, and preserves an uncertain outcome
+when its acknowledgement is lost. The child receives no raw rotor worker,
+configuration, credential or connection authority.
+
+The compact control row remains reachable with stale retained position data so the
+operator can still request Stop, while automatic Arm continues to require the
+existing fresh owner/generation admission. Focused renderer coverage passes
+**13/13**, the complete frontend suite **2,465/2,465**, and the Rust suites
+**482/482**. TypeScript, the production Vite/window-bundle build and diff checks
+pass. Rendered responsive checks at 360x480, 640x480 and 900x600 show no horizontal
+overflow and retain the dial, Auto/Off, Stop and details in the available viewport.
+
+This is source and synthetic viewport evidence only. No package was produced or
+installed, no device/service was contacted and no rotor, station or RF command was
+issued. Eliminating the hidden main controller, broader Station Control parity,
+mixed-display/operator review and physical rotor acceptance remain separate work.
+
 ### 14 October audit — remaining new-QSO and QSY ownership
 
 At `cd25718`, detached Logbook edits saved contacts; it is not an independent
