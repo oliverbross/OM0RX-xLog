@@ -7,6 +7,23 @@ packaged UI result. Keep unresolved items here across releases.
 
 ## Current delivery boundary
 
+- **Full native TCI provider requested, 16 October — codec/reducer foundation source
+  complete:** SunSDR2, ExpertSDR and compatible TCI servers are now a first-class radio
+  programme. The original Swift incremental codec and initialization/state reducer use
+  the official ExpertSDR3 contract, retain per-TRX/channel state, enforce bounded input
+  and diagnostics and expose configured state only after complete discovery plus
+  `READY`. Portable tests pass **13/13** after independent review. There is no socket,
+  provider UI, control or transmit authority yet; those and package/live/RF proof remain
+  later gates. QLog behavior was reference only and no implementation code was copied.
+
+- **Arbitrary ADIF contact editing, 16 October — source complete:** Logbook pointer and
+  Enter activation use the existing revision-fenced editor and safe delete/undo owner.
+  Modeled plus unknown/custom fields round-trip; legacy RX/off-time/antenna/QSL fields
+  backfill on read without background rewriting, explicit BAND_RX clears remain clear,
+  and malformed retained optional values are preserved until explicitly removed.
+  Swift **12/12**, sync identity **25/25**, frontend **72/72**, TypeScript, diff and
+  independent review pass; packaged/manual macOS acceptance remains open.
+
 - **Durable main-only GUI PTT owner, 16 October — source/mock stage:** Agent/FLEX
   PTT now has independent native On and urgent owned Off lanes, exact immutable
   selection/control/observation/worker/connection targets and journal-before-send

@@ -30,6 +30,31 @@ are separate from package acceptance: the installed alpha.31 app is unchanged,
 and live Agent/FLEX, physical release timing and RF acceptance remain open. No
 station/network/hardware/RF operation was issued for this source stage.
 
+## Arbitrary ADIF contact editing — source complete; packaged interaction acceptance open
+
+Logbook pointer and keyboard row activation use the existing revision-fenced contact
+session and mutation owner. Modeled fields plus retained unknown/custom ADIF fields can
+be added, edited, explicitly cleared or preserved without creating a second log owner;
+safe delete/undo behavior remains unchanged. Legacy rows backfill newly modeled RX,
+off-time, antenna-path and QSL-message fields on read without background rewriting.
+Explicit `BAND_RX` clearing no longer gets re-derived from a retained `FREQ_RX`, and
+unparseable legacy optional values survive unrelated edits/exports until the operator
+explicitly clears them. Focused Swift **12/12**, sync-identity **25/25**, frontend
+**72/72**, TypeScript and diff checks pass after independent review. Package/manual
+macOS interaction and copied real-log acceptance remain open.
+
+## Native TCI radio provider — codec/reducer foundation source complete; provider open
+
+Full TCI support for SunSDR/ExpertSDR and compatible servers is now an explicit product
+feature. An original pure Swift foundation follows the official ExpertSDR3 TCI contract:
+bounded fragmented/coalesced framing, strict typed values, discovery/lifecycle and
+per-TRX/channel state, deployed channel-count alias handling, bounded diagnostics and
+authoritative configured-pair snapshots only after complete discovery plus `READY`.
+Focused portable tests pass **13/13** after independent review. No socket, saved provider,
+UI, control or transmit path exists yet; WebSocket lifecycle and read-only telemetry are
+the next slice. QLog is behavioral reference only and no third-party implementation code,
+credentials, device or operator data has been copied.
+
 ## Shared durable Agent amplifier owner — source complete; package/hardware acceptance open
 
 Main Station Control, the Desk sidebar and standalone Station Monitor now route

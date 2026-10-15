@@ -14,6 +14,22 @@ the configured barefoot drive on Standby and the exact pre-Operate drive after a
 failed or cancelled Operate request; Windows installation and physical readback
 acceptance remain open.
 
+Full native TCI support for SunSDR/ExpertSDR and compatible TCI servers is now a
+tracked feature. The official ExpertSDR3 protocol is normative and read-only QLog
+behavior is an interoperability reference. The first source slice is complete: a bounded
+case-insensitive incremental codec and discovery/state reducer passes **13/13** portable
+tests after independent review. It has no socket or station authority. Next is a native
+read-only WebSocket actor with reconnect generation and fresh `READY` gating; later
+slices add capability-fenced control and durable Tune/PTT owners. No TCI command has
+been issued; package/live/hardware/RF acceptance is open.
+
+Arbitrary ADIF contact editing is source complete. Existing Logbook contact/mutation
+sessions now round-trip modeled and retained unknown/custom fields through pointer and
+keyboard activation without a second log owner. Legacy optional values backfill on read
+without silent rewriting or loss; explicit clears remain explicit. Focused Swift
+**12/12**, sync identity **25/25**, frontend **72/72**, TypeScript and independent review
+pass. Packaged macOS/manual copied-log acceptance remains open.
+
 Current post-alpha.31 source moves Agent/FLEX carrier Tune from raw main/Monitor
 dispatch into one durable native acquisition owner. It binds exact selection,
 control, worker, connection and fresh idle-observation identities, persists before

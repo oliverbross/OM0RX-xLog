@@ -40,7 +40,7 @@ let prototypeCoreTargets: [Target] = [
         "RigCtlCommandProcessor.swift", "RemoteAgentModels.swift", "RemoteAgentClient.swift",
         "TCPCommandServer.swift", "LegacyXCATClient.swift", "SmartLinkBroker.swift",
         "SmartLinkAuth.swift", "RemoteAgentAuth.swift"
-    ], sources: ["XCatError.swift", "PropagationConditions.swift"]),
+    ], sources: ["XCatError.swift", "PropagationConditions.swift", "TCIProtocol.swift"]),
     .target(name: "XLogPortableCore", dependencies: portableCrypto + ["CSQLitePrototype"], path: "Sources/XLogCore",
         exclude: ["DXCCBoundaries.swift", "FlexSpotForwarder.swift",
                   "QRZClient.swift", "ReferenceDataUpdater.swift", "SecretStore.swift",
@@ -71,6 +71,7 @@ let package = portableOnly ? Package(
         .testTarget(name: "XLogPrototypeTests", dependencies: ["XLogPrototypeSupport", "XClusterIntegrationCore", .byName(name: liveCoreName)], exclude: ["worker-process.test.mjs"]),
         .target(name: "CClusterSocketTestSupport", dependencies: ["CClusterSocket"], path: "Tests/CClusterSocketTestSupport"),
         .testTarget(name: "XClusterIntegrationTests", dependencies: ["XClusterIntegrationCore", "CClusterSocket", "CClusterSocketTestSupport"]),
+        .testTarget(name: "XCatIntegrationTests", dependencies: ["XCatIntegrationCore"]),
         .testTarget(name: "XStationIntegrationTests", dependencies: ["XStationIntegrationCore"]),
     ]
 ) : Package(
