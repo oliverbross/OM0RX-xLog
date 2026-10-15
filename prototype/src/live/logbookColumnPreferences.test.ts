@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { defaultLogbookColumnPreferences, logbookColumnsKey, readLogbookColumnPreferences } from "./logbookColumnPreferences";
+import { defaultLogbookColumnPreferences, legacyDeskLogbookColumnsKey, logbookColumnsKey,
+  migrateLegacyDeskLogbookColumnPreferences, readLogbookColumnPreferences } from "./logbookColumnPreferences";
 
 describe("logbook presentation preferences", () => {
   it("keeps all existing fields by default and isolates contexts from cluster preferences", () => {
@@ -7,13 +8,13 @@ describe("logbook presentation preferences", () => {
     expect(logbookColumnsKey("docked")).not.toBe(logbookColumnsKey("detached"));
     expect(logbookColumnsKey("docked")).not.toContain("cluster");
     expect(new Set((["docked", "detached", "desk"] as const).map(logbookColumnsKey)).size).toBe(3);
-    expect(logbookColumnsKey("desk")).toBe("xlog.integration.logbook-columns.desk.v1");
+    expect(logbookColumnsKey("desk")).toBe("xlog.integration.logbook-columns.desk.v2");
+    expect(legacyDeskLogbookColumnsKey).toBe("xlog.integration.logbook-columns.desk.v1");
   });
-  it("defaults the Desk to five scan columns without changing docked or detached tables", () => {
-    expect(defaultLogbookColumnPreferences("desk").columns).toEqual(["utc", "call", "bandMode", "frequency", "country"]);
+  it("defaults the Desk to the same normal columns without sharing its stored preferences", () => {
+    expect(defaultLogbookColumnPreferences("desk")).toEqual(defaultLogbookColumnPreferences());
     expect(defaultLogbookColumnPreferences("docked")).toEqual(defaultLogbookColumnPreferences());
     expect(defaultLogbookColumnPreferences("detached")).toEqual(defaultLogbookColumnPreferences());
-    expect(defaultLogbookColumnPreferences("desk").widths).toEqual(defaultLogbookColumnPreferences().widths);
   });
   it.each([null, "{", "[]", '{"version":2}', '{"version":1,"columns":[]}', '{"version":1,"columns":["unknown"]}'])("uses the Desk defaults for absent or damaged Desk storage: %s", raw => {
     expect(readLogbookColumnPreferences(raw, "desk")).toEqual(defaultLogbookColumnPreferences("desk"));
@@ -22,6 +23,18 @@ describe("logbook presentation preferences", () => {
     const value = readLogbookColumnPreferences(JSON.stringify({ version: 1, columns: ["rst", "comment", "rst", "unknown"], widths: { rst: 999, call: -1 } }), "desk");
     expect(value.columns).toEqual(["call", "rst", "comment"]);
     expect(value.widths).toMatchObject({ rst: 480, call: 96 });
+  });
+  it("promotes only the untouched legacy Desk default and preserves real v1 customizations", () => {
+    const widths = defaultLogbookColumnPreferences().widths;
+    const untouched = JSON.stringify({ version: 1, columns: ["utc", "call", "bandMode", "frequency", "country"], widths });
+    expect(migrateLegacyDeskLogbookColumnPreferences(untouched)).toEqual(defaultLogbookColumnPreferences("desk"));
+    const hidden = JSON.stringify({ version: 1, columns: ["call", "rst", "comment"], widths });
+    expect(migrateLegacyDeskLogbookColumnPreferences(hidden).columns).toEqual(["call", "rst", "comment"]);
+    const resized = JSON.stringify({ version: 1, columns: ["utc", "call", "bandMode", "frequency", "country"],
+      widths: { ...widths, call: 177 } });
+    expect(migrateLegacyDeskLogbookColumnPreferences(resized)).toMatchObject({
+      columns: ["utc", "call", "bandMode", "frequency", "country"], widths: { call: 177 },
+    });
   });
   it("restores canonical order, removes unknown/duplicate fields and always retains Callsign", () => {
     const value = readLogbookColumnPreferences(JSON.stringify({ version: 1, columns: ["comment", "utc", "utc", "unknown"] }));

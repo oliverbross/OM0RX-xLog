@@ -27,22 +27,38 @@ describe("shared Logbook column controls", () => {
     localStorage.setItem(logbookColumnsKey("docked"), docked);
     localStorage.setItem(logbookColumnsKey("detached"), detached);
     const view = setup(true, "desk"); await screen.findByText(contact.call);
-    expect(screen.getAllByRole("columnheader").map(header => header.textContent)).toEqual(["UTC", "Callsign", "Band / Mode", "Frequency", "Country"]);
+    expect(screen.getAllByRole("columnheader")).toHaveLength(10);
     fireEvent.click(screen.getByRole("button", { name: "Columns" }));
-    fireEvent.click(screen.getByLabelText("Show RST column"));
+    fireEvent.click(screen.getByLabelText("Show Comment column"));
     fireEvent.keyDown(screen.getByRole("separator", { name: "Resize Callsign column" }), { key: "ArrowRight" });
-    await waitFor(() => expect(JSON.parse(localStorage.getItem(logbookColumnsKey("desk"))!).columns).toContain("rst"));
+    await waitFor(() => expect(JSON.parse(localStorage.getItem(logbookColumnsKey("desk"))!).columns).not.toContain("comment"));
     expect(localStorage.getItem(logbookColumnsKey("docked"))).toBe(docked);
     expect(localStorage.getItem(logbookColumnsKey("detached"))).toBe(detached);
     view.unmount(); setup(false, "desk"); await screen.findByText(contact.call);
-    expect(screen.getByRole("columnheader", { name: /^RST/ })).toBeTruthy();
+    expect(screen.queryByRole("columnheader", { name: /^Comment/ })).toBeNull();
     expect(screen.getByRole("separator", { name: "Resize Callsign column" }).getAttribute("aria-valuenow")).toBe("160");
     fireEvent.click(screen.getByRole("button", { name: "Columns" }));
     fireEvent.click(screen.getByRole("button", { name: "Reset columns" }));
-    expect(screen.getAllByRole("columnheader")).toHaveLength(5);
+    expect(screen.getAllByRole("columnheader")).toHaveLength(10);
     await waitFor(() => expect(JSON.parse(localStorage.getItem(logbookColumnsKey("desk"))!)).toEqual(defaultLogbookColumnPreferences("desk")));
     expect(localStorage.getItem(logbookColumnsKey("docked"))).toBe(docked);
     expect(localStorage.getItem(logbookColumnsKey("detached"))).toBe(detached);
+  });
+
+  it("migrates the untouched legacy Desk default once but retains legacy custom widths and visibility", async () => {
+    const legacyKey = "xlog.integration.logbook-columns.desk.v1";
+    const defaults = defaultLogbookColumnPreferences("desk");
+    localStorage.setItem(legacyKey, JSON.stringify({ ...defaults,
+      columns: ["utc", "call", "bandMode", "frequency", "country"] }));
+    const promoted = setup(false, "desk"); await screen.findByText(contact.call);
+    expect(screen.getAllByRole("columnheader")).toHaveLength(10);
+    await waitFor(() => expect(localStorage.getItem(logbookColumnsKey("desk"))).not.toBeNull());
+    promoted.unmount(); localStorage.removeItem(logbookColumnsKey("desk"));
+    localStorage.setItem(legacyKey, JSON.stringify({ ...defaults, columns: ["call", "rst"],
+      widths: { ...defaults.widths, call: 177 } }));
+    setup(false, "desk"); await screen.findByText(contact.call);
+    expect(screen.getAllByRole("columnheader").map(header => header.textContent)).toEqual(["Callsign", "RST"]);
+    expect(screen.getByRole("separator", { name: "Resize Callsign column" }).getAttribute("aria-valuenow")).toBe("177");
   });
 
   it("changing explicit presentation context retains selected identity and Delete consent without refetching", async () => {

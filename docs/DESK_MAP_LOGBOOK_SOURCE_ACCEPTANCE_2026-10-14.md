@@ -12,9 +12,12 @@ been packaged or accepted in the native installed app.
   remain mounted, hidden and inert when unused, preserving map/table state.
 - Drag or use the keyboard to resize the vertical split. Minimum pane heights
   preserve usability; a short container scrolls instead of crushing either pane.
-- Desk columns have separate preferences and five defaults: UTC, Callsign,
-  Band / Mode, Frequency and Country. Existing docked and detached preferences
-  retain their current defaults and storage keys.
+- Desk columns have separate preferences. The 16 October follow-up makes the
+  initial Desk table match the normal Logbook's ten columns: UTC, Callsign,
+  Band / Mode, Frequency, RST, Country, QSL, LoTW, Club Log and Comment.
+  Existing docked and detached preferences retain their defaults and storage
+  keys. A Desk-only v2 presentation key promotes the untouched legacy
+  five-column default while preserving legacy customized visibility and widths.
 - Reuse the existing Logbook and mutation session, not another data owner.
   Local Import/Export/Delete/Undo work blocks navigation, close, layout changes
   and spot activation until it finishes. Presentation changes do not clear the
@@ -38,6 +41,13 @@ been packaged or accepted in the native installed app.
   map; they do not prove native lifecycle, hardware or live map behavior.
 - The compact table retains keyboard-focusable horizontal scrolling; later
   columns are not hidden merely to fit. Detector returned no findings.
+- The 16 October follow-up keeps the Desk table out of the standalone responsive
+  card query, verifies the normal ten-column rendered structure, and exercises a
+  persisted keyboard width change across above/below ordering and route remount.
+  Its scoped preference, shared-column, full/compact/detached Logbook, Desk,
+  rendered-acceptance and responsive-structure gate passes **59/59**, with the
+  production build and diff checks also passing.
+  This follow-up is source-only and has not replaced the installed alpha.31.
 - Documentation review classified this as an ordinary extension of the existing
   navy Operate system. DESIGN.md is unchanged. Preexisting token-format/sidecar
   drift was noted, not repaired as a side effect.

@@ -85,11 +85,12 @@ it("proves rendered choices, actual table retention, isolated columns, keyboard 
   expect(evidence).toMatchObject({ choices: ["Map", "Logbook", "Logbook above map", "Logbook below map"],
     retainedMap: true, retainedTable: true, columnsIndependent: true, keyboardDivider: true,
     routeRemount: true, restoredMap: true, sameDraft: true, stationIO: false });
+  expect(evidence.columnWidth).toBeGreaterThan(150);
   expect(evidence.maximum).toBeGreaterThan(evidence.minimum);
   expect(context.request.mock.calls.every(([method]) => ["logbook_list", "logbook_operator_draft"].includes(method))).toBe(true);
   expect(context.routes).toEqual(["Logbook", "Operator Desk", "Logbook", "Operator Desk"]);
   expect(JSON.parse(localStorage.getItem(deskMapLogbookKey)!).view).toBe("map");
-  expect(JSON.parse(localStorage.getItem(logbookColumnsKey("desk"))!).columns).toEqual(["utc", "call", "bandMode", "frequency", "country"]);
+  expect(JSON.parse(localStorage.getItem(logbookColumnsKey("desk"))!).columns).toHaveLength(10);
   expect(JSON.parse(localStorage.getItem(logbookColumnsKey("docked"))!).columns).toHaveLength(10);
 });
 it("retries an idempotent rendered divider target after a transient workspace veto", async () => {
@@ -102,9 +103,9 @@ it("fails rather than certifying a changed draft note", async () => {
   const context = await setup({ changedDraft: true });
   await expect(verifyDeskMapLogbook(context.controls)).rejects.toThrow("changed the shared draft");
 });
-it("fails when Desk uses docked columns instead of its independent compact defaults", async () => {
+it("fails when Desk changes docked preferences instead of its independent normal columns", async () => {
   const context = await setup({ leakColumns: true });
-  await expect(verifyDeskMapLogbook(context.controls)).rejects.toThrow("compact columns");
+  await expect(verifyDeskMapLogbook(context.controls)).rejects.toThrow("changed docked preferences");
 });
 it("fails when one of the four actual rendered choices is absent", async () => {
   const context = await setup({ omitChoice: true });

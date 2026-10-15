@@ -5,6 +5,7 @@ const desk = readFileSync("src/live/OperatorDesk.css", "utf8");
 const equipment = readFileSync("src/live/StationEquipment.css", "utf8");
 const geometry = readFileSync("tests/visual/desk-responsive-geometry.js", "utf8");
 const logbook = readFileSync("src/live/logbook.css", "utf8");
+const deskMapLogbook = readFileSync("src/live/DeskMapLogbook.css", "utf8");
 const spotHistory = readFileSync("src/live/SpotHistoryPanel.css", "utf8");
 
 it("reflows compact QSO fields before stacking an otherwise usable three-panel desk", () => {
@@ -35,6 +36,7 @@ it("reflows standalone data tables into labelled records while allowing the Desk
   expect(logbook).toMatch(/@container logbook-responsive \(max-width:\s*520px\)/);
   expect(spotHistory).toMatch(/@container \(max-width:\s*1200px\)/);
   expect(spotHistory).toMatch(/@container \(max-width:\s*520px\)/);
+  expect(deskMapLogbook).toMatch(/\.desk-map-logbook-logbook \.live-logbook\s*\{\s*container-name:\s*desk-logbook;/);
   for (const css of [logbook, spotHistory]) {
     expect(css).toContain("overflow-x:hidden");
     expect(css).toContain("content:attr(data-label)");

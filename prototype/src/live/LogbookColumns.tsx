@@ -1,10 +1,16 @@
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
-import { boundLogbookColumnWidth, defaultLogbookColumnPreferences, logbookColumns, logbookColumnsKey,
+import { boundLogbookColumnWidth, defaultLogbookColumnPreferences, legacyDeskLogbookColumnsKey, logbookColumns, logbookColumnsKey,
+  migrateLegacyDeskLogbookColumnPreferences,
   minimumLogbookColumnWidth, readLogbookColumnPreferences, type LogbookColumn, type LogbookColumnContext,
   type LogbookColumnPreferences } from "./logbookColumnPreferences";
 
 function load(context: LogbookColumnContext) {
-  try { return readLogbookColumnPreferences(localStorage.getItem(logbookColumnsKey(context)), context); }
+  try {
+    const current = localStorage.getItem(logbookColumnsKey(context));
+    if (context === "desk" && current === null)
+      return migrateLegacyDeskLogbookColumnPreferences(localStorage.getItem(legacyDeskLogbookColumnsKey));
+    return readLogbookColumnPreferences(current, context);
+  }
   catch { return defaultLogbookColumnPreferences(context); }
 }
 

@@ -40,7 +40,10 @@ export async function verifyDeskMapLogbook({ worker, navigate, fill, click }: Co
   await fill(selector, "logbook");
   await waitForAcceptance("Desk W1AW table", () => !!document.querySelector(".desk-map-logbook-logbook tbody tr")?.textContent?.includes("W1AW"));
   const table = required<HTMLTableElement>(".desk-map-logbook-logbook .live-logbook-table");
-  if (!sameDraftValue(headers(table), ["UTC", "Callsign", "Band / Mode", "Frequency", "Country"])) throw new Error("Desk compact columns are not rendered independently.");
+  if (!sameDraftValue(headers(table), ["UTC", "Callsign", "Band / Mode", "Frequency", "RST", "Country", "QSL", "LoTW", "Club Log", "Comment"]))
+    throw new Error("Desk normal Logbook columns are not rendered independently.");
+  if (getComputedStyle(table).display !== "table" || getComputedStyle(required(".desk-map-logbook-logbook thead")).position === "absolute")
+    throw new Error("Desk Logbook collapsed into responsive cards instead of retaining the normal table.");
   function panes(view: string) {
     const mapPane = required<HTMLElement>(".desk-map-logbook-map"), logPane = required<HTMLElement>(".desk-map-logbook-logbook");
     if (root() !== originalRoot || document.querySelector(".desk-map-logbook-map .map-wrap") !== map ||
@@ -56,12 +59,22 @@ export async function verifyDeskMapLogbook({ worker, navigate, fill, click }: Co
   panes("logbook");
   for (const view of ["map", "logbook-above", "logbook-below"]) { await fill(selector, view); panes(view); }
   await click("Columns", ".desk-map-logbook-logbook button");
-  const rst = required<HTMLInputElement>('.desk-map-logbook-logbook [aria-label="Show RST column"]');
-  if (rst.checked) throw new Error("Desk RST column unexpectedly enabled before acceptance.");
-  rst.click();
-  await waitForAcceptance("Desk RST column", () => headers(table).includes("RST"));
+  const comment = required<HTMLInputElement>('.desk-map-logbook-logbook [aria-label="Show Comment column"]');
+  if (!comment.checked) throw new Error("Desk Comment column is missing from the normal default.");
+  comment.click();
+  await waitForAcceptance("Desk Comment column hidden", () => !headers(table).includes("Comment"));
   await click("Done", ".desk-map-logbook-logbook button");
   if (localStorage.getItem(logbookColumnsKey("docked")) !== dockedPreferences) throw new Error("Desk columns changed docked preferences.");
+  const columnDivider = required<HTMLElement>('[aria-label="Resize Callsign column"]');
+  const originalColumnWidth = Number(columnDivider.getAttribute("aria-valuenow"));
+  columnDivider.focus();
+  columnDivider.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true, cancelable: true }));
+  await waitForAcceptance("Desk Callsign width persisted", () => {
+    const shown = Number(required('[aria-label="Resize Callsign column"]').getAttribute("aria-valuenow"));
+    const stored = JSON.parse(localStorage.getItem(logbookColumnsKey("desk")) || "null");
+    return shown > originalColumnWidth && stored?.widths?.call === shown;
+  });
+  const columnWidth = Number(required('[aria-label="Resize Callsign column"]').getAttribute("aria-valuenow"));
   const divider = required<HTMLElement>('[aria-label="Map and Logbook height"]');
   if (divider.getAttribute("aria-disabled") !== "false") throw new Error("Desk divider is at the fixed minimum; acceptance needs a usable native window height.");
   const key = async (value: string) => {
@@ -95,13 +108,15 @@ export async function verifyDeskMapLogbook({ worker, navigate, fill, click }: Co
   if (root() === originalRoot || required<HTMLSelectElement>(selector).value !== "logbook-below" ||
     localStorage.getItem(deskMapLogbookKey) !== saved || localStorage.getItem(logbookColumnsKey("desk")) !== deskColumns ||
     Number(required('[aria-label="Map and Logbook height"]').getAttribute("aria-valuenow")) !== maximum ||
-    !headers(required(".desk-map-logbook-logbook .live-logbook-table")).includes("RST")) throw new Error("Desk choice, split or columns did not survive route remount.");
+    headers(required(".desk-map-logbook-logbook .live-logbook-table")).includes("Comment") ||
+    Number(required('[aria-label="Resize Callsign column"]').getAttribute("aria-valuenow")) !== columnWidth)
+    throw new Error("Desk choice, split or columns did not survive route remount.");
   await click("Columns", ".desk-map-logbook-logbook button");
-  required<HTMLInputElement>('.desk-map-logbook-logbook [aria-label="Show RST column"]').click();
+  required<HTMLInputElement>('.desk-map-logbook-logbook [aria-label="Show Comment column"]').click();
   await click("Done", ".desk-map-logbook-logbook button");
   await fill(selector, "map");
   const after = (await worker("logbook_operator_draft"))?.result?.draft;
   if (!validScopedSnapshot(after) || !sameDraftValue(contactValue(before), contactValue(after))) throw new Error("Desk Map/Logbook acceptance changed the shared draft.");
   return { choices: choices.map(([, label]) => label), retainedMap: true, retainedTable: true, columnsIndependent: true,
-    keyboardDivider: true, minimum, maximum, routeRemount: true, restoredMap: true, sameDraft: true, stationIO: false };
+    columnWidth, keyboardDivider: true, minimum, maximum, routeRemount: true, restoredMap: true, sameDraft: true, stationIO: false };
 }
