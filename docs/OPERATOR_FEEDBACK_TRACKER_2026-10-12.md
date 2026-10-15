@@ -7,6 +7,22 @@ packaged UI result. Keep unresolved items here across releases.
 
 ## Current delivery boundary
 
+- **Current-HEAD follow-up review remediated — packaged isolated, 15 October:**
+  Exact source `bd38acec940cf5af58499e87cc47cf210ceaf8d8` closes restore-time
+  online-log replay, atomic provider/candidate claim validation, retained
+  remote-deletion identities, cross-destination restore rejection, Club Log
+  credential fencing and Separate Windows journal/recovery visibility. Frontend
+  **2,409/2,409**, native Swift **217/217**, full portable Swift, TypeScript,
+  production bundle and Rust check gates pass. The uninstalled exact-source Mac
+  candidate is strictly signed and passes isolated **33/33** acceptance with
+  `station_io: false`; host SHA-256 is
+  `4ccbde012a175a7c1b2d5e6e79a2b18f0ee757b33082f03bf2427fc5c6a2f378` and
+  worker SHA-256 is
+  `bb02116809358fad40cfeb7a1de0fe2459b13b8cea1182fe1a0631045241cb79`.
+  It was not installed. The Agent remained off and no station, RF, provider or
+  operator-data action occurred. See
+  [review evidence](CURRENT_HEAD_REVIEW_ACCEPTANCE_2026-10-15.md).
+
 - **Alpha.29 installed after final review, 15 October:** Exact source
   `db7ed4734826ea90cfd69b345c4d6174778894e5` is signed, Apple-notarized and
   installed as `/Applications/OM0RX-xLog.app`. Three independent review passes

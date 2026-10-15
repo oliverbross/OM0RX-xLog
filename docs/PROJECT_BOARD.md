@@ -93,6 +93,20 @@ native presentation, conditional retention, live personal/business account
 evidence and installed acceptance remain open. See the
 [OneDrive transport acceptance](ONEDRIVE_BACKUP_TRANSPORT_ACCEPTANCE_2026-10-15.md).
 
+Current-HEAD follow-up review source `bd38ace` closes a further restore/upload
+replay boundary and Separate Windows recovery boundary. Restored online-log
+consent is revoked before database publication; upload claims atomically recheck
+provider enrollment and exact candidate membership; retained local contacts
+detach vanished Wavelog IDs; credential and destination changes remain fenced.
+Main and detached Settings now own different recovery journals, and genuine
+conflicts/unknown outcomes cannot be hidden by a delayed native presentation
+request. Full frontend **2,409/2,409**, native Swift **217/217**, portable Swift,
+TypeScript, production bundle and Rust check gates pass. The exact-source
+uninstalled Mac candidate passes strict signing and isolated **33/33** acceptance
+with `station_io: false`. Installed/operator/live-provider and hardware gates
+remain open. See the
+[current-HEAD review acceptance](CURRENT_HEAD_REVIEW_ACCEPTANCE_2026-10-15.md).
+
 This is the operator-facing project overview. Keep it current after every material
 implementation, validation, installation or acceptance change. Detailed evidence
 and historical wording remain in the
