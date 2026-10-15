@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { nativeSpotEditor, useSpotEditor } from "./live/useSpotEditor";
-import { activationDisablesFollow } from "./live/spotActivation";
+import { activationDisablesFollow, validSpotActivationSnapshot } from "./live/spotActivation";
+import { invoke } from "@tauri-apps/api/core";
+import { loadReadRadioJournal, type ReadRadioJournal } from "./live/readRadioJournal";
 import { useSpotActivation } from "./live/useSpotActivation";
 import { SpotActivationStatus } from "./live/SpotActivationStatus";
 import { useAutoRotor } from "./live/useAutoRotor";
@@ -102,6 +104,7 @@ const radioProviderLabels: Record<StationProvider, string> = {
   hamlib: "Local station · Hamlib",
 };
 const draftJournalKey = "xlog.integration.operatorDraft.main.v1";
+const readRadioJournalKey = `${draftJournalKey}.readRadio`;
 const contactJournalKey = "xlog.integration.contactEdit.main.v1";
 const logbookMutationJournalKey = "xlog.integration.logbookMutation.main.v1";
 const settingsJournalKey = "xlog.integration.settings.main.v1";
@@ -124,6 +127,10 @@ function MainLiveApp() {
   const [view, writeView] = useState<string>("Operator Desk");
   const viewRef = useRef(view); viewRef.current = view;
   const editorBufferPending = useRef(false), mainClosing = useRef(false), layoutChanging = useRef(false), editorTransition = useRef(false);
+  const readingRadio = useRef(false), readOperation = useRef<ReadRadioJournal | null>(loadReadRadioJournal(readRadioJournalKey));
+  const [radioBusy, setRadioBusy] = useState(false);
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const logbookWorkingRef = useRef(false);
   const [logbookWorking, setLogbookWorking] = useState(false);
   const logbookWorkingChanged = useCallback((value: boolean) => { logbookWorkingRef.current = value; setLogbookWorking(value); }, []);
@@ -169,10 +176,10 @@ function MainLiveApp() {
   editing.current = !!contactEdit.draft;
   const [legacyDraft, setLegacyDraft] = useState(legacyDraftValue);
   const draft = contactEdit.draft ?? sharedDraft.draft;
-  const editorLocked = sharedDraft.activationFrozen || contactEdit.activationFrozen || sharedDraft.locked || contactEdit.locked || sharedDraft.workspaceChanged || contactEdit.workspaceChanged || !!contactEdit.draft && (logbookMutation.busy || !!logbookMutation.pending || logbookMutation.workspaceChanged || logbookMutation.conflict);
+  const editorLocked = radioBusy || sharedDraft.activationFrozen || contactEdit.activationFrozen || sharedDraft.locked || contactEdit.locked || sharedDraft.workspaceChanged || contactEdit.workspaceChanged || !!contactEdit.draft && (logbookMutation.busy || !!logbookMutation.pending || logbookMutation.workspaceChanged || logbookMutation.conflict);
   const editorBlocked = editorLocked || !!sharedDraft.conflict || contactEdit.conflict;
   const setDraft = useCallback((next: Data | null | ((current: Data | null) => Data | null)) => {
-    if (mainClosing.current || layoutChanging.current || editorTransition.current) return;
+    if (mainClosing.current || layoutChanging.current || editorTransition.current || readingRadio.current) return;
     if (!draftSession.canAcceptLocalInput() || !contactSession.canAcceptLocalInput()) return;
     if (draftSession.getSnapshot().locked || draftSession.getSnapshot().workspaceChanged || contactSession.getSnapshot().locked || contactSession.getSnapshot().workspaceChanged) return;
     const contact = contactSession.getSnapshot().draft;
@@ -207,7 +214,7 @@ function MainLiveApp() {
   const setView = useCallback((next: string) => {
     if (next === viewRef.current) return true;
     if (logbookWorkingRef.current) { setError("Wait for the logbook operation to finish before changing views."); return false; }
-    if (editorBufferPending.current || mainClosing.current || layoutChanging.current || editorTransition.current || !draftSession.canAcceptLocalInput() || !contactSession.canAcceptLocalInput()) {
+    if (readingRadio.current || editorBufferPending.current || mainClosing.current || layoutChanging.current || editorTransition.current || !draftSession.canAcceptLocalInput() || !contactSession.canAcceptLocalInput()) {
       setError("Finish the buffered draft fields and check any pending activation before changing views. Your text is retained."); return false;
     }
     viewRef.current = next; writeView(next);
@@ -247,6 +254,8 @@ function MainLiveApp() {
     void changeFollow(value).catch(cause => setError(cause instanceof Error ? cause.message : "Follow Radio authority is unavailable."));
   }, [changeFollow]);
   const spotEditor = useSpotEditor([draftSession, contactSession], snapshot => {
+    if (readOperation.current && snapshot.operationId !== readOperation.current.operationId)
+      return { ready: false, reason: "Check the retained Read radio outcome before another activation." };
     if (activationDisablesFollow(snapshot)) {
       // Synchronous with freeze, before either readiness acknowledgement or
       // terminal reconciliation can release background draft updates.
@@ -263,7 +272,7 @@ function MainLiveApp() {
   const spotActivation = useSpotActivation();
   const canChangeMode = (ownTransition = false) => {
     const current = draftSession.getSnapshot(), contact = contactSession.getSnapshot(), mutation = logbookMutations.getSnapshot();
-    return !busyRef.current && !logbookWorkingRef.current && !editorBufferPending.current && !mainClosing.current && (ownTransition || !layoutChanging.current) && !editorTransition.current &&
+    return !readingRadio.current && !readOperation.current && !busyRef.current && !logbookWorkingRef.current && !editorBufferPending.current && !mainClosing.current && (ownTransition || !layoutChanging.current) && !editorTransition.current &&
       !workspaceModeEditorBusy() && !draftSession.dirty && !contact.draft && !mutation.pending && !mutation.busy &&
       draftSession.canAcceptLocalInput() && contactSession.canAcceptLocalInput() && !current.pending && !contact.pending &&
       !current.conflict && !contact.conflict && !current.workspaceChanged && !contact.workspaceChanged &&
@@ -296,7 +305,7 @@ function MainLiveApp() {
     || !!deskLayout.state.pending && !deskLayout.state.saving;
   const recoveryRequired = [sharedDraft, contactEdit, logbookMutation]
     .some(state => !!state.error || !!state.conflict || state.workspaceChanged)
-    || !!contactEdit.draft || configurationRecovery || layoutRecovery
+    || !!contactEdit.draft || !!readOperation.current || configurationRecovery || layoutRecovery
     || !!logbookMutation.pending && !logbookMutation.busy;
   const recoveryVisible = useWorkspaceRecovery(recoveryRequired,
     canChangeMode(true) && !deskLayout.state.pending && !deskLayout.state.saving);
@@ -308,10 +317,10 @@ function MainLiveApp() {
       .catch(cause => setError(cause instanceof Error ? cause.message : "Workspace mode presentation failed."));
   }, [deskLayout.state.snapshot, deskLayout.state.pending, deskLayout.state.saving,
       deskLayout.state.conflict, deskLayout.state.workspaceChanged, separateWindows, workspacePending]);
-  const acceptsInput = useCallback(() => !mainClosing.current && !layoutChanging.current && !editorTransition.current && !logbookWorkingRef.current && draftSession.canAcceptLocalInput() && contactSession.canAcceptLocalInput(), [draftSession, contactSession]);
+  const acceptsInput = useCallback(() => !readingRadio.current && !mainClosing.current && !layoutChanging.current && !editorTransition.current && !logbookWorkingRef.current && draftSession.canAcceptLocalInput() && contactSession.canAcceptLocalInput(), [draftSession, contactSession]);
   useEffect(() => protectOperatorDraftClose(() => {
     const current = draftSession.getSnapshot(), contact = contactSession.getSnapshot(), mutation = logbookMutations.getSnapshot();
-    return busyRef.current || logbookWorkingRef.current || layoutChanging.current || editorBufferPending.current || draftSession.dirty || !!contact.draft || !!mutation.pending || mutation.busy ||
+    return readingRadio.current || !!readOperation.current || busyRef.current || logbookWorkingRef.current || layoutChanging.current || editorBufferPending.current || draftSession.dirty || !!contact.draft || !!mutation.pending || mutation.busy ||
       current.activationFrozen || contact.activationFrozen || current.locked || contact.locked || !!current.pending || !!contact.pending ||
       !!current.conflict || contact.conflict || current.workspaceChanged || contact.workspaceChanged;
   }, () => setError("Finish the draft fields and resolve unsaved or pending QSO changes before closing the Desk."), setError,
@@ -458,6 +467,39 @@ function MainLiveApp() {
     throw new Error("Apply this radio selection before connecting or sending controls. The active radio has not changed.");
   }, [request, stationProvider, viewProvider]);
   const readRadioIntoDraft = useCallback(async () => {
+    if (readOperation.current) throw new Error("Check the existing Read radio activation before reading again. No read was retried.");
+    if (nativeSpotEditor()) {
+      const before = draftSession.getSnapshot(), contact = contactSession.getSnapshot();
+      if (!acceptsInput() || busyRef.current || editorBufferPending.current || providerTransition.current || contact.draft || contact.pending || contact.conflict || contact.workspaceChanged ||
+          !before.base || before.locked || before.pending || before.conflict || before.workspaceChanged || before.error)
+        throw new Error("Finish the draft fields and resolve pending QSO changes before reading the radio.");
+      readingRadio.current = true; setRadioBusy(true);
+      try {
+        await changeFollow(false);
+        await draftSession.flush();
+        const current = draftSession.getSnapshot(), currentContact = contactSession.getSnapshot();
+        if (mainClosing.current || layoutChanging.current || editorTransition.current || logbookWorkingRef.current || busyRef.current || providerTransition.current || editorBufferPending.current ||
+            !draftSession.canAcceptLocalInput() || !contactSession.canAcceptLocalInput() || draftSession.dirty || current.locked || current.pending || current.conflict || current.workspaceChanged || current.error ||
+            currentContact.draft || currentContact.pending || currentContact.conflict || currentContact.workspaceChanged ||
+            current.base?.generation !== before.base.generation || current.base?.qso.id !== before.base.qso.id)
+          throw new Error("The shared draft changed while preparing Read radio. Your text is retained.");
+        const operationId = crypto.randomUUID();
+        const journal = { operationId, generation: current.base!.generation! };
+        localStorage.setItem(readRadioJournalKey, JSON.stringify(journal)); readOperation.current = journal;
+        const result = await invoke("operator_draft_read_radio", { operationId });
+        if (!validSpotActivationSnapshot(result) || result.operationId !== operationId || !["confirmed", "blocked", "failed", "uncertain"].includes(result.phase))
+          throw new Error("Read radio outcome could not be verified. Check the existing activation before reading again.");
+        if (!await spotEditor.reconcile(result)) throw new Error("Read radio editor reconciliation is incomplete. Check the retained outcome before reading again.");
+        if (result.reservationActive !== true && result.phase !== "uncertain") {
+          localStorage.removeItem(readRadioJournalKey); readOperation.current = null;
+        }
+        if (result.phase !== "confirmed" || result.reservationActive === true)
+          throw new Error(result.error || "Read radio was not confirmed. Check the existing activation before reading again.");
+        if (mounted.current) setMessage("Observed radio frequency and mode copied into the QSO draft.");
+      } finally { readingRadio.current = false; if (mounted.current) setRadioBusy(false); }
+      return;
+    }
+    // Browser fixtures have no native transaction owner and retain their injected readback.
     if (!acceptsInput()) throw new Error("Wait for the verified spot activation outcome before reading into this draft.");
     if (draftSession.getSnapshot().workspaceChanged || contactSession.getSnapshot().workspaceChanged)
       throw new Error("Review the current workspace before reading into this QSO.");
@@ -475,7 +517,20 @@ function MainLiveApp() {
       band: state.station?.band || bandForRadio(state.radio.frequency_hz) || current.band,
       mode: logMode(state.radio.mode, current.mode || "") } : current);
     setMessage("Observed radio frequency and mode copied into the QSO draft.");
-  }, [request]);
+  }, [request, acceptsInput, changeFollow, draftSession, contactSession, spotEditor.reconcile]);
+  const checkReadRadio = async () => {
+    const journal = readOperation.current;
+    if (!journal || readingRadio.current) return;
+    readingRadio.current = true; setRadioBusy(true);
+    try {
+      const result = await invoke("operator_draft_read_radio_recover", journal);
+      if (!validSpotActivationSnapshot(result) || result.operationId !== journal.operationId || !["confirmed", "blocked"].includes(result.phase) || result.reservationActive === true ||
+          !await spotEditor.reconcile(result)) throw new Error("Read radio recovery is incomplete. Its operation is retained; no read was replayed.");
+      localStorage.removeItem(readRadioJournalKey); readOperation.current = null;
+      setMessage(result.phase === "confirmed" ? "Recovered Read radio receipt. The current QSO draft was refreshed." : result.error || "The current QSO draft was checked. No radio read was repeated.");
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Read radio recovery unavailable. No read was replayed."); }
+    finally { readingRadio.current = false; if (mounted.current) setRadioBusy(false); }
+  };
   useEffect(() => {
     if (monitor) return;
     const focusAfterView = (selector: string) => window.setTimeout(() => document.querySelector<HTMLElement>(selector)?.focus(), 0);
@@ -492,6 +547,7 @@ function MainLiveApp() {
     window.addEventListener("keydown", shortcut); return () => window.removeEventListener("keydown", shortcut);
   }, [readRadioIntoDraft, showSyncSettings]);
   const run = async (operation: () => Promise<unknown>) => {
+    if (readingRadio.current) return;
     busyRef.current = true;
     setBusy(true); setError("");
     try { await operation(); } catch (e) { setError(e instanceof Error ? e.message : "Operation failed"); }
@@ -849,6 +905,7 @@ function MainLiveApp() {
           <span>{settingsState.error || rotorConfigurationState.error || deskLayout.state.error || "Configuration or workspace changes need review."}</span>
           <button type="button" onClick={() => setView("Settings")}>Review Settings</button>
         </div>}
+      {readOperation.current && <button type="button" disabled={radioBusy} onClick={() => void checkReadRadio()}>Check Read radio</button>}
       <SpotActivationStatus status={spotActivation.status && spotActivation.status.phase !== "idle" ? spotActivation.status : spotEditor.status} error={spotEditor.error || spotActivation.error} checking={spotActivation.requesting}
         retire={() => { void Promise.resolve(spotActivation.retire()).then(async retired => { if (retired) { await spotEditor.reconcile(); setError(""); } }); }}
         reconcile={() => { if (sharedDraft.activationFrozen || contactEdit.activationFrozen) void spotEditor.reconcile(); else void spotActivation.reconcile(); }} />

@@ -6,11 +6,26 @@ import { operatorDraftFixture, testWorkspaceGeneration } from "./operator-draft-
 import { contactEditFixture } from "./contact-edit-fixture";
 
 const host = vi.hoisted(() => ({ request: vi.fn(), activate: vi.fn(), customCanvas: false,
+  nativeEditor: false, invoke: vi.fn(), follow: vi.fn(), reconcile: vi.fn(),
+  readiness: null as null | ((snapshot: any) => { ready: boolean }),
   navigate: undefined as undefined | ((title: string) => void),
   dock: undefined as undefined | ((kind: string) => void),
   telemetry: undefined as undefined | ((value: any) => void),
   close: undefined as undefined | { blocked: () => boolean; explain: () => void; closing: (value: boolean) => void; command: string },
 }));
+vi.mock("@tauri-apps/api/core", async original => ({ ...await original<typeof import("@tauri-apps/api/core")>(),
+  invoke: (command: string, params: any) => command.startsWith("operator_draft_read_radio") ? host.invoke(command, params) : Promise.resolve({}) }));
+vi.mock("../src/live/useFollowRadio", () => ({ useFollowRadio: () => ({ state: { enabled: true }, error: "", set: host.follow }) }));
+vi.mock("../src/live/useSharedCW", () => ({ useSharedCW: () => ({ profile: { showOnDesk: false, macros: [] }, context: null, state: {}, controller: {}, provider: null }) }));
+vi.mock("../src/live/useSpotEditor", async () => {
+  const { useEffect } = await import("react");
+  return { nativeSpotEditor: () => host.nativeEditor, useSpotEditor: (participants: any[], readiness: (snapshot: any) => { ready: boolean }) => {
+    host.readiness = readiness;
+    useEffect(() => { if (host.nativeEditor) participants.forEach(item => item.setSpotEditorRegistered(true)); }, []);
+    host.reconcile.mockImplementation(async () => { for (const item of participants) await item.refresh(); return true; });
+    return { status: null, error: "", reconcile: host.reconcile };
+  } };
+});
 vi.mock("../src/worker", async original => ({ ...await original<typeof import("../src/worker")>(), workerRequest: host.request }));
 vi.mock("../src/live/operatorDraftTransport", () => ({ requestOperatorDraft: async (method: string, params: any = {}) => (await host.request(method, params)).result }));
 vi.mock("../src/live/logbookContactTransport", () => ({ requestLogbookContact: async (method: string, params: any = {}) => (await host.request(method, params)).result }));
@@ -22,7 +37,7 @@ vi.mock("../src/live/operatorDraftWindows", async original => ({ ...await origin
   protectOperatorDraftClose: (blocked: () => boolean, explain: () => void, _failed: (message: string) => void, closing: (value: boolean) => void, command: string) => {
     host.close = { blocked, explain, closing, command }; return () => { host.close = undefined; };
   } }));
-vi.mock("../src/live/useAutoRotor", () => ({ useAutoRotor: () => ({ state: null, error: "", set: vi.fn(), refresh: vi.fn() }) }));
+vi.mock("../src/live/useAutoRotor", () => ({ useAutoRotor: () => ({ state: null, error: "", set: vi.fn().mockResolvedValue(undefined), refresh: vi.fn() }) }));
 vi.mock("../src/live/stationTelemetry", () => ({ connectStationTelemetry: (_provider: string, changed: (value: any) => void) => {
   host.telemetry = changed; return () => { host.telemetry = undefined; };
 } }));
@@ -38,6 +53,7 @@ vi.mock("../src/live/OperatorCanvas", () => ({ default: ({ panels, traditional }
 
 beforeEach(() => {
   localStorage.clear(); host.request.mockReset(); host.activate.mockReset(); host.customCanvas = false;
+  host.nativeEditor = false; host.invoke.mockReset(); host.follow.mockReset(); host.follow.mockResolvedValue(undefined); host.reconcile.mockReset();
   host.navigate = undefined; host.dock = undefined; host.close = undefined; host.telemetry = undefined;
   const initial = { id: "draft", call: "", start: "2026-10-12T00:00:00Z", frequencyHz: 14074000, mode: "FT8", band: "20m" };
   const draft = operatorDraftFixture(initial);
@@ -59,6 +75,130 @@ beforeEach(() => {
   });
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+
+it.each([false, true])("uses the typed native Read radio transaction in the %s full editor", async full => {
+  host.nativeEditor = true;
+  host.invoke.mockImplementation(async (command, { operationId }) => {
+    expect(command).toBe("operator_draft_read_radio");
+    expect(host.follow).toHaveBeenCalledWith(false);
+    expect(host.readiness?.({ operationId, phase: "preparing", draftOnly: true, intent: "read-radio" }).ready).toBe(true);
+    const snapshot = (await host.request("logbook_operator_draft")).result.draft;
+    expect(snapshot.qso.name).toBe("Retained text");
+    await host.request("logbook_operator_draft_apply", { operationID: operationId, generation: snapshot.generation,
+      draftID: snapshot.qso.id, expectedRevision: snapshot.revision, action: "replace",
+      qso: { ...snapshot.qso, frequencyHz: 7_100_000, band: "40m", mode: "SSB" } });
+    return { operationId, phase: "confirmed", reservationActive: false, tuneConfirmed: false, rotor: "not-requested" };
+  });
+  await openEditor(full);
+  fireEvent.change(screen.getByLabelText(full ? "Name" : "Desk Name"), { target: { value: "Retained text" } });
+  fireEvent.click(screen.getByRole("button", { name: "Read radio" }));
+  await screen.findByDisplayValue("7.100000");
+  expect(host.invoke).toHaveBeenCalledOnce(); expect(host.reconcile).toHaveBeenCalledOnce();
+  expect(localStorage.getItem("xlog.integration.operatorDraft.main.v1.readRadio")).toBeNull();
+  expect(host.request.mock.calls.some(([method]) => method === "station_snapshot")).toBe(false);
+});
+
+it.each([false, true])("retains incomplete main Read radio buffers in the %s full editor", async full => {
+  host.nativeEditor = true;
+  const input = await openEditor(full);
+  fireEvent.change(input, { target: { value: "14.." } });
+  fireEvent.click(screen.getByRole("button", { name: "Read radio" }));
+  await screen.findByText(/Finish the draft fields and resolve pending QSO changes before reading/);
+  expect(host.invoke).not.toHaveBeenCalled(); expect(input.value).toBe("14..");
+});
+
+it.each(["lost", "mismatched", "uncertain"])("retains a %s main Read radio operation across remount without replay", async outcome => {
+  host.nativeEditor = true;
+  host.invoke.mockImplementation(async (_command, { operationId }) => {
+    if (outcome === "lost") throw new Error("Synthetic Read radio reply lost");
+    return { operationId: outcome === "mismatched" ? crypto.randomUUID() : operationId,
+      phase: outcome === "uncertain" ? "uncertain" : "confirmed", reservationActive: false, tuneConfirmed: false, rotor: "not-requested" };
+  });
+  await openEditor(false);
+  fireEvent.click(screen.getByRole("button", { name: "Read radio" }));
+  await waitFor(() => expect(JSON.parse(localStorage.getItem("xlog.integration.operatorDraft.main.v1.readRadio")!).operationId).toMatch(/^[a-f0-9-]{36}$/));
+  await screen.findByText(outcome === "lost" ? /Synthetic Read radio reply lost/ : outcome === "mismatched" ? /outcome could not be verified/ : /Read radio was not confirmed/);
+  expect(host.close?.blocked()).toBe(true);
+  cleanup(); await openEditor(false);
+  fireEvent.click(screen.getByRole("button", { name: "Read radio" }));
+  await screen.findByText(/Check the existing Read radio activation before reading again/);
+  expect(host.invoke).toHaveBeenCalledOnce();
+  const journal = JSON.parse(localStorage.getItem("xlog.integration.operatorDraft.main.v1.readRadio")!);
+  expect(host.readiness?.({ operationId: crypto.randomUUID(), phase: "preparing" }).ready).toBe(false);
+  expect(host.readiness?.({ operationId: journal.operationId, phase: "preparing" }).ready).toBe(true);
+});
+
+it("retains the main Read radio journal when registered editor reconciliation fails", async () => {
+  host.nativeEditor = true;
+  host.invoke.mockImplementation(async (_command, { operationId }) => ({ operationId, phase: "confirmed", reservationActive: false, tuneConfirmed: false, rotor: "not-requested" }));
+  await openEditor(false); host.reconcile.mockResolvedValueOnce(false);
+  fireEvent.click(screen.getByRole("button", { name: "Read radio" }));
+  await screen.findByText(/Read radio editor reconciliation is incomplete/);
+  expect(host.close?.blocked()).toBe(true);
+  expect(localStorage.getItem("xlog.integration.operatorDraft.main.v1.readRadio")).not.toBeNull();
+  expect(screen.queryByText("Observed radio frequency and mode copied into the QSO draft.")).toBeNull();
+});
+
+it.each(["confirmed", "blocked"])("recovers a retained main Read radio after remount from a %s receipt check without another read", async phase => {
+  host.nativeEditor = true;
+  const operationId = crypto.randomUUID();
+  localStorage.setItem("xlog.integration.operatorDraft.main.v1.readRadio", JSON.stringify({ operationId, generation: testWorkspaceGeneration }));
+  host.invoke.mockImplementation(async (command, params) => {
+    expect(command).toBe("operator_draft_read_radio_recover");
+    expect(params).toEqual({ operationId, generation: testWorkspaceGeneration });
+    return { operationId, phase, reservationActive: false, tuneConfirmed: false, rotor: "not-requested" };
+  });
+  await openEditor(false);
+  fireEvent.click(screen.getByRole("button", { name: "Check Read radio" }));
+  await waitFor(() => expect(localStorage.getItem("xlog.integration.operatorDraft.main.v1.readRadio")).toBeNull());
+  expect(host.invoke).toHaveBeenCalledOnce(); expect(host.close?.blocked()).toBe(false);
+});
+
+it("keeps the main editor and Close frozen while native Read radio prepares", async () => {
+  host.nativeEditor = true;
+  let finish!: (value: any) => void;
+  host.invoke.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+  const input = await openEditor(false);
+  fireEvent.click(screen.getByRole("button", { name: "Read radio" }));
+  await waitFor(() => expect(host.invoke).toHaveBeenCalledOnce());
+  expect(host.close?.blocked()).toBe(true);
+  expect(input.closest("form")?.hasAttribute("inert")).toBe(true);
+  fireEvent.change(screen.getByLabelText("Desk Callsign"), { target: { value: "IGNORED" } });
+  expect((screen.getByLabelText("Desk Callsign") as HTMLInputElement).value).toBe("");
+  const operationId = host.invoke.mock.calls[0][1].operationId;
+  await act(async () => finish({ operationId, phase: "blocked", reservationActive: false, tuneConfirmed: false, rotor: "not-requested", error: "Synthetic blocked read" }));
+  await screen.findByText("Synthetic blocked read");
+  expect(host.close?.blocked()).toBe(false);
+});
+
+it("rejects native Read radio for an historical contact including its keyboard shortcut", async () => {
+  host.nativeEditor = true;
+  await openEditor(false);
+  sidebar("Logbook");
+  fireEvent.click(screen.getByRole("button", { name: "Edit synthetic contact" }));
+  await screen.findByDisplayValue("K1ABC");
+  fireEvent.keyDown(window, { key: "r", ctrlKey: true, shiftKey: true });
+  await screen.findByText(/Finish the draft fields and resolve pending QSO changes before reading/);
+  expect(host.invoke).not.toHaveBeenCalled();
+});
+
+it("vetoes native Read radio when a workspace changes during the draft flush", async () => {
+  host.nativeEditor = true;
+  await openEditor(false);
+  const original = host.request.getMockImplementation()!;
+  host.request.mockImplementation(async (method, params) => {
+    const result = await original(method, params);
+    if (method === "logbook_operator_draft_apply") return { result: { ...result.result,
+      receipt: { ...result.result.receipt, draft: { ...result.result.receipt.draft, generation: crypto.randomUUID() } } } };
+    return result;
+  });
+  fireEvent.change(screen.getByLabelText("Desk Name"), { target: { value: "Retained text" } });
+  fireEvent.click(screen.getByRole("button", { name: "Read radio" }));
+  await waitFor(() => expect(host.request.mock.calls.some(([method]) => method === "logbook_operator_draft_apply")).toBe(true));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Read radio" }).textContent).toContain("Read radio"));
+  expect(host.invoke).not.toHaveBeenCalled();
+  expect(localStorage.getItem("xlog.integration.operatorDraft.main.v1.readRadio")).toBeNull();
+});
 
 function sidebar(title: string) { fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: title })); }
 async function openEditor(full: boolean) {

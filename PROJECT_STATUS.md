@@ -2,6 +2,26 @@
 
 Last updated: 2026-10-16
 
+## Main and detached Read Radio parity — source complete; package/hardware acceptance open
+
+Explicit Read Radio now uses the same native one-shot transaction from the main
+Desk, the main Full editor and the standalone Simple/Full Log QSO window. The
+renderer first disables Follow, flushes valid buffered edits and then delegates
+the observed-frequency/mode read and canonical draft mutation to the native
+owner. Historical contacts, workspace or draft drift, unfinished text and
+competing operations fail closed; the browser-only fixture path remains explicit.
+
+Recovery journals now retain the original workspace generation. A lost reply or
+failed editor reconciliation cannot report success or clear recovery state. The
+operator can check that exact operation against its durable native receipt; the
+check refreshes the canonical draft and never polls the station, repeats a read or
+replays a mutation. Registered editors reject a different activation while a Read
+outcome remains unresolved. Complete frontend **2,501/2,501**, Rust **498/498**,
+portable Swift **418 tests in 57 suites** and normal Swift **240 tests in 32
+suites** pass, along with TypeScript, the production bundle and diff checks. This
+is source evidence only: alpha.31 remains installed and no service, station,
+hardware, rotor, RF or operator-data action occurred.
+
 ## Shared Follow Radio owner — source complete; package/hardware acceptance open
 
 Continuous Follow Radio is now a disabled-by-default native permission shared by

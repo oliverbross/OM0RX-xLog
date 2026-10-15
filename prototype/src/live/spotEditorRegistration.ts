@@ -68,13 +68,13 @@ export function connectSpotEditor(participants: readonly SpotEditorParticipant[]
   let disposal: Promise<void> | null = null;
   return {
     refresh: wake,
-    async reconcile() {
+    async reconcile(recovered?: SpotActivationSnapshot): Promise<boolean> {
       const operationId = editor.operationId;
       if (!active || !registered) throw new Error("Editor registration is not confirmed. Reopen this editor before activating a spot.");
-      if (!operationId) { wake(); return; }
       epoch++;
-      const snapshot = await adapter.call("spot_activation_reconcile", { operationId });
+      const snapshot = recovered ?? await adapter.call(operationId ? "spot_activation_reconcile" : "spot_activation_snapshot", operationId ? { operationId } : undefined);
       if (active) await adopt(snapshot);
+      return active && registered && !editor.frozen;
     },
     dispose(): Promise<void> {
       if (disposal) return disposal;

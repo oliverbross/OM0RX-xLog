@@ -925,6 +925,38 @@ package was produced or installed and no provider, station, hardware, rotor, RF 
 operator-data action occurred. Main-window absence is covered by the native owner
 tests, while packaged multi-window and physical-radio acceptance remain open.
 
+### Checkpoint AQ — authoritative Read Radio parity and durable recovery
+
+The main Desk, main Full editor and standalone Simple/Full Log QSO window now
+route explicit Read Radio through the same native one-shot owner. A renderer may
+flush valid canonical draft edits and disable Follow before admission, but it no
+longer performs a native station snapshot or writes radio fields itself. The
+native owner retains the existing editor barrier, workspace/worker/draft,
+radio-selection and command-epoch fences and durable revision-checked receipt.
+The browser-only fixture path remains an explicit non-native fallback.
+
+Read recovery journals now store the original workspace generation with the
+operation identity. Every registered editor rejects a different activation until
+that exact Read outcome is resolved. Terminal status alone is insufficient:
+renderers clear the journal and report success only after the registered-editor
+coordinator has refreshed and reconciled the current canonical draft. A failed
+reconciliation therefore leaves Close, mode changes and another Read protected.
+
+If a reply is lost, a terminal status is superseded or the app restarts, the
+operator gets a narrow Check Read radio action. Native recovery is read-only: it
+serializes against active or queued Read work, checks the exact operation receipt
+under the journaled workspace generation, validates its draft identity, revision,
+action and resulting projection, and returns a terminal result for canonical
+editor reconciliation. It never polls a radio, repeats the observation or replays
+the mutation. Missing receipts, legacy journals and changed workspaces release
+only after an explicit canonical review and never claim that a read succeeded.
+
+Complete frontend **2,501/2,501**, Rust **498/498**, portable Swift **418 tests in
+57 suites** and normal Swift **240 tests in 32 suites** pass. TypeScript, the
+production Vite/window-bundle build and diff checks pass. This is source evidence
+only: alpha.31 remains installed; no package was produced or installed and no
+provider, station, hardware, rotor, RF or operator-data action occurred.
+
 ### 14 October audit — remaining new-QSO and QSY ownership
 
 At `cd25718`, detached Logbook edits saved contacts; it is not an independent

@@ -17,8 +17,8 @@ export function useSpotEditor(participants: readonly SpotEditorParticipant[], re
     current.current = connection;
     return () => { active = false; current.current = null; disposal.current = connection.dispose(); };
   }, []);
-  return { status, error, reconcile: async () => {
-    try { await current.current?.reconcile(); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "Activation status could not be checked. No tune was replayed."); }
+  return { status, error, reconcile: async (recovered?: SpotActivationSnapshot): Promise<boolean> => {
+    try { return await current.current?.reconcile(recovered) ?? false; }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "Activation status could not be checked. No tune was replayed."); return false; }
   } };
 }

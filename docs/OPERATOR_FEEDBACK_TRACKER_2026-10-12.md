@@ -7,6 +7,20 @@ packaged UI result. Keep unresolved items here across releases.
 
 ## Current delivery boundary
 
+- **Main plus detached authoritative Read Radio, 16 October:** Desk, main Full and
+  standalone Simple/Full Log QSO now share the same native one-shot owner. Valid
+  buffered edits flush before admission; Follow is revoked first; historical
+  contacts, unfinished text, competing operations and workspace/draft drift fail
+  closed. Generation-bound journals survive lost replies and require explicit
+  successful editor reconciliation before they clear or report success. “Check
+  Read radio” verifies the exact durable receipt and refreshes the canonical draft
+  without station polling, mutation replay or another read. Registered editors
+  reject any different activation while that outcome remains unresolved. Full
+  frontend **2,501/2,501**, Rust **498/498**, portable Swift **418 tests in 57
+  suites**, normal Swift **240 tests in 32 suites** and the production build pass.
+  Source only: alpha.31 remains installed and no service, station, hardware, RF or
+  operator-data action occurred.
+
 - **Shared native Follow Radio, 16 October:** Desk plus standalone Simple/Full Log
   QSO now expose one disabled-by-default native Follow permission. The owner
   consumes the existing retained telemetry stream, coalesces the newest observation

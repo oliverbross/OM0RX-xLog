@@ -14,11 +14,11 @@ import { useReferenceEvidence } from "./useReferenceEvidence";
 import { useFollowRadio } from "./useFollowRadio";
 import { invoke } from "@tauri-apps/api/core";
 import { validSpotActivationSnapshot } from "./spotActivation";
+import { loadReadRadioJournal, type ReadRadioJournal } from "./readRadioJournal";
 import "./DetachedQSOSurface.css";
 
 export const detachedQSOJournalKey = "xlog.integration.operatorDraft.log-qso.v1";
 const readRadioJournalKey = `${detachedQSOJournalKey}.readRadio`;
-function storedReadOperation() { try { return localStorage.getItem(readRadioJournalKey); } catch { return "unverified"; } }
 const readMethods = new Set(["lookup_call", "logbook_previous", "logbook_duplicate", "logbook_matrix", "cluster_history", "reference_resolve"]);
 function storedJournal() { try { return localStorage.getItem(detachedQSOJournalKey); } catch { return null; } }
 async function request(method: string, params: Record<string, unknown> = {}) {
@@ -51,10 +51,12 @@ export function DetachedQSOSurface() {
   const [lookup, setLookup] = useState<Record<string, any> | null>(null);
   const [previous, setPrevious] = useState<Record<string, any>[]>([]);
   const workingRef = useRef(false), closingRef = useRef(false), mounted = useRef(true);
-  const readingRadio = useRef(false), readOperation = useRef<string | null>(storedReadOperation());
+  const readingRadio = useRef(false), readOperation = useRef<ReadRadioJournal | null>(loadReadRadioJournal(readRadioJournalKey));
   const [radioBusy, setRadioBusy] = useState(false);
-  const spotEditor = useSpotEditor([session], () => workingRef.current || closingRef.current || localInput.current
-    ? { ready: false, reason: "Finish the buffered fields or close/Dock operation first." } : { ready: true });
+  const spotEditor = useSpotEditor([session], snapshot => readOperation.current && snapshot.operationId !== readOperation.current.operationId
+    ? { ready: false, reason: "Check the retained Read radio outcome before another activation." }
+    : workingRef.current || closingRef.current || localInput.current
+      ? { ready: false, reason: "Finish the buffered fields or close/Dock operation first." } : { ready: true });
   const acceptsInput = useCallback(() => session.canAcceptLocalInput() && !workingRef.current && !closingRef.current && !readingRadio.current, [session]);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const report = useCallback((text: string) => { if (mounted.current) setError(text); }, []);
@@ -65,12 +67,6 @@ export function DetachedQSOSurface() {
     catch (cause) { report(cause instanceof Error ? cause.message : "QSO operation failed."); }
     finally { workingRef.current = false; if (mounted.current) setWorking(false); }
   }, [report]);
-  useEffect(() => {
-    const status = spotEditor.status;
-    if (status?.operationId && status.operationId === readOperation.current && ["confirmed", "blocked", "failed"].includes(status.phase) && status.reservationActive !== true) {
-      localStorage.removeItem(readRadioJournalKey); readOperation.current = null;
-    }
-  }, [spotEditor.status]);
   const readRadio = async () => {
     if (readOperation.current) throw new Error("Check the existing Read radio activation before reading again. No read was retried.");
     const before = session.getSnapshot();
@@ -85,11 +81,12 @@ export function DetachedQSOSurface() {
         throw new Error("The shared draft changed while preparing Read radio. Your text is retained.");
       const operationId = crypto.randomUUID();
       // Persist before dispatch: a remounted editor must check this same outcome.
-      localStorage.setItem(readRadioJournalKey, operationId); readOperation.current = operationId;
+      const journal = { operationId, generation: current.base!.generation! };
+      localStorage.setItem(readRadioJournalKey, JSON.stringify(journal)); readOperation.current = journal;
       const result = await invoke("operator_draft_read_radio", { operationId });
       if (!validSpotActivationSnapshot(result) || result.operationId !== operationId || !["confirmed", "blocked", "failed", "uncertain"].includes(result.phase))
         throw new Error("Read radio outcome could not be verified. Check the existing activation before reading again.");
-      await spotEditor.reconcile();
+      if (!await spotEditor.reconcile(result)) throw new Error("Read radio editor reconciliation is incomplete. Check the retained outcome before reading again.");
       if (result.reservationActive !== true && result.phase !== "uncertain") {
         localStorage.removeItem(readRadioJournalKey); readOperation.current = null;
       }
@@ -102,6 +99,19 @@ export function DetachedQSOSurface() {
     const current = session.getSnapshot();
     if (!session.dirty && !localInput.current && !current.pending && !current.error && !current.conflict && !current.workspaceChanged) report("");
   }, [session, report]);
+  const checkReadRadio = async () => {
+    const journal = readOperation.current;
+    if (!journal || readingRadio.current) return;
+    readingRadio.current = true; setRadioBusy(true);
+    try {
+      const result = await invoke("operator_draft_read_radio_recover", journal);
+      if (!validSpotActivationSnapshot(result) || result.operationId !== journal.operationId || !["confirmed", "blocked"].includes(result.phase) || result.reservationActive === true ||
+          !await spotEditor.reconcile(result)) throw new Error("Read radio recovery is incomplete. Its operation is retained; no read was replayed.");
+      localStorage.removeItem(readRadioJournalKey); readOperation.current = null;
+      report(result.phase === "confirmed" ? "Recovered Read radio receipt. The current QSO draft was refreshed." : result.error || "The current QSO draft was checked. No radio read was repeated.");
+    } catch (cause) { report(cause instanceof Error ? cause.message : "Read radio recovery unavailable. No read was replayed."); }
+    finally { readingRadio.current = false; if (mounted.current) setRadioBusy(false); }
+  };
   // The shared helper subscribes before reading, coalesces wakes/focus reads,
   // and polls boundedly for worker-owned power updates without a main window.
   useEffect(() => connectOperatorDraftChanges(refresh, report), [refresh, report]);
@@ -172,6 +182,7 @@ export function DetachedQSOSurface() {
     {nativeFollow.error && <p className="live-error" role="status">{nativeFollow.error}</p>}
     <div className="detached-qso-modes" role="group" aria-label="QSO editor mode">{(["simple", "full"] as const).map(value => <button key={value} type="button" aria-pressed={mode === value} disabled={working || closing || blocked} onClick={() => switchMode(value)}>{value === "simple" ? "Simple" : "Full"}</button>)}</div>
     {error && <p className="live-error" role="alert">{error}</p>}
+    {readOperation.current && <button type="button" disabled={radioBusy} onClick={() => void checkReadRadio()}>Check Read radio</button>}
     <SpotActivationStatus status={spotEditor.status} error={spotEditor.error} reconcile={() => void spotEditor.reconcile()} />
     <OperatorDraftStatus state={state} session={session} run={run} />
     {mode === "simple" ? <><DeskQSO referenceEvidence={referenceEvidence} draft={state.draft} setDraft={setDraft} save={() => void save()} clear={clear}

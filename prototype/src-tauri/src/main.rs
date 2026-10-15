@@ -180,13 +180,20 @@ async fn operator_draft_read_radio(window: tauri::WebviewWindow, state: tauri::S
     validate_radio_read(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
     radio_follow::revoke("An explicit radio read disabled Follow Radio.");
     qsy_clear::retire_terminal(); radio_read::retire_terminal();
-    tauri::async_runtime::spawn_blocking(move || radio_read::execute(operation_id))
+    let admission = radio_read::admit();
+    tauri::async_runtime::spawn_blocking(move || { let _admission = admission; radio_read::execute(operation_id) })
         .await.map_err(|_| "Radio-read task failed; inspect the existing operation before trying again".to_string())?
 }
 #[tauri::command]
 fn operator_draft_follow_snapshot(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>) -> Result<serde_json::Value, String> {
     validate_radio_read(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
     radio_follow::snapshot()
+}
+#[tauri::command]
+async fn operator_draft_read_radio_recover(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, operation_id: String, generation: Option<String>) -> Result<serde_json::Value, String> {
+    validate_radio_read(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
+    tauri::async_runtime::spawn_blocking(move || radio_read::recover(operation_id, generation)).await
+        .map_err(|_| "Radio-read recovery task failed. No read was replayed.".to_string())?
 }
 #[tauri::command]
 async fn operator_draft_follow_set(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, enabled: bool, expected_epoch: u64) -> Result<serde_json::Value, String> {
@@ -1407,6 +1414,7 @@ fn main() {
             spot_editor_register, spot_editor_unregister, spot_editor_ack, spot_editor_state,
             spot_activation_snapshot, spot_activation_status, spot_activation_reconcile, activate_spot, activate_opportunity,
             operator_draft_read_radio,
+            operator_draft_read_radio_recover,
             operator_draft_follow_snapshot, operator_draft_follow_set, operator_draft_follow_settled,
             auto_rotor_snapshot, auto_rotor_set,
             workspace_windows_status, workspace_windows_reconcile, workspace_mode_present, workspace_canvas_close_ack,

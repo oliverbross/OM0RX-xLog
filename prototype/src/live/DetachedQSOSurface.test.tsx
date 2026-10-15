@@ -7,6 +7,7 @@ import type { DraftMutation, DraftPowerState, DraftSnapshot } from "./operatorDr
 import { loadWindowSurface } from "../windowSurface";
 
 const api = vi.hoisted(() => ({ draft: vi.fn(), read: vi.fn(), invoke: vi.fn(), reconcile: vi.fn(), changes: vi.fn(), protect: vi.fn(), dock: vi.fn(),
+  readiness: null as null | ((snapshot: any) => { ready: boolean }),
   refresh: null as (() => Promise<void>) | null, blocked: null as (() => boolean) | null, explain: null as (() => void) | null,
   closeState: null as ((value: boolean) => void) | null }));
 vi.mock("./operatorDraftTransport", () => ({ requestOperatorDraft: api.draft }));
@@ -14,9 +15,9 @@ vi.mock("../worker", () => ({ workerRequest: api.read }));
 vi.mock("./operatorDraftWindows", () => ({ connectOperatorDraftChanges: api.changes, protectOperatorDraftClose: api.protect }));
 vi.mock("./DetachedClusterBridge", () => ({ dockDetachedWorkspace: api.dock }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: api.invoke, isTauri: () => false }));
-vi.mock("./useSpotEditor", () => ({ nativeSpotEditor: () => false, useSpotEditor: () => ({
+vi.mock("./useSpotEditor", () => ({ nativeSpotEditor: () => false, useSpotEditor: (_participants: any[], readiness: (snapshot: any) => { ready: boolean }) => { api.readiness = readiness; return {
   status: { phase: "uncertain", tuneConfirmed: false, rotor: "uncertain" }, error: "Global activation warning", reconcile: api.reconcile,
-}) }));
+}; } }));
 
 const copy = <T,>(value: T): T => structuredClone(value);
 function backend() {
@@ -72,6 +73,7 @@ beforeEach(() => {
   api.changes.mockImplementation(refresh => { api.refresh = refresh; void refresh(); return vi.fn(); });
   api.protect.mockImplementation((blocked, explain, _failed, closeState) => { api.blocked = blocked; api.explain = explain; api.closeState = closeState; return vi.fn(); });
   api.dock.mockResolvedValue(undefined);
+  api.reconcile.mockResolvedValue(true);
   api.read.mockImplementation(async (method, params) => ({ result: method === "lookup_call" ? { call: params.call, source: "Local fixture" }
     : method === "logbook_previous" ? { qsos: [] } : { cells: [] } }));
 });
@@ -86,7 +88,7 @@ it.each(["Simple", "Full"])("flushes valid %s edits before a typed Read radio an
       power: { ...f.current.power!, contact: { ...f.current.power!.contact, frequencyHz: 7_100_000, band: "40m", mode: "SSB" } } });
     return { operationId, phase: "confirmed", reservationActive: false, tuneConfirmed: false, rotor: "not-requested" };
   });
-  api.reconcile.mockImplementation(async () => { await api.refresh!(); });
+  api.reconcile.mockImplementation(async () => { await api.refresh!(); return true; });
   render(<DetachedQSOSurface />); await screen.findByDisplayValue("K1ABC");
   if (mode === "Simple") fireEvent.click(screen.getByRole("button", { name: "Simple" }));
   fireEvent.change(screen.getByLabelText(mode === "Simple" ? "Desk Name" : "Name"), { target: { value: "Keep operator text" } });
@@ -122,6 +124,33 @@ it("retains an uncertain Read radio operation and never creates a retry operatio
   fireEvent.click(screen.getByRole("button", { name: "Read radio" }));
   await screen.findByText(/Check the existing Read radio activation before reading again/);
   expect(api.invoke).toHaveBeenCalledOnce();
+  const journal = JSON.parse(localStorage.getItem(`${detachedQSOJournalKey}.readRadio`)!);
+  expect(api.readiness?.({ operationId: crypto.randomUUID(), phase: "preparing" }).ready).toBe(false);
+  expect(api.readiness?.({ operationId: journal.operationId, phase: "preparing" }).ready).toBe(true);
+});
+
+it("retains detached Read radio recovery when canonical editor reconciliation fails", async () => {
+  const f = backend(); api.draft.mockImplementation(f.request); api.reconcile.mockResolvedValue(false);
+  api.invoke.mockImplementation(async (_command, { operationId }) => ({ operationId, phase: "confirmed", reservationActive: false, tuneConfirmed: false, rotor: "not-requested" }));
+  render(<DetachedQSOSurface />); await screen.findByDisplayValue("K1ABC");
+  fireEvent.click(screen.getByRole("button", { name: "Read radio" }));
+  await screen.findByText(/Read radio editor reconciliation is incomplete/);
+  expect(api.blocked!()).toBe(true);
+  expect(localStorage.getItem(`${detachedQSOJournalKey}.readRadio`)).not.toBeNull();
+});
+
+it.each(["confirmed", "blocked"])("recovers a detached %s receipt after native status reset without another read", async phase => {
+  const f = backend(); api.draft.mockImplementation(f.request);
+  const operationId = crypto.randomUUID();
+  localStorage.setItem(`${detachedQSOJournalKey}.readRadio`, JSON.stringify({ operationId, generation: testWorkspaceGeneration }));
+  api.invoke.mockImplementation(async (command, params) => {
+    expect(command).toBe("operator_draft_read_radio_recover"); expect(params).toEqual({ operationId, generation: testWorkspaceGeneration });
+    return { operationId, phase, reservationActive: false, tuneConfirmed: false, rotor: "not-requested" };
+  });
+  render(<DetachedQSOSurface />); await screen.findByDisplayValue("K1ABC");
+  fireEvent.click(screen.getByRole("button", { name: "Check Read radio" }));
+  await waitFor(() => expect(localStorage.getItem(`${detachedQSOJournalKey}.readRadio`)).toBeNull());
+  expect(api.invoke).toHaveBeenCalledOnce(); expect(api.blocked!()).toBe(false);
 });
 
 it("vetoes Read radio when the workspace changes during its edit flush", async () => {

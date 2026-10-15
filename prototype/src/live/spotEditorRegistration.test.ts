@@ -80,3 +80,23 @@ it("cleans a late listener and never registers or adopts a disposed editor", asy
   const connection = f.connect(); await settle(); const disposal = connection.dispose(); held.resolve(f.stop); await disposal;
   expect(f.stop).toHaveBeenCalledOnce(); expect(f.call).not.toHaveBeenCalled(); expect(f.changed).not.toHaveBeenCalled(); expect(f.session.canAcceptLocalInput()).toBe(false);
 });
+it("returns false for a still-admitted operation and true only after its canonical reconciliation", async () => {
+  const f = await fixture(), connection = f.connect(); await settle();
+  f.snapshot = preparing(); f.wake(); await settle();
+  expect(await connection.reconcile()).toBe(false);
+  expect(await connection.reconcile(terminal() as any)).toBe(true);
+  await connection.dispose();
+});
+it("rejects a failed fresh canonical read without releasing the registered editor", async () => {
+  const f = await fixture(), connection = f.connect(); await settle();
+  const original = f.call.getMockImplementation()!;
+  f.call.mockImplementation(async (method, params) => {
+    if (method === "spot_editor_state") throw new Error("Canonical draft unavailable");
+    return original(method, params);
+  });
+  await expect(connection.reconcile(terminal() as any)).rejects.toThrow("Canonical draft unavailable");
+  expect(f.session.canAcceptLocalInput()).toBe(false);
+  f.call.mockImplementation(original);
+  expect(await connection.reconcile(terminal() as any)).toBe(true);
+  await connection.dispose();
+});

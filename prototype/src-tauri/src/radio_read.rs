@@ -4,10 +4,17 @@
 use crate::spot_editor_barrier::EditorBarrier;
 use serde_json::{json, Value};
 use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 use tauri::{Emitter, Manager};
 
 const MAX_REVISION: u64 = 9_007_199_254_740_991;
+static ADMITTED_READS: AtomicUsize = AtomicUsize::new(0);
+pub struct ReadAdmission;
+pub fn admit() -> ReadAdmission { ADMITTED_READS.fetch_add(1, Ordering::AcqRel); ReadAdmission }
+impl Drop for ReadAdmission {
+    fn drop(&mut self) { ADMITTED_READS.fetch_sub(1, Ordering::AcqRel); }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Canonical {
@@ -65,6 +72,33 @@ impl Coordinator {
                 *latest = idle();
             }
         }
+    }
+    fn recover(&self, operation: &str, generation: Option<&str>, receipt: impl FnOnce(&str) -> Result<Value, String>) -> Result<Value, String> {
+        uuid::Uuid::parse_str(operation).map_err(|_| "Invalid radio-read recovery identity.")?;
+        // Receipt absence is conclusive only while no read can still commit.
+        let _active = self.active.try_lock().map_err(|_| "A radio read is still active. Check its outcome again after it finishes.")?;
+        if ADMITTED_READS.load(Ordering::Acquire) != 0 { return Err("A radio read is still pending. Check its outcome again after it finishes.".into()); }
+        if self.reservation_active() { return Err("A radio-read reservation is still active.".into()); }
+        let Some(generation) = generation else {
+            return Ok(terminal(operation, "This older Read radio journal has no workspace identity. The current draft was checked; no radio read was repeated."));
+        };
+        uuid::Uuid::parse_str(generation).map_err(|_| "Invalid radio-read recovery workspace.")?;
+        let result = receipt(generation)?;
+        if result["status"] == "workspace_changed" {
+            return Ok(terminal(operation, "The Read radio workspace changed. Its old operation was not replayed; review the current draft."));
+        }
+        if result.get("receipt") == Some(&Value::Null) {
+            return Ok(terminal(operation, "No durable Read radio receipt exists in the original workspace. The current draft was checked; no radio read was repeated."));
+        }
+        let receipt = &result["receipt"];
+        let canonical = Canonical { worker: 0, generation: generation.into(),
+            draft: receipt["mutation"]["draftID"].as_str().filter(|id| uuid::Uuid::parse_str(id).is_ok()).ok_or("Recovered draft identity is invalid.")?.into(),
+            revision: receipt["mutation"]["expectedRevision"].as_u64().filter(|revision| *revision < MAX_REVISION).ok_or("Recovered draft revision is invalid.")? };
+        let evidence = Evidence { frequency_hz: receipt["draft"]["qso"]["frequencyHz"].as_u64().filter(|value| (1..=1_000_000_000_000).contains(value)).ok_or("Recovered radio frequency is invalid.")?,
+            observed_mode: String::new() };
+        verify(operation, &canonical, &evidence, &json!({"status":"applied","receipt":receipt}))?;
+        Ok(json!({"operationId":operation,"phase":"confirmed","barrier":null,"admitted":true,
+            "reservationActive":false,"draftOnly":true,"intent":"read-radio","tuneConfirmed":false,"rotor":"not-requested"}))
     }
     fn store(&self, value: Value) -> Value {
         if let Ok(mut latest) = self.latest.lock() {
@@ -342,6 +376,16 @@ pub fn execute(operation: String) -> Result<Value, String> {
         .ok_or("Radio-read owner is unavailable.".into())
         .map(|owner| owner.execute(operation))
 }
+pub fn recover(operation: String, generation: Option<String>) -> Result<Value, String> {
+    let owner = OWNER.get().ok_or("Radio-read owner is unavailable.")?;
+    owner.recover(&operation, generation.as_deref(), |generation| {
+        let worker = crate::worker::generation();
+        crate::worker::require_existing_generation(worker)?;
+        let result = NativeBackend::call(worker, "logbook_operator_draft_receipt", json!({"operationID":operation,"generation":generation}))?;
+        crate::worker::require_existing_generation(worker)?;
+        Ok(result)
+    })
+}
 
 #[cfg(test)]
 mod tests {
@@ -357,6 +401,30 @@ mod tests {
             draft: id(),
             revision: 7,
         }
+    }
+    #[test]
+    fn recovery_uses_the_original_workspace_receipt_without_reading_or_mutating_radio() {
+        let canonical = canonical();
+        let backend = Arc::new(Fake { canonical: canonical.clone(), editors: vec![], bad: false, published: Mutex::new(Vec::new()) });
+        let owner = Coordinator::new(backend, Arc::new(EditorBarrier::default()));
+        let operation = id();
+        let evidence = Evidence { frequency_hz: 14_200_000, observed_mode: "USB".into() };
+        let result = receipt(&operation, &canonical, &evidence);
+        assert_eq!(owner.recover(&operation, Some(&canonical.generation), |generation| {
+            assert_eq!(generation, canonical.generation); Ok(json!({"receipt":result["receipt"]}))
+        }).unwrap()["phase"], "confirmed");
+        for result in [json!({"receipt":null}), json!({"status":"workspace_changed","generation":id()})] {
+            assert_eq!(owner.recover(&operation, Some(&canonical.generation), |_| Ok(result)).unwrap()["phase"], "blocked");
+        }
+        assert!(owner.recover(&operation, Some(&canonical.generation), |_| Ok(json!({}))).is_err());
+        let mut wrong = result; wrong["receipt"]["draft"]["generation"] = json!(id());
+        assert!(owner.recover(&operation, Some(&canonical.generation), |_| Ok(wrong)).is_err());
+        assert_eq!(owner.recover(&operation, None, |_| panic!("legacy recovery must not invent a workspace")).unwrap()["phase"], "blocked");
+        let _active = owner.active.lock().unwrap();
+        assert!(owner.recover(&operation, Some(&canonical.generation), |_| panic!("active read cannot prove receipt absence")).is_err());
+        drop(_active);
+        let _pending = admit();
+        assert!(owner.recover(&operation, Some(&canonical.generation), |_| panic!("queued read cannot prove receipt absence")).is_err());
     }
     fn receipt(operation: &str, canonical: &Canonical, evidence: &Evidence) -> Value {
         json!({"status":"applied","receipt":{"mutation":{"operationID":operation,"draftID":canonical.draft,
