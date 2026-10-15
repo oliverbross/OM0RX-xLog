@@ -13,10 +13,11 @@ packaged UI result. Keep unresolved items here across releases.
   the official ExpertSDR3 contract, retain per-TRX/channel state, enforce bounded input
   and diagnostics and expose configured state only after complete discovery plus
   `READY`. A native receive-only WebSocket actor now adds explicit connect/disconnect,
-  fresh generations, bounded messages/observers, no automatic reconnect/replay and
-  fail-closed teardown without retaining an abandoned session. Focused tests pass
-  **21/21** after independent lifecycle and stale-generation review. Saved provider configuration/UI and all
-  command, transmit, spot and optional audio/IQ paths remain later gates, as do package/live/RF
+  fresh generations, bounded messages/observers, no automatic reconnect/replay, inert
+  handling of bounded unsolicited audio binary frames and fail-closed oversized input
+  teardown without retaining an abandoned session. Focused tests pass **22/22** after
+  independent lifecycle, stale-generation and binary-audio review. Saved provider configuration/UI and all
+  command, transmit, spot and audio/IQ consumption paths remain later gates, as do package/live/RF
   proof. QLog behavior was reference only and no implementation code was copied.
 
 - **Arbitrary ADIF contact editing, 16 October — source complete:** Logbook pointer and

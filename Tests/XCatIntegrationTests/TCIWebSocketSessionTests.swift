@@ -145,7 +145,7 @@ final class TCIWebSocketSessionTests: XCTestCase {
         await session.disconnect()
     }
 
-    func testFatalProtocolFrameAndUnexpectedBinaryFailClosed() async throws {
+    func testFatalProtocolFrameAndOversizedBinaryFailClosed() async throws {
         let oversizedConnection = FakeTCIWebSocketConnection()
         let binaryConnection = FakeTCIWebSocketConnection()
         let connector = FakeTCIWebSocketConnector(connections: [oversizedConnection, binaryConnection])
@@ -154,7 +154,8 @@ final class TCIWebSocketSessionTests: XCTestCase {
             endpoint: endpoint,
             configuredAddress: address,
             connector: connector,
-            limits: limits
+            limits: limits,
+            maximumBinaryMessageBytes: 3
         )
 
         try await session.connect()
@@ -164,12 +165,37 @@ final class TCIWebSocketSessionTests: XCTestCase {
         XCTAssertNil(oversized.snapshot)
 
         try await session.connect()
-        await binaryConnection.enqueue(.binary(Data([0, 1, 2])))
+        await binaryConnection.enqueue(.binary(Data([0, 1, 2, 3])))
         let binary = try await waitForObservation(session, after: oversized.sequence) {
             $0.availability == .unavailable && $0.generation == 2
         }
-        XCTAssertEqual(binary.failure, .unexpectedBinaryMessage)
+        XCTAssertEqual(binary.failure, .binaryMessageTooLarge)
         XCTAssertNil(binary.snapshot)
+    }
+
+    func testBoundedBinaryIsIgnoredWithoutPublishingAndTextReductionContinues() async throws {
+        let connection = FakeTCIWebSocketConnection()
+        let connector = FakeTCIWebSocketConnector(connections: [connection])
+        let session = TCIReadOnlyWebSocketSession(
+            endpoint: endpoint,
+            configuredAddress: address,
+            connector: connector,
+            maximumBinaryMessageBytes: 3
+        )
+
+        try await session.connect()
+        await connection.enqueue(.text(Self.discoveryAndState + "ready;"))
+        let beforeBinary = try await waitForObservation(session) { $0.availability == .available }
+
+        await connection.enqueue(.binary(Data([0, 1, 2])))
+        await connection.enqueue(.text("vfo:0,0,7100000;"))
+        let afterText = try await waitForObservation(session, after: beforeBinary.sequence) {
+            $0.snapshot?.frequencyHz == 7_100_000
+        }
+        XCTAssertEqual(afterText.sequence, beforeBinary.sequence + 1)
+        XCTAssertEqual(afterText.availability, .available)
+        XCTAssertNil(afterText.failure)
+        await session.disconnect()
     }
 
     func testEndpointAndDuplicateConnectAdmissionAreFailClosed() async throws {

@@ -21,7 +21,8 @@ case-insensitive incremental codec and discovery/state reducer passes **13/13** 
 tests after independent review. The second slice adds a native receive-only WebSocket actor
 with explicit connect/disconnect, bounded input/observer queues, generation fencing, fresh
 `READY` gating, no automatic reconnect/replay and teardown that cannot retain an abandoned
-session; the combined focused suite passes **21/21**, including late old-connection rejection.
+session. Bounded unsolicited binary audio is ignored without changing state; oversized binary
+fails closed. The combined focused suite passes **22/22**, including late old-connection rejection.
 It still has no station authority.
 Next are saved provider/telemetry and capability-fenced control with durable Tune/PTT owners.
 No TCI command has been issued; package/live/hardware/RF acceptance is open.

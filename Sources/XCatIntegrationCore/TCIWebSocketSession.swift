@@ -73,7 +73,7 @@ public enum TCIReadOnlySessionFailure: Equatable, Sendable {
     case connectionFailed
     case transportClosed
     case protocolViolation(TCIDiagnosticKind)
-    case unexpectedBinaryMessage
+    case binaryMessageTooLarge
 }
 
 public enum TCIReadOnlySessionError: Error, Equatable, Sendable {
@@ -115,6 +115,7 @@ public actor TCIReadOnlyWebSocketSession {
 
     private let connector: any TCIWebSocketConnecting
     private let limits: TCIProtocolLimits
+    private let maximumBinaryMessageBytes: Int
     private var decoder: TCITextDecoder
     private var reducer: TCIStateReducer
     private var connection: (any TCIWebSocketConnection)?
@@ -131,12 +132,14 @@ public actor TCIReadOnlyWebSocketSession {
         endpoint: URL,
         configuredAddress: TCIReceiverAddress,
         connector: any TCIWebSocketConnecting = NativeTCIWebSocketConnector(),
-        limits: TCIProtocolLimits = .default
+        limits: TCIProtocolLimits = .default,
+        maximumBinaryMessageBytes: Int = 65_536
     ) {
         self.endpoint = endpoint
         self.configuredAddress = configuredAddress
         self.connector = connector
         self.limits = limits
+        self.maximumBinaryMessageBytes = max(1, maximumBinaryMessageBytes)
         decoder = TCITextDecoder(limits: limits)
         reducer = TCIStateReducer(limits: limits)
         observationValue = TCIReadOnlySessionObservation(
@@ -288,15 +291,21 @@ public actor TCIReadOnlyWebSocketSession {
             }
             return true
 
-        case .binary:
-            await fail(
-                .unexpectedBinaryMessage,
-                connection: activeConnection,
-                connectionID: activeConnectionID,
-                generation: activeGeneration,
-                revision: activeRevision
-            )
-            return false
+        case let .binary(value):
+            // ExpertSDR can send unsolicited line-output audio to every client.
+            // This read-only state session deliberately ignores bounded binary
+            // payloads; they do not enter the text decoder or publish state.
+            guard value.count <= maximumBinaryMessageBytes else {
+                await fail(
+                    .binaryMessageTooLarge,
+                    connection: activeConnection,
+                    connectionID: activeConnectionID,
+                    generation: activeGeneration,
+                    revision: activeRevision
+                )
+                return false
+            }
+            return true
         }
     }
 

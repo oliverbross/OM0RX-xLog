@@ -52,9 +52,11 @@ per-TRX/channel state, deployed channel-count alias handling, bounded diagnostic
 authoritative configured-pair snapshots only after complete discovery plus `READY`.
 The second source slice adds a native receive-only WebSocket session with explicit
 connect/disconnect, bounded messages and observations, fresh generations and reducer state,
-no automatic reconnect or replay, and fail-closed teardown on transport/protocol errors.
+no automatic reconnect or replay, inert handling of bounded unsolicited audio binary frames,
+and fail-closed teardown on transport/protocol errors or oversized binary input.
 Authoritative telemetry remains unavailable until the current connection completes discovery
-and sends `READY`. Focused tests pass **21/21** after independent lifecycle and stale-generation review. Saved
+and sends `READY`. Focused tests pass **22/22** after independent lifecycle, stale-generation
+and binary-audio review. Saved
 provider configuration, UI, command/control, transmit, spots and optional audio/IQ remain
 open. QLog is behavioral reference only and no third-party implementation code, credentials,
 device or operator data has been copied.
