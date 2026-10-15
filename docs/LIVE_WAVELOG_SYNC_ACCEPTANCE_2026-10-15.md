@@ -65,8 +65,8 @@ pairs. No safe remote contact remains unsynchronized, and no clean or dirty
 local contact is absent remotely.
 
 This closes live Wavelog reconciliation and persisted automatic-start acceptance
-for alpha.29. It does not resolve the three source duplicate pairs in Wavelog;
-they must be reviewed there before either member is changed or removed.
+for alpha.29. At that stage, the three same-identity pairs were unresolved and
+remained protected from change or removal pending the later contract review.
 
 ## Later read-only identity recheck and review UI
 
@@ -92,5 +92,26 @@ Post-alpha.29 source now projects the held identity, exact Wavelog record IDs,
 differing field names and value shapes into Sync status. The Sync panel presents
 each group through compact progressive disclosure and explicitly explains that
 confirmation-service updates may be legitimate while the JSON/ADIF histories do
-not provide a safe row-to-ID join. It does not expose full ADIF values, merge,
-edit or delete either record. Packaged visual acceptance remains open.
+not yet provide a proven row-to-ID join. It does not expose full ADIF values,
+merge, edit or delete either record. Packaged visual acceptance remains open.
+
+## Documented-order correction
+
+The later [Wavelog API v2 QSO contract](https://docs.wavelog.org/developer/api-v2/qso/)
+review found the missing safe join: the API
+documents JSON QSO lists newest-first, ADIF exports in ascending record-ID order,
+and `lastfetchedid` as the highest ID in each ADIF page. Post-alpha.29 source now
+uses that order only when every ADIF page boundary matches the independently
+collected JSON IDs and every paired row has the same semantic QSO identity. Any
+missing boundary, count mismatch, identity mismatch or malformed frequency falls
+back to the previous fail-closed value matcher and retains ambiguous groups.
+
+A fresh GET-only probe against the operator workspace then completed over 68,040
+remote IDs with 68,040 unambiguous rows and zero held. It reported three remote
+IDs not yet present locally, zero clean local IDs absent remotely and zero dirty
+local IDs absent remotely. This proves that the six records can be mapped safely
+without deleting or guessing and that current confirmation/enrichment values are
+eligible to refresh locally. The probe did not open the local database for
+mutation and issued no remote write. The installed alpha.29 still has the old
+hold behavior; installed automatic-sync and post-refresh data acceptance remain
+open until the corrected source is packaged and deliberately exercised.
