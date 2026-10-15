@@ -66,6 +66,11 @@ mockIPC((command, args) => {
     const request = (args as Record<string, unknown>)?.request as { id: string; method: string; params: Record<string, any> };
     return { id: request.id, ok: true, result: worker(request.method, request.params) };
   }
+  if (["spot_editor_register", "spot_activation_snapshot", "spot_activation_reconcile"].includes(command)) {
+    return { operationId: null, phase: "idle", barrier: null };
+  }
+  if (command === "spot_editor_state") return { draft: structuredClone(draft) };
+  if (["spot_editor_ack", "spot_editor_unregister"].includes(command)) return null;
   if (command === "dock_detached_window") { docked = true; return null; }
   if (command === "close_qso_window") { closed = true; return null; }
   throw new Error(`Fixture forbids native command ${command}`);
