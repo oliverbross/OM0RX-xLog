@@ -127,7 +127,11 @@ int32_t xlog_ftp_download(const char *url, const char *username,
     CURLcode result = curl_easy_perform(handle);
     (void)curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, response_code);
     curl_easy_cleanup(handle);
-    if (buffer.too_large) { free(buffer.bytes); return XLOG_FTP_RESULT_TOO_LARGE; }
+    // libcurl may reject the advertised SIZE or enforce its byte limit before
+    // the write callback sees the excess. Both paths are bounded-size failures.
+    if (buffer.too_large || result == CURLE_FILESIZE_EXCEEDED) {
+        free(buffer.bytes); return XLOG_FTP_RESULT_TOO_LARGE;
+    }
     if (result != CURLE_OK) { free(buffer.bytes); return XLOG_FTP_RESULT_FAILED; }
     *output = buffer.bytes; *output_length = buffer.length;
     return XLOG_FTP_RESULT_OK;

@@ -26,7 +26,8 @@ class FTPServer(socketserver.ThreadingTCPServer):
 
     def __init__(self, address, handler, *, root: Path, username: str,
                  password: str, tls_context: ssl.SSLContext | None,
-                 mkdir_refuse: bool, drop_after_store: bool):
+                 mkdir_refuse: bool, drop_after_store: bool, oversized_download: str | None,
+                 withhold_greeting: bool):
         super().__init__(address, handler)
         self.root = root.resolve()
         self.username = username
@@ -34,6 +35,15 @@ class FTPServer(socketserver.ThreadingTCPServer):
         self.tls_context = tls_context
         self.mkdir_refuse = mkdir_refuse
         self.drop_after_store = drop_after_store
+        self.oversized_download = oversized_download
+        self.withhold_greeting = withhold_greeting
+        self.downloads: dict[Path, int] = {}
+        self.download_lock = threading.Lock()
+
+    def download_is_oversized(self, path: Path) -> bool:
+        with self.download_lock:
+            return self.oversized_download is not None and (
+                self.oversized_download != "after-verification" or self.downloads.get(path, 0) > 0)
 
     def handle_error(self, request, client_address) -> None:
         # The negative FTPS acceptance intentionally rejects the disposable
@@ -70,9 +80,22 @@ class FTPHandler(socketserver.StreamRequestHandler):
         self.wfile.flush()
 
     def handle(self) -> None:
+        if self.server.withhold_greeting:
+            # Hold the control handshake until the client's production
+            # connection timeout closes it; never authenticate or accept STOR.
+            try:
+                self.connection.recv(1)
+            except ConnectionResetError:
+                pass
+            return
         self.reply(220, "OM0RX-xLog disposable acceptance server")
         while True:
-            raw = self.rfile.readline(8192)
+            try:
+                raw = self.rfile.readline(8192)
+            except ConnectionResetError:
+                # A bounded client may abort the control channel when SIZE or
+                # the received byte stream exceeds its download limit.
+                return
             if not raw:
                 return
             try:
@@ -142,7 +165,10 @@ class FTPHandler(socketserver.StreamRequestHandler):
         elif command == "SIZE":
             path = self.resolve(argument)
             if path is not None and path.is_file():
-                self.reply(213, str(path.stat().st_size))
+                if self.server.oversized_download == "streamed":
+                    self.reply(502, "Size unavailable")
+                else:
+                    self.reply(213, str(path.stat().st_size + int(self.server.download_is_oversized(path))))
             else:
                 self.reply(550, "File unavailable")
         elif command == "STOR":
@@ -225,6 +251,10 @@ class FTPHandler(socketserver.StreamRequestHandler):
             with self.data_connection() as connection, path.open("rb") as source:
                 while chunk := source.read(65536):
                     connection.sendall(chunk)
+                if self.server.download_is_oversized(path):
+                    connection.sendall(b"!")
+            with self.server.download_lock:
+                self.server.downloads[path] = self.server.downloads.get(path, 0) + 1
             self.reply(226, "Transfer complete")
         except OSError:
             self.reply(550, "Transfer failed")
@@ -241,6 +271,8 @@ def main() -> None:
     parser.add_argument("--key")
     parser.add_argument("--mkdir-refuse", action="store_true")
     parser.add_argument("--drop-after-store", action="store_true")
+    parser.add_argument("--oversized-download", choices=("advertised", "streamed", "after-verification"))
+    parser.add_argument("--withhold-greeting", action="store_true")
     args = parser.parse_args()
 
     root = Path(args.root)
@@ -256,7 +288,9 @@ def main() -> None:
     server = FTPServer(("127.0.0.1", 0), FTPHandler, root=root,
                        username=args.username, password=args.password,
                        tls_context=tls_context, mkdir_refuse=args.mkdir_refuse,
-                       drop_after_store=args.drop_after_store)
+                       drop_after_store=args.drop_after_store,
+                       oversized_download=args.oversized_download,
+                       withhold_greeting=args.withhold_greeting)
     endpoint = f"{args.mode}://localhost:{server.server_address[1]}"
     ready = Path(args.ready_file)
     ready.write_text(json.dumps({"endpoint": endpoint, "pid": os.getpid()}), encoding="utf-8")
