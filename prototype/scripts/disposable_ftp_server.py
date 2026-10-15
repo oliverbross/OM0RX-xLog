@@ -11,6 +11,7 @@ import argparse
 import json
 import os
 import posixpath
+import select
 import signal
 import socket
 import socketserver
@@ -28,7 +29,8 @@ class FTPServer(socketserver.ThreadingTCPServer):
     def __init__(self, address, handler, *, root: Path, username: str,
                  password: str, tls_context: ssl.SSLContext | None,
                  mkdir_refuse: bool, drop_after_store: bool, oversized_download: str | None,
-                 withhold_greeting: bool, slow_download: str | None):
+                 withhold_greeting: bool, slow_download: str | None,
+                 slow_upload: str | None, upload_observation: Path | None):
         super().__init__(address, handler)
         self.root = root.resolve()
         self.username = username
@@ -39,6 +41,9 @@ class FTPServer(socketserver.ThreadingTCPServer):
         self.oversized_download = oversized_download
         self.withhold_greeting = withhold_greeting
         self.slow_download = slow_download
+        self.slow_upload = slow_upload
+        self.upload_observation = upload_observation
+        self.store_count = 0
         self.downloads: dict[Path, int] = {}
         self.download_lock = threading.Lock()
 
@@ -200,6 +205,8 @@ class FTPHandler(socketserver.StreamRequestHandler):
             self.passive_listener.close()
         listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if self.server.slow_upload:
+            listener.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 32768)
         listener.bind(("127.0.0.1", 0))
         listener.listen(1)
         listener.settimeout(10)
@@ -227,8 +234,23 @@ class FTPHandler(socketserver.StreamRequestHandler):
             self.reply(550, "File unavailable")
             return True
         self.reply(150, "Opening data connection")
+        self.server.store_count += 1
         try:
             with self.data_connection() as connection, path.open("xb") as output:
+                if self.server.slow_upload:
+                    while True:
+                        # Stop writing when the client abandons its control
+                        # channel; do not drain queued data after the timeout.
+                        if select.select([self.connection], [], [], 0)[0]:
+                            break
+                        if self.server.slow_upload == "deadline" or output.tell() == 0:
+                            chunk = connection.recv(4096)
+                            if not chunk:
+                                break
+                            output.write(chunk)
+                            output.flush()
+                        time.sleep(0.1)
+                    return False
                 while True:
                     chunk = connection.recv(65536)
                     if not chunk:
@@ -241,6 +263,15 @@ class FTPHandler(socketserver.StreamRequestHandler):
             self.reply(226, "Transfer complete")
         except OSError:
             self.reply(550, "Transfer failed")
+        finally:
+            if self.server.upload_observation is not None:
+                pending = self.server.upload_observation.with_suffix(".pending")
+                pending.write_text(json.dumps({
+                    "store_count": self.server.store_count,
+                    "stored_bytes": path.stat().st_size if path.exists() else 0,
+                    "settled": True,
+                }), encoding="utf-8")
+                pending.replace(self.server.upload_observation)
         return True
 
     def send_file(self, argument: str) -> None:
@@ -290,6 +321,8 @@ def main() -> None:
     parser.add_argument("--oversized-download", choices=("advertised", "streamed", "after-verification"))
     parser.add_argument("--withhold-greeting", action="store_true")
     parser.add_argument("--slow-download", choices=("stall", "deadline"))
+    parser.add_argument("--slow-upload", choices=("stall", "deadline"))
+    parser.add_argument("--upload-observation", type=Path)
     args = parser.parse_args()
 
     root = Path(args.root)
@@ -308,7 +341,8 @@ def main() -> None:
                        drop_after_store=args.drop_after_store,
                        oversized_download=args.oversized_download,
                        withhold_greeting=args.withhold_greeting,
-                       slow_download=args.slow_download)
+                       slow_download=args.slow_download, slow_upload=args.slow_upload,
+                       upload_observation=args.upload_observation)
     endpoint = f"{args.mode}://localhost:{server.server_address[1]}"
     ready = Path(args.ready_file)
     ready.write_text(json.dumps({"endpoint": endpoint, "pid": os.getpid()}), encoding="utf-8")

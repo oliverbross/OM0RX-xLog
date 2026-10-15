@@ -188,6 +188,44 @@ import Testing
         }
     }
 
+    @Test("FTP stalled and throttled uploads remain uncertain within production time limits",
+          .enabled(if: ProcessInfo.processInfo.environment["XLOG_FTP_UPLOAD_STALL_ENDPOINT"] != nil),
+          arguments: ["STALL", "DEADLINE"])
+    func boundedUpload(mode: String) async throws {
+        let endpoint = try #require(environment["XLOG_FTP_UPLOAD_\(mode)_ENDPOINT"])
+        let username = try #require(environment["XLOG_FTP_LIVE_USERNAME"])
+        let password = try #require(environment["XLOG_FTP_LIVE_PASSWORD"])
+        // Exceed socket buffering so stalled reads reach the upload timeout.
+        let bytes = Data(repeating: 0x55, count: 16 * 1_024 * 1_024)
+        let (plan, credentials) = try fixture(endpoint: endpoint, provider: .ftp,
+                                              username: username, password: password, bytes: bytes)
+        let transport = try FTPBackupTransport(destination: plan.destination, credentials: credentials)
+        let clock = ContinuousClock()
+        let started = clock.now
+        await #expect(throws: FTPBackupError.remoteRejected) {
+            try await transport.createExclusively(plan: plan, bytes: bytes)
+        }
+        let elapsed = started.duration(to: clock.now)
+        #expect(elapsed >= .seconds(mode == "STALL" ? 28 : 115))
+        #expect(elapsed < .seconds(mode == "STALL" ? 90 : 140))
+        await #expect(throws: FTPBackupError.operationInProgress) {
+            try await transport.verifiedRemoteIdentity(plan: plan)
+        }
+        await #expect(throws: FTPBackupError.operationInProgress) {
+            try await transport.verifiedRemoteObject(plan: plan)
+        }
+        await #expect(throws: FTPBackupError.operationInProgress) {
+            try await transport.createExclusively(plan: plan, bytes: bytes)
+        }
+        if let timingDirectory = environment["XLOG_FTP_TIMING_DIRECTORY"] {
+            let seconds = Double(elapsed.components.seconds)
+                + Double(elapsed.components.attoseconds) / 1e18
+            let timing = try JSONSerialization.data(withJSONObject: ["elapsed_seconds": seconds])
+            try timing.write(to: URL(fileURLWithPath: timingDirectory)
+                .appendingPathComponent("upload-" + mode.lowercased() + ".json"), options: .atomic)
+        }
+    }
+
     private func fixture(endpoint: String, provider: RemoteBackupProvider,
                          username: String, password: String, bytes: Data)
         throws -> (RemoteBackupUploadPlan, Credentials) {
