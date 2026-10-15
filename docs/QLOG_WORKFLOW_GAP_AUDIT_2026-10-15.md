@@ -10,6 +10,9 @@ launched.
 - Upstream reviewed: [`foldynl/QLog`](https://github.com/foldynl/QLog) at exact
   commit [`cbb75f2f2555a4a84c9761e38075754f4821c27c`](https://github.com/foldynl/QLog/commit/cbb75f2f2555a4a84c9761e38075754f4821c27c), shallow-cloned into a temporary
   directory outside the xLog repository.
+- A second read-only pass on 15 October confirmed the same commit remains
+  upstream `HEAD` and expanded inspection to the WSJT-X UDP receiver, online-log
+  service boundaries and saved main-layout profiles.
 - The review covered the README, current changelog, UI inventory and the alert
   evaluator, rule editor, alert table and network-notification source. It did
   not execute QLog, open a database, read a saved preference or connect a
@@ -67,10 +70,40 @@ directions:
 | WSJT-X integration | xLog's receive-only Logged ADIF intake is source-complete. CQ/status/color feedback, reply and CAT/PTT choices require separate protocol and authority work. |
 | Import/export and service reconciliation | QLog's recent fixes reinforce xLog's existing exact ADIF validation, explicit duplicate/update review and field-preserving confirmation refresh direction. |
 
+## Second-pass reference patterns
+
+- **WSJT-X UDP:** QLog owns one configurable UDP receiver, supports unicast or
+  multicast listening, validates the WSJT-X magic before dispatch, parses Status,
+  Decode, QSO Logged and Logged ADIF messages, remembers the sender endpoint for
+  protocol replies and can forward the original datagram to configured
+  destinations. For xLog, the useful pattern is one native socket owner with
+  explicit forwarding and visible health. The improvement is stricter schema,
+  sender, generation, replay and size fencing before any contact mutation;
+  forwarded traffic must never grant CAT/PTT authority.
+- **Online services:** QLog separates generic upload/download mechanics from
+  provider-specific Club Log, HRDLog, QRZ.com, eQSL and LoTW adapters. xLog
+  should retain that separation but require per-provider vault identities,
+  durable receipts, idempotency and field-level reconciliation. A successful
+  upload to one service must not stand in for confirmation or freshness from
+  another.
+- **Workspace state:** QLog persists named main-layout profiles containing
+  geometry, window state, detail-column choices, extra band maps and appearance
+  preferences. This supports xLog's existing saved-preset direction. xLog must
+  additionally keep panel content responsive to its measured bounds and retain
+  per-window column widths/visibility without letting layout restoration start
+  polling, reconnect a device or issue station actions.
+- **Adoption boundary:** these are behavioral references only. No QLog source,
+  artwork, database, settings or credentials are copied. Each selected feature
+  remains an independent xLog implementation with its own tests and acceptance
+  gates.
+
 ## Selected implementation consequence
 
 QLOG-01 (current-source inventory) and QLOG-02 (gap/decision matrix) are complete
-at the read-only source boundary. QLOG-03 is source-complete: xLog now has a
+at the read-only source boundary. QLOG-04 (broader WSJT-X, online-service and
+layout reference pass) is also complete at that boundary; selected consequences
+remain tracked in xLog's existing UDP, provider and workspace programmes rather
+than a blanket parity project. QLOG-03 is source-complete: xLog now has a
 native, default-off, passive named-rule owner over its one retained cluster
 projection; revision-fenced atomic settings; first-snapshot baselining; stable
 identity and bounded semantic repeat merging; a responsive recent-alert table;

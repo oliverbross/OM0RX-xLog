@@ -68,6 +68,18 @@ and isolated **33/33** native acceptance with `station_io: false`. Production
 OAuth, live account/upload/download/restore, installation and other provider
 adapters remain open. See the [verified restore acceptance](REMOTE_BACKUP_VERIFIED_RESTORE_ACCEPTANCE_2026-10-15.md).
 
+Post-alpha.29 source `473c5ac` adds BACKUP-01's Google Drive v3 transport
+foundation at the source and isolated-package boundary. The native owner
+pre-generates one exact file ID, uploads one frozen envelope, validates account,
+object, parent, app-owned metadata, size, SHA-256 and pinned head revision, then
+independently downloads only that revision for restore verification. Retention
+fails closed until provider-safe conditional deletion exists. Native **206**,
+portable Swift and exact-source package gates pass; the uninstalled bundle is
+strictly signed and passes isolated **33/33** native acceptance with
+`station_io: false`. Trusted OAuth, native presentation, retention deletion,
+live-account evidence and installed acceptance remain open. See the
+[Google Drive transport acceptance](GOOGLE_DRIVE_BACKUP_TRANSPORT_ACCEPTANCE_2026-10-15.md).
+
 This is the operator-facing project overview. Keep it current after every material
 implementation, validation, installation or acceptance change. Detailed evidence
 and historical wording remain in the
@@ -206,7 +218,7 @@ could overwrite another writer. The next bounded stage is safe exact child radio
 | Windows Agent restart reconnection | **Done / installed / Agent-restart repetition open** | Alpha.26 installs commits `422bd2b` and `dd0eb3d`: one native startup resume uses the selected saved Direct Agent, existing durable selection/control fence and Keychain token, with full CAT/amplifier controls enabled by default. A fresh installed app launch automatically recovered `ready / Observed live` at 21.195000 MHz USB and ShackCQ connected; the opt-in checkbox was on and Tune simplex, PTT, VFO/split and Standby/Operate were available. Startup itself sent no station action and observed Receive, READY, KPA Operate and output 0 W. Explicit disconnect/forget, provider changes, newer controls or pending/unknown receipts still prevent resume. **10 startup-filter**, **44 Agent setup/control UI** and TypeScript checks pass. Repeating the acceptance across an actual subsequent Windows Agent process restart remains open. |
 | Shared Sync refresh and mutation owner | **Installed base live accepted; documented-order package verified / installed live mutation open** | Commit `29ea0c0` provides one native summary monitor; `3134f7c` adds one shared mutation owner; alpha.27 includes target-epoch consent fencing at `0c4384a`. Alpha.28 applies fresh Wavelog confirmation/enrichment fields to an authoritative single or already-linked local contact. On 15 October, persisted automatic startup plus an acknowledged generation-fenced run imported four safe contacts and refreshed five linked contacts; no upload, delete, failure or conflict occurred. The six later held rows were valid confirmation/enrichment variants, not disposable duplicates. Source `24a7f9f` uses Wavelog API v2's documented ascending ADIF record-ID order and per-page `lastfetchedid` only when every page boundary and semantic identity agree; otherwise the prior fail-closed matcher still holds ambiguous groups. A fresh GET-only probe mapped all 68,040 remote IDs with zero held, zero local writes and zero remote writes; three safely mapped remote IDs are not yet local because the probe was read-only. The exact `df3b5e7` uninstalled bundle passes strict signing and 33/33 isolated checks with station I/O disabled. Installed automatic-sync and confirmation-refresh acceptance remain open. Commit `c214d5d` retains held-group review for any future dataset that cannot prove the documented join. See [live Wavelog acceptance](LIVE_WAVELOG_SYNC_ACCEPTANCE_2026-10-15.md) and [source-bundle evidence](MACOS_POST_ALPHA29_SOURCE_ACCEPTANCE_2026-10-15.md). |
 | Reviewed ADIF/ADX transfer workflow | **Installed / DATA-10 live and large-file accepted** | Workflow through canonical DXCC `f380d95`, explicit ISO-8859-1 ADI `efcc329`, scalar/type checks `64e1010`, grid/reference checks `d8ac9d0`, versioned extension metadata `4ac6edb`, exact USERDEF RANGE enforcement `5fcc04f`, structural rejection `00efac8`, AGE/A-index bounds `fcbbe17` and antenna-angle bounds `16a1c4c`. Alpha.27 includes exact integer-family validation `8f481fb`, LAT/LON and uniform VUCC locators `c1bd710`, and five upload statuses, QRZ download, EQSL_AG and QSO_COMPLETE enums `c4515a6`. Alpha.28 includes `9b3a203`, adding signed ALTITUDE/MY_ALTITUDE and nonnegative DISTANCE/MAX_BURSTS decimal validation. Sources through `79ce6b9` enforce every published record scalar family while preserving exact spelling, precision, order and ADI fallback behavior. Alpha.29 passes packaged ADX semantic roundtrip, **38/38** installed large-log checks with 100,002 records and live reconciliation with fresh service confirmations. Any additional legacy encodings remain separately prioritized work; one large-log run is not percentile performance proof. |
-| Immutable remote-backup execution foundation | **Verified Dropbox upload/retention/restore source and package complete / production OAuth unavailable / partial BACKUP-01** | UUID-bound durable authorization `52327f3`, live-worker snapshot/lifecycle integration `4ac6edb`, exclusive Dropbox transport `cec2f8f`, native credential seam `ba7c86d`, approval/start owner `eb6bd42` and durable verified registration owner `9a8f2e5` bind exact workspace, destination, account, vault service, dbid, generation and revision. `8ddab69` freezes one exact reviewed envelope; `1a5a4ff` adds the bounded account probe; `d84d225` adds native-only exact-key secure-store mutation; `b437387` adds separately confirmed revision-conditional retention deletion. Exact source `6888b74` adds verified revision-pinned download and deterministic local `.xlogbackup` staging: provider account/object/revision/name/size and SHA-256 must match the app-owned verified upload receipt, and database replacement remains behind the existing explicit local restore confirmation. Lost acknowledgements are idempotent only for the identical envelope. Renderer input cannot supply plans, reviews, identities, credentials, hashes, bytes or vault identities. Full native **198**, portable Swift, frontend **2,402**, Rust **466**, production build and exact-source isolated **33/33** Mac package gates pass with `station_io: false`. No real credential, provider request, upload/delete/download, Keychain mutation or operator restore was used; production OAuth, live authenticated lifecycle, installed acceptance and Google/OneDrive/FTP adapters remain open. See [frozen-plan acceptance](REMOTE_BACKUP_FROZEN_PLAN_ACCEPTANCE_2026-10-15.md) and [verified restore acceptance](REMOTE_BACKUP_VERIFIED_RESTORE_ACCEPTANCE_2026-10-15.md). |
+| Immutable remote-backup execution foundation | **Verified Dropbox lifecycle plus Google Drive transport foundation source/package complete / production OAuth unavailable / partial BACKUP-01** | UUID-bound durable authorization `52327f3`, live-worker snapshot/lifecycle integration `4ac6edb`, exclusive Dropbox transport `cec2f8f`, native credential seam `ba7c86d`, approval/start owner `eb6bd42` and durable verified registration owner `9a8f2e5` bind exact workspace, destination, account, vault service, provider identity, generation and revision. Dropbox source through `6888b74` covers frozen upload, conditional retention and exact-revision verified restore staging. Google Drive source `473c5ac` adds provider-specific account fencing, pre-generated exact file identity, multipart frozen-envelope upload, app-property/parent/size/SHA/head-revision verification and exact pinned-revision download; retention-count destinations fail closed pending conditional deletion. Lost acknowledgements are idempotent only for the identical envelope. Renderer input cannot supply plans, reviews, identities, credentials, hashes, bytes or vault identities. Google Drive full native **206**, portable Swift and exact-source isolated **33/33** Mac package gates pass with `station_io: false`. No real credential, provider request, upload/delete/download, Keychain mutation or operator restore was used; production OAuth, live authenticated lifecycle, installed acceptance, Google Drive presentation/retention and OneDrive/FTP-family adapters remain open. See [frozen-plan acceptance](REMOTE_BACKUP_FROZEN_PLAN_ACCEPTANCE_2026-10-15.md), [verified Dropbox restore acceptance](REMOTE_BACKUP_VERIFIED_RESTORE_ACCEPTANCE_2026-10-15.md) and [Google Drive transport acceptance](GOOGLE_DRIVE_BACKUP_TRANSPORT_ACCEPTANCE_2026-10-15.md). |
 | Awards calculator and packaged performance | **Packaged isolated percentile acceptance / live contention open** | Commit `aad3886` removes unnecessary ordinary-JARL UTC construction while retaining date-sensitive rules. Exact source `cb5d450` then passes five independent 100,002-contact macOS runs at **39/39**: first Awards median/p95 **1,151/1,522 ms**, repeat **66/91 ms**, Logbook **229/244 ms**, rendered local intelligence **33/33 ms**, and six-screen navigation p95 **67–132 ms**. See [performance acceptance](PACKAGED_PERFORMANCE_ACCEPTANCE_2026-10-15.md). Operator-workspace/live-service contention, physical cold disk, memory pressure, multi-display and other-OS gates remain open. |
 | Existing programme-reference feedback audit | **Source verified at existing scope** | Existing display-only POTA/SOTA/IOTA/WWFF/WWBOTA evidence is generation/draft/call fenced and never replaces operator input. **8 frontend** and **3 portable Swift** focused tests pass. User-observed POTA success is not proof of every live feed or packaged state. |
 | Shared native CW owner and independent CW child | **Installed / partial windowing** | Owner `2cb7bac`; child `423bb73`. Desk and child share one provider/selection-fenced session; passive mount sends no output, only saved macro IDs cross IPC, and protected Close/Dock retains pending or unknown output. Registration-scoped cleanup cannot Stop another window's lease. Included in alpha.23 with `station_io: false`; physical keyer, radio and RF acceptance remain open. |
@@ -256,11 +268,12 @@ could overwrite another writer. The next bounded stage is safe exact child radio
 9. Package and live-accept RADIO-05 Clear after QSY, now source-complete with
    trusted observed-RX provenance, editor veto, selection/command epochs and an
    idempotent native transaction. Keep the default OFF until the operator opts in.
-10. **Live Wavelog acceptance and BACKUP-01's frozen plan, native credential
-    seam, revision-conditional retention and verified revision-pinned restore
-    staging are source/package complete;** register the Dropbox app and complete
-    trusted production OAuth, live upload/deletion/download/restore acceptance
-    and installed acceptance; then implement the remaining provider adapters.
+10. **Live Wavelog acceptance and BACKUP-01's Dropbox lifecycle plus Google
+    Drive transport foundation are source/package complete;** register the
+    provider applications and complete trusted production OAuth, Google Drive
+    native presentation/retention, live upload/deletion/download/restore
+    acceptance and installed acceptance; then implement OneDrive and the
+    separately secured FTP/FTPS/SFTP adapters.
 11. Run packaged cross-platform, percentile large-log performance and separately
    authorized hardware acceptance. Do not collapse these into source evidence.
 
@@ -286,7 +299,7 @@ acceptance. Consult the detailed tracker before closing any individual item.
 | --- | --- | --- |
 | **Done / installed at stated scope** | UI-17, UI-26, UI-39, CW-01, CW-02, CW-03, CLUSTER-01, SYNC-01 | Some rows retain explicit hardware, alternate-OS or accessibility limits. |
 | **Implemented in installed alpha.29 or current reviewed source; row-specific acceptance open** | UI-01–25, UI-27–38, UI-40–41, MAP-01–04, DATA-01–07, DATA-09, RADIO-01–05, PERF-02–03, SYNC-02, SYNC-06 | Perform the packaged visual, live-service, latency, real-feed or hardware checks named in the tracker; no RF inference. RADIO-05 remains default-off until separately authorized live acceptance. UI-09 and UI-18–21 are source-verified after alpha.29; their installed/operator acceptance remains open. DATA-09 now retains only explicit bounded provider versions/revisions; current public activation feeds expose none and intentionally remain Not reported. |
-| **Active / partial** | DATA-08, DATA-10–11, BACKUP-01, PERF-01, WS-01–08, RUM-01–03, SHIP-01 | DATA-10 has reviewed UTF-8/Windows-1252/ISO-8859-1 ADI, UTF-8 ADX, 33-field duplicate updates, versioned APP/USERDEF metadata with exact RANGE semantics, strict structural rejection and every published 3.1.7 record scalar type family. Alpha.29 adds a packaged ADX semantic round trip and **38/38** installed 100,002-record functional checks; live-sync acceptance remains. BACKUP-01 now has UUID-bound durable consent, default-off live-worker lifecycle, exclusive independently verified Dropbox execution, just-in-time workspace-vault credentials, native capability-gated setup/approval/start/status/recovery UI, durable verified-registration metadata, frozen-plan preparation and revision-fenced Dropbox retention deletion. Production OAuth/verifier provisioning, live upload/delete/restore acceptance and other providers remain open. DATA-11's feedback path is audited. Agent-restart lifecycle hardening and the corrected Standby/failed-Operate drive rollback both await installed Windows repetition; the rollback defect itself is closed in Agent source `67d2902`. |
+| **Active / partial** | DATA-08, DATA-10–11, BACKUP-01, PERF-01, WS-01–08, RUM-01–03, SHIP-01 | DATA-10 has reviewed UTF-8/Windows-1252/ISO-8859-1 ADI, UTF-8 ADX, 33-field duplicate updates, versioned APP/USERDEF metadata with exact RANGE semantics, strict structural rejection and every published 3.1.7 record scalar type family. Alpha.29 adds a packaged ADX semantic round trip and **38/38** installed 100,002-record functional checks; live-sync acceptance remains. BACKUP-01 now has UUID-bound durable consent, default-off live-worker lifecycle, independently verified Dropbox upload/retention/restore execution and a provider-specific Google Drive exact-ID/exact-revision transport foundation. Production OAuth/verifier provisioning, Google Drive native presentation/retention, live provider acceptance, OneDrive and FTP-family adapters remain open. DATA-11's feedback path is audited. Agent-restart lifecycle hardening and the corrected Standby/failed-Operate drive rollback both await installed Windows repetition; the rollback defect itself is closed in Agent source `67d2902`. |
 
 ## Major acceptance campaigns still open
 
@@ -304,10 +317,11 @@ acceptance. Consult the detailed tracker before closing any individual item.
   behavior. Packaged ADX semantic roundtrip and an installed 100,002-record
   functional run pass in alpha.29; realistic percentile performance remains
   under the separate performance campaign.
-- **Backups:** BACKUP-01 source/package gates now cover verified upload identity,
-  conditional retention and exact-revision download into an inspected local
-  package followed by explicit restore. Production OAuth, live Dropbox lifecycle,
-  installed acceptance and Google Drive/OneDrive/FTP adapters remain open.
+- **Backups:** BACKUP-01 source/package gates cover Dropbox verified upload,
+  conditional retention and exact-revision restore staging, plus Google Drive
+  exact-ID upload and exact-revision verification. Production OAuth, live
+  provider lifecycle, Google Drive presentation/retention, installed acceptance
+  and OneDrive/FTP-family adapters remain open.
 - **Cross-platform/windowing:** macOS, Windows and Linux route parity,
   main-renderer-absent operation, mixed DPI/negative origins, monitor disconnect,
   maximize/restore and window recovery.
@@ -317,8 +331,11 @@ acceptance. Consult the detailed tracker before closing any individual item.
   no RF authority. Installed live-cluster notification acceptance remains open;
   do not add empty contest/QSL imitation features.
 - **QLog comparison:** QLOG-01/02 read-only current-source inventory and gap
-  decisions are complete at upstream commit `cbb75f2`. Named rules, structured
-  spot conditions, merged repeat counts, expiry and separate delivery adapters
+  decisions are complete at upstream commit `cbb75f2`; a second read-only pass
+  on 15 October confirmed that this is still upstream HEAD and expanded the
+  comparison across WSJT-X UDP, provider services and saved layout profiles.
+  Named rules, structured spot conditions, merged repeat counts, expiry and
+  separate delivery adapters
   inform the same alert slice. xLog improves the boundary with native
   generation/revision ownership, stable spot identities, explicit rate limits
   and no implicit tune action. QLOG-03 rule and native delivery source
@@ -329,7 +346,10 @@ acceptance. Consult the detailed tracker before closing any individual item.
   and the production bundle gate pass, strict deep signature verification
   passes, and the isolated integrated run passes 33/33 with station I/O disabled.
   Operator/live-cluster and actual macOS popup/sound acceptance remain open;
-  speech and outbound UDP remain deferred. See the
+  speech and outbound UDP remain deferred. QLOG-04's broader reference pass is
+  complete; its selected UDP, provider and layout lessons stay in their existing
+  independently accepted programmes rather than becoming a blanket parity
+  promise. See the
   [QLog audit](QLOG_WORKFLOW_GAP_AUDIT_2026-10-15.md).
 
 ## Update discipline
