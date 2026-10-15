@@ -1,8 +1,8 @@
-# FTP and FTPS backup transport acceptance — 15 October 2026
+# FTP and FTPS backup transport and presentation acceptance — 15 October 2026
 
 ## Outcome
 
-Exact source `edd3182e7b95c2dc3cc41f98fff4a11507bec544` adds the native
+Transport source `edd3182e7b95c2dc3cc41f98fff4a11507bec544` adds the native
 FTP and implicit-FTPS transport foundation for BACKUP-01. One frozen backup
 first reserves a plan-derived unique directory with `MKD`, writes exactly one
 object inside it, independently downloads the object, and computes xLog's own
@@ -10,16 +10,25 @@ SHA-256 before a verified receipt can exist. Restore accepts only the exact
 provider/account/backup/hash tuple retained by that receipt and rechecks the
 downloaded bytes again.
 
-This is source and isolated-package acceptance, not a live FTP-server,
+Exact presentation source `41a7854890c858bc051b2711e7f67f1d73d4e28f`
+connects that transport to native Settings, a dedicated macOS Keychain password,
+and the shared immutable backup lifecycle. The renderer supplies only operator
+intent. Native code derives account and destination identities from workspace,
+Keychain service, provider, endpoint, user name and directory; it freezes the
+backup, checks credential presence locally, requires explicit approval, and
+only then permits Start. Settings or password changes retire prior preparation
+and approval.
+
+This is source and isolated-package acceptance, not live FTP-server,
 installed-app or operator-workspace acceptance. No real server connection,
 credential or Keychain mutation, upload, download, deletion or restore was
 performed.
 
 ## Transport contract
 
-- Plain `ftp://` is accepted only with the existing explicit insecure opt-in.
-  The UI/presentation layer is not connected in this stage, so no destination
-  can become active merely because this adapter exists.
+- Plain `ftp://` is accepted only with a separate, explicit insecure-transport
+  confirmation. FTPS cannot carry that confirmation. Saving a destination or
+  password does not start a backup.
 - `ftps://` means implicit FTPS. libcurl requires TLS on both control and data
   channels and keeps peer-certificate and hostname verification enabled. The
   implementation follows curl's [FTP/FTPS URL and option contract](https://curl.se/docs/manpage.html)
@@ -43,34 +52,59 @@ performed.
   protocol support, and a separate backend must enforce pinned SSH host-key
   verification before SFTP can be enabled.
 
+## Presentation and authority contract
+
+- Passive snapshots read only non-secret Settings and existing local receipts.
+  They do not read Keychain, contact a server, create metadata, or authorize a
+  backup.
+- The password has a dedicated native Keychain account and is never returned to
+  the renderer. Endpoint, directory and username remain validated non-secret
+  Settings values.
+- Prepare freezes an immutable envelope; Check account performs only the local
+  credential-presence gate; Approve records explicit one-shot authorization;
+  Start is the first operation allowed to contact the configured server.
+- Account identity binds the workspace generation, Keychain service, protocol,
+  endpoint and username. Destination identity additionally binds the directory.
+  A settings or credential revision cannot inherit an older approval.
+- Unknown outcomes preserve the durable journal and are never replayed
+  automatically. Restore remains a separately staged and confirmed action.
+- The scheduler carries a valid interval because its shared state machine
+  requires one, while the authorization is explicitly non-recurring; no
+  recurring FTP/FTPS execution is enabled by this presentation.
+
 ## Verification
 
 - Focused native FTP/FTPS contract: **7 test functions in 1 suite** pass,
   including both schemes, exact absolute paths, TLS selection, independent
   hash verification, corrupt-download rejection, durable no-replay, account
   fencing, retention rejection and cross-provider receipt namespaces.
-- Full native Swift: **224/224 tests across 30 suites** pass with warnings as
+- Focused native FTP/FTPS presentation: **5/5 tests** pass, covering passive
+  no-Keychain/no-network snapshots, exact-byte FTPS execution, explicit plain-
+  FTP consent, missing credentials, retirement and production-worker wiring.
+- Full native Swift: **225/225 tests across 30 suites** pass with warnings as
   errors.
 - Portable/full shared gate: XStation **17/17**, XLogPrototype **209** with four
-  explicit skips, XCluster **56/56**, and Swift Testing **405/405 across 54
+  explicit skips, XCluster **56/56**, and Swift Testing **410/410 across 55
   suites** pass with warnings as errors.
+- Full frontend: **2,411/2,411 tests across 163 files** pass; the production
+  frontend build also passes.
 - The C bridge passes `clang -std=c11 -Wall -Wextra -Werror -fsyntax-only`.
 - The exact-source uninstalled macOS bundle passes strict deep signature
   verification. Embedded distribution metadata reports
-  `edd3182e7b95c2dc3cc41f98fff4a11507bec544`.
+  `41a7854890c858bc051b2711e7f67f1d73d4e28f`.
 - Host binary: arm64, SHA-256
-  `8f7ec0052103b1d00404f27b79437b09f62298c4887fe02abd413144bbba929e`.
+  `2721176ac4ac5376bb06a49a10e6c6b736bca993e58d6f0cd78c27f0dfff9688`.
 - Swift worker: universal x86_64/arm64, SHA-256
-  `f573efc18fbe5b3afe073d132c0f24f3c44bb52133bcb71086fd66f4e4776809`.
-- Isolated report `prototype/dist/ftp-edd3182-native-acceptance.json` passes
+  `0c715fa3df62103b0d79dff17801da453b15489cd72b1117687b4fe906aefa55`.
+- Isolated report `dist/ftp-presentation-41a7854-native-acceptance.json` passes
   **33/33** with `status: passed`, `scope: integrated-local-ui`, `embeddedUi:
   true`, `worker: true` and `station_io: false`. The candidate process exited;
-  the separate installed alpha.29 process was not stopped or replaced.
+  the separate installed alpha.29 processes were not stopped or replaced. The
+  report SHA-256 is
+  `a90f2edad0e28f9d7e7d4cfb7f918556a0a0a4741498208ded3f3a73b0d3e576`.
 
 ## Remaining gates
 
-- Native credential-vault/presentation ownership and explicit operator
-  authorization for FTP and FTPS destinations.
 - Live tests against disposable plain-FTP and trusted-certificate implicit-FTPS
   servers, including refusal, lost-acknowledgement, size, timeout and restore
   cases. No operator log may be used for that acceptance.
