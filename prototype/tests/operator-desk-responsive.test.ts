@@ -30,12 +30,14 @@ it("keeps the actual-component geometry matrix around the reported width and fra
   expect(geometry).toContain("RST field no longer has a readable minimum width");
 });
 
-it("reflows resizable data tables into labelled records before a narrow window needs horizontal scrolling", () => {
+it("reflows standalone data tables into labelled records while allowing the Desk logbook to retain columns", () => {
+  expect(logbook).toMatch(/@container logbook-responsive \(max-width:\s*1200px\)/);
+  expect(logbook).toMatch(/@container logbook-responsive \(max-width:\s*520px\)/);
+  expect(spotHistory).toMatch(/@container \(max-width:\s*1200px\)/);
+  expect(spotHistory).toMatch(/@container \(max-width:\s*520px\)/);
   for (const css of [logbook, spotHistory]) {
-    expect(css).toMatch(/@container \(max-width:\s*1200px\)/);
     expect(css).toContain("overflow-x:hidden");
     expect(css).toContain("content:attr(data-label)");
     expect(css).toContain("grid-template-columns:repeat(2,minmax(0,1fr))");
-    expect(css).toMatch(/@container \(max-width:\s*520px\)/);
   }
 });
