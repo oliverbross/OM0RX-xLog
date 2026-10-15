@@ -205,8 +205,11 @@ async function main(report: Json) {
   let logbookWindow: Json | null = null;
   const logbookDeadline = Date.now() + 20_000;
   while (Date.now() < logbookDeadline) {
-    logbookWindow = await invoke<Json | null>("acceptance_logbook_result");
-    if (logbookWindow) break;
+    const candidate = await invoke<Json | null>("acceptance_logbook_result");
+    if (candidate?.status === "passed" || candidate?.status === "failed") {
+      logbookWindow = candidate;
+      break;
+    }
     await new Promise(resolve => setTimeout(resolve, 50));
   }
   if (!logbookWindow) {
@@ -378,6 +381,11 @@ export async function startIntegratedAcceptance() {
   try {
     await waitForAcceptance("integrated UI mount", () => !!document.querySelector(".app.live"));
     report.embeddedUi = true;
+    if (surface) {
+      report.status = "running";
+      report.details.stage = "mounted";
+      await invoke("acceptance_monitor", { report });
+    }
     if (!surface) report.details.performance = { appUiMountMs: Math.round(performance.now()) };
     if (!surface && await resumeSpotHistoryAbsence(report, worker, navigate, awaitMap)) {
       report.status = "passed";
@@ -426,7 +434,11 @@ export async function startIntegratedAcceptance() {
     }
     if (surface === "logbook") {
       report.details.instanceID = crypto.randomUUID();
+      report.details.stage = "waiting-for-rows";
+      await invoke("acceptance_monitor", { report });
       await waitForAcceptance("detached logbook rows", () => document.querySelector(".live-logbook-table tbody")?.textContent?.includes("W1AW") === true);
+      report.details.stage = "editing-contact";
+      await invoke("acceptance_monitor", { report });
       for (const comment of ["Detached native edit", "Isolated native UI acceptance"]) {
         element<HTMLElement>(".live-logbook-table tbody tr").click(); await frame();
         await waitForAcceptance("detached contact editor", () => !!document.querySelector('[aria-label="Comment"]'));
