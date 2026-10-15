@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { readFileSync } from "node:fs";
 import { DetachedSettingsSurface, requestDetachedSettings } from "./DetachedSettingsSurface";
 import { loadWindowSurface } from "../windowSurface";
 
@@ -22,6 +23,7 @@ vi.mock("./useWorkspaceLayout", () => ({ useWorkspaceLayout: () => ({
 }) }));
 
 const generation = "12345678-1234-1234-1234-123456789abc";
+const serviceStyles = readFileSync("src/live/ServiceSettings.css", "utf8");
 const values = { logbookMode: "wavelog", operatorCall: "OM0RX", stationCall: "OM0RX", gridSquare: "JN88",
   wavelogStationID: 1, automaticSync: false };
 const snapshot = (revision: number, settings = values) => ({ generation, revision, settings });
@@ -79,6 +81,12 @@ it("enforces the detached non-hardware method list before IPC", async () => {
   await expect(requestDetachedSettings("station_tune", { frequency_hz: 14_025_000 })).rejects.toThrow("unavailable");
   await expect(requestDetachedSettings("winkeyer_send", { text: "TEST" })).rejects.toThrow("unavailable");
   expect(api.request).toHaveBeenCalledOnce();
+});
+
+it("lets every detached settings section fill the available window width", () => {
+  const override = serviceStyles.match(/\.detached-settings-app \.service-settings \.service-fields,[\s\S]*?\{ max-width:none; \}/)?.[0] ?? "";
+  expect(override).toContain(".service-account-row");
+  expect(override).toContain(".service-online-log");
 });
 
 it("confirms a native UUID Settings receipt and clears recovery without discard", async () => {
