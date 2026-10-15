@@ -53,6 +53,66 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+it.each(["missing", "unavailable", "pending"])("keeps Settings reachable with a %s workspace without creating or editing station data", async state => {
+  const backend = calls.request.getMockImplementation()!;
+  calls.request.mockImplementation((method, params) => method === "workspace_status" && state !== "missing"
+    ? state === "pending" ? new Promise(() => {}) : Promise.reject(new Error("Workspace disk unavailable"))
+    : backend(method, params));
+  render(<LiveApp />);
+  fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+  const recovery = await screen.findByRole("region", { name: "Settings recovery" });
+  expect(within(recovery).getByRole("heading", { name: "Settings" })).toBeTruthy();
+  expect(within(recovery).getByLabelText("Shared Agent HTTPS URL")).toBeTruthy();
+  expect(screen.getByRole("main", { name: "Settings" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Save settings" })).toBeNull();
+  await act(async () => nativeMenu.route?.("Operator Desk"));
+  await act(async () => nativeMenu.route?.("Settings"));
+  expect(screen.getByRole("region", { name: "Settings recovery" })).toBeTruthy();
+  expect(calls.request.mock.calls.some(([method]) => ["workspace_create", "settings_save", "station_connect", "station_tune", "logbook_operator_draft_apply"].includes(method))).toBe(false);
+  if (state === "missing") expect(await screen.findByRole("button", { name: "Copy my existing xLog logbook" })).toBeTruthy();
+  else expect(screen.queryByRole("button", { name: "Create empty logbook" })).toBeNull();
+});
+
+it.each([
+  ["Copy my existing xLog logbook", "copy_native"],
+  ["Create empty logbook", "empty"],
+])("retains the explicit %s action while recovering in Settings", async (label, mode) => {
+  render(<LiveApp />);
+  await screen.findByRole("button", { name: "Copy my existing xLog logbook" });
+  fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+  fireEvent.click(screen.getByRole("button", { name: label }));
+  await screen.findByRole("region", { name: "Station and service settings" });
+  expect(calls.request).toHaveBeenCalledWith("workspace_create", { mode });
+  expect(screen.queryByRole("region", { name: "Settings recovery" })).toBeNull();
+});
+
+it("retries an unavailable workspace from Settings and retains the selected destination", async () => {
+  const backend = calls.request.getMockImplementation()!;
+  let unavailable = true;
+  calls.request.mockImplementation((method, params) => method === "workspace_status" && unavailable
+    ? Promise.reject(new Error("Workspace disk unavailable")) : backend(method, params));
+  render(<LiveApp />);
+  await screen.findByRole("button", { name: "Retry connection" });
+  fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+  unavailable = false; exists = true;
+  fireEvent.click(screen.getByRole("button", { name: "Retry connection" }));
+  await screen.findByRole("region", { name: "Station and service settings" });
+  expect(screen.getByRole("main", { name: "Settings" })).toBeTruthy();
+  expect(calls.request.mock.calls.some(([method]) => method === "workspace_create")).toBe(false);
+});
+
+it("allows read-only Spot History diagnostics while workspace editors remain gated", async () => {
+  render(<LiveApp />);
+  await screen.findByRole("button", { name: "Copy my existing xLog logbook" });
+  fireEvent.click(screen.getByRole("button", { name: "Spot History" }));
+  await waitFor(() => expect(calls.request.mock.calls.some(([method]) => method === "spot_history_status")).toBe(true));
+  expect(screen.getByRole("main", { name: "Spot History" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Log QSO" }));
+  expect(screen.queryByLabelText("Callsign")).toBeNull();
+  expect(screen.getByRole("button", { name: "Create empty logbook" })).toBeTruthy();
+  expect(calls.request.mock.calls.some(([method]) => ["workspace_create", "logbook_operator_draft_apply", "settings_save"].includes(method))).toBe(false);
+});
+
 it("refreshes when sync has already finished before the first summary response", async () => {
   exists = true;
   vi.useFakeTimers();

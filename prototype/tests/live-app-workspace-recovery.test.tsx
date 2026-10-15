@@ -83,3 +83,16 @@ it("explains why workspace recovery has reopened main and exposes the Settings r
   await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Review Settings" })); });
   expect(screen.getByRole("main", { name: "Settings" })).toBeTruthy();
 });
+
+it("keeps recovery navigation visible when a Separate Windows layout outlives its workspace", async () => {
+  const backend = api.request.getMockImplementation()!;
+  api.request.mockImplementation((method, params) => method === "workspace_status"
+    ? Promise.resolve({ result: { workspace_exists: false, native_log_exists: true } }) : backend(method, params));
+  await act(async () => { render(<LiveApp />); });
+  expect(screen.queryByRole("main", { name: "Separate Windows" })).toBeNull();
+  expect(api.present.mock.calls.every(([, hide]) => hide === false)).toBe(true);
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Settings" })); });
+  expect(screen.getByRole("region", { name: "Settings recovery" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Retry connection" })).toBeTruthy();
+  expect(api.request.mock.calls.some(([method]) => method === "workspace_create")).toBe(false);
+});

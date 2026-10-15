@@ -277,14 +277,14 @@ function MainLiveApp() {
     || !!logbookMutation.pending && !logbookMutation.busy;
   const recoveryVisible = useWorkspaceRecovery(recoveryRequired,
     canChangeMode(true) && !deskLayout.state.pending && !deskLayout.state.saving);
-  const separateWindows = workspaceMode(deskLayout.state.snapshot) === "windows" && !recoveryVisible;
+  const separateWindows = workspace?.workspace_exists === true && workspaceMode(deskLayout.state.snapshot) === "windows" && !recoveryVisible;
   useEffect(() => {
     const state = deskLayout.state;
-    if (!state.snapshot || state.saving) return;
+    if (!state.snapshot || state.saving || !workspace && workspacePending) return;
     void presentWorkspaceMode(state.snapshot, separateWindows)
       .catch(cause => setError(cause instanceof Error ? cause.message : "Workspace mode presentation failed."));
   }, [deskLayout.state.snapshot, deskLayout.state.pending, deskLayout.state.saving,
-      deskLayout.state.conflict, deskLayout.state.workspaceChanged, separateWindows]);
+      deskLayout.state.conflict, deskLayout.state.workspaceChanged, separateWindows, workspacePending]);
   const acceptsInput = useCallback(() => !mainClosing.current && !layoutChanging.current && !editorTransition.current && !logbookWorkingRef.current && draftSession.canAcceptLocalInput() && contactSession.canAcceptLocalInput(), [draftSession, contactSession]);
   useEffect(() => protectOperatorDraftClose(() => {
     const current = draftSession.getSnapshot(), contact = contactSession.getSnapshot(), mutation = logbookMutations.getSnapshot();
@@ -850,8 +850,17 @@ function MainLiveApp() {
       </div>}
       {message && !message.endsWith("· radio frequency and mode confirmed") && <p className="live-message" role="status">{message}</p>}
       <WorkspaceModeSurface separateWindows={separateWindows}>
-      {!workspace?.workspace_exists ? <WorkspaceGate workspace={workspace} pending={workspacePending} busy={busy}
-        retry={() => void run(reload)} create={mode => void run(async () => { await request("workspace_create", { mode }); await reload(); })} /> : <>
+      {!workspace?.workspace_exists && <>
+        {view === "Settings" && <section className="service-settings" aria-label="Settings recovery">
+          <h2>Settings</h2>
+          <p>Radio connection setup is available below. Logbook settings will be available after your workspace reconnects.</p>
+          <AgentConnectionSetup providers connections followSelection />
+        </section>}
+        <WorkspaceGate workspace={workspace} pending={workspacePending} busy={busy}
+          retry={() => void run(reload)} create={mode => void run(async () => { await request("workspace_create", { mode }); await reload(); })} />
+      </>}
+      {/* Spot History only reads archive diagnostics; editors still require a verified workspace. */}
+      {(workspace?.workspace_exists === true || view === "Spot History") && <>
       {view === "Operator Desk" && <OperatorCanvas {...deskLayout} equipment={deskKind === "none" ? undefined : deskKind}
         canChangeLayout={() => !logbookWorkingRef.current && !editorBufferPending.current && !mainClosing.current && !editorTransition.current && draftSession.canAcceptLocalInput() && contactSession.canAcceptLocalInput()}
         onChangeInFlight={value => { layoutChanging.current = value; }} panels={{
