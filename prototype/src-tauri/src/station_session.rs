@@ -44,7 +44,7 @@ pub fn validate(label: &str, isolated: bool, action: &str) -> Result<(), String>
         "snapshot" | "receipt" | "hamlib_catalogue" | "save" | "connect" | "disconnect" | "forget" | "select"
             | "save_hamlib" | "connect_hamlib" | "reconnect_hamlib" | "disconnect_hamlib"
             | "save_flex" | "connect_flex" | "reconnect_flex" | "disconnect_flex"
-            | "receive_frequency"
+            | "receive_frequency" | "receive_mode"
     ) {
         return Err("Unknown Station Control operation.".into());
     }
@@ -84,15 +84,21 @@ fn endpoint(value: &str) -> Result<String, String> {
     Ok(url.to_string().trim_end_matches('/').into())
 }
 fn is_save(action: &str) -> bool { matches!(action, "save" | "save_hamlib" | "save_flex") }
-fn is_receive(action: &str) -> bool { action == "receive_frequency" }
+fn is_receive(action: &str) -> bool { matches!(action, "receive_frequency" | "receive_mode") }
 fn receive_params(value: &Value) -> Result<Value, String> {
     let action = value["action"].as_str().unwrap_or("");
     if !is_receive(action) || value["provider"] != "direct_flex_lan"
         || ["connection_generation", "control_revision"].iter().any(|key| value[*key].as_u64().is_none_or(|number| number > MAX_REVISION)) {
         return Err("Invalid exact Direct FLEX receive target.".into());
     }
-    let hz = value["frequency_hz"].as_u64().filter(|hz| (100_000..=1_000_000_000).contains(hz)).ok_or("Receive frequency must be an integer from 100 kHz to 1 GHz.")?;
-    Ok(json!({"provider":"direct_flex_lan","expected_generation":value["connection_generation"],"control":"set_frequency_a","frequency_hz":hz}))
+    if action == "receive_frequency" {
+        let hz = value["frequency_hz"].as_u64().filter(|hz| (100_000..=1_000_000_000).contains(hz)).ok_or("Receive frequency must be an integer from 100 kHz to 1 GHz.")?;
+        return Ok(json!({"provider":"direct_flex_lan","expected_generation":value["connection_generation"],"control":"set_frequency_a","frequency_hz":hz}));
+    }
+    let mode = value["mode"].as_str().filter(|mode| matches!(*mode,
+        "USB" | "LSB" | "CW" | "CWR" | "AM" | "FM" | "RTTY" | "RTTYR" | "DIGU" | "DIGL"))
+        .ok_or("Choose a supported Direct FLEX receive mode.")?;
+    Ok(json!({"provider":"direct_flex_lan","expected_generation":value["connection_generation"],"control":"set_mode_a","mode":mode}))
 }
 /// Match the existing direct FLEX private-IP contract without DNS or I/O.
 fn flex_configuration(value: &Value) -> Result<Value, String> {
@@ -157,8 +163,9 @@ impl Session {
             } else if matches!(action, "save_hamlib" | "save_flex") {
                 vec!["action", "generation", "revision", "configuration"]
             } else if is_receive(action) {
-                vec!["action", "generation", "revision", "selection_generation", "selection_id", "provider", "control_revision", "connection_generation",
-                    "frequency_hz"]
+                let mut keys = vec!["action", "generation", "revision", "selection_generation", "selection_id", "provider", "control_revision", "connection_generation"];
+                keys.push(if action == "receive_frequency" { "frequency_hz" } else { "mode" });
+                keys
             } else if action == "select" {
                 vec![
                     "action",
@@ -189,7 +196,7 @@ impl Session {
                     "save" | "connect" | "disconnect" | "forget" | "select"
                         | "save_hamlib" | "connect_hamlib" | "reconnect_hamlib" | "disconnect_hamlib"
                         | "save_flex" | "connect_flex" | "reconnect_flex" | "disconnect_flex"
-                        | "receive_frequency"
+                        | "receive_frequency" | "receive_mode"
                 )
                 || is_save(action) != (receipt.status == "saved")
                 || receipt.request["generation"] != saved.generation
@@ -338,7 +345,7 @@ impl Session {
             "save" | "connect" | "disconnect" | "forget" | "select"
                 | "save_hamlib" | "connect_hamlib" | "reconnect_hamlib" | "disconnect_hamlib"
                 | "save_flex" | "connect_flex" | "reconnect_flex" | "disconnect_flex"
-                | "receive_frequency"
+                | "receive_frequency" | "receive_mode"
         ) {
             return Err("Unknown Station Control action.".into());
         }
@@ -370,7 +377,8 @@ impl Session {
             if is_receive(action) {
                 let receive = receive_params(params)?;
                 for key in ["provider", "control_revision", "connection_generation"] { descriptor[key] = params[key].clone(); }
-                descriptor["frequency_hz"] = receive["frequency_hz"].clone();
+                let key = if action == "receive_frequency" { "frequency_hz" } else { "mode" };
+                descriptor[key] = receive[key].clone();
             } else if action == "select" {
                 let provider = params["provider"]
                     .as_str()
@@ -480,7 +488,7 @@ impl Session {
             Some((
                 // FLEX reconnect deliberately creates a new configured session:
                 // never inherit the previous session's transmit permission.
-                json!({"id":id,"method":match action { "receive_frequency" => "station_radio_control", "connect" | "connect_flex" | "reconnect_flex" => "station_connect", "forget" => "station_forget", "select" => "station_selection_apply", "connect_hamlib" => "hamlib_connect", "reconnect_hamlib" => "hamlib_reconnect", "disconnect_hamlib" => "hamlib_disconnect", _ => "station_disconnect" },"params":connection}),
+                json!({"id":id,"method":match action { "receive_frequency" | "receive_mode" => "station_radio_control", "connect" | "connect_flex" | "reconnect_flex" => "station_connect", "forget" => "station_forget", "select" => "station_selection_apply", "connect_hamlib" => "hamlib_connect", "reconnect_hamlib" => "hamlib_reconnect", "disconnect_hamlib" => "hamlib_disconnect", _ => "station_disconnect" },"params":connection}),
                 selected_generation,
                 selected_id.to_owned(),
             ))
@@ -723,7 +731,7 @@ mod tests {
             "select",
             "save_hamlib", "connect_hamlib", "reconnect_hamlib", "disconnect_hamlib",
             "save_flex", "connect_flex", "reconnect_flex", "disconnect_flex",
-            "receive_frequency",
+            "receive_frequency", "receive_mode",
         ] {
             for label in ["main", "station-control"] {
                 assert!(validate(label, false, action).is_ok());
@@ -917,21 +925,24 @@ mod tests {
     #[test]
     fn receive_controls_journal_exact_targets_before_dispatch_and_never_replay_unknowns() {
         let (directory, session, save) = setup();
-        for action in ["receive_frequency"] {
+        for action in ["receive_frequency", "receive_mode"] {
             let state = session.snapshot().unwrap(); let identity = uuid::Uuid::new_v4().to_string();
             let mut command = json!({"action":action,"operation_id":uuid::Uuid::new_v4().to_string(),"generation":save["generation"],"revision":state["revision"],
                 "provider":"direct_flex_lan","selection_generation":7,"selection_id":identity,"control_revision":9,"connection_generation":13});
-            command["frequency_hz"] = json!(14074000);
+            if action == "receive_frequency" { command["frequency_hz"] = json!(14074000); }
+            else { command["mode"] = json!("DIGU"); }
             let receipt = session.apply(&command, |request, generation, selection_id| {
                 assert_eq!(generation, 7); assert_eq!(selection_id, identity); assert_eq!(request["method"], "station_radio_control");
                 assert_eq!(request["params"]["expected_generation"], 13); assert_eq!(request["params"]["provider"], "direct_flex_lan");
-                assert_eq!(request["params"]["control"], "set_frequency_a");
+                assert_eq!(request["params"]["control"], if action == "receive_frequency" { "set_frequency_a" } else { "set_mode_a" });
                 assert_eq!(Session::new(directory.path().join("session.json")).unwrap().receipt(command["operation_id"].as_str().unwrap()).unwrap()["status"], "unknown");
                 Err("reply lost".into())
             }).unwrap();
             assert_eq!(receipt["status"], "unknown"); assert_eq!(session.apply(&command, passive).unwrap(), receipt);
             let reopened = Session::new(directory.path().join("session.json")).unwrap(); assert_eq!(reopened.apply(&command, passive).unwrap(), receipt);
-            let mut conflict = command.clone(); conflict["frequency_hz"] = json!(7100000);
+            let mut conflict = command.clone();
+            if action == "receive_frequency" { conflict["frequency_hz"] = json!(7100000); }
+            else { conflict["mode"] = json!("USB"); }
             assert!(session.apply(&conflict, passive).is_err());
             conflict = command; conflict["operation_id"] = json!(uuid::Uuid::new_v4().to_string()); assert!(session.apply(&conflict, passive).is_err());
         }
@@ -946,6 +957,12 @@ mod tests {
             let mut invalid = command.clone(); invalid[key] = value; assert!(session.apply(&invalid, passive).is_err());
         }
         let mut invalid = command.clone(); invalid["action"] = json!("receive_mode"); invalid["mode"] = json!("USB|transmit"); assert!(session.apply(&invalid, passive).is_err());
+        for mode in [json!("SSB"), json!("usb"), json!("FT8"), json!("USB|transmit"), json!(null), json!(7)] {
+            let state = session.snapshot().unwrap();
+            let invalid = json!({"action":"receive_mode","operation_id":uuid::Uuid::new_v4().to_string(),"generation":save["generation"],"revision":state["revision"],
+                "provider":"direct_flex_lan","selection_generation":7,"selection_id":uuid::Uuid::new_v4().to_string(),"control_revision":9,"connection_generation":13,"mode":mode});
+            assert!(session.apply(&invalid, passive).is_err());
+        }
         std::fs::create_dir(directory.path().join("session.json")).unwrap();
         assert!(session.apply(&command, passive).is_err()); assert!(session.snapshot().unwrap()["last_receipt"].is_null());
     }

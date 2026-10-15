@@ -3,7 +3,7 @@ import type { MonitorContext } from "./monitorContext";
 const integer = (value: unknown): value is number => typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 const freshSeconds = (value: unknown, now: number) => typeof value === "number" && Number.isFinite(value) && Math.abs(now - value * 1000) <= 5000;
 /** Eligibility only; native admission and the FLEX backend recheck every write. */
-export function stationReceiveAvailable(context: MonitorContext | null, now = Date.now()): boolean {
+export function stationReceiveAvailable(context: MonitorContext | null, requiredCommand = "set_frequency_a", now = Date.now()): boolean {
   const selection = context?.selection, projection = context?.radio, snapshot = projection?.snapshot, radio = snapshot?.radio;
   return !context?.acceptance && selection?.provider === "direct_flex_lan" && integer(selection.control_revision)
     && projection?.provider === selection.provider && projection.selection_id === selection.selection_id && projection.selection_generation === selection.generation
@@ -11,5 +11,5 @@ export function stationReceiveAvailable(context: MonitorContext | null, now = Da
     && snapshot?.source === "direct_flex_lan" && freshSeconds(snapshot.generated_at, now) && freshSeconds(radio?.observed_at, now)
     && integer(snapshot.generation) && radio?.connected === true && radio.observed === true && radio.transmitting === false && radio.receive_vfo === "A"
     && Array.isArray(radio.vfos) && radio.vfos.some((vfo: Record<string, unknown>) => vfo.letter === "A" && vfo.receive === true)
-    && Array.isArray(snapshot.capabilities?.supported_commands) && snapshot.capabilities.supported_commands.includes("set_frequency_a");
+    && Array.isArray(snapshot.capabilities?.supported_commands) && snapshot.capabilities.supported_commands.includes(requiredCommand);
 }

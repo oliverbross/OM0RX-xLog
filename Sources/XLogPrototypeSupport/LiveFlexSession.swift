@@ -7,6 +7,7 @@ protocol FlexSessionRadio: RadioControlling {
     func start() async
     func reconnectNow() async
     func stopTransportOnly() async
+    func setPrimaryMode(_ mode: String) async throws
     func transmitObservation() async -> FlexRadioClient.TransmitObservation?
     func rfPowerObservation() async -> FlexRadioClient.RFPowerObservation?
 }
@@ -304,6 +305,21 @@ actor LiveFlexSession {
                 $0.isConnected && $0.mode.uppercased() == mode
             }
             return ["accepted": true, "confirmed": true, "control": control, "state": snapshot()]
+        case "set_mode_a":
+            try keys(params, ["provider", "control", "mode"])
+            guard let mode = Self.mode(params["mode"]) else { throw invalid() }
+            guard observed?.vfo("A")?.isReceive == true else {
+                throw WorkerFailure("station_unavailable", "Receive VFO A is not currently observed; no mode control was sent.")
+            }
+            let (radio, epoch) = try beginControl(needsTransmit: false)
+            defer { activeControl = false }
+            try await requireSafeReceiveMutation(radio, letter: "A", epoch: epoch)
+            let revision = observedRevision
+            do { try await radio.setPrimaryMode(mode) } catch { throw rejectedControl() }
+            _ = try await waitForObservation(after: revision, epoch: epoch) {
+                $0.isConnected && $0.vfo("A")?.isReceive == true && $0.vfo("A")?.mode.uppercased() == mode
+            }
+            return ["accepted": true, "confirmed": true, "control": control, "state": snapshot()]
         case "set_receive_vfo":
             try keys(params, ["provider", "control", "vfo"])
             guard let letter = params["vfo"] as? String, ["A", "B"].contains(letter) else { throw invalid() }
@@ -551,7 +567,7 @@ actor LiveFlexSession {
 
     private func supportedCommands(_ current: RadioSnapshot?) -> [String] {
         var result = ["station_snapshot", "station_tune", "station_connect", "station_disconnect",
-                      "station_reconnect", "set_frequency_a", "set_mode", "set_receive_vfo",
+                      "station_reconnect", "set_frequency_a", "set_mode", "set_mode_a", "set_receive_vfo",
                       "set_split", "set_cw_speed", "ptt", "send_cw", "clear_cw", "tune", "cancel"]
         if current?.vfo("B") != nil { result.append("set_frequency_b") }
         if current != nil && observedPower != nil { result.append("set_rf_power") }

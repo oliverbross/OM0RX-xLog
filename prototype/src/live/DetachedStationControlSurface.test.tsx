@@ -107,7 +107,7 @@ function sharedAgent(loseConnect = false, loseSelection = false, provider = "dir
     if (params.action === "hamlib_catalogue") return { models: [{ id: 1, manufacturer: "Hamlib", model: "Dummy", maturity: "Stable" }, { id: 3073, manufacturer: "Icom", model: "IC-7300", maturity: "Stable" }] };
     if (params.action === "receipt") return state.last_receipt;
     actions.push(params);
-    const lost = loseConnect && ["connect", "connect_flex", "reconnect_flex", "receive_frequency"].includes(params.action) || loseSelection && params.action === "select";
+    const lost = loseConnect && ["connect", "connect_flex", "reconnect_flex", "receive_frequency", "receive_mode"].includes(params.action) || loseSelection && params.action === "select";
     state = { ...state, revision: state.revision + 1,
       ...(params.action === "save_hamlib" ? { hamlib: params.configuration } : {}),
       ...(params.action === "save_flex" ? { flex: params.configuration } : {}),
@@ -283,15 +283,15 @@ function flexReceiveContext(): MonitorContext {
   context.radio = { revision: 1, available: true, provider: "direct_flex_lan", selection_id: identity, selection_generation: 8, received_at_ms: Date.now(),
     snapshot: { source: "direct_flex_lan", generation: 13, generated_at: Date.now() / 1000,
       radio: { observed: true, observed_at: Date.now() / 1000, connected: true, transmitting: false, receive_vfo: "A", frequency_hz: 14074000, mode: "USB", vfos: [{ letter: "A", receive: true }] },
-      capabilities: { supported_commands: ["set_frequency_a", "set_mode"] } } };
+      capabilities: { supported_commands: ["set_frequency_a", "set_mode_a"] } } };
   return context;
 }
-it("child sends only explicit exact receive frequency requests and waits for a new observation", async () => {
+it("child sends only explicit exact VFO-A receive controls and waits for a new observation", async () => {
   const owner = sharedAgent(false, false, "direct_flex_lan"), context = flexReceiveContext();
   owner.state().selection.selection_id = context.selection!.selection_id; owner.observe(context);
   render(<DetachedStationControlSurface />); await act(async () => {});
   expect(owner.actions).toHaveLength(0);
-  expect(screen.queryByRole("button", { name: /PTT|Send CW|Tune carrier|Set receive mode/ })).toBeNull();
+  expect(screen.queryByRole("button", { name: /PTT|Send CW|Tune carrier/ })).toBeNull();
   const frequency = screen.getByRole("button", { name: "Set receive VFO A frequency" });
   expect(frequency.hasAttribute("disabled")).toBe(true);
   fireEvent.change(screen.getByLabelText("Child receive frequency MHz"), { target: { value: "14.0751" } });
@@ -302,9 +302,16 @@ it("child sends only explicit exact receive frequency requests and waits for a n
   expect(frequency.hasAttribute("disabled")).toBe(true);
   context.revision++; context.selection!.control_revision = 10; context.radio.received_at_ms++;
   owner.observe(context); await act(async () => { owner.observeWake(); });
+  fireEvent.change(screen.getByLabelText("Child receive mode"), { target: { value: "DIGU" } });
+  fireEvent.click(screen.getByRole("button", { name: "Set receive VFO A mode" })); await act(async () => {});
+  expect(owner.actions).toHaveLength(2); expect(owner.actions[1]).toMatchObject({ action: "receive_mode", revision: 5,
+    control_revision: 10, connection_generation: 13, mode: "DIGU" });
+  expect(owner.actions[1]).not.toHaveProperty("frequency_hz");
+  context.revision++; context.selection!.control_revision = 11; context.radio.received_at_ms++;
+  owner.observe(context); await act(async () => { owner.observeWake(); });
   fireEvent.change(screen.getByLabelText("Child receive frequency MHz"), { target: { value: "7.1" } });
   fireEvent.click(frequency); await act(async () => {});
-  expect(owner.actions).toHaveLength(2); expect(owner.actions[1]).toMatchObject({ action: "receive_frequency", revision: 5, control_revision: 10, connection_generation: 13, frequency_hz: 7100000 });
+  expect(owner.actions).toHaveLength(3); expect(owner.actions[2]).toMatchObject({ action: "receive_frequency", revision: 6, control_revision: 11, connection_generation: 13, frequency_hz: 7100000 });
   expect(native.worker).not.toHaveBeenCalled();
 });
 it("unknown receive reply survives child remount and checks the original receipt without replay", async () => {
@@ -333,7 +340,7 @@ it.each(["stale", "old radio observation", "transmitting", "unknown PTT", "VFO B
   if (reason === "generation unknown") delete context.radio.snapshot.generation;
   owner.observe(context); render(<DetachedStationControlSurface />); await act(async () => {});
   fireEvent.change(screen.getByLabelText("Child receive frequency MHz"), { target: { value: "14.075" } });
-  for (const name of ["Set receive VFO A frequency"]) {
+  for (const name of ["Set receive VFO A frequency", "Set receive VFO A mode"]) {
     const button = screen.getByRole("button", { name }); expect(button.hasAttribute("disabled")).toBe(true); fireEvent.click(button);
   }
   expect(owner.actions).toHaveLength(0); expect(native.worker).not.toHaveBeenCalled();

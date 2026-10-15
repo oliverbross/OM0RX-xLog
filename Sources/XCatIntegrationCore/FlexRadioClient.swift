@@ -224,6 +224,15 @@ public actor FlexRadioClient: RadioControlling {
         try await sendCommand("slice t \(slice.id) \(Self.formatMHz(frequencyHz))")
     }
 
+    /// Set the mode on the station-owned VFO A slice. Unlike `setMode`, this
+    /// never follows the mutable selected slice and is therefore suitable for
+    /// a command admitted against an explicit VFO-A observation.
+    public func setPrimaryMode(_ mode: String) async throws {
+        let normalized = try Self.validatedMode(mode)
+        guard let slice = stationSlice(letter: "A") else { throw XCatError.notConnected }
+        try await sendCommand("slice s \(slice.id) mode=\(normalized)")
+    }
+
     public func setFrequency(_ frequencyHz: Int64) async throws {
         guard frequencyHz > 0 else { throw XCatError.invalidFrequency }
         guard let selectedSliceID else { throw XCatError.notConnected }
@@ -231,10 +240,7 @@ public actor FlexRadioClient: RadioControlling {
     }
 
     public func setMode(_ mode: String) async throws {
-        let normalized = mode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-        guard !normalized.isEmpty, normalized.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" }) else {
-            throw XCatError.invalidMode
-        }
+        let normalized = try Self.validatedMode(mode)
         guard let selectedSliceID else { throw XCatError.notConnected }
         try await sendCommand("slice s \(selectedSliceID) mode=\(normalized)")
     }
@@ -810,6 +816,15 @@ public actor FlexRadioClient: RadioControlling {
 
     private static func formatMHz(_ hertz: Int64) -> String {
         String(format: "%.6f", Double(hertz) / 1_000_000)
+    }
+
+    private static func validatedMode(_ mode: String) throws -> String {
+        let normalized = mode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        guard !normalized.isEmpty,
+              normalized.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" }) else {
+            throw XCatError.invalidMode
+        }
+        return normalized
     }
 
     private func waitForWANValidation() async throws {

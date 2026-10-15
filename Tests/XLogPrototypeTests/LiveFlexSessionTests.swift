@@ -79,6 +79,16 @@ private actor FakeFlexRadio: FlexSessionRadio {
         if value.transmitSlice == "A" { value.transmitFrequencyHz = frequencyHz }
         onSnapshot(value)
     }
+    func setPrimaryMode(_ mode: String) {
+        commands.append("mode_a")
+        value.vfos = value.vfos.map { vfo in
+            var copy = vfo
+            if copy.letter == "A" { copy.mode = mode }
+            return copy
+        }
+        if value.slice == "A" { value.mode = mode }
+        onSnapshot(value)
+    }
     func setFrequency(_ frequencyHz: Int64) {
         commands.append("frequency")
         value.frequencyHz = frequencyHz
@@ -304,6 +314,28 @@ final class LiveFlexSessionTests: XCTestCase {
         }
         let commands = await radio.commandLog()
         XCTAssertEqual(commands, [])
+    }
+
+    func testReceiveModeTargetsObservedVFOAAndRequiresFreshReadback() async throws {
+        let initial = RadioSnapshot(frequencyHz: 14_074_000, mode: "USB", slice: "A",
+            transmitSlice: "B", transmitFrequencyHz: 14_080_000,
+            vfos: [RadioVFO(letter: "A", frequencyHz: 14_074_000, mode: "USB", isReceive: true),
+                   RadioVFO(letter: "B", frequencyHz: 14_080_000, mode: "LSB", isTransmit: true)])
+        let (session, radio) = try await fixture(initial)
+        let snapshot = try await session.handle("station_snapshot", params: ["provider": "direct_flex_lan"])
+        let generation = try XCTUnwrap(snapshot["generation"] as? UInt64)
+        let result = try await session.handle("station_radio_control", params: [
+            "provider": "direct_flex_lan", "control": "set_mode_a", "mode": "DIGU",
+            "expected_generation": generation,
+        ])
+        XCTAssertEqual(result["confirmed"] as? Bool, true)
+        let commands = await radio.commandLog()
+        XCTAssertEqual(commands, ["mode_a"])
+        let state = try await session.handle("station_snapshot", params: ["provider": "direct_flex_lan"])
+        let observed = try XCTUnwrap(state["radio"] as? [String: Any])
+        let vfos = try XCTUnwrap(observed["vfos"] as? [[String: Any]])
+        XCTAssertEqual(vfos.first(where: { $0["letter"] as? String == "A" })?["mode"] as? String, "DIGU")
+        XCTAssertEqual(vfos.first(where: { $0["letter"] as? String == "B" })?["mode"] as? String, "LSB")
     }
 
     func testOwnedReleaseFailureRetainsConnectionAndObligationUntilObservedOff() async throws {
