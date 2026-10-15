@@ -25,12 +25,15 @@ class FTPServer(socketserver.ThreadingTCPServer):
     daemon_threads = True
 
     def __init__(self, address, handler, *, root: Path, username: str,
-                 password: str, tls_context: ssl.SSLContext | None):
+                 password: str, tls_context: ssl.SSLContext | None,
+                 mkdir_refuse: bool, drop_after_store: bool):
         super().__init__(address, handler)
         self.root = root.resolve()
         self.username = username
         self.password = password
         self.tls_context = tls_context
+        self.mkdir_refuse = mkdir_refuse
+        self.drop_after_store = drop_after_store
 
     def handle_error(self, request, client_address) -> None:
         # The negative FTPS acceptance intentionally rejects the disposable
@@ -82,30 +85,31 @@ class FTPHandler(socketserver.StreamRequestHandler):
             if command == "QUIT":
                 self.reply(221, "Goodbye")
                 return
-            self.dispatch(command, argument)
+            if not self.dispatch(command, argument):
+                return
 
-    def dispatch(self, command: str, argument: str) -> None:
+    def dispatch(self, command: str, argument: str) -> bool:
         if command == "USER":
             self.pending_user = argument
             self.reply(331, "Password required")
-            return
+            return True
         if command == "PASS":
             if self.pending_user == self.server.username and argument == self.server.password:
                 self.authenticated = True
                 self.reply(230, "Logged in")
             else:
                 self.reply(530, "Authentication failed")
-            return
+            return True
         if command in {"SYST", "FEAT"}:
             self.reply(215 if command == "SYST" else 211,
                        "UNIX Type: L8" if command == "SYST" else "End")
-            return
+            return True
         if command in {"OPTS", "TYPE", "NOOP"}:
             self.reply(200, "OK")
-            return
+            return True
         if not self.authenticated:
             self.reply(530, "Login required")
-            return
+            return True
         if command == "PWD":
             self.reply(257, f'"{self.cwd}"')
         elif command == "PBSZ":
@@ -121,10 +125,13 @@ class FTPHandler(socketserver.StreamRequestHandler):
             else:
                 self.reply(550, "Directory unavailable")
         elif command == "MKD":
+            if self.server.mkdir_refuse:
+                self.reply(550, "Reservation refused")
+                return True
             path = self.resolve(argument)
             if path is None:
                 self.reply(550, "Invalid path")
-                return
+                return True
             try:
                 path.mkdir()
                 self.reply(257, f'"{self.virtual(argument)}" created')
@@ -139,11 +146,12 @@ class FTPHandler(socketserver.StreamRequestHandler):
             else:
                 self.reply(550, "File unavailable")
         elif command == "STOR":
-            self.receive_file(argument)
+            return self.receive_file(argument)
         elif command == "RETR":
             self.send_file(argument)
         else:
             self.reply(502, "Command not implemented")
+        return True
 
     def virtual(self, value: str) -> str:
         candidate = value if value.startswith("/") else posixpath.join(self.cwd, value)
@@ -185,11 +193,11 @@ class FTPHandler(socketserver.StreamRequestHandler):
             return self.server.tls_context.wrap_socket(connection, server_side=True)
         return connection
 
-    def receive_file(self, argument: str) -> None:
+    def receive_file(self, argument: str) -> bool:
         path = self.resolve(argument)
         if path is None or not path.parent.is_dir() or self.passive_listener is None:
             self.reply(550, "File unavailable")
-            return
+            return True
         self.reply(150, "Opening data connection")
         try:
             with self.data_connection() as connection, path.open("xb") as output:
@@ -198,9 +206,14 @@ class FTPHandler(socketserver.StreamRequestHandler):
                     if not chunk:
                         break
                     output.write(chunk)
+            if self.server.drop_after_store:
+                self.connection.shutdown(socket.SHUT_RDWR)
+                self.connection.close()
+                return False
             self.reply(226, "Transfer complete")
         except OSError:
             self.reply(550, "Transfer failed")
+        return True
 
     def send_file(self, argument: str) -> None:
         path = self.resolve(argument)
@@ -226,6 +239,8 @@ def main() -> None:
     parser.add_argument("--mode", choices=("ftp", "ftps"), default="ftp")
     parser.add_argument("--cert")
     parser.add_argument("--key")
+    parser.add_argument("--mkdir-refuse", action="store_true")
+    parser.add_argument("--drop-after-store", action="store_true")
     args = parser.parse_args()
 
     root = Path(args.root)
@@ -240,7 +255,8 @@ def main() -> None:
 
     server = FTPServer(("127.0.0.1", 0), FTPHandler, root=root,
                        username=args.username, password=args.password,
-                       tls_context=tls_context)
+                       tls_context=tls_context, mkdir_refuse=args.mkdir_refuse,
+                       drop_after_store=args.drop_after_store)
     endpoint = f"{args.mode}://localhost:{server.server_address[1]}"
     ready = Path(args.ready_file)
     ready.write_text(json.dumps({"endpoint": endpoint, "pid": os.getpid()}), encoding="utf-8")

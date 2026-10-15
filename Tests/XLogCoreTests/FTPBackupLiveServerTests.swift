@@ -54,6 +54,41 @@ import Testing
         }
     }
 
+    @Test("Disposable FTP reservation refusal writes no object",
+          .enabled(if: ProcessInfo.processInfo.environment["XLOG_FTP_REFUSAL_ENDPOINT"] != nil))
+    func reservationRefusal() async throws {
+        let endpoint = try #require(environment["XLOG_FTP_REFUSAL_ENDPOINT"])
+        let username = try #require(environment["XLOG_FTP_LIVE_USERNAME"])
+        let password = try #require(environment["XLOG_FTP_LIVE_PASSWORD"])
+        let bytes = Data("reservation refusal must write nothing\n".utf8)
+        let (plan, credentials) = try fixture(endpoint: endpoint, provider: .ftp,
+                                              username: username, password: password,
+                                              bytes: bytes)
+        let transport = try FTPBackupTransport(destination: plan.destination,
+                                               credentials: credentials)
+        #expect(try await transport.createExclusively(plan: plan, bytes: bytes) == .notCreated)
+    }
+
+    @Test("Lost FTP acknowledgement remains uncertain and is not replayed",
+          .enabled(if: ProcessInfo.processInfo.environment["XLOG_FTP_LOST_ACK_ENDPOINT"] != nil))
+    func lostAcknowledgement() async throws {
+        let endpoint = try #require(environment["XLOG_FTP_LOST_ACK_ENDPOINT"])
+        let username = try #require(environment["XLOG_FTP_LIVE_USERNAME"])
+        let password = try #require(environment["XLOG_FTP_LIVE_PASSWORD"])
+        let bytes = Data("stored bytes with deliberately lost acknowledgement\n".utf8)
+        let (plan, credentials) = try fixture(endpoint: endpoint, provider: .ftp,
+                                              username: username, password: password,
+                                              bytes: bytes)
+        let transport = try FTPBackupTransport(destination: plan.destination,
+                                               credentials: credentials)
+        await #expect(throws: FTPBackupError.remoteRejected) {
+            try await transport.createExclusively(plan: plan, bytes: bytes)
+        }
+        await #expect(throws: FTPBackupError.operationInProgress) {
+            try await transport.createExclusively(plan: plan, bytes: bytes)
+        }
+    }
+
     private func fixture(endpoint: String, provider: RemoteBackupProvider,
                          username: String, password: String, bytes: Data)
         throws -> (RemoteBackupUploadPlan, Credentials) {
