@@ -1,8 +1,8 @@
 import Foundation
 
 /// Provider-observed identity retained only after independent byte verification.
-/// Non-secret metadata, not a deletion capability. Currently only Dropbox has an
-/// executor able to supply this evidence; other providers must add validation.
+/// Non-secret metadata, not a deletion capability. Each provider must use its
+/// own validated opaque namespaces so identities cannot be rebound across adapters.
 public struct RemoteBackupVerifiedObject: Equatable, Sendable, Codable {
     public let provider: RemoteBackupProvider
     public let providerAccountID: String
@@ -16,9 +16,19 @@ public struct RemoteBackupVerifiedObject: Equatable, Sendable, Codable {
                     (65...90).contains($0) || (97...122).contains($0) || (48...57).contains($0) || [45, 95].contains($0)
                 }
         }
-        guard provider == .dropbox, opaque(providerAccountID, prefix: "dbid:"), opaque(objectID, prefix: "id:"),
-              (9...128).contains(revision.utf8.count),
-              revision.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }) else {
+        let valid: Bool
+        switch provider {
+        case .dropbox:
+            valid = opaque(providerAccountID, prefix: "dbid:") && opaque(objectID, prefix: "id:")
+                && (9...128).contains(revision.utf8.count)
+                && revision.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) })
+        case .googleDrive:
+            valid = opaque(providerAccountID, prefix: "gdrive:")
+                && opaque(objectID, prefix: "gfile:") && opaque(revision, prefix: "grev:")
+        default:
+            valid = false
+        }
+        guard valid else {
             throw RemoteBackupPlanningError.invalidReceipt
         }
         self.provider = provider; self.providerAccountID = providerAccountID; self.objectID = objectID; self.revision = revision
