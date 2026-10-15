@@ -24,9 +24,9 @@ This request extends the ongoing parity programme; it does not mark earlier requ
 | WS-02 | Settings → Workspace provides panel selection and named layouts | In progress: named preset persistence and scoped revision checks; Settings UI pending |
 | WS-03 | Native menus replace navigation links on all three desktop platforms | In progress: complete screen menu routing in source; sidebar removal/native review pending |
 | WS-04 | Window menu opens/focuses individual native panel windows | In progress: existing four windows plus Logbook and Awards in source; remaining screens pending |
-| WS-05 | Docked, mixed and fully undocked arrangements share one live session | In progress: draft/contact foundations, Cluster owner and native radio/rotor polling; automatic coordination/projections still pending |
+| WS-05 | Docked, mixed and fully undocked arrangements share one live session | In progress: draft/contact foundations, Cluster owner, native radio/rotor polling and shared native Read/Follow Radio; remaining provider/action owners pending |
 | WS-06 | Layouts and window geometry survive restart and monitor changes | In progress: portable layouts persist and follow backup preference choice; native display-relative recovery/migration pending |
-| WS-07 | Concurrent windows cannot duplicate logging or station actions | In progress: database/client revision and receipt checks; native multi-window gate open |
+| WS-07 | Concurrent windows cannot duplicate logging or station actions | In progress: database/client revision and receipt checks plus editor-admitted Read/Follow transactions; full native multi-window gate open |
 | WS-08 | Responsive, accessible and measured fast interaction at laptop/4K sizes | In progress: adaptive Logbook and detached bundle budgets; remaining screens and native performance acceptance pending |
 
 ## Interaction defaults
@@ -882,14 +882,48 @@ The owner retains the active barrier when a competing read is rejected, so a sec
 click cannot hide the first operation from editor reconciliation. Detached Read
 Radio flushes valid buffered edits first, retains incomplete text, persists an
 unresolved operation identity across remounts and never enables Follow Radio.
-Follow Radio remains a separate future ownership stage because it needs continuous
-native observation/coalescing rather than an explicit one-shot transaction.
+At this checkpoint Follow Radio remained a separate ownership stage because it
+needed continuous native observation/coalescing rather than an explicit one-shot
+transaction. Checkpoint AP below records its completed source implementation.
 
 Focused UI/owner coverage, the complete frontend **2,473/2,473**, Rust **487/487**
 and portable Swift **417 tests in 57 suites** pass, as do TypeScript, the production
 Vite/window-bundle build and diff checks. This is source evidence only. No package
 was produced or installed, no station/provider/device was contacted and no radio,
 rotor, RF or operator-data action was issued.
+
+### Checkpoint AP — shared native continuous Follow Radio
+
+Follow Radio is now a disabled-by-default native permission shared by the Desk and
+standalone Simple/Full Log QSO surfaces. A single owner consumes the already-running
+retained station-telemetry publication and never opens another connection, starts
+another poller or repeats explicit Read Radio. Native renderers therefore use
+telemetry only for display; browser fixtures retain their local fallback.
+
+The owner retains only the newest pending observation, skips repeated projections
+and admits every registered editor before a canonical native draft transaction.
+Admission and the final mutation are fenced by the Follow permission epoch,
+workspace and worker generation, draft identity/revision, provider, selection UUID
+and generation, command-control revision, connection generation and fresh observed
+frequency/mode provenance. The Swift worker preserves unrelated ADIF and transmit-
+power fields and creates no revision for an unchanged projection. Durable receipts
+resolve lost replies without replay.
+
+A confirmed transaction remains retained until each participating editor reads the
+current canonical draft, reconciles its local buffers and settles that exact native
+window instance and operation. Later telemetry coalesces behind settlement rather
+than replacing the terminal status. Manual radio-field edits, explicit Read Radio,
+spot or Chaser selection, historical editing, workspace/configuration changes,
+worker/connection/selection drift and uncertain outcomes revoke Follow. Follow's
+own draft-only barrier is explicitly excluded from the generic auto-disarm path.
+
+Focused renderer and native-owner tests plus complete frontend **2,478/2,478**,
+Rust **497/497**, portable Swift **418 tests in 57 suites** and normal Swift **240
+tests in 32 suites** pass. TypeScript, the production Vite/window-bundle build and
+diff checks pass. This is source evidence only: alpha.31 remains installed; no
+package was produced or installed and no provider, station, hardware, rotor, RF or
+operator-data action occurred. Main-window absence is covered by the native owner
+tests, while packaged multi-window and physical-radio acceptance remain open.
 
 ### 14 October audit — remaining new-QSO and QSY ownership
 

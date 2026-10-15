@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { OperatorDraftSession, type DraftJournal, type DraftMutation, type DraftSnapshot } from "./operatorDraftSession";
 import { LogbookContactSession } from "./logbookContactSession";
-import { SpotActivationEditor, validSpotActivationSnapshot, type SpotActivationSnapshot } from "./spotActivation";
+import { activationDisablesFollow, SpotActivationEditor, validSpotActivationSnapshot, type SpotActivationSnapshot } from "./spotActivation";
 import { type SpotActivationBarrier } from "./spotActivationBarrier";
 import { SpotActivationClient } from "./spotActivationClient";
 
@@ -61,9 +61,15 @@ it("releases the Desk's frozen editor after uncertain receipt recovery and permi
 it("retires opportunity follow synchronously before a terminal remount reads and releases the shared draft", async () => {
   const f = fixture(); await f.session.load(); let following = true;
   const read = vi.fn(async () => { expect(following).toBe(false); expect(f.session.canAcceptLocalInput()).toBe(false); return { draft:copy(f.current) }; });
-  const editor = new SpotActivationEditor([f.session],read,snapshot => { if (snapshot.phase !== "idle" && snapshot.draftOnly) following = false; return { ready:true }; });
+  const editor = new SpotActivationEditor([f.session],read,snapshot => { if (activationDisablesFollow(snapshot)) following = false; return { ready:true }; });
   await editor.registeredWith({ ...terminal("confirmed"),draftOnly:true });
   expect(following).toBe(false); expect(f.session.canAcceptLocalInput()).toBe(true); expect(read).toHaveBeenCalledOnce();
+});
+
+it("keeps Follow armed for its own draft transaction but disables it for explicit Read radio", () => {
+  const outcome = { operationId, phase: "confirmed", tuneConfirmed: false, rotor: "not-requested", draftOnly: true } as const;
+  expect(activationDisablesFollow({ ...outcome, intent: "follow-radio" })).toBe(false);
+  expect(activationDisablesFollow({ ...outcome, intent: "read-radio" })).toBe(true);
 });
 
 it("starts editors read-only until actual verified registration and freezes synchronously before every readiness callback", async () => {

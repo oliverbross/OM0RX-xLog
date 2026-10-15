@@ -53,6 +53,17 @@ it("retains invalid text through ready=false, active reservation and explicit st
   expect(await f.session.refresh()).toBe(false); expect(f.session.getSnapshot().draft?.call).toBe("K1ABC");
   expect(f.call.mock.calls.some(([method]) => method === "activate_spot")).toBe(false); await connection.dispose();
 });
+it("settles a confirmed Follow operation only after canonical editor reconciliation", async () => {
+  const f = await fixture(), instance = "00000000-0000-4000-8000-000000000012", connection = f.connect(Promise.resolve(), instance); await settle();
+  f.snapshot = { ...terminal(), phase: "confirmed", intent: "follow-radio", draftOnly: true };
+  f.wake(); await settle();
+  const canonicalRead = f.call.mock.calls.findIndex(([method]) => method === "spot_editor_state");
+  const settlement = f.call.mock.calls.findIndex(([method]) => method === "operator_draft_follow_settled");
+  expect(canonicalRead).toBeGreaterThanOrEqual(0); expect(settlement).toBeGreaterThan(canonicalRead);
+  expect(f.call.mock.calls[settlement]).toEqual(["operator_draft_follow_settled", { instance, operationId }]);
+  expect(f.session.canAcceptLocalInput()).toBe(true);
+  await connection.dispose();
+});
 it("serializes a StrictMode replacement behind the old register completion and unregister", async () => {
   const f = await fixture(), held = deferred<any>(), original = f.call.getMockImplementation()!;
   f.call.mockImplementationOnce(() => held.promise);

@@ -21,6 +21,7 @@ mod spot_activation;
 mod spot_activation_backend;
 mod qsy_clear;
 mod radio_read;
+mod radio_follow;
 mod opportunity_selection;
 mod auto_rotor;
 mod auto_rotor_reconcile;
@@ -56,8 +57,15 @@ fn combined_activation_snapshot(app: &tauri::AppHandle) -> Result<serde_json::Va
     let spot_active = spot["reservationActive"] == true
         || matches!(spot["phase"].as_str(), Some("preparing" | "draft_applied" | "tuning"));
     if spot_active { return Ok(spot); }
+    if let Some(follow) = radio_follow::activation_snapshot().filter(|value| value["reservationActive"] == true) { return Ok(follow); }
+    if let Some(read) = radio_read::snapshot().filter(|value| value["reservationActive"] == true) { return Ok(read); }
+    if let Some(qsy) = qsy_clear::snapshot().filter(|value| value["reservationActive"] == true) { return Ok(qsy); }
+    if radio_follow::snapshot().is_ok_and(|value| value["settlementPending"] == true) {
+        if let Some(follow) = radio_follow::activation_snapshot() { return Ok(follow); }
+    }
     if let Some(read) = radio_read::snapshot().filter(|value| value["operationId"].is_string()) { return Ok(read); }
     if let Some(qsy) = qsy_clear::snapshot().filter(|value| value["operationId"].is_string()) { return Ok(qsy); }
+    if let Some(follow) = radio_follow::activation_snapshot() { return Ok(follow); }
     Ok(spot)
 }
 fn validate_activation_reader(label: &str) -> Result<(), String> {
@@ -85,6 +93,7 @@ fn validate_editor_transition(label: &str) -> Result<(), String> {
         if radio_read::reservation_active() {
             return Err("Wait for the radio-read outcome before closing or docking this editor.".into());
         }
+        if radio_follow::reservation_active() { return Err("Wait for Follow Radio reconciliation before closing or docking this editor.".into()); }
     }
     Ok(())
 }
@@ -97,11 +106,13 @@ fn retires_automatic_rotor(request: &serde_json::Value) -> bool {
 fn spot_editor_register(window: tauri::WebviewWindow, app: tauri::AppHandle, instance: String) -> Result<serde_json::Value, String> {
     let owner = activation_owner(&app);
     owner.editors.register(window.label(), &instance)?;
+    radio_follow::editor_changed(window.label(), Some(&instance));
     combined_activation_snapshot(&app)
 }
 #[tauri::command]
 fn spot_editor_unregister(window: tauri::WebviewWindow, app: tauri::AppHandle, instance: String) -> Result<(), String> {
     if !spot_editor_barrier::editor_role(window.label()) { return Err("This window is not a QSO editor.".into()); }
+    radio_follow::revoke("Editor membership changed. Follow Radio is off.");
     activation_owner(&app).editors.unregister(window.label(), &instance)
 }
 #[tauri::command]
@@ -117,12 +128,14 @@ fn spot_activation_snapshot(window: tauri::WebviewWindow, app: tauri::AppHandle)
 #[tauri::command]
 fn spot_activation_status(window: tauri::WebviewWindow, app: tauri::AppHandle, operation_id: String) -> Result<serde_json::Value, String> {
     validate_activation_reader(window.label())?;
+    if radio_follow::owns(&operation_id) { return Ok(radio_follow::activation_snapshot().unwrap()); }
     if radio_read::owns(&operation_id) { Ok(radio_read::snapshot().unwrap()) }
     else if qsy_clear::owns(&operation_id) { Ok(qsy_clear::snapshot().unwrap()) } else { activation_owner(&app).status(&operation_id) }
 }
 #[tauri::command]
 async fn spot_activation_reconcile(window: tauri::WebviewWindow, app: tauri::AppHandle, operation_id: String) -> Result<serde_json::Value, String> {
     validate_activation_reader(window.label())?;
+    if radio_follow::owns(&operation_id) { return Ok(radio_follow::activation_snapshot().unwrap()); }
     if radio_read::owns(&operation_id) { return Ok(radio_read::snapshot().unwrap()); }
     if qsy_clear::owns(&operation_id) { return Ok(qsy_clear::snapshot().unwrap()); }
     let owner = activation_owner(&app);
@@ -137,6 +150,7 @@ async fn spot_editor_state(window: tauri::WebviewWindow) -> Result<serde_json::V
 async fn activate_spot(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>,
     operation_id: String, source_epoch: String, spot_id: String, spot_version: String) -> Result<serde_json::Value, String> {
     validate_spot_effect(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
+    radio_follow::revoke("A spot selection disabled Follow Radio.");
     qsy_clear::retire_terminal(); radio_read::retire_terminal();
     let owner = activation_owner(&app);
     let request = spot_activation::Request { operation_id, source_epoch, spot_id, spot_version };
@@ -146,6 +160,7 @@ async fn activate_spot(window: tauri::WebviewWindow, app: tauri::AppHandle, stat
 async fn activate_opportunity(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>,
     operation_id: String, source_epoch: String, spot_id: String, spot_version: String) -> Result<serde_json::Value, String> {
     validate_opportunity_effect(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
+    radio_follow::revoke("A Chaser selection disabled Follow Radio.");
     if !opportunity_selection::owns(&source_epoch) {
         return Err("Opportunity draft selection is unavailable in this window or source.".into());
     }
@@ -163,9 +178,29 @@ fn validate_radio_read(label: &str, isolated: bool, exiting: bool) -> Result<(),
 #[tauri::command]
 async fn operator_draft_read_radio(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, operation_id: String) -> Result<serde_json::Value, String> {
     validate_radio_read(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
+    radio_follow::revoke("An explicit radio read disabled Follow Radio.");
     qsy_clear::retire_terminal(); radio_read::retire_terminal();
     tauri::async_runtime::spawn_blocking(move || radio_read::execute(operation_id))
         .await.map_err(|_| "Radio-read task failed; inspect the existing operation before trying again".to_string())?
+}
+#[tauri::command]
+fn operator_draft_follow_snapshot(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>) -> Result<serde_json::Value, String> {
+    validate_radio_read(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
+    radio_follow::snapshot()
+}
+#[tauri::command]
+async fn operator_draft_follow_set(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, enabled: bool, expected_epoch: u64) -> Result<serde_json::Value, String> {
+    validate_radio_read(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
+    if enabled { qsy_clear::retire_terminal(); radio_read::retire_terminal(); }
+    tauri::async_runtime::spawn_blocking(move || radio_follow::set(enabled, expected_epoch)).await.map_err(|_| "Follow Radio permission task failed".to_string())?
+}
+#[tauri::command]
+fn operator_draft_follow_settled(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, instance: String, operation_id: String) -> Result<(), String> {
+    validate_follow_settlement(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
+    radio_follow::settled(window.label(), &instance, &operation_id)
+}
+fn validate_follow_settlement(label: &str, isolated: bool, exiting: bool) -> Result<(), String> {
+    if isolated || exiting || !spot_editor_barrier::editor_role(label) { Err("This window cannot settle Follow Radio.".into()) } else { Ok(()) }
 }
 #[tauri::command]
 fn auto_rotor_snapshot(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>) -> Result<serde_json::Value, String> {
@@ -800,6 +835,9 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
             owner.revoke()?; tauri::async_runtime::spawn_blocking(move || { let _ = owner.stop(); });
         }
     }
+    if matches!(method, "backup_restore" | "workspace_create") || retires_automatic_rotor(&request) {
+        radio_follow::revoke("Workspace or radio configuration changed. Follow Radio is off.");
+    }
     // Local acceptance permits cluster_history against its synthetic logbook,
     // but must never start the live session's background snapshot service.
     if state.path.is_none() && cluster_session::handles(method) && !local_history_reader(window.label(), method) {
@@ -1268,6 +1306,12 @@ fn main() {
             if matches!(event, tauri::WindowEvent::CloseRequested { .. }) && radio_read::reservation_active() {
                 if let tauri::WindowEvent::CloseRequested { api, .. } = event { api.prevent_close(); }
             }
+            if matches!(event, tauri::WindowEvent::CloseRequested { .. }) && radio_follow::reservation_active() {
+                if let tauri::WindowEvent::CloseRequested { api, .. } = event { api.prevent_close(); }
+            }
+            if matches!(event, tauri::WindowEvent::Destroyed) && spot_editor_barrier::editor_role(window.label()) {
+                radio_follow::editor_changed(window.label(), None);
+            }
         })
         .on_menu_event(|app, event| {
             if let Some(mode) = workspace_navigation::mode_route(&event.id().0) {
@@ -1321,6 +1365,7 @@ fn main() {
                 let activation = activation_owner(app.handle());
                 qsy_clear::install(app.handle(), activation.editors.clone());
                 radio_read::install(app.handle(), activation.editors.clone());
+                radio_follow::install(app.handle(), activation.editors.clone());
                 station_identity::install(app.handle());
                 rotor_session::install(app.handle()).map_err(std::io::Error::other)?;
                 let selection_app = app.handle().clone();
@@ -1362,6 +1407,7 @@ fn main() {
             spot_editor_register, spot_editor_unregister, spot_editor_ack, spot_editor_state,
             spot_activation_snapshot, spot_activation_status, spot_activation_reconcile, activate_spot, activate_opportunity,
             operator_draft_read_radio,
+            operator_draft_follow_snapshot, operator_draft_follow_set, operator_draft_follow_settled,
             auto_rotor_snapshot, auto_rotor_set,
             workspace_windows_status, workspace_windows_reconcile, workspace_mode_present, workspace_canvas_close_ack,
             workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot, propagation_session_request, station_identity_snapshot, alerts_snapshot, dx_alerts_snapshot, dx_alerts_save, dx_alerts_test, dx_alerts_clear, antenna_snapshot,
@@ -1396,6 +1442,7 @@ fn main() {
                 });
             }
             if matches!(event, tauri::RunEvent::Exit) {
+                radio_follow::revoke("The application is exiting. Follow Radio is off.");
                 auto_rotor::revoke();
                 auto_rotor_reconcile::shutdown();
                 logbook_events::shutdown();
@@ -1408,7 +1455,7 @@ fn main() {
 #[cfg(test)]
 mod workspace_layout_tests {
     use super::{WorkspaceLayout, DraftWake, recover_singleton, detached_window_shortcut, validate_detached_open, COMPACT_WORKSPACE_MENU_ID, STANDARD_WORKSPACE_MENU_ID};
-    use super::{spot_editor_barrier, validate_spot_effect, validate_activation_reader, retires_automatic_rotor, validate_auto_rotor_read, validate_auto_rotor_set, validate_radio_read, validate_rotor_stop, AutomaticRotorCommands};
+    use super::{spot_editor_barrier, validate_spot_effect, validate_activation_reader, retires_automatic_rotor, validate_auto_rotor_read, validate_auto_rotor_set, validate_radio_read, validate_follow_settlement, validate_rotor_stop, AutomaticRotorCommands};
     use serde_json::json;
 
     #[test]
@@ -1480,8 +1527,10 @@ mod workspace_layout_tests {
         for label in crate::workspace_windows::SUPPORTED_WINDOWS.iter().map(|window| window.id)
             .chain(["main", "log-qso", "logbook", "monitor", "station-control", "unknown", "", "MAIN"]) {
             assert_eq!(validate_radio_read(label, false, false).is_ok(), matches!(label, "main" | "log-qso"), "{label}");
+            assert_eq!(validate_follow_settlement(label, false, false).is_ok(), spot_editor_barrier::editor_role(label), "{label}");
             for (isolated, exiting) in [(true, false), (false, true), (true, true)] {
                 assert!(validate_radio_read(label, isolated, exiting).is_err(), "{label} isolated={isolated} exiting={exiting}");
+                assert!(validate_follow_settlement(label, isolated, exiting).is_err(), "{label} isolated={isolated} exiting={exiting}");
             }
         }
     }

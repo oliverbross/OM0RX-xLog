@@ -11,16 +11,16 @@ const MAX_REVISION: u64 = 9_007_199_254_740_991;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Canonical {
-    worker: u64,
-    generation: String,
-    draft: String,
-    revision: u64,
+    pub(crate) worker: u64,
+    pub(crate) generation: String,
+    pub(crate) draft: String,
+    pub(crate) revision: u64,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Evidence {
-    frequency_hz: u64,
-    observed_mode: String,
+    pub(crate) frequency_hz: u64,
+    pub(crate) observed_mode: String,
 }
 
 pub trait Backend: Send + Sync {
@@ -125,7 +125,7 @@ fn terminal(operation: &str, error: &str) -> Value {
         "reservationActive":false,"draftOnly":true,"intent":"read-radio","tuneConfirmed":false,
         "rotor":"not-requested","error":error})
 }
-fn verify(
+pub(crate) fn verify(
     operation: &str,
     canonical: &Canonical,
     evidence: &Evidence,
@@ -150,13 +150,14 @@ fn verify(
     Ok(())
 }
 
-struct NativeBackend {
-    app: tauri::AppHandle,
+pub(crate) struct NativeBackend {
+    pub(crate) app: tauri::AppHandle,
 }
 impl NativeBackend {
-    fn call(worker: u64, method: &str, params: Value) -> Result<Value, String> {
+    pub(crate) fn call(worker: u64, method: &str, params: Value) -> Result<Value, String> {
         let request = json!({"id":format!("native-radio-read-{}",uuid::Uuid::new_v4()),"method":method,"params":params});
         let response = crate::worker::request_existing_generation(request.clone(), worker)?;
+        crate::worker::require_existing_generation(worker)?;
         if response["id"] != request["id"]
             || response["ok"] != true
             || !response["result"].is_object()

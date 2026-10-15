@@ -24,6 +24,11 @@ struct State { editors: BTreeMap<String, String>, pending: Option<Pending> }
 pub struct EditorBarrier { state: Mutex<State>, changed: Condvar }
 
 impl EditorBarrier {
+    pub fn instances(&self, labels: &[String]) -> Result<BTreeMap<String, String>, String> {
+        let state = self.state.lock().map_err(|_| "Editor registry unavailable")?;
+        labels.iter().map(|label| state.editors.get(label).cloned().map(|instance| (label.clone(), instance))
+            .ok_or_else(|| "An open editor has not registered yet.".into())).collect()
+    }
     pub fn register(&self, label: &str, instance: &str) -> Result<(), String> {
         if !editor_role(label) { return Err("This window is not a QSO editor.".into()); }
         uuid(instance)?;

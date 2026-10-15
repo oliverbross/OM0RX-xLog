@@ -354,6 +354,7 @@ pub fn owner(app: &tauri::AppHandle) -> Result<Arc<StationTelemetry>, String> {
                 }),
                 Arc::new(move |value| {
                     crate::qsy_clear::observe(&value);
+                    crate::radio_follow::observe(&value);
                     let _ = app.emit_to("alerts", "xlog:alerts", ());
                     for label in ["main", "monitor", "world-map", "band-maps", "station-status"] {
                         let _ = app.emit_to(

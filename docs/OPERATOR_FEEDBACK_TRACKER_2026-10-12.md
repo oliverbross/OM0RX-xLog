@@ -7,14 +7,29 @@ packaged UI result. Keep unresolved items here across releases.
 
 ## Current delivery boundary
 
+- **Shared native Follow Radio, 16 October:** Desk plus standalone Simple/Full Log
+  QSO now expose one disabled-by-default native Follow permission. The owner
+  consumes the existing retained telemetry stream, coalesces the newest observation
+  and applies only changed frequency/band/logging-mode fields through the canonical
+  revisioned draft worker. Every registered editor must admit the operation,
+  reconcile the current canonical draft and settle its exact operation/instance
+  before the next update. Workspace, worker, draft, selection, connection and
+  control epochs fence every mutation; disable, manual input, explicit Read,
+  spot/Chaser selection, historical editing, configuration change, restart and
+  uncertainty revoke without replay. Native renderer telemetry is display-only.
+  Full frontend **2,478/2,478**, Rust **497/497**, portable Swift **418 tests in
+  57 suites**, normal Swift **240 tests in 32 suites** and the production build
+  pass. Source only: alpha.31 remains installed and no service, station,
+  hardware, RF or operator-data action occurred.
+
 - **Detached QSO authoritative Read Radio, 16 October:** Simple and Full standalone
   Log QSO modes now share a native single-operation Read Radio owner. It admits all
   registered editors, fences the canonical draft/workspace/radio-selection/command
   epochs, performs one authoritative observation and applies only the projected
   frequency/band/logging-mode fields through a durable receipt. Unrelated ADIF and
   power state are preserved; buffered text, conflicts, competing clicks and lost
-  replies fail closed without automatic replay. Follow Radio remains intentionally
-  hidden until its separate continuous native owner exists. Full frontend
+  replies fail closed without automatic replay. The continuous owner described
+  above now supplies shared Follow controls. Full frontend
   **2,473/2,473**, Rust **487/487**, portable Swift **417 tests in 57 suites** and
   the production build pass. Source only: alpha.31 remains installed and no service,
   station, hardware, RF or operator-data action occurred.

@@ -35,8 +35,9 @@ struct OperatorDraftRadioReadTests {
         try JSONSerialization.data(withJSONObject: value, options: .sortedKeys)
     }
 
-    @Test("Read changes only projected fields and retains manual power policy")
-    func projectionAndPower() throws {
+    @Test("Read and Follow change only projected fields and retain manual power policy",
+          arguments: ["logbook_operator_draft_radio_read", "logbook_operator_draft_radio_follow"])
+    func projectionAndPower(method: String) throws {
         let (service, root) = try fixture()
         defer { try? service.openedDatabase().close(); try? FileManager.default.removeItem(at: root) }
         let initial = try draft(service)
@@ -45,7 +46,7 @@ struct OperatorDraftRadioReadTests {
         qso["mode"] = "FT4"; qso["txPower"] = "37.125"
         try replace(service, initial, qso, manualPower: "37.125")
         let before = try draft(service)
-        let result = try service.handle(method: "logbook_operator_draft_radio_read", params: params(before, mode: "DIGU"))
+        let result = try service.handle(method: method, params: params(before, mode: "DIGU"))
         #expect(result["status"] as? String == "applied")
         let after = try draft(service)
         var expected = try #require(before["qso"] as? [String: Any])
@@ -60,22 +61,23 @@ struct OperatorDraftRadioReadTests {
         #expect(try service.openedDatabase().count() == 0)
     }
 
-    @Test("Receipt survives later edits, stale reads conflict and changed reuse fails")
-    func receiptsAndConflict() throws {
+    @Test("Read and Follow receipts survive later edits, stale revisions conflict and changed reuse fails",
+          arguments: ["logbook_operator_draft_radio_read", "logbook_operator_draft_radio_follow"])
+    func receiptsAndConflict(method: String) throws {
         let (service, root) = try fixture()
         defer { try? service.openedDatabase().close(); try? FileManager.default.removeItem(at: root) }
         let before = try draft(service), operation = UUID()
         let request = try params(before, operation: operation)
-        let first = try service.handle(method: "logbook_operator_draft_radio_read", params: request)
+        let first = try service.handle(method: method, params: request)
         let current = try draft(service)
         var edited = try #require(current["qso"] as? [String: Any]); edited["comment"] = "Newer text"
         try replace(service, current, edited)
         let latest = try draft(service)
-        #expect(try bytes(service.handle(method: "logbook_operator_draft_radio_read", params: request)) == bytes(first))
+        #expect(try bytes(service.handle(method: method, params: request)) == bytes(first))
         #expect(try bytes(draft(service)) == bytes(latest))
         let receipt = try service.handle(method: "logbook_operator_draft_receipt", params: ["operationID": operation.uuidString, "generation": before["generation"]!])
         #expect(try bytes(receipt["receipt"]!) == bytes(first["receipt"]!))
-        #expect(try service.handle(method: "logbook_operator_draft_radio_read", params: params(before))["status"] as? String == "conflict")
+        #expect(try service.handle(method: method, params: params(before))["status"] as? String == "conflict")
         for key in ["frequencyHz", "observedMode", "draftID", "expectedRevision"] {
             var changed = request
             switch key {
@@ -84,26 +86,41 @@ struct OperatorDraftRadioReadTests {
             case "draftID": changed[key] = UUID().uuidString
             default: changed[key] = 99
             }
-            #expect(throws: WorkerFailure.self) { try service.handle(method: "logbook_operator_draft_radio_read", params: changed) }
+            #expect(throws: WorkerFailure.self) { try service.handle(method: method, params: changed) }
         }
         try service.openedDatabase().close()
         let reopened = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
         defer { try? reopened.openedDatabase().close() }
-        #expect(try bytes(reopened.handle(method: "logbook_operator_draft_radio_read", params: request)) == bytes(first))
+        #expect(try bytes(reopened.handle(method: method, params: request)) == bytes(first))
         #expect(try bytes(draft(reopened)) == bytes(latest))
     }
 
-    @Test("Workspace, schema and observation validation cannot alter the draft")
-    func rejectsInvalidEvidence() throws {
+    @Test("Read and Follow workspace, schema and observation validation cannot alter the draft",
+          arguments: ["logbook_operator_draft_radio_read", "logbook_operator_draft_radio_follow"])
+    func rejectsInvalidEvidence(method: String) throws {
         let (service, root) = try fixture()
         defer { try? service.openedDatabase().close(); try? FileManager.default.removeItem(at: root) }
         let before = try draft(service), request = try params(before)
         var old = request; old["generation"] = UUID().uuidString
-        #expect(try service.handle(method: "logbook_operator_draft_radio_read", params: old)["status"] as? String == "workspace_changed")
+        #expect(try service.handle(method: method, params: old)["status"] as? String == "workspace_changed")
         for (key, value): (String, Any) in [("frequencyHz", 0), ("frequencyHz", 1_000_000_000_001), ("observedMode", "CW;TX"), ("observedMode", ""), ("qso", [:])] {
             var invalid = request; invalid[key] = value
-            #expect(throws: WorkerFailure.self) { try service.handle(method: "logbook_operator_draft_radio_read", params: invalid) }
+            #expect(throws: WorkerFailure.self) { try service.handle(method: method, params: invalid) }
         }
         #expect(try bytes(draft(service)) == bytes(before))
+    }
+
+    @Test("Identical Follow observations do not create draft revisions or receipts")
+    func unchangedFollow() throws {
+        let (service, root) = try fixture()
+        defer { try? service.openedDatabase().close(); try? FileManager.default.removeItem(at: root) }
+        let initial = try draft(service)
+        _ = try service.handle(method: "logbook_operator_draft_radio_follow", params: params(initial))
+        let before = try draft(service), operation = UUID()
+        let result = try service.handle(method: "logbook_operator_draft_radio_follow", params: params(before, operation: operation))
+        #expect(result["status"] as? String == "unchanged")
+        #expect(try bytes(draft(service)) == bytes(before))
+        let receipt = try service.handle(method: "logbook_operator_draft_receipt", params: ["operationID": operation.uuidString, "generation": before["generation"]!])
+        #expect(receipt["receipt"] is NSNull)
     }
 }

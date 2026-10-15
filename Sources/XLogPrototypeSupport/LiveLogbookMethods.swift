@@ -575,7 +575,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                     throw WorkerFailure("draft_existing_contact", "This draft cannot replace an existing logged contact.")
                 } catch OperatorDraftError.invalid { throw invalid() }
                 catch OperatorDraftPowerError.invalid { throw invalid() }
-            case "logbook_operator_draft_radio_read":
+            case "logbook_operator_draft_radio_read", "logbook_operator_draft_radio_follow":
                 // Native admission supplies observed radio evidence, never a renderer
                 // replacement QSO. Project only onto the canonical revision below.
                 try requireKeys(params, allowed: ["operationID", "draftID", "expectedRevision", "generation", "frequencyHz", "observedMode"],
@@ -604,6 +604,9 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                     guard current.qso.id == draftID, current.revision == Int64(revision) else { throw OperatorDraftError.conflict(current) }
                     let projected = try OperatorDraftRadioFollow.applying(to: current.qso, frequencyHz: Int64(frequency),
                         observedMode: observedMode, enabled: true)
+                    if method == "logbook_operator_draft_radio_follow", projected == current.qso {
+                        return ["status": "unchanged", "draft": try scopedSnapshot(current, generation: generation)]
+                    }
                     let mutation = OperatorDraftMutation(operationID: operationID, draftID: draftID,
                         expectedRevision: Int64(revision), action: .replace, qso: projected)
                     let receipt = try db.applyOperatorDraft(mutation, nextDraft: current.qso)

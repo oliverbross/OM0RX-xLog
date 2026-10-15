@@ -29,6 +29,7 @@ type Props = {
   automaticStationMetadata?: Array<{ label: string; value: string; provenance: "observed" | "configured" | "selected" }>;
   isEditing?: boolean;
   radioControls?: boolean;
+  followControls?: boolean;
   inspector?: boolean;
   clearLabel?: string;
   referenceEvidence?: ReferenceEvidence | null;
@@ -138,7 +139,7 @@ export function draftPowerDescription(draft: Data, power?: DraftPowerState | nul
   return power.activeScope ? "Default fallback · no measured output captured." : "Default fallback · measured output unavailable.";
 }
 
-export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draftLocked, lookup, previous, follow, setFollow, request, onReadRadio, automaticStationMetadata = [], isEditing = false, radioControls = true, clearLabel = "Clear QSO", referenceEvidence,
+export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draftLocked, lookup, previous, follow, setFollow, request, onReadRadio, automaticStationMetadata = [], isEditing = false, radioControls = true, followControls = radioControls, clearLabel = "Clear QSO", referenceEvidence,
   powerState, powerIntent, automaticPowerEnabled, onManualPower, onResumeAutomaticPower, onLocalInputState, canAcceptLocalInput, onUndock, contactActions, inspector = true }: Props) {
   const acceptsInput = () => !draftLocked && (canAcceptLocalInput?.() ?? true);
   const setDraft: Props["setDraft"] = value => { if (acceptsInput()) writeDraft(value); };
@@ -372,7 +373,7 @@ export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draf
       <section className="qso-matrices" aria-labelledby="qso-matrix-title"><h2 id="qso-matrix-title"><Grid3X3 size={15} aria-hidden="true" /> Band / mode matrix</h2><div className="qso-matrix-columns"><div className="qso-matrix-section"><div className="qso-matrix-heading"><h3>Callsign</h3><p title={matrixCall}>{matrixCall || "Callsign unresolved"}</p></div>{!request ? <p>Local matrix is unavailable.</p> : !/^[A-Z0-9/-]{3,32}$/.test(matrixCall) ? <p>Enter a callsign to inspect its local history.</p> : matchingMatrix?.callError ? <p>{matchingMatrix.callError}</p> : matchingMatrix?.callCells ? <StatusMatrix scope="Callsign" cells={matchingMatrix.callCells} /> : <p>Checking local call history…</p>}</div><div className="qso-matrix-section"><div className="qso-matrix-heading"><h3>Country</h3><p title={matrixADIF === null ? "DXCC entity unresolved" : `${profile?.country || "Country unresolved"} · DXCC ${matrixADIF}`}>{matrixADIF === null ? "DXCC entity unresolved" : `${profile?.country || "Country unresolved"} · DXCC ${matrixADIF}`}</p></div>{matrixADIF === null ? <p>Country status needs a resolved DXCC entity.</p> : !request ? <p>Country matrix is unavailable.</p> : matchingMatrix?.countryError ? <p>{matchingMatrix.countryError}</p> : matchingMatrix?.countryCells ? <StatusMatrix scope="Country" cells={matchingMatrix.countryCells} /> : <p>Checking local contacts for this DXCC entity…</p>}</div></div></section>
 
       {(showErrors || errors.length > 0) && <div className="qso-validation" role="alert">{errors.length ? <ul>{errors.map((issue) => <li key={issue}>{issue}</li>)}</ul> : <span>QSO is ready to save.</span>}</div>}
-      <footer className="qso-actions"><div className="qso-footer-context">{radioControls && <label><input type="checkbox" checked={follow} onChange={(event) => { if (acceptsInput()) setFollow(event.target.checked); }} />Follow radio</label>}<span>Saved to your local logbook.</span></div><div className="qso-footer-buttons">{contactActions}<button type="button" onClick={() => { if (acceptsInput()) clear(); }} disabled={busy}><CircleX size={13} aria-hidden="true" /> {clearLabel}</button><button className="qso-save" type="submit" disabled={!canSave}><CircleCheck size={13} aria-hidden="true" /> {isEditing ? "Update QSO" : "Log QSO"}</button></div></footer>
+      <footer className="qso-actions"><div className="qso-footer-context">{followControls && <label><input type="checkbox" checked={follow} onChange={(event) => { if (acceptsInput()) setFollow(event.target.checked); }} />Follow radio</label>}<span>Saved to your local logbook.</span></div><div className="qso-footer-buttons">{contactActions}<button type="button" onClick={() => { if (acceptsInput()) clear(); }} disabled={busy}><CircleX size={13} aria-hidden="true" /> {clearLabel}</button><button className="qso-save" type="submit" disabled={!canSave}><CircleCheck size={13} aria-hidden="true" /> {isEditing ? "Update QSO" : "Log QSO"}</button></div></footer>
     </form></div>
     {inspector && <aside className="qso-inspector" aria-label="Contact context">
       <section aria-labelledby="qso-intelligence-title"><h2 id="qso-intelligence-title"><ContactRound size={15} aria-hidden="true" /> Callsign intelligence</h2>

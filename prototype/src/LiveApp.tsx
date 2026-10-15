@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { nativeSpotEditor, useSpotEditor } from "./live/useSpotEditor";
+import { activationDisablesFollow } from "./live/spotActivation";
 import { useSpotActivation } from "./live/useSpotActivation";
 import { SpotActivationStatus } from "./live/SpotActivationStatus";
 import { useAutoRotor } from "./live/useAutoRotor";
+import { useFollowRadio } from "./live/useFollowRadio";
 import { useReferenceEvidence } from "./live/useReferenceEvidence";
 import { Radio, BookOpen, Network, History, Map as MapIcon, Settings, Activity, Award, LayoutDashboard, ExternalLink, RefreshCw } from "lucide-react";
 import { workerRequest, openMonitor, openDetachedMap, detachedMapKind,
@@ -231,11 +233,29 @@ function MainLiveApp() {
   useEffect(() => connectLogbookChanges(() => setRefresh(value => value + 1), setError), []);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(busy); busyRef.current = busy;
+  const nativeFollow = useFollowRadio();
+  const [browserFollow, setBrowserFollow] = useState(true);
+  const follow = nativeSpotEditor() ? nativeFollow.state?.enabled === true : browserFollow;
+  const latestFollow = useRef(follow); latestFollow.current = follow;
+  const changeFollow = useCallback(async (value: boolean) => {
+    latestFollow.current = value;
+    if (nativeSpotEditor()) await nativeFollow.set(value);
+    else setBrowserFollow(value);
+  }, [nativeFollow.set]);
+  const setFollowImmediate = useCallback((value: boolean) => {
+    latestFollow.current = value;
+    void changeFollow(value).catch(cause => setError(cause instanceof Error ? cause.message : "Follow Radio authority is unavailable."));
+  }, [changeFollow]);
   const spotEditor = useSpotEditor([draftSession, contactSession], snapshot => {
-    if (snapshot.phase !== "idle" && snapshot.draftOnly) {
+    if (activationDisablesFollow(snapshot)) {
       // Synchronous with freeze, before either readiness acknowledgement or
       // terminal reconciliation can release background draft updates.
-      selection.current++; pendingTune.current = false; setFollowImmediate(false); setSelected(null);
+      selection.current++; pendingTune.current = false;
+      // Native activation owners revoke Follow before publishing preparation.
+      // Re-sending a stale expected epoch here would create a harmless but noisy
+      // permission error. Browser fixtures still own their local fallback.
+      if (nativeSpotEditor()) latestFollow.current = false; else setFollowImmediate(false);
+      setSelected(null);
     }
     return busyRef.current || logbookWorkingRef.current || editorBufferPending.current || mainClosing.current || layoutChanging.current || logbookMutations.getSnapshot().busy || logbookMutations.getSnapshot().pending
       ? { ready: false, reason: "Finish the current logbook or workspace action first." } : { ready: true };
@@ -297,10 +317,6 @@ function MainLiveApp() {
   }, () => setError("Finish the draft fields and resolve unsaved or pending QSO changes before closing the Desk."), setError,
   closing => { mainClosing.current = closing; }, "close_main_window"), [draftSession, contactSession, logbookMutations]);
   const [selected, setSelected] = useState<string | null>(null);
-  const [follow, setFollow] = useState(true);
-  const latestFollow = useRef(follow);
-  latestFollow.current = follow;
-  const setFollowImmediate = (value: boolean) => { latestFollow.current = value; setFollow(value); };
   const nativeAutoRotor = useAutoRotor(), autoRotor = nativeAutoRotor.state?.armed === true;
   const [rotorState, setRotorState] = useState<RotorSnapshot | null>(null);
   const rotorRef = useRef<RotorSnapshot | null>(null);
@@ -454,7 +470,7 @@ function MainLiveApp() {
       throw new Error("Station or QSO draft changed during radio readback. Read again.");
     if (!state?.radio?.observed || !state.radio.connected)
       throw new Error("Radio frequency and mode are not currently observed.");
-    latestFollow.current = false; setFollow(false);
+    setFollowImmediate(false);
     setDraft(current => current && current.id === identity ? { ...current, frequencyHz: state.radio.frequency_hz,
       band: state.station?.band || bandForRadio(state.radio.frequency_hz) || current.band,
       mode: logMode(state.radio.mode, current.mode || "") } : current);
@@ -623,7 +639,7 @@ function MainLiveApp() {
       if (disposed || state.source !== provider.current) return;
       setStation(state);
       if (state.radio?.connected && state.radio?.observed) setMessage(current => clearConnectedHandoverMessage(current, true));
-      if (draftSession.canAcceptBackgroundUpdate() && latestFollow.current && !pendingTune.current && !editing.current && state.radio?.observed && state.radio?.connected) {
+      if (!nativeStationSelection() && draftSession.canAcceptBackgroundUpdate() && latestFollow.current && !pendingTune.current && !editing.current && state.radio?.observed && state.radio?.connected) {
         setDraft(d => {
           if (!d) return d;
           const band = state.station?.band || bandForRadio(state.radio.frequency_hz) || d.band;
@@ -748,6 +764,7 @@ function MainLiveApp() {
     if (!before || draftSession.getSnapshot().locked) throw new Error("Finish the pending draft operation before editing a logged contact.");
     editorTransition.current = true;
     try {
+      await changeFollow(false);
       await draftSession.flush();
       const after = draftSession.getSnapshot().base;
       if (editorBufferPending.current || mainClosing.current || layoutChanging.current || !draftSession.canAcceptLocalInput() || !contactSession.canAcceptLocalInput() ||
@@ -755,7 +772,7 @@ function MainLiveApp() {
         throw new Error("The shared editor changed while opening a logged contact. Your text is retained.");
       await contactSession.open(qso.id);
       editorTransition.current = false;
-      setFollowImmediate(false); disarmAutoRotor(); setView("Log QSO");
+      disarmAutoRotor(); setView("Log QSO");
     } finally { editorTransition.current = false; }
   });
   const selectSpot = (spot: Data) => {
@@ -836,6 +853,7 @@ function MainLiveApp() {
         retire={() => { void Promise.resolve(spotActivation.retire()).then(async retired => { if (retired) { await spotEditor.reconcile(); setError(""); } }); }}
         reconcile={() => { if (sharedDraft.activationFrozen || contactEdit.activationFrozen) void spotEditor.reconcile(); else void spotActivation.reconcile(); }} />
       {nativeAutoRotor.error && <p className="live-error" role="status">{nativeAutoRotor.error}</p>}
+      {nativeFollow.error && <p className="live-error" role="status">{nativeFollow.error}</p>}
       {workspace?.workspace_exists && <OperatorDraftStatus state={sharedDraft} session={draftSession} run={operation => run(async () => { await operation(); setRefresh(n => n + 1); })} />}
       {workspace?.workspace_exists && <ContactEditStatus state={contactEdit} session={contactSession} run={operation => run(async () => { await operation(); setRefresh(n => n + 1); })} />}
       {workspace?.workspace_exists && <LogbookMutationStatus state={logbookMutation} session={logbookMutations} run={operation => run(async () => { await operation(); setRefresh(n => n + 1); })} />}

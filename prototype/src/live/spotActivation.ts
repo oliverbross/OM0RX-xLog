@@ -5,7 +5,7 @@ export type SpotActivationPhase = "preparing" | "draft_applied" | "tuning" | "bl
 export type SpotActivationSnapshot = { operationId: null; phase: "idle"; barrier: null } | {
   operationId: string; phase: SpotActivationPhase; barrier?: SpotActivationBarrier | null;
   admitted?: boolean; reservationActive?: boolean; error?: string; tuneConfirmed?: boolean; rotor?: string;
-  draftOnly?: boolean;
+  draftOnly?: boolean; intent?: "read-radio" | "follow-radio";
 };
 export type SpotEditorAck = SpotEditorReadiness & { operationId: string; barrierId: string };
 export type SpotEditorParticipant = {
@@ -15,6 +15,9 @@ export type SpotEditorParticipant = {
   reconcileSpotActivation(operationId: string, current: DraftSnapshot): boolean;
 };
 const terminal = (phase: string) => ["blocked", "confirmed", "failed", "uncertain"].includes(phase);
+export function activationDisablesFollow(snapshot: SpotActivationSnapshot): boolean {
+  return snapshot.phase !== "idle" && snapshot.draftOnly === true && snapshot.intent !== "follow-radio";
+}
 export function validSpotActivationSnapshot(value: any): value is SpotActivationSnapshot {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   if (value.phase === "idle") return value.operationId === null && value.barrier === null;
@@ -22,6 +25,7 @@ export function validSpotActivationSnapshot(value: any): value is SpotActivation
     (value.admitted === undefined || typeof value.admitted === "boolean") &&
     (value.reservationActive === undefined || typeof value.reservationActive === "boolean") &&
     (value.draftOnly === undefined || typeof value.draftOnly === "boolean") &&
+    (value.intent === undefined || value.intent === "read-radio" || value.intent === "follow-radio") &&
     (value.barrier == null || validSpotActivationBarrier(value.barrier) && value.barrier.operationId === value.operationId) &&
     (value.error === undefined || typeof value.error === "string") &&
     (!terminal(value.phase) || typeof value.tuneConfirmed === "boolean" && typeof value.rotor === "string");
