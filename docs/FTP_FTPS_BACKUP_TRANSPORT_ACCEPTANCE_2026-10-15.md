@@ -102,12 +102,27 @@ performed.
   the separate installed alpha.29 processes were not stopped or replaced. The
   report SHA-256 is
   `a90f2edad0e28f9d7e7d4cfb7f918556a0a0a4741498208ded3f3a73b0d3e576`.
+- Test-harness source `77c93b4cb2df03036ca466b93b923ef90696d358`
+  adds a disposable standard-library server and opt-in real-libcurl tests. The
+  warning-clean native suite now completes **227 tests across 31 suites**; the
+  two live cases were then enabled against fresh loopback servers. Plain FTP
+  completed an exclusive upload, independent verification download, restore
+  download, exact SHA-256 comparison and existing-directory replay refusal.
+  Implicit FTPS with a deliberately untrusted certificate failed before any
+  object was written. Both servers and all temporary files were removed.
+- `dist/disposable-ftp-live-77c93b4.json` records `status: passed`, synthetic
+  data only, `external_network: false`, `station_io: false`, one exact FTP
+  object and zero FTPS objects. Its SHA-256 is
+  `4f238f424830ee4b25e52484f2e4ea257e60b7f9cefc2ae2f8173faec362ec6a`.
 
 ## Remaining gates
 
-- Live tests against disposable plain-FTP and trusted-certificate implicit-FTPS
-  servers, including refusal, lost-acknowledgement, size, timeout and restore
-  cases. No operator log may be used for that acceptance.
+- Successful implicit FTPS against a trusted certificate without weakening
+  verification or modifying the operator's trust store.
+- Additional disposable-server refusal, lost-acknowledgement, size and timeout
+  cases. Plain-FTP upload/verification/restore/replay refusal and untrusted-FTPS
+  rejection are now accepted with synthetic data; no operator log may be used
+  for the remaining acceptance.
 - Installed macOS acceptance after operator approval.
 - A separately designed, host-key-pinned SFTP transport.
 - Windows and Linux implementation/package evidence remains deferred until the
