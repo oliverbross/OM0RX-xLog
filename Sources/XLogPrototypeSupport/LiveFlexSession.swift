@@ -44,6 +44,7 @@ actor LiveFlexSession {
     private var connectionGeneration: UInt64 = 0
     private var operationEpoch: UInt64 = 0
     private var activeControl = false
+    private var releaseInProgress = false
     private var transitioning = false
     private var terminal = false
     private var ownsPTT = false
@@ -72,7 +73,7 @@ actor LiveFlexSession {
             return snapshot()
         case "station_reconnect":
             try keys(params, ["provider"])
-            guard !transitioning, !activeControl, let radio else { throw busy() }
+            guard !transitioning, !activeControl, !releaseInProgress, let radio else { throw busy() }
             operationEpoch &+= 1
             observed = nil
             observedAt = nil
@@ -100,10 +101,17 @@ actor LiveFlexSession {
         case "station_radio_control":
             return try await control(params)
         case "station_action":
+            var params = params
+            if let raw = params.removeValue(forKey: "expected_generation") {
+                guard params["action"] as? String == "cancel", let expected = Self.integer(raw), expected >= 0,
+                      UInt64(expected) == connectionGeneration else {
+                    throw WorkerFailure("station_changed", "Radio connection changed; stale release was not sent.")
+                }
+            }
             try keys(params, ["provider", "action"])
             guard let action = params["action"] as? String else { throw invalid() }
             if action == "tune" { return try await transmit(on: true, tune: true) }
-            if action == "cancel" { return try await transmit(on: false, tune: true) }
+            if action == "cancel" { return try await cancelOwnedTransmit() }
             throw WorkerFailure("station_action_blocked", "Amplifier operate and standby are not available through direct FLEX control.")
         default:
             throw WorkerFailure("method_not_allowed", "Unknown direct FLEX method.")
@@ -154,10 +162,10 @@ actor LiveFlexSession {
     private func retireCurrent() async throws {
         operationEpoch &+= 1
         let deadline = ContinuousClock.now.advanced(by: .seconds(6))
-        while activeControl && ContinuousClock.now < deadline {
+        while (activeControl || releaseInProgress) && ContinuousClock.now < deadline {
             try? await Task.sleep(for: .milliseconds(25))
         }
-        guard !activeControl else {
+        guard !activeControl, !releaseInProgress else {
             throw WorkerFailure("station_busy", "A transmit control is still in flight; disconnect was not confirmed.")
         }
         guard let radio else { return }
@@ -449,8 +457,36 @@ actor LiveFlexSession {
                 "state": snapshot()]
     }
 
+    /// A release may interrupt an owned acquisition's readback. Its epoch retires
+    /// that older operation; its separate flag keeps the older defer from
+    /// admitting a new acquisition before release confirmation has finished.
+    private func cancelOwnedTransmit() async throws -> [String: Any] {
+        // Retire an acquisition still awaiting its initial observation, before
+        // it has acquired TX ownership or sent any keying command.
+        if activeControl { operationEpoch &+= 1 }
+        guard ownsPTT || ownsCW || ownsTune else {
+            throw WorkerFailure("station_action_blocked", "This session does not own a transmit control to release.")
+        }
+        guard !transitioning, !releaseInProgress, let radio, transportState == .ready else { throw unavailable() }
+        releaseInProgress = true
+        operationEpoch &+= 1
+        let epoch = operationEpoch
+        defer { releaseInProgress = false }
+        let revision = await radio.transmitObservation()?.revision ?? 0
+        try requireEpoch(epoch)
+        do {
+            if ownsCW { try await radio.clearCW(); try requireEpoch(epoch) }
+            try await radio.setTransmit(false)
+        } catch {
+            throw WorkerFailure("station_rejected", "FLEX transmit outcome is uncertain; release ownership retained.")
+        }
+        try await waitForTransmitObservation(radio, after: revision, epoch: epoch, on: false)
+        ownsPTT = false; ownsCW = false; ownsTune = false
+        return ["accepted": true, "confirmed": true, "action": "cancel", "state": snapshot()]
+    }
+
     private func beginControl(needsTransmit: Bool) throws -> (any FlexSessionRadio, UInt64) {
-        guard !transitioning, !activeControl, let radio,
+        guard !transitioning, !activeControl, !releaseInProgress, let radio,
               transportState == .ready, observed?.isConnected == true else { throw unavailable() }
         guard !needsTransmit || configuration?.allowTransmit == true else {
             throw WorkerFailure("station_action_blocked", "Explicit transmit opt-in is required for direct FLEX control.")

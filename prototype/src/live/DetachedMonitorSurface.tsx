@@ -8,6 +8,7 @@ import { useAutoRotor } from "./useAutoRotor";
 import { rotorProjection, validRotorSnapshot } from "./rotorControl";
 import { ManualRotorStatus } from "./ManualRotorControl";
 import { manualRotorGotoSession, type ManualRotorGotoSession } from "./manualRotorGoto";
+import { RadioReleaseStatus } from "./RadioReleaseStatus";
 import "./DetachedMonitorSurface.css";
 
 type Connection = { refresh: () => void; dispose: () => void };
@@ -96,6 +97,7 @@ export function MonitorSurface({ connectCore = connectMonitorContext, connectMap
       </div>}
     {!synthetic && (autoError || automatic.error) && <p className="live-error" role="alert">{autoError || automatic.error}</p>}
     {!synthetic && <ManualRotorStatus session={rotorSession} onResolved={setResolvedCommandOperation} />}
+    {!synthetic && <RadioReleaseStatus />}
     {error && <p className="live-error" role="alert">{error} <button type="button" onClick={() => { core.current?.refresh(); maps.current?.refresh(); targets.current?.refresh(); }}>Retry observations</button></p>}
     {!context && <p className="secondary" role="status">Loading retained native station observations…</p>}
     {context && !context.selection?.provider && <p className="secondary" role="status">No radio selected. Choose and connect a radio in the main station controls.</p>}
@@ -107,7 +109,7 @@ export function MonitorSurface({ connectCore = connectMonitorContext, connectMap
       onRequest={context?.selection?.provider && !synthetic ? radioRequest : undefined}
       onRotorRequest={context?.rotor?.snapshot?.owner && !synthetic ? rotorRequest : undefined}
       commandOperationId={() => rotorSession.getSnapshot().pending}
-      resolvedCommandOperation={resolvedCommandOperation} />
+      resolvedCommandOperation={resolvedCommandOperation} externalCancelFeedback />
   </main></div>;
 }
 export function DetachedMonitorSurface() { return <MonitorSurface />; }

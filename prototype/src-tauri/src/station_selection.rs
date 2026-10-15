@@ -606,6 +606,13 @@ impl Selection {
         dispatch: impl FnOnce(Value) -> Result<Value, String>) -> Result<Value, String> {
         self.control_scoped_dispatch(request, Some((expected, selection_id, None)), || Ok(()), dispatch)
     }
+    pub(crate) fn release_control<G>(&self, request: Value, expected: u64, selection_id: &str,
+        admit: impl FnOnce() -> Result<G, String>, dispatch: impl FnOnce(Value) -> Result<Value, String>) -> Result<Value, String> {
+        if request["method"] != "station_action" || request["params"]["action"] != "cancel" {
+            return Err("Invalid radio release route.".into());
+        }
+        self.control_scoped_dispatch(request, Some((expected, selection_id, None)), admit, dispatch)
+    }
     fn control_scoped_dispatch<G>(&self, request: Value, expected: Option<(u64, &str, Option<u64>)>, admit: impl FnOnce() -> Result<G, String>,
         dispatch: impl FnOnce(Value) -> Result<Value, String>) -> Result<Value, String> {
         let mut state = self
@@ -805,6 +812,17 @@ pub fn shutdown() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn durable_release_lane_keeps_exact_selection_fence_and_bypasses_nonurgent_tune_fences() {
+        let (_directory, owner, _) = fixture(); initialized(&owner, Some("direct_agent"));
+        let selected=owner.snapshot().unwrap(); let generation=selected["generation"].as_u64().unwrap(); let identity=selected["selection_id"].as_str().unwrap();
+        { let mut state=owner.state.lock().unwrap(); state.activation_tune=true; state.qsy_fence=true; state.controls=1; }
+        let request=json!({"id":"cancel","method":"station_action","params":{"provider":"direct_agent","action":"cancel","expected_generation":3}});
+        assert!(owner.release_control(request.clone(),generation+1,identity,|| Ok(()),|_| panic!("stale selection dispatched")).is_err());
+        assert!(owner.release_control(request.clone(),generation,&uuid::Uuid::new_v4().to_string(),|| Ok(()),|_| panic!("replacement selected")).is_err());
+        assert!(owner.release_control(request,generation,identity,|| Ok(()),|_| Ok(json!({"ok":true}))).is_ok());
+        assert!(owner.state.lock().unwrap().activation_tune);
+    }
     #[test]
     fn status_retained_selection_reads_never_default_persist_or_notify() {
         assert_eq!(retained(None, false).unwrap(), Value::Null);

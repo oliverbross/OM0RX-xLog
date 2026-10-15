@@ -18,6 +18,7 @@ private actor FakeFlexRadio: FlexSessionRadio {
     private var commands: [String] = []
     private var observeRelease = true
     private var observeTune = true
+    private var observeTransmitStart = true
     private var transmitRevision: UInt64? = 1
     private var powerRevision: UInt64 = 0
     private var powerReadback: Int?
@@ -42,6 +43,7 @@ private actor FakeFlexRadio: FlexSessionRadio {
     func commandLog() -> [String] { commands }
     func setObserveRelease(_ value: Bool) { observeRelease = value }
     func setObserveTune(_ value: Bool) { observeTune = value }
+    func setObserveTransmitStart(_ value: Bool) { observeTransmitStart = value }
     func simulateState(_ state: RadioConnectionState) { onState(state, "fixture") }
     func simulateUnrelatedSnapshot() { onSnapshot(value) }
     func setPowerReadback(_ watts: Int?) { powerReadback = watts }
@@ -133,6 +135,7 @@ private actor FakeFlexRadio: FlexSessionRadio {
     }
     func setTransmit(_ mode: CATTransmitMode) {
         commands.append("tune_on")
+        if !observeTransmitStart { return }
         value.isTransmitting = true
         transmitRevision = (transmitRevision ?? 0) &+ 1
         onSnapshot(value)
@@ -191,6 +194,27 @@ private actor FakeFlexRadio: FlexSessionRadio {
 }
 
 final class LiveFlexSessionTests: XCTestCase {
+    func testCancelInterruptsOwnedTuneReadbackAndConfirmsOnlyFreshRelease() async throws {
+        let (session, radio) = try await fixture(allowTransmit: true, timeout: .seconds(2))
+        let snapshot = try await session.handle("station_snapshot", params: ["provider":"direct_flex_lan"])
+        let generation = try XCTUnwrap(snapshot["generation"] as? UInt64)
+        await radio.setObserveTransmitStart(false)
+        let tuning = Task {
+            do { _ = try await session.handle("station_action", params: ["provider":"direct_flex_lan", "action":"tune"]); return false }
+            catch { return true }
+        }
+        for _ in 0..<100 {
+            if await radio.commandLog().contains("tune_on") { break }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        let result = try await session.handle("station_action", params: ["provider":"direct_flex_lan", "action":"cancel", "expected_generation":generation])
+        XCTAssertEqual(result["confirmed"] as? Bool, true)
+        let retired = await tuning.value
+        XCTAssertTrue(retired, "Interrupted tune must not publish late success")
+        let commands = await radio.commandLog()
+        XCTAssertEqual(commands, ["tune_on", "ptt_off"])
+        _ = try await session.handle("station_disconnect", params: ["provider":"direct_flex_lan"])
+    }
     func testProviderClaimPreventsCrossProviderConnectUntilRelease() async throws {
         let claim = StationProviderClaim()
         try await claim.reserve("direct_flex_lan")

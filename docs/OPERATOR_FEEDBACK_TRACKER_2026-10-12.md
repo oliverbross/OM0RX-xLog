@@ -7,6 +7,19 @@ packaged UI result. Keep unresolved items here across releases.
 
 ## Current delivery boundary
 
+- **Shared durable radio Cancel owner, 16 October:** Main Station Control and
+  standalone Monitor now use one native, one-shot Agent/FLEX release owner bound
+  to the exact selection, worker and connection generations. The operation is
+  persisted before dispatch, never reconnects or replays, and a lost reply stays
+  `unknown` for explicit Check/review. Agent releases only an owned transmit
+  attempt; FLEX interrupts its owned tune readback and confirms only fresh PTT-off.
+  Operation-scoped UI recovery cannot erase newer errors or discard an identity
+  during admission. Full frontend **2,563/2,563**, Rust **526/526**, focused
+  portable Swift **40/40**, production build and diff checks pass; independent
+  re-review found no remaining issue. Source only: alpha.31 remains installed and
+  no station, hardware, radio, RF, network, service or operator-data action
+  occurred.
+
 - **Propagation refresh freshness, 16 October:** Desk and standalone Propagation
   now synchronize their display clock whenever a verified native observation
   arrives. A delayed successful automatic refresh is immediately shown as current

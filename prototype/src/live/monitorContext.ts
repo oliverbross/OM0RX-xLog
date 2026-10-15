@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { hamlibProjection } from "./hamlibStation";
 import { rotorCommandParams, rotorProjection, validRotorSnapshot, type RotorSnapshot } from "./rotorControl";
 import { manualRotorGotoSession } from "./manualRotorGoto";
+import { radioReleaseSession } from "./radioRelease";
 
 type Data = Record<string, any>;
 export type MonitorContext = { epoch: string; revision: number; selection: null | {
@@ -52,6 +53,7 @@ type Invoke = (command: string, params?: Data) => Promise<any>;
 export async function monitorRadioAction(context: MonitorContext | null, action: unknown, call: Invoke = invoke) {
   if (!context?.selection?.provider || context.acceptance || typeof action !== "string" || !["direct_agent", "direct_flex_lan"].includes(context.selection.provider) ||
       action !== "cancel" && !monitorRadioFresh(context)) throw new Error("Refresh a current native radio observation before using monitor controls.");
+  if (action === "cancel") return radioReleaseSession().cancel(context.selection!.provider as "direct_agent" | "direct_flex_lan", context);
   const selection = context.selection!, snapshot = context.radio.snapshot ?? {};
   const allowed = selection.provider === "direct_agent" ? snapshot.station?.allowed_actions : snapshot.capabilities?.supported_commands;
   if (action !== "cancel" && (!["operate", "standby", "tune"].includes(action) || !Array.isArray(allowed) || !allowed.includes(action) ||

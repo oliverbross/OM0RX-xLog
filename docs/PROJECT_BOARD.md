@@ -14,6 +14,17 @@ the configured barefoot drive on Standby and the exact pre-Operate drive after a
 failed or cancelled Operate request; Windows installation and physical readback
 acceptance remain open.
 
+Current post-alpha.31 source adds one durable native owner for Agent/FLEX Cancel
+from both main Station Control and standalone Monitor. It binds selection, worker
+and connection generations, persists before its one dispatch, never reconnects
+or replays, and retains lost replies for explicit receipt recovery. Agent releases
+only an owned transmit attempt; FLEX interrupts an owned tune readback and
+requires fresh PTT-off confirmation. Operation-scoped renderer feedback closes
+the admission and stale-receipt races found in independent review. Full frontend
+**2,563/2,563**, Rust **526/526**, focused portable Swift **40/40**, production
+build and diff checks pass. Alpha.31 remains installed; package and physical
+station/RF acceptance stay open.
+
 Current post-alpha.31 source also fixes a shared Propagation freshness-display
 race: accepting a delayed native observation advances the display clock, so a
 fresh automatic result is not labelled cached until the next minute tick. Focused

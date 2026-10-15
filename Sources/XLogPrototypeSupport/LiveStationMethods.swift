@@ -131,7 +131,7 @@ enum LiveStationMethods {
         if provider == "direct_agent" {
             guard Set(params.keys).isSubset(of: method == "station_tune"
                 ? ["provider", "frequency_hz", "mode", "expected_generation"] : method == "station_action"
-                ? ["provider", "action"] : ["provider"]) else { throw invalidParams() }
+                ? ["provider", "action", "expected_generation"] : ["provider"]) else { throw invalidParams() }
             if method == "station_snapshot" { return await LiveStationSession.shared.snapshot() }
             if method == "station_tune" {
                 let target = try tuneTarget(params)
@@ -144,7 +144,12 @@ enum LiveStationMethods {
             }
             guard let action = params["action"] as? String,
                   ["standby", "operate", "tune", "cancel"].contains(action) else { throw invalidParams() }
-            return try await LiveStationSession.shared.action(action)
+            let expected = try params["expected_generation"].map { raw -> UInt64 in
+                let value = try integer(raw)
+                guard action == "cancel", (0...9_007_199_254_740_991).contains(value) else { throw invalidParams() }
+                return UInt64(value)
+            }
+            return try await LiveStationSession.shared.action(action, expectedGeneration: expected)
         }
         guard provider == "xcat_loopback" else { throw invalidParams() }
         #endif

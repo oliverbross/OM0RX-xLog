@@ -4,6 +4,20 @@ import XCatIntegrationCore
 @testable import XLogPrototypeSupport
 
 final class LiveStationMethodsTests: XCTestCase {
+    func testCancelRejectsReplacedBackendBeforeAnyTransportAndRetainedCapabilityAllowsOnlyRelease() async throws {
+        let agent = LiveStationSession()
+        do { _ = try await agent.action("cancel", expectedGeneration: 99); XCTFail("Stale Agent Cancel accepted") }
+        catch let failure as WorkerFailure { XCTAssertEqual(failure.code, "station_changed") }
+        let flex = LiveFlexSession(factory: { _, _, _ in fatalError("Stale release must not start a radio") })
+        do { _ = try await flex.handle("station_action", params: ["provider":"direct_flex_lan", "action":"cancel", "expected_generation":99]); XCTFail("Stale FLEX Cancel accepted") }
+        catch let failure as WorkerFailure { XCTAssertEqual(failure.code, "station_changed") }
+        XCTAssertTrue(LiveStationSession.allowsAction(.cancel, connected: false, supported: ["station_cancel"], allowed: [], ownsTune: true))
+        XCTAssertFalse(LiveStationSession.allowsAction(.cancel, connected: true, supported: ["station_cancel"], allowed: ["cancel"]))
+        XCTAssertFalse(LiveStationSession.allowsAction(.cancel, connected: false, supported: [], allowed: ["cancel"]))
+        for action: RemoteStationAction in [.tune, .operate, .standby] {
+            XCTAssertFalse(LiveStationSession.allowsAction(action, connected: false, supported: ["station_\(action.rawValue)"], allowed: [action.rawValue]))
+        }
+    }
     func testSimplexConfirmationRequiresPTTOff() {
         let keyed = RadioSnapshot(frequencyHz: 14_074_000, mode: "USB", isTransmitting: true)
         XCTAssertFalse(LiveStationSession.confirmsSimplex(keyed, frequencyHz: 14_074_000, mode: "USB"))

@@ -2,6 +2,25 @@
 
 Last updated: 2026-10-16
 
+## Shared durable radio Cancel owner — source complete; package/hardware acceptance open
+
+Main Station Control and standalone Station Monitor now route Agent/FLEX Cancel
+through one native durable release owner. Admission binds the exact selected
+radio, selection generation, worker generation and backend connection generation,
+journals the operation before dispatch and uses the already-connected worker
+without reconnecting. Agent sends one owned-release request; FLEX can interrupt
+an owned tune readback and confirms release only from a fresh PTT-off observation.
+Lost replies remain `unknown` and can be checked or reviewed without replay.
+
+Frontend feedback is operation-scoped: receipt recovery cannot erase a newer
+pre-dispatch or non-Cancel error, and Check cannot discard an identity while
+native admission is in flight. Browser fixtures retain their explicit capability-
+gated fallback. Complete frontend **2,563/2,563**, Rust **526/526**, focused
+portable Swift **40/40**, and the production TypeScript/Vite/window build plus
+diff checks pass. Independent re-review found no remaining issue. Source only:
+alpha.31 remains installed; no station, hardware, radio, RF, network, service or
+operator-data action occurred.
+
 ## Propagation refresh freshness — source complete; package/provider acceptance open
 
 Desk and standalone Propagation now update their display clock when a native

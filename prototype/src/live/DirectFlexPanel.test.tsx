@@ -24,7 +24,8 @@ describe("direct FLEX LAN controls", () => {
       : { operation_id: params.operation_id, status: "acknowledged", request: { action: params.action } });
     const request = vi.fn(); render(<DirectFlexPanel request={request} snapshot={snapshot({ allow_transmit: true })} />);
     await waitFor(() => expect((screen.getByLabelText("Shared FLEX private IP") as HTMLInputElement).value).toBe("192.168.1.50"));
-    expect(native.invoke).toHaveBeenCalledExactlyOnceWith("station_session_request", { params: { action: "snapshot" } });
+    expect(native.invoke).toHaveBeenCalledWith("station_session_request", { params: { action: "snapshot" } });
+    expect(native.invoke).toHaveBeenCalledWith("radio_release_request", { params: { action: "snapshot" } });
     expect(request).not.toHaveBeenCalled(); expect(screen.queryByRole("button", { name: "Connect FLEX" })).toBeNull();
     expect((screen.getByRole("checkbox", { name: "Enable FLEX transmit commands for this connection" }) as HTMLInputElement).checked).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Reconnect saved FLEX radio" }));

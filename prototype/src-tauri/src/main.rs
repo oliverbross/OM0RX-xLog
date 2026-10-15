@@ -22,6 +22,7 @@ mod spot_activation_backend;
 mod qsy_clear;
 mod radio_read;
 mod manual_tune;
+mod radio_release;
 mod manual_rotor;
 mod radio_follow;
 mod opportunity_selection;
@@ -734,12 +735,38 @@ async fn monitor_context_snapshot(window: tauri::WebviewWindow, app: tauri::AppH
 #[tauri::command]
 async fn monitor_station_action(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>, expected: u64, selection_id: String, provider: String, action: String) -> Result<serde_json::Value, String> {
     monitor_context::validate(window.label(), state.path.is_some())?;
+    if action == "cancel" { return Err("Use the shared durable radio Cancel owner.".into()); }
     let request = monitor_context::action_request(&provider, &action)?;
     let selection = station_selection::owner(&app)?;
     let telemetry = station_telemetry::owner(&app)?;
     tauri::async_runtime::spawn_blocking(move || selection.monitor_action(request, expected, &selection_id,
         || telemetry.monitor_control(&provider, expected, &selection_id, &action)))
         .await.map_err(|_| "Monitor action task failed".to_string())?
+}
+
+#[tauri::command]
+async fn radio_release_request(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, params: serde_json::Value) -> Result<serde_json::Value, String> {
+    let action = params["action"].as_str().unwrap_or("");
+    radio_release::validate(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire), action)?;
+    let owner = radio_release::owner(&app)?;
+    let keys: &[&str] = match action { "snapshot" => &["action"], "cancel" => &["action", "operation_id", "target"], _ => &["action", "operation_id"] };
+    if params.as_object().is_none_or(|object| object.len() != keys.len() || object.keys().any(|key| !keys.contains(&key.as_str()))) {
+        return Err("Invalid radio Cancel request.".into());
+    }
+    if action == "snapshot" { let mut snapshot = owner.snapshot()?; snapshot["target"] = radio_release::context(&app)?["target"].clone(); return Ok(snapshot); }
+    let id = params["operation_id"].as_str().ok_or("Missing radio Cancel identity.")?.to_owned();
+    if action == "receipt" { return owner.receipt(&id); }
+    if action == "review" {
+        let result = owner.review(&id);
+        for label in ["main", "monitor", "station-control"] { let _ = app.emit_to(label, "xlog:radio-release", ()); }
+        return result;
+    }
+    let target = serde_json::from_value::<radio_release::Target>(params["target"].clone()).map_err(|_| "Invalid radio Cancel target.")?;
+    let changed = app.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || owner.cancel(&id, target, |request, target| radio_release::execute(&app, request, target)))
+        .await.map_err(|_| "Radio Cancel task ended; check its retained receipt. No Cancel will be replayed.".to_string())?;
+    for label in ["main", "monitor", "station-control"] { let _ = changed.emit_to(label, "xlog:radio-release", ()); }
+    result
 }
 
 #[tauri::command]
@@ -868,6 +895,9 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     // Only typed integration operations cross this boundary; never shell commands.
     if state.path.is_some() { acceptance::validate_local_request(&request)?; }
     let method = request.get("method").and_then(|m| m.as_str()).unwrap_or("");
+    if method == "station_action" && request["params"]["action"] == "cancel" {
+        return Err("Use the shared durable radio Cancel owner.".into());
+    }
     if method == "station_tune" || method == "hamlib_control" && request["params"]["device"] == "radio" && request["params"]["action"] == "tune_simplex" {
         return Err("Use the shared manual simplex tune owner.".into());
     }
@@ -1462,7 +1492,7 @@ fn main() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![worker_request, cw_session_request, station_session_request, manual_rotor_request, pick_backup_package, open_monitor, open_detached_map,
+        .invoke_handler(tauri::generate_handler![worker_request, cw_session_request, station_session_request, radio_release_request, manual_rotor_request, pick_backup_package, open_monitor, open_detached_map,
             spot_editor_register, spot_editor_unregister, spot_editor_ack, spot_editor_state,
             spot_activation_snapshot, spot_activation_status, spot_activation_reconcile, activate_spot, activate_opportunity,
             operator_draft_read_radio,

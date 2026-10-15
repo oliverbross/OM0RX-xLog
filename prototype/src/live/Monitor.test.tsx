@@ -49,4 +49,16 @@ describe("direct FLEX detached monitor", () => {
     render(<Monitor snapshot={flex({ allow_transmit: false })} map={<div>Map</div>} onRequest={onRequest} />);
     expect(screen.getByRole("button", { name: "Tune" }).hasAttribute("disabled")).toBe(true);
   });
+  it("delegates durable Cancel feedback without hiding a newer command failure", async () => {
+    const onRequest = vi.fn(async (_method: string, params: Record<string, unknown> = {}) => {
+      if (params.action === "cancel") throw new Error("Cancel acknowledgement lost");
+      throw new Error("Newer tune failure");
+    });
+    render(<Monitor snapshot={flex()} map={<div>Map</div>} onRequest={onRequest} externalCancelFeedback />);
+    fireEvent.click(screen.getByRole("button", { name: "Cancel tune / release TX" }));
+    await waitFor(() => expect(onRequest).toHaveBeenCalledWith("station_action", { action: "cancel" }));
+    expect(screen.queryByText("Cancel acknowledgement lost")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Tune" }));
+    expect(await screen.findByText("Newer tune failure")).toBeTruthy();
+  });
 });

@@ -258,6 +258,9 @@ impl StationTelemetry {
         {
             return;
         }
+        let worker_generation = response.as_ref().ok().filter(|reply| reply["ok"] == true && reply["id"] == id)
+            .map(|reply| reply["worker_generation"].clone()).filter(|value| value.is_u64())
+            .unwrap_or_else(|| state.projection["worker_generation"].clone());
         let result = response
             .ok()
             .filter(|reply| reply["ok"] == true && reply["id"] == id)
@@ -268,7 +271,7 @@ impl StationTelemetry {
         let available = result.is_some();
         let snapshot = result.unwrap_or_else(|| state.projection["snapshot"].clone());
         state.projection = json!({"revision":state.revision,"provider":provider,"snapshot":snapshot,"available":available,
-            "selection_id":state.selection_id,"selection_generation":state.selection_generation,
+            "selection_id":state.selection_id,"selection_generation":state.selection_generation,"worker_generation":worker_generation,
             "received_at_ms":SystemTime::now().duration_since(UNIX_EPOCH).map(|time| time.as_millis() as u64).unwrap_or(0)});
         let projection = state.projection.clone();
         drop(state);
@@ -349,7 +352,9 @@ pub fn owner(app: &tauri::AppHandle) -> Result<Arc<StationTelemetry>, String> {
                     if request["method"] == "hamlib_snapshot" {
                         crate::hamlib::request(request)
                     } else {
-                        crate::worker::request(request)
+                        crate::worker::request_with_generation(request).map(|(generation, mut response)| {
+                            response["worker_generation"] = json!(generation); response
+                        })
                     }
                 }),
                 Arc::new(move |value| {
@@ -384,6 +389,18 @@ pub fn shutdown() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn retained_radio_snapshot_keeps_the_worker_that_produced_it_after_read_failure() {
+        let fail=Arc::new(AtomicBool::new(false)); let failing=fail.clone();
+        let owner=StationTelemetry::new(Arc::new(move |request| {
+            if failing.load(Ordering::Acquire) { return Err("worker replaced".into()); }
+            let mut response=reply(&request); response["worker_generation"]=json!(12); Ok(response)
+        }),Arc::new(|_| {}));
+        owner.select("direct_agent",true).unwrap(); owner.refresh();
+        assert_eq!(owner.snapshot().unwrap()["worker_generation"],12);
+        fail.store(true,Ordering::Release); owner.refresh();
+        let retained=owner.snapshot().unwrap(); assert_eq!(retained["worker_generation"],12); assert_eq!(retained["available"],false);
+    }
     fn reply(request: &Value) -> Value {
         json!({"id":request["id"],"ok":true,"result":{"source":request["params"]["provider"],"radio":{"observed":false}}})
     }

@@ -4,6 +4,8 @@ import { AgentConnectionSetup } from "./AgentConnectionSetup";
 import { nativeStationSelection } from "./stationSelection";
 import { ManualTuneStatus } from "./ManualSimplexTune";
 import { manualTuneSession } from "./manualTune";
+import { radioReleaseSession } from "./radioRelease";
+import { RadioReleaseStatus } from "./RadioReleaseStatus";
 import "./StationPanel.css";
 import "./DirectFlexPanel.css";
 
@@ -174,7 +176,9 @@ export default function DirectFlexPanel({ request, snapshot }: Props) {
         <div className="live-station-actionrow"><button className="danger" disabled={busy || !txAllowed || !supports("ptt") || radio?.transmitting !== false} onClick={() => void control("ptt", { enabled: true })}>PTT on</button>
           <button disabled={busy || !supports("ptt")} onClick={() => void control("ptt", { enabled: false })}>PTT off</button>
           <button disabled={busy || !txAllowed || !supports("tune") || radio?.transmitting !== false} onClick={() => void act("station_action", { action: "tune" }, "Tune")}>Tune carrier</button>
-          <button disabled={busy || !supports("cancel")} onClick={() => void act("station_action", { action: "cancel" }, "Cancel / release")}>Cancel / release</button></div>
+          <button disabled={!shared && (busy || !supports("cancel"))} onClick={() => { if (shared) void radioReleaseSession().cancel(provider).catch(() => {});
+            else void act("station_action", { action: "cancel" }, "Cancel / release"); }}>Cancel / release</button></div>
+        {shared && <RadioReleaseStatus />}
       </section>
       <section className="live-station-card"><h3>RF power setting</h3>
         <p className="live-station-helper">FLEX level 0–100; this is not a measured watt reading. Changing the setting requires an observed receive state and fresh readback.</p>

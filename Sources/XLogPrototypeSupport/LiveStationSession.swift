@@ -547,16 +547,20 @@ actor LiveStationSession {
         throw WorkerFailure("station_timeout", "The radio did not confirm the requested simplex target.")
     }
 
-    func action(_ name: String) async throws -> [String: Any] {
+    func action(_ name: String, expectedGeneration: UInt64? = nil) async throws -> [String: Any] {
+        if let expectedGeneration, expectedGeneration != connectionGeneration { throw lifecycleChanged() }
         try await ensureExclusiveWriter()
+        if let expectedGeneration, expectedGeneration != connectionGeneration { throw lifecycleChanged() }
         guard let client, let action = RemoteStationAction(rawValue: name) else {
             throw WorkerFailure("invalid_params", "Invalid direct station action.")
         }
+        let generation = connectionGeneration
         let observed = await client.observedSnapshot()
         try requireActive()
-        guard observed.isConnected, let station = observed.remoteStationStatus,
-              station.supportedCommands.contains("station_\(name)"),
-              station.allowedActions.contains(name) else {
+        guard generation == connectionGeneration, self.client === client else { throw lifecycleChanged() }
+        guard let station = observed.remoteStationStatus,
+              Self.allowsAction(action, connected: observed.isConnected, supported: station.supportedCommands, allowed: station.allowedActions,
+                                ownsTune: transmitOwnership.releases.contains(.cancelTune)) else {
             throw WorkerFailure("station_action_blocked", "The station does not currently allow this action.")
         }
         if Self.requiresTransmitOptIn(action) {
@@ -577,6 +581,7 @@ actor LiveStationSession {
         defer { if acquiresTransmit { finishDirectTransmitAcquisition() } }
         do {
             try await client.performStationAction(action)
+            guard generation == connectionGeneration, self.client === client else { throw lifecycleChanged() }
             transmitOwnership.completeAction(action)
             return ["accepted": true, "confirmed": false, "action": name, "state": await snapshot()]
         } catch {
@@ -586,6 +591,12 @@ actor LiveStationSession {
 
     static func requiresTransmitOptIn(_ action: RemoteStationAction) -> Bool {
         action == .tune
+    }
+    static func allowsAction(_ action: RemoteStationAction, connected: Bool, supported: Set<String>, allowed: Set<String>, ownsTune: Bool = false) -> Bool {
+        // beginAction(.tune) acquires this authority before dispatch, so an
+        // uncertain tune reply remains releasable. A replacement worker or a
+        // monitoring-only connection never gains authority over another TX.
+        supported.contains("station_\(action.rawValue)") && (action == .cancel ? ownsTune : connected && allowed.contains(action.rawValue))
     }
 
     private func radioControl(_ params: [String: Any]) async throws -> [String: Any] {

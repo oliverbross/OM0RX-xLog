@@ -2,9 +2,10 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { connectMonitorContext, freshMonitorProjection, monitorRadioAction, monitorRadioFresh, monitorRotorAction, monitorStation, validMonitorContext } from "./monitorContext";
 import { syntheticMonitorContext } from "./monitorContextFixtures";
+import { radioReleaseSession } from "./radioRelease";
 
 beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date("2026-10-14T00:00:00Z")); });
-afterEach(() => vi.useRealTimers());
+afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 const deferred = <T,>() => { let resolve!: (value: T) => void; const promise = new Promise<T>(done => { resolve = done; }); return { promise, resolve }; };
 
 it("validates context, permits an unset radio, and never freshens original receipt times", () => {
@@ -35,11 +36,12 @@ it("sends only the four scoped radio intents with captured native identity", asy
 });
 it("allows only cancellation when the selection remains known but observations are stale or absent", async () => {
   const context = syntheticMonitorContext(), call = vi.fn().mockResolvedValue({ ok: true, result: { accepted: true } });
+  const cancel = vi.spyOn(radioReleaseSession(), "cancel").mockResolvedValue({ accepted: true, confirmed: false });
   context.radio = { available: false, snapshot: null };
   await expect(monitorRadioAction(context, "operate", call)).rejects.toThrow();
-  await monitorRadioAction(context, "cancel", call); expect(call).toHaveBeenCalledOnce();
+  await monitorRadioAction(context, "cancel", call); expect(cancel).toHaveBeenCalledExactlyOnceWith("direct_agent", context); expect(call).not.toHaveBeenCalled();
   context.acceptance = { synthetic: true, source: "synthetic_memory", externalOwners: false, readOnly: true };
-  await expect(monitorRadioAction(context, "cancel", call)).rejects.toThrow(); expect(call).toHaveBeenCalledOnce();
+  await expect(monitorRadioAction(context, "cancel", call)).rejects.toThrow(); expect(cancel).toHaveBeenCalledOnce();
 });
 it("does not retry an uncertain radio action", async () => {
   const call = vi.fn().mockRejectedValue(new Error("Lost acknowledgement"));
