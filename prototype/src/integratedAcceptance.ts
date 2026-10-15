@@ -176,10 +176,9 @@ async function main(report: Json) {
 
   await navigate("Logbook");
   await waitForAcceptance("contact row before edit", () => !!document.querySelector(".live-logbook-table tbody tr"));
-  // A rendered row can precede refresh completion. Select it, then let the
-  // actual Edit control acknowledge that loading and mutation gates are clear.
+  // A rendered row can precede refresh completion. The production interaction
+  // opens the editor directly from a single row click once loading gates clear.
   element<HTMLElement>(".live-logbook-table tbody tr").click();
-  await click("Edit", ".live-logbook-actions button");
   await waitForAcceptance("existing contact editor", () => [...document.querySelectorAll("button")].some(item => item.textContent?.trim() === "Update QSO"));
   await fill('[aria-label="Comment"]', "Revision-safe native edit"); await click("Update QSO");
   await waitForAcceptance("contact editor released", () => ![...document.querySelectorAll("button")].some(item => item.textContent?.trim() === "Update QSO"));
@@ -420,8 +419,6 @@ export async function startIntegratedAcceptance() {
       await waitForAcceptance("detached logbook rows", () => document.querySelector(".live-logbook-table tbody")?.textContent?.includes("W1AW") === true);
       for (const comment of ["Detached native edit", "Isolated native UI acceptance"]) {
         element<HTMLElement>(".live-logbook-table tbody tr").click(); await frame();
-        await waitForAcceptance("detached Edit enabled", () => [...document.querySelectorAll<HTMLButtonElement>("button")].some(item => item.textContent?.trim() === "Edit" && !item.disabled));
-        await click("Edit");
         await waitForAcceptance("detached contact editor", () => !!document.querySelector('[aria-label="Comment"]'));
         report.checks.no_radio_controls = !document.querySelector(".qso-read-radio") && !document.querySelector(".qso-footer-context input");
         await fill('[aria-label="Comment"]', comment); await click("Update QSO");
