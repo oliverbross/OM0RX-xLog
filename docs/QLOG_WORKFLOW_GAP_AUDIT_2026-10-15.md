@@ -129,4 +129,7 @@ the latest safe matching comment is retained as wrapped dashboard evidence.
 This is xLog-owned code, adds no regular-expression engine, network source,
 poller or station action, and preserves the default-off delivery boundary.
 Focused Rust **12/12** and renderer **13/13** tests plus the production build
-pass. Live-cluster, packaged and operator observation remain open.
+pass. Exact combined source `0da511d` passes strict deep-signature verification
+and isolated integrated **33/33** acceptance with `station_io: false`; see the
+[source-package checkpoint](QLOG_FTP_SOURCE_ACCEPTANCE_2026-10-15.md).
+Live-cluster, installed-app and operator observation remain open.

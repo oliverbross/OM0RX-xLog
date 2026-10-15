@@ -130,6 +130,10 @@ performed.
   synthetic data only, no external network and `station_io: false`; its
   SHA-256 is
   `081023d5936d9a164c4ade5d057a25fdad3ce53915ae68fc95335e8fb4fb08d8`.
+- Combined exact source `0da511d` then passes strict deep-signature verification
+  and isolated integrated **33/33** package acceptance with `station_io: false`.
+  The newer checkpoint includes this correction and the QLog alert-comment
+  slice; see [its package evidence](QLOG_FTP_SOURCE_ACCEPTANCE_2026-10-15.md).
 
 ## Remaining gates
 

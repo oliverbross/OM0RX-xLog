@@ -430,7 +430,9 @@ acceptance. Consult the detailed tracker before closing any individual item.
   unrestricted, unsafe source comments cannot match, and the latest safe match
   is retained as wrapped dashboard evidence. Rust **12/12**, renderer **13/13**
   and production-build gates pass; no poller, regex engine or station action was
-  added. Live-cluster, package and operator observation remain open. See the
+  added. Combined exact source `0da511d` passes strict deep-signature verification
+  and isolated integrated **33/33** acceptance with station I/O disabled.
+  Live-cluster, installed-app and operator observation remain open. See the
   [QLog audit](QLOG_WORKFLOW_GAP_AUDIT_2026-10-15.md).
 
 ## Update discipline
