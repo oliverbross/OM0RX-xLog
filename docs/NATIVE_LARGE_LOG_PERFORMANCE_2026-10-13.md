@@ -1,5 +1,22 @@
 # Native large log performance
 
+## Five-run post-alpha.29 packaged distribution — 15 October 2026
+
+Exact source `cb5d450` adds launch/readiness and painted route measurements to
+the isolated native large-log gate. Five independent ad-hoc packaged runs pass
+**39/39** with 100,002 contacts and `station_io: false`. Median / nearest-rank
+p95: UI mount **472 / 533 ms**, operator workspace ready **721 / 847 ms**,
+Logbook display **229 / 244 ms**, first Awards **1,151 / 1,522 ms**, repeat
+Awards **66 / 91 ms**, first local history **282 / 366 ms**, repeat local history
+**276 / 383 ms**, and rendered callsign intelligence **33 / 33 ms**. Across 25
+samples per screen, navigation p95 ranged from **67 ms** (Settings) to **132 ms**
+(Logbook). See the
+[full packaged performance record](PACKAGED_PERFORMANCE_ACCEPTANCE_2026-10-15.md).
+
+This closes the isolated packaged percentile gap, not the operator-workspace,
+live-service contention, physical cold-disk, low-memory, multi-display or
+cross-platform gates.
+
 ## Installed alpha.29 functional rerun — 15 October 2026
 
 The signed, notarized installed alpha.29 bundle at exact packaged source
