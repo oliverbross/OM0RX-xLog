@@ -2,6 +2,21 @@
 
 Last updated: 2026-10-16
 
+## Shared native Rotor Stop ingress — source complete; package/hardware acceptance open
+
+Canvas and standalone Rotor Stop now use one owner-scoped native ingress. Native
+Stop no longer waits for renderer-owned device snapshots before dispatch or reads
+the device again afterward. The native owner revokes Auto, validates the retained
+owner under serialization, dispatches once and returns its acknowledgement; a
+lost or malformed reply is retained as uncertain and is never retried. Browser
+fixtures keep their explicit simulated fallback.
+
+Complete frontend **2,510/2,510** and the production TypeScript/Vite/window build
+pass; the unchanged native checkpoint remains **498/498 Rust**, portable Swift
+**418 tests in 57 suites** and normal Swift **240 tests in 32 suites**. This is
+source evidence only: alpha.31 remains installed and no station, rotor, hardware,
+RF, service or operator-data action occurred.
+
 ## Main and detached Read Radio parity — source complete; package/hardware acceptance open
 
 Explicit Read Radio now uses the same native one-shot transaction from the main

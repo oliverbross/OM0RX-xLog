@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import RotorCompass from "./RotorCompass";
 import { connectRotorTelemetry } from "./rotorTelemetry";
-import { rotorProjection, validRotorSnapshot, type RotorSnapshot } from "./rotorControl";
+import { rotorProjection, type RotorSnapshot } from "./rotorControl";
+import { nativeRotorStop } from "./nativeRotorStop";
 import { useAutoRotor } from "./useAutoRotor";
 import "./DetachedTaskSurface.css";
 
@@ -43,9 +43,7 @@ export function DetachedRotorSurface() {
     if (!owner || stoppingRef.current) return;
     stoppingRef.current = true; setStopping(true); setStopError("");
     try {
-      const reply: any = await invoke("monitor_rotor_stop", { owner });
-      if (reply?.ok !== true || !validRotorSnapshot(reply.result))
-        throw new Error(reply?.error?.message || "Rotor Stop was not acknowledged. Check the observed state before trying again.");
+      await nativeRotorStop(owner);
     } catch (cause) {
       if (active.current) setStopError(cause instanceof Error ? cause.message : "Rotor Stop outcome is unknown. Check the observed state before trying again.");
     } finally {

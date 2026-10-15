@@ -7,6 +7,17 @@ packaged UI result. Keep unresolved items here across releases.
 
 ## Current delivery boundary
 
+- **Shared native Rotor Stop, 16 October:** Canvas and standalone Rotor now call
+  the same owner-scoped native Stop ingress. The Canvas path no longer blocks Stop
+  on a renderer device snapshot or performs a second device read after dispatch.
+  Native ownership revokes Auto, validates the retained owner under its lock and
+  dispatches once; lost, rejected, malformed or wrong-owner replies never retry
+  and remain uncertain. Full frontend **2,510/2,510** and the production
+  TypeScript/Vite/window build pass; the unchanged native checkpoint remains
+  **498/498 Rust**, portable Swift **418 tests in 57 suites** and normal Swift
+  **240 tests in 32 suites**. Source only: alpha.31 remains installed and no
+  station, rotor, hardware, RF, service or operator-data action occurred.
+
 - **Main plus detached authoritative Read Radio, 16 October:** Desk, main Full and
   standalone Simple/Full Log QSO now share the same native one-shot owner. Valid
   buffered edits flush before admission; Follow is revoked first; historical

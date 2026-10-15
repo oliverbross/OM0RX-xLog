@@ -6,6 +6,7 @@ import { loadReadRadioJournal, type ReadRadioJournal } from "./live/readRadioJou
 import { useSpotActivation } from "./live/useSpotActivation";
 import { SpotActivationStatus } from "./live/SpotActivationStatus";
 import { useAutoRotor } from "./live/useAutoRotor";
+import { nativeRotorStop } from "./live/nativeRotorStop";
 import { useFollowRadio } from "./live/useFollowRadio";
 import { useReferenceEvidence } from "./live/useReferenceEvidence";
 import { Radio, BookOpen, Network, History, Map as MapIcon, Settings, Activity, Award, LayoutDashboard, ExternalLink, RefreshCw } from "lucide-react";
@@ -376,6 +377,21 @@ function MainLiveApp() {
       const clusterEpoch = method === "cluster_filter" || method === "cluster_configure" || method === "cluster_connect" || method === "cluster_disconnect"
         ? ++clusterMutationEpoch.current : clusterMutationEpoch.current;
       if (method.startsWith("rotor_")) {
+        if (method === "rotor_stop" && nativeSpotEditor()) {
+          // Match detached Stop: do not put device snapshots before or after
+          // its acknowledgement. The native telemetry owner supplies readback.
+          if (params.owner !== "native_dcu1" && params.owner !== "hamlib")
+            throw new Error("Select and connect a rotor first.");
+          try { return await nativeRotorStop(params.owner); }
+          catch (cause) {
+            const previous = rotorRef.current;
+            if (previous && previous.owner === params.owner) {
+              const next = { ...previous, state: "uncertain" as const, backend_available: false };
+              rotorRef.current = next; setRotorState(next);
+            }
+            throw cause;
+          }
+        }
         try {
           if (method === "rotor_stop") {
             const current = (await workerRequest("rotor_snapshot", {})).result;

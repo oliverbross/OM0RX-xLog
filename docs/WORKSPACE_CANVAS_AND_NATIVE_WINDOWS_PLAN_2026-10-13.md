@@ -957,6 +957,27 @@ production Vite/window-bundle build and diff checks pass. This is source evidenc
 only: alpha.31 remains installed; no package was produced or installed and no
 provider, station, hardware, rotor, RF or operator-data action occurred.
 
+### Checkpoint AR — shared owner-scoped Rotor Stop ingress
+
+Canvas and the standalone Rotor window now use the same native Stop helper. The
+Canvas renderer no longer asks the worker for a device snapshot before Stop or
+performs another device read after the command. It passes only the retained owner
+identity to the existing native ingress, where Auto is revoked before waiting,
+the current owner and generation are resolved under serialization and one Stop is
+dispatched. The returned acknowledgement must contain a valid same-owner rotor
+snapshot. A rejected, malformed, wrong-owner or lost reply is never retried; the
+matching retained Canvas state becomes uncertain until telemetry supplies a new
+observation. Browser fixtures retain their explicit simulated path.
+
+Synthetic coverage proves both Desk and Canvas actions issue exactly one native
+Stop with no worker `rotor_snapshot` or raw `rotor_stop` fallback, including lost
+reply and later wake-up cases. Complete frontend **2,510/2,510** and the production
+TypeScript/Vite/window-bundle build pass. The unchanged native checkpoint remains
+**498/498 Rust**, portable Swift **418 tests in 57 suites** and normal Swift **240
+tests in 32 suites**. This is source evidence only: alpha.31 remains installed;
+no package was produced or installed and no station, rotor, hardware, RF, service
+or operator-data action occurred.
+
 ### 14 October audit — remaining new-QSO and QSY ownership
 
 At `cd25718`, detached Logbook edits saved contacts; it is not an independent

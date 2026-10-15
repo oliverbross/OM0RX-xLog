@@ -7,9 +7,25 @@ import { operatorDraftFixture, testWorkspaceGeneration } from "./operator-draft-
 const bridge = vi.hoisted(() => ({ request: vi.fn(), native: vi.fn(), tune: null as null | ((value: any) => void), rejectActivation: null as null | ((cause: Error) => void), rotorGeneration: 4,
   autoState: null as any, autoChanged: null as null | ((value: any) => void),
   nativeSelection: false, selection: vi.fn(), applySelection: vi.fn(),
+  nativeStop: false, canvasStop: false,
   rotorConfiguration: null as any,
   preferenceView: null as any, preferenceChange: null as null | ((value: any) => void),
   telemetry: vi.fn(), stationTelemetry: vi.fn(), selectTelemetry: vi.fn(), intentId: null as string | null }));
+vi.mock("@tauri-apps/api/core", async original => ({ ...await original<typeof import("@tauri-apps/api/core")>(),
+  invoke: (command: string, params: any) => command === "monitor_rotor_stop" ? bridge.native(command, params) : Promise.resolve({}) }));
+vi.mock("../src/live/useSpotEditor", async () => {
+  const { useEffect } = await import("react");
+  return { nativeSpotEditor: () => bridge.nativeStop, useSpotEditor: (participants: any[]) => {
+    useEffect(() => { if (bridge.nativeStop) participants.forEach(item => item.setSpotEditorRegistered(true)); }, []);
+    return { status: null, error: "", reconcile: async () => true };
+  } };
+});
+vi.mock("../src/live/OperatorCanvas", async original => {
+  const { default: Canvas } = await original<typeof import("../src/live/OperatorCanvas")>();
+  return { default: (props: any) => bridge.canvasStop
+    ? <section aria-label="Synthetic canvas rotor">{props.panels.rotor?.content}{props.panels.rotor?.safetyAction}</section>
+    : <Canvas {...props} /> };
+});
 vi.mock("../src/live/useAutoRotor", async () => {
   const { useEffect, useState } = await import("react");
   return { useAutoRotor: () => {
@@ -82,6 +98,7 @@ beforeEach(() => {
     hamlib: { mode: "managed", path: "", baud: 9600, host: "127.0.0.1", port: 4533, serial: {} },
   } };
   bridge.autoChanged = null;
+  bridge.nativeStop = false; bridge.canvasStop = false;
   bridge.preferenceView = null; bridge.preferenceChange = null;
   bridge.telemetry.mockReset(); bridge.telemetry.mockReturnValue(null);
   bridge.nativeSelection = false; bridge.selection.mockReset(); bridge.selection.mockReturnValue(null); bridge.applySelection.mockReset();
@@ -181,6 +198,47 @@ it("uses native rotor telemetry without a renderer poller and reflects authorita
   expect(bridge.request.mock.calls.filter(([method]) => method === "rotor_snapshot")).toHaveLength(0);
   expect(bridge.request.mock.calls.filter(([method]) => method === "rotor_goto")).toHaveLength(0);
   view.unmount(); expect(stop).toHaveBeenCalledOnce();
+});
+
+it.each(["Desk", "Canvas"])("%s native Stop sends one owner-only command with zero pre/post device snapshots", async surface => {
+  bridge.nativeStop = true; bridge.canvasStop = surface === "Canvas";
+  let observe!: (snapshot: any) => void;
+  bridge.telemetry.mockImplementation(changed => { observe = changed; return vi.fn(); });
+  const original = bridge.native.getMockImplementation()!;
+  bridge.native.mockImplementation(async (command, params) => command === "monitor_rotor_stop"
+    ? { ok: true, result: { owner: "native_dcu1", generation: 5, state: "active" } }
+    : original(command, params));
+  render(<LiveApp />);
+  await act(async () => observe({ owner: "native_dcu1", generation: 4, state: "active", backend_available: true,
+    backend: { connected: true, name: "Retained rotor", azimuth: 53 } }));
+  fireEvent.click(await screen.findByRole("button", { name: surface === "Canvas" ? "■ Stop rotor" : "Stop desk rotor" }));
+  await screen.findByText("Stop accepted; watch the observed rotor state.");
+  expect(bridge.native.mock.calls.filter(([command]) => command === "monitor_rotor_stop")).toEqual([["monitor_rotor_stop", { owner: "native_dcu1" }]]);
+  expect(bridge.request.mock.calls.filter(([method]) => ["rotor_snapshot", "rotor_stop"].includes(method))).toEqual([]);
+});
+
+it.each(["Desk", "Canvas"])("%s native Stop retains uncertainty after a lost reply without a snapshot fallback or retry", async surface => {
+  bridge.nativeStop = true; bridge.canvasStop = surface === "Canvas";
+  let observe!: (snapshot: any) => void;
+  bridge.telemetry.mockImplementation(changed => { observe = changed; return vi.fn(); });
+  const original = bridge.native.getMockImplementation()!;
+  bridge.native.mockImplementation(async (command, params) => {
+    if (command === "monitor_rotor_stop") throw new Error("Stop acknowledgement lost");
+    return original(command, params);
+  });
+  render(<LiveApp />);
+  await act(async () => observe({ owner: "native_dcu1", generation: 4, state: "active", backend_available: true,
+    backend: { connected: true, name: "Retained rotor", azimuth: 53 } }));
+  fireEvent.click(await screen.findByRole("button", { name: surface === "Canvas" ? "■ Stop rotor" : "Stop desk rotor" }));
+  await screen.findByText("Stop acknowledgement lost");
+  expect(screen.getByText("Connection needs attention")).toBeTruthy();
+  expect(screen.queryByText("Stop accepted; watch the observed rotor state.")).toBeNull();
+  // Recovery wakes may refresh retained projections, but must never replay Stop
+  // or introduce a direct worker snapshot as an acknowledgement substitute.
+  await act(async () => { window.dispatchEvent(new Event("focus")); });
+  expect(screen.getByText("Connection needs attention")).toBeTruthy();
+  expect(bridge.native.mock.calls.filter(([command]) => command === "monitor_rotor_stop")).toEqual([["monitor_rotor_stop", { owner: "native_dcu1" }]]);
+  expect(bridge.request.mock.calls.filter(([method]) => ["rotor_snapshot", "rotor_stop"].includes(method))).toEqual([]);
 });
 
 it.each(["before", "after"])("retains native automatic authority when rotor telemetry is polled %s activation acknowledgement", async order => {
