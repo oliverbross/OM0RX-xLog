@@ -2,6 +2,25 @@
 
 Last updated: 2026-10-16
 
+## Detached QSO Read Radio — source complete; package/hardware acceptance open
+
+The standalone Log QSO window now offers explicit Read Radio in both Simple and
+Full modes through a native one-shot owner. It admits all registered QSO editors,
+fences the canonical draft, workspace, selected radio and command epoch, performs
+one authoritative read and commits only frequency, derived band and logging mode
+through a durable revision-checked receipt. Unrelated ADIF fields and manual or
+automatic transmit-power state are preserved. Valid buffered edits flush first;
+unfinished text, conflicts and unknown outcomes fail closed, and a lost reply is
+checked without replay. A competing read cannot replace the retained status of the
+operation already in flight. Follow Radio remains deliberately unavailable in the
+detached editor pending its separate continuous native-owner stage.
+
+The complete frontend suite passes **2,473/2,473**, Rust passes **487/487**, and
+portable Swift passes **417 tests in 57 suites**; TypeScript, the production bundle
+and diff checks also pass. This is source evidence only. Alpha.31 remains installed;
+no service, station or device was contacted and no radio, rotor, RF or operator-data
+action occurred.
+
 ## Independent Rotor Auto and Stop — source complete; package/hardware acceptance open
 
 The standalone Rotor window now shares the native automatic-following state and

@@ -6,15 +6,16 @@ import { testWorkspaceGeneration } from "../../tests/operator-draft-fixture";
 import type { DraftMutation, DraftPowerState, DraftSnapshot } from "./operatorDraftSession";
 import { loadWindowSurface } from "../windowSurface";
 
-const api = vi.hoisted(() => ({ draft: vi.fn(), read: vi.fn(), changes: vi.fn(), protect: vi.fn(), dock: vi.fn(),
+const api = vi.hoisted(() => ({ draft: vi.fn(), read: vi.fn(), invoke: vi.fn(), reconcile: vi.fn(), changes: vi.fn(), protect: vi.fn(), dock: vi.fn(),
   refresh: null as (() => Promise<void>) | null, blocked: null as (() => boolean) | null, explain: null as (() => void) | null,
   closeState: null as ((value: boolean) => void) | null }));
 vi.mock("./operatorDraftTransport", () => ({ requestOperatorDraft: api.draft }));
 vi.mock("../worker", () => ({ workerRequest: api.read }));
 vi.mock("./operatorDraftWindows", () => ({ connectOperatorDraftChanges: api.changes, protectOperatorDraftClose: api.protect }));
 vi.mock("./DetachedClusterBridge", () => ({ dockDetachedWorkspace: api.dock }));
+vi.mock("@tauri-apps/api/core", () => ({ invoke: api.invoke, isTauri: () => false }));
 vi.mock("./useSpotEditor", () => ({ nativeSpotEditor: () => false, useSpotEditor: () => ({
-  status: { phase: "uncertain", tuneConfirmed: false, rotor: "uncertain" }, error: "Global activation warning", reconcile: vi.fn(),
+  status: { phase: "uncertain", tuneConfirmed: false, rotor: "uncertain" }, error: "Global activation warning", reconcile: api.reconcile,
 }) }));
 
 const copy = <T,>(value: T): T => structuredClone(value);
@@ -76,6 +77,82 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
+it.each(["Simple", "Full"])("flushes valid %s edits before a typed Read radio and reconciles the canonical result", async mode => {
+  const f = backend(); api.draft.mockImplementation(f.request);
+  api.invoke.mockImplementation(async (command, { operationId }) => {
+    expect(command).toBe("operator_draft_read_radio");
+    expect(f.current.qso.name).toBe("Keep operator text");
+    f.change({ ...f.current, revision: f.current.revision + 1, qso: { ...f.current.qso, frequencyHz: 7_100_000, band: "40m", mode: "SSB" },
+      power: { ...f.current.power!, contact: { ...f.current.power!.contact, frequencyHz: 7_100_000, band: "40m", mode: "SSB" } } });
+    return { operationId, phase: "confirmed", reservationActive: false, tuneConfirmed: false, rotor: "not-requested" };
+  });
+  api.reconcile.mockImplementation(async () => { await api.refresh!(); });
+  render(<DetachedQSOSurface />); await screen.findByDisplayValue("K1ABC");
+  if (mode === "Simple") fireEvent.click(screen.getByRole("button", { name: "Simple" }));
+  fireEvent.change(screen.getByLabelText(mode === "Simple" ? "Desk Name" : "Name"), { target: { value: "Keep operator text" } });
+  fireEvent.click(screen.getByRole("button", { name: "Read radio" }));
+  await waitFor(() => expect(api.reconcile).toHaveBeenCalledOnce());
+  await screen.findByDisplayValue("7.100000");
+  expect(api.invoke).toHaveBeenCalledOnce();
+  expect(api.invoke.mock.calls[0][1].operationId).toMatch(/^[a-f0-9-]{36}$/);
+  expect(api.read.mock.calls.some(([method]) => method === "station_snapshot")).toBe(false);
+  expect(screen.queryByText("Follow radio")).toBeNull();
+  expect(f.current.qso.name).toBe("Keep operator text");
+});
+
+it.each(["Simple", "Full"])("retains unfinished %s buffers without invoking Read radio", async mode => {
+  const f = backend(); api.draft.mockImplementation(f.request);
+  render(<DetachedQSOSurface />); await screen.findByDisplayValue("K1ABC");
+  if (mode === "Simple") fireEvent.click(screen.getByRole("button", { name: "Simple" }));
+  const field = screen.getByLabelText(mode === "Simple" ? "Desk Frequency MHz" : "Frequency MHz");
+  fireEvent.change(field, { target: { value: "14.0250007" } });
+  fireEvent.click(screen.getByRole("button", { name: "Read radio" }));
+  await screen.findByText(/Finish the draft fields and resolve pending QSO changes before reading/);
+  expect(api.invoke).not.toHaveBeenCalled(); expect((field as HTMLInputElement).value).toBe("14.0250007");
+});
+
+it("retains an uncertain Read radio operation and never creates a retry operation", async () => {
+  const f = backend(); api.draft.mockImplementation(f.request);
+  api.invoke.mockRejectedValue(new Error("Read reply lost; check activation"));
+  const view = render(<DetachedQSOSurface />); await screen.findByDisplayValue("K1ABC");
+  fireEvent.click(screen.getByRole("button", { name: "Read radio" }));
+  await screen.findByText("Read reply lost; check activation");
+  expect(api.blocked!()).toBe(true);
+  view.unmount(); render(<DetachedQSOSurface />); await screen.findByDisplayValue("K1ABC");
+  fireEvent.click(screen.getByRole("button", { name: "Read radio" }));
+  await screen.findByText(/Check the existing Read radio activation before reading again/);
+  expect(api.invoke).toHaveBeenCalledOnce();
+});
+
+it("vetoes Read radio when the workspace changes during its edit flush", async () => {
+  const f = backend();
+  api.draft.mockImplementation(async (method, params) => {
+    const result = await f.request(method, params);
+    if (method === "logbook_operator_draft_apply") return { ...result, receipt: { ...result.receipt, draft: { ...result.receipt.draft, generation: crypto.randomUUID() } } };
+    return result;
+  });
+  render(<DetachedQSOSurface />); await screen.findByDisplayValue("K1ABC");
+  fireEvent.change(screen.getByLabelText("Name"), { target: { value: "retained" } });
+  fireEvent.click(screen.getByRole("button", { name: "Read radio" }));
+  await waitFor(() => expect(api.draft.mock.calls.some(([method]) => method === "logbook_operator_draft_apply")).toBe(true));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Read radio" }).textContent).toBe(" Read radio"));
+  expect(api.invoke).not.toHaveBeenCalled();
+});
+
+it.each(["mismatched", "uncertain"])("keeps a %s native outcome protected without issuing a new operation", async outcome => {
+  const f = backend(); api.draft.mockImplementation(f.request);
+  api.invoke.mockImplementation(async (_command, { operationId }) => ({ operationId: outcome === "mismatched" ? crypto.randomUUID() : operationId,
+    phase: outcome === "uncertain" ? "uncertain" : "confirmed", reservationActive: false, tuneConfirmed: false, rotor: "not-requested" }));
+  render(<DetachedQSOSurface />); await screen.findByDisplayValue("K1ABC");
+  fireEvent.click(screen.getByRole("button", { name: "Read radio" }));
+  await screen.findByText(outcome === "mismatched" ? /Read radio outcome could not be verified/ : /Read radio was not confirmed/);
+  expect(api.blocked!()).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Read radio" }));
+  await screen.findByText(/Check the existing Read radio activation before reading again/);
+  expect(api.invoke).toHaveBeenCalledOnce();
+  expect(api.reconcile).toHaveBeenCalledTimes(outcome === "uncertain" ? 1 : 0);
+});
+
 it("loads the canonical full editor with read-only context, no main controller, and closes an acknowledged draft", async () => {
   const f = backend(); api.draft.mockImplementation(f.request);
   const Surface = await loadWindowSurface("?view=log-qso");
@@ -90,7 +167,7 @@ it("loads the canonical full editor with read-only context, no main controller, 
   expect(screen.queryByText("Callsign intelligence")).toBeNull();
   expect(screen.getByRole("button", { name: "Full" }).getAttribute("aria-pressed")).toBe("true");
   expect(screen.queryByRole("button", { name: "Dock back" })).toBeNull();
-  expect(screen.queryByText("Follow radio")).toBeNull(); expect(screen.queryByRole("button", { name: /Read radio/i })).toBeNull();
+  expect(screen.queryByText("Follow radio")).toBeNull(); expect(screen.getByRole("button", { name: /Read radio/i })).toBeTruthy();
   expect(api.blocked!()).toBe(false);
   expect(api.changes.mock.invocationCallOrder[0]).toBeLessThan(api.draft.mock.invocationCallOrder[0]);
   expect(localStorage.getItem("xlog.integration.operatorDraft.main.v1")).toBeNull();
@@ -126,7 +203,7 @@ it("switches Simple and Full over one draft, retaining hidden fields and saving 
   fireEvent.click(screen.getByRole("button", { name: "Simple" }));
   expect(screen.getByRole("button", { name: "Simple" }).getAttribute("aria-pressed")).toBe("true");
   expect(screen.queryByLabelText("QSO note")).toBeNull();
-  expect(screen.queryByRole("button", { name: /Read radio/i })).toBeNull();
+  expect(screen.getByRole("button", { name: /Read radio/i })).toBeTruthy();
   fireEvent.change(screen.getByLabelText("Desk Name"), { target: { value: "Simple operator" } });
   const id = journal().draft.id;
   fireEvent.click(screen.getByRole("button", { name: "Full" }));

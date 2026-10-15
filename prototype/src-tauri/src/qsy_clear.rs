@@ -529,6 +529,7 @@ pub fn observe(projection: &Value) {
         return;
     };
     std::thread::spawn(move || {
+        crate::radio_read::retire_terminal();
         owner.coordinator.execute(TransactionRequest {
             operation_id: uuid::Uuid::new_v4().to_string(),
             qsy,

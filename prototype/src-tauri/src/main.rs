@@ -20,6 +20,7 @@ mod spot_editor_barrier;
 mod spot_activation;
 mod spot_activation_backend;
 mod qsy_clear;
+mod radio_read;
 mod opportunity_selection;
 mod auto_rotor;
 mod auto_rotor_reconcile;
@@ -55,6 +56,7 @@ fn combined_activation_snapshot(app: &tauri::AppHandle) -> Result<serde_json::Va
     let spot_active = spot["reservationActive"] == true
         || matches!(spot["phase"].as_str(), Some("preparing" | "draft_applied" | "tuning"));
     if spot_active { return Ok(spot); }
+    if let Some(read) = radio_read::snapshot().filter(|value| value["operationId"].is_string()) { return Ok(read); }
     if let Some(qsy) = qsy_clear::snapshot().filter(|value| value["operationId"].is_string()) { return Ok(qsy); }
     Ok(spot)
 }
@@ -79,6 +81,9 @@ fn validate_editor_transition(label: &str) -> Result<(), String> {
         }
         if qsy_clear::reservation_active() {
             return Err("Wait for the QSY draft-clear outcome before closing or docking this editor.".into());
+        }
+        if radio_read::reservation_active() {
+            return Err("Wait for the radio-read outcome before closing or docking this editor.".into());
         }
     }
     Ok(())
@@ -112,11 +117,13 @@ fn spot_activation_snapshot(window: tauri::WebviewWindow, app: tauri::AppHandle)
 #[tauri::command]
 fn spot_activation_status(window: tauri::WebviewWindow, app: tauri::AppHandle, operation_id: String) -> Result<serde_json::Value, String> {
     validate_activation_reader(window.label())?;
-    if qsy_clear::owns(&operation_id) { Ok(qsy_clear::snapshot().unwrap()) } else { activation_owner(&app).status(&operation_id) }
+    if radio_read::owns(&operation_id) { Ok(radio_read::snapshot().unwrap()) }
+    else if qsy_clear::owns(&operation_id) { Ok(qsy_clear::snapshot().unwrap()) } else { activation_owner(&app).status(&operation_id) }
 }
 #[tauri::command]
 async fn spot_activation_reconcile(window: tauri::WebviewWindow, app: tauri::AppHandle, operation_id: String) -> Result<serde_json::Value, String> {
     validate_activation_reader(window.label())?;
+    if radio_read::owns(&operation_id) { return Ok(radio_read::snapshot().unwrap()); }
     if qsy_clear::owns(&operation_id) { return Ok(qsy_clear::snapshot().unwrap()); }
     let owner = activation_owner(&app);
     tauri::async_runtime::spawn_blocking(move || owner.reconcile(&operation_id)).await.map_err(|_| "Activation reconciliation task failed".to_string())?
@@ -130,7 +137,7 @@ async fn spot_editor_state(window: tauri::WebviewWindow) -> Result<serde_json::V
 async fn activate_spot(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>,
     operation_id: String, source_epoch: String, spot_id: String, spot_version: String) -> Result<serde_json::Value, String> {
     validate_spot_effect(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
-    qsy_clear::retire_terminal();
+    qsy_clear::retire_terminal(); radio_read::retire_terminal();
     let owner = activation_owner(&app);
     let request = spot_activation::Request { operation_id, source_epoch, spot_id, spot_version };
     tauri::async_runtime::spawn_blocking(move || owner.activate(request)).await.map_err(|_| "Spot activation task failed; inspect its existing operation status before retrying".to_string())?
@@ -142,11 +149,23 @@ async fn activate_opportunity(window: tauri::WebviewWindow, app: tauri::AppHandl
     if !opportunity_selection::owns(&source_epoch) {
         return Err("Opportunity draft selection is unavailable in this window or source.".into());
     }
-    qsy_clear::retire_terminal();
+    qsy_clear::retire_terminal(); radio_read::retire_terminal();
     let owner = activation_owner(&app);
     let request = spot_activation::Request { operation_id, source_epoch, spot_id, spot_version };
     tauri::async_runtime::spawn_blocking(move || owner.activate(request)).await
         .map_err(|_| "Opportunity acknowledgement unavailable; inspect the existing operation before selecting again".to_string())?
+}
+fn validate_radio_read(label: &str, isolated: bool, exiting: bool) -> Result<(), String> {
+    if isolated || exiting || !matches!(label, "main" | "log-qso") {
+        Err("Read Radio is unavailable in this window.".into())
+    } else { Ok(()) }
+}
+#[tauri::command]
+async fn operator_draft_read_radio(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, operation_id: String) -> Result<serde_json::Value, String> {
+    validate_radio_read(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
+    qsy_clear::retire_terminal(); radio_read::retire_terminal();
+    tauri::async_runtime::spawn_blocking(move || radio_read::execute(operation_id))
+        .await.map_err(|_| "Radio-read task failed; inspect the existing operation before trying again".to_string())?
 }
 #[tauri::command]
 fn auto_rotor_snapshot(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>) -> Result<serde_json::Value, String> {
@@ -1246,6 +1265,9 @@ fn main() {
             if matches!(event, tauri::WindowEvent::CloseRequested { .. }) && qsy_clear::reservation_active() {
                 if let tauri::WindowEvent::CloseRequested { api, .. } = event { api.prevent_close(); }
             }
+            if matches!(event, tauri::WindowEvent::CloseRequested { .. }) && radio_read::reservation_active() {
+                if let tauri::WindowEvent::CloseRequested { api, .. } = event { api.prevent_close(); }
+            }
         })
         .on_menu_event(|app, event| {
             if let Some(mode) = workspace_navigation::mode_route(&event.id().0) {
@@ -1298,6 +1320,7 @@ fn main() {
             if app.state::<acceptance::Acceptance>().path.is_none() {
                 let activation = activation_owner(app.handle());
                 qsy_clear::install(app.handle(), activation.editors.clone());
+                radio_read::install(app.handle(), activation.editors.clone());
                 station_identity::install(app.handle());
                 rotor_session::install(app.handle()).map_err(std::io::Error::other)?;
                 let selection_app = app.handle().clone();
@@ -1338,6 +1361,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![worker_request, cw_session_request, station_session_request, pick_backup_package, open_monitor, open_detached_map,
             spot_editor_register, spot_editor_unregister, spot_editor_ack, spot_editor_state,
             spot_activation_snapshot, spot_activation_status, spot_activation_reconcile, activate_spot, activate_opportunity,
+            operator_draft_read_radio,
             auto_rotor_snapshot, auto_rotor_set,
             workspace_windows_status, workspace_windows_reconcile, workspace_mode_present, workspace_canvas_close_ack,
             workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot, propagation_session_request, station_identity_snapshot, alerts_snapshot, dx_alerts_snapshot, dx_alerts_save, dx_alerts_test, dx_alerts_clear, antenna_snapshot,
@@ -1384,7 +1408,7 @@ fn main() {
 #[cfg(test)]
 mod workspace_layout_tests {
     use super::{WorkspaceLayout, DraftWake, recover_singleton, detached_window_shortcut, validate_detached_open, COMPACT_WORKSPACE_MENU_ID, STANDARD_WORKSPACE_MENU_ID};
-    use super::{spot_editor_barrier, validate_spot_effect, validate_activation_reader, retires_automatic_rotor, validate_auto_rotor_read, validate_auto_rotor_set, validate_rotor_stop, AutomaticRotorCommands};
+    use super::{spot_editor_barrier, validate_spot_effect, validate_activation_reader, retires_automatic_rotor, validate_auto_rotor_read, validate_auto_rotor_set, validate_radio_read, validate_rotor_stop, AutomaticRotorCommands};
     use serde_json::json;
 
     #[test]
@@ -1447,6 +1471,17 @@ mod workspace_layout_tests {
             assert_eq!(validate_rotor_stop(label, false, false).is_ok(), matches!(label, "main" | "monitor" | "rotor"), "{label}");
             for (isolated, exiting) in [(true, false), (false, true), (true, true)] {
                 assert!(validate_rotor_stop(label, isolated, exiting).is_err(), "{label} isolated={isolated} exiting={exiting}");
+            }
+        }
+    }
+
+    #[test]
+    fn explicit_radio_read_is_available_only_to_live_new_qso_editors() {
+        for label in crate::workspace_windows::SUPPORTED_WINDOWS.iter().map(|window| window.id)
+            .chain(["main", "log-qso", "logbook", "monitor", "station-control", "unknown", "", "MAIN"]) {
+            assert_eq!(validate_radio_read(label, false, false).is_ok(), matches!(label, "main" | "log-qso"), "{label}");
+            for (isolated, exiting) in [(true, false), (false, true), (true, true)] {
+                assert!(validate_radio_read(label, isolated, exiting).is_err(), "{label} isolated={isolated} exiting={exiting}");
             }
         }
     }

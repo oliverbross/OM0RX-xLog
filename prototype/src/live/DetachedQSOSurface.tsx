@@ -11,9 +11,13 @@ import { connectOperatorDraftChanges, protectOperatorDraftClose } from "./operat
 import { nativeSpotEditor, useSpotEditor } from "./useSpotEditor";
 import { SpotActivationStatus } from "./SpotActivationStatus";
 import { useReferenceEvidence } from "./useReferenceEvidence";
+import { invoke } from "@tauri-apps/api/core";
+import { validSpotActivationSnapshot } from "./spotActivation";
 import "./DetachedQSOSurface.css";
 
 export const detachedQSOJournalKey = "xlog.integration.operatorDraft.log-qso.v1";
+const readRadioJournalKey = `${detachedQSOJournalKey}.readRadio`;
+function storedReadOperation() { try { return localStorage.getItem(readRadioJournalKey); } catch { return "unverified"; } }
 const readMethods = new Set(["lookup_call", "logbook_previous", "logbook_duplicate", "logbook_matrix", "cluster_history", "reference_resolve"]);
 function storedJournal() { try { return localStorage.getItem(detachedQSOJournalKey); } catch { return null; } }
 async function request(method: string, params: Record<string, unknown> = {}) {
@@ -45,18 +49,51 @@ export function DetachedQSOSurface() {
   const [lookup, setLookup] = useState<Record<string, any> | null>(null);
   const [previous, setPrevious] = useState<Record<string, any>[]>([]);
   const workingRef = useRef(false), closingRef = useRef(false), mounted = useRef(true);
+  const readingRadio = useRef(false), readOperation = useRef<string | null>(storedReadOperation());
+  const [radioBusy, setRadioBusy] = useState(false);
   const spotEditor = useSpotEditor([session], () => workingRef.current || closingRef.current || localInput.current
     ? { ready: false, reason: "Finish the buffered fields or close/Dock operation first." } : { ready: true });
-  const acceptsInput = useCallback(() => session.canAcceptLocalInput() && !workingRef.current && !closingRef.current, [session]);
+  const acceptsInput = useCallback(() => session.canAcceptLocalInput() && !workingRef.current && !closingRef.current && !readingRadio.current, [session]);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const report = useCallback((text: string) => { if (mounted.current) setError(text); }, []);
   const run = useCallback(async (action: () => Promise<unknown>) => {
-    if (workingRef.current || closingRef.current) return;
+    if (workingRef.current || closingRef.current || readingRadio.current) return;
     workingRef.current = true; setWorking(true); setError("");
     try { await action(); }
     catch (cause) { report(cause instanceof Error ? cause.message : "QSO operation failed."); }
     finally { workingRef.current = false; if (mounted.current) setWorking(false); }
   }, [report]);
+  useEffect(() => {
+    const status = spotEditor.status;
+    if (status?.operationId && status.operationId === readOperation.current && ["confirmed", "blocked", "failed"].includes(status.phase) && status.reservationActive !== true) {
+      localStorage.removeItem(readRadioJournalKey); readOperation.current = null;
+    }
+  }, [spotEditor.status]);
+  const readRadio = async () => {
+    if (readOperation.current) throw new Error("Check the existing Read radio activation before reading again. No read was retried.");
+    const before = session.getSnapshot();
+    if (!acceptsInput() || localInput.current || !before.base || before.locked || before.pending || before.conflict || before.workspaceChanged || before.error)
+      throw new Error("Finish the draft fields and resolve pending QSO changes before reading the radio.");
+    readingRadio.current = true; setRadioBusy(true);
+    try {
+      await session.flush();
+      const current = session.getSnapshot();
+      if (closingRef.current || workingRef.current || localInput.current || !session.canAcceptLocalInput() || session.dirty || current.locked || current.pending || current.conflict || current.workspaceChanged || current.error ||
+          current.base?.generation !== before.base.generation || current.base?.qso.id !== before.base.qso.id)
+        throw new Error("The shared draft changed while preparing Read radio. Your text is retained.");
+      const operationId = crypto.randomUUID();
+      // Persist before dispatch: a remounted editor must check this same outcome.
+      localStorage.setItem(readRadioJournalKey, operationId); readOperation.current = operationId;
+      const result = await invoke("operator_draft_read_radio", { operationId });
+      if (!validSpotActivationSnapshot(result) || result.operationId !== operationId || !["confirmed", "blocked", "failed", "uncertain"].includes(result.phase))
+        throw new Error("Read radio outcome could not be verified. Check the existing activation before reading again.");
+      await spotEditor.reconcile();
+      if (result.reservationActive !== true && result.phase !== "uncertain") {
+        localStorage.removeItem(readRadioJournalKey); readOperation.current = null;
+      }
+      if (result.phase !== "confirmed" || result.reservationActive === true) throw new Error(result.error || "Read radio was not confirmed. Check the existing activation before reading again.");
+    } finally { readingRadio.current = false; if (mounted.current) setRadioBusy(false); }
+  };
   const refresh = useCallback(async () => {
     if (localInput.current || closingRef.current) return;
     await session.refresh();
@@ -76,7 +113,7 @@ export function DetachedQSOSurface() {
   }, [session, state, report, closing]);
   const cannotClose = useCallback(() => {
     const current = session.getSnapshot();
-    return workingRef.current || localInput.current || session.dirty || !!current.pending ||
+    return workingRef.current || readingRadio.current || !!readOperation.current || localInput.current || session.dirty || !!current.pending ||
       current.activationFrozen || current.locked || !!current.conflict || current.workspaceChanged;
   }, [session]);
   const explainClose = useCallback(() => report("Finish the draft fields and resolve unsaved or pending QSO changes before closing or docking this window."), [report]);
@@ -114,9 +151,9 @@ export function DetachedQSOSurface() {
     }, 400);
     return () => { active = false; clearTimeout(timer); };
   }, [state.draft?.id, state.draft?.call, state.base?.generation, state.workspaceChanged, session]);
-  const blocked = state.activationFrozen || state.locked || state.workspaceChanged || !!state.conflict || !!state.pending;
+  const blocked = radioBusy || state.activationFrozen || state.locked || state.workspaceChanged || !!state.conflict || !!state.pending;
   const switchMode = (next: typeof mode) => {
-    if (next === mode || workingRef.current || closingRef.current || blocked) return;
+    if (next === mode || workingRef.current || closingRef.current || readingRadio.current || blocked) return;
     if (localInput.current) { report("Finish the buffered fields before changing editor modes."); return; }
     setMode(next); setError("");
   };
@@ -133,11 +170,11 @@ export function DetachedQSOSurface() {
     <OperatorDraftStatus state={state} session={session} run={run} />
     {mode === "simple" ? <><DeskQSO referenceEvidence={referenceEvidence} draft={state.draft} setDraft={setDraft} save={() => void save()} clear={clear}
       busy={working || closing || blocked} draftLocked={working || closing || blocked} request={request} refresh={state.base?.revision ?? 0}
-      follow={false} setFollow={() => {}} radioControls={false} onLocalInputState={inputState} canAcceptLocalInput={acceptsInput} />
+      follow={false} setFollow={() => {}} radioControls={false} onReadRadio={readRadio} onLocalInputState={inputState} canAcceptLocalInput={acceptsInput} />
       <button className="detached-qso-fill" type="button" disabled={working || closing || blocked || !normalizedCall(state.draft?.call) || normalizedCall(lookup?.call) !== normalizedCall(state.draft?.call)} onClick={() => setDraft(current => fillEmptyLookupFields(current, lookup))}>Fill empty fields from lookup</button></> :
     <QSOEditor referenceEvidence={referenceEvidence} draft={state.draft} setDraft={setDraft} save={save} clear={clear} inspector={false}
       busy={working || closing || blocked} draftLocked={working || closing || blocked}
-      lookup={lookup} previous={previous} follow={false} setFollow={() => {}} request={request} radioControls={false}
+      lookup={lookup} previous={previous} follow={false} setFollow={() => {}} request={request} radioControls={false} onReadRadio={readRadio}
       onLocalInputState={inputState}
       canAcceptLocalInput={acceptsInput}
       powerState={state.base?.power} powerIntent={state.powerIntent} automaticPowerEnabled={state.base?.power?.enabled === true}

@@ -866,6 +866,31 @@ installed, no device/service was contacted and no rotor, station or RF command w
 issued. Eliminating the hidden main controller, broader Station Control parity,
 mixed-display/operator review and physical rotor acceptance remain separate work.
 
+### Checkpoint AO — authoritative Read Radio in the detached QSO editor
+
+Both Simple and Full modes of the standalone Log QSO window now expose the same
+explicit Read Radio action without exposing a raw station worker API. A native
+single-operation owner admits every registered QSO editor, fences the canonical
+draft revision, workspace generation, selected provider, selection identity,
+station generation and control revision, then performs exactly one authoritative
+radio read. A native-only Swift projection changes frequency, derived band and
+logging mode while preserving every unrelated ADIF field and the current automatic
+or manual transmit-power policy. Its durable receipt supports lost-reply recovery;
+unknown outcomes are checked, never replayed.
+
+The owner retains the active barrier when a competing read is rejected, so a second
+click cannot hide the first operation from editor reconciliation. Detached Read
+Radio flushes valid buffered edits first, retains incomplete text, persists an
+unresolved operation identity across remounts and never enables Follow Radio.
+Follow Radio remains a separate future ownership stage because it needs continuous
+native observation/coalescing rather than an explicit one-shot transaction.
+
+Focused UI/owner coverage, the complete frontend **2,473/2,473**, Rust **487/487**
+and portable Swift **417 tests in 57 suites** pass, as do TypeScript, the production
+Vite/window-bundle build and diff checks. This is source evidence only. No package
+was produced or installed, no station/provider/device was contacted and no radio,
+rotor, RF or operator-data action was issued.
+
 ### 14 October audit — remaining new-QSO and QSY ownership
 
 At `cd25718`, detached Logbook edits saved contacts; it is not an independent

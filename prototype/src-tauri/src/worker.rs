@@ -24,7 +24,7 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     if label == "station-status" { return Err("Station Status can only read retained native station observations.".into()); }
     if label == "propagation" { return Err("Propagation can only use the typed shared public-conditions session.".into()); }
     if matches!(label, "station-identity" | "alerts" | "antenna") { return Err("This display can only read its retained non-secret projection.".into()); }
-    if request["method"].as_str().is_some_and(|method| method.starts_with("spot_draft_") || method == "logbook_operator_draft_qsy_clear") {
+    if request["method"].as_str().is_some_and(|method| method.starts_with("spot_draft_") || matches!(method, "logbook_operator_draft_qsy_clear" | "logbook_operator_draft_radio_read")) {
         return Err("Only the native transaction owner can use this method.".into());
     }
     if request["method"] == "workspace_layout_load" {
@@ -178,6 +178,7 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "logbook_operator_draft_apply",
         "logbook_operator_draft_receipt",
         "logbook_operator_draft_qsy_clear",
+        "logbook_operator_draft_radio_read",
         "spot_draft_apply", "spot_draft_status", "spot_draft_stage", "spot_draft_finish", "spot_draft_abandon",
         "logbook_contact",
         "logbook_contact_apply",
@@ -886,6 +887,11 @@ mod tests {
         assert!(validate_request(&qsy).is_ok());
         for label in ["main", "monitor", "log-qso", "logbook", "awards", "world-map", "band-maps", "dx-cluster", "settings", "unknown", ""] {
             assert!(validate_surface(label, &qsy).is_err(), "{label}");
+        }
+        let read = json!({"id":"read", "method":"logbook_operator_draft_radio_read", "params":{}});
+        assert!(validate_request(&read).is_ok());
+        for label in ["main", "monitor", "log-qso", "logbook", "awards", "world-map", "band-maps", "dx-cluster", "settings", "station-control", "station-status", "cw", "rotor", "propagation", "station-identity", "alerts", "antenna", "spot-history", "chaser-dx", "callsign-intelligence", "unknown", ""] {
+            assert!(validate_surface(label, &read).is_err(), "{label}");
         }
     }
 

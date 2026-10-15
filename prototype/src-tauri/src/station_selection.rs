@@ -422,14 +422,20 @@ impl Selection {
             .map_err(|_| "Radio session is busy; wait for its current action.".into())
     }
     pub fn fence_qsy_epoch(self: &Arc<Self>, expected: &Value) -> Result<QSYEpochFence, String> {
-        let mut state = self.state.try_lock().map_err(|_| "Radio session is busy; QSY clear was not admitted.")?;
+        self.fence_observed_epoch(expected, "QSY clear")
+    }
+    pub fn fence_radio_read_epoch(self: &Arc<Self>, expected: &Value) -> Result<QSYEpochFence, String> {
+        self.fence_observed_epoch(expected, "radio read")
+    }
+    fn fence_observed_epoch(self: &Arc<Self>, expected: &Value, action: &str) -> Result<QSYEpochFence, String> {
+        let mut state = self.state.try_lock().map_err(|_| format!("Radio session is busy; {action} was not admitted."))?;
         self.active()?;
         if state.controls != 0 || state.activation_tune || state.qsy_fence
             || expected["provider"].as_str() != state.provider.as_deref()
             || expected["generation"].as_u64() != Some(state.generation)
             || expected["selection_id"].as_str() != state.selection_id.as_deref()
             || expected["control_revision"].as_u64() != Some(state.control_revision) {
-            return Err("Radio selection or command epoch changed before QSY clear.".into());
+            return Err(format!("Radio selection or command epoch changed before {action}."));
         }
         state.qsy_fence = true;
         Ok(QSYEpochFence(self.clone()))

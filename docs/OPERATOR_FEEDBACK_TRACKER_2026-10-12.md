@@ -7,6 +7,18 @@ packaged UI result. Keep unresolved items here across releases.
 
 ## Current delivery boundary
 
+- **Detached QSO authoritative Read Radio, 16 October:** Simple and Full standalone
+  Log QSO modes now share a native single-operation Read Radio owner. It admits all
+  registered editors, fences the canonical draft/workspace/radio-selection/command
+  epochs, performs one authoritative observation and applies only the projected
+  frequency/band/logging-mode fields through a durable receipt. Unrelated ADIF and
+  power state are preserved; buffered text, conflicts, competing clicks and lost
+  replies fail closed without automatic replay. Follow Radio remains intentionally
+  hidden until its separate continuous native owner exists. Full frontend
+  **2,473/2,473**, Rust **487/487**, portable Swift **417 tests in 57 suites** and
+  the production build pass. Source only: alpha.31 remains installed and no service,
+  station, hardware, RF or operator-data action occurred.
+
 - **Detached Rotor Auto/Stop and QSO success overlay, 16 October:** The standalone
   Rotor surface now shares the native automatic-following owner/events and the
   current-owner urgent Stop ingress. Exact role, owner/generation, isolation and
