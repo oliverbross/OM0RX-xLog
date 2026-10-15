@@ -28,6 +28,12 @@ public struct RemoteBackupVerifiedObject: Equatable, Sendable, Codable {
         case .oneDrive:
             valid = opaque(providerAccountID, prefix: "odrive:")
                 && opaque(objectID, prefix: "oditem:") && opaque(revision, prefix: "oetag:")
+        case .ftp:
+            valid = opaque(providerAccountID, prefix: "ftpacct:")
+                && opaque(objectID, prefix: "ftpobj:") && opaque(revision, prefix: "ftpsha:")
+        case .ftps:
+            valid = opaque(providerAccountID, prefix: "ftpsacct:")
+                && opaque(objectID, prefix: "ftpsobj:") && opaque(revision, prefix: "ftpssha:")
         default:
             valid = false
         }

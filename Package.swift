@@ -10,11 +10,14 @@ let portableOnly = ProcessInfo.processInfo.environment["XLOG_PORTABLE_ONLY"] == 
 #if os(macOS)
 let portableDependencies: [Package.Dependency] = []
 let portableCrypto: [Target.Dependency] = []
+let nativeTransferTargets: [Target] = [
+    .target(name: "CCurlBackup", linkerSettings: [.linkedLibrary("curl")]),
+]
 let sqlitePkgConfig: String? = nil
 let liveCoreName = "XLogCore"
 let liveIntegrationDependencies: [Target.Dependency] = ["XCatIntegrationCore"]
 let prototypeCoreTargets: [Target] = [
-    .target(name: "XLogCore", resources: [.process("Resources")], linkerSettings: [
+    .target(name: "XLogCore", dependencies: ["CCurlBackup"], resources: [.process("Resources")], linkerSettings: [
         .linkedFramework("Network"), .linkedFramework("Security"), .linkedLibrary("sqlite3"), .linkedLibrary("z")
     ]),
     .target(name: "XCatIntegrationCore", linkerSettings: [.linkedFramework("Network"), .linkedFramework("Security")])
@@ -24,6 +27,7 @@ let portableDependencies: [Package.Dependency] = [
     .package(url: "https://github.com/apple/swift-crypto.git", exact: "3.8.0"),
 ]
 let portableCrypto: [Target.Dependency] = [.product(name: "Crypto", package: "swift-crypto")]
+let nativeTransferTargets: [Target] = []
 let sqlitePkgConfig: String? = "sqlite3"
 let liveCoreName = "XLogPortableCore"
 let liveIntegrationDependencies: [Target.Dependency] = ["XCatIntegrationCore"]
@@ -56,7 +60,7 @@ let package = portableOnly ? Package(
     platforms: [.macOS(.v14)],
     products: [.executable(name: "xlog-prototype-worker", targets: ["XLogPrototypeWorker"])],
     dependencies: portableDependencies,
-    targets: prototypeCoreTargets + [
+    targets: nativeTransferTargets + prototypeCoreTargets + [
         .systemLibrary(name: "CSQLitePrototype", pkgConfig: sqlitePkgConfig, providers: [.apt(["libsqlite3-dev"])]),
         .target(name: "CClusterSocket", linkerSettings: [.linkedLibrary("ws2_32", .when(platforms: [.windows]))]),
         .target(name: "CPlatformVault", linkerSettings: [.linkedLibrary("Advapi32", .when(platforms: [.windows]))]),
@@ -76,9 +80,10 @@ let package = portableOnly ? Package(
         .library(name: "XLogCore", targets: ["XLogCore"]),
         .executable(name: "om0rx-xlog", targets: ["XLogApp"]),
     ],
-    targets: [
+    targets: nativeTransferTargets + [
         .target(
             name: "XLogCore",
+            dependencies: ["CCurlBackup"],
             resources: [.process("Resources")],
             linkerSettings: [
                 .linkedFramework("Network"),
