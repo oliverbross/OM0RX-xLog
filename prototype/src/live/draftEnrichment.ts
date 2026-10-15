@@ -2,6 +2,15 @@ type Data = Record<string, any>;
 const contactFields = ["name", "gridSquare", "country", "dxcc", "continent", "cqZone", "ituZone", "state", "county", "qth", "email", "iota", "sotaReference", "potaReference", "wwffReference", "sig", "sigInfo"];
 export const normalizedCall = (value: unknown) => String(value || "").trim().toUpperCase();
 
+/** Explicit lookup fill never overwrites an operator's entered values. */
+export function fillEmptyLookupFields(current: Data | null, lookup: Data | null): Data | null {
+  if (!current || !lookup || !normalizedCall(current.call) || normalizedCall(current.call) !== normalizedCall(lookup.call)) return current;
+  const next = { ...current };
+  for (const key of ["name", "gridSquare", "country", "dxcc", "continent", "cqZone", "ituZone", "state", "county", "qth", "email"])
+    if ((next[key] === "" || next[key] == null) && lookup[key] != null && lookup[key] !== "") next[key] = lookup[key];
+  return next;
+}
+
 // A new callsign is a new contact: never carry another station's identity into it.
 // Keep fields explicitly supplied by a spot and all unrelated log/ADIF metadata.
 export function changedCallDraft(previous: Data | null, next: Data | null): Data | null {

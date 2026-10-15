@@ -5,6 +5,7 @@ import QSOHeader, { type ReferenceEvidence } from "./QSOHeader";
 import type { DraftPowerIntent, DraftPowerState } from "./operatorDraftSession";
 import { dxccIdentity } from "./dxccIdentity";
 import { connectLogbookChanges } from "./logbookWindows";
+import { fillEmptyLookupFields } from "./draftEnrichment";
 
 type Data = Record<string, any>;
 export function safeProfileURL(value: unknown): string | null {
@@ -27,6 +28,7 @@ type Props = {
   automaticStationMetadata?: Array<{ label: string; value: string; provenance: "observed" | "configured" | "selected" }>;
   isEditing?: boolean;
   radioControls?: boolean;
+  inspector?: boolean;
   clearLabel?: string;
   referenceEvidence?: ReferenceEvidence | null;
   powerState?: DraftPowerState | null; powerIntent?: DraftPowerIntent | null; automaticPowerEnabled?: boolean;
@@ -99,7 +101,6 @@ const groups: Record<string, Field[]> = {
   QSLExtra: [{ key: "lotwSent", label: "LoTW sent", kind: "enum", options: ["Y", "N", "Q", "I"] },
     { key: "lotwReceived", label: "LoTW received", kind: "enum", options: ["Y", "N", "V", "I"] }],
 };
-const lookupFields = ["name", "gridSquare", "country", "dxcc", "continent", "cqZone", "ituZone", "state", "county", "qth", "email"];
 const call = (value: unknown) => String(value ?? "").trim().toUpperCase();
 const iso = (value: unknown): string => typeof value === "string" && /^\d{4}-\d\d-\d\dT\d\d:\d\d/.test(value) ? value : "";
 const datePart = (value: unknown) => iso(value).slice(0, 10);
@@ -136,7 +137,7 @@ export function draftPowerDescription(draft: Data, power?: DraftPowerState | nul
 }
 
 export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draftLocked, lookup, previous, follow, setFollow, request, onReadRadio, automaticStationMetadata = [], isEditing = false, radioControls = true, clearLabel = "Clear QSO", referenceEvidence,
-  powerState, powerIntent, automaticPowerEnabled, onManualPower, onResumeAutomaticPower, onLocalInputState, canAcceptLocalInput, onUndock }: Props) {
+  powerState, powerIntent, automaticPowerEnabled, onManualPower, onResumeAutomaticPower, onLocalInputState, canAcceptLocalInput, onUndock, inspector = true }: Props) {
   const acceptsInput = () => !draftLocked && (canAcceptLocalInput?.() ?? true);
   const setDraft: Props["setDraft"] = value => { if (acceptsInput()) writeDraft(value); };
   const [frequencyDraft, setFrequencyDraft] = useState<string | null>(null);
@@ -312,12 +313,7 @@ export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draf
   };
   const fillLookup = () => {
     if (!acceptsInput() || !sameLookup) return;
-    setDraft((current) => {
-      if (!current || call(current.call) !== call(lookup?.call)) return current;
-      const next = { ...current };
-      for (const key of lookupFields) if ((next[key] === "" || next[key] == null) && lookup?.[key] != null && lookup[key] !== "") next[key] = lookup[key];
-      return next;
-    });
+    setDraft(current => fillEmptyLookupFields(current, lookup));
   };
   const readRadio = async () => {
     if (!acceptsInput() || !onReadRadio || busy || radioBusy) return;
@@ -334,7 +330,7 @@ export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draf
   const captured = automaticStationMetadata.filter(item => item && item.label?.trim() && item.value?.trim() &&
     ["observed", "configured", "selected"].includes(item.provenance));
   if (!draft) return <section className="qso-editor" aria-label="Log QSO"><p>Opening logbook…</p></section>;
-  return <section className="qso-editor" ref={rootRef} onKeyDown={keyDown} aria-label="Log QSO">
+  return <section className={`qso-editor${inspector ? "" : " qso-editor-without-inspector"}`} ref={rootRef} onKeyDown={keyDown} aria-label="Log QSO">
     <div className="qso-editor-main"><form inert={draftLocked} aria-busy={draftLocked} onSubmit={submit} noValidate>
       <section className="qso-active" aria-labelledby="qso-active-title">
         <QSOHeader title="Active contact" id="qso-active-title" call={draft.call} evidence={referenceEvidence}
@@ -349,6 +345,7 @@ export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draf
         <div className="qso-time-row"><div className="qso-timing"><div className={`qso-country-identity qso-country-${countryIdentity.status}`} aria-label={`${countryIdentity.label}: ${countryStatus}`} title={`${countryIdentity.label}: ${countryStatus}`}><span>{countryIdentity.label}</span>{countryIdentity.status !== "neutral" && <small>· {countryStatus}</small>}</div><div className="qso-utc"><strong>UTC</strong><label><span>Date</span><input aria-label="Start UTC date" type="date" value={currentTime("start").date} onChange={(event) => changeTime("start", "date", event.target.value)} /></label><label><span>Time</span><input aria-label="Start UTC time" type="time" step={1} value={currentTime("start").time} onChange={(event) => changeTime("start", "time", event.target.value)} /></label></div></div><div className="qso-reports">{field({ key: "rstSent", label: "RST sent" })}{field({ key: "rstReceived", label: "RST received" })}</div></div>
         {radioError && <p className="qso-radio-error" role="alert">{radioError}</p>}
         {historyRefreshError && <p className="qso-radio-error" role="status">{historyRefreshError}</p>}
+        {!inspector && <button type="button" onClick={fillLookup} disabled={!sameLookup || busy || draftLocked}>Fill empty fields from lookup</button>}
       </section>
 
       <section className="qso-details" aria-labelledby="qso-details-title">
@@ -373,7 +370,7 @@ export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draf
       {(showErrors || errors.length > 0) && <div className="qso-validation" role="alert">{errors.length ? <ul>{errors.map((issue) => <li key={issue}>{issue}</li>)}</ul> : <span>QSO is ready to save.</span>}</div>}
       <footer className="qso-actions"><div className="qso-footer-context">{radioControls && <label><input type="checkbox" checked={follow} onChange={(event) => { if (acceptsInput()) setFollow(event.target.checked); }} />Follow radio</label>}<span>Saved to your local logbook.</span></div><div className="qso-footer-buttons"><button type="button" onClick={() => { if (acceptsInput()) clear(); }} disabled={busy}><CircleX size={13} aria-hidden="true" /> {clearLabel}</button><button className="qso-save" type="submit" disabled={!canSave}><CircleCheck size={13} aria-hidden="true" /> {isEditing ? "Update QSO" : "Log QSO"}</button></div></footer>
     </form></div>
-    <aside className="qso-inspector" aria-label="Contact context">
+    {inspector && <aside className="qso-inspector" aria-label="Contact context">
       <section aria-labelledby="qso-intelligence-title"><h2 id="qso-intelligence-title"><ContactRound size={15} aria-hidden="true" /> Callsign intelligence</h2>
         <div className="qso-profile-summary">{profileImage && failedImage !== profileImage && <button ref={photoTrigger} className="qso-photo-trigger" type="button" aria-label={`View full-size QRZ photo for ${matrixCall}`} aria-haspopup="dialog" onClick={() => setViewedImage({ image: profileImage, call: matrixCall })}><img className="qso-profile-photo" src={profileImage} alt={`${matrixCall} QRZ profile photo`} loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={() => setFailedImage(profileImage)} /></button>}
           <div className="qso-profile-identity"><div className="qso-intelligence"><strong>{profile?.name || matrixCall || "Enter a callsign"}</strong>{profile?.isNewCall === true && <b>NEW CALL</b>}</div><p>{profile ? profile.country || "Country unresolved" : "Enter a callsign to see lookup details."}</p>{profile?.nickname && <p>{profile.nickname}</p>}<span className="qso-profile-source">{profile?.source || "Lookup pending"}</span></div>
@@ -391,7 +388,7 @@ export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draf
         const timestamp = item.start ? new Date(item.start).toLocaleString("en-GB", { timeZone: "UTC", dateStyle: "short", timeStyle: "short" }) : "—";
         return <div key={item.id ?? index}><time dateTime={item.start || undefined} title={`${timestamp} UTC`}>{timestamp}</time><b title={item.band}>{item.band}</b><span title={item.mode}>{item.mode}</span><span className={confirmed ? "qso-history-confirmed" : "qso-history-worked"}>{confirmed ? "Confirmed" : "Worked"}</span></div>;
       })}</div> : <div className="qso-empty"><History size={19} aria-hidden="true" /><strong>No local history</strong><p>No matching QSO is in the loaded local history.</p></div>}</section>
-    </aside>
+    </aside>}
     {viewedImage && viewedImage.image === profileImage && viewedImage.call === matrixCall && failedImage !== profileImage && <QRZPhotoViewer image={viewedImage.image} callsign={viewedImage.call} trigger={photoTrigger} onClose={() => setViewedImage(null)} onError={() => { setFailedImage(viewedImage.image); setViewedImage(null); }} />}
   </section>;
 }

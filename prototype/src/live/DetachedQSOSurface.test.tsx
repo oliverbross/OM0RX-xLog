@@ -85,6 +85,10 @@ it("loads the canonical full editor with read-only context, no main controller, 
   expect(screen.getByRole("button", { name: "Check activation" })).toBeTruthy();
   expect(document.querySelector(".station-rail")).toBeNull();
   expect(document.querySelector(".qso-editor")).toBeTruthy();
+  expect(screen.queryByRole("complementary", { name: "Contact context" })).toBeNull();
+  expect(screen.queryByText("Previous QSOs")).toBeNull();
+  expect(screen.queryByText("Callsign intelligence")).toBeNull();
+  expect(screen.getByRole("button", { name: "Full" }).getAttribute("aria-pressed")).toBe("true");
   expect(screen.queryByRole("button", { name: "Dock back" })).toBeNull();
   expect(screen.queryByText("Follow radio")).toBeNull(); expect(screen.queryByRole("button", { name: /Read radio/i })).toBeNull();
   expect(api.blocked!()).toBe(false);
@@ -113,6 +117,67 @@ it("journals and autosaves notes, blocking Close/Dock until the exact Replace is
   await act(async () => { held.resolve(); });
   await waitFor(() => expect(api.blocked!()).toBe(false));
   expect(f.current.qso.notes).toBe("retained note"); expect(f.current.qso.extraFields).toEqual({ OTHER: "keep" });
+});
+
+it("switches Simple and Full over one draft, retaining hidden fields and saving exactly once", async () => {
+  const f = backend(); api.draft.mockImplementation(f.request);
+  render(<DetachedQSOSurface />); await screen.findByDisplayValue("K1ABC");
+  fireEvent.change(screen.getByLabelText("QSO note"), { target: { value: "full-only note" } });
+  fireEvent.click(screen.getByRole("button", { name: "Simple" }));
+  expect(screen.getByRole("button", { name: "Simple" }).getAttribute("aria-pressed")).toBe("true");
+  expect(screen.queryByLabelText("QSO note")).toBeNull();
+  expect(screen.queryByRole("button", { name: /Read radio/i })).toBeNull();
+  fireEvent.change(screen.getByLabelText("Desk Name"), { target: { value: "Simple operator" } });
+  const id = journal().draft.id;
+  fireEvent.click(screen.getByRole("button", { name: "Full" }));
+  expect((screen.getByLabelText("Name") as HTMLInputElement).value).toBe("Simple operator");
+  expect((screen.getByLabelText("QSO note") as HTMLTextAreaElement).value).toBe("full-only note");
+  expect(journal().draft.id).toBe(id);
+  fireEvent.click(screen.getByRole("button", { name: "Simple" }));
+  await waitFor(() => expect(api.blocked!()).toBe(false));
+  fireEvent.click(screen.getByRole("button", { name: "Log QSO" }));
+  await waitFor(() => expect(f.contacts).toHaveLength(1));
+  expect(f.contacts[0]).toMatchObject({ id, notes: "full-only note", name: "Simple operator", extraFields: { OTHER: "keep" } });
+  expect(api.protect).toHaveBeenCalledOnce();
+});
+
+it.each([
+  ["full", "Frequency MHz", "14.", "14.025000"],
+  ["full", "Start UTC date", "", "2026-10-14"],
+  ["full", "Start UTC time", "", "00:00:00"],
+  ["full", "RX frequency MHz", "14.", ""],
+  ["full", "DXCC", "-1", ""],
+  ["simple", "Desk Frequency MHz", "14.0250007", "14.025000"],
+  ["simple", "Desk UTC date", "", "2026-10-14"],
+  ["simple", "Desk UTC time", "", "00:00:00"],
+])("keeps unfinished %s %s text mounted when switching modes", async (mode, label, unfinished, restored) => {
+  const f = backend(); api.draft.mockImplementation(f.request);
+  render(<DetachedQSOSurface />); await screen.findByDisplayValue("K1ABC");
+  if (mode === "simple") fireEvent.click(screen.getByRole("button", { name: "Simple" }));
+  const destination = mode === "simple" ? "Full" : "Simple";
+  fireEvent.change(screen.getByLabelText(label), { target: { value: unfinished } });
+  fireEvent.click(screen.getByRole("button", { name: destination }));
+  expect((screen.getByLabelText(label) as HTMLInputElement).value).toBe(unfinished);
+  expect(screen.getByRole("button", { name: destination }).getAttribute("aria-pressed")).toBe("false");
+  expect(api.blocked!()).toBe(true);
+  expect(screen.getByText("Finish the buffered fields before changing editor modes.")).toBeTruthy();
+  fireEvent.change(screen.getByLabelText(label), { target: { value: restored } });
+  await waitFor(() => expect(api.blocked!()).toBe(false));
+  fireEvent.click(screen.getByRole("button", { name: destination }));
+  expect(screen.getByRole("button", { name: destination }).getAttribute("aria-pressed")).toBe("true");
+});
+
+it("retains explicit lookup Fill in Simple without overwriting entered fields", async () => {
+  const f = backend(); api.draft.mockImplementation(f.request);
+  api.read.mockImplementation(async (method, params) => ({ result: method === "lookup_call"
+    ? { call: params.call, name: "Lookup operator", country: "United States", dxcc: 291 } : { cells: [] } }));
+  render(<DetachedQSOSurface />); await screen.findByDisplayValue("K1ABC");
+  fireEvent.click(screen.getByRole("button", { name: "Simple" }));
+  fireEvent.change(screen.getByLabelText("Desk Name"), { target: { value: "Entered operator" } });
+  await waitFor(() => expect(screen.getByRole("button", { name: "Fill empty fields from lookup" }).hasAttribute("disabled")).toBe(false));
+  fireEvent.click(screen.getByRole("button", { name: "Fill empty fields from lookup" }));
+  expect(journal().draft).toMatchObject({ name: "Entered operator", country: "United States", dxcc: 291 });
+  expect(screen.queryByText("Previous QSOs")).toBeNull();
 });
 
 it("retains an uncertain Save across remount and checks its receipt without creating a second QSO", async () => {
@@ -216,7 +281,7 @@ it("does not apply a delayed old-call lookup or history to the new shared contac
   fireEvent.change(screen.getByLabelText("Callsign"), { target: { value: "JA1ABC" } });
   await act(async () => { oldLookup.resolve({ call: "K1ABC", name: "Old operator", country: "Old country" }); });
   await waitFor(() => expect(api.read).toHaveBeenCalledWith("lookup_call", { call: "JA1ABC" }));
-  await screen.findByText("Current operator");
+  await waitFor(() => expect(screen.getByRole("button", { name: "Fill empty fields from lookup" }).hasAttribute("disabled")).toBe(false));
   expect(screen.queryByDisplayValue("Old operator")).toBeNull();
   expect((screen.getByLabelText("Callsign") as HTMLInputElement).value).toBe("JA1ABC");
   expect((screen.getByLabelText("Name") as HTMLInputElement).value).toBe("");
@@ -233,7 +298,7 @@ it("keeps delayed lookup display-only after close approval while explicit Fill r
   await waitFor(() => expect(api.read).toHaveBeenCalledWith("lookup_call", { call: "K1ABC" }));
   expect(api.blocked!()).toBe(false);
   await act(async () => { lookup.resolve({ call: "K1ABC", name: "Late operator", source: "Fixture" }); });
-  await screen.findByText("Late operator");
+  await waitFor(() => expect(screen.getByRole("button", { name: "Fill empty fields from lookup" }).hasAttribute("disabled")).toBe(false));
   expect(api.blocked!()).toBe(false); expect(f.current.qso.name).toBe("");
   expect(api.draft.mock.calls.every(([method]) => method !== "logbook_operator_draft_apply")).toBe(true);
   const fill = screen.getByRole("button", { name: "Fill empty fields from lookup" });

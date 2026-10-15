@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type SetStateAction } from "react";
 import { workerRequest } from "../worker";
 import QSOEditor from "./QSOEditor";
+import { DeskQSO } from "./OperatorDesk";
 import { OperatorDraftSession, readDraftJournal, type DraftQSO } from "./operatorDraftSession";
 import { requestOperatorDraft } from "./operatorDraftTransport";
 import { OperatorDraftStatus } from "./OperatorDraftStatus";
-import { changedCallDraft, normalizedCall } from "./draftEnrichment";
+import { changedCallDraft, fillEmptyLookupFields, normalizedCall } from "./draftEnrichment";
 import { connectOperatorDraftChanges, protectOperatorDraftClose } from "./operatorDraftWindows";
 import { nativeSpotEditor, useSpotEditor } from "./useSpotEditor";
 import { SpotActivationStatus } from "./SpotActivationStatus";
@@ -12,7 +13,7 @@ import { useReferenceEvidence } from "./useReferenceEvidence";
 import "./DetachedQSOSurface.css";
 
 export const detachedQSOJournalKey = "xlog.integration.operatorDraft.log-qso.v1";
-const readMethods = new Set(["lookup_call", "logbook_previous", "logbook_matrix", "cluster_history", "reference_resolve"]);
+const readMethods = new Set(["lookup_call", "logbook_previous", "logbook_duplicate", "logbook_matrix", "cluster_history", "reference_resolve"]);
 function storedJournal() { try { return localStorage.getItem(detachedQSOJournalKey); } catch { return null; } }
 async function request(method: string, params: Record<string, unknown> = {}) {
   if (!readMethods.has(method)) throw new Error("This control is unavailable in the detached QSO editor.");
@@ -24,6 +25,7 @@ async function request(method: string, params: Record<string, unknown> = {}) {
 /** A view of the canonical draft, never a second station/session controller. */
 export function DetachedQSOSurface() {
   const localInput = useRef(false);
+  const [mode, setMode] = useState<"simple" | "full">("full");
   const [session] = useState(() => new OperatorDraftSession(async (method, params) => {
     const result = await requestOperatorDraft(method, params);
     // Also fence a read already in flight when unfinished editor text appears.
@@ -112,14 +114,26 @@ export function DetachedQSOSurface() {
     return () => { active = false; clearTimeout(timer); };
   }, [state.draft?.id, state.draft?.call, state.base?.generation, state.workspaceChanged, session]);
   const blocked = state.activationFrozen || state.locked || state.workspaceChanged || !!state.conflict || !!state.pending;
+  const switchMode = (next: typeof mode) => {
+    if (next === mode || workingRef.current || closingRef.current || blocked) return;
+    if (localInput.current) { report("Finish the buffered fields before changing editor modes."); return; }
+    setMode(next); setError("");
+  };
+  const save = () => run(async () => {
+    const saved = await session.commit("save");
+    if (saved && mounted.current) setMessage(`${saved.call} saved to the local logbook.`);
+  });
+  const clear = () => void run(async () => { await session.commit("clear"); if (mounted.current) setMessage(""); });
   return <div className="app live monitor-app detached-qso-app"><main aria-label="Detached Log QSO">
+    <div className="detached-qso-modes" role="group" aria-label="QSO editor mode">{(["simple", "full"] as const).map(value => <button key={value} type="button" aria-pressed={mode === value} disabled={working || closing || blocked} onClick={() => switchMode(value)}>{value === "simple" ? "Simple" : "Full"}</button>)}</div>
     {error && <p className="live-error" role="alert">{error}</p>}
     <SpotActivationStatus status={spotEditor.status} error={spotEditor.error} reconcile={() => void spotEditor.reconcile()} />
     <OperatorDraftStatus state={state} session={session} run={run} />
-    <QSOEditor referenceEvidence={referenceEvidence} draft={state.draft} setDraft={setDraft} save={() => run(async () => {
-      const saved = await session.commit("save");
-      if (saved && mounted.current) setMessage(`${saved.call} saved to the local logbook.`);
-    })} clear={() => void run(async () => { await session.commit("clear"); if (mounted.current) setMessage(""); })}
+    {mode === "simple" ? <><DeskQSO referenceEvidence={referenceEvidence} draft={state.draft} setDraft={setDraft} save={() => void save()} clear={clear}
+      busy={working || closing || blocked} draftLocked={working || closing || blocked} request={request} refresh={state.base?.revision ?? 0}
+      follow={false} setFollow={() => {}} radioControls={false} onLocalInputState={inputState} canAcceptLocalInput={acceptsInput} />
+      <button className="detached-qso-fill" type="button" disabled={working || closing || blocked || !normalizedCall(state.draft?.call) || normalizedCall(lookup?.call) !== normalizedCall(state.draft?.call)} onClick={() => setDraft(current => fillEmptyLookupFields(current, lookup))}>Fill empty fields from lookup</button></> :
+    <QSOEditor referenceEvidence={referenceEvidence} draft={state.draft} setDraft={setDraft} save={save} clear={clear} inspector={false}
       busy={working || closing || blocked} draftLocked={working || closing || blocked}
       lookup={lookup} previous={previous} follow={false} setFollow={() => {}} request={request} radioControls={false}
       onLocalInputState={inputState}
@@ -130,7 +144,7 @@ export function DetachedQSOSurface() {
         if (!acceptsInput() || current.locked || current.pending || current.conflict || current.workspaceChanged) return;
         session.setManualPower(value); setMessage("");
       }}
-      onResumeAutomaticPower={state.base?.power ? () => void run(async () => { session.resumeAutomaticPower(); await session.flush(); }) : undefined} />
+      onResumeAutomaticPower={state.base?.power ? () => void run(async () => { session.resumeAutomaticPower(); await session.flush(); }) : undefined} />}
     {message && <p className="secondary" role="status">{message}</p>}
   </main></div>;
 }

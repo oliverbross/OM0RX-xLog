@@ -29,7 +29,10 @@ export function rotorPathDistance(shortPath: unknown, path: "SP" | "LP"): number
     ? path === "SP" ? shortPath : circumference - shortPath : undefined;
 }
 
-export function DeskQSO({ draft, setDraft: writeDraft, save, clear, busy, draftLocked, onEditor, onReadRadio, follow, setFollow, isEditing, cwControls, referenceEvidence, request, refresh, canAcceptLocalInput, onLocalInputState }: Props) {
+type DeskQSOProps = Pick<Props, "draft" | "setDraft" | "save" | "clear" | "busy" | "draftLocked" | "follow" | "setFollow" | "isEditing" | "cwControls" | "referenceEvidence" | "request" | "refresh" | "canAcceptLocalInput" | "onLocalInputState"> & {
+  onEditor?: () => void; onReadRadio?: () => Promise<void>; radioControls?: boolean;
+} & Partial<Omit<Props, "onEditor" | "onReadRadio">>;
+export function DeskQSO({ draft, setDraft: writeDraft, save, clear, busy, draftLocked, onEditor, onReadRadio, follow, setFollow, isEditing, cwControls, referenceEvidence, request, refresh, canAcceptLocalInput, onLocalInputState, radioControls = true }: DeskQSOProps) {
   const acceptsInput = () => !draftLocked && (canAcceptLocalInput?.() ?? true);
   const setDraft: Props["setDraft"] = value => { if (acceptsInput()) writeDraft(value); };
   const duplicateDate = useDuplicateContact(draft, isEditing, request, refresh);
@@ -83,7 +86,7 @@ export function DeskQSO({ draft, setDraft: writeDraft, save, clear, busy, draftL
   const validTime = !!date && !!time && Number.isFinite(Date.parse(candidate)) && utc(candidate).slice(0, 10) === date;
   const frequencyBand = mhz && validFrequency ? bandForRadio(Math.round(Number(mhz) * 1e6)) : null;
   const canSave = !busy && !reading && /^[A-Z0-9/-]{3,32}$/.test(normalizedCall(draft.call)) && validFrequency && validTime && !!draft.band && !!draft.mode && (!frequencyBand || frequencyBand === draft.band);
-  const read = async () => { if (!acceptsInput()) return; const identity = draft.id; setReading(true); setError(""); try { await onReadRadio(); if (acceptsInput() && draftIdentity.current === identity) setFrequencyText(null); } catch (cause) { if (draftIdentity.current === identity) setError(cause instanceof Error ? cause.message : "Radio readback unavailable."); } finally { setReading(false); } };
+  const read = async () => { if (!acceptsInput() || !onReadRadio) return; const identity = draft.id; setReading(true); setError(""); try { await onReadRadio(); if (acceptsInput() && draftIdentity.current === identity) setFrequencyText(null); } catch (cause) { if (draftIdentity.current === identity) setError(cause instanceof Error ? cause.message : "Radio readback unavailable."); } finally { setReading(false); } };
   return <section className="desk-panel desk-active" aria-label="Active QSO"><QSOHeader title="Active QSO" call={draft.call} evidence={referenceEvidence} duplicateDate={duplicateDate} /><form inert={draftLocked} aria-busy={draftLocked} onSubmit={event => { event.preventDefault(); if (acceptsInput() && canSave) save(); }} onKeyDown={event => {
     if ((event.metaKey || event.ctrlKey) && event.key === "Enter") { event.preventDefault(); if (acceptsInput() && canSave) save(); }
     if (event.key === "Escape") { event.preventDefault(); event.currentTarget.querySelector<HTMLInputElement>('[aria-label="Desk Callsign"]')?.focus(); }
@@ -106,7 +109,7 @@ export function DeskQSO({ draft, setDraft: writeDraft, save, clear, busy, draftL
     <div className="desk-active-references">{textField("potaReference", "POTA")}{textField("sotaReference", "SOTA")}{textField("iota", "IOTA")}{textField("wwffReference", "WWFF")}{textField("sigInfo", "Castle")}</div>
     {error && <p className="desk-error" role="alert">{error}</p>}
     {(!validFrequency || !validTime || frequencyBand && frequencyBand !== draft.band) && <p className="desk-error" role="alert">Check the UTC date, frequency and band before logging.</p>}
-    <footer className="desk-active-actions"><button type="button" onClick={() => { if (!acceptsInput()) return; if (pendingInput) { setError("Finish the buffered frequency and UTC fields before changing editor views."); return; } onEditor(); }}>Full editor</button><button type="button" disabled={busy || reading} onClick={() => void read()}><Radio size={12} />{reading ? "Reading…" : "Read radio"}</button><label className="desk-toggle"><input type="checkbox" checked={follow} onChange={event => { if (acceptsInput()) setFollow(event.target.checked); }} />Follow radio</label><span /><button type="button" disabled={busy} onClick={() => { if (acceptsInput()) clear(); }}><CircleX size={12} />Clear QSO</button><button className="desk-log" disabled={!canSave}><CircleCheck size={13} />{isEditing ? "Update QSO" : "Log QSO"}</button></footer>
+    <footer className="desk-active-actions">{onEditor && <button type="button" onClick={() => { if (!acceptsInput()) return; if (pendingInput) { setError("Finish the buffered frequency and UTC fields before changing editor views."); return; } onEditor(); }}>Full editor</button>}{radioControls && <><button type="button" disabled={busy || reading || !onReadRadio} onClick={() => void read()}><Radio size={12} />{reading ? "Reading…" : "Read radio"}</button><label className="desk-toggle"><input type="checkbox" checked={follow} onChange={event => { if (acceptsInput()) setFollow(event.target.checked); }} />Follow radio</label></>}<span /><button type="button" disabled={busy} onClick={() => { if (acceptsInput()) clear(); }}><CircleX size={12} />Clear QSO</button><button className="desk-log" disabled={!canSave}><CircleCheck size={13} />{isEditing ? "Update QSO" : "Log QSO"}</button></footer>
   </form>{cwControls}</section>;
 }
 
