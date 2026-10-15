@@ -488,8 +488,10 @@ actor LiveStationSession {
         await drain.value
     }
 
-    func tune(frequencyHz: Int64, mode: String) async throws -> [String: Any] {
+    func tune(frequencyHz: Int64, mode: String, expectedGeneration: UInt64? = nil) async throws -> [String: Any] {
+        if let expectedGeneration, expectedGeneration != connectionGeneration { throw lifecycleChanged() }
         try await ensureExclusiveWriter()
+        if let expectedGeneration, expectedGeneration != connectionGeneration { throw lifecycleChanged() }
         reconcilePowerObservationSession()
         guard let client else { throw WorkerFailure("station_unavailable", "Connect to the Remote Station Agent first.") }
         let generation = connectionGeneration
@@ -499,7 +501,7 @@ actor LiveStationSession {
         guard generation == connectionGeneration, sessionID == powerSessionID,
               self.client === client else { throw lifecycleChanged() }
         try requireActive()
-        guard before.isConnected, before.remoteStationStatus?.radioKnown == true,
+        guard before.isConnected, !before.isTransmitting, before.remoteStationStatus?.radioKnown == true,
               before.remoteStationStatus?.radioStale == false else {
             throw WorkerFailure("station_unavailable", "Observed radio state is unavailable.")
         }
@@ -977,7 +979,7 @@ actor LiveStationSession {
 
     static func confirmsSimplex(_ observed: XCatIntegrationCore.RadioSnapshot,
                                 frequencyHz: Int64, mode: String) -> Bool {
-        observed.isConnected && observed.frequencyHz == frequencyHz
+        observed.isConnected && !observed.isTransmitting && observed.frequencyHz == frequencyHz
             && observed.transmitFrequencyHz == frequencyHz
             && observed.mode.uppercased() == mode
             && observed.slice.uppercased() == "A"

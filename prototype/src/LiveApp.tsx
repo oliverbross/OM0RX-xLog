@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { nativeSpotEditor, useSpotEditor } from "./live/useSpotEditor";
 import { activationDisablesFollow, validSpotActivationSnapshot } from "./live/spotActivation";
 import { invoke } from "@tauri-apps/api/core";
+import { manualTuneSession } from "./live/manualTune";
 import { loadReadRadioJournal, type ReadRadioJournal } from "./live/readRadioJournal";
 import { useSpotActivation } from "./live/useSpotActivation";
 import { SpotActivationStatus } from "./live/SpotActivationStatus";
@@ -438,6 +439,7 @@ function MainLiveApp() {
         throw new Error("Selected station changed. Finish handover before connecting or sending controls.");
       const requestedProvider = provider.current;
       const requestedSelection = selection.current;
+      if (method === "station_tune" && nativeStationSelection()) return manualTuneSession().tune(requestedProvider, params.frequency_hz as number, params.mode as string);
       const result = isStation && requestedProvider === "hamlib"
         ? await hamlibStationRequest(method, params, async (name, args) => (await workerRequest(name, args)).result as Data)
         : (await workerRequest(method, isStation ? { provider: provider.current, ...params } : params)).result as Data;

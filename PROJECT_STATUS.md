@@ -2,6 +2,27 @@
 
 Last updated: 2026-10-16
 
+## Shared manual simplex tune owner — source complete; package/hardware acceptance open
+
+Main Agent/FLEX/Hamlib controls and standalone Station Control now route explicit
+simplex tuning through one native owner. Each request is bound to the current
+station-session revision, radio selection identity/generation, command epoch and
+connection generation; Agent/FLEX additionally bind the existing worker. Hamlib
+remains independent of that unrelated worker. Native admission requires fresh
+idle receive/PTT evidence, and success requires exact authoritative frequency,
+mode, RX/TX VFO-A, simplex and PTT-off readback.
+
+The operation is journaled before dispatch. Lost replies and post-dispatch storage
+failures remain `unknown` and are checked without replay. Terminal-receipt
+compaction retains every unresolved operation and the newest connect/disconnect/
+forget decision, so an explicit disconnect remains a restart barrier after more
+than 256 later operations. Raw renderer tune routes are denied. Complete frontend
+**2,523/2,523**, Rust **510/510** across the unit and Hamlib integration targets,
+portable Swift **418 tests in 57 suites** and normal Swift **240 tests in 32
+suites** pass, along with the production build and diff checks. Source only:
+alpha.31 remains installed; no station, hardware, radio, rotor, RF, service or
+operator-data action occurred.
+
 ## Shared native Rotor Stop ingress — source complete; package/hardware acceptance open
 
 Canvas and standalone Rotor Stop now use one owner-scoped native ingress. Native

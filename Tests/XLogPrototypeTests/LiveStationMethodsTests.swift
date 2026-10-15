@@ -4,6 +4,19 @@ import XCatIntegrationCore
 @testable import XLogPrototypeSupport
 
 final class LiveStationMethodsTests: XCTestCase {
+    func testSimplexConfirmationRequiresPTTOff() {
+        let keyed = RadioSnapshot(frequencyHz: 14_074_000, mode: "USB", isTransmitting: true)
+        XCTAssertFalse(LiveStationSession.confirmsSimplex(keyed, frequencyHz: 14_074_000, mode: "USB"))
+        XCTAssertFalse(LiveFlexSession.confirmsSimplex(keyed, frequencyHz: 14_074_000, mode: "USB"))
+    }
+    func testManualSimplexRejectsReplacedConnectionBeforeAnyTransport() async throws {
+        let agent = LiveStationSession()
+        do { _ = try await agent.tune(frequencyHz: 14_074_000, mode: "USB", expectedGeneration: 99); XCTFail("Accepted stale Agent generation") }
+        catch let failure as WorkerFailure { XCTAssertEqual(failure.code, "station_changed") }
+        let flex = LiveFlexSession(factory: { _, _, _ in fatalError("No radio factory may run during stale tune validation") })
+        do { _ = try await flex.handle("station_tune", params: ["provider":"direct_flex_lan", "frequency_hz":14_074_000, "mode":"USB", "expected_generation":99]); XCTFail("Accepted stale FLEX generation") }
+        catch let failure as WorkerFailure { XCTAssertEqual(failure.code, "station_changed") }
+    }
     func testJSONBooleanCannotBecomeANumericPort() throws {
         for literal in ["true", "false"] {
             let params = try XCTUnwrap(JSONSerialization.jsonObject(

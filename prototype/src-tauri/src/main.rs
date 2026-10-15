@@ -21,6 +21,7 @@ mod spot_activation;
 mod spot_activation_backend;
 mod qsy_clear;
 mod radio_read;
+mod manual_tune;
 mod radio_follow;
 mod opportunity_selection;
 mod auto_rotor;
@@ -755,8 +756,7 @@ async fn station_selection_snapshot(window: tauri::WebviewWindow, app: tauri::Ap
 #[tauri::command]
 async fn station_session_request(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, params: serde_json::Value) -> Result<serde_json::Value, String> {
     let action = params["action"].as_str().unwrap_or("");
-    station_session::validate(window.label(), state.path.is_some(), action)?;
-    if APP_EXITING.load(Ordering::Acquire) { return Err("Station Control is shutting down.".into()); }
+    station_session::validate_live(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire), action)?;
     if action == "hamlib_catalogue" {
         return tauri::async_runtime::spawn_blocking(move || station_session::hamlib_catalogue(&params, hamlib::request))
             .await.map_err(|_| "Radio model catalogue task failed.".to_string())?;
@@ -765,6 +765,8 @@ async fn station_session_request(app: tauri::AppHandle, window: tauri::WebviewWi
     if action == "snapshot" {
         let mut value = owner.snapshot()?;
         value["selection"] = station_selection::owner(&app)?.snapshot()?;
+        value["radio"] = station_telemetry::retained_snapshot().unwrap_or(serde_json::Value::Null);
+        value["worker_generation"] = serde_json::json!(worker::generation());
         return Ok(value);
     }
     if action == "receipt" { return owner.receipt(params["operation_id"].as_str().ok_or("Missing operation identity.")?); }
@@ -772,6 +774,7 @@ async fn station_session_request(app: tauri::AppHandle, window: tauri::WebviewWi
     let telemetry = station_telemetry::owner(&app)?;
     let changed = app.clone();
     let result = tauri::async_runtime::spawn_blocking(move || owner.apply(&params, |request, generation, identity| {
+        if params["action"] == "manual_tune" { return manual_tune::execute(&app, &params, request, generation, identity); }
         if request["method"] == "station_radio_control" || request["method"] == "hamlib_control" {
             let connection = request["params"]["expected_generation"].as_u64().ok_or("Missing exact radio generation.")?;
             let control = if request["method"] == "hamlib_control" {
@@ -820,6 +823,9 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     // Only typed integration operations cross this boundary; never shell commands.
     if state.path.is_some() { acceptance::validate_local_request(&request)?; }
     let method = request.get("method").and_then(|m| m.as_str()).unwrap_or("");
+    if method == "station_tune" || method == "hamlib_control" && request["params"]["device"] == "radio" && request["params"]["action"] == "tune_simplex" {
+        return Err("Use the shared manual simplex tune owner.".into());
+    }
     if matches!(method, "propagation_snapshot" | "propagation_refresh") { return Err("Use the shared propagation session.".into()); }
     if state.path.is_none() && (matches!(request["params"]["provider"].as_str(), Some("direct_agent" | "direct_flex_lan")) && matches!(method, "station_connect" | "station_disconnect" | "station_reconnect" | "station_forget")
         || request["params"]["device"] == "radio" && matches!(method, "hamlib_connect" | "hamlib_reconnect" | "hamlib_disconnect")) {

@@ -978,6 +978,37 @@ tests in 32 suites**. This is source evidence only: alpha.31 remains installed;
 no package was produced or installed and no station, rotor, hardware, RF, service
 or operator-data action occurred.
 
+### Checkpoint AS — shared manual simplex tune owner
+
+The main Agent, direct FLEX and Hamlib controls plus standalone Station Control now
+use one typed native tune owner. The renderer supplies only an explicit target and
+retained context; native code normalizes the provider target, binds the current
+station-session revision, selection UUID/generation, command revision and
+connection generation, and binds the worker only for Agent/FLEX. Local Hamlib does
+not depend on an unrelated integration-worker restart. Raw `station_tune` and
+Hamlib `tune_simplex` renderer routes are denied.
+
+Admission requires current retained receive telemetry and an idle PTT observation.
+Hamlib performs its own live PTT read under the locked radio session immediately
+before the first VFO write and reads PTT again after the operation. Agent and FLEX
+reject transmitting observations before mutation. A result becomes confirmed only
+with exact frequency/mode, VFO-A receive/transmit ownership, split off and PTT off;
+an acknowledgement alone remains unknown.
+
+The native station journal persists `pending` before dispatch. Same-identity replay
+returns the retained receipt, changed payload rejects, and lost replies or a failed
+post-dispatch save remain `unknown` for read-only receipt checking. Bounded
+compaction removes only old terminal receipts, never pending/unknown operations or
+the newest connect/disconnect/forget decision. A regression proves disconnect
+still prevents startup resume after more than 256 later saves.
+
+Complete frontend **2,523/2,523**, Rust **510/510** across the unit and Hamlib
+integration targets, portable Swift **418 tests in 57 suites** and normal Swift
+**240 tests in 32 suites** pass. TypeScript, the production Vite/window build and
+diff checks pass. This is source evidence only: alpha.31 remains installed; no
+package was produced or installed and no station, hardware, radio, rotor, RF,
+service or operator-data action occurred.
+
 ### 14 October audit — remaining new-QSO and QSY ownership
 
 At `cd25718`, detached Logbook edits saved contacts; it is not an independent

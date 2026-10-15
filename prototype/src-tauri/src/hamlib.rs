@@ -759,6 +759,11 @@ fn control(session: &mut Session, device: Device, params: &Value) -> Result<Valu
         {
             return Err("Hamlib TX VFO is unknown; simplex tune was not started".into());
         }
+        let before_ptt = run_command(session, "+t", "get_ptt")
+            .map_err(|error| format!("Cannot verify PTT state; simplex tune was not started: {error}"))?;
+        if before_ptt.get("PTT").and_then(Value::as_str) != Some("0") {
+            return Err("Hamlib radio is transmitting; simplex tune was not started".into());
+        }
         run_command(session, "+V VFOA", "set_vfo")?;
         let selected_vfo = run_command(session, "+v", "get_vfo")?;
         if selected_vfo.get("VFO").and_then(Value::as_str) != Some("VFOA") {
@@ -778,10 +783,13 @@ fn control(session: &mut Session, device: Device, params: &Value) -> Result<Valu
         let mode_read = session.exchange("+m", "get_mode")?;
         let split = session.exchange("+s", "get_split_vfo")?;
         let vfo = session.exchange("+v", "get_vfo")?;
+        let ptt = session.exchange("+t", "get_ptt")?;
+        let ptt_off = ptt.code == 0 && ptt.values.get("PTT").and_then(Value::as_str) == Some("0");
         let confirmed = freq.code == 0
             && mode_read.code == 0
             && split.code == 0
             && vfo.code == 0
+            && ptt_off
             && freq
                 .values
                 .get("Frequency")
@@ -801,11 +809,14 @@ fn control(session: &mut Session, device: Device, params: &Value) -> Result<Valu
                 .radio_extras
                 .insert("vfo".into(), Value::Object(vfo.values));
         }
+        if ptt.code == 0 {
+            session.radio_extras.insert("ptt".into(), Value::Object(ptt.values));
+        }
         let observed = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_millis();
-        for name in ["split", "vfo"] {
+        for name in ["split", "vfo", "ptt"] {
             if session.radio_extras.contains_key(name) {
                 session
                     .field_observed_at_ms
@@ -814,7 +825,7 @@ fn control(session: &mut Session, device: Device, params: &Value) -> Result<Valu
         }
         return Ok(
             json!({"state":"accepted", "device":"radio", "action":action, "confirmed":confirmed,
-            "generation":session.generation, "readback":{"state":"observed", "frequency":freq.values, "mode":mode_read.values}}),
+            "generation":session.generation, "readback":{"state":"observed", "frequency":freq.values, "mode":mode_read.values, "ptt":ptt_off}}),
         );
     }
     let (command, expected, readback, tx_action) = match (device, action) {
@@ -1867,6 +1878,34 @@ mod tests {
     }
 
     #[test]
+    fn transmitting_ptt_probe_never_starts_simplex_writes() {
+        let listener = TcpListener::bind((LOOPBACK, 0)).unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = std::thread::spawn(move || {
+            let (mut socket, _) = listener.accept().unwrap();
+            let mut reader = BufReader::new(socket.try_clone().unwrap());
+            for (command, response) in [
+                ("+v\n", "get_vfo:\nVFO: VFOA\nRPRT 0\n"),
+                ("+s\n", "get_split_vfo:\nSplit: 0\nTX VFO: VFOA\nRPRT 0\n"),
+                ("+t\n", "get_ptt:\nPTT: 1\nRPRT 0\n"),
+            ] {
+                let mut line = String::new();
+                reader.read_line(&mut line).unwrap();
+                assert_eq!(line, command);
+                socket.write_all(response.as_bytes()).unwrap();
+            }
+            let mut line = String::new();
+            assert_eq!(reader.read_line(&mut line).unwrap(), 0);
+        });
+        let (reader, writer) = connect_stream(address).unwrap();
+        let mut session = Session::new(reader, writer, None, "external", address.port(), None, false, 1);
+        let error = control(&mut session, Device::Radio, &json!({"action":"tune_simplex","hz":14_195_000,"mode":"USB"})).unwrap_err();
+        assert!(error.contains("transmitting"), "{error}");
+        drop(session);
+        server.join().unwrap();
+    }
+
+    #[test]
     fn simplex_aborts_before_frequency_and_mode_when_ownership_ack_is_wrong() {
         for mismatch in ["vfo", "split"] {
             let listener = TcpListener::bind((LOOPBACK, 0)).unwrap();
@@ -1882,6 +1921,7 @@ mod tests {
                 };
                 exchange("+v\n", "get_vfo:\nVFO: VFOB\nRPRT 0\n");
                 exchange("+s\n", "get_split_vfo:\nSplit: 1\nTX VFO: VFOB\nRPRT 0\n");
+                exchange("+t\n", "get_ptt:\nPTT: 0\nRPRT 0\n");
                 exchange("+V VFOA\n", "set_vfo: VFOA\nRPRT 0\n");
                 exchange("+v\n", if mismatch == "vfo" {
                     "get_vfo:\nVFO: VFOB\nRPRT 0\n"

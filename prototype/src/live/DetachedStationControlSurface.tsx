@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { connectMonitorContext, monitorRadioFresh, monitorStation, type MonitorContext } from "./monitorContext";
 import { AgentConnectionSetup } from "./AgentConnectionSetup";
+import { ManualSimplexTune } from "./ManualSimplexTune";
 import "./StationPanel.css";
 import "./DetachedStationControlSurface.css";
 
@@ -53,5 +54,6 @@ export function StationControlSurface({ connect = connectMonitorContext, configu
   </main></div>;
 }
 export function DetachedStationControlSurface() {
-  return <StationControlSurface configuration={new URLSearchParams(location.search).get("acceptance") === "local" ? undefined : context => <AgentConnectionSetup connections providers followSelection compact receiveContext={context} />} />;
+  return <StationControlSurface configuration={new URLSearchParams(location.search).get("acceptance") === "local" ? undefined : context => <><AgentConnectionSetup connections providers followSelection compact receiveContext={context} />
+    {context?.selection?.provider && <ManualSimplexTune provider={context.selection.provider} context={context} />}</>} />;
 }

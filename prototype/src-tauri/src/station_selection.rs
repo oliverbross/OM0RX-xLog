@@ -555,9 +555,22 @@ impl Selection {
         admit: impl FnOnce() -> Result<G, String>) -> Result<Value, String> {
         self.control_scoped_dispatch(request, Some((expected, identity, Some(control_revision))), admit, |request| (self.transport)(request))
     }
+    pub fn manual_tune<G>(&self, request: Value, expected: u64, identity: &str, control_revision: u64,
+        admit: impl FnOnce() -> Result<G, String>, dispatch: impl FnOnce(Value) -> Result<Value, String>) -> Result<Value, String> {
+        let state = self.state.try_lock().map_err(|_| "Radio selection is busy")?;
+        if state.generation != expected || state.selection_id.as_deref() != Some(identity) || state.control_revision != control_revision {
+            return Err("Radio selection or command epoch changed before manual tuning.".into());
+        }
+        let selected = self.value(&state); drop(state);
+        self.simplex_tune(request, &selected, admit, dispatch)
+    }
     /// Native spot tuning reserves nonurgent radio controls, not a transport or
     /// telemetry mutex. Source identity is rechecked at this admission point.
     pub(crate) fn activation_tune<G>(&self, request: Value, expected: &Value,
+        admit: impl FnOnce() -> Result<G, String>, dispatch: impl FnOnce(Value) -> Result<Value, String>) -> Result<Value, String> {
+        self.simplex_tune(request, expected, admit, dispatch)
+    }
+    fn simplex_tune<G>(&self, request: Value, expected: &Value,
         admit: impl FnOnce() -> Result<G, String>, dispatch: impl FnOnce(Value) -> Result<Value, String>) -> Result<Value, String> {
         let mut state = self.state.try_lock().map_err(|_| "Radio session is busy; no spot tune was sent.")?;
         self.active()?;
@@ -1918,6 +1931,22 @@ mod tests {
         owner.receive_control(request(), 0, identity, revision, || Ok(())).unwrap();
         assert!(owner.receive_control(request(), 0, identity, revision, || -> Result<(), String> { panic!("duplicate observation admitted") }).is_err());
         assert_eq!(calls.lock().unwrap().iter().filter(|request| request["method"] == "station_radio_control").count(), 1);
+    }
+    #[test]
+    fn manual_tune_rejects_a_b_a_and_consumed_control_epochs_without_dispatch() {
+        let (_directory, owner, _) = fixture(); let old = initialized(&owner, Some("direct_flex_lan"));
+        owner.handover(0,"direct_agent").unwrap(); owner.handover(1,"direct_flex_lan").unwrap();
+        let current = owner.snapshot().unwrap();
+        let request = || json!({"id":"manual","method":"station_tune","params":{"provider":"direct_flex_lan","frequency_hz":14074000,"mode":"USB"}});
+        for (generation, identity, revision) in [(0,old["selection_id"].as_str().unwrap(),0),(2,old["selection_id"].as_str().unwrap(),0),
+            (2,current["selection_id"].as_str().unwrap(),current["control_revision"].as_u64().unwrap()+1)] {
+            assert!(owner.manual_tune(request(),generation,identity,revision,|| -> Result<(),String> { panic!("stale manual intent admitted") }, |_| panic!("stale tune dispatched")).is_err());
+        }
+        let identity = current["selection_id"].as_str().unwrap(); let revision = current["control_revision"].as_u64().unwrap();
+        let mut calls = 0;
+        owner.manual_tune(request(),2,identity,revision,|| Ok(()),|_| { calls += 1; Ok(json!({})) }).unwrap();
+        assert_eq!(calls,1);
+        assert!(owner.manual_tune(request(),2,identity,revision,|| Ok(()),|_| panic!("duplicate tune dispatched")).is_err());
     }
     #[test]
     fn admitted_monitor_action_excludes_handover_without_holding_selection_lock_over_transport() {

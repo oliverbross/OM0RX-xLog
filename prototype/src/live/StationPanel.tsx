@@ -4,6 +4,8 @@ import "./StationPanel.css";
 import AgentConfiguration from "./AgentConfiguration";
 import { AgentConnectionSetup } from "./AgentConnectionSetup";
 import { nativeStationSelection } from "./stationSelection";
+import { ManualTuneStatus } from "./ManualSimplexTune";
+import { manualTuneSession } from "./manualTune";
 
 type Request = (method: string, params?: Record<string, unknown>) => Promise<any>;
 type RadioState = {
@@ -121,7 +123,9 @@ export default function StationPanel({ snapshot, onRequest, onSnapshot, monitor 
     const startedEndpoint = endpointRef.current;
     setBusy(true); setError(""); setNotice("");
     try {
-      const response = unwrap(await onRequest(method, params));
+      const response = unwrap(method === "station_tune" && nativeStationSelection()
+        ? await manualTuneSession().tune("direct_agent", params.frequency_hz as number, params.mode as string)
+        : await onRequest(method, params));
       if (method === "station_connect") localStorage.setItem("xlog.remote.url", String(params.base_url));
       if (startedEndpoint !== endpointRef.current) return null;
       const next = (response?.state ?? (response?.source ? response : null)) as StationSnapshot | null;
@@ -238,6 +242,7 @@ export default function StationPanel({ snapshot, onRequest, onSnapshot, monitor 
           {[station?.kpa_detail_primary, station?.kpa_detail_secondary, station?.kat_detail_primary, station?.kat_detail_secondary, station?.route_detail].filter(Boolean).map((detail, index) => <p className="live-station-detail" key={index}>{detail}</p>)}
         </section>
         {!isMonitor && <section className="live-station-card"><h3>Radio &amp; station actions</h3>
+          {nativeStationSelection() && <ManualTuneStatus />}
           <form className="live-station-inline" onSubmit={(event) => void tune(event)}><label>Frequency MHz<input aria-label="Tune frequency MHz" inputMode="decimal" value={tuneMHz} onChange={(event) => setTuneMHz(event.target.value)} placeholder={connected ? frequency(radio?.frequency_hz) : "14.074000"} /></label>
             <label>Mode<select aria-label="Tune mode" value={tuneMode} onChange={(event) => setTuneMode(event.target.value)}>{modes.map((mode) => <option key={mode}>{mode}</option>)}</select></label>
             <button type="submit" disabled={busy || !connected}>Tune simplex</button></form>

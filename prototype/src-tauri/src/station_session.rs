@@ -44,10 +44,15 @@ pub fn validate(label: &str, isolated: bool, action: &str) -> Result<(), String>
         "snapshot" | "receipt" | "hamlib_catalogue" | "save" | "connect" | "disconnect" | "forget" | "select"
             | "save_hamlib" | "connect_hamlib" | "reconnect_hamlib" | "disconnect_hamlib"
             | "save_flex" | "connect_flex" | "reconnect_flex" | "disconnect_flex"
-            | "receive_frequency" | "receive_mode"
+            | "receive_frequency" | "receive_mode" | "manual_tune"
     ) {
         return Err("Unknown Station Control operation.".into());
     }
+    Ok(())
+}
+pub fn validate_live(label: &str, isolated: bool, exiting: bool, action: &str) -> Result<(), String> {
+    validate(label, isolated, action)?;
+    if exiting { return Err("Station Control is shutting down.".into()); }
     Ok(())
 }
 /// An explicit catalogue read has fixed radio-only arguments and cannot become
@@ -171,6 +176,8 @@ impl Session {
                 vec!["action", "generation", "revision", "base_url"]
             } else if matches!(action, "save_hamlib" | "save_flex") {
                 vec!["action", "generation", "revision", "configuration"]
+            } else if action == "manual_tune" {
+                vec!["action", "generation", "revision", "selection_generation", "selection_id", "provider", "control_revision", "connection_generation", "worker_generation", "frequency_hz", "mode"]
             } else if is_receive(action) {
                 let mut keys = vec!["action", "generation", "revision", "selection_generation", "selection_id", "provider", "control_revision", "connection_generation"];
                 keys.push(if action == "receive_frequency" { "frequency_hz" } else { "mode" });
@@ -198,16 +205,17 @@ impl Session {
                 || !identities.insert(&receipt.operation_id)
                 || !matches!(
                     receipt.status.as_str(),
-                    "saved" | "pending" | "acknowledged" | "unknown"
+                    "saved" | "pending" | "acknowledged" | "unknown" | "confirmed"
                 )
                 || !matches!(
                     action,
                     "save" | "connect" | "disconnect" | "forget" | "select"
                         | "save_hamlib" | "connect_hamlib" | "reconnect_hamlib" | "disconnect_hamlib"
                         | "save_flex" | "connect_flex" | "reconnect_flex" | "disconnect_flex"
-                        | "receive_frequency" | "receive_mode"
+                        | "receive_frequency" | "receive_mode" | "manual_tune"
                 )
                 || is_save(action) != (receipt.status == "saved")
+                || receipt.status == "confirmed" && action != "manual_tune"
                 || receipt.request["generation"] != saved.generation
                 || receipt.request["revision"]
                     .as_u64()
@@ -242,6 +250,8 @@ impl Session {
                     receipt.request["provider"]
                         .as_str()
                         .is_none_or(|provider| !crate::station_telemetry::valid_provider(provider))
+                } else if action == "manual_tune" {
+                    crate::manual_tune::params(&receipt.request).is_err()
                 } else if is_receive(action) {
                     receive_params(&receipt.request).is_err()
                 } else {
@@ -354,7 +364,7 @@ impl Session {
             "save" | "connect" | "disconnect" | "forget" | "select"
                 | "save_hamlib" | "connect_hamlib" | "reconnect_hamlib" | "disconnect_hamlib"
                 | "save_flex" | "connect_flex" | "reconnect_flex" | "disconnect_flex"
-                | "receive_frequency" | "receive_mode"
+                | "receive_frequency" | "receive_mode" | "manual_tune"
         ) {
             return Err("Unknown Station Control action.".into());
         }
@@ -383,7 +393,10 @@ impl Session {
         } else {
             descriptor["selection_generation"] = params["selection_generation"].clone();
             descriptor["selection_id"] = params["selection_id"].clone();
-            if is_receive(action) {
+            if action == "manual_tune" {
+                crate::manual_tune::params(params)?;
+                for key in ["provider", "control_revision", "connection_generation", "worker_generation", "frequency_hz", "mode"] { descriptor[key] = params[key].clone(); }
+            } else if is_receive(action) {
                 let receive = receive_params(params)?;
                 for key in ["provider", "control_revision", "connection_generation"] { descriptor[key] = params[key].clone(); }
                 let key = if action == "receive_frequency" { "frequency_hz" } else { "mode" };
@@ -418,10 +431,16 @@ impl Session {
                     .into(),
             );
         }
-        if state.receipts.len() == MAX_RECEIPTS {
-            return Err("Station Control operation journal is full; no action was sent.".into());
-        }
         let mut next = state.clone();
+        if next.receipts.len() == MAX_RECEIPTS {
+            let lifecycle = next.receipts.iter().rposition(|receipt| matches!(receipt.request["action"].as_str(), Some("connect" | "disconnect" | "forget")));
+            if let Some(index) = next.receipts.iter().enumerate().find_map(|(index, receipt)|
+                (Some(index) != lifecycle && matches!(receipt.status.as_str(), "saved" | "acknowledged" | "confirmed")).then_some(index)) {
+                next.receipts.remove(index);
+            } else {
+                return Err("Station Control operation journal has no safely removable receipt; no action was sent.".into());
+            }
+        }
         if action == "save" {
             next.base_url = descriptor["base_url"].as_str().unwrap().into();
             if next.base_url != state.base_url {
@@ -459,6 +478,7 @@ impl Session {
                 .ok_or("Invalid radio selection identity.")?;
             let mut connection = json!({"provider":if action == "select" { descriptor["provider"].as_str().unwrap() } else { "direct_agent" }});
             if is_receive(action) { connection = receive_params(&descriptor)?; }
+            if action == "manual_tune" { connection = crate::manual_tune::params(&descriptor)?; }
             if matches!(action, "connect_hamlib" | "reconnect_hamlib" | "disconnect_hamlib") {
                 connection = if action == "disconnect_hamlib" { json!({}) } else {
                     state.hamlib.clone().ok_or("Save Hamlib configuration before connecting.")?
@@ -497,7 +517,7 @@ impl Session {
             Some((
                 // FLEX reconnect deliberately creates a new configured session:
                 // never inherit the previous session's transmit permission.
-                json!({"id":id,"method":match action { "receive_frequency" | "receive_mode" if connection["provider"] == "hamlib" => "hamlib_control", "receive_frequency" | "receive_mode" => "station_radio_control", "connect" | "connect_flex" | "reconnect_flex" => "station_connect", "forget" => "station_forget", "select" => "station_selection_apply", "connect_hamlib" => "hamlib_connect", "reconnect_hamlib" => "hamlib_reconnect", "disconnect_hamlib" => "hamlib_disconnect", _ => "station_disconnect" },"params":connection}),
+                json!({"id":id,"method":match action { "manual_tune" if connection["provider"] == "hamlib" => "hamlib_control", "manual_tune" => "station_tune", "receive_frequency" | "receive_mode" if connection["provider"] == "hamlib" => "hamlib_control", "receive_frequency" | "receive_mode" => "station_radio_control", "connect" | "connect_flex" | "reconnect_flex" => "station_connect", "forget" => "station_forget", "select" => "station_selection_apply", "connect_hamlib" => "hamlib_connect", "reconnect_hamlib" => "hamlib_reconnect", "disconnect_hamlib" => "hamlib_disconnect", _ => "station_disconnect" },"params":connection}),
                 selected_generation,
                 selected_id.to_owned(),
             ))
@@ -527,15 +547,17 @@ impl Session {
             .as_ref()
             .is_ok_and(|response| response["id"] == id && response["ok"] == true)
         {
-            "acknowledged"
+            if action == "manual_tune" { if crate::manual_tune::confirmed(&receipt.request, result.as_ref().unwrap()) { "confirmed" } else { "unknown" } } else { "acknowledged" }
         } else {
             "unknown"
         }
         .into();
         let response = json!(receipt);
-        self.persist(&next).map_err(|_| {
-            "Station Control outcome could not be saved; inspect its receipt before another action."
-        })?;
+        if self.persist(&next).is_err() {
+            next.receipts.last_mut().unwrap().status = "unknown".into();
+            *state = next;
+            return Err("Station Control outcome could not be saved; inspect its receipt before another action.".into());
+        }
         *state = next;
         Ok(response)
     }
@@ -562,6 +584,112 @@ pub fn owner(app: &tauri::AppHandle) -> Result<Arc<Session>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn manual_tune_journals_before_dispatch_and_replays_confirmed_or_unknown_after_restart() {
+        for provider in ["direct_agent", "direct_flex_lan", "hamlib"] {
+            for confirms in [false, true] {
+                let (directory, session, save) = setup();
+                let id = uuid::Uuid::new_v4().to_string();
+                let command = json!({"action":"manual_tune","operation_id":id,"generation":save["generation"],"revision":0,
+                    "provider":provider,"selection_generation":3,"selection_id":uuid::Uuid::new_v4().to_string(),"control_revision":5,
+                    "connection_generation":7,"worker_generation":11,"frequency_hz":14074000,"mode":"USB"});
+                let mut calls = 0;
+                let receipt = session.apply(&command, |request, generation, _| {
+                    calls += 1; assert_eq!(generation, 3); assert_eq!(session.receipt(&id).unwrap()["status"], "pending");
+                    assert_eq!(Session::new(directory.path().join("session.json")).unwrap().receipt(&id).unwrap()["status"], "unknown");
+                    assert_eq!(request["params"]["expected_generation"], 7);
+                    let result = if provider == "hamlib" { json!({"confirmed":confirms,"generation":7,"readback":{"frequency":{"Frequency":"14074000"},"mode":{"Mode":"USB"},"ptt":false}}) }
+                        else { json!({"confirmed":confirms,"state":{"source":provider,"generation":7,"radio":{"connected":true,"observed":true,"frequency_hz":14074000,
+                            "transmitting":false,"transmit_frequency_hz":14074000,"mode":"USB","receive_vfo":"A","transmit_vfo":"A","split":false,"vfos":[{"letter":"A","receive":true,"transmit":true}]}}}) };
+                    Ok(json!({"id":id,"ok":true,"result":result}))
+                }).unwrap();
+                assert_eq!(calls, 1); assert_eq!(receipt["status"], if confirms { "confirmed" } else { "unknown" });
+                assert_eq!(session.apply(&command, passive).unwrap(), receipt);
+                assert_eq!(Session::new(directory.path().join("session.json")).unwrap().apply(&command, passive).unwrap(), receipt);
+                let mut changed = command.clone(); changed["frequency_hz"] = json!(7100000); assert!(session.apply(&changed, passive).is_err());
+                let mut stale = command.clone(); stale["operation_id"] = json!(uuid::Uuid::new_v4().to_string()); assert!(session.apply(&stale, passive).is_err());
+            }
+        }
+    }
+    #[test]
+    fn manual_tune_lost_reply_and_failed_storage_never_repeat_or_dispatch() {
+        let (_directory, session, save) = setup();
+        let command = json!({"action":"manual_tune","operation_id":uuid::Uuid::new_v4().to_string(),"generation":save["generation"],"revision":0,
+            "provider":"direct_flex_lan","selection_generation":3,"selection_id":uuid::Uuid::new_v4().to_string(),"control_revision":5,
+            "connection_generation":7,"worker_generation":11,"frequency_hz":14074000,"mode":"USB"});
+        let receipt = session.apply(&command, |_,_,_| Err("Reply lost".into())).unwrap();
+        assert_eq!(receipt["status"], "unknown"); assert_eq!(session.apply(&command, passive).unwrap(), receipt);
+        let (directory, failed, _) = setup(); std::fs::create_dir_all(directory.path().join("session.json")).unwrap();
+        let mut request = command.clone(); request["generation"] = failed.snapshot().unwrap()["generation"].clone();
+        assert!(failed.apply(&request, passive).is_err());
+        for action in ["manual_tune"] { assert!(validate("main", false, action).is_ok()); assert!(validate("station-control", false, action).is_ok());
+            for label in ["monitor", "log-qso", "settings", "unknown"] { assert!(validate(label, false, action).is_err()); }
+            assert!(validate("main", true, action).is_err()); }
+        for label in ["main","station-control","monitor","settings","unknown"] {
+            for (isolated,exiting) in [(true,false),(false,true),(true,true)] { assert!(validate_live(label,isolated,exiting,"manual_tune").is_err()); }
+        }
+    }
+    #[test]
+    fn manual_tune_compacts_terminal_receipts_but_never_unresolved_receipts() {
+        let (_directory, session, save) = setup();
+        let generation = save["generation"].clone();
+        let selection_id = uuid::Uuid::new_v4().to_string();
+        let unresolved_id = uuid::Uuid::new_v4().to_string();
+        let unresolved = json!({"action":"manual_tune","operation_id":unresolved_id,"generation":generation,"revision":0,
+            "provider":"direct_flex_lan","selection_generation":3,"selection_id":selection_id,"control_revision":0,
+            "connection_generation":7,"worker_generation":11,"frequency_hz":14074000,"mode":"USB"});
+        assert_eq!(session.apply(&unresolved, |_,_,_| Err("reply lost".into())).unwrap()["status"], "unknown");
+        for revision in 1..(MAX_RECEIPTS as u64 + 8) {
+            let id = uuid::Uuid::new_v4().to_string();
+            let command = json!({"action":"manual_tune","operation_id":id,"generation":generation,"revision":revision,
+                "provider":"direct_flex_lan","selection_generation":3,"selection_id":selection_id,"control_revision":revision,
+                "connection_generation":7,"worker_generation":11,"frequency_hz":14074000,"mode":"USB"});
+            let receipt = session.apply(&command, |_,_,_| Ok(json!({"id":id,"ok":true,"result":{"confirmed":true,
+                "state":{"source":"direct_flex_lan","generation":7,"radio":{"connected":true,"observed":true,"transmitting":false,
+                "frequency_hz":14074000,"transmit_frequency_hz":14074000,"mode":"USB","receive_vfo":"A","transmit_vfo":"A","split":false,
+                "vfos":[{"letter":"A","receive":true,"transmit":true}]}}}}))).unwrap();
+            assert_eq!(receipt["status"], "confirmed");
+        }
+        assert_eq!(session.state.lock().unwrap().receipts.len(), MAX_RECEIPTS);
+        assert_eq!(session.receipt(&unresolved_id).unwrap()["status"], "unknown");
+    }
+
+    #[test]
+    fn compaction_preserves_latest_disconnect_as_startup_resume_barrier() {
+        let (directory, session, save) = setup();
+        let selection_id = uuid::Uuid::new_v4().to_string();
+        let disconnect_id = uuid::Uuid::new_v4().to_string();
+        let disconnect = json!({"action":"disconnect","operation_id":disconnect_id,"generation":save["generation"],"revision":0,
+            "selection_generation":0,"selection_id":selection_id,"allow_transmit":false});
+        session.apply(&disconnect, |request,_,_| Ok(json!({"id":request["id"],"ok":true}))).unwrap();
+        for _ in 0..(MAX_RECEIPTS + 8) {
+            let snapshot = session.snapshot().unwrap();
+            let request = json!({"action":"save","operation_id":uuid::Uuid::new_v4().to_string(),"generation":snapshot["generation"],
+                "revision":snapshot["revision"],"base_url":"https://station.example:8443"});
+            session.apply(&request, passive).unwrap();
+        }
+        assert_eq!(session.receipt(&disconnect_id).unwrap()["request"]["action"], "disconnect");
+        let restarted = Session::new(directory.path().join("session.json")).unwrap();
+        assert!(restarted.resume_saved_agent(&startup_selection(), |_,_,_| panic!("disconnect barrier was lost")).unwrap().is_none());
+    }
+
+    #[test]
+    fn post_dispatch_persistence_failure_keeps_unknown_receipt_in_memory() {
+        let (directory, session, save) = setup();
+        let path = directory.path().join("session.json");
+        let id = uuid::Uuid::new_v4().to_string();
+        let command = json!({"action":"manual_tune","operation_id":id,"generation":save["generation"],"revision":0,
+            "provider":"hamlib","selection_generation":3,"selection_id":uuid::Uuid::new_v4().to_string(),"control_revision":5,
+            "connection_generation":7,"worker_generation":0,"frequency_hz":14074000,"mode":"USB"});
+        let error = session.apply(&command, |_,_,_| {
+            std::fs::remove_file(&path).unwrap();
+            std::fs::create_dir(&path).unwrap();
+            Ok(json!({"id":id,"ok":true,"result":{"confirmed":true,"generation":7,
+                "readback":{"frequency":{"Frequency":"14074000"},"mode":{"Mode":"USB"},"ptt":false}}}))
+        }).unwrap_err();
+        assert!(error.contains("could not be saved"));
+        assert_eq!(session.receipt(&id).unwrap()["status"], "unknown");
+    }
     fn setup() -> (tempfile::TempDir, Session, Value) {
         let directory = tempfile::tempdir().unwrap();
         let session = Session::new(directory.path().join("session.json")).unwrap();

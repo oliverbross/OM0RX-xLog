@@ -3,12 +3,14 @@ import { loadHamlibCatalogue, type HamlibModel } from "./hamlibCatalogue";
 import { HamlibModelPicker } from "./HamlibModelPicker";
 import { AgentConnectionSetup } from "./AgentConnectionSetup";
 import { nativeStationSelection } from "./stationSelection";
+import { ManualSimplexTune } from "./ManualSimplexTune";
 type Data = Record<string, any>;
 type Request = (method: string, params?: Data) => Promise<Data>;
 export default function HamlibPanel({ request, snapshot }: { request: Request; snapshot: Data | null }) {
   const shared = nativeStationSelection();
   return <section className="live-station"><header className="live-station-head"><div><h2>Local station · Hamlib</h2><p>Radio and rotor connect directly from xLog. No xCat application or Windows agent is required.</p></div></header>
     {shared && <AgentConnectionSetup hamlib />}
+    {shared && <ManualSimplexTune provider="hamlib" />}
     <div className="live-station-grid"><HamlibDevice device="radio" request={request} state={snapshot?.hamlib?.radio} hideSetup={shared} connectionControls={!shared} /></div></section>;
 }
 export function HamlibDevice({ device, request, state, configurationOnly = false, connectionOwned = false, connectionSelectionAllowed = true,

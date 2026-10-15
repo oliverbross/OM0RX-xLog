@@ -7,6 +7,21 @@ packaged UI result. Keep unresolved items here across releases.
 
 ## Current delivery boundary
 
+- **Shared manual simplex tune owner, 16 October:** Main Agent/FLEX/Hamlib and
+  standalone Station Control now use one native, one-shot tune owner. Exact
+  station-session, selection, command and connection epochs fence admission;
+  Agent/FLEX also bind the worker while local Hamlib remains independent of it.
+  Fresh PTT-off evidence is required immediately before any write and exact
+  frequency/mode, VFO-A simplex and PTT-off readback is required for confirmation.
+  A durable pre-dispatch receipt prevents replay after lost replies, restarts or
+  storage failure. Compaction preserves all unresolved receipts and the newest
+  connect/disconnect/forget decision, including disconnect as a startup-resume
+  barrier after 256+ later saves. Raw renderer tuning is denied. Full frontend
+  **2,523/2,523**, Rust **510/510** across both targets, portable Swift **418 tests
+  in 57 suites**, normal Swift **240 tests in 32 suites** and the production build
+  pass. Source only: alpha.31 remains installed and no station, hardware, radio,
+  rotor, RF, service or operator-data action occurred.
+
 - **Shared native Rotor Stop, 16 October:** Canvas and standalone Rotor now call
   the same owner-scoped native Stop ingress. The Canvas path no longer blocks Stop
   on a renderer device snapshot or performs a second device read after dispatch.

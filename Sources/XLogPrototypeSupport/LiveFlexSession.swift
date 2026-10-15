@@ -85,6 +85,12 @@ actor LiveFlexSession {
             try keys(params, ["provider"])
             return snapshot()
         case "station_tune":
+            var params = params
+            if let raw = params.removeValue(forKey: "expected_generation") {
+                guard let expected = Self.integer(raw), expected >= 0, UInt64(expected) == connectionGeneration else {
+                    throw WorkerFailure("station_changed", "Radio connection changed; stale tune was not sent.")
+                }
+            }
             try keys(params, ["provider", "frequency_hz", "mode"])
             guard let hz = Self.integer(params["frequency_hz"]), (100_000...1_000_000_000).contains(hz),
                   let requestedMode = params["mode"] as? String,
@@ -575,7 +581,7 @@ actor LiveFlexSession {
     }
 
     static func confirmsSimplex(_ value: RadioSnapshot, frequencyHz: Int64, mode: String) -> Bool {
-        value.isConnected && value.frequencyHz == frequencyHz && value.transmitFrequencyHz == frequencyHz
+        value.isConnected && !value.isTransmitting && value.frequencyHz == frequencyHz && value.transmitFrequencyHz == frequencyHz
             && value.mode.uppercased() == mode && value.slice.uppercased() == "A"
             && value.transmitSlice.uppercased() == "A"
             && value.vfo("A")?.isReceive == true && value.vfo("A")?.isTransmit == true

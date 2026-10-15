@@ -16,6 +16,9 @@ const RESPONSE_TIMEOUT: Duration = Duration::from_secs(45);
 pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     let label = crate::workspace_windows::surface_role(label);
     validate_request(request)?;
+    if request["method"] == "station_tune" || request["method"] == "hamlib_control" && request["params"]["device"] == "radio" && request["params"]["action"] == "tune_simplex" {
+        return Err("Only the shared native tune owner can dispatch simplex tuning.".into());
+    }
     if matches!(request["method"].as_str(), Some("sync_run" | "sync_configure" | "sync_resolve" | "sync_retry")) {
         return Err("Use the shared generation-bound Sync mutation owner.".into());
     }
@@ -900,6 +903,14 @@ mod tests {
             assert!(validate_surface(label, &follow).is_err(), "{label}");
         }
     }
+    #[test]
+    fn raw_manual_simplex_tuning_is_denied_to_every_renderer() {
+        for request in [json!({"id":"raw","method":"station_tune","params":{"provider":"direct_agent","frequency_hz":14074000,"mode":"USB"}}),
+            json!({"id":"raw","method":"hamlib_control","params":{"device":"radio","action":"tune_simplex","hz":14074000,"mode":"USB"}})] {
+            if request["method"] == "station_tune" { assert!(validate_request(&request).is_ok()); }
+            for label in ["main","station-control","monitor","log-qso","settings","unknown"] { assert!(validate_surface(label,&request).is_err()); }
+        }
+    }
 
     #[test]
     fn reference_scheduling_authority_is_scoped_to_settings_surfaces() {
@@ -1071,7 +1082,7 @@ mod tests {
         ] {
             let request = json!({"id":"r","method":method,"params":{}});
             assert!(validate_surface("monitor", &request).is_err());
-            assert!(validate_surface("main", &request).is_ok());
+            assert_eq!(validate_surface("main", &request).is_ok(), method != "station_tune");
         }
         assert!(validate_surface("monitor", &json!({"id":"r","method":"sync_run","params":{}})).is_err());
         assert!(validate_surface("main", &json!({"id":"r","method":"sync_run","params":{}})).is_err());

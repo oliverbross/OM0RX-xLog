@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Activity, Radio, RefreshCw } from "lucide-react";
 import { AgentConnectionSetup } from "./AgentConnectionSetup";
 import { nativeStationSelection } from "./stationSelection";
+import { ManualTuneStatus } from "./ManualSimplexTune";
+import { manualTuneSession } from "./manualTune";
 import "./StationPanel.css";
 import "./DirectFlexPanel.css";
 
@@ -87,7 +89,7 @@ export default function DirectFlexPanel({ request, snapshot }: Props) {
     const startedRFPowerRevision = rfPowerRevision.current;
     setBusy(true); setError(""); setNotice("");
     try {
-      const result = await request(method, { provider, ...params });
+      const result: Data = method === "station_tune" && shared ? await manualTuneSession().tune(provider, params.frequency_hz, params.mode) : await request(method, { provider, ...params });
       const confirmedRadio = result?.confirmed === true && result?.state?.radio?.observed === true ? result.state.radio : null;
       if (confirmedRadio && (method === "station_tune" || params.control === "set_frequency_a") &&
           frequencyRevision.current === startedFrequencyRevision && typeof confirmedRadio.frequency_hz === "number") {
@@ -158,6 +160,7 @@ export default function DirectFlexPanel({ request, snapshot }: Props) {
         <button className="live-station-quiet" disabled={!connected} onClick={useObservedValues}>Use observed frequency and mode in controls</button>
       </section>
       <section className="live-station-card"><h3>Frequency and mode</h3>
+        {shared && <ManualTuneStatus />}
         <div className="live-station-inline"><label>Frequency MHz<input aria-label="FLEX frequency MHz" inputMode="decimal" value={frequency} onChange={event => { frequencyEdited.current = true; frequencyRevision.current++; setFrequency(event.target.value); }} /></label><label>Mode<select aria-label="FLEX mode" value={mode} onChange={event => { modeEdited.current = true; modeRevision.current++; setMode(event.target.value); }}>{modes.map(value => <option key={value}>{value}</option>)}</select></label>
           <button disabled={busy || !supports("station_tune") || hz == null} onClick={() => hz != null && void act("station_tune", { frequency_hz: hz, mode }, "Simplex tune")}>Tune simplex</button></div>
         <div className="live-station-inline"><label>VFO<select aria-label="FLEX VFO" value={vfo} onChange={event => setVFO(event.target.value as "A" | "B")}><option>A</option><option>B</option></select></label>
