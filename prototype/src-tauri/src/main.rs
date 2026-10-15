@@ -24,6 +24,7 @@ mod radio_read;
 mod manual_tune;
 mod radio_release;
 mod carrier_tune;
+mod amplifier_transition;
 mod manual_rotor;
 mod radio_follow;
 mod opportunity_selection;
@@ -110,6 +111,9 @@ fn is_raw_manual_rotor_goto(request: &serde_json::Value) -> bool {
         || request["method"] == "station_action" && request["params"]["action"] == "rotor_goto"
         || request["method"] == "hamlib_control" && request["params"]["device"] == "rotor"
             && request["params"]["action"] == "goto"
+}
+fn requires_durable_station_action(action: &str) -> bool {
+    matches!(action, "cancel" | "tune" | "operate" | "standby")
 }
 
 #[tauri::command]
@@ -736,7 +740,7 @@ async fn monitor_context_snapshot(window: tauri::WebviewWindow, app: tauri::AppH
 #[tauri::command]
 async fn monitor_station_action(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>, expected: u64, selection_id: String, provider: String, action: String) -> Result<serde_json::Value, String> {
     monitor_context::validate(window.label(), state.path.is_some())?;
-    if matches!(action.as_str(), "cancel" | "tune") { return Err("Use the shared durable radio Tune/Cancel owners.".into()); }
+    if requires_durable_station_action(&action) { return Err("Use the shared durable radio and amplifier owners.".into()); }
     let request = monitor_context::action_request(&provider, &action)?;
     let selection = station_selection::owner(&app)?;
     let telemetry = station_telemetry::owner(&app)?;
@@ -793,6 +797,29 @@ async fn monitor_rotor_stop(window: tauri::WebviewWindow, state: tauri::State<'_
     validate_rotor_stop(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
     tauri::async_runtime::spawn_blocking(move || rotor::monitor_stop(&owner))
         .await.map_err(|_| "Rotor Stop task failed".to_string())?
+}
+
+#[tauri::command]
+async fn amplifier_transition_request(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, params: serde_json::Value) -> Result<serde_json::Value, String> {
+    let action=params["action"].as_str().unwrap_or("");
+    amplifier_transition::validate(window.label(),state.path.is_some(),APP_EXITING.load(Ordering::Acquire),action)?;
+    let keys:&[&str]=match action {"snapshot"=>&["action"],"prepare"=>&["action","transition"],"operate"|"standby"=>&["action","operation_id","target","preparation"],_=>&["action","operation_id"]};
+    if params.as_object().is_none_or(|o|o.len()!=keys.len() || o.keys().any(|k|!keys.contains(&k.as_str()))) {return Err("Invalid amplifier request".into());}
+    let owner=amplifier_transition::owner(&app)?;
+    if action=="snapshot" {let mut value=owner.snapshot()?;value["target"]=amplifier_transition::context(&app)?["target"].clone();return Ok(value);}
+    if action=="prepare" {
+        let preparation=owner.prepare(params["transition"].as_str().ok_or("Missing amplifier preparation action")?)?;
+        let mut value=owner.snapshot()?;value["preparation"]=serde_json::to_value(preparation).map_err(|_|"Amplifier preparation unavailable")?;
+        value["target"]=amplifier_transition::context(&app)?["target"].clone();return Ok(value);
+    }
+    let id=params["operation_id"].as_str().ok_or("Missing amplifier identity")?.to_owned();
+    if action=="receipt" {return owner.receipt(&id);}
+    if action=="review" {let result=owner.review(&id);for label in ["main","monitor","station-control"] {let _=app.emit_to(label,"xlog:amplifier-transition",());}return result;}
+    let target=serde_json::from_value::<amplifier_transition::Target>(params["target"].clone()).map_err(|_|"Invalid amplifier target")?;
+    let preparation=serde_json::from_value::<amplifier_transition::Preparation>(params["preparation"].clone()).map_err(|_|"Invalid amplifier preparation")?;
+    let action=action.to_owned();let changed=app.clone();
+    let result=tauri::async_runtime::spawn_blocking(move||owner.transition_prepared(&id,&action,target,&preparation,|request,target|amplifier_transition::execute(&app,request,target,&preparation))).await.map_err(|_|"Amplifier task ended; inspect its receipt. No transition will be replayed.".to_string())?;
+    for label in ["main","monitor","station-control"] {let _=changed.emit_to(label,"xlog:amplifier-transition",());}result
 }
 
 #[tauri::command]
@@ -917,8 +944,8 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     // Only typed integration operations cross this boundary; never shell commands.
     if state.path.is_some() { acceptance::validate_local_request(&request)?; }
     let method = request.get("method").and_then(|m| m.as_str()).unwrap_or("");
-    if method == "station_action" && matches!(request["params"]["action"].as_str(),Some("cancel"|"tune")) {
-        return Err("Use the shared durable radio Tune/Cancel owners.".into());
+    if method == "station_action" && requires_durable_station_action(request["params"]["action"].as_str().unwrap_or("")) {
+        return Err("Use the shared durable radio and amplifier owners.".into());
     }
     if method == "station_tune" || method == "hamlib_control" && request["params"]["device"] == "radio" && request["params"]["action"] == "tune_simplex" {
         return Err("Use the shared manual simplex tune owner.".into());
@@ -1514,7 +1541,7 @@ fn main() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![worker_request, cw_session_request, station_session_request, radio_release_request, carrier_tune_request, manual_rotor_request, pick_backup_package, open_monitor, open_detached_map,
+        .invoke_handler(tauri::generate_handler![worker_request, cw_session_request, station_session_request, radio_release_request, carrier_tune_request, amplifier_transition_request, manual_rotor_request, pick_backup_package, open_monitor, open_detached_map,
             spot_editor_register, spot_editor_unregister, spot_editor_ack, spot_editor_state,
             spot_activation_snapshot, spot_activation_status, spot_activation_reconcile, activate_spot, activate_opportunity,
             operator_draft_read_radio,
@@ -1569,6 +1596,26 @@ mod workspace_layout_tests {
     use super::{WorkspaceLayout, DraftWake, recover_singleton, detached_window_shortcut, validate_detached_open, COMPACT_WORKSPACE_MENU_ID, STANDARD_WORKSPACE_MENU_ID};
     use super::{spot_editor_barrier, validate_spot_effect, validate_activation_reader, retires_automatic_rotor, is_raw_manual_rotor_goto, validate_auto_rotor_read, validate_auto_rotor_set, validate_radio_read, validate_follow_settlement, validate_rotor_stop, AutomaticRotorCommands};
     use serde_json::json;
+
+    #[test]
+    fn amplifier_and_radio_actions_have_no_legacy_raw_or_monitor_bypass() {
+        for action in ["operate","standby","tune","cancel"] {
+            assert!(super::requires_durable_station_action(action));
+        }
+        for action in ["","rotor_stop","rotor_goto","connect","ptt"] {
+            assert!(!super::requires_durable_station_action(action));
+        }
+        for label in ["main","monitor","station-control"] {
+            for action in ["snapshot","operate","standby","receipt","review"] {
+                assert!(crate::amplifier_transition::validate(label,false,false,action).is_ok());
+                assert!(crate::amplifier_transition::validate(label,true,false,action).is_err());
+                assert!(crate::amplifier_transition::validate(label,false,true,action).is_err());
+            }
+        }
+        for label in ["cw","rotor","station-status","settings","unknown"] {
+            assert!(crate::amplifier_transition::validate(label,false,false,"standby").is_err());
+        }
+    }
 
     #[test]
     fn read_only_rotor_window_docks_to_recoverable_desk_without_a_motion_shortcut() {

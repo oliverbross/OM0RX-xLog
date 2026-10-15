@@ -3,7 +3,7 @@ type Data = Record<string, any>;
 const frequency = (hz: unknown) => typeof hz === "number" && Number.isFinite(hz) ? (hz / 1e6).toFixed(6) : "—";
 const value = (input: unknown, suffix = "") => input == null ? "—" : `${input}${suffix}`;
 
-export default function Monitor({ snapshot, map, onRequest, onRotorRequest, commandOperationId, resolvedCommandOperation, externalCancelFeedback = false, externalTuneFeedback = false }: { snapshot: Data | null; map: ReactNode; onRequest?: (method: string, params?: Data) => Promise<any>; onRotorRequest?: (method: string, params?: Data) => Promise<any>; commandOperationId?: () => string | null; resolvedCommandOperation?: string | null; externalCancelFeedback?: boolean; externalTuneFeedback?: boolean }) {
+export default function Monitor({ snapshot, map, onRequest, onRotorRequest, commandOperationId, resolvedCommandOperation, externalCancelFeedback = false, externalTuneFeedback = false, externalAmplifierFeedback = false }: { snapshot: Data | null; map: ReactNode; onRequest?: (method: string, params?: Data) => Promise<any>; onRotorRequest?: (method: string, params?: Data) => Promise<any>; commandOperationId?: () => string | null; resolvedCommandOperation?: string | null; externalCancelFeedback?: boolean; externalTuneFeedback?: boolean; externalAmplifierFeedback?: boolean }) {
   const radio = snapshot?.radio, station = snapshot?.station, rotor = snapshot?.rotor;
   const [angle, setAngle] = useState(0);
   const previous = useRef<number | null>(null);
@@ -25,7 +25,7 @@ export default function Monitor({ snapshot, map, onRequest, onRotorRequest, comm
   const command = async (method: string, params: Data) => {
     const request = method.startsWith("rotor_") ? onRotorRequest : onRequest;
     if (!request) return;
-    const delegatedFeedback = method === "station_action" && (externalCancelFeedback && params.action === "cancel" || externalTuneFeedback && params.action === "tune");
+    const delegatedFeedback = method === "station_action" && (externalCancelFeedback && params.action === "cancel" || externalTuneFeedback && params.action === "tune" || externalAmplifierFeedback && ["operate","standby"].includes(params.action));
     const current = ++operation.current;
     messageOperation.current = null; setBusy(true); setMessage("");
     try { const result = await request(method, params); if (!delegatedFeedback && mounted.current && operation.current === current) setMessage(result.confirmed ? "Observed confirmation received" : "Request accepted · watch observed state"); }
@@ -55,7 +55,7 @@ export default function Monitor({ snapshot, map, onRequest, onRotorRequest, comm
       {!local && <><section className="monitor-kpa"><strong>KPA500 · {station?.kpa_operate == null ? "Unavailable" : station.kpa_operate ? "OPERATE" : "STBY"}</strong><p>{station?.kpa_detail_primary || "Waiting for amplifier status"}</p><p>{station?.kpa_detail_secondary}</p></section>
       <section className="monitor-kat"><strong>KAT500</strong><p>{station?.kat_detail_primary || "Waiting for tuner status"}</p><p>{station?.kat_detail_secondary}</p></section>
       <section className="monitor-route"><p>{station?.route_detail || "Route unavailable"}</p><b>{station?.route_alignment || "UNKNOWN"}</b></section></>}
-      {!local && onRequest && <div className="monitor-actions"><button disabled={busy || !fresh || !station?.allowed_actions?.includes(action)} onClick={() => void command("station_action", { action })}>{station?.kpa_operate ? "Standby" : "Operate"}</button><button disabled={busy || !fresh || !snapshot?.allow_transmit || !station?.allowed_actions?.includes("tune")} onClick={() => void command("station_action", { action: "tune" })}>Tune</button><button onClick={() => void command("station_action", { action: "cancel" })}>Cancel</button></div>}
+      {!local && onRequest && <div className="monitor-actions"><button disabled={externalAmplifierFeedback && action === "standby" ? false : busy || !fresh || !station?.allowed_actions?.includes(action)} onClick={() => void command("station_action", { action })}>{station?.kpa_operate ? "Standby" : "Operate"}</button>{externalAmplifierFeedback && action !== "standby" && <button onClick={() => void command("station_action",{action:"standby"})}>Standby</button>}<button disabled={busy || !fresh || !snapshot?.allow_transmit || !station?.allowed_actions?.includes("tune")} onClick={() => void command("station_action", { action: "tune" })}>Tune</button><button onClick={() => void command("station_action", { action: "cancel" })}>Cancel</button></div>}
       </>}
       {flex && onRequest && <div className="monitor-actions"><button disabled={busy || !fresh || !snapshot?.allow_transmit || !supported.includes("tune")} onClick={() => void command("station_action", { action: "tune" })}>Tune</button><button onClick={() => void command("station_action", { action: "cancel" })}>Cancel tune / release TX</button></div>}
       {flex && !showRotor && <div className="monitor-live-map flex-map">{map}</div>}

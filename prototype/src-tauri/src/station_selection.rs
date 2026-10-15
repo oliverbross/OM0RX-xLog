@@ -590,7 +590,7 @@ impl Selection {
             return Err("Radio selection or controls changed; no spot tune was sent.".into());
         }
         let method = request["method"].as_str();
-        let provider = if carrier && method == Some("station_action") && request["params"]["action"] == "tune"
+        let provider = if carrier && method == Some("station_action") && (request["params"]["action"] == "tune" || request["params"]["action"] == "operate" && request["params"]["provider"] == "direct_agent")
             && matches!(request["params"]["provider"].as_str(), Some("direct_agent" | "direct_flex_lan")) { request["params"]["provider"].as_str() }
             else if !carrier && method == Some("hamlib_control") && request["params"]["device"] == "radio"
             && request["params"]["action"] == "tune_simplex" { Some("hamlib") }
@@ -610,6 +610,15 @@ impl Selection {
     }
     fn control_scoped<G>(&self, request: Value, expected: Option<(u64, &str)>, admit: impl FnOnce() -> Result<G, String>) -> Result<Value, String> {
         self.control_scoped_dispatch(request, expected.map(|(generation, identity)| (generation, identity, None)), admit, |request| (self.transport)(request))
+    }
+    pub(crate) fn amplifier_transition<G>(&self, request: Value, expected: &Value,
+        admit: impl FnOnce() -> Result<G, String>, dispatch: impl FnOnce(Value) -> Result<Value, String>) -> Result<Value, String> {
+        if request["method"] != "station_action" || request["params"]["provider"] != "direct_agent" { return Err("Invalid amplifier route".into()); }
+        match request["params"]["action"].as_str() {
+            Some("operate") => self.exclusive_tune(request, expected, true, admit, dispatch),
+            Some("standby") => self.control_scoped_dispatch(request, Some((expected["generation"].as_u64().ok_or("Invalid amplifier generation")?, expected["selection_id"].as_str().ok_or("Invalid amplifier selection")?, Some(expected["control_revision"].as_u64().ok_or("Invalid amplifier revision")?))), admit, dispatch),
+            _ => Err("Invalid amplifier action".into()),
+        }
     }
     /// CW retains its worker identity: a restarted worker must never receive a
     /// delayed macro through the ordinary reconnecting transport.
@@ -660,7 +669,7 @@ impl Selection {
         let _admission = admit()?;
         state.control_revision = state.control_revision.checked_add(1).filter(|value| *value <= 9_007_199_254_740_991)
             .ok_or("Radio control revision exhausted")?;
-        if request["method"] == "station_action" && request["params"]["action"] == "cancel" {
+        if request["method"] == "station_action" && matches!(request["params"]["action"].as_str(), Some("cancel" | "standby")) {
             request["params"]["expected_native_intent"] = json!(state.control_revision);
         }
         if matches!(request["method"].as_str(), Some("station_connect" | "station_disconnect" | "station_reconnect"
@@ -703,7 +712,7 @@ impl Selection {
 }
 fn urgent_release(request: &Value) -> bool {
     match request["method"].as_str() {
-        Some("station_action") => request["params"]["action"] == "cancel",
+        Some("station_action") => matches!(request["params"]["action"].as_str(), Some("cancel" | "standby")),
         Some("station_radio_control") => request["params"]["control"] == "clear_cw"
             || request["params"]["control"] == "ptt" && request["params"]["enabled"] == false,
         Some("hamlib_control") => request["params"]["device"] == "radio" &&
@@ -826,6 +835,23 @@ pub fn shutdown() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn amplifier_standby_retires_held_operate_and_carrier_with_native_ordered_tokens(){
+        for action in ["operate","tune"] {
+            let(_d,owner,_)=fixture();initialized(&owner,Some("direct_agent"));let expected=owner.snapshot().unwrap();
+            let held=json!({"id":"older","method":"station_action","params":{"provider":"direct_agent","action":action,"expected_generation":3}});
+            let dispatch=|held:Value|{
+                let current=owner.snapshot()?;
+                let standby=json!({"id":"newer","method":"station_action","params":{"provider":"direct_agent","action":"standby","expected_generation":3}});
+                owner.amplifier_transition(standby,&current,||Ok(()),|delivered|{
+                    assert!(delivered["params"]["expected_native_intent"].as_u64()>held["params"]["expected_native_intent"].as_u64());Ok(json!({"ok":true}))
+                })?;Ok(json!({"ok":true}))
+            };
+            if action=="operate"{owner.amplifier_transition(held,&expected,||Ok(()),dispatch).unwrap();}else{owner.carrier_tune(held,&expected,||Ok(()),dispatch).unwrap();}
+            let mut state=owner.state.lock().unwrap();state.qsy_fence=true;state.activation_tune=true;drop(state);
+            let current=owner.snapshot().unwrap();assert!(owner.amplifier_transition(json!({"method":"station_action","params":{"provider":"direct_agent","action":"standby"}}),&current,||Ok(()),|_|Ok(json!({}))).is_ok());
+        }
+    }
     #[test]
     fn carrier_reservation_blocks_nonurgent_controls_but_cancel_retires_its_revision(){
         let(_dir,owner,_)=fixture();initialized(&owner,Some("direct_agent"));let expected=owner.snapshot().unwrap();

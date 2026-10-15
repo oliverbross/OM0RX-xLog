@@ -4,6 +4,29 @@ import XCatIntegrationCore
 @testable import XLogPrototypeSupport
 
 final class LiveStationMethodsTests: XCTestCase {
+    func testNativeOrderedStandbyRejectsOlderOperateAndTuneBeforeTransport() async throws {
+        let agent=LiveStationSession()
+        do{_=try await agent.action("standby",expectedGeneration:0,expectedNativeIntent:30);XCTFail("Unconnected Standby accepted")}
+        catch let failure as WorkerFailure{XCTAssertEqual(failure.code,"invalid_params")}
+        for action in ["operate","tune"] {
+            do{_=try await agent.action(action,expectedGeneration:0,expectedNativeIntent:29);XCTFail("Retired acquisition dispatched")}
+            catch let failure as WorkerFailure{XCTAssertEqual(failure.code,"station_changed")}
+        }
+        for action in ["operate","standby"] {
+            do{_=try await agent.action(action,expectedGeneration:99,expectedNativeIntent:31);XCTFail("Replaced connection admitted")}
+            catch let failure as WorkerFailure{XCTAssertEqual(failure.code,"station_changed")}
+        }
+        // A stale generation must not consume a newer native intent.
+        do{_=try await agent.action("standby",expectedGeneration:0,expectedNativeIntent:31);XCTFail()}
+        catch let failure as WorkerFailure{XCTAssertEqual(failure.code,"invalid_params")}
+    }
+    func testStandbyRetainedCapabilityDoesNotRequireObservationOrCommissioning() {
+        XCTAssertTrue(LiveStationSession.allowsAction(.standby,connected:false,supported:["station_standby"],allowed:[]))
+        XCTAssertFalse(LiveStationSession.allowsAction(.standby,connected:false,supported:[],allowed:["standby"]))
+        var ownership=StationTransmitOwnership();ownership.beginControl("ptt",enabled:true);ownership.beginControl("send_cw");ownership.beginAction(.tune)
+        ownership.completeAction(.standby)
+        XCTAssertEqual(ownership.releases,[.clearCW,.cancelTune,.releasePTT],"Standby ACK alone proves no RF release")
+    }
     func testNativeOrderedCancelRejectsAnOlderTuneDeliveredAfterIt() async throws {
         let agent=LiveStationSession()
         do{_=try await agent.action("cancel",expectedGeneration:0,expectedNativeIntent:2);XCTFail("Unconnected Cancel accepted")}
@@ -64,7 +87,7 @@ final class LiveStationMethodsTests: XCTestCase {
         XCTAssertTrue(LiveStationSession.allowsAction(.cancel, connected: false, supported: ["station_cancel"], allowed: [], ownsTune: true))
         XCTAssertFalse(LiveStationSession.allowsAction(.cancel, connected: true, supported: ["station_cancel"], allowed: ["cancel"]))
         XCTAssertFalse(LiveStationSession.allowsAction(.cancel, connected: false, supported: [], allowed: ["cancel"]))
-        for action: RemoteStationAction in [.tune, .operate, .standby] {
+        for action: RemoteStationAction in [.tune, .operate] {
             XCTAssertFalse(LiveStationSession.allowsAction(action, connected: false, supported: ["station_\(action.rawValue)"], allowed: [action.rawValue]))
         }
     }
@@ -187,7 +210,7 @@ final class LiveStationMethodsTests: XCTestCase {
         XCTAssertTrue(ownership.releases.isEmpty)
         ownership.beginAction(.tune)
         ownership.completeAction(.standby)
-        XCTAssertTrue(ownership.releases.isEmpty)
+        XCTAssertEqual(ownership.releases,[.cancelTune,.releasePTT],"Standby requires fresh RX proof before retiring carrier ownership")
     }
 
     func testOperateIsNotClassifiedAsAnRFProducingTransmitControl() {

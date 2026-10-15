@@ -27,6 +27,21 @@ Alpha.31 remains installed; package, live Agent/FLEX, RF and physical release
 acceptance stay open. Independent WinKeyer keeps its separate local-output/lease
 boundary.
 
+Current post-alpha.31 source also moves Agent amplifier Operate/Standby from raw
+main/Monitor dispatch into one durable native owner shared by the Desk sidebar,
+Station Control and standalone Monitor. It binds exact selection, control,
+worker, Agent connection and observation identities, journals before one
+existing-worker send and never reconnects, retries or replays. Operate requires
+fresh idle/interlock evidence; Standby remains an independent urgent lane with
+retained exact authority. A native preparation fence shared across WebViews makes
+a newer Standby retire an older Operate even when their renderer delivery is
+reversed. Restart invalidates preparation tokens while preserving unknown receipt
+recovery. Full frontend **2,592/2,592**, Rust **523 unit + 22 integration**,
+portable Swift **418/418**, and production build gates pass after independent
+review. Alpha.31 remains installed;
+package, live Agent, amplifier/drive readback, hardware and RF acceptance stay
+open, and no station/network/operator-data action occurred.
+
 Current post-alpha.31 source adds one durable native owner for Agent/FLEX Cancel
 from both main Station Control and standalone Monitor. It binds selection, worker
 and connection generations, persists before its one dispatch, never reconnects

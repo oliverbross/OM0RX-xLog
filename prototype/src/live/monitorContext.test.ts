@@ -4,6 +4,7 @@ import { connectMonitorContext, freshMonitorProjection, monitorRadioAction, moni
 import { syntheticMonitorContext } from "./monitorContextFixtures";
 import { radioReleaseSession } from "./radioRelease";
 import { carrierTuneSession } from "./carrierTune";
+import { amplifierTransitionSession } from "./amplifierTransition";
 
 beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date("2026-10-14T00:00:00Z")); });
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
@@ -49,6 +50,14 @@ it("does not retry an uncertain radio action", async () => {
   const call = vi.fn().mockRejectedValue(new Error("Lost acknowledgement"));
   const tune=vi.spyOn(carrierTuneSession(),"tune").mockRejectedValue(new Error("Lost acknowledgement"));
   await expect(monitorRadioAction(syntheticMonitorContext(), "tune", call)).rejects.toThrow("Lost acknowledgement"); expect(tune).toHaveBeenCalledOnce();expect(call).not.toHaveBeenCalled();
+});
+it("delegates Agent Operate and stale Standby to one durable owner without raw Monitor IPC",async()=>{
+  const context=syntheticMonitorContext(),call=vi.fn();
+  const transition=vi.spyOn(amplifierTransitionSession(),"transition").mockResolvedValue({accepted:true,confirmed:false});
+  await monitorRadioAction(context,"operate",call);expect(transition).toHaveBeenLastCalledWith("operate",context);
+  context.radio={available:false,snapshot:null};await monitorRadioAction(context,"standby",call);expect(transition).toHaveBeenLastCalledWith("standby",context);
+  await expect(monitorRadioAction(context,"operate",call)).rejects.toThrow();expect(transition).toHaveBeenCalledTimes(2);expect(call).not.toHaveBeenCalled();
+  context.acceptance={synthetic:true,source:"synthetic_memory",externalOwners:false,readOnly:true};await expect(monitorRadioAction(context,"standby",call)).rejects.toThrow();expect(transition).toHaveBeenCalledTimes(2);
 });
 it("routes one owner/generation-fenced motion intent and never replays a lost reply", async () => {
   const context = syntheticMonitorContext(), snapshot = context.rotor.snapshot;

@@ -10,6 +10,8 @@ import { radioReleaseSession } from "./radioRelease";
 import { RadioReleaseStatus } from "./RadioReleaseStatus";
 import { carrierTuneSession } from "./carrierTune";
 import { CarrierTuneStatus } from "./CarrierTuneStatus";
+import { amplifierTransitionSession } from "./amplifierTransition";
+import { AmplifierTransitionStatus } from "./AmplifierTransitionStatus";
 
 type Request = (method: string, params?: Record<string, unknown>) => Promise<any>;
 type RadioState = {
@@ -250,14 +252,16 @@ export default function StationPanel({ snapshot, onRequest, onSnapshot, monitor 
           <form className="live-station-inline" onSubmit={(event) => void tune(event)}><label>Frequency MHz<input aria-label="Tune frequency MHz" inputMode="decimal" value={tuneMHz} onChange={(event) => setTuneMHz(event.target.value)} placeholder={connected ? frequency(radio?.frequency_hz) : "14.074000"} /></label>
             <label>Mode<select aria-label="Tune mode" value={tuneMode} onChange={(event) => setTuneMode(event.target.value)}>{modes.map((mode) => <option key={mode}>{mode}</option>)}</select></label>
             <button type="submit" disabled={busy || !connected}>Tune simplex</button></form>
-          <div className="live-station-actionrow">{(["standby", "operate", "tune"] as const).map((action) => <button key={action} type="button" disabled={busy || !actions.includes(action) || (isDirect && ["operate", "tune"].includes(action) && !canTransmit)} onClick={() => {
+          <div className="live-station-actionrow">{(["standby", "operate", "tune"] as const).map((action) => <button key={action} type="button" disabled={action === "standby" && nativeStationSelection() ? false : busy || !actions.includes(action) || (isDirect && action === "tune" && !canTransmit)} onClick={() => {
             if(action === "tune" && nativeStationSelection()) void carrierTuneSession().tune("direct_agent").catch(()=>{});
+            else if(nativeStationSelection()) void amplifierTransitionSession().transition(action as "operate"|"standby").catch(()=>{});
             else void command("station_action", { ...endpoint, action }, `Station ${action}`);
           }}>{action[0].toUpperCase() + action.slice(1)}</button>)}
             <button type="button" disabled={!nativeStationSelection() && (busy || !actions.includes("cancel"))} onClick={() => { if (nativeStationSelection()) void radioReleaseSession().cancel("direct_agent").catch(() => {});
               else void command("station_action", { ...endpoint, action: "cancel" }, "Station cancel"); }}>Cancel</button></div>
           {nativeStationSelection() && <RadioReleaseStatus />}
           {nativeStationSelection() && <CarrierTuneStatus />}
+          {nativeStationSelection() && <AmplifierTransitionStatus />}
           <p className="live-station-helper">A station action being accepted is not a confirmed RF or accessory readback. Keep the observed interlocks in view.</p>
         </section>}
         {!isMonitor && isDirect && <section className="live-station-card"><h3>Direct radio controls</h3>

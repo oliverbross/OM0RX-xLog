@@ -2,6 +2,28 @@
 
 Last updated: 2026-10-16
 
+## Shared durable Agent amplifier owner — source complete; package/hardware acceptance open
+
+Main Station Control, the Desk sidebar and standalone Station Monitor now route
+Agent amplifier Operate/Standby through one native durable owner. Every request
+binds the exact selection, control revision, producing worker, Agent connection
+and observation identity, is journaled before one existing-worker dispatch and
+is never reconnected, retried or replayed. Operate requires fresh idle radio and
+station-interlock evidence. Standby remains an independent urgent release lane
+with retained exact authority even when telemetry is stale.
+
+Native preparation tokens are shared across every WebView, so a newer Standby
+retires an older Operate preparation before it can be journaled or sent, including
+reversed cross-window delivery. Restart invalidates preparations but preserves
+unknown receipts for explicit Check/review. An Agent acknowledgement remains
+unconfirmed accessory state, and Standby does not erase Tune, PTT or CW release
+obligations without authoritative release evidence. Complete frontend
+**2,592/2,592**, Rust **523 unit + 22 integration**, portable Swift **418/418**,
+and the production TypeScript/Vite/window build pass; independent re-review found no
+remaining actionable issue. Source only: alpha.31 remains installed, and no
+station, hardware, radio, amplifier, RF, network, service or operator-data action
+occurred.
+
 ## Shared durable carrier Tune owner — source complete; package/RF acceptance open
 
 Main Agent/FLEX controls and standalone Station Monitor now route carrier Tune

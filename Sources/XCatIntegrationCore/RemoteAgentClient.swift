@@ -341,7 +341,7 @@ public actor RemoteAgentClient: RadioControlling {
     }
 
     public func performStationAction(_ action: RemoteStationAction) async throws {
-        try await execute(.station(action), attempts: action == .cancel || action == .tune ? 1 : 2)
+        try await execute(.station(action), attempts: 1)
     }
 
     public func addSpot(_ spot: FlexSpot) async throws {
@@ -670,7 +670,7 @@ public actor RemoteAgentClient: RadioControlling {
             let detail = object?["detail"] as? String
             let message = error?["message"] as? String ?? detail
                 ?? "Remote Agent request failed (HTTP \(http.statusCode))."
-            throw XCatError.server(message)
+            throw RemoteAgentCommandFailure(code: error?["code"] as? String ?? "agent_rejected", message: message)
         }
     }
 }

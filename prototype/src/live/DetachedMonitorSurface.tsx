@@ -10,6 +10,7 @@ import { ManualRotorStatus } from "./ManualRotorControl";
 import { manualRotorGotoSession, type ManualRotorGotoSession } from "./manualRotorGoto";
 import { RadioReleaseStatus } from "./RadioReleaseStatus";
 import { CarrierTuneStatus } from "./CarrierTuneStatus";
+import { AmplifierTransitionStatus } from "./AmplifierTransitionStatus";
 import "./DetachedMonitorSurface.css";
 
 type Connection = { refresh: () => void; dispose: () => void };
@@ -73,7 +74,7 @@ export function MonitorSurface({ connectCore = connectMonitorContext, connectMap
   const station = monitorStation(context, clock);
   if (!authority.current) { station.radio.observed = false; station.station.radio_stale = true; station.station.swr_is_live = false; station.rotor.connected = false; }
   const radioRequest = async (method: string, params: Record<string, any> = {}) => {
-    if (method !== "station_action" || !authority.current && params.action !== "cancel") throw new Error("Refresh native station observations before sending this action.");
+    if (method !== "station_action" || !authority.current && !["cancel","standby"].includes(params.action)) throw new Error("Refresh native station observations before sending this action.");
     try { return await radioAction(latest.current, params.action); }
     finally { if (active.current) core.current?.refresh(); }
   };
@@ -100,10 +101,11 @@ export function MonitorSurface({ connectCore = connectMonitorContext, connectMap
     {!synthetic && <ManualRotorStatus session={rotorSession} onResolved={setResolvedCommandOperation} />}
     {!synthetic && <RadioReleaseStatus />}
     {!synthetic && <CarrierTuneStatus />}
+    {!synthetic && context?.selection?.provider === "direct_agent" && <AmplifierTransitionStatus />}
     {error && <p className="live-error" role="alert">{error} <button type="button" onClick={() => { core.current?.refresh(); maps.current?.refresh(); targets.current?.refresh(); }}>Retry observations</button></p>}
     {!context && <p className="secondary" role="status">Loading retained native station observations…</p>}
     {context && !context.selection?.provider && <p className="secondary" role="status">No radio selected. Choose and connect a radio in the main station controls.</p>}
-    {context?.selection?.provider && !freshRadio && <p className="live-error" role="status">Radio observation unavailable or stale. Only selection-fenced Cancel remains available.</p>}
+    {context?.selection?.provider && !freshRadio && <p className="live-error" role="status">Radio observation unavailable or stale. Selection-fenced Cancel and Agent Standby remain available.</p>}
     {context?.rotor?.snapshot?.owner && !freshRotor && <p className="live-error" role="status">Rotor observation unavailable or stale. Turn is disabled; Stop checks the current native owner.</p>}
     {targetError && <p className="secondary" role="status">Shared QSO map target unavailable. Station and rotor remain independent.</p>}
     <Monitor snapshot={station} map={renderMap ? renderMap(map, mapStale) : <OptionalMap context={map} stale={mapStale} target={target}
@@ -111,7 +113,7 @@ export function MonitorSurface({ connectCore = connectMonitorContext, connectMap
       onRequest={context?.selection?.provider && !synthetic ? radioRequest : undefined}
       onRotorRequest={context?.rotor?.snapshot?.owner && !synthetic ? rotorRequest : undefined}
       commandOperationId={() => rotorSession.getSnapshot().pending}
-      resolvedCommandOperation={resolvedCommandOperation} externalCancelFeedback externalTuneFeedback />
+      resolvedCommandOperation={resolvedCommandOperation} externalCancelFeedback externalTuneFeedback externalAmplifierFeedback />
   </main></div>;
 }
 export function DetachedMonitorSurface() { return <MonitorSurface />; }

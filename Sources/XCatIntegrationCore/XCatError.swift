@@ -1,5 +1,13 @@
 import Foundation
 
+/// Preserve Agent transaction/rollback codes across the worker boundary.
+public struct RemoteAgentCommandFailure: LocalizedError, Sendable {
+    public let code: String
+    public let message: String
+    public init(code: String, message: String) { self.code = code; self.message = message }
+    public var errorDescription: String? { message }
+}
+
 public enum XCatError: LocalizedError, Sendable {
     case invalidFrequency
     case invalidMode

@@ -84,6 +84,8 @@ import RotorPanel from "./live/RotorPanel";
 import { connectRotorTelemetry } from "./live/rotorTelemetry";
 import { connectStationTelemetry } from "./live/stationTelemetry";
 import { connectStationSelection, nativeStationSelection } from "./live/stationSelection";
+import { amplifierTransitionSession } from "./live/amplifierTransition";
+import { AmplifierTransitionStatus } from "./live/AmplifierTransitionStatus";
 import { AgentConnectionSetup } from "./live/AgentConnectionSetup";
 import { clearConnectedHandoverMessage, rotorCommandParams, rotorProjection, validRotorSnapshot, type RotorSnapshot } from "./live/rotorControl";
 import "./live/live.css";
@@ -442,6 +444,10 @@ function MainLiveApp() {
         throw new Error("Selected station changed. Finish handover before connecting or sending controls.");
       const requestedProvider = provider.current;
       const requestedSelection = selection.current;
+      if (method === "station_action" && ["operate","standby"].includes(String(params.action)) && nativeStationSelection()) {
+        if(requestedProvider!=="direct_agent")throw new Error("Amplifier controls require the Agent.");
+        return amplifierTransitionSession().transition(params.action as "operate"|"standby");
+      }
       if (method === "station_tune" && nativeStationSelection()) return manualTuneSession().tune(requestedProvider, params.frequency_hz as number, params.mode as string);
       const result = isStation && requestedProvider === "hamlib"
         ? await hamlibStationRequest(method, params, async (name, args) => (await workerRequest(name, args)).result as Data)
@@ -916,7 +922,11 @@ function MainLiveApp() {
       <span className="rail-end">{stats?.stats?.qso_count?.toLocaleString() ?? "—"} contacts · Integrated logbook</span>
     </header>
     <aside className="sidebar" style={separateWindows ? { display: "none" } : undefined}><nav>{navigation.map(([name, Icon], i) => <div key={name}>{(i === 0 || name === "Station Control") && <div className="nav-group">{i === 0 ? "Station log" : "Services"}</div>}<button aria-current={view === name ? "page" : undefined} onClick={() => setView(name)}><Icon size={17} />{name}</button></div>)}</nav>
-      <SidebarStation snapshot={stationWithRotor} provider={stationProvider} busy={busy} onAction={action => void run(async () => { await request("station_action", { action }); })} />
+      <SidebarStation snapshot={stationWithRotor} provider={stationProvider} busy={busy} onAction={action => {
+        if(nativeStationSelection())void amplifierTransitionSession().transition(action as "operate"|"standby").catch(()=>{});
+        else void run(async()=>{await request("station_action",{action});});
+      }} />
+      {nativeStationSelection() && stationProvider === "direct_agent" && view !== "Station Control" && <AmplifierTransitionStatus />}
       <div className="sidebar-foot"><button onClick={() => void openMonitor().catch(e => setError(e.message))}><ExternalLink size={16} />Monitor</button><strong className="teal">{settings?.stationCall || "Station not configured"}</strong><span>{settings?.gridSquare || "Set station grid"}</span></div>
     </aside>
     <main className="qso-feedback-area" aria-label={separateWindows ? "Separate Windows" : view} style={separateWindows ? { gridColumn: "1 / -1" } : undefined}>
@@ -1036,6 +1046,6 @@ function SidebarStation({ snapshot, provider, busy, onAction }: { snapshot: Data
       [s?.swr_is_live ? "SWR LIVE" : "SWR LAST", s?.swr?.toFixed(2) || "—", "teal"], ["KPA BAND", band(s?.kpa_detail_primary) || s?.band || "—", "amber"],
       ["KPA TEMP", detail(s?.kpa_detail_secondary, "TEMP") || "—", "amber"], ["KAT BAND", band(s?.kat_detail_primary) || s?.band || "—", "cyan"], ["ANTENNA", antenna || "—", "cyan"]];
   return <section className="live-station-brief"><div className="nav-group">Station</div><strong className={local || flex ? "cyan" : "amber"}>{flex ? `DIRECT FLEX · ${snapshot?.radio?.connected ? "CONNECTED" : "OFFLINE"}` : local ? "LOCAL · HAMLIB" : `KPA500 · ${s?.kpa_operate == null ? "OFFLINE" : s.kpa_operate ? "OPERATE" : "STANDBY"}`}</strong>
-    {!local && !flex && <button className={s?.kpa_operate ? "teal" : "orange"} disabled={busy || !s?.allowed_actions?.includes(action)} onClick={() => onAction(action)}>Switch to {action}</button>}
+    {!local && !flex && <><button className={s?.kpa_operate ? "teal" : "orange"} disabled={nativeStationSelection() && action === "standby" ? false : busy || !s?.allowed_actions?.includes(action)} onClick={() => onAction(action)}>Switch to {action}</button>{nativeStationSelection() && action !== "standby" && <button onClick={()=>onAction("standby")}>Standby</button>}</>}
     <div className="sidebar-metrics">{items.map(([title, text, color]) => <div key={title} className={color}><small>{title}</small><b>{text}</b></div>)}</div></section>;
 }

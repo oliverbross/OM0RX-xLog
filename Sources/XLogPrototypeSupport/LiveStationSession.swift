@@ -34,7 +34,7 @@ struct StationTransmitOwnership {
         // HTTP acquisition whose reply is still outstanding. Its wire outcome
         // is unknown; keep explicit release available after it finishes.
         if action == .cancel && acquisitionsInFlight { return }
-        if action == .cancel || action == .standby { tune = false }
+        if action == .cancel { tune = false }
     }
 
     var releases: [Release] {
@@ -582,8 +582,8 @@ actor LiveStationSession {
         if let expectedNativeIntent { try carrierIntent.admitNative(expectedNativeIntent) }
         // Cancel must retire a suspended preflight even when no tune obligation
         // exists yet. Its authority to send RF releases is checked separately.
-        if name == "cancel" { carrierIntent.cancel() }
-        let intent = name == "tune" ? carrierIntent.begin() : nil
+        if name == "cancel" || name == "standby" { carrierIntent.cancel() }
+        let intent = name == "tune" || name == "operate" ? carrierIntent.begin() : nil
         guard let client, let action = RemoteStationAction(rawValue: name) else {
             throw WorkerFailure("invalid_params", "Invalid direct station action.")
         }
@@ -610,7 +610,8 @@ actor LiveStationSession {
             // Operate is the Agent's guarded amplifier-state transaction, not an
             // RF-producing CAT control. The Agent remains authoritative for its
             // advertised action, current route and hardware interlocks.
-            guard lifecycleTransitions == 0, station.inhibitors.isEmpty else {
+            guard lifecycleTransitions == 0, station.inhibitors.isEmpty, station.radioKnown, !station.radioStale,
+                  !observed.isTransmitting, observed.transportReceivedAt.map({ Date().timeIntervalSince($0) >= -1 && Date().timeIntervalSince($0) <= 3 }) == true else {
                 throw WorkerFailure("station_action_blocked", "The station has inhibitors or its connection is changing.")
             }
         }
@@ -618,20 +619,22 @@ actor LiveStationSession {
         let acquiresTransmit = Self.requiresTransmitOptIn(action)
         if acquiresTransmit { beginDirectTransmitAcquisition() }
         defer { if acquiresTransmit { finishDirectTransmitAcquisition() } }
-        if action == .tune || action == .cancel { carrierReadbackAfter = Date() }
+        if action == .tune || action == .cancel || action == .standby { carrierReadbackAfter = Date() }
         do {
             try await client.performStationAction(action)
             if let intent { try carrierIntent.require(intent) }
             guard generation == connectionGeneration, self.client === client else { throw lifecycleChanged() }
             // An ACK without returned radio state must not reuse an RX stream
             // sample that arrived while the HTTP command was still pending.
-            if action == .cancel { acknowledgeCarrierCancel() }
+            if action == .cancel || action == .standby && transmitOwnership.releases.contains(.cancelTune) { acknowledgeCarrierCancel() }
             else { transmitOwnership.completeAction(action, acquisitionsInFlight: directTransmitAcquisitions > 0) }
             let state = await snapshot()
             if let intent { try carrierIntent.require(intent) }
             guard generation == connectionGeneration, self.client === client else { throw lifecycleChanged() }
             return ["accepted": true, "confirmed": false, "action": name, "state": state]
         } catch {
+            if let failure = error as? RemoteAgentCommandFailure { throw WorkerFailure(failure.code, failure.message) }
+            if let failure = error as? WorkerFailure { throw failure }
             throw WorkerFailure("station_rejected", "The Remote Station Agent rejected the action.")
         }
     }
@@ -658,7 +661,7 @@ actor LiveStationSession {
         // beginAction(.tune) acquires this authority before dispatch, so an
         // uncertain tune reply remains releasable. A replacement worker or a
         // monitoring-only connection never gains authority over another TX.
-        supported.contains("station_\(action.rawValue)") && (action == .cancel ? ownsTune : connected && allowed.contains(action.rawValue))
+        supported.contains("station_\(action.rawValue)") && (action == .cancel ? ownsTune : action == .standby || connected && allowed.contains(action.rawValue))
     }
 
     private func radioControl(_ params: [String: Any]) async throws -> [String: Any] {

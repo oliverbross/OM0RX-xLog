@@ -7,6 +7,23 @@ packaged UI result. Keep unresolved items here across releases.
 
 ## Current delivery boundary
 
+- **Shared durable Agent amplifier owner, 16 October:** Desk sidebar, Station
+  Control and standalone Monitor now share one native Agent-only Operate/Standby
+  owner. Exact selection, control, worker, connection and observation identities
+  fence a journal-before-send, one-attempt existing-worker dispatch with no
+  reconnect, retry or replay. Operate requires fresh idle/interlock evidence;
+  Standby remains independently available with retained exact authority. Native
+  cross-WebView preparation tokens make a newer Standby retire an older Operate
+  before admission even under reversed delivery, while restart invalidates old
+  preparations and preserves unknown receipts. Agent success is acknowledged,
+  not accessory/drive-confirmed, and Standby cannot silently clear Tune/PTT/CW
+  obligations. Full frontend **2,592/2,592**, Rust **523 unit + 22 integration**,
+  portable Swift **418/418**, production build and diff checks pass; independent
+  review found no remaining
+  actionable issue. Source only: alpha.31 remains installed and no station,
+  hardware, radio, amplifier, RF, network, service or operator-data action
+  occurred.
+
 - **Shared durable carrier Tune owner, 16 October:** Main Agent/FLEX controls and
   standalone Monitor now use one native one-shot carrier owner. Exact selection,
   control, worker, connection and fresh idle-observation identities are checked

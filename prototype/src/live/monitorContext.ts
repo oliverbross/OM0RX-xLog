@@ -5,6 +5,7 @@ import { rotorCommandParams, rotorProjection, validRotorSnapshot, type RotorSnap
 import { manualRotorGotoSession } from "./manualRotorGoto";
 import { radioReleaseSession } from "./radioRelease";
 import { carrierTuneSession } from "./carrierTune";
+import { amplifierTransitionSession } from "./amplifierTransition";
 
 type Data = Record<string, any>;
 export type MonitorContext = { epoch: string; revision: number; selection: null | {
@@ -53,8 +54,12 @@ export function monitorStation(context: MonitorContext | null, now = Date.now())
 type Invoke = (command: string, params?: Data) => Promise<any>;
 export async function monitorRadioAction(context: MonitorContext | null, action: unknown, call: Invoke = invoke) {
   if (!context?.selection?.provider || context.acceptance || typeof action !== "string" || !["direct_agent", "direct_flex_lan"].includes(context.selection.provider) ||
-      action !== "cancel" && !monitorRadioFresh(context)) throw new Error("Refresh a current native radio observation before using monitor controls.");
+      action !== "cancel" && action !== "standby" && !monitorRadioFresh(context)) throw new Error("Refresh a current native radio observation before using monitor controls.");
   if (action === "cancel") return radioReleaseSession().cancel(context.selection!.provider as "direct_agent" | "direct_flex_lan", context);
+  if (action === "operate" || action === "standby") {
+    if(context.selection.provider!=="direct_agent")throw new Error("Amplifier controls require the Agent.");
+    return amplifierTransitionSession().transition(action,context);
+  }
   const selection = context.selection!, snapshot = context.radio.snapshot ?? {};
   const allowed = selection.provider === "direct_agent" ? snapshot.station?.allowed_actions : snapshot.capabilities?.supported_commands;
   if (action !== "cancel" && (!["operate", "standby", "tune"].includes(action) || !Array.isArray(allowed) || !allowed.includes(action) ||

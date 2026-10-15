@@ -44,16 +44,20 @@ it("renders native radio/rotor without main or optional metadata and keeps exist
   fireEvent.click(screen.getByRole("button", { name: "Stop" })); await act(async () => {});
   expect(view.rotorAction).toHaveBeenCalledWith(expect.anything(), "rotor_stop", {}); expect(view.refresh).toHaveBeenCalledTimes(2);
 });
-it("stale or failed observations disable TX and turn but retain explicit native Cancel and Stop", async () => {
+it("stale or failed observations disable TX and turn but retain explicit native Standby, Cancel and Stop", async () => {
   const view = setup();
   await act(async () => { await vi.advanceTimersByTimeAsync(6000); });
   expect(screen.getByRole("button", { name: "Tune" }).hasAttribute("disabled")).toBe(true);
-  expect(screen.getByRole("button", { name: "Standby" }).hasAttribute("disabled")).toBe(true);
+  expect(screen.getByRole("button", { name: "Standby" }).hasAttribute("disabled")).toBe(false);
+  fireEvent.click(screen.getByRole("button", { name: "Standby" })); await act(async()=>{});
+  expect(view.radioAction).toHaveBeenCalledWith(expect.anything(),"standby");
   expect(screen.getByRole("button", { name: "Turn" }).hasAttribute("disabled")).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: "Cancel" })); fireEvent.click(screen.getByRole("button", { name: "Stop" }));
   await act(async () => {});
   expect(view.radioAction).toHaveBeenCalledWith(expect.anything(), "cancel"); expect(view.rotorAction).toHaveBeenCalledWith(expect.anything(), "rotor_stop", {});
   act(() => failed("Retained context unavailable"));
+  fireEvent.click(screen.getByRole("button", { name: "Standby" })); await act(async()=>{});
+  expect(view.radioAction.mock.calls.filter((call:unknown[])=>call[1]==="standby")).toHaveLength(2);
   fireEvent.click(screen.getByRole("button", { name: "Retry observations" }));
   expect(view.refresh).toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Stop" })); await act(async () => {});

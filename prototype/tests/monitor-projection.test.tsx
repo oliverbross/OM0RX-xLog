@@ -99,11 +99,21 @@ it("reads retained native context without main/device polling and keeps stale St
   const connectMap = (accept: any) => { accept(maps); return { refresh: vi.fn(), dispose: vi.fn() }; };
   const connectTarget = (accept: any) => { accept({ generation: maps.metadata.generation, call: "EA7EU", lat: 37, lon: -6 }); return noTarget(); };
   context.radio.snapshot.station.kpa_operate = false;
+  const target = { provider: "direct_agent", selection_generation: context.selection!.generation,
+    selection_id: context.selection!.selection_id, control_revision: 3, worker_generation: 4,
+    connection_generation: 7, observation_revision: context.radio.revision, received_at_ms: context.radio.received_at_ms };
+  const preparation = { session: crypto.randomUUID(), epoch: crypto.randomUUID(), action: "operate" };
   bridge.invoke.mockImplementation(async (command, params) => {
     if (command === "monitor_context_snapshot") return context;
-    if (command === "monitor_station_action") {
-      expect(params).toEqual({ provider: "direct_agent", expected: 2, selectionId: context.selection!.selection_id, action: "operate" });
-      return { ok: true, result: { accepted: true } };
+    if (command === "amplifier_transition_request") {
+      const request = (params as any).params;
+      if (request.action === "snapshot") return { target, receipts: [] };
+      if (request.action === "prepare") {
+        expect(request).toEqual({ action: "prepare", transition: "operate" });
+        return { target, preparation, receipts: [] };
+      }
+      expect(request).toEqual({ action: "operate", operation_id: expect.any(String), target, preparation });
+      return { operation_id: request.operation_id, action: "operate", target, status: "acknowledged" };
     }
     if (command === "monitor_rotor_stop") { expect(params).toEqual({ owner: "hamlib" }); return { ok: true, result: { accepted: true } }; }
     throw new Error(`Unexpected native command: ${command}`);
@@ -112,7 +122,9 @@ it("reads retained native context without main/device polling and keeps stale St
   expect(screen.getByTestId("native-context-map").textContent).toBe("1 spots · OM0RX · EA7EU · synthetic-report · #123456");
   expect(screen.getByText("A: 14.074000")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Operate" })); await settle();
-  expect(bridge.invoke.mock.calls.filter(([method]) => method === "monitor_station_action")).toHaveLength(1);
+  expect(bridge.invoke.mock.calls.filter(([method, args]) => method === "amplifier_transition_request" && (args as any).params.action === "prepare")).toHaveLength(1);
+  expect(bridge.invoke.mock.calls.filter(([method, args]) => method === "amplifier_transition_request" && (args as any).params.action === "operate")).toHaveLength(1);
+  expect(bridge.invoke.mock.calls.filter(([method]) => method === "monitor_station_action")).toHaveLength(0);
 
   context = { ...context, revision: 2, selection: { provider: "hamlib", generation: 3, selection_id: crypto.randomUUID() },
     radio: { available: false, snapshot: null }, rotor: { ...context.rotor, snapshot: { ...context.rotor.snapshot, owner: "hamlib", generation: 8 } } };
@@ -126,5 +138,5 @@ it("reads retained native context without main/device polling and keeps stale St
   expect(bridge.invoke.mock.calls.filter(([method]) => method === "monitor_rotor_stop")).toHaveLength(1);
   expect(bridge.invoke.mock.calls.filter(([method]) => method === "monitor_context_snapshot").length).toBeGreaterThan(2);
   expect(bridge.request).not.toHaveBeenCalled();
-  expect(bridge.invoke.mock.calls.every(([method]) => ["monitor_context_snapshot", "monitor_station_action", "monitor_rotor_stop"].includes(method))).toBe(true);
+  expect(bridge.invoke.mock.calls.every(([method]) => ["monitor_context_snapshot", "amplifier_transition_request", "monitor_rotor_stop"].includes(method))).toBe(true);
 });

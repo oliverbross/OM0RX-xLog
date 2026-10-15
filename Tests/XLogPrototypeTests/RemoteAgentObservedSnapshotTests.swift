@@ -88,7 +88,7 @@ private final class ObservedCallbackScript: @unchecked Sendable {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return ["protocol_version": 1, "revision": revision,
-            "capabilities": ["commands": ["set_mode", "set_ptt", "set_frequency_hz"]],
+            "capabilities": ["commands": ["set_mode", "set_ptt", "set_frequency_hz", "station_operate", "station_standby"]],
             "radio": ["connected": true, "known": true, "stale": false, "station_bound": true,
                 "mox": true, "frequency_hz": 14_025_000, "mode": "CW",
                 "observed_at": formatter.string(from: observed)],
@@ -132,6 +132,25 @@ private final class ObservedCallbackProtocol: URLProtocol {
 }
 
 final class RemoteAgentObservedSnapshotTests: XCTestCase {
+    func testAmplifierActionsMakeOneHTTPAttemptOnLostReply() async throws {
+        for action:RemoteStationAction in [.operate,.standby] {
+            try await fixture(commands:[],verify:{script in
+                XCTAssertEqual(script.sentCommands.count,1)
+                XCTAssertEqual(script.sentCommands.first?["command"] as? String,"station_\(action.rawValue)")
+            }){client,_ in
+                do{try await client.performStationAction(action);XCTFail("Lost response reported success")}
+                catch{}
+            }
+        }
+    }
+    func testStructuredAgentRollbackFailureSurvivesCommandDecoding() throws {
+        let data=Data(#"{"success":false,"error":{"code":"operate-rollback-incomplete","message":"KPA standby confirmed; drive restoration unproved"}}"#.utf8)
+        XCTAssertThrowsError(try RemoteAgentStateDecoder.commandResponse(data)){error in
+            let failure=error as? RemoteAgentCommandFailure
+            XCTAssertEqual(failure?.code,"operate-rollback-incomplete")
+            XCTAssertEqual(failure?.message,"KPA standby confirmed; drive restoration unproved")
+        }
+    }
     private func fixture(commands: [Double?], commandDelay: TimeInterval = 0, commandRevision: Int = 42,
                          onCommand: @escaping @Sendable () -> Void = {},
                          verify: ((ObservedCallbackScript) -> Void)? = nil,

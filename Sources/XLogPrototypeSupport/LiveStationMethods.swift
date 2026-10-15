@@ -146,12 +146,12 @@ enum LiveStationMethods {
                   ["standby", "operate", "tune", "cancel"].contains(action) else { throw invalidParams() }
             let expected = try params["expected_generation"].map { raw -> UInt64 in
                 let value = try integer(raw)
-                guard ["cancel", "tune"].contains(action), (0...9_007_199_254_740_991).contains(value) else { throw invalidParams() }
+                guard ["cancel", "tune", "operate", "standby"].contains(action), (0...9_007_199_254_740_991).contains(value) else { throw invalidParams() }
                 return UInt64(value)
             }
             let nativeIntent = try params["expected_native_intent"].map { raw -> UInt64 in
                 let value = try integer(raw)
-                guard ["cancel", "tune"].contains(action), expected != nil,
+                guard ["cancel", "tune", "operate", "standby"].contains(action), expected != nil,
                       (1...9_007_199_254_740_991).contains(value) else { throw invalidParams() }
                 return UInt64(value)
             }

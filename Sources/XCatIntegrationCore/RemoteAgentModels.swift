@@ -225,7 +225,7 @@ enum RemoteAgentStateDecoder {
     static func commandResponse(_ data: Data, receivedAt: Date = Date()) throws -> RemoteAgentDecodedState? {
         let response = try JSONDecoder().decode(CommandResponse.self, from: data)
         guard response.success else {
-            throw XCatError.server(response.error?.message ?? "Remote Agent rejected the command.")
+            throw RemoteAgentCommandFailure(code: response.error?.code ?? "agent_rejected", message: response.error?.message ?? "Remote Agent rejected the command.")
         }
         return try response.state.map { try decode($0, receivedAt: receivedAt) }
     }
