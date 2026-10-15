@@ -8,6 +8,9 @@ import { contactEditFixture } from "../tests/contact-edit-fixture";
 import { loadWindowSurface } from "./windowSurface";
 
 const api = vi.hoisted(() => ({ worker: vi.fn(), contacts: vi.fn(), changes: vi.fn(), protect: vi.fn(), dock: vi.fn() }));
+// The production acceptance poll has a 20-second bounded deadline. Keep the
+// test watchdog slightly longer so failures retain the useful poll label.
+const acceptanceTestTimeout = 25_000;
 vi.mock("./worker", () => ({ workerRequest: api.worker }));
 vi.mock("./live/logbookContactTransport", () => ({ requestLogbookContact: api.contacts }));
 vi.mock("./live/logbookWindows", () => ({ connectLogbookChanges: api.changes, protectLogbookClose: api.protect }));
@@ -74,7 +77,7 @@ it("opens a direct-menu Logbook with only a compact task toolbar above the table
   expect(screen.getByRole<HTMLInputElement>("checkbox", { name: /for export/ }).checked).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: "Clear selection" }));
   expect(screen.getByRole<HTMLInputElement>("checkbox", { name: /for export/ }).checked).toBe(false);
-});
+}, acceptanceTestTimeout);
 
 it("prepares, probes while hidden, and cancels a real unsaved detached contact edit without backend writes", async () => {
   const context = await setup();
@@ -94,7 +97,18 @@ it("prepares, probes while hidden, and cancels a real unsaved detached contact e
   expect(api.contacts.mock.calls.every(([method]) => method === "logbook_contact")).toBe(true);
   expect(api.worker.mock.calls.every(([method]) => ["logbook_list", "logbook_matrix", "lookup_call", "logbook_previous"].includes(method))).toBe(true);
   expect(api.dock).not.toHaveBeenCalled();
-});
+}, acceptanceTestTimeout);
+
+it("retries a row open that lands before the table accepts contact edits", async () => {
+  const context = await setup();
+  const row = screen.getByRole("row", { name: /W1AW/ });
+  const open = row.click.bind(row);
+  let attempts = 0;
+  vi.spyOn(row, "click").mockImplementation(() => { attempts += 1; if (attempts > 1) open(); });
+  await context.action("editor_prepare");
+  expect(attempts).toBeGreaterThan(1);
+  expect(screen.getByLabelText<HTMLInputElement>("Comment").value).toBe(workspaceDraftMarker);
+}, acceptanceTestTimeout);
 
 it("rejects missing or changed draft evidence and never clicks Update QSO", async () => {
   const context = await setup();
@@ -105,7 +119,7 @@ it("rejects missing or changed draft evidence and never clicks Update QSO", asyn
   await expect(context.action("editor_cancel")).rejects.toThrow("not retained");
   expect(context.backend.updates).toBe(0);
   expect(context.click).not.toHaveBeenCalled();
-});
+}, acceptanceTestTimeout);
 
 it("rejects existing editors, already stored markers, and unknown actions", async () => {
   const context = await setup(workspaceDraftMarker);
@@ -113,4 +127,4 @@ it("rejects existing editors, already stored markers, and unknown actions", asyn
   await expect(context.action("editor_prepare")).rejects.toThrow("already contains");
   await expect(context.action("editor_prepare")).rejects.toThrow("existing detached");
   expect(context.fill).not.toHaveBeenCalled(); expect(context.backend.updates).toBe(0);
-});
+}, acceptanceTestTimeout);
