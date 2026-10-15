@@ -25,6 +25,9 @@ public struct RemoteBackupVerifiedObject: Equatable, Sendable, Codable {
         case .googleDrive:
             valid = opaque(providerAccountID, prefix: "gdrive:")
                 && opaque(objectID, prefix: "gfile:") && opaque(revision, prefix: "grev:")
+        case .oneDrive:
+            valid = opaque(providerAccountID, prefix: "odrive:")
+                && opaque(objectID, prefix: "oditem:") && opaque(revision, prefix: "oetag:")
         default:
             valid = false
         }
