@@ -284,12 +284,28 @@ describe("QSOEditor", () => {
     const extension = (name: string) => ({ kind: "APP", attributes: { PROGRAMID: "TEST", FIELDNAME: name, TYPE: "S" } });
     const metadata = { version: 1, extensions: { APP_TEST_ONE: extension("ONE"), APP_TEST_TWO: extension("TWO") } };
     function MetadataHarness() {
-      const [draft, setDraft] = useState<Record<string, any> | null>({ ...initial(), extraFields: { CALL: "EA7EU", APP_TEST_ONE: "one", APP_TEST_TWO: "two" }, adifFieldMetadata: metadata });
+      const [draft, setDraft] = useState<Record<string, any> | null>({ ...initial(), end: "2026-10-12T10:25:00Z",
+        receiveFrequencyHz: 14_030_000, receiveBand: "20m", antennaPath: "S", qslMessage: "73", extraFields: {
+        CALL: "EA7EU", QSO_DATE_OFF: "20261012", TIME_OFF: "102500", FREQ: "14.025000", FREQ_RX: "14.030000", BAND_RX: "20m",
+        ANT_PATH: "S", QSLMSG: "73", APP_TEST_ONE: "one", APP_TEST_TWO: "two",
+      }, adifFieldMetadata: metadata });
       return <><QSOEditor draft={draft} setDraft={setDraft} save={vi.fn()} clear={vi.fn()} busy={false} lookup={null} previous={[]} follow={false} setFollow={vi.fn()} /><output data-testid="draft">{JSON.stringify(draft)}</output></>;
     }
     render(<MetadataHarness />);
     fireEvent.click(screen.getByText("Additional QSO fields, timing and ADIF metadata"));
-    expect(screen.queryByLabelText("ADIF CALL")).toBeNull();
+    for (const field of ["CALL", "QSO_DATE_OFF", "TIME_OFF", "FREQ", "FREQ_RX", "BAND_RX", "ANT_PATH", "QSLMSG"])
+      expect(screen.queryByLabelText(`ADIF ${field}`)).toBeNull();
+    fireEvent.change(screen.getByLabelText("RX band"), { target: { value: "" } });
+    expect(value().receiveFrequencyHz).toBe(14_030_000);
+    expect(value().receiveBand).toBe("");
+    expect(value().extraFields.FREQ_RX).toBe("14.030000");
+    expect(value().extraFields.BAND_RX).toBeUndefined();
+    fireEvent.change(screen.getByLabelText("RX frequency MHz"), { target: { value: "" } });
+    fireEvent.change(screen.getByLabelText("Antenna path"), { target: { value: "" } });
+    fireEvent.change(screen.getByLabelText("QSL message"), { target: { value: "" } });
+    fireEvent.change(screen.getByLabelText("End UTC date"), { target: { value: "" } });
+    fireEvent.change(screen.getByLabelText("End UTC time"), { target: { value: "" } });
+    fireEvent.change(screen.getByLabelText("Frequency MHz"), { target: { value: "" } });
     fireEvent.click(screen.getByRole("button", { name: "Remove ADIF APP_TEST_ONE" }));
     expect(value().extraFields).toEqual({ CALL: "EA7EU", APP_TEST_TWO: "two" });
     expect(value().adifFieldMetadata).toEqual({ version: 1, extensions: { APP_TEST_TWO: metadata.extensions.APP_TEST_TWO } });

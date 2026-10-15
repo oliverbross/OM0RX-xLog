@@ -431,7 +431,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                 let step = sqlite3_step(statement)
                 if step == SQLITE_DONE { return nil }
                 guard step == SQLITE_ROW, let bytes = sqlite3_column_blob(statement, 0) else { throw error() }
-                let qso = try decoder.decode(QSO.self, from: Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 0))))
+                let qso = try decoder.decode(QSO.self, from: Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 0)))).backfillingADIFFields()
                 return LogbookContactSnapshot(revision: sqlite3_column_int64(statement, 1), qso: qso)
             }
         }

@@ -3,7 +3,7 @@ import { useState, type SetStateAction } from "react";
 type Data = Record<string, any>;
 // QSO.adifRecord writes these from the native controls. Imported originals in
 // extraFields must remain intact, but editing them would be silently ignored.
-const nativeFields = new Set("CALL QSO_DATE TIME_ON BAND MODE SUBMODE FREQ RST_SENT RST_RCVD NAME GRIDSQUARE COUNTRY DXCC CONT CQZ ITUZ STATE CNTY QTH IOTA SOTA_REF POTA_REF WWFF_REF SIG SIG_INFO DARC_DOK COMMENT NOTES TX_PWR OPERATOR STATION_CALLSIGN MY_GRIDSQUARE PROP_MODE EMAIL QSL_SENT QSL_RCVD QSL_SENT_VIA QSL_VIA LOTW_QSL_SENT LOTW_QSL_RCVD".split(" "));
+const nativeFields = new Set("CALL QSO_DATE TIME_ON QSO_DATE_OFF TIME_OFF BAND MODE SUBMODE FREQ FREQ_RX BAND_RX RST_SENT RST_RCVD NAME GRIDSQUARE COUNTRY DXCC CONT CQZ ITUZ STATE CNTY QTH IOTA SOTA_REF POTA_REF WWFF_REF SIG SIG_INFO DARC_DOK COMMENT NOTES TX_PWR OPERATOR STATION_CALLSIGN MY_GRIDSQUARE PROP_MODE ANT_PATH EMAIL QSL_SENT QSL_RCVD QSL_SENT_VIA QSL_VIA QSLMSG LOTW_QSL_SENT LOTW_QSL_RCVD".split(" "));
 const reservedFields = new Set("EOH EOR ADX HEADER RECORDS RECORD APP USERDEF ADIF_VER CREATED_TIMESTAMP PROGRAMID PROGRAMVERSION".split(" "));
 
 export function QSOExtraFields({ draft, setDraft, disabled, name, setName }: {
@@ -27,8 +27,9 @@ export function QSOExtraFields({ draft, setDraft, disabled, name, setName }: {
       if (!current) return current;
       const extraFields = { ...(current.extraFields ?? {}) }; delete extraFields[key];
       const metadata = current.adifFieldMetadata;
-      if (!metadata?.extensions?.[key]) return { ...current, extraFields };
-      const extensions = { ...metadata.extensions }; delete extensions[key];
+      const metadataKey = Object.keys(metadata?.extensions ?? {}).find(candidate => candidate.toUpperCase() === key.toUpperCase());
+      if (!metadataKey) return { ...current, extraFields };
+      const extensions = { ...metadata.extensions }; delete extensions[metadataKey];
       return { ...current, extraFields, adifFieldMetadata: { ...metadata, extensions } };
     });
   }

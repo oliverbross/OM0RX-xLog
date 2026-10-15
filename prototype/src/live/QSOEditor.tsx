@@ -161,7 +161,25 @@ export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draf
   const readDraftIdentity = useRef(draft?.id); readDraftIdentity.current = draft?.id;
   const callRef = useRef<HTMLInputElement>(null);
   const rootRef = useRef<HTMLElement>(null);
-  const update = (key: string, value: unknown) => { if (!acceptsInput()) return; if (["frequencyHz", "band", "mode"].includes(key)) setFollow(false); setDraft((current) => current ? { ...current, [key]: value } : current); };
+  const update = (key: string, value: unknown) => {
+    if (!acceptsInput()) return;
+    if (["frequencyHz", "band", "mode"].includes(key)) setFollow(false);
+    const backedFields: Record<string, string[]> = {
+      end: ["QSO_DATE_OFF", "TIME_OFF"], receiveFrequencyHz: ["FREQ_RX"], receiveBand: ["BAND_RX"],
+      antennaPath: ["ANT_PATH"], qslMessage: ["QSLMSG"],
+    };
+    setDraft((current) => {
+      if (!current) return current;
+      const fields = backedFields[key];
+      if (!fields || value !== null && value !== "") return { ...current, [key]: value };
+      const extraFields = { ...(current.extraFields ?? {}) };
+      for (const field of fields) {
+        const stored = Object.keys(extraFields).find(candidate => candidate.toUpperCase() === field);
+        if (stored) delete extraFields[stored];
+      }
+      return { ...current, [key]: value, extraFields };
+    });
+  };
   useEffect(() => { setFrequencyDraft(null); setReceiveDraft(null); setTimeDrafts({}); setNumericDrafts({}); setNewADIFName(""); setShowErrors(false); }, [draft?.id]);
   useEffect(() => { if (follow) setFrequencyDraft(null); }, [follow]);
   const canonicalBuffers = useRef<Record<string, any> | null>(null);
@@ -285,7 +303,17 @@ export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draf
     key === "frequencyHz" ? setFrequencyDraft(text) : setReceiveDraft(text);
     const hz = text ? parseFrequency(text) : null;
     if (text && hz === null) return;
-    setDraft((current) => current ? { ...current, [key]: hz, ...(key === "frequencyHz" && hz && bandFor(hz) ? { band: bandFor(hz) } : {}) } : current);
+    setDraft((current) => {
+      if (!current) return current;
+      const extraFields = { ...(current.extraFields ?? {}) };
+      if (hz === null) {
+        const field = key === "receiveFrequencyHz" ? "FREQ_RX" : "FREQ";
+        const stored = Object.keys(extraFields).find(candidate => candidate.toUpperCase() === field);
+        if (stored) delete extraFields[stored];
+      }
+      return { ...current, [key]: hz, extraFields,
+        ...(key === "frequencyHz" && hz && bandFor(hz) ? { band: bandFor(hz) } : {}) };
+    });
   };
   const changeTime = (key: "start" | "end", part: "date" | "time", value: string) => {
     if (!acceptsInput()) return;

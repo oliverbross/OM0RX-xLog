@@ -78,6 +78,12 @@ describe("logbook confirmation visibility", () => {
     expect(screen.queryByText("VK8AA")).toBeNull();
     expect((screen.getByRole("button", { name: "Edit" }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(screen.getByText("OM0RX"));
+    expect(edit).toHaveBeenLastCalledWith(first);
+    edit.mockClear();
+    fireEvent.keyDown(screen.getByText("OM0RX").closest("tr")!, { key: "Enter" });
+    expect(edit).toHaveBeenCalledOnce();
+    expect(edit).toHaveBeenLastCalledWith(first);
+    edit.mockClear();
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     expect(edit).toHaveBeenCalledWith(first);
     expect(edit.mock.calls[0][0].extraFields.APP_CUSTOM).toBe("preserved");

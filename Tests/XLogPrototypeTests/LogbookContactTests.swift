@@ -95,6 +95,98 @@ struct LogbookContactTests {
         #expect(throws: LogbookContactError.self) { try reopened.applyContactMutation(mutation(base, .delete, id: request.operationID)) }
     }
 
+    @Test("Contact update round-trips modeled and arbitrary ADIF fields without stale duplicate values")
+    func arbitraryADIFUpdate() throws {
+        let url = databaseURL(); defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let db = try LogbookDatabase(url: url); defer { db.close() }
+        let app = ADIFFieldMetadata.ExtensionField(kind: "APP", attributes: ["PROGRAMID": "TEST", "FIELDNAME": "KEEP", "TYPE": "S"])
+        let removed = ADIFFieldMetadata.ExtensionField(kind: "APP", attributes: ["PROGRAMID": "TEST", "FIELDNAME": "REMOVE", "TYPE": "S"])
+        let fields = ["CALL": "K1ABC", "QSO_DATE": "20261014", "TIME_ON": "123000", "BAND": "20m", "MODE": "CW",
+                      "QSO_DATE_OFF": "20261014", "TIME_OFF": "123500", "FREQ_RX": "14.030000", "BAND_RX": "20m",
+                      "ANT_PATH": "S", "QSLMSG": "Original", "APP_TEST_KEEP": "kept", "APP_TEST_REMOVE": "remove me"]
+        let sourceRecord = ADIFRecord(fields: fields, fieldMetadata: .init(extensions: [
+            "APP_TEST_KEEP": app, "APP_TEST_REMOVE": removed,
+        ]))
+        let imported = try #require(QSO(adif: sourceRecord))
+        #expect(imported.end == Date(timeIntervalSince1970: 1_791_981_300))
+        #expect(imported.receiveFrequencyHz == 14_030_000 && imported.receiveBand == "20m")
+        #expect(imported.antennaPath == "S" && imported.qslMessage == "Original")
+        var dateOnlyFields = fields
+        dateOnlyFields.removeValue(forKey: "TIME_OFF")
+        let dateOnly = try #require(QSO(adif: ADIFRecord(fields: dateOnlyFields)))
+        #expect(dateOnly.adifRecord["TIME_OFF"] == "123000")
+        var timeOnlyFields = fields
+        timeOnlyFields.removeValue(forKey: "QSO_DATE_OFF")
+        let timeOnly = try #require(QSO(adif: ADIFRecord(fields: timeOnlyFields)))
+        #expect(timeOnly.adifRecord["QSO_DATE_OFF"] == "20261014")
+        // Simulate a row saved by an older build, before these standard fields
+        // were projected from the retained ADIF bag into modeled QSO properties.
+        var qso = QSO(id: imported.id, call: "K1ABC", start: Date(timeIntervalSince1970: 1_791_981_000),
+                      band: "20m", mode: "CW", extraFields: fields, isDirty: false)
+        qso.adifFieldMetadata = sourceRecord.fieldMetadata
+        try db.save(qso, markDirty: false)
+        let base = try #require(try db.contactSnapshot(localID: qso.id))
+        #expect(base.qso.end == Date(timeIntervalSince1970: 1_791_981_300))
+        #expect(base.qso.receiveFrequencyHz == 14_030_000 && base.qso.receiveBand == "20m")
+        #expect(base.qso.antennaPath == "S" && base.qso.qslMessage == "Original")
+
+        qso = base.qso
+        qso.end = Date(timeIntervalSince1970: 1_791_981_600)
+        qso.receiveFrequencyHz = 14_035_000; qso.receiveBand = "30m"
+        qso.antennaPath = "L"; qso.qslMessage = "Updated"
+        qso.extraFields["APP_TEST_KEEP"] = "edited"
+        qso.extraFields["APP_NEW_FIELD"] = "new\nvalue"
+        qso.extraFields.removeValue(forKey: "APP_TEST_REMOVE")
+        qso.adifFieldMetadata?.extensions.removeValue(forKey: "APP_TEST_REMOVE")
+        let updated = try db.applyContactMutation(mutation(base, qso: qso)).contact
+        #expect(updated.revision == base.revision + 1)
+        #expect(updated.qso.extraFields["APP_TEST_KEEP"] == "edited")
+        #expect(updated.qso.extraFields["APP_NEW_FIELD"] == "new\nvalue")
+        #expect(updated.qso.extraFields["APP_TEST_REMOVE"] == nil)
+        #expect(updated.qso.adifFieldMetadata?.extensions["APP_TEST_KEEP"] == app)
+        #expect(updated.qso.adifFieldMetadata?.extensions["APP_TEST_REMOVE"] == nil)
+
+        var clearedBand = updated.qso
+        clearedBand.receiveBand = ""
+        clearedBand.extraFields.removeValue(forKey: "BAND_RX")
+        let cleared = try db.applyContactMutation(mutation(updated, qso: clearedBand)).contact
+        let reread = try #require(try db.contactSnapshot(localID: qso.id))
+        #expect(reread == cleared)
+        #expect(reread.qso.receiveFrequencyHz == 14_035_000)
+        #expect(reread.qso.receiveBand.isEmpty)
+
+        let record = try #require(try db.adifExportSnapshot(scope: .selected([qso.id])).records.first)
+        #expect(record["QSO_DATE_OFF"] == "20261014" && record["TIME_OFF"] == "124000")
+        #expect(record["FREQ_RX"] == "14.035000" && record["BAND_RX"] == nil)
+        #expect(record["ANT_PATH"] == "L" && record["QSLMSG"] == "Updated")
+        #expect(record["APP_TEST_KEEP"] == "edited" && record["APP_NEW_FIELD"] == "new\nvalue")
+        #expect(record["APP_TEST_REMOVE"] == nil)
+    }
+
+    @Test("Unparseable retained standard ADIF values survive unrelated edits until explicitly cleared")
+    func retainedUnparseableADIF() throws {
+        let url = databaseURL(); defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let db = try LogbookDatabase(url: url); defer { db.close() }
+        let raw = ["FREQ_RX": "N/A", "QSO_DATE_OFF": "unknown", "TIME_OFF": "unknown"]
+        let qso = QSO(call: "K1ABC", start: Date(timeIntervalSince1970: 1_791_981_000),
+                      band: "20m", mode: "CW", extraFields: raw, isDirty: false)
+        try db.save(qso, markDirty: false)
+        let base = try #require(try db.contactSnapshot(localID: qso.id))
+        #expect(base.qso.receiveFrequencyHz == nil && base.qso.end == nil)
+
+        var edited = base.qso
+        edited.name = "Unrelated edit"
+        let updated = try db.applyContactMutation(mutation(base, qso: edited)).contact
+        var record = try #require(try db.adifExportSnapshot(scope: .selected([qso.id])).records.first)
+        for (field, value) in raw { #expect(record[field] == value) }
+
+        var cleared = updated.qso
+        for field in raw.keys { cleared.extraFields.removeValue(forKey: field) }
+        _ = try db.applyContactMutation(mutation(updated, qso: cleared))
+        record = try #require(try db.adifExportSnapshot(scope: .selected([qso.id])).records.first)
+        for field in raw.keys { #expect(record[field] == nil) }
+    }
+
     @Test("Delete and Undo are revision checked, idempotent and cannot resurrect stale content")
     func deleteRestore() throws {
         let url = databaseURL(); defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
