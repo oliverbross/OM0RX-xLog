@@ -45,7 +45,10 @@ export async function verifyWorkspaceSettings({ worker, navigate, fill, click }:
   const saved = await layout(), oldIDs = new Set(original.document.presets.map(preset => preset.id));
   const copies = saved.document.presets.filter(preset => !oldIDs.has(preset.id) && preset.name === "Acceptance layout");
   if (copies.length !== 1 || saved.document.activePresetID !== "traditional" || saved.generation !== original.generation || saved.revision !== original.revision + 1)
-    throw new Error("The named workspace was not saved independently of activation.");
+    throw new Error(`The named workspace was not saved independently of activation. ${JSON.stringify({
+      originalRevision: original.revision, savedRevision: saved.revision, activePresetID: saved.document.activePresetID,
+      generationMatches: saved.generation === original.generation, copyCount: copies.length,
+    })}`);
   const presetID = copies[0].id;
   await fill(savedSelector, presetID);
   await click("Use layout", ".workspace-settings button");
