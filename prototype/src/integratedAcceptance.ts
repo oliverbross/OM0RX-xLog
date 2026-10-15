@@ -192,7 +192,7 @@ async function main(report: Json) {
   await waitForAcceptance("restored contact editor released", () => ![...document.querySelectorAll("button")].some(item => item.textContent?.trim() === "Update QSO"));
   await navigate("Logbook");
   await waitForAcceptance("contact row before delete", () => !!document.querySelector(".live-logbook-table tbody tr"));
-  element<HTMLElement>(".live-logbook-table tbody tr").click(); await frame(); await click("Delete");
+  element<HTMLElement>(".live-logbook-table tbody tr").click(); await frame(); await click("Delete QSO");
   await waitForAcceptance("revision-checked delete confirmation", () => [...document.querySelectorAll("button")].some(item => item.textContent?.trim() === "Confirm delete"));
   await click("Confirm delete");
   await waitForAcceptance("contact deleted", () => !document.querySelector(".live-logbook-table tbody tr") && [...document.querySelectorAll<HTMLButtonElement>("button")].some(item => item.textContent?.trim() === "Undo delete" && !item.disabled));
