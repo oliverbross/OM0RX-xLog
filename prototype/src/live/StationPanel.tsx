@@ -12,6 +12,8 @@ import { carrierTuneSession } from "./carrierTune";
 import { CarrierTuneStatus } from "./CarrierTuneStatus";
 import { amplifierTransitionSession } from "./amplifierTransition";
 import { AmplifierTransitionStatus } from "./AmplifierTransitionStatus";
+import {pttSession} from "./pttSession";
+import {PTTStatus} from "./PTTStatus";
 
 type Request = (method: string, params?: Record<string, unknown>) => Promise<any>;
 type RadioState = {
@@ -180,6 +182,7 @@ export default function StationPanel({ snapshot, onRequest, onSnapshot, monitor 
     await radioControl(vfoLetter === "A" ? "set_frequency_a" : "set_frequency_b", { frequency_hz: hz }, `VFO ${vfoLetter} frequency change`);
   }
   async function radioControl(control: string, params: Record<string, unknown>, label: string) {
+    if(control==="ptt"&&nativeStationSelection()){await pttSession().set(params.enabled===true,"direct_agent").catch(()=>{});return;}
     await command("station_radio_control", { provider: "direct_agent", control, ...params }, label);
   }
   async function loadConfiguration() {
@@ -262,11 +265,12 @@ export default function StationPanel({ snapshot, onRequest, onSnapshot, monitor 
           {nativeStationSelection() && <RadioReleaseStatus />}
           {nativeStationSelection() && <CarrierTuneStatus />}
           {nativeStationSelection() && <AmplifierTransitionStatus />}
+          {nativeStationSelection() && <PTTStatus />}
           <p className="live-station-helper">A station action being accepted is not a confirmed RF or accessory readback. Keep the observed interlocks in view.</p>
         </section>}
         {!isMonitor && isDirect && <section className="live-station-card"><h3>Direct radio controls</h3>
           <div className="live-station-actionrow"><button type="button" disabled={busy || !can("set_ptt") || !canTransmit || radio?.transmitting === true} onClick={() => void radioControl("ptt", { enabled: true }, "PTT key")}>PTT on</button>
-            <button type="button" className="danger" disabled={busy || !canSafetyRelease("set_ptt")} onClick={() => void radioControl("ptt", { enabled: false }, "PTT release")}>PTT off</button>
+            <button type="button" className="danger" disabled={!nativeStationSelection()&&(busy || !canSafetyRelease("set_ptt"))} onClick={() => void radioControl("ptt", { enabled: false }, "PTT release")}>PTT off</button>
             <button type="button" disabled={busy || !canSafetyRelease("clear_cw")} onClick={() => void radioControl("clear_cw", {}, "CW clear")}>Clear CW</button></div>
           <form className="live-station-inline" onSubmit={(event) => { event.preventDefault(); void radioControl("send_cw", { text: cwText }, "CW text"); }}><label>CW text<input aria-label="CW text" value={cwText} maxLength={128} onChange={(event) => setCWText(event.target.value)} placeholder="Text to transmit" /></label><button type="submit" disabled={busy || !can("send_cw") || !canTransmit || !cwText.trim()}>Send CW</button></form>
           <div className="live-station-controlgrid">

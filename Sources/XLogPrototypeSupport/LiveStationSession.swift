@@ -43,6 +43,35 @@ struct StationTransmitOwnership {
     }
 }
 
+/// GUI PTT is deliberately separate from embedded CAT, CW and carrier Tune.
+struct StationGUIPTT {
+    private(set) var ownerID: String?
+    private var lastID: String?
+    private var desired: Bool?
+    private var after: Date?
+    private(set) var pending = false
+    private(set) var confirmed = false
+    mutating func begin(_ id: String, on: Bool) throws {
+        guard UUID(uuidString:id) != nil, on ? ownerID == nil : ownerID == nil || ownerID == id else {
+            throw WorkerFailure("station_action_blocked", "PTT release belongs to another source or acquisition")
+        }
+        if on { ownerID=id };lastID=id;pending=true;confirmed=false
+    }
+    mutating func acknowledged(on:Bool) {pending=false;desired=on;after=Date();confirmed=false}
+    mutating func confirm(on:Bool) {pending=false;desired=on;confirmed=true;if !on{ownerID=nil}}
+    mutating func retireAcquisition() { if desired == false {after=Date();confirmed=false} }
+    mutating func invalidateProof() {confirmed=false}
+    mutating func observe(_ sample: XCatIntegrationCore.RadioSnapshot, canRelease:Bool=true) {
+        guard !pending, let after, let desired, sample.isConnected,
+              sample.transportReceivedAt.map({$0 > after}) == true,
+              sample.remoteStationStatus?.radioKnown == true, sample.remoteStationStatus?.radioStale == false,
+              sample.isTransmitting == desired, desired || canRelease else{confirmed=false;return}
+        confirm(on:desired)
+    }
+    var projection:[String:Any] {["source":"gui","owner_id":lastID as Any? ?? NSNull(),"release_required":ownerID != nil,
+        "pending":pending,"confirmed":confirmed,"transmitting":confirmed ? desired as Any? ?? NSNull() : NSNull()]}
+}
+
 /// An explicit Cancel retires preparations even before they acquire ownership.
 struct StationCarrierIntent {
     private var revision: UInt64 = 0
@@ -150,6 +179,8 @@ actor LiveStationSession {
     private var transportState: RadioConnectionState = .stopped
     private var allowTransmit = false
     private var transmitOwnership = StationTransmitOwnership()
+    private var guiPTT = StationGUIPTT()
+    private var embeddedCATPTT = false
     private var connectionGeneration: UInt64 = 0
     private var powerEvents: StationPowerSessionEventSource?
     private var powerSession = StationPowerSessionState()
@@ -461,10 +492,14 @@ actor LiveStationSession {
             transmitOwnership.completeAction(.cancel)
             carrierCancelAcknowledged = false
         }
+        guiPTT.observe(observed,canRelease:directTransmitAcquisitions == 0)
         var result = Self.project(observed, transport: transportState, allowTransmit: allowTransmit,
                                   generation: generation, powerSessionID: powerSessionID,
                                   powerSessionStartedAt: powerSessionStartedAt)
         result["rotor"] = rotorProjection
+        result["ptt"] = guiPTT.ownerID == nil && embeddedCATPTT
+            ? ["source":"embedded_cat","owner_id":NSNull(),"release_required":true,"pending":false,"confirmed":false,"transmitting":NSNull()]
+            : guiPTT.projection
         result["carrier_tune"] = ["pending": directTransmitAcquisitions > 0,
                                   "release_required": transmitOwnership.releases.contains(.cancelTune) || carrierReleaseUnconfirmed(observed)]
         result["cat_servers"] = ["cat_port": Self.optional(catConfiguration.catPort), "rigctl_port": Self.optional(catConfiguration.rigCtlPort), "allow_transmit": catConfiguration.allowTransmit]
@@ -603,14 +638,14 @@ actor LiveStationSession {
         if Self.requiresTransmitOptIn(action) {
             guard lifecycleTransitions == 0, allowTransmit, station.inhibitors.isEmpty, station.commissioned,
                   station.radioKnown, !station.radioStale, !observed.isTransmitting,
-                  transmitOwnership.releases.isEmpty, !carrierReleaseUnconfirmed(observed), observed.transportReceivedAt.map({ Date().timeIntervalSince($0) >= -1 && Date().timeIntervalSince($0) <= 3 }) == true else {
+                  guiPTT.ownerID == nil, transmitOwnership.releases.isEmpty, !carrierReleaseUnconfirmed(observed), observed.transportReceivedAt.map({ Date().timeIntervalSince($0) >= -1 && Date().timeIntervalSince($0) <= 3 }) == true else {
                 throw WorkerFailure("station_action_blocked", "Transmit control is not enabled or the station has inhibitors.")
             }
         } else if action == .operate {
             // Operate is the Agent's guarded amplifier-state transaction, not an
             // RF-producing CAT control. The Agent remains authoritative for its
             // advertised action, current route and hardware interlocks.
-            guard lifecycleTransitions == 0, station.inhibitors.isEmpty, station.radioKnown, !station.radioStale,
+            guard guiPTT.ownerID == nil, lifecycleTransitions == 0, station.inhibitors.isEmpty, station.radioKnown, !station.radioStale,
                   !observed.isTransmitting, observed.transportReceivedAt.map({ Date().timeIntervalSince($0) >= -1 && Date().timeIntervalSince($0) <= 3 }) == true else {
                 throw WorkerFailure("station_action_blocked", "The station has inhibitors or its connection is changing.")
             }
@@ -665,6 +700,7 @@ actor LiveStationSession {
     }
 
     private func radioControl(_ params: [String: Any]) async throws -> [String: Any] {
+        if params["control"] as? String == "ptt", params["source"] as? String == "gui" { return try await guiPTTControl(params) }
         try requireKeys(params, allowed: ["provider", "control", "enabled", "offset_hz", "vfo",
                                          "watts", "words_per_minute", "text", "frequency_hz", "mode", "expected_generation"])
         let generation = connectionGeneration
@@ -787,6 +823,42 @@ actor LiveStationSession {
         return ["accepted": true, "confirmed": exactReceive != nil, "control": control, "state": await snapshot()]
     }
 
+    private func guiPTTControl(_ params:[String:Any]) async throws -> [String:Any] {
+        try requireKeys(params,allowed:["provider","control","enabled","source","ptt_owner_id","expected_generation","expected_native_intent"])
+        guard params["source"] as? String == "gui", let on=try Self.boolean(params["enabled"]),
+              let id=params["ptt_owner_id"] as? String, UUID(uuidString:id) != nil,
+              let raw=params["expected_generation"],let expected=try Self.integer(raw),expected>=0,UInt64(expected)==connectionGeneration,
+              let token=try Self.integer(params["expected_native_intent"]),(1...9_007_199_254_740_991).contains(token) else {throw lifecycleChanged()}
+        try carrierIntent.admitNative(UInt64(token));if !on{carrierIntent.cancel()}
+        let intent=on ? carrierIntent.begin() : nil
+        guard let client else{throw WorkerFailure("station_unavailable","No retained Agent connection")}
+        let generation=connectionGeneration
+        if on{try await ensureExclusiveWriter()};if let intent{try carrierIntent.require(intent)}
+        let observed=await client.observedSnapshot();if let intent{try carrierIntent.require(intent)}
+        guard generation==connectionGeneration,self.client===client,let station=observed.remoteStationStatus,
+              station.supportedCommands.contains("set_ptt") else{throw lifecycleChanged()}
+        if on {
+            guard lifecycleTransitions==0,allowTransmit,observed.isConnected,!observed.isTransmitting,
+                  station.commissioned,station.radioKnown,!station.radioStale,station.inhibitors.isEmpty,
+                  transmitOwnership.releases.isEmpty,!carrierReleaseUnconfirmed(observed),
+                  observed.transportReceivedAt.map({(-1...3).contains(Date().timeIntervalSince($0))})==true else {
+                throw WorkerFailure("station_action_blocked","PTT on requires fresh idle station readiness and consent")
+            }
+        }
+        let owned=guiPTT.ownerID==id
+        try guiPTT.begin(id,on:on)
+        if on{beginDirectTransmitAcquisition()};defer{if on{finishDirectTransmitAcquisition();guiPTT.retireAcquisition()}}
+        do {
+            // A release delivered before its older acquisition only retires its
+            // token; it never sends PTT-off against CAT/Tune/CW or another TX.
+            if on || owned {try await client.setGUIPTT(on)}
+            if let intent{try carrierIntent.require(intent)}
+            guard generation==connectionGeneration,self.client===client else{throw lifecycleChanged()}
+            guiPTT.acknowledged(on:on)
+            return ["accepted":true,"confirmed":false,"control":"ptt","enabled":on,"owner_id":id,"state":await snapshot()]
+        }catch{throw WorkerFailure("station_rejected","GUI PTT outcome unknown; owned release duty retained")}
+    }
+
     private func waitForExactReceive(_ current: RemoteAgentClient, generation: UInt64, after startedAt: Date,
                                      matches: @escaping (XCatIntegrationCore.RadioSnapshot) -> Bool) async throws -> XCatIntegrationCore.RadioSnapshot {
         let clock = ContinuousClock()
@@ -848,7 +920,10 @@ actor LiveStationSession {
     }
 
     private func stop(_ current: RemoteAgentClient) async {
-        let releases = transmitOwnership.releases
+        var releases = transmitOwnership.releases
+        if guiPTT.ownerID != nil && !releases.contains(.releasePTT) {releases.append(.releasePTT)}
+        guiPTT = StationGUIPTT()
+        embeddedCATPTT = false
         transmitOwnership = StationTransmitOwnership()
         // Attempt every owned release immediately: a stalled CW/cancel reply
         // must not delay PTT-off. The desktop bounds graceful EOF to eight
@@ -880,7 +955,7 @@ actor LiveStationSession {
               let station = observed.remoteStationStatus else { return false }
         // A release remains available even if freshness/commissioning changed.
         switch mutation {
-        case .transmit(false): return station.supportedCommands.contains("set_ptt")
+        case .transmit(false): return guiPTT.ownerID == nil && station.supportedCommands.contains("set_ptt")
         case .clearCW: return station.supportedCommands.contains("clear_cw")
         case .stationAction(.cancel): return transmitOwnership.releases.contains(.cancelTune)
         default: break
@@ -910,15 +985,15 @@ actor LiveStationSession {
         }
         guard station.supportedCommands.contains(command) else { return false }
         if needsTX {
-            guard lifecycleTransitions == 0, allowTransmit, catConfiguration.allowTransmit,
+            guard guiPTT.ownerID == nil, lifecycleTransitions == 0, allowTransmit, catConfiguration.allowTransmit,
                   station.commissioned, station.inhibitors.isEmpty else { return false }
         }
         switch mutation {
         case .sendCW: transmitOwnership.beginControl("send_cw")
-        case .transmit(true): transmitOwnership.beginControl("ptt", enabled: true)
+        case .transmit(true): embeddedCATPTT=true;transmitOwnership.beginControl("ptt", enabled: true)
         case .transmitMode(let mode):
             if mode == .tune { transmitOwnership.beginAction(.tune) }
-            else { transmitOwnership.beginControl("ptt", enabled: true) }
+            else { embeddedCATPTT=true;transmitOwnership.beginControl("ptt", enabled: true) }
         case .stationAction(let action): transmitOwnership.beginAction(action)
         default: break
         }
@@ -930,6 +1005,7 @@ actor LiveStationSession {
         switch mutation {
         case .clearCW: transmitOwnership.completeControl("clear_cw")
         case .transmit(false):
+            embeddedCATPTT=false
             if transmitOwnership.releases.contains(.cancelTune), let client {
                 do { try await client.performStationAction(.cancel); acknowledgeCarrierCancel() } catch { }
             }

@@ -396,7 +396,11 @@ impl Session {
         if let Ok(mut child) = self.child.lock() {
             if let Some(process) = child.as_mut() {
                 let _ = process.kill();
-                let _ = process.wait();
+                if process.wait().is_ok() {
+                    if let Ok(mut retired) = RETIRED_GENERATIONS.get_or_init(|| Mutex::new(std::collections::HashSet::new())).lock() {
+                        retired.insert((process_epoch().to_owned(),self.generation));
+                    }
+                }
             }
             *child = None;
         }
@@ -700,6 +704,23 @@ pub(crate) fn request_existing_generation(request: Value, expected: u64) -> Resu
 pub(crate) fn require_existing_generation(expected: u64) -> Result<(), String> {
     let session = existing_session()?;
     if session.generation != expected { return Err("Worker generation changed; no action was admitted.".into()); }
+    Ok(())
+}
+
+// Evidence is recorded only after wait() has reaped this exact native child.
+// A mere generation mismatch (including counters reused after app restart) is
+// not proof of retirement and never grants replacement-session Off authority.
+static PROCESS_EPOCH: OnceLock<String> = OnceLock::new();
+pub(crate) fn process_epoch() -> &'static str {
+    PROCESS_EPOCH.get_or_init(|| uuid::Uuid::new_v4().to_string())
+}
+static RETIRED_GENERATIONS: OnceLock<Mutex<std::collections::HashSet<(String,u64)>>> = OnceLock::new();
+pub(crate) fn require_retired_generation(old: u64, current: u64) -> Result<(), String> {
+    require_existing_generation(current)?;
+    if old == current || !RETIRED_GENERATIONS.get_or_init(|| Mutex::new(std::collections::HashSet::new()))
+        .lock().map_err(|_| "Worker retirement proof unavailable")?.contains(&(process_epoch().to_owned(),old)) {
+        return Err("Original PTT worker retirement has not been proven; no recovery admitted".into());
+    }
     Ok(())
 }
 
@@ -1292,6 +1313,7 @@ mod tests {
         let observed = existing_session_from_registry(&registry, |_| panic!("existing child was already announced")).unwrap();
         assert!(Arc::ptr_eq(&first, &observed));
         first.retire("fixture replacement");
+        assert!(RETIRED_GENERATIONS.get().unwrap().lock().unwrap().contains(&(process_epoch().to_owned(),first.generation)), "Retirement evidence must follow child reaping in this process epoch");
         assert!(existing_session_from_registry(&registry, |_| panic!("must not announce an absent replacement")).is_err());
         assert!(registry.lock().unwrap().is_none(), "background observation must leave replacement startup to its normal owner");
         let second = session_from_registry(&registry, || Ok(scripted_session("IFS= read -r request; printf '%s\\n' '{\"id\":\"probe\",\"ok\":true,\"result\":{\"child\":2}}'; cat >/dev/null")), &hook).unwrap();

@@ -12,6 +12,12 @@ const MAX: u64 = 9_007_199_254_740_991;
 // CW arm/send and carrier acquisition share this nonblocking authority. Their
 // urgent release paths deliberately never acquire it.
 static OUTPUT_ACQUISITION: Mutex<()> = Mutex::new(());
+#[cfg(test)]
+pub static OUTPUT_TEST:Mutex<()>=Mutex::new(());
+static OUTPUT_INTENT: OnceLock<Mutex<String>> = OnceLock::new();
+pub fn output_intent() -> Result<String,String> { Ok(OUTPUT_INTENT.get_or_init(||Mutex::new(uuid::Uuid::new_v4().to_string())).lock().map_err(|_|"Output intent unavailable")?.clone()) }
+pub fn revoke_output_intent() -> Result<(),String> { *OUTPUT_INTENT.get_or_init(||Mutex::new(uuid::Uuid::new_v4().to_string())).lock().map_err(|_|"Output intent unavailable")?=uuid::Uuid::new_v4().to_string();Ok(()) }
+pub fn require_output_intent(expected:&str)->Result<(),String>{if output_intent()?!=expected{return Err("A later PTT off/Cancel retired this acquisition preparation".into());}Ok(())}
 pub fn reserve_output() -> Result<std::sync::MutexGuard<'static, ()>, String> {
     OUTPUT_ACQUISITION.try_lock().map_err(|_| {
         "A radio/CW acquisition is in progress. Stop and Cancel remain available.".into()
@@ -20,17 +26,17 @@ pub fn reserve_output() -> Result<std::sync::MutexGuard<'static, ()>, String> {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Target {
-    provider: String,
-    selection_generation: u64,
-    selection_id: String,
-    worker_generation: u64,
-    connection_generation: u64,
-    control_revision: u64,
-    observation_revision: u64,
-    received_at_ms: u64,
+    pub(crate) provider: String,
+    pub(crate) selection_generation: u64,
+    pub(crate) selection_id: String,
+    pub(crate) worker_generation: u64,
+    pub(crate) connection_generation: u64,
+    pub(crate) control_revision: u64,
+    pub(crate) observation_revision: u64,
+    pub(crate) received_at_ms: u64,
 }
 impl Target {
-    fn validate(&self) -> Result<(), String> {
+    pub(crate) fn validate(&self) -> Result<(), String> {
         if !matches!(self.provider.as_str(), "direct_agent" | "direct_flex_lan")
             || uuid::Uuid::parse_str(&self.selection_id).is_err()
             || self.worker_generation == 0
@@ -393,6 +399,7 @@ pub fn context(app: &tauri::AppHandle) -> Result<Value, String> {
 }
 pub fn execute(app: &tauri::AppHandle, request: Value, target: &Target) -> Result<Value, String> {
     let _output = reserve_output()?;
+    crate::ptt_session::require_idle(app)?;
     crate::worker::require_existing_generation(target.worker_generation)?;
     let selection = crate::station_selection::owner(app)?;
     let telemetry = crate::station_telemetry::owner(app)?;
@@ -668,6 +675,7 @@ mod tests {
     }
     #[test]
     fn cw_and_carrier_races_are_nonblocking_in_both_orders() {
+        let _serial=OUTPUT_TEST.lock().unwrap();
         // Both production entry points use reserve_output. Labels describe the
         // competing roles; neither may queue an acquisition after the other.
         for (first, second) in [("carrier", "cw"), ("cw", "carrier")] {

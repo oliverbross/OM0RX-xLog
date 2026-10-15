@@ -49,6 +49,11 @@ actor LiveFlexSession {
     private var transitioning = false
     private var terminal = false
     private var ownsPTT = false
+    private var guiPTT = StationGUIPTT()
+    private var guiPTTAfterRevision: UInt64?
+    private var guiPTTLatestRevision: UInt64 = 0
+    private var guiPTTDesired: Bool?
+    private var guiPTTOnPending = 0
     private var ownsCW = false
     private var ownsTune = false
 
@@ -180,6 +185,7 @@ actor LiveFlexSession {
         await radio.stopTransportOnly()
         connectionGeneration &+= 1
         self.radio = nil
+        guiPTT=StationGUIPTT();guiPTTAfterRevision=nil;guiPTTDesired=nil;guiPTTLatestRevision=0
         configuration = nil
         observed = nil
         observedAt = nil
@@ -255,6 +261,7 @@ actor LiveFlexSession {
     }
 
     private func control(_ params: [String: Any]) async throws -> [String: Any] {
+        if params["control"] as? String == "ptt", params["source"] as? String == "gui" {return try await guiPTTControl(params)}
         var params = params
         if let raw = params.removeValue(forKey: "expected_generation") {
             guard let expected = Self.integer(raw), expected >= 0, UInt64(expected) == connectionGeneration else {
@@ -464,6 +471,30 @@ actor LiveFlexSession {
                 "state": snapshot()]
     }
 
+    private func guiPTTControl(_ params:[String:Any]) async throws->[String:Any]{
+        try keys(params,["provider","control","enabled","source","ptt_owner_id","expected_generation","expected_native_intent"])
+        guard params["source"] as? String == "gui",let on=Self.bool(params["enabled"]),let id=params["ptt_owner_id"] as? String,UUID(uuidString:id) != nil,
+              let gen=Self.integer(params["expected_generation"]),gen>=0,UInt64(gen)==connectionGeneration,
+              let token=Self.integer(params["expected_native_intent"]),(1...9_007_199_254_740_991).contains(token) else{throw WorkerFailure("station_changed","PTT exact backend generation changed")}
+        try carrierNativeIntent.admitNative(UInt64(token))
+        if !on{operationEpoch &+= 1}
+        let radio:any FlexSessionRadio;let epoch:UInt64
+        if on{(radio,epoch)=try beginControl(needsTransmit:true)}
+        else{guard !transitioning,!releaseInProgress,let current=self.radio,transportState == .ready else{throw unavailable()};radio=current;epoch=operationEpoch;releaseInProgress=true}
+        if on{guiPTTOnPending+=1}
+        defer{if on{activeControl=false;guiPTTOnPending-=1;guiPTT.retireAcquisition();if guiPTTDesired == false{guiPTTAfterRevision=max(guiPTTAfterRevision ?? 0,guiPTTLatestRevision)}}else{releaseInProgress=false}}
+        let before=await radio.transmitObservation();guiPTTLatestRevision=max(guiPTTLatestRevision,before?.revision ?? 0);try requireEpoch(epoch)
+        if on{guard let before,before.isConnected,!before.isTransmitting else{throw unavailable()}}
+        let owned=guiPTT.ownerID==id
+        try guiPTT.begin(id,on:on);guiPTTDesired=on;guiPTTAfterRevision=before?.revision ?? 0
+        if on{ownsPTT=true}
+        do{if on||owned{try await radio.setTransmit(on)}}catch{throw rejectedControl()}
+        try requireEpoch(epoch);guiPTT.acknowledged(on:on)
+        if on||owned{try await waitForTransmitObservation(radio,after:before?.revision ?? 0,epoch:epoch,on:on);if on||guiPTTOnPending==0{guiPTT.confirm(on:on);if !on{ownsPTT=false}}}
+        // CW and Tune obligations are intentionally untouched by GUI PTT off.
+        return ["accepted":true,"confirmed":guiPTT.confirmed,"control":"ptt","enabled":on,"owner_id":id,"state":snapshot()]
+    }
+
     /// A release may interrupt an owned acquisition's readback. Its epoch retires
     /// that older operation; its separate flag keeps the older defer from
     /// admitting a new acquisition before release confirmation has finished.
@@ -498,7 +529,7 @@ actor LiveFlexSession {
         guard !needsTransmit || configuration?.allowTransmit == true else {
             throw WorkerFailure("station_action_blocked", "Explicit transmit opt-in is required for direct FLEX control.")
         }
-        guard !needsTransmit || !(ownsPTT || ownsCW || ownsTune) else {
+        guard !needsTransmit || !(ownsPTT || ownsCW || ownsTune || guiPTT.ownerID != nil) else {
             throw WorkerFailure("station_action_blocked", "The FLEX radio is already transmitting or has an unresolved release.")
         }
         if needsTransmit, let observed {
@@ -533,8 +564,10 @@ actor LiveFlexSession {
             try Task.checkCancellation()
             if let epoch { try requireEpoch(epoch) }
             let sample = await radio.transmitObservation()
+            guiPTTLatestRevision=max(guiPTTLatestRevision,sample?.revision ?? 0)
+            if let epoch {try requireEpoch(epoch)}
             if let sample, sample.revision > revision, sample.isConnected,
-               sample.isTransmitting == on, transportState == .ready { return }
+               sample.isTransmitting == on, transportState == .ready { observedTransmit=on;return }
             try await Task.sleep(for: .milliseconds(40))
         }
         throw WorkerFailure("station_timeout", "A fresh FLEX interlock readback did not confirm transmit state.")
@@ -577,11 +610,15 @@ actor LiveFlexSession {
         let sample = await radio?.transmitObservation()
         let power = await radio?.rfPowerObservation()
         guard generation == connectionGeneration else { return }
+        guiPTTLatestRevision=max(guiPTTLatestRevision,sample?.revision ?? 0)
         observed = snapshot
         observedRevision &+= 1
         observedAt = Date()
         observedTransmit = sample?.isTransmitting
         observedPower = power?.isConnected == true ? power?.level : nil
+        if let sample,let after=guiPTTAfterRevision,let desired=guiPTTDesired,sample.revision>after,sample.isConnected,!guiPTT.pending {
+            if sample.isTransmitting==desired && (desired || guiPTTOnPending==0){guiPTT.confirm(on:desired);if !desired{ownsPTT=false}}else{guiPTT.invalidateProof()}
+        }
     }
 
     private func snapshot() -> [String: Any] {
@@ -607,6 +644,7 @@ actor LiveFlexSession {
                 "transport_state": transportState.rawValue, "generated_at": Date().timeIntervalSince1970,
                 "radio": radioProjection, "station": NSNull(), "rotor": NSNull(),
                 "carrier_tune": ["pending": activeControl, "release_required": ownsTune || releaseInProgress],
+                "ptt": guiPTT.projection,
                 "propagation": NSNull(), "allow_transmit": configuration?.allowTransmit ?? false,
                 "capabilities": ["supported_commands": supportedCommands(current),
                                  "unavailable_commands": observedPower == nil

@@ -590,7 +590,7 @@ impl Selection {
             return Err("Radio selection or controls changed; no spot tune was sent.".into());
         }
         let method = request["method"].as_str();
-        let provider = if carrier && method == Some("station_action") && (request["params"]["action"] == "tune" || request["params"]["action"] == "operate" && request["params"]["provider"] == "direct_agent")
+        let provider = if carrier && (method == Some("station_radio_control") && request["params"]["control"]=="ptt" && request["params"]["enabled"]==true && request["params"]["source"]=="gui" || method == Some("station_action") && (request["params"]["action"] == "tune" || request["params"]["action"] == "operate" && request["params"]["provider"] == "direct_agent"))
             && matches!(request["params"]["provider"].as_str(), Some("direct_agent" | "direct_flex_lan")) { request["params"]["provider"].as_str() }
             else if !carrier && method == Some("hamlib_control") && request["params"]["device"] == "radio"
             && request["params"]["action"] == "tune_simplex" { Some("hamlib") }
@@ -619,6 +619,10 @@ impl Selection {
             Some("standby") => self.control_scoped_dispatch(request, Some((expected["generation"].as_u64().ok_or("Invalid amplifier generation")?, expected["selection_id"].as_str().ok_or("Invalid amplifier selection")?, Some(expected["control_revision"].as_u64().ok_or("Invalid amplifier revision")?))), admit, dispatch),
             _ => Err("Invalid amplifier action".into()),
         }
+    }
+    pub(crate) fn ptt_control<G>(&self,request:Value,expected:&Value,admit:impl FnOnce()->Result<G,String>,dispatch:impl FnOnce(Value)->Result<Value,String>)->Result<Value,String>{
+        if request["method"]!="station_radio_control"||request["params"]["control"]!="ptt"||request["params"]["source"]!="gui"||!request["params"]["enabled"].is_boolean(){return Err("Invalid native PTT route".into());}
+        if request["params"]["enabled"]==true {self.exclusive_tune(request,expected,true,admit,dispatch)}else{self.control_scoped_dispatch(request,Some((expected["generation"].as_u64().ok_or("Invalid PTT generation")?,expected["selection_id"].as_str().ok_or("Invalid PTT selection")?,Some(expected["control_revision"].as_u64().ok_or("Invalid PTT revision")?))),admit,dispatch)}
     }
     /// CW retains its worker identity: a restarted worker must never receive a
     /// delayed macro through the ordinary reconnecting transport.
@@ -669,7 +673,7 @@ impl Selection {
         let _admission = admit()?;
         state.control_revision = state.control_revision.checked_add(1).filter(|value| *value <= 9_007_199_254_740_991)
             .ok_or("Radio control revision exhausted")?;
-        if request["method"] == "station_action" && matches!(request["params"]["action"].as_str(), Some("cancel" | "standby")) {
+        if request["method"] == "station_action" && matches!(request["params"]["action"].as_str(), Some("cancel" | "standby")) || request["method"]=="station_radio_control" && request["params"]["control"]=="ptt" && request["params"]["source"]=="gui" {
             request["params"]["expected_native_intent"] = json!(state.control_revision);
         }
         if matches!(request["method"].as_str(), Some("station_connect" | "station_disconnect" | "station_reconnect"

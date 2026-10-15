@@ -4,6 +4,30 @@ import XCatIntegrationCore
 @testable import XLogPrototypeSupport
 
 final class LiveStationMethodsTests: XCTestCase {
+    func testGUIPTTRequiresNewerProofAndCannotClearOtherReleaseSources() throws {
+        var ptt=StationGUIPTT(),other=StationTransmitOwnership();let id=UUID().uuidString
+        other.beginControl("send_cw");other.beginAction(.tune)
+        try ptt.begin(id,on:true);ptt.acknowledged(on:true)
+        XCTAssertEqual(ptt.projection["confirmed"] as? Bool,false)
+        var sample=RadioSnapshot(isConnected:true,isTransmitting:true,remoteStationStatus:RemoteStationStatus(radioKnown:true,radioStale:false),transportReceivedAt:Date().addingTimeInterval(1))
+        ptt.observe(sample);XCTAssertEqual(ptt.projection["confirmed"] as? Bool,true)
+        XCTAssertThrowsError(try ptt.begin(UUID().uuidString,on:false))
+        try ptt.begin(id,on:false);ptt.acknowledged(on:false);sample.isTransmitting=false;sample.transportReceivedAt=Date().addingTimeInterval(1)
+        ptt.observe(sample,canRelease:false);XCTAssertEqual(ptt.ownerID,id,"An older in-flight key attempt retains release authority")
+        sample.transportReceivedAt=Date();ptt.retireAcquisition();ptt.observe(sample);XCTAssertEqual(ptt.ownerID,id,"RX cached before older acquisition retirement cannot prove release")
+        sample.transportReceivedAt=Date().addingTimeInterval(1);ptt.observe(sample);XCTAssertNil(ptt.ownerID)
+        XCTAssertEqual(other.releases,[.clearCW,.cancelTune,.releasePTT],"GUI PTT off cannot clear CW/Tune")
+    }
+    func testGUIPTTOffNativeTokenRetiresOlderOnBeforeAnyAgentTransport() async throws {
+        let session=LiveStationSession(),id=UUID().uuidString
+        let off:[String:Any]=["provider":"direct_agent","control":"ptt","source":"gui","ptt_owner_id":id,"enabled":false,"expected_generation":0,"expected_native_intent":20]
+        do{_=try await session.handle("station_radio_control",params:off);XCTFail()}catch let error as WorkerFailure{XCTAssertEqual(error.code,"station_unavailable")}
+        var old=off;old["enabled"]=true;old["expected_native_intent"]=19
+        do{_=try await session.handle("station_radio_control",params:old);XCTFail("Old keying intent revived")}
+        catch let error as WorkerFailure{XCTAssertEqual(error.code,"station_changed")}
+        old["expected_generation"]=99;old["expected_native_intent"]=21
+        do{_=try await session.handle("station_radio_control",params:old);XCTFail()}catch let error as WorkerFailure{XCTAssertEqual(error.code,"station_changed")}
+    }
     func testNativeOrderedStandbyRejectsOlderOperateAndTuneBeforeTransport() async throws {
         let agent=LiveStationSession()
         do{_=try await agent.action("standby",expectedGeneration:0,expectedNativeIntent:30);XCTFail("Unconnected Standby accepted")}

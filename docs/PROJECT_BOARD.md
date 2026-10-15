@@ -27,6 +27,19 @@ Alpha.31 remains installed; package, live Agent/FLEX, RF and physical release
 acceptance stay open. Independent WinKeyer keeps its separate local-output/lease
 boundary.
 
+Current source additionally gives main-only Agent/FLEX GUI PTT a durable native
+owner with independent On acquisition and urgent owned Off lanes. Exact native
+selection/control/observation/worker/connection targets, journal-before-send,
+one-attempt Agent dispatch and shared Tune/CW acquisition/ordering fences replace
+raw GUI PTT. Off cannot acquire generic authority or clear CW/Tune/embedded CAT
+obligations. Review is receipt-only and cannot clear the separate durable release
+duty; authoritative newer TX/RX proof is required.
+An explicit no-command retired-owner recovery requires native child-reaping proof
+and fresh RX on the same selected station; missing proof remains fail-closed.
+No detached acquisition, automatic replay or reconnect is introduced. This is source/mock implementation,
+not installed/package/live acceptance; alpha.31, physical Agent/FLEX release and
+RF acceptance remain unchanged/open.
+
 Current post-alpha.31 source also moves Agent amplifier Operate/Standby from raw
 main/Monitor dispatch into one durable native owner shared by the Desk sidebar,
 Station Control and standalone Monitor. It binds exact selection, control,

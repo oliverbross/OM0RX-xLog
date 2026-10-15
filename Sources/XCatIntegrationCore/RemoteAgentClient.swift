@@ -255,6 +255,8 @@ public actor RemoteAgentClient: RadioControlling {
     public func setTransmit(_ enabled: Bool) async throws {
         try await execute(.ptt(enabled))
     }
+    /// Native GUI owner has already durably recorded this one-shot intent.
+    public func setGUIPTT(_ enabled: Bool) async throws { try await execute(.ptt(enabled), attempts: 1) }
 
     public func setTransmit(_ mode: CATTransmitMode) async throws {
         switch mode {

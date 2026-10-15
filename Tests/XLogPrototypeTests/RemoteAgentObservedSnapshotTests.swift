@@ -132,6 +132,11 @@ private final class ObservedCallbackProtocol: URLProtocol {
 }
 
 final class RemoteAgentObservedSnapshotTests: XCTestCase {
+    func testGUIPTTMakesExactlyOneHTTPAttemptForOnAndOff() async throws {
+        for enabled in [true,false] {try await fixture(commands:[],verify:{script in
+            XCTAssertEqual(script.sentCommands.count,1);XCTAssertEqual(script.sentCommands.first?["command"] as? String,"set_ptt")
+        }){client,_ in do{try await client.setGUIPTT(enabled);XCTFail("Lost reply reported success")}catch{}}}
+    }
     func testAmplifierActionsMakeOneHTTPAttemptOnLostReply() async throws {
         for action:RemoteStationAction in [.operate,.standby] {
             try await fixture(commands:[],verify:{script in

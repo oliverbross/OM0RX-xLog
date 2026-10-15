@@ -24,6 +24,7 @@ mod radio_read;
 mod manual_tune;
 mod radio_release;
 mod carrier_tune;
+mod ptt_session;
 mod amplifier_transition;
 mod manual_rotor;
 mod radio_follow;
@@ -115,6 +116,7 @@ fn is_raw_manual_rotor_goto(request: &serde_json::Value) -> bool {
 fn requires_durable_station_action(action: &str) -> bool {
     matches!(action, "cancel" | "tune" | "operate" | "standby")
 }
+fn is_raw_ptt_control(request:&serde_json::Value)->bool{request["method"]=="station_radio_control"&&request["params"]["control"]=="ptt"}
 
 #[tauri::command]
 fn spot_editor_register(window: tauri::WebviewWindow, app: tauri::AppHandle, instance: String) -> Result<serde_json::Value, String> {
@@ -767,6 +769,7 @@ async fn radio_release_request(app: tauri::AppHandle, window: tauri::WebviewWind
         return result;
     }
     let target = serde_json::from_value::<radio_release::Target>(params["target"].clone()).map_err(|_| "Invalid radio Cancel target.")?;
+    carrier_tune::revoke_output_intent()?;
     let changed = app.clone();
     let result = tauri::async_runtime::spawn_blocking(move || owner.cancel(&id, target, |request, target| radio_release::execute(&app, request, target)))
         .await.map_err(|_| "Radio Cancel task ended; check its retained receipt. No Cancel will be replayed.".to_string())?;
@@ -797,6 +800,23 @@ async fn monitor_rotor_stop(window: tauri::WebviewWindow, state: tauri::State<'_
     validate_rotor_stop(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
     tauri::async_runtime::spawn_blocking(move || rotor::monitor_stop(&owner))
         .await.map_err(|_| "Rotor Stop task failed".to_string())?
+}
+
+#[tauri::command]
+async fn ptt_session_request(app:tauri::AppHandle,window:tauri::WebviewWindow,state:tauri::State<'_,acceptance::Acceptance>,params:serde_json::Value)->Result<serde_json::Value,String>{
+    let action=params["action"].as_str().unwrap_or("");ptt_session::validate(window.label(),state.path.is_some(),APP_EXITING.load(Ordering::Acquire),action)?;
+    let keys:&[&str]=match action{"snapshot"=>&["action"],"prepare"=>&["action","enabled"],"recover"=>&["action","operation_id","owner_id","target"],"on"|"off"=>&["action","operation_id","target","intent"],_=>&["action","operation_id"]};
+    if params.as_object().is_none_or(|p|p.len()!=keys.len()||p.keys().any(|k|!keys.contains(&k.as_str()))){return Err("Invalid PTT request".into());}
+    let owner=ptt_session::owner(&app)?;owner.reconcile(&station_telemetry::owner(&app)?.snapshot()?)?;
+    if action=="snapshot"||action=="prepare" {let mut s=owner.snapshot()?;
+        if action=="prepare"{let enabled=params["enabled"].as_bool().ok_or("Missing PTT preparation direction")?;if !enabled{carrier_tune::revoke_output_intent()?;}s["intent"]=serde_json::json!(carrier_tune::output_intent()?);}
+        s["target"]=ptt_session::context(&app)?["target"].clone();return Ok(s);}
+    let id=params["operation_id"].as_str().ok_or("Missing PTT identity")?.to_owned();
+    if action=="receipt"{return owner.receipt(&id);}if action=="review"{return owner.review(&id);}
+    if action=="recover"{let target=serde_json::from_value::<ptt_session::Target>(params["target"].clone()).map_err(|_|"Invalid PTT recovery target")?;let owner_id=params["owner_id"].as_str().ok_or("Missing retained PTT owner")?;let result=ptt_session::recover(&app,&owner,&id,owner_id,target);let _=app.emit_to("main","xlog:ptt-session",());return result;}
+    let target=serde_json::from_value::<ptt_session::Target>(params["target"].clone()).map_err(|_|"Invalid PTT target")?;let intent=params["intent"].as_str().ok_or("Missing native PTT preparation")?.to_owned();let on=action=="on";let changed=app.clone();
+    let result=tauri::async_runtime::spawn_blocking(move||owner.apply_admitted(&id,on,target,&intent,|t|ptt_session::preflight(&app,t,on,&intent),|q,t|ptt_session::execute(&app,q,t,&intent))).await.map_err(|_|"PTT task ended; inspect its retained receipt; never replay".to_string())?;
+    let _=changed.emit_to("main","xlog:ptt-session",());result
 }
 
 #[tauri::command]
@@ -947,6 +967,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     if method == "station_action" && requires_durable_station_action(request["params"]["action"].as_str().unwrap_or("")) {
         return Err("Use the shared durable radio and amplifier owners.".into());
     }
+    if is_raw_ptt_control(&request) {return Err("Use the durable GUI PTT owner".into());}
     if method == "station_tune" || method == "hamlib_control" && request["params"]["device"] == "radio" && request["params"]["action"] == "tune_simplex" {
         return Err("Use the shared manual simplex tune owner.".into());
     }
@@ -1541,7 +1562,7 @@ fn main() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![worker_request, cw_session_request, station_session_request, radio_release_request, carrier_tune_request, amplifier_transition_request, manual_rotor_request, pick_backup_package, open_monitor, open_detached_map,
+        .invoke_handler(tauri::generate_handler![worker_request, cw_session_request, station_session_request, radio_release_request, carrier_tune_request, ptt_session_request, amplifier_transition_request, manual_rotor_request, pick_backup_package, open_monitor, open_detached_map,
             spot_editor_register, spot_editor_unregister, spot_editor_ack, spot_editor_state,
             spot_activation_snapshot, spot_activation_status, spot_activation_reconcile, activate_spot, activate_opportunity,
             operator_draft_read_radio,
@@ -1599,6 +1620,8 @@ mod workspace_layout_tests {
 
     #[test]
     fn amplifier_and_radio_actions_have_no_legacy_raw_or_monitor_bypass() {
+        for provider in ["direct_agent","direct_flex_lan"]{for enabled in [true,false]{assert!(super::is_raw_ptt_control(&json!({"method":"station_radio_control","params":{"provider":provider,"control":"ptt","enabled":enabled}})));}}
+        assert!(!super::is_raw_ptt_control(&json!({"method":"station_radio_control","params":{"control":"set_rf_power"}})));
         for action in ["operate","standby","tune","cancel"] {
             assert!(super::requires_durable_station_action(action));
         }

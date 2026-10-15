@@ -127,6 +127,7 @@ private actor FakeFlexRadio: FlexSessionRadio {
     }
     func setTransmit(_ enabled: Bool) {
         commands.append(enabled ? "ptt_on" : "ptt_off")
+        if enabled && !observeTransmitStart {return}
         if enabled || observeRelease {
             value.isTransmitting = enabled
             transmitRevision = (transmitRevision ?? 0) &+ 1
@@ -220,6 +221,53 @@ final class LiveFlexSessionTests: XCTestCase {
         let released=try await session.handle("station_snapshot",params:["provider":"direct_flex_lan"])
         XCTAssertEqual((released["carrier_tune"] as? [String:Bool])?["release_required"],false)
         let commands=await radio.commandLog();XCTAssertEqual(commands,["tune_on","ptt_off"])
+        _=try await session.handle("station_disconnect",params:["provider":"direct_flex_lan"])
+    }
+    func testGUIPTTConfirmsFreshInterlockAndOffDoesNotReleaseCWOrUnrelatedTune() async throws {
+        let(session,radio)=try await fixture(allowTransmit:true);let state=try await session.handle("station_snapshot",params:["provider":"direct_flex_lan"]);let generation=try XCTUnwrap(state["generation"] as? UInt64);let id=UUID().uuidString
+        var params:[String:Any]=["provider":"direct_flex_lan","control":"ptt","source":"gui","ptt_owner_id":id,"enabled":true,"expected_generation":generation,"expected_native_intent":10]
+        let on=try await session.handle("station_radio_control",params:params);XCTAssertEqual(on["confirmed"] as? Bool,true)
+        params["enabled"]=false;params["expected_native_intent"]=11
+        let off=try await session.handle("station_radio_control",params:params);XCTAssertEqual(off["confirmed"] as? Bool,true)
+        let ptt=(off["state"] as? [String:Any])?["ptt"] as? [String:Any];XCTAssertEqual(ptt?["release_required"] as? Bool,false)
+        var old=params;old["enabled"]=true;old["expected_native_intent"]=10
+        do{_=try await session.handle("station_radio_control",params:old);XCTFail("Native ordering ignored")}catch let failure as WorkerFailure{XCTAssertEqual(failure.code,"station_changed")}
+        _=try await session.handle("station_radio_control",params:["provider":"direct_flex_lan","control":"send_cw","text":"TEST"])
+        params["ptt_owner_id"]=UUID().uuidString;params["expected_native_intent"]=12
+        let noop=try await session.handle("station_radio_control",params:params);XCTAssertEqual(noop["confirmed"] as? Bool,false)
+        let commands=await radio.commandLog();XCTAssertEqual(commands,["ptt_on","ptt_off","cw_send"],"No GUI PTT off command may clear or release CW")
+        _=try await session.handle("station_disconnect",params:["provider":"direct_flex_lan"])
+    }
+    func testGUIOffInterruptsPendingOnAndOlderOnCannotPublishLateSuccess() async throws {
+        let(session,radio)=try await fixture(allowTransmit:true,timeout:.seconds(2));let state=try await session.handle("station_snapshot",params:["provider":"direct_flex_lan"]);let generation=try XCTUnwrap(state["generation"] as? UInt64);let id=UUID().uuidString
+        await radio.setObserveTransmitStart(false)
+        let params:[String:Any]=["provider":"direct_flex_lan","control":"ptt","source":"gui","ptt_owner_id":id,"enabled":true,"expected_generation":generation,"expected_native_intent":50]
+        let pending=Task {do{_=try await session.handle("station_radio_control",params:params);return false}catch{return true}}
+        for _ in 0..<100{if await radio.commandLog().contains("ptt_on"){break};try await Task.sleep(for:.milliseconds(5))}
+        var off=params;off["enabled"]=false;off["expected_native_intent"]=51
+        _=try await session.handle("station_radio_control",params:off)
+        let retired=await pending.value;XCTAssertTrue(retired)
+        let commands=await radio.commandLog();XCTAssertEqual(commands,["ptt_on","ptt_off"])
+        await radio.simulateUnrelatedSnapshot()
+        try await Task.sleep(for:.milliseconds(20))
+        let cached=try await session.handle("station_snapshot",params:["provider":"direct_flex_lan"])
+        XCTAssertEqual((cached["ptt"] as? [String:Any])?["release_required"] as? Bool,true,"RX observed while old On was pending must not retire its duty")
+        XCTAssertEqual((cached["ptt"] as? [String:Any])?["confirmed"] as? Bool,false)
+        await radio.simulateInterlock(false,publish:true)
+        try await Task.sleep(for:.milliseconds(20))
+        let fresh=try await session.handle("station_snapshot",params:["provider":"direct_flex_lan"])
+        XCTAssertEqual((fresh["ptt"] as? [String:Any])?["release_required"] as? Bool,false)
+        _=try await session.handle("station_disconnect",params:["provider":"direct_flex_lan"])
+    }
+    func testUnownedGUIOffNeverCancelsAnOwnedCarrierTune() async throws {
+        let(session,radio)=try await fixture(allowTransmit:true)
+        _=try await session.handle("station_action",params:["provider":"direct_flex_lan","action":"tune"])
+        let state=try await session.handle("station_snapshot",params:["provider":"direct_flex_lan"]);let generation=try XCTUnwrap(state["generation"] as? UInt64)
+        let reply=try await session.handle("station_radio_control",params:["provider":"direct_flex_lan","control":"ptt","source":"gui","ptt_owner_id":UUID().uuidString,"enabled":false,"expected_generation":generation,"expected_native_intent":70])
+        XCTAssertEqual(reply["confirmed"] as? Bool,false)
+        let after=try await session.handle("station_snapshot",params:["provider":"direct_flex_lan"])
+        XCTAssertEqual((after["carrier_tune"] as? [String:Bool])?["release_required"],true)
+        let commands=await radio.commandLog();XCTAssertEqual(commands,["tune_on"])
         _=try await session.handle("station_disconnect",params:["provider":"direct_flex_lan"])
     }
     func testCancelInterruptsOwnedTuneReadbackAndConfirmsOnlyFreshRelease() async throws {

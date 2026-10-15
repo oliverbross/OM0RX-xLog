@@ -7,6 +7,21 @@ packaged UI result. Keep unresolved items here across releases.
 
 ## Current delivery boundary
 
+- **Durable main-only GUI PTT owner, 16 October — source/mock stage:** Agent/FLEX
+  PTT now has independent native On and urgent owned Off lanes, exact immutable
+  selection/control/observation/worker/connection targets and journal-before-send
+  one-attempt dispatch. Shared Tune/CW acquisition and native preparation/order
+  fences retire older keying intent after newer Off/Cancel. Off is GUI-owned only;
+  embedded CAT, CW and Tune duties are not silently cleared. Agent acknowledgements
+  await newer authoritative TX/RX proof; FLEX requires newer interlock evidence.
+  Unknown receipts, restart and review never replay commands or erase the separate
+  durable release duty. Detached acquisition is not exposed.
+  Explicit no-command retired-owner recovery requires original worker child-reaping
+  evidence and fresh RX on the same selected station; generation drift alone is
+  insufficient and missing evidence remains fail-closed. Package installation,
+  live Agent/FLEX, physical release timing and RF acceptance remain open; the
+  installed alpha.31 app and station were not changed or exercised.
+
 - **Shared durable Agent amplifier owner, 16 October:** Desk sidebar, Station
   Control and standalone Monitor now share one native Agent-only Operate/Standby
   owner. Exact selection, control, worker, connection and observation identities

@@ -2,6 +2,34 @@
 
 Last updated: 2026-10-16
 
+## Durable GUI PTT owner — source implementation; package/live/RF acceptance open
+
+Main Station Control now routes explicit Agent/FLEX PTT on/off through one native
+durable owner, with separate acquisition and urgent owned-release lanes. Pending
+is saved before one existing-worker send; exact selection UUID/generation,
+control/observation revision, worker and backend connection identities fence each
+intent. PTT on requires fresh explicit RX, capability, transmit consent and station
+readiness. PTT off releases only retained GUI ownership, not embedded CAT, CW or
+carrier Tune. Native preparation/order fences and the shared Tune/CW acquisition
+guard prevent older preparations from being revived by later Off/Cancel.
+
+Receipt review does not erase the separately persisted release obligation. Agent
+ACKs remain unconfirmed until a newer authoritative TX/RX observation; FLEX uses
+newer interlock transmit readback. Lost/malformed replies and persistence failures
+retain uncertainty without reconnect, retry or replay. Restart does not replay
+commands or grant authority over a replacement backend; if its original retained
+ownership is unavailable, operator recovery and fresh RX proof remain necessary.
+Explicit retired-owner recovery sends no Off: it requires native proof that the
+original worker child was reaped plus fresh authoritative RX on the same selected
+station, and durably records the decision before retiring the old duty. Mere
+generation mismatch, changed selection, stale RX and missing retirement evidence
+fail closed; cross-app restart recovery without retained child-reaping proof is
+not included. Generic Off never gains replacement-session authority.
+Detached acquisition is deliberately unavailable in this stage. Source/mock checks
+are separate from package acceptance: the installed alpha.31 app is unchanged,
+and live Agent/FLEX, physical release timing and RF acceptance remain open. No
+station/network/hardware/RF operation was issued for this source stage.
+
 ## Shared durable Agent amplifier owner — source complete; package/hardware acceptance open
 
 Main Station Control, the Desk sidebar and standalone Station Monitor now route

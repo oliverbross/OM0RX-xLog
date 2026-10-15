@@ -8,6 +8,8 @@ import { radioReleaseSession } from "./radioRelease";
 import { RadioReleaseStatus } from "./RadioReleaseStatus";
 import { carrierTuneSession } from "./carrierTune";
 import { CarrierTuneStatus } from "./CarrierTuneStatus";
+import {pttSession} from "./pttSession";
+import {PTTStatus} from "./PTTStatus";
 import "./StationPanel.css";
 import "./DirectFlexPanel.css";
 
@@ -129,7 +131,7 @@ export default function DirectFlexPanel({ request, snapshot }: Props) {
     }
   }
 
-  const control = (name: string, params: Data = {}) => act("station_radio_control", { control: name, ...params }, name.replaceAll("_", " "));
+  const control = (name: string, params: Data = {}) => name==="ptt"&&shared ? pttSession().set(params.enabled===true,provider).catch(()=>null) : act("station_radio_control", { control: name, ...params }, name.replaceAll("_", " "));
   const hz = strictHz(frequency);
   const validCW = cwText.length > 0 && cwText.length <= 128 && /^[\x20-\x7E]+$/.test(cwText) && !cwText.includes("|");
   const speed = Number(cwSpeed);
@@ -176,7 +178,7 @@ export default function DirectFlexPanel({ request, snapshot }: Props) {
     </div><div className="live-station-side">
       <section className="live-station-card"><h3>Transmit control</h3><p className="live-station-helper">Transmit is available only when enabled at connection. Release remains available for an owned transmit attempt.</p>
         <div className="live-station-actionrow"><button className="danger" disabled={busy || !txAllowed || !supports("ptt") || radio?.transmitting !== false} onClick={() => void control("ptt", { enabled: true })}>PTT on</button>
-          <button disabled={busy || !supports("ptt")} onClick={() => void control("ptt", { enabled: false })}>PTT off</button>
+            <button disabled={!shared&&(busy || !supports("ptt"))} onClick={() => {if(shared)void pttSession().set(false,provider).catch(()=>{});else void control("ptt", { enabled: false });}}>PTT off</button>
           <button disabled={busy || !txAllowed || !supports("tune") || radio?.transmitting !== false} onClick={() => {
             if(shared) void carrierTuneSession().tune(provider).catch(()=>{});else void act("station_action", { action: "tune" }, "Tune");
           }}>Tune carrier</button>
@@ -184,6 +186,7 @@ export default function DirectFlexPanel({ request, snapshot }: Props) {
             else void act("station_action", { action: "cancel" }, "Cancel / release"); }}>Cancel / release</button></div>
         {shared && <RadioReleaseStatus />}
         {shared && <CarrierTuneStatus />}
+            {shared && <PTTStatus />}
       </section>
       <section className="live-station-card"><h3>RF power setting</h3>
         <p className="live-station-helper">FLEX level 0–100; this is not a measured watt reading. Changing the setting requires an observed receive state and fresh readback.</p>

@@ -22,7 +22,7 @@ pub(crate) fn carrier_output_admission(output:&str, check:impl FnOnce()->Result<
     match output {"radio"=>check(),"winkeyer"=>Ok(()),_=>Err("Unknown CW output".into())}
 }
 fn require_idle_carrier(value:&Value, require_rx:bool)->Result<(),String> {
-    if value["carrier_tune"]["pending"]!=false || value["carrier_tune"]["release_required"]!=false
+    if value["carrier_tune"]["pending"]!=false || value["carrier_tune"]["release_required"]!=false || value["ptt"]["release_required"]!=false
         || require_rx && value["radio"]["transmitting"]!=false {
         return Err("Resolve owned carrier Tune with Cancel and observe RX before arming or sending CW.".into());
     }
@@ -91,7 +91,7 @@ impl Backend for Native {
         let output = canonical["profile"]["output"].as_str().ok_or("CW output unavailable")?;
         // The outer shared acquisition guard makes this durable veto and the
         // following backend ownership read atomic with carrier admission.
-        carrier_output_admission(output,||crate::carrier_tune::require_cw_ready(&self.app))?;
+        carrier_output_admission(output,||{crate::carrier_tune::require_cw_ready(&self.app)?;crate::ptt_session::require_idle(&self.app)})?;
         let worker = canonical["worker"].as_u64().ok_or("CW worker unavailable")?;
         let (identity, limit, intent) = if output == "winkeyer" {
             let value = local("winkeyer_snapshot", json!({}))?;
@@ -151,9 +151,10 @@ mod tests {
     use super::*;
     #[test]
     fn selected_radio_cw_vetoes_carrier_pending_owned_release_and_active_tx() {
-        let idle=json!({"carrier_tune":{"pending":false,"release_required":false},"radio":{"transmitting":false}});
+        let idle=json!({"carrier_tune":{"pending":false,"release_required":false},"ptt":{"release_required":false},"radio":{"transmitting":false}});
         assert!(require_idle_carrier(&idle,true).is_ok());
         for key in ["pending","release_required"] {let mut value=idle.clone();value["carrier_tune"][key]=json!(true);assert!(require_idle_carrier(&value,true).is_err());assert!(require_idle_carrier(&value,false).is_err());}
+        for source in ["gui","embedded_cat"]{let mut value=idle.clone();value["ptt"]=json!({"source":source,"release_required":true});assert!(require_idle_carrier(&value,true).is_err());assert!(require_idle_carrier(&value,false).is_err());}
         let mut tx=idle;tx["radio"]["transmitting"]=json!(true);assert!(require_idle_carrier(&tx,true).is_err());
         assert!(require_idle_carrier(&json!({"radio":{"transmitting":false}}),true).is_err(),"Old/missing backend obligation metadata must fail closed");
     }
