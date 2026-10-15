@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vitest";
 import { changedLayout, panelMinimum, WorkspaceLayoutSession, workspacePanelIDs, type LayoutSnapshot } from "./workspaceLayoutSession";
-import { protectWorkspaceModeEditor, switchWorkspaceMode, workspaceMode, workspaceModeEditorBusy } from "./workspaceMode";
+import { orderedWorkspacePresenter, protectWorkspaceModeEditor, switchWorkspaceMode, workspaceMode, workspaceModeEditorBusy } from "./workspaceMode";
 function fixture() {
   return { revision: 4, generation: "12345678-1234-1234-1234-123456789abc", document: { version: 2, activePresetID: "my-desk", presets:
     ["traditional", "windowed", "my-desk"].map(id => ({ id, name: id, width: 1920, height: 1080, locked: true, snap: true,
@@ -60,4 +60,20 @@ it("reconciles a committed switch after acknowledgement loss without replaying m
   await switchWorkspaceMode(session, "windows", () => true, present);
   expect(request.mock.calls.filter(([method]) => method.endsWith("apply"))).toHaveLength(1);
   expect(present).toHaveBeenCalledOnce();
+});
+
+it("shows recovery after an older delayed hide completes and continues after presentation failure", async () => {
+  let finishHide!: () => void;
+  const send = vi.fn(async (_snapshot: LayoutSnapshot, hide: boolean) => {
+    if (hide) await new Promise<void>(resolve => { finishHide = resolve; });
+  });
+  const present = orderedWorkspacePresenter(send), snapshot = fixture();
+  const hide = present(snapshot, true), recovery = present(snapshot, false);
+  await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+  expect(send.mock.calls[0][1]).toBe(true);
+  finishHide(); await Promise.all([hide, recovery]);
+  expect(send.mock.calls.map(([, hide]) => hide)).toEqual([true, false]);
+  send.mockRejectedValueOnce(new Error("Old revision"));
+  await expect(present(snapshot, false)).rejects.toThrow("Old revision");
+  await expect(present(snapshot, false)).resolves.toBeUndefined();
 });

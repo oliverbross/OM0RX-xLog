@@ -37,6 +37,7 @@ import QSOEditor from "./live/QSOEditor";
 import OperatorDesk, { DeskQSO, DeskIntelligence, DeskRotor } from "./live/OperatorDesk";
 import OperatorCanvas from "./live/OperatorCanvas";
 import { useWorkspaceLayout } from "./live/useWorkspaceLayout";
+import { useWorkspaceRecovery } from "./live/useWorkspaceRecovery";
 import { presentWorkspaceMode, switchWorkspaceMode, workspaceMode, workspaceModeEditorBusy } from "./live/workspaceMode";
 import { WorkspaceModeSurface } from "./live/WorkspaceModeSurface";
 import { DeskAntenna } from "./live/StationEquipment";
@@ -260,15 +261,27 @@ function MainLiveApp() {
     }
     finally { if (allowed) layoutChanging.current = false; }
   };
-  // Presentation follows the committed workspace mode. Draft dirtiness gates an
-  // explicit mode change, but must never make a saved separate-window workspace
-  // flash the canvas back into view while background radio-follow autosaves.
-  const separateWindows = workspaceMode(deskLayout.state.snapshot) === "windows";
+  // Background draft autosaves retain the committed presentation. Conflicts,
+  // uncertain outcomes and recovered edits need their main-window controls.
+  const configurationRecovery = [settingsState, rotorConfigurationState]
+    .some(state => !!state.error || !!state.conflict || state.workspaceChanged)
+    || settingsDraftIsDirty(settingsState.base, settingsState.draft)
+    || rotorConfigurationDirty(rotorConfigurationState.base, rotorConfigurationState.draft)
+    || !!settingsState.pending && !settingsState.saving
+    || !!rotorConfigurationState.pending && !rotorConfigurationState.saving;
+  const layoutRecovery = !!deskLayout.state.error || !!deskLayout.state.conflict || deskLayout.state.workspaceChanged
+    || !!deskLayout.state.pending && !deskLayout.state.saving;
+  const recoveryRequired = [sharedDraft, contactEdit, logbookMutation]
+    .some(state => !!state.error || !!state.conflict || state.workspaceChanged)
+    || !!contactEdit.draft || configurationRecovery || layoutRecovery
+    || !!logbookMutation.pending && !logbookMutation.busy;
+  const recoveryVisible = useWorkspaceRecovery(recoveryRequired,
+    canChangeMode(true) && !deskLayout.state.pending && !deskLayout.state.saving);
+  const separateWindows = workspaceMode(deskLayout.state.snapshot) === "windows" && !recoveryVisible;
   useEffect(() => {
     const state = deskLayout.state;
     if (!state.snapshot || state.saving) return;
-    const needsRecovery = !!state.conflict || state.workspaceChanged || (!!state.pending && !state.saving);
-    void presentWorkspaceMode(state.snapshot, needsRecovery ? false : separateWindows)
+    void presentWorkspaceMode(state.snapshot, separateWindows)
       .catch(cause => setError(cause instanceof Error ? cause.message : "Workspace mode presentation failed."));
   }, [deskLayout.state.snapshot, deskLayout.state.pending, deskLayout.state.saving,
       deskLayout.state.conflict, deskLayout.state.workspaceChanged, separateWindows]);
@@ -811,6 +824,11 @@ function MainLiveApp() {
     </aside>
     <main aria-label={separateWindows ? "Separate Windows" : view} style={separateWindows ? { gridColumn: "1 / -1" } : undefined}>
       {error && <div className="live-error" role="alert">{error}<button onClick={() => setError("")}>Dismiss</button></div>}
+      {workspaceMode(deskLayout.state.snapshot) === "windows" && recoveryVisible && (configurationRecovery || layoutRecovery) &&
+        <div className="live-error" role="alert" aria-label="Workspace recovery">
+          <span>{settingsState.error || rotorConfigurationState.error || deskLayout.state.error || "Configuration or workspace changes need review."}</span>
+          <button type="button" onClick={() => setView("Settings")}>Review Settings</button>
+        </div>}
       <SpotActivationStatus status={spotActivation.status && spotActivation.status.phase !== "idle" ? spotActivation.status : spotEditor.status} error={spotEditor.error || spotActivation.error} checking={spotActivation.requesting}
         retire={() => { void Promise.resolve(spotActivation.retire()).then(async retired => { if (retired) { await spotEditor.reconcile(); setError(""); } }); }}
         reconcile={() => { if (sharedDraft.activationFrozen || contactEdit.activationFrozen) void spotEditor.reconcile(); else void spotActivation.reconcile(); }} />
