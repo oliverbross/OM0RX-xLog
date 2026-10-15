@@ -2,6 +2,20 @@
 
 Last updated: 2026-10-16
 
+## Detached Station Control Rotor Stop — source complete; package/hardware acceptance open
+
+Standalone Station Control now keeps an explicit Rotor Stop available whenever
+the retained rotor owner is known, including while telemetry is stale or a prior
+Goto outcome still needs review. Stop uses the existing current-owner native
+ingress, dispatches once without a renderer device read or retry, and preserves a
+lost acknowledgement as uncertain. Resolving an older Goto receipt cannot erase
+newer Stop feedback.
+
+The complete frontend suite passes **2,549/2,549**, Rust passes **497 unit + 22
+Hamlib integration checks**, and the production TypeScript/Vite/window build plus
+diff checks pass. Source only: alpha.31 remains installed; no station, hardware,
+radio, rotor, RF, service or operator-data action occurred.
+
 ## Shared manual Rotor Goto owner — source complete; package/hardware acceptance open
 
 Desk Rotor, standalone Rotor, Station Control and Station Monitor now route each

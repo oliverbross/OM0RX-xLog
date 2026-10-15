@@ -7,6 +7,16 @@ packaged UI result. Keep unresolved items here across releases.
 
 ## Current delivery boundary
 
+- **Detached Station Control Rotor Stop, 16 October:** Station Control now keeps
+  Stop available with a retained owner even when telemetry is stale or an older
+  Goto outcome is unresolved. It calls only the native current-owner Stop ingress,
+  dispatches once and never retries an uncertain acknowledgement. Operation-scoped
+  feedback prevents late Goto recovery from clearing newer Stop feedback. Full
+  frontend **2,549/2,549**, Rust **497 unit + 22 Hamlib integration checks**,
+  TypeScript, production bundle and diff checks pass. Source only: alpha.31 remains
+  installed and no station, hardware, radio, rotor, RF, service or operator-data
+  action occurred.
+
 - **Shared manual Rotor Goto owner, 16 October:** Desk Rotor, standalone Rotor,
   Station Control and Station Monitor now use one durable native one-shot owner.
   Exact station, rotor-observation, selected-owner and worker generations fence

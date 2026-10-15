@@ -102,6 +102,32 @@ it("keeps rotor receipt recovery visible across owner loss and remount without d
   render(<StationControlSurface connect={connect} rotorControls rotorSession={new ManualRotorGotoSession(transport, journal)} />);
   expect(screen.getAllByRole("button", { name:"Check rotor receipt" })).toHaveLength(1);
 });
+it("keeps exact Stop available through stale telemetry and Goto recovery without replay or clearing its newer failure", async () => {
+  const operation = crypto.randomUUID(); let pending: string | null = operation;
+  const transport = { snapshot: vi.fn(), request: vi.fn(async () => ({ operation_id:operation,status:"acknowledged" as const,request:{action:"manual_rotor_goto"} })) };
+  const journal = { read:() => pending, write:(value:string|null) => { pending=value; } };
+  const value = syntheticMonitorContext(); value.rotor.available = false; value.rotor.received_at_ms -= 60_000;
+  const connect = (accept: (value:MonitorContext)=>void) => { accept(value); return { refresh:vi.fn(), dispose:vi.fn() }; };
+  native.invoke.mockImplementation(async (command, args) => {
+    if (command === "monitor_rotor_stop") {
+      expect(args).toEqual({ owner:"native_dcu1" });
+      throw new Error("Stop acknowledgement lost");
+    }
+    throw new Error(`Unexpected native command: ${command}`);
+  });
+  render(<StationControlSurface connect={connect} rotorControls rotorSession={new ManualRotorGotoSession(transport, journal)} />);
+  expect(screen.getByRole("button", { name:"Turn rotor" }).hasAttribute("disabled")).toBe(true);
+  const stop = screen.getByRole("button", { name:"Stop rotor" });
+  expect(stop.hasAttribute("disabled")).toBe(false);
+  fireEvent.click(stop); await act(async () => {});
+  expect(screen.getByRole("alert").textContent).toContain("Stop acknowledgement lost");
+  expect(native.invoke.mock.calls.filter(([command]) => command === "monitor_rotor_stop")).toHaveLength(1);
+  fireEvent.click(screen.getByRole("button", { name:"Check rotor receipt" })); await act(async () => {});
+  expect(transport.request).toHaveBeenCalledExactlyOnceWith({ action:"receipt", operation_id:operation });
+  expect(screen.getByRole("alert").textContent).toContain("Stop acknowledgement lost");
+  await act(async () => { vi.advanceTimersByTime(5000); });
+  expect(native.invoke.mock.calls.filter(([command]) => command === "monitor_rotor_stop")).toHaveLength(1);
+});
 
 function sharedAgent(loseConnect = false, loseSelection = false, provider = "direct_agent") {
   let observation = syntheticMonitorContext();

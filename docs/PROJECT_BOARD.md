@@ -14,6 +14,14 @@ the configured barefoot drive on Standby and the exact pre-Operate drive after a
 failed or cancelled Operate request; Windows installation and physical readback
 acceptance remain open.
 
+Current post-alpha.31 source adds the missing Station Control Rotor Stop without
+weakening the shared owner boundary. It remains available with stale telemetry or
+an unresolved Goto, uses one exact current-owner native dispatch, never retries an
+uncertain acknowledgement, and keeps newer Stop feedback ahead of late Goto
+recovery. Full frontend **2,549/2,549**, Rust **497 unit + 22 integration checks**
+and production build gates pass. Alpha.31 remains installed; package and physical
+rotor acceptance are still open.
+
 A current-HEAD full code review is recorded in
 [FULL_CODE_REVIEW_2026-10-15.md](FULL_CODE_REVIEW_2026-10-15.md). All ten
 actionable review findings are closed in source and bound by focused
