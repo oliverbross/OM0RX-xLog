@@ -49,6 +49,7 @@ it("renders retained station state in a full-width task shell without wrapper ch
   expect(detachedStyles).toContain("grid-template-columns: minmax(0, 3fr) minmax(0, 2fr)");
   expect(detachedStyles).toContain("min-width: 0");
   expect(detachedStyles).not.toMatch(/190px|200px/);
+  expect(detachedStyles.match(/\.detached-station-setup, \.detached-station-observations\s*\{[^}]*\}/)?.[0]).not.toContain("max-width");
   expect(screen.queryByRole("textbox")).toBeNull();
   expect(screen.queryByRole("checkbox")).toBeNull();
   view.unmount(); expect(view.dispose).toHaveBeenCalledOnce();

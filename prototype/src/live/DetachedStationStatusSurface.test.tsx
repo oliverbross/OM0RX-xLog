@@ -82,6 +82,7 @@ it("starts at station data in a responsive full-width task window without wrappe
   expect(taskStyles).toMatch(/\.app\.live\.detached-task-app\s*\{[^}]*display: flex/);
   expect(taskStyles).toContain("min-width: 0");
   expect(taskStyles).not.toContain("190px");
+  expect(taskStyles.match(/\.detached-station-status-app \.live-station\s*\{[^}]*\}/)?.[0]).not.toContain("max-width");
   expect(native.invoke.mock.calls).toEqual([["station_status_snapshot"]]);
   expect(native.worker).not.toHaveBeenCalled();
 });

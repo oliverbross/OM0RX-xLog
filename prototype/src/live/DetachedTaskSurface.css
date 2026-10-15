@@ -3,7 +3,7 @@
 .detached-task-app main > section { width: 100%; min-width: 0; }
 .detached-task-app button, .detached-task-app select { max-width: 100%; white-space: normal; }
 .detached-task-app p { overflow-wrap: anywhere; }
-.detached-station-status-app .live-station { min-height: 0; overflow: visible; max-width: 1100px; }
+.detached-station-status-app .live-station { min-height: 0; overflow: visible; }
 .detached-station-status-app dl { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px 16px; margin: 16px 0; }
 .detached-station-status-app dt { color: var(--secondary); }
 .detached-station-status-app dd { margin: 0; overflow-wrap: anywhere; }
