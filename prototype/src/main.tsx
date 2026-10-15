@@ -32,6 +32,15 @@ async function mount() {
   root.render(
     <React.StrictMode><UiScaleProvider><App /></UiScaleProvider></React.StrictMode>,
   );
-  if (acceptance) void import("./integratedAcceptance").then(module => module.startIntegratedAcceptance());
+  if (acceptance) void import("./integratedAcceptance").then(module => module.startIntegratedAcceptance()).catch(error => {
+    const surface = new URLSearchParams(location.search).get("view");
+    if (!surface) return;
+    const report = {
+      schema: 1, scope: "integrated-local-ui", status: "failed", embeddedUi: true, worker: false,
+      checks: {}, details: { surface },
+      error: `Acceptance renderer failed to start: ${error instanceof Error ? error.message : String(error)}`,
+    };
+    void invoke("acceptance_monitor", { report });
+  });
 }
 void mount();
