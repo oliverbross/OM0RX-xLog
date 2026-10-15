@@ -34,6 +34,7 @@ mod logbook_events;
 mod detached_acceptance;
 mod workspace_windows;
 mod workspace_window_runtime;
+mod canvas_close;
 
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu, WINDOW_SUBMENU_ID};
 use tauri::{Emitter, LogicalSize, Manager};
@@ -41,6 +42,7 @@ use std::sync::{atomic::{AtomicBool, Ordering}, Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 static MAIN_CREATION: Mutex<()> = Mutex::new(());
+static WORKSPACE_PRESENTATION: Mutex<bool> = Mutex::new(false);
 static APP_EXITING: AtomicBool = AtomicBool::new(false);
 const OPERATOR_DRAFT_CHANGED: &str = "xlog:operator-draft-changed";
 static SPOT_ACTIVATION: OnceLock<Arc<spot_activation::Coordinator>> = OnceLock::new();
@@ -444,6 +446,7 @@ async fn workspace_mode_present(window: tauri::WebviewWindow, app: tauri::AppHan
     generation: String, revision: u64, hide_main: bool) -> Result<(), String> {
     if window.label() != "main" { return Err("Only the main workspace presents its mode.".into()); }
     tauri::async_runtime::spawn_blocking(move || {
+        let mut presented_windows = WORKSPACE_PRESENTATION.lock().map_err(|_| "Workspace mode presentation unavailable")?;
         let id = format!("workspace-mode-{}", uuid::Uuid::new_v4());
         let reply = worker::request(serde_json::json!({"id":id,"method":"workspace_layout_load","params":{}}))?;
         let layout = &reply["result"]["layout"];
@@ -451,7 +454,7 @@ async fn workspace_mode_present(window: tauri::WebviewWindow, app: tauri::AppHan
             return Err("The workspace mode changed. Reload its saved layout before continuing.".into());
         }
         let windows = layout["document"]["activePresetID"] == "windowed";
-        update_workspace_mode_checks(&app, windows)?;
+        if !windows && *presented_windows { workspace_window_runtime::canvas(&app, &generation, revision)?; }
         if let Some(main) = app.get_webview_window("main") {
             if windows && hide_main {
                 workspace_mode_ready()?;
@@ -460,8 +463,77 @@ async fn workspace_mode_present(window: tauri::WebviewWindow, app: tauri::AppHan
             }
             else { main.show().map_err(|error| error.to_string())?; }
         }
+        update_workspace_mode_checks(&app, windows)?;
+        *presented_windows = windows;
         Ok(())
     }).await.map_err(|_| "Workspace mode presentation failed.".to_string())?
+}
+
+#[tauri::command]
+fn workspace_canvas_close_ack(window: tauri::WebviewWindow, request: String, ready: bool) -> Result<(), String> {
+    canvas_close::preparation().acknowledge(window.label(), &request, ready)
+}
+
+// Runs only on the serialized native window owner. Inventory includes manual
+// windows and each band-map instance, rather than only planner-managed roles.
+fn present_canvas_windows(app: &tauri::AppHandle, generation: &str, revision: u64) -> Result<(), String> {
+    let windows = app.webview_windows().into_values().filter(|window| workspace_windows::supports(window.label())).collect::<Vec<_>>();
+    let labels = windows.iter().map(|window| window.label().to_owned()).collect::<Vec<_>>();
+    workspace_mode_ready()?;
+    validate_editor_transition("main")?;
+    let preparation = canvas_close::preparation();
+    let request = preparation.begin(&labels)?;
+    let preflight = (|| {
+        for window in windows.iter().filter(|window| matches!(window.label(), "logbook" | "log-qso")) {
+            window.emit("xlog:canvas-close-prepare", serde_json::json!({"request":request})).map_err(|error| error.to_string())?;
+        }
+        preparation.wait(&request, Duration::from_secs(3))?;
+        let id = format!("canvas-close-{}", uuid::Uuid::new_v4());
+        let reply = worker::request(serde_json::json!({"id":id,"method":"workspace_layout_load","params":{}}))?;
+        let layout = &reply["result"]["layout"];
+        if reply["id"] != id || reply["ok"] != true || layout["generation"] != generation || layout["revision"] != revision || layout["document"]["activePresetID"] == "windowed" {
+            return Err("The workspace changed during Canvas preparation. Reload its saved layout and retry.".into());
+        }
+        workspace_mode_ready()?;
+        validate_editor_transition("main")
+    })();
+    preparation.finish(&request);
+    // Constructing the idle owner performs no device access. Reserve even when
+    // it did not exist during preflight, so a just-loaded renderer cannot arm
+    // CW between the idle check and destruction of its window.
+    let cw = cw_session_backend::owner(app);
+    let mut reserved = false;
+    let result = canvas_close::apply(&windows, || {
+        preflight?;
+        cw.reserve_idle_close(&["main", "cw"])?;
+        reserved = true;
+        // Show Canvas only after every renderer veto and native guard passed.
+        if let Some(main) = app.get_webview_window("main") { main.show().map_err(|error| error.to_string())?; }
+        Ok(())
+    }, |window| {
+        validate_editor_transition("main")?;
+        if window.label() == "cw" {
+            detached_geometry::flush(window);
+            window.destroy().map_err(|error| error.to_string())?;
+        } else {
+            // Existing renderer close handlers recheck unsaved/local input.
+            // A missed listener, refusal or failed command cannot claim success.
+            window.close().map_err(|error| error.to_string())?;
+        }
+        Ok(())
+    }, || {
+        let deadline = Instant::now() + Duration::from_secs(3);
+        loop {
+            let remaining = app.webview_windows().into_keys().filter(|label| workspace_windows::supports(label)).collect::<Vec<_>>();
+            if remaining.is_empty() { return Ok(()); }
+            if Instant::now() >= deadline {
+                return Err(format!("Canvas could not close {}. Resolve any editor changes or window errors and retry.", remaining.join(", ")));
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    });
+    if reserved { let _ = cw.allow_window("cw"); let _ = cw.allow_window("main"); }
+    result
 }
 
 fn apply_workspace_layout(app: &tauri::AppHandle, layout: WorkspaceLayout) -> Result<(), String> {
@@ -1257,7 +1329,7 @@ fn main() {
             spot_editor_register, spot_editor_unregister, spot_editor_ack, spot_editor_state,
             spot_activation_snapshot, spot_activation_status, spot_activation_reconcile, activate_spot, activate_opportunity,
             auto_rotor_snapshot, auto_rotor_set,
-            workspace_windows_status, workspace_windows_reconcile, workspace_mode_present,
+            workspace_windows_status, workspace_windows_reconcile, workspace_mode_present, workspace_canvas_close_ack,
             workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot, propagation_session_request, station_identity_snapshot, alerts_snapshot, dx_alerts_snapshot, dx_alerts_save, dx_alerts_test, dx_alerts_clear, antenna_snapshot,
             detached_cluster_ready, cluster_session_selection, dock_detached_window, close_logbook_window, close_qso_window, close_main_window, close_cw_window, show_cw_desk, close_rotor_window, show_rotor_desk, close_station_status_window, show_station_status_desk, close_propagation_window, show_propagation_desk, close_station_identity_window, show_station_identity_desk, close_alerts_window, show_alerts_desk, close_antenna_window, show_antenna_desk,
             acceptance::acceptance_enabled, acceptance::acceptance_large_log, acceptance::acceptance_monitor,

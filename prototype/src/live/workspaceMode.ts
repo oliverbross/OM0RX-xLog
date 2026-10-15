@@ -37,6 +37,23 @@ export async function switchWorkspaceMode(session: WorkspaceLayoutSession, mode:
   if (document.activePresetID !== presetID) await session.applyAtBase({ action: "activatePreset", presetID }, snapshot);
   const saved = session.getSnapshot();
   if (saved.pending || saved.error || !saved.snapshot) throw new Error(saved.error || "The workspace mode is not confirmed. Reload its saved layout.");
-  await present(saved.snapshot, canChange());
+  try {
+    await present(saved.snapshot, canChange());
+  } catch (cause) {
+    // Native preflight can reject an unsaved detached editor, a reservation,
+    // or uncertain CW. Restore the previous persisted mode at the exact saved
+    // revision; never overwrite another window's intervening layout change.
+    if (document.activePresetID !== presetID) {
+      try {
+        await session.applyAtBase({ action: "activatePreset", presetID: document.activePresetID }, saved.snapshot);
+        const restored = session.getSnapshot();
+        if (restored.pending || restored.error || restored.snapshot?.document.activePresetID !== document.activePresetID)
+          throw new Error(restored.error || "The previous workspace mode could not be confirmed.");
+      } catch (rollback) {
+        throw new Error(`${cause instanceof Error ? cause.message : "Workspace presentation failed."} The previous mode could not be restored: ${rollback instanceof Error ? rollback.message : "reload Workspace settings before retrying."}`);
+      }
+    }
+    throw cause;
+  }
   return true;
 }

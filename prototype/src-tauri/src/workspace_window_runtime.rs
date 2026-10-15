@@ -40,6 +40,7 @@ struct PendingOpen {
     label: String,
     reply: mpsc::Sender<Result<(), String>>,
 }
+struct PendingCanvas { generation: String, revision: u64, reply: mpsc::Sender<Result<(), String>> }
 #[derive(Clone, Copy)]
 struct PendingRefresh {
     force: bool,
@@ -47,6 +48,7 @@ struct PendingRefresh {
 }
 #[derive(Default)]
 struct Queue {
+    canvas: VecDeque<PendingCanvas>,
     opens: VecDeque<PendingOpen>,
     refresh: Option<PendingRefresh>,
     issued_attempt: u64,
@@ -61,12 +63,14 @@ struct Owner {
     app: AppHandle,
 }
 enum Work {
+    Canvas(PendingCanvas),
     Open(PendingOpen),
     Refresh(PendingRefresh),
     Destroyed(String, u64),
 }
 impl Queue {
     fn next(&mut self) -> Option<Work> {
+        if let Some(canvas) = self.canvas.pop_front() { return Some(Work::Canvas(canvas)); }
         if let Some((label, token)) = self.destroyed.pop_first() {
             return Some(Work::Destroyed(label, token));
         }
@@ -120,6 +124,7 @@ impl Owner {
                     break;
                 };
                 while queue.opens.is_empty()
+                    && queue.canvas.is_empty()
                     && queue.refresh.is_none()
                     && queue.destroyed.is_empty()
                     && !STOPPED.load(Ordering::Acquire)
@@ -130,6 +135,7 @@ impl Owner {
                     queue = next;
                 }
                 if STOPPED.load(Ordering::Acquire) {
+                    for canvas in queue.canvas.drain(..) { let _ = canvas.reply.send(Err("The native workspace window owner has stopped.".into())); }
                     for open in queue.opens.drain(..) {
                         let _ = open
                             .reply
@@ -142,6 +148,11 @@ impl Owner {
                 queue.next()
             };
             match work {
+                Some(Work::Canvas(canvas)) => {
+                    let result = crate::present_canvas_windows(&self.app, &canvas.generation, canvas.revision);
+                    if result.is_ok() { engine.planner = WorkspaceWindowPlanner::default(); }
+                    let _ = canvas.reply.send(result);
+                }
                 Some(Work::Open(open)) => {
                     let result = engine.open(&mut host, &open.label);
                     let _ = open.reply.send(result);
@@ -179,6 +190,7 @@ impl Owner {
                 .reply
                 .send(Err("The native workspace window owner failed.".into()));
         }
+        for canvas in queue.canvas.drain(..) { let _ = canvas.reply.send(Err("The native workspace window owner failed.".into())); }
         queue.refresh = None;
         queue.destroyed.clear();
         drop(queue);
@@ -248,6 +260,20 @@ pub fn open(app: &AppHandle, label: &str) -> Result<(), String> {
     received
         .recv()
         .map_err(|_| "Native workspace window owner unavailable".to_owned())?
+}
+/// Serialized with manual opens and layout reconciliation; completion is the
+/// reply to this exact request, never an unrelated layout status notification.
+pub fn canvas(app: &AppHandle, generation: &str, revision: u64) -> Result<(), String> {
+    let owner = owner(app)?;
+    let (reply, received) = mpsc::channel();
+    {
+        let mut queue = owner.queue.lock().map_err(|_| "Native workspace window queue unavailable")?;
+        active()?;
+        if !queue.canvas.is_empty() { return Err("A Canvas transition is already queued.".into()); }
+        queue.canvas.push_back(PendingCanvas { generation: generation.into(), revision, reply });
+    }
+    owner.wake.notify_one();
+    received.recv().map_err(|_| "Canvas transition owner unavailable".to_owned())?
 }
 /// Coalesce wakes, retaining force and the latest accepted ticket. The returned
 /// ticket is queued; only a terminal status at or above it confirms completion.

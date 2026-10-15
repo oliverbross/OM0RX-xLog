@@ -44,6 +44,18 @@ it("holds the mode guard for a layout editor until cleanup", () => {
   const release = protectWorkspaceModeEditor(); expect(workspaceModeEditorBusy()).toBe(true);
   release(); expect(workspaceModeEditorBusy()).toBe(false);
 });
+it("restores the saved Separate Windows preset after a detached editor veto or preflight timeout", async () => {
+  for (const reason of ["Unsaved Logbook changes", "Editor preparation timed out", "Stop shared CW first"]) {
+    const f = await setup();
+    await switchWorkspaceMode(f.session, "windows", () => true, vi.fn(async () => {}));
+    const before = structuredClone(f.session.getSnapshot().snapshot!.document);
+    const present = vi.fn(async () => { throw new Error(reason); });
+    await expect(switchWorkspaceMode(f.session, "canvas", () => true, present)).rejects.toThrow(reason);
+    expect(f.session.getSnapshot().snapshot!.document).toEqual(before);
+    expect(workspaceMode((await f.restart()).getSnapshot().snapshot)).toBe("windows");
+    expect(present).toHaveBeenCalledOnce();
+  }
+});
 it("reconciles a committed switch after acknowledgement loss without replaying mode activation", async () => {
   let saved = fixture(), loseAck = true;
   const request = vi.fn(async (method: string, params?: any) => {

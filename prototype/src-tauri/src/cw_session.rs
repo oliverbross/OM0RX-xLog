@@ -229,6 +229,17 @@ impl Session {
         if result.is_err() { self.allow_window(label)?; }
         result
     }
+    /// Canvas presentation must never send Stop as a side effect. Admission and
+    /// the idle check share the CW lock, so no new CW client can arm this window.
+    pub fn reserve_idle_close(&self, labels: &[&str]) -> Result<(), String> {
+        let mut state = self.lock()?;
+        if state.pending || state.stopping || state.holder.is_some() || !state.owner.is_null() || state.armed_until > 0 || state.lease.is_some() {
+            return Err("Stop and disarm shared CW, and resolve its output guard before switching to Canvas.".into());
+        }
+        if labels.iter().any(|label| state.closing.contains(*label)) { return Err("This CW window transition is already in progress.".into()); }
+        state.closing.extend(labels.iter().map(|label| (*label).to_owned()));
+        Ok(())
+    }
     pub fn allow_window(&self, label: &str) -> Result<(), String> { self.lock()?.closing.remove(label); Ok(()) }
     pub fn revoke_window_clients(&self, label: &str) -> Result<Vec<(String, String)>, String> {
         let mut state = self.lock()?;
@@ -363,6 +374,19 @@ mod tests {
         let safety_client = uuid::Uuid::new_v4().to_string();
         session.request("cw", &safety_client, 1, false, &json!({"action":"stop"})).unwrap();
         assert_eq!(backend.writes.lock().unwrap().iter().filter(|value| value.0 == "send").count(), 1);
+    }
+    #[test]
+    fn canvas_idle_reservation_rejects_armed_cw_without_stop_and_blocks_new_admission() {
+        let (session, backend, _) = fixture(); let mut main = Client::new(); ready(&mut main, &session);
+        assert!(session.reserve_idle_close(&["main", "cw"]).is_err());
+        assert!(backend.writes.lock().unwrap().is_empty(), "Canvas preflight must not dispatch Stop");
+        main.call(&session, "stop").unwrap(); backend.writes.lock().unwrap().clear();
+        session.reserve_idle_close(&["main", "cw"]).unwrap();
+        assert!(main.call(&session, "arm").is_err());
+        assert!(session.reserve_idle_close(&["cw"]).is_err());
+        assert!(backend.writes.lock().unwrap().is_empty());
+        session.allow_window("main").unwrap(); session.allow_window("cw").unwrap();
+        main.call(&session, "snapshot").unwrap(); main.call(&session, "arm").unwrap();
     }
     #[test]
     fn cw_observer_snapshot_and_focus_retirement_never_stop_another_windows_lease() {
