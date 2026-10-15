@@ -4,7 +4,10 @@
 
 Source commit `e90918452c21b8e4ded8956b839d60281ba2b68a` adds exact
 receive-frequency and receive-mode controls for Remote Station Agent sessions in
-the independent Station Control window. The existing Desk controls are unchanged.
+the independent Station Control window. Follow-up commit
+`6332240161f87c208533fd0167dfdc53db80e309` corrects the native telemetry
+admission fence so the two Agent controls and both existing FLEX exact controls
+reach their already-fenced backends. The existing Desk controls are unchanged.
 
 The source and an uninstalled macOS package are accepted at the isolated boundary.
 The Remote Station Agent was powered off. No Agent, radio, amplifier, tuner,
@@ -38,6 +41,8 @@ remain open.
 - Focused Rust station-session owner: **21/21**.
 - Focused Swift authoritative Agent observation: **7/7**.
 - Focused Swift station admission/readback: **11/11**.
+- Focused native telemetry admission: **13/13**, including Agent/FLEX frequency
+  and mode pairs and rejection of general/unsupported controls.
 - Full frontend: **2,397/2,397 across 160 files**.
 - Full Rust/Tauri: **442 unit + 18 integration tests**.
 - Full portable Swift: XStation **17**, XLogPrototype XCTest **204** with four
@@ -49,14 +54,14 @@ remain open.
 ## Isolated macOS package
 
 - Embedded distribution source:
-  `e90918452c21b8e4ded8956b839d60281ba2b68a`.
+  `6332240161f87c208533fd0167dfdc53db80e309`.
 - Acceptance report:
-  `prototype/dist/agentreceive-e909184-native-acceptance.json`.
+  `prototype/dist/agentreceive-6332240-native-acceptance.json`.
 - Result: **33/33**, `status: passed`, `scope: integrated-local-ui`,
   `station_io: false`.
 - Strict deep signature verification passes.
 - Host SHA-256:
-  `ee2a2c2bc74a65f5675d2411584c87ae6d1634144bb33deb1a440fe0e5fe4e5a`
+  `7654201994c2a258b3687a2cb7ba8b8f7dc0a409254ed9ef744cff35cbf925cf`
   (arm64).
 - Worker SHA-256:
   `0b8fee21eb516dea0600ab978da7ca3582aa669ef5dc5d2f0add74a5890ec048`
