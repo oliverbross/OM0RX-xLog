@@ -36,6 +36,11 @@ private actor PublicFeedFixture {
         count += 1
         #expect(request.url?.scheme == "https")
         #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
+        if request.url?.host == "www.hamqsl.com" {
+            #expect(request.cachePolicy == .reloadIgnoringLocalAndRemoteCacheData)
+            #expect(request.value(forHTTPHeaderField: "Cache-Control") == "no-cache")
+            #expect(request.value(forHTTPHeaderField: "Pragma") == "no-cache")
+        }
         #expect(limit == 256_000)
         if held { await withCheckedContinuation { releases.append($0) } }
         if delay > 0 { try await Task.sleep(nanoseconds: delay) }

@@ -19,6 +19,21 @@ it("lost refresh replies only recover retained state and never retry a fetch", a
   expect(read.mock.calls.map(call => call[0])).toEqual(["ensure", "refresh", "snapshot"]);
   expect(failed).toHaveBeenCalledWith("Reply lost"); session.dispose();
 });
+it("retains an unconfirmed refresh warning until a newer terminal observation is read", async () => {
+  let wake!: () => void, revision = 1, visibleError = "";
+  const read = vi.fn(async (action: "snapshot" | "ensure" | "refresh") => {
+    if (action === "refresh") throw new Error("Reply lost");
+    return frame(revision);
+  });
+  const session = connectPropagation(() => { visibleError = ""; }, message => { visibleError = message; },
+    { read, listen: async callback => { wake = callback; return () => {}; } });
+  await vi.advanceTimersByTimeAsync(0); await session.refresh(); await vi.advanceTimersByTimeAsync(0);
+  expect(visibleError).toBe("Reply lost");
+  wake(); await vi.advanceTimersByTimeAsync(0); expect(visibleError).toBe("Reply lost");
+  revision = 3; wake(); await vi.advanceTimersByTimeAsync(0); expect(visibleError).toBe("");
+  expect(read.mock.calls.filter(call => call[0] === "refresh")).toHaveLength(1);
+  session.dispose();
+});
 it("late old reads cannot replace a newer explicit refresh and notification storms coalesce", async () => {
   let complete!: (value: unknown) => void, wake!: () => void;
   const read = vi.fn().mockImplementationOnce(() => new Promise(done => { complete = done; }))

@@ -56,7 +56,10 @@ actor LivePublicServiceMethods {
                 propagationTask = Task { [weak self] in
                     do {
                         var request = URLRequest(url: PropagationConditionsClient.endpoint)
+                        request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
                         request.timeoutInterval = 15
+                        request.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
+                        request.setValue("no-cache", forHTTPHeaderField: "Pragma")
                         request.setValue("OM0RX-xLog/0.4", forHTTPHeaderField: "User-Agent")
                         let data = try await download(request, .xml, 256_000)
                         let value = try PropagationConditionsParser.parse(data)

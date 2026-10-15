@@ -60,3 +60,43 @@ it("starts with the propagation task and exposes only its explicit refresh", asy
   expect(screen.queryByText(/Opening this window reads retained/)).toBeNull();
   expect(native.invoke.mock.calls).toEqual([["propagation_session_request", { action: "ensure" }]]);
 });
+it("keeps failed refresh warnings visible in both surfaces and recovers with a fresh shared observation", async () => {
+  render(<><div aria-label="Embedded"><SharedPropagationConditions compact includeWeather={false} /></div><DetachedPropagationSurface /></>);
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  const original = native.invoke.getMockImplementation()!;
+  native.invoke.mockImplementation(async (command, args) => {
+    if (args?.action === "refresh") {
+      current = { ...current, revision: current.revision + 2, snapshot: { ...current.snapshot, stale: true }, error: "Upstream unavailable" };
+      wakes.forEach(wake => wake());
+      return structuredClone(current);
+    }
+    return original(command, args);
+  });
+  await act(async () => { fireEvent.click(within(screen.getByLabelText("Embedded")).getByRole("button", { name: "Refresh propagation" })); });
+  expect(screen.getAllByText("Upstream unavailable")).toHaveLength(2);
+  expect(screen.getByText("HF propagation · cached")).toBeTruthy();
+  expect(screen.getAllByLabelText("Day: good")).toHaveLength(2);
+  native.invoke.mockImplementation(async (command, args) => {
+    if (args?.action === "refresh") current.error = "";
+    return original(command, args);
+  });
+  await act(async () => { fireEvent.click(within(screen.getByLabelText("Detached Propagation")).getByRole("button", { name: "Refresh propagation" })); });
+  expect(screen.queryByText("Upstream unavailable")).toBeNull();
+  expect(screen.queryByText("HF propagation · cached")).toBeNull();
+  expect(screen.getAllByLabelText("Day: good")).toHaveLength(2);
+  expect(native.invoke.mock.calls.every(call => call[0] === "propagation_session_request")).toBe(true);
+});
+it("replaces initial placeholders after an explicit detached refresh when startup fetch failed", async () => {
+  const original = native.invoke.getMockImplementation()!;
+  native.invoke.mockImplementation(async (command, args) => args?.action === "ensure"
+    ? { ...structuredClone(current), error: "Propagation refresh unavailable" } : original(command, args));
+  render(<DetachedPropagationSurface />);
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  expect(screen.getByText("Awaiting propagation data")).toBeTruthy();
+  expect(screen.getByText("Propagation refresh unavailable")).toBeTruthy();
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Refresh propagation" })); });
+  expect(screen.queryByText("Awaiting propagation data")).toBeNull();
+  expect(screen.queryByText("Propagation refresh unavailable")).toBeNull();
+  expect(screen.getByLabelText("Day: good")).toBeTruthy();
+  expect(native.invoke.mock.calls.filter(call => call[1]?.action === "refresh")).toHaveLength(1);
+});

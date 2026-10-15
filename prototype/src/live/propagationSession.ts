@@ -23,9 +23,15 @@ export function connectPropagation(changed: (value: PropagationProjection) => vo
   adapter: Adapter = { read: action => invoke("propagation_session_request", { action }), listen: wake => listen("xlog:propagation", wake) }) {
   let active = true, ready = false, reading = false, again = false, ensureQueued = false, refreshing = false, wakeEpoch = 0;
   let latest: PropagationProjection | null = null, stop: (() => void) | undefined, subscriptionError = "";
+  // Reading the same retained revision cannot confirm a lost refresh reply.
+  let unconfirmed: { epoch?: string; revision: number; message: string } | null = null;
   const accept = (input: unknown) => {
     const value = checked(input);
-    if (!latest || value.epoch !== latest.epoch || value.revision >= latest.revision) { latest = value; changed(value); }
+    if (!latest || value.epoch !== latest.epoch || value.revision >= latest.revision) {
+      if (unconfirmed && !value.pending && (unconfirmed.epoch !== undefined && value.epoch !== unconfirmed.epoch || value.revision > unconfirmed.revision)) unconfirmed = null;
+      latest = value; changed(value);
+    }
+    if (unconfirmed) failed(unconfirmed.message);
     if (subscriptionError) failed(subscriptionError);
   };
   const recover = async (ensure = false) => {
@@ -56,8 +62,14 @@ export function connectPropagation(changed: (value: PropagationProjection) => vo
     async refresh() {
       if (!active || refreshing) return;
       refreshing = true;
-      try { const value = await adapter.read("refresh"); if (active) accept(value); }
-      catch (cause) { if (active) failed(cause instanceof Error ? cause.message : "Propagation refresh could not be confirmed. It was not retried."); }
+      try { const value = checked(await adapter.read("refresh")); if (active) { unconfirmed = null; accept(value); } }
+      catch (cause) {
+        if (active) {
+          unconfirmed = { epoch: latest?.epoch, revision: latest?.revision ?? 0,
+            message: cause instanceof Error ? cause.message : "Propagation refresh could not be confirmed. It was not retried." };
+          failed(unconfirmed.message);
+        }
+      }
       finally { refreshing = false; if (active) void recover(); }
     },
     dispose() { active = false; wakeEpoch++; stop?.(); window.clearInterval(timer); window.removeEventListener("focus", ensureWake); },
