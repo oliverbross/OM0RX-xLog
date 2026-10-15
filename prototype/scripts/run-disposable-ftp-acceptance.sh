@@ -11,9 +11,12 @@ refusal_pid=""
 lost_ack_pid=""
 timeout_pid=""
 oversized_pids=()
+slow_pids=()
 
 cleanup() {
-  for pid in "${oversized_pids[@]}"; do kill "$pid" 2>/dev/null || true; done
+  # Bash 3.2 treats empty arrays as unset under nounset, including in EXIT traps.
+  for pid in ${slow_pids[@]+"${slow_pids[@]}"}; do kill "$pid" 2>/dev/null || true; done
+  for pid in ${oversized_pids[@]+"${oversized_pids[@]}"}; do kill "$pid" 2>/dev/null || true; done
   if [[ -n "$ftp_pid" ]]; then kill "$ftp_pid" 2>/dev/null || true; fi
   if [[ -n "$ftps_pid" ]]; then kill "$ftps_pid" 2>/dev/null || true; fi
   if [[ -n "$refusal_pid" ]]; then kill "$refusal_pid" 2>/dev/null || true; fi
@@ -24,7 +27,8 @@ cleanup() {
   if [[ -n "$refusal_pid" ]]; then wait "$refusal_pid" 2>/dev/null || true; fi
   if [[ -n "$lost_ack_pid" ]]; then wait "$lost_ack_pid" 2>/dev/null || true; fi
   if [[ -n "$timeout_pid" ]]; then wait "$timeout_pid" 2>/dev/null || true; fi
-  for pid in "${oversized_pids[@]}"; do wait "$pid" 2>/dev/null || true; done
+  for pid in ${oversized_pids[@]+"${oversized_pids[@]}"}; do wait "$pid" 2>/dev/null || true; done
+  for pid in ${slow_pids[@]+"${slow_pids[@]}"}; do wait "$pid" 2>/dev/null || true; done
   case "$acceptance_root" in
     "$temporary_parent"/xlog-ftp-live.*) rm -rf -- "$acceptance_root" ;;
     *) echo "Refusing to remove unexpected path: $acceptance_root" >&2 ;;
@@ -83,11 +87,21 @@ PYTHONDONTWRITEBYTECODE=1 python3 "$repo_root/prototype/scripts/disposable_ftp_s
   --mode ftp --withhold-greeting --username "$username" --password "$password" &
 timeout_pid=$!
 
+for mode in stall deadline; do
+  mkdir -p "$acceptance_root/$mode-root/backups/logs"
+  PYTHONDONTWRITEBYTECODE=1 python3 "$repo_root/prototype/scripts/disposable_ftp_server.py" \
+    --root "$acceptance_root/$mode-root" \
+    --ready-file "$acceptance_root/$mode-ready.json" \
+    --slow-download "$mode" --username "$username" --password "$password" &
+  slow_pids+=("$!")
+done
+
 for _ in {1..100}; do
   [[ -f "$acceptance_root/ftp-ready.json" && -f "$acceptance_root/ftps-ready.json" \
      && -f "$acceptance_root/refusal-ready.json" \
      && -f "$acceptance_root/lost-ack-ready.json" \
      && -f "$acceptance_root/timeout-ready.json" \
+     && -f "$acceptance_root/stall-ready.json" && -f "$acceptance_root/deadline-ready.json" \
      && -f "$acceptance_root/oversized-advertised-ready.json" \
      && -f "$acceptance_root/oversized-streamed-ready.json" \
      && -f "$acceptance_root/oversized-after-verification-ready.json" ]] && break
@@ -97,6 +111,7 @@ done
    && -f "$acceptance_root/refusal-ready.json" \
    && -f "$acceptance_root/lost-ack-ready.json" \
    && -f "$acceptance_root/timeout-ready.json" \
+   && -f "$acceptance_root/stall-ready.json" && -f "$acceptance_root/deadline-ready.json" \
    && -f "$acceptance_root/oversized-advertised-ready.json" \
    && -f "$acceptance_root/oversized-streamed-ready.json" \
    && -f "$acceptance_root/oversized-after-verification-ready.json" ]]
@@ -110,12 +125,15 @@ XLOG_FTPS_UNTRUSTED_ENDPOINT="$ftps_endpoint" \
 XLOG_FTP_REFUSAL_ENDPOINT="$refusal_endpoint" \
 XLOG_FTP_LOST_ACK_ENDPOINT="$lost_ack_endpoint" \
 XLOG_FTP_TIMEOUT_ENDPOINT="$(jq -r .endpoint "$acceptance_root/timeout-ready.json")" \
+XLOG_FTP_STALL_ENDPOINT="$(jq -r .endpoint "$acceptance_root/stall-ready.json")" \
+XLOG_FTP_DEADLINE_ENDPOINT="$(jq -r .endpoint "$acceptance_root/deadline-ready.json")" \
+XLOG_FTP_TIMING_DIRECTORY="$acceptance_root" \
 XLOG_FTP_OVERSIZED_ADVERTISED_ENDPOINT="$(jq -r .endpoint "$acceptance_root/oversized-advertised-ready.json")" \
 XLOG_FTP_OVERSIZED_STREAMED_ENDPOINT="$(jq -r .endpoint "$acceptance_root/oversized-streamed-ready.json")" \
 XLOG_FTP_OVERSIZED_RESTORE_ENDPOINT="$(jq -r .endpoint "$acceptance_root/oversized-after-verification-ready.json")" \
 XLOG_FTP_LIVE_USERNAME="$username" \
 XLOG_FTP_LIVE_PASSWORD="$password" \
-  swift test --package-path "$repo_root" --filter FTPBackupLiveServerTests
+  swift test --package-path "$repo_root" -Xswiftc -warnings-as-errors --filter FTPBackupLiveServerTests
 
 plain_count="$(find "$acceptance_root/ftp-root" -type f | wc -l | tr -d ' ')"
 untrusted_ftps_count="$(find "$acceptance_root/ftps-root" -type f | wc -l | tr -d ' ')"
@@ -127,6 +145,12 @@ lost_ack_count="$(find "$acceptance_root/lost-ack-root" -type f | wc -l | tr -d 
 [[ "$lost_ack_count" == "1" ]]
 timeout_count="$(find "$acceptance_root/timeout-root" -type f | wc -l | tr -d ' ')"
 [[ "$timeout_count" == "0" ]]
+for mode in stall deadline; do
+  slow_count="$(find "$acceptance_root/$mode-root" -type f | wc -l | tr -d ' ')"
+  [[ "$slow_count" == "1" ]]
+  slow_file="$(find "$acceptance_root/$mode-root" -type f -print -quit)"
+  [[ "$(wc -c < "$slow_file" | tr -d ' ')" == "8192" ]]
+done
 for mode in advertised streamed after-verification; do
   oversized_count="$(find "$acceptance_root/oversized-$mode-root" -type f | wc -l | tr -d ' ')"
   [[ "$oversized_count" == "1" ]]
@@ -146,9 +170,13 @@ jq -n \
   --arg source_commit "$source_commit" \
   --arg plain_sha256 "$plain_sha256" \
   --argjson tracked_source_dirty "$tracked_source_dirty" \
+  --slurpfile stall "$acceptance_root/stall.json" \
+  --slurpfile deadline "$acceptance_root/deadline.json" \
   '{schema: 1, status: "passed", source_commit: $source_commit,
     tracked_source_dirty: $tracked_source_dirty, scope: "disposable-local-transport",
     synthetic_data_only: true, external_network: false, station_io: false,
+    production_limits: {connect_timeout_seconds: 15, total_timeout_seconds: 120,
+      low_speed_bytes_per_second: 1, low_speed_seconds: 30},
     ftp: {upload: true, independent_download: true, restore_download: true,
       replay_refused: true, reservation_refusal_wrote_no_object: true,
       lost_acknowledgement_wrote_one_object_without_replay: true,
@@ -158,6 +186,12 @@ jq -n \
       restore_rejected_growth_after_verification: true,
       control_handshake_timeout_bounded: true,
       timeout_wrote_no_object_and_replay_refused: true,
+       stalled_download_rejected_without_verified_object: true,
+       sustained_slow_download_total_deadline_enforced: true,
+       timed_out_download_replay_refused: true,
+       timed_out_download_remote_object_count_per_case: 1,
+       stalled_download_elapsed_seconds: $stall[0].elapsed_seconds,
+       total_deadline_elapsed_seconds: $deadline[0].elapsed_seconds,
       object_count: 1, sha256: $plain_sha256},
     ftps: {untrusted_certificate_rejected: true, object_count: 0,
       trusted_certificate_success: false,

@@ -17,6 +17,7 @@ import socketserver
 import ssl
 import sys
 import threading
+import time
 from pathlib import Path
 
 
@@ -27,7 +28,7 @@ class FTPServer(socketserver.ThreadingTCPServer):
     def __init__(self, address, handler, *, root: Path, username: str,
                  password: str, tls_context: ssl.SSLContext | None,
                  mkdir_refuse: bool, drop_after_store: bool, oversized_download: str | None,
-                 withhold_greeting: bool):
+                 withhold_greeting: bool, slow_download: str | None):
         super().__init__(address, handler)
         self.root = root.resolve()
         self.username = username
@@ -37,6 +38,7 @@ class FTPServer(socketserver.ThreadingTCPServer):
         self.drop_after_store = drop_after_store
         self.oversized_download = oversized_download
         self.withhold_greeting = withhold_greeting
+        self.slow_download = slow_download
         self.downloads: dict[Path, int] = {}
         self.download_lock = threading.Lock()
 
@@ -249,6 +251,20 @@ class FTPHandler(socketserver.StreamRequestHandler):
         self.reply(150, "Opening data connection")
         try:
             with self.data_connection() as connection, path.open("rb") as source:
+                if self.server.slow_download == "stall":
+                    connection.sendall(source.read(1))
+                    # The client must close the data channel at its unchanged
+                    # production low-speed timeout, rather than accept a prefix.
+                    connection.recv(1)
+                    return
+                if self.server.slow_download == "deadline":
+                    # Stay comfortably above the production 1 byte/sec floor
+                    # while requiring longer than the 120-second total limit.
+                    while chunk := source.read(32):
+                        connection.sendall(chunk)
+                        time.sleep(1)
+                    self.reply(226, "Transfer complete")
+                    return
                 while chunk := source.read(65536):
                     connection.sendall(chunk)
                 if self.server.download_is_oversized(path):
@@ -273,6 +289,7 @@ def main() -> None:
     parser.add_argument("--drop-after-store", action="store_true")
     parser.add_argument("--oversized-download", choices=("advertised", "streamed", "after-verification"))
     parser.add_argument("--withhold-greeting", action="store_true")
+    parser.add_argument("--slow-download", choices=("stall", "deadline"))
     args = parser.parse_args()
 
     root = Path(args.root)
@@ -290,7 +307,8 @@ def main() -> None:
                        tls_context=tls_context, mkdir_refuse=args.mkdir_refuse,
                        drop_after_store=args.drop_after_store,
                        oversized_download=args.oversized_download,
-                       withhold_greeting=args.withhold_greeting)
+                       withhold_greeting=args.withhold_greeting,
+                       slow_download=args.slow_download)
     endpoint = f"{args.mode}://localhost:{server.server_address[1]}"
     ready = Path(args.ready_file)
     ready.write_text(json.dumps({"endpoint": endpoint, "pid": os.getpid()}), encoding="utf-8")
