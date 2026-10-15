@@ -65,13 +65,23 @@ export async function verifyDeskMapLogbook({ worker, navigate, fill, click }: Co
   const divider = required<HTMLElement>('[aria-label="Map and Logbook height"]');
   if (divider.getAttribute("aria-disabled") !== "false") throw new Error("Desk divider is at the fixed minimum; acceptance needs a usable native window height.");
   const key = async (value: string) => {
-    divider.focus(); divider.dispatchEvent(new KeyboardEvent("keydown", { key: value, bubbles: true, cancelable: true }));
     await waitForAcceptance(`Desk divider ${value} persisted`, () => {
+      const current = required<HTMLElement>('[aria-label="Map and Logbook height"]');
       const stored = JSON.parse(localStorage.getItem(deskMapLogbookKey) || "null");
-      return !!stored && Math.abs(stored.logbookPercent - Number(divider.getAttribute("aria-valuenow"))) <= 0.51 &&
-        Number(divider.getAttribute("aria-valuenow")) === Number(divider.getAttribute(value === "Home" ? "aria-valuemin" : "aria-valuemax"));
+      const shown = Number(current.getAttribute("aria-valuenow"));
+      const target = Number(current.getAttribute(value === "Home" ? "aria-valuemin" : "aria-valuemax"));
+      if (!!stored && Math.abs(stored.logbookPercent - shown) <= 0.51 && shown === target) return true;
+      // Layout, editor and logbook owners can briefly veto presentation writes
+      // while settling. The target is idempotent; retry the rendered keyboard
+      // action only after the divider is visibly enabled instead of certifying
+      // an ignored event or weakening persistence evidence.
+      if (current.getAttribute("aria-disabled") === "false") {
+        current.focus();
+        current.dispatchEvent(new KeyboardEvent("keydown", { key: value, bubbles: true, cancelable: true }));
+      }
+      return false;
     });
-    return Number(divider.getAttribute("aria-valuenow"));
+    return Number(required('[aria-label="Map and Logbook height"]').getAttribute("aria-valuenow"));
   };
   const minimum = await key("Home"), maximum = await key("End");
   if (!(maximum > minimum)) throw new Error("Desk keyboard divider did not change height.");

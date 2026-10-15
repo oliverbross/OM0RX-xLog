@@ -23,8 +23,8 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); localStorage.clear(); });
 
-async function setup(options: { changedDraft?: boolean; utcOnly?: boolean; leakColumns?: boolean; omitChoice?: boolean; replaceMap?: boolean } = {}) {
-  let reads = 0, mount = 0;
+async function setup(options: { changedDraft?: boolean; utcOnly?: boolean; leakColumns?: boolean; omitChoice?: boolean; replaceMap?: boolean; transientDividerBlock?: boolean } = {}) {
+  let reads = 0, mount = 0, dividerAttempts = 0;
   const draft = { generation: testWorkspaceGeneration, revision: 2, qso: {
     id: "12345678-1234-4234-8234-123456789abc", call: "", start: "2026-10-14T00:00:00Z", end: "2026-10-14T00:00:00Z",
     band: "20m", mode: "CW", txPower: "100", notes: "Retain draft notes", extraFields: { APP_TEST: "retain" },
@@ -48,7 +48,8 @@ async function setup(options: { changedDraft?: boolean; utcOnly?: boolean; leakC
     const panel = (desk: boolean) => <LogbookPanel onRequest={request} onEdit={() => { throw new Error("Unexpected contact edit"); }}
       refreshKey={0} mutations={mutations} columnContext={desk && !options.leakColumns ? "desk" : "docked"} />;
     return <main aria-label={route}>{route === "Operator Desk"
-      ? <DeskMapLogbook map={<div className="map-wrap"><canvas /><span>Offline synthetic map</span></div>} logbook={panel(true)} />
+      ? <DeskMapLogbook map={<div className="map-wrap"><canvas /><span>Offline synthetic map</span></div>} logbook={panel(true)}
+          canChangeView={() => !options.transientDividerBlock || dividerAttempts++ !== 4} />
       : panel(false)}</main>;
   }
   const rendered = render(<Harness route="Operator Desk" />);
@@ -90,6 +91,12 @@ it("proves rendered choices, actual table retention, isolated columns, keyboard 
   expect(JSON.parse(localStorage.getItem(deskMapLogbookKey)!).view).toBe("map");
   expect(JSON.parse(localStorage.getItem(logbookColumnsKey("desk"))!).columns).toEqual(["utc", "call", "bandMode", "frequency", "country"]);
   expect(JSON.parse(localStorage.getItem(logbookColumnsKey("docked"))!).columns).toHaveLength(10);
+});
+it("retries an idempotent rendered divider target after a transient workspace veto", async () => {
+  const context = await setup({ transientDividerBlock: true });
+  const evidence = await verifyDeskMapLogbook(context.controls);
+  expect(evidence.keyboardDivider).toBe(true);
+  expect(evidence.maximum).toBeGreaterThan(evidence.minimum);
 });
 it("fails rather than certifying a changed draft note", async () => {
   const context = await setup({ changedDraft: true });
