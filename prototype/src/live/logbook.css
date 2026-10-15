@@ -87,3 +87,18 @@
   .live-logbook-head h2, .live-logbook-head p { margin: 0; }
   .live-logbook-actions { justify-content: flex-start; }
 }
+@container (max-width: 1200px) {
+  .live-logbook-table-wrap { overflow-x:hidden; }
+  .live-logbook-table { display:block; width:100%; min-width:0 !important; }
+  .live-logbook-table colgroup { display:none; }
+  .live-logbook-table thead { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0, 0, 0, 0); white-space:nowrap; border:0; }
+  .live-logbook-table tbody { display:grid; gap:6px; padding:6px 0; }
+  .live-logbook-table tbody tr { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); height:auto; border:1px solid var(--border); border-radius:6px; }
+  .live-logbook-table tbody td:not([hidden]) { display:block; min-width:0; padding:5px 7px; white-space:normal; overflow-wrap:anywhere; border-bottom:1px solid color-mix(in srgb, var(--border) 55%, transparent); }
+  .live-logbook-table tbody td:not([hidden])::before { content:attr(data-label); display:block; margin-bottom:1px; color:var(--secondary); font-size:9px; font-weight:700; line-height:1.25; letter-spacing:.035em; text-transform:uppercase; }
+  .live-logbook-table .live-logbook-call { position:static; }
+  .live-logbook-table .live-logbook-comment { max-width:none; }
+}
+@container (max-width: 520px) {
+  .live-logbook-table tbody tr { grid-template-columns:minmax(0,1fr); }
+}

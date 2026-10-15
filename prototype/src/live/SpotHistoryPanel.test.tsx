@@ -57,6 +57,9 @@ describe("Spot History scope and paging", () => {
     expect(screen.getByText("240 callsigns")).toBeTruthy(); expect(screen.getByText("12 spotters")).toBeTruthy();
     fireEvent.click(screen.getByText("Statistics")); expect(screen.getByText("20m 310")).toBeTruthy();
     expect(screen.getByText("Page 1 · 1 reports shown")).toBeTruthy();
+    expect(Array.from(screen.getByText("OM0RX/P").closest("tr")!.querySelectorAll("td")).map(cell => cell.getAttribute("data-label"))).toEqual([
+      "Received UTC", "Callsign", "kHz", "Band / Mode", "Spotter", "Source / Cluster", "Country", "Comment",
+    ]);
     expect(screen.queryByRole("heading", { name: "Spot History" })).toBeNull();
   });
   it("applies explicit prefix, portable call, spotter, UTC and optional filters", async () => {

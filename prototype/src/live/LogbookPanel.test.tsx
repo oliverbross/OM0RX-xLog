@@ -57,6 +57,9 @@ describe("logbook confirmation visibility", () => {
     expect(within(rows[1]).getByText("Portable from the summit")).toBeTruthy();
     expect(within(rows[1]).getByText("14.025000")).toBeTruthy();
     expect(within(rows[1]).getByRole("img", { name: "Pending synchronization" })).toBeTruthy();
+    expect(Array.from(rows[1].querySelectorAll("td")).map(cell => cell.getAttribute("data-label"))).toEqual([
+      "UTC", "Callsign", "Band / Mode", "Frequency", "RST", "Country", "QSL", "LoTW", "Club Log", "Comment",
+    ]);
     expect(within(rows[2]).getByRole("img", { name: "QSL sent not recorded, received M" })).toBeTruthy();
     expect(within(rows[2]).getByRole("img", { name: "LoTW sent X, received not recorded" })).toBeTruthy();
     expect(within(rows[2]).getByRole("img", { name: "Club Log upload not recorded" })).toBeTruthy();

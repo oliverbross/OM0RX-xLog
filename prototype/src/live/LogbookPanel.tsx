@@ -477,20 +477,20 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
                   (event.currentTarget.parentElement?.children[next] as HTMLElement | undefined)?.focus();
                 }
               }}>
-              <td hidden={hidden("utc")} className="mono" title={utcTime(qso.start)}>{utcTime(qso.start)}</td>
-              <td className="live-logbook-call" title={qso.call}>
+              <td hidden={hidden("utc")} data-label="UTC" className="mono" title={utcTime(qso.start)}>{utcTime(qso.start)}</td>
+              <td data-label="Callsign" className="live-logbook-call" title={qso.call}>
                 {!compact && <input type="checkbox" aria-label={`Select ${qso.call} ${utcTime(qso.start)} for export`} checked={exportIDs.includes(qso.id)} disabled={busy || loading}
                   onClick={event => event.stopPropagation()} onDoubleClick={event => event.stopPropagation()}
                   onChange={event => setExportSelection(current => event.target.checked ? [...current, qso.id] : current.filter(id => id !== qso.id))} />}
                 <span className={`live-logbook-sync-dot ${qso.isDirty ? "is-pending" : "is-clean"}`} role="img" aria-label={qso.isDirty ? "Pending synchronization" : "No pending changes"} title={qso.isDirty ? "Pending synchronization" : "No pending changes"} />{qso.call}</td>
-              <td hidden={hidden("bandMode")} className="live-logbook-band" title={`${qso.band} · ${qso.submode || qso.mode}`}>{qso.band} · {qso.submode || qso.mode}</td>
-              <td hidden={hidden("frequency")} className="live-logbook-frequency mono">{typeof qso.frequencyHz === "number" ? (qso.frequencyHz / 1_000_000).toFixed(6) : "—"}</td>
-              <td hidden={hidden("rst")} className="mono" aria-label={`RST sent ${qso.rstSent || "not recorded"}, received ${qso.rstReceived || "not recorded"}`}>{qso.rstSent || "—"} / {qso.rstReceived || "—"}</td>
-              <td hidden={hidden("country")} title={[qso.country, qso.name].filter(Boolean).join(" · ") || undefined}>{qso.country || "—"}</td>
-              <td hidden={hidden("qsl")}><ConfirmationStatus service="QSL" sent={qso.qslSent} received={qso.qslReceived} /></td>
-              <td hidden={hidden("lotw")}><ConfirmationStatus service="LoTW" sent={qso.lotwSent} received={qso.lotwReceived} /></td>
-              <td hidden={hidden("clublog")}><ConfirmationStatus service="Club Log" sent={qso.extraFields?.CLUBLOG_QSO_UPLOAD_STATUS} supportsReceived={false} /></td>
-              <td hidden={hidden("comment")} className="live-logbook-comment" title={qso.comment || undefined}>{qso.comment || "—"}</td>
+              <td hidden={hidden("bandMode")} data-label="Band / Mode" className="live-logbook-band" title={`${qso.band} · ${qso.submode || qso.mode}`}>{qso.band} · {qso.submode || qso.mode}</td>
+              <td hidden={hidden("frequency")} data-label="Frequency" className="live-logbook-frequency mono">{typeof qso.frequencyHz === "number" ? (qso.frequencyHz / 1_000_000).toFixed(6) : "—"}</td>
+              <td hidden={hidden("rst")} data-label="RST" className="mono" aria-label={`RST sent ${qso.rstSent || "not recorded"}, received ${qso.rstReceived || "not recorded"}`}>{qso.rstSent || "—"} / {qso.rstReceived || "—"}</td>
+              <td hidden={hidden("country")} data-label="Country" title={[qso.country, qso.name].filter(Boolean).join(" · ") || undefined}>{qso.country || "—"}</td>
+              <td hidden={hidden("qsl")} data-label="QSL"><ConfirmationStatus service="QSL" sent={qso.qslSent} received={qso.qslReceived} /></td>
+              <td hidden={hidden("lotw")} data-label="LoTW"><ConfirmationStatus service="LoTW" sent={qso.lotwSent} received={qso.lotwReceived} /></td>
+              <td hidden={hidden("clublog")} data-label="Club Log"><ConfirmationStatus service="Club Log" sent={qso.extraFields?.CLUBLOG_QSO_UPLOAD_STATUS} supportsReceived={false} /></td>
+              <td hidden={hidden("comment")} data-label="Comment" className="live-logbook-comment" title={qso.comment || undefined}>{qso.comment || "—"}</td>
             </tr>)}
           </tbody>
         </table>
