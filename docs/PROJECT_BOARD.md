@@ -36,6 +36,16 @@ isolated **33/33** integrated-local-UI acceptance with `station_io: false`.
 This does not change the installed alpha.29 baseline or close the Agent,
 hardware, RF, live-provider, multi-display or Windows/Linux package boundaries.
 
+Post-alpha.29 source `f658c7d` closes the remaining known narrow-table part of
+UI-09. Logbook and Spot History retain resizable desktop tables, while narrow
+containers reflow the operator-selected columns into labelled records. Browser
+QA passes **78/78** representative surface/width combinations and **38/38**
+focused breakpoint combinations without document or control overflow; the full
+frontend suite passes **2,400/2,400**. The exact-source uninstalled Mac bundle
+passes strict deep signing and isolated **33/33** native acceptance with
+`station_io: false`. Mixed-DPI and operator visual acceptance remain open. See the
+[responsive audit](RESPONSIVE_WINDOW_AUDIT_2026-10-15.md).
+
 This is the operator-facing project overview. Keep it current after every material
 implementation, validation, installation or acceptance change. Detailed evidence
 and historical wording remain in the
@@ -253,8 +263,8 @@ acceptance. Consult the detailed tracker before closing any individual item.
 | Status | IDs | Remaining boundary |
 | --- | --- | --- |
 | **Done / installed at stated scope** | UI-17, UI-26, UI-39, CW-01, CW-02, CW-03, CLUSTER-01, SYNC-01 | Some rows retain explicit hardware, alternate-OS or accessibility limits. |
-| **Implemented in installed alpha.29 source; row-specific acceptance open** | UI-01–08, UI-10–25, UI-27–38, UI-40–41, MAP-01–04, DATA-01–07, RADIO-01–05, PERF-02–03, SYNC-02, SYNC-06 | Perform the packaged visual, live-service, latency, real-feed or hardware checks named in the tracker; no RF inference. RADIO-05 remains default-off until separately authorized live acceptance. UI-18–21 and SYNC-02 are source-verified after alpha.29; their installed/operator acceptance remains open. |
-| **Active / partial** | UI-09, DATA-08–11, BACKUP-01, PERF-01, WS-01–08, RUM-01–03, SHIP-01 | DATA-10 has reviewed UTF-8/Windows-1252/ISO-8859-1 ADI, UTF-8 ADX, 33-field duplicate updates, versioned APP/USERDEF metadata with exact RANGE semantics, strict structural rejection and every published 3.1.7 record scalar type family. Alpha.29 adds a packaged ADX semantic round trip and **38/38** installed 100,002-record functional checks; live-sync acceptance remains. BACKUP-01 now has UUID-bound durable consent, default-off live-worker lifecycle, exclusive independently verified Dropbox execution, just-in-time workspace-vault credentials, native capability-gated setup/approval/start/status/recovery UI, durable verified-registration metadata, frozen-plan preparation and revision-fenced Dropbox retention deletion. Production OAuth/verifier provisioning, live upload/delete/restore acceptance and other providers remain open. DATA-11's feedback path is audited. Agent-restart lifecycle hardening and the corrected Standby/failed-Operate drive rollback both await installed Windows repetition; the rollback defect itself is closed in Agent source `67d2902`. |
+| **Implemented in installed alpha.29 or current reviewed source; row-specific acceptance open** | UI-01–25, UI-27–38, UI-40–41, MAP-01–04, DATA-01–07, RADIO-01–05, PERF-02–03, SYNC-02, SYNC-06 | Perform the packaged visual, live-service, latency, real-feed or hardware checks named in the tracker; no RF inference. RADIO-05 remains default-off until separately authorized live acceptance. UI-09 and UI-18–21 are source-verified after alpha.29; their installed/operator acceptance remains open. |
+| **Active / partial** | DATA-08–11, BACKUP-01, PERF-01, WS-01–08, RUM-01–03, SHIP-01 | DATA-10 has reviewed UTF-8/Windows-1252/ISO-8859-1 ADI, UTF-8 ADX, 33-field duplicate updates, versioned APP/USERDEF metadata with exact RANGE semantics, strict structural rejection and every published 3.1.7 record scalar type family. Alpha.29 adds a packaged ADX semantic round trip and **38/38** installed 100,002-record functional checks; live-sync acceptance remains. BACKUP-01 now has UUID-bound durable consent, default-off live-worker lifecycle, exclusive independently verified Dropbox execution, just-in-time workspace-vault credentials, native capability-gated setup/approval/start/status/recovery UI, durable verified-registration metadata, frozen-plan preparation and revision-fenced Dropbox retention deletion. Production OAuth/verifier provisioning, live upload/delete/restore acceptance and other providers remain open. DATA-11's feedback path is audited. Agent-restart lifecycle hardening and the corrected Standby/failed-Operate drive rollback both await installed Windows repetition; the rollback defect itself is closed in Agent source `67d2902`. |
 
 ## Major acceptance campaigns still open
 
