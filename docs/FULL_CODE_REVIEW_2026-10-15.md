@@ -2,7 +2,7 @@
 
 ## Reviewed baseline
 
-- Repository HEAD: `2e26d7e6ac1f15568b001d095f7e66e57d0d676d`.
+- Repository documentation HEAD after closure: `5053788`.
 - Product code is unchanged from the packaged `df3b5e7` source baseline; the
   later commit records evidence only.
 - Scope: Swift logbook/synchronization and station owners, Tauri native-window
@@ -71,9 +71,11 @@ was resource contention, not accepted as a hidden product failure.
 
 ## Open acceptance boundaries
 
-- The Windows Agent's failed-route/Standby drive rollback remains an active
-  Agent defect. The Agent must restore the exact prior drive and return a
-  structured recoverable error before KPA operation can be accepted.
+- Windows Agent source commit `67d2902` now restores verified barefoot drive on
+  explicit Standby and the exact pre-Operate drive after failure/cancellation;
+  incomplete rollback returns structured `operate-rollback-incomplete` evidence.
+  Its 131 focused station/Agent/policy tests pass. Installation and physical
+  KPA/KAT/FLEX acceptance remain open because the Agent was intentionally off.
 - Installed automatic Wavelog synchronization must still run once against the
   documented-order correction; the completed live probe was GET-only.
 - Actual macOS alert popup/sound delivery, native multi-display geometry and
