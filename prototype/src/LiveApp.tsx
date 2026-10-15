@@ -36,6 +36,7 @@ import IntegratedAwards from "./live/AwardsPanel";
 import QSOEditor from "./live/QSOEditor";
 import { ContactDeleteAction } from "./live/ContactDeleteAction";
 import OperatorDesk, { DeskQSO, DeskIntelligence, DeskRotor } from "./live/OperatorDesk";
+import { useQSOLoggedToast } from "./live/QSOLoggedToast";
 import OperatorCanvas from "./live/OperatorCanvas";
 import { useWorkspaceLayout } from "./live/useWorkspaceLayout";
 import { useWorkspaceRecovery } from "./live/useWorkspaceRecovery";
@@ -193,6 +194,7 @@ function MainLiveApp() {
   const [lookup, setLookup] = useState<Data | null>(null);
   const [previous, setPrevious] = useState<Data[]>([]);
   const [message, setMessage] = useState("");
+  const loggedFeedback = useQSOLoggedToast();
   const [error, setError] = useState("");
   useEffect(() => connectSettingsChanges(() => { void settingsSession.load(); }, setError), [settingsSession]);
   useEffect(() => connectRotorConfigurationChanges(() => { void rotorConfigurationSession.load(); }, setError), [rotorConfigurationSession]);
@@ -737,7 +739,7 @@ function MainLiveApp() {
   const save = () => run(async () => {
     if (!draft) return;
     const saved = contactSession.getSnapshot().draft ? await contactSession.save() : await draftSession.commit("save");
-    if (saved) setMessage(`${saved.call} saved to the integrated logbook. Original logbook unchanged.`);
+    if (saved) loggedFeedback.show();
     setSelected(null); setRefresh(n => n + 1);
   });
   const editLoggedContact = (qso: Data) => void run(async () => {
@@ -823,7 +825,7 @@ function MainLiveApp() {
       <SidebarStation snapshot={stationWithRotor} provider={stationProvider} busy={busy} onAction={action => void run(async () => { await request("station_action", { action }); })} />
       <div className="sidebar-foot"><button onClick={() => void openMonitor().catch(e => setError(e.message))}><ExternalLink size={16} />Monitor</button><strong className="teal">{settings?.stationCall || "Station not configured"}</strong><span>{settings?.gridSquare || "Set station grid"}</span></div>
     </aside>
-    <main aria-label={separateWindows ? "Separate Windows" : view} style={separateWindows ? { gridColumn: "1 / -1" } : undefined}>
+    <main className="qso-feedback-area" aria-label={separateWindows ? "Separate Windows" : view} style={separateWindows ? { gridColumn: "1 / -1" } : undefined}>
       {error && <div className="live-error" role="alert">{error}<button onClick={() => setError("")}>Dismiss</button></div>}
       {workspaceMode(deskLayout.state.snapshot) === "windows" && recoveryVisible && (configurationRecovery || layoutRecovery) &&
         <div className="live-error" role="alert" aria-label="Workspace recovery">
@@ -850,6 +852,7 @@ function MainLiveApp() {
         <button type="button" disabled={!acceptsInput()} onClick={() => { if (!acceptsInput()) return; localStorage.removeItem("xlog.integration.draft"); setLegacyDraft(null); }}>Discard previous draft</button>
       </div>}
       {message && !message.endsWith("· radio frequency and mode confirmed") && <p className="live-message" role="status">{message}</p>}
+      {loggedFeedback.toast}
       <WorkspaceModeSurface separateWindows={separateWindows}>
       {!workspace?.workspace_exists && <>
         {view === "Settings" && <section className="service-settings" aria-label="Settings recovery">

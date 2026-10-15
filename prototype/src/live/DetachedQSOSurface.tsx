@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type Se
 import { workerRequest } from "../worker";
 import QSOEditor from "./QSOEditor";
 import { DeskQSO } from "./OperatorDesk";
+import { useQSOLoggedToast } from "./QSOLoggedToast";
 import { OperatorDraftSession, readDraftJournal, type DraftQSO } from "./operatorDraftSession";
 import { requestOperatorDraft } from "./operatorDraftTransport";
 import { OperatorDraftStatus } from "./OperatorDraftStatus";
@@ -38,7 +39,8 @@ export function DetachedQSOSurface() {
     readDraftJournal(storedJournal()), undefined, nativeSpotEditor()));
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot);
   const referenceEvidence = useReferenceEvidence(state.draft, state.base?.generation, request);
-  const [error, setError] = useState(""), [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const loggedFeedback = useQSOLoggedToast();
   const [working, setWorking] = useState(false), [closing, setClosing] = useState(false);
   const [lookup, setLookup] = useState<Record<string, any> | null>(null);
   const [previous, setPrevious] = useState<Record<string, any>[]>([]);
@@ -92,7 +94,6 @@ export function DetachedQSOSurface() {
     if (!acceptsInput() || current.locked || current.workspaceChanged || current.conflict || !current.draft) return;
     const value = changedCallDraft(current.draft, typeof next === "function" ? next(current.draft) : next);
     if (value) session.edit(value as DraftQSO);
-    setMessage("");
   }, [session, acceptsInput]);
   useEffect(() => {
     const baseline = state.draft, call = normalizedCall(baseline?.call), generation = state.base?.generation;
@@ -121,10 +122,11 @@ export function DetachedQSOSurface() {
   };
   const save = () => run(async () => {
     const saved = await session.commit("save");
-    if (saved && mounted.current) setMessage(`${saved.call} saved to the local logbook.`);
+    if (saved && mounted.current) loggedFeedback.show();
   });
-  const clear = () => void run(async () => { await session.commit("clear"); if (mounted.current) setMessage(""); });
-  return <div className="app live monitor-app detached-qso-app"><main aria-label="Detached Log QSO">
+  const clear = () => void run(async () => { await session.commit("clear"); });
+  return <div className="app live monitor-app detached-qso-app"><main className="qso-feedback-area" aria-label="Detached Log QSO">
+    {loggedFeedback.toast}
     <div className="detached-qso-modes" role="group" aria-label="QSO editor mode">{(["simple", "full"] as const).map(value => <button key={value} type="button" aria-pressed={mode === value} disabled={working || closing || blocked} onClick={() => switchMode(value)}>{value === "simple" ? "Simple" : "Full"}</button>)}</div>
     {error && <p className="live-error" role="alert">{error}</p>}
     <SpotActivationStatus status={spotEditor.status} error={spotEditor.error} reconcile={() => void spotEditor.reconcile()} />
@@ -142,9 +144,8 @@ export function DetachedQSOSurface() {
       onManualPower={value => {
         const current = session.getSnapshot();
         if (!acceptsInput() || current.locked || current.pending || current.conflict || current.workspaceChanged) return;
-        session.setManualPower(value); setMessage("");
+        session.setManualPower(value);
       }}
       onResumeAutomaticPower={state.base?.power ? () => void run(async () => { session.resumeAutomaticPower(); await session.flush(); }) : undefined} />}
-    {message && <p className="secondary" role="status">{message}</p>}
   </main></div>;
 }

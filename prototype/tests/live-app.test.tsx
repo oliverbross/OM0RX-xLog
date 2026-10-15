@@ -229,6 +229,9 @@ it("logs through the shared draft receipt and keeps Follow radio enabled on norm
   expect(follow.checked).toBe(true);
   expect(calls.request.mock.calls.filter(([method, params]) => method === "logbook_operator_draft_apply" && params.action === "save")).toHaveLength(1);
   expect(calls.request.mock.calls.some(([method]) => method === "logbook_save")).toBe(false);
+  expect(screen.getAllByText("QSO logged")).toHaveLength(1);
+  expect(document.querySelector("main.qso-feedback-area > .qso-logged-toast")).toBeTruthy();
+  expect(screen.queryByText(/saved to the integrated logbook/)).toBeNull();
 });
 
 it("recovers a lost Save acknowledgement without a second Save and leaves non-QSO navigation usable", async () => {
@@ -244,6 +247,12 @@ it("recovers a lost Save acknowledgement without a second Save and leaves non-QS
   fireEvent.submit(screen.getByLabelText("Callsign").closest("form")!);
   const recovery = await screen.findByRole("alert", { name: "QSO draft recovery" });
   expect(recovery.textContent).toContain("retained");
+  vi.useFakeTimers();
+  try {
+    act(() => vi.advanceTimersByTime(1500));
+    expect(screen.getByRole("alert", { name: "QSO draft recovery" })).toBe(recovery);
+    expect(screen.queryByText("QSO logged")).toBeNull();
+  } finally { vi.useRealTimers(); }
   expect(screen.getByLabelText("Callsign").closest("form")?.hasAttribute("inert")).toBe(true);
   expect(screen.getByRole("button", { name: "Settings" }).hasAttribute("disabled")).toBe(false);
   fireEvent.click(screen.getByRole("button", { name: "Check saved operation" }));

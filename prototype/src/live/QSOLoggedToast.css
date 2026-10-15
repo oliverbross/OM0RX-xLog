@@ -1,0 +1,4 @@
+/* Overlay the owning work area without reserving a row or moving its content.
+   No transition or animation: reduced-motion users receive the same feedback. */
+.qso-feedback-area { position: relative; }
+.live .qso-logged-toast { position: absolute; z-index: 20; top: 12px; right: 16px; max-width: calc(100% - 32px); padding: 8px 14px; border: 1px solid #0a9a78; border-radius: 8px; background: #073b33; color: #b7f6dc; box-shadow: 0 4px 14px #0005; font-size: 12px; font-weight: 650; pointer-events: none; overflow-wrap: anywhere; }

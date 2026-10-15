@@ -141,6 +141,21 @@ it("switches Simple and Full over one draft, retaining hidden fields and saving 
   expect(api.protect).toHaveBeenCalledOnce();
 });
 
+it.each(["Simple", "Full"])("shows one brief overlay after an acknowledged save in %s", async mode => {
+  const f = backend(); api.draft.mockImplementation(f.request);
+  render(<DetachedQSOSurface />); await screen.findByDisplayValue("K1ABC");
+  if (mode === "Simple") fireEvent.click(screen.getByRole("button", { name: "Simple" }));
+  vi.useFakeTimers();
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Log QSO" })); });
+  expect(f.contacts).toHaveLength(1);
+  expect(screen.getAllByText("QSO logged")).toHaveLength(1);
+  expect(document.querySelector(".qso-feedback-area > .qso-logged-toast")).toBeTruthy();
+  expect(screen.queryByText(/saved to the local logbook/)).toBeNull();
+  act(() => vi.advanceTimersByTime(1000));
+  expect(screen.queryByText("QSO logged")).toBeNull();
+  expect(screen.getByText("Global activation warning")).toBeTruthy();
+});
+
 it.each([
   ["full", "Frequency MHz", "14.", "14.025000"],
   ["full", "Start UTC date", "", "2026-10-14"],
