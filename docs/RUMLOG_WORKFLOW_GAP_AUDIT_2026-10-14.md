@@ -107,8 +107,9 @@ acceptance remains open; speech and outbound UDP remain deferred.
    geometry recovery and main-hidden operation.
 2. Performance: packaged local Save latency under sync load, cold Awards/startup,
    selected-feed first paint and realistic large-log percentile measurements.
-3. Sync: native completion notifications without the main renderer and two-way
-   live acceptance without synthetic operator contacts remain open. Explicit
+3. Sync: renderer-independent native completion invalidation is source complete;
+   installed main-renderer-absent observation and two-way live acceptance without
+   synthetic operator contacts remain open. Explicit
    held-record visibility is source ready: Sync now shows each same-identity
    group, its exact Wavelog IDs, differing field names and value shapes without
    guessing a merge. A 15 October read-only probe confirmed 68,036 remote IDs,

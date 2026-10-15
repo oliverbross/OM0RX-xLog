@@ -50,10 +50,12 @@ dashboard. Existing saved rules migrate to DX Cluster only; choosing WSJT-X CQ
 or both sources requires an explicit rule edit. Saving/re-enabling rules
 baselines retained reports again.
 
-Call and DXCC novelty currently remain `Unknown` for CQ activity. The UI says
-so explicitly. Callsign, comment, band and data-mode conditions are available;
-an ATNO-only cluster rule does not silently acquire unverified novelty or a new
-source. Reusing a current local classification projection is a separate slice.
+At this checkpoint call and DXCC novelty remained `Unknown`. That limitation is
+superseded in source by commit `2fab507`, which reuses the local logbook/CTY
+classification with a separate no-replay revision fence. See
+[the classification follow-up](WSJTX_CQ_CLASSIFICATION_SOURCE_ACCEPTANCE_2026-10-16.md).
+Callsign, comment, band and data-mode conditions remain available, and old
+cluster-only rules still cannot silently acquire a new source.
 
 ## Verification
 

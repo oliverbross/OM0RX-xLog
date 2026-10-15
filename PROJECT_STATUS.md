@@ -1,17 +1,21 @@
 # OM0RX-xLog project status
 
-Last updated: 2026-10-15
+Last updated: 2026-10-16
 
-## WSJT-X CQ alerts — source complete; external acceptance open
+## WSJT-X CQ alerts and local novelty — source complete; package/external acceptance open
 
-The existing default-off receiver now supplies bounded, receive-only schema-3
-FT8/FT4 CQ activity to the existing named alert engine, with independent source
-baselines, sender/workspace identities, replay suppression and 60-second expiry.
-Legacy rules remain cluster-only; activity call/DXCC novelty remains explicitly
-Unknown. There is no outbound UDP, reply, contact-save or station-control
-authority for activity messages. Focused Swift 13/13, Rust 27/27 and renderer
-37/37 tests plus production TypeScript/Vite/window-bundle checks pass. This is
-source acceptance only; see [contract and limits](docs/WSJTX_CQ_ACTIVITY_SOURCE_ACCEPTANCE_2026-10-15.md).
+The default-off receiver supplies bounded, receive-only schema-2/3 FT8/FT4 CQ
+activity to the named alert engine. Commit `2fab507` now classifies each retained
+CQ against the current local logbook and current validated CTY resolver using the
+same call/DXCC rules as xCluster. A separate monotonic classification revision is
+bound to workspace generation, QSO revision and CTY file identity. Reclassification
+updates retained reports but cannot replay an old decode as a new alert; missing
+workspace/reference data remains `Unknown`. Legacy rules remain cluster-only.
+There is no outbound UDP, reply, contact-save or station-control authority for
+activity messages. Full portable Swift, Rust and renderer suites plus the production
+TypeScript/Vite/window-bundle build pass. This remains source acceptance; see the
+[original receive contract](docs/WSJTX_CQ_ACTIVITY_SOURCE_ACCEPTANCE_2026-10-15.md)
+and [classification follow-up](docs/WSJTX_CQ_CLASSIFICATION_SOURCE_ACCEPTANCE_2026-10-16.md).
 
 ## P2b real-service shared Mac app — partial acceptance
 
