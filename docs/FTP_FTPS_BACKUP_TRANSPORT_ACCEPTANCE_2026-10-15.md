@@ -149,15 +149,29 @@ performed.
   source, synthetic data only, `external_network: false`, `station_io: false`
   and the production timeout values. Its SHA-256 is
   `b30ac44ad521beb751a0c38fe7875c2141f994db73364bbbf1ab87473b5e06cd`.
+- Harness source `0dfefc5449aa0fe891af8e53cdc03ba8dadd0a86`
+  closes the upload-timeout gate without changing production transport code or
+  limits. Its clean-source run passes **9 live tests / 12 parameterized
+  executions** in **120.040 s**. The stalled upload was rejected in **41.199
+  s** after one `STOR` left one measured 4,096-byte partial object; the sustained
+  slow upload was rejected by the 120-second total deadline in **120.019 s**
+  after one `STOR` left one measured 4,624,384-byte partial object. Both are
+  incomplete against the 16 MiB synthetic package, produce no verified object
+  authority and refuse replay.
+- The warning-clean native suite now passes **234 tests across 31 suites**.
+  `dist/disposable-ftp-upload-deadline-0dfefc5.json` records exact committed
+  source, every settled partial byte count/hash, `external_network: false` and
+  `station_io: false`. Its SHA-256 is
+  `e1b5736c455c903dad5ad052b239b930532aedbf9107077912362cba532d5ab0`.
 
 ## Remaining gates
 
 - Successful implicit FTPS against a trusted certificate without weakening
   verification or modifying the operator's trust store.
-- Stalled-upload behavior. Plain-FTP upload/verification/restore/replay refusal,
-  reservation refusal, lost post-store acknowledgement, advertised/streamed
-  oversize, post-verification growth, control-handshake timeout, stalled/slow
-  download deadlines and untrusted-FTPS rejection are accepted with synthetic
+- Plain-FTP upload/verification/restore/replay refusal, reservation refusal,
+  lost post-store acknowledgement, advertised/streamed oversize,
+  post-verification growth, control-handshake timeout, stalled/slow download
+  and upload deadlines, and untrusted-FTPS rejection are accepted with synthetic
   data; no operator log may be used for remaining acceptance.
 - Installed macOS acceptance after operator approval.
 - A separately designed, host-key-pinned SFTP transport.

@@ -44,8 +44,9 @@ acceptance.
 - Operator and live-cluster observation of the comment filter plus actual
   default-off macOS popup/sound behavior.
 - Trusted-certificate implicit FTPS without changing the operator trust store,
-  transfer-stall/low-speed and total-deadline injection, then installed-app
-  acceptance after explicit approval.
+  then installed-app acceptance after explicit approval. Later harness sources
+  `1080e6e` and `0dfefc5` close stalled/slow download and upload production-limit
+  injection with synthetic loopback evidence.
 - Windows and Linux packaging remains deferred until macOS operator acceptance.
 - Physical station, transmit, amplifier, tuner, rotor and RF acceptance remains
   separately authorized work.

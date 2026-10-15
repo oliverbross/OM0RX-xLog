@@ -129,3 +129,22 @@ was resource contention, not accepted as a hidden product failure.
 - Hardware, WAN timing, RF output, notarization of a future release and provider
   account behavior cannot be inferred from these source/package-local tests.
 
+## QLog comment and FTP transport review supplement
+
+A fresh read-only review of the QLog-inspired literal comment condition and FTP
+oversize/timeout work found no actionable production defect. It rechecked input
+bounds and migration, retained comment rendering, spot identity, libcurl result
+classification, byte limits, verification authority, retry behavior and fixture
+lifecycle.
+
+The review did find one test-infrastructure defect: on macOS Bash 3.2, expanding
+an empty PID array from an EXIT trap under `set -u` could abort cleanup before
+servers and temporary files were removed. Source `1080e6e` uses a Bash-3.2-safe
+guard for every PID-array cleanup loop. An actual forced pre-server failure
+preserved its exit status and removed all task-owned temporary files. Later
+source `0dfefc5` completed the remaining stalled/slow upload matrix. The clean
+loopback suite now passes **9 tests / 12 executions**, the warning-clean native
+suite passes **234 tests across 31 suites**, and no disposable server or
+temporary root remains. This supplement used synthetic data only, external
+network and station I/O stayed disabled, and no installed app was changed.
+
