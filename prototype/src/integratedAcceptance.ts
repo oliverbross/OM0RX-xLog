@@ -439,12 +439,18 @@ export async function startIntegratedAcceptance() {
       await waitForAcceptance("detached logbook rows", () => document.querySelector(".live-logbook-table tbody")?.textContent?.includes("W1AW") === true);
       report.details.stage = "editing-contact";
       await invoke("acceptance_monitor", { report });
-      for (const comment of ["Detached native edit", "Isolated native UI acceptance"]) {
+      for (const [index, comment] of ["Detached native edit", "Isolated native UI acceptance"].entries()) {
         await waitForAcceptance("detached logbook table ready", () => document.querySelector(".live-logbook-table-wrap")?.getAttribute("aria-busy") === "false");
+        report.details.stage = `opening-contact-${index + 1}`;
+        await invoke("acceptance_monitor", { report });
         element<HTMLElement>(".live-logbook-table tbody tr").click(); await frame();
+        report.details.stage = `waiting-for-editor-${index + 1}`;
+        await invoke("acceptance_monitor", { report });
         await waitForAcceptance("detached contact editor", () => !!document.querySelector('[aria-label="Comment"]'));
         report.checks.no_radio_controls = !document.querySelector(".qso-read-radio") && !document.querySelector(".qso-footer-context input");
         await fill('[aria-label="Comment"]', comment); await click("Update QSO");
+        report.details.stage = `waiting-for-readback-${index + 1}`;
+        await invoke("acceptance_monitor", { report });
         await waitForAcceptance("detached update readback", () => document.querySelector(".live-logbook-table tbody")?.textContent?.includes(comment) === true);
       }
       report.checks.contact_edit = validSavedContact((await worker("logbook_list")).result);
