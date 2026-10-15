@@ -150,27 +150,41 @@ impl StationTelemetry {
     }
     fn receive_control_at(self: &Arc<Self>, generation: u64, identity: &str, connection: u64, control: &str, now: u64) -> Result<ControlFence, String> {
         let mut state = self.state.lock().map_err(|_| "Radio telemetry unavailable")?;
-        let value = &state.projection; let snapshot = &value["snapshot"]; let radio = &snapshot["radio"];
+        let value = &state.projection; let snapshot = &value["snapshot"];
         let provider = state.provider.as_deref().unwrap_or("");
         let (capability_owner, advertised) = match (provider, control) {
             ("direct_flex_lan", "set_frequency_a") => ("capabilities", "set_frequency_a"),
             ("direct_flex_lan", "set_mode_a") => ("capabilities", "set_mode_a"),
             ("direct_agent", "set_receive_frequency_a") => ("station", "set_frequency_hz"),
             ("direct_agent", "set_receive_mode_a") => ("station", "set_mode"),
+            ("hamlib", "set_receive_frequency_a") => ("station", "set_receive_frequency_a"),
+            ("hamlib", "set_receive_mode_a") => ("station", "set_receive_mode_a"),
             _ => return Err("This provider does not expose the requested exact receive control.".into()),
         };
         let age = value["received_at_ms"].as_u64().map(|time| i128::from(now) - i128::from(time));
-        let source_age = snapshot["generated_at"].as_f64().map(|time| now as f64 - time * 1000.0);
-        let observed_age = radio["observed_at"].as_f64().map(|time| now as f64 - time * 1000.0);
+        let exact_state = if provider == "hamlib" {
+            let observed_age = snapshot["observed_at_ms"].as_u64().map(|time| i128::from(now) - i128::from(time));
+            let field_fresh = ["vfo", "ptt"].iter().all(|field| snapshot["field_observed_at_ms"][field].as_u64()
+                .map(|time| i128::from(now) - i128::from(time)).is_some_and(|age| (-1000..=5000).contains(&age)));
+            snapshot["generation"].as_u64() == Some(connection)
+                && observed_age.is_some_and(|age| (-1000..=5000).contains(&age)) && field_fresh
+                && snapshot["fields"]["frequency"].is_object() && snapshot["fields"]["mode"].is_object()
+                && snapshot["fields"]["vfo"]["VFO"] == "VFOA" && snapshot["fields"]["ptt"]["PTT"] == "0"
+        } else {
+            let radio = &snapshot["radio"];
+            let source_age = snapshot["generated_at"].as_f64().map(|time| now as f64 - time * 1000.0);
+            let observed_age = radio["observed_at"].as_f64().map(|time| now as f64 - time * 1000.0);
+            source_age.is_some_and(|age| age.is_finite() && age.abs() <= 5000.0)
+                && observed_age.is_some_and(|age| age.is_finite() && age.abs() <= 5000.0)
+                && snapshot["source"] == provider && snapshot["generation"].as_u64() == Some(connection)
+                && radio["connected"] == true && radio["observed"] == true && radio["transmitting"] == false && radio["receive_vfo"] == "A"
+                && radio["vfos"].as_array().is_some_and(|vfos| vfos.iter().any(|vfo| vfo["letter"] == "A" && vfo["receive"] == true))
+                && snapshot[capability_owner]["supported_commands"].as_array().is_some_and(|commands| commands.iter().any(|command| command == advertised))
+        };
         if self.stopped.load(Ordering::Acquire) || state.controls != 0
             || state.selection_id.as_deref() != Some(identity) || state.selection_generation != Some(generation)
             || value["available"] != true || !age.is_some_and(|age| (-1000..=5000).contains(&age))
-            || !source_age.is_some_and(|age| age.is_finite() && age.abs() <= 5000.0)
-            || !observed_age.is_some_and(|age| age.is_finite() && age.abs() <= 5000.0)
-            || snapshot["source"] != provider || snapshot["generation"].as_u64() != Some(connection)
-            || radio["connected"] != true || radio["observed"] != true || radio["transmitting"] != false || radio["receive_vfo"] != "A"
-            || !radio["vfos"].as_array().is_some_and(|vfos| vfos.iter().any(|vfo| vfo["letter"] == "A" && vfo["receive"] == true))
-            || !snapshot[capability_owner]["supported_commands"].as_array().is_some_and(|commands| commands.iter().any(|command| command == advertised)) {
+            || !exact_state {
             return Err("A fresh observed receive VFO A and supported exact control are required.".into());
         }
         state.epoch += 1; state.controls += 1; state.revision += 1;
@@ -491,10 +505,14 @@ mod tests {
     fn receive_fixture(provider: &str) -> (Arc<StationTelemetry>, String) {
         let (owner, identity) = monitor_fixture();
         let mut state = owner.state.lock().unwrap(); state.provider = Some(provider.into());
-        state.projection = json!({"revision":1,"provider":provider,"selection_id":identity,"selection_generation":2,"available":true,"received_at_ms":10000,
-            "snapshot":{"source":provider,"generation":13,"generated_at":10.0,"radio":{"connected":true,"observed":true,"observed_at":10.0,"transmitting":false,"receive_vfo":"A","vfos":[{"letter":"A","receive":true}]},
-                "station":{"supported_commands":["set_frequency_hz","set_mode"]},
-                "capabilities":{"supported_commands":["set_frequency_a","set_mode_a"]}}});
+        let snapshot = if provider == "hamlib" {
+            json!({"generation":13,"observed_at_ms":10000,"field_observed_at_ms":{"frequency":10000,"mode":10000,"vfo":10000,"ptt":10000},
+                "fields":{"frequency":{"Frequency":"14074000"},"mode":{"Mode":"USB"},"vfo":{"VFO":"VFOA"},"ptt":{"PTT":"0"}},"errors":{}})
+        } else {
+            json!({"source":provider,"generation":13,"generated_at":10.0,"radio":{"connected":true,"observed":true,"observed_at":10.0,"transmitting":false,"receive_vfo":"A","vfos":[{"letter":"A","receive":true}]},
+                "station":{"supported_commands":["set_frequency_hz","set_mode"]},"capabilities":{"supported_commands":["set_frequency_a","set_mode_a"]}})
+        };
+        state.projection = json!({"revision":1,"provider":provider,"selection_id":identity,"selection_generation":2,"available":true,"received_at_ms":10000,"snapshot":snapshot});
         drop(state); (owner, identity)
     }
     #[test]
@@ -520,13 +538,25 @@ mod tests {
             assert!(owner.receive_control_at(2, &identity, 13, "set_frequency_a", 10000).is_err(), "{change}");
         }
         for (provider, control) in [("direct_flex_lan", "set_frequency_a"), ("direct_flex_lan", "set_mode_a"),
-                                    ("direct_agent", "set_receive_frequency_a"), ("direct_agent", "set_receive_mode_a")] {
+                                    ("direct_agent", "set_receive_frequency_a"), ("direct_agent", "set_receive_mode_a"),
+                                    ("hamlib", "set_receive_frequency_a"), ("hamlib", "set_receive_mode_a")] {
             let (owner, identity) = receive_fixture(provider); let fence = owner.receive_control_at(2, &identity, 13, control, 10000).unwrap();
             assert_eq!(owner.snapshot().unwrap()["available"], false); assert!(owner.receive_control_at(2, &identity, 13, control, 10000).is_err()); drop(fence);
             assert_eq!(owner.state.lock().unwrap().controls, 0);
         }
         let (owner, identity) = receive_fixture("direct_flex_lan"); assert!(owner.receive_control_at(2, &identity, 13, "ptt", 10000).is_err());
         assert!(owner.receive_control_at(2, &identity, 13, "set_mode", 10000).is_err());
+        for change in ["vfo", "ptt", "frequency", "field_time", "observation_time"] {
+            let (owner, identity) = receive_fixture("hamlib");
+            { let mut state = owner.state.lock().unwrap(); match change {
+                "vfo" => state.projection["snapshot"]["fields"]["vfo"]["VFO"] = json!("VFOB"),
+                "ptt" => state.projection["snapshot"]["fields"]["ptt"]["PTT"] = json!("1"),
+                "frequency" => state.projection["snapshot"]["fields"]["frequency"] = Value::Null,
+                "field_time" => state.projection["snapshot"]["field_observed_at_ms"]["vfo"] = json!(4000),
+                _ => state.projection["snapshot"]["observed_at_ms"] = json!(4000),
+            }}
+            assert!(owner.receive_control_at(2, &identity, 13, "set_receive_frequency_a", 10000).is_err(), "{change}");
+        }
     }
     #[test]
     fn monitor_cancel_remains_possible_during_stale_disconnected_or_inflight_observation() {

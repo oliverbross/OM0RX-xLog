@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import HamlibPanel, { HamlibDevice } from "./HamlibPanel";
 import { hamlibManufacturers, normalizeHamlibModels } from "./hamlibCatalogue";
+import { hamlibProjection } from "./hamlibStation";
 const radioModels = [{ id: 1, manufacturer: "Hamlib", model: "Dummy", maturity: "Stable" }, { id: 2045, manufacturer: "Elecraft", model: "KX3", maturity: "Stable" },
   { id: 2046, manufacturer: "Elecraft", model: "K4", maturity: "Beta" }, { id: 3073, manufacturer: "Icom", model: "IC-7300", maturity: "Stable" }];
 const native = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn(async () => () => {}) }));
@@ -11,6 +12,15 @@ vi.mock("@tauri-apps/api/event", () => ({ listen: native.listen }));
 vi.mock("./stationSelection", () => ({ nativeStationSelection: () => true }));
 beforeEach(() => localStorage.clear()); afterEach(cleanup);
 const fake = () => vi.fn(async (method: string, params?: Record<string, any>) => method === "hamlib_models" ? { models: params?.device === "rotor" ? [{ id: 601, manufacturer: "Yaesu", model: "GS-232", maturity: "Stable" }] : radioModels } : { connected: false });
+it("projects exact Hamlib receive capabilities only from explicit VFO and PTT evidence", () => {
+  const radio = { generation: 13, observed_at_ms: 10_000, field_observed_at_ms: { vfo: 10_000, ptt: 10_000 }, tx_enabled: true, errors: {},
+    fields: { frequency: { Frequency: "14074000" }, mode: { Mode: "PKTUSB" }, vfo: { VFO: "VFOA" }, ptt: { PTT: "0" } } };
+  const projected = hamlibProjection(radio, null);
+  expect(projected.generation).toBe(13); expect(projected.radio).toMatchObject({ observed: true, connected: true, transmitting: false, receive_vfo: "A" });
+  expect(projected.station.supported_commands).toEqual(["set_receive_frequency_a", "set_receive_mode_a"]);
+  const unknown = hamlibProjection({ ...radio, fields: { ...radio.fields, ptt: undefined } }, null);
+  expect(unknown.radio.transmitting).toBeNull();
+});
 it("native Desk uses passive shared setup and exposes no raw radio connection form", async () => {
   native.invoke.mockClear(); native.invoke.mockImplementation(async (_command, { params }) => params.action === "hamlib_catalogue" ? { models: radioModels } : { generation: "setup", revision: 1, base_url: "", last_receipt: null,
     hamlib: { mode: "managed", model: 3073, path: "/dev/test-fixture", baud: 9600 }, selection: { provider: "hamlib", generation: 4, selection_id: "selection" } });

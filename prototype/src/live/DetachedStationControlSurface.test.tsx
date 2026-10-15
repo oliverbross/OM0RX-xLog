@@ -295,6 +295,15 @@ function agentReceiveContext(): MonitorContext {
   context.radio.snapshot.station = { radio_known: true, radio_stale: false, supported_commands: ["set_frequency_hz", "set_mode"] };
   return context;
 }
+function hamlibReceiveContext(): MonitorContext {
+  const context = agentReceiveContext();
+  context.selection!.provider = "hamlib";
+  context.radio.provider = "hamlib";
+  context.radio.snapshot = { device: "radio", generation: 13, observed_at_ms: Date.now(),
+    field_observed_at_ms: { frequency: Date.now(), mode: Date.now(), vfo: Date.now(), ptt: Date.now() }, tx_enabled: true, errors: {},
+    fields: { frequency: { Frequency: "14074000" }, mode: { Mode: "USB" }, vfo: { VFO: "VFOA" }, ptt: { PTT: "0" } } };
+  return context;
+}
 it("child exposes exact Agent receive controls from Agent capabilities and preserves the provider fence", async () => {
   const owner = sharedAgent(), context = agentReceiveContext();
   owner.state().selection.selection_id = context.selection!.selection_id; owner.observe(context);
@@ -319,6 +328,22 @@ it("child disables only the Agent receive control not advertised by the current 
   fireEvent.change(screen.getByLabelText("Child receive frequency MHz"), { target: { value: "14.075" } });
   expect(screen.getByRole("button", { name: "Set receive VFO A frequency" }).hasAttribute("disabled")).toBe(false);
   expect(screen.getByRole("button", { name: "Set receive VFO A mode" }).hasAttribute("disabled")).toBe(true);
+});
+it("child journals exact Hamlib VFO-A receive controls without exposing general radio authority", async () => {
+  const owner = sharedAgent(false, false, "hamlib"), context = hamlibReceiveContext();
+  owner.state().selection.selection_id = context.selection!.selection_id; owner.observe(context);
+  render(<DetachedStationControlSurface />); await act(async () => {});
+  fireEvent.change(screen.getByLabelText("Child receive frequency MHz"), { target: { value: "14.077" } });
+  fireEvent.click(screen.getByRole("button", { name: "Set receive VFO A frequency" })); await act(async () => {});
+  expect(owner.actions[0]).toMatchObject({ action: "receive_frequency", provider: "hamlib", frequency_hz: 14077000,
+    control_revision: 9, connection_generation: 13 });
+  context.revision++; context.selection!.control_revision = 10; context.radio.received_at_ms++;
+  owner.observe(context); await act(async () => { owner.observeWake(); });
+  fireEvent.change(screen.getByLabelText("Child receive mode"), { target: { value: "DIGU" } });
+  fireEvent.click(screen.getByRole("button", { name: "Set receive VFO A mode" })); await act(async () => {});
+  expect(owner.actions[1]).toMatchObject({ action: "receive_mode", provider: "hamlib", mode: "DIGU", control_revision: 10 });
+  expect(screen.queryByRole("button", { name: /PTT|Send CW|Tune carrier/ })).toBeNull();
+  expect(native.worker).not.toHaveBeenCalled();
 });
 it("child sends only explicit exact VFO-A receive controls and waits for a new observation", async () => {
   const owner = sharedAgent(false, false, "direct_flex_lan"), context = flexReceiveContext();

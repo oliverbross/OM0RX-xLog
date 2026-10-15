@@ -644,6 +644,98 @@ fn control(session: &mut Session, device: Device, params: &Value) -> Result<Valu
         .get("action")
         .and_then(Value::as_str)
         .ok_or("action is required")?;
+    if device == Device::Radio
+        && matches!(
+            action,
+            "set_receive_frequency_a" | "set_receive_mode_a"
+        )
+    {
+        let target_frequency = if action == "set_receive_frequency_a" {
+            Some(required_number(params, "hz", 100.0, 10_000_000_000.0)?)
+        } else {
+            None
+        };
+        let target_mode = if action == "set_receive_mode_a" {
+            let requested = token(
+                params,
+                "mode",
+                &[
+                    "USB", "LSB", "CW", "CWR", "AM", "FM", "RTTY", "RTTYR", "DIGU", "DIGL",
+                ],
+            )?;
+            Some(
+                match requested.as_str() {
+                    "DIGU" => "PKTUSB",
+                    "DIGL" => "PKTLSB",
+                    value => value,
+                }
+                .to_owned(),
+            )
+        } else {
+            None
+        };
+        // The whole check/write/readback sequence owns the one Hamlib session
+        // lock. Never select a VFO implicitly: this narrow control is available
+        // only when the radio already proves VFO A is receive and PTT is off.
+        let before_vfo = run_command(session, "+v", "get_vfo")?;
+        let before_ptt = run_command(session, "+t", "get_ptt")?;
+        if before_vfo.get("VFO").and_then(Value::as_str) != Some("VFOA")
+            || before_ptt.get("PTT").and_then(Value::as_str) != Some("0") {
+            return Err(
+                "Hamlib did not prove receive VFO A with PTT off; no receive write was sent."
+                    .into(),
+            );
+        }
+        if let Some(hz) = target_frequency {
+            run_command(session, &format!("+F {hz:.0}"), "set_freq")?;
+        }
+        if let Some(mode) = target_mode.as_deref() {
+            run_command(session, &format!("+M {mode} 0"), "set_mode")?;
+        }
+        let target = if target_frequency.is_some() {
+            session.exchange("+f", "get_freq")?
+        } else {
+            session.exchange("+m", "get_mode")?
+        };
+        let after_vfo = session.exchange("+v", "get_vfo")?;
+        let after_ptt = session.exchange("+t", "get_ptt")?;
+        let target_matches = target.code == 0 && if let Some(hz) = target_frequency {
+            target
+                .values
+                .get("Frequency")
+                .and_then(Value::as_str)
+                .and_then(|value| value.parse::<f64>().ok())
+                == Some(hz)
+        } else {
+            target.values.get("Mode").and_then(Value::as_str) == target_mode.as_deref()
+        };
+        let confirmed = target_matches
+            && after_vfo.code == 0
+            && after_ptt.code == 0
+            && after_vfo.values.get("VFO").and_then(Value::as_str) == Some("VFOA")
+            && after_ptt.values.get("PTT").and_then(Value::as_str) == Some("0");
+        if !confirmed {
+            return Err("Hamlib accepted the receive write but did not confirm the exact idle VFO-A state; inspect the radio before retrying.".into());
+        }
+        session.radio_extras.clear();
+        session.radio_errors.clear();
+        session.field_observed_at_ms.clear();
+        session
+            .radio_extras
+            .insert("vfo".into(), Value::Object(after_vfo.values));
+        session
+            .radio_extras
+            .insert("ptt".into(), Value::Object(after_ptt.values));
+        let observed = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis();
+        session
+            .field_observed_at_ms
+            .insert("vfo".into(), json!(observed));
+        session
+            .field_observed_at_ms
+            .insert("ptt".into(), json!(observed));
+        return Ok(json!({"state":"accepted","device":"radio","action":action,"confirmed":true,
+            "generation":session.generation,"readback":{"state":"observed","target":target.values,"vfo":"A","ptt":false}}));
+    }
     if device == Device::Radio && action == "tune_simplex" {
         let hz = required_number(params, "hz", 100.0, 10_000_000_000.0)?;
         let mode = token(params, "mode", MODES)?;
@@ -1585,6 +1677,157 @@ mod tests {
             false,
             2,
         ));
+        server.join().unwrap();
+    }
+
+    #[test]
+    fn exact_receive_controls_confirm_idle_vfo_a_and_the_requested_target() {
+        for (params, exchanges, expected) in [
+            (
+                json!({"action":"set_receive_frequency_a","hz":14_075_100,"expected_generation":7}),
+                vec![
+                    ("+v\n", "get_vfo:\nVFO: VFOA\nRPRT 0\n"),
+                    ("+t\n", "get_ptt:\nPTT: 0\nRPRT 0\n"),
+                    ("+F 14075100\n", "set_freq: 14075100\nRPRT 0\n"),
+                    ("+f\n", "get_freq:\nFrequency: 14075100\nRPRT 0\n"),
+                    ("+v\n", "get_vfo:\nVFO: VFOA\nRPRT 0\n"),
+                    ("+t\n", "get_ptt:\nPTT: 0\nRPRT 0\n"),
+                ],
+                "14075100",
+            ),
+            (
+                json!({"action":"set_receive_mode_a","mode":"DIGU","expected_generation":7}),
+                vec![
+                    ("+v\n", "get_vfo:\nVFO: VFOA\nRPRT 0\n"),
+                    ("+t\n", "get_ptt:\nPTT: 0\nRPRT 0\n"),
+                    ("+M PKTUSB 0\n", "set_mode: PKTUSB 0\nRPRT 0\n"),
+                    ("+m\n", "get_mode:\nMode: PKTUSB\nPassband: 0\nRPRT 0\n"),
+                    ("+v\n", "get_vfo:\nVFO: VFOA\nRPRT 0\n"),
+                    ("+t\n", "get_ptt:\nPTT: 0\nRPRT 0\n"),
+                ],
+                "PKTUSB",
+            ),
+        ] {
+            let listener = TcpListener::bind((LOOPBACK, 0)).unwrap();
+            let address = listener.local_addr().unwrap();
+            let server = std::thread::spawn(move || {
+                let (mut socket, _) = listener.accept().unwrap();
+                let mut reader = BufReader::new(socket.try_clone().unwrap());
+                for (command, response) in exchanges {
+                    let mut line = String::new();
+                    reader.read_line(&mut line).unwrap();
+                    assert_eq!(line, command);
+                    socket.write_all(response.as_bytes()).unwrap();
+                }
+            });
+            let (reader, writer) = connect_stream(address).unwrap();
+            let mut session = Session::new(
+                reader,
+                writer,
+                None,
+                "external",
+                address.port(),
+                None,
+                false,
+                7,
+            );
+            let receipt = control(&mut session, Device::Radio, &params).unwrap();
+            assert_eq!(receipt["confirmed"], true);
+            assert!(receipt["readback"]["target"]
+                .as_object()
+                .unwrap()
+                .values()
+                .any(|value| value == expected));
+            assert_eq!(receipt["readback"]["vfo"], "A");
+            assert_eq!(receipt["readback"]["ptt"], false);
+            drop(session);
+            server.join().unwrap();
+        }
+    }
+
+    #[test]
+    fn exact_receive_control_sends_no_write_without_idle_vfo_a() {
+        for (vfo, ptt) in [("VFOB", "0"), ("VFOA", "1")] {
+            let listener = TcpListener::bind((LOOPBACK, 0)).unwrap();
+            let address = listener.local_addr().unwrap();
+            let server = std::thread::spawn(move || {
+                let (mut socket, _) = listener.accept().unwrap();
+                let mut reader = BufReader::new(socket.try_clone().unwrap());
+                for (command, response) in [
+                    ("+v\n", format!("get_vfo:\nVFO: {vfo}\nRPRT 0\n")),
+                    ("+t\n", format!("get_ptt:\nPTT: {ptt}\nRPRT 0\n")),
+                ] {
+                    let mut line = String::new();
+                    reader.read_line(&mut line).unwrap();
+                    assert_eq!(line, command);
+                    socket.write_all(response.as_bytes()).unwrap();
+                }
+                let mut line = String::new();
+                assert_eq!(reader.read_line(&mut line).unwrap(), 0);
+            });
+            let (reader, writer) = connect_stream(address).unwrap();
+            let mut session = Session::new(
+                reader,
+                writer,
+                None,
+                "external",
+                address.port(),
+                None,
+                false,
+                7,
+            );
+            let error = control(
+                &mut session,
+                Device::Radio,
+                &json!({"action":"set_receive_frequency_a","hz":14_075_100,"expected_generation":7}),
+            )
+            .unwrap_err();
+            assert!(error.contains("no receive write was sent"));
+            drop(session);
+            server.join().unwrap();
+        }
+    }
+
+    #[test]
+    fn exact_receive_control_rejects_unconfirmed_readback() {
+        let listener = TcpListener::bind((LOOPBACK, 0)).unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = std::thread::spawn(move || {
+            let (mut socket, _) = listener.accept().unwrap();
+            let mut reader = BufReader::new(socket.try_clone().unwrap());
+            for (command, response) in [
+                ("+v\n", "get_vfo:\nVFO: VFOA\nRPRT 0\n"),
+                ("+t\n", "get_ptt:\nPTT: 0\nRPRT 0\n"),
+                ("+F 14075100\n", "set_freq: 14075100\nRPRT 0\n"),
+                ("+f\n", "get_freq:\nFrequency: 14075200\nRPRT 0\n"),
+                ("+v\n", "get_vfo:\nVFO: VFOA\nRPRT 0\n"),
+                ("+t\n", "get_ptt:\nPTT: 0\nRPRT 0\n"),
+            ] {
+                let mut line = String::new();
+                reader.read_line(&mut line).unwrap();
+                assert_eq!(line, command);
+                socket.write_all(response.as_bytes()).unwrap();
+            }
+        });
+        let (reader, writer) = connect_stream(address).unwrap();
+        let mut session = Session::new(
+            reader,
+            writer,
+            None,
+            "external",
+            address.port(),
+            None,
+            false,
+            7,
+        );
+        let error = control(
+            &mut session,
+            Device::Radio,
+            &json!({"action":"set_receive_frequency_a","hz":14_075_100,"expected_generation":7}),
+        )
+        .unwrap_err();
+        assert!(error.contains("did not confirm"));
+        drop(session);
         server.join().unwrap();
     }
 

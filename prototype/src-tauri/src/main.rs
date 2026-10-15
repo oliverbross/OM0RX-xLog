@@ -629,9 +629,14 @@ async fn station_session_request(app: tauri::AppHandle, window: tauri::WebviewWi
     let telemetry = station_telemetry::owner(&app)?;
     let changed = app.clone();
     let result = tauri::async_runtime::spawn_blocking(move || owner.apply(&params, |request, generation, identity| {
-        if request["method"] == "station_radio_control" {
+        if request["method"] == "station_radio_control" || request["method"] == "hamlib_control" {
             let connection = request["params"]["expected_generation"].as_u64().ok_or("Missing exact radio generation.")?;
-            let control = request["params"]["control"].as_str().ok_or("Missing receive control.")?.to_owned();
+            let control = if request["method"] == "hamlib_control" {
+                if request["params"]["device"] != "radio" { return Err("Invalid exact Hamlib receive route.".into()); }
+                request["params"]["action"].as_str()
+            } else { request["params"]["control"].as_str() }
+                .filter(|value| matches!(*value, "set_frequency_a" | "set_mode_a" | "set_receive_frequency_a" | "set_receive_mode_a"))
+                .ok_or("Missing receive control.")?.to_owned();
             return selection.receive_control(request, generation, identity, params["control_revision"].as_u64().ok_or("Missing radio control revision.")?,
                 || telemetry.receive_control(generation, identity, connection, &control));
         }

@@ -192,7 +192,7 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
       <button type="button" disabled={!selected || !state?.base_url || dirty.current || conflict || busy || !!pending} onClick={() => void execute("forget")}>Forget saved Agent token</button>
       {!selected && <p>{providers ? "Select Remote Station Agent above before connecting." : "Select Remote Station Agent in the main station controls before connecting."}</p>}
     </>}
-    {receiveContext && ["direct_agent", "direct_flex_lan"].includes(receiveContext.selection?.provider ?? "") &&
+    {receiveContext && ["direct_agent", "direct_flex_lan", "hamlib"].includes(receiveContext.selection?.provider ?? "") &&
       <section aria-label="Exact receive controls"><h3>Receive VFO A</h3>
         {!compact && <p>Frequency and mode controls require a fresh observed receive/PTT-off state on VFO A. A request acknowledgement does not confirm the new radio state.</p>}
         <label>Receive frequency MHz<input aria-label="Child receive frequency MHz" inputMode="decimal" value={receiveMHz} onChange={event => setReceiveMHz(event.target.value)} /></label>

@@ -21,7 +21,7 @@ export function hamlibProjection(radio: Data | null, rotor: Data | null): Data {
   const observed = hz !== undefined && typeof mode === "string";
   const vfo = extra("vfo")?.VFO?.replace("VFO", "");
   const split = number(extra("split")?.Split);
-  return { source: "hamlib", available: observed, transport_state: radio ? "connected" : "disconnected",
+  return { source: "hamlib", available: observed, generation: radio?.generation, transport_state: radio ? "connected" : "disconnected",
     generated_at: Date.now() / 1000, allow_transmit: radio?.tx_enabled === true,
     radio: { observed, connected: !!radio, frequency_hz: hz, receive_frequency_hz: hz, mode,
       receive_vfo: vfo, transmit_vfo: split == null ? null : split ? extra("split")?.["TX VFO"]?.replace("VFO", "") : vfo,
@@ -29,7 +29,8 @@ export function hamlibProjection(radio: Data | null, rotor: Data | null): Data {
       split: split === undefined ? null : split !== 0, transmitting: number(extra("ptt")?.PTT) === undefined ? null : number(extra("ptt")?.PTT)! !== 0,
       received_at: radio?.observed_at_ms / 1000, observed_at: radio?.observed_at_ms / 1000,
       vfos: observed && vfo ? [{ letter: vfo, frequency_hz: hz, mode, receive: true, transmit: split === 0 }] : [] },
-    station: { radio_known: observed, radio_stale: !observed, local: true, band: frequencyBand(hz), allowed_actions: [], supported_commands: [],
+    station: { radio_known: observed, radio_stale: !observed, local: true, band: frequencyBand(hz), allowed_actions: [],
+      supported_commands: radio ? ["set_receive_frequency_a", "set_receive_mode_a"] : [],
       alarm_summary: !radio ? "Local radio disconnected" : observed ? "Local radio observed" : "Hamlib frequency or mode unavailable",
       inhibitors: [], route_alignment: "Local station", rf_drive_fraction: number(extra("rf_power")?.["RFPOWER"]), hamlib_errors: radio?.errors || {} },
     rotor: { connected: !!rotor && number(r.Azimuth) !== undefined, name: "Hamlib rotor", azimuth: number(r.Azimuth), elevation: number(r.Elevation),
