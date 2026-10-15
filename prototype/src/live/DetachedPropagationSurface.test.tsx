@@ -52,6 +52,21 @@ it("embedded and independent views share explicit refresh and native freshness c
   expect(screen.queryByText("HF propagation · cached")).toBeNull();
   expect(native.invoke.mock.calls.filter(call => call[1]?.action === "refresh")).toHaveLength(1);
 });
+it("shows delayed automatic observations as current in both surfaces without waiting for the display timer", async () => {
+  let release!: () => void;
+  const response = new Promise<void>(resolve => { release = resolve; });
+  const original = native.invoke.getMockImplementation()!;
+  native.invoke.mockImplementation(async (command, args) => {
+    if (args?.action === "ensure") await response;
+    return original(command, args);
+  });
+  render(<><div aria-label="Embedded"><SharedPropagationConditions compact includeWeather={false} /></div><DetachedPropagationSurface /></>);
+  await act(async () => { await vi.advanceTimersByTimeAsync(5_000); });
+  await act(async () => { release(); await vi.advanceTimersByTimeAsync(0); });
+  expect(screen.getAllByLabelText("Day: good")).toHaveLength(2);
+  expect(screen.queryByText("HF propagation · cached")).toBeNull();
+  expect(screen.queryByText(/last known/)).toBeNull();
+});
 it("starts with the propagation task and exposes only its explicit refresh", async () => {
   render(<DetachedPropagationSurface />);
   await act(async () => { await vi.advanceTimersByTimeAsync(0); });

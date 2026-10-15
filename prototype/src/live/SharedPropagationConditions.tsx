@@ -12,7 +12,7 @@ export default function SharedPropagationConditions({ compact = false, request =
   const connection = useRef<ReturnType<typeof connectPropagation> | null>(null), mounted = useRef(false);
   useEffect(() => {
     mounted.current = true;
-    const session = connectPropagation(value => { setState(value); setError(""); }, setError); connection.current = session;
+    const session = connectPropagation(value => { setState(value); setClock(Date.now()); setError(""); }, setError); connection.current = session;
     const timer = setInterval(() => setClock(Date.now()), 60_000);
     return () => { mounted.current = false; connection.current = null; session.dispose(); clearInterval(timer); };
   }, []);

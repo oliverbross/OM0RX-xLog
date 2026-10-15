@@ -7,6 +7,14 @@ packaged UI result. Keep unresolved items here across releases.
 
 ## Current delivery boundary
 
+- **Propagation refresh freshness, 16 October:** Desk and standalone Propagation
+  now synchronize their display clock whenever a verified native observation
+  arrives. A delayed successful automatic refresh is immediately shown as current
+  instead of appearing cached/last-known until the next minute tick, while old
+  source timestamps remain stale. Focused shared-view **17/17**, TypeScript,
+  production bundle and diff checks pass. Source only: alpha.31 remains installed;
+  live provider/network and packaged-runtime acceptance remain open.
+
 - **Detached Station Control Rotor Stop, 16 October:** Station Control now keeps
   Stop available with a retained owner even when telemetry is stale or an older
   Goto outcome is unresolved. It calls only the native current-owner Stop ingress,

@@ -2,6 +2,18 @@
 
 Last updated: 2026-10-16
 
+## Propagation refresh freshness — source complete; package/provider acceptance open
+
+Desk and standalone Propagation now update their display clock when a native
+observation is accepted. A successful automatic refresh that completes more than
+one second after the previous render can no longer be mislabeled cached/last-known
+until the next minute tick; genuinely old native timestamps remain stale.
+
+Focused shared-view coverage passes **17/17**, and TypeScript plus the production
+Vite/window build and diff checks pass. This is source evidence only: alpha.31
+remains installed, no provider or network request was made, and live-source or
+packaged refresh behavior remains open.
+
 ## Detached Station Control Rotor Stop — source complete; package/hardware acceptance open
 
 Standalone Station Control now keeps an explicit Rotor Stop available whenever

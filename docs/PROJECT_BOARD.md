@@ -14,6 +14,12 @@ the configured barefoot drive on Standby and the exact pre-Operate drive after a
 failed or cancelled Operate request; Windows installation and physical readback
 acceptance remain open.
 
+Current post-alpha.31 source also fixes a shared Propagation freshness-display
+race: accepting a delayed native observation advances the display clock, so a
+fresh automatic result is not labelled cached until the next minute tick. Focused
+shared-view **17/17** and production build gates pass. No provider/network request
+was made; installed/live-source acceptance remains open.
+
 Current post-alpha.31 source adds the missing Station Control Rotor Stop without
 weakening the shared owner boundary. It remains available with stale telemetry or
 an unresolved Goto, uses one exact current-owner native dispatch, never retries an
