@@ -656,7 +656,9 @@ public actor ReferenceDataUpdater {
 
     /// Accept only bounded, printable values from an explicit source field.
     /// ETag, Last-Modified and download dates remain separate evidence and are
-    /// never converted into a version.
+    /// never converted into a version. Generic X-Version/X-Revision headers are
+    /// ignored because they can identify an API server or proxy rather than the
+    /// validated dataset representation.
     private func sourceVersion(from response: HTTPURLResponse, payload: Data?, name: String) -> String? {
         for header in ["X-Reference-Version", "X-Dataset-Version", "X-Data-Version"] {
             if let value = sanitizedSourceVersion(response.value(forHTTPHeaderField: header)) { return value }
