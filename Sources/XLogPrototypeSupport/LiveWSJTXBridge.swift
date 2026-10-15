@@ -194,6 +194,7 @@ public actor LiveWSJTXBridge {
     private let configurationURL: URL
     private let workspaceAvailable: @Sendable () throws -> Bool
     private let importer: @Sendable (String) throws -> (imported: Int, skipped: Int)
+    private let classificationLogbook: LiveLogbookMethods?
     private let receiverFactory: @Sendable (@escaping @Sendable (Data, String) -> Void,
                                              @escaping @Sendable (String) -> Void) -> WSJTXDatagramReceiving
     private var configuration: WSJTXBridgeConfiguration?
@@ -210,6 +211,8 @@ public actor LiveWSJTXBridge {
     private var status = "Off"
     private let ingress = SpotIngressGate(limit: 64)
     private var activity = WSJTXActivity()
+    private var activityClassificationKey = ""
+    private var activityClassificationRevision: UInt64 = 0
 
     init(configurationURL: URL? = nil,
          workspaceAvailable: @escaping @Sendable () throws -> Bool = {
@@ -218,6 +221,7 @@ public actor LiveWSJTXBridge {
          importer: @escaping @Sendable (String) throws -> (imported: Int, skipped: Int) = {
              try LiveLogbookMethods.shared.importLoggedADIF($0)
          },
+         classificationLogbook: LiveLogbookMethods? = nil,
          receiverFactory: @escaping @Sendable (@escaping @Sendable (Data, String) -> Void,
                                                 @escaping @Sendable (String) -> Void) -> WSJTXDatagramReceiving = {
              WSJTXUDPReceiver(onDatagram: $0, onEvent: $1)
@@ -226,6 +230,7 @@ public actor LiveWSJTXBridge {
             .appendingPathComponent("wsjtx-bridge.json")
         self.workspaceAvailable = workspaceAvailable
         self.importer = importer
+        self.classificationLogbook = classificationLogbook ?? (configurationURL == nil ? .shared : nil)
         self.receiverFactory = receiverFactory
     }
 
@@ -359,11 +364,36 @@ public actor LiveWSJTXBridge {
 
     private func snapshot() throws -> [String: Any] {
         let config = try load()
+        let now = UInt64(Date().timeIntervalSince1970 * 1000)
+        let inputs = activity.classificationInputs(now: now)
+        var classifications: [String: WSJTXActivityClassification] = [:]
+        if !inputs.isEmpty, let logbook = classificationLogbook {
+            do {
+                let source = try logbook.clusterClassificationSnapshot()
+                if source.key != activityClassificationKey {
+                    activityClassificationKey = source.key
+                    activityClassificationRevision = min(activityClassificationRevision + 1, 9_007_199_254_740_991)
+                }
+                classifications = Dictionary(uniqueKeysWithValues: inputs.map { input in
+                    let adif = source.resolver.resolve(input.callsign,
+                        at: Date(timeIntervalSince1970: Double(input.receivedAt) / 1_000))?.adif
+                    let value = source.index.classify(call: input.callsign, band: input.band, mode: input.mode, adif: adif)
+                    return (input.id, WSJTXActivityClassification(callStatus: value.callStatus,
+                                                                  dxccStatus: value.dxccStatus))
+                })
+            } catch {
+                if activityClassificationKey != "unavailable" {
+                    activityClassificationKey = "unavailable"
+                    activityClassificationRevision = min(activityClassificationRevision + 1, 9_007_199_254_740_991)
+                }
+            }
+        }
         return ["configuration": ["enabled": config.enabled, "address": config.address, "port": Int(config.port)],
                 "running": receiver != nil, "received_count": receivedCount, "imported_count": importedCount,
                 "duplicate_count": duplicateCount, "ignored_count": ignoredCount, "rejected_count": rejectedCount,
                 "dropped_count": ingress.droppedCount, "status": status, "receive_only": true,
-                "activity": activity.snapshot(now: UInt64(Date().timeIntervalSince1970 * 1000), available: receiver != nil)]
+                "activity": activity.snapshot(now: now, available: receiver != nil,
+                    classificationRevision: activityClassificationRevision, classifications: classifications)]
     }
 
     private func load() throws -> WSJTXBridgeConfiguration {

@@ -151,5 +151,38 @@ final class WSJTXActivityTests: XCTestCase {
         let stopped = try await bridge.handle(method: "wsjtx_snapshot", params: [:])
         XCTAssertEqual((stopped["activity"] as? [String: Any])?["available"] as? Bool, false)
     }
+
+    func testRetainedCQReclassifiesAfterLogbookRevisionWithoutChangingDecodeIdentity() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-activity-classification-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let logbook = LiveLogbookMethods(supportDirectory: directory, inheritNativePreferences: false)
+        _ = try logbook.handle(method: "workspace_create", params: ["mode": "empty"])
+        let bridge = LiveWSJTXBridge(configurationURL: directory.appendingPathComponent("wsjtx.json"),
+            workspaceAvailable: { true }, importer: { _ in (0, 0) }, classificationLogbook: logbook,
+            receiverFactory: { _, _ in ActivityReceiver() })
+        _ = try await bridge.handle(method: "wsjtx_configure", params: ["configuration": ["enabled": true, "address": "127.0.0.1", "port": 2237]])
+        _ = try await bridge.handle(method: "wsjtx_start", params: [:])
+        let current = UInt64(Date().timeIntervalSince1970 * 1000)
+        await bridge.ingest(status())
+        await bridge.ingest(decode(at: current))
+
+        let first = try await bridge.handle(method: "wsjtx_snapshot", params: [:])
+        let initialActivity = try XCTUnwrap(first["activity"] as? [String: Any])
+        let initialSpot = try XCTUnwrap((initialActivity["spots"] as? [[String: Any]])?.first)
+        XCTAssertEqual(initialSpot["callStatus"] as? String, "New Call")
+        XCTAssertEqual(initialSpot["dxccStatus"] as? String, "ATNO")
+        let identity = try XCTUnwrap(initialSpot["id"] as? String)
+        let initialClassificationRevision = try XCTUnwrap(initialActivity["classification_revision"] as? UInt64)
+
+        _ = try logbook.handle(method: "logbook_import_adif", params: ["text":
+            "<CALL:4>W1AW<QSO_DATE:8>20261016<TIME_ON:6>010000<BAND:3>20m<MODE:3>FT8<DXCC:3>291<LOTW_QSL_RCVD:1>Y<EOR>"])
+        let refreshed = try await bridge.handle(method: "wsjtx_snapshot", params: [:])
+        let refreshedActivity = try XCTUnwrap(refreshed["activity"] as? [String: Any])
+        let refreshedSpot = try XCTUnwrap((refreshedActivity["spots"] as? [[String: Any]])?.first)
+        XCTAssertEqual(refreshedSpot["id"] as? String, identity)
+        XCTAssertEqual(refreshedSpot["callStatus"] as? String, "Confirmed")
+        XCTAssertEqual(refreshedSpot["dxccStatus"] as? String, "Confirmed")
+        XCTAssertGreaterThan(try XCTUnwrap(refreshedActivity["classification_revision"] as? UInt64), initialClassificationRevision)
+    }
 }
 #endif

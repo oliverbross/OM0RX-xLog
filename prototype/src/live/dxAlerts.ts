@@ -4,7 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 export type DxAlertRule = { id: string; name: string; enabled: boolean; sources?: ("cluster" | "wsjtx")[]; callsignGlob: string; commentContains: string; bands: string[]; modes: string[]; callStatuses: string[]; dxccStatuses: string[]; specials: string[] };
 export type DxAlertConfiguration = { generation: string; revision: number; enabled: boolean; dedupSeconds: number; retentionMinutes: number; nativePopup: boolean; notificationSound: boolean; rules: DxAlertRule[] };
 export type DxAlertEntry = { id: string; test: boolean; source?: "cluster" | "wsjtx" | "test"; callsign: string; frequencyKHz: number; band: string; mode: string; comment: string; callStatus: string; dxccStatus: string; specialTags: string[]; ruleNames: string[]; count: number; firstSeenMs: number; lastSeenMs: number };
-export type DxAlertsSnapshot = { epoch: string; revision: number; configuration: DxAlertConfiguration; storageError: string | null; source: { available: boolean; baselined: boolean; revision: number; receivedAtMs: number }; activitySource?: { available: boolean; baselined: boolean; revision: number; receivedAtMs: number }; entries: DxAlertEntry[]; delivery: { error: string | null; suppressed: number; maximumPerWindow: number; windowSeconds: number }; limits: { maximumRules: number; maximumEntries: number } };
+export type DxAlertsSnapshot = { epoch: string; revision: number; configuration: DxAlertConfiguration; storageError: string | null; source: { available: boolean; baselined: boolean; revision: number; receivedAtMs: number }; activitySource?: { available: boolean; baselined: boolean; revision: number; classificationRevision?: number; receivedAtMs: number }; entries: DxAlertEntry[]; delivery: { error: string | null; suppressed: number; maximumPerWindow: number; windowSeconds: number }; limits: { maximumRules: number; maximumEntries: number } };
 
 const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const identifier = /^[a-z0-9-]{1,64}$/;
@@ -22,7 +22,8 @@ export function checkedDxAlerts(input: unknown): DxAlertsSnapshot {
       !strings(rule.bands, 13) || !strings(rule.modes, 3) || !strings(rule.callStatuses, 7) || !strings(rule.dxccStatuses, 10) || !strings(rule.specials, 16)) ||
     typeof value.storageError !== "string" && value.storageError !== null || typeof value.source.available !== "boolean" || typeof value.source.baselined !== "boolean" ||
     !integer(value.source.revision) || !integer(value.source.receivedAtMs) || !Array.isArray(value.entries) || value.entries.length > 200 ||
-    value.activitySource !== undefined && (!value.activitySource || typeof value.activitySource.available !== "boolean" || typeof value.activitySource.baselined !== "boolean" || !integer(value.activitySource.revision) || !integer(value.activitySource.receivedAtMs)) ||
+    value.activitySource !== undefined && (!value.activitySource || typeof value.activitySource.available !== "boolean" || typeof value.activitySource.baselined !== "boolean" || !integer(value.activitySource.revision) ||
+      value.activitySource.classificationRevision !== undefined && !integer(value.activitySource.classificationRevision) || !integer(value.activitySource.receivedAtMs)) ||
     value.entries.some(entry => !entry || !uuid.test(entry.id) || typeof entry.test !== "boolean" || typeof entry.callsign !== "string" || entry.callsign.length > 24 ||
       typeof entry.frequencyKHz !== "number" || !Number.isFinite(entry.frequencyKHz) || typeof entry.band !== "string" || typeof entry.mode !== "string" ||
       entry.source !== undefined && !["cluster", "wsjtx", "test"].includes(entry.source) ||

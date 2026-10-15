@@ -12,14 +12,17 @@ it("accepts the bounded native snapshot and rejects malformed identities", () =>
 });
 it("accepts explicit CQ sources and rejects unknown sources or malformed activity health", () => {
   const value = frame(); Object.assign(value.configuration.rules[0], { sources:["wsjtx"] });
-  Object.assign(value, { activitySource:{ available:true, baselined:true, revision:2, receivedAtMs:10 } });
+  Object.assign(value, { activitySource:{ available:true, baselined:true, revision:2, classificationRevision:3, receivedAtMs:10 } });
   expect(checkedDxAlerts(value).configuration.rules[0].sources).toEqual(["wsjtx"]);
+  expect(checkedDxAlerts(value).activitySource?.classificationRevision).toBe(3);
   for (const sources of [[], ["reply"], ["wsjtx", "wsjtx"]]) {
     Object.assign(value.configuration.rules[0], { sources });
     expect(() => checkedDxAlerts(value)).toThrow("could not be verified");
   }
   Object.assign(value.configuration.rules[0], { sources:["cluster"] });
   Object.assign(value, { activitySource:{ available:true, baselined:true, revision:-1, receivedAtMs:10 } });
+  expect(() => checkedDxAlerts(value)).toThrow("could not be verified");
+  Object.assign(value, { activitySource:{ available:true, baselined:true, revision:2, classificationRevision:-1, receivedAtMs:10 } });
   expect(() => checkedDxAlerts(value)).toThrow("could not be verified");
 });
 it("uses native wakes and focus recovery without polling", async () => {

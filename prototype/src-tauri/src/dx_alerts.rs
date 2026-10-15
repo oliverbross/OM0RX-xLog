@@ -157,6 +157,7 @@ fn cluster_source() -> Vec<String> { vec!["cluster".into()] }
 struct ActivitySource {
     epoch: Option<String>,
     revision: u64,
+    classification_revision: u64,
     available: bool,
     baselined: bool,
     received_at_ms: u64,
@@ -538,6 +539,7 @@ impl State {
                 "available": self.activity.available,
                 "baselined": self.activity.baselined,
                 "revision": self.activity.revision,
+                "classificationRevision": self.activity.classification_revision,
                 "receivedAtMs": self.activity.received_at_ms,
             },
             "entries": self.entries,
@@ -783,6 +785,7 @@ impl Owner {
         if self.stopped.load(Ordering::Acquire) { return Ok(false); }
         let epoch = projection["epoch"].as_str().filter(|epoch| valid_uuid(epoch)).ok_or("Invalid WSJT-X activity epoch.")?;
         let revision = projection["revision"].as_u64().filter(|value| *value <= MAX_REVISION).ok_or("Invalid WSJT-X activity revision.")?;
+        let classification_revision = projection["classification_revision"].as_u64().filter(|value| *value <= MAX_REVISION).ok_or("Invalid WSJT-X classification revision.")?;
         let available = projection["available"].as_bool().ok_or("Invalid WSJT-X activity availability.")?;
         let values = projection["spots"].as_array().filter(|values| values.len() <= 200).ok_or("Invalid WSJT-X activity spots.")?;
         let now = now_ms();
@@ -790,10 +793,15 @@ impl Owner {
             .filter_map(spot).map(|mut spot| { spot.source = "wsjtx".into(); spot }).collect();
         let mut state = self.state.lock().map_err(|_| "DX alert state is unavailable")?;
         if state.activity.epoch.as_deref() == Some(epoch) && revision < state.activity.revision { return Err("WSJT-X activity revision regressed.".into()); }
-        if state.activity.epoch.as_deref() == Some(epoch) && revision == state.activity.revision && state.activity.available == available { return Ok(false); }
+        if state.activity.epoch.as_deref() == Some(epoch) && classification_revision < state.activity.classification_revision {
+            return Err("WSJT-X classification revision regressed.".into());
+        }
+        if state.activity.epoch.as_deref() == Some(epoch) && revision == state.activity.revision
+            && classification_revision == state.activity.classification_revision && state.activity.available == available { return Ok(false); }
         let baseline = !state.activity.baselined || state.activity.epoch.as_deref() != Some(epoch);
         if state.activity.epoch.as_deref() != Some(epoch) { state.activity = ActivitySource::default(); }
         state.activity.epoch = Some(epoch.to_owned()); state.activity.revision = revision;
+        state.activity.classification_revision = classification_revision;
         state.activity.available = available; state.activity.received_at_ms = projection["received_at_ms"].as_u64().unwrap_or(0);
         state.activity.baselined = available;
         let fresh = parsed.into_iter().filter(|spot| state.activity.remember(spot.source_key.clone())).collect();
@@ -1118,7 +1126,7 @@ mod tests {
     }
 
     fn activity(revision: u64, spots: Vec<Value>) -> Value {
-        json!({"epoch":"00000000-0000-4000-8000-000000000009","revision":revision,"available":true,"received_at_ms":now_ms(),"spots":spots})
+        json!({"epoch":"00000000-0000-4000-8000-000000000009","revision":revision,"classification_revision":1,"available":true,"received_at_ms":now_ms(),"spots":spots})
     }
     fn cq(id: &str, callsign: &str, at: u64) -> Value {
         let mut value = spot(id, callsign, "Unknown");
@@ -1152,6 +1160,36 @@ mod tests {
     }
 
     #[test]
+    fn cq_classification_refresh_updates_metadata_without_replaying_retained_reports() {
+        let directory = tempfile::tempdir().unwrap(); let owner = owner(directory.path());
+        let mut cq_rule = rule("new-dxcc", "New DXCC", &["ATNO"]); cq_rule.sources = vec!["wsjtx".into()];
+        let initial = owner.snapshot().unwrap();
+        owner.save(initial["configuration"]["generation"].as_str().unwrap(), 0, editable(true, vec![cq_rule])).unwrap();
+        owner.observe_activity(&activity(1, vec![])).unwrap();
+        let retained = cq("retained", "W1AW", now_ms());
+        owner.observe_activity(&activity(2, vec![retained.clone()])).unwrap();
+        assert_eq!(owner.snapshot().unwrap()["entries"], json!([]));
+
+        let mut classified = retained;
+        classified["callStatus"] = json!("New Call"); classified["dxccStatus"] = json!("ATNO");
+        let mut refresh = activity(2, vec![classified.clone()]);
+        refresh["classification_revision"] = json!(2);
+        assert!(owner.observe_activity(&refresh).unwrap());
+        assert_eq!(owner.snapshot().unwrap()["entries"], json!([]), "retained CQ must not replay after classification changes");
+        assert_eq!(owner.snapshot().unwrap()["activitySource"]["classificationRevision"], 2);
+        let mut regressed = refresh.clone(); regressed["classification_revision"] = json!(1);
+        assert!(owner.observe_activity(&regressed).is_err());
+
+        let next = cq("new-period", "K1NEW", now_ms());
+        let mut next_classified = next; next_classified["callStatus"] = json!("New Call"); next_classified["dxccStatus"] = json!("ATNO");
+        let mut new_decode = activity(3, vec![classified, next_classified]);
+        new_decode["classification_revision"] = json!(2);
+        owner.observe_activity(&new_decode).unwrap();
+        assert_eq!(owner.snapshot().unwrap()["entries"].as_array().unwrap().len(), 1);
+        assert_eq!(owner.snapshot().unwrap()["entries"][0]["callsign"], "K1NEW");
+    }
+
+    #[test]
     fn legacy_cluster_rules_cannot_start_matching_cq_and_malformed_sources_fail_closed() {
         let legacy = serde_json::to_value(rule("legacy", "Cluster only", &[])).unwrap();
         let mut legacy_object = legacy.as_object().unwrap().clone(); legacy_object.remove("sources");
@@ -1161,6 +1199,7 @@ mod tests {
         assert!(!migrated.matches(&value));
         let directory = tempfile::tempdir().unwrap(); let owner = owner(directory.path());
         assert!(owner.observe_activity(&json!({"epoch":"bad","revision":1,"available":true,"spots":[]})).is_err());
+        assert!(owner.observe_activity(&json!({"epoch":"00000000-0000-4000-8000-000000000009","revision":1,"available":true,"spots":[]})).is_err());
         let mut invalid = activity(1, vec![]); invalid["spots"] = json!(vec![Value::Null; 201]);
         assert!(owner.observe_activity(&invalid).is_err());
         assert_eq!(owner.snapshot().unwrap()["entries"], json!([]));

@@ -1,4 +1,5 @@
 import Foundation
+import XClusterIntegrationCore
 #if canImport(XLogCore)
 import XLogCore
 #else
@@ -18,6 +19,12 @@ struct LiveLogbookSyncLease: Sendable {
     let generation: String
 }
 
+struct LiveClusterClassificationSnapshot: Sendable {
+    let key: String
+    let index: ClusterClassificationIndex
+    let resolver: CTYResolver
+}
+
 /// Shared local bridge to an explicitly created integration workspace. It never opens
 /// LogbookDatabase() without a URL, and it never constructs a Wavelog client.
 public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, RemoteBackupWorkspaceSnapshotSource, @unchecked Sendable {
@@ -30,6 +37,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
     private var database: LogbookDatabase?
     private var workspace: IntegrationWorkspace?
     private var ctyResolverCache: (source: String, resolver: CTYResolver)?
+    private var clusterClassificationCache: LiveClusterClassificationSnapshot?
     private var syncLease: LiveLogbookSyncLease?
     private var manualSyncActive: Bool { syncLease != nil }
     private var spotRecoveryDatabase: LogbookDatabase?
@@ -388,28 +396,55 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
         }
     }
 
+    private func currentCTYResolverSnapshot() throws -> (source: String, resolver: CTYResolver) {
+        _ = try readyDatabase()
+        let downloaded = workspaceURL.appendingPathComponent("Reference Data/cty.xml")
+        if fileManager.fileExists(atPath: downloaded.path) {
+            let attributes = try fileManager.attributesOfItem(atPath: downloaded.path)
+            let source = [downloaded.path,
+                          String((attributes[.systemNumber] as? NSNumber)?.uint64Value ?? 0),
+                          String((attributes[.systemFileNumber] as? NSNumber)?.uint64Value ?? 0),
+                          String((attributes[.size] as? NSNumber)?.uint64Value ?? 0),
+                          String((attributes[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0)]
+                .joined(separator: "|")
+            if let cached = ctyResolverCache, cached.source == source { return cached }
+            if let resolver = try? CTYResolver(xmlURL: downloaded) {
+                ctyResolverCache = (source, resolver)
+                return (source, resolver)
+            }
+        }
+        if let cached = ctyResolverCache, cached.source == "bundled" { return cached }
+        let resolver = try CTYResolver.bundled()
+        ctyResolverCache = ("bundled", resolver)
+        return ("bundled", resolver)
+    }
+
     func currentCTYResolver() throws -> CTYResolver {
         try lock.withLock {
-            _ = try readyDatabase()
-            let downloaded = workspaceURL.appendingPathComponent("Reference Data/cty.xml")
-            if fileManager.fileExists(atPath: downloaded.path) {
-                let attributes = try fileManager.attributesOfItem(atPath: downloaded.path)
-                let source = [downloaded.path,
-                              String((attributes[.systemNumber] as? NSNumber)?.uint64Value ?? 0),
-                              String((attributes[.systemFileNumber] as? NSNumber)?.uint64Value ?? 0),
-                              String((attributes[.size] as? NSNumber)?.uint64Value ?? 0),
-                              String((attributes[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0)]
-                    .joined(separator: "|")
-                if let cached = ctyResolverCache, cached.source == source { return cached.resolver }
-                if let resolver = try? CTYResolver(xmlURL: downloaded) {
-                    ctyResolverCache = (source, resolver)
-                    return resolver
-                }
+            try currentCTYResolverSnapshot().resolver
+        }
+    }
+
+    /// One immutable local classification view for passive cluster-like consumers.
+    /// The key changes with workspace, QSO or CTY reference data without exposing
+    /// paths or record content outside the worker.
+    func clusterClassificationSnapshot() throws -> LiveClusterClassificationSnapshot {
+        try lock.withLock {
+            let database = try readyDatabase()
+            let generation = try editGeneration()
+            let qsoRevision = try database.currentRevision()
+            let country = try currentCTYResolverSnapshot()
+            let key = "\(generation)|\(qsoRevision)|\(country.source)"
+            if let cached = clusterClassificationCache, cached.key == key { return cached }
+            let records = try database.clusterContactRows().map { qso in
+                ClusterContact(callsign: qso.call, band: qso.band, mode: qso.mode,
+                    adif: qso.dxcc ?? country.resolver.resolve(qso.call, at: qso.start)?.adif,
+                    date: qso.start, paperQSL: qso.qslReceived, lotwQSL: qso.lotwReceived)
             }
-            if let cached = ctyResolverCache, cached.source == "bundled" { return cached.resolver }
-            let resolver = try CTYResolver.bundled()
-            ctyResolverCache = ("bundled", resolver)
-            return resolver
+            let snapshot = LiveClusterClassificationSnapshot(key: key,
+                index: ClusterClassificationIndex(records: records), resolver: country.resolver)
+            clusterClassificationCache = snapshot
+            return snapshot
         }
     }
 

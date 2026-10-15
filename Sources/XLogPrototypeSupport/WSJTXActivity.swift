@@ -82,6 +82,24 @@ enum WSJTXActivityMessage {
     }
 }
 
+struct WSJTXActivityClassificationInput: Sendable {
+    let id: String
+    let callsign: String
+    let band: String
+    let mode: String
+    let receivedAt: UInt64
+}
+
+struct WSJTXActivityClassification: Sendable {
+    let callStatus: String
+    let dxccStatus: String
+}
+
+struct WSJTXActivityClassificationSnapshot: Sendable {
+    let key: String
+    let spots: [String: WSJTXActivityClassification]
+}
+
 struct WSJTXActivity {
     private struct Session {
         var frequency: UInt64?
@@ -164,13 +182,28 @@ struct WSJTXActivity {
     }
 
     mutating func snapshot(now: UInt64, available: Bool) -> [String: Any] {
+        snapshot(now: now, available: available, classificationRevision: 0, classifications: [:])
+    }
+
+    mutating func classificationInputs(now: UInt64) -> [WSJTXActivityClassificationInput] {
+        expire(now: now)
+        return spots.map { WSJTXActivityClassificationInput(id: $0.id, callsign: $0.callsign,
+            band: $0.band, mode: $0.mode, receivedAt: $0.receivedAt) }
+    }
+
+    mutating func snapshot(now: UInt64, available: Bool, classificationRevision: UInt64,
+                           classifications: [String: WSJTXActivityClassification]) -> [String: Any] {
         expire(now: now)
         return ["epoch": epoch, "revision": revision, "available": available, "received_at_ms": sessions.values.map(\.lastSeen).max() ?? 0,
-                "session_count": sessions.count, "ttl_ms": 60_000,
-                "spots": spots.map { ["id": $0.id, "callsign": $0.callsign, "frequencyKHz": $0.frequency,
-                    "band": $0.band, "mode": $0.mode, "comment": $0.comment,
-                    "callStatus": "Unknown", "dxccStatus": "Unknown", "specialTags": [String](),
-                    "receivedAtMs": $0.receivedAt] as [String: Any] }]
+                "classification_revision": classificationRevision, "session_count": sessions.count, "ttl_ms": 60_000,
+                "spots": spots.map { spot in
+                    let classification = classifications[spot.id]
+                    return ["id": spot.id, "callsign": spot.callsign, "frequencyKHz": spot.frequency,
+                    "band": spot.band, "mode": spot.mode, "comment": spot.comment,
+                    "callStatus": classification?.callStatus ?? "Unknown",
+                    "dxccStatus": classification?.dxccStatus ?? "Unknown", "specialTags": [String](),
+                    "receivedAtMs": spot.receivedAt] as [String: Any]
+                }]
     }
 
     private static func cqCall(_ message: String) -> String? {
