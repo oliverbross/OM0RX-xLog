@@ -289,7 +289,7 @@ it("retains conflicting local text and lets the operator explicitly load the sha
   expect(calls.request.mock.calls.some(([method, params]) => method === "logbook_save" || params?.action === "save")).toBe(false);
 });
 
-it.each(["Update QSO", "Clear QSO"])("keeps an existing contact edit separate from the active draft on %s", async action => {
+it.each(["Update QSO", "Cancel edit"])("keeps an existing contact edit separate from the active draft on %s", async action => {
   exists = true;
   const contact = { id: "logged-contact", call: "W1AW", start: "2026-10-12T00:00:00Z", band: "20m", mode: "SSB" };
   const contactBackend = contactEditFixture(contact);
@@ -300,7 +300,7 @@ it.each(["Update QSO", "Clear QSO"])("keeps an existing contact edit separate fr
   render(<LiveApp />);
   fireEvent.change(await screen.findByLabelText("Callsign"), { target: { value: "LOCAL" } });
   fireEvent.click(screen.getByRole("button", { name: "Logbook" }));
-  fireEvent.doubleClick(await screen.findByText("W1AW"));
+  fireEvent.click(await screen.findByText("W1AW"));
   await waitFor(() => expect((screen.getByLabelText("Callsign") as HTMLInputElement).value).toBe("W1AW"));
   fireEvent.change(screen.getByLabelText("Callsign"), { target: { value: "W1AW/P" } });
   fireEvent.click(screen.getByRole("button", { name: action }));
@@ -330,7 +330,7 @@ it("recovers a logged-contact update after renderer restart without replaying it
   const first = render(<LiveApp />);
   fireEvent.change(await screen.findByLabelText("Callsign"), { target: { value: "LOCAL" } });
   fireEvent.click(screen.getByRole("button", { name: "Logbook" }));
-  fireEvent.doubleClick(await screen.findByText("W1AW"));
+  fireEvent.click(await screen.findByText("W1AW"));
   await waitFor(() => expect((screen.getByLabelText("Callsign") as HTMLInputElement).value).toBe("W1AW"));
   fireEvent.change(screen.getByLabelText("Callsign"), { target: { value: "W1AW/P" } });
   fireEvent.click(screen.getByRole("button", { name: "Update QSO" }));
@@ -406,7 +406,7 @@ it("retains an uncertain table deletion through navigation and restart, with rec
   });
   const first = render(<LiveApp />); await screen.findByLabelText("Callsign");
   fireEvent.click(screen.getByRole("button", { name: "Logbook" }));
-  fireEvent.click(await screen.findByText("W1AW")); fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+  fireEvent.keyDown((await screen.findByText("W1AW")).closest("tr")!, { key: " " }); fireEvent.click(screen.getByRole("button", { name: "Delete" }));
   fireEvent.click(await screen.findByRole("button", { name: "Confirm delete" }));
   await waitFor(() => expect(screen.getByRole("alert", { name: "Logbook operation recovery" }).textContent).toContain("acknowledgement"));
   fireEvent.click(screen.getByRole("button", { name: "Operator Desk" }));
@@ -463,7 +463,7 @@ it.each([false, true])("retains conflicting logged-contact text and offers only 
   render(<LiveApp />);
   await screen.findByLabelText("Callsign");
   fireEvent.click(screen.getByRole("button", { name: "Logbook" }));
-  fireEvent.doubleClick(await screen.findByText("W1AW"));
+  fireEvent.click(await screen.findByText("W1AW"));
   await waitFor(() => expect((screen.getByLabelText("Callsign") as HTMLInputElement).value).toBe("W1AW"));
   fireEvent.change(screen.getByLabelText("Callsign"), { target: { value: "MYEDIT" } });
   if (removed) contactBackend.remove();

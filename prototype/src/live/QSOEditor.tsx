@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type RefObject, type SetStateAction } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode, type RefObject, type SetStateAction } from "react";
 import { Radio, PanelsTopLeft, UserRound, Star, RadioTower, ContactRound, History, Grid3X3, CircleX, CircleCheck } from "lucide-react";
 import "./QSOEditor.css";
 import QSOHeader, { type ReferenceEvidence } from "./QSOHeader";
@@ -6,6 +6,7 @@ import type { DraftPowerIntent, DraftPowerState } from "./operatorDraftSession";
 import { dxccIdentity } from "./dxccIdentity";
 import { connectLogbookChanges } from "./logbookWindows";
 import { fillEmptyLookupFields } from "./draftEnrichment";
+import { QSOExtraFields } from "./QSOExtraFields";
 
 type Data = Record<string, any>;
 export function safeProfileURL(value: unknown): string | null {
@@ -36,6 +37,7 @@ type Props = {
   onLocalInputState?: (dirty: boolean) => void;
   canAcceptLocalInput?: () => boolean;
   onUndock?: () => void;
+  contactActions?: ReactNode;
 };
 type MatrixCell = { band: string; mode: string; worked: boolean; confirmed: boolean };
 type MatrixState = { call: string; adif: number | null; callCells?: MatrixCell[]; countryCells?: MatrixCell[]; countryHistory?: Data; callError?: string; countryError?: string };
@@ -137,13 +139,14 @@ export function draftPowerDescription(draft: Data, power?: DraftPowerState | nul
 }
 
 export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draftLocked, lookup, previous, follow, setFollow, request, onReadRadio, automaticStationMetadata = [], isEditing = false, radioControls = true, clearLabel = "Clear QSO", referenceEvidence,
-  powerState, powerIntent, automaticPowerEnabled, onManualPower, onResumeAutomaticPower, onLocalInputState, canAcceptLocalInput, onUndock, inspector = true }: Props) {
+  powerState, powerIntent, automaticPowerEnabled, onManualPower, onResumeAutomaticPower, onLocalInputState, canAcceptLocalInput, onUndock, contactActions, inspector = true }: Props) {
   const acceptsInput = () => !draftLocked && (canAcceptLocalInput?.() ?? true);
   const setDraft: Props["setDraft"] = value => { if (acceptsInput()) writeDraft(value); };
   const [frequencyDraft, setFrequencyDraft] = useState<string | null>(null);
   const [receiveDraft, setReceiveDraft] = useState<string | null>(null);
   const [timeDrafts, setTimeDrafts] = useState<Record<string, { date: string; time: string }>>({});
   const [numericDrafts, setNumericDrafts] = useState<Record<string, string>>({});
+  const [newADIFName, setNewADIFName] = useState("");
   const [showErrors, setShowErrors] = useState(false);
   const [matrix, setMatrix] = useState<MatrixState | null>(null);
   const [historyRevision, setHistoryRevision] = useState(0);
@@ -158,7 +161,7 @@ export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draf
   const callRef = useRef<HTMLInputElement>(null);
   const rootRef = useRef<HTMLElement>(null);
   const update = (key: string, value: unknown) => { if (!acceptsInput()) return; if (["frequencyHz", "band", "mode"].includes(key)) setFollow(false); setDraft((current) => current ? { ...current, [key]: value } : current); };
-  useEffect(() => { setFrequencyDraft(null); setReceiveDraft(null); setTimeDrafts({}); setNumericDrafts({}); setShowErrors(false); }, [draft?.id]);
+  useEffect(() => { setFrequencyDraft(null); setReceiveDraft(null); setTimeDrafts({}); setNumericDrafts({}); setNewADIFName(""); setShowErrors(false); }, [draft?.id]);
   useEffect(() => { if (follow) setFrequencyDraft(null); }, [follow]);
   const canonicalBuffers = useRef<Record<string, any> | null>(null);
   useLayoutEffect(() => {
@@ -203,7 +206,7 @@ export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draf
   // draft. Native close/dock must not mistake it for an acknowledged draft.
   const bufferedFrequency = (text: string | null, value: unknown) => text !== null &&
     (text.trim() ? parseFrequency(text) === null || parseFrequency(text) !== value : value != null);
-  const localInputDirty = bufferedFrequency(frequencyDraft, draft?.frequencyHz) ||
+  const localInputDirty = !!newADIFName || bufferedFrequency(frequencyDraft, draft?.frequencyHz) ||
     bufferedFrequency(receiveDraft, draft?.receiveFrequencyHz) ||
     Object.entries(timeDrafts).some(([key, parts]) => {
       if (key === "end" && !parts.date && !parts.time) return draft?.end != null;
@@ -251,6 +254,7 @@ export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draf
     return () => { active = false; };
   }, [request, matrixCall, matrixADIF, historyRevision]);
   const errors: string[] = [];
+  if (newADIFName) errors.push("Add the new ADIF field or clear its name before saving.");
   if (draft) {
     const normalized = call(draft.call);
     if (!/^[A-Z0-9/-]{3,32}$/.test(normalized)) errors.push("Enter a 3–32 character callsign using letters, digits, slash or hyphen.");
@@ -361,14 +365,14 @@ export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draf
         <details className="qso-more"><summary>Additional QSO fields, timing and ADIF metadata</summary><div className="qso-more-content">
           <div className="qso-more-fields">{field({ key: "submode", label: "Submode" })}{groups.StationExtra.map(field)}{groups.QSLExtra.map(field)}</div>
           <div className="qso-utc qso-end-utc"><strong>End UTC</strong><label><span>Date</span><input aria-label="End UTC date" type="date" value={currentTime("end").date} onChange={(event) => changeTime("end", "date", event.target.value)} /></label><label><span>Time</span><input aria-label="End UTC time" type="time" step={1} value={currentTime("end").time} onChange={(event) => changeTime("end", "time", event.target.value)} /></label></div>
-          <div className="qso-metadata"><p>Local identity and sync fields are retained. Additional ADIF fields remain editable.</p><dl>{[["id", "Local ID"], ["wavelogID", "Wavelog ID"], ["stationProfileID", "Station profile ID"], ["updatedAt", "Updated UTC"], ["isDirty", "Local changes"], ["deletedAt", "Deleted UTC"]].map(([key, label]) => <div key={key}><dt>{label}</dt><dd>{draft[key] == null ? "—" : String(draft[key])}</dd></div>)}</dl><h3>Additional ADIF fields</h3><div className="qso-extra">{Object.entries(draft.extraFields ?? {}).map(([key, value]) => <label key={key}><span>{key}</span><input aria-label={`ADIF ${key}`} value={String(value)} onChange={(event) => setDraft((current) => current ? { ...current, extraFields: { ...(current.extraFields ?? {}), [key]: event.target.value } } : current)} /></label>)}</div>{Object.keys(draft.extraFields ?? {}).length === 0 && <p>No additional ADIF fields in this QSO.</p>}</div>
+          <div className="qso-metadata"><p>Local identity and sync fields are retained. Additional ADIF fields remain editable.</p><dl>{[["id", "Local ID"], ["wavelogID", "Wavelog ID"], ["stationProfileID", "Station profile ID"], ["updatedAt", "Updated UTC"], ["isDirty", "Local changes"], ["deletedAt", "Deleted UTC"]].map(([key, label]) => <div key={key}><dt>{label}</dt><dd>{draft[key] == null ? "—" : String(draft[key])}</dd></div>)}</dl><h3>Additional ADIF fields</h3><QSOExtraFields draft={draft} setDraft={setDraft} disabled={busy || !acceptsInput()} name={newADIFName} setName={setNewADIFName} /></div>
         </div></details>
       </section>
 
       <section className="qso-matrices" aria-labelledby="qso-matrix-title"><h2 id="qso-matrix-title"><Grid3X3 size={15} aria-hidden="true" /> Band / mode matrix</h2><div className="qso-matrix-columns"><div className="qso-matrix-section"><div className="qso-matrix-heading"><h3>Callsign</h3><p title={matrixCall}>{matrixCall || "Callsign unresolved"}</p></div>{!request ? <p>Local matrix is unavailable.</p> : !/^[A-Z0-9/-]{3,32}$/.test(matrixCall) ? <p>Enter a callsign to inspect its local history.</p> : matchingMatrix?.callError ? <p>{matchingMatrix.callError}</p> : matchingMatrix?.callCells ? <StatusMatrix scope="Callsign" cells={matchingMatrix.callCells} /> : <p>Checking local call history…</p>}</div><div className="qso-matrix-section"><div className="qso-matrix-heading"><h3>Country</h3><p title={matrixADIF === null ? "DXCC entity unresolved" : `${profile?.country || "Country unresolved"} · DXCC ${matrixADIF}`}>{matrixADIF === null ? "DXCC entity unresolved" : `${profile?.country || "Country unresolved"} · DXCC ${matrixADIF}`}</p></div>{matrixADIF === null ? <p>Country status needs a resolved DXCC entity.</p> : !request ? <p>Country matrix is unavailable.</p> : matchingMatrix?.countryError ? <p>{matchingMatrix.countryError}</p> : matchingMatrix?.countryCells ? <StatusMatrix scope="Country" cells={matchingMatrix.countryCells} /> : <p>Checking local contacts for this DXCC entity…</p>}</div></div></section>
 
       {(showErrors || errors.length > 0) && <div className="qso-validation" role="alert">{errors.length ? <ul>{errors.map((issue) => <li key={issue}>{issue}</li>)}</ul> : <span>QSO is ready to save.</span>}</div>}
-      <footer className="qso-actions"><div className="qso-footer-context">{radioControls && <label><input type="checkbox" checked={follow} onChange={(event) => { if (acceptsInput()) setFollow(event.target.checked); }} />Follow radio</label>}<span>Saved to your local logbook.</span></div><div className="qso-footer-buttons"><button type="button" onClick={() => { if (acceptsInput()) clear(); }} disabled={busy}><CircleX size={13} aria-hidden="true" /> {clearLabel}</button><button className="qso-save" type="submit" disabled={!canSave}><CircleCheck size={13} aria-hidden="true" /> {isEditing ? "Update QSO" : "Log QSO"}</button></div></footer>
+      <footer className="qso-actions"><div className="qso-footer-context">{radioControls && <label><input type="checkbox" checked={follow} onChange={(event) => { if (acceptsInput()) setFollow(event.target.checked); }} />Follow radio</label>}<span>Saved to your local logbook.</span></div><div className="qso-footer-buttons">{contactActions}<button type="button" onClick={() => { if (acceptsInput()) clear(); }} disabled={busy}><CircleX size={13} aria-hidden="true" /> {clearLabel}</button><button className="qso-save" type="submit" disabled={!canSave}><CircleCheck size={13} aria-hidden="true" /> {isEditing ? "Update QSO" : "Log QSO"}</button></div></footer>
     </form></div>
     {inspector && <aside className="qso-inspector" aria-label="Contact context">
       <section aria-labelledby="qso-intelligence-title"><h2 id="qso-intelligence-title"><ContactRound size={15} aria-hidden="true" /> Callsign intelligence</h2>

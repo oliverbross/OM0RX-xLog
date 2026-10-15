@@ -30,7 +30,6 @@ export function createLogbookLayoutAcceptance({ fill, click }: Controls): (actio
       if (editor()) throw new Error("An existing detached Logbook edit must be resolved before acceptance.");
       await waitForAcceptance("existing W1AW detached Logbook row", () => !!targetRow());
       targetRow()!.click();
-      await click("Edit", `${scope} .live-logbook-actions button`);
       await waitForAcceptance("detached Logbook contact editor", () => !!comment() && !!update() && !update()!.disabled);
       originalComment = comment()!.value;
       if (originalComment === workspaceDraftMarker) throw new Error("The contact already contains the acceptance marker; a dirty edit cannot be proved.");

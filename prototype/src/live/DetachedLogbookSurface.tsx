@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { workerRequest } from "../worker";
 import { LogbookPanel } from "./LogbookPanel";
-import QSOEditor from "./QSOEditor";
 import { LogbookContactSession, readContactJournal } from "./logbookContactSession";
 import { LogbookMutationSession, readLogbookMutationJournal } from "./logbookMutationSession";
 import { requestLogbookContact } from "./logbookContactTransport";
@@ -12,6 +11,9 @@ import { changedCallDraft } from "./draftEnrichment";
 import type { DraftQSO } from "./operatorDraftSession";
 import { nativeSpotEditor, useSpotEditor } from "./useSpotEditor";
 import { SpotActivationStatus } from "./SpotActivationStatus";
+import { ContactDeleteAction } from "./ContactDeleteAction";
+
+const QSOEditor = lazy(() => import("./QSOEditor"));
 
 export const detachedContactJournalKey = "xlog.integration.contactEdit.logbook.v1";
 export const detachedMutationJournalKey = "xlog.integration.logbookMutation.logbook.v1";
@@ -37,6 +39,7 @@ export function DetachedLogbookSurface() {
   const spotEditor = useSpotEditor([contacts], () => workingRef.current || tableBusyRef.current || mutations.getSnapshot().busy || mutations.getSnapshot().pending
     ? { ready: false, reason: "Finish the logbook action or close/Dock operation first." } : { ready: true });
   const acceptsInput = useCallback(() => contacts.canAcceptLocalInput() && !workingRef.current, [contacts]);
+  const deletionPending = mutation.busy || !!mutation.pending || mutation.workspaceChanged || mutation.conflict;
   const run = useCallback(async (action: () => Promise<unknown>) => {
     if (workingRef.current) return;
     workingRef.current = true; setWorking(true); setError("");
@@ -71,16 +74,19 @@ export function DetachedLogbookSurface() {
       <SpotActivationStatus status={spotEditor.status} error={spotEditor.error} reconcile={() => void spotEditor.reconcile()} />
       <ContactEditStatus state={edit} session={contacts} run={run} />
       <LogbookMutationStatus state={mutation} session={mutations} run={run} />
-      {edit.draft ? <QSOEditor draft={edit.draft} setDraft={next => {
-        if (!acceptsInput() || edit.locked || edit.workspaceChanged) return;
+      {edit.draft ? <Suspense fallback={<p role="status">Opening contact editor…</p>}><QSOEditor draft={edit.draft} setDraft={next => {
+        if (!acceptsInput() || edit.locked || edit.workspaceChanged || deletionPending) return;
         const current = contacts.getSnapshot().draft;
         const value = changedCallDraft(current, typeof next === "function" ? next(current) : next);
         if (value) contacts.edit(value as DraftQSO);
       }} save={() => run(async () => { await contacts.save(); changed(); })}
         clear={() => void run(async () => { contacts.cancel(); changed(); })}
-        busy={working || edit.activationFrozen || edit.locked || edit.conflict || edit.workspaceChanged}
-        draftLocked={edit.activationFrozen || edit.locked || edit.workspaceChanged} canAcceptLocalInput={acceptsInput} isEditing radioControls={false} clearLabel="Cancel edit"
-        lookup={lookup} previous={previous} follow={false} setFollow={() => {}} request={request} />
+        busy={working || edit.activationFrozen || edit.locked || edit.conflict || edit.workspaceChanged || deletionPending}
+        draftLocked={edit.activationFrozen || edit.locked || edit.workspaceChanged || deletionPending} canAcceptLocalInput={acceptsInput} isEditing radioControls={false} clearLabel="Cancel edit"
+        contactActions={edit.base && <ContactDeleteAction snapshot={edit.base} mutations={mutations}
+          disabled={working || edit.activationFrozen || edit.locked || edit.conflict || edit.workspaceChanged}
+          run={run} onDeleted={() => { contacts.cancel(); changed(); }} />}
+        lookup={lookup} previous={previous} follow={false} setFollow={() => {}} request={request} /></Suspense>
         : <LogbookPanel taskToolbar onRequest={request} refreshKey={refresh} mutations={mutations} onChanged={changed}
           onBusyChange={tableWorking} disabled={working || edit.activationFrozen || edit.locked} columnContext="detached"
           onEdit={qso => { if (!tableBusy) void run(() => contacts.open(qso.id)); }} />}

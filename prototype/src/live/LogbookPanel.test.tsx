@@ -105,7 +105,7 @@ describe("logbook confirmation visibility", () => {
     await screen.findByText("VK8AA");
     expect(request.mock.calls.some(([method]) => ["logbook_delete", "logbook_undo"].includes(method))).toBe(false);
     expect(request.mock.calls.filter(([method]) => method === "logbook_contact_apply").map(([, p]) => p?.action)).toEqual(["delete", "restore"]);
-    fireEvent.doubleClick(screen.getByText("OM0RX"));
+    fireEvent.click(screen.getByText("OM0RX"));
     expect(edit).toHaveBeenCalledWith(first);
   });
 
@@ -152,10 +152,12 @@ describe("logbook confirmation visibility", () => {
     const edit = vi.fn();
     const view = render(<LogbookPanel mutations={mutations} onRequest={request} onEdit={edit} refreshKey={0} />);
     fireEvent.click(await screen.findByText("OM0RX"));
+    expect(edit).toHaveBeenCalledOnce(); edit.mockClear();
     const checkbox = screen.getByRole("checkbox", { name: /Select VK8AA .* for export/ });
     fireEvent.keyDown(checkbox, { key: "Enter" });
     expect(edit).not.toHaveBeenCalled();
     fireEvent.click(checkbox);
+    expect(edit).not.toHaveBeenCalled();
     view.rerender(<LogbookPanel mutations={mutations} onRequest={request} onEdit={edit} refreshKey={1} />);
     await waitFor(() => expect((screen.getByRole("button", { name: "Select page" }) as HTMLButtonElement).disabled).toBe(false));
     expect(screen.getByText("0 selected on this page")).toBeTruthy();

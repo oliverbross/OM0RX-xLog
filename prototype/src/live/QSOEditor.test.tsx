@@ -261,6 +261,40 @@ describe("QSOEditor", () => {
     expect(editorCSS).toContain("white-space:pre-wrap; overflow-wrap:anywhere;");
   });
 
+  it("adds and removes arbitrary ADIF fields without overwriting case-insensitive or native names", () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByText("Additional QSO fields, timing and ADIF metadata"));
+    const name = screen.getByLabelText("New ADIF field name");
+    const add = () => fireEvent.click(screen.getByRole("button", { name: "Add ADIF field" }));
+    for (const key of ["call", "APP_xlog_note", "EOR", "bad:name"]) {
+      fireEvent.change(name, { target: { value: key } }); add();
+      expect(value().extraFields).toEqual(initial().extraFields);
+    }
+    fireEvent.change(name, { target: { value: "sat_name" } });
+    expect(screen.getByRole("button", { name: "Log QSO" }).hasAttribute("disabled")).toBe(true);
+    add();
+    fireEvent.change(screen.getByLabelText("ADIF SAT_NAME"), { target: { value: "  QO-100\nnotes  " } });
+    expect(value().extraFields).toEqual({ ...initial().extraFields, SAT_NAME: "  QO-100\nnotes  " });
+    fireEvent.click(screen.getByRole("button", { name: "Remove ADIF SAT_NAME" }));
+    expect(value().extraFields).toEqual(initial().extraFields);
+    expect(value().customQSOKey).toEqual({ retain: true });
+  });
+
+  it("removes only the selected extension and its metadata, preserving unrelated typed ADIF metadata", () => {
+    const extension = (name: string) => ({ kind: "APP", attributes: { PROGRAMID: "TEST", FIELDNAME: name, TYPE: "S" } });
+    const metadata = { version: 1, extensions: { APP_TEST_ONE: extension("ONE"), APP_TEST_TWO: extension("TWO") } };
+    function MetadataHarness() {
+      const [draft, setDraft] = useState<Record<string, any> | null>({ ...initial(), extraFields: { CALL: "EA7EU", APP_TEST_ONE: "one", APP_TEST_TWO: "two" }, adifFieldMetadata: metadata });
+      return <><QSOEditor draft={draft} setDraft={setDraft} save={vi.fn()} clear={vi.fn()} busy={false} lookup={null} previous={[]} follow={false} setFollow={vi.fn()} /><output data-testid="draft">{JSON.stringify(draft)}</output></>;
+    }
+    render(<MetadataHarness />);
+    fireEvent.click(screen.getByText("Additional QSO fields, timing and ADIF metadata"));
+    expect(screen.queryByLabelText("ADIF CALL")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Remove ADIF APP_TEST_ONE" }));
+    expect(value().extraFields).toEqual({ CALL: "EA7EU", APP_TEST_TWO: "two" });
+    expect(value().adifFieldMetadata).toEqual({ version: 1, extensions: { APP_TEST_TWO: metadata.extensions.APP_TEST_TWO } });
+  });
+
   it("round-trips every exposed detail field through its native QSO key", () => {
     render(<Harness />);
     const textFields: Record<string, [string, string][]> = {

@@ -67,6 +67,13 @@
 .qso-metadata dd { margin:2px 0 0; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
 .qso-metadata h3 { margin:10px 0 8px; font-size:11px; }
 .qso-extra { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+.qso-extra>div { min-width:0; }
+.qso-extra textarea,.qso-adif-fields>label input { width:100%; min-width:0; padding:5px 8px; border:1px solid #304b68; border-radius:6px; background:#102137; color:#e6edf6; font:12px/1.3 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+.qso-extra textarea { min-height:54px; resize:vertical; white-space:pre-wrap; overflow-wrap:anywhere; }
+.qso-extra textarea:focus-visible,.qso-adif-fields>label input:focus-visible { outline:2px solid #35c8f5; outline-offset:2px; }
+.qso-adif-fields>label { display:flex; flex-direction:column; gap:4px; margin:12px 0 6px; color:#a5b9cc; }
+.qso-contact-delete [role=group] { display:flex; flex-wrap:wrap; gap:6px; max-width:340px; white-space:normal; }
+.qso-contact-delete [role=group]>span { flex-basis:100%; }
 .qso-validation { color:#ffb1a9; border:1px solid #78433f; background:#331d24; border-radius:6px; padding:7px 10px; }
 .qso-validation ul { margin:0; padding-left:18px; }
 .qso-actions { display:flex; align-items:center; justify-content:space-between; gap:12px; min-width:0; padding:0 1px; }

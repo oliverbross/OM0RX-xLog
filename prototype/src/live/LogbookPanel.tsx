@@ -463,8 +463,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
             width={columnPreferences.widths[id]} onWidth={resizeColumn} />)}</tr></thead>
           <tbody>
             {rows.map((qso, index) => <tr key={qso.id} tabIndex={0} aria-selected={selectedID === qso.id}
-              onClick={() => { cancelDelete(); setSelectedID(qso.id); }}
-              onDoubleClick={() => { if (!busy && !loading) onEdit(qso); }}
+              onClick={() => { cancelDelete(); setSelectedID(qso.id); if (!busy && !loading) onEdit(qso); }}
               onKeyDown={event => {
                 if (event.target !== event.currentTarget) return;
                 if (busy || loading) return;

@@ -104,7 +104,7 @@ it("rejects missing or changed draft evidence and never clicks Update QSO", asyn
   await expect(context.action("editor_probe")).rejects.toThrow("not retained");
   await expect(context.action("editor_cancel")).rejects.toThrow("not retained");
   expect(context.backend.updates).toBe(0);
-  expect(context.click.mock.calls.map(([name]) => name)).toEqual(["Edit"]);
+  expect(context.click).not.toHaveBeenCalled();
 });
 
 it("rejects existing editors, already stored markers, and unknown actions", async () => {

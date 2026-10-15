@@ -30,9 +30,9 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 async function openEditor() {
-  fireEvent.click(await screen.findByText("W1AW"));
-  await waitFor(() => expect((screen.getByRole("button", { name: "Edit" }) as HTMLButtonElement).disabled).toBe(false));
-  fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+  await screen.findByText("W1AW");
+  await waitFor(() => expect(api.blocked?.()).toBe(false));
+  fireEvent.click(screen.getByText("W1AW"));
   await screen.findByRole("button", { name: "Update QSO" });
 }
 it("uses the shared editor with its own journal and no radio authority", async () => {
@@ -83,7 +83,7 @@ it("recovers a lost update acknowledgement after reopening without a second writ
   expect(localStorage.getItem(detachedContactJournalKey)).toBeNull();
 });
 it("deletes and restores with receipts, retains undo after remount, and keeps detached chrome out of the task", async () => {
-  render(<DetachedLogbookSurface />); fireEvent.click(await screen.findByText("W1AW"));
+  render(<DetachedLogbookSurface />); fireEvent.keyDown((await screen.findByText("W1AW")).closest("tr")!, { key: " " });
   fireEvent.click(screen.getByRole("button", { name: "Delete" }));
   fireEvent.click(await screen.findByRole("button", { name: "Confirm delete" }));
   await screen.findByText(/working logbook is empty/);

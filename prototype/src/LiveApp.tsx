@@ -34,6 +34,7 @@ import type { BandMapViewPreferences } from "./live/BandMaps";
 import { mergeBandMapPreferenceIntent } from "./live/detachedBandMapPreferences";
 import IntegratedAwards from "./live/AwardsPanel";
 import QSOEditor from "./live/QSOEditor";
+import { ContactDeleteAction } from "./live/ContactDeleteAction";
 import OperatorDesk, { DeskQSO, DeskIntelligence, DeskRotor } from "./live/OperatorDesk";
 import OperatorCanvas from "./live/OperatorCanvas";
 import { useWorkspaceLayout } from "./live/useWorkspaceLayout";
@@ -165,7 +166,7 @@ function MainLiveApp() {
   editing.current = !!contactEdit.draft;
   const [legacyDraft, setLegacyDraft] = useState(legacyDraftValue);
   const draft = contactEdit.draft ?? sharedDraft.draft;
-  const editorLocked = sharedDraft.activationFrozen || contactEdit.activationFrozen || sharedDraft.locked || contactEdit.locked || sharedDraft.workspaceChanged || contactEdit.workspaceChanged;
+  const editorLocked = sharedDraft.activationFrozen || contactEdit.activationFrozen || sharedDraft.locked || contactEdit.locked || sharedDraft.workspaceChanged || contactEdit.workspaceChanged || !!contactEdit.draft && (logbookMutation.busy || !!logbookMutation.pending || logbookMutation.workspaceChanged || logbookMutation.conflict);
   const editorBlocked = editorLocked || !!sharedDraft.conflict || contactEdit.conflict;
   const setDraft = useCallback((next: Data | null | ((current: Data | null) => Data | null)) => {
     if (mainClosing.current || layoutChanging.current || editorTransition.current) return;
@@ -883,6 +884,9 @@ function MainLiveApp() {
         canChangeView={() => !logbookWorkingRef.current && !mainClosing.current && !layoutChanging.current && !editorTransition.current && !logbookMutations.getSnapshot().busy && !logbookMutations.getSnapshot().pending} />}
         cluster={cluster} selectedSpotId={selected} onSelect={selectSpot} bandMaps={deskBands} /></div></>} />}
       {view === "Log QSO" && <QSOEditor referenceEvidence={referenceEvidence} draftLocked={editorLocked} draft={draft} setDraft={setOperatorDraft} save={save} clear={() => void run(clear)} busy={busy || editorBlocked} lookup={lookup} previous={previous} follow={follow} setFollow={setFollowImmediate} request={request} onReadRadio={readRadioIntoDraft} isEditing={editing.current} automaticStationMetadata={automaticStationMetadata}
+        clearLabel={editing.current ? "Cancel edit" : "Clear QSO"}
+        contactActions={contactEdit.base && <ContactDeleteAction snapshot={contactEdit.base} mutations={logbookMutations}
+          disabled={busy || editorBlocked} run={run} onDeleted={() => { contactSession.cancel(); setRefresh(n => n + 1); setView("Logbook"); }} />}
         canAcceptLocalInput={acceptsInput}
         powerState={editing.current ? undefined : sharedDraft.base?.power} powerIntent={editing.current ? undefined : sharedDraft.powerIntent}
         automaticPowerEnabled={settings?.automaticTransmitPower === true}
