@@ -160,3 +160,40 @@ popup, bell, speech and outbound UDP remain separate default-off adapter work.
 Operator visual acceptance, installation, notarization and live cluster
 acceptance remain open. No credential, operator logbook, online service or
 station device was accessed.
+
+## QLog-inspired native alert delivery source follow-up
+
+Exact source `d37aeb60df831d21f66d33d78ec56d4e4be109af` adds a native-owned,
+default-off desktop-notification adapter to the passive DX-alert owner. Popup
+delivery and notification sound are separate saved choices, sound requires
+popup, and delivery is limited to three notifications per ten seconds; alerts
+beyond that limit remain visible in the dashboard with a retained suppressed
+count. Notifications contain no action button and have no tune, transmit, CW,
+rotor or other station-control path. The rebuilt ad-hoc development bundle
+remains uninstalled.
+
+- Strict deep code-signature verification passes. The arm64 host SHA-256 is
+  `ae3e7ce6748e9939aa59322955596cbc0d0f24db10ee7606010fdbe12fb54d86`;
+  the universal worker SHA-256 is
+  `2070977245bce075eb0bb206f4b64ef0832c7bf0822b329dcc8b9feb0368d14c`.
+  The bundle identifies itself as `OM0RX-xLog`, and its staged distribution
+  metadata names the exact source above.
+- A fresh isolated run passes **33/33** checks with `embeddedUi: true`,
+  `worker: true`, no false check and `station_io: false`; see
+  [mac-source.json](evidence/native-ui-d37aeb6/mac-source.json). The randomized
+  acceptance namespace and incognito/private workspace exited cleanly.
+- Alert-delivery validation passes **9 focused Rust tests**, **6 focused
+  renderer tests**, **440 native unit tests** and **18 Hamlib integration
+  tests**, plus TypeScript and the production frontend/detached-window bundle
+  gate. The four-worker renderer run passed **2,393/2,394 tests across 159
+  files**; one unrelated Logbook timing test exceeded its five-second limit,
+  then its complete file passed **19/19** in a single-worker rerun. This is not
+  recorded as an all-green monolithic renderer run.
+
+The isolated fixture does not seed live cluster traffic and keeps alert
+delivery disabled, so this run does not claim observation of an actual macOS
+notification, notification sound or live alert match. Speech and outbound UDP
+remain deferred. Operator visual acceptance, installation, notarization and
+live-cluster acceptance remain open. The Windows Remote Station Agent was off;
+no credential, operator logbook, online service or station device was accessed,
+and no radio, amplifier, tuner, rotor, PTT, Tune or CW action was issued.

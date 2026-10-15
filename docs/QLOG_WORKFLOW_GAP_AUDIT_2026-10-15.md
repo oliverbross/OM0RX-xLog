@@ -48,7 +48,8 @@ xLog requirements.
 | **Adopt** | Named independently enabled rules, structured AND conditions with explicit multi-value OR choices, all matching rule names on one alert, a bounded recent-alert dashboard, repeat counts, clear/expiry controls, customizable columns and a separate delivery-adapter boundary. |
 | **Improve** | Evaluate from xLog's single native cluster owner; persist configuration atomically with generation/revision checks; default the entire feature off; identify repeats from the retained source epoch/spot identity and semantic call/band/mode rather than a loose frequency tolerance; impose explicit dedup and delivery rate limits; retain source freshness and classification text. |
 | **Keep passive** | Opening, closing, resizing or refreshing Alerts never starts another cluster poller. An alert row may offer a future explicit “Review spot” handoff, but it never tunes, transmits, keys CW or moves a rotor. Existing retained station-safety reporting remains a distinct “not a live all-clear” section. |
-| **Defer** | Native popup, bell, speech and outbound UDP are separate default-off adapters after the rule owner and test action are accepted. WSJT-X CQ becomes a possible source only after its receive contract supplies equivalent stable identities; the existing Logged ADIF receiver alone is not a CQ-alert feed. Advanced regular expressions are deferred until bounded evaluation and clear validation can be guaranteed. |
+| **Delivery** | Native popup and optional notification sound are implemented as a native-owned, default-off adapter with no action buttons or station authority. Delivery is limited to three notifications per ten seconds; excess matches remain in the dashboard and increment a visible suppressed count. Speech and outbound UDP remain deferred. |
+| **Defer** | WSJT-X CQ becomes a possible source only after its receive contract supplies equivalent stable identities; the existing Logged ADIF receiver alone is not a CQ-alert feed. Advanced regular expressions are deferred until bounded evaluation and clear validation can be guaranteed. |
 
 ## Broader workflow candidates
 
@@ -73,11 +74,15 @@ at the read-only source boundary. QLOG-03 is source-complete: xLog now has a
 native, default-off, passive named-rule owner over its one retained cluster
 projection; revision-fenced atomic settings; first-snapshot baselining; stable
 identity and bounded semantic repeat merging; a responsive recent-alert table;
-and test, clear, add, clone, remove and save actions. Six focused Rust tests,
-five focused renderer tests and the production bundle check pass. The code uses
+and test, clear, add, clone, remove and save actions. The next delivery slice is
+ also source-complete: a native-owned, default-off popup and optional sound
+ adapter with explicit delivery rate limiting, suppressed-count reporting and
+ no notification action buttons. Nine focused Rust tests, six focused renderer
+ tests and the production bundle check pass. The code uses
 xLog's own retained classifications and identities, starts no second poller and
 offers no tune, transmit, CW, rotor or station action. The ad-hoc macOS source
-bundle at exact source `527a419e55044b253a4d9a9f267c59c304e93317` passes strict
+bundle at exact source `d37aeb60df831d21f66d33d78ec56d4e4be109af` passes strict
 deep signature verification and the isolated **33/33** integrated acceptance
-run with `station_io: false`. Operator, live-cluster and delivery-adapter
-acceptance remain separate gates.
+run with `station_io: false`. Operator, live-cluster and actual macOS
+ notification/sound observation remain separate gates; speech and outbound UDP
+ remain deferred.

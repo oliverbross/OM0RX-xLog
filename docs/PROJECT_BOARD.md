@@ -257,11 +257,15 @@ acceptance. Consult the detailed tracker before closing any individual item.
   spot conditions, merged repeat counts, expiry and separate delivery adapters
   inform the same alert slice. xLog improves the boundary with native
   generation/revision ownership, stable spot identities, explicit rate limits
-  and no implicit tune action. QLOG-03 source implementation and macOS
-  source-package acceptance are complete at `527a419`: focused native/renderer
-  tests and the production bundle gate pass, strict deep signature verification
+  and no implicit tune action. QLOG-03 rule and native delivery source
+  implementation plus macOS source-package acceptance are complete at
+  `d37aeb6`: the native-owned popup and optional sound choices default off,
+  enforce a three-per-ten-second delivery limit, expose suppressed counts and
+  contain no action button or station authority. Focused native/renderer tests
+  and the production bundle gate pass, strict deep signature verification
   passes, and the isolated integrated run passes 33/33 with station I/O disabled.
-  Operator/live-cluster acceptance and default-off delivery adapters remain open. See the
+  Operator/live-cluster and actual macOS popup/sound acceptance remain open;
+  speech and outbound UDP remain deferred. See the
   [QLog audit](QLOG_WORKFLOW_GAP_AUDIT_2026-10-15.md).
 
 ## Update discipline
