@@ -1194,6 +1194,7 @@ fn main() {
                 });
             }
         });
+    let builder = builder.plugin(tauri_plugin_notification::init());
     let builder = if acceptance::use_production_singleton(isolated) {
         builder.plugin(tauri_plugin_single_instance::init(|app, _, _| {
             let app = app.clone();

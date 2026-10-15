@@ -2,20 +2,21 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
 export type DxAlertRule = { id: string; name: string; enabled: boolean; callsignGlob: string; bands: string[]; modes: string[]; callStatuses: string[]; dxccStatuses: string[]; specials: string[] };
-export type DxAlertConfiguration = { generation: string; revision: number; enabled: boolean; dedupSeconds: number; retentionMinutes: number; rules: DxAlertRule[] };
+export type DxAlertConfiguration = { generation: string; revision: number; enabled: boolean; dedupSeconds: number; retentionMinutes: number; nativePopup: boolean; notificationSound: boolean; rules: DxAlertRule[] };
 export type DxAlertEntry = { id: string; test: boolean; callsign: string; frequencyKHz: number; band: string; mode: string; callStatus: string; dxccStatus: string; specialTags: string[]; ruleNames: string[]; count: number; firstSeenMs: number; lastSeenMs: number };
-export type DxAlertsSnapshot = { epoch: string; revision: number; configuration: DxAlertConfiguration; storageError: string | null; source: { available: boolean; baselined: boolean; revision: number; receivedAtMs: number }; entries: DxAlertEntry[]; limits: { maximumRules: number; maximumEntries: number } };
+export type DxAlertsSnapshot = { epoch: string; revision: number; configuration: DxAlertConfiguration; storageError: string | null; source: { available: boolean; baselined: boolean; revision: number; receivedAtMs: number }; entries: DxAlertEntry[]; delivery: { error: string | null; suppressed: number; maximumPerWindow: number; windowSeconds: number }; limits: { maximumRules: number; maximumEntries: number } };
 
 const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+const identifier = /^[a-z0-9-]{1,64}$/;
 const integer = (value: unknown, maximum = Number.MAX_SAFE_INTEGER) => Number.isSafeInteger(value) && Number(value) >= 0 && Number(value) <= maximum;
 const strings = (value: unknown, maximum: number) => Array.isArray(value) && value.length <= maximum && value.every(item => typeof item === "string" && item.length <= 80);
 export function checkedDxAlerts(input: unknown): DxAlertsSnapshot {
   const value = input as DxAlertsSnapshot;
-  if (!value || !uuid.test(value.epoch) || !integer(value.revision) || !value.configuration || !value.source || !value.limits ||
+  if (!value || !uuid.test(value.epoch) || !integer(value.revision) || !value.configuration || !value.source || !value.delivery || !value.limits ||
     typeof value.configuration.generation !== "string" || !uuid.test(value.configuration.generation) || !integer(value.configuration.revision) ||
-    typeof value.configuration.enabled !== "boolean" || !integer(value.configuration.dedupSeconds, 3_600) || value.configuration.dedupSeconds < 15 || !integer(value.configuration.retentionMinutes, 1_440) || value.configuration.retentionMinutes < 1 ||
-    !Array.isArray(value.configuration.rules) || value.configuration.rules.length > 32 || value.configuration.rules.some(rule => !rule || !uuid.test(rule.id) ||
-      typeof rule.name !== "string" || !rule.name.trim() || rule.name.length > 80 || typeof rule.enabled !== "boolean" || typeof rule.callsignGlob !== "string" || rule.callsignGlob.length > 24 ||
+    typeof value.configuration.enabled !== "boolean" || typeof value.configuration.nativePopup !== "boolean" || typeof value.configuration.notificationSound !== "boolean" || value.configuration.notificationSound && !value.configuration.nativePopup || !integer(value.configuration.dedupSeconds, 3_600) || value.configuration.dedupSeconds < 15 || !integer(value.configuration.retentionMinutes, 1_440) || value.configuration.retentionMinutes < 1 ||
+    !Array.isArray(value.configuration.rules) || value.configuration.rules.length > 32 || value.configuration.rules.some(rule => !rule || !identifier.test(rule.id) ||
+      typeof rule.name !== "string" || !rule.name.trim() || rule.name.length > 80 || typeof rule.enabled !== "boolean" || typeof rule.callsignGlob !== "string" || rule.callsignGlob.length > 32 ||
       !strings(rule.bands, 13) || !strings(rule.modes, 3) || !strings(rule.callStatuses, 7) || !strings(rule.dxccStatuses, 10) || !strings(rule.specials, 16)) ||
     typeof value.storageError !== "string" && value.storageError !== null || typeof value.source.available !== "boolean" || typeof value.source.baselined !== "boolean" ||
     !integer(value.source.revision) || !integer(value.source.receivedAtMs) || !Array.isArray(value.entries) || value.entries.length > 200 ||
@@ -23,6 +24,7 @@ export function checkedDxAlerts(input: unknown): DxAlertsSnapshot {
       typeof entry.frequencyKHz !== "number" || !Number.isFinite(entry.frequencyKHz) || typeof entry.band !== "string" || typeof entry.mode !== "string" ||
       typeof entry.callStatus !== "string" || typeof entry.dxccStatus !== "string" || !strings(entry.specialTags, 16) || !strings(entry.ruleNames, 32) ||
       !integer(entry.count) || entry.count < 1 || !integer(entry.firstSeenMs) || !integer(entry.lastSeenMs)) ||
+    typeof value.delivery.error !== "string" && value.delivery.error !== null || !integer(value.delivery.suppressed) || !integer(value.delivery.maximumPerWindow, 20) || value.delivery.maximumPerWindow < 1 || !integer(value.delivery.windowSeconds, 300) || value.delivery.windowSeconds < 1 ||
     !integer(value.limits.maximumRules, 32) || !integer(value.limits.maximumEntries, 200)) throw new Error("DX alerts could not be verified.");
   return value;
 }

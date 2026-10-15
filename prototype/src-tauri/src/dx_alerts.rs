@@ -12,12 +12,15 @@ use std::sync::{
 };
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{Emitter, Manager};
+use tauri_plugin_notification::NotificationExt;
 
 const MAX_REVISION: u64 = 9_007_199_254_740_991;
 const MAX_RULES: usize = 32;
 const MAX_ENTRIES: usize = 200;
 const MAX_SEEN: usize = 4_096;
 const FILE_LIMIT: usize = 262_144;
+const DELIVERY_LIMIT: usize = 3;
+const DELIVERY_WINDOW_MS: u64 = 10_000;
 const CALL_STATUSES: [&str; 7] = [
     "New Call",
     "New Band",
@@ -45,6 +48,7 @@ const BANDS: [&str; 13] = [
 const MODE_GROUPS: [&str; 3] = ["cw", "data", "phone"];
 
 type Publish = dyn Fn() + Send + Sync;
+type Deliver = dyn Fn(&Entry, bool) -> Result<(), String> + Send + Sync;
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -66,6 +70,10 @@ struct EditableConfiguration {
     enabled: bool,
     dedup_seconds: u64,
     retention_minutes: u64,
+    #[serde(default)]
+    native_popup: bool,
+    #[serde(default)]
+    notification_sound: bool,
     rules: Vec<Rule>,
 }
 
@@ -78,6 +86,10 @@ struct Configuration {
     enabled: bool,
     dedup_seconds: u64,
     retention_minutes: u64,
+    #[serde(default)]
+    native_popup: bool,
+    #[serde(default)]
+    notification_sound: bool,
     rules: Vec<Rule>,
 }
 
@@ -125,11 +137,15 @@ struct State {
     seen: HashSet<String>,
     seen_order: VecDeque<String>,
     entries: VecDeque<Entry>,
+    delivery_error: Option<String>,
+    delivery_suppressed: u64,
+    delivery_times: VecDeque<u64>,
 }
 
 pub struct Owner {
     path: PathBuf,
     publish: Arc<Publish>,
+    deliver: Arc<Deliver>,
     stopped: AtomicBool,
     state: Mutex<State>,
 }
@@ -232,6 +248,7 @@ impl EditableConfiguration {
     fn validate(&self) -> Result<(), String> {
         if !(15..=3_600).contains(&self.dedup_seconds)
             || !(1..=1_440).contains(&self.retention_minutes)
+            || self.notification_sound && !self.native_popup
             || self.rules.len() > MAX_RULES
             || self
                 .rules
@@ -259,6 +276,8 @@ impl Configuration {
             enabled: false,
             dedup_seconds: 300,
             retention_minutes: 120,
+            native_popup: false,
+            notification_sound: false,
             rules: vec![Rule {
                 id: "new-dxcc".into(),
                 name: "New DXCC".into(),
@@ -281,6 +300,8 @@ impl Configuration {
             enabled: self.enabled,
             dedup_seconds: self.dedup_seconds,
             retention_minutes: self.retention_minutes,
+            native_popup: self.native_popup,
+            notification_sound: self.notification_sound,
             rules: self.rules.clone(),
         }
         .validate()
@@ -427,6 +448,25 @@ impl State {
         }
     }
 
+    fn delivery(&mut self, entry: &Entry, now: u64) -> Option<(Entry, bool)> {
+        if !self.configuration.native_popup {
+            return None;
+        }
+        while self
+            .delivery_times
+            .front()
+            .is_some_and(|sent| now.saturating_sub(*sent) >= DELIVERY_WINDOW_MS)
+        {
+            self.delivery_times.pop_front();
+        }
+        if self.delivery_times.len() >= DELIVERY_LIMIT {
+            self.delivery_suppressed = self.delivery_suppressed.saturating_add(1).min(MAX_REVISION);
+            return None;
+        }
+        self.delivery_times.push_back(now);
+        Some((entry.clone(), self.configuration.notification_sound))
+    }
+
     fn snapshot(&self) -> Value {
         json!({
             "epoch": self.epoch,
@@ -440,17 +480,24 @@ impl State {
                 "receivedAtMs": self.source_received_at_ms,
             },
             "entries": self.entries,
+            "delivery": {
+                "error": self.delivery_error,
+                "suppressed": self.delivery_suppressed,
+                "maximumPerWindow": DELIVERY_LIMIT,
+                "windowSeconds": DELIVERY_WINDOW_MS / 1_000,
+            },
             "limits": { "maximumRules": MAX_RULES, "maximumEntries": MAX_ENTRIES },
         })
     }
 }
 
 impl Owner {
-    fn new(path: PathBuf, publish: Arc<Publish>) -> Self {
+    fn new(path: PathBuf, publish: Arc<Publish>, deliver: Arc<Deliver>) -> Self {
         let (configuration, storage_error) = read(&path);
         Self {
             path,
             publish,
+            deliver,
             stopped: AtomicBool::new(false),
             state: Mutex::new(State {
                 configuration,
@@ -465,7 +512,26 @@ impl Owner {
                 seen: HashSet::new(),
                 seen_order: VecDeque::new(),
                 entries: VecDeque::new(),
+                delivery_error: None,
+                delivery_suppressed: 0,
+                delivery_times: VecDeque::new(),
             }),
+        }
+    }
+
+    fn deliver_all(&self, deliveries: Vec<(Entry, bool)>) {
+        if deliveries.is_empty() {
+            return;
+        }
+        let error = deliveries
+            .into_iter()
+            .filter_map(|(entry, sound)| (self.deliver)(&entry, sound).err())
+            .next();
+        if let Ok(mut state) = self.state.lock() {
+            if state.delivery_error != error {
+                state.delivery_error = error;
+                state.revision = state.revision.saturating_add(1).min(MAX_REVISION);
+            }
         }
     }
 
@@ -517,6 +583,8 @@ impl Owner {
             enabled: editable.enabled,
             dedup_seconds: editable.dedup_seconds,
             retention_minutes: editable.retention_minutes,
+            native_popup: editable.native_popup,
+            notification_sound: editable.notification_sound,
             rules: editable.rules,
         };
         persist(&self.path, &next)?;
@@ -526,6 +594,9 @@ impl Owner {
         state.baselined = false;
         state.seen.clear();
         state.seen_order.clear();
+        state.delivery_error = None;
+        state.delivery_suppressed = 0;
+        state.delivery_times.clear();
         state.revision = state.revision.saturating_add(1).min(MAX_REVISION);
         let snapshot = state.snapshot();
         drop(state);
@@ -542,7 +613,7 @@ impl Owner {
             .lock()
             .map_err(|_| "DX alert state is unavailable")?;
         let now = now_ms();
-        state.entries.push_front(Entry {
+        let entry = Entry {
             id: uuid::Uuid::new_v4().to_string(),
             test: true,
             callsign: "TEST".into(),
@@ -556,13 +627,15 @@ impl Owner {
             count: 1,
             first_seen_ms: now,
             last_seen_ms: now,
-        });
+        };
+        let delivery = state.delivery(&entry, now).into_iter().collect();
+        state.entries.push_front(entry);
         state.purge(now);
         state.revision = state.revision.saturating_add(1).min(MAX_REVISION);
-        let snapshot = state.snapshot();
         drop(state);
+        self.deliver_all(delivery);
         (self.publish)();
-        Ok(snapshot)
+        self.snapshot()
     }
 
     pub fn clear(&self) -> Result<Value, String> {
@@ -637,6 +710,7 @@ impl Owner {
         }
         let now = now_ms();
         let mut changed = false;
+        let mut deliveries = Vec::new();
         for spot in parsed {
             if !state.remember(spot.source_key.clone()) || !state.configuration.enabled {
                 continue;
@@ -682,7 +756,7 @@ impl Owner {
                 changed = true;
                 continue;
             }
-            state.entries.push_front(Entry {
+            let entry = Entry {
                 id: uuid::Uuid::new_v4().to_string(),
                 test: false,
                 callsign: spot.callsign,
@@ -696,7 +770,11 @@ impl Owner {
                 count: 1,
                 first_seen_ms: now,
                 last_seen_ms: now,
-            });
+            };
+            if let Some(delivery) = state.delivery(&entry, now) {
+                deliveries.push(delivery);
+            }
+            state.entries.push_front(entry);
             changed = true;
         }
         state.purge(now);
@@ -705,6 +783,7 @@ impl Owner {
         }
         drop(state);
         if changed {
+            self.deliver_all(deliveries);
             (self.publish)();
         }
         Ok(changed)
@@ -725,11 +804,41 @@ pub fn install(app: &tauri::AppHandle) -> Result<Arc<Owner>, String> {
         .join("dx-alert-rules.json");
     Ok(OWNER
         .get_or_init(|| {
-            let app = app.clone();
+            let publisher = app.clone();
+            let notifier = app.clone();
             Arc::new(Owner::new(
                 path,
                 Arc::new(move || {
-                    let _ = app.emit_to("alerts", "xlog:dx-alerts", ());
+                    let _ = publisher.emit_to("alerts", "xlog:dx-alerts", ());
+                }),
+                Arc::new(move |entry, sound| {
+                    let body = format!(
+                        "{} · {:.3} MHz · {}",
+                        entry.rule_names.join(", "),
+                        entry.frequency_khz / 1_000.0,
+                        entry.mode
+                    );
+                    let mut notification = notifier
+                        .notification()
+                        .builder()
+                        .title(format!("DX alert · {}", entry.callsign))
+                        .body(body)
+                        .group("dx-alerts");
+                    if sound {
+                        #[cfg(target_os = "macos")]
+                        {
+                            notification = notification.sound("Ping");
+                        }
+                        #[cfg(target_os = "linux")]
+                        {
+                            notification = notification.sound("message-new-instant");
+                        }
+                    } else {
+                        notification = notification.silent();
+                    }
+                    notification
+                        .show()
+                        .map_err(|_| "Native DX alert notification could not be shown.".to_string())
                 }),
             ))
         })
@@ -756,13 +865,19 @@ mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
 
     fn owner(directory: &Path) -> Owner {
-        Owner::new(directory.join("dx-alert-rules.json"), Arc::new(|| {}))
+        Owner::new(
+            directory.join("dx-alert-rules.json"),
+            Arc::new(|| {}),
+            Arc::new(|_, _| Ok(())),
+        )
     }
     fn editable(enabled: bool, rules: Vec<Rule>) -> Value {
         serde_json::to_value(EditableConfiguration {
             enabled,
             dedup_seconds: 300,
             retention_minutes: 120,
+            native_popup: false,
+            notification_sound: false,
             rules,
         })
         .unwrap()
@@ -884,6 +999,32 @@ mod tests {
     }
 
     #[test]
+    fn version_one_settings_migrate_delivery_off_and_reject_sound_without_popup() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("dx-alert-rules.json");
+        let mut legacy = serde_json::to_value(Configuration::default_off()).unwrap();
+        legacy.as_object_mut().unwrap().remove("nativePopup");
+        legacy.as_object_mut().unwrap().remove("notificationSound");
+        std::fs::write(&path, serde_json::to_vec(&legacy).unwrap()).unwrap();
+        let (configuration, error) = read(&path);
+        assert!(error.is_none());
+        assert!(!configuration.native_popup);
+        assert!(!configuration.notification_sound);
+
+        let owner = owner(directory.path());
+        let initial = owner.snapshot().unwrap();
+        let mut invalid = editable(false, vec![]);
+        invalid["notificationSound"] = json!(true);
+        assert!(owner
+            .save(
+                initial["configuration"]["generation"].as_str().unwrap(),
+                0,
+                invalid,
+            )
+            .is_err());
+    }
+
+    #[test]
     fn test_and_clear_are_dashboard_only_and_publishing_is_bounded() {
         let directory = tempfile::tempdir().unwrap();
         let publishes = Arc::new(AtomicU64::new(0));
@@ -893,11 +1034,80 @@ mod tests {
             Arc::new(move || {
                 count.fetch_add(1, Ordering::SeqCst);
             }),
+            Arc::new(|_, _| Ok(())),
         );
         assert_eq!(owner.test_alert().unwrap()["entries"][0]["test"], true);
         assert_eq!(publishes.load(Ordering::SeqCst), 1);
         assert_eq!(owner.clear().unwrap()["entries"], json!([]));
         assert_eq!(publishes.load(Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn native_delivery_is_opt_in_and_rate_limited_without_replaying_spots() {
+        let directory = tempfile::tempdir().unwrap();
+        let deliveries = Arc::new(AtomicU64::new(0));
+        let delivered = deliveries.clone();
+        let owner = Owner::new(
+            directory.path().join("dx-alert-rules.json"),
+            Arc::new(|| {}),
+            Arc::new(move |entry, sound| {
+                assert!(!entry.test);
+                assert!(sound);
+                delivered.fetch_add(1, Ordering::SeqCst);
+                Ok(())
+            }),
+        );
+        let initial = owner.snapshot().unwrap();
+        let mut settings = editable(true, vec![rule("new-dxcc", "New DXCC", &["ATNO"])]);
+        settings["nativePopup"] = json!(true);
+        settings["notificationSound"] = json!(true);
+        owner
+            .save(
+                initial["configuration"]["generation"].as_str().unwrap(),
+                0,
+                settings,
+            )
+            .unwrap();
+        owner.observe(&projection(1, vec![])).unwrap();
+        owner
+            .observe(&projection(
+                2,
+                (0..5)
+                    .map(|index| spot(&format!("fresh-{index}"), &format!("NEW{index}"), "ATNO"))
+                    .collect(),
+            ))
+            .unwrap();
+        assert_eq!(deliveries.load(Ordering::SeqCst), DELIVERY_LIMIT as u64);
+        let snapshot = owner.snapshot().unwrap();
+        assert_eq!(snapshot["entries"].as_array().unwrap().len(), 5);
+        assert_eq!(snapshot["delivery"]["suppressed"], 2);
+        assert_eq!(snapshot["delivery"]["error"], Value::Null);
+    }
+
+    #[test]
+    fn explicit_test_uses_enabled_delivery_and_retains_a_bounded_failure() {
+        let directory = tempfile::tempdir().unwrap();
+        let owner = Owner::new(
+            directory.path().join("dx-alert-rules.json"),
+            Arc::new(|| {}),
+            Arc::new(|entry, _| {
+                assert!(entry.test);
+                Err("fixture notification failure".into())
+            }),
+        );
+        let initial = owner.snapshot().unwrap();
+        let mut settings = editable(false, vec![]);
+        settings["nativePopup"] = json!(true);
+        owner
+            .save(
+                initial["configuration"]["generation"].as_str().unwrap(),
+                0,
+                settings,
+            )
+            .unwrap();
+        let snapshot = owner.test_alert().unwrap();
+        assert_eq!(snapshot["delivery"]["error"], "fixture notification failure");
+        assert_eq!(snapshot["entries"][0]["test"], true);
     }
 
     #[test]
