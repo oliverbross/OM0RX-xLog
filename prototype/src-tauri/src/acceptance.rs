@@ -1,5 +1,6 @@
 //! Opt-in, synthetic packaged-webview acceptance. Never active in a normal launch.
 use serde_json::{json, Value};
+use std::collections::HashMap;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::PathBuf;
@@ -19,6 +20,7 @@ pub struct Acceptance {
     spot_parent_report: Mutex<Option<Value>>,
     spot_absence: Mutex<Option<crate::detached_acceptance::SpotHistoryAbsence>>,
     window_steps: Mutex<crate::detached_acceptance::Steps>,
+    renderer_gates: Mutex<HashMap<String, bool>>,
     desk_original_size: Mutex<Option<tauri::PhysicalSize<u32>>>,
     #[cfg(target_os = "linux")]
     browser_contexts: Mutex<Vec<tempfile::TempDir>>,
@@ -157,7 +159,13 @@ pub fn passed(report: &Value) -> bool {
 }
 
 #[tauri::command]
-pub fn acceptance_enabled(state: tauri::State<'_, Acceptance>) -> bool { state.path.is_some() }
+pub fn acceptance_enabled(window: tauri::WebviewWindow, state: tauri::State<'_, Acceptance>) -> bool {
+    let enabled = state.path.is_some();
+    if let Ok(mut gates) = state.renderer_gates.lock() {
+        gates.insert(window.label().to_owned(), enabled);
+    }
+    enabled
+}
 
 #[tauri::command]
 pub fn acceptance_large_log(state: tauri::State<'_, Acceptance>) -> bool { state.path.is_some() && state.large_log }
@@ -265,12 +273,14 @@ pub fn acceptance_window_state(app: tauri::AppHandle, window: tauri::WebviewWind
     require_window_coordinator(&state, window.label(), &kind)?;
     let slot = match kind.as_str() { "awards" => &state.awards, "spot-history" => &state.spot_history, _ => &state.logbook };
     let report = slot.lock().map_err(|_| "Detached evidence unavailable")?.clone();
+    let gate_seen = state.renderer_gates.lock().map_err(|_| "Renderer gate evidence unavailable")?
+        .get(&kind).copied();
     let (open, visible, minimized, url) = if let Some(target) = app.get_webview_window(&kind) {
         (true, target.is_visible().map_err(|error| error.to_string())?,
             target.is_minimized().map_err(|error| error.to_string())?,
             Some(target.url().map_err(|error| error.to_string())?.to_string()))
     } else { (false, false, false, None) };
-    Ok(json!({"open":open,"visible":visible,"minimized":minimized,"url":url,"report":report}))
+    Ok(json!({"open":open,"visible":visible,"minimized":minimized,"url":url,"gate_seen":gate_seen,"report":report}))
 }
 
 #[tauri::command]
