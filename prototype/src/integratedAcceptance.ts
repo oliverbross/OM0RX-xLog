@@ -77,6 +77,7 @@ async function main(report: Json) {
   await waitForAcceptance("create empty logbook", () => [...document.querySelectorAll("button")].some(item => item.textContent === "Create empty logbook"));
   await click("Create empty logbook");
   await waitForAcceptance("real operator draft", () => !!document.querySelector('[aria-label="Desk Callsign"]'));
+  if (largeLog) report.details.performance.operatorReadyMs = Math.round(performance.now());
   check("workspace_created", (await worker("workspace_status")).result.workspace_exists === true);
   report.details.workspaceLayout = await verifyWorkspaceLayoutRoundtrip();
   check("workspace_layout_roundtrip", report.details.workspaceLayout.staleWriteRejected);
@@ -291,6 +292,7 @@ async function main(report: Json) {
   check("final_desk", element<HTMLInputElement>('[aria-label="Desk Callsign"]').value === "" && validSavedContact((await worker("logbook_list", { search: "W1AW" })).result));
   if (largeLog) {
     await measureLargeHistory(report, check);
+    await measureLargeNavigation(report, check);
     report.details.finalMap = await awaitMap();
     check("large_final_desk", element<HTMLInputElement>('[aria-label="Desk Callsign"]').value === "" &&
       (await worker("logbook_list", { limit: 1 })).result.total === LARGE_LOG_RECORDS + 2);
@@ -298,7 +300,7 @@ async function main(report: Json) {
 }
 
 async function prepareLargeLog(report: Json, check: (name: string, condition: boolean) => void) {
-  const metrics: Json = { fixture_records: LARGE_LOG_RECORDS };
+  const metrics: Json = { ...report.details.performance, fixture_records: LARGE_LOG_RECORDS };
   report.details.performance = metrics;
   const importStarted = performance.now();
   for (let offset = 0; offset < LARGE_LOG_RECORDS; offset += 64) {
@@ -342,6 +344,20 @@ async function measureLargeHistory(report: Json, check: (name: string, condition
   await waitForAcceptance("large-test draft cleared", () => element<HTMLInputElement>('[aria-label="Desk Callsign"]').value === "");
 }
 
+async function measureLargeNavigation(report: Json, check: (name: string, condition: boolean) => void) {
+  const routes = ["Logbook", "DX Cluster", "Band Maps", "Awards", "Settings", "Operator Desk"];
+  const samples = Object.fromEntries(routes.map(route => [route, [] as number[]])) as Record<string, number[]>;
+  for (let cycle = 0; cycle < 5; cycle++) {
+    for (const route of routes) {
+      const started = performance.now();
+      await navigate(route);
+      samples[route].push(Math.round(performance.now() - started));
+    }
+  }
+  report.details.performance.navigationMs = samples;
+  check("large_navigation_ready", Object.values(samples).every(values => values.length === 5 && values.every(value => Number.isFinite(value) && value >= 0)));
+}
+
 let started = false;
 export async function startIntegratedAcceptance() {
   if (started || !await invoke<boolean>("acceptance_enabled")) return;
@@ -352,6 +368,7 @@ export async function startIntegratedAcceptance() {
   try {
     await waitForAcceptance("integrated UI mount", () => !!document.querySelector(".app.live"));
     report.embeddedUi = true;
+    if (!surface) report.details.performance = { appUiMountMs: Math.round(performance.now()) };
     if (!surface && await resumeSpotHistoryAbsence(report, worker, navigate, awaitMap)) {
       report.status = "passed";
       await invoke("finish_acceptance", { report });

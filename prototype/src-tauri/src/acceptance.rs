@@ -427,10 +427,13 @@ pub fn start_watchdog(app: tauri::AppHandle) {
 fn large_log_passed(report: &Value) -> bool {
     let performance = &report["details"]["performance"];
     performance["fixture_records"] == 100_000 && performance["total_records"] == 100_002
-        && ["large_log_records", "large_logbook_ready", "large_awards_ready", "large_history_ready", "large_final_desk"]
+        && ["large_log_records", "large_logbook_ready", "large_awards_ready", "large_history_ready", "large_navigation_ready", "large_final_desk"]
             .iter().all(|key| report["checks"][key] == true)
-        && ["importMs", "logbookReadyMs", "awardsFirstOpenMs", "awardsRepeatOpenMs", "historyFirstMs", "historyRepeatMs", "historyRenderedMs"]
+        && ["appUiMountMs", "operatorReadyMs", "importMs", "logbookReadyMs", "awardsFirstOpenMs", "awardsRepeatOpenMs", "historyFirstMs", "historyRepeatMs", "historyRenderedMs"]
             .iter().all(|key| performance[key].as_f64().is_some_and(|value| value.is_finite() && value >= 0.0))
+        && ["Logbook", "DX Cluster", "Band Maps", "Awards", "Settings", "Operator Desk"].iter().all(|route|
+            performance["navigationMs"][route].as_array().is_some_and(|samples|
+                samples.len() == 5 && samples.iter().all(|sample| sample.as_f64().is_some_and(|value| value.is_finite() && value >= 0.0))))
 }
 
 #[cfg(test)]
@@ -458,11 +461,14 @@ mod tests {
         let mut report = json!({"checks": {}, "details":{"performance": {
             "fixture_records":100_000, "total_records":100_002
         }}});
-        for key in ["large_log_records", "large_logbook_ready", "large_awards_ready", "large_history_ready", "large_final_desk"] {
+        for key in ["large_log_records", "large_logbook_ready", "large_awards_ready", "large_history_ready", "large_navigation_ready", "large_final_desk"] {
             report["checks"][key] = json!(true);
         }
-        for key in ["importMs", "logbookReadyMs", "awardsFirstOpenMs", "awardsRepeatOpenMs", "historyFirstMs", "historyRepeatMs", "historyRenderedMs"] {
+        for key in ["appUiMountMs", "operatorReadyMs", "importMs", "logbookReadyMs", "awardsFirstOpenMs", "awardsRepeatOpenMs", "historyFirstMs", "historyRepeatMs", "historyRenderedMs"] {
             report["details"]["performance"][key] = json!(1);
+        }
+        for route in ["Logbook", "DX Cluster", "Band Maps", "Awards", "Settings", "Operator Desk"] {
+            report["details"]["performance"]["navigationMs"][route] = json!([1, 1, 1, 1, 1]);
         }
         assert!(large_log_passed(&report));
         report["details"]["performance"]["total_records"] = json!(1);
