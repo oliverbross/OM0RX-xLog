@@ -3,7 +3,7 @@ import XCTest
 @testable import XLogPrototypeSupport
 
 private final class FakeWSJTXReceiver: WSJTXDatagramReceiving, @unchecked Sendable {
-    var onDatagram: (@Sendable (Data) -> Void)?
+    var onDatagram: (@Sendable (Data, String) -> Void)?
     private(set) var started: (String, UInt16)?
     private(set) var stopCount = 0
     var failure: Error?
@@ -47,6 +47,8 @@ final class LiveWSJTXBridgeTests: XCTestCase {
         XCTAssertEqual(value.schema, 3); XCTAssertEqual(value.instanceID, "WSJT-X")
         XCTAssertTrue(value.text.contains("<CALL:5>VK8AA"))
         XCTAssertNil(try WSJTXMessageParser.loggedADIF(from: datagram(type: 0)))
+        var legacy = datagram(); legacy[7] = 1
+        XCTAssertEqual(try WSJTXMessageParser.loggedADIF(from: legacy)?.schema, 1)
     }
 
     func testMalformedOrOversizedEnvelopeFailsClosed() {

@@ -3,7 +3,8 @@ import "./WSJTXPanel.css";
 
 type Configuration = { enabled: boolean; address: string; port: number };
 type Snapshot = { configuration: Configuration; running: boolean; received_count: number; imported_count: number;
-  duplicate_count: number; ignored_count: number; rejected_count: number; dropped_count: number; status: string; receive_only: boolean };
+  duplicate_count: number; ignored_count: number; rejected_count: number; dropped_count: number; status: string; receive_only: boolean;
+  activity?: { spots: unknown[]; session_count: number } };
 type Request = (method: string, params?: Record<string, unknown>) => Promise<any>;
 
 export function validWSJTXConfiguration(value: Configuration | null): boolean {
@@ -71,6 +72,8 @@ export default function WSJTXPanel({ request, onImported }: { request: Request; 
     <header><div><h2>WSJT-X UDP logging</h2><p>Receive the Logged ADIF message after you accept WSJT-X’s Log QSO dialog. Contacts save locally first and use the normal duplicate and synchronization rules.</p></div>
       <strong className={snapshot?.running ? "teal" : "secondary"}>{snapshot?.running ? "Listening" : "Stopped"}</strong></header>
     <p className="wsjtx-safety">Receive-only: xLog never sends WSJT-X packets, replies to decodes, keys PTT or changes the radio through this integration.</p>
+    <p>Fresh FT8/FT4 CQ activity can feed source-specific rules in Alerts. Activity expires after 60 seconds; replayed, off-air and low-confidence decodes are excluded. Existing rules remain DX Cluster only.</p>
+    {snapshot?.activity && <p>Retained CQ reports: {snapshot.activity.spots.length} · WSJT-X instances: {snapshot.activity.session_count}</p>}
     {error && <p className="live-error" role="alert">{error}</p>}
     {notice && <p className="live-message" role="status">{notice}</p>}
     {draft ? <>

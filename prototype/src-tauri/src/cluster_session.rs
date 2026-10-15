@@ -59,6 +59,7 @@ struct Projection {
 }
 
 pub struct ClusterSession {
+    activity_tick: Arc<dyn Fn() + Send + Sync>,
     transport: Arc<Transport>,
     publish: Arc<Publish>,
     command: Mutex<()>,
@@ -78,6 +79,7 @@ impl Drop for SelectionFence {
 impl ClusterSession {
     fn new(transport: Arc<Transport>, publish: Arc<Publish>) -> Self {
         Self {
+            activity_tick: Arc::new(|| {}),
             transport,
             publish,
             command: Mutex::new(()),
@@ -322,9 +324,21 @@ impl ClusterSession {
                     .wait_timeout_while(guard, Duration::from_secs(1), |_| {
                         !owner.stopped.load(Ordering::Acquire)
                     });
-                let _ = owner.refresh();
+                owner.cycle();
             }
         });
+    }
+
+    fn with_activity_tick(mut self, tick: Arc<dyn Fn() + Send + Sync>) -> Self {
+        self.activity_tick = tick;
+        self
+    }
+
+    fn cycle(&self) {
+        if self.active().is_err() { return; }
+        // Passive activity is sampled even when cluster refresh is unavailable or busy.
+        (self.activity_tick)();
+        let _ = self.refresh();
     }
 
     pub fn stop(&self) {
@@ -353,7 +367,20 @@ pub fn owner(app: &tauri::AppHandle) -> Result<Arc<ClusterSession>, String> {
                         let _ = app.emit_to(label, "xlog:cluster-projection", &projection);
                     }
                 }),
-            ))
+            ).with_activity_tick(Arc::new(|| {
+                if let Some(alerts) = crate::dx_alerts::existing() {
+                    // Reuse the existing native loop and worker. Reading retained
+                    // activity cannot start the default-off UDP receiver.
+                    let generation = crate::worker::generation();
+                    let request = json!({"id":uuid::Uuid::new_v4().to_string(),"method":"wsjtx_snapshot","params":{}});
+                    match crate::worker::request_existing_generation(request, generation) {
+                        Ok(reply) if crate::worker::require_existing_generation(generation).is_ok() => {
+                            if alerts.observe_activity(&reply["result"]["activity"]).is_err() { alerts.activity_unavailable(); }
+                        }
+                        _ => alerts.activity_unavailable(),
+                    }
+                }
+            })))
         })
         .clone();
     if STOPPED.load(Ordering::Acquire) {
@@ -430,6 +457,14 @@ mod tests {
             );
         }
         assert_eq!(calls.load(Ordering::SeqCst), 1);
+    }
+    #[test]
+    fn failed_cluster_reads_still_sample_passive_activity_each_cycle() {
+        let published = Arc::new(AtomicU64::new(0)); let count = published.clone();
+        let owner = ClusterSession::new(Arc::new(|_| Err("No cluster configured".into())), Arc::new(|_| {}))
+            .with_activity_tick(Arc::new(move || { count.fetch_add(1, Ordering::SeqCst); }));
+        owner.cycle(); owner.cycle();
+        assert_eq!(published.load(Ordering::SeqCst), 2);
     }
     #[test]
     fn first_direct_reply_has_native_tokens_and_old_worker_payload_is_never_relabelled() {

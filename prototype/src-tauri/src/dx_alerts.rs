@@ -56,6 +56,8 @@ pub struct Rule {
     id: String,
     name: String,
     enabled: bool,
+    #[serde(default = "cluster_source")]
+    sources: Vec<String>,
     callsign_glob: String,
     #[serde(default)]
     comment_contains: String,
@@ -100,6 +102,7 @@ struct Configuration {
 struct Entry {
     id: String,
     test: bool,
+    source: String,
     callsign: String,
     frequency_khz: f64,
     band: String,
@@ -116,6 +119,7 @@ struct Entry {
 
 #[derive(Clone, Debug)]
 struct Spot {
+    source: String,
     source_key: String,
     callsign: String,
     frequency_khz: f64,
@@ -129,6 +133,7 @@ struct Spot {
 }
 
 struct State {
+    activity: ActivitySource,
     configuration: Configuration,
     storage_error: Option<String>,
     epoch: String,
@@ -144,6 +149,30 @@ struct State {
     delivery_error: Option<String>,
     delivery_suppressed: u64,
     delivery_times: VecDeque<u64>,
+}
+
+fn cluster_source() -> Vec<String> { vec!["cluster".into()] }
+
+#[derive(Default)]
+struct ActivitySource {
+    epoch: Option<String>,
+    revision: u64,
+    available: bool,
+    baselined: bool,
+    received_at_ms: u64,
+    seen: HashSet<String>,
+    order: VecDeque<String>,
+}
+
+impl ActivitySource {
+    fn remember(&mut self, key: String) -> bool {
+        if !self.seen.insert(key.clone()) { return false; }
+        self.order.push_back(key);
+        while self.order.len() > MAX_SEEN {
+            if let Some(old) = self.order.pop_front() { self.seen.remove(&old); }
+        }
+        true
+    }
 }
 
 pub struct Owner {
@@ -187,6 +216,9 @@ fn normalized_unique(values: &[String], maximum: usize) -> bool {
 impl Rule {
     fn validate(&self) -> Result<(), String> {
         if !identifier(&self.id)
+            || self.sources.is_empty() || self.sources.len() > 2
+            || self.sources.iter().any(|source| !matches!(source.as_str(), "cluster" | "wsjtx"))
+            || self.sources.iter().collect::<HashSet<_>>().len() != self.sources.len()
             || !visible_text(&self.name, 80)
             || self.callsign_glob.len() > 32
             || !self.comment_contains.is_empty() && !visible_text(&self.comment_contains, 80)
@@ -237,6 +269,7 @@ impl Rule {
 
     fn matches(&self, spot: &Spot) -> bool {
         self.enabled
+            && self.sources.contains(&spot.source)
             && (self.callsign_glob.is_empty() || glob_matches(&self.callsign_glob, &spot.callsign))
             && (self.comment_contains.is_empty()
                 || spot
@@ -293,6 +326,7 @@ impl Configuration {
                 id: "new-dxcc".into(),
                 name: "New DXCC".into(),
                 enabled: true,
+                sources: cluster_source(),
                 callsign_glob: String::new(),
                 comment_contains: String::new(),
                 bands: vec![],
@@ -397,6 +431,7 @@ fn spot(value: &Value) -> Option<Spot> {
         .map(str::to_owned)
         .collect();
     Some(Spot {
+        source: "cluster".into(),
         source_key,
         callsign,
         frequency_khz,
@@ -497,6 +532,12 @@ impl State {
                 "revision": self.source_revision,
                 "receivedAtMs": self.source_received_at_ms,
             },
+            "activitySource": {
+                "available": self.activity.available,
+                "baselined": self.activity.baselined,
+                "revision": self.activity.revision,
+                "receivedAtMs": self.activity.received_at_ms,
+            },
             "entries": self.entries,
             "delivery": {
                 "error": self.delivery_error,
@@ -518,6 +559,7 @@ impl Owner {
             deliver,
             stopped: AtomicBool::new(false),
             state: Mutex::new(State {
+                activity: ActivitySource::default(),
                 configuration,
                 storage_error,
                 epoch: uuid::Uuid::new_v4().to_string(),
@@ -607,6 +649,7 @@ impl Owner {
         };
         persist(&self.path, &next)?;
         state.configuration = next;
+        state.activity = ActivitySource::default();
         state.storage_error = None;
         state.baseline_next = true;
         state.baselined = false;
@@ -634,6 +677,7 @@ impl Owner {
         let entry = Entry {
             id: uuid::Uuid::new_v4().to_string(),
             test: true,
+            source: "test".into(),
             callsign: "TEST".into(),
             frequency_khz: 14_074.0,
             band: "20m".into(),
@@ -727,11 +771,54 @@ impl Owner {
             (self.publish)();
             return Ok(true);
         }
+        let parsed = parsed.into_iter().filter(|spot| state.remember(spot.source_key.clone())).collect();
+        self.evaluate(state, parsed)
+    }
+
+    /// Called only by the existing native projection loop; never by a renderer.
+    pub fn observe_activity(&self, projection: &Value) -> Result<bool, String> {
+        if self.stopped.load(Ordering::Acquire) { return Ok(false); }
+        let epoch = projection["epoch"].as_str().filter(|epoch| valid_uuid(epoch)).ok_or("Invalid WSJT-X activity epoch.")?;
+        let revision = projection["revision"].as_u64().filter(|value| *value <= MAX_REVISION).ok_or("Invalid WSJT-X activity revision.")?;
+        let available = projection["available"].as_bool().ok_or("Invalid WSJT-X activity availability.")?;
+        let values = projection["spots"].as_array().filter(|values| values.len() <= 200).ok_or("Invalid WSJT-X activity spots.")?;
+        let now = now_ms();
+        let parsed: Vec<Spot> = values.iter().filter(|value| value["receivedAtMs"].as_u64().is_some_and(|at| at <= now && now - at <= 60_000))
+            .filter_map(spot).map(|mut spot| { spot.source = "wsjtx".into(); spot }).collect();
+        let mut state = self.state.lock().map_err(|_| "DX alert state is unavailable")?;
+        if state.activity.epoch.as_deref() == Some(epoch) && revision < state.activity.revision { return Err("WSJT-X activity revision regressed.".into()); }
+        if state.activity.epoch.as_deref() == Some(epoch) && revision == state.activity.revision && state.activity.available == available { return Ok(false); }
+        let baseline = !state.activity.baselined || state.activity.epoch.as_deref() != Some(epoch);
+        if state.activity.epoch.as_deref() != Some(epoch) { state.activity = ActivitySource::default(); }
+        state.activity.epoch = Some(epoch.to_owned()); state.activity.revision = revision;
+        state.activity.available = available; state.activity.received_at_ms = projection["received_at_ms"].as_u64().unwrap_or(0);
+        state.activity.baselined = available;
+        let fresh = parsed.into_iter().filter(|spot| state.activity.remember(spot.source_key.clone())).collect();
+        state.revision = state.revision.saturating_add(1).min(MAX_REVISION);
+        if !available || baseline {
+            drop(state); (self.publish)(); return Ok(true);
+        }
+        let changed = self.evaluate(state, fresh)?;
+        if !changed { (self.publish)(); }
+        Ok(true)
+    }
+
+    pub fn activity_unavailable(&self) {
+        if let Ok(mut state) = self.state.lock() {
+            if state.activity.available {
+                state.activity.available = false; state.activity.baselined = false;
+                state.revision = state.revision.saturating_add(1).min(MAX_REVISION);
+                drop(state); (self.publish)();
+            }
+        }
+    }
+
+    fn evaluate(&self, mut state: std::sync::MutexGuard<'_, State>, parsed: Vec<Spot>) -> Result<bool, String> {
         let now = now_ms();
         let mut changed = false;
         let mut deliveries = Vec::new();
         for spot in parsed {
-            if !state.remember(spot.source_key.clone()) || !state.configuration.enabled {
+            if !state.configuration.enabled {
                 continue;
             }
             let rules: Vec<_> = state
@@ -747,7 +834,8 @@ impl Owner {
             rule_names.sort();
             rule_names.dedup();
             let semantic = format!(
-                "{}\u{1f}{}\u{1f}{}\u{1f}{}",
+                "{}\u{1f}{}\u{1f}{}\u{1f}{}\u{1f}{}",
+                spot.source,
                 spot.callsign,
                 spot.band,
                 spot.mode_group,
@@ -757,7 +845,8 @@ impl Owner {
             if let Some(entry) = state.entries.iter_mut().find(|entry| {
                 !entry.test
                     && format!(
-                        "{}\u{1f}{}\u{1f}{}\u{1f}{}",
+                        "{}\u{1f}{}\u{1f}{}\u{1f}{}\u{1f}{}",
+                        entry.source,
                         entry.callsign,
                         entry.band,
                         mode_group(&entry.mode),
@@ -779,6 +868,7 @@ impl Owner {
             let entry = Entry {
                 id: uuid::Uuid::new_v4().to_string(),
                 test: false,
+                source: spot.source,
                 callsign: spot.callsign,
                 frequency_khz: spot.frequency_khz,
                 band: spot.band,
@@ -905,6 +995,7 @@ mod tests {
     }
     fn rule(id: &str, name: &str, dxcc: &[&str]) -> Rule {
         Rule {
+            sources: cluster_source(),
             id: id.into(),
             name: name.into(),
             enabled: true,
@@ -938,6 +1029,55 @@ mod tests {
         assert_eq!(value["configuration"]["enabled"], false);
         assert_eq!(value["source"]["baselined"], true);
         assert_eq!(value["entries"], json!([]));
+    }
+
+    fn activity(revision: u64, spots: Vec<Value>) -> Value {
+        json!({"epoch":"00000000-0000-4000-8000-000000000009","revision":revision,"available":true,"received_at_ms":now_ms(),"spots":spots})
+    }
+    fn cq(id: &str, callsign: &str, at: u64) -> Value {
+        let mut value = spot(id, callsign, "Unknown");
+        value["receivedAtMs"] = json!(at); value["callStatus"] = json!("Unknown"); value["comment"] = json!(format!("CQ {callsign}")); value
+    }
+
+    #[test]
+    fn cq_activity_uses_same_rules_with_independent_baseline_repeat_merge_and_expiry() {
+        let directory = tempfile::tempdir().unwrap(); let owner = owner(directory.path());
+        let mut cq_rule = rule("cq", "CQ watch", &[]); cq_rule.sources = vec!["wsjtx".into()]; cq_rule.callsign_glob = "W1*".into();
+        let initial = owner.snapshot().unwrap();
+        owner.save(initial["configuration"]["generation"].as_str().unwrap(), 0, editable(true, vec![cq_rule])).unwrap();
+        // The cluster is unavailable throughout; WSJT-X independently establishes its baseline.
+        owner.observe(&json!({"revision":1,"available":false})).unwrap();
+        owner.observe_activity(&activity(1, vec![cq("baseline", "W1AW", now_ms())])).unwrap();
+        assert_eq!(owner.snapshot().unwrap()["entries"], json!([]));
+        let first = cq("sender-one-period-one", "W1AW", now_ms());
+        owner.observe_activity(&activity(2, vec![first.clone()])).unwrap();
+        owner.observe_activity(&activity(3, vec![first.clone()])).unwrap();
+        assert_eq!(owner.snapshot().unwrap()["entries"][0]["count"], 1);
+        owner.observe_activity(&activity(4, vec![first, cq("sender-two-period-one", "W1AW", now_ms())])).unwrap();
+        let snapshot = owner.snapshot().unwrap();
+        assert_eq!(snapshot["entries"].as_array().unwrap().len(), 1);
+        assert_eq!(snapshot["entries"][0]["count"], 2); assert_eq!(snapshot["entries"][0]["source"], "wsjtx");
+        owner.observe_activity(&activity(5, vec![cq("stale", "W1AW", now_ms() - 60_001)])).unwrap();
+        assert_eq!(owner.snapshot().unwrap()["entries"][0]["count"], 2);
+        // A stopped/replaced listener baselines all retained reports again.
+        owner.activity_unavailable();
+        owner.observe_activity(&activity(6, vec![cq("after-reconnect", "W1AW", now_ms())])).unwrap();
+        assert_eq!(owner.snapshot().unwrap()["entries"][0]["count"], 2);
+    }
+
+    #[test]
+    fn legacy_cluster_rules_cannot_start_matching_cq_and_malformed_sources_fail_closed() {
+        let legacy = serde_json::to_value(rule("legacy", "Cluster only", &[])).unwrap();
+        let mut legacy_object = legacy.as_object().unwrap().clone(); legacy_object.remove("sources");
+        let migrated: Rule = serde_json::from_value(Value::Object(legacy_object)).unwrap();
+        assert_eq!(migrated.sources, cluster_source());
+        let mut value = super::spot(&cq("one", "W1AW", now_ms())).unwrap(); value.source = "wsjtx".into();
+        assert!(!migrated.matches(&value));
+        let directory = tempfile::tempdir().unwrap(); let owner = owner(directory.path());
+        assert!(owner.observe_activity(&json!({"epoch":"bad","revision":1,"available":true,"spots":[]})).is_err());
+        let mut invalid = activity(1, vec![]); invalid["spots"] = json!(vec![Value::Null; 201]);
+        assert!(owner.observe_activity(&invalid).is_err());
+        assert_eq!(owner.snapshot().unwrap()["entries"], json!([]));
     }
 
     #[test]
@@ -1098,6 +1238,7 @@ mod tests {
         assert_eq!(saved["configuration"]["revision"], 1);
         assert!(owner.save(generation, 0, editable(false, vec![])).is_err());
         let invalid = Rule {
+            sources: cluster_source(),
             id: "all".into(),
             name: "Everything".into(),
             enabled: true,

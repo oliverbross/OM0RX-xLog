@@ -10,6 +10,18 @@ it("accepts the bounded native snapshot and rejects malformed identities", () =>
   expect(checkedDxAlerts(frame()).configuration.rules[0].id).toBe("new-dxcc");
   expect(() => checkedDxAlerts({ ...frame(), epoch:"bad" })).toThrow("could not be verified");
 });
+it("accepts explicit CQ sources and rejects unknown sources or malformed activity health", () => {
+  const value = frame(); Object.assign(value.configuration.rules[0], { sources:["wsjtx"] });
+  Object.assign(value, { activitySource:{ available:true, baselined:true, revision:2, receivedAtMs:10 } });
+  expect(checkedDxAlerts(value).configuration.rules[0].sources).toEqual(["wsjtx"]);
+  for (const sources of [[], ["reply"], ["wsjtx", "wsjtx"]]) {
+    Object.assign(value.configuration.rules[0], { sources });
+    expect(() => checkedDxAlerts(value)).toThrow("could not be verified");
+  }
+  Object.assign(value.configuration.rules[0], { sources:["cluster"] });
+  Object.assign(value, { activitySource:{ available:true, baselined:true, revision:-1, receivedAtMs:10 } });
+  expect(() => checkedDxAlerts(value)).toThrow("could not be verified");
+});
 it("uses native wakes and focus recovery without polling", async () => {
   const read=vi.fn().mockResolvedValue(frame()), listen=vi.fn(async () => vi.fn()), changed=vi.fn(), failed=vi.fn();
   const dispose=connectDxAlerts(changed,failed,{ read,listen }); await Promise.resolve(); await Promise.resolve();

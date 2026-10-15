@@ -67,7 +67,7 @@ enum WSJTXMessageParser {
 /// Receive-only IPv4 UDP endpoint. Multicast joins are supported because the
 /// WSJT-X protocol explicitly permits several logging clients on one feed.
 final class WSJTXUDPReceiver: WSJTXDatagramReceiving, @unchecked Sendable {
-    typealias DatagramHandler = @Sendable (Data) -> Void
+    typealias DatagramHandler = @Sendable (Data, String) -> Void
     typealias EventHandler = @Sendable (String) -> Void
 
     private let queue = DispatchQueue(label: "com.om0rx.xlog.wsjtx.udp")
@@ -160,9 +160,17 @@ final class WSJTXUDPReceiver: WSJTXDatagramReceiving, @unchecked Sendable {
     private func drain(fd: Int32, generation: UUID) {
         while lock.withLock({ self.generation == generation && descriptor == fd }) {
             var buffer = [UInt8](repeating: 0, count: 65_535)
-            let count = Darwin.recv(fd, &buffer, buffer.count, 0)
+            var sender = sockaddr_in(), senderSize = socklen_t(MemoryLayout<sockaddr_in>.size)
+            let count = withUnsafeMutablePointer(to: &sender) { pointer in
+                pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                    Darwin.recvfrom(fd, &buffer, buffer.count, 0, $0, &senderSize)
+                }
+            }
             if count > 0 {
-                onDatagram(Data(buffer.prefix(Int(count))))
+                guard sender.sin_family == sa_family_t(AF_INET) else { continue }
+                let address = UInt32(bigEndian: sender.sin_addr.s_addr)
+                let endpoint = "\(address >> 24).\((address >> 16) & 255).\((address >> 8) & 255).\(address & 255):\(UInt16(bigEndian: sender.sin_port))"
+                onDatagram(Data(buffer.prefix(Int(count))), endpoint)
             } else if count == 0 || errno == EAGAIN || errno == EWOULDBLOCK {
                 return
             } else {
@@ -186,7 +194,7 @@ public actor LiveWSJTXBridge {
     private let configurationURL: URL
     private let workspaceAvailable: @Sendable () throws -> Bool
     private let importer: @Sendable (String) throws -> (imported: Int, skipped: Int)
-    private let receiverFactory: @Sendable (@escaping @Sendable (Data) -> Void,
+    private let receiverFactory: @Sendable (@escaping @Sendable (Data, String) -> Void,
                                              @escaping @Sendable (String) -> Void) -> WSJTXDatagramReceiving
     private var configuration: WSJTXBridgeConfiguration?
     private var receiver: WSJTXDatagramReceiving?
@@ -201,6 +209,7 @@ public actor LiveWSJTXBridge {
     private var rejectedCount = 0
     private var status = "Off"
     private let ingress = SpotIngressGate(limit: 64)
+    private var activity = WSJTXActivity()
 
     init(configurationURL: URL? = nil,
          workspaceAvailable: @escaping @Sendable () throws -> Bool = {
@@ -209,7 +218,7 @@ public actor LiveWSJTXBridge {
          importer: @escaping @Sendable (String) throws -> (imported: Int, skipped: Int) = {
              try LiveLogbookMethods.shared.importLoggedADIF($0)
          },
-         receiverFactory: @escaping @Sendable (@escaping @Sendable (Data) -> Void,
+         receiverFactory: @escaping @Sendable (@escaping @Sendable (Data, String) -> Void,
                                                 @escaping @Sendable (String) -> Void) -> WSJTXDatagramReceiving = {
              WSJTXUDPReceiver(onDatagram: $0, onEvent: $1)
          }) {
@@ -278,15 +287,19 @@ public actor LiveWSJTXBridge {
         }
     }
 
-    func ingest(_ data: Data) async {
+    func ingest(_ data: Data, sender: String = "127.0.0.1:2237") async {
         guard let generation = receiverGeneration else { return }
-        await ingest(data, generation: generation)
+        await ingest(data, sender: sender, generation: generation)
     }
 
-    private func ingest(_ data: Data, generation: UUID) async {
+    private func ingest(_ data: Data, sender: String, generation: UUID) async {
         guard receiverGeneration == generation, receiver != nil, configuration?.enabled == true else { return }
         receivedCount += 1
         do {
+            if let message = try WSJTXActivityMessage.parse(data) {
+                activity.receive(message, sender: sender, now: UInt64(Date().timeIntervalSince1970 * 1000))
+                return
+            }
             guard let message = try WSJTXMessageParser.loggedADIF(from: data) else {
                 ignoredCount += 1; status = "Listening; a non-log WSJT-X message was ignored."; return
             }
@@ -300,6 +313,7 @@ public actor LiveWSJTXBridge {
         } catch {
             guard receiverGeneration == generation else { return }
             rejectedCount += 1
+            activity.invalidate(sender: sender)
             status = "Rejected an invalid WSJT-X datagram or ADIF record; the logbook was unchanged."
         }
     }
@@ -309,9 +323,9 @@ public actor LiveWSJTXBridge {
         if receiver != nil { return }
         let generation = UUID(); receiverGeneration = generation
         let ingress = self.ingress
-        let next = receiverFactory({ [weak self] data in
+        let next = receiverFactory({ [weak self] data, sender in
             guard ingress.admit(bytes: data.count) else { return }
-            Task { defer { ingress.finish() }; await self?.ingest(data, generation: generation) }
+            Task { defer { ingress.finish() }; await self?.ingest(data, sender: sender, generation: generation) }
         }, { [weak self] event in Task { await self?.receiverEvent(event, generation: generation) } })
         do {
             try next.start(address: config.address, port: config.port)
@@ -326,6 +340,7 @@ public actor LiveWSJTXBridge {
 
     private func stopReceiver() {
         receiverGeneration = nil; receiver?.stop(); receiver = nil
+        activity.reset()
     }
 
     private func requireStartAvailable() throws {
@@ -347,7 +362,8 @@ public actor LiveWSJTXBridge {
         return ["configuration": ["enabled": config.enabled, "address": config.address, "port": Int(config.port)],
                 "running": receiver != nil, "received_count": receivedCount, "imported_count": importedCount,
                 "duplicate_count": duplicateCount, "ignored_count": ignoredCount, "rejected_count": rejectedCount,
-                "dropped_count": ingress.droppedCount, "status": status, "receive_only": true]
+                "dropped_count": ingress.droppedCount, "status": status, "receive_only": true,
+                "activity": activity.snapshot(now: UInt64(Date().timeIntervalSince1970 * 1000), available: receiver != nil)]
     }
 
     private func load() throws -> WSJTXBridgeConfiguration {

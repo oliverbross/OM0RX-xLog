@@ -60,4 +60,12 @@ describe("WSJT-X receive-only logging", () => {
     await vi.advanceTimersByTimeAsync(2100);
     expect(onImported).toHaveBeenCalledTimes(1);
   });
+  it("displays bounded CQ activity without saving a contact or enabling a listener", async () => {
+    const request = vi.fn(async () => snapshot({ activity:{ spots:[{}, {}], session_count:2 } }));
+    const imported = vi.fn(); render(<WSJTXPanel request={request} onImported={imported} />);
+    expect(await screen.findByText("Retained CQ reports: 2 · WSJT-X instances: 2")).toBeTruthy();
+    expect(screen.getByText(/Existing rules remain DX Cluster only/)).toBeTruthy();
+    expect(imported).not.toHaveBeenCalled();
+    expect(request.mock.calls).toEqual([["wsjtx_snapshot"]]);
+  });
 });

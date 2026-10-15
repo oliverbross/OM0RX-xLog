@@ -71,3 +71,16 @@ it("shows the retained matched comment as text without a station action", async 
   expect(screen.getByText("POTA <park>").tagName).toBe("TD");
   expect(screen.queryByRole("button", { name:/tune|transmit|acknowledge/i })).toBeNull();
 });
+it("keeps legacy rules cluster-only and explicitly saves CQ source rules without station actions", async () => {
+  const value = { ...dxFrame(), activitySource:{ available:true, baselined:true, revision:2, receivedAtMs:1 } };
+  native.invoke.mockImplementation(async command => command === "alerts_snapshot" ? frame() : value);
+  render(<DetachedAlertsSurface />); await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  expect((screen.getByLabelText("Source") as HTMLSelectElement).value).toBe("cluster");
+  expect(screen.getByText(/WSJT-X CQ feed listening/)).toBeTruthy();
+  fireEvent.change(screen.getByLabelText("Source"), { target:{ value:"wsjtx" } });
+  fireEvent.click(screen.getByRole("button", { name:"Save rules" }));
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  expect(native.invoke).toHaveBeenCalledWith("dx_alerts_save", expect.objectContaining({ configuration:expect.objectContaining({ rules:expect.arrayContaining([expect.objectContaining({ sources:["wsjtx"] })]) }) }));
+  expect(native.invoke.mock.calls.every(([command]) => ["alerts_snapshot", "dx_alerts_snapshot", "dx_alerts_save"].includes(command))).toBe(true);
+  expect(screen.queryByRole("button", { name:/tune|reply|transmit/i })).toBeNull();
+});

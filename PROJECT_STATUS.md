@@ -1,6 +1,17 @@
 # OM0RX-xLog project status
 
-Last updated: 2026-10-12
+Last updated: 2026-10-15
+
+## WSJT-X CQ alerts — source complete; external acceptance open
+
+The existing default-off receiver now supplies bounded, receive-only schema-3
+FT8/FT4 CQ activity to the existing named alert engine, with independent source
+baselines, sender/workspace identities, replay suppression and 60-second expiry.
+Legacy rules remain cluster-only; activity call/DXCC novelty remains explicitly
+Unknown. There is no outbound UDP, reply, contact-save or station-control
+authority for activity messages. Focused Swift 13/13, Rust 27/27 and renderer
+37/37 tests plus production TypeScript/Vite/window-bundle checks pass. This is
+source acceptance only; see [contract and limits](docs/WSJTX_CQ_ACTIVITY_SOURCE_ACCEPTANCE_2026-10-15.md).
 
 ## P2b real-service shared Mac app — partial acceptance
 
@@ -252,6 +263,9 @@ Current local evidence at this revision:
 
 ## External acceptance still required
 
+- Live WSJT-X UDP CQ/Status ingestion, actual native popup/sound delivery, and
+  operator verification of the packaged Alerts/Settings windows; source fixtures
+  do not establish these runtime gates.
 - Live bidirectional edits and deletion reconciliation against the operator's production station profile. Read-only bootstrap/import has been exercised successfully.
 - Live Wavelog catalog refresh. Authenticated Club Log CTY and LoTW refresh passed in the installed app on 11 Oct 2026.
 - Tune-latency optimization below the accepted coherent-but-slow 7.204-second combined transition, without reintroducing mixed state or weakening interlocks.
