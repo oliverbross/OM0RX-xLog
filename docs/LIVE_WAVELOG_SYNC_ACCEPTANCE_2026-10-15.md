@@ -113,5 +113,6 @@ local IDs absent remotely. This proves that the six records can be mapped safely
 without deleting or guessing and that current confirmation/enrichment values are
 eligible to refresh locally. The probe did not open the local database for
 mutation and issued no remote write. The installed alpha.29 still has the old
-hold behavior; installed automatic-sync and post-refresh data acceptance remain
-open until the corrected source is packaged and deliberately exercised.
+hold behavior. The corrected uninstalled source bundle now passes strict signing
+and 33/33 isolated checks with station I/O disabled; installed automatic-sync
+and post-refresh data acceptance remain open until it is deliberately exercised.

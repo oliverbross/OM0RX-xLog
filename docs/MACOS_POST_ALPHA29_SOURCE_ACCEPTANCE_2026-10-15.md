@@ -197,3 +197,35 @@ remain deferred. Operator visual acceptance, installation, notarization and
 live-cluster acceptance remain open. The Windows Remote Station Agent was off;
 no credential, operator logbook, online service or station device was accessed,
 and no radio, amplifier, tuner, rotor, PTT, Tune or CW action was issued.
+
+## Wavelog documented-order reconciliation follow-up
+
+Exact source `df3b5e730b454a49d93e7fcbcbe1f0467ba544ff` includes the
+documented-order correction from `24a7f9f`. It maps Wavelog's ascending ADIF
+rows to independently collected record IDs only when every page's
+`lastfetchedid`, total count and semantic QSO identity agree; any incomplete or
+inconsistent proof falls back to the existing fail-closed value matcher.
+
+- The canonical macOS packaging wrapper rebuilt the universal Swift worker,
+  staged its resource bundle and notices, generated exact-source distribution
+  metadata, rebuilt the Tauri host and applied the supported ad-hoc development
+  signature. Strict deep signature verification passes.
+- The arm64 host SHA-256 is
+  `ff4a3379d539dc2c08be728f49a17985849c76b0b7c04d901830f85210e843bd`;
+  the universal worker SHA-256 is
+  `78d30ae2ef2d95b486e08c23d877708e01333eab713d538466ee854c3d6a195d`.
+- A fresh isolated run passes **33/33** checks with `embeddedUi: true`,
+  `worker: true`, no false check and `station_io: false`; see
+  [mac-source.json](evidence/native-ui-df3b5e7/mac-source.json). The randomized
+  acceptance namespace and private workspace exited cleanly.
+- The focused identity audit passes **25 tests**. The normal native manifest
+  passes **194 tests**; the portable runs pass **201 XCTest cases**, **56
+  integration cases** and **394 Swift Testing cases** with only their explicit
+  opt-in skips.
+
+The package remains uninstalled. A separate GET-only probe over the operator's
+current Wavelog history mapped all 68,040 remote IDs with zero held and made no
+local or remote write. Therefore this is package/runtime and read-only live
+evidence, not installed automatic-sync or data-mutation acceptance. No online
+credential was exposed, and no radio, amplifier, tuner, rotor, PTT, Tune or CW
+action was issued.
