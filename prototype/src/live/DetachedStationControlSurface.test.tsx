@@ -286,6 +286,40 @@ function flexReceiveContext(): MonitorContext {
       capabilities: { supported_commands: ["set_frequency_a", "set_mode_a"] } } };
   return context;
 }
+function agentReceiveContext(): MonitorContext {
+  const context = flexReceiveContext();
+  context.selection!.provider = "direct_agent";
+  context.radio.provider = "direct_agent";
+  context.radio.snapshot.source = "direct_agent";
+  delete context.radio.snapshot.capabilities;
+  context.radio.snapshot.station = { radio_known: true, radio_stale: false, supported_commands: ["set_frequency_hz", "set_mode"] };
+  return context;
+}
+it("child exposes exact Agent receive controls from Agent capabilities and preserves the provider fence", async () => {
+  const owner = sharedAgent(), context = agentReceiveContext();
+  owner.state().selection.selection_id = context.selection!.selection_id; owner.observe(context);
+  render(<DetachedStationControlSurface />); await act(async () => {});
+  fireEvent.change(screen.getByLabelText("Child receive frequency MHz"), { target: { value: "14.0762" } });
+  fireEvent.click(screen.getByRole("button", { name: "Set receive VFO A frequency" })); await act(async () => {});
+  expect(owner.actions[0]).toMatchObject({ action: "receive_frequency", provider: "direct_agent", frequency_hz: 14076200,
+    selection_generation: 8, selection_id: context.selection!.selection_id, control_revision: 9, connection_generation: 13 });
+  expect(owner.actions[0]).not.toHaveProperty("allow_transmit");
+  context.revision++; context.selection!.control_revision = 10; context.radio.received_at_ms++;
+  owner.observe(context); await act(async () => { owner.observeWake(); });
+  fireEvent.change(screen.getByLabelText("Child receive mode"), { target: { value: "DIGU" } });
+  fireEvent.click(screen.getByRole("button", { name: "Set receive VFO A mode" })); await act(async () => {});
+  expect(owner.actions[1]).toMatchObject({ action: "receive_mode", provider: "direct_agent", mode: "DIGU", control_revision: 10 });
+  expect(native.worker).not.toHaveBeenCalled();
+});
+it("child disables only the Agent receive control not advertised by the current observation", async () => {
+  const owner = sharedAgent(), context = agentReceiveContext();
+  owner.state().selection.selection_id = context.selection!.selection_id;
+  context.radio.snapshot.station.supported_commands = ["set_frequency_hz"];
+  owner.observe(context); render(<DetachedStationControlSurface />); await act(async () => {});
+  fireEvent.change(screen.getByLabelText("Child receive frequency MHz"), { target: { value: "14.075" } });
+  expect(screen.getByRole("button", { name: "Set receive VFO A frequency" }).hasAttribute("disabled")).toBe(false);
+  expect(screen.getByRole("button", { name: "Set receive VFO A mode" }).hasAttribute("disabled")).toBe(true);
+});
 it("child sends only explicit exact VFO-A receive controls and waits for a new observation", async () => {
   const owner = sharedAgent(false, false, "direct_flex_lan"), context = flexReceiveContext();
   owner.state().selection.selection_id = context.selection!.selection_id; owner.observe(context);
@@ -339,6 +373,11 @@ it.each(["stale", "old radio observation", "transmitting", "unknown PTT", "VFO B
   if (reason === "unsupported") context.radio.snapshot.capabilities.supported_commands = [];
   if (reason === "generation unknown") delete context.radio.snapshot.generation;
   owner.observe(context); render(<DetachedStationControlSurface />); await act(async () => {});
+  if (reason === "stale") {
+    expect(screen.queryByLabelText("Child receive frequency MHz")).toBeNull();
+    expect(owner.actions).toHaveLength(0); expect(native.worker).not.toHaveBeenCalled();
+    return;
+  }
   fireEvent.change(screen.getByLabelText("Child receive frequency MHz"), { target: { value: "14.075" } });
   for (const name of ["Set receive VFO A frequency", "Set receive VFO A mode"]) {
     const button = screen.getByRole("button", { name }); expect(button.hasAttribute("disabled")).toBe(true); fireEvent.click(button);

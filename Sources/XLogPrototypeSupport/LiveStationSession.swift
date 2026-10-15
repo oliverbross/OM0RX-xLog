@@ -114,8 +114,12 @@ struct StationPowerSessionState {
 actor LiveStationSession {
     static let shared = LiveStationSession()
     private let rotor: LiveRotorSession
+    private let receiveReadbackTimeout: Duration
 
-    init(rotor: LiveRotorSession = .shared) { self.rotor = rotor }
+    init(rotor: LiveRotorSession = .shared, receiveReadbackTimeout: Duration = .seconds(4)) {
+        self.rotor = rotor
+        self.receiveReadbackTimeout = receiveReadbackTimeout
+    }
 
     private var client: RemoteAgentClient?
     private var baseURL: String?
@@ -590,6 +594,7 @@ actor LiveStationSession {
         guard let control = params["control"] as? String else { throw Self.invalidParams() }
         let command: (RemoteAgentClient) async throws -> Void
         let advertised: String
+        var exactReceive: ((XCatIntegrationCore.RadioSnapshot) -> Bool)?
         var needsTransmitOptIn = false
         switch control {
         case "set_rit", "set_xit":
@@ -628,10 +633,21 @@ actor LiveStationSession {
             command = control == "set_frequency_a"
                 ? { try await $0.setPrimaryFrequency(frequency) }
                 : { try await $0.setSecondaryFrequency(frequency) }
+        case "set_receive_frequency_a":
+            guard let frequency = try Self.integer(params["frequency_hz"]),
+                  (100_000...1_000_000_000).contains(frequency) else { throw Self.invalidParams() }
+            advertised = "set_frequency_hz"
+            command = { try await $0.setPrimaryFrequency(frequency) }
+            exactReceive = { $0.vfo("A")?.frequencyHz == frequency }
         case "set_mode":
             guard let mode = try Self.mode(params["mode"]) else { throw Self.invalidParams() }
             advertised = control
             command = { try await $0.setMode(mode) }
+        case "set_receive_mode_a":
+            guard let mode = try Self.mode(params["mode"]) else { throw Self.invalidParams() }
+            advertised = "set_mode"
+            command = { try await $0.setPrimaryMode(mode) }
+            exactReceive = { $0.vfo("A")?.mode.uppercased() == mode }
         case "ptt":
             guard let enabled = try Self.boolean(params["enabled"]) else { throw Self.invalidParams() }
             advertised = "set_ptt"
@@ -660,6 +676,12 @@ actor LiveStationSession {
               observed.isConnected || (control == "ptt" && !needsTransmitOptIn) || control == "clear_cw" else {
             throw WorkerFailure("station_action_blocked", "The radio does not currently support this control.")
         }
+        if exactReceive != nil {
+            guard station.radioKnown, !station.radioStale, !observed.isTransmitting,
+                  observed.vfo("A")?.isReceive == true else {
+                throw WorkerFailure("station_action_blocked", "A fresh receive/PTT-off VFO-A observation is required.")
+            }
+        }
         if needsTransmitOptIn {
             guard lifecycleTransitions == 0, allowTransmit, station.inhibitors.isEmpty, station.commissioned,
                   station.radioKnown, !station.radioStale else {
@@ -669,14 +691,45 @@ actor LiveStationSession {
         transmitOwnership.beginControl(control, enabled: needsTransmitOptIn)
         if needsTransmitOptIn { beginDirectTransmitAcquisition() }
         defer { if needsTransmitOptIn { finishDirectTransmitAcquisition() } }
+        let startedAt = Date()
         do {
             try await command(client)
             guard generation == connectionGeneration, self.client === client else { throw lifecycleChanged() }
-            transmitOwnership.completeControl(control, enabled: needsTransmitOptIn)
-            return ["accepted": true, "confirmed": false, "control": control, "state": await snapshot()]
         } catch {
             throw WorkerFailure("station_rejected", "The Remote Station Agent rejected the radio control.")
         }
+        if let exactReceive {
+            _ = try await waitForExactReceive(client, generation: generation, after: startedAt,
+                                              matches: exactReceive)
+        }
+        transmitOwnership.completeControl(control, enabled: needsTransmitOptIn)
+        return ["accepted": true, "confirmed": exactReceive != nil, "control": control, "state": await snapshot()]
+    }
+
+    private func waitForExactReceive(_ current: RemoteAgentClient, generation: UInt64, after startedAt: Date,
+                                     matches: @escaping (XCatIntegrationCore.RadioSnapshot) -> Bool) async throws -> XCatIntegrationCore.RadioSnapshot {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: receiveReadbackTimeout)
+        while clock.now < deadline {
+            try Task.checkCancellation()
+            let observed = await current.observedSnapshot()
+            reconcilePowerObservationSession()
+            guard generation == connectionGeneration, client === current else { throw lifecycleChanged() }
+            try requireActive()
+            if Self.exactReceiveConfirmed(observed, after: startedAt, matches: matches) {
+                return observed
+            }
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        throw WorkerFailure("station_timeout", "The Agent did not confirm the requested receive VFO-A state.")
+    }
+
+    static func exactReceiveConfirmed(_ observed: XCatIntegrationCore.RadioSnapshot, after startedAt: Date,
+                                      matches: (XCatIntegrationCore.RadioSnapshot) -> Bool) -> Bool {
+        observed.isConnected && observed.transportReceivedAt.map { $0 > startedAt } == true
+            && observed.remoteStationStatus?.radioKnown == true
+            && observed.remoteStationStatus?.radioStale == false
+            && !observed.isTransmitting && observed.vfo("A")?.isReceive == true && matches(observed)
     }
 
     private func recordState(_ event: StationPowerSessionEvent, generation: UInt64) {

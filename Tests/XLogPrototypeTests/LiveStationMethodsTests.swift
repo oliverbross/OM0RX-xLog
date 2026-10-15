@@ -1,5 +1,6 @@
 import Foundation
 import XCTest
+import XCatIntegrationCore
 @testable import XLogPrototypeSupport
 
 final class LiveStationMethodsTests: XCTestCase {
@@ -117,6 +118,35 @@ final class LiveStationMethodsTests: XCTestCase {
         XCTAssertFalse(LiveStationSession.requiresTransmitOptIn(.standby))
         XCTAssertFalse(LiveStationSession.requiresTransmitOptIn(.cancel))
         XCTAssertTrue(LiveStationSession.requiresTransmitOptIn(.tune))
+    }
+
+    func testExactAgentReceiveConfirmationRequiresANewerAuthoritativeIdleVFOAObservation() {
+        let started = Date()
+        let status = RemoteStationStatus(radioKnown: true, radioStale: false)
+        let confirmed = RadioSnapshot(frequencyHz: 14_075_100, mode: "DIGU", isConnected: true,
+            isTransmitting: false, slice: "A",
+            vfos: [RadioVFO(letter: "A", frequencyHz: 14_075_100, mode: "DIGU", isReceive: true)],
+            remoteStationStatus: status, transportReceivedAt: started.addingTimeInterval(0.01))
+        let matches: (XCatIntegrationCore.RadioSnapshot) -> Bool = {
+            $0.vfo("A")?.frequencyHz == 14_075_100 && $0.vfo("A")?.mode == "DIGU"
+        }
+        XCTAssertTrue(LiveStationSession.exactReceiveConfirmed(confirmed, after: started, matches: matches))
+
+        var stale = confirmed
+        stale.remoteStationStatus?.radioStale = true
+        XCTAssertFalse(LiveStationSession.exactReceiveConfirmed(stale, after: started, matches: matches))
+        var transmitting = confirmed
+        transmitting.isTransmitting = true
+        XCTAssertFalse(LiveStationSession.exactReceiveConfirmed(transmitting, after: started, matches: matches))
+        var old = confirmed
+        old.transportReceivedAt = started
+        XCTAssertFalse(LiveStationSession.exactReceiveConfirmed(old, after: started, matches: matches))
+        var wrongVFO = confirmed
+        wrongVFO.vfos[0].isReceive = false
+        XCTAssertFalse(LiveStationSession.exactReceiveConfirmed(wrongVFO, after: started, matches: matches))
+        var wrongTarget = confirmed
+        wrongTarget.vfos[0].frequencyHz = 14_074_000
+        XCTAssertFalse(LiveStationSession.exactReceiveConfirmed(wrongTarget, after: started, matches: matches))
     }
 
     func testDirectEndpointRequiresCredentialFreeHTTPS() throws {

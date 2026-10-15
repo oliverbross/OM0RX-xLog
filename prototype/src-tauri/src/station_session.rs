@@ -87,18 +87,21 @@ fn is_save(action: &str) -> bool { matches!(action, "save" | "save_hamlib" | "sa
 fn is_receive(action: &str) -> bool { matches!(action, "receive_frequency" | "receive_mode") }
 fn receive_params(value: &Value) -> Result<Value, String> {
     let action = value["action"].as_str().unwrap_or("");
-    if !is_receive(action) || value["provider"] != "direct_flex_lan"
+    let provider = value["provider"].as_str().unwrap_or("");
+    if !is_receive(action) || !matches!(provider, "direct_agent" | "direct_flex_lan")
         || ["connection_generation", "control_revision"].iter().any(|key| value[*key].as_u64().is_none_or(|number| number > MAX_REVISION)) {
-        return Err("Invalid exact Direct FLEX receive target.".into());
+        return Err("Invalid exact receive target.".into());
     }
     if action == "receive_frequency" {
         let hz = value["frequency_hz"].as_u64().filter(|hz| (100_000..=1_000_000_000).contains(hz)).ok_or("Receive frequency must be an integer from 100 kHz to 1 GHz.")?;
-        return Ok(json!({"provider":"direct_flex_lan","expected_generation":value["connection_generation"],"control":"set_frequency_a","frequency_hz":hz}));
+        let control = if provider == "direct_agent" { "set_receive_frequency_a" } else { "set_frequency_a" };
+        return Ok(json!({"provider":provider,"expected_generation":value["connection_generation"],"control":control,"frequency_hz":hz}));
     }
     let mode = value["mode"].as_str().filter(|mode| matches!(*mode,
         "USB" | "LSB" | "CW" | "CWR" | "AM" | "FM" | "RTTY" | "RTTYR" | "DIGU" | "DIGL"))
         .ok_or("Choose a supported Direct FLEX receive mode.")?;
-    Ok(json!({"provider":"direct_flex_lan","expected_generation":value["connection_generation"],"control":"set_mode_a","mode":mode}))
+    let control = if provider == "direct_agent" { "set_receive_mode_a" } else { "set_mode_a" };
+    Ok(json!({"provider":provider,"expected_generation":value["connection_generation"],"control":control,"mode":mode}))
 }
 /// Match the existing direct FLEX private-IP contract without DNS or I/O.
 fn flex_configuration(value: &Value) -> Result<Value, String> {
@@ -925,16 +928,24 @@ mod tests {
     #[test]
     fn receive_controls_journal_exact_targets_before_dispatch_and_never_replay_unknowns() {
         let (directory, session, save) = setup();
-        for action in ["receive_frequency", "receive_mode"] {
+        for (provider, action) in [
+            ("direct_flex_lan", "receive_frequency"), ("direct_flex_lan", "receive_mode"),
+            ("direct_agent", "receive_frequency"), ("direct_agent", "receive_mode"),
+        ] {
             let state = session.snapshot().unwrap(); let identity = uuid::Uuid::new_v4().to_string();
             let mut command = json!({"action":action,"operation_id":uuid::Uuid::new_v4().to_string(),"generation":save["generation"],"revision":state["revision"],
-                "provider":"direct_flex_lan","selection_generation":7,"selection_id":identity,"control_revision":9,"connection_generation":13});
+                "provider":provider,"selection_generation":7,"selection_id":identity,"control_revision":9,"connection_generation":13});
             if action == "receive_frequency" { command["frequency_hz"] = json!(14074000); }
             else { command["mode"] = json!("DIGU"); }
             let receipt = session.apply(&command, |request, generation, selection_id| {
                 assert_eq!(generation, 7); assert_eq!(selection_id, identity); assert_eq!(request["method"], "station_radio_control");
-                assert_eq!(request["params"]["expected_generation"], 13); assert_eq!(request["params"]["provider"], "direct_flex_lan");
-                assert_eq!(request["params"]["control"], if action == "receive_frequency" { "set_frequency_a" } else { "set_mode_a" });
+                assert_eq!(request["params"]["expected_generation"], 13); assert_eq!(request["params"]["provider"], provider);
+                assert_eq!(request["params"]["control"], match (provider, action) {
+                    ("direct_agent", "receive_frequency") => "set_receive_frequency_a",
+                    ("direct_agent", _) => "set_receive_mode_a",
+                    (_, "receive_frequency") => "set_frequency_a",
+                    _ => "set_mode_a",
+                });
                 assert_eq!(Session::new(directory.path().join("session.json")).unwrap().receipt(command["operation_id"].as_str().unwrap()).unwrap()["status"], "unknown");
                 Err("reply lost".into())
             }).unwrap();
@@ -952,7 +963,7 @@ mod tests {
         let (directory, session, save) = setup();
         let command = json!({"action":"receive_frequency","operation_id":uuid::Uuid::new_v4().to_string(),"generation":save["generation"],"revision":0,
             "provider":"direct_flex_lan","selection_generation":7,"selection_id":uuid::Uuid::new_v4().to_string(),"control_revision":9,"connection_generation":13,"frequency_hz":14074000});
-        for (key, value) in [("provider", json!("direct_agent")), ("provider", json!("hamlib")), ("frequency_hz", json!(14074000.5)), ("frequency_hz", json!(0)),
+        for (key, value) in [("provider", json!("hamlib")), ("provider", json!("unknown")), ("frequency_hz", json!(14074000.5)), ("frequency_hz", json!(0)),
             ("connection_generation", json!(null)), ("control_revision", json!(-1)), ("action", json!("ptt"))] {
             let mut invalid = command.clone(); invalid[key] = value; assert!(session.apply(&invalid, passive).is_err());
         }

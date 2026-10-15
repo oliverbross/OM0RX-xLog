@@ -183,6 +183,16 @@ public actor RemoteAgentClient: RadioControlling {
         scheduleFrequencyVerification(frequencyHz, vfo: "A")
     }
 
+    /// Set mode on the explicit VFO-A target. This does not follow the mutable
+    /// active receive selector used by the general CAT mode control.
+    public func setPrimaryMode(_ mode: String) async throws {
+        let normalized = mode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        guard !normalized.isEmpty else { throw XCatError.invalidMode }
+        try await execute(.mode(normalized, vfo: "A"))
+        pendingWrites.expectMode(normalized, vfo: "A")
+        publishPendingWrites()
+    }
+
     public func setFrequency(_ frequencyHz: Int64) async throws {
         guard frequencyHz > 0 else { throw XCatError.invalidFrequency }
         let vfo = receiveVFO()

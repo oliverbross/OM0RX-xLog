@@ -80,15 +80,15 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
   const target = selectionTarget ?? providerTarget ?? (state?.selection.provider as StationProvider | null) ?? "direct_agent";
   const observation = receiveContext ? `${receiveContext.selection?.selection_id}:${receiveContext.selection?.control_revision}:${receiveContext.radio.received_at_ms}` : "";
   const receiveHz = receiveMHz.trim() && Number.isFinite(Number(receiveMHz)) ? Math.round(Number(receiveMHz) * 1e6) : 0;
-  const receiveReady = (command: "set_frequency_a" | "set_mode_a") => observation !== consumedObservation && stationReceiveAvailable(receiveContext ?? null, command)
+  const receiveReady = (control: "frequency" | "mode") => observation !== consumedObservation && stationReceiveAvailable(receiveContext ?? null, control)
     && state?.selection.provider === receiveContext?.selection?.provider && state?.selection.selection_id === receiveContext?.selection?.selection_id
     && state?.selection.generation === receiveContext?.selection?.generation;
   const execute = async (action: "save" | "connect" | "reconnect" | "disconnect" | "forget" | "select" | "receive_frequency" | "receive_mode") => {
     const base = current.current;
     if (!base || inFlight.current || pending) return;
     const receive = action.startsWith("receive_");
-    const receiveCommand = action === "receive_mode" ? "set_mode_a" : "set_frequency_a";
-    if (receive && (!receiveReady(receiveCommand) || action === "receive_frequency" && (!Number.isSafeInteger(receiveHz) || receiveHz < 100_000 || receiveHz > 1_000_000_000))) return;
+    const receiveControl = action === "receive_mode" ? "mode" : "frequency";
+    if (receive && (!receiveReady(receiveControl) || action === "receive_frequency" && (!Number.isSafeInteger(receiveHz) || receiveHz < 100_000 || receiveHz > 1_000_000_000))) return;
     inFlight.current = true; setBusy(true); setError(""); setMessage("");
     const id = crypto.randomUUID();
     try {
@@ -96,7 +96,7 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
       sessionStorage.setItem(journalKey, id); setPending(id);
       if (receive) setConsumedObservation(observation);
       const receipt = await stationSessionRequest<StationReceipt>(receive ? { action, operation_id: id, generation: base.generation, revision: base.revision,
-        provider: "direct_flex_lan", selection_generation: receiveContext!.selection!.generation, selection_id: receiveContext!.selection!.selection_id,
+        provider: receiveContext!.selection!.provider, selection_generation: receiveContext!.selection!.generation, selection_id: receiveContext!.selection!.selection_id,
         control_revision: receiveContext!.selection!.control_revision, connection_generation: receiveContext!.radio.snapshot.generation,
         ...(action === "receive_frequency" ? { frequency_hz: receiveHz } : { mode: receiveMode }) }
         : { action: action !== "select" && (hamlib || flex) ? `${action}_${flex ? "flex" : "hamlib"}` : action, operation_id: id, generation: base.generation, revision: base.revision,
@@ -150,13 +150,6 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
         <button type="button" disabled={!selected || !state?.flex || dirty.current || conflict || busy || !!pending} onClick={() => void execute("reconnect")}>Reconnect saved FLEX radio</button>
         <button type="button" disabled={!selected || busy || !!pending} onClick={() => void execute("disconnect")}>Disconnect FLEX radio</button></div>
       {!compact && <p>Reconnect replaces the connection with saved setup and the current transmit opt-in. No previous radio commands are replayed.</p>}
-      {receiveContext !== undefined && <section aria-label="Direct FLEX receive controls"><h3>Receive VFO A</h3>
-        {!compact && <p>Frequency and mode controls require a fresh observed receive state on VFO A. A request acknowledgement does not confirm the new radio state.</p>}
-        <label>Receive frequency MHz<input aria-label="Child receive frequency MHz" inputMode="decimal" value={receiveMHz} onChange={event => setReceiveMHz(event.target.value)} /></label>
-        <button type="button" disabled={!receiveReady("set_frequency_a") || busy || !!pending || receiveHz < 100_000 || receiveHz > 1_000_000_000} onClick={() => void execute("receive_frequency")}>Set receive VFO A frequency</button>
-        <label>Receive mode<select aria-label="Child receive mode" value={receiveMode} onChange={event => setReceiveMode(event.target.value)}>{receiveModes.map(mode => <option key={mode}>{mode}</option>)}</select></label>
-        <button type="button" disabled={!receiveReady("set_mode_a") || busy || !!pending} onClick={() => void execute("receive_mode")}>Set receive VFO A mode</button>
-      </section>}
       {!selected && <p>Select Direct FLEX LAN before connecting.</p>}
     </>}
     {hamlib && !flex && <><h3>{compact ? "Hamlib radio connection" : "Shared Hamlib radio connection"}</h3>{!compact && <p>Save configuration for Desk and Station Control, then connect explicitly. Saving does not contact a device. Request transmit permission separately for each connection.</p>}
@@ -199,6 +192,14 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
       <button type="button" disabled={!selected || !state?.base_url || dirty.current || conflict || busy || !!pending} onClick={() => void execute("forget")}>Forget saved Agent token</button>
       {!selected && <p>{providers ? "Select Remote Station Agent above before connecting." : "Select Remote Station Agent in the main station controls before connecting."}</p>}
     </>}
+    {receiveContext && ["direct_agent", "direct_flex_lan"].includes(receiveContext.selection?.provider ?? "") &&
+      <section aria-label="Exact receive controls"><h3>Receive VFO A</h3>
+        {!compact && <p>Frequency and mode controls require a fresh observed receive/PTT-off state on VFO A. A request acknowledgement does not confirm the new radio state.</p>}
+        <label>Receive frequency MHz<input aria-label="Child receive frequency MHz" inputMode="decimal" value={receiveMHz} onChange={event => setReceiveMHz(event.target.value)} /></label>
+        <button type="button" disabled={!receiveReady("frequency") || busy || !!pending || receiveHz < 100_000 || receiveHz > 1_000_000_000} onClick={() => void execute("receive_frequency")}>Set receive VFO A frequency</button>
+        <label>Receive mode<select aria-label="Child receive mode" value={receiveMode} onChange={event => setReceiveMode(event.target.value)}>{receiveModes.map(mode => <option key={mode}>{mode}</option>)}</select></label>
+        <button type="button" disabled={!receiveReady("mode") || busy || !!pending} onClick={() => void execute("receive_mode")}>Set receive VFO A mode</button>
+      </section>}
     {onlySelection && <button type="button" disabled={busy} onClick={() => void refresh()}>Refresh radio selection</button>}
     {pending && <button type="button" disabled={busy} onClick={() => void check()}>{onlySelection ? "Check radio selection receipt" : "Check connection setup receipt"}</button>}
     {pending && message.includes("unknown") && <button type="button" disabled={busy} onClick={() => { sessionStorage.setItem(reviewedKey, pending); sessionStorage.removeItem(journalKey); setPending(null); setMessage("Previous outcome remains unknown. Review observed state before a new explicit request."); void refresh(); }}>I have reviewed observed state</button>}

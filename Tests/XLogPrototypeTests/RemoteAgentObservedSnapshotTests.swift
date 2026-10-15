@@ -24,6 +24,7 @@ private final class ObservedCallbackRecorder: @unchecked Sendable {
 private final class ObservedCallbackScript: @unchecked Sendable {
     private let lock = NSLock()
     private var commands: [Double?]
+    private var commandBodies: [[String: Any]] = []
     private let commandDelay: TimeInterval
     private let onCommand: @Sendable () -> Void
 
@@ -39,6 +40,11 @@ private final class ObservedCallbackScript: @unchecked Sendable {
         case ("GET", "/api/v1/state"):
             envelope = ["success": true, "state": Self.state(watts: 10)]
         case ("POST", "/api/v1/commands"):
+            let body = try Self.body(request)
+            guard let object = try JSONSerialization.jsonObject(with: body) as? [String: Any] else {
+                throw URLError(.cannotParseResponse)
+            }
+            lock.withLock { commandBodies.append(object) }
             onCommand()
             if commandDelay > 0 { Thread.sleep(forTimeInterval: commandDelay) }
             let watts = try lock.withLock { () throws -> Double? in
@@ -51,6 +57,22 @@ private final class ObservedCallbackScript: @unchecked Sendable {
             throw URLError(.unsupportedURL)
         }
         return try JSONSerialization.data(withJSONObject: envelope)
+    }
+
+    var sentCommands: [[String: Any]] { lock.withLock { commandBodies } }
+
+    private static func body(_ request: URLRequest) throws -> Data {
+        if let body = request.httpBody { return body }
+        guard let stream = request.httpBodyStream else { throw URLError(.zeroByteResource) }
+        stream.open()
+        defer { stream.close() }
+        var result = Data(), buffer = [UInt8](repeating: 0, count: 4096)
+        while true {
+            let count = stream.read(&buffer, maxLength: buffer.count)
+            if count < 0 { throw stream.streamError ?? URLError(.cannotDecodeContentData) }
+            if count == 0 { return result }
+            result.append(buffer, count: count)
+        }
     }
 
     private static func state(watts: Double) -> [String: Any] {
@@ -104,10 +126,11 @@ private final class ObservedCallbackProtocol: URLProtocol {
 final class RemoteAgentObservedSnapshotTests: XCTestCase {
     private func fixture(commands: [Double?], commandDelay: TimeInterval = 0,
                          onCommand: @escaping @Sendable () -> Void = {},
+                         verify: ((ObservedCallbackScript) -> Void)? = nil,
                          operation: (RemoteAgentClient, ObservedCallbackRecorder) async throws -> Void) async throws {
         let host = "observed-\(UUID().uuidString.lowercased()).invalid"
-        ObservedCallbackProtocol.install(ObservedCallbackScript(commands: commands, commandDelay: commandDelay,
-            onCommand: onCommand), host: host)
+        let script = ObservedCallbackScript(commands: commands, commandDelay: commandDelay, onCommand: onCommand)
+        ObservedCallbackProtocol.install(script, host: host)
         defer { ObservedCallbackProtocol.remove(host: host) }
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [ObservedCallbackProtocol.self]
@@ -124,7 +147,7 @@ final class RemoteAgentObservedSnapshotTests: XCTestCase {
             }, enableStream: false)
         await client.start()
         await fulfillment(of: [initial], timeout: 2)
-        do { try await operation(client, recorder) }
+        do { try await operation(client, recorder); verify?(script) }
         catch { await client.stop(); throw error }
         await client.stop()
     }
@@ -160,6 +183,23 @@ final class RemoteAgentObservedSnapshotTests: XCTestCase {
             XCTAssertEqual(recorder.observed.count, nativeCount)
             XCTAssertTrue(recorder.events.contains { $0.kind == "view" && $0.snapshot.mode == "USB" })
             XCTAssertEqual(recorder.observed.first?.mode, "CW")
+        }
+    }
+
+    func testPrimaryModeTargetsVFOAWithoutPromotingOptimisticStateToObservation() async throws {
+        try await fixture(commands: [nil], verify: { script in
+            XCTAssertEqual(script.sentCommands.count, 1)
+            XCTAssertEqual(script.sentCommands[0]["command"] as? String, "set_mode")
+            let arguments = script.sentCommands[0]["arguments"] as? [String: Any]
+            XCTAssertEqual(arguments?["mode"] as? String, "DIGU")
+            XCTAssertEqual(arguments?["vfo"] as? String, "A")
+        }) { client, recorder in
+            try await client.setPrimaryMode("digu")
+            let displayed = await client.snapshot()
+            let observed = await client.observedSnapshot()
+            XCTAssertEqual(displayed.vfo("A")?.mode, "DIGU")
+            XCTAssertEqual(observed.vfo("A")?.mode, "CW")
+            XCTAssertEqual(recorder.observed.count, 1)
         }
     }
 
