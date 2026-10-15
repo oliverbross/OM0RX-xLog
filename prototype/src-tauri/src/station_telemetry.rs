@@ -151,19 +151,27 @@ impl StationTelemetry {
     fn receive_control_at(self: &Arc<Self>, generation: u64, identity: &str, connection: u64, control: &str, now: u64) -> Result<ControlFence, String> {
         let mut state = self.state.lock().map_err(|_| "Radio telemetry unavailable")?;
         let value = &state.projection; let snapshot = &value["snapshot"]; let radio = &snapshot["radio"];
+        let provider = state.provider.as_deref().unwrap_or("");
+        let (capability_owner, advertised) = match (provider, control) {
+            ("direct_flex_lan", "set_frequency_a") => ("capabilities", "set_frequency_a"),
+            ("direct_flex_lan", "set_mode_a") => ("capabilities", "set_mode_a"),
+            ("direct_agent", "set_receive_frequency_a") => ("station", "set_frequency_hz"),
+            ("direct_agent", "set_receive_mode_a") => ("station", "set_mode"),
+            _ => return Err("This provider does not expose the requested exact receive control.".into()),
+        };
         let age = value["received_at_ms"].as_u64().map(|time| i128::from(now) - i128::from(time));
         let source_age = snapshot["generated_at"].as_f64().map(|time| now as f64 - time * 1000.0);
         let observed_age = radio["observed_at"].as_f64().map(|time| now as f64 - time * 1000.0);
-        if self.stopped.load(Ordering::Acquire) || state.controls != 0 || control != "set_frequency_a"
-            || state.provider.as_deref() != Some("direct_flex_lan") || state.selection_id.as_deref() != Some(identity) || state.selection_generation != Some(generation)
+        if self.stopped.load(Ordering::Acquire) || state.controls != 0
+            || state.selection_id.as_deref() != Some(identity) || state.selection_generation != Some(generation)
             || value["available"] != true || !age.is_some_and(|age| (-1000..=5000).contains(&age))
             || !source_age.is_some_and(|age| age.is_finite() && age.abs() <= 5000.0)
             || !observed_age.is_some_and(|age| age.is_finite() && age.abs() <= 5000.0)
-            || snapshot["source"] != "direct_flex_lan" || snapshot["generation"].as_u64() != Some(connection)
+            || snapshot["source"] != provider || snapshot["generation"].as_u64() != Some(connection)
             || radio["connected"] != true || radio["observed"] != true || radio["transmitting"] != false || radio["receive_vfo"] != "A"
             || !radio["vfos"].as_array().is_some_and(|vfos| vfos.iter().any(|vfo| vfo["letter"] == "A" && vfo["receive"] == true))
-            || !snapshot["capabilities"]["supported_commands"].as_array().is_some_and(|commands| commands.iter().any(|command| command == control)) {
-            return Err("A fresh observed Direct FLEX receive VFO A and supported control are required.".into());
+            || !snapshot[capability_owner]["supported_commands"].as_array().is_some_and(|commands| commands.iter().any(|command| command == advertised)) {
+            return Err("A fresh observed receive VFO A and supported exact control are required.".into());
         }
         state.epoch += 1; state.controls += 1; state.revision += 1;
         state.projection["available"] = json!(false); state.projection["revision"] = json!(state.revision);
@@ -480,18 +488,19 @@ mod tests {
         assert_eq!(owner.state.lock().unwrap().controls, 1); drop(admission);
         assert_eq!(owner.state.lock().unwrap().controls, 0);
     }
-    fn receive_fixture() -> (Arc<StationTelemetry>, String) {
+    fn receive_fixture(provider: &str) -> (Arc<StationTelemetry>, String) {
         let (owner, identity) = monitor_fixture();
-        let mut state = owner.state.lock().unwrap(); state.provider = Some("direct_flex_lan".into());
-        state.projection = json!({"revision":1,"provider":"direct_flex_lan","selection_id":identity,"selection_generation":2,"available":true,"received_at_ms":10000,
-            "snapshot":{"source":"direct_flex_lan","generation":13,"generated_at":10.0,"radio":{"connected":true,"observed":true,"observed_at":10.0,"transmitting":false,"receive_vfo":"A","vfos":[{"letter":"A","receive":true}]},
-                "capabilities":{"supported_commands":["set_frequency_a","set_mode"]}}});
+        let mut state = owner.state.lock().unwrap(); state.provider = Some(provider.into());
+        state.projection = json!({"revision":1,"provider":provider,"selection_id":identity,"selection_generation":2,"available":true,"received_at_ms":10000,
+            "snapshot":{"source":provider,"generation":13,"generated_at":10.0,"radio":{"connected":true,"observed":true,"observed_at":10.0,"transmitting":false,"receive_vfo":"A","vfos":[{"letter":"A","receive":true}]},
+                "station":{"supported_commands":["set_frequency_hz","set_mode"]},
+                "capabilities":{"supported_commands":["set_frequency_a","set_mode_a"]}}});
         drop(state); (owner, identity)
     }
     #[test]
     fn exact_receive_admission_requires_fresh_known_receive_vfo_connection_and_capability_without_io() {
         for change in 0..14 {
-            let (owner, identity) = receive_fixture();
+            let (owner, identity) = receive_fixture("direct_flex_lan");
             { let mut state = owner.state.lock().unwrap(); match change {
                 0 => state.projection["received_at_ms"] = json!(4000),
                 1 => state.projection["snapshot"]["generated_at"] = json!(0),
@@ -510,12 +519,13 @@ mod tests {
             }}
             assert!(owner.receive_control_at(2, &identity, 13, "set_frequency_a", 10000).is_err(), "{change}");
         }
-        for control in ["set_frequency_a"] {
-            let (owner, identity) = receive_fixture(); let fence = owner.receive_control_at(2, &identity, 13, control, 10000).unwrap();
+        for (provider, control) in [("direct_flex_lan", "set_frequency_a"), ("direct_flex_lan", "set_mode_a"),
+                                    ("direct_agent", "set_receive_frequency_a"), ("direct_agent", "set_receive_mode_a")] {
+            let (owner, identity) = receive_fixture(provider); let fence = owner.receive_control_at(2, &identity, 13, control, 10000).unwrap();
             assert_eq!(owner.snapshot().unwrap()["available"], false); assert!(owner.receive_control_at(2, &identity, 13, control, 10000).is_err()); drop(fence);
             assert_eq!(owner.state.lock().unwrap().controls, 0);
         }
-        let (owner, identity) = receive_fixture(); assert!(owner.receive_control_at(2, &identity, 13, "ptt", 10000).is_err());
+        let (owner, identity) = receive_fixture("direct_flex_lan"); assert!(owner.receive_control_at(2, &identity, 13, "ptt", 10000).is_err());
         assert!(owner.receive_control_at(2, &identity, 13, "set_mode", 10000).is_err());
     }
     #[test]
