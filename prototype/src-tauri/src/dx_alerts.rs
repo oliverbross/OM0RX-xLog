@@ -492,13 +492,15 @@ impl State {
         true
     }
 
-    fn purge(&mut self, now: u64) {
+    fn purge(&mut self, now: u64) -> bool {
+        let previous_count = self.entries.len();
         let maximum_age = self.configuration.retention_minutes.saturating_mul(60_000);
         self.entries
             .retain(|entry| entry.test || now.saturating_sub(entry.last_seen_ms) <= maximum_age);
         while self.entries.len() > MAX_ENTRIES {
             self.entries.pop_back();
         }
+        self.entries.len() != previous_count
     }
 
     fn delivery(&mut self, entry: &Entry, now: u64) -> Option<(Entry, bool)> {
@@ -583,10 +585,12 @@ impl Owner {
         if deliveries.is_empty() {
             return;
         }
-        let error = deliveries
-            .into_iter()
-            .filter_map(|(entry, sound)| (self.deliver)(&entry, sound).err())
-            .next();
+        let mut error = None;
+        for (entry, sound) in deliveries {
+            if let Err(failure) = (self.deliver)(&entry, sound) {
+                if error.is_none() { error = Some(failure); }
+            }
+        }
         if let Ok(mut state) = self.state.lock() {
             if state.delivery_error != error {
                 state.delivery_error = error;
@@ -603,8 +607,12 @@ impl Owner {
             .state
             .lock()
             .map_err(|_| "DX alert state is unavailable")?;
-        state.purge(now_ms());
-        Ok(state.snapshot())
+        let changed = state.purge(now_ms());
+        if changed { state.revision = state.revision.saturating_add(1).min(MAX_REVISION); }
+        let snapshot = state.snapshot();
+        drop(state);
+        if changed { (self.publish)(); }
+        Ok(snapshot)
     }
 
     pub fn save(
@@ -744,6 +752,8 @@ impl Owner {
             .lock()
             .map_err(|_| "DX alert state is unavailable")?;
         let availability_changed = state.source_available != available;
+        let source_changed = availability_changed || state.source_revision != revision
+            || state.source_received_at_ms != received_at_ms;
         state.source_revision = revision;
         state.source_available = available;
         state.source_received_at_ms = received_at_ms;
@@ -753,12 +763,8 @@ impl Owner {
                 state.baselined = false;
                 state.seen.clear();
                 state.seen_order.clear();
-                state.revision = state.revision.saturating_add(1).min(MAX_REVISION);
-                drop(state);
-                (self.publish)();
-                return Ok(true);
             }
-            return Ok(false);
+            return self.evaluate(state, vec![], source_changed);
         }
         if state.baseline_next {
             for spot in parsed {
@@ -766,13 +772,10 @@ impl Owner {
             }
             state.baseline_next = false;
             state.baselined = true;
-            state.revision = state.revision.saturating_add(1).min(MAX_REVISION);
-            drop(state);
-            (self.publish)();
-            return Ok(true);
+            return self.evaluate(state, vec![], true);
         }
         let parsed = parsed.into_iter().filter(|spot| state.remember(spot.source_key.clone())).collect();
-        self.evaluate(state, parsed)
+        self.evaluate(state, parsed, source_changed)
     }
 
     /// Called only by the existing native projection loop; never by a renderer.
@@ -794,13 +797,10 @@ impl Owner {
         state.activity.available = available; state.activity.received_at_ms = projection["received_at_ms"].as_u64().unwrap_or(0);
         state.activity.baselined = available;
         let fresh = parsed.into_iter().filter(|spot| state.activity.remember(spot.source_key.clone())).collect();
-        state.revision = state.revision.saturating_add(1).min(MAX_REVISION);
         if !available || baseline {
-            drop(state); (self.publish)(); return Ok(true);
+            return self.evaluate(state, vec![], true);
         }
-        let changed = self.evaluate(state, fresh)?;
-        if !changed { (self.publish)(); }
-        Ok(true)
+        self.evaluate(state, fresh, true)
     }
 
     pub fn activity_unavailable(&self) {
@@ -813,9 +813,8 @@ impl Owner {
         }
     }
 
-    fn evaluate(&self, mut state: std::sync::MutexGuard<'_, State>, parsed: Vec<Spot>) -> Result<bool, String> {
+    fn evaluate(&self, mut state: std::sync::MutexGuard<'_, State>, parsed: Vec<Spot>, mut changed: bool) -> Result<bool, String> {
         let now = now_ms();
-        let mut changed = false;
         let mut deliveries = Vec::new();
         for spot in parsed {
             if !state.configuration.enabled {
@@ -888,7 +887,7 @@ impl Owner {
             state.entries.push_front(entry);
             changed = true;
         }
-        state.purge(now);
+        changed |= state.purge(now);
         if changed {
             state.revision = state.revision.saturating_add(1).min(MAX_REVISION);
         }
@@ -1016,6 +1015,93 @@ mod tests {
     fn projection(revision: u64, spots: Vec<Value>) -> Value {
         json!({"revision":revision,"available":true,
         "received_at_ms":revision * 1000,"response":{"snapshot":{"spots":spots}}})
+    }
+
+    #[test]
+    fn source_metadata_changes_advance_once_even_without_matching_entries() {
+        let directory = tempfile::tempdir().unwrap();
+        let owner = owner(directory.path());
+        owner.observe(&projection(1, vec![])).unwrap();
+        let before = owner.snapshot().unwrap();
+        assert!(owner.observe(&projection(2, vec![])).unwrap());
+        let after = owner.snapshot().unwrap();
+        assert_eq!(after["revision"].as_u64().unwrap(), before["revision"].as_u64().unwrap() + 1);
+        assert_eq!(after["source"]["revision"], 2);
+        assert_eq!(after["source"]["receivedAtMs"], 2000);
+        assert!(!owner.observe(&projection(2, vec![])).unwrap());
+        assert_eq!(owner.snapshot().unwrap(), after);
+
+        owner.observe(&json!({"revision":3,"available":false})).unwrap();
+        let unavailable = owner.snapshot().unwrap();
+        assert!(owner.observe(&json!({"revision":4,"available":false})).unwrap());
+        assert_eq!(owner.snapshot().unwrap()["revision"].as_u64().unwrap(), unavailable["revision"].as_u64().unwrap() + 1);
+
+        let configuration = owner.snapshot().unwrap()["configuration"].clone();
+        let mut both_sources = rule("watch", "Watch", &[]);
+        both_sources.sources = vec!["cluster".into(), "wsjtx".into()];
+        both_sources.callsign_glob = "W1*".into();
+        owner.save(configuration["generation"].as_str().unwrap(), 0,
+            editable(true, vec![both_sources])).unwrap();
+        owner.observe(&projection(5, vec![])).unwrap();
+        let before_match = owner.snapshot().unwrap()["revision"].as_u64().unwrap();
+        owner.observe(&projection(6, vec![spot("fresh", "W1AW", "ATNO")])).unwrap();
+        assert_eq!(owner.snapshot().unwrap()["revision"].as_u64().unwrap(), before_match + 1);
+
+        owner.observe_activity(&activity(1, vec![])).unwrap();
+        let before_cq = owner.snapshot().unwrap()["revision"].as_u64().unwrap();
+        owner.observe_activity(&activity(2, vec![cq("fresh-cq", "W1AW", now_ms())])).unwrap();
+        assert_eq!(owner.snapshot().unwrap()["revision"].as_u64().unwrap(), before_cq + 1);
+    }
+
+    #[test]
+    fn retention_purges_advance_revision_and_publish_once_on_reads_or_observations() {
+        let directory = tempfile::tempdir().unwrap();
+        let publishes = Arc::new(AtomicU64::new(0));
+        let count = publishes.clone();
+        let owner = Owner::new(directory.path().join("rules.json"),
+            Arc::new(move || { count.fetch_add(1, Ordering::SeqCst); }), Arc::new(|_, _| Ok(())));
+        for read in [true, false] {
+            owner.test_alert().unwrap();
+            {
+                let mut state = owner.state.lock().unwrap();
+                state.entries[0].test = false;
+                state.entries[0].last_seen_ms = now_ms() - 86_400_001;
+            }
+            let revision = owner.state.lock().unwrap().revision;
+            let notices = publishes.load(Ordering::SeqCst);
+            if read { owner.snapshot().unwrap(); }
+            else { assert!(owner.observe(&json!({"revision":0,"available":false})).unwrap()); }
+            let snapshot = owner.snapshot().unwrap();
+            assert_eq!(snapshot["entries"], json!([]));
+            assert_eq!(snapshot["revision"].as_u64().unwrap(), revision + 1);
+            assert_eq!(publishes.load(Ordering::SeqCst), notices + 1);
+            assert_eq!(owner.snapshot().unwrap(), snapshot);
+        }
+    }
+
+    #[test]
+    fn queued_notifications_are_all_attempted_and_first_failure_is_retained() {
+        let directory = tempfile::tempdir().unwrap();
+        let attempts = Arc::new(AtomicU64::new(0));
+        let count = attempts.clone();
+        let owner = Owner::new(directory.path().join("rules.json"), Arc::new(|| {}),
+            Arc::new(move |_, _| match count.fetch_add(1, Ordering::SeqCst) {
+                0 => Err("first failure".into()),
+                1 => Err("later failure".into()),
+                _ => Ok(()),
+            }));
+        let initial = owner.snapshot().unwrap();
+        let mut settings = editable(true, vec![rule("new-dxcc", "New DXCC", &["ATNO"])]);
+        settings["nativePopup"] = json!(true);
+        owner.save(initial["configuration"]["generation"].as_str().unwrap(), 0, settings).unwrap();
+        owner.observe(&projection(1, vec![])).unwrap();
+        owner.observe(&projection(2, (0..3).map(|index|
+            spot(&format!("fresh-{index}"), &format!("NEW{index}"), "ATNO")).collect())).unwrap();
+        assert_eq!(attempts.load(Ordering::SeqCst), 3);
+        let snapshot = owner.snapshot().unwrap();
+        assert_eq!(snapshot["entries"].as_array().unwrap().len(), 3);
+        assert_eq!(snapshot["delivery"]["error"], "first failure");
+        assert_eq!(snapshot["delivery"]["suppressed"], 0);
     }
 
     #[test]

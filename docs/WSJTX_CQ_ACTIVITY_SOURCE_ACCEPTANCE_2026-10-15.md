@@ -11,7 +11,7 @@ specification at
 [WSJT-X NetworkMessage.hpp](https://github.com/WSJTX/wsjtx/blob/master/Network/NetworkMessage.hpp).
 No QLog or RUMlog source, assets or implementation were copied.
 
-- Activity accepts schema 3 only and parses the documented minimum Status,
+- Activity accepts schemas 2 and 3 and parses the documented minimum Status,
   Decode, Heartbeat, Clear and Close fields. Unrecognized message types are
   ignored; appended fields are ignored as required by the protocol's extension
   convention. Unsupported schema, truncated required fields, invalid booleans,
@@ -57,12 +57,12 @@ source. Reusing a current local classification projection is a separate slice.
 
 ## Verification
 
-- Swift: 13 focused tests pass across `LiveWSJTXBridgeTests` and
+- Swift: 14 focused tests pass across `LiveWSJTXBridgeTests` and
   `WSJTXActivityTests`, including legacy Logged ADIF behavior, two instances and
   endpoints, CQ/non-CQ, replay/duplicate identity, period expiry, malformed and
-  incompatible packets, source bounds, mode invalidation and zero importer
-  calls for activity.
-- Rust: 27 focused tests pass across DX alerts and cluster sessions, including
+  incompatible packets, schema-2/3 activity, source bounds, mode invalidation
+  and zero importer calls for activity.
+- Rust: 30 focused tests pass across DX alerts and cluster sessions, including
   independent baselines, cluster-unavailable scheduling, repeat merging,
   stale-report rejection, legacy rule migration, malformed projection rejection
   and the existing delivery/authority boundaries.

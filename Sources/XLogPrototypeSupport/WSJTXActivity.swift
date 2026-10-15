@@ -2,7 +2,8 @@
 import Foundation
 import XClusterIntegrationCore
 
-/// Independent implementation of the documented big-endian schema-3 fields:
+/// Independent implementation of the documented big-endian schema-2/3 fields.
+/// WSJT-X starts at schema 2; this receive-only listener never negotiates an upgrade.
 /// https://github.com/WSJTX/wsjtx/blob/master/Network/NetworkMessage.hpp
 /// No command builder or sending capability exists in this receive model.
 enum WSJTXActivityMessage {
@@ -23,7 +24,7 @@ enum WSJTXActivityMessage {
         guard try cursor.uint32() == 0xadbccbda else { throw WSJTXMessageError.invalid }
         let schema = try cursor.uint32(), type = try cursor.uint32()
         guard [0, 1, 2, 3, 6].contains(type) else { return nil }
-        guard schema == 3, data.count <= 16_384 else { throw WSJTXMessageError.invalid }
+        guard [2, 3].contains(schema), data.count <= 16_384 else { throw WSJTXMessageError.invalid }
         let id = try cursor.text(128)
         guard !id.isEmpty, !id.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains) else { throw WSJTXMessageError.invalid }
         switch type {

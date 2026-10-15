@@ -15,18 +15,18 @@ final class WSJTXActivityTests: XCTestCase {
     private func text(_ value: String, _ data: inout Data) {
         number(UInt64(value.utf8.count), 4, &data); data.append(contentsOf: value.utf8)
     }
-    private func packet(_ type: UInt64, id: String = "WSJT-X", schema: UInt64 = 3) -> Data {
+    private func packet(_ type: UInt64, id: String = "WSJT-X", schema: UInt64 = 2) -> Data {
         var data = Data(); number(0xadbccbda, 4, &data); number(schema, 4, &data); number(type, 4, &data); text(id, &data); return data
     }
-    private func status(id: String = "WSJT-X", frequency: UInt64 = 14_074_000, mode: String = "FT8") -> Data {
-        var data = packet(1, id: id); number(frequency, 8, &data); text(mode, &data)
+    private func status(id: String = "WSJT-X", frequency: UInt64 = 14_074_000, mode: String = "FT8", schema: UInt64 = 2) -> Data {
+        var data = packet(1, id: id, schema: schema); number(frequency, 8, &data); text(mode, &data)
         for value in ["", "", mode] { text(value, &data) }
         data.append(contentsOf: [0, 0, 0]); number(0, 4, &data); number(0, 4, &data)
         for value in ["OM0RX", "JN98", ""] { text(value, &data) }; return data
     }
     private func decode(id: String = "WSJT-X", message: String = "CQ W1AW FN31", at: UInt64? = nil,
-                        new: Bool = true, low: Bool = false, offAir: Bool = false) -> Data {
-        var data = packet(2, id: id); data.append(new ? 1 : 0); number((at ?? now) % 86_400_000, 4, &data)
+                        new: Bool = true, low: Bool = false, offAir: Bool = false, schema: UInt64 = 2) -> Data {
+        var data = packet(2, id: id, schema: schema); data.append(new ? 1 : 0); number((at ?? now) % 86_400_000, 4, &data)
         number(0, 4, &data); number(Double(0.1).bitPattern, 8, &data); number(500, 4, &data)
         text("~", &data); text(message, &data); data.append(low ? 1 : 0); data.append(offAir ? 1 : 0); return data
     }
@@ -35,6 +35,28 @@ final class WSJTXActivityTests: XCTestCase {
     }
     private func spots(_ activity: inout WSJTXActivity, at: UInt64? = nil) -> [[String: Any]] {
         activity.snapshot(now: at ?? now, available: true)["spots"] as! [[String: Any]]
+    }
+
+    func testSchemasTwoAndThreeSupportReceiveOnlyActivityWithoutNegotiation() throws {
+        for schema in [UInt64(2), 3] {
+            var activity = WSJTXActivity()
+            var heartbeat = packet(0, schema: schema)
+            number(3, 4, &heartbeat); text("3.0", &heartbeat); text("r1", &heartbeat)
+            try receive(heartbeat, into: &activity)
+            try receive(status(schema: schema), into: &activity)
+            try receive(decode(schema: schema), into: &activity)
+            let cq = try XCTUnwrap(spots(&activity).first)
+            XCTAssertEqual(cq["callsign"] as? String, "W1AW")
+            XCTAssertEqual(cq["frequencyKHz"] as? Double, 14_074.5)
+            XCTAssertEqual(cq["mode"] as? String, "FT8")
+            try receive(packet(3, schema: schema), into: &activity)
+            XCTAssertTrue(spots(&activity).isEmpty)
+            try receive(packet(6, schema: schema), into: &activity)
+            XCTAssertEqual(activity.snapshot(now: now, available: true)["session_count"] as? Int, 0)
+            for type in [UInt64(4), 5, 7, 8, 9, 10, 11, 12, 13, 14, 15] {
+                XCTAssertNil(try WSJTXActivityMessage.parse(packet(type, schema: schema)))
+            }
+        }
     }
 
     func testTwoInstancesAndEndpointsRemainIndependentAndCloseCannotRemoveAnotherSender() throws {
@@ -80,7 +102,7 @@ final class WSJTXActivityTests: XCTestCase {
     }
 
     func testParserRejectsMalformedOversizedAndIncompatibleSchemas() throws {
-        for bytes in [Data(), Data(status().dropLast()), Data(decode().dropLast()), packet(0), packet(1, schema: 2), packet(6, schema: 4), Data(repeating: 0, count: 20_001), decode(message: "CQ W1AW\nFN31")] {
+        for bytes in [Data(), Data(status().dropLast()), Data(decode().dropLast()), packet(0), status(schema: 0), status(schema: 1), packet(6, schema: 4), Data(repeating: 0, count: 20_001), decode(message: "CQ W1AW\nFN31")] {
             XCTAssertThrowsError(try WSJTXActivityMessage.parse(bytes))
         }
         var heartbeat = packet(0); number(3, 4, &heartbeat); text("3.0", &heartbeat); text("r1", &heartbeat)
