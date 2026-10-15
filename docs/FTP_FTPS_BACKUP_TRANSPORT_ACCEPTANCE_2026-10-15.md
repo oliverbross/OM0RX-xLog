@@ -134,16 +134,31 @@ performed.
   and isolated integrated **33/33** package acceptance with `station_io: false`.
   The newer checkpoint includes this correction and the QLog alert-comment
   slice; see [its package evidence](QLOG_FTP_SOURCE_ACCEPTANCE_2026-10-15.md).
+- Harness source `1080e6e4bc875fbc2835f9ad67ac1360f47632a8`
+  adds unchanged-production-limit download-stall and total-deadline acceptance.
+  The clean-source loopback run passes **8 live tests / 10 parameterized
+  executions**: the 1-byte/sec for 30-second low-speed limit rejected the
+  stalled read in **30.101 s**, while a sustained 32-byte/sec read stayed above
+  that floor and was rejected by the 120-second total limit in **120.011 s**.
+  Neither failure produced a verified object or permitted replay. The same
+  change fixes a macOS Bash 3.2 `set -u` empty-array trap that could previously
+  abort cleanup on an early harness failure; an actual pre-server failure
+  preserved its exit status and removed all owned temporary files.
+- The warning-clean native suite now passes **233 tests across 31 suites**.
+  `dist/disposable-ftp-stall-deadline-1080e6e.json` records exact committed
+  source, synthetic data only, `external_network: false`, `station_io: false`
+  and the production timeout values. Its SHA-256 is
+  `b30ac44ad521beb751a0c38fe7875c2141f994db73364bbbf1ab87473b5e06cd`.
 
 ## Remaining gates
 
 - Successful implicit FTPS against a trusted certificate without weakening
   verification or modifying the operator's trust store.
-- Additional transfer-stall/low-speed and total-deadline cases. Plain-FTP
-  upload/verification/restore/replay refusal, reservation refusal, lost
-  post-store acknowledgement, advertised/streamed oversize, post-verification
-  growth, control-handshake timeout and untrusted-FTPS rejection are accepted
-  with synthetic data; no operator log may be used for remaining acceptance.
+- Stalled-upload behavior. Plain-FTP upload/verification/restore/replay refusal,
+  reservation refusal, lost post-store acknowledgement, advertised/streamed
+  oversize, post-verification growth, control-handshake timeout, stalled/slow
+  download deadlines and untrusted-FTPS rejection are accepted with synthetic
+  data; no operator log may be used for remaining acceptance.
 - Installed macOS acceptance after operator approval.
 - A separately designed, host-key-pinned SFTP transport.
 - Windows and Linux implementation/package evidence remains deferred until the
