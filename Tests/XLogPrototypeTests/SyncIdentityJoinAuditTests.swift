@@ -45,6 +45,76 @@ struct SyncIdentityJoinAuditTests {
         #expect(IdentityJoinAuditProtocol.methods().allSatisfy { $0 == "GET" })
     }
 
+    @Test("Documented ADIF ID ordering safely maps confirmation siblings", arguments: [false, true])
+    func documentedOrderMapsConfirmationSnapshots(reverseJSON: Bool) async throws {
+        var stale = auditADIF(name: "First", dxcc: "291")
+        stale.fields["EQSL_QSL_RCVD"] = "N"
+        var fresh = stale
+        fresh.fields.merge([
+            "EQSL_QSL_RCVD": "Y", "EQSL_QSLRDATE": "20260626",
+            "LOTW_QSL_RCVD": "Y", "LOTW_QSLRDATE": "20260813",
+            "QRZCOM_QSO_DOWNLOAD_STATUS": "Y", "QRZCOM_QSO_DOWNLOAD_DATE": "20260627",
+        ]) { _, new in new }
+        let json = [auditJSON(id: 11, name: "First"), auditJSON(id: 12, name: "First")]
+        let fixture = try customFixture(
+            json: reverseJSON ? Array(json.reversed()) : json,
+            adif: [stale, fresh],
+            documentedOrder: true
+        )
+        defer { fixture.session.invalidateAndCancel(); try? FileManager.default.removeItem(at: fixture.root) }
+        let linked = try #require(QSO(adif: stale, wavelogID: 11))
+        try fixture.database.save(linked, markDirty: false)
+
+        let report = try await SyncEngine(
+            database: fixture.database,
+            configuration: fixture.settings,
+            session: fixture.session
+        ).synchronize()
+        let contacts = try fixture.database.fetch(limit: 10)
+
+        #expect(report.held == 0 && report.pulled == 2 && report.pushed == 0 && report.conflicts == 0)
+        #expect(contacts.count == 2)
+        #expect(contacts.first(where: { $0.wavelogID == 11 })?.extraFields["EQSL_QSL_RCVD"] == "N")
+        #expect(contacts.first(where: { $0.wavelogID == 12 })?.extraFields["LOTW_QSL_RCVD"] == "Y")
+        #expect(contacts.first(where: { $0.wavelogID == 12 })?.extraFields["QRZCOM_QSO_DOWNLOAD_STATUS"] == "Y")
+        #expect(try fixture.database.outboxEntries().isEmpty)
+        #expect(IdentityJoinAuditProtocol.methods().allSatisfy { $0 == "GET" })
+    }
+
+    @Test("Documented ordering remains authoritative across opposite pagination directions")
+    func documentedOrderAcrossPages() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let database = try LogbookDatabase(url: root.appendingPathComponent("synthetic.sqlite"))
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [IdentityJoinAuditProtocol.self]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+        IdentityJoinAuditProtocol.configure(
+            reverseADIF: false,
+            paginated: true,
+            adifOnlyDifference: true,
+            documentedOrder: true
+        )
+        let settings = try WavelogConfiguration(
+            baseURL: URL(string: "https://synthetic.invalid")!,
+            token: "wl2_synthetic",
+            stationID: 1
+        )
+
+        let report = try await SyncEngine(
+            database: database,
+            configuration: settings,
+            session: session
+        ).synchronize()
+        let contacts = try database.fetch(limit: 10)
+
+        #expect(report.held == 0 && report.pulled == 2 && report.pushed == 0 && report.conflicts == 0)
+        #expect(contacts.first(where: { $0.wavelogID == 11 })?.dxcc == 291)
+        #expect(contacts.first(where: { $0.wavelogID == 12 })?.dxcc == 504)
+        #expect(IdentityJoinAuditProtocol.methods() == Array(repeating: "GET", count: 5))
+    }
+
     @Test("Dirty anchors and conflicting enrichment without an anchored value remain held", arguments: ["dirty", "country", "distance", "message", "unknown", "status", "date", "twoLinks", "noLink"])
     func unsafeConfirmationSnapshots(reason: String) async throws {
         var stale = auditADIF(name: "First", dxcc: "291")
@@ -436,7 +506,12 @@ struct SyncIdentityJoinAuditTests {
         #expect(IdentityJoinAuditProtocol.methods() == ["GET", "GET"])
     }
 
-    private func customFixture(json: [[String: Any]], adif: [ADIFRecord], declaredADIFCount: Int? = nil) throws -> (root: URL, database: LogbookDatabase, session: URLSession, settings: WavelogConfiguration) {
+    private func customFixture(
+        json: [[String: Any]],
+        adif: [ADIFRecord],
+        declaredADIFCount: Int? = nil,
+        documentedOrder: Bool = false
+    ) throws -> (root: URL, database: LogbookDatabase, session: URLSession, settings: WavelogConfiguration) {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let database = try LogbookDatabase(url: root.appendingPathComponent("synthetic.sqlite"))
         let configuration = URLSessionConfiguration.ephemeral
@@ -446,9 +521,16 @@ struct SyncIdentityJoinAuditTests {
         let count = declaredADIFCount ?? adif.count
         let meta: [String: Any] = ["page": 1, "per_page": 1000, "count": json.count, "total": json.count, "total_pages": 1, "has_more": false]
         let adifMeta: [String: Any] = ["page": 1, "per_page": 1000, "count": count, "total": json.count, "total_pages": 1, "has_more": false]
+        var adifData: [String: Any] = [
+            "exported": count,
+            "adif": "<EOH>" + adif.map { $0.adifDocument.components(separatedBy: "<EOH>").last! }.joined(),
+        ]
+        if documentedOrder {
+            adifData["lastfetchedid"] = json.compactMap { $0["id"] as? Int }.max() ?? 0
+        }
         IdentityJoinAuditProtocol.configure(reverseADIF: false, responses: [
             "json": try JSONSerialization.data(withJSONObject: ["data": json, "meta": meta]),
-            "adif": try JSONSerialization.data(withJSONObject: ["data": ["exported": count, "lastfetchedid": 13, "adif": "<EOH>" + adif.map { $0.adifDocument.components(separatedBy: "<EOH>").last! }.joined()], "meta": adifMeta]),
+            "adif": try JSONSerialization.data(withJSONObject: ["data": adifData, "meta": adifMeta]),
         ])
         return (root, database, session, settings)
     }
@@ -471,14 +553,16 @@ private final class IdentityJoinAuditProtocol: URLProtocol {
     private static var identicalADIF = false
     private static var adifOnlyDifference = false
     private static var numericOnlyDifference = false
+    private static var documentedOrder = false
     private static var recordedMethods: [String] = []
     private static var responses: [String: Data] = [:]
 
-    static func configure(reverseADIF: Bool, paginated: Bool = false, identicalADIF: Bool = false, adifOnlyDifference: Bool = false, numericOnlyDifference: Bool = false, responses: [String: Data] = [:]) {
+    static func configure(reverseADIF: Bool, paginated: Bool = false, identicalADIF: Bool = false, adifOnlyDifference: Bool = false, numericOnlyDifference: Bool = false, documentedOrder: Bool = false, responses: [String: Data] = [:]) {
         lock.withLock {
             Self.reverseADIF = reverseADIF; Self.paginated = paginated
             Self.identicalADIF = identicalADIF; Self.adifOnlyDifference = adifOnlyDifference
             Self.numericOnlyDifference = numericOnlyDifference
+            Self.documentedOrder = documentedOrder
             Self.responses = responses
             recordedMethods = []
         }
@@ -511,7 +595,7 @@ private final class IdentityJoinAuditProtocol: URLProtocol {
             .contains(where: { $0.name == "format" && $0.value == "adif" }) == true
         let page = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems?
             .first(where: { $0.name == "page" })?.value.flatMap(Int.init) ?? 1
-        let options = Self.lock.withLock { (Self.reverseADIF, Self.paginated, Self.identicalADIF, Self.adifOnlyDifference, Self.numericOnlyDifference) }
+        let options = Self.lock.withLock { (Self.reverseADIF, Self.paginated, Self.identicalADIF, Self.adifOnlyDifference, Self.numericOnlyDifference, Self.documentedOrder) }
         let meta: [String: Any] = ["page": page, "per_page": options.1 ? 1 : 1000, "count": options.1 ? 1 : 2, "total": 2, "total_pages": options.1 ? 2 : 1, "has_more": options.1 && page == 1]
         let body: Data
         if let override = Self.lock.withLock({ Self.responses[isADIF ? "adif" : "json"] }) {
@@ -532,9 +616,9 @@ private final class IdentityJoinAuditProtocol: URLProtocol {
                 let record = ADIFRecord(fields: fields)
                 return record.adifDocument.components(separatedBy: "<EOH>").last!
             }.joined()
-            body = try! JSONSerialization.data(withJSONObject: [
-                "data": ["exported": records.count, "lastfetchedid": 12, "adif": "<EOH>" + adif], "meta": meta,
-            ])
+            var data: [String: Any] = ["exported": records.count, "adif": "<EOH>" + adif]
+            if options.5 { data["lastfetchedid"] = options.1 && page == 1 ? 11 : 12 }
+            body = try! JSONSerialization.data(withJSONObject: ["data": data, "meta": meta])
         } else {
             var records: [[String: Any]] = (11...12).map { id in
                 let sameDetails = id == 11 || options.2 || options.3 || options.4

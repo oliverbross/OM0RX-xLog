@@ -71,7 +71,10 @@ public actor SyncEngine {
     private static func readRemoteHistory(client: WavelogClient) async throws -> RemoteHistoryPreview {
         try Task.checkCancellation()
         var remoteIDs: Set<Int> = []
+        var jsonRows: [WavelogQSO] = []
         var jsonByIdentity: [String: [WavelogQSO]] = [:]
+        var adifRows: [QSO] = []
+        var adifPageEnds: [(count: Int, lastID: Int?)] = []
         var adifByIdentity: [String: [QSO]] = [:]
 
         func hasStableMetadata(_ page: WavelogQSOPage, matching baseline: WavelogListMeta) -> Bool {
@@ -90,6 +93,7 @@ public actor SyncEngine {
 
         func index(_ page: WavelogQSOPage) {
             remoteIDs.formUnion(page.data.map(\.id))
+            jsonRows += page.data
             for remote in page.data {
                 guard let qso = QSO(wavelog: remote) else { continue }
                 jsonByIdentity[historyIdentity(qso), default: []].append(remote)
@@ -108,8 +112,10 @@ public actor SyncEngine {
                 guard let qso = QSO(adif: record) else {
                     throw WavelogClientError.invalidData("ADIF page \(page.meta.page) contained an unreadable QSO.")
                 }
+                adifRows.append(qso)
                 adifByIdentity[historyIdentity(qso), default: []].append(qso)
             }
+            adifPageEnds.append((adifRows.count, page.data.lastFetchedID))
         }
 
         let firstPage = try await client.listQSOs(page: 1, perPage: 5_000)
@@ -189,8 +195,9 @@ public actor SyncEngine {
             }
         }
 
-        // Both endpoints paginate independently. Resolve complete identity
-        // groups before writing: neither endpoint's order identifies a QSO.
+        // Both endpoints paginate independently. Prefer the documented ADIF
+        // primary-key order only when every page boundary proves it; otherwise
+        // resolve complete identity groups without inferring row identity.
         var remoteQSOs: [QSO] = []
         var heldRemoteIDs: Set<Int> = []
         var heldIdentities: Set<String> = []
@@ -198,29 +205,43 @@ public actor SyncEngine {
         var heldDifferencesByIdentity: [String: [String]] = [:]
         var heldValueShapesByIdentity: [String: [String]] = [:]
         var unmatchedADIFCount = 0
-        for (key, rows) in adifByIdentity {
-            try Task.checkCancellation()
-            guard let candidates = jsonByIdentity.removeValue(forKey: key) else {
-                unmatchedADIFCount += rows.count
-                continue
-            }
-            do {
-                remoteQSOs += try joinedADIF(rows, with: candidates)
-            } catch HistoryJoinError.ambiguous {
-                // Hold the entire identity group, including any partially
-                // resolved members. Never assign an arbitrary ID or overwrite
-                // its local baseline; unrelated contacts can still sync.
-                heldRemoteIDs.formUnion(candidates.map(\.id))
-                heldIdentities.insert(key)
-                heldRemoteIDsByIdentity[key] = candidates.map(\.id).sorted()
-                heldDifferencesByIdentity[key] = Set(rows.flatMap { row in
-                    candidates.flatMap { incompatibleADIFFields(row, with: $0) }
-                }).union(varyingADIFFields(rows)).sorted()
-                heldValueShapesByIdentity[key] = varyingADIFFields(rows).sorted().map { field in
-                    let values = rows.map { $0.extraFields[field] ?? "" }
-                    let populated = Set(values.filter { !$0.isEmpty })
-                    let shape = populated.count > 1 ? "conflicting populated values" : populated.isEmpty ? "empty representations" : "empty and populated"
-                    return "\(field): \(shape)"
+        let orderedJSON = jsonRows.sorted { $0.id < $1.id }
+        let orderedPageEndsMatch = adifPageEnds.allSatisfy { boundary in
+            guard boundary.count > 0 else { return boundary.lastID == nil }
+            return boundary.count <= orderedJSON.count && boundary.lastID == orderedJSON[boundary.count - 1].id
+        }
+        if let joined = try joinedDocumentedADIFOrder(adifRows, with: orderedJSON, pageEndsMatch: orderedPageEndsMatch) {
+            // API v2 documents ADIF rows as ascending by primary key. Matching
+            // every page boundary and every semantic identity lets us retain
+            // the exact remote ID even when confirmation-only ADIF fields make
+            // otherwise identical contacts impossible to distinguish by value.
+            remoteQSOs = joined
+            jsonByIdentity.removeAll()
+        } else {
+            for (key, rows) in adifByIdentity {
+                try Task.checkCancellation()
+                guard let candidates = jsonByIdentity.removeValue(forKey: key) else {
+                    unmatchedADIFCount += rows.count
+                    continue
+                }
+                do {
+                    remoteQSOs += try joinedADIF(rows, with: candidates)
+                } catch HistoryJoinError.ambiguous {
+                    // Hold the entire identity group, including any partially
+                    // resolved members. Never assign an arbitrary ID or overwrite
+                    // its local baseline; unrelated contacts can still sync.
+                    heldRemoteIDs.formUnion(candidates.map(\.id))
+                    heldIdentities.insert(key)
+                    heldRemoteIDsByIdentity[key] = candidates.map(\.id).sorted()
+                    heldDifferencesByIdentity[key] = Set(rows.flatMap { row in
+                        candidates.flatMap { incompatibleADIFFields(row, with: $0) }
+                    }).union(varyingADIFFields(rows)).sorted()
+                    heldValueShapesByIdentity[key] = varyingADIFFields(rows).sorted().map { field in
+                        let values = rows.map { $0.extraFields[field] ?? "" }
+                        let populated = Set(values.filter { !$0.isEmpty })
+                        let shape = populated.count > 1 ? "conflicting populated values" : populated.isEmpty ? "empty representations" : "empty and populated"
+                        return "\(field): \(shape)"
+                    }
                 }
             }
         }
@@ -375,22 +396,30 @@ public actor SyncEngine {
     }
 }
 
+private func joinedDocumentedADIFOrder(
+    _ rows: [QSO],
+    with remotes: [WavelogQSO],
+    pageEndsMatch: Bool
+) throws -> [QSO]? {
+    guard pageEndsMatch, rows.count == remotes.count else { return nil }
+    try validateJoinFields(rows, remotes)
+    var joined: [QSO] = []
+    joined.reserveCapacity(rows.count)
+    for (row, remote) in zip(rows, remotes) {
+        guard let sparse = QSO(wavelog: remote),
+              historyIdentity(row) == historyIdentity(sparse) else { return nil }
+        var value = row
+        value.wavelogID = remote.id
+        joined.append(value)
+    }
+    return joined
+}
+
 private func joinedADIF(_ rows: [QSO], with remotes: [WavelogQSO]) throws -> [QSO] {
     guard rows.count == remotes.count else {
         throw WavelogClientError.invalidData("JSON and ADIF identity groups have different record counts.")
     }
-    // Malformed fields are not an identity ambiguity. Keep rejecting corrupt
-    // snapshots before any write instead of quietly treating them as held.
-    for row in rows {
-        if let value = row.extraFields["FREQ_RX"], roundedHertz(value, multiplier: 1_000_000) == nil {
-            throw WavelogClientError.invalidData("ADIF receive frequency is invalid.")
-        }
-    }
-    for remote in remotes {
-        if let value = remote.receiveFrequency, roundedHertz(value) == nil {
-            throw WavelogClientError.invalidData("JSON receive frequency is invalid.")
-        }
-    }
+    try validateJoinFields(rows, remotes)
     if rows.count == 1 {
         var row = rows[0]
         row.wavelogID = remotes[0].id
@@ -434,6 +463,21 @@ private func joinedADIF(_ rows: [QSO], with remotes: [WavelogQSO]) throws -> [QS
         }
     }
     return joined
+}
+
+private func validateJoinFields(_ rows: [QSO], _ remotes: [WavelogQSO]) throws {
+    // Malformed fields are not an identity ambiguity. Keep rejecting corrupt
+    // snapshots before any write instead of quietly treating them as held.
+    for row in rows {
+        if let value = row.extraFields["FREQ_RX"], roundedHertz(value, multiplier: 1_000_000) == nil {
+            throw WavelogClientError.invalidData("ADIF receive frequency is invalid.")
+        }
+    }
+    for remote in remotes {
+        if let value = remote.receiveFrequency, roundedHertz(value) == nil {
+            throw WavelogClientError.invalidData("JSON receive frequency is invalid.")
+        }
+    }
 }
 
 /// Establish that at least one complete one-to-one assignment exists before

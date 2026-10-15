@@ -19,6 +19,14 @@ struct RemoteHistoryReadOnlyProbeTests {
         let url = try #require(URL(string: settings.wavelogURL))
         let configuration = try WavelogConfiguration(baseURL: url, token: token, stationID: settings.wavelogStationID)
         do {
+            if ProcessInfo.processInfo.environment["XLOG_SYNC_DIAGNOSE_ORDER"] == "1" {
+                let client = WavelogClient(configuration: configuration)
+                let json = try await client.listQSOs(page: 1, perPage: 5_000)
+                let adif = try await client.exportADIF(page: 1, perPage: 1_000)
+                print("READ_ONLY_ORDER_SAMPLE json_page=\(json.meta.page) json_per_page=\(json.meta.perPage) json_count=\(json.meta.count) json_total=\(json.meta.total) json_first_id=\(json.data.first?.id ?? -1) json_last_id=\(json.data.last?.id ?? -1)")
+                print("READ_ONLY_ORDER_SAMPLE adif_page=\(adif.meta.page) adif_per_page=\(adif.meta.perPage) adif_count=\(adif.meta.count) adif_total=\(adif.meta.total) adif_last_fetched_id=\(adif.data.lastFetchedID ?? -1)")
+                return
+            }
             if ProcessInfo.processInfo.environment["XLOG_SYNC_SAMPLE_RX"] == "1" {
                 let client = WavelogClient(configuration: configuration)
                 let json = try await client.listQSOs(page: 1, perPage: 1000)
