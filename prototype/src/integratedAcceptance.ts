@@ -16,7 +16,19 @@ import { verifyWorkspaceMenuRoutes } from "./workspaceMenuAcceptance";
 import { verifyADIFTransferRoundtrip } from "./adifTransferAcceptance";
 
 type Json = Record<string, any>;
-const frame = () => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+const frame = () => new Promise<void>(resolve => {
+  let settled = false;
+  const finish = () => {
+    if (settled) return;
+    settled = true;
+    window.clearTimeout(timer);
+    resolve();
+  };
+  // WebKit pauses requestAnimationFrame in an unfocused native window. Keep the
+  // frame path for visible UI, but bound it so detached acceptance cannot hang.
+  const timer = window.setTimeout(finish, 100);
+  requestAnimationFrame(() => requestAnimationFrame(finish));
+});
 function element<T extends Element>(selector: string): T {
   const found = document.querySelector<T>(selector);
   if (!found) throw new Error(`Missing rendered control: ${selector}`);
