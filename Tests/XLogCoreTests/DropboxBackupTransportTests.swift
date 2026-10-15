@@ -151,6 +151,30 @@ import Testing
         #expect(credentials.value.description == "DropboxBackupCredential(redacted)")
     }
 
+    @Test func restoreDownloadsOnlyPinnedVerifiedRevisionAndRechecksExactBytes() async throws {
+        let (plan, bytes, credentials) = try fixture()
+        let receipt = try deletionCandidate(plan), metadata = try metadata(plan)
+        let http = HTTP([try account(), Step(status: 200, body: bytes,
+            headers: ["Dropbox-API-Result": String(decoding: metadata, as: UTF8.self)])])
+        let transport = try DropboxBackupTransport(destination: plan.destination,
+            credentials: credentials, http: http)
+        #expect(try await transport.downloadVerified(receipt: receipt) == bytes)
+        let requests = await http.requests
+        #expect(requests.map(\.url) == [DropboxBackupTransport.accountURL, DropboxBackupTransport.downloadURL])
+        let header = try #require(requests.last?.value(forHTTPHeaderField: "Dropbox-API-Arg"))
+        #expect(header.contains("rev:abcdef123456"))
+        #expect(!header.contains(plan.objectName))
+
+        let changed = Data("different frozen backup".utf8)
+        let corrupt = HTTP([try account(), Step(status: 200, body: changed,
+            headers: ["Dropbox-API-Result": String(decoding: metadata, as: UTF8.self)])])
+        let rejected = try DropboxBackupTransport(destination: plan.destination,
+            credentials: credentials, http: corrupt)
+        await #expect(throws: DropboxBackupError.invalidResponse) {
+            try await rejected.downloadVerified(receipt: receipt)
+        }
+    }
+
     @Test func executorVerifiesFrozenEnvelopeAndRestartsWithoutProviderReplay() async throws {
         let (initial, _, credentials) = try fixture()
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-dropbox-executor-\(UUID().uuidString)")

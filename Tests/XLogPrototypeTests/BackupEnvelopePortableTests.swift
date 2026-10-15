@@ -54,6 +54,26 @@ import Testing
         }
     }
 
+    @Test func verifiedRemoteEnvelopeMaterializesIdempotentlyWithoutInstalling() throws {
+        try fixture { root, package, manager in
+            let envelope = try manager.prepareEnvelope(at: package)
+            let staged = root.appendingPathComponent("Remote-fixture.xlogbackup")
+            let first = try manager.materializeRestoreEnvelope(envelope.data,
+                expectedIdentity: envelope.identity, at: staged)
+            #expect(first.manifest == envelope.manifest)
+            #expect(try manager.prepareEnvelope(at: staged).identity == envelope.identity)
+            #expect(try manager.materializeRestoreEnvelope(envelope.data,
+                expectedIdentity: envelope.identity, at: staged).manifest == envelope.manifest)
+            let wrong = try RemoteBackupPackageIdentity(sha256: String(repeating: "0", count: 64),
+                byteCount: envelope.identity.byteCount)
+            #expect(throws: XLogBackupError.self) {
+                try manager.materializeRestoreEnvelope(envelope.data, expectedIdentity: wrong,
+                    at: root.appendingPathComponent("wrong.xlogbackup"))
+            }
+            #expect(!FileManager.default.fileExists(atPath: root.appendingPathComponent("wrong.xlogbackup").path))
+        }
+    }
+
     @Test(arguments: ["settings.json", "preferences.json", "manifest.json", "Reference Data/nested.json", "OM0RX-xLog.sqlite"])
     func everyPayloadIsBound(path: String) throws {
         try fixture { _, package, manager in

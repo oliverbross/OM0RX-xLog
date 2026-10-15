@@ -40,6 +40,25 @@ import Testing
                     "rev": object.revision, "size": candidate.plan.package.byteCount]]))
         }
     }
+    private actor RestoreHTTP: DropboxBackupHTTPClient {
+        let receipt: RemoteBackupUploadReceipt
+        let bytes: Data
+        var requests: [URLRequest] = []
+        init(_ receipt: RemoteBackupUploadReceipt, bytes: Data) { self.receipt = receipt; self.bytes = bytes }
+        func send(_ request: URLRequest, maximumResponseBytes: Int) async throws -> DropboxBackupHTTPResponse {
+            requests.append(request)
+            if request.url == DropboxBackupTransport.accountURL {
+                return DropboxBackupHTTPResponse(url: request.url!, statusCode: 200,
+                    body: try JSONSerialization.data(withJSONObject: ["account_id": "dbid:fixture"]))
+            }
+            let object = try #require(receipt.remoteObject)
+            let metadata = try JSONSerialization.data(withJSONObject: ["id": object.objectID,
+                "name": receipt.plan.objectName, "rev": object.revision,
+                "size": receipt.plan.package.byteCount])
+            return DropboxBackupHTTPResponse(url: request.url!, statusCode: 200,
+                headers: ["Dropbox-API-Result": String(decoding: metadata, as: UTF8.self)], body: bytes)
+        }
+    }
     private struct Fixture {
         let logbook: LiveLogbookMethods
         let root: URL
@@ -116,6 +135,45 @@ import Testing
                 vault: Vault(), http: http)
         }
         #expect(await http.requests.count == 2)
+    }
+
+    @Test func verifiedRevisionStagesIdempotentLocalPackageBeforeExplicitRestore() async throws {
+        let f = try Fixture(); defer { f.clean() }
+        try f.logbook.openedDatabase().save(QSO(call: "BEFORE", band: "20m", mode: "CW"))
+        let created = try f.logbook.handle(method: "backup_create", params: ["name": "remote-source"])
+        let localName = try #require(created["name"] as? String)
+        let localPackage = f.workspace.directoryURL.appendingPathComponent("Backups").appendingPathComponent(localName)
+        let envelope = try XLogBackupManager().prepareEnvelope(at: localPackage)
+        let restorePlan = try RemoteBackupUploadPlan(workspaceGeneration: f.plan.workspaceGeneration,
+            destination: f.plan.destination, backupID: UUID(), package: envelope.identity)
+        let remote = try RemoteBackupVerifiedObject(provider: .dropbox, providerAccountID: "dbid:fixture",
+            objectID: "id:restore-fixture", revision: "abcdef123456")
+        let receipt = try RemoteBackupUploadReceipt(plan: restorePlan,
+            outcome: .verified(package: restorePlan.package, at: Date(timeIntervalSince1970: 1)),
+            remoteObject: remote)
+        let store = try RemoteBackupOperationStore(directory: f.operations)
+        _ = try store.reserve(plan: restorePlan); try store.complete(receipt)
+        let commands = await f.service.nativeCommands()
+        let approval = try await commands.approve(plan: restorePlan, account: f.registration,
+            expectedConfigurationRevision: 0)
+        let http = RestoreHTTP(receipt, bytes: envelope.data)
+        let staged = try await commands.stageVerifiedRestore(plan: restorePlan, approval: approval,
+            vault: Vault(), http: http)
+        #expect(staged.name == "Remote-\(restorePlan.backupID.uuidString.lowercased()).xlogbackup")
+        #expect(staged.manifest.qsoCount == 1)
+        #expect(try await commands.stageVerifiedRestore(plan: restorePlan, approval: approval,
+            vault: Vault(), http: RestoreHTTP(receipt, bytes: envelope.data)) == staged)
+        let inspected = try f.logbook.handle(method: "backup_inspect", params: ["name": staged.name])
+        #expect((inspected["manifest"] as? [String: Any])?["qsoCount"] as? Int == 1)
+        try f.logbook.openedDatabase().save(QSO(call: "AFTER", band: "20m", mode: "CW"))
+        #expect(try f.logbook.openedDatabase().count() == 2)
+        let restored = try f.logbook.handle(method: "backup_restore", params: ["name": staged.name,
+            "confirm_restore": true, "restore_settings": false,
+            "restore_preferences": false, "restore_reference_data": false])
+        #expect(restored["restored"] as? Bool == true)
+        #expect(try f.logbook.openedDatabase().count() == 1)
+        let requests = await http.requests
+        #expect(requests.map(\.url) == [DropboxBackupTransport.accountURL, DropboxBackupTransport.downloadURL])
     }
 
     @Test func explicitReviewUsesDurablePinnedHistoryAndNeverStartsOrCreatesAnExecutor() async throws {

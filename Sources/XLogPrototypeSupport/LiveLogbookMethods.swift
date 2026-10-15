@@ -196,6 +196,26 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
         }
     }
 
+    /// Stages verified remote bytes into the ordinary local backup catalogue.
+    /// The deterministic name makes an acknowledgement lost after publication
+    /// idempotent; this does not install or restore the staged package.
+    func stageRemoteBackupEnvelope(plan: RemoteBackupUploadPlan, data: Data,
+                                   authorize: () throws -> Void) throws -> (name: String, preview: XLogBackupPreview) {
+        try lock.withLock {
+            _ = try powerWorkspaceID(expected: plan.workspaceGeneration)
+            try authorize()
+            guard !manualSyncActive else {
+                throw WorkerFailure("sync_busy", "Wait for synchronization to finish before staging a remote backup.")
+            }
+            let name = "Remote-\(plan.backupID.uuidString.lowercased()).\(XLogBackupManager.packageExtension)"
+            let package = try backupDirectory().appendingPathComponent(name, isDirectory: true)
+            let preview = try XLogBackupManager().materializeRestoreEnvelope(
+                data, expectedIdentity: plan.package, at: package)
+            try authorize()
+            return (name, preview)
+        }
+    }
+
     /// Native-only entry points: renderer IPC has no arm/capture capability.
     /// Keep generation checks and the database operation under the same lock.
     func powerOwnerSnapshot() throws -> OperatorDraftPowerOwnerSnapshot {

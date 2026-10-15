@@ -355,6 +355,49 @@ public final class XLogBackupManager: @unchecked Sendable {
         try validateRestoreEnvelope(data, stagingDirectory: nil)
     }
 
+    /// Materializes a previously validated remote envelope as a normal local
+    /// `.xlogbackup` package. The exact independently trusted identity must match;
+    /// an existing package is accepted only when it contains those same bytes.
+    /// This never installs the database or changes live settings.
+    @discardableResult
+    public func materializeRestoreEnvelope(_ data: Data, expectedIdentity: RemoteBackupPackageIdentity,
+                                           at packageURL: URL) throws -> XLogBackupPreview {
+        let envelope = try validateRestoreEnvelope(data)
+        guard envelope.identity == expectedIdentity,
+              packageURL.isFileURL,
+              packageURL.pathExtension.lowercased() == Self.packageExtension else {
+            throw XLogBackupError.invalidPackage("remote package identity or destination is invalid")
+        }
+        if fileManager.fileExists(atPath: packageURL.path) {
+            let existing = try prepareEnvelope(at: packageURL)
+            guard existing.identity == expectedIdentity else { throw XLogBackupError.destinationExists }
+            return try inspect(at: packageURL)
+        }
+        let parent = packageURL.deletingLastPathComponent()
+        try fileManager.createDirectory(at: parent, withIntermediateDirectories: true,
+                                        attributes: LocalFilePermissions.directoryAttributes)
+        let staging = parent.appendingPathComponent(".remote-restore-\(UUID().uuidString)", isDirectory: true)
+        var committed = false
+        defer { if !committed { try? fileManager.removeItem(at: staging) } }
+        let payload = try decoder.decode(BackupPackageSeal.Payload.self, from: data)
+        try BackupPackageSeal.materialize(payload.files, at: staging, fileManager: fileManager)
+        try BackupPackageSeal.encode(payload.seal).write(
+            to: staging.appendingPathComponent(BackupPackageSeal.filename), options: .atomic)
+        let staged = try prepareEnvelope(at: staging)
+        guard staged.identity == expectedIdentity else { throw XLogBackupError.checksumMismatch }
+        do { try fileManager.moveItem(at: staging, to: packageURL) }
+        catch {
+            if fileManager.fileExists(atPath: packageURL.path),
+               let existing = try? prepareEnvelope(at: packageURL), existing.identity == expectedIdentity {
+                committed = true
+                return try inspect(at: packageURL)
+            }
+            throw XLogBackupError.restoreFailed(error.localizedDescription)
+        }
+        committed = true
+        return try inspect(at: packageURL)
+    }
+
     private func validateRestoreEnvelope(_ data: Data, stagingDirectory: URL?) throws -> XLogBackupEnvelope {
         // Base64 JSON expands content; bound input as well as decoded payload.
         guard data.count <= BackupPackageSeal.maximumBytes * 2 else {

@@ -35,6 +35,7 @@ actor LiveRemoteBackupPresentation {
     private var configurationRevision: UInt64 = 0
     private var accountRevision: UInt64 = 0
     private var retention: (candidates: Int, protected: Int)?
+    private var stagedRestore: NativeRemoteBackupStagedRestore?
     private var mutating = false
 
     init(logbook: LiveLogbookMethods, service: LiveRemoteBackupService,
@@ -57,7 +58,7 @@ actor LiveRemoteBackupPresentation {
                 return ["receipt": journal.receipts.first(where: { $0.id == id }).map(publicReceipt) ?? NSNull()]
             }
         }
-        guard ["prepare", "verify_account", "approve", "start", "stop", "revoke", "review_retention"].contains(action),
+        guard ["prepare", "verify_account", "approve", "start", "stop", "revoke", "review_retention", "stage_restore"].contains(action),
               Set(params.keys) == ["action", "operation_id", "owner"],
               let raw = params["operation_id"] as? String, let id = UUID(uuidString: raw),
               let owner = params["owner"] as? [String: Any], Set(owner.keys) == ["generation", "revision", "token"],
@@ -97,7 +98,7 @@ actor LiveRemoteBackupPresentation {
             let commands = await service.nativeCommands()
             switch action {
             case "prepare":
-                token = nil; offer = nil; registration = nil; approval = nil; retention = nil
+                token = nil; offer = nil; registration = nil; approval = nil; retention = nil; stagedRestore = nil
                 let prepared = try await environment.prepare(generation)
                 try logbook.withCurrentWorkspaceGeneration { current in
                     try prepared.plan.validate(workspaceGeneration: current, destination: prepared.plan.destination)
@@ -140,6 +141,11 @@ actor LiveRemoteBackupPresentation {
                 guard let approval else { throw stale() }
                 let review = try await commands.reviewRetention(plan: prepared.plan, approval: approval)
                 retention = (review.review.candidates.count, review.review.protected.count)
+            case "stage_restore":
+                let prepared = try requireOffer(generation)
+                guard let approval else { throw stale() }
+                stagedRestore = try await commands.stageVerifiedRestore(plan: prepared.plan,
+                    approval: approval, vault: environment.vault, http: environment.http)
             default: throw invalid()
             }
             try logbook.withCurrentWorkspaceGeneration { current in
@@ -173,11 +179,11 @@ actor LiveRemoteBackupPresentation {
             }
         }
         if let offer, offer.plan.workspaceGeneration != account.workspaceGeneration {
-            self.offer = nil; token = nil; registration = nil; approval = nil; retention = nil
+            self.offer = nil; token = nil; registration = nil; approval = nil; retention = nil; stagedRestore = nil
         }
         return try logbook.withCurrentWorkspaceGeneration { current in
             if offer?.plan.workspaceGeneration != current {
-                offer = nil; token = nil; registration = nil; approval = nil; retention = nil
+                offer = nil; token = nil; registration = nil; approval = nil; retention = nil; stagedRestore = nil
             }
             let journal = try load(current)
             let currentOffer = offer?.plan.workspaceGeneration == current ? offer : nil
@@ -214,6 +220,11 @@ actor LiveRemoteBackupPresentation {
                 }
             }
             if let retention { result["retention_review"] = ["candidates": retention.candidates, "protected": retention.protected] }
+            if let stagedRestore {
+                result["staged_restore"] = ["name": stagedRestore.name,
+                    "qso_count": stagedRestore.manifest.qsoCount,
+                    "created_at": ISO8601DateFormatter().string(from: stagedRestore.manifest.createdAt)]
+            }
             return result
         }
     }

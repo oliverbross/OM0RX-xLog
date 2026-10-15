@@ -89,10 +89,14 @@ export default function RemoteBackupPanel({ request, visible }: { request: Reque
           <button type="button" disabled={locked || !state.running} onClick={() => void act("stop")}>Stop backup</button>
           <button type="button" disabled={locked || !state.approved} onClick={() => void act("revoke")}>Revoke backup approval</button>
           <button type="button" disabled={locked || !state.approved || !state.registered} onClick={() => void act("review_retention")}>Review retained backup evidence</button>
+          <button type="button" disabled={locked || state.running || !state.approved || !state.registered
+            || state.upload_outcome !== "verified" || state.remote_identity_recorded !== true}
+            onClick={() => void act("stage_restore")}>Download verified backup for restore review</button>
         </>}
       </>}
     <p className="secondary">Remote deletion is unavailable. Retention review cannot delete backups. Unknown outcomes require a status review and are never retried automatically.</p>
     {state?.retention_review && <p role="status">Retained evidence review: {state.retention_review.protected} protected · {state.retention_review.candidates} candidates for a future review. No deletion is authorized.</p>}
+    {state?.staged_restore && <p role="status">Verified remote backup staged locally as {state.staged_restore.name} ({state.staged_restore.qso_count?.toLocaleString()} contacts). Inspect it under Local backups before an explicit restore.</p>}
     {error && <p role="alert" className="live-data-feedback error">{error}</p>}
     {pending && <button type="button" disabled={busy || !state} onClick={() => {
       try { localStorage.removeItem(key); setPending(false); void read(); } catch (cause) { setError(message(cause)); }

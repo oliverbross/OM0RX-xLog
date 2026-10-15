@@ -43,7 +43,7 @@ struct NativeRemoteBackupApproval: Equatable, Sendable {
 }
 
 enum NativeRemoteBackupCommandError: Error, Equatable {
-    case accountUnavailable, staleRetentionReview
+    case accountUnavailable, staleRetentionReview, verifiedBackupUnavailable
 }
 
 /// A retained native review, not deletion consent. A separate native-only command
@@ -55,6 +55,11 @@ struct NativeRemoteBackupRetentionReview: Equatable, Sendable {
     fileprivate let approval: NativeRemoteBackupApproval
     fileprivate let contextGeneration: UUID
     fileprivate let history: [RemoteBackupUploadReceipt]
+}
+
+struct NativeRemoteBackupStagedRestore: Equatable, Sendable {
+    let name: String
+    let manifest: XLogBackupManifest
 }
 
 /// Internal command boundary, deliberately not installed in IPC/frontend routes.
@@ -245,6 +250,53 @@ actor LiveRemoteBackupCommands {
         return try await coordinator.delete(candidate: candidate,
             workspaceGeneration: review.plan.workspaceGeneration,
             destination: review.plan.destination, transport: transport, at: clock.now())
+    }
+
+    /// Downloads one exact immutable Dropbox revision from an app-owned verified
+    /// upload receipt and stages it in the local Backups catalogue. The existing
+    /// backup-inspect and explicit restore-confirmation workflow remains mandatory.
+    func stageVerifiedRestore(plan: RemoteBackupUploadPlan, approval: NativeRemoteBackupApproval,
+                              vault: any NativeBackupCredentialVault = SystemNativeBackupCredentialVault(),
+                              http: any DropboxBackupHTTPClient = DropboxBackupURLSessionClient()) async throws
+        -> NativeRemoteBackupStagedRestore {
+        try beginMutation(); defer { mutating = false }
+        retainedRetentionReview = nil
+        guard let service else { throw CancellationError() }
+        guard await !service.isRunning else { throw RemoteBackupSchedulerError.operationInProgress }
+        try check(plan: plan, account: approval.registration)
+        let authority = try await service.authorizationOwner()
+        try await authority.validate(plan: plan, authorization: approval.authorization)
+        let checker = await authority.checker(for: approval.authorization)
+        let registrationCheck = makeCheck(plan: plan, account: approval.registration)
+        let contextGeneration = try service.retentionContextGeneration()
+        let check: @Sendable () throws -> Void = {
+            guard try service.retentionContextGeneration() == contextGeneration else {
+                throw NativeRemoteBackupCommandError.verifiedBackupUnavailable
+            }
+            try registrationCheck()
+            try checker.validate(workspaceGeneration: plan.workspaceGeneration,
+                                 destination: plan.destination)
+        }
+        try check()
+        let history = try RemoteBackupUploadCoordinator.persistedReceipts(
+            stateDirectory: try retentionDirectories(plan: plan).uploads)
+        let candidates = history.filter { receipt in
+            guard receipt.plan == plan,
+                  receipt.remoteObject?.providerAccountID == approval.registration.binding.providerAccountID else {
+                return false
+            }
+            if case .verified(let package, _) = receipt.outcome { return package == plan.package }
+            return false
+        }
+        guard candidates.count == 1 else { throw NativeRemoteBackupCommandError.verifiedBackupUnavailable }
+        let source = LiveDropboxBackupCredentialSource(logbook: logbook,
+            binding: approval.registration.binding, checker: checker, vault: vault)
+        let transport = try DropboxBackupTransport(destination: plan.destination,
+            credentials: source, http: RetentionCheckedHTTP(client: http, check: check))
+        let data = try await transport.downloadVerified(receipt: candidates[0])
+        try check()
+        let staged = try logbook.stageRemoteBackupEnvelope(plan: plan, data: data, authorize: check)
+        return NativeRemoteBackupStagedRestore(name: staged.name, manifest: staged.preview.manifest)
     }
 
     private func makeRetentionReview(plan: RemoteBackupUploadPlan, approval: NativeRemoteBackupApproval) async throws -> NativeRemoteBackupRetentionReview {

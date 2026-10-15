@@ -88,3 +88,26 @@ it("an account/context refresh revokes a checkbox confirmation and never exposes
   expect(screen.queryByRole("button", { name: /delete/i })).toBeNull();
   expect(request.mock.calls.every(([, params]: any) => params?.action === "snapshot")).toBe(true);
 });
+
+it("stages only a verified pinned upload for the existing explicit restore workflow", async () => {
+  let state: Record<string, any> = { ...initial(), prepared: true, registered: true, approved: true,
+    upload_outcome: "verified", remote_identity_recorded: true, account: "dbid:fixture",
+    folder: "id:folder", backup_id: "backup", byte_count: 123 };
+  let last: any;
+  const request = vi.fn(async (_method, params) => {
+    if (params.action === "snapshot") return state;
+    if (params.action === "receipt") return { receipt: last };
+    const { action, operation_id, owner } = params;
+    last = { operation_id, status: "acknowledged", request: { action, owner } };
+    state = { ...state, owner: { ...owner, revision: owner.revision + 1 },
+      staged_restore: { name: "Remote-backup.xlogbackup", qso_count: 42 } };
+    return last;
+  });
+  render(<RemoteBackupPanel request={request} visible />);
+  const stage = await screen.findByRole("button", { name: "Download verified backup for restore review" });
+  await waitFor(() => expect((stage as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(stage);
+  await screen.findByText(/Remote-backup\.xlogbackup \(42 contacts\)/);
+  expect(request.mock.calls.some(([, params]) => params.action === "stage_restore")).toBe(true);
+  expect(screen.getByText(/Inspect it under Local backups before an explicit restore/)).toBeTruthy();
+});

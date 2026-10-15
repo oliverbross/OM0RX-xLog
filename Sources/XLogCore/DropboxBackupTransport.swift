@@ -36,6 +36,13 @@ public protocol DropboxBackupCredentialSource: Sendable {
     func credential(for accountID: UUID) async throws -> DropboxBackupCredential
 }
 
+public protocol RemoteBackupRestoreTransport: Sendable {
+    /// Downloads only the immutable provider object pinned by an app-owned,
+    /// independently verified upload receipt. Mutable paths and listings are not
+    /// restore authority.
+    func downloadVerified(receipt: RemoteBackupUploadReceipt) async throws -> Data
+}
+
 /// Explicitly constructed by a future provider boundary. Initialization performs
 /// no HTTP requests and never enables scheduling; only private claim metadata is stored.
 public actor DropboxBackupExecutor: RemoteBackupClaimExecutor {
@@ -118,7 +125,7 @@ public struct DropboxBackupAccountProbe: Sendable {
 
 /// Fixed endpoints only. Tokens, response bodies and provider errors are never logged
 /// or persisted. Durable replay protection belongs to RemoteBackupUploadCoordinator.
-public actor DropboxBackupTransport: RemoteBackupUploadTransport, RemoteBackupDeletionTransport {
+public actor DropboxBackupTransport: RemoteBackupUploadTransport, RemoteBackupDeletionTransport, RemoteBackupRestoreTransport {
     public static let maximumPackageBytes = 150 * 1_024 * 1_024
     static let maximumMetadataBytes = 32 * 1_024
     static let accountURL = URL(string: "https://api.dropboxapi.com/2/users/get_current_account")!
@@ -233,6 +240,37 @@ public actor DropboxBackupTransport: RemoteBackupUploadTransport, RemoteBackupDe
             throw DropboxBackupError.remoteRejected
         }
         return expected
+    }
+
+    public func downloadVerified(receipt: RemoteBackupUploadReceipt) async throws -> Data {
+        try validate(receipt.plan)
+        guard case .verified(let package, _) = receipt.outcome,
+              package == receipt.plan.package,
+              let expected = receipt.remoteObject,
+              expected.provider == .dropbox else {
+            throw DropboxBackupError.invalidPackage
+        }
+        let credential = try await checkedCredential()
+        guard try await checkedAccount(credential) == expected.providerAccountID else {
+            throw DropboxBackupError.accountMismatch
+        }
+        var request = try request(Self.downloadURL, credential: credential)
+        request.setValue(try header(DownloadArguments(path: "rev:" + expected.revision)),
+                         forHTTPHeaderField: "Dropbox-API-Arg")
+        let response = try await exchange(request, maximum: Int(package.byteCount))
+        guard response.statusCode == 200,
+              let result = response.headers.first(where: { $0.key.lowercased() == "dropbox-api-result" })?.value,
+              result.utf8.count <= Self.maximumMetadataBytes else {
+            throw DropboxBackupError.remoteRejected
+        }
+        let downloaded = try metadata(Data(result.utf8), plan: receipt.plan)
+        guard downloaded.id == expected.objectID, downloaded.rev == expected.revision,
+              Int64(response.body.count) == package.byteCount,
+              BackupPackageSeal.hash(response.body) == package.sha256 else {
+            throw DropboxBackupError.invalidResponse
+        }
+        try Task.checkCancellation()
+        return response.body
     }
 
     private func validate(_ plan: RemoteBackupUploadPlan) throws {
