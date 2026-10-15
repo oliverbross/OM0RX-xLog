@@ -47,6 +47,7 @@ private final class ConditionalReferenceURLProtocol: URLProtocol {
                 "Content-Type": "text/csv",
                 "ETag": "\"pota-v1\"",
                 "Last-Modified": "Sat, 10 Oct 2026 10:00:00 GMT",
+                "X-Dataset-Version": "2026.10",
             ]
         case 1:
             statusCode = 304
@@ -84,15 +85,19 @@ private final class ReferenceMetadataURLProtocol: URLProtocol {
     private static let lock = NSLock()
     private static var statuses: [String: Int] = [:]
     private static var bodies: [String: Data] = [:]
+    private static var responseHeaders: [String: [String: String]] = [:]
     private static var paths: [String] = []
     private static var conditionalTags: [String?] = []
     private static var conditionalDates: [String?] = []
     private static var conditionalNotModified = false
 
-    static func configure(_ statuses: [String: Int], bodies: [String: Data] = [:], conditionalNotModified: Bool = false) {
+    static func configure(_ statuses: [String: Int], bodies: [String: Data] = [:],
+                          responseHeaders: [String: [String: String]] = [:],
+                          conditionalNotModified: Bool = false) {
         lock.withLock {
             self.statuses = statuses
             self.bodies = bodies
+            self.responseHeaders = responseHeaders
             self.paths = []
             self.conditionalTags = []
             self.conditionalDates = []
@@ -110,14 +115,14 @@ private final class ReferenceMetadataURLProtocol: URLProtocol {
 
     override func startLoading() {
         let path = request.url!.path
-        let (status, override) = Self.lock.withLock { () -> (Int, Data?) in
+        let (status, override, customHeaders) = Self.lock.withLock { () -> (Int, Data?, [String: String]) in
             Self.paths.append(path)
             let tag = request.value(forHTTPHeaderField: "If-None-Match")
             let date = request.value(forHTTPHeaderField: "If-Modified-Since")
             Self.conditionalTags.append(tag)
             Self.conditionalDates.append(date)
             let status = Self.conditionalNotModified && (tag != nil || date != nil) ? 304 : (Self.statuses[path] ?? 500)
-            return (status, Self.bodies[path])
+            return (status, Self.bodies[path], Self.responseHeaders[path] ?? [:])
         }
         let body: Data
         if let override { body = override }
@@ -130,8 +135,10 @@ private final class ReferenceMetadataURLProtocol: URLProtocol {
         default: body = Data()
         }
         }
+        var headers = ["ETag": "\"fixture\""]
+        headers.merge(customHeaders) { _, new in new }
         let response = HTTPURLResponse(url: request.url!, statusCode: status,
-                                       httpVersion: "HTTP/1.1", headerFields: ["ETag": "\"fixture\""])!
+                                       httpVersion: "HTTP/1.1", headerFields: headers)!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         if status != 304 { client?.urlProtocol(self, didLoad: body) }
         client?.urlProtocolDidFinishLoading(self)
@@ -354,6 +361,57 @@ struct ReferenceDataUpdaterTests {
         let state = try JSONDecoder().decode(ReferenceDataState.self, from: legacy)
         #expect(state.clubLogUpdatedAt != nil)
         #expect(state.sourceMetadata.isEmpty)
+
+        let legacyMetadata = Data("{\"status\":\"downloaded\"}".utf8)
+        let metadata = try JSONDecoder().decode(ReferenceSourceMetadata.self, from: legacyMetadata)
+        #expect(metadata.sourceVersion == nil)
+    }
+
+    @Test("Explicit source versions are bounded, persisted, preserved on 304 and replaced by a new representation")
+    func sourceVersionMetadata() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let updater = try fixtureUpdater(directory: directory)
+        let club = URL(string: "https://fixture.invalid/cty.xml")!
+        let lotw = URL(string: "https://fixture.invalid/lotw.csv")!
+        let versionedCTY = Data(String(decoding: ReferenceMetadataURLProtocol.validCTY, as: UTF8.self)
+            .replacingOccurrences(of: "<clublog>", with: "<clublog version=\"2026.10\">").utf8)
+
+        ReferenceMetadataURLProtocol.configure(
+            ["/cty.xml": 200, "/lotw.csv": 200],
+            bodies: ["/cty.xml": versionedCTY],
+            responseHeaders: ["/lotw.csv": ["X-Reference-Version": "activity-7"]]
+        )
+        let first = try await updater.refresh(clubLogURL: club, clubLogAPIKey: "", lotwURL: lotw)
+        #expect(first.sourceMetadata["cty.xml"]?.sourceVersion == "2026.10")
+        #expect(first.sourceMetadata["lotw-user-activity.csv"]?.sourceVersion == "activity-7")
+
+        ReferenceMetadataURLProtocol.configure(["/cty.xml": 304, "/lotw.csv": 304])
+        let unchanged = try await updater.refresh(clubLogURL: club, clubLogAPIKey: "", lotwURL: lotw)
+        #expect(unchanged.sourceMetadata["cty.xml"]?.sourceVersion == "2026.10")
+        #expect(unchanged.sourceMetadata["lotw-user-activity.csv"]?.sourceVersion == "activity-7")
+
+        ReferenceMetadataURLProtocol.configure(["/cty.xml": 200, "/lotw.csv": 200])
+        let replaced = try await updater.refresh(clubLogURL: club, clubLogAPIKey: "", lotwURL: lotw)
+        #expect(replaced.sourceMetadata["cty.xml"]?.sourceVersion == nil)
+        #expect(replaced.sourceMetadata["lotw-user-activity.csv"]?.sourceVersion == nil)
+
+        let path = "/index.php/api/v2/catalog"
+        ReferenceMetadataURLProtocol.configure(
+            [path: 200],
+            bodies: [path: Data("{\"revision\":42,\"items\":[]}".utf8)],
+            responseHeaders: [path: ["X-Version": "server-build-9", "X-Revision": "proxy-3"]]
+        )
+        let catalog = try await updater.refreshWavelogCatalog(
+            baseURL: URL(string: "https://fixture.invalid")!, token: "fixture-token")
+        #expect(catalog.sourceMetadata["wavelog-catalog.json"]?.sourceVersion == "42")
+
+        let tooLong = String(repeating: "v", count: 81)
+        ReferenceMetadataURLProtocol.configure(
+            [path: 200], bodies: [path: Data("{\"version\":\"\(tooLong)\",\"items\":[]}".utf8)])
+        let bounded = try await updater.refreshWavelogCatalog(
+            baseURL: URL(string: "https://fixture.invalid")!, token: "fixture-token")
+        #expect(bounded.sourceMetadata["wavelog-catalog.json"]?.sourceVersion == nil)
     }
 
     @Test("200 downloads and 304 checks retain distinct dates; partial failure persists")
@@ -588,6 +646,7 @@ struct ReferenceDataUpdaterTests {
         #expect(first.activationCounts[ActivationReferenceKind.pota.rawValue] == 10_000)
         let downloadedAt = try #require(first.sourceMetadata[ActivationReferenceKind.pota.fileName]?.downloadedAt)
         #expect(first.sourceMetadata[ActivationReferenceKind.pota.fileName]?.status == "downloaded")
+        #expect(first.sourceMetadata[ActivationReferenceKind.pota.fileName]?.sourceVersion == "2026.10")
         #expect(first.validators[ActivationReferenceKind.pota.fileName]?.eTag == "\"pota-v1\"")
         #expect(first.validators[ActivationReferenceKind.pota.fileName]?.lastModified == "Sat, 10 Oct 2026 10:00:00 GMT")
 
@@ -601,6 +660,7 @@ struct ReferenceDataUpdaterTests {
         #expect(second.activationCounts[ActivationReferenceKind.pota.rawValue] == 10_000)
         #expect(second.sourceMetadata[ActivationReferenceKind.pota.fileName]?.status == "up_to_date")
         #expect(second.sourceMetadata[ActivationReferenceKind.pota.fileName]?.downloadedAt == downloadedAt)
+        #expect(second.sourceMetadata[ActivationReferenceKind.pota.fileName]?.sourceVersion == "2026.10")
         #expect(try Data(contentsOf: cacheURL) == originalCache)
 
         var rejectedCorruptReplacement = false

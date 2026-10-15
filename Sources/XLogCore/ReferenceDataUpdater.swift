@@ -19,15 +19,19 @@ public struct ReferenceDataValidator: Codable, Equatable, Sendable {
 /// Only successful 200 responses establish a downloaded date. A 304 is a
 /// successful check of an existing validated cache, not a new download.
 public struct ReferenceSourceMetadata: Codable, Equatable, Sendable {
+    /// An explicit version or revision supplied by the source. HTTP validators
+    /// and timestamps are deliberately not promoted into this field.
+    public var sourceVersion: String?
     public var downloadedAt: Date?
     public var checkedAt: Date?
     public var lastAttemptAt: Date?
     public var status: String
     public var lastError: String?
 
-    public init(downloadedAt: Date? = nil, checkedAt: Date? = nil,
+    public init(sourceVersion: String? = nil, downloadedAt: Date? = nil, checkedAt: Date? = nil,
                 lastAttemptAt: Date? = nil, status: String = "never_checked",
                 lastError: String? = nil) {
+        self.sourceVersion = sourceVersion
         self.downloadedAt = downloadedAt
         self.checkedAt = checkedAt
         self.lastAttemptAt = lastAttemptAt
@@ -108,6 +112,7 @@ public actor ReferenceDataUpdater {
         var bytes: Int
         var validator: ReferenceDataValidator
         var downloaded: Bool
+        var sourceVersion: String?
     }
 
     private struct ActivationDownloadResult {
@@ -115,6 +120,7 @@ public actor ReferenceDataUpdater {
         var count: Int
         var validator: ReferenceDataValidator
         var downloaded: Bool
+        var sourceVersion: String?
     }
 
     private struct ValidatedCache {
@@ -225,7 +231,7 @@ public actor ReferenceDataUpdater {
             state.clubLogUpdatedAt = Date() // Legacy field means checked, not necessarily downloaded.
             state.clubLogBytes = result.bytes
             state.validators["cty.xml"] = identified(result.validator, for: resolvedClubURL)
-            markSuccess("cty.xml", downloaded: result.downloaded, in: &state)
+            markSuccess("cty.xml", downloaded: result.downloaded, sourceVersion: result.sourceVersion, in: &state)
         case .failure: markFailure("cty.xml", in: &state)
         }
         switch lotwOutcome {
@@ -233,7 +239,7 @@ public actor ReferenceDataUpdater {
             state.lotwUpdatedAt = Date()
             state.lotwBytes = result.bytes
             state.validators["lotw-user-activity.csv"] = identified(result.validator, for: lotwURL)
-            markSuccess("lotw-user-activity.csv", downloaded: result.downloaded, in: &state)
+            markSuccess("lotw-user-activity.csv", downloaded: result.downloaded, sourceVersion: result.sourceVersion, in: &state)
         case .failure: markFailure("lotw-user-activity.csv", in: &state)
         }
         try persist(state)
@@ -271,7 +277,7 @@ public actor ReferenceDataUpdater {
         state.clubLogUpdatedAt = Date()
         state.clubLogBytes = result.bytes
         state.validators["cty.xml"] = identified(result.validator, for: url)
-        markSuccess("cty.xml", downloaded: result.downloaded, in: &state)
+        markSuccess("cty.xml", downloaded: result.downloaded, sourceVersion: result.sourceVersion, in: &state)
         try persist(state)
         return state
     }
@@ -294,7 +300,7 @@ public actor ReferenceDataUpdater {
         state.lotwUpdatedAt = Date()
         state.lotwBytes = result.bytes
         state.validators["lotw-user-activity.csv"] = identified(result.validator, for: url)
-        markSuccess("lotw-user-activity.csv", downloaded: result.downloaded, in: &state)
+        markSuccess("lotw-user-activity.csv", downloaded: result.downloaded, sourceVersion: result.sourceVersion, in: &state)
         try persist(state)
         return state
     }
@@ -332,7 +338,8 @@ public actor ReferenceDataUpdater {
                 try Task.checkCancellation()
                 result = DownloadResult(bytes: cached.data.count,
                                         validator: mergedValidator(from: http, fallback: priorValidator),
-                                        downloaded: false)
+                                        downloaded: false,
+                                        sourceVersion: sourceVersion(from: http, payload: nil, name: "wavelog-catalog.json"))
             } else {
                 guard 200..<300 ~= http.statusCode,
                       (try? JSONSerialization.jsonObject(with: data)) != nil else { throw URLError(.cannotParseResponse) }
@@ -340,7 +347,8 @@ public actor ReferenceDataUpdater {
                 try data.write(to: destination, options: .atomic)
                 result = DownloadResult(bytes: data.count,
                                         validator: mergedValidator(from: http, fallback: priorValidator),
-                                        downloaded: true)
+                                        downloaded: true,
+                                        sourceVersion: sourceVersion(from: http, payload: data, name: "wavelog-catalog.json"))
             }
         } catch {
             state = currentState()
@@ -354,7 +362,7 @@ public actor ReferenceDataUpdater {
         var scopedValidator = result.validator
         scopedValidator.sourceIdentity = scopedIdentity
         state.validators["wavelog-catalog.json"] = scopedValidator
-        markSuccess("wavelog-catalog.json", downloaded: result.downloaded, in: &state)
+        markSuccess("wavelog-catalog.json", downloaded: result.downloaded, sourceVersion: result.sourceVersion, in: &state)
         try persist(state)
         return state
     }
@@ -394,7 +402,7 @@ public actor ReferenceDataUpdater {
         state.activationBytes[key] = result.bytes
         state.activationCounts[key] = result.count
         state.validators[kind.fileName] = identified(result.validator, for: url)
-        markSuccess(kind.fileName, downloaded: result.downloaded, in: &state)
+        markSuccess(kind.fileName, downloaded: result.downloaded, sourceVersion: result.sourceVersion, in: &state)
         try persist(state)
         return state
     }
@@ -423,7 +431,10 @@ public actor ReferenceDataUpdater {
                 throw URLError(.cannotParseResponse)
             }
             try Task.checkCancellation()
-            return DownloadResult(bytes: cached.data.count, validator: mergedValidator(from: http, fallback: effectiveValidator), downloaded: false)
+            return DownloadResult(bytes: cached.data.count,
+                                  validator: mergedValidator(from: http, fallback: effectiveValidator),
+                                  downloaded: false,
+                                  sourceVersion: sourceVersion(from: http, payload: nil, name: name))
         }
         guard 200..<300 ~= http.statusCode, data.count >= minimumBytes else {
             throw URLError(.cannotParseResponse)
@@ -439,7 +450,10 @@ public actor ReferenceDataUpdater {
         } else {
             try FileManager.default.moveItem(at: temporary, to: destination)
         }
-        return DownloadResult(bytes: payload.count, validator: mergedValidator(from: http, fallback: effectiveValidator), downloaded: true)
+        return DownloadResult(bytes: payload.count,
+                              validator: mergedValidator(from: http, fallback: effectiveValidator),
+                              downloaded: true,
+                              sourceVersion: sourceVersion(from: http, payload: payload, name: name))
     }
 
     /// A conditional request is useful only when its local representation is
@@ -551,7 +565,9 @@ public actor ReferenceDataUpdater {
             bytes: payload.count,
             count: count,
             validator: mergedValidator(from: http, fallback: effectiveValidator),
-            downloaded: http.statusCode != 304
+            downloaded: http.statusCode != 304,
+            sourceVersion: sourceVersion(from: http, payload: http.statusCode == 304 ? nil : payload,
+                                         name: kind.fileName)
         )
     }
 
@@ -572,12 +588,14 @@ public actor ReferenceDataUpdater {
         state.sourceMetadata[source] = metadata
     }
 
-    private func markSuccess(_ source: String, downloaded: Bool, in state: inout ReferenceDataState) {
+    private func markSuccess(_ source: String, downloaded: Bool, sourceVersion: String?,
+                             in state: inout ReferenceDataState) {
         var metadata = state.sourceMetadata[source] ?? .init()
         let now = Date()
         metadata.lastAttemptAt = metadata.lastAttemptAt ?? now
         metadata.checkedAt = now
         if downloaded { metadata.downloadedAt = now }
+        if downloaded || sourceVersion != nil { metadata.sourceVersion = sourceVersion }
         metadata.status = downloaded ? "downloaded" : "up_to_date"
         metadata.lastError = nil
         state.sourceMetadata[source] = metadata
@@ -634,6 +652,45 @@ public actor ReferenceDataUpdater {
             eTag: response.value(forHTTPHeaderField: "ETag") ?? fallback?.eTag,
             lastModified: response.value(forHTTPHeaderField: "Last-Modified") ?? fallback?.lastModified
         )
+    }
+
+    /// Accept only bounded, printable values from an explicit source field.
+    /// ETag, Last-Modified and download dates remain separate evidence and are
+    /// never converted into a version.
+    private func sourceVersion(from response: HTTPURLResponse, payload: Data?, name: String) -> String? {
+        for header in ["X-Reference-Version", "X-Dataset-Version", "X-Data-Version"] {
+            if let value = sanitizedSourceVersion(response.value(forHTTPHeaderField: header)) { return value }
+        }
+        guard let payload else { return nil }
+        if name.hasSuffix(".json"),
+           let object = try? JSONSerialization.jsonObject(with: payload),
+           let dictionary = object as? [String: Any] {
+            let candidates = ["version", "revision", "release", "datasetVersion", "dataVersion"]
+            for candidate in candidates {
+                guard let key = dictionary.keys.first(where: { $0.caseInsensitiveCompare(candidate) == .orderedSame }) else { continue }
+                let raw = dictionary[key]
+                if raw is Bool { continue }
+                if let value = sanitizedSourceVersion(raw as? String ?? (raw as? NSNumber)?.stringValue) { return value }
+            }
+        }
+        if name == "cty.xml",
+           let prefix = String(data: payload.prefix(65_536), encoding: .utf8),
+           let expression = try? NSRegularExpression(
+               pattern: #"<clublog\b[^>]*\b(?:version|revision|release)\s*=\s*[\"']([^\"']+)[\"']"#,
+               options: [.caseInsensitive]
+           ),
+           let match = expression.firstMatch(in: prefix, range: NSRange(prefix.startIndex..., in: prefix)),
+           let range = Range(match.range(at: 1), in: prefix) {
+            return sanitizedSourceVersion(String(prefix[range]))
+        }
+        return nil
+    }
+
+    private func sanitizedSourceVersion(_ value: String?) -> String? {
+        guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+              (1...80).contains(trimmed.utf8.count),
+              trimmed.unicodeScalars.allSatisfy({ (0x20...0x7e).contains($0.value) }) else { return nil }
+        return trimmed
     }
 
     private func gunzip(_ data: Data) throws -> Data {

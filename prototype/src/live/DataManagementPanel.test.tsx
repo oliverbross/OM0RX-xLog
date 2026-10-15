@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import DataManagementPanel, { safeReferenceSource } from "./DataManagementPanel";
+import DataManagementPanel, { safeReferenceSource, safeReferenceVersion } from "./DataManagementPanel";
 
 const manifest = { createdAt: "2026-10-12T10:00:00Z", qsoCount: 42, pendingSyncCount: 3,
   databaseBytes: 1_048_576, includesReferenceData: true };
@@ -102,9 +102,15 @@ describe("reference dataset evidence", () => {
     expect(safeReferenceSource("https://user:password@example.com/feed?api=key#secret")).toBe("https://example.com/feed");
     for (const value of [null, "", "not a URL", "javascript:alert(1)"]) expect(safeReferenceSource(value)).toBe("Not reported");
   });
+  it("shows only bounded printable source versions", () => {
+    expect(safeReferenceVersion(" 2026.10 ")).toBe("2026.10");
+    for (const value of [null, "", "line\nbreak", "tab\tvalue", "x".repeat(81)]) {
+      expect(safeReferenceVersion(value)).toBe("Not reported");
+    }
+  });
   it("uses separate downloaded/check/attempt metadata and shows failure without replacing earlier success evidence", async () => {
     const status = { ...reference, state: { sourceMetadata: {
-      "cty.xml": { downloadedAt: "2026-09-01T00:00:00Z", checkedAt: "2026-10-01T00:00:00Z", lastAttemptAt: "2026-10-01T00:00:00Z", status: "up_to_date" },
+      "cty.xml": { sourceVersion: "2026.10", downloadedAt: "2026-09-01T00:00:00Z", checkedAt: "2026-10-01T00:00:00Z", lastAttemptAt: "2026-10-01T00:00:00Z", status: "up_to_date" },
       "lotw-user-activity.csv": { downloadedAt: "2026-09-01T00:00:00Z", checkedAt: "2026-09-01T00:00:00Z", lastAttemptAt: "2026-10-12T00:00:00Z", status: "failed", lastError: "download_or_validation_failed" },
       "pota-parks.csv": { downloadedAt: "2026-10-12T00:00:00Z", checkedAt: "2026-10-12T00:00:00Z", lastAttemptAt: "2026-10-12T00:00:00Z", status: "downloaded" },
       "sota-summits.csv": { checkedAt: "2026-10-12T00:00:00Z", status: "up_to_date" },
@@ -115,6 +121,7 @@ describe("reference dataset evidence", () => {
     render(<DataManagementPanel section="references" onRequest={request} onChanged={vi.fn()} />);
     await waitFor(() => expect(screen.getAllByText("Source unchanged at last check")).toHaveLength(4));
     const club = within(screen.getByRole("row", { name: /Club Log CTY/ }));
+    expect(club.getByText("Version / revision: 2026.10")).toBeTruthy();
     expect(club.getByText("Unchanged at the recorded source check")).toBeTruthy();
     expect(club.getByText(/Last download:/).textContent).not.toContain("not tracked");
     const lotw = within(screen.getByRole("row", { name: /LoTW activity/ }));
