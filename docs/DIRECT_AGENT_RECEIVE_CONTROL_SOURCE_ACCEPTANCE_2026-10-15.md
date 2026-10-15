@@ -32,8 +32,9 @@ remain open.
   and contains the exact requested frequency or mode.
 - The authoritative readback wait times out after four seconds and reports an
   unconfirmed outcome rather than claiming the radio changed.
-- Hamlib exact-target controls remain unavailable because its current owner does
-  not provide this authoritative VFO-A contract.
+- Hamlib exact-target controls were added later at source `5a847a7`, with its
+  native raw VFO/PTT evidence and exact rigctld readback contract documented in
+  [Hamlib package acceptance](HAMLIB_EXACT_RECEIVE_CONTROL_SOURCE_ACCEPTANCE_2026-10-15.md).
 
 ## Verification
 
