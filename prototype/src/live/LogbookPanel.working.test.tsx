@@ -11,6 +11,16 @@ const page = (qsos: object[] = [contact]) => ({ qsos, total: qsos.length, offset
 const deferred = <T,>() => { let resolve!: (value: T) => void; const promise = new Promise<T>(done => { resolve = done; }); return { promise, resolve }; };
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
+it("exposes table loading so row activation can wait for refreshed data", async () => {
+  const gate = deferred<any>();
+  render(<LogbookPanel mutations={new LogbookMutationSession(vi.fn(), () => {})}
+    onRequest={() => gate.promise} onEdit={vi.fn()} refreshKey={0} />);
+  const table = screen.getByRole("region", { name: "Logbook contacts, scroll for more columns" });
+  expect(table.getAttribute("aria-busy")).toBe("true");
+  await act(async () => { gate.resolve(page()); });
+  await waitFor(() => expect(table.getAttribute("aria-busy")).toBe("false"));
+});
+
 it.each(["disabled", "busy", "pending", "conflict", "workspaceChanged"])("does not admit a file selected after the ready picker became %s", async blocker => {
   const working = vi.fn(), text = vi.fn().mockResolvedValue(new TextEncoder().encode("<CALL:5>TEST1<EOR>").buffer);
   const request = vi.fn(async (_method: string) => page()), mutations = new LogbookMutationSession(request, () => {}), edit = vi.fn();

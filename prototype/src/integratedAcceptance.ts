@@ -440,6 +440,7 @@ export async function startIntegratedAcceptance() {
       report.details.stage = "editing-contact";
       await invoke("acceptance_monitor", { report });
       for (const comment of ["Detached native edit", "Isolated native UI acceptance"]) {
+        await waitForAcceptance("detached logbook table ready", () => document.querySelector(".live-logbook-table-wrap")?.getAttribute("aria-busy") === "false");
         element<HTMLElement>(".live-logbook-table tbody tr").click(); await frame();
         await waitForAcceptance("detached contact editor", () => !!document.querySelector('[aria-label="Comment"]'));
         report.checks.no_radio_controls = !document.querySelector(".qso-read-radio") && !document.querySelector(".qso-footer-context input");

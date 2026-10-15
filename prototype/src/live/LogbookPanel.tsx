@@ -456,7 +456,8 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
         {selectionControls}
         <span>Selection clears when the page refreshes or changes.</span>
       </div>}
-      <div className="live-logbook-table-wrap" ref={tableArea} role="region" aria-label="Logbook contacts, scroll for more columns" tabIndex={0}>
+      <div className="live-logbook-table-wrap" ref={tableArea} role="region" aria-label="Logbook contacts, scroll for more columns"
+        aria-busy={loading || busy} tabIndex={0}>
         <table className="live-logbook-table" style={{ minWidth: totalColumnWidth }}>
           <colgroup>{visibleColumns.map(([id]) => <col key={id} style={{ width: `${columnPreferences.widths[id] / totalColumnWidth * 100}%` }} />)}</colgroup>
           <thead><tr>{visibleColumns.map(([id, label]) => <LogbookColumnHeader key={id} column={id} label={label}
