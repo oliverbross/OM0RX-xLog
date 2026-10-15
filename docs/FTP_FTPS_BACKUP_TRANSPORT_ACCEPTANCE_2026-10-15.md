@@ -117,14 +117,28 @@ performed.
   data only, `external_network: false`, `station_io: false`, one exact FTP
   object and zero FTPS objects. Its SHA-256 is
   `13f4f99c84a206f14c0a8cbc4e600ca4fa0cc418e2d94cab3ca215c49289a06e`.
+- Source `e325a3f4a431c73a909f6045a20dfe63d8fb7cd3` fixes a live-
+  exposed result-classification defect: libcurl may reject an advertised or
+  streamed object at `CURLE_FILESIZE_EXCEEDED` before the write callback marks
+  overflow, which must map to `responseTooLarge`, not generic rejection. The
+  disposable suite now passes **7 tests / 8 invocations**, covering advertised
+  and unknown-size overrun, remote growth after verified receipt, and the
+  unchanged production 15-second control-handshake timeout. Oversized objects
+  never become verified; timeout writes no object and remains non-replayable.
+  The warning-clean native suite passes **232 tests across 31 suites**.
+- Exact report `dist/disposable-ftp-live-e325a3f.json` records clean source,
+  synthetic data only, no external network and `station_io: false`; its
+  SHA-256 is
+  `081023d5936d9a164c4ade5d057a25fdad3ce53915ae68fc95335e8fb4fb08d8`.
 
 ## Remaining gates
 
 - Successful implicit FTPS against a trusted certificate without weakening
   verification or modifying the operator's trust store.
-- Additional disposable-server oversized-response and timeout cases. Plain-FTP
-  upload/verification/restore/replay refusal, explicit reservation refusal,
-  lost post-store acknowledgement and untrusted-FTPS rejection are now accepted
+- Additional transfer-stall/low-speed and total-deadline cases. Plain-FTP
+  upload/verification/restore/replay refusal, reservation refusal, lost
+  post-store acknowledgement, advertised/streamed oversize, post-verification
+  growth, control-handshake timeout and untrusted-FTPS rejection are accepted
   with synthetic data; no operator log may be used for remaining acceptance.
 - Installed macOS acceptance after operator approval.
 - A separately designed, host-key-pinned SFTP transport.
