@@ -420,7 +420,13 @@ acceptance. Consult the detailed tracker before closing any individual item.
   speech and outbound UDP remain deferred. QLOG-04's broader reference pass is
   complete; its selected UDP, provider and layout lessons stay in their existing
   independently accepted programmes rather than becoming a blanket parity
-  promise. See the
+  promise. Source `6d238e6` adds the next bounded QLog-inspired condition:
+  named rules can require an 80-byte, control-free, literal case-insensitive
+  comment substring, AND-combined with existing filters. Legacy rules remain
+  unrestricted, unsafe source comments cannot match, and the latest safe match
+  is retained as wrapped dashboard evidence. Rust **12/12**, renderer **13/13**
+  and production-build gates pass; no poller, regex engine or station action was
+  added. Live-cluster, package and operator observation remain open. See the
   [QLog audit](QLOG_WORKFLOW_GAP_AUDIT_2026-10-15.md).
 
 ## Update discipline

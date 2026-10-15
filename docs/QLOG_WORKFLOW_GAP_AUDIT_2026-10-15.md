@@ -119,3 +119,14 @@ deep signature verification and the isolated **33/33** integrated acceptance
 run with `station_io: false`. Operator, live-cluster and actual macOS
  notification/sound observation remain separate gates; speech and outbound UDP
  remain deferred.
+
+The next bounded QLog-inspired condition is source-complete at `6d238e6`.
+Named rules may require a literal, case-insensitive **Comment contains** value,
+AND-combined with their existing conditions. The value is bounded to 80 UTF-8
+bytes, rejects controls and whitespace-only input, and legacy rules migrate to
+an empty unrestricted value. Unsafe or oversized source comments cannot match;
+the latest safe matching comment is retained as wrapped dashboard evidence.
+This is xLog-owned code, adds no regular-expression engine, network source,
+poller or station action, and preserves the default-off delivery boundary.
+Focused Rust **12/12** and renderer **13/13** tests plus the production build
+pass. Live-cluster, packaged and operator observation remain open.
