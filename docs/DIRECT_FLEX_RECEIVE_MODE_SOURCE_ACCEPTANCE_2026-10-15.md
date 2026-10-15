@@ -1,4 +1,4 @@
-# Direct FLEX exact receive-mode source acceptance — 15 October 2026
+# Direct FLEX exact receive-mode source and package acceptance — 15 October 2026
 
 ## Outcome
 
@@ -6,9 +6,9 @@ Source commit `77c15f2` adds a narrowly scoped Direct FLEX VFO-A mode control to
 the shared Station Control owner. It closes the prior mutable-selected-slice
 dependency without broadening the child window into general radio control.
 
-This is source acceptance only. The Remote Station Agent was powered off, no
-FLEX radio was contacted, and no RF, PTT, CW, tuner, amplifier, antenna or rotor
-command was issued.
+The source and isolated macOS package are accepted. The Remote Station Agent was
+powered off, no FLEX radio was contacted, and no RF, PTT, CW, tuner, amplifier,
+antenna or rotor command was issued. Physical control acceptance remains open.
 
 ## Exact-target contract
 
@@ -46,9 +46,27 @@ command was issued.
   existing large-chunk advisory is unchanged.
 - `git diff --check` passes.
 
+## Isolated macOS package
+
+- Exact packaged source: `231e54e9fd8130561507e8a593a5aef64837e408`;
+  the bundle's embedded distribution metadata records the same commit.
+- Isolated native acceptance report:
+  `prototype/dist/flexmode-231e54e-native-acceptance.json`.
+- Result: **33/33**, `status: passed`, `scope: integrated-local-ui`,
+  `station_io: false`.
+- Strict deep signature verification passes.
+- Host SHA-256:
+  `eba020794da15486e62f5fcc824889429d0554cb4bcb11964872211238dd416f`
+  (arm64).
+- Worker SHA-256:
+  `695cf1c6ce64bfaba0c1d3ac18275780418cf84bf9b46013fe78619ff087096e`
+  (universal x86_64 + arm64).
+- The candidate was not installed. After acceptance exited, only the existing
+  installed app host/worker pair remained.
+
 ## Remaining acceptance
 
-The next installed Mac candidate must prove the control remains correctly
+An installed Mac candidate must prove the control remains correctly
 disabled with no radio, becomes available only from a fresh observed Direct FLEX
 VFO-A receive sample, sends once, and changes only VFO A after fresh readback.
 Physical radio evidence is required before this can be called live accepted.
