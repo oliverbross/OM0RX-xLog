@@ -262,8 +262,11 @@ async function main(report: Json) {
   let awardsWindow: Json | null = null;
   const awardsDeadline = Date.now() + 20_000;
   while (Date.now() < awardsDeadline) {
-    awardsWindow = await invoke<Json | null>("acceptance_awards_result");
-    if (awardsWindow) break;
+    const candidate = await invoke<Json | null>("acceptance_awards_result");
+    if (candidate?.status === "passed" || candidate?.status === "failed") {
+      awardsWindow = candidate;
+      break;
+    }
     await new Promise(resolve => setTimeout(resolve, 50));
   }
   report.details.detachedAwards = awardsWindow;
@@ -291,8 +294,11 @@ async function main(report: Json) {
   let detached: Json | null = null;
   const deadline = Date.now() + 15_000;
   while (Date.now() < deadline) {
-    detached = await invoke<Json | null>("acceptance_monitor_result");
-    if (detached) break;
+    const candidate = await invoke<Json | null>("acceptance_monitor_result");
+    if (candidate?.status === "passed" || candidate?.status === "failed") {
+      detached = candidate;
+      break;
+    }
     await new Promise(resolve => setTimeout(resolve, 50));
   }
   check("detached_projection", detached?.status === "passed" && detached?.scope === "integrated-local-ui" && detached?.details?.surface === "band-maps" && detached.details.focusedBand === "20m" &&
