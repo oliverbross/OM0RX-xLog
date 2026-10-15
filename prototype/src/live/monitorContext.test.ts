@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { connectMonitorContext, freshMonitorProjection, monitorRadioAction, monitorRadioFresh, monitorRotorAction, monitorStation, validMonitorContext } from "./monitorContext";
 import { syntheticMonitorContext } from "./monitorContextFixtures";
 import { radioReleaseSession } from "./radioRelease";
+import { carrierTuneSession } from "./carrierTune";
 
 beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date("2026-10-14T00:00:00Z")); });
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
@@ -28,11 +29,12 @@ it("rejects old/future/provider/selection-identity observations independently of
 });
 it("sends only the four scoped radio intents with captured native identity", async () => {
   const context = syntheticMonitorContext(), call = vi.fn().mockResolvedValue({ ok: true, result: { accepted: true } });
+  const tune=vi.spyOn(carrierTuneSession(),"tune").mockResolvedValue({accepted:true,confirmed:false});
   await monitorRadioAction(context, "tune", call);
-  expect(call).toHaveBeenCalledExactlyOnceWith("monitor_station_action", { provider: "direct_agent", expected: 2, selectionId: context.selection!.selection_id, action: "tune" });
+  expect(tune).toHaveBeenCalledExactlyOnceWith("direct_agent",context);expect(call).not.toHaveBeenCalled();
   for (const action of ["connect", "ptt", "rotor_goto", "", undefined]) await expect(monitorRadioAction(context, action, call)).rejects.toThrow();
   context.radio.snapshot.allow_transmit = false; await expect(monitorRadioAction(context, "tune", call)).rejects.toThrow();
-  expect(call).toHaveBeenCalledOnce();
+  expect(tune).toHaveBeenCalledOnce();expect(call).not.toHaveBeenCalled();
 });
 it("allows only cancellation when the selection remains known but observations are stale or absent", async () => {
   const context = syntheticMonitorContext(), call = vi.fn().mockResolvedValue({ ok: true, result: { accepted: true } });
@@ -45,7 +47,8 @@ it("allows only cancellation when the selection remains known but observations a
 });
 it("does not retry an uncertain radio action", async () => {
   const call = vi.fn().mockRejectedValue(new Error("Lost acknowledgement"));
-  await expect(monitorRadioAction(syntheticMonitorContext(), "tune", call)).rejects.toThrow("Lost acknowledgement"); expect(call).toHaveBeenCalledOnce();
+  const tune=vi.spyOn(carrierTuneSession(),"tune").mockRejectedValue(new Error("Lost acknowledgement"));
+  await expect(monitorRadioAction(syntheticMonitorContext(), "tune", call)).rejects.toThrow("Lost acknowledgement"); expect(tune).toHaveBeenCalledOnce();expect(call).not.toHaveBeenCalled();
 });
 it("routes one owner/generation-fenced motion intent and never replays a lost reply", async () => {
   const context = syntheticMonitorContext(), snapshot = context.rotor.snapshot;

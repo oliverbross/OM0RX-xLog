@@ -3,7 +3,7 @@ type Data = Record<string, any>;
 const frequency = (hz: unknown) => typeof hz === "number" && Number.isFinite(hz) ? (hz / 1e6).toFixed(6) : "—";
 const value = (input: unknown, suffix = "") => input == null ? "—" : `${input}${suffix}`;
 
-export default function Monitor({ snapshot, map, onRequest, onRotorRequest, commandOperationId, resolvedCommandOperation, externalCancelFeedback = false }: { snapshot: Data | null; map: ReactNode; onRequest?: (method: string, params?: Data) => Promise<any>; onRotorRequest?: (method: string, params?: Data) => Promise<any>; commandOperationId?: () => string | null; resolvedCommandOperation?: string | null; externalCancelFeedback?: boolean }) {
+export default function Monitor({ snapshot, map, onRequest, onRotorRequest, commandOperationId, resolvedCommandOperation, externalCancelFeedback = false, externalTuneFeedback = false }: { snapshot: Data | null; map: ReactNode; onRequest?: (method: string, params?: Data) => Promise<any>; onRotorRequest?: (method: string, params?: Data) => Promise<any>; commandOperationId?: () => string | null; resolvedCommandOperation?: string | null; externalCancelFeedback?: boolean; externalTuneFeedback?: boolean }) {
   const radio = snapshot?.radio, station = snapshot?.station, rotor = snapshot?.rotor;
   const [angle, setAngle] = useState(0);
   const previous = useRef<number | null>(null);
@@ -25,13 +25,13 @@ export default function Monitor({ snapshot, map, onRequest, onRotorRequest, comm
   const command = async (method: string, params: Data) => {
     const request = method.startsWith("rotor_") ? onRotorRequest : onRequest;
     if (!request) return;
-    const delegatedCancel = externalCancelFeedback && method === "station_action" && params.action === "cancel";
+    const delegatedFeedback = method === "station_action" && (externalCancelFeedback && params.action === "cancel" || externalTuneFeedback && params.action === "tune");
     const current = ++operation.current;
     messageOperation.current = null; setBusy(true); setMessage("");
-    try { const result = await request(method, params); if (!delegatedCancel && mounted.current && operation.current === current) setMessage(result.confirmed ? "Observed confirmation received" : "Request accepted · watch observed state"); }
+    try { const result = await request(method, params); if (!delegatedFeedback && mounted.current && operation.current === current) setMessage(result.confirmed ? "Observed confirmation received" : "Request accepted · watch observed state"); }
     catch (e) { if (mounted.current && operation.current === current) {
       messageOperation.current = method === "rotor_goto" ? commandOperationId?.() ?? null : null;
-      if (!delegatedCancel) setMessage(e instanceof Error ? e.message : "Command failed");
+      if (!delegatedFeedback) setMessage(e instanceof Error ? e.message : "Command failed");
     } }
     finally { if (mounted.current && operation.current === current) setBusy(false); }
   };

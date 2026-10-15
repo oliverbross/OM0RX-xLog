@@ -44,6 +44,7 @@ actor LiveFlexSession {
     private var connectionGeneration: UInt64 = 0
     private var operationEpoch: UInt64 = 0
     private var activeControl = false
+    private var carrierNativeIntent = StationCarrierIntent()
     private var releaseInProgress = false
     private var transitioning = false
     private var terminal = false
@@ -102,11 +103,17 @@ actor LiveFlexSession {
             return try await control(params)
         case "station_action":
             var params = params
+            let hasExpectedGeneration = params["expected_generation"] != nil
             if let raw = params.removeValue(forKey: "expected_generation") {
-                guard params["action"] as? String == "cancel", let expected = Self.integer(raw), expected >= 0,
+                guard ["cancel", "tune"].contains(params["action"] as? String ?? ""), let expected = Self.integer(raw), expected >= 0,
                       UInt64(expected) == connectionGeneration else {
                     throw WorkerFailure("station_changed", "Radio connection changed; stale release was not sent.")
                 }
+            }
+            if let raw = params.removeValue(forKey: "expected_native_intent") {
+                guard hasExpectedGeneration, ["cancel", "tune"].contains(params["action"] as? String ?? ""),
+                      let value = Self.integer(raw), (1...9_007_199_254_740_991).contains(value) else { throw invalid() }
+                try carrierNativeIntent.admitNative(UInt64(value))
             }
             try keys(params, ["provider", "action"])
             guard let action = params["action"] as? String else { throw invalid() }
@@ -599,6 +606,7 @@ actor LiveFlexSession {
         return ["source": "direct_flex_lan", "available": current != nil, "generation": connectionGeneration,
                 "transport_state": transportState.rawValue, "generated_at": Date().timeIntervalSince1970,
                 "radio": radioProjection, "station": NSNull(), "rotor": NSNull(),
+                "carrier_tune": ["pending": activeControl, "release_required": ownsTune || releaseInProgress],
                 "propagation": NSNull(), "allow_transmit": configuration?.allowTransmit ?? false,
                 "capabilities": ["supported_commands": supportedCommands(current),
                                  "unavailable_commands": observedPower == nil

@@ -194,6 +194,34 @@ private actor FakeFlexRadio: FlexSessionRadio {
 }
 
 final class LiveFlexSessionTests: XCTestCase {
+    func testHeldNativeTuneCannotKeyAfterANewerCancelArrivesFirst() async throws {
+        let(session,radio)=try await fixture(allowTransmit:true)
+        let snapshot=try await session.handle("station_snapshot",params:["provider":"direct_flex_lan"])
+        let generation=try XCTUnwrap(snapshot["generation"] as? UInt64)
+        // Native admitted Tune #1, but its dispatch is held. Cancel #2 reaches
+        // the backend first while this session has no transmit ownership.
+        do{_=try await session.handle("station_action",params:["provider":"direct_flex_lan","action":"cancel","expected_generation":generation,"expected_native_intent":2]);XCTFail("Unowned Cancel accepted")}
+        catch let failure as WorkerFailure{XCTAssertEqual(failure.code,"station_action_blocked")}
+        do{_=try await session.handle("station_action",params:["provider":"direct_flex_lan","action":"tune","expected_generation":generation,"expected_native_intent":1]);XCTFail("Held Tune keyed after newer Cancel")}
+        catch let failure as WorkerFailure{XCTAssertEqual(failure.code,"station_changed")}
+        let commands=await radio.commandLog();XCTAssertTrue(commands.isEmpty,"No Tune/PTT key command may reach the fake radio")
+        _=try await session.handle("station_disconnect",params:["provider":"direct_flex_lan"])
+    }
+    func testCarrierTuneUsesExactBackendGenerationAndFreshInterlockConfirmation() async throws {
+        let(session,radio)=try await fixture(allowTransmit:true)
+        let before=try await session.handle("station_snapshot",params:["provider":"direct_flex_lan"])
+        let generation=try XCTUnwrap(before["generation"] as? UInt64)
+        let result=try await session.handle("station_action",params:["provider":"direct_flex_lan","action":"tune","expected_generation":generation])
+        XCTAssertEqual(result["confirmed"] as? Bool,true)
+        XCTAssertEqual(result["action"] as? String,"tune")
+        let active=try await session.handle("station_snapshot",params:["provider":"direct_flex_lan"])
+        XCTAssertEqual((active["carrier_tune"] as? [String:Bool])?["release_required"],true)
+        _=try await session.handle("station_action",params:["provider":"direct_flex_lan","action":"cancel","expected_generation":generation])
+        let released=try await session.handle("station_snapshot",params:["provider":"direct_flex_lan"])
+        XCTAssertEqual((released["carrier_tune"] as? [String:Bool])?["release_required"],false)
+        let commands=await radio.commandLog();XCTAssertEqual(commands,["tune_on","ptt_off"])
+        _=try await session.handle("station_disconnect",params:["provider":"direct_flex_lan"])
+    }
     func testCancelInterruptsOwnedTuneReadbackAndConfirmsOnlyFreshRelease() async throws {
         let (session, radio) = try await fixture(allowTransmit: true, timeout: .seconds(2))
         let snapshot = try await session.handle("station_snapshot", params: ["provider":"direct_flex_lan"])

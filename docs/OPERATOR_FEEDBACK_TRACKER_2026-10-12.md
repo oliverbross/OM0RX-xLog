@@ -7,6 +7,21 @@ packaged UI result. Keep unresolved items here across releases.
 
 ## Current delivery boundary
 
+- **Shared durable carrier Tune owner, 16 October:** Main Agent/FLEX controls and
+  standalone Monitor now use one native one-shot carrier owner. Exact selection,
+  control, worker, connection and fresh idle-observation identities are checked
+  after durable pre-dispatch admission. Agent sends once and remains acknowledged,
+  not RF-confirmed; FLEX needs newer authoritative TX-on evidence. Ordered native
+  intent tokens make a later Cancel retire an older Tune even under reversed
+  transport delivery. Selected-radio CW shares atomic admission plus an active-
+  lifetime veto, including cold-start persisted uncertainty; urgent releases stay
+  available and receipt recovery never replays. Full frontend **2,574/2,574**,
+  Rust **534/534**, focused portable Swift **46/46**, production build and diff
+  checks pass. Two independent reviews found no remaining issue after the race
+  fixes. Source only: alpha.31 remains installed and no station, hardware, radio,
+  RF, network, service or operator-data action occurred. Independent WinKeyer
+  remains on its existing separate local-output/lease path.
+
 - **Shared durable radio Cancel owner, 16 October:** Main Station Control and
   standalone Monitor now use one native, one-shot Agent/FLEX release owner bound
   to the exact selection, worker and connection generations. The operation is

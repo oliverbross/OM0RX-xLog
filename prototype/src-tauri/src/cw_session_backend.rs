@@ -18,6 +18,16 @@ pub fn owner(app: &tauri::AppHandle) -> Arc<Session> {
     }).clone()
 }
 struct Native { app: tauri::AppHandle }
+pub(crate) fn carrier_output_admission(output:&str, check:impl FnOnce()->Result<(),String>)->Result<(),String> {
+    match output {"radio"=>check(),"winkeyer"=>Ok(()),_=>Err("Unknown CW output".into())}
+}
+fn require_idle_carrier(value:&Value, require_rx:bool)->Result<(),String> {
+    if value["carrier_tune"]["pending"]!=false || value["carrier_tune"]["release_required"]!=false
+        || require_rx && value["radio"]["transmitting"]!=false {
+        return Err("Resolve owned carrier Tune with Cancel and observe RX before arming or sending CW.".into());
+    }
+    Ok(())
+}
 fn request(method: &str, params: Value) -> Value { json!({"id":format!("native-cw-{}",uuid::Uuid::new_v4()),"method":method,"params":params}) }
 fn result(request: &Value, response: Value) -> Result<Value, String> {
     if response["id"] != request["id"] || !response["ok"].is_boolean() { return Err("CW acknowledgement identity was lost; use Stop, do not retry.".into()); }
@@ -79,6 +89,9 @@ impl Backend for Native {
     fn inspect(&self, canonical: &Value, capabilities: bool) -> Result<Value, String> {
         let provider = canonical["provider"].as_str().ok_or("CW radio selection unavailable")?;
         let output = canonical["profile"]["output"].as_str().ok_or("CW output unavailable")?;
+        // The outer shared acquisition guard makes this durable veto and the
+        // following backend ownership read atomic with carrier admission.
+        carrier_output_admission(output,||crate::carrier_tune::require_cw_ready(&self.app))?;
         let worker = canonical["worker"].as_u64().ok_or("CW worker unavailable")?;
         let (identity, limit, intent) = if output == "winkeyer" {
             let value = local("winkeyer_snapshot", json!({}))?;
@@ -93,6 +106,7 @@ impl Backend for Native {
             (generation(&value["generation"])?, 80, 0)
         } else {
             let value = call(worker, "station_snapshot", json!({"provider":provider}))?;
+            require_idle_carrier(&value, capabilities)?;
             let commands = value["capabilities"]["supported_commands"].as_array().or_else(|| value["station"]["supported_commands"].as_array());
             let timestamp = value["radio"]["observed_at"].as_f64().or_else(|| value["radio"]["received_at"].as_f64());
             if value["source"] != provider || value["radio"]["connected"] != true || value["radio"]["observed"] != true || value["allow_transmit"] != true || !commands.is_some_and(|commands| commands.contains(&json!("send_cw")) && commands.contains(&json!("clear_cw"))) { return Err("Connect a CW-capable radio with transmit controls enabled first.".into()); }
@@ -136,7 +150,17 @@ impl Backend for Native {
 mod tests {
     use super::*;
     #[test]
+    fn selected_radio_cw_vetoes_carrier_pending_owned_release_and_active_tx() {
+        let idle=json!({"carrier_tune":{"pending":false,"release_required":false},"radio":{"transmitting":false}});
+        assert!(require_idle_carrier(&idle,true).is_ok());
+        for key in ["pending","release_required"] {let mut value=idle.clone();value["carrier_tune"][key]=json!(true);assert!(require_idle_carrier(&value,true).is_err());assert!(require_idle_carrier(&value,false).is_err());}
+        let mut tx=idle;tx["radio"]["transmitting"]=json!(true);assert!(require_idle_carrier(&tx,true).is_err());
+        assert!(require_idle_carrier(&json!({"radio":{"transmitting":false}}),true).is_err(),"Old/missing backend obligation metadata must fail closed");
+    }
+    #[test]
     fn independent_winkeyer_needs_no_radio_and_radio_selection_stays_exact() {
+        assert!(carrier_output_admission("winkeyer",||panic!("Independent WinKeyer requested radio carrier authority")).is_ok());
+        assert!(carrier_output_admission("radio",||Err("Carrier active".into())).is_err());
         let (provider, selection) = output_selection(&json!({"output":"winkeyer"}), || panic!("WinKeyer must not read or require radio selection")).unwrap();
         assert_eq!(provider, "winkeyer"); assert!(selection.is_null());
         assert!(output_selection(&json!({"output":"radio"}), || Ok(json!({"provider":null}))).is_err());

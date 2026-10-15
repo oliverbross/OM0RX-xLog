@@ -2,6 +2,28 @@
 
 Last updated: 2026-10-16
 
+## Shared durable carrier Tune owner — source complete; package/RF acceptance open
+
+Main Agent/FLEX controls and standalone Station Monitor now route carrier Tune
+through one native durable acquisition owner. Native admission binds the exact
+selection, control revision, producing worker, backend connection and fresh idle
+observation, persists before dispatch and sends once through the already-connected
+worker. Agent HTTP retry is disabled; Agent success remains acknowledged rather
+than RF-confirmed, while FLEX confirmation requires newer authoritative TX-on
+evidence.
+
+Tune and Cancel receive ordered native intent tokens, so a later Cancel retires an
+older Tune even when transport delivery is reversed. Carrier acquisition and
+selected-radio CW share an atomic gate and full-lifetime veto; cold-start CW loads
+persisted Tune uncertainty before arming. Urgent Cancel/CW Stop remain independent,
+receipt recovery never replays RF, and Monitor keeps one operation-scoped feedback
+owner. Complete frontend **2,574/2,574**, Rust **534/534**, focused portable Swift
+**46/46**, and the production TypeScript/Vite/window build plus diff checks pass.
+Two independent reviews found no remaining issue after three race corrections.
+Source only: alpha.31 remains installed; no station, hardware, radio, RF, network,
+service or operator-data action occurred. Independent WinKeyer retains its
+existing separate local-output/lease contract.
+
 ## Shared durable radio Cancel owner — source complete; package/hardware acceptance open
 
 Main Station Control and standalone Station Monitor now route Agent/FLEX Cancel

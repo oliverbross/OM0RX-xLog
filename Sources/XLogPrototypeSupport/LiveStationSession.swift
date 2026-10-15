@@ -29,13 +29,34 @@ struct StationTransmitOwnership {
         if action == .tune { tune = true }
     }
 
-    mutating func completeAction(_ action: RemoteStationAction) {
+    mutating func completeAction(_ action: RemoteStationAction, acquisitionsInFlight: Bool = false) {
+        // A Cancel acknowledgement cannot retire the obligation of an older
+        // HTTP acquisition whose reply is still outstanding. Its wire outcome
+        // is unknown; keep explicit release available after it finishes.
+        if action == .cancel && acquisitionsInFlight { return }
         if action == .cancel || action == .standby { tune = false }
     }
 
     var releases: [Release] {
         (cw ? [.clearCW] : []) + (tune ? [.cancelTune] : [])
             + (ptt || cw || tune ? [.releasePTT] : [])
+    }
+}
+
+/// An explicit Cancel retires preparations even before they acquire ownership.
+struct StationCarrierIntent {
+    private var revision: UInt64 = 0
+    private var nativeRevision: UInt64 = 0
+    mutating func admitNative(_ expected: UInt64) throws {
+        guard expected > nativeRevision else {
+            throw WorkerFailure("station_changed", "A newer native radio intent already retired this carrier command; no older acquisition may start.")
+        }
+        nativeRevision = expected
+    }
+    mutating func begin() -> UInt64 { revision &+= 1; return revision }
+    mutating func cancel() { revision &+= 1 }
+    func require(_ expected: UInt64) throws {
+        guard revision == expected else { throw WorkerFailure("station_changed", "Carrier Tune was superseded by a later transmit intent; no older acquisition may continue.") }
     }
 }
 
@@ -112,6 +133,9 @@ struct StationPowerSessionState {
 /// Explicitly connected direct Remote Station Agent owner. This uses the same
 /// authenticated HTTPS/WSS client and authoritative state decoder as xCat.
 actor LiveStationSession {
+    private var carrierIntent = StationCarrierIntent()
+    private var carrierReadbackAfter: Date?
+    private var carrierCancelAcknowledged = false
     static let shared = LiveStationSession()
     private let rotor: LiveRotorSession
     private let receiveReadbackTimeout: Duration
@@ -433,10 +457,16 @@ actor LiveStationSession {
         reconcilePowerObservationSession()
         guard generation == connectionGeneration, sessionID == powerSessionID,
               self.client === client else { return await snapshot() }
+        if carrierCancelAcknowledged, directTransmitAcquisitions == 0, !carrierReleaseUnconfirmed(observed) {
+            transmitOwnership.completeAction(.cancel)
+            carrierCancelAcknowledged = false
+        }
         var result = Self.project(observed, transport: transportState, allowTransmit: allowTransmit,
                                   generation: generation, powerSessionID: powerSessionID,
                                   powerSessionStartedAt: powerSessionStartedAt)
         result["rotor"] = rotorProjection
+        result["carrier_tune"] = ["pending": directTransmitAcquisitions > 0,
+                                  "release_required": transmitOwnership.releases.contains(.cancelTune) || carrierReleaseUnconfirmed(observed)]
         result["cat_servers"] = ["cat_port": Self.optional(catConfiguration.catPort), "rigctl_port": Self.optional(catConfiguration.rigCtlPort), "allow_transmit": catConfiguration.allowTransmit]
         return result
     }
@@ -547,15 +577,22 @@ actor LiveStationSession {
         throw WorkerFailure("station_timeout", "The radio did not confirm the requested simplex target.")
     }
 
-    func action(_ name: String, expectedGeneration: UInt64? = nil) async throws -> [String: Any] {
+    func action(_ name: String, expectedGeneration: UInt64? = nil, expectedNativeIntent: UInt64? = nil) async throws -> [String: Any] {
         if let expectedGeneration, expectedGeneration != connectionGeneration { throw lifecycleChanged() }
-        try await ensureExclusiveWriter()
-        if let expectedGeneration, expectedGeneration != connectionGeneration { throw lifecycleChanged() }
+        if let expectedNativeIntent { try carrierIntent.admitNative(expectedNativeIntent) }
+        // Cancel must retire a suspended preflight even when no tune obligation
+        // exists yet. Its authority to send RF releases is checked separately.
+        if name == "cancel" { carrierIntent.cancel() }
+        let intent = name == "tune" ? carrierIntent.begin() : nil
         guard let client, let action = RemoteStationAction(rawValue: name) else {
             throw WorkerFailure("invalid_params", "Invalid direct station action.")
         }
+        try await ensureExclusiveWriter()
+        if let intent { try carrierIntent.require(intent) }
+        if let expectedGeneration, expectedGeneration != connectionGeneration { throw lifecycleChanged() }
         let generation = connectionGeneration
         let observed = await client.observedSnapshot()
+        if let intent { try carrierIntent.require(intent) }
         try requireActive()
         guard generation == connectionGeneration, self.client === client else { throw lifecycleChanged() }
         guard let station = observed.remoteStationStatus,
@@ -564,7 +601,9 @@ actor LiveStationSession {
             throw WorkerFailure("station_action_blocked", "The station does not currently allow this action.")
         }
         if Self.requiresTransmitOptIn(action) {
-            guard lifecycleTransitions == 0, allowTransmit, station.inhibitors.isEmpty else {
+            guard lifecycleTransitions == 0, allowTransmit, station.inhibitors.isEmpty, station.commissioned,
+                  station.radioKnown, !station.radioStale, !observed.isTransmitting,
+                  transmitOwnership.releases.isEmpty, !carrierReleaseUnconfirmed(observed), observed.transportReceivedAt.map({ Date().timeIntervalSince($0) >= -1 && Date().timeIntervalSince($0) <= 3 }) == true else {
                 throw WorkerFailure("station_action_blocked", "Transmit control is not enabled or the station has inhibitors.")
             }
         } else if action == .operate {
@@ -579,11 +618,19 @@ actor LiveStationSession {
         let acquiresTransmit = Self.requiresTransmitOptIn(action)
         if acquiresTransmit { beginDirectTransmitAcquisition() }
         defer { if acquiresTransmit { finishDirectTransmitAcquisition() } }
+        if action == .tune || action == .cancel { carrierReadbackAfter = Date() }
         do {
             try await client.performStationAction(action)
+            if let intent { try carrierIntent.require(intent) }
             guard generation == connectionGeneration, self.client === client else { throw lifecycleChanged() }
-            transmitOwnership.completeAction(action)
-            return ["accepted": true, "confirmed": false, "action": name, "state": await snapshot()]
+            // An ACK without returned radio state must not reuse an RX stream
+            // sample that arrived while the HTTP command was still pending.
+            if action == .cancel { acknowledgeCarrierCancel() }
+            else { transmitOwnership.completeAction(action, acquisitionsInFlight: directTransmitAcquisitions > 0) }
+            let state = await snapshot()
+            if let intent { try carrierIntent.require(intent) }
+            guard generation == connectionGeneration, self.client === client else { throw lifecycleChanged() }
+            return ["accepted": true, "confirmed": false, "action": name, "state": state]
         } catch {
             throw WorkerFailure("station_rejected", "The Remote Station Agent rejected the action.")
         }
@@ -591,6 +638,21 @@ actor LiveStationSession {
 
     static func requiresTransmitOptIn(_ action: RemoteStationAction) -> Bool {
         action == .tune
+    }
+    private func carrierReleaseUnconfirmed(_ observed: XCatIntegrationCore.RadioSnapshot) -> Bool {
+        guard let after = carrierReadbackAfter else { return false }
+        return !Self.carrierReleaseObserved(observed, after: after)
+    }
+    private func acknowledgeCarrierCancel() {
+        carrierReadbackAfter = Date()
+        // Keep explicit Cancel/shutdown release authority until a later RX
+        // observation proves this ACK retired the owned carrier. An older
+        // outstanding HTTP acquisition requires another explicit Cancel.
+        carrierCancelAcknowledged = directTransmitAcquisitions == 0
+    }
+    static func carrierReleaseObserved(_ observed: XCatIntegrationCore.RadioSnapshot, after: Date) -> Bool {
+        observed.isConnected && observed.transportReceivedAt.map { $0 > after } == true && !observed.isTransmitting
+            && observed.remoteStationStatus?.radioKnown == true && observed.remoteStationStatus?.radioStale == false
     }
     static func allowsAction(_ action: RemoteStationAction, connected: Bool, supported: Set<String>, allowed: Set<String>, ownsTune: Bool = false) -> Bool {
         // beginAction(.tune) acquires this authority before dispatch, so an
@@ -665,6 +727,7 @@ actor LiveStationSession {
             exactReceive = { $0.vfo("A")?.mode.uppercased() == mode }
         case "ptt":
             guard let enabled = try Self.boolean(params["enabled"]) else { throw Self.invalidParams() }
+            if !enabled { carrierIntent.cancel() }
             advertised = "set_ptt"
             needsTransmitOptIn = enabled
             command = { try await $0.setTransmit(enabled) }
@@ -803,6 +866,12 @@ actor LiveStationSession {
 
     private func authorizeCATMutation(_ mutation: EmbeddedCATServers.Mutation, generation: UInt64, epoch: UInt64) async -> Bool {
         guard !terminalShutdown, generation == connectionGeneration, let client else { return false }
+        switch mutation {
+        case .transmit(false), .stationAction(.cancel):
+            carrierIntent.cancel()
+            if transmitOwnership.releases.contains(.cancelTune) { carrierReadbackAfter = Date() }
+        default: break
+        }
         let observed = await client.observedSnapshot()
         guard !terminalShutdown, generation == connectionGeneration, self.client === client,
               let station = observed.remoteStationStatus else { return false }
@@ -859,10 +928,12 @@ actor LiveStationSession {
         case .clearCW: transmitOwnership.completeControl("clear_cw")
         case .transmit(false):
             if transmitOwnership.releases.contains(.cancelTune), let client {
-                do { try await client.performStationAction(.cancel); transmitOwnership.completeAction(.cancel) } catch { }
+                do { try await client.performStationAction(.cancel); acknowledgeCarrierCancel() } catch { }
             }
             transmitOwnership.completeControl("ptt", enabled: false)
-        case .stationAction(let action): transmitOwnership.completeAction(action)
+        case .stationAction(let action):
+            if action == .cancel { acknowledgeCarrierCancel() }
+            else { transmitOwnership.completeAction(action, acquisitionsInFlight: directTransmitAcquisitions > 0) }
         default: break
         }
     }

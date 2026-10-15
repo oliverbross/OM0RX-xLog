@@ -61,4 +61,15 @@ describe("direct FLEX detached monitor", () => {
     fireEvent.click(screen.getByRole("button", { name: "Tune" }));
     expect(await screen.findByText("Newer tune failure")).toBeTruthy();
   });
+  it("delegates durable Tune feedback without retaining a duplicate lost ACK or hiding newer Stop errors", async () => {
+    const onRequest=vi.fn(async()=>{throw new Error("Tune acknowledgement lost");});
+    const stop=vi.fn(async()=>{throw new Error("Newer Stop failure");});
+    render(<Monitor snapshot={flex({rotor:{owner:"native_dcu1",connected:true,azimuth:53}})} map={<div>Map</div>} onRequest={onRequest} onRotorRequest={stop} externalCancelFeedback externalTuneFeedback/>);
+    fireEvent.click(screen.getByRole("button",{name:"Tune"}));
+    await waitFor(()=>expect(onRequest).toHaveBeenCalledWith("station_action",{action:"tune"}));
+    expect(screen.queryByText("Tune acknowledgement lost")).toBeNull();
+    fireEvent.click(screen.getByRole("button",{name:"Stop"}));
+    expect(await screen.findByText("Newer Stop failure")).toBeTruthy();
+    expect(screen.queryByText("Tune acknowledgement lost")).toBeNull();
+  });
 });

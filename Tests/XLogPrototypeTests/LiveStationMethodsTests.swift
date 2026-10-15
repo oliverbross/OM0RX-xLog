@@ -4,6 +4,56 @@ import XCatIntegrationCore
 @testable import XLogPrototypeSupport
 
 final class LiveStationMethodsTests: XCTestCase {
+    func testNativeOrderedCancelRejectsAnOlderTuneDeliveredAfterIt() async throws {
+        let agent=LiveStationSession()
+        do{_=try await agent.action("cancel",expectedGeneration:0,expectedNativeIntent:2);XCTFail("Unconnected Cancel accepted")}
+        catch let failure as WorkerFailure{XCTAssertEqual(failure.code,"invalid_params")}
+        do{_=try await agent.action("tune",expectedGeneration:0,expectedNativeIntent:1);XCTFail("Older native Tune acquired a fresh epoch")}
+        catch let failure as WorkerFailure{XCTAssertEqual(failure.code,"station_changed")}
+        var intent=StationCarrierIntent();try intent.admitNative(20);intent.cancel()
+        XCTAssertThrowsError(try intent.admitNative(19))
+        XCTAssertThrowsError(try intent.admitNative(20),"Duplicate native intent may not dispatch")
+        XCTAssertNoThrow(try intent.admitNative(21),"A new explicit later request retains authority")
+    }
+    func testCarrierReleaseRequiresAnAuthoritativeRXObservationAfterTheCommandBarrier() {
+        let started=Date()
+        var sample=RadioSnapshot(frequencyHz:14_074_000,mode:"CW",isConnected:true,isTransmitting:false,
+            remoteStationStatus:RemoteStationStatus(radioKnown:true,radioStale:false),transportReceivedAt:started)
+        XCTAssertFalse(LiveStationSession.carrierReleaseObserved(sample,after:started),"Pre-command cached RX cannot clear the release obligation")
+        sample.transportReceivedAt=started.addingTimeInterval(0.01)
+        XCTAssertTrue(LiveStationSession.carrierReleaseObserved(sample,after:started))
+        sample.isTransmitting=true;XCTAssertFalse(LiveStationSession.carrierReleaseObserved(sample,after:started))
+        sample.isTransmitting=false;sample.remoteStationStatus?.radioStale=true;XCTAssertFalse(LiveStationSession.carrierReleaseObserved(sample,after:started))
+    }
+    func testCarrierCancelRetiresEveryOlderPreparationWithoutAcquiringReleaseAuthority() throws {
+        var intent=StationCarrierIntent(), ownership=StationTransmitOwnership()
+        let beforeExclusiveWriter=intent.begin()
+        XCTAssertNoThrow(try intent.require(beforeExclusiveWriter))
+        intent.cancel()
+        XCTAssertThrowsError(try intent.require(beforeExclusiveWriter))
+        XCTAssertTrue(ownership.releases.isEmpty, "An unowned Cancel must not create authority over another operator TX")
+        let beforeSnapshot=intent.begin();intent.cancel()
+        XCTAssertThrowsError(try intent.require(beforeSnapshot))
+        let inFlight=intent.begin();ownership.beginAction(.tune);intent.cancel()
+        XCTAssertThrowsError(try intent.require(inFlight))
+        XCTAssertTrue(ownership.releases.contains(.cancelTune), "Uncertain in-flight acquisition retains its release obligation")
+        ownership.completeAction(.cancel,acquisitionsInFlight:true)
+        XCTAssertTrue(ownership.releases.contains(.cancelTune), "An outstanding HTTP acquisition remains explicitly releasable after Cancel acknowledgement")
+        ownership.completeAction(.cancel,acquisitionsInFlight:false)
+        XCTAssertTrue(ownership.releases.isEmpty)
+        let newExplicit=intent.begin();XCTAssertNoThrow(try intent.require(newExplicit))
+        XCTAssertThrowsError(try intent.require(inFlight), "A newer intent must never restore the older acquisition")
+    }
+    func testCarrierTuneRejectsReplacedBackendBeforeAnyTransport() async throws {
+        let agent=LiveStationSession()
+        do{_=try await agent.action("tune",expectedGeneration:99);XCTFail("Stale Agent carrier Tune accepted")}
+        catch let failure as WorkerFailure{XCTAssertEqual(failure.code,"station_changed")}
+        let flex=LiveFlexSession(factory:{_,_,_ in fatalError("Stale carrier Tune must not start radio transport")})
+        for expected in [99,-1,true,"1",1.5,NSNull()] as [Any]{
+            do{_=try await flex.handle("station_action",params:["provider":"direct_flex_lan","action":"tune","expected_generation":expected]);XCTFail("Stale/malformed carrier Tune accepted")}
+            catch let failure as WorkerFailure{XCTAssertEqual(failure.code,"station_changed")}
+        }
+    }
     func testCancelRejectsReplacedBackendBeforeAnyTransportAndRetainedCapabilityAllowsOnlyRelease() async throws {
         let agent = LiveStationSession()
         do { _ = try await agent.action("cancel", expectedGeneration: 99); XCTFail("Stale Agent Cancel accepted") }

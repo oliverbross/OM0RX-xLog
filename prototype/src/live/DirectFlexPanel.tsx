@@ -6,6 +6,8 @@ import { ManualTuneStatus } from "./ManualSimplexTune";
 import { manualTuneSession } from "./manualTune";
 import { radioReleaseSession } from "./radioRelease";
 import { RadioReleaseStatus } from "./RadioReleaseStatus";
+import { carrierTuneSession } from "./carrierTune";
+import { CarrierTuneStatus } from "./CarrierTuneStatus";
 import "./StationPanel.css";
 import "./DirectFlexPanel.css";
 
@@ -175,10 +177,13 @@ export default function DirectFlexPanel({ request, snapshot }: Props) {
       <section className="live-station-card"><h3>Transmit control</h3><p className="live-station-helper">Transmit is available only when enabled at connection. Release remains available for an owned transmit attempt.</p>
         <div className="live-station-actionrow"><button className="danger" disabled={busy || !txAllowed || !supports("ptt") || radio?.transmitting !== false} onClick={() => void control("ptt", { enabled: true })}>PTT on</button>
           <button disabled={busy || !supports("ptt")} onClick={() => void control("ptt", { enabled: false })}>PTT off</button>
-          <button disabled={busy || !txAllowed || !supports("tune") || radio?.transmitting !== false} onClick={() => void act("station_action", { action: "tune" }, "Tune")}>Tune carrier</button>
+          <button disabled={busy || !txAllowed || !supports("tune") || radio?.transmitting !== false} onClick={() => {
+            if(shared) void carrierTuneSession().tune(provider).catch(()=>{});else void act("station_action", { action: "tune" }, "Tune");
+          }}>Tune carrier</button>
           <button disabled={!shared && (busy || !supports("cancel"))} onClick={() => { if (shared) void radioReleaseSession().cancel(provider).catch(() => {});
             else void act("station_action", { action: "cancel" }, "Cancel / release"); }}>Cancel / release</button></div>
         {shared && <RadioReleaseStatus />}
+        {shared && <CarrierTuneStatus />}
       </section>
       <section className="live-station-card"><h3>RF power setting</h3>
         <p className="live-station-helper">FLEX level 0–100; this is not a measured watt reading. Changing the setting requires an observed receive state and fresh readback.</p>

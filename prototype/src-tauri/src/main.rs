@@ -23,6 +23,7 @@ mod qsy_clear;
 mod radio_read;
 mod manual_tune;
 mod radio_release;
+mod carrier_tune;
 mod manual_rotor;
 mod radio_follow;
 mod opportunity_selection;
@@ -735,7 +736,7 @@ async fn monitor_context_snapshot(window: tauri::WebviewWindow, app: tauri::AppH
 #[tauri::command]
 async fn monitor_station_action(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>, expected: u64, selection_id: String, provider: String, action: String) -> Result<serde_json::Value, String> {
     monitor_context::validate(window.label(), state.path.is_some())?;
-    if action == "cancel" { return Err("Use the shared durable radio Cancel owner.".into()); }
+    if matches!(action.as_str(), "cancel" | "tune") { return Err("Use the shared durable radio Tune/Cancel owners.".into()); }
     let request = monitor_context::action_request(&provider, &action)?;
     let selection = station_selection::owner(&app)?;
     let telemetry = station_telemetry::owner(&app)?;
@@ -767,6 +768,24 @@ async fn radio_release_request(app: tauri::AppHandle, window: tauri::WebviewWind
         .await.map_err(|_| "Radio Cancel task ended; check its retained receipt. No Cancel will be replayed.".to_string())?;
     for label in ["main", "monitor", "station-control"] { let _ = changed.emit_to(label, "xlog:radio-release", ()); }
     result
+}
+
+#[tauri::command]
+async fn carrier_tune_request(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, params: serde_json::Value) -> Result<serde_json::Value, String> {
+    let action=params["action"].as_str().unwrap_or("");
+    carrier_tune::validate(window.label(),state.path.is_some(),APP_EXITING.load(Ordering::Acquire),action)?;
+    let keys:&[&str]=match action {"snapshot"=>&["action"],"tune"=>&["action","operation_id","target"],_=>&["action","operation_id"]};
+    if params.as_object().is_none_or(|o|o.len()!=keys.len() || o.keys().any(|k|!keys.contains(&k.as_str()))) { return Err("Invalid carrier Tune request.".into()); }
+    let owner=carrier_tune::owner(&app)?;
+    if action=="snapshot" {let mut value=owner.snapshot()?;value["target"]=carrier_tune::context(&app)?["target"].clone();return Ok(value);}
+    let id=params["operation_id"].as_str().ok_or("Missing carrier Tune identity")?.to_owned();
+    if action=="receipt" {return owner.receipt(&id);}
+    if action=="review" {let result=owner.review(&id);for label in ["main","monitor","station-control"] {let _=app.emit_to(label,"xlog:carrier-tune",());}return result;}
+    let target=serde_json::from_value::<carrier_tune::Target>(params["target"].clone()).map_err(|_|"Invalid carrier Tune target")?;
+    let changed=app.clone();
+    let result=tauri::async_runtime::spawn_blocking(move||owner.tune(&id,target,|request,target|carrier_tune::execute(&app,request,target)))
+        .await.map_err(|_|"Carrier Tune task ended; inspect its receipt. No Tune will be replayed.".to_string())?;
+    for label in ["main","monitor","station-control"] {let _=changed.emit_to(label,"xlog:carrier-tune",());}result
 }
 
 #[tauri::command]
@@ -886,7 +905,10 @@ async fn cw_session_request(app: tauri::AppHandle, window: tauri::WebviewWindow,
         return Err("Wait for the protected draft selection before arming or sending CW. Stop remains available.".into());
     }
     let owner = cw_session_backend::owner(&app); let label = window.label().to_owned();
-    tauri::async_runtime::spawn_blocking(move || owner.request(&label, &client, sequence, focused, &params))
+    tauri::async_runtime::spawn_blocking(move || {
+        let _output=if matches!(params["action"].as_str(),Some("arm"|"send")) {Some(carrier_tune::reserve_output()?)}else{None};
+        owner.request(&label, &client, sequence, focused, &params)
+    })
         .await.map_err(|_| "CW session task failed; use Stop before retrying.".to_string())?
 }
 
@@ -895,8 +917,8 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     // Only typed integration operations cross this boundary; never shell commands.
     if state.path.is_some() { acceptance::validate_local_request(&request)?; }
     let method = request.get("method").and_then(|m| m.as_str()).unwrap_or("");
-    if method == "station_action" && request["params"]["action"] == "cancel" {
-        return Err("Use the shared durable radio Cancel owner.".into());
+    if method == "station_action" && matches!(request["params"]["action"].as_str(),Some("cancel"|"tune")) {
+        return Err("Use the shared durable radio Tune/Cancel owners.".into());
     }
     if method == "station_tune" || method == "hamlib_control" && request["params"]["device"] == "radio" && request["params"]["action"] == "tune_simplex" {
         return Err("Use the shared manual simplex tune owner.".into());
@@ -1492,7 +1514,7 @@ fn main() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![worker_request, cw_session_request, station_session_request, radio_release_request, manual_rotor_request, pick_backup_package, open_monitor, open_detached_map,
+        .invoke_handler(tauri::generate_handler![worker_request, cw_session_request, station_session_request, radio_release_request, carrier_tune_request, manual_rotor_request, pick_backup_package, open_monitor, open_detached_map,
             spot_editor_register, spot_editor_unregister, spot_editor_ack, spot_editor_state,
             spot_activation_snapshot, spot_activation_status, spot_activation_reconcile, activate_spot, activate_opportunity,
             operator_draft_read_radio,

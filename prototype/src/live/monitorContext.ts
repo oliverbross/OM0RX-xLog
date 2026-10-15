@@ -4,6 +4,7 @@ import { hamlibProjection } from "./hamlibStation";
 import { rotorCommandParams, rotorProjection, validRotorSnapshot, type RotorSnapshot } from "./rotorControl";
 import { manualRotorGotoSession } from "./manualRotorGoto";
 import { radioReleaseSession } from "./radioRelease";
+import { carrierTuneSession } from "./carrierTune";
 
 type Data = Record<string, any>;
 export type MonitorContext = { epoch: string; revision: number; selection: null | {
@@ -59,6 +60,7 @@ export async function monitorRadioAction(context: MonitorContext | null, action:
   if (action !== "cancel" && (!["operate", "standby", "tune"].includes(action) || !Array.isArray(allowed) || !allowed.includes(action) ||
       selection.provider === "hamlib" || selection.provider === "direct_flex_lan" && !["tune", "cancel"].includes(action) ||
       action === "tune" && snapshot.allow_transmit !== true)) throw new Error("This station action is unavailable or transmit was not enabled.");
+  if(action === "tune") return carrierTuneSession().tune(selection.provider as "direct_agent" | "direct_flex_lan", context);
   const reply = await call("monitor_station_action", { expected: selection.generation, selectionId: selection.selection_id, provider: selection.provider, action });
   if (reply?.ok !== true || reply.result?.accepted !== true) throw new Error(reply?.error?.message || "The station action was not accepted. Check observed state before retrying.");
   return reply.result;

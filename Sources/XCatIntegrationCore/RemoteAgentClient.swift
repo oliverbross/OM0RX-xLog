@@ -341,7 +341,7 @@ public actor RemoteAgentClient: RadioControlling {
     }
 
     public func performStationAction(_ action: RemoteStationAction) async throws {
-        try await execute(.station(action), attempts: action == .cancel ? 1 : 2)
+        try await execute(.station(action), attempts: action == .cancel || action == .tune ? 1 : 2)
     }
 
     public func addSpot(_ spot: FlexSpot) async throws {

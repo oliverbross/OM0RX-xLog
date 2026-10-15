@@ -572,6 +572,14 @@ impl Selection {
     }
     fn simplex_tune<G>(&self, request: Value, expected: &Value,
         admit: impl FnOnce() -> Result<G, String>, dispatch: impl FnOnce(Value) -> Result<Value, String>) -> Result<Value, String> {
+        self.exclusive_tune(request, expected, false, admit, dispatch)
+    }
+    pub(crate) fn carrier_tune<G>(&self, request: Value, expected: &Value,
+        admit: impl FnOnce() -> Result<G, String>, dispatch: impl FnOnce(Value) -> Result<Value, String>) -> Result<Value, String> {
+        self.exclusive_tune(request, expected, true, admit, dispatch)
+    }
+    fn exclusive_tune<G>(&self, mut request: Value, expected: &Value, carrier: bool,
+        admit: impl FnOnce() -> Result<G, String>, dispatch: impl FnOnce(Value) -> Result<Value, String>) -> Result<Value, String> {
         let mut state = self.state.try_lock().map_err(|_| "Radio session is busy; no spot tune was sent.")?;
         self.active()?;
         if state.controls != 0 || state.activation_tune || state.qsy_fence
@@ -582,14 +590,17 @@ impl Selection {
             return Err("Radio selection or controls changed; no spot tune was sent.".into());
         }
         let method = request["method"].as_str();
-        let provider = if method == Some("hamlib_control") && request["params"]["device"] == "radio"
+        let provider = if carrier && method == Some("station_action") && request["params"]["action"] == "tune"
+            && matches!(request["params"]["provider"].as_str(), Some("direct_agent" | "direct_flex_lan")) { request["params"]["provider"].as_str() }
+            else if !carrier && method == Some("hamlib_control") && request["params"]["device"] == "radio"
             && request["params"]["action"] == "tune_simplex" { Some("hamlib") }
-            else if method == Some("station_tune") { request["params"]["provider"].as_str() } else { None };
+            else if !carrier && method == Some("station_tune") { request["params"]["provider"].as_str() } else { None };
         if provider.is_none() || provider != state.provider.as_deref() { return Err("Invalid native spot tune route.".into()); }
         let next_revision = state.control_revision.checked_add(1).filter(|value| *value <= 9_007_199_254_740_991)
             .ok_or("Radio control revision exhausted")?;
         let _admission = admit()?;
         state.control_revision = next_revision; state.activation_tune = true; state.controls += 1;
+        if carrier { request["params"]["expected_native_intent"] = json!(next_revision); }
         let _activity = ActivityGuard::new(&self.activity);
         drop(state);
         let _guard = ActivationTuneGuard(self);
@@ -613,7 +624,7 @@ impl Selection {
         }
         self.control_scoped_dispatch(request, Some((expected, selection_id, None)), admit, dispatch)
     }
-    fn control_scoped_dispatch<G>(&self, request: Value, expected: Option<(u64, &str, Option<u64>)>, admit: impl FnOnce() -> Result<G, String>,
+    fn control_scoped_dispatch<G>(&self, mut request: Value, expected: Option<(u64, &str, Option<u64>)>, admit: impl FnOnce() -> Result<G, String>,
         dispatch: impl FnOnce(Value) -> Result<Value, String>) -> Result<Value, String> {
         let mut state = self
             .state
@@ -649,6 +660,9 @@ impl Selection {
         let _admission = admit()?;
         state.control_revision = state.control_revision.checked_add(1).filter(|value| *value <= 9_007_199_254_740_991)
             .ok_or("Radio control revision exhausted")?;
+        if request["method"] == "station_action" && request["params"]["action"] == "cancel" {
+            request["params"]["expected_native_intent"] = json!(state.control_revision);
+        }
         if matches!(request["method"].as_str(), Some("station_connect" | "station_disconnect" | "station_reconnect"
             | "station_forget" | "station_configure" | "station_configuration_apply" | "hamlib_connect" | "hamlib_disconnect" | "hamlib_reconnect")) {
             crate::auto_rotor::revoke();
@@ -812,6 +826,22 @@ pub fn shutdown() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn carrier_reservation_blocks_nonurgent_controls_but_cancel_retires_its_revision(){
+        let(_dir,owner,_)=fixture();initialized(&owner,Some("direct_agent"));let expected=owner.snapshot().unwrap();
+        let request=json!({"id":"carrier","method":"station_action","params":{"provider":"direct_agent","action":"tune","expected_generation":3}});
+        owner.carrier_tune(request,&expected,||Ok(()),|held_tune|{
+            assert_eq!(held_tune["params"]["expected_native_intent"].as_u64(),expected["control_revision"].as_u64().map(|v|v+1));
+            assert!(owner.control(json!({"id":"operate","method":"station_action","params":{"provider":"direct_agent","action":"operate"}})).is_err());
+            let release=json!({"id":"cancel","method":"station_action","params":{"provider":"direct_agent","action":"cancel","expected_generation":3}});
+            owner.release_control(release,expected["generation"].as_u64().unwrap(),expected["selection_id"].as_str().unwrap(),||Ok(()),|delivered_cancel|{
+                assert!(delivered_cancel["params"]["expected_native_intent"].as_u64()>held_tune["params"]["expected_native_intent"].as_u64(),"Native admission order must survive reversed worker delivery");
+                Ok(json!({"ok":true}))
+            })?;
+            assert_eq!(owner.snapshot()?["control_revision"].as_u64(),expected["control_revision"].as_u64().map(|v|v+2));
+            Ok(json!({"ok":true}))
+        }).unwrap();assert!(!owner.state.lock().unwrap().activation_tune);
+    }
     #[test]
     fn durable_release_lane_keeps_exact_selection_fence_and_bypasses_nonurgent_tune_fences() {
         let (_directory, owner, _) = fixture(); initialized(&owner, Some("direct_agent"));
