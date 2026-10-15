@@ -12,6 +12,16 @@ Station Agent off, so live reconnect, KPA/KAT/radio/rotor and RF acceptance were
 not attempted. The Windows Agent's exact failed-apply and Standby drive rollback
 remains a separate active defect.
 
+A current-HEAD full code review is recorded in
+[FULL_CODE_REVIEW_2026-10-15.md](FULL_CODE_REVIEW_2026-10-15.md). All ten
+actionable review findings are closed in source and bound by focused
+regressions. The uncontended complete frontend suite passes 2,394/2,394, the
+Rust/Tauri suite passes 460/460, and the focused portable Swift review set
+passes 92/92. Synthetic responsive QA covers nine task surfaces at 360×640 and
+1280×800 plus 37 Desk widths from 360 to 3,840 pixels. These results do not
+close the explicitly listed Agent, installed-live, multi-display or hardware
+acceptance boundaries.
+
 This is the operator-facing project overview. Keep it current after every material
 implementation, validation, installation or acceptance change. Detailed evidence
 and historical wording remain in the
