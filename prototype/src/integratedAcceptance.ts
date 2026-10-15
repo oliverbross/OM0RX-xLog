@@ -140,7 +140,8 @@ async function main(report: Json) {
   await fill('[aria-label="Desk Comment"]', "Isolated native UI acceptance");
   const call = element<HTMLInputElement>('[aria-label="Desk Callsign"]');
   call.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", ctrlKey: true, bubbles: true, cancelable: true }));
-  await waitForAcceptance("keyboard save and cleared draft", () => element<HTMLInputElement>('[aria-label="Desk Callsign"]').value === "" && document.body.textContent?.includes("W1AW saved") === true);
+  await waitForAcceptance("keyboard save and cleared draft", () => element<HTMLInputElement>('[aria-label="Desk Callsign"]').value === "" &&
+    document.querySelector<HTMLElement>('.qso-logged-toast[role="status"]')?.textContent === "QSO logged");
   check("keyboard_log", validSavedContact((await worker("logbook_list")).result));
   report.details.adifTransfer = await verifyADIFTransferRoundtrip(worker);
   check("adif_transfer_roundtrip", report.details.adifTransfer.finalContacts === 1);
