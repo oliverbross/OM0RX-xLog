@@ -266,9 +266,12 @@ function MainLiveApp() {
   const separateWindows = workspaceMode(deskLayout.state.snapshot) === "windows";
   useEffect(() => {
     const state = deskLayout.state;
-    if (state.snapshot && !state.pending && !state.saving && !state.conflict && !state.workspaceChanged)
-      void presentWorkspaceMode(state.snapshot, separateWindows).catch(cause => setError(cause instanceof Error ? cause.message : "Workspace mode presentation failed."));
-  }, [deskLayout.state.snapshot, deskLayout.state.pending, deskLayout.state.saving, separateWindows]);
+    if (!state.snapshot || state.saving) return;
+    const needsRecovery = !!state.conflict || state.workspaceChanged || (!!state.pending && !state.saving);
+    void presentWorkspaceMode(state.snapshot, needsRecovery ? false : separateWindows)
+      .catch(cause => setError(cause instanceof Error ? cause.message : "Workspace mode presentation failed."));
+  }, [deskLayout.state.snapshot, deskLayout.state.pending, deskLayout.state.saving,
+      deskLayout.state.conflict, deskLayout.state.workspaceChanged, separateWindows]);
   const acceptsInput = useCallback(() => !mainClosing.current && !layoutChanging.current && !editorTransition.current && !logbookWorkingRef.current && draftSession.canAcceptLocalInput() && contactSession.canAcceptLocalInput(), [draftSession, contactSession]);
   useEffect(() => protectOperatorDraftClose(() => {
     const current = draftSession.getSnapshot(), contact = contactSession.getSnapshot(), mutation = logbookMutations.getSnapshot();

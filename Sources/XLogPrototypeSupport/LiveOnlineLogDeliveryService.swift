@@ -113,6 +113,11 @@ actor LiveOnlineLogDeliveryService {
                 guard let credential = try provider.credential() else { continue }
                 for contactID in candidates {
                     guard !stopped, workspaceTransitions == 0, !Task.isCancelled else { return }
+                    // A prior delivery may have disabled the provider and
+                    // deleted the remaining queue. Never dispatch a cached ID
+                    // after that revocation.
+                    guard try database.onlineLogEnrollmentStatus(service: provider.service).enabled else { break }
+                    guard try database.onlineLogCandidateIDs(service: provider.service, limit: 500).contains(contactID) else { continue }
                     do { _ = try await provider.delivery(database, contactID, credential, now) }
                     catch OnlineLogDeliveryError.notDue { continue }
                     catch OnlineLogDeliveryError.staleContact { continue }

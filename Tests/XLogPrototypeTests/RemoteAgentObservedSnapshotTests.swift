@@ -25,12 +25,16 @@ private final class ObservedCallbackScript: @unchecked Sendable {
     private let lock = NSLock()
     private var commands: [Double?]
     private var commandBodies: [[String: Any]] = []
+    private var commandTimeouts: [TimeInterval] = []
     private let commandDelay: TimeInterval
+    private let commandRevision: Int
     private let onCommand: @Sendable () -> Void
 
-    init(commands: [Double?], commandDelay: TimeInterval = 0, onCommand: @escaping @Sendable () -> Void = {}) {
+    init(commands: [Double?], commandDelay: TimeInterval = 0, commandRevision: Int = 42,
+         onCommand: @escaping @Sendable () -> Void = {}) {
         self.commands = commands
         self.commandDelay = commandDelay
+        self.commandRevision = commandRevision
         self.onCommand = onCommand
     }
 
@@ -44,14 +48,17 @@ private final class ObservedCallbackScript: @unchecked Sendable {
             guard let object = try JSONSerialization.jsonObject(with: body) as? [String: Any] else {
                 throw URLError(.cannotParseResponse)
             }
-            lock.withLock { commandBodies.append(object) }
+            lock.withLock {
+                commandBodies.append(object)
+                commandTimeouts.append(request.timeoutInterval)
+            }
             onCommand()
             if commandDelay > 0 { Thread.sleep(forTimeInterval: commandDelay) }
             let watts = try lock.withLock { () throws -> Double? in
                 guard !commands.isEmpty else { throw URLError(.badServerResponse) }
                 return commands.removeFirst()
             }
-            envelope = watts.map { ["success": true, "state": Self.state(watts: $0)] }
+            envelope = watts.map { ["success": true, "state": Self.state(watts: $0, revision: commandRevision)] }
                 ?? ["success": true]
         default:
             throw URLError(.unsupportedURL)
@@ -60,6 +67,7 @@ private final class ObservedCallbackScript: @unchecked Sendable {
     }
 
     var sentCommands: [[String: Any]] { lock.withLock { commandBodies } }
+    var sentTimeouts: [TimeInterval] { lock.withLock { commandTimeouts } }
 
     private static func body(_ request: URLRequest) throws -> Data {
         if let body = request.httpBody { return body }
@@ -75,11 +83,11 @@ private final class ObservedCallbackScript: @unchecked Sendable {
         }
     }
 
-    private static func state(watts: Double) -> [String: Any] {
+    fileprivate static func state(watts: Double, revision: Int = 42) -> [String: Any] {
         let observed = Date().addingTimeInterval(-0.05)
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return ["protocol_version": 1, "revision": 42,
+        return ["protocol_version": 1, "revision": revision,
             "capabilities": ["commands": ["set_mode", "set_ptt", "set_frequency_hz"]],
             "radio": ["connected": true, "known": true, "stale": false, "station_bound": true,
                 "mox": true, "frequency_hz": 14_025_000, "mode": "CW",
@@ -124,12 +132,13 @@ private final class ObservedCallbackProtocol: URLProtocol {
 }
 
 final class RemoteAgentObservedSnapshotTests: XCTestCase {
-    private func fixture(commands: [Double?], commandDelay: TimeInterval = 0,
+    private func fixture(commands: [Double?], commandDelay: TimeInterval = 0, commandRevision: Int = 42,
                          onCommand: @escaping @Sendable () -> Void = {},
                          verify: ((ObservedCallbackScript) -> Void)? = nil,
                          operation: (RemoteAgentClient, ObservedCallbackRecorder) async throws -> Void) async throws {
         let host = "observed-\(UUID().uuidString.lowercased()).invalid"
-        let script = ObservedCallbackScript(commands: commands, commandDelay: commandDelay, onCommand: onCommand)
+        let script = ObservedCallbackScript(commands: commands, commandDelay: commandDelay,
+                                            commandRevision: commandRevision, onCommand: onCommand)
         ObservedCallbackProtocol.install(script, host: host)
         defer { ObservedCallbackProtocol.remove(host: host) }
         let configuration = URLSessionConfiguration.ephemeral
@@ -183,6 +192,43 @@ final class RemoteAgentObservedSnapshotTests: XCTestCase {
             XCTAssertEqual(recorder.observed.count, nativeCount)
             XCTAssertTrue(recorder.events.contains { $0.kind == "view" && $0.snapshot.mode == "USB" })
             XCTAssertEqual(recorder.observed.first?.mode, "CW")
+        }
+    }
+
+    func testDelayedOlderCommandStateCannotReplaceNewerAuthoritativeState() async throws {
+        try await fixture(commands: [20], commandRevision: 41) { client, recorder in
+            try await client.setTransmit(false)
+            XCTAssertEqual(recorder.observed.count, 1)
+            let observed = await client.observedSnapshot()
+            XCTAssertEqual(observed.remoteStationStatus?.revision, 42)
+            XCTAssertTrue(observed.isTransmitting)
+        }
+    }
+
+    func testOutOfRangeLegacyNumericTelemetryIsRejectedWithoutTrapping() throws {
+        var frequency = ObservedCallbackScript.state(watts: 10)
+        var radio = try XCTUnwrap(frequency["radio"] as? [String: Any])
+        radio.removeValue(forKey: "frequency_hz")
+        radio["frequency"] = 1e100
+        frequency["radio"] = radio
+        let frequencyData = try JSONSerialization.data(withJSONObject: ["success": true, "state": frequency])
+        XCTAssertThrowsError(try RemoteAgentStateDecoder.stateResponse(frequencyData))
+
+        var drive = ObservedCallbackScript.state(watts: 10)
+        radio = try XCTUnwrap(drive["radio"] as? [String: Any])
+        radio["drive"] = 1e100
+        drive["radio"] = radio
+        let driveData = try JSONSerialization.data(withJSONObject: ["success": true, "state": drive])
+        XCTAssertThrowsError(try RemoteAgentStateDecoder.stateResponse(driveData))
+    }
+
+    func testShutdownReleaseUsesOneShortAttempt() async throws {
+        try await fixture(commands: [nil], verify: { script in
+            XCTAssertEqual(script.sentCommands.count, 1)
+            XCTAssertEqual(script.sentCommands.first?["command"] as? String, "set_ptt")
+            XCTAssertEqual(script.sentTimeouts, [1.5])
+        }) { client, _ in
+            try await client.shutdownReleasePTT()
         }
     }
 

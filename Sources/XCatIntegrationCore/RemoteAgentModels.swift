@@ -254,9 +254,9 @@ enum RemoteAgentStateDecoder {
             ?? radio.vfos?.first(where: { $0.value.transmit == true })?.key.uppercased()
             ?? activeReceiveLetter
 
-        var vfos: [RadioVFO] = (radio.vfos ?? [:]).compactMap { key, value in
+        var vfos: [RadioVFO] = try (radio.vfos ?? [:]).compactMap { key, value in
             guard value.inUse != false,
-                  let frequencyHz = value.resolvedFrequencyHz else { return nil }
+                  let frequencyHz = try value.resolvedFrequencyHz() else { return nil }
             let letter = (value.indexLetter ?? key).uppercased()
             guard letter == "A" || letter == "B" else { return nil }
             return RadioVFO(
@@ -272,7 +272,7 @@ enum RemoteAgentStateDecoder {
             )
         }.sorted { $0.letter < $1.letter }
 
-        if vfos.isEmpty, let frequencyHz = radio.resolvedFrequencyHz {
+        if vfos.isEmpty, let frequencyHz = try radio.resolvedFrequencyHz() {
             vfos = [RadioVFO(
                 letter: "A",
                 frequencyHz: frequencyHz,
@@ -379,7 +379,16 @@ enum RemoteAgentStateDecoder {
             katDetailSecondary: katDetailSecondary(kat),
             routeDetail: path?.routeLabel ?? routeSummary(route)
         )
-        let fallbackFrequency = radio.resolvedFrequencyHz ?? 0
+        let fallbackFrequency = try radio.resolvedFrequencyHz() ?? 0
+        let rfPowerWatts: Int?
+        if let drive = radio.drive {
+            guard drive.isFinite, (0...100).contains(drive) else {
+                throw XCatError.server("Remote Agent reported invalid RF drive telemetry.")
+            }
+            rfPowerWatts = Int(drive.rounded())
+        } else {
+            rfPowerWatts = nil
+        }
         let snapshot = RadioSnapshot(
             frequencyHz: receiveVFO?.frequencyHz ?? fallbackFrequency,
             mode: receiveVFO?.mode ?? radio.mode ?? "?",
@@ -391,7 +400,7 @@ enum RemoteAgentStateDecoder {
             station: radio.stationName ?? "Remote Agent",
             vfos: vfos,
             remoteStationStatus: status,
-            rfPowerWatts: radio.drive.map { Int($0.rounded()) },
+            rfPowerWatts: rfPowerWatts,
             agentObservedAt: radio.updatedAt.map(Date.init(timeIntervalSince1970:)),
             transportReceivedAt: receivedAt,
             measuredTransmitPower: measuredTransmitPower
@@ -574,8 +583,13 @@ private struct RadioDTO: Decodable {
         case observedAt = "observed_at"
     }
 
-    var resolvedFrequencyHz: Int64? {
-        frequencyHz ?? frequency.map { Int64(($0 * 1_000_000).rounded()) }
+    func resolvedFrequencyHz() throws -> Int64? {
+        if let frequencyHz { return frequencyHz }
+        guard let frequency else { return nil }
+        guard frequency.isFinite, (0...1_000).contains(frequency) else {
+            throw XCatError.server("Remote Agent reported invalid frequency telemetry.")
+        }
+        return Int64((frequency * 1_000_000).rounded())
     }
 }
 
@@ -604,8 +618,13 @@ private struct VFODTO: Decodable {
         case xitOffsetHz = "xit_freq"
     }
 
-    var resolvedFrequencyHz: Int64? {
-        frequencyHz ?? frequency.map { Int64(($0 * 1_000_000).rounded()) }
+    func resolvedFrequencyHz() throws -> Int64? {
+        if let frequencyHz { return frequencyHz }
+        guard let frequency else { return nil }
+        guard frequency.isFinite, (0...1_000).contains(frequency) else {
+            throw XCatError.server("Remote Agent reported invalid VFO frequency telemetry.")
+        }
+        return Int64((frequency * 1_000_000).rounded())
     }
 }
 

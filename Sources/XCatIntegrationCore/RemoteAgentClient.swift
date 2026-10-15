@@ -89,6 +89,7 @@ public actor RemoteAgentClient: RadioControlling {
     private var shouldRun = false
     private var generation = 0
     private var reconnectAttempt = 0
+    private var authoritativeRevision: Int?
     private var webSocket: URLSessionWebSocketTask?
     private var streamTask: Task<Void, Never>?
     private var watchdogTask: Task<Void, Never>?
@@ -295,6 +296,21 @@ public actor RemoteAgentClient: RadioControlling {
         try await execute(.clearCW)
     }
 
+    /// Shutdown-only releases are single-attempt and deliberately shorter than
+    /// the desktop worker's EOF grace period. They still use the normal signed
+    /// command path, but cannot spend the whole grace period retrying.
+    public func shutdownClearCW() async throws {
+        try await execute(.clearCW, attempts: 1, timeoutInterval: 1.5)
+    }
+
+    public func shutdownCancelTune() async throws {
+        try await execute(.station(.cancel), attempts: 1, timeoutInterval: 1.5)
+    }
+
+    public func shutdownReleasePTT() async throws {
+        try await execute(.ptt(false), attempts: 1, timeoutInterval: 1.5)
+    }
+
     public func setRIT(enabled: Bool, offsetHz: Int, vfo: String?) async throws {
         guard (-9_999...9_999).contains(offsetHz) else {
             throw XCatError.server("RIT offset must be between -9999 and 9999 Hz.")
@@ -395,6 +411,7 @@ public actor RemoteAgentClient: RadioControlling {
     private func connect() async {
         guard shouldRun else { return }
         generation += 1
+        authoritativeRevision = nil
         let currentGeneration = generation
         transition(.connecting, "Connecting to Remote Station Agent")
         do {
@@ -466,21 +483,23 @@ public actor RemoteAgentClient: RadioControlling {
         }
     }
 
-    private func execute(_ command: RemoteAgentCommand, expectedSpot: FlexSpot? = nil) async throws {
+    private func execute(_ command: RemoteAgentCommand, expectedSpot: FlexSpot? = nil,
+                         attempts: Int = 2, timeoutInterval: TimeInterval? = nil) async throws {
         guard shouldRun else { throw XCatError.notConnected }
         let commandGeneration = generation
         guard value.remoteStationStatus?.supportedCommands.contains(command.name) == true else {
             throw XCatError.server("Remote Agent does not advertise \(command.name).")
         }
         let requestID = "xcat-\(UUID().uuidString.lowercased())"
-        let request = try RemoteAgentRequestBuilder.commandRequest(
+        var request = try RemoteAgentRequestBuilder.commandRequest(
             endpoint: endpoint,
             token: token,
             requestID: requestID,
             command: command
         )
+        if let timeoutInterval { request.timeoutInterval = timeoutInterval }
         var lastError: (any Error)?
-        for attempt in 0..<2 {
+        for attempt in 0..<attempts {
             guard shouldRun, commandGeneration == generation, !Task.isCancelled else { throw XCatError.notConnected }
             do {
                 let (data, response) = try await session.data(for: request)
@@ -497,7 +516,7 @@ public actor RemoteAgentClient: RadioControlling {
                 return
             } catch {
                 lastError = error
-                if attempt == 0 {
+                if attempt + 1 < attempts {
                     try? await Task.sleep(for: .milliseconds(200))
                     continue
                 }
@@ -507,6 +526,9 @@ public actor RemoteAgentClient: RadioControlling {
     }
 
     private func apply(_ decoded: RemoteAgentDecodedState) {
+        let revision = decoded.snapshot.remoteStationStatus?.revision
+        if let revision, let authoritativeRevision, revision < authoritativeRevision { return }
+        if let revision { authoritativeRevision = revision }
         var snapshot = decoded.snapshot
         authoritativeValue = decoded.snapshot
         // Immutable decoded evidence, before optimistic pending-write overlays.

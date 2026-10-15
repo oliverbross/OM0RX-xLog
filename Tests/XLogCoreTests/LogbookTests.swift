@@ -314,6 +314,28 @@ struct LogbookTests {
         #expect(try database.fetch().first?.isDirty == false)
     }
 
+    @Test("Keeping a local contact after remote deletion detaches the vanished remote identity")
+    func remoteDeletionConflictKeepLocalDetachesIdentity() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let database = try LogbookDatabase(url: directory.appendingPathComponent("test.sqlite"))
+        var local = QSO(wavelogID: 73, call: "OM0RX", band: "20m", mode: "CW", comment: "keep")
+        try database.save(local)
+        var remote = local
+        remote.isDirty = false
+        remote.deletedAt = Date()
+
+        #expect(try database.mergeRemote(remote))
+        let conflict = try #require(database.conflicts().first)
+        try database.resolveConflict(conflict, useRemote: false)
+
+        local = try #require(try database.lookup(localID: local.id))
+        #expect(local.deletedAt == nil)
+        #expect(local.wavelogID == nil)
+        #expect(local.isDirty)
+        #expect(try database.conflicts().isEmpty)
+    }
+
     @Test("Remote merges preserve local-only and unknown ADIF fields")
     func remoteMergePreservesLocalFields() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

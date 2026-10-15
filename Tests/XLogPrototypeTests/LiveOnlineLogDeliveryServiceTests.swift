@@ -29,6 +29,15 @@ struct LiveOnlineLogDeliveryServiceTests {
         return (logbook, try logbook.openedDatabase(), root)
     }
 
+    @Test func everyOnlineLogCredentialMutationFencesDeliveryOwnership() {
+        for account in ["qrz-logbook-key", "clublog-api-key", "clublog-email",
+                        "clublog-application-password", "clublog-callsign"] {
+            #expect(LiveWorker.fencesOnlineLogDelivery(method: "secret_save", params: ["account": account]))
+        }
+        #expect(LiveWorker.fencesOnlineLogDelivery(method: "online_log_configure", params: [:]))
+        #expect(!LiveWorker.fencesOnlineLogDelivery(method: "secret_save", params: ["account": "qrz-password"]))
+    }
+
     @Test func disabledOrEmptyEnrollmentNeverReadsCredentialOrRunsDelivery() async throws {
         let (logbook, database, root) = try fixture()
         defer { database.close(); try? FileManager.default.removeItem(at: root) }
@@ -155,5 +164,30 @@ struct LiveOnlineLogDeliveryServiceTests {
         #expect(try database.onlineLogCandidateIDs(service: .qrz) == [qso.id])
         #expect(try database.onlineLogEnrollmentStatus(service: .qrz).enabled)
         await services.terminate()
+    }
+
+    @Test func rejectionRevocationStopsTheAlreadyCachedBatch() async throws {
+        let (logbook, database, root) = try fixture()
+        defer { database.close(); try? FileManager.default.removeItem(at: root) }
+        _ = try database.configureOnlineLogEnrollment(service: .qrz, enabled: true)
+        let first = QSO(call: "JA1ABC", start: Date(timeIntervalSince1970: 1_700_001_300),
+                        band: "20m", mode: "CW", myCall: "OM0RX")
+        let second = QSO(call: "JA2ABC", start: Date(timeIntervalSince1970: 1_700_001_310),
+                         band: "20m", mode: "CW", myCall: "OM0RX")
+        try database.saveNewContactForOnlineLogs(first)
+        try database.saveNewContactForOnlineLogs(second)
+        let probe = OnlineLogProbe()
+        let service = LiveOnlineLogDeliveryService(logbook: logbook, credential: { "fixture-key" },
+            delivery: { database, _, _, _ in
+                probe.delivered()
+                _ = try database.configureOnlineLogEnrollment(service: .qrz, enabled: false)
+                throw OnlineLogDeliveryError.invalidPlan
+            })
+
+        await service.runDue()
+        #expect(probe.deliveries == 1)
+        #expect(try !database.onlineLogEnrollmentStatus(service: .qrz).enabled)
+        #expect(try database.onlineLogCandidateIDs(service: .qrz).isEmpty)
+        await service.terminate()
     }
 }

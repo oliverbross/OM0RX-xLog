@@ -46,7 +46,7 @@ export function DetachedSettingsSurface() {
     journal => journal ? localStorage.setItem(rotorJournalKey, JSON.stringify(journal)) : localStorage.removeItem(rotorJournalKey),
     storedRotorJournal()));
   const rotorState = useSyncExternalStore(rotorSession.subscribe, rotorSession.getSnapshot);
-  const layout = useWorkspaceLayout(true);
+  const layout = useWorkspaceLayout(true, "xlog.workspace.layout.pending.settings.v1");
   const settingsDirty = settingsDraftIsDirty(state.base, state.draft);
   const rotorDirty = rotorConfigurationDirty(rotorState.base, rotorState.draft);
   const dirty = settingsDirty || rotorDirty;

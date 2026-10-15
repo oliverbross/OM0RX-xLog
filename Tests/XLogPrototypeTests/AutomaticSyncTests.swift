@@ -72,6 +72,46 @@ final class AutomaticSyncTests: XCTestCase {
         XCTAssertEqual(try fixture.logbook.currentSettings().wavelogStationID, 1)
     }
 
+    func testBackupRestoreRevokesRestoredOnlineLogEnrollmentAndQueue() throws {
+        let fixture = try SyncFixture()
+        defer { fixture.clean() }
+        let database = try fixture.logbook.openedDatabase()
+        _ = try database.configureOnlineLogEnrollment(service: .qrz, enabled: true)
+        let qso = QSO(call: "VK9ABC", start: Date(timeIntervalSince1970: 1_700_000_050),
+                      band: "20m", mode: "CW", myCall: "OM0RX")
+        try database.saveNewContactForOnlineLogs(qso)
+        let backup = try fixture.logbook.handle(method: "backup_create", params: ["name": "online-log-consent"])
+        let name = try XCTUnwrap(backup["name"] as? String)
+
+        _ = try fixture.logbook.handle(method: "backup_restore", params: ["name": name, "confirm_restore": true])
+        let restored = try fixture.logbook.openedDatabase()
+        XCTAssertFalse(try restored.onlineLogEnrollmentStatus(service: .qrz).enabled)
+        XCTAssertTrue(try restored.onlineLogCandidateIDs(service: .qrz).isEmpty)
+    }
+
+    func testKeepSettingsRestoreRejectsDifferentWavelogDestinationBeforeReplacement() throws {
+        let fixture = try SyncFixture()
+        defer { fixture.clean() }
+        let database = try fixture.logbook.openedDatabase()
+        try database.save(QSO(wavelogID: 42, call: "K1ABC", band: "20m", mode: "CW"), markDirty: false)
+        let backup = try fixture.logbook.handle(method: "backup_create", params: ["name": "destination-a"])
+        let name = try XCTUnwrap(backup["name"] as? String)
+        let stored = try database.integrationSettings(seed: .defaults)
+        var destinationB = stored.settings
+        destinationB.wavelogStationID += 1
+        try database.installIntegrationSettingsAfterRestore(.init(
+            revision: stored.revision + 1, settings: destinationB,
+            syncTargetRevision: stored.syncTargetRevision + 1))
+
+        XCTAssertThrowsError(try fixture.logbook.handle(method: "backup_restore", params: [
+            "name": name, "confirm_restore": true, "restore_settings": false,
+        ])) { error in
+            XCTAssertEqual((error as? WorkerFailure)?.code, "sync_destination_change_blocked")
+        }
+        XCTAssertEqual(try fixture.logbook.currentSettings().wavelogStationID, destinationB.wavelogStationID)
+        XCTAssertEqual(try fixture.logbook.openedDatabase().linkedRemoteCount(), 1)
+    }
+
     func testAlreadyDeletedRemoteRecordAcknowledgesTombstoneWithoutRepeatingDelete() async throws {
         let fixture = try SyncFixture()
         defer { fixture.clean() }

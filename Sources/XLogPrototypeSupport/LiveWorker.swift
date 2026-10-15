@@ -388,8 +388,7 @@ public actor LiveWorker {
             } else if method == "weather" || method == "propagation_snapshot" || method == "propagation_refresh" {
                 result = try await publicServices.handle(method: method, params: params)
             } else if method.hasPrefix("sync_") || method.hasPrefix("secret_") || method.hasPrefix("online_log_") {
-                let fencesOnlineDelivery = method == "online_log_configure" ||
-                    (method == "secret_save" && params["account"] as? String == "qrz-logbook-key")
+                let fencesOnlineDelivery = Self.fencesOnlineLogDelivery(method: method, params: params)
                 if fencesOnlineDelivery { await onlineLogs.suspendForOwnershipChange() }
                 do { result = try await services.handle(method: method, params: params) }
                 catch {
@@ -432,6 +431,15 @@ public actor LiveWorker {
             // return arbitrary localizedDescription over the UI/log boundary.
             return encode(["id": id, "ok": false, "error": ["code": "operation_failed", "message": "Operation failed. Check the connection or configuration; no success has been confirmed."]])
         }
+    }
+
+    static func fencesOnlineLogDelivery(method: String, params: [String: Any]) -> Bool {
+        let credentialAccounts: Set<String> = [
+            "qrz-logbook-key", "clublog-api-key", "clublog-email",
+            "clublog-application-password", "clublog-callsign",
+        ]
+        return method == "online_log_configure" ||
+            (method == "secret_save" && (params["account"] as? String).map(credentialAccounts.contains) == true)
     }
 
     private static var health: [String: Any] {

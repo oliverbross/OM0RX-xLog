@@ -139,7 +139,6 @@ actor LiveStationSession {
     private var lifecycleTransitions = 0
     private var terminalShutdown = false
     private var directTransmitAcquisitions = 0
-    private var directTransmitDrainWaiters: [CheckedContinuation<Void, Never>] = []
 
     func installPowerCapture(_ capture: NativeDraftPowerGate) {
         // Worker startup registers before requests can explicitly connect.
@@ -462,7 +461,10 @@ actor LiveStationSession {
         transportState = .stopped
         allowTransmit = false
         await stopCATServers()
-        await drainDirectTransmitAcquisitions()
+        // Leave most of the desktop host's eight-second EOF grace period for
+        // the actual RF release requests. A stalled transmit acquisition must
+        // not consume the only opportunity to send PTT-off/CW/tune releases.
+        await drainDirectTransmitAcquisitions(for: .seconds(1))
         if let current { await stop(current) }
     }
 
@@ -755,15 +757,14 @@ actor LiveStationSession {
         precondition(directTransmitAcquisitions > 0)
         directTransmitAcquisitions -= 1
         guard directTransmitAcquisitions == 0 else { return }
-        let waiters = directTransmitDrainWaiters
-        directTransmitDrainWaiters.removeAll()
-        waiters.forEach { $0.resume() }
     }
 
-    private func drainDirectTransmitAcquisitions() async {
-        guard directTransmitAcquisitions > 0 else { return }
-        await withCheckedContinuation { continuation in
-            directTransmitDrainWaiters.append(continuation)
+    private func drainDirectTransmitAcquisitions(for budget: Duration) async {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: budget)
+        while directTransmitAcquisitions > 0, clock.now < deadline {
+            do { try await Task.sleep(for: .milliseconds(25)) }
+            catch { return }
         }
     }
 
@@ -777,9 +778,9 @@ actor LiveStationSession {
             for release in releases {
                 group.addTask {
                     switch release {
-                    case .clearCW: try? await current.clearCW()
-                    case .cancelTune: try? await current.performStationAction(.cancel)
-                    case .releasePTT: try? await current.setTransmit(false)
+                    case .clearCW: try? await current.shutdownClearCW()
+                    case .cancelTune: try? await current.shutdownCancelTune()
+                    case .releasePTT: try? await current.shutdownReleasePTT()
                     }
                 }
             }

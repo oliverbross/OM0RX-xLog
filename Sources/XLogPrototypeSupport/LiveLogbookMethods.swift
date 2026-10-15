@@ -1124,6 +1124,16 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                 let db = try readyDatabase()
                 let retainedLayout = restorePreferences ? nil : try db.workspaceLayout()
                 let retainedSettings = try storedSettingsSnapshot()
+                if !restoreSettings {
+                    guard let backupSettings = preview.settings.map(IntegrationWorkspace.safeSettings(from:)) else {
+                        throw WorkerFailure("backup_settings_missing", "Keep-settings restore requires backup settings so its Wavelog destination can be verified.")
+                    }
+                    let destinationChanged = backupSettings.wavelogURL != retainedSettings.settings.wavelogURL
+                        || backupSettings.wavelogStationID != retainedSettings.settings.wavelogStationID
+                    guard !destinationChanged else {
+                        throw WorkerFailure("sync_destination_change_blocked", "The backup belongs to a different Wavelog destination. Restore its settings or use a reviewed migration.")
+                    }
+                }
                 let retainedRotorConfiguration = try db.rotorConfiguration(seed: .defaults)
                 let reference = try referenceDirectoryURL()
                 #if os(macOS)
@@ -1167,6 +1177,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                         settingsSnapshot = retainedSettings
                     }
                     try database.installIntegrationSettingsAfterRestore(settingsSnapshot)
+                    try database.disableOnlineLogDeliveryAfterRestore()
                     let restoredRotorConfiguration = try database.rotorConfiguration(seed: retainedRotorConfiguration.configuration)
                     try database.installRotorConfigurationAfterRestore(
                         restoreSettings ? restoredRotorConfiguration : retainedRotorConfiguration

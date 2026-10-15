@@ -683,6 +683,7 @@ public actor FlexRadioClient: RadioControlling {
 
     private func sendCommand(_ body: String, timeout: Duration = .seconds(5)) async throws {
         guard transportReady, let connection else { throw XCatError.notConnected }
+        let commandGeneration = generation
         let sequence = commandSequence
         commandSequence += 1
         let command = "C\(sequence)|\(body)\n"
@@ -690,12 +691,12 @@ public actor FlexRadioClient: RadioControlling {
             let timeoutTask = Task { [weak self] in
                 try? await Task.sleep(for: timeout)
                 guard !Task.isCancelled else { return }
-                await self?.commandTimedOut(sequence)
+                await self?.commandTimedOut(sequence, generation: commandGeneration)
             }
             pendingCommands[sequence] = PendingCommand(continuation: continuation, timeoutTask: timeoutTask)
             connection.send(content: Data(command.utf8), completion: .contentProcessed { error in
                 if let error {
-                    Task { [self] in await self.failCommand(sequence, error: error) }
+                    Task { [self] in await self.failCommand(sequence, generation: commandGeneration, error: error) }
                 }
             })
         }
@@ -715,12 +716,14 @@ public actor FlexRadioClient: RadioControlling {
         }
     }
 
-    private func commandTimedOut(_ sequence: Int) {
+    private func commandTimedOut(_ sequence: Int, generation commandGeneration: Int) {
+        guard generation == commandGeneration else { return }
         guard let pending = pendingCommands.removeValue(forKey: sequence) else { return }
         pending.continuation.resume(throwing: XCatError.server("Radio command \(sequence) timed out."))
     }
 
-    private func failCommand(_ sequence: Int, error: any Error) {
+    private func failCommand(_ sequence: Int, generation commandGeneration: Int, error: any Error) {
+        guard generation == commandGeneration else { return }
         guard let pending = pendingCommands.removeValue(forKey: sequence) else { return }
         pending.timeoutTask.cancel()
         pending.continuation.resume(throwing: error)

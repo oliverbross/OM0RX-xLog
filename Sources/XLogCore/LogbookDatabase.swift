@@ -353,6 +353,19 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
+    /// Restoring a database must never revive an old third-party upload queue.
+    /// Consent is re-established prospectively by the operator after restore.
+    public func disableOnlineLogDeliveryAfterRestore() throws {
+        try withDatabaseLock {
+            try execute("BEGIN IMMEDIATE;")
+            do {
+                try execute("UPDATE xlog_online_log_enrollments SET active=0,enabled_at=NULL;")
+                try execute("DELETE FROM xlog_online_log_candidates;")
+                try execute("COMMIT;")
+            } catch { try? execute("ROLLBACK;"); throw error }
+        }
+    }
+
     public func onlineLogDeliverySummary(service: OnlineLogService) throws -> OnlineLogDeliverySummary {
         try withDatabaseLock {
             var counts = Dictionary(uniqueKeysWithValues: OnlineLogDeliveryState.allCases.map { ($0, 0) })
@@ -2664,7 +2677,9 @@ public final class LogbookDatabase: @unchecked Sendable {
                 if useRemote {
                     try save(remote, markDirty: false)
                 } else {
-                    try save(conflict.localQSO, markDirty: true)
+                    var local = conflict.localQSO
+                    if conflict.remoteQSO.deletedAt != nil { local.wavelogID = nil }
+                    try save(local, markDirty: true)
                     try updateSyncBaseline(remote, localID: conflict.localQSO.id)
                 }
                 try deleteConflict(conflict.id)
@@ -2682,7 +2697,8 @@ public final class LogbookDatabase: @unchecked Sendable {
             do {
                 var value = merged
                 value.id = conflict.localQSO.id
-                value.wavelogID = conflict.remoteQSO.wavelogID ?? conflict.localQSO.wavelogID
+                value.wavelogID = conflict.remoteQSO.deletedAt == nil
+                    ? (conflict.remoteQSO.wavelogID ?? conflict.localQSO.wavelogID) : nil
                 try save(value, markDirty: true)
                 var remote = conflict.remoteQSO
                 remote.id = conflict.localQSO.id
