@@ -43,17 +43,21 @@ explicitly clears them. Focused Swift **12/12**, sync-identity **25/25**, fronte
 **72/72**, TypeScript and diff checks pass after independent review. Package/manual
 macOS interaction and copied real-log acceptance remain open.
 
-## Native TCI radio provider — codec/reducer foundation source complete; provider open
+## Native TCI radio provider — read-only transport source complete; provider/control open
 
 Full TCI support for SunSDR/ExpertSDR and compatible servers is now an explicit product
 feature. An original pure Swift foundation follows the official ExpertSDR3 TCI contract:
 bounded fragmented/coalesced framing, strict typed values, discovery/lifecycle and
 per-TRX/channel state, deployed channel-count alias handling, bounded diagnostics and
 authoritative configured-pair snapshots only after complete discovery plus `READY`.
-Focused portable tests pass **13/13** after independent review. No socket, saved provider,
-UI, control or transmit path exists yet; WebSocket lifecycle and read-only telemetry are
-the next slice. QLog is behavioral reference only and no third-party implementation code,
-credentials, device or operator data has been copied.
+The second source slice adds a native receive-only WebSocket session with explicit
+connect/disconnect, bounded messages and observations, fresh generations and reducer state,
+no automatic reconnect or replay, and fail-closed teardown on transport/protocol errors.
+Authoritative telemetry remains unavailable until the current connection completes discovery
+and sends `READY`. Focused tests pass **21/21** after independent lifecycle and stale-generation review. Saved
+provider configuration, UI, command/control, transmit, spots and optional audio/IQ remain
+open. QLog is behavioral reference only and no third-party implementation code, credentials,
+device or operator data has been copied.
 
 ## Shared durable Agent amplifier owner — source complete; package/hardware acceptance open
 

@@ -18,10 +18,13 @@ Full native TCI support for SunSDR/ExpertSDR and compatible TCI servers is now a
 tracked feature. The official ExpertSDR3 protocol is normative and read-only QLog
 behavior is an interoperability reference. The first source slice is complete: a bounded
 case-insensitive incremental codec and discovery/state reducer passes **13/13** portable
-tests after independent review. It has no socket or station authority. Next is a native
-read-only WebSocket actor with reconnect generation and fresh `READY` gating; later
-slices add capability-fenced control and durable Tune/PTT owners. No TCI command has
-been issued; package/live/hardware/RF acceptance is open.
+tests after independent review. The second slice adds a native receive-only WebSocket actor
+with explicit connect/disconnect, bounded input/observer queues, generation fencing, fresh
+`READY` gating, no automatic reconnect/replay and teardown that cannot retain an abandoned
+session; the combined focused suite passes **21/21**, including late old-connection rejection.
+It still has no station authority.
+Next are saved provider/telemetry and capability-fenced control with durable Tune/PTT owners.
+No TCI command has been issued; package/live/hardware/RF acceptance is open.
 
 Arbitrary ADIF contact editing is source complete. Existing Logbook contact/mutation
 sessions now round-trip modeled and retained unknown/custom fields through pointer and

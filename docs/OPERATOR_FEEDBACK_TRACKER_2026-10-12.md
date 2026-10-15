@@ -7,14 +7,17 @@ packaged UI result. Keep unresolved items here across releases.
 
 ## Current delivery boundary
 
-- **Full native TCI provider requested, 16 October — codec/reducer foundation source
+- **Full native TCI provider requested, 16 October — read-only transport source
   complete:** SunSDR2, ExpertSDR and compatible TCI servers are now a first-class radio
   programme. The original Swift incremental codec and initialization/state reducer use
   the official ExpertSDR3 contract, retain per-TRX/channel state, enforce bounded input
   and diagnostics and expose configured state only after complete discovery plus
-  `READY`. Portable tests pass **13/13** after independent review. There is no socket,
-  provider UI, control or transmit authority yet; those and package/live/RF proof remain
-  later gates. QLog behavior was reference only and no implementation code was copied.
+  `READY`. A native receive-only WebSocket actor now adds explicit connect/disconnect,
+  fresh generations, bounded messages/observers, no automatic reconnect/replay and
+  fail-closed teardown without retaining an abandoned session. Focused tests pass
+  **21/21** after independent lifecycle and stale-generation review. Saved provider configuration/UI and all
+  command, transmit, spot and optional audio/IQ paths remain later gates, as do package/live/RF
+  proof. QLog behavior was reference only and no implementation code was copied.
 
 - **Arbitrary ADIF contact editing, 16 October — source complete:** Logbook pointer and
   Enter activation use the existing revision-fenced editor and safe delete/undo owner.
