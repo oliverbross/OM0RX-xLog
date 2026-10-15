@@ -187,7 +187,6 @@ async function main(report: Json) {
   await navigate("Logbook");
   await waitForAcceptance("edited contact row", () => document.querySelector(".live-logbook-table tbody")?.textContent?.includes("Revision-safe native edit") === true);
   element<HTMLElement>(".live-logbook-table tbody tr").click();
-  await click("Edit", ".live-logbook-actions button");
   await waitForAcceptance("second contact editor", () => [...document.querySelectorAll("button")].some(item => item.textContent?.trim() === "Update QSO"));
   await fill('[aria-label="Comment"]', "Isolated native UI acceptance"); await click("Update QSO");
   await waitForAcceptance("restored contact editor released", () => ![...document.querySelectorAll("button")].some(item => item.textContent?.trim() === "Update QSO"));
