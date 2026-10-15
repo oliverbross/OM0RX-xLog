@@ -49,8 +49,11 @@ performed.
 - Generic FTP does not offer the conditional-delete proof required by xLog's
   retention owner, so retention-count destinations fail closed.
 - SFTP is not treated as FTPS. The macOS system curl used here has no SFTP
-  protocol support, and a separate backend must enforce pinned SSH host-key
-  verification before SFTP can be enabled.
+  protocol support. Source `ab112a3` now supplies a fail-closed configuration
+  and identity foundation with canonical OpenSSH SHA-256 host-key pins, but no
+  client, dependency, UI, vault or network path. A separate backend must verify
+  that pin before authentication; see the
+  [SFTP configuration acceptance](SFTP_BACKUP_CONFIGURATION_FOUNDATION_ACCEPTANCE_2026-10-15.md).
 
 ## Presentation and authority contract
 
@@ -163,17 +166,42 @@ performed.
   source, every settled partial byte count/hash, `external_network: false` and
   `station_io: false`. Its SHA-256 is
   `e1b5736c455c903dad5ad052b239b930532aedbf9107077912362cba532d5ab0`.
+- A read-only trusted-FTPS probe at source `762f44d` used the unmodified
+  production C path and its reported `libcurl/8.7.1 (SecureTransport)
+  LibreSSL/3.3.6`. The upload was rejected before any object was written with
+  libcurl certificate error 60 under the default environment,
+  `CURL_CA_BUNDLE`, `SSL_CERT_FILE`, `SSL_CERT_DIR` after `openssl rehash`, all
+  three together, and all three plus `CURL_SSL_BACKEND=openssl`. Command-line
+  curl succeeded against the same disposable server with `--cacert` and with
+  `CURL_CA_BUNDLE`, proving the certificate/server fixture while not proving
+  the product library. The same trusted certificate correctly failed against
+  `127.0.0.1` because its only SAN was `localhost`. Production C warnings-as-
+  errors, the focused rejection test **1/1**, and full native **234 tests across
+  31 suites** pass. Cleanup removed the server, certificate, key, probe and
+  synthetic objects; no trust store or repository file changed.
+- SFTP configuration source `ab112a3`, tightened by `f533cde` to reject an
+  explicitly empty port, passes focused native and portable-mode **4/4**
+  suites, full native **238 tests across 32 suites**, and the full
+  portable-mode gate. It enables no transport or Settings path; detailed
+  evidence and remaining backend gates are recorded in the
+  [SFTP configuration acceptance](SFTP_BACKUP_CONFIGURATION_FOUNDATION_ACCEPTANCE_2026-10-15.md).
 
 ## Remaining gates
 
-- Successful implicit FTPS against a trusted certificate without weakening
-  verification or modifying the operator's trust store.
+- A narrowly scoped, explicitly authorized CA configuration consumed by the
+  production libcurl path, followed by successful implicit-FTPS upload,
+  verification and restore plus wrong-CA and wrong-host rejection. Environment-
+  only CA injection did not satisfy this gate; verification must not be
+  weakened and the operator trust store must not be modified.
 - Plain-FTP upload/verification/restore/replay refusal, reservation refusal,
   lost post-store acknowledgement, advertised/streamed oversize,
   post-verification growth, control-handshake timeout, stalled/slow download
   and upload deadlines, and untrusted-FTPS rejection are accepted with synthetic
   data; no operator log may be used for remaining acceptance.
 - Installed macOS acceptance after operator approval.
-- A separately designed, host-key-pinned SFTP transport.
+- The validated host-key-pinned SFTP configuration foundation is complete; the
+  separately sourced, packaged and accepted SFTP client/crypto backend,
+  transport, native vault/presentation and disposable-server matrix remain
+  open.
 - Windows and Linux implementation/package evidence remains deferred until the
   macOS programme is accepted.

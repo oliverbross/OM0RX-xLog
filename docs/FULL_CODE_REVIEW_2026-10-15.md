@@ -148,3 +148,29 @@ suite passes **234 tests across 31 suites**, and no disposable server or
 temporary root remains. This supplement used synthetic data only, external
 network and station I/O stayed disabled, and no installed app was changed.
 
+## FTPS trust and SFTP configuration supplement
+
+A read-only production-library probe at `762f44d` confirms that environment CA
+overrides are not a supported trust mechanism for the shipped libcurl path.
+The unmodified uploader rejected the disposable certificate under the default
+environment and every `CURL_CA_BUNDLE` / `SSL_CERT_FILE` / rehashed
+`SSL_CERT_DIR` combination, including an attempted backend selector. CLI curl
+accepted the same CA and correctly rejected the wrong hostname. The remaining
+fix is therefore a scoped production CA configuration with peer and hostname
+verification retained, followed by positive and negative transport acceptance;
+no global trust-store mutation or verification bypass is acceptable.
+
+Source `ab112a3`, plus parser correction `f533cde`, was then reviewed as the
+smallest safe SFTP precursor. The
+configuration validates canonical raw-host-key SHA-256 pins, a narrow algorithm
+allowlist, strict endpoints/directories and every identity-fencing field. Its
+password value is bounded, non-Codable and redacted. It deliberately exposes no
+client, dependency, Settings registration, vault reader or network authority.
+Focused native and portable-mode **4/4** suites were independently rerun after
+commit; the full native suite passes **238 tests across 32 suites** and the full
+portable-mode gate passes. No production defect was found in this isolated
+foundation. The review does not accept an SFTP transport: exact-source backend
+selection, package/licence provenance, pre-authentication pin verification,
+exclusive create, deadlines, bounded verification, unknown-outcome recovery and
+disposable-server acceptance remain mandatory.
+
