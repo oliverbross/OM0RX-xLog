@@ -209,6 +209,12 @@ async function main(report: Json) {
     if (logbookWindow) break;
     await new Promise(resolve => setTimeout(resolve, 50));
   }
+  if (!logbookWindow) {
+    const nativeState = await invoke<Json>("acceptance_window_state", { kind: "logbook" });
+    const visibleError = document.querySelector(".live-error")?.textContent?.trim() || null;
+    report.details.detachedLogbookDiagnostic = { nativeState, visibleError };
+    throw new Error(`Detached Logbook did not report acceptance: ${JSON.stringify(report.details.detachedLogbookDiagnostic)}`);
+  }
   report.details.detachedLogbook = logbookWindow;
   check("detached_logbook", logbookWindow?.status === "passed" && logbookWindow?.details?.surface === "logbook" &&
     logbookWindow?.checks?.contact_edit === true && logbookWindow?.checks?.no_radio_controls === true &&
