@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import React from "react";
+import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 const bridge = vi.hoisted(() => ({ invoke: vi.fn(), request: vi.fn(), listen: vi.fn(), events: new Map<string, () => void>() }));
@@ -66,6 +67,10 @@ it("direct Band Maps menu route opens one default pinned map without global chro
   await waitFor(() => expect(mapReads()).toBe(2));
   expect(screen.getByTestId("band-maps").textContent).toMatch(/^20m/);
   expect(bridge.request).not.toHaveBeenCalled();
+  const css = readFileSync("src/live/BandMaps.css", "utf8");
+  expect(css).toMatch(/\.app\.live\.detached-band-map-app\s*\{[^}]*display: flex;[^}]*height: 100dvh;/);
+  expect(css).toMatch(/\.detached-band-map-app > main\s*\{[^}]*display: flex;[^}]*flex: 1;/);
+  expect(css).toMatch(/\.detached-band-map-app \.band-maps\s*\{[^}]*flex: 1 0 280px;/);
 });
 
 it("band-specific windows retain independent mode choices and never alter shared layout preferences", async () => {

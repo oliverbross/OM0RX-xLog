@@ -1,7 +1,12 @@
 .app.live.detached-intelligence-app { display: flex; flex-direction: column; height: 100dvh; min-height: 0; padding: 0; }
 .detached-intelligence-app > main { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; overflow: auto; padding: 8px; gap: 8px; }
-.detached-intelligence-content { container: detached-intelligence / inline-size; min-width: 0; flex: none; }
-.detached-intelligence-content .desk-intelligence { min-height: 0; }
+.detached-intelligence-content { container: detached-intelligence / inline-size; display: flex; min-width: 0; flex: 1 0 auto; }
+.detached-intelligence-content .desk-intelligence { min-height: 0; flex: 1; width: 100%; }
+.detached-intelligence-content .desk-matrices { flex: 1; min-height: 0; }
+.detached-intelligence-content .desk-matrices > div { display: flex; flex-direction: column; min-width: 0; }
+.detached-intelligence-content .desk-band-matrix { flex: 1; grid-auto-rows: minmax(32px, 1fr); }
+.detached-intelligence-content .desk-band-matrix span { display: grid; place-items: center; font-size: clamp(9px, 1.5cqw, 16px); }
+.detached-intelligence-content .desk-identity strong { font-size: clamp(25px, 5cqw, 48px); }
 @container detached-intelligence (max-width: 640px) {
   .desk-matrices { grid-template-columns: 1fr; }
   .desk-matrices > div + div { border-left: 0; padding-left: 0; border-top: 1px solid var(--border); padding-top: 8px; }

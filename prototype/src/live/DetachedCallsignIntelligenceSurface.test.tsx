@@ -99,12 +99,12 @@ it("shows unavailable lookup/history rather than claiming unworked or a stale co
   expect(screen.queryByText("Synthetic country")).toBeNull();
 });
 
-it("routes a direct menu window to the task surface with intrinsic height and narrow-window reflow", async () => {
+it("routes a direct menu window to a filling card with narrow-window reflow", async () => {
   const Surface = await loadWindowSurface("?view=callsign-intelligence");
   expect(Surface.name).toBe("DetachedCallsignIntelligenceSurface");
   const css = readFileSync(`${process.cwd()}/src/live/DetachedCallsignIntelligenceSurface.css`, "utf8");
-  expect(css).toMatch(/\.detached-intelligence-content\s*\{[^}]*container: detached-intelligence \/ inline-size;[^}]*flex: none;/);
-  expect(css).toMatch(/\.detached-intelligence-content \.desk-intelligence\s*\{\s*min-height: 0;/);
+  expect(css).toMatch(/\.detached-intelligence-content\s*\{[^}]*container: detached-intelligence \/ inline-size;[^}]*flex: 1 0 auto;/);
+  expect(css).toMatch(/\.detached-intelligence-content \.desk-intelligence\s*\{[^}]*flex: 1;/);
   expect(css).toContain("@container detached-intelligence (max-width: 640px)");
   expect(css).toContain(".desk-matrices { grid-template-columns: 1fr; }");
 });

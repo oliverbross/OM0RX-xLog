@@ -1,32 +1,58 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import RotorCompass from "./RotorCompass";
 import { connectRotorTelemetry } from "./rotorTelemetry";
 import { rotorProjection, type RotorSnapshot } from "./rotorControl";
+import { useAutoRotor } from "./useAutoRotor";
 import "./DetachedTaskSurface.css";
 
-/** Read-only subscriber to the application's existing native rotor owner.
- * No configuration, command fallback, device reads or renderer poller. */
+/** Retained observations and the existing native automatic-rotor controller.
+ * No configuration, direct device reads or independent motion owner. */
 export function DetachedRotorSurface() {
   const [snapshot, setSnapshot] = useState<RotorSnapshot | null>(null), [available, setAvailable] = useState(false);
   const [clock, setClock] = useState(Date.now());
+  const automatic = useAutoRotor(), [autoError, setAutoError] = useState(""), [arming, setArming] = useState(false);
+  const latest = useRef({ snapshot, available }); latest.current = { snapshot, available };
+  const active = useRef(true), armingRef = useRef(false);
   useEffect(() => {
+    active.current = true;
     const dispose = connectRotorTelemetry(value => { setSnapshot(value); setAvailable(true); }, () => setAvailable(false));
     const timer = setInterval(() => setClock(Date.now()), 1000);
-    return () => { dispose?.(); clearInterval(timer); };
+    return () => { active.current = false; dispose?.(); clearInterval(timer); };
   }, []);
   const rotor = rotorProjection(snapshot);
   const validBearing = typeof rotor.azimuth === "number" && Number.isFinite(rotor.azimuth) && rotor.azimuth >= 0 && rotor.azimuth <= 360;
   const age = typeof rotor.observed_at === "number" ? clock / 1000 - rotor.observed_at : Infinity;
   const current = available && rotor.connected === true && validBearing && age >= -1 && age <= 5;
+  const armed = automatic.state?.armed === true;
+  const canArm = current && !!snapshot?.owner && !!automatic.state && !automatic.error;
+  const changeAutomatic = async (enabled: boolean) => {
+    const retained = latest.current, observed = rotorProjection(retained.snapshot);
+    const observedAge = typeof observed.observed_at === "number" ? Date.now() / 1000 - observed.observed_at : Infinity;
+    if (enabled && (armingRef.current || !automatic.state || automatic.error || !retained.available || !retained.snapshot?.owner ||
+      !observed.connected || !Number.isFinite(observed.azimuth) || observed.azimuth < 0 || observed.azimuth > 360 || !Number.isFinite(observedAge) || observedAge < -1 || observedAge > 5)) return;
+    if (enabled) { armingRef.current = true; setArming(true); }
+    setAutoError("");
+    try { await automatic.set(enabled, enabled ? retained.snapshot : undefined); }
+    catch (cause) { if (active.current) setAutoError(cause instanceof Error ? cause.message : "Automatic rotor control failed."); }
+    finally { if (enabled) { armingRef.current = false; if (active.current) setArming(false); } }
+  };
   return <div className="app live detached-task-app detached-rotor-app"><main aria-label="Detached Rotor"><section className="detached-rotor-observation" aria-label="Rotor state">
     <p role="status">{current ? "Current observed bearing" : snapshot ? "Position unavailable or stale" : "No rotor observation available"}</p>
-    <RotorCompass connected={current} azimuth={rotor.azimuth} path="SP" />
+    <div className="detached-rotor-visual"><RotorCompass connected={current} azimuth={rotor.azimuth} path="SP" />
     <div className="live-station-readback"><div><span>{current ? "Observed bearing" : "Retained bearing"}</span>
-      <strong>{validBearing ? `${rotor.azimuth.toFixed(1)}°` : "Unavailable"}</strong></div></div>
+      <strong>{validBearing ? `${rotor.azimuth.toFixed(1)}°` : "Unavailable"}</strong></div></div></div>
+    <div className="detached-rotor-details"><div className="live-actions detached-rotor-actions">
+      <label title="Follow the resolved callsign using the native rotor. Selected spots wait for confirmed radio tuning. Stop or reconnect disables automatic turns.">
+        <input type="checkbox" aria-label="Auto rotor" checked={armed} disabled={!armed && (!canArm || arming)}
+          onChange={event => { void changeAutomatic(event.target.checked); }} />{automatic.state ? "Auto rotor" : "Auto rotor unavailable"}</label>
+      <button type="button" aria-label="Turn automatic rotor off" title="Disarm automatic turns. Use Stop on the Desk to stop the current move."
+        onClick={() => { void changeAutomatic(false); }}>Off</button>
+    </div>
+    {(autoError || automatic.error) && <p className="live-error" role="alert">{autoError || automatic.error}</p>}
     <dl><dt>Rotor</dt><dd>{snapshot?.owner ? String(rotor.name) : "No retained owner"}</dd>
       <dt>Connection</dt><dd>{available ? String(rotor.status) : "Unavailable or stale"}</dd>
       <dt>Generation</dt><dd>{snapshot?.generation ?? "Unavailable"}</dd>
       <dt>Position observed</dt><dd>{typeof rotor.observed_at === "number" && Number.isFinite(rotor.observed_at) ? new Date(rotor.observed_at * 1000).toLocaleTimeString() : "Unavailable"}</dd>
-    </dl>
+    </dl></div>
   </section></main></div>;
 }
