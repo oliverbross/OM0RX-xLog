@@ -265,11 +265,12 @@ pub fn acceptance_window_state(app: tauri::AppHandle, window: tauri::WebviewWind
     require_window_coordinator(&state, window.label(), &kind)?;
     let slot = match kind.as_str() { "awards" => &state.awards, "spot-history" => &state.spot_history, _ => &state.logbook };
     let report = slot.lock().map_err(|_| "Detached evidence unavailable")?.clone();
-    let (open, visible, minimized) = if let Some(target) = app.get_webview_window(&kind) {
+    let (open, visible, minimized, url) = if let Some(target) = app.get_webview_window(&kind) {
         (true, target.is_visible().map_err(|error| error.to_string())?,
-            target.is_minimized().map_err(|error| error.to_string())?)
-    } else { (false, false, false) };
-    Ok(json!({"open":open,"visible":visible,"minimized":minimized,"report":report}))
+            target.is_minimized().map_err(|error| error.to_string())?,
+            Some(target.url().map_err(|error| error.to_string())?.to_string()))
+    } else { (false, false, false, None) };
+    Ok(json!({"open":open,"visible":visible,"minimized":minimized,"url":url,"report":report}))
 }
 
 #[tauri::command]
