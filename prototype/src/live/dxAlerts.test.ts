@@ -3,7 +3,7 @@ import { expect, it, vi } from "vitest";
 import { checkedDxAlerts, connectDxAlerts } from "./dxAlerts";
 const frame = () => ({ epoch:"00000000-0000-4000-8000-000000000001", revision:1,
   configuration:{ generation:"00000000-0000-4000-8000-000000000002", revision:0, enabled:false, dedupSeconds:120, retentionMinutes:120, nativePopup:false, notificationSound:false,
-    rules:[{ id:"new-dxcc", name:"New DXCC", enabled:true, callsignGlob:"*", bands:[], modes:[], callStatuses:[], dxccStatuses:["ATNO"], specials:[] }] },
+    rules:[{ id:"new-dxcc", name:"New DXCC", enabled:true, callsignGlob:"*", commentContains:"", bands:[], modes:[], callStatuses:[], dxccStatuses:["ATNO"], specials:[] }] },
   storageError:null, source:{ available:true, baselined:true, revision:1, receivedAtMs:1 }, entries:[], delivery:{ error:null, suppressed:0, maximumPerWindow:3, windowSeconds:10 }, limits:{ maximumRules:32, maximumEntries:200 } });
 it("accepts the bounded native snapshot and rejects malformed identities", () => {
   expect(checkedDxAlerts(frame()).configuration.enabled).toBe(false);
@@ -14,4 +14,13 @@ it("uses native wakes and focus recovery without polling", async () => {
   const read=vi.fn().mockResolvedValue(frame()), listen=vi.fn(async () => vi.fn()), changed=vi.fn(), failed=vi.fn();
   const dispose=connectDxAlerts(changed,failed,{ read,listen }); await Promise.resolve(); await Promise.resolve();
   expect(read).toHaveBeenCalledTimes(1); expect(listen).toHaveBeenCalledTimes(1); expect(changed).toHaveBeenCalledWith(frame()); expect(failed).not.toHaveBeenCalled(); dispose();
+});
+it("rejects malformed and oversized comment conditions at the native boundary", () => {
+  for (const commentContains of [null, " ", "POTA\n", "é".repeat(41), "x".repeat(81)]) {
+    const value = frame();
+    Object.assign(value.configuration.rules[0], { commentContains });
+    expect(() => checkedDxAlerts(value)).toThrow("could not be verified");
+  }
+  const value = frame(); value.configuration.rules[0].commentContains = " POTA ";
+  expect(checkedDxAlerts(value).configuration.rules[0].commentContains).toBe(" POTA ");
 });

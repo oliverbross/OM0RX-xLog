@@ -10,7 +10,7 @@ const frame = () => ({ epoch: "00000000-0000-4000-8000-000000000001", revision: 
   items: [{ code: "radio_inhibitors", count: 2 }, { code: "rotor_uncertain", count: 1 }] });
 const dxFrame = () => ({ epoch: "00000000-0000-4000-8000-000000000002", revision: 1,
   configuration: { generation:"00000000-0000-4000-8000-000000000003", revision:0, enabled:false, dedupSeconds:120, retentionMinutes:120, nativePopup:false, notificationSound:false,
-    rules:[{ id:"new-dxcc", name:"New DXCC", enabled:true, callsignGlob:"*", bands:[], modes:[], callStatuses:[], dxccStatuses:["ATNO"], specials:[] }] },
+    rules:[{ id:"new-dxcc", name:"New DXCC", enabled:true, callsignGlob:"*", commentContains:"", bands:[], modes:[], callStatuses:[], dxccStatuses:["ATNO"], specials:[] }] },
   storageError:null, source:{ available:true, baselined:true, revision:2, receivedAtMs:1 }, entries:[], delivery:{ error:null, suppressed:0, maximumPerWindow:3, windowSeconds:10 }, limits:{ maximumRules:32, maximumEntries:200 } });
 beforeEach(() => {
   vi.useFakeTimers(); vi.resetAllMocks();
@@ -52,4 +52,22 @@ it("keeps native delivery opt in and saves popup and sound choices without an ac
   await act(async () => { await vi.advanceTimersByTimeAsync(0); });
   expect(native.invoke).toHaveBeenCalledWith("dx_alerts_save", expect.objectContaining({ configuration:expect.objectContaining({ nativePopup:true, notificationSound:true }) }));
   expect(screen.getByText(/cannot tune or transmit/)).toBeTruthy();
+});
+it("edits and clones a literal comment condition and saves only native alert settings", async () => {
+  render(<DetachedAlertsSurface />); await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  fireEvent.change(screen.getByLabelText("Comment contains"), { target:{ value:"POTA K-1234" } });
+  fireEvent.click(screen.getByRole("button", { name:"Clone" }));
+  expect(screen.getAllByLabelText("Comment contains").map(input => (input as HTMLInputElement).value)).toEqual(["POTA K-1234", "POTA K-1234"]);
+  fireEvent.click(screen.getByRole("button", { name:"Save rules" }));
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  expect(native.invoke).toHaveBeenCalledWith("dx_alerts_save", expect.objectContaining({ configuration:expect.objectContaining({ rules:expect.arrayContaining([expect.objectContaining({ commentContains:"POTA K-1234" })]) }) }));
+  expect(native.invoke.mock.calls.every(([command]) => ["alerts_snapshot", "dx_alerts_snapshot", "dx_alerts_save"].includes(command))).toBe(true);
+});
+it("shows the retained matched comment as text without a station action", async () => {
+  const value = { ...dxFrame(), entries:[{ id:"00000000-0000-4000-8000-000000000004", test:false, callsign:"OM0RX", frequencyKHz:14074, band:"20m", mode:"FT8", comment:"POTA <park>", callStatus:"New Call", dxccStatus:"ATNO", specialTags:[], ruleNames:["New DXCC"], count:1, firstSeenMs:1, lastSeenMs:1 }] };
+  native.invoke.mockImplementation(async command => command === "alerts_snapshot" ? frame() : value);
+  render(<DetachedAlertsSurface />); await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  expect(screen.getByRole("columnheader", { name:"Comment" })).toBeTruthy();
+  expect(screen.getByText("POTA <park>").tagName).toBe("TD");
+  expect(screen.queryByRole("button", { name:/tune|transmit|acknowledge/i })).toBeNull();
 });

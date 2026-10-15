@@ -57,6 +57,8 @@ pub struct Rule {
     name: String,
     enabled: bool,
     callsign_glob: String,
+    #[serde(default)]
+    comment_contains: String,
     bands: Vec<String>,
     modes: Vec<String>,
     call_statuses: Vec<String>,
@@ -102,6 +104,7 @@ struct Entry {
     frequency_khz: f64,
     band: String,
     mode: String,
+    comment: String,
     call_status: String,
     dxcc_status: String,
     special_tags: Vec<String>,
@@ -118,6 +121,7 @@ struct Spot {
     frequency_khz: f64,
     band: String,
     mode: String,
+    comment: String,
     mode_group: String,
     call_status: String,
     dxcc_status: String,
@@ -185,6 +189,7 @@ impl Rule {
         if !identifier(&self.id)
             || !visible_text(&self.name, 80)
             || self.callsign_glob.len() > 32
+            || !self.comment_contains.is_empty() && !visible_text(&self.comment_contains, 80)
             || !self.callsign_glob.bytes().all(|byte| {
                 byte.is_ascii_uppercase()
                     || byte.is_ascii_digit()
@@ -218,6 +223,7 @@ impl Rule {
                     })
             })
             || self.callsign_glob.is_empty()
+                && self.comment_contains.is_empty()
                 && self.bands.is_empty()
                 && self.modes.is_empty()
                 && self.call_statuses.is_empty()
@@ -232,6 +238,11 @@ impl Rule {
     fn matches(&self, spot: &Spot) -> bool {
         self.enabled
             && (self.callsign_glob.is_empty() || glob_matches(&self.callsign_glob, &spot.callsign))
+            && (self.comment_contains.is_empty()
+                || spot
+                    .comment
+                    .to_lowercase()
+                    .contains(&self.comment_contains.trim().to_lowercase()))
             && (self.bands.is_empty() || self.bands.contains(&spot.band))
             && (self.modes.is_empty() || self.modes.contains(&spot.mode_group))
             && (self.call_statuses.is_empty() || self.call_statuses.contains(&spot.call_status))
@@ -283,6 +294,7 @@ impl Configuration {
                 name: "New DXCC".into(),
                 enabled: true,
                 callsign_glob: String::new(),
+                comment_contains: String::new(),
                 bands: vec![],
                 modes: vec![],
                 call_statuses: vec![],
@@ -390,6 +402,12 @@ fn spot(value: &Value) -> Option<Spot> {
         frequency_khz,
         band,
         mode: mode.clone(),
+        comment: value["comment"]
+            .as_str()
+            .filter(|text| text.len() <= 512 && !text.chars().any(char::is_control))
+            .map(str::trim)
+            .unwrap_or_default()
+            .to_owned(),
         mode_group: mode_group(&mode).into(),
         call_status,
         dxcc_status,
@@ -620,6 +638,7 @@ impl Owner {
             frequency_khz: 14_074.0,
             band: "20m".into(),
             mode: "FT8".into(),
+            comment: String::new(),
             call_status: "New Call".into(),
             dxcc_status: "ATNO".into(),
             special_tags: vec![],
@@ -750,6 +769,7 @@ impl Owner {
                 entry.last_seen_ms = now;
                 entry.frequency_khz = spot.frequency_khz;
                 entry.mode = spot.mode;
+                entry.comment = spot.comment;
                 entry.call_status = spot.call_status;
                 entry.dxcc_status = spot.dxcc_status;
                 entry.special_tags = spot.special_tags;
@@ -763,6 +783,7 @@ impl Owner {
                 frequency_khz: spot.frequency_khz,
                 band: spot.band,
                 mode: spot.mode,
+                comment: spot.comment,
                 call_status: spot.call_status,
                 dxcc_status: spot.dxcc_status,
                 special_tags: spot.special_tags,
@@ -888,6 +909,7 @@ mod tests {
             name: name.into(),
             enabled: true,
             callsign_glob: String::new(),
+            comment_contains: String::new(),
             bands: vec![],
             modes: vec![],
             call_statuses: vec![],
@@ -916,6 +938,103 @@ mod tests {
         assert_eq!(value["configuration"]["enabled"], false);
         assert_eq!(value["source"]["baselined"], true);
         assert_eq!(value["entries"], json!([]));
+    }
+
+    #[test]
+    fn comment_condition_is_literal_case_insensitive_and_combines_with_other_conditions() {
+        let mut rule = rule("parks", "New park", &["ATNO"]);
+        rule.comment_contains = " pOtA K-1234 ".into();
+        assert!(rule.validate().is_ok());
+        let mut value = spot("one", "OM0RX", "ATNO");
+        value["comment"] = json!("CQ POTA k-1234 in park");
+        assert!(rule.matches(&super::spot(&value).unwrap()));
+        value["dxccStatus"] = json!("Worked");
+        assert!(!rule.matches(&super::spot(&value).unwrap()));
+        value["dxccStatus"] = json!("ATNO");
+        rule.comment_contains = "POTA.*".into();
+        assert!(!rule.matches(&super::spot(&value).unwrap()));
+        value["comment"] = json!("CQ POTA.* literal");
+        assert!(rule.matches(&super::spot(&value).unwrap()));
+        for comment in [
+            Value::Null,
+            json!(""),
+            json!("POTA.*\n"),
+            json!("x".repeat(513)),
+        ] {
+            value["comment"] = comment;
+            assert!(!rule.matches(&super::spot(&value).unwrap()));
+        }
+        rule.comment_contains.clear();
+        assert!(rule.matches(&super::spot(&value).unwrap()));
+    }
+
+    #[test]
+    fn comment_filtered_reports_retain_latest_matching_evidence_without_replay() {
+        let directory = tempfile::tempdir().unwrap();
+        let owner = owner(directory.path());
+        let initial = owner.snapshot().unwrap();
+        let mut parks = rule("parks", "Park watch", &["ATNO"]);
+        parks.comment_contains = "POTA".into();
+        owner
+            .save(
+                initial["configuration"]["generation"].as_str().unwrap(),
+                0,
+                editable(true, vec![parks]),
+            )
+            .unwrap();
+        owner.observe(&projection(1, vec![])).unwrap();
+        let mut matched = spot("matched", "OM0RX", "ATNO");
+        matched["comment"] = json!("CQ pota K-1234");
+        owner
+            .observe(&projection(
+                2,
+                vec![spot("missing", "OM1RX", "ATNO"), matched.clone()],
+            ))
+            .unwrap();
+        owner.observe(&projection(3, vec![matched])).unwrap();
+        let first = owner.snapshot().unwrap();
+        assert_eq!(first["entries"].as_array().unwrap().len(), 1);
+        assert_eq!(first["entries"][0]["comment"], "CQ pota K-1234");
+        assert_eq!(first["entries"][0]["count"], 1);
+        let mut repeat = spot("repeat", "OM0RX", "ATNO");
+        repeat["comment"] = json!("POTA K-5678");
+        owner.observe(&projection(4, vec![repeat])).unwrap();
+        let latest = owner.snapshot().unwrap();
+        assert_eq!(latest["entries"][0]["count"], 2);
+        assert_eq!(latest["entries"][0]["comment"], "POTA K-5678");
+        let (saved, error) = read(&directory.path().join("dx-alert-rules.json"));
+        assert!(error.is_none());
+        assert_eq!(saved.rules[0].comment_contains, "POTA");
+        let mut invalid = saved.rules.clone();
+        invalid[0].comment_contains = "x".repeat(81);
+        assert!(owner
+            .save(&saved.generation, saved.revision, editable(true, invalid))
+            .is_err());
+        assert_eq!(read(&directory.path().join("dx-alert-rules.json")).0, saved);
+    }
+
+    #[test]
+    fn comment_condition_migrates_unrestricted_and_rejects_unbounded_or_hidden_text() {
+        let mut legacy = serde_json::to_value(Configuration::default_off()).unwrap();
+        legacy["rules"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("commentContains");
+        let configuration: Configuration = serde_json::from_value(legacy).unwrap();
+        assert!(configuration.validate().is_ok());
+        assert_eq!(configuration.rules[0].comment_contains, "");
+        let mut rule = rule("comment", "Comment only", &[]);
+        for invalid in [
+            " ".to_owned(),
+            "POTA\n".into(),
+            "é".repeat(41),
+            "x".repeat(81),
+        ] {
+            rule.comment_contains = invalid;
+            assert!(rule.validate().is_err());
+        }
+        rule.comment_contains = "POTA".into();
+        assert!(rule.validate().is_ok());
     }
 
     #[test]
@@ -983,6 +1102,7 @@ mod tests {
             name: "Everything".into(),
             enabled: true,
             callsign_glob: String::new(),
+            comment_contains: String::new(),
             bands: vec![],
             modes: vec![],
             call_statuses: vec![],
@@ -1106,7 +1226,10 @@ mod tests {
             )
             .unwrap();
         let snapshot = owner.test_alert().unwrap();
-        assert_eq!(snapshot["delivery"]["error"], "fixture notification failure");
+        assert_eq!(
+            snapshot["delivery"]["error"],
+            "fixture notification failure"
+        );
         assert_eq!(snapshot["entries"][0]["test"], true);
     }
 
