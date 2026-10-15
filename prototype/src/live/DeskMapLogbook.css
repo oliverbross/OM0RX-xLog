@@ -7,6 +7,9 @@
 .desk-map-logbook-panes { display: grid; min-width: 0; min-height: 0; overflow: auto; overscroll-behavior: contain; }
 .desk-map-logbook-map, .desk-map-logbook-logbook { grid-column: 1; min-width: 0; overflow: hidden; }
 .desk-map-logbook-map > *, .desk-map-logbook-map .live-map, .desk-map-logbook-map .map-wrap, .desk-map-logbook-logbook > * { height: 100%; min-height: 0; max-height: none; }
+/* The shared table keeps its columns and scroll region in every Desk split.
+   Only standalone Logbook panels opt into the responsive card container. */
+.desk-map-logbook-logbook .live-logbook { container-name: desk-logbook; }
 .desk-map-logbook-map[hidden], .desk-map-logbook-logbook[hidden], .desk-map-logbook-divider[hidden] { display: none; }
 .desk-map-logbook-divider { grid-column: 1; position: relative; min-width: 0; cursor: row-resize; touch-action: none; }
 .desk-map-logbook-divider::after { content: ""; position: absolute; inset: 4px 12px; border-radius: 2px; background: var(--border, #243a55); }

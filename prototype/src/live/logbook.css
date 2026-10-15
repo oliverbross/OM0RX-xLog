@@ -1,4 +1,4 @@
-.live-logbook { display: flex; flex: 1; flex-direction: column; gap: 6px; min-width: 0; min-height: 0; height: 100%; container-type: inline-size; }
+.live-logbook { display: flex; flex: 1; flex-direction: column; gap: 6px; min-width: 0; min-height: 0; height: 100%; container-type: inline-size; container-name: logbook-responsive; }
 .app.live.detached-logbook-app { display: flex; flex-direction: column; height: 100dvh; min-height: 0; padding: 0; }
 .detached-logbook-app > main { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; padding: 8px; overflow: auto; }
 .detached-logbook-app .live-logbook { height:auto; }
@@ -87,7 +87,7 @@
   .live-logbook-head h2, .live-logbook-head p { margin: 0; }
   .live-logbook-actions { justify-content: flex-start; }
 }
-@container (max-width: 1200px) {
+@container logbook-responsive (max-width: 1200px) {
   .live-logbook-table-wrap { overflow-x:hidden; }
   .live-logbook-table { display:block; width:100%; min-width:0 !important; }
   .live-logbook-table colgroup { display:none; }
@@ -99,6 +99,6 @@
   .live-logbook-table .live-logbook-call { position:static; }
   .live-logbook-table .live-logbook-comment { max-width:none; }
 }
-@container (max-width: 520px) {
+@container logbook-responsive (max-width: 520px) {
   .live-logbook-table tbody tr { grid-template-columns:minmax(0,1fr); }
 }

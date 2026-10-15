@@ -7,6 +7,7 @@ import { deskMapLogbookKey } from "./deskMapLogbookPreferences";
 import { LogbookPanel } from "./LogbookPanel";
 import { LogbookMutationSession } from "./logbookMutationSession";
 import { contactEditFixture } from "../../tests/contact-edit-fixture";
+import { logbookColumnsKey } from "./logbookColumnPreferences";
 
 let height = 610, resized: (() => void) | undefined;
 beforeEach(() => {
@@ -100,6 +101,39 @@ it("stays usable with missing or failed storage and does not confuse storage err
   expect(screen.getByLabelText<HTMLSelectElement>("Desk map and logbook view").value).toBe("logbook-above");
   expect(screen.getByRole("status").textContent).toContain("could not be saved");
   expect(JSON.parse(storage.setItem.mock.calls[0][1])).toEqual({ version: 1, view: "logbook-above", logbookPercent: 50 });
+});
+
+it("uses the shared column chooser and persists resized table columns across both map orders and remount", async () => {
+  const contact = { id: "desk-columns", call: "W1AW", start: "2026-10-14T00:00:00Z", band: "20m", mode: "CW" };
+  const request = vi.fn(async () => ({ qsos: [contact], total: 1, offset: 0, limit: 20 }));
+  const mutations = new LogbookMutationSession(request, () => {}), edit = vi.fn();
+  const desk = () => <DeskMapLogbook map={<div>Map</div>} logbook={<LogbookPanel
+    mutations={mutations} onRequest={request} onEdit={edit} refreshKey={0} columnContext="desk" />} />;
+  const first = render(desk());
+  await act(async () => { view("logbook-above"); });
+  const table = screen.getByRole("table"), map = first.container.querySelector(".desk-map-logbook-map");
+  fireEvent.click(screen.getByRole("button", { name: "Columns" }));
+  fireEvent.click(screen.getByLabelText("Show RST column"));
+  fireEvent.click(screen.getByRole("button", { name: "Done" }));
+  const edge = screen.getByRole("separator", { name: "Resize Callsign column" });
+  const before = Number(edge.getAttribute("aria-valuenow"));
+  fireEvent.keyDown(edge, { key: "ArrowRight", shiftKey: true });
+  const resizedWidth = Number(edge.getAttribute("aria-valuenow"));
+  expect(resizedWidth).toBeGreaterThan(before);
+  view("logbook-below");
+  expect(screen.getByRole("table")).toBe(table);
+  expect(first.container.querySelector(".desk-map-logbook-map")).toBe(map);
+  expect(screen.getByRole("columnheader", { name: /^RST/ })).toBeTruthy();
+  const saved = JSON.parse(localStorage.getItem(logbookColumnsKey("desk"))!);
+  expect(saved.widths.call).toBe(resizedWidth);
+  expect(saved.columns).toContain("rst");
+  expect(localStorage.getItem(logbookColumnsKey("docked"))).toBeNull();
+  first.unmount();
+  render(desk());
+  expect(screen.getByRole("separator", { name: "Resize Callsign column" }).getAttribute("aria-valuenow")).toBe(String(resizedWidth));
+  expect(screen.getByRole("columnheader", { name: /^RST/ })).toBeTruthy();
+  expect(edit).not.toHaveBeenCalled();
+  expect(request.mock.calls.length).toBeGreaterThan(0);
 });
 
 it.each([false, true])("retains actual-table reviewed Delete through hiding, reordering and measured resizing (contact changed elsewhere: %s)", async changedElsewhere => {
