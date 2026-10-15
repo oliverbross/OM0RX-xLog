@@ -78,13 +78,13 @@ workflow acceptance.
   through Wavelog; standalone service owners would require separate provider,
   credential, receipt and reconciliation contracts before implementation.
 
-The next independent RUM-03 source slice is therefore the custom DX-alert
-foundation requested as NIGHT-05: an opt-in, pure condition model and evaluator
-over retained cluster classification, with bounded deduplication/rate limiting
-and a passive dashboard. It must expose no Tune, PTT, CW, rotor, radio or station
-command and must not reuse the existing safety-alert report as a live all-clear.
-Native popup, bell and speech delivery remain later opt-in adapters after the
-rule owner and test action are accepted.
+The selected RUM-03 custom DX-alert slice requested as NIGHT-05 is now
+source-complete at `d37aeb6`: an opt-in pure condition model and evaluator over
+the retained cluster projection, bounded deduplication/rate limiting, a passive
+dashboard, and a native-owned default-off popup plus optional sound adapter. It
+exposes no Tune, PTT, CW, rotor, radio or station command and does not reuse the
+safety-alert report as a live all-clear. Installed live-cluster popup/sound
+acceptance remains open; speech and outbound UDP remain deferred.
 
 ## Prioritized gaps
 
@@ -97,7 +97,7 @@ rule owner and test action are accepted.
 | Settings follow task boundaries | Installed RUMlog Settings confirms General, QRGs, Modes/Sat, DXCC, DX Cluster and device/service-specific groups. xLog already separates station, services, reference data, independent rotator, CW, display, workspace and backups. Editable band-edge/mode visibility is now evidenced as a candidate, not an automatic taxonomy change. Retain Keychain storage and xLog's revision/authority boundaries. [First Steps](https://dl2rum.de/RUMlogNG/docs/en/pages/FirstSteps.html) |
 | Radio selection/configuration versus actual connection | RUMlog documents an explicit CAT enable choice, interface selection and per-radio options. xLog must retain its separate active/viewed provider, explicit Apply/Connect and independent rotor ownership. Settings navigation must never reconnect or control equipment. Physical Mac acceptance remains separate. [CAT Settings](https://dl2rum.de/RUMlogNG/docs/en/pages/CAT-Prefs.html) |
 | Cluster configuration separate from display filters | RUMlog documents connection profiles, display filtering and a terminal retaining incoming data. xLog has profile/filter/console paths and its separate Spot History archive. Verify changes do not disconnect unrelated sockets or erase received/history records. [DX Cluster Settings](https://dl2rum.de/RUMlogNG/docs/en/pages/Dx-Cluster-Setting.html) |
-| Opt-in DX alert rules without RF authority | Installed 6.5.1 bundled help confirms novelty dimensions, confirmation-source choices, color-only/spoken delivery and wildcard station watches. xLog already owns the required cluster classifications; the selected next slice is a pure persisted rule/evaluation boundary with deduplication, rate limiting and a passive dashboard. Sound, speech and native popup remain explicit later opt-ins; alerts can never issue station actions. |
+| Opt-in DX alert rules without RF authority | Installed 6.5.1 bundled help confirms novelty dimensions, confirmation-source choices, color-only/spoken delivery and wildcard station watches. At `d37aeb6`, xLog owns persisted rules, evaluation, deduplication, rate limiting, a passive dashboard and a native-owned default-off popup plus optional sound adapter. Alerts have no action button and can never issue station actions. Installed live-cluster popup/sound acceptance remains open; speech and outbound UDP remain deferred. |
 | Receive WSJT-X logged contacts | Commit `d9b46da` adds an opt-in receive-only UDP listener for the official big-endian Logged ADIF message type 12. It accepts loopback or IPv4 multicast, starts only from saved explicit enablement, writes through xLog's local semantic duplicate boundary and never sends a WSJT-X packet or station command. Native parser/import coverage is 5/5 and UI/settings coverage is 24/24; live WSJT-X acceptance remains open. [WSJT-X protocol source](https://sourceforge.net/p/wsjt/wsjtx/ci/master/tree/Network/NetworkMessage.hpp) |
 | Optional online log services | QRZ and Club Log now have independent source-complete upload owners with separate vault credentials, explicit default-off prospective enrollment, exact-revision/payload claims, durable receipts, ambiguous-outcome no-replay, credential removal and aggregate-only local health. Only new manual or WSJT-X Logged ADIF contacts after each provider is enabled are eligible; generic imports, Wavelog pulls, edits and confirmation refreshes never backfill. Club Log uses only `realtime.php`; every known non-200 atomically records rejection, disables only Club Log and cancels its queue to prevent repeated bad requests and firewall escalation. Neither provider made a live request, so account acceptance remains open. Keep Wavelog as the richer two-way reconciliation service. HRDLOG remains unimplemented pending a current official contract. [QRZ acceptance](QRZ_UPLOAD_FOUNDATION_ACCEPTANCE_2026-10-15.md) · [Club Log acceptance](CLUB_LOG_UPLOAD_FOUNDATION_ACCEPTANCE_2026-10-15.md) · [QRZ API](https://www.qrz.com/docs/logbook/QRZLogbookAPI.html) · [Club Log API keys](https://clublog.freshdesk.com/support/solutions/articles/54910-api-keys) · [Club Log upload safety](https://clublog.freshdesk.com/support/solutions/articles/54905) |
 
@@ -123,14 +123,15 @@ rule owner and test action are accepted.
    review/re-arm policy for rejected or uncertain receipts. Add HRDLOG only after
    its current official contract is verified, behind the same durable receipt,
    vault and truthful upload-only boundaries.
-6. The installed-bundle contest, QSL and alert read-only audit is complete.
-   Implement the selected notification-only DX-alert foundation before any
-   delivery adapter; keep contest and direct LoTW/eQSL as separately scoped
-   programmes rather than empty parity surfaces.
+6. The installed-bundle contest, QSL and alert read-only audit is complete. The
+   selected notification-only DX-alert foundation and bounded native delivery
+   adapter are source-complete; perform installed live-cluster popup/sound
+   acceptance. Keep contest and direct LoTW/eQSL as separately scoped programmes
+   rather than empty parity surfaces.
 
 RUM-01 and RUM-02 are **source complete at the read-only comparison boundary**.
 RUM-03 remains an ongoing sequence of independently implemented, reviewed and
-separately accepted slices. WSJT-X receive-only intake and QRZ's prospective
-upload owner/UI are source-complete; the next selected slice is the passive
-custom DX-alert rule foundation. Live account and installed integration
-acceptance remain open.
+separately accepted slices. WSJT-X receive-only intake, QRZ and Club Log
+prospective upload owners, and the custom DX-alert rule/native-delivery source
+are complete. Live provider accounts, WSJT-X, popup/sound and installed
+integration acceptance remain open.
