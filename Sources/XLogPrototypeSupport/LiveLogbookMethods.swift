@@ -1197,7 +1197,6 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                         settingsSnapshot = retainedSettings
                     }
                     try database.installIntegrationSettingsAfterRestore(settingsSnapshot)
-                    try database.disableOnlineLogDeliveryAfterRestore()
                     let restoredRotorConfiguration = try database.rotorConfiguration(seed: retainedRotorConfiguration.configuration)
                     try database.installRotorConfigurationAfterRestore(
                         restoreSettings ? restoredRotorConfiguration : retainedRotorConfiguration

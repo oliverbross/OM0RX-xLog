@@ -243,17 +243,31 @@ public final class XLogBackupManager: @unchecked Sendable {
         let directory = liveURL.deletingLastPathComponent()
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
         let staging = directory.appendingPathComponent(".restore-\(UUID().uuidString).sqlite")
+        let source = directory.appendingPathComponent(".restore-source-\(UUID().uuidString).sqlite")
+        defer {
+            for suffix in ["", "-wal", "-shm"] {
+                try? fileManager.removeItem(at: URL(fileURLWithPath: source.path + suffix))
+            }
+        }
         do {
             if preview.manifest.formatVersion >= 2 {
                 let (_, files) = try BackupPackageSeal.verifiedFiles(packageURL, fileManager: fileManager)
-                try files["OM0RX-xLog.sqlite"]!.write(to: staging, options: .atomic)
+                try files["OM0RX-xLog.sqlite"]!.write(to: source, options: .atomic)
             } else {
-                try fileManager.copyItem(at: packageURL.appendingPathComponent("OM0RX-xLog.sqlite"), to: staging)
+                try fileManager.copyItem(at: packageURL.appendingPathComponent("OM0RX-xLog.sqlite"), to: source)
             }
             // Verify the bytes actually staged, not the source path checked earlier.
-            guard try sha256(of: staging) == preview.manifest.databaseSHA256 else {
+            guard try sha256(of: source) == preview.manifest.databaseSHA256 else {
                 throw XLogBackupError.checksumMismatch
             }
+            _ = try inspectDatabase(at: source)
+            let restored = try LogbookDatabase(url: source)
+            defer { restored.close() }
+            // Retire restored consent before publication, including crashes or
+            // errors in later preference/reference installation. A standalone
+            // SQLite backup includes the transaction without relying on WAL moves.
+            try restored.disableOnlineLogDeliveryAfterRestore()
+            try restored.backup(to: staging)
             _ = try inspectDatabase(at: staging)
         } catch {
             try? fileManager.removeItem(at: staging)

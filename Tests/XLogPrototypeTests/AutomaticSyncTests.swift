@@ -102,6 +102,9 @@ final class AutomaticSyncTests: XCTestCase {
         try database.installIntegrationSettingsAfterRestore(.init(
             revision: stored.revision + 1, settings: destinationB,
             syncTargetRevision: stored.syncTargetRevision + 1))
+        let afterBackup = QSO(call: "VK8NEW", band: "40m", mode: "SSB")
+        try database.save(afterBackup)
+        let generation = try fixture.logbook.syncOwnerContext()["generation"] as? String
 
         XCTAssertThrowsError(try fixture.logbook.handle(method: "backup_restore", params: [
             "name": name, "confirm_restore": true, "restore_settings": false,
@@ -110,6 +113,8 @@ final class AutomaticSyncTests: XCTestCase {
         }
         XCTAssertEqual(try fixture.logbook.currentSettings().wavelogStationID, destinationB.wavelogStationID)
         XCTAssertEqual(try fixture.logbook.openedDatabase().linkedRemoteCount(), 1)
+        XCTAssertNotNil(try fixture.logbook.openedDatabase().lookup(localID: afterBackup.id))
+        XCTAssertEqual(try fixture.logbook.syncOwnerContext()["generation"] as? String, generation)
     }
 
     func testAlreadyDeletedRemoteRecordAcknowledgesTombstoneWithoutRepeatingDelete() async throws {

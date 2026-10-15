@@ -314,8 +314,8 @@ struct LogbookTests {
         #expect(try database.fetch().first?.isDirty == false)
     }
 
-    @Test("Keeping a local contact after remote deletion detaches the vanished remote identity")
-    func remoteDeletionConflictKeepLocalDetachesIdentity() throws {
+    @Test("Keeping a local contact after remote deletion detaches the vanished remote identity", arguments: [false, true])
+    func remoteDeletionConflictKeepLocalDetachesIdentity(merged: Bool) throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
         let database = try LogbookDatabase(url: directory.appendingPathComponent("test.sqlite"))
@@ -327,12 +327,25 @@ struct LogbookTests {
 
         #expect(try database.mergeRemote(remote))
         let conflict = try #require(database.conflicts().first)
-        try database.resolveConflict(conflict, useRemote: false)
+        if merged {
+            var value = conflict.localQSO
+            value.comment = "merged local value"
+            try database.resolveConflict(conflict, merged: value)
+        } else {
+            try database.resolveConflict(conflict, useRemote: false)
+        }
 
         local = try #require(try database.lookup(localID: local.id))
         #expect(local.deletedAt == nil)
         #expect(local.wavelogID == nil)
         #expect(local.isDirty)
+        #expect(local.comment == (merged ? "merged local value" : "keep"))
+        #expect(try database.conflicts().isEmpty)
+        let run = try database.beginSyncReconciliation()
+        defer { database.endSyncReconciliation(run) }
+        let upper = try database.syncUpperRowID(run: run)
+        let step = try database.reconcileRemoteDeletionStep(notIn: [], after: 0, through: upper, run: run)
+        #expect(step.conflicts == 0 && step.deleted == 0)
         #expect(try database.conflicts().isEmpty)
     }
 

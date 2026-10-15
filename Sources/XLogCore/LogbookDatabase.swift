@@ -353,6 +353,23 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
+    public func isOnlineLogCandidate(service: OnlineLogService, contactID: UUID) throws -> Bool {
+        try withDatabaseLock {
+            try withStatement("""
+                SELECT 1 FROM xlog_online_log_candidates c
+                JOIN xlog_online_log_enrollments e ON e.service=c.service AND e.active=1
+                JOIN qsos q ON q.local_id=c.local_id AND q.deleted_at IS NULL
+                WHERE c.service=? AND c.local_id=?;
+                """) { statement in
+                    bind(service.rawValue, to: 1, in: statement)
+                    bind(contactID.uuidString, to: 2, in: statement)
+                    let step = sqlite3_step(statement)
+                    guard step == SQLITE_ROW || step == SQLITE_DONE else { throw error() }
+                    return step == SQLITE_ROW
+                }
+        }
+    }
+
     /// Restoring a database must never revive an old third-party upload queue.
     /// Consent is re-established prospectively by the operator after restore.
     public func disableOnlineLogDeliveryAfterRestore() throws {
@@ -489,6 +506,9 @@ public final class LogbookDatabase: @unchecked Sendable {
                         try execute("COMMIT;")
                         return OnlineLogDeliveryClaim(receipt: existing, shouldDispatch: false)
                     }
+                    guard try isOnlineLogCandidate(service: plan.service, contactID: plan.contact.qso.id) else {
+                        throw OnlineLogDeliveryError.notEnrolled
+                    }
                     if let due = existing.nextAttemptAt, due > date { throw OnlineLogDeliveryError.notDue }
                     try withStatement("""
                         UPDATE xlog_online_log_deliveries SET state='dispatching',attempt_id=?,attempt_count=?,
@@ -504,6 +524,11 @@ public final class LogbookDatabase: @unchecked Sendable {
                             try stepDone(statement)
                         }
                 } else {
+                    // Membership and consent must still exist under this write
+                    // transaction, not merely when the owner read its batch.
+                    guard try isOnlineLogCandidate(service: plan.service, contactID: plan.contact.qso.id) else {
+                        throw OnlineLogDeliveryError.notEnrolled
+                    }
                     try withStatement("""
                         INSERT INTO xlog_online_log_deliveries(
                           service,local_id,contact_revision,payload_sha256,state,attempt_id,attempt_count,last_attempt_at

@@ -72,6 +72,7 @@ public enum OnlineLogDeliveryResolution: Equatable, Sendable {
 public enum OnlineLogDeliveryError: Error, Equatable {
     case invalidPlan
     case staleContact
+    case notEnrolled
     case notDue
     case operationMismatch
     case deliveryUncertain

@@ -26,13 +26,18 @@ struct OnlineLogDeliveryTests {
         }
     }
 
-    private func database() throws -> (LogbookDatabase, URL, QSO) {
+    private func database(enrolledForDelivery: Bool = false) throws -> (LogbookDatabase, URL, QSO) {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-online-delivery-\(UUID())")
         let database = try LogbookDatabase(url: root.appendingPathComponent("isolated.sqlite"))
         let qso = QSO(call: "VK8NSB", start: Date(timeIntervalSince1970: 1_700_000_000),
                       band: "20m", mode: "CW", frequencyHz: 14_042_000,
                       rstSent: "599", rstReceived: "579", myCall: "OM0RX")
-        try database.save(qso)
+        if enrolledForDelivery {
+            _ = try database.configureOnlineLogEnrollment(service: .qrz, enabled: true)
+            try database.saveNewContactForOnlineLogs(qso)
+        } else {
+            try database.save(qso)
+        }
         return (database, root, qso)
     }
 
@@ -129,6 +134,10 @@ struct OnlineLogDeliveryTests {
         #expect(receipt.safeErrorCode == "authentication_rejected")
         #expect(try database.onlineLogEnrollmentStatus(service: .clubLog).enabled == false)
         #expect(try database.onlineLogCandidateIDs(service: .clubLog).isEmpty)
+        await #expect(throws: OnlineLogDeliveryError.notEnrolled) {
+            try await coordinator.deliver(contactID: second.id, credentials: ClubLogCredentials(
+                email: "operator@example.invalid", applicationPassword: "app-pass", callsign: "OM0RX", apiKey: "api-key"))
+        }
         #expect(await http.requests.count == 1)
     }
 
@@ -150,7 +159,7 @@ struct OnlineLogDeliveryTests {
     }
 
     @Test func deliveredReceiptSurvivesRestartAndPreventsReplay() async throws {
-        let (database, root, qso) = try database()
+        let (database, root, qso) = try database(enrolledForDelivery: true)
         defer { database.close(); try? FileManager.default.removeItem(at: root) }
         let http = HTTP([Step()])
         let coordinator = QRZLogbookDeliveryCoordinator(database: database,
@@ -166,7 +175,7 @@ struct OnlineLogDeliveryTests {
     }
 
     @Test func ambiguousTransportIsNeverAutomaticallyReplayed() async throws {
-        let (database, root, qso) = try database()
+        let (database, root, qso) = try database(enrolledForDelivery: true)
         defer { database.close(); try? FileManager.default.removeItem(at: root) }
         let http = HTTP([Step(fails: true)])
         let coordinator = QRZLogbookDeliveryCoordinator(database: database,
@@ -187,7 +196,7 @@ struct OnlineLogDeliveryTests {
     }
 
     @Test func onlyExplicitRateLimitResponsesReceiveBoundedRetry() async throws {
-        let (database, root, qso) = try database()
+        let (database, root, qso) = try database(enrolledForDelivery: true)
         defer { database.close(); try? FileManager.default.removeItem(at: root) }
         let rateLimit = Step(status: 429, headers: ["Retry-After": "10"], body: Data())
         let http = HTTP([rateLimit, rateLimit, rateLimit])
@@ -271,7 +280,7 @@ struct OnlineLogDeliveryTests {
     }
 
     @Test func editedContactInvalidatesPreparedPlanBeforeDispatch() throws {
-        let (database, root, qso) = try database()
+        let (database, root, qso) = try database(enrolledForDelivery: true)
         defer { database.close(); try? FileManager.default.removeItem(at: root) }
         let plan = try database.prepareOnlineLogDelivery(service: .qrz, contactID: qso.id)
         var edited = qso; edited.comment = "changed after review"
@@ -282,7 +291,7 @@ struct OnlineLogDeliveryTests {
     }
 
     @Test func interruptedDispatchRecoversAsUncertainWithoutReplay() throws {
-        let (database, root, qso) = try database()
+        let (database, root, qso) = try database(enrolledForDelivery: true)
         defer { database.close(); try? FileManager.default.removeItem(at: root) }
         let plan = try database.prepareOnlineLogDelivery(service: .qrz, contactID: qso.id)
         let claim = try database.claimOnlineLogDelivery(plan, attemptID: UUID(), at: Date(timeIntervalSince1970: 100))
@@ -294,6 +303,43 @@ struct OnlineLogDeliveryTests {
         #expect(recovered.state == .uncertain)
         #expect(recovered.safeErrorCode == "interrupted_after_dispatch")
         #expect(try database.claimOnlineLogDelivery(plan, attemptID: UUID()).shouldDispatch == false)
+    }
+
+    @Test func claimRejectsRevokedMembershipAcrossConnectionsWithoutConsumingReceipt() throws {
+        let (database, root, qso) = try database(enrolledForDelivery: true)
+        defer { database.close(); try? FileManager.default.removeItem(at: root) }
+        let plan = try database.prepareOnlineLogDelivery(service: .qrz, contactID: qso.id)
+        let other = try LogbookDatabase(url: root.appendingPathComponent("isolated.sqlite"))
+        defer { other.close() }
+        _ = try other.configureOnlineLogEnrollment(service: .qrz, enabled: false)
+        #expect(throws: OnlineLogDeliveryError.notEnrolled) {
+            try database.claimOnlineLogDelivery(plan, attemptID: UUID())
+        }
+        // Re-enabling is prospective: it cannot authorize an old cached ID.
+        _ = try other.configureOnlineLogEnrollment(service: .qrz, enabled: true)
+        #expect(throws: OnlineLogDeliveryError.notEnrolled) {
+            try database.claimOnlineLogDelivery(plan, attemptID: UUID())
+        }
+        #expect(try database.onlineLogDeliveryReceipt(service: .qrz, contactID: qso.id,
+                                                      contactRevision: plan.contact.revision) == nil)
+        #expect(try database.lookup(localID: qso.id) != nil)
+    }
+
+    @Test func revokedDeferredClaimCannotDispatchAgain() throws {
+        let (database, root, qso) = try database(enrolledForDelivery: true)
+        defer { database.close(); try? FileManager.default.removeItem(at: root) }
+        let plan = try database.prepareOnlineLogDelivery(service: .qrz, contactID: qso.id)
+        let attempt = UUID(), now = Date(timeIntervalSince1970: 100)
+        #expect(try database.claimOnlineLogDelivery(plan, attemptID: attempt, at: now).shouldDispatch)
+        let deferred = try database.resolveOnlineLogDelivery(plan, attemptID: attempt,
+            resolution: .rateLimited(retryAfter: nil), at: now)
+        _ = try database.configureOnlineLogEnrollment(service: .qrz, enabled: false)
+        _ = try database.configureOnlineLogEnrollment(service: .qrz, enabled: true)
+        #expect(throws: OnlineLogDeliveryError.notEnrolled) {
+            try database.claimOnlineLogDelivery(plan, attemptID: UUID(), at: now.addingTimeInterval(100))
+        }
+        #expect(try database.onlineLogDeliveryReceipt(service: .qrz, contactID: qso.id,
+                                                      contactRevision: plan.contact.revision) == deferred)
     }
 
     @Test func interruptedCandidateIsRetiredDuringStartupRecovery() throws {

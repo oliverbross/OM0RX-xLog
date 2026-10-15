@@ -117,7 +117,7 @@ actor LiveOnlineLogDeliveryService {
                     // deleted the remaining queue. Never dispatch a cached ID
                     // after that revocation.
                     guard try database.onlineLogEnrollmentStatus(service: provider.service).enabled else { break }
-                    guard try database.onlineLogCandidateIDs(service: provider.service, limit: 500).contains(contactID) else { continue }
+                    guard try database.isOnlineLogCandidate(service: provider.service, contactID: contactID) else { continue }
                     do { _ = try await provider.delivery(database, contactID, credential, now) }
                     catch OnlineLogDeliveryError.notDue { continue }
                     catch OnlineLogDeliveryError.staleContact { continue }
