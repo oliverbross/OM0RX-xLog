@@ -454,7 +454,7 @@ async fn workspace_mode_present(window: tauri::WebviewWindow, app: tauri::AppHan
             return Err("The workspace mode changed. Reload its saved layout before continuing.".into());
         }
         let windows = layout["document"]["activePresetID"] == "windowed";
-        if !windows && *presented_windows { workspace_window_runtime::canvas(&app, &generation, revision)?; }
+        if !windows && *presented_windows { workspace_window_runtime::canvas(&app, &generation, revision, layout.clone())?; }
         if let Some(main) = app.get_webview_window("main") {
             if windows && hide_main {
                 workspace_mode_ready()?;

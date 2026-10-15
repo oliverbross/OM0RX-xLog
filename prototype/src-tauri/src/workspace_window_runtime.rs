@@ -40,7 +40,7 @@ struct PendingOpen {
     label: String,
     reply: mpsc::Sender<Result<(), String>>,
 }
-struct PendingCanvas { generation: String, revision: u64, reply: mpsc::Sender<Result<(), String>> }
+struct PendingCanvas { generation: String, revision: u64, layout: Value, reply: mpsc::Sender<Result<(), String>> }
 #[derive(Clone, Copy)]
 struct PendingRefresh {
     force: bool,
@@ -149,8 +149,11 @@ impl Owner {
             };
             match work {
                 Some(Work::Canvas(canvas)) => {
-                    let result = crate::present_canvas_windows(&self.app, &canvas.generation, canvas.revision);
-                    if result.is_ok() { engine.planner = WorkspaceWindowPlanner::default(); }
+                    let result = engine.planner.plan(&canvas.layout, false).and_then(|plan| {
+                        crate::present_canvas_windows(&self.app, &canvas.generation, canvas.revision)?;
+                        engine.canvas_completed(&plan);
+                        Ok(())
+                    });
                     let _ = canvas.reply.send(result);
                 }
                 Some(Work::Open(open)) => {
@@ -263,14 +266,14 @@ pub fn open(app: &AppHandle, label: &str) -> Result<(), String> {
 }
 /// Serialized with manual opens and layout reconciliation; completion is the
 /// reply to this exact request, never an unrelated layout status notification.
-pub fn canvas(app: &AppHandle, generation: &str, revision: u64) -> Result<(), String> {
+pub fn canvas(app: &AppHandle, generation: &str, revision: u64, layout: Value) -> Result<(), String> {
     let owner = owner(app)?;
     let (reply, received) = mpsc::channel();
     {
         let mut queue = owner.queue.lock().map_err(|_| "Native workspace window queue unavailable")?;
         active()?;
         if !queue.canvas.is_empty() { return Err("A Canvas transition is already queued.".into()); }
-        queue.canvas.push_back(PendingCanvas { generation: generation.into(), revision, reply });
+        queue.canvas.push_back(PendingCanvas { generation: generation.into(), revision, layout, reply });
     }
     owner.wake.notify_one();
     received.recv().map_err(|_| "Canvas transition owner unavailable".to_owned())?
@@ -426,6 +429,13 @@ impl Default for Engine {
     }
 }
 impl Engine {
+    fn canvas_completed(&mut self, plan: &Plan) {
+        // Every detached lifetime is gone, including manual instances. Remember
+        // the confirmed intent so passive wakes cannot reopen a custom Canvas's
+        // saved window placements immediately after the explicit mode switch.
+        self.planner = WorkspaceWindowPlanner::default();
+        self.planner.complete(plan);
+    }
     fn begin(&mut self, attempt: u64) {
         self.outcome["attempt"] = json!(attempt);
         self.outcome["state"] = json!("applying");
@@ -626,6 +636,20 @@ mod tests {
         engine.planner.forget_destroyed("band-map-20m");
         engine.open(&mut host, "band-map-20m").unwrap();
         assert_eq!(host.operations, ["show:band-map-20m:true"]);
+    }
+    #[test]
+    fn completed_canvas_close_cannot_be_undone_by_passive_custom_layout_refresh() {
+        let mut engine = Engine::default();
+        let mut host = FakeHost::new(vec![layout(1, &["logbook"])]);
+        reconcile(&mut engine, &mut host, false).unwrap();
+        let plan = engine.planner.plan(&host.last, false).unwrap();
+        engine.canvas_completed(&plan);
+        host.operations.clear();
+        reconcile(&mut engine, &mut host, false).unwrap();
+        assert!(host.operations.is_empty());
+        host.last = layout(2, &[]);
+        reconcile(&mut engine, &mut host, false).unwrap();
+        assert!(host.operations.is_empty(), "Destroyed windows retain no hide ownership");
     }
     #[test]
     fn superseding_layout_is_opened_before_any_old_hide() {
