@@ -154,6 +154,7 @@ export default function WorldMap({
   const detailID = useId();
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
+  const [viewportRevision, setViewportRevision] = useState(0);
   const [error, setError] = useState("");
   const [imageryUnavailable, setImageryUnavailable] = useState(false);
   const [overlayMode, setOverlayMode] = useState<OverlayMode>(fixture || acceptanceActive ? "Spots" : "Both");
@@ -207,6 +208,7 @@ export default function WorldMap({
   useEffect(() => {
     if (!container.current) return;
     const element = container.current;
+    let constructionWidth = 0, constructionHeight = 0;
     let map: maplibregl.Map;
     let disposed = false;
     let landFeatures = 0;
@@ -413,6 +415,10 @@ export default function WorldMap({
         // This retained map has one visible-size owner below. MapLibre's own
         // observer otherwise resizes hidden panes to its 400x300 fallback.
         trackResize: false,
+        // This is a world overview, not a slippy map that should repeat the
+        // same countries. A transient fallback camera must never render
+        // multiple wrapped copies while the Desk is returning.
+        renderWorldCopies: false,
         center: [-15, 38],
         zoom: 1.65,
         attributionControl: false,
@@ -486,6 +492,8 @@ export default function WorldMap({
         },
       });
       mapRef.current = map;
+      constructionWidth = element.clientWidth;
+      constructionHeight = element.clientHeight;
       map.on("load", () => {
         fetch(geometryUrl).then(response => {
           if (!response.ok) throw new Error(`DXCC geometry HTTP ${response.status}`);
@@ -583,6 +591,7 @@ export default function WorldMap({
         }
       });
       let resizeFrame: number | null = null;
+      let initialViewportFinalized = false;
       const scheduleResize = () => {
         // A retained Desk map can be hidden or change split rows several times
         // in one layout pass. Measure its final visible size before resizing
@@ -596,6 +605,21 @@ export default function WorldMap({
           const nextWidth = element.clientWidth, nextHeight = element.clientHeight;
           if (!nextWidth || !nextHeight) return;
           map.resize();
+          if (!initialViewportFinalized) {
+            initialViewportFinalized = true;
+            const fallbackConstruction = !constructionWidth || !constructionHeight
+              || constructionWidth === 400 && constructionHeight === 300;
+            if (fallbackConstruction && (nextWidth !== constructionWidth || nextHeight !== constructionHeight)) {
+              // Camera effects may have run against MapLibre's 400x300
+              // construction fallback before the returning Desk settled.
+              // Repeat only those automatic fits once at the actual size;
+              // ordinary operator resizes must continue to preserve camera.
+              fittedRouteKey.current = null;
+              fittedDataKey.current = null;
+              if (!preserveCamera.current) fitFixture();
+              setViewportRevision(value => value + 1);
+            }
+          }
           // A layout change only updates the viewport. Refitting a shallow
           // split can zoom out to several wrapped worlds and discard the camera.
           map.triggerRepaint();
@@ -665,7 +689,7 @@ export default function WorldMap({
       maxZoom: 6,
       duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 350,
     });
-  }, [routeKey, home?.lon, home?.lat, target?.lon, target?.lat, longPath, compact]);
+  }, [routeKey, home?.lon, home?.lat, target?.lon, target?.lat, longPath, compact, viewportRevision]);
   useEffect(() => {
     const map = mapRef.current;
     if (fitToDataKey == null || !map || !mappedSpots.length || fittedDataKey.current === fitToDataKey) return;
@@ -678,7 +702,7 @@ export default function WorldMap({
     };
     if (map.isStyleLoaded()) fit(); else map.once("load", fit);
     return () => { map.off("load", fit); };
-  }, [fitToDataKey, mappedSpots]);
+  }, [fitToDataKey, mappedSpots, viewportRevision]);
   useEffect(() => {
     const map = mapRef.current;
     if (!fixture && home && map && !preserveCamera.current && !selected) {

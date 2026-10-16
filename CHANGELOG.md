@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.4.0-alpha.42 — 2026-10-17
+
+- Fixed the Operator Desk world map after route returns by repairing automatic camera fits that were calculated against MapLibre's temporary 400×300 construction viewport.
+- Disabled wrapped world copies so a transient or unusually shallow viewport cannot repeat the same geography across the map.
+- Preserved operator-controlled camera position during ordinary window, canvas and map/logbook split resizing.
+
 ## 0.4.0-alpha.41 — 2026-10-17
 
 - Added a persistent Log QSO canvas where Active contact, QSO details, Callsign intelligence, Previous QSOs and Band / mode matrix can be repositioned and resized in an explicit keyboard-accessible Arrange mode.

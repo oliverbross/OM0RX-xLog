@@ -4,7 +4,8 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import type { MapSpot } from "./MapSpots";
 import { DeskMapLogbook } from "./live/DeskMapLogbook";
 
-const harness = vi.hoisted(() => ({ maps: [] as any[], startReady: true, nativeResize: false }));
+const harness = vi.hoisted(() => ({ maps: [] as any[], startReady: true, nativeResize: false,
+  initialSize: { width: 1000, height: 500 } }));
 vi.mock("maplibre-gl", () => {
   class FakeMap {
     element: HTMLElement;
@@ -19,13 +20,18 @@ vi.mock("maplibre-gl", () => {
     layers: any[];
     layoutCalls: any[][] = [];
     featureStateCalls: any[] = [];
-    fitCalls: { bounds: [[number, number], [number, number]]; options: any }[] = [];
+    fitCalls: { bounds: [[number, number], [number, number]]; options: any; viewport: { width: number; height: number } }[] = [];
+    options: any;
     easeCalls: any[] = [];
     missingSourceQueries = 0;
     constructor(options: any) {
+      this.options = options;
       this.element = options.container;
       this.layers = options.style.layers;
-      Object.defineProperties(this.element, { clientWidth: { value: 1000, configurable: true }, clientHeight: { value: 500, configurable: true } });
+      Object.defineProperties(this.element, {
+        clientWidth: { get: () => harness.initialSize.width, configurable: true },
+        clientHeight: { get: () => harness.initialSize.height, configurable: true },
+      });
       Object.defineProperties(this.canvas, { clientWidth: { get: () => this.canvasSize.width }, clientHeight: { get: () => this.canvasSize.height } });
       if (harness.nativeResize && options.trackResize !== false) {
         // MapLibre 6's built-in observer has no hidden-size guard: resize uses
@@ -71,7 +77,9 @@ vi.mock("maplibre-gl", () => {
       return true;
     }
     addControl() {}
-    fitBounds(bounds: [[number, number], [number, number]], options: any) { this.fitCalls.push({ bounds, options }); }
+    fitBounds(bounds: [[number, number], [number, number]], options: any) {
+      this.fitCalls.push({ bounds, options, viewport: { width: this.element.clientWidth, height: this.element.clientHeight } });
+    }
     jumpTo() {}
     easeTo(options: any) { this.easeCalls.push(options); }
     resize = vi.fn(() => { this.canvasSize = { width: this.element.clientWidth || 400, height: this.element.clientHeight || 300 }; });
@@ -108,6 +116,7 @@ beforeEach(() => {
   harness.maps.length = 0;
   harness.startReady = true;
   harness.nativeResize = false;
+  harness.initialSize = { width: 1000, height: 500 };
   vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
   vi.stubGlobal("fetch", vi.fn());
   vi.stubGlobal("matchMedia", () => ({ matches: false }));
@@ -133,6 +142,23 @@ function resizeHarness() {
 }
 
 describe("map container resizing", () => {
+  it("refits the returning Desk camera at its settled size and never renders wrapped worlds", () => {
+    harness.initialSize = { width: 400, height: 300 };
+    const resize = resizeHarness();
+    render(<WorldMap data={[spot()]} selected={null}
+      home={{ call: "OM0RX", lon: 17, lat: 48 }} target={{ call: "E7POTA", lon: 18, lat: 44 }} />);
+    const map = harness.maps[0];
+    expect(map.options.renderWorldCopies).toBe(false);
+    expect(map.fitCalls.at(-1).viewport).toEqual({ width: 400, height: 300 });
+
+    harness.initialSize = { width: 1440, height: 260 };
+    resize.notify(map.element); resize.flush();
+
+    expect(map.resize).toHaveBeenCalledTimes(1);
+    expect(map.fitCalls.at(-1).viewport).toEqual({ width: 1440, height: 260 });
+    expect(map.fitCalls.at(-1).bounds).toEqual([[17, 44], [18, 48]]);
+  });
+
   it("resizes once after mount and coalesces observer deliveries using final visible dimensions", () => {
     const resize = resizeHarness();
     render(<WorldMap data={[spot()]} selected="feed-1" />);
