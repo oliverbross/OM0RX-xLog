@@ -421,7 +421,7 @@ fn workspace_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     modes.append(&CheckMenuItem::with_id(app, "workspace_mode_windows", "Separate Windows", true, false, None::<&str>)?)?;
     windows.append(&modes)?;
     windows.append(&PredefinedMenuItem::separator(app)?)?;
-    for window in workspace_windows::SUPPORTED_WINDOWS {
+    for window in workspace_windows::SUPPORTED_WINDOWS.iter().filter(|window| window_menu_includes(window.id)) {
         windows.append(&MenuItem::with_id(app, format!("workspace_window_{}", window.id),
             window.title.trim_start_matches("OM0RX-xLog — "), true,
             detached_window_shortcut(window.id))?)?;
@@ -433,6 +433,8 @@ fn workspace_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     windows.append(&band_maps)?;
     Ok(menu)
 }
+
+fn window_menu_includes(id: &str) -> bool { id != "station-status" }
 
 fn append_screen_group(app: &tauri::AppHandle, menu: &Submenu<tauri::Wry>, group: &str) -> tauri::Result<()> {
     for screen in workspace_navigation::screens().iter().filter(|screen| screen.group == group && !screen.hidden) {
@@ -1725,6 +1727,13 @@ mod workspace_layout_tests {
     use super::{WorkspaceLayout, DraftWake, recover_singleton, detached_window_shortcut, validate_detached_open, COMPACT_WORKSPACE_MENU_ID, STANDARD_WORKSPACE_MENU_ID};
     use super::{spot_editor_barrier, validate_spot_effect, validate_activation_reader, retires_automatic_rotor, is_raw_manual_rotor_goto, is_raw_owned_station_lifecycle, validate_auto_rotor_read, validate_auto_rotor_set, validate_radio_read, validate_follow_snapshot, validate_follow_set, validate_follow_settlement, validate_rotor_stop, AutomaticRotorCommands};
     use serde_json::json;
+
+    #[test]
+    fn window_menu_omits_redundant_station_status_without_retiring_saved_layout_support() {
+        assert!(!super::window_menu_includes("station-status"));
+        assert!(super::window_menu_includes("station-control"));
+        assert!(crate::workspace_windows::supports("station-status"));
+    }
 
     #[test]
     fn amplifier_and_radio_actions_have_no_legacy_raw_or_monitor_bypass() {

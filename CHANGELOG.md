@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Removed the redundant Station Status entry from the native Window menu while retaining its internal role so older saved workspace layouts remain recoverable.
+
 ## 0.4.0-alpha.35 — 2026-10-17
 
 - Redesigned Band Maps around a clear vertical frequency ruler, subtle allocation shading and simple unboxed callsign labels using the configured xCluster status colours and compact NC/NM/NB opportunity codes.
