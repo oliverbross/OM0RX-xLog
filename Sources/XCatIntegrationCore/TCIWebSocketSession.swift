@@ -152,6 +152,8 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
     public let receiverAGCModes: [Int: TCIReceiverAGCModeObservation]
     /// Independent raw receiver AGC gain settings; never mode/effect or authority.
     public let receiverAGCGains: [Int: TCIReceiverAGCGainObservation]
+    /// Independent receiver NB settings; never capability, processing effect or authority.
+    public let receiverNoiseBlankerEnables: [Int: TCIReceiverNoiseBlankerEnableObservation]
 
     public init(
         sequence: UInt64,
@@ -180,7 +182,8 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
         serverMonitorVolume: TCIServerMonitorVolumeObservation? = nil,
         serverMonitorEnable: TCIServerMonitorEnableObservation? = nil,
         receiverAGCModes: [Int: TCIReceiverAGCModeObservation] = [:],
-        receiverAGCGains: [Int: TCIReceiverAGCGainObservation] = [:]
+        receiverAGCGains: [Int: TCIReceiverAGCGainObservation] = [:],
+        receiverNoiseBlankerEnables: [Int: TCIReceiverNoiseBlankerEnableObservation] = [:]
     ) {
         self.sequence = sequence
         self.generation = generation
@@ -209,6 +212,7 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
         self.serverMonitorEnable = serverMonitorEnable
         self.receiverAGCModes = receiverAGCModes
         self.receiverAGCGains = receiverAGCGains
+        self.receiverNoiseBlankerEnables = receiverNoiseBlankerEnables
     }
 }
 
@@ -665,7 +669,8 @@ public actor TCIReadOnlyWebSocketSession {
             serverMonitorVolume: reducer.state.serverMonitorVolume,
             serverMonitorEnable: reducer.state.serverMonitorEnable,
             receiverAGCModes: reducer.state.receiverAGCModes,
-            receiverAGCGains: reducer.state.receiverAGCGains
+            receiverAGCGains: reducer.state.receiverAGCGains,
+            receiverNoiseBlankerEnables: reducer.state.receiverNoiseBlankerEnables
         )
         for continuation in continuations.values {
             continuation.yield(observationValue)

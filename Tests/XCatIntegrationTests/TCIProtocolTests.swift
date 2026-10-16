@@ -7,6 +7,73 @@ import XCTest
 final class TCIProtocolTests: XCTestCase {
     private let address = TCIReceiverAddress(trx: 0, channel: 0)
 
+    func testNoiseBlankerEnableRetainsExactReceiverBooleanTokenAndCompletedNotificationReceiptOnly() {
+        var decoder = TCITextDecoder(), reducer = TCIStateReducer()
+        let first = Date(timeIntervalSince1970: 100), completed = first.addingTimeInterval(5)
+        reducer.apply(decoder.feed("rx_nb_enable:1,Tr"), receivedAt: first)
+        XCTAssertTrue(reducer.state.receiverNoiseBlankerEnables.isEmpty)
+        reducer.apply(decoder.feed("Ue;"), receivedAt: completed)
+        XCTAssertEqual(reducer.state.receiverNoiseBlankerEnables[1]?.isEnabled, true)
+        XCTAssertEqual(reducer.state.receiverNoiseBlankerEnables[1]?.rawEnabledToken, "TrUe")
+        XCTAssertEqual(reducer.state.receiverNoiseBlankerEnables[1]?.receivedAt, completed)
+        XCTAssertNil(reducer.state.receiverNoiseBlankerEnables[0])
+        XCTAssertTrue(reducer.state.transceivers.isEmpty)
+        XCTAssertTrue(reducer.state.frequencies.isEmpty)
+        XCTAssertTrue(reducer.state.unknownCommands.isEmpty)
+        XCTAssertFalse(reducer.state.ready)
+        XCTAssertNil(reducer.authoritativeSnapshot(for: address))
+    }
+
+    func testNoiseBlankerEnableRejectsQueryChannelIndexedInvalidAndOverPolicyValues() {
+        var reducer = TCIStateReducer(limits: .init(maximumTRXCount: 2))
+        let receipt = Date(timeIntervalSince1970: 100)
+        XCTAssertTrue(reducer.apply(TCICommand(name: "RX_NB_ENABLE", arguments: ["0", "false"]), receivedAt: receipt))
+        let retained = reducer.state.receiverNoiseBlankerEnables
+        for arguments in [[], ["0"], ["0", "1", "true"], ["-1", "true"], ["2", "true"], ["0.0", "true"],
+                          ["9223372036854775808", "true"], ["0", ""], ["0", "0"], ["0", "1"], ["0", "yes"], ["0", "trüe"], ["0", "false "]] {
+            XCTAssertFalse(reducer.apply(TCICommand(name: "RX_NB_ENABLE", arguments: arguments), receivedAt: receipt.addingTimeInterval(10)))
+            XCTAssertEqual(reducer.state.receiverNoiseBlankerEnables, retained)
+        }
+        var bounded = TCIStateReducer(limits: .init(maximumArgumentBytes: 3))
+        XCTAssertFalse(bounded.apply(TCICommand(name: "RX_NB_ENABLE", arguments: ["0", "true"])))
+        XCTAssertTrue(bounded.state.receiverNoiseBlankerEnables.isEmpty)
+    }
+
+    func testNoiseBlankerEnableReceiptsAreIndependentOfOtherReceiversAGCAndRadioStateAndReset() {
+        var decoder = TCITextDecoder(), reducer = TCIStateReducer()
+        let first = Date(timeIntervalSince1970: 100), second = first.addingTimeInterval(10)
+        reducer.apply(decoder.feed("RX_NB_ENABLE:0,true;AGC_MODE:0,off;AGC_GAIN:0,87;RX_ENABLE:0,true;TRX:0,false;TUNE:0,false;VFO:0,0,14025000;"), receivedAt: first)
+        let modes = reducer.state.receiverAGCModes, gains = reducer.state.receiverAGCGains
+        let radios = reducer.state.transceivers, frequencies = reducer.state.frequencies
+        reducer.apply(decoder.feed("RX_NB_ENABLE:1,false;MON_ENABLE:true;"), receivedAt: second)
+        XCTAssertEqual(reducer.state.receiverNoiseBlankerEnables[0]?.receivedAt, first)
+        reducer.apply(decoder.feed("RX_NB_ENABLE:0,true;"), receivedAt: second)
+        XCTAssertEqual(reducer.state.receiverNoiseBlankerEnables[0]?.receivedAt, second)
+        reducer.apply(decoder.feed("RX_NB_ENABLE:0,FaLsE;"))
+        XCTAssertEqual(reducer.state.receiverNoiseBlankerEnables[0]?.isEnabled, false)
+        XCTAssertEqual(reducer.state.receiverNoiseBlankerEnables[0]?.rawEnabledToken, "FaLsE")
+        XCTAssertNil(reducer.state.receiverNoiseBlankerEnables[0]?.receivedAt)
+        XCTAssertEqual(reducer.state.receiverNoiseBlankerEnables[1]?.receivedAt, second)
+        XCTAssertEqual(reducer.state.receiverAGCModes, modes)
+        XCTAssertEqual(reducer.state.receiverAGCGains, gains)
+        XCTAssertEqual(reducer.state.transceivers, radios)
+        XCTAssertEqual(reducer.state.frequencies, frequencies)
+        reducer = TCIStateReducer()
+        XCTAssertTrue(reducer.state.receiverNoiseBlankerEnables.isEmpty)
+    }
+
+    func testNoiseBlankerEnableUsesDiscoveredReceiverBoundsWithoutInventingChannelScope() {
+        var decoder = TCITextDecoder(), reducer = TCIStateReducer()
+        reducer.apply(decoder.feed("RX_NB_ENABLE:0,true;RX_NB_ENABLE:1,false;"))
+        XCTAssertEqual(reducer.state.receiverNoiseBlankerEnables.count, 2)
+        reducer.apply(decoder.feed("CHANNEL_COUNT:1;"))
+        XCTAssertEqual(reducer.state.receiverNoiseBlankerEnables.count, 2)
+        reducer.apply(decoder.feed("TRX_COUNT:1;"))
+        XCTAssertEqual(reducer.state.receiverNoiseBlankerEnables.count, 1)
+        XCTAssertNotNil(reducer.state.receiverNoiseBlankerEnables[0])
+        XCTAssertFalse(reducer.apply(TCICommand(name: "RX_NB_ENABLE", arguments: ["1", "true"])))
+    }
+
     func testAGCGainRetainsExactReceiverRawDBAndCompletedNotificationReceiptOnly() {
         var decoder = TCITextDecoder(), reducer = TCIStateReducer()
         let first = Date(timeIntervalSince1970: 100), completed = first.addingTimeInterval(5)

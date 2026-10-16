@@ -9,6 +9,77 @@ final class TCIWebSocketSessionTests: XCTestCase {
     private let endpoint = URL(string: "ws://127.0.0.1:40001")!
     private let address = TCIReceiverAddress(trx: 0, channel: 0)
 
+    func testNoiseBlankerEnablePublishesIndependentReceiptsWithoutAGCOrConfiguredRadioSideEffects() async throws {
+        let connection = FakeTCIWebSocketConnection(), time = TCIEvidenceClock()
+        let session = TCIReadOnlyWebSocketSession(endpoint: endpoint, configuredAddress: address,
+            connector: FakeTCIWebSocketConnector(connections: [connection]), clock: { time.now() })
+        try await session.connect()
+        await connection.enqueue(.text(Self.discoveryAndState + "AGC_MODE:0,off;AGC_GAIN:0,87;ready;"))
+        let initial = try await waitForObservation(session) { $0.availability == .available }
+        time.advance(10)
+        let receipt = time.now()
+        await connection.enqueue(.text("RX_NB_ENABLE:0,TrUe;RX_NB_ENABLE:1,FaLsE;"))
+        let reported = try await waitForObservation(session, after: initial.sequence) { $0.receiverNoiseBlankerEnables.count == 2 }
+        XCTAssertEqual(reported.receiverNoiseBlankerEnables[0]?.isEnabled, true)
+        XCTAssertEqual(reported.receiverNoiseBlankerEnables[0]?.rawEnabledToken, "TrUe")
+        XCTAssertEqual(reported.receiverNoiseBlankerEnables[1]?.isEnabled, false)
+        XCTAssertEqual(reported.receiverNoiseBlankerEnables[1]?.rawEnabledToken, "FaLsE")
+        XCTAssertEqual(reported.receiverNoiseBlankerEnables[0]?.receivedAt, receipt)
+        XCTAssertEqual(reported.receiverNoiseBlankerEnables[1]?.receivedAt, receipt)
+        XCTAssertEqual(reported.receiverAGCModes, initial.receiverAGCModes)
+        XCTAssertEqual(reported.receiverAGCGains, initial.receiverAGCGains)
+        XCTAssertEqual(reported.snapshot, initial.snapshot)
+        XCTAssertEqual(reported.snapshot?.transceiver.receiveEnabled, true)
+        XCTAssertEqual(reported.snapshot?.transceiver.transmitting, false)
+        XCTAssertEqual(reported.snapshot?.transceiver.tuning, false)
+        XCTAssertEqual(reported.evidenceReceivedAt, initial.evidenceReceivedAt)
+        XCTAssertEqual(reported.filterEvidenceSequence, initial.filterEvidenceSequence)
+        XCTAssertEqual(reported.splitEvidenceReceivedAt, initial.splitEvidenceReceivedAt)
+        time.advance(10)
+        await connection.enqueue(.text("RX_NB_ENABLE:0,0,true;"))
+        let invalid = try await waitForObservation(session, after: reported.sequence) { _ in true }
+        XCTAssertEqual(invalid.receiverNoiseBlankerEnables, reported.receiverNoiseBlankerEnables)
+        await connection.enqueue(.text("RX_NB_ENABLE:0,TrUe;"))
+        let repeated = try await waitForObservation(session, after: invalid.sequence) { _ in true }
+        time.advance(20)
+        XCTAssertEqual(repeated.receiverNoiseBlankerEnables[0]?.receivedAt, receipt.addingTimeInterval(10))
+        XCTAssertEqual(repeated.receiverNoiseBlankerEnables[1], reported.receiverNoiseBlankerEnables[1])
+        XCTAssertEqual(repeated.receiverAGCModes, initial.receiverAGCModes)
+        XCTAssertEqual(repeated.receiverAGCGains, initial.receiverAGCGains)
+        XCTAssertEqual(repeated.snapshot, initial.snapshot)
+        XCTAssertEqual(repeated.evidenceReceivedAt, initial.evidenceReceivedAt)
+        let sent = await connection.sentTexts()
+        XCTAssertTrue(sent.isEmpty)
+        await session.disconnect()
+        let disconnected = await session.currentObservation()
+        XCTAssertTrue(disconnected.receiverNoiseBlankerEnables.isEmpty)
+    }
+
+    func testNoiseBlankerEnableBeforeDiscoveryGrantsNoReadinessAndReconnectClearsIt() async throws {
+        let first = FakeTCIWebSocketConnection(), second = FakeTCIWebSocketConnection()
+        let session = TCIReadOnlyWebSocketSession(endpoint: endpoint, configuredAddress: address,
+            connector: FakeTCIWebSocketConnector(connections: [first, second]))
+        try await session.connect()
+        await first.enqueue(.text("RX_NB_ENABLE:0,true;"))
+        let reported = try await waitForObservation(session) { !$0.receiverNoiseBlankerEnables.isEmpty }
+        XCTAssertEqual(reported.availability, .synchronizing)
+        XCTAssertNil(reported.snapshot)
+        XCTAssertNil(reported.evidenceReceivedAt)
+        await session.disconnect()
+        try await session.connect()
+        let reconnected = await session.currentObservation()
+        XCTAssertGreaterThan(reconnected.generation, reported.generation)
+        XCTAssertTrue(reconnected.receiverNoiseBlankerEnables.isEmpty)
+        await first.enqueue(.text("RX_NB_ENABLE:0,false;"))
+        await second.enqueue(.text(Self.discoveryAndState + "ready;"))
+        let available = try await waitForObservation(session, after: reconnected.sequence) { $0.availability == .available }
+        XCTAssertTrue(available.receiverNoiseBlankerEnables.isEmpty)
+        let firstSent = await first.sentTexts(), secondSent = await second.sentTexts()
+        XCTAssertTrue(firstSent.isEmpty)
+        XCTAssertTrue(secondSent.isEmpty)
+        await session.disconnect()
+    }
+
     func testAGCGainPublishesIndependentReceiptsWithoutAGCModeAudioOrConfiguredSideEffects() async throws {
         let connection = FakeTCIWebSocketConnection(), time = TCIEvidenceClock()
         let session = TCIReadOnlyWebSocketSession(endpoint: endpoint, configuredAddress: address,
