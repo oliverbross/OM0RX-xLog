@@ -851,14 +851,8 @@ public final class LogbookDatabase: @unchecked Sendable {
                 var updated = current.qso
                 switch mutation.action {
                 case .update:
-                    guard current.qso.deletedAt == nil, let qso = mutation.qso,
-                          qso.id == current.qso.id, qso.wavelogID == current.qso.wavelogID,
-                          qso.deletedAt == nil else { throw LogbookContactError.invalid }
-                    // Reuse bounded contact validation, without forbidding the
-                    // existing remote mapping. The supplied mapping must match.
-                    var validation = qso; validation.wavelogID = nil
-                    do { try validation.validateOperatorDraft(forSave: true) }
-                    catch { throw LogbookContactError.invalid }
+                    guard LogbookContactUpdateReview.admissionFailure(current: current, proposed: mutation.qso) == nil,
+                        let qso = mutation.qso else { throw LogbookContactError.invalid }
                     updated = qso
                 case .delete:
                     guard mutation.qso == nil, current.qso.deletedAt == nil else { throw LogbookContactError.invalid }
