@@ -130,6 +130,8 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
     public let vfoLocks: [TCIReceiverAddress: TCIVFOLockObservation]
     /// Raw per-address dBm tokens only; never readiness, calibration or authority.
     public let receiveChannelSensors: [TCIReceiverAddress: TCIRXChannelSensorsObservation]
+    /// Deprecated receiver-only raw reports; never attributed to any channel.
+    public let legacyReceiveSensors: [Int: TCILegacyRXSensorsObservation]
 
     public init(
         sequence: UInt64,
@@ -147,7 +149,8 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
         lastCWMacrosEmpty: TCICWMacrosEmptyObservation? = nil,
         lastCallsignSend: TCICallsignSendObservation? = nil,
         vfoLocks: [TCIReceiverAddress: TCIVFOLockObservation] = [:],
-        receiveChannelSensors: [TCIReceiverAddress: TCIRXChannelSensorsObservation] = [:]
+        receiveChannelSensors: [TCIReceiverAddress: TCIRXChannelSensorsObservation] = [:],
+        legacyReceiveSensors: [Int: TCILegacyRXSensorsObservation] = [:]
     ) {
         self.sequence = sequence
         self.generation = generation
@@ -165,6 +168,7 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
         self.lastCallsignSend = lastCallsignSend
         self.vfoLocks = vfoLocks
         self.receiveChannelSensors = receiveChannelSensors
+        self.legacyReceiveSensors = legacyReceiveSensors
     }
 }
 
@@ -610,7 +614,8 @@ public actor TCIReadOnlyWebSocketSession {
             lastCWMacrosEmpty: reducer.state.lastCWMacrosEmpty,
             lastCallsignSend: reducer.state.lastCallsignSend,
             vfoLocks: reducer.state.vfoLocks,
-            receiveChannelSensors: reducer.state.receiveChannelSensors
+            receiveChannelSensors: reducer.state.receiveChannelSensors,
+            legacyReceiveSensors: reducer.state.legacyReceiveSensors
         )
         for continuation in continuations.values {
             continuation.yield(observationValue)
