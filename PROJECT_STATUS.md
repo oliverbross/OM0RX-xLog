@@ -33,8 +33,13 @@ parsing now uses UTF-8 byte lengths and cannot split records on terminator text 
 field. Editor FT4, FT2 and JTTY export as `MODE=MFSK` plus `SUBMODE`, while local values,
 unknown application fields and station/RX/TX data remain intact. Focused Swift **16/16**
 and frontend ADIF **1,092/1,092** checks pass. The file header deliberately remains 3.1.7
-until the remaining enumeration/deprecation audit is complete. Installed/package and
-real-log acceptance remain open.
+until the remaining enumeration/deprecation audit is complete. `4435721` adds the next
+bounded deprecation fix: import-only `C4FM` and `DSTAR` now export as
+`MODE=DIGITALVOICE` plus the required `SUBMODE` without mutating local contacts,
+dropping unknown fields or changing duplicate/update identity. Swift ADIF **18/18**,
+frontend ADIF **1,096/1,096**, TypeScript and diff checks pass. Strict raw deprecated-mode
+ADX import, the remaining enum/deprecation audit, installed/package and real-log acceptance
+remain open. See [digital-voice source acceptance](docs/ADIF_DIGITAL_VOICE_DEPRECATION_SOURCE_ACCEPTANCE_2026-10-16.md).
 
 ## Operator-efficiency foundations — first usable source slices complete
 
@@ -58,9 +63,13 @@ calling the typed projector; the UI starts directly with fixed provider, configu
 connection, freshness and advertised-capability stages and has no command controls. Neither
 layer can represent credentials, endpoints, raw errors, identifiers, radio values, timestamps
 or log/QSO contents. Focused frontend **53/53**, Swift **2/2** adapter and Rust **5/5** route
-checks pass in addition to the core tests. Opt-in redacted export, exact-package acceptance and
-real retained-provider observations remain open; no session start, reconnect, network/device
-contact or RF action exists in this slice.
+checks pass in addition to the core tests. `c27dec8` adds a click-only native JSON export of
+that same closed preview: extra fields and untyped source strings are rejected, only the exact
+Doctor window can open the chooser, cancellation creates no file, writes are atomic, and paths
+are not returned to the renderer. Focused Doctor frontend/native checks pass **8/8** each;
+TypeScript and Vite compilation pass. The global bundle graph remains blocked by the existing
+Logbook late-CSS ordering check. Exact-package Save/Cancel/overwrite and real retained-provider
+observations remain open; no session start, reconnect, network/device contact or RF action exists.
 
 R06/R20 share the passive operating-goal model committed in `2f18295`, exposed through
 the bounded read-only worker route in `505284a` and the direct native **Operating Goals**
@@ -125,7 +134,7 @@ explicitly clears them. Focused Swift **12/12**, sync-identity **25/25**, fronte
 **72/72**, TypeScript and diff checks pass after independent review. Package/manual
 macOS interaction and copied real-log acceptance remain open.
 
-## Native TCI radio provider — receive tuning/filter source complete; broader control open
+## Native TCI radio provider — receive tuning/filter/split observation source complete; broader control open
 
 Full TCI support for SunSDR/ExpertSDR and compatible servers is now an explicit product
 programme. The current source stage provides a bounded Swift protocol/reducer, receive-only
@@ -151,6 +160,11 @@ same-TRX filter telemetry; unknown outcomes require explicit Check/review and ar
 The reducer no longer mistakes `IF_LIMITS` for a receive-filter limit. Root reruns pass selected
 Swift TCI **39/39**, Rust TCI/session/selection **89/89**, frontend **23/23** and TypeScript.
 See [source acceptance](docs/TCI_RECEIVE_FILTER_SOURCE_ACCEPTANCE_2026-10-16.md).
+`7976da3` adds separately timed, configured-TRX `SPLIT_ENABLE` observation to main and
+detached Station Control. Current, retained/stale and unknown are explicit; the pinned
+protocol exposes no authoritative TX-VFO/frequency report, so neither value is inferred.
+Focused Swift **43/43**, frontend **41/41**, TypeScript and diff checks pass. See
+[split source acceptance](docs/TCI_SPLIT_OBSERVATION_SOURCE_ACCEPTANCE_2026-10-16.md).
 Transmit/PTT, split/TX-VFO controls, spots, audio/IQ, package/live-server and RF acceptance
 remain open. QLog is a behavior reference only; no third-party code, credentials, device or
 operator data was copied. Installed alpha.31 remains unchanged.

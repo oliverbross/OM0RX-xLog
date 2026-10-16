@@ -21,7 +21,10 @@ with current-source reuse points, dependencies and acceptance gates. R01 is fixe
 dates and stored overrides instead of an unconditional Bangladesh mapping. R04's first
 two compatibility fixes are committed in `429dcae` and `7e6cfce`: UTF-8 ADIF scanning,
 whole-record filtering and FT4/FT2/JTTY MFSK-submode export now have focused fixtures.
-The exporter remains labeled 3.1.7 until the full 3.1.8 enum/deprecation audit passes.
+`4435721` also maps import-only C4FM/DSTAR exports to `DIGITALVOICE` plus required
+submodes while preserving local contacts, unknown fields and canonical duplicate identity.
+Swift ADIF **18/18** and frontend ADIF **1,096/1,096** pass. The exporter remains labeled
+3.1.7 until the full 3.1.8 enum/deprecation audit passes.
 Package/real-log acceptance and any optional record correction remain open.
 
 The pushed source follow-ups are `54b4c84` (read-only Logbook **PJ country preview**)
@@ -44,10 +47,15 @@ focused frontend **52/52**, Rust **26/26**, production graph/build checks and sy
  for named filters over the same canonical free-text query, with revision-fenced, backup-aware
  persistence and no unrelated-preference overwrite; frontend **23/23**, Swift **3/3**, Rust
  authorization and production-build checks pass. Exact packaged native-window/filter acceptance
- remains open. `8841f1f` plus `5570bbe` provide the typed R16 Connection Doctor and a native,
- retained-state-only read-only window. The route strips identifiers, endpoints, errors, radio
- values and log data before projection; frontend **53/53**, Swift adapter **2/2** and Rust
- route **5/5** pass. Export and exact-package/provider acceptance remain open. `2f18295` plus
+remains open. `8841f1f` plus `5570bbe` provide the typed R16 Connection Doctor and a native,
+retained-state-only read-only window. The route strips identifiers, endpoints, errors, radio
+values and log data before projection; frontend **53/53**, Swift adapter **2/2** and Rust
+route **5/5** pass. `c27dec8` adds an exact-window, click-only native export of the same
+closed redacted categories; forged extra fields/source strings are rejected, cancellation
+creates no file, writes are atomic and no path returns to the renderer. Doctor frontend/native
+checks pass **8/8** each. Exact-package Save/Cancel/overwrite and provider acceptance remain
+open; the global build graph still reports the pre-existing Logbook late-CSS ordering failure.
+`2f18295` plus
  `505284a` provide the shared R06/R20 evaluator and bounded worker route (**8/8** focused Swift),
  keeping age, station scope, worked/confirmed and unknown sponsor eligibility/credit distinct.
  It reads only canonical local history and retained opportunities; cluster observations remain
@@ -77,7 +85,11 @@ app-local -24,000 to +24,000 Hz bound, journal-before-dispatch and newer matchin
 `RX_FILTER_BAND` confirmation. Unknown receipts are checked/reviewed without replay, and
 `IF_LIMITS` no longer incorrectly discards filter telemetry. Root reruns pass selected Swift
 TCI **39/39**, Rust TCI/session/selection **89/89**, frontend **23/23** and TypeScript.
-Transmit/PTT, split/TX-VFO controls, spots, audio/IQ, package/live-server and RF
+`7976da3` adds independent producer-time freshness for configured-TRX split observation
+and shared main/detached presentation. The official pinned protocol has no TX-VFO or
+transmit-frequency report, so the UI keeps both unavailable instead of inferring them.
+Focused Swift **43/43** and frontend **41/41** pass. Transmit/PTT, split/TX-VFO controls,
+spots, audio/IQ, package/live-server and RF
 acceptance remain open; installed alpha.31 is unchanged. See the
 [filter source acceptance](TCI_RECEIVE_FILTER_SOURCE_ACCEPTANCE_2026-10-16.md).
 

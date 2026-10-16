@@ -30,6 +30,11 @@ packaged UI result. Keep unresolved items here across releases.
   whole-record filtering and FT4/FT2/JTTY interchange normalization have focused Swift
   **16/16** and frontend **1,092/1,092** proof. Full ADIF 3.1.8 conformance, installed
   package, copied real-log review and any correction of existing records remain open.
+  `4435721` adds the next bounded deprecation fix: C4FM/DSTAR now export under
+  DIGITALVOICE with required submodes while local contacts, arbitrary fields and canonical
+  duplicate identity remain unchanged. Swift ADIF **18/18**, frontend **1,096/1,096**,
+  TypeScript and diff checks pass; strict raw deprecated-mode ADX import and the rest of
+  the audit remain open.
 
 - **Independent Previous QSOs window, 16 October — source and synthetic visual stage:**
   `1a0e734` routes a native Window-menu surface through the existing canonical draft and
@@ -49,9 +54,12 @@ packaged UI result. Keep unresolved items here across releases.
   support preview. It cannot represent secrets, endpoints, identifiers, raw errors, radio
   values, timestamps or log contents. `5570bbe` adds a native window whose route reduces only
   already-retained native context before projection and exposes no controls. Frontend **53/53**,
-  Swift adapter **2/2** and Rust route **5/5** pass. Opt-in redacted export, exact-package and
-  real retained-provider acceptance remain open; no session start, reconnect, network/device/RF
-  action or command exists.
+  Swift adapter **2/2** and Rust route **5/5** pass. `c27dec8` adds click-only native JSON
+  export of the same closed categories: exact-window authorization, extra-field/source-string
+  rejection, cancellation-without-file, atomic writes and no renderer path return. Doctor
+  frontend/native checks pass **8/8** each; exact-package Save/Cancel/overwrite and real
+  retained-provider acceptance remain open. The global build graph still exposes the existing
+  Logbook late-CSS ordering failure; no session start, reconnect, network/device/RF action exists.
 
 - **Operating goals and calendar context, 16 October — passive source window complete:** `2f18295`
   deterministically evaluates selected callsign, entity-slot and activation-reference goals
@@ -89,6 +97,11 @@ packaged UI result. Keep unresolved items here across releases.
   `IF_LIMITS` no longer prunes unrelated filter telemetry. Root reruns pass selected Swift
   TCI **39/39**, Rust TCI/session/selection **89/89**, frontend **23/23** and TypeScript;
   see [source acceptance](TCI_RECEIVE_FILTER_SOURCE_ACCEPTANCE_2026-10-16.md).
+  `7976da3` adds independently fresh configured-TRX split observation to main/detached
+  Station Control. Current, retained/stale and unknown states are explicit; the official
+  pinned protocol has no authoritative TX-VFO/frequency report, so neither is inferred.
+  Focused Swift **43/43** and frontend **41/41** pass; see
+  [split source acceptance](TCI_SPLIT_OBSERVATION_SOURCE_ACCEPTANCE_2026-10-16.md).
   No PTT, carrier Tune, radio CW or amplifier control is exposed; transmit/PTT, split/TX-VFO,
   spots, audio/IQ, package/live-server and RF proof remain open. QLog was a behavior
   reference only, no implementation code was copied, and installed alpha.31 is unchanged.
