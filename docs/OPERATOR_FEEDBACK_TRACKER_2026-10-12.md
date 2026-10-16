@@ -24,19 +24,29 @@ packaged UI result. Keep unresolved items here across releases.
   windows progressively add Grid and QSL. Frontend **52/52**, Rust **26/26**, production
   build/graph checks and synthetic 320×480, 420×520 and 900×650@2× screenshots pass with
   no browser errors or redundant page chrome. Exact packaged window/focus acceptance stays
-  open. Cloneable saved filters remain the outstanding half of R15.
+  open. `d94a837` completes the source-side saved-filter half of R15 with bounded named
+  Save/Apply/Clone/Rename/Delete over the existing free-text query. Persistence is
+  revision-fenced, backup-aware and cannot overwrite unrelated workspace preferences;
+  frontend **23/23**, Swift **3/3**, Rust authorization and production-build checks pass.
+  Exact packaged filter/window interaction remains open.
 
-- **Connection Doctor, 16 October — passive core only:** `8841f1f` projects five fixed
+- **Connection Doctor, 16 October — retained read-only source window:** `8841f1f` projects five fixed
   diagnostic stages from caller-supplied retained state and can encode only an allowlisted
   support preview. It cannot represent secrets, endpoints, identifiers, raw errors, radio
-  values, timestamps or log contents. Focused Swift **5/5** passes. No worker/UI route,
-  export, session snapshot, network/device/RF action or reconnect exists yet.
+  values, timestamps or log contents. `5570bbe` adds a native window whose route reduces only
+  already-retained native context before projection and exposes no controls. Frontend **53/53**,
+  Swift adapter **2/2** and Rust route **5/5** pass. Opt-in redacted export, exact-package and
+  real retained-provider acceptance remain open; no session start, reconnect, network/device/RF
+  action or command exists.
 
-- **Operating goals and calendar context, 16 October — passive core only:** `2f18295`
+- **Operating goals and calendar context, 16 October — passive core and worker route:** `2f18295`
   deterministically evaluates selected callsign, entity-slot and activation-reference goals
   against station-scoped local history, public opportunities and retained cluster evidence.
   Source age, expiry, reasons, worked and locally confirmed are explicit; sponsor evidence
-  eligibility and credit remain honestly unknown. Focused Swift **5/5** passes. UI,
+  eligibility and credit remain honestly unknown. `505284a` exposes the model through a
+  bounded read-only worker route using canonical local history and the retained official
+  opportunity cache only. Cluster observations are explicitly `not_included` until the
+  retained snapshot has report-time provenance. Focused Swift **8/8** passes. UI,
   scheduling/notifications, persistence, networking and station/log actions remain open.
 
 - **Full native TCI provider requested, 16 October — saved read-only source integration

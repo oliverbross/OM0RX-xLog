@@ -19,7 +19,7 @@ and frontend ADIF **1,092/1,092** checks pass. The file header deliberately rema
 until the remaining enumeration/deprecation audit is complete. Installed/package and
 real-log acceptance remain open.
 
-## Operator-efficiency foundations — first source slices complete
+## Operator-efficiency foundations — first usable source slices complete
 
 R15 now has an independent native **Previous QSOs** window in `1a0e734`, with the
 compact-width follow-up in `ccb3638`. It follows the canonical Log QSO draft and reads
@@ -28,24 +28,34 @@ second editor/store. The Window menu, native lifecycle and Canvas transition own
 the new window. Focused frontend **52/52**, Rust **26/26**, production build and graph
 checks pass. Synthetic retained-state visual checks at **320×480**, **420×520** and
 **900×650 at 2× scale** show zero horizontal overflow at the narrowest size, no redundant
-header and progressive Grid/QSL detail as room permits. Exact packaged native-window,
-keyboard/focus and installed-app acceptance remain open; cloneable saved Logbook filters
-are the remaining R15 feature slice.
+ header and progressive Grid/QSL detail as room permits. `d94a837` completes the source-side
+ cloneable saved-filter slice against the one canonical free-text Logbook query: operators can
+ Save, Apply, Clone, Rename and Delete bounded named filters. Persistence is revision-fenced,
+ backup-aware and scoped so the Logbook cannot overwrite unrelated workspace preferences.
+ Focused frontend **23/23**, Swift **3/3**, Rust authorization and production-build checks pass.
+ Exact packaged native-window, keyboard/focus and installed-app acceptance remain open.
 
-R16 has a passive typed Connection Doctor projection in `8841f1f`. It evaluates only an
-already-retained snapshot supplied by its caller and emits fixed provider, configuration,
-connection, freshness and advertised-capability checks. Its support preview cannot
-represent credentials, endpoints, raw errors, identifiers, radio values, timestamps or
-log/QSO contents. Focused Swift **5/5** passes. This is a source foundation only: there is
-no worker/UI route, export, session snapshot call, network/device contact or RF action yet.
+R16 has a passive typed Connection Doctor projection in `8841f1f` and a retained-state-only
+native window in `5570bbe`. The new route reduces the already-retained native context before
+calling the typed projector; the UI starts directly with fixed provider, configuration,
+connection, freshness and advertised-capability stages and has no command controls. Neither
+layer can represent credentials, endpoints, raw errors, identifiers, radio values, timestamps
+or log/QSO contents. Focused frontend **53/53**, Swift **2/2** adapter and Rust **5/5** route
+checks pass in addition to the core tests. Opt-in redacted export, exact-package acceptance and
+real retained-provider observations remain open; no session start, reconnect, network/device
+contact or RF action exists in this slice.
 
-R06/R20 share the passive operating-goal model committed in `2f18295`. It evaluates
+R06/R20 share the passive operating-goal model committed in `2f18295`, now exposed through
+the bounded read-only worker route in `505284a`. It evaluates
 explicit callsign, DXCC/band/mode and IOTA/POTA/SOTA/WWFF targets against station-scoped
 local history, public opportunities and retained cluster evidence. Ordering, expiry,
 deduplication and reasons are deterministic; worked, locally confirmed, sponsor evidence
 eligibility and sponsor credit remain separate, with the latter two explicitly unknown
-until real programme rules/evidence can prove them. Focused Swift **5/5** passes. No UI,
-scheduler, notification, network request, station command or log mutation is present.
+ until real programme rules/evidence can prove them. The route reuses the canonical local
+ logbook and retained official-opportunity cache without refreshing or creating data; cluster
+ observations are explicitly `not_included` because the current snapshot lacks retained
+ report-time provenance. Focused worker/core Swift **8/8** passes. No UI, scheduler,
+ notification, network request, station command or log mutation is present.
 
 ## Durable GUI PTT owner — source implementation; package/live/RF acceptance open
 

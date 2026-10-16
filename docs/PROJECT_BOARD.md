@@ -29,13 +29,19 @@ The next operator-efficiency source batch is also committed and independently re
 existing local-history projection, closes with other detached windows on Canvas transition
 and creates no second contact owner. `ccb3638` removes narrow-width horizontal overflow;
 focused frontend **52/52**, Rust **26/26**, production graph/build checks and synthetic
-320/420/900-pixel visual checks pass. Exact packaged native-window acceptance and saved
-Logbook filters remain open. `8841f1f` adds only the passive, typed R16 Connection Doctor
-projection and allowlist-only support preview (**5/5** focused Swift); it has no route/UI,
-export, credential/raw-value field, snapshot call or I/O. `2f18295` adds the shared R06/R20
-operating-goal evaluator (**5/5** focused Swift), keeping source age, expiry, station scope,
-worked/confirmed and unknown sponsor eligibility/credit distinct. It has no UI, scheduler,
-notification, network, station command or mutation path.
+ 320/420/900-pixel visual checks pass. `d94a837` adds bounded Save/Apply/Clone/Rename/Delete
+ for named filters over the same canonical free-text query, with revision-fenced, backup-aware
+ persistence and no unrelated-preference overwrite; frontend **23/23**, Swift **3/3**, Rust
+ authorization and production-build checks pass. Exact packaged native-window/filter acceptance
+ remains open. `8841f1f` plus `5570bbe` provide the typed R16 Connection Doctor and a native,
+ retained-state-only read-only window. The route strips identifiers, endpoints, errors, radio
+ values and log data before projection; frontend **53/53**, Swift adapter **2/2** and Rust
+ route **5/5** pass. Export and exact-package/provider acceptance remain open. `2f18295` plus
+ `505284a` provide the shared R06/R20 evaluator and bounded worker route (**8/8** focused Swift),
+ keeping age, station scope, worked/confirmed and unknown sponsor eligibility/credit distinct.
+ It reads only canonical local history and retained opportunities; cluster observations remain
+ explicitly excluded until report-time provenance exists. UI, scheduling, notifications,
+ refresh/network, station commands and mutations remain open.
 
 Full native TCI support for SunSDR/ExpertSDR and compatible TCI servers is now a
 tracked programme. The official ExpertSDR3 protocol is normative and QLog behavior is an
