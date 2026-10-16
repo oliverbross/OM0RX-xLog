@@ -7,6 +7,50 @@ import XCTest
 final class TCIProtocolTests: XCTestCase {
     private let address = TCIReceiverAddress(trx: 0, channel: 0)
 
+    func testCWMacrosEmptyRetainsOnlyCompletedNotificationReceiptWithoutInventingTRXState() {
+        var decoder = TCITextDecoder(), reducer = TCIStateReducer()
+        let first = Date(timeIntervalSince1970: 100), completed = first.addingTimeInterval(5)
+        reducer.apply(decoder.feed("cw_macros_emp"), receivedAt: first)
+        XCTAssertNil(reducer.state.lastCWMacrosEmpty)
+        reducer.apply(decoder.feed("ty;"), receivedAt: completed)
+        XCTAssertEqual(reducer.state.lastCWMacrosEmpty?.receivedAt, completed)
+        XCTAssertTrue(reducer.state.frequencies.isEmpty)
+        XCTAssertTrue(reducer.state.transceivers.isEmpty)
+        XCTAssertTrue(reducer.state.unknownCommands.isEmpty)
+        XCTAssertFalse(reducer.state.ready)
+        XCTAssertNil(reducer.authoritativeSnapshot(for: address))
+        XCTAssertNil(reducer.state.serverTransmitFrequency)
+    }
+
+    func testCWMacrosEmptyRejectsAllArgumentFormsWithoutReplacingReceipt() {
+        var reducer = TCIStateReducer()
+        let receipt = Date(timeIntervalSince1970: 100)
+        XCTAssertTrue(reducer.apply(TCICommand(name: "CW_MACROS_EMPTY", arguments: []), receivedAt: receipt))
+        let retained = reducer.state.lastCWMacrosEmpty
+        for arguments in [[""], ["0"], ["true"], ["0", "true"], ["RN6LHF"], ["0", "1"]] {
+            XCTAssertFalse(reducer.apply(TCICommand(name: "CW_MACROS_EMPTY", arguments: arguments),
+                                         receivedAt: receipt.addingTimeInterval(10)))
+            XCTAssertEqual(reducer.state.lastCWMacrosEmpty, retained)
+        }
+    }
+
+    func testCWMacrosEmptyReceiptRefreshRequiresItsOwnEventAndResetsWithReducer() {
+        var decoder = TCITextDecoder(), reducer = TCIStateReducer()
+        let first = Date(timeIntervalSince1970: 100), second = first.addingTimeInterval(10)
+        reducer.apply(decoder.feed("TRX:0,true;CW_MACROS_EMPTY;"), receivedAt: first)
+        XCTAssertEqual(reducer.state.transceivers[0]?.transmitting, true)
+        reducer.apply(decoder.feed("APP_FOCUS:true;TX_FREQUENCY:7140000;"), receivedAt: second)
+        XCTAssertEqual(reducer.state.lastCWMacrosEmpty?.receivedAt, first)
+        XCTAssertTrue(reducer.apply(TCICommand(name: "CW_MACROS_EMPTY", arguments: []), receivedAt: second))
+        XCTAssertEqual(reducer.state.lastCWMacrosEmpty?.receivedAt, second)
+        XCTAssertEqual(reducer.state.transceivers[0]?.transmitting, true)
+        reducer.apply(decoder.feed("CW_MACROS_EMPTY;"))
+        XCTAssertNotNil(reducer.state.lastCWMacrosEmpty)
+        XCTAssertNil(reducer.state.lastCWMacrosEmpty?.receivedAt)
+        reducer = TCIStateReducer()
+        XCTAssertNil(reducer.state.lastCWMacrosEmpty)
+    }
+
     func testLegacySpotClickHasOnlyCallsignFrequencyAndProducerReceipt() {
         var decoder = TCITextDecoder(), reducer = TCIStateReducer()
         let first = Date(timeIntervalSince1970: 100), completed = first.addingTimeInterval(5)

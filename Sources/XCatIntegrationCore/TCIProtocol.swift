@@ -626,6 +626,16 @@ public struct TCIServerAppFocusObservation: Equatable, Sendable {
     public let receivedAt: Date?
 }
 
+/// Receipt of CW_MACROS_EMPTY (pinned TCI b081213f, page 7, section 3.2.1).
+/// The server sends it when the last queued letter starts transmission in
+/// terminal mode. Receipt does not prove an empty queue, successful transmission
+/// start/completion, RF output/delivery, terminal state, or any receiver state,
+/// and grants no CW or control authority.
+public struct TCICWMacrosEmptyObservation: Equatable, Sendable {
+    /// Local producer receipt time; nil means no timed receipt was supplied.
+    public let receivedAt: Date?
+}
+
 public struct TCIProtocolState: Equatable, Sendable {
     public internal(set) var protocolAnnouncement: TCIProtocolAnnouncement?
     public internal(set) var device: String?
@@ -642,6 +652,7 @@ public struct TCIProtocolState: Equatable, Sendable {
     public internal(set) var lastRXSpotClick: TCIRXSpotClickObservation?
     public internal(set) var lastLegacySpotClick: TCILegacySpotClickObservation?
     public internal(set) var serverAppFocus: TCIServerAppFocusObservation?
+    public internal(set) var lastCWMacrosEmpty: TCICWMacrosEmptyObservation?
     public internal(set) var transceivers: [Int: TCITransceiverState] = [:]
     public internal(set) var unknownCommands: [TCICommand] = []
     public internal(set) var diagnostics: [TCIDiagnostic] = []
@@ -689,6 +700,10 @@ public struct TCIStateReducer: Sendable {
         case "RX_CLICKED_ON_SPOT": applyRXSpotClick(command, receivedAt: receivedAt)
         case "CLICKED_ON_SPOT": applyLegacySpotClick(command, receivedAt: receivedAt)
         case "APP_FOCUS": applyAppFocus(command, receivedAt: receivedAt)
+        case "CW_MACROS_EMPTY":
+            if acceptsNoArguments(command) {
+                state.lastCWMacrosEmpty = TCICWMacrosEmptyObservation(receivedAt: receivedAt)
+            }
         case "MODULATION": applyModulation(command)
         case "RX_FILTER_BAND": applyFilter(command)
         case "SPLIT_ENABLE": applyBooleanState(command, keyPath: \.splitEnabled)

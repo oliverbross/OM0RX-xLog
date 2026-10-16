@@ -122,6 +122,8 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
     public let lastLegacySpotClick: TCILegacySpotClickObservation?
     /// Server-window focus only; never configured evidence or local UI authority.
     public let serverAppFocus: TCIServerAppFocusObservation?
+    /// Server event receipt only; never queue, TX start/completion, RF or CW authority.
+    public let lastCWMacrosEmpty: TCICWMacrosEmptyObservation?
 
     public init(
         sequence: UInt64,
@@ -135,7 +137,8 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
         serverTransmitFrequency: TCIServerTransmitFrequencyObservation? = nil,
         lastRXSpotClick: TCIRXSpotClickObservation? = nil,
         serverAppFocus: TCIServerAppFocusObservation? = nil,
-        lastLegacySpotClick: TCILegacySpotClickObservation? = nil
+        lastLegacySpotClick: TCILegacySpotClickObservation? = nil,
+        lastCWMacrosEmpty: TCICWMacrosEmptyObservation? = nil
     ) {
         self.sequence = sequence
         self.generation = generation
@@ -149,6 +152,7 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
         self.lastRXSpotClick = lastRXSpotClick
         self.serverAppFocus = serverAppFocus
         self.lastLegacySpotClick = lastLegacySpotClick
+        self.lastCWMacrosEmpty = lastCWMacrosEmpty
     }
 }
 
@@ -590,7 +594,8 @@ public actor TCIReadOnlyWebSocketSession {
             serverTransmitFrequency: reducer.state.serverTransmitFrequency,
             lastRXSpotClick: reducer.state.lastRXSpotClick,
             serverAppFocus: reducer.state.serverAppFocus,
-            lastLegacySpotClick: reducer.state.lastLegacySpotClick
+            lastLegacySpotClick: reducer.state.lastLegacySpotClick,
+            lastCWMacrosEmpty: reducer.state.lastCWMacrosEmpty
         )
         for continuation in continuations.values {
             continuation.yield(observationValue)
