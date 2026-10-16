@@ -100,6 +100,10 @@ describe("Spot History scope and paging", () => {
     expect(Array.from(screen.getByText("OM0RX/P").closest("tr")!.querySelectorAll("td")).map(cell => cell.getAttribute("data-label"))).toEqual([
       "Received UTC", "Callsign", "kHz", "Band / Mode", "Spotter", "Source / Cluster", "Country", "Comment",
     ]);
+    const bandMode = Array.from(screen.getByText("OM0RX/P").closest("tr")!.querySelectorAll<HTMLElement>(".spot-history-category"));
+    expect(bandMode.map(value => value.textContent)).toEqual(["20m", "CW"]);
+    expect(bandMode[0].style.color).not.toBe(bandMode[1].style.color);
+    expect(screen.getByRole("cell", { name: "20m band, CW mode" })).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "Spot History" })).toBeNull();
   });
   it("applies explicit prefix, portable call, spotter, UTC and optional filters", async () => {

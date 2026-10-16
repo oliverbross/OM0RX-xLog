@@ -2,6 +2,7 @@ import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState, type For
 import { ChevronLeft, ChevronRight, RefreshCw, Search } from "lucide-react";
 import { useLogbookCapacity } from "./logbookCapacity";
 import { SpotHistoryColumnHeader, SpotHistoryColumns, useSpotHistoryColumns } from "./SpotHistoryColumns";
+import { clusterBandColors, clusterModeColors, paletteColor } from "./clusterPalette";
 import { orderedSpotHistoryColumns, type SpotHistoryColumn } from "./spotHistoryColumnPreferences";
 import "./SpotHistoryPanel.css";
 
@@ -268,7 +269,9 @@ export function SpotHistoryPanel({ request }: { request: Request }) {
             <td key="utc" hidden={!visibleColumns.has("utc")} data-label="Received UTC" title={`${spotHistoryUTC(row.arrivedAt)} UTC`} className="history-data">{spotHistoryUTC(row.arrivedAt)}</td>,
             <td key="call" hidden={!visibleColumns.has("call")} data-label="Callsign" className="history-call-value" title={row.callsign}>{row.callsign}</td>,
             <td key="frequency" hidden={!visibleColumns.has("frequency")} data-label="kHz" className="history-frequency-value history-data">{row.frequencyText || row.frequencyKHz}</td>,
-            <td key="bandMode" hidden={!visibleColumns.has("bandMode")} data-label="Band / Mode">{row.band || "—"} / {row.mode || "—"}</td>,
+            <td key="bandMode" hidden={!visibleColumns.has("bandMode")} data-label="Band / Mode" aria-label={`${row.band || "Unknown"} band, ${row.mode || "Unknown"} mode`}>
+              <span className="spot-history-category-row"><span className="spot-history-category" style={{ color: paletteColor(row.band || "Unknown", undefined, clusterBandColors) }}>{row.band || "—"}</span><span aria-hidden="true">/</span><span className="spot-history-category" style={{ color: paletteColor(row.mode || "Unknown", undefined, clusterModeColors) }}>{row.mode || "—"}</span></span>
+            </td>,
             <td key="spotter" hidden={!visibleColumns.has("spotter")} data-label="Spotter" title={row.spotter}>{row.spotter}</td>,
             <td key="source" hidden={!visibleColumns.has("source")} data-label="Source / Cluster" title={`${row.source} / ${row.clusterName}`}>{row.source} / {row.clusterName}</td>,
             <td key="country" hidden={!visibleColumns.has("country")} data-label="Country" title={row.country}>{row.country || "—"}</td>,

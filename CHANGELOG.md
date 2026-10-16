@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.4.0-alpha.39 — 2026-10-17
+
+- Made Spot History easier to scan by showing band and mode as compact, separately coloured labels using the same established palette as DX Cluster, Logbook and Previous QSOs.
+
 ## 0.4.0-alpha.38 — 2026-10-17
 
 - Made Chaser & DX paint retained local results before starting network work, while reducing each automatic feed cycle from five full result projections to one priority update plus one coalesced batch.
