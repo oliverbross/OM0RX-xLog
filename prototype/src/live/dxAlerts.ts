@@ -57,3 +57,5 @@ export const saveDxAlerts = (snapshot: DxAlertsSnapshot, configuration: Omit<DxA
   invoke("dx_alerts_save", { expectedGeneration: snapshot.configuration.generation, expectedRevision: snapshot.configuration.revision, configuration }).then(checkedDxAlerts);
 export const testDxAlert = () => invoke("dx_alerts_test").then(checkedDxAlerts);
 export const clearDxAlerts = () => invoke("dx_alerts_clear").then(checkedDxAlerts);
+export const clearSelectedDxAlerts = (snapshot: DxAlertsSnapshot, ids: string[]) =>
+  invoke("dx_alerts_clear_selected", { expectedEpoch: snapshot.epoch, ids }).then(checkedDxAlerts);

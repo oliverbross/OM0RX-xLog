@@ -727,6 +727,32 @@ impl Owner {
         Ok(snapshot)
     }
 
+    pub fn clear_selected(&self, expected_epoch: &str, ids: &[String]) -> Result<Value, String> {
+        if self.stopped.load(Ordering::Acquire) {
+            return Err("DX alerts are shutting down.".into());
+        }
+        if ids.is_empty() || ids.len() > MAX_ENTRIES
+            || ids.iter().any(|id| id.len() != 36 || !valid_uuid(id)) {
+            return Err("Select between 1 and 200 valid alert identities.".into());
+        }
+        let selected: HashSet<String> = ids.iter().map(|id| id.to_ascii_lowercase()).collect();
+        if selected.len() != ids.len() {
+            return Err("Selected alert identities must be unique.".into());
+        }
+        let mut state = self.state.lock().map_err(|_| "DX alert state is unavailable")?;
+        if state.epoch != expected_epoch {
+            return Err("DX alert owner changed. Review the current alerts before clearing.".into());
+        }
+        let previous_count = state.entries.len();
+        state.entries.retain(|entry| !selected.contains(&entry.id));
+        let changed = state.entries.len() != previous_count;
+        if changed { state.revision = state.revision.saturating_add(1).min(MAX_REVISION); }
+        let snapshot = state.snapshot();
+        drop(state);
+        if changed { (self.publish)(); }
+        Ok(snapshot)
+    }
+
     pub fn observe(&self, projection: &Value) -> Result<bool, String> {
         if self.stopped.load(Ordering::Acquire) {
             return Ok(false);
@@ -1426,6 +1452,116 @@ mod tests {
         assert_eq!(publishes.load(Ordering::SeqCst), 1);
         assert_eq!(owner.clear().unwrap()["entries"], json!([]));
         assert_eq!(publishes.load(Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn selected_clear_rejects_invalid_duplicate_oversized_and_stale_requests_without_mutation() {
+        let directory = tempfile::tempdir().unwrap();
+        let publishes = Arc::new(AtomicU64::new(0));
+        let count = publishes.clone();
+        let owner = Owner::new(directory.path().join("rules.json"),
+            Arc::new(move || { count.fetch_add(1, Ordering::SeqCst); }), Arc::new(|_, _| Ok(())));
+        let before = owner.test_alert().unwrap();
+        let epoch = before["epoch"].as_str().unwrap();
+        let id = before["entries"][0]["id"].as_str().unwrap().to_string();
+        let duplicate = "00000000-0000-4000-8000-000000abcdef".to_string();
+        for ids in [vec![], vec!["invalid".into()], vec!["x".repeat(1_000)],
+            vec![id.clone(), id.clone()], vec![duplicate.clone(), duplicate.to_uppercase()],
+            (0..201).map(|_| uuid::Uuid::new_v4().to_string()).collect()] {
+            assert!(owner.clear_selected(epoch, &ids).is_err());
+            assert_eq!(owner.snapshot().unwrap(), before);
+            assert_eq!(publishes.load(Ordering::SeqCst), 1);
+        }
+        for stale in ["bad".to_string(), uuid::Uuid::new_v4().to_string()] {
+            assert!(owner.clear_selected(&stale, std::slice::from_ref(&id)).is_err());
+            assert_eq!(owner.snapshot().unwrap(), before);
+        }
+        owner.stop();
+        assert!(owner.clear_selected(epoch, &[id]).is_err());
+        assert_eq!(owner.state.lock().unwrap().snapshot(), before);
+        assert_eq!(publishes.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn selected_clear_accepts_200_identities_and_absent_ids_are_idempotent_without_publish() {
+        let directory = tempfile::tempdir().unwrap();
+        let publishes = Arc::new(AtomicU64::new(0));
+        let count = publishes.clone();
+        let owner = Owner::new(directory.path().join("rules.json"),
+            Arc::new(move || { count.fetch_add(1, Ordering::SeqCst); }), Arc::new(|_, _| Ok(())));
+        owner.test_alert().unwrap();
+        let ids: Vec<String> = (0..200).map(|_| uuid::Uuid::new_v4().to_string()).collect();
+        {
+            let mut state = owner.state.lock().unwrap();
+            let template = state.entries[0].clone();
+            state.entries = ids.iter().map(|id| Entry { id:id.clone(), ..template.clone() }).collect();
+        }
+        let before = owner.snapshot().unwrap();
+        let epoch = before["epoch"].as_str().unwrap();
+        let after = owner.clear_selected(epoch, &ids).unwrap();
+        assert_eq!(after["entries"], json!([]));
+        assert_eq!(after["revision"].as_u64().unwrap(), before["revision"].as_u64().unwrap() + 1);
+        assert_eq!(publishes.load(Ordering::SeqCst), 2);
+        assert_eq!(owner.clear_selected(epoch, &ids).unwrap(), after);
+        assert_eq!(owner.clear_selected(epoch, &[uuid::Uuid::new_v4().to_string()]).unwrap(), after);
+        assert_eq!(publishes.load(Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn selected_clear_preserves_unselected_arrivals_rules_baselines_seen_reports_and_delivery_limits() {
+        let directory = tempfile::tempdir().unwrap();
+        let deliveries = Arc::new(AtomicU64::new(0));
+        let count = deliveries.clone();
+        let path = directory.path().join("rules.json");
+        let owner = Owner::new(path.clone(), Arc::new(|| {}),
+            Arc::new(move |_, _| { count.fetch_add(1, Ordering::SeqCst); Ok(()) }));
+        let initial = owner.snapshot().unwrap();
+        let mut watch = rule("watch", "Watch", &[]);
+        watch.sources = vec!["cluster".into(), "wsjtx".into()];
+        watch.modes = vec!["data".into()];
+        let mut settings = editable(true, vec![watch]);
+        settings["nativePopup"] = json!(true);
+        owner.save(initial["configuration"]["generation"].as_str().unwrap(), 0, settings).unwrap();
+        owner.observe(&projection(1, vec![])).unwrap();
+        owner.observe_activity(&activity(1, vec![])).unwrap();
+        let reports: Vec<Value> = (0..4).map(|index| spot(&format!("cluster-{index}"), &format!("NEW{index}"), "ATNO")).collect();
+        owner.observe(&projection(2, reports.clone())).unwrap();
+        let displayed = owner.snapshot().unwrap();
+        let selected = displayed["entries"][0]["id"].as_str().unwrap().to_string();
+        let cq_report = cq("cq-new", "K1CQ", now_ms());
+        owner.observe_activity(&activity(2, vec![cq_report.clone()])).unwrap();
+        let before = owner.snapshot().unwrap();
+        let rules_bytes = std::fs::read(&path).unwrap();
+        let internal_before = {
+            let state = owner.state.lock().unwrap();
+            (state.seen.clone(), state.seen_order.clone(), state.activity.seen.clone(),
+                state.activity.order.clone(), state.baseline_next, state.delivery_times.clone())
+        };
+        assert_eq!(deliveries.load(Ordering::SeqCst), 3);
+        assert_eq!(before["delivery"]["suppressed"], 2);
+        let expected_entries: Vec<Value> = before["entries"].as_array().unwrap().iter()
+            .filter(|entry| entry["id"].as_str() != Some(selected.as_str())).cloned().collect();
+        let after = owner.clear_selected(before["epoch"].as_str().unwrap(), &[selected]).unwrap();
+        assert_eq!(after["entries"], json!(expected_entries));
+        for field in ["epoch", "configuration", "storageError", "source", "activitySource", "delivery", "limits"] {
+            assert_eq!(after[field], before[field], "clearing must preserve {field}");
+        }
+        {
+            let state = owner.state.lock().unwrap();
+            let internal_after = (state.seen.clone(), state.seen_order.clone(), state.activity.seen.clone(),
+                state.activity.order.clone(), state.baseline_next, state.delivery_times.clone());
+            assert_eq!(internal_after, internal_before);
+        }
+        assert_eq!(std::fs::read(&path).unwrap(), rules_bytes);
+        assert_eq!(deliveries.load(Ordering::SeqCst), 3);
+        owner.observe(&projection(3, reports)).unwrap();
+        owner.observe_activity(&activity(3, vec![cq_report])).unwrap();
+        assert_eq!(owner.snapshot().unwrap()["entries"], after["entries"], "cleared retained reports must not replay");
+        assert_eq!(deliveries.load(Ordering::SeqCst), 3);
+        owner.observe(&projection(4, vec![spot("after-clear", "AFTER1", "ATNO")])).unwrap();
+        assert_eq!(owner.snapshot().unwrap()["entries"].as_array().unwrap().len(), expected_entries.len() + 1);
+        assert_eq!(owner.snapshot().unwrap()["delivery"]["suppressed"], 3);
+        assert_eq!(deliveries.load(Ordering::SeqCst), 3, "clearing must not reset the delivery limit");
     }
 
     #[test]

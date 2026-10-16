@@ -96,7 +96,7 @@ const historyEntry = (number: number, callsign: string, frequencyKHz: number, co
   band:"20m", mode:"CW", comment:"", callStatus:"New Call", dxccStatus:"ATNO", specialTags:[], ruleNames:["New DXCC"], count, firstSeenMs:1, lastSeenMs,
 });
 function expectHistoryOrder(calls: string[]) {
-  expect(screen.getAllByRole("row").slice(1).map(row => row.querySelector("td")?.textContent)).toEqual(calls);
+  expect(screen.getAllByRole("row").slice(1).map(row => row.querySelector(".dx-call")?.textContent)).toEqual(calls);
   expect(Array.from(screen.getByLabelText("DX alert history").querySelectorAll("article header strong")).map(node => node.textContent)).toEqual(calls);
 }
 it.each([
@@ -142,4 +142,95 @@ it("retains the selected ordering across repeat updates, expiry and empty histor
   expect((screen.getByLabelText("Sort alerts") as HTMLSelectElement).value).toBe("reports");
   expect((screen.getByLabelText("Comment contains") as HTMLInputElement).value).toBe("POTA");
   expect(native.invoke.mock.calls.every(([command]) => ["alerts_snapshot", "dx_alerts_snapshot"].includes(command))).toBe(true);
+});
+
+it("selects by UUID across table/cards, sorting and repeat updates, then clears only selected rows without discarding drafts", async () => {
+  const first = historyEntry(4,"OM0RX",14020,2,100), second = historyEntry(5,"OM0RX",7020,1,200), incoming = historyEntry(6,"ZL1AA",28020,1,300);
+  let value = { ...dxFrame(), entries:[first, second] };
+  native.invoke.mockImplementation(async (command, args) => {
+    if (command === "alerts_snapshot") return frame();
+    if (command === "dx_alerts_clear_selected") {
+      value = { ...value, revision:value.revision + 1, entries:value.entries.filter(entry => !args.ids.includes(entry.id)) };
+    }
+    return value;
+  });
+  render(<DetachedAlertsSurface />); await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  expect((screen.getByRole("button", { name:"Clear selected (0)" }) as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.change(screen.getByLabelText("Comment contains"), { target:{ value:"POTA" } });
+  const selection = () => screen.getAllByRole("checkbox", { name:"Select alert OM0RX, 14020.0 kHz, CW" }) as HTMLInputElement[];
+  fireEvent.click(selection()[0]);
+  expect(selection().map(input => input.checked)).toEqual([true, true]);
+  fireEvent.change(screen.getByLabelText("Sort alerts"), { target:{ value:"frequency" } });
+  value = { ...value, revision:2, entries:[{ ...first, count:3, lastSeenMs:400 }, second, incoming] };
+  await act(async () => { wakes["xlog:dx-alerts"](); await vi.advanceTimersByTimeAsync(0); });
+  expect(selection().map(input => input.checked)).toEqual([true, true]);
+  native.invoke.mockClear();
+  fireEvent.click(screen.getByRole("button", { name:"Clear selected (1)" }));
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  expect(native.invoke).toHaveBeenCalledExactlyOnceWith("dx_alerts_clear_selected", { expectedEpoch:value.epoch, ids:[first.id] });
+  expectHistoryOrder(["OM0RX", "ZL1AA"]);
+  expect(screen.queryByRole("checkbox", { name:"Select alert OM0RX, 14020.0 kHz, CW" })).toBeNull();
+  expect((screen.getByLabelText("Comment contains") as HTMLInputElement).value).toBe("POTA");
+  expect((screen.getByRole("button", { name:"Clear selected (0)" }) as HTMLButtonElement).disabled).toBe(true);
+});
+
+it("prunes expired selections, resets selection on owner change and lets compact cards deselect a row", async () => {
+  const entry = historyEntry(4,"OM0RX",14020,1,100);
+  let value = { ...dxFrame(), entries:[entry] };
+  native.invoke.mockImplementation(async command => command === "alerts_snapshot" ? frame() : value);
+  render(<DetachedAlertsSurface />); await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  const selection = () => screen.getAllByRole("checkbox", { name:/Select alert OM0RX/ }) as HTMLInputElement[];
+  fireEvent.click(selection()[1]); expect(selection().map(input => input.checked)).toEqual([true, true]);
+  fireEvent.click(selection()[1]); expect(selection().map(input => input.checked)).toEqual([false, false]);
+  fireEvent.click(selection()[0]);
+  value = { ...value, revision:2, entries:[] };
+  await act(async () => { wakes["xlog:dx-alerts"](); await vi.advanceTimersByTimeAsync(0); });
+  expect((screen.getByRole("button", { name:"Clear selected (0)" }) as HTMLButtonElement).disabled).toBe(true);
+  value = { ...value, revision:3, entries:[entry] };
+  await act(async () => { wakes["xlog:dx-alerts"](); await vi.advanceTimersByTimeAsync(0); });
+  expect(selection().map(input => input.checked)).toEqual([false, false]);
+  fireEvent.click(selection()[0]);
+  value = { ...value, epoch:"00000000-0000-4000-8000-000000000009", revision:1 };
+  await act(async () => { wakes["xlog:dx-alerts"](); await vi.advanceTimersByTimeAsync(0); });
+  expect(selection().map(input => input.checked)).toEqual([false, false]);
+  expect(native.invoke.mock.calls.every(([command]) => ["alerts_snapshot", "dx_alerts_snapshot"].includes(command))).toBe(true);
+});
+
+it("keeps selection and draft on a rejected clear, while Clear all remains explicit and preserves drafts", async () => {
+  const entry = historyEntry(4,"OM0RX",14020,1,100);
+  let value = { ...dxFrame(), entries:[entry] };
+  native.invoke.mockImplementation(async command => {
+    if (command === "alerts_snapshot") return frame();
+    if (command === "dx_alerts_clear_selected") throw Error("DX alert owner changed. Review the current alerts before clearing.");
+    if (command === "dx_alerts_clear") value = { ...value, revision:2, entries:[] };
+    return value;
+  });
+  render(<DetachedAlertsSurface />); await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  fireEvent.change(screen.getByLabelText("Comment contains"), { target:{ value:"POTA" } });
+  fireEvent.click(screen.getAllByRole("checkbox", { name:/Select alert OM0RX/ })[0]);
+  fireEvent.click(screen.getByRole("button", { name:"Clear selected (1)" }));
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  expect(screen.getByRole("alert").textContent).toContain("owner changed");
+  expect((screen.getAllByRole("checkbox", { name:/Select alert OM0RX/ })[0] as HTMLInputElement).checked).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name:"Clear all" }));
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  expect(native.invoke).toHaveBeenCalledWith("dx_alerts_clear");
+  expect(screen.getByText(/No DX alerts yet/)).toBeTruthy();
+  expect((screen.getByLabelText("Comment contains") as HTMLInputElement).value).toBe("POTA");
+});
+
+it.each([false, true])("does not restore rows or selection from a delayed action after a native wake (owner changed: %s)", async changedOwner => {
+  const entry = historyEntry(4,"OM0RX",14020,1,100);
+  let value = { ...dxFrame(), entries:[entry] };
+  let finish: (value: unknown) => void = () => {};
+  native.invoke.mockImplementation(async command => command === "alerts_snapshot" ? frame() : command === "dx_alerts_clear_selected" ? new Promise(resolve => { finish = resolve; }) : value);
+  render(<DetachedAlertsSurface />); await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  fireEvent.click(screen.getAllByRole("checkbox", { name:/Select alert OM0RX/ })[0]);
+  fireEvent.click(screen.getByRole("button", { name:"Clear selected (1)" }));
+  const delayed = { ...value, revision:2 };
+  value = { ...value, epoch:changedOwner ? "00000000-0000-4000-8000-000000000009" : value.epoch, revision:3, entries:[] };
+  await act(async () => { wakes["xlog:dx-alerts"](); await vi.advanceTimersByTimeAsync(0); });
+  await act(async () => { finish(delayed); await vi.advanceTimersByTimeAsync(0); });
+  expect(screen.getByText(/No DX alerts yet/)).toBeTruthy();
+  expect((screen.getByRole("button", { name:"Clear selected (0)" }) as HTMLButtonElement).disabled).toBe(true);
 });

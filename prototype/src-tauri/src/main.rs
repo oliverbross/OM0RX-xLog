@@ -784,6 +784,13 @@ fn dx_alerts_clear(window: tauri::WebviewWindow, state: tauri::State<'_, accepta
 }
 
 #[tauri::command]
+fn dx_alerts_clear_selected(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, expected_epoch: String,
+    ids: Vec<String>) -> Result<serde_json::Value, String> {
+    dx_alerts::validate(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
+    dx_alerts::existing().ok_or("DX alerts are unavailable.")?.clear_selected(&expected_epoch, &ids)
+}
+
+#[tauri::command]
 fn antenna_snapshot(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>) -> Result<serde_json::Value, String> {
     station_identity::validate_antenna(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
     station_identity::antenna_snapshot()
@@ -1644,7 +1651,7 @@ fn main() {
             operator_draft_follow_snapshot, operator_draft_follow_set, operator_draft_follow_settled,
             auto_rotor_snapshot, auto_rotor_set,
             workspace_windows_status, workspace_windows_reconcile, workspace_mode_present, workspace_canvas_close_ack,
-            workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot, connection_doctor_snapshot, connection_doctor_export, propagation_session_request, station_identity_snapshot, alerts_snapshot, dx_alerts_snapshot, dx_alerts_save, dx_alerts_test, dx_alerts_clear, antenna_snapshot,
+            workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot, connection_doctor_snapshot, connection_doctor_export, propagation_session_request, station_identity_snapshot, alerts_snapshot, dx_alerts_snapshot, dx_alerts_save, dx_alerts_test, dx_alerts_clear, dx_alerts_clear_selected, antenna_snapshot,
             detached_cluster_ready, cluster_session_selection, dock_detached_window, close_logbook_window, close_qso_window, close_main_window, close_cw_window, show_cw_desk, close_rotor_window, show_rotor_desk, close_station_status_window, show_station_status_desk, close_propagation_window, show_propagation_desk, close_station_identity_window, show_station_identity_desk, close_alerts_window, show_alerts_desk, close_antenna_window, show_antenna_desk,
             acceptance::acceptance_enabled, acceptance::acceptance_large_log, acceptance::acceptance_monitor,
             acceptance::acceptance_screen, acceptance::acceptance_desk_size,

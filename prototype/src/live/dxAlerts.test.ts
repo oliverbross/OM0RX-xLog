@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { expect, it, vi } from "vitest";
-import { checkedDxAlerts, connectDxAlerts } from "./dxAlerts";
+import { checkedDxAlerts, clearSelectedDxAlerts, connectDxAlerts } from "./dxAlerts";
+const native = vi.hoisted(() => ({ invoke:vi.fn() }));
+vi.mock("@tauri-apps/api/core", () => ({ invoke:native.invoke }));
 const frame = () => ({ epoch:"00000000-0000-4000-8000-000000000001", revision:1,
   configuration:{ generation:"00000000-0000-4000-8000-000000000002", revision:0, enabled:false, dedupSeconds:120, retentionMinutes:120, nativePopup:false, notificationSound:false,
     rules:[{ id:"new-dxcc", name:"New DXCC", enabled:true, callsignGlob:"*", commentContains:"", bands:[], modes:[], callStatuses:[], dxccStatuses:["ATNO"], specials:[] }] },
@@ -38,4 +40,12 @@ it("rejects malformed and oversized comment conditions at the native boundary", 
   }
   const value = frame(); value.configuration.rules[0].commentContains = " POTA ";
   expect(checkedDxAlerts(value).configuration.rules[0].commentContains).toBe(" POTA ");
+});
+it("clears exact selected identities with the displayed owner epoch and validates the response", async () => {
+  native.invoke.mockReset().mockResolvedValue(frame());
+  const ids = ["00000000-0000-4000-8000-000000000003"];
+  expect(await clearSelectedDxAlerts(frame(), ids)).toEqual(frame());
+  expect(native.invoke).toHaveBeenCalledExactlyOnceWith("dx_alerts_clear_selected", { expectedEpoch:frame().epoch, ids });
+  native.invoke.mockResolvedValue({ ...frame(), epoch:"bad" });
+  await expect(clearSelectedDxAlerts(frame(), ids)).rejects.toThrow("could not be verified");
 });
