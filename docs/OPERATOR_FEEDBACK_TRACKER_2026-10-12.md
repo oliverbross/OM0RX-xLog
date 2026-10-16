@@ -7,7 +7,7 @@ packaged UI result. Keep unresolved items here across releases.
 
 ## Current delivery boundary
 
-Tracked implementation checkpoint: `3c6f26f`.
+Tracked implementation checkpoint: `27354a3`.
 Source/test/browser results do not establish packaged/native, live-provider or hardware
 acceptance. The installed alpha.32 package is the separately accepted source `e270ab5`;
 later source commits are not claimed to be inside that bundle.
@@ -27,7 +27,15 @@ later source commits are not claimed to be inside that bundle.
   `RX_BIN_ENABLE` and `RX_NR_ENABLE` observation with no encoder, setter, capability,
   readiness, control or RF inference. `3c6f26f` adds a bounded, LoTW-specific confirmation
   report parser that preserves header/watermark evidence and never maps provider
-  confirmations through the paper-QSL importer. It performs no network or database action.
+  confirmations through the paper-QSL importer. `8a45a73` adds the fixed-origin GET plan,
+  strict response validation and a frozen station/generation/revision-fenced match/change
+  preview. It uses mode only to disambiguate otherwise matching contacts, treats minute-only
+  timestamps at minute precision, never inserts unmatched records and never downgrades a
+  prior confirmation. The combined LoTW parser/request/preview suite passes **25/25**; no
+  credentials were used and transport, database apply, outbox isolation and native UI remain
+  separate gates. `27354a3` adds bounded, persisted QLog-style Alerts table visibility with
+  Select/Call always present and compact cards retaining all evidence (**28/28** focused UI
+  plus TypeScript/Vite/window-bundle build). It changes no alert ownership or station action.
   These commits post-date installed alpha.32; package/native visual and live-provider
   acceptance remain open.
 
