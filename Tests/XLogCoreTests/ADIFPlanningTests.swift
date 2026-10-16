@@ -4,6 +4,30 @@ import Testing
 
 @Suite("Read-only ADIF review and export")
 struct ADIFPlanningTests {
+    @Test("Editor MFSK submodes export with their ADIF parent without rewriting local contacts", arguments: ["FT4", "FT2", "JTTY"])
+    func editorMFSKSubmodeExport(_ mode: String) throws {
+        let source = record(["MODE": mode, "SUBMODE": "", "APP_OTHER_DATA": "opaque é", "BAND_RX": "40m",
+                             "FREQ_RX": "7.025000", "STATION_CALLSIGN": "OM0RX", "OPERATOR": "K1ABC"])
+        let qso = try #require(QSO(adif: source))
+        let exported = qso.adifRecord
+        #expect(qso.mode == mode && qso.submode.isEmpty)
+        #expect(exported["MODE"] == "MFSK" && exported["SUBMODE"] == mode)
+        #expect(exported["APP_OTHER_DATA"] == "opaque é")
+        #expect(exported["BAND_RX"] == "40m" && exported["FREQ_RX"] == "7.025000")
+        #expect(exported["STATION_CALLSIGN"] == "OM0RX" && exported["OPERATOR"] == "K1ABC")
+        let parsed = try #require(ADIFParser().records(in: exported.adifDocument).first)
+        #expect(try #require(QSO(adif: parsed)).adifRecord == exported)
+        #expect(ADIFExportSnapshot(contacts: [qso], scope: .all).records == [exported])
+    }
+
+    @Test("Export preserves explicit submode and FT8's independent ADIF mode")
+    func explicitSubmodeExport() throws {
+        let explicit = try #require(QSO(adif: record(["MODE": "FT4", "SUBMODE": "Q65"])))
+        #expect(explicit.adifRecord["MODE"] == "MFSK" && explicit.adifRecord["SUBMODE"] == "Q65")
+        let ft8 = try #require(QSO(adif: record(["MODE": "FT8", "SUBMODE": ""])))
+        #expect(ft8.adifRecord["MODE"] == "FT8" && ft8.adifRecord["SUBMODE"] == nil)
+    }
+
     @Test("Compatibility reader respects UTF-8 lengths and embedded terminators")
     func compatibilityReaderByteLengths() throws {
         let first = record(["COMMENT": "Žilina <EOR> <EOH> 😀", "APP_OTHER_DATA": "éß",

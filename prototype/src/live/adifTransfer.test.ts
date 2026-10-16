@@ -78,6 +78,20 @@ it.each(["<?xml version='1.0'?><ADX/>", "<ADX/>"])("rejects incomplete ADX %s", 
 const decode = (text: string) => decodeADIF(new TextEncoder().encode(text).buffer);
 const adx = (fields: string, header = "<ADIF_VER>3.1.7</ADIF_VER>") => `<ADX><HEADER>${header}</HEADER><RECORDS><RECORD>${fields}</RECORD></RECORDS></ADX>`;
 
+it.each(["SKCC-SKS", "SKCC-SKSA", "SKCC-SKSE", "SKCC-WES"])("preserves ADIF 3.1.8 JTTY, contest %s, region and station/RX fields through ADX", contest => {
+  // Released 2026-10-12: https://adif.org.uk/318/ADIF_318.htm
+  const fields = `<CALL>W1AW</CALL><MODE>MFSK</MODE><SUBMODE>JTTY</SUBMODE><CONTEST_ID>${contest}</CONTEST_ID><REGION>ET</REGION>` +
+    '<STATION_CALLSIGN>OM0RX</STATION_CALLSIGN><OPERATOR>K1ABC</OPERATOR><BAND>20m</BAND><FREQ>14.025000</FREQ>' +
+    '<BAND_RX>40m</BAND_RX><FREQ_RX>7.025000</FREQ_RX><TX_PWR>100</TX_PWR><RX_PWR>50</RX_PWR>' +
+    '<COMMENT_INTL>Žilina 😀</COMMENT_INTL><APP PROGRAMID="OTHER" FIELDNAME="OPAQUE" TYPE="G">é &lt;EOR&gt;</APP>';
+  const imported = decodeADIFDocument(new TextEncoder().encode(adx(fields, "<ADIF_VER>3.1.8</ADIF_VER>")).buffer);
+  const writer = new ADIFExportDocument("adx");
+  writer.append(imported.text, 1, imported.fieldMetadata);
+  expect(decodeADIFDocument(new TextEncoder().encode(writer.finish()).buffer)).toEqual(imported);
+  expect(imported.text).toContain("<SUBMODE:4>JTTY");
+  expect(imported.text).toContain(`<CONTEST_ID:${contest.length}>${contest}`);
+});
+
 it("accepts generic-schema ADX header scalar values", () => {
   const header = "<ADIF_VER>3.1.7</ADIF_VER><CREATED_TIMESTAMP>20261014 015959</CREATED_TIMESTAMP>" +
     "<PROGRAMID>OM0RX xLog</PROGRAMID><PROGRAMVERSION>0.4.0-alpha.24</PROGRAMVERSION>";
