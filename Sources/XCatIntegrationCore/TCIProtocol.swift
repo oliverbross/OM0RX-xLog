@@ -758,6 +758,17 @@ public struct TCIServerMonitorVolumeObservation: Equatable, Sendable {
     public let receivedAt: Date?
 }
 
+/// Passive global MON_ENABLE reply/broadcast (pinned TCI b081213f, page 23).
+/// Reports the monitoring-enable setting, not actual monitor audio/activity,
+/// streaming, readiness, control authority or tune/TX/RF state.
+public struct TCIServerMonitorEnableObservation: Equatable, Sendable {
+    public let isEnabled: Bool
+    /// Exact decoded boolean token, including ASCII letter case.
+    public let rawEnabledToken: String
+    /// Local producer receipt time; nil means no timed receipt was supplied.
+    public let receivedAt: Date?
+}
+
 public struct TCIProtocolState: Equatable, Sendable {
     public internal(set) var protocolAnnouncement: TCIProtocolAnnouncement?
     public internal(set) var device: String?
@@ -786,6 +797,7 @@ public struct TCIProtocolState: Equatable, Sendable {
     public internal(set) var receiverChannelVolumes: [TCIReceiverAddress: TCIReceiverChannelVolumeObservation] = [:]
     public internal(set) var receiverChannelBalances: [TCIReceiverAddress: TCIReceiverChannelBalanceObservation] = [:]
     public internal(set) var serverMonitorVolume: TCIServerMonitorVolumeObservation?
+    public internal(set) var serverMonitorEnable: TCIServerMonitorEnableObservation?
     public internal(set) var transceivers: [Int: TCITransceiverState] = [:]
     public internal(set) var unknownCommands: [TCICommand] = []
     public internal(set) var diagnostics: [TCIDiagnostic] = []
@@ -848,6 +860,7 @@ public struct TCIStateReducer: Sendable {
         case "RX_VOLUME": applyReceiverChannelVolume(command, receivedAt: receivedAt)
         case "RX_BALANCE": applyReceiverChannelBalance(command, receivedAt: receivedAt)
         case "MON_VOLUME": applyMonitorVolume(command, receivedAt: receivedAt)
+        case "MON_ENABLE": applyMonitorEnable(command, receivedAt: receivedAt)
         case "MODULATION": applyModulation(command)
         case "RX_FILTER_BAND": applyFilter(command)
         case "SPLIT_ENABLE": applyBooleanState(command, keyPath: \.splitEnabled)
@@ -997,6 +1010,16 @@ public struct TCIStateReducer: Sendable {
         // tuning and must not constrain this independent global notification.
         state.serverTransmitFrequency = TCIServerTransmitFrequencyObservation(
             frequencyHz: frequency, receivedAt: receivedAt
+        )
+    }
+
+    private mutating func applyMonitorEnable(_ command: TCICommand, receivedAt: Date?) {
+        guard command.arguments.count == 1,
+              command.arguments[0].utf8.count <= limits.maximumArgumentBytes,
+              let enabled = TCIValueParser.boolean(command.arguments[0])
+        else { return reject(command) }
+        state.serverMonitorEnable = TCIServerMonitorEnableObservation(
+            isEnabled: enabled, rawEnabledToken: command.arguments[0], receivedAt: receivedAt
         )
     }
 

@@ -7,6 +7,61 @@ import XCTest
 final class TCIProtocolTests: XCTestCase {
     private let address = TCIReceiverAddress(trx: 0, channel: 0)
 
+    func testMonitorEnableRetainsGlobalBooleanExactTokenAndCompletedNotificationReceiptOnly() {
+        var decoder = TCITextDecoder(), reducer = TCIStateReducer()
+        let first = Date(timeIntervalSince1970: 100), completed = first.addingTimeInterval(5)
+        reducer.apply(decoder.feed("mon_ena"), receivedAt: first)
+        XCTAssertNil(reducer.state.serverMonitorEnable)
+        reducer.apply(decoder.feed("ble:TrUe;"), receivedAt: completed)
+        XCTAssertEqual(reducer.state.serverMonitorEnable?.isEnabled, true)
+        XCTAssertEqual(reducer.state.serverMonitorEnable?.rawEnabledToken, "TrUe")
+        XCTAssertEqual(reducer.state.serverMonitorEnable?.receivedAt, completed)
+        XCTAssertNil(reducer.state.serverMonitorVolume)
+        XCTAssertNil(reducer.state.serverMainMute)
+        XCTAssertTrue(reducer.state.transceivers.isEmpty)
+        XCTAssertTrue(reducer.state.frequencies.isEmpty)
+        XCTAssertTrue(reducer.state.unknownCommands.isEmpty)
+        XCTAssertFalse(reducer.state.ready)
+        XCTAssertNil(reducer.authoritativeSnapshot(for: address))
+    }
+
+    func testMonitorEnableRejectsQueryIndexedMalformedAndOverPolicyTokensWithoutReplacingReceipt() {
+        var reducer = TCIStateReducer()
+        let receipt = Date(timeIntervalSince1970: 100)
+        XCTAssertTrue(reducer.apply(TCICommand(name: "MON_ENABLE", arguments: ["false"]), receivedAt: receipt))
+        let retained = reducer.state.serverMonitorEnable
+        for arguments in [[], [""], ["0"], ["1"], ["yes"], ["NaN"], ["0", "true"], ["0", "1", "false"], ["trüe"], ["true "]] {
+            XCTAssertFalse(reducer.apply(TCICommand(name: "MON_ENABLE", arguments: arguments), receivedAt: receipt.addingTimeInterval(10)))
+            XCTAssertEqual(reducer.state.serverMonitorEnable, retained)
+        }
+        var bounded = TCIStateReducer(limits: .init(maximumArgumentBytes: 3))
+        XCTAssertFalse(bounded.apply(TCICommand(name: "MON_ENABLE", arguments: ["true"])))
+        XCTAssertNil(bounded.state.serverMonitorEnable)
+    }
+
+    func testMonitorEnableReceiptIsIndependentOfDiscoveryMonitorVolumeMuteAndRadioStateAndResets() {
+        var decoder = TCITextDecoder(), reducer = TCIStateReducer()
+        let first = Date(timeIntervalSince1970: 100), second = first.addingTimeInterval(10)
+        reducer.apply(decoder.feed("MON_ENABLE:true;MON_VOLUME:-12;VOLUME:-6;MUTE:false;TRX:0,false;TUNE:0,false;VFO:0,0,14025000;"), receivedAt: first)
+        let monitor = reducer.state.serverMonitorVolume, global = reducer.state.serverMainVolume, mute = reducer.state.serverMainMute
+        let radios = reducer.state.transceivers, frequencies = reducer.state.frequencies
+        reducer.apply(decoder.feed("TRX_COUNT:1;CHANNEL_COUNT:1;APP_FOCUS:true;"), receivedAt: second)
+        XCTAssertEqual(reducer.state.serverMonitorEnable?.receivedAt, first)
+        reducer.apply(decoder.feed("MON_ENABLE:true;"), receivedAt: second)
+        XCTAssertEqual(reducer.state.serverMonitorEnable?.receivedAt, second)
+        reducer.apply(decoder.feed("MON_ENABLE:FaLsE;"))
+        XCTAssertEqual(reducer.state.serverMonitorEnable?.isEnabled, false)
+        XCTAssertEqual(reducer.state.serverMonitorEnable?.rawEnabledToken, "FaLsE")
+        XCTAssertNil(reducer.state.serverMonitorEnable?.receivedAt)
+        XCTAssertEqual(reducer.state.serverMonitorVolume, monitor)
+        XCTAssertEqual(reducer.state.serverMainVolume, global)
+        XCTAssertEqual(reducer.state.serverMainMute, mute)
+        XCTAssertEqual(reducer.state.transceivers, radios)
+        XCTAssertEqual(reducer.state.frequencies, frequencies)
+        reducer = TCIStateReducer()
+        XCTAssertNil(reducer.state.serverMonitorEnable)
+    }
+
     func testMonitorVolumeRetainsGlobalRawDBAndCompletedNotificationReceiptWithoutRadioIdentity() {
         var decoder = TCITextDecoder(), reducer = TCIStateReducer()
         let first = Date(timeIntervalSince1970: 100), completed = first.addingTimeInterval(5)
