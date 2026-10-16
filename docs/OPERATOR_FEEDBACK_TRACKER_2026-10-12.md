@@ -7,7 +7,7 @@ packaged UI result. Keep unresolved items here across releases.
 
 ## Current delivery boundary
 
-Tracked implementation checkpoint: `27354a3`.
+Tracked implementation checkpoint: `3c8990c`.
 Source/test/browser results do not establish packaged/native, live-provider or hardware
 acceptance. The installed alpha.32 package is the separately accepted source `e270ab5`;
 later source commits are not claimed to be inside that bundle.
@@ -17,6 +17,15 @@ later source commits are not claimed to be inside that bundle.
   passes and notarization remains explicitly absent. Alpha.31 plus cloned application
   support are retained recoverably. See
   [macOS alpha.32 acceptance](MACOS_ALPHA32_RELEASE_ACCEPTANCE_2026-10-16.md).
+- **Callsign and contact readability, 16 October — pushed source only:** `3c8990c`
+  enlarges all five Callsign Intelligence fact labels and values, applies the shared
+  Logbook/spot palette to the detached Previous QSOs table, and prevents the QSL status
+  column from clipping at narrow widths. It also suppresses only the two routine,
+  transient spot-activation notices while preserving actionable draft locks and genuine
+  tune failures. Focused frontend tests pass **42/42**, the production TypeScript/Vite
+  build and window-bundle graph pass, and synthetic 360-pixel/630-pixel checks show no
+  horizontal overflow. Exact packaged/native acceptance remains open; installed alpha.32
+  does not contain these changes.
 - **RUMlog-first / QLog-second continuation, 16 October — pushed source only:**
   `544b763` adds persistent, keyboard-accessible Logbook column ordering without changing
   contact selection or mutation; `82bcbee` applies the same retained-order contract to
