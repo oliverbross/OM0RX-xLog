@@ -1591,11 +1591,14 @@ fn main() {
         .manage(workspace_navigation::WorkspaceNavigation::default())
         .setup(|app| {
             acceptance::start_watchdog(app.handle().clone());
+            // Follow Radio starts disabled and its snapshot is passive. Install
+            // the owner for isolated acceptance as well so renderer reads do
+            // not fail merely because hardware/session startup is suppressed.
+            let activation = activation_owner(app.handle());
+            radio_follow::install(app.handle(), activation.editors.clone());
             if app.state::<acceptance::Acceptance>().path.is_none() {
-                let activation = activation_owner(app.handle());
                 qsy_clear::install(app.handle(), activation.editors.clone());
                 radio_read::install(app.handle(), activation.editors.clone());
-                radio_follow::install(app.handle(), activation.editors.clone());
                 station_identity::install(app.handle());
                 rotor_session::install(app.handle()).map_err(std::io::Error::other)?;
                 let selection_app = app.handle().clone();
