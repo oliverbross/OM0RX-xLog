@@ -1,5 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
-import { Download, FileUp, Pencil, RotateCcw, Search, Trash2, Triangle, ExternalLink, PanelsTopLeft } from "lucide-react";
+import { Download, FileUp, Pencil, RotateCcw, Search, Trash2, Triangle, ExternalLink, PanelsTopLeft, ClipboardList } from "lucide-react";
 import "./logbook.css";
 import type { LogbookMutationSession } from "./logbookMutationSession";
 import type { DraftSnapshot } from "./operatorDraftSession";
@@ -9,6 +9,7 @@ import { logbookColumns, type LogbookColumn, type LogbookColumnContext } from ".
 import { adifImportBatches, decodeADIFDocument, ADIFExportDocument, type ADIFExportFormat, type ADIFImportEncoding, type ADIFFieldMetadata } from "./adifTransfer";
 import { LogbookSavedFilters } from "./LogbookSavedFilters";
 import { CTYCorrectionPreview } from "./CTYCorrectionPreview";
+import { OnlineLogFollowUpPanel } from "./OnlineLogFollowUp";
 
 type QSO = Record<string, unknown> & {
   id: string;
@@ -100,6 +101,8 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
   const [columnsOpen, setColumnsOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [ctyPreviewOpen, setCTYPreviewOpen] = useState(false);
+  const [followUpOpen, setFollowUpOpen] = useState(false);
+  const [followUpEntryID, setFollowUpEntryID] = useState<string | null>(null);
   const columnsID = useId();
   const columnsButton = useRef<HTMLButtonElement>(null);
   const resolvedColumnContext = columnContext ?? (onDock ? "detached" : "docked");
@@ -424,6 +427,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
       {columnsOpen && <LogbookColumns id={columnsID} preferences={columnPreferences} onChange={setColumnPreferences} context={resolvedColumnContext}
         onDone={() => { setColumnsOpen(false); columnsButton.current?.focus(); }} />}
       {ctyPreviewOpen && <CTYCorrectionPreview onRequest={onRequest} refreshKey={refreshKey} />}
+      {followUpOpen && selected && <OnlineLogFollowUpPanel key={selected.id} contactID={selected.id} call={selected.call} onRequest={onRequest} refreshKey={refreshKey} onClose={() => setFollowUpOpen(false)} />}
       {filtersOpen && <LogbookSavedFilters onRequest={onRequest} currentQuery={query} disabled={busy}
         onApply={value => { cancelDelete(); setQuery(value); setOffset(0); setSearch(value); }} />}
       {error && <p className="live-logbook-feedback error" role="alert">{error}</p>}
@@ -473,6 +477,8 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
             width={columnPreferences.widths[id]} onWidth={resizeColumn} />)}</tr></thead>
           <tbody>
             {rows.map((qso, index) => <tr key={qso.id} tabIndex={0} aria-selected={selectedID === qso.id}
+              onMouseEnter={() => setFollowUpEntryID(qso.id)} onMouseLeave={() => setFollowUpEntryID(null)}
+              onFocus={() => setFollowUpEntryID(qso.id)} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFollowUpEntryID(null); }}
               onClick={() => { cancelDelete(); setSelectedID(qso.id); if (!busy && !loading) onEdit(qso); }}
               onKeyDown={event => {
                 if (event.target !== event.currentTarget) return;
@@ -498,7 +504,9 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
               <td hidden={hidden("country")} data-label="Country" title={[qso.country, qso.name].filter(Boolean).join(" · ") || undefined}>{qso.country || "—"}</td>
               <td hidden={hidden("qsl")} data-label="QSL"><ConfirmationStatus service="QSL" sent={qso.qslSent} received={qso.qslReceived} /></td>
               <td hidden={hidden("lotw")} data-label="LoTW"><ConfirmationStatus service="LoTW" sent={qso.lotwSent} received={qso.lotwReceived} /></td>
-              <td hidden={hidden("clublog")} data-label="Club Log"><ConfirmationStatus service="Club Log" sent={qso.extraFields?.CLUBLOG_QSO_UPLOAD_STATUS} supportsReceived={false} /></td>
+              <td hidden={hidden("clublog")} data-label="Club Log"><ConfirmationStatus service="Club Log" sent={qso.extraFields?.CLUBLOG_QSO_UPLOAD_STATUS} supportsReceived={false} />
+                {!compact && followUpEntryID === qso.id && <button type="button" className="logbook-follow-up-open" title="Inspect retained upload and confirmation status"
+                  aria-label={`Inspect upload follow-up for ${qso.call}`} onClick={event => { event.stopPropagation(); setSelectedID(qso.id); setFollowUpOpen(true); }}><ClipboardList size={13} /></button>}</td>
               <td hidden={hidden("comment")} data-label="Comment" className="live-logbook-comment" title={qso.comment || undefined}>{qso.comment || "—"}</td>
             </tr>)}
           </tbody>

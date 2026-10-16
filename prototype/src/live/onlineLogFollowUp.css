@@ -1,0 +1,11 @@
+.online-log-follow-up { flex: 0 0 auto; max-height: 48vh; overflow: auto; padding: 12px; border-block: 1px solid var(--border, #41464f); font-size: 12px; overflow-wrap: anywhere; }
+.online-log-follow-up header { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; }
+.online-log-follow-up h3, .online-log-follow-up h4, .online-log-follow-up h5 { margin: 0 0 6px; }
+.online-log-follow-up p { margin: 7px 0; }
+.follow-up-providers, .follow-up-confirmations { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 12px; margin-block: 12px; }
+.online-log-follow-up article { min-width: 0; border-inline-start: 2px solid var(--border, #41464f); padding-inline-start: 10px; }
+.online-log-follow-up dl { margin: 0; }
+.online-log-follow-up dl > div { display: grid; grid-template-columns: minmax(80px, 1fr) minmax(0, 2fr); gap: 8px; padding-block: 3px; }
+.online-log-follow-up dd { margin: 0; }
+.online-log-follow-up dt { color: var(--muted, #abb1bc); }
+.live-logbook-table .logbook-follow-up-open { padding: 1px 3px; margin-inline-start: 4px; vertical-align: middle; }

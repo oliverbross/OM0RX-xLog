@@ -437,6 +437,33 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
+    /// One bounded local read. Historical delivery remains visible after an edit,
+    /// without preparing a new upload or claiming an enrolled outbox item.
+    public func onlineLogFollowUp(contactID: UUID, now: Date = Date()) throws -> OnlineLogFollowUp? {
+        try withDatabaseLock {
+            guard let contact = try contactSnapshot(localID: contactID) else { return nil }
+            var receipts: [OnlineLogDeliveryReceipt] = []
+            for service in OnlineLogService.allCases {
+                let revision: Int64? = try withStatement("""
+                    SELECT contact_revision FROM xlog_online_log_deliveries
+                    WHERE service=? AND local_id=? AND contact_revision<=?
+                    ORDER BY contact_revision DESC LIMIT 1;
+                    """) { statement in
+                        bind(service.rawValue, to: 1, in: statement)
+                        bind(contactID.uuidString, to: 2, in: statement)
+                        sqlite3_bind_int64(statement, 3, contact.revision)
+                        let step = sqlite3_step(statement)
+                        if step == SQLITE_DONE { return nil }
+                        guard step == SQLITE_ROW else { throw error() }
+                        return sqlite3_column_int64(statement, 0)
+                    }
+                if let revision, let receipt = try onlineLogDeliveryReceipt(service: service,
+                    contactID: contactID, contactRevision: revision) { receipts.append(receipt) }
+            }
+            return OnlineLogFollowUp(contact: contact, receipts: receipts, now: now)
+        }
+    }
+
     public func prepareOnlineLogDelivery(service: OnlineLogService, contactID: UUID) throws -> OnlineLogDeliveryPlan {
         try withDatabaseLock {
             guard let contact = try contactSnapshot(localID: contactID), contact.qso.deletedAt == nil else {

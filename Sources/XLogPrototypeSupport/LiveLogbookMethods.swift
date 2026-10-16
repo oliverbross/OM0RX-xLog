@@ -667,6 +667,29 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                 let generation = try editGeneration()
                 let contact = try readyDatabase().contactSnapshot(localID: id)
                 return ["contact": try contact.map { try scopedSnapshot($0, generation: generation) } ?? NSNull(), "generation": generation]
+            case "logbook_follow_up":
+                try requireKeys(params, allowed: ["contactID", "generation"], required: ["contactID", "generation"])
+                guard let text = params["contactID"] as? String, let id = UUID(uuidString: text) else { throw invalid() }
+                let generation = try editGeneration()
+                if try !matchesEditGeneration(params, generation) { return ["status": "workspace_changed", "generation": generation] }
+                guard let followUp = try readyDatabase().onlineLogFollowUp(contactID: id) else {
+                    return ["follow_up": NSNull(), "generation": generation, "read_only": true]
+                }
+                let uploads: [[String: Any]] = followUp.uploads.map {
+                    ["service": $0.service.rawValue, "state": $0.state?.rawValue as Any? ?? NSNull(),
+                     "receipt_revision": $0.receiptRevision as Any? ?? NSNull(), "current_revision": $0.isCurrentRevision,
+                     "attempt_age_seconds": $0.attemptAgeSeconds as Any? ?? NSNull(),
+                     "last_attempt_at": $0.lastAttemptAt.map { ISO8601DateFormatter().string(from: $0) } as Any? ?? NSNull(),
+                     "acceptance_age_seconds": NSNull()]
+                }
+                let confirmations: [[String: Any]] = followUp.confirmations.map {
+                    ["source": $0.source.rawValue, "received_status": $0.receivedStatus,
+                     "received_date": $0.receivedDate as Any? ?? NSNull(), "match_age_seconds": NSNull()]
+                }
+                return ["generation": generation, "read_only": true, "follow_up": [
+                    "contact_id": followUp.contactID.uuidString, "contact_revision": followUp.contactRevision,
+                    "uploads": uploads, "confirmations": confirmations,
+                    "award_impact": followUp.awardImpact.rawValue, "sponsor_credit": NSNull()]]
             case "logbook_contact_receipt":
                 try requireKeys(params, allowed: ["operationID", "generation"], required: ["operationID", "generation"])
                 guard let text = params["operationID"] as? String, let id = UUID(uuidString: text) else { throw invalid() }

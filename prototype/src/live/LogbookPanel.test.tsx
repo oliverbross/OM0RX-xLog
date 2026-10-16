@@ -20,6 +20,31 @@ const second = {
 const page = (qsos: object[] = [first, second]) => ({ qsos, total: qsos.length, offset: 0, limit: 20 });
 afterEach(cleanup);
 
+describe("retained upload follow-up entry", () => {
+  it("opens from the row without editing or adding a toolbar action, and closing retires a pending read", async () => {
+    let finish!: (value: any) => void;
+    const generation = "00000000-0000-4000-8000-000000000002";
+    const request = vi.fn(async (method: string) => {
+      if (method === "logbook_list") return page();
+      if (method === "logbook_contact") return new Promise(resolve => { finish = resolve; });
+      throw new Error(`Unexpected method ${method}`);
+    });
+    const edit = vi.fn();
+    render(<LogbookPanel mutations={new LogbookMutationSession(request, () => {})} onRequest={request} onEdit={edit} refreshKey={0} taskToolbar columnContext="detached" />);
+    await screen.findByText("OM0RX");
+    expect(screen.queryByText(/^Upload follow-up$/)).toBeNull();
+    fireEvent.focus(screen.getByText("OM0RX").closest("tr")!);
+    fireEvent.click(screen.getByLabelText("Inspect upload follow-up for OM0RX"));
+    expect(edit).not.toHaveBeenCalled();
+    expect(request.mock.calls.map(([method]) => method)).toEqual(["logbook_list"]);
+    fireEvent.click(screen.getByText("Refresh retained status"));
+    fireEvent.click(screen.getByText("Close follow-up"));
+    await act(async () => finish({ generation, contact: { generation, qso: { id: first.id } } }));
+    expect(screen.queryByLabelText("Upload follow-up for OM0RX")).toBeNull();
+    expect(request.mock.calls.map(([method]) => method)).toEqual(["logbook_list", "logbook_contact"]);
+  });
+});
+
 describe("logbook confirmation visibility", () => {
   it("reuses UTC formatting across table rows and preserves invalid-date handling", () => {
     const constructor = vi.spyOn(Intl, "DateTimeFormat");

@@ -68,7 +68,7 @@ public final class LocalAcceptanceSession: @unchecked Sendable {
             "workspace_rotor_configuration_load", "workspace_rotor_configuration_receipt", "workspace_rotor_configuration_save",
             "logbook_save", "logbook_delete", "logbook_undo", "logbook_stats", "logbook_previous", "logbook_duplicate",
             "logbook_operator_draft", "logbook_operator_draft_apply", "logbook_operator_draft_receipt",
-            "logbook_contact", "logbook_contact_apply", "logbook_contact_receipt",
+            "logbook_contact", "logbook_contact_apply", "logbook_contact_receipt", "logbook_follow_up",
             "logbook_matrix", "logbook_import_adif", "logbook_export_adif",
             "backup_create", "backup_list", "backup_inspect", "backup_restore",
         ]
