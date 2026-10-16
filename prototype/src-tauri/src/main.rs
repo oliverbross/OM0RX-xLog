@@ -15,6 +15,7 @@ mod dx_alerts;
 mod propagation_session;
 mod map_context;
 mod monitor_context;
+mod connection_doctor;
 mod spot_identity;
 mod spot_editor_barrier;
 mod spot_activation;
@@ -680,6 +681,15 @@ async fn station_telemetry_snapshot(window: tauri::WebviewWindow, app: tauri::Ap
 #[tauri::command]
 fn station_status_snapshot(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>) -> Result<serde_json::Value, String> {
     monitor_context::status_read(window.label(), state.path.is_some(), monitor_context::status_snapshot)
+}
+
+#[tauri::command]
+fn connection_doctor_snapshot(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>) -> Result<serde_json::Value, String> {
+    connection_doctor::validate(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
+    let retained = monitor_context::status_snapshot()?;
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
+        .map_err(|_| "Connection Doctor clock is unavailable")?.as_secs_f64();
+    connection_doctor::snapshot(retained, now, worker::request_existing)
 }
 
 #[tauri::command]
@@ -1575,7 +1585,7 @@ fn main() {
             operator_draft_follow_snapshot, operator_draft_follow_set, operator_draft_follow_settled,
             auto_rotor_snapshot, auto_rotor_set,
             workspace_windows_status, workspace_windows_reconcile, workspace_mode_present, workspace_canvas_close_ack,
-            workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot, propagation_session_request, station_identity_snapshot, alerts_snapshot, dx_alerts_snapshot, dx_alerts_save, dx_alerts_test, dx_alerts_clear, antenna_snapshot,
+            workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot, connection_doctor_snapshot, propagation_session_request, station_identity_snapshot, alerts_snapshot, dx_alerts_snapshot, dx_alerts_save, dx_alerts_test, dx_alerts_clear, antenna_snapshot,
             detached_cluster_ready, cluster_session_selection, dock_detached_window, close_logbook_window, close_qso_window, close_main_window, close_cw_window, show_cw_desk, close_rotor_window, show_rotor_desk, close_station_status_window, show_station_status_desk, close_propagation_window, show_propagation_desk, close_station_identity_window, show_station_identity_desk, close_alerts_window, show_alerts_desk, close_antenna_window, show_antenna_desk,
             acceptance::acceptance_enabled, acceptance::acceptance_large_log, acceptance::acceptance_monitor,
             acceptance::acceptance_screen, acceptance::acceptance_desk_size,

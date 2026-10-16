@@ -22,6 +22,9 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     if matches!(request["method"].as_str(), Some("sync_run" | "sync_configure" | "sync_resolve" | "sync_retry")) {
         return Err("Use the shared generation-bound Sync mutation owner.".into());
     }
+    if request["method"] == "connection_doctor_project" {
+        return Err("Use the typed retained Connection Doctor projection.".into());
+    }
     if label == "cw" { return Err("CW can only use the typed shared CW session.".into()); }
     if label == "rotor" { return Err("Rotor can only read retained native rotor telemetry.".into()); }
     if label == "station-status" { return Err("Station Status can only read retained native station observations.".into()); }
@@ -209,6 +212,7 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "workspace_rotor_configuration_receipt",
         "workspace_rotor_configuration_save",
         "station_snapshot",
+        "connection_doctor_project",
         "station_power_selection",
         "station_radio",
         "station_capabilities",
@@ -866,6 +870,14 @@ mod tests {
             "station_snapshot", "station_configuration", "station_configuration_save", "station_power_selection", "station_connect", "station_disconnect", "station_reconnect",
             "station_tune", "station_action", "station_radio_control", "station_rotor_stop", "rotor_stop", "hamlib_snapshot", "hamlib_control", "winkeyer_snapshot", "sync_run", "health"] {
             assert!(validate_surface("station-status", &json!({"id":"status","method":method,"params":{}})).is_err(), "{method}");
+        }
+    }
+    #[test]
+    fn connection_doctor_projection_is_reserved_for_the_typed_native_adapter() {
+        let request = json!({"id":"doctor","method":"connection_doctor_project","params":{"snapshot":{},"now":1}});
+        assert!(validate_request(&request).is_ok());
+        for label in ["main", "monitor", "station-status", "connection-doctor", "settings"] {
+            assert!(validate_surface(label, &request).is_err(), "{label}");
         }
     }
     #[test]

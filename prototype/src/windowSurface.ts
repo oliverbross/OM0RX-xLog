@@ -10,6 +10,7 @@ export async function loadWindowSurface(search: string): Promise<ComponentType> 
   if (view === "station-identity") return (await import("./live/DetachedStationIdentitySurface")).DetachedStationIdentitySurface;
   if (view === "propagation") return (await import("./live/DetachedPropagationSurface")).DetachedPropagationSurface;
   if (view === "station-status") return (await import("./live/DetachedStationStatusSurface")).DetachedStationStatusSurface;
+  if (view === "connection-doctor") return (await import("./live/DetachedConnectionDoctorSurface")).DetachedConnectionDoctorSurface;
   if (view === "rotor") return (await import("./live/DetachedRotorSurface")).DetachedRotorSurface;
   if (view === "cw") return (await import("./live/DetachedCWSurface")).DetachedCWSurface;
   if (view === "station-control") return (await import("./live/DetachedStationControlSurface")).DetachedStationControlSurface;

@@ -3,10 +3,10 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { WorkspacePanelID } from "./workspaceLayoutSession";
 
-export const nativeWorkspaceWindowIDs = ["previous-qsos", "callsign-intelligence", "log-qso", "spot-history", "monitor", "world-map", "band-maps", "dx-cluster", "logbook", "awards", "settings", "chaser-dx", "station-control", "cw", "rotor", "station-status", "propagation", "station-identity", "alerts", "antenna"] as const satisfies readonly (WorkspacePanelID | "previous-qsos")[];
+export const nativeWorkspaceWindowIDs = ["previous-qsos", "callsign-intelligence", "log-qso", "spot-history", "monitor", "world-map", "band-maps", "dx-cluster", "logbook", "awards", "settings", "chaser-dx", "station-control", "cw", "rotor", "station-status", "connection-doctor", "propagation", "station-identity", "alerts", "antenna"] as const satisfies readonly (WorkspacePanelID | "previous-qsos" | "connection-doctor")[];
 export type NativeWorkspaceWindowID = typeof nativeWorkspaceWindowIDs[number];
 export type WorkspaceWindowsStatus = {
-  supported: (WorkspacePanelID | "previous-qsos")[];
+  supported: (WorkspacePanelID | "previous-qsos" | "connection-doctor")[];
   generation: string | null;
   revision: number | null;
   presetID: string | null;

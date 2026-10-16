@@ -421,7 +421,9 @@ public actor LiveWorker {
                 #endif
             } else {
                 #if os(macOS)
-                if method.hasPrefix("reference_") {
+                if method == LiveConnectionDoctorMethods.method {
+                    result = try LiveConnectionDoctorMethods.handle(params)
+                } else if method.hasPrefix("reference_") {
                     result = try await references.handle(method: method, params: params)
                 } else if method.hasPrefix("station_") {
                     result = try await LiveStationMethods.handle(method, params: params)

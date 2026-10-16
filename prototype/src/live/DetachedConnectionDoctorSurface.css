@@ -1,0 +1,26 @@
+.detached-connection-doctor-app main { gap: 16px; }
+.connection-doctor-summary { margin: 0; color: var(--text); font-weight: 700; }
+.connection-doctor-overview { padding-block: 12px; border-block: 1px solid var(--border); }
+.connection-doctor-overview dl { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 20px; margin: 0; }
+.connection-doctor-overview dl > div { min-width: 0; }
+.connection-doctor-overview dt { color: var(--secondary); font-size: 11px; font-weight: 700; text-transform: uppercase; }
+.connection-doctor-overview dd { margin: 4px 0 0; overflow-wrap: anywhere; text-transform: capitalize; }
+.detached-connection-doctor-app h2 { margin: 0 0 8px; font-size: 15px; }
+.connection-doctor-checks { display: grid; gap: 1px; margin: 0; padding: 0; list-style: none; background: var(--border); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.connection-doctor-checks li { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-width: 0; padding: 10px 12px; background: var(--panel); }
+.connection-doctor-checks li > div { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
+.connection-doctor-checks span { color: var(--secondary); overflow-wrap: anywhere; }
+.connection-doctor-checks b { flex: none; font-size: 12px; }
+.connection-doctor-checks .is-passed b { color: var(--green); }
+.connection-doctor-checks .is-attention b { color: var(--orange); }
+.connection-doctor-checks .is-unknown b { color: var(--secondary); }
+.connection-doctor-capabilities { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.connection-doctor-capabilities li { padding: 5px 9px; border: 1px solid var(--border); border-radius: 6px; color: var(--cyan); }
+.connection-doctor-boundary { max-width: 72ch; margin: auto 0 0; }
+@media (max-width: 620px) {
+  .connection-doctor-overview dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 380px) {
+  .connection-doctor-overview dl { grid-template-columns: minmax(0, 1fr); }
+  .connection-doctor-checks li { align-items: flex-start; }
+}

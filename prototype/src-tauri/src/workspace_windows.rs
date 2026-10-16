@@ -9,7 +9,7 @@ pub struct WindowSpec {
     pub width: f64,
     pub height: f64,
 }
-pub const SUPPORTED_WINDOWS: [WindowSpec; 20] = [
+pub const SUPPORTED_WINDOWS: [WindowSpec; 21] = [
     WindowSpec { id: "previous-qsos", title: "OM0RX-xLog — Previous QSOs", width: 860.0, height: 600.0 },
     WindowSpec { id: "callsign-intelligence", title: "OM0RX-xLog — Callsign Intelligence", width: 700.0, height: 620.0 },
     WindowSpec { id: "log-qso", title: "OM0RX-xLog — Log QSO", width: 800.0, height: 800.0 },
@@ -26,6 +26,7 @@ pub const SUPPORTED_WINDOWS: [WindowSpec; 20] = [
     WindowSpec { id: "cw", title: "OM0RX-xLog — CW", width: 900.0, height: 480.0 },
     WindowSpec { id: "rotor", title: "OM0RX-xLog — Rotor", width: 700.0, height: 600.0 },
     WindowSpec { id: "station-status", title: "OM0RX-xLog — Station Status", width: 780.0, height: 650.0 },
+    WindowSpec { id: "connection-doctor", title: "OM0RX-xLog — Connection Doctor", width: 700.0, height: 600.0 },
     WindowSpec { id: "propagation", title: "OM0RX-xLog — Propagation", width: 800.0, height: 600.0 },
     WindowSpec { id: "station-identity", title: "OM0RX-xLog — Station Identity", width: 780.0, height: 650.0 },
     WindowSpec { id: "alerts", title: "OM0RX-xLog — Alerts", width: 780.0, height: 600.0 },
