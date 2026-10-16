@@ -43,23 +43,27 @@ explicitly clears them. Focused Swift **12/12**, sync-identity **25/25**, fronte
 **72/72**, TypeScript and diff checks pass after independent review. Package/manual
 macOS interaction and copied real-log acceptance remain open.
 
-## Native TCI radio provider — read-only transport source complete; provider/control open
+## Native TCI radio provider — saved read-only source integration complete; control open
 
 Full TCI support for SunSDR/ExpertSDR and compatible servers is now an explicit product
-feature. An original pure Swift foundation follows the official ExpertSDR3 TCI contract:
-bounded fragmented/coalesced framing, strict typed values, discovery/lifecycle and
-per-TRX/channel state, deployed channel-count alias handling, bounded diagnostics and
-authoritative configured-pair snapshots only after complete discovery plus `READY`.
-The second source slice adds a native receive-only WebSocket session with explicit
-connect/disconnect, bounded messages and observations, fresh generations and reducer state,
-no automatic reconnect or replay, inert handling of bounded unsolicited audio binary frames,
-and fail-closed teardown on transport/protocol errors or oversized binary input.
-Authoritative telemetry remains unavailable until the current connection completes discovery
-and sends `READY`. Focused tests pass **22/22** after independent lifecycle, stale-generation
-and binary-audio review. Saved
-provider configuration, UI, command/control, transmit, spots and optional audio/IQ remain
-open. QLog is behavioral reference only and no third-party implementation code, credentials,
-device or operator data has been copied.
+programme. The current source stage provides a bounded Swift protocol/reducer, receive-only
+WebSocket session, exact TRX/channel discovery, producer-time freshness and a durable saved
+`ws`/`wss` provider configuration. Connect and Disconnect are explicit; automatic reconnect,
+command replay, credentials and transmit consent are absent. The native worker publishes only
+read-only observations after complete discovery plus `READY`, fenced by selection, lifecycle,
+generation and connection identity. Oversized or malformed input fails closed, while bounded
+unsolicited binary audio is ignored without changing radio state.
+
+Station Control, Monitor, detached status/control and the sidebar now share the saved TCI
+selection and stale-aware read-only presentation. The UI does not fabricate VFO roles, does
+not expose reconnect, Tune, PTT, radio CW or amplifier actions, and preserves independent
+WinKeyer and rotor responsibilities. A separate pure encoder covers the official typed VFO,
+mode, filter, split, RX-channel, PTT, Tune and spot command grammar, but no transport can send
+those commands yet. Focused TCI Swift **41/41**, focused frontend **117/117**, full frontend
+**2,637/2,637**, Rust **534/534**, TypeScript and diff checks pass after independent review.
+Command ownership/send transport, transmit, spots, audio/IQ consumption, package/live-server
+and RF acceptance remain open. QLog is a behavior reference only; no third-party code,
+credentials, device or operator data was copied. Installed alpha.31 remains unchanged.
 
 ## Shared durable Agent amplifier owner — source complete; package/hardware acceptance open
 

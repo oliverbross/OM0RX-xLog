@@ -7,18 +7,19 @@ packaged UI result. Keep unresolved items here across releases.
 
 ## Current delivery boundary
 
-- **Full native TCI provider requested, 16 October — read-only transport source
+- **Full native TCI provider requested, 16 October — saved read-only source integration
   complete:** SunSDR2, ExpertSDR and compatible TCI servers are now a first-class radio
-  programme. The original Swift incremental codec and initialization/state reducer use
-  the official ExpertSDR3 contract, retain per-TRX/channel state, enforce bounded input
-  and diagnostics and expose configured state only after complete discovery plus
-  `READY`. A native receive-only WebSocket actor now adds explicit connect/disconnect,
-  fresh generations, bounded messages/observers, no automatic reconnect/replay, inert
-  handling of bounded unsolicited audio binary frames and fail-closed oversized input
-  teardown without retaining an abandoned session. Focused tests pass **22/22** after
-  independent lifecycle, stale-generation and binary-audio review. Saved provider configuration/UI and all
-  command, transmit, spot and audio/IQ consumption paths remain later gates, as do package/live/RF
-  proof. QLog behavior was reference only and no implementation code was copied.
+  programme. The bounded Swift protocol/reducer and receive-only WebSocket session retain
+  exact TRX/channel discovery, producer-time freshness and fail-closed lifecycle fencing.
+  A credential-free saved `ws`/`wss` provider now has explicit Save, Connect and Disconnect,
+  a read-only native worker projection and consistent stale-aware main/detached presentation.
+  No reconnect, replay, Tune, PTT, radio CW or amplifier control is exposed; independent
+  WinKeyer and rotor responsibilities remain available. A pure official-grammar command
+  encoder exists for a later owner/send stage, but there is no sending transport. Focused
+  Swift **41/41**, focused frontend **117/117**, full frontend **2,637/2,637**, Rust
+  **534/534**, TypeScript and diff checks pass after independent review. Command ownership,
+  transmit, spots, audio/IQ, package/live-server and RF proof remain open. QLog was a behavior
+  reference only, no implementation code was copied, and installed alpha.31 is unchanged.
 
 - **Arbitrary ADIF contact editing, 16 October — source complete:** Logbook pointer and
   Enter activation use the existing revision-fenced editor and safe delete/undo owner.

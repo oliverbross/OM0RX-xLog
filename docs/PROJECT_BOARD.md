@@ -15,17 +15,18 @@ failed or cancelled Operate request; Windows installation and physical readback
 acceptance remain open.
 
 Full native TCI support for SunSDR/ExpertSDR and compatible TCI servers is now a
-tracked feature. The official ExpertSDR3 protocol is normative and read-only QLog
-behavior is an interoperability reference. The first source slice is complete: a bounded
-case-insensitive incremental codec and discovery/state reducer passes **13/13** portable
-tests after independent review. The second slice adds a native receive-only WebSocket actor
-with explicit connect/disconnect, bounded input/observer queues, generation fencing, fresh
-`READY` gating, no automatic reconnect/replay and teardown that cannot retain an abandoned
-session. Bounded unsolicited binary audio is ignored without changing state; oversized binary
-fails closed. The combined focused suite passes **22/22**, including late old-connection rejection.
-It still has no station authority.
-Next are saved provider/telemetry and capability-fenced control with durable Tune/PTT owners.
-No TCI command has been issued; package/live/hardware/RF acceptance is open.
+tracked programme. The official ExpertSDR3 protocol is normative and QLog behavior is an
+interoperability reference only. Source now includes bounded protocol/discovery and binary
+handling, a receive-only WebSocket session, producer-time freshness, a credential-free saved
+`ws`/`wss` provider with explicit Connect/Disconnect, native worker projection and stale-aware
+main/detached UI. Selection, lifecycle, TRX/channel, generation and connection identities fence
+the observation path; no reconnect or command replay exists. TCI exposes no Tune, PTT, radio
+CW or amplifier actions, while independent WinKeyer and rotor duties remain available.
+A pure official-grammar command encoder exists for the later control stage, but nothing sends
+those commands. Focused Swift **41/41**, focused frontend **117/117**, full frontend
+**2,637/2,637**, Rust **534/534**, TypeScript and diff checks pass after independent review.
+Durable command/send ownership, transmit, spots, audio/IQ, package/live-server and RF
+acceptance remain open; installed alpha.31 is unchanged.
 
 Arbitrary ADIF contact editing is source complete. Existing Logbook contact/mutation
 sessions now round-trip modeled and retained unknown/custom fields through pointer and
