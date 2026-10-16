@@ -12,6 +12,7 @@ Highlights:
 - Chaser & DX and Awards warm their local retained data after the Operator Desk paints, while network feed refresh remains owned by the visible Chaser screen.
 - Callsign Intelligence uses shorter fact boxes and balanced two-row status matrices; the Operator Desk rotor now puts target and bearing information inside a larger dial.
 - HF propagation now refreshes automatically on a configurable 5/10/15/30/60-minute interval, without a redundant manual refresh control.
+- Wavelog Sync now reads its saved state immediately and remains recoverable on window focus even if native event-listener registration is delayed, keeping schedule and manual-sync controls usable.
 - Shared radio and rotor ownership with explicit connect/control actions, readback checks, safe stop handling and offline operation when station hardware is unavailable.
 - Resizable and repositionable Operator Desk panels, responsive detached windows, stable row hover geometry and fixed save notifications that do not shift content.
 - Spot, radio, synchronization and recovery feedback now floats above the Operator Desk and spot-driven detached windows without resizing or moving the working surface.
