@@ -24,10 +24,12 @@ export function LogbookSavedFilters({ onRequest, currentQuery, onApply, disabled
     return () => { active = false; };
   }, [onRequest]);
   const chosen = snapshot?.filters.find(filter => filter.name === selected);
+  let updateQuery: string | undefined;
+  try { updateQuery = validateSavedLogbookFilterQuery(currentQuery.trim()); } catch { /* Invalid searches cannot update a saved filter. */ }
   const messageIsSuccess = message === "Filter saved." || message === "Filter cloned." || message === "Filter renamed." ||
-    message === "Filter deleted." || message.startsWith("Applied ");
+    message === "Filter updated." || message === "Filter deleted." || message.startsWith("Applied ");
 
-  async function mutate(action: "save" | "clone" | "rename" | "delete") {
+  async function mutate(action: "save" | "clone" | "rename" | "update" | "delete") {
     if (!snapshot || busy || disabled) return;
     setMessage("");
     try {
@@ -36,6 +38,11 @@ export function LogbookSavedFilters({ onRequest, currentQuery, onApply, disabled
         params.name = validateSavedLogbookFilterName(name);
         params.query = validateSavedLogbookFilterQuery(currentQuery.trim());
         if (duplicateSavedLogbookFilter(snapshot.filters, params.name as string)) throw new Error("A filter with that name already exists.");
+      } else if (action === "update") {
+        if (!chosen) throw new Error("Choose a saved filter first.");
+        params.source = chosen.name;
+        params.query = validateSavedLogbookFilterQuery(currentQuery.trim());
+        if (params.query === chosen.query) return;
       } else if (action === "delete") {
         if (!chosen) throw new Error("Choose a saved filter first.");
         params.source = chosen.name;
@@ -55,8 +62,8 @@ export function LogbookSavedFilters({ onRequest, currentQuery, onApply, disabled
       if (response?.status === "conflict") throw new Error("Saved filters changed in another window. Review the refreshed list and try again.");
       if (response?.status !== "applied") throw new Error("The saved filter change was not confirmed.");
       if (action === "delete") { setSelected(""); setName(""); }
-      else { const nextName = String(params.name); setSelected(nextName); setName(nextName); }
-      setMessage(action === "save" ? "Filter saved." : action === "clone" ? "Filter cloned." : action === "rename" ? "Filter renamed." : "Filter deleted.");
+      else { const nextName = String(action === "update" ? params.source : params.name); setSelected(nextName); setName(nextName); }
+      setMessage(action === "save" ? "Filter saved." : action === "clone" ? "Filter cloned." : action === "rename" ? "Filter renamed." : action === "update" ? "Filter updated." : "Filter deleted.");
     } catch (cause) { setMessage(cause instanceof Error ? cause.message : "The saved filter could not be changed."); }
     finally { setBusy(false); }
   }
@@ -74,10 +81,13 @@ export function LogbookSavedFilters({ onRequest, currentQuery, onApply, disabled
       <label>Filter name <input aria-label="Saved filter name" maxLength={48} disabled={busy || disabled}
         value={name} onChange={event => { setName(event.target.value); setMessage(""); }} /></label>
       <button type="button" disabled={busy || disabled || !snapshot} onClick={() => void mutate("save")}>Save current</button>
+      <button type="button" disabled={busy || disabled || !chosen || !updateQuery || updateQuery === chosen.query}
+        onClick={() => void mutate("update")}>Update selected</button>
       <button type="button" disabled={busy || disabled || !chosen} onClick={() => void mutate("clone")}>Clone</button>
       <button type="button" disabled={busy || disabled || !chosen} onClick={() => void mutate("rename")}>Rename</button>
       <button type="button" disabled={busy || disabled || !chosen} onClick={() => void mutate("delete")}>Delete filter</button>
     </div>
+    {chosen && <p>Selected saved query: <span>{chosen.query}</span></p>}
     <p className={message && !messageIsSuccess ? "error" : ""}
       role={message && !messageIsSuccess ? "alert" : "status"}>{busy ? "Loading saved filters…" : message || "Saved filters reuse the same callsign, name, country or note search."}</p>
   </section>;

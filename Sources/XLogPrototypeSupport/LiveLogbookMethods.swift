@@ -1851,6 +1851,12 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
             guard let index = existingIndex(source),
                   existingIndex(name).map({ $0 == index }) ?? true else { throw invalid() }
             filters[index].name = name
+        case "update":
+            try requireKeys(params, allowed: ["generation", "expected", "action", "source", "query"],
+                            required: ["generation", "expected", "action", "source", "query"])
+            let source = try savedFilterName(params["source"]), query = try savedFilterQuery(params["query"])
+            guard let index = existingIndex(source) else { throw invalid() }
+            filters[index].query = query
         case "delete":
             try requireKeys(params, allowed: ["generation", "expected", "action", "source"],
                             required: ["generation", "expected", "action", "source"])
