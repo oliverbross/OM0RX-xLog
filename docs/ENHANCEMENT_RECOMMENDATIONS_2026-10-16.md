@@ -12,6 +12,15 @@ radio transmission, rotor movement and Windows/Linux packaging remain separate g
 Implementation checkpoint: `b1691a5712ef9e8bbcd29038f12ade0954334735`. Source/test/browser
 verification does not close package/native, provider or hardware acceptance.
 
+External reference order is **RUMlogNG #1, QLog #2, OpsLog #3**. The
+[OpsLog v0.51.10 audit](OPSLOG_REFERENCE_AUDIT_2026-10-16.md) uses release/README
+documentation only. Actual Gitea source is authentication-gated and application
+licensing is unverified; no direct code is copied. Its independently stated
+priorities extend acceptance for standard-ADIF/full-backup separation, one shared
+award/spot projection, revision-checked caches, capability/transport/observed/action
+separation, TCI audio key/release, per-map persistence/layout resize and preserved
+award customizations. They do not close any current implementation or live gate.
+
 - Keep the Mac-first daily logger, canonical QSO/draft owners and local-first database.
 - Reuse existing owners and views; do not create parallel CAT, cluster, calendar,
   logbook, confirmation or award stores.

@@ -6,6 +6,14 @@ Tracked implementation checkpoint: `b1691a5712ef9e8bbcd29038f12ade0954334735`.
 New source/test/browser evidence does not replace installed alpha.31 or close
 exact-package, native interaction, live-provider or hardware acceptance.
 
+External reference order: **RUMlogNG #1, QLog #2, OpsLog #3**. OpsLog v0.51.10
+is a documented supplementary product/behavior reference only: the public tag
+contains READMEs, actual Gitea source is authentication-gated and the application
+licence is unverified. No direct code is copied. The [OpsLog audit](docs/OPSLOG_REFERENCE_AUDIT_2026-10-16.md)
+records provenance, source-access gates and independent ADIF/backup, shared-status,
+revisioned-cache, capability/action, TCI-audio, map-layout and award-customization
+acceptance priorities. No implementation or installed/live acceptance is added.
+
 ## Enhancement review reconciliation — merged; first correctness fixes source complete
 
 The 24-item external review is reconciled against the active branch in

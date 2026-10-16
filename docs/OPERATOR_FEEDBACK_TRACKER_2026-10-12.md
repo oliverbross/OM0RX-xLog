@@ -11,6 +11,13 @@ Tracked implementation checkpoint: `b1691a5712ef9e8bbcd29038f12ade0954334735`.
 Source/test/browser results do not establish packaged/native, live-provider or hardware
 acceptance; installed alpha.31 remains unchanged.
 
+- **External reference order, 16 October:** RUMlogNG is #1, QLog #2 and OpsLog
+  v0.51.10 #3 as a documented supplementary product/behavior reference. The
+  [OpsLog audit](OPSLOG_REFERENCE_AUDIT_2026-10-16.md) pins the release/README mirror,
+  records authentication-gated actual source and unverified application licensing,
+  and defines independent acceptance cases. No source/code reuse, installed-app
+  change, provider/station/network/RF acceptance or completion claim follows.
+
 - **PJ impact preview and detached geometry, 16 October — pushed source only:**
   `54b4c84` adds the read-only Logbook **PJ country preview**, with protected stored DXCC
   overrides, bounded pages and no correction route. It compares the former algorithm with

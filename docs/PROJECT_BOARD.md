@@ -4,6 +4,13 @@ Tracked implementation checkpoint: `b1691a5712ef9e8bbcd29038f12ade0954334735`.
 Source/test/browser evidence below remains separate from installed alpha.31 and
 unaccepted package, native interaction, provider and hardware gates.
 
+External references are ordered **RUMlogNG #1, QLog #2, OpsLog #3**. The
+[OpsLog v0.51.10 audit](OPSLOG_REFERENCE_AUDIT_2026-10-16.md) is documentation-only:
+the public tag contains two READMEs, actual Gitea source requires authentication,
+and application licensing remains unverified. No code was copied. Source access
+and licence clarification remain open; the behavioral priorities are independent
+acceptance work, not implementation/package/live proof or a second log owner.
+
 Last updated: 16 October 2026, after installing signed/notarized alpha.31 from
 exact source `dd8dd642c650fc56522296860f6e2177c0804bcb`.
 `/Applications/OM0RX-xLog.app` passes **33/33** isolated native checks from both
