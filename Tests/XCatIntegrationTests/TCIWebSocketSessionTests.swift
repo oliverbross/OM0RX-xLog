@@ -9,6 +9,70 @@ final class TCIWebSocketSessionTests: XCTestCase {
     private let endpoint = URL(string: "ws://127.0.0.1:40001")!
     private let address = TCIReceiverAddress(trx: 0, channel: 0)
 
+    func testRXSpotClickPublishesIndependentProducerReceiptWithoutChangingConfiguredEvidence() async throws {
+        let connection = FakeTCIWebSocketConnection(), time = TCIEvidenceClock()
+        let session = TCIReadOnlyWebSocketSession(
+            endpoint: endpoint, configuredAddress: address,
+            connector: FakeTCIWebSocketConnector(connections: [connection]), clock: { time.now() }
+        )
+        try await session.connect()
+        await connection.enqueue(.text(Self.discoveryAndState + "ready;"))
+        let initial = try await waitForObservation(session) { $0.availability == .available }
+        time.advance(10)
+        let receipt = time.now()
+        await connection.enqueue(.text("RX_CLICKED_ON_SPOT:1,1,RN6LHF,7147500;"))
+        let click = try await waitForObservation(session, after: initial.sequence) { $0.lastRXSpotClick != nil }
+        XCTAssertEqual(click.lastRXSpotClick?.address, TCIReceiverAddress(trx: 1, channel: 1))
+        XCTAssertEqual(click.lastRXSpotClick?.callsign, "RN6LHF")
+        XCTAssertEqual(click.lastRXSpotClick?.frequencyHz, 7_147_500)
+        XCTAssertEqual(click.lastRXSpotClick?.receivedAt, receipt)
+        XCTAssertEqual(click.snapshot, initial.snapshot)
+        XCTAssertEqual(click.evidenceReceivedAt, initial.evidenceReceivedAt)
+        XCTAssertEqual(click.filterEvidenceSequence, initial.filterEvidenceSequence)
+        XCTAssertEqual(click.splitEvidenceReceivedAt, initial.splitEvidenceReceivedAt)
+        XCTAssertNil(click.serverTransmitFrequency)
+        time.advance(10)
+        await connection.enqueue(.text("RX_CLICKED_ON_SPOT:0,1,RN6LHF;"))
+        let invalid = try await waitForObservation(session, after: click.sequence) { _ in true }
+        XCTAssertEqual(invalid.lastRXSpotClick, click.lastRXSpotClick)
+        await connection.enqueue(.text("RX_CLICKED_ON_SPOT:1,1,RN6LHF,7147500;"))
+        let repeated = try await waitForObservation(session, after: invalid.sequence) { _ in true }
+        time.advance(20) // Consumer time must not replace producer receipt time.
+        XCTAssertEqual(repeated.lastRXSpotClick?.receivedAt, receipt.addingTimeInterval(10))
+        XCTAssertEqual(repeated.evidenceReceivedAt, initial.evidenceReceivedAt)
+        XCTAssertEqual(repeated.snapshot, initial.snapshot)
+        let sent = await connection.sentTexts()
+        XCTAssertTrue(sent.isEmpty)
+        await session.disconnect()
+        let disconnected = await session.currentObservation()
+        XCTAssertNil(disconnected.lastRXSpotClick)
+    }
+
+    func testRXSpotClickBeforeDiscoveryDoesNotEstablishAuthorityAndReconnectClearsIt() async throws {
+        let first = FakeTCIWebSocketConnection(), second = FakeTCIWebSocketConnection()
+        let session = TCIReadOnlyWebSocketSession(endpoint: endpoint, configuredAddress: address,
+            connector: FakeTCIWebSocketConnector(connections: [first, second]))
+        try await session.connect()
+        await first.enqueue(.text("RX_CLICKED_ON_SPOT:0,0,OM0RX,14025000;"))
+        let click = try await waitForObservation(session) { $0.lastRXSpotClick != nil }
+        XCTAssertEqual(click.availability, .synchronizing)
+        XCTAssertNil(click.snapshot)
+        XCTAssertNil(click.evidenceReceivedAt)
+        await session.disconnect()
+        try await session.connect()
+        let reconnected = await session.currentObservation()
+        XCTAssertGreaterThan(reconnected.generation, click.generation)
+        XCTAssertNil(reconnected.lastRXSpotClick)
+        await first.enqueue(.text("RX_CLICKED_ON_SPOT:0,0,OLD,14025000;"))
+        await second.enqueue(.text(Self.discoveryAndState + "ready;"))
+        let available = try await waitForObservation(session, after: reconnected.sequence) { $0.availability == .available }
+        XCTAssertNil(available.lastRXSpotClick)
+        let firstSent = await first.sentTexts(), secondSent = await second.sentTexts()
+        XCTAssertTrue(firstSent.isEmpty)
+        XCTAssertTrue(secondSent.isEmpty)
+        await session.disconnect()
+    }
+
     func testTXFrequencyPublishesOwnProducerReceiptWithoutRefreshingConfiguredEvidence() async throws {
         let connection = FakeTCIWebSocketConnection(), time = TCIEvidenceClock()
         let session = TCIReadOnlyWebSocketSession(

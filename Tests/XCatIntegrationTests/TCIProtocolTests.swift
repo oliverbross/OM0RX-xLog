@@ -7,6 +7,69 @@ import XCTest
 final class TCIProtocolTests: XCTestCase {
     private let address = TCIReceiverAddress(trx: 0, channel: 0)
 
+    func testRXSpotClickRetainsExactAddressCallsignFrequencyAndCompletionReceiptOnly() {
+        var decoder = TCITextDecoder(), reducer = TCIStateReducer()
+        let first = Date(timeIntervalSince1970: 100), completed = Date(timeIntervalSince1970: 105)
+        reducer.apply(decoder.feed("rx_clicked_on_spot:0,1,rn6"), receivedAt: first)
+        XCTAssertNil(reducer.state.lastRXSpotClick)
+        reducer.apply(decoder.feed("lhf/P,7147500;"), receivedAt: completed)
+        XCTAssertEqual(reducer.state.lastRXSpotClick?.address, TCIReceiverAddress(trx: 0, channel: 1))
+        XCTAssertEqual(reducer.state.lastRXSpotClick?.callsign, "rn6lhf/P")
+        XCTAssertEqual(reducer.state.lastRXSpotClick?.frequencyHz, 7_147_500)
+        XCTAssertEqual(reducer.state.lastRXSpotClick?.receivedAt, completed)
+        XCTAssertTrue(reducer.state.frequencies.isEmpty)
+        XCTAssertTrue(reducer.state.transceivers.isEmpty)
+        XCTAssertTrue(reducer.state.unknownCommands.isEmpty)
+        XCTAssertNil(reducer.authoritativeSnapshot(for: address))
+        XCTAssertNil(reducer.state.serverTransmitFrequency)
+        XCTAssertFalse(reducer.state.ready)
+    }
+
+    func testRXSpotClickRejectsMalformedAndOutOfBoundsReportsWithoutReplacingEvent() {
+        var reducer = TCIStateReducer(limits: .init(maximumArgumentBytes: 12, maximumFrequencyHz: 30_000_000))
+        let receipt = Date(timeIntervalSince1970: 100)
+        XCTAssertTrue(reducer.apply(TCICommand(name: "TRX_COUNT", arguments: ["2"])))
+        XCTAssertTrue(reducer.apply(TCICommand(name: "CHANNEL_COUNT", arguments: ["2"])))
+        XCTAssertTrue(reducer.apply(TCICommand(name: "RX_CLICKED_ON_SPOT", arguments: ["1", "1", "RN6LHF", "7147500"]), receivedAt: receipt))
+        let retained = reducer.state.lastRXSpotClick
+        for arguments in [[], ["RN6LHF", "7147500"], ["0", "1", "RN6LHF"],
+                          ["0", "1", "RN6LHF", "7147500", "CW"],
+                          ["-1", "1", "RN6LHF", "7147500"], ["2", "1", "RN6LHF", "7147500"],
+                          ["0", "2", "RN6LHF", "7147500"], ["0", "-1", "RN6LHF", "7147500"],
+                          ["0", "1", "", "7147500"], ["0", "1", "RN6 LHF", "7147500"],
+                          ["0", "1", "RN6LHF;X", "7147500"], ["0", "1", "TOO_LONG_CALLSIGN", "7147500"],
+                          ["0", "1", "RN6LHF", "-1"], ["0", "1", "RN6LHF", "30000001"],
+                          ["0", "1", "RN6LHF", "7.14"], ["0", "1", "RN6LHF", "1e6"],
+                          ["0", "1", "RN6LHF", "9223372036854775808"]] {
+            XCTAssertFalse(reducer.apply(TCICommand(name: "RX_CLICKED_ON_SPOT", arguments: arguments),
+                                         receivedAt: receipt.addingTimeInterval(10)), "\(arguments)")
+            XCTAssertEqual(reducer.state.lastRXSpotClick, retained)
+        }
+        var undiscovered = TCIStateReducer()
+        XCTAssertFalse(undiscovered.apply(TCICommand(name: "RX_CLICKED_ON_SPOT", arguments: ["0", "2", "RN6LHF", "7147500"])))
+        reducer.apply(TCICommand(name: "CHANNEL_COUNT", arguments: ["1"]))
+        XCTAssertFalse(reducer.apply(TCICommand(name: "RX_CLICKED_ON_SPOT", arguments: ["0", "1", "RN6LHF", "7147500"])))
+    }
+
+    func testRXSpotClickIsOneEventWithIndependentReceiptAndNoReceiveFrequencyInference() {
+        var decoder = TCITextDecoder(), reducer = TCIStateReducer()
+        let first = Date(timeIntervalSince1970: 100), second = first.addingTimeInterval(10)
+        reducer.apply(decoder.feed("VFO_LIMITS:0,1000000;RX_CLICKED_ON_SPOT:0,1,RN6LHF,7147500;"), receivedAt: first)
+        XCTAssertEqual(reducer.state.lastRXSpotClick?.frequencyHz, 7_147_500)
+        reducer.apply(decoder.feed("VFO:0,0,100000;MODULATION:0,CW;TX_FREQUENCY:100000;"), receivedAt: second)
+        XCTAssertEqual(reducer.state.lastRXSpotClick?.receivedAt, first)
+        reducer.apply(decoder.feed("RX_CLICKED_ON_SPOT:0,1,RN6LHF,7147500;"), receivedAt: second)
+        XCTAssertEqual(reducer.state.lastRXSpotClick?.receivedAt, second)
+        reducer.apply(decoder.feed("RX_CLICKED_ON_SPOT:0,0,OM0RX,0;"))
+        XCTAssertEqual(reducer.state.lastRXSpotClick?.callsign, "OM0RX")
+        XCTAssertEqual(reducer.state.lastRXSpotClick?.frequencyHz, 0)
+        XCTAssertNil(reducer.state.lastRXSpotClick?.receivedAt)
+        XCTAssertEqual(reducer.state.frequencies[address], 100_000)
+        XCTAssertEqual(reducer.state.transceivers[0]?.modulation, "CW")
+        reducer = TCIStateReducer()
+        XCTAssertNil(reducer.state.lastRXSpotClick)
+    }
+
     func testTXFrequencyIsGlobalPassiveNotificationWithExplicitReceiptTime() {
         var decoder = TCITextDecoder()
         var reducer = TCIStateReducer()

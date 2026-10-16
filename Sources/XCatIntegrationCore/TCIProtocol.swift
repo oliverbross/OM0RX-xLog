@@ -599,6 +599,16 @@ public struct TCIServerTransmitFrequencyObservation: Equatable, Sendable {
     public let receivedAt: Date?
 }
 
+/// Latest server click notification (pinned TCI b081213f, pages 36–37).
+/// This is an event receipt, not retained spot inventory or a tuning readback.
+public struct TCIRXSpotClickObservation: Equatable, Sendable {
+    public let address: TCIReceiverAddress
+    public let callsign: String
+    public let frequencyHz: Int64
+    /// Local producer receipt time; nil means no timed receipt was supplied.
+    public let receivedAt: Date?
+}
+
 public struct TCIProtocolState: Equatable, Sendable {
     public internal(set) var protocolAnnouncement: TCIProtocolAnnouncement?
     public internal(set) var device: String?
@@ -612,6 +622,7 @@ public struct TCIProtocolState: Equatable, Sendable {
     public internal(set) var ready = false
     public internal(set) var frequencies: [TCIReceiverAddress: Int64] = [:]
     public internal(set) var serverTransmitFrequency: TCIServerTransmitFrequencyObservation?
+    public internal(set) var lastRXSpotClick: TCIRXSpotClickObservation?
     public internal(set) var transceivers: [Int: TCITransceiverState] = [:]
     public internal(set) var unknownCommands: [TCICommand] = []
     public internal(set) var diagnostics: [TCIDiagnostic] = []
@@ -656,6 +667,7 @@ public struct TCIStateReducer: Sendable {
             if acceptsNoArguments(command) { state.ready = true }
         case "VFO": applyVFO(command)
         case "TX_FREQUENCY": applyTXFrequency(command, receivedAt: receivedAt)
+        case "RX_CLICKED_ON_SPOT": applyRXSpotClick(command, receivedAt: receivedAt)
         case "MODULATION": applyModulation(command)
         case "RX_FILTER_BAND": applyFilter(command)
         case "SPLIT_ENABLE": applyBooleanState(command, keyPath: \.splitEnabled)
@@ -805,6 +817,24 @@ public struct TCIStateReducer: Sendable {
         // tuning and must not constrain this independent global notification.
         state.serverTransmitFrequency = TCIServerTransmitFrequencyObservation(
             frequencyHz: frequency, receivedAt: receivedAt
+        )
+    }
+
+    private mutating func applyRXSpotClick(_ command: TCICommand, receivedAt: Date?) {
+        guard command.arguments.count == 4,
+              let trx = validTRX(command.arguments[0]),
+              let channel = validChannel(command.arguments[1]), channel <= 1,
+              !command.arguments[2].isEmpty,
+              command.arguments[2].utf8.count <= limits.maximumArgumentBytes,
+              command.arguments[2].utf8.allSatisfy({ $0 >= 33 && $0 <= 126 && $0 != 44 && $0 != 58 && $0 != 59 }),
+              let frequency = TCIValueParser.integer64(command.arguments[3]),
+              frequency >= 0, frequency <= limits.maximumFrequencyHz
+        else { return reject(command) }
+        // The notification identifies a clicked spot, not the receiver's current
+        // VFO or mode. Retain only one event and its own optional receipt.
+        state.lastRXSpotClick = TCIRXSpotClickObservation(
+            address: TCIReceiverAddress(trx: trx, channel: channel),
+            callsign: command.arguments[2], frequencyHz: frequency, receivedAt: receivedAt
         )
     }
 
