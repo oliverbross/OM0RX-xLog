@@ -1995,7 +1995,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
 
     private func rotorConfiguration(_ object: [String: Any]) throws -> RotorConfiguration {
         do {
-            try requireKeys(object, allowed: ["owner", "native_dcu1", "hamlib"],
+            try requireKeys(object, allowed: ["owner", "native_dcu1", "hamlib", "auto_rotor_at_startup", "auto_rotor_bands"],
                             required: ["owner", "native_dcu1", "hamlib"])
             guard let native = object["native_dcu1"] as? [String: Any],
                   let hamlib = object["hamlib"] as? [String: Any],

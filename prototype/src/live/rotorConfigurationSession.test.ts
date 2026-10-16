@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { clearLegacyRotorConfiguration, defaultRotorConfiguration, legacyRotorConfiguration,
+import { autoRotorBands, checkedRotorConfiguration, clearLegacyRotorConfiguration, defaultRotorConfiguration, legacyRotorConfiguration,
   readRotorConfigurationJournal, RotorConfigurationSession, rotorConfigurationDirty } from "./rotorConfigurationSession";
 
 const generation = "12345678-1234-4234-8234-123456789abc";
@@ -35,6 +35,24 @@ function backend() {
 beforeEach(() => localStorage.clear());
 
 describe("shared rotor configuration session", () => {
+  it("defaults launch permission off and rejects unbounded automatic-rotor bands", () => {
+    const defaults = defaultRotorConfiguration();
+    expect(defaults.auto_rotor_at_startup).toBe(false);
+    expect(defaults.auto_rotor_bands).toEqual(autoRotorBands);
+    expect(() => checkedRotorConfiguration({ ...defaults, auto_rotor_bands: ["20m", "20m"] })).toThrow();
+    expect(() => checkedRotorConfiguration({ ...defaults, auto_rotor_bands: ["1.25m"] })).toThrow();
+    expect(checkedRotorConfiguration({ ...defaults, auto_rotor_bands: [] }).auto_rotor_bands).toEqual([]);
+  });
+  it("migrates pre-policy journals without losing a pending receipt identity", () => {
+    const legacy = defaultRotorConfiguration() as any;
+    delete legacy.auto_rotor_at_startup; delete legacy.auto_rotor_bands;
+    const pending = { operationID, expectedRevision: 0, generation, configuration: structuredClone(legacy) };
+    const journal = readRotorConfigurationJournal(JSON.stringify({ version: 1,
+      base: { revision: 0, generation, configuration: legacy }, draft: legacy, pending }))!;
+    expect(journal.pending?.operationID).toBe(operationID);
+    expect(journal.pending?.configuration).toMatchObject({ auto_rotor_at_startup: false,
+      auto_rotor_bands: [...autoRotorBands] });
+  });
   it("accepts native UUID serialization for revision-zero DCU-1 save without case-folding payload text", async () => {
     const service = backend(), written: any[] = [];
     const session = new RotorConfigurationSession(service.request, value => written.push(value), null, () => operationID);

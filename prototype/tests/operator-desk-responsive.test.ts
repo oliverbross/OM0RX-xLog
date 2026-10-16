@@ -19,7 +19,7 @@ it("reflows compact QSO fields before stacking an otherwise usable three-panel d
 it("preserves the established wide, narrow and equipment-free layout rules", () => {
   expect(desk).toContain("minmax(0, 1.8fr) minmax(0, 1.1fr) minmax(0, .85fr)");
   expect(desk).toContain("@container operator-desk (max-width: 1420px)");
-  expect(desk).toContain("@container operator-desk (max-width: 560px)");
+  expect(desk).toContain("@container operator-desk (max-width: 561px)");
   expect(equipment).toContain(".operator-desk-top.without-equipment { grid-template-columns: minmax(0, 1.8fr) minmax(0, 1.1fr);");
   expect(equipment).toContain("@container operator-desk (max-width: 1420px)");
 });

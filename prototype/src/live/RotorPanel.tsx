@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import { Antenna } from "lucide-react";
 import { HamlibDevice } from "./HamlibPanel";
 import { rotorCommandParams, rotorProjection, validRotorSnapshot, type RotorSnapshot } from "./rotorControl";
-import { RotorConfigurationSession, rotorConfigurationDirty, type RotorConfiguration } from "./rotorConfigurationSession";
+import { autoRotorBands, RotorConfigurationSession, rotorConfigurationDirty, type RotorConfiguration } from "./rotorConfigurationSession";
 import { ManualRotorStatus } from "./ManualRotorControl";
 import { manualRotorGotoSession, type ManualRotorGotoSession } from "./manualRotorGoto";
 import "./RotorPanel.css";
@@ -101,6 +101,8 @@ export default function RotorPanel({ snapshot, request, onManual = () => {}, con
   const updateNative = (field: keyof typeof native, value: string | number) => edit({ ...configuration,
     native_dcu1: { ...native, [field]: value } });
   const updateHamlib = (hamlib: Data) => edit({ ...configuration, hamlib: hamlib as RotorConfiguration["hamlib"] });
+  const updateAutomaticBand = (band: string, enabled: boolean) => edit({ ...configuration,
+    auto_rotor_bands: enabled ? [...configuration.auto_rotor_bands, band] : configuration.auto_rotor_bands.filter(value => value !== band) });
   const blocked = busy || configurationState.saving || !!configurationState.pending || !!configurationState.conflict || configurationState.workspaceChanged;
   const savedOwner = configurationState.base?.configuration.owner;
   const ownerApplied = snapshot?.owner ? snapshot.owner === owner : savedOwner === owner && !dirty;
@@ -115,6 +117,16 @@ export default function RotorPanel({ snapshot, request, onManual = () => {}, con
       {configurationOnly && <button type="button" disabled={blocked || !dirty} onClick={() => void saveConfiguration().catch(cause => setError(cause.message))}>{configurationState.saving ? "Saving…" : "Save rotor configuration"}</button>}
       {!configurationOnly && <span>Active rotor: {snapshot?.owner === "hamlib" ? "Hamlib" : snapshot?.owner === "native_dcu1" ? "DCU-1" : "Disconnected"}. {!ownerApplied ? "Viewing only. Apply to retire a different active rotor and save this selection." : "Connecting and motion require an explicit action."}</span>}
     </div>
+    {configurationOnly && <section className="live-station-card rotor-auto-settings" aria-labelledby="rotor-auto-settings-title">
+      <h3 id="rotor-auto-settings-title">Automatic rotor</h3>
+      <label className="rotor-auto-start"><input type="checkbox" checked={configuration.auto_rotor_at_startup}
+        onChange={event => edit({ ...configuration, auto_rotor_at_startup: event.target.checked })} /> Enable Auto Rotor at app start</label>
+      <p className="live-station-helper">This saved opt-in applies on the next launch. The Auto rotor switch on the Desk remains the immediate control for this session.</p>
+      <fieldset><legend>Allowed bands</legend><div className="rotor-auto-bands">{autoRotorBands.map(band => <label key={band}>
+        <input type="checkbox" checked={configuration.auto_rotor_bands.includes(band)} onChange={event => updateAutomaticBand(band, event.target.checked)} /> {band}
+      </label>)}</div></fieldset>
+      {configuration.auto_rotor_bands.length === 0 && <p className="live-station-helper amber">No bands selected. Automatic rotor movement is blocked on every band.</p>}
+    </section>}
     <div className="rotor-panel-layout"><div><div hidden={owner !== "hamlib"}>{hamlibOpened && <HamlibDevice device="rotor" request={hamlibRequest}
       state={!configurationOnly && snapshot?.owner === "hamlib" ? snapshot.backend : undefined} configurationOnly
       connectionControls={!configurationOnly} connectionOwned={!configurationOnly && !!snapshot?.owner}

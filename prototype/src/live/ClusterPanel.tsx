@@ -29,8 +29,8 @@ export type ClusterPalette = { status: Record<string, string>; band: Record<stri
 type Palette = ClusterPalette;
 type CommandPreset = { id: string; name: string; command: string };
 type Configuration = { servers: Server[]; reconnect: boolean; requestSkimmer: boolean;
-  showWorkedBandModeSpots: boolean; maximumSpots: number; specialRules: Rule[];
-  palette: Palette; filter: Filter; commandPresets: CommandPreset[]; forwardSpotsToFlex: boolean };
+  showWorkedBandModeSpots: boolean; hideWSPRSpots: boolean; maximumSpots: number; specialRules: Rule[];
+  palette: Palette; filter: Filter; commandPresets: CommandPreset[]; forwardSpotsToFlex: boolean; radioSpotColorPolicy?: "callsign" | "dxcc" };
 type Forwarding = { accepted_count: number; status: string };
 type Response = { configuration?: Configuration; snapshot?: Snapshot; password_servers?: string[];
   password_storage_available?: boolean; flex_forwarding_available?: boolean;
@@ -95,6 +95,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
   const filterVersion = useRef(0);
   const lastRemoteFilter = useRef("");
   const lastRemoteConfiguration = useRef("");
+  const draftBaseConfiguration = useRef<Configuration | null>(null);
   const historyVersion = useRef(0);
   const historyRevision = useRef<number | null>(null);
   const [live, setLive] = useState<Snapshot | null>((snapshot as Response | null)?.snapshot ?? null);
@@ -102,7 +103,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
   const [filter, setFilter] = useState<Filter>(emptyFilter);
   const [passwordServers, setPasswordServers] = useState<string[]>([]);
   const [passwordStorageAvailable, setPasswordStorageAvailable] = useState((snapshot as Response | null)?.password_storage_available !== false);
-  const [forwardingAvailable, setForwardingAvailable] = useState((snapshot as Response | null)?.flex_forwarding_available !== false);
+  const [, setForwardingAvailable] = useState((snapshot as Response | null)?.flex_forwarding_available !== false);
   const canEditPasswords = passwordControlsEnabled && passwordStorageAvailable;
   const passwordUnavailableReason = !passwordStorageAvailable ? "Secure password storage is unavailable on this platform" : "Dock back to manage passwords";
   const [savedServerIDs, setSavedServerIDs] = useState<string[]>([]);
@@ -116,19 +117,19 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
   const [history, setHistory] = useState<History | null>(null);
   const [historySpot, setHistorySpot] = useState<LiveClusterSpot | null>(null);
   const [selectedSpot, setSelectedSpot] = useState<LiveClusterSpot | null>(null);
-  const [forwarding, setForwarding] = useState<Forwarding | null>(null);
+  const [, setForwarding] = useState<Forwarding | null>(null);
   const [snapshotTruncated, setSnapshotTruncated] = useState(false);
 
   useEffect(() => {
     const next = snapshot as Response | null;
     if (next?.password_storage_available != null) setPasswordStorageAvailable(next.password_storage_available);
-    if (next?.flex_forwarding_available != null) setForwardingAvailable(next.flex_forwarding_available);
     if (next?.snapshot) setLive(next.snapshot);
     if (next?.configuration) {
       const remoteConfiguration = JSON.stringify(next.configuration);
       const localConfiguration = configuration ? JSON.stringify(configuration) : "";
       if (!configuration || localConfiguration === lastRemoteConfiguration.current || localConfiguration === remoteConfiguration) {
         setConfiguration(next.configuration);
+        draftBaseConfiguration.current = next.configuration;
         setSavedServerIDs(next.configuration.servers.map(server => server.id));
         setPasswordServers(next.password_servers ?? []);
       }
@@ -139,7 +140,6 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
         setFilter(next.configuration.filter);
       }
     }
-    if (next?.forwarding) setForwarding(next.forwarding);
     if (next?.snapshot_truncated != null) setSnapshotTruncated(next.snapshot_truncated);
   }, [snapshot]);
   useEffect(() => { requestRef.current = onRequest; }, [onRequest]);
@@ -155,7 +155,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
       const next = raw as Response;
       if (next.password_storage_available != null) setPasswordStorageAvailable(next.password_storage_available);
       if (next.flex_forwarding_available != null) setForwardingAvailable(next.flex_forwarding_available);
-      if (next.configuration) { setConfiguration(next.configuration); lastRemoteConfiguration.current = JSON.stringify(next.configuration); setFilter(next.configuration.filter); setSavedServerIDs(next.configuration.servers.map((s) => s.id)); }
+      if (next.configuration) { setConfiguration(next.configuration); draftBaseConfiguration.current = next.configuration; lastRemoteConfiguration.current = JSON.stringify(next.configuration); setFilter(next.configuration.filter); setSavedServerIDs(next.configuration.servers.map((s) => s.id)); }
       if (next.snapshot) setLive(next.snapshot);
       setPasswordServers(next.password_servers ?? []);
       if (next.forwarding) setForwarding(next.forwarding);
@@ -179,7 +179,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
     const next = raw as Response;
     if (next.password_storage_available != null) setPasswordStorageAvailable(next.password_storage_available);
     if (next.flex_forwarding_available != null) setForwardingAvailable(next.flex_forwarding_available);
-    if (next.configuration) { setConfiguration(next.configuration); lastRemoteConfiguration.current = JSON.stringify(next.configuration); }
+    if (next.configuration) { setConfiguration(next.configuration); draftBaseConfiguration.current = next.configuration; lastRemoteConfiguration.current = JSON.stringify(next.configuration); }
     if (next.snapshot) setLive(next.snapshot);
     if (next.password_servers) setPasswordServers(next.password_servers);
     if (next.forwarding) setForwarding(next.forwarding);
@@ -206,16 +206,17 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
   };
   const saveConfig = async () => {
     if (!configuration) return;
-    if (await request("cluster_configure", { configuration }, "Cluster settings saved. Received spots retained.")) {
-      setSavedServerIDs(configuration.servers.map((s) => s.id));
-    }
+    setBusy(true); setError(""); setMessage("");
+    try {
+      const base = draftBaseConfiguration.current;
+      if (!base) throw new Error("Current cluster settings are unavailable. Refresh and retry.");
+      accept(await onRequest("cluster_configure", { configuration, base_configuration: base }));
+      setSavedServerIDs(configuration.servers.map((server) => server.id));
+      setMessage("Cluster settings saved. Received spots retained.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Cluster settings could not be saved. Check settings and retry.");
+    } finally { setBusy(false); }
   };
-  const savedForwardSpotsToFlex = (() => {
-    try { return (JSON.parse(lastRemoteConfiguration.current) as Configuration).forwardSpotsToFlex; }
-    catch { return undefined; }
-  })();
-  const forwardingSettingDirty = configuration != null && savedForwardSpotsToFlex != null
-    && configuration.forwardSpotsToFlex !== savedForwardSpotsToFlex;
   const updateServer = (id: string, patch: Partial<Server>) => {
     setConfiguration((current) => current && ({ ...current, servers: current.servers.map((s) => s.id === id ? { ...s, ...patch } : s) }));
   };
@@ -390,13 +391,9 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
         <div className="live-cluster-setting-row"><label>Maximum visible spots <select value={configuration.maximumSpots} onChange={(event) => setConfiguration({ ...configuration, maximumSpots: Number(event.target.value) })}>{[50, 100, 200, 500].map((count) => <option key={count}>{count}</option>)}</select></label>
           <label><input type="checkbox" checked={configuration.reconnect} onChange={(event) => setConfiguration({ ...configuration, reconnect: event.target.checked })} /> Reconnect automatically, including after app restart</label>
           <label><input type="checkbox" checked={configuration.requestSkimmer} onChange={(event) => setConfiguration({ ...configuration, requestSkimmer: event.target.checked })} /> Request RBN / Skimmer</label>
-          <label><input type="checkbox" checked={configuration.showWorkedBandModeSpots} onChange={(event) => setConfiguration({ ...configuration, showWorkedBandModeSpots: event.target.checked })} /> Show already-worked combinations</label></div>
-        <label><input type="checkbox" disabled={!forwardingAvailable && !configuration.forwardSpotsToFlex} checked={configuration.forwardSpotsToFlex} onChange={(event) => setConfiguration({ ...configuration, forwardSpotsToFlex: event.target.checked })} /> Forward incoming spots to FLEX via the connected direct-agent station</label>
-        {!forwardingAvailable && <p>FLEX forwarding is not yet available on this platform. {configuration.forwardSpotsToFlex ? "Turn it off before saving cluster settings." : "Cluster spots remain available in xLog."}</p>}
-        {forwardingAvailable && <p>Forwarding is opt-in and requires the Remote Station Agent to advertise add_spot. An accepted command does not confirm that FLEX displayed the spot. xCat loopback companion mode cannot forward spots.</p>}
-        {(configuration.forwardSpotsToFlex || forwardingSettingDirty) && <p role="status">FLEX forwarding: {forwardingSettingDirty
-          ? `Unsaved ${configuration.forwardSpotsToFlex ? "ON" : "OFF"} — press Save cluster settings. Runtime remains ${savedForwardSpotsToFlex ? "ON" : "OFF"}.`
-          : `${forwarding?.status ?? "Connect a cluster and direct-agent station."}${forwarding?.accepted_count ? ` · ${forwarding.accepted_count} accepted` : ""}`}</p>}
+          <label><input type="checkbox" checked={configuration.showWorkedBandModeSpots} onChange={(event) => setConfiguration({ ...configuration, showWorkedBandModeSpots: event.target.checked })} /> Show already-worked combinations</label>
+          <label><input type="checkbox" checked={configuration.hideWSPRSpots} onChange={(event) => setConfiguration({ ...configuration, hideWSPRSpots: event.target.checked })} /> Hide WSPR spots</label></div>
+        <p>Radio spot destinations and colours are configured in Settings → Radio spots.</p>
         <h3>Servers</h3><p>Configured servers connect together. Saving settings disconnects active sessions.</p>
         {configuration.servers.map((server) => <div className="live-cluster-server" key={server.id}>
           <label><input type="checkbox" checked={server.enabled} onChange={(event) => updateServer(server.id, { enabled: event.target.checked })} /> Enabled</label>

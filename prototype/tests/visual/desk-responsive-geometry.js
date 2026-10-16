@@ -17,6 +17,7 @@
     for (const panel of panels) {
       const box = measure(panel);
       if (panel.scrollWidth > panel.clientWidth + 1) failures.push(`${panel.className}: horizontal overflow`);
+      if (panel.scrollHeight > panel.clientHeight + 1) failures.push(`${panel.className}: vertical overflow`);
       for (const field of panel.querySelectorAll("input:not([type=checkbox]), select, button, .rotor-dial, .desk-current")) {
         const item = measure(field);
         if (item.x < box.x - 1 || item.right > box.right + 1 || item.bottom > box.bottom + 1)
@@ -29,7 +30,7 @@
     const stacked = intelligence.y > active.y + 1;
     if (width > 1420 && stacked) failures.push("Usable desk should remain side by side; reflow Active QSO fields first");
     if (width <= 1420 && !stacked) failures.push("Narrow layout should retain the full-width Active QSO");
-    if (width > 1840 && active.height > 300)
+    if (width > 1840 && active.height > 282)
       failures.push("Unnecessary wrapping has enlarged the top row");
     const primary = document.querySelector(".desk-active-primary");
     const primaryWidth = primary.getBoundingClientRect().width;

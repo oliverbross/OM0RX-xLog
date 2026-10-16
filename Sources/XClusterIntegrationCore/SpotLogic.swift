@@ -28,14 +28,16 @@ public enum SpotLogic {
         for token in ["FT8", "FT4", "FT2", "RTTY", "OLIVIA", "PSK", "JT65", "JT9", "HELL", "MFSK", "SSTV"] where text.contains(token) { return token }
         if text.range(of: #"(^|\s)AM($|\s)"#, options: .regularExpression) != nil { return "AM" }
         if text.range(of: #"(^|\s)FM($|\s)"#, options: .regularExpression) != nil { return "FM" }
-        if ["SSB", "USB", "LSB", " PH"].contains(where: text.contains) { return "SSB" }
+        if text.range(of: #"\b(SSB|USB|LSB|PHONE|PH)\b"#, options: .regularExpression) != nil { return "SSB" }
         if text.contains("CW") || text.contains("CWT") { return "CW" }
         if ft8.contains(where: { abs(khz - $0) <= 1.6 }) { return "FT8" }
         if ft4.contains(where: { abs(khz - $0) <= 1.6 }) { return "FT4" }
         if ft2.contains(where: { abs(khz - $0) <= 1.6 }) { return "FT2" }
         let phone: [String: ClosedRange<Double>] = ["10m": 28300...29700, "12m": 24940...24990, "15m": 21200...21450, "17m": 18110...18168, "20m": 14150...14350, "40m": 7090...7300, "80m": 3700...4000, "6m": 50100...54000]
         if phone[band]?.contains(khz) == true { return "SSB" }
-        let cw: [String: ClosedRange<Double>] = ["10m": 28000...28150, "12m": 24890...24910, "15m": 21000...21070, "17m": 18068...18095, "20m": 14000...14060, "40m": 7000...7040, "30m": 10100...10150, "80m": 3500...3560, "160m": 1800...1840]
+        if band == "20m" && (14000..<14070).contains(khz) { return "CW" }
+        if band == "20m" && (14070..<14099).contains(khz) { return "DIGI" }
+        let cw: [String: ClosedRange<Double>] = ["10m": 28000...28150, "12m": 24890...24910, "15m": 21000...21070, "17m": 18068...18095, "40m": 7000...7040, "30m": 10100...10150, "80m": 3500...3560, "160m": 1800...1840]
         if cw[band]?.contains(khz) == true { return "CW" }
         return "SSB"
     }
@@ -50,6 +52,15 @@ public enum SpotLogic {
         let text = comment.uppercased()
         let skimmerSpotter = spotterText.hasSuffix("-#") || spotterText.hasSuffix("/#")
         return skimmerSpotter || text.range(of: #"\b(RBL|RBN|SKIMMER)\b"#, options: .regularExpression) != nil ? "rbl" : "cluster"
+    }
+
+    /// WSPR is hidden only when a source field or comment identifies it explicitly.
+    /// Callsign and frequency are deliberately excluded to avoid false positives.
+    public static func isWSPR(clusterName: String, spotter: String, comment: String) -> Bool {
+        [clusterName, spotter, comment].contains {
+            $0.range(of: #"(^|[^A-Z0-9])WSPR(?:NET)?([^A-Z0-9]|$)"#,
+                     options: [.regularExpression, .caseInsensitive]) != nil
+        }
     }
 
     public static func shouldShow(callStatus: String, showWorkedBandModeSpots: Bool) -> Bool {

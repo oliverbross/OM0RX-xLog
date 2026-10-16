@@ -95,6 +95,7 @@ public struct ClusterPalette: Codable, Equatable, Sendable {
 }
 
 public struct ClusterSessionConfiguration: Codable, Sendable {
+    public enum RadioSpotColorPolicy: String, Codable, Sendable { case callsign, dxcc }
     public static let originalSpecialRules: [SpecialRule] = [
         .init(name: "POTA", keywords: ["POTA"], referenceFormat: .pota),
         .init(name: "SOTA", keywords: ["SOTA"], referenceFormat: .sota),
@@ -111,6 +112,7 @@ public struct ClusterSessionConfiguration: Codable, Sendable {
     public var reconnect: Bool
     public var requestSkimmer: Bool
     public var showWorkedBandModeSpots: Bool
+    public var hideWSPRSpots: Bool
     public var maximumSpots: Int
     public var specialRules: [SpecialRule]
     public var palette: ClusterPalette
@@ -118,9 +120,10 @@ public struct ClusterSessionConfiguration: Codable, Sendable {
     public var commandPresets: [ClusterCommandPreset]
     /// Explicit opt-in. Only the direct-agent xCat provider supports add_spot.
     public var forwardSpotsToFlex: Bool
+    public var radioSpotColorPolicy: RadioSpotColorPolicy
 
     public init(servers: [ClusterServerConfiguration], reconnect: Bool = true, requestSkimmer: Bool = true,
-                showWorkedBandModeSpots: Bool = false, maximumSpots: Int = 200,
+                showWorkedBandModeSpots: Bool = false, hideWSPRSpots: Bool = false, maximumSpots: Int = 200,
                 specialRules: [SpecialRule] = originalSpecialRules, palette: ClusterPalette = .originalDefaults,
                 filter: ClusterSpotFilter = .init(),
                 commandPresets: [ClusterCommandPreset] = [
@@ -130,22 +133,24 @@ public struct ClusterSessionConfiguration: Codable, Sendable {
                     .init(name: "WCY", command: "sh/wcy/5"),
                     .init(name: "Announcements", command: "sh/ann/10"),
                     .init(name: "Users", command: "sh/u")
-                ], forwardSpotsToFlex: Bool = false) {
+                ], forwardSpotsToFlex: Bool = false, radioSpotColorPolicy: RadioSpotColorPolicy = .callsign) {
         self.servers = servers
         self.reconnect = reconnect
         self.requestSkimmer = requestSkimmer
         self.showWorkedBandModeSpots = showWorkedBandModeSpots
+        self.hideWSPRSpots = hideWSPRSpots
         self.maximumSpots = maximumSpots
         self.specialRules = specialRules
         self.palette = palette
         self.filter = filter
         self.commandPresets = commandPresets
         self.forwardSpotsToFlex = forwardSpotsToFlex
+        self.radioSpotColorPolicy = radioSpotColorPolicy
     }
 
     private enum CodingKeys: String, CodingKey {
-        case servers, reconnect, requestSkimmer, showWorkedBandModeSpots, maximumSpots
-        case specialRules, palette, filter, commandPresets, forwardSpotsToFlex
+        case servers, reconnect, requestSkimmer, showWorkedBandModeSpots, hideWSPRSpots, maximumSpots
+        case specialRules, palette, filter, commandPresets, forwardSpotsToFlex, radioSpotColorPolicy
     }
 
     public init(from decoder: Decoder) throws {
@@ -154,6 +159,7 @@ public struct ClusterSessionConfiguration: Codable, Sendable {
         reconnect = try values.decode(Bool.self, forKey: .reconnect)
         requestSkimmer = try values.decode(Bool.self, forKey: .requestSkimmer)
         showWorkedBandModeSpots = try values.decode(Bool.self, forKey: .showWorkedBandModeSpots)
+        hideWSPRSpots = try values.decodeIfPresent(Bool.self, forKey: .hideWSPRSpots) ?? false
         maximumSpots = try values.decode(Int.self, forKey: .maximumSpots)
         specialRules = try values.decode([SpecialRule].self, forKey: .specialRules)
         palette = try values.decode(ClusterPalette.self, forKey: .palette)
@@ -161,6 +167,7 @@ public struct ClusterSessionConfiguration: Codable, Sendable {
         commandPresets = try values.decodeIfPresent([ClusterCommandPreset].self, forKey: .commandPresets)
             ?? Self(servers: []).commandPresets
         forwardSpotsToFlex = try values.decodeIfPresent(Bool.self, forKey: .forwardSpotsToFlex) ?? false
+        radioSpotColorPolicy = try values.decodeIfPresent(RadioSpotColorPolicy.self, forKey: .radioSpotColorPolicy) ?? .callsign
     }
 }
 
@@ -340,6 +347,9 @@ public actor ClusterSessionService {
         let optionsChanged = configuration.reconnect != value.reconnect
             || configuration.requestSkimmer != value.requestSkimmer
         configuration = value
+        if value.hideWSPRSpots {
+            spots.removeAll { SpotLogic.isWSPR(clusterName: $0.clusterName, spotter: $0.spotter, comment: $0.comment) }
+        }
         statuses = statuses.filter { retained.contains($0.key) }
         for server in enabled where retained.contains(server.id) {
             statuses[server.id]?.serverName = server.name
@@ -556,6 +566,8 @@ public actor ClusterSessionService {
 
     private func addSpot(_ raw: RawSpot, line: String, server: ClusterServerConfiguration, generation: UUID, arrivedAt: Date) {
         guard raw.callsign.utf8.count <= 32, raw.spotter.utf8.count <= 64 else { return }
+        guard !configuration.hideWSPRSpots
+                || !SpotLogic.isWSPR(clusterName: raw.clusterName, spotter: raw.spotter, comment: raw.comment) else { return }
         let country = countries.resolve(raw.callsign)
         let band = SpotLogic.band(for: raw.frequencyKHz)
         let mode = SpotLogic.mode(comment: raw.comment, band: band, khz: raw.frequencyKHz)

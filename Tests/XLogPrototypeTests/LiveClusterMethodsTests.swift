@@ -59,7 +59,8 @@ struct LiveClusterMethodsTests {
         let id = UUID().uuidString
         configuration["servers"] = [["id": id, "name": "Fixture", "host": "cluster.example.invalid", "port": 7300, "callsign": "OM0RX", "enabled": true]]
         configuration["showWorkedBandModeSpots"] = true
-        #expect(try await request(worker, "cluster_configure", ["configuration": configuration])["ok"] as? Bool == true)
+        #expect(try await request(worker, "cluster_configure", ["configuration": configuration,
+                                                                "base_configuration": initialResult["configuration"]!])["ok"] as? Bool == true)
         let path = logbook.workspaceDirectoryURL.appendingPathComponent("Cluster/cluster.json")
         #expect(FileManager.default.fileExists(atPath: path.path))
         #expect(fixture.counts.0 == 0)
@@ -83,7 +84,9 @@ struct LiveClusterMethodsTests {
         bands["20m"] = "#123456"
         palette["band"] = bands
         configuration["palette"] = palette
-        let saved = try await request(worker, "cluster_configure", ["configuration": configuration])
+        let beforePalette = try await request(worker, "cluster_snapshot")
+        let saved = try await request(worker, "cluster_configure", ["configuration": configuration,
+                                                                    "base_configuration": (beforePalette["result"] as? [String: Any])?["configuration"] as Any])
         #expect(saved["ok"] as? Bool == true)
         let savedSnapshot = (saved["result"] as? [String: Any])?["snapshot"] as? [String: Any]
         #expect(savedSnapshot?["connectedClusters"] as? Int == 1)
@@ -241,13 +244,130 @@ struct LiveClusterMethodsTests {
         #if !os(macOS)
         #expect(initial["flex_forwarding_available"] as? Bool == false)
         #expect((initial["forwarding"] as? [String: Any])?["status"] as? String == "Unavailable on this platform")
-        do { _ = try await bridge.handle(method: "cluster_configure", params: ["configuration": value]); Issue.record("Unsupported forwarding was saved") }
+        do { _ = try await bridge.handle(method: "cluster_configure", params: ["configuration": value,
+                                                                             "base_configuration": value]); Issue.record("Unsupported forwarding was saved") }
         catch let error as WorkerFailure { #expect(error.code == "platform_pending") }
         catch { Issue.record("Unexpected forwarding error: \(error)") }
         #endif
         value["forwardSpotsToFlex"] = false
-        let saved = try await bridge.handle(method: "cluster_configure", params: ["configuration": value])
+        let saved = try await bridge.handle(method: "cluster_radio_spots_configure", params: [
+            "flex_enabled": false, "flex_expected": true])
         #expect((saved["configuration"] as? [String: Any])?["forwardSpotsToFlex"] as? Bool == false)
+        await bridge.terminate()
+    }
+
+    @Test("Cluster save preserves newer Radio spots fields and status colours")
+    func clusterSavePreservesRadioSpotSettings() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        let bridge = LiveClusterMethods(logbook: logbook, configurationURL: root.appendingPathComponent("cluster.json"),
+                                        vault: UnavailableClusterTestVault())
+        let initial = try await bridge.handle(method: "cluster_snapshot", params: [:])
+        var stale = try #require(initial["configuration"] as? [String: Any])
+        let initialPalette = try #require(stale["palette"] as? [String: Any])
+        let initialStatus = try #require(initialPalette["status"] as? [String: String])
+        let initialATNO = try #require(initialStatus["ATNO"])
+        let radio = try await bridge.handle(method: "cluster_radio_spots_configure", params: [
+            "color_policy": "dxcc", "color_policy_expected": "callsign",
+            "status_colors": ["ATNO": "#123456"],
+            "status_color_expected": ["ATNO": initialATNO]])
+        #expect((radio["configuration"] as? [String: Any])?["radioSpotColorPolicy"] as? String == "dxcc")
+        var otherWindowDraft = stale
+        otherWindowDraft["requestSkimmer"] = false
+        _ = try await bridge.handle(method: "cluster_configure", params: [
+            "configuration": otherWindowDraft, "base_configuration": initial["configuration"]!])
+        stale["hideWSPRSpots"] = true
+        var palette = try #require(stale["palette"] as? [String: Any])
+        var statusDraft = try #require(palette["status"] as? [String: String])
+        statusDraft["Worked"] = "#ABCDEF"
+        palette["status"] = statusDraft
+        var bands = try #require(palette["band"] as? [String: String])
+        bands["20m"] = "#AABBCC"
+        palette["band"] = bands
+        stale["palette"] = palette
+        let result = try await bridge.handle(method: "cluster_configure", params: [
+            "configuration": stale, "base_configuration": initial["configuration"]!])
+        let saved = try #require(result["configuration"] as? [String: Any])
+        let savedPalette = try #require(saved["palette"] as? [String: Any])
+        let status = try #require(savedPalette["status"] as? [String: String])
+        #expect(saved["forwardSpotsToFlex"] as? Bool == false)
+        #expect(saved["radioSpotColorPolicy"] as? String == "dxcc")
+        #expect(saved["hideWSPRSpots"] as? Bool == true)
+        #expect(saved["requestSkimmer"] as? Bool == false)
+        #expect(status["ATNO"] == "#123456")
+        #expect(status["Worked"] == "#ABCDEF")
+        #expect((savedPalette["band"] as? [String: String])?["20m"] == "#AABBCC")
+        var otherClusterDraft = saved
+        otherClusterDraft["maximumSpots"] = 500
+        _ = try await bridge.handle(method: "cluster_configure", params: [
+            "configuration": otherClusterDraft, "base_configuration": saved])
+        var conflictingDraft = stale
+        conflictingDraft["maximumSpots"] = 100
+        do {
+            _ = try await bridge.handle(method: "cluster_configure", params: [
+                "configuration": conflictingDraft, "base_configuration": initial["configuration"]!])
+            Issue.record("Concurrent Cluster field edit was overwritten")
+        } catch let failure as WorkerFailure { #expect(failure.code == "configuration_conflict") }
+        _ = try await bridge.handle(method: "cluster_radio_spots_configure", params: [
+            "status_colors": ["Worked": "#010203"], "status_color_expected": ["Worked": "#ABCDEF"]])
+        do {
+            _ = try await bridge.handle(method: "cluster_configure", params: [
+                "configuration": stale, "base_configuration": initial["configuration"]!])
+            Issue.record("Concurrent status colour edit was overwritten")
+        } catch let failure as WorkerFailure { #expect(failure.code == "configuration_conflict") }
+        let afterConflict = try await bridge.handle(method: "cluster_snapshot", params: [:])
+        let currentPalette = try #require((afterConflict["configuration"] as? [String: Any])?["palette"] as? [String: Any])
+        #expect((currentPalette["status"] as? [String: String])?["Worked"] == "#010203")
+        #expect((afterConflict["configuration"] as? [String: Any])?["maximumSpots"] as? Int == 500)
+        await bridge.terminate()
+    }
+
+    @Test("Radio spot settings persist separately from cluster ingestion")
+    func radioSpotSettings() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        let url = root.appendingPathComponent("cluster.json")
+        var original = ClusterSessionConfiguration(servers: [])
+        original.palette.status["New Call"] = "#010203"
+        original.palette.band["20m"] = "#AABBCC"
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try JSONEncoder().encode(original).write(to: url)
+        let bridge = LiveClusterMethods(logbook: logbook, configurationURL: url, vault: UnavailableClusterTestVault())
+        let result = try await bridge.handle(method: "cluster_radio_spots_configure",
+            params: ["color_policy": "dxcc", "color_policy_expected": "callsign",
+                     "status_colors": ["ATNO": "#123456"],
+                     "status_color_expected": ["ATNO": original.palette.status["ATNO"]!]])
+        let saved = try #require(result["configuration"] as? [String: Any])
+        #expect(saved["forwardSpotsToFlex"] as? Bool == false)
+        #expect(saved["radioSpotColorPolicy"] as? String == "dxcc")
+        let disk = try JSONDecoder().decode(ClusterSessionConfiguration.self, from: Data(contentsOf: url))
+        #expect(disk.radioSpotColorPolicy == .dxcc)
+        #expect(disk.palette.status["ATNO"] == "#123456")
+        #expect(disk.palette.status["New Call"] == "#010203")
+        #expect(disk.palette.band["20m"] == "#AABBCC")
+        let colorOnly = try await bridge.handle(method: "cluster_radio_spots_configure", params: [
+            "status_colors": ["New Call": "#040506"], "status_color_expected": ["New Call": "#010203"]])
+        #expect((colorOnly["configuration"] as? [String: Any])?["radioSpotColorPolicy"] as? String == "dxcc")
+        do {
+            _ = try await bridge.handle(method: "cluster_radio_spots_configure", params: [
+                "status_colors": ["ATNO": "#654321"],
+                "status_color_expected": ["ATNO": original.palette.status["ATNO"]!]])
+            Issue.record("Stale Radio spots colour overwrote another window")
+        } catch let failure as WorkerFailure { #expect(failure.code == "configuration_conflict") }
+        do { _ = try await bridge.handle(method: "cluster_radio_spots_configure",
+            params: ["color_policy": "other", "color_policy_expected": "dxcc"]); Issue.record("Invalid policy accepted") }
+        catch let failure as WorkerFailure { #expect(failure.code == "invalid_params") }
+        for invalid in [["ATNO": "#12345"], ["Unsupported": "#112233"]] {
+            do { _ = try await bridge.handle(method: "cluster_radio_spots_configure",
+                params: ["status_colors": invalid, "status_color_expected": ["ATNO": "#123456"]]); Issue.record("Invalid colour accepted") }
+            catch let failure as WorkerFailure { #expect(failure.code == "invalid_params") }
+        }
+        let unchanged = try JSONDecoder().decode(ClusterSessionConfiguration.self, from: Data(contentsOf: url))
+        #expect(unchanged.radioSpotColorPolicy == .dxcc)
+        #expect(unchanged.palette.status["ATNO"] == "#123456")
+        #expect(unchanged.palette.status["New Call"] == "#040506")
         await bridge.terminate()
     }
 }

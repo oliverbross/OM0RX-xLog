@@ -339,11 +339,22 @@ final class ClusterSessionServiceTests: XCTestCase {
         var object = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(original)) as? [String: Any])
         object.removeValue(forKey: "commandPresets")
         object.removeValue(forKey: "forwardSpotsToFlex")
+        object.removeValue(forKey: "radioSpotColorPolicy")
+        object.removeValue(forKey: "hideWSPRSpots")
         let decoded = try JSONDecoder().decode(ClusterSessionConfiguration.self,
             from: JSONSerialization.data(withJSONObject: object))
         XCTAssertFalse(decoded.forwardSpotsToFlex)
+        XCTAssertEqual(decoded.radioSpotColorPolicy, .callsign)
+        XCTAssertFalse(decoded.hideWSPRSpots)
         XCTAssertEqual(decoded.commandPresets.map(\.command),
                        ["sh/dx/50", "sh/mydx 50", "sh/wwv/5", "sh/wcy/5", "sh/ann/10", "sh/u"])
+    }
+
+    func testRadioSpotColorPolicyRoundTrips() throws {
+        var config = ClusterSessionConfiguration(servers: [])
+        config.radioSpotColorPolicy = .dxcc
+        let decoded = try JSONDecoder().decode(ClusterSessionConfiguration.self, from: JSONEncoder().encode(config))
+        XCTAssertEqual(decoded.radioSpotColorPolicy, .dxcc)
     }
 
     func testForwardingEligibilityFollowsVisibleSnapshotAndConnectionGeneration() async throws {
@@ -372,5 +383,51 @@ final class ClusterSessionServiceTests: XCTestCase {
         await service.disconnect()
         let afterDisconnect = await service.isVisibleSpot(received[1].0, in: received[1].1)
         XCTAssertFalse(afterDisconnect)
+    }
+
+    func testHideWSPRSpotsExcludesExplicitReportsBeforeRetentionAndForwarding() async throws {
+        let server = ClusterServerConfiguration(name: "Fixture", host: "example.invalid", port: 7300, callsign: "OM0RX")
+        let connection = TestClusterTransport()
+        let events = TestSpotEvents()
+        var config = ClusterSessionConfiguration(servers: [server], showWorkedBandModeSpots: true)
+        config.hideWSPRSpots = true
+        let service = ClusterSessionService(configuration: config,
+            onSpot: { spot, generation in events.record(spot, generation: generation) },
+            transportFactory: { _, _, _, _, onState, onLine in
+                connection.onState = onState
+                connection.onLine = onLine
+                return connection
+            })
+        try await service.connect()
+        try await waitFor { await service.snapshot().connectedClusters == 1 }
+        connection.emit("DX de K1SPT: 14095.6 K1WSPR -24 dB")
+        connection.emit("DX de WSPRNET: 14095.6 K1HIDDEN WSPR -24 dB")
+        connection.emit("DX de K1SPT: 14096.0 4U1UN -24 dB 5000 km")
+        try await waitFor { await service.snapshot().loadedSpots == 2 }
+        let snapshot = await service.snapshot()
+        XCTAssertEqual(Set(snapshot.spots.map(\.callsign)), Set(["K1WSPR", "4U1UN"]))
+        XCTAssertEqual(events.all.count, 2)
+    }
+
+    func testEnablingHideWSPRSpotsPurgesRetainedReports() async throws {
+        let server = ClusterServerConfiguration(name: "Fixture", host: "example.invalid", port: 7300, callsign: "OM0RX")
+        let connection = TestClusterTransport()
+        var config = ClusterSessionConfiguration(servers: [server], showWorkedBandModeSpots: true)
+        let service = ClusterSessionService(configuration: config,
+            transportFactory: { _, _, _, _, onState, onLine in
+                connection.onState = onState
+                connection.onLine = onLine
+                return connection
+            })
+        try await service.connect()
+        try await waitFor { await service.snapshot().connectedClusters == 1 }
+        connection.emit("DX de K1SPT: 14095.6 K1WSPR WSPR -24 dB")
+        connection.emit("DX de K1SPT: 14096.0 4U1UN -24 dB")
+        try await waitFor { await service.snapshot().loadedSpots == 2 }
+        config.hideWSPRSpots = true
+        try await service.configure(config)
+        let snapshot = await service.snapshot()
+        XCTAssertEqual(snapshot.loadedSpots, 1)
+        XCTAssertEqual(snapshot.spots.map(\.callsign), ["4U1UN"])
     }
 }

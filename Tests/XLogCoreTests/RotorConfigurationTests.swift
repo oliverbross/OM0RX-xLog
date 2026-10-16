@@ -74,4 +74,25 @@ struct RotorConfigurationTests {
         var invalid = RotorConfiguration.defaults; invalid.nativeDCU1.port = 0
         #expect(throws: RotorConfigurationError.self) { try database.rotorConfiguration(seed: invalid) }
     }
+
+    @Test("Legacy configuration decodes startup-safe defaults and band policy is bounded")
+    func automaticRotorPolicy() throws {
+        let legacy: [String: Any] = [
+            "owner": "native_dcu1",
+            "native_dcu1": ["host": "", "port": 4_001, "name": "Rotor"],
+            "hamlib": ["mode": "managed", "path": "", "baud": 9_600,
+                       "host": "127.0.0.1", "port": 4_533, "serial": [:]],
+        ]
+        let decoded = try JSONDecoder().decode(RotorConfiguration.self,
+            from: JSONSerialization.data(withJSONObject: legacy))
+        #expect(decoded.autoRotorAtStartup == false)
+        #expect(decoded.autoRotorBands == BandPlan.bands)
+
+        var invalid = decoded; invalid.autoRotorBands = ["20m", "20m"]
+        #expect(throws: RotorConfigurationError.self) { try invalid.validate() }
+        invalid.autoRotorBands = ["1.25m"]
+        #expect(throws: RotorConfigurationError.self) { try invalid.validate() }
+        invalid.autoRotorBands = []
+        try invalid.validate()
+    }
 }

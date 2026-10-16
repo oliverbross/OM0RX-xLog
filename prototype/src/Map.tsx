@@ -527,6 +527,8 @@ export default function WorldMap({
       document.addEventListener("xlog-native-acceptance", requestEvidence);
       document.addEventListener("xlog-native-map-evidence", requestEvidence);
       window.addEventListener("focus", repaint);
+      const visible = () => { if (document.visibilityState === "visible") repaint(); };
+      document.addEventListener("visibilitychange", visible);
       fitFixture();
       map.on("movestart", (event) => {
         if (event.originalEvent) preserveCamera.current = true;
@@ -581,32 +583,35 @@ export default function WorldMap({
         }
       });
       let resizeFrame: number | null = null;
-      let width = element.clientWidth, height = element.clientHeight;
-      const resize = new ResizeObserver(() => {
+      const scheduleResize = () => {
         // A retained Desk map can be hidden or change split rows several times
-        // in one layout pass. Measure its final size before resizing WebGL.
-        if (!element.clientWidth || !element.clientHeight) { width = 0; height = 0; }
+        // in one layout pass. Measure its final visible size before resizing
+        // WebGL. Do not infer MapLibre's viewport from the CSS canvas size: on
+        // route return those dimensions can agree while its transform is still
+        // the hidden/fallback size.
         if (resizeFrame !== null) return;
         resizeFrame = window.requestAnimationFrame(() => {
           resizeFrame = null;
           if (disposed) return;
           const nextWidth = element.clientWidth, nextHeight = element.clientHeight;
-          const canvas = map.getCanvas();
-          if (!nextWidth || !nextHeight || (width === nextWidth && height === nextHeight
-            && canvas.clientWidth === nextWidth && canvas.clientHeight === nextHeight)) return;
-          width = nextWidth; height = nextHeight;
+          if (!nextWidth || !nextHeight) return;
           map.resize();
           // A layout change only updates the viewport. Refitting a shallow
           // split can zoom out to several wrapped worlds and discard the camera.
           map.triggerRepaint();
           redrawLabels();
         });
-      });
+      };
+      const resize = new ResizeObserver(scheduleResize);
       resize.observe(element);
+      // MapLibre can be constructed while an incoming route is still hidden.
+      // Resize once after layout even when ResizeObserver coalesces that reveal.
+      scheduleResize();
       return () => {
         disposed = true;
         document.removeEventListener("xlog-native-acceptance", requestEvidence);
         document.removeEventListener("xlog-native-map-evidence", requestEvidence);
+        document.removeEventListener("visibilitychange", visible);
         window.removeEventListener("focus", repaint);
         resize.disconnect();
         if (resizeFrame !== null) window.cancelAnimationFrame(resizeFrame);

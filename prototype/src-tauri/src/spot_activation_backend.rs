@@ -256,7 +256,8 @@ impl Backend for NativeBackend {
             auto_rotor::revoke();
         } else {
             let permit = auto_rotor::activation_started(Target { generation:generation.clone(), draft_id:draft.clone(),
-                call:spot["call"].as_str().ok_or("Native report callsign unavailable")?.into() })?;
+                call:spot["call"].as_str().ok_or("Native report callsign unavailable")?.into(),
+                band:spot["band"].as_str().unwrap_or("").into() })?;
             self.operations.lock().map_err(|_| "Activation context unavailable")?.get_mut(&request.operation_id)
                 .ok_or("Activation context unavailable")?.permit = Some(permit);
         }

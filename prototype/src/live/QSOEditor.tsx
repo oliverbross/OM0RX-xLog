@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode, type RefObject, type SetStateAction } from "react";
 import { Radio, PanelsTopLeft, UserRound, Star, RadioTower, ContactRound, History, Grid3X3, CircleX, CircleCheck } from "lucide-react";
 import "./QSOEditor.css";
-import QSOHeader, { type ReferenceEvidence } from "./QSOHeader";
+import QSOHeader, { ReferenceEvidenceStatus, type ReferenceEvidence } from "./QSOHeader";
 import type { DraftPowerIntent, DraftPowerState } from "./operatorDraftSession";
 import { dxccIdentity } from "./dxccIdentity";
 import { connectLogbookChanges } from "./logbookWindows";
@@ -36,6 +36,7 @@ type Props = {
   powerState?: DraftPowerState | null; powerIntent?: DraftPowerIntent | null; automaticPowerEnabled?: boolean;
   onManualPower?: (value: string) => void; onResumeAutomaticPower?: () => void;
   onLocalInputState?: (dirty: boolean) => void;
+  resetInputEpoch?: number;
   canAcceptLocalInput?: () => boolean;
   onUndock?: () => void;
   contactActions?: ReactNode;
@@ -140,7 +141,7 @@ export function draftPowerDescription(draft: Data, power?: DraftPowerState | nul
 }
 
 export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draftLocked, lookup, previous, follow, setFollow, request, onReadRadio, automaticStationMetadata = [], isEditing = false, radioControls = true, followControls = radioControls, clearLabel = "Clear QSO", referenceEvidence,
-  powerState, powerIntent, automaticPowerEnabled, onManualPower, onResumeAutomaticPower, onLocalInputState, canAcceptLocalInput, onUndock, contactActions, inspector = true }: Props) {
+  powerState, powerIntent, automaticPowerEnabled, onManualPower, onResumeAutomaticPower, onLocalInputState, resetInputEpoch, canAcceptLocalInput, onUndock, contactActions, inspector = true }: Props) {
   const acceptsInput = () => !draftLocked && (canAcceptLocalInput?.() ?? true);
   const setDraft: Props["setDraft"] = value => { if (acceptsInput()) writeDraft(value); };
   const [frequencyDraft, setFrequencyDraft] = useState<string | null>(null);
@@ -180,7 +181,7 @@ export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draf
       return { ...current, [key]: value, extraFields };
     });
   };
-  useEffect(() => { setFrequencyDraft(null); setReceiveDraft(null); setTimeDrafts({}); setNumericDrafts({}); setNewADIFName(""); setShowErrors(false); }, [draft?.id]);
+  useEffect(() => { setFrequencyDraft(null); setReceiveDraft(null); setTimeDrafts({}); setNumericDrafts({}); setNewADIFName(""); setShowErrors(false); }, [draft?.id, resetInputEpoch]);
   useEffect(() => { if (follow) setFrequencyDraft(null); }, [follow]);
   const canonicalBuffers = useRef<Record<string, any> | null>(null);
   useLayoutEffect(() => {
@@ -366,7 +367,7 @@ export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draf
   return <section className={`qso-editor${inspector ? "" : " qso-editor-without-inspector"}`} ref={rootRef} onKeyDown={keyDown} aria-label="Log QSO">
     <div className="qso-editor-main"><form inert={draftLocked} aria-busy={draftLocked} onSubmit={submit} noValidate>
       <section className="qso-active" aria-labelledby="qso-active-title">
-        <QSOHeader title="Active contact" id="qso-active-title" call={draft.call} evidence={referenceEvidence}
+        <QSOHeader title="Active contact" id="qso-active-title"
           actions={onUndock && <button type="button" disabled={busy || draftLocked || localInputDirty} onClick={() => { if (acceptsInput()) onUndock(); }}><PanelsTopLeft size={15} /> Undock</button>} />
         <div className="qso-primary">
           <label className="qso-field qso-call"><span>Callsign</span><input ref={callRef} aria-label="Callsign" value={draft.call ?? ""} maxLength={32} onChange={(event) => update("call", event.target.value.toUpperCase())} autoComplete="off" spellCheck={false} /></label>
@@ -385,7 +386,7 @@ export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draf
         <h2 id="qso-details-title"><PanelsTopLeft size={15} aria-hidden="true" /> QSO details</h2>
         <div className="qso-detail-columns">
           <section className="qso-detail-column" aria-labelledby="qso-contact-title"><h3 id="qso-contact-title"><UserRound size={13} aria-hidden="true" /> Contact &amp; location</h3><div className="qso-fields">{groups.General.map(field)}</div></section>
-          <section className="qso-detail-column" aria-labelledby="qso-reference-title"><h3 id="qso-reference-title"><Star size={13} aria-hidden="true" /> References &amp; notes</h3><div className="qso-fields">{groups.References.map(field)}{groups.Notes.map(field)}</div></section>
+          <section className="qso-detail-column" aria-labelledby="qso-reference-title"><h3 id="qso-reference-title"><Star size={13} aria-hidden="true" /> References &amp; notes</h3><div className="qso-fields">{groups.References.map(field)}<ReferenceEvidenceStatus call={draft.call} evidence={referenceEvidence} />{groups.Notes.map(field)}</div></section>
           <section className="qso-detail-column" aria-labelledby="qso-station-title"><h3 id="qso-station-title"><RadioTower size={13} aria-hidden="true" /> Station &amp; QSL</h3>
             {captured.length > 0 && <div className="qso-captured"><strong>Station context</strong><dl>{captured.map((item, index) => <div key={`${item.label}-${index}`}><dt>{item.label}<small>{item.provenance}</small></dt><dd>{item.value}</dd></div>)}</dl></div>}
             <div className="qso-fields">{groups.Station.map(field)}{groups.QSL.map(field)}</div>

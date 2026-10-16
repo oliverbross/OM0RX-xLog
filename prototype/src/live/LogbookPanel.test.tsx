@@ -81,6 +81,9 @@ describe("logbook confirmation visibility", () => {
     expect(within(rows[1]).getByRole("img", { name: "Club Log upload Y" })).toBeTruthy();
     expect(within(rows[1]).getByText("Portable from the summit")).toBeTruthy();
     expect(within(rows[1]).getByText("14.025000")).toBeTruthy();
+    const bandMode = Array.from(rows[1].querySelectorAll<HTMLElement>(".live-logbook-category"));
+    expect(bandMode.map(value => value.textContent)).toEqual(["20m", "CW"]);
+    expect(bandMode[0].style.color).not.toBe(bandMode[1].style.color);
     expect(within(rows[1]).getByRole("img", { name: "Pending synchronization" })).toBeTruthy();
     expect(Array.from(rows[1].querySelectorAll("td")).map(cell => cell.getAttribute("data-label"))).toEqual([
       "UTC", "Callsign", "Band / Mode", "Frequency", "RST", "Country", "QSL", "LoTW", "Club Log", "Comment",

@@ -75,6 +75,7 @@
 .qso-contact-delete [role=group] { display:flex; flex-wrap:wrap; gap:6px; max-width:340px; white-space:normal; }
 .qso-contact-delete [role=group]>span { flex-basis:100%; }
 .qso-validation { color:#ffb1a9; border:1px solid #78433f; background:#331d24; border-radius:6px; padding:7px 10px; }
+.qso-fields > .qso-reference-status { grid-column:1 / -1; justify-content:flex-start; margin-left:0; text-align:left; }
 .qso-validation ul { margin:0; padding-left:18px; }
 .qso-actions { display:flex; align-items:center; justify-content:space-between; gap:12px; min-width:0; padding:0 1px; }
 .qso-footer-context { display:flex; align-items:center; flex-wrap:wrap; gap:8px 14px; color:#a5b9cc; font-size:10px; }

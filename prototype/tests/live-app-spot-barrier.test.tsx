@@ -44,8 +44,8 @@ vi.mock("../src/live/stationTelemetry", () => ({ connectStationTelemetry: (_prov
 vi.mock("../src/live/useSpotActivation", () => ({ useSpotActivation: () => ({ status: null, error: "", requesting: false, activate: host.activate, reconcile: vi.fn() }) }));
 vi.mock("../src/Map", () => ({ default: () => <div>Synthetic map</div> }));
 vi.mock("../src/live/Conditions", () => ({ default: () => <div>Synthetic conditions</div> }));
-vi.mock("../src/live/ClusterPanel", () => ({ ClusterPanel: ({ onSelect }: any) => <button onClick={() => onSelect({ id: "retained-native-report" })}>Select synthetic report</button> }));
-vi.mock("../src/live/OperatorWorkspace", () => ({ OperatorWorkspace: ({ onSelect, map }: any) => <>{map}<button onClick={() => onSelect({ id: "retained-native-report" })}>Select synthetic report</button></> }));
+vi.mock("../src/live/ClusterPanel", () => ({ ClusterPanel: ({ onSelect }: any) => <><button onClick={() => onSelect({ id: "retained-native-report" })}>Select synthetic report</button><button onClick={() => onSelect({ id: "newer-report" })}>Select newer report</button></> }));
+vi.mock("../src/live/OperatorWorkspace", () => ({ OperatorWorkspace: ({ onSelect, map }: any) => <>{map}<button onClick={() => onSelect({ id: "retained-native-report" })}>Select synthetic report</button><button onClick={() => onSelect({ id: "newer-report" })}>Select newer report</button></> }));
 vi.mock("../src/live/LogbookPanel", () => ({ LogbookPanel: ({ onEdit, onWorkingChange }: any) => <><button onClick={() => onEdit({ id: "historical" })}>Edit synthetic contact</button>
   <button onClick={() => onWorkingChange?.(true)}>Begin synthetic logbook work</button><button onClick={() => onWorkingChange?.(false)}>Finish synthetic logbook work</button></> }));
 vi.mock("../src/live/OperatorCanvas", () => ({ default: ({ panels, traditional }: any) => host.customCanvas
@@ -66,7 +66,9 @@ beforeEach(() => {
       : method === "workspace_rotor_configuration_load" ? { revision: 0, generation: testWorkspaceGeneration, configuration: {
         owner: "native_dcu1", native_dcu1: { host: "", port: 4001, name: "Rotor" },
         hamlib: { mode: "managed", path: "", baud: 9600, host: "127.0.0.1", port: 4533, serial: {} },
+        auto_rotor_at_startup: false, auto_rotor_bands: ["20m"],
       } }
+      : method === "workspace_preferences_load" ? { stored: true, preferences: {}, generation: testWorkspaceGeneration, revision: 0 }
       : method === "logbook_stats" ? { stats: { qso_count: 1 } }
       : method === "cluster_snapshot" ? { snapshot: { spots: [], connectedClusters: 0 } }
       : method === "station_snapshot" ? { source: params.provider, available: false, radio: null }
@@ -223,12 +225,59 @@ for (const full of [false, true]) {
   });
 }
 
-it("does not submit a local report activation while Desk has invalid buffered frequency", async () => {
+it("discards the Desk buffer when selecting a new report", async () => {
   const input = await openEditor(false);
+  const topRow = input.closest(".operator-desk-top");
+  const bottomRow = document.querySelector(".live-desk-bottom");
   fireEvent.change(input, { target: { value: "14.." } });
   fireEvent.click(screen.getByRole("button", { name: "Select synthetic report" }));
-  expect(input.value).toBe("14.."); expect(host.activate).not.toHaveBeenCalled();
-  expect(screen.getByText(/Finish the buffered draft fields before selecting/)).toBeTruthy();
+  await waitFor(() => expect(host.activate).toHaveBeenCalledOnce());
+  await waitFor(() => expect(input.value).toBe("14.074000"));
+  expect(screen.getByLabelText("Desk Frequency MHz")).toBe(input);
+  expect(input.closest(".operator-desk-top")).toBe(topRow);
+  expect(document.querySelector(".live-desk-bottom")).toBe(bottomRow);
+  expect(screen.queryByText(/Finish the buffered draft fields before selecting/)).toBeNull();
+});
+
+it("discards a different callsign draft before activating the selected report", async () => {
+  await openEditor(false);
+  fireEvent.change(screen.getByLabelText("Desk Callsign"), { target: { value: "K1OLD" } });
+  fireEvent.click(screen.getByRole("button", { name: "Select synthetic report" }));
+  await waitFor(() => expect(host.activate).toHaveBeenCalledOnce());
+  expect((screen.getByLabelText("Desk Callsign") as HTMLInputElement).value).toBe("");
+  expect(host.request.mock.calls.some(([method]) => method === "logbook_operator_draft_apply")).toBe(false);
+});
+
+it("cancels an unsaved logged-contact edit before loading a cluster report", async () => {
+  await openEditor(false); sidebar("Logbook");
+  fireEvent.click(screen.getByRole("button", { name: "Edit synthetic contact" }));
+  const call = await screen.findByDisplayValue("K1ABC") as HTMLInputElement;
+  fireEvent.change(call, { target: { value: "K2NEW" } });
+  sidebar("DX Cluster");
+  fireEvent.click(screen.getByRole("button", { name: "Select synthetic report" }));
+  await waitFor(() => expect(host.activate).toHaveBeenCalledOnce());
+  expect(localStorage.getItem("xlog.integration.contactEdit.main.v1")).toBeNull();
+  expect(screen.queryByText("Finish or clear the contact being edited before selecting a new spot.")).toBeNull();
+});
+
+it("uses only the latest of rapid successive spot clicks", async () => {
+  await openEditor(false);
+  fireEvent.click(screen.getByRole("button", { name: "Select synthetic report" }));
+  fireEvent.click(screen.getByRole("button", { name: "Select newer report" }));
+  await waitFor(() => expect(host.activate).toHaveBeenCalledOnce());
+  expect(host.activate).toHaveBeenCalledWith({ id: "newer-report" });
+});
+
+it("keeps an activation in flight fenced from a second selection", async () => {
+  let complete!: () => void;
+  host.activate.mockImplementationOnce(() => new Promise<void>(resolve => { complete = resolve; }));
+  await openEditor(false);
+  fireEvent.click(screen.getByRole("button", { name: "Select synthetic report" }));
+  await waitFor(() => expect(host.activate).toHaveBeenCalledOnce());
+  fireEvent.click(screen.getByRole("button", { name: "Select newer report" }));
+  expect(host.activate).toHaveBeenCalledOnce();
+  expect(screen.queryByText("Resolve the current QSO operation before selecting another spot.")).toBeNull();
+  await act(async () => complete());
 });
 
 it("does not turn a repeated in-flight spot selection into a persistent page error", async () => {

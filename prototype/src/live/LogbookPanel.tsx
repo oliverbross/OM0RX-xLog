@@ -10,6 +10,7 @@ import { adifImportBatches, decodeADIFDocument, ADIFExportDocument, type ADIFExp
 import { LogbookSavedFilters } from "./LogbookSavedFilters";
 import { CTYCorrectionPreview } from "./CTYCorrectionPreview";
 import { OnlineLogFollowUpPanel } from "./OnlineLogFollowUp";
+import { clusterBandColors, clusterModeColors, paletteColor } from "./clusterPalette";
 
 const LogbookContactReview = lazy(() => import("./LogbookContactReview").then(module => ({ default: module.LogbookContactReview })));
 
@@ -506,7 +507,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
                   onClick={event => event.stopPropagation()} onDoubleClick={event => event.stopPropagation()}
                   onChange={event => setExportSelection(current => event.target.checked ? [...current, qso.id] : current.filter(id => id !== qso.id))} />}
                 <span className={`live-logbook-sync-dot ${qso.isDirty ? "is-pending" : "is-clean"}`} role="img" aria-label={qso.isDirty ? "Pending synchronization" : "No pending changes"} title={qso.isDirty ? "Pending synchronization" : "No pending changes"} />{qso.call}</td>,
-              <td key="bandMode" hidden={hidden("bandMode")} data-label="Band / Mode" className="live-logbook-band" title={`${qso.band} · ${qso.submode || qso.mode}`}>{qso.band} · {qso.submode || qso.mode}</td>,
+              <td key="bandMode" hidden={hidden("bandMode")} data-label="Band / Mode" className="live-logbook-band" title={`${qso.band} · ${qso.submode || qso.mode}`}><span className="live-logbook-category-row"><span className="live-logbook-category" style={{ color: paletteColor(qso.band, undefined, clusterBandColors) }}>{qso.band}</span><span aria-hidden="true">·</span><span className="live-logbook-category" style={{ color: paletteColor(qso.submode || qso.mode, undefined, clusterModeColors) }}>{qso.submode || qso.mode}</span></span></td>,
               <td key="frequency" hidden={hidden("frequency")} data-label="Frequency" className="live-logbook-frequency mono">{typeof qso.frequencyHz === "number" ? (qso.frequencyHz / 1_000_000).toFixed(6) : "—"}</td>,
               <td key="rst" hidden={hidden("rst")} data-label="RST" className="mono" aria-label={`RST sent ${qso.rstSent || "not recorded"}, received ${qso.rstReceived || "not recorded"}`}>{qso.rstSent || "—"} / {qso.rstReceived || "—"}</td>,
               <td key="country" hidden={hidden("country")} data-label="Country" title={[qso.country, qso.name].filter(Boolean).join(" · ") || undefined}>{qso.country || "—"}</td>,

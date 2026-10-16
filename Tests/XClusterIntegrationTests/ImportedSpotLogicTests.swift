@@ -74,6 +74,14 @@ final class ImportedSpotLogicTests: XCTestCase {
         XCTAssertEqual(SpotLogic.normalizedMode(" usb "), "SSB")
     }
 
+    func testWSPRClassifierRequiresExplicitSourceOrCommentMetadata() {
+        XCTAssertTrue(SpotLogic.isWSPR(clusterName: "WSPRnet", spotter: "K1ABC", comment: "-24 dB"))
+        XCTAssertTrue(SpotLogic.isWSPR(clusterName: "ShackCQ", spotter: "WSPRNET", comment: "-24 dB"))
+        XCTAssertTrue(SpotLogic.isWSPR(clusterName: "ShackCQ", spotter: "K1ABC", comment: "WSPR -24 dB"))
+        XCTAssertFalse(SpotLogic.isWSPR(clusterName: "ShackCQ", spotter: "K1ABC", comment: "FT8 -24 dB"))
+        XCTAssertFalse(SpotLogic.isWSPR(clusterName: "ShackCQ", spotter: "K1ABC", comment: "WSPRING activity"))
+    }
+
     func testClassificationPriority() {
         XCTAssertEqual(SpotLogic.callStatus(worked: false, newBand: true, newMode: true, confirmedBandMode: false), "New Call")
         XCTAssertEqual(SpotLogic.callStatus(worked: true, newBand: true, newMode: true, confirmedBandMode: false), "New Band+Mode")

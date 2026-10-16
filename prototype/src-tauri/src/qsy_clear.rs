@@ -230,7 +230,7 @@ impl Coordinator {
             ));
         };
         let result = (|| -> Result<Value, String> {
-            uuid::Uuid::parse_str(&request.operation_id)
+            let operation_id = uuid::Uuid::parse_str(&request.operation_id)
                 .map_err(|_| "Invalid QSY operation identity.")?;
             let canonical = self.backend.canonical(&request)?;
             let generation = canonical["generation"]
@@ -262,8 +262,10 @@ impl Coordinator {
             self.backend.precommit(&request)?;
             let response = self.backend.apply(&request, &canonical)?;
             if response["status"] != "applied"
-                || response["receipt"]["mutation"]["operationID"].as_str()
-                    != Some(&request.operation_id)
+                || response["receipt"]["mutation"]["operationID"]
+                    .as_str()
+                    .and_then(|value| uuid::Uuid::parse_str(value).ok())
+                    != Some(operation_id)
                 || response["receipt"]["draft"]["generation"].as_str() != Some(generation)
                 || response["receipt"]["draft"]["revision"].as_u64() != revision.checked_add(1)
                 || response["receipt"]["draft"]["qso"]["id"]
@@ -668,7 +670,7 @@ mod tests {
         fn apply(&self, request: &TransactionRequest, canonical: &Value) -> Result<Value, String> {
             self.calls.fetch_add(1, Ordering::SeqCst);
             Ok(
-                json!({"status":"applied","receipt":{"mutation":{"operationID":request.operation_id},"draft":{"generation":canonical["generation"],
+                json!({"status":"applied","receipt":{"mutation":{"operationID":request.operation_id.to_uppercase()},"draft":{"generation":canonical["generation"],
                 "revision":canonical["revision"].as_u64().unwrap()+1,"qso":{"id":id(),"call":"","frequencyHz":request.qsy.receive_frequency_hz}}}}),
             )
         }

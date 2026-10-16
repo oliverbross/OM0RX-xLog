@@ -21,6 +21,35 @@ it.each([false, true])("accepts native UUID receipts for changed=%s Settings sav
   expect(writes.at(-1)).toBeNull(); expect(request.mock.calls.map(([method]) => method)).toEqual(["settings_load", "settings_save"]);
 });
 
+it("accepts the separately authorized automatic-sync overlay without weakening receipt checks", async () => {
+  const initial = { ...settings, automaticSync: true };
+  const presented = { ...initial, stationCall: "VK8Case" };
+  const durable = { ...presented, automaticSync: false };
+  const writes: Array<SettingsJournal | null> = [];
+  const request = vi.fn(async (method: string, params?: any) => method === "settings_load" ? snapshot(0, initial) : {
+    status: "applied", ...snapshot(1, presented), receipt: { mutation: params, snapshot: snapshot(1, durable) },
+  });
+  const session = new SettingsSession(request, value => writes.push(structuredClone(value)), null, () => id);
+  await session.load(); session.edit(presented); await session.save(presented);
+  expect(request.mock.calls[1]?.[1].settings.automaticSync).toBe(false);
+  expect(session.getSnapshot()).toMatchObject({ pending: null, error: "", base: { revision: 1, settings: presented } });
+  expect(writes.at(-1)).toBeNull();
+});
+
+it("still rejects unrelated outer acknowledgement changes beside the automatic-sync overlay", async () => {
+  const initial = { ...settings, automaticSync: true };
+  const presented = { ...initial, stationCall: "VK8Case" };
+  const durable = { ...presented, automaticSync: false };
+  const request = vi.fn(async (method: string, params?: any) => method === "settings_load" ? snapshot(0, initial) : {
+    status: "applied", ...snapshot(1, { ...presented, stationCall: "WRONG" }),
+    receipt: { mutation: params, snapshot: snapshot(1, durable) },
+  });
+  const session = new SettingsSession(request, vi.fn(), null, () => id);
+  await session.load(); session.edit(presented);
+  await expect(session.save(presented)).rejects.toThrow("acknowledgement did not match its receipt");
+  expect(session.getSnapshot().pending?.operationID).toBe(id);
+});
+
 it.each([
   ["operation identity", (receipt: any) => { receipt.mutation.operationID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"; }],
   ["workspace identity", (receipt: any) => { receipt.mutation.generation = nextGeneration; }],

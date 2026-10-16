@@ -38,4 +38,7 @@
 .service-settings .service-online-log .service-settings-recovery p { flex-basis:100%; }
 .service-settings .service-online-log .service-settings-recovery label { flex:1 1 100%; flex-direction:row; align-items:center; }
 .service-settings input:focus-visible { outline:2px solid var(--cyan); outline-offset:2px; }
+.service-radio-spot-colors { display:grid; grid-template-columns:repeat(auto-fit,minmax(155px,1fr)); gap:8px 14px; max-width:850px; margin:8px 0 16px; }
+.service-settings .service-radio-spot-colors label { flex-direction:row; align-items:center; justify-content:space-between; }
+.service-settings .service-radio-spot-colors input[type="color"] { width:52px; min-width:52px; height:32px; padding:2px; cursor:pointer; }
 @media(max-width:800px) { .service-settings .service-fields { grid-template-columns:1fr; } }

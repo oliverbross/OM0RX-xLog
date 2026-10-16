@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { clusterBandColors, clusterModeColors } from "./clusterPalette";
 import { readFileSync } from "node:fs";
 import { PreviousQSOsSurface, DetachedPreviousQSOsSurface, requestDetachedPreviousQSOs } from "./DetachedPreviousQSOsSurface";
 import { testWorkspaceGeneration } from "../../tests/operator-draft-fixture";
@@ -21,6 +22,7 @@ const reader = () => vi.fn(async (method: string, params: Record<string, any> = 
 });
 beforeEach(() => {
   vi.clearAllMocks();
+  localStorage.clear();
   current = { generation: testWorkspaceGeneration, revision: 0, qso: { id: "synthetic-draft", call: "TEST1", band: "20m", mode: "CW" } };
   hooks.draft.mockImplementation((read: () => Promise<unknown>) => { wakeDraft = read; void read(); return hooks.stopDraft; });
   hooks.history.mockImplementation((changed: () => void) => { wakeHistory = changed; return hooks.stopHistory; });
@@ -44,16 +46,49 @@ it("loads the named independent route and follows canonical local history withou
 it("uses the shared logbook palette for contact facts and confirmation state", async () => {
   const request = reader(); render(<PreviousQSOsSurface request={request} />);
   expect((await screen.findByText("20m")).classList.contains("previous-band")).toBe(true);
+  expect(screen.getByText("20m").style.color).toBe("rgb(18, 214, 160)");
   expect(screen.getByText("CW").classList.contains("previous-mode")).toBe(true);
+  expect(screen.getByText("CW").style.color).toBe("rgb(243, 178, 60)");
+  expect(clusterBandColors["20m"]).not.toBe(clusterModeColors.CW);
   expect(screen.getByText("Confirmed").classList.contains("previous-confirmed")).toBe(true);
   cleanup(); request.mockImplementation(async (method, params) => method === "logbook_operator_draft" ? { draft: structuredClone(current) } : history(params?.call ?? "TEST1", "JN88AA", false));
   render(<PreviousQSOsSurface request={request} />);
   expect((await screen.findByText("Worked")).classList.contains("previous-worked")).toBe(true);
 });
 
-it("hides the status column before it can clip in the narrow standalone window", () => {
+it("keeps all columns available in a horizontally scrolling narrow window", () => {
   const css = readFileSync(`${process.cwd()}/src/live/DetachedPreviousQSOsSurface.css`, "utf8");
-  expect(css).toMatch(/@media \(max-width:420px\)[^{]*\{[^}]*\.previous-qsos-table \.previous-qsl\s*\{\s*display:none;/);
+  expect(css).toMatch(/\.previous-qsos-table\s*\{[^}]*overflow:auto;/);
+  expect(css).not.toMatch(/\.previous-(?:grid|qsl)\s*\{\s*display:none;/);
+});
+
+it("resizes headers with keyboard limits and restores widths when reopened", async () => {
+  const request = reader(); const view = render(<PreviousQSOsSurface request={request} />);
+  await screen.findByText("JN88AA");
+  const band = screen.getByRole("separator", { name: "Resize Band column" });
+  expect(band.getAttribute("aria-valuenow")).toBe("84");
+  fireEvent.keyDown(band, { key: "ArrowRight" });
+  expect(band.getAttribute("aria-valuenow")).toBe("94");
+  fireEvent.keyDown(band, { key: "Home" });
+  expect(band.getAttribute("aria-valuenow")).toBe("64");
+  expect(screen.getByRole("columnheader", { name: /Grid/ })).toBeTruthy();
+  expect(screen.getByRole("columnheader", { name: /QSL/ })).toBeTruthy();
+  expect(JSON.parse(localStorage.getItem("xlog.integration.previous-qsos-columns.v1")!).widths.band).toBe(64);
+  view.unmount();
+  render(<PreviousQSOsSurface request={request} />);
+  await screen.findByText("JN88AA");
+  expect(screen.getByRole("separator", { name: "Resize Band column" }).getAttribute("aria-valuenow")).toBe("64");
+});
+
+it("drags a header edge to resize its column", async () => {
+  render(<PreviousQSOsSurface request={reader()} />);
+  await screen.findByText("JN88AA");
+  const handle = screen.getByRole("separator", { name: "Resize UTC column" });
+  handle.setPointerCapture = vi.fn();
+  fireEvent.pointerDown(handle, { button: 0, pointerId: 1, clientX: 100 });
+  fireEvent.pointerMove(handle, { pointerId: 1, clientX: 126 });
+  fireEvent.pointerUp(handle, { pointerId: 1 });
+  expect(handle.getAttribute("aria-valuenow")).toBe("180");
 });
 
 it("fences an old workspace history response even when the callsign stays the same", async () => {

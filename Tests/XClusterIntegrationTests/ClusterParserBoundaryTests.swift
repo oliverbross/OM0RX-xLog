@@ -73,6 +73,20 @@ final class ClusterParserBoundaryTests: XCTestCase {
         XCTAssertEqual(SpotLogic.band(for: 100), "OTHER")
     }
 
+    func testTwentyMeterSegmentInferenceKeepsExplicitModes() throws {
+        let raw = try XCTUnwrap(parse("DX de OM0RX: 14023.700 OK2BUH PHASE 2"))
+        let band = SpotLogic.band(for: raw.frequencyKHz)
+        XCTAssertEqual(band, "20m")
+        XCTAssertEqual(SpotLogic.mode(comment: raw.comment, band: band, khz: raw.frequencyKHz), "CW")
+        for khz in [14000.0, 14060.0, 14069.999] {
+            XCTAssertEqual(SpotLogic.mode(comment: "CQ", band: "20m", khz: khz), "CW")
+        }
+        XCTAssertEqual(SpotLogic.mode(comment: "CQ", band: "20m", khz: 14070), "DIGI")
+        XCTAssertEqual(SpotLogic.mode(comment: "FT8", band: "20m", khz: 14023.7), "FT8")
+        XCTAssertEqual(SpotLogic.mode(comment: "USB", band: "20m", khz: 14023.7), "SSB")
+        XCTAssertEqual(SpotLogic.mode(comment: "PH", band: "20m", khz: 14023.7), "SSB")
+    }
+
     func testScorePriorityAndCapRemainOriginal() {
         let scored = SpotLogic.score(callStatus: "New Call", dxccStatus: "ATNO", specials: ["POTA"], source: "rbl")
         XCTAssertEqual(scored.0, 100)

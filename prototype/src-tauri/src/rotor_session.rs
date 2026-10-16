@@ -4,6 +4,32 @@ use serde_json::{json, Value};
 use std::{io::Write, path::PathBuf, sync::{atomic::{AtomicBool, Ordering}, Mutex, OnceLock}};
 use tauri::Manager;
 
+pub(crate) struct AutomaticPolicy {
+    pub startup: bool,
+    pub bands: Vec<String>,
+}
+pub(crate) struct AutomaticStartup {
+    pub owner: String,
+    pub generation: u64,
+    pub bands: Vec<String>,
+}
+
+fn automatic_policy(snapshot: &Value) -> Result<AutomaticPolicy, String> {
+    let configuration = snapshot.get("configuration").and_then(Value::as_object)
+        .ok_or("Saved automatic rotor policy is invalid.")?;
+    let startup = match configuration.get("auto_rotor_at_startup") {
+        Some(value) => value.as_bool().ok_or("Saved automatic rotor policy is invalid.")?,
+        None => false,
+    };
+    let bands = match configuration.get("auto_rotor_bands") {
+        Some(value) => value.as_array().ok_or("Saved automatic rotor band policy is invalid.")?
+            .iter().map(|band| band.as_str().map(str::to_owned)
+                .ok_or("Saved automatic rotor band policy is invalid.")).collect::<Result<Vec<_>, _>>()?,
+        None => crate::auto_rotor::SUPPORTED_BANDS.iter().map(|band| (*band).into()).collect(),
+    };
+    Ok(AutomaticPolicy { startup, bands: crate::auto_rotor::normalize_bands(&bands)? })
+}
+
 #[derive(Serialize, Deserialize)]
 struct Receipt {
     version: u8,
@@ -44,6 +70,13 @@ fn connection(snapshot: &Value) -> Result<Option<Value>, String> {
         Some("hamlib") => Ok(None),
         _ => Err("Saved rotor owner is invalid.".into()),
     }
+}
+
+fn connection_settings(configuration: &Value) -> Option<Value> {
+    let mut settings = configuration.as_object()?.clone();
+    settings.remove("auto_rotor_at_startup");
+    settings.remove("auto_rotor_bands");
+    Some(Value::Object(settings))
 }
 
 impl Session {
@@ -129,6 +162,41 @@ impl Session {
         };
         self.dispatch(request, configuration, dispatch)
     }
+    fn save_configuration(&self, request: Value,
+        dispatch: impl FnOnce(Value) -> Result<Value, String>) -> Result<Value, String> {
+        // A save racing startup must stop that launch's reconnect, even if it conflicts.
+        self.invalidated.store(true, Ordering::Release);
+        let _operation = self.operation.lock().map_err(|_| "Rotor session is unavailable.")?;
+        let previous = self.read().ok().flatten();
+        let response = dispatch(request.clone())?;
+        if let Some(mut receipt) = previous.filter(|receipt|
+            receipt.action == "connect" && receipt.status == "acknowledged"
+            && receipt.configuration["revision"] == request["params"]["expectedRevision"]
+            && receipt.configuration["generation"] == request["params"]["generation"])
+        {
+            let result = &response["result"];
+            let saved = json!({"revision":result["revision"], "generation":result["generation"],
+                "configuration":result["configuration"]});
+            let old_revision = receipt.configuration["revision"].as_u64();
+            if response["id"] == request["id"] && response["ok"] == true
+                && result["status"] == "applied"
+                && saved["generation"] == receipt.configuration["generation"]
+                && saved["configuration"] == request["params"]["configuration"]
+                && old_revision.is_some_and(|revision|
+                    saved["revision"].as_u64() == (if saved["configuration"] == receipt.configuration["configuration"] {
+                        Some(revision)
+                    } else { revision.checked_add(1) }))
+                && connection_settings(&saved["configuration"])
+                    == connection_settings(&receipt.configuration["configuration"])
+                && connection(&receipt.configuration)?.is_some()
+                && connection(&saved)?.is_some()
+            {
+                receipt.configuration = saved;
+                self.persist(&receipt)?;
+            }
+        }
+        Ok(response)
+    }
 }
 
 static OWNER: OnceLock<Session> = OnceLock::new();
@@ -144,7 +212,27 @@ pub fn install(app: &tauri::AppHandle) -> Result<(), String> {
     OWNER.get_or_init(|| Session::new(path));
     Ok(())
 }
-pub fn resume() -> Result<(), String> { owner()?.resume(load, crate::rotor::request_startup).map(|_| ()) }
+pub(crate) fn automatic_policy_saved() -> Result<AutomaticPolicy, String> { automatic_policy(&load()?) }
+pub fn resume() -> Result<Option<AutomaticStartup>, String> {
+    let mut policy = None;
+    let connected = owner()?.resume(|| {
+        let saved = load()?;
+        policy = Some(automatic_policy(&saved)?);
+        Ok(saved)
+    }, crate::rotor::request_startup)?;
+    if connected.is_none() || !policy.as_ref().is_some_and(|value| value.startup) { return Ok(None); }
+
+    // A successful reconnect is not telemetry. Observe the native owner again
+    // before minting launch-time permission; this operation never moves it.
+    let id = uuid::Uuid::new_v4().to_string();
+    let observed = crate::rotor::request(json!({"id":id,"method":"rotor_snapshot","params":{}}))?;
+    if observed["id"] != id || observed["ok"] != true {
+        return Err("Automatic rotor startup observation was not acknowledged.".into());
+    }
+    let (owner, generation) = crate::rotor::automatic_owner()?
+        .ok_or("Observe a connected rotor before enabling automatic turns.")?;
+    Ok(Some(AutomaticStartup { owner, generation, bands: policy.unwrap().bands }))
+}
 pub fn request(request: Value) -> Result<Value, String> {
     if matches!(request["method"].as_str(), Some("rotor_connect" | "rotor_disconnect")) {
         owner()?.request(request, load, crate::rotor::request)
@@ -154,6 +242,9 @@ pub fn invalidate_configuration() { if let Some(owner) = OWNER.get() { owner.inv
 pub fn configuration_change<T>(action: impl FnOnce() -> Result<T, String>) -> Result<T, String> {
     let _operation = owner()?.operation.lock().map_err(|_| "Rotor session is unavailable.")?;
     action()
+}
+pub fn save_configuration(request: Value) -> Result<Value, String> {
+    owner()?.save_configuration(request, crate::worker::request)
 }
 pub fn shutdown() { if let Some(owner) = OWNER.get() { owner.stopped.store(true, Ordering::Release); } }
 
@@ -169,6 +260,16 @@ mod tests {
         (directory, session, saved)
     }
     fn reply(request: Value) -> Result<Value, String> { Ok(json!({"id":request["id"],"ok":true,"result":{}})) }
+    fn save_request(saved: &Value, next: &Value) -> Value {
+        json!({"id":uuid::Uuid::new_v4().to_string(),"method":"workspace_rotor_configuration_save",
+            "params":{"expectedRevision":saved["revision"],"generation":saved["generation"],
+                "configuration":next["configuration"]}})
+    }
+    fn saved_reply(request: Value, next: Value) -> Result<Value, String> {
+        Ok(json!({"id":request["id"],"ok":true,"result":{"status":"applied",
+            "revision":next["revision"],"generation":next["generation"],
+            "configuration":next["configuration"]}}))
+    }
     fn forbidden(_: Value) -> Result<Value, String> { panic!("Unexpected rotor dispatch") }
     #[test]
     fn startup_resumes_shared_saved_dcu1_once_and_only_opens_a_connection() {
@@ -269,5 +370,70 @@ mod tests {
             assert_ne!(request["id"], previous); reply(request)
         }).unwrap().unwrap();
         assert_ne!(restored.read().unwrap().unwrap().operation_id, previous);
+    }
+    #[test]
+    fn policy_only_save_preserves_acknowledged_connection_for_next_launch() {
+        let (directory, session, saved) = fixture();
+        session.resume(|| Ok(saved.clone()), reply).unwrap();
+        let mut next = saved.clone();
+        next["revision"] = json!(4);
+        next["configuration"]["auto_rotor_at_startup"] = json!(true);
+        next["configuration"]["auto_rotor_bands"] = json!(["20m", "6m"]);
+        let request = save_request(&saved, &next);
+        session.save_configuration(request, |request| saved_reply(request, next.clone())).unwrap();
+        assert_eq!(session.read().unwrap().unwrap().configuration, next);
+        let restored = Session::new(directory.path().join("rotor-session.json"));
+        assert!(restored.resume(|| Ok(next), reply).unwrap().is_some());
+    }
+    #[test]
+    fn connection_setting_save_revokes_next_launch_resume() {
+        for field in ["host", "port", "owner", "hamlib"] {
+            let (directory, session, saved) = fixture();
+            session.resume(|| Ok(saved.clone()), reply).unwrap();
+            let mut next = saved.clone();
+            next["revision"] = json!(4);
+            match field {
+                "host" => next["configuration"]["native_dcu1"]["host"] = json!("other.example.invalid"),
+                "port" => next["configuration"]["native_dcu1"]["port"] = json!(4002),
+                "owner" => next["configuration"]["owner"] = json!("hamlib"),
+                _ => next["configuration"]["hamlib"]["baud"] = json!(19200),
+            }
+            let request = save_request(&saved, &next);
+            session.save_configuration(request, |request| saved_reply(request, next.clone())).unwrap();
+            assert_eq!(session.read().unwrap().unwrap().configuration, saved, "{field}");
+            let restored = Session::new(directory.path().join("rotor-session.json"));
+            assert!(restored.resume(|| Ok(next), forbidden).unwrap().is_none(), "{field}");
+        }
+    }
+    #[test]
+    fn policy_save_does_not_promote_an_uncertain_connection() {
+        let (directory, session, saved) = fixture();
+        session.persist(&Receipt { version: 1, operation_id: uuid::Uuid::new_v4().to_string(),
+            action: "connect".into(), status: "unknown".into(), configuration: saved.clone() }).unwrap();
+        let mut next = saved.clone();
+        next["revision"] = json!(4);
+        next["configuration"]["auto_rotor_at_startup"] = json!(true);
+        let request = save_request(&saved, &next);
+        session.save_configuration(request, |request| saved_reply(request, next.clone())).unwrap();
+        assert_eq!(session.read().unwrap().unwrap().status, "unknown");
+        let restored = Session::new(directory.path().join("rotor-session.json"));
+        assert!(restored.resume(|| panic!("Uncertain intent must not load settings"), forbidden).unwrap().is_none());
+    }
+    #[test]
+    fn automatic_policy_defaults_off_for_legacy_settings_and_validates_bands() {
+        let (_directory, _session, mut saved) = fixture();
+        let legacy = automatic_policy(&saved).unwrap();
+        assert!(!legacy.startup);
+        assert_eq!(legacy.bands, crate::auto_rotor::SUPPORTED_BANDS);
+
+        saved["configuration"]["auto_rotor_at_startup"] = json!(true);
+        saved["configuration"]["auto_rotor_bands"] = json!(["20m", "6m"]);
+        let explicit = automatic_policy(&saved).unwrap();
+        assert!(explicit.startup); assert_eq!(explicit.bands, ["20m", "6m"]);
+
+        saved["configuration"]["auto_rotor_bands"] = json!(["20m", "20m"]);
+        assert!(automatic_policy(&saved).is_err());
+        saved["configuration"]["auto_rotor_bands"] = json!(["1.25m"]);
+        assert!(automatic_policy(&saved).is_err());
     }
 }

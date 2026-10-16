@@ -33,6 +33,8 @@ public actor LiveClusterMethods {
     private var forwardAcceptedCount = 0
     private var forwardStatus = "Off"
     private var forwardRetryAfter = Date.distantPast
+    private var configurationMutationBusy = false
+    private var configurationMutationWaiters: [CheckedContinuation<Void, Never>] = []
     private var terminated = false
     private var contactRefreshRevision: UInt64 = 0
     private var workspaceTransitionCount = 0
@@ -94,6 +96,10 @@ public actor LiveClusterMethods {
         }
         let service = try await readyService()
         try requireRunning()
+        let mutatesConfiguration = method == "cluster_configure" || method == "cluster_radio_spots_configure" || method == "cluster_filter"
+        if mutatesConfiguration { await beginConfigurationMutation() }
+        defer { if mutatesConfiguration { endConfigurationMutation() } }
+        try requireRunning()
         switch method {
         case "cluster_resume_initialize":
             try require(params, allowed: ["intent"])
@@ -119,9 +125,12 @@ public actor LiveClusterMethods {
         case "cluster_snapshot":
             try require(params, allowed: [])
         case "cluster_configure":
-            try require(params, allowed: ["configuration"], required: ["configuration"])
-            guard let object = params["configuration"] as? [String: Any] else { throw invalid() }
-            let next: ClusterSessionConfiguration = try decode(object)
+            try require(params, allowed: ["configuration", "base_configuration"], required: ["configuration", "base_configuration"])
+            guard let object = params["configuration"] as? [String: Any],
+                  let baseObject = params["base_configuration"] as? [String: Any] else { throw invalid() }
+            let draft: ClusterSessionConfiguration = try decode(object)
+            let base: ClusterSessionConfiguration = try decode(baseObject)
+            let next = try mergeClusterConfiguration(draft: draft, base: base, current: currentConfiguration())
             try validate(next)
             guard forwardingAvailable || !next.forwardSpotsToFlex else {
                 throw WorkerFailure("platform_pending", "FLEX spot forwarding is not yet available on this platform. Turn forwarding off before saving cluster settings.")
@@ -131,6 +140,53 @@ public actor LiveClusterMethods {
             configuration = next
             forwardStatus = next.forwardSpotsToFlex ? "Enabled; connect a cluster and direct-agent station." : "Off"
             try saveConfiguration(next)
+        case "cluster_radio_spots_configure":
+            try require(params, allowed: ["flex_enabled", "flex_expected", "color_policy", "color_policy_expected",
+                                          "status_colors", "status_color_expected"])
+            guard !params.isEmpty,
+                  (params["flex_enabled"] == nil) == (params["flex_expected"] == nil),
+                  (params["color_policy"] == nil) == (params["color_policy_expected"] == nil),
+                  (params["status_colors"] == nil) == (params["status_color_expected"] == nil) else { throw invalid() }
+            var next = try currentConfiguration()
+            if let rawEnabled = params["flex_enabled"] {
+                guard let enabled = rawEnabled as? Bool, let expected = params["flex_expected"] as? Bool else { throw invalid() }
+                guard next.forwardSpotsToFlex == expected || next.forwardSpotsToFlex == enabled else { throw configurationConflict() }
+                guard forwardingAvailable || !enabled else {
+                    throw WorkerFailure("platform_pending", "FLEX spot forwarding is unavailable on this platform.")
+                }
+                next.forwardSpotsToFlex = enabled
+            }
+            if let rawPolicy = params["color_policy"] {
+                guard let value = rawPolicy as? String, let policy = ClusterSessionConfiguration.RadioSpotColorPolicy(rawValue: value),
+                      let expectedValue = params["color_policy_expected"] as? String,
+                      let expected = ClusterSessionConfiguration.RadioSpotColorPolicy(rawValue: expectedValue) else { throw invalid() }
+                guard next.radioSpotColorPolicy == expected || next.radioSpotColorPolicy == policy else { throw configurationConflict() }
+                next.radioSpotColorPolicy = policy
+            }
+            if let rawColors = params["status_colors"] {
+                guard let colors = rawColors as? [String: String], !colors.isEmpty,
+                      colors.count <= ClusterPalette.originalDefaults.status.count,
+                      let expected = params["status_color_expected"] as? [String: Any],
+                      Set(expected.keys) == Set(colors.keys),
+                      colors.allSatisfy({ name, color in
+                          ClusterPalette.originalDefaults.status[name] != nil &&
+                          color.range(of: #"^#[0-9A-Fa-f]{6}$"#, options: .regularExpression) != nil
+                      }) else { throw invalid() }
+                for (name, color) in colors {
+                    let previous = expected[name]
+                    guard previous is NSNull || previous as? String != nil else { throw invalid() }
+                    guard next.palette.status[name] == previous as? String || next.palette.status[name] == color else {
+                        throw configurationConflict()
+                    }
+                    next.palette.status[name] = color
+                }
+            }
+            try await service.configure(next, password: { [vault] id in try vault.load(id) ?? "" })
+            try requireRunning()
+            try saveConfiguration(next)
+            configuration = next
+            forwardStatus = next.forwardSpotsToFlex ? "Enabled; waiting for a connected cluster and Remote Station Agent with add_spot." : "Off"
+            forwardRetryAfter = .distantPast
         case "cluster_connect":
             try require(params, allowed: [])
             resumeChecked = true; resumeError = nil
@@ -381,23 +437,80 @@ public actor LiveClusterMethods {
                                         comment: spot.comment,
                                         timestamp: Int64(spot.receivedAt.timeIntervalSince1970),
                                         lifetimeSeconds: 600, priority: 3,
-                                        colorHex: spot.statusHex.range(of: #"^#[0-9A-Fa-f]{6}$"#, options: .regularExpression) == nil
-                                            ? "#35C8F5" : spot.statusHex)
+                                        colorHex: radioSpotColor(for: spot))
             guard !flexSpot.mode.isEmpty else { return }
             if try await SpotForwardBroker.shared.forward(flexSpot) {
                 forwardAcceptedCount += 1
                 forwardStatus = "Accepted by Remote Station Agent; FLEX display is not verified."
             }
         } catch {
-            forwardStatus = "FLEX forwarding unavailable. Connect a direct-agent station with add_spot support."
+            forwardStatus = "FLEX forwarding failed: \(error.localizedDescription). Check the connected Remote Station Agent and add_spot capability."
             forwardRetryAfter = now.addingTimeInterval(60)
         }
         #endif
     }
 
+    private func radioSpotColor(for spot: ClassifiedClusterSpot) -> String {
+        let config = configuration
+        let status = config?.radioSpotColorPolicy == .dxcc ? spot.dxccStatus : spot.callStatus
+        let color = config?.palette.status[status] ?? ClusterPalette.originalDefaults.status[status] ?? "#777F8C"
+        return color.range(of: #"^#[0-9A-Fa-f]{6}$"#, options: .regularExpression) == nil ? "#777F8C" : color
+    }
+
     private func currentConfiguration() throws -> ClusterSessionConfiguration {
         guard let configuration else { throw WorkerFailure("cluster_unavailable", "Cluster settings are unavailable.") }
         return configuration
+    }
+
+    private func configurationConflict() -> WorkerFailure {
+        WorkerFailure("configuration_conflict", "Cluster settings changed in another window. Refresh before saving.")
+    }
+
+    private func mergeClusterConfiguration(draft: ClusterSessionConfiguration, base: ClusterSessionConfiguration,
+                                           current: ClusterSessionConfiguration) throws -> ClusterSessionConfiguration {
+        var next = current
+        func merge<T: Equatable>(_ keyPath: WritableKeyPath<ClusterSessionConfiguration, T>) throws {
+            let edited = draft[keyPath: keyPath]
+            let previous = base[keyPath: keyPath]
+            guard edited != previous else { return }
+            let latest = current[keyPath: keyPath]
+            guard latest == previous || latest == edited else { throw configurationConflict() }
+            next[keyPath: keyPath] = edited
+        }
+        try merge(\.servers)
+        try merge(\.reconnect)
+        try merge(\.requestSkimmer)
+        try merge(\.showWorkedBandModeSpots)
+        try merge(\.hideWSPRSpots)
+        try merge(\.maximumSpots)
+        try merge(\.specialRules)
+        try merge(\.filter)
+        try merge(\.commandPresets)
+        next.palette.status = try mergeColors(draft.palette.status, base.palette.status, current.palette.status)
+        next.palette.band = try mergeColors(draft.palette.band, base.palette.band, current.palette.band)
+        next.palette.mode = try mergeColors(draft.palette.mode, base.palette.mode, current.palette.mode)
+        return next
+    }
+
+    private func mergeColors(_ draft: [String: String], _ base: [String: String],
+                             _ current: [String: String]) throws -> [String: String] {
+        var merged = current
+        for name in Set(base.keys).union(draft.keys) where draft[name] != base[name] {
+            guard current[name] == base[name] || current[name] == draft[name] else { throw configurationConflict() }
+            merged[name] = draft[name]
+        }
+        return merged
+    }
+
+    private func beginConfigurationMutation() async {
+        if configurationMutationBusy {
+            await withCheckedContinuation { continuation in configurationMutationWaiters.append(continuation) }
+        } else { configurationMutationBusy = true }
+    }
+
+    private func endConfigurationMutation() {
+        if configurationMutationWaiters.isEmpty { configurationMutationBusy = false }
+        else { configurationMutationWaiters.removeFirst().resume() }
     }
 
     private func validate(_ value: ClusterSessionConfiguration) throws {

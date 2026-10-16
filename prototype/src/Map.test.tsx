@@ -133,19 +133,20 @@ function resizeHarness() {
 }
 
 describe("map container resizing", () => {
-  it("coalesces observer deliveries using final dimensions and skips unchanged or hidden sizes", () => {
+  it("resizes once after mount and coalesces observer deliveries using final visible dimensions", () => {
     const resize = resizeHarness();
     render(<WorldMap data={[spot()]} selected="feed-1" />);
     const map = harness.maps[0];
     let width = 1000, height = 500;
     Object.defineProperties(map.element, { clientWidth: { get: () => width }, clientHeight: { get: () => height } });
-    resize.notify(map.element); resize.flush(); expect(map.resize).not.toHaveBeenCalled();
+    expect(resize.frames.size).toBe(1); resize.flush(); expect(map.resize).toHaveBeenCalledTimes(1);
+    map.resize.mockClear(); map.triggerRepaint.mockClear();
     height = 250; resize.notify(map.element); height = 220; resize.notify(map.element); width = 800; resize.notify(map.element);
     expect(map.resize).not.toHaveBeenCalled(); expect(resize.frames.size).toBe(1);
     resize.flush(); expect(map.resize).toHaveBeenCalledTimes(1);
-    resize.notify(map.element); resize.flush(); expect(map.resize).toHaveBeenCalledTimes(1);
     width = 0; height = 0; resize.notify(map.element); resize.flush(); expect(map.resize).toHaveBeenCalledTimes(1);
     width = 800; height = 220; resize.notify(map.element); resize.flush(); expect(map.resize).toHaveBeenCalledTimes(2);
+    expect(map.triggerRepaint).toHaveBeenCalledTimes(2);
     expect(harness.maps).toHaveLength(1);
   });
 
@@ -165,6 +166,7 @@ describe("map container resizing", () => {
     const map = harness.maps[0];
     let width = 1000, height = 500;
     Object.defineProperties(map.element, { clientWidth: { get: () => width }, clientHeight: { get: () => height } });
+    resize.flush(); map.resize.mockClear(); map.triggerRepaint.mockClear();
     const fits = map.fitCalls.length;
     width = 0; height = 0; resize.notify(map.element);
     fireEvent.focus(window); resize.flush();
@@ -181,6 +183,35 @@ describe("map container resizing", () => {
     expect(map.triggerRepaint).toHaveBeenCalledTimes(2);
     expect(map.fitCalls).toHaveLength(fits);
     expect(harness.maps).toHaveLength(1);
+  });
+
+  it("repairs a route-remounted map at its returned dimensions without retaining old observers", () => {
+    const resize = resizeHarness();
+    const route = (show: boolean) => show ? <WorldMap data={[spot()]} selected="feed-1" /> : <div>Logbook route</div>;
+    const view = render(route(true)), first = harness.maps[0];
+    resize.flush();
+    fireEvent.change(screen.getByLabelText("Map overlay"), { target: { value: "Spots" } });
+    view.rerender(route(false));
+    expect(first.remove).toHaveBeenCalledTimes(1);
+    expect(resize.observers.size).toBe(0);
+
+    view.rerender(route(true));
+    const returned = harness.maps[1];
+    let width = 1440, height = 260;
+    Object.defineProperties(returned.element, { clientWidth: { get: () => width }, clientHeight: { get: () => height } });
+    returned.canvasSize = { width: 400, height: 300 };
+    expect(resize.frames.size).toBe(1);
+    resize.flush();
+    expect(returned.resize).toHaveBeenCalledTimes(1);
+    expect(returned.canvasSize).toEqual({ width, height });
+    expect(returned.triggerRepaint).toHaveBeenCalledTimes(1);
+    expect(resize.observers.size).toBe(1);
+    returned.resize.mockClear();
+    fireEvent(document, new Event("visibilitychange"));
+    expect(returned.resize).toHaveBeenCalledTimes(1);
+    view.unmount(); returned.resize.mockClear();
+    fireEvent(document, new Event("visibilitychange"));
+    expect(returned.resize).not.toHaveBeenCalled();
   });
 
   it("preserves an unselected camera when a Desk-sized viewport becomes very wide and shallow", () => {
@@ -224,10 +255,10 @@ describe("map container resizing", () => {
     pointer("pointerdown", 300); pointer("pointermove", 330); resize.notify(map.element);
     pointer("pointermove", 360); resize.notify(map.element); pointer("pointerup", 360);
     expect(map.resize).toHaveBeenCalledTimes(2); resize.flush(); expect(map.resize).toHaveBeenCalledTimes(3);
-    changeView("logbook-above"); expect(map.resize).toHaveBeenCalledTimes(3); // same dimensions, different row
-    changeView("logbook"); expect(map.resize).toHaveBeenCalledTimes(3);
-    changeView("logbook-below"); expect(map.resize).toHaveBeenCalledTimes(4);
-    changeView("map"); expect(map.resize).toHaveBeenCalledTimes(5);
+    changeView("logbook-above"); expect(map.resize).toHaveBeenCalledTimes(4); // same dimensions, newly exposed row
+    changeView("logbook"); expect(map.resize).toHaveBeenCalledTimes(4);
+    changeView("logbook-below"); expect(map.resize).toHaveBeenCalledTimes(5);
+    changeView("map"); expect(map.resize).toHaveBeenCalledTimes(6);
     expect(harness.maps).toHaveLength(1); expect(map.remove).not.toHaveBeenCalled();
     expect(map.element.querySelector('[aria-current="true"]')).toBe(selected);
     expect(screen.getByLabelText<HTMLSelectElement>("Map overlay").value).toBe("Spots");

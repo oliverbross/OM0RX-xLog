@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::sync::{atomic::{AtomicU64, Ordering}, Arc, Mutex, OnceLock, Weak};
 const MAX_EPOCH: u64 = 9_007_199_254_740_991;
+pub(crate) const SUPPORTED_BANDS: [&str; 13] = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "2m", "70cm"];
 pub(crate) const CLIENT_WINDOWS: [&str; 3] = ["main", "monitor", "rotor"];
 pub(crate) fn client_role(label: &str) -> bool { CLIENT_WINDOWS.contains(&label) }
 
@@ -12,20 +13,36 @@ pub struct Target {
     pub generation: String,
     pub draft_id: String,
     pub call: String,
+    pub band: String,
 }
 impl Target {
     pub fn from_snapshot(draft: &Value) -> Result<Self, String> {
         Self { generation: draft["generation"].as_str().unwrap_or("").into(),
             draft_id: draft["qso"]["id"].as_str().unwrap_or("").into(),
-            call: draft["qso"]["call"].as_str().unwrap_or("").into() }.normalized()
+            call: draft["qso"]["call"].as_str().unwrap_or("").into(),
+            band: draft["qso"]["band"].as_str().unwrap_or("").into() }.normalized()
     }
     fn normalized(mut self) -> Result<Self, String> {
         self.generation = uuid::Uuid::parse_str(&self.generation).map_err(|_| "Automatic rotor workspace is invalid.")?.to_string();
         self.draft_id = uuid::Uuid::parse_str(&self.draft_id).map_err(|_| "Automatic rotor draft is invalid.")?.to_string();
         self.call = self.call.trim().to_uppercase();
+        self.band = self.band.trim().to_lowercase();
         if self.call.len() > 64 || self.call.chars().any(char::is_control) { return Err("Automatic rotor callsign is invalid.".into()); }
+        if self.band.len() > 16 || self.band.chars().any(char::is_control) { return Err("Automatic rotor band is invalid.".into()); }
         Ok(self)
     }
+}
+
+pub(crate) fn normalize_bands(bands: &[String]) -> Result<Vec<String>, String> {
+    if bands.len() > SUPPORTED_BANDS.len() { return Err("Automatic rotor band policy is invalid.".into()); }
+    let mut normalized = Vec::with_capacity(bands.len());
+    for band in bands {
+        if !SUPPORTED_BANDS.contains(&band.as_str()) || normalized.contains(band) {
+            return Err("Automatic rotor band policy is invalid.".into());
+        }
+        normalized.push(band.clone());
+    }
+    Ok(normalized)
 }
 
 #[derive(Default)]
@@ -40,6 +57,7 @@ struct State {
     unconfirmed: Option<Target>,
     owner: Option<String>,
     generation: Option<u64>,
+    allowed_bands: Vec<String>,
     error: String,
 }
 pub struct AutomaticRotor {
@@ -91,10 +109,12 @@ impl AutomaticRotor {
             "owner":state.owner,"generation":state.generation,"target":state.target,
             "activation_pending":state.activation && !state.confirmed,"canonical_pending":state.canonical_pending > 0,"error":state.error}))
     }
-    fn arm_at_epoch(&self, owner: &str, generation: u64, expected_epoch: u64) -> Result<Value, String> {
+    fn arm_at_epoch(&self, owner: &str, generation: u64, expected_epoch: u64, bands: &[String]) -> Result<Value, String> {
+        let bands = normalize_bands(bands)?;
         let mut state = self.state.lock().map_err(|_| "Automatic rotor state unavailable")?;
         self.admit_arm(expected_epoch, || {})?;
         state.owner = Some(owner.into()); state.generation = Some(generation);
+        state.allowed_bands = bands;
         state.attempted = None; state.attempted_target = None; state.error.clear();
         drop(state); self.snapshot()
     }
@@ -110,7 +130,9 @@ impl AutomaticRotor {
         Ok(())
     }
     #[cfg(test)]
-    fn arm(&self, owner: &str, generation: u64) -> Result<Value, String> { self.arm_at_epoch(owner, generation, self.epoch()) }
+    fn arm(&self, owner: &str, generation: u64) -> Result<Value, String> {
+        self.arm_at_epoch(owner, generation, self.epoch(), &["20m".into()])
+    }
     pub(crate) fn revoke(&self) {
         // Revoke before taking any lock: a queued automatic turn cannot become
         // valid while a manual Stop waits behind an already-admitted driver RPC.
@@ -172,6 +194,7 @@ impl AutomaticRotor {
         if !self.permits_epoch(permit.epoch) { return false; }
         let Ok(state) = self.state.lock() else { return false; };
         self.permits_epoch(permit.epoch) && state.canonical_pending == 0 && state.sequence == permit.sequence && state.target.as_ref() == Some(&permit.target) && state.confirmed &&
+            state.allowed_bands.contains(&permit.target.band) &&
             (!claimed || state.attempted.as_deref() == Some(&permit.intent))
     }
     fn turn(self: &Arc<Self>, permit: &Permit, read: impl Fn() -> Result<Target, String>,
@@ -229,11 +252,14 @@ pub(crate) fn owner() -> &'static Arc<AutomaticRotor> {
     OWNER.get_or_init(|| Arc::new(AutomaticRotor::new()))
 }
 pub fn snapshot() -> Result<Value, String> { owner().snapshot() }
-pub fn set_armed(armed: bool, expected_owner: Option<&str>, expected_generation: Option<u64>, expected_epoch: u64) -> Result<Value, String> {
+pub fn set_armed(armed: bool, expected_owner: Option<&str>, expected_generation: Option<u64>, expected_epoch: u64,
+    bands: &[String]) -> Result<Value, String> {
     if !armed { revoke(); return snapshot(); }
     let expected_owner = expected_owner.ok_or("Observe a connected rotor before enabling automatic turns.")?;
     let expected_generation = expected_generation.ok_or("Observe the rotor generation before enabling automatic turns.")?;
-    crate::rotor::with_automatic_owner(expected_owner, expected_generation, || owner().arm_at_epoch(expected_owner, expected_generation, expected_epoch))
+    crate::rotor::with_automatic_owner(expected_owner, expected_generation, || {
+        owner().arm_at_epoch(expected_owner, expected_generation, expected_epoch, bands)
+    })
 }
 pub fn revoke() { owner().revoke(); }
 pub fn note_reconcile_error(expected_epoch: u64, error: &str) { owner().note_reconcile_error(expected_epoch, error); }
@@ -274,7 +300,7 @@ mod tests {
     use super::*;
     fn target(call: &str) -> Target {
         Target { generation: "10000000-0000-4000-8000-000000000001".into(),
-            draft_id: "20000000-0000-4000-8000-000000000001".into(), call: call.into() }
+            draft_id: "20000000-0000-4000-8000-000000000001".into(), call: call.into(), band: "20m".into() }
     }
     fn armed() -> Arc<AutomaticRotor> {
         let owner = Arc::new(AutomaticRotor::new()); owner.arm("native_dcu1", 7).unwrap(); owner
@@ -300,18 +326,18 @@ mod tests {
     fn pending_arm_epoch_cannot_cross_manual_stop_but_new_explicit_arm_can() {
         let owner = armed(); let old_epoch = owner.epoch();
         owner.revoke(); let stopped_epoch = owner.epoch();
-        assert!(owner.arm_at_epoch("native_dcu1", 7, old_epoch).is_err());
+        assert!(owner.arm_at_epoch("native_dcu1", 7, old_epoch, &["20m".into()]).is_err());
         assert!(!owner.armed());
-        owner.arm_at_epoch("native_dcu1", 7, stopped_epoch).unwrap();
+        owner.arm_at_epoch("native_dcu1", 7, stopped_epoch, &["20m".into()]).unwrap();
         let current = owner.epoch(); assert!(owner.armed());
-        assert!(owner.arm_at_epoch("native_dcu1", 7, old_epoch).is_err());
+        assert!(owner.arm_at_epoch("native_dcu1", 7, old_epoch, &["20m".into()]).is_err());
         assert!(owner.armed()); assert_eq!(owner.epoch(), current);
     }
     #[test]
     fn exhausted_epoch_stays_off_without_wrapping_or_revalidating_old_permits() {
         let owner = armed(); let permit = begin(&owner, "OM0RX", false);
         owner.authority.store(MAX_EPOCH << 1, Ordering::Release);
-        assert!(owner.arm_at_epoch("native_dcu1", 7, MAX_EPOCH).is_err());
+        assert!(owner.arm_at_epoch("native_dcu1", 7, MAX_EPOCH, &["20m".into()]).is_err());
         owner.revoke(); let change = owner.canonical_will_change(); drop(change);
         assert_eq!(owner.epoch(), MAX_EPOCH); assert!(!owner.armed());
         assert!(!owner.authorized(&permit, false));
@@ -337,6 +363,18 @@ mod tests {
         assert_eq!(result["requested"], true);
         assert_eq!(owner.snapshot().unwrap()["generation"], 8);
         assert_eq!(owner.turn(&pending, || panic!("duplicate read"), |_| panic!("lookup"), |_, _| panic!("dispatch")).unwrap()["requested"], false);
+    }
+    #[test]
+    fn saved_band_policy_blocks_lookup_and_motion_in_the_native_owner() {
+        let owner = armed();
+        let mut excluded = target("OM0RX"); excluded.band = "40m".into();
+        let permit = owner.begin(excluded, false, Some(("native_dcu1".into(), 7))).unwrap();
+        let result = owner.turn(&permit, || panic!("excluded band must not read again"),
+            |_| panic!("excluded band must not look up"), |_, _| panic!("excluded band must not move")).unwrap();
+        assert_eq!(result["requested"], false);
+
+        assert!(normalize_bands(&["20m".into(), "20m".into()]).is_err());
+        assert!(normalize_bands(&["1.25m".into()]).is_err());
     }
     #[test]
     fn unavailable_optional_rotor_does_not_block_activation_confirmation() {

@@ -352,6 +352,9 @@ function MainLiveApp() {
   const providerReadyRef = useRef(!nativeStationSelection());
   const [providerReady, setProviderReady] = useState(providerReadyRef.current);
   const selection = useRef(0);
+  const activationStarted = useRef(false);
+  const spotPreparation = useRef<Promise<void> | null>(null);
+  const [spotEditorEpoch, setSpotEditorEpoch] = useState(0);
   const stationPolling = useRef(false);
   const clusterPolling = useRef(false);
   const clusterResumeChecked = useRef(false);
@@ -863,14 +866,32 @@ function MainLiveApp() {
   });
   const selectSpot = (spot: Data) => {
     if (monitor) return;
-    if (editorBufferPending.current) { setError("Finish the buffered draft fields before selecting another report. Your text is retained."); return; }
-    if (draftSession.getSnapshot().locked || draftSession.getSnapshot().workspaceChanged || draftSession.getSnapshot().conflict || contactSession.getSnapshot().locked || contactSession.getSnapshot().workspaceChanged) { setError("Resolve the current QSO draft operation before selecting another spot."); return; }
-    if (editing.current) { setError("Finish or clear the contact being edited before selecting a new spot."); setView("Log QSO"); return; }
-    if (!acceptsInput()) return;
+    const draftState = draftSession.getSnapshot(), contactState = contactSession.getSnapshot();
+    if (activationStarted.current || spotActivation.requesting || spotActivation.status && spotActivation.status.phase !== "idle" && spotActivation.status.reservationActive !== false) return;
+    if (busyRef.current || logbookWorkingRef.current || logbookMutations.getSnapshot().busy || logbookMutations.getSnapshot().pending ||
+      readingRadio.current || readOperation.current || mainClosing.current || layoutChanging.current || editorTransition.current ||
+      draftState.locked || draftState.pending || draftState.conflict || draftState.workspaceChanged || draftState.activationFrozen ||
+      contactState.locked || contactState.pending || contactState.conflict || contactState.workspaceChanged || contactState.activationFrozen ||
+      !draftSession.canAcceptLocalInput() || !contactSession.canAcceptLocalInput()) {
+      setError("Resolve the current QSO operation before selecting another spot."); return;
+    }
     const generation = ++selection.current;
     pendingTune.current = true; setSelected(spot.id);
     setMessage(""); setError("");
-    void spotActivation.activate(spot).catch(cause => {
+    // A new selection discards only local, unsaved editor text. A pending write,
+    // receipt, conflict, or native activation above remains fenced.
+    if (!spotPreparation.current) {
+      spotPreparation.current = (async () => {
+        if (contactSession.getSnapshot().draft) contactSession.cancel();
+        if (editorBufferPending.current) { editorInputState(false); setSpotEditorEpoch(value => value + 1); }
+        if (draftSession.dirty) await draftSession.useShared();
+      })().finally(() => { spotPreparation.current = null; });
+    }
+    void spotPreparation.current.then(() => {
+      if (selection.current !== generation) return;
+      activationStarted.current = true;
+      return Promise.resolve(spotActivation.activate(spot)).finally(() => { activationStarted.current = false; });
+    }).catch(cause => {
       const message = cause instanceof Error ? cause.message : "Spot activation is unavailable. Check its status before selecting again.";
       if (selection.current === generation && message !== "Check the existing spot activation before selecting another report.") setError(message);
     })
@@ -911,7 +932,7 @@ function MainLiveApp() {
     if (typeof station.radio.frequency_hz === "number" && Number.isFinite(station.radio.frequency_hz)) automaticStationMetadata.push({ label: "Radio frequency", value: `${frequency(station.radio.frequency_hz)} MHz`, provenance: "observed" });
     if (station.radio.mode) automaticStationMetadata.push({ label: "Radio mode", value: station.radio.mode, provenance: "observed" });
   }
-  const deskProps = { draftLocked: editorLocked, canAcceptLocalInput: acceptsInput, onLocalInputState: editorInputState,
+  const deskProps = { draftLocked: editorLocked, canAcceptLocalInput: acceptsInput, onLocalInputState: editorInputState, resetInputEpoch: spotEditorEpoch,
     referenceEvidence, cwControls, equipment: settings?.stationEquipment, draft, setDraft: setOperatorDraft, save,
     clear: () => void run(clear), busy: busy || editorBlocked, lookup, previous, request, refresh, onEditor: () => setView("Log QSO"),
     onReadRadio: readRadioIntoDraft, follow, setFollow: setFollowImmediate, rotor: rotorState,
@@ -998,7 +1019,7 @@ function MainLiveApp() {
         busy={logbookWorking || logbookMutation.busy || !!logbookMutation.pending}
         canChangeView={() => !logbookWorkingRef.current && !mainClosing.current && !layoutChanging.current && !editorTransition.current && !logbookMutations.getSnapshot().busy && !logbookMutations.getSnapshot().pending} />}
         cluster={cluster} selectedSpotId={selected} onSelect={selectSpot} bandMaps={deskBands} /></div></>} />}
-      {view === "Log QSO" && <QSOEditor referenceEvidence={referenceEvidence} draftLocked={editorLocked} draft={draft} setDraft={setOperatorDraft} save={save} clear={() => void run(clear)} busy={busy || editorBlocked} lookup={lookup} previous={previous} follow={follow} setFollow={setFollowImmediate} request={request} onReadRadio={readRadioIntoDraft} isEditing={editing.current} automaticStationMetadata={automaticStationMetadata}
+      {view === "Log QSO" && <QSOEditor resetInputEpoch={spotEditorEpoch} referenceEvidence={referenceEvidence} draftLocked={editorLocked} draft={draft} setDraft={setOperatorDraft} save={save} clear={() => void run(clear)} busy={busy || editorBlocked} lookup={lookup} previous={previous} follow={follow} setFollow={setFollowImmediate} request={request} onReadRadio={readRadioIntoDraft} isEditing={editing.current} automaticStationMetadata={automaticStationMetadata}
         clearLabel={editing.current ? "Cancel edit" : "Clear QSO"}
         contactActions={contactEdit.base && <ContactDeleteAction snapshot={contactEdit.base} mutations={logbookMutations}
           disabled={busy || editorBlocked} run={run} onDeleted={() => { contactSession.cancel(); setRefresh(n => n + 1); setView("Logbook"); }} />}

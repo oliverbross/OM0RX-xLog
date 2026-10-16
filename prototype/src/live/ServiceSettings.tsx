@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import DataManagementPanel from "./DataManagementPanel";
 import DisplaySettings from "./DisplaySettings";
 import { EquipmentSettings } from "./StationEquipment";
@@ -11,6 +11,7 @@ import "./ServiceSettings.css";
 
 type Data = Record<string, any>;
 type Request = (method: string, params?: Data) => Promise<Data>;
+const RadioSpotSettings = lazy(() => import("./RadioSpotSettings"));
 export type ServiceSettingsProps = { values: Data; savedValues?: Data; request: Request; onChanged: (value: Data) => void; onSave: (value: Data) => Promise<void>;
   saving?: boolean; pending?: boolean; conflict?: boolean; workspaceChanged?: boolean; dirty?: boolean; sessionError?: string;
   onReconcile?: () => Promise<void>; onRetry?: () => Promise<void>; onUseSaved?: () => void;
@@ -18,7 +19,7 @@ export type ServiceSettingsProps = { values: Data; savedValues?: Data; request: 
   onExternalContact?: () => void;
   availableTabs?: readonly Tab[]; requestedTab?: "Station" | "Wavelog" | "Sync"; requestedTabRevision?: number; cwContext?: CWContext; cwState?: CWState;
   refreshCW?: () => Promise<void>; cwProvider?: string };
-const tabs = ["Station", "Wavelog", "Sync", "Integrations", "QRZ", "Online logs", "Reference data", "Rotator", "CW", "Display", "Workspace", "Backups"] as const;
+const tabs = ["Station", "Wavelog", "Sync", "Integrations", "QRZ", "Online logs", "Reference data", "Rotator", "Radio spots", "CW", "Display", "Workspace", "Backups"] as const;
 type Tab = typeof tabs[number];
 
 function Credential({ account, label, request, leadingField, visible = false, showSavedStatus = false, savedStatus, missingStatus, allowRemove = false, inputType = "password", onChanged }: { account: string; label: string; request: Request; leadingField?: ReactNode; visible?: boolean; showSavedStatus?: boolean; savedStatus?: string; missingStatus?: string; allowRemove?: boolean; inputType?: "password" | "text"; onChanged?: () => void }) {
@@ -159,11 +160,12 @@ export default function ServiceSettings({ values, savedValues, request, onChange
       if (next !== null) { event.preventDefault(); const selected = visibleTabs[next]; setTab(selected); document.getElementById(`service-tab-${tabs.indexOf(selected)}`)?.focus(); }
     }}>{name}</button>)}</div>
     <div id="service-settings-panel" role="tabpanel" aria-labelledby={`service-tab-${tabs.indexOf(tab)}`}>
-    <p hidden={tab === "Display" || tab === "CW" || tab === "Workspace" || tab === "Sync" || tab === "Integrations" || tab === "Online logs"}>URLs and account details are grouped with their credentials. Save settings for non-secret fields; each credential has its own secure Save button.</p>
+    <p hidden={tab === "Display" || tab === "CW" || tab === "Workspace" || tab === "Sync" || tab === "Integrations" || tab === "Online logs" || tab === "Radio spots"}>URLs and account details are grouped with their credentials. Save settings for non-secret fields; each credential has its own secure Save button.</p>
     {tab === "Sync" && <div>{syncSettings ?? <p>Synchronization tools are unavailable in this view.</p>}</div>}
     <div hidden={tab !== "Workspace"}>{workspaceSettings ?? <p>Workspace arrangements are unavailable in this view.</p>}</div>
     <div hidden={tab !== "Display"}><DisplaySettings /></div>
     <div hidden={tab !== "Rotator"}>{rotorSettings ?? <p>Rotator settings are unavailable in this view.</p>}</div>
+    {tab === "Radio spots" && <Suspense fallback={<p role="status">Loading radio spot settings…</p>}><RadioSpotSettings request={request} visible /></Suspense>}
     {tab === "Integrations" && <WSJTXPanel request={request} onImported={onExternalContact} />}
     <ReferenceScheduleControl request={request} visible={tab === "Reference data"} />
     {(sessionError || pending || conflict || workspaceChanged) && <div className="service-settings-recovery" role="status">
@@ -221,10 +223,10 @@ export default function ServiceSettings({ values, savedValues, request, onChange
           missingStatus="No saved FTP / FTPS password." />
         <div className="live-actions"><button type="submit" className="primary">{saving ? "Saving settings…" : "Save backup settings"}</button><span role="status">{tab === "Backups" ? message : ""}</span></div>
       </section>
-      <div className="live-actions" hidden={tab === "Backups" || tab === "Display" || tab === "Rotator" || tab === "Workspace" || tab === "Sync" || tab === "Integrations" || tab === "Online logs"}><button type="submit" className="primary">{saving ? "Saving settings…" : "Save settings"}</button><span role="status">{message}</span></div>
+      <div className="live-actions" hidden={tab === "Backups" || tab === "Display" || tab === "Rotator" || tab === "Radio spots" || tab === "Workspace" || tab === "Sync" || tab === "Integrations" || tab === "Online logs"}><button type="submit" className="primary">{saving ? "Saving settings…" : "Save settings"}</button><span role="status">{message}</span></div>
     </fieldset></form>
     {(visibleTabs.includes("Reference data") || visibleTabs.includes("Backups")) && <div hidden={tab !== "Reference data" && tab !== "Backups"}>{dataRequest ? <DataManagementPanel onRequest={dataRequest} onChanged={onDataChanged ?? (() => {})} visible={tab === "Reference data" || tab === "Backups"} section={tab === "Backups" ? "backups" : "references"} sourceSettings={savedValues ?? form} /> : <p>Reference and backup tools are unavailable in this view.</p>}</div>}
-    <p className="service-security-note" hidden={tab === "CW" || tab === "Workspace" || tab === "Sync" || tab === "Integrations"}>Credentials stay in the integrated app’s separate macOS Keychain service. Existing application credentials are not changed. Never paste credentials into a support chat.</p>
+    <p className="service-security-note" hidden={tab === "CW" || tab === "Workspace" || tab === "Sync" || tab === "Integrations" || tab === "Radio spots"}>Credentials stay in the integrated app’s separate macOS Keychain service. Existing application credentials are not changed. Never paste credentials into a support chat.</p>
     </div>
   </section>;
 }

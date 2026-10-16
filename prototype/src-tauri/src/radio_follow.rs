@@ -259,7 +259,10 @@ impl FollowRadio {
         self.backend.publish();
     }
     fn editor_changed(&self, label: &str, instance: Option<&str>) {
-        self.revoke("Editor membership changed. Follow Radio is off.");
+        // Opening, closing or remounting an editor intentionally retires the
+        // shared Follow permission. This routine lifecycle change is not a
+        // radio or agent fault, so keep it out of the global error banner.
+        self.revoke("");
         if let Ok(mut state) = self.state.lock() {
             if state.settling.contains_key(label) {
                 if let Some(instance) = instance {
@@ -986,8 +989,10 @@ mod tests {
         owner.editor_changed("log-qso", Some(&replacement));
         assert!(owner.settled("log-qso", &instance, &operation).is_err());
         assert!(!owner.settled("log-qso", &replacement, &operation).unwrap());
-        assert_eq!(owner.snapshot().unwrap()["enabled"], false);
-        assert_eq!(owner.snapshot().unwrap()["settlementPending"], false);
+        let snapshot = owner.snapshot().unwrap();
+        assert_eq!(snapshot["enabled"], false);
+        assert_eq!(snapshot["error"], "");
+        assert_eq!(snapshot["settlementPending"], false);
         assert_eq!(backend.calls.lock().unwrap().len(), 1);
     }
 }

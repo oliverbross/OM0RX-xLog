@@ -158,7 +158,8 @@ export class SettingsSession {
         if (response?.status !== "applied") throw new Error("The Settings acknowledgement could not be verified.");
         const committed = checkedReceiptSnapshot(response.receipt, mutation, this.state.base!);
         const acknowledged = checkedSettingsSnapshot(response);
-        if (stable(acknowledged) !== stable(committed))
+        const durableAcknowledged = { ...acknowledged, settings: storedSettings(acknowledged.settings) };
+        if (stable(durableAcknowledged) !== stable(committed))
           throw new Error("The Settings acknowledgement did not match its receipt.");
         this.accept(acknowledged);
       } catch (cause) {

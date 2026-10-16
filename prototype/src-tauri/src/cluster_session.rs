@@ -23,6 +23,7 @@ pub fn handles(method: &str) -> bool {
             | "cluster_command"
             | "cluster_console_clear"
             | "cluster_configure"
+            | "cluster_radio_spots_configure"
             | "cluster_password_set"
     )
 }
@@ -34,12 +35,15 @@ pub fn validate(label: &str, request: &Value) -> Result<(), String> {
     if !handles(method)
         || !matches!(
             label,
-            "main" | "dx-cluster" | "monitor" | "world-map" | "band-maps"
+            "main" | "settings" | "dx-cluster" | "monitor" | "world-map" | "band-maps"
         )
     {
         return Err("This window cannot access the cluster session.".into());
     }
-    if label != "main"
+    if label == "settings" && !matches!(method, "cluster_snapshot" | "cluster_radio_spots_configure") {
+        return Err("This cluster action is unavailable in Settings.".into());
+    }
+    if label != "main" && label != "settings"
         && (method == "cluster_password_set"
             || label != "dx-cluster" && method != "cluster_snapshot")
     {
@@ -420,6 +424,7 @@ mod tests {
             "cluster_command",
             "cluster_console_clear",
             "cluster_configure",
+            "cluster_radio_spots_configure",
         ] {
             assert!(validate("main", &request(method)).is_ok());
             assert!(validate("dx-cluster", &request(method)).is_ok());
@@ -427,6 +432,9 @@ mod tests {
         }
         assert!(validate("main", &request("cluster_password_set")).is_ok());
         assert!(validate("dx-cluster", &request("cluster_password_set")).is_err());
+        assert!(validate("settings", &request("cluster_snapshot")).is_ok());
+        assert!(validate("settings", &request("cluster_radio_spots_configure")).is_ok());
+        assert!(validate("settings", &request("cluster_configure")).is_err());
         for label in ["monitor", "world-map", "band-maps"] {
             assert!(validate(label, &request("cluster_snapshot")).is_ok());
             assert!(validate(label, &request("cluster_connect")).is_err());

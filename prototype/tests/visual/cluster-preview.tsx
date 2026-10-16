@@ -22,7 +22,7 @@ const response = {
     connections: [], spots, console: [] },
   configuration: { servers: [{ id: "fixture", name: "Example DX", host: "cluster.example.invalid", port: 7300,
     callsign: "N0CALL", enabled: true }], reconnect: true, requestSkimmer: false,
-    showWorkedBandModeSpots: false, maximumSpots: 100, specialRules: [],
+    showWorkedBandModeSpots: false, hideWSPRSpots: false, maximumSpots: 100, specialRules: [],
     palette: { status: {}, band: {}, mode: {} },
     filter: { query: "", bands: [], modes: [], continents: [], callStatuses: [], dxccStatuses: [],
       specials: [], sources: ["cluster", "rbl"], worked: [], sort: "newest" },

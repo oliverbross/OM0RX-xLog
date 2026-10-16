@@ -106,7 +106,7 @@ fn validate_editor_transition(label: &str) -> Result<(), String> {
     Ok(())
 }
 fn retires_automatic_rotor(request: &serde_json::Value) -> bool {
-    matches!(request["method"].as_str(), Some("workspace_create" | "backup_restore" | "station_connect" | "station_disconnect" | "station_reconnect" | "station_configure"))
+    matches!(request["method"].as_str(), Some("workspace_create" | "backup_restore" | "workspace_rotor_configuration_save" | "station_connect" | "station_disconnect" | "station_reconnect" | "station_configure"))
         || request["params"]["device"] == "radio" && matches!(request["method"].as_str(), Some("hamlib_connect" | "hamlib_disconnect" | "hamlib_reconnect"))
 }
 fn is_raw_manual_rotor_goto(request: &serde_json::Value) -> bool {
@@ -136,8 +136,9 @@ fn spot_editor_register(window: tauri::WebviewWindow, app: tauri::AppHandle, ins
 #[tauri::command]
 fn spot_editor_unregister(window: tauri::WebviewWindow, app: tauri::AppHandle, instance: String) -> Result<(), String> {
     if !spot_editor_barrier::editor_role(window.label()) { return Err("This window is not a QSO editor.".into()); }
-    radio_follow::revoke("Editor membership changed. Follow Radio is off.");
-    activation_owner(&app).editors.unregister(window.label(), &instance)
+    activation_owner(&app).editors.unregister(window.label(), &instance)?;
+    radio_follow::editor_changed(window.label(), None);
+    Ok(())
 }
 #[tauri::command]
 fn spot_editor_ack(window: tauri::WebviewWindow, app: tauri::AppHandle, instance: String, barrier_id: String,
@@ -299,10 +300,16 @@ async fn auto_rotor_set(window: tauri::WebviewWindow, app: tauri::AppHandle, sta
     armed: bool, owner: Option<String>, generation: Option<u64>) -> Result<serde_json::Value, String> {
     validate_auto_rotor_set(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
     let command = AUTOMATIC_ROTOR_COMMANDS.begin(armed, || auto_rotor::snapshot()?["epoch"].as_u64().ok_or_else(|| "Automatic rotor epoch unavailable".into()), auto_rotor::revoke)?;
-    let result = tauri::async_runtime::spawn_blocking(move || AUTOMATIC_ROTOR_COMMANDS.apply(command, |epoch| {
-        if APP_EXITING.load(Ordering::Acquire) { return Err("Automatic rotor settings are unavailable during shutdown.".into()); }
-        auto_rotor::set_armed(armed, owner.as_deref(), generation, epoch)
-    }))
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        // Read the persisted band policy outside the command-ordering lock so
+        // an immediate Off can revoke and supersede even if storage is slow.
+        let bands = if armed { rotor_session::configuration_change(||
+            rotor_session::automatic_policy_saved().map(|policy| policy.bands))? } else { Vec::new() };
+        AUTOMATIC_ROTOR_COMMANDS.apply(command, |epoch| {
+            if APP_EXITING.load(Ordering::Acquire) { return Err("Automatic rotor settings are unavailable during shutdown.".into()); }
+            auto_rotor::set_armed(armed, owner.as_deref(), generation, epoch, &bands)
+        })
+    })
         .await.map_err(|_| "Automatic rotor task failed".to_string())?;
     if armed && result.is_ok() { auto_rotor_reconcile::request(&app); }
     for label in auto_rotor::CLIENT_WINDOWS { let _ = app.emit_to(label, "xlog:auto-rotor", ()); }
@@ -1132,6 +1139,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     let settings_changed = matches!(method, "settings_save" | "backup_restore");
     let sync_changed = matches!(method, "sync_mutation" | "online_log_configure" | "settings_save" | "secret_save" | "workspace_create" | "backup_restore");
     let rotor_configuration_changed = matches!(method, "workspace_rotor_configuration_save" | "backup_restore");
+    let rotor_configuration_save = state.path.is_none() && method == "workspace_rotor_configuration_save";
     let rotor_configuration_mutation = state.path.is_none() && (rotor_configuration_changed || method == "workspace_create");
     if rotor_configuration_mutation { rotor_session::invalidate_configuration(); }
     // Retire metadata before a restore/write can race a map's retained read.
@@ -1144,6 +1152,9 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     let activate_layout = method == "workspace_layout_apply"
         && request["params"]["action"] == "activatePreset";
     let result = tauri::async_runtime::spawn_blocking(move || if let Some(selection) = selection { selection.control(request) }
+        else if rotor_configuration_save {
+            rotor_session::save_configuration(request)
+        }
         else if rotor_configuration_mutation { rotor_session::configuration_change(|| worker::request(request)) }
         else { worker::request(request) })
         .await
@@ -1179,6 +1190,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     }
     if rotor_configuration_changed {
         for label in ["main", "settings"] { let _ = app.emit_to(label, "xlog:rotor-configuration-changed", ()); }
+        for label in auto_rotor::CLIENT_WINDOWS { let _ = app.emit_to(label, "xlog:auto-rotor", ()); }
     }
     if layout_changed {
         // Wake-only: even an uncertain outcome is reconciled by a fresh read.
@@ -1608,6 +1620,12 @@ fn main() {
                 radio_read::install(app.handle(), activation.editors.clone());
                 station_identity::install(app.handle());
                 rotor_session::install(app.handle()).map_err(std::io::Error::other)?;
+                // Reserve the first automatic-rotor command before renderer
+                // input can arrive. A later explicit Off supersedes this token
+                // even while saved connection/telemetry checks are running.
+                let startup_auto_rotor = AUTOMATIC_ROTOR_COMMANDS.begin(true,
+                    || auto_rotor::snapshot()?["epoch"].as_u64().ok_or_else(|| "Automatic rotor epoch unavailable".into()),
+                    auto_rotor::revoke).map_err(std::io::Error::other)?;
                 let selection_app = app.handle().clone();
                 tauri::async_runtime::spawn_blocking(move || {
                     if let Err(error) = station_selection::owner(&selection_app).and_then(|owner| {
@@ -1629,8 +1647,17 @@ fn main() {
                     }) {
                         eprintln!("Native station startup unavailable: {error}");
                     }
-                    if let Err(error) = rotor_session::resume() {
-                        eprintln!("Native rotor startup unavailable: {error}");
+                    match rotor_session::resume() {
+                        Ok(Some(startup)) => match AUTOMATIC_ROTOR_COMMANDS.apply(startup_auto_rotor, |epoch|
+                            auto_rotor::set_armed(true, Some(&startup.owner), Some(startup.generation), epoch, &startup.bands)) {
+                            Ok(_) => {
+                                auto_rotor_reconcile::request(&selection_app);
+                                for label in auto_rotor::CLIENT_WINDOWS { let _ = selection_app.emit_to(label, "xlog:auto-rotor", ()); }
+                            }
+                            Err(error) => eprintln!("Automatic rotor startup was superseded or unavailable: {error}"),
+                        },
+                        Ok(None) => {},
+                        Err(error) => eprintln!("Native rotor startup unavailable: {error}"),
                     }
                 });
                 dx_alerts::install(app.handle()).map_err(std::io::Error::other)?;
@@ -1895,7 +1922,7 @@ mod workspace_layout_tests {
             assert_eq!(crate::validate_opportunity_effect(label,false,false).is_ok(), matches!(label,"main" | "chaser-dx"));
             assert!(crate::validate_opportunity_effect(label,true,false).is_err()); assert!(crate::validate_opportunity_effect(label,false,true).is_err());
         }
-        for method in ["workspace_create", "backup_restore", "station_connect", "station_disconnect", "station_reconnect"] {
+        for method in ["workspace_create", "backup_restore", "workspace_rotor_configuration_save", "station_connect", "station_disconnect", "station_reconnect"] {
             assert!(retires_automatic_rotor(&serde_json::json!({"method":method,"params":{}})));
         }
         assert!(!retires_automatic_rotor(&serde_json::json!({"method":"logbook_operator_draft_apply","params":{"action":"replace"}})));

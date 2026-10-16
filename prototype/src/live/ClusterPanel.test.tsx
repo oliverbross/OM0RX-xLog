@@ -8,7 +8,7 @@ afterEach(() => { cleanup(); localStorage.clear(); });
 const palette = ["bands", "modes", "continents", "callStatuses", "dxccStatuses", "specials", "sources", "worked", "sort"];
 const response = () => ({ snapshot: { connectedClusters: 1, loadedSpots: 0, contactCount: 42, contactRevision: 1, logbookDataLoaded: true, countryDataLoaded: true,
   connections: [{ serverID: "server", serverName: "ShackCQ", phase: "connected", error: null }], spots: [], console: [] },
-  configuration: { servers: [{ id: "server", name: "ShackCQ", host: "cluster.example.invalid", port: 7300, callsign: "OM0RX", enabled: true }], reconnect: false, requestSkimmer: false, showWorkedBandModeSpots: false, maximumSpots: 100, specialRules: [], palette: { status: {}, band: {}, mode: {} }, filter: { query: "", bands: [], modes: [], continents: [], callStatuses: [], dxccStatuses: [], specials: [], sources: ["cluster", "rbl"], worked: [], sort: "newest" }, commandPresets: [], forwardSpotsToFlex: false } });
+  configuration: { servers: [{ id: "server", name: "ShackCQ", host: "cluster.example.invalid", port: 7300, callsign: "OM0RX", enabled: true }], reconnect: false, requestSkimmer: false, showWorkedBandModeSpots: false, hideWSPRSpots: false, maximumSpots: 100, specialRules: [], palette: { status: {}, band: {}, mode: {} }, filter: { query: "", bands: [], modes: [], continents: [], callStatuses: [], dxccStatuses: [], specials: [], sources: ["cluster", "rbl"], worked: [], sort: "newest" }, commandPresets: [], forwardSpotsToFlex: false } });
 const luminance = (hex: string) => {
   const values = hex.match(/\w\w/g)!.map(value => parseInt(value, 16) / 255)
     .map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
@@ -106,7 +106,7 @@ describe("cluster toolbar panels", () => {
     expect(screen.getByLabelText("Password · none").hasAttribute("disabled")).toBe(true);
     expect(screen.getByRole("button", { name: "Save password" }).hasAttribute("disabled")).toBe(true);
     expect(screen.getByRole("button", { name: "Remove password" }).hasAttribute("disabled")).toBe(true);
-    expect(screen.getByLabelText(/Forward incoming spots/).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByText(/Settings → Radio spots/)).toBeTruthy();
     expect(screen.getByText(/Callsign-only clusters can still connect/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "Connect" }).hasAttribute("disabled")).toBe(false);
     expect(request).not.toHaveBeenCalled();
@@ -120,22 +120,127 @@ describe("cluster toolbar panels", () => {
     expect(screen.getByLabelText("Password · none").hasAttribute("disabled")).toBe(true);
     expect(screen.getByText("Manage passwords in the main workspace.")).toBeTruthy();
   });
-  it("lets a transferred unavailable forwarding preference be turned off before saving", () => {
-    const data = response(); data.configuration.forwardSpotsToFlex = true;
-    render(<ClusterPanel passive snapshot={{ ...data, flex_forwarding_available: false }} onRequest={vi.fn(async () => ({}))} onSelect={vi.fn()} />);
-    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-    const checkbox = screen.getByLabelText(/Forward incoming spots/);
-    expect(checkbox.hasAttribute("disabled")).toBe(false);
-    fireEvent.click(checkbox);
-    expect((checkbox as HTMLInputElement).checked).toBe(false);
-    expect(checkbox.hasAttribute("disabled")).toBe(true);
-  });
-  it("distinguishes an unsaved forwarding checkbox from the active runtime setting", () => {
+  it("directs radio spot output configuration to Settings", () => {
     const data = response();
     render(<ClusterPanel passive snapshot={data} onRequest={vi.fn(async () => ({}))} onSelect={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-    fireEvent.click(screen.getByLabelText(/Forward incoming spots/));
-    expect(screen.getByText(/Unsaved ON — press Save cluster settings\. Runtime remains OFF\./)).toBeTruthy();
+    expect(screen.getByText(/Settings → Radio spots/)).toBeTruthy();
+    expect(screen.queryByLabelText(/Forward incoming spots/)).toBeNull();
+  });
+  it("persists the Hide WSPR spots preference with cluster settings", async () => {
+    const data = response();
+    const request = vi.fn(async () => data);
+    render(<ClusterPanel passive snapshot={data} onRequest={request} onSelect={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Hide WSPR spots" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save cluster settings" }));
+    await waitFor(() => expect(request).toHaveBeenCalledWith("cluster_configure", expect.objectContaining({
+      configuration: expect.objectContaining({ hideWSPRSpots: true }),
+    })));
+  });
+  it("preserves newer Radio spots settings and untouched palette colors when saving a Cluster draft", async () => {
+    const initial = response();
+    initial.configuration.palette.status = { Worked: "#111111", Confirmed: "#222222" };
+    initial.configuration.palette.band = { "20m": "#333333", "40m": "#444444" };
+    initial.configuration.palette.mode = { CW: "#555555", FT8: "#666666" };
+    let canonical: any = initial;
+    const request = vi.fn(async (method: string, params?: Record<string, unknown>) => {
+      if (method === "cluster_snapshot") return canonical;
+      if (method === "cluster_configure") {
+        const draft = params!.configuration as any;
+        canonical = { ...canonical, configuration: { ...canonical.configuration,
+          servers: draft.servers, hideWSPRSpots: draft.hideWSPRSpots,
+          palette: { status: { ...canonical.configuration.palette.status, Worked: draft.palette.status.Worked },
+            band: { ...canonical.configuration.palette.band, "20m": draft.palette.band["20m"] },
+            mode: { ...canonical.configuration.palette.mode, CW: draft.palette.mode.CW } },
+        } };
+        return canonical;
+      }
+      return {};
+    });
+    const props = { passive: true, onRequest: request, onSelect: vi.fn() };
+    const { rerender } = render(<ClusterPanel {...props} snapshot={initial} />);
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    fireEvent.change(screen.getByLabelText("ShackCQ host"), { target: { value: "new-cluster.example.invalid" } });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Hide WSPR spots" }));
+    fireEvent.change(screen.getByLabelText("Worked"), { target: { value: "#abcdef" } });
+    fireEvent.change(screen.getByLabelText("20m"), { target: { value: "#123456" } });
+    fireEvent.change(screen.getByLabelText("CW"), { target: { value: "#654321" } });
+
+    canonical = { ...initial, configuration: {
+      ...initial.configuration, forwardSpotsToFlex: true, radioSpotColorPolicy: "dxcc",
+      palette: {
+        status: { Worked: "#111111", Confirmed: "#fedcba", Unknown: "#999999" },
+        band: { "20m": "#333333", "40m": "#aaaaaa" },
+        mode: { CW: "#555555", FT8: "#bbbbbb" },
+      },
+    } } as typeof initial;
+    rerender(<ClusterPanel {...props} snapshot={canonical} />);
+    expect((screen.getByLabelText("ShackCQ host") as HTMLInputElement).value).toBe("new-cluster.example.invalid");
+    fireEvent.click(screen.getByRole("button", { name: "Save cluster settings" }));
+    await waitFor(() => expect(request).toHaveBeenCalledWith("cluster_configure", expect.objectContaining({
+      base_configuration: initial.configuration,
+      configuration: expect.objectContaining({
+        hideWSPRSpots: true, forwardSpotsToFlex: false,
+        servers: [expect.objectContaining({ host: "new-cluster.example.invalid" })],
+        palette: {
+          status: { Worked: "#abcdef", Confirmed: "#222222" },
+          band: { "20m": "#123456", "40m": "#444444" },
+          mode: { CW: "#654321", FT8: "#666666" },
+        },
+      }),
+    })));
+    expect(canonical.configuration.forwardSpotsToFlex).toBe(true);
+    expect(canonical.configuration.radioSpotColorPolicy).toBe("dxcc");
+    expect(canonical.configuration.palette.status.Confirmed).toBe("#fedcba");
+  });
+  it("stops a Cluster save when another window changed the same status colour", async () => {
+    const initial = response();
+    initial.configuration.palette.status = { Worked: "#111111" };
+    let canonical = initial;
+    const request = vi.fn(async (method: string, _params?: Record<string, unknown>) => {
+      if (method === "cluster_configure") throw new Error("Cluster settings changed in another window. Refresh before saving.");
+      return canonical;
+    });
+    const props = { passive: true, onRequest: request, onSelect: vi.fn() };
+    const { rerender } = render(<ClusterPanel {...props} snapshot={initial} />);
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    fireEvent.change(screen.getByLabelText("Worked"), { target: { value: "#abcdef" } });
+    canonical = { ...initial, configuration: { ...initial.configuration,
+      palette: { ...initial.configuration.palette, status: { Worked: "#123456" } } } };
+    rerender(<ClusterPanel {...props} snapshot={canonical} />);
+    fireEvent.click(screen.getByRole("button", { name: "Save cluster settings" }));
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("Cluster settings changed"));
+    expect(request.mock.calls.some(([method]) => method === "cluster_configure")).toBe(true);
+  });
+  it("two Cluster windows retain each other's unrelated settings edits", async () => {
+    const initial = response();
+    let canonical = initial;
+    const request = vi.fn(async (method: string, params?: Record<string, unknown>) => {
+      if (method !== "cluster_configure") return canonical;
+      const draft = params!.configuration as typeof initial.configuration;
+      const base = params!.base_configuration as typeof initial.configuration;
+      canonical = { ...canonical, configuration: { ...canonical.configuration,
+        reconnect: draft.reconnect !== base.reconnect ? draft.reconnect : canonical.configuration.reconnect,
+        maximumSpots: draft.maximumSpots !== base.maximumSpots ? draft.maximumSpots : canonical.configuration.maximumSpots,
+      } };
+      return canonical;
+    });
+    const { container } = render(<><ClusterPanel passive snapshot={initial} onRequest={request} onSelect={vi.fn()} />
+      <ClusterPanel passive snapshot={initial} onRequest={request} onSelect={vi.fn()} /></>);
+    const [first, second] = Array.from(container.querySelectorAll<HTMLElement>(".live-cluster"));
+    fireEvent.click(within(first).getByRole("button", { name: "Settings" }));
+    fireEvent.click(within(second).getByRole("button", { name: "Settings" }));
+    fireEvent.click(within(first).getByRole("checkbox", { name: /Reconnect automatically/ }));
+    fireEvent.click(within(first).getByRole("button", { name: "Save cluster settings" }));
+    await waitFor(() => expect(canonical.configuration.reconnect).toBe(true));
+    fireEvent.change(within(second).getByLabelText("Maximum visible spots"), { target: { value: "200" } });
+    fireEvent.click(within(second).getByRole("button", { name: "Save cluster settings" }));
+    await waitFor(() => expect(canonical.configuration.maximumSpots).toBe(200));
+    expect(canonical.configuration.reconnect).toBe(true);
+    const writes = request.mock.calls.filter(([method]) => method === "cluster_configure");
+    expect((writes[1][1]!.configuration as typeof initial.configuration).reconnect).toBe(false);
+    expect(writes[1][1]!.base_configuration).toEqual(initial.configuration);
   });
   it("allows cancellation while a cluster is connecting with no received spots", async () => {
     const data = response(); data.snapshot.connectedClusters = 0; data.snapshot.connections[0].phase = "connecting";

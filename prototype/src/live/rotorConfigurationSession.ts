@@ -4,6 +4,8 @@ export type RotorConfiguration = {
   native_dcu1: { host: string; port: number; name: string };
   hamlib: { mode: "managed" | "external"; model?: number; path: string; baud: number;
     host: string; port: number; serial: Record<string, string | number> };
+  auto_rotor_at_startup: boolean;
+  auto_rotor_bands: string[];
 };
 export type RotorConfigurationSnapshot = { revision: number; generation: string; configuration: RotorConfiguration };
 export type RotorConfigurationMutation = { operationID: string; expectedRevision: number; generation: string; configuration: RotorConfiguration };
@@ -24,10 +26,15 @@ const stable = (value: any): string => JSON.stringify(value, (_key, item) => obj
   ? Object.fromEntries(Object.keys(item).sort().map(key => [key, item[key]])) : item);
 const sameGeneration = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 const serialKeys = new Set(["data_bits", "stop_bits", "parity", "handshake", "dtr_state", "rts_state"]);
+export const autoRotorBands = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "2m", "70cm"] as const;
+const autoRotorBandSet = new Set<string>(autoRotorBands);
+const migratedAutomaticPolicy = (value: any) => object(value) && value.auto_rotor_at_startup === undefined && value.auto_rotor_bands === undefined
+  ? { ...value, auto_rotor_at_startup: false, auto_rotor_bands: [...autoRotorBands] } : value;
 
 export const defaultRotorConfiguration = (): RotorConfiguration => ({
   owner: "native_dcu1", native_dcu1: { host: "", port: 4001, name: "Rotor" },
   hamlib: { mode: "managed", path: "", baud: 9600, host: "127.0.0.1", port: 4533, serial: {} },
+  auto_rotor_at_startup: false, auto_rotor_bands: [...autoRotorBands],
 });
 
 export function checkedRotorConfiguration(value: any): RotorConfiguration {
@@ -37,6 +44,9 @@ export function checkedRotorConfiguration(value: any): RotorConfiguration {
       !["managed", "external"].includes(value.hamlib.mode) || typeof value.hamlib.path !== "string" ||
       typeof value.hamlib.host !== "string" || !Number.isInteger(value.hamlib.baud) || value.hamlib.baud < 300 || value.hamlib.baud > 921600 ||
       !Number.isInteger(value.hamlib.port) || value.hamlib.port < 1 || value.hamlib.port > 65535 || !object(value.hamlib.serial) ||
+      typeof value.auto_rotor_at_startup !== "boolean" || !Array.isArray(value.auto_rotor_bands) ||
+      value.auto_rotor_bands.length > autoRotorBands.length || new Set(value.auto_rotor_bands).size !== value.auto_rotor_bands.length ||
+      value.auto_rotor_bands.some((band: unknown) => typeof band !== "string" || !autoRotorBandSet.has(band)) ||
       value.hamlib.model !== undefined && (!Number.isInteger(value.hamlib.model) || value.hamlib.model < 1) ||
       Object.keys(value.hamlib.serial).some(key => !serialKeys.has(key)) || JSON.stringify(value).length > 16_384)
     throw new Error("The shared rotor configuration could not be verified.");
@@ -107,10 +117,15 @@ function receiptSnapshot(receipt: any, mutation: RotorConfigurationMutation, bas
 export function readRotorConfigurationJournal(raw: string | null): RotorConfigurationJournal | null {
   if (!raw || raw.length > 60_000) return null;
   try {
-    const value = JSON.parse(raw), base = checkedRotorConfigurationSnapshot(value.base), draft = checkedRotorConfiguration(value.draft);
-    if (value.version !== 1 || value.pending !== null && !validMutation(value.pending)) return null;
-    if (value.pending && (!sameGeneration(value.pending.generation, base.generation) || value.pending.expectedRevision !== base.revision)) return null;
-    return { version: 1, base, draft, pending: value.pending ? clone(value.pending) : null };
+    const value = JSON.parse(raw);
+    const base = checkedRotorConfigurationSnapshot({ ...value.base,
+      configuration: migratedAutomaticPolicy(value.base?.configuration) });
+    const draft = checkedRotorConfiguration(migratedAutomaticPolicy(value.draft));
+    const pending = value.pending ? { ...value.pending,
+      configuration: migratedAutomaticPolicy(value.pending.configuration) } : null;
+    if (value.version !== 1 || pending !== null && !validMutation(pending)) return null;
+    if (pending && (!sameGeneration(pending.generation, base.generation) || pending.expectedRevision !== base.revision)) return null;
+    return { version: 1, base, draft, pending: pending ? clone(pending) : null };
   } catch { return null; }
 }
 
