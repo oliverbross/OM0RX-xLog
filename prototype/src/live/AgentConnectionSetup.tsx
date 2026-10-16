@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
+import { RefreshCw } from "lucide-react";
 import { loadStationSession, stationSessionRequest, validTCIConfiguration, type TCIConfiguration, type FlexConfiguration, type HamlibConfiguration, type StationReceipt, type StationSession } from "./stationSession";
 import type { StationProvider } from "../worker";
 import { SharedHamlibModelBrowser } from "./HamlibModelPicker";
@@ -20,8 +21,8 @@ const notice = (receipt: StationReceipt) => receipt.request.action === "select"
   : "Connection outcome is unknown. Check observed station state before issuing another connection request.";
 
 /** Desk and child share one native radio setup, lifecycle and receipt owner. */
-export function AgentConnectionSetup({ connections = false, legacyEndpoint = "", providers = false, onlySelection = false, selectionTarget, hamlib: hamlibSetup = false, flex: flexSetup = false, followSelection = false, compact = false, receiveContext }: {
-  connections?: boolean; legacyEndpoint?: string; providers?: boolean; onlySelection?: boolean; selectionTarget?: StationProvider; hamlib?: boolean; flex?: boolean; followSelection?: boolean; compact?: boolean; receiveContext?: MonitorContext | null;
+export function AgentConnectionSetup({ connections = false, legacyEndpoint = "", providers = false, onlySelection = false, selectionTarget, activeProvider, hamlib: hamlibSetup = false, flex: flexSetup = false, followSelection = false, compact = false, receiveContext }: {
+  connections?: boolean; legacyEndpoint?: string; providers?: boolean; onlySelection?: boolean; selectionTarget?: StationProvider; activeProvider?: StationProvider; hamlib?: boolean; flex?: boolean; followSelection?: boolean; compact?: boolean; receiveContext?: MonitorContext | null;
 }) {
   const [state, setState] = useState<StationSession | null>(null), [url, setURL] = useState("");
   const hamlib = hamlibSetup || followSelection && state?.selection.provider === "hamlib";
@@ -135,8 +136,9 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
     finally { inFlight.current = false; if (active.current) setBusy(false); }
   };
   const selected = state?.selection.provider === (tci ? "direct_tci" : flex ? "direct_flex_lan" : hamlib ? "hamlib" : "direct_agent") && !!state.selection.selection_id;
+  const displayedProvider = activeProvider ?? state?.selection.provider as StationProvider | null | undefined;
   const updateConfig = (next: HamlibConfiguration) => { dirty.current = true; setConfig(next); };
-  return <div className="live-station-connect" aria-label={onlySelection ? "Shared radio selection" : tci ? "Shared TCI connection setup" : flex ? "Shared FLEX connection setup" : hamlib ? "Shared Hamlib connection setup" : "Shared Agent connection setup"}>
+  return <div className={`live-station-connect${onlySelection ? " is-selection-only" : ""}`} aria-label={onlySelection ? "Shared radio selection" : tci ? "Shared TCI connection setup" : flex ? "Shared FLEX connection setup" : hamlib ? "Shared Hamlib connection setup" : "Shared Agent connection setup"}>
     {tci && !onlySelection && <><h3>Direct TCI connection · read only</h3>
       <p>Save a credential-free ws/wss endpoint and receiver selection, then connect explicitly. TCI permits explicit receive-frequency and mode tuning only. Saving does not connect; interrupted connections require an explicit new connection.</p>
       <fieldset disabled={!state || busy}>
@@ -151,14 +153,20 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
       <div className="live-station-actionrow"><button type="button" disabled={!selected || !state?.tci || dirty.current || conflict || busy || !!pending} onClick={() => void execute("connect")}>Connect saved TCI radio</button>
         <button type="button" disabled={!selected || busy || !!pending} onClick={() => void execute("disconnect")}>Disconnect TCI radio</button></div>
     </>}
-    {providers && <div>
+    {providers && (onlySelection ? <div className="live-station-selection">
+      {displayedProvider && <span className="live-station-status is-online" role="status"><i aria-hidden="true" />Active · {providerLabels[displayedProvider]}</span>}
+      {displayedProvider !== target && state?.selection.selection_id && <button type="button" aria-label="Apply shared radio selection"
+        disabled={busy || !!pending || !!error} onClick={() => void execute("select")}>Use {providerLabels[target]}</button>}
+      {error && !state && <button type="button" className="live-station-selection-retry" aria-label="Refresh radio selection" title="Refresh radio selection"
+        disabled={busy} onClick={() => void refresh()}><RefreshCw size={14} aria-hidden="true" /></button>}
+    </div> : <div>
       <p>Selected radio: {state?.selection.provider ? providerLabels[state.selection.provider as StationProvider] : "Unavailable"}{compact ? "" : ". Applying a different provider retires the previous radio. Connect the selected radio explicitly."}</p>
       {selectionTarget ? <p>Requested radio: {providerLabels[selectionTarget]}</p> : <label>Radio provider<select aria-label="Shared radio provider" value={target} disabled={!state || busy || !!pending} onChange={event => setProviderTarget(event.target.value as StationProvider)}>
         {(Object.keys(providerLabels) as StationProvider[]).map(provider => <option key={provider} value={provider}>{providerLabels[provider]}</option>)}
       </select></label>}
       <button type="button" disabled={!state?.selection.selection_id || state.selection.provider === target || busy || !!pending || !!error}
         onClick={() => void execute("select")}>Apply shared radio selection</button>
-    </div>}
+    </div>)}
     {flex && <><h3>{compact ? "Direct FLEX LAN connection" : "Shared Direct FLEX LAN connection"}</h3>{!compact && <p>Save a private numeric radio IP, TCP port and station name for Desk and Station Control. Saving does not contact a radio. Request transmit permission separately for each connection.</p>}
       <fieldset disabled={!state || busy}>
         <label>Private radio IP address<input aria-label="Shared FLEX private IP" value={flexConfig.host} autoComplete="off" placeholder="192.168.1.50" onChange={event => { dirty.current = true; setFlexConfig({ ...flexConfig, host: event.target.value }); }} /></label>
@@ -224,10 +232,9 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
         <label>Receive mode<select aria-label="Child receive mode" value={receiveMode} onChange={event => setReceiveMode(event.target.value)}>{receiveModes.map(mode => <option key={mode}>{mode}</option>)}</select></label>
         <button type="button" disabled={!receiveReady("mode") || busy || !!pending} onClick={() => void execute("receive_mode")}>Set receive VFO A mode</button>
       </section>}
-    {onlySelection && <button type="button" disabled={busy} onClick={() => void refresh()}>Refresh radio selection</button>}
     {pending && <button type="button" disabled={busy} onClick={() => void check()}>{onlySelection ? "Check radio selection receipt" : "Check connection setup receipt"}</button>}
     {pending && message.includes("unknown") && <button type="button" disabled={busy} onClick={() => { sessionStorage.setItem(reviewedKey, pending); sessionStorage.removeItem(journalKey); setPending(null); setMessage("Previous outcome remains unknown. Review observed state before a new explicit request."); void refresh(); }}>I have reviewed observed state</button>}
-    {message && <p role="status">{message}</p>}{saveToast.toast}{error && <p role="alert">{error}</p>}
-    {state?.last_receipt && <p>Last shared operation: {state.last_receipt.request.action} · {state.last_receipt.status}. Acknowledgement does not confirm radio state.</p>}
+    {message && (!onlySelection || !!pending) && <p role="status">{message}</p>}{saveToast.toast}{error && (!onlySelection || !!state) && <p role="alert">{error}</p>}
+    {state?.last_receipt && !onlySelection && <p>Last shared operation: {state.last_receipt.request.action} · {state.last_receipt.status}. Acknowledgement does not confirm radio state.</p>}
   </div>;
 }

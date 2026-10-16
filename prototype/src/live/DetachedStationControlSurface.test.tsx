@@ -271,7 +271,8 @@ it("Desk provider-only apply uses the same journaled selector without exposing c
   expect(owner.actions).toHaveLength(0); expect(screen.queryByRole("button", { name: "Connect saved Agent" })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Apply shared radio selection" })); await act(async () => {});
   expect(owner.actions).toHaveLength(1); expect(owner.actions[0]).toMatchObject({ action: "select", provider: "direct_flex_lan", selection_generation: 8, selection_id: "selected-radio" });
-  expect(screen.getByText(/Radio selection acknowledged/)).toBeTruthy(); expect(native.worker).not.toHaveBeenCalled();
+  expect(screen.getByText("Active · Direct FLEX LAN")).toBeTruthy(); expect(screen.queryByText(/Radio selection acknowledged/)).toBeNull();
+  expect(native.worker).not.toHaveBeenCalled();
 });
 it("lost provider-selection replies recover on child remount and never replay retirement", async () => {
   const owner = sharedAgent(false, true); const view = render(<DetachedStationControlSurface />); await act(async () => {});

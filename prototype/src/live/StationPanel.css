@@ -8,10 +8,14 @@
 .live-station-status i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .live-station-status.is-online { color: var(--teal); border-color: #176f62; background: #0a2c2a; }
 .live-station-status.is-offline { color: var(--secondary); }
-.live-station-provider { display: flex; align-items: center; gap: 6px; padding: 10px 22px; border-bottom: 1px solid var(--border); }
+.live-station-provider { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 22px; border-bottom: 1px solid var(--border); }
 .live-station-provider button { border-radius: 4px; font-weight: 600; }
 .live-station-provider button.selected { color: #07111f; background: var(--cyan); border-color: var(--cyan); }
-.live-station-provider span { margin-left: 8px; }
+.live-station-provider > span { margin-left: auto; }
+.live-station-connect.is-selection-only { display: block; flex: 0 0 auto; margin-left: auto; }
+.live-station-selection { display: flex; align-items: center; gap: 6px; }
+.live-station-selection .live-station-status { margin: 0; }
+.live-station-selection-retry { display: inline-grid; width: 30px; min-width: 30px; height: 30px; padding: 0; place-items: center; color: var(--secondary); }
 .live-station-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(270px, 330px); gap: 16px; padding: 16px 22px 28px; max-width: 1600px; }
 .live-station-main, .live-station-side { display: flex; flex-direction: column; gap: 13px; min-width: 0; }
 .live-station-readback { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 20px; padding: 20px 22px; border: 1px solid #24516a; border-radius: 7px; background: linear-gradient(125deg, #0d2635, #0b1728 70%); }

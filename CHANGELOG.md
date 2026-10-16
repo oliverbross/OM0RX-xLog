@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.4.0-alpha.45 — 2026-10-17
+
+- Replaced the oversized shared-radio explanation with a compact active-radio status and a contextual switch action.
+- Kept the observed working radio visible when the secondary selection snapshot is temporarily unavailable; recovery is now a small retry control instead of a false radio-unavailable warning.
+- Removed duplicate requested-radio, rotor-retention and successful-selection receipt text from the provider row.
+
 ## 0.4.0-alpha.44 — 2026-10-17
 
 - Replaced layout-shifting save confirmations with compact fixed overlays that disappear after 1.5 seconds without moving page content.

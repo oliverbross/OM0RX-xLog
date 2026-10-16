@@ -27,6 +27,21 @@ beforeEach(() => {
   });
 });
 afterEach(cleanup);
+it("keeps the provider selector compact and names the observed active radio", async () => {
+  render(<AgentConnectionSetup providers onlySelection selectionTarget="direct_flex_lan" activeProvider="direct_agent" />); await act(async () => {});
+  expect(screen.getByText("Active · Remote Station Agent")).toBeTruthy();
+  expect(screen.queryByText(/Selected radio:|Requested radio:/)).toBeNull();
+  const apply = screen.getByRole("button", { name: "Apply shared radio selection" });
+  expect(apply.textContent).toBe("Use Direct FLEX LAN");
+  expect(screen.queryByRole("button", { name: "Refresh radio selection" })).toBeNull();
+});
+it("retains the observed active radio when shared selection status cannot load", async () => {
+  native.invoke.mockRejectedValueOnce(new Error("selection snapshot unavailable"));
+  render(<AgentConnectionSetup providers onlySelection selectionTarget="direct_agent" activeProvider="direct_agent" />); await act(async () => {});
+  expect(screen.getByText("Active · Remote Station Agent")).toBeTruthy();
+  expect(screen.queryByText(/Unavailable|Shared station setup/)).toBeNull();
+  expect(screen.getByRole("button", { name: "Refresh radio selection" })).toBeTruthy();
+});
 it("TCI follows shared selection, saves passively and connects only explicitly without control authority", async () => {
   state = { ...state, tci: { endpoint: "ws://127.0.0.1:50001", trx: 0, channel: 0 }, selection: { provider: "direct_tci", generation: 12, selection_id: "tci-selection" } };
   render(<AgentConnectionSetup connections providers followSelection />); await act(async () => {});
