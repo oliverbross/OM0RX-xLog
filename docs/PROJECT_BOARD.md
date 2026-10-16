@@ -40,8 +40,13 @@ focused frontend **52/52**, Rust **26/26**, production graph/build checks and sy
  `505284a` provide the shared R06/R20 evaluator and bounded worker route (**8/8** focused Swift),
  keeping age, station scope, worked/confirmed and unknown sponsor eligibility/credit distinct.
  It reads only canonical local history and retained opportunities; cluster observations remain
- explicitly excluded until report-time provenance exists. UI, scheduling, notifications,
- refresh/network, station commands and mutations remain open.
+ explicitly excluded until report-time provenance exists. `52010e3` adds the responsive native
+ Operating Goals window with ephemeral selection, source age/time basis and separate worked,
+ confirmed, sponsor-evidence and sponsor-credit states. Frontend **62/62**, Rust **3/3**,
+ TypeScript, production build and compact/wide browser checks pass. Scheduling, reminders,
+ persistence, refresh/network, station commands and mutations remain open. `5f3559b` also makes
+ retained Alerts explain every matching rule/novelty field and first-to-last report history;
+ frontend **11/11** plus 420/1100-pixel browser checks pass, with live delivery acceptance open.
 
 Full native TCI support for SunSDR/ExpertSDR and compatible TCI servers is now a
 tracked programme. The official ExpertSDR3 protocol is normative and QLog behavior is an
@@ -49,12 +54,14 @@ interoperability reference only. Source now includes bounded protocol/discovery 
 handling, a receive-only WebSocket session, producer-time freshness, a credential-free saved
 `ws`/`wss` provider with explicit Connect/Disconnect, native worker projection and stale-aware
 main/detached UI. Selection, lifecycle, TRX/channel, generation and connection identities fence
-the observation path; no reconnect or command replay exists. TCI exposes no Tune, PTT, radio
-CW or amplifier actions, while independent WinKeyer and rotor duties remain available.
-A pure official-grammar command encoder exists for the later control stage, but nothing sends
-those commands. Focused Swift **41/41**, focused frontend **117/117**, full frontend
-**2,637/2,637**, Rust **534/534**, TypeScript and diff checks pass after independent review.
-Durable command/send ownership, transmit, spots, audio/IQ, package/live-server and RF
+the observation path; no reconnect or command replay exists. `eb78029` adds one explicit
+receive-frequency/mode tune on the exact existing connection, admitted only by fresh READY,
+transmit-off and matching-generation evidence and confirmed only by newer exact readback.
+Timeout, disconnect, write loss and late telemetry never reconnect or replay; `5b95d35` exposes
+the receive-control-only capability consistently. Focused tuning checks pass **33/33 Swift**,
+**8/8 Rust** and **47/47 frontend**. TCI still exposes no PTT, carrier Tune, radio CW or
+amplifier actions, while independent WinKeyer and rotor duties remain available.
+Transmit/PTT, split/filter controls, spots, audio/IQ, package/live-server and RF
 acceptance remain open; installed alpha.31 is unchanged.
 
 Arbitrary ADIF contact editing is source complete. Existing Logbook contact/mutation

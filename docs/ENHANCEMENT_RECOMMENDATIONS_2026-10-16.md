@@ -42,7 +42,7 @@ connection.
 | R03 | Source complete, packaged copied-log acceptance open | `LogbookContact`, `QSOADIF`, ADIF field bag, contact mutation and delete/undo owner | Normal/custom fields survive edit, undo, conflict and ADI/ADX round trips with intentional normalization explained. |
 | R04 | First compatibility fixes complete; full conformance audit open | `ADIF.swift`, `QSOADIF.swift`, `adifTransfer.ts`, reference-data status | `429dcae` fixes UTF-8 byte lengths and whole-record filtering; `7e6cfce` exports FT4/FT2/JTTY as MFSK submodes and adds 3.1.8 ADX fixtures. Keep `ADIF_VER` at 3.1.7 until the remaining enum/deprecation audit passes. |
 | R05 | Existing acceptance programme | Native window runtime/geometry, Canvas/Separate Windows owner, responsive surfaces | Exact packaged compact/normal/large, mixed-display/DPI, keyboard/focus and assistive-technology matrix without another layout redesign. |
-| R06 | Passive model and bounded worker route complete; UI open | Opportunity feeds, spot history, alerts, award rules, contact history | `2f18295` adds deterministic selected-goal evaluation and `505284a` reads canonical local history plus retained official opportunities without refresh. Add a passive UI; retain the explicit cluster-provenance exclusion and never auto tune/rotate/transmit. |
+| R06 | Passive model, worker route and native UI complete; package acceptance open | Opportunity feeds, spot history, alerts, award rules, contact history | `2f18295` adds deterministic selected-goal evaluation, `505284a` reads canonical retained sources, and `52010e3` presents explained states/age in a chrome-free native window. Package-test it; retain the cluster-provenance exclusion and never auto tune/rotate/transmit. |
 | R07 | Useful extension | Sync engine, online-log delivery, confirmation fields, awards | Follow-up workbench with provider upload/acceptance/match age and goal impact; no inferred confirmation or credit. |
 | R08 | Existing service programme | Native credential vault, durable claim/receipt/no-replay patterns | Direct LoTW/TQSL certificate, station location, signed upload receipt and download acceptance with one owner per service path. |
 | R09 | Useful extension | Native award calculators, registry and research catalogue | One executable sponsor pack at a time: dated rules, exclusions, evidence, explained progress and supported application/export. |
@@ -56,7 +56,7 @@ connection.
 | R17 | Existing acceptance, partial | 100,002-contact installed proof, capacity guard, backups and durable recovery owners | Add 1,000,000 synthetic contacts, contention, cancellation, memory pressure, kill/restart, outage and isolated-restore evidence with exact package/machine/dataset. |
 | R18 | Optional extension | Spot history and station antenna/power metadata | Passive self-call RBN analysis grouped by receiver/band/time with freshness and comparability limits; no test transmission. |
 | R19 | New candidate, deferred until PTT acceptance | CW safety/profile patterns and PTT owner | Default-off bounded local voice memories/audio, explicit devices/retention and accepted abort/PTT-off path; no cloud upload. |
-| R20 | Passive shared model and worker route complete; UI/reminders open | Existing 425DXN and activation opportunity feeds | Reuse `2f18295`/`505284a` source/freshness/scheduled-window evidence for timezone presentation and explicit reminders; no second calendar stack or invented probability. |
+| R20 | Passive shared model, route and UI complete; reminders open | Existing 425DXN and activation opportunity feeds | `52010e3` presents source/freshness/scheduled-window evidence and unknown sponsor state. Add explicit opt-in timezone reminders only; no second calendar stack or invented probability. |
 | R21 | New candidate | QSO notes/contact history and confirmation fields | Private QSO/call journal plus attachment lifecycle, explicit QSL-card status and exclusion from sync/export by default. |
 | R22 | Useful data/editor extension | Existing satellite ADIF fields, Wavelog mapping and arbitrary-field preservation | Optional satellite/VHF editor with validated satellite, propagation, RX/TX bands/frequencies and grids; orbit/Doppler/automatic rotor remain separate. |
 | R23 | Deferred product decision | Ordinary logger and award research only | Decide casual contest export versus a real run/S&P/scoring/ESM/networking programme before claiming contest support. |
@@ -66,8 +66,9 @@ connection.
 
 TCI is tracked beside R02, R12 and R16. Commits `fca6f94` through `f0f68fa`
 provide bounded protocol handling, receive-only session, binary limits, pure command
-encoding, saved provider setup, native read-only telemetry and stale-aware UI. This is
-not full control: durable command/send ownership, transmit, spots, audio/IQ and
+encoding, saved provider setup, native telemetry and stale-aware UI. `eb78029`/`5b95d35`
+add explicit readback-confirmed receive frequency/mode control without reconnect or replay.
+This is not full control: transmit/PTT, split/filter, spots, audio/IQ and
 package/live SunSDR acceptance remain open.
 
 ## Evidence boundaries

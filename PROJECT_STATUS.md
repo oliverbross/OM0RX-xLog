@@ -45,8 +45,9 @@ checks pass in addition to the core tests. Opt-in redacted export, exact-package
 real retained-provider observations remain open; no session start, reconnect, network/device
 contact or RF action exists in this slice.
 
-R06/R20 share the passive operating-goal model committed in `2f18295`, now exposed through
-the bounded read-only worker route in `505284a`. It evaluates
+R06/R20 share the passive operating-goal model committed in `2f18295`, exposed through
+the bounded read-only worker route in `505284a` and the direct native **Operating Goals**
+window in `52010e3`. It evaluates
 explicit callsign, DXCC/band/mode and IOTA/POTA/SOTA/WWFF targets against station-scoped
 local history, public opportunities and retained cluster evidence. Ordering, expiry,
 deduplication and reasons are deterministic; worked, locally confirmed, sponsor evidence
@@ -54,8 +55,17 @@ eligibility and sponsor credit remain separate, with the latter two explicitly u
  until real programme rules/evidence can prove them. The route reuses the canonical local
  logbook and retained official-opportunity cache without refreshing or creating data; cluster
  observations are explicitly `not_included` because the current snapshot lacks retained
- report-time provenance. Focused worker/core Swift **8/8** passes. No UI, scheduler,
- notification, network request, station command or log mutation is present.
+ report-time provenance. The responsive, chrome-free window keeps selections ephemeral and
+ presents worked, confirmed, sponsor-evidence and sponsor-credit states separately, with source
+ age/time basis visible. Focused frontend **62/62**, worker/core Swift **8/8**, Rust **3/3**,
+ TypeScript, production build and compact/wide browser checks pass. Scheduling, reminders,
+ persistence, network refresh, station commands and log mutation remain absent.
+
+Alerts now expose why each retained event matched and its first-to-last report history in
+`5f3559b`; the same data becomes bounded cards below 680 px instead of forcing a horizontal
+table. Focused frontend **11/11**, TypeScript, production build and 420/1100-pixel browser
+checks pass. Delivery remains passive and has no tuning, acknowledgement or RF authority;
+installed live-feed popup/sound acceptance remains open.
 
 ## Durable GUI PTT owner — source implementation; package/live/RF acceptance open
 
@@ -98,26 +108,27 @@ explicitly clears them. Focused Swift **12/12**, sync-identity **25/25**, fronte
 **72/72**, TypeScript and diff checks pass after independent review. Package/manual
 macOS interaction and copied real-log acceptance remain open.
 
-## Native TCI radio provider — saved read-only source integration complete; control open
+## Native TCI radio provider — observed receive tuning source complete; broader control open
 
 Full TCI support for SunSDR/ExpertSDR and compatible servers is now an explicit product
 programme. The current source stage provides a bounded Swift protocol/reducer, receive-only
 WebSocket session, exact TRX/channel discovery, producer-time freshness and a durable saved
 `ws`/`wss` provider configuration. Connect and Disconnect are explicit; automatic reconnect,
-command replay, credentials and transmit consent are absent. The native worker publishes only
-read-only observations after complete discovery plus `READY`, fenced by selection, lifecycle,
+command replay, credentials and transmit consent are absent. The native worker publishes
+observations after complete discovery plus `READY`, fenced by selection, lifecycle,
 generation and connection identity. Oversized or malformed input fails closed, while bounded
 unsolicited binary audio is ignored without changing radio state.
 
-Station Control, Monitor, detached status/control and the sidebar now share the saved TCI
-selection and stale-aware read-only presentation. The UI does not fabricate VFO roles, does
-not expose reconnect, Tune, PTT, radio CW or amplifier actions, and preserves independent
-WinKeyer and rotor responsibilities. A separate pure encoder covers the official typed VFO,
-mode, filter, split, RX-channel, PTT, Tune and spot command grammar, but no transport can send
-those commands yet. Focused TCI Swift **41/41**, focused frontend **117/117**, full frontend
-**2,637/2,637**, Rust **534/534**, TypeScript and diff checks pass after independent review.
-Command ownership/send transport, transmit, spots, audio/IQ consumption, package/live-server
-and RF acceptance remain open. QLog is a behavior reference only; no third-party code,
+Station Control, Monitor, detached status/control and the sidebar share the saved TCI selection
+and stale-aware presentation. `eb78029` adds one explicit receive-frequency/mode tune through
+the exact saved TRX/channel and existing WebSocket only. It requires fresh `READY` telemetry,
+authoritative transmit-off state and the expected generation, and returns success only after a
+newer matching frequency/mode readback. Disconnect, write loss, timeout and late telemetry never
+reconnect, retry or replay; `5b95d35` makes the projected receive-control capability explicit.
+The UI still exposes no PTT, carrier Tune, radio CW or amplifier action and preserves independent
+WinKeyer and rotor responsibilities. Focused tuning checks pass **33/33 Swift**, **8/8 Rust** and
+**47/47 frontend**, with TypeScript clean. Transmit/PTT, split/filter controls, spots, audio/IQ,
+package/live-server and RF acceptance remain open. QLog is a behavior reference only; no third-party code,
 credentials, device or operator data was copied. Installed alpha.31 remains unchanged.
 
 ## Shared durable Agent amplifier owner — source complete; package/hardware acceptance open

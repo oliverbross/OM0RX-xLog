@@ -39,28 +39,38 @@ packaged UI result. Keep unresolved items here across releases.
   real retained-provider acceptance remain open; no session start, reconnect, network/device/RF
   action or command exists.
 
-- **Operating goals and calendar context, 16 October — passive core and worker route:** `2f18295`
+- **Operating goals and calendar context, 16 October — passive source window complete:** `2f18295`
   deterministically evaluates selected callsign, entity-slot and activation-reference goals
   against station-scoped local history, public opportunities and retained cluster evidence.
   Source age, expiry, reasons, worked and locally confirmed are explicit; sponsor evidence
   eligibility and credit remain honestly unknown. `505284a` exposes the model through a
   bounded read-only worker route using canonical local history and the retained official
   opportunity cache only. Cluster observations are explicitly `not_included` until the
-  retained snapshot has report-time provenance. Focused Swift **8/8** passes. UI,
-  scheduling/notifications, persistence, networking and station/log actions remain open.
+  retained snapshot has report-time provenance. `52010e3` adds a native chrome-free window with
+  ephemeral target selection, visible evidence age/time basis and separate worked, confirmed,
+  sponsor-evidence and sponsor-credit states. Frontend **62/62**, Swift **8/8**, Rust **3/3**,
+  TypeScript, production build and compact/wide browser checks pass. Scheduling/reminders,
+  persistence, networking and station/log actions remain open.
 
-- **Full native TCI provider requested, 16 October — saved read-only source integration
+- **Retained alert explainability, 16 October — responsive source slice complete:** `5f3559b`
+  shows every matched rule plus retained call/DXCC/band/mode/special evidence and first-to-last
+  report history. Below 680 px the table becomes bounded cards. Frontend **11/11**, TypeScript,
+  production build and 420×720/1100×700 browser checks pass. No backend, delivery, network,
+  station or RF authority changed; installed live-feed popup/sound acceptance remains open.
+
+- **Full native TCI provider requested, 16 October — observed receive tuning source stage
   complete:** SunSDR2, ExpertSDR and compatible TCI servers are now a first-class radio
   programme. The bounded Swift protocol/reducer and receive-only WebSocket session retain
   exact TRX/channel discovery, producer-time freshness and fail-closed lifecycle fencing.
   A credential-free saved `ws`/`wss` provider now has explicit Save, Connect and Disconnect,
-  a read-only native worker projection and consistent stale-aware main/detached presentation.
-  No reconnect, replay, Tune, PTT, radio CW or amplifier control is exposed; independent
-  WinKeyer and rotor responsibilities remain available. A pure official-grammar command
-  encoder exists for a later owner/send stage, but there is no sending transport. Focused
-  Swift **41/41**, focused frontend **117/117**, full frontend **2,637/2,637**, Rust
-  **534/534**, TypeScript and diff checks pass after independent review. Command ownership,
-  transmit, spots, audio/IQ, package/live-server and RF proof remain open. QLog was a behavior
+  a native worker projection and consistent stale-aware main/detached presentation. `eb78029`
+  adds one explicit receive-frequency/mode command on the existing saved TRX/channel connection,
+  requiring fresh READY, transmit-off and matching-generation evidence and a newer exact
+  frequency/mode readback. Timeout, disconnect, write loss and late telemetry never reconnect,
+  retry or replay; `5b95d35` projects receive-control-only capability consistently. Focused
+  tuning checks pass **33/33 Swift**, **8/8 Rust** and **47/47 frontend**, with TypeScript clean.
+  No PTT, carrier Tune, radio CW or amplifier control is exposed; transmit/PTT, split/filter,
+  spots, audio/IQ, package/live-server and RF proof remain open. QLog was a behavior
   reference only, no implementation code was copied, and installed alpha.31 is unchanged.
 
 - **Arbitrary ADIF contact editing, 16 October — source complete:** Logbook pointer and
