@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import LogbookPanel from "./LogbookPanel";
 import { defaultLogbookColumnPreferences, logbookColumnsKey, type LogbookColumnContext } from "./logbookColumnPreferences";
 import { LogbookMutationSession } from "./logbookMutationSession";
@@ -21,6 +22,38 @@ beforeEach(() => localStorage.clear());
 afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
 
 describe("shared Logbook column controls", () => {
+  it("moves matching headers and cells, retains order through hiding and reload, and isolates contexts", async () => {
+    const view = setup(); await screen.findByText(contact.call);
+    const calls = view.request.mock.calls.length;
+    fireEvent.click(screen.getByRole("button", { name: "Columns" }));
+    const later = screen.getByRole("button", { name: "Move Callsign column later" });
+    later.focus(); await userEvent.keyboard("{Enter}");
+    expect(document.activeElement).toBe(later);
+    expect(screen.getAllByRole("columnheader").slice(0, 3).map(header => header.textContent)).toEqual(["UTC", "Band / Mode", "Callsign"]);
+    const earlier = screen.getByRole("button", { name: "Move Callsign column earlier" });
+    fireEvent.click(earlier);
+    fireEvent.click(earlier);
+    expect((earlier as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getAllByRole("columnheader").slice(0, 2).map(header => header.textContent)).toEqual(["Callsign", "UTC"]);
+    expect(within(screen.getByText(contact.call).closest("tr")!).getAllByRole("cell").slice(0, 2).map(cell => cell.getAttribute("data-label")))
+      .toEqual(["Callsign", "UTC"]);
+    fireEvent.click(screen.getByLabelText("Show UTC column"));
+    fireEvent.click(screen.getByLabelText("Show UTC column"));
+    expect(screen.getAllByRole("columnheader").slice(0, 2).map(header => header.textContent)).toEqual(["Callsign", "UTC"]);
+    await waitFor(() => expect(JSON.parse(localStorage.getItem(logbookColumnsKey("docked"))!).order.slice(0, 2)).toEqual(["call", "utc"]));
+    expect(view.request).toHaveBeenCalledTimes(calls);
+    view.unmount();
+    const reloaded = setup(); await screen.findByText(contact.call);
+    expect(screen.getAllByRole("columnheader")[0].textContent).toBe("Callsign");
+    fireEvent.click(screen.getByRole("button", { name: "Columns" }));
+    expect((screen.getByRole("button", { name: "Move Comment column later" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Reset columns" }));
+    expect(screen.getAllByRole("columnheader")[0].textContent).toBe("UTC");
+    reloaded.unmount();
+    setup(true); await screen.findByText(contact.call);
+    expect(screen.getAllByRole("columnheader")[0].textContent).toBe("UTC");
+    expect((screen.queryByRole("button", { name: "Move Comment column later" }))).toBeNull();
+  });
   it("uses explicit Desk context even with Dock back and resets only that context", async () => {
     const docked = JSON.stringify({ ...defaultLogbookColumnPreferences(), columns: ["call", "comment"] });
     const detached = JSON.stringify({ ...defaultLogbookColumnPreferences(), columns: ["call", "rst"] });

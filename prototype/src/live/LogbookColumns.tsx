@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { boundLogbookColumnWidth, defaultLogbookColumnPreferences, legacyDeskLogbookColumnsKey, logbookColumns, logbookColumnsKey,
-  migrateLegacyDeskLogbookColumnPreferences,
+  migrateLegacyDeskLogbookColumnPreferences, orderedLogbookColumns,
   minimumLogbookColumnWidth, readLogbookColumnPreferences, type LogbookColumn, type LogbookColumnContext,
   type LogbookColumnPreferences } from "./logbookColumnPreferences";
 
@@ -51,8 +52,18 @@ export function LogbookColumns({ id, preferences, onChange, onDone, context = "d
   function width(column: LogbookColumn, value: number) {
     onChange(current => ({ ...current, widths: { ...current.widths, [column]: value } }));
   }
+  function move(column: LogbookColumn, direction: -1 | 1) {
+    onChange(current => {
+      const order = orderedLogbookColumns(current).map(([key]) => key);
+      const index = order.indexOf(column), target = index + direction;
+      if (target < 0 || target >= order.length) return current;
+      [order[index], order[target]] = [order[target], order[index]];
+      return { ...current, order };
+    });
+  }
+  const ordered = orderedLogbookColumns(preferences);
   return <section id={id} className="live-logbook-columns" aria-label="Logbook columns">
-    <div className="live-logbook-column-fields">{logbookColumns.map(([column, label]) => {
+    <div className="live-logbook-column-fields">{ordered.map(([column, label], index) => {
       const shown = preferences.columns.includes(column);
       return <div key={column}>
         <label><input type="checkbox" aria-label={`Show ${label} column`} checked={shown} disabled={column === "call"}
@@ -60,9 +71,13 @@ export function LogbookColumns({ id, preferences, onChange, onDone, context = "d
             columns: logbookColumns.map(([key]) => key).filter(key => key === "call" || (key === column ? checked : current.columns.includes(key))),
           })); }} />{label}</label>
         <WidthInput id={column} label={label} width={preferences.widths[column]} disabled={!shown} onWidth={width} />
+        <span className="live-logbook-column-order">
+          <button type="button" aria-label={`Move ${label} column earlier`} disabled={index === 0} onClick={() => move(column, -1)}><ArrowLeft size={14} /></button>
+          <button type="button" aria-label={`Move ${label} column later`} disabled={index === ordered.length - 1} onClick={() => move(column, 1)}><ArrowRight size={14} /></button>
+        </span>
       </div>;
     })}</div>
-    <div className="live-logbook-column-actions"><p>Callsign stays visible. Drag column edges or use arrow keys. Minimum widths are in pixels; wider tables scroll.</p>
+    <div className="live-logbook-column-actions"><p>Use the column arrows to change order. Callsign stays visible. Drag column edges or use arrow keys to resize. Widths are in pixels; wider tables scroll.</p>
       <button type="button" onClick={() => onChange(defaultLogbookColumnPreferences(context))}>Reset columns</button>
       <button type="button" onClick={onDone}>Done</button>
     </div>

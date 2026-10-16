@@ -37,11 +37,13 @@
 .live-logbook-column-resizer { position: absolute; right: 0; top: 0; bottom: 0; width: 7px; cursor: col-resize; touch-action: none; border-right: 1px solid var(--border); }
 .live-logbook-column-resizer:hover, .live-logbook-column-resizer:focus-visible { background: var(--cyan); outline: 1px solid var(--cyan); outline-offset: -1px; }
 .live-logbook-columns { flex: none; display: flex; flex-direction: column; min-height: 0; padding: 10px; background: var(--panel); border-block: 1px solid var(--border); max-height: 45vh; overflow: hidden; }
-.live-logbook-column-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: 8px 16px; min-height: 0; overflow: auto; scrollbar-color: var(--border) var(--panel); }
+.live-logbook-column-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(290px, 100%), 1fr)); gap: 8px 16px; min-height: 0; overflow: auto; scrollbar-color: var(--border) var(--panel); }
 .live-logbook-column-fields > div, .live-logbook-column-fields label { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .live-logbook-column-fields > div { justify-content: space-between; }
 .live-logbook-column-fields input[type="number"] { width: 70px; min-width: 0; }
-.live-logbook-column-fields input:focus-visible, .live-logbook-column-actions button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.live-logbook-column-fields input:focus-visible, .live-logbook-column-fields button:focus-visible, .live-logbook-column-actions button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.live-logbook-column-order { display: flex; flex: none; gap: 2px; }
+.live-logbook-column-order button { display: grid; place-items: center; padding: 4px; min-width: 26px; min-height: 26px; }
 .live-logbook-column-actions { display: flex; flex: none; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .live-logbook-column-actions p { flex: 1 1 220px; color: var(--secondary); margin: 0; }
 .live-logbook-saved-filters { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 8px 10px; background: var(--panel); border-block: 1px solid var(--border); }

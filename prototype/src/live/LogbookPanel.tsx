@@ -5,7 +5,7 @@ import type { LogbookMutationSession } from "./logbookMutationSession";
 import type { DraftSnapshot } from "./operatorDraftSession";
 import { useLogbookCapacity } from "./logbookCapacity";
 import { LogbookColumnHeader, LogbookColumns, useLogbookColumns } from "./LogbookColumns";
-import { logbookColumns, type LogbookColumn, type LogbookColumnContext } from "./logbookColumnPreferences";
+import { orderedLogbookColumns, type LogbookColumn, type LogbookColumnContext } from "./logbookColumnPreferences";
 import { adifImportBatches, decodeADIFDocument, ADIFExportDocument, type ADIFExportFormat, type ADIFImportEncoding, type ADIFFieldMetadata } from "./adifTransfer";
 import { LogbookSavedFilters } from "./LogbookSavedFilters";
 import { CTYCorrectionPreview } from "./CTYCorrectionPreview";
@@ -110,7 +110,8 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
   const resolvedColumnContext = columnContext ?? (onDock ? "detached" : "docked");
   const compact = resolvedColumnContext === "desk";
   const [columnPreferences, setColumnPreferences] = useLogbookColumns(resolvedColumnContext);
-  const visibleColumns = logbookColumns.filter(([id]) => columnPreferences.columns.includes(id));
+  const orderedColumns = orderedLogbookColumns(columnPreferences);
+  const visibleColumns = orderedColumns.filter(([id]) => columnPreferences.columns.includes(id));
   const totalColumnWidth = visibleColumns.reduce((total, [id]) => total + columnPreferences.widths[id], 0);
   const hidden = (id: LogbookColumn) => !columnPreferences.columns.includes(id);
   function resizeColumn(id: LogbookColumn, width: number) {
@@ -498,22 +499,24 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
                   (event.currentTarget.parentElement?.children[next] as HTMLElement | undefined)?.focus();
                 }
               }}>
-              <td hidden={hidden("utc")} data-label="UTC" className="mono" title={utcTime(qso.start)}>{utcTime(qso.start)}</td>
-              <td data-label="Callsign" className="live-logbook-call" title={qso.call}>
+              {[
+              <td key="utc" hidden={hidden("utc")} data-label="UTC" className="mono" title={utcTime(qso.start)}>{utcTime(qso.start)}</td>,
+              <td key="call" data-label="Callsign" className="live-logbook-call" title={qso.call}>
                 {!compact && <input type="checkbox" aria-label={`Select ${qso.call} ${utcTime(qso.start)} for export`} checked={exportIDs.includes(qso.id)} disabled={busy || loading}
                   onClick={event => event.stopPropagation()} onDoubleClick={event => event.stopPropagation()}
                   onChange={event => setExportSelection(current => event.target.checked ? [...current, qso.id] : current.filter(id => id !== qso.id))} />}
-                <span className={`live-logbook-sync-dot ${qso.isDirty ? "is-pending" : "is-clean"}`} role="img" aria-label={qso.isDirty ? "Pending synchronization" : "No pending changes"} title={qso.isDirty ? "Pending synchronization" : "No pending changes"} />{qso.call}</td>
-              <td hidden={hidden("bandMode")} data-label="Band / Mode" className="live-logbook-band" title={`${qso.band} · ${qso.submode || qso.mode}`}>{qso.band} · {qso.submode || qso.mode}</td>
-              <td hidden={hidden("frequency")} data-label="Frequency" className="live-logbook-frequency mono">{typeof qso.frequencyHz === "number" ? (qso.frequencyHz / 1_000_000).toFixed(6) : "—"}</td>
-              <td hidden={hidden("rst")} data-label="RST" className="mono" aria-label={`RST sent ${qso.rstSent || "not recorded"}, received ${qso.rstReceived || "not recorded"}`}>{qso.rstSent || "—"} / {qso.rstReceived || "—"}</td>
-              <td hidden={hidden("country")} data-label="Country" title={[qso.country, qso.name].filter(Boolean).join(" · ") || undefined}>{qso.country || "—"}</td>
-              <td hidden={hidden("qsl")} data-label="QSL"><ConfirmationStatus service="QSL" sent={qso.qslSent} received={qso.qslReceived} /></td>
-              <td hidden={hidden("lotw")} data-label="LoTW"><ConfirmationStatus service="LoTW" sent={qso.lotwSent} received={qso.lotwReceived} /></td>
-              <td hidden={hidden("clublog")} data-label="Club Log"><ConfirmationStatus service="Club Log" sent={qso.extraFields?.CLUBLOG_QSO_UPLOAD_STATUS} supportsReceived={false} />
+                <span className={`live-logbook-sync-dot ${qso.isDirty ? "is-pending" : "is-clean"}`} role="img" aria-label={qso.isDirty ? "Pending synchronization" : "No pending changes"} title={qso.isDirty ? "Pending synchronization" : "No pending changes"} />{qso.call}</td>,
+              <td key="bandMode" hidden={hidden("bandMode")} data-label="Band / Mode" className="live-logbook-band" title={`${qso.band} · ${qso.submode || qso.mode}`}>{qso.band} · {qso.submode || qso.mode}</td>,
+              <td key="frequency" hidden={hidden("frequency")} data-label="Frequency" className="live-logbook-frequency mono">{typeof qso.frequencyHz === "number" ? (qso.frequencyHz / 1_000_000).toFixed(6) : "—"}</td>,
+              <td key="rst" hidden={hidden("rst")} data-label="RST" className="mono" aria-label={`RST sent ${qso.rstSent || "not recorded"}, received ${qso.rstReceived || "not recorded"}`}>{qso.rstSent || "—"} / {qso.rstReceived || "—"}</td>,
+              <td key="country" hidden={hidden("country")} data-label="Country" title={[qso.country, qso.name].filter(Boolean).join(" · ") || undefined}>{qso.country || "—"}</td>,
+              <td key="qsl" hidden={hidden("qsl")} data-label="QSL"><ConfirmationStatus service="QSL" sent={qso.qslSent} received={qso.qslReceived} /></td>,
+              <td key="lotw" hidden={hidden("lotw")} data-label="LoTW"><ConfirmationStatus service="LoTW" sent={qso.lotwSent} received={qso.lotwReceived} /></td>,
+              <td key="clublog" hidden={hidden("clublog")} data-label="Club Log"><ConfirmationStatus service="Club Log" sent={qso.extraFields?.CLUBLOG_QSO_UPLOAD_STATUS} supportsReceived={false} />
                 {!compact && followUpEntryID === qso.id && <button type="button" className="logbook-follow-up-open" title="Inspect retained upload and confirmation status"
-                  aria-label={`Inspect upload follow-up for ${qso.call}`} onClick={event => { event.stopPropagation(); setSelectedID(qso.id); setFollowUpOpen(true); }}><ClipboardList size={13} /></button>}</td>
-              <td hidden={hidden("comment")} data-label="Comment" className="live-logbook-comment" title={qso.comment || undefined}>{qso.comment || "—"}</td>
+                  aria-label={`Inspect upload follow-up for ${qso.call}`} onClick={event => { event.stopPropagation(); setSelectedID(qso.id); setFollowUpOpen(true); }}><ClipboardList size={13} /></button>}</td>,
+              <td key="comment" hidden={hidden("comment")} data-label="Comment" className="live-logbook-comment" title={qso.comment || undefined}>{qso.comment || "—"}</td>,
+              ].sort((a, b) => orderedColumns.findIndex(([id]) => id === a.key) - orderedColumns.findIndex(([id]) => id === b.key))}
             </tr>)}
           </tbody>
         </table>

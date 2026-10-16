@@ -1,8 +1,19 @@
 import { describe, expect, it } from "vitest";
 import { defaultLogbookColumnPreferences, legacyDeskLogbookColumnsKey, logbookColumnsKey,
-  migrateLegacyDeskLogbookColumnPreferences, readLogbookColumnPreferences } from "./logbookColumnPreferences";
+  migrateLegacyDeskLogbookColumnPreferences, orderedLogbookColumns, readLogbookColumnPreferences } from "./logbookColumnPreferences";
 
 describe("logbook presentation preferences", () => {
+  it("restores a saved order, removes unknown and duplicate entries, and appends missing columns", () => {
+    const value = readLogbookColumnPreferences(JSON.stringify({ version: 1, columns: ["call", "comment"],
+      order: ["comment", "unknown", "call", "comment"] }));
+    expect(orderedLogbookColumns(value).map(([id]) => id)).toEqual([
+      "comment", "call", "utc", "bandMode", "frequency", "rst", "country", "qsl", "lotw", "clublog",
+    ]);
+    expect(readLogbookColumnPreferences(JSON.stringify(value))).toEqual(value);
+    expect(orderedLogbookColumns({}).map(([id]) => id)).toEqual(defaultLogbookColumnPreferences().columns);
+    expect(orderedLogbookColumns(readLogbookColumnPreferences('{"version":1,"order":"call"}')).map(([id]) => id))
+      .toEqual(defaultLogbookColumnPreferences().columns);
+  });
   it("keeps all existing fields by default and isolates contexts from cluster preferences", () => {
     expect(defaultLogbookColumnPreferences().columns).toEqual(["utc", "call", "bandMode", "frequency", "rst", "country", "qsl", "lotw", "clublog", "comment"]);
     expect(logbookColumnsKey("docked")).not.toBe(logbookColumnsKey("detached"));

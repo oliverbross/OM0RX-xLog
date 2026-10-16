@@ -7,12 +7,18 @@ export const logbookColumns = [
 ] as const;
 export type LogbookColumn = typeof logbookColumns[number][0];
 export type LogbookColumnContext = "docked" | "detached" | "desk";
-export type LogbookColumnPreferences = { version: 1; columns: LogbookColumn[]; widths: Record<LogbookColumn, number> };
+export type LogbookColumnPreferences = { version: 1; columns: LogbookColumn[]; order?: LogbookColumn[]; widths: Record<LogbookColumn, number> };
 export const legacyDeskLogbookColumnsKey = "xlog.integration.logbook-columns.desk.v1";
 export const logbookColumnsKey = (context: LogbookColumnContext) =>
   `xlog.integration.logbook-columns.${context}.${context === "desk" ? "v2" : "v1"}`;
 export const minimumLogbookColumnWidth = (id: LogbookColumn) => id === "call" ? 96 : 48;
 export const boundLogbookColumnWidth = (id: LogbookColumn, value: number) => Math.max(minimumLogbookColumnWidth(id), boundColumnWidth(value));
+
+/** Older preferences have visibility only. Unknown/duplicate entries never remove a known column. */
+export function orderedLogbookColumns(preferences: Pick<LogbookColumnPreferences, "order">) {
+  const ids = [...new Set([...(Array.isArray(preferences.order) ? preferences.order : []), ...logbookColumns.map(([id]) => id)])];
+  return ids.flatMap(id => logbookColumns.filter(([known]) => known === id));
+}
 
 export function defaultLogbookColumnPreferences(_context: LogbookColumnContext = "docked"): LogbookColumnPreferences {
   return { version: 1, columns: logbookColumns.map(([id]) => id),
@@ -38,6 +44,7 @@ export function readLogbookColumnPreferences(raw: string | null, context: Logboo
   try {
     const value = JSON.parse(raw);
     if (!value || Array.isArray(value) || value.version !== 1) return result;
+    if (Array.isArray(value.order)) result.order = orderedLogbookColumns(value).map(([id]) => id);
     if (Array.isArray(value.columns)) {
       const chosen = logbookColumns.map(([id]) => id).filter(id => id === "call" || value.columns.includes(id));
       // A damaged or unknown-only list falls back to this context's defaults.
