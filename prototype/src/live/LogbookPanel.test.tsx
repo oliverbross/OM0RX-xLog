@@ -164,12 +164,14 @@ describe("logbook confirmation visibility", () => {
   });
 
   it("reveals full contact values without depending on wide table columns", async () => {
-    const request = vi.fn(async () => page());
+    const generation = "00000000-0000-4000-8000-000000000002";
+    const request = vi.fn(async (method: string) => method === "logbook_contact"
+      ? { generation, contact: { generation, revision: 4, qso: first } } : page());
     render(<LogbookPanel mutations={new LogbookMutationSession(request, () => {})} onRequest={request} onEdit={vi.fn()} refreshKey={0} />);
     fireEvent.click(await screen.findByText("OM0RX"));
     fireEvent.click(screen.getByRole("button", { name: "Details" }));
     const details = screen.getByLabelText("Details for OM0RX");
-    expect(within(details).getByText("Slovakia · Oliver")).toBeTruthy();
+    expect(await within(details).findByText("Slovakia · Oliver")).toBeTruthy();
     expect(within(details).getByText("Portable from the summit")).toBeTruthy();
     expect(within(details).getByRole("img", { name: "QSL sent Y, received V" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Details" }));
@@ -258,7 +260,7 @@ describe("logbook confirmation visibility", () => {
       height = 600; act(() => resize());
       await waitFor(() => expect(request.mock.calls.some(([, params]) => params?.offset === 20 && params?.limit === 20)).toBe(true));
       expect((screen.getByRole("button", { name: "Next" }) as HTMLButtonElement).disabled).toBe(true);
-      expect(request.mock.calls.every(([, params]) => Number(params?.limit) <= 20)).toBe(true);
+      expect(request.mock.calls.filter(([method]) => method === "logbook_list").every(([, params]) => Number(params?.limit) <= 20)).toBe(true);
     } finally { cleanup(); size.mockRestore(); rect.mockRestore(); vi.unstubAllGlobals(); }
   });
 

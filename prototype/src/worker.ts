@@ -138,7 +138,8 @@ export type QSODataQualityResponse = {
 };
 
 /** On-demand, exact-contact read only; this does not refresh references or resolve findings. */
-export async function requestQSODataQuality(scope: QSODataQualityScope): Promise<QSODataQualityResponse> {
+export async function requestQSODataQuality(scope: QSODataQualityScope,
+  request: (method: string, params: Record<string, unknown>) => Promise<any> = workerRequest): Promise<QSODataQualityResponse> {
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!uuid.test(scope.contactID) || !uuid.test(scope.generation) ||
       !Number.isSafeInteger(scope.expectedRevision) || scope.expectedRevision < 0 || scope.expectedRevision >= Number.MAX_SAFE_INTEGER ||
@@ -147,8 +148,8 @@ export async function requestQSODataQuality(scope: QSODataQualityScope): Promise
     contactID: scope.contactID, generation: scope.generation, expectedRevision: scope.expectedRevision,
   };
   if (scope.conflictID !== undefined) params.conflictID = scope.conflictID;
-  const response = await workerRequest("logbook_data_quality", params);
-  const result = response.result as QSODataQualityResponse | undefined;
+  const response = await request("logbook_data_quality", params);
+  const result = (response?.result ?? response) as QSODataQualityResponse | undefined;
   if (result?.status === "workspace_changed" && !result.data_quality) return result;
   if (!result || typeof result.generation !== "string" || result.generation.toLowerCase() !== scope.generation.toLowerCase() || result.read_only !== true ||
       result.data_quality && (typeof result.data_quality.contactID !== "string" || result.data_quality.contactID.toLowerCase() !== scope.contactID.toLowerCase() ||

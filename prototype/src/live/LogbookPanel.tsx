@@ -10,6 +10,7 @@ import { adifImportBatches, decodeADIFDocument, ADIFExportDocument, type ADIFExp
 import { LogbookSavedFilters } from "./LogbookSavedFilters";
 import { CTYCorrectionPreview } from "./CTYCorrectionPreview";
 import { OnlineLogFollowUpPanel } from "./OnlineLogFollowUp";
+import { LogbookContactReview } from "./LogbookContactReview";
 
 type QSO = Record<string, unknown> & {
   id: string;
@@ -450,7 +451,10 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
         <div><button type="button" onClick={() => confirmDelete && void deleteQSO(confirmDelete)} disabled={busy}>Confirm delete</button>
           <button type="button" onClick={cancelDelete} disabled={busy}>Cancel</button></div>
       </div>}
-      {!compact && details && selected && <dl id="logbook-contact-details" className="live-logbook-details" aria-label={`Details for ${selected.call}`}>
+      {!compact && details && selected && <LogbookContactReview key={`${selected.id}:${refreshKey}:${search}:${offset}`} contactID={selected.id} call={selected.call}
+        pageContext={page} pageLoading={loading} onRequest={onRequest} renderContact={snapshot => {
+          const selected = snapshot.qso as QSO;
+          return <dl className="live-logbook-details">
         <div><dt>Callsign</dt><dd>{selected.call}</dd></div>
         <div><dt>UTC</dt><dd>{utcTime(selected.start)}</dd></div>
         <div><dt>Band / Mode</dt><dd>{selected.band} · {selected.submode || selected.mode}</dd></div>
@@ -463,7 +467,8 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
           <span>Club Log <ConfirmationStatus service="Club Log" sent={selected.extraFields?.CLUBLOG_QSO_UPLOAD_STATUS} supportsReceived={false} /></span>
         </dd></div>
         <div className="live-logbook-details-comment"><dt>Comment</dt><dd>{selected.comment || "—"}</dd></div>
-      </dl>}
+      </dl>;
+        }} />}
       {!compact && !taskToolbar && <div className="live-logbook-export-selection" role="group" aria-label="Export selection">
         <span aria-live="polite">{exportIDs.length} selected on this page</span>
         {selectionControls}
