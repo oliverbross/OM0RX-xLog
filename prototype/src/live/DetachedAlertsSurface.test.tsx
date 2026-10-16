@@ -2,6 +2,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { DetachedAlertsSurface } from "./DetachedAlertsSurface";
+import type { DxAlertEntry } from "./dxAlerts";
 const native = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn(), stop: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: native.invoke }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: native.listen }));
@@ -88,4 +89,57 @@ it("keeps legacy rules cluster-only and explicitly saves CQ source rules without
   expect(native.invoke).toHaveBeenCalledWith("dx_alerts_save", expect.objectContaining({ configuration:expect.objectContaining({ rules:expect.arrayContaining([expect.objectContaining({ sources:["wsjtx"] })]) }) }));
   expect(native.invoke.mock.calls.every(([command]) => ["alerts_snapshot", "dx_alerts_snapshot", "dx_alerts_save"].includes(command))).toBe(true);
   expect(screen.queryByRole("button", { name:/tune|reply|transmit/i })).toBeNull();
+});
+
+const historyEntry = (number: number, callsign: string, frequencyKHz: number, count: number, lastSeenMs: number): DxAlertEntry => ({
+  id:`00000000-0000-4000-8000-${String(number).padStart(12, "0")}`, test:false, source:"cluster", callsign, frequencyKHz,
+  band:"20m", mode:"CW", comment:"", callStatus:"New Call", dxccStatus:"ATNO", specialTags:[], ruleNames:["New DXCC"], count, firstSeenMs:1, lastSeenMs,
+});
+function expectHistoryOrder(calls: string[]) {
+  expect(screen.getAllByRole("row").slice(1).map(row => row.querySelector("td")?.textContent)).toEqual(calls);
+  expect(Array.from(screen.getByLabelText("DX alert history").querySelectorAll("article header strong")).map(node => node.textContent)).toEqual(calls);
+}
+it.each([
+  ["recent", ["ZL1AA", "OM0RX", "A1AA"]],
+  ["callsign", ["A1AA", "OM0RX", "ZL1AA"]],
+  ["frequency", ["A1AA", "ZL1AA", "OM0RX"]],
+  ["reports", ["OM0RX", "A1AA", "ZL1AA"]],
+])("sorts table and compact cards by %s without mutating retained history or invoking actions", async (sort, expected) => {
+  const entries = [historyEntry(4,"OM0RX",28020,9,200), historyEntry(5,"ZL1AA",14020,1,300), historyEntry(6,"A1AA",7020,3,100)];
+  Object.freeze(entries);
+  const value = { ...dxFrame(), entries };
+  native.invoke.mockImplementation(async command => command === "alerts_snapshot" ? frame() : value);
+  render(<DetachedAlertsSurface />); await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  expectHistoryOrder(["ZL1AA", "OM0RX", "A1AA"]);
+  native.invoke.mockClear();
+  fireEvent.change(screen.getByLabelText("Sort alerts"), { target:{ value:sort } });
+  expectHistoryOrder(expected as string[]);
+  expect(entries.map(entry => entry.callsign)).toEqual(["OM0RX", "ZL1AA", "A1AA"]);
+  expect(native.invoke).not.toHaveBeenCalled();
+});
+it("keeps test alerts after real frequencies and orders tied reports by recency then callsign", async () => {
+  const entries = [historyEntry(4,"ZL1AA",14020,3,200), historyEntry(5,"OM0RX",14020,3,200), historyEntry(6,"A1AA",7020,3,100),
+    { ...historyEntry(7,"TEST",0,1,300), test:true }];
+  native.invoke.mockImplementation(async command => command === "alerts_snapshot" ? frame() : { ...dxFrame(), entries });
+  render(<DetachedAlertsSurface />); await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  fireEvent.change(screen.getByLabelText("Sort alerts"), { target:{ value:"frequency" } });
+  expectHistoryOrder(["A1AA", "OM0RX", "ZL1AA", "TEST"]);
+  fireEvent.change(screen.getByLabelText("Sort alerts"), { target:{ value:"reports" } });
+  expectHistoryOrder(["OM0RX", "ZL1AA", "A1AA", "TEST"]);
+});
+it("retains the selected ordering across repeat updates, expiry and empty history without changing a rule draft", async () => {
+  let value = { ...dxFrame(), entries:[historyEntry(4,"ZL1AA",14020,4,200), historyEntry(5,"OM0RX",7020,2,100)] };
+  native.invoke.mockImplementation(async command => command === "alerts_snapshot" ? frame() : value);
+  render(<DetachedAlertsSurface />); await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  fireEvent.change(screen.getByLabelText("Sort alerts"), { target:{ value:"reports" } });
+  fireEvent.change(screen.getByLabelText("Comment contains"), { target:{ value:"POTA" } });
+  value = { ...value, revision:2, entries:[value.entries[0], { ...value.entries[1], count:5, lastSeenMs:300 }] };
+  await act(async () => { wakes["xlog:dx-alerts"](); await vi.advanceTimersByTimeAsync(0); });
+  expectHistoryOrder(["OM0RX", "ZL1AA"]);
+  value = { ...value, revision:3, entries:[] };
+  await act(async () => { wakes["xlog:dx-alerts"](); await vi.advanceTimersByTimeAsync(0); });
+  expect(screen.getByText(/No DX alerts yet/)).toBeTruthy();
+  expect((screen.getByLabelText("Sort alerts") as HTMLSelectElement).value).toBe("reports");
+  expect((screen.getByLabelText("Comment contains") as HTMLInputElement).value).toBe("POTA");
+  expect(native.invoke.mock.calls.every(([command]) => ["alerts_snapshot", "dx_alerts_snapshot"].includes(command))).toBe(true);
 });

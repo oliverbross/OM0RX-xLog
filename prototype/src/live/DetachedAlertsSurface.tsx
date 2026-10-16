@@ -8,6 +8,7 @@ export function DetachedAlertsSurface() {
   const [error, setError] = useState("");
   const [dx, setDx] = useState<DxAlertsSnapshot | null>(null), [draft, setDraft] = useState<DxAlertsSnapshot["configuration"] | null>(null);
   const [dxError, setDxError] = useState(""), [message, setMessage] = useState("");
+  const [sort, setSort] = useState<AlertSort>("recent");
   useEffect(() => {
     const dispose = connectAlerts(value => { setSnapshot(value); setVerified(true); setError(""); }, message => { setVerified(false); setError(message); }, () => setVerified(false));
     return dispose;
@@ -15,6 +16,7 @@ export function DetachedAlertsSurface() {
   useEffect(() => connectDxAlerts(value => { setDx(value); setDraft(current => current?.revision === value.configuration.revision ? current : structuredClone(value.configuration)); setDxError(""); }, setDxError), []);
   const updateRule = (index: number, patch: Partial<DxAlertRule>) => setDraft(current => current ? ({ ...current, rules: current.rules.map((rule, position) => position === index ? { ...rule, ...patch } : rule) }) : current);
   const action = async (work: () => Promise<DxAlertsSnapshot>, success: string) => { try { setMessage(""); const value = await work(); setDx(value); setDraft(structuredClone(value.configuration)); setDxError(""); setMessage(success); } catch (cause) { setDxError(cause instanceof Error ? cause.message : "DX alert action failed."); } };
+  const entries = [...(dx?.entries ?? [])].sort((left, right) => compareAlerts(left, right, sort));
   return <div className="app live detached-reference-app detached-alerts-app"><main aria-label="Detached Alerts"><section aria-label="Retained safety reports">
     <p role="status">{verified ? "Retained data · not a live all-clear" : "Reports unavailable or changing — retained display only"}</p>
     <dl><dt>Agent safety report</dt><dd>{snapshot?.radio_report ? "Retained report present" : "Not observed for the selected radio"}</dd>
@@ -24,7 +26,7 @@ export function DetachedAlertsSurface() {
     {error && <p role="alert">{error}</p>}
   </section><section aria-label="DX opportunity alerts">
     <div className="dx-alert-head"><div><h2>DX opportunity alerts</h2><p className={`dx-alert-state ${dx?.source.available ? "is-live" : ""}`}>{dx?.source.available ? "Following the shared cluster feed" : "Cluster feed unavailable"} · passive only</p></div>
-      <div className="dx-alert-actions"><button onClick={() => void action(testDxAlert, "Test alert added.")}>Test</button><button disabled={!dx?.entries.length} onClick={() => void action(clearDxAlerts, "Alerts cleared.")}>Clear</button></div></div>
+      <div className="dx-alert-actions"><label>Sort alerts<select value={sort} onChange={event => setSort(event.currentTarget.value as AlertSort)}><option value="recent">Latest report first</option><option value="callsign">Callsign A–Z</option><option value="frequency">Frequency low–high</option><option value="reports">Most reports first</option></select></label><button onClick={() => void action(testDxAlert, "Test alert added.")}>Test</button><button disabled={!dx?.entries.length} onClick={() => void action(clearDxAlerts, "Alerts cleared.")}>Clear</button></div></div>
     {dx?.activitySource && <p className="dx-alert-state">WSJT-X CQ feed {dx.activitySource.available ? "listening" : "off or unavailable"} · receive only · FT8/FT4 · activity expires after 60 seconds. Call/DXCC novelty is unavailable for this source.</p>}
     {dx?.storageError && <p className="dx-alert-error">{dx.storageError}</p>}{dxError && <p className="dx-alert-error" role="alert">{dxError}</p>}{message && <p className="dx-alert-message" role="status">{message}</p>}
     {dx?.delivery.error && <p className="dx-alert-error" role="alert">{dx.delivery.error}</p>}
@@ -50,8 +52,8 @@ export function DetachedAlertsSurface() {
       <p className="secondary">Each rule requires all its filled conditions. Comment contains matches literal text, ignoring case; leave it blank for any comment.</p>
       <div className="dx-alert-actions"><button disabled={draft.rules.length >= dx.limits.maximumRules} onClick={() => setDraft({ ...draft, rules:[...draft.rules,newRule()] })}>Add rule</button><button onClick={() => setDraft(structuredClone(dx.configuration))}>Revert</button><button className="primary" onClick={() => void action(() => saveDxAlerts(dx,{ enabled:draft.enabled,dedupSeconds:draft.dedupSeconds,retentionMinutes:draft.retentionMinutes,nativePopup:draft.nativePopup,notificationSound:draft.notificationSound,rules:draft.rules }), "Rules saved. Existing spots were baselined without alerts.")}>Save rules</button></div>
     </details>}
-    {dx?.entries.length ? <div className="dx-alert-table"><table><thead><tr><th>Call</th><th>Source</th><th>Frequency</th><th>Mode</th><th>Why</th><th>Comment</th><th>History</th></tr></thead><tbody>{dx.entries.map(entry => <tr key={entry.id}><td className="dx-call">{entry.callsign}</td><td>{sourceLabel(entry)}</td><td>{entry.test ? "Test" : `${entry.frequencyKHz.toFixed(1)} kHz`}</td><td>{entry.mode}</td><td><AlertEvidence entry={entry}/></td><td className="dx-comment">{entry.comment || "—"}</td><td><AlertHistory entry={entry}/></td></tr>)}</tbody></table>
-      <div className="dx-alert-cards" aria-label="DX alert history">{dx.entries.map(entry => <article className="dx-alert-card" key={entry.id}><header><strong className="dx-call">{entry.callsign}</strong><span>{sourceLabel(entry)}</span></header>
+    {entries.length ? <div className="dx-alert-table"><table><thead><tr><th>Call</th><th>Source</th><th>Frequency</th><th>Mode</th><th>Why</th><th>Comment</th><th>History</th></tr></thead><tbody>{entries.map(entry => <tr key={entry.id}><td className="dx-call">{entry.callsign}</td><td>{sourceLabel(entry)}</td><td>{entry.test ? "Test" : `${entry.frequencyKHz.toFixed(1)} kHz`}</td><td>{entry.mode}</td><td><AlertEvidence entry={entry}/></td><td className="dx-comment">{entry.comment || "—"}</td><td><AlertHistory entry={entry}/></td></tr>)}</tbody></table>
+      <div className="dx-alert-cards" aria-label="DX alert history">{entries.map(entry => <article className="dx-alert-card" key={entry.id}><header><strong className="dx-call">{entry.callsign}</strong><span>{sourceLabel(entry)}</span></header>
         <p className="dx-alert-card-spot">{entry.test ? "Test alert" : `${entry.frequencyKHz.toFixed(1)} kHz`} · {entry.band} · {entry.mode}</p><AlertEvidence entry={entry}/>{entry.comment && <p className="dx-comment">{entry.comment}</p>}<AlertHistory entry={entry}/></article>)}</div>
     </div> : <p className="dx-alert-empty">No DX alerts yet. Enabling rules never tunes or transmits.</p>}
   </section></main></div>;
@@ -60,6 +62,14 @@ export function DetachedAlertsSurface() {
 const csv = (value: string) => value.split(",").map(item => item.trim()).filter(Boolean);
 const newRule = (): DxAlertRule => ({ id:crypto.randomUUID(), name:"New rule", enabled:true, sources:["cluster"], callsignGlob:"*", commentContains:"", bands:[], modes:[], callStatuses:[], dxccStatuses:[], specials:[] });
 type AlertEntry = DxAlertsSnapshot["entries"][number];
+type AlertSort = "recent" | "callsign" | "frequency" | "reports";
+function compareAlerts(left: AlertEntry, right: AlertEntry, sort: AlertSort) {
+  const callsign = left.callsign.localeCompare(right.callsign, "en", { sensitivity:"base" });
+  const recent = right.lastSeenMs - left.lastSeenMs;
+  const primary = sort === "callsign" ? callsign : sort === "reports" ? right.count - left.count
+    : sort === "frequency" ? Number(left.test) - Number(right.test) || left.frequencyKHz - right.frequencyKHz : recent;
+  return primary || recent || callsign || left.id.localeCompare(right.id);
+}
 const sourceLabel = (entry: AlertEntry) => entry.test ? "Test" : entry.source === "wsjtx" ? "WSJT-X CQ" : "DX Cluster";
 function AlertEvidence({ entry }: { entry: AlertEntry }) {
   const evidence = [entry.callStatus && `Call: ${entry.callStatus}`, entry.dxccStatus && `DXCC: ${entry.dxccStatus}`, entry.band && `Band: ${entry.band}`, entry.mode && `Mode: ${entry.mode}`].filter(Boolean);
