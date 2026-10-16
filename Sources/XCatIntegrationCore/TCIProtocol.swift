@@ -647,6 +647,15 @@ public struct TCICallsignSendObservation: Equatable, Sendable {
     public let receivedAt: Date?
 }
 
+/// Server-reported receiver/channel tuning lock (pinned TCI b081213f, page 40).
+/// The report identifies no owning client, duration or command correlation.
+/// Neither locked nor unlocked grants tuning/control authority or confirms tuning.
+public struct TCIVFOLockObservation: Equatable, Sendable {
+    public let isLocked: Bool
+    /// Local producer receipt time; nil means no timed receipt was supplied.
+    public let receivedAt: Date?
+}
+
 public struct TCIProtocolState: Equatable, Sendable {
     public internal(set) var protocolAnnouncement: TCIProtocolAnnouncement?
     public internal(set) var device: String?
@@ -665,6 +674,7 @@ public struct TCIProtocolState: Equatable, Sendable {
     public internal(set) var serverAppFocus: TCIServerAppFocusObservation?
     public internal(set) var lastCWMacrosEmpty: TCICWMacrosEmptyObservation?
     public internal(set) var lastCallsignSend: TCICallsignSendObservation?
+    public internal(set) var vfoLocks: [TCIReceiverAddress: TCIVFOLockObservation] = [:]
     public internal(set) var transceivers: [Int: TCITransceiverState] = [:]
     public internal(set) var unknownCommands: [TCICommand] = []
     public internal(set) var diagnostics: [TCIDiagnostic] = []
@@ -717,6 +727,7 @@ public struct TCIStateReducer: Sendable {
                 state.lastCWMacrosEmpty = TCICWMacrosEmptyObservation(receivedAt: receivedAt)
             }
         case "CALLSIGN_SEND": applyCallsignSend(command, receivedAt: receivedAt)
+        case "VFO_LOCK": applyVFOLock(command, receivedAt: receivedAt)
         case "MODULATION": applyModulation(command)
         case "RX_FILTER_BAND": applyFilter(command)
         case "SPLIT_ENABLE": applyBooleanState(command, keyPath: \.splitEnabled)
@@ -876,6 +887,17 @@ public struct TCIStateReducer: Sendable {
         state.serverAppFocus = TCIServerAppFocusObservation(isFocused: focused, receivedAt: receivedAt)
     }
 
+    private mutating func applyVFOLock(_ command: TCICommand, receivedAt: Date?) {
+        guard command.arguments.count == 3,
+              let trx = validTRX(command.arguments[0]),
+              let channel = validChannel(command.arguments[1]), channel <= 1,
+              let locked = TCIValueParser.boolean(command.arguments[2])
+        else { return reject(command) }
+        state.vfoLocks[TCIReceiverAddress(trx: trx, channel: channel)] = TCIVFOLockObservation(
+            isLocked: locked, receivedAt: receivedAt
+        )
+    }
+
     private mutating func applyCallsignSend(_ command: TCICommand, receivedAt: Date?) {
         guard command.arguments.count == 1, validCallsignToken(command.arguments[0])
         else { return reject(command) }
@@ -994,9 +1016,11 @@ public struct TCIStateReducer: Sendable {
         if let trxCount = state.trxCount {
             state.transceivers = state.transceivers.filter { $0.key < trxCount }
             state.frequencies = state.frequencies.filter { $0.key.trx < trxCount }
+            state.vfoLocks = state.vfoLocks.filter { $0.key.trx < trxCount }
         }
         if let channelCount = state.channelCount {
             state.frequencies = state.frequencies.filter { $0.key.channel < channelCount }
+            state.vfoLocks = state.vfoLocks.filter { $0.key.channel < channelCount }
         }
     }
 

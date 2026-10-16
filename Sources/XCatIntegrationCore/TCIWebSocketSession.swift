@@ -126,6 +126,8 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
     public let lastCWMacrosEmpty: TCICWMacrosEmptyObservation?
     /// Server callsign report only; never receiver/TX/RF or CW completion evidence.
     public let lastCallsignSend: TCICallsignSendObservation?
+    /// Passive server locks by exact address; never tuning/control permission.
+    public let vfoLocks: [TCIReceiverAddress: TCIVFOLockObservation]
 
     public init(
         sequence: UInt64,
@@ -141,7 +143,8 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
         serverAppFocus: TCIServerAppFocusObservation? = nil,
         lastLegacySpotClick: TCILegacySpotClickObservation? = nil,
         lastCWMacrosEmpty: TCICWMacrosEmptyObservation? = nil,
-        lastCallsignSend: TCICallsignSendObservation? = nil
+        lastCallsignSend: TCICallsignSendObservation? = nil,
+        vfoLocks: [TCIReceiverAddress: TCIVFOLockObservation] = [:]
     ) {
         self.sequence = sequence
         self.generation = generation
@@ -157,6 +160,7 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
         self.lastLegacySpotClick = lastLegacySpotClick
         self.lastCWMacrosEmpty = lastCWMacrosEmpty
         self.lastCallsignSend = lastCallsignSend
+        self.vfoLocks = vfoLocks
     }
 }
 
@@ -600,7 +604,8 @@ public actor TCIReadOnlyWebSocketSession {
             serverAppFocus: reducer.state.serverAppFocus,
             lastLegacySpotClick: reducer.state.lastLegacySpotClick,
             lastCWMacrosEmpty: reducer.state.lastCWMacrosEmpty,
-            lastCallsignSend: reducer.state.lastCallsignSend
+            lastCallsignSend: reducer.state.lastCallsignSend,
+            vfoLocks: reducer.state.vfoLocks
         )
         for continuation in continuations.values {
             continuation.yield(observationValue)

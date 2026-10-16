@@ -7,6 +7,74 @@ import XCTest
 final class TCIProtocolTests: XCTestCase {
     private let address = TCIReceiverAddress(trx: 0, channel: 0)
 
+    func testVFOLockRetainsExactAddressBooleanAndCompletedNotificationReceiptOnly() {
+        var decoder = TCITextDecoder(), reducer = TCIStateReducer()
+        let first = Date(timeIntervalSince1970: 100), completed = first.addingTimeInterval(5)
+        let other = TCIReceiverAddress(trx: 1, channel: 1)
+        reducer.apply(decoder.feed("vfo_lo"), receivedAt: first)
+        XCTAssertTrue(reducer.state.vfoLocks.isEmpty)
+        reducer.apply(decoder.feed("ck:1,1,TrUe;"), receivedAt: completed)
+        XCTAssertEqual(reducer.state.vfoLocks[other]?.isLocked, true)
+        XCTAssertEqual(reducer.state.vfoLocks[other]?.receivedAt, completed)
+        XCTAssertNil(reducer.state.vfoLocks[address])
+        XCTAssertTrue(reducer.state.frequencies.isEmpty)
+        XCTAssertTrue(reducer.state.transceivers.isEmpty)
+        XCTAssertTrue(reducer.state.unknownCommands.isEmpty)
+        XCTAssertFalse(reducer.state.ready)
+        XCTAssertNil(reducer.authoritativeSnapshot(for: other))
+    }
+
+    func testVFOLockRejectsMalformedReadAndInvalidIndexBooleanFormsWithoutReplacingEvidence() {
+        var reducer = TCIStateReducer(limits: .init(maximumTRXCount: 2, maximumChannelCount: 2))
+        let receipt = Date(timeIntervalSince1970: 100)
+        XCTAssertTrue(reducer.apply(TCICommand(name: "VFO_LOCK", arguments: ["0", "0", "true"]), receivedAt: receipt))
+        let retained = reducer.state.vfoLocks
+        for arguments in [[], ["0", "0"], ["0", "0", "true", "extra"], ["0", "0", ""],
+                          ["0", "0", "1"], ["0", "0", "yes"], ["-1", "0", "true"],
+                          ["2", "0", "true"], ["0", "2", "true"], ["0", "-1", "true"],
+                          ["0.0", "0", "true"], ["0", "1e0", "true"], ["9223372036854775808", "0", "true"]] {
+            XCTAssertFalse(reducer.apply(TCICommand(name: "VFO_LOCK", arguments: arguments),
+                                         receivedAt: receipt.addingTimeInterval(10)), "\(arguments)")
+            XCTAssertEqual(reducer.state.vfoLocks, retained)
+        }
+        var defaults = TCIStateReducer()
+        XCTAssertFalse(defaults.apply(TCICommand(name: "VFO_LOCK", arguments: ["0", "2", "true"])))
+    }
+
+    func testVFOLockUsesDiscoveredBoundsAndPrunesImpossibleRetainedAddresses() {
+        var decoder = TCITextDecoder(), reducer = TCIStateReducer()
+        reducer.apply(decoder.feed("VFO_LOCK:0,0,true;VFO_LOCK:0,1,true;VFO_LOCK:1,0,false;VFO_LOCK:1,1,true;"))
+        XCTAssertEqual(reducer.state.vfoLocks.count, 4)
+        reducer.apply(decoder.feed("TRX_COUNT:1;"))
+        XCTAssertEqual(reducer.state.vfoLocks.count, 2)
+        XCTAssertFalse(reducer.apply(TCICommand(name: "VFO_LOCK", arguments: ["1", "0", "true"])))
+        reducer.apply(decoder.feed("CHANNEL_COUNT:1;"))
+        XCTAssertEqual(reducer.state.vfoLocks.count, 1)
+        XCTAssertNotNil(reducer.state.vfoLocks[address])
+        XCTAssertFalse(reducer.apply(TCICommand(name: "VFO_LOCK", arguments: ["0", "1", "true"])))
+    }
+
+    func testVFOLockHasIndependentPerAddressReceiptsAndNoVFOInferenceAndResets() {
+        var decoder = TCITextDecoder(), reducer = TCIStateReducer()
+        let first = Date(timeIntervalSince1970: 100), second = first.addingTimeInterval(10)
+        let other = TCIReceiverAddress(trx: 0, channel: 1)
+        reducer.apply(decoder.feed("VFO_LOCK:0,0,true;"), receivedAt: first)
+        reducer.apply(decoder.feed("VFO_LOCK:0,1,false;VFO:0,0,14025000;"), receivedAt: second)
+        XCTAssertEqual(reducer.state.vfoLocks[address]?.receivedAt, first)
+        XCTAssertEqual(reducer.state.vfoLocks[other]?.receivedAt, second)
+        XCTAssertEqual(reducer.state.vfoLocks[other]?.isLocked, false)
+        reducer.apply(decoder.feed("VFO_LOCK:0,0,true;"), receivedAt: second)
+        XCTAssertEqual(reducer.state.vfoLocks[address]?.receivedAt, second)
+        reducer.apply(decoder.feed("VFO_LOCK:0,0,false;"))
+        XCTAssertEqual(reducer.state.vfoLocks[address]?.isLocked, false)
+        XCTAssertNil(reducer.state.vfoLocks[address]?.receivedAt)
+        XCTAssertEqual(reducer.state.vfoLocks[other]?.receivedAt, second)
+        XCTAssertEqual(reducer.state.frequencies[address], 14_025_000)
+        XCTAssertTrue(reducer.state.transceivers.isEmpty)
+        reducer = TCIStateReducer()
+        XCTAssertTrue(reducer.state.vfoLocks.isEmpty)
+    }
+
     func testCallsignSendRetainsExactServerCallsignAndCompletionReceiptWithoutReceiverIdentity() {
         var decoder = TCITextDecoder(), reducer = TCIStateReducer()
         let first = Date(timeIntervalSince1970: 100), completed = first.addingTimeInterval(5)

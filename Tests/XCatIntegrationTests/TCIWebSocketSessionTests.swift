@@ -9,6 +9,68 @@ final class TCIWebSocketSessionTests: XCTestCase {
     private let endpoint = URL(string: "ws://127.0.0.1:40001")!
     private let address = TCIReceiverAddress(trx: 0, channel: 0)
 
+    func testVFOLockPublishesIndependentAddressedReceiptsWithoutConfiguredSideEffects() async throws {
+        let connection = FakeTCIWebSocketConnection(), time = TCIEvidenceClock()
+        let session = TCIReadOnlyWebSocketSession(endpoint: endpoint, configuredAddress: address,
+            connector: FakeTCIWebSocketConnector(connections: [connection]), clock: { time.now() })
+        try await session.connect()
+        await connection.enqueue(.text(Self.discoveryAndState + "ready;"))
+        let initial = try await waitForObservation(session) { $0.availability == .available }
+        time.advance(10)
+        let receipt = time.now(), other = TCIReceiverAddress(trx: 1, channel: 1)
+        await connection.enqueue(.text("VFO_LOCK:0,0,true;VFO_LOCK:1,1,false;"))
+        let reported = try await waitForObservation(session, after: initial.sequence) { $0.vfoLocks.count == 2 }
+        XCTAssertEqual(reported.vfoLocks[address]?.isLocked, true)
+        XCTAssertEqual(reported.vfoLocks[other]?.isLocked, false)
+        XCTAssertEqual(reported.vfoLocks[address]?.receivedAt, receipt)
+        XCTAssertEqual(reported.vfoLocks[other]?.receivedAt, receipt)
+        XCTAssertEqual(reported.evidenceReceivedAt, initial.evidenceReceivedAt)
+        XCTAssertEqual(reported.snapshot, initial.snapshot)
+        XCTAssertEqual(reported.filterEvidenceSequence, initial.filterEvidenceSequence)
+        XCTAssertEqual(reported.splitEvidenceReceivedAt, initial.splitEvidenceReceivedAt)
+        time.advance(10)
+        await connection.enqueue(.text("VFO_LOCK:0,0,1;"))
+        let invalid = try await waitForObservation(session, after: reported.sequence) { _ in true }
+        XCTAssertEqual(invalid.vfoLocks, reported.vfoLocks)
+        await connection.enqueue(.text("VFO_LOCK:0,0,true;"))
+        let repeated = try await waitForObservation(session, after: invalid.sequence) { _ in true }
+        time.advance(20)
+        XCTAssertEqual(repeated.vfoLocks[address]?.receivedAt, receipt.addingTimeInterval(10))
+        XCTAssertEqual(repeated.vfoLocks[other], reported.vfoLocks[other])
+        XCTAssertEqual(repeated.evidenceReceivedAt, initial.evidenceReceivedAt)
+        XCTAssertEqual(repeated.snapshot, initial.snapshot)
+        let sent = await connection.sentTexts()
+        XCTAssertTrue(sent.isEmpty)
+        await session.disconnect()
+        let disconnected = await session.currentObservation()
+        XCTAssertTrue(disconnected.vfoLocks.isEmpty)
+    }
+
+    func testVFOLockBeforeDiscoveryGrantsNoAuthorityAndReconnectClearsIt() async throws {
+        let first = FakeTCIWebSocketConnection(), second = FakeTCIWebSocketConnection()
+        let session = TCIReadOnlyWebSocketSession(endpoint: endpoint, configuredAddress: address,
+            connector: FakeTCIWebSocketConnector(connections: [first, second]))
+        try await session.connect()
+        await first.enqueue(.text("VFO_LOCK:0,0,false;"))
+        let reported = try await waitForObservation(session) { !$0.vfoLocks.isEmpty }
+        XCTAssertEqual(reported.availability, .synchronizing)
+        XCTAssertNil(reported.snapshot)
+        XCTAssertNil(reported.evidenceReceivedAt)
+        await session.disconnect()
+        try await session.connect()
+        let reconnected = await session.currentObservation()
+        XCTAssertGreaterThan(reconnected.generation, reported.generation)
+        XCTAssertTrue(reconnected.vfoLocks.isEmpty)
+        await first.enqueue(.text("VFO_LOCK:0,0,true;"))
+        await second.enqueue(.text(Self.discoveryAndState + "ready;"))
+        let available = try await waitForObservation(session, after: reconnected.sequence) { $0.availability == .available }
+        XCTAssertTrue(available.vfoLocks.isEmpty)
+        let firstSent = await first.sentTexts(), secondSent = await second.sentTexts()
+        XCTAssertTrue(firstSent.isEmpty)
+        XCTAssertTrue(secondSent.isEmpty)
+        await session.disconnect()
+    }
+
     func testCallsignSendPublishesIndependentProducerReceiptWithoutTRXOrConfiguredSideEffects() async throws {
         let connection = FakeTCIWebSocketConnection(), time = TCIEvidenceClock()
         let session = TCIReadOnlyWebSocketSession(endpoint: endpoint, configuredAddress: address,
