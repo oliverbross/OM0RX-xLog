@@ -9,7 +9,7 @@ radio transmission, rotor movement and Windows/Linux packaging remain separate g
 
 ## Current decision
 
-Implementation checkpoint: `5d1199646986ae708f2ed5423448cf87eef2155e`. Source/test/browser
+Implementation checkpoint: `862e44456f1e88fb244e520d4107aa0fa5f3a566`. Source/test/browser
 verification does not close package/native, provider or hardware acceptance.
 
 - Keep the Mac-first daily logger, canonical QSO/draft owners and local-first database.
@@ -49,7 +49,7 @@ connection.
 | R07 | Read-only core, route and Logbook UI source/browser verified; package/provider open | Sync engine, online-log delivery, confirmation fields, awards | `92cf23f` projects canonical QRZ/Club Log receipts and retained paper/LoTW/eQSL state. `5486aff` adds the generation-fenced local route and click-only retained-status panel, preserving unknown acceptance/match age and sponsor credit. Swift route **1/1**, Rust permission **1/1**, frontend **31/31**, TypeScript/build/bundle gates and actual-Logbook browser checks at 640×480/1280×800 pass. Next: exact-package/native interaction and explicit provider timestamps/sponsor-rule contracts, then live-account acceptance. |
 | R08 | Existing service programme | Native credential vault, durable claim/receipt/no-replay patterns | Direct LoTW/TQSL certificate, station location, signed upload receipt and download acceptance with one owner per service path. |
 | R09 | QRP DXCC preflight dependency source complete; executable sponsor award open | Native award calculators, registry, research catalogue and `QRPDXCCPreflightV1` | `6d9b186` adds pure snapshot screening with dated official references, candidates/exclusions/unknowns and exact retained-power comparisons (**7/7** Swift). Candidate stored DXCCs are not validated entities or progress. Measurement, sponsor validity, applicant scope, land/direct-contact eligibility and declaration remain unresolved. Next: executable dated sponsor rules, supported application/export and acceptance; no completion or sponsor credit is implemented. |
-| R10 | One-contact read-only core findings source complete; route/UI and corrections open | `QSODataQuality`, validation/conflict owner, supplied dated CTY, retained power provenance | `5d11996` inspects one retained revision (**5/5** Swift), preserves stored/manual overrides and distinguishes field-origin unknowns from source/observation/detection dates. Conflict alternatives require exact retained context. Findings provide qualitative impacts only, no correction or award/confirmation/sync delta. Next: bounded route/UI and accepted correction workflow; package/copied-log/live acceptance remains open. |
+| R10 | One-contact read-only core and route source complete; UI/corrections open | `QSODataQuality`, canonical contact snapshot/current CTY owner and retained conflict | `5d11996` adds core findings (5/5). `862e444` adds main/Logbook-only `logbook_data_quality` scoped to exact contact/generation/revision with optional primary-key retained conflict. CTY version/date remain unknown; duplicate review is not performed. No correction/write/provider refresh/award/sync delta or UI. Swift route **2/2**, combined **3/3**, Rust authorization **1/1**, frontend **7/7** and TypeScript pass after route-test compile fixes before commit. UI, corrections and package/copied-log/live acceptance stay open. |
 | R11 | New candidate | ADI/ADX preview, semantic identity, duplicate-safe import, workspace snapshots | Isolated trial profile with count/field/confirmation/award delta report, exceptions and rollback before cutover. |
 | R12 | Useful extension with substantial baseline | Existing split/VFO UI, Agent/FLEX/CAT split support and durable radio selection | Conspicuous RX/TX/VFO readback, explicit split intent and presets, authoritative readback and safe return to simplex. |
 | R13 | New candidate | Canonical operator draft, spot/opportunity admission, contact editor | Local scratch records for heard/calling/deferred states; explicit promotion only, never log/sync/export before promotion. |
@@ -110,6 +110,12 @@ focused tests pass **78/78**, without claiming the earlier scheduling-sensitive 
 `dbf6e36` retains passive formal-five-field `TX_SENSORS` raw per-TRX tokens plus producer
 receipts (**84/84** focused checks); the malformed printed example rejects. Reports confer
 no TX/RF, physical power or SWR authority; full TCI/package/live acceptance remains open.
+`711d4c4` retains global `MUTE` from pinned TCI pages 21–22 with its own receipt,
+strict Boolean validation and reconnect clearing. No encoder/query/setter, control,
+configured-readiness, tune, TX or RF effect exists. New tests **5/5** and protocol **53/53**
+pass; broad **88/89** retains the recurring unchanged lifecycle closeCount **0 vs 1** miss.
+Root combined-tree new-test rerun passes **5/5** after R10 route-test compile fixes;
+the lifecycle timing issue is not claimed repaired.
 See [filter](TCI_RECEIVE_FILTER_SOURCE_ACCEPTANCE_2026-10-16.md) and
 [split](TCI_SPLIT_OBSERVATION_SOURCE_ACCEPTANCE_2026-10-16.md), plus
 [global TX observation](TCI_TRANSMIT_FREQUENCY_OBSERVATION_SOURCE_ACCEPTANCE_2026-10-16.md), source acceptance. This is

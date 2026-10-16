@@ -2,7 +2,7 @@
 
 Last updated: 2026-10-16
 
-Tracked implementation checkpoint: `5d1199646986ae708f2ed5423448cf87eef2155e`.
+Tracked implementation checkpoint: `862e44456f1e88fb244e520d4107aa0fa5f3a566`.
 New source/test/browser evidence does not replace installed alpha.31 or close
 exact-package, native interaction, live-provider or hardware acceptance.
 
@@ -236,6 +236,12 @@ at this later source; that passing run does not establish a fix for the earlier 
 tokens plus producer receipts (**84/84** focused checks). The malformed printed example
 is rejected. Reports grant no TX/RF, physical power or SWR authority; package/live acceptance
 and the wider TCI programme remain open.
+`711d4c4` retains server-global `MUTE` from pinned TCI pages 21–22 with its own receipt,
+strict Boolean validation and reconnect clearing. It adds no encoder/query/setter or control,
+configured-readiness, tune, TX or RF effect. New tests pass **5/5**, protocol **53/53**;
+the broad run was **88/89** on the recurring unchanged lifecycle closeCount **0 vs 1**.
+Root combined-tree new-test rerun passes **5/5** after the R10 test compile fixes below;
+this does not claim the lifecycle timing issue is repaired.
 Transmit/PTT, split/TX-VFO controls, outbound spot
 management, audio/IQ, package/live-server and RF acceptance
 remain open. QLog is a behavior reference only; no third-party code, credentials, device or
@@ -258,15 +264,21 @@ to viewport, panel/container widths **624/624**/**1264/1264**, and internal scro
 to **48vh**. Package/native interaction, provider timestamps, sponsor rules and live-account
 acceptance remain open; installed alpha.31 is unchanged.
 
-## Contact data quality — R10 read-only core findings; route/UI and corrections open
+## Contact data quality — R10 read-only core and route; UI and corrections open
 
 `5d11996` adds `QSODataQuality` inspection of one retained contact revision (**5/5**
 focused Swift). It reuses validation, compares supplied dated CTY evidence at the QSO date,
 retains power provenance and projects conflict alternatives only for the exact retained
 contact. Stored/manual overrides remain authoritative; source, observation and detection
 dates never become field-origin dates. Qualitative review impacts provide no correction,
-award/confirmation/sync delta or mutation authority. Routes/UI, corrective workflows,
-package/copied-log and live acceptance remain open.
+award/confirmation/sync delta or mutation authority. `862e444` adds `logbook_data_quality`
+for exact contact/generation/revision, with optional primary-key retained conflict, canonical
+snapshot and the current CTY owner. CTY version/date remain unknown; duplicate review is
+explicitly not performed. Only main/Logbook surfaces are authorized. The route performs no
+correction, write, provider/reference refresh or award/sync delta and adds no UI.
+Swift route **2/2** and combined **3/3**, Rust authorization **1/1**, frontend **7/7** and
+TypeScript pass; initial route-test compile defects were fixed before commit. UI, corrective
+workflows, package/copied-log and live acceptance remain open.
 
 ## QRP DXCC preflight — R09 dependency source complete; sponsor award remains open
 

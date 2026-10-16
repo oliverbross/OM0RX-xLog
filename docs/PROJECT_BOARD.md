@@ -1,6 +1,6 @@
 # OM0RX-xLog live project board
 
-Tracked implementation checkpoint: `5d1199646986ae708f2ed5423448cf87eef2155e`.
+Tracked implementation checkpoint: `862e44456f1e88fb244e520d4107aa0fa5f3a566`.
 Source/test/browser evidence below remains separate from installed alpha.31 and
 unaccepted package, native interaction, provider and hardware gates.
 
@@ -146,6 +146,12 @@ frontend **41/41**, and global TX protocol/session Swift **35/35** pass. The pin
  `dbf6e36` retains passive formal-five-field `TX_SENSORS` raw per-TRX tokens and producer
  receipts (**84/84** focused checks). The malformed printed example rejects; no TX/RF,
  physical power or SWR authority is inferred. Full TCI/package/live acceptance remains open.
+ `711d4c4` observes global `MUTE` from pinned TCI pages 21–22 with its own receipt,
+ strict Boolean validation and reconnect clearing. No encoder/query/setter, control,
+ configured-readiness, tune, TX or RF effect is added. New tests **5/5** and protocol
+ **53/53** pass; broad **88/89** retains the unchanged lifecycle closeCount **0 vs 1** miss.
+ Root combined-tree new-test rerun **5/5** passes after R10 route-test compile fixes;
+ this is not proof of a lifecycle timing fix.
 Transmit/PTT, split/TX-VFO controls,
 spots, audio/IQ, package/live-server and RF
 acceptance remain open; installed alpha.31 is unchanged. See the
@@ -172,7 +178,13 @@ R10 now has read-only `QSODataQuality` inspection of one retained revision in `5
 power provenance and an exact-context conflict alternative. Stored/manual overrides remain
 authoritative; observation/reference/detection times never become field-origin dates.
 Findings describe qualitative impacts without correction or award/confirmation/sync deltas.
-Routes/UI, correction workflow, package/copied-log and live acceptance remain open.
+`862e444` adds exact contact/generation/revision `logbook_data_quality` reads with an optional
+primary-key retained conflict, canonical snapshot and current CTY owner. Version/date remain
+unknown and duplicate review is explicitly not performed. Main/Logbook-only authorization
+permits no corrections, writes, provider/reference refresh, award/sync delta or UI.
+Swift route **2/2** and combined **3/3**, Rust authorization **1/1**, frontend **7/7** and
+TypeScript pass; initial route-test compile defects were fixed before commit. UI, correction
+workflow, package/copied-log and live acceptance remain open.
 
 R09 has a conservative preflight dependency in `6d9b186`: pure `QRPDXCCPreflightV1`
 screens caller-supplied contact snapshots into candidates, exclusions and unknowns, with
