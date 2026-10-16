@@ -199,6 +199,17 @@ fn validate_radio_read(label: &str, isolated: bool, exiting: bool) -> Result<(),
         Err("Read Radio is unavailable in this window.".into())
     } else { Ok(()) }
 }
+fn validate_follow_snapshot(label: &str, exiting: bool) -> Result<(), String> {
+    if exiting || !matches!(label, "main" | "log-qso") {
+        Err("Follow Radio status is unavailable in this window.".into())
+    } else { Ok(()) }
+}
+fn validate_follow_set(label: &str, isolated: bool, exiting: bool, enabled: bool) -> Result<(), String> {
+    validate_follow_snapshot(label, exiting)?;
+    if isolated && enabled {
+        Err("Follow Radio cannot be enabled during isolated acceptance.".into())
+    } else { Ok(()) }
+}
 #[tauri::command]
 async fn operator_draft_read_radio(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, operation_id: String) -> Result<serde_json::Value, String> {
     validate_radio_read(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
@@ -209,8 +220,8 @@ async fn operator_draft_read_radio(window: tauri::WebviewWindow, state: tauri::S
         .await.map_err(|_| "Radio-read task failed; inspect the existing operation before trying again".to_string())?
 }
 #[tauri::command]
-fn operator_draft_follow_snapshot(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>) -> Result<serde_json::Value, String> {
-    validate_radio_read(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
+fn operator_draft_follow_snapshot(window: tauri::WebviewWindow, _state: tauri::State<'_, acceptance::Acceptance>) -> Result<serde_json::Value, String> {
+    validate_follow_snapshot(window.label(), APP_EXITING.load(Ordering::Acquire))?;
     radio_follow::snapshot()
 }
 #[tauri::command]
@@ -221,7 +232,7 @@ async fn operator_draft_read_radio_recover(window: tauri::WebviewWindow, state: 
 }
 #[tauri::command]
 async fn operator_draft_follow_set(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, enabled: bool, expected_epoch: u64) -> Result<serde_json::Value, String> {
-    validate_radio_read(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
+    validate_follow_set(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire), enabled)?;
     if enabled { qsy_clear::retire_terminal(); radio_read::retire_terminal(); }
     tauri::async_runtime::spawn_blocking(move || radio_follow::set(enabled, expected_epoch)).await.map_err(|_| "Follow Radio permission task failed".to_string())?
 }
@@ -1675,7 +1686,7 @@ fn main() {
 #[cfg(test)]
 mod workspace_layout_tests {
     use super::{WorkspaceLayout, DraftWake, recover_singleton, detached_window_shortcut, validate_detached_open, COMPACT_WORKSPACE_MENU_ID, STANDARD_WORKSPACE_MENU_ID};
-    use super::{spot_editor_barrier, validate_spot_effect, validate_activation_reader, retires_automatic_rotor, is_raw_manual_rotor_goto, is_raw_owned_station_lifecycle, validate_auto_rotor_read, validate_auto_rotor_set, validate_radio_read, validate_follow_settlement, validate_rotor_stop, AutomaticRotorCommands};
+    use super::{spot_editor_barrier, validate_spot_effect, validate_activation_reader, retires_automatic_rotor, is_raw_manual_rotor_goto, is_raw_owned_station_lifecycle, validate_auto_rotor_read, validate_auto_rotor_set, validate_radio_read, validate_follow_snapshot, validate_follow_set, validate_follow_settlement, validate_rotor_stop, AutomaticRotorCommands};
     use serde_json::json;
 
     #[test]
@@ -1797,6 +1808,23 @@ mod workspace_layout_tests {
                 assert!(validate_radio_read(label, isolated, exiting).is_err(), "{label} isolated={isolated} exiting={exiting}");
                 assert!(validate_follow_settlement(label, isolated, exiting).is_err(), "{label} isolated={isolated} exiting={exiting}");
             }
+        }
+    }
+
+    #[test]
+    fn isolated_acceptance_may_observe_and_disable_follow_radio_but_never_enable_it() {
+        for label in ["main", "log-qso"] {
+            assert!(validate_follow_snapshot(label, false).is_ok(), "{label}");
+            assert!(validate_follow_set(label, true, false, false).is_ok(), "{label}");
+            assert!(validate_follow_set(label, true, false, true).is_err(), "{label}");
+        }
+        for label in ["logbook", "monitor", "station-control", "unknown", "", "MAIN"] {
+            assert!(validate_follow_snapshot(label, false).is_err(), "{label}");
+            assert!(validate_follow_set(label, true, false, false).is_err(), "{label}");
+        }
+        for label in ["main", "log-qso"] {
+            assert!(validate_follow_snapshot(label, true).is_err(), "{label}");
+            assert!(validate_follow_set(label, true, true, false).is_err(), "{label}");
         }
     }
 
