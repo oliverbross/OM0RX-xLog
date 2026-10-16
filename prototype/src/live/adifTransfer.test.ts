@@ -78,6 +78,22 @@ it.each(["<?xml version='1.0'?><ADX/>", "<ADX/>"])("rejects incomplete ADX %s", 
 const decode = (text: string) => decodeADIF(new TextEncoder().encode(text).buffer);
 const adx = (fields: string, header = "<ADIF_VER>3.1.7</ADIF_VER>") => `<ADX><HEADER>${header}</HEADER><RECORDS><RECORD>${fields}</RECORD></RECORDS></ADX>`;
 
+it.each(["C4FM", "DSTAR", "c4fm", "dstar"])("retains native normalized digital voice %s output through ADI and ADX", submode => {
+  // ADIF 3.1.8 Mode Enumeration requires import-only MODE C4FM/DSTAR
+  // to export as DIGITALVOICE with the original mode in SUBMODE.
+  const source = `<CALL:4>W1AW<MODE:12>DIGITALVOICE<SUBMODE:${submode.length}>${submode}<COMMENT_INTL:2>é<EOR>\r\n`;
+  const imported = decodeADIFDocument(new TextEncoder().encode(source).buffer);
+  for (const format of ["adi", "adx"] as const) {
+    const writer = new ADIFExportDocument(format);
+    writer.append(imported.text, 1);
+    const result = writer.finish();
+    const reparsed = decodeADIFDocument(new TextEncoder().encode(result).buffer);
+    expect(reparsed.text).toBe(imported.text);
+    expect(reparsed.fieldMetadata.every(value => value === null)).toBe(true);
+    if (format === "adx") expect(result).toContain("<ADIF_VER>3.1.7</ADIF_VER>");
+  }
+});
+
 it.each(["SKCC-SKS", "SKCC-SKSA", "SKCC-SKSE", "SKCC-WES"])("preserves ADIF 3.1.8 JTTY, contest %s, region and station/RX fields through ADX", contest => {
   // Released 2026-10-12: https://adif.org.uk/318/ADIF_318.htm
   const fields = `<CALL>W1AW</CALL><MODE>MFSK</MODE><SUBMODE>JTTY</SUBMODE><CONTEST_ID>${contest}</CONTEST_ID><REGION>ET</REGION>` +

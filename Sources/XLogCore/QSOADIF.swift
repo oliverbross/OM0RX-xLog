@@ -145,13 +145,14 @@ public extension QSO {
         if let end = bridged.end {
             set("QSO_DATE_OFF", dateFormatter.string(from: end)); set("TIME_OFF", timeFormatter.string(from: end))
         }
-        // The editor offers FT4/FT2 as contact modes. ADIF represents them (and
-        // 3.1.8's JTTY) under MFSK; keep the local selection and any explicit
-        // submode intact, and normalize only this interchange representation.
-        // https://adif.org.uk/318/ADIF_318.htm#Submode_Enumeration
-        let isMFSKSubmode = ["FT4", "FT2", "JTTY"].contains(mode)
-        set("BAND", band); set("MODE", isMFSKSubmode ? "MFSK" : mode)
-        set("SUBMODE", submode.isEmpty && isMFSKSubmode ? mode : submode)
+        // Normalize only interchange output; retain local modes and explicit
+        // submodes. ADIF 3.1.8 also requires import-only C4FM/DSTAR MODE values
+        // to export under DIGITALVOICE (Mode and Submode Enumerations).
+        // https://adif.org.uk/318/ADIF_318.htm#Mode_Enumeration
+        let exportParent = ["FT4": "MFSK", "FT2": "MFSK", "JTTY": "MFSK",
+                            "C4FM": "DIGITALVOICE", "DSTAR": "DIGITALVOICE"][mode.uppercased()]
+        set("BAND", band); set("MODE", exportParent ?? mode)
+        set("SUBMODE", submode.isEmpty && exportParent != nil ? mode : submode)
         if let frequencyHz { set("FREQ", String(format: "%.6f", Double(frequencyHz) / 1_000_000)) }
         if let receiveFrequencyHz = bridged.receiveFrequencyHz { set("FREQ_RX", String(format: "%.6f", Double(receiveFrequencyHz) / 1_000_000)) }
         set("BAND_RX", bridged.receiveBand)
