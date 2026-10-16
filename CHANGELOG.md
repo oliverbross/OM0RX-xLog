@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.4.0-alpha.49 — 2026-10-17
+
+- Removed Connection Doctor from the native Window menu.
+- Retained its internal window role only for compatibility with previously saved workspace layouts.
+
 ## 0.4.0-alpha.48 — 2026-10-17
 
 - Reworked the detached Rotor window into a compact operating layout with the compass and bearing on the left and automatic-rotor controls on the right.

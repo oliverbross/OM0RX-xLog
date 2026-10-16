@@ -437,7 +437,7 @@ fn workspace_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
 }
 
 fn window_menu_includes(id: &str) -> bool {
-    !matches!(id, "station-status" | "station-identity")
+    !matches!(id, "station-status" | "station-identity" | "connection-doctor")
 }
 
 fn window_menu_title(title: &str) -> String {
@@ -1758,7 +1758,7 @@ mod workspace_layout_tests {
 
     #[test]
     fn window_menu_omits_redundant_information_windows_without_retiring_saved_layout_support() {
-        for id in ["station-status", "station-identity"] {
+        for id in ["station-status", "station-identity", "connection-doctor"] {
             assert!(!super::window_menu_includes(id));
             assert!(crate::workspace_windows::supports(id));
         }
