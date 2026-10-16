@@ -609,6 +609,15 @@ public struct TCIRXSpotClickObservation: Equatable, Sendable {
     public let receivedAt: Date?
 }
 
+/// Legacy server click event (pinned TCI b081213f, page 36).
+/// The wire carries no receiver/channel identity, mode, or tuning confirmation.
+public struct TCILegacySpotClickObservation: Equatable, Sendable {
+    public let callsign: String
+    public let frequencyHz: Int64
+    /// Local producer receipt time; nil means no timed receipt was supplied.
+    public let receivedAt: Date?
+}
+
 /// Focus of the server's ExpertSDR3 window (pinned TCI b081213f, page 37).
 /// It has no receiver identity and confers no local application/control authority.
 public struct TCIServerAppFocusObservation: Equatable, Sendable {
@@ -631,6 +640,7 @@ public struct TCIProtocolState: Equatable, Sendable {
     public internal(set) var frequencies: [TCIReceiverAddress: Int64] = [:]
     public internal(set) var serverTransmitFrequency: TCIServerTransmitFrequencyObservation?
     public internal(set) var lastRXSpotClick: TCIRXSpotClickObservation?
+    public internal(set) var lastLegacySpotClick: TCILegacySpotClickObservation?
     public internal(set) var serverAppFocus: TCIServerAppFocusObservation?
     public internal(set) var transceivers: [Int: TCITransceiverState] = [:]
     public internal(set) var unknownCommands: [TCICommand] = []
@@ -677,6 +687,7 @@ public struct TCIStateReducer: Sendable {
         case "VFO": applyVFO(command)
         case "TX_FREQUENCY": applyTXFrequency(command, receivedAt: receivedAt)
         case "RX_CLICKED_ON_SPOT": applyRXSpotClick(command, receivedAt: receivedAt)
+        case "CLICKED_ON_SPOT": applyLegacySpotClick(command, receivedAt: receivedAt)
         case "APP_FOCUS": applyAppFocus(command, receivedAt: receivedAt)
         case "MODULATION": applyModulation(command)
         case "RX_FILTER_BAND": applyFilter(command)
@@ -837,13 +848,29 @@ public struct TCIStateReducer: Sendable {
         state.serverAppFocus = TCIServerAppFocusObservation(isFocused: focused, receivedAt: receivedAt)
     }
 
+    private mutating func applyLegacySpotClick(_ command: TCICommand, receivedAt: Date?) {
+        guard command.arguments.count == 2,
+              validSpotCallsign(command.arguments[0]),
+              let frequency = TCIValueParser.integer64(command.arguments[1]),
+              frequency >= 0, frequency <= limits.maximumFrequencyHz
+        else { return reject(command) }
+        // Keep legacy and addressed notifications independent: the protocol
+        // supplies neither an event ID nor a receiver for this legacy form.
+        state.lastLegacySpotClick = TCILegacySpotClickObservation(
+            callsign: command.arguments[0], frequencyHz: frequency, receivedAt: receivedAt
+        )
+    }
+
+    private func validSpotCallsign(_ value: String) -> Bool {
+        !value.isEmpty && value.utf8.count <= limits.maximumArgumentBytes
+            && value.utf8.allSatisfy { $0 >= 33 && $0 <= 126 && $0 != 44 && $0 != 58 && $0 != 59 }
+    }
+
     private mutating func applyRXSpotClick(_ command: TCICommand, receivedAt: Date?) {
         guard command.arguments.count == 4,
               let trx = validTRX(command.arguments[0]),
               let channel = validChannel(command.arguments[1]), channel <= 1,
-              !command.arguments[2].isEmpty,
-              command.arguments[2].utf8.count <= limits.maximumArgumentBytes,
-              command.arguments[2].utf8.allSatisfy({ $0 >= 33 && $0 <= 126 && $0 != 44 && $0 != 58 && $0 != 59 }),
+              validSpotCallsign(command.arguments[2]),
               let frequency = TCIValueParser.integer64(command.arguments[3]),
               frequency >= 0, frequency <= limits.maximumFrequencyHz
         else { return reject(command) }

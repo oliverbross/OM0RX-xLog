@@ -7,6 +7,60 @@ import XCTest
 final class TCIProtocolTests: XCTestCase {
     private let address = TCIReceiverAddress(trx: 0, channel: 0)
 
+    func testLegacySpotClickHasOnlyCallsignFrequencyAndProducerReceipt() {
+        var decoder = TCITextDecoder(), reducer = TCIStateReducer()
+        let first = Date(timeIntervalSince1970: 100), completed = first.addingTimeInterval(5)
+        reducer.apply(decoder.feed("clicked_on_spot:rn6"), receivedAt: first)
+        XCTAssertNil(reducer.state.lastLegacySpotClick)
+        reducer.apply(decoder.feed("lhf/P,7147500;"), receivedAt: completed)
+        XCTAssertEqual(reducer.state.lastLegacySpotClick?.callsign, "rn6lhf/P")
+        XCTAssertEqual(reducer.state.lastLegacySpotClick?.frequencyHz, 7_147_500)
+        XCTAssertEqual(reducer.state.lastLegacySpotClick?.receivedAt, completed)
+        XCTAssertTrue(reducer.state.frequencies.isEmpty)
+        XCTAssertTrue(reducer.state.transceivers.isEmpty)
+        XCTAssertTrue(reducer.state.unknownCommands.isEmpty)
+        XCTAssertFalse(reducer.state.ready)
+        XCTAssertNil(reducer.authoritativeSnapshot(for: address))
+        XCTAssertNil(reducer.state.lastRXSpotClick)
+    }
+
+    func testLegacySpotClickRejectsMalformedIndexedAndOutOfBoundsFormsWithoutReplacingEvent() {
+        var reducer = TCIStateReducer(limits: .init(maximumArgumentBytes: 12, maximumFrequencyHz: 30_000_000))
+        let receipt = Date(timeIntervalSince1970: 100)
+        XCTAssertTrue(reducer.apply(TCICommand(name: "CLICKED_ON_SPOT", arguments: ["RN6LHF", "7147500"]), receivedAt: receipt))
+        let retained = reducer.state.lastLegacySpotClick
+        for arguments in [[], ["RN6LHF"], ["0", "1", "RN6LHF", "7147500"],
+                          ["RN6LHF", "7147500", "CW"], ["", "7147500"], ["RN6 LHF", "7147500"],
+                          ["RN6LHF;X", "7147500"], ["TOO_LONG_CALLSIGN", "7147500"],
+                          ["RN6LHF", "-1"], ["RN6LHF", "30000001"], ["RN6LHF", "7.14"],
+                          ["RN6LHF", "1e6"], ["RN6LHF", "NaN"], ["RN6LHF", "9223372036854775808"]] {
+            XCTAssertFalse(reducer.apply(TCICommand(name: "CLICKED_ON_SPOT", arguments: arguments),
+                                         receivedAt: receipt.addingTimeInterval(10)), "\(arguments)")
+            XCTAssertEqual(reducer.state.lastLegacySpotClick, retained)
+        }
+    }
+
+    func testLegacySpotClickRemainsIndependentOfAddressedClicksVFOBoundsAndOtherReceipts() {
+        var decoder = TCITextDecoder(), reducer = TCIStateReducer()
+        let first = Date(timeIntervalSince1970: 100), second = first.addingTimeInterval(10)
+        reducer.apply(decoder.feed("VFO_LIMITS:0,1000000;CLICKED_ON_SPOT:RN6LHF,7147500;"), receivedAt: first)
+        XCTAssertEqual(reducer.state.lastLegacySpotClick?.frequencyHz, 7_147_500)
+        reducer.apply(decoder.feed("RX_CLICKED_ON_SPOT:0,1,OM0RX,14025000;APP_FOCUS:true;"), receivedAt: second)
+        XCTAssertEqual(reducer.state.lastLegacySpotClick?.callsign, "RN6LHF")
+        XCTAssertEqual(reducer.state.lastLegacySpotClick?.receivedAt, first)
+        let addressed = reducer.state.lastRXSpotClick
+        reducer.apply(decoder.feed("CLICKED_ON_SPOT:RN6LHF,7147500;"), receivedAt: second)
+        XCTAssertEqual(reducer.state.lastLegacySpotClick?.receivedAt, second)
+        reducer.apply(decoder.feed("CLICKED_ON_SPOT:OM0RX,0;"))
+        XCTAssertEqual(reducer.state.lastLegacySpotClick?.callsign, "OM0RX")
+        XCTAssertEqual(reducer.state.lastLegacySpotClick?.frequencyHz, 0)
+        XCTAssertNil(reducer.state.lastLegacySpotClick?.receivedAt)
+        XCTAssertEqual(reducer.state.lastRXSpotClick, addressed)
+        XCTAssertTrue(reducer.state.frequencies.isEmpty)
+        reducer = TCIStateReducer()
+        XCTAssertNil(reducer.state.lastLegacySpotClick)
+    }
+
     func testAppFocusIsServerGlobalWindowStateWithCompletionReceiptOnly() {
         var decoder = TCITextDecoder(), reducer = TCIStateReducer()
         let first = Date(timeIntervalSince1970: 100), completed = first.addingTimeInterval(5)
