@@ -769,6 +769,23 @@ public struct TCIServerMonitorEnableObservation: Equatable, Sendable {
     public let receivedAt: Date?
 }
 
+/// Official receiver AGC mode vocabulary (pinned TCI b081213f, page 24).
+public enum TCIAGCMode: String, CaseIterable, Sendable {
+    case normal
+    case fast
+    case off
+}
+
+/// Passive AGC_MODE setting report, scoped to one receiver, never a channel.
+/// It establishes no gain/processing effect, modulation, audio, readiness,
+/// control authority or tune/TX/RF state.
+public struct TCIReceiverAGCModeObservation: Equatable, Sendable {
+    public let mode: TCIAGCMode
+    public let rawModeToken: String
+    /// Local producer receipt time; nil means no timed receipt was supplied.
+    public let receivedAt: Date?
+}
+
 public struct TCIProtocolState: Equatable, Sendable {
     public internal(set) var protocolAnnouncement: TCIProtocolAnnouncement?
     public internal(set) var device: String?
@@ -798,6 +815,7 @@ public struct TCIProtocolState: Equatable, Sendable {
     public internal(set) var receiverChannelBalances: [TCIReceiverAddress: TCIReceiverChannelBalanceObservation] = [:]
     public internal(set) var serverMonitorVolume: TCIServerMonitorVolumeObservation?
     public internal(set) var serverMonitorEnable: TCIServerMonitorEnableObservation?
+    public internal(set) var receiverAGCModes: [Int: TCIReceiverAGCModeObservation] = [:]
     public internal(set) var transceivers: [Int: TCITransceiverState] = [:]
     public internal(set) var unknownCommands: [TCICommand] = []
     public internal(set) var diagnostics: [TCIDiagnostic] = []
@@ -861,6 +879,7 @@ public struct TCIStateReducer: Sendable {
         case "RX_BALANCE": applyReceiverChannelBalance(command, receivedAt: receivedAt)
         case "MON_VOLUME": applyMonitorVolume(command, receivedAt: receivedAt)
         case "MON_ENABLE": applyMonitorEnable(command, receivedAt: receivedAt)
+        case "AGC_MODE": applyAGCMode(command, receivedAt: receivedAt)
         case "MODULATION": applyModulation(command)
         case "RX_FILTER_BAND": applyFilter(command)
         case "SPLIT_ENABLE": applyBooleanState(command, keyPath: \.splitEnabled)
@@ -1010,6 +1029,17 @@ public struct TCIStateReducer: Sendable {
         // tuning and must not constrain this independent global notification.
         state.serverTransmitFrequency = TCIServerTransmitFrequencyObservation(
             frequencyHz: frequency, receivedAt: receivedAt
+        )
+    }
+
+    private mutating func applyAGCMode(_ command: TCICommand, receivedAt: Date?) {
+        guard command.arguments.count == 2,
+              let trx = validTRX(command.arguments[0]),
+              command.arguments[1].utf8.count <= limits.maximumArgumentBytes,
+              let mode = TCIAGCMode(rawValue: command.arguments[1].lowercased())
+        else { return reject(command) }
+        state.receiverAGCModes[trx] = TCIReceiverAGCModeObservation(
+            mode: mode, rawModeToken: command.arguments[1], receivedAt: receivedAt
         )
     }
 
@@ -1264,6 +1294,7 @@ public struct TCIStateReducer: Sendable {
             state.legacyReceiveSensors = state.legacyReceiveSensors.filter { $0.key < trxCount }
             state.transmitSensors = state.transmitSensors.filter { $0.key < trxCount }
             state.receiverMutes = state.receiverMutes.filter { $0.key < trxCount }
+            state.receiverAGCModes = state.receiverAGCModes.filter { $0.key < trxCount }
             state.receiverChannelVolumes = state.receiverChannelVolumes.filter { $0.key.trx < trxCount }
             state.receiverChannelBalances = state.receiverChannelBalances.filter { $0.key.trx < trxCount }
         }

@@ -148,6 +148,8 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
     public let serverMonitorVolume: TCIServerMonitorVolumeObservation?
     /// Independent monitoring-enable setting; never actual audio/TX activity or authority.
     public let serverMonitorEnable: TCIServerMonitorEnableObservation?
+    /// Independent receiver AGC settings; never gain, audio or control evidence.
+    public let receiverAGCModes: [Int: TCIReceiverAGCModeObservation]
 
     public init(
         sequence: UInt64,
@@ -174,7 +176,8 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
         receiverChannelVolumes: [TCIReceiverAddress: TCIReceiverChannelVolumeObservation] = [:],
         receiverChannelBalances: [TCIReceiverAddress: TCIReceiverChannelBalanceObservation] = [:],
         serverMonitorVolume: TCIServerMonitorVolumeObservation? = nil,
-        serverMonitorEnable: TCIServerMonitorEnableObservation? = nil
+        serverMonitorEnable: TCIServerMonitorEnableObservation? = nil,
+        receiverAGCModes: [Int: TCIReceiverAGCModeObservation] = [:]
     ) {
         self.sequence = sequence
         self.generation = generation
@@ -201,6 +204,7 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
         self.receiverChannelBalances = receiverChannelBalances
         self.serverMonitorVolume = serverMonitorVolume
         self.serverMonitorEnable = serverMonitorEnable
+        self.receiverAGCModes = receiverAGCModes
     }
 }
 
@@ -655,7 +659,8 @@ public actor TCIReadOnlyWebSocketSession {
             receiverChannelVolumes: reducer.state.receiverChannelVolumes,
             receiverChannelBalances: reducer.state.receiverChannelBalances,
             serverMonitorVolume: reducer.state.serverMonitorVolume,
-            serverMonitorEnable: reducer.state.serverMonitorEnable
+            serverMonitorEnable: reducer.state.serverMonitorEnable,
+            receiverAGCModes: reducer.state.receiverAGCModes
         )
         for continuation in continuations.values {
             continuation.yield(observationValue)

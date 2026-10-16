@@ -9,6 +9,76 @@ final class TCIWebSocketSessionTests: XCTestCase {
     private let endpoint = URL(string: "ws://127.0.0.1:40001")!
     private let address = TCIReceiverAddress(trx: 0, channel: 0)
 
+    func testAGCModePublishesIndependentReceiptsWithoutModulationAudioOrConfiguredSideEffects() async throws {
+        let connection = FakeTCIWebSocketConnection(), time = TCIEvidenceClock()
+        let session = TCIReadOnlyWebSocketSession(endpoint: endpoint, configuredAddress: address,
+            connector: FakeTCIWebSocketConnector(connections: [connection]), clock: { time.now() })
+        try await session.connect()
+        await connection.enqueue(.text(Self.discoveryAndState + "MON_ENABLE:true;MON_VOLUME:-12;ready;"))
+        let initial = try await waitForObservation(session) { $0.availability == .available }
+        time.advance(10)
+        let receipt = time.now()
+        await connection.enqueue(.text("AGC_MODE:0,OfF;AGC_MODE:1,FaSt;"))
+        let reported = try await waitForObservation(session, after: initial.sequence) { $0.receiverAGCModes.count == 2 }
+        XCTAssertEqual(reported.receiverAGCModes[0]?.mode, .off)
+        XCTAssertEqual(reported.receiverAGCModes[0]?.rawModeToken, "OfF")
+        XCTAssertEqual(reported.receiverAGCModes[1]?.mode, .fast)
+        XCTAssertEqual(reported.receiverAGCModes[1]?.rawModeToken, "FaSt")
+        XCTAssertEqual(reported.receiverAGCModes[0]?.receivedAt, receipt)
+        XCTAssertEqual(reported.receiverAGCModes[1]?.receivedAt, receipt)
+        XCTAssertEqual(reported.serverMonitorEnable, initial.serverMonitorEnable)
+        XCTAssertEqual(reported.serverMonitorVolume, initial.serverMonitorVolume)
+        XCTAssertEqual(reported.snapshot, initial.snapshot)
+        XCTAssertEqual(reported.snapshot?.transceiver.receiveEnabled, true)
+        XCTAssertEqual(reported.snapshot?.transceiver.modulation, "CW")
+        XCTAssertEqual(reported.snapshot?.transceiver.transmitting, false)
+        XCTAssertEqual(reported.snapshot?.transceiver.tuning, false)
+        XCTAssertEqual(reported.evidenceReceivedAt, initial.evidenceReceivedAt)
+        XCTAssertEqual(reported.filterEvidenceSequence, initial.filterEvidenceSequence)
+        XCTAssertEqual(reported.splitEvidenceReceivedAt, initial.splitEvidenceReceivedAt)
+        time.advance(10)
+        await connection.enqueue(.text("AGC_MODE:0,slow;"))
+        let invalid = try await waitForObservation(session, after: reported.sequence) { _ in true }
+        XCTAssertEqual(invalid.receiverAGCModes, reported.receiverAGCModes)
+        await connection.enqueue(.text("AGC_MODE:0,OfF;"))
+        let repeated = try await waitForObservation(session, after: invalid.sequence) { _ in true }
+        time.advance(20)
+        XCTAssertEqual(repeated.receiverAGCModes[0]?.receivedAt, receipt.addingTimeInterval(10))
+        XCTAssertEqual(repeated.receiverAGCModes[1], reported.receiverAGCModes[1])
+        XCTAssertEqual(repeated.snapshot, initial.snapshot)
+        XCTAssertEqual(repeated.evidenceReceivedAt, initial.evidenceReceivedAt)
+        let sent = await connection.sentTexts()
+        XCTAssertTrue(sent.isEmpty)
+        await session.disconnect()
+        let disconnected = await session.currentObservation()
+        XCTAssertTrue(disconnected.receiverAGCModes.isEmpty)
+    }
+
+    func testAGCModeBeforeDiscoveryGrantsNoReadinessAndReconnectClearsIt() async throws {
+        let first = FakeTCIWebSocketConnection(), second = FakeTCIWebSocketConnection()
+        let session = TCIReadOnlyWebSocketSession(endpoint: endpoint, configuredAddress: address,
+            connector: FakeTCIWebSocketConnector(connections: [first, second]))
+        try await session.connect()
+        await first.enqueue(.text("AGC_MODE:0,off;"))
+        let reported = try await waitForObservation(session) { !$0.receiverAGCModes.isEmpty }
+        XCTAssertEqual(reported.availability, .synchronizing)
+        XCTAssertNil(reported.snapshot)
+        XCTAssertNil(reported.evidenceReceivedAt)
+        await session.disconnect()
+        try await session.connect()
+        let reconnected = await session.currentObservation()
+        XCTAssertGreaterThan(reconnected.generation, reported.generation)
+        XCTAssertTrue(reconnected.receiverAGCModes.isEmpty)
+        await first.enqueue(.text("AGC_MODE:0,fast;"))
+        await second.enqueue(.text(Self.discoveryAndState + "ready;"))
+        let available = try await waitForObservation(session, after: reconnected.sequence) { $0.availability == .available }
+        XCTAssertTrue(available.receiverAGCModes.isEmpty)
+        let firstSent = await first.sentTexts(), secondSent = await second.sentTexts()
+        XCTAssertTrue(firstSent.isEmpty)
+        XCTAssertTrue(secondSent.isEmpty)
+        await session.disconnect()
+    }
+
     func testMonitorEnablePublishesOwnReceiptWithoutVolumeAudioOrConfiguredRadioSideEffects() async throws {
         let connection = FakeTCIWebSocketConnection(), time = TCIEvidenceClock()
         let session = TCIReadOnlyWebSocketSession(endpoint: endpoint, configuredAddress: address,
