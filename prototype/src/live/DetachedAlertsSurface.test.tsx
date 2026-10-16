@@ -113,7 +113,7 @@ it("persists table column choices, retains mandatory columns and full compact ev
   expect(cards.textContent).toContain("DX Cluster"); expect(cards.textContent).toContain("14074.0 kHz");
   expect(cards.textContent).toContain("New DXCC"); expect(cards.textContent).toContain("POTA evidence");
   expect(cards.textContent).toContain("3 reports");
-  expect(JSON.parse(localStorage.getItem(alertColumnsKey)!)).toEqual({ version:1, columns:["select", "call"] });
+  expect(JSON.parse(localStorage.getItem(alertColumnsKey)!)).toMatchObject({ version:1, columns:["select", "call"] });
   expect(native.invoke.mock.calls).toHaveLength(reads); expect(native.listen.mock.calls).toHaveLength(listeners);
   panel.unmount(); render(<DetachedAlertsSurface />); await act(async () => {});
   expect(screen.getAllByRole("columnheader")).toHaveLength(2);
@@ -129,6 +129,9 @@ it("keeps sorting, selected UUIDs and unsaved rules through column changes, repe
   fireEvent.change(screen.getByLabelText("Sort alerts"), { target:{ value:"callsign" } });
   fireEvent.click(screen.getAllByLabelText("Select alert ZL1AA, 14074.0 kHz, CW")[0]);
   fireEvent.click(screen.getByLabelText("Show Comment column"));
+  fireEvent.click(screen.getByRole("button", { name:"Move Frequency column left" }));
+  const frequencyWidth = screen.getByLabelText("Frequency column width");
+  fireEvent.change(frequencyWidth, { target:{ value:"210" } }); fireEvent.blur(frequencyWidth);
   expectHistoryOrder(["A1AA", "ZL1AA"]);
   value = { ...value, revision:2, entries:[{ ...value.entries[0], count:3, lastSeenMs:3 }] };
   await act(async () => { wakes["xlog:dx-alerts"](); });
@@ -137,6 +140,8 @@ it("keeps sorting, selected UUIDs and unsaved rules through column changes, repe
   expect((screen.getByLabelText("Rule 1 name") as HTMLInputElement).value).toBe("Unsaved rule");
   expect((screen.getByLabelText("Sort alerts") as HTMLSelectElement).value).toBe("callsign");
   expect(screen.queryByRole("columnheader", { name:"Comment" })).toBeNull();
+  expect(screen.getAllByRole("columnheader")[2].textContent).toBe("Frequency");
+  expect((screen.getByLabelText("Frequency column width") as HTMLInputElement).value).toBe("210");
   value = { ...value, epoch:"00000000-0000-4000-8000-000000000009", revision:0 };
   await act(async () => { wakes["xlog:dx-alerts"](); });
   expect((screen.getByRole("button", { name:"Clear selected (0)" }) as HTMLButtonElement).disabled).toBe(true);
@@ -153,9 +158,49 @@ it("keeps column controls usable when storage is denied or full", async () => {
   render(<DetachedAlertsSurface />); await act(async () => {});
   fireEvent.click(screen.getByLabelText("Show Comment column"));
   expect(screen.queryByRole("columnheader", { name:"Comment" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name:"Move History column left" }));
+  const callWidth = screen.getByLabelText("Call column width");
+  fireEvent.change(callWidth, { target:{ value:"190" } }); fireEvent.blur(callWidth);
+  expect((callWidth as HTMLInputElement).value).toBe("190");
   fireEvent.click(screen.getByRole("button", { name:"Reset columns" }));
   expect(screen.getByRole("columnheader", { name:"Comment" })).toBeTruthy();
   vi.restoreAllMocks();
+});
+
+it("orders headers and cells together, bounds widths and restores layout without changing compact cards", async () => {
+  localStorage.setItem(alertColumnsKey, JSON.stringify({ version:1, columns:["call", "source", "frequency", "mode", "why", "comment", "history"] }));
+  const value = { ...dxFrame(), entries:[{ ...historyEntry(4, "OM0RX", 14074, 3, 61_001), comment:"POTA evidence" }] };
+  native.invoke.mockImplementation(async command => command === "alerts_snapshot" ? frame() : value);
+  const panel = render(<DetachedAlertsSurface />); await act(async () => {});
+  const cards = screen.getByLabelText("DX alert history").innerHTML;
+  const reads = native.invoke.mock.calls.length, listeners = native.listen.mock.calls.length;
+  expect((screen.getByRole("button", { name:"Move Select column right" }) as HTMLButtonElement).disabled).toBe(true);
+  expect((screen.getByRole("button", { name:"Move Call column right" }) as HTMLButtonElement).disabled).toBe(true);
+  expect((screen.getByRole("button", { name:"Move Source column left" }) as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name:"Move Frequency column left" }));
+  expect(screen.getAllByRole("columnheader").map(node => node.textContent)).toEqual(["Select", "Call", "Frequency", "Source", "Mode", "Why", "Comment", "History"]);
+  const cells = screen.getAllByRole("row")[1].querySelectorAll("td");
+  expect(cells[2].textContent).toBe("14074.0 kHz"); expect(cells[3].textContent).toBe("DX Cluster");
+  const frequencyWidth = screen.getByLabelText("Frequency column width");
+  fireEvent.change(frequencyWidth, { target:{ value:"9999" } }); fireEvent.blur(frequencyWidth);
+  expect((frequencyWidth as HTMLInputElement).value).toBe("480");
+  const callWidth = screen.getByLabelText("Call column width");
+  fireEvent.change(callWidth, { target:{ value:"1" } }); fireEvent.blur(callWidth);
+  expect((callWidth as HTMLInputElement).value).toBe("96");
+  fireEvent.change(callWidth, { target:{ value:"" } }); fireEvent.blur(callWidth);
+  expect((callWidth as HTMLInputElement).value).toBe("96");
+  expect(document.querySelectorAll("col")[2].style.width).toBe("480px");
+  expect(screen.getByLabelText("DX alert history").innerHTML).toBe(cards);
+  fireEvent.click(screen.getByLabelText("Show Source column"));
+  expect((screen.getByLabelText("Source column width") as HTMLInputElement).disabled).toBe(true);
+  expect(native.invoke.mock.calls).toHaveLength(reads); expect(native.listen.mock.calls).toHaveLength(listeners);
+  panel.unmount(); render(<DetachedAlertsSurface />); await act(async () => {});
+  expect(screen.getAllByRole("columnheader").map(node => node.textContent)).toEqual(["Select", "Call", "Frequency", "Mode", "Why", "Comment", "History"]);
+  expect((screen.getByLabelText("Frequency column width") as HTMLInputElement).value).toBe("480");
+  expect((screen.getByLabelText("Call column width") as HTMLInputElement).value).toBe("96");
+  fireEvent.click(screen.getByRole("button", { name:"Reset columns" }));
+  expect(screen.getAllByRole("columnheader").map(node => node.textContent)).toEqual(["Select", "Call", "Source", "Frequency", "Mode", "Why", "Comment", "History"]);
+  expect((screen.getByLabelText("Frequency column width") as HTMLInputElement).value).toBe("110");
 });
 function expectHistoryOrder(calls: string[]) {
   expect(screen.getAllByRole("row").slice(1).map(row => row.querySelector(".dx-call")?.textContent)).toEqual(calls);

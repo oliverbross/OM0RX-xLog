@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { connectAlerts, type AlertsSnapshot, type AlertCode } from "./alerts";
 import { clearDxAlerts, clearSelectedDxAlerts, connectDxAlerts, saveDxAlerts, testDxAlert, type DxAlertRule, type DxAlertsSnapshot } from "./dxAlerts";
 import { AlertColumns, useAlertColumns } from "./AlertColumns";
-import { alertColumns } from "./alertColumnPreferences";
+import { orderedAlertColumns } from "./alertColumnPreferences";
 import "./DetachedReferenceSurface.css";
 const messages: Record<AlertCode, string> = { radio_inhibitors: "Radio safety inhibitors reported", radio_alarm: "Station alarm reported — review Station Status or Desk", rotor_uncertain: "Rotor outcome uncertain — review Rotor before further commands" };
 export function DetachedAlertsSurface() {
@@ -13,6 +13,7 @@ export function DetachedAlertsSurface() {
   const [sort, setSort] = useState<AlertSort>("recent");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [columnPreferences, setColumnPreferences] = useAlertColumns();
+  const visibleColumns = orderedAlertColumns(columnPreferences.order).filter(([id]) => columnPreferences.columns.includes(id));
   const latestDx = useRef<DxAlertsSnapshot | null>(null);
   const receiveDx = (value: DxAlertsSnapshot) => {
     const previous = latestDx.current;
@@ -68,7 +69,14 @@ export function DetachedAlertsSurface() {
       <p className="secondary">Each rule requires all its filled conditions. Comment contains matches literal text, ignoring case; leave it blank for any comment.</p>
       <div className="dx-alert-actions"><button disabled={draft.rules.length >= dx.limits.maximumRules} onClick={() => setDraft({ ...draft, rules:[...draft.rules,newRule()] })}>Add rule</button><button onClick={() => setDraft(structuredClone(dx.configuration))}>Revert</button><button className="primary" onClick={() => void action(() => saveDxAlerts(dx,{ enabled:draft.enabled,dedupSeconds:draft.dedupSeconds,retentionMinutes:draft.retentionMinutes,nativePopup:draft.nativePopup,notificationSound:draft.notificationSound,rules:draft.rules }), "Rules saved. Existing spots were baselined without alerts.")}>Save rules</button></div>
     </details>}
-    {entries.length ? <div className="dx-alert-table"><table><thead><tr>{alertColumns.filter(([id]) => columnPreferences.columns.includes(id)).map(([id, label]) => <th scope="col" key={id}>{label}</th>)}</tr></thead><tbody>{entries.map(entry => <tr key={entry.id}><td><AlertSelection entry={entry} checked={selectedIds.includes(entry.id)} onChange={selectEntry}/></td><td className="dx-call">{entry.callsign}</td>{columnPreferences.columns.includes("source") && <td>{sourceLabel(entry)}</td>}{columnPreferences.columns.includes("frequency") && <td>{entry.test ? "Test" : `${entry.frequencyKHz.toFixed(1)} kHz`}</td>}{columnPreferences.columns.includes("mode") && <td>{entry.mode}</td>}{columnPreferences.columns.includes("why") && <td><AlertEvidence entry={entry}/></td>}{columnPreferences.columns.includes("comment") && <td className="dx-comment">{entry.comment || "—"}</td>}{columnPreferences.columns.includes("history") && <td><AlertHistory entry={entry}/></td>}</tr>)}</tbody></table>
+    {entries.length ? <div className="dx-alert-table"><table style={{ width:visibleColumns.reduce((total, [id]) => total + columnPreferences.widths[id], 0) }}>
+      <colgroup>{visibleColumns.map(([id]) => <col key={id} style={{ width:columnPreferences.widths[id] }}/>)}</colgroup>
+      <thead><tr>{visibleColumns.map(([id, label]) => <th scope="col" key={id}>{label}</th>)}</tr></thead><tbody>{entries.map(entry => {
+        const cells = { select:<AlertSelection entry={entry} checked={selectedIds.includes(entry.id)} onChange={selectEntry}/>, call:entry.callsign,
+          source:sourceLabel(entry), frequency:entry.test ? "Test" : `${entry.frequencyKHz.toFixed(1)} kHz`, mode:entry.mode,
+          why:<AlertEvidence entry={entry}/>, comment:entry.comment || "—", history:<AlertHistory entry={entry}/> };
+        return <tr key={entry.id}>{visibleColumns.map(([id]) => <td key={id} className={id === "call" ? "dx-call" : id === "comment" ? "dx-comment" : undefined}>{cells[id]}</td>)}</tr>;
+      })}</tbody></table>
       <div className="dx-alert-cards" aria-label="DX alert history">{entries.map(entry => <article className="dx-alert-card" key={entry.id}><header><AlertSelection entry={entry} checked={selectedIds.includes(entry.id)} onChange={selectEntry}/><strong className="dx-call">{entry.callsign}</strong><span>{sourceLabel(entry)}</span></header>
         <p className="dx-alert-card-spot">{entry.test ? "Test alert" : `${entry.frequencyKHz.toFixed(1)} kHz`} · {entry.band} · {entry.mode}</p><AlertEvidence entry={entry}/>{entry.comment && <p className="dx-comment">{entry.comment}</p>}<AlertHistory entry={entry}/></article>)}</div>
     </div> : <p className="dx-alert-empty">No DX alerts yet. Enabling rules never tunes or transmits.</p>}

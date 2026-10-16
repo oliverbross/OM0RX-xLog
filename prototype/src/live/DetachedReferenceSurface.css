@@ -28,8 +28,11 @@
 .dx-alert-settings summary { cursor:pointer; color:var(--cyan); font-weight:700; }
 .dx-alert-columns { margin-top:10px; }
 .dx-alert-columns summary { cursor:pointer; color:var(--cyan); }
-.dx-alert-column-fields { display:flex; flex-wrap:wrap; gap:8px 16px; margin-top:8px; }
+.dx-alert-column-fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:8px 16px; margin-top:8px; }
 .dx-alert-column-fields label { display:flex; align-items:center; gap:4px; }
+.dx-alert-column-control { display:grid; grid-template-columns:minmax(0,1fr) 70px; align-items:center; gap:6px; }
+.dx-alert-column-control input[type="number"] { width:100%; min-width:0; }
+.dx-alert-column-moves { grid-column:1 / -1; display:flex; gap:6px; }
 .dx-alert-global,.dx-alert-rule-fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; margin-top:10px; }
 .dx-alert-global label,.dx-alert-rule-fields label { display:grid; gap:4px; color:var(--secondary); font-size:11px; }
 .dx-alert-global label:first-child { display:flex; align-items:center; }
@@ -39,14 +42,15 @@
 .dx-alert-error { color:var(--error); }
 .dx-alert-message { color:var(--teal); }
 .dx-alert-table { margin-top:10px; overflow:auto; border:1px solid var(--border); border-radius:6px; }
-.dx-alert-table table { width:100%; min-width:580px; border-collapse:collapse; table-layout:auto; }
-.dx-alert-table th,.dx-alert-table td { padding:7px 9px; border-bottom:1px solid var(--border); text-align:left; white-space:nowrap; }
+.dx-alert-table table { border-collapse:collapse; table-layout:fixed; }
+.dx-alert-table th,.dx-alert-table td { padding:7px 9px; border-bottom:1px solid var(--border); text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .dx-alert-table tbody tr:last-child td { border-bottom:0; }
 .dx-alert-table .dx-call { color:var(--teal); font-weight:800; }
-.dx-alert-table .dx-comment { min-width:160px; max-width:320px; white-space:normal; overflow-wrap:anywhere; }
+.dx-alert-table .dx-comment { white-space:normal; overflow-wrap:anywhere; }
 .dx-alert-evidence,.dx-alert-history { display:grid; gap:3px; }
 .dx-alert-evidence { min-width:180px; max-width:320px; white-space:normal; }
 .dx-alert-evidence > * { overflow-wrap:anywhere; }
+.dx-alert-table table .dx-alert-evidence { min-width:0; max-width:none; }
 .dx-alert-evidence strong { color:var(--text); }
 .dx-alert-evidence span,.dx-alert-history span:last-child,.dx-alert-card-spot { color:var(--secondary); font-size:11px; }
 .dx-alert-cards { display:none; }
