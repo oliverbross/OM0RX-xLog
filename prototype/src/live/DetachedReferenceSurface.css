@@ -10,8 +10,9 @@
 .detached-propagation-app .live-conditions { display: flex; flex-direction: column; align-items: stretch; width: 100%; min-width: 0; gap: 16px; }
 .detached-propagation-app .condition-indices { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
 .detached-propagation-app .condition-indices button { margin-left: auto; }
-.detached-propagation-app .condition-bands { width: 100%; max-width: none; flex: none; }
-.detached-propagation-app .condition-bands > div { min-width: 0; }
+.detached-propagation-app .condition-bands { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); grid-template-rows: auto 8px 8px; gap: 4px 5px; width: 100%; max-width: none; flex: none; }
+.detached-propagation-app .condition-bands > div { display: grid; grid-row: span 3; grid-template-rows: subgrid; min-width: 0; overflow-wrap: anywhere; }
+.detached-propagation-app .condition-bands i { height: auto; margin-top: 0; }
 .detached-propagation-app .condition-source { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; }
 .detached-antenna-app .desk-antenna { width: 100%; min-width: 0; }
 @media (max-width: 380px) { .detached-reference-app dl { grid-template-columns: minmax(0, 1fr); gap: 4px; } .detached-reference-app dd { margin-bottom: 8px; } }
