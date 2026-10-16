@@ -74,6 +74,11 @@ struct LiveOperatingGoalMethodsTests {
         #expect(scope["profile_id"] as? Int == 7)
         #expect(scope["callsign"] as? String == "OM0RX")
         #expect(scope["all_stations"] as? Bool == false)
+        let sources = try #require(result["sources"] as? [String: [String: Any]])
+        #expect(sources["contacts"]?["state"] as? String == "retained")
+        #expect(sources["opportunities"]?["state"] as? String == "retained")
+        #expect(sources["cluster_observations"]?["state"] as? String == "not_included")
+        #expect(sources["cluster_observations"]?["count"] as? Int == 0)
         let rows = try #require(result["evaluations"] as? [[String: Any]])
         #expect(rows.count == 3)
         for row in rows {

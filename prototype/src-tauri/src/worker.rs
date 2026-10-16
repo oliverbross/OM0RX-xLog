@@ -72,6 +72,10 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
         return if matches!(request["method"].as_str(), Some("logbook_operator_draft" | "cluster_history")) { Ok(()) }
         else { Err("Previous QSOs can only read the shared draft and local contact history.".into()) };
     }
+    if label == "operating-goals" {
+        return if request["method"] == "operating_goals_evaluate" { Ok(()) }
+        else { Err("Operating Goals can only evaluate explicit targets against retained local evidence.".into()) };
+    }
     if label == "callsign-intelligence" {
         return if matches!(request["method"].as_str(), Some("logbook_operator_draft" | "lookup_call"
             | "logbook_previous" | "logbook_matrix" | "cluster_history" | "workspace_preferences_load")) { Ok(()) }
@@ -218,6 +222,7 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "workspace_rotor_configuration_save",
         "station_snapshot",
         "connection_doctor_project",
+        "operating_goals_evaluate",
         "station_power_selection",
         "station_radio",
         "station_capabilities",
@@ -883,6 +888,15 @@ mod tests {
         assert!(validate_request(&request).is_ok());
         for label in ["main", "monitor", "station-status", "connection-doctor", "settings"] {
             assert!(validate_surface(label, &request).is_err(), "{label}");
+        }
+    }
+    #[test]
+    fn operating_goals_window_has_only_its_read_only_evaluator() {
+        let request = json!({"id":"goals","method":"operating_goals_evaluate","params":{"now":1,"goals":[{"type":"callsign","callsign":"K1ABC"}]}});
+        assert!(validate_request(&request).is_ok());
+        assert!(validate_surface("operating-goals", &request).is_ok());
+        for method in ["opportunities_refresh", "logbook_list", "logbook_contact_apply", "station_tune", "settings_load"] {
+            assert!(validate_surface("operating-goals", &json!({"id":"blocked","method":method,"params":{}})).is_err(), "{method}");
         }
     }
     #[test]

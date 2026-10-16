@@ -670,6 +670,19 @@ mod tests {
         assert!(host.operations.is_empty());
     }
     #[test]
+    fn operating_goals_uses_independent_window_lifecycle_and_closes_for_canvas() {
+        let mut engine = Engine::default();
+        let mut host = FakeHost::new(vec![layout(1, &[])]);
+        engine.open(&mut host, "operating-goals").unwrap();
+        assert_eq!(host.operations, ["show:operating-goals:true"]);
+        let plan = engine.planner.plan(&host.last, false).unwrap();
+        engine.canvas_completed(&plan);
+        engine.planner.forget_destroyed("operating-goals");
+        host.operations.clear();
+        reconcile(&mut engine, &mut host, false).unwrap();
+        assert!(host.operations.is_empty());
+    }
+    #[test]
     fn completed_canvas_close_cannot_be_undone_by_passive_custom_layout_refresh() {
         let mut engine = Engine::default();
         let mut host = FakeHost::new(vec![layout(1, &["logbook"])]);

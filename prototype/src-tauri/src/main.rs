@@ -463,6 +463,9 @@ async fn navigate_workspace(app: tauri::AppHandle, screen: String) -> Result<(),
             update_workspace_mode_checks(&native, reply["result"]["layout"]["document"]["activePresetID"] == "windowed")?;
             workspace_mode_ready()
         }).await.map_err(|_| "Workspace mode guard could not be checked.".to_string())??;
+    } else if screen == "operating-goals" {
+        // This read-only utility has no Canvas panel or persisted placement.
+        return open_detached_workspace(app, screen).await;
     } else if workspace_windows::supports(&screen) {
         let direct = tauri::async_runtime::spawn_blocking(|| {
             let id = format!("workspace-menu-mode-{}", uuid::Uuid::new_v4());
@@ -998,7 +1001,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
         return Err("Use the shared CW session for CW output controls.".into());
     }
     // This explicit role gate precedes every native special dispatcher too.
-    if matches!(workspace_windows::surface_role(window.label()), "monitor" | "log-qso" | "spot-history" | "world-map" | "band-maps" | "callsign-intelligence" | "previous-qsos" | "station-control" | "cw" | "rotor" | "station-status" | "propagation" | "station-identity" | "alerts" | "antenna") { worker::validate_surface(window.label(), &request)?; }
+    if matches!(workspace_windows::surface_role(window.label()), "monitor" | "log-qso" | "spot-history" | "world-map" | "band-maps" | "callsign-intelligence" | "previous-qsos" | "operating-goals" | "station-control" | "cw" | "rotor" | "station-status" | "propagation" | "station-identity" | "alerts" | "antenna") { worker::validate_surface(window.label(), &request)?; }
     if state.path.is_none() && matches!(method, "opportunities_snapshot" | "opportunities_refresh") {
         worker::validate_surface(window.label(), &request)?;
         return tauri::async_runtime::spawn_blocking(move || opportunity_selection::snapshot(request)).await
