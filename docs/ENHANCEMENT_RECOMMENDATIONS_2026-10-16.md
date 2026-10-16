@@ -151,6 +151,10 @@ TX, configured freshness/readiness, control or RF authority.
 mode, independent receipt, TRX-discovery pruning and reconnect reset (**129/129** agent,
 **6/6** root focused). No gain/modulation, receiver-enable, audio, configured freshness/
 readiness, control or RF authority is inferred.
+`fd12703` separately retains passive per-receiver TCI 2.0 `RX_BIN_ENABLE` exact Boolean
+tokens plus parsed state and producer receipts, with TRX-discovery pruning and reconnect
+reset (**147/147** focused protocol/session checks). It adds no encoder, query, setter,
+capability, audio/readiness/control, tune, TX or RF inference.
 The recurring closeCount **0 vs 1** lifecycle failure remains open; focused
 source checks do not establish package/native or live station/provider/network/RF acceptance.
 See [filter](TCI_RECEIVE_FILTER_SOURCE_ACCEPTANCE_2026-10-16.md) and
@@ -167,8 +171,8 @@ acceptance remain open.
   package/installed/live acceptance and any optional data correction remain open. Neither
   `54b4c84` nor `210a0ea` exercised live services, station/hardware/RF or operator-data changes.
 - Source tests prove source behavior, not the installed package, live account or hardware.
-- The installed alpha.31 build remains the previously accepted baseline until a new exact
-  source package is explicitly installed and accepted.
+- The installed alpha.32 package is the separately accepted source `e270ab5`; later source
+  commits are not claimed to be inside that bundle.
 - The active FTP/FTPS/SFTP work remains independently owned and is not modified by this
   programme.
 - The attached review used an older checkpoint for several claims; this reconciliation uses

@@ -7,9 +7,22 @@ packaged UI result. Keep unresolved items here across releases.
 
 ## Current delivery boundary
 
-Tracked implementation checkpoint: `b1691a5712ef9e8bbcd29038f12ade0954334735`.
+Tracked implementation checkpoint: `fd12703`.
 Source/test/browser results do not establish packaged/native, live-provider or hardware
-acceptance; installed alpha.31 remains unchanged.
+acceptance. The installed alpha.32 package is the separately accepted source `e270ab5`;
+later source commits are not claimed to be inside that bundle.
+
+- **Alpha.32 installed, 16 October:** Exact packaged source `e270ab5` passes the clean
+  33-check isolated native acceptance with `station_io=false`; Developer ID deep signing
+  passes and notarization remains explicitly absent. Alpha.31 plus cloned application
+  support are retained recoverably. See
+  [macOS alpha.32 acceptance](MACOS_ALPHA32_RELEASE_ACCEPTANCE_2026-10-16.md).
+- **RUMlog-first / QLog-second continuation, 16 October — pushed source only:**
+  `544b763` adds persistent, keyboard-accessible Logbook column ordering without changing
+  contact selection or mutation. `f517d9a` adds deterministic Alerts history sorting.
+  `fd12703` adds passive TCI 2.0 `RX_BIN_ENABLE` observation with no encoder, setter,
+  capability/readiness/control or RF inference. These commits post-date installed alpha.32;
+  package/native visual and live-provider acceptance remain open.
 
 - **External reference order, 16 October:** RUMlogNG is #1, QLog #2 and OpsLog
   v0.51.10 #3 as a documented supplementary product/behavior reference. The
