@@ -7,6 +7,16 @@ packaged UI result. Keep unresolved items here across releases.
 
 ## Current delivery boundary
 
+- **Enhancement review reconciled, 16 October — staged programme:** The 24 supplied
+  recommendations are classified against current source in
+  [`ENHANCEMENT_RECOMMENDATIONS_2026-10-16.md`](ENHANCEMENT_RECOMMENDATIONS_2026-10-16.md).
+  R01 is source-fixed in `799d9c5`: CTY rules and dates now distinguish modern PJ
+  entities while stored DXCC overrides remain untouched. R04's first compatibility stage
+  is source-complete in `429dcae` and `7e6cfce`: UTF-8 ADIF lengths, embedded terminators,
+  whole-record filtering and FT4/FT2/JTTY interchange normalization have focused Swift
+  **16/16** and frontend **1,092/1,092** proof. Full ADIF 3.1.8 conformance, installed
+  package, copied real-log review and any correction of existing records remain open.
+
 - **Full native TCI provider requested, 16 October — saved read-only source integration
   complete:** SunSDR2, ExpertSDR and compatible TCI servers are now a first-class radio
   programme. The bounded Swift protocol/reducer and receive-only WebSocket session retain

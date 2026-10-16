@@ -2,6 +2,23 @@
 
 Last updated: 2026-10-16
 
+## Enhancement review reconciliation — merged; first correctness fixes source complete
+
+The 24-item external review is reconciled against the active branch in
+[`docs/ENHANCEMENT_RECOMMENDATIONS_2026-10-16.md`](docs/ENHANCEMENT_RECOMMENDATIONS_2026-10-16.md).
+It is a dependency-ordered extension of the existing programme, not a replacement backlog.
+The confirmed PJ/DXCC defect is fixed in `799d9c5`: the resolver no longer routes every
+`PJ*` callsign to Bangladesh and now honors source prefixes, validity dates and explicit
+stored DXCC values. Focused resolver/runtime checks pass **3/3**; no QSO was rewritten.
+
+The first ADIF 3.1.8 audit stage is committed in `429dcae` and `7e6cfce`. Compatibility
+parsing now uses UTF-8 byte lengths and cannot split records on terminator text inside a
+field. Editor FT4, FT2 and JTTY export as `MODE=MFSK` plus `SUBMODE`, while local values,
+unknown application fields and station/RX/TX data remain intact. Focused Swift **16/16**
+and frontend ADIF **1,092/1,092** checks pass. The file header deliberately remains 3.1.7
+until the remaining enumeration/deprecation audit is complete. Installed/package and
+real-log acceptance remain open.
+
 ## Durable GUI PTT owner — source implementation; package/live/RF acceptance open
 
 Main Station Control now routes explicit Agent/FLEX PTT on/off through one native

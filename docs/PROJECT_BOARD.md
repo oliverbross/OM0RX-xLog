@@ -14,6 +14,16 @@ the configured barefoot drive on Standby and the exact pre-Operate drive after a
 failed or cancelled Operate request; Windows installation and physical readback
 acceptance remain open.
 
+The 16 October enhancement review and 24-item workbook are now reconciled into
+[`ENHANCEMENT_RECOMMENDATIONS_2026-10-16.md`](ENHANCEMENT_RECOMMENDATIONS_2026-10-16.md)
+with current-source reuse points, dependencies and acceptance gates. R01 is fixed in
+`799d9c5` without rewriting contacts: PJ2/PJ4/PJ5-PJ6/PJ7 now follow CTY source rules,
+dates and stored overrides instead of an unconditional Bangladesh mapping. R04's first
+two compatibility fixes are committed in `429dcae` and `7e6cfce`: UTF-8 ADIF scanning,
+whole-record filtering and FT4/FT2/JTTY MFSK-submode export now have focused fixtures.
+The exporter remains labeled 3.1.7 until the full 3.1.8 enum/deprecation audit passes.
+Package/real-log acceptance and any optional record correction remain open.
+
 Full native TCI support for SunSDR/ExpertSDR and compatible TCI servers is now a
 tracked programme. The official ExpertSDR3 protocol is normative and QLog behavior is an
 interoperability reference only. Source now includes bounded protocol/discovery and binary
