@@ -2,9 +2,11 @@ import Foundation
 
 public enum OperatorDraftPowerError: Error { case invalid, revisionExhausted }
 
-/// Transport-independent KPA500 meter evidence. Radio drive percentages are not
-/// meter readings. Native owners map validated observations into this DTO.
+/// Transport-independent measured-output evidence. Radio drive percentages are
+/// not meter readings. Native owners map validated radio/amplifier observations
+/// into this DTO.
 public struct OperatorDraftPowerSample: Codable, Equatable, Sendable {
+    public static let measuredSources: Set<String> = ["kpa500_output", "radio_output"]
     public let source: String
     public let unit: String
     public let watts: Double
@@ -17,7 +19,7 @@ public struct OperatorDraftPowerSample: Codable, Equatable, Sendable {
     public init?(source: String = "kpa500_output", unit: String = "W", watts: Double,
                  observedAt: Date, radioObservedAt: Date, amplifierObservedAt: Date,
                  receivedAt: Date, sessionID: UUID) {
-        guard source == "kpa500_output", unit == "W", watts.isFinite,
+        guard Self.measuredSources.contains(source), unit == "W", watts.isFinite,
               watts > 0, watts <= 1_000,
               [observedAt, radioObservedAt, amplifierObservedAt, receivedAt].allSatisfy(Self.validDate) else { return nil }
         self.source = source; self.unit = unit; self.watts = watts
@@ -45,6 +47,11 @@ public struct OperatorDraftPowerSample: Codable, Equatable, Sendable {
     fileprivate static func validDate(_ date: Date) -> Bool {
         let value = date.timeIntervalSince1970
         return value.isFinite && value > 0 && value <= 4_102_444_800
+    }
+
+    public static func matches(source: String, meterSource: String) -> Bool {
+        measuredSources.contains(source)
+            && (meterSource == "measured_output" || meterSource == source)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -76,14 +83,15 @@ public struct OperatorDraftPowerContext: Codable, Equatable, Sendable {
     public let meterSource: String
 
     public init(providerID: String, selectionID: String, sessionID: UUID, sessionStartedAt: Date,
-                source: String = "direct_agent", meterSource: String = "kpa500_output") {
+                source: String = "direct_agent", meterSource: String = "measured_output") {
         self.providerID = providerID; self.selectionID = selectionID
         self.sessionID = sessionID; self.sessionStartedAt = sessionStartedAt
         self.source = source; self.meterSource = meterSource
     }
 
     fileprivate var isValid: Bool {
-        source == "direct_agent" && meterSource == "kpa500_output"
+        source == "direct_agent"
+            && (meterSource == "measured_output" || OperatorDraftPowerSample.measuredSources.contains(meterSource))
             && [providerID, selectionID].allSatisfy { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && $0.utf8.count <= 256 }
             && OperatorDraftPowerSample.validDate(sessionStartedAt)
     }
@@ -227,7 +235,8 @@ public struct OperatorDraftPowerState: Codable, Equatable, Sendable {
     @discardableResult public mutating func accept(sample: OperatorDraftPowerSample,
                                                   expectedScopeID: UUID, now: Date) throws -> Bool {
         guard enabled, !manualOverride, let scope = activeScope, scope.id == expectedScopeID,
-              sample.source == scope.context.meterSource, sample.sessionID == scope.context.sessionID,
+              OperatorDraftPowerSample.matches(source: sample.source, meterSource: scope.context.meterSource),
+              sample.sessionID == scope.context.sessionID,
               sample.isFresh(at: now),
               sample.scopeEvidenceDates.allSatisfy({ $0 >= scope.armedAt && $0 >= scope.context.sessionStartedAt }),
               lastObservedAt.map({ sample.observedAt > $0 }) ?? true else { return false }

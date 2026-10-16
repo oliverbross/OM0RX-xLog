@@ -347,6 +347,8 @@ enum RemoteAgentStateDecoder {
             0
         } else if kpa?.operate == true, let output = kpa?.outputPowerW {
             output
+        } else if let output = radio.measuredOutputW {
+            output
         } else {
             radio.drive
         }
@@ -411,17 +413,29 @@ enum RemoteAgentStateDecoder {
     private static func measuredPower(radio: RadioDTO, kpa: KPADTO?, receivedAt: Date) -> MeasuredTransmitPowerObservation? {
         guard radio.connected == true, radio.known == true, radio.stale == false,
               radio.stationBound == true, radio.mox == true,
-              let kpa, kpa.enabled == true, kpa.connected == true, kpa.operate == true,
-              kpa.quality == "good", kpa.meterComplete == true,
-              kpa.meterError == nil || kpa.meterError == "",
-              kpa.fault == "0" || kpa.fault == "00",
-              let watts = kpa.outputPowerW, let meterTimestamp = kpa.meterSampleObservedAt,
-              let radioObservation = radio.observedAt.flatMap(observationDate),
-              let amplifierTimestamp = kpa.observedAt else { return nil }
+              let radioObservation = radio.observedAt.flatMap(observationDate) else { return nil }
+        if let kpa, kpa.enabled == true, kpa.connected == true, kpa.operate == true,
+           kpa.quality == "good", kpa.meterComplete == true,
+           kpa.meterError == nil || kpa.meterError == "",
+           kpa.fault == "0" || kpa.fault == "00",
+           let watts = kpa.outputPowerW, let meterTimestamp = kpa.meterSampleObservedAt,
+           let amplifierTimestamp = kpa.observedAt,
+           let observation = MeasuredTransmitPowerObservation(
+              source: .kpa500Output, watts: watts,
+              observedAt: Date(timeIntervalSince1970: meterTimestamp),
+              radioObservedAt: radioObservation,
+              amplifierObservedAt: Date(timeIntervalSince1970: amplifierTimestamp), receivedAt: receivedAt) {
+            return observation
+        }
+        guard radio.powerMeterComplete == true,
+              radio.powerMeterError == nil || radio.powerMeterError == "",
+              let watts = radio.measuredOutputW,
+              let meterTimestamp = radio.powerMeterSampleObservedAt else { return nil }
         return MeasuredTransmitPowerObservation(
-            watts: watts, observedAt: Date(timeIntervalSince1970: meterTimestamp),
-            radioObservedAt: radioObservation,
-            amplifierObservedAt: Date(timeIntervalSince1970: amplifierTimestamp), receivedAt: receivedAt)
+            source: .radioOutput, watts: watts,
+            observedAt: Date(timeIntervalSince1970: meterTimestamp),
+            radioObservedAt: radioObservation, amplifierObservedAt: radioObservation,
+            receivedAt: receivedAt)
     }
 
     private static func observationDate(_ timestamp: String) -> Date? {
@@ -554,6 +568,10 @@ private struct RadioDTO: Decodable {
     var mox: Bool?
     var cwSpeed: Int?
     var drive: Double?
+    var measuredOutputW: Double?
+    var powerMeterSampleObservedAt: Double?
+    var powerMeterComplete: Bool?
+    var powerMeterError: String?
     var interlockState: String?
     var ritEnabled: Bool?
     var ritOffsetHz: Int?
@@ -569,6 +587,10 @@ private struct RadioDTO: Decodable {
 
     enum CodingKeys: String, CodingKey {
         case connected, known, stale, frequency, mode, mox, vfos, transmit, drive
+        case measuredOutputW = "measured_output_w"
+        case powerMeterSampleObservedAt = "power_meter_sample_observed_at"
+        case powerMeterComplete = "power_meter_complete"
+        case powerMeterError = "power_meter_error"
         case interlockState = "interlock_state"
         case stationBound = "station_bound"
         case stationName = "station_name"

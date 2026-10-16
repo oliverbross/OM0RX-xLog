@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.4.0-alpha.43 — 2026-10-17
+
+- Centered Station identity labels and editable values for a cleaner, more consistent settings layout.
+- Generalized automatic transmit-power capture so explicit measured-watt telemetry from a radio or amplifier can use the same freshness, session and provenance safeguards.
+- Kept radio drive percentages separate from measured output watts; the configured default remains the fallback and manual TX power remains authoritative.
+
 ## 0.4.0-alpha.42 — 2026-10-17
 
 - Fixed the Operator Desk world map after route returns by repairing automatic camera fits that were calculated against MapLibre's temporary 400×300 construction viewport.

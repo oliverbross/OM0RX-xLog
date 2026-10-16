@@ -287,7 +287,7 @@ actor LiveStationSession {
                               meter.isFresh(at: Date(), sessionStartedAt: startedAt),
                               snapshot.vfos.filter({ $0.isTransmit }).count == 1,
                               let tx = snapshot.vfos.first(where: { $0.isTransmit }),
-                              let sample = OperatorDraftPowerSample(watts: meter.watts,
+                              let sample = OperatorDraftPowerSample(source: meter.source.rawValue, watts: meter.watts,
                                 observedAt: meter.observedAt, radioObservedAt: meter.radioObservedAt,
                                 amplifierObservedAt: meter.amplifierObservedAt, receivedAt: meter.receivedAt,
                                 sessionID: event.sessionID) else { return }
@@ -1188,7 +1188,8 @@ actor LiveStationSession {
         if transport == .ready, observed.isConnected, observed.isTransmitting,
            let observation = observed.measuredTransmitPower, let powerSessionStartedAt,
            observation.isFresh(at: now, sessionStartedAt: powerSessionStartedAt) {
-            measuredPower = ["source": observation.source.rawValue, "measurement_point": "amplifier_output",
+            measuredPower = ["source": observation.source.rawValue,
+                             "measurement_point": observation.source == .radioOutput ? "radio_output" : "amplifier_output",
                              "unit": "W", "watts": observation.watts,
                              "observed_at": observation.observedAt.timeIntervalSince1970,
                              "radio_observed_at": observation.radioObservedAt.timeIntervalSince1970,

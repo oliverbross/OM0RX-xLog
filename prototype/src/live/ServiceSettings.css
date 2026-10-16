@@ -18,6 +18,8 @@
 .service-settings section h2 { margin:0 0 8px; }
 .service-settings p { max-width:85ch; margin:0 0 10px; color:var(--secondary); }
 .service-settings .service-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; max-width:950px; }
+.service-settings .service-station-identity-fields { text-align:center; }
+.service-settings .service-station-identity-fields input:not([type="checkbox"]) { text-align:center; }
 .service-settings label { display:flex; flex-direction:column; align-items:stretch; gap:5px; color:var(--secondary); }
 .service-settings input { width:100%; min-width:0; }
 .service-settings .service-enable { flex-direction:row; align-items:center; margin:8px 0 12px; }

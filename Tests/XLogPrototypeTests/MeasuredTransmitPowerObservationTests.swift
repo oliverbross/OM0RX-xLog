@@ -116,6 +116,22 @@ final class MeasuredTransmitPowerObservationTests: XCTestCase {
         XCTAssertTrue(projection(snapshot)["measured_tx_power"] is NSNull)
     }
 
+    func testRadioOutputMeterUsesTheSameMeasuredPowerPipeline() throws {
+        var radioMeter = radio
+        radioMeter["measured_output_w"] = 73.5
+        radioMeter["power_meter_sample_observed_at"] = now.timeIntervalSince1970 - 0.1
+        radioMeter["power_meter_complete"] = true
+        radioMeter["power_meter_error"] = NSNull()
+        let snapshot = try decoded(radio: radioMeter, kpa: [:])
+        let measurement = try XCTUnwrap(snapshot.measuredTransmitPower)
+        XCTAssertEqual(measurement.source, .radioOutput)
+        XCTAssertEqual(measurement.watts, 73.5)
+        let power = try XCTUnwrap(projection(snapshot)["measured_tx_power"] as? [String: Any])
+        XCTAssertEqual(power["source"] as? String, "radio_output")
+        XCTAssertEqual(power["measurement_point"] as? String, "radio_output")
+        XCTAssertEqual(power["watts"] as? Double, 73.5)
+    }
+
     func testTimestampUnitsAgeAndFutureEvidenceAreRejected() throws {
         for timestamp in [0.0, -1.0, now.timeIntervalSince1970 - 2.001,
                           now.timeIntervalSince1970 + 0.001, now.timeIntervalSince1970 * 1_000] {

@@ -2,10 +2,11 @@ import { SpotEditorFence, spotActivationFrozenMessage, validSpotActivationBarrie
 /** Local-first view of the workspace's canonical draft. No radio operations. */
 export type DraftQSO = Record<string, any> & { id: string };
 export type DraftPowerIntent = { action: "manual"; value: string } | { action: "automatic"; value?: never };
-export type DraftPowerSample = { source: "kpa500_output"; unit: "W"; watts: number;
+export type DraftPowerMeterSource = "kpa500_output" | "radio_output";
+export type DraftPowerSample = { source: DraftPowerMeterSource; unit: "W"; watts: number;
   observedAt: string; radioObservedAt: string; amplifierObservedAt: string; receivedAt: string; sessionID: string };
 export type DraftPowerContext = { providerID: string; selectionID: string; sessionID: string;
-  sessionStartedAt: string; source: "direct_agent"; meterSource: "kpa500_output" };
+  sessionStartedAt: string; source: "direct_agent"; meterSource: "measured_output" | DraftPowerMeterSource };
 export type DraftPowerContact = { workspaceID: string; draftID: string; call: string; band: string; mode: string; frequencyHz?: number | null };
 export type DraftPowerScope = { id: string; contact: DraftPowerContact; context: DraftPowerContext; armedAt: string };
 /** Matches Swift OperatorDraftPowerState; optional Codable properties may be omitted. */
@@ -52,14 +53,16 @@ export function validDraftSnapshot(value: any): value is DraftSnapshot {
 export const validGeneration = (value: unknown): value is string => typeof value === "string" && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value);
 const bounded = (value: unknown, max: number): value is string => typeof value === "string" && new TextEncoder().encode(value).length <= max && !value.includes("\0");
 const powerDate = (value: unknown): value is string => typeof value === "string" && /^\d{4}-\d\d-\d\dT/.test(value) && Date.parse(value) > 0 && Date.parse(value) <= 4_102_444_800_000;
+const measuredPowerSource = (value: unknown): value is DraftPowerMeterSource => value === "kpa500_output" || value === "radio_output";
 const validPowerContact = (value: any): value is DraftPowerContact => object(value) && validGeneration(value.workspaceID) &&
   bounded(value.draftID, 64) && value.draftID.length > 0 && bounded(value.call, 64) && bounded(value.band, 16) && bounded(value.mode, 16) &&
   value.call === value.call.trim().toUpperCase() && value.band === value.band.trim().toLowerCase() && value.mode === value.mode.trim().toUpperCase() &&
   (value.frequencyHz == null || Number.isSafeInteger(value.frequencyHz) && value.frequencyHz > 0 && value.frequencyHz <= 1_000_000_000_000);
 const validPowerContext = (value: any): value is DraftPowerContext => object(value) &&
   bounded(value.providerID, 256) && !!value.providerID.trim() && bounded(value.selectionID, 256) && !!value.selectionID.trim() &&
-  validGeneration(value.sessionID) && powerDate(value.sessionStartedAt) && value.source === "direct_agent" && value.meterSource === "kpa500_output";
-const validPowerSample = (value: any): value is DraftPowerSample => object(value) && value.source === "kpa500_output" && value.unit === "W" &&
+  validGeneration(value.sessionID) && powerDate(value.sessionStartedAt) && value.source === "direct_agent" &&
+  (value.meterSource === "measured_output" || measuredPowerSource(value.meterSource));
+const validPowerSample = (value: any): value is DraftPowerSample => object(value) && measuredPowerSource(value.source) && value.unit === "W" &&
   Number.isFinite(value.watts) && value.watts > 0 && value.watts <= 1_000 && validGeneration(value.sessionID) &&
   [value.observedAt, value.radioObservedAt, value.amplifierObservedAt, value.receivedAt].every(powerDate) &&
   [[value.observedAt, 2_000], [value.radioObservedAt, 2_000], [value.amplifierObservedAt, 15_000]].every(([date, age]) => {

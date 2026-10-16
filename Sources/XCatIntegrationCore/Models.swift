@@ -137,10 +137,14 @@ public struct RemoteStationStatus: Equatable, Sendable {
 
 }
 
-/// Explicit meter evidence, distinct from FLEX's transmitter drive setting.
-/// Only the KPA500 amplifier output meter is supported by this contract.
+/// Explicit meter evidence, distinct from a transmitter drive setting.
+/// Providers may report a radio or amplifier output meter, but never promote a
+/// configured drive percentage to measured watts.
 public struct MeasuredTransmitPowerObservation: Equatable, Sendable {
-    public enum Source: String, Sendable { case kpa500Output = "kpa500_output" }
+    public enum Source: String, Sendable {
+        case kpa500Output = "kpa500_output"
+        case radioOutput = "radio_output"
+    }
     public let source: Source
     public let watts: Double
     public let observedAt: Date
@@ -148,12 +152,12 @@ public struct MeasuredTransmitPowerObservation: Equatable, Sendable {
     public let amplifierObservedAt: Date
     public let receivedAt: Date
 
-    public init?(watts: Double, observedAt: Date, radioObservedAt: Date,
+    public init?(source: Source = .kpa500Output, watts: Double, observedAt: Date, radioObservedAt: Date,
                  amplifierObservedAt: Date, receivedAt: Date) {
-        // A source-specific plausibility ceiling, allowing KPA500 meter peaks
-        // above its nominal 500 W rating without admitting arbitrary RF values.
+        // A conservative plausibility ceiling admits normal radio and amplifier
+        // meters without accepting arbitrary control values as RF evidence.
         guard watts.isFinite, watts > 0, watts <= 1_000 else { return nil }
-        source = .kpa500Output
+        self.source = source
         self.watts = watts
         self.observedAt = observedAt
         self.radioObservedAt = radioObservedAt

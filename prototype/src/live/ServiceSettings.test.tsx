@@ -22,7 +22,9 @@ describe("grouped service settings", () => {
     const toggle = screen.getByRole("checkbox", { name: "Automatic measured power" }) as HTMLInputElement;
     expect(toggle.checked).toBe(false); expect(toggle.disabled).toBe(false);
     expect(toggle.closest(".service-default-power")?.contains(screen.getByLabelText("Default power W"))).toBe(true);
-    expect(screen.getByText(/Capture KPA500 measured output/)).toBeTruthy();
+    expect(screen.getByLabelText("Operator call").closest(".service-station-identity-fields")).toBeTruthy();
+    expect(screen.getByText(/active radio or amplifier/)).toBeTruthy();
+    expect(screen.queryByText(/Capture KPA500/)).toBeNull();
     fireEvent.click(toggle); expect(request).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
     await waitFor(() => expect(saved).toHaveBeenCalledWith({ ...profile, automaticTransmitPower: true }));

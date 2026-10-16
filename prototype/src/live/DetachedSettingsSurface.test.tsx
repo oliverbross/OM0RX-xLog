@@ -93,6 +93,11 @@ it("lets every detached settings section fill the available window width", () =>
   expect(override).toContain(".service-online-log");
 });
 
+it("centres Station identity labels and editable values without affecting checkboxes", () => {
+  expect(serviceStyles).toContain(".service-settings .service-station-identity-fields { text-align:center; }");
+  expect(serviceStyles).toContain('.service-settings .service-station-identity-fields input:not([type="checkbox"]) { text-align:center; }');
+});
+
 it("confirms a native UUID Settings receipt and clears recovery without discard", async () => {
   api.request.mockClear();
   let current = { ...snapshot(0), generation: generation.toUpperCase() };

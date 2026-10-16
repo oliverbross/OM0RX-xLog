@@ -236,6 +236,8 @@ struct OperatorDraftPowerTests {
                                         amplifierObservedAt: date, receivedAt: date, sessionID: session) == nil)
         #expect(OperatorDraftPowerSample(source: "flex_drive", watts: 50, observedAt: date, radioObservedAt: date,
                                         amplifierObservedAt: date, receivedAt: date, sessionID: session) == nil)
+        #expect(OperatorDraftPowerSample(source: "radio_output", watts: 50, observedAt: date, radioObservedAt: date,
+                                        amplifierObservedAt: date, receivedAt: date, sessionID: session) != nil)
         #expect(OperatorDraftPowerSample(watts: 50, observedAt: date, radioObservedAt: date,
                                         amplifierObservedAt: date.addingTimeInterval(-15.1), receivedAt: date, sessionID: session) == nil)
         #expect(OperatorDraftPowerSample(watts: 50, observedAt: date.addingTimeInterval(0.1), radioObservedAt: date,
@@ -258,6 +260,18 @@ struct OperatorDraftPowerTests {
         var exhausted = try JSONDecoder().decode(OperatorDraftPowerState.self, from: JSONSerialization.data(withJSONObject: object))
         #expect(throws: OperatorDraftPowerError.self) { try exhausted.manual(value: "10") }
         #expect(exhausted.revision == OperatorDraftPowerState.maximumRevision)
+    }
+
+    @Test("Generic measured-output scope accepts an explicit radio watt meter")
+    func radioOutputMeter() throws {
+        var (state, scope) = try armed()
+        let date = time.addingTimeInterval(0.5)
+        let sample = try #require(OperatorDraftPowerSample(source: "radio_output", watts: 73.5,
+            observedAt: date, radioObservedAt: date, amplifierObservedAt: date,
+            receivedAt: date, sessionID: session))
+        #expect(try state.accept(sample: sample, expectedScopeID: scope, now: date))
+        #expect(state.selectedValue == "73.5")
+        #expect(state.selectedSample?.source == "radio_output")
     }
 
     @Test("Positive fractional meter evidence survives formatting and corrupted sample metadata is rejected")

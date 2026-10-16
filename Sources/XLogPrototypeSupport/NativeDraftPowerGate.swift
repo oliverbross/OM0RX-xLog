@@ -124,7 +124,8 @@ final class NativeDraftPowerGate: @unchecked Sendable {
             guard !terminated, !suspended, ready, self.sourceID == sourceID,
                   let lease, lease.epoch == epoch, let received,
                   lease.scope.context.sessionID == sample.sessionID,
-                  sample.source == lease.scope.context.meterSource,
+                  OperatorDraftPowerSample.matches(source: sample.source,
+                                                   meterSource: lease.scope.context.meterSource),
                   sample.isFresh(at: Date()),
                   [sample.observedAt, sample.radioObservedAt, sample.receivedAt].allSatisfy({
                       $0 >= lease.scope.armedAt && $0 >= lease.scope.context.sessionStartedAt
