@@ -7,6 +7,19 @@ import XCTest
 final class TCIProtocolTests: XCTestCase {
     private let address = TCIReceiverAddress(trx: 0, channel: 0)
 
+    func testSplitIsTRXWideAndDoesNotInventTXVFOEvidence() {
+        var reducer = TCIStateReducer()
+        XCTAssertTrue(reducer.apply(TCICommand(name: "SPLIT_ENABLE", arguments: ["0", "true"])))
+        XCTAssertEqual(reducer.state.transceivers[0]?.splitEnabled, true)
+        XCTAssertNil(reducer.state.transceivers[1]?.splitEnabled)
+        for arguments in [["0"], ["0", "1"], ["0", "false", "1"], ["-1", "true"]] {
+            XCTAssertFalse(reducer.apply(TCICommand(name: "SPLIT_ENABLE", arguments: arguments)))
+            XCTAssertEqual(reducer.state.transceivers[0]?.splitEnabled, true)
+        }
+        XCTAssertFalse(reducer.apply(TCICommand(name: "TX_VFO", arguments: ["0", "1"])))
+        XCTAssertTrue(reducer.state.frequencies.isEmpty)
+    }
+
     func testReducerAcceptanceDistinguishesRepeatedEvidenceFromRepeatedRejection() {
         var reducer = TCIStateReducer(limits: .init(maximumDiagnostics: 1))
         let valid = TCICommand(name: "VFO", arguments: ["0", "0", "14025000"])

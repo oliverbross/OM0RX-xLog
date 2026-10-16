@@ -112,6 +112,8 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
     public let evidenceReceivedAt: Date?
     /// Sequence of the latest accepted configured-TRX RX_FILTER_BAND report.
     public let filterEvidenceSequence: UInt64
+    /// Receipt of an accepted SPLIT_ENABLE report for the configured TRX only.
+    public let splitEvidenceReceivedAt: Date?
 
     public init(
         sequence: UInt64,
@@ -120,7 +122,8 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
         snapshot: TCIAuthoritativeSnapshot?,
         failure: TCIReadOnlySessionFailure?,
         evidenceReceivedAt: Date? = nil,
-        filterEvidenceSequence: UInt64 = 0
+        filterEvidenceSequence: UInt64 = 0,
+        splitEvidenceReceivedAt: Date? = nil
     ) {
         self.sequence = sequence
         self.generation = generation
@@ -129,6 +132,7 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
         self.failure = failure
         self.evidenceReceivedAt = evidenceReceivedAt
         self.filterEvidenceSequence = filterEvidenceSequence
+        self.splitEvidenceReceivedAt = splitEvidenceReceivedAt
     }
 }
 
@@ -144,6 +148,7 @@ public actor TCIReadOnlyWebSocketSession {
     private let maximumBinaryMessageBytes: Int
     private let clock: @Sendable () -> Date
     private var evidenceReceivedAt: Date?
+    private var splitEvidenceReceivedAt: Date?
     private var decoder: TCITextDecoder
     private var reducer: TCIStateReducer
     private var connection: (any TCIWebSocketConnection)?
@@ -491,6 +496,7 @@ public actor TCIReadOnlyWebSocketSession {
                 if reducer.apply(command), isConfiguredEvidence(command) {
                     hasConfiguredEvidence = true
                     if command.name == "RX_FILTER_BAND" { filterEvidenceSequence = sequence + 1 }
+                    if command.name == "SPLIT_ENABLE" { splitEvidenceReceivedAt = receivedAt }
                 }
             }
             if let snapshot = reducer.authoritativeSnapshot(for: configuredAddress) {
@@ -547,6 +553,7 @@ public actor TCIReadOnlyWebSocketSession {
         reducer = TCIStateReducer(limits: limits)
         evidenceReceivedAt = nil
         filterEvidenceSequence = 0
+        splitEvidenceReceivedAt = nil
     }
 
     private func publish(
@@ -562,7 +569,8 @@ public actor TCIReadOnlyWebSocketSession {
             snapshot: snapshot,
             failure: failure,
             evidenceReceivedAt: evidenceReceivedAt,
-            filterEvidenceSequence: filterEvidenceSequence
+            filterEvidenceSequence: filterEvidenceSequence,
+            splitEvidenceReceivedAt: splitEvidenceReceivedAt
         )
         for continuation in continuations.values {
             continuation.yield(observationValue)

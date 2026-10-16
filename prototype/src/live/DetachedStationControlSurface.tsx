@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { connectMonitorContext, monitorRadioFresh, monitorStation, type MonitorContext } from "./monitorContext";
 import { AgentConnectionSetup } from "./AgentConnectionSetup";
 import { ManualSimplexTune } from "./ManualSimplexTune";
+import { TCISplitObservation } from "./TCISplitObservation";
 import { ManualRotorControl, ManualRotorStatus } from "./ManualRotorControl";
 import { manualRotorGotoSession, type ManualRotorGotoSession } from "./manualRotorGoto";
 import "./StationPanel.css";
@@ -43,9 +44,10 @@ export function StationControlSurface({ connect = connectMonitorContext, configu
         <div className="live-station-readback"><div><span>Observed receive</span><strong>{frequency(radio.receive_frequency_hz ?? radio.frequency_hz)}</strong><span>{value(radio.mode)}</span></div></div>
         <dl><dt>Transmit frequency</dt><dd>{frequency(radio.transmit_frequency_hz)}</dd>
           <dt>PTT</dt><dd>{fresh && typeof radio.transmitting === "boolean" ? radio.transmitting ? "Transmitting" : "Receive" : "Unavailable"}</dd>
-          <dt>Split</dt><dd>{fresh && typeof radio.split === "boolean" ? radio.split ? "On" : "Off" : "Unavailable"}</dd>
+          {provider !== "direct_tci" && <><dt>Split</dt><dd>{fresh && typeof radio.split === "boolean" ? radio.split ? "On" : "Off" : "Unavailable"}</dd></>}
           <dt>Observation received</dt><dd>{typeof context?.radio.received_at_ms === "number" ? new Date(context.radio.received_at_ms).toLocaleTimeString() : "Unavailable"}</dd>
         </dl>
+        {provider === "direct_tci" && <TCISplitObservation snapshot={station} fresh={fresh} now={clock} />}
         {provider === "direct_agent" && <section className="live-station-card"><h3>Retained station safety</h3>
           <dl><dt>Coordinator</dt><dd>{value(safety.coordinator_state)}</dd><dt>Interlock</dt><dd>{value(safety.interlock_state)}</dd>
             <dt>Route</dt><dd>{value(safety.route_alignment)}</dd><dt>Amplifier</dt><dd>{safety.kpa_operate == null ? "Unavailable" : safety.kpa_operate ? "Operate" : "Standby"}</dd>

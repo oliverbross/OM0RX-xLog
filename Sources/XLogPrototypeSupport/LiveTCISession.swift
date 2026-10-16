@@ -182,6 +182,7 @@ actor LiveTCISession {
                         "filter_lower_hz": state?.transceiver.receiveFilter?.lowHz as Any? ?? NSNull(),
                         "filter_upper_hz": state?.transceiver.receiveFilter?.highHz as Any? ?? NSNull(),
                         "filter_scope": "trx",
+                         "split_observed_at": state == nil ? NSNull() : observation?.splitEvidenceReceivedAt?.timeIntervalSince1970 as Any? ?? NSNull(),
                         "availability": observation?.availability.rawValue ?? "unavailable",
                         "failure": failureCode(observation?.failure),
                         "trx": state?.address.trx as Any? ?? NSNull(), "channel": state?.address.channel as Any? ?? NSNull(),

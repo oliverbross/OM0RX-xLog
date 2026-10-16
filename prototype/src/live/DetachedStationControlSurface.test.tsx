@@ -83,6 +83,28 @@ it("explains absent native selection and never initializes or connects it", () =
   expect(screen.getByText(/No radio selected/)).toBeTruthy();
   expect(screen.queryByRole("button")).toBeNull();
 });
+it("shows passive TCI split evidence in the child, expires it independently, and fences selection changes", () => {
+  const context = syntheticMonitorContext();
+  context.selection!.provider = "direct_tci"; context.radio.provider = "direct_tci";
+  context.radio.snapshot = { ...context.radio.snapshot, source: "direct_tci",
+    radio: { ...context.radio.snapshot.radio, split: true },
+    tci: { trx: 0, channel: 1, split_observed_at: Date.now() / 1000 } };
+  setup(context);
+  expect(screen.getByText("Observed split: On")).toBeTruthy();
+  expect(screen.getByText(/TX VFO and transmit frequency: Unavailable/)).toBeTruthy();
+  expect(screen.queryByRole("button")).toBeNull();
+  act(() => { vi.advanceTimersByTime(6000); });
+  const refreshed = structuredClone(context);
+  refreshed.radio.received_at_ms = Date.now(); refreshed.radio.snapshot.generated_at = Date.now() / 1000;
+  refreshed.radio.snapshot.radio.observed_at = Date.now() / 1000;
+  act(() => changed(refreshed));
+  expect(screen.getByText("Retained split: On · stale or unverified")).toBeTruthy();
+  refreshed.radio.snapshot.tci.split_observed_at = Date.now() / 1000;
+  refreshed.selection!.generation += 1;
+  act(() => changed(structuredClone(refreshed)));
+  expect(screen.queryByText("Observed split: On")).toBeNull();
+  expect(native.invoke).not.toHaveBeenCalled(); expect(native.worker).not.toHaveBeenCalled();
+});
 it("TCI child follows saved selection and exposes only explicit receive tuning", async () => {
   const context = syntheticMonitorContext();
   context.selection!.provider = "direct_tci"; context.radio.provider = "direct_tci"; context.radio.snapshot.source = "direct_tci";

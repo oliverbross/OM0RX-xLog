@@ -8,6 +8,36 @@ final class LiveTCISessionTests: XCTestCase {
     private let minimal: [String: Any] = ["provider": "direct_tci"]
     private let connect: [String: Any] = ["provider": "direct_tci", "endpoint": "ws://127.0.0.1:40001", "trx": 0, "channel": 0]
 
+    func testSplitReceiptIsIndependentTRXScopedAndClearedAcrossConnections() async throws {
+        let socket = TCIFixtureSocket(), nextSocket = TCIFixtureSocket(), time = TCIClock()
+        let session = fixture(TCIFixtureConnector([socket, nextSocket]), clock: { time.now() })
+        let selected = connect.merging(["channel": 1]) { _, value in value }
+        _ = try await session.handle("station_connect", params: selected)
+        await socket.enqueue(.text(Self.discovery + "vfo:0,1,7100000;split_enable:0,true;ready;"))
+        var state = try await wait(session) { $0["available"] as? Bool == true }
+        let stamp = try XCTUnwrap((state["tci"] as? [String: Any])?["split_observed_at"] as? Double)
+        XCTAssertEqual((state["tci"] as? [String: Any])?["channel"] as? Int, 1)
+        XCTAssertEqual((state["radio"] as? [String: Any])?["split"] as? Bool, true)
+        time.advance(10)
+        await socket.enqueue(.text("split_enable:1,false;split_enable:0,invalid;vfo:0,1,7200000;"))
+        state = try await wait(session) { ($0["radio"] as? [String: Any])?["frequency_hz"] as? Int64 == 7_200_000 }
+        XCTAssertEqual((state["tci"] as? [String: Any])?["split_observed_at"] as? Double, stamp)
+        XCTAssertEqual((state["radio"] as? [String: Any])?["split"] as? Bool, true)
+        XCTAssertEqual((state["station"] as? [String: Any])?["radio_stale"] as? Bool, false)
+        XCTAssertTrue((state["radio"] as? [String: Any])?["transmit_vfo"] is NSNull)
+        XCTAssertTrue((state["radio"] as? [String: Any])?["transmit_frequency_hz"] is NSNull)
+        await socket.enqueue(.text("split_enable:0,true;"))
+        state = try await wait(session) { ($0["tci"] as? [String: Any])?["split_observed_at"] as? Double == time.now().timeIntervalSince1970 }
+        let sent = await socket.sentTexts(); XCTAssertTrue(sent.isEmpty)
+        _ = try await session.handle("station_disconnect", params: minimal)
+        _ = try await session.handle("station_connect", params: selected)
+        await nextSocket.enqueue(.text(Self.discovery + "vfo:0,1,7300000;ready;"))
+        state = try await wait(session) { $0["available"] as? Bool == true }
+        XCTAssertTrue((state["radio"] as? [String: Any])?["split"] is NSNull)
+        XCTAssertTrue((state["tci"] as? [String: Any])?["split_observed_at"] is NSNull)
+        await session.terminate()
+    }
+
     func testSnapshotSaveAndDeniedMethodsNeverConnect() async throws {
         let connector = TCIFixtureConnector([]), session = fixture(connector)
         let initial = try await session.handle("station_snapshot", params: minimal)
@@ -131,10 +161,12 @@ final class LiveTCISessionTests: XCTestCase {
         await current.enqueue(.text(Self.discovery + "vfo:0,0,7100000;ready;"))
         let second = try await wait(session) { $0["available"] as? Bool == true }
         XCTAssertGreaterThan(try XCTUnwrap(second["generation"] as? UInt64), try XCTUnwrap(first["generation"] as? UInt64))
-        await old.enqueue(.text("vfo:0,0,9999999;"))
+        await old.enqueue(.text("vfo:0,0,9999999;split_enable:0,true;"))
         for _ in 0..<30 { await Task.yield() }
         let after = try await session.handle("station_snapshot", params: minimal)
         XCTAssertEqual((after["radio"] as? [String: Any])?["frequency_hz"] as? Int64, 7_100_000)
+        XCTAssertTrue((after["radio"] as? [String: Any])?["split"] is NSNull)
+        XCTAssertTrue((after["tci"] as? [String: Any])?["split_observed_at"] is NSNull)
         await session.terminate()
     }
 
