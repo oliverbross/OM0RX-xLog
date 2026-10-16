@@ -1,3 +1,4 @@
+.app.live.detached-previous-qsos-app { display:flex; flex-direction:column; width:100%; height:100dvh; min-height:0; padding:0; overflow:hidden; }
 .detached-previous-qsos-app main { display:flex; flex-direction:column; flex:1; min-width:0; min-height:0; padding:12px; gap:10px; }
 .previous-qsos-context { display:flex; align-items:baseline; flex-wrap:wrap; gap:8px 20px; }
 .previous-qsos-context strong { color:var(--cyan); font-size:22px; }

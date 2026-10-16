@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.4.0-alpha.46 — 2026-10-17
+
+- Fixed the detached Previous QSOs window so it fits the available macOS window height instead of inheriting the main application's 640-pixel minimum.
+- Removed the unnecessary outer page scrollbar; larger histories now scroll only inside the bordered contacts table while the heading and window frame remain stationary.
+
 ## 0.4.0-alpha.45 — 2026-10-17
 
 - Replaced the oversized shared-radio explanation with a compact active-radio status and a contextual switch action.

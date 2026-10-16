@@ -58,6 +58,8 @@ it("uses the shared logbook palette for contact facts and confirmation state", a
 
 it("keeps all columns available in a horizontally scrolling narrow window", () => {
   const css = readFileSync(`${process.cwd()}/src/live/DetachedPreviousQSOsSurface.css`, "utf8");
+  expect(css).toMatch(/\.app\.live\.detached-previous-qsos-app\s*\{[^}]*height:100dvh;[^}]*min-height:0;[^}]*overflow:hidden;/);
+  expect(css).toMatch(/\.detached-previous-qsos-app main\s*\{[^}]*flex:1;[^}]*min-height:0;/);
   expect(css).toMatch(/\.previous-qsos-table\s*\{[^}]*overflow:auto;/);
   expect(css).not.toMatch(/\.previous-(?:grid|qsl)\s*\{\s*display:none;/);
 });
