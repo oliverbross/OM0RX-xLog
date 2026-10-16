@@ -146,11 +146,12 @@ public extension QSO {
             set("QSO_DATE_OFF", dateFormatter.string(from: end)); set("TIME_OFF", timeFormatter.string(from: end))
         }
         // Normalize only interchange output; retain local modes and explicit
-        // submodes. ADIF 3.1.8 marks C4FM/DSTAR/PSK31 MODE values import-only;
+        // submodes. ADIF 3.1.8 marks C4FM/DSTAR/PSK31/PSK63 MODE values import-only;
         // their export parents come from the Submode Enumeration.
         // https://adif.org.uk/318/ADIF_318.htm#Mode_Enumeration
         let exportParent = ["FT4": "MFSK", "FT2": "MFSK", "JTTY": "MFSK",
-                            "C4FM": "DIGITALVOICE", "DSTAR": "DIGITALVOICE", "PSK31": "PSK"][mode.uppercased()]
+                            "C4FM": "DIGITALVOICE", "DSTAR": "DIGITALVOICE",
+                            "PSK31": "PSK", "PSK63": "PSK"][mode.uppercased()]
         set("BAND", band); set("MODE", exportParent ?? mode)
         set("SUBMODE", submode.isEmpty && exportParent != nil ? mode : submode)
         if let frequencyHz { set("FREQ", String(format: "%.6f", Double(frequencyHz) / 1_000_000)) }
