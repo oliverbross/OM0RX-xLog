@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.4.0-alpha.51 — 2026-10-17
+
+- Replaced the cluster clock-time column with a compact live `For` age on both the Operator Desk and detached Cluster window.
+- Kept spot ages current without waiting for another cluster message, using `Now`, minutes, hours and days as appropriate.
+- Preserved the existing internal column identity so saved visibility, order and width preferences continue to work.
+
 ## 0.4.0-alpha.50 — 2026-10-17
 
 - Made the detached Propagation window open at a compact content-fitting height instead of leaving a large empty area below the forecast.

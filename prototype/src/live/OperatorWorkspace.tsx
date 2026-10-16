@@ -4,15 +4,16 @@ import { BandMapsToolbarContext } from "./BandMaps";
 import { clusterBandColors, clusterModeColors, clusterStatusColors, paletteColor, specialTagColors } from "./clusterPalette";
 import { boundColumnWidth, compactClusterColumns, defaultWorkspacePreferences, operatorWorkspaceKey, readWorkspacePreferences, splitBounds,
   type CompactColumn, type WorkspacePreferences } from "./operatorWorkspacePreferences";
+import { formatSpotAge, useSpotAgeClock } from "./spotAge";
 import "./OperatorWorkspace.css";
 
 export type OperatorWorkspaceProps = { map: ReactNode; bandMaps: ReactNode; cluster: unknown;
   onSelect: (spot: LiveClusterSpot) => void; selectedSpotId?: string | null; palette?: ClusterPalette };
 type ClusterProjection = { snapshot?: { spots?: LiveClusterSpot[]; connectedClusters?: number; connections?: { serverName: string; phase: string; error?: string | null }[] };
   configuration?: { palette?: ClusterPalette } };
-function spotText(column: CompactColumn, spot: LiveClusterSpot): string {
+function spotText(column: CompactColumn, spot: LiveClusterSpot, now: number): string {
   switch (column) {
-    case "time": return new Date((spot.receivedAt + 978307200) * 1000).toLocaleTimeString();
+    case "time": return formatSpotAge(spot.receivedAt, now);
     case "frequency": return (spot.frequencyKHz / 1000).toFixed(6);
     case "cq": return String(spot.cqZone ?? "—");
     case "spotter": return `${spot.spotter}${spot.aggregateCount > 1 ? ` +${spot.aggregateCount - 1}` : ""}`;
@@ -21,15 +22,17 @@ function spotText(column: CompactColumn, spot: LiveClusterSpot): string {
     default: return String(spot[column] || "—");
   }
 }
-function cell(column: CompactColumn, spot: LiveClusterSpot, palette?: ClusterPalette): ReactNode {
+function cell(column: CompactColumn, spot: LiveClusterSpot, now: number, palette?: ClusterPalette): ReactNode {
+  if (column === "time") return <span className="live-cluster-age">{spotText(column, spot, now)}</span>;
   if (column === "band" || column === "mode") return <span className="live-cluster-category" style={{ color: paletteColor(spot[column], palette?.[column], column === "band" ? clusterBandColors : clusterModeColors) }}>{spot[column]}</span>;
   if (column === "callStatus" || column === "dxccStatus") return <span className="live-cluster-status" style={{ color: paletteColor(spot[column], palette?.status, clusterStatusColors) }}>{spot[column]}</span>;
   if (column === "score") return <span className={`live-cluster-score ${spot.score >= 80 ? "priority" : spot.score >= 55 ? "high" : spot.score >= 30 ? "medium" : "low"}`}>{spot.score}</span>;
   if (column === "special") return spot.specialTags.length ? spot.specialTags.slice(0, 2).map(tag => <span key={tag} className="live-cluster-special-tag" style={specialTagColors(tag)}>{tag}</span>) : "—";
-  return spotText(column, spot);
+  return spotText(column, spot, now);
 }
 
 export function OperatorWorkspace({ map, bandMaps, cluster, onSelect, selectedSpotId, palette }: OperatorWorkspaceProps) {
+  const ageClock = useSpotAgeClock();
   const [preferences, setPreferences] = useState<WorkspacePreferences>(() => {
     try { return readWorkspacePreferences(window.localStorage.getItem(operatorWorkspaceKey)); } catch { return defaultWorkspacePreferences(); }
   });
@@ -121,7 +124,7 @@ export function OperatorWorkspace({ map, bandMaps, cluster, onSelect, selectedSp
               onPointerMove={event => move(event.clientX)} onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }} onLostPointerCapture={() => { drag.current = null; }} /></th>)}</tr></thead>
           <tbody>{spots.slice(offset, offset + rows).map(spot => <tr key={spot.id} tabIndex={0} aria-selected={selectedSpotId === spot.id} aria-label={`Select ${spot.callsign} at ${(spot.frequencyKHz / 1000).toFixed(6)} MHz`} style={{ backgroundColor: selectedSpotId === spot.id ? undefined : clusterRowTint(spot.dxccStatus) }}
             onClick={() => onSelect(spot)} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSelect(spot); } }}>
-            {preferences.columns.map(column => <td key={column} title={spotText(column, spot)} className={column === "frequency" ? "cyan mono" : column === "callsign" ? "live-cluster-call" : ""}>{cell(column, spot, colors)}</td>)}</tr>)}</tbody></table>
+            {preferences.columns.map(column => <td key={column} title={spotText(column, spot, ageClock)} className={column === "frequency" ? "cyan mono" : column === "callsign" ? "live-cluster-call" : ""}>{cell(column, spot, ageClock, colors)}</td>)}</tr>)}</tbody></table>
           {!spots.length && <p className="operator-cluster-empty">{projection?.snapshot ? "No spots in the current live cluster view." : "Awaiting live cluster state."}</p>}
         </div>
         <footer hidden={columnsOpen}><button type="button" aria-label="Previous spots page" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>‹</button>

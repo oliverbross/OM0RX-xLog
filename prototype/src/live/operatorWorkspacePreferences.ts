@@ -1,6 +1,6 @@
 export const operatorWorkspaceKey = "xlog.integration.operator-workspace.v1";
 export const compactClusterColumns = [
-  ["time", "Time", 90], ["score", "Score", 52], ["band", "Band", 58], ["frequency", "MHz", 94],
+  ["time", "For", 62], ["score", "Score", 52], ["band", "Band", 58], ["frequency", "MHz", 94],
   ["callsign", "Callsign", 96], ["mode", "Mode", 58], ["country", "Country", 120], ["cq", "CQ", 48],
   ["spotter", "Spotter", 100], ["callStatus", "Call status", 120], ["dxccStatus", "DXCC status", 120],
   ["special", "Special", 100], ["workedBefore", "Worked before", 160], ["comment", "Comment", 150],

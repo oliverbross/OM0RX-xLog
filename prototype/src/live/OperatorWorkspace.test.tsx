@@ -22,7 +22,7 @@ beforeEach(() => {
   });
   vi.stubGlobal("ResizeObserver", class { constructor(callback: () => void) { resize = callback; } observe() {} disconnect() {} });
 });
-afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); resize = undefined; });
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); resize = undefined; });
 function mount(cluster: unknown = projection(), onSelect = vi.fn()) {
   return { ...render(<OperatorWorkspace map={<div>Existing map</div>} bandMaps={<div>Existing band maps</div>} cluster={cluster} onSelect={onSelect} />), onSelect };
 }
@@ -41,6 +41,18 @@ describe("operator workspace preferences", () => {
   });
 });
 describe("operator workspace", () => {
+  it("shows a live For age instead of clock time and advances without a new spot", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date((812_000_000 + 978_307_200) * 1000));
+    const preferences = defaultWorkspacePreferences();
+    window.localStorage.setItem(operatorWorkspaceKey, JSON.stringify({ ...preferences, activeTab: "cluster", columns: ["time"] }));
+    mount(projection(1));
+    expect(screen.getByRole("columnheader", { name: /^For/ })).toBeTruthy();
+    expect(screen.queryByRole("columnheader", { name: /^Time/ })).toBeNull();
+    expect(screen.getByText("Now")).toBeTruthy();
+    act(() => vi.advanceTimersByTime(60_000));
+    expect(screen.getByText("1 min")).toBeTruthy();
+  });
   it("retains map and band-map local state across tab switches, with accessible keyboard tabs", () => {
     const mounted = vi.fn(), unmounted = vi.fn();
     function Persistent() { const [count, setCount] = useState(0); useEffect(() => { mounted(); return unmounted; }, []); return <button onClick={() => setCount(count + 1)}>Pan state {count}</button>; }
