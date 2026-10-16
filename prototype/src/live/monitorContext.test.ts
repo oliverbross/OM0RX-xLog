@@ -9,6 +9,13 @@ import { amplifierTransitionSession } from "./amplifierTransition";
 beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date("2026-10-14T00:00:00Z")); });
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 const deferred = <T,>() => { let resolve!: (value: T) => void; const promise = new Promise<T>(done => { resolve = done; }); return { promise, resolve }; };
+it("accepts fresh TCI observations but rejects every radio command", async () => {
+  const context = syntheticMonitorContext(), call = vi.fn();
+  context.selection!.provider = "direct_tci"; context.radio.provider = "direct_tci"; context.radio.snapshot.source = "direct_tci";
+  expect(validMonitorContext(context)).toBe(true); expect(monitorRadioFresh(context)).toBe(true);
+  for (const action of ["operate", "standby", "tune", "cancel", "ptt", "receive_frequency", "cw"]) await expect(monitorRadioAction(context, action, call)).rejects.toThrow();
+  expect(call).not.toHaveBeenCalled();
+});
 
 it("validates context, permits an unset radio, and never freshens original receipt times", () => {
   const context = syntheticMonitorContext(); expect(validMonitorContext(context)).toBe(true); expect(monitorRadioFresh(context)).toBe(true);

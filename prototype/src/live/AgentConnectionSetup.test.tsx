@@ -22,10 +22,45 @@ beforeEach(() => {
     if (params.action === "save") { state = { ...state, revision: 5, base_url: params.base_url }; return { operation_id: params.operation_id, status: "saved", request: { action: "save" } }; }
     if (params.action === "save_hamlib") { state = { ...state, revision: state.revision + 1, hamlib: params.configuration }; return { operation_id: params.operation_id, status: "saved", request: { action: "save_hamlib" } }; }
     if (params.action === "save_flex") { state = { ...state, revision: state.revision + 1, flex: params.configuration }; return { operation_id: params.operation_id, status: "saved", request: { action: "save_flex" } }; }
+    if (params.action === "save_tci") { state = { ...state, revision: state.revision + 1, tci: params.configuration }; return { operation_id: params.operation_id, status: "saved", request: { action: "save_tci" } }; }
     return { operation_id: params.operation_id, status: "acknowledged", request: { action: params.action } };
   });
 });
 afterEach(cleanup);
+it("TCI follows shared selection, saves passively and connects only explicitly without control authority", async () => {
+  state = { ...state, tci: { endpoint: "ws://127.0.0.1:50001", trx: 0, channel: 0 }, selection: { provider: "direct_tci", generation: 12, selection_id: "tci-selection" } };
+  render(<AgentConnectionSetup connections providers followSelection />); await act(async () => {});
+  expect(native.invoke).toHaveBeenCalledExactlyOnceWith("station_session_request", { params: { action: "snapshot" } });
+  expect(screen.queryByRole("checkbox")).toBeNull(); expect(screen.queryByLabelText("Shared Agent token")).toBeNull();
+  expect(screen.queryByRole("button", { name: /Reconnect|receive|PTT|CW|Tune|Operate|Standby/i })).toBeNull();
+  fireEvent.change(screen.getByLabelText("Shared TCI endpoint"), { target: { value: " wss://radio.example/tci " } });
+  fireEvent.change(screen.getByLabelText("Shared TCI TRX"), { target: { value: "2" } });
+  fireEvent.change(screen.getByLabelText("Shared TCI channel"), { target: { value: "15" } });
+  expect(screen.getByRole("button", { name: "Connect saved TCI radio" }).hasAttribute("disabled")).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Save TCI configuration" })); await act(async () => {});
+  expect(native.invoke.mock.calls[1]).toEqual(["station_session_request", { params: { action: "save_tci", operation_id: expect.any(String), generation: "setup-generation", revision: 4, configuration: { endpoint: "wss://radio.example/tci", trx: 2, channel: 15 } } }]);
+  expect(screen.getByText("TCI configuration saved. No connection was started.")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Connect saved TCI radio" })); await act(async () => {});
+  fireEvent.click(screen.getByRole("button", { name: "Disconnect TCI radio" })); await act(async () => {});
+  const lifecycle = native.invoke.mock.calls.filter(([, { params }]) => ["connect_tci", "disconnect_tci"].includes(params.action));
+  expect(lifecycle.map(([, { params }]) => params)).toEqual(["connect_tci", "disconnect_tci"].map(action => ({ action, operation_id: expect.any(String), generation: "setup-generation", revision: 5, selection_generation: 12, selection_id: "tci-selection" })));
+  expect(native.invoke.mock.calls.every(([, { params }]) => ["snapshot", "save_tci", "connect_tci", "disconnect_tci"].includes(params.action))).toBe(true);
+});
+it.each(["https://radio.example", "ws://radio.example:0", "ws://user:secret@radio.example", "wss://radio.example/?token=secret", "ws://radio.example/#secret", "ws://radio.example/" + "é".repeat(500)])("TCI refuses credential-bearing or unsupported endpoint %s", async endpoint => {
+  state = { ...state, selection: { provider: "direct_tci", generation: 12, selection_id: "tci-selection" } };
+  render(<AgentConnectionSetup followSelection />); await act(async () => {});
+  fireEvent.change(screen.getByLabelText("Shared TCI endpoint"), { target: { value: endpoint } });
+  const save = screen.getByRole("button", { name: "Save TCI configuration" });
+  expect(save.hasAttribute("disabled")).toBe(true); fireEvent.click(save);
+  expect(native.invoke.mock.calls).toHaveLength(1);
+});
+it.each(["-1", "16", "1.5", ""])("TCI refuses invalid receiver index %s", async index => {
+  state = { ...state, tci: { endpoint: "ws://127.0.0.1:50001", trx: 0, channel: 0 }, selection: { provider: "direct_tci", generation: 12, selection_id: "tci-selection" } };
+  render(<AgentConnectionSetup followSelection />); await act(async () => {});
+  fireEvent.change(screen.getByLabelText("Shared TCI channel"), { target: { value: index } });
+  expect(screen.getByRole("button", { name: "Save TCI configuration" }).hasAttribute("disabled")).toBe(true);
+  expect(native.invoke.mock.calls).toHaveLength(1);
+});
 async function mount(connections = false) { const view = render(<AgentConnectionSetup connections={connections} />); await act(async () => {}); return view; }
 it("child setup mounts passively, saves with native revision and exposes no device authority", async () => {
   await mount();

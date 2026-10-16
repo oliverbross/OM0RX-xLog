@@ -4,6 +4,20 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import Monitor from "./Monitor";
 
 afterEach(cleanup);
+it("TCI observations cannot expose radio authority even when supplied transmit capabilities", () => {
+  const request = vi.fn();
+  render(<Monitor snapshot={{ source: "direct_tci", allow_transmit: true, radio: { connected: true, observed: true, frequency_hz: 14074000 }, station: { allowed_actions: ["operate", "tune", "cancel"] }, capabilities: { supported_commands: ["tune", "cancel"] } }} map={null} onRequest={request} />);
+  expect(screen.getByText("STATION · DIRECT TCI · READ ONLY")).toBeTruthy();
+  expect(screen.getByText("Receive: 14.074000")).toBeTruthy();
+  expect(screen.queryByRole("button")).toBeNull();
+  expect(screen.queryByText(/KPA500|KAT500|TX POWER|SWR/)).toBeNull();
+  expect(request).not.toHaveBeenCalled();
+});
+it("TCI receive readback does not require fabricated A/B VFO roles and prefers the configured receive value", () => {
+  render(<Monitor snapshot={{ source: "direct_tci", radio: { connected: true, observed: true, frequency_hz: 7100000, receive_frequency_hz: 14025000, receive_vfo: null, transmit_vfo: null, vfos: [] } }} map={null} />);
+  expect(screen.getByText("Receive: 14.025000")).toBeTruthy();
+  expect(screen.queryByText(/^A:|^B:/)).toBeNull();
+});
 const flex = (overrides: Record<string, any> = {}) => ({ source: "direct_flex_lan", generated_at: Date.now() / 1000,
   allow_transmit: true, station: null, rotor: null,
   radio: { observed: true, connected: true, frequency_hz: 14_074_000, mode: "USB", receive_vfo: "A",

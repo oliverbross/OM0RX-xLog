@@ -12,6 +12,16 @@ beforeEach(() => {
   api.listen.mockImplementation(async (_name, handler) => { event = handler; return stop; });
 });
 afterEach(() => vi.restoreAllMocks());
+it("accepts authoritative TCI selection and rejects malformed TCI generations", async () => {
+  const changed = vi.fn(), failed = vi.fn();
+  api.invoke.mockResolvedValue({ provider: "direct_tci", generation: 5 });
+  const dispose = connectStationSelection(null, changed, failed)!; await settle();
+  expect(changed).toHaveBeenCalledExactlyOnceWith({ provider: "direct_tci", generation: 5 });
+  for (const generation of [-1, 1.5, "6"]) {
+    api.invoke.mockResolvedValue({ provider: "direct_tci", generation }); event(); await settle();
+  }
+  expect(changed).toHaveBeenCalledOnce(); expect(failed).toHaveBeenCalledTimes(3); dispose();
+});
 it("hydrates authoritative native choice, ignores stale generations and recovers on focus", async () => {
   const changed = vi.fn(), failed = vi.fn();
   const dispose = connectStationSelection("direct_agent", changed, failed)!; await settle();

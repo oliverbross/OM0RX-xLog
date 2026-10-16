@@ -44,6 +44,18 @@ it("renders native radio/rotor without main or optional metadata and keeps exist
   fireEvent.click(screen.getByRole("button", { name: "Stop" })); await act(async () => {});
   expect(view.rotorAction).toHaveBeenCalledWith(expect.anything(), "rotor_stop", {}); expect(view.refresh).toHaveBeenCalledTimes(2);
 });
+it("TCI Monitor keeps independent rotor controls while exposing no radio authority", async () => {
+  const value = syntheticMonitorContext();
+  value.selection!.provider = "direct_tci"; value.radio.provider = "direct_tci"; value.radio.snapshot.source = "direct_tci";
+  const view = setup(value); await act(async () => {});
+  expect(screen.getByText("STATION · DIRECT TCI · READ ONLY")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /Tune|Cancel|Operate|Standby|PTT|CW|receive/i })).toBeNull();
+  expect(screen.getByRole("button", { name: "Stop" })).toBeTruthy();
+  expect(view.radioAction).not.toHaveBeenCalled();
+  await act(async () => { await vi.advanceTimersByTimeAsync(6000); });
+  expect(screen.getByText(/TCI observation unavailable or stale/)).toBeTruthy();
+  expect(screen.queryByText(/Agent Standby remain available/)).toBeNull();
+});
 it("stale or failed observations disable TX and turn but retain explicit native Standby, Cancel and Stop", async () => {
   const view = setup();
   await act(async () => { await vi.advanceTimersByTimeAsync(6000); });

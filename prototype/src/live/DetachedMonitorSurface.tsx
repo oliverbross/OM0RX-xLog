@@ -55,6 +55,7 @@ export function MonitorSurface({ connectCore = connectMonitorContext, connectMap
   }, [connectTarget]);
   const freshRadio = authority.current && monitorRadioFresh(context, clock), freshRotor = authority.current && freshMonitorProjection(context?.rotor, clock);
   const synthetic = !!context?.acceptance, mapStale = !!mapError || !mapClusterFresh(map, clock);
+  const tci = context?.selection?.provider === "direct_tci";
   const armed = automatic.state?.armed === true;
   const retainedRotor = validRotorSnapshot(context?.rotor?.snapshot) ? context!.rotor.snapshot : null;
   const canArm = !synthetic && !!automatic.state && !automatic.error && freshRotor &&
@@ -99,18 +100,18 @@ export function MonitorSurface({ connectCore = connectMonitorContext, connectMap
       </div>}
     {!synthetic && (autoError || automatic.error) && <p className="live-error" role="alert">{autoError || automatic.error}</p>}
     {!synthetic && <ManualRotorStatus session={rotorSession} onResolved={setResolvedCommandOperation} />}
-    {!synthetic && <RadioReleaseStatus />}
-    {!synthetic && <CarrierTuneStatus />}
+    {!synthetic && !tci && <RadioReleaseStatus />}
+    {!synthetic && !tci && <CarrierTuneStatus />}
     {!synthetic && context?.selection?.provider === "direct_agent" && <AmplifierTransitionStatus />}
     {error && <p className="live-error" role="alert">{error} <button type="button" onClick={() => { core.current?.refresh(); maps.current?.refresh(); targets.current?.refresh(); }}>Retry observations</button></p>}
     {!context && <p className="secondary" role="status">Loading retained native station observations…</p>}
     {context && !context.selection?.provider && <p className="secondary" role="status">No radio selected. Choose and connect a radio in the main station controls.</p>}
-    {context?.selection?.provider && !freshRadio && <p className="live-error" role="status">Radio observation unavailable or stale. Selection-fenced Cancel and Agent Standby remain available.</p>}
+    {context?.selection?.provider && !freshRadio && <p className="live-error" role="status">{tci ? "TCI observation unavailable or stale · retained values are read only." : "Radio observation unavailable or stale. Selection-fenced Cancel and Agent Standby remain available."}</p>}
     {context?.rotor?.snapshot?.owner && !freshRotor && <p className="live-error" role="status">Rotor observation unavailable or stale. Turn is disabled; Stop checks the current native owner.</p>}
     {targetError && <p className="secondary" role="status">Shared QSO map target unavailable. Station and rotor remain independent.</p>}
     <Monitor snapshot={station} map={renderMap ? renderMap(map, mapStale) : <OptionalMap context={map} stale={mapStale} target={target}
       frequencyHz={freshRadio ? station.radio.receive_frequency_hz ?? station.radio.frequency_hz : undefined} />}
-      onRequest={context?.selection?.provider && !synthetic ? radioRequest : undefined}
+      onRequest={context?.selection?.provider && !synthetic && !tci ? radioRequest : undefined}
       onRotorRequest={context?.rotor?.snapshot?.owner && !synthetic ? rotorRequest : undefined}
       commandOperationId={() => rotorSession.getSnapshot().pending}
       resolvedCommandOperation={resolvedCommandOperation} externalCancelFeedback externalTuneFeedback externalAmplifierFeedback />

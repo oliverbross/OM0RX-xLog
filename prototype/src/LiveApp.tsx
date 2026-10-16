@@ -87,6 +87,8 @@ import { connectStationSelection, nativeStationSelection } from "./live/stationS
 import { amplifierTransitionSession } from "./live/amplifierTransition";
 import { AmplifierTransitionStatus } from "./live/AmplifierTransitionStatus";
 import { AgentConnectionSetup } from "./live/AgentConnectionSetup";
+import { TCIObservation } from "./live/TCIObservation";
+import { providerAllowsCWDesk } from "./live/cwVisibility";
 import { clearConnectedHandoverMessage, rotorCommandParams, rotorProjection, validRotorSnapshot, type RotorSnapshot } from "./live/rotorControl";
 import "./live/live.css";
 import appLogo from "./assets/xlog-logo-mark.png";
@@ -106,6 +108,7 @@ const emptySpots: Data[] = [];
 const radioProviderLabels: Record<StationProvider, string> = {
   direct_agent: "Remote station · embedded xCat",
   direct_flex_lan: "Direct FLEX · LAN",
+  direct_tci: "Direct TCI · read only",
   hamlib: "Local station · Hamlib",
 };
 const draftJournalKey = "xlog.integration.operatorDraft.main.v1";
@@ -339,7 +342,7 @@ function MainLiveApp() {
   const disarmAutoRotor = useCallback(() => { if (nativeSpotEditor()) void autoRotorSet.current(false).catch(cause => setError(cause instanceof Error ? cause.message : "Automatic rotor could not be disarmed.")); }, []);
   const changeAutoRotor = (enabled: boolean) => { void nativeAutoRotor.set(enabled, rotorRef.current).catch(cause => setError(cause instanceof Error ? cause.message : "Automatic rotor authority is unavailable.")); };
   const savedProvider = storedDraftValue("xlog.integration.provider");
-  const provider = useRef<StationProvider>(savedProvider === "hamlib" || savedProvider === "direct_flex_lan" ? savedProvider : "direct_agent");
+  const provider = useRef<StationProvider>(savedProvider === "hamlib" || savedProvider === "direct_flex_lan" || savedProvider === "direct_tci" ? savedProvider : "direct_agent");
   const [stationProvider, setStationProvider] = useState(provider.current);
   const [viewProvider, setViewProvider] = useState(provider.current);
   const [stationSection, setStationSection] = useState("Control and connections");
@@ -469,8 +472,8 @@ function MainLiveApp() {
   useReferenceSchedule(workspace?.workspace_exists === true, request);
   const cw = useSharedCW(`${view}:${draft?.id}:${draft?.call}:${draft?.frequencyHz}:${draft?.mode}`);
   const cwProfile = cw.profile, cwContext = cw.context;
-  const cwControls = cwProfile.showOnDesk || cwProfile.macros.some((macro: Data) => macro.enabled && macro.shortcut) || cw.state.armed || cw.state.owner || cw.state.lease || cw.state.pending
-    ? <CWDesk profile={cwProfile} context={cwContext} controller={cw.controller} state={cw.state} radioProvider={cw.provider} /> : undefined;
+  const cwControls = providerAllowsCWDesk(stationProvider, cwProfile.output, cw.state) && (cwProfile.showOnDesk || cwProfile.macros.some((macro: Data) => macro.enabled && macro.shortcut) || cw.state.armed || cw.state.owner || cw.state.lease || cw.state.pending)
+    ? <CWDesk profile={cwProfile} context={cwContext} controller={cw.controller} state={cw.state} radioProvider={cw.provider} releaseOnly={stationProvider === "direct_tci" && cwProfile.output !== "winkeyer"} /> : undefined;
   const opportunityActivation = useSpotActivation("activate_opportunity");
   const loadOpportunity = (item: Opportunity) => {
     if (!acceptsInput()) { setError("Wait for the verified spot activation outcome before loading another contact."); return; }
@@ -1011,10 +1014,11 @@ function MainLiveApp() {
       {view === "Band Maps" && <BandMaps spots={liveSpots} onSelect={selectSpot} radioFrequencyHz={station?.radio?.frequency_hz} onUndock={() => void openDetachedMap("band-maps").catch(e => setError(e.message))} preferences={workspacePreferences ? bandMapView(workspacePreferences, false) : undefined} onPreferencesChange={value => changeBandMapPreferences(false, value)} />}
       {view === "Station Control" && <><div className="live-tabs" role="group" aria-label="Station sections">{["Control and connections", "RUMlog spots", "WSJT-X logging"].map(section => <button key={section} aria-pressed={stationSection === section} onClick={() => setStationSection(section)}>{section}</button>)}</div>
         {stationSection === "RUMlog spots" ? <SpotBridgePanel request={request} provider={stationProvider} /> : stationSection === "WSJT-X logging" ? <WSJTXPanel request={request} onImported={() => setRefresh(n => n + 1)} /> : <><div className="live-station-provider" role="group" aria-label="Radio connection type">
-        {([ ["direct_agent", "Remote station · embedded xCat"], ["direct_flex_lan", "Direct FLEX · LAN"], ["hamlib", "Local station · Hamlib"] ] as const).map(([id, label]) => <button key={id} className={viewProvider === id ? "selected" : ""} aria-pressed={viewProvider === id} disabled={busy} onClick={() => setViewProvider(id)}>{label}</button>)}
+        {([ ["direct_agent", "Remote station · embedded xCat"], ["direct_flex_lan", "Direct FLEX · LAN"], ["direct_tci", "Direct TCI · read only"], ["hamlib", "Local station · Hamlib"] ] as const).map(([id, label]) => <button key={id} className={viewProvider === id ? "selected" : ""} aria-pressed={viewProvider === id} disabled={busy} onClick={() => setViewProvider(id)}>{label}</button>)}
         {nativeStationSelection() ? <AgentConnectionSetup providers onlySelection selectionTarget={viewProvider} /> : viewProvider !== stationProvider && <button type="button" disabled={busy} onClick={() => void applyProvider()}>Apply radio selection</button>}
         <span>Active radio: {radioProviderLabels[stationProvider]}. {viewProvider === stationProvider ? "Your independent rotor stays connected." : "Viewing only. Apply radio selection to disconnect the active radio; your independent rotor stays connected."}</span></div>
-        {viewProvider === "hamlib" ? <HamlibPanel request={viewedStationRequest} snapshot={stationProvider === viewProvider ? station : null} /> :
+        {viewProvider === "direct_tci" ? <section className="live-station" aria-label="Direct TCI observations"><h2>Direct TCI · read only</h2>
+          {stationProvider === viewProvider ? <><AgentConnectionSetup followSelection connections /><TCIObservation snapshot={station} /></> : <p>Apply Direct TCI selection to review its saved configuration.</p>}</section> : viewProvider === "hamlib" ? <HamlibPanel request={viewedStationRequest} snapshot={stationProvider === viewProvider ? station : null} /> :
           viewProvider === "direct_flex_lan" ? <DirectFlexPanel request={viewedStationRequest} snapshot={stationProvider === viewProvider ? station : null} /> :
           <StationPanel snapshot={stationProvider === viewProvider ? station : null} onRequest={viewedStationRequest} onSnapshot={value => { if (stationProvider === viewProvider && provider.current === viewProvider) setStation(value); }} independentRotor />}</>}</>}
       {(view === "Awards" || awardsOpened) && <div hidden={view !== "Awards"}><IntegratedAwards request={request} refresh={refresh} initialStats={stats?.awards} onUndock={() => void openDetachedAwards().catch(cause => setError(cause.message))} /></div>}
@@ -1032,12 +1036,12 @@ function MainLiveApp() {
 }
 
 function SidebarStation({ snapshot, provider, busy, onAction }: { snapshot: Data | null; provider: StationProvider; busy: boolean; onAction: (action: string) => void }) {
-  const s = snapshot?.station, local = provider === "hamlib", flex = provider === "direct_flex_lan";
+  const s = snapshot?.station, local = provider === "hamlib", flex = provider === "direct_flex_lan", tci = provider === "direct_tci";
   const detail = (text: string | undefined, prefix: string) => text?.split(/[|·]/).map(v => v.trim()).find(v => v.toUpperCase().startsWith(prefix + " "))?.slice(prefix.length).trim();
   const band = (text: string | undefined) => text?.split(/[|·]/).map(v => v.trim()).find(v => /^\d+(\.\d+)?[cm]+$/i.test(v));
   const antenna = s?.kat_detail_primary?.match(/\bANT\s*\d+\b/)?.[0];
   const action = s?.kpa_operate ? "standby" : "operate";
-  const items = flex ? [["FREQUENCY", frequency(snapshot?.radio?.frequency_hz), "cyan"],
+  const items = flex || tci ? [["FREQUENCY", frequency(snapshot?.radio?.frequency_hz), "cyan"],
       ["MODE", snapshot?.radio?.mode || "—", "teal"],
       ["RX VFO", snapshot?.radio?.receive_vfo || "—", "cyan"],
       ["TX", snapshot?.radio?.transmitting === true ? "ACTIVE" : snapshot?.radio?.transmitting === false ? "IDLE" : "UNKNOWN", snapshot?.radio?.transmitting === true ? "orange" : "teal"]]
@@ -1045,7 +1049,8 @@ function SidebarStation({ snapshot, provider, busy, onAction }: { snapshot: Data
     : [["OUTPUT", detail(s?.kpa_detail_primary, "OUT") || (s?.tx_power_watts == null ? "—" : `${s.tx_power_watts} W`), "orange"],
       [s?.swr_is_live ? "SWR LIVE" : "SWR LAST", s?.swr?.toFixed(2) || "—", "teal"], ["KPA BAND", band(s?.kpa_detail_primary) || s?.band || "—", "amber"],
       ["KPA TEMP", detail(s?.kpa_detail_secondary, "TEMP") || "—", "amber"], ["KAT BAND", band(s?.kat_detail_primary) || s?.band || "—", "cyan"], ["ANTENNA", antenna || "—", "cyan"]];
-  return <section className="live-station-brief"><div className="nav-group">Station</div><strong className={local || flex ? "cyan" : "amber"}>{flex ? `DIRECT FLEX · ${snapshot?.radio?.connected ? "CONNECTED" : "OFFLINE"}` : local ? "LOCAL · HAMLIB" : `KPA500 · ${s?.kpa_operate == null ? "OFFLINE" : s.kpa_operate ? "OPERATE" : "STANDBY"}`}</strong>
-    {!local && !flex && <><button className={s?.kpa_operate ? "teal" : "orange"} disabled={nativeStationSelection() && action === "standby" ? false : busy || !s?.allowed_actions?.includes(action)} onClick={() => onAction(action)}>Switch to {action}</button>{nativeStationSelection() && action !== "standby" && <button onClick={()=>onAction("standby")}>Standby</button>}</>}
+  return <section className="live-station-brief"><div className="nav-group">Station</div><strong className={local || flex || tci ? "cyan" : "amber"}>{tci ? "DIRECT TCI · READ ONLY" : flex ? `DIRECT FLEX · ${snapshot?.radio?.connected ? "CONNECTED" : "OFFLINE"}` : local ? "LOCAL · HAMLIB" : `KPA500 · ${s?.kpa_operate == null ? "OFFLINE" : s.kpa_operate ? "OPERATE" : "STANDBY"}`}</strong>
+    {tci && <p>Direct TCI · read only</p>}
+    {!local && !flex && !tci && <><button className={s?.kpa_operate ? "teal" : "orange"} disabled={nativeStationSelection() && action === "standby" ? false : busy || !s?.allowed_actions?.includes(action)} onClick={() => onAction(action)}>Switch to {action}</button>{nativeStationSelection() && action !== "standby" && <button onClick={()=>onAction("standby")}>Standby</button>}</>}
     <div className="sidebar-metrics">{items.map(([title, text, color]) => <div key={title} className={color}><small>{title}</small><b>{text}</b></div>)}</div></section>;
 }

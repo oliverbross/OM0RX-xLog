@@ -83,6 +83,25 @@ it("explains absent native selection and never initializes or connects it", () =
   expect(screen.getByText(/No radio selected/)).toBeTruthy();
   expect(screen.queryByRole("button")).toBeNull();
 });
+it("TCI child follows saved selection and exposes no radio controls even with advertised authority", async () => {
+  const context = syntheticMonitorContext();
+  context.selection!.provider = "direct_tci"; context.radio.provider = "direct_tci"; context.radio.snapshot.source = "direct_tci";
+  const state: StationSession = { generation: "tci-setup", revision: 4, base_url: "", last_receipt: null,
+    tci: { endpoint: "ws://127.0.0.1:50001", trx: 0, channel: 0 }, selection: { provider: "direct_tci", generation: context.selection!.generation, selection_id: context.selection!.selection_id } };
+  native.invoke.mockImplementation(async (command, args) => {
+    if (command === "monitor_context_snapshot") return context;
+    if (command === "station_session_request" && args.params.action === "snapshot") return state;
+    throw new Error(`Unexpected authority: ${command}`);
+  });
+  render(<DetachedStationControlSurface />); await act(async () => {});
+  expect(screen.getByLabelText("Shared TCI endpoint")).toBeTruthy();
+  expect(screen.getByText("TCI observations are read only. Radio controls are unavailable.")).toBeTruthy();
+  expect(screen.queryByLabelText("Child receive frequency MHz")).toBeNull();
+  expect(screen.queryByRole("button", { name: /Reconnect|PTT|CW|Tune|Operate|Standby|receive/i })).toBeNull();
+  expect(screen.queryByRole("checkbox")).toBeNull();
+  expect(native.invoke.mock.calls.every(([command, args]) => command === "monitor_context_snapshot" || args.params.action === "snapshot")).toBe(true);
+  expect(native.worker).not.toHaveBeenCalled();
+});
 it("labels isolated observations and remains passive even when actions are advertised", () => {
   const value = syntheticMonitorContext(); value.acceptance = { synthetic: true, source: "synthetic_memory", externalOwners: false, readOnly: true };
   setup(value);

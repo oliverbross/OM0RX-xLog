@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { loadStationSession, stationSessionRequest, type FlexConfiguration, type HamlibConfiguration, type StationReceipt, type StationSession } from "./stationSession";
+import { loadStationSession, stationSessionRequest, validTCIConfiguration, type TCIConfiguration, type FlexConfiguration, type HamlibConfiguration, type StationReceipt, type StationSession } from "./stationSession";
 import type { StationProvider } from "../worker";
 import { SharedHamlibModelBrowser } from "./HamlibModelPicker";
 import type { MonitorContext } from "./monitorContext";
@@ -8,13 +8,13 @@ import { stationReceiveAvailable } from "./stationReceive";
 
 const journalKey = "xlog.station-session.pending";
 const reviewedKey = "xlog.station-session.reviewed";
-const providerLabels: Record<StationProvider, string> = { direct_agent: "Remote Station Agent", direct_flex_lan: "Direct FLEX LAN", hamlib: "Local Hamlib" };
+const providerLabels: Record<StationProvider, string> = { direct_agent: "Remote Station Agent", direct_flex_lan: "Direct FLEX LAN", direct_tci: "Direct TCI · read only", hamlib: "Local Hamlib" };
 const receiveModes = ["USB", "LSB", "CW", "CWR", "AM", "FM", "RTTY", "RTTYR", "DIGU", "DIGL"];
 const notice = (receipt: StationReceipt) => receipt.request.action === "select"
   ? receipt.status === "acknowledged" ? "Radio selection acknowledged. Connect the selected radio explicitly."
     : "Radio selection outcome is unknown. Review the selected radio and check this receipt before another request."
   : receipt.request.action.startsWith("receive_") ? receipt.status === "acknowledged" ? "Receive control request acknowledged. Check fresh observations before another action." : "Receive control outcome is unknown. Check observed state and this receipt before another action."
-  : receipt.status === "saved" ? receipt.request.action === "save_hamlib" ? "Hamlib configuration saved. No connection was started." : receipt.request.action === "save_flex" ? "FLEX configuration saved. No connection was started." : "Agent endpoint saved. No connection was started."
+  : receipt.status === "saved" ? receipt.request.action === "save_tci" ? "TCI configuration saved. No connection was started." : receipt.request.action === "save_hamlib" ? "Hamlib configuration saved. No connection was started." : receipt.request.action === "save_flex" ? "FLEX configuration saved. No connection was started." : "Agent endpoint saved. No connection was started."
   : receipt.status === "acknowledged" ? "Connection request acknowledged. Check observed station state before operating."
   : "Connection outcome is unknown. Check observed station state before issuing another connection request.";
 
@@ -25,8 +25,10 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
   const [state, setState] = useState<StationSession | null>(null), [url, setURL] = useState("");
   const hamlib = hamlibSetup || followSelection && state?.selection.provider === "hamlib";
   const flex = flexSetup || followSelection && state?.selection.provider === "direct_flex_lan";
+  const tci = followSelection && state?.selection.provider === "direct_tci";
   const [config, setConfig] = useState<HamlibConfiguration>({ mode: "managed", model: undefined, path: "", baud: 9600 });
   const [flexConfig, setFlexConfig] = useState<FlexConfiguration>({ host: "", port: 4992, station_name: "OM0RX-xLog" });
+  const [tciConfig, setTCIConfig] = useState<TCIConfiguration>({ endpoint: "", trx: 0, channel: 0 });
   const [token, setToken] = useState(""), [transmit, setTransmit] = useState(true);
   const [agentTransmit, setAgentTransmit] = useState(true);
   const [receiveMHz, setReceiveMHz] = useState(""), [receiveMode, setReceiveMode] = useState("USB"), [consumedObservation, setConsumedObservation] = useState("");
@@ -49,6 +51,7 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
         current.current = next; setState(next); setURL(hint || next.base_url); dirty.current = !!hint; setConflict(false);
         setConfig(next.hamlib ?? { mode: "managed", path: "", baud: 9600 });
         setFlexConfig(next.flex ?? { host: "", port: 4992, station_name: "OM0RX-xLog" });
+        setTCIConfig(next.tci ?? { endpoint: "", trx: 0, channel: 0 });
         setLegacyHint(!!hint);
       } else if (next.generation !== current.current?.generation || next.revision !== current.current?.revision) {
         setConflict(true);
@@ -86,6 +89,7 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
   const execute = async (action: "save" | "connect" | "reconnect" | "disconnect" | "forget" | "select" | "receive_frequency" | "receive_mode") => {
     const base = current.current;
     if (!base || inFlight.current || pending) return;
+    if (tci && (action === "save" && !validTCIConfiguration(tciConfig) || !["save", "select", "connect", "disconnect"].includes(action))) return;
     const receive = action.startsWith("receive_");
     const receiveControl = action === "receive_mode" ? "mode" : "frequency";
     if (receive && (!receiveReady(receiveControl) || action === "receive_frequency" && (!Number.isSafeInteger(receiveHz) || receiveHz < 100_000 || receiveHz > 1_000_000_000))) return;
@@ -99,9 +103,9 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
         provider: receiveContext!.selection!.provider, selection_generation: receiveContext!.selection!.generation, selection_id: receiveContext!.selection!.selection_id,
         control_revision: receiveContext!.selection!.control_revision, connection_generation: receiveContext!.radio.snapshot.generation,
         ...(action === "receive_frequency" ? { frequency_hz: receiveHz } : { mode: receiveMode }) }
-        : { action: action !== "select" && (hamlib || flex) ? `${action}_${flex ? "flex" : "hamlib"}` : action, operation_id: id, generation: base.generation, revision: base.revision,
-        ...(action === "save" ? flex ? { configuration: { ...flexConfig, host: flexConfig.host.trim(), station_name: flexConfig.station_name.trim() } } : hamlib ? { configuration: config } : { base_url: url.trim() } : { selection_generation: base.selection.generation, selection_id: base.selection.selection_id,
-          ...(action === "select" ? { provider: target } : { allow_transmit: ["connect", "reconnect"].includes(action) && (hamlib || flex ? transmit : agentTransmit) }), ...(!hamlib && !flex && action === "connect" && token ? { token } : {}) }) });
+        : { action: action !== "select" && (tci || hamlib || flex) ? `${action}_${tci ? "tci" : flex ? "flex" : "hamlib"}` : action, operation_id: id, generation: base.generation, revision: base.revision,
+        ...(action === "save" ? tci ? { configuration: { ...tciConfig, endpoint: tciConfig.endpoint.trim() } } : flex ? { configuration: { ...flexConfig, host: flexConfig.host.trim(), station_name: flexConfig.station_name.trim() } } : hamlib ? { configuration: config } : { base_url: url.trim() } : { selection_generation: base.selection.generation, selection_id: base.selection.selection_id,
+          ...(action === "select" ? { provider: target } : tci ? {} : { allow_transmit: ["connect", "reconnect"].includes(action) && (hamlib || flex ? transmit : agentTransmit) }), ...(!tci && !hamlib && !flex && action === "connect" && token ? { token } : {}) }) });
       if (!active.current) return;
       setToken(""); setMessage(notice(receipt));
       if (receipt.status === "saved" || receipt.status === "acknowledged") {
@@ -124,9 +128,23 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
     } catch { if (active.current) setError("The receipt is unavailable. Keep this operation pending and check again."); }
     finally { inFlight.current = false; if (active.current) setBusy(false); }
   };
-  const selected = state?.selection.provider === (flex ? "direct_flex_lan" : hamlib ? "hamlib" : "direct_agent") && !!state.selection.selection_id;
+  const selected = state?.selection.provider === (tci ? "direct_tci" : flex ? "direct_flex_lan" : hamlib ? "hamlib" : "direct_agent") && !!state.selection.selection_id;
   const updateConfig = (next: HamlibConfiguration) => { dirty.current = true; setConfig(next); };
-  return <div className="live-station-connect" aria-label={onlySelection ? "Shared radio selection" : flex ? "Shared FLEX connection setup" : hamlib ? "Shared Hamlib connection setup" : "Shared Agent connection setup"}>
+  return <div className="live-station-connect" aria-label={onlySelection ? "Shared radio selection" : tci ? "Shared TCI connection setup" : flex ? "Shared FLEX connection setup" : hamlib ? "Shared Hamlib connection setup" : "Shared Agent connection setup"}>
+    {tci && !onlySelection && <><h3>Direct TCI connection · read only</h3>
+      <p>Save a credential-free ws/wss endpoint and receiver selection, then connect explicitly. TCI observations are read only. Saving does not connect; interrupted connections require an explicit new connection.</p>
+      <fieldset disabled={!state || busy}>
+        <label>TCI WebSocket endpoint<input aria-label="Shared TCI endpoint" type="url" autoComplete="off" placeholder="ws://127.0.0.1:50001" value={tciConfig.endpoint} onChange={event => { dirty.current = true; setTCIConfig({ ...tciConfig, endpoint: event.target.value }); }} /></label>
+        <label>TCI TRX<input aria-label="Shared TCI TRX" type="number" min="0" max="15" value={Number.isNaN(tciConfig.trx) ? "" : tciConfig.trx} onChange={event => { dirty.current = true; setTCIConfig({ ...tciConfig, trx: event.target.value === "" ? NaN : Number(event.target.value) }); }} /></label>
+        <label>TCI channel<input aria-label="Shared TCI channel" type="number" min="0" max="15" value={Number.isNaN(tciConfig.channel) ? "" : tciConfig.channel} onChange={event => { dirty.current = true; setTCIConfig({ ...tciConfig, channel: event.target.value === "" ? NaN : Number(event.target.value) }); }} /></label>
+      </fieldset>
+      <div className="live-station-actionrow"><button type="button" disabled={!state || busy || !!pending || conflict || !validTCIConfiguration(tciConfig)} onClick={() => void execute("save")}>Save TCI configuration</button>
+        <button type="button" disabled={busy} onClick={() => void refresh(true)}>Reload saved TCI configuration</button></div>
+      {dirty.current && <p>Save configuration changes before connecting.</p>}
+      {conflict && <p role="alert">Station setup changed in another window. Your text is retained; reload saved TCI configuration to review it.</p>}
+      <div className="live-station-actionrow"><button type="button" disabled={!selected || !state?.tci || dirty.current || conflict || busy || !!pending} onClick={() => void execute("connect")}>Connect saved TCI radio</button>
+        <button type="button" disabled={!selected || busy || !!pending} onClick={() => void execute("disconnect")}>Disconnect TCI radio</button></div>
+    </>}
     {providers && <div>
       <p>Selected radio: {state?.selection.provider ? providerLabels[state.selection.provider as StationProvider] : "Unavailable"}{compact ? "" : ". Applying a different provider retires the previous radio. Connect the selected radio explicitly."}</p>
       {selectionTarget ? <p>Requested radio: {providerLabels[selectionTarget]}</p> : <label>Radio provider<select aria-label="Shared radio provider" value={target} disabled={!state || busy || !!pending} onChange={event => setProviderTarget(event.target.value as StationProvider)}>
@@ -174,7 +192,7 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
         <button type="button" disabled={!selected || busy || !!pending} onClick={() => void execute("disconnect")}>Disconnect Hamlib radio</button></div>
       {!selected && <p>Select Local Hamlib before connecting.</p>}
     </>}
-    {!onlySelection && !hamlib && !flex && <>{!compact && <p>Saved Agent endpoint is shared across windows. Saving it does not connect a radio.</p>}
+    {!onlySelection && !tci && !hamlib && !flex && <>{!compact && <p>Saved Agent endpoint is shared across windows. Saving it does not connect a radio.</p>}
     <label>Agent HTTPS URL<input aria-label="Shared Agent HTTPS URL" type="url" value={url} disabled={!state || busy}
       placeholder="https://station.example:8443" onChange={event => { dirty.current = true; setLegacyHint(false); setURL(event.target.value); }} /></label>
     <div className="live-station-actionrow"><button type="button" disabled={!state || busy || !!pending || conflict} onClick={() => void execute("save")}>{legacyHint ? "Import previous Agent endpoint" : "Save Agent endpoint"}</button>
@@ -183,7 +201,7 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
     {state && dirty.current && <p>Save endpoint changes before connecting. This text has not changed shared setup.</p>}
     {conflict && <p role="alert">Agent setup changed in another window. Your text is retained; reload saved endpoint to review the current setup.</p>}
     </>}
-    {connections && !hamlib && !flex && <>
+    {connections && !tci && !hamlib && !flex && <>
       {!compact && <p>Saved Agent setup and connection tests do not confirm the running station session. Check the live station status for current radio observations; an interrupted session retries automatically.</p>}
       <label>Agent token<input aria-label="Shared Agent token" type="password" autoComplete="off" value={token} onChange={event => setToken(event.target.value)} /></label>
       <label><input type="checkbox" checked={agentTransmit} onChange={event => setAgentTransmit(event.target.checked)} /> Allow CAT transmit controls for this connection</label>

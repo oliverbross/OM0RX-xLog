@@ -4,7 +4,7 @@ import type { StationProvider } from "../worker";
 export type StationSelection = { provider: StationProvider; generation: number };
 export const nativeStationSelection = () => isTauri() && new URLSearchParams(location.search).get("acceptance") !== "local";
 function checked(value: any): StationSelection {
-  if (!value || !["direct_agent", "direct_flex_lan", "hamlib"].includes(value.provider) || !Number.isSafeInteger(value.generation) || value.generation < 0)
+  if (!value || !["direct_agent", "direct_flex_lan", "direct_tci", "hamlib"].includes(value.provider) || !Number.isSafeInteger(value.generation) || value.generation < 0)
     throw new Error("Native radio selection was not confirmed.");
   return value;
 }

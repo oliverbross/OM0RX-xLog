@@ -9,12 +9,12 @@ import { amplifierTransitionSession } from "./amplifierTransition";
 
 type Data = Record<string, any>;
 export type MonitorContext = { epoch: string; revision: number; selection: null | {
-  provider: "direct_agent" | "direct_flex_lan" | "hamlib" | null; generation: number; selection_id: string | null; control_revision?: number;
+  provider: "direct_agent" | "direct_flex_lan" | "direct_tci" | "hamlib" | null; generation: number; selection_id: string | null; control_revision?: number;
 }; radio: Data; rotor: Data; acceptance?: { synthetic: true; source: "synthetic_memory"; externalOwners: false; readOnly: true } };
 const object = (value: any) => !!value && typeof value === "object" && !Array.isArray(value);
 const integer = (value: any) => Number.isSafeInteger(value) && value >= 0;
 const uuid = (value: any) => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
-const providers = ["direct_agent", "direct_flex_lan", "hamlib"];
+const providers = ["direct_agent", "direct_flex_lan", "direct_tci", "hamlib"];
 function projection(value: any, rotor = false) {
   return object(value) && typeof value.available === "boolean" && Object.hasOwn(value, "snapshot") &&
     (!value.available || integer(value.revision) && integer(value.received_at_ms) && object(value.snapshot)

@@ -4,7 +4,7 @@ import type { BandMapViewPreferences } from "./live/BandMaps";
 export const desktop = isTauri();
 export type DetachedMapKind = "world-map" | "band-maps";
 export type DetachedSpotKind = DetachedMapKind | "dx-cluster";
-export type StationProvider = "direct_agent" | "direct_flex_lan" | "hamlib";
+export type StationProvider = "direct_agent" | "direct_flex_lan" | "direct_tci" | "hamlib";
 export type DetachedMapProjection = {
   revision?: number;
   spots: Record<string, any>[]; palette?: Record<string, unknown>;
@@ -24,7 +24,7 @@ export function validMonitorProjection(value: unknown): value is MonitorProjecti
   const item = value as Record<string, unknown>;
   return Array.isArray(item.spots) && item.spots.length <= 500 &&
     (item.station === null || typeof item.station === "object" && !Array.isArray(item.station)) &&
-    (item.provider === "direct_agent" || item.provider === "direct_flex_lan" || item.provider === "hamlib") &&
+    (item.provider === "direct_agent" || item.provider === "direct_flex_lan" || item.provider === "direct_tci" || item.provider === "hamlib") &&
     typeof item.controlsEnabled === "boolean" &&
     (item.station === null || (item.station as Record<string, unknown>).source === item.provider);
 }

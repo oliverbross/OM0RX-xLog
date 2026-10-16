@@ -11,7 +11,7 @@ type Connection = { refresh: () => void; dispose: () => void };
 type Props = { connect?: (changed: (value: MonitorContext) => void, failed: (message: string) => void) => Connection; configuration?: ReactNode | ((context: MonitorContext | null) => ReactNode); rotorControls?: boolean; rotorSession?: ManualRotorGotoSession };
 const frequency = (hz: unknown) => typeof hz === "number" && Number.isFinite(hz) ? `${(hz / 1e6).toFixed(6)} MHz` : "Unavailable";
 const value = (input: unknown) => input == null || input === "" ? "Unavailable" : String(input);
-const providers = { direct_agent: "Remote Station Agent", direct_flex_lan: "Direct FLEX LAN", hamlib: "Local Hamlib" };
+const providers = { direct_agent: "Remote Station Agent", direct_flex_lan: "Direct FLEX LAN", direct_tci: "Direct TCI · read only", hamlib: "Local Hamlib" };
 
 /** Retained observations and optional shared radio connection controls. Mounting never
  * reads credentials, selects a provider, connects a device or sends an action. */
@@ -37,6 +37,7 @@ export function StationControlSurface({ connect = connectMonitorContext, configu
       {error && <p className="live-station-error" role="alert">{error}</p>}
       {!context && <p role="status">Loading retained native station observations…</p>}
       {context?.acceptance && <p role="status">Synthetic isolated observation · read only</p>}
+      {provider === "direct_tci" && <p role="status">TCI observations are read only. Radio controls are unavailable.</p>}
       {context && !provider && <p role="status">No radio selected. Select and connect a radio{configuration ? " above" : " in the main station controls"}.</p>}
       {provider && <><p>{providers[provider]} · <span role="status">{fresh ? "Observed live" : "Observation unavailable or stale · retained values"}</span></p>
         <div className="live-station-readback"><div><span>Observed receive</span><strong>{frequency(radio.receive_frequency_hz ?? radio.frequency_hz)}</strong><span>{value(radio.mode)}</span></div></div>
@@ -59,5 +60,5 @@ export function StationControlSurface({ connect = connectMonitorContext, configu
 }
 export function DetachedStationControlSurface() {
   return <StationControlSurface rotorControls configuration={new URLSearchParams(location.search).get("acceptance") === "local" ? undefined : context => <><AgentConnectionSetup connections providers followSelection compact receiveContext={context} />
-    {context?.selection?.provider && <ManualSimplexTune provider={context.selection.provider} context={context} />}</>} />;
+    {context?.selection?.provider && context.selection.provider !== "direct_tci" && <ManualSimplexTune provider={context.selection.provider} context={context} />}</>} />;
 }
