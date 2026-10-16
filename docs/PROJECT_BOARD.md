@@ -1,6 +1,6 @@
 # OM0RX-xLog live project board
 
-Tracked implementation checkpoint: `6c1cad01b01c85772cfd8748bc3d9819dbd6ee32`.
+Tracked implementation checkpoint: `ed8ed379005a170629988a136fb872124ab4ea33`.
 Source/test/browser evidence below remains separate from installed alpha.31 and
 unaccepted package, native interaction, provider and hardware gates.
 
@@ -128,6 +128,13 @@ frontend **41/41**, and global TX protocol/session Swift **35/35** pass. The pin
  validation enforces application/discovered bounds; discovery shrink prunes observations
  and reconnect clears them. Owner/expiry, tuning confirmation, configured freshness and
  control authority are not inferred.
+ `ed8ed37` retains exact bounded ASCII decimal `RX_CHANNEL_SENSORS` tokens per address,
+ with discovery pruning/reconnect clearing and no Double conversion, physical range,
+ calibration, quality, readiness, configured freshness or control claim. All **6 new tests
+ pass twice**; protocol **42/42** passes. Broader session rerun remains **71/72** on unchanged
+ `testDroppingLastSessionReferenceClosesPendingConnection` (closeCount **0 vs 1**); an initial
+ existing tune-yield miss passed rerun. Build/diff are clean, but the full session gate and
+ package/live-server/RF acceptance remain open.
 Transmit/PTT, split/TX-VFO controls,
 spots, audio/IQ, package/live-server and RF
 acceptance remain open; installed alpha.31 is unchanged. See the

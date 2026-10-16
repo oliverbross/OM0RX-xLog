@@ -9,7 +9,7 @@ radio transmission, rotor movement and Windows/Linux packaging remain separate g
 
 ## Current decision
 
-Implementation checkpoint: `6c1cad01b01c85772cfd8748bc3d9819dbd6ee32`. Source/test/browser
+Implementation checkpoint: `ed8ed379005a170629988a136fb872124ab4ea33`. Source/test/browser
 verification does not close package/native, provider or hardware acceptance.
 
 - Keep the Mac-first daily logger, canonical QSO/draft owners and local-first database.
@@ -95,6 +95,13 @@ TX completion/success or RF inference.
 producer times (**66/66** focused Swift: 38 protocol + 28 session), strict three-argument
 application/discovery bounds, pruning on discovery shrink and reconnect clearing.
 Owner/expiry, tuning confirmation, configured freshness and control authority remain unknown.
+`ed8ed37` retains exact bounded ASCII decimal `RX_CHANNEL_SENSORS` tokens per address,
+with discovery pruning/reconnect clearing. It uses no Double conversion and establishes
+no physical range, calibration, quality, readiness, configured freshness or control claim.
+All **6 new tests pass twice** and protocol **42/42** passes. Broader session rerun remains
+**71/72** on unchanged `testDroppingLastSessionReferenceClosesPendingConnection`
+(closeCount **0 vs 1**); an initial existing tune-yield miss passed rerun. Build/diff are
+clean; full session, package/live-server and RF acceptance remain open.
 See [filter](TCI_RECEIVE_FILTER_SOURCE_ACCEPTANCE_2026-10-16.md) and
 [split](TCI_SPLIT_OBSERVATION_SOURCE_ACCEPTANCE_2026-10-16.md), plus
 [global TX observation](TCI_TRANSMIT_FREQUENCY_OBSERVATION_SOURCE_ACCEPTANCE_2026-10-16.md), source acceptance. This is

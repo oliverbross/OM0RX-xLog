@@ -7,7 +7,7 @@ packaged UI result. Keep unresolved items here across releases.
 
 ## Current delivery boundary
 
-Tracked implementation checkpoint: `6c1cad01b01c85772cfd8748bc3d9819dbd6ee32`.
+Tracked implementation checkpoint: `ed8ed379005a170629988a136fb872124ab4ea33`.
 Source/test/browser results do not establish packaged/native, live-provider or hardware
 acceptance; installed alpha.31 remains unchanged.
 
@@ -142,6 +142,13 @@ acceptance; installed alpha.31 remains unchanged.
   validation enforces application/discovered bounds, discovery shrink prunes reports and
   reconnect clears them. Reports confer no owner/expiry, tuning confirmation, configured
   freshness or control authority.
+  `ed8ed37` retains `RX_CHANNEL_SENSORS` per address as exact bounded ASCII decimal
+  tokens, with discovery pruning/reconnect clearing. No Double conversion or physical
+  range, calibration, quality, readiness, configured freshness or control claim is made.
+  All **6 new tests pass twice**; protocol **42/42** passes. Broader session rerun remains
+  **71/72**: unchanged `testDroppingLastSessionReferenceClosesPendingConnection` observed
+  closeCount **0 vs 1**. An initial existing tune-yield miss passed rerun. Build/diff are
+  clean; the full session gate, package/live-server and RF acceptance remain open.
   No PTT, carrier Tune, radio CW or amplifier control is exposed; transmit/PTT,
   split/TX-VFO, outbound spot management, audio/IQ, package/live-server and RF proof remain open. QLog was a behavior
   reference only, no implementation code was copied, and installed alpha.31 is unchanged.

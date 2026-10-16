@@ -2,7 +2,7 @@
 
 Last updated: 2026-10-16
 
-Tracked implementation checkpoint: `6c1cad01b01c85772cfd8748bc3d9819dbd6ee32`.
+Tracked implementation checkpoint: `ed8ed379005a170629988a136fb872124ab4ea33`.
 New source/test/browser evidence does not replace installed alpha.31 or close
 exact-package, native interaction, live-provider or hardware acceptance.
 
@@ -215,6 +215,14 @@ per exact address with independent producer times (**66/66** focused Swift: 38 p
 28 session). Strict three-argument validation enforces application and discovered bounds;
 discovery shrink prunes observations and reconnect clears them. These reports establish no
 owner/expiry, tuning confirmation, configured freshness or control authority.
+`ed8ed37` retains passive `RX_CHANNEL_SENSORS` per exact address as bounded ASCII
+decimal tokens, without Double conversion or physical range/calibration assumptions.
+Discovery shrink prunes reports and reconnect clears them; tokens establish no quality,
+readiness, configured freshness or control authority. All **6 new tests pass twice** and
+protocol tests pass **42/42**. The broader session rerun remains **71/72**: unchanged
+`testDroppingLastSessionReferenceClosesPendingConnection` observed closeCount **0 vs 1**.
+An initial existing tune-yield miss passed on rerun; the remaining lifecycle failure is
+not accepted away. Build/diff pass; package/live-server and RF acceptance stay open.
 Transmit/PTT, split/TX-VFO controls, outbound spot
 management, audio/IQ, package/live-server and RF acceptance
 remain open. QLog is a behavior reference only; no third-party code, credentials, device or
