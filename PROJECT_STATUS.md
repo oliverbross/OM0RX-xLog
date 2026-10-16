@@ -125,7 +125,7 @@ explicitly clears them. Focused Swift **12/12**, sync-identity **25/25**, fronte
 **72/72**, TypeScript and diff checks pass after independent review. Package/manual
 macOS interaction and copied real-log acceptance remain open.
 
-## Native TCI radio provider — observed receive tuning source complete; broader control open
+## Native TCI radio provider — receive tuning/filter source complete; broader control open
 
 Full TCI support for SunSDR/ExpertSDR and compatible servers is now an explicit product
 programme. The current source stage provides a bounded Swift protocol/reducer, receive-only
@@ -144,9 +144,16 @@ newer matching frequency/mode readback. Disconnect, write loss, timeout and late
 reconnect, retry or replay; `5b95d35` makes the projected receive-control capability explicit.
 The UI still exposes no PTT, carrier Tune, radio CW or amplifier action and preserves independent
 WinKeyer and rotor responsibilities. Focused tuning checks pass **33/33 Swift**, **8/8 Rust** and
-**47/47 frontend**, with TypeScript clean. Transmit/PTT, split/filter controls, spots, audio/IQ,
-package/live-server and RF acceptance remain open. QLog is a behavior reference only; no third-party code,
-credentials, device or operator data was copied. Installed alpha.31 remains unchanged.
+**47/47 frontend**, with TypeScript clean. `f1c9292` adds explicit TRX-wide
+`RX_FILTER_BAND` adjustment with a documented application limit of -24,000 to +24,000 Hz.
+It uses the existing socket once, journals before dispatch, and confirms only newer matching
+same-TRX filter telemetry; unknown outcomes require explicit Check/review and are never replayed.
+The reducer no longer mistakes `IF_LIMITS` for a receive-filter limit. Root reruns pass selected
+Swift TCI **39/39**, Rust TCI/session/selection **89/89**, frontend **23/23** and TypeScript.
+See [source acceptance](docs/TCI_RECEIVE_FILTER_SOURCE_ACCEPTANCE_2026-10-16.md).
+Transmit/PTT, split/TX-VFO controls, spots, audio/IQ, package/live-server and RF acceptance
+remain open. QLog is a behavior reference only; no third-party code, credentials, device or
+operator data was copied. Installed alpha.31 remains unchanged.
 
 ## Shared durable Agent amplifier owner — source complete; package/hardware acceptance open
 

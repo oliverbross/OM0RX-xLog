@@ -72,8 +72,14 @@ Timeout, disconnect, write loss and late telemetry never reconnect or replay; `5
 the receive-control-only capability consistently. Focused tuning checks pass **33/33 Swift**,
 **8/8 Rust** and **47/47 frontend**. TCI still exposes no PTT, carrier Tune, radio CW or
 amplifier actions, while independent WinKeyer and rotor duties remain available.
-Transmit/PTT, split/filter controls, spots, audio/IQ, package/live-server and RF
-acceptance remain open; installed alpha.31 is unchanged.
+`f1c9292` adds explicit TRX-wide receive-filter adjustment on the existing socket, with an
+app-local -24,000 to +24,000 Hz bound, journal-before-dispatch and newer matching same-TRX
+`RX_FILTER_BAND` confirmation. Unknown receipts are checked/reviewed without replay, and
+`IF_LIMITS` no longer incorrectly discards filter telemetry. Root reruns pass selected Swift
+TCI **39/39**, Rust TCI/session/selection **89/89**, frontend **23/23** and TypeScript.
+Transmit/PTT, split/TX-VFO controls, spots, audio/IQ, package/live-server and RF
+acceptance remain open; installed alpha.31 is unchanged. See the
+[filter source acceptance](TCI_RECEIVE_FILTER_SOURCE_ACCEPTANCE_2026-10-16.md).
 
 Arbitrary ADIF contact editing is source complete. Existing Logbook contact/mutation
 sessions now round-trip modeled and retained unknown/custom fields through pointer and

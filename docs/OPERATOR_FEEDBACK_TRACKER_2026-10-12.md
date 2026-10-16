@@ -72,7 +72,7 @@ packaged UI result. Keep unresolved items here across releases.
   production build and 420×720/1100×700 browser checks pass. No backend, delivery, network,
   station or RF authority changed; installed live-feed popup/sound acceptance remains open.
 
-- **Full native TCI provider requested, 16 October — observed receive tuning source stage
+- **Full native TCI provider requested, 16 October — receive tuning/filter source stage
   complete:** SunSDR2, ExpertSDR and compatible TCI servers are now a first-class radio
   programme. The bounded Swift protocol/reducer and receive-only WebSocket session retain
   exact TRX/channel discovery, producer-time freshness and fail-closed lifecycle fencing.
@@ -83,7 +83,13 @@ packaged UI result. Keep unresolved items here across releases.
   frequency/mode readback. Timeout, disconnect, write loss and late telemetry never reconnect,
   retry or replay; `5b95d35` projects receive-control-only capability consistently. Focused
   tuning checks pass **33/33 Swift**, **8/8 Rust** and **47/47 frontend**, with TypeScript clean.
-  No PTT, carrier Tune, radio CW or amplifier control is exposed; transmit/PTT, split/filter,
+  `f1c9292` adds explicit TRX-wide receive-filter adjustment, an app-local -24,000 to
+  +24,000 Hz bound, journal-before-dispatch and newer matching same-TRX `RX_FILTER_BAND`
+  confirmation. Unknown receipts require explicit Check/review without replay, while
+  `IF_LIMITS` no longer prunes unrelated filter telemetry. Root reruns pass selected Swift
+  TCI **39/39**, Rust TCI/session/selection **89/89**, frontend **23/23** and TypeScript;
+  see [source acceptance](TCI_RECEIVE_FILTER_SOURCE_ACCEPTANCE_2026-10-16.md).
+  No PTT, carrier Tune, radio CW or amplifier control is exposed; transmit/PTT, split/TX-VFO,
   spots, audio/IQ, package/live-server and RF proof remain open. QLog was a behavior
   reference only, no implementation code was copied, and installed alpha.31 is unchanged.
 

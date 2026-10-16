@@ -68,8 +68,11 @@ TCI is tracked beside R02, R12 and R16. Commits `fca6f94` through `f0f68fa`
 provide bounded protocol handling, receive-only session, binary limits, pure command
 encoding, saved provider setup, native telemetry and stale-aware UI. `eb78029`/`5b95d35`
 add explicit readback-confirmed receive frequency/mode control without reconnect or replay.
-This is not full control: transmit/PTT, split/filter, spots, audio/IQ and
-package/live SunSDR acceptance remain open.
+`f1c9292` adds bounded TRX-wide receive-filter adjustment, newer same-TRX readback,
+durable unknown-receipt review and the `IF_LIMITS`/`RX_FILTER_BAND` reducer correction.
+See [source acceptance](TCI_RECEIVE_FILTER_SOURCE_ACCEPTANCE_2026-10-16.md). This is
+not full control: transmit/PTT, split/TX-VFO, spots, audio/IQ and package/live SunSDR
+acceptance remain open.
 
 ## Evidence boundaries
 
