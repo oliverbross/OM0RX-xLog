@@ -692,6 +692,53 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                 } catch LogbookContactError.invalid {
                     throw WorkerFailure("conflict_unavailable", "The retained conflict does not belong to this contact or is no longer available.")
                 }
+            case "logbook_correction_preview":
+                try requireKeys(params, allowed: ["contactID", "generation", "expectedRevision", "evidence"],
+                                required: ["contactID", "generation", "expectedRevision", "evidence"])
+                guard let text = params["contactID"] as? String, let id = UUID(uuidString: text),
+                      let suppliedEvidence = params["evidence"] as? [String: Any] else { throw invalid() }
+                try requireKeys(suppliedEvidence,
+                                allowed: ["field", "value", "source", "date", "dateRole", "rawDate", "referenceSource", "referenceVersion"],
+                                required: ["field", "value", "source", "date", "dateRole", "rawDate", "referenceSource", "referenceVersion"])
+                let revision = try integer(params, "expectedRevision", default: -1, range: 0...9_007_199_254_740_990)
+                guard JSONSerialization.isValidJSONObject(params),
+                      try JSONSerialization.data(withJSONObject: params).count <= 32_000 else { throw invalid() }
+                let generation = try editGeneration(createIfMissing: false)
+                if try !matchesEditGeneration(params, generation) {
+                    return ["status": "workspace_changed", "generation": generation, "read_only": true]
+                }
+                let db = try readyDatabase()
+                guard let current = try db.contactSnapshot(localID: id) else {
+                    return ["status": "contact_missing", "generation": generation, "read_only": true, "review": NSNull()]
+                }
+                guard current.revision == Int64(revision) else {
+                    return ["status": "contact_changed", "generation": generation, "read_only": true, "review": NSNull()]
+                }
+                let source = try currentCTYResolverSnapshot()
+                let report = QSODataQuality.inspect(current, reference: .init(resolver: source.resolver,
+                    source: source.source == "bundled" ? "bundled_cty" : "local_cty"))
+                guard report.findings.contains(where: { $0.kind == .storedDXCCDisagreesWithReference }),
+                      let comparison = report.referenceComparison,
+                      comparison.field == "dxcc", comparison.source == .suppliedCTYReference,
+                      let expectedEvidence = try dataQualityJSON(report)["referenceComparison"] as? [String: Any],
+                      try JSONSerialization.data(withJSONObject: suppliedEvidence, options: [.sortedKeys])
+                        == JSONSerialization.data(withJSONObject: expectedEvidence, options: [.sortedKeys]) else {
+                    throw WorkerFailure("correction_evidence_changed", "The reviewed CTY comparison is no longer current; review the contact again.")
+                }
+                guard let correctedDXCC = Int(comparison.value), (1...1_000).contains(correctedDXCC) else {
+                    throw WorkerFailure("correction_evidence_unusable", "The reviewed CTY comparison cannot form a bounded DXCC correction.")
+                }
+                var proposed = current.qso
+                proposed.dxcc = correctedDXCC
+                let review = LogbookContactUpdateReview.inspect(current: current, contactID: id,
+                    expectedRevision: Int64(revision), proposed: proposed)
+                guard review.failure == nil, review.diffStatus == .complete,
+                      review.changes.count == 1, review.changes.first?.path == ["dxcc"] else {
+                    throw WorkerFailure("correction_evidence_unusable", "The reviewed CTY comparison cannot form a bounded DXCC correction.")
+                }
+                return ["status": "reviewed", "generation": generation, "read_only": true,
+                        "scope": "ctyReferenceDXCCOnly", "evidence": expectedEvidence,
+                        "review": try json(review)]
             case "logbook_follow_up":
                 try requireKeys(params, allowed: ["contactID", "generation"], required: ["contactID", "generation"])
                 guard let text = params["contactID"] as? String, let id = UUID(uuidString: text) else { throw invalid() }
