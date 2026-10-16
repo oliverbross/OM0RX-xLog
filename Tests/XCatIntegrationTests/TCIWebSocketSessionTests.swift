@@ -9,6 +9,80 @@ final class TCIWebSocketSessionTests: XCTestCase {
     private let endpoint = URL(string: "ws://127.0.0.1:40001")!
     private let address = TCIReceiverAddress(trx: 0, channel: 0)
 
+    func testReceiverChannelBalancePublishesIndependentReceiptsWithoutAudioOrConfiguredSideEffects() async throws {
+        let connection = FakeTCIWebSocketConnection(), time = TCIEvidenceClock()
+        let session = TCIReadOnlyWebSocketSession(endpoint: endpoint, configuredAddress: address,
+            connector: FakeTCIWebSocketConnector(connections: [connection]), clock: { time.now() })
+        try await session.connect()
+        await connection.enqueue(.text(Self.discoveryAndState + "VOLUME:0;RX_VOLUME:0,0,-12;MUTE:false;RX_MUTE:0,false;ready;"))
+        let initial = try await waitForObservation(session) { $0.availability == .available }
+        time.advance(10)
+        let receipt = time.now(), other = TCIReceiverAddress(trx: 1, channel: 1)
+        await connection.enqueue(.text("RX_BALANCE:0,0,-40.000;RX_BALANCE:1,1,+00012.500;"))
+        let reported = try await waitForObservation(session, after: initial.sequence) { $0.receiverChannelBalances.count == 2 }
+        XCTAssertEqual(reported.receiverChannelBalances[address]?.rawDB, "-40.000")
+        XCTAssertEqual(reported.receiverChannelBalances[other]?.rawDB, "+00012.500")
+        XCTAssertEqual(reported.receiverChannelBalances[address]?.receivedAt, receipt)
+        XCTAssertEqual(reported.receiverChannelBalances[other]?.receivedAt, receipt)
+        XCTAssertEqual(reported.serverMainVolume, initial.serverMainVolume)
+        XCTAssertEqual(reported.receiverChannelVolumes, initial.receiverChannelVolumes)
+        XCTAssertEqual(reported.serverMainMute, initial.serverMainMute)
+        XCTAssertEqual(reported.receiverMutes, initial.receiverMutes)
+        XCTAssertEqual(reported.snapshot, initial.snapshot)
+        XCTAssertEqual(reported.snapshot?.transceiver.transmitting, false)
+        XCTAssertEqual(reported.snapshot?.transceiver.tuning, false)
+        XCTAssertEqual(reported.evidenceReceivedAt, initial.evidenceReceivedAt)
+        XCTAssertEqual(reported.filterEvidenceSequence, initial.filterEvidenceSequence)
+        XCTAssertEqual(reported.splitEvidenceReceivedAt, initial.splitEvidenceReceivedAt)
+        time.advance(10)
+        await connection.enqueue(.text("RX_BALANCE:0,0,+40.000000000000000000001;"))
+        let invalid = try await waitForObservation(session, after: reported.sequence) { _ in true }
+        XCTAssertEqual(invalid.receiverChannelBalances, reported.receiverChannelBalances)
+        await connection.enqueue(.text("RX_BALANCE:0,0,-40.000;"))
+        let repeated = try await waitForObservation(session, after: invalid.sequence) { _ in true }
+        time.advance(20)
+        XCTAssertEqual(repeated.receiverChannelBalances[address]?.receivedAt, receipt.addingTimeInterval(10))
+        XCTAssertEqual(repeated.receiverChannelBalances[other], reported.receiverChannelBalances[other])
+        XCTAssertEqual(repeated.serverMainVolume, initial.serverMainVolume)
+        XCTAssertEqual(repeated.receiverChannelVolumes, initial.receiverChannelVolumes)
+        XCTAssertEqual(repeated.serverMainMute, initial.serverMainMute)
+        XCTAssertEqual(repeated.receiverMutes, initial.receiverMutes)
+        XCTAssertEqual(repeated.snapshot, initial.snapshot)
+        XCTAssertEqual(repeated.evidenceReceivedAt, initial.evidenceReceivedAt)
+        let sent = await connection.sentTexts()
+        XCTAssertTrue(sent.isEmpty)
+        await session.disconnect()
+        let disconnected = await session.currentObservation()
+        XCTAssertTrue(disconnected.receiverChannelBalances.isEmpty)
+    }
+
+    func testReceiverChannelBalanceBeforeDiscoveryGrantsNoReadinessAndReconnectClearsIt() async throws {
+        let first = FakeTCIWebSocketConnection(), second = FakeTCIWebSocketConnection()
+        let session = TCIReadOnlyWebSocketSession(endpoint: endpoint, configuredAddress: address,
+            connector: FakeTCIWebSocketConnector(connections: [first, second]))
+        try await session.connect()
+        await first.enqueue(.text("RX_BALANCE:0,0,0;"))
+        let reported = try await waitForObservation(session) { !$0.receiverChannelBalances.isEmpty }
+        XCTAssertEqual(reported.availability, .synchronizing)
+        XCTAssertNil(reported.snapshot)
+        XCTAssertNil(reported.evidenceReceivedAt)
+        XCTAssertNil(reported.serverMainVolume)
+        XCTAssertTrue(reported.receiverChannelVolumes.isEmpty)
+        await session.disconnect()
+        try await session.connect()
+        let reconnected = await session.currentObservation()
+        XCTAssertGreaterThan(reconnected.generation, reported.generation)
+        XCTAssertTrue(reconnected.receiverChannelBalances.isEmpty)
+        await first.enqueue(.text("RX_BALANCE:0,0,-40;"))
+        await second.enqueue(.text(Self.discoveryAndState + "ready;"))
+        let available = try await waitForObservation(session, after: reconnected.sequence) { $0.availability == .available }
+        XCTAssertTrue(available.receiverChannelBalances.isEmpty)
+        let firstSent = await first.sentTexts(), secondSent = await second.sentTexts()
+        XCTAssertTrue(firstSent.isEmpty)
+        XCTAssertTrue(secondSent.isEmpty)
+        await session.disconnect()
+    }
+
     func testReceiverChannelVolumePublishesIndependentReceiptsWithoutGlobalMuteOrConfiguredSideEffects() async throws {
         let connection = FakeTCIWebSocketConnection(), time = TCIEvidenceClock()
         let session = TCIReadOnlyWebSocketSession(endpoint: endpoint, configuredAddress: address,

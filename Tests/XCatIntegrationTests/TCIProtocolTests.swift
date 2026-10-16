@@ -7,6 +7,85 @@ import XCTest
 final class TCIProtocolTests: XCTestCase {
     private let address = TCIReceiverAddress(trx: 0, channel: 0)
 
+    func testReceiverChannelBalanceRetainsExactAddressRawDBAndCompletedNotificationReceiptOnly() {
+        var decoder = TCITextDecoder(), reducer = TCIStateReducer()
+        let first = Date(timeIntervalSince1970: 100), completed = first.addingTimeInterval(5)
+        let other = TCIReceiverAddress(trx: 1, channel: 1)
+        reducer.apply(decoder.feed("rx_balance:1,1,+00012."), receivedAt: first)
+        XCTAssertTrue(reducer.state.receiverChannelBalances.isEmpty)
+        reducer.apply(decoder.feed("500;"), receivedAt: completed)
+        XCTAssertEqual(reducer.state.receiverChannelBalances[other]?.rawDB, "+00012.500")
+        XCTAssertEqual(reducer.state.receiverChannelBalances[other]?.receivedAt, completed)
+        XCTAssertNil(reducer.state.receiverChannelBalances[address])
+        XCTAssertTrue(reducer.state.receiverChannelVolumes.isEmpty)
+        XCTAssertNil(reducer.state.serverMainVolume)
+        XCTAssertTrue(reducer.state.transceivers.isEmpty)
+        XCTAssertTrue(reducer.state.frequencies.isEmpty)
+        XCTAssertTrue(reducer.state.unknownCommands.isEmpty)
+        XCTAssertFalse(reducer.state.ready)
+        XCTAssertNil(reducer.authoritativeSnapshot(for: other))
+    }
+
+    func testReceiverChannelBalanceRejectsQueryMalformedAndExactOutOfRangeDecimalTokens() {
+        var reducer = TCIStateReducer(limits: .init(maximumArgumentBytes: 32, maximumTRXCount: 2, maximumChannelCount: 3))
+        XCTAssertTrue(reducer.apply(TCICommand(name: "RX_BALANCE", arguments: ["0", "0", "-6"])))
+        let retained = reducer.state.receiverChannelBalances
+        for arguments in [[], ["0", "0"], ["0", "0", "-6", "extra"], ["-1", "0", "-6"],
+                          ["2", "0", "-6"], ["0", "-1", "-6"], ["0", "3", "-6"], ["0.0", "0", "-6"],
+                          ["0", "1e0", "-6"], ["0", "0", "NaN"], ["0", "0", "Infinity"], ["0", "0", "1e1"],
+                          ["0", "0", ".5"], ["0", "0", "12."], ["0", "0", "−12"], ["0", "0", "41"], ["0", "0", "-41"],
+                          ["0", "0", "-40.00000000000000000000001"], ["0", "0", "+40.00000000000000000000001"],
+                          ["0", "0", String(repeating: "0", count: 33)]] {
+            XCTAssertFalse(reducer.apply(TCICommand(name: "RX_BALANCE", arguments: arguments)), "\(arguments)")
+            XCTAssertEqual(reducer.state.receiverChannelBalances, retained)
+        }
+        for token in ["-40.000", "+040.000", "-039.999999999999999999", "+39.999999999999999999", "-0.000", "+000.000", "+6.25"] {
+            XCTAssertTrue(reducer.apply(TCICommand(name: "RX_BALANCE", arguments: ["0", "0", token])), token)
+            XCTAssertEqual(reducer.state.receiverChannelBalances[address]?.rawDB, token)
+        }
+    }
+
+    func testReceiverChannelBalanceUsesDiscoveredCountsIncludingCAndPrunesBothDimensions() {
+        var decoder = TCITextDecoder(), reducer = TCIStateReducer()
+        reducer.apply(decoder.feed("TRX_COUNT:2;CHANNEL_COUNT:3;RX_BALANCE:0,0,-40;RX_BALANCE:0,1,0;RX_BALANCE:0,2,+40;RX_BALANCE:1,2,-6;"))
+        XCTAssertEqual(reducer.state.receiverChannelBalances.count, 4)
+        XCTAssertEqual(reducer.state.receiverChannelBalances[TCIReceiverAddress(trx: 0, channel: 2)]?.rawDB, "+40")
+        XCTAssertFalse(reducer.apply(TCICommand(name: "RX_BALANCE", arguments: ["0", "3", "-6"])))
+        reducer.apply(decoder.feed("TRX_COUNT:1;"))
+        XCTAssertEqual(reducer.state.receiverChannelBalances.count, 3)
+        XCTAssertFalse(reducer.apply(TCICommand(name: "RX_BALANCE", arguments: ["1", "0", "-6"])))
+        reducer.apply(decoder.feed("CHANNEL_COUNT:1;"))
+        XCTAssertEqual(reducer.state.receiverChannelBalances.count, 1)
+        XCTAssertNotNil(reducer.state.receiverChannelBalances[address])
+        XCTAssertFalse(reducer.apply(TCICommand(name: "RX_BALANCE", arguments: ["0", "1", "-6"])))
+    }
+
+    func testReceiverChannelBalanceReceiptsStayIndependentOfChannelsVolumeMuteAndRadioState() {
+        var decoder = TCITextDecoder(), reducer = TCIStateReducer()
+        let first = Date(timeIntervalSince1970: 100), second = first.addingTimeInterval(10)
+        let other = TCIReceiverAddress(trx: 0, channel: 1)
+        reducer.apply(decoder.feed("RX_BALANCE:0,0,-40;RX_VOLUME:0,0,-12;VOLUME:0;MUTE:false;RX_MUTE:0,false;TRX:0,false;TUNE:0,false;VFO:0,0,14025000;"), receivedAt: first)
+        let global = reducer.state.serverMainVolume, volumes = reducer.state.receiverChannelVolumes
+        let mute = reducer.state.serverMainMute, receiverMute = reducer.state.receiverMutes
+        let radios = reducer.state.transceivers, frequencies = reducer.state.frequencies
+        reducer.apply(decoder.feed("RX_BALANCE:0,1,0;APP_FOCUS:true;"), receivedAt: second)
+        XCTAssertEqual(reducer.state.receiverChannelBalances[address]?.receivedAt, first)
+        reducer.apply(decoder.feed("RX_BALANCE:0,0,-40;"), receivedAt: second)
+        XCTAssertEqual(reducer.state.receiverChannelBalances[address]?.receivedAt, second)
+        reducer.apply(decoder.feed("RX_BALANCE:0,0,+40;"))
+        XCTAssertEqual(reducer.state.receiverChannelBalances[address]?.rawDB, "+40")
+        XCTAssertNil(reducer.state.receiverChannelBalances[address]?.receivedAt)
+        XCTAssertEqual(reducer.state.receiverChannelBalances[other]?.receivedAt, second)
+        XCTAssertEqual(reducer.state.serverMainVolume, global)
+        XCTAssertEqual(reducer.state.receiverChannelVolumes, volumes)
+        XCTAssertEqual(reducer.state.serverMainMute, mute)
+        XCTAssertEqual(reducer.state.receiverMutes, receiverMute)
+        XCTAssertEqual(reducer.state.transceivers, radios)
+        XCTAssertEqual(reducer.state.frequencies, frequencies)
+        reducer = TCIStateReducer()
+        XCTAssertTrue(reducer.state.receiverChannelBalances.isEmpty)
+    }
+
     func testReceiverChannelVolumeRetainsExactAddressRawDBAndCompletedNotificationReceiptOnly() {
         var decoder = TCITextDecoder(), reducer = TCIStateReducer()
         let first = Date(timeIntervalSince1970: 100), completed = first.addingTimeInterval(5)
