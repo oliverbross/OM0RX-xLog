@@ -51,9 +51,8 @@ export function DetachedRotorSurface() {
     }
   };
   return <div className="app live detached-task-app detached-rotor-app"><main aria-label="Detached Rotor"><section className="detached-rotor-observation" aria-label="Rotor state">
-    <p role="status">{current ? "Current observed bearing" : snapshot ? "Position unavailable or stale" : "No rotor observation available"}</p>
     <div className="detached-rotor-visual"><RotorCompass connected={current} azimuth={rotor.azimuth} path="SP" />
-    <div className="live-station-readback"><div><span>{current ? "Observed bearing" : "Retained bearing"}</span>
+    <div className="live-station-readback"><div><span role="status">{current ? "Observed bearing" : snapshot ? "Position unavailable or stale" : "No rotor observation available"}</span>
       <strong>{validBearing ? `${rotor.azimuth.toFixed(1)}°` : "Unavailable"}</strong></div></div></div>
     <div className="detached-rotor-details"><div className="live-actions detached-rotor-actions">
       <label title="Follow the resolved callsign using the native rotor. Selected spots wait for confirmed radio tuning. Stop or reconnect disables automatic turns.">
@@ -65,11 +64,6 @@ export function DetachedRotorSurface() {
         title="Stop the current move through the native rotor owner. No move is replayed."
         onClick={() => { void stopCurrent(); }}>{stopping ? "Stopping…" : "Stop"}</button>
     </div>
-    {(stopError || autoError || automatic.error) && <p className="live-error" role="alert">{stopError || autoError || automatic.error}</p>}
-    <dl><dt>Rotor</dt><dd>{snapshot?.owner ? String(rotor.name) : "No retained owner"}</dd>
-      <dt>Connection</dt><dd>{available ? String(rotor.status) : "Unavailable or stale"}</dd>
-      <dt>Generation</dt><dd>{snapshot?.generation ?? "Unavailable"}</dd>
-      <dt>Position observed</dt><dd>{typeof rotor.observed_at === "number" && Number.isFinite(rotor.observed_at) ? new Date(rotor.observed_at * 1000).toLocaleTimeString() : "Unavailable"}</dd>
-    </dl></div>
+    {(stopError || autoError || automatic.error) && <p className="live-error" role="alert">{stopError || autoError || automatic.error}</p>}</div>
   </section></main></div>;
 }

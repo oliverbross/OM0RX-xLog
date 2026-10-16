@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.4.0-alpha.48 — 2026-10-17
+
+- Reworked the detached Rotor window into a compact operating layout with the compass and bearing on the left and automatic-rotor controls on the right.
+- Removed the redundant Rotor, Connection, Generation and Position observed diagnostic rows while preserving explicit stop and automatic-control errors.
+- Kept the rotor controls usable in narrow windows with a responsive single-column fallback.
+
 ## 0.4.0-alpha.47 — 2026-10-17
 
 - Centered the Zones and Distance facts as a balanced pair in the detached Callsign Intelligence window.

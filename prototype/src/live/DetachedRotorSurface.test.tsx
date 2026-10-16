@@ -62,7 +62,7 @@ it("does not treat a freshly received projection of an old device position as cu
   expect(screen.getByText("123.4°")).toBeTruthy();
 });
 
-it("reflows the compass, automatic controls and retained details without wrapper chrome", async () => {
+it("places the bearing under the left compass and automatic controls to its right without diagnostic rows", async () => {
   const { container } = render(<DetachedRotorSurface />);
   await act(async () => { await vi.advanceTimersByTimeAsync(0); });
   expect(container.firstElementChild?.classList.contains("detached-task-app")).toBe(true);
@@ -70,11 +70,14 @@ it("reflows the compass, automatic controls and retained details without wrapper
   expect(screen.getByRole("button", { name: "Turn automatic rotor off" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Stop rotor" })).toBeTruthy();
   expect(screen.queryByText(/independent of Desk|Connection setup, turning/)).toBeNull();
+  for (const diagnostic of ["Rotor", "Connection", "Generation", "Position observed"])
+    expect(screen.queryByText(diagnostic, { selector: "dt" })).toBeNull();
   expect(screen.getByRole("img")).toBeTruthy();
   expect(taskStyles).toMatch(/\.app\.live\.detached-task-app\s*\{[^}]*display: flex/);
-  expect(taskStyles).toContain("width: min(100%, 560px, max(140px, calc(100dvh - 300px)))");
-  expect(taskStyles).toContain("@container detached-rotor (min-width: 680px)");
-  expect(taskStyles).not.toContain("190px");
+  expect(taskStyles).toMatch(/\.detached-rotor-observation\s*\{[^}]*grid-template-columns: minmax\(0, 240px\) minmax\(180px, 1fr\);/);
+  expect(taskStyles).toContain("width: min(100%, 220px, max(140px, calc(100dvh - 250px)))");
+  expect(taskStyles).toContain("@container detached-rotor (max-width: 480px)");
+  expect(taskStyles).not.toMatch(/\.detached-rotor-app d[ldt]\s*\{/);
   expect(native.invoke.mock.calls).toEqual([["rotor_telemetry_snapshot"]]);
 });
 

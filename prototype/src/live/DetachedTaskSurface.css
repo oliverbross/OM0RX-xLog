@@ -15,21 +15,18 @@
 .detached-cw-app .cw-desk-row { flex-wrap: wrap; gap: 8px; }
 .detached-cw-app .cw-desk-row select { flex: 0 1 180px; }
 .detached-rotor-app > main { container: detached-rotor / inline-size; }
-.detached-rotor-observation { display: grid; flex: 1; grid-template-columns: minmax(0, 1fr); align-content: start; justify-items: center; gap: 12px; }
-.detached-rotor-observation > p { margin: 0; text-align: center; }
+.detached-rotor-observation { display: grid; flex: 1; grid-template-columns: minmax(0, 240px) minmax(180px, 1fr); align-content: center; align-items: center; justify-items: stretch; gap: 24px; width: min(100%, 560px); margin: 0 auto; }
 .detached-rotor-visual { display: flex; flex-direction: column; align-items: center; min-width: 0; width: 100%; gap: 8px; }
-.detached-rotor-app .rotor-dial { flex: none; width: min(100%, 560px, max(140px, calc(100dvh - 300px))); max-width: 100%; height: auto; aspect-ratio: 1; }
-.detached-rotor-details { display: flex; flex-direction: column; gap: 16px; width: 100%; max-width: 560px; min-width: 0; }
-.detached-rotor-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; }
+.detached-rotor-app .rotor-dial { flex: none; width: min(100%, 220px, max(140px, calc(100dvh - 250px))); max-width: 100%; height: auto; aspect-ratio: 1; }
+.detached-rotor-details { display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 12px; width: 100%; min-width: 0; }
+.detached-rotor-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 8px; margin: 0; }
 .detached-rotor-actions label { display: inline-flex; align-items: center; gap: 6px; }
 .detached-rotor-details .live-error { margin: 0; }
 .detached-rotor-app .live-station-readback { padding: 0; border: 0; background: none; text-align: center; }
-.detached-rotor-app dl { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px 16px; margin: 0; max-width: 560px; width: 100%; }
-.detached-rotor-app dt { color: var(--secondary); }
-.detached-rotor-app dd { margin: 0; overflow-wrap: anywhere; }
-@container detached-rotor (min-width: 680px) {
-  .detached-rotor-observation { grid-template-columns: minmax(0, 1fr) minmax(200px, .65fr); align-items: center; }
-  .detached-rotor-observation > p { grid-column: 1 / -1; }
-  .detached-rotor-app .rotor-dial { width: min(100%, 560px, max(140px, calc(100dvh - 150px))); }
+.detached-rotor-app .live-station-readback > div { align-items: center; }
+@container detached-rotor (max-width: 480px) {
+  .detached-rotor-observation { grid-template-columns: minmax(0, 1fr); align-content: start; justify-items: center; gap: 12px; }
+  .detached-rotor-details { align-items: center; }
+  .detached-rotor-actions { justify-content: center; }
 }
 @media (max-width: 480px) { .detached-task-app > main { padding: 12px; } }
