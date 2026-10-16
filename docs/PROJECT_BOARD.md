@@ -1,6 +1,6 @@
 # OM0RX-xLog live project board
 
-Tracked implementation checkpoint: `862e44456f1e88fb244e520d4107aa0fa5f3a566`.
+Tracked implementation checkpoint: `c4b160281b6fbf1a65adcb8f782ec41503a0f969`.
 Source/test/browser evidence below remains separate from installed alpha.31 and
 unaccepted package, native interaction, provider and hardware gates.
 
@@ -38,7 +38,8 @@ on a CLI-timeout-only retry after two existing load-sensitive encoding timeouts)
 Current-source TypeScript passes with R07 below. `6253f8f` adds official ADIF 3.1.8
 import-only PSK125 and canonical PSK/PSK125 export (**18/18** Swift, **1,186/1,186**
 frontend, TypeScript), preserving raw lexical imports and explicit submodes.
-These eight bounded stages preserve
+`770dda2` adds PSKAM10 import-only acceptance and PSK/PSKAM10 normalization (**18/18**
+Swift, **1,202/1,202** frontend, TypeScript). These nine bounded stages preserve
 arbitrary fields, explicit submodes and identity. The exporter remains labeled
 3.1.7 until the full 3.1.8 enum/deprecation audit passes.
 Package/real-log acceptance and any optional record correction remain open.
@@ -152,6 +153,10 @@ frontend **41/41**, and global TX protocol/session Swift **35/35** pass. The pin
  **53/53** pass; broad **88/89** retains the unchanged lifecycle closeCount **0 vs 1** miss.
  Root combined-tree new-test rerun **5/5** passes after R10 route-test compile fixes;
  this is not proof of a lifecycle timing fix.
+ `46c862b` separately retains passive `RX_MUTE` for exact receiver/strict Boolean with
+ independent receipts, discovery pruning and reconnect clearing. It adds no configured
+ freshness/readiness, tune/TX state or control/RF authority. Agent **95/95** and root new
+ **6/6** checks pass; earlier lifecycle-flake disclosure and package/live gates remain open.
 Transmit/PTT, split/TX-VFO controls,
 spots, audio/IQ, package/live-server and RF
 acceptance remain open; installed alpha.31 is unchanged. See the
@@ -181,10 +186,14 @@ Findings describe qualitative impacts without correction or award/confirmation/s
 `862e444` adds exact contact/generation/revision `logbook_data_quality` reads with an optional
 primary-key retained conflict, canonical snapshot and current CTY owner. Version/date remain
 unknown and duplicate review is explicitly not performed. Main/Logbook-only authorization
-permits no corrections, writes, provider/reference refresh, award/sync delta or UI.
+permits no corrections, writes, provider/reference refresh or award/sync delta.
 Swift route **2/2** and combined **3/3**, Rust authorization **1/1**, frontend **7/7** and
-TypeScript pass; initial route-test compile defects were fixed before commit. UI, correction
-workflow, package/copied-log and live acceptance remain open.
+TypeScript pass; initial route-test compile defects were fixed before commit. `c4b1602`
+adds explicit exact-contact Read findings in Logbook Details, retaining stored/comparison
+separation and retiring context-changed evidence. Root focused **35/35** plus isolated
+detached **6/6**, agent build/TypeScript/browser geometry pass. No corrections or provider
+refresh is added. Native/package/copied-log/live acceptance, broader data-quality coverage
+and correction workflow remain open; installed alpha.31 is unchanged.
 
 R09 has a conservative preflight dependency in `6d9b186`: pure `QRPDXCCPreflightV1`
 screens caller-supplied contact snapshots into candidates, exclusions and unknowns, with

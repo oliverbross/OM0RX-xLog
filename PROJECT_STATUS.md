@@ -2,7 +2,7 @@
 
 Last updated: 2026-10-16
 
-Tracked implementation checkpoint: `862e44456f1e88fb244e520d4107aa0fa5f3a566`.
+Tracked implementation checkpoint: `c4b160281b6fbf1a65adcb8f782ec41503a0f969`.
 New source/test/browser evidence does not replace installed alpha.31 or close
 exact-package, native interaction, live-provider or hardware acceptance.
 
@@ -63,7 +63,8 @@ load-sensitive encoding timeouts). Current-source TypeScript subsequently passes
 with R07 below. `6253f8f` adds official ADIF 3.1.8 import-only PSK125 acceptance and
 PSK/PSK125 native export (**18/18** Swift, **1,186/1,186** frontend, TypeScript).
 Raw imports remain lexical; explicit submodes, arbitrary fields and identity are preserved.
-All eight bounded stages preserve arbitrary fields, explicit submodes
+`770dda2` adds import-only PSKAM10 and canonical PSK/PSKAM10 export (**18/18** Swift,
+**1,202/1,202** frontend, TypeScript). All nine bounded stages preserve arbitrary fields, explicit submodes
 and duplicate identity; ADIF_VER stays **3.1.7** until the full audit closes. See
 [digital-voice source acceptance](docs/ADIF_DIGITAL_VOICE_DEPRECATION_SOURCE_ACCEPTANCE_2026-10-16.md).
 
@@ -242,6 +243,11 @@ configured-readiness, tune, TX or RF effect. New tests pass **5/5**, protocol **
 the broad run was **88/89** on the recurring unchanged lifecycle closeCount **0 vs 1**.
 Root combined-tree new-test rerun passes **5/5** after the R10 test compile fixes below;
 this does not claim the lifecycle timing issue is repaired.
+`46c862b` separately retains passive `RX_MUTE` for an exact receiver plus strict Boolean,
+with independent producer receipts, discovery pruning and reconnect clearing. It changes
+no configured freshness/readiness, tuning/TX state or control/RF authority. Agent focused
+checks pass **95/95**, and root new-case checks pass **6/6**; the prior lifecycle-flake
+disclosure remains applicable and package/live acceptance remains open.
 Transmit/PTT, split/TX-VFO controls, outbound spot
 management, audio/IQ, package/live-server and RF acceptance
 remain open. QLog is a behavior reference only; no third-party code, credentials, device or
@@ -264,7 +270,7 @@ to viewport, panel/container widths **624/624**/**1264/1264**, and internal scro
 to **48vh**. Package/native interaction, provider timestamps, sponsor rules and live-account
 acceptance remain open; installed alpha.31 is unchanged.
 
-## Contact data quality — R10 read-only core and route; UI and corrections open
+## Contact data quality — R10 read-only core, route and Details UI; acceptance open
 
 `5d11996` adds `QSODataQuality` inspection of one retained contact revision (**5/5**
 focused Swift). It reuses validation, compares supplied dated CTY evidence at the QSO date,
@@ -275,10 +281,15 @@ award/confirmation/sync delta or mutation authority. `862e444` adds `logbook_dat
 for exact contact/generation/revision, with optional primary-key retained conflict, canonical
 snapshot and the current CTY owner. CTY version/date remain unknown; duplicate review is
 explicitly not performed. Only main/Logbook surfaces are authorized. The route performs no
-correction, write, provider/reference refresh or award/sync delta and adds no UI.
+correction, write, provider/reference refresh or award/sync delta.
 Swift route **2/2** and combined **3/3**, Rust authorization **1/1**, frontend **7/7** and
-TypeScript pass; initial route-test compile defects were fixed before commit. UI, corrective
-workflows, package/copied-log and live acceptance remain open.
+TypeScript pass; initial route-test compile defects were fixed before commit. `c4b1602`
+adds exact-contact read-only findings to Logbook Details using explicit Read findings;
+context changes retire evidence and the view keeps stored versus comparison evidence clear.
+Root focused checks pass **35/35** plus isolated detached **6/6**; agent build, TypeScript
+and browser geometry pass. No correction, provider/reference refresh or award/sync delta
+is added. Native interaction, exact-package/copied-log and live acceptance, full data-quality
+coverage and corrective workflows remain open; installed alpha.31 is unchanged.
 
 ## QRP DXCC preflight — R09 dependency source complete; sponsor award remains open
 

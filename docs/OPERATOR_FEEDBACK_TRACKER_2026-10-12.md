@@ -7,7 +7,7 @@ packaged UI result. Keep unresolved items here across releases.
 
 ## Current delivery boundary
 
-Tracked implementation checkpoint: `862e44456f1e88fb244e520d4107aa0fa5f3a566`.
+Tracked implementation checkpoint: `c4b160281b6fbf1a65adcb8f782ec41503a0f969`.
 Source/test/browser results do not establish packaged/native, live-provider or hardware
 acceptance; installed alpha.31 remains unchanged.
 
@@ -50,7 +50,9 @@ acceptance; installed alpha.31 remains unchanged.
   two existing load-sensitive encoding timeouts). Current-source TypeScript passes with
   R07 below. `6253f8f` adds official ADIF 3.1.8 PSK125 import-only acceptance and
   canonical PSK/PSK125 export (**18/18** Swift, **1,186/1,186** frontend, TypeScript).
-  Raw import values stay lexical; all eight stages preserve arbitrary fields, explicit submodes and identity.
+  `770dda2` adds PSKAM10 import-only acceptance and PSK/PSKAM10 export (**18/18** Swift,
+  **1,202/1,202** frontend, TypeScript). Raw imports stay lexical; all nine stages preserve
+  arbitrary fields, explicit submodes and identity.
   The remaining audit stays open; ADIF_VER stays **3.1.7**.
 
 - **Independent Previous QSOs window, 16 October — source and synthetic visual stage:**
@@ -165,6 +167,10 @@ acceptance; installed alpha.31 remains unchanged.
   pass; broad **88/89** retains the recurring unchanged lifecycle closeCount **0 vs 1** miss.
   Root combined-tree new-test rerun **5/5** passes after R10 route-test compile fixes,
   without claiming the lifecycle timing issue is repaired.
+  `46c862b` separately retains passive `RX_MUTE` for exact receiver/strict Boolean,
+  with independent receipts, discovery pruning and reconnect clearing. No configured
+  freshness/readiness, tune/TX state or control/RF authority changes. Agent **95/95** and
+  root new-case **6/6** checks pass; prior lifecycle-flake disclosure and package/live gates remain open.
   No PTT, carrier Tune, radio CW or amplifier control is exposed; transmit/PTT,
   split/TX-VFO, outbound spot management, audio/IQ, package/live-server and RF proof remain open. QLog was a behavior
   reference only, no implementation code was copied, and installed alpha.31 is unchanged.
@@ -183,7 +189,7 @@ acceptance; installed alpha.31 remains unchanged.
   interaction, provider timestamps, sponsor rules and live-account acceptance remain open;
   no provider refresh, upload or operator-data mutation occurred.
 
-- **One-contact data quality, 16 October — R10 read-only core and route:** `5d11996` adds
+- **One-contact data quality, 16 October — R10 read-only core, route and Details UI:** `5d11996` adds
   `QSODataQuality` findings for one retained revision (**5/5** Swift), reusing validation,
   supplied dated CTY comparison at QSO date, retained power provenance and exact-context
   conflict alternatives. Stored/manual overrides remain authoritative; dates retain their
@@ -192,10 +198,14 @@ acceptance; installed alpha.31 remains unchanged.
   adds exact contact/generation/revision `logbook_data_quality` with an optional primary-key
   retained conflict, canonical snapshot and current CTY owner. Version/date stay unknown;
   duplicate review is explicitly not performed. Main/Logbook-only reads perform no
-  corrections, writes, provider/reference refresh or award/sync delta and add no UI.
+  corrections, writes, provider/reference refresh or award/sync delta.
   Swift route **2/2** and combined **3/3**, Rust authorization **1/1**, frontend **7/7**
   and TypeScript pass; initial route-test compile defects were fixed before commit.
-  UI, corrections, package/copied-log and live acceptance remain open.
+  `c4b1602` adds explicit exact-contact Read findings in Logbook Details, separates stored
+  and comparison evidence and retires context-changed results. Root focused **35/35** plus
+  isolated detached **6/6**, agent build/TypeScript/browser geometry pass. Corrections,
+  provider refresh, native/package/copied-log/live acceptance and full data-quality coverage
+  remain open; installed alpha.31 is unchanged.
 
 - **QRP DXCC preflight, 16 October — R09 dependency only:** `6d9b186` adds pure
   `QRPDXCCPreflightV1` screening of caller-supplied local snapshots, dated official-source
