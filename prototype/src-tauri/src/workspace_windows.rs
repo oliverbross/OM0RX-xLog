@@ -28,7 +28,7 @@ pub const SUPPORTED_WINDOWS: [WindowSpec; 22] = [
     WindowSpec { id: "rotor", title: "OM0RX-xLog — Rotor", width: 700.0, height: 600.0 },
     WindowSpec { id: "station-status", title: "OM0RX-xLog — Station Status", width: 780.0, height: 650.0 },
     WindowSpec { id: "connection-doctor", title: "OM0RX-xLog — Connection Doctor", width: 700.0, height: 600.0 },
-    WindowSpec { id: "propagation", title: "OM0RX-xLog — Propagation", width: 800.0, height: 600.0 },
+    WindowSpec { id: "propagation", title: "OM0RX-xLog — Propagation", width: 800.0, height: 240.0 },
     WindowSpec { id: "station-identity", title: "OM0RX-xLog — Station Identity", width: 780.0, height: 650.0 },
     WindowSpec { id: "alerts", title: "OM0RX-xLog — Alerts", width: 780.0, height: 600.0 },
     WindowSpec { id: "antenna", title: "OM0RX-xLog — Antenna Reference", width: 780.0, height: 600.0 },
@@ -41,6 +41,13 @@ pub fn band_map_band(label: &str) -> Option<&str> {
 /// existing narrow map role, only after exact band validation.
 pub fn surface_role(label: &str) -> &str { if band_map_band(label).is_some() { "band-maps" } else { label } }
 pub fn supports(label: &str) -> bool { SUPPORTED_WINDOWS.iter().any(|window| window.id == surface_role(label)) }
+pub fn native_minimum(label: &str) -> (f64, f64) {
+    match surface_role(label) {
+        "band-maps" => (280.0, 480.0),
+        "propagation" => (480.0, 190.0),
+        _ => (640.0, 480.0),
+    }
+}
 
 const ROLES: [&str; 21] = ["active-qso", "log-qso", "logbook", "callsign-intelligence", "rotor", "antenna",
     "world-map", "band-maps", "dx-cluster", "station-control", "station-status", "station-identity",
@@ -234,9 +241,19 @@ mod tests {
         assert_eq!(ids.len(), 22);
         let capabilities: Value = serde_json::from_str(include_str!("../capabilities/default.json")).unwrap();
         for id in &ids { assert!(capabilities["windows"].as_array().unwrap().contains(&json!(id))); }
-        for window in SUPPORTED_WINDOWS { assert!(supports(window.id)); assert!(window.width >= 640.0 && window.height >= 480.0); }
+        for window in SUPPORTED_WINDOWS {
+            let (minimum_width, minimum_height) = native_minimum(window.id);
+            assert!(supports(window.id));
+            assert!(window.width >= minimum_width && window.height >= minimum_height);
+        }
         for role in ROLES { assert_eq!(supports(role), ids.contains(role)); }
         assert!(!supports("main")); assert!(!supports("unknown"));
+    }
+    #[test]
+    fn propagation_window_can_fit_its_compact_content() {
+        assert_eq!(native_minimum("propagation"), (480.0, 190.0));
+        assert_eq!(native_minimum("band-map-20m"), (280.0, 480.0));
+        assert_eq!(native_minimum("logbook"), (640.0, 480.0));
     }
     #[test]
     fn separate_mode_resolves_legacy_qso_and_never_requires_main() {

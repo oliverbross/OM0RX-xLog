@@ -84,8 +84,7 @@ pub fn capture_size(bounds: Bounds, scale: f64, maximized: bool) -> Option<Saved
 fn valid_scale(scale: f64) -> bool { scale.is_finite() && (0.5..=8.0).contains(&scale) }
 pub fn effective_minimum(label: &str, display: &Display, logical_chrome: (f64, f64)) -> (f64, f64) {
     let nominal = if label == "main" { (1000.0_f64, 720.0_f64) }
-        else if crate::workspace_windows::surface_role(label) == "band-maps" { (280.0_f64, 480.0_f64) }
-        else { (640.0_f64, 480.0_f64) };
+        else { crate::workspace_windows::native_minimum(label) };
     (nominal.0.min((display.work.width as f64 / display.scale - logical_chrome.0).max(1.0)),
         nominal.1.min((display.work.height as f64 / display.scale - logical_chrome.1).max(1.0)))
 }
@@ -226,6 +225,7 @@ mod tests {
         assert_eq!(effective_minimum("main", &display("external", 0, 2.0), (4.0, 30.0)), (1000.0, 720.0));
         assert_eq!(effective_minimum("logbook", &display("external", 0, 2.0), (4.0, 30.0)), (640.0, 480.0));
         assert_eq!(effective_minimum("log-qso", &display("external", 0, 2.0), (4.0, 30.0)), (640.0, 480.0));
+        assert_eq!(effective_minimum("propagation", &display("external", 0, 2.0), (4.0, 30.0)), (480.0, 190.0));
     }
     #[test]
     fn wayland_size_changes_preserve_preferred_display_origin_and_dpi() {

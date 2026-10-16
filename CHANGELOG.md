@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.4.0-alpha.50 — 2026-10-17
+
+- Made the detached Propagation window open at a compact content-fitting height instead of leaving a large empty area below the forecast.
+- Replaced the generic 480-pixel detached-window floor with a shared Propagation-specific minimum, including geometry restoration, so the window can be resized shorter without snapping back.
+
 ## 0.4.0-alpha.49 — 2026-10-17
 
 - Removed Connection Doctor from the native Window menu.

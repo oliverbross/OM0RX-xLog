@@ -1332,10 +1332,11 @@ fn ensure_workspace_window(app: &tauri::AppHandle, kind: &str, focus: bool) -> R
     let band = workspace_windows::band_map_band(kind);
     let route = band.map(|band| format!("band-maps&band={band}")).unwrap_or_else(|| kind.into());
     let title = band.map(|band| format!("OM0RX-xLog — {band} Band Map")).unwrap_or_else(|| spec.title.into());
+    let (minimum_width, minimum_height) = workspace_windows::native_minimum(kind);
     let mut builder = tauri::WebviewWindowBuilder::new(app, kind, tauri::WebviewUrl::App(format!("index.html?view={route}{suffix}").into()))
         .title(title)
         .inner_size(if role == "band-maps" { 380.0 } else { spec.width }, spec.height)
-        .min_inner_size(if role == "band-maps" { 280.0 } else { 640.0 }, 480.0)
+        .min_inner_size(minimum_width, minimum_height)
         .focused(focus)
         .always_on_top(false)
         .incognito(app.state::<acceptance::Acceptance>().path.is_some());
