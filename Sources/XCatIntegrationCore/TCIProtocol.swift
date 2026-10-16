@@ -590,6 +590,15 @@ public struct TCIAuthoritativeSnapshot: Equatable, Sendable {
     }
 }
 
+/// Server-global notification from pinned TCI b081213f, page 37. The wire
+/// command carries no TRX, channel or VFO identity, nor a server timestamp.
+public struct TCIServerTransmitFrequencyObservation: Equatable, Sendable {
+    public let frequencyHz: Int64
+    /// Local producer receipt time; nil means no timed receipt was supplied.
+    /// Retaining this value does not establish freshness or transmit authority.
+    public let receivedAt: Date?
+}
+
 public struct TCIProtocolState: Equatable, Sendable {
     public internal(set) var protocolAnnouncement: TCIProtocolAnnouncement?
     public internal(set) var device: String?
@@ -602,6 +611,7 @@ public struct TCIProtocolState: Equatable, Sendable {
     public internal(set) var serverRunning: Bool?
     public internal(set) var ready = false
     public internal(set) var frequencies: [TCIReceiverAddress: Int64] = [:]
+    public internal(set) var serverTransmitFrequency: TCIServerTransmitFrequencyObservation?
     public internal(set) var transceivers: [Int: TCITransceiverState] = [:]
     public internal(set) var unknownCommands: [TCICommand] = []
     public internal(set) var diagnostics: [TCIDiagnostic] = []
@@ -620,14 +630,14 @@ public struct TCIStateReducer: Sendable {
         self.limits = limits
     }
 
-    public mutating func apply(_ result: TCITextDecodeResult) {
+    public mutating func apply(_ result: TCITextDecodeResult, receivedAt: Date? = nil) {
         for diagnostic in result.diagnostics { appendDiagnostic(diagnostic) }
-        for command in result.commands { apply(command) }
+        for command in result.commands { apply(command, receivedAt: receivedAt) }
     }
 
     /// Reports acceptance even when valid repeated evidence does not change state.
     @discardableResult
-    public mutating func apply(_ command: TCICommand) -> Bool {
+    public mutating func apply(_ command: TCICommand, receivedAt: Date? = nil) -> Bool {
         commandRejected = false
         switch command.name.uppercased() {
         case "PROTOCOL": applyProtocol(command)
@@ -645,6 +655,7 @@ public struct TCIStateReducer: Sendable {
         case "READY":
             if acceptsNoArguments(command) { state.ready = true }
         case "VFO": applyVFO(command)
+        case "TX_FREQUENCY": applyTXFrequency(command, receivedAt: receivedAt)
         case "MODULATION": applyModulation(command)
         case "RX_FILTER_BAND": applyFilter(command)
         case "SPLIT_ENABLE": applyBooleanState(command, keyPath: \.splitEnabled)
@@ -783,6 +794,18 @@ public struct TCIStateReducer: Sendable {
               state.vfoLimits?.contains(Double(frequency)) != false
         else { return reject(command, kind: .outOfBounds) }
         state.frequencies[TCIReceiverAddress(trx: trx, channel: channel)] = frequency
+    }
+
+    private mutating func applyTXFrequency(_ command: TCICommand, receivedAt: Date?) {
+        guard command.arguments.count == 1,
+              let frequency = TCIValueParser.integer64(command.arguments[0]),
+              frequency >= 0, frequency <= limits.maximumFrequencyHz
+        else { return reject(command, kind: .outOfBounds) }
+        // Application numeric envelope only. VFO_LIMITS describes receive VFO
+        // tuning and must not constrain this independent global notification.
+        state.serverTransmitFrequency = TCIServerTransmitFrequencyObservation(
+            frequencyHz: frequency, receivedAt: receivedAt
+        )
     }
 
     private mutating func applyModulation(_ command: TCICommand) {

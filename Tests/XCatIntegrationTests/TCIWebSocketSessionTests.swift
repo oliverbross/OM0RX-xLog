@@ -9,6 +9,40 @@ final class TCIWebSocketSessionTests: XCTestCase {
     private let endpoint = URL(string: "ws://127.0.0.1:40001")!
     private let address = TCIReceiverAddress(trx: 0, channel: 0)
 
+    func testTXFrequencyPublishesOwnProducerReceiptWithoutRefreshingConfiguredEvidence() async throws {
+        let connection = FakeTCIWebSocketConnection(), time = TCIEvidenceClock()
+        let session = TCIReadOnlyWebSocketSession(
+            endpoint: endpoint, configuredAddress: address,
+            connector: FakeTCIWebSocketConnector(connections: [connection]), clock: { time.now() }
+        )
+        try await session.connect()
+        await connection.enqueue(.text(Self.discoveryAndState + "ready;"))
+        let initial = try await waitForObservation(session) { $0.availability == .available }
+        time.advance(10)
+        let receipt = time.now()
+        await connection.enqueue(.text("TX_FREQUENCY:7140000;"))
+        let reported = try await waitForObservation(session, after: initial.sequence) {
+            $0.serverTransmitFrequency != nil
+        }
+        XCTAssertEqual(reported.serverTransmitFrequency?.frequencyHz, 7_140_000)
+        XCTAssertEqual(reported.serverTransmitFrequency?.receivedAt, receipt)
+        XCTAssertEqual(reported.evidenceReceivedAt, initial.evidenceReceivedAt)
+        XCTAssertEqual(reported.snapshot, initial.snapshot)
+        time.advance(10)
+        await connection.enqueue(.text("TX_FREQUENCY:0,14025000;"))
+        let invalid = try await waitForObservation(session, after: reported.sequence) { _ in true }
+        XCTAssertEqual(invalid.serverTransmitFrequency, reported.serverTransmitFrequency)
+        XCTAssertEqual(invalid.evidenceReceivedAt, initial.evidenceReceivedAt)
+        await connection.enqueue(.text("TX_FREQUENCY:7140000;"))
+        let repeated = try await waitForObservation(session, after: invalid.sequence) { _ in true }
+        XCTAssertEqual(repeated.serverTransmitFrequency?.receivedAt, time.now())
+        let sent = await connection.sentTexts()
+        XCTAssertTrue(sent.isEmpty)
+        await session.disconnect()
+        let disconnected = await session.currentObservation()
+        XCTAssertNil(disconnected.serverTransmitFrequency)
+    }
+
     func testFreshDiscoveryAndReadyAreRequiredBeforePublishingSnapshot() async throws {
         let connection = FakeTCIWebSocketConnection()
         let connector = FakeTCIWebSocketConnector(connections: [connection])

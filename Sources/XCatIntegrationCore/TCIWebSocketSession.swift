@@ -114,6 +114,8 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
     public let filterEvidenceSequence: UInt64
     /// Receipt of an accepted SPLIT_ENABLE report for the configured TRX only.
     public let splitEvidenceReceivedAt: Date?
+    /// Unattributed server-global telemetry; never configured control evidence.
+    public let serverTransmitFrequency: TCIServerTransmitFrequencyObservation?
 
     public init(
         sequence: UInt64,
@@ -123,7 +125,8 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
         failure: TCIReadOnlySessionFailure?,
         evidenceReceivedAt: Date? = nil,
         filterEvidenceSequence: UInt64 = 0,
-        splitEvidenceReceivedAt: Date? = nil
+        splitEvidenceReceivedAt: Date? = nil,
+        serverTransmitFrequency: TCIServerTransmitFrequencyObservation? = nil
     ) {
         self.sequence = sequence
         self.generation = generation
@@ -133,6 +136,7 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
         self.evidenceReceivedAt = evidenceReceivedAt
         self.filterEvidenceSequence = filterEvidenceSequence
         self.splitEvidenceReceivedAt = splitEvidenceReceivedAt
+        self.serverTransmitFrequency = serverTransmitFrequency
     }
 }
 
@@ -493,7 +497,7 @@ public actor TCIReadOnlyWebSocketSession {
             reducer.apply(TCITextDecodeResult(commands: [], diagnostics: result.diagnostics))
             var hasConfiguredEvidence = false
             for command in result.commands {
-                if reducer.apply(command), isConfiguredEvidence(command) {
+                if reducer.apply(command, receivedAt: receivedAt), isConfiguredEvidence(command) {
                     hasConfiguredEvidence = true
                     if command.name == "RX_FILTER_BAND" { filterEvidenceSequence = sequence + 1 }
                     if command.name == "SPLIT_ENABLE" { splitEvidenceReceivedAt = receivedAt }
@@ -570,7 +574,8 @@ public actor TCIReadOnlyWebSocketSession {
             failure: failure,
             evidenceReceivedAt: evidenceReceivedAt,
             filterEvidenceSequence: filterEvidenceSequence,
-            splitEvidenceReceivedAt: splitEvidenceReceivedAt
+            splitEvidenceReceivedAt: splitEvidenceReceivedAt,
+            serverTransmitFrequency: reducer.state.serverTransmitFrequency
         )
         for continuation in continuations.values {
             continuation.yield(observationValue)

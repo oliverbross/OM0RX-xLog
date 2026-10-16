@@ -7,6 +7,64 @@ import XCTest
 final class TCIProtocolTests: XCTestCase {
     private let address = TCIReceiverAddress(trx: 0, channel: 0)
 
+    func testTXFrequencyIsGlobalPassiveNotificationWithExplicitReceiptTime() {
+        var decoder = TCITextDecoder()
+        var reducer = TCIStateReducer()
+        let receipt = Date(timeIntervalSince1970: 100)
+        reducer.apply(decoder.feed("tx_freque"), receivedAt: receipt)
+        XCTAssertNil(reducer.state.serverTransmitFrequency)
+        reducer.apply(decoder.feed("ncy:7140000;"), receivedAt: receipt)
+        XCTAssertEqual(reducer.state.serverTransmitFrequency?.frequencyHz, 7_140_000)
+        XCTAssertEqual(reducer.state.serverTransmitFrequency?.receivedAt, receipt)
+        XCTAssertTrue(reducer.state.frequencies.isEmpty)
+        XCTAssertTrue(reducer.state.transceivers.isEmpty)
+        XCTAssertFalse(reducer.state.ready)
+        XCTAssertNil(reducer.authoritativeSnapshot(for: address))
+        XCTAssertTrue(reducer.state.unknownCommands.isEmpty)
+    }
+
+    func testTXFrequencyRejectsMalformedAndIndexedFormsWithoutRefreshingReceipt() {
+        var reducer = TCIStateReducer(limits: .init(maximumFrequencyHz: 30_000_000))
+        let receipt = Date(timeIntervalSince1970: 100)
+        XCTAssertTrue(reducer.apply(TCICommand(name: "TX_FREQUENCY", arguments: ["7140000"]), receivedAt: receipt))
+        let retained = reducer.state.serverTransmitFrequency
+        for arguments in [[], [""], ["0", "7140000"], ["0", "1", "7140000"],
+                          ["-1"], ["30000001"], ["7.14"], ["1e6"], ["NaN"],
+                          ["9223372036854775808"]] {
+            XCTAssertFalse(reducer.apply(TCICommand(name: "TX_FREQUENCY", arguments: arguments),
+                                         receivedAt: receipt.addingTimeInterval(10)))
+            XCTAssertEqual(reducer.state.serverTransmitFrequency, retained)
+        }
+    }
+
+    func testTXFrequencyReceiptRefreshRequiresItsOwnAcceptedReportAndResetsWithReducer() {
+        var decoder = TCITextDecoder()
+        var reducer = TCIStateReducer()
+        let first = Date(timeIntervalSince1970: 100)
+        let second = first.addingTimeInterval(1)
+        reducer.apply(decoder.feed("TX_FREQUENCY:7140000;"), receivedAt: first)
+        reducer.apply(decoder.feed("READY;VFO:0,1,14025000;SPLIT_ENABLE:0,true;"), receivedAt: second)
+        XCTAssertEqual(reducer.state.serverTransmitFrequency?.receivedAt, first)
+        reducer.apply(decoder.feed("TX_FREQUENCY:7140000;"), receivedAt: second)
+        XCTAssertEqual(reducer.state.serverTransmitFrequency?.receivedAt, second)
+        reducer.apply(decoder.feed("TX_FREQUENCY:7140000;"))
+        XCTAssertNil(reducer.state.serverTransmitFrequency?.receivedAt)
+        reducer = TCIStateReducer()
+        XCTAssertNil(reducer.state.serverTransmitFrequency)
+    }
+
+    func testTXFrequencyUsesOnlyApplicationEnvelopeAndDoesNotAcquireReceiverIdentity() {
+        var decoder = TCITextDecoder()
+        var reducer = TCIStateReducer(limits: .init(maximumFrequencyHz: 30_000_000))
+        reducer.apply(decoder.feed("TX_FREQUENCY:30000000;VFO_LIMITS:0,1000000;TRX_COUNT:1;CHANNEL_COUNT:1;"))
+        XCTAssertEqual(reducer.state.serverTransmitFrequency?.frequencyHz, 30_000_000)
+        XCTAssertTrue(reducer.state.frequencies.isEmpty)
+        XCTAssertTrue(reducer.state.transceivers.isEmpty)
+        // The specification supplies no minimum; zero remains raw telemetry.
+        reducer.apply(decoder.feed("TX_FREQUENCY:0;"))
+        XCTAssertEqual(reducer.state.serverTransmitFrequency?.frequencyHz, 0)
+    }
+
     func testSplitIsTRXWideAndDoesNotInventTXVFOEvidence() {
         var reducer = TCIStateReducer()
         XCTAssertTrue(reducer.apply(TCICommand(name: "SPLIT_ENABLE", arguments: ["0", "true"])))
