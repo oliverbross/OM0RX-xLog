@@ -98,6 +98,22 @@ struct ADIFPlanningTests {
         #expect(qso.adifRecord["OPERATOR"] == "K1ABC")
     }
 
+    @Test("Compatibility reader accepts character-counted Unicode fields without weakening byte-counted fields")
+    func compatibilityReaderCharacterLengths() throws {
+        let characterCounted = "Žilina 😀 e\u{301}"
+        let byteCounted = "before <EOR> after 😀"
+        let source = "<ADIF_VER:5>3.1.8<EOH>"
+            + "<CALL:5>OM0RX"
+            + "<QTH:\(characterCounted.unicodeScalars.count)>\(characterCounted)"
+            + "<COMMENT:\(byteCounted.utf8.count)>\(byteCounted)<EOR>"
+
+        let parsed = try #require(ADIFParser().records(in: source).first)
+        #expect(parsed["CALL"] == "OM0RX")
+        #expect(parsed["QTH"] == characterCounted)
+        #expect(parsed["COMMENT"] == byteCounted)
+        #expect(ADIFParser().records(in: source).count == 1)
+    }
+
     @Test("Known-record filtering removes complete parsed records in headed and headless documents", arguments: [true, false])
     func compatibilityFiltering(_ headed: Bool) throws {
         let first = record(["COMMENT": "before <EOR> after 😀"])

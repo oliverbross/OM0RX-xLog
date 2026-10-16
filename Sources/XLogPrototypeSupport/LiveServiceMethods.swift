@@ -464,9 +464,11 @@ actor LiveServiceMethods {
                     "held_groups": report.heldGroups.map { group in
                         ["identity": group.identity, "remote_ids": group.remoteIDs,
                          "differing_fields": group.differingFields, "value_shapes": group.valueShapes] as [String: Any]
-                    }], failed: report.failed > 0, interval: settings.syncIntervalMinutes, lease: lease)
+                    }], failed: report.failed > 0, interval: settings.syncIntervalMinutes,
+                    automaticRun: automatic, lease: lease)
             } catch {
-                self.finish(Self.syncFailure(error, phase: "run"), failed: true, interval: settings.syncIntervalMinutes, lease: lease)
+                self.finish(Self.syncFailure(error, phase: "run"), failed: true,
+                            interval: settings.syncIntervalMinutes, automaticRun: automatic, lease: lease)
             }
         }
     }
@@ -534,12 +536,20 @@ actor LiveServiceMethods {
         return state
     }
 
-    private func finish(_ state: [String: Any], failed: Bool, interval: Int, lease: LiveLogbookSyncLease) {
+    private func finish(_ state: [String: Any], failed: Bool, interval: Int,
+                        automaticRun: Bool, lease: LiveLogbookSyncLease) {
         guard logbook.endManualSync(lease) else { return }
         syncState = state; syncState["finished_at"] = ISO8601DateFormatter().string(from: Date()); syncTask = nil
         syncState["completion_id"] = UUID().uuidString
-        failures = failed ? min(6, failures + 1) : 0
-        nextAttempt = Date().addingTimeInterval(min(3600, Double(max(1, interval) * 60) * pow(2, Double(failures))))
+        if !failed {
+            failures = 0
+            nextAttempt = Date().addingTimeInterval(Double(max(1, interval) * 60))
+        } else if automaticRun {
+            failures = min(6, failures + 1)
+            nextAttempt = Date().addingTimeInterval(
+                min(3600, Double(max(1, interval) * 60) * pow(2, Double(failures)))
+            )
+        }
         if !stopped, logbook === LiveLogbookMethods.shared { Task { try? await LiveClusterMethods.shared.refreshContacts() } }
     }
     private func workspaceSecrets() throws -> WorkspaceCredentialStore {

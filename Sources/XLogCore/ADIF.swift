@@ -216,8 +216,10 @@ public struct ADIFParser: Sendable {
         scannedRecords(in: text).map(\.record)
     }
 
-    // This compatibility reader uses the same UTF-8 field-length convention as
-    // the writer and reviewed importer. Terminators inside values are data.
+    // xLog writes UTF-8 byte lengths, while some established ADIF producers
+    // declare Unicode-scalar counts. Accept either convention only when the
+    // resulting value ends at the next valid descriptor boundary. Terminators
+    // inside a length-delimited value remain data.
     private func scannedRecords(in text: String) -> [(record: ADIFRecord, range: Range<Int>)] {
         let bytes = Array(text.utf8)
         var records: [(record: ADIFRecord, range: Range<Int>)] = []
@@ -241,12 +243,62 @@ public struct ADIFParser: Sendable {
                 continue
             }
             guard parts.count >= 2, let length = Int(parts[1]), length >= 0 else { continue }
-            guard length <= bytes.count - cursor,
-                  let value = String(bytes: bytes[cursor..<(cursor + length)], encoding: .utf8) else { break }
+            let byteEnd = length <= bytes.count - cursor ? cursor + length : nil
+            let byteCandidate = byteEnd.flatMap { end in
+                descriptorBoundary(in: bytes, after: end) ? end : nil
+            }
+            let scalarEnd = unicodeScalarEnd(in: bytes, from: cursor, count: length)
+            let scalarCandidate = scalarEnd.flatMap { end in
+                descriptorBoundary(in: bytes, after: end) ? end : nil
+            }
+            let end: Int?
+            switch (byteCandidate, scalarCandidate) {
+            case let (byte?, scalar?) where byte == scalar: end = byte
+            case let (byte?, nil): end = byte
+            case let (nil, scalar?): end = scalar
+            default: end = nil
+            }
+            guard let end,
+                  let value = String(bytes: bytes[cursor..<end], encoding: .utf8) else { break }
             fields[name] = value
-            cursor += length
+            cursor = end
         }
         return records
+    }
+
+    private func descriptorBoundary(in bytes: [UInt8], after end: Int) -> Bool {
+        var cursor = end
+        while cursor < bytes.count, [9, 10, 13, 32].contains(bytes[cursor]) { cursor += 1 }
+        guard cursor < bytes.count else { return true }
+        guard bytes[cursor] == 60,
+              let close = bytes[cursor...].firstIndex(of: 62),
+              let descriptor = String(bytes: bytes[(cursor + 1)..<close], encoding: .ascii) else { return false }
+        let parts = descriptor.split(separator: ":", maxSplits: 2, omittingEmptySubsequences: false)
+        guard let rawName = parts.first, !rawName.isEmpty else { return false }
+        let name = rawName.uppercased()
+        if ["EOH", "EOR"].contains(name) { return parts.count == 1 }
+        return parts.count >= 2 && Int(parts[1]) != nil
+    }
+
+    private func unicodeScalarEnd(in bytes: [UInt8], from start: Int, count: Int) -> Int? {
+        var cursor = start
+        for _ in 0..<count {
+            guard cursor < bytes.count else { return nil }
+            let width: Int
+            switch bytes[cursor] {
+            case 0x00...0x7F: width = 1
+            case 0xC2...0xDF: width = 2
+            case 0xE0...0xEF: width = 3
+            case 0xF0...0xF4: width = 4
+            default: return nil
+            }
+            guard width <= bytes.count - cursor,
+                  String(bytes: bytes[cursor..<(cursor + width)], encoding: .utf8)?.unicodeScalars.count == 1 else {
+                return nil
+            }
+            cursor += width
+        }
+        return cursor
     }
 
     public func removingKnownRecords(

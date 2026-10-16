@@ -309,6 +309,27 @@ final class AutomaticSyncTests: XCTestCase {
         XCTAssertEqual(after, 1)
     }
 
+    func testFailedManualRetriesDoNotExtendAutomaticBackoff() async throws {
+        let fixture = try SyncFixture()
+        defer { fixture.clean() }
+        let service = LiveServiceMethods(logbook: fixture.logbook, operation: { _, _ in
+            throw URLError(.networkConnectionLost)
+        })
+        _ = try await service.handle(method: "sync_configure", params: [
+            "enabled": true, "interval_minutes": 1, "confirm_single_writer": true,
+        ])
+        await service.automaticTick()
+        let automaticFailure = try await completed(service)
+        let scheduled = try XCTUnwrap(automaticFailure["next_attempt"] as? String)
+
+        for _ in 0..<2 {
+            _ = try await service.handle(method: "sync_run", params: ["confirm_single_writer": true])
+            let manualFailure = try await completed(service)
+            XCTAssertEqual(manualFailure["next_attempt"] as? String, scheduled)
+        }
+        await service.terminate()
+    }
+
     func testDisabledAndStandaloneNeverStartAnOperation() async throws {
         let fixture = try SyncFixture()
         defer { fixture.clean() }

@@ -210,6 +210,12 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
       setSavedServerIDs(configuration.servers.map((s) => s.id));
     }
   };
+  const savedForwardSpotsToFlex = (() => {
+    try { return (JSON.parse(lastRemoteConfiguration.current) as Configuration).forwardSpotsToFlex; }
+    catch { return undefined; }
+  })();
+  const forwardingSettingDirty = configuration != null && savedForwardSpotsToFlex != null
+    && configuration.forwardSpotsToFlex !== savedForwardSpotsToFlex;
   const updateServer = (id: string, patch: Partial<Server>) => {
     setConfiguration((current) => current && ({ ...current, servers: current.servers.map((s) => s.id === id ? { ...s, ...patch } : s) }));
   };
@@ -388,7 +394,9 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
         <label><input type="checkbox" disabled={!forwardingAvailable && !configuration.forwardSpotsToFlex} checked={configuration.forwardSpotsToFlex} onChange={(event) => setConfiguration({ ...configuration, forwardSpotsToFlex: event.target.checked })} /> Forward incoming spots to FLEX via the connected direct-agent station</label>
         {!forwardingAvailable && <p>FLEX forwarding is not yet available on this platform. {configuration.forwardSpotsToFlex ? "Turn it off before saving cluster settings." : "Cluster spots remain available in xLog."}</p>}
         {forwardingAvailable && <p>Forwarding is opt-in and requires the Remote Station Agent to advertise add_spot. An accepted command does not confirm that FLEX displayed the spot. xCat loopback companion mode cannot forward spots.</p>}
-        {configuration.forwardSpotsToFlex && <p role="status">FLEX forwarding: {forwarding?.status ?? "Connect a cluster and direct-agent station."} {forwarding?.accepted_count ? `· ${forwarding.accepted_count} accepted` : ""}</p>}
+        {(configuration.forwardSpotsToFlex || forwardingSettingDirty) && <p role="status">FLEX forwarding: {forwardingSettingDirty
+          ? `Unsaved ${configuration.forwardSpotsToFlex ? "ON" : "OFF"} — press Save cluster settings. Runtime remains ${savedForwardSpotsToFlex ? "ON" : "OFF"}.`
+          : `${forwarding?.status ?? "Connect a cluster and direct-agent station."}${forwarding?.accepted_count ? ` · ${forwarding.accepted_count} accepted` : ""}`}</p>}
         <h3>Servers</h3><p>Configured servers connect together. Saving settings disconnects active sessions.</p>
         {configuration.servers.map((server) => <div className="live-cluster-server" key={server.id}>
           <label><input type="checkbox" checked={server.enabled} onChange={(event) => updateServer(server.id, { enabled: event.target.checked })} /> Enabled</label>

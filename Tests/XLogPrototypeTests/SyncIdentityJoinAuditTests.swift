@@ -115,6 +115,31 @@ struct SyncIdentityJoinAuditTests {
         #expect(IdentityJoinAuditProtocol.methods() == Array(repeating: "GET", count: 5))
     }
 
+    @Test("Wavelog pagination retains character-counted Unicode fields without dropping records")
+    func characterCountedUnicodeAcrossPages() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [IdentityJoinAuditProtocol.self]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+        IdentityJoinAuditProtocol.configure(
+            reverseADIF: false,
+            paginated: true,
+            documentedOrder: true,
+            characterCountedUnicode: true
+        )
+        let settings = try WavelogConfiguration(
+            baseURL: URL(string: "https://synthetic.invalid")!,
+            token: "wl2_synthetic",
+            stationID: 1
+        )
+
+        let preview = try await SyncEngine.previewRemoteHistory(configuration: settings, session: session)
+
+        #expect(preview.qsos.count == 2)
+        #expect(preview.qsos.first(where: { $0.wavelogID == 12 })?.qth == "Žilina 😀 e\u{301}")
+        #expect(IdentityJoinAuditProtocol.methods() == Array(repeating: "GET", count: 5))
+    }
+
     @Test("Fresh Wavelog confirmations update the linked clean contact and preserve local-only fields")
     func freshConfirmationUpdateReconcilesLinkedContact() async throws {
         var stale = auditADIF(name: "First", dxcc: "291")
@@ -598,15 +623,17 @@ private final class IdentityJoinAuditProtocol: URLProtocol {
     private static var adifOnlyDifference = false
     private static var numericOnlyDifference = false
     private static var documentedOrder = false
+    private static var characterCountedUnicode = false
     private static var recordedMethods: [String] = []
     private static var responses: [String: Data] = [:]
 
-    static func configure(reverseADIF: Bool, paginated: Bool = false, identicalADIF: Bool = false, adifOnlyDifference: Bool = false, numericOnlyDifference: Bool = false, documentedOrder: Bool = false, responses: [String: Data] = [:]) {
+    static func configure(reverseADIF: Bool, paginated: Bool = false, identicalADIF: Bool = false, adifOnlyDifference: Bool = false, numericOnlyDifference: Bool = false, documentedOrder: Bool = false, characterCountedUnicode: Bool = false, responses: [String: Data] = [:]) {
         lock.withLock {
             Self.reverseADIF = reverseADIF; Self.paginated = paginated
             Self.identicalADIF = identicalADIF; Self.adifOnlyDifference = adifOnlyDifference
             Self.numericOnlyDifference = numericOnlyDifference
             Self.documentedOrder = documentedOrder
+            Self.characterCountedUnicode = characterCountedUnicode
             Self.responses = responses
             recordedMethods = []
         }
@@ -639,7 +666,7 @@ private final class IdentityJoinAuditProtocol: URLProtocol {
             .contains(where: { $0.name == "format" && $0.value == "adif" }) == true
         let page = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems?
             .first(where: { $0.name == "page" })?.value.flatMap(Int.init) ?? 1
-        let options = Self.lock.withLock { (Self.reverseADIF, Self.paginated, Self.identicalADIF, Self.adifOnlyDifference, Self.numericOnlyDifference, Self.documentedOrder) }
+        let options = Self.lock.withLock { (Self.reverseADIF, Self.paginated, Self.identicalADIF, Self.adifOnlyDifference, Self.numericOnlyDifference, Self.documentedOrder, Self.characterCountedUnicode) }
         let meta: [String: Any] = ["page": page, "per_page": options.1 ? 1 : 1000, "count": options.1 ? 1 : 2, "total": 2, "total_pages": options.1 ? 2 : 1, "has_more": options.1 && page == 1]
         let body: Data
         if let override = Self.lock.withLock({ Self.responses[isADIF ? "adif" : "json"] }) {
@@ -658,7 +685,14 @@ private final class IdentityJoinAuditProtocol: URLProtocol {
                 ]
                 if options.4 { fields["TX_PWR"] = dxcc == "291" ? "100" : "50" }
                 let record = ADIFRecord(fields: fields)
-                return record.adifDocument.components(separatedBy: "<EOH>").last!
+                var document = record.adifDocument.components(separatedBy: "<EOH>").last!
+                if options.6, page == 2 {
+                    let qth = "Žilina 😀 e\u{301}"
+                    fields["QTH"] = qth
+                    document = ADIFRecord(fields: fields).adifDocument.components(separatedBy: "<EOH>").last!
+                        .replacingOccurrences(of: "<QTH:\(qth.utf8.count)>", with: "<QTH:\(qth.unicodeScalars.count)>")
+                }
+                return document
             }.joined()
             var data: [String: Any] = ["exported": records.count, "adif": "<EOH>" + adif]
             if options.5 { data["lastfetchedid"] = options.1 && page == 1 ? 11 : 12 }

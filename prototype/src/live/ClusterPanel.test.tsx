@@ -130,6 +130,13 @@ describe("cluster toolbar panels", () => {
     expect((checkbox as HTMLInputElement).checked).toBe(false);
     expect(checkbox.hasAttribute("disabled")).toBe(true);
   });
+  it("distinguishes an unsaved forwarding checkbox from the active runtime setting", () => {
+    const data = response();
+    render(<ClusterPanel passive snapshot={data} onRequest={vi.fn(async () => ({}))} onSelect={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    fireEvent.click(screen.getByLabelText(/Forward incoming spots/));
+    expect(screen.getByText(/Unsaved ON — press Save cluster settings\. Runtime remains OFF\./)).toBeTruthy();
+  });
   it("allows cancellation while a cluster is connecting with no received spots", async () => {
     const data = response(); data.snapshot.connectedClusters = 0; data.snapshot.connections[0].phase = "connecting";
     const request = vi.fn(async () => data);
