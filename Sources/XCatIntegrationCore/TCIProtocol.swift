@@ -636,6 +636,17 @@ public struct TCICWMacrosEmptyObservation: Equatable, Sendable {
     public let receivedAt: Date?
 }
 
+/// Server-reported final callsign from CALLSIGN_SEND (pinned TCI b081213f,
+/// page 8, section 3.2.2). No receiver, command correlation or server time is
+/// supplied. Receipt proves no TX success/completion or RF delivery, establishes
+/// no target/contact identity, grants no CW/control authority, and must not
+/// change transmit state or configured evidence.
+public struct TCICallsignSendObservation: Equatable, Sendable {
+    public let callsign: String
+    /// Local producer receipt time; nil means no timed receipt was supplied.
+    public let receivedAt: Date?
+}
+
 public struct TCIProtocolState: Equatable, Sendable {
     public internal(set) var protocolAnnouncement: TCIProtocolAnnouncement?
     public internal(set) var device: String?
@@ -653,6 +664,7 @@ public struct TCIProtocolState: Equatable, Sendable {
     public internal(set) var lastLegacySpotClick: TCILegacySpotClickObservation?
     public internal(set) var serverAppFocus: TCIServerAppFocusObservation?
     public internal(set) var lastCWMacrosEmpty: TCICWMacrosEmptyObservation?
+    public internal(set) var lastCallsignSend: TCICallsignSendObservation?
     public internal(set) var transceivers: [Int: TCITransceiverState] = [:]
     public internal(set) var unknownCommands: [TCICommand] = []
     public internal(set) var diagnostics: [TCIDiagnostic] = []
@@ -704,6 +716,7 @@ public struct TCIStateReducer: Sendable {
             if acceptsNoArguments(command) {
                 state.lastCWMacrosEmpty = TCICWMacrosEmptyObservation(receivedAt: receivedAt)
             }
+        case "CALLSIGN_SEND": applyCallsignSend(command, receivedAt: receivedAt)
         case "MODULATION": applyModulation(command)
         case "RX_FILTER_BAND": applyFilter(command)
         case "SPLIT_ENABLE": applyBooleanState(command, keyPath: \.splitEnabled)
@@ -863,9 +876,15 @@ public struct TCIStateReducer: Sendable {
         state.serverAppFocus = TCIServerAppFocusObservation(isFocused: focused, receivedAt: receivedAt)
     }
 
+    private mutating func applyCallsignSend(_ command: TCICommand, receivedAt: Date?) {
+        guard command.arguments.count == 1, validCallsignToken(command.arguments[0])
+        else { return reject(command) }
+        state.lastCallsignSend = TCICallsignSendObservation(callsign: command.arguments[0], receivedAt: receivedAt)
+    }
+
     private mutating func applyLegacySpotClick(_ command: TCICommand, receivedAt: Date?) {
         guard command.arguments.count == 2,
-              validSpotCallsign(command.arguments[0]),
+              validCallsignToken(command.arguments[0]),
               let frequency = TCIValueParser.integer64(command.arguments[1]),
               frequency >= 0, frequency <= limits.maximumFrequencyHz
         else { return reject(command) }
@@ -876,7 +895,7 @@ public struct TCIStateReducer: Sendable {
         )
     }
 
-    private func validSpotCallsign(_ value: String) -> Bool {
+    private func validCallsignToken(_ value: String) -> Bool {
         !value.isEmpty && value.utf8.count <= limits.maximumArgumentBytes
             && value.utf8.allSatisfy { $0 >= 33 && $0 <= 126 && $0 != 44 && $0 != 58 && $0 != 59 }
     }
@@ -885,7 +904,7 @@ public struct TCIStateReducer: Sendable {
         guard command.arguments.count == 4,
               let trx = validTRX(command.arguments[0]),
               let channel = validChannel(command.arguments[1]), channel <= 1,
-              validSpotCallsign(command.arguments[2]),
+              validCallsignToken(command.arguments[2]),
               let frequency = TCIValueParser.integer64(command.arguments[3]),
               frequency >= 0, frequency <= limits.maximumFrequencyHz
         else { return reject(command) }

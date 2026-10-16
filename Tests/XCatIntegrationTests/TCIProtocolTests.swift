@@ -7,6 +7,54 @@ import XCTest
 final class TCIProtocolTests: XCTestCase {
     private let address = TCIReceiverAddress(trx: 0, channel: 0)
 
+    func testCallsignSendRetainsExactServerCallsignAndCompletionReceiptWithoutReceiverIdentity() {
+        var decoder = TCITextDecoder(), reducer = TCIStateReducer()
+        let first = Date(timeIntervalSince1970: 100), completed = first.addingTimeInterval(5)
+        reducer.apply(decoder.feed("callsign_se"), receivedAt: first)
+        XCTAssertNil(reducer.state.lastCallsignSend)
+        reducer.apply(decoder.feed("nd:ra6lh/P;"), receivedAt: completed)
+        XCTAssertEqual(reducer.state.lastCallsignSend?.callsign, "ra6lh/P")
+        XCTAssertEqual(reducer.state.lastCallsignSend?.receivedAt, completed)
+        XCTAssertTrue(reducer.state.frequencies.isEmpty)
+        XCTAssertTrue(reducer.state.transceivers.isEmpty)
+        XCTAssertTrue(reducer.state.unknownCommands.isEmpty)
+        XCTAssertFalse(reducer.state.ready)
+        XCTAssertNil(reducer.authoritativeSnapshot(for: address))
+        XCTAssertNil(reducer.state.lastCWMacrosEmpty)
+    }
+
+    func testCallsignSendRejectsMalformedIndexedAndOversizedFormsWithoutReplacingReceipt() {
+        var reducer = TCIStateReducer(limits: .init(maximumArgumentBytes: 12))
+        let receipt = Date(timeIntervalSince1970: 100)
+        XCTAssertTrue(reducer.apply(TCICommand(name: "CALLSIGN_SEND", arguments: ["RA6LH"]), receivedAt: receipt))
+        let retained = reducer.state.lastCallsignSend
+        for arguments in [[], [""], ["RA6 LH"], ["RA6LH;X"], ["RA6LH:X"], ["RA6LH,X"],
+                          ["TOO_LONG_CALLSIGN"], ["RA6LĤ"], ["0", "RA6LH"], ["0", "1", "RA6LH"]] {
+            XCTAssertFalse(reducer.apply(TCICommand(name: "CALLSIGN_SEND", arguments: arguments),
+                                         receivedAt: receipt.addingTimeInterval(10)), "\(arguments)")
+            XCTAssertEqual(reducer.state.lastCallsignSend, retained)
+        }
+    }
+
+    func testCallsignSendRetainsOneIndependentReportWithoutInferringCWOrTRXCompletion() {
+        var decoder = TCITextDecoder(), reducer = TCIStateReducer()
+        let first = Date(timeIntervalSince1970: 100), second = first.addingTimeInterval(10)
+        reducer.apply(decoder.feed("TRX:0,true;CALLSIGN_SEND:RA6LH;"), receivedAt: first)
+        reducer.apply(decoder.feed("CW_MACROS_EMPTY;CLICKED_ON_SPOT:OM0RX,14025000;"), receivedAt: second)
+        XCTAssertEqual(reducer.state.lastCallsignSend?.callsign, "RA6LH")
+        XCTAssertEqual(reducer.state.lastCallsignSend?.receivedAt, first)
+        let cwEvent = reducer.state.lastCWMacrosEmpty
+        reducer.apply(decoder.feed("CALLSIGN_SEND:RA6LH;"), receivedAt: second)
+        XCTAssertEqual(reducer.state.lastCallsignSend?.receivedAt, second)
+        reducer.apply(decoder.feed("CALLSIGN_SEND:OM0RX;"))
+        XCTAssertEqual(reducer.state.lastCallsignSend?.callsign, "OM0RX")
+        XCTAssertNil(reducer.state.lastCallsignSend?.receivedAt)
+        XCTAssertEqual(reducer.state.lastCWMacrosEmpty, cwEvent)
+        XCTAssertEqual(reducer.state.transceivers[0]?.transmitting, true)
+        reducer = TCIStateReducer()
+        XCTAssertNil(reducer.state.lastCallsignSend)
+    }
+
     func testCWMacrosEmptyRetainsOnlyCompletedNotificationReceiptWithoutInventingTRXState() {
         var decoder = TCITextDecoder(), reducer = TCIStateReducer()
         let first = Date(timeIntervalSince1970: 100), completed = first.addingTimeInterval(5)

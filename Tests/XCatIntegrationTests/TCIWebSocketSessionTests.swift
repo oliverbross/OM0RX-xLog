@@ -9,6 +9,68 @@ final class TCIWebSocketSessionTests: XCTestCase {
     private let endpoint = URL(string: "ws://127.0.0.1:40001")!
     private let address = TCIReceiverAddress(trx: 0, channel: 0)
 
+    func testCallsignSendPublishesIndependentProducerReceiptWithoutTRXOrConfiguredSideEffects() async throws {
+        let connection = FakeTCIWebSocketConnection(), time = TCIEvidenceClock()
+        let session = TCIReadOnlyWebSocketSession(endpoint: endpoint, configuredAddress: address,
+            connector: FakeTCIWebSocketConnector(connections: [connection]), clock: { time.now() })
+        try await session.connect()
+        await connection.enqueue(.text(Self.discoveryAndState + "trx:0,true;CW_MACROS_EMPTY;ready;"))
+        let initial = try await waitForObservation(session) { $0.availability == .available }
+        time.advance(10)
+        let receipt = time.now()
+        await connection.enqueue(.text("CALLSIGN_SEND:ra6lh/P;"))
+        let reported = try await waitForObservation(session, after: initial.sequence) { $0.lastCallsignSend != nil }
+        XCTAssertEqual(reported.lastCallsignSend?.callsign, "ra6lh/P")
+        XCTAssertEqual(reported.lastCallsignSend?.receivedAt, receipt)
+        XCTAssertEqual(reported.evidenceReceivedAt, initial.evidenceReceivedAt)
+        XCTAssertEqual(reported.snapshot, initial.snapshot)
+        XCTAssertEqual(reported.snapshot?.transceiver.transmitting, true)
+        XCTAssertEqual(reported.filterEvidenceSequence, initial.filterEvidenceSequence)
+        XCTAssertEqual(reported.splitEvidenceReceivedAt, initial.splitEvidenceReceivedAt)
+        XCTAssertEqual(reported.lastCWMacrosEmpty, initial.lastCWMacrosEmpty)
+        time.advance(10)
+        await connection.enqueue(.text("CALLSIGN_SEND:0,RA6LH;"))
+        let invalid = try await waitForObservation(session, after: reported.sequence) { _ in true }
+        XCTAssertEqual(invalid.lastCallsignSend, reported.lastCallsignSend)
+        await connection.enqueue(.text("CALLSIGN_SEND:ra6lh/P;"))
+        let repeated = try await waitForObservation(session, after: invalid.sequence) { _ in true }
+        time.advance(20)
+        XCTAssertEqual(repeated.lastCallsignSend?.receivedAt, receipt.addingTimeInterval(10))
+        XCTAssertEqual(repeated.evidenceReceivedAt, initial.evidenceReceivedAt)
+        XCTAssertEqual(repeated.snapshot, initial.snapshot)
+        XCTAssertEqual(repeated.lastCWMacrosEmpty, initial.lastCWMacrosEmpty)
+        let sent = await connection.sentTexts()
+        XCTAssertTrue(sent.isEmpty)
+        await session.disconnect()
+        let disconnected = await session.currentObservation()
+        XCTAssertNil(disconnected.lastCallsignSend)
+    }
+
+    func testCallsignSendBeforeDiscoveryGrantsNoAuthorityAndReconnectClearsIt() async throws {
+        let first = FakeTCIWebSocketConnection(), second = FakeTCIWebSocketConnection()
+        let session = TCIReadOnlyWebSocketSession(endpoint: endpoint, configuredAddress: address,
+            connector: FakeTCIWebSocketConnector(connections: [first, second]))
+        try await session.connect()
+        await first.enqueue(.text("CALLSIGN_SEND:RA6LH;"))
+        let reported = try await waitForObservation(session) { $0.lastCallsignSend != nil }
+        XCTAssertEqual(reported.availability, .synchronizing)
+        XCTAssertNil(reported.snapshot)
+        XCTAssertNil(reported.evidenceReceivedAt)
+        await session.disconnect()
+        try await session.connect()
+        let reconnected = await session.currentObservation()
+        XCTAssertGreaterThan(reconnected.generation, reported.generation)
+        XCTAssertNil(reconnected.lastCallsignSend)
+        await first.enqueue(.text("CALLSIGN_SEND:OLD;"))
+        await second.enqueue(.text(Self.discoveryAndState + "ready;"))
+        let available = try await waitForObservation(session, after: reconnected.sequence) { $0.availability == .available }
+        XCTAssertNil(available.lastCallsignSend)
+        let firstSent = await first.sentTexts(), secondSent = await second.sentTexts()
+        XCTAssertTrue(firstSent.isEmpty)
+        XCTAssertTrue(secondSent.isEmpty)
+        await session.disconnect()
+    }
+
     func testCWMacrosEmptyPublishesOwnProducerReceiptWithoutConfiguredOrTransmissionSideEffects() async throws {
         let connection = FakeTCIWebSocketConnection(), time = TCIEvidenceClock()
         let session = TCIReadOnlyWebSocketSession(endpoint: endpoint, configuredAddress: address,
