@@ -174,7 +174,7 @@ async fn spot_editor_state(window: tauri::WebviewWindow) -> Result<serde_json::V
 async fn activate_spot(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>,
     operation_id: String, source_epoch: String, spot_id: String, spot_version: String) -> Result<serde_json::Value, String> {
     validate_spot_effect(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
-    radio_follow::revoke("A spot selection disabled Follow Radio.");
+    radio_follow::revoke_silently();
     qsy_clear::retire_terminal(); radio_read::retire_terminal();
     let owner = activation_owner(&app);
     let request = spot_activation::Request { operation_id, source_epoch, spot_id, spot_version };
@@ -184,7 +184,7 @@ async fn activate_spot(window: tauri::WebviewWindow, app: tauri::AppHandle, stat
 async fn activate_opportunity(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>,
     operation_id: String, source_epoch: String, spot_id: String, spot_version: String) -> Result<serde_json::Value, String> {
     validate_opportunity_effect(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
-    radio_follow::revoke("A Chaser selection disabled Follow Radio.");
+    radio_follow::revoke_silently();
     if !opportunity_selection::owns(&source_epoch) {
         return Err("Opportunity draft selection is unavailable in this window or source.".into());
     }

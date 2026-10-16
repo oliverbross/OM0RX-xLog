@@ -605,6 +605,12 @@ pub fn revoke(reason: &str) {
         owner.revoke(reason);
     }
 }
+
+/// Revoke an explicit operator permission without presenting the expected
+/// transition as a fault in every open editor.
+pub fn revoke_silently() {
+    revoke("");
+}
 pub fn editor_changed(label: &str, instance: Option<&str>) {
     if let Some(owner) = OWNER.get() {
         owner.editor_changed(label, instance);
@@ -768,6 +774,17 @@ mod tests {
         assert_eq!(calls[0].revision, 99);
         assert_eq!(calls[0].frequency, 14_200_099);
         assert_eq!(owner.activation()["phase"], "confirmed");
+    }
+    #[test]
+    fn silent_revocation_disables_permission_without_an_error_message() {
+        let (owner, _, _) = fixture(vec![], false);
+        owner.set(true, 0).unwrap();
+
+        owner.revoke("");
+
+        let state = owner.snapshot().unwrap();
+        assert_eq!(state["enabled"], false);
+        assert_eq!(state["error"], "");
     }
     #[test]
     fn repeats_are_ignored_but_mode_only_change_is_followed() {
