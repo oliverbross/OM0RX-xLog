@@ -107,7 +107,7 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     if label == "logbook" {
         return if matches!(request["method"].as_str(), Some("logbook_list" | "logbook_contact"
             | "logbook_contact_apply" | "logbook_contact_receipt" | "logbook_matrix" | "logbook_previous"
-            | "logbook_import_adif" | "logbook_export_adif" | "logbook_cty_preview" | "logbook_follow_up" | "lookup_call" | "cluster_history")) {
+            | "logbook_import_adif" | "logbook_export_adif" | "logbook_cty_preview" | "logbook_follow_up" | "logbook_data_quality" | "lookup_call" | "cluster_history")) {
             Ok(())
         } else { Err("This window can only read and edit the local logbook.".into()) };
     }
@@ -207,6 +207,7 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "logbook_list",
         "logbook_cty_preview",
         "logbook_follow_up",
+        "logbook_data_quality",
         "logbook_save",
         "logbook_delete",
         "logbook_undo",
@@ -1244,6 +1245,15 @@ mod tests {
         assert!(validate_request(&request).is_ok());
         for label in ["main", "logbook"] { assert!(validate_surface(label, &request).is_ok(), "{label}"); }
         for label in ["monitor", "awards", "previous-qsos", "world-map", "band-maps", "settings", "operating-goals", "unknown"] {
+            assert!(validate_surface(label, &request).is_err(), "{label}");
+        }
+    }
+    #[test]
+    fn data_quality_is_only_available_to_existing_logbook_surfaces() {
+        let request = json!({"id":"test", "method":"logbook_data_quality", "params":{"contactID":"fixture", "generation":"fixture", "expectedRevision":1}});
+        assert!(validate_request(&request).is_ok());
+        for label in ["main", "logbook"] { assert!(validate_surface(label, &request).is_ok(), "{label}"); }
+        for label in ["monitor", "awards", "previous-qsos", "world-map", "band-maps", "settings", "operating-goals", "qso", "dx-cluster", "unknown"] {
             assert!(validate_surface(label, &request).is_err(), "{label}");
         }
     }

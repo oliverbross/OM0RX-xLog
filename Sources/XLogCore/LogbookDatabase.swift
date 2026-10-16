@@ -464,6 +464,28 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
+    /// Exact-contact projection with optional primary-key retained conflict lookup.
+    /// No duplicate/contact catalogue scan or persistence is performed.
+    public func contactDataQuality(contactID: UUID, expectedRevision: Int64,
+                                   reference: QSODataQuality.Reference?, conflictID: UUID? = nil) throws -> QSODataQuality.Report? {
+        try withDatabaseLock {
+            guard let contact = try contactSnapshot(localID: contactID) else { return nil }
+            guard contact.revision == expectedRevision else { throw LogbookContactError.conflict(contact) }
+            let conflict: SyncConflict? = try conflictID.flatMap { id in
+                try withStatement("SELECT conflict_json FROM sync_conflicts WHERE conflict_id=? AND local_id=? LIMIT 1;") { statement in
+                    bind(id.uuidString, to: 1, in: statement)
+                    bind(contactID.uuidString, to: 2, in: statement)
+                    let step = sqlite3_step(statement)
+                    if step == SQLITE_DONE { return nil }
+                    guard step == SQLITE_ROW, let bytes = sqlite3_column_blob(statement, 0) else { throw error() }
+                    return try decoder.decode(SyncConflict.self, from: Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 0))))
+                }
+            }
+            if conflictID != nil && conflict == nil { throw LogbookContactError.invalid }
+            return QSODataQuality.inspect(contact, reference: reference, conflict: conflict)
+        }
+    }
+
     public func prepareOnlineLogDelivery(service: OnlineLogService, contactID: UUID) throws -> OnlineLogDeliveryPlan {
         try withDatabaseLock {
             guard let contact = try contactSnapshot(localID: contactID), contact.qso.deletedAt == nil else {

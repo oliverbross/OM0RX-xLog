@@ -118,3 +118,40 @@ export async function openMonitor() {
     throw new Error("Monitor preview was blocked. Allow popups and try again.");
   return "Browser monitor preview opened";
 }
+
+export type QSODataQualityScope = { contactID: string; generation: string; expectedRevision: number; conflictID?: string };
+export type QSODataQualityEvidence = {
+  field: string; value: string; source: string; dateRole: string;
+  date: string | null; rawDate: string | null; referenceSource: string | null; referenceVersion: string | null;
+};
+export type QSODataQualityReport = {
+  contactID: string; contactRevision: number; contactStart: string; recordUpdatedAtNotFieldOrigin: string;
+  retainedFields: QSODataQualityEvidence[]; referenceStatus: string;
+  referenceComparison: QSODataQualityEvidence | null; retainedPowerObservation: QSODataQualityEvidence | null;
+  findings: { kind: string; field: string; severity: string; message: string; retained: QSODataQualityEvidence;
+    comparison: QSODataQualityEvidence | null; reviewImpacts: string[] }[];
+};
+export type QSODataQualityResponse = {
+  generation: string; read_only?: true; status?: "workspace_changed" | "contact_changed";
+  duplicate_review?: "notPerformed"; conflict_review?: "notRequested" | "retainedConflict";
+  data_quality?: QSODataQualityReport | null;
+};
+
+/** On-demand, exact-contact read only; this does not refresh references or resolve findings. */
+export async function requestQSODataQuality(scope: QSODataQualityScope): Promise<QSODataQualityResponse> {
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuid.test(scope.contactID) || !uuid.test(scope.generation) ||
+      !Number.isSafeInteger(scope.expectedRevision) || scope.expectedRevision < 0 || scope.expectedRevision >= Number.MAX_SAFE_INTEGER ||
+      scope.conflictID !== undefined && !uuid.test(scope.conflictID)) throw new Error("Invalid contact review scope.");
+  const params: Record<string, unknown> = {
+    contactID: scope.contactID, generation: scope.generation, expectedRevision: scope.expectedRevision,
+  };
+  if (scope.conflictID !== undefined) params.conflictID = scope.conflictID;
+  const response = await workerRequest("logbook_data_quality", params);
+  const result = response.result as QSODataQualityResponse | undefined;
+  if (result?.status === "workspace_changed" && !result.data_quality) return result;
+  if (!result || typeof result.generation !== "string" || result.generation.toLowerCase() !== scope.generation.toLowerCase() || result.read_only !== true ||
+      result.data_quality && (typeof result.data_quality.contactID !== "string" || result.data_quality.contactID.toLowerCase() !== scope.contactID.toLowerCase() ||
+        result.data_quality.contactRevision !== scope.expectedRevision)) throw new Error("Contact review context changed; discard these findings.");
+  return result;
+}

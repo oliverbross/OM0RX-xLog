@@ -667,6 +667,31 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                 let generation = try editGeneration()
                 let contact = try readyDatabase().contactSnapshot(localID: id)
                 return ["contact": try contact.map { try scopedSnapshot($0, generation: generation) } ?? NSNull(), "generation": generation]
+            case "logbook_data_quality":
+                try requireKeys(params, allowed: ["contactID", "generation", "expectedRevision", "conflictID"],
+                                required: ["contactID", "generation", "expectedRevision"])
+                guard let text = params["contactID"] as? String, let id = UUID(uuidString: text) else { throw invalid() }
+                let revision = try integer(params, "expectedRevision", default: -1, range: 0...9_007_199_254_740_990)
+                var conflictID: UUID?
+                if let raw = params["conflictID"] {
+                    guard let text = raw as? String, let value = UUID(uuidString: text) else { throw invalid() }
+                    conflictID = value
+                }
+                let generation = try editGeneration(createIfMissing: false)
+                if try !matchesEditGeneration(params, generation) { return ["status": "workspace_changed", "generation": generation] }
+                let reference = try? currentCTYResolverSnapshot()
+                do {
+                    let report = try readyDatabase().contactDataQuality(contactID: id, expectedRevision: Int64(revision),
+                        reference: reference.map { .init(resolver: $0.resolver, source: $0.source == "bundled" ? "bundled_cty" : "local_cty") },
+                        conflictID: conflictID)
+                    return ["generation": generation, "read_only": true,
+                            "duplicate_review": "notPerformed", "conflict_review": conflictID == nil ? "notRequested" : "retainedConflict",
+                            "data_quality": try report.map { try dataQualityJSON($0) } ?? NSNull()]
+                } catch LogbookContactError.conflict {
+                    return ["status": "contact_changed", "generation": generation, "read_only": true]
+                } catch LogbookContactError.invalid {
+                    throw WorkerFailure("conflict_unavailable", "The retained conflict does not belong to this contact or is no longer available.")
+                }
             case "logbook_follow_up":
                 try requireKeys(params, allowed: ["contactID", "generation"], required: ["contactID", "generation"])
                 guard let text = params["contactID"] as? String, let id = UUID(uuidString: text) else { throw invalid() }
@@ -1422,7 +1447,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
         catch OperatorDraftPowerError.invalid { throw invalid() }
     }
 
-    private func editGeneration(rotate: Bool = false) throws -> String {
+    private func editGeneration(rotate: Bool = false, createIfMissing: Bool = true) throws -> String {
         _ = try readyDatabase()
         let url = workspaceURL.appendingPathComponent("edit-generation.json")
         let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey])
@@ -1437,10 +1462,33 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
             }
             if !rotate { return value.uuidString.lowercased() }
         }
+        guard createIfMissing else {
+            throw WorkerFailure("workspace_identity_unavailable", "Open the current contact before requesting read-only findings.")
+        }
         let value = UUID()
         try JSONEncoder().encode(value).write(to: url, options: .atomic)
         try LocalFilePermissions.protectFile(url, fileManager: fileManager)
         return value.uuidString.lowercased()
+    }
+
+    /// Codable omits nil properties; the bridge makes unavailable evidence explicit.
+    private func dataQualityJSON(_ report: QSODataQuality.Report) throws -> [String: Any] {
+        func evidence(_ value: QSODataQuality.Evidence) throws -> [String: Any] {
+            guard var object = try json(value) as? [String: Any] else { throw invalid() }
+            for key in ["date", "rawDate", "referenceSource", "referenceVersion"] where object[key] == nil { object[key] = NSNull() }
+            return object
+        }
+        guard var object = try json(report) as? [String: Any] else { throw invalid() }
+        object["retainedFields"] = try report.retainedFields.map(evidence)
+        object["referenceComparison"] = try report.referenceComparison.map(evidence) ?? NSNull()
+        object["retainedPowerObservation"] = try report.retainedPowerObservation.map(evidence) ?? NSNull()
+        object["findings"] = try report.findings.map { finding -> [String: Any] in
+            guard var value = try json(finding) as? [String: Any] else { throw invalid() }
+            value["retained"] = try evidence(finding.retained)
+            value["comparison"] = try finding.comparison.map(evidence) ?? NSNull()
+            return value
+        }
+        return object
     }
 
     private func matchesEditGeneration(_ params: [String: Any], _ current: String) throws -> Bool {
