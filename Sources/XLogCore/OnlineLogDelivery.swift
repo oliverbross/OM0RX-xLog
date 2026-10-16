@@ -93,6 +93,82 @@ public struct OnlineLogDeliverySummary: Equatable, Sendable {
     public let latestSafeErrorCode: String?
 }
 
+/// A read-only operator projection. Upload receipts, retained confirmation
+/// fields and sponsor credit are separate evidence; none implies the others.
+public struct OnlineLogFollowUp: Equatable, Sendable {
+    public struct Upload: Equatable, Sendable {
+        public let service: OnlineLogService
+        public let state: OnlineLogDeliveryState?
+        public let receiptRevision: Int64?
+        public let isCurrentRevision: Bool
+        public let lastAttemptAt: Date?
+        /// Nil also covers a future/invalid clock observation, not zero age.
+        public let attemptAgeSeconds: TimeInterval?
+        /// Receipts retain attempt time, not provider acceptance time.
+        public let acceptanceAgeSeconds: TimeInterval? = nil
+    }
+
+    public struct Confirmation: Equatable, Sendable {
+        public enum Source: String, Sendable { case paper, lotw, eqsl }
+        public let source: Source
+        public let receivedStatus: String
+        /// Exact retained provider date, with no fabricated observation time.
+        public let receivedDate: String?
+        /// QSO updatedAt and upload attempt time do not date a provider match.
+        public let matchAgeSeconds: TimeInterval? = nil
+    }
+
+    public enum AwardImpact: String, Sendable {
+        case excludedDeletedContact
+        case noRetainedConfirmation
+        case retainedConfirmationRequiresAwardRules
+    }
+
+    public let contactID: UUID
+    public let contactRevision: Int64
+    public let uploads: [Upload]
+    public let confirmations: [Confirmation]
+    public let awardImpact: AwardImpact
+    /// Sponsor-issued credit has no authority in these retained inputs.
+    public let sponsorCreditKnown = false
+
+    /// Ignore receipts for other contacts and future revisions. Prefer the
+    /// current revision; older delivery must never label an edited QSO uploaded.
+    /// This initializer performs no database writes or provider requests.
+    public init(contact: LogbookContactSnapshot, receipts: [OnlineLogDeliveryReceipt], now: Date) {
+        contactID = contact.qso.id
+        contactRevision = contact.revision
+        uploads = OnlineLogService.allCases.map { service in
+            let receipt = receipts.filter {
+                $0.service == service && $0.contactID == contact.qso.id && $0.contactRevision <= contact.revision
+            }.max {
+                if $0.contactRevision != $1.contactRevision { return $0.contactRevision < $1.contactRevision }
+                return $0.lastAttemptAt < $1.lastAttemptAt
+            }
+            let age = receipt.map { now.timeIntervalSince($0.lastAttemptAt) }
+            return Upload(service: service, state: receipt?.state, receiptRevision: receipt?.contactRevision,
+                isCurrentRevision: receipt?.contactRevision == contact.revision,
+                lastAttemptAt: receipt?.lastAttemptAt,
+                attemptAgeSeconds: age.flatMap { $0.isFinite && $0 >= 0 ? $0 : nil })
+        }
+        let qso = contact.qso
+        confirmations = [
+            Confirmation(source: .paper, receivedStatus: qso.qslReceived, receivedDate: qso.extraFields["QSLRDATE"]),
+            Confirmation(source: .lotw, receivedStatus: qso.lotwReceived, receivedDate: qso.extraFields["LOTW_QSLRDATE"]),
+            Confirmation(source: .eqsl, receivedStatus: qso.extraFields["EQSL_QSL_RCVD"] ?? "",
+                receivedDate: qso.extraFields["EQSL_QSLRDATE"]),
+        ]
+        // Report evidence requiring rule evaluation, never an awarded unit or
+        // progress delta. Sponsors differ in whether they accept eQSL evidence.
+        if qso.deletedAt != nil {
+            awardImpact = .excludedDeletedContact
+        } else {
+            awardImpact = confirmations.contains { ["Y", "V"].contains($0.receivedStatus.uppercased()) }
+                ? .retainedConfirmationRequiresAwardRules : .noRetainedConfirmation
+        }
+    }
+}
+
 struct OnlineLogHTTPResponse: Sendable {
     let statusCode: Int
     let headers: [String: String]
