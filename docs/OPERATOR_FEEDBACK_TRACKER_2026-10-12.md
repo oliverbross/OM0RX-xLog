@@ -7,7 +7,7 @@ packaged UI result. Keep unresolved items here across releases.
 
 ## Current delivery boundary
 
-Tracked implementation checkpoint: `7b2e0ea83490b98cd40f45a4881a949665b1a715`.
+Tracked implementation checkpoint: `6c1cad01b01c85772cfd8748bc3d9819dbd6ee32`.
 Source/test/browser results do not establish packaged/native, live-provider or hardware
 acceptance; installed alpha.31 remains unchanged.
 
@@ -137,6 +137,11 @@ acceptance; installed alpha.31 remains unchanged.
   (**60/60** focused Swift: 34 protocol + 26 session), with strict validation and reconnect
   clearing. It confers no target/contact identity authority, command correlation,
   TX completion/success or RF inference.
+  `6c1cad0` retains per-exact-address passive `VFO_LOCK` observations with independent
+  producer times (**66/66** focused Swift: 38 protocol + 28 session). Strict three-argument
+  validation enforces application/discovered bounds, discovery shrink prunes reports and
+  reconnect clears them. Reports confer no owner/expiry, tuning confirmation, configured
+  freshness or control authority.
   No PTT, carrier Tune, radio CW or amplifier control is exposed; transmit/PTT,
   split/TX-VFO, outbound spot management, audio/IQ, package/live-server and RF proof remain open. QLog was a behavior
   reference only, no implementation code was copied, and installed alpha.31 is unchanged.

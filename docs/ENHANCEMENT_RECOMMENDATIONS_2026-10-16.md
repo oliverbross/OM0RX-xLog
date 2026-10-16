@@ -9,7 +9,7 @@ radio transmission, rotor movement and Windows/Linux packaging remain separate g
 
 ## Current decision
 
-Implementation checkpoint: `7b2e0ea83490b98cd40f45a4881a949665b1a715`. Source/test/browser
+Implementation checkpoint: `6c1cad01b01c85772cfd8748bc3d9819dbd6ee32`. Source/test/browser
 verification does not close package/native, provider or hardware acceptance.
 
 - Keep the Mac-first daily logger, canonical QSO/draft owners and local-first database.
@@ -91,6 +91,10 @@ only (**55/55** focused Swift); queue-empty, TX/RX, CW and RF authority remain u
 (**60/60** focused Swift: 34 protocol + 26 session). Strict validation and reconnect
 clearing do not confer target/contact identity authority, command correlation,
 TX completion/success or RF inference.
+`6c1cad0` adds per-exact-address passive `VFO_LOCK` observations with independent
+producer times (**66/66** focused Swift: 38 protocol + 28 session), strict three-argument
+application/discovery bounds, pruning on discovery shrink and reconnect clearing.
+Owner/expiry, tuning confirmation, configured freshness and control authority remain unknown.
 See [filter](TCI_RECEIVE_FILTER_SOURCE_ACCEPTANCE_2026-10-16.md) and
 [split](TCI_SPLIT_OBSERVATION_SOURCE_ACCEPTANCE_2026-10-16.md), plus
 [global TX observation](TCI_TRANSMIT_FREQUENCY_OBSERVATION_SOURCE_ACCEPTANCE_2026-10-16.md), source acceptance. This is

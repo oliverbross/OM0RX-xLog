@@ -1,6 +1,6 @@
 # OM0RX-xLog live project board
 
-Tracked implementation checkpoint: `7b2e0ea83490b98cd40f45a4881a949665b1a715`.
+Tracked implementation checkpoint: `6c1cad01b01c85772cfd8748bc3d9819dbd6ee32`.
 Source/test/browser evidence below remains separate from installed alpha.31 and
 unaccepted package, native interaction, provider and hardware gates.
 
@@ -123,6 +123,11 @@ frontend **41/41**, and global TX protocol/session Swift **35/35** pass. The pin
  callsign/producer receipt only (**60/60** focused Swift: 34 protocol + 26 session),
  with strict validation and reconnect clearing. It provides no target/contact identity
  authority, command correlation, TX completion/success or RF inference.
+ `6c1cad0` retains per-exact-address passive `VFO_LOCK` observations with independent
+ producer times (**66/66** focused Swift: 38 protocol + 28 session). Strict three-argument
+ validation enforces application/discovered bounds; discovery shrink prunes observations
+ and reconnect clears them. Owner/expiry, tuning confirmation, configured freshness and
+ control authority are not inferred.
 Transmit/PTT, split/TX-VFO controls,
 spots, audio/IQ, package/live-server and RF
 acceptance remain open; installed alpha.31 is unchanged. See the

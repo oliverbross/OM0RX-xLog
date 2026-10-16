@@ -2,7 +2,7 @@
 
 Last updated: 2026-10-16
 
-Tracked implementation checkpoint: `7b2e0ea83490b98cd40f45a4881a949665b1a715`.
+Tracked implementation checkpoint: `6c1cad01b01c85772cfd8748bc3d9819dbd6ee32`.
 New source/test/browser evidence does not replace installed alpha.31 or close
 exact-package, native interaction, live-provider or hardware acceptance.
 
@@ -210,7 +210,12 @@ Swift). It establishes no queue-empty, TX/RX, CW or RF authority. `7b2e0ea` reta
 `CALLSIGN_SEND` only as an opaque callsign plus producer receipt (**60/60** focused Swift,
 34 protocol + 26 session). Strict validation and reconnect clearing preserve independent
 evidence; the notification confers no target/contact identity authority, command correlation,
-TX completion/success or RF inference. Transmit/PTT, split/TX-VFO controls, outbound spot
+TX completion/success or RF inference. `6c1cad0` retains passive `VFO_LOCK` observations
+per exact address with independent producer times (**66/66** focused Swift: 38 protocol +
+28 session). Strict three-argument validation enforces application and discovered bounds;
+discovery shrink prunes observations and reconnect clears them. These reports establish no
+owner/expiry, tuning confirmation, configured freshness or control authority.
+Transmit/PTT, split/TX-VFO controls, outbound spot
 management, audio/IQ, package/live-server and RF acceptance
 remain open. QLog is a behavior reference only; no third-party code, credentials, device or
 operator data was copied. Installed alpha.31 remains unchanged.
