@@ -24,6 +24,19 @@ whole-record filtering and FT4/FT2/JTTY MFSK-submode export now have focused fix
 The exporter remains labeled 3.1.7 until the full 3.1.8 enum/deprecation audit passes.
 Package/real-log acceptance and any optional record correction remain open.
 
+The next operator-efficiency source batch is also committed and independently reviewed.
+`1a0e734` adds a native Previous QSOs menu/window that follows the canonical draft and
+existing local-history projection, closes with other detached windows on Canvas transition
+and creates no second contact owner. `ccb3638` removes narrow-width horizontal overflow;
+focused frontend **52/52**, Rust **26/26**, production graph/build checks and synthetic
+320/420/900-pixel visual checks pass. Exact packaged native-window acceptance and saved
+Logbook filters remain open. `8841f1f` adds only the passive, typed R16 Connection Doctor
+projection and allowlist-only support preview (**5/5** focused Swift); it has no route/UI,
+export, credential/raw-value field, snapshot call or I/O. `2f18295` adds the shared R06/R20
+operating-goal evaluator (**5/5** focused Swift), keeping source age, expiry, station scope,
+worked/confirmed and unknown sponsor eligibility/credit distinct. It has no UI, scheduler,
+notification, network, station command or mutation path.
+
 Full native TCI support for SunSDR/ExpertSDR and compatible TCI servers is now a
 tracked programme. The official ExpertSDR3 protocol is normative and QLog behavior is an
 interoperability reference only. Source now includes bounded protocol/discovery and binary

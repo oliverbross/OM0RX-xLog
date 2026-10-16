@@ -17,6 +17,28 @@ packaged UI result. Keep unresolved items here across releases.
   **16/16** and frontend **1,092/1,092** proof. Full ADIF 3.1.8 conformance, installed
   package, copied real-log review and any correction of existing records remain open.
 
+- **Independent Previous QSOs window, 16 October — source and synthetic visual stage:**
+  `1a0e734` routes a native Window-menu surface through the existing canonical draft and
+  local contact-history projection, and the Canvas owner closes it with the other detached
+  windows. `ccb3638` makes the 320-pixel layout fit without horizontal overflow while wider
+  windows progressively add Grid and QSL. Frontend **52/52**, Rust **26/26**, production
+  build/graph checks and synthetic 320×480, 420×520 and 900×650@2× screenshots pass with
+  no browser errors or redundant page chrome. Exact packaged window/focus acceptance stays
+  open. Cloneable saved filters remain the outstanding half of R15.
+
+- **Connection Doctor, 16 October — passive core only:** `8841f1f` projects five fixed
+  diagnostic stages from caller-supplied retained state and can encode only an allowlisted
+  support preview. It cannot represent secrets, endpoints, identifiers, raw errors, radio
+  values, timestamps or log contents. Focused Swift **5/5** passes. No worker/UI route,
+  export, session snapshot, network/device/RF action or reconnect exists yet.
+
+- **Operating goals and calendar context, 16 October — passive core only:** `2f18295`
+  deterministically evaluates selected callsign, entity-slot and activation-reference goals
+  against station-scoped local history, public opportunities and retained cluster evidence.
+  Source age, expiry, reasons, worked and locally confirmed are explicit; sponsor evidence
+  eligibility and credit remain honestly unknown. Focused Swift **5/5** passes. UI,
+  scheduling/notifications, persistence, networking and station/log actions remain open.
+
 - **Full native TCI provider requested, 16 October — saved read-only source integration
   complete:** SunSDR2, ExpertSDR and compatible TCI servers are now a first-class radio
   programme. The bounded Swift protocol/reducer and receive-only WebSocket session retain
