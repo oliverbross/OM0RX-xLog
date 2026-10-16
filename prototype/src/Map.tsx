@@ -6,6 +6,7 @@ import { dxccPrefixLabel, mapSpotBounds, mapSpotDetails, normalizedMapCall, norm
 import { describeMapError } from "./MapErrors";
 import { acceptanceActive, interiorLandProbe, landPixelMatches } from "./acceptance";
 import { bearingAndDistance, grayline, greatCircle, nightHemisphere, solarPosition, type Coordinate } from "./MapGeography";
+import { maidenheadGrid } from "./MapGrid";
 import { clusterBandColors, clusterStatusColors, paletteColor } from "./live/clusterPalette";
 import "./Map.css";
 // MapLibre 6 resolves its default worker relative to import.meta.url. Vite's
@@ -21,6 +22,11 @@ type GeoJSONGeometry = { type: "MultiPolygon" | "Polygon"; coordinates: number[]
 type DXCCFeature = { properties: { dxcc_entity_code: number; dxcc_name: string | null; dxcc_prefix: string | null }; geometry: GeoJSONGeometry };
 const imageryTiles = "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/2004-08-01/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg";
 const emptyLines = { type: "FeatureCollection" as const, features: [] };
+const gridPreferenceKey = "xlog.worldMap.maidenheadGrid";
+
+function savedGridPreference() {
+  try { return window.localStorage.getItem(gridPreferenceKey) === "true"; } catch { return false; }
+}
 
 function lineFeatures(lines: Coordinate[][]) {
   return { type: "FeatureCollection" as const, features: lines.map((line) => ({
@@ -162,6 +168,7 @@ export default function WorldMap({
   const [preset, setPreset] = useState<MapPreset>(fixture || acceptanceActive ? "Simple" : "Detailed");
   const [showSun, setShowSun] = useState(!(fixture || acceptanceActive));
   const [showGrayline, setShowGrayline] = useState(!(fixture || acceptanceActive));
+  const [showGrid, setShowGrid] = useState(() => !(fixture || acceptanceActive) && savedGridPreference());
   const [longPath, setLongPath] = useState(initialLongPath);
   useEffect(() => { setLongPath(initialLongPath); }, [initialLongPath]);
   const [statusFilter, setStatusFilter] = useState<DXCCStatus[]>(["needed", "worked", "confirmed"]);
@@ -189,17 +196,21 @@ export default function WorldMap({
   const entityIDsRef = useRef<number[]>([]);
   const markersRef = useRef(new Map<string, maplibregl.Marker>());
   const spotMarkersRef = useRef(new Map<string, maplibregl.Marker>());
+  const gridMarkersRef = useRef(new Map<string, maplibregl.Marker>());
   const redrawRef = useRef(() => {});
+  const redrawGridRef = useRef(() => {});
   const appearanceRef = useRef(appearance);
   const overlayRef = useRef(overlayMode);
   const statusFilterRef = useRef(statusFilter);
   const dxccRef = useRef(dxccStatuses);
   const paletteRef = useRef(palette);
+  const showGridRef = useRef(showGrid);
   appearanceRef.current = appearance;
   overlayRef.current = overlayMode;
   statusFilterRef.current = statusFilter;
   dxccRef.current = dxccStatuses;
   paletteRef.current = palette;
+  showGridRef.current = showGrid;
   spotsRef.current = mappedSpots;
   homeRef.current = home;
   targetRef.current = target;
@@ -215,6 +226,10 @@ export default function WorldMap({
     let captureRequested = acceptanceActive;
     let inspectedCall: string | null = null;
     let popup: maplibregl.Popup | null = null;
+    const clearGridLabels = () => {
+      gridMarkersRef.current.forEach(marker => marker.remove());
+      gridMarkersRef.current.clear();
+    };
     const hideDetails = () => { popup?.remove(); popup = null; inspectedCall = null; };
     const showDetails = (call: string, refresh = false) => {
       const spot = spotsRef.current.find(value => value.call === call);
@@ -340,6 +355,36 @@ export default function WorldMap({
       }
     };
     redrawRef.current = redrawLabels;
+    const redrawGrid = () => {
+      if (disposed) return;
+      const source = map.getSource("maidenhead-grid") as maplibregl.GeoJSONSource | undefined;
+      if (!source) return;
+      if (!showGridRef.current) { source.setData(emptyLines); clearGridLabels(); return; }
+      const bounds = map.getBounds();
+      const grid = maidenheadGrid({ west: bounds.getWest(), east: bounds.getEast(),
+        south: bounds.getSouth(), north: bounds.getNorth() }, map.getZoom());
+      source.setData(lineFeatures(grid.lines));
+      const visible = new Set<string>();
+      for (const label of grid.labels) {
+        visible.add(label.key);
+        let marker = gridMarkersRef.current.get(label.key);
+        if (!marker) {
+          const element = document.createElement("span");
+          element.className = "map-grid-label";
+          element.setAttribute("aria-hidden", "true");
+          marker = new maplibregl.Marker({ element, anchor: "center" }).setLngLat(label.coordinate).addTo(map);
+          gridMarkersRef.current.set(label.key, marker);
+        }
+        const element = marker.getElement();
+        if (element.textContent !== label.locator) element.textContent = label.locator;
+        element.dataset.precision = String(grid.precision);
+        marker.setLngLat(label.coordinate);
+      }
+      for (const [key, marker] of gridMarkersRef.current) {
+        if (!visible.has(key)) { marker.remove(); gridMarkersRef.current.delete(key); }
+      }
+    };
+    redrawGridRef.current = redrawGrid;
     const repaint = () => {
       if (disposed || !element.clientWidth || !element.clientHeight) return;
       map.resize();
@@ -430,6 +475,7 @@ export default function WorldMap({
               attribution: '<a href="https://www.earthdata.nasa.gov/data/visualization/worldview" target="_blank" rel="noopener noreferrer">NASA GIBS Blue Marble</a>' },
             route: { type: "geojson", data: emptyLines },
             grayline: { type: "geojson", data: emptyLines },
+            "maidenhead-grid": { type: "geojson", data: emptyLines },
             night: { type: "geojson", data: { type: "FeatureCollection", features: [] } },
             landmarks: { type: "geojson", data: { type: "FeatureCollection", features: [] } },
             spots: {
@@ -468,6 +514,9 @@ export default function WorldMap({
               "fill-color": ["match", ["feature-state", "status"], "needed", "#8FB3D9", "worked", "#FF9D2E", "confirmed", "#12D6A0", "#61758D"],
               "fill-opacity": 0.12,
             } },
+            { id: "maidenhead-grid", type: "line", source: "maidenhead-grid",
+              layout: { visibility: showGridRef.current ? "visible" : "none" },
+              paint: { "line-color": "#35c8f5", "line-opacity": 0.46, "line-width": 1 } },
             { id: "night-fill", type: "fill", source: "night", layout: { visibility: showGrayline ? "visible" : "none" },
               paint: { "fill-color": "#c7d0d8", "fill-opacity": 0.27 } },
             { id: "grayline-band", type: "line", source: "grayline", paint: { "line-color": "#07111f", "line-opacity": 0.42, "line-width": 30 } },
@@ -495,6 +544,7 @@ export default function WorldMap({
       constructionWidth = element.clientWidth;
       constructionHeight = element.clientHeight;
       map.on("load", () => {
+        redrawGrid();
         fetch(geometryUrl).then(response => {
           if (!response.ok) throw new Error(`DXCC geometry HTTP ${response.status}`);
           return response.json();
@@ -532,6 +582,7 @@ export default function WorldMap({
       // before the browser discards its non-preserved drawing buffer.
       map.on("render", evidence);
       map.on("moveend", redrawLabels);
+      map.on("moveend", redrawGrid);
       document.addEventListener("xlog-native-acceptance", requestEvidence);
       document.addEventListener("xlog-native-map-evidence", requestEvidence);
       window.addEventListener("focus", repaint);
@@ -624,6 +675,7 @@ export default function WorldMap({
           // split can zoom out to several wrapped worlds and discard the camera.
           map.triggerRepaint();
           redrawLabels();
+          redrawGrid();
         });
       };
       const resize = new ResizeObserver(scheduleResize);
@@ -643,8 +695,10 @@ export default function WorldMap({
         markersRef.current.clear();
         spotMarkersRef.current.forEach(marker => marker.remove());
         spotMarkersRef.current.clear();
+        clearGridLabels();
         hideDetails();
         redrawRef.current = () => {};
+        redrawGridRef.current = () => {};
         map.remove();
         mapRef.current = null;
       };
@@ -737,6 +791,17 @@ export default function WorldMap({
     if (map.isStyleLoaded()) update(); else map.once("load", update);
     return () => { map.off("load", update); };
   }, [overlayMode, statusFilter]);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const update = () => {
+      if (!map.getLayer("maidenhead-grid")) return;
+      map.setLayoutProperty("maidenhead-grid", "visibility", showGrid ? "visible" : "none");
+      redrawGridRef.current();
+    };
+    if (map.isStyleLoaded()) update(); else map.once("load", update);
+    return () => { map.off("load", update); };
+  }, [showGrid]);
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -872,6 +937,11 @@ export default function WorldMap({
     else if (next === "Detailed") { setOverlayMode("Both"); setShowSun(true); setShowGrayline(true); }
     else { setOverlayMode("DXCC"); setShowSun(true); setShowGrayline(true); }
   };
+  const toggleGrid = () => setShowGrid(current => {
+    const next = !current;
+    try { window.localStorage.setItem(gridPreferenceKey, String(next)); } catch { /* preference storage is optional */ }
+    return next;
+  });
   return (
     <div className={`map-wrap${compact ? " map-compact" : ""}`}>
       <div
@@ -893,6 +963,7 @@ export default function WorldMap({
         </select></label>
         <button type="button" aria-pressed={showSun} onClick={() => setShowSun(!showSun)}>Sun</button>
         <button type="button" aria-pressed={showGrayline} onClick={() => setShowGrayline(!showGrayline)}>Greyline</button>
+        <button type="button" aria-pressed={showGrid} onClick={toggleGrid} title="Show Maidenhead locator grid">Grid</button>
         <button type="button" aria-pressed={longPath} onClick={() => setLongPath(!longPath)} title="Switch the displayed great-circle path; does not move the rotor">{longPath ? "Long path" : "Short path"}</button>
         <span className="map-count">{mappedSpots.length} mapped</span>
       </div>}
@@ -915,6 +986,7 @@ export default function WorldMap({
             </button>)}
           {showSun && <span><i style={{ backgroundColor: "#ffd75a" }} />Sun</span>}
           {showGrayline && <span><i style={{ backgroundColor: "#a9b6c8" }} />Greyline</span>}
+          {showGrid && <span><i className="map-grid-key" />Maidenhead grid</span>}
         </div>
       </div>}
     </div>

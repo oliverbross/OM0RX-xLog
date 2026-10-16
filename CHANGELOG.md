@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.4.0-alpha.57 — 2026-10-17
+
+- Added an optional Maidenhead locator grid to the World Map, using Wavelog's zoom-dependent field, square and subsquare calculation.
+- Added a remembered Grid toggle to the map controls; the overlay remains off by default and redraws only after camera movement.
+- Styled grid lines and labels in xLog's cyan map palette without obscuring spot selection or DXCC overlays.
+
 ## 0.4.0-alpha.56 — 2026-10-17
 
 - Reflowed Callsign Intelligence facts into a balanced three-column first row and two-column second row across the Operator Desk, custom canvas and detached window.

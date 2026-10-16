@@ -64,6 +64,7 @@ vi.mock("maplibre-gl", () => {
     getContainer() { return this.element; }
     getCanvas() { return this.canvas; }
     getZoom() { return this.zoom; }
+    getBounds() { return { getWest: () => -180, getEast: () => 180, getSouth: () => -85, getNorth: () => 85 }; }
     project() { return { x: 400, y: 200 }; }
     getLayer() { return true; }
     getSource(id: string) { return this.ready ? this.sources.get(id) : undefined; }
@@ -113,6 +114,7 @@ const spot = (changes: Partial<MapSpot> = {}): MapSpot => ({
   grid: "", lon: -72, lat: 41, reporter: "OM0RX", note: "<script>not HTML</script>", state: "needed", receivedAt: 1, ...changes,
 });
 beforeEach(() => {
+  localStorage.clear();
   harness.maps.length = 0;
   harness.startReady = true;
   harness.nativeResize = false;
@@ -525,6 +527,25 @@ describe("map spot inspection", () => {
     expect(screen.getByRole("tooltip").textContent).toContain("K1ABC");
     fireEvent.click(marker);
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("toggles and remembers the Wavelog-compatible Maidenhead grid", () => {
+    const first = render(<WorldMap data={[]} selected={null} />);
+    const map = harness.maps[0];
+    const button = screen.getByRole("button", { name: "Grid" });
+    expect(button.getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(button);
+    expect(button.getAttribute("aria-pressed")).toBe("true");
+    expect(localStorage.getItem("xlog.worldMap.maidenheadGrid")).toBe("true");
+    expect(map.sources.get("maidenhead-grid").setData.mock.lastCall[0].features.length).toBeGreaterThan(0);
+    expect(map.element.querySelectorAll(".map-grid-label").length).toBeGreaterThan(0);
+    fireEvent.click(button);
+    expect(map.sources.get("maidenhead-grid").setData.mock.lastCall[0].features).toEqual([]);
+    expect(map.element.querySelector(".map-grid-label")).toBeNull();
+    fireEvent.click(button);
+    first.unmount();
+    render(<WorldMap data={[]} selected={null} />);
+    expect(screen.getByRole("button", { name: "Grid" }).getAttribute("aria-pressed")).toBe("true");
   });
 
   it("shows bounded source diagnostics and only falls back for identified imagery failures", () => {
