@@ -336,6 +336,10 @@ impl DraftWake {
 
 const COMPACT_WORKSPACE_MENU_ID: &str = "workspace_compact";
 const STANDARD_WORKSPACE_MENU_ID: &str = "workspace_standard";
+const LOGBOOK_OPEN_WINDOW_MENU_ID: &str = "logbook_open_window";
+const LOGBOOK_IMPORT_ADIF_MENU_ID: &str = "logbook_import_adif";
+const LOGBOOK_EXPORT_ADIF_MENU_ID: &str = "logbook_export_adif";
+const LOGBOOK_SYNC_MENU_ID: &str = "logbook_sync_wavelog";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum WorkspaceLayout {
@@ -405,12 +409,12 @@ fn workspace_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     };
     view.append(&PredefinedMenuItem::separator(app)?)?;
     append_screen_group(app, &view, "View")?;
-    for group in ["Logbook", "Station"] {
-        let submenu = Submenu::new(app, group, true)?;
-        append_screen_group(app, &submenu, group)?;
-        let before_window = menu.items()?.iter().position(|item| item.id().0 == WINDOW_SUBMENU_ID).unwrap_or(menu.items()?.len());
-        menu.insert(&submenu, before_window)?;
-    }
+    append_logbook_menu(app, &menu)?;
+    let station = Submenu::new(app, "Station", true)?;
+    append_screen_group(app, &station, "Station")?;
+    let items = menu.items()?;
+    let before_window = items.iter().position(|item| item.id().0 == WINDOW_SUBMENU_ID).unwrap_or(items.len());
+    menu.insert(&station, before_window)?;
     let existing_window = menu.items()?.iter().filter_map(|item| item.as_submenu().cloned())
         .find(|submenu| submenu.id().0 == WINDOW_SUBMENU_ID);
     let windows = if let Some(windows) = existing_window { windows } else {
@@ -434,6 +438,47 @@ fn workspace_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     }
     windows.append(&band_maps)?;
     Ok(menu)
+}
+
+fn append_logbook_menu(app: &tauri::AppHandle, menu: &Menu<tauri::Wry>) -> tauri::Result<()> {
+    let logbook = Submenu::new(app, "Logbook", true)?;
+    for id in ["operator-desk", "log-qso", "logbook"] {
+        let screen = workspace_navigation::screen(id).expect("Logbook menu route must exist");
+        logbook.append(&MenuItem::with_id(app, format!("workspace_screen_{}", screen.id),
+            &screen.title, true, screen.shortcut.as_deref())?)?;
+    }
+    logbook.append(&MenuItem::with_id(app, LOGBOOK_OPEN_WINDOW_MENU_ID,
+        "Open Logbook Window", true, None::<&str>)?)?;
+    logbook.append(&PredefinedMenuItem::separator(app)?)?;
+    logbook.append(&MenuItem::with_id(app, LOGBOOK_IMPORT_ADIF_MENU_ID,
+        "Import ADIF…", true, None::<&str>)?)?;
+    logbook.append(&MenuItem::with_id(app, LOGBOOK_EXPORT_ADIF_MENU_ID,
+        "Export QSOs as ADIF…", true, None::<&str>)?)?;
+    logbook.append(&MenuItem::with_id(app, LOGBOOK_SYNC_MENU_ID,
+        "Synchronize with Wavelog…", true, None::<&str>)?)?;
+    logbook.append(&PredefinedMenuItem::separator(app)?)?;
+    let awards = workspace_navigation::screen("awards").expect("Awards menu route must exist");
+    logbook.append(&MenuItem::with_id(app, format!("workspace_screen_{}", awards.id),
+        &awards.title, true, awards.shortcut.as_deref())?)?;
+
+    let items = menu.items()?;
+    let after_file = items.iter().position(|item| item.as_submenu()
+        .is_some_and(|submenu| submenu.text().is_ok_and(|text| text == "File")))
+        .map(|index| index + 1).unwrap_or(1).min(items.len());
+    menu.insert(&logbook, after_file)?;
+    Ok(())
+}
+
+fn logbook_menu_route(id: &str) -> Option<&'static str> {
+    match id {
+        LOGBOOK_IMPORT_ADIF_MENU_ID | LOGBOOK_EXPORT_ADIF_MENU_ID => Some("logbook"),
+        LOGBOOK_SYNC_MENU_ID => Some("sync"),
+        _ => None,
+    }
+}
+
+fn logbook_menu_window(id: &str) -> Option<&'static str> {
+    (id == LOGBOOK_OPEN_WINDOW_MENU_ID).then_some("logbook")
 }
 
 fn window_menu_includes(id: &str) -> bool {
@@ -1594,6 +1639,20 @@ fn main() {
             }
         })
         .on_menu_event(|app, event| {
+            if let Some(screen) = logbook_menu_route(&event.id().0) {
+                let app = app.clone(); let screen = screen.to_owned();
+                tauri::async_runtime::spawn(async move {
+                    if let Err(error) = navigate_workspace(app, screen).await { eprintln!("Could not open logbook action: {error}"); }
+                });
+                return;
+            }
+            if let Some(kind) = logbook_menu_window(&event.id().0) {
+                let app = app.clone(); let kind = kind.to_owned();
+                tauri::async_runtime::spawn(async move {
+                    if let Err(error) = open_detached_workspace(app, kind).await { eprintln!("Could not open logbook window: {error}"); }
+                });
+                return;
+            }
             if let Some(mode) = workspace_navigation::mode_route(&event.id().0) {
                 let app = app.clone(); let mode = mode.to_owned();
                 tauri::async_runtime::spawn(async move {
@@ -1773,6 +1832,16 @@ mod workspace_layout_tests {
         assert!(super::screen_group_menu_includes("station-control"));
         assert_eq!(super::window_menu_title("OM0RX-xLog — Logbook"), "Open Logbook Window");
         assert_eq!(super::window_menu_title("OM0RX-xLog — Settings"), "Open Settings Window");
+    }
+
+    #[test]
+    fn logbook_menu_routes_only_to_existing_logbook_capabilities() {
+        assert_eq!(super::logbook_menu_route(super::LOGBOOK_IMPORT_ADIF_MENU_ID), Some("logbook"));
+        assert_eq!(super::logbook_menu_route(super::LOGBOOK_EXPORT_ADIF_MENU_ID), Some("logbook"));
+        assert_eq!(super::logbook_menu_route(super::LOGBOOK_SYNC_MENU_ID), Some("sync"));
+        assert_eq!(super::logbook_menu_window(super::LOGBOOK_OPEN_WINDOW_MENU_ID), Some("logbook"));
+        assert!(super::logbook_menu_route("logbook_missing").is_none());
+        assert!(super::logbook_menu_window("workspace_window_logbook").is_none());
     }
 
     #[test]

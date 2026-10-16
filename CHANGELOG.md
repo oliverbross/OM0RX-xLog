@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.4.0-alpha.52 — 2026-10-17
+
+- Moved the single native Logbook menu directly after File instead of leaving it among the later workspace menus.
+- Expanded it with existing xLog workflows: Operator Desk, Log QSO, Logbook, a detached Logbook window, ADIF import and export, Wavelog synchronization, and Awards.
+- Kept every menu action connected to an existing navigation or window route; no disabled placeholders or duplicate Logbook submenus were added.
+
 ## 0.4.0-alpha.51 — 2026-10-17
 
 - Replaced the cluster clock-time column with a compact live `For` age on both the Operator Desk and detached Cluster window.
