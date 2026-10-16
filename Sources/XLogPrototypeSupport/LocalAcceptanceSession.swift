@@ -62,6 +62,7 @@ public final class LocalAcceptanceSession: @unchecked Sendable {
             "workspace_status", "workspace_create", "workspace_preferences_load", "workspace_preferences_save",
             "workspace_layout_load", "workspace_layout_apply",
             "workspace_map_context", "workspace_band_map_apply",
+            "operating_goals_evaluate",
             "spot_history_status", "spot_history_query", "spot_history_stats", "spot_history_detail",
             "settings_load", "settings_receipt", "settings_save", "logbook_draft", "logbook_catalog", "logbook_list",
             "workspace_rotor_configuration_load", "workspace_rotor_configuration_receipt", "workspace_rotor_configuration_save",

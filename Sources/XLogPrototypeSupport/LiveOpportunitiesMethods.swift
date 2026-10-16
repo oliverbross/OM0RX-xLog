@@ -78,6 +78,16 @@ actor LiveOpportunitiesMethods {
         refreshing.removeAll()
     }
 
+    /// Returns only the already-retained public feed values. This never starts
+    /// a refresh, reads cluster state, or changes the cache; the caller supplies
+    /// the evaluation clock so expiry remains deterministic.
+    func retainedItems() throws -> [PublicOpportunity] {
+        guard !terminated else { throw WorkerFailure("worker_stopping", "The opportunity service has shut down.") }
+        _ = try logbook.openedDatabase()
+        try loadCache(createDirectory: false)
+        return names.flatMap { feeds[$0]?.items ?? [] }
+    }
+
     private func refresh(_ source: String, automatic: Bool = false) async {
         guard !terminated else { return }
         if let pending = refreshing[source] { await pending.value; return }
@@ -218,13 +228,13 @@ actor LiveOpportunitiesMethods {
                 "selection_tunes": false, "transmit": false]
     }
 
-    private func cacheURL() throws -> URL {
+    private func cacheURL(createDirectory: Bool = true) throws -> URL {
         let directory = logbook.workspaceDirectoryURL.appendingPathComponent("Opportunities", isDirectory: true)
         let fm = FileManager.default
         if fm.fileExists(atPath: directory.path) {
             let values = try directory.resourceValues(forKeys: [.isSymbolicLinkKey, .isDirectoryKey])
             guard values.isSymbolicLink != true && values.isDirectory == true else { throw invalid() }
-        } else { try fm.createDirectory(at: directory, withIntermediateDirectories: false) }
+        } else if createDirectory { try fm.createDirectory(at: directory, withIntermediateDirectories: false) }
         let file = directory.appendingPathComponent("public-feed-cache.json")
         if fm.fileExists(atPath: file.path) {
             guard try file.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink != true else { throw invalid() }
@@ -251,9 +261,9 @@ actor LiveOpportunitiesMethods {
         cachedDirectory = (directory.path, identity, loaded)
         return loaded
     }
-    private func loadCache() throws {
+    private func loadCache(createDirectory: Bool = true) throws {
         guard !loaded else { return }
-        let url = try cacheURL()
+        let url = try cacheURL(createDirectory: createDirectory)
         if FileManager.default.fileExists(atPath: url.path) {
             let data = try Data(contentsOf: url)
             guard data.count <= 8_388_608 else { throw invalid() }

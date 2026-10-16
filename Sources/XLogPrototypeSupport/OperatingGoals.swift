@@ -30,7 +30,7 @@ enum OperatingGoal: Hashable, Sendable {
         }
     }
 
-    fileprivate var isValid: Bool {
+    var isValid: Bool {
         switch normalized {
         case let .entitySlot(dxcc, band, mode):
             return dxcc > 0 && SpotLogic.bands.contains(band) && SpotLogic.modes.contains(mode)
@@ -49,7 +49,7 @@ enum OperatingGoal: Hashable, Sendable {
         }
     }
 
-    fileprivate static func clean(_ value: String) -> String {
+    static func clean(_ value: String) -> String {
         value.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
     }
 }

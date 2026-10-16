@@ -76,6 +76,7 @@ public actor LiveWorker {
     let remoteBackup: LiveRemoteBackupService
     private let remoteBackupPresentation: LiveRemoteBackupPresentation
     private let opportunities: LiveOpportunitiesMethods
+    private let operatingGoals: LiveOperatingGoalMethods
     private let cluster: LiveClusterMethods
     private let publicServices: LivePublicServiceMethods
     private let services: LiveServiceMethods
@@ -128,7 +129,9 @@ public actor LiveWorker {
         let cluster = cluster ?? (logbook === LiveLogbookMethods.shared ? .shared : LiveClusterMethods(logbook: logbook))
         self.cluster = cluster
         self.contactRefresher = contactRefresher ?? { try await cluster.refreshContacts() }
-        opportunities = LiveOpportunitiesMethods(logbook: logbook, clusterSpots: { await cluster.currentSpotRowsIfStarted() })
+        let opportunityMethods = LiveOpportunitiesMethods(logbook: logbook, clusterSpots: { await cluster.currentSpotRowsIfStarted() })
+        opportunities = opportunityMethods
+        operatingGoals = LiveOperatingGoalMethods(logbook: logbook, opportunities: opportunityMethods)
         self.localAcceptance = localAcceptance
         self.ownsProcessSessions = ownsProcessSessions
     }
@@ -262,7 +265,7 @@ public actor LiveWorker {
             if ["sync_run", "sync_configure", "sync_retry", "sync_resolve"].contains(method) {
                 throw WorkerFailure("sync_owner_required", "Use the shared generation-bound Sync mutation owner.")
             }
-            if terminalShutdown && (method.hasPrefix("reference_") || method.hasPrefix("sync_") || method.hasPrefix("secret_") || method.hasPrefix("online_log_") || method.hasPrefix("station_") || method.hasPrefix("spot_bridge_") || method.hasPrefix("wsjtx_") || method.hasPrefix("spot_history_") || method.hasPrefix("spot_draft_") || method.hasPrefix("opportunities_") || method.hasPrefix("cluster_") || method.hasPrefix("logbook_operator_draft") || method.hasPrefix("logbook_contact") || ["weather", "propagation_snapshot", "propagation_refresh", "lookup_call", "workspace_create", "backup_restore"].contains(method)) {
+            if terminalShutdown && (method.hasPrefix("reference_") || method.hasPrefix("sync_") || method.hasPrefix("secret_") || method.hasPrefix("online_log_") || method.hasPrefix("station_") || method.hasPrefix("spot_bridge_") || method.hasPrefix("wsjtx_") || method.hasPrefix("spot_history_") || method.hasPrefix("spot_draft_") || method.hasPrefix("opportunities_") || method.hasPrefix("operating_goals_") || method.hasPrefix("cluster_") || method.hasPrefix("logbook_operator_draft") || method.hasPrefix("logbook_contact") || ["weather", "propagation_snapshot", "propagation_refresh", "lookup_call", "workspace_create", "backup_restore"].contains(method)) {
                 throw WorkerFailure("worker_stopping", "The worker is shutting down; no new service request was started.")
             }
             if method == "health" {
@@ -392,6 +395,8 @@ public actor LiveWorker {
                 result = try await remoteBackupPresentation.handle(params)
             } else if method.hasPrefix("opportunities_") {
                 result = try await opportunities.handle(method: method, params: params)
+            } else if method.hasPrefix("operating_goals_") {
+                result = try await operatingGoals.handle(method: method, params: params)
             } else if method.hasPrefix("cluster_") || method.hasPrefix("spot_history_") {
                 result = try await cluster.handle(method: method, params: params)
             } else if method == "weather" || method == "propagation_snapshot" || method == "propagation_refresh" {
