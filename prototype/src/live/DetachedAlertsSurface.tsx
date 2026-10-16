@@ -50,9 +50,27 @@ export function DetachedAlertsSurface() {
       <p className="secondary">Each rule requires all its filled conditions. Comment contains matches literal text, ignoring case; leave it blank for any comment.</p>
       <div className="dx-alert-actions"><button disabled={draft.rules.length >= dx.limits.maximumRules} onClick={() => setDraft({ ...draft, rules:[...draft.rules,newRule()] })}>Add rule</button><button onClick={() => setDraft(structuredClone(dx.configuration))}>Revert</button><button className="primary" onClick={() => void action(() => saveDxAlerts(dx,{ enabled:draft.enabled,dedupSeconds:draft.dedupSeconds,retentionMinutes:draft.retentionMinutes,nativePopup:draft.nativePopup,notificationSound:draft.notificationSound,rules:draft.rules }), "Rules saved. Existing spots were baselined without alerts.")}>Save rules</button></div>
     </details>}
-    {dx?.entries.length ? <div className="dx-alert-table"><table><thead><tr><th>Call</th><th>Source</th><th>Frequency</th><th>Mode</th><th>Reason</th><th>Comment</th><th>Last seen</th><th>Count</th></tr></thead><tbody>{dx.entries.map(entry => <tr key={entry.id}><td className="dx-call">{entry.callsign}</td><td>{entry.test ? "Test" : entry.source === "wsjtx" ? "WSJT-X CQ" : "DX Cluster"}</td><td>{entry.test ? "Test" : `${entry.frequencyKHz.toFixed(1)} kHz`}</td><td>{entry.mode}</td><td>{entry.ruleNames.join(", ")}</td><td className="dx-comment">{entry.comment || "—"}</td><td>{new Date(entry.lastSeenMs).toLocaleTimeString()}</td><td>{entry.count}</td></tr>)}</tbody></table></div> : <p className="dx-alert-empty">No DX alerts yet. Enabling rules never tunes or transmits.</p>}
+    {dx?.entries.length ? <div className="dx-alert-table"><table><thead><tr><th>Call</th><th>Source</th><th>Frequency</th><th>Mode</th><th>Why</th><th>Comment</th><th>History</th></tr></thead><tbody>{dx.entries.map(entry => <tr key={entry.id}><td className="dx-call">{entry.callsign}</td><td>{sourceLabel(entry)}</td><td>{entry.test ? "Test" : `${entry.frequencyKHz.toFixed(1)} kHz`}</td><td>{entry.mode}</td><td><AlertEvidence entry={entry}/></td><td className="dx-comment">{entry.comment || "—"}</td><td><AlertHistory entry={entry}/></td></tr>)}</tbody></table>
+      <div className="dx-alert-cards" aria-label="DX alert history">{dx.entries.map(entry => <article className="dx-alert-card" key={entry.id}><header><strong className="dx-call">{entry.callsign}</strong><span>{sourceLabel(entry)}</span></header>
+        <p className="dx-alert-card-spot">{entry.test ? "Test alert" : `${entry.frequencyKHz.toFixed(1)} kHz`} · {entry.band} · {entry.mode}</p><AlertEvidence entry={entry}/>{entry.comment && <p className="dx-comment">{entry.comment}</p>}<AlertHistory entry={entry}/></article>)}</div>
+    </div> : <p className="dx-alert-empty">No DX alerts yet. Enabling rules never tunes or transmits.</p>}
   </section></main></div>;
 }
 
 const csv = (value: string) => value.split(",").map(item => item.trim()).filter(Boolean);
 const newRule = (): DxAlertRule => ({ id:crypto.randomUUID(), name:"New rule", enabled:true, sources:["cluster"], callsignGlob:"*", commentContains:"", bands:[], modes:[], callStatuses:[], dxccStatuses:[], specials:[] });
+type AlertEntry = DxAlertsSnapshot["entries"][number];
+const sourceLabel = (entry: AlertEntry) => entry.test ? "Test" : entry.source === "wsjtx" ? "WSJT-X CQ" : "DX Cluster";
+function AlertEvidence({ entry }: { entry: AlertEntry }) {
+  const evidence = [entry.callStatus && `Call: ${entry.callStatus}`, entry.dxccStatus && `DXCC: ${entry.dxccStatus}`, entry.band && `Band: ${entry.band}`, entry.mode && `Mode: ${entry.mode}`].filter(Boolean);
+  if (entry.specialTags.length) evidence.push(`Special: ${entry.specialTags.join(", ")}`);
+  return <div className="dx-alert-evidence"><strong>{entry.ruleNames.join(", ")}</strong><span>{evidence.join(" · ")}</span></div>;
+}
+function AlertHistory({ entry }: { entry: AlertEntry }) {
+  const repeated = entry.count > 1 || entry.firstSeenMs !== entry.lastSeenMs;
+  return <div className="dx-alert-history"><span>{repeated ? <><AlertTime milliseconds={entry.firstSeenMs}/> → <AlertTime milliseconds={entry.lastSeenMs}/></> : <AlertTime milliseconds={entry.lastSeenMs}/>}</span><span>{entry.count} {entry.count === 1 ? "report" : "reports"}</span></div>;
+}
+function AlertTime({ milliseconds }: { milliseconds: number }) {
+  const value = new Date(milliseconds);
+  return Number.isNaN(value.getTime()) ? <span>Time unavailable</span> : <time dateTime={value.toISOString()} title={value.toLocaleString()}>{value.toLocaleTimeString()}</time>;
+}
