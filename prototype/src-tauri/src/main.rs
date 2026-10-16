@@ -434,7 +434,9 @@ fn workspace_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     Ok(menu)
 }
 
-fn window_menu_includes(id: &str) -> bool { id != "station-status" }
+fn window_menu_includes(id: &str) -> bool {
+    !matches!(id, "station-status" | "station-identity")
+}
 
 fn append_screen_group(app: &tauri::AppHandle, menu: &Submenu<tauri::Wry>, group: &str) -> tauri::Result<()> {
     for screen in workspace_navigation::screens().iter().filter(|screen| screen.group == group && !screen.hidden) {
@@ -1729,10 +1731,12 @@ mod workspace_layout_tests {
     use serde_json::json;
 
     #[test]
-    fn window_menu_omits_redundant_station_status_without_retiring_saved_layout_support() {
-        assert!(!super::window_menu_includes("station-status"));
+    fn window_menu_omits_redundant_information_windows_without_retiring_saved_layout_support() {
+        for id in ["station-status", "station-identity"] {
+            assert!(!super::window_menu_includes(id));
+            assert!(crate::workspace_windows::supports(id));
+        }
         assert!(super::window_menu_includes("station-control"));
-        assert!(crate::workspace_windows::supports("station-status"));
     }
 
     #[test]

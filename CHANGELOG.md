@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Removed the redundant Station Status entry from the native Window menu while retaining its internal role so older saved workspace layouts remain recoverable.
+- Removed the redundant Station Status and Station Identity entries from the native Window menu while retaining their internal roles so older saved workspace layouts remain recoverable.
 
 ## 0.4.0-alpha.35 — 2026-10-17
 
