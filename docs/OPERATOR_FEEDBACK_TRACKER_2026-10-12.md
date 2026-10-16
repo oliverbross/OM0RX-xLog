@@ -7,7 +7,7 @@ packaged UI result. Keep unresolved items here across releases.
 
 ## Current delivery boundary
 
-Tracked implementation checkpoint: `2d7bb1f627139c55cd32e5dd673dab4d271031d1`.
+Tracked implementation checkpoint: `5d1199646986ae708f2ed5423448cf87eef2155e`.
 Source/test/browser results do not establish packaged/native, live-provider or hardware
 acceptance; installed alpha.31 remains unchanged.
 
@@ -48,7 +48,9 @@ acceptance; installed alpha.31 remains unchanged.
   PSK/submode pair (**18/18** Swift, **1,154/1,154** frontend, TypeScript/diff); `a118dea`
   adds PSK63F (**18/18** Swift, **1,170/1,170** frontend on a CLI-timeout-only retry after
   two existing load-sensitive encoding timeouts). Current-source TypeScript passes with
-  R07 below. All seven stages preserve arbitrary fields, explicit submodes and identity.
+  R07 below. `6253f8f` adds official ADIF 3.1.8 PSK125 import-only acceptance and
+  canonical PSK/PSK125 export (**18/18** Swift, **1,186/1,186** frontend, TypeScript).
+  Raw import values stay lexical; all eight stages preserve arbitrary fields, explicit submodes and identity.
   The remaining audit stays open; ADIF_VER stays **3.1.7**.
 
 - **Independent Previous QSOs window, 16 October — source and synthetic visual stage:**
@@ -154,6 +156,9 @@ acceptance; installed alpha.31 remains unchanged.
   TRX discovery pruning/reconnect clearing apply; channel-count changes do not remap it.
   No physical range, calibration, readiness, freshness, control or RF inference is made.
   Later independent focused tests pass **78/78**; the earlier timing miss is not claimed fixed.
+  `dbf6e36` retains passive formal-five-field `TX_SENSORS` raw per-TRX tokens and producer
+  receipts (**84/84** focused checks). The malformed printed example is rejected; reports
+  provide no TX/RF, physical power or SWR authority. Full TCI/package/live acceptance stays open.
   No PTT, carrier Tune, radio CW or amplifier control is exposed; transmit/PTT,
   split/TX-VFO, outbound spot management, audio/IQ, package/live-server and RF proof remain open. QLog was a behavior
   reference only, no implementation code was copied, and installed alpha.31 is unchanged.
@@ -171,6 +176,14 @@ acceptance; installed alpha.31 remains unchanged.
   **624/624**/**1264/1264** and internal scroll bounded to **48vh**. Exact-package/native
   interaction, provider timestamps, sponsor rules and live-account acceptance remain open;
   no provider refresh, upload or operator-data mutation occurred.
+
+- **One-contact data quality, 16 October — R10 read-only core:** `5d11996` adds
+  `QSODataQuality` findings for one retained revision (**5/5** Swift), reusing validation,
+  supplied dated CTY comparison at QSO date, retained power provenance and exact-context
+  conflict alternatives. Stored/manual overrides remain authoritative; dates retain their
+  source/observation/detection roles without claiming field origin. Findings provide only
+  qualitative review impacts, no correction or award/confirmation/sync delta. Routes/UI,
+  corrections, package/copied-log and live acceptance remain open.
 
 - **QRP DXCC preflight, 16 October — R09 dependency only:** `6d9b186` adds pure
   `QRPDXCCPreflightV1` screening of caller-supplied local snapshots, dated official-source

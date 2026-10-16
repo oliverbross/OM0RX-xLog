@@ -2,7 +2,7 @@
 
 Last updated: 2026-10-16
 
-Tracked implementation checkpoint: `2d7bb1f627139c55cd32e5dd673dab4d271031d1`.
+Tracked implementation checkpoint: `5d1199646986ae708f2ed5423448cf87eef2155e`.
 New source/test/browser evidence does not replace installed alpha.31 or close
 exact-package, native interaction, live-provider or hardware acceptance.
 
@@ -60,7 +60,10 @@ adds PSK63 import-only acceptance and PSK/PSK63 export (**18/18** Swift,
 **1,154/1,154** frontend, TypeScript/diff). `a118dea` adds the PSK63F pair (**18/18**
 Swift, **1,170/1,170** frontend on a CLI-timeout-only retry after two existing
 load-sensitive encoding timeouts). Current-source TypeScript subsequently passes
-with R07 below. All seven bounded stages preserve arbitrary fields, explicit submodes
+with R07 below. `6253f8f` adds official ADIF 3.1.8 import-only PSK125 acceptance and
+PSK/PSK125 native export (**18/18** Swift, **1,186/1,186** frontend, TypeScript).
+Raw imports remain lexical; explicit submodes, arbitrary fields and identity are preserved.
+All eight bounded stages preserve arbitrary fields, explicit submodes
 and duplicate identity; ADIF_VER stays **3.1.7** until the full audit closes. See
 [digital-voice source acceptance](docs/ADIF_DIGITAL_VOICE_DEPRECATION_SOURCE_ACCEPTANCE_2026-10-16.md).
 
@@ -229,6 +232,10 @@ with `RX_CHANNEL_SENSORS`; TRX discovery shrink prunes it, channel-count changes
 remap it, and reconnect clears it. It establishes no physical range, calibration,
 readiness, freshness, control or RF inference. Independent focused checks pass **78/78**
 at this later source; that passing run does not establish a fix for the earlier timing miss.
+`dbf6e36` retains formal-five-field `TX_SENSORS` reports as passive raw per-TRX
+tokens plus producer receipts (**84/84** focused checks). The malformed printed example
+is rejected. Reports grant no TX/RF, physical power or SWR authority; package/live acceptance
+and the wider TCI programme remain open.
 Transmit/PTT, split/TX-VFO controls, outbound spot
 management, audio/IQ, package/live-server and RF acceptance
 remain open. QLog is a behavior reference only; no third-party code, credentials, device or
@@ -250,6 +257,16 @@ Isolated actual-Logbook browser checks at **640×480**/**1280×800** show docume
 to viewport, panel/container widths **624/624**/**1264/1264**, and internal scroll bounded
 to **48vh**. Package/native interaction, provider timestamps, sponsor rules and live-account
 acceptance remain open; installed alpha.31 is unchanged.
+
+## Contact data quality — R10 read-only core findings; route/UI and corrections open
+
+`5d11996` adds `QSODataQuality` inspection of one retained contact revision (**5/5**
+focused Swift). It reuses validation, compares supplied dated CTY evidence at the QSO date,
+retains power provenance and projects conflict alternatives only for the exact retained
+contact. Stored/manual overrides remain authoritative; source, observation and detection
+dates never become field-origin dates. Qualitative review impacts provide no correction,
+award/confirmation/sync delta or mutation authority. Routes/UI, corrective workflows,
+package/copied-log and live acceptance remain open.
 
 ## QRP DXCC preflight — R09 dependency source complete; sponsor award remains open
 

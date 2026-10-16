@@ -1,6 +1,6 @@
 # OM0RX-xLog live project board
 
-Tracked implementation checkpoint: `2d7bb1f627139c55cd32e5dd673dab4d271031d1`.
+Tracked implementation checkpoint: `5d1199646986ae708f2ed5423448cf87eef2155e`.
 Source/test/browser evidence below remains separate from installed alpha.31 and
 unaccepted package, native interaction, provider and hardware gates.
 
@@ -35,7 +35,10 @@ frontend ADIF **1,138/1,138** and TypeScript pass. `3002e96` adds PSK63 import-o
 acceptance and PSK/PSK63 export (**18/18** Swift, **1,154/1,154** frontend, TypeScript/diff).
 `a118dea` adds PSK63F and its PSK/submode pair (**18/18** Swift, **1,170/1,170** frontend
 on a CLI-timeout-only retry after two existing load-sensitive encoding timeouts).
-Current-source TypeScript passes with R07 below. These seven bounded stages preserve
+Current-source TypeScript passes with R07 below. `6253f8f` adds official ADIF 3.1.8
+import-only PSK125 and canonical PSK/PSK125 export (**18/18** Swift, **1,186/1,186**
+frontend, TypeScript), preserving raw lexical imports and explicit submodes.
+These eight bounded stages preserve
 arbitrary fields, explicit submodes and identity. The exporter remains labeled
 3.1.7 until the full 3.1.8 enum/deprecation audit passes.
 Package/real-log acceptance and any optional record correction remain open.
@@ -140,6 +143,9 @@ frontend **41/41**, and global TX protocol/session Swift **35/35** pass. The pin
  while channel-count changes do not remap it. No physical range, calibration, readiness,
  freshness, control or RF inference is established. Later independent focused tests pass
  **78/78**, without claiming the earlier scheduling-sensitive lifecycle miss is fixed.
+ `dbf6e36` retains passive formal-five-field `TX_SENSORS` raw per-TRX tokens and producer
+ receipts (**84/84** focused checks). The malformed printed example rejects; no TX/RF,
+ physical power or SWR authority is inferred. Full TCI/package/live acceptance remains open.
 Transmit/PTT, split/TX-VFO controls,
 spots, audio/IQ, package/live-server and RF
 acceptance remain open; installed alpha.31 is unchanged. See the
@@ -160,6 +166,13 @@ and detached bundle gates pass. Isolated actual-Logbook browser checks at **640Ã
 **1280Ã—800** show viewport-width documents, panel/container widths **624/624**/**1264/1264**,
 and internal scroll bounded to **48vh**. Package/native interaction, provider timestamps,
 sponsor-rule evaluation and live-account acceptance remain open; installed alpha.31 is unchanged.
+
+R10 now has read-only `QSODataQuality` inspection of one retained revision in `5d11996`
+(**5/5** Swift): reused validation, supplied dated CTY comparison at QSO date, retained
+power provenance and an exact-context conflict alternative. Stored/manual overrides remain
+authoritative; observation/reference/detection times never become field-origin dates.
+Findings describe qualitative impacts without correction or award/confirmation/sync deltas.
+Routes/UI, correction workflow, package/copied-log and live acceptance remain open.
 
 R09 has a conservative preflight dependency in `6d9b186`: pure `QRPDXCCPreflightV1`
 screens caller-supplied contact snapshots into candidates, exclusions and unknowns, with
