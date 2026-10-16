@@ -154,6 +154,8 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
     public let receiverAGCGains: [Int: TCIReceiverAGCGainObservation]
     /// Independent receiver NB settings; never capability, processing effect or authority.
     public let receiverNoiseBlankerEnables: [Int: TCIReceiverNoiseBlankerEnableObservation]
+    /// Independent BIN setting reports; never capability, audio effect or authority.
+    public let receiverBinauralEnables: [Int: TCIReceiverBinauralEnableObservation]
 
     public init(
         sequence: UInt64,
@@ -183,7 +185,8 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
         serverMonitorEnable: TCIServerMonitorEnableObservation? = nil,
         receiverAGCModes: [Int: TCIReceiverAGCModeObservation] = [:],
         receiverAGCGains: [Int: TCIReceiverAGCGainObservation] = [:],
-        receiverNoiseBlankerEnables: [Int: TCIReceiverNoiseBlankerEnableObservation] = [:]
+        receiverNoiseBlankerEnables: [Int: TCIReceiverNoiseBlankerEnableObservation] = [:],
+        receiverBinauralEnables: [Int: TCIReceiverBinauralEnableObservation] = [:]
     ) {
         self.sequence = sequence
         self.generation = generation
@@ -213,6 +216,7 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
         self.receiverAGCModes = receiverAGCModes
         self.receiverAGCGains = receiverAGCGains
         self.receiverNoiseBlankerEnables = receiverNoiseBlankerEnables
+        self.receiverBinauralEnables = receiverBinauralEnables
     }
 }
 
@@ -670,7 +674,8 @@ public actor TCIReadOnlyWebSocketSession {
             serverMonitorEnable: reducer.state.serverMonitorEnable,
             receiverAGCModes: reducer.state.receiverAGCModes,
             receiverAGCGains: reducer.state.receiverAGCGains,
-            receiverNoiseBlankerEnables: reducer.state.receiverNoiseBlankerEnables
+            receiverNoiseBlankerEnables: reducer.state.receiverNoiseBlankerEnables,
+            receiverBinauralEnables: reducer.state.receiverBinauralEnables
         )
         for continuation in continuations.values {
             continuation.yield(observationValue)

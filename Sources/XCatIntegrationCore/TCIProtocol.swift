@@ -805,6 +805,16 @@ public struct TCIReceiverNoiseBlankerEnableObservation: Equatable, Sendable {
     public let receivedAt: Date?
 }
 
+/// Passive RX_BIN_ENABLE setting reply from official TCI 2.0, pinned b081213f,
+/// page 25. Receiver-wide, never a channel or capability declaration. It proves
+/// no binaural/audio processing, audibility, readiness, control or tune/TX/RF effect.
+public struct TCIReceiverBinauralEnableObservation: Equatable, Sendable {
+    public let isEnabled: Bool
+    public let rawEnabledToken: String
+    /// Local producer receipt time; nil means no timed receipt was supplied.
+    public let receivedAt: Date?
+}
+
 public struct TCIProtocolState: Equatable, Sendable {
     public internal(set) var protocolAnnouncement: TCIProtocolAnnouncement?
     public internal(set) var device: String?
@@ -837,6 +847,7 @@ public struct TCIProtocolState: Equatable, Sendable {
     public internal(set) var receiverAGCModes: [Int: TCIReceiverAGCModeObservation] = [:]
     public internal(set) var receiverAGCGains: [Int: TCIReceiverAGCGainObservation] = [:]
     public internal(set) var receiverNoiseBlankerEnables: [Int: TCIReceiverNoiseBlankerEnableObservation] = [:]
+    public internal(set) var receiverBinauralEnables: [Int: TCIReceiverBinauralEnableObservation] = [:]
     public internal(set) var transceivers: [Int: TCITransceiverState] = [:]
     public internal(set) var unknownCommands: [TCICommand] = []
     public internal(set) var diagnostics: [TCIDiagnostic] = []
@@ -903,6 +914,7 @@ public struct TCIStateReducer: Sendable {
         case "AGC_MODE": applyAGCMode(command, receivedAt: receivedAt)
         case "AGC_GAIN": applyAGCGain(command, receivedAt: receivedAt)
         case "RX_NB_ENABLE": applyNoiseBlankerEnable(command, receivedAt: receivedAt)
+        case "RX_BIN_ENABLE": applyBinauralEnable(command, receivedAt: receivedAt)
         case "MODULATION": applyModulation(command)
         case "RX_FILTER_BAND": applyFilter(command)
         case "SPLIT_ENABLE": applyBooleanState(command, keyPath: \.splitEnabled)
@@ -1052,6 +1064,17 @@ public struct TCIStateReducer: Sendable {
         // tuning and must not constrain this independent global notification.
         state.serverTransmitFrequency = TCIServerTransmitFrequencyObservation(
             frequencyHz: frequency, receivedAt: receivedAt
+        )
+    }
+
+    private mutating func applyBinauralEnable(_ command: TCICommand, receivedAt: Date?) {
+        guard command.arguments.count == 2,
+              let trx = validTRX(command.arguments[0]),
+              command.arguments[1].utf8.count <= limits.maximumArgumentBytes,
+              let enabled = TCIValueParser.boolean(command.arguments[1])
+        else { return reject(command) }
+        state.receiverBinauralEnables[trx] = TCIReceiverBinauralEnableObservation(
+            isEnabled: enabled, rawEnabledToken: command.arguments[1], receivedAt: receivedAt
         )
     }
 
@@ -1339,6 +1362,7 @@ public struct TCIStateReducer: Sendable {
             state.receiverAGCModes = state.receiverAGCModes.filter { $0.key < trxCount }
             state.receiverAGCGains = state.receiverAGCGains.filter { $0.key < trxCount }
             state.receiverNoiseBlankerEnables = state.receiverNoiseBlankerEnables.filter { $0.key < trxCount }
+            state.receiverBinauralEnables = state.receiverBinauralEnables.filter { $0.key < trxCount }
             state.receiverChannelVolumes = state.receiverChannelVolumes.filter { $0.key.trx < trxCount }
             state.receiverChannelBalances = state.receiverChannelBalances.filter { $0.key.trx < trxCount }
         }
