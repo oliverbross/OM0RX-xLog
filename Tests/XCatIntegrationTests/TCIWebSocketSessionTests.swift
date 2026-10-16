@@ -9,6 +9,74 @@ final class TCIWebSocketSessionTests: XCTestCase {
     private let endpoint = URL(string: "ws://127.0.0.1:40001")!
     private let address = TCIReceiverAddress(trx: 0, channel: 0)
 
+    func testTXSensorsPublishIndependentRawReceiptsWithoutTXOrConfiguredSideEffects() async throws {
+        let connection = FakeTCIWebSocketConnection(), time = TCIEvidenceClock()
+        let session = TCIReadOnlyWebSocketSession(endpoint: endpoint, configuredAddress: address,
+            connector: FakeTCIWebSocketConnector(connections: [connection]), clock: { time.now() })
+        try await session.connect()
+        await connection.enqueue(.text(Self.discoveryAndState + "RX_SENSORS:0,-71.5;RX_CHANNEL_SENSORS:0,0,-112.7;ready;"))
+        let initial = try await waitForObservation(session) { $0.availability == .available }
+        time.advance(10)
+        let receipt = time.now()
+        await connection.enqueue(.text("TX_SENSORS:0,-00027.200,+047.40,067.50,01.700;TX_SENSORS:1,-25,50,75,2;"))
+        let reported = try await waitForObservation(session, after: initial.sequence) { $0.transmitSensors.count == 2 }
+        XCTAssertEqual(reported.transmitSensors[0]?.rawMicrophoneDBm, "-00027.200")
+        XCTAssertEqual(reported.transmitSensors[0]?.rawRMSWatts, "+047.40")
+        XCTAssertEqual(reported.transmitSensors[0]?.rawPeakWatts, "067.50")
+        XCTAssertEqual(reported.transmitSensors[0]?.rawSWR, "01.700")
+        XCTAssertEqual(reported.transmitSensors[0]?.receivedAt, receipt)
+        XCTAssertEqual(reported.transmitSensors[1]?.receivedAt, receipt)
+        XCTAssertEqual(reported.receiveChannelSensors, initial.receiveChannelSensors)
+        XCTAssertEqual(reported.legacyReceiveSensors, initial.legacyReceiveSensors)
+        XCTAssertEqual(reported.snapshot, initial.snapshot)
+        XCTAssertEqual(reported.snapshot?.transceiver.transmitting, false)
+        XCTAssertEqual(reported.evidenceReceivedAt, initial.evidenceReceivedAt)
+        XCTAssertEqual(reported.filterEvidenceSequence, initial.filterEvidenceSequence)
+        XCTAssertEqual(reported.splitEvidenceReceivedAt, initial.splitEvidenceReceivedAt)
+        time.advance(10)
+        await connection.enqueue(.text("TX_SENSORS:0,-27.2,47.4.67.5,1.7;"))
+        let invalid = try await waitForObservation(session, after: reported.sequence) { _ in true }
+        XCTAssertEqual(invalid.transmitSensors, reported.transmitSensors)
+        await connection.enqueue(.text("TX_SENSORS:0,-00027.200,+047.40,067.50,01.700;"))
+        let repeated = try await waitForObservation(session, after: invalid.sequence) { _ in true }
+        time.advance(20)
+        XCTAssertEqual(repeated.transmitSensors[0]?.receivedAt, receipt.addingTimeInterval(10))
+        XCTAssertEqual(repeated.transmitSensors[1], reported.transmitSensors[1])
+        XCTAssertEqual(repeated.snapshot, initial.snapshot)
+        XCTAssertEqual(repeated.evidenceReceivedAt, initial.evidenceReceivedAt)
+        let sent = await connection.sentTexts()
+        XCTAssertTrue(sent.isEmpty)
+        await session.disconnect()
+        let disconnected = await session.currentObservation()
+        XCTAssertTrue(disconnected.transmitSensors.isEmpty)
+    }
+
+    func testTXSensorsBeforeDiscoveryGrantNoReadinessOrAuthorityAndReconnectClearsEvidence() async throws {
+        let first = FakeTCIWebSocketConnection(), second = FakeTCIWebSocketConnection()
+        let session = TCIReadOnlyWebSocketSession(endpoint: endpoint, configuredAddress: address,
+            connector: FakeTCIWebSocketConnector(connections: [first, second]))
+        try await session.connect()
+        await first.enqueue(.text("TX_SENSORS:0,-27.2,47.4,67.5,1.7;"))
+        let reported = try await waitForObservation(session) { !$0.transmitSensors.isEmpty }
+        XCTAssertEqual(reported.availability, .synchronizing)
+        XCTAssertNil(reported.snapshot)
+        XCTAssertNil(reported.evidenceReceivedAt)
+        await session.disconnect()
+        try await session.connect()
+        let reconnected = await session.currentObservation()
+        XCTAssertGreaterThan(reconnected.generation, reported.generation)
+        XCTAssertTrue(reconnected.transmitSensors.isEmpty)
+        await first.enqueue(.text("TX_SENSORS:0,-25,50,75,2;"))
+        await second.enqueue(.text(Self.discoveryAndState + "ready;"))
+        let available = try await waitForObservation(session, after: reconnected.sequence) { $0.availability == .available }
+        XCTAssertTrue(available.transmitSensors.isEmpty)
+        XCTAssertEqual(available.snapshot?.transceiver.transmitting, false)
+        let firstSent = await first.sentTexts(), secondSent = await second.sentTexts()
+        XCTAssertTrue(firstSent.isEmpty)
+        XCTAssertTrue(secondSent.isEmpty)
+        await session.disconnect()
+    }
+
     func testLegacyRXSensorsPublishIndependentReceiverOnlyRawReceiptsWithoutChannelOrConfiguredSideEffects() async throws {
         let connection = FakeTCIWebSocketConnection(), time = TCIEvidenceClock()
         let session = TCIReadOnlyWebSocketSession(endpoint: endpoint, configuredAddress: address,

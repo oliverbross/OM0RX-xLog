@@ -7,6 +7,89 @@ import XCTest
 final class TCIProtocolTests: XCTestCase {
     private let address = TCIReceiverAddress(trx: 0, channel: 0)
 
+    func testTXSensorsRetainExactTRXAndFourRawTokensWithCompletedNotificationReceiptOnly() {
+        var decoder = TCITextDecoder(), reducer = TCIStateReducer()
+        let first = Date(timeIntervalSince1970: 100), completed = first.addingTimeInterval(5)
+        reducer.apply(decoder.feed("tx_sensors:1,-00027.200,+047.40,067."), receivedAt: first)
+        XCTAssertTrue(reducer.state.transmitSensors.isEmpty)
+        reducer.apply(decoder.feed("50,01.700;"), receivedAt: completed)
+        let report = reducer.state.transmitSensors[1]
+        XCTAssertEqual(report?.rawMicrophoneDBm, "-00027.200")
+        XCTAssertEqual(report?.rawRMSWatts, "+047.40")
+        XCTAssertEqual(report?.rawPeakWatts, "067.50")
+        XCTAssertEqual(report?.rawSWR, "01.700")
+        XCTAssertEqual(report?.receivedAt, completed)
+        XCTAssertNil(reducer.state.transmitSensors[0])
+        XCTAssertTrue(reducer.state.transceivers.isEmpty)
+        XCTAssertTrue(reducer.state.frequencies.isEmpty)
+        XCTAssertTrue(reducer.state.unknownCommands.isEmpty)
+        XCTAssertFalse(reducer.state.ready)
+        XCTAssertNil(reducer.authoritativeSnapshot(for: address))
+        XCTAssertNil(reducer.state.serverTransmitFrequency)
+    }
+
+    func testTXSensorsRejectMalformedPrintedExampleAndAnyInvalidFieldWithoutReplacingEvidence() {
+        var decoder = TCITextDecoder()
+        var reducer = TCIStateReducer(limits: .init(maximumArgumentBytes: 12, maximumTRXCount: 2))
+        let receipt = Date(timeIntervalSince1970: 100)
+        let valid = ["0", "-27.2", "47.4", "67.5", "1.7"]
+        XCTAssertTrue(reducer.apply(TCICommand(name: "TX_SENSORS", arguments: valid), receivedAt: receipt))
+        let retained = reducer.state.transmitSensors
+        // The PDF's example lacks the comma between RMS and peak values. Never repair it.
+        reducer.apply(decoder.feed("TX_SENSORS:0,-27.2,47.4.67.5,1.7;"), receivedAt: receipt.addingTimeInterval(10))
+        XCTAssertEqual(reducer.state.transmitSensors, retained)
+        for arguments in [[], ["0"], Array(valid.dropLast()), valid + ["extra"],
+                          ["-1"] + Array(valid.dropFirst()), ["2"] + Array(valid.dropFirst()),
+                          ["0.0"] + Array(valid.dropFirst()), ["0", "1"] + Array(valid.dropFirst())] {
+            XCTAssertFalse(reducer.apply(TCICommand(name: "TX_SENSORS", arguments: arguments)))
+            XCTAssertEqual(reducer.state.transmitSensors, retained)
+        }
+        for field in 1...4 {
+            for token in ["", "NaN", "Infinity", "1e2", ".5", "1.", "−1.5", "１２", "1.2.3", "1 2", "1;2", "1234567890123"] {
+                var arguments = valid
+                arguments[field] = token
+                XCTAssertFalse(reducer.apply(TCICommand(name: "TX_SENSORS", arguments: arguments)), "\(field):\(token)")
+                XCTAssertEqual(reducer.state.transmitSensors, retained)
+            }
+        }
+    }
+
+    func testTXSensorsHaveIndependentTRXReceiptsWithoutPhysicalRangeDoubleConversionOrTXInference() {
+        var decoder = TCITextDecoder(), reducer = TCIStateReducer()
+        let first = Date(timeIntervalSince1970: 100), second = first.addingTimeInterval(10)
+        let huge = String(repeating: "9", count: 512)
+        let report = TCICommand(name: "TX_SENSORS", arguments: ["0", huge, "-1", "+000.00", "-2"])
+        XCTAssertTrue(reducer.apply(report, receivedAt: first))
+        XCTAssertEqual(reducer.state.transmitSensors[0]?.rawMicrophoneDBm, huge)
+        XCTAssertEqual(reducer.state.transmitSensors[0]?.rawRMSWatts, "-1")
+        XCTAssertEqual(reducer.state.transmitSensors[0]?.rawSWR, "-2")
+        reducer.apply(decoder.feed("TRX:0,false;TX_SENSORS:1,-27.2,47.4,67.5,1.7;RX_SENSORS:0,-71.5;RX_CHANNEL_SENSORS:0,0,-112.7;"), receivedAt: second)
+        XCTAssertEqual(reducer.state.transmitSensors[0]?.receivedAt, first)
+        let rx = reducer.state.receiveChannelSensors, legacyRX = reducer.state.legacyReceiveSensors
+        XCTAssertTrue(reducer.apply(report, receivedAt: second))
+        XCTAssertEqual(reducer.state.transmitSensors[0]?.receivedAt, second)
+        XCTAssertTrue(reducer.apply(report))
+        XCTAssertNil(reducer.state.transmitSensors[0]?.receivedAt)
+        XCTAssertEqual(reducer.state.transmitSensors[1]?.receivedAt, second)
+        XCTAssertEqual(reducer.state.transceivers[0]?.transmitting, false)
+        XCTAssertEqual(reducer.state.receiveChannelSensors, rx)
+        XCTAssertEqual(reducer.state.legacyReceiveSensors, legacyRX)
+        reducer = TCIStateReducer()
+        XCTAssertTrue(reducer.state.transmitSensors.isEmpty)
+    }
+
+    func testTXSensorsPruneOnlyDiscoveredTRXBoundsWithoutChannelAttribution() {
+        var decoder = TCITextDecoder(), reducer = TCIStateReducer()
+        reducer.apply(decoder.feed("TX_SENSORS:0,-27.2,47.4,67.5,1.7;TX_SENSORS:1,-25,50,75,2;"))
+        XCTAssertEqual(reducer.state.transmitSensors.count, 2)
+        reducer.apply(decoder.feed("CHANNEL_COUNT:1;"))
+        XCTAssertEqual(reducer.state.transmitSensors.count, 2)
+        reducer.apply(decoder.feed("TRX_COUNT:1;"))
+        XCTAssertEqual(reducer.state.transmitSensors.count, 1)
+        XCTAssertNotNil(reducer.state.transmitSensors[0])
+        XCTAssertFalse(reducer.apply(TCICommand(name: "TX_SENSORS", arguments: ["1", "-25", "50", "75", "2"])))
+    }
+
     func testLegacyRXSensorsRetainReceiverOnlyExactTokenAndCompletedNotificationReceipt() {
         var decoder = TCITextDecoder(), reducer = TCIStateReducer()
         let first = Date(timeIntervalSince1970: 100), completed = first.addingTimeInterval(5)

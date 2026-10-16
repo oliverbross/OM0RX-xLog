@@ -687,6 +687,19 @@ public struct TCILegacyRXSensorsObservation: Equatable, Sendable {
     public let receivedAt: Date?
 }
 
+/// Raw server TX_SENSORS tokens (pinned TCI b081213f, pages 39–40).
+/// The formal contract has five arguments despite the malformed printed example.
+/// No physical ranges/sentinels are specified. Receipt grants no TX permission,
+/// activity/completion, control authority, calibration or actual RF-output proof.
+public struct TCITXSensorsObservation: Equatable, Sendable {
+    public let rawMicrophoneDBm: String
+    public let rawRMSWatts: String
+    public let rawPeakWatts: String
+    public let rawSWR: String
+    /// Local producer receipt time; nil means no timed receipt was supplied.
+    public let receivedAt: Date?
+}
+
 public struct TCIProtocolState: Equatable, Sendable {
     public internal(set) var protocolAnnouncement: TCIProtocolAnnouncement?
     public internal(set) var device: String?
@@ -708,6 +721,7 @@ public struct TCIProtocolState: Equatable, Sendable {
     public internal(set) var vfoLocks: [TCIReceiverAddress: TCIVFOLockObservation] = [:]
     public internal(set) var receiveChannelSensors: [TCIReceiverAddress: TCIRXChannelSensorsObservation] = [:]
     public internal(set) var legacyReceiveSensors: [Int: TCILegacyRXSensorsObservation] = [:]
+    public internal(set) var transmitSensors: [Int: TCITXSensorsObservation] = [:]
     public internal(set) var transceivers: [Int: TCITransceiverState] = [:]
     public internal(set) var unknownCommands: [TCICommand] = []
     public internal(set) var diagnostics: [TCIDiagnostic] = []
@@ -763,6 +777,7 @@ public struct TCIStateReducer: Sendable {
         case "VFO_LOCK": applyVFOLock(command, receivedAt: receivedAt)
         case "RX_CHANNEL_SENSORS": applyRXChannelSensors(command, receivedAt: receivedAt)
         case "RX_SENSORS": applyLegacyRXSensors(command, receivedAt: receivedAt)
+        case "TX_SENSORS": applyTXSensors(command, receivedAt: receivedAt)
         case "MODULATION": applyModulation(command)
         case "RX_FILTER_BAND": applyFilter(command)
         case "SPLIT_ENABLE": applyBooleanState(command, keyPath: \.splitEnabled)
@@ -922,6 +937,20 @@ public struct TCIStateReducer: Sendable {
         state.serverAppFocus = TCIServerAppFocusObservation(isFocused: focused, receivedAt: receivedAt)
     }
 
+    private mutating func applyTXSensors(_ command: TCICommand, receivedAt: Date?) {
+        guard command.arguments.count == 5,
+              let trx = validTRX(command.arguments[0]),
+              let microphone = TCIValueParser.boundedDecimalToken(command.arguments[1], maximumBytes: limits.maximumArgumentBytes),
+              let rms = TCIValueParser.boundedDecimalToken(command.arguments[2], maximumBytes: limits.maximumArgumentBytes),
+              let peak = TCIValueParser.boundedDecimalToken(command.arguments[3], maximumBytes: limits.maximumArgumentBytes),
+              let swr = TCIValueParser.boundedDecimalToken(command.arguments[4], maximumBytes: limits.maximumArgumentBytes)
+        else { return reject(command) }
+        state.transmitSensors[trx] = TCITXSensorsObservation(
+            rawMicrophoneDBm: microphone, rawRMSWatts: rms, rawPeakWatts: peak,
+            rawSWR: swr, receivedAt: receivedAt
+        )
+    }
+
     private mutating func applyLegacyRXSensors(_ command: TCICommand, receivedAt: Date?) {
         guard command.arguments.count == 2,
               let trx = validTRX(command.arguments[0]),
@@ -1073,6 +1102,7 @@ public struct TCIStateReducer: Sendable {
             state.vfoLocks = state.vfoLocks.filter { $0.key.trx < trxCount }
             state.receiveChannelSensors = state.receiveChannelSensors.filter { $0.key.trx < trxCount }
             state.legacyReceiveSensors = state.legacyReceiveSensors.filter { $0.key < trxCount }
+            state.transmitSensors = state.transmitSensors.filter { $0.key < trxCount }
         }
         if let channelCount = state.channelCount {
             state.frequencies = state.frequencies.filter { $0.key.channel < channelCount }
