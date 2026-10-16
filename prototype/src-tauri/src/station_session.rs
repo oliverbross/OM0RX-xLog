@@ -150,7 +150,7 @@ fn tci_configuration(value: &Value) -> Result<Value, String> {
     }
     let endpoint = value["endpoint"].as_str().ok_or("Enter a TCI WebSocket endpoint.")?;
     if endpoint.is_empty() || endpoint.len() > 2_048 {
-        return Err("TCI endpoint must be 1..2048 characters.".into());
+        return Err("TCI endpoint must be 1..2048 bytes.".into());
     }
     let url = tauri::Url::parse(endpoint).map_err(|_| "Enter a valid TCI WebSocket URL.")?;
     if !matches!(url.scheme(), "ws" | "wss")
@@ -163,9 +163,13 @@ fn tci_configuration(value: &Value) -> Result<Value, String> {
     {
         return Err("Use a ws/wss TCI endpoint without credentials, query or fragment.".into());
     }
+    let canonical = url.to_string();
+    if canonical.len() > 2_048 {
+        return Err("Canonical TCI endpoint must be at most 2048 bytes.".into());
+    }
     let trx = value["trx"].as_u64().filter(|number| *number < 16).ok_or("TCI TRX must be an integer from 0 to 15.")?;
     let channel = value["channel"].as_u64().filter(|number| *number < 16).ok_or("TCI channel must be an integer from 0 to 15.")?;
-    Ok(json!({"endpoint":url.to_string(),"trx":trx,"channel":channel}))
+    Ok(json!({"endpoint":canonical,"trx":trx,"channel":channel}))
 }
 impl Session {
     fn new(path: PathBuf) -> Result<Self, String> {
@@ -1429,6 +1433,7 @@ mod tests {
             json!({"endpoint":"ws://127.0.0.1:40001","trx":16,"channel":0}),
             json!({"endpoint":"ws://127.0.0.1:40001","trx":0,"channel":16}),
             json!({"endpoint":"ws://127.0.0.1:40001","trx":0,"channel":0,"token":"secret"}),
+            json!({"endpoint":format!("ws://radio.example/{}", "é".repeat(500)),"trx":0,"channel":0}),
         ] {
             let state = session.snapshot().unwrap();
             let invalid = json!({"action":"save_tci","operation_id":uuid::Uuid::new_v4().to_string(),"generation":generation,
