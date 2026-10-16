@@ -78,7 +78,7 @@ it.each(["<?xml version='1.0'?><ADX/>", "<ADX/>"])("rejects incomplete ADX %s", 
 const decode = (text: string) => decodeADIF(new TextEncoder().encode(text).buffer);
 const adx = (fields: string, header = "<ADIF_VER>3.1.7</ADIF_VER>") => `<ADX><HEADER>${header}</HEADER><RECORDS><RECORD>${fields}</RECORD></RECORDS></ADX>`;
 
-it.each(["C4FM", "DSTAR", "c4fm", "dstar", "PSK31", "psk31", "PSK63", "psk63", "PSK63F", "psk63f", "PSK125", "psk125", "PSKAM10", "pskam10", "PSKAM31", "pskam31", "PSKAM50", "pskam50", "PSKFEC31", "pskfec31", "PSKHELL", "pskhell", "QPSK31", "qpsk31", "QPSK63", "qpsk63"])("imports raw deprecated ADX MODE %s without rewriting fields or metadata", mode => {
+it.each(["C4FM", "DSTAR", "c4fm", "dstar", "PSK31", "psk31", "PSK63", "psk63", "PSK63F", "psk63f", "PSK125", "psk125", "PSKAM10", "pskam10", "PSKAM31", "pskam31", "PSKAM50", "pskam50", "PSKFEC31", "pskfec31", "PSKHELL", "pskhell", "QPSK31", "qpsk31", "QPSK63", "qpsk63", "QPSK125", "qpsk125"])("imports raw deprecated ADX MODE %s without rewriting fields or metadata", mode => {
   const source = adx(`<CALL>W1AW</CALL><QSO_DATE>20261016</QSO_DATE><TIME_ON>123456</TIME_ON>` +
     `<BAND>2m</BAND><MODE>${mode}</MODE><FREQ>145.500000</FREQ><BAND_RX>70cm</BAND_RX><FREQ_RX>433.500000</FREQ_RX>` +
     '<COMMENT_INTL>Žilina 😀</COMMENT_INTL><USERDEF FIELDNAME="Mixed_Custom">未知</USERDEF>' +
@@ -102,25 +102,25 @@ it.each(["C4FM", "DSTAR", "c4fm", "dstar", "PSK31", "psk31", "PSK63", "psk63", "
   expect(imported.text).toBe(expected);
 });
 
-it.each(["C4FM", "DSTAR", "c4fm", "dstar", "PSK31", "psk31", "PSK63", "psk63", "PSK63F", "psk63f", "PSK125", "psk125", "PSKAM10", "pskam10", "PSKAM31", "pskam31", "PSKAM50", "pskam50", "PSKFEC31", "pskfec31", "PSKHELL", "pskhell", "QPSK31", "qpsk31", "QPSK63", "qpsk63"].flatMap(mode => ["C4FM", "DSTAR", "FutureVoice"].map(submode => ({ mode, submode }))))(
+it.each(["C4FM", "DSTAR", "c4fm", "dstar", "PSK31", "psk31", "PSK63", "psk63", "PSK63F", "psk63f", "PSK125", "psk125", "PSKAM10", "pskam10", "PSKAM31", "pskam31", "PSKAM50", "pskam50", "PSKFEC31", "pskfec31", "PSKHELL", "pskhell", "QPSK31", "qpsk31", "QPSK63", "qpsk63", "QPSK125", "qpsk125"].flatMap(mode => ["C4FM", "DSTAR", "FutureVoice"].map(submode => ({ mode, submode }))))(
   "preserves explicit raw ADX MODE $mode / SUBMODE $submode on import", ({ mode, submode }) => {
     const imported = decode(adx(`<MODE>${mode}</MODE><SUBMODE>${submode}</SUBMODE>`));
     expect(imported).toBe(adiRecord({ MODE: mode, SUBMODE: submode }));
   });
 
-it.each(["C4FM ", " DSTAR", "C4FM\n", "DSTAR\t", "C4FM2", "D-STAR", "PSK31 ", " PSK31", "PSK31\n", "PSK31\t", "PSK312", "PSK63 ", " PSK63", "PSK63\n", "PSK63\t", "PSK632", "PSK63F ", " PSK63F", "PSK63F\n", "PSK63F\t", "PSK63F2", "PSK125 ", " PSK125", "PSK125\n", "PSK125\t", "PSK1252", "PSKAM10 ", " PSKAM10", "PSKAM10\n", "PSKAM10\t", "PSKAM102", "PSKAM31 ", " PSKAM31", "PSKAM31\n", "PSKAM31\t", "PSKAM312", "PSKAM50 ", " PSKAM50", "PSKAM50\n", "PSKAM50\t", "PSKAM502", "PSKFEC31 ", " PSKFEC31", "PSKFEC31\n", "PSKFEC31\t", "PSKFEC312", "PSKHELL ", " PSKHELL", "PSKHELL\n", "PSKHELL\t", "PSKHELL2", "QPSK31 ", " QPSK31", "QPSK31\n", "QPSK31\t", "QPSK312", "QPSK63 ", " QPSK63", "QPSK63\n", "QPSK63\t", "QPSK632", "FutureVoice", ""])(
+it.each(["C4FM ", " DSTAR", "C4FM\n", "DSTAR\t", "C4FM2", "D-STAR", "PSK31 ", " PSK31", "PSK31\n", "PSK31\t", "PSK312", "PSK63 ", " PSK63", "PSK63\n", "PSK63\t", "PSK632", "PSK63F ", " PSK63F", "PSK63F\n", "PSK63F\t", "PSK63F2", "PSK125 ", " PSK125", "PSK125\n", "PSK125\t", "PSK1252", "PSKAM10 ", " PSKAM10", "PSKAM10\n", "PSKAM10\t", "PSKAM102", "PSKAM31 ", " PSKAM31", "PSKAM31\n", "PSKAM31\t", "PSKAM312", "PSKAM50 ", " PSKAM50", "PSKAM50\n", "PSKAM50\t", "PSKAM502", "PSKFEC31 ", " PSKFEC31", "PSKFEC31\n", "PSKFEC31\t", "PSKFEC312", "PSKHELL ", " PSKHELL", "PSKHELL\n", "PSKHELL\t", "PSKHELL2", "QPSK31 ", " QPSK31", "QPSK31\n", "QPSK31\t", "QPSK312", "QPSK63 ", " QPSK63", "QPSK63\n", "QPSK63\t", "QPSK632", "QPSK125 ", " QPSK125", "QPSK125\n", "QPSK125\t", "QPSK1252", "FutureVoice", ""])(
   "keeps strict raw ADX MODE validation for invalid value %s", mode => {
     expect(() => decode(adx(`<MODE>${mode}</MODE>`))).toThrow("Field MODE has an invalid ADX typed value");
   });
 
-it.each(["C4FM", "DSTAR", "PSK31", "PSK63", "PSK63F", "PSK125", "PSKAM10", "PSKAM31", "PSKAM50", "PSKFEC31", "PSKHELL", "QPSK31", "QPSK63"])("still rejects repeated raw ADX MODE fields with deprecated %s", mode => {
+it.each(["C4FM", "DSTAR", "PSK31", "PSK63", "PSK63F", "PSK125", "PSKAM10", "PSKAM31", "PSKAM50", "PSKFEC31", "PSKHELL", "QPSK31", "QPSK63", "QPSK125"])("still rejects repeated raw ADX MODE fields with deprecated %s", mode => {
   expect(() => decode(adx(`<MODE>${mode}</MODE><MODE>DIGITALVOICE</MODE>`))).toThrow("ADX repeats field MODE");
 });
 
-it.each(["C4FM", "DSTAR", "c4fm", "dstar", "PSK31", "psk31", "PSK63", "psk63", "PSK63F", "psk63f", "PSK125", "psk125", "PSKAM10", "pskam10", "PSKAM31", "pskam31", "PSKAM50", "pskam50", "PSKFEC31", "pskfec31", "PSKHELL", "pskhell", "QPSK31", "qpsk31", "QPSK63", "qpsk63"])("retains native normalized deprecated mode %s output through ADI and ADX", submode => {
+it.each(["C4FM", "DSTAR", "c4fm", "dstar", "PSK31", "psk31", "PSK63", "psk63", "PSK63F", "psk63f", "PSK125", "psk125", "PSKAM10", "pskam10", "PSKAM31", "pskam31", "PSKAM50", "pskam50", "PSKFEC31", "pskfec31", "PSKHELL", "pskhell", "QPSK31", "qpsk31", "QPSK63", "qpsk63", "QPSK125", "qpsk125"])("retains native normalized deprecated mode %s output through ADI and ADX", submode => {
   // ADIF 3.1.8 Deprecation, Mode and Submode Enumerations:
   // https://adif.org.uk/318/ADIF_318.htm#Deprecation
-  const mode = ["PSK31", "PSK63", "PSK63F", "PSK125", "PSKAM10", "PSKAM31", "PSKAM50", "PSKFEC31", "QPSK31", "QPSK63"].includes(submode.toUpperCase()) ? "PSK" : (submode.toUpperCase() === "PSKHELL" ? "HELL" : "DIGITALVOICE");
+  const mode = ["PSK31", "PSK63", "PSK63F", "PSK125", "PSKAM10", "PSKAM31", "PSKAM50", "PSKFEC31", "QPSK31", "QPSK63", "QPSK125"].includes(submode.toUpperCase()) ? "PSK" : (submode.toUpperCase() === "PSKHELL" ? "HELL" : "DIGITALVOICE");
   const source = `<CALL:4>W1AW<MODE:${mode.length}>${mode}<SUBMODE:${submode.length}>${submode}<COMMENT_INTL:2>é<EOR>\r\n`;
   const imported = decodeADIFDocument(new TextEncoder().encode(source).buffer);
   for (const format of ["adi", "adx"] as const) {

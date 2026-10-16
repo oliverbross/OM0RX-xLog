@@ -151,7 +151,7 @@ public extension QSO {
         // https://adif.org.uk/318/ADIF_318.htm#Mode_Enumeration
         let exportParent = ["FT4": "MFSK", "FT2": "MFSK", "JTTY": "MFSK",
                             "C4FM": "DIGITALVOICE", "DSTAR": "DIGITALVOICE",
-                            "PSK31": "PSK", "PSK63": "PSK", "PSK63F": "PSK", "PSK125": "PSK", "PSKAM10": "PSK", "PSKAM31": "PSK", "PSKAM50": "PSK", "PSKFEC31": "PSK", "PSKHELL": "HELL", "QPSK31": "PSK", "QPSK63": "PSK"][mode.uppercased()]
+                            "PSK31": "PSK", "PSK63": "PSK", "PSK63F": "PSK", "PSK125": "PSK", "PSKAM10": "PSK", "PSKAM31": "PSK", "PSKAM50": "PSK", "PSKFEC31": "PSK", "PSKHELL": "HELL", "QPSK31": "PSK", "QPSK63": "PSK", "QPSK125": "PSK"][mode.uppercased()]
         set("BAND", band); set("MODE", exportParent ?? mode)
         set("SUBMODE", submode.isEmpty && exportParent != nil ? mode : submode)
         if let frequencyHz { set("FREQ", String(format: "%.6f", Double(frequencyHz) / 1_000_000)) }
