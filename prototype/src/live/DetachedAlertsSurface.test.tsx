@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { DetachedAlertsSurface } from "./DetachedAlertsSurface";
 import type { DxAlertEntry } from "./dxAlerts";
+import { alertColumnsKey } from "./alertColumnPreferences";
 const native = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn(), stop: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: native.invoke }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: native.listen }));
@@ -14,6 +15,7 @@ const dxFrame = () => ({ epoch: "00000000-0000-4000-8000-000000000002", revision
     rules:[{ id:"new-dxcc", name:"New DXCC", enabled:true, callsignGlob:"*", commentContains:"", bands:[], modes:[], callStatuses:[], dxccStatuses:["ATNO"], specials:[] }] },
   storageError:null, source:{ available:true, baselined:true, revision:2, receivedAtMs:1 }, entries:[], delivery:{ error:null, suppressed:0, maximumPerWindow:3, windowSeconds:10 }, limits:{ maximumRules:32, maximumEntries:200 } });
 beforeEach(() => {
+  localStorage.clear();
   vi.useFakeTimers(); vi.resetAllMocks();
   for (const key of Object.keys(wakes)) delete wakes[key];
   native.listen.mockImplementation(async (name, callback) => { wakes[name] = callback; return native.stop; });
@@ -94,6 +96,66 @@ it("keeps legacy rules cluster-only and explicitly saves CQ source rules without
 const historyEntry = (number: number, callsign: string, frequencyKHz: number, count: number, lastSeenMs: number): DxAlertEntry => ({
   id:`00000000-0000-4000-8000-${String(number).padStart(12, "0")}`, test:false, source:"cluster", callsign, frequencyKHz,
   band:"20m", mode:"CW", comment:"", callStatus:"New Call", dxccStatus:"ATNO", specialTags:[], ruleNames:["New DXCC"], count, firstSeenMs:1, lastSeenMs,
+});
+it("persists table column choices, retains mandatory columns and full compact evidence, and resets", async () => {
+  const value = { ...dxFrame(), entries:[{ ...historyEntry(4, "OM0RX", 14074, 3, 61_001), comment:"POTA evidence" }] };
+  native.invoke.mockImplementation(async command => command === "alerts_snapshot" ? frame() : value);
+  const panel = render(<DetachedAlertsSurface />); await act(async () => {});
+  expect(screen.getAllByRole("columnheader")).toHaveLength(8);
+  expect((screen.getByLabelText("Show Select column") as HTMLInputElement).disabled).toBe(true);
+  expect((screen.getByLabelText("Show Call column") as HTMLInputElement).disabled).toBe(true);
+  const reads = native.invoke.mock.calls.length, listeners = native.listen.mock.calls.length;
+  for (const column of ["Source", "Frequency", "Mode", "Why", "Comment", "History"])
+    fireEvent.click(screen.getByLabelText(`Show ${column} column`));
+  expect(screen.getAllByRole("columnheader").map(node => node.textContent)).toEqual(["Select", "Call"]);
+  expect(screen.getAllByRole("row")[1].querySelectorAll("td")).toHaveLength(2);
+  const cards = screen.getByLabelText("DX alert history");
+  expect(cards.textContent).toContain("DX Cluster"); expect(cards.textContent).toContain("14074.0 kHz");
+  expect(cards.textContent).toContain("New DXCC"); expect(cards.textContent).toContain("POTA evidence");
+  expect(cards.textContent).toContain("3 reports");
+  expect(JSON.parse(localStorage.getItem(alertColumnsKey)!)).toEqual({ version:1, columns:["select", "call"] });
+  expect(native.invoke.mock.calls).toHaveLength(reads); expect(native.listen.mock.calls).toHaveLength(listeners);
+  panel.unmount(); render(<DetachedAlertsSurface />); await act(async () => {});
+  expect(screen.getAllByRole("columnheader")).toHaveLength(2);
+  fireEvent.click(screen.getByRole("button", { name:"Reset columns" }));
+  expect(screen.getAllByRole("columnheader")).toHaveLength(8);
+});
+
+it("keeps sorting, selected UUIDs and unsaved rules through column changes, repeat updates and expiry", async () => {
+  let value = { ...dxFrame(), entries:[historyEntry(4, "ZL1AA", 14074, 2, 1), historyEntry(5, "A1AA", 7010, 1, 2)] };
+  native.invoke.mockImplementation(async command => command === "alerts_snapshot" ? frame() : value);
+  render(<DetachedAlertsSurface />); await act(async () => {});
+  fireEvent.change(screen.getByLabelText("Rule 1 name"), { target:{ value:"Unsaved rule" } });
+  fireEvent.change(screen.getByLabelText("Sort alerts"), { target:{ value:"callsign" } });
+  fireEvent.click(screen.getAllByLabelText("Select alert ZL1AA, 14074.0 kHz, CW")[0]);
+  fireEvent.click(screen.getByLabelText("Show Comment column"));
+  expectHistoryOrder(["A1AA", "ZL1AA"]);
+  value = { ...value, revision:2, entries:[{ ...value.entries[0], count:3, lastSeenMs:3 }] };
+  await act(async () => { wakes["xlog:dx-alerts"](); });
+  expectHistoryOrder(["ZL1AA"]);
+  expect(screen.getAllByLabelText("Select alert ZL1AA, 14074.0 kHz, CW").every(node => (node as HTMLInputElement).checked)).toBe(true);
+  expect((screen.getByLabelText("Rule 1 name") as HTMLInputElement).value).toBe("Unsaved rule");
+  expect((screen.getByLabelText("Sort alerts") as HTMLSelectElement).value).toBe("callsign");
+  expect(screen.queryByRole("columnheader", { name:"Comment" })).toBeNull();
+  value = { ...value, epoch:"00000000-0000-4000-8000-000000000009", revision:0 };
+  await act(async () => { wakes["xlog:dx-alerts"](); });
+  expect((screen.getByRole("button", { name:"Clear selected (0)" }) as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.queryByRole("columnheader", { name:"Comment" })).toBeNull();
+  expect((screen.getByLabelText("Rule 1 name") as HTMLInputElement).value).toBe("Unsaved rule");
+  expect(native.invoke.mock.calls.every(([command]) => ["alerts_snapshot", "dx_alerts_snapshot"].includes(command))).toBe(true);
+});
+
+it("keeps column controls usable when storage is denied or full", async () => {
+  vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw Error("denied"); });
+  vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw Error("full"); });
+  const value = { ...dxFrame(), entries:[historyEntry(4, "OM0RX", 14074, 1, 1)] };
+  native.invoke.mockImplementation(async command => command === "alerts_snapshot" ? frame() : value);
+  render(<DetachedAlertsSurface />); await act(async () => {});
+  fireEvent.click(screen.getByLabelText("Show Comment column"));
+  expect(screen.queryByRole("columnheader", { name:"Comment" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name:"Reset columns" }));
+  expect(screen.getByRole("columnheader", { name:"Comment" })).toBeTruthy();
+  vi.restoreAllMocks();
 });
 function expectHistoryOrder(calls: string[]) {
   expect(screen.getAllByRole("row").slice(1).map(row => row.querySelector(".dx-call")?.textContent)).toEqual(calls);

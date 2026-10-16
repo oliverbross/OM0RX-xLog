@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { connectAlerts, type AlertsSnapshot, type AlertCode } from "./alerts";
 import { clearDxAlerts, clearSelectedDxAlerts, connectDxAlerts, saveDxAlerts, testDxAlert, type DxAlertRule, type DxAlertsSnapshot } from "./dxAlerts";
+import { AlertColumns, useAlertColumns } from "./AlertColumns";
+import { alertColumns } from "./alertColumnPreferences";
 import "./DetachedReferenceSurface.css";
 const messages: Record<AlertCode, string> = { radio_inhibitors: "Radio safety inhibitors reported", radio_alarm: "Station alarm reported — review Station Status or Desk", rotor_uncertain: "Rotor outcome uncertain — review Rotor before further commands" };
 export function DetachedAlertsSurface() {
@@ -10,6 +12,7 @@ export function DetachedAlertsSurface() {
   const [dxError, setDxError] = useState(""), [message, setMessage] = useState("");
   const [sort, setSort] = useState<AlertSort>("recent");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [columnPreferences, setColumnPreferences] = useAlertColumns();
   const latestDx = useRef<DxAlertsSnapshot | null>(null);
   const receiveDx = (value: DxAlertsSnapshot) => {
     const previous = latestDx.current;
@@ -39,6 +42,7 @@ export function DetachedAlertsSurface() {
   </section><section aria-label="DX opportunity alerts">
     <div className="dx-alert-head"><div><h2>DX opportunity alerts</h2><p className={`dx-alert-state ${dx?.source.available ? "is-live" : ""}`}>{dx?.source.available ? "Following the shared cluster feed" : "Cluster feed unavailable"} · passive only</p></div>
       <div className="dx-alert-actions"><label>Sort alerts<select value={sort} onChange={event => setSort(event.currentTarget.value as AlertSort)}><option value="recent">Latest report first</option><option value="callsign">Callsign A–Z</option><option value="frequency">Frequency low–high</option><option value="reports">Most reports first</option></select></label><button onClick={() => void action(testDxAlert, "Test alert added.")}>Test</button><button disabled={!selectedIds.length || !dx} onClick={() => dx && void action(() => clearSelectedDxAlerts(dx, selectedIds), "Selected alerts cleared.")}>Clear selected ({selectedIds.length})</button><button disabled={!dx?.entries.length} onClick={() => void action(clearDxAlerts, "All alerts cleared.")}>Clear all</button></div></div>
+    <AlertColumns preferences={columnPreferences} onChange={setColumnPreferences}/>
     {dx?.activitySource && <p className="dx-alert-state">WSJT-X CQ feed {dx.activitySource.available ? "listening" : "off or unavailable"} · receive only · FT8/FT4 · activity expires after 60 seconds. Call/DXCC novelty is unavailable for this source.</p>}
     {dx?.storageError && <p className="dx-alert-error">{dx.storageError}</p>}{dxError && <p className="dx-alert-error" role="alert">{dxError}</p>}{message && <p className="dx-alert-message" role="status">{message}</p>}
     {dx?.delivery.error && <p className="dx-alert-error" role="alert">{dx.delivery.error}</p>}
@@ -64,7 +68,7 @@ export function DetachedAlertsSurface() {
       <p className="secondary">Each rule requires all its filled conditions. Comment contains matches literal text, ignoring case; leave it blank for any comment.</p>
       <div className="dx-alert-actions"><button disabled={draft.rules.length >= dx.limits.maximumRules} onClick={() => setDraft({ ...draft, rules:[...draft.rules,newRule()] })}>Add rule</button><button onClick={() => setDraft(structuredClone(dx.configuration))}>Revert</button><button className="primary" onClick={() => void action(() => saveDxAlerts(dx,{ enabled:draft.enabled,dedupSeconds:draft.dedupSeconds,retentionMinutes:draft.retentionMinutes,nativePopup:draft.nativePopup,notificationSound:draft.notificationSound,rules:draft.rules }), "Rules saved. Existing spots were baselined without alerts.")}>Save rules</button></div>
     </details>}
-    {entries.length ? <div className="dx-alert-table"><table><thead><tr><th>Select</th><th>Call</th><th>Source</th><th>Frequency</th><th>Mode</th><th>Why</th><th>Comment</th><th>History</th></tr></thead><tbody>{entries.map(entry => <tr key={entry.id}><td><AlertSelection entry={entry} checked={selectedIds.includes(entry.id)} onChange={selectEntry}/></td><td className="dx-call">{entry.callsign}</td><td>{sourceLabel(entry)}</td><td>{entry.test ? "Test" : `${entry.frequencyKHz.toFixed(1)} kHz`}</td><td>{entry.mode}</td><td><AlertEvidence entry={entry}/></td><td className="dx-comment">{entry.comment || "—"}</td><td><AlertHistory entry={entry}/></td></tr>)}</tbody></table>
+    {entries.length ? <div className="dx-alert-table"><table><thead><tr>{alertColumns.filter(([id]) => columnPreferences.columns.includes(id)).map(([id, label]) => <th scope="col" key={id}>{label}</th>)}</tr></thead><tbody>{entries.map(entry => <tr key={entry.id}><td><AlertSelection entry={entry} checked={selectedIds.includes(entry.id)} onChange={selectEntry}/></td><td className="dx-call">{entry.callsign}</td>{columnPreferences.columns.includes("source") && <td>{sourceLabel(entry)}</td>}{columnPreferences.columns.includes("frequency") && <td>{entry.test ? "Test" : `${entry.frequencyKHz.toFixed(1)} kHz`}</td>}{columnPreferences.columns.includes("mode") && <td>{entry.mode}</td>}{columnPreferences.columns.includes("why") && <td><AlertEvidence entry={entry}/></td>}{columnPreferences.columns.includes("comment") && <td className="dx-comment">{entry.comment || "—"}</td>}{columnPreferences.columns.includes("history") && <td><AlertHistory entry={entry}/></td>}</tr>)}</tbody></table>
       <div className="dx-alert-cards" aria-label="DX alert history">{entries.map(entry => <article className="dx-alert-card" key={entry.id}><header><AlertSelection entry={entry} checked={selectedIds.includes(entry.id)} onChange={selectEntry}/><strong className="dx-call">{entry.callsign}</strong><span>{sourceLabel(entry)}</span></header>
         <p className="dx-alert-card-spot">{entry.test ? "Test alert" : `${entry.frequencyKHz.toFixed(1)} kHz`} · {entry.band} · {entry.mode}</p><AlertEvidence entry={entry}/>{entry.comment && <p className="dx-comment">{entry.comment}</p>}<AlertHistory entry={entry}/></article>)}</div>
     </div> : <p className="dx-alert-empty">No DX alerts yet. Enabling rules never tunes or transmits.</p>}
