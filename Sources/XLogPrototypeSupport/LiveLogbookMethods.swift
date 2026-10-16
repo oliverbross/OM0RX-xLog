@@ -506,6 +506,14 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                 let contacts = try readyDatabase().historyRows(call: call, adif: adif)
                 return ["history": LocalContactHistory.project(rows: contacts, call: call, adif: adif,
                             resolver: try? currentCTYResolver())]
+            case "logbook_cty_preview":
+                try requireKeys(params, allowed: ["limit", "offset"])
+                let limit = try integer(params, "limit", default: 20, range: 1...25)
+                let offset = try integer(params, "offset", default: 0, range: 0...Int(Int32.max))
+                let source = try currentCTYResolverSnapshot()
+                return ["preview": try json(readyDatabase().pjCorrectionPreview(resolver: source.resolver, limit: limit, offset: offset)),
+                        "source": source.source == "bundled" ? "bundled" : "downloaded",
+                        "read_only": true]
             case "logbook_list":
                 try requireKeys(params, allowed: ["search", "limit", "offset"])
                 let search = try string(params, "search", max: 128) ?? ""

@@ -80,6 +80,14 @@ public final class CTYResolver: @unchecked Sendable {
         return nil
     }
 
+    /// Reproduces only the removed PJ shortcut for a local impact preview.
+    /// This is a comparison of inference, never evidence of a stored field's origin.
+    public func pjCorrection(_ rawCallsign: String, at date: Date) -> (previous: CountryInfo?, current: CountryInfo?)? {
+        let call = rawCallsign.uppercased().filter { $0.isLetter || $0.isNumber || $0 == "/" }
+        guard call.hasPrefix("PJ") else { return nil }
+        return (rules.first(where: { $0.country.adif == 305 })?.country, resolve(rawCallsign, at: date))
+    }
+
     public var entities: [CountryInfo] {
         var unique: [Int: CountryInfo] = [:]
         for rule in rules where rule.country.latitude != nil && rule.country.longitude != nil {
@@ -104,6 +112,23 @@ public final class CTYResolver: @unchecked Sendable {
         columns.append(current.trimmingCharacters(in: CharacterSet.whitespaces.union(CharacterSet(charactersIn: ";"))))
         return columns
     }
+}
+
+public struct CTYCorrectionPreview: Codable, Sendable {
+    public struct Row: Codable, Sendable {
+        public let id: UUID
+        public let call: String
+        public let start: Date
+        public let previousADIF: Int?
+        public let previousCountry: String?
+        public let currentADIF: Int?
+        public let currentCountry: String?
+    }
+    public var rows: [Row]
+    public var affectedCount: Int
+    public var protectedOverrideCount: Int
+    public var limit: Int
+    public var offset: Int
 }
 
 private final class ClubLogXMLParser: NSObject, XMLParserDelegate {

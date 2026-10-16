@@ -1685,6 +1685,48 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
+    /// A single SELECT, with no aggregate-cache persistence or record writes.
+    /// Decode only classification inputs; retain at most one bounded result page.
+    public func pjCorrectionPreview(resolver: CTYResolver, limit: Int = 20, offset: Int = 0) throws -> CTYCorrectionPreview {
+        struct Input: Decodable {
+            let id: UUID
+            let call: String
+            let start: Date
+            let dxcc: Int?
+        }
+        return try withDatabaseLock {
+            var result = CTYCorrectionPreview(rows: [], affectedCount: 0, protectedOverrideCount: 0,
+                limit: min(25, max(1, limit)), offset: max(0, offset))
+            return try withStatement("""
+                SELECT json_object('id',json_extract(record_json,'$.id'),
+                    'call',json_extract(record_json,'$.call'),
+                    'start',json_extract(record_json,'$.start'),
+                    'dxcc',json_extract(record_json,'$.dxcc'))
+                FROM qsos WHERE deleted_at IS NULL ORDER BY qso_start DESC, local_id ASC;
+                """) { statement in
+                var step = sqlite3_step(statement)
+                while step == SQLITE_ROW {
+                    guard let text = sqlite3_column_text(statement, 0) else { throw LogbookDatabaseError.corruptRecord }
+                    let input = try decoder.decode(Input.self, from: Data(String(cString: text).utf8))
+                    if let change = resolver.pjCorrection(input.call, at: input.start) {
+                        if input.dxcc != nil { result.protectedOverrideCount += 1 }
+                        else if change.previous?.adif != change.current?.adif {
+                            if result.affectedCount >= result.offset, result.rows.count < result.limit {
+                                result.rows.append(.init(id: input.id, call: input.call, start: input.start,
+                                    previousADIF: change.previous?.adif, previousCountry: change.previous?.name,
+                                    currentADIF: change.current?.adif, currentCountry: change.current?.name))
+                            }
+                            result.affectedCount += 1
+                        }
+                    }
+                    step = sqlite3_step(statement)
+                }
+                guard step == SQLITE_DONE else { throw error() }
+                return result
+            }
+        }
+    }
+
     /// A single consistent, nondeleted read for the cluster's contact index.
     /// Project from JSON so even an imported row with divergent scalar index
     /// columns has the same values as the former full-QSO decode.

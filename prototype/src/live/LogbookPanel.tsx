@@ -8,6 +8,7 @@ import { LogbookColumnHeader, LogbookColumns, useLogbookColumns } from "./Logboo
 import { logbookColumns, type LogbookColumn, type LogbookColumnContext } from "./logbookColumnPreferences";
 import { adifImportBatches, decodeADIFDocument, ADIFExportDocument, type ADIFExportFormat, type ADIFImportEncoding, type ADIFFieldMetadata } from "./adifTransfer";
 import { LogbookSavedFilters } from "./LogbookSavedFilters";
+import { CTYCorrectionPreview } from "./CTYCorrectionPreview";
 
 type QSO = Record<string, unknown> & {
   id: string;
@@ -98,6 +99,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
   const [details, setDetails] = useState(false);
   const [columnsOpen, setColumnsOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [ctyPreviewOpen, setCTYPreviewOpen] = useState(false);
   const columnsID = useId();
   const columnsButton = useRef<HTMLButtonElement>(null);
   const resolvedColumnContext = columnContext ?? (onDock ? "detached" : "docked");
@@ -393,6 +395,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
             onClick={() => setDetails(value => !value)}>Details</button>
           {columnsControl}
           <button type="button" aria-expanded={filtersOpen} onClick={() => { if (!filtersOpen) setColumnsOpen(false); setFiltersOpen(!filtersOpen); }}>Saved filters</button>
+          <button type="button" aria-expanded={ctyPreviewOpen} onClick={() => setCTYPreviewOpen(value => !value)}>PJ country preview</button>
           <button type="button" disabled={!selected || busy || loading} onClick={() => selected && void prepareDelete(selected.id)}><Trash2 size={13} /> Delete</button>
           <button type="button" onClick={() => void undoDelete()} disabled={!mutation.undo || busy}><RotateCcw size={13} /> Undo delete</button>
           {taskToolbar ? selectionControls : <>
@@ -420,6 +423,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
       </header>}
       {columnsOpen && <LogbookColumns id={columnsID} preferences={columnPreferences} onChange={setColumnPreferences} context={resolvedColumnContext}
         onDone={() => { setColumnsOpen(false); columnsButton.current?.focus(); }} />}
+      {ctyPreviewOpen && <CTYCorrectionPreview onRequest={onRequest} refreshKey={refreshKey} />}
       {filtersOpen && <LogbookSavedFilters onRequest={onRequest} currentQuery={query} disabled={busy}
         onApply={value => { cancelDelete(); setQuery(value); setOffset(0); setSearch(value); }} />}
       {error && <p className="live-logbook-feedback error" role="alert">{error}</p>}
