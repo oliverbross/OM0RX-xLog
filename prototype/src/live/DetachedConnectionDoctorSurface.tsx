@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { connectConnectionDoctor, type ConnectionDoctorPreview, type DoctorReason } from "./connectionDoctor";
 import "./DetachedTaskSurface.css";
 import "./DetachedConnectionDoctorSurface.css";
@@ -23,7 +24,18 @@ const capabilities = { observe: "Observe", tune: "Tune", ptt: "PTT", cw: "CW", r
 
 export function DetachedConnectionDoctorSurface() {
   const [preview, setPreview] = useState<ConnectionDoctorPreview | null>(null), [error, setError] = useState("");
+  const [exporting, setExporting] = useState(false), [exportStatus, setExportStatus] = useState("");
+  const exportPending = useRef(false);
   useEffect(() => connectConnectionDoctor(value => { setPreview(value); setError(""); }, setError), []);
+  const exportRedacted = async () => {
+    if (!preview || exportPending.current) return;
+    exportPending.current = true; setExporting(true); setExportStatus("");
+    try {
+      const saved = await invoke<boolean>("connection_doctor_export", { preview });
+      setExportStatus(saved ? "Redacted report saved." : "Export cancelled. No report saved.");
+    } catch { setExportStatus("Redacted report could not be saved. Try again."); }
+    finally { exportPending.current = false; setExporting(false); }
+  };
   const attention = preview?.checks.filter(check => check.status === "attention").length ?? 0;
   const unknown = preview?.checks.filter(check => check.status === "unknown").length ?? 0;
   return <div className="app live detached-task-app detached-connection-doctor-app"><main aria-label="Connection Doctor">
@@ -48,6 +60,11 @@ export function DetachedConnectionDoctorSurface() {
           : <p className="secondary">No capabilities can be confirmed from the retained projection.</p>}
       </section>
       <p className="secondary connection-doctor-boundary">Retained worker state only. Configuration, credentials, endpoints, radio values, logs and devices are not inspected. This view never reconnects or sends a command.</p>
+      <section aria-label="Redacted export">
+        <button type="button" disabled={exporting} onClick={() => void exportRedacted()}>{exporting ? "Saving…" : "Export redacted report…"}</button>
+        <p className="secondary">Only when you click: save the displayed diagnostic categories as redacted JSON. No secrets, endpoints, identifiers, errors, radio values, timestamps or log contents are included. No new station read occurs.</p>
+        {exportStatus && <p role="status">{exportStatus}</p>}
+      </section>
     </>}
   </main></div>;
 }

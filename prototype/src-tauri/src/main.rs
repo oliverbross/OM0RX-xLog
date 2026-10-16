@@ -697,6 +697,45 @@ fn connection_doctor_snapshot(window: tauri::WebviewWindow, state: tauri::State<
 }
 
 #[tauri::command]
+async fn connection_doctor_export(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, preview: connection_doctor::ExportPreview) -> Result<bool, String> {
+    let bytes = connection_doctor::prepare_export(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire), &preview)?;
+    let _lease = connection_doctor::ExportLease::acquire()?;
+    let path = choose_connection_doctor_export(window.clone()).await?;
+    connection_doctor::validate(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
+    tauri::async_runtime::spawn_blocking(move || connection_doctor::save_export(path, &bytes)).await
+        .map_err(|_| "Redacted report could not be saved.".to_string())?
+}
+
+#[cfg(target_os = "macos")]
+async fn choose_connection_doctor_export(window: tauri::WebviewWindow) -> Result<Option<std::path::PathBuf>, String> {
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::{NSModalResponseOK, NSSavePanel};
+    use objc2_foundation::NSString;
+    let (sender, receiver) = std::sync::mpsc::sync_channel(1);
+    window.run_on_main_thread(move || {
+        let selected = MainThreadMarker::new().ok_or("Redacted export chooser is unavailable.").map(|main| {
+            let panel = NSSavePanel::savePanel(main);
+            panel.setNameFieldStringValue(&NSString::from_str("xlog-connection-doctor-redacted.json"));
+            panel.setMessage(Some(&NSString::from_str("Save displayed redacted diagnostic categories. No station data is read.")));
+            if panel.runModal() == NSModalResponseOK { panel.URL().and_then(|url| url.path()).map(|path| std::path::PathBuf::from(path.to_string())) }
+            else { None }
+        });
+        let _ = sender.send(selected);
+    }).map_err(|_| "Redacted export chooser is unavailable.".to_string())?;
+    tauri::async_runtime::spawn_blocking(move || receiver.recv().map_err(|_| "Redacted export chooser closed unexpectedly.".to_string())?
+        .map_err(str::to_string)).await.map_err(|_| "Redacted export chooser is unavailable.".to_string())?
+}
+
+#[cfg(not(target_os = "macos"))]
+async fn choose_connection_doctor_export(_window: tauri::WebviewWindow) -> Result<Option<std::path::PathBuf>, String> {
+    tauri::async_runtime::spawn_blocking(|| rfd::FileDialog::new()
+        .set_title("Save redacted Connection Doctor report")
+        .set_file_name("xlog-connection-doctor-redacted.json")
+        .add_filter("JSON report", &["json"]).save_file())
+        .await.map_err(|_| "Redacted export chooser is unavailable.".to_string())
+}
+
+#[tauri::command]
 fn station_identity_snapshot(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>) -> Result<serde_json::Value, String> {
     station_identity::validate(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
     station_identity::snapshot()
@@ -1591,7 +1630,7 @@ fn main() {
             operator_draft_follow_snapshot, operator_draft_follow_set, operator_draft_follow_settled,
             auto_rotor_snapshot, auto_rotor_set,
             workspace_windows_status, workspace_windows_reconcile, workspace_mode_present, workspace_canvas_close_ack,
-            workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot, connection_doctor_snapshot, propagation_session_request, station_identity_snapshot, alerts_snapshot, dx_alerts_snapshot, dx_alerts_save, dx_alerts_test, dx_alerts_clear, antenna_snapshot,
+            workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot, connection_doctor_snapshot, connection_doctor_export, propagation_session_request, station_identity_snapshot, alerts_snapshot, dx_alerts_snapshot, dx_alerts_save, dx_alerts_test, dx_alerts_clear, antenna_snapshot,
             detached_cluster_ready, cluster_session_selection, dock_detached_window, close_logbook_window, close_qso_window, close_main_window, close_cw_window, show_cw_desk, close_rotor_window, show_rotor_desk, close_station_status_window, show_station_status_desk, close_propagation_window, show_propagation_desk, close_station_identity_window, show_station_identity_desk, close_alerts_window, show_alerts_desk, close_antenna_window, show_antenna_desk,
             acceptance::acceptance_enabled, acceptance::acceptance_large_log, acceptance::acceptance_monitor,
             acceptance::acceptance_screen, acceptance::acceptance_desk_size,

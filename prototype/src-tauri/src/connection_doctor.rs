@@ -1,6 +1,132 @@
 //! Read-only bridge from retained native telemetry to the Swift allowlist projection.
 //! No owner is created, no worker is started, and no source payload is returned.
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
+
+// Closed enums deliberately cannot carry source strings, even from forged IPC.
+macro_rules! export_enum {
+    ($name:ident { $($variant:ident => $value:literal),+ $(,)? }) => {
+        #[derive(Deserialize, Serialize, PartialEq)]
+        pub enum $name { $(#[serde(rename = $value)] $variant),+ }
+    };
+}
+export_enum!(Provider { Agent => "direct_agent", Flex => "direct_flex_lan", Tci => "direct_tci", Hamlib => "hamlib", Unknown => "unknown" });
+export_enum!(Configuration { Unknown => "unknown", Configured => "configured", Missing => "missing", Invalid => "invalid" });
+export_enum!(Transport { Stopped => "stopped", Connecting => "connecting", Synchronizing => "synchronizing", Ready => "ready", Unknown => "unknown" });
+export_enum!(Freshness { Fresh => "fresh", Stale => "stale", Unavailable => "unavailable", Unknown => "unknown" });
+export_enum!(Evidence { Retained => "retained-worker-state-only" });
+export_enum!(Capability { Observe => "observe", Tune => "tune", Ptt => "ptt", Cw => "cw", RfPower => "rfPower" });
+export_enum!(Stage { Provider => "provider", Configuration => "configuration", Connection => "connection", Freshness => "freshness", Capabilities => "capabilities" });
+export_enum!(Status { Passed => "passed", Attention => "attention", Unknown => "unknown" });
+export_enum!(Reason {
+    ProviderRecognized => "providerRecognized", ProviderUnknown => "providerUnknown",
+    ConfigurationRetained => "configurationRetained", ConfigurationMissing => "configurationMissing",
+    ConfigurationInvalid => "configurationInvalid", ConfigurationUnknown => "configurationUnknown",
+    Connected => "connected", ConnectionPending => "connectionPending", Disconnected => "disconnected", ConnectionUnknown => "connectionUnknown",
+    ObservationFresh => "observationFresh", ObservationStale => "observationStale", ObservationUnavailable => "observationUnavailable",
+    ObservationTimeUnknown => "observationTimeUnknown", ReadOnly => "readOnly", CapabilitiesAdvertised => "capabilitiesAdvertised", CapabilitiesUnknown => "capabilitiesUnknown",
+});
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ExportCheck {
+    stage: Stage,
+    status: Status,
+    reason: Reason,
+}
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ExportPreview {
+    schema_version: u8,
+    evidence: Evidence,
+    provider: Provider,
+    configuration: Configuration,
+    transport: Transport,
+    freshness: Freshness,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    read_only: Option<bool>,
+    advertised_capabilities: Vec<Capability>,
+    checks: Vec<ExportCheck>,
+}
+impl ExportPreview {
+    pub fn bytes(&self) -> Result<Vec<u8>, String> {
+        let stages = [
+            Stage::Provider,
+            Stage::Configuration,
+            Stage::Connection,
+            Stage::Freshness,
+            Stage::Capabilities,
+        ];
+        if self.schema_version != 1
+            || self.checks.len() != stages.len()
+            || !self
+                .checks
+                .iter()
+                .zip(stages)
+                .all(|(check, stage)| check.stage == stage)
+            || self.advertised_capabilities.len() > 5
+            || self
+                .advertised_capabilities
+                .iter()
+                .enumerate()
+                .any(|(index, item)| self.advertised_capabilities[..index].contains(item))
+        {
+            return Err("Connection Doctor report could not be verified.".into());
+        }
+        let mut bytes = serde_json::to_vec_pretty(self)
+            .map_err(|_| "Connection Doctor report could not be encoded.")?;
+        bytes.push(b'\n');
+        Ok(bytes)
+    }
+}
+
+pub fn prepare_export(
+    label: &str,
+    isolated: bool,
+    exiting: bool,
+    preview: &ExportPreview,
+) -> Result<Vec<u8>, String> {
+    validate(label, isolated, exiting)?;
+    preview.bytes()
+}
+
+static EXPORT_PENDING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+pub struct ExportLease;
+impl ExportLease {
+    pub fn acquire() -> Result<Self, String> {
+        EXPORT_PENDING
+            .compare_exchange(
+                false,
+                true,
+                std::sync::atomic::Ordering::AcqRel,
+                std::sync::atomic::Ordering::Acquire,
+            )
+            .map(|_| Self)
+            .map_err(|_| "A Connection Doctor export is already open.".into())
+    }
+}
+impl Drop for ExportLease {
+    fn drop(&mut self) {
+        EXPORT_PENDING.store(false, std::sync::atomic::Ordering::Release);
+    }
+}
+
+/// A native-selected path stays native; cancellation never creates a file.
+pub fn save_export(path: Option<std::path::PathBuf>, bytes: &[u8]) -> Result<bool, String> {
+    use std::io::Write;
+    let Some(path) = path else {
+        return Ok(false);
+    };
+    let write = || -> Result<(), Box<dyn std::error::Error>> {
+        let mut file =
+            tempfile::NamedTempFile::new_in(path.parent().ok_or("Missing export directory")?)?;
+        file.write_all(bytes)?;
+        file.as_file().sync_all()?;
+        file.persist(path)?;
+        Ok(())
+    };
+    write().map_err(|_| "Redacted report could not be saved.".to_string())?;
+    Ok(true)
+}
 
 const METHOD: &str = "connection_doctor_project";
 
@@ -128,6 +254,127 @@ pub fn snapshot(
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn export_preview() -> Value {
+        json!({"schemaVersion":1,"evidence":"retained-worker-state-only","provider":"direct_tci",
+            "configuration":"unknown","transport":"ready","freshness":"fresh","readOnly":true,
+            "advertisedCapabilities":["observe"],"checks":[
+                {"stage":"provider","status":"passed","reason":"providerRecognized"},
+                {"stage":"configuration","status":"unknown","reason":"configurationUnknown"},
+                {"stage":"connection","status":"passed","reason":"connected"},
+                {"stage":"freshness","status":"passed","reason":"observationFresh"},
+                {"stage":"capabilities","status":"passed","reason":"readOnly"}]})
+    }
+    #[test]
+    fn export_is_deterministic_and_rejects_all_untyped_source_content() {
+        let value = export_preview();
+        let parsed: ExportPreview = serde_json::from_value(value.clone()).unwrap();
+        let bytes = parsed.bytes().unwrap();
+        assert_eq!(parsed.bytes().unwrap(), bytes);
+        assert_eq!(serde_json::from_slice::<Value>(&bytes).unwrap(), value);
+        for key in [
+            "secret",
+            "endpoint",
+            "selection_id",
+            "error",
+            "frequency_hz",
+            "timestamp",
+            "logs",
+        ] {
+            let mut bad = value.clone();
+            bad[key] = json!("PRIVATE-SOURCE");
+            assert!(
+                serde_json::from_value::<ExportPreview>(bad).is_err(),
+                "{key}"
+            );
+        }
+        for key in [
+            "evidence",
+            "provider",
+            "configuration",
+            "transport",
+            "freshness",
+            "readOnly",
+            "schemaVersion",
+        ] {
+            let mut bad = value.clone();
+            bad[key] = json!("PRIVATE-SOURCE");
+            assert!(
+                serde_json::from_value::<ExportPreview>(bad).is_err(),
+                "{key}"
+            );
+        }
+        for key in ["stage", "status", "reason", "error"] {
+            let mut bad = value.clone();
+            bad["checks"][0][key] = json!("PRIVATE-SOURCE");
+            assert!(
+                serde_json::from_value::<ExportPreview>(bad).is_err(),
+                "{key}"
+            );
+        }
+        let mut bad = value.clone();
+        bad["advertisedCapabilities"] = json!(["PRIVATE-SOURCE"]);
+        assert!(serde_json::from_value::<ExportPreview>(bad).is_err());
+        for field in ["schemaVersion", "checks", "advertisedCapabilities"] {
+            let mut bad = value.clone();
+            bad[field] = match field {
+                "schemaVersion" => json!(2),
+                "checks" => json!([]),
+                _ => json!(["observe", "observe"]),
+            };
+            assert!(serde_json::from_value::<ExportPreview>(bad)
+                .unwrap()
+                .bytes()
+                .is_err());
+        }
+    }
+    #[test]
+    fn native_export_cancellation_write_failure_and_exclusive_ownership() {
+        let directory = tempfile::tempdir().unwrap();
+        let bytes = serde_json::from_value::<ExportPreview>(export_preview())
+            .unwrap()
+            .bytes()
+            .unwrap();
+        assert!(!save_export(None, &bytes).unwrap());
+        assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 0);
+        let path = directory.path().join("report.json");
+        assert!(save_export(Some(path.clone()), &bytes).unwrap());
+        assert_eq!(std::fs::read(&path).unwrap(), bytes);
+        let error = save_export(
+            Some(directory.path().join("PRIVATE-SOURCE/no-directory.json")),
+            &bytes,
+        )
+        .unwrap_err();
+        assert_eq!(error, "Redacted report could not be saved.");
+        let lease = ExportLease::acquire().unwrap();
+        assert!(ExportLease::acquire().is_err());
+        drop(lease);
+        assert!(ExportLease::acquire().is_ok());
+    }
+    #[test]
+    fn export_authorization_requires_exact_doctor_window_before_any_dialog_or_write() {
+        let preview = serde_json::from_value::<ExportPreview>(export_preview()).unwrap();
+        assert!(prepare_export("connection-doctor", false, false, &preview).is_ok());
+        for label in [
+            "main",
+            "monitor",
+            "settings",
+            "station-status",
+            "logbook",
+            "connection-doctor-1",
+            "unknown",
+        ] {
+            assert!(
+                prepare_export(label, false, false, &preview).is_err(),
+                "{label}"
+            );
+        }
+        assert!(prepare_export("connection-doctor", true, false, &preview).is_err());
+        assert!(prepare_export("connection-doctor", false, true, &preview).is_err());
+        let mut invalid = export_preview();
+        invalid["schemaVersion"] = json!(2);
+        let invalid = serde_json::from_value::<ExportPreview>(invalid).unwrap();
+        assert!(prepare_export("connection-doctor", false, false, &invalid).is_err());
+    }
     #[test]
     fn adapter_strips_identifiers_values_errors_and_secrets_before_projection() {
         let secret = "https://user:secret@example.invalid/?token=private";
