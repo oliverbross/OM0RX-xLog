@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.4.0-alpha.37 — 2026-10-17
+
+- Moved the single Settings command into the standard OM0RX-xLog application menu on macOS, preserving Command-, and removing the duplicate Settings entry from Station.
+- Clarified every detached-window command in Window with an `Open … Window` action label so navigation and window creation no longer appear as duplicate menu items.
+
 ## 0.4.0-alpha.36 — 2026-10-17
 
 - Restored the integrated local logbook choice as a prominent Settings → Logbook section, clearly separating local-only operation from optional Wavelog synchronization without changing or migrating existing contacts.

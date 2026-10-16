@@ -364,6 +364,8 @@ fn workspace_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     // Extend Tauri's native default instead of replacing its app, Edit,
     // Window, Help, and macOS View/Fullscreen menus or keyboard shortcuts.
     let menu = Menu::default(app)?;
+    #[cfg(target_os = "macos")]
+    append_application_settings(app, &menu)?;
     let compact = MenuItem::with_id(
         app,
         COMPACT_WORKSPACE_MENU_ID,
@@ -423,7 +425,7 @@ fn workspace_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     windows.append(&PredefinedMenuItem::separator(app)?)?;
     for window in workspace_windows::SUPPORTED_WINDOWS.iter().filter(|window| window_menu_includes(window.id)) {
         windows.append(&MenuItem::with_id(app, format!("workspace_window_{}", window.id),
-            window.title.trim_start_matches("OM0RX-xLog — "), true,
+            window_menu_title(window.title), true,
             detached_window_shortcut(window.id))?)?;
     }
     let band_maps = Submenu::new(app, "Open Band Map", true)?;
@@ -438,8 +440,32 @@ fn window_menu_includes(id: &str) -> bool {
     !matches!(id, "station-status" | "station-identity")
 }
 
+fn window_menu_title(title: &str) -> String {
+    format!("Open {} Window", title.trim_start_matches("OM0RX-xLog — "))
+}
+
+#[cfg(target_os = "macos")]
+fn append_application_settings(app: &tauri::AppHandle, menu: &Menu<tauri::Wry>) -> tauri::Result<()> {
+    let app_name = &app.package_info().name;
+    let application = menu.items()?.iter().filter_map(|item| item.as_submenu().cloned())
+        .find(|submenu| submenu.text().is_ok_and(|text| text == *app_name))
+        .ok_or_else(|| tauri::Error::Io(std::io::Error::other("Application menu is unavailable")))?;
+    let settings = MenuItem::with_id(app, "workspace_screen_settings", "Settings…", true, Some("CmdOrCtrl+,"))?;
+    let separator = PredefinedMenuItem::separator(app)?;
+    application.insert_items(&[&settings, &separator], 2)?;
+    Ok(())
+}
+
+fn screen_group_menu_includes(id: &str) -> bool {
+    #[cfg(target_os = "macos")]
+    { id != "settings" }
+    #[cfg(not(target_os = "macos"))]
+    { let _ = id; true }
+}
+
 fn append_screen_group(app: &tauri::AppHandle, menu: &Submenu<tauri::Wry>, group: &str) -> tauri::Result<()> {
-    for screen in workspace_navigation::screens().iter().filter(|screen| screen.group == group && !screen.hidden) {
+    for screen in workspace_navigation::screens().iter().filter(|screen|
+        screen.group == group && !screen.hidden && screen_group_menu_includes(&screen.id)) {
         menu.append(&MenuItem::with_id(app, format!("workspace_screen_{}", screen.id),
             &screen.title, true, screen.shortcut.as_deref())?)?;
     }
@@ -1737,6 +1763,15 @@ mod workspace_layout_tests {
             assert!(crate::workspace_windows::supports(id));
         }
         assert!(super::window_menu_includes("station-control"));
+    }
+
+    #[test]
+    fn macos_menu_has_one_settings_route_and_distinct_window_action_labels() {
+        #[cfg(target_os = "macos")]
+        assert!(!super::screen_group_menu_includes("settings"));
+        assert!(super::screen_group_menu_includes("station-control"));
+        assert_eq!(super::window_menu_title("OM0RX-xLog — Logbook"), "Open Logbook Window");
+        assert_eq!(super::window_menu_title("OM0RX-xLog — Settings"), "Open Settings Window");
     }
 
     #[test]
