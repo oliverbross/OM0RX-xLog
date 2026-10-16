@@ -9,6 +9,45 @@ import XLogPortableCore
 
 @Suite("Read-only exact-contact data quality route")
 struct QSODataQualityRouteTests {
+    @Test func boundedDuplicateCandidatesStayWithinCanonicalExactContactScope() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let service = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        _ = try service.handle(method: "workspace_create", params: ["mode": "empty"])
+        let db = try service.openedDatabase()
+        var qso = QSO(call: "W1AW", start: Date(timeIntervalSince1970: 1_700_000_000), band: "20m", mode: "CW", frequencyHz: 14_025_000)
+        try db.save(qso)
+        for index in 1...6 {
+            try db.save(QSO(call: qso.call, start: qso.start.addingTimeInterval(Double(index)), band: qso.band, mode: qso.mode,
+                extraFields: ["PRIVATE_FIELD": "candidate-private-value"]))
+        }
+        let context = try service.handle(method: "logbook_contact", params: ["contactID": qso.id.uuidString])
+        let generation = try #require(context["generation"] as? String)
+        let maybe = try db.contactSnapshot(localID: qso.id), contact = try #require(maybe)
+        let params: [String: Any] = ["contactID": qso.id.uuidString, "generation": generation, "expectedRevision": contact.revision]
+        let before = try db.fetchAll(), revision = try db.currentRevision(), outbox = try db.outboxCount()
+        let response = try service.handle(method: "logbook_data_quality", params: params)
+        let report = try #require(response["data_quality"] as? [String: Any])
+        let review = try #require(report["duplicateReview"] as? [String: Any])
+        let candidates = try #require(review["candidates"] as? [[String: Any]])
+        #expect(review["status"] as? String == "truncated")
+        #expect(review["candidateLimit"] as? Int == 5)
+        #expect(candidates.count == 5)
+        #expect(candidates.allSatisfy { $0["contactID"] as? String != qso.id.uuidString && $0["contactRevision"] != nil })
+        let text = String(decoding: try JSONSerialization.data(withJSONObject: response), as: UTF8.self)
+        #expect(!text.contains("candidate-private-value"))
+        #expect(!text.contains("totalCandidates"))
+        #expect(try db.fetchAll() == before)
+        #expect(try db.currentRevision() == revision)
+        #expect(try db.outboxCount() == outbox)
+        var invalid = params; invalid["candidateLimit"] = 100
+        #expect(throws: WorkerFailure.self) { try service.handle(method: "logbook_data_quality", params: invalid) }
+        qso.comment = "New revision"; try db.save(qso)
+        let stale = try service.handle(method: "logbook_data_quality", params: params)
+        #expect(stale["status"] as? String == "contact_changed")
+        #expect(stale["data_quality"] == nil)
+    }
+
     @Test func readsCanonicalEvidenceWithExplicitUnknownsAndNoWrites() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
@@ -29,7 +68,7 @@ struct QSODataQualityRouteTests {
         for _ in 0..<2 {
             let result = try service.handle(method: "logbook_data_quality", params: params)
             #expect(result["read_only"] as? Bool == true)
-            #expect(result["duplicate_review"] as? String == "notPerformed")
+            #expect(result["duplicate_review"] as? String == "boundedLocalReview")
             #expect(result["conflict_review"] as? String == "notRequested")
             let report = try #require(result["data_quality"] as? [String: Any])
             #expect(report["contactID"] as? String == qso.id.uuidString)

@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { requestQSODataQuality, type QSODataQualityEvidence, type QSODataQualityReport } from "../worker";
-import { sameGeneration, validScopedSnapshot, type DraftSnapshot } from "./operatorDraftSession";
+import { sameGeneration, validGeneration, validScopedSnapshot, type DraftSnapshot } from "./operatorDraftSession";
 
 type Request = (method: string, params?: Record<string, unknown>) => Promise<any>;
 const sourceLabels: Record<string, string> = {
@@ -18,13 +18,43 @@ function validEvidence(value: any): value is QSODataQualityEvidence {
     (value.date === null || Number.isFinite(Date.parse(value.date)));
 }
 function validReport(value: QSODataQualityReport) {
-  return Array.isArray(value.retainedFields) && value.retainedFields.length <= 8 && value.retainedFields.every(validEvidence) &&
+  const duplicate = value.duplicateReview;
+  const validDuplicate = duplicate == null || duplicate.rule === "nativePossibleDuplicate600SecondsV1" &&
+    duplicate.windowSeconds === 600 && duplicate.candidateLimit === 5 && ["complete", "truncated", "unknown"].includes(duplicate.status) &&
+    Array.isArray(duplicate.unresolvedRequirements) && duplicate.unresolvedRequirements.every(item => typeof item === "string") &&
+    Array.isArray(duplicate.candidates) && duplicate.candidates.length <= 5 &&
+    new Set(duplicate.candidates.map(item => typeof item?.contactID === "string" ? item.contactID.toLowerCase() : null)).size === duplicate.candidates.length &&
+    (duplicate.status !== "truncated" || duplicate.candidates.length === 5) &&
+    (duplicate.status === "unknown" ? duplicate.candidates.length === 0 && duplicate.unresolvedRequirements.length > 0 : duplicate.unresolvedRequirements.length === 0) &&
+    duplicate.candidates.every(item => item && validGeneration(item.contactID) && item.contactID.toLowerCase() !== value.contactID.toLowerCase() &&
+      Number.isSafeInteger(item.contactRevision) && item.contactRevision >= 0 && [item.call, item.band, item.mode].every(field => typeof field === "string") &&
+      typeof item.contactStart === "string" && Number.isFinite(Date.parse(item.contactStart)));
+  return validDuplicate && Array.isArray(value.retainedFields) && value.retainedFields.length <= 8 && value.retainedFields.every(validEvidence) &&
     (value.referenceComparison === null || validEvidence(value.referenceComparison)) &&
     (value.retainedPowerObservation === null || validEvidence(value.retainedPowerObservation)) &&
     Array.isArray(value.findings) && value.findings.length <= 100 && value.findings.every(finding =>
       finding && ["field", "severity", "message"].every(key => typeof (finding as any)[key] === "string") && validEvidence(finding.retained) &&
       (finding.comparison === null || validEvidence(finding.comparison)) && Array.isArray(finding.reviewImpacts) &&
       finding.reviewImpacts.every(value => typeof value === "string"));
+}
+function DuplicateReview({ value }: { value: QSODataQualityReport["duplicateReview"] }) {
+  const unknownLabels: Record<string, string> = { deletedContact: "Deleted contact", invalidContactDate: "Invalid QSO date",
+    missingCall: "Missing callsign", missingBand: "Missing band", missingMode: "Missing mode" };
+  return <section aria-label="Read-only possible duplicate review">
+    <h4>Possible duplicates · review only</h4>
+    <p>Native rule: same retained callsign, band and primary mode (case-insensitive), within ±600 seconds. Self and deleted contacts excluded. No frequency, submode or portable-call inference; not proof of semantic equivalence.</p>
+    {!value ? <p>Duplicate review: Unknown / unavailable.</p> : <>
+      <p>{value.status === "unknown" ? `Duplicate review unknown: ${value.unresolvedRequirements.map(item => unknownLabels[item] ?? "Unresolved input").join("; ")}.`
+        : value.status === "truncated" ? "Incomplete: showing the nearest 5 candidates; more exist. Total candidate count unknown."
+        : value.candidates.length ? `Complete for this bounded rule: ${value.candidates.length} candidate(s).`
+        : "No candidates under this bounded rule. This does not establish that the contact is unique."}</p>
+      {!!value.candidates.length && <ul>{value.candidates.map(candidate => <li key={candidate.contactID}>
+        <p>{candidate.call} · {candidate.band} {candidate.mode} · QSO start {candidate.contactStart} (UTC)</p>
+        <p>Contact {candidate.contactID}, revision {candidate.contactRevision}. Source: canonical retained contact; original field source/date unknown.</p>
+      </li>)}</ul>}
+    </>}
+    <p>Possible matches may be intentional separate contacts. No merge, deletion, correction, award or sync delta is proposed.</p>
+  </section>;
 }
 function Evidence({ value }: { value: QSODataQualityEvidence }) {
   return <dl className="qso-quality-evidence">
@@ -96,7 +126,8 @@ export function LogbookContactReview({ contactID, call, onRequest, pageContext, 
       {contact && <p>Exact contact revision {contact.revision}. Record updated {String(contact.qso.updatedAt ?? "Unknown")} — not a field-origin date.</p>}
       {error && <p role="alert">{error}</p>}
       {reading ? <p role="status">Reading local findings…</p> : report ? <>
-        <p>Duplicate search not performed. Conflict alternatives not requested. CTY comparison: {report.referenceStatus === "resolved" ? "Resolved locally" : report.referenceStatus === "notProvided" ? "Reference unavailable" : report.referenceStatus === "unresolved" ? "Unresolved" : "Contact date invalid"}.</p>
+        <p>Conflict alternatives not requested. CTY comparison: {report.referenceStatus === "resolved" ? "Resolved locally" : report.referenceStatus === "notProvided" ? "Reference unavailable" : report.referenceStatus === "unresolved" ? "Unresolved" : "Contact date invalid"}.</p>
+        <DuplicateReview value={report.duplicateReview} />
         <details><summary>Retained field evidence and reference context</summary>
           {report.retainedFields.map((value, index) => <Evidence key={index} value={value} />)}
           {report.referenceComparison ? <Evidence value={report.referenceComparison} /> : <p>CTY comparison evidence: Unknown.</p>}

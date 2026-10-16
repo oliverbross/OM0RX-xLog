@@ -97,4 +97,29 @@ describe("canonical Logbook Details quality review", () => {
     await act(async () => finishFindings({ ...response, data_quality: { ...report, contactID: nextID } }));
     expect(screen.queryByText("Stored override remains authoritative.")).toBeNull();
   });
+  it.each(["complete", "truncated", "unknown"])("shows bounded duplicate state %s without offering mutations", async status => {
+    const candidates = Array.from({ length: status === "truncated" ? 5 : status === "unknown" ? 0 : 1 }, (_, index) => ({
+      contactID: `33333333-3333-3333-3333-33333333333${index}`, contactRevision: index + 1, call: "OM0RX/P", band: "20m", mode: "CW", contactStart: "2026-10-16T10:00:01Z",
+    }));
+    const duplicateReview = { rule: "nativePossibleDuplicate600SecondsV1", windowSeconds: 600, candidateLimit: 5, status,
+      unresolvedRequirements: status === "unknown" ? ["missingBand"] : [], candidates };
+    const request = vi.fn(async (method: string) => method === "logbook_contact" ? { generation, contact } : { ...response, data_quality: { ...report, duplicateReview } });
+    render(<LogbookContactReview {...props(request)} />);
+    await screen.findByText("Canonical OM0RX · 7"); fireEvent.click(screen.getByText("Read findings"));
+    const section = await screen.findByLabelText("Read-only possible duplicate review");
+    expect(section.textContent).toContain(status === "truncated" ? "Total candidate count unknown" : status === "unknown" ? "Missing band" : "Complete for this bounded rule");
+    expect(section.querySelectorAll("li")).toHaveLength(candidates.length);
+    expect(section.querySelectorAll("button")).toHaveLength(0);
+    if (candidates.length) expect(section.textContent).toContain("original field source/date unknown");
+  });
+  it.each(["self", "overLimit"])("rejects %s duplicate candidates rather than displaying them", async invalid => {
+    const duplicateReview = { rule: "nativePossibleDuplicate600SecondsV1", windowSeconds: 600, candidateLimit: 5, status: "complete", unresolvedRequirements: [],
+      candidates: [{ contactID: id, contactRevision: 7, call: "OM0RX", band: "20m", mode: "CW", contactStart: "2026-10-16T10:00:00Z" }] };
+    if (invalid === "overLimit") duplicateReview.candidates = Array.from({ length: 6 }, (_, index) => ({ ...duplicateReview.candidates[0], contactID: `33333333-3333-3333-3333-33333333333${index}` }));
+    const request = vi.fn(async (method: string) => method === "logbook_contact" ? { generation, contact } : { ...response, data_quality: { ...report, duplicateReview } });
+    render(<LogbookContactReview {...props(request)} />);
+    await screen.findByText("Canonical OM0RX · 7"); fireEvent.click(screen.getByText("Read findings"));
+    await screen.findByRole("alert");
+    expect(screen.queryByLabelText("Read-only possible duplicate review")).toBeNull();
+  });
 });

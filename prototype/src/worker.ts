@@ -130,10 +130,13 @@ export type QSODataQualityReport = {
   referenceComparison: QSODataQualityEvidence | null; retainedPowerObservation: QSODataQualityEvidence | null;
   findings: { kind: string; field: string; severity: string; message: string; retained: QSODataQualityEvidence;
     comparison: QSODataQualityEvidence | null; reviewImpacts: string[] }[];
+  duplicateReview?: { rule: "nativePossibleDuplicate600SecondsV1"; windowSeconds: 600; candidateLimit: 5;
+    status: "complete" | "truncated" | "unknown"; unresolvedRequirements: string[];
+    candidates: { contactID: string; contactRevision: number; call: string; contactStart: string; band: string; mode: string }[] } | null;
 };
 export type QSODataQualityResponse = {
   generation: string; read_only?: true; status?: "workspace_changed" | "contact_changed";
-  duplicate_review?: "notPerformed"; conflict_review?: "notRequested" | "retainedConflict";
+  duplicate_review?: "notPerformed" | "boundedLocalReview"; conflict_review?: "notRequested" | "retainedConflict";
   data_quality?: QSODataQualityReport | null;
 };
 

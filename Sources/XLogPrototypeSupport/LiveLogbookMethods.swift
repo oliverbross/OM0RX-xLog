@@ -685,7 +685,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                         reference: reference.map { .init(resolver: $0.resolver, source: $0.source == "bundled" ? "bundled_cty" : "local_cty") },
                         conflictID: conflictID)
                     return ["generation": generation, "read_only": true,
-                            "duplicate_review": "notPerformed", "conflict_review": conflictID == nil ? "notRequested" : "retainedConflict",
+                            "duplicate_review": "boundedLocalReview", "conflict_review": conflictID == nil ? "notRequested" : "retainedConflict",
                             "data_quality": try report.map { try dataQualityJSON($0) } ?? NSNull()]
                 } catch LogbookContactError.conflict {
                     return ["status": "contact_changed", "generation": generation, "read_only": true]

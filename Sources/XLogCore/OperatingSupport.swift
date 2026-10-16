@@ -257,6 +257,24 @@ public enum QSODataQuality {
         }
     }
     public enum ReferenceStatus: String, Codable, Sendable { case notProvided, resolved, unresolved, invalidContactDate }
+    public struct DuplicateCandidate: Codable, Equatable, Sendable {
+        public let contactID: UUID
+        public let contactRevision: Int64
+        public let call: String
+        /// QSO start time, not a field-origin or verification date.
+        public let contactStart: Date
+        public let band: String
+        public let mode: String
+    }
+    public struct DuplicateReview: Codable, Equatable, Sendable {
+        public enum Status: String, Codable, Sendable { case complete, truncated, unknown }
+        public let rule: String
+        public let windowSeconds: Int
+        public let candidateLimit: Int
+        public let status: Status
+        public let unresolvedRequirements: [String]
+        public let candidates: [DuplicateCandidate]
+    }
     public struct Report: Codable, Equatable, Sendable {
         public let contactID: UUID
         public let contactRevision: Int64
@@ -267,10 +285,12 @@ public enum QSODataQuality {
         public let referenceComparison: Evidence?
         public let retainedPowerObservation: Evidence?
         public let findings: [Finding]
+        public let duplicateReview: DuplicateReview?
     }
 
     public static func inspect(_ snapshot: LogbookContactSnapshot, reference: Reference? = nil,
-                               possibleDuplicate: LogbookContactSnapshot? = nil, conflict: SyncConflict? = nil) -> Report {
+                               possibleDuplicate: LogbookContactSnapshot? = nil, conflict: SyncConflict? = nil,
+                               duplicateReview: DuplicateReview? = nil) -> Report {
         let qso = snapshot.qso
         func stored(_ field: String, _ value: String) -> Evidence {
             evidence(field, value, source: .storedFieldOriginUnknown)
@@ -346,7 +366,7 @@ public enum QSODataQuality {
         return Report(contactID: qso.id, contactRevision: snapshot.revision, contactStart: qso.start, recordUpdatedAtNotFieldOrigin: qso.updatedAt,
             retainedFields: [retainedDXCC, stored("country", qso.country), retainedPower],
             referenceStatus: referenceStatus, referenceComparison: comparison,
-            retainedPowerObservation: retainedPowerObservation, findings: findings)
+            retainedPowerObservation: retainedPowerObservation, findings: findings, duplicateReview: duplicateReview)
     }
 
     private static func evidence(_ field: String, _ value: String, source: Source, date: Date? = nil,

@@ -465,7 +465,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     /// Exact-contact projection with optional primary-key retained conflict lookup.
-    /// No duplicate/contact catalogue scan or persistence is performed.
+    /// Duplicate review reuses the native near-time owner with a fixed limit.
     public func contactDataQuality(contactID: UUID, expectedRevision: Int64,
                                    reference: QSODataQuality.Reference?, conflictID: UUID? = nil) throws -> QSODataQuality.Report? {
         try withDatabaseLock {
@@ -482,7 +482,12 @@ public final class LogbookDatabase: @unchecked Sendable {
                 }
             }
             if conflictID != nil && conflict == nil { throw LogbookContactError.invalid }
-            return QSODataQuality.inspect(contact, reference: reference, conflict: conflict)
+            let review = try duplicateReview(contact)
+            let nearest = try review.candidates.first.flatMap { candidate in
+                try contactSnapshot(localID: candidate.contactID)
+            }
+            return QSODataQuality.inspect(contact, reference: reference, possibleDuplicate: nearest,
+                                          conflict: conflict, duplicateReview: review)
         }
     }
 
@@ -2543,20 +2548,56 @@ public final class LogbookDatabase: @unchecked Sendable {
 
     public func possibleDuplicate(call: String, band: String, mode: String, around date: Date, within seconds: TimeInterval = 600) throws -> QSO? {
         try withDatabaseLock {
-            try withStatement("""
-                SELECT record_json FROM qsos
-                WHERE deleted_at IS NULL AND call = ? COLLATE NOCASE AND band = ? COLLATE NOCASE
-                  AND mode = ? COLLATE NOCASE AND ABS(qso_start - ?) <= ?
-                ORDER BY ABS(qso_start - ?) ASC LIMIT 1;
-                """) { statement in
-                bind(call, to: 1, in: statement)
-                bind(band, to: 2, in: statement)
-                bind(mode, to: 3, in: statement)
-                sqlite3_bind_double(statement, 4, date.timeIntervalSince1970)
-                sqlite3_bind_double(statement, 5, seconds)
-                sqlite3_bind_double(statement, 6, date.timeIntervalSince1970)
-                return try decodeRows(statement).first
+            try possibleDuplicateSnapshots(call: call, band: band, mode: mode, around: date, within: seconds,
+                                           excludingID: nil, limit: 1).first?.qso
+        }
+    }
+
+    private func duplicateReview(_ contact: LogbookContactSnapshot) throws -> QSODataQuality.DuplicateReview {
+        let qso = contact.qso
+        var unknowns: [String] = []
+        if qso.deletedAt != nil { unknowns.append("deletedContact") }
+        if !qso.start.timeIntervalSince1970.isFinite { unknowns.append("invalidContactDate") }
+        if qso.call.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { unknowns.append("missingCall") }
+        if qso.band.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { unknowns.append("missingBand") }
+        if qso.mode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { unknowns.append("missingMode") }
+        let candidates = unknowns.isEmpty ? try possibleDuplicateSnapshots(call: qso.call, band: qso.band, mode: qso.mode,
+            around: qso.start, within: 600, excludingID: qso.id, limit: 6) : []
+        return .init(rule: "nativePossibleDuplicate600SecondsV1", windowSeconds: 600, candidateLimit: 5,
+            status: !unknowns.isEmpty ? .unknown : candidates.count > 5 ? .truncated : .complete,
+            unresolvedRequirements: unknowns,
+            candidates: candidates.prefix(5).map { .init(contactID: $0.qso.id, contactRevision: $0.revision,
+                call: $0.qso.call, contactStart: $0.qso.start, band: $0.qso.band, mode: $0.qso.mode) })
+    }
+
+    /// Shared native duplicate rule: case-insensitive exact fields and inclusive
+    /// time window. No mode-family, frequency, portable-call or semantic inference.
+    private func possibleDuplicateSnapshots(call: String, band: String, mode: String, around date: Date,
+        within seconds: TimeInterval, excludingID: UUID?, limit: Int) throws -> [LogbookContactSnapshot] {
+        guard date.timeIntervalSince1970.isFinite, seconds.isFinite, seconds >= 0 else { return [] }
+        return try withStatement("""
+            SELECT q.record_json, COALESCE(r.revision,0) FROM qsos q
+            LEFT JOIN xlog_contact_revisions r ON r.local_id=q.local_id
+            WHERE q.deleted_at IS NULL AND q.call = ? COLLATE NOCASE AND q.band = ? COLLATE NOCASE
+              AND q.mode = ? COLLATE NOCASE AND q.qso_start BETWEEN ? AND ? AND q.local_id<>?
+            ORDER BY ABS(q.qso_start - ?) ASC, q.local_id ASC LIMIT ?;
+            """) { statement in
+            bind(call, to: 1, in: statement); bind(band, to: 2, in: statement); bind(mode, to: 3, in: statement)
+            sqlite3_bind_double(statement, 4, date.timeIntervalSince1970 - seconds)
+            sqlite3_bind_double(statement, 5, date.timeIntervalSince1970 + seconds)
+            bind(excludingID?.uuidString ?? "", to: 6, in: statement)
+            sqlite3_bind_double(statement, 7, date.timeIntervalSince1970)
+            sqlite3_bind_int(statement, 8, Int32(limit))
+            var values: [LogbookContactSnapshot] = []
+            var step = sqlite3_step(statement)
+            while step == SQLITE_ROW {
+                guard let bytes = sqlite3_column_blob(statement, 0) else { throw error() }
+                let qso = try decoder.decode(QSO.self, from: Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 0)))).backfillingADIFFields()
+                values.append(.init(revision: sqlite3_column_int64(statement, 1), qso: qso))
+                step = sqlite3_step(statement)
             }
+            guard step == SQLITE_DONE else { throw error() }
+            return values
         }
     }
 
