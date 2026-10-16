@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.4.0-alpha.56 — 2026-10-17
+
+- Reflowed Callsign Intelligence facts into a balanced three-column first row and two-column second row across the Operator Desk, custom canvas and detached window.
+- Centered fact labels and values, and kept Zones and Distance on one line without overflowing their boxes.
+
 ## 0.4.0-alpha.55 — 2026-10-17
 
 - Matched Wavelog's exact band-and-mode call and DXCC classification model: New Callsign/New DXCC, Worked and Confirmed.

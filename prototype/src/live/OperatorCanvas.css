@@ -49,7 +49,6 @@
 .canvas-work-area.is-compact .canvas-frame { position:relative; flex:1; min-height:0; width:100%; height:100%; }
 .canvas-required-panel { flex:none; max-width:500px; }
 .canvas-empty { color:var(--secondary); margin:16px; }
-.canvas-panel-content.is-content-sized .desk-identity-facts { grid-template-columns:repeat(auto-fit,minmax(80px,1fr)); }
 @container operator-desk (max-width: 460px) {
   .canvas-panel-content .desk-matrices { grid-template-columns:1fr; }
   .canvas-panel-content .desk-matrices > div + div { border-left:0; padding-left:0; }

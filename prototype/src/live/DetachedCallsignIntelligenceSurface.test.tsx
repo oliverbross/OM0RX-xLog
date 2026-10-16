@@ -109,7 +109,10 @@ it("routes a direct menu window to a filling card with narrow-window reflow", as
   expect(css).toMatch(/\.detached-intelligence-content\s*\{[^}]*container: detached-intelligence \/ inline-size;[^}]*min-height: 0;[^}]*flex: 1 1 0;/);
   expect(css).toMatch(/\.detached-intelligence-content \.desk-intelligence\s*\{[^}]*flex: 1;/);
   expect(css).toContain("@container detached-intelligence (max-width: 640px)");
-  expect(css).toMatch(/@container detached-intelligence \(max-width: 640px\)\s*\{[^@]*\.desk-identity-facts\s*\{[^}]*repeat\(6,[^}]*\}[^@]*nth-child\(4\)[^{]*\{[^}]*grid-column: 2 \/ span 2;[^@]*nth-child\(5\)[^{]*\{[^}]*grid-column: 4 \/ span 2;/s);
+  expect(shared).toMatch(/\.desk-identity-facts\s*\{[^}]*grid-template-columns: repeat\(6, minmax\(0, 1fr\)\);/);
+  expect(shared).toMatch(/\.desk-identity-facts > div\s*\{[^}]*grid-column: span 2;[^}]*text-align: center;/);
+  expect(shared).toMatch(/\.desk-identity-facts > div:nth-child\(n \+ 4\)\s*\{[^}]*grid-column: span 3;/);
+  expect(shared).toMatch(/\.desk-identity-facts dd\s*\{[^}]*white-space: nowrap;[^}]*overflow: hidden;[^}]*text-overflow: ellipsis;/);
   expect(css).toMatch(/@container detached-intelligence \(max-width: 420px\)\s*\{[^@]*\.desk-matrices\s*\{[^}]*grid-template-columns: 1fr;/s);
   expect(css).toContain("@media (max-height: 560px)");
   expect(shared).toMatch(/\.desk-identity-facts dt\s*\{[^}]*font-size: 8px;/);

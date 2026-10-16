@@ -8,10 +8,6 @@
 .detached-intelligence-content .desk-band-matrix span { display: grid; place-items: center; font-size: clamp(9px, 1.5cqw, 16px); }
 .detached-intelligence-content .desk-identity strong { font-size: clamp(25px, 5cqw, 48px); }
 @container detached-intelligence (max-width: 640px) {
-  .desk-identity-facts { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-  .desk-identity-facts > div { grid-column: span 2; }
-  .desk-identity-facts > div:nth-child(4) { grid-column: 2 / span 2; }
-  .desk-identity-facts > div:nth-child(5) { grid-column: 4 / span 2; }
   .desk-identity { flex-wrap: wrap; }
   .desk-provenance { align-items: flex-start; text-align: left; }
 }
@@ -20,6 +16,7 @@
   .desk-matrices > div + div { border-left: 0; padding-left: 0; border-top: 1px solid var(--border); padding-top: 8px; }
   .desk-identity-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .desk-identity-facts > div { grid-column: auto; }
+  .desk-identity-facts > div:nth-child(n + 4) { grid-column: auto; }
   .desk-identity-facts > div:nth-child(3) { grid-column: 1 / -1; }
 }
 @media (max-height: 560px) {
