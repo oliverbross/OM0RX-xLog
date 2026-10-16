@@ -64,9 +64,6 @@ public final class CTYResolver: @unchecked Sendable {
 
     public func resolve(_ rawCallsign: String, at date: Date = Date()) -> CountryInfo? {
         let call = rawCallsign.uppercased().filter { $0.isLetter || $0.isNumber || $0 == "/" }
-        if call == "PJ6Y" || call.hasPrefix("PJ") {
-            return rules.first(where: { $0.country.adif == 305 })?.country
-        }
         var candidates = [call]
         candidates.append(contentsOf: call.split(separator: "/").map(String.init).filter { !ignoredSuffixes.contains($0) }.sorted { $0.count > $1.count })
         for candidate in candidates {

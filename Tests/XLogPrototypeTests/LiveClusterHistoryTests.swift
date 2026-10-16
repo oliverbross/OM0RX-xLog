@@ -9,6 +9,20 @@ import XLogPortableCore
 
 @Suite("Integrated cluster contact history")
 struct LiveClusterHistoryTests {
+    @Test("PJ classification preserves stored DXCC overrides without modifying contacts")
+    func pjStoredEntityOverride() throws {
+        let resolver = try CTYResolver.bundled()
+        let explicit = QSO(call: "PJ6Y", band: "20m", mode: "CW", dxcc: 305)
+        let inferred = QSO(call: "PJ6A", band: "40m", mode: "CW")
+        let contacts = [explicit, inferred]
+        let saba = LocalContactHistory.project(contacts: contacts, call: "PJ6Y", adif: 519, resolver: resolver)
+        let override = LocalContactHistory.project(contacts: contacts, call: "PJ6Y", adif: 305, resolver: resolver)
+        #expect(saba["dxcc_contact_count"] as? Int == 1)
+        #expect(override["dxcc_contact_count"] as? Int == 1)
+        #expect(explicit.dxcc == 305)
+        #expect(inferred.dxcc == nil)
+    }
+
     @Test("Confirmed totals use every nondeleted contact, not the 20-row page or band matrix")
     func fullHistoryConfirmationAndLatestDXCC() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
