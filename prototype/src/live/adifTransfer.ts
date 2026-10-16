@@ -134,6 +134,10 @@ const adxBandValues = new Set(`2190M 630M 560M 160M 80M 60M 40M 30M 20M 17M 15M 
 const adxModeValues = new Set(`AM ARDOP ATV CHIP CLO CONTESTI CW DIGITALVOICE DOMINO DYNAMIC FAX FM FSK441 FSK FT8 HELL
   ISCAT JT4 JT6M JT9 JT44 JT65 MFSK MSK144 MTONE MT63 OFDM OLIVIA OPERA PAC PAX PKT PSK PSK2K Q15 QRA64 ROS RTTY
   RTTYM SSB SSTV T10 THOR THRB TOR V4 VOI WINMOR WSPR`.split(/\s+/));
+// ADIF 3.1.8 import-only modes: preserve raw import text. QSO.adifRecord
+// owns the DIGITALVOICE/SUBMODE export projection; frozen export frames must
+// already contain that projection rather than emitting deprecated MODE values.
+const adxImportOnlyModeValues = new Set(["C4FM", "DSTAR"]);
 const adxARRLSectionValues = new Set(`AL AK AB AR AZ BC CO CT DE EB EMA ENY EPA EWA GA GH GTA ID IL IN IA KS KY LAX LA
   ME MB MAR MDC MI MN MS MO MT NE NV NB NH NM NLI NL NC ND NTX NFL NNJ NNY NT NWT NS OH OK ON ONE ONN ONS ORG OR PAC
   PE PR QC RI SV SDG SF SJV SB SCV SK SC SD STX SFL SNJ TN TER VI UT VT VA WCF WTX WV WMA WNY WPA WWA WI WY`.split(/\s+/));
@@ -202,12 +206,13 @@ function validCreditList(value: string): boolean {
 function validSponsoredAwardList(value: string): boolean {
   return value.length > 0 && value.split(",").every(item => adxSponsoredAwardPattern.test(item));
 }
-function validateADXValue(name: string, value: string): void {
+function validateADXValue(name: string, value: string, direction: "import" | "export" = "export"): void {
   let valid = true;
   const patternRule = adxPatternRules.find(rule => rule.fields.includes(name));
   if (patternRule) valid = patternRule.pattern.test(value);
   else if (["BAND", "BAND_RX"].includes(name)) valid = adxBandValues.has(value.toUpperCase());
-  else if (name === "MODE") valid = adxModeValues.has(value.toUpperCase());
+  else if (name === "MODE") valid = adxModeValues.has(value.toUpperCase()) ||
+    (direction === "import" && adxImportOnlyModeValues.has(value.toUpperCase()));
   else if (["ARRL_SECT", "MY_ARRL_SECT"].includes(name)) valid = adxARRLSectionValues.has(value.toUpperCase());
   else if (["MORSE_KEY_TYPE", "MY_MORSE_KEY_TYPE"].includes(name)) valid = adxMorseKeyValues.has(value.toUpperCase());
   else if (name === "PROP_MODE") valid = adxPropagationModeValues.has(value.toUpperCase());
@@ -538,7 +543,7 @@ function adxToADI(text: string, fieldMetadata?: (ADIFFieldMetadata | null)[]): s
     if (!/^[A-Z0-9_]+$/.test(name) || ["EOH", "EOR", "ADX", "HEADER", "RECORDS", "RECORD", "APP", "USERDEF"].includes(name)) fail();
     const value = element.textContent ?? "";
     if (header) validateADXHeaderValue(name, value);
-    else validateADXValue(name, value);
+    else validateADXValue(name, value, "import");
     return [name, value];
   }
   if (root.localName !== "ADX") fail();

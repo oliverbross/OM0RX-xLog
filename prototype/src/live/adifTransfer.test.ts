@@ -78,6 +78,45 @@ it.each(["<?xml version='1.0'?><ADX/>", "<ADX/>"])("rejects incomplete ADX %s", 
 const decode = (text: string) => decodeADIF(new TextEncoder().encode(text).buffer);
 const adx = (fields: string, header = "<ADIF_VER>3.1.7</ADIF_VER>") => `<ADX><HEADER>${header}</HEADER><RECORDS><RECORD>${fields}</RECORD></RECORDS></ADX>`;
 
+it.each(["C4FM", "DSTAR", "c4fm", "dstar"])("imports raw deprecated ADX MODE %s without rewriting fields or metadata", mode => {
+  const source = adx(`<CALL>W1AW</CALL><QSO_DATE>20261016</QSO_DATE><TIME_ON>123456</TIME_ON>` +
+    `<BAND>2m</BAND><MODE>${mode}</MODE><FREQ>145.500000</FREQ><BAND_RX>70cm</BAND_RX><FREQ_RX>433.500000</FREQ_RX>` +
+    '<COMMENT_INTL>Žilina 😀</COMMENT_INTL><USERDEF FIELDNAME="Mixed_Custom">未知</USERDEF>' +
+    '<APP PROGRAMID="Mixed_App" FIELDNAME="Opaque_Name" TYPE="g">é &lt;EOR&gt;</APP>',
+  '<ADIF_VER>3.1.8</ADIF_VER><USERDEF FIELDID="17" TYPE="g">Mixed_Custom</USERDEF>');
+  const imported = decodeADIFDocument(new TextEncoder().encode(source).buffer);
+  const expected = adiRecord({ CALL: "W1AW", QSO_DATE: "20261016", TIME_ON: "123456", BAND: "2m", MODE: mode,
+    FREQ: "145.500000", BAND_RX: "70cm", FREQ_RX: "433.500000", COMMENT_INTL: "Žilina 😀",
+    MIXED_CUSTOM: "未知", APP_MIXED_APP_OPAQUE_NAME: "é <EOR>" });
+  expect(imported.text).toBe(expected);
+  expect(imported.text).not.toContain("<SUBMODE:");
+  expect(imported.fieldMetadata).toEqual([{ version: 1, extensions: {
+    MIXED_CUSTOM: { kind: "USERDEF", attributes: { FIELDNAME: "Mixed_Custom" }, declaration: { FIELDID: "17", TYPE: "g" } },
+    APP_MIXED_APP_OPAQUE_NAME: { kind: "APP", attributes: { PROGRAMID: "Mixed_App", FIELDNAME: "Opaque_Name", TYPE: "g" } },
+  } }]);
+  expect(adifImportBatches(imported)).toEqual([{ text: expected, fieldMetadata: imported.fieldMetadata }]);
+  expect(decodeADIFDocument(new TextEncoder().encode(source).buffer)).toEqual(imported);
+  // Only native QSO export may canonicalize these imported fields.
+  const writer = new ADIFExportDocument("adx");
+  expect(() => writer.append(imported.text, 1, imported.fieldMetadata)).toThrow("Field MODE has an invalid ADX typed value");
+  expect(imported.text).toBe(expected);
+});
+
+it.each(["C4FM", "DSTAR", "c4fm", "dstar"].flatMap(mode => ["C4FM", "DSTAR", "FutureVoice"].map(submode => ({ mode, submode }))))(
+  "preserves explicit raw ADX MODE $mode / SUBMODE $submode on import", ({ mode, submode }) => {
+    const imported = decode(adx(`<MODE>${mode}</MODE><SUBMODE>${submode}</SUBMODE>`));
+    expect(imported).toBe(adiRecord({ MODE: mode, SUBMODE: submode }));
+  });
+
+it.each(["C4FM ", " DSTAR", "C4FM\n", "DSTAR\t", "C4FM2", "D-STAR", "FutureVoice", ""])(
+  "keeps strict raw ADX MODE validation for invalid value %s", mode => {
+    expect(() => decode(adx(`<MODE>${mode}</MODE>`))).toThrow("Field MODE has an invalid ADX typed value");
+  });
+
+it.each(["C4FM", "DSTAR"])("still rejects repeated raw ADX MODE fields with deprecated %s", mode => {
+  expect(() => decode(adx(`<MODE>${mode}</MODE><MODE>DIGITALVOICE</MODE>`))).toThrow("ADX repeats field MODE");
+});
+
 it.each(["C4FM", "DSTAR", "c4fm", "dstar"])("retains native normalized digital voice %s output through ADI and ADX", submode => {
   // ADIF 3.1.8 Mode Enumeration requires import-only MODE C4FM/DSTAR
   // to export as DIGITALVOICE with the original mode in SUBMODE.
