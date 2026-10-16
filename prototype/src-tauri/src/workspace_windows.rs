@@ -9,7 +9,8 @@ pub struct WindowSpec {
     pub width: f64,
     pub height: f64,
 }
-pub const SUPPORTED_WINDOWS: [WindowSpec; 19] = [
+pub const SUPPORTED_WINDOWS: [WindowSpec; 20] = [
+    WindowSpec { id: "previous-qsos", title: "OM0RX-xLog — Previous QSOs", width: 860.0, height: 600.0 },
     WindowSpec { id: "callsign-intelligence", title: "OM0RX-xLog — Callsign Intelligence", width: 700.0, height: 620.0 },
     WindowSpec { id: "log-qso", title: "OM0RX-xLog — Log QSO", width: 800.0, height: 800.0 },
     WindowSpec { id: "spot-history", title: "OM0RX-xLog — Spot History", width: 1180.0, height: 800.0 },
@@ -228,7 +229,7 @@ mod tests {
     #[test]
     fn registry_covers_only_real_windows() {
         let ids: BTreeSet<_> = SUPPORTED_WINDOWS.iter().map(|window| window.id).collect();
-        assert_eq!(ids.len(), 19);
+        assert_eq!(ids.len(), 20);
         let capabilities: Value = serde_json::from_str(include_str!("../capabilities/default.json")).unwrap();
         for id in &ids { assert!(capabilities["windows"].as_array().unwrap().contains(&json!(id))); }
         for window in SUPPORTED_WINDOWS { assert!(supports(window.id)); assert!(window.width >= 640.0 && window.height >= 480.0); }

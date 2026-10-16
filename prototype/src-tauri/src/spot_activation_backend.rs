@@ -349,7 +349,7 @@ impl Backend for NativeBackend {
         for label in self.app.webview_windows().into_keys() {
             let _ = self.app.emit_to(&label, "xlog:spot-activation", ());
             let _ = self.app.emit_to(&label, "xlog:auto-rotor", ());
-            if crate::spot_editor_barrier::editor_role(&label) || label == "callsign-intelligence" {
+            if crate::spot_editor_barrier::editor_role(&label) || matches!(label.as_str(), "callsign-intelligence" | "previous-qsos") {
                 let _ = self.app.emit_to(&label, "xlog:operator-draft-changed", ());
             }
         }

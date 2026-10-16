@@ -61,6 +61,10 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
         return if label == "main" || label == "band-maps" && request["params"]["scope"] == "detached" { Ok(()) }
         else { Err("This window cannot change band-map preferences.".into()) };
     }
+    if label == "previous-qsos" {
+        return if matches!(request["method"].as_str(), Some("logbook_operator_draft" | "cluster_history")) { Ok(()) }
+        else { Err("Previous QSOs can only read the shared draft and local contact history.".into()) };
+    }
     if label == "callsign-intelligence" {
         return if matches!(request["method"].as_str(), Some("logbook_operator_draft" | "lookup_call"
             | "logbook_previous" | "logbook_matrix" | "cluster_history" | "workspace_preferences_load")) { Ok(()) }
@@ -806,6 +810,15 @@ fn request_in_session(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn previous_qsos_can_only_read_canonical_draft_and_local_history() {
+        for method in ["logbook_operator_draft", "cluster_history"] {
+            assert!(super::validate_surface("previous-qsos", &serde_json::json!({"id":"test","method":method,"params":{}})).is_ok());
+        }
+        for method in ["settings_load", "logbook_list", "lookup_call", "cluster_start", "logbook_operator_draft_apply", "station_tune"] {
+            assert!(super::validate_surface("previous-qsos", &serde_json::json!({"id":"test","method":method,"params":{}})).is_err());
+        }
+    }
     #[test]
     fn native_activation_journal_never_crosses_renderer_surfaces() {
         for method in ["spot_draft_apply","spot_draft_status","spot_draft_stage","spot_draft_finish","spot_draft_abandon"] {

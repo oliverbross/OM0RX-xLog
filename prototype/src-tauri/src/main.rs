@@ -988,7 +988,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
         return Err("Use the shared CW session for CW output controls.".into());
     }
     // This explicit role gate precedes every native special dispatcher too.
-    if matches!(workspace_windows::surface_role(window.label()), "monitor" | "log-qso" | "spot-history" | "world-map" | "band-maps" | "callsign-intelligence" | "station-control" | "cw" | "rotor" | "station-status" | "propagation" | "station-identity" | "alerts" | "antenna") { worker::validate_surface(window.label(), &request)?; }
+    if matches!(workspace_windows::surface_role(window.label()), "monitor" | "log-qso" | "spot-history" | "world-map" | "band-maps" | "callsign-intelligence" | "previous-qsos" | "station-control" | "cw" | "rotor" | "station-status" | "propagation" | "station-identity" | "alerts" | "antenna") { worker::validate_surface(window.label(), &request)?; }
     if state.path.is_none() && matches!(method, "opportunities_snapshot" | "opportunities_refresh") {
         worker::validate_surface(window.label(), &request)?;
         return tauri::async_runtime::spawn_blocking(move || opportunity_selection::snapshot(request)).await
@@ -1079,7 +1079,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     if draft_wake.confirmed(result.as_ref().ok()) {
         // No draft/contact payload is broadcast. Each editor reloads canonical
         // state through its scoped IPC and retains its own unresolved journal.
-        for label in ["main", "log-qso", "callsign-intelligence", "monitor"] { let _ = app.emit_to(label, OPERATOR_DRAFT_CHANGED, ()); }
+        for label in ["main", "log-qso", "callsign-intelligence", "previous-qsos", "monitor"] { let _ = app.emit_to(label, OPERATOR_DRAFT_CHANGED, ()); }
         if state.path.is_none() {
             auto_rotor_reconcile::request(&app);
         }
@@ -1088,7 +1088,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
         // The initiating view already refreshes after its operation. In
         // particular, ADIF batches must not reload that view after every chunk.
         // The native sync monitor separately wakes all readers on completion.
-        for label in ["main", "settings", "log-qso", "logbook", "awards", "callsign-intelligence"] {
+        for label in ["main", "settings", "log-qso", "logbook", "awards", "callsign-intelligence", "previous-qsos"] {
             if label != window.label() { let _ = app.emit_to(label, "xlog:logbook-changed", ()); }
         }
     }
@@ -1288,12 +1288,12 @@ async fn dock_detached_window(window: tauri::WebviewWindow, app: tauri::AppHandl
 }
 
 fn local_history_reader(label: &str, method: &str) -> bool {
-    method == "cluster_history" && matches!(label, "main" | "logbook" | "log-qso" | "callsign-intelligence")
+    method == "cluster_history" && matches!(label, "main" | "logbook" | "log-qso" | "callsign-intelligence" | "previous-qsos")
 }
 
 fn detached_dock_screen(label: &str) -> Result<&str, String> {
     match label {
-        "callsign-intelligence" | "cw" | "rotor" | "station-status" | "propagation" | "station-identity" | "alerts" | "antenna" => Ok("operator-desk"),
+        "callsign-intelligence" | "previous-qsos" | "cw" | "rotor" | "station-status" | "propagation" | "station-identity" | "alerts" | "antenna" => Ok("operator-desk"),
         "dx-cluster" | "world-map" | "band-maps" | "log-qso" | "spot-history" | "logbook" | "awards" | "settings" | "station-control" => Ok(label),
         _ => Err("Only detachable workspaces can dock back".into()),
     }
@@ -1896,7 +1896,7 @@ mod intelligence_window_tests {
     fn intelligence_history_exemption_is_local_and_method_specific() {
         // The Operator Desk lives in `main`; its history must use the local
         // logbook even when the live cluster session is unavailable or busy.
-        for label in ["main", "callsign-intelligence", "logbook", "log-qso"] {
+        for label in ["main", "callsign-intelligence", "previous-qsos", "logbook", "log-qso"] {
             assert!(super::local_history_reader(label, "cluster_history"));
             for method in ["cluster_snapshot", "cluster_connect", "cluster_disconnect", "cluster_command", "lookup_call"] {
                 assert!(!super::local_history_reader(label, method));
@@ -1908,6 +1908,7 @@ mod intelligence_window_tests {
     }
     #[test]
     fn intelligence_docks_to_the_existing_desk_without_a_new_main_screen() {
+        assert_eq!(super::detached_dock_screen("previous-qsos").unwrap(), "operator-desk");
         let screen = super::detached_dock_screen("callsign-intelligence").unwrap();
         assert_eq!(screen, "operator-desk"); assert!(crate::workspace_navigation::screen(screen).is_some());
         for label in ["log-qso", "logbook", "awards", "spot-history", "world-map", "band-maps", "dx-cluster", "settings", "station-control"] {

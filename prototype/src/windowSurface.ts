@@ -4,6 +4,7 @@ import type { ComponentType } from "react";
  * station controller as an intermediate screen or as a failed-child fallback. */
 export async function loadWindowSurface(search: string): Promise<ComponentType> {
   const view = new URLSearchParams(search).get("view");
+  if (view === "previous-qsos") return (await import("./live/DetachedPreviousQSOsSurface")).DetachedPreviousQSOsSurface;
   if (view === "antenna") return (await import("./live/DetachedAntennaSurface")).DetachedAntennaSurface;
   if (view === "alerts") return (await import("./live/DetachedAlertsSurface")).DetachedAlertsSurface;
   if (view === "station-identity") return (await import("./live/DetachedStationIdentitySurface")).DetachedStationIdentitySurface;

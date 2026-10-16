@@ -96,7 +96,7 @@ pub fn start(app: &tauri::AppHandle) -> Result<(), String> {
             for label in ["world-map", "band-maps", "monitor"] { let _ = app.emit_to(label, "xlog:map-context", ()); }
             // Wake only; recipients reconcile via their existing scoped reads.
             // No contact, settings, summary or credentials cross this event.
-            for label in ["main", "log-qso", "logbook", "awards", "callsign-intelligence"] {
+            for label in ["main", "log-qso", "logbook", "awards", "callsign-intelligence", "previous-qsos"] {
                 let _ = app.emit_to(label, "xlog:logbook-changed", ());
             }
         }), Duration::from_secs(5)).observing(Arc::new(move || {
