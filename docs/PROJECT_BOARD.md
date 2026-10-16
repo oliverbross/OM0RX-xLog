@@ -25,7 +25,9 @@ whole-record filtering and FT4/FT2/JTTY MFSK-submode export now have focused fix
 submodes while preserving local contacts, unknown fields and canonical duplicate identity.
 `c845cc8` admits the raw deprecated values only on ADX import while raw export remains
 canonical-only; the focused frontend file passes **1,122/1,122**. Swift ADIF **18/18** and
-frontend ADIF **1,096/1,096** also pass. The exporter remains labeled
+frontend ADIF **1,096/1,096** also pass. `7e348d6` adds the same import-only handling for
+`PSK31` and exports it canonically as `MODE=PSK`/`SUBMODE=PSK31`; Swift ADIF **18/18**,
+frontend ADIF **1,138/1,138** and TypeScript pass. The exporter remains labeled
 3.1.7 until the full 3.1.8 enum/deprecation audit passes.
 Package/real-log acceptance and any optional record correction remain open.
 
@@ -97,7 +99,11 @@ so that identity remains unavailable instead of being inferred. `b6bf7c1` separa
 the server-global `TX_FREQUENCY:hz;` report with producer receipt time but no TRX/channel/VFO
 association, configured-evidence refresh or control authority. Focused split Swift **43/43**,
 frontend **41/41**, and global TX protocol/session Swift **35/35** pass. The pinned spot
-add/delete/clear commands are client-only, so received spot inventory remains unavailable.
+ add/delete/clear commands are client-only, so received spot inventory remains unavailable.
+ `259b05d` separately retains the latest server-only `RX_CLICKED_ON_SPOT` event with its own
+ producer receipt and exact TRX/channel/callsign/frequency. It never changes configured
+ freshness, VFO/mode, tuning confirmation, inventory or authority; focused TCI protocol/session
+ checks pass **40/40**.
 Transmit/PTT, split/TX-VFO controls,
 spots, audio/IQ, package/live-server and RF
 acceptance remain open; installed alpha.31 is unchanged. See the
@@ -105,6 +111,17 @@ acceptance remain open; installed alpha.31 is unchanged. See the
 [split](TCI_SPLIT_OBSERVATION_SOURCE_ACCEPTANCE_2026-10-16.md) and
 [global TX observation](TCI_TRANSMIT_FREQUENCY_OBSERVATION_SOURCE_ACCEPTANCE_2026-10-16.md)
 source acceptances.
+
+R07 now has a bounded read-only core projection in `92cf23f`. Canonical QRZ/Club Log receipts
+and contact snapshots expose upload state, revision currency and attempt age without inventing
+provider acceptance or match time. Retained paper/LoTW/eQSL confirmation evidence remains
+separate from sponsor credit; deleted contacts are excluded from award impact. Focused Swift
+checks pass **5/5**. Worker/UI exposure, provider timestamps, sponsor-rule evaluation and live
+account acceptance remain open.
+
+`1e4a85f` also makes the HTML/document title match the existing native product and visible
+brand: **OM0RX-xLog**. Production build and all **21/21** window graph/CSS/budget checks pass;
+installed alpha.31 is unchanged.
 
 Arbitrary ADIF contact editing is source complete. Existing Logbook contact/mutation
 sessions now round-trip modeled and retained unknown/custom fields through pointer and

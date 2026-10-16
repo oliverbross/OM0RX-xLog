@@ -38,7 +38,9 @@ packaged UI result. Keep unresolved items here across releases.
   duplicate identity remain unchanged. Swift ADIF **18/18**, frontend **1,096/1,096**,
   TypeScript and diff checks pass. `c845cc8` accepts raw C4FM/DSTAR only during ADX
   import, preserves original values/metadata/identity and keeps raw deprecated export
-  rejected; the focused frontend file passes **1,122/1,122**. The rest of the audit remains open.
+  rejected; the focused frontend file passes **1,122/1,122**. `7e348d6` adds import-only
+  `PSK31` and canonical `MODE=PSK`/`SUBMODE=PSK31` export; Swift ADIF **18/18**, frontend
+  ADIF **1,138/1,138**, TypeScript and diff checks pass. The rest of the audit remains open.
 
 - **Independent Previous QSOs window, 16 October — source and synthetic visual stage:**
   `1a0e734` routes a native Window-menu surface through the existing canonical draft and
@@ -112,9 +114,24 @@ packaged UI result. Keep unresolved items here across releases.
   authority; focused protocol/session Swift checks pass **35/35**. Client-only spot commands
   do not establish received spot inventory; see
   [global TX source acceptance](TCI_TRANSMIT_FREQUENCY_OBSERVATION_SOURCE_ACCEPTANCE_2026-10-16.md).
-  No PTT, carrier Tune, radio CW or amplifier control is exposed; transmit/PTT, split/TX-VFO,
-  spots, audio/IQ, package/live-server and RF proof remain open. QLog was a behavior
+  `259b05d` retains the latest server-only `RX_CLICKED_ON_SPOT` event separately with exact
+  TRX/channel/callsign/frequency and producer receipt. It never changes VFO/mode, configured
+  freshness, tuning confirmation, spot inventory or authority; focused Swift checks pass
+  **40/40**. No PTT, carrier Tune, radio CW or amplifier control is exposed; transmit/PTT,
+  split/TX-VFO, outbound spot management, audio/IQ, package/live-server and RF proof remain open. QLog was a behavior
   reference only, no implementation code was copied, and installed alpha.31 is unchanged.
+
+- **Online-log follow-up evidence, 16 October — bounded core projection:** `92cf23f`
+  separates QRZ/Club Log upload state and attempt age from retained paper/LoTW/eQSL
+  confirmations and sponsor credit. Historical contact revisions stay historical; future
+  clocks, provider acceptance/match age and sponsor credit remain explicitly unknown. Deleted
+  contacts are excluded from award impact. Swift **5/5** passes; route/UI, provider timestamps,
+  sponsor rules and live-account acceptance remain open.
+
+- **Product title consistency, 16 October — source complete:** `1e4a85f` removes the stale
+  `Integrated Station` document title so the native product, main window, browser title and
+  visible brand all say **OM0RX-xLog**. Production build and **21/21** detached-window checks pass;
+  installed alpha.31 is unchanged.
 
 - **Arbitrary ADIF contact editing, 16 October — source complete:** Logbook pointer and
   Enter activation use the existing revision-fenced editor and safe delete/undo owner.

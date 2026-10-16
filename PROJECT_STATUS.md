@@ -11,6 +11,10 @@ The confirmed PJ/DXCC defect is fixed in `799d9c5`: the resolver no longer route
 `PJ*` callsign to Bangladesh and now honors source prefixes, validity dates and explicit
 stored DXCC values. Focused resolver/runtime checks pass **3/3**; no QSO was rewritten.
 
+`1e4a85f` removes the stale `Integrated Station` browser/document title; the native product,
+main window and visible brand now consistently say **OM0RX-xLog**. The production build and
+all **21/21** detached-window graph/CSS/budget checks pass. Installed alpha.31 is unchanged.
+
 `54b4c84a15ddb094b9c59e58231571554d082569` adds the read-only **PJ country preview**
 to Logbook. It compares the former shortcut with current local CTY rules/QSO dates,
 protects every stored DXCC override and exposes bounded pages without a correction route.
@@ -41,9 +45,12 @@ bounded deprecation fix: import-only `C4FM` and `DSTAR` now export as
 `MODE=DIGITALVOICE` plus the required `SUBMODE` without mutating local contacts,
 dropping unknown fields or changing duplicate/update identity. Swift ADIF **18/18**,
 frontend ADIF **1,096/1,096**, TypeScript and diff checks pass. `c845cc8` adds
-direction-aware raw ADX import acceptance for C4FM/DSTAR while keeping raw deprecated
+ direction-aware raw ADX import acceptance for C4FM/DSTAR while keeping raw deprecated
 export rejected and preserving lexical values, explicit SUBMODE, arbitrary metadata and
-duplicate identity; the focused frontend file passes **1,122/1,122**. The remaining
+ duplicate identity; the focused frontend file passes **1,122/1,122**. `7e348d6` extends the
+ same official 3.1.8 deprecation rule to import-only `PSK31`: raw ADX import accepts and
+ preserves it, while native export emits `MODE=PSK` plus `SUBMODE=PSK31`. Swift ADIF
+ **18/18**, frontend ADIF **1,138/1,138**, TypeScript and diff checks pass. The remaining
 enum/deprecation audit, installed/package and real-log acceptance remain open. See
 [digital-voice source acceptance](docs/ADIF_DIGITAL_VOICE_DEPRECATION_SOURCE_ACCEPTANCE_2026-10-16.md).
 
@@ -141,7 +148,7 @@ explicitly clears them. Focused Swift **12/12**, sync-identity **25/25**, fronte
 **72/72**, TypeScript and diff checks pass after independent review. Package/manual
 macOS interaction and copied real-log acceptance remain open.
 
-## Native TCI radio provider — receive tuning/filter/split and global TX observation source complete; broader control open
+## Native TCI radio provider — receive tuning/filter and passive telemetry stages complete; broader control open
 
 Full TCI support for SunSDR/ExpertSDR and compatible servers is now an explicit product
 programme. The current source stage provides a bounded Swift protocol/reducer, receive-only
@@ -178,9 +185,24 @@ never refreshes configured evidence and grants no transmit authority; focused Sw
 protocol/session checks pass **35/35**. The same audit confirms that the pinned spot
 add/delete/clear commands are client-only, so received spot inventory remains unavailable.
 See [global transmit-frequency source acceptance](docs/TCI_TRANSMIT_FREQUENCY_OBSERVATION_SOURCE_ACCEPTANCE_2026-10-16.md).
-Transmit/PTT, split/TX-VFO controls, spots, audio/IQ, package/live-server and RF acceptance
+`259b05d` additionally retains the latest server-only `RX_CLICKED_ON_SPOT` event with exact
+TRX/channel, callsign, frequency and producer receipt time. It is deliberately separate from
+the receive VFO, configured freshness, tuning confirmation and spot inventory; malformed input
+cannot replace earlier evidence, reconnect clears it and no outbound command is sent. Focused
+protocol/session Swift checks pass **40/40**. Transmit/PTT, split/TX-VFO controls, outbound spot
+management, audio/IQ, package/live-server and RF acceptance
 remain open. QLog is a behavior reference only; no third-party code, credentials, device or
 operator data was copied. Installed alpha.31 remains unchanged.
+
+## Online-log follow-up evidence — core projection source complete; route/UI open
+
+`92cf23f` adds a read-only R07 projection over canonical contact snapshots and retained QRZ/
+Club Log delivery receipts. It keeps upload state, current-versus-historical contact revision,
+attempt age, retained paper/LoTW/eQSL confirmation fields and award impact separate. Because
+the current receipts do not contain provider acceptance or match timestamps, those ages remain
+explicitly unknown; delivery never creates confirmation or sponsor credit, and deleted contacts
+are excluded from award impact. Focused Swift checks pass **5/5**. Worker routing, operator UI,
+provider acceptance/match timestamps, sponsor rules and live-account acceptance remain open.
 
 ## Shared durable Agent amplifier owner — source complete; package/hardware acceptance open
 
