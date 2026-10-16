@@ -150,6 +150,8 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
     public let serverMonitorEnable: TCIServerMonitorEnableObservation?
     /// Independent receiver AGC settings; never gain, audio or control evidence.
     public let receiverAGCModes: [Int: TCIReceiverAGCModeObservation]
+    /// Independent raw receiver AGC gain settings; never mode/effect or authority.
+    public let receiverAGCGains: [Int: TCIReceiverAGCGainObservation]
 
     public init(
         sequence: UInt64,
@@ -177,7 +179,8 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
         receiverChannelBalances: [TCIReceiverAddress: TCIReceiverChannelBalanceObservation] = [:],
         serverMonitorVolume: TCIServerMonitorVolumeObservation? = nil,
         serverMonitorEnable: TCIServerMonitorEnableObservation? = nil,
-        receiverAGCModes: [Int: TCIReceiverAGCModeObservation] = [:]
+        receiverAGCModes: [Int: TCIReceiverAGCModeObservation] = [:],
+        receiverAGCGains: [Int: TCIReceiverAGCGainObservation] = [:]
     ) {
         self.sequence = sequence
         self.generation = generation
@@ -205,6 +208,7 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
         self.serverMonitorVolume = serverMonitorVolume
         self.serverMonitorEnable = serverMonitorEnable
         self.receiverAGCModes = receiverAGCModes
+        self.receiverAGCGains = receiverAGCGains
     }
 }
 
@@ -660,7 +664,8 @@ public actor TCIReadOnlyWebSocketSession {
             receiverChannelBalances: reducer.state.receiverChannelBalances,
             serverMonitorVolume: reducer.state.serverMonitorVolume,
             serverMonitorEnable: reducer.state.serverMonitorEnable,
-            receiverAGCModes: reducer.state.receiverAGCModes
+            receiverAGCModes: reducer.state.receiverAGCModes,
+            receiverAGCGains: reducer.state.receiverAGCGains
         )
         for continuation in continuations.values {
             continuation.yield(observationValue)

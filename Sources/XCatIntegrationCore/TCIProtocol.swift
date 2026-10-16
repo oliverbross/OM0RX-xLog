@@ -786,6 +786,15 @@ public struct TCIReceiverAGCModeObservation: Equatable, Sendable {
     public let receivedAt: Date?
 }
 
+/// Passive receiver AGC_GAIN reply/broadcast (pinned TCI b081213f, page 24).
+/// Raw dB setting within [-20, 120], not AGC mode/enabled state, measured gain,
+/// signal quality, audio, readiness, control authority or tune/TX/RF evidence.
+public struct TCIReceiverAGCGainObservation: Equatable, Sendable {
+    public let rawDB: String
+    /// Local producer receipt time; nil means no timed receipt was supplied.
+    public let receivedAt: Date?
+}
+
 public struct TCIProtocolState: Equatable, Sendable {
     public internal(set) var protocolAnnouncement: TCIProtocolAnnouncement?
     public internal(set) var device: String?
@@ -816,6 +825,7 @@ public struct TCIProtocolState: Equatable, Sendable {
     public internal(set) var serverMonitorVolume: TCIServerMonitorVolumeObservation?
     public internal(set) var serverMonitorEnable: TCIServerMonitorEnableObservation?
     public internal(set) var receiverAGCModes: [Int: TCIReceiverAGCModeObservation] = [:]
+    public internal(set) var receiverAGCGains: [Int: TCIReceiverAGCGainObservation] = [:]
     public internal(set) var transceivers: [Int: TCITransceiverState] = [:]
     public internal(set) var unknownCommands: [TCICommand] = []
     public internal(set) var diagnostics: [TCIDiagnostic] = []
@@ -880,6 +890,7 @@ public struct TCIStateReducer: Sendable {
         case "MON_VOLUME": applyMonitorVolume(command, receivedAt: receivedAt)
         case "MON_ENABLE": applyMonitorEnable(command, receivedAt: receivedAt)
         case "AGC_MODE": applyAGCMode(command, receivedAt: receivedAt)
+        case "AGC_GAIN": applyAGCGain(command, receivedAt: receivedAt)
         case "MODULATION": applyModulation(command)
         case "RX_FILTER_BAND": applyFilter(command)
         case "SPLIT_ENABLE": applyBooleanState(command, keyPath: \.splitEnabled)
@@ -1030,6 +1041,14 @@ public struct TCIStateReducer: Sendable {
         state.serverTransmitFrequency = TCIServerTransmitFrequencyObservation(
             frequencyHz: frequency, receivedAt: receivedAt
         )
+    }
+
+    private mutating func applyAGCGain(_ command: TCICommand, receivedAt: Date?) {
+        guard command.arguments.count == 2,
+              let trx = validTRX(command.arguments[0]),
+              let rawDB = decimalDBToken(command.arguments[1], in: -20...120)
+        else { return reject(command) }
+        state.receiverAGCGains[trx] = TCIReceiverAGCGainObservation(rawDB: rawDB, receivedAt: receivedAt)
     }
 
     private mutating func applyAGCMode(_ command: TCICommand, receivedAt: Date?) {
@@ -1295,6 +1314,7 @@ public struct TCIStateReducer: Sendable {
             state.transmitSensors = state.transmitSensors.filter { $0.key < trxCount }
             state.receiverMutes = state.receiverMutes.filter { $0.key < trxCount }
             state.receiverAGCModes = state.receiverAGCModes.filter { $0.key < trxCount }
+            state.receiverAGCGains = state.receiverAGCGains.filter { $0.key < trxCount }
             state.receiverChannelVolumes = state.receiverChannelVolumes.filter { $0.key.trx < trxCount }
             state.receiverChannelBalances = state.receiverChannelBalances.filter { $0.key.trx < trxCount }
         }

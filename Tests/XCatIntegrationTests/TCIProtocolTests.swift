@@ -7,6 +7,73 @@ import XCTest
 final class TCIProtocolTests: XCTestCase {
     private let address = TCIReceiverAddress(trx: 0, channel: 0)
 
+    func testAGCGainRetainsExactReceiverRawDBAndCompletedNotificationReceiptOnly() {
+        var decoder = TCITextDecoder(), reducer = TCIStateReducer()
+        let first = Date(timeIntervalSince1970: 100), completed = first.addingTimeInterval(5)
+        reducer.apply(decoder.feed("agc_gain:1,+00087."), receivedAt: first)
+        XCTAssertTrue(reducer.state.receiverAGCGains.isEmpty)
+        reducer.apply(decoder.feed("500;"), receivedAt: completed)
+        XCTAssertEqual(reducer.state.receiverAGCGains[1]?.rawDB, "+00087.500")
+        XCTAssertEqual(reducer.state.receiverAGCGains[1]?.receivedAt, completed)
+        XCTAssertNil(reducer.state.receiverAGCGains[0])
+        XCTAssertTrue(reducer.state.receiverAGCModes.isEmpty)
+        XCTAssertTrue(reducer.state.transceivers.isEmpty)
+        XCTAssertTrue(reducer.state.frequencies.isEmpty)
+        XCTAssertTrue(reducer.state.unknownCommands.isEmpty)
+        XCTAssertFalse(reducer.state.ready)
+        XCTAssertNil(reducer.authoritativeSnapshot(for: address))
+    }
+
+    func testAGCGainRejectsQueryChannelIndexedMalformedAndExactOutOfRangeDecimalValues() {
+        var reducer = TCIStateReducer(limits: .init(maximumArgumentBytes: 32, maximumTRXCount: 2))
+        XCTAssertTrue(reducer.apply(TCICommand(name: "AGC_GAIN", arguments: ["0", "87"])))
+        let retained = reducer.state.receiverAGCGains
+        for arguments in [[], ["0"], ["0", "1", "87"], ["-1", "87"], ["2", "87"], ["0.0", "87"],
+                          ["0", ""], ["0", "NaN"], ["0", "Infinity"], ["0", "1e2"], ["0", ".5"], ["0", "87."],
+                          ["0", "−12"], ["0", "１２"], ["0", "-21"], ["0", "121"],
+                          ["0", "-20.00000000000000000000001"], ["0", "+120.00000000000000000000001"],
+                          ["0", String(repeating: "0", count: 33)]] {
+            XCTAssertFalse(reducer.apply(TCICommand(name: "AGC_GAIN", arguments: arguments)), "\(arguments)")
+            XCTAssertEqual(reducer.state.receiverAGCGains, retained)
+        }
+        for token in ["-020.000", "+00120.000", "-19.999999999999999999", "+119.999999999999999999", "-0.000", "+000.000", "87.50"] {
+            XCTAssertTrue(reducer.apply(TCICommand(name: "AGC_GAIN", arguments: ["0", token])), token)
+            XCTAssertEqual(reducer.state.receiverAGCGains[0]?.rawDB, token)
+        }
+    }
+
+    func testAGCGainReceiptsAreIndependentOfReceiversAGCModeAndRadioStateAndReset() {
+        var decoder = TCITextDecoder(), reducer = TCIStateReducer()
+        let first = Date(timeIntervalSince1970: 100), second = first.addingTimeInterval(10)
+        reducer.apply(decoder.feed("AGC_GAIN:0,87;AGC_MODE:0,off;MODULATION:0,CW;RX_ENABLE:0,true;TRX:0,false;TUNE:0,false;VFO:0,0,14025000;"), receivedAt: first)
+        let modes = reducer.state.receiverAGCModes, radios = reducer.state.transceivers, frequencies = reducer.state.frequencies
+        reducer.apply(decoder.feed("AGC_GAIN:1,-20;MON_ENABLE:true;"), receivedAt: second)
+        XCTAssertEqual(reducer.state.receiverAGCGains[0]?.receivedAt, first)
+        reducer.apply(decoder.feed("AGC_GAIN:0,87;"), receivedAt: second)
+        XCTAssertEqual(reducer.state.receiverAGCGains[0]?.receivedAt, second)
+        reducer.apply(decoder.feed("AGC_GAIN:0,+120;"))
+        XCTAssertEqual(reducer.state.receiverAGCGains[0]?.rawDB, "+120")
+        XCTAssertNil(reducer.state.receiverAGCGains[0]?.receivedAt)
+        XCTAssertEqual(reducer.state.receiverAGCGains[1]?.receivedAt, second)
+        XCTAssertEqual(reducer.state.receiverAGCModes, modes)
+        XCTAssertEqual(reducer.state.transceivers, radios)
+        XCTAssertEqual(reducer.state.frequencies, frequencies)
+        reducer = TCIStateReducer()
+        XCTAssertTrue(reducer.state.receiverAGCGains.isEmpty)
+    }
+
+    func testAGCGainUsesDiscoveredReceiverBoundsWithoutInventingChannelScope() {
+        var decoder = TCITextDecoder(), reducer = TCIStateReducer()
+        reducer.apply(decoder.feed("AGC_GAIN:0,87;AGC_GAIN:1,-20;"))
+        XCTAssertEqual(reducer.state.receiverAGCGains.count, 2)
+        reducer.apply(decoder.feed("CHANNEL_COUNT:1;"))
+        XCTAssertEqual(reducer.state.receiverAGCGains.count, 2)
+        reducer.apply(decoder.feed("TRX_COUNT:1;"))
+        XCTAssertEqual(reducer.state.receiverAGCGains.count, 1)
+        XCTAssertNotNil(reducer.state.receiverAGCGains[0])
+        XCTAssertFalse(reducer.apply(TCICommand(name: "AGC_GAIN", arguments: ["1", "87"])))
+    }
+
     func testAGCModeRetainsExactReceiverOfficialModeRawTokenAndCompletedNotificationReceiptOnly() {
         var decoder = TCITextDecoder(), reducer = TCIStateReducer()
         let first = Date(timeIntervalSince1970: 100), completed = first.addingTimeInterval(5)
