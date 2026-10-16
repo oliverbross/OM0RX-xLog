@@ -709,6 +709,15 @@ public struct TCIServerMainMuteObservation: Equatable, Sendable {
     public let receivedAt: Date?
 }
 
+/// Passive RX_MUTE server reply/broadcast (pinned TCI b081213f, page 22).
+/// Applies to one receiver, not an individual channel or the global MUTE state.
+/// Neither value establishes readiness, audio/RF delivery or control authority.
+public struct TCIReceiverMuteObservation: Equatable, Sendable {
+    public let isMuted: Bool
+    /// Local producer receipt time; nil means no timed receipt was supplied.
+    public let receivedAt: Date?
+}
+
 public struct TCIProtocolState: Equatable, Sendable {
     public internal(set) var protocolAnnouncement: TCIProtocolAnnouncement?
     public internal(set) var device: String?
@@ -732,6 +741,7 @@ public struct TCIProtocolState: Equatable, Sendable {
     public internal(set) var legacyReceiveSensors: [Int: TCILegacyRXSensorsObservation] = [:]
     public internal(set) var transmitSensors: [Int: TCITXSensorsObservation] = [:]
     public internal(set) var serverMainMute: TCIServerMainMuteObservation?
+    public internal(set) var receiverMutes: [Int: TCIReceiverMuteObservation] = [:]
     public internal(set) var transceivers: [Int: TCITransceiverState] = [:]
     public internal(set) var unknownCommands: [TCICommand] = []
     public internal(set) var diagnostics: [TCIDiagnostic] = []
@@ -789,6 +799,7 @@ public struct TCIStateReducer: Sendable {
         case "RX_SENSORS": applyLegacyRXSensors(command, receivedAt: receivedAt)
         case "TX_SENSORS": applyTXSensors(command, receivedAt: receivedAt)
         case "MUTE": applyMainMute(command, receivedAt: receivedAt)
+        case "RX_MUTE": applyReceiverMute(command, receivedAt: receivedAt)
         case "MODULATION": applyModulation(command)
         case "RX_FILTER_BAND": applyFilter(command)
         case "SPLIT_ENABLE": applyBooleanState(command, keyPath: \.splitEnabled)
@@ -939,6 +950,14 @@ public struct TCIStateReducer: Sendable {
         state.serverTransmitFrequency = TCIServerTransmitFrequencyObservation(
             frequencyHz: frequency, receivedAt: receivedAt
         )
+    }
+
+    private mutating func applyReceiverMute(_ command: TCICommand, receivedAt: Date?) {
+        guard command.arguments.count == 2,
+              let trx = validTRX(command.arguments[0]),
+              let muted = TCIValueParser.boolean(command.arguments[1])
+        else { return reject(command) }
+        state.receiverMutes[trx] = TCIReceiverMuteObservation(isMuted: muted, receivedAt: receivedAt)
     }
 
     private mutating func applyMainMute(_ command: TCICommand, receivedAt: Date?) {
@@ -1121,6 +1140,7 @@ public struct TCIStateReducer: Sendable {
             state.receiveChannelSensors = state.receiveChannelSensors.filter { $0.key.trx < trxCount }
             state.legacyReceiveSensors = state.legacyReceiveSensors.filter { $0.key < trxCount }
             state.transmitSensors = state.transmitSensors.filter { $0.key < trxCount }
+            state.receiverMutes = state.receiverMutes.filter { $0.key < trxCount }
         }
         if let channelCount = state.channelCount {
             state.frequencies = state.frequencies.filter { $0.key.channel < channelCount }

@@ -7,6 +7,69 @@ import XCTest
 final class TCIProtocolTests: XCTestCase {
     private let address = TCIReceiverAddress(trx: 0, channel: 0)
 
+    func testReceiverMuteRetainsExactReceiverBooleanAndCompletedNotificationReceiptOnly() {
+        var decoder = TCITextDecoder(), reducer = TCIStateReducer()
+        let first = Date(timeIntervalSince1970: 100), completed = first.addingTimeInterval(5)
+        reducer.apply(decoder.feed("rx_mu"), receivedAt: first)
+        XCTAssertTrue(reducer.state.receiverMutes.isEmpty)
+        reducer.apply(decoder.feed("te:1,TrUe;"), receivedAt: completed)
+        XCTAssertEqual(reducer.state.receiverMutes[1]?.isMuted, true)
+        XCTAssertEqual(reducer.state.receiverMutes[1]?.receivedAt, completed)
+        XCTAssertNil(reducer.state.receiverMutes[0])
+        XCTAssertNil(reducer.state.serverMainMute)
+        XCTAssertTrue(reducer.state.transceivers.isEmpty)
+        XCTAssertTrue(reducer.state.frequencies.isEmpty)
+        XCTAssertTrue(reducer.state.unknownCommands.isEmpty)
+        XCTAssertFalse(reducer.state.ready)
+        XCTAssertNil(reducer.authoritativeSnapshot(for: address))
+    }
+
+    func testReceiverMuteRejectsQueriesChannelIndexedAndInvalidReceiverBooleanForms() {
+        var reducer = TCIStateReducer(limits: .init(maximumTRXCount: 2))
+        let receipt = Date(timeIntervalSince1970: 100)
+        XCTAssertTrue(reducer.apply(TCICommand(name: "RX_MUTE", arguments: ["0", "true"]), receivedAt: receipt))
+        let retained = reducer.state.receiverMutes
+        for arguments in [[], ["0"], ["true"], ["0", "0", "true"], ["-1", "true"], ["2", "true"],
+                          ["0.0", "true"], ["9223372036854775808", "true"], ["0", ""], ["0", "0"], ["0", "1"], ["0", "yes"]] {
+            XCTAssertFalse(reducer.apply(TCICommand(name: "RX_MUTE", arguments: arguments), receivedAt: receipt.addingTimeInterval(10)))
+            XCTAssertEqual(reducer.state.receiverMutes, retained)
+        }
+    }
+
+    func testReceiverMuteReceiptsRemainIndependentOfOtherReceiversGlobalMuteAndRadioState() {
+        var decoder = TCITextDecoder(), reducer = TCIStateReducer()
+        let first = Date(timeIntervalSince1970: 100), second = first.addingTimeInterval(10)
+        reducer.apply(decoder.feed("RX_MUTE:0,true;TRX:0,false;TUNE:0,false;VFO:0,0,14025000;"), receivedAt: first)
+        let radios = reducer.state.transceivers, frequencies = reducer.state.frequencies
+        reducer.apply(decoder.feed("MUTE:false;RX_MUTE:1,false;"), receivedAt: second)
+        XCTAssertEqual(reducer.state.receiverMutes[0]?.receivedAt, first)
+        XCTAssertEqual(reducer.state.receiverMutes[1]?.isMuted, false)
+        let global = reducer.state.serverMainMute
+        reducer.apply(decoder.feed("RX_MUTE:0,true;"), receivedAt: second)
+        XCTAssertEqual(reducer.state.receiverMutes[0]?.receivedAt, second)
+        reducer.apply(decoder.feed("RX_MUTE:0,false;"))
+        XCTAssertEqual(reducer.state.receiverMutes[0]?.isMuted, false)
+        XCTAssertNil(reducer.state.receiverMutes[0]?.receivedAt)
+        XCTAssertEqual(reducer.state.receiverMutes[1]?.receivedAt, second)
+        XCTAssertEqual(reducer.state.serverMainMute, global)
+        XCTAssertEqual(reducer.state.transceivers, radios)
+        XCTAssertEqual(reducer.state.frequencies, frequencies)
+        reducer = TCIStateReducer()
+        XCTAssertTrue(reducer.state.receiverMutes.isEmpty)
+    }
+
+    func testReceiverMuteUsesDiscoveredTRXBoundsAndDoesNotInventChannelScope() {
+        var decoder = TCITextDecoder(), reducer = TCIStateReducer()
+        reducer.apply(decoder.feed("RX_MUTE:0,true;RX_MUTE:1,false;"))
+        XCTAssertEqual(reducer.state.receiverMutes.count, 2)
+        reducer.apply(decoder.feed("CHANNEL_COUNT:1;"))
+        XCTAssertEqual(reducer.state.receiverMutes.count, 2)
+        reducer.apply(decoder.feed("TRX_COUNT:1;"))
+        XCTAssertEqual(reducer.state.receiverMutes.count, 1)
+        XCTAssertNotNil(reducer.state.receiverMutes[0])
+        XCTAssertFalse(reducer.apply(TCICommand(name: "RX_MUTE", arguments: ["1", "true"])))
+    }
+
     func testMainMuteRetainsGlobalBooleanAndCompletedNotificationReceiptWithoutRadioIdentity() {
         var decoder = TCITextDecoder(), reducer = TCIStateReducer()
         let first = Date(timeIntervalSince1970: 100), completed = first.addingTimeInterval(5)

@@ -136,6 +136,8 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
     public let transmitSensors: [Int: TCITXSensorsObservation]
     /// Independent global main-volume mute report; never configured/control evidence.
     public let serverMainMute: TCIServerMainMuteObservation?
+    /// Independent receiver-wide mute reports; never per-channel/control evidence.
+    public let receiverMutes: [Int: TCIReceiverMuteObservation]
 
     public init(
         sequence: UInt64,
@@ -156,7 +158,8 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
         receiveChannelSensors: [TCIReceiverAddress: TCIRXChannelSensorsObservation] = [:],
         legacyReceiveSensors: [Int: TCILegacyRXSensorsObservation] = [:],
         transmitSensors: [Int: TCITXSensorsObservation] = [:],
-        serverMainMute: TCIServerMainMuteObservation? = nil
+        serverMainMute: TCIServerMainMuteObservation? = nil,
+        receiverMutes: [Int: TCIReceiverMuteObservation] = [:]
     ) {
         self.sequence = sequence
         self.generation = generation
@@ -177,6 +180,7 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
         self.legacyReceiveSensors = legacyReceiveSensors
         self.transmitSensors = transmitSensors
         self.serverMainMute = serverMainMute
+        self.receiverMutes = receiverMutes
     }
 }
 
@@ -625,7 +629,8 @@ public actor TCIReadOnlyWebSocketSession {
             receiveChannelSensors: reducer.state.receiveChannelSensors,
             legacyReceiveSensors: reducer.state.legacyReceiveSensors,
             transmitSensors: reducer.state.transmitSensors,
-            serverMainMute: reducer.state.serverMainMute
+            serverMainMute: reducer.state.serverMainMute,
+            receiverMutes: reducer.state.receiverMutes
         )
         for continuation in continuations.values {
             continuation.yield(observationValue)
