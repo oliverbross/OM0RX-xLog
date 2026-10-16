@@ -26,6 +26,8 @@ struct Saved {
     hamlib: Option<Value>,
     #[serde(default)]
     flex: Option<Value>,
+    #[serde(default)]
+    tci: Option<Value>,
     receipts: Vec<Receipt>,
 }
 pub struct Session {
@@ -44,6 +46,7 @@ pub fn validate(label: &str, isolated: bool, action: &str) -> Result<(), String>
         "snapshot" | "receipt" | "hamlib_catalogue" | "save" | "connect" | "disconnect" | "forget" | "select"
             | "save_hamlib" | "connect_hamlib" | "reconnect_hamlib" | "disconnect_hamlib"
             | "save_flex" | "connect_flex" | "reconnect_flex" | "disconnect_flex"
+            | "save_tci" | "connect_tci" | "disconnect_tci"
             | "receive_frequency" | "receive_mode" | "manual_tune" | "review"
     ) {
         return Err("Unknown Station Control operation.".into());
@@ -88,7 +91,7 @@ fn endpoint(value: &str) -> Result<String, String> {
     }
     Ok(url.to_string().trim_end_matches('/').into())
 }
-fn is_save(action: &str) -> bool { matches!(action, "save" | "save_hamlib" | "save_flex") }
+fn is_save(action: &str) -> bool { matches!(action, "save" | "save_hamlib" | "save_flex" | "save_tci") }
 fn is_receive(action: &str) -> bool { matches!(action, "receive_frequency" | "receive_mode") }
 fn receive_params(value: &Value) -> Result<Value, String> {
     let action = value["action"].as_str().unwrap_or("");
@@ -140,6 +143,30 @@ fn flex_configuration(value: &Value) -> Result<Value, String> {
     }
     Ok(value.clone())
 }
+fn tci_configuration(value: &Value) -> Result<Value, String> {
+    let object = value.as_object().ok_or("Invalid TCI configuration.")?;
+    if object.len() != 3 || object.keys().any(|key| !["endpoint", "trx", "channel"].contains(&key.as_str())) {
+        return Err("Use only a credential-free TCI endpoint, TRX and channel.".into());
+    }
+    let endpoint = value["endpoint"].as_str().ok_or("Enter a TCI WebSocket endpoint.")?;
+    if endpoint.is_empty() || endpoint.len() > 2_048 {
+        return Err("TCI endpoint must be 1..2048 characters.".into());
+    }
+    let url = tauri::Url::parse(endpoint).map_err(|_| "Enter a valid TCI WebSocket URL.")?;
+    if !matches!(url.scheme(), "ws" | "wss")
+        || url.host_str().is_none()
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || url.query().is_some()
+        || url.fragment().is_some()
+        || url.port() == Some(0)
+    {
+        return Err("Use a ws/wss TCI endpoint without credentials, query or fragment.".into());
+    }
+    let trx = value["trx"].as_u64().filter(|number| *number < 16).ok_or("TCI TRX must be an integer from 0 to 15.")?;
+    let channel = value["channel"].as_u64().filter(|number| *number < 16).ok_or("TCI channel must be an integer from 0 to 15.")?;
+    Ok(json!({"endpoint":url.to_string(),"trx":trx,"channel":channel}))
+}
 impl Session {
     fn new(path: PathBuf) -> Result<Self, String> {
         let mut saved = match std::fs::read(&path) {
@@ -153,6 +180,7 @@ impl Session {
                 base_url: String::new(),
                 hamlib: None,
                 flex: None,
+                tci: None,
                 receipts: vec![],
             },
             Err(_) => return Err("Saved Station Control state could not be read.".into()),
@@ -164,6 +192,9 @@ impl Session {
             || endpoint(&saved.base_url)? != saved.base_url
             || saved.hamlib.as_ref().is_some_and(|value| crate::hamlib::saved_radio_configuration(value).is_err())
             || saved.flex.as_ref().is_some_and(|value| flex_configuration(value).is_err())
+            || saved.tci.as_ref().is_some_and(|value| {
+                !tci_configuration(value).is_ok_and(|canonical| canonical == *value)
+            })
         {
             return Err(
                 "Saved Station Control state is unsupported; it was not overwritten.".into(),
@@ -174,8 +205,10 @@ impl Session {
             let action = receipt.request["action"].as_str().unwrap_or("");
             let keys = if action == "save" {
                 vec!["action", "generation", "revision", "base_url"]
-            } else if matches!(action, "save_hamlib" | "save_flex") {
+            } else if matches!(action, "save_hamlib" | "save_flex" | "save_tci") {
                 vec!["action", "generation", "revision", "configuration"]
+            } else if matches!(action, "connect_tci" | "disconnect_tci") {
+                vec!["action", "generation", "revision", "selection_generation", "selection_id"]
             } else if action == "manual_tune" {
                 vec!["action", "generation", "revision", "selection_generation", "selection_id", "provider", "control_revision", "connection_generation", "worker_generation", "frequency_hz", "mode"]
             } else if action == "manual_rotor_goto" {
@@ -214,6 +247,7 @@ impl Session {
                     "save" | "connect" | "disconnect" | "forget" | "select"
                         | "save_hamlib" | "connect_hamlib" | "reconnect_hamlib" | "disconnect_hamlib"
                         | "save_flex" | "connect_flex" | "reconnect_flex" | "disconnect_flex"
+                        | "save_tci" | "connect_tci" | "disconnect_tci"
                         | "receive_frequency" | "receive_mode" | "manual_tune" | "manual_rotor_goto"
                 )
                 || is_save(action) != (receipt.status == "saved")
@@ -243,6 +277,12 @@ impl Session {
                 crate::hamlib::saved_radio_configuration(&receipt.request["configuration"])?;
             } else if action == "save_flex" {
                 flex_configuration(&receipt.request["configuration"])?;
+            } else if action == "save_tci" {
+                if tci_configuration(&receipt.request["configuration"])?
+                    != receipt.request["configuration"]
+                {
+                    return Err("Saved TCI configuration is invalid.".into());
+                }
             } else if action == "manual_rotor_goto" {
                 if crate::manual_rotor::params(&receipt.request).is_err() {
                     return Err("Saved manual rotor receipt is invalid; it was not overwritten.".into());
@@ -262,8 +302,10 @@ impl Session {
                     crate::manual_tune::params(&receipt.request).is_err()
                 } else if is_receive(action) {
                     receive_params(&receipt.request).is_err()
-                } else {
+                } else if !matches!(action, "connect_tci" | "disconnect_tci") {
                     !receipt.request["allow_transmit"].is_boolean()
+                } else {
+                    false
                 }
             {
                 return Err("Saved Station Control selection receipt is invalid.".into());
@@ -310,7 +352,7 @@ impl Session {
             .lock()
             .map_err(|_| "Station Control state is unavailable.")?;
         Ok(
-            json!({"generation":state.generation,"revision":state.revision,"base_url":state.base_url,"hamlib":state.hamlib,"flex":state.flex,
+            json!({"generation":state.generation,"revision":state.revision,"base_url":state.base_url,"hamlib":state.hamlib,"flex":state.flex,"tci":state.tci,
             "last_receipt":state.receipts.last(),"remaining_operations":MAX_RECEIPTS-state.receipts.len()}),
         )
     }
@@ -404,9 +446,22 @@ impl Session {
             "save" | "connect" | "disconnect" | "forget" | "select"
                 | "save_hamlib" | "connect_hamlib" | "reconnect_hamlib" | "disconnect_hamlib"
                 | "save_flex" | "connect_flex" | "reconnect_flex" | "disconnect_flex"
+                | "save_tci" | "connect_tci" | "disconnect_tci"
                 | "receive_frequency" | "receive_mode" | "manual_tune" | "manual_rotor_goto"
         ) {
             return Err("Unknown Station Control action.".into());
+        }
+        if matches!(action, "save_tci" | "connect_tci" | "disconnect_tci") {
+            let keys: &[&str] = if action == "save_tci" {
+                &["action", "operation_id", "generation", "revision", "configuration"]
+            } else {
+                &["action", "operation_id", "generation", "revision", "selection_generation", "selection_id"]
+            };
+            if params.as_object().is_none_or(|object| {
+                object.len() != keys.len() || object.keys().any(|key| !keys.contains(&key.as_str()))
+            }) {
+                return Err("Invalid exact TCI setup request.".into());
+            }
         }
         let id = params["operation_id"]
             .as_str()
@@ -430,6 +485,8 @@ impl Session {
             descriptor["configuration"] = crate::hamlib::saved_radio_configuration(&params["configuration"])?;
         } else if action == "save_flex" {
             descriptor["configuration"] = flex_configuration(&params["configuration"])?;
+        } else if action == "save_tci" {
+            descriptor["configuration"] = tci_configuration(&params["configuration"])?;
         } else {
             if action != "manual_rotor_goto" {
                 descriptor["selection_generation"] = params["selection_generation"].clone();
@@ -452,7 +509,7 @@ impl Session {
                     .filter(|provider| crate::station_telemetry::valid_provider(provider))
                     .ok_or("Unknown radio provider.")?;
                 descriptor["provider"] = json!(provider);
-            } else {
+            } else if !matches!(action, "connect_tci" | "disconnect_tci") {
                 descriptor["allow_transmit"] = json!(params["allow_transmit"] == true);
             }
         }
@@ -482,7 +539,8 @@ impl Session {
         }
         let mut next = state.clone();
         if next.receipts.len() == MAX_RECEIPTS {
-            let lifecycle = next.receipts.iter().rposition(|receipt| matches!(receipt.request["action"].as_str(), Some("connect" | "disconnect" | "forget")));
+            let lifecycle = next.receipts.iter().rposition(|receipt| matches!(receipt.request["action"].as_str(),
+                Some("connect" | "disconnect" | "forget" | "connect_tci" | "disconnect_tci")));
             if let Some(index) = next.receipts.iter().enumerate().find_map(|(index, receipt)|
                 (Some(index) != lifecycle && matches!(receipt.status.as_str(), "saved" | "acknowledged" | "confirmed" | "reviewed")).then_some(index)) {
                 next.receipts.remove(index);
@@ -510,6 +568,13 @@ impl Session {
         if action == "save_flex" {
             next.flex = Some(descriptor["configuration"].clone());
             if next.flex != state.flex {
+                next.revision = next.revision.checked_add(1).filter(|value| *value <= MAX_REVISION)
+                    .ok_or("Station Control revision exhausted.")?;
+            }
+        }
+        if action == "save_tci" {
+            next.tci = Some(descriptor["configuration"].clone());
+            if next.tci != state.tci {
                 next.revision = next.revision.checked_add(1).filter(|value| *value <= MAX_REVISION)
                     .ok_or("Station Control revision exhausted.")?;
             }
@@ -544,6 +609,12 @@ impl Session {
                 connection["provider"] = json!("direct_flex_lan");
                 if action != "disconnect_flex" { connection["allow_transmit"] = json!(params["allow_transmit"] == true); }
             }
+            if matches!(action, "connect_tci" | "disconnect_tci") {
+                connection = if action == "disconnect_tci" { json!({}) } else {
+                    state.tci.clone().ok_or("Save TCI configuration before connecting.")?
+                };
+                connection["provider"] = json!("direct_tci");
+            }
             if matches!(action, "connect" | "forget") {
                 if state.base_url.is_empty() {
                     return Err("Save an Agent endpoint before connecting.".into());
@@ -568,7 +639,7 @@ impl Session {
             Some((
                 // FLEX reconnect deliberately creates a new configured session:
                 // never inherit the previous session's transmit permission.
-                json!({"id":id,"method":match action { "manual_rotor_goto" => "rotor_goto", "manual_tune" if connection["provider"] == "hamlib" => "hamlib_control", "manual_tune" => "station_tune", "receive_frequency" | "receive_mode" if connection["provider"] == "hamlib" => "hamlib_control", "receive_frequency" | "receive_mode" => "station_radio_control", "connect" | "connect_flex" | "reconnect_flex" => "station_connect", "forget" => "station_forget", "select" => "station_selection_apply", "connect_hamlib" => "hamlib_connect", "reconnect_hamlib" => "hamlib_reconnect", "disconnect_hamlib" => "hamlib_disconnect", _ => "station_disconnect" },"params":connection}),
+                json!({"id":id,"method":match action { "manual_rotor_goto" => "rotor_goto", "manual_tune" if connection["provider"] == "hamlib" => "hamlib_control", "manual_tune" => "station_tune", "receive_frequency" | "receive_mode" if connection["provider"] == "hamlib" => "hamlib_control", "receive_frequency" | "receive_mode" => "station_radio_control", "connect" | "connect_flex" | "reconnect_flex" | "connect_tci" => "station_connect", "forget" => "station_forget", "select" => "station_selection_apply", "connect_hamlib" => "hamlib_connect", "reconnect_hamlib" => "hamlib_reconnect", "disconnect_hamlib" => "hamlib_disconnect", _ => "station_disconnect" },"params":connection}),
                 selected_generation,
                 selected_id,
             ))
@@ -987,6 +1058,7 @@ mod tests {
             "select",
             "save_hamlib", "connect_hamlib", "reconnect_hamlib", "disconnect_hamlib",
             "save_flex", "connect_flex", "reconnect_flex", "disconnect_flex",
+            "save_tci", "connect_tci", "disconnect_tci",
             "receive_frequency", "receive_mode",
         ] {
             for label in ["main", "station-control"] {
@@ -1331,5 +1403,96 @@ mod tests {
         assert_eq!(receipt["status"], "unknown");
         let reopened = Session::new(directory.path().join("session.json")).unwrap();
         assert_eq!(reopened.apply(&unknown, passive).unwrap(), receipt);
+    }
+    #[test]
+    fn legacy_v1_state_loads_without_tci_and_tci_setup_is_passive_bounded_and_credential_free() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("session.json");
+        let generation = uuid::Uuid::new_v4().to_string();
+        std::fs::write(&path, json!({"version":1,"generation":generation,"revision":0,"base_url":"","hamlib":null,"flex":null,"receipts":[]}).to_string()).unwrap();
+        let session = Session::new(path).unwrap();
+        assert!(session.snapshot().unwrap()["tci"].is_null());
+
+        let save = json!({"action":"save_tci","operation_id":uuid::Uuid::new_v4().to_string(),"generation":generation,"revision":0,
+            "configuration":{"endpoint":"ws://127.0.0.1:40001","trx":1,"channel":2}});
+        let receipt = session.apply(&save, passive).unwrap();
+        assert_eq!(receipt["status"], "saved");
+        assert_eq!(session.snapshot().unwrap()["tci"], json!({"endpoint":"ws://127.0.0.1:40001/","trx":1,"channel":2}));
+        assert_eq!(session.snapshot().unwrap()["revision"], 1);
+
+        for configuration in [
+            json!({"endpoint":"http://127.0.0.1:40001","trx":0,"channel":0}),
+            json!({"endpoint":"ws://127.0.0.1:0","trx":0,"channel":0}),
+            json!({"endpoint":"ws://user:secret@127.0.0.1:40001","trx":0,"channel":0}),
+            json!({"endpoint":"wss://radio.example/path?token=secret","trx":0,"channel":0}),
+            json!({"endpoint":"wss://radio.example/path#secret","trx":0,"channel":0}),
+            json!({"endpoint":"ws://127.0.0.1:40001","trx":16,"channel":0}),
+            json!({"endpoint":"ws://127.0.0.1:40001","trx":0,"channel":16}),
+            json!({"endpoint":"ws://127.0.0.1:40001","trx":0,"channel":0,"token":"secret"}),
+        ] {
+            let state = session.snapshot().unwrap();
+            let invalid = json!({"action":"save_tci","operation_id":uuid::Uuid::new_v4().to_string(),"generation":generation,
+                "revision":state["revision"],"configuration":configuration});
+            assert!(session.apply(&invalid, passive).is_err());
+        }
+        assert_eq!(session.snapshot().unwrap()["revision"], 1);
+
+        let trailing_path = json!({"endpoint":"wss://radio.example/tci/","trx":0,"channel":0});
+        assert_eq!(tci_configuration(&trailing_path).unwrap(), trailing_path);
+        for endpoint in ["ws://localhost/", "wss://radio.example/tci", "ws://127.0.0.1:65535/"] {
+            let valid = json!({"endpoint":endpoint,"trx":0,"channel":0});
+            assert_eq!(tci_configuration(&valid).unwrap(), valid);
+        }
+
+        let tampered_path = directory.path().join("tampered.json");
+        std::fs::write(&tampered_path, json!({"version":1,"generation":uuid::Uuid::new_v4().to_string(),"revision":0,"base_url":"",
+            "hamlib":null,"flex":null,"tci":{"endpoint":"ws://127.0.0.1:40001","trx":0,"channel":0},"receipts":[]}).to_string()).unwrap();
+        assert!(Session::new(tampered_path).is_err());
+    }
+    #[test]
+    fn tci_lifecycle_journals_once_never_replays_and_never_auto_resumes() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("session.json");
+        let session = Session::new(path.clone()).unwrap();
+        let initial = session.snapshot().unwrap();
+        let save = json!({"action":"save_tci","operation_id":uuid::Uuid::new_v4().to_string(),"generation":initial["generation"],"revision":0,
+            "configuration":{"endpoint":"wss://radio.example/tci","trx":0,"channel":1}});
+        session.apply(&save, passive).unwrap();
+        let selection_id = uuid::Uuid::new_v4().to_string();
+        let connect = json!({"action":"connect_tci","operation_id":uuid::Uuid::new_v4().to_string(),"generation":initial["generation"],"revision":1,
+            "selection_generation":7,"selection_id":selection_id});
+        let receipt = session.apply(&connect, |request, generation, identity| {
+            assert_eq!(generation, 7); assert_eq!(identity, selection_id);
+            assert_eq!(request["method"], "station_connect");
+            assert_eq!(request["params"], json!({"provider":"direct_tci","endpoint":"wss://radio.example/tci","trx":0,"channel":1}));
+            let pending = Session::new(path.clone()).unwrap().receipt(connect["operation_id"].as_str().unwrap()).unwrap();
+            assert_eq!(pending["status"], "unknown");
+            Err("reply lost".into())
+        }).unwrap();
+        assert_eq!(receipt["status"], "unknown");
+        let reopened = Session::new(path.clone()).unwrap();
+        assert_eq!(reopened.apply(&connect, passive).unwrap(), receipt);
+
+        let disconnect = json!({"action":"disconnect_tci","operation_id":uuid::Uuid::new_v4().to_string(),"generation":initial["generation"],"revision":2,
+            "selection_generation":7,"selection_id":selection_id});
+        let stopped = reopened.apply(&disconnect, |request, generation, identity| {
+            assert_eq!(generation, 7); assert_eq!(identity, selection_id);
+            assert_eq!(request["method"], "station_disconnect");
+            assert_eq!(request["params"], json!({"provider":"direct_tci"}));
+            Ok(json!({"id":request["id"],"ok":true}))
+        }).unwrap();
+        assert_eq!(stopped["status"], "acknowledged");
+        let restored = Session::new(path).unwrap();
+        assert_eq!(restored.apply(&disconnect, passive).unwrap(), stopped);
+        let selection = json!({"provider":"direct_tci","generation":7,"control_revision":0,"selection_id":selection_id});
+        assert!(restored.resume_saved_agent(&selection, passive).unwrap().is_none());
+
+        let state = restored.snapshot().unwrap();
+        let mut smuggled = json!({"action":"connect_tci","operation_id":uuid::Uuid::new_v4().to_string(),"generation":state["generation"],"revision":state["revision"],
+            "selection_generation":7,"selection_id":selection_id,"allow_transmit":true});
+        assert!(restored.apply(&smuggled, passive).is_err());
+        smuggled.as_object_mut().unwrap().remove("allow_transmit");
+        smuggled["token"] = json!("secret");
+        assert!(restored.apply(&smuggled, passive).is_err());
     }
 }

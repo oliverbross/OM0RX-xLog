@@ -1999,6 +1999,33 @@ mod tests {
         }
     }
     #[test]
+    fn shared_tci_lifecycle_is_exactly_fenced_and_selection_publication_is_metadata_only() {
+        let (_directory, owner, calls) = fixture();
+        let first = initialized(&owner, Some("direct_tci"));
+        let old_id = first["selection_id"].as_str().unwrap();
+        {
+            let requests = calls.lock().unwrap();
+            assert!(requests.iter().any(|request| request["method"] == "station_power_selection"
+                && power_context(request) == json!({"provider":"direct_tci","selection_id":old_id})));
+            assert!(requests.iter().all(|request| request["method"] != "station_connect"));
+        }
+        owner.handover(0, "direct_agent").unwrap();
+        owner.handover(1, "direct_tci").unwrap();
+        let current = owner.snapshot().unwrap();
+        let id = current["selection_id"].as_str().unwrap();
+        for method in ["station_connect", "station_disconnect"] {
+            let action = || json!({"id":"shared-tci","method":method,"params":{"provider":"direct_tci","endpoint":"ws://127.0.0.1:40001","trx":0,"channel":0}});
+            for (generation, identity) in [(0, old_id), (2, old_id), (0, id)] {
+                assert!(owner.monitor_action(action(), generation, identity, || -> Result<(), String> { panic!("stale TCI lifecycle admitted") }).is_err());
+            }
+            let mut wrong_provider = action(); wrong_provider["params"]["provider"] = json!("direct_agent");
+            assert!(owner.monitor_action(wrong_provider, 2, id, || -> Result<(), String> { panic!("wrong provider admitted") }).is_err());
+            let before = calls.lock().unwrap().iter().filter(|request| request["method"] == method).count();
+            owner.monitor_action(action(), 2, id, || Ok(())).unwrap();
+            assert_eq!(calls.lock().unwrap().iter().filter(|request| request["method"] == method).count(), before + 1);
+        }
+    }
+    #[test]
     fn child_receive_control_checks_selection_identity_and_control_revision_before_admission() {
         let (_directory, owner, calls) = fixture(); let first = initialized(&owner, Some("direct_flex_lan"));
         let identity = first["selection_id"].as_str().unwrap(); let revision = first["control_revision"].as_u64().unwrap();

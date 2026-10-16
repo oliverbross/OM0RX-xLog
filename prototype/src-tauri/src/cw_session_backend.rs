@@ -53,7 +53,9 @@ fn output_selection(profile: &Value, read: impl FnOnce() -> Result<Value, String
     if profile["output"] == "winkeyer" { return Ok(("winkeyer".into(), Value::Null)); }
     if profile["output"] != "radio" { return Err("CW output unavailable".into()); }
     let selection = read()?;
-    let provider = selection["provider"].as_str().ok_or("Choose a radio before using CW.")?;
+    let provider = selection["provider"].as_str()
+        .filter(|provider| matches!(*provider, "direct_agent" | "direct_flex_lan" | "hamlib"))
+        .ok_or("Choose a CW-capable radio before using CW.")?;
     Ok((provider.into(), json!({"generation":selection["generation"],"id":selection["selection_id"]})))
 }
 fn radio_request(target: &Value, action: &str, text: Option<&str>) -> Result<Value, String> {
@@ -168,6 +170,7 @@ mod tests {
         assert!(output_selection(&json!({"output":"radio"}), || Err("Selection unavailable".into())).is_err());
         let (provider, selection) = output_selection(&json!({"output":"radio"}), || Ok(json!({"provider":"direct_agent","generation":17,"selection_id":"exact-radio-choice"}))).unwrap();
         assert_eq!(provider, "direct_agent"); assert_eq!(selection, json!({"generation":17,"id":"exact-radio-choice"}));
+        assert!(output_selection(&json!({"output":"radio"}), || Ok(json!({"provider":"direct_tci","generation":18,"selection_id":"tci-choice"}))).is_err());
     }
     #[test]
     fn radio_release_preserves_strict_flex_schema_and_exact_target_identity() {

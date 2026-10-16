@@ -6,7 +6,7 @@ const MAX: u64 = 9_007_199_254_740_991;
 pub fn params(value: &Value) -> Result<Value, String> {
     let provider = value["provider"]
         .as_str()
-        .filter(|p| crate::station_telemetry::valid_provider(p))
+        .filter(|p| matches!(*p, "direct_agent" | "direct_flex_lan" | "hamlib"))
         .ok_or("Select a supported radio before tuning.")?;
     for key in ["connection_generation", "control_revision", "worker_generation"] {
         if value[key]
@@ -219,6 +219,7 @@ mod tests {
         let mut remote = descriptor("direct_agent");
         remote["worker_generation"] = json!(0);
         assert!(params(&remote).is_err());
+        assert!(params(&descriptor("direct_tci")).is_err());
     }
     #[test]
     fn admission_fences_connection_selection_staleness_and_transmitting() {

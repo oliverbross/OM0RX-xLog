@@ -117,6 +117,12 @@ fn requires_durable_station_action(action: &str) -> bool {
     matches!(action, "cancel" | "tune" | "operate" | "standby")
 }
 fn is_raw_ptt_control(request:&serde_json::Value)->bool{request["method"]=="station_radio_control"&&request["params"]["control"]=="ptt"}
+fn is_raw_owned_station_lifecycle(request: &serde_json::Value) -> bool {
+    matches!(request["params"]["provider"].as_str(), Some("direct_agent" | "direct_flex_lan" | "direct_tci"))
+        && matches!(request["method"].as_str(), Some("station_connect" | "station_disconnect" | "station_reconnect" | "station_forget"))
+        || request["params"]["device"] == "radio"
+            && matches!(request["method"].as_str(), Some("hamlib_connect" | "hamlib_reconnect" | "hamlib_disconnect"))
+}
 
 #[tauri::command]
 fn spot_editor_register(window: tauri::WebviewWindow, app: tauri::AppHandle, instance: String) -> Result<serde_json::Value, String> {
@@ -973,8 +979,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     }
     if is_raw_manual_rotor_goto(&request) { return Err("Use the shared manual rotor Goto owner.".into()); }
     if matches!(method, "propagation_snapshot" | "propagation_refresh") { return Err("Use the shared propagation session.".into()); }
-    if state.path.is_none() && (matches!(request["params"]["provider"].as_str(), Some("direct_agent" | "direct_flex_lan")) && matches!(method, "station_connect" | "station_disconnect" | "station_reconnect" | "station_forget")
-        || request["params"]["device"] == "radio" && matches!(method, "hamlib_connect" | "hamlib_reconnect" | "hamlib_disconnect")) {
+    if state.path.is_none() && is_raw_owned_station_lifecycle(&request) {
         return Err("Use the shared Station Control connection owner.".into());
     }
     if matches!(method, "winkeyer_arm" | "winkeyer_send" | "winkeyer_stop")
@@ -1615,13 +1620,21 @@ fn main() {
 #[cfg(test)]
 mod workspace_layout_tests {
     use super::{WorkspaceLayout, DraftWake, recover_singleton, detached_window_shortcut, validate_detached_open, COMPACT_WORKSPACE_MENU_ID, STANDARD_WORKSPACE_MENU_ID};
-    use super::{spot_editor_barrier, validate_spot_effect, validate_activation_reader, retires_automatic_rotor, is_raw_manual_rotor_goto, validate_auto_rotor_read, validate_auto_rotor_set, validate_radio_read, validate_follow_settlement, validate_rotor_stop, AutomaticRotorCommands};
+    use super::{spot_editor_barrier, validate_spot_effect, validate_activation_reader, retires_automatic_rotor, is_raw_manual_rotor_goto, is_raw_owned_station_lifecycle, validate_auto_rotor_read, validate_auto_rotor_set, validate_radio_read, validate_follow_settlement, validate_rotor_stop, AutomaticRotorCommands};
     use serde_json::json;
 
     #[test]
     fn amplifier_and_radio_actions_have_no_legacy_raw_or_monitor_bypass() {
         for provider in ["direct_agent","direct_flex_lan"]{for enabled in [true,false]{assert!(super::is_raw_ptt_control(&json!({"method":"station_radio_control","params":{"provider":provider,"control":"ptt","enabled":enabled}})));}}
         assert!(!super::is_raw_ptt_control(&json!({"method":"station_radio_control","params":{"control":"set_rf_power"}})));
+        for provider in ["direct_agent", "direct_flex_lan", "direct_tci"] {
+            for method in ["station_connect", "station_disconnect", "station_reconnect", "station_forget"] {
+                assert!(is_raw_owned_station_lifecycle(&json!({"method":method,"params":{"provider":provider}})), "{provider}:{method}");
+            }
+        }
+        assert!(is_raw_owned_station_lifecycle(&json!({"method":"hamlib_connect","params":{"device":"radio"}})));
+        assert!(!is_raw_owned_station_lifecycle(&json!({"method":"station_snapshot","params":{"provider":"direct_tci"}})));
+        assert!(!is_raw_owned_station_lifecycle(&json!({"method":"station_connect","params":{"provider":"unknown"}})));
         for action in ["operate","standby","tune","cancel"] {
             assert!(super::requires_durable_station_action(action));
         }

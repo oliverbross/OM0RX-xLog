@@ -10,7 +10,7 @@ type Read = dyn Fn(Value) -> Result<Value, String> + Send + Sync;
 type Publish = dyn Fn(Value) + Send + Sync;
 
 pub fn valid_provider(provider: &str) -> bool {
-    matches!(provider, "direct_agent" | "direct_flex_lan" | "hamlib")
+    matches!(provider, "direct_agent" | "direct_flex_lan" | "direct_tci" | "hamlib")
 }
 pub fn validate(label: &str, isolated: bool, selection: bool) -> Result<(), String> {
     if isolated || !(label == "main" || !selection && label == "monitor") {
@@ -411,7 +411,15 @@ mod tests {
         assert!(validate("monitor", false, true).is_err());
         assert!(validate("main", true, false).is_err());
         assert!(validate("logbook", false, false).is_err());
+        assert!(valid_provider("direct_tci"));
         assert!(!valid_provider("other"));
+        let owner = Arc::new(StationTelemetry::new(Arc::new(|_| panic!("TCI control attempted I/O")), Arc::new(|_| {})));
+        owner.select("direct_tci", true).unwrap();
+        let identity = uuid::Uuid::new_v4().to_string();
+        for action in ["operate", "standby", "tune", "cancel"] {
+            assert!(owner.monitor_control_at("direct_tci", 0, &identity, action, 0).is_err());
+        }
+        assert!(owner.receive_control_at(0, &identity, 1, "set_receive_frequency_a", 0).is_err());
     }
     #[test]
     fn status_retained_reads_never_create_start_select_or_refresh_a_poller() {
@@ -587,7 +595,7 @@ mod tests {
     }
     #[test]
     fn late_pre_command_and_pre_handover_reads_are_discarded() {
-        for handover in [false, true] {
+        for (provider, handover) in [("direct_agent", false), ("direct_agent", true), ("direct_tci", true)] {
             let gate = Arc::new((Mutex::new(false), Condvar::new()));
             let waiting = gate.clone();
             let (sent, received) = std::sync::mpsc::channel();
@@ -606,12 +614,12 @@ mod tests {
                     *count.lock().unwrap() += 1;
                 }),
             ));
-            owner.select("direct_agent", true).unwrap();
+            owner.select(provider, true).unwrap();
             let source = owner.clone();
             let thread = std::thread::spawn(move || source.refresh());
             received.recv_timeout(Duration::from_secs(2)).unwrap();
             if handover {
-                owner.select("direct_flex_lan", false).unwrap();
+                owner.select(if provider == "direct_tci" { "direct_agent" } else { "direct_flex_lan" }, false).unwrap();
             } else {
                 drop(owner.control().unwrap());
             }
