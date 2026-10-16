@@ -46,4 +46,18 @@ struct NativePowerSelectionTests {
         #expect((valid["result"] as? [String: Any])?["accepted"] as? Bool == true)
         await worker.beginTerminalShutdown()
     }
+
+    @Test("TCI selection metadata is acknowledged without granting draft power capture")
+    func tciMetadataIsNotPowerAuthority() async throws {
+        let gate = NativeDraftPowerGate()
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("selection-tci-\(UUID())")
+        let worker = LiveWorker(logbook: LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false), powerCapture: gate)
+        let source = UUID(), session = UUID()
+        gate.attach(sourceID: source, endpointID: "synthetic")
+        gate.connection(sourceID: source, sequence: 1, sessionID: session, startedAt: Date(), ready: true)
+        let response = try await send(worker, provider: "direct_tci", selection: UUID().uuidString, sequence: 1)
+        #expect((response["result"] as? [String: Any])?["accepted"] as? Bool == true)
+        #expect(gate.state().context == nil)
+        await worker.beginTerminalShutdown()
+    }
 }

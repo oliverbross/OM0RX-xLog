@@ -7,6 +7,19 @@ import XCTest
 final class TCIProtocolTests: XCTestCase {
     private let address = TCIReceiverAddress(trx: 0, channel: 0)
 
+    func testReducerAcceptanceDistinguishesRepeatedEvidenceFromRepeatedRejection() {
+        var reducer = TCIStateReducer(limits: .init(maximumDiagnostics: 1))
+        let valid = TCICommand(name: "VFO", arguments: ["0", "0", "14025000"])
+        XCTAssertTrue(reducer.apply(valid))
+        XCTAssertTrue(reducer.apply(valid))
+        let invalid = TCICommand(name: "VFO", arguments: ["0", "0", "invalid"])
+        XCTAssertFalse(reducer.apply(invalid))
+        // The diagnostics ring is unchanged after this repeated rejection.
+        XCTAssertFalse(reducer.apply(invalid))
+        XCTAssertFalse(reducer.apply(TCICommand(name: "EXTENSION", arguments: ["x"])))
+        XCTAssertTrue(reducer.apply(valid))
+    }
+
     func testLimitsNormalizeInvalidInitializerValuesBeforeBecomingImmutable() {
         let limits = TCIProtocolLimits(
             maximumFrameBytes: 0,

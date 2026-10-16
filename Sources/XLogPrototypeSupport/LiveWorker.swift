@@ -230,6 +230,7 @@ public actor LiveWorker {
             await LiveSpotBridge.shared.stopForShutdown()
             await LiveRotorSession.shared.terminate()
             await LiveFlexSession.shared.terminate()
+            await LiveTCISession.shared.terminate()
             await LiveStationSession.shared.terminate()
         }
         #endif
@@ -298,7 +299,7 @@ public actor LiveWorker {
                     selectedProvider = nil; selectionID = nil
                 } else {
                     guard let provider = params["provider"] as? String,
-                          ["direct_agent", "direct_flex_lan", "hamlib", "xcat_loopback"].contains(provider),
+                          ["direct_agent", "direct_flex_lan", "direct_tci", "hamlib", "xcat_loopback"].contains(provider),
                           let selection = params["selection_id"] as? String, UUID(uuidString: selection) != nil else {
                         throw WorkerFailure("invalid_params", "Invalid native selection context.")
                     }

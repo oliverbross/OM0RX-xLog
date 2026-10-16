@@ -8,16 +8,18 @@ import XLogCore
 actor StationProviderClaim {
     static let shared = StationProviderClaim()
     private var owner: String?
+    private var ownerLease: UUID?
 
-    func reserve(_ provider: String) throws {
-        guard owner == nil || owner == provider else {
+    func reserve(_ provider: String, lease: UUID? = nil) throws {
+        guard owner == nil || owner == provider && ownerLease == lease else {
             throw WorkerFailure("station_busy", "Disconnect the other station provider before connecting.")
         }
         owner = provider
+        ownerLease = lease
     }
 
-    func release(_ provider: String) {
-        if owner == provider { owner = nil }
+    func release(_ provider: String, lease: UUID? = nil) {
+        if owner == provider && ownerLease == lease { owner = nil; ownerLease = nil }
     }
 }
 #endif
@@ -68,6 +70,9 @@ enum LiveStationMethods {
         #if os(macOS)
         guard params["provider"] == nil || params["provider"] is String else { throw invalidParams() }
         let selectedProvider = params["provider"] as? String ?? "xcat_loopback"
+        if selectedProvider == "direct_tci" {
+            return try await LiveTCISession.shared.handle(method, params: params)
+        }
         if selectedProvider == "direct_flex_lan" {
             if method == "station_connect" {
                 let remote = await LiveStationSession.shared.snapshot()

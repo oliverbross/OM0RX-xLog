@@ -596,6 +596,7 @@ public struct TCIProtocolState: Equatable, Sendable {
 public struct TCIStateReducer: Sendable {
     public let limits: TCIProtocolLimits
     public private(set) var state = TCIProtocolState()
+    private var commandRejected = false
 
     public init(limits: TCIProtocolLimits = .default) {
         self.limits = limits
@@ -606,7 +607,10 @@ public struct TCIStateReducer: Sendable {
         for command in result.commands { apply(command) }
     }
 
-    public mutating func apply(_ command: TCICommand) {
+    /// Reports acceptance even when valid repeated evidence does not change state.
+    @discardableResult
+    public mutating func apply(_ command: TCICommand) -> Bool {
+        commandRejected = false
         switch command.name.uppercased() {
         case "PROTOCOL": applyProtocol(command)
         case "DEVICE": applyDevice(command)
@@ -631,9 +635,11 @@ public struct TCIStateReducer: Sendable {
         case "TRX": applyTRX(command)
         case "TUNE": applyBooleanState(command, keyPath: \.tuning)
         default:
+            commandRejected = true
             appendUnknown(command)
             appendDiagnostic(TCIDiagnostic(kind: .unknownCommand, commandName: command.name))
         }
+        return !commandRejected
     }
 
     public func authoritativeSnapshot(for address: TCIReceiverAddress) -> TCIAuthoritativeSnapshot? {
@@ -851,6 +857,7 @@ public struct TCIStateReducer: Sendable {
     }
 
     private mutating func reject(_ command: TCICommand, kind: TCIDiagnosticKind = .invalidArguments) {
+        commandRejected = true
         appendDiagnostic(TCIDiagnostic(kind: kind, commandName: command.name))
     }
 

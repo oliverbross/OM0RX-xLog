@@ -90,19 +90,24 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
     public let availability: TCIReadOnlySessionAvailability
     public let snapshot: TCIAuthoritativeSnapshot?
     public let failure: TCIReadOnlySessionFailure?
+    /// Producer receipt time of the latest accepted configured/global evidence.
+    /// Nil until an authoritative configured snapshot exists; never consumer time.
+    public let evidenceReceivedAt: Date?
 
     public init(
         sequence: UInt64,
         generation: UInt64,
         availability: TCIReadOnlySessionAvailability,
         snapshot: TCIAuthoritativeSnapshot?,
-        failure: TCIReadOnlySessionFailure?
+        failure: TCIReadOnlySessionFailure?,
+        evidenceReceivedAt: Date? = nil
     ) {
         self.sequence = sequence
         self.generation = generation
         self.availability = availability
         self.snapshot = snapshot
         self.failure = failure
+        self.evidenceReceivedAt = evidenceReceivedAt
     }
 }
 
@@ -116,6 +121,8 @@ public actor TCIReadOnlyWebSocketSession {
     private let connector: any TCIWebSocketConnecting
     private let limits: TCIProtocolLimits
     private let maximumBinaryMessageBytes: Int
+    private let clock: @Sendable () -> Date
+    private var evidenceReceivedAt: Date?
     private var decoder: TCITextDecoder
     private var reducer: TCIStateReducer
     private var connection: (any TCIWebSocketConnection)?
@@ -133,13 +140,15 @@ public actor TCIReadOnlyWebSocketSession {
         configuredAddress: TCIReceiverAddress,
         connector: any TCIWebSocketConnecting = NativeTCIWebSocketConnector(),
         limits: TCIProtocolLimits = .default,
-        maximumBinaryMessageBytes: Int = 65_536
+        maximumBinaryMessageBytes: Int = 65_536,
+        clock: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.endpoint = endpoint
         self.configuredAddress = configuredAddress
         self.connector = connector
         self.limits = limits
         self.maximumBinaryMessageBytes = max(1, maximumBinaryMessageBytes)
+        self.clock = clock
         decoder = TCITextDecoder(limits: limits)
         reducer = TCIStateReducer(limits: limits)
         observationValue = TCIReadOnlySessionObservation(
@@ -221,12 +230,15 @@ public actor TCIReadOnlyWebSocketSession {
         let openedConnectionID = UUID()
         connectionID = openedConnectionID
         publish(availability: .synchronizing, snapshot: nil, failure: nil)
+        let receiptClock = clock
         receiveTask = Task { [weak self] in
             do {
                 while !Task.isCancelled {
                     let message = try await openedConnection.receive()
+                    let receivedAt = receiptClock()
                     guard await self?.process(
                         message,
+                        receivedAt: receivedAt,
                         connection: openedConnection,
                         connectionID: openedConnectionID,
                         generation: connectionGeneration,
@@ -260,6 +272,7 @@ public actor TCIReadOnlyWebSocketSession {
 
     private func process(
         _ message: TCIWebSocketMessage,
+        receivedAt: Date,
         connection activeConnection: any TCIWebSocketConnection,
         connectionID activeConnectionID: UUID,
         generation activeGeneration: UInt64,
@@ -283,10 +296,20 @@ public actor TCIReadOnlyWebSocketSession {
                 )
                 return false
             }
-            reducer.apply(result)
+            // Keep diagnostics behavior, but use each reducer acceptance result
+            // rather than state inequality: valid repeated values are evidence.
+            reducer.apply(TCITextDecodeResult(commands: [], diagnostics: result.diagnostics))
+            var hasConfiguredEvidence = false
+            for command in result.commands {
+                if reducer.apply(command), isConfiguredEvidence(command) {
+                    hasConfiguredEvidence = true
+                }
+            }
             if let snapshot = reducer.authoritativeSnapshot(for: configuredAddress) {
+                if hasConfiguredEvidence { evidenceReceivedAt = receivedAt }
                 publish(availability: .available, snapshot: snapshot, failure: nil)
             } else {
+                evidenceReceivedAt = nil
                 publish(availability: .synchronizing, snapshot: nil, failure: nil)
             }
             return true
@@ -334,6 +357,7 @@ public actor TCIReadOnlyWebSocketSession {
     private func resetProtocolState() {
         decoder = TCITextDecoder(limits: limits)
         reducer = TCIStateReducer(limits: limits)
+        evidenceReceivedAt = nil
     }
 
     private func publish(
@@ -347,7 +371,8 @@ public actor TCIReadOnlyWebSocketSession {
             generation: generation,
             availability: availability,
             snapshot: snapshot,
-            failure: failure
+            failure: failure,
+            evidenceReceivedAt: evidenceReceivedAt
         )
         for continuation in continuations.values {
             continuation.yield(observationValue)
@@ -356,6 +381,22 @@ public actor TCIReadOnlyWebSocketSession {
 
     private func removeContinuation(_ id: UUID) {
         continuations.removeValue(forKey: id)
+    }
+
+    private func isConfiguredEvidence(_ command: TCICommand) -> Bool {
+        switch command.name {
+        case "PROTOCOL", "DEVICE", "RECEIVE_ONLY", "TRX_COUNT", "CHANNEL_COUNT", "CHANNELS_COUNT",
+             "VFO_LIMITS", "IF_LIMITS", "MODULATIONS_LIST", "START", "STOP", "READY":
+            return true
+        case "VFO":
+            return command.arguments.count == 3
+                && TCIValueParser.integer(command.arguments[0]) == configuredAddress.trx
+                && TCIValueParser.integer(command.arguments[1]) == configuredAddress.channel
+        case "MODULATION", "RX_FILTER_BAND", "SPLIT_ENABLE", "RX_ENABLE", "TX_ENABLE", "TRX", "TUNE":
+            return command.arguments.first.flatMap(TCIValueParser.integer) == configuredAddress.trx
+        default:
+            return false
+        }
     }
 
     private static func isValidEndpoint(_ endpoint: URL) -> Bool {

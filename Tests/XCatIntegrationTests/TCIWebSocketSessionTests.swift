@@ -281,6 +281,38 @@ final class TCIWebSocketSessionTests: XCTestCase {
         XCTAssertEqual(closeCount, 1)
     }
 
+    func testProducerEvidenceTimeSurvivesQueuedStreamConsumptionAndResetsOnDisconnect() async throws {
+        let connection = FakeTCIWebSocketConnection(), time = TCIEvidenceClock()
+        let session = TCIReadOnlyWebSocketSession(
+            endpoint: endpoint, configuredAddress: address,
+            connector: FakeTCIWebSocketConnector(connections: [connection]), clock: { time.now() }
+        )
+        // Subscribe now, but deliberately do not consume until much later.
+        let stream = await session.observations()
+        try await session.connect()
+        let initial = await session.currentObservation()
+        await connection.enqueue(.text(Self.discoveryAndState))
+        let beforeReady = try await waitForObservation(session, after: initial.sequence) { _ in true }
+        XCTAssertNil(beforeReady.evidenceReceivedAt)
+        time.advance(10)
+        await connection.enqueue(.text("ready;"))
+        let available = try await waitForObservation(session) { $0.availability == .available }
+        XCTAssertEqual(available.evidenceReceivedAt, time.now())
+        let producerStamp = time.now()
+        time.advance(20)
+        var iterator = stream.makeAsyncIterator()
+        while let queued = await iterator.next() {
+            if queued.availability == .available {
+                XCTAssertEqual(queued.evidenceReceivedAt, producerStamp)
+                XCTAssertNotEqual(queued.evidenceReceivedAt, time.now())
+                break
+            }
+        }
+        await session.disconnect()
+        let disconnected = await session.currentObservation()
+        XCTAssertNil(disconnected.evidenceReceivedAt)
+    }
+
     private func waitForObservation(
         _ session: TCIReadOnlyWebSocketSession,
         after sequence: UInt64 = 0,
@@ -320,6 +352,13 @@ private enum TestFailure: Error {
 
 private enum FakeTransportFailure: Error {
     case closed
+}
+
+private final class TCIEvidenceClock: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = Date(timeIntervalSince1970: 1000)
+    func now() -> Date { lock.lock(); defer { lock.unlock() }; return value }
+    func advance(_ seconds: TimeInterval) { lock.lock(); defer { lock.unlock() }; value.addTimeInterval(seconds) }
 }
 
 private actor FakeTCIWebSocketConnection: TCIWebSocketConnection {
