@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.4.0-alpha.47 — 2026-10-17
+
+- Centered the Zones and Distance facts as a balanced pair in the detached Callsign Intelligence window.
+- Kept the callsign and DXCC matrices side by side at ordinary compact-window widths so the content fits without forcing the whole window to scroll.
+- Confined overflow to the intelligence panel only at genuinely small sizes and added a compact-height layout for short restored windows.
+
 ## 0.4.0-alpha.46 — 2026-10-17
 
 - Fixed the detached Previous QSOs window so it fits the available macOS window height instead of inheriting the main application's 640-pixel minimum.

@@ -104,10 +104,14 @@ it("routes a direct menu window to a filling card with narrow-window reflow", as
   expect(Surface.name).toBe("DetachedCallsignIntelligenceSurface");
   const css = readFileSync(`${process.cwd()}/src/live/DetachedCallsignIntelligenceSurface.css`, "utf8");
   const shared = readFileSync(`${process.cwd()}/src/live/OperatorDesk.css`, "utf8");
-  expect(css).toMatch(/\.detached-intelligence-content\s*\{[^}]*container: detached-intelligence \/ inline-size;[^}]*flex: 1 0 auto;/);
+  expect(css).toMatch(/\.app\.live\.detached-intelligence-app\s*\{[^}]*height: 100dvh;[^}]*min-height: 0;[^}]*overflow: hidden;/);
+  expect(css).toMatch(/\.detached-intelligence-app > main\s*\{[^}]*overflow: hidden;/);
+  expect(css).toMatch(/\.detached-intelligence-content\s*\{[^}]*container: detached-intelligence \/ inline-size;[^}]*min-height: 0;[^}]*flex: 1 1 0;/);
   expect(css).toMatch(/\.detached-intelligence-content \.desk-intelligence\s*\{[^}]*flex: 1;/);
   expect(css).toContain("@container detached-intelligence (max-width: 640px)");
-  expect(css).toContain(".desk-matrices { grid-template-columns: 1fr; }");
+  expect(css).toMatch(/@container detached-intelligence \(max-width: 640px\)\s*\{[^@]*\.desk-identity-facts\s*\{[^}]*repeat\(6,[^}]*\}[^@]*nth-child\(4\)[^{]*\{[^}]*grid-column: 2 \/ span 2;[^@]*nth-child\(5\)[^{]*\{[^}]*grid-column: 4 \/ span 2;/s);
+  expect(css).toMatch(/@container detached-intelligence \(max-width: 420px\)\s*\{[^@]*\.desk-matrices\s*\{[^}]*grid-template-columns: 1fr;/s);
+  expect(css).toContain("@media (max-height: 560px)");
   expect(shared).toMatch(/\.desk-identity-facts dt\s*\{[^}]*font-size: 8px;/);
   expect(shared).toMatch(/\.desk-identity-facts dd\s*\{[^}]*font: 700 12px\/1\.25/);
 });
