@@ -7,6 +7,69 @@ import XCTest
 final class TCIProtocolTests: XCTestCase {
     private let address = TCIReceiverAddress(trx: 0, channel: 0)
 
+    func testMainVolumeRetainsGlobalRawDBTokenAndCompletedNotificationReceiptOnly() {
+        var decoder = TCITextDecoder(), reducer = TCIStateReducer()
+        let first = Date(timeIntervalSince1970: 100), completed = first.addingTimeInterval(5)
+        reducer.apply(decoder.feed("volume:-00012."), receivedAt: first)
+        XCTAssertNil(reducer.state.serverMainVolume)
+        reducer.apply(decoder.feed("500;"), receivedAt: completed)
+        XCTAssertEqual(reducer.state.serverMainVolume?.rawDB, "-00012.500")
+        XCTAssertEqual(reducer.state.serverMainVolume?.receivedAt, completed)
+        XCTAssertNil(reducer.state.serverMainMute)
+        XCTAssertTrue(reducer.state.receiverMutes.isEmpty)
+        XCTAssertTrue(reducer.state.transceivers.isEmpty)
+        XCTAssertTrue(reducer.state.frequencies.isEmpty)
+        XCTAssertTrue(reducer.state.unknownCommands.isEmpty)
+        XCTAssertFalse(reducer.state.ready)
+        XCTAssertNil(reducer.authoritativeSnapshot(for: address))
+    }
+
+    func testMainVolumeRejectsQueryIndexedMalformedAndOversizedDecimalForms() {
+        var reducer = TCIStateReducer(limits: .init(maximumArgumentBytes: 12))
+        XCTAssertTrue(reducer.apply(TCICommand(name: "VOLUME", arguments: ["-12"])))
+        let retained = reducer.state.serverMainVolume
+        for arguments in [[], ["0", "-12"], ["-12", "extra"], [""], ["true"], ["NaN"], ["Infinity"],
+                          ["-1e1"], ["-.5"], ["-12."], ["−12"], ["-１２"], ["-1.2.3"], ["-1 2"], ["-000000000012"]] {
+            XCTAssertFalse(reducer.apply(TCICommand(name: "VOLUME", arguments: arguments)), "\(arguments)")
+            XCTAssertEqual(reducer.state.serverMainVolume, retained)
+        }
+    }
+
+    func testMainVolumeEnforcesExactOfficialDecimalEndpointsWithoutDoubleRounding() {
+        var reducer = TCIStateReducer()
+        for token in ["-60", "-060.000", "-59.999999999999999999999", "-0.000", "+000.000", "0", "-12.50"] {
+            XCTAssertTrue(reducer.apply(TCICommand(name: "VOLUME", arguments: [token])), token)
+            XCTAssertEqual(reducer.state.serverMainVolume?.rawDB, token)
+        }
+        let retained = reducer.state.serverMainVolume
+        for token in ["-61", "-60.0000000000000000000000001", "+0.00000000000000000000001", "1",
+                      "+0." + String(repeating: "0", count: 500) + "1", "-" + String(repeating: "9", count: 512)] {
+            XCTAssertFalse(reducer.apply(TCICommand(name: "VOLUME", arguments: [token])), token)
+            XCTAssertEqual(reducer.state.serverMainVolume, retained)
+        }
+    }
+
+    func testMainVolumeReceiptIsIndependentOfDiscoveryMuteAndRadioStateAndResets() {
+        var decoder = TCITextDecoder(), reducer = TCIStateReducer()
+        let first = Date(timeIntervalSince1970: 100), second = first.addingTimeInterval(10)
+        reducer.apply(decoder.feed("VOLUME:-60;MUTE:false;RX_MUTE:0,false;TRX:0,false;TUNE:0,false;VFO:0,0,14025000;"), receivedAt: first)
+        let globalMute = reducer.state.serverMainMute, receiverMutes = reducer.state.receiverMutes
+        let radios = reducer.state.transceivers, frequencies = reducer.state.frequencies
+        reducer.apply(decoder.feed("TRX_COUNT:1;CHANNEL_COUNT:1;APP_FOCUS:true;"), receivedAt: second)
+        XCTAssertEqual(reducer.state.serverMainVolume?.receivedAt, first)
+        reducer.apply(decoder.feed("VOLUME:-60;"), receivedAt: second)
+        XCTAssertEqual(reducer.state.serverMainVolume?.receivedAt, second)
+        reducer.apply(decoder.feed("VOLUME:0;"))
+        XCTAssertEqual(reducer.state.serverMainVolume?.rawDB, "0")
+        XCTAssertNil(reducer.state.serverMainVolume?.receivedAt)
+        XCTAssertEqual(reducer.state.serverMainMute, globalMute)
+        XCTAssertEqual(reducer.state.receiverMutes, receiverMutes)
+        XCTAssertEqual(reducer.state.transceivers, radios)
+        XCTAssertEqual(reducer.state.frequencies, frequencies)
+        reducer = TCIStateReducer()
+        XCTAssertNil(reducer.state.serverMainVolume)
+    }
+
     func testReceiverMuteRetainsExactReceiverBooleanAndCompletedNotificationReceiptOnly() {
         var decoder = TCITextDecoder(), reducer = TCIStateReducer()
         let first = Date(timeIntervalSince1970: 100), completed = first.addingTimeInterval(5)

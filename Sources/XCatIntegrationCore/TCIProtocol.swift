@@ -718,6 +718,16 @@ public struct TCIReceiverMuteObservation: Equatable, Sendable {
     public let receivedAt: Date?
 }
 
+/// Passive global VOLUME reply/broadcast (pinned TCI b081213f, page 21).
+/// Retains the decimal dB token within the official [-60, 0] range. This is
+/// neither per-receiver volume nor mute, audibility, local playback/streaming,
+/// readiness or control authority, and provides no tune/TX/RF evidence.
+public struct TCIServerMainVolumeObservation: Equatable, Sendable {
+    public let rawDB: String
+    /// Local producer receipt time; nil means no timed receipt was supplied.
+    public let receivedAt: Date?
+}
+
 public struct TCIProtocolState: Equatable, Sendable {
     public internal(set) var protocolAnnouncement: TCIProtocolAnnouncement?
     public internal(set) var device: String?
@@ -742,6 +752,7 @@ public struct TCIProtocolState: Equatable, Sendable {
     public internal(set) var transmitSensors: [Int: TCITXSensorsObservation] = [:]
     public internal(set) var serverMainMute: TCIServerMainMuteObservation?
     public internal(set) var receiverMutes: [Int: TCIReceiverMuteObservation] = [:]
+    public internal(set) var serverMainVolume: TCIServerMainVolumeObservation?
     public internal(set) var transceivers: [Int: TCITransceiverState] = [:]
     public internal(set) var unknownCommands: [TCICommand] = []
     public internal(set) var diagnostics: [TCIDiagnostic] = []
@@ -800,6 +811,7 @@ public struct TCIStateReducer: Sendable {
         case "TX_SENSORS": applyTXSensors(command, receivedAt: receivedAt)
         case "MUTE": applyMainMute(command, receivedAt: receivedAt)
         case "RX_MUTE": applyReceiverMute(command, receivedAt: receivedAt)
+        case "VOLUME": applyMainVolume(command, receivedAt: receivedAt)
         case "MODULATION": applyModulation(command)
         case "RX_FILTER_BAND": applyFilter(command)
         case "SPLIT_ENABLE": applyBooleanState(command, keyPath: \.splitEnabled)
@@ -950,6 +962,28 @@ public struct TCIStateReducer: Sendable {
         state.serverTransmitFrequency = TCIServerTransmitFrequencyObservation(
             frequencyHz: frequency, receivedAt: receivedAt
         )
+    }
+
+    private mutating func applyMainVolume(_ command: TCICommand, receivedAt: Date?) {
+        guard command.arguments.count == 1, let rawDB = mainVolumeToken(command.arguments[0])
+        else { return reject(command) }
+        state.serverMainVolume = TCIServerMainVolumeObservation(rawDB: rawDB, receivedAt: receivedAt)
+    }
+
+    private func mainVolumeToken(_ value: String) -> String? {
+        guard let token = TCIValueParser.boundedDecimalToken(value, maximumBytes: limits.maximumArgumentBytes)
+        else { return nil }
+        let magnitude = token.dropFirst(token.hasPrefix("-") || token.hasPrefix("+") ? 1 : 0)
+        let components = magnitude.split(separator: ".")
+        let whole = components[0].drop(while: { $0 == "0" })
+        guard whole.count <= 2, let integral = Int(whole.isEmpty ? "0" : String(whole)) else { return nil }
+        let nonzeroFraction = components.count == 2 && components[1].contains(where: { $0 != "0" })
+        // Compare decimal digits exactly: Double rounding could admit a tiny
+        // positive value or a value just below -60 at either official endpoint.
+        let inRange = token.hasPrefix("-")
+            ? integral < 60 || (integral == 60 && !nonzeroFraction)
+            : integral == 0 && !nonzeroFraction
+        return inRange ? token : nil
     }
 
     private mutating func applyReceiverMute(_ command: TCICommand, receivedAt: Date?) {
