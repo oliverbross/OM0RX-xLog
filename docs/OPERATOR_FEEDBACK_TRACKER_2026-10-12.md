@@ -7,7 +7,7 @@ packaged UI result. Keep unresolved items here across releases.
 
 ## Current delivery boundary
 
-Tracked implementation checkpoint: `fd12703`.
+Tracked implementation checkpoint: `3c6f26f`.
 Source/test/browser results do not establish packaged/native, live-provider or hardware
 acceptance. The installed alpha.32 package is the separately accepted source `e270ab5`;
 later source commits are not claimed to be inside that bundle.
@@ -19,10 +19,17 @@ later source commits are not claimed to be inside that bundle.
   [macOS alpha.32 acceptance](MACOS_ALPHA32_RELEASE_ACCEPTANCE_2026-10-16.md).
 - **RUMlog-first / QLog-second continuation, 16 October — pushed source only:**
   `544b763` adds persistent, keyboard-accessible Logbook column ordering without changing
-  contact selection or mutation. `f517d9a` adds deterministic Alerts history sorting.
-  `fd12703` adds passive TCI 2.0 `RX_BIN_ENABLE` observation with no encoder, setter,
-  capability/readiness/control or RF inference. These commits post-date installed alpha.32;
-  package/native visual and live-provider acceptance remain open.
+  contact selection or mutation; `82bcbee` applies the same retained-order contract to
+  Spot History. `f517d9a` adds deterministic Alerts history sorting and `685f468` adds
+  exact-identity selective clearing without resetting rules, baselines, delivery limits or
+  replay guards. `2f00a55` lets an operator update a selected saved QSO filter's criteria
+  without renaming or applying it. `fd12703` and `7fe73ea` add passive TCI 2.0
+  `RX_BIN_ENABLE` and `RX_NR_ENABLE` observation with no encoder, setter, capability,
+  readiness, control or RF inference. `3c6f26f` adds a bounded, LoTW-specific confirmation
+  report parser that preserves header/watermark evidence and never maps provider
+  confirmations through the paper-QSL importer. It performs no network or database action.
+  These commits post-date installed alpha.32; package/native visual and live-provider
+  acceptance remain open.
 
 - **External reference order, 16 October:** RUMlogNG is #1, QLog #2 and OpsLog
   v0.51.10 #3 as a documented supplementary product/behavior reference. The
