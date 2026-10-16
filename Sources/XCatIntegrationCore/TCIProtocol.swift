@@ -433,6 +433,17 @@ public enum TCIValueParser {
         return parsed
     }
 
+    /// Application syntax/size policy: [+-]?[0-9]+(\.[0-9]+)?. Returns the
+    /// original token without numeric conversion or a physical-range claim.
+    public static func boundedDecimalToken(_ value: String, maximumBytes: Int) -> String? {
+        guard value.utf8.count <= maximumBytes, isDecimalNumber(value) else { return nil }
+        let bytes = value.utf8
+        let digits = (bytes.first == 43 || bytes.first == 45) ? bytes.dropFirst() : bytes[...]
+        guard let first = digits.first, first >= 48, first <= 57,
+              let last = digits.last, last >= 48, last <= 57 else { return nil }
+        return value
+    }
+
     public static func boolean(_ value: String) -> Bool? {
         switch value.lowercased() {
         case "true": true
@@ -656,6 +667,16 @@ public struct TCIVFOLockObservation: Equatable, Sendable {
     public let receivedAt: Date?
 }
 
+/// Raw RX_CHANNEL_SENSORS report (pinned TCI b081213f, page 40): signal level
+/// in dBm at an exact receiver/channel. The specification defines no numeric
+/// range or sentinel. This retains a bounded decimal token, not a calibrated
+/// S-meter/quality assessment, readiness, station freshness or control authority.
+public struct TCIRXChannelSensorsObservation: Equatable, Sendable {
+    public let rawDBm: String
+    /// Local producer receipt time; nil means no timed receipt was supplied.
+    public let receivedAt: Date?
+}
+
 public struct TCIProtocolState: Equatable, Sendable {
     public internal(set) var protocolAnnouncement: TCIProtocolAnnouncement?
     public internal(set) var device: String?
@@ -675,6 +696,7 @@ public struct TCIProtocolState: Equatable, Sendable {
     public internal(set) var lastCWMacrosEmpty: TCICWMacrosEmptyObservation?
     public internal(set) var lastCallsignSend: TCICallsignSendObservation?
     public internal(set) var vfoLocks: [TCIReceiverAddress: TCIVFOLockObservation] = [:]
+    public internal(set) var receiveChannelSensors: [TCIReceiverAddress: TCIRXChannelSensorsObservation] = [:]
     public internal(set) var transceivers: [Int: TCITransceiverState] = [:]
     public internal(set) var unknownCommands: [TCICommand] = []
     public internal(set) var diagnostics: [TCIDiagnostic] = []
@@ -728,6 +750,7 @@ public struct TCIStateReducer: Sendable {
             }
         case "CALLSIGN_SEND": applyCallsignSend(command, receivedAt: receivedAt)
         case "VFO_LOCK": applyVFOLock(command, receivedAt: receivedAt)
+        case "RX_CHANNEL_SENSORS": applyRXChannelSensors(command, receivedAt: receivedAt)
         case "MODULATION": applyModulation(command)
         case "RX_FILTER_BAND": applyFilter(command)
         case "SPLIT_ENABLE": applyBooleanState(command, keyPath: \.splitEnabled)
@@ -887,6 +910,17 @@ public struct TCIStateReducer: Sendable {
         state.serverAppFocus = TCIServerAppFocusObservation(isFocused: focused, receivedAt: receivedAt)
     }
 
+    private mutating func applyRXChannelSensors(_ command: TCICommand, receivedAt: Date?) {
+        guard command.arguments.count == 3,
+              let trx = validTRX(command.arguments[0]),
+              let channel = validChannel(command.arguments[1]), channel <= 1,
+              let rawDBm = TCIValueParser.boundedDecimalToken(command.arguments[2], maximumBytes: limits.maximumArgumentBytes)
+        else { return reject(command) }
+        state.receiveChannelSensors[TCIReceiverAddress(trx: trx, channel: channel)] = TCIRXChannelSensorsObservation(
+            rawDBm: rawDBm, receivedAt: receivedAt
+        )
+    }
+
     private mutating func applyVFOLock(_ command: TCICommand, receivedAt: Date?) {
         guard command.arguments.count == 3,
               let trx = validTRX(command.arguments[0]),
@@ -1017,10 +1051,12 @@ public struct TCIStateReducer: Sendable {
             state.transceivers = state.transceivers.filter { $0.key < trxCount }
             state.frequencies = state.frequencies.filter { $0.key.trx < trxCount }
             state.vfoLocks = state.vfoLocks.filter { $0.key.trx < trxCount }
+            state.receiveChannelSensors = state.receiveChannelSensors.filter { $0.key.trx < trxCount }
         }
         if let channelCount = state.channelCount {
             state.frequencies = state.frequencies.filter { $0.key.channel < channelCount }
             state.vfoLocks = state.vfoLocks.filter { $0.key.channel < channelCount }
+            state.receiveChannelSensors = state.receiveChannelSensors.filter { $0.key.channel < channelCount }
         }
     }
 

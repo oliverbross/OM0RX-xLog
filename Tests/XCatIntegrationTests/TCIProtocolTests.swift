@@ -7,6 +7,84 @@ import XCTest
 final class TCIProtocolTests: XCTestCase {
     private let address = TCIReceiverAddress(trx: 0, channel: 0)
 
+    func testRXChannelSensorsRetainExactDecimalTokenAddressAndCompletionReceiptOnly() {
+        var decoder = TCITextDecoder(), reducer = TCIStateReducer()
+        let first = Date(timeIntervalSince1970: 100), completed = first.addingTimeInterval(5)
+        let other = TCIReceiverAddress(trx: 1, channel: 1)
+        reducer.apply(decoder.feed("rx_channel_sensors:1,1,-00071."), receivedAt: first)
+        XCTAssertTrue(reducer.state.receiveChannelSensors.isEmpty)
+        reducer.apply(decoder.feed("500;"), receivedAt: completed)
+        XCTAssertEqual(reducer.state.receiveChannelSensors[other]?.rawDBm, "-00071.500")
+        XCTAssertEqual(reducer.state.receiveChannelSensors[other]?.receivedAt, completed)
+        XCTAssertNil(reducer.state.receiveChannelSensors[address])
+        XCTAssertTrue(reducer.state.frequencies.isEmpty)
+        XCTAssertTrue(reducer.state.transceivers.isEmpty)
+        XCTAssertTrue(reducer.state.unknownCommands.isEmpty)
+        XCTAssertFalse(reducer.state.ready)
+        XCTAssertNil(reducer.authoritativeSnapshot(for: other))
+    }
+
+    func testRXChannelSensorsRejectMalformedNonDecimalAndOversizedTokensWithoutReplacingEvidence() {
+        var reducer = TCIStateReducer(limits: .init(maximumArgumentBytes: 12))
+        let receipt = Date(timeIntervalSince1970: 100)
+        XCTAssertTrue(reducer.apply(TCICommand(name: "RX_CHANNEL_SENSORS", arguments: ["0", "0", "-71.5"]), receivedAt: receipt))
+        let retained = reducer.state.receiveChannelSensors
+        for token in ["", "+", "-", ".", "-.5", ".5", "71.", "1e2", "-1E-2", "NaN", "Infinity",
+                      "-Infinity", "1.2.3", "1 2", " 12", "12 ", "1,2", "1;2", "1:2", "７１.５", "−71.5", "1234567890123"] {
+            XCTAssertFalse(reducer.apply(TCICommand(name: "RX_CHANNEL_SENSORS", arguments: ["0", "0", token]),
+                                         receivedAt: receipt.addingTimeInterval(10)), token)
+            XCTAssertEqual(reducer.state.receiveChannelSensors, retained)
+        }
+        for arguments in [[], ["0", "0"], ["0", "0", "-71.5", "extra"], ["0", "-71.5"]] {
+            XCTAssertFalse(reducer.apply(TCICommand(name: "RX_CHANNEL_SENSORS", arguments: arguments)))
+            XCTAssertEqual(reducer.state.receiveChannelSensors, retained)
+        }
+        var decoder = TCITextDecoder(limits: reducer.limits)
+        reducer.apply(decoder.feed("RX_CHANNEL_SENSORS:0,0,1234567890123;"))
+        XCTAssertEqual(reducer.state.receiveChannelSensors, retained)
+        XCTAssertEqual(reducer.state.diagnostics.last?.kind, .argumentTooLarge)
+        XCTAssertTrue(reducer.apply(TCICommand(name: "RX_CHANNEL_SENSORS", arguments: ["0", "0", "000000000001"])))
+        XCTAssertEqual(reducer.state.receiveChannelSensors[address]?.rawDBm, "000000000001")
+    }
+
+    func testRXChannelSensorsHaveNoPhysicalRangeOrDoubleConversionAndIndependentReceipts() {
+        var decoder = TCITextDecoder(), reducer = TCIStateReducer()
+        let first = Date(timeIntervalSince1970: 100), second = first.addingTimeInterval(10)
+        let other = TCIReceiverAddress(trx: 0, channel: 1), huge = String(repeating: "9", count: 512)
+        XCTAssertTrue(reducer.apply(TCICommand(name: "RX_CHANNEL_SENSORS", arguments: ["0", "0", huge]), receivedAt: first))
+        XCTAssertEqual(reducer.state.receiveChannelSensors[address]?.rawDBm, huge)
+        reducer.apply(decoder.feed("RX_CHANNEL_SENSORS:0,1,+000.00;VFO:0,0,14025000;"), receivedAt: second)
+        XCTAssertEqual(reducer.state.receiveChannelSensors[other]?.rawDBm, "+000.00")
+        XCTAssertEqual(reducer.state.receiveChannelSensors[address]?.receivedAt, first)
+        XCTAssertTrue(reducer.apply(TCICommand(name: "RX_CHANNEL_SENSORS", arguments: ["0", "0", huge]), receivedAt: second))
+        XCTAssertEqual(reducer.state.receiveChannelSensors[address]?.receivedAt, second)
+        reducer.apply(decoder.feed("RX_CHANNEL_SENSORS:0,0,+35.000;"))
+        XCTAssertEqual(reducer.state.receiveChannelSensors[address]?.rawDBm, "+35.000")
+        XCTAssertNil(reducer.state.receiveChannelSensors[address]?.receivedAt)
+        XCTAssertEqual(reducer.state.receiveChannelSensors[other]?.receivedAt, second)
+        XCTAssertEqual(reducer.state.frequencies[address], 14_025_000)
+        reducer = TCIStateReducer()
+        XCTAssertTrue(reducer.state.receiveChannelSensors.isEmpty)
+    }
+
+    func testRXChannelSensorsUseOnlyABChannelsAndApplicationDiscoveredBoundsAndPrune() {
+        var decoder = TCITextDecoder(), reducer = TCIStateReducer(limits: .init(maximumTRXCount: 2, maximumChannelCount: 2))
+        reducer.apply(decoder.feed("RX_CHANNEL_SENSORS:0,0,-71.5;RX_CHANNEL_SENSORS:0,1,-72;RX_CHANNEL_SENSORS:1,0,-73;RX_CHANNEL_SENSORS:1,1,-74;"))
+        XCTAssertEqual(reducer.state.receiveChannelSensors.count, 4)
+        for indices in [["-1", "0"], ["2", "0"], ["0", "2"], ["0", "-1"], ["0.0", "0"], ["0", "1e0"]] {
+            XCTAssertFalse(reducer.apply(TCICommand(name: "RX_CHANNEL_SENSORS", arguments: indices + ["-71.5"])))
+            XCTAssertEqual(reducer.state.receiveChannelSensors.count, 4)
+        }
+        reducer.apply(decoder.feed("TRX_COUNT:1;"))
+        XCTAssertEqual(reducer.state.receiveChannelSensors.count, 2)
+        XCTAssertFalse(reducer.apply(TCICommand(name: "RX_CHANNEL_SENSORS", arguments: ["1", "0", "-71.5"])))
+        reducer.apply(decoder.feed("CHANNEL_COUNT:1;"))
+        XCTAssertEqual(reducer.state.receiveChannelSensors.count, 1)
+        XCTAssertFalse(reducer.apply(TCICommand(name: "RX_CHANNEL_SENSORS", arguments: ["0", "1", "-71.5"])))
+        var defaults = TCIStateReducer()
+        XCTAssertFalse(defaults.apply(TCICommand(name: "RX_CHANNEL_SENSORS", arguments: ["0", "2", "-71.5"])))
+    }
+
     func testVFOLockRetainsExactAddressBooleanAndCompletedNotificationReceiptOnly() {
         var decoder = TCITextDecoder(), reducer = TCIStateReducer()
         let first = Date(timeIntervalSince1970: 100), completed = first.addingTimeInterval(5)
