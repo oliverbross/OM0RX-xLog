@@ -34,7 +34,8 @@
 .operator-compact-table th > span:first-child { display: block; overflow: hidden; text-overflow: ellipsis; }
 .operator-compact-table th [role="separator"] { position: absolute; top: 0; right: 0; width: 8px; height: 100%; cursor: col-resize; touch-action: none; border-right: 1px solid #46536b; }
 .operator-compact-table th [role="separator"]:focus-visible { outline: 2px solid #71baf7; outline-offset: -2px; }
-.operator-compact-table tbody tr { cursor: pointer; }
+.operator-compact-table tbody tr { height: 28px; max-height: 28px; cursor: pointer; box-shadow: inset 0 0 0 1px transparent; }
+.operator-compact-table tbody tr:hover { box-shadow: inset 0 0 0 1px #4a9eff99; }
 .operator-compact-table tbody tr:focus-visible { outline: 2px solid #71baf7; outline-offset: -2px; }
 .operator-compact-table tbody tr[aria-selected="true"] { background: #244768; }
 .operator-compact-table .live-cluster-category { font-size: 11px; }

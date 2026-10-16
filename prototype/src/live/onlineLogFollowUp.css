@@ -8,4 +8,6 @@
 .online-log-follow-up dl > div { display: grid; grid-template-columns: minmax(80px, 1fr) minmax(0, 2fr); gap: 8px; padding-block: 3px; }
 .online-log-follow-up dd { margin: 0; }
 .online-log-follow-up dt { color: var(--muted, #abb1bc); }
-.live-logbook-table .logbook-follow-up-open { padding: 1px 3px; margin-inline-start: 4px; vertical-align: middle; }
+.live-logbook-table .logbook-follow-up-open { width: 20px; height: 20px; min-width: 20px; min-height: 20px; padding: 0; margin-inline-start: 4px; visibility: hidden; opacity: 0; pointer-events: none; vertical-align: middle; }
+.live-logbook-table tbody tr:hover .logbook-follow-up-open,
+.live-logbook-table tbody tr:focus-within .logbook-follow-up-open { visibility: visible; opacity: 1; pointer-events: auto; }

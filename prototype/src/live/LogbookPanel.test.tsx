@@ -33,8 +33,12 @@ describe("retained upload follow-up entry", () => {
     render(<LogbookPanel mutations={new LogbookMutationSession(request, () => {})} onRequest={request} onEdit={edit} refreshKey={0} taskToolbar columnContext="detached" />);
     await screen.findByText("OM0RX");
     expect(screen.queryByText(/^Upload follow-up$/)).toBeNull();
-    fireEvent.focus(screen.getByText("OM0RX").closest("tr")!);
-    fireEvent.click(screen.getByLabelText("Inspect upload follow-up for OM0RX"));
+    const row = screen.getByText("OM0RX").closest("tr")!, action = screen.getByLabelText("Inspect upload follow-up for OM0RX");
+    const cells = row.children.length;
+    expect(row.querySelectorAll(".logbook-follow-up-open")).toHaveLength(1);
+    fireEvent.mouseEnter(row); expect(row.children).toHaveLength(cells); expect(row.querySelectorAll(".logbook-follow-up-open")).toHaveLength(1);
+    fireEvent.focus(row);
+    fireEvent.click(action);
     expect(edit).not.toHaveBeenCalled();
     expect(request.mock.calls.map(([method]) => method)).toEqual(["logbook_list"]);
     fireEvent.click(screen.getByText("Refresh retained status"));

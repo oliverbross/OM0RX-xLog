@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.4.0-alpha.40 — 2026-10-17
+
+- Removed Logbook row bounce by reserving the upload follow-up control at a fixed size and revealing it with CSS instead of inserting and removing it on every hover.
+- Pinned Operator Desk cluster rows to a fixed height and limited hover feedback to an inset paint effect so moving between spots cannot alter table geometry.
+
 ## 0.4.0-alpha.39 — 2026-10-17
 
 - Made Spot History easier to scan by showing band and mode as compact, separately coloured labels using the same established palette as DX Cluster, Logbook and Previous QSOs.

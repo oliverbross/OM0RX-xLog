@@ -66,7 +66,8 @@ describe("operator workspace", () => {
   it("selects only real spots by explicit activation, never hover/focus, and keeps palette/status evidence", () => {
     const { onSelect } = mount(); clusterTab();
     const row = screen.getByRole("row", { name: "Select VK8NSB at 14.025000 MHz" });
-    fireEvent.mouseEnter(row); fireEvent.focus(row); expect(onSelect).not.toHaveBeenCalled();
+    const rowMarkup = row.innerHTML;
+    fireEvent.mouseEnter(row); expect(row.innerHTML).toBe(rowMarkup); fireEvent.focus(row); expect(onSelect).not.toHaveBeenCalled();
     expect((within(row).getByText("20m") as HTMLElement).style.color).toBe("rgb(18, 52, 86)"); expect((row as HTMLElement).style.backgroundColor).toBe("rgba(255, 140, 0, 0.15)");
     fireEvent.keyDown(row, { key: "Enter" }); expect(onSelect).toHaveBeenCalledExactlyOnceWith(spot());
     const status = screen.getByRole("status", { name: "Compact cluster connections" }); expect(status.textContent).toContain("ShackCQ · Connected"); expect(status.textContent).toContain("Backup · Failed · Connection refused");
@@ -115,6 +116,8 @@ describe("operator workspace", () => {
     const source = readFileSync("src/live/OperatorWorkspace.tsx", "utf8"), css = readFileSync("src/live/OperatorWorkspace.css", "utf8");
     expect(source).not.toMatch(/workerRequest|setInterval|fetch\(|onRequest|cluster_connect|cluster_snapshot/);
     expect(css).not.toMatch(/overflow[^;]*:\s*(auto|scroll)/); expect(css).toContain("table-layout: fixed"); expect(css).toContain("min-width: 0; min-height: 0; overflow: hidden");
+    expect(css).toContain("tbody tr { height: 28px; max-height: 28px");
+    expect(css).toContain("tbody tr:hover { box-shadow: inset 0 0 0 1px");
   });
   it("places compact band-map controls in the tabs toolbar without duplicate heading or lost zoom/state", () => {
     const onSelect = vi.fn(), { container } = render(<OperatorWorkspace map={<div>Existing map</div>} cluster={projection()} onSelect={onSelect}

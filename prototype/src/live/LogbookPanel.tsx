@@ -105,7 +105,6 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [ctyPreviewOpen, setCTYPreviewOpen] = useState(false);
   const [followUpOpen, setFollowUpOpen] = useState(false);
-  const [followUpEntryID, setFollowUpEntryID] = useState<string | null>(null);
   const columnsID = useId();
   const columnsButton = useRef<HTMLButtonElement>(null);
   const resolvedColumnContext = columnContext ?? (onDock ? "detached" : "docked");
@@ -485,8 +484,6 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
             width={columnPreferences.widths[id]} onWidth={resizeColumn} />)}</tr></thead>
           <tbody>
             {rows.map((qso, index) => <tr key={qso.id} tabIndex={0} aria-selected={selectedID === qso.id}
-              onMouseEnter={() => setFollowUpEntryID(qso.id)} onMouseLeave={() => setFollowUpEntryID(null)}
-              onFocus={() => setFollowUpEntryID(qso.id)} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFollowUpEntryID(null); }}
               onClick={() => { cancelDelete(); setSelectedID(qso.id); if (!busy && !loading) onEdit(qso); }}
               onKeyDown={event => {
                 if (event.target !== event.currentTarget) return;
@@ -514,7 +511,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
               <td key="qsl" hidden={hidden("qsl")} data-label="QSL"><ConfirmationStatus service="QSL" sent={qso.qslSent} received={qso.qslReceived} /></td>,
               <td key="lotw" hidden={hidden("lotw")} data-label="LoTW"><ConfirmationStatus service="LoTW" sent={qso.lotwSent} received={qso.lotwReceived} /></td>,
               <td key="clublog" hidden={hidden("clublog")} data-label="Club Log"><ConfirmationStatus service="Club Log" sent={qso.extraFields?.CLUBLOG_QSO_UPLOAD_STATUS} supportsReceived={false} />
-                {!compact && followUpEntryID === qso.id && <button type="button" className="logbook-follow-up-open" title="Inspect retained upload and confirmation status"
+                {!compact && <button type="button" className="logbook-follow-up-open" title="Inspect retained upload and confirmation status"
                   aria-label={`Inspect upload follow-up for ${qso.call}`} onClick={event => { event.stopPropagation(); setSelectedID(qso.id); setFollowUpOpen(true); }}><ClipboardList size={13} /></button>}</td>,
               <td key="comment" hidden={hidden("comment")} data-label="Comment" className="live-logbook-comment" title={qso.comment || undefined}>{qso.comment || "—"}</td>,
               ].sort((a, b) => orderedColumns.findIndex(([id]) => id === a.key) - orderedColumns.findIndex(([id]) => id === b.key))}
