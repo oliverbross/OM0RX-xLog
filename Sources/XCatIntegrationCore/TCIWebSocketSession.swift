@@ -144,6 +144,8 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
     public let receiverChannelVolumes: [TCIReceiverAddress: TCIReceiverChannelVolumeObservation]
     /// Independent balance dB reports; never measured stereo, streaming or authority.
     public let receiverChannelBalances: [TCIReceiverAddress: TCIReceiverChannelBalanceObservation]
+    /// Independent monitor dB setting report; never monitor/TX activity or authority.
+    public let serverMonitorVolume: TCIServerMonitorVolumeObservation?
 
     public init(
         sequence: UInt64,
@@ -168,7 +170,8 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
         receiverMutes: [Int: TCIReceiverMuteObservation] = [:],
         serverMainVolume: TCIServerMainVolumeObservation? = nil,
         receiverChannelVolumes: [TCIReceiverAddress: TCIReceiverChannelVolumeObservation] = [:],
-        receiverChannelBalances: [TCIReceiverAddress: TCIReceiverChannelBalanceObservation] = [:]
+        receiverChannelBalances: [TCIReceiverAddress: TCIReceiverChannelBalanceObservation] = [:],
+        serverMonitorVolume: TCIServerMonitorVolumeObservation? = nil
     ) {
         self.sequence = sequence
         self.generation = generation
@@ -193,6 +196,7 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
         self.serverMainVolume = serverMainVolume
         self.receiverChannelVolumes = receiverChannelVolumes
         self.receiverChannelBalances = receiverChannelBalances
+        self.serverMonitorVolume = serverMonitorVolume
     }
 }
 
@@ -645,7 +649,8 @@ public actor TCIReadOnlyWebSocketSession {
             receiverMutes: reducer.state.receiverMutes,
             serverMainVolume: reducer.state.serverMainVolume,
             receiverChannelVolumes: reducer.state.receiverChannelVolumes,
-            receiverChannelBalances: reducer.state.receiverChannelBalances
+            receiverChannelBalances: reducer.state.receiverChannelBalances,
+            serverMonitorVolume: reducer.state.serverMonitorVolume
         )
         for continuation in continuations.values {
             continuation.yield(observationValue)
