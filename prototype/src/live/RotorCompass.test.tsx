@@ -18,4 +18,18 @@ describe("telemetry compass", () => {
     expect(view.container.querySelector(".rotor-observed-needle")).toBeNull();
     expect(view.container.querySelector(".rotor-target-arc")).toBeNull();
   });
+  it("adds optional in-dial readouts without covering them with the center needle", () => {
+    const view = render(<RotorCompass connected azimuth={53} target={73} path="SP" readout={{ call: "W7AIT", distanceKm: 12500, status: "Ready" }} />);
+    expect(screen.getByText("053°")).toBeTruthy();
+    expect(screen.getByText("SP 73° TARGET")).toBeTruthy();
+    expect(screen.getByText("12,500 km")).toBeTruthy();
+    expect(view.container.querySelector("desc")?.textContent).toContain("Target callsign W7AIT. SP target 73 degrees. SP distance 12,500 km. Ready.");
+    expect(view.container.querySelector(".rotor-dial-hub")).toBeNull();
+    view.rerender(<RotorCompass connected={false} azimuth={53} target={73} path="LP" readout={{ call: "", distanceKm: undefined }} />);
+    expect(screen.getByText("NO TELEMETRY")).toBeTruthy();
+    expect(screen.getByText("---°")).toBeTruthy();
+    expect(screen.getByText("Distance unavailable")).toBeTruthy();
+    expect(view.container.querySelector(".rotor-observed-needle")).toBeNull();
+    expect(view.container.querySelector(".rotor-target-arc")).toBeNull();
+  });
 });

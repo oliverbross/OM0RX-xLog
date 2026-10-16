@@ -41,6 +41,7 @@ import { DetachedBandMapsSurface } from "./live/DetachedBandMapsSurface";
 import type { BandMapViewPreferences } from "./live/BandMaps";
 import { mergeBandMapPreferenceIntent } from "./live/detachedBandMapPreferences";
 import IntegratedAwards from "./live/AwardsPanel";
+import { useDeferredPanelReads } from "./live/deferredPanelReads";
 import QSOEditor from "./live/QSOEditor";
 import { ContactDeleteAction } from "./live/ContactDeleteAction";
 import OperatorDesk, { DeskQSO, DeskIntelligence, DeskRotor } from "./live/OperatorDesk";
@@ -146,8 +147,6 @@ function MainLiveApp() {
   const logbookWorkingChanged = useCallback((value: boolean) => { logbookWorkingRef.current = value; setLogbookWorking(value); }, []);
   type MenuSettingsTab = "Station" | "Logbook" | "Wavelog" | "Sync" | "QRZ" | "Online logs" | "Reference data";
   const [settingsTabRequest, setSettingsTabRequest] = useState<{ tab: MenuSettingsTab; revision: number }>({ tab: "Station", revision: 0 });
-  const [awardsOpened, setAwardsOpened] = useState(false);
-  useEffect(() => { if (view === "Awards") setAwardsOpened(true); }, [view]);
   const [workspace, setWorkspace] = useState<Data | null>(null);
   const [workspacePending, setWorkspacePending] = useState(true);
   const deskLayout = useWorkspaceLayout(workspace?.workspace_exists === true);
@@ -480,6 +479,8 @@ function MainLiveApp() {
       return result;
     } catch (e) { throw new Error(e instanceof Error ? e.message : "Operation failed"); }
   }, [disarmAutoRotor]);
+  const panelRequest = useDeferredPanelReads(request, refresh,
+    workspace?.workspace_exists === true && !workspacePending && view === "Operator Desk" && !separateWindows);
   const referenceEvidence = useReferenceEvidence(draft, (contactEdit.draft ? contactEdit.base : sharedDraft.base)?.generation, request, refresh);
   useReferenceSchedule(workspace?.workspace_exists === true, request);
   const cw = useSharedCW(`${view}:${draft?.id}:${draft?.call}:${draft?.frequencyHz}:${draft?.mode}`);
@@ -1021,7 +1022,7 @@ function MainLiveApp() {
         "band-maps": { title: "Band maps", content: deskBands },
         "dx-cluster": { title: "DX Cluster", content: <ClusterPanel passive snapshot={cluster} selectedSpotId={selected} onRequest={request} onSelect={selectSpot} onUndock={() => void openDetachedCluster().catch(e => setError(e.message))} /> },
         logbook: { title: "Logbook", content: <LogbookPanel onRequest={request} refreshKey={refresh} mutations={logbookMutations} onWorkingChange={logbookWorkingChanged} onChanged={() => setRefresh(n => n + 1)} onUndock={() => void openDetachedLogbook().catch(cause => setError(cause.message))} onEdit={editLoggedContact} /> },
-        awards: { title: "Awards", content: <IntegratedAwards request={request} refresh={refresh} initialStats={stats?.awards} onUndock={() => void openDetachedAwards().catch(cause => setError(cause.message))} /> },
+        awards: { title: "Awards", content: <IntegratedAwards request={panelRequest} refresh={refresh} initialStats={stats?.awards} onUndock={() => void openDetachedAwards().catch(cause => setError(cause.message))} /> },
         "spot-history": { title: "Spot History", content: <SpotHistoryPanel request={request} /> },
       }} traditional={<><OperatorDesk {...deskProps} /><div className="live-desk-bottom"><OperatorWorkspace map={<DeskMapLogbook map={<div className="live-map">{map}</div>}
         logbook={<LogbookPanel columnContext="desk" onRequest={request} refreshKey={refresh} mutations={logbookMutations}
@@ -1043,7 +1044,7 @@ function MainLiveApp() {
         onUndock={!editing.current ? () => void run(async () => { await draftSession.flush(); await openDetachedQSO(); }) : undefined} />}
       {view === "Logbook" && <LogbookPanel onRequest={request} refreshKey={refresh} mutations={logbookMutations} onWorkingChange={logbookWorkingChanged} onChanged={() => setRefresh(n => n + 1)} onUndock={() => void openDetachedLogbook().catch(cause => setError(cause.message))} onEdit={editLoggedContact} />}
       {view === "DX Cluster" && <ClusterPanel passive snapshot={cluster} selectedSpotId={selected} onRequest={request} onSelect={selectSpot} onUndock={() => void openDetachedCluster().catch(e => setError(e.message))} />}
-      {view === "Chaser & DX" && <OpportunitiesPanel request={request} refresh={refresh} onSelect={loadOpportunity} home={stats?.map_home} />}
+      {view === "Chaser & DX" && <OpportunitiesPanel request={panelRequest} refresh={refresh} onSelect={loadOpportunity} home={stats?.map_home} />}
       {view === "Spot History" && <SpotHistoryPanel request={request} />}
       {view === "World Map" && <><div className="live-actions"><button type="button" onClick={() => void openDetachedMap("world-map").catch(e => setError(e.message))}><ExternalLink size={14} />Undock World Map</button></div><div className="live-map full">{map}</div></>}
       {view === "Band Maps" && <BandMaps spots={liveSpots} onSelect={selectSpot} radioFrequencyHz={station?.radio?.frequency_hz} onUndock={() => void openDetachedMap("band-maps").catch(e => setError(e.message))} preferences={workspacePreferences ? bandMapView(workspacePreferences, false) : undefined} onPreferencesChange={value => changeBandMapPreferences(false, value)} />}
@@ -1056,7 +1057,7 @@ function MainLiveApp() {
           {stationProvider === viewProvider ? <><AgentConnectionSetup followSelection connections /><TCIObservation snapshot={station} /></> : <p>Apply Direct TCI selection to review its saved configuration.</p>}</section> : viewProvider === "hamlib" ? <HamlibPanel request={viewedStationRequest} snapshot={stationProvider === viewProvider ? station : null} /> :
           viewProvider === "direct_flex_lan" ? <DirectFlexPanel request={viewedStationRequest} snapshot={stationProvider === viewProvider ? station : null} /> :
           <StationPanel snapshot={stationProvider === viewProvider ? station : null} onRequest={viewedStationRequest} onSnapshot={value => { if (stationProvider === viewProvider && provider.current === viewProvider) setStation(value); }} independentRotor />}</>}</>}
-      {(view === "Awards" || awardsOpened) && <div hidden={view !== "Awards"}><IntegratedAwards request={request} refresh={refresh} initialStats={stats?.awards} onUndock={() => void openDetachedAwards().catch(cause => setError(cause.message))} /></div>}
+      {view === "Awards" && <IntegratedAwards request={panelRequest} refresh={refresh} initialStats={stats?.awards} onUndock={() => void openDetachedAwards().catch(cause => setError(cause.message))} />}
       {view === "Settings" && settings && <ServiceSettings values={settings} savedValues={settingsState.base?.settings} request={request}
         onChanged={value => settingsSession.edit(value)} onSave={async value => { await settingsSession.save(value); await draftSession.refresh(); }}
         saving={settingsState.saving} pending={!!settingsState.pending} conflict={!!settingsState.conflict}

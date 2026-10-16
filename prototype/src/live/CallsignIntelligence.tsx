@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { ContactRound } from "lucide-react";
 import "./OperatorDesk.css";
 
@@ -39,7 +39,9 @@ export function DeskIntelligence({ draft, lookup, previous, request, refresh, in
   const cq = info?.cqZone, itu = info?.ituZone;
   const lastCall = current?.history ? current.history.previous?.[0] : previous.find(item => normalizedCall(item.call) === call);
   const visibleBands = intelligenceBands?.length ? Array.from(new Set(intelligenceBands.filter(band => bands.includes(band)))) : displayedBands;
-  const matrix = (scope: string, cells: Data[] | undefined) => <div className="desk-band-matrix" aria-label={`${scope} band status`}>{visibleBands.map(band => {
+  const matrixColumns = Math.max(1, Math.ceil(visibleBands.length / 2));
+  const matrixStyle = { "--desk-matrix-columns": Math.min(5, matrixColumns), "--desk-matrix-wide-columns": matrixColumns } as CSSProperties;
+  const matrix = (scope: string, cells: Data[] | undefined) => <div className="desk-band-matrix" style={matrixStyle} aria-label={`${scope} band status`}>{visibleBands.map(band => {
     const matches = cells?.filter(cell => cell.band === band), confirmed = matches?.some(cell => cell.confirmed === true), worked = confirmed || matches?.some(cell => cell.worked === true);
     const state = cells ? confirmed ? "Confirmed" : worked ? "Worked" : "Unworked" : "Unknown";
     return <span key={band} className={`is-${state.toLowerCase()}`} aria-label={`${scope} ${band}: ${state}`} title={`${band}: ${state} across logged modes`}>{confirmed ? "●" : worked ? "○" : "—"} {band.replace(/^(\d+)m$/, "$1")}</span>;
@@ -51,7 +53,7 @@ export function DeskIntelligence({ draft, lookup, previous, request, refresh, in
   };
   return <section className="desk-panel desk-intelligence" aria-label="Callsign and DXCC intelligence">{!taskOnly && <h2><ContactRound size={15} aria-hidden="true" /> Callsign &amp; DXCC intelligence</h2>}
     <div className="desk-identity"><div><strong>{call || "—"}</strong><b>{name || "Name unavailable"}</b><span>{country || "Country unresolved"}</span></div><div className="desk-provenance"><b>{info?.source || (call ? "Lookup pending" : emptyMessage)}</b><small>{finite(info?.latitude) && finite(info?.longitude) ? info?.location_source || info?.source || "POSITION RESOLVED" : "NO POSITION"}</small></div></div>
-    <dl className="desk-identity-facts">{[["DXCC", adif ? `#${adif}` : "—"], ["GRID", grid || "—"], ["CONT", continent || "—"], ["ZONES", `CQ ${cq || "—"} · ITU ${itu || "—"}`], ["DISTANCE", finite(info?.distance_km) ? `${Math.round(info.distance_km).toLocaleString()} km` : "—"]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
+    <dl className="desk-identity-facts">{[["DXCC", adif ? `#${adif}` : "—"], ["GRID", grid || "—"], ["CONT", continent || "—"], ["ZONES", `CQ ${cq || "—"} · ITU ${itu || "—"}`], ["DISTANCE", finite(info?.distance_km) ? `${Math.round(info.distance_km).toLocaleString()} km` : "—"]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd title={value}>{value}</dd></div>)}</dl>
     <div className="desk-matrices"><div><h3>CALLSIGN {counts(current?.history?.previous_count, current?.history?.previous_confirmed_count)}</h3>{matrix("Callsign", current?.callCells)}</div><div><h3>DXCC {adif ? `#${adif}` : "—"} {counts(adif ? current?.history?.dxcc_contact_count : undefined, adif ? current?.history?.dxcc_confirmed_count : undefined)}</h3>{matrix("DXCC", adif ? current?.history?.matrix : undefined)}</div></div>
     <footer><span>{lastCall ? `CALL LAST · ${utcSummary(lastCall.date ?? lastCall.start)}` : current?.history?.previous_count === 0 ? "CALL · NEW" : "CALL LAST · —"}</span><span>DXCC LAST · {current?.history?.last_dxcc_qso ? utcSummary(current.history.last_dxcc_qso.date ?? current.history.last_dxcc_qso.start) : "Unavailable"}</span></footer>
     {current?.error && <p className="desk-error" role="status">{current.error}</p>}

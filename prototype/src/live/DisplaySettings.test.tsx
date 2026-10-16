@@ -9,10 +9,17 @@ import DisplaySettings from "./DisplaySettings";
 import { UiScaleProvider } from "./uiScale";
 import { uiScaleKey } from "./uiScaleController";
 import { qsoDetailsFieldsKey } from "./qsoEditorPreferences";
+import { propagationRefreshKey } from "./propagationPreferences";
 beforeEach(() => { localStorage.clear(); vi.clearAllMocks(); mocks.zoom.mockImplementation(async () => {}); mocks.emit.mockImplementation(async () => {}); });
 afterEach(cleanup);
 const mount = () => render(<UiScaleProvider><DisplaySettings /></UiScaleProvider>);
 describe("opt-in display controls", () => {
+  it("persists the automatic propagation cadence", async () => {
+    mount(); await screen.findByText(/Last applied in this window: 100%/);
+    expect((screen.getByLabelText("Propagation refresh interval") as HTMLSelectElement).value).toBe("10");
+    fireEvent.change(screen.getByLabelText("Propagation refresh interval"), { target: { value: "30" } });
+    expect(localStorage.getItem(propagationRefreshKey)).toBe("30");
+  });
   it("defaults to 100% and applies an explicit display choice without secret or worker requests", async () => {
     mount(); await waitFor(() => expect(mocks.zoom).toHaveBeenCalledWith(1));
     expect((screen.getByLabelText("Interface display scale") as HTMLSelectElement).value).toBe("1");

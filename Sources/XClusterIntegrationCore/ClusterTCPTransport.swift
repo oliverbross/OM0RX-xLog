@@ -136,8 +136,6 @@ private final class ClusterNetworkConnection: ClusterConnectionTransport, @unche
                 guard self.connection === newConnection, !self.stopped else { return }
                 switch state {
                 case .ready:
-                    self.retry = 0
-                    self.onState(.connected, nil)
                     self.sendLogin(on: newConnection)
                     self.receive(on: newConnection)
                 case .failed(let error): self.closed(error.localizedDescription)
@@ -154,10 +152,22 @@ private final class ClusterNetworkConnection: ClusterConnectionTransport, @unche
             guard let self, let connection, self.connection === connection, !self.stopped else { return }
             var login = self.server.callsign.uppercased() + "\r\n"
             if !self.password.isEmpty { login += self.password + "\r\n" }
-            login += (self.requestSkimmer ? "set/skimmer" : "unset/skimmer") + "\r\n"
-            self.loggedIn = true
-            connection.send(content: Data(login.utf8), completion: .contentProcessed { [weak self] error in
-                if let error { self?.queue.async { self?.closed(error.localizedDescription) } }
+            let skimmer = self.requestSkimmer
+            login += (skimmer ? "set/skimmer" : "unset/skimmer") + "\r\n"
+            connection.send(content: Data(login.utf8), completion: .contentProcessed { [weak self, weak connection] error in
+                guard let self, let connection else { return }
+                self.queue.async {
+                    guard self.connection === connection, !self.stopped else { return }
+                    if let error { self.closed(error.localizedDescription); return }
+                    self.retry = 0
+                    self.loggedIn = true
+                    if self.requestSkimmer != skimmer {
+                        self.send(self.requestSkimmer ? "set/skimmer" : "unset/skimmer")
+                    }
+                    // The session-level connected transition may enqueue commands.
+                    // Publish it only after the complete login payload is on the wire.
+                    self.onState(.connected, nil)
+                }
             })
         }
     }

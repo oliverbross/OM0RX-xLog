@@ -52,6 +52,36 @@ final class ClusterPortableTransportTests: XCTestCase {
                                     onState: state, onLine: line)
         }
     }
+
+    func testMacConnectedTransitionFollowsLoginPayload() async throws {
+        let listener = try LoopbackListener()
+        let accepted = expectation(description: "login precedes connected command")
+        let wire = WireEvidence(), events = WireEvidence()
+        let client = makeClusterTCPTransport(
+            server: .init(name: "Fixture", host: "127.0.0.1", port: Int(listener.port), callsign: "om0rx"),
+            password: "test-only-password", reconnect: false, requestSkimmer: true,
+            onState: { phase, _ in events.phase(phase) }, onLine: { events.line($0) }
+        )
+        defer { client.stop() }
+        DispatchQueue.global().async {
+            defer { accepted.fulfill() }
+            guard let peer = xlog_test_accept(listener.pointer, 4_000) else { XCTFail("No connection"); return }
+            defer { xlog_test_close(peer) }
+            var input = Data(), buffer = [UInt8](repeating: 0, count: 4096)
+            while !String(decoding: input, as: UTF8.self).contains("SH/DX/100\r\n") {
+                let count = buffer.withUnsafeMutableBytes { xlog_test_read(peer, $0.baseAddress, Int32($0.count), 4_000) }
+                guard count > 0 else { XCTFail("Incomplete login/command"); return }
+                input.append(contentsOf: buffer.prefix(Int(count)))
+            }
+            wire.line(String(decoding: input, as: UTF8.self))
+        }
+        client.start()
+        try await waitFor { events.phases.contains(.connected) }
+        client.send("SH/DX/100")
+        await fulfillment(of: [accepted], timeout: 6)
+        XCTAssertEqual(wire.lines, ["OM0RX\r\ntest-only-password\r\nset/skimmer\r\nSH/DX/100\r\n"])
+        XCTAssertEqual(events.phases.prefix(2), [.connecting, .connected])
+    }
     #endif
 
     private func exerciseLiveOptions(_ factory: (ClusterServerConfiguration,

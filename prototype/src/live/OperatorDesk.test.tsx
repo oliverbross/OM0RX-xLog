@@ -147,10 +147,34 @@ it("uses observed compass telemetry and sends only explicit generation-fenced LP
   fireEvent.click(screen.getByRole("button", { name: "Turn rotor long path" }));
   await waitFor(() => expect(request).toHaveBeenCalledWith("rotor_goto", { owner: "native_dcu1", generation: 4, bearing: 253, label: "W7AIT" }));
   expect(screen.getByLabelText("LP target bearing 253 degrees")).toBeTruthy();
-  expect(screen.getByText("— 27,530 km")).toBeTruthy();
+  expect(within(screen.getByLabelText("Observed rotor bearing 53 degrees")).getByText("27,530 km")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Stop desk rotor" }));
   await waitFor(() => expect(request).toHaveBeenCalledWith("rotor_stop", { owner: "native_dcu1", generation: 4 }));
   expect(onManualRotor).toHaveBeenCalledTimes(2);
+});
+it("keeps callsign, observed bearing, selected target and distance inside the dial with controls below", async () => {
+  render(<Harness />);
+  const panel = screen.getByRole("region", { name: "Rotor" });
+  const dial = within(panel).getByRole("img", { name: "Observed rotor bearing 53 degrees" });
+  for (const text of ["W7AIT", "053°", "OBSERVED", "SP 73° TARGET", "12,500 km"]) expect(within(dial).getByText(text)).toBeTruthy();
+  expect(panel.querySelector(".desk-rotor-target")).toBeNull();
+  expect(panel.lastElementChild?.className).toBe("desk-rotor-controls");
+  expect(panel.lastElementChild?.lastElementChild?.className).toBe("desk-rotor-actions");
+  fireEvent.click(within(panel).getByRole("button", { name: "Turn rotor long path" }));
+  await waitFor(() => expect(within(dial).getByText("LP 253° TARGET")).toBeTruthy());
+  expect(within(dial).getByText("27,530 km")).toBeTruthy();
+  expect(within(dial).getByText("053°")).toBeTruthy();
+  const auto = within(panel).getByRole("checkbox", { name: "Auto rotor" }) as HTMLInputElement;
+  fireEvent.click(auto);
+  expect(auto.checked).toBe(true);
+});
+it("keeps unknown target and distance explicit inside the dial instead of using stale lookup data", () => {
+  render(<Harness info={{ ...lookup, call: "OTHER" }} rotorState={{ ...rotor, state: "uncertain", backend_available: false }} />);
+  const dial = screen.getByRole("img", { name: "Rotor bearing unavailable" });
+  for (const text of ["W7AIT", "---°", "NO TELEMETRY", "SP ---° TARGET", "Distance unavailable"]) expect(within(dial).getByText(text)).toBeTruthy();
+  expect(dial.querySelector(".rotor-observed-needle")).toBeNull();
+  expect(dial.querySelector(".rotor-target-marker")).toBeNull();
+  expect((screen.getByRole("checkbox", { name: "Auto rotor" }) as HTMLInputElement).disabled).toBe(true);
 });
 it("derives LP distance with the native geodesy radius and rejects missing/impossible distances", () => {
   expect(rotorPathDistance(12500, "SP")).toBe(12500);

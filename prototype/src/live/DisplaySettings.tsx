@@ -2,11 +2,13 @@ import { useUiScale } from "./uiScale";
 import { uiScales } from "./uiScaleController";
 import { qsoDetailFieldKeys, qsoDetailFieldSections } from "./qsoFields";
 import { useQSOFieldPreferences } from "./useQSOFieldPreferences";
+import { propagationRefreshMinutes, usePropagationRefreshPreference } from "./propagationPreferences";
 import "./DisplaySettings.css";
 
 export default function DisplaySettings() {
   const display = useUiScale();
   const qso = useQSOFieldPreferences();
+  const propagation = usePropagationRefreshPreference();
   const selected = new Set(qso.preference.fields);
   const choose = (field: string, visible: boolean) => qso.save(visible ? [...selected, field] : qso.preference.fields.filter(candidate => candidate !== field));
   return <section className="display-settings" aria-label="Display settings">
@@ -18,6 +20,14 @@ export default function DisplaySettings() {
     <p role="status">{!display.available ? "Display controls are initializing." : display.pending ? `Applying ${Math.round(display.requestedScale * 100)}%…` : `Last applied in this window: ${Math.round(display.scale * 100)}%.`} Main, monitor and undocked views share the preference.</p>
     {display.error && <p role="alert" className="live-station-error">{display.error}</p>}
     <p>Band-map label size remains a separate preference. Higher interface scales need more screen space; Reset stays available by keyboard if controls move out of view.</p>
+    <div className="display-qso-fields">
+      <h2>HF propagation</h2>
+      <label>Automatic refresh<select aria-label="Propagation refresh interval" value={propagation.minutes} onChange={event => propagation.save(Number(event.target.value))}>
+        {propagationRefreshMinutes.map(minutes => <option key={minutes} value={minutes}>Every {minutes} minutes{minutes === 10 ? " · Default" : ""}</option>)}
+      </select></label>
+      <p>Saved automatically. The Desk and Propagation window share the latest conditions and refresh on this interval while open.</p>
+      {propagation.error && <p role="alert" className="live-station-error">{propagation.error}</p>}
+    </div>
     <div className="display-qso-fields">
       <h2>QSO details</h2>
       <p>Choose which optional fields appear in the QSO details panel. Active-contact fields such as callsign, frequency, band, mode, reports and UTC always remain visible. Hiding a field never removes its saved value.</p>

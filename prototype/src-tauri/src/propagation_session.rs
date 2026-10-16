@@ -27,23 +27,23 @@ impl Session {
         if state.stopped { return Err("Propagation has stopped.".into()); }
         Ok(self.projection(&state))
     }
-    /// Ensure the retained observation is no older than ten minutes. Renderers
+    /// Ensure the retained observation is no older than the selected interval. Renderers
     /// may ask often (mount, focus, timer); freshness admission remains here so
     /// all windows still share one bounded fetch.
-    pub fn ensure_fresh(&self, now: f64) -> Result<Value, String> {
+    pub fn ensure_fresh(&self, now: f64, interval: f64) -> Result<Value, String> {
         {
             let state = self.state.lock().map_err(|_| "Propagation session unavailable")?;
             if state.stopped { return Err("Propagation has stopped.".into()); }
             if state.pending { return Ok(self.projection(&state)); }
             let received = state.snapshot["received_at"].as_f64();
             let stale = state.snapshot["stale"].as_bool().unwrap_or(true);
-            if !stale && received.is_some_and(|received| now >= received && now - received < 600.0) {
+            if !stale && received.is_some_and(|received| now >= received && now - received < interval) {
                 return Ok(self.projection(&state));
             }
         }
         self.refresh()
     }
-    /// Call only after explicit operator intent, outside the UI thread. A
+    /// Fetch on the automatic freshness cadence or explicit intent, outside the UI thread. A
     /// concurrent refresh observes the same pending request, never another fetch.
     pub fn refresh(&self) -> Result<Value, String> {
         {
@@ -154,12 +154,12 @@ mod tests {
     fn freshness_checks_fetch_once_then_reuse_until_expired_while_manual_refresh_bypasses_ttl() {
         let calls = Arc::new(AtomicUsize::new(0)); let count = calls.clone();
         let owner = Session::new(Arc::new(move || { count.fetch_add(1, Ordering::SeqCst); Ok(data()) }), Arc::new(|| {}));
-        assert_eq!(owner.ensure_fresh(1_000.0).unwrap()["snapshot"]["solar_flux"], 122);
-        assert_eq!(owner.ensure_fresh(1_599.0).unwrap()["snapshot"]["solar_flux"], 122);
+        assert_eq!(owner.ensure_fresh(1_000.0, 600.0).unwrap()["snapshot"]["solar_flux"], 122);
+        assert_eq!(owner.ensure_fresh(1_599.0, 600.0).unwrap()["snapshot"]["solar_flux"], 122);
         assert_eq!(calls.load(Ordering::SeqCst), 1);
         assert_eq!(owner.refresh().unwrap()["snapshot"]["solar_flux"], 122);
         assert_eq!(calls.load(Ordering::SeqCst), 2);
-        assert_eq!(owner.ensure_fresh(1_601.0).unwrap()["snapshot"]["solar_flux"], 122);
+        assert_eq!(owner.ensure_fresh(1_601.0, 600.0).unwrap()["snapshot"]["solar_flux"], 122);
         assert_eq!(calls.load(Ordering::SeqCst), 3);
     }
     #[test]

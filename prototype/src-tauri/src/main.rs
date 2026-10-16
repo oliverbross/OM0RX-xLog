@@ -917,15 +917,17 @@ fn antenna_snapshot(window: tauri::WebviewWindow, state: tauri::State<'_, accept
 }
 
 #[tauri::command]
-async fn propagation_session_request(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>, action: String) -> Result<serde_json::Value, String> {
+async fn propagation_session_request(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>, action: String, refresh_interval_seconds: Option<u64>) -> Result<serde_json::Value, String> {
     propagation_session::validate(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
     if !matches!(action.as_str(), "snapshot" | "ensure" | "refresh") { return Err("Unknown propagation session action.".into()); }
+    let refresh_interval = refresh_interval_seconds.unwrap_or(600);
+    if !matches!(refresh_interval, 300 | 600 | 900 | 1800 | 3600) { return Err("Unknown propagation refresh interval.".into()); }
     let owner = propagation_session::owner(&app)?;
     if action == "snapshot" { return owner.snapshot(); }
     tauri::async_runtime::spawn_blocking(move || if action == "ensure" {
         let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
             .map_err(|_| "System clock is unavailable.".to_string())?.as_secs_f64();
-        owner.ensure_fresh(now)
+        owner.ensure_fresh(now, refresh_interval as f64)
     } else { owner.refresh() }).await.map_err(|_| "Propagation refresh could not be confirmed; no request was replayed.".to_string())?
 }
 

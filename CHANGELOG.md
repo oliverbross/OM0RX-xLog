@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 1.0.0-beta.3 — 2026-10-17
+
+- Fixed macOS cluster startup ordering so the callsign, optional password and skimmer preference are delivered before the automatic `sh/dx/100` request.
+- Warmed the retained Chaser snapshot and default Awards catalogue after the Operator Desk paints, without preloading network feeds or keeping hidden screens mounted.
+- Reduced Chaser render work by reusing date formatters, memoizing facets and skipping map projection while the map is hidden.
+- Made Callsign Intelligence fact boxes about 30% shorter and allowed callsign/DXCC band matrices to use balanced two-row layouts when their panel is wide enough.
+- Reworked the Operator Desk rotor into a dial-first layout with callsign, observed bearing, selected SP/LP target and distance inside the dial; SP, LP and Stop remain at the bottom.
+- Removed the manual HF propagation refresh controls and added a persisted 5/10/15/30/60-minute automatic refresh interval under Settings > Display, retaining one shared deduplicated native fetch across windows.
+- Prefer stable Developer ID signing with stable helper identifiers on configured Macs so Keychain authorization survives rebuilt workers instead of following changing ad-hoc hashes.
+
 ## 1.0.0-beta.2 — 2026-10-17
 
 - Kept the Operator Desk stationary while spot activation, radio readback, synchronization, or recovery feedback appears by moving actionable notices into a non-layout overlay.

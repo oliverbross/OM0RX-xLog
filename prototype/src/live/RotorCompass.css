@@ -17,4 +17,10 @@
 .rotor-dial-pin { fill:#75e8f7; }
 .rotor-no-telemetry { fill:#abc0cf; font-size:8px; letter-spacing:.4px; }
 .rotor-dial.is-offline .rotor-dial-pin { fill:#708391; }
+.rotor-readout-call { fill:#e6edf6; font-weight:800; }
+.rotor-readout-observed { fill:#58dbf6; font-size:27px; font-weight:800; }
+.rotor-readout-label { fill:#abc0cf; font-size:6.5px; letter-spacing:1px; }
+.rotor-readout-target { fill:#ef9bda; font-size:9px; font-weight:750; }
+.rotor-readout-distance { fill:#abc0cf; font-size:8px; }
+.rotor-dial.is-offline .rotor-readout-observed { fill:#abc0cf; }
 @media(prefers-reduced-motion:reduce) { .rotor-observed-needle { transition:none; } }

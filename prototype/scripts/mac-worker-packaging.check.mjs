@@ -27,5 +27,9 @@ test('Mac packaging resolves Xcode products and retains the strict-signing resou
   const destinations = [...script.matchAll(/ditto [^\n]*"\$bundle([^"\n]*OM0RXXLogPrototype_XLogCore\.bundle)"/g)].map(match => match[1]);
   assert.deepEqual(destinations, ['/Contents/Resources/OM0RXXLogPrototype_XLogCore.bundle']);
   assert.match(script, /node --test prototype\/scripts\/mac-worker-packaging\.check\.mjs/);
+  assert.match(script, /security find-identity -v -p codesigning/);
+  assert.match(script, /Developer ID Application:/);
+  assert.match(script, /com\.oliverbross\.xlog\.integration\.worker/);
+  assert.match(script, /codesign --force --identifier "\$identifier"/);
   assert.match(script, /codesign --verify --deep --strict "\$bundle"/);
 });

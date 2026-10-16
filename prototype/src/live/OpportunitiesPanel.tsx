@@ -27,15 +27,17 @@ function officialLink(value: string): string | undefined {
   try { const url = new URL(value); return url.protocol === "https:" && officialHosts.has(url.hostname) ? url.toString() : undefined; }
   catch { return undefined; }
 }
+const timeFormatter = new Intl.DateTimeFormat(undefined, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "UTC", timeZoneName: "short" });
+const dateFormatter = new Intl.DateTimeFormat(undefined, { day: "2-digit", month: "short", timeZone: "UTC" });
 function time(value: string): string {
   const date = new Date(value);
-  return Number.isFinite(date.valueOf()) ? new Intl.DateTimeFormat(undefined, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "UTC", timeZoneName: "short" }).format(date) : "Time unavailable";
+  return Number.isFinite(date.valueOf()) ? timeFormatter.format(date) : "Time unavailable";
 }
 function mhz(hz: number | null): string { return hz != null && Number.isFinite(hz) ? `${(hz / 1_000_000).toFixed(3)} MHz` : "Frequency not supplied"; }
 function activity(item: Opportunity): string {
   if (item.activity === "spotted_operation") return "Live cluster spot · scheduled operation";
   if (item.activity !== "scheduled" && item.kind !== "dxpedition" && item.kind !== "special_event") return "Live spot";
-  const date = (value: string) => new Intl.DateTimeFormat(undefined, { day: "2-digit", month: "short", timeZone: "UTC" }).format(new Date(value));
+  const date = (value: string) => dateFormatter.format(new Date(value));
   return item.starts_at && item.ends_at && Number.isFinite(Date.parse(item.starts_at)) && Number.isFinite(Date.parse(item.ends_at))
     ? `Scheduled ${date(item.starts_at)}–${date(item.ends_at)}` : "Scheduled operation";
 }
@@ -143,22 +145,23 @@ export function OpportunitiesPanel({ request, onSelect, onDock, refresh = 0, hom
     });
     observer.observe(element); return () => observer.disconnect();
   }, [snapshot != null]);
+  const search = query.trim().toUpperCase();
   const rows = useMemo(() => (snapshot?.items ?? []).filter(item =>
     (kind === "all" || item.kind === kind || item.programmes?.includes(kind)) &&
     (band === "all" || opportunityBand(item.frequency_hz) === band) && (mode === "all" || item.mode === mode) &&
-    `${item.callsign} ${item.reference} ${item.name}`.toUpperCase().includes(query.trim().toUpperCase())).sort((a, b) =>
+    `${item.callsign} ${item.reference} ${item.name}`.toUpperCase().includes(search)).sort((a, b) =>
       sort === "callsign" ? a.callsign.localeCompare(b.callsign) : sort === "reference" ? a.reference.localeCompare(b.reference) :
       sort === "frequency" ? (a.frequency_hz ?? Infinity) - (b.frequency_hz ?? Infinity) :
-      sort === "unworked" ? a.worked_count - b.worked_count || b.observed_at.localeCompare(a.observed_at) : b.observed_at.localeCompare(a.observed_at)), [snapshot, kind, band, mode, sort, query]);
-  const bands = [...new Set([band, ...(snapshot?.items ?? []).map(item => opportunityBand(item.frequency_hz))])].filter(value => value && value !== "all");
-  const modes = [...new Set([mode, ...(snapshot?.items ?? []).map(item => item.mode)])].filter(value => value && value !== "all").sort();
+      sort === "unworked" ? a.worked_count - b.worked_count || b.observed_at.localeCompare(a.observed_at) : b.observed_at.localeCompare(a.observed_at)), [snapshot, kind, band, mode, sort, search]);
+  const bands = useMemo(() => [...new Set([band, ...(snapshot?.items ?? []).map(item => opportunityBand(item.frequency_hz))])].filter(value => value && value !== "all"), [snapshot, band]);
+  const modes = useMemo(() => [...new Set([mode, ...(snapshot?.items ?? []).map(item => item.mode)])].filter(value => value && value !== "all").sort(), [snapshot, mode]);
   const currentPage = Math.min(page, Math.max(0, Math.ceil(rows.length / pageSize) - 1));
   const pageRows = rows.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
-  const mapSpots = useMemo<MapSpot[]>(() => rows.filter(item => typeof item.latitude === "number" && typeof item.longitude === "number").map(item => ({
+  const mapSpots = useMemo<MapSpot[]>(() => !showMap ? [] : rows.filter(item => typeof item.latitude === "number" && typeof item.longitude === "number").map(item => ({
     id: item.id, call: item.callsign, mhz: (item.frequency_hz ?? 0) / 1_000_000, locationOnly: item.frequency_hz == null, mode: item.mode as MapSpot["mode"], band: opportunityBand(item.frequency_hz),
     country: item.name, grid: "", lat: item.latitude!, lon: item.longitude!, reporter: item.source, note: `${item.reference} · ${activity(item)} · ${item.location_source}`,
     receivedAt: new Date(item.observed_at).valueOf(), state: item.confirmed_count ? "confirmed" : item.worked_count ? "worked" : "needed",
-  })), [rows]);
+  })), [rows, showMap]);
   const choose = (item: Opportunity) => { if (!onSelect) return; setSelected(item.id); onSelect(item); };
   return <section className="opportunities" aria-label="Chaser and DX calendar">
     <header className="opportunities-head">{!taskOnly && <h2>Chaser & DX</h2>}<span>Automatic live feeds · 60s</span>

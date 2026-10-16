@@ -116,7 +116,12 @@ it("routes a direct menu window to a filling card with narrow-window reflow", as
   expect(css).toMatch(/@container detached-intelligence \(max-width: 420px\)\s*\{[^@]*\.desk-matrices\s*\{[^}]*grid-template-columns: 1fr;/s);
   expect(css).toContain("@media (max-height: 560px)");
   expect(shared).toMatch(/\.desk-identity-facts dt\s*\{[^}]*font-size: 8px;/);
-  expect(shared).toMatch(/\.desk-identity-facts dd\s*\{[^}]*font: 700 12px\/1\.25/);
+  expect(shared).toMatch(/\.desk-identity-facts dd\s*\{[^}]*font: 700 11px\/1\.2/);
+  expect(shared).toMatch(/\.desk-identity-facts > div\s*\{[^}]*padding: 3px 4px;[^}]*text-align: center;/);
+  expect(shared).toContain("container: callsign-intelligence / inline-size");
+  expect(shared).toContain("@container callsign-intelligence (min-width: 560px)");
+  expect(shared).toContain("repeat(var(--desk-matrix-wide-columns, 5), minmax(0, 1fr))");
+  expect(css).toMatch(/\.detached-intelligence-content \.desk-identity-facts > div\s*\{[^}]*padding: 3px 4px;/);
 });
 
 it("has an independent frontend read allowlist as well as native enforcement", async () => {

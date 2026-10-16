@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { readPropagationRefreshMinutes } from "./propagationPreferences";
 type Data = Record<string, any>;
 export type PropagationProjection = { epoch: string; revision: number; pending: boolean; snapshot: Data | null; error: string };
 type Action = "snapshot" | "ensure" | "refresh";
@@ -20,7 +21,7 @@ function checked(value: any): PropagationProjection {
  * owns TTL/concurrency admission and its terminal projection; lost manual
  * replies and native notifications trigger retained reads, never another fetch. */
 export function connectPropagation(changed: (value: PropagationProjection) => void, failed: (message: string) => void,
-  adapter: Adapter = { read: action => invoke("propagation_session_request", { action }), listen: wake => listen("xlog:propagation", wake) }) {
+  adapter: Adapter = { read: action => invoke("propagation_session_request", { action, ...(action === "ensure" ? { refreshIntervalSeconds: readPropagationRefreshMinutes() * 60 } : {}) }), listen: wake => listen("xlog:propagation", wake) }) {
   let active = true, ready = false, reading = false, again = false, ensureQueued = false, refreshing = false, wakeEpoch = 0;
   let latest: PropagationProjection | null = null, stop: (() => void) | undefined, subscriptionError = "";
   // Reading the same retained revision cannot confirm a lost refresh reply.
