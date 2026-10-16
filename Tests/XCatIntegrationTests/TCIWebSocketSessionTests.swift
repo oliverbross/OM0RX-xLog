@@ -9,6 +9,69 @@ final class TCIWebSocketSessionTests: XCTestCase {
     private let endpoint = URL(string: "ws://127.0.0.1:40001")!
     private let address = TCIReceiverAddress(trx: 0, channel: 0)
 
+    func testMainMutePublishesOwnProducerReceiptWithoutConfiguredTuneOrTXSideEffects() async throws {
+        let connection = FakeTCIWebSocketConnection(), time = TCIEvidenceClock()
+        let session = TCIReadOnlyWebSocketSession(endpoint: endpoint, configuredAddress: address,
+            connector: FakeTCIWebSocketConnector(connections: [connection]), clock: { time.now() })
+        try await session.connect()
+        await connection.enqueue(.text(Self.discoveryAndState + "ready;"))
+        let initial = try await waitForObservation(session) { $0.availability == .available }
+        time.advance(10)
+        let receipt = time.now()
+        await connection.enqueue(.text("MUTE:true;"))
+        let reported = try await waitForObservation(session, after: initial.sequence) { $0.serverMainMute != nil }
+        XCTAssertEqual(reported.serverMainMute?.isMuted, true)
+        XCTAssertEqual(reported.serverMainMute?.receivedAt, receipt)
+        XCTAssertEqual(reported.snapshot, initial.snapshot)
+        XCTAssertEqual(reported.snapshot?.transceiver.transmitting, false)
+        XCTAssertEqual(reported.snapshot?.transceiver.tuning, false)
+        XCTAssertEqual(reported.evidenceReceivedAt, initial.evidenceReceivedAt)
+        XCTAssertEqual(reported.filterEvidenceSequence, initial.filterEvidenceSequence)
+        XCTAssertEqual(reported.splitEvidenceReceivedAt, initial.splitEvidenceReceivedAt)
+        XCTAssertNil(reported.serverTransmitFrequency)
+        time.advance(10)
+        await connection.enqueue(.text("MUTE:0,true;"))
+        let invalid = try await waitForObservation(session, after: reported.sequence) { _ in true }
+        XCTAssertEqual(invalid.serverMainMute, reported.serverMainMute)
+        await connection.enqueue(.text("MUTE:true;"))
+        let repeated = try await waitForObservation(session, after: invalid.sequence) { _ in true }
+        time.advance(20)
+        XCTAssertEqual(repeated.serverMainMute?.receivedAt, receipt.addingTimeInterval(10))
+        XCTAssertEqual(repeated.snapshot, initial.snapshot)
+        XCTAssertEqual(repeated.evidenceReceivedAt, initial.evidenceReceivedAt)
+        let sent = await connection.sentTexts()
+        XCTAssertTrue(sent.isEmpty)
+        await session.disconnect()
+        let disconnected = await session.currentObservation()
+        XCTAssertNil(disconnected.serverMainMute)
+    }
+
+    func testMainMuteBeforeDiscoveryGrantsNoReadinessAndReconnectClearsIt() async throws {
+        let first = FakeTCIWebSocketConnection(), second = FakeTCIWebSocketConnection()
+        let session = TCIReadOnlyWebSocketSession(endpoint: endpoint, configuredAddress: address,
+            connector: FakeTCIWebSocketConnector(connections: [first, second]))
+        try await session.connect()
+        await first.enqueue(.text("MUTE:false;"))
+        let reported = try await waitForObservation(session) { $0.serverMainMute != nil }
+        XCTAssertEqual(reported.serverMainMute?.isMuted, false)
+        XCTAssertEqual(reported.availability, .synchronizing)
+        XCTAssertNil(reported.snapshot)
+        XCTAssertNil(reported.evidenceReceivedAt)
+        await session.disconnect()
+        try await session.connect()
+        let reconnected = await session.currentObservation()
+        XCTAssertGreaterThan(reconnected.generation, reported.generation)
+        XCTAssertNil(reconnected.serverMainMute)
+        await first.enqueue(.text("MUTE:true;"))
+        await second.enqueue(.text(Self.discoveryAndState + "ready;"))
+        let available = try await waitForObservation(session, after: reconnected.sequence) { $0.availability == .available }
+        XCTAssertNil(available.serverMainMute)
+        let firstSent = await first.sentTexts(), secondSent = await second.sentTexts()
+        XCTAssertTrue(firstSent.isEmpty)
+        XCTAssertTrue(secondSent.isEmpty)
+        await session.disconnect()
+    }
+
     func testTXSensorsPublishIndependentRawReceiptsWithoutTXOrConfiguredSideEffects() async throws {
         let connection = FakeTCIWebSocketConnection(), time = TCIEvidenceClock()
         let session = TCIReadOnlyWebSocketSession(endpoint: endpoint, configuredAddress: address,
