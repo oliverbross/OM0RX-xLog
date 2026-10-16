@@ -90,6 +90,20 @@ describe("logbook confirmation visibility", () => {
     expect(edit.mock.calls[0][0].customQSOKey).toEqual({ retain: true });
   });
 
+  it("applies a saved filter through the one existing Logbook search contract", async () => {
+    const request = vi.fn(async (method: string, params?: Record<string, unknown>) => {
+      if (method === "workspace_preferences_load") return { preferences: { savedLogbookFilters: [{ name: "Slovakia", query: "Slovakia" }] }, revision: 1, generation: "generation-1" };
+      return params?.search === "Slovakia" ? page([first]) : page();
+    });
+    render(<LogbookPanel mutations={new LogbookMutationSession(request, () => {})} onRequest={request} onEdit={vi.fn()} refreshKey={0} />);
+    await screen.findByText("OM0RX");
+    fireEvent.click(screen.getByRole("button", { name: "Saved filters" }));
+    fireEvent.change(await screen.findByRole("combobox", { name: "Saved Logbook filter" }), { target: { value: "Slovakia" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    await waitFor(() => expect(request).toHaveBeenCalledWith("logbook_list", { search: "Slovakia", offset: 0, limit: 20 }));
+    expect((screen.getByRole("textbox", { name: "Search logbook" }) as HTMLInputElement).value).toBe("Slovakia");
+  });
+
   it("selects rows with the keyboard and requires confirmation before deleting the selected identity", async () => {
     const backend = contactEditFixture(second);
     const request = vi.fn(async (method: string, params?: Record<string, unknown>) => {

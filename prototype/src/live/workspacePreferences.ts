@@ -11,6 +11,7 @@ export type WorkspacePreferences = {
   intelligenceBands: string[];
   clusterSpotOpensFullEditor: boolean;
   detachedBandMapModes?: BandMapViewPreferences["modes"];
+  savedLogbookFilters: { name: string; query: string }[];
 };
 
 export function validBandMapView(value: unknown): value is BandMapViewPreferences {

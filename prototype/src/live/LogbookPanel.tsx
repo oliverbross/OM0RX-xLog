@@ -7,6 +7,7 @@ import { useLogbookCapacity } from "./logbookCapacity";
 import { LogbookColumnHeader, LogbookColumns, useLogbookColumns } from "./LogbookColumns";
 import { logbookColumns, type LogbookColumn, type LogbookColumnContext } from "./logbookColumnPreferences";
 import { adifImportBatches, decodeADIFDocument, ADIFExportDocument, type ADIFExportFormat, type ADIFImportEncoding, type ADIFFieldMetadata } from "./adifTransfer";
+import { LogbookSavedFilters } from "./LogbookSavedFilters";
 
 type QSO = Record<string, unknown> & {
   id: string;
@@ -96,6 +97,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
   const pageSize = useLogbookCapacity(tableArea, page?.qsos.length ?? 0);
   const [details, setDetails] = useState(false);
   const [columnsOpen, setColumnsOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const columnsID = useId();
   const columnsButton = useRef<HTMLButtonElement>(null);
   const resolvedColumnContext = columnContext ?? (onDock ? "detached" : "docked");
@@ -367,7 +369,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
   const exportIDs = rows.filter(qso => exportSelection.includes(qso.id)).map(qso => qso.id);
   const deleting = confirmDelete?.qso as QSO | undefined;
   const columnsControl = <button type="button" ref={columnsButton} aria-expanded={columnsOpen} aria-controls={columnsID}
-    onClick={() => setColumnsOpen(value => !value)}>Columns</button>;
+    onClick={() => { if (!columnsOpen) setFiltersOpen(false); setColumnsOpen(!columnsOpen); }}>Columns</button>;
   const selectionControls = <>
     <button type="button" disabled={busy || loading || !rows.length || exportIDs.length === rows.length}
       onClick={() => setExportSelection(rows.map(qso => qso.id))}>Select page</button>
@@ -390,6 +392,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
           <button type="button" disabled={!selected || loading} aria-expanded={details && !!selected} aria-controls="logbook-contact-details"
             onClick={() => setDetails(value => !value)}>Details</button>
           {columnsControl}
+          <button type="button" aria-expanded={filtersOpen} onClick={() => { if (!filtersOpen) setColumnsOpen(false); setFiltersOpen(!filtersOpen); }}>Saved filters</button>
           <button type="button" disabled={!selected || busy || loading} onClick={() => selected && void prepareDelete(selected.id)}><Trash2 size={13} /> Delete</button>
           <button type="button" onClick={() => void undoDelete()} disabled={!mutation.undo || busy}><RotateCcw size={13} /> Undo delete</button>
           {taskToolbar ? selectionControls : <>
@@ -417,6 +420,8 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
       </header>}
       {columnsOpen && <LogbookColumns id={columnsID} preferences={columnPreferences} onChange={setColumnPreferences} context={resolvedColumnContext}
         onDone={() => { setColumnsOpen(false); columnsButton.current?.focus(); }} />}
+      {filtersOpen && <LogbookSavedFilters onRequest={onRequest} currentQuery={query} disabled={busy}
+        onApply={value => { cancelDelete(); setQuery(value); setOffset(0); setSearch(value); }} />}
       {error && <p className="live-logbook-feedback error" role="alert">{error}</p>}
       {notice && <p className="live-logbook-feedback" role="status">{notice}</p>}
       {importReview && <div className="live-logbook-feedback" role="group" aria-label="Review ADIF import">

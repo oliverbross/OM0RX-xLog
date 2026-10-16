@@ -33,6 +33,16 @@ public enum XLogBackupError: Error, LocalizedError {
     }
 }
 
+public struct XLogSavedLogbookFilter: Codable, Equatable, Sendable {
+    public var name: String
+    public var query: String
+
+    public init(name: String, query: String) {
+        self.name = name
+        self.query = query
+    }
+}
+
 public struct XLogBackupPreferences: Codable, Equatable, Sendable {
     public var deskBandMapBands: [String]
     public var detachedBandMapBands: [String]
@@ -43,6 +53,7 @@ public struct XLogBackupPreferences: Codable, Equatable, Sendable {
     public var clusterSpotOpensFullEditor: Bool
     public var detachedBandMapFollowsRadio: Bool
     public var detachedBandMapModes: [String]
+    public var savedLogbookFilters: [XLogSavedLogbookFilter]
 
     public init(
         deskBandMapBands: [String],
@@ -53,7 +64,8 @@ public struct XLogBackupPreferences: Codable, Equatable, Sendable {
         intelligenceBands: [String],
         clusterSpotOpensFullEditor: Bool,
         detachedBandMapFollowsRadio: Bool = false,
-        detachedBandMapModes: [String] = ["cw", "data", "phone"]
+        detachedBandMapModes: [String] = ["cw", "data", "phone"],
+        savedLogbookFilters: [XLogSavedLogbookFilter] = []
     ) {
         self.deskBandMapBands = deskBandMapBands
         self.detachedBandMapBands = detachedBandMapBands
@@ -64,12 +76,14 @@ public struct XLogBackupPreferences: Codable, Equatable, Sendable {
         self.clusterSpotOpensFullEditor = clusterSpotOpensFullEditor
         self.detachedBandMapFollowsRadio = detachedBandMapFollowsRadio
         self.detachedBandMapModes = detachedBandMapModes
+        self.savedLogbookFilters = savedLogbookFilters
     }
 
     private enum CodingKeys: String, CodingKey {
         case deskBandMapBands, detachedBandMapBands, deskBandMapFollowsRadio,
              detachedBandMapLayout, bandMapFontScale, intelligenceBands,
-             clusterSpotOpensFullEditor, detachedBandMapFollowsRadio, detachedBandMapModes
+             clusterSpotOpensFullEditor, detachedBandMapFollowsRadio, detachedBandMapModes,
+             savedLogbookFilters
     }
 
     public init(from decoder: Decoder) throws {
@@ -83,6 +97,7 @@ public struct XLogBackupPreferences: Codable, Equatable, Sendable {
         clusterSpotOpensFullEditor = try values.decode(Bool.self, forKey: .clusterSpotOpensFullEditor)
         detachedBandMapFollowsRadio = try values.decodeIfPresent(Bool.self, forKey: .detachedBandMapFollowsRadio) ?? false
         detachedBandMapModes = try values.decodeIfPresent([String].self, forKey: .detachedBandMapModes) ?? ["cw", "data", "phone"]
+        savedLogbookFilters = try values.decodeIfPresent([XLogSavedLogbookFilter].self, forKey: .savedLogbookFilters) ?? []
     }
 }
 

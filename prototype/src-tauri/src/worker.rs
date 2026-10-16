@@ -64,6 +64,10 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
         return if label == "main" || label == "band-maps" && request["params"]["scope"] == "detached" { Ok(()) }
         else { Err("This window cannot change band-map preferences.".into()) };
     }
+    if request["method"] == "workspace_logbook_filters_apply" {
+        return if matches!(label, "main" | "logbook") { Ok(()) }
+        else { Err("This window cannot change saved Logbook filters.".into()) };
+    }
     if label == "previous-qsos" {
         return if matches!(request["method"].as_str(), Some("logbook_operator_draft" | "cluster_history")) { Ok(()) }
         else { Err("Previous QSOs can only read the shared draft and local contact history.".into()) };
@@ -167,6 +171,7 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "workspace_preferences_load",
         "workspace_preferences_save",
         "workspace_band_map_apply",
+        "workspace_logbook_filters_apply",
         "workspace_map_context",
         "workspace_layout_load",
         "workspace_layout_apply",
@@ -1214,6 +1219,7 @@ mod tests {
             "logbook_matrix", "logbook_previous", "logbook_import_adif", "logbook_export_adif", "lookup_call", "cluster_history"] {
             assert!(validate_surface("logbook", &json!({"id":"test", "method":method,"params":{}})).is_ok(), "{method}");
         }
+        assert!(validate_surface("logbook", &json!({"id":"test", "method":"workspace_logbook_filters_apply", "params":{}})).is_ok());
         for method in ["logbook_operator_draft", "logbook_operator_draft_apply", "logbook_operator_draft_receipt",
             "logbook_save", "logbook_delete", "logbook_undo", "backup_restore", "settings_load", "settings_save",
             "station_tune", "station_connect", "station_action", "rotor_goto", "sync_run", "secret_status", "cluster_connect"] {

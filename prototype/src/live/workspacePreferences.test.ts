@@ -6,7 +6,7 @@ const native: WorkspacePreferences = {
   deskBandMapBands: ["20m"], detachedBandMapBands: ["160m", "80m"],
   deskBandMapFollowsRadio: true, detachedBandMapFollowsRadio: false,
   detachedBandMapLayout: "Adaptive grid", bandMapFontScale: 1,
-  intelligenceBands: ["20m"], clusterSpotOpensFullEditor: false,
+  intelligenceBands: ["20m"], clusterSpotOpensFullEditor: false, savedLogbookFilters: [],
 };
 
 describe("isolated workspace band-map preferences", () => {

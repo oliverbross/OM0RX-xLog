@@ -1119,6 +1119,8 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                 return try preferencesSnapshot().merging(["status": "applied"]) { _, new in new }
             case "workspace_band_map_apply":
                 return try applyBandMapPreferences(params)
+            case "workspace_logbook_filters_apply":
+                return try applySavedLogbookFilters(params)
             case "workspace_map_context":
                 try requireKeys(params, allowed: [])
                 let db = try readyDatabase()
@@ -1571,6 +1573,19 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
         let modes = (defaults.stringArray(forKey: "OM0RX-xLog.detachedBandMapModes") ?? ["cw", "data", "phone"])
             .filter { ["cw", "data", "phone"].contains($0) && seenModes.insert($0).inserted }
         let rawScale = defaults.object(forKey: "OM0RX-xLog.bandMapFontScale") as? Double ?? 1
+        let savedData = defaults.data(forKey: "OM0RX-xLog.savedLogbookFilters")
+        let decodedFilters = savedData.flatMap { data -> [XLogSavedLogbookFilter]? in
+            guard data.count <= 16_384 else { return nil }
+            return try? JSONDecoder().decode([XLogSavedLogbookFilter].self, from: data)
+        } ?? []
+        var seenFilterNames = Set<String>()
+        let savedFilters = Array(decodedFilters.filter { filter in
+            (try? savedFilterName(filter.name)) == filter.name && (try? savedFilterQuery(filter.query)) == filter.query &&
+                seenFilterNames.insert(savedFilterKey(filter.name)).inserted
+        }.prefix(32)).sorted {
+            let left = savedFilterKey($0.name), right = savedFilterKey($1.name)
+            return left == right ? $0.name < $1.name : left < right
+        }
         return XLogBackupPreferences(
             deskBandMapBands: bands(defaults.stringArray(forKey: "OM0RX-xLog.deskBandMapBands"), ["20m"]),
             detachedBandMapBands: bands(defaults.stringArray(forKey: "OM0RX-xLog.detachedBandMapBands"), Array(BandPlan.bands.prefix(10))),
@@ -1580,7 +1595,8 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
             intelligenceBands: bands(defaults.stringArray(forKey: "OM0RX-xLog.intelligenceBands"), ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m"]),
             clusterSpotOpensFullEditor: defaults.bool(forKey: "OM0RX-xLog.clusterSpotOpensFullEditor"),
             detachedBandMapFollowsRadio: defaults.bool(forKey: "OM0RX-xLog.detachedBandMapFollowsRadio"),
-            detachedBandMapModes: modes
+            detachedBandMapModes: modes,
+            savedLogbookFilters: savedFilters
         )
     }
 
@@ -1595,6 +1611,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
         guard value.detachedBandMapModes.count <= 3,
               Set(value.detachedBandMapModes).count == value.detachedBandMapModes.count,
               Set(value.detachedBandMapModes).isSubset(of: ["cw", "data", "phone"]) else { throw invalid() }
+        try validateSavedLogbookFilters(value.savedLogbookFilters)
     }
 
     private func applyBackupPreferences(_ value: XLogBackupPreferences, to defaults: UserDefaults) {
@@ -1607,6 +1624,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
         defaults.set(value.clusterSpotOpensFullEditor, forKey: "OM0RX-xLog.clusterSpotOpensFullEditor")
         defaults.set(value.detachedBandMapFollowsRadio, forKey: "OM0RX-xLog.detachedBandMapFollowsRadio")
         defaults.set(value.detachedBandMapModes, forKey: "OM0RX-xLog.detachedBandMapModes")
+        defaults.set(try? JSONEncoder().encode(value.savedLogbookFilters), forKey: "OM0RX-xLog.savedLogbookFilters")
     }
 
     private func preferencesSnapshot() throws -> [String: Any] {
@@ -1660,6 +1678,104 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
         }
         return try preferencesSnapshot().merging(["status": "applied"]) { _, new in new }
     }
+
+    /// Mutate only the saved Logbook-query collection. Detached Logbook windows
+    /// never receive authority to write the rest of the workspace preferences.
+    private func applySavedLogbookFilters(_ params: [String: Any]) throws -> [String: Any] {
+        try requireKeys(params, allowed: ["generation", "expected", "action", "name", "source", "query"],
+                        required: ["generation", "expected", "action"])
+        guard let action = params["action"] as? String else { throw invalid() }
+        let expected = try decodeSavedLogbookFilters(params["expected"])
+        try validateSavedLogbookFilters(expected)
+        let current = try preferencesSnapshot()
+        let originalObject = current["preferences"] as! [String: Any]
+        var value: XLogBackupPreferences = try decode(originalObject)
+        if try !matchesEditGeneration(params, current["generation"] as! String) {
+            return current.merging(["status": "workspace_changed"]) { _, new in new }
+        }
+        guard value.savedLogbookFilters == expected else {
+            return current.merging(["status": "conflict"]) { _, new in new }
+        }
+        var filters = value.savedLogbookFilters
+        let existingIndex: (String) -> Int? = { source in
+            filters.firstIndex { self.savedFilterKey($0.name) == self.savedFilterKey(source) }
+        }
+        switch action {
+        case "save":
+            try requireKeys(params, allowed: ["generation", "expected", "action", "name", "query"],
+                            required: ["generation", "expected", "action", "name", "query"])
+            let name = try savedFilterName(params["name"]), query = try savedFilterQuery(params["query"])
+            guard filters.count < 32, existingIndex(name) == nil else { throw invalid() }
+            filters.append(.init(name: name, query: query))
+        case "clone":
+            try requireKeys(params, allowed: ["generation", "expected", "action", "source", "name"],
+                            required: ["generation", "expected", "action", "source", "name"])
+            let source = try savedFilterName(params["source"]), name = try savedFilterName(params["name"])
+            guard filters.count < 32, existingIndex(name) == nil, let index = existingIndex(source) else { throw invalid() }
+            filters.append(.init(name: name, query: filters[index].query))
+        case "rename":
+            try requireKeys(params, allowed: ["generation", "expected", "action", "source", "name"],
+                            required: ["generation", "expected", "action", "source", "name"])
+            let source = try savedFilterName(params["source"]), name = try savedFilterName(params["name"])
+            guard let index = existingIndex(source),
+                  existingIndex(name).map({ $0 == index }) ?? true else { throw invalid() }
+            filters[index].name = name
+        case "delete":
+            try requireKeys(params, allowed: ["generation", "expected", "action", "source"],
+                            required: ["generation", "expected", "action", "source"])
+            let source = try savedFilterName(params["source"])
+            guard let index = existingIndex(source) else { throw invalid() }
+            filters.remove(at: index)
+        default:
+            throw invalid()
+        }
+        filters.sort {
+            let left = savedFilterKey($0.name), right = savedFilterKey($1.name)
+            return left == right ? $0.name < $1.name : left < right
+        }
+        try validateSavedLogbookFilters(filters)
+        if filters != value.savedLogbookFilters {
+            let revision = current["revision"] as! Int
+            guard revision < 9_007_199_254_740_990, let defaults = workspace?.makeDefaults() else { throw invalid() }
+            value.savedLogbookFilters = filters
+            applyBackupPreferences(value, to: defaults)
+            defaults.set(revision + 1, forKey: "OM0RX-xLog.workspacePreferencesRevision")
+        }
+        return try preferencesSnapshot().merging(["status": "applied"]) { _, new in new }
+    }
+
+    private func decodeSavedLogbookFilters(_ raw: Any?) throws -> [XLogSavedLogbookFilter] {
+        guard let raw, JSONSerialization.isValidJSONObject(raw),
+              let data = try? JSONSerialization.data(withJSONObject: raw),
+              let filters = try? JSONDecoder().decode([XLogSavedLogbookFilter].self, from: data) else { throw invalid() }
+        return filters
+    }
+
+    private func validateSavedLogbookFilters(_ filters: [XLogSavedLogbookFilter]) throws {
+        guard filters.count <= 32 else { throw invalid() }
+        var names = Set<String>()
+        for filter in filters {
+            guard (try? savedFilterName(filter.name)) == filter.name,
+                  (try? savedFilterQuery(filter.query)) == filter.query,
+                  names.insert(savedFilterKey(filter.name)).inserted else { throw invalid() }
+        }
+    }
+
+    private func savedFilterName(_ raw: Any?) throws -> String {
+        guard let value = raw as? String, value == value.trimmingCharacters(in: .whitespacesAndNewlines),
+              (1...48).contains(value.unicodeScalars.count), value.utf8.count <= 128,
+              !value.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) || CharacterSet.newlines.contains($0) }) else { throw invalid() }
+        return value
+    }
+
+    private func savedFilterQuery(_ raw: Any?) throws -> String {
+        guard let value = raw as? String, value == value.trimmingCharacters(in: .whitespacesAndNewlines),
+              (1...128).contains(value.unicodeScalars.count), value.utf8.count <= 512,
+              !value.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) || CharacterSet.newlines.contains($0) }) else { throw invalid() }
+        return value
+    }
+
+    private func savedFilterKey(_ value: String) -> String { value.lowercased() }
 
     private func newOperatorDraft() throws -> QSO {
         let settings = try currentSettings()
