@@ -7,16 +7,20 @@ packaged UI result. Keep unresolved items here across releases.
 
 ## Current delivery boundary
 
-Tracked implementation checkpoint: `3c8990c`.
-Source/test/browser results do not establish packaged/native, live-provider or hardware
-acceptance. The installed alpha.32 package is the separately accepted source `e270ab5`;
-later source commits are not claimed to be inside that bundle.
+Tracked implementation and installed checkpoint: `464022f`.
+Source/test/browser results do not by themselves establish live-provider or hardware
+acceptance. The installed alpha.35 package is the separately verified bundle from this
+exact source; later commits are not claimed to be inside it.
 
-- **Alpha.32 installed, 16 October:** Exact packaged source `e270ab5` passes the clean
-  33-check isolated native acceptance with `station_io=false`; Developer ID deep signing
-  passes and notarization remains explicitly absent. Alpha.31 plus cloned application
-  support are retained recoverably. See
-  [macOS alpha.32 acceptance](MACOS_ALPHA32_RELEASE_ACCEPTANCE_2026-10-16.md).
+- **Alpha.35 installed, 17 October:** Exact packaged source `464022f` passes both clean
+  candidate and installed-copy native acceptance at **33/33** with all reported
+  `stationIO=false`. The Band Maps revision shows one newest callsign marker per band,
+  a low-to-high frequency ruler, unboxed colour/status labels and persistent bottom
+  band/resolution/15–60-minute age controls. Focused UI/detached tests pass **39/39**,
+  the production build passes, and independent review reports no remaining finding.
+  Developer ID deep signing and hardened runtime pass; notarization remains explicitly
+  absent. Alpha.34 and both raw acceptance reports are retained recoverably. See
+  [macOS alpha.35 acceptance](MACOS_ALPHA35_RELEASE_ACCEPTANCE_2026-10-17.md).
 - **Callsign and contact readability, 16 October — pushed source only:** `3c8990c`
   enlarges all five Callsign Intelligence fact labels and values, applies the shared
   Logbook/spot palette to the detached Previous QSOs table, and prevents the QSL status
