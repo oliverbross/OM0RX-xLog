@@ -170,7 +170,7 @@ describe("logbook confirmation visibility", () => {
     render(<LogbookPanel mutations={new LogbookMutationSession(request, () => {})} onRequest={request} onEdit={vi.fn()} refreshKey={0} />);
     fireEvent.click(await screen.findByText("OM0RX"));
     fireEvent.click(screen.getByRole("button", { name: "Details" }));
-    const details = screen.getByLabelText("Details for OM0RX");
+    const details = await screen.findByLabelText("Details for OM0RX");
     expect(await within(details).findByText("Slovakia · Oliver")).toBeTruthy();
     expect(within(details).getByText("Portable from the summit")).toBeTruthy();
     expect(within(details).getByRole("img", { name: "QSL sent Y, received V" })).toBeTruthy();
@@ -252,7 +252,7 @@ describe("logbook confirmation visibility", () => {
       fireEvent.click(screen.getByText("FIT7")); fireEvent.click(screen.getByRole("button", { name: "Details" }));
       height = 200; act(() => resize());
       await screen.findByText("6–10 of 25");
-      expect(screen.getByLabelText("Details for FIT7")).toBeTruthy();
+      expect(await screen.findByLabelText("Details for FIT7")).toBeTruthy();
       fireEvent.click(screen.getByRole("button", { name: "Next" }));
       await screen.findByText("11–15 of 25");
       expect(screen.queryByLabelText("Details for FIT7")).toBeNull();

@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
+import { lazy, Suspense, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 import { Download, FileUp, Pencil, RotateCcw, Search, Trash2, Triangle, ExternalLink, PanelsTopLeft, ClipboardList } from "lucide-react";
 import "./logbook.css";
 import type { LogbookMutationSession } from "./logbookMutationSession";
@@ -10,7 +10,8 @@ import { adifImportBatches, decodeADIFDocument, ADIFExportDocument, type ADIFExp
 import { LogbookSavedFilters } from "./LogbookSavedFilters";
 import { CTYCorrectionPreview } from "./CTYCorrectionPreview";
 import { OnlineLogFollowUpPanel } from "./OnlineLogFollowUp";
-import { LogbookContactReview } from "./LogbookContactReview";
+
+const LogbookContactReview = lazy(() => import("./LogbookContactReview").then(module => ({ default: module.LogbookContactReview })));
 
 type QSO = Record<string, unknown> & {
   id: string;
@@ -451,7 +452,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
         <div><button type="button" onClick={() => confirmDelete && void deleteQSO(confirmDelete)} disabled={busy}>Confirm delete</button>
           <button type="button" onClick={cancelDelete} disabled={busy}>Cancel</button></div>
       </div>}
-      {!compact && details && selected && <LogbookContactReview key={`${selected.id}:${refreshKey}:${search}:${offset}`} contactID={selected.id} call={selected.call}
+      {!compact && details && selected && <Suspense fallback={<p role="status">Opening contact details…</p>}><LogbookContactReview key={`${selected.id}:${refreshKey}:${search}:${offset}`} contactID={selected.id} call={selected.call}
         pageContext={page} pageLoading={loading} onRequest={onRequest} renderContact={snapshot => {
           const selected = snapshot.qso as QSO;
           return <dl className="live-logbook-details">
@@ -468,7 +469,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
         </dd></div>
         <div className="live-logbook-details-comment"><dt>Comment</dt><dd>{selected.comment || "—"}</dd></div>
       </dl>;
-        }} />}
+        }} /></Suspense>}
       {!compact && !taskToolbar && <div className="live-logbook-export-selection" role="group" aria-label="Export selection">
         <span aria-live="polite">{exportIDs.length} selected on this page</span>
         {selectionControls}
