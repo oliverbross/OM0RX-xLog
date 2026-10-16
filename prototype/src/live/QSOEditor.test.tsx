@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
 import { useState } from "react";
 import { readFileSync } from "node:fs";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import QSOEditor, { safeProfileURL } from "./QSOEditor";
+import { qsoCanvasLayoutKey } from "./qsoCanvasLayout";
+import { qsoDetailsFieldsKey } from "./qsoEditorPreferences";
 const editorCSS = readFileSync("src/live/QSOEditor.css", "utf8");
 
 const initial = () => ({
@@ -20,22 +22,36 @@ function Harness({ save = vi.fn(), lookup = null, previous = [], request, onRead
   return <><QSOEditor draft={draft} setDraft={setDraft} save={save} clear={() => setDraft(initial())} busy={false} lookup={lookup} previous={previous} follow={follow} setFollow={setFollow} request={request} onReadRadio={onReadRadio} automaticStationMetadata={automaticStationMetadata} isEditing={isEditing} /><output data-testid="draft">{JSON.stringify(draft)}</output></>;
 }
 const value = () => JSON.parse(screen.getByTestId("draft").textContent || "{}");
-afterEach(cleanup);
+beforeEach(() => localStorage.clear());
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe("QSOEditor", () => {
-  it("places two status matrices below QSO details on the main width, outside the content-sized inspector", () => {
+  it("places active contact, details, intelligence, previous QSOs and matrices on the configurable canvas", () => {
     const { container } = render(<Harness />);
     const details = container.querySelector(".qso-details")!, matrices = container.querySelector(".qso-matrices")!;
-    expect(details.nextElementSibling).toBe(matrices);
-    expect(matrices.closest(".qso-editor-main")).toBeTruthy();
+    expect(details.closest('[aria-label="QSO details panel"]')).toBeTruthy();
+    expect(matrices.closest('[aria-label="Band / mode matrix panel"]')).toBeTruthy();
     expect(matrices.querySelectorAll(".qso-matrix-section")).toHaveLength(2);
-    expect(container.querySelector(".qso-inspector .qso-matrices")).toBeNull();
-    expect(container.querySelectorAll(".qso-inspector > section")).toHaveLength(2);
+    expect(container.querySelectorAll(".qso-canvas-panel")).toHaveLength(5);
     expect(editorCSS).toContain("grid-template-columns:repeat(2,minmax(0,1fr))");
-    expect(editorCSS).toContain("grid-template-rows:auto auto; align-content:start");
-    expect(editorCSS).not.toContain("grid-template-rows:1fr 1fr");
-    expect(editorCSS).not.toContain("height:100%");
-    expect(editorCSS).not.toContain("min-height:390px");
+  });
+  it("moves a panel by keyboard in Arrange mode and persists the geometry", () => {
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ x:0, y:0, top:0, left:0, right:1440, bottom:1120, width:1440, height:1120, toJSON: () => ({}) });
+    render(<Harness />);
+    fireEvent.click(screen.getByRole("button", { name: "Arrange panels" }));
+    const move = screen.getByRole("button", { name: "Move Active contact" });
+    fireEvent.keyDown(move, { key: "ArrowRight" }); fireEvent.keyUp(move, { key: "ArrowRight" });
+    const saved = JSON.parse(localStorage.getItem(qsoCanvasLayoutKey)!);
+    expect(saved.panels.find((panel: any) => panel.id === "active-contact").rect.x).toBe(8);
+  });
+  it("honours Display settings field visibility while retaining core logging controls", () => {
+    localStorage.setItem(qsoDetailsFieldsKey, JSON.stringify({ version: 1, fields: ["name"] }));
+    render(<Harness />);
+    expect(screen.getByLabelText("Name")).toBeTruthy();
+    expect(screen.queryByLabelText("Gridsquare")).toBeNull();
+    expect(screen.queryByRole("heading", { name: "References & notes" })).toBeNull();
+    expect(screen.getByLabelText("Callsign")).toBeTruthy();
+    expect(screen.getByLabelText("Frequency MHz")).toBeTruthy();
   });
   it("shows matched QRZ details below a full-width safe photo without mutating the QSO draft", () => {
     const profile = { call: "EA7EU", source: "QRZ XML", name: "Operator name", country: "Spain", gridSquare: "IM67AA", dxcc: 281,

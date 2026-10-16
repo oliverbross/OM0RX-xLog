@@ -1,6 +1,15 @@
-.display-settings { min-width: 0; max-width: 78ch; }
+.display-settings { min-width: 0; max-width: 1100px; }
 .display-settings p { color: var(--secondary); margin: 0 0 12px; }
 .display-settings label { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .display-settings select { min-width: 150px; }
 .display-settings-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
 .display-settings-actions span { color: var(--secondary); }
+.display-qso-fields { margin-top:24px; padding-top:18px; border-top:1px solid var(--border); }
+.display-qso-field-actions { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin:12px 0; }
+.display-qso-field-actions span { margin-left:auto; color:var(--secondary); }
+.display-qso-field-groups { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; align-items:start; }
+.display-qso-field-groups fieldset { min-width:0; margin:0; padding:12px; border:1px solid var(--border); border-radius:8px; }
+.display-qso-field-groups legend { padding:0 5px; color:var(--text); font-weight:700; }
+.display-qso-field-groups label { display:flex; flex-wrap:nowrap; align-items:center; gap:8px; min-height:28px; color:var(--text); }
+.display-qso-field-groups input { flex:none; accent-color:var(--green); }
+@media(max-width:900px) { .display-qso-field-groups { grid-template-columns:1fr; } .display-qso-field-actions span { flex-basis:100%; margin-left:0; } }

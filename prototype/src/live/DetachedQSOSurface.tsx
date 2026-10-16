@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type SetStateAction } from "react";
 import { workerRequest } from "../worker";
-import QSOEditor from "./QSOEditor";
+import QSOEditor from "./QSOEditorCore";
 import { DeskQSO } from "./OperatorDesk";
 import { useQSOLoggedToast } from "./QSOLoggedToast";
 import { OperatorDraftSession, readDraftJournal, type DraftQSO } from "./operatorDraftSession";

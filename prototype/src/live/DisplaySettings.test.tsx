@@ -8,6 +8,7 @@ vi.mock("@tauri-apps/api/event", () => ({ emit: mocks.emit, listen: async (_name
 import DisplaySettings from "./DisplaySettings";
 import { UiScaleProvider } from "./uiScale";
 import { uiScaleKey } from "./uiScaleController";
+import { qsoDetailsFieldsKey } from "./qsoEditorPreferences";
 beforeEach(() => { localStorage.clear(); vi.clearAllMocks(); mocks.zoom.mockImplementation(async () => {}); mocks.emit.mockImplementation(async () => {}); });
 afterEach(cleanup);
 const mount = () => render(<UiScaleProvider><DisplaySettings /></UiScaleProvider>);
@@ -41,5 +42,15 @@ describe("opt-in display controls", () => {
     const { unmount } = mount(); await waitFor(() => expect(mocks.listener).toHaveBeenCalledOnce()); await screen.findByText(/Last applied in this window: 100%/);
     unmount(); expect(mocks.unlisten).toHaveBeenCalledOnce(); const calls = mocks.zoom.mock.calls.length;
     fireEvent.keyDown(window, { key: "0", ctrlKey: true }); await Promise.resolve(); expect(mocks.zoom).toHaveBeenCalledTimes(calls);
+  });
+  it("lets the operator choose optional QSO detail fields without affecting core fields", async () => {
+    mount(); await screen.findByText(/Last applied in this window: 100%/);
+    expect((screen.getByLabelText("Name") as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Hide all optional fields" }));
+    expect((screen.getByLabelText("Name") as HTMLInputElement).checked).toBe(false);
+    expect(JSON.parse(localStorage.getItem(qsoDetailsFieldsKey)!)).toEqual({ version: 1, fields: [] });
+    fireEvent.click(screen.getByLabelText("POTA"));
+    expect(JSON.parse(localStorage.getItem(qsoDetailsFieldsKey)!)).toEqual({ version: 1, fields: ["potaReference"] });
+    expect(screen.getByText(/Hiding a field never removes its saved value/)).toBeTruthy();
   });
 });

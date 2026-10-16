@@ -1,9 +1,14 @@
 import { useUiScale } from "./uiScale";
 import { uiScales } from "./uiScaleController";
+import { qsoDetailFieldKeys, qsoDetailFieldSections } from "./qsoFields";
+import { useQSOFieldPreferences } from "./useQSOFieldPreferences";
 import "./DisplaySettings.css";
 
 export default function DisplaySettings() {
   const display = useUiScale();
+  const qso = useQSOFieldPreferences();
+  const selected = new Set(qso.preference.fields);
+  const choose = (field: string, visible: boolean) => qso.save(visible ? [...selected, field] : qso.preference.fields.filter(candidate => candidate !== field));
   return <section className="display-settings" aria-label="Display settings">
     <h2>Display scale</h2><p>Enlarge the whole interface for a high-resolution display. 100% is the default; operating-system display scaling still applies. This changes layout only, not radio or rotor settings.</p>
     <label>Interface size<select aria-label="Interface display scale" value={display.requestedScale} disabled={!display.available} onChange={event => display.setScale(Number(event.target.value))}>
@@ -13,5 +18,12 @@ export default function DisplaySettings() {
     <p role="status">{!display.available ? "Display controls are initializing." : display.pending ? `Applying ${Math.round(display.requestedScale * 100)}%…` : `Last applied in this window: ${Math.round(display.scale * 100)}%.`} Main, monitor and undocked views share the preference.</p>
     {display.error && <p role="alert" className="live-station-error">{display.error}</p>}
     <p>Band-map label size remains a separate preference. Higher interface scales need more screen space; Reset stays available by keyboard if controls move out of view.</p>
+    <div className="display-qso-fields">
+      <h2>QSO details</h2>
+      <p>Choose which optional fields appear in the QSO details panel. Active-contact fields such as callsign, frequency, band, mode, reports and UTC always remain visible. Hiding a field never removes its saved value.</p>
+      <div className="display-qso-field-actions"><button type="button" onClick={() => qso.save(qsoDetailFieldKeys)}>Show all</button><button type="button" onClick={() => qso.save([])}>Hide all optional fields</button><span>{selected.size} of {qsoDetailFieldKeys.length} shown</span></div>
+      <div className="display-qso-field-groups">{qsoDetailFieldSections.map(section => <fieldset key={section.id}><legend>{section.label}</legend>{section.fields.map(field => <label key={field.key}><input type="checkbox" checked={selected.has(field.key)} onChange={event => choose(field.key, event.target.checked)} />{field.label}</label>)}</fieldset>)}</div>
+      {qso.error && <p role="alert" className="live-station-error">{qso.error}</p>}
+    </div>
   </section>;
 }

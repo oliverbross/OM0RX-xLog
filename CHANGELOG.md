@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.4.0-alpha.41 — 2026-10-17
+
+- Added a persistent Log QSO canvas where Active contact, QSO details, Callsign intelligence, Previous QSOs and Band / mode matrix can be repositioned and resized in an explicit keyboard-accessible Arrange mode.
+- Added Settings → Display controls for choosing the optional fields shown in QSO details. Core contact fields remain visible, hidden values remain stored, and the selection synchronizes across app windows.
+- Added a responsive stacked fallback for narrow QSO windows and retained strict detached-window bundle budgets with a narrow allowance for the validated preference controls.
+
 ## 0.4.0-alpha.40 — 2026-10-17
 
 - Removed Logbook row bounce by reserving the upload follow-up control at a fixed size and revealing it with CSS instead of inserting and removing it on every hover.
