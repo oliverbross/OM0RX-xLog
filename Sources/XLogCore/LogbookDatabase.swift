@@ -2334,6 +2334,12 @@ public final class LogbookDatabase: @unchecked Sendable {
         try withDatabaseLock {
             try refreshAggregateCacheVersion()
             if let cachedOpportunityReferences { return cachedOpportunityReferences }
+            let cacheKey = "opportunity-references-v1"
+            if let value: [OpportunityReferenceHistory] = try persistedAggregate(cacheKey) {
+                cachedOpportunityReferences = value
+                return value
+            }
+            let revision = try qsoRevision()
             struct Key: Hashable { let kind: String; let reference: String }
             struct BandModeKey: Hashable { let band: String; let mode: String }
             struct Tally { var worked = 0; var confirmed = 0; var cells: [BandModeKey: (Int, Int)] = [:] }
@@ -2349,7 +2355,15 @@ public final class LogbookDatabase: @unchecked Sendable {
                              json_extract(record_json,'$.mode')),
                     (UPPER(COALESCE(json_extract(record_json,'$.qslReceived'),'')) IN ('Y','V')
                      OR UPPER(COALESCE(json_extract(record_json,'$.lotwReceived'),'')) IN ('Y','V'))
-                FROM qsos WHERE deleted_at IS NULL;
+                FROM qsos INDEXED BY idx_qsos_opportunity_refs_live
+                WHERE deleted_at IS NULL AND (
+                    COALESCE(json_extract(record_json,'$.potaReference'),'') <> '' OR
+                    COALESCE(json_extract(record_json,'$.sotaReference'),'') <> '' OR
+                    COALESCE(json_extract(record_json,'$.iota'),'') <> '' OR
+                    COALESCE(json_extract(record_json,'$.wwffReference'),'') <> '' OR
+                    (UPPER(COALESCE(json_extract(record_json,'$.sig'),'')) IN ('WCA','COTA','CASTLE') AND
+                     COALESCE(json_extract(record_json,'$.sigInfo'),'') <> '')
+                );
                 """) { statement -> [OpportunityReferenceHistory] in
                 func value(_ column: Int32) -> String {
                     sqlite3_column_text(statement, column).map { String(cString: $0) } ?? ""
@@ -2398,6 +2412,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                 }.sorted { ($0.kind, $0.reference) < ($1.kind, $1.reference) }
             }
             cachedOpportunityReferences = values
+            persistAggregate(values, key: cacheKey, revision: revision)
             return values
         }
     }
@@ -3150,6 +3165,18 @@ public final class LogbookDatabase: @unchecked Sendable {
         CREATE INDEX IF NOT EXISTS idx_qsos_dxcc_live
           ON qsos(CAST(json_extract(record_json,'$.dxcc') AS INTEGER), qso_start DESC)
           WHERE deleted_at IS NULL;
+        -- Chaser history needs only QSOs carrying an award reference. Keeping
+        -- this as a partial index avoids parsing every ordinary contact after
+        -- a logbook change while record_json remains authoritative.
+        CREATE INDEX IF NOT EXISTS idx_qsos_opportunity_refs_live ON qsos(local_id)
+          WHERE deleted_at IS NULL AND (
+            COALESCE(json_extract(record_json,'$.potaReference'),'') <> '' OR
+            COALESCE(json_extract(record_json,'$.sotaReference'),'') <> '' OR
+            COALESCE(json_extract(record_json,'$.iota'),'') <> '' OR
+            COALESCE(json_extract(record_json,'$.wwffReference'),'') <> '' OR
+            (UPPER(COALESCE(json_extract(record_json,'$.sig'),'')) IN ('WCA','COTA','CASTLE') AND
+             COALESCE(json_extract(record_json,'$.sigInfo'),'') <> '')
+          );
         CREATE INDEX IF NOT EXISTS idx_qsos_dirty ON qsos(is_dirty, updated_at);
         CREATE TABLE IF NOT EXISTS xlog_qso_revision(
           singleton INTEGER PRIMARY KEY CHECK(singleton = 1),

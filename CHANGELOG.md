@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.4.0-alpha.38 — 2026-10-17
+
+- Made Chaser & DX paint retained local results before starting network work, while reducing each automatic feed cycle from five full result projections to one priority update plus one coalesced batch.
+- Reduced 68,142-contact cold reference-history projection time from 2.315 seconds to 0.059 seconds in the isolated production-size benchmark, with reopened persisted-cache reads at 0.005 seconds.
+- Added a revision-safe persisted opportunity-history cache and a partial SQLite index that scans only contacts carrying POTA, SOTA, IOTA, WWFF or castle references.
+
 ## 0.4.0-alpha.37 — 2026-10-17
 
 - Moved the single Settings command into the standard OM0RX-xLog application menu on macOS, preserving Command-, and removing the duplicate Settings entry from Station.

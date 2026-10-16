@@ -46,7 +46,7 @@ describe("read-only opportunities", () => {
     fireEvent.click(screen.getByRole("tab", { name: "POTA" }));
     expect(screen.queryByText("WWFF · KFF-3017")).toBeNull();
     expect(screen.getByText("POTA · OM-0001")).toBeTruthy();
-    expect(request).toHaveBeenCalledTimes(6);
+    expect(request).toHaveBeenCalledTimes(3);
     expect(select).not.toHaveBeenCalled();
   });
   it("shows source age, full reference history and only loads a draft on selection", async () => {
@@ -69,7 +69,7 @@ describe("read-only opportunities", () => {
     await screen.findByText("Verified park");
     await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("Previous data is retained"));
     expect(screen.getByText("Verified park")).toBeTruthy();
-    expect(request.mock.calls.filter(([method]) => method === "opportunities_refresh")).toHaveLength(5);
+    expect(request.mock.calls.filter(([method]) => method === "opportunities_refresh")).toHaveLength(2);
     expect(screen.queryByRole("button", { name: /Check/ })).toBeNull();
   });
   it("withholds history labels when backend history is not ready and filters without requests", async () => {
@@ -80,7 +80,7 @@ describe("read-only opportunities", () => {
     fireEvent.click(screen.getByRole("tab", { name: "DXpeditions" }));
     expect(screen.queryByText("Verified park")).toBeNull();
     expect(screen.getByText("DX1ABC: DXpedition")).toBeTruthy();
-    expect(request).toHaveBeenCalledTimes(6);
+    expect(request).toHaveBeenCalledTimes(3);
   });
   it("remembers filters and loads map selections only into the draft", async () => {
     const located = { ...pota, latitude: 48, longitude: 18, location_source: "public_feed" };
@@ -106,7 +106,7 @@ describe("read-only opportunities", () => {
     const view = render(<OpportunitiesPanel request={request} onSelect={vi.fn()} />);
     await act(async () => { await Promise.resolve(); });
     await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
-    expect(request.mock.calls.filter(([method]) => method === "opportunities_refresh")).toHaveLength(10);
+    expect(request.mock.calls.filter(([method]) => method === "opportunities_refresh")).toHaveLength(4);
     view.unmount(); const calls = request.mock.calls.length;
     await act(async () => { await vi.advanceTimersByTimeAsync(120_000); });
     expect(request).toHaveBeenCalledTimes(calls);
@@ -145,7 +145,7 @@ describe("read-only opportunities", () => {
     expect(legacyFirstUsefulAt).toBeNull();
     expect(screen.getByRole("button", { name: "Refreshing…" })).toBeTruthy();
     expect(request.mock.calls.filter(([method]) => method === "opportunities_refresh").map(([, params]) => params?.source))
-      .toEqual(["pota", "sota", "wwff", "wwbota", "425dxn"]);
+      .toEqual(["pota", "all"]);
     await act(async () => { await vi.advanceTimersByTimeAsync(19_900); });
     expect(screen.getByText("Verified park")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Refresh feeds" })).toBeTruthy();
@@ -155,18 +155,18 @@ describe("read-only opportunities", () => {
   it("prioritises a saved summit programme and keeps its rows through an unrelated failure", async () => {
     localStorage.setItem("xlog.integration.chaser.v1", JSON.stringify({ kind: "sota" }));
     const summit = { ...pota, id: "sota:OM0RX", kind: "sota", name: "Selected summit" };
-    let failCalendar!: (reason: Error) => void;
+    let failBatch!: (reason: Error) => void;
     const request = vi.fn((method: string, params?: Record<string, unknown>) => {
-      if (params?.source === "425dxn") return new Promise((_resolve, reject) => { failCalendar = reject; });
+      if (params?.source === "all") return new Promise((_resolve, reject) => { failBatch = reject; });
       return Promise.resolve({ ...snapshot, items: method === "opportunities_snapshot" ? [] : [summit] });
     });
     render(<OpportunitiesPanel request={request} onSelect={vi.fn()} />);
     await screen.findByText("Selected summit");
     expect(request.mock.calls.find(([method]) => method === "opportunities_refresh")?.[1]).toEqual({ source: "sota", automatic: true });
-    await act(async () => { failCalendar(Error("calendar timeout")); });
+    await act(async () => { failBatch(Error("feed timeout")); });
     expect(screen.getByText("Selected summit")).toBeTruthy();
     expect(screen.getByRole("alert").textContent).toContain("Previous data is retained");
-    expect(request).toHaveBeenCalledTimes(6);
+    expect(request).toHaveBeenCalledTimes(3);
   });
   it("shows cached rows immediately even when every feed download is pending", async () => {
     const request = vi.fn((method: string) => method === "opportunities_snapshot" ? Promise.resolve(snapshot) : new Promise(() => {}));
@@ -176,19 +176,17 @@ describe("read-only opportunities", () => {
     expect(screen.getByText(/Retrying automatically/)).toBeTruthy();
     view.unmount();
   });
-  it("ignores an older snapshot that arrives after a fresh feed result", async () => {
+  it("paints retained data before starting background feed requests", async () => {
     let finishRead!: (value: unknown) => void;
-    let finishPota!: (value: unknown) => void;
-    const request = vi.fn((method: string, params?: Record<string, unknown>) => {
+    const request = vi.fn((method: string) => {
       if (method === "opportunities_snapshot") return new Promise(resolve => { finishRead = resolve; });
-      if (params?.source === "pota") return new Promise(resolve => { finishPota = resolve; });
       return new Promise(() => {});
     });
     const view = render(<OpportunitiesPanel request={request} onSelect={vi.fn()} />);
-    await act(async () => { finishPota({ ...snapshot, generated_at: "2026-10-12T10:01:00.100Z", items: [pota] }); });
+    expect(request.mock.calls.filter(([method]) => method === "opportunities_refresh")).toHaveLength(0);
+    await act(async () => { finishRead(snapshot); });
     expect(screen.getByText("Verified park")).toBeTruthy();
-    await act(async () => { finishRead({ ...snapshot, generated_at: "2026-10-12T10:01:00.000Z", items: [] }); });
-    expect(screen.getByText("Verified park")).toBeTruthy();
+    expect(request.mock.calls.filter(([method]) => method === "opportunities_refresh")).toHaveLength(2);
     view.unmount();
   });
   it("shares pending requests across a refresh prop change and ignores the retired lifecycle", async () => {
@@ -197,9 +195,10 @@ describe("read-only opportunities", () => {
     const request = vi.fn(() => shared);
     const view = render(<OpportunitiesPanel request={request} onSelect={vi.fn()} refresh={0} />);
     view.rerender(<OpportunitiesPanel request={request} onSelect={vi.fn()} refresh={1} />);
-    expect(request).toHaveBeenCalledTimes(6);
+    expect(request).toHaveBeenCalledTimes(1);
     await act(async () => { finish(snapshot); });
     expect(screen.getByText("Verified park")).toBeTruthy();
+    expect(request).toHaveBeenCalledTimes(3);
     view.unmount();
   });
 });

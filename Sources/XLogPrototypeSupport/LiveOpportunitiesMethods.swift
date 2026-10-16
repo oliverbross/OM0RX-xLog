@@ -61,8 +61,9 @@ actor LiveOpportunitiesMethods {
                   params["automatic"] == nil || params["automatic"] is Bool,
                   names.contains(source) || source == "all" else { throw invalid() }
             if source == "all" {
+                let automatic = params["automatic"] as? Bool ?? true
                 await withTaskGroup(of: Void.self) { group in
-                    for name in names { group.addTask { await self.refresh(name, automatic: true) } }
+                    for name in names { group.addTask { await self.refresh(name, automatic: automatic) } }
                 }
             } else { await refresh(source, automatic: params["automatic"] as? Bool ?? false) }
         default:

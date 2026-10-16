@@ -27,19 +27,22 @@ struct PersistedAggregateTests {
         defer { try? FileManager.default.removeItem(at: root) }
         let url = root.appendingPathComponent("log.sqlite")
         let first = try LogbookDatabase(url: url)
-        try first.save(QSO(call: "BY1AAA", band: "20m", mode: "CW", dxcc: 318, state: "BJ", qslReceived: "Y"))
+        try first.save(QSO(call: "BY1AAA", band: "20m", mode: "CW", dxcc: 318, state: "BJ",
+                           potaReference: "CN-0001", qslReceived: "Y"))
         let progress = try first.awardProgress()
         let catalog = try first.awardCatalog()
         let stats = try first.stats()
         let map = try first.dxccMapStatuses()
+        let references = try first.opportunityReferenceHistory()
         let rowIDs = try sql(url, "SELECT SUM(rowid) FROM xlog_aggregate_cache;")
-        #expect(try sql(url, "SELECT COUNT(*) FROM xlog_aggregate_cache;") == 4)
+        #expect(try sql(url, "SELECT COUNT(*) FROM xlog_aggregate_cache;") == 5)
         first.close()
         let reopened = try LogbookDatabase(url: url)
         #expect(try reopened.awardProgress() == progress)
         #expect(try reopened.awardCatalog() == catalog)
         #expect(try reopened.stats() == stats)
         #expect(try reopened.dxccMapStatuses() == map)
+        #expect(try reopened.opportunityReferenceHistory() == references)
         // Recomputing would replace the existing rows, changing their rowids.
         #expect(try sql(url, "SELECT SUM(rowid) FROM xlog_aggregate_cache;") == rowIDs)
     }

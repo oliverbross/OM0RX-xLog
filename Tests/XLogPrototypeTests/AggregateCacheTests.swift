@@ -134,6 +134,9 @@ struct AggregateCacheTests {
                 qslReceived: qso.qslReceived, lotwReceived: qso.lotwReceived)
         })
         let indexedHistory = try elapsed { _ = try db.historyCandidates(call: "OM0AAO", adif: 504) }
+        var projectedReferences: [OpportunityReferenceHistory] = []
+        let referenceProjection = try elapsed { projectedReferences = try db.opportunityReferenceHistory() }
+        let cachedReferences = try elapsed { _ = try db.opportunityReferenceHistory() }
         let restarted = try LogbookDatabase(url: URL(fileURLWithPath: path))
         var restartedCatalog: AwardCatalogSnapshot?
         var restartedProgress: AwardProgressSnapshot?
@@ -143,7 +146,10 @@ struct AggregateCacheTests {
         let reopenedStats = try elapsed { restartedStats = try restarted.stats() }
         var restartedContacts: [ClusterContactRow] = []
         let reopenedContacts = try elapsed { restartedContacts = try restarted.clusterContactRows() }
+        var restartedReferences: [OpportunityReferenceHistory] = []
+        let reopenedReferenceProjection = try elapsed { restartedReferences = try restarted.opportunityReferenceHistory() }
         #expect(restartedContacts == projectedContacts)
+        #expect(restartedReferences == projectedReferences)
         var contactReloadSamples: [Double] = []
         for _ in 0..<7 {
             let connection = try LogbookDatabase(url: URL(fileURLWithPath: path))
@@ -162,6 +168,8 @@ struct AggregateCacheTests {
               "progress_cached_s=\(warmProgress) stats_cold_s=\(coldStats) stats_cached_s=\(warmStats) " +
               "cluster_projection_s=\(projectedContactsTime) full_decode_s=\(fullHistory) " +
               "history_candidates_s=\(indexedHistory) " +
+              "references_cold_s=\(referenceProjection) references_cached_s=\(cachedReferences) " +
+              "references_reopened_s=\(reopenedReferenceProjection) " +
               "catalog_reopened_s=\(reopenedCatalog) progress_reopened_s=\(reopenedProgress) stats_reopened_s=\(reopenedStats) " +
               "cluster_reopened_s=\(reopenedContacts) " +
               "cluster_reload_median_s=\(contactReloadSamples[3]) cluster_reload_p95_s=\(contactReloadSamples[6]) samples=7")

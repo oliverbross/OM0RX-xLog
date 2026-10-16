@@ -106,26 +106,28 @@ export function OpportunitiesPanel({ request, onSelect, onDock, refresh = 0, hom
     };
     const read = () => {
       const order = ++responseOrder.current;
-      void load("snapshot", "opportunities_snapshot").then(value => accept(value, order))
+      return load("snapshot", "opportunities_snapshot").then(value => accept(value, order))
         .catch(() => { if (active) setError("Opportunities could not be loaded. Automatic refresh will retry."); });
     };
     const reload = (automatic: boolean) => {
       if (!active || refreshing) return;
       refreshing = true; setBusy(true); setError("");
       const priority = priorityFeed(kindRef.current);
-      const sources = [priority, ...feedNames.filter(source => source !== priority)];
-      setPendingSources(sources);
-      // Start the selected programme first; publish each result independently.
-      // A calendar timeout must never hold a ready park/summit feed off screen.
+      const sources = automatic ? [priority, "all"] : ["all"];
+      setPendingSources(feedNames);
+      // The selected programme can paint first while the backend refreshes the
+      // remaining feeds as one batch. This avoids rebuilding the full 68k-QSO
+      // history projection once per feed.
       void Promise.allSettled(sources.map(source => {
         const order = ++responseOrder.current;
-        return load(source, "opportunities_refresh", { source, automatic }).then(value => accept(value, order))
-          .catch(() => { if (active) setError("Feeds could not be refreshed. Previous data is retained; automatic refresh will retry."); })
-          .finally(() => { if (active) setPendingSources(prior => prior.filter(value => value !== source)); });
-      })).then(() => { refreshing = false; if (active) setBusy(false); });
+        return load(`refresh:${source}:${automatic}`, "opportunities_refresh", { source, automatic }).then(value => accept(value, order))
+          .catch(() => { if (active) setError("Feeds could not be refreshed. Previous data is retained; automatic refresh will retry."); });
+      })).then(() => { refreshing = false; if (active) { setBusy(false); setPendingSources([]); } });
     };
     reloadRef.current = reload;
-    read(); reload(true);
+    // Local retained data wins the first paint. Network refresh begins only
+    // after that snapshot settles, so opening this view is never gated by feeds.
+    void read().finally(() => { if (active) reload(true); });
     const localTimer = window.setInterval(read, 15_000);
     const feedTimer = window.setInterval(() => reload(true), 60_000);
     return () => { active = false; window.clearInterval(localTimer); window.clearInterval(feedTimer); };
