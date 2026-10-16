@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { readFileSync } from "node:fs";
 import { PreviousQSOsSurface, DetachedPreviousQSOsSurface, requestDetachedPreviousQSOs } from "./DetachedPreviousQSOsSurface";
 import { testWorkspaceGeneration } from "../../tests/operator-draft-fixture";
 import { loadWindowSurface } from "../windowSurface";
@@ -11,8 +12,8 @@ vi.mock("./operatorDraftWindows", async original => ({ ...await original<typeof 
 vi.mock("./logbookWindows", () => ({ connectLogbookChanges: hooks.history }));
 let wakeDraft!: () => Promise<unknown>, wakeHistory!: () => void;
 let current = { generation: testWorkspaceGeneration, revision: 0, qso: { id: "synthetic-draft", call: "TEST1", band: "20m", mode: "CW" } };
-const history = (call: string, grid = "JN88AA") => ({ history: { call, previous_count: 24, previous_confirmed_count: 3,
-  previous: [{ id: "synthetic-contact", call, date: "2026-10-01T12:00:00Z", band: "20m", mode: "CW", rstSent: "599", rstReceived: "579", grid, confirmed: true }] } });
+const history = (call: string, grid = "JN88AA", confirmed = true) => ({ history: { call, previous_count: 24, previous_confirmed_count: 3,
+  previous: [{ id: "synthetic-contact", call, date: "2026-10-01T12:00:00Z", band: "20m", mode: "CW", rstSent: "599", rstReceived: "579", grid, confirmed }] } });
 const reader = () => vi.fn(async (method: string, params: Record<string, any> = {}): Promise<any> => {
   if (method === "logbook_operator_draft") return { draft: structuredClone(current) };
   if (method === "cluster_history") return history(params.call);
@@ -38,6 +39,21 @@ it("loads the named independent route and follows canonical local history withou
   await waitFor(() => expect(request.mock.calls.filter(([method]) => method === "cluster_history")).toHaveLength(2));
   view.unmount(); expect(hooks.stopDraft).toHaveBeenCalledOnce(); expect(hooks.stopHistory).toHaveBeenCalledOnce();
   expect(request.mock.calls.every(([method]) => ["logbook_operator_draft", "cluster_history"].includes(method))).toBe(true);
+});
+
+it("uses the shared logbook palette for contact facts and confirmation state", async () => {
+  const request = reader(); render(<PreviousQSOsSurface request={request} />);
+  expect((await screen.findByText("20m")).classList.contains("previous-band")).toBe(true);
+  expect(screen.getByText("CW").classList.contains("previous-mode")).toBe(true);
+  expect(screen.getByText("Confirmed").classList.contains("previous-confirmed")).toBe(true);
+  cleanup(); request.mockImplementation(async (method, params) => method === "logbook_operator_draft" ? { draft: structuredClone(current) } : history(params?.call ?? "TEST1", "JN88AA", false));
+  render(<PreviousQSOsSurface request={request} />);
+  expect((await screen.findByText("Worked")).classList.contains("previous-worked")).toBe(true);
+});
+
+it("hides the status column before it can clip in the narrow standalone window", () => {
+  const css = readFileSync(`${process.cwd()}/src/live/DetachedPreviousQSOsSurface.css`, "utf8");
+  expect(css).toMatch(/@media \(max-width:420px\)[^{]*\{[^}]*\.previous-qsos-table \.previous-qsl\s*\{\s*display:none;/);
 });
 
 it("fences an old workspace history response even when the callsign stays the same", async () => {

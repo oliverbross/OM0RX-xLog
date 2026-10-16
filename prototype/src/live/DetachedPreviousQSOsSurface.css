@@ -4,11 +4,21 @@
 .previous-qsos-context span, .previous-qsos-limit { color:var(--secondary); font-size:12px; }
 .previous-qsos-table { flex:1; min-height:0; overflow:auto; border:1px solid var(--border); border-radius:5px; }
 .previous-qsos-table:focus-visible { outline:2px solid var(--cyan); outline-offset:2px; }
-.previous-qsos-table table { width:100%; border-collapse:collapse; white-space:nowrap; font-size:12px; }
-.previous-qsos-table th { position:sticky; top:0; background:var(--panel); color:var(--secondary); text-align:left; }
+.previous-qsos-table table { width:100%; border-collapse:collapse; white-space:nowrap; font-size:12px; font-variant-numeric:tabular-nums; }
+.previous-qsos-table th { position:sticky; top:0; z-index:1; background:#191e23; color:var(--secondary); text-align:left; }
 .previous-qsos-table :is(th,td) { padding:9px 10px; border-bottom:1px solid var(--border); }
+.previous-qsos-table tbody tr { background:#202020; }
+.previous-qsos-table tbody tr:nth-child(even) { background:#16212d; }
+.previous-qsos-table tbody tr:hover { background:#25394b; }
 .previous-qsos-table tr:last-child td { border-bottom:0; }
+.previous-utc, .previous-report { font-family:ui-monospace,SFMono-Regular,Consolas,monospace; }
+.previous-band, .previous-mode { color:var(--cyan); font-weight:700; }
+.previous-grid-value { color:#9fcae6; font-family:ui-monospace,SFMono-Regular,Consolas,monospace; }
+.previous-qsl { font-weight:700; }
+.previous-qsl::before { content:""; display:inline-block; width:6px; height:6px; margin-right:6px; border-radius:50%; background:currentColor; vertical-align:1px; }
+.previous-confirmed { color:var(--teal); }
+.previous-worked { color:var(--amber); }
 .previous-qsos-limit { margin:0; }
 @media (max-width:699px) { .detached-previous-qsos-app main { padding:8px; gap:8px; } .previous-qsos-table :is(th,td) { padding:7px 6px; } .previous-qsos-table .previous-grid { display:none; } }
-@media (max-width:359px) { .previous-qsos-table .previous-qsl { display:none; } }
+@media (max-width:420px) { .previous-qsos-table .previous-qsl { display:none; } }
 @media (min-width:1100px) { .previous-qsos-table :is(th,td) { padding:12px 16px; } .previous-qsos-table table { font-size:13px; } }

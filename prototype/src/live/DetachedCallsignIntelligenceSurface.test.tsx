@@ -103,10 +103,13 @@ it("routes a direct menu window to a filling card with narrow-window reflow", as
   const Surface = await loadWindowSurface("?view=callsign-intelligence");
   expect(Surface.name).toBe("DetachedCallsignIntelligenceSurface");
   const css = readFileSync(`${process.cwd()}/src/live/DetachedCallsignIntelligenceSurface.css`, "utf8");
+  const shared = readFileSync(`${process.cwd()}/src/live/OperatorDesk.css`, "utf8");
   expect(css).toMatch(/\.detached-intelligence-content\s*\{[^}]*container: detached-intelligence \/ inline-size;[^}]*flex: 1 0 auto;/);
   expect(css).toMatch(/\.detached-intelligence-content \.desk-intelligence\s*\{[^}]*flex: 1;/);
   expect(css).toContain("@container detached-intelligence (max-width: 640px)");
   expect(css).toContain(".desk-matrices { grid-template-columns: 1fr; }");
+  expect(shared).toMatch(/\.desk-identity-facts dt\s*\{[^}]*font-size: 8px;/);
+  expect(shared).toMatch(/\.desk-identity-facts dd\s*\{[^}]*font: 700 12px\/1\.25/);
 });
 
 it("has an independent frontend read allowlist as well as native enforcement", async () => {

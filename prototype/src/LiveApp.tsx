@@ -864,13 +864,16 @@ function MainLiveApp() {
   const selectSpot = (spot: Data) => {
     if (monitor) return;
     if (editorBufferPending.current) { setError("Finish the buffered draft fields before selecting another report. Your text is retained."); return; }
-    if (!acceptsInput()) { setError("Check the existing spot activation before selecting another report."); return; }
     if (draftSession.getSnapshot().locked || draftSession.getSnapshot().workspaceChanged || draftSession.getSnapshot().conflict || contactSession.getSnapshot().locked || contactSession.getSnapshot().workspaceChanged) { setError("Resolve the current QSO draft operation before selecting another spot."); return; }
     if (editing.current) { setError("Finish or clear the contact being edited before selecting a new spot."); setView("Log QSO"); return; }
+    if (!acceptsInput()) return;
     const generation = ++selection.current;
     pendingTune.current = true; setSelected(spot.id);
     setMessage(""); setError("");
-    void spotActivation.activate(spot).catch(cause => { if (selection.current === generation) setError(cause instanceof Error ? cause.message : "Spot activation is unavailable. Check its status before selecting again."); })
+    void spotActivation.activate(spot).catch(cause => {
+      const message = cause instanceof Error ? cause.message : "Spot activation is unavailable. Check its status before selecting again.";
+      if (selection.current === generation && message !== "Check the existing spot activation before selecting another report.") setError(message);
+    })
       .finally(() => { if (selection.current === generation) pendingTune.current = false; });
   };
   const liveSpots: Data[] = cluster?.snapshot?.spots || emptySpots;

@@ -231,6 +231,21 @@ it("does not submit a local report activation while Desk has invalid buffered fr
   expect(screen.getByText(/Finish the buffered draft fields before selecting/)).toBeTruthy();
 });
 
+it("does not turn a repeated in-flight spot selection into a persistent page error", async () => {
+  host.activate.mockRejectedValueOnce(new Error("Check the existing spot activation before selecting another report."));
+  await openEditor(false);
+  fireEvent.click(screen.getByRole("button", { name: "Select synthetic report" }));
+  await waitFor(() => expect(host.activate).toHaveBeenCalledOnce());
+  expect(screen.queryByText("Check the existing spot activation before selecting another report.")).toBeNull();
+});
+
+it("still presents a genuine spot activation failure", async () => {
+  host.activate.mockRejectedValueOnce(new Error("Synthetic station tune failed."));
+  await openEditor(false);
+  fireEvent.click(screen.getByRole("button", { name: "Select synthetic report" }));
+  expect(await screen.findByText("Synthetic station tune failed.")).toBeTruthy();
+});
+
 it("retains invalid historical editor buffers across menu navigation and Close requests", async () => {
   await openEditor(false); sidebar("Logbook");
   fireEvent.click(screen.getByRole("button", { name: "Edit synthetic contact" }));
