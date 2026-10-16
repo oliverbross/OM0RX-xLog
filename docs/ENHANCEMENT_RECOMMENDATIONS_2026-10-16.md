@@ -9,7 +9,7 @@ radio transmission, rotor movement and Windows/Linux packaging remain separate g
 
 ## Current decision
 
-Implementation checkpoint: `ed8ed379005a170629988a136fb872124ab4ea33`. Source/test/browser
+Implementation checkpoint: `2d7bb1f627139c55cd32e5dd673dab4d271031d1`. Source/test/browser
 verification does not close package/native, provider or hardware acceptance.
 
 - Keep the Mac-first daily logger, canonical QSO/draft owners and local-first database.
@@ -98,10 +98,15 @@ Owner/expiry, tuning confirmation, configured freshness and control authority re
 `ed8ed37` retains exact bounded ASCII decimal `RX_CHANNEL_SENSORS` tokens per address,
 with discovery pruning/reconnect clearing. It uses no Double conversion and establishes
 no physical range, calibration, quality, readiness, configured freshness or control claim.
-All **6 new tests pass twice** and protocol **42/42** passes. Broader session rerun remains
+All **6 new tests pass twice** and protocol **42/42** passes. Broader session rerun at that source was
 **71/72** on unchanged `testDroppingLastSessionReferenceClosesPendingConnection`
 (closeCount **0 vs 1**); an initial existing tune-yield miss passed rerun. Build/diff are
-clean; full session, package/live-server and RF acceptance remain open.
+clean; package/live-server and RF acceptance remain open. `2d7bb1f` adds deprecated
+server-only `RX_SENSORS` as separate per-TRX raw bounded decimal tokens plus local producer
+receipt. It is never channel-attributed or merged with `RX_CHANNEL_SENSORS`; TRX discovery
+pruning/reconnect clearing apply and channel-count changes do not remap it. No physical
+range, calibration, readiness, freshness, control or RF inference is made. Later independent
+focused tests pass **78/78**, without claiming the earlier scheduling-sensitive miss is fixed.
 See [filter](TCI_RECEIVE_FILTER_SOURCE_ACCEPTANCE_2026-10-16.md) and
 [split](TCI_SPLIT_OBSERVATION_SOURCE_ACCEPTANCE_2026-10-16.md), plus
 [global TX observation](TCI_TRANSMIT_FREQUENCY_OBSERVATION_SOURCE_ACCEPTANCE_2026-10-16.md), source acceptance. This is

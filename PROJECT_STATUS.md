@@ -2,7 +2,7 @@
 
 Last updated: 2026-10-16
 
-Tracked implementation checkpoint: `ed8ed379005a170629988a136fb872124ab4ea33`.
+Tracked implementation checkpoint: `2d7bb1f627139c55cd32e5dd673dab4d271031d1`.
 New source/test/browser evidence does not replace installed alpha.31 or close
 exact-package, native interaction, live-provider or hardware acceptance.
 
@@ -219,10 +219,16 @@ owner/expiry, tuning confirmation, configured freshness or control authority.
 decimal tokens, without Double conversion or physical range/calibration assumptions.
 Discovery shrink prunes reports and reconnect clears them; tokens establish no quality,
 readiness, configured freshness or control authority. All **6 new tests pass twice** and
-protocol tests pass **42/42**. The broader session rerun remains **71/72**: unchanged
+protocol tests pass **42/42**. The broader session rerun at that source was **71/72**: unchanged
 `testDroppingLastSessionReferenceClosesPendingConnection` observed closeCount **0 vs 1**.
 An initial existing tune-yield miss passed on rerun; the remaining lifecycle failure is
 not accepted away. Build/diff pass; package/live-server and RF acceptance stay open.
+`2d7bb1f` adds deprecated server-only `RX_SENSORS` as separate per-TRX raw bounded
+decimal tokens plus local producer receipt. It is never attributed to a channel or merged
+with `RX_CHANNEL_SENSORS`; TRX discovery shrink prunes it, channel-count changes do not
+remap it, and reconnect clears it. It establishes no physical range, calibration,
+readiness, freshness, control or RF inference. Independent focused checks pass **78/78**
+at this later source; that passing run does not establish a fix for the earlier timing miss.
 Transmit/PTT, split/TX-VFO controls, outbound spot
 management, audio/IQ, package/live-server and RF acceptance
 remain open. QLog is a behavior reference only; no third-party code, credentials, device or

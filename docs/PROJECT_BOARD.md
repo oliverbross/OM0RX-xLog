@@ -1,6 +1,6 @@
 # OM0RX-xLog live project board
 
-Tracked implementation checkpoint: `ed8ed379005a170629988a136fb872124ab4ea33`.
+Tracked implementation checkpoint: `2d7bb1f627139c55cd32e5dd673dab4d271031d1`.
 Source/test/browser evidence below remains separate from installed alpha.31 and
 unaccepted package, native interaction, provider and hardware gates.
 
@@ -131,10 +131,15 @@ frontend **41/41**, and global TX protocol/session Swift **35/35** pass. The pin
  `ed8ed37` retains exact bounded ASCII decimal `RX_CHANNEL_SENSORS` tokens per address,
  with discovery pruning/reconnect clearing and no Double conversion, physical range,
  calibration, quality, readiness, configured freshness or control claim. All **6 new tests
- pass twice**; protocol **42/42** passes. Broader session rerun remains **71/72** on unchanged
+ pass twice**; protocol **42/42** passes. Broader session rerun at that source was **71/72** on unchanged
  `testDroppingLastSessionReferenceClosesPendingConnection` (closeCount **0 vs 1**); an initial
- existing tune-yield miss passed rerun. Build/diff are clean, but the full session gate and
- package/live-server/RF acceptance remain open.
+ existing tune-yield miss passed rerun. Build/diff are clean; package/live-server/RF
+ acceptance remain open. `2d7bb1f` retains deprecated server-only `RX_SENSORS` as separate
+ per-TRX raw bounded decimal tokens plus local producer receipt. It is never channel-attributed
+ or merged with `RX_CHANNEL_SENSORS`; TRX discovery pruning and reconnect clearing apply,
+ while channel-count changes do not remap it. No physical range, calibration, readiness,
+ freshness, control or RF inference is established. Later independent focused tests pass
+ **78/78**, without claiming the earlier scheduling-sensitive lifecycle miss is fixed.
 Transmit/PTT, split/TX-VFO controls,
 spots, audio/IQ, package/live-server and RF
 acceptance remain open; installed alpha.31 is unchanged. See the

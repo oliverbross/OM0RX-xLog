@@ -7,7 +7,7 @@ packaged UI result. Keep unresolved items here across releases.
 
 ## Current delivery boundary
 
-Tracked implementation checkpoint: `ed8ed379005a170629988a136fb872124ab4ea33`.
+Tracked implementation checkpoint: `2d7bb1f627139c55cd32e5dd673dab4d271031d1`.
 Source/test/browser results do not establish packaged/native, live-provider or hardware
 acceptance; installed alpha.31 remains unchanged.
 
@@ -145,10 +145,15 @@ acceptance; installed alpha.31 remains unchanged.
   `ed8ed37` retains `RX_CHANNEL_SENSORS` per address as exact bounded ASCII decimal
   tokens, with discovery pruning/reconnect clearing. No Double conversion or physical
   range, calibration, quality, readiness, configured freshness or control claim is made.
-  All **6 new tests pass twice**; protocol **42/42** passes. Broader session rerun remains
+  All **6 new tests pass twice**; protocol **42/42** passes. Broader session rerun at that source was
   **71/72**: unchanged `testDroppingLastSessionReferenceClosesPendingConnection` observed
   closeCount **0 vs 1**. An initial existing tune-yield miss passed rerun. Build/diff are
-  clean; the full session gate, package/live-server and RF acceptance remain open.
+  clean; package/live-server and RF acceptance remain open. `2d7bb1f` adds deprecated
+  server-only `RX_SENSORS` as separate per-TRX raw bounded decimal tokens plus local
+  producer receipt, never channel-attributed or merged with `RX_CHANNEL_SENSORS`.
+  TRX discovery pruning/reconnect clearing apply; channel-count changes do not remap it.
+  No physical range, calibration, readiness, freshness, control or RF inference is made.
+  Later independent focused tests pass **78/78**; the earlier timing miss is not claimed fixed.
   No PTT, carrier Tune, radio CW or amplifier control is exposed; transmit/PTT,
   split/TX-VFO, outbound spot management, audio/IQ, package/live-server and RF proof remain open. QLog was a behavior
   reference only, no implementation code was copied, and installed alpha.31 is unchanged.
