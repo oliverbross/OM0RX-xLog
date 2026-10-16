@@ -767,6 +767,7 @@ fn request_in_session(
     request: Value,
     timeout: Duration,
 ) -> Result<Value, String> {
+    let control_request = request_can_change_station_state(&request);
     let id = request["id"]
         .as_str()
         .ok_or("Request ID is required")?
@@ -793,7 +794,7 @@ fn request_in_session(
                     .as_mut()
                     .ok_or("Station service input closed".to_owned())?
                     .write_all(&payload)
-                    .map_err(|_| "Station service input failed; control outcome unknown".to_owned())
+                    .map_err(|_| service_request_failure("input failed", control_request))
             })();
             if let Err(message) = &result {
                 session.retire(message);
@@ -802,7 +803,7 @@ fn request_in_session(
             result
         });
         let reply = receiver.recv_timeout(timeout)
-            .map_err(|_| "Station service timed out; control outcome unknown. Reconnect before retrying a control.".to_owned())
+            .map_err(|_| service_request_failure("timed out", control_request))
             .and_then(|value| value)
             .and_then(|value| validate_response(value, &id));
         if reply.is_err() {
@@ -810,7 +811,7 @@ fn request_in_session(
         }
         let write_deadline = written
             .recv_timeout(deadline.saturating_duration_since(Instant::now()))
-            .map_err(|_| "Station service input timed out; control outcome unknown".to_owned());
+            .map_err(|_| service_request_failure("input timed out", control_request));
         if let Err(message) = &write_deadline {
             session.retire(message);
         }
@@ -825,6 +826,24 @@ fn request_in_session(
         reply
     });
     result
+}
+
+fn request_can_change_station_state(request: &Value) -> bool {
+    matches!(request["method"].as_str(), Some(
+        "station_action" | "station_tune" | "station_radio_control" | "station_power_selection" |
+        "station_rotor_goto" | "station_rotor_stop" | "rotor_goto" | "rotor_stop" | "rotor_park" |
+        "hamlib_control" | "winkeyer_control" | "winkeyer_stop"
+    ))
+}
+
+fn service_request_failure(phase: &str, control_request: bool) -> String {
+    if control_request {
+        format!("Station service {phase}; control outcome unknown. Reconnect and verify the observed state before retrying the control.")
+    } else if phase == "timed out" {
+        "Station service is not responding. Finish any macOS Keychain prompt, then retry.".to_owned()
+    } else {
+        format!("Station service {phase}. Reconnect to continue.")
+    }
 }
 
 #[cfg(test)]
@@ -850,6 +869,17 @@ mod tests {
     }
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn passive_timeouts_do_not_claim_that_a_control_was_sent() {
+        let passive = json!({"id":"status","method":"workspace_status","params":{}});
+        let control = json!({"id":"radio","method":"station_action","params":{"action":"standby"}});
+        assert!(!request_can_change_station_state(&passive));
+        assert!(request_can_change_station_state(&control));
+        assert_eq!(service_request_failure("timed out", false),
+            "Station service is not responding. Finish any macOS Keychain prompt, then retry.");
+        assert!(service_request_failure("timed out", true).contains("control outcome unknown"));
+    }
 
     #[test]
     fn station_control_only_reads_layout_and_cannot_reach_worker_or_native_dispatchers() {
