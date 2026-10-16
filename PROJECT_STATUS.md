@@ -2,7 +2,7 @@
 
 Last updated: 2026-10-16
 
-Tracked implementation checkpoint: `c54cc0f6ff68bc6108fb85fceec30402f4fd6615`.
+Tracked implementation checkpoint: `b1691a5712ef9e8bbcd29038f12ade0954334735`.
 New source/test/browser evidence does not replace installed alpha.31 or close
 exact-package, native interaction, live-provider or hardware acceptance.
 
@@ -72,7 +72,10 @@ PSK/submode export.
 (**18/18** Swift, **1,250/1,250** frontend, TypeScript); ADIF_VER remains **3.1.7**.
 `9e8b97b` maps official ADIF 3.1.8 import-only PSKHELL to HELL (**18/18** Swift,
 **1,266/1,266** frontend, TypeScript); root reviewed/diff checked. ADIF_VER stays **3.1.7**.
-All thirteen bounded stages preserve arbitrary fields, explicit submodes
+`8934ab6` adds official ADIF 3.1.8 import-only QPSK31 to canonical PSK/submode export
+(agent Swift **18/18**, frontend **1,282/1,282**, TypeScript; root frontend **1,282/1,282**,
+TypeScript/diff). ADIF_VER remains **3.1.7**.
+All fourteen bounded stages preserve arbitrary fields, explicit submodes
 and duplicate identity; ADIF_VER stays **3.1.7** until the full audit closes. See
 [digital-voice source acceptance](docs/ADIF_DIGITAL_VOICE_DEPRECATION_SOURCE_ACCEPTANCE_2026-10-16.md).
 
@@ -275,6 +278,10 @@ configured freshness/readiness or RF authority; package/native/live gates remain
 setting, independent receipt and reconnect reset (**123/123** agent, **5/5** root focused).
 It remains independent of MON_VOLUME and establishes no monitoring, audibility, streaming,
 TX, configured freshness/readiness, control or RF authority.
+`b1691a5` retains passive per-receiver `AGC_MODE` normal/fast/off as exact token plus typed
+mode, independent receipt, TRX-discovery pruning and reconnect reset (**129/129** agent,
+**6/6** root focused). No gain/modulation, receiver-enable, audio, configured freshness/
+readiness, control or RF authority is inferred.
 The recurring closeCount **0 vs 1** lifecycle failure remains open. These are focused
 source checks only, not package/native or live station/provider/network/RF acceptance.
 Transmit/PTT, split/TX-VFO controls, outbound spot
@@ -298,6 +305,10 @@ Isolated actual-Logbook browser checks at **640×480**/**1280×800** show docume
 to viewport, panel/container widths **624/624**/**1264/1264**, and internal scroll bounded
 to **48vh**. Package/native interaction, provider timestamps, sponsor rules and live-account
 acceptance remain open; installed alpha.31 is unchanged.
+`7adb008` adds an end-to-end synthetic Wavelog sync regression (**1/1** focused): clean
+linked contacts receive fresh eQSL/LoTW/QRZ/message confirmation fields, local-only
+station/custom fields survive, no outbox/conflict is created, and a second sync is idempotent.
+This is fixture-only source evidence, not a new live-provider/package acceptance result.
 
 ## Contact data quality — R10 read-only core, route and Details UI; acceptance open
 

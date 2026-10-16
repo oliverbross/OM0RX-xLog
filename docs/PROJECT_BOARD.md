@@ -1,6 +1,6 @@
 # OM0RX-xLog live project board
 
-Tracked implementation checkpoint: `c54cc0f6ff68bc6108fb85fceec30402f4fd6615`.
+Tracked implementation checkpoint: `b1691a5712ef9e8bbcd29038f12ade0954334735`.
 Source/test/browser evidence below remains separate from installed alpha.31 and
 unaccepted package, native interaction, provider and hardware gates.
 
@@ -47,7 +47,10 @@ PSK/submode export.
 (**18/18** Swift, **1,250/1,250** frontend, TypeScript); ADIF_VER remains **3.1.7**.
 `9e8b97b` maps official ADIF 3.1.8 import-only PSKHELL to HELL (**18/18** Swift,
 **1,266/1,266** frontend, TypeScript); root reviewed/diff checked. ADIF_VER stays **3.1.7**.
-These thirteen bounded stages preserve
+`8934ab6` adds official ADIF 3.1.8 import-only QPSK31 to canonical PSK/submode export
+(agent Swift **18/18**, frontend **1,282/1,282**, TypeScript; root frontend **1,282/1,282**,
+TypeScript/diff). ADIF_VER remains **3.1.7**.
+These fourteen bounded stages preserve
 arbitrary fields, explicit submodes and identity. The exporter remains labeled
 3.1.7 until the full 3.1.8 enum/deprecation audit passes.
 Package/real-log acceptance and any optional record correction remain open.
@@ -183,6 +186,10 @@ configured freshness/readiness or RF authority; package/native/live gates remain
 setting, independent receipt and reconnect reset (**123/123** agent, **5/5** root focused).
 It remains independent of MON_VOLUME and establishes no monitoring, audibility, streaming,
 TX, configured freshness/readiness, control or RF authority.
+`b1691a5` retains passive per-receiver `AGC_MODE` normal/fast/off as exact token plus typed
+mode, independent receipt, TRX-discovery pruning and reconnect reset (**129/129** agent,
+**6/6** root focused). No gain/modulation, receiver-enable, audio, configured freshness/
+readiness, control or RF authority is inferred.
 The recurring closeCount **0 vs 1** lifecycle failure
 and package/native/live station/provider/network/RF gates remain open.
 Transmit/PTT, split/TX-VFO controls,
@@ -205,6 +212,10 @@ and detached bundle gates pass. Isolated actual-Logbook browser checks at **640Ã
 **1280Ã—800** show viewport-width documents, panel/container widths **624/624**/**1264/1264**,
 and internal scroll bounded to **48vh**. Package/native interaction, provider timestamps,
 sponsor-rule evaluation and live-account acceptance remain open; installed alpha.31 is unchanged.
+`7adb008` adds an end-to-end synthetic Wavelog sync regression (**1/1** focused): clean
+linked contacts receive fresh eQSL/LoTW/QRZ/message confirmation fields, local-only
+station/custom fields survive, no outbox/conflict is created, and a second sync is idempotent.
+This is fixture-only source evidence, not a new live-provider/package acceptance result.
 
 R10 now has read-only `QSODataQuality` inspection of one retained revision in `5d11996`
 (**5/5** Swift): reused validation, supplied dated CTY comparison at QSO date, retained
