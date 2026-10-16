@@ -14,6 +14,9 @@ const report = { contactID: id, contactRevision: 7, contactStart: "2026-10-15T00
   retainedPowerObservation: null, findings: [{ kind: "storedDXCCDisagreesWithReference", field: "dxcc", severity: "warning", message: "Stored override remains authoritative.", retained: evidence,
     comparison: { ...evidence, value: "517", source: "suppliedCTYReference", dateRole: "referenceSourceDate" }, reviewImpacts: ["dxccDependentViewsAndRules"] }] };
 const response = { generation, read_only: true, duplicate_review: "notPerformed", conflict_review: "notRequested", data_quality: report };
+const correctionResponse = { generation, read_only: true, status: "reviewed", scope: "ctyReferenceDXCCOnly",
+  evidence: report.referenceComparison, preview: { contactID: id, expectedRevision: 7, observedRevision: 7, field: "dxcc",
+    retainedValue: "305", proposedValue: "517", changeCount: 1, diffStatus: "complete" } };
 const renderContact = (value: DraftSnapshot) => <p>Canonical {value.qso.call} · {value.revision}</p>;
 function props(request: any) { return { contactID: id, call: "OM0RX", onRequest: request, pageContext: "page-1", renderContact }; }
 describe("canonical Logbook Details quality review", () => {
@@ -30,7 +33,22 @@ describe("canonical Logbook Details quality review", () => {
     expect(screen.getAllByText("Unknown").length).toBeGreaterThan(1);
     expect(screen.getAllByText("Field origin date").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Reference source date").length).toBeGreaterThan(0);
-    expect(screen.queryByRole("button", { name: /correct|apply|resolve|refresh provider/i })).toBeNull();
+    expect(screen.getByRole("button", { name: "Preview DXCC correction" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /apply|resolve|refresh provider/i })).toBeNull();
+  });
+  it("previews the exact reviewed CTY DXCC evidence without exposing apply or undo", async () => {
+    const request = vi.fn(async (method: string) => method === "logbook_contact" ? { generation, contact } :
+      method === "logbook_data_quality" ? response : correctionResponse);
+    render(<LogbookContactReview {...props(request)} />);
+    await screen.findByText("Canonical OM0RX · 7"); fireEvent.click(screen.getByText("Read findings"));
+    await screen.findByText("Stored override remains authoritative."); fireEvent.click(screen.getByText("Preview DXCC correction"));
+    const preview = await screen.findByLabelText("Read-only DXCC correction preview");
+    expect(preview.textContent).toContain("305 → 517");
+    expect(preview.textContent).toContain("No change has been applied");
+    expect(request).toHaveBeenLastCalledWith("logbook_correction_preview", {
+      contactID: id, generation, expectedRevision: 7, evidence: report.referenceComparison,
+    });
+    expect(screen.queryByRole("button", { name: /apply|undo/i })).toBeNull();
   });
   it.each(["contact_changed", "workspace_changed", "missing"])("retires scope and evidence after %s without upgrading or retrying", async status => {
     const request = vi.fn(async (method: string) => method === "logbook_contact" ? { generation, contact } :

@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { requestQSODataQuality, type QSODataQualityEvidence, type QSODataQualityReport } from "../worker";
+import { requestQSODataQuality, requestQSOCorrectionPreview, type QSODataQualityEvidence,
+  type QSODataQualityReport, type QSOCorrectionPreview } from "../worker";
 import { sameGeneration, validGeneration, validScopedSnapshot, type DraftSnapshot } from "./operatorDraftSession";
 
 type Request = (method: string, params?: Record<string, unknown>) => Promise<any>;
@@ -77,12 +78,15 @@ export function LogbookContactReview({ contactID, call, onRequest, pageContext, 
 }) {
   const [contact, setContact] = useState<DraftSnapshot | null>(null);
   const [report, setReport] = useState<QSODataQualityReport | null>(null);
+  const [correctionPreview, setCorrectionPreview] = useState<QSOCorrectionPreview | null>(null);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true), [reading, setReading] = useState(false), [retired, setRetired] = useState(false);
+  const [loading, setLoading] = useState(true), [reading, setReading] = useState(false), [previewing, setPreviewing] = useState(false),
+    [retired, setRetired] = useState(false);
   const sequence = useRef(0), scope = useRef<DraftSnapshot | null>(null), pending = useRef(false);
   useLayoutEffect(() => {
     const ticket = ++sequence.current;
-    scope.current = null; pending.current = false; setContact(null); setReport(null); setError(""); setRetired(false); setLoading(true); setReading(false);
+    scope.current = null; pending.current = false; setContact(null); setReport(null); setCorrectionPreview(null); setError("");
+    setRetired(false); setLoading(true); setReading(false); setPreviewing(false);
     if (pageLoading) return () => { sequence.current++; scope.current = null; };
     void onRequest("logbook_contact", { contactID }).then(response => {
       if (ticket !== sequence.current) return;
@@ -101,7 +105,7 @@ export function LogbookContactReview({ contactID, call, onRequest, pageContext, 
     if (!current || pending.current || retired) return;
     pending.current = true;
     const ticket = ++sequence.current;
-    setReport(null); setError(""); setReading(true);
+    setReport(null); setCorrectionPreview(null); setError(""); setReading(true);
     try {
       const response = await requestQSODataQuality({ contactID: current.qso.id, generation: current.generation!, expectedRevision: current.revision }, onRequest);
       if (ticket !== sequence.current || scope.current !== current) return;
@@ -118,13 +122,47 @@ export function LogbookContactReview({ contactID, call, onRequest, pageContext, 
       }
     } finally { if (ticket === sequence.current) { pending.current = false; setReading(false); } }
   }
-  return <section id="logbook-contact-details" className="live-logbook-contact-review" aria-label={`Details for ${call}`} aria-busy={loading || reading} tabIndex={0}>
+  async function previewCTYCorrection() {
+    const current = scope.current, evidence = report?.referenceComparison;
+    if (!current || !evidence || pending.current || retired ||
+        !report?.findings.some(finding => finding.kind === "storedDXCCDisagreesWithReference")) return;
+    pending.current = true;
+    const ticket = ++sequence.current;
+    setCorrectionPreview(null); setError(""); setPreviewing(true);
+    try {
+      const response = await requestQSOCorrectionPreview({
+        contactID: current.qso.id, generation: current.generation!, expectedRevision: current.revision,
+      }, evidence, onRequest);
+      if (ticket !== sequence.current || scope.current !== current) return;
+      if (response.status !== "reviewed" || !response.preview) {
+        scope.current = null; setContact(null); setReport(null); setRetired(true);
+        throw new Error("This contact or comparison changed. Close Details and refresh the Logbook before another preview.");
+      }
+      setCorrectionPreview(response.preview);
+    } catch (cause) {
+      if (ticket === sequence.current) {
+        scope.current = null; setContact(null); setReport(null); setCorrectionPreview(null); setRetired(true);
+        setError(cause instanceof Error ? cause.message : "Correction preview unavailable. Close Details and refresh the Logbook.");
+      }
+    } finally { if (ticket === sequence.current) { pending.current = false; setPreviewing(false); } }
+  }
+  const canPreviewCTY = !!contact && !!report?.referenceComparison &&
+    report.findings.some(finding => finding.kind === "storedDXCCDisagreesWithReference");
+  return <section id="logbook-contact-details" className="live-logbook-contact-review" aria-label={`Details for ${call}`} aria-busy={loading || reading || previewing} tabIndex={0}>
     {loading ? <p role="status">Reading canonical contact…</p> : contact && renderContact(contact)}
     <section className="qso-quality" aria-label="Read-only data quality">
-      <div className="qso-quality-actions"><h3>Data quality · read only</h3><button type="button" disabled={!contact || loading || reading || retired} onClick={() => void inspect()}>Read findings</button></div>
+      <div className="qso-quality-actions"><h3>Data quality · read only</h3>
+        <button type="button" disabled={!contact || loading || reading || previewing || retired} onClick={() => void inspect()}>Read findings</button>
+        {canPreviewCTY && <button type="button" disabled={previewing || reading || retired} onClick={() => void previewCTYCorrection()}>Preview DXCC correction</button>}
+      </div>
       <p>Stored values remain authoritative. Comparisons are not corrections, eligibility, completion or sponsor credit. No award or sync delta is calculated.</p>
       {contact && <p>Exact contact revision {contact.revision}. Record updated {String(contact.qso.updatedAt ?? "Unknown")} — not a field-origin date.</p>}
       {error && <p role="alert">{error}</p>}
+      {previewing && <p role="status">Checking the exact CTY comparison…</p>}
+      {correctionPreview && <section className="qso-correction-preview" aria-label="Read-only DXCC correction preview">
+        <p>DXCC preview: {correctionPreview.retainedValue ?? "Not recorded"} → {correctionPreview.proposedValue}</p>
+        <p>No change has been applied. Apply and undo are not available from this read-only preview.</p>
+      </section>}
       {reading ? <p role="status">Reading local findings…</p> : report ? <>
         <p>Conflict alternatives not requested. CTY comparison: {report.referenceStatus === "resolved" ? "Resolved locally" : report.referenceStatus === "notProvided" ? "Reference unavailable" : report.referenceStatus === "unresolved" ? "Unresolved" : "Contact date invalid"}.</p>
         <DuplicateReview value={report.duplicateReview} />

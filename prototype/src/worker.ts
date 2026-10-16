@@ -159,3 +159,40 @@ export async function requestQSODataQuality(scope: QSODataQualityScope,
         result.data_quality.contactRevision !== scope.expectedRevision)) throw new Error("Contact review context changed; discard these findings.");
   return result;
 }
+
+export type QSOCorrectionPreview = {
+  contactID: string; expectedRevision: number; observedRevision: number; field: "dxcc";
+  retainedValue: string | null; proposedValue: string; changeCount: 1; diffStatus: "complete";
+};
+export type QSOCorrectionPreviewResponse = {
+  generation: string; read_only?: true;
+  status?: "workspace_changed" | "contact_changed" | "contact_missing" | "reviewed";
+  scope?: "ctyReferenceDXCCOnly"; evidence?: QSODataQualityEvidence; preview?: QSOCorrectionPreview | null;
+};
+
+/** Preview one exact current CTY DXCC comparison. This route has no operation or apply capability. */
+export async function requestQSOCorrectionPreview(scope: QSODataQualityScope, evidence: QSODataQualityEvidence,
+  request: (method: string, params: Record<string, unknown>) => Promise<any> = workerRequest): Promise<QSOCorrectionPreviewResponse> {
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuid.test(scope.contactID) || !uuid.test(scope.generation) || scope.conflictID !== undefined ||
+      !Number.isSafeInteger(scope.expectedRevision) || scope.expectedRevision < 0 || scope.expectedRevision >= Number.MAX_SAFE_INTEGER ||
+      !evidence || evidence.field !== "dxcc" || evidence.source !== "suppliedCTYReference" || typeof evidence.value !== "string" ||
+      typeof evidence.dateRole !== "string" || [evidence.date, evidence.rawDate, evidence.referenceSource, evidence.referenceVersion]
+        .some(value => value !== null && typeof value !== "string")) throw new Error("Invalid correction preview scope.");
+  const response = await request("logbook_correction_preview", {
+    contactID: scope.contactID, generation: scope.generation, expectedRevision: scope.expectedRevision, evidence,
+  });
+  const result = (response?.result ?? response) as QSOCorrectionPreviewResponse | undefined;
+  if (!result || typeof result.generation !== "string" || result.generation.toLowerCase() !== scope.generation.toLowerCase() ||
+      result.read_only !== true) throw new Error("Correction preview context changed; discard this preview.");
+  if (result.status !== "reviewed") return result;
+  const preview = result.preview;
+  const returned = result.evidence;
+  if (result.scope !== "ctyReferenceDXCCOnly" || !preview || preview.contactID.toLowerCase() !== scope.contactID.toLowerCase() ||
+      preview.expectedRevision !== scope.expectedRevision || preview.observedRevision !== scope.expectedRevision || preview.field !== "dxcc" ||
+      preview.changeCount !== 1 || preview.diffStatus !== "complete" || typeof preview.proposedValue !== "string" ||
+      preview.retainedValue !== null && typeof preview.retainedValue !== "string" || !returned ||
+      (["field", "value", "source", "dateRole", "date", "rawDate", "referenceSource", "referenceVersion"] as const)
+        .some(key => returned[key] !== evidence[key])) throw new Error("Correction preview evidence changed; discard this preview.");
+  return result;
+}

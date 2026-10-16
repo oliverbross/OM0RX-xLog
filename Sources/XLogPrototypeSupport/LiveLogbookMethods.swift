@@ -738,6 +738,11 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                 }
                 return ["status": "reviewed", "generation": generation, "read_only": true,
                         "scope": "ctyReferenceDXCCOnly", "evidence": expectedEvidence,
+                        "preview": ["contactID": id.uuidString, "expectedRevision": Int64(revision),
+                                    "observedRevision": current.revision, "field": "dxcc",
+                                    "retainedValue": current.qso.dxcc.map(String.init) as Any? ?? NSNull(),
+                                    "proposedValue": String(correctedDXCC), "changeCount": review.changes.count,
+                                    "diffStatus": review.diffStatus.rawValue],
                         "review": try json(review)]
             case "logbook_follow_up":
                 try requireKeys(params, allowed: ["contactID", "generation"], required: ["contactID", "generation"])
