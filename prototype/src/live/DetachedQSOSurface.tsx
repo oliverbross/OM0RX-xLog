@@ -10,6 +10,7 @@ import { changedCallDraft, fillEmptyLookupFields, normalizedCall } from "./draft
 import { connectOperatorDraftChanges, protectOperatorDraftClose } from "./operatorDraftWindows";
 import { nativeSpotEditor, useSpotEditor } from "./useSpotEditor";
 import { SpotActivationStatus } from "./SpotActivationStatus";
+import { StableFeedbackLayer } from "./StableFeedbackLayer";
 import { useReferenceEvidence } from "./useReferenceEvidence";
 import { useFollowRadio } from "./useFollowRadio";
 import { invoke } from "@tauri-apps/api/core";
@@ -177,14 +178,16 @@ export function DetachedQSOSurface() {
     if (saved && mounted.current) loggedFeedback.show();
   });
   const clear = () => void run(async () => { await session.commit("clear"); });
-  return <div className="app live monitor-app detached-qso-app"><main className="qso-feedback-area" aria-label="Detached Log QSO">
+  return <div className="app live monitor-app detached-qso-app"><main className="qso-feedback-area live-feedback-host" aria-label="Detached Log QSO">
     {loggedFeedback.toast}
+    <StableFeedbackLayer>
     {nativeFollow.error && <p className="live-error" role="status">{nativeFollow.error}</p>}
-    <div className="detached-qso-modes" role="group" aria-label="QSO editor mode">{(["simple", "full"] as const).map(value => <button key={value} type="button" aria-pressed={mode === value} disabled={working || closing || blocked} onClick={() => switchMode(value)}>{value === "simple" ? "Simple" : "Full"}</button>)}</div>
     {error && <p className="live-error" role="alert">{error}</p>}
     {readOperation.current && <button type="button" disabled={radioBusy} onClick={() => void checkReadRadio()}>Check Read radio</button>}
     <SpotActivationStatus status={spotEditor.status} error={spotEditor.error} reconcile={() => void spotEditor.reconcile()} />
     <OperatorDraftStatus state={state} session={session} run={run} />
+    </StableFeedbackLayer>
+    <div className="detached-qso-modes" role="group" aria-label="QSO editor mode">{(["simple", "full"] as const).map(value => <button key={value} type="button" aria-pressed={mode === value} disabled={working || closing || blocked} onClick={() => switchMode(value)}>{value === "simple" ? "Simple" : "Full"}</button>)}</div>
     {mode === "simple" ? <><DeskQSO referenceEvidence={referenceEvidence} draft={state.draft} setDraft={setDraft} save={() => void save()} clear={clear}
       busy={working || closing || blocked} draftLocked={working || closing || blocked} request={request} refresh={state.base?.revision ?? 0}
       follow={nativeFollow.state?.enabled === true} setFollow={setFollow} radioControls={false} followControls onReadRadio={readRadio} onLocalInputState={inputState} canAcceptLocalInput={acceptsInput} />

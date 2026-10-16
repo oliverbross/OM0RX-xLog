@@ -3,6 +3,7 @@ import { workerRequest } from "../worker";
 import OpportunitiesPanel from "./OpportunitiesPanel";
 import { useSpotActivation } from "./useSpotActivation";
 import { SpotActivationStatus } from "./SpotActivationStatus";
+import { StableFeedbackLayer } from "./StableFeedbackLayer";
 
 export const detachedOpportunityMethods = ["opportunities_snapshot", "opportunities_refresh"] as const;
 
@@ -18,9 +19,9 @@ export async function requestDetachedOpportunity(method: string, params: Record<
 export function DetachedOpportunitiesSurface() {
   const [error, setError] = useState("");
   const activation = useSpotActivation("activate_opportunity");
-  return <div className="app live monitor-app detached-opportunities-app"><main aria-label="Detached Chaser & DX">
-    {error && <p className="live-error" role="alert">{error}</p>}
-    <SpotActivationStatus status={activation.status} error={activation.error} checking={activation.requesting} reconcile={() => void activation.reconcile()} />
+  return <div className="app live monitor-app detached-opportunities-app"><main className="live-feedback-host" aria-label="Detached Chaser & DX">
+    <StableFeedbackLayer>{error && <p className="live-error" role="alert">{error}</p>}
+      <SpotActivationStatus status={activation.status} error={activation.error} checking={activation.requesting} reconcile={() => void activation.reconcile()} /></StableFeedbackLayer>
     <OpportunitiesPanel taskOnly request={requestDetachedOpportunity} onSelect={item => {
       setError(""); void activation.activate(item).catch(cause => setError(cause instanceof Error ? cause.message : "Opportunity selection could not be verified."));
     }} />

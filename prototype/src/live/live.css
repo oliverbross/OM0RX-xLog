@@ -26,6 +26,13 @@
 .sidebar-metrics b { font-size: 16px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .live-error { display: flex; align-items: center; justify-content: space-between; gap: 16px; color: #ffb4aa; background: #382029; border: 1px solid #98514b; padding: 10px; border-radius: 6px; overflow-wrap: anywhere; }
 .live-message { color: var(--teal); padding: 4px 0; }
+.live-feedback-host { position:relative; }
+/* Status and recovery stay above the work surface, so radio/spot updates do not
+   resize or move the Canvas and detached task content underneath. */
+.live-feedback-overlay { position:absolute; z-index:40; top:8px; left:50%; display:flex; flex-direction:column; gap:6px; width:min(760px,calc(100% - 32px)); max-height:min(45dvh,420px); overflow:auto; pointer-events:none; transform:translateX(-50%); }
+.live-feedback-overlay:empty { display:none; }
+.live-feedback-overlay > * { flex:none; margin:0; pointer-events:auto; box-shadow:0 5px 18px #0008; }
+.live-feedback-overlay > .live-message { padding:8px 12px; border:1px solid #0a9a78; border-radius:6px; background:#073b33; color:#b7f6dc; }
 .contact-recovery { flex-wrap: wrap; justify-content: flex-start; gap: 8px; }
 .contact-recovery > span { flex: 1 1 360px; }
 .live-onboarding { padding: 28px; background: var(--panel); border: 1px solid var(--border); max-width: 850px; }

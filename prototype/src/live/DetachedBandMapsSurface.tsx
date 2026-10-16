@@ -3,6 +3,7 @@ import BandMaps, { BAND_MAP_MODES, BAND_ORDER, type BandMapMode, type BandMapVie
 import { mapRadioFrequency } from "./mapContext";
 import { useMapContext } from "./useMapContext";
 import { SpotActivationStatus } from "./SpotActivationStatus";
+import { StableFeedbackLayer } from "./StableFeedbackLayer";
 
 export function detachedBand(search: string): string {
   const band = new URLSearchParams(search).get("band");
@@ -33,9 +34,9 @@ export function DetachedBandMapsSurface() {
     url.searchParams.set("band", next);
     window.history.replaceState(window.history.state, "", url);
   };
-  return <div className="app live monitor-app detached-map-app detached-band-map-app"><main>
-    {view.error && <p className="live-error" role="alert">{view.error}</p>}
-    <SpotActivationStatus status={view.activation.status} error={view.activation.error} checking={view.activation.requesting} reconcile={() => void view.activation.reconcile()} />
+  return <div className="app live monitor-app detached-map-app detached-band-map-app"><main className="live-feedback-host">
+    <StableFeedbackLayer>{view.error && <p className="live-error" role="alert">{view.error}</p>}
+      <SpotActivationStatus status={view.activation.status} error={view.activation.error} checking={view.activation.requesting} reconcile={() => void view.activation.reconcile()} /></StableFeedbackLayer>
     <BandMaps focusedBand={band} onFocusedBandChange={changeBand} spots={view.spots} onSelect={view.activate} radioFrequencyHz={view.context ? mapRadioFrequency(view.context) : undefined}
       preferences={preferences} onPreferencesChange={change} />
   </main></div>;

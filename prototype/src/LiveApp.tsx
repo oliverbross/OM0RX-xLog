@@ -7,6 +7,7 @@ import { manualRotorGotoSession } from "./live/manualRotorGoto";
 import { loadReadRadioJournal, type ReadRadioJournal } from "./live/readRadioJournal";
 import { useSpotActivation } from "./live/useSpotActivation";
 import { SpotActivationStatus } from "./live/SpotActivationStatus";
+import { StableFeedbackLayer } from "./live/StableFeedbackLayer";
 import { useAutoRotor } from "./live/useAutoRotor";
 import { nativeRotorStop } from "./live/nativeRotorStop";
 import { useFollowRadio } from "./live/useFollowRadio";
@@ -964,7 +965,8 @@ function MainLiveApp() {
       {nativeStationSelection() && stationProvider === "direct_agent" && view !== "Station Control" && <AmplifierTransitionStatus />}
       <div className="sidebar-foot"><button onClick={() => void openMonitor().catch(e => setError(e.message))}><ExternalLink size={16} />Monitor</button><strong className="teal">{settings?.stationCall || "Station not configured"}</strong><span>{settings?.gridSquare || "Set station grid"}</span></div>
     </aside>
-    <main className="qso-feedback-area" aria-label={separateWindows ? "Separate Windows" : view} style={separateWindows ? { gridColumn: "1 / -1" } : undefined}>
+    <main className="qso-feedback-area live-feedback-host" aria-label={separateWindows ? "Separate Windows" : view} style={separateWindows ? { gridColumn: "1 / -1" } : undefined}>
+      <StableFeedbackLayer>
       {error && <div className="live-error" role="alert">{error}<button onClick={() => setError("")}>Dismiss</button></div>}
       {workspaceMode(deskLayout.state.snapshot) === "windows" && recoveryVisible && (configurationRecovery || layoutRecovery) &&
         <div className="live-error" role="alert" aria-label="Workspace recovery">
@@ -993,6 +995,7 @@ function MainLiveApp() {
         <button type="button" disabled={!acceptsInput()} onClick={() => { if (!acceptsInput()) return; localStorage.removeItem("xlog.integration.draft"); setLegacyDraft(null); }}>Discard previous draft</button>
       </div>}
       {message && !message.endsWith("· radio frequency and mode confirmed") && <p className="live-message" role="status">{message}</p>}
+      </StableFeedbackLayer>
       {loggedFeedback.toast}
       <WorkspaceModeSurface separateWindows={separateWindows}>
       {!workspace?.workspace_exists && <>

@@ -24,7 +24,8 @@ export default function OperatorCanvas({ panels, traditional, state, session, su
     finally { performing.current = false; onChangeInFlight?.(false); setWorking(false); }
   };
   useEffect(() => {
-    const measure = () => { const box = root.current?.getBoundingClientRect(); if (box) setSize({ width: box.width, height: box.height }); };
+    const measure = () => { const box = root.current?.getBoundingClientRect(); if (box) setSize(current =>
+      current.width === box.width && current.height === box.height ? current : { width: box.width, height: box.height }); };
     measure(); if (!root.current || typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(measure); observer.observe(root.current); return () => observer.disconnect();
   }, []);

@@ -3,7 +3,7 @@
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-black)](#requirements)
 [![Swift 5.10](https://img.shields.io/badge/Swift-5.10-F05138)](Package.swift)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
-![Beta: 1.0.0-beta.1](https://img.shields.io/badge/beta-1.0.0--beta.1-12D6A0.svg)
+![Beta: 1.0.0-beta.2](https://img.shields.io/badge/beta-1.0.0--beta.2-12D6A0.svg)
 
 OM0RX-xLog is a fast, local-first amateur-radio logbook for macOS. It is the logging centre of the OM0RX station suite: contacts are committed to a local SQLite database first, enriched from QRZ and current reference data, synchronized in both directions with Wavelog, and connected to the radio through OM0RX-xCat.
 
@@ -11,7 +11,7 @@ Created and maintained by **Oliver Bross, OM0RX**.
 
 ## Shared-app Mac integration — 1.0 beta
 
-The application now builds **OM0RX-xLog 1.0.0-beta.1**: the shared Tauri/React app with persistent real logbook, xCluster,
+The application now builds **OM0RX-xLog 1.0.0-beta.2**: the shared Tauri/React app with persistent real logbook, xCluster,
 embedded xCat Remote Agent services, and bundled Hamlib radio/rotor helpers. It has a separate bundle and an isolated
 verified logbook copy; the working native apps and original data are preserved.
 There are no fixture contacts or spots in its runtime screens. This is not yet a

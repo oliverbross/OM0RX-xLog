@@ -1,6 +1,6 @@
-# OM0RX-xLog 1.0.0-beta.1
+# OM0RX-xLog 1.0.0-beta.2
 
-The first 1.0 beta of the native, local-first OM0RX macOS logbook.
+The second 1.0 beta of the native, local-first OM0RX macOS logbook, focused on a stationary operating workspace and verified configuration coverage.
 
 Highlights:
 
@@ -10,6 +10,9 @@ Highlights:
 - Configured clusters connect automatically by default and request the latest 100 spots after connecting; both behaviours remain user-configurable.
 - Shared radio and rotor ownership with explicit connect/control actions, readback checks, safe stop handling and offline operation when station hardware is unavailable.
 - Resizable and repositionable Operator Desk panels, responsive detached windows, stable row hover geometry and fixed save notifications that do not shift content.
+- Spot, radio, synchronization and recovery feedback now floats above the Operator Desk and spot-driven detached windows without resizing or moving the working surface.
+- Canvas measurements ignore unchanged dimensions, preventing redundant re-renders and compact-layout flicker during live updates.
+- Packaged acceptance verifies the complete essential settings set: Station, Logbook, Wavelog, Sync, Rotator, Radio spots and Workspace.
 - Clean macOS Logbook, Online and Window menus with direct Settings access and no obsolete Station Status, Station Identity or Connection Doctor entries.
 - The existing worldwide awards research library and native award calculators, with coverage and evidence boundaries documented in `docs/AWARDS_COVERAGE.md`.
 

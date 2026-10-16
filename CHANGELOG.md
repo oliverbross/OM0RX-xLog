@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 1.0.0-beta.2 — 2026-10-17
+
+- Kept the Operator Desk stationary while spot activation, radio readback, synchronization, or recovery feedback appears by moving actionable notices into a non-layout overlay.
+- Applied the same non-shifting feedback behavior to detached Log QSO, Cluster, Band Maps, World Map, and Chaser & DX windows.
+- Prevented redundant Canvas size updates and kept the layout toolbar on a stable single text line, reducing avoidable re-renders and compact-layout flicker.
+- Added packaged-app acceptance for the stable feedback layer and the essential Station, Logbook, Wavelog, Sync, Rotator, Radio spots, and Workspace settings sections.
+
 ## 1.0.0-beta.1 — 2026-10-17
 
 - Promoted the complete local-first xLog desktop application to its first 1.0 beta, including the integrated logbook, optional Wavelog synchronization, ADIF interchange, cluster, maps, awards and station workflows.

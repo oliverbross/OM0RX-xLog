@@ -1,7 +1,7 @@
 .configurable-desk { display:flex; flex-direction:column; flex:1; gap:8px; min-width:0; min-height:0; }
 .canvas-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; min-width:0; }
 .canvas-toolbar label { display:inline-flex; align-items:center; gap:6px; font-size:11px; }
-.canvas-toolbar > span { color:var(--secondary); font-size:11px; }
+.canvas-toolbar > span { flex:1 1 180px; min-width:0; min-height:17px; color:var(--secondary); font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .live .canvas-toolbar button, .live .canvas-toolbar select { min-height:28px; font-size:11px; padding:3px 8px; }
 .canvas-toolbar select { max-width:220px; }
 .canvas-work-area { display:flex; flex-direction:column; gap:10px; flex:1; min-width:0; min-height:0; }
