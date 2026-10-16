@@ -728,6 +728,16 @@ public struct TCIServerMainVolumeObservation: Equatable, Sendable {
     public let receivedAt: Date?
 }
 
+/// Passive RX_VOLUME server reply/broadcast (pinned TCI b081213f, page 22).
+/// Per receiver/channel dB within [-60, 0]; channel identity follows discovery
+/// (CHANNEL_COUNT, page 12), with no invented global-volume or mute relationship.
+/// Reports establish no audibility, streaming, readiness, control or tune/TX/RF state.
+public struct TCIReceiverChannelVolumeObservation: Equatable, Sendable {
+    public let rawDB: String
+    /// Local producer receipt time; nil means no timed receipt was supplied.
+    public let receivedAt: Date?
+}
+
 public struct TCIProtocolState: Equatable, Sendable {
     public internal(set) var protocolAnnouncement: TCIProtocolAnnouncement?
     public internal(set) var device: String?
@@ -753,6 +763,7 @@ public struct TCIProtocolState: Equatable, Sendable {
     public internal(set) var serverMainMute: TCIServerMainMuteObservation?
     public internal(set) var receiverMutes: [Int: TCIReceiverMuteObservation] = [:]
     public internal(set) var serverMainVolume: TCIServerMainVolumeObservation?
+    public internal(set) var receiverChannelVolumes: [TCIReceiverAddress: TCIReceiverChannelVolumeObservation] = [:]
     public internal(set) var transceivers: [Int: TCITransceiverState] = [:]
     public internal(set) var unknownCommands: [TCICommand] = []
     public internal(set) var diagnostics: [TCIDiagnostic] = []
@@ -812,6 +823,7 @@ public struct TCIStateReducer: Sendable {
         case "MUTE": applyMainMute(command, receivedAt: receivedAt)
         case "RX_MUTE": applyReceiverMute(command, receivedAt: receivedAt)
         case "VOLUME": applyMainVolume(command, receivedAt: receivedAt)
+        case "RX_VOLUME": applyReceiverChannelVolume(command, receivedAt: receivedAt)
         case "MODULATION": applyModulation(command)
         case "RX_FILTER_BAND": applyFilter(command)
         case "SPLIT_ENABLE": applyBooleanState(command, keyPath: \.splitEnabled)
@@ -964,13 +976,24 @@ public struct TCIStateReducer: Sendable {
         )
     }
 
+    private mutating func applyReceiverChannelVolume(_ command: TCICommand, receivedAt: Date?) {
+        guard command.arguments.count == 3,
+              let trx = validTRX(command.arguments[0]),
+              let channel = validChannel(command.arguments[1]),
+              let rawDB = volumeDBToken(command.arguments[2])
+        else { return reject(command) }
+        state.receiverChannelVolumes[TCIReceiverAddress(trx: trx, channel: channel)] = TCIReceiverChannelVolumeObservation(
+            rawDB: rawDB, receivedAt: receivedAt
+        )
+    }
+
     private mutating func applyMainVolume(_ command: TCICommand, receivedAt: Date?) {
-        guard command.arguments.count == 1, let rawDB = mainVolumeToken(command.arguments[0])
+        guard command.arguments.count == 1, let rawDB = volumeDBToken(command.arguments[0])
         else { return reject(command) }
         state.serverMainVolume = TCIServerMainVolumeObservation(rawDB: rawDB, receivedAt: receivedAt)
     }
 
-    private func mainVolumeToken(_ value: String) -> String? {
+    private func volumeDBToken(_ value: String) -> String? {
         guard let token = TCIValueParser.boundedDecimalToken(value, maximumBytes: limits.maximumArgumentBytes)
         else { return nil }
         let magnitude = token.dropFirst(token.hasPrefix("-") || token.hasPrefix("+") ? 1 : 0)
@@ -1175,11 +1198,13 @@ public struct TCIStateReducer: Sendable {
             state.legacyReceiveSensors = state.legacyReceiveSensors.filter { $0.key < trxCount }
             state.transmitSensors = state.transmitSensors.filter { $0.key < trxCount }
             state.receiverMutes = state.receiverMutes.filter { $0.key < trxCount }
+            state.receiverChannelVolumes = state.receiverChannelVolumes.filter { $0.key.trx < trxCount }
         }
         if let channelCount = state.channelCount {
             state.frequencies = state.frequencies.filter { $0.key.channel < channelCount }
             state.vfoLocks = state.vfoLocks.filter { $0.key.channel < channelCount }
             state.receiveChannelSensors = state.receiveChannelSensors.filter { $0.key.channel < channelCount }
+            state.receiverChannelVolumes = state.receiverChannelVolumes.filter { $0.key.channel < channelCount }
         }
     }
 

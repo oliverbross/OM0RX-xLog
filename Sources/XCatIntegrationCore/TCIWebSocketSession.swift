@@ -140,6 +140,8 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
     public let receiverMutes: [Int: TCIReceiverMuteObservation]
     /// Independent global dB report; never audibility, streaming or control evidence.
     public let serverMainVolume: TCIServerMainVolumeObservation?
+    /// Independent per-channel dB reports; never audibility, streaming or authority.
+    public let receiverChannelVolumes: [TCIReceiverAddress: TCIReceiverChannelVolumeObservation]
 
     public init(
         sequence: UInt64,
@@ -162,7 +164,8 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
         transmitSensors: [Int: TCITXSensorsObservation] = [:],
         serverMainMute: TCIServerMainMuteObservation? = nil,
         receiverMutes: [Int: TCIReceiverMuteObservation] = [:],
-        serverMainVolume: TCIServerMainVolumeObservation? = nil
+        serverMainVolume: TCIServerMainVolumeObservation? = nil,
+        receiverChannelVolumes: [TCIReceiverAddress: TCIReceiverChannelVolumeObservation] = [:]
     ) {
         self.sequence = sequence
         self.generation = generation
@@ -185,6 +188,7 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
         self.serverMainMute = serverMainMute
         self.receiverMutes = receiverMutes
         self.serverMainVolume = serverMainVolume
+        self.receiverChannelVolumes = receiverChannelVolumes
     }
 }
 
@@ -635,7 +639,8 @@ public actor TCIReadOnlyWebSocketSession {
             transmitSensors: reducer.state.transmitSensors,
             serverMainMute: reducer.state.serverMainMute,
             receiverMutes: reducer.state.receiverMutes,
-            serverMainVolume: reducer.state.serverMainVolume
+            serverMainVolume: reducer.state.serverMainVolume,
+            receiverChannelVolumes: reducer.state.receiverChannelVolumes
         )
         for continuation in continuations.values {
             continuation.yield(observationValue)
