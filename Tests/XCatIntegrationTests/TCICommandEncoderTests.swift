@@ -74,6 +74,14 @@ final class TCICommandEncoderTests: XCTestCase {
         }
     }
 
+    func testFilterSetAndReadFrameIsTRXScopedAndBounded() throws {
+        let encoder = try encoder()
+        XCTAssertEqual(try encoder.encodeFrame([.setRXFilterBand(trx: 1, lowerHz: 30, upperHz: 2700), .readRXFilterBand(trx: 1)]),
+                       "RX_FILTER_BAND:1,30,2700;RX_FILTER_BAND:1;")
+        let bounded = try self.encoder(limits: .init(maximumFrameBytes: 30))
+        assertError(.frameTooLarge) { try bounded.encodeFrame([.setRXFilterBand(trx: 1, lowerHz: 30, upperHz: 2700), .readRXFilterBand(trx: 1)]) }
+    }
+
     func testAllOfficialPTTSignalSourcesAndNoArbitrarySourceEscapeHatch() throws {
         let encoder = try encoder()
         let cases: [(TCITXSignalSource, String)] = [

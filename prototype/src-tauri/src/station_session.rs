@@ -47,7 +47,7 @@ pub fn validate(label: &str, isolated: bool, action: &str) -> Result<(), String>
             | "save_hamlib" | "connect_hamlib" | "reconnect_hamlib" | "disconnect_hamlib"
             | "save_flex" | "connect_flex" | "reconnect_flex" | "disconnect_flex"
             | "save_tci" | "connect_tci" | "disconnect_tci"
-            | "receive_frequency" | "receive_mode" | "manual_tune" | "review"
+            | "receive_frequency" | "receive_mode" | "manual_tune" | "tci_receive_filter" | "review"
     ) {
         return Err("Unknown Station Control operation.".into());
     }
@@ -213,6 +213,8 @@ impl Session {
                 vec!["action", "generation", "revision", "configuration"]
             } else if matches!(action, "connect_tci" | "disconnect_tci") {
                 vec!["action", "generation", "revision", "selection_generation", "selection_id"]
+            } else if action == "tci_receive_filter" {
+                vec!["action", "generation", "revision", "selection_generation", "selection_id", "provider", "control_revision", "connection_generation", "worker_generation", "lower_hz", "upper_hz"]
             } else if action == "manual_tune" {
                 vec!["action", "generation", "revision", "selection_generation", "selection_id", "provider", "control_revision", "connection_generation", "worker_generation", "frequency_hz", "mode"]
             } else if action == "manual_rotor_goto" {
@@ -252,11 +254,11 @@ impl Session {
                         | "save_hamlib" | "connect_hamlib" | "reconnect_hamlib" | "disconnect_hamlib"
                         | "save_flex" | "connect_flex" | "reconnect_flex" | "disconnect_flex"
                         | "save_tci" | "connect_tci" | "disconnect_tci"
-                        | "receive_frequency" | "receive_mode" | "manual_tune" | "manual_rotor_goto"
+                        | "receive_frequency" | "receive_mode" | "manual_tune" | "tci_receive_filter" | "manual_rotor_goto"
                 )
                 || is_save(action) != (receipt.status == "saved")
-                || receipt.status == "confirmed" && action != "manual_tune"
-                || receipt.status == "reviewed" && !matches!(action, "manual_tune" | "manual_rotor_goto")
+                || receipt.status == "confirmed" && !matches!(action, "manual_tune" | "tci_receive_filter")
+                || receipt.status == "reviewed" && !matches!(action, "manual_tune" | "tci_receive_filter" | "manual_rotor_goto")
                 || receipt.request["generation"] != saved.generation
                 || receipt.request["revision"]
                     .as_u64()
@@ -302,6 +304,8 @@ impl Session {
                     receipt.request["provider"]
                         .as_str()
                         .is_none_or(|provider| !crate::station_telemetry::valid_provider(provider))
+                } else if action == "tci_receive_filter" {
+                    crate::tci_filter::params(&receipt.request).is_err()
                 } else if action == "manual_tune" {
                     crate::manual_tune::params(&receipt.request).is_err()
                 } else if is_receive(action) {
@@ -385,7 +389,7 @@ impl Session {
     }
     pub fn review(&self, id: &str, action: &str) -> Result<Value, String> {
         let _operation = self.operation.try_lock().map_err(|_| "Another Station Control operation is in progress.")?;
-        if !matches!(action, "manual_tune" | "manual_rotor_goto") || uuid::Uuid::parse_str(id).is_err() {
+        if !matches!(action, "manual_tune" | "tci_receive_filter" | "manual_rotor_goto") || uuid::Uuid::parse_str(id).is_err() {
             return Err("Invalid exact manual operation review.".into());
         }
         let mut state = self.state.lock().map_err(|_| "Station Control state is unavailable.")?;
@@ -451,7 +455,7 @@ impl Session {
                 | "save_hamlib" | "connect_hamlib" | "reconnect_hamlib" | "disconnect_hamlib"
                 | "save_flex" | "connect_flex" | "reconnect_flex" | "disconnect_flex"
                 | "save_tci" | "connect_tci" | "disconnect_tci"
-                | "receive_frequency" | "receive_mode" | "manual_tune" | "manual_rotor_goto"
+                | "receive_frequency" | "receive_mode" | "manual_tune" | "tci_receive_filter" | "manual_rotor_goto"
         ) {
             return Err("Unknown Station Control action.".into());
         }
@@ -465,6 +469,12 @@ impl Session {
                 object.len() != keys.len() || object.keys().any(|key| !keys.contains(&key.as_str()))
             }) {
                 return Err("Invalid exact TCI setup request.".into());
+            }
+        }
+        if action == "tci_receive_filter" {
+            let keys = ["action", "operation_id", "generation", "revision", "selection_generation", "selection_id", "provider", "control_revision", "connection_generation", "worker_generation", "lower_hz", "upper_hz"];
+            if params.as_object().is_none_or(|o| o.len() != keys.len() || o.keys().any(|k| !keys.contains(&k.as_str()))) {
+                return Err("Invalid exact TCI filter request.".into());
             }
         }
         let id = params["operation_id"]
@@ -496,7 +506,10 @@ impl Session {
                 descriptor["selection_generation"] = params["selection_generation"].clone();
                 descriptor["selection_id"] = params["selection_id"].clone();
             }
-            if action == "manual_tune" {
+            if action == "tci_receive_filter" {
+                crate::tci_filter::params(params)?;
+                for key in ["provider", "control_revision", "connection_generation", "worker_generation", "lower_hz", "upper_hz"] { descriptor[key] = params[key].clone(); }
+            } else if action == "manual_tune" {
                 crate::manual_tune::params(params)?;
                 for key in ["provider", "control_revision", "connection_generation", "worker_generation", "frequency_hz", "mode"] { descriptor[key] = params[key].clone(); }
             } else if action == "manual_rotor_goto" {
@@ -537,7 +550,7 @@ impl Session {
                     .into(),
             );
         }
-        if matches!(action, "manual_tune" | "manual_rotor_goto") && state.receipts.iter().any(|receipt|
+        if matches!(action, "manual_tune" | "tci_receive_filter" | "manual_rotor_goto") && state.receipts.iter().any(|receipt|
             receipt.request["action"] == action && matches!(receipt.status.as_str(), "pending" | "unknown")) {
             return Err("Review the unresolved manual operation before starting another one; no action was sent.".into());
         }
@@ -598,6 +611,7 @@ impl Session {
             let mut connection = json!({"provider":if action == "select" { descriptor["provider"].as_str().unwrap() } else { "direct_agent" }});
             if is_receive(action) { connection = receive_params(&descriptor)?; }
             if action == "manual_tune" { connection = crate::manual_tune::params(&descriptor)?; }
+            if action == "tci_receive_filter" { connection = crate::tci_filter::params(&descriptor)?; }
             if action == "manual_rotor_goto" { connection = crate::manual_rotor::params(&descriptor)?; }
             if matches!(action, "connect_hamlib" | "reconnect_hamlib" | "disconnect_hamlib") {
                 connection = if action == "disconnect_hamlib" { json!({}) } else {
@@ -643,7 +657,7 @@ impl Session {
             Some((
                 // FLEX reconnect deliberately creates a new configured session:
                 // never inherit the previous session's transmit permission.
-                json!({"id":id,"method":match action { "manual_rotor_goto" => "rotor_goto", "manual_tune" if connection["provider"] == "hamlib" => "hamlib_control", "manual_tune" => "station_tune", "receive_frequency" | "receive_mode" if connection["provider"] == "hamlib" => "hamlib_control", "receive_frequency" | "receive_mode" => "station_radio_control", "connect" | "connect_flex" | "reconnect_flex" | "connect_tci" => "station_connect", "forget" => "station_forget", "select" => "station_selection_apply", "connect_hamlib" => "hamlib_connect", "reconnect_hamlib" => "hamlib_reconnect", "disconnect_hamlib" => "hamlib_disconnect", _ => "station_disconnect" },"params":connection}),
+                json!({"id":id,"method":match action { "tci_receive_filter" => "station_receive_filter", "manual_rotor_goto" => "rotor_goto", "manual_tune" if connection["provider"] == "hamlib" => "hamlib_control", "manual_tune" => "station_tune", "receive_frequency" | "receive_mode" if connection["provider"] == "hamlib" => "hamlib_control", "receive_frequency" | "receive_mode" => "station_radio_control", "connect" | "connect_flex" | "reconnect_flex" | "connect_tci" => "station_connect", "forget" => "station_forget", "select" => "station_selection_apply", "connect_hamlib" => "hamlib_connect", "reconnect_hamlib" => "hamlib_reconnect", "disconnect_hamlib" => "hamlib_disconnect", _ => "station_disconnect" },"params":connection}),
                 selected_generation,
                 selected_id,
             ))
@@ -673,7 +687,8 @@ impl Session {
             .as_ref()
             .is_ok_and(|response| response["id"] == id && response["ok"] == true)
         {
-            if action == "manual_tune" { if crate::manual_tune::confirmed(&receipt.request, result.as_ref().unwrap()) { "confirmed" } else { "unknown" } }
+            if action == "tci_receive_filter" { if crate::tci_filter::confirmed(&receipt.request, result.as_ref().unwrap()) { "confirmed" } else { "unknown" } }
+            else if action == "manual_tune" { if crate::manual_tune::confirmed(&receipt.request, result.as_ref().unwrap()) { "confirmed" } else { "unknown" } }
             else if action == "manual_rotor_goto" { if crate::manual_rotor::acknowledged(&receipt.request, result.as_ref().unwrap()) { "acknowledged" } else { "unknown" } }
             else { "acknowledged" }
         } else {
@@ -712,6 +727,38 @@ pub fn owner(app: &tauri::AppHandle) -> Result<Arc<Session>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn tci_filter_durable_receipts_never_replay_and_review_is_exact() {
+        for confirms in [false, true] {
+            let (directory, session, save) = setup();
+            let id=uuid::Uuid::new_v4().to_string();
+            let command=json!({"action":"tci_receive_filter","operation_id":id,"generation":save["generation"],"revision":0,
+                "provider":"direct_tci","selection_generation":3,"selection_id":uuid::Uuid::new_v4().to_string(),"control_revision":5,
+                "connection_generation":7,"worker_generation":11,"lower_hz":30,"upper_hz":2700});
+            let receipt=session.apply(&command,|request,_,_| {
+                assert_eq!(request["method"],"station_receive_filter");
+                assert_eq!(request["params"],json!({"provider":"direct_tci","expected_generation":7,"lower_hz":30,"upper_hz":2700}));
+                assert_eq!(session.receipt(&id).unwrap()["status"],"pending");
+                Ok(json!({"id":id,"ok":true,"result":{"confirmed":confirms,"state":{"source":"direct_tci","generation":7,
+                    "radio":{"connected":true,"observed":true,"transmitting":false},"tci":{"filter_scope":"trx","filter_lower_hz":30,"filter_upper_hz":2700}}}}))
+            }).unwrap();
+            assert_eq!(receipt["status"],if confirms {"confirmed"} else {"unknown"});
+            assert_eq!(session.apply(&command,passive).unwrap(),receipt);
+            let restored=Session::new(directory.path().join("session.json")).unwrap();
+            assert_eq!(restored.apply(&command,passive).unwrap(),receipt);
+            if !confirms {
+                let mut next=command.clone();next["operation_id"]=json!(uuid::Uuid::new_v4().to_string());next["revision"]=json!(1);
+                assert!(restored.apply(&next,passive).is_err());
+                assert!(restored.review(&id,"manual_tune").is_err());
+                assert_eq!(restored.review(&id,"tci_receive_filter").unwrap()["status"],"reviewed");
+            }
+            let mut injected=command.clone();injected["trx"]=json!(1);assert!(session.apply(&injected,passive).is_err());
+        }
+        assert!(validate("main",false,"tci_receive_filter").is_ok());
+        assert!(validate("station-control",false,"tci_receive_filter").is_ok());
+        assert!(validate("settings",false,"tci_receive_filter").is_err());
+        assert!(validate_live("main",true,false,"tci_receive_filter").is_err());
+    }
     #[test]
     fn manual_tune_journals_before_dispatch_and_replays_confirmed_or_unknown_after_restart() {
         for provider in ["direct_agent", "direct_flex_lan", "hamlib"] {

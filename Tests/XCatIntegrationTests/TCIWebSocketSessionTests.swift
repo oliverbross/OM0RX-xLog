@@ -405,6 +405,64 @@ final class TCIWebSocketSessionTests: XCTestCase {
         XCTAssertNil(disconnected.evidenceReceivedAt)
     }
 
+    func testFilterNeedsNewSameTRXFilterEvidenceAndUsesOneExactFrame() async throws {
+        let connection = FakeTCIWebSocketConnection(), time = TCIEvidenceClock()
+        let session = TCIReadOnlyWebSocketSession(endpoint: endpoint, configuredAddress: .init(trx: 1, channel: 1),
+            connector: FakeTCIWebSocketConnector(connections: [connection]), clock: { time.now() })
+        try await session.connect()
+        await connection.enqueue(.text(Self.discoveryAndState + "vfo:1,1,7100000;modulation:1,LSB;trx:1,false;rx_filter_band:1,-2900,-70;ready;"))
+        _ = try await waitForObservation(session) { $0.availability == .available }
+        let pending = Task { try await session.adjustReceiveFilter(lowerHz: -2900, upperHz: -70, expectedGeneration: 1, timeoutNanoseconds: 100_000_000) }
+        for _ in 0..<2000 { if await connection.sentTexts().count == 1 { break }; await Task.yield() }
+        let sent = await connection.sentTexts()
+        XCTAssertEqual(sent, ["RX_FILTER_BAND:1,-2900,-70;RX_FILTER_BAND:1;"])
+        time.advance(1)
+        await connection.enqueue(.text("ready;trx:1,false;rx_filter_band:0,-2900,-70;rx_filter_band:1,-70,-2900;"))
+        do { _ = try await pending.value; XCTFail("Retained/unrelated/invalid filter evidence confirmed") }
+        catch { XCTAssertEqual(error as? TCITuneSessionError, .readbackTimedOut) }
+        let next = Task { try await session.adjustReceiveFilter(lowerHz: 30, upperHz: 2700, expectedGeneration: 1, timeoutNanoseconds: 1_000_000_000) }
+        for _ in 0..<2000 { if await connection.sentTexts().count == 2 { break }; await Task.yield() }
+        time.advance(1)
+        await connection.enqueue(.text("rx_filter_band:1,30,2700;"))
+        let confirmed = try await next.value
+        XCTAssertEqual(confirmed.snapshot?.address, .init(trx: 1, channel: 1))
+        XCTAssertEqual(confirmed.snapshot?.transceiver.receiveFilter, TCIFilterBand(lowHz: 30, highHz: 2700))
+        await session.disconnect()
+    }
+
+    func testFilterAdmissionAndDisconnectNeverReconnectOrReplay() async throws {
+        let connection = FakeTCIWebSocketConnection(), time = TCIEvidenceClock()
+        let connector = FakeTCIWebSocketConnector(connections: [connection])
+        let session = TCIReadOnlyWebSocketSession(endpoint: endpoint, configuredAddress: address, connector: connector, clock: { time.now() })
+        try await session.connect()
+        do { _ = try await session.adjustReceiveFilter(lowerHz: 30, upperHz: 2700, expectedGeneration: 1); XCTFail() }
+        catch { XCTAssertEqual(error as? TCITuneSessionError, .notReady) }
+        await connection.enqueue(.text(Self.discoveryAndState + "ready;"))
+        var latest = try await waitForObservation(session) { $0.availability == .available }
+        for (low, high, generation, expected) in [(Int64(-24001), Int64(0), UInt64(1), TCITuneSessionError.invalidTarget),
+            (30, 30, 1, .invalidTarget), (30, 2700, 0, .notReady)] {
+            do { _ = try await session.adjustReceiveFilter(lowerHz: low, upperHz: high, expectedGeneration: generation); XCTFail() }
+            catch { XCTAssertEqual(error as? TCITuneSessionError, expected) }
+        }
+        time.advance(6)
+        do { _ = try await session.adjustReceiveFilter(lowerHz: 30, upperHz: 2700, expectedGeneration: 1); XCTFail() }
+        catch { XCTAssertEqual(error as? TCITuneSessionError, .staleObservation) }
+        await connection.enqueue(.text("trx:0,true;"))
+        latest = try await waitForObservation(session, after: latest.sequence) { $0.snapshot?.transceiver.transmitting == true }
+        do { _ = try await session.adjustReceiveFilter(lowerHz: 30, upperHz: 2700, expectedGeneration: 1); XCTFail() }
+        catch { XCTAssertEqual(error as? TCITuneSessionError, .transmitting) }
+        await connection.enqueue(.text("trx:0,false;"))
+        _ = try await waitForObservation(session, after: latest.sequence) { $0.snapshot?.transceiver.transmitting == false }
+        let pending = Task { try await session.adjustReceiveFilter(lowerHz: 30, upperHz: 2700, expectedGeneration: 1) }
+        for _ in 0..<2000 { if await connection.sentTexts().count == 1 { break }; await Task.yield() }
+        do { _ = try await session.tuneReceive(frequencyHz: 7100000, mode: "LSB", expectedGeneration: 1); XCTFail() }
+        catch { XCTAssertEqual(error as? TCITuneSessionError, .commandInFlight) }
+        await session.disconnect()
+        do { _ = try await pending.value; XCTFail() } catch { XCTAssertEqual(error as? TCITuneSessionError, .transportClosed) }
+        let calls = await connector.connectCount(), sent = await connection.sentTexts()
+        XCTAssertEqual(calls, 1); XCTAssertEqual(sent.count, 1)
+    }
+
     private func waitForObservation(
         _ session: TCIReadOnlyWebSocketSession,
         after sequence: UInt64 = 0,

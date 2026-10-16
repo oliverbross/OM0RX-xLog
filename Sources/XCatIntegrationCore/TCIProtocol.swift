@@ -757,12 +757,6 @@ public struct TCIStateReducer: Sendable {
               abs(upper) <= Double(limits.maximumFrequencyHz)
         else { return reject(command, kind: .outOfBounds) }
         state.ifLimits = TCINumericRange(lower: lower, upper: upper)
-        for trx in Array(state.transceivers.keys) {
-            guard let filter = state.transceivers[trx]?.receiveFilter,
-                  !filterIsWithinIFLimits(low: filter.lowHz, high: filter.highHz)
-            else { continue }
-            state.transceivers[trx]?.receiveFilter = nil
-        }
     }
 
     private mutating func applyModulations(_ command: TCICommand) {
@@ -809,7 +803,7 @@ public struct TCIStateReducer: Sendable {
               let low = TCIValueParser.integer64(command.arguments[1]),
               let high = TCIValueParser.integer64(command.arguments[2]),
               low < high,
-              filterIsWithinIFLimits(low: low, high: high)
+              filterIsWithinProtocolEnvelope(low: low, high: high)
         else { return reject(command, kind: .outOfBounds) }
         mutateTransceiver(trx) { $0.receiveFilter = TCIFilterBand(lowHz: low, highHz: high) }
     }
@@ -853,9 +847,10 @@ public struct TCIStateReducer: Sendable {
         return parsed
     }
 
-    private func filterIsWithinIFLimits(low: Int64, high: Int64) -> Bool {
-        guard let range = state.ifLimits else { return true }
-        return range.contains(Double(low)) && range.contains(Double(high))
+    private func filterIsWithinProtocolEnvelope(low: Int64, high: Int64) -> Bool {
+        // IF_LIMITS constrains VFO-A IF tuning, not RX_FILTER_BAND (official
+        // b081213f p20). This is only the parser's app-local numeric envelope.
+        return low >= -limits.maximumFrequencyHz && high <= limits.maximumFrequencyHz
     }
 
     private mutating func mutateTransceiver(_ trx: Int, mutation: (inout TCITransceiverState) -> Void) {

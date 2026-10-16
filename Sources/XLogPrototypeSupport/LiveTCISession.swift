@@ -2,8 +2,8 @@ import Foundation
 #if os(macOS)
 import XCatIntegrationCore
 
-/// Worker-owned TCI adapter. The only write admitted here is an exact,
-/// generation-bound receive-VFO tune with authoritative telemetry readback.
+/// Worker-owned TCI adapter. Receive tuning and TRX filter adjustments require
+/// generation-bound admission and authoritative telemetry readback.
 actor LiveTCISession {
     struct Configuration: Sendable {
         let endpoint: URL
@@ -107,8 +107,25 @@ actor LiveTCISession {
             } catch {
                 throw WorkerFailure("station_unknown", "TCI tune outcome is unknown. No tune was replayed.")
             }
+        case "station_receive_filter":
+            guard Set(params.keys) == ["provider", "lower_hz", "upper_hz", "expected_generation"],
+                  !terminal, let active = session, let id = connectionID,
+                  let expected = Self.integer(params["expected_generation"]), expected >= 0, UInt64(expected) == generation,
+                  let lower = Self.integer(params["lower_hz"]), let upper = Self.integer(params["upper_hz"]),
+                  (-24_000...24_000).contains(lower), (-24_000...24_000).contains(upper), lower < upper else { throw invalid() }
+            let transportGeneration = (await active.currentObservation()).generation
+            do {
+                let confirmed = try await active.adjustReceiveFilter(lowerHz: Int64(lower), upperHz: Int64(upper), expectedGeneration: transportGeneration)
+                guard !terminal, connectionID == id, session === active else { throw cancelled() }
+                record(confirmed, connectionID: id)
+                let state = snapshot()
+                guard let tci = state["tci"] as? [String: Any],
+                      tci["filter_lower_hz"] as? Int64 == Int64(lower), tci["filter_upper_hz"] as? Int64 == Int64(upper),
+                      (state["radio"] as? [String: Any])?["transmitting"] as? Bool == false else { throw cancelled() }
+                return ["accepted": true, "confirmed": true, "state": state]
+            } catch let failure as TCITuneSessionError { throw Self.tuneFailure(failure) }
         default:
-            throw WorkerFailure("method_not_allowed", "TCI permits only explicit connection, observation and receive-VFO tuning.")
+            throw WorkerFailure("method_not_allowed", "TCI permits only explicit connection, observation and bounded receive controls.")
         }
     }
 
@@ -133,6 +150,7 @@ actor LiveTCISession {
     private func snapshot() -> [String: Any] {
         let state = observation?.availability == .available ? observation?.snapshot : nil
         let fresh = receivedAt.map { (-1...5).contains(clock().timeIntervalSince($0)) } ?? false
+        let commands = state == nil ? [String]() : ["station_tune"] + (state?.transceiver.receiveFilter == nil ? [] : ["station_receive_filter"])
         let radio: Any = state.map { s in
             ["connected": true, "observed": true, "frequency_hz": s.frequencyHz,
              "receive_frequency_hz": s.frequencyHz, "mode": s.transceiver.modulation as Any? ?? NSNull(),
@@ -154,13 +172,16 @@ actor LiveTCISession {
                 "radio": radio, "allow_transmit": false,
                 "station": ["available": false, "commissioned": false, "radio_known": state != nil,
                             "radio_stale": !fresh || state == nil, "allowed_actions": [String](),
-                            "supported_commands": state != nil ? ["station_tune"] : [String]()],
+                            "supported_commands": commands],
                 "capabilities": ["read_only": false, "receive_control_only": true,
-                                 "supported_commands": state != nil ? ["station_tune"] : [String](),
+                                 "supported_commands": commands,
                                  "requires_transmit_opt_in": false],
                 "rotor": NSNull(), "propagation": NSNull(),
                 "tci": ["read_only": false, "receive_control_only": true,
                         "observation_sequence": sequence,
+                        "filter_lower_hz": state?.transceiver.receiveFilter?.lowHz as Any? ?? NSNull(),
+                        "filter_upper_hz": state?.transceiver.receiveFilter?.highHz as Any? ?? NSNull(),
+                        "filter_scope": "trx",
                         "availability": observation?.availability.rawValue ?? "unavailable",
                         "failure": failureCode(observation?.failure),
                         "trx": state?.address.trx as Any? ?? NSNull(), "channel": state?.address.channel as Any? ?? NSNull(),
@@ -214,17 +235,17 @@ actor LiveTCISession {
     private static func tuneFailure(_ failure: TCITuneSessionError) -> WorkerFailure {
         switch failure {
         case .invalidTarget:
-            WorkerFailure("invalid_params", "TCI rejected the requested receive frequency or mode.")
+            WorkerFailure("invalid_params", "TCI rejected the requested receive target.")
         case .notReady, .staleObservation:
-            WorkerFailure("station_unavailable", "TCI requires a fresh READY observation before tuning.")
+            WorkerFailure("station_unavailable", "TCI requires a fresh READY observation before receive control.")
         case .transmitting:
-            WorkerFailure("station_action_blocked", "TCI receive tuning is blocked while transmit state is not authoritatively off.")
+            WorkerFailure("station_action_blocked", "TCI receive control is blocked while transmit state is not authoritatively off.")
         case .commandInFlight:
-            WorkerFailure("station_busy", "A TCI receive tune is already awaiting readback.")
+            WorkerFailure("station_busy", "A TCI receive control is already awaiting readback.")
         case .connectionChanged, .transportClosed:
-            WorkerFailure("station_unknown", "TCI disconnected during the tune; its outcome is unknown and was not replayed.")
+            WorkerFailure("station_unknown", "TCI disconnected during receive control; its outcome is unknown and was not replayed.")
         case .readbackTimedOut:
-            WorkerFailure("station_timeout", "TCI did not confirm the requested receive target; no tune was replayed.")
+            WorkerFailure("station_timeout", "TCI did not confirm the requested receive target; no control was replayed.")
         }
     }
     private static func invalid() -> WorkerFailure { WorkerFailure("invalid_params", "Invalid TCI parameters.") }

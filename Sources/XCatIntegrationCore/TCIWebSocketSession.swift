@@ -12,7 +12,7 @@ public enum TCIWebSocketMessage: Equatable, Sendable {
 }
 
 /// Bounded TCI transport surface. The session below exposes only explicit
-/// receive-VFO tune writes; the transport itself grants no command authority.
+/// receive-VFO tuning and TRX filter writes; transport grants no command authority.
 public protocol TCIWebSocketConnection: Sendable {
     func receive() async throws -> TCIWebSocketMessage
     func send(text: String) async throws
@@ -110,6 +110,8 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
     /// Producer receipt time of the latest accepted configured/global evidence.
     /// Nil until an authoritative configured snapshot exists; never consumer time.
     public let evidenceReceivedAt: Date?
+    /// Sequence of the latest accepted configured-TRX RX_FILTER_BAND report.
+    public let filterEvidenceSequence: UInt64
 
     public init(
         sequence: UInt64,
@@ -117,7 +119,8 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
         availability: TCIReadOnlySessionAvailability,
         snapshot: TCIAuthoritativeSnapshot?,
         failure: TCIReadOnlySessionFailure?,
-        evidenceReceivedAt: Date? = nil
+        evidenceReceivedAt: Date? = nil,
+        filterEvidenceSequence: UInt64 = 0
     ) {
         self.sequence = sequence
         self.generation = generation
@@ -125,10 +128,11 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
         self.snapshot = snapshot
         self.failure = failure
         self.evidenceReceivedAt = evidenceReceivedAt
+        self.filterEvidenceSequence = filterEvidenceSequence
     }
 }
 
-/// Explicitly managed, read-only TCI WebSocket session. Every connection
+/// Explicitly managed TCI receive-control WebSocket session. Every connection
 /// generation starts with an empty decoder and reducer and must receive fresh
 /// discovery plus READY before an authoritative snapshot is published.
 public actor TCIReadOnlyWebSocketSession {
@@ -151,6 +155,7 @@ public actor TCIReadOnlyWebSocketSession {
     private var sequence: UInt64 = 0
     private var observationValue: TCIReadOnlySessionObservation
     private var commandInFlight = false
+    private var filterEvidenceSequence: UInt64 = 0
     private var continuations: [UUID: AsyncStream<TCIReadOnlySessionObservation>.Continuation] = [:]
 
     public init(
@@ -297,6 +302,24 @@ public actor TCIReadOnlyWebSocketSession {
         expectedGeneration: UInt64,
         timeoutNanoseconds: UInt64 = 12_000_000_000
     ) async throws -> TCIReadOnlySessionObservation {
+        try await receiveCommand(frequencyHz: frequencyHz, mode: mode, filter: nil,
+                                 expectedGeneration: expectedGeneration, timeoutNanoseconds: timeoutNanoseconds)
+    }
+
+    /// Official TCI b081213f page 20: RX_FILTER_BAND is TRX-wide, not channel-wide.
+    /// One setter and one explicit read share the existing socket and attempt.
+    public func adjustReceiveFilter(lowerHz: Int64, upperHz: Int64, expectedGeneration: UInt64,
+                                    timeoutNanoseconds: UInt64 = 12_000_000_000) async throws -> TCIReadOnlySessionObservation {
+        // Conservative application limit; the official command advertises no range.
+        guard (-24_000...24_000).contains(lowerHz), (-24_000...24_000).contains(upperHz), lowerHz < upperHz else {
+            throw TCITuneSessionError.invalidTarget
+        }
+        return try await receiveCommand(frequencyHz: 0, mode: "", filter: TCIFilterBand(lowHz: lowerHz, highHz: upperHz),
+                                        expectedGeneration: expectedGeneration, timeoutNanoseconds: timeoutNanoseconds)
+    }
+
+    private func receiveCommand(frequencyHz: Int64, mode: String, filter: TCIFilterBand?, expectedGeneration: UInt64,
+                                timeoutNanoseconds: UInt64) async throws -> TCIReadOnlySessionObservation {
         guard timeoutNanoseconds > 0, timeoutNanoseconds <= 120_000_000_000 else {
             throw TCITuneSessionError.invalidTarget
         }
@@ -313,6 +336,7 @@ public actor TCIReadOnlyWebSocketSession {
         guard snapshot.transceiver.transmitting == false else {
             throw TCITuneSessionError.transmitting
         }
+        if filter != nil, snapshot.transceiver.receiveFilter == nil { throw TCITuneSessionError.notReady }
         let issuedAt = clock()
         guard issuedAt.timeIntervalSince(observationValue.evidenceReceivedAt ?? .distantPast) >= -1,
               issuedAt.timeIntervalSince(observationValue.evidenceReceivedAt ?? .distantPast) <= 5 else {
@@ -336,7 +360,10 @@ public actor TCIReadOnlyWebSocketSession {
         let normalizedMode = mode.uppercased()
         let frame: String
         do {
-            frame = try encoder.encodeFrame([
+            frame = try encoder.encodeFrame(filter.map { [
+                .setRXFilterBand(trx: configuredAddress.trx, lowerHz: $0.lowHz, upperHz: $0.highHz),
+                .readRXFilterBand(trx: configuredAddress.trx)
+            ] } ?? [
                 .setVFO(address: configuredAddress, frequencyHz: frequencyHz),
                 .setModulation(trx: configuredAddress.trx, mode: normalizedMode),
             ])
@@ -372,6 +399,7 @@ public actor TCIReadOnlyWebSocketSession {
                 issuedAt: issuedAt,
                 frequencyHz: frequencyHz,
                 mode: normalizedMode,
+                filter: filter,
                 timeoutNanoseconds: timeoutNanoseconds
             )
         } catch let failure as TCITuneSessionError {
@@ -383,7 +411,10 @@ public actor TCIReadOnlyWebSocketSession {
               lifecycleRevision == activeRevision,
               connectionID == activeConnectionID,
               connection != nil,
-              observationValue.sequence >= confirmed.sequence else {
+              observationValue.sequence >= confirmed.sequence,
+              observationValue.availability == .available,
+              observationValue.snapshot?.transceiver.transmitting == false,
+              filter == nil || observationValue.snapshot?.transceiver.receiveFilter == filter else {
             throw TCITuneSessionError.connectionChanged
         }
         return confirmed
@@ -396,6 +427,7 @@ public actor TCIReadOnlyWebSocketSession {
         issuedAt: Date,
         frequencyHz: Int64,
         mode: String,
+        filter: TCIFilterBand?,
         timeoutNanoseconds: UInt64
     ) async throws -> TCIReadOnlySessionObservation {
         try await withThrowingTaskGroup(of: TCIReadOnlySessionObservation.self) { group in
@@ -406,8 +438,8 @@ public actor TCIReadOnlyWebSocketSession {
                     guard value.sequence > baselineSequence,
                           value.evidenceReceivedAt.map({ $0 > issuedAt }) == true,
                           let snapshot = value.snapshot,
-                          snapshot.frequencyHz == frequencyHz,
-                          snapshot.transceiver.modulation?.uppercased() == mode,
+                          filter.map({ snapshot.transceiver.receiveFilter == $0 && value.filterEvidenceSequence > baselineSequence })
+                            ?? (snapshot.frequencyHz == frequencyHz && snapshot.transceiver.modulation?.uppercased() == mode),
                           snapshot.transceiver.transmitting == false else { continue }
                     return value
                 }
@@ -458,6 +490,7 @@ public actor TCIReadOnlyWebSocketSession {
             for command in result.commands {
                 if reducer.apply(command), isConfiguredEvidence(command) {
                     hasConfiguredEvidence = true
+                    if command.name == "RX_FILTER_BAND" { filterEvidenceSequence = sequence + 1 }
                 }
             }
             if let snapshot = reducer.authoritativeSnapshot(for: configuredAddress) {
@@ -513,6 +546,7 @@ public actor TCIReadOnlyWebSocketSession {
         decoder = TCITextDecoder(limits: limits)
         reducer = TCIStateReducer(limits: limits)
         evidenceReceivedAt = nil
+        filterEvidenceSequence = 0
     }
 
     private func publish(
@@ -527,7 +561,8 @@ public actor TCIReadOnlyWebSocketSession {
             availability: availability,
             snapshot: snapshot,
             failure: failure,
-            evidenceReceivedAt: evidenceReceivedAt
+            evidenceReceivedAt: evidenceReceivedAt,
+            filterEvidenceSequence: filterEvidenceSequence
         )
         for continuation in continuations.values {
             continuation.yield(observationValue)

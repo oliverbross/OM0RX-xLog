@@ -564,6 +564,11 @@ impl Selection {
         let selected = self.value(&state); drop(state);
         self.simplex_tune(request, &selected, admit, dispatch)
     }
+    pub fn tci_filter_control<G>(&self, request: Value, expected: u64, identity: &str, revision: u64,
+        admit: impl FnOnce() -> Result<G, String>, dispatch: impl FnOnce(Value) -> Result<Value, String>) -> Result<Value, String> {
+        if request["method"] != "station_receive_filter" || request["params"]["provider"] != "direct_tci" { return Err("Invalid TCI filter route.".into()); }
+        self.control_scoped_dispatch(request, Some((expected, identity, Some(revision))), admit, dispatch)
+    }
     /// Native spot tuning reserves nonurgent radio controls, not a transport or
     /// telemetry mutex. Source identity is rechecked at this admission point.
     pub(crate) fn activation_tune<G>(&self, request: Value, expected: &Value,
@@ -2036,6 +2041,19 @@ mod tests {
         owner.receive_control(request(), 0, identity, revision, || Ok(())).unwrap();
         assert!(owner.receive_control(request(), 0, identity, revision, || -> Result<(), String> { panic!("duplicate observation admitted") }).is_err());
         assert_eq!(calls.lock().unwrap().iter().filter(|request| request["method"] == "station_radio_control").count(), 1);
+    }
+    #[test]
+    fn tci_filter_rejects_stale_selection_and_consumed_control_epoch() {
+        let (_directory, owner, _) = fixture(); let first = initialized(&owner, Some("direct_tci"));
+        let identity = first["selection_id"].as_str().unwrap(); let revision = first["control_revision"].as_u64().unwrap();
+        let request = || json!({"id":"filter","method":"station_receive_filter","params":{"provider":"direct_tci","lower_hz":30,"upper_hz":2700,"expected_generation":7}});
+        for (generation, id, control) in [(1,identity,revision),(0,"wrong",revision),(0,identity,revision+1)] {
+            assert!(owner.tci_filter_control(request(),generation,id,control,|| -> Result<(),String>{panic!("stale filter admitted")},|_|panic!("stale filter sent")).is_err());
+        }
+        let mut calls=0;
+        owner.tci_filter_control(request(),0,identity,revision,||Ok(()),|_|{calls+=1;Ok(json!({}))}).unwrap();
+        assert_eq!(calls,1);
+        assert!(owner.tci_filter_control(request(),0,identity,revision,|| -> Result<(),String>{panic!("consumed filter epoch admitted")},|_|panic!("filter replayed")).is_err());
     }
     #[test]
     fn manual_tune_rejects_a_b_a_and_consumed_control_epochs_without_dispatch() {

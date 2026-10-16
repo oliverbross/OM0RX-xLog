@@ -23,6 +23,7 @@ mod spot_activation_backend;
 mod qsy_clear;
 mod radio_read;
 mod manual_tune;
+mod tci_filter;
 mod radio_release;
 mod carrier_tune;
 mod ptt_session;
@@ -884,6 +885,7 @@ async fn station_session_request(app: tauri::AppHandle, window: tauri::WebviewWi
     if action == "snapshot" {
         let mut value = owner.snapshot()?;
         value["manual_tune_receipt"] = owner.unresolved_receipt("manual_tune")?;
+        value["tci_filter_receipt"] = owner.unresolved_receipt("tci_receive_filter")?;
         value["selection"] = station_selection::owner(&app)?.snapshot()?;
         value["radio"] = station_telemetry::retained_snapshot().unwrap_or(serde_json::Value::Null);
         value["worker_generation"] = serde_json::json!(worker::generation());
@@ -891,16 +893,17 @@ async fn station_session_request(app: tauri::AppHandle, window: tauri::WebviewWi
     }
     if action == "receipt" { return owner.receipt(params["operation_id"].as_str().ok_or("Missing operation identity.")?); }
     if action == "review" {
-        if params.as_object().is_none_or(|value| value.len() != 3) || params["reviewed_action"] != "manual_tune" {
-            return Err("Invalid manual tune review request.".into());
+        if params.as_object().is_none_or(|value| value.len() != 3) || !matches!(params["reviewed_action"].as_str(), Some("manual_tune" | "tci_receive_filter")) {
+            return Err("Invalid exact manual operation review request.".into());
         }
-        return owner.review(params["operation_id"].as_str().ok_or("Missing operation identity.")?, "manual_tune");
+        return owner.review(params["operation_id"].as_str().ok_or("Missing operation identity.")?, params["reviewed_action"].as_str().unwrap());
     }
     let selection = station_selection::owner(&app)?;
     let telemetry = station_telemetry::owner(&app)?;
     let changed = app.clone();
     let result = tauri::async_runtime::spawn_blocking(move || owner.apply(&params, |request, generation, identity| {
         if params["action"] == "manual_tune" { return manual_tune::execute(&app, &params, request, generation, identity); }
+        if params["action"] == "tci_receive_filter" { return tci_filter::execute(&app, &params, request, generation, identity); }
         if request["method"] == "station_radio_control" || request["method"] == "hamlib_control" {
             let connection = request["params"]["expected_generation"].as_u64().ok_or("Missing exact radio generation.")?;
             let control = if request["method"] == "hamlib_control" {
@@ -987,8 +990,8 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
         return Err("Use the shared durable radio and amplifier owners.".into());
     }
     if is_raw_ptt_control(&request) {return Err("Use the durable GUI PTT owner".into());}
-    if method == "station_tune" || method == "hamlib_control" && request["params"]["device"] == "radio" && request["params"]["action"] == "tune_simplex" {
-        return Err("Use the shared manual simplex tune owner.".into());
+    if method == "station_tune" || method == "station_receive_filter" || method == "hamlib_control" && request["params"]["device"] == "radio" && request["params"]["action"] == "tune_simplex" {
+        return Err("Use the shared durable receive-control owner.".into());
     }
     if is_raw_manual_rotor_goto(&request) { return Err("Use the shared manual rotor Goto owner.".into()); }
     if matches!(method, "propagation_snapshot" | "propagation_refresh") { return Err("Use the shared propagation session.".into()); }

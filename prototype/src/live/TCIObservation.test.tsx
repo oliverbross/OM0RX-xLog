@@ -17,5 +17,5 @@ it.each([null, { ...snapshot, available: false }, { ...snapshot, station: { radi
   render(<TCIObservation snapshot={value} now={1000000} />);
   expect(screen.getByRole("status").textContent).toContain("unavailable or stale");
   expect(screen.queryByText(/Observed receive:/)).toBeNull();
-  expect(screen.queryByRole("button")).toBeNull();
+  expect((screen.getByRole("button", { name: "Apply receive filter" }) as HTMLButtonElement).disabled).toBe(true);
 });

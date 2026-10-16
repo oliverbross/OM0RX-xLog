@@ -154,7 +154,7 @@ final class TCIProtocolTests: XCTestCase {
 
         reducer.apply(decoder.feed("vfo:0,0,50000000;rx_filter_band:0,-20000,20000;"))
         XCTAssertNil(reducer.state.frequencies[address])
-        XCTAssertNil(reducer.state.transceivers[0]?.receiveFilter)
+        XCTAssertEqual(reducer.state.transceivers[0]?.receiveFilter, TCIFilterBand(lowHz: -20000, highHz: 20000))
         XCTAssertTrue(reducer.state.diagnostics.contains { $0.kind == .outOfBounds })
     }
 
@@ -233,13 +233,13 @@ final class TCIProtocolTests: XCTestCase {
         XCTAssertNil(reducer.state.transceivers[0]?.transmitSignalSource)
     }
 
-    func testLateDiscoveryLimitsInvalidateEarlierFilterButKeepPairsIndependent() {
+    func testIFLimitsDoNotInvalidateReceiveFilterOrIndependentPairs() {
         var decoder = TCITextDecoder()
         var reducer = TCIStateReducer()
         reducer.apply(decoder.feed("vfo:0,0,7100000;vfo:0,1,14000000;rx_filter_band:0,-3000,3000;if_limits:-2000,2000;"))
 
         XCTAssertEqual(reducer.state.frequencies[TCIReceiverAddress(trx: 0, channel: 0)], 7_100_000)
         XCTAssertEqual(reducer.state.frequencies[TCIReceiverAddress(trx: 0, channel: 1)], 14_000_000)
-        XCTAssertNil(reducer.state.transceivers[0]?.receiveFilter)
+        XCTAssertEqual(reducer.state.transceivers[0]?.receiveFilter, TCIFilterBand(lowHz: -3000, highHz: 3000))
     }
 }

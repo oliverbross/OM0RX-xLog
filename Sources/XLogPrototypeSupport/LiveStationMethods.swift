@@ -27,7 +27,7 @@ actor StationProviderClaim {
 /// The Mac worker talks to the real xCat loopback service. No values are
 /// synthesized when that service or its radio is unavailable.
 enum LiveStationMethods {
-    static let methods: Set<String> = ["station_snapshot", "station_tune", "station_action",
+    static let methods: Set<String> = ["station_snapshot", "station_tune", "station_action", "station_receive_filter",
                                        "station_connect", "station_disconnect", "station_reconnect",
                                        "station_forget", "station_configuration", "station_configuration_save",
                                        "station_radio_control", "station_rotor_snapshot", "station_rotor_connect", "station_rotor_disconnect",

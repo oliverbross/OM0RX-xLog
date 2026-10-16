@@ -235,6 +235,30 @@ final class LiveTCISessionTests: XCTestCase {
         await session.terminate()
     }
 
+    func testFilterBridgeRejectsMalformedTargetsAndConfirmsOnlyExactSavedTRXReadback() async throws {
+        let socket = TCIFixtureSocket(), time = TCIClock()
+        let session = fixture(TCIFixtureConnector([socket]), clock: { time.now() })
+        _ = try await session.handle("station_connect", params: connect)
+        await socket.enqueue(.text(Self.discovery + "rx_filter_band:0,-500,500;trx:0,false;ready;"))
+        _ = try await wait(session) { $0["available"] as? Bool == true }
+        let params: [String: Any] = ["provider": "direct_tci", "expected_generation": 1, "lower_hz": 30, "upper_hz": 2700]
+        for change in [["lower_hz": true], ["lower_hz": 30.5], ["lower_hz": "30"], ["upper_hz": 24001], ["upper_hz": 30],
+                       ["expected_generation": 0], ["trx": 1], ["channel": 1], ["allow_transmit": false]] as [[String: Any]] {
+            do { _ = try await session.handle("station_receive_filter", params: params.merging(change) { _, new in new }); XCTFail("Malformed filter target admitted") }
+            catch let failure as WorkerFailure { XCTAssertEqual(failure.code, "invalid_params") }
+        }
+        let none = await socket.sentTexts(); XCTAssertTrue(none.isEmpty)
+        let pending = Task { try await session.handle("station_receive_filter", params: params) }
+        for _ in 0..<2000 { if await socket.sentTexts().count == 1 { break }; await Task.yield() }
+        let sent = await socket.sentTexts(); XCTAssertEqual(sent, ["RX_FILTER_BAND:0,30,2700;RX_FILTER_BAND:0;"])
+        time.advance(1); await socket.enqueue(.text("rx_filter_band:0,30,2700;"))
+        let result = try await pending.value, state = try XCTUnwrap(result["state"] as? [String: Any])
+        XCTAssertEqual(result["confirmed"] as? Bool, true)
+        XCTAssertEqual((state["tci"] as? [String: Any])?["filter_lower_hz"] as? Int64, 30)
+        XCTAssertEqual((state["tci"] as? [String: Any])?["filter_scope"] as? String, "trx")
+        await session.terminate()
+    }
+
     private func fixture(_ connector: TCIFixtureConnector, claim: StationProviderClaim = StationProviderClaim(), clock: @escaping @Sendable () -> Date = { Date() }) -> LiveTCISession {
         LiveTCISession(claim: claim, clock: clock, factory: { TCIReadOnlyWebSocketSession(endpoint: $0.endpoint, configuredAddress: $0.address, connector: connector, clock: clock) })
     }
