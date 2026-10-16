@@ -2,6 +2,10 @@
 
 Last updated: 2026-10-16
 
+Tracked implementation checkpoint: `7b2e0ea83490b98cd40f45a4881a949665b1a715`.
+New source/test/browser evidence does not replace installed alpha.31 or close
+exact-package, native interaction, live-provider or hardware acceptance.
+
 ## Enhancement review reconciliation — merged; first correctness fixes source complete
 
 The 24-item external review is reconciled against the active branch in
@@ -51,7 +55,13 @@ export rejected and preserving lexical values, explicit SUBMODE, arbitrary metad
  same official 3.1.8 deprecation rule to import-only `PSK31`: raw ADX import accepts and
  preserves it, while native export emits `MODE=PSK` plus `SUBMODE=PSK31`. Swift ADIF
  **18/18**, frontend ADIF **1,138/1,138**, TypeScript and diff checks pass. The remaining
-enum/deprecation audit, installed/package and real-log acceptance remain open. See
+ enum/deprecation audit, installed/package and real-log acceptance remain open. `3002e96`
+adds PSK63 import-only acceptance and PSK/PSK63 export (**18/18** Swift,
+**1,154/1,154** frontend, TypeScript/diff). `a118dea` adds the PSK63F pair (**18/18**
+Swift, **1,170/1,170** frontend on a CLI-timeout-only retry after two existing
+load-sensitive encoding timeouts). Current-source TypeScript subsequently passes
+with R07 below. All seven bounded stages preserve arbitrary fields, explicit submodes
+and duplicate identity; ADIF_VER stays **3.1.7** until the full audit closes. See
 [digital-voice source acceptance](docs/ADIF_DIGITAL_VOICE_DEPRECATION_SOURCE_ACCEPTANCE_2026-10-16.md).
 
 ## Operator-efficiency foundations — first usable source slices complete
@@ -189,20 +199,49 @@ See [global transmit-frequency source acceptance](docs/TCI_TRANSMIT_FREQUENCY_OB
 TRX/channel, callsign, frequency and producer receipt time. It is deliberately separate from
 the receive VFO, configured freshness, tuning confirmation and spot inventory; malformed input
 cannot replace earlier evidence, reconnect clears it and no outbound command is sent. Focused
-protocol/session Swift checks pass **40/40**. Transmit/PTT, split/TX-VFO controls, outbound spot
+protocol/session Swift checks pass **40/40**. `1e11f0f` separately retains server-global
+`APP_FOCUS` with its own producer receipt (**45/45** focused Swift). `89cac01` retains
+legacy `CLICKED_ON_SPOT` separately with callsign/frequency/receipt and no inferred
+TRX/channel/VFO (**50/50** focused Swift on rerun after one existing scheduling-sensitive
+lifecycle miss). Both remain passive and never refresh configured evidence, confirm
+tuning, create inventory, grant authority or send commands. `30ed9d0` adds the zero-argument
+`CW_MACROS_EMPTY` notification as reconnect-cleared producer receipt only (**55/55** focused
+Swift). It establishes no queue-empty, TX/RX, CW or RF authority. `7b2e0ea` retains
+`CALLSIGN_SEND` only as an opaque callsign plus producer receipt (**60/60** focused Swift,
+34 protocol + 26 session). Strict validation and reconnect clearing preserve independent
+evidence; the notification confers no target/contact identity authority, command correlation,
+TX completion/success or RF inference. Transmit/PTT, split/TX-VFO controls, outbound spot
 management, audio/IQ, package/live-server and RF acceptance
 remain open. QLog is a behavior reference only; no third-party code, credentials, device or
 operator data was copied. Installed alpha.31 remains unchanged.
 
-## Online-log follow-up evidence — core projection source complete; route/UI open
+## Online-log follow-up evidence — read-only route/UI source and browser verified
 
 `92cf23f` adds a read-only R07 projection over canonical contact snapshots and retained QRZ/
 Club Log delivery receipts. It keeps upload state, current-versus-historical contact revision,
 attempt age, retained paper/LoTW/eQSL confirmation fields and award impact separate. Because
 the current receipts do not contain provider acceptance or match timestamps, those ages remain
 explicitly unknown; delivery never creates confirmation or sponsor credit, and deleted contacts
-are excluded from award impact. Focused Swift checks pass **5/5**. Worker routing, operator UI,
-provider acceptance/match timestamps, sponsor rules and live-account acceptance remain open.
+are excluded from award impact. Core Swift checks pass **5/5**. `5486aff` adds the bounded
+generation-fenced local worker route and a Logbook row action opening a read-only panel.
+Opening performs no fetch; explicit Refresh retained status reads local evidence only,
+and context changes/Close retire pending reads. Swift route **1/1**, Rust surface permission
+**1/1**, frontend **31/31**, TypeScript, production build and detached bundle gates pass.
+Isolated actual-Logbook browser checks at **640×480**/**1280×800** show document width equal
+to viewport, panel/container widths **624/624**/**1264/1264**, and internal scroll bounded
+to **48vh**. Package/native interaction, provider timestamps, sponsor rules and live-account
+acceptance remain open; installed alpha.31 is unchanged.
+
+## QRP DXCC preflight — R09 dependency source complete; sponsor award remains open
+
+`6d9b186` adds pure `QRPDXCCPreflightV1` screening over caller-supplied local contact
+snapshots. It classifies candidates, exclusions and unknowns using dated official-source
+references and exact retained-power comparisons; **7/7** focused Swift tests pass.
+Candidate stored DXCC values are review inputs, not validated entities or award progress.
+Power measurement, sponsor entity validity, applicant scope, land/direct-contact eligibility
+and signed declaration remain unresolved for every candidate. This is a preflight dependency,
+not an executable sponsor award, completion, application/export or credit implementation.
+No route/UI, I/O, persistence, provider, package/native or live-data acceptance is added.
 
 ## Shared durable Agent amplifier owner — source complete; package/hardware acceptance open
 

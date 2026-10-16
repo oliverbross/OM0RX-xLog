@@ -1,5 +1,9 @@
 # OM0RX-xLog live project board
 
+Tracked implementation checkpoint: `7b2e0ea83490b98cd40f45a4881a949665b1a715`.
+Source/test/browser evidence below remains separate from installed alpha.31 and
+unaccepted package, native interaction, provider and hardware gates.
+
 Last updated: 16 October 2026, after installing signed/notarized alpha.31 from
 exact source `dd8dd642c650fc56522296860f6e2177c0804bcb`.
 `/Applications/OM0RX-xLog.app` passes **33/33** isolated native checks from both
@@ -27,7 +31,12 @@ submodes while preserving local contacts, unknown fields and canonical duplicate
 canonical-only; the focused frontend file passes **1,122/1,122**. Swift ADIF **18/18** and
 frontend ADIF **1,096/1,096** also pass. `7e348d6` adds the same import-only handling for
 `PSK31` and exports it canonically as `MODE=PSK`/`SUBMODE=PSK31`; Swift ADIF **18/18**,
-frontend ADIF **1,138/1,138** and TypeScript pass. The exporter remains labeled
+frontend ADIF **1,138/1,138** and TypeScript pass. `3002e96` adds PSK63 import-only
+acceptance and PSK/PSK63 export (**18/18** Swift, **1,154/1,154** frontend, TypeScript/diff).
+`a118dea` adds PSK63F and its PSK/submode pair (**18/18** Swift, **1,170/1,170** frontend
+on a CLI-timeout-only retry after two existing load-sensitive encoding timeouts).
+Current-source TypeScript passes with R07 below. These seven bounded stages preserve
+arbitrary fields, explicit submodes and identity. The exporter remains labeled
 3.1.7 until the full 3.1.8 enum/deprecation audit passes.
 Package/real-log acceptance and any optional record correction remain open.
 
@@ -103,7 +112,17 @@ frontend **41/41**, and global TX protocol/session Swift **35/35** pass. The pin
  `259b05d` separately retains the latest server-only `RX_CLICKED_ON_SPOT` event with its own
  producer receipt and exact TRX/channel/callsign/frequency. It never changes configured
  freshness, VFO/mode, tuning confirmation, inventory or authority; focused TCI protocol/session
- checks pass **40/40**.
+ checks pass **40/40**. `1e11f0f` retains server-global `APP_FOCUS` with a separate
+ producer receipt (**45/45** focused Swift). `89cac01` retains legacy `CLICKED_ON_SPOT`
+ separately with callsign/frequency/receipt and no inferred TRX/channel/VFO (**50/50**
+ focused Swift on rerun after one existing scheduling-sensitive lifecycle miss).
+ Both remain passive without configured freshness, tuning confirmation, inventory,
+ command dispatch or authority. `30ed9d0` adds zero-argument `CW_MACROS_EMPTY` as a
+ reconnect-cleared producer receipt only (**55/55** focused Swift), with no inferred
+ queue-empty, TX/RX, CW or RF authority. `7b2e0ea` retains `CALLSIGN_SEND` as opaque
+ callsign/producer receipt only (**60/60** focused Swift: 34 protocol + 26 session),
+ with strict validation and reconnect clearing. It provides no target/contact identity
+ authority, command correlation, TX completion/success or RF inference.
 Transmit/PTT, split/TX-VFO controls,
 spots, audio/IQ, package/live-server and RF
 acceptance remain open; installed alpha.31 is unchanged. See the
@@ -116,8 +135,22 @@ R07 now has a bounded read-only core projection in `92cf23f`. Canonical QRZ/Club
 and contact snapshots expose upload state, revision currency and attempt age without inventing
 provider acceptance or match time. Retained paper/LoTW/eQSL confirmation evidence remains
 separate from sponsor credit; deleted contacts are excluded from award impact. Focused Swift
-checks pass **5/5**. Worker/UI exposure, provider timestamps, sponsor-rule evaluation and live
-account acceptance remain open.
+checks pass **5/5**. `5486aff` adds the generation-fenced local worker route and a Logbook
+row action for read-only follow-up. Opening performs no fetch; explicit Refresh retained
+status reads local evidence, and context changes/Close retire pending reads. Swift route
+**1/1**, Rust surface permission **1/1**, frontend **31/31**, TypeScript, production build
+and detached bundle gates pass. Isolated actual-Logbook browser checks at **640×480** and
+**1280×800** show viewport-width documents, panel/container widths **624/624**/**1264/1264**,
+and internal scroll bounded to **48vh**. Package/native interaction, provider timestamps,
+sponsor-rule evaluation and live-account acceptance remain open; installed alpha.31 is unchanged.
+
+R09 has a conservative preflight dependency in `6d9b186`: pure `QRPDXCCPreflightV1`
+screens caller-supplied contact snapshots into candidates, exclusions and unknowns, with
+dated official references and exact retained-power comparison (**7/7** focused Swift).
+Candidate stored DXCC values are not validated award entities or progress. Measurement,
+sponsor validity, applicant scope, land/direct-contact eligibility and declaration remain
+unresolved. Executable sponsor rules, completion, credit, application/export, route/UI and
+package/native/live acceptance remain open; this stage adds no I/O or persistence.
 
 `1e4a85f` also makes the HTML/document title match the existing native product and visible
 brand: **OM0RX-xLog**. Production build and all **21/21** window graph/CSS/budget checks pass;

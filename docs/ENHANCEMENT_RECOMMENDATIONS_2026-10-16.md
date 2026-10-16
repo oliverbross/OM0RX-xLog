@@ -9,6 +9,9 @@ radio transmission, rotor movement and Windows/Linux packaging remain separate g
 
 ## Current decision
 
+Implementation checkpoint: `7b2e0ea83490b98cd40f45a4881a949665b1a715`. Source/test/browser
+verification does not close package/native, provider or hardware acceptance.
+
 - Keep the Mac-first daily logger, canonical QSO/draft owners and local-first database.
 - Reuse existing owners and views; do not create parallel CAT, cluster, calendar,
   logbook, confirmation or award stores.
@@ -40,12 +43,12 @@ connection.
 | R01 | Resolver and read-only impact preview source complete; package/data-impact review open | `CTYResolver`, downloaded/bundled CTY rules, stored `QSO.dxcc` override | `799d9c5` removes the PJ-to-305 shortcut; `54b4c84` adds the bounded Logbook PJ country preview, protects stored DXCC and exposes no correction route. Focused root reruns: UI **23/23**, Swift preview **2/2**, Rust route **1/1**. Accept the exact package against a disposable copied logbook before any optional correction; never bulk rewrite. |
 | R02 | Implemented, unaccepted on current package/hardware | Durable Tune, Cancel, PTT, amplifier, Rotor Goto/Stop/Auto owners | Exact-source packaged stale/unknown/restart/release checks, followed only by operator-authorized hardware/RF acceptance. |
 | R03 | Source complete, packaged copied-log acceptance open | `LogbookContact`, `QSOADIF`, ADIF field bag, contact mutation and delete/undo owner | Normal/custom fields survive edit, undo, conflict and ADI/ADX round trips with intentional normalization explained. |
-| R04 | Five compatibility fixes complete; full conformance audit open | `ADIF.swift`, `QSOADIF.swift`, `adifTransfer.ts`, reference-data status | `429dcae` fixes UTF-8 byte lengths and whole-record filtering; `7e6cfce` exports FT4/FT2/JTTY as MFSK submodes; `4435721` exports import-only C4FM/DSTAR as DIGITALVOICE submodes; `c845cc8` admits those deprecated values only on raw ADX import; `7e348d6` accepts import-only PSK31 and exports PSK/PSK31. Keep `ADIF_VER` at 3.1.7 until the remaining enum/deprecation audit passes. |
+| R04 | Seven compatibility stages complete; full conformance audit open | `ADIF.swift`, `QSOADIF.swift`, `adifTransfer.ts`, reference-data status | `429dcae` fixes UTF-8 byte lengths and whole-record filtering; `7e6cfce` exports FT4/FT2/JTTY as MFSK submodes; `4435721` exports import-only C4FM/DSTAR as DIGITALVOICE submodes; `c845cc8` admits those deprecated values only on raw ADX import; `7e348d6`, `3002e96` and `a118dea` accept import-only PSK31/PSK63/PSK63F and export their PSK/submode pairs. Latest Swift **18/18** and frontend **1,170/1,170** pass (CLI-timeout-only retry after two existing encoding timeouts); current-source TypeScript passes with R07. Preserve arbitrary fields/identity and keep `ADIF_VER` at 3.1.7 until the remaining audit passes. |
 | R05 | Detached geometry follow-up source complete; acceptance programme open | Native window runtime/geometry, Canvas/Separate Windows owner, responsive surfaces | `210a0ea` aligns detached Propagation rows, adds Station Status/Rotor insets and top-aligns Rotor content; focused root responsive UI rerun **31/31**, rendered-geometry proof, and current-source Band Map/Callsign Intelligence/Rotor browser checks pass. Exact packaged compact/normal/large, mixed-display/DPI, keyboard/focus and assistive-technology acceptance remain open. |
 | R06 | Passive model, worker route and native UI complete; package acceptance open | Opportunity feeds, spot history, alerts, award rules, contact history | `2f18295` adds deterministic selected-goal evaluation, `505284a` reads canonical retained sources, and `52010e3` presents explained states/age in a chrome-free native window. Package-test it; retain the cluster-provenance exclusion and never auto tune/rotate/transmit. |
-| R07 | Read-only core projection complete; route/UI open | Sync engine, online-log delivery, confirmation fields, awards | `92cf23f` projects canonical QRZ/Club Log receipts and retained paper/LoTW/eQSL state while keeping acceptance/match age and sponsor credit unknown. Add the bounded worker/UI surface only after provider timestamp and award-rule contracts are explicit. |
+| R07 | Read-only core, route and Logbook UI source/browser verified; package/provider open | Sync engine, online-log delivery, confirmation fields, awards | `92cf23f` projects canonical QRZ/Club Log receipts and retained paper/LoTW/eQSL state. `5486aff` adds the generation-fenced local route and click-only retained-status panel, preserving unknown acceptance/match age and sponsor credit. Swift route **1/1**, Rust permission **1/1**, frontend **31/31**, TypeScript/build/bundle gates and actual-Logbook browser checks at 640×480/1280×800 pass. Next: exact-package/native interaction and explicit provider timestamps/sponsor-rule contracts, then live-account acceptance. |
 | R08 | Existing service programme | Native credential vault, durable claim/receipt/no-replay patterns | Direct LoTW/TQSL certificate, station location, signed upload receipt and download acceptance with one owner per service path. |
-| R09 | Useful extension | Native award calculators, registry and research catalogue | One executable sponsor pack at a time: dated rules, exclusions, evidence, explained progress and supported application/export. |
+| R09 | QRP DXCC preflight dependency source complete; executable sponsor award open | Native award calculators, registry, research catalogue and `QRPDXCCPreflightV1` | `6d9b186` adds pure snapshot screening with dated official references, candidates/exclusions/unknowns and exact retained-power comparisons (**7/7** Swift). Candidate stored DXCCs are not validated entities or progress. Measurement, sponsor validity, applicant scope, land/direct-contact eligibility and declaration remain unresolved. Next: executable dated sponsor rules, supported application/export and acceptance; no completion or sponsor credit is implemented. |
 | R10 | Useful extension | QSO validation/conflict merge, CTY/reference versions, power provenance, contact mutations | Read-only findings with field source/date and impact preview, then explicit reversible corrections through the existing owner. |
 | R11 | New candidate | ADI/ADX preview, semantic identity, duplicate-safe import, workspace snapshots | Isolated trial profile with count/field/confirmation/award delta report, exceptions and rollback before cutover. |
 | R12 | Useful extension with substantial baseline | Existing split/VFO UI, Agent/FLEX/CAT split support and durable radio selection | Conspicuous RX/TX/VFO readback, explicit split intent and presets, authoritative readback and safe return to simplex. |
@@ -77,6 +80,17 @@ channel or VFO and without granting control authority.
 `259b05d` retains the separate server-only receiver spot-click event with exact address,
 callsign, frequency and producer receipt while leaving configured freshness, VFO/mode,
 tuning confirmation, inventory and authority unchanged.
+`1e11f0f` retains separate server-global `APP_FOCUS` producer evidence (**45/45** focused
+Swift). `89cac01` retains legacy `CLICKED_ON_SPOT` separately from addressed receiver
+clicks without inferring TRX/channel/VFO (**50/50** focused Swift on rerun after one
+existing scheduling-sensitive lifecycle miss). Both remain passive telemetry without
+configured freshness, tuning confirmation, spot inventory or command authority.
+`30ed9d0` retains zero-argument `CW_MACROS_EMPTY` as reconnect-cleared producer receipt
+only (**55/55** focused Swift); queue-empty, TX/RX, CW and RF authority remain unproven.
+`7b2e0ea` retains `CALLSIGN_SEND` as opaque callsign plus producer receipt only
+(**60/60** focused Swift: 34 protocol + 26 session). Strict validation and reconnect
+clearing do not confer target/contact identity authority, command correlation,
+TX completion/success or RF inference.
 See [filter](TCI_RECEIVE_FILTER_SOURCE_ACCEPTANCE_2026-10-16.md) and
 [split](TCI_SPLIT_OBSERVATION_SOURCE_ACCEPTANCE_2026-10-16.md), plus
 [global TX observation](TCI_TRANSMIT_FREQUENCY_OBSERVATION_SOURCE_ACCEPTANCE_2026-10-16.md), source acceptance. This is

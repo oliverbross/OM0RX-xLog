@@ -7,6 +7,10 @@ packaged UI result. Keep unresolved items here across releases.
 
 ## Current delivery boundary
 
+Tracked implementation checkpoint: `7b2e0ea83490b98cd40f45a4881a949665b1a715`.
+Source/test/browser results do not establish packaged/native, live-provider or hardware
+acceptance; installed alpha.31 remains unchanged.
+
 - **PJ impact preview and detached geometry, 16 October — pushed source only:**
   `54b4c84` adds the read-only Logbook **PJ country preview**, with protected stored DXCC
   overrides, bounded pages and no correction route. It compares the former algorithm with
@@ -40,7 +44,12 @@ packaged UI result. Keep unresolved items here across releases.
   import, preserves original values/metadata/identity and keeps raw deprecated export
   rejected; the focused frontend file passes **1,122/1,122**. `7e348d6` adds import-only
   `PSK31` and canonical `MODE=PSK`/`SUBMODE=PSK31` export; Swift ADIF **18/18**, frontend
-  ADIF **1,138/1,138**, TypeScript and diff checks pass. The rest of the audit remains open.
+  ADIF **1,138/1,138**, TypeScript and diff checks pass. `3002e96` adds PSK63 and its
+  PSK/submode pair (**18/18** Swift, **1,154/1,154** frontend, TypeScript/diff); `a118dea`
+  adds PSK63F (**18/18** Swift, **1,170/1,170** frontend on a CLI-timeout-only retry after
+  two existing load-sensitive encoding timeouts). Current-source TypeScript passes with
+  R07 below. All seven stages preserve arbitrary fields, explicit submodes and identity.
+  The remaining audit stays open; ADIF_VER stays **3.1.7**.
 
 - **Independent Previous QSOs window, 16 October — source and synthetic visual stage:**
   `1a0e734` routes a native Window-menu surface through the existing canonical draft and
@@ -117,16 +126,43 @@ packaged UI result. Keep unresolved items here across releases.
   `259b05d` retains the latest server-only `RX_CLICKED_ON_SPOT` event separately with exact
   TRX/channel/callsign/frequency and producer receipt. It never changes VFO/mode, configured
   freshness, tuning confirmation, spot inventory or authority; focused Swift checks pass
-  **40/40**. No PTT, carrier Tune, radio CW or amplifier control is exposed; transmit/PTT,
+  **40/40**. `1e11f0f` separately retains server-global `APP_FOCUS` with its own producer
+  receipt (**45/45** focused Swift). `89cac01` separately retains legacy `CLICKED_ON_SPOT`
+  callsign/frequency/receipt without inventing TRX/channel/VFO (**50/50** focused Swift on
+  rerun after one existing scheduling-sensitive lifecycle miss). Both remain passive and
+  cannot refresh configured evidence, confirm tuning, create inventory or grant authority.
+  `30ed9d0` retains zero-argument `CW_MACROS_EMPTY` as a reconnect-cleared producer receipt
+  only (**55/55** focused Swift), without queue-empty, TX/RX, CW or RF authority inference.
+  `7b2e0ea` retains passive `CALLSIGN_SEND` as opaque callsign plus producer receipt
+  (**60/60** focused Swift: 34 protocol + 26 session), with strict validation and reconnect
+  clearing. It confers no target/contact identity authority, command correlation,
+  TX completion/success or RF inference.
+  No PTT, carrier Tune, radio CW or amplifier control is exposed; transmit/PTT,
   split/TX-VFO, outbound spot management, audio/IQ, package/live-server and RF proof remain open. QLog was a behavior
   reference only, no implementation code was copied, and installed alpha.31 is unchanged.
 
-- **Online-log follow-up evidence, 16 October — bounded core projection:** `92cf23f`
+- **Online-log follow-up evidence, 16 October — read-only route/UI source and browser verified:** `92cf23f`
   separates QRZ/Club Log upload state and attempt age from retained paper/LoTW/eQSL
   confirmations and sponsor credit. Historical contact revisions stay historical; future
   clocks, provider acceptance/match age and sponsor credit remain explicitly unknown. Deleted
-  contacts are excluded from award impact. Swift **5/5** passes; route/UI, provider timestamps,
-  sponsor rules and live-account acceptance remain open.
+  contacts are excluded from award impact. Core Swift **5/5** passes. `5486aff` adds the
+  generation-fenced local worker route and Logbook row action. Opening performs no fetch;
+  explicit Refresh retained status reads saved evidence, and Close/context changes retire
+  pending reads. Swift route **1/1**, Rust surface permission **1/1**, frontend **31/31**,
+  TypeScript, production build and detached bundle gates pass. Isolated actual-Logbook browser
+  checks at **640×480**/**1280×800** show viewport-width documents, panel/container widths
+  **624/624**/**1264/1264** and internal scroll bounded to **48vh**. Exact-package/native
+  interaction, provider timestamps, sponsor rules and live-account acceptance remain open;
+  no provider refresh, upload or operator-data mutation occurred.
+
+- **QRP DXCC preflight, 16 October — R09 dependency only:** `6d9b186` adds pure
+  `QRPDXCCPreflightV1` screening of caller-supplied local snapshots, dated official-source
+  references, explained candidates/exclusions/unknowns and exact retained-power comparisons.
+  Focused Swift **7/7** passes. Candidate stored DXCCs are review inputs, not validated
+  entities, award progress, completion or sponsor credit. Measurement, sponsor validity,
+  applicant scope, land/direct-contact eligibility and declaration remain unresolved.
+  Executable sponsor rules and application/export remain open; no route/UI, I/O, persistence,
+  provider or package/native/live-data acceptance was added.
 
 - **Product title consistency, 16 October — source complete:** `1e4a85f` removes the stale
   `Integrated Station` document title so the native product, main window, browser title and
