@@ -4,6 +4,38 @@ import Testing
 
 @Suite("Read-only ADIF review and export")
 struct ADIFPlanningTests {
+    @Test("Compatibility reader respects UTF-8 lengths and embedded terminators")
+    func compatibilityReaderByteLengths() throws {
+        let first = record(["COMMENT": "Žilina <EOR> <EOH> 😀", "APP_OTHER_DATA": "éß",
+                            "STATION_CALLSIGN": "OM0RX", "OPERATOR": "K1ABC", "FREQ": "14.025000",
+                            "BAND_RX": "40m", "FREQ_RX": "7.025000", "RX_PWR": "50", "TX_PWR": "100"])
+        let second = record(["CALL": "W1AW", "SUBMODE": "JTTY", "CONTEST_ID": "SKCC-SKS", "REGION": "ET"])
+        let source = "ß legacy preamble\r\n<adif_ver:5>3.1.8<eoh>\r\n" + first.recordDocument + "\r\n" + second.recordDocument
+        #expect(ADIFParser().records(in: source) == [first, second])
+        #expect(ADIFImportPreview(text: source).records == [first, second])
+        let qso = try #require(QSO(adif: first))
+        #expect(qso.adifRecord["APP_OTHER_DATA"] == "éß")
+        #expect(qso.adifRecord["BAND_RX"] == "40m")
+        #expect(qso.adifRecord["FREQ_RX"] == "7.025000")
+        #expect(qso.adifRecord["RX_PWR"] == "50")
+        #expect(qso.adifRecord["STATION_CALLSIGN"] == "OM0RX")
+        #expect(qso.adifRecord["OPERATOR"] == "K1ABC")
+    }
+
+    @Test("Known-record filtering removes complete parsed records in headed and headless documents", arguments: [true, false])
+    func compatibilityFiltering(_ headed: Bool) throws {
+        let first = record(["COMMENT": "before <EOR> after 😀"])
+        let second = record(["CALL": "W1AW", "APP_OTHER_DATA": "Keep <EOH> é"])
+        let header = headed ? "<ADIF_VER:5>3.1.8<EOH>\r\n" : ""
+        let source = header + first.recordDocument + "\r\n" + second.recordDocument + "\r\n"
+        let parser = ADIFParser()
+        #expect(parser.removingKnownRecords(from: source, knownFingerprints: []).adif == source)
+        let filtered = parser.removingKnownRecords(from: source, knownFingerprints: [try #require(first.semanticIdentityHash)])
+        #expect(filtered.records == [second])
+        #expect(parser.records(in: filtered.adif) == [second])
+        #expect(filtered.adif == (headed ? "<ADIF_VER:5>3.1.8<EOH>" : "") + "\r\n" + second.recordDocument + "\r\n")
+    }
+
     @Test("USERDEF numeric ranges compare exactly while retaining original lexical text", arguments: [
         ["N", "{001.:0003.00}", "0002.500"], ["N", "{-.5:.5}", "-0.000"], ["N", "{-10:-2}", "-2"],
         ["N", "{9007199254740992:9007199254740993}", "9007199254740993"],

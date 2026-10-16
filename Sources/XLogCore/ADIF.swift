@@ -213,27 +213,38 @@ public struct ADIFParser: Sendable {
     public init() {}
 
     public func records(in text: String) -> [ADIFRecord] {
-        let upper = text.uppercased()
-        let bodyStart = upper.range(of: "<EOH>")?.upperBound ?? text.startIndex
-        var records: [ADIFRecord] = []
-        var fields: [String: String] = [:]
-        var cursor = bodyStart
+        scannedRecords(in: text).map(\.record)
+    }
 
-        while let open = text[cursor...].firstIndex(of: "<") {
-            guard let close = text[open...].firstIndex(of: ">") else { break }
-            let descriptor = String(text[text.index(after: open)..<close])
-            let parts = descriptor.split(separator: ":", maxSplits: 2).map(String.init)
+    // This compatibility reader uses the same UTF-8 field-length convention as
+    // the writer and reviewed importer. Terminators inside values are data.
+    private func scannedRecords(in text: String) -> [(record: ADIFRecord, range: Range<Int>)] {
+        let bytes = Array(text.utf8)
+        var records: [(record: ADIFRecord, range: Range<Int>)] = []
+        var fields: [String: String] = [:]
+        var cursor = 0, recordStart = 0
+
+        while cursor < bytes.count, let open = bytes[cursor...].firstIndex(of: 60) {
+            guard let close = bytes[open...].firstIndex(of: 62),
+                  let descriptor = String(bytes: bytes[(open + 1)..<close], encoding: .ascii) else { break }
+            let parts = descriptor.split(separator: ":", maxSplits: 2, omittingEmptySubsequences: false).map(String.init)
             let name = parts[0].uppercased()
-            cursor = text.index(after: close)
-            if name == "EOR" {
-                if !fields.isEmpty { records.append(ADIFRecord(fields: fields)) }
+            cursor = close + 1
+            if name == "EOH", parts.count == 1 {
+                fields.removeAll(keepingCapacity: true); recordStart = cursor
+                continue
+            }
+            if name == "EOR", parts.count == 1 {
+                if !fields.isEmpty { records.append((ADIFRecord(fields: fields), recordStart..<cursor)) }
                 fields.removeAll(keepingCapacity: true)
+                recordStart = cursor
                 continue
             }
             guard parts.count >= 2, let length = Int(parts[1]), length >= 0 else { continue }
-            guard let end = text.index(cursor, offsetBy: length, limitedBy: text.endIndex) else { break }
-            fields[name] = String(text[cursor..<end])
-            cursor = end
+            guard length <= bytes.count - cursor,
+                  let value = String(bytes: bytes[cursor..<(cursor + length)], encoding: .utf8) else { break }
+            fields[name] = value
+            cursor += length
         }
         return records
     }
@@ -242,30 +253,21 @@ public struct ADIFParser: Sendable {
         from text: String,
         knownFingerprints: Set<String>
     ) -> (adif: String, records: [ADIFRecord]) {
-        guard let eoh = text.range(of: "<EOH>", options: .caseInsensitive) else {
-            let parsed = records(in: text)
-            let retained = parsed.filter { record in
-                guard let hash = record.semanticIdentityHash else { return true }
-                return !knownFingerprints.contains(hash)
-            }
-            return retained.count == parsed.count ? (text, retained) : ("", retained)
-        }
-
-        var output = String(text[..<eoh.upperBound]) + "\r\n"
+        let bytes = Array(text.utf8)
+        var output: [UInt8] = []
         var retained: [ADIFRecord] = []
-        var cursor = eoh.upperBound
-        while let eor = text.range(of: "<EOR>", options: .caseInsensitive, range: cursor..<text.endIndex) {
-            let block = String(text[cursor..<eor.upperBound])
-            if let record = records(in: block).first {
-                let isKnown = record.semanticIdentityHash.map(knownFingerprints.contains) ?? false
-                if !isKnown {
-                    output += block + "\r\n"
-                    retained.append(record)
-                }
+        var cursor = 0
+        for (record, range) in scannedRecords(in: text) {
+            let isKnown = record.semanticIdentityHash.map(knownFingerprints.contains) ?? false
+            if isKnown {
+                output.append(contentsOf: bytes[cursor..<range.lowerBound])
+                cursor = range.upperBound
+            } else {
+                retained.append(record)
             }
-            cursor = eor.upperBound
         }
-        return (output, retained)
+        output.append(contentsOf: bytes[cursor...])
+        return (String(decoding: output, as: UTF8.self), retained)
     }
 }
 
