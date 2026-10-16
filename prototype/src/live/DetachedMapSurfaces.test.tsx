@@ -13,6 +13,7 @@ vi.mock("../Map", () => ({ default: (props: any) => <div data-testid="world-map"
 vi.mock("./BandMaps", () => ({ BAND_ORDER: ["20m", "40m"], BAND_MAP_MODES: ["cw", "data", "phone"],
   default: (props: any) => <div data-testid="band-maps">{props.preferences?.bands.join(",")}
     <button onClick={() => props.onPreferencesChange({ ...props.preferences, modes: ["cw"] })}>CW only</button>
+    <button onClick={() => props.onFocusedBandChange?.("40m")}>Show 40m</button>
     {props.spots.map((spot: any) => <button key={spot.id} onClick={() => props.onSelect(spot)}>Inspect {spot.callsign}</button>)}
   </div> }));
 import { syntheticMapContext } from "./mapContextFixtures";
@@ -90,6 +91,13 @@ it("invalid band query falls back to the safe default", () => {
   window.history.replaceState({}, "", "/?view=band-maps&band=unknown");
   render(<DetachedBandMapsSurface />);
   expect(screen.getByTestId("band-maps").textContent).toMatch(/^20m/);
+});
+
+it("changes a focused band in place and keeps the route reloadable", () => {
+  render(<DetachedBandMapsSurface />);
+  fireEvent.click(screen.getByRole("button", { name: "Show 40m" }));
+  expect(screen.getByTestId("band-maps").textContent).toMatch(/^40m/);
+  expect(new URLSearchParams(window.location.search).get("band")).toBe("40m");
 });
 
 it("Band Maps activate the current report through the same native identity, while stale reports never dispatch", async () => {

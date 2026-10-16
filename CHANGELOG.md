@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0-alpha.35 — 2026-10-17
+
+- Redesigned Band Maps around a clear vertical frequency ruler, subtle allocation shading and simple unboxed callsign labels using the configured xCluster status colours and compact NC/NM/NB opportunity codes.
+- Deduplicated live spots to one marker per normalized callsign and band; the newest report, including a QSY, moves that marker instead of adding another copy.
+- Added persistent bottom controls for band, full-band or 1–40 px/kHz resolution, and 15/30/45/60-minute spot age, including direct band switching in the detached window.
+- Preserved manually panned or zoomed custom ranges across window resizing while keeping full-band and fixed-resolution views responsive to the available chart size.
+
 ## 0.3.0 — 2026-10-12
 
 - Added the complete 190-programme, 22-shared-profile worldwide awards research registry as a validated bundled resource.

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { CSSProperties } from "react";
 import { ArrowDown, ArrowUp, RotateCcw, Settings, X, ZoomIn, ZoomOut } from "lucide-react";
@@ -11,6 +11,9 @@ export type BandMapSpot = Record<string, any>;
 export const BandMapsToolbarContext = createContext<HTMLElement | null>(null);
 export const BAND_MAP_MODES = ["cw", "data", "phone"] as const;
 export type BandMapMode = typeof BAND_MAP_MODES[number];
+export const BAND_MAP_RESOLUTIONS = [1, 2, 3, 4, 5, 7, 10, 15, 20, 30, 40] as const;
+export const BAND_MAP_AGES = [15, 30, 45, 60] as const;
+export type BandMapResolution = "full" | "custom" | typeof BAND_MAP_RESOLUTIONS[number];
 // Fit readable charts to the viewport; excess bands are paged, never clipped.
 export function bandMapCapacity(width: number, height: number, singleRow: boolean, count: number) {
   const columns = Math.max(1, Math.min(count, Math.floor((Math.max(0, width - 20) + 10) / 270)));
@@ -19,11 +22,12 @@ export function bandMapCapacity(width: number, height: number, singleRow: boolea
 }
 export type BandMapViewPreferences = { bands: string[]; followRadio: boolean; layout: "row" | "grid"; fontScale: number; modes?: BandMapMode[] };
 type Props = { spots: BandMapSpot[]; onSelect: (spot: BandMapSpot) => void; radioFrequencyHz?: number; compact?: boolean;
-  preferences?: BandMapViewPreferences; onPreferencesChange?: (next: BandMapViewPreferences) => void; onDock?: () => void; onUndock?: () => void; selectionHint?: string; focusedBand?: string };
+  preferences?: BandMapViewPreferences; onPreferencesChange?: (next: BandMapViewPreferences) => void; onDock?: () => void; onUndock?: () => void; selectionHint?: string;
+  focusedBand?: string; onFocusedBandChange?: (band: string) => void };
 type Allocation = { name: "CW" | "Data" | "Phone"; low: number; high: number };
 type Range = { low: number; high: number; allocations: Allocation[] };
 type ViewRange = { low: number; high: number };
-type PlacedSpot = { spot: BandMapSpot; top: number; lane: number; key: string };
+type PlacedSpot = { spot: BandMapSpot; top: number; anchorTop: number; lane: number; key: string };
 export function panBandRange(view: ViewRange, full: ViewRange, delta: number): ViewRange {
   const span = view.high - view.low;
   const low = Math.max(full.low, Math.min(full.high - span, view.low + delta));
@@ -52,7 +56,58 @@ export const BAND_RANGES: Record<string, Range> = Object.fromEntries(Object.entr
 const hex = (value: unknown): value is string => typeof value === "string" && /^#[0-9a-fA-F]{6}$/.test(value);
 const text = (value: unknown): string => typeof value === "string" ? value : "";
 const finite = (value: unknown): number | null => typeof value === "number" && Number.isFinite(value) ? value : null;
+const APPLE_REFERENCE_SECONDS = 978_307_200;
+
+function receivedAtMilliseconds(value: unknown): number | null {
+  const numeric = finite(value);
+  if (numeric === null || numeric <= 0) return null;
+  if (numeric >= 1e12) return numeric;
+  if (numeric >= 1e9) return numeric * 1000;
+  return (numeric + APPLE_REFERENCE_SECONDS) * 1000;
+}
+
+export function filterRecentBandMapSpots(spots: BandMapSpot[], ageMinutes: number, nowMs = Date.now()): BandMapSpot[] {
+  const cutoff = nowMs - ageMinutes * 60_000;
+  return spots.filter(spot => {
+    const timestamp = receivedAtMilliseconds(spot.receivedAt);
+    return timestamp === null || timestamp >= cutoff && timestamp <= nowMs + 300_000;
+  });
+}
+
+export function deduplicateBandMapSpots(spots: BandMapSpot[]): BandMapSpot[] {
+  const groups: Array<{ spot: BandMapSpot; timestamp: number; index: number }> = [];
+  spots.forEach((spot, index) => {
+    const callsign = text(spot.callsign).trim().toUpperCase();
+    const band = text(spot.band).trim().toLowerCase();
+    if (!callsign || !band) { groups.push({ spot, timestamp: receivedAtMilliseconds(spot.receivedAt) ?? -Infinity, index }); return; }
+    const match = groups.find(group => text(group.spot.callsign).trim().toUpperCase() === callsign
+      && text(group.spot.band).trim().toLowerCase() === band);
+    const timestamp = receivedAtMilliseconds(spot.receivedAt) ?? -Infinity;
+    if (!match) groups.push({ spot, timestamp, index });
+    else if (timestamp > match.timestamp) { match.spot = spot; match.timestamp = timestamp; }
+  });
+  return groups.sort((a, b) => a.index - b.index).map(group => group.spot);
+}
+
+export function formatBandMapFrequency(frequencyKHz: number): string {
+  return new Intl.NumberFormat("en-US", { minimumFractionDigits: Number.isInteger(frequencyKHz) ? 0 : 1, maximumFractionDigits: 1 }).format(frequencyKHz);
+}
+
+export function bandMapFrequencyTicks(view: ViewRange): number[] {
+  const span = Math.max(1, view.high - view.low);
+  const target = span / 8;
+  const magnitude = 10 ** Math.floor(Math.log10(target));
+  const normalized = target / magnitude;
+  const step = (normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 2.5 ? 2.5 : normalized <= 5 ? 5 : 10) * magnitude;
+  const ticks = [view.low];
+  for (let value = Math.ceil(view.low / step) * step; value < view.high; value += step) {
+    if (value - view.low >= step * 0.65 && view.high - value >= step * 0.65) ticks.push(+value.toFixed(3));
+  }
+  if (Math.abs(ticks[ticks.length - 1] - view.high) > 0.001) ticks.push(view.high);
+  return ticks;
+}
 const storageKey = (compact: boolean, name: string) => `xlog.integration.bandMaps.${compact ? "desk" : "workspace"}.${name}`;
+const controlStorageKey = (compact: boolean, focused: boolean, name: string) => `xlog.integration.bandMaps.${focused ? "focused" : compact ? "desk" : "workspace"}.${name}`;
 function storedBands(compact: boolean): string[] {
   try {
     const value = JSON.parse(localStorage.getItem(storageKey(compact, "bands")) || "null");
@@ -66,6 +121,14 @@ function storedBands(compact: boolean): string[] {
 function storedFlag(compact: boolean, name: string, fallback: boolean): boolean {
   try { const value = localStorage.getItem(storageKey(compact, name)); return value === null ? fallback : value === "true"; }
   catch { return fallback; }
+}
+function storedNumber<T extends number>(key: string, choices: readonly T[], fallback: T): T {
+  try { const value = Number(localStorage.getItem(key)); return choices.includes(value as T) ? value as T : fallback; }
+  catch { return fallback; }
+}
+function storeAt(key: string, value: unknown): void {
+  try { localStorage.setItem(key, typeof value === "string" ? value : JSON.stringify(value)); }
+  catch { /* Storage failure must not interrupt a live operating view. */ }
 }
 function store(compact: boolean, name: string, value: unknown): void {
   try { localStorage.setItem(storageKey(compact, name), typeof value === "string" ? value : JSON.stringify(value)); }
@@ -118,8 +181,9 @@ function normalizeSpots(spots: BandMapSpot[], band: string, view: ViewRange): Ba
 }
 
 export function bandMapLaneGeometry(width: number, fontScale = 1) {
-  // Six frequency digits, their inset and a clear gap must fit at every scale.
-  const axis = Math.max(54, Math.ceil(6 * 9 * fontScale * 0.64 + 14));
+  // A grouped kHz label (14,023.7) and its tick must fit at every scale.
+  const desiredAxis = Math.max(70, Math.ceil(8 * 9 * fontScale * 0.64 + 18));
+  const axis = Math.min(desiredAxis, Math.max(54, width - 48));
   const laneCount = Math.max(1, Math.min(6, Math.floor((Math.max(180, width) - axis - 12) / (112 * fontScale))));
   return { axis, laneCount, laneWidth: (width - axis - 8) / laneCount };
 }
@@ -151,7 +215,7 @@ export function placeSpots(spots: BandMapSpot[], view: ViewRange, width: number,
   const placed: PlacedSpot[] = [];
   let hidden = 0;
   for (const [index, spot] of ordered.entries()) {
-    const fraction = (view.high - spot.frequencyKHz) / Math.max(1, view.high - view.low);
+    const fraction = (spot.frequencyKHz - view.low) / Math.max(1, view.high - view.low);
     const desired = Math.max(0, Math.min(slotCount - 1, Math.round(fraction * (slotCount - 1))));
     let best: { lane: number; slot: number; cost: number } | null = null;
     for (let lane = 0; lane < laneCount; lane++) {
@@ -163,14 +227,16 @@ export function placeSpots(spots: BandMapSpot[], view: ViewRange, width: number,
     }
     if (!best) { hidden++; continue; }
     occupied[best.lane].add(best.slot);
-    placed.push({ spot, lane: best.lane, top: (best.slot + 0.5) * slotHeight, key: `${text(spot.id) || text(spot.callsign)}-${index}` });
+    placed.push({ spot, lane: best.lane, top: (best.slot + 0.5) * slotHeight,
+      anchorTop: Math.max(1, Math.min(Math.max(1, usableHeight - 1), fraction * usableHeight)),
+      key: `${text(spot.id) || text(spot.callsign)}-${index}` });
   }
   return { placed, hidden };
 }
 
-function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontScale, hidden: panelHidden = false, modeSettings }: {
+function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontScale, resolution, onManualView, focusFrequencyKHz, hidden: panelHidden = false, modeSettings }: {
   band: string; spots: BandMapSpot[]; onSelect: Props["onSelect"]; onRemove: () => void;
-  canRemove: boolean; compact: boolean; fontScale: number; hidden?: boolean; modeSettings?: { modes: readonly BandMapMode[]; setModes: (modes: BandMapMode[]) => void };
+  canRemove: boolean; compact: boolean; fontScale: number; resolution: BandMapResolution; onManualView: () => void; focusFrequencyKHz?: number; hidden?: boolean; modeSettings?: { modes: readonly BandMapMode[]; setModes: (modes: BandMapMode[]) => void };
 }) {
   const full = BAND_RANGES[band];
   const [view, setView] = useState<ViewRange>({ low: full.low, high: full.high });
@@ -182,6 +248,8 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
   const [dragging, setDragging] = useState(false);
   const zoomed = view.high - view.low < full.high - full.low;
   const [chartHeight, setChartHeight] = useState(compact ? 336 : 520);
+  const focusRef = useRef(focusFrequencyKHz); focusRef.current = focusFrequencyKHz;
+  const previousResolution = useRef<BandMapResolution | null>(null);
   useEffect(() => {
     const target = chartRef.current;
     if (!target) return;
@@ -196,6 +264,18 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
     return () => observer.disconnect();
   }, [compact]);
   useEffect(() => {
+    const changed = previousResolution.current !== resolution;
+    previousResolution.current = resolution;
+    if (resolution === "custom") return;
+    if (resolution === "full") { if (changed) setView({ low: full.low, high: full.high }); return; }
+    setView(current => {
+      const span = Math.min(full.high - full.low, Math.max(2, chartHeight / resolution));
+      const centre = changed && focusRef.current != null ? focusRef.current : (current.low + current.high) / 2;
+      const low = Math.max(full.low, Math.min(full.high - span, centre - span / 2));
+      return { low, high: low + span };
+    });
+  }, [resolution, chartHeight, full.low, full.high]);
+  useEffect(() => {
     const chart = chartRef.current;
     if (!chart) return;
     const wheel = (event: WheelEvent) => {
@@ -205,11 +285,12 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
       event.preventDefault();
       const height = chart.clientHeight || 520;
       const pixels = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? height : 1);
-      setView(value => panBandRange(value, full, -Math.max(-height, Math.min(height, pixels)) / height * span));
+      onManualView();
+      setView(value => panBandRange(value, full, Math.max(-height, Math.min(height, pixels)) / height * span));
     };
     chart.addEventListener("wheel", wheel, { passive: false });
     return () => chart.removeEventListener("wheel", wheel);
-  }, [full]);
+  }, [full, onManualView]);
   const visible = useMemo(() => normalizeSpots(spots, band, view), [spots, band, view]);
   const { placed, hidden } = useMemo(() => placeSpots(visible, view, width, chartHeight, fontScale), [visible, view, width, chartHeight, fontScale]);
   const { axis, laneWidth } = bandMapLaneGeometry(width, fontScale);
@@ -221,16 +302,16 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
   const selectedSegment = full.allocations.find((part) => part.low === view.low && part.high === view.high);
   const segmentName = selectedSegment ? `${selectedSegment.name} portion` : view.low === full.low && view.high === full.high ? "Full band" : "Custom range";
   const rangeLabel = `${(view.low / 1000).toFixed(3)}–${(view.high / 1000).toFixed(3)} MHz`;
-  const pan = (direction: number) => setView((current) => {
+  const pan = (direction: number) => { onManualView(); setView((current) => {
     const span = current.high - current.low;
     return panBandRange(current, full, direction * span * 0.3);
-  });
-  const zoom = (factor: number) => setView((current) => {
+  }); };
+  const zoom = (factor: number) => { onManualView(); setView((current) => {
     const span = Math.min(full.high - full.low, Math.max(2, (full.high - full.low) / 80, (current.high - current.low) * factor));
     const centre = (current.low + current.high) / 2;
     const low = Math.max(full.low, Math.min(full.high - span, centre - span / 2));
     return { low, high: low + span };
-  });
+  }); };
   return <section className="band-map-panel" hidden={panelHidden} aria-label={`${band} band map`} style={{ "--band-accent": bandColor(band, spots), "--band-font-scale": fontScale } as CSSProperties}>
     <header className="band-map-panel-head"><span className="band-map-accent" aria-hidden="true" /><strong>{band}</strong><small>{visible.length}/{allBandCount} spots</small>{modeSettings ? <details className="band-maps-mode-picker band-map-settings" onKeyDown={event => { if (event.key === "Escape") { event.currentTarget.open = false; event.currentTarget.querySelector("summary")?.focus(); } }}>
       <summary aria-label={`${band} mode visibility settings`} title="Mode visibility"><Settings size={15} /></summary>
@@ -238,9 +319,10 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
     </details> : <button type="button" title={`Close ${band} band map`} aria-label={`Close ${band} band map`} disabled={!canRemove} onClick={onRemove}><X size={13} /></button>}</header>
     <div className="band-map-panel-tools"><label><span className="sr-only">{band} allocation</span><select aria-label={`${band} allocation`} value={segmentName} onChange={(event) => {
       const part = full.allocations.find((item) => `${item.name} portion` === event.target.value);
+      onManualView();
       setView(part ? { low: part.low, high: part.high } : { low: full.low, high: full.high });
     }}><option>Full band</option>{full.allocations.map((part) => <option key={part.name}>{part.name} portion</option>)}{segmentName === "Custom range" && <option>Custom range</option>}</select></label>
-      <div className="band-map-tool-buttons"><button type="button" aria-label={`Pan ${band} up`} title="Pan up" onClick={() => pan(1)}><ArrowUp size={13} /></button><button type="button" aria-label={`Pan ${band} down`} title="Pan down" onClick={() => pan(-1)}><ArrowDown size={13} /></button><button type="button" aria-label={`Zoom ${band} out`} title="Zoom out" onClick={() => zoom(1.55)}><ZoomOut size={13} /></button><button type="button" aria-label={`Zoom ${band} in`} title="Zoom in" onClick={() => zoom(0.62)}><ZoomIn size={13} /></button><button type="button" aria-label={`Reset ${band} range`} title="Full band" onClick={() => setView({ low: full.low, high: full.high })}><RotateCcw size={13} /></button></div>
+      <div className="band-map-tool-buttons"><button type="button" aria-label={`Pan ${band} lower`} title="Lower frequencies" onClick={() => pan(-1)}><ArrowUp size={13} /></button><button type="button" aria-label={`Pan ${band} higher`} title="Higher frequencies" onClick={() => pan(1)}><ArrowDown size={13} /></button><button type="button" aria-label={`Zoom ${band} out`} title="Zoom out" onClick={() => zoom(1.55)}><ZoomOut size={13} /></button><button type="button" aria-label={`Zoom ${band} in`} title="Zoom in" onClick={() => zoom(0.62)}><ZoomIn size={13} /></button><button type="button" aria-label={`Reset ${band} range`} title="Full band" onClick={() => { onManualView(); setView({ low: full.low, high: full.high }); }}><RotateCcw size={13} /></button></div>
     </div>
     <div className={`band-map-chart${zoomed ? " is-zoomed" : ""}${dragging ? " is-dragging" : ""}`} ref={chartRef} aria-label={`${band} spectrum, ${rangeLabel}`} style={{ "--band-axis-width": `${axis}px` } as CSSProperties}
       onPointerDown={event => {
@@ -254,9 +336,9 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
         if (!start || start.id !== event.pointerId) return;
         const delta = event.clientY - start.y;
         if (!start.moved && Math.abs(delta) < 5) return;
-        if (!start.moved) { start.moved = true; suppressClick.current = true; setDragging(true); event.currentTarget.setPointerCapture(event.pointerId); }
+        if (!start.moved) { start.moved = true; suppressClick.current = true; setDragging(true); onManualView(); event.currentTarget.setPointerCapture(event.pointerId); }
         event.preventDefault();
-        setView(panBandRange(start.view, full, delta / (event.currentTarget.clientHeight || 520) * (start.view.high - start.view.low)));
+        setView(panBandRange(start.view, full, -delta / (event.currentTarget.clientHeight || 520) * (start.view.high - start.view.low)));
       }}
       onPointerUp={event => {
         if (drag.current?.id !== event.pointerId) return;
@@ -271,17 +353,19 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
         const high = Math.min(view.high, part.high);
         if (high <= low) return null;
         const span = view.high - view.low;
-        return <div key={part.name} className={`band-map-allocation band-map-${part.name.toLowerCase()}`} style={{ top: `${((view.high - high) / span) * 100}%`, height: `${((high - low) / span) * 100}%` }} aria-hidden="true">{allocationCaptionsFit && <span>{part.name.toUpperCase()}</span>}</div>;
+        return <div key={part.name} className={`band-map-allocation band-map-${part.name.toLowerCase()}`} style={{ top: `${((low - view.low) / span) * 100}%`, height: `${((high - low) / span) * 100}%` }} aria-hidden="true">{allocationCaptionsFit && <span>{part.name.toUpperCase()}</span>}</div>;
       })}
-      {Array.from({ length: 9 }, (_, index) => {
-        const fraction = index / 8;
-        return <div key={index} className="band-map-gridline" data-edge={index === 0 ? "upper" : index === 8 ? "lower" : undefined} style={{ top: `${fraction * 100}%` }} aria-hidden="true"><span>{((view.high - (view.high - view.low) * fraction) / 1000).toFixed(3)}</span></div>;
+      {bandMapFrequencyTicks(view).map((frequency, index, ticks) => {
+        const fraction = (frequency - view.low) / (view.high - view.low);
+        return <div key={frequency} className="band-map-gridline" data-edge={index === 0 ? "upper" : index === ticks.length - 1 ? "lower" : undefined} style={{ top: `${fraction * 100}%` }} aria-hidden="true"><span>{formatBandMapFrequency(frequency)}</span></div>;
       })}
-      {placed.map(({ spot, lane, top, key }) => {
+      {placed.map(({ spot, lane, top, anchorTop, key }) => {
         const color = statusColor(spot);
         const code = opportunityCode(spot);
         const tooltip = `${text(spot.callsign)} · ${(spot.frequencyKHz / 1000).toFixed(6)} MHz · ${text(spot.mode)} · ${text(spot.callStatus)} · ${text(spot.dxccStatus)}${spot.comment ? ` · ${text(spot.comment)}` : ""}`;
-        return <button key={key} type="button" className="band-map-spot" style={{ top, left: axis + laneWidth * (lane + 0.5), width: spotWidth, color, borderColor: color, backgroundColor: `${color}28` }} title={tooltip} aria-label={tooltip} onClick={() => onSelect(spot)}><strong>{text(spot.callsign)}</strong><b>{code}</b></button>;
+        const centre = axis + laneWidth * (lane + 0.5);
+        return <Fragment key={key}><span className="band-map-spot-anchor" aria-hidden="true" style={{ top: anchorTop, left: axis - 4, width: Math.max(8, centre - axis + 4), color }} />
+          <button type="button" className="band-map-spot" style={{ top, left: centre, width: spotWidth, color }} title={tooltip} aria-label={tooltip} onClick={() => onSelect(spot)}><strong>{text(spot.callsign)}</strong><b>{code}</b></button></Fragment>;
       })}
       {hidden > 0 && <span className="band-map-overflow" role="status" aria-label={`${hidden} more spots; zoom in to separate labels`} title={`${hidden} more spots; zoom in to separate labels`}>{hidden} more · zoom in</span>}
     </div>
@@ -289,8 +373,9 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
   </section>;
 }
 
-export function BandMaps({ spots, onSelect, radioFrequencyHz, compact = false, preferences, onPreferencesChange, onDock, onUndock, focusedBand, selectionHint = "Select a marker to load it into the logger." }: Props) {
+export function BandMaps({ spots, onSelect, radioFrequencyHz, compact = false, preferences, onPreferencesChange, onDock, onUndock, focusedBand, onFocusedBandChange, selectionHint = "Select a marker to load it into the logger." }: Props) {
   const toolbarHost = useContext(BandMapsToolbarContext);
+  const controlKey = (name: string) => controlStorageKey(compact, Boolean(focusedBand), name);
   const [localBands, setLocalBands] = useState(() => storedBands(compact));
   const [localFollow, setLocalFollow] = useState(() => storedFlag(compact, "followRadio", false));
   const [localLayout, setLocalLayout] = useState<"row" | "grid">(() => {
@@ -301,6 +386,16 @@ export function BandMaps({ spots, onSelect, radioFrequencyHz, compact = false, p
     try { const value = Number(localStorage.getItem(storageKey(compact, "fontScale"))); return value >= 0.8 && value <= 2 ? value : 1; }
     catch { return 1; }
   });
+  const [resolution, setResolution] = useState<BandMapResolution>(() => {
+    try {
+      const stored = localStorage.getItem(controlKey("resolution"));
+      if (stored === "full") return "full";
+      const value = Number(stored);
+      return BAND_MAP_RESOLUTIONS.includes(value as typeof BAND_MAP_RESOLUTIONS[number]) ? value as typeof BAND_MAP_RESOLUTIONS[number] : "full";
+    } catch { return "full"; }
+  });
+  const [spotAgeMinutes, setSpotAgeMinutes] = useState(() => storedNumber(controlKey("ageMinutes"), BAND_MAP_AGES, 30));
+  const [ageClock, setAgeClock] = useState(() => Date.now());
   const bands = focusedBand ? [focusedBand] : preferences?.bands ?? localBands;
   const follow = focusedBand ? false : preferences?.followRadio ?? localFollow;
   const layout = preferences?.layout ?? localLayout;
@@ -370,11 +465,15 @@ export function BandMaps({ spots, onSelect, radioFrequencyHz, compact = false, p
   useEffect(() => { if (!preferences) store(compact, "layout", layout); }, [layout, compact, preferences]);
   useEffect(() => { if (!preferences) store(compact, "fontScale", String(fontScale)); }, [fontScale, compact, preferences]);
   useEffect(() => { if (!preferences) store(compact, "modes", modes); }, [modes, compact, preferences]);
-  const filtered = useMemo(() => compact ? spots : spots.filter((spot) => {
+  useEffect(() => { if (resolution !== "custom") storeAt(controlKey("resolution"), String(resolution)); }, [resolution, compact, focusedBand]);
+  useEffect(() => { storeAt(controlKey("ageMinutes"), String(spotAgeMinutes)); }, [spotAgeMinutes, compact, focusedBand]);
+  useEffect(() => { const timer = window.setInterval(() => setAgeClock(Date.now()), 30_000); return () => window.clearInterval(timer); }, []);
+  const recentUnique = useMemo(() => deduplicateBandMapSpots(filterRecentBandMapSpots(spots, spotAgeMinutes, ageClock)), [spots, spotAgeMinutes, ageClock]);
+  const filtered = useMemo(() => compact ? recentUnique : recentUnique.filter((spot) => {
     const needle = query.trim().toLowerCase();
     return (!needle || [spot.callsign, spot.country, spot.comment, spot.source].some((part) => text(part).toLowerCase().includes(needle)))
       && matchesStatus(spot, status) && modes.includes(modeGroup(text(spot.mode)));
-  }), [spots, compact, query, status, modes]);
+  }), [recentUnique, compact, query, status, modes]);
   const add = (band: string) => {
     if (!(band in BAND_RANGES)) return;
     const next = bands.includes(band) ? bands : [...bands, band];
@@ -384,6 +483,7 @@ export function BandMaps({ spots, onSelect, radioFrequencyHz, compact = false, p
   };
   const remove = (band: string) => { if (bands.length <= 1) return; selectBands(bands.filter((item) => item !== band)); };
   const choose = (spot: BandMapSpot) => { setSelected(spot); onSelect(spot); };
+  const markCustom = useCallback(() => setResolution(current => current === "custom" ? current : "custom"), []);
   const toolbarControls = <div className="band-maps-head-controls"><label className="band-maps-follow"><input type="checkbox" checked={follow} onChange={(event) => setFollow(event.target.checked)} /> Follow radio</label>
         <div className="band-maps-scale"><button type="button" aria-label="Decrease band map text size" disabled={fontScale <= 0.8} onClick={() => setFontScale((value) => Math.max(0.8, +(value - 0.1).toFixed(1)))}>A−</button><output>{Math.round(fontScale * 100)}%</output><button type="button" aria-label="Increase band map text size" disabled={fontScale >= 2} onClick={() => setFontScale((value) => Math.min(2, +(value + 0.1).toFixed(1)))}>A+</button></div>
         {!compact && <div className="band-maps-layout" role="group" aria-label="Band map layout"><button type="button" aria-pressed={layout === "row"} onClick={() => setLayout("row")}>Single row</button><button type="button" aria-pressed={layout === "grid"} onClick={() => setLayout("grid")}>Adaptive grid</button></div>}
@@ -402,10 +502,18 @@ export function BandMaps({ spots, onSelect, radioFrequencyHz, compact = false, p
           {BAND_MAP_MODES.map(mode => <label key={mode}><input type="checkbox" checked={modes.includes(mode)} onChange={event => setModes(BAND_MAP_MODES.filter(item => item === mode ? event.target.checked : modes.includes(item)))} />{mode === "cw" ? "CW" : mode === "data" ? "Data" : "Phone"}</label>)}
         </div>
       </details>
-      <span className="band-maps-count">{filtered.length} of {spots.length} spots</span><span className="band-maps-selected">{selected ? `${text(selected.callsign)} · ${opportunityCode(selected)} · ${text(selected.callStatus)} · ${text(selected.dxccStatus)}` : selectionHint}</span>{(query || status !== "all" || modes.length !== 3) && <button type="button" onClick={() => { setQuery(""); setStatus("all"); setModes([...BAND_MAP_MODES]); }}>Clear filters</button>}</div>}
+      <span className="band-maps-count">{filtered.length} of {recentUnique.length} spots</span><span className="band-maps-selected">{selected ? `${text(selected.callsign)} · ${opportunityCode(selected)} · ${text(selected.callStatus)} · ${text(selected.dxccStatus)}` : selectionHint}</span>{(query || status !== "all" || modes.length !== 3) && <button type="button" onClick={() => { setQuery(""); setStatus("all"); setModes([...BAND_MAP_MODES]); }}>Clear filters</button>}</div>}
     <div ref={panelsRef} className={`band-maps-panels band-maps-${compact || layout === "row" ? "row" : "grid"}`} style={{ gridTemplateColumns: `repeat(${Math.max(1, Math.min(columns, visibleCount))}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${Math.max(1, Math.ceil(visibleCount / columns))}, minmax(0, 1fr))` }}>
-      {bands.map((band, index) => <BandPanel key={band} band={band} spots={filtered} onSelect={choose} onRemove={() => remove(band)} canRemove={bands.length > 1} compact={compact} fontScale={fontScale} hidden={index < firstBand || index >= firstBand + capacity} modeSettings={focusedBand ? { modes, setModes } : undefined} />)}
+      {bands.map((band, index) => <BandPanel key={band} band={band} spots={filtered} onSelect={choose} onRemove={() => remove(band)} canRemove={bands.length > 1} compact={compact} fontScale={fontScale} resolution={resolution}
+        onManualView={markCustom}
+        focusFrequencyKHz={radioBand === band && radioFrequencyHz ? radioFrequencyHz / 1000 : finite(filtered.find(spot => spot.band === band)?.frequencyKHz) ?? undefined}
+        hidden={index < firstBand || index >= firstBand + capacity} modeSettings={focusedBand ? { modes, setModes } : undefined} />)}
     </div>
+    <footer className="band-maps-quick-controls" aria-label="Band map view controls">
+      {focusedBand && onFocusedBandChange && <label>Band<select aria-label="Band" value={focusedBand} onChange={event => onFocusedBandChange(event.target.value)}>{BAND_ORDER.map(band => <option key={band}>{band}</option>)}</select></label>}
+      <label>Resolution<select aria-label="Band map resolution" value={resolution} onChange={event => setResolution(event.target.value === "full" ? "full" : Number(event.target.value) as BandMapResolution)}><option value="full">Full band</option>{resolution === "custom" && <option value="custom">Custom</option>}{BAND_MAP_RESOLUTIONS.map(value => <option key={value} value={value}>{value} px/kHz</option>)}</select></label>
+      <label>Spot age<select aria-label="Spot age" value={spotAgeMinutes} onChange={event => setSpotAgeMinutes(Number(event.target.value) as typeof BAND_MAP_AGES[number])}>{BAND_MAP_AGES.map(value => <option key={value} value={value}>{value} min</option>)}</select></label>
+    </footer>
   </section>;
 }
 

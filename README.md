@@ -57,12 +57,16 @@ filter categories use the operator's cyan/purple/green/orange/gold/pink/teal/blu
 palette without changing filtering behavior.
 
 Band maps fill the available window height in both the main workspace and detached
-window. Marker positions are recalculated from the measured chart size whenever
-the window grows or shrinks; adaptive grid rows share the available vertical space.
-Zoomed band maps support mouse-wheel and drag panning within band limits; a drag
-does not activate a spot. Modes can be combined with checkboxes and are saved with
-workspace preferences. Detached cluster and band-map toolbars keep docking and
-configuration controls beside the working surface rather than in duplicate headers.
+window. A clean vertical frequency ruler, allocation shading and unboxed labels use
+the configured xCluster status colours and compact NC/NM/NB opportunity codes. Each
+callsign appears once per band; a newer report moves the existing marker instead of
+adding a duplicate. Bottom controls provide persistent band, full-band or 1–40
+px/kHz resolution, and 15/30/45/60-minute spot-age choices. Custom wheel/drag ranges
+remain stable while the window is resized, and the detached map can switch bands
+without returning to Settings. Adaptive grid rows share the available vertical
+space. Modes can be combined with checkboxes and are saved with workspace
+preferences. Detached cluster and band-map toolbars keep docking and configuration
+controls beside the working surface rather than in duplicate headers.
 
 The world map fits the complete selected short/long path, shades the night
 hemisphere in translucent grey, and shows spot callsigns from regional zoom.
@@ -224,7 +228,7 @@ Each QSO has a stable local UUID, optional Wavelog ID, complete JSON record, sea
 
 The world map defaults to a readable hybrid/satellite base and can switch to Satellite or Standard. Before a DX target exists it opens centered on the configured operator grid. Its overlay menu shows live spots, all CTY-derived DXCC entity centroids, or both. Live spots follow the Operator Desk band selection and use high-contrast badges in each band's configured xCluster colour. DXCC prefixes use roughly twice the former type size, bold semantic-colour text and a dark backing: grey needed, orange worked and green confirmed. Enter a station gridsquare to enable the great-circle line, distance, and short-/long-path rotor bearings. When a callsign resolves, the camera automatically frames the home marker, DX marker and complete path with usable padding; manual pan and zoom remain available afterward.
 
-Band-plan shading is an operating aid. Allocations vary by country, licence and IARU region, so the operator remains responsible for using frequencies permitted by their licence. The panel controls can show the whole band, jump to CW/data/phone portions, zoom in or out and pan along the band. Spot labels use the exact xCluster status colours and a collision-aware layout. xCluster publishes its already-filtered view, so band maps follow the same bands, modes, continent, call/DXCC status, special, source, worked-state, search and maximum-spot filters as the cluster table. The undocked window can arrange its independent band selection in one full-height horizontal row or an adaptive grid.
+Band-plan shading is an operating aid. Allocations vary by country, licence and IARU region, so the operator remains responsible for using frequencies permitted by their licence. Each map uses a low-to-high vertical frequency ruler with simple unboxed callsign labels in the exact xCluster status colours and compact NC/NM/NB opportunity codes. Only the newest report for a callsign is shown on each band, so a QSY moves one marker instead of creating duplicates. Bottom controls persist the selected band, full-band or 1–40 px/kHz resolution, and 15/30/45/60-minute spot age; the detached window can switch bands directly. Wheel/drag navigation creates a stable custom range that survives resizing, while the panel controls can still jump to CW/data/phone allocations, zoom, pan and reset. xCluster publishes its already-filtered view, so band maps follow the same bands, modes, continent, call/DXCC status, special, source, worked-state, search and maximum-spot filters as the cluster table. The undocked window can arrange its independent band selection in one full-height horizontal row or an adaptive grid.
 
 ![OM0RX-xLog undocked multi-band maps](docs/screenshots/band-maps.png)
 

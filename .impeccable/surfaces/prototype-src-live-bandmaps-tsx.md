@@ -16,6 +16,14 @@ Verdict: normal and 4K compact chips pass the scoped presentation review; hold t
 
 Browser evidence establishes shared presentation only. Exact native package, hardware, external-account and cross-platform acceptance remain separate. Existing PRODUCT.md, DESIGN.md and sidecar drift are preserved.
 
+## Frequency-ruler revision — 2026-10-16
+
+This user-approved revision supersedes the compact-chip visual treatment while preserving its operating and accessibility guarantees. The primary reading path is now frequency ruler → callsign/status → compact bottom controls. Markers use unboxed monospaced callsign text and an aligned NC/NB/NM/NB+NM code in the existing semantic status colour; colour is never the only classification. A true-frequency leader keeps collision-shifted labels tied to the scale.
+
+Repeated reports are collapsed by normalized callsign and band. The newest report owns the single marker, so a later QSY moves that callsign instead of leaving stale duplicates. The map projection defaults to a 30-minute age window, refreshes that window without requiring new cluster traffic, and leaves raw Spot History unchanged.
+
+The bottom control strip exposes spot age and px/kHz resolution on every surface, plus band selection in the focused Band Maps window. The frequency scale reads from low at the top to high at the bottom, matching the supplied operator reference. Preserve paging, pan, zoom, allocation choice, focus visibility, full accessible detail and the last usable geometry during transient resize measurements.
+
 ## Final confirmation after the narrow correction — 2026-10-13
 
 Verdict: pass for the scoped compact-chip refinement. The final frozen source was confirmed at 640×480, 1280×800, 3840×2160 with 200% Band Maps text, and the crowded 330px host with 200% text. The narrow frequency-axis labels now end at x94.03 and chips begin at x107.5, leaving 13.47px clearance. The last chip ends at y473.08 while the concise overflow notice begins at y487.05, leaving 13.97px clearance. Opportunity codes remain aligned and visible; long calls retain their full accessible labels. Allocation captions remain when the right gutter accommodates them and disappear in the narrow case, while shading, legend and allocation selector preserve the meaning. No remaining material issue was found in this delta.

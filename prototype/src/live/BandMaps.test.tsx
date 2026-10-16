@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { BAND_RANGES, BandMaps, BandMapsToolbarContext, bandForRadio, opportunityCode, placeSpots, panBandRange, bandMapCapacity, bandMapLaneGeometry, bandMapSpotWidth, bandMapOverflowHeight } from "./BandMaps";
+import { BAND_RANGES, BandMaps, BandMapsToolbarContext, bandForRadio, opportunityCode, placeSpots, panBandRange, bandMapCapacity, bandMapFrequencyTicks, bandMapLaneGeometry, bandMapSpotWidth, bandMapOverflowHeight, deduplicateBandMapSpots, filterRecentBandMapSpots, formatBandMapFrequency } from "./BandMaps";
 import type { BandMapViewPreferences } from "./BandMaps";
 
 const spot = (id: string, frequencyKHz: number, band = "20m", callStatus = "New Call", dxccStatus = "Worked") => ({
@@ -13,6 +13,53 @@ beforeEach(() => localStorage.clear());
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe("native band-map parity", () => {
+  it("keeps one marker per callsign and band and moves it to the newest report", () => {
+    const now = Date.UTC(2026, 9, 16, 12, 0, 0);
+    const appleNow = now / 1000 - 978_307_200;
+    const old = { ...spot("old", 14023.7), callsign: "OK2BUH", receivedAt: appleNow - 60 };
+    const newest = { ...spot("new", 14023.7), callsign: "ok2buh", receivedAt: appleNow };
+    const qsy = { ...spot("qsy", 14025), callsign: "OK2BUH", receivedAt: appleNow - 20 };
+    expect(deduplicateBandMapSpots([old, newest, qsy]).map(item => item.id)).toEqual(["new"]);
+  });
+
+  it("filters by spot age without hiding legacy reports that have no trustworthy timestamp", () => {
+    const now = Date.UTC(2026, 9, 16, 12, 0, 0);
+    const appleNow = now / 1000 - 978_307_200;
+    const recent = { ...spot("recent", 14020), receivedAt: appleNow - 29 * 60 };
+    const old = { ...spot("old", 14021), receivedAt: appleNow - 31 * 60 };
+    const legacy = spot("legacy", 14022);
+    expect(filterRecentBandMapSpots([recent, old, legacy], 30, now).map(item => item.id)).toEqual(["recent", "legacy"]);
+  });
+
+  it("formats the scale in compact kHz notation", () => {
+    expect(formatBandMapFrequency(7000)).toBe("7,000");
+    expect(formatBandMapFrequency(14023.7)).toBe("14,023.7");
+    expect(bandMapFrequencyTicks({ low: 14000, high: 14350 })).toEqual([14000, 14050, 14100, 14150, 14200, 14250, 14300, 14350]);
+  });
+
+  it("renders a repeated report once and activates the newest original record", () => {
+    const onSelect = vi.fn();
+    const appleNow = Date.now() / 1000 - 978_307_200;
+    const old = { ...spot("old", 14023.7), callsign: "OK2BUH", receivedAt: appleNow - 100 };
+    const newest = { ...spot("new", 14023.7), callsign: "OK2BUH", receivedAt: appleNow };
+    render(<BandMaps spots={[old, newest]} onSelect={onSelect} />);
+    const markers = screen.getAllByRole("button", { name: /OK2BUH.*14\.023700 MHz/ });
+    expect(markers).toHaveLength(1);
+    fireEvent.click(markers[0]);
+    expect(onSelect).toHaveBeenCalledWith(newest);
+  });
+
+  it("offers compact bottom controls for band, resolution and spot age", () => {
+    const changeBand = vi.fn();
+    render(<BandMaps focusedBand="40m" onFocusedBandChange={changeBand} spots={[]} onSelect={vi.fn()}
+      preferences={{ bands: ["40m"], followRadio: false, layout: "row", fontScale: 1 }} />);
+    fireEvent.change(screen.getByLabelText("Band"), { target: { value: "20m" } });
+    expect(changeBand).toHaveBeenCalledWith("20m");
+    fireEvent.change(screen.getByLabelText("Band map resolution"), { target: { value: "5" } });
+    expect((screen.getByLabelText("Band map resolution") as HTMLSelectElement).value).toBe("5");
+    fireEvent.change(screen.getByLabelText("Spot age"), { target: { value: "45" } });
+    expect((screen.getByLabelText("Spot age") as HTMLSelectElement).value).toBe("45");
+  });
   it("focused window keeps one band despite radio and workspace preferences and exposes modes only through its gear", () => {
     const change = vi.fn(), select = vi.fn();
     const preferences: BandMapViewPreferences = { bands: ["20m", "40m"], followRadio: true, layout: "grid", fontScale: 1, modes: ["cw", "phone", "data"] };
@@ -173,11 +220,29 @@ describe("native band-map parity", () => {
     expect(parseFloat(marker.style.top)).toBeLessThan(120);
     Object.defineProperty(chart, "clientHeight", { value: 1000, configurable: true });
     act(() => resize());
-    expect(parseFloat(marker.style.top)).toBeGreaterThan(900);
+    expect(parseFloat(marker.style.top)).toBeLessThan(100);
     Object.defineProperty(chart, "clientHeight", { value: 220 });
     act(() => resize());
     expect(parseFloat(marker.style.top)).toBeLessThan(220);
     expect(chart.style.height).toBe("");
+  });
+
+  it("keeps a manual zoom stable while the workspace is resized", () => {
+    const resizes = new Map<Element, () => void>();
+    vi.stubGlobal("ResizeObserver", class {
+      callback: () => void;
+      constructor(callback: () => void) { this.callback = callback; }
+      observe(target: Element) { resizes.set(target, this.callback); }
+      disconnect() {}
+    });
+    render(<BandMaps spots={[]} onSelect={vi.fn()} />);
+    const chart = screen.getByLabelText(/20m spectrum/) as HTMLElement;
+    fireEvent.click(screen.getByRole("button", { name: "Zoom 20m in" }));
+    expect((screen.getByLabelText("Band map resolution") as HTMLSelectElement).value).toBe("custom");
+    const zoomed = chart.getAttribute("aria-label");
+    Object.defineProperties(chart, { clientHeight: { value: 680, configurable: true }, clientWidth: { value: 520, configurable: true } });
+    act(() => resizes.get(chart)?.());
+    expect(chart.getAttribute("aria-label")).toBe(zoomed);
   });
 
   it("uses native opportunity precedence and band boundaries", () => {
@@ -201,7 +266,7 @@ describe("native band-map parity", () => {
     expect(widths[0]).toBeLessThan(90);
     expect(within(chart).getByText("OK2JIQ/P")).toBeTruthy();
     expect(within(chart).getByText("NB+NM")).toBeTruthy();
-    expect(chart.querySelectorAll(".band-map-allocation span").length).toBe(3);
+    expect(within(screen.getByRole("region", { name: "20m band map" })).getByText("Phone")).toBeTruthy();
   });
 
   it.each([0.8, 1, 2])("fits long calls and composite codes inside narrow lanes at scale %s", scale => {
@@ -243,7 +308,7 @@ describe("native band-map parity", () => {
 
   it("retains normal chart capacity without an overflow notice and never places beyond a short chart", () => {
     const uncrowded = [spot("OM0RX", 14001)];
-    expect(placeSpots(uncrowded, { low: 14000, high: 14350 }, 340, 520).placed[0].top).toBe(487.5);
+    expect(placeSpots(uncrowded, { low: 14000, high: 14350 }, 340, 520).placed[0].top).toBe(12.5);
     const tiny = placeSpots(uncrowded, { low: 14000, high: 14350 }, 289, 20, 2);
     expect(tiny.placed).toEqual([]); expect(tiny.hidden).toBe(1);
   });
@@ -272,20 +337,35 @@ describe("native band-map parity", () => {
     expect(onSelect).not.toHaveBeenCalled();
   });
 
-  it("uses workspace-owned preferences without writing browser storage and accepts restored values", () => {
+  it("uses workspace-owned preferences without shadow-writing them and accepts restored values", () => {
     const onPreferencesChange = vi.fn();
     const base: BandMapViewPreferences = { bands: ["20m"], followRadio: true, layout: "grid", fontScale: 1 };
     const { rerender } = render(<BandMaps spots={[]} onSelect={vi.fn()} preferences={base} onPreferencesChange={onPreferencesChange} />);
     fireEvent.change(screen.getByLabelText("Add band map"), { target: { value: "40m" } });
     expect(onPreferencesChange).toHaveBeenLastCalledWith({ ...base, bands: ["20m", "40m"], followRadio: false });
-    expect(localStorage.length).toBe(0);
+    expect(localStorage.getItem("xlog.integration.bandMaps.workspace.bands")).toBeNull();
+    expect(localStorage.getItem("xlog.integration.bandMaps.workspace.followRadio")).toBeNull();
+    expect(localStorage.getItem("xlog.integration.bandMaps.workspace.layout")).toBeNull();
+    expect(localStorage.getItem("xlog.integration.bandMaps.workspace.fontScale")).toBeNull();
     const restored: BandMapViewPreferences = { bands: ["17m"], followRadio: false, layout: "row", fontScale: 1.5 };
     rerender(<BandMaps spots={[]} onSelect={vi.fn()} preferences={restored} onPreferencesChange={onPreferencesChange} />);
     expect(screen.getByRole("region", { name: "17m band map" })).toBeTruthy();
     expect(screen.queryByRole("region", { name: "20m band map" })).toBeNull();
     expect(screen.getByRole("button", { name: "Single row" }).getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByText("150%")).toBeTruthy();
-    expect(localStorage.length).toBe(0);
+    expect(localStorage.getItem("xlog.integration.bandMaps.workspace.bands")).toBeNull();
+    expect(localStorage.getItem("xlog.integration.bandMaps.workspace.layout")).toBeNull();
+  });
+
+  it("restores the operator's resolution and age controls with controlled workspace preferences", () => {
+    const preferences: BandMapViewPreferences = { bands: ["20m"], followRadio: false, layout: "grid", fontScale: 1 };
+    const first = render(<BandMaps spots={[]} onSelect={vi.fn()} preferences={preferences} onPreferencesChange={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("Band map resolution"), { target: { value: "7" } });
+    fireEvent.change(screen.getByLabelText("Spot age"), { target: { value: "45" } });
+    first.unmount();
+    render(<BandMaps spots={[]} onSelect={vi.fn()} preferences={preferences} onPreferencesChange={vi.fn()} />);
+    expect((screen.getByLabelText("Band map resolution") as HTMLSelectElement).value).toBe("7");
+    expect((screen.getByLabelText("Spot age") as HTMLSelectElement).value).toBe("45");
   });
 
   it("places an optional Dock back action beside Add band map only in a detached view", () => {
@@ -319,7 +399,7 @@ describe("native band-map parity", () => {
     expect(within(panel).getByText("14.000–14.070 MHz")).toBeTruthy();
     fireEvent.click(within(panel).getByRole("button", { name: "Zoom 20m in" }));
     expect(within(panel).queryByText("14.000–14.070 MHz")).toBeNull();
-    fireEvent.click(within(panel).getByRole("button", { name: "Pan 20m up" }));
+    fireEvent.click(within(panel).getByRole("button", { name: "Pan 20m higher" }));
     fireEvent.click(within(panel).getByRole("button", { name: "Reset 20m range" }));
     expect(within(panel).getByText("14.000–14.350 MHz")).toBeTruthy();
   });
