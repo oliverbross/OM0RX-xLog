@@ -7,6 +7,50 @@ import XCTest
 final class TCIProtocolTests: XCTestCase {
     private let address = TCIReceiverAddress(trx: 0, channel: 0)
 
+    func testAppFocusIsServerGlobalWindowStateWithCompletionReceiptOnly() {
+        var decoder = TCITextDecoder(), reducer = TCIStateReducer()
+        let first = Date(timeIntervalSince1970: 100), completed = first.addingTimeInterval(5)
+        reducer.apply(decoder.feed("app_fo"), receivedAt: first)
+        XCTAssertNil(reducer.state.serverAppFocus)
+        reducer.apply(decoder.feed("cus:TrUe;"), receivedAt: completed)
+        XCTAssertEqual(reducer.state.serverAppFocus?.isFocused, true)
+        XCTAssertEqual(reducer.state.serverAppFocus?.receivedAt, completed)
+        XCTAssertTrue(reducer.state.frequencies.isEmpty)
+        XCTAssertTrue(reducer.state.transceivers.isEmpty)
+        XCTAssertTrue(reducer.state.unknownCommands.isEmpty)
+        XCTAssertFalse(reducer.state.ready)
+        XCTAssertNil(reducer.authoritativeSnapshot(for: address))
+        XCTAssertNil(reducer.state.serverTransmitFrequency)
+        XCTAssertNil(reducer.state.lastRXSpotClick)
+    }
+
+    func testAppFocusRejectsMalformedAndIndexedFormsWithoutReplacingReceipt() {
+        var reducer = TCIStateReducer()
+        let receipt = Date(timeIntervalSince1970: 100)
+        XCTAssertTrue(reducer.apply(TCICommand(name: "APP_FOCUS", arguments: ["false"]), receivedAt: receipt))
+        let retained = reducer.state.serverAppFocus
+        for arguments in [[], [""], ["0"], ["1"], ["yes"], ["NaN"], ["0", "true"], ["0", "1", "false"]] {
+            XCTAssertFalse(reducer.apply(TCICommand(name: "APP_FOCUS", arguments: arguments),
+                                         receivedAt: receipt.addingTimeInterval(10)))
+            XCTAssertEqual(reducer.state.serverAppFocus, retained)
+        }
+    }
+
+    func testAppFocusRefreshesOnlyItsOwnReceiptAndResetsWithConnectionState() {
+        var decoder = TCITextDecoder(), reducer = TCIStateReducer()
+        let first = Date(timeIntervalSince1970: 100), second = first.addingTimeInterval(10)
+        reducer.apply(decoder.feed("APP_FOCUS:true;"), receivedAt: first)
+        reducer.apply(decoder.feed("READY;VFO:0,0,14025000;TX_FREQUENCY:7140000;"), receivedAt: second)
+        XCTAssertEqual(reducer.state.serverAppFocus?.receivedAt, first)
+        reducer.apply(decoder.feed("APP_FOCUS:true;"), receivedAt: second)
+        XCTAssertEqual(reducer.state.serverAppFocus?.receivedAt, second)
+        reducer.apply(decoder.feed("APP_FOCUS:false;"))
+        XCTAssertEqual(reducer.state.serverAppFocus?.isFocused, false)
+        XCTAssertNil(reducer.state.serverAppFocus?.receivedAt)
+        reducer = TCIStateReducer()
+        XCTAssertNil(reducer.state.serverAppFocus)
+    }
+
     func testRXSpotClickRetainsExactAddressCallsignFrequencyAndCompletionReceiptOnly() {
         var decoder = TCITextDecoder(), reducer = TCIStateReducer()
         let first = Date(timeIntervalSince1970: 100), completed = Date(timeIntervalSince1970: 105)

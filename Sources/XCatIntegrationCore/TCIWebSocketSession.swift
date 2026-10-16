@@ -118,6 +118,8 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
     public let serverTransmitFrequency: TCIServerTransmitFrequencyObservation?
     /// Latest server click event; never configured evidence or a tuning readback.
     public let lastRXSpotClick: TCIRXSpotClickObservation?
+    /// Server-window focus only; never configured evidence or local UI authority.
+    public let serverAppFocus: TCIServerAppFocusObservation?
 
     public init(
         sequence: UInt64,
@@ -129,7 +131,8 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
         filterEvidenceSequence: UInt64 = 0,
         splitEvidenceReceivedAt: Date? = nil,
         serverTransmitFrequency: TCIServerTransmitFrequencyObservation? = nil,
-        lastRXSpotClick: TCIRXSpotClickObservation? = nil
+        lastRXSpotClick: TCIRXSpotClickObservation? = nil,
+        serverAppFocus: TCIServerAppFocusObservation? = nil
     ) {
         self.sequence = sequence
         self.generation = generation
@@ -141,6 +144,7 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
         self.splitEvidenceReceivedAt = splitEvidenceReceivedAt
         self.serverTransmitFrequency = serverTransmitFrequency
         self.lastRXSpotClick = lastRXSpotClick
+        self.serverAppFocus = serverAppFocus
     }
 }
 
@@ -580,7 +584,8 @@ public actor TCIReadOnlyWebSocketSession {
             filterEvidenceSequence: filterEvidenceSequence,
             splitEvidenceReceivedAt: splitEvidenceReceivedAt,
             serverTransmitFrequency: reducer.state.serverTransmitFrequency,
-            lastRXSpotClick: reducer.state.lastRXSpotClick
+            lastRXSpotClick: reducer.state.lastRXSpotClick,
+            serverAppFocus: reducer.state.serverAppFocus
         )
         for continuation in continuations.values {
             continuation.yield(observationValue)

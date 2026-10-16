@@ -609,6 +609,14 @@ public struct TCIRXSpotClickObservation: Equatable, Sendable {
     public let receivedAt: Date?
 }
 
+/// Focus of the server's ExpertSDR3 window (pinned TCI b081213f, page 37).
+/// It has no receiver identity and confers no local application/control authority.
+public struct TCIServerAppFocusObservation: Equatable, Sendable {
+    public let isFocused: Bool
+    /// Local producer receipt time; nil means no timed receipt was supplied.
+    public let receivedAt: Date?
+}
+
 public struct TCIProtocolState: Equatable, Sendable {
     public internal(set) var protocolAnnouncement: TCIProtocolAnnouncement?
     public internal(set) var device: String?
@@ -623,6 +631,7 @@ public struct TCIProtocolState: Equatable, Sendable {
     public internal(set) var frequencies: [TCIReceiverAddress: Int64] = [:]
     public internal(set) var serverTransmitFrequency: TCIServerTransmitFrequencyObservation?
     public internal(set) var lastRXSpotClick: TCIRXSpotClickObservation?
+    public internal(set) var serverAppFocus: TCIServerAppFocusObservation?
     public internal(set) var transceivers: [Int: TCITransceiverState] = [:]
     public internal(set) var unknownCommands: [TCICommand] = []
     public internal(set) var diagnostics: [TCIDiagnostic] = []
@@ -668,6 +677,7 @@ public struct TCIStateReducer: Sendable {
         case "VFO": applyVFO(command)
         case "TX_FREQUENCY": applyTXFrequency(command, receivedAt: receivedAt)
         case "RX_CLICKED_ON_SPOT": applyRXSpotClick(command, receivedAt: receivedAt)
+        case "APP_FOCUS": applyAppFocus(command, receivedAt: receivedAt)
         case "MODULATION": applyModulation(command)
         case "RX_FILTER_BAND": applyFilter(command)
         case "SPLIT_ENABLE": applyBooleanState(command, keyPath: \.splitEnabled)
@@ -818,6 +828,13 @@ public struct TCIStateReducer: Sendable {
         state.serverTransmitFrequency = TCIServerTransmitFrequencyObservation(
             frequencyHz: frequency, receivedAt: receivedAt
         )
+    }
+
+    private mutating func applyAppFocus(_ command: TCICommand, receivedAt: Date?) {
+        guard command.arguments.count == 1,
+              let focused = TCIValueParser.boolean(command.arguments[0])
+        else { return reject(command) }
+        state.serverAppFocus = TCIServerAppFocusObservation(isFocused: focused, receivedAt: receivedAt)
     }
 
     private mutating func applyRXSpotClick(_ command: TCICommand, receivedAt: Date?) {
