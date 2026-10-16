@@ -21,7 +21,7 @@ public enum FlexSpotForwarder {
             ("timestamp", String(Int64(spot.receivedAt.timeIntervalSince1970))),
             ("wkdB4", status == "worked" ? "1" : "0"),
             ("dxccNotCfd", dxcc == "confirmed" ? "0" : "1"),
-            ("bandNotCfd", status.contains("new band") ? "1" : "0"),
+            ("bandNotCfd", status.contains("new callsign") ? "1" : "0"),
             ("modeNotCfd", status.contains("new mode") ? "1" : "0"),
             ("slotNotCfd", status.contains("band+mode") ? "1" : "0"),
         ]

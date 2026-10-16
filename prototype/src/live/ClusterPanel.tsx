@@ -48,18 +48,11 @@ type Props = { snapshot: unknown; onRequest: Request; onSelect: (spot: LiveClust
 
 const bands = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "2m", "70cm"];
 const modes = ["CW", "SSB", "FT8", "FT4", "FT2", "RTTY", "PSK", "DIGI", "AM", "FM"];
-const callStatuses = ["New Call", "New Band", "New Mode", "New Band+Mode", "Worked", "Confirmed", "Unknown"];
-const dxccStatuses = ["ATNO", "C/New Band", "C/New Mode", "C/New Band+Mode", "W/New Band", "W/New Mode", "W/New Band+Mode", "Worked", "Confirmed", "Unknown"];
+const callStatuses = ["New Callsign", "Worked", "Confirmed", "Unknown"];
+const dxccStatuses = ["New DXCC", "Worked", "Confirmed", "Unknown"];
 const formatDate = (value?: number | null) => value == null ? "—" : new Date((value + 978_307_200) * 1000).toLocaleString();
-export const clusterRowTint = (status: string): string | undefined => {
-  if (status === "ATNO") return "#FF8C0026";
-  if (status.includes("Band+Mode")) return "#E91E6326";
-  if (status.includes("New Band")) return "#00BFFF26";
-  if (status.includes("New Mode")) return "#FFC00026";
-  if (status === "Worked") return "#B0B0B01A";
-  if (status === "Confirmed") return "#6464641A";
-  return undefined;
-};
+export const clusterRowTint = (status: string, configured?: Record<string, string>): string | undefined =>
+  status === "Unknown" ? undefined : `${paletteColor(status, configured, clusterStatusColors)}1F`;
 const emptyFilter: Filter = { query: "", bands: [], modes: [], continents: [], callStatuses: [], dxccStatuses: [],
   specials: [], sources: ["cluster", "rbl"], worked: [], sort: "newest" };
 export const fullClusterColumnsKey = "xlog.integration.full-cluster-columns.v1";
@@ -327,7 +320,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
       </th>)}
     </tr></thead><tbody>{(live?.spots ?? []).map((spot, index) => <tr key={spot.id}
       className={`${(selectedSpotId ?? selectedSpot?.id) === spot.id ? "is-selected" : ""} ${index % 2 ? "is-odd" : "is-even"}`}
-      style={{ backgroundColor: (selectedSpotId ?? selectedSpot?.id) === spot.id ? undefined : clusterRowTint(spot.dxccStatus) }}
+      style={{ backgroundColor: (selectedSpotId ?? selectedSpot?.id) === spot.id ? undefined : clusterRowTint(spot.dxccStatus, configuration?.palette.status) }}
       onClick={() => { setSelectedSpot(spot); onSelect(spot); }} title="Load this spot into the logger and tune through xCat">
       <td hidden={!visibleColumns.has("time")} className="mono live-cluster-age">{formatSpotAge(spot.receivedAt, ageClock)}</td>
       <td hidden={!visibleColumns.has("score")}><span className={`live-cluster-score ${spot.score >= 80 ? "priority" : spot.score >= 55 ? "high" : spot.score >= 30 ? "medium" : "low"}`}>{spot.score}</span></td>

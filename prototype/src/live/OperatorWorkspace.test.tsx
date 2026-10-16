@@ -12,7 +12,7 @@ let paneWidth = 1100, paneHeight = 290;
 let resize: (() => void) | undefined;
 const spot = (index = 0): LiveClusterSpot => ({ id: `feed-${index}`, receivedAt: 812000000, clusterName: "ShackCQ", spotter: "OM0RX", frequencyKHz: 14025 + index,
   frequencyText: "14.025", callsign: `VK8NSB${index || ""}`, comment: "Actual received comment", band: "20m", mode: "CW", country: "Australia", adif: 150, continent: "OC", cqZone: 29,
-  callStatus: "New Call", dxccStatus: "ATNO", specialTags: ["POTA"], score: 90, scoreReasons: [], aggregateCount: 1, aggregateSpotters: ["OM0RX"], source: "cluster", statusHex: "", bandHex: "", modeHex: "" });
+  callStatus: "New Callsign", dxccStatus: "New DXCC", specialTags: ["POTA"], score: 90, scoreReasons: [], aggregateCount: 1, aggregateSpotters: ["OM0RX"], source: "cluster", statusHex: "", bandHex: "", modeHex: "" });
 const projection = (count = 12) => ({ snapshot: { connectedClusters: 1, spots: Array.from({ length: count }, (_, index) => spot(index)),
   connections: [{ serverName: "ShackCQ", phase: "connected" }, { serverName: "Backup", phase: "failed", error: "Connection refused" }] }, configuration: { palette: { status: {}, band: { "20m": "#123456" }, mode: {} } } });
 beforeEach(() => {

@@ -29,11 +29,8 @@ public struct ClusterSpot: Codable, Hashable, Identifiable, Sendable {
         let dxcc = dxccStatus.lowercased()
         let combined = "\(call) \(dxcc)"
 
-        if combined.contains("atno") { return "ATNO" }
-        if combined.contains("new band+mode") || combined.contains("new band + mode") { return "NB+NM" }
-        if combined.contains("new band") { return "NB" }
-        if combined.contains("new mode") { return "NM" }
-        if call.contains("new call") { return "NC" }
+        if dxcc.contains("new dxcc") { return "ND" }
+        if call.contains("new callsign") { return "NC" }
         if combined.contains("confirmed") { return "C" }
         if combined.contains("worked") { return "W" }
         return "--"

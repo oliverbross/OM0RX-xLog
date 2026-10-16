@@ -352,8 +352,8 @@ final class ClusterSessionServiceTests: XCTestCase {
         XCTAssertEqual(byContinent.count, 4)
         let byCallStatus = await matching { $0.callStatuses = ["Worked"] }
         XCTAssertEqual(byCallStatus.map(\.callsign), ["K1OLD"])
-        let byDXCC = await matching { $0.dxccStatuses = ["W/New Band"] }
-        XCTAssertEqual(byDXCC.map(\.callsign), ["K1RBN"])
+        let byDXCC = await matching { $0.dxccStatuses = ["New DXCC"] }
+        XCTAssertEqual(Set(byDXCC.map(\.callsign)), ["K1DIG", "K1RBN"])
         let bySpecial = await matching { $0.specials = ["POTA"] }
         XCTAssertEqual(bySpecial.map(\.callsign), ["K1AAA"])
         let bySource = await matching { $0.sources = ["rbl"] }
@@ -391,6 +391,28 @@ final class ClusterSessionServiceTests: XCTestCase {
         config.radioSpotColorPolicy = .dxcc
         let decoded = try JSONDecoder().decode(ClusterSessionConfiguration.self, from: JSONEncoder().encode(config))
         XCTAssertEqual(decoded.radioSpotColorPolicy, .dxcc)
+    }
+
+    func testLegacySpotTaxonomyAndColoursMigrateToWavelogParity() throws {
+        let original = ClusterSessionConfiguration(servers: [])
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(original)) as? [String: Any])
+        var palette = try XCTUnwrap(object["palette"] as? [String: Any])
+        palette["status"] = ["New Call": "#010203", "ATNO": "#FF8C00",
+                             "Worked": "#B0B0B0", "Confirmed": "#10B981", "Unknown": "#777F8C"]
+        object["palette"] = palette
+        var filter = try XCTUnwrap(object["filter"] as? [String: Any])
+        filter["callStatuses"] = ["New Band", "Confirmed"]
+        filter["dxccStatuses"] = ["ATNO", "Worked"]
+        object["filter"] = filter
+
+        let decoded = try JSONDecoder().decode(ClusterSessionConfiguration.self,
+            from: JSONSerialization.data(withJSONObject: object))
+        XCTAssertEqual(decoded.palette.status["New Callsign"], "#010203")
+        XCTAssertEqual(decoded.palette.status["New DXCC"], "#CC372D")
+        XCTAssertEqual(decoded.palette.status["Worked"], "#E5A50A")
+        XCTAssertEqual(decoded.palette.status["Confirmed"], "#90EE90")
+        XCTAssertEqual(decoded.filter.callStatuses, ["New Callsign", "Confirmed"])
+        XCTAssertEqual(decoded.filter.dxccStatuses, ["New DXCC", "Worked"])
     }
 
     func testForwardingEligibilityFollowsVisibleSnapshotAndConnectionGeneration() async throws {

@@ -113,7 +113,7 @@ struct OperatingGoalTests {
             "clusterName": "Fixture", "spotter": "W1AW", "frequencyKHz": 14200,
             "frequencyText": "14200", "callsign": "K1ABC", "comment": "POTA K-0001",
             "band": "20m", "mode": "SSB", "country": "United States", "adif": 291,
-            "continent": "NA", "callStatus": "New Call", "dxccStatus": "ATNO", "specialTags": ["POTA"],
+            "continent": "NA", "callStatus": "New Callsign", "dxccStatus": "New DXCC", "specialTags": ["POTA"],
             "score": 0, "scoreReasons": [], "aggregateCount": 1, "aggregateSpotters": ["W1AW"],
             "source": "cluster", "statusHex": "", "bandHex": "", "modeHex": ""
         ]

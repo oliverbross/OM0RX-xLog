@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.4.0-alpha.55 — 2026-10-17
+
+- Matched Wavelog's exact band-and-mode call and DXCC classification model: New Callsign/New DXCC, Worked and Confirmed.
+- Matched Wavelog's default spot colours: unworked `#CC372D`, worked `#E5A50A` and confirmed `#90EE90`, while retaining user-defined colour overrides.
+- Migrated saved xLog filters, palettes and DX alert rules from the former expanded status taxonomy without discarding custom settings.
+
 ## 0.4.0-alpha.54 — 2026-10-17
 
 - Connect configured DX clusters automatically when xLog starts, with a default-on Settings control.

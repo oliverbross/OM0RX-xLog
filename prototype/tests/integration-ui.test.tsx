@@ -12,7 +12,7 @@ import App from "../src/App";
 const classified = (worked = false) => ({ id: "fixture", ok: true, result: {
   schema_version: 1, history_scope: "synthetic_session", station_io: false,
   spots: spots.map(s => ({ id: s.id, call: s.call, frequency_hz: Math.round(s.mhz * 1e6), band: s.band, mode: s.mode,
-    call_status: worked ? "Worked" : "New Call", dxcc_status: worked ? "Worked" : "ATNO", score: 85 })),
+    call_status: worked ? "Worked" : "New Callsign", dxcc_status: worked ? "Worked" : "New DXCC", score: 85 })),
 } });
 beforeEach(() => {
   request.mockReset();
@@ -36,7 +36,7 @@ it("updates classifications after logging and ignores a superseded response", as
   await user.click(screen.getByRole("button", { name: "DX Cluster" }));
   await waitFor(() => expect(screen.getAllByText("WKD")).toHaveLength(9));
   resolveFirst(classified(false));
-  await waitFor(() => expect(screen.queryAllByText("ATNO")).toHaveLength(0));
+  await waitFor(() => expect(screen.queryAllByText("ND")).toHaveLength(0));
   expect(screen.getByRole("status").textContent).toContain("1 synthetic session QSOs");
 });
 it("does not present fixture labels as native results when worker fails and allows retry", async () => {
@@ -48,7 +48,7 @@ it("does not present fixture labels as native results when worker fails and allo
   const user = userEvent.setup();
   await user.click(screen.getByRole("button", { name: "DX Cluster" }));
   await waitFor(() => expect(screen.getByRole("status").textContent).toContain("Classification unavailable"));
-  expect(screen.queryAllByText("ATNO")).toHaveLength(0);
+  expect(screen.queryAllByText("ND")).toHaveLength(0);
   await user.click(screen.getByRole("button", { name: "Refresh classification" }));
-  await waitFor(() => expect(screen.getAllByText("ATNO")).toHaveLength(9));
+  await waitFor(() => expect(screen.getAllByText("ND")).toHaveLength(9));
 });

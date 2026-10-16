@@ -117,7 +117,7 @@ final class ClusterSpotObservationTests: XCTestCase {
         XCTAssertEqual(captured.raw.comment, comment)
         XCTAssertEqual(captured.classified.comment, comment)
         XCTAssertEqual(captured.classified.specialTags, ["POTA"])
-        XCTAssertEqual(captured.classified.callStatus, "New Call")
+        XCTAssertEqual(captured.classified.callStatus, "New Callsign")
         XCTAssertEqual(captured.contactRevision, 1)
         let snapshot = await service.snapshot()
         XCTAssertEqual(snapshot.loadedSpots, 400)

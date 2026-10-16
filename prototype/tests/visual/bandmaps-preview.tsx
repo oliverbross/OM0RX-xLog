@@ -10,7 +10,7 @@ const narrow = params.has("narrow"), crowded = params.has("crowded");
 const calls = ["UB3A", "IU1PZC", "OK2JIQ/P", "R5GG", "UR2680YL", "SQ9GOL", ...(narrow ? ["VK8/OK2JIQ/PORTABLE"] : [])];
 const spots = calls.map((callsign, index) => ({ id: `synthetic-${index}`, callsign, band: "20m", frequencyKHz: 14010 + index * 25,
   mode: "CW", country: "Synthetic location", source: "Synthetic fixture", comment: "Memory-only presentation data",
-  callStatus: index === 3 ? "New Band+Mode" : "New Call", dxccStatus: "Worked", statusHex: "#ff8c00" }));
+  callStatus: "New Callsign", dxccStatus: "Worked", statusHex: "#cc372d" }));
 if (crowded) spots.push(...Array.from({ length: 60 }, (_, index) => ({ ...spots[index % calls.length], id: `crowded-${index}`, frequencyKHz: 14050 })));
 function Preview() {
   const [preferences, setPreferences] = useState<BandMapViewPreferences>({ bands: narrow ? ["20m"] : ["20m", "40m"], followRadio: false, layout: "row", fontScale });

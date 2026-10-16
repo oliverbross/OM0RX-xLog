@@ -154,16 +154,16 @@ export const bands = {
   "15m": { min: 21, max: 21.45, cw: 21.07, data: 21.15 },
 };
 // Fixture classifications only: never inferred from an operator's logbook.
-export const opportunityFixtures: Record<string, "NC" | "NB" | "ATNO"> = {
+export const opportunityFixtures: Record<string, "NC" | "ND"> = {
   s1: "NC",
-  s2: "NB",
-  s3: "ATNO",
+  s2: "NC",
+  s3: "ND",
   s4: "NC",
-  s5: "NB",
+  s5: "NC",
   s6: "NC",
-  s7: "NB",
-  s8: "ATNO",
-  s9: "ATNO",
+  s7: "NC",
+  s8: "ND",
+  s9: "ND",
 };
 export function spotOpportunity(spot: Spot) {
   return opportunityFixtures[spot.id];

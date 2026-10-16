@@ -855,7 +855,7 @@ export default function App() {
             </div>
             <p className="view-note secondary">
               Select a callsign or press Enter on its button to load the QSO
-              draft. Simulator follows frequency and mode. Session labels: NC new call · NB new band · NM new mode · ATNO new entity · WKD worked.
+              draft. Simulator follows frequency and mode. Session labels: NC new callsign · ND new DXCC · WKD worked · CFM confirmed.
               Native labels use the extracted xCluster rules. Browser preview uses fixed fixtures. No cluster socket is opened.
             </p>
             <div className="table-scroll">

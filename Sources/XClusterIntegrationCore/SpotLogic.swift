@@ -79,38 +79,22 @@ public enum SpotLogic {
         }
     }
 
-    public static func callStatus(worked: Bool, newBand: Bool, newMode: Bool, confirmedBandMode: Bool) -> String {
-        if !worked { return "New Call" }
+    /// Wavelog classifies both callsigns and DXCC entities against the exact
+    /// band + mode slot of the spot. A contact on another band or in another
+    /// mode therefore remains new for this slot.
+    public static func callStatus(workedBandMode: Bool, confirmedBandMode: Bool) -> String {
         if confirmedBandMode { return "Confirmed" }
-        if newBand && newMode { return "New Band+Mode" }
-        if newBand { return "New Band" }
-        if newMode { return "New Mode" }
-        return "Worked"
+        return workedBandMode ? "Worked" : "New Callsign"
     }
 
-    public static func callStatus(worked: Bool, bandWorked: Bool, modeWorked: Bool,
-                                  bandModeWorked: Bool, confirmedBandMode: Bool) -> String {
-        let newBand = !bandWorked
-        // Once the band has been worked, "new mode" means this mode is new on
-        // this band. On a new band, retain the OM0RX New Band+Mode distinction
-        // only when the mode itself has never been worked for this callsign.
-        let newMode = bandWorked ? !bandModeWorked : !modeWorked
-        return callStatus(worked: worked, newBand: newBand, newMode: newMode, confirmedBandMode: confirmedBandMode)
-    }
-
-    public static func dxccStatus(worked: Bool, confirmed: Bool, newBand: Bool, newMode: Bool, confirmedBandMode: Bool) -> String {
-        if !worked { return "ATNO" }
+    public static func dxccStatus(workedBandMode: Bool, confirmedBandMode: Bool) -> String {
         if confirmedBandMode { return "Confirmed" }
-        let prefix = confirmed ? "C" : "W"
-        if newBand && newMode { return "\(prefix)/New Band+Mode" }
-        if newBand { return "\(prefix)/New Band" }
-        if newMode { return "\(prefix)/New Mode" }
-        return "Worked"
+        return workedBandMode ? "Worked" : "New DXCC"
     }
 
     public static func score(callStatus: String, dxccStatus: String, specials: [String], source: String) -> (Int, [String]) {
-        let dxcc: [String: Int] = ["ATNO": 85, "C/New Band+Mode": 68, "W/New Band+Mode": 62, "C/New Band": 58, "W/New Band": 52, "C/New Mode": 48, "W/New Mode": 42, "Worked": 18, "Confirmed": 8]
-        let call: [String: Int] = ["New Call": 42, "New Band+Mode": 34, "New Band": 28, "New Mode": 22, "Worked": 8, "Confirmed": 4]
+        let dxcc: [String: Int] = ["New DXCC": 85, "Worked": 18, "Confirmed": 8]
+        let call: [String: Int] = ["New Callsign": 42, "Worked": 8, "Confirmed": 4]
         var reasons: [String] = []
         var value = max(dxcc[dxccStatus] ?? 0, call[callStatus] ?? 0)
         if value > 0 { reasons.append(dxcc[dxccStatus] ?? 0 >= call[callStatus] ?? 0 ? dxccStatus : callStatus) }

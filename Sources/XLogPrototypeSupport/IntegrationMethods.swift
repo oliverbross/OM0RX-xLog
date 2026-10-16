@@ -13,7 +13,7 @@ enum IntegrationMethods {
         }
         let index = ClusterClassificationIndex(records: [])
         let classification = index.classify(call: raw.callsign, band: "20m", mode: "SSB", adif: 291)
-        let clusterPassed = raw.callsign == "W1AW" && classification.callStatus == "New Call" && classification.dxccStatus == "ATNO"
+        let clusterPassed = raw.callsign == "W1AW" && classification.callStatus == "New Callsign" && classification.dxccStatus == "New DXCC"
         return ["schema_version": 1, "station": stationJSON, "cluster_passed": clusterPassed,
                 "passed": station.passed && clusterPassed, "station_io": false, "file_io": false,
                 "history_scope": "synthetic_session"]

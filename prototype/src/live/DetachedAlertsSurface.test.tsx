@@ -12,7 +12,7 @@ const frame = () => ({ epoch: "00000000-0000-4000-8000-000000000001", revision: 
   items: [{ code: "radio_inhibitors", count: 2 }, { code: "rotor_uncertain", count: 1 }] });
 const dxFrame = () => ({ epoch: "00000000-0000-4000-8000-000000000002", revision: 1,
   configuration: { generation:"00000000-0000-4000-8000-000000000003", revision:0, enabled:false, dedupSeconds:120, retentionMinutes:120, nativePopup:false, notificationSound:false,
-    rules:[{ id:"new-dxcc", name:"New DXCC", enabled:true, callsignGlob:"*", commentContains:"", bands:[], modes:[], callStatuses:[], dxccStatuses:["ATNO"], specials:[] }] },
+    rules:[{ id:"new-dxcc", name:"New DXCC", enabled:true, callsignGlob:"*", commentContains:"", bands:[], modes:[], callStatuses:[], dxccStatuses:["New DXCC"], specials:[] }] },
   storageError:null, source:{ available:true, baselined:true, revision:2, receivedAtMs:1 }, entries:[], delivery:{ error:null, suppressed:0, maximumPerWindow:3, windowSeconds:10 }, limits:{ maximumRules:32, maximumEntries:200 } });
 beforeEach(() => {
   localStorage.clear();
@@ -67,14 +67,14 @@ it("edits and clones a literal comment condition and saves only native alert set
   expect(native.invoke.mock.calls.every(([command]) => ["alerts_snapshot", "dx_alerts_snapshot", "dx_alerts_save"].includes(command))).toBe(true);
 });
 it("explains retained rule evidence and repeat history without a station action", async () => {
-  const value = { ...dxFrame(), entries:[{ id:"00000000-0000-4000-8000-000000000004", test:false, callsign:"OM0RX", frequencyKHz:14074, band:"20m", mode:"FT8", comment:"POTA <park>", callStatus:"New Call", dxccStatus:"ATNO", specialTags:["POTA"], ruleNames:["New DXCC", "Portable"], count:3, firstSeenMs:1, lastSeenMs:61_001 }] };
+  const value = { ...dxFrame(), entries:[{ id:"00000000-0000-4000-8000-000000000004", test:false, callsign:"OM0RX", frequencyKHz:14074, band:"20m", mode:"FT8", comment:"POTA <park>", callStatus:"New Callsign", dxccStatus:"New DXCC", specialTags:["POTA"], ruleNames:["New DXCC", "Portable"], count:3, firstSeenMs:1, lastSeenMs:61_001 }] };
   native.invoke.mockImplementation(async command => command === "alerts_snapshot" ? frame() : value);
   render(<DetachedAlertsSurface />); await act(async () => { await vi.advanceTimersByTimeAsync(0); });
   expect(screen.getByRole("columnheader", { name:"Why" })).toBeTruthy();
   expect(screen.getByRole("columnheader", { name:"Comment" })).toBeTruthy();
   expect(screen.getAllByText("POTA <park>").map(node => node.tagName)).toEqual(["TD", "P"]);
   expect(screen.getAllByText("New DXCC, Portable")).toHaveLength(2);
-  expect(screen.getAllByText("Call: New Call · DXCC: ATNO · Band: 20m · Mode: FT8 · Special: POTA")).toHaveLength(2);
+  expect(screen.getAllByText("Call: New Callsign · DXCC: New DXCC · Band: 20m · Mode: FT8 · Special: POTA")).toHaveLength(2);
   expect(screen.getAllByText("3 reports")).toHaveLength(2);
   expect(screen.getByLabelText("DX alert history").querySelectorAll("article")).toHaveLength(1);
   expect(screen.queryByRole("button", { name:/tune|transmit|acknowledge/i })).toBeNull();
@@ -95,7 +95,7 @@ it("keeps legacy rules cluster-only and explicitly saves CQ source rules without
 
 const historyEntry = (number: number, callsign: string, frequencyKHz: number, count: number, lastSeenMs: number): DxAlertEntry => ({
   id:`00000000-0000-4000-8000-${String(number).padStart(12, "0")}`, test:false, source:"cluster", callsign, frequencyKHz,
-  band:"20m", mode:"CW", comment:"", callStatus:"New Call", dxccStatus:"ATNO", specialTags:[], ruleNames:["New DXCC"], count, firstSeenMs:1, lastSeenMs,
+  band:"20m", mode:"CW", comment:"", callStatus:"New Callsign", dxccStatus:"New DXCC", specialTags:[], ruleNames:["New DXCC"], count, firstSeenMs:1, lastSeenMs,
 });
 it("persists table column choices, retains mandatory columns and full compact evidence, and resets", async () => {
   const value = { ...dxFrame(), entries:[{ ...historyEntry(4, "OM0RX", 14074, 3, 61_001), comment:"POTA evidence" }] };

@@ -9,7 +9,7 @@ struct FlexSpotForwarderTests {
             id: UUID(), receivedAt: Date(timeIntervalSince1970: 1_700_000_000),
             callsign: "vk8nsb", frequencyKHz: 7_175, band: "40m", mode: "SSB",
             country: "Australia", continent: "OC", latitude: nil, longitude: nil,
-            comment: "POTA & SOTA <test>", callStatus: "New Band", dxccStatus: "Worked",
+            comment: "POTA & SOTA <test>", callStatus: "New Callsign", dxccStatus: "Worked",
             specialTags: ["POTA"], score: 42, source: "DX Summit",
             statusHex: "#2F8FFF", bandHex: "#4A9CFF", modeHex: "#F3B23C"
         )

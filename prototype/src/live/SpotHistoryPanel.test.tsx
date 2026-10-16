@@ -10,7 +10,7 @@ const report = (id = "report-1", callsign = "OM0RX/P"): SpotHistoryObservation =
   id, callsign, sessionID: "session-1", sequence: 1, clusterID: "cluster-1", clusterName: "Test cluster", clusterHost: "cluster.example.invalid",
   arrivedAt: "2026-10-13T10:00:00Z", reportedAt: "2026-10-13T09:59:00Z", timeBasis: "arrival", recordKind: "live",
   spotter: "VK8AA", frequencyKHz: 14025, frequencyText: "14025.0", band: "20m", mode: "CW", source: "cluster",
-  country: "Slovakia", adif: 504, comment: "Portable report", specialTags: [], callStatus: "New Call", dxccStatus: "ATNO",
+  country: "Slovakia", adif: 504, comment: "Portable report", specialTags: [], callStatus: "New Callsign", dxccStatus: "New DXCC",
 });
 const historyPage = (rows = [report()], watermark = 42, nextCursor: string | null = null) => ({ page: { rows, watermark, nextCursor, revision: watermark } });
 const summary = (watermark = 42, total = 310) => ({ stats: { total, distinctCalls: 240, distinctSpotters: 12,

@@ -5,7 +5,7 @@ const native = vi.hoisted(() => ({ invoke:vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke:native.invoke }));
 const frame = () => ({ epoch:"00000000-0000-4000-8000-000000000001", revision:1,
   configuration:{ generation:"00000000-0000-4000-8000-000000000002", revision:0, enabled:false, dedupSeconds:120, retentionMinutes:120, nativePopup:false, notificationSound:false,
-    rules:[{ id:"new-dxcc", name:"New DXCC", enabled:true, callsignGlob:"*", commentContains:"", bands:[], modes:[], callStatuses:[], dxccStatuses:["ATNO"], specials:[] }] },
+    rules:[{ id:"new-dxcc", name:"New DXCC", enabled:true, callsignGlob:"*", commentContains:"", bands:[], modes:[], callStatuses:[], dxccStatuses:["New DXCC"], specials:[] }] },
   storageError:null, source:{ available:true, baselined:true, revision:1, receivedAtMs:1 }, entries:[], delivery:{ error:null, suppressed:0, maximumPerWindow:3, windowSeconds:10 }, limits:{ maximumRules:32, maximumEntries:200 } });
 it("accepts the bounded native snapshot and rejects malformed identities", () => {
   expect(checkedDxAlerts(frame()).configuration.enabled).toBe(false);

@@ -181,7 +181,7 @@ async function runMain(report: AcceptanceReport) {
     report.checks[`worker_${method}`] = true;
   }
   report.worker = ["health", "self_test", "parse_adif"].every((method) => report.checks[`worker_${method}`]);
-  await checkClusterOpportunity("ATNO");
+  await checkClusterOpportunity("ND");
   report.checks.cluster_classification_initial = true;
   await loadFixture();
   report.checks.cluster_selection = true;

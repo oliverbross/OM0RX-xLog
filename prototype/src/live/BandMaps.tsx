@@ -143,11 +143,8 @@ export function opportunityCode(spot: BandMapSpot): string {
   const call = text(spot.callStatus).toLowerCase();
   const dxcc = text(spot.dxccStatus).toLowerCase();
   const both = `${call} ${dxcc}`;
-  if (both.includes("atno")) return "ATNO";
-  if (both.includes("new band+mode") || both.includes("new band + mode")) return "NB+NM";
-  if (both.includes("new band")) return "NB";
-  if (both.includes("new mode")) return "NM";
-  if (call.includes("new call")) return "NC";
+  if (dxcc.includes("new dxcc")) return "ND";
+  if (call.includes("new callsign")) return "NC";
   if (both.includes("confirmed")) return "C";
   if (both.includes("worked")) return "W";
   return "--";
@@ -169,7 +166,7 @@ function modeGroup(mode: string): "cw" | "phone" | "data" {
 function matchesStatus(spot: BandMapSpot, scope: string): boolean {
   if (scope === "all") return true;
   const both = `${text(spot.callStatus)} ${text(spot.dxccStatus)}`.toLowerCase();
-  if (scope === "needed") return both.includes("new") || both.includes("atno") || both.includes("need");
+  if (scope === "needed") return both.includes("new") || both.includes("need");
   if (scope === "confirmed") return both.includes("confirmed");
   if (scope === "worked") return both.includes("worked") && !both.includes("confirmed");
   return (finite(spot.score) ?? 0) >= 50 || (Array.isArray(spot.specialTags) && spot.specialTags.length > 0);

@@ -10,9 +10,9 @@ const supported = params.get("capabilities") === "mac";
 const detached = params.has("detached");
 const spots = detached ? Array.from({ length: 100 }, (_, index) => ({
   id: `synthetic-spot-${index}`, callsign: index % 4 ? `TEST${index}/P` : "TEST123456789/PORTABLE", frequencyKHz: 14010 + index * 3,
-  band: "20m", mode: index % 2 ? "CW" : "SSB", callStatus: "New Call", dxccStatus: "Worked",
+  band: "20m", mode: index % 2 ? "CW" : "SSB", callStatus: "New Callsign", dxccStatus: "Worked",
   source: "cluster", spotter: "SYNTHETIC", country: "Synthetic country", continent: "EU", grid: "JN88AA",
-  receivedAt: Date.now() - index * 1_000, score: 60, specialTags: [], statusHex: "#ff8c00",
+  receivedAt: Date.now() - index * 1_000, score: 60, specialTags: [], statusHex: "#cc372d",
   comment: "Synthetic memory-only spot for detached table geometry; no station command or network request.",
 })) : [];
 const response = {

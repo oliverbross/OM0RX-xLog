@@ -14,7 +14,7 @@ function archive() {
     clusterHost: "fixture.invalid", arrivedAt: "2026-10-14T00:00:00Z", reportedAt: null,
     timeBasis: "arrival", recordKind: "live", spotter: "TEST1", frequencyKHz: 14025,
     frequencyText: "14025.0", band: "20m", mode: "CW", source: "cluster", country: "Synthetic country",
-    adif: 1, comment: "Synthetic retained report", specialTags: [], callStatus: "New Call", dxccStatus: "ATNO" });
+    adif: 1, comment: "Synthetic retained report", specialTags: [], callStatus: "New Callsign", dxccStatus: "New DXCC" });
   const request = async (method: string, params: Record<string, any> = {}) => {
     if (method === "spot_history_status") return { result: {
       status: { revision: watermark, total: 1, earliest: null, latest: null, lastCommit: null, schemaVersion: 1, fileBytes: 4096 },

@@ -21,27 +21,8 @@ const MAX_SEEN: usize = 4_096;
 const FILE_LIMIT: usize = 262_144;
 const DELIVERY_LIMIT: usize = 3;
 const DELIVERY_WINDOW_MS: u64 = 10_000;
-const CALL_STATUSES: [&str; 7] = [
-    "New Call",
-    "New Band",
-    "New Mode",
-    "New Band+Mode",
-    "Worked",
-    "Confirmed",
-    "Unknown",
-];
-const DXCC_STATUSES: [&str; 10] = [
-    "ATNO",
-    "C/New Band",
-    "C/New Mode",
-    "C/New Band+Mode",
-    "W/New Band",
-    "W/New Mode",
-    "W/New Band+Mode",
-    "Worked",
-    "Confirmed",
-    "Unknown",
-];
+const CALL_STATUSES: [&str; 4] = ["New Callsign", "Worked", "Confirmed", "Unknown"];
+const DXCC_STATUSES: [&str; 4] = ["New DXCC", "Worked", "Confirmed", "Unknown"];
 const BANDS: [&str; 13] = [
     "160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "2m", "70cm",
 ];
@@ -333,7 +314,7 @@ impl Configuration {
                 bands: vec![],
                 modes: vec![],
                 call_statuses: vec![],
-                dxcc_statuses: vec!["ATNO".into()],
+                dxcc_statuses: vec!["New DXCC".into()],
                 specials: vec![],
             }],
         }
@@ -451,10 +432,41 @@ fn spot(value: &Value) -> Option<Spot> {
     })
 }
 
+fn migrate_statuses(values: &mut Vec<String>, callsign: bool) {
+    let migrated: Vec<String> = values
+        .iter()
+        .map(|value| {
+            if callsign && matches!(value.as_str(), "New Call" | "New Band" | "New Mode" | "New Band+Mode") {
+                "New Callsign".to_string()
+            } else if !callsign && (value == "ATNO" || value.contains("/New ")) {
+                "New DXCC".to_string()
+            } else {
+                value.clone()
+            }
+        })
+        .collect();
+    values.clear();
+    for value in migrated {
+        if !values.contains(&value) { values.push(value); }
+    }
+}
+
+fn migrate_configuration(mut configuration: Configuration) -> Configuration {
+    for rule in &mut configuration.rules {
+        migrate_statuses(&mut rule.call_statuses, true);
+        migrate_statuses(&mut rule.dxcc_statuses, false);
+    }
+    configuration
+}
+
 fn read(path: &Path) -> (Configuration, Option<String>) {
     match std::fs::read(path) {
         Ok(bytes) if bytes.len() <= FILE_LIMIT => match serde_json::from_slice::<Configuration>(&bytes) {
-            Ok(configuration) if configuration.validate().is_ok() => (configuration, None),
+            Ok(configuration) => {
+                let configuration = migrate_configuration(configuration);
+                if configuration.validate().is_ok() { (configuration, None) }
+                else { (Configuration::default_off(), Some("Saved DX alert rules could not be verified. Saving replaces that file with the reviewed settings.".into())) }
+            }
             _ => (Configuration::default_off(), Some("Saved DX alert rules could not be verified. Saving replaces that file with the reviewed settings.".into())),
         },
         Ok(_) => (Configuration::default_off(), Some("Saved DX alert rules are too large. Saving replaces that file with the reviewed settings.".into())),
@@ -693,8 +705,8 @@ impl Owner {
             band: "20m".into(),
             mode: "FT8".into(),
             comment: String::new(),
-            call_status: "New Call".into(),
-            dxcc_status: "ATNO".into(),
+            call_status: "New Callsign".into(),
+            dxcc_status: "New DXCC".into(),
             special_tags: vec![],
             rule_names: vec!["Test alert".into()],
             count: 1,
@@ -1027,6 +1039,8 @@ mod tests {
         .unwrap()
     }
     fn rule(id: &str, name: &str, dxcc: &[&str]) -> Rule {
+        let mut dxcc_statuses = dxcc.iter().map(|value| (*value).to_string()).collect();
+        migrate_statuses(&mut dxcc_statuses, false);
         Rule {
             sources: cluster_source(),
             id: id.into(),
@@ -1037,13 +1051,15 @@ mod tests {
             bands: vec![],
             modes: vec![],
             call_statuses: vec![],
-            dxcc_statuses: dxcc.iter().map(|value| (*value).into()).collect(),
+            dxcc_statuses,
             specials: vec![],
         }
     }
     fn spot(id: &str, callsign: &str, dxcc_status: &str) -> Value {
+        let mut dxcc = vec![dxcc_status.to_string()];
+        migrate_statuses(&mut dxcc, false);
         json!({"id":id,"callsign":callsign,
-        "frequencyKHz":14074.0,"band":"20m","mode":"FT8","callStatus":"New Call","dxccStatus":dxcc_status,
+        "frequencyKHz":14074.0,"band":"20m","mode":"FT8","callStatus":"New Callsign","dxccStatus":dxcc[0],
         "specialTags":[],"activation":{"sourceEpoch":"00000000-0000-4000-8000-000000000001","spotVersion":id}})
     }
     fn projection(revision: u64, spots: Vec<Value>) -> Value {
@@ -1197,7 +1213,7 @@ mod tests {
         assert_eq!(owner.snapshot().unwrap()["entries"], json!([]));
 
         let mut classified = retained;
-        classified["callStatus"] = json!("New Call"); classified["dxccStatus"] = json!("ATNO");
+        classified["callStatus"] = json!("New Callsign"); classified["dxccStatus"] = json!("New DXCC");
         let mut refresh = activity(2, vec![classified.clone()]);
         refresh["classification_revision"] = json!(2);
         assert!(owner.observe_activity(&refresh).unwrap());
@@ -1207,7 +1223,7 @@ mod tests {
         assert!(owner.observe_activity(&regressed).is_err());
 
         let next = cq("new-period", "K1NEW", now_ms());
-        let mut next_classified = next; next_classified["callStatus"] = json!("New Call"); next_classified["dxccStatus"] = json!("ATNO");
+        let mut next_classified = next; next_classified["callStatus"] = json!("New Callsign"); next_classified["dxccStatus"] = json!("New DXCC");
         let mut new_decode = activity(3, vec![classified, next_classified]);
         new_decode["classification_revision"] = json!(2);
         owner.observe_activity(&new_decode).unwrap();
@@ -1241,7 +1257,7 @@ mod tests {
         assert!(rule.matches(&super::spot(&value).unwrap()));
         value["dxccStatus"] = json!("Worked");
         assert!(!rule.matches(&super::spot(&value).unwrap()));
-        value["dxccStatus"] = json!("ATNO");
+        value["dxccStatus"] = json!("New DXCC");
         rule.comment_contains = "POTA.*".into();
         assert!(!rule.matches(&super::spot(&value).unwrap()));
         value["comment"] = json!("CQ POTA.* literal");
@@ -1417,11 +1433,15 @@ mod tests {
         let mut legacy = serde_json::to_value(Configuration::default_off()).unwrap();
         legacy.as_object_mut().unwrap().remove("nativePopup");
         legacy.as_object_mut().unwrap().remove("notificationSound");
+        legacy["rules"][0]["callStatuses"] = json!(["New Band+Mode"]);
+        legacy["rules"][0]["dxccStatuses"] = json!(["ATNO"]);
         std::fs::write(&path, serde_json::to_vec(&legacy).unwrap()).unwrap();
         let (configuration, error) = read(&path);
         assert!(error.is_none());
         assert!(!configuration.native_popup);
         assert!(!configuration.notification_sound);
+        assert_eq!(configuration.rules[0].call_statuses, vec!["New Callsign"]);
+        assert_eq!(configuration.rules[0].dxcc_statuses, vec!["New DXCC"]);
 
         let owner = owner(directory.path());
         let initial = owner.snapshot().unwrap();

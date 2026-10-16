@@ -83,24 +83,21 @@ final class ImportedSpotLogicTests: XCTestCase {
     }
 
     func testClassificationPriority() {
-        XCTAssertEqual(SpotLogic.callStatus(worked: false, newBand: true, newMode: true, confirmedBandMode: false), "New Call")
-        XCTAssertEqual(SpotLogic.callStatus(worked: true, newBand: true, newMode: true, confirmedBandMode: false), "New Band+Mode")
-        XCTAssertEqual(SpotLogic.dxccStatus(worked: true, confirmed: true, newBand: true, newMode: false, confirmedBandMode: false), "C/New Band")
+        XCTAssertEqual(SpotLogic.callStatus(workedBandMode: false, confirmedBandMode: false), "New Callsign")
+        XCTAssertEqual(SpotLogic.callStatus(workedBandMode: true, confirmedBandMode: false), "Worked")
+        XCTAssertEqual(SpotLogic.dxccStatus(workedBandMode: false, confirmedBandMode: false), "New DXCC")
     }
 
     func testCallStatusUsesTheBandModeCombination() {
-        XCTAssertEqual(SpotLogic.callStatus(worked: true, bandWorked: true, modeWorked: true, bandModeWorked: false, confirmedBandMode: false), "New Mode")
-        XCTAssertEqual(SpotLogic.callStatus(worked: true, bandWorked: false, modeWorked: true, bandModeWorked: false, confirmedBandMode: false), "New Band")
-        XCTAssertEqual(SpotLogic.callStatus(worked: true, bandWorked: false, modeWorked: false, bandModeWorked: false, confirmedBandMode: false), "New Band+Mode")
-        XCTAssertEqual(SpotLogic.callStatus(worked: true, bandWorked: true, modeWorked: true, bandModeWorked: true, confirmedBandMode: false), "Worked")
-        XCTAssertEqual(SpotLogic.callStatus(worked: true, bandWorked: true, modeWorked: true, bandModeWorked: true, confirmedBandMode: true), "Confirmed")
+        XCTAssertEqual(SpotLogic.callStatus(workedBandMode: false, confirmedBandMode: false), "New Callsign")
+        XCTAssertEqual(SpotLogic.callStatus(workedBandMode: true, confirmedBandMode: false), "Worked")
+        XCTAssertEqual(SpotLogic.callStatus(workedBandMode: true, confirmedBandMode: true), "Confirmed")
     }
 
     func testWorkedBandModeVisibilityDefaultsToHidden() {
         XCTAssertFalse(SpotLogic.shouldShow(callStatus: "Worked", showWorkedBandModeSpots: false))
         XCTAssertFalse(SpotLogic.shouldShow(callStatus: "Confirmed", showWorkedBandModeSpots: false))
-        XCTAssertTrue(SpotLogic.shouldShow(callStatus: "New Mode", showWorkedBandModeSpots: false))
-        XCTAssertTrue(SpotLogic.shouldShow(callStatus: "New Band", showWorkedBandModeSpots: false))
+        XCTAssertTrue(SpotLogic.shouldShow(callStatus: "New Callsign", showWorkedBandModeSpots: false))
         XCTAssertTrue(SpotLogic.shouldShow(callStatus: "Worked", showWorkedBandModeSpots: true))
     }
 

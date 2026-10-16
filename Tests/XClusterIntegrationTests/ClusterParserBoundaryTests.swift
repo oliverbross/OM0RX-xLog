@@ -88,11 +88,11 @@ final class ClusterParserBoundaryTests: XCTestCase {
     }
 
     func testScorePriorityAndCapRemainOriginal() {
-        let scored = SpotLogic.score(callStatus: "New Call", dxccStatus: "ATNO", specials: ["POTA"], source: "rbl")
+        let scored = SpotLogic.score(callStatus: "New Callsign", dxccStatus: "New DXCC", specials: ["POTA"], source: "rbl")
         XCTAssertEqual(scored.0, 100)
-        XCTAssertEqual(scored.1, ["ATNO", "POTA", "RBN source"])
-        let unknown = SpotLogic.score(callStatus: "New Call", dxccStatus: "Unknown", specials: [], source: "cluster")
+        XCTAssertEqual(scored.1, ["New DXCC", "POTA", "RBN source"])
+        let unknown = SpotLogic.score(callStatus: "New Callsign", dxccStatus: "Unknown", specials: [], source: "cluster")
         XCTAssertEqual(unknown.0, 42)
-        XCTAssertEqual(unknown.1, ["New Call"])
+        XCTAssertEqual(unknown.1, ["New Callsign"])
     }
 }

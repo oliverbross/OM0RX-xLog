@@ -553,8 +553,8 @@ public actor LiveClusterMethods {
               value.bands.isSubset(of: Set(SpotLogic.bands)),
               value.modes.isSubset(of: Set(SpotLogic.modes)),
               value.continents.isSubset(of: ["AF", "AN", "AS", "EU", "NA", "OC", "SA"]),
-              value.callStatuses.isSubset(of: ["New Call", "New Band", "New Mode", "New Band+Mode", "Worked", "Confirmed", "Unknown"]),
-              value.dxccStatuses.isSubset(of: ["ATNO", "C/New Band", "C/New Mode", "C/New Band+Mode", "W/New Band", "W/New Mode", "W/New Band+Mode", "Worked", "Confirmed", "Unknown"]),
+              value.callStatuses.isSubset(of: ["New Callsign", "Worked", "Confirmed", "Unknown"]),
+              value.dxccStatuses.isSubset(of: ["New DXCC", "Worked", "Confirmed", "Unknown"]),
               value.sources.isSubset(of: ["cluster", "rbl"]),
               value.worked.isSubset(of: ["Worked before", "Not worked"]) else { throw invalid() }
     }

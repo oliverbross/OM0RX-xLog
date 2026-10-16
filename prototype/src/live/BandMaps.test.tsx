@@ -4,9 +4,9 @@ import { act, cleanup, fireEvent, render, screen, within } from "@testing-librar
 import { BAND_RANGES, BandMaps, BandMapsToolbarContext, bandForRadio, opportunityCode, placeSpots, panBandRange, bandMapCapacity, bandMapFrequencyTicks, bandMapLaneGeometry, bandMapSpotWidth, bandMapOverflowHeight, deduplicateBandMapSpots, filterRecentBandMapSpots, formatBandMapFrequency } from "./BandMaps";
 import type { BandMapViewPreferences } from "./BandMaps";
 
-const spot = (id: string, frequencyKHz: number, band = "20m", callStatus = "New Call", dxccStatus = "Worked") => ({
+const spot = (id: string, frequencyKHz: number, band = "20m", callStatus = "New Callsign", dxccStatus = "Worked") => ({
   id, callsign: id, frequencyKHz, band, mode: "CW", callStatus, dxccStatus,
-  comment: "live cluster spot", country: "Slovakia", source: "cluster", statusHex: "#FF6B35",
+  comment: "live cluster spot", country: "Slovakia", source: "cluster", statusHex: "#CC372D",
 });
 
 beforeEach(() => localStorage.clear());
@@ -246,10 +246,10 @@ describe("native band-map parity", () => {
   });
 
   it("uses native opportunity precedence and band boundaries", () => {
-    expect(opportunityCode(spot("A", 14070, "20m", "New Call", "ATNO"))).toBe("ATNO");
-    expect(opportunityCode(spot("B", 14070, "20m", "New Band+Mode"))).toBe("NB+NM");
-    expect(opportunityCode(spot("C", 14070, "20m", "New Band"))).toBe("NB");
-    expect(opportunityCode(spot("D", 14070, "20m", "New Mode"))).toBe("NM");
+    expect(opportunityCode(spot("A", 14070, "20m", "New Callsign", "New DXCC"))).toBe("ND");
+    expect(opportunityCode(spot("B", 14070, "20m", "New Callsign"))).toBe("NC");
+    expect(opportunityCode(spot("C", 14070, "20m", "Worked"))).toBe("W");
+    expect(opportunityCode(spot("D", 14070, "20m", "Confirmed"))).toBe("C");
     expect(opportunityCode(spot("E", 14070, "20m", "Confirmed", "Worked"))).toBe("C");
     expect(bandForRadio(14_070_000)).toBe("20m");
     expect(bandForRadio(1)).toBeNull();
@@ -257,7 +257,7 @@ describe("native band-map parity", () => {
   });
 
   it("uses compact common chip widths for visible callsigns and composite codes", () => {
-    const spots = [spot("UB3A", 14020), spot("IU1PZC", 14030), spot("OK2JIQ/P", 14040), spot("R5GG", 14050, "20m", "New Band+Mode")];
+    const spots = [spot("UB3A", 14020), spot("IU1PZC", 14030), spot("OK2JIQ/P", 14040), spot("R5GG", 14050, "20m", "New Callsign")];
     render(<BandMaps spots={spots} onSelect={vi.fn()} />);
     const chart = screen.getByLabelText(/20m spectrum/);
     const markers = within(chart).getAllByRole("button") as HTMLButtonElement[];
@@ -265,13 +265,13 @@ describe("native band-map parity", () => {
     expect(new Set(widths).size).toBe(1);
     expect(widths[0]).toBeLessThan(90);
     expect(within(chart).getByText("OK2JIQ/P")).toBeTruthy();
-    expect(within(chart).getByText("NB+NM")).toBeTruthy();
+    expect(within(chart).getAllByText("NC")).toHaveLength(4);
     expect(within(screen.getByRole("region", { name: "20m band map" })).getByText("Phone")).toBeTruthy();
   });
 
   it.each([0.8, 1, 2])("fits long calls and composite codes inside narrow lanes at scale %s", scale => {
     const short = [spot("UB3A", 14020)];
-    const long = [spot("VK8/OK2JIQ/P", 14020, "20m", "New Band+Mode")];
+    const long = [spot("VK8/OK2JIQ/P", 14020, "20m", "New Callsign")];
     expect(bandMapSpotWidth(long, 400, scale)).toBeGreaterThan(bandMapSpotWidth(short, 400, scale));
     const available = bandMapLaneGeometry(105, scale).laneWidth - 5;
     expect(bandMapSpotWidth(long, available + 5, scale)).toBeLessThanOrEqual(available);

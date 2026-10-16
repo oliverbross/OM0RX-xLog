@@ -1,10 +1,7 @@
-// These defaults match XClusterCore.StatusPalette. Operator settings take precedence.
+// Wavelog band-map defaults. Operator settings take precedence.
 export const clusterStatusColors: Record<string, string> = {
-  "New Call": "#FF6B35", "New Band": "#00BFFF", "New Mode": "#FFC000",
-  "New Band+Mode": "#E91E63", ATNO: "#FF8C00", "C/New Band": "#4A9EFF",
-  "C/New Mode": "#FFD93D", "C/New Band+Mode": "#9C27B0", "W/New Band": "#00BCD4",
-  "W/New Mode": "#FFA726", "W/New Band+Mode": "#FF5722", Worked: "#B0B0B0",
-  Confirmed: "#10B981", Unknown: "#777F8C",
+  "New Callsign": "#CC372D", "New DXCC": "#CC372D", Worked: "#E5A50A",
+  Confirmed: "#90EE90", Unknown: "#777F8C",
 };
 
 export const clusterBandColors: Record<string, string> = {

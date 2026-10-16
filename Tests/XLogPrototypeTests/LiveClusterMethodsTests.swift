@@ -265,11 +265,11 @@ struct LiveClusterMethodsTests {
         var stale = try #require(initial["configuration"] as? [String: Any])
         let initialPalette = try #require(stale["palette"] as? [String: Any])
         let initialStatus = try #require(initialPalette["status"] as? [String: String])
-        let initialATNO = try #require(initialStatus["ATNO"])
+        let initialNewDXCC = try #require(initialStatus["New DXCC"])
         let radio = try await bridge.handle(method: "cluster_radio_spots_configure", params: [
             "color_policy": "dxcc", "color_policy_expected": "callsign",
-            "status_colors": ["ATNO": "#123456"],
-            "status_color_expected": ["ATNO": initialATNO]])
+            "status_colors": ["New DXCC": "#123456"],
+            "status_color_expected": ["New DXCC": initialNewDXCC]])
         #expect((radio["configuration"] as? [String: Any])?["radioSpotColorPolicy"] as? String == "dxcc")
         var otherWindowDraft = stale
         otherWindowDraft["requestSkimmer"] = false
@@ -293,7 +293,7 @@ struct LiveClusterMethodsTests {
         #expect(saved["radioSpotColorPolicy"] as? String == "dxcc")
         #expect(saved["hideWSPRSpots"] as? Bool == true)
         #expect(saved["requestSkimmer"] as? Bool == false)
-        #expect(status["ATNO"] == "#123456")
+        #expect(status["New DXCC"] == "#123456")
         #expect(status["Worked"] == "#ABCDEF")
         #expect((savedPalette["band"] as? [String: String])?["20m"] == "#AABBCC")
         var otherClusterDraft = saved
@@ -328,44 +328,44 @@ struct LiveClusterMethodsTests {
         let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
         let url = root.appendingPathComponent("cluster.json")
         var original = ClusterSessionConfiguration(servers: [])
-        original.palette.status["New Call"] = "#010203"
+        original.palette.status["New Callsign"] = "#010203"
         original.palette.band["20m"] = "#AABBCC"
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         try JSONEncoder().encode(original).write(to: url)
         let bridge = LiveClusterMethods(logbook: logbook, configurationURL: url, vault: UnavailableClusterTestVault())
         let result = try await bridge.handle(method: "cluster_radio_spots_configure",
             params: ["color_policy": "dxcc", "color_policy_expected": "callsign",
-                     "status_colors": ["ATNO": "#123456"],
-                     "status_color_expected": ["ATNO": original.palette.status["ATNO"]!]])
+                     "status_colors": ["New DXCC": "#123456"],
+                     "status_color_expected": ["New DXCC": original.palette.status["New DXCC"]!]])
         let saved = try #require(result["configuration"] as? [String: Any])
         #expect(saved["forwardSpotsToFlex"] as? Bool == false)
         #expect(saved["radioSpotColorPolicy"] as? String == "dxcc")
         let disk = try JSONDecoder().decode(ClusterSessionConfiguration.self, from: Data(contentsOf: url))
         #expect(disk.radioSpotColorPolicy == .dxcc)
-        #expect(disk.palette.status["ATNO"] == "#123456")
-        #expect(disk.palette.status["New Call"] == "#010203")
+        #expect(disk.palette.status["New DXCC"] == "#123456")
+        #expect(disk.palette.status["New Callsign"] == "#010203")
         #expect(disk.palette.band["20m"] == "#AABBCC")
         let colorOnly = try await bridge.handle(method: "cluster_radio_spots_configure", params: [
-            "status_colors": ["New Call": "#040506"], "status_color_expected": ["New Call": "#010203"]])
+            "status_colors": ["New Callsign": "#040506"], "status_color_expected": ["New Callsign": "#010203"]])
         #expect((colorOnly["configuration"] as? [String: Any])?["radioSpotColorPolicy"] as? String == "dxcc")
         do {
             _ = try await bridge.handle(method: "cluster_radio_spots_configure", params: [
-                "status_colors": ["ATNO": "#654321"],
-                "status_color_expected": ["ATNO": original.palette.status["ATNO"]!]])
+                "status_colors": ["New DXCC": "#654321"],
+                "status_color_expected": ["New DXCC": original.palette.status["New DXCC"]!]])
             Issue.record("Stale Radio spots colour overwrote another window")
         } catch let failure as WorkerFailure { #expect(failure.code == "configuration_conflict") }
         do { _ = try await bridge.handle(method: "cluster_radio_spots_configure",
             params: ["color_policy": "other", "color_policy_expected": "dxcc"]); Issue.record("Invalid policy accepted") }
         catch let failure as WorkerFailure { #expect(failure.code == "invalid_params") }
-        for invalid in [["ATNO": "#12345"], ["Unsupported": "#112233"]] {
+        for invalid in [["New DXCC": "#12345"], ["Unsupported": "#112233"]] {
             do { _ = try await bridge.handle(method: "cluster_radio_spots_configure",
-                params: ["status_colors": invalid, "status_color_expected": ["ATNO": "#123456"]]); Issue.record("Invalid colour accepted") }
+                params: ["status_colors": invalid, "status_color_expected": ["New DXCC": "#123456"]]); Issue.record("Invalid colour accepted") }
             catch let failure as WorkerFailure { #expect(failure.code == "invalid_params") }
         }
         let unchanged = try JSONDecoder().decode(ClusterSessionConfiguration.self, from: Data(contentsOf: url))
         #expect(unchanged.radioSpotColorPolicy == .dxcc)
-        #expect(unchanged.palette.status["ATNO"] == "#123456")
-        #expect(unchanged.palette.status["New Call"] == "#040506")
+        #expect(unchanged.palette.status["New DXCC"] == "#123456")
+        #expect(unchanged.palette.status["New Callsign"] == "#040506")
         await bridge.terminate()
     }
 }

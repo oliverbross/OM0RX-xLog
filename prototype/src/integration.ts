@@ -36,9 +36,9 @@ export function decodeClassifications(result: unknown): Record<string, Classific
 }
 export function opportunityLabel(value: Classification | undefined): string {
   if (!value) return "—";
-  if (value.dxcc_status === "ATNO") return "ATNO";
+  if (value.dxcc_status === "New DXCC") return "ND";
   const labels: Record<string, string> = {
-    "New Call": "NC", "New Band+Mode": "NB+NM", "New Band": "NB", "New Mode": "NM", Confirmed: "CFM", Worked: "WKD",
+    "New Callsign": "NC", Confirmed: "CFM", Worked: "WKD",
   };
   return labels[value.call_status] ?? "—";
 }

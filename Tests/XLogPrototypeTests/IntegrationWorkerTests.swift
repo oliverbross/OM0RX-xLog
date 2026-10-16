@@ -27,8 +27,8 @@ final class IntegrationWorkerTests: XCTestCase {
     }
     func testEmptySessionThenLoggedCallChangesClassification() throws {
         let before = try first(request("cluster_classify", batch()))
-        XCTAssertEqual(before["call_status"] as? String, "New Call")
-        XCTAssertEqual(before["dxcc_status"] as? String, "ATNO")
+        XCTAssertEqual(before["call_status"] as? String, "New Callsign")
+        XCTAssertEqual(before["dxcc_status"] as? String, "New DXCC")
         let after = try first(request("cluster_classify", batch([
             ["callsign": " w1aw ", "frequency_hz": 14_240_000, "mode": "USB", "adif": 291, "timestamp": 1_700_000_000]
         ])))

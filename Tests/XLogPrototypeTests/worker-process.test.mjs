@@ -84,8 +84,8 @@ test("P2 core integration methods run through the real bounded worker process", 
   const byID = Object.fromEntries(responses.map(response => [response.id, response]));
   assert.equal(byID.contracts.result.passed, true);
   assert.equal(byID.contracts.result.station_io, false);
-  assert.equal(byID.cluster.result.spots[0].call_status, "New Call");
-  assert.equal(byID.cluster.result.spots[0].dxcc_status, "ATNO");
+  assert.equal(byID.cluster.result.spots[0].call_status, "New Callsign");
+  assert.equal(byID.cluster.result.spots[0].dxcc_status, "New DXCC");
 });
 
 test("concurrent worker requests have unique correlated replies under a burst", async () => {

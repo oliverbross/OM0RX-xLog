@@ -20,7 +20,7 @@ const rows = Array.from({ length: 45 }, (_, index) => ({
   spotter: "TEST1", frequencyKHz: 14025 + index, frequencyText: String(14025 + index), band: "20m", mode: "CW",
   source: "cluster", country: "Synthetic country", adif: 1,
   comment: "Synthetic portable report; retained original comment. No live archive or station access.",
-  specialTags: [], callStatus: "New Call", dxccStatus: "ATNO",
+  specialTags: [], callStatus: "New Callsign", dxccStatus: "New DXCC",
   rawLine: "DX de TEST1: 14025 EA8/TEST0/P SYNTHETIC ONLY", classificationJSON: '{"source":"synthetic fixture"}',
 }));
 
