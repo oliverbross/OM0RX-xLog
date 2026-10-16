@@ -143,7 +143,8 @@ function MainLiveApp() {
   const logbookWorkingRef = useRef(false);
   const [logbookWorking, setLogbookWorking] = useState(false);
   const logbookWorkingChanged = useCallback((value: boolean) => { logbookWorkingRef.current = value; setLogbookWorking(value); }, []);
-  const [settingsTabRequest, setSettingsTabRequest] = useState<{ tab: "Station" | "Logbook" | "Sync"; revision: number }>({ tab: "Station", revision: 0 });
+  type MenuSettingsTab = "Station" | "Logbook" | "Wavelog" | "Sync" | "QRZ" | "Online logs" | "Reference data";
+  const [settingsTabRequest, setSettingsTabRequest] = useState<{ tab: MenuSettingsTab; revision: number }>({ tab: "Station", revision: 0 });
   const [awardsOpened, setAwardsOpened] = useState(false);
   useEffect(() => { if (view === "Awards") setAwardsOpened(true); }, [view]);
   const [workspace, setWorkspace] = useState<Data | null>(null);
@@ -237,13 +238,20 @@ function MainLiveApp() {
     setSettingsTabRequest(previous => ({ tab, revision: previous.revision + 1 }));
     return true;
   }, [setView]);
+  const showOnlineSettings = useCallback((tab: MenuSettingsTab) => {
+    if (!setView("Settings")) return false;
+    setSettingsTabRequest(previous => ({ tab, revision: previous.revision + 1 }));
+    return true;
+  }, [setView]);
   useEffect(() => connectWorkspaceNavigation(title => {
     if (title.startsWith("Workspace Mode: ")) return modeAction.current(title);
-    return title === "Sync" ? showSyncSettings() : setView(title);
+    const onlineTab = ({ "Wavelog Settings": "Wavelog", "QRZ Settings": "QRZ", "Online Log Settings": "Online logs",
+      "Reference Data Settings": "Reference data" } as const)[title as "Wavelog Settings" | "QRZ Settings" | "Online Log Settings" | "Reference Data Settings"];
+    return title === "Sync" ? showSyncSettings() : onlineTab ? showOnlineSettings(onlineTab) : setView(title);
   }, setError, undefined, retry => {
     const draft = draftSession.subscribe(retry), contact = contactSession.subscribe(retry), layout = deskLayout.session.subscribe(retry);
     return () => { draft(); contact(); layout(); };
-  }), [showSyncSettings, setView, draftSession, contactSession, logbookWorking]);
+  }), [showOnlineSettings, showSyncSettings, setView, draftSession, contactSession, logbookWorking]);
   const [refresh, setRefresh] = useState(0);
   useEffect(() => connectLogbookChanges(() => setRefresh(value => value + 1), setError), []);
   const [busy, setBusy] = useState(false);

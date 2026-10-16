@@ -340,6 +340,11 @@ const LOGBOOK_OPEN_WINDOW_MENU_ID: &str = "logbook_open_window";
 const LOGBOOK_IMPORT_ADIF_MENU_ID: &str = "logbook_import_adif";
 const LOGBOOK_EXPORT_ADIF_MENU_ID: &str = "logbook_export_adif";
 const LOGBOOK_SYNC_MENU_ID: &str = "logbook_sync_wavelog";
+const ONLINE_SYNC_WAVELOG_MENU_ID: &str = "online_sync_wavelog";
+const ONLINE_WAVELOG_SETTINGS_MENU_ID: &str = "online_wavelog_settings";
+const ONLINE_QRZ_SETTINGS_MENU_ID: &str = "online_qrz_settings";
+const ONLINE_LOG_UPLOADS_MENU_ID: &str = "online_log_uploads";
+const ONLINE_REFERENCE_DATA_MENU_ID: &str = "online_reference_data";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum WorkspaceLayout {
@@ -415,6 +420,7 @@ fn workspace_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     let items = menu.items()?;
     let before_window = items.iter().position(|item| item.id().0 == WINDOW_SUBMENU_ID).unwrap_or(items.len());
     menu.insert(&station, before_window)?;
+    append_online_menu(app, &menu)?;
     let existing_window = menu.items()?.iter().filter_map(|item| item.as_submenu().cloned())
         .find(|submenu| submenu.id().0 == WINDOW_SUBMENU_ID);
     let windows = if let Some(windows) = existing_window { windows } else {
@@ -479,6 +485,38 @@ fn logbook_menu_route(id: &str) -> Option<&'static str> {
 
 fn logbook_menu_window(id: &str) -> Option<&'static str> {
     (id == LOGBOOK_OPEN_WINDOW_MENU_ID).then_some("logbook")
+}
+
+fn append_online_menu(app: &tauri::AppHandle, menu: &Menu<tauri::Wry>) -> tauri::Result<()> {
+    let online = Submenu::new(app, "Online", true)?;
+    online.append(&MenuItem::with_id(app, ONLINE_SYNC_WAVELOG_MENU_ID,
+        "Synchronize with Wavelog…", true, None::<&str>)?)?;
+    online.append(&MenuItem::with_id(app, ONLINE_WAVELOG_SETTINGS_MENU_ID,
+        "Wavelog Account…", true, None::<&str>)?)?;
+    online.append(&PredefinedMenuItem::separator(app)?)?;
+    online.append(&MenuItem::with_id(app, ONLINE_QRZ_SETTINGS_MENU_ID,
+        "QRZ Callsign Lookup…", true, None::<&str>)?)?;
+    online.append(&MenuItem::with_id(app, ONLINE_LOG_UPLOADS_MENU_ID,
+        "QRZ and Club Log Uploads…", true, None::<&str>)?)?;
+    online.append(&PredefinedMenuItem::separator(app)?)?;
+    online.append(&MenuItem::with_id(app, ONLINE_REFERENCE_DATA_MENU_ID,
+        "Online Reference Data…", true, None::<&str>)?)?;
+
+    let items = menu.items()?;
+    let before_window = items.iter().position(|item| item.id().0 == WINDOW_SUBMENU_ID).unwrap_or(items.len());
+    menu.insert(&online, before_window)?;
+    Ok(())
+}
+
+fn online_menu_route(id: &str) -> Option<&'static str> {
+    match id {
+        ONLINE_SYNC_WAVELOG_MENU_ID => Some("sync"),
+        ONLINE_WAVELOG_SETTINGS_MENU_ID => Some("wavelog-settings"),
+        ONLINE_QRZ_SETTINGS_MENU_ID => Some("qrz-settings"),
+        ONLINE_LOG_UPLOADS_MENU_ID => Some("online-log-settings"),
+        ONLINE_REFERENCE_DATA_MENU_ID => Some("reference-data-settings"),
+        _ => None,
+    }
 }
 
 fn window_menu_includes(id: &str) -> bool {
@@ -1639,6 +1677,13 @@ fn main() {
             }
         })
         .on_menu_event(|app, event| {
+            if let Some(screen) = online_menu_route(&event.id().0) {
+                let app = app.clone(); let screen = screen.to_owned();
+                tauri::async_runtime::spawn(async move {
+                    if let Err(error) = navigate_workspace(app, screen).await { eprintln!("Could not open online action: {error}"); }
+                });
+                return;
+            }
             if let Some(screen) = logbook_menu_route(&event.id().0) {
                 let app = app.clone(); let screen = screen.to_owned();
                 tauri::async_runtime::spawn(async move {
@@ -1842,6 +1887,23 @@ mod workspace_layout_tests {
         assert_eq!(super::logbook_menu_window(super::LOGBOOK_OPEN_WINDOW_MENU_ID), Some("logbook"));
         assert!(super::logbook_menu_route("logbook_missing").is_none());
         assert!(super::logbook_menu_window("workspace_window_logbook").is_none());
+    }
+
+    #[test]
+    fn online_menu_routes_only_to_existing_online_capabilities() {
+        let routes = [
+            (super::ONLINE_SYNC_WAVELOG_MENU_ID, "sync"),
+            (super::ONLINE_WAVELOG_SETTINGS_MENU_ID, "wavelog-settings"),
+            (super::ONLINE_QRZ_SETTINGS_MENU_ID, "qrz-settings"),
+            (super::ONLINE_LOG_UPLOADS_MENU_ID, "online-log-settings"),
+            (super::ONLINE_REFERENCE_DATA_MENU_ID, "reference-data-settings"),
+        ];
+        for (menu_id, route) in routes {
+            assert_eq!(super::online_menu_route(menu_id), Some(route));
+            assert!(crate::workspace_navigation::screen(route).is_some());
+        }
+        assert!(super::online_menu_route("online_lotw_login").is_none());
+        assert!(super::online_menu_route("online_eqsl_login").is_none());
     }
 
     #[test]

@@ -18,7 +18,7 @@ export type ServiceSettingsProps = { values: Data; savedValues?: Data; request: 
   onReconcile?: () => Promise<void>; onRetry?: () => Promise<void>; onUseSaved?: () => void;
   dataRequest?: Request; onDataChanged?: () => void; rotorSettings?: ReactNode; workspaceSettings?: ReactNode; syncSettings?: ReactNode;
   onExternalContact?: () => void;
-  availableTabs?: readonly Tab[]; requestedTab?: "Station" | "Logbook" | "Wavelog" | "Sync"; requestedTabRevision?: number; cwContext?: CWContext; cwState?: CWState;
+  availableTabs?: readonly Tab[]; requestedTab?: Tab; requestedTabRevision?: number; cwContext?: CWContext; cwState?: CWState;
   refreshCW?: () => Promise<void>; cwProvider?: string };
 const tabs = ["Station", "Logbook", "Wavelog", "Sync", "Integrations", "QRZ", "Online logs", "Reference data", "Rotator", "Radio spots", "CW", "Display", "Workspace", "Backups"] as const;
 type Tab = typeof tabs[number];

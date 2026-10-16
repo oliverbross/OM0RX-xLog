@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.4.0-alpha.53 — 2026-10-17
+
+- Added one native Online menu before Window with direct access to xLog’s existing Wavelog, QRZ, Club Log and online reference-data workflows.
+- Each action opens the relevant existing Settings section; Wavelog synchronization retains the integrated-logbook safety gate.
+- Kept unsupported LoTW/eQSL account actions and duplicate DX Cluster, Logbook and Settings entries out of the menu.
+
 ## 0.4.0-alpha.52 — 2026-10-17
 
 - Moved the single native Logbook menu directly after File instead of leaving it among the later workspace menus.

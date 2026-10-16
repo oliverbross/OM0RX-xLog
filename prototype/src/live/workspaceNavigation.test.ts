@@ -13,7 +13,7 @@ function fixture() {
 it("has every existing destination and no unknown navigation or CW function-key shortcut", () => {
   expect(workspaceMenuScreens.some(screen => screen.id === "sync")).toBe(false);
   expect(workspaceMenuScreens.some(screen => screen.id === "settings")).toBe(true);
-  expect(workspaceScreens.map(s => s.title)).toEqual(["Operator Desk", "Log QSO", "Logbook", "DX Cluster", "Spot History", "World Map", "Band Maps", "Chaser & DX", "Awards", "Station Control", "Sync", "Settings"]);
+  expect(workspaceScreens.map(s => s.title)).toEqual(["Operator Desk", "Log QSO", "Logbook", "DX Cluster", "Spot History", "World Map", "Band Maps", "Chaser & DX", "Awards", "Station Control", "Sync", "Wavelog Settings", "QRZ Settings", "Online Log Settings", "Reference Data Settings", "Settings"]);
   for (const s of workspaceScreens) {
     expect(validWorkspaceNavigation({ revision: 1, screen: s.id })).toBe(true);
     if (s.shortcut) expect(s.shortcut).toMatch(/^CmdOrCtrl\+/);

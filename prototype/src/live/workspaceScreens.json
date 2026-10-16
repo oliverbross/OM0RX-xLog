@@ -10,5 +10,9 @@
   {"id":"awards","title":"Awards","group":"Logbook","shortcut":null},
   {"id":"station-control","title":"Station Control","group":"Station","shortcut":null},
   {"id":"sync","title":"Sync","group":"Logbook","shortcut":null,"hidden":true},
+  {"id":"wavelog-settings","title":"Wavelog Settings","group":"Station","shortcut":null,"hidden":true},
+  {"id":"qrz-settings","title":"QRZ Settings","group":"Station","shortcut":null,"hidden":true},
+  {"id":"online-log-settings","title":"Online Log Settings","group":"Station","shortcut":null,"hidden":true},
+  {"id":"reference-data-settings","title":"Reference Data Settings","group":"Station","shortcut":null,"hidden":true},
   {"id":"settings","title":"Settings","group":"Station","shortcut":"CmdOrCtrl+,"}
 ]
