@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { duplicateSavedLogbookFilter, parseSavedLogbookFilterSnapshot, validateSavedLogbookFilterName,
   validateSavedLogbookFilterQuery, type SavedLogbookFilterSnapshot } from "./savedLogbookFilters";
+import { useSettingsSaveToast } from "./SettingsSaveToast";
 
 type Request = (method: string, params?: Record<string, unknown>) => Promise<any>;
 
@@ -15,6 +16,7 @@ export function LogbookSavedFilters({ onRequest, currentQuery, onApply, disabled
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(true);
   const [message, setMessage] = useState("");
+  const saveToast = useSettingsSaveToast();
   useEffect(() => {
     let active = true; setBusy(true); setMessage("");
     void onRequest("workspace_preferences_load").then(value => {
@@ -63,7 +65,7 @@ export function LogbookSavedFilters({ onRequest, currentQuery, onApply, disabled
       if (response?.status !== "applied") throw new Error("The saved filter change was not confirmed.");
       if (action === "delete") { setSelected(""); setName(""); }
       else { const nextName = String(action === "update" ? params.source : params.name); setSelected(nextName); setName(nextName); }
-      setMessage(action === "save" ? "Filter saved." : action === "clone" ? "Filter cloned." : action === "rename" ? "Filter renamed." : action === "update" ? "Filter updated." : "Filter deleted.");
+      saveToast.show(action === "save" ? "Filter saved." : action === "clone" ? "Filter cloned." : action === "rename" ? "Filter renamed." : action === "update" ? "Filter updated." : "Filter deleted.");
     } catch (cause) { setMessage(cause instanceof Error ? cause.message : "The saved filter could not be changed."); }
     finally { setBusy(false); }
   }
@@ -90,5 +92,6 @@ export function LogbookSavedFilters({ onRequest, currentQuery, onApply, disabled
     {chosen && <p>Selected saved query: <span>{chosen.query}</span></p>}
     <p className={message && !messageIsSuccess ? "error" : ""}
       role={message && !messageIsSuccess ? "alert" : "status"}>{busy ? "Loading saved filters…" : message || "Saved filters reuse the same callsign, name, country or note search."}</p>
+    {saveToast.toast}
   </section>;
 }

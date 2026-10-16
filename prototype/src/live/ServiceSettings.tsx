@@ -7,6 +7,7 @@ import { validateCWProfile, type CWContext } from "./cwMacros";
 import type { CWState } from "./cwController";
 import ReferenceScheduleControl from "./ReferenceScheduleControl";
 import WSJTXPanel from "./WSJTXPanel";
+import { useSettingsSaveToast } from "./SettingsSaveToast";
 import "./ServiceSettings.css";
 
 type Data = Record<string, any>;
@@ -25,7 +26,7 @@ type Tab = typeof tabs[number];
 function Credential({ account, label, request, leadingField, visible = false, showSavedStatus = false, savedStatus, missingStatus, allowRemove = false, inputType = "password", onChanged }: { account: string; label: string; request: Request; leadingField?: ReactNode; visible?: boolean; showSavedStatus?: boolean; savedStatus?: string; missingStatus?: string; allowRemove?: boolean; inputType?: "password" | "text"; onChanged?: () => void }) {
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
+  const saveToast = useSettingsSaveToast();
   const [stored, setStored] = useState<"unchecked" | "checking" | "saved" | "missing" | "unavailable">("unchecked");
   const checked = useRef(false);
   const statusRevision = useRef(0);
@@ -43,23 +44,23 @@ function Credential({ account, label, request, leadingField, visible = false, sh
   }, [account, request, showSavedStatus, visible]);
   const save = async () => {
     if (busy || !value) return;
-    setBusy(true); setMessage(""); statusRevision.current++;
+    setBusy(true); statusRevision.current++;
     try {
       await request("secret_save", { account, value });
-      setValue(""); setStored("saved"); setMessage(`${label} saved securely.`); onChanged?.();
+      setValue(""); setStored("saved"); saveToast.show(`${label} saved securely.`); onChanged?.();
     } catch {
       setStored(current => current === "checking" ? "unavailable" : current);
-      setMessage(`Could not save ${label}. Check the app’s Keychain access and try again.`);
+      saveToast.show(`Could not save ${label}. Check the app’s Keychain access and try again.`, "error");
     }
     finally { setBusy(false); }
   };
   const remove = async () => {
     if (busy || stored !== "saved") return;
-    setBusy(true); setMessage(""); statusRevision.current++;
+    setBusy(true); statusRevision.current++;
     try {
       await request("secret_save", { account, value: "" });
-      setValue(""); setStored("missing"); setMessage(`${label} removed securely.`); onChanged?.();
-    } catch { setMessage(`Could not remove ${label}. Check the app’s Keychain access and try again.`); }
+      setValue(""); setStored("missing"); saveToast.show(`${label} removed securely.`); onChanged?.();
+    } catch { saveToast.show(`Could not remove ${label}. Check the app’s Keychain access and try again.`, "error"); }
     finally { setBusy(false); }
   };
   const status = stored === "saved" ? (savedStatus ?? "Saved securely. Not verified for this Wavelog URL and station ID.") : stored === "missing" ? (missingStatus ?? "No saved token. Enter your API v2 token.") : stored === "checking" ? "Checking saved credential…" : stored === "unavailable" ? "Saved credential status unavailable. Keychain access may need attention." : "";
@@ -67,7 +68,7 @@ function Credential({ account, label, request, leadingField, visible = false, sh
     onChange={event => setValue(event.target.value)} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); event.stopPropagation(); void save(); } }} /></label>
     <button type="button" disabled={busy || !value} onClick={() => void save()}>{busy ? "Saving…" : `Save ${label}`}</button>
     {allowRemove && stored === "saved" && <button type="button" disabled={busy} onClick={() => void remove()}>{`Remove ${label}`}</button>}
-    {message && <p role="status">{message}</p>}{showSavedStatus && status && <p className="service-credential-state" role="status">{status}</p>}</div>;
+    {saveToast.toast}{showSavedStatus && status && <p className="service-credential-state" role="status">{status}</p>}</div>;
 }
 
 type OnlineLogStatus = { enabled: boolean; enabled_at?: string | null; pending_new_contacts: number;
@@ -77,6 +78,7 @@ function OnlineLogUploadControl({ request, visible, refreshRevision, service, pr
   const [status, setStatus] = useState<OnlineLogStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const saveToast = useSettingsSaveToast();
   const [confirming, setConfirming] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [reloadRevision, setReloadRevision] = useState(0);
@@ -94,9 +96,9 @@ function OnlineLogUploadControl({ request, visible, refreshRevision, service, pr
     try {
       const next = await request("online_log_configure", { service, enabled, confirm_new_contacts_only: enabled });
       setStatus(next as OnlineLogStatus); setConfirming(false); setConfirmed(false);
-      setMessage(enabled ? `${provider} upload enabled for contacts logged from now on.` : `${provider} upload disabled. Pending unsent contacts were cancelled.`);
+      saveToast.show(enabled ? `${provider} upload enabled for contacts logged from now on.` : `${provider} upload disabled. Pending unsent contacts were cancelled.`);
     } catch {
-      setMessage(enabled ? `Could not enable ${provider} upload. Save every required credential and try again.` : `Could not disable ${provider} upload. No change was confirmed.`);
+      saveToast.show(enabled ? `Could not enable ${provider} upload. Save every required credential and try again.` : `Could not disable ${provider} upload. No change was confirmed.`, "error");
     } finally { setBusy(false); }
   };
   const states = status?.states ?? {};
@@ -116,7 +118,7 @@ function OnlineLogUploadControl({ request, visible, refreshRevision, service, pr
     {status && <p role="status">Upload is {status.enabled ? "ON" : "OFF"}. {status.pending_new_contacts ?? 0} new contacts pending; {states.delivered ?? 0} delivered; {states.deferred ?? 0} deferred; {attention} require review.</p>}
     {status?.latest_state && <p>Latest outcome: {status.latest_state.replace(/_/g, " ")}{status.latest_error_code ? ` (${status.latest_error_code.replace(/_/g, " ")})` : ""}.</p>}
     <button type="button" disabled={busy} onClick={() => { setStatus(null); setMessage(""); setReloadRevision(value => value + 1); }}>Refresh upload status</button>
-    {message && <p role="status">{message}</p>}
+    {message && <p role="status">{message}</p>}{saveToast.toast}
   </div>;
 }
 
@@ -131,7 +133,7 @@ export default function ServiceSettings({ values, savedValues, request, onChange
   const form = values;
   const ftpBackup = { protocol: "disabled", endpoint: "", directory: "/OM0RX-xLog", username: "", plainFTPConfirmed: false,
     ...(form.ftpBackup ?? {}) };
-  const [message, setMessage] = useState("");
+  const saveToast = useSettingsSaveToast();
   const [onlineLogRevision, setOnlineLogRevision] = useState(0);
   const blocked = pending || conflict || workspaceChanged;
   const update = (change: Partial<Data>) => {
@@ -144,15 +146,14 @@ export default function ServiceSettings({ values, savedValues, request, onChange
     onChange={event => update({ [key]: event.target.value })} /></label>;
   const save = async (event: FormEvent) => {
     event.preventDefault(); if (saving || blocked) return;
-    setMessage("");
     try {
       const rawStationID = String(form.wavelogStationID ?? "");
       if (!/^\d+$/.test(rawStationID) || !Number.isSafeInteger(Number(rawStationID)) || Number(rawStationID) < 0 || Number(rawStationID) > 2_147_483_647)
         throw new Error("Wavelog station ID must be a whole number between 0 and 2147483647.");
       const saved = { ...form, wavelogStationID: Number(rawStationID), ...(form.cwProfile ? { cwProfile: validateCWProfile(form.cwProfile) } : {}) };
       await onSave(saved);
-      setMessage("Settings saved.");
-    } catch (error) { setMessage(error instanceof Error ? error.message : "Could not save settings. Check the fields and try again."); }
+      saveToast.show(tab === "Backups" ? "Backup settings saved" : "Settings saved");
+    } catch (error) { saveToast.show(error instanceof Error ? error.message : "Could not save settings. Check the fields and try again.", "error"); }
   };
   return <section className="service-settings" aria-label="Station and service settings">
     <div className="service-tabs" role="tablist" aria-label="Settings sections">{visibleTabs.map((name, index) => <button key={name} type="button" role="tab" id={`service-tab-${tabs.indexOf(name)}`} aria-controls="service-settings-panel" aria-selected={tab === name} tabIndex={tab === name ? 0 : -1} onClick={() => setTab(name)} onKeyDown={event => {
@@ -226,12 +227,13 @@ export default function ServiceSettings({ values, savedValues, request, onChange
         <Credential account="ftp-backup-password" label="FTP / FTPS password" request={request} visible={tab === "Backups"}
           showSavedStatus allowRemove savedStatus="Saved securely. It has not been sent to the server."
           missingStatus="No saved FTP / FTPS password." />
-        <div className="live-actions"><button type="submit" className="primary">{saving ? "Saving settings…" : "Save backup settings"}</button><span role="status">{tab === "Backups" ? message : ""}</span></div>
+        <div className="live-actions"><button type="submit" className="primary">{saving ? "Saving settings…" : "Save backup settings"}</button></div>
       </section>
-      <div className="live-actions" hidden={tab === "Backups" || tab === "Display" || tab === "Rotator" || tab === "Radio spots" || tab === "Workspace" || tab === "Sync" || tab === "Integrations" || tab === "Online logs"}><button type="submit" className="primary">{saving ? "Saving settings…" : "Save settings"}</button><span role="status">{message}</span></div>
+      <div className="live-actions" hidden={tab === "Backups" || tab === "Display" || tab === "Rotator" || tab === "Radio spots" || tab === "Workspace" || tab === "Sync" || tab === "Integrations" || tab === "Online logs"}><button type="submit" className="primary">{saving ? "Saving settings…" : "Save settings"}</button></div>
     </fieldset></form>
     {(visibleTabs.includes("Reference data") || visibleTabs.includes("Backups")) && <div hidden={tab !== "Reference data" && tab !== "Backups"}>{dataRequest ? <DataManagementPanel onRequest={dataRequest} onChanged={onDataChanged ?? (() => {})} visible={tab === "Reference data" || tab === "Backups"} section={tab === "Backups" ? "backups" : "references"} sourceSettings={savedValues ?? form} /> : <p>Reference and backup tools are unavailable in this view.</p>}</div>}
     <p className="service-security-note" hidden={tab === "Logbook" || tab === "CW" || tab === "Workspace" || tab === "Sync" || tab === "Integrations" || tab === "Radio spots"}>Credentials stay in the integrated app’s separate macOS Keychain service. Existing application credentials are not changed. Never paste credentials into a support chat.</p>
+    {saveToast.toast}
     </div>
   </section>;
 }

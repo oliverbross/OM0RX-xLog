@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { migrateReferenceSchedule, referenceAutoCheckChanged, type ReferenceRequest } from "./referenceSchedule";
+import { useSettingsSaveToast } from "./SettingsSaveToast";
 
 export default function ReferenceScheduleControl({ request, visible }: { request: ReferenceRequest; visible: boolean }) {
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const saveToast = useSettingsSaveToast();
   const revision = useRef(0);
   const alive = useRef(true);
   const saveFlight = useRef<Promise<any> | null>(null);
@@ -42,6 +44,7 @@ export default function ReferenceScheduleControl({ request, visible }: { request
       if (!alive.current || current !== revision.current) return;
       setEnabled(result.automatic_check);
       window.dispatchEvent(new Event(referenceAutoCheckChanged));
+      saveToast.show("Reference update preference saved");
     } catch {
       if (alive.current && current === revision.current) setMessage("Could not confirm automatic reference checks were saved. Showing the last confirmed preference.");
     } finally {
@@ -51,6 +54,6 @@ export default function ReferenceScheduleControl({ request, visible }: { request
   };
   return <section hidden={!visible}><label><input type="checkbox" checked={enabled === true} disabled={enabled === null || busy} onChange={event => void save(event.target.checked)} />Automatically check reference databases</label>
     <p>Checks run after startup, on return to the app and hourly when due. Validated cached data remains available on failure. This preference saves immediately; it never synchronizes QSOs.</p>
-    {message && <p role="alert">{message}</p>}
+    {message && <p role="alert">{message}</p>}{saveToast.toast}
   </section>;
 }

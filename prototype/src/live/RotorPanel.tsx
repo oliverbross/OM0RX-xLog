@@ -5,6 +5,7 @@ import { rotorCommandParams, rotorProjection, validRotorSnapshot, type RotorSnap
 import { autoRotorBands, RotorConfigurationSession, rotorConfigurationDirty, type RotorConfiguration } from "./rotorConfigurationSession";
 import { ManualRotorStatus } from "./ManualRotorControl";
 import { manualRotorGotoSession, type ManualRotorGotoSession } from "./manualRotorGoto";
+import { useSettingsSaveToast } from "./SettingsSaveToast";
 import "./RotorPanel.css";
 
 type Data = Record<string, any>;
@@ -23,6 +24,7 @@ export default function RotorPanel({ snapshot, request, onManual = () => {}, con
   const manualFeedback = useRef<string | null>(null);
   const [bearing, setBearing] = useState("");
   const [busy, setBusy] = useState(false), [error, setError] = useState(""), [message, setMessage] = useState("");
+  const saveToast = useSettingsSaveToast();
   const current = rotorProjection(snapshot);
   const dirty = rotorConfigurationDirty(configurationState.base, configuration);
   useEffect(() => { if (owner === "hamlib") setHamlibOpened(true); }, [owner]);
@@ -32,18 +34,18 @@ export default function RotorPanel({ snapshot, request, onManual = () => {}, con
     try { configurationSession.edit(next); setError(""); setMessage(""); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Rotor configuration is unavailable."); }
   };
-  const saveConfiguration = async () => {
+  const saveConfiguration = async (showFeedback = true) => {
     manualFeedback.current = null;
     if (!configuration) throw new Error("Rotor configuration is still loading.");
     await configurationSession.save(configuration);
     const state = configurationSession.getSnapshot();
     if (state.pending || state.conflict || state.workspaceChanged || state.error)
       throw new Error(state.error || "The rotor configuration save was not confirmed.");
-    setMessage("Rotor configuration saved. No connection or motion was started.");
+    if (showFeedback) saveToast.show("Rotor configuration saved. No connection or motion was started.");
   };
   const ensureSaved = async () => {
     if (rotorConfigurationDirty(configurationSession.getSnapshot().base, configurationSession.getSnapshot().draft))
-      await saveConfiguration();
+      await saveConfiguration(false);
     const state = configurationSession.getSnapshot();
     if (!state.base || state.pending || state.conflict || state.workspaceChanged)
       throw new Error(state.error || "Resolve the rotor configuration before connecting.");
@@ -155,6 +157,6 @@ export default function RotorPanel({ snapshot, request, onManual = () => {}, con
       {configurationState.pending && !configurationState.workspaceChanged && <button type="button" disabled={configurationState.saving} onClick={() => { manualFeedback.current = null; void configurationSession.retry().catch(cause => setError(cause.message)); }}>Retry same save</button>}
       {configurationState.snapshot && <button type="button" disabled={configurationState.saving} onClick={() => { manualFeedback.current = null; try { configurationSession.useSaved(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Saved rotor configuration is unavailable."); } }}>Use saved values</button>}
     </div>}
-    {error && <p className="live-station-error" role="alert">{error}</p>}{message && <p role="status">{message}</p>}
+    {error && <p className="live-station-error" role="alert">{error}</p>}{message && <p role="status">{message}</p>}{saveToast.toast}
   </section>;
 }

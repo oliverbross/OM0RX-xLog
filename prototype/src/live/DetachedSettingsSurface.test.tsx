@@ -116,7 +116,7 @@ it("confirms a native UUID Settings receipt and clears recovery without discard"
   const operator = await screen.findByRole("textbox", { name: "Operator call" });
   fireEvent.change(operator, { target: { value: "VK8Case" } });
   fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
-  await screen.findByText("Settings saved.");
+  await screen.findByText("Settings saved");
   expect(screen.queryByRole("button", { name: "Check saved Settings" })).toBeNull();
   expect(screen.queryByRole("button", { name: "Retry same save" })).toBeNull();
   expect(localStorage.getItem("xlog.integration.settings.detached.v1")).toBeNull();

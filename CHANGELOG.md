@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.4.0-alpha.44 — 2026-10-17
+
+- Replaced layout-shifting save confirmations with compact fixed overlays that disappear after 1.5 seconds without moving page content.
+- Applied contextual save feedback across Settings, credentials, Sync, Rotator, Workspace, radio spots, cluster settings, saved filters, station connection setup and DX alert rules.
+- Kept failures and receipt-recovery controls explicit while separating them from ordinary successful-save feedback.
+
 ## 0.4.0-alpha.43 — 2026-10-17
 
 - Centered Station identity labels and editable values for a cleaner, more consistent settings layout.

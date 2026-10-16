@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import "./SyncPanel.css";
 import { connectSyncChanges } from "./syncChanges";
 import { SyncMutationClient } from "./syncMutation";
+import { useSettingsSaveToast } from "./SettingsSaveToast";
 
 type Data = Record<string, any>;
 type Request = (method: string, params?: Data) => Promise<Data>;
@@ -30,6 +31,7 @@ export default function SyncPanel({ request, onChanged, journalKey = "xlog.sync.
   const [state, setState] = useState<Data | null>(null);
   const [confirmed, setConfirmed] = useState(false), [busy, setBusy] = useState(false);
   const [error, setError] = useState(""), [message, setMessage] = useState("");
+  const saveToast = useSettingsSaveToast();
   const [setupMessage, setSetupMessage] = useState("");
   const [subscriptionError, setSubscriptionError] = useState("");
   const [verified, setVerified] = useState(false);
@@ -86,7 +88,11 @@ export default function SyncPanel({ request, onChanged, journalKey = "xlog.sync.
     working.current = true; sequence.current++; setBusy(true); setError(""); setMessage("");
     try {
       await mutation.current!.submit(request, state?.mutation_owner, method, params);
-      if (mounted.current) { if (method === "sync_configure") intervalEdited.current = false; setMessage(success); await read(); onChanged(); }
+      if (mounted.current) {
+        if (method === "sync_configure") { intervalEdited.current = false; saveToast.show(success); }
+        else setMessage(success);
+        await read(); onChanged();
+      }
     } catch (cause) {
       if (mounted.current) { setError(errorText(cause)); await read(); }
     } finally { working.current = false; if (mounted.current) { setBusy(false); if (refreshPending.current) void refresh(); } }
@@ -154,6 +160,7 @@ export default function SyncPanel({ request, onChanged, journalKey = "xlog.sync.
     }}>I reviewed the current state; dismiss unresolved Sync intent</button>}
     {subscriptionError && <p className="sync-error" role="alert">{subscriptionError}</p>}
     {message && <p className="sync-success" role="status">{message}</p>}
+    {saveToast.toast}
     <h2>Conflicts <span className="sync-count">{state ? conflicts.length : "—"}</span></h2>
     <p className="secondary">Compare changed fields, choose which values to keep, then save the merged contact. This queues a local change for the next {automatic ? "automatic" : "manual"} sync.</p>
     {!state ? <p>Loading conflicts…</p> : !conflicts.length ? <p>No unresolved conflicts.</p> : conflicts.map((conflict, index) => <details className="sync-conflict" key={conflict.id} open={index === 0}>

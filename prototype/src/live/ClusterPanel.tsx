@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { clusterBandColors, clusterModeColors, clusterStatusColors, paletteColor, specialTagColors } from "./clusterPalette";
 import { boundColumnWidth, compactClusterColumns, defaultWorkspacePreferences, readWorkspacePreferences, type CompactColumn } from "./operatorWorkspacePreferences";
+import { useSettingsSaveToast } from "./SettingsSaveToast";
 import "./ClusterPanel.css";
 
 type Request = (method: string, params?: Record<string, unknown>) => Promise<unknown>;
@@ -75,6 +76,7 @@ function ColumnWidthInput({ label, width, disabled, onCommit }: { label: string;
     onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); } }} />;
 }
 export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, onUndock, onDock, passwordControlsEnabled = true, selectedSpotId, taskOnly = false }: Props) {
+  const saveToast = useSettingsSaveToast();
   const panelId = useId();
   const [columnsOpen, setColumnsOpen] = useState(false);
   const [columnPreferences, setColumnPreferences] = useState(() => {
@@ -189,7 +191,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
     setBusy(true); setError(""); setMessage("");
     try {
       accept(await onRequest(method, params));
-      if (success) setMessage(success);
+      if (success) method === "cluster_password_set" ? saveToast.show(success) : setMessage(success);
       return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Cluster request failed. Check settings and retry.");
@@ -212,7 +214,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
       if (!base) throw new Error("Current cluster settings are unavailable. Refresh and retry.");
       accept(await onRequest("cluster_configure", { configuration, base_configuration: base }));
       setSavedServerIDs(configuration.servers.map((server) => server.id));
-      setMessage("Cluster settings saved. Received spots retained.");
+      saveToast.show("Cluster settings saved. Received spots retained.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Cluster settings could not be saved. Check settings and retry.");
     } finally { setBusy(false); }
@@ -272,7 +274,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
     {!live?.countryDataLoaded && <p className="live-cluster-note">Country reference data is unavailable; DXCC status stays Unknown.</p>}
     {snapshotTruncated && <p className="live-cluster-note">The live snapshot exceeded the worker limit; older console lines or spots are hidden. Narrow filters to view more.</p>}
     {error && <p className="live-cluster-error" role="alert">{error}</p>}
-    {message && <p className="live-cluster-message" role="status">{message}</p>}
+    {message && <p className="live-cluster-message" role="status">{message}</p>}{saveToast.toast}
     {renderToolbarPanels()}
 
     <div className="live-cluster-filter-container"><div className="live-cluster-filterrail" aria-label="Spot filters">

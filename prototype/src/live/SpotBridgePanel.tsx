@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import "./SpotBridgePanel.css";
+import { useSettingsSaveToast } from "./SettingsSaveToast";
 
 type Style = { priority: number; colorHex: string; lifetimeSeconds: number };
 type Configuration = { enabled: boolean; logbookPort: number; contestPort: number; styles: Record<string, Style> };
@@ -31,6 +32,7 @@ export default function SpotBridgePanel({ request, provider = "direct_agent" }: 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const saveToast = useSettingsSaveToast();
   const requestRef = useRef(request); requestRef.current = request;
   useEffect(() => {
     let active = true, reading = false;
@@ -58,8 +60,8 @@ export default function SpotBridgePanel({ request, provider = "direct_agent" }: 
       setSnapshot(configured); setDraft(configured.configuration); setDirty(false);
       if (start) {
         const running = await request("spot_bridge_start"); setSnapshot(running);
-        setNotice("RUMlog UDP listeners started. Only display spots are forwarded; no radio tuning is sent.");
-      } else setNotice("Settings saved. Start listeners explicitly when ready.");
+        saveToast.show("Spot bridge settings saved and listeners started");
+      } else saveToast.show("Spot bridge settings saved");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not configure spot receiver."); }
     finally { setBusy(false); }
   };
@@ -73,7 +75,7 @@ export default function SpotBridgePanel({ request, provider = "direct_agent" }: 
     <header><div><h2>RUMlog spot bridge</h2><p>Logbook and contest spots → the embedded Remote Station Agent's FLEX display. No separate SpotToSunFlex application is needed.</p></div>
       <strong className={snapshot?.running ? "teal" : "secondary"}>{snapshot?.running ? "Listening" : "Stopped"}</strong></header>
     {error && <p className="live-error" role="alert">{error}</p>}
-    {notice && <p className="live-message" role="status">{notice}</p>}
+    {notice && <p className="live-message" role="status">{notice}</p>}{saveToast.toast}
     {provider !== "direct_agent" && <p className="spot-bridge-provider-note" role="status">Select and connect Remote station · embedded xCat to start forwarding. Direct FLEX LAN and Hamlib do not receive these UDP spots. An already-running listener is not stopped by changing provider.</p>}
     {draft ? <>
       <div className="spot-bridge-ports">

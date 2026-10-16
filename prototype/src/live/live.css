@@ -31,6 +31,9 @@
 .live-onboarding { padding: 28px; background: var(--panel); border: 1px solid var(--border); max-width: 850px; }
 .live-onboarding p { max-width: 75ch; margin: 16px 0; }
 .live-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
+/* Save feedback floats above the current page so appearing and disappearing never moves content. */
+.settings-save-toast { position:fixed; z-index:1200; top:56px; left:50%; max-width:min(460px,calc(100vw - 32px)); padding:9px 14px; border:1px solid #0a9a78; border-radius:8px; background:#073b33; color:#b7f6dc; box-shadow:0 5px 18px #0008; font-size:12px; font-weight:650; line-height:1.35; text-align:center; pointer-events:none; overflow-wrap:anywhere; transform:translateX(-50%); }
+.settings-save-toast-error { border-color:#b34840; background:#4a2025; color:#ffd0cc; }
 .hamlib-device h3 { display: flex; justify-content: space-between; gap: 12px; }
 .hamlib-readback > div { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid var(--border); }
 .live-editor, .live-context, .live-settings, .live-sync, .live-awards { background: var(--panel); padding: 16px; border: 1px solid var(--border); border-radius: 8px; }

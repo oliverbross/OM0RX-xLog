@@ -5,6 +5,7 @@ import type { StationProvider } from "../worker";
 import { SharedHamlibModelBrowser } from "./HamlibModelPicker";
 import type { MonitorContext } from "./monitorContext";
 import { stationReceiveAvailable } from "./stationReceive";
+import { useSettingsSaveToast } from "./SettingsSaveToast";
 
 const journalKey = "xlog.station-session.pending";
 const reviewedKey = "xlog.station-session.reviewed";
@@ -33,6 +34,7 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
   const [agentTransmit, setAgentTransmit] = useState(true);
   const [receiveMHz, setReceiveMHz] = useState(""), [receiveMode, setReceiveMode] = useState("USB"), [consumedObservation, setConsumedObservation] = useState("");
   const [busy, setBusy] = useState(false), [message, setMessage] = useState(""), [error, setError] = useState("");
+  const saveToast = useSettingsSaveToast();
   const [pending, setPending] = useState(() => sessionStorage.getItem(journalKey));
   const [conflict, setConflict] = useState(false);
   const [legacyHint, setLegacyHint] = useState(false);
@@ -107,7 +109,9 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
         ...(action === "save" ? tci ? { configuration: { ...tciConfig, endpoint: tciConfig.endpoint.trim() } } : flex ? { configuration: { ...flexConfig, host: flexConfig.host.trim(), station_name: flexConfig.station_name.trim() } } : hamlib ? { configuration: config } : { base_url: url.trim() } : { selection_generation: base.selection.generation, selection_id: base.selection.selection_id,
           ...(action === "select" ? { provider: target } : tci ? {} : { allow_transmit: ["connect", "reconnect"].includes(action) && (hamlib || flex ? transmit : agentTransmit) }), ...(!tci && !hamlib && !flex && action === "connect" && token ? { token } : {}) }) });
       if (!active.current) return;
-      setToken(""); setMessage(notice(receipt));
+      setToken("");
+      if (receipt.status === "saved") saveToast.show(notice(receipt));
+      else setMessage(notice(receipt));
       if (receipt.status === "saved" || receipt.status === "acknowledged") {
         sessionStorage.removeItem(journalKey); setPending(null); await refresh(action === "save");
       }
@@ -120,7 +124,9 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
     try {
       const receipt = await stationSessionRequest<StationReceipt | null>({ action: "receipt", operation_id: pending });
       if (!active.current) return;
-      setError(""); setMessage(receipt ? notice(receipt) : "No operation was admitted under this identity. Refresh setup before trying again.");
+      setError("");
+      if (receipt?.status === "saved") saveToast.show(notice(receipt));
+      else setMessage(receipt ? notice(receipt) : "No operation was admitted under this identity. Refresh setup before trying again.");
       if (!receipt || receipt.status === "saved" || receipt.status === "acknowledged") {
         if (!receipt) setConsumedObservation("");
         sessionStorage.removeItem(journalKey); setPending(null); await refresh();
@@ -221,7 +227,7 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
     {onlySelection && <button type="button" disabled={busy} onClick={() => void refresh()}>Refresh radio selection</button>}
     {pending && <button type="button" disabled={busy} onClick={() => void check()}>{onlySelection ? "Check radio selection receipt" : "Check connection setup receipt"}</button>}
     {pending && message.includes("unknown") && <button type="button" disabled={busy} onClick={() => { sessionStorage.setItem(reviewedKey, pending); sessionStorage.removeItem(journalKey); setPending(null); setMessage("Previous outcome remains unknown. Review observed state before a new explicit request."); void refresh(); }}>I have reviewed observed state</button>}
-    {message && <p role="status">{message}</p>}{error && <p role="alert">{error}</p>}
+    {message && <p role="status">{message}</p>}{saveToast.toast}{error && <p role="alert">{error}</p>}
     {state?.last_receipt && <p>Last shared operation: {state.last_receipt.request.action} · {state.last_receipt.status}. Acknowledgement does not confirm radio state.</p>}
   </div>;
 }

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import "./WSJTXPanel.css";
+import { useSettingsSaveToast } from "./SettingsSaveToast";
 
 type Configuration = { enabled: boolean; address: string; port: number };
 type Snapshot = { configuration: Configuration; running: boolean; received_count: number; imported_count: number;
@@ -21,6 +22,7 @@ export default function WSJTXPanel({ request, onImported }: { request: Request; 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const saveToast = useSettingsSaveToast();
   const requestRef = useRef(request); requestRef.current = request;
   const onImportedRef = useRef(onImported); onImportedRef.current = onImported;
   const importedRef = useRef(0);
@@ -54,8 +56,8 @@ export default function WSJTXPanel({ request, onImported }: { request: Request; 
       setSnapshot(configured); setDraft(configured.configuration); setDirty(false);
       if (start) {
         const running = await request("wsjtx_start"); setSnapshot(running);
-        setNotice("Listening for contacts accepted in WSJT-X. No packets or radio commands are sent.");
-      } else setNotice("Settings saved. Listening resumes automatically on the next app start only when enabled.");
+        saveToast.show("WSJT-X settings saved and listener started");
+      } else saveToast.show("WSJT-X settings saved");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not configure WSJT-X logging."); }
     finally { setBusy(false); }
   };
@@ -75,7 +77,7 @@ export default function WSJTXPanel({ request, onImported }: { request: Request; 
     <p>Fresh FT8/FT4 CQ activity can feed source-specific rules in Alerts. Activity expires after 60 seconds; replayed, off-air and low-confidence decodes are excluded. Existing rules remain DX Cluster only.</p>
     {snapshot?.activity && <p>Retained CQ reports: {snapshot.activity.spots.length} · WSJT-X instances: {snapshot.activity.session_count}</p>}
     {error && <p className="live-error" role="alert">{error}</p>}
-    {notice && <p className="live-message" role="status">{notice}</p>}
+    {notice && <p className="live-message" role="status">{notice}</p>}{saveToast.toast}
     {draft ? <>
       <div className="wsjtx-fields">
         <label>UDP address<input aria-label="WSJT-X UDP address" value={draft.address} maxLength={45} onChange={event => edit({ address: event.target.value.trim() })} /></label>

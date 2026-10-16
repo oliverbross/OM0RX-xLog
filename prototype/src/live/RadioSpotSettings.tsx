@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { clusterStatusColors, paletteColor } from "./clusterPalette";
+import { useSettingsSaveToast } from "./SettingsSaveToast";
 
 type Configuration = {
   forwardSpotsToFlex: boolean;
@@ -22,7 +23,7 @@ export default function RadioSpotSettings({ request, visible }: { request: Reque
   const [statusColors, setStatusColors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
+  const saveToast = useSettingsSaveToast();
   async function refresh(preserveDraft = false) {
     try {
       const next = await request("cluster_snapshot") as Snapshot;
@@ -55,11 +56,11 @@ export default function RadioSpotSettings({ request, visible }: { request: Reque
       changes.status_color_expected = Object.fromEntries(Object.keys(changedColors)
         .map(name => [name, baseConfiguration.palette.status[name] ?? null]));
     }
-    setBusy(true); setError(""); setMessage("");
+    setBusy(true); setError("");
     try {
       await request("cluster_radio_spots_configure", changes);
       await refresh();
-      setMessage("Radio spot output saved. Active cluster connections may need to reconnect.");
+      saveToast.show("Radio spot settings saved");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Radio spot output could not be saved."); }
     finally { setBusy(false); }
   };
@@ -95,6 +96,6 @@ export default function RadioSpotSettings({ request, visible }: { request: Reque
     <button type="button" disabled={busy || !dirty || (!snapshot?.flex_forwarding_available && enabled && enabled !== baseEnabled)} onClick={() => void save()}>Save radio spot output</button>
     <button type="button" disabled={busy} onClick={() => void refresh(true)}>Refresh status</button>
     {dirty && <p role="status">Changes are unsaved. Runtime remains {savedEnabled ? "on" : "off"} with {savedPolicy === "dxcc" ? "DXCC" : "callsign"} colours and the saved palette.</p>}
-    {message && <p role="status">{message}</p>}{error && <p role="alert">{error}</p>}
+    {saveToast.toast}{error && <p role="alert">{error}</p>}
   </section>;
 }

@@ -3,6 +3,7 @@ import { connectAlerts, type AlertsSnapshot, type AlertCode } from "./alerts";
 import { clearDxAlerts, clearSelectedDxAlerts, connectDxAlerts, saveDxAlerts, testDxAlert, type DxAlertRule, type DxAlertsSnapshot } from "./dxAlerts";
 import { AlertColumns, useAlertColumns } from "./AlertColumns";
 import { orderedAlertColumns } from "./alertColumnPreferences";
+import { useSettingsSaveToast } from "./SettingsSaveToast";
 import "./DetachedReferenceSurface.css";
 const messages: Record<AlertCode, string> = { radio_inhibitors: "Radio safety inhibitors reported", radio_alarm: "Station alarm reported — review Station Status or Desk", rotor_uncertain: "Rotor outcome uncertain — review Rotor before further commands" };
 export function DetachedAlertsSurface() {
@@ -10,6 +11,7 @@ export function DetachedAlertsSurface() {
   const [error, setError] = useState("");
   const [dx, setDx] = useState<DxAlertsSnapshot | null>(null), [draft, setDraft] = useState<DxAlertsSnapshot["configuration"] | null>(null);
   const [dxError, setDxError] = useState(""), [message, setMessage] = useState("");
+  const saveToast = useSettingsSaveToast();
   const [sort, setSort] = useState<AlertSort>("recent");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [columnPreferences, setColumnPreferences] = useAlertColumns();
@@ -30,7 +32,7 @@ export function DetachedAlertsSurface() {
   }, []);
   useEffect(() => connectDxAlerts(receiveDx, setDxError), []);
   const updateRule = (index: number, patch: Partial<DxAlertRule>) => setDraft(current => current ? ({ ...current, rules: current.rules.map((rule, position) => position === index ? { ...rule, ...patch } : rule) }) : current);
-  const action = async (work: () => Promise<DxAlertsSnapshot>, success: string) => { try { setMessage(""); const value = await work(); if (latestDx.current?.epoch !== dx?.epoch) return; receiveDx(value); setMessage(success); } catch (cause) { setDxError(cause instanceof Error ? cause.message : "DX alert action failed."); } };
+  const action = async (work: () => Promise<DxAlertsSnapshot>, success: string) => { try { setMessage(""); const value = await work(); if (latestDx.current?.epoch !== dx?.epoch) return; receiveDx(value); if (success.startsWith("Rules saved")) saveToast.show(success); else setMessage(success); } catch (cause) { setDxError(cause instanceof Error ? cause.message : "DX alert action failed."); } };
   const selectEntry = (id: string, checked: boolean) => setSelectedIds(current => checked ? [...current.filter(value => value !== id), id] : current.filter(value => value !== id));
   const entries = [...(dx?.entries ?? [])].sort((left, right) => compareAlerts(left, right, sort));
   return <div className="app live detached-reference-app detached-alerts-app"><main aria-label="Detached Alerts"><section aria-label="Retained safety reports">
@@ -44,7 +46,7 @@ export function DetachedAlertsSurface() {
     <div className="dx-alert-head"><div><h2>DX opportunity alerts</h2><p className={`dx-alert-state ${dx?.source.available ? "is-live" : ""}`}>{dx?.source.available ? "Following the shared cluster feed" : "Cluster feed unavailable"} · passive only</p></div>
       <div className="dx-alert-actions"><label>Sort alerts<select value={sort} onChange={event => setSort(event.currentTarget.value as AlertSort)}><option value="recent">Latest report first</option><option value="callsign">Callsign A–Z</option><option value="frequency">Frequency low–high</option><option value="reports">Most reports first</option></select></label><button onClick={() => void action(testDxAlert, "Test alert added.")}>Test</button><button disabled={!selectedIds.length || !dx} onClick={() => dx && void action(() => clearSelectedDxAlerts(dx, selectedIds), "Selected alerts cleared.")}>Clear selected ({selectedIds.length})</button><button disabled={!dx?.entries.length} onClick={() => void action(clearDxAlerts, "All alerts cleared.")}>Clear all</button></div></div>
     <AlertColumns preferences={columnPreferences} onChange={setColumnPreferences}/>
-    {dx?.activitySource && <p className="dx-alert-state">WSJT-X CQ feed {dx.activitySource.available ? "listening" : "off or unavailable"} · receive only · FT8/FT4 · activity expires after 60 seconds. Call/DXCC novelty is unavailable for this source.</p>}
+    {dx?.activitySource && <p className="dx-alert-state">WSJT-X CQ feed {dx.activitySource.available ? "listening" : "off or unavailable"} · receive only · FT8/FT4 · activity expires after 60 seconds. Call/DXCC novelty is unavailable for this source.</p>}{saveToast.toast}
     {dx?.storageError && <p className="dx-alert-error">{dx.storageError}</p>}{dxError && <p className="dx-alert-error" role="alert">{dxError}</p>}{message && <p className="dx-alert-message" role="status">{message}</p>}
     {dx?.delivery.error && <p className="dx-alert-error" role="alert">{dx.delivery.error}</p>}
     {!!dx?.delivery.suppressed && <p className="secondary">{dx.delivery.suppressed} native notifications suppressed by the {dx.delivery.maximumPerWindow}-per-{dx.delivery.windowSeconds}-second safety limit.</p>}

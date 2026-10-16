@@ -14,6 +14,7 @@ import { amplifierTransitionSession } from "./amplifierTransition";
 import { AmplifierTransitionStatus } from "./AmplifierTransitionStatus";
 import {pttSession} from "./pttSession";
 import {PTTStatus} from "./PTTStatus";
+import { useSettingsSaveToast } from "./SettingsSaveToast";
 
 type Request = (method: string, params?: Record<string, unknown>) => Promise<any>;
 type RadioState = {
@@ -84,6 +85,7 @@ export default function StationPanel({ snapshot, onRequest, onSnapshot, monitor 
   const [catTransmit, setCATTransmit] = useState(true);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
+  const saveToast = useSettingsSaveToast();
   const [error, setError] = useState("");
   const requestRef = useRef(onRequest);
   const publishRef = useRef(onSnapshot);
@@ -200,7 +202,7 @@ export default function StationPanel({ snapshot, onRequest, onSnapshot, monitor 
     await onRequest("station_configuration_save", { provider: "direct_agent", configuration });
     const response = unwrap(await onRequest("station_configuration", { provider: "direct_agent" }));
     setAgentConfig(response.configuration);
-    setNotice("Configuration saved and reloaded from the agent. Check route readiness before operating.");
+    saveToast.show("Station configuration saved and reloaded");
   }
 
   const radio = live?.radio;
@@ -227,7 +229,7 @@ export default function StationPanel({ snapshot, onRequest, onSnapshot, monitor 
     </header>
     <p className="live-station-helper">xCat is embedded in xLog. Connect to your remote station here; the standalone xCat application is not required.</p>
     {error && <p className="live-station-error" role="alert"><AlertTriangle size={14} />{error}</p>}
-    {notice && <p className="live-station-notice" role="status">{notice}</p>}
+    {notice && <p className="live-station-notice" role="status">{notice}</p>}{saveToast.toast}
     <div className="live-station-grid">
       <div className="live-station-main">
         <div className="live-station-readback">
