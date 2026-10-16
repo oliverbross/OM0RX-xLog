@@ -62,8 +62,8 @@ export function PreviousQSOsSurface({ request = requestDetachedPreviousQSOs }: {
       : !current ? <p className="secondary" role="status">Loading local contacts…</p>
       : !current.rows.length ? <p className="secondary" role="status">No previous QSOs with {call}.</p>
       : <><div className="previous-qsos-table" tabIndex={0} role="region" aria-label={`Previous contacts with ${call}`}><table><thead><tr>
-        <th>UTC</th><th>Band</th><th>Mode</th><th>Sent</th><th>Rcvd</th><th className="previous-grid">Grid</th><th>QSL</th>
-      </tr></thead><tbody>{current.rows.map(row => <tr key={row.id}><td>{utc(row.date)}</td><td>{row.band}</td><td>{row.mode}</td><td>{row.rstSent || "—"}</td><td>{row.rstReceived || "—"}</td><td className="previous-grid">{row.grid || "—"}</td><td>{row.confirmed ? "Confirmed" : "Worked"}</td></tr>)}</tbody></table></div>
+        <th>UTC</th><th>Band</th><th>Mode</th><th>Sent</th><th>Rcvd</th><th className="previous-grid">Grid</th><th className="previous-qsl">QSL</th>
+      </tr></thead><tbody>{current.rows.map(row => <tr key={row.id}><td>{utc(row.date)}</td><td>{row.band}</td><td>{row.mode}</td><td>{row.rstSent || "—"}</td><td>{row.rstReceived || "—"}</td><td className="previous-grid">{row.grid || "—"}</td><td className="previous-qsl">{row.confirmed ? "Confirmed" : "Worked"}</td></tr>)}</tbody></table></div>
         {current.count > current.rows.length && <p className="secondary previous-qsos-limit">Showing the latest {current.rows.length} of {current.count.toLocaleString()} contacts.</p>}</>}
   </main></div>;
 }
