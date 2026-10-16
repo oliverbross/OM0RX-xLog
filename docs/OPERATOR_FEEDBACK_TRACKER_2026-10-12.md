@@ -7,6 +7,20 @@ packaged UI result. Keep unresolved items here across releases.
 
 ## Current delivery boundary
 
+- **PJ impact preview and detached geometry, 16 October — pushed source only:**
+  `54b4c84` adds the read-only Logbook **PJ country preview**, with protected stored DXCC
+  overrides, bounded pages and no correction route. It compares the former algorithm with
+  current local CTY rules/QSO dates; it cannot reconstruct an older package's CTY source,
+  and each page is a fresh local read. Focused root reruns pass **23/23 UI**, Swift
+  `CTYCorrectionPreviewTests` **2/2** and Rust route authorization **1/1**; see
+  [source acceptance](PJ_CTY_IMPACT_PREVIEW_SOURCE_ACCEPTANCE_2026-10-16.md).
+  `210a0ea` aligns detached Propagation chart rows, adds shared 12-pixel Station
+  Status/Rotor insets and top-aligns Rotor content; focused root responsive UI rerun
+  passes **31/31**, with a committed rendered-geometry fixture. Exact-package,
+  installed/copied-log, live-provider, native focus/display/accessibility and hardware/RF
+  acceptance remain open. No record correction or live service/station/operator-data action
+  occurred; installed alpha.31 remains unchanged.
+
 - **Enhancement review reconciled, 16 October — staged programme:** The 24 supplied
   recommendations are classified against current source in
   [`ENHANCEMENT_RECOMMENDATIONS_2026-10-16.md`](ENHANCEMENT_RECOMMENDATIONS_2026-10-16.md).

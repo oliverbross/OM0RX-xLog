@@ -37,11 +37,11 @@ connection.
 
 | ID | Reconciled state | Existing reuse point | Next accepted outcome |
 | --- | --- | --- | --- |
-| R01 | Fixed in source; package/data-impact review open | `CTYResolver`, downloaded/bundled CTY rules, stored `QSO.dxcc` override | `799d9c5` removes the PJ-to-305 shortcut; focused modern/historical PJ and stored-override tests pass. Preview affected records before any optional correction; never bulk rewrite. |
+| R01 | Resolver and read-only impact preview source complete; package/data-impact review open | `CTYResolver`, downloaded/bundled CTY rules, stored `QSO.dxcc` override | `799d9c5` removes the PJ-to-305 shortcut; `54b4c84` adds the bounded Logbook PJ country preview, protects stored DXCC and exposes no correction route. Focused root reruns: UI **23/23**, Swift preview **2/2**, Rust route **1/1**. Accept the exact package against a disposable copied logbook before any optional correction; never bulk rewrite. |
 | R02 | Implemented, unaccepted on current package/hardware | Durable Tune, Cancel, PTT, amplifier, Rotor Goto/Stop/Auto owners | Exact-source packaged stale/unknown/restart/release checks, followed only by operator-authorized hardware/RF acceptance. |
 | R03 | Source complete, packaged copied-log acceptance open | `LogbookContact`, `QSOADIF`, ADIF field bag, contact mutation and delete/undo owner | Normal/custom fields survive edit, undo, conflict and ADI/ADX round trips with intentional normalization explained. |
 | R04 | First compatibility fixes complete; full conformance audit open | `ADIF.swift`, `QSOADIF.swift`, `adifTransfer.ts`, reference-data status | `429dcae` fixes UTF-8 byte lengths and whole-record filtering; `7e6cfce` exports FT4/FT2/JTTY as MFSK submodes and adds 3.1.8 ADX fixtures. Keep `ADIF_VER` at 3.1.7 until the remaining enum/deprecation audit passes. |
-| R05 | Existing acceptance programme | Native window runtime/geometry, Canvas/Separate Windows owner, responsive surfaces | Exact packaged compact/normal/large, mixed-display/DPI, keyboard/focus and assistive-technology matrix without another layout redesign. |
+| R05 | Detached geometry follow-up source complete; acceptance programme open | Native window runtime/geometry, Canvas/Separate Windows owner, responsive surfaces | `210a0ea` aligns detached Propagation rows, adds Station Status/Rotor insets and top-aligns Rotor content; focused root responsive UI rerun **31/31** and a committed rendered-geometry fixture. Exact packaged compact/normal/large, mixed-display/DPI, keyboard/focus and assistive-technology acceptance remain open. |
 | R06 | Passive model, worker route and native UI complete; package acceptance open | Opportunity feeds, spot history, alerts, award rules, contact history | `2f18295` adds deterministic selected-goal evaluation, `505284a` reads canonical retained sources, and `52010e3` presents explained states/age in a chrome-free native window. Package-test it; retain the cluster-provenance exclusion and never auto tune/rotate/transmit. |
 | R07 | Useful extension | Sync engine, online-log delivery, confirmation fields, awards | Follow-up workbench with provider upload/acceptance/match age and goal impact; no inferred confirmation or credit. |
 | R08 | Existing service programme | Native credential vault, durable claim/receipt/no-replay patterns | Direct LoTW/TQSL certificate, station location, signed upload receipt and download acceptance with one owner per service path. |
@@ -73,6 +73,11 @@ package/live SunSDR acceptance remain open.
 
 ## Evidence boundaries
 
+- The [PJ preview source acceptance](PJ_CTY_IMPACT_PREVIEW_SOURCE_ACCEPTANCE_2026-10-16.md)
+  compares the former algorithm against today's local CTY source, not an older package's
+  historical reference data. Each page is a fresh read; real-data impact review, scale,
+  package/installed/live acceptance and any optional data correction remain open. Neither
+  `54b4c84` nor `210a0ea` exercised live services, station/hardware/RF or operator-data changes.
 - Source tests prove source behavior, not the installed package, live account or hardware.
 - The installed alpha.31 build remains the previously accepted baseline until a new exact
   source package is explicitly installed and accepted.

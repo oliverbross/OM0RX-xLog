@@ -24,6 +24,17 @@ whole-record filtering and FT4/FT2/JTTY MFSK-submode export now have focused fix
 The exporter remains labeled 3.1.7 until the full 3.1.8 enum/deprecation audit passes.
 Package/real-log acceptance and any optional record correction remain open.
 
+The pushed source follow-ups are `54b4c84` (read-only Logbook **PJ country preview**)
+and `210a0ea` (detached Propagation row alignment, shared Station Status/Rotor insets
+and top-aligned Rotor content). The preview protects stored DXCC overrides, pages inferred
+changes against current local CTY rules/QSO dates and has no correction route. Focused root
+reruns pass **23/23 preview UI**, Swift `CTYCorrectionPreviewTests` **2/2**, Rust route
+authorization **1/1**, and **31/31 responsive UI**. See the
+[PJ source acceptance](PJ_CTY_IMPACT_PREVIEW_SOURCE_ACCEPTANCE_2026-10-16.md) for fresh-page,
+historical-source and scale limits. These are source/synthetic checks only: exact-package,
+installed/copied-log, live-provider, native display/focus/accessibility and hardware/RF
+acceptance remain open. No record correction occurred; installed alpha.31 is unchanged.
+
 The next operator-efficiency source batch is also committed and independently reviewed.
 `1a0e734` adds a native Previous QSOs menu/window that follows the canonical draft and
 existing local-history projection, closes with other detached windows on Canvas transition

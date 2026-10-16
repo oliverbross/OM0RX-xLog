@@ -11,6 +11,23 @@ The confirmed PJ/DXCC defect is fixed in `799d9c5`: the resolver no longer route
 `PJ*` callsign to Bangladesh and now honors source prefixes, validity dates and explicit
 stored DXCC values. Focused resolver/runtime checks pass **3/3**; no QSO was rewritten.
 
+`54b4c84a15ddb094b9c59e58231571554d082569` adds the read-only **PJ country preview**
+to Logbook. It compares the former shortcut with current local CTY rules/QSO dates,
+protects every stored DXCC override and exposes bounded pages without a correction route.
+Focused root reruns pass **23/23 UI**, Swift `CTYCorrectionPreviewTests` **2/2** and
+Rust route authorization **1/1**. This reconstructs the former algorithm against today's
+local source, not historical package/reference data; each page is a fresh read. Exact-package,
+installed/copied-log and real-data impact acceptance remain open; no record was corrected.
+See [source acceptance](docs/PJ_CTY_IMPACT_PREVIEW_SOURCE_ACCEPTANCE_2026-10-16.md).
+
+`210a0ea42f9887dd94e13d56ce83b658554fce36` aligns detached Propagation chart rows,
+adds shared 12-pixel Station Status/Rotor content insets and top-aligns Rotor content.
+The committed rendered-geometry fixture covers reference/status surfaces; the focused
+root responsive UI rerun passes **31/31**. Source/synthetic evidence does not close native
+package, keyboard/focus, mixed-display/DPI, accessibility, live-provider or rotor/hardware
+acceptance. Installed alpha.31 remains unchanged by both commits; no live service,
+station, hardware, RF or operator-data action was performed for these slices.
+
 The first ADIF 3.1.8 audit stage is committed in `429dcae` and `7e6cfce`. Compatibility
 parsing now uses UTF-8 byte lengths and cannot split records on terminator text inside a
 field. Editor FT4, FT2 and JTTY export as `MODE=MFSK` plus `SUBMODE`, while local values,
