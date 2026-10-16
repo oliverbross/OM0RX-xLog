@@ -12,7 +12,7 @@ import { connectRotorConfigurationChanges } from "./rotorConfigurationTransport"
 const journalKey = "xlog.integration.settings.detached.v1";
 const rotorJournalKey = "xlog.integration.rotorConfiguration.detached.v1";
 const RotorPanel = lazy(() => import("./RotorPanel"));
-const availableTabs = ["Station", "Wavelog", "Sync", "Integrations", "QRZ", "Online logs", "Reference data", "Rotator", "Radio spots", "Display", "Workspace", "Backups"] as const;
+const availableTabs = ["Station", "Logbook", "Wavelog", "Sync", "Integrations", "QRZ", "Online logs", "Reference data", "Rotator", "Radio spots", "Display", "Workspace", "Backups"] as const;
 export const detachedSettingsMethods = [
   "settings_load", "settings_receipt", "settings_save", "secret_status", "secret_save",
   "online_log_status", "online_log_configure",
@@ -73,7 +73,7 @@ export function DetachedSettingsSurface() {
       onUseSaved={() => { try { settingsSession.useSaved(); setMessage(""); } catch (cause) {
         setMessage(cause instanceof Error ? cause.message : "Saved Settings could not be restored.");
       } }}
-      syncSettings={state.draft.logbookMode === "local" ? <p>Standalone local logbook. Wavelog synchronization is disabled in Settings.</p>
+      syncSettings={state.draft.logbookMode === "local" ? <p>Integrated-only mode. Wavelog synchronization is disabled. Choose Integrated logbook + Wavelog synchronization in Logbook to enable it.</p>
       : <SyncPanel request={requestDetachedSettings} onChanged={reload} journalKey="xlog.sync.mutation.settings.v1" />}
       rotorSettings={<Suspense fallback={<p role="status">Loading Rotator settings…</p>}>
         <RotorPanel snapshot={null} request={requestDetachedSettings} configurationSession={rotorSession} configurationOnly />

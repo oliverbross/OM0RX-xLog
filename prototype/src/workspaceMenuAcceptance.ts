@@ -27,7 +27,7 @@ export async function verifyWorkspaceMenuRoutes({ worker, navigate, click }: Con
     const selected = [...(main?.querySelectorAll('[role="tab"]') ?? [])].some(tab =>
       tab.textContent?.trim() === "Sync" && tab.getAttribute("aria-selected") === "true");
     const notice = [...(main?.querySelectorAll('[role="tabpanel"] p') ?? [])].some(item =>
-      !item.closest("[hidden]") && item.textContent === "Standalone local logbook. Wavelog synchronization is disabled in Settings.");
+      !item.closest("[hidden]") && item.textContent?.startsWith("Integrated-only mode. Wavelog synchronization is disabled."));
     return selected && notice;
   });
   if (!same(settings, (await worker("settings_load")).result?.settings)

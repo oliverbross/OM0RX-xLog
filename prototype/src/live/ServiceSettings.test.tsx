@@ -52,7 +52,13 @@ describe("grouped service settings", () => {
   it("applies standalone mode only on Save, retaining Wavelog setup without starting sync", async () => {
     const request = vi.fn(), save = vi.fn(async () => {});
     render(<SettingsHarness values={{ ...values, logbookMode: "wavelog" }} request={request} onSave={save} />);
+    expect(screen.getByRole("tab", { name: "Logbook" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("tab", { name: "Logbook" }));
+    expect(screen.getByRole("heading", { name: "Integrated logbook" })).toBeTruthy();
+    expect(screen.getByRole("option", { name: "Integrated logbook only" })).toBeTruthy();
+    expect(screen.getByRole("option", { name: "Integrated logbook + Wavelog synchronization" })).toBeTruthy();
     fireEvent.change(screen.getByLabelText("Logbook mode"), { target: { value: "local" } });
+    expect(screen.getByText(/Selected mode \(save to apply\): Integrated only/)).toBeTruthy();
     expect(request).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
     await waitFor(() => expect(save).toHaveBeenCalledWith({ ...values, logbookMode: "local" }));
@@ -61,6 +67,7 @@ describe("grouped service settings", () => {
   it("defaults missing mode to local and switching back only saves settings", async () => {
     const request = vi.fn(), save = vi.fn(async () => {});
     render(<SettingsHarness values={values} request={request} onSave={save} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Logbook" }));
     expect((screen.getByLabelText("Logbook mode") as HTMLSelectElement).value).toBe("local");
     expect(screen.getByText(/Switching back to Wavelog leaves synchronization off/)).toBeTruthy();
     fireEvent.change(screen.getByLabelText("Logbook mode"), { target: { value: "wavelog" } });
@@ -241,6 +248,8 @@ describe("grouped service settings", () => {
     render(<SettingsHarness values={values} request={request} dataRequest={dataRequest} onDataChanged={vi.fn()} />);
     await waitFor(() => expect(dataRequest).toHaveBeenCalledTimes(2));
     fireEvent.keyDown(screen.getByRole("tab", { name: "Station" }), { key: "ArrowRight" });
+    expect(screen.getByRole("tab", { name: "Logbook" }).getAttribute("aria-selected")).toBe("true");
+    fireEvent.keyDown(screen.getByRole("tab", { name: "Logbook" }), { key: "ArrowRight" });
     expect(screen.getByRole("tab", { name: "Wavelog" }).getAttribute("aria-selected")).toBe("true");
     fireEvent.click(screen.getByRole("tab", { name: "Reference data" }));
     expect(screen.getByRole("table", { name: "Reference dataset evidence" })).toBeTruthy();

@@ -50,6 +50,10 @@ it("opens at the settings form and retains dirty text across invalidation and re
   const operator = await screen.findByRole("textbox", { name: "Operator call" }) as HTMLInputElement;
   fireEvent.change(operator, { target: { value: "VK8DIRTY" } });
   expect(operator.value).toBe("VK8DIRTY");
+  expect(screen.getByRole("tab", { name: "Logbook" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("tab", { name: "Logbook" }));
+  expect((screen.getByLabelText("Logbook mode") as HTMLSelectElement).value).toBe("wavelog");
+  fireEvent.click(screen.getByRole("tab", { name: "Station" }));
   expect(screen.getByRole("tab", { name: "Rotator" })).toBeTruthy();
   expect(screen.queryByRole("tab", { name: "CW" })).toBeNull();
   expect(screen.queryByText("Settings", { selector: "strong" })).toBeNull();

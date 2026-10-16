@@ -16,7 +16,7 @@ export function DetachedStationIdentitySurface() {
     {!current && <p role="status">{identity ? "Saved identity unavailable or changing · retained values only" : "No saved identity has been observed. Configure your station in Settings."}</p>}
     <div className="live-station-readback"><div><span>{current ? "Saved station callsign" : "Retained station callsign"}</span><strong>{shown(identity?.station_call)}</strong></div></div>
     <dl><dt>Operator callsign</dt><dd>{shown(identity?.operator_call)}</dd><dt>Grid</dt><dd>{shown(identity?.grid)}</dd>
-      <dt>Location</dt><dd>{shown(identity?.location)}</dd><dt>Logbook mode</dt><dd>{identity?.logbook_mode === "local" ? "Standalone local logbook" : identity?.logbook_mode === "wavelog" ? "Wavelog-linked logbook" : "Unavailable"}</dd>
+      <dt>Location</dt><dd>{shown(identity?.location)}</dd><dt>Logbook mode</dt><dd>{identity?.logbook_mode === "local" ? "Integrated logbook only" : identity?.logbook_mode === "wavelog" ? "Integrated logbook + Wavelog synchronization" : "Unavailable"}</dd>
       <dt>Saved settings revision</dt><dd>{identity?.settings_revision ?? "Unavailable"}</dd>
       <dt>Workspace generation</dt><dd>{identity?.workspace_generation ?? "Unavailable"}</dd>
       <dt>Workspace service generation</dt><dd>{identity?.worker_generation ?? "Unavailable"}</dd>

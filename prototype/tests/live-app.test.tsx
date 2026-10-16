@@ -3,7 +3,7 @@ import React from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import LiveApp from "../src/LiveApp";
+import LiveApp, { syncSettingsDestination } from "../src/LiveApp";
 import Conditions from "../src/live/Conditions";
 import Monitor from "../src/live/Monitor";
 import { operatorDraftFixture, testWorkspaceGeneration } from "./operator-draft-fixture";
@@ -186,16 +186,10 @@ it("native menu navigation preserves the draft and never changes equipment or st
   expect(calls.request.mock.calls.some(([method]) => ["station_connect", "station_disconnect", "station_tune", "rotor_connect", "rotor_goto", "sync_run", "settings_save"].includes(method))).toBe(false);
 });
 
-it("native Sync navigation in standalone mode routes to Settings without starting synchronization", async () => {
-  exists = true;
-  const backend = calls.request.getMockImplementation()!;
-  calls.request.mockImplementation((method, params) => method === "settings_load"
-    ? Promise.resolve({ result: { settings: { logbookMode: "local", stationCall: "K1ABC" }, revision: 0, generation: testWorkspaceGeneration } }) : backend(method, params));
-  render(<LiveApp />); await screen.findByLabelText("Callsign");
-  await act(async () => nativeMenu.route?.("Sync"));
-  expect(screen.getByRole("main", { name: "Settings" })).toBeTruthy();
-  expect(await screen.findByText(/Wavelog sync is disabled in standalone mode/)).toBeTruthy();
-  expect(calls.request.mock.calls.some(([method]) => ["sync_run", "sync_status"].includes(method))).toBe(false);
+it("routes Sync to the Logbook choice in integrated-only mode", () => {
+  expect(syncSettingsDestination("local")).toBe("Logbook");
+  expect(syncSettingsDestination("wavelog")).toBe("Sync");
+  expect(syncSettingsDestination(undefined)).toBe("Sync");
 });
 
 it("keeps Sync inside Settings and supports repeat legacy navigation without changing its schedule", async () => {

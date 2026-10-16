@@ -22,6 +22,10 @@
 .service-settings input { width:100%; min-width:0; }
 .service-settings .service-enable { flex-direction:row; align-items:center; margin:8px 0 12px; }
 .service-settings input[type="checkbox"] { width:auto; }
+.service-settings .service-logbook-mode label { max-width:560px; }
+.service-settings .service-logbook-mode select { width:100%; }
+.service-settings .service-logbook-mode [role="status"] { margin-top:12px; color:var(--text); }
+.service-settings .service-logbook-mode [role="status"] strong { color:var(--teal); }
 .service-settings .service-default-power { min-width:0; }
 .service-settings .service-default-power .service-enable { margin:7px 0 4px; }
 .service-settings .service-default-power p { font-size:11px; margin:0; }

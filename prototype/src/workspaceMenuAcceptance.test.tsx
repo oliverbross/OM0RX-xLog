@@ -26,7 +26,7 @@ async function fixture(changed?: "settings" | "draft") {
     if (!workspaceMenuScreens.some(screen => screen.title === name)) throw new Error("Absent actual native menu item");
     await act(async () => view.rerender(h("main", { "aria-label": name }, name === "Settings" ? h(ServiceSettings, {
       values: settings, request: settingsRequest, onChanged: vi.fn(), onSave: vi.fn(async () => {}),
-      syncSettings: h("p", null, "Standalone local logbook. Wavelog synchronization is disabled in Settings."),
+      syncSettings: h("p", null, "Integrated-only mode. Wavelog synchronization is disabled. Choose Integrated logbook + Wavelog synchronization in Settings → Logbook to enable it."),
     }) : null)));
   });
   const click = vi.fn(async (name: string, selector = "button") => {

@@ -121,7 +121,7 @@ export default function SyncPanel({ request, onChanged, journalKey = "xlog.sync.
     <h2>Wavelog synchronization</h2>
     <button type="button" disabled={busy || checkingSetup} onClick={() => { setError(""); void refresh(); }}>Refresh Sync state</button>
     <p>Sync sends pending local changes and reconciles Wavelog edits and deletions. Stop the original xLog and every other sync writer before using this logbook as the active Wavelog writer.</p>
-    {state?.mode === "local" && <p role="status">Standalone local mode keeps your contacts and pending changes here. To use Wavelog, save Local logbook + Wavelog sync in Settings, then explicitly synchronize or enable automatic sync.</p>}
+    {state?.mode === "local" && <p role="status">Integrated-only mode keeps your contacts and pending changes here. To use Wavelog, save Integrated logbook + Wavelog synchronization in Settings → Logbook, then explicitly synchronize or enable automatic sync.</p>}
     <div className="sync-setup"><button disabled={locked || !available || checkingSetup} onClick={() => void checkSetup()}>{checkingSetup ? "Checking setup…" : "Check setup"}</button><p aria-live="polite">{setupMessage || "Queued contacts with 0 attempts have not been uploaded yet. Conflicting edits always need your review."}</p></div>
     {!automatic && <label className="sync-confirm"><input type="checkbox" checked={confirmed} disabled={locked} onChange={event => setConfirmed(event.target.checked)} />I have stopped the other sync applications; this logbook is the only writer.</label>}
     <div className="sync-schedule">
