@@ -50,6 +50,35 @@ struct OperatorDraftTests {
         #expect(try reopened.count() == 0)
     }
 
+    @Test("First callsign refreshes an automatic idle start while a manual historical start is preserved")
+    func automaticAndManualStartProvenance() throws {
+        let url = databaseURL()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let db = try LogbookDatabase(url: url)
+        defer { db.close() }
+        let old = Date(timeIntervalSince1970: 1_700_000_000)
+        let selectedAt = Date(timeIntervalSince1970: 1_800_000_000)
+        let initial = QSO(call: "", start: old, band: "20m", mode: "CW", updatedAt: old)
+        let automatic = try db.operatorDraft(initial: initial)
+        #expect(automatic.automaticStart)
+        var live = automatic.qso; live.call = "FK8IK"
+        let liveReceipt = try db.applyOperatorDraft(mutation(automatic, .replace, qso: live),
+                                                    nextDraft: blank(), now: selectedAt)
+        #expect(liveReceipt.draft.qso.start == selectedAt)
+        #expect(!liveReceipt.draft.automaticStart)
+
+        let fresh = QSO(call: "", start: selectedAt, band: "20m", mode: "CW", updatedAt: selectedAt)
+        let cleared = try db.applyOperatorDraft(mutation(liveReceipt.draft, .clear), nextDraft: fresh).draft
+        var historical = cleared.qso; historical.start = old
+        let dated = try db.applyOperatorDraft(mutation(cleared, .replace, qso: historical), nextDraft: blank()).draft
+        #expect(!dated.automaticStart)
+        var historicalCall = dated.qso; historicalCall.call = "K1ABC"
+        let preserved = try db.applyOperatorDraft(mutation(dated, .replace, qso: historicalCall),
+                                                  nextDraft: blank(), now: selectedAt.addingTimeInterval(60)).draft
+        #expect(preserved.qso.start == old)
+        #expect(!preserved.automaticStart)
+    }
+
     @Test("A stale window cannot replace newer text or clear the next draft")
     func conflicts() throws {
         let url = databaseURL()

@@ -164,6 +164,36 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
         try lock.withLock { try body(powerWorkspaceID()) }
     }
 
+    #if canImport(XLogCore)
+    /// Source-only confirmation owner. No renderer route or replay capability is
+    /// exposed until this batch has its own durable operation receipt contract.
+    func applyLoTWConfirmationChanges(_ preview: LoTWConfirmationPreview) throws -> Int {
+        try lock.withLock {
+            guard !manualSyncActive else { throw LogbookDatabaseError.syncBusy }
+            guard let generation = UUID(uuidString: try editGeneration(createIfMissing: false)) else {
+                throw LoTWConfirmationPreview.Failure.missingIdentity
+            }
+            guard generation == preview.generation else { throw LoTWConfirmationPreview.Failure.staleGeneration }
+            return try readyDatabase().applyConfirmationChanges { contacts in
+                try preview.validateFences(observedGeneration: generation, contacts: contacts)
+                return try preview.items.filter { $0.outcome == .changed }.map { item in
+                    guard let fence = item.fence else { throw LoTWConfirmationPreview.Failure.invalidReport }
+                    let changes = item.changes.map { change -> LogbookDatabase.ConfirmationChange in
+                        let field: LogbookDatabase.ConfirmationChange.Field
+                        switch change.field {
+                        case .received: field = .lotwReceived
+                        case .receivedDate: field = .lotwReceivedDate
+                        case .sourceTimestamp: field = .lotwSourceTimestamp
+                        }
+                        return .init(field: field, retained: change.retained, proposed: change.proposed)
+                    }
+                    return .init(contactID: fence.contactID, revision: fence.revision, changes: changes)
+                }
+            }
+        }
+    }
+    #endif
+
     public func withActiveSnapshot<T: Sendable>(workspaceGeneration: UUID, destination: RemoteBackupDestination,
         capture: @Sendable (RemoteBackupWorkspaceSnapshot) throws -> T) async throws -> T {
         try withBackupSnapshot(workspaceGeneration: workspaceGeneration, destination: destination,

@@ -822,6 +822,122 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
+    public struct ConfirmationChange: Sendable {
+        public enum Field: String, Sendable {
+            case lotwReceived = "lotwReceived"
+            case lotwReceivedDate = "LOTW_QSLRDATE"
+            case lotwSourceTimestamp = "APP_LOTW_RXQSL"
+        }
+        public let field: Field
+        public let retained: String?
+        public let proposed: String
+        public init(field: Field, retained: String?, proposed: String) {
+            self.field = field; self.retained = retained; self.proposed = proposed
+        }
+    }
+    public struct ConfirmationPatch: Sendable {
+        public let contactID: UUID
+        public let revision: Int64
+        public let changes: [ConfirmationChange]
+        public init(contactID: UUID, revision: Int64, changes: [ConfirmationChange]) {
+            self.contactID = contactID; self.revision = revision; self.changes = changes
+        }
+    }
+
+    /// The native owner holds its workspace replacement lock and validates its
+    /// service-specific whole preview inside `prepare`, after transaction entry.
+    /// No operation ID/replay is exposed: existing receipts have other contracts.
+    /// Only positive confirmation JSON fields can be patched; no generic Save.
+    public func applyConfirmationChanges(prepare: ([LogbookContactSnapshot]) throws -> [ConfirmationPatch]) throws -> Int {
+        try withDatabaseLock {
+            try execute("BEGIN IMMEDIATE;")
+            do {
+                var rawRecords: [UUID: Data] = [:]
+                let contacts: [LogbookContactSnapshot] = try withStatement("""
+                    SELECT q.local_id,q.record_json,COALESCE(r.revision,0)
+                    FROM qsos q LEFT JOIN xlog_contact_revisions r ON r.local_id=q.local_id LIMIT 100001;
+                    """) { statement in
+                        var values: [LogbookContactSnapshot] = []
+                        while true {
+                            let step = sqlite3_step(statement)
+                            if step == SQLITE_DONE { return values }
+                            guard step == SQLITE_ROW, let idText = sqlite3_column_text(statement, 0),
+                                  let id = UUID(uuidString: String(cString: idText)),
+                                  let bytes = sqlite3_column_blob(statement, 1) else { throw LogbookDatabaseError.corruptRecord }
+                            guard values.count < 100_000 else { throw LogbookContactError.invalid }
+                            let data = Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 1)))
+                            let qso = try decoder.decode(QSO.self, from: data)
+                            guard qso.id == id, rawRecords[id] == nil else { throw LogbookDatabaseError.corruptRecord }
+                            values.append(LogbookContactSnapshot(revision: sqlite3_column_int64(statement, 2), qso: qso))
+                            rawRecords[id] = data
+                        }
+                    }
+                let patches = try prepare(contacts)
+                guard patches.count <= 10_000, Set(patches.map(\.contactID)).count == patches.count,
+                      patches.reduce(0, { $0 + $1.changes.count }) <= 30_000 else { throw LogbookContactError.invalid }
+                let current = Dictionary(uniqueKeysWithValues: contacts.map { ($0.qso.id, $0) })
+                var updates: [(ConfirmationPatch, Data)] = []
+                let dateFormatter = DateFormatter()
+                dateFormatter.locale = Locale(identifier: "en_US_POSIX")
+                dateFormatter.timeZone = TimeZone(secondsFromGMT: 0)
+                dateFormatter.calendar = Calendar(identifier: .gregorian)
+                dateFormatter.isLenient = false
+                for patch in patches {
+                    guard !patch.changes.isEmpty, patch.changes.count <= 3,
+                          Set(patch.changes.map { $0.field.rawValue }).count == patch.changes.count,
+                          let contact = current[patch.contactID], contact.revision == patch.revision,
+                          (0..<9_007_199_254_740_991).contains(patch.revision), contact.qso.deletedAt == nil,
+                          let data = rawRecords[patch.contactID],
+                          var object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                        throw LogbookContactError.invalid
+                    }
+                    // Patch the stored JSON object itself to preserve unknown
+                    // properties and avoid save-time normalization/backfilling.
+                    var extra = object["extraFields"] as? [String: String] ?? [:]
+                    for change in patch.changes {
+                        guard change.retained != change.proposed else { throw LogbookContactError.invalid }
+                        switch change.field {
+                        case .lotwReceived:
+                            guard object["lotwReceived"] as? String == change.retained,
+                                  change.proposed == "Y",
+                                  !["Y", "V"].contains((change.retained ?? "").uppercased()) else {
+                                throw LogbookContactError.invalid
+                            }
+                            object["lotwReceived"] = change.proposed
+                        case .lotwReceivedDate, .lotwSourceTimestamp:
+                            let key = change.field.rawValue
+                            dateFormatter.dateFormat = change.field == .lotwReceivedDate ? "yyyyMMdd" : "yyyy-MM-dd HH:mm:ss"
+                            guard extra[key] == change.retained, change.proposed.utf8.count <= 19,
+                                  let date = dateFormatter.date(from: change.proposed),
+                                  dateFormatter.string(from: date) == change.proposed else { throw LogbookContactError.invalid }
+                            extra[key] = change.proposed
+                            object["extraFields"] = extra
+                        }
+                    }
+                    guard let status = object["lotwReceived"] as? String,
+                          ["Y", "V"].contains(status.uppercased()) else { throw LogbookContactError.invalid }
+                    updates.append((patch, try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])))
+                }
+                for (patch, data) in updates {
+                    try withStatement("""
+                        UPDATE qsos SET record_json=? WHERE local_id=?
+                        AND COALESCE((SELECT revision FROM xlog_contact_revisions WHERE local_id=?),0)=?;
+                        """) { statement in
+                            _ = data.withUnsafeBytes { sqlite3_bind_blob(statement, 1, $0.baseAddress, Int32($0.count), Self.transient) }
+                            bind(patch.contactID.uuidString, to: 2, in: statement)
+                            bind(patch.contactID.uuidString, to: 3, in: statement)
+                            sqlite3_bind_int64(statement, 4, patch.revision)
+                            try stepDone(statement)
+                            guard sqlite3_changes(handle) == 1 else { throw LogbookContactError.invalid }
+                        }
+                }
+                try execute("COMMIT;")
+                if !updates.isEmpty { invalidateQSOAggregates() }
+                return updates.count
+            } catch { try? execute("ROLLBACK;"); throw error }
+        }
+    }
+
     public func contactReceipt(operationID: UUID) throws -> LogbookContactReceipt? {
         try withDatabaseLock {
             try withStatement("SELECT payload FROM xlog_contact_receipts WHERE operation_id=?;") { statement in
@@ -894,7 +1010,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                 }
                 try initial.validateOperatorDraft(forSave: false)
                 guard try lookup(localID: initial.id) == nil else { throw OperatorDraftError.existingContact }
-                let draft = OperatorDraftSnapshot(revision: 0, qso: initial)
+                let draft = OperatorDraftSnapshot(revision: 0, qso: initial, automaticStart: true)
                 try writeOperatorDraft(draft)
                 try execute("COMMIT;")
                 return draft
@@ -1302,7 +1418,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                     try power.manual(value: current.qso.txPower)
                 }
                 return OperatorDraftSnapshot(revision: current.revision,
-                    qso: power.applying(to: current.qso), power: power)
+                    qso: power.applying(to: current.qso), automaticStart: current.automaticStart, power: power)
             }
             operatorPowerScopeID = result.power?.activeScope?.id == previousAuthority ? previousAuthority : nil
             return result
@@ -1328,7 +1444,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                 }
                 _ = try power.arm(context: context, qso: current.qso, workspaceID: workspaceID, now: now)
                 return OperatorDraftSnapshot(revision: current.revision,
-                    qso: power.applying(to: current.qso), power: power)
+                    qso: power.applying(to: current.qso), automaticStart: current.automaticStart, power: power)
             }
             operatorPowerScopeID = result.power?.activeScope?.id
             return result
@@ -1350,7 +1466,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                 // Later revocation may proceed while this admitted write commits.
                 guard authorize() else { return current }
                 return OperatorDraftSnapshot(revision: current.revision,
-                    qso: power.applying(to: current.qso), power: power)
+                    qso: power.applying(to: current.qso), automaticStart: current.automaticStart, power: power)
             }
         }
     }
@@ -1362,7 +1478,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                 guard var power = current.power else { return current }
                 try power.invalidateSession()
                 return OperatorDraftSnapshot(revision: current.revision,
-                    qso: power.applying(to: current.qso), power: power)
+                    qso: power.applying(to: current.qso), automaticStart: current.automaticStart, power: power)
             }
         }
     }
@@ -1393,7 +1509,8 @@ public final class LogbookDatabase: @unchecked Sendable {
     /// Only creating new contacts is exposed here; editing a logged QSO requires
     /// a separate record revision contract and cannot hijack this draft's ID.
     public func applyOperatorDraft(_ mutation: OperatorDraftMutation, nextDraft: QSO,
-                                  powerConfiguration: (workspaceID: UUID, enabled: Bool, fallback: String)? = nil) throws -> OperatorDraftReceipt {
+                                  powerConfiguration: (workspaceID: UUID, enabled: Bool, fallback: String)? = nil,
+                                  now: Date = Date()) throws -> OperatorDraftReceipt {
         try withDatabaseLock {
             guard spotDraftLeaseID == nil else { throw SpotDraftError.busy }
             guard (0..<9_007_199_254_740_991).contains(mutation.expectedRevision) else { throw OperatorDraftError.invalid }
@@ -1410,6 +1527,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                 }
                 var updated: QSO
                 var power = current.power
+                var automaticStart = current.automaticStart
                 if power == nil, let intent = mutation.powerIntent {
                     guard mutation.action == .replace, intent.action == .manual,
                           let configuration = powerConfiguration else { throw OperatorDraftError.notInitialized }
@@ -1420,7 +1538,15 @@ public final class LogbookDatabase: @unchecked Sendable {
                 var saved: QSO?
                 switch mutation.action {
                 case .replace:
-                    guard let replacement = mutation.qso, replacement.id == current.qso.id else { throw OperatorDraftError.invalid }
+                    guard var replacement = mutation.qso, replacement.id == current.qso.id else { throw OperatorDraftError.invalid }
+                    if replacement.start != current.qso.start || replacement.end != current.qso.end {
+                        automaticStart = false
+                    } else if automaticStart,
+                              current.qso.call.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                              !replacement.call.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        replacement.start = now
+                        automaticStart = false
+                    }
                     try replacement.validateOperatorDraft(forSave: false)
                     if var currentPower = power {
                         updated = try currentPower.reconcileReplacement(current: current.qso, replacement: replacement,
@@ -1447,6 +1573,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                     try nextDraft.validateOperatorDraft(forSave: false)
                     guard try lookup(localID: nextDraft.id) == nil else { throw OperatorDraftError.existingContact }
                     updated = nextDraft
+                    automaticStart = true
                     if mutation.action == .save {
                         let resolved = power?.applying(to: current.qso, includeProvenance: true) ?? current.qso
                         try resolved.validateOperatorDraft(forSave: true)
@@ -1463,7 +1590,8 @@ public final class LogbookDatabase: @unchecked Sendable {
                 }
                 try updated.validateOperatorDraft(forSave: false)
                 try power?.validate()
-                let draft = OperatorDraftSnapshot(revision: current.revision + 1, qso: updated, power: power)
+                let draft = OperatorDraftSnapshot(revision: current.revision + 1, qso: updated,
+                                                  automaticStart: automaticStart, power: power)
                 try writeOperatorDraft(draft)
                 let receipt = OperatorDraftReceipt(mutation: mutation, draft: draft, savedQSO: saved)
                 let payload = try encoder.encode(receipt)
@@ -1572,7 +1700,7 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
-    public func applySpotDraft(_ command: SpotDraftCommand) throws -> SpotDraftApplyResult {
+    public func applySpotDraft(_ command: SpotDraftCommand, now: Date = Date()) throws -> SpotDraftApplyResult {
         try withDatabaseLock {
             try command.validate()
             try execute("BEGIN IMMEDIATE;")
@@ -1593,12 +1721,18 @@ public final class LogbookDatabase: @unchecked Sendable {
                 }
                 guard try lookup(localID: current.qso.id) == nil else { throw OperatorDraftError.existingContact }
                 var qso = command.spot.applying(to: current.qso)
+                var automaticStart = current.automaticStart
+                if automaticStart && current.qso.call.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    qso.start = now
+                    automaticStart = false
+                }
                 var power = current.power
                 if var value = power {
                     qso = try value.reconcileReplacement(current: current.qso, replacement: qso, workspaceID: value.workspaceID)
                     qso = value.applying(to: qso); power = value
                 }
-                let draft = OperatorDraftSnapshot(revision: current.revision + 1, qso: qso, power: power)
+                let draft = OperatorDraftSnapshot(revision: current.revision + 1, qso: qso,
+                                                  automaticStart: automaticStart, power: power)
                 try draft.validate()
                 let leaseID = UUID()
                 let record = SpotDraftRecord(command: command,

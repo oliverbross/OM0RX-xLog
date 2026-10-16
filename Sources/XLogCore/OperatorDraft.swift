@@ -6,12 +6,17 @@ import Foundation
 public struct OperatorDraftSnapshot: Codable, Equatable, Sendable {
     public let revision: Int64
     public let qso: QSO
+    /// True only while the start time still belongs to a freshly created blank
+    /// draft. It is draft metadata, never an ADIF/contact field.
+    public let automaticStart: Bool
     /// Meter updates have their own revision; they must not race contact typing.
     /// Absent on legacy drafts and receipts until native capture is configured.
     public let power: OperatorDraftPowerState?
 
-    public init(revision: Int64, qso: QSO, power: OperatorDraftPowerState? = nil) {
-        self.revision = revision; self.qso = qso; self.power = power
+    public init(revision: Int64, qso: QSO, automaticStart: Bool = false,
+                power: OperatorDraftPowerState? = nil) {
+        self.revision = revision; self.qso = qso
+        self.automaticStart = automaticStart; self.power = power
     }
 
     public func validate() throws {
@@ -26,12 +31,21 @@ public struct OperatorDraftSnapshot: Codable, Equatable, Sendable {
         }
     }
 
-    private enum CodingKeys: String, CodingKey { case revision, qso, power }
+    private enum CodingKeys: String, CodingKey { case revision, qso, automaticStart, power }
 
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         revision = try values.decode(Int64.self, forKey: .revision)
         qso = try values.decode(QSO.self, forKey: .qso)
+        if let explicit = try values.decodeIfPresent(Bool.self, forKey: .automaticStart) {
+            automaticStart = explicit
+        } else {
+            // Legacy fresh blanks have no provenance. The two constructor
+            // timestamps are adjacent; a deliberately edited historical time is
+            // not. Populated legacy drafts remain conservative.
+            automaticStart = qso.call.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                && qso.end == nil && abs(qso.start.timeIntervalSince(qso.updatedAt)) < 1
+        }
         power = try values.decodeIfPresent(OperatorDraftPowerState.self, forKey: .power)
         try validate()
     }

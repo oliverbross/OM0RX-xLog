@@ -66,6 +66,40 @@ struct SpotDraftActivationTests {
         }
     }
 
+    @Test("A live spot refreshes an automatic idle start but preserves an explicitly edited start")
+    func spotStartProvenance() throws {
+        let old = Date(timeIntervalSince1970: 1_700_000_000)
+        try fixture { service, _ in
+            let db = try service.openedDatabase()
+            let current = try db.operatorDraft(initial: QSO(call: "", band: "20m", mode: "CW"))
+            let reset = QSO(call: "", start: old, band: "20m", mode: "CW", updatedAt: old)
+            let clear = OperatorDraftMutation(operationID: UUID(), draftID: current.qso.id,
+                expectedRevision: current.revision, action: .clear)
+            let automatic = try db.applyOperatorDraft(clear, nextDraft: reset).draft
+            #expect(automatic.automaticStart)
+            let selectedAfter = Date()
+            _ = try service.handle(method: "spot_draft_apply", params: command(try snapshot(service)))
+            let selected = try db.operatorDraft(initial: reset)
+            #expect(selected.qso.start >= selectedAfter)
+            #expect(selected.qso.start != old)
+            #expect(!selected.automaticStart)
+        }
+
+        try fixture { service, _ in
+            let db = try service.openedDatabase()
+            let current = try db.operatorDraft(initial: QSO(call: "", band: "20m", mode: "CW"))
+            var historical = current.qso; historical.start = old
+            let edit = OperatorDraftMutation(operationID: UUID(), draftID: current.qso.id,
+                expectedRevision: current.revision, action: .replace, qso: historical)
+            let manual = try db.applyOperatorDraft(edit, nextDraft: QSO(call: "", band: "20m", mode: "CW")).draft
+            #expect(!manual.automaticStart)
+            _ = try service.handle(method: "spot_draft_apply", params: command(try snapshot(service)))
+            let selected = try db.operatorDraft(initial: historical)
+            #expect(selected.qso.start == old)
+            #expect(!selected.automaticStart)
+        }
+    }
+
     @Test("Opportunity selection supports a calendar without frequency and cannot stage station effects")
     func opportunityDraftOnly() throws {
         try fixture { service, _ in
