@@ -2,7 +2,7 @@
 
 Last updated: 2026-10-16
 
-Tracked implementation checkpoint: `c4b160281b6fbf1a65adcb8f782ec41503a0f969`.
+Tracked implementation checkpoint: `c6ada81ae2b90dba15f8d531cabe8524596f9527`.
 New source/test/browser evidence does not replace installed alpha.31 or close
 exact-package, native interaction, live-provider or hardware acceptance.
 
@@ -248,6 +248,11 @@ with independent producer receipts, discovery pruning and reconnect clearing. It
 no configured freshness/readiness, tuning/TX state or control/RF authority. Agent focused
 checks pass **95/95**, and root new-case checks pass **6/6**; the prior lifecycle-flake
 disclosure remains applicable and package/live acceptance remains open.
+`ec83f28` retains passive global `VOLUME` as the exact raw decimal token within
+**[-60, 0] dB**, with its own receipt. It infers no mute, audibility, streaming,
+readiness, control or RF state. Agent compiled-bundle checks pass **101/101**;
+root full-current-tree new-case checks pass **6/6**. The recurring lifecycle-flake
+disclosure remains separate from these scoped results.
 Transmit/PTT, split/TX-VFO controls, outbound spot
 management, audio/IQ, package/live-server and RF acceptance
 remain open. QLog is a behavior reference only; no third-party code, credentials, device or
@@ -279,8 +284,8 @@ contact. Stored/manual overrides remain authoritative; source, observation and d
 dates never become field-origin dates. Qualitative review impacts provide no correction,
 award/confirmation/sync delta or mutation authority. `862e444` adds `logbook_data_quality`
 for exact contact/generation/revision, with optional primary-key retained conflict, canonical
-snapshot and the current CTY owner. CTY version/date remain unknown; duplicate review is
-explicitly not performed. Only main/Logbook surfaces are authorized. The route performs no
+snapshot and the current CTY owner. CTY version/date remain unknown; duplicate review was
+not performed at that stage. Only main/Logbook surfaces are authorized. The route performs no
 correction, write, provider/reference refresh or award/sync delta.
 Swift route **2/2** and combined **3/3**, Rust authorization **1/1**, frontend **7/7** and
 TypeScript pass; initial route-test compile defects were fixed before commit. `c4b1602`
@@ -290,6 +295,13 @@ Root focused checks pass **35/35** plus isolated detached **6/6**; agent build, 
 and browser geometry pass. No correction, provider/reference refresh or award/sync delta
 is added. Native interaction, exact-package/copied-log and live acceptance, full data-quality
 coverage and corrective workflows remain open; installed alpha.31 is unchanged.
+`c6ada81` adds bounded duplicate review using the existing native exact call/band/primary-mode
+case-insensitive **±600-second** rule, excluding self/deleted contacts. A **5-candidate cap
+plus lookahead** yields explicit complete/truncated/unknown states. It makes no semantic,
+frequency, submode or portable-callsign inference and performs no mutation. Agent core
+**8/8**, route/regression **6/6**, frontend **19/19**, TypeScript/build/window gates pass;
+root route **3/3**, duplicate **3/3** and frontend **19/19** pass. Native/package/live,
+correction/provider-refresh and broader quality gates remain open.
 
 ## QRP DXCC preflight — R09 dependency source complete; sponsor award remains open
 

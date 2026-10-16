@@ -1,6 +1,6 @@
 # OM0RX-xLog live project board
 
-Tracked implementation checkpoint: `c4b160281b6fbf1a65adcb8f782ec41503a0f969`.
+Tracked implementation checkpoint: `c6ada81ae2b90dba15f8d531cabe8524596f9527`.
 Source/test/browser evidence below remains separate from installed alpha.31 and
 unaccepted package, native interaction, provider and hardware gates.
 
@@ -157,6 +157,10 @@ frontend **41/41**, and global TX protocol/session Swift **35/35** pass. The pin
  independent receipts, discovery pruning and reconnect clearing. It adds no configured
  freshness/readiness, tune/TX state or control/RF authority. Agent **95/95** and root new
  **6/6** checks pass; earlier lifecycle-flake disclosure and package/live gates remain open.
+ `ec83f28` passively retains global `VOLUME` as an exact raw decimal in **[-60, 0] dB**
+ plus independent receipt, without mute/audibility/streaming/readiness/control/RF inference.
+ Agent compiled bundle **101/101** and root full-current-tree new-case **6/6** pass;
+ the recurring lifecycle-flake disclosure remains separate.
 Transmit/PTT, split/TX-VFO controls,
 spots, audio/IQ, package/live-server and RF
 acceptance remain open; installed alpha.31 is unchanged. See the
@@ -185,7 +189,7 @@ authoritative; observation/reference/detection times never become field-origin d
 Findings describe qualitative impacts without correction or award/confirmation/sync deltas.
 `862e444` adds exact contact/generation/revision `logbook_data_quality` reads with an optional
 primary-key retained conflict, canonical snapshot and current CTY owner. Version/date remain
-unknown and duplicate review is explicitly not performed. Main/Logbook-only authorization
+unknown and duplicate review was not performed at that stage. Main/Logbook-only authorization
 permits no corrections, writes, provider/reference refresh or award/sync delta.
 Swift route **2/2** and combined **3/3**, Rust authorization **1/1**, frontend **7/7** and
 TypeScript pass; initial route-test compile defects were fixed before commit. `c4b1602`
@@ -194,6 +198,12 @@ separation and retiring context-changed evidence. Root focused **35/35** plus is
 detached **6/6**, agent build/TypeScript/browser geometry pass. No corrections or provider
 refresh is added. Native/package/copied-log/live acceptance, broader data-quality coverage
 and correction workflow remain open; installed alpha.31 is unchanged.
+`c6ada81` adds bounded duplicate review using the native exact call/band/primary-mode,
+case-insensitive **±600-second** rule, excluding self/deleted contacts. The **5-candidate cap
+plus lookahead** reports complete/truncated/unknown, without semantic/frequency/submode/
+portable-callsign inference or mutations. Agent core **8/8**, route/regression **6/6**,
+frontend **19/19**, TypeScript/build/window gates and root route **3/3**, duplicate **3/3**,
+frontend **19/19** pass. Native/package/live, correction/provider and broader quality gates stay open.
 
 R09 has a conservative preflight dependency in `6d9b186`: pure `QRPDXCCPreflightV1`
 screens caller-supplied contact snapshots into candidates, exclusions and unknowns, with
