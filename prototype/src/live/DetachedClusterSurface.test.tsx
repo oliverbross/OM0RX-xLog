@@ -55,7 +55,7 @@ describe("passive docked DX Cluster presentation", () => {
     const onRequest = vi.fn(async () => ({}));
     const filter = { query: "EA", bands: [], modes: [], continents: [], callStatuses: [], dxccStatuses: [],
       specials: [], sources: ["cluster", "rbl"], worked: [], sort: "newest" };
-    const configuration = { servers: [], reconnect: false, requestSkimmer: false, showWorkedBandModeSpots: false, hideWSPRSpots: false,
+    const configuration = { servers: [], connectOnStartup: true, requestRecentSpotsOnConnect: true, reconnect: false, requestSkimmer: false, showWorkedBandModeSpots: false, hideWSPRSpots: false,
       maximumSpots: 100, specialRules: [], palette: { status: {}, band: {}, mode: {} }, filter, commandPresets: [], forwardSpotsToFlex: false };
     const snapshot = { connectedClusters: 0, loadedSpots: 0, contactCount: 0, contactRevision: 0,
       logbookDataLoaded: true, countryDataLoaded: true, connections: [], spots: [], console: [] };

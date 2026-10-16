@@ -128,7 +128,7 @@ final class LiveSpotHistoryTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: root) }
         let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
         let source = ClusterServerConfiguration(name: "Fixture", host: "fixture.invalid", port: 7300, callsign: "OM0RX")
-        var config = ClusterSessionConfiguration(servers: [source])
+        var config = ClusterSessionConfiguration(servers: [source], requestRecentSpotsOnConnect: false)
         config.filter.query = "HIDDEN"
         let configURL = root.appendingPathComponent("cluster.json")
         try JSONEncoder().encode(config).write(to: configURL)
@@ -198,7 +198,7 @@ final class LiveSpotHistoryTests: XCTestCase {
         let recorder = LiveSpotHistoryMethods(url: archiveURL, capacity: 1)
         let source = ClusterServerConfiguration(name: "Fixture", host: "fixture.invalid", port: 7300, callsign: "OM0RX")
         let transport = HistoryTransport()
-        let service = ClusterSessionService(configuration: .init(servers: [source]), onObservation: { recorder.observe($0) },
+        let service = ClusterSessionService(configuration: .init(servers: [source], requestRecentSpotsOnConnect: false), onObservation: { recorder.observe($0) },
             transportFactory: { _, _, _, _, state, line in transport.set(state: state, line: line); return transport })
         try await service.connect()
         for index in 0..<20 { transport.emit("DX de W1AW: 14025.0 K\(index)ABC CW") }
@@ -223,7 +223,7 @@ final class LiveSpotHistoryTests: XCTestCase {
         try original.write(to: corruptURL)
         let unavailable = LiveSpotHistoryMethods(url: corruptURL)
         let failingTransport = HistoryTransport()
-        let failingSession = ClusterSessionService(configuration: .init(servers: [source]),
+        let failingSession = ClusterSessionService(configuration: .init(servers: [source], requestRecentSpotsOnConnect: false),
             onObservation: { unavailable.observe($0) }, transportFactory: { _, _, _, _, state, line in
                 failingTransport.set(state: state, line: line); return failingTransport
             })
@@ -246,7 +246,7 @@ final class LiveSpotHistoryTests: XCTestCase {
         let url = root.appendingPathComponent("poison.sqlite")
         let recorder = LiveSpotHistoryMethods(url: url)
         let source = ClusterServerConfiguration(name: "Fixture", host: "fixture.invalid", port: 7300, callsign: "OM0RX")
-        var config = ClusterSessionConfiguration(servers: [source])
+        var config = ClusterSessionConfiguration(servers: [source], requestRecentSpotsOnConnect: false)
         config.palette.status["Unknown"] = String(repeating: "x", count: 9000)
         let transport = HistoryTransport()
         let service = ClusterSessionService(configuration: config, onObservation: { recorder.observe($0) },

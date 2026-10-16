@@ -114,12 +114,12 @@ public actor LiveClusterMethods {
         case "cluster_resume":
             try require(params, allowed: [])
             // Invoked by the native session owner, never by a renderer snapshot.
-            if !resumeChecked, let intent = try readResumeIntent() {
+            if !resumeChecked {
                 resumeChecked = true
                 let config = try currentConfiguration()
-                if intent != .disconnected && config.reconnect && config.servers.contains(where: \.enabled) {
+                if config.connectOnStartup && config.servers.contains(where: \.enabled) {
                     do { try await connect(service) }
-                    catch { resumeError = "Cluster could not resume. Check its connection and use Connect to retry." }
+                    catch { resumeError = "Cluster could not connect automatically. Check its settings and use Connect to retry." }
                 }
             }
         case "cluster_snapshot":
@@ -478,6 +478,8 @@ public actor LiveClusterMethods {
             next[keyPath: keyPath] = edited
         }
         try merge(\.servers)
+        try merge(\.connectOnStartup)
+        try merge(\.requestRecentSpotsOnConnect)
         try merge(\.reconnect)
         try merge(\.requestSkimmer)
         try merge(\.showWorkedBandModeSpots)

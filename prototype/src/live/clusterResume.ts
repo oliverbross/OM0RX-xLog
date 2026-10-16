@@ -39,11 +39,11 @@ export async function initializeNativeClusterResume(): Promise<void> {
     throw new Error("Cluster restart preference was not confirmed. Use Connect or Disconnect explicitly.");
 }
 
-/** Reconnect is opt-out in existing cluster settings; explicit Disconnect wins
- * across restarts. This policy never depends on a radio or rotor connection. */
-export function shouldResumeCluster(intent: string | null, configuration: {
-  reconnect?: boolean; servers?: Array<{ enabled?: boolean }>;
+/** Startup connection is opt-out in cluster settings and independent of the
+ * previous running session, radio or rotor connection. */
+export function shouldResumeCluster(configuration: {
+  connectOnStartup?: boolean; servers?: Array<{ enabled?: boolean }>;
 } | undefined): boolean {
-  return intent !== "disconnected" && configuration?.reconnect === true
+  return configuration?.connectOnStartup === true
     && configuration.servers?.some(server => server.enabled === true) === true;
 }

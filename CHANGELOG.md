@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.4.0-alpha.54 — 2026-10-17
+
+- Connect configured DX clusters automatically when xLog starts, with a default-on Settings control.
+- Request the latest 100 DX spots with `sh/dx/100` after each successful cluster connection, with a separate default-on Settings control.
+
 ## 0.4.0-alpha.53 — 2026-10-17
 
 - Added one native Online menu before Window with direct access to xLog’s existing Wavelog, QRZ, Club Log and online reference-data workflows.

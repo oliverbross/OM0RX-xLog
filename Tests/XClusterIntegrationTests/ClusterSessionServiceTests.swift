@@ -57,7 +57,7 @@ final class ClusterSessionServiceTests: XCTestCase {
 
     func testDisplaySaveRetainsConnectionsHistoryIDsAndRefreshesColoursAndRules() async throws {
         let server = ClusterServerConfiguration(name: "Fixture", host: "example.invalid", port: 7300, callsign: "OM0RX")
-        var config = ClusterSessionConfiguration(servers: [server])
+        var config = ClusterSessionConfiguration(servers: [server], requestRecentSpotsOnConnect: false)
         let connection = TestClusterTransport()
         let supplier = TestTransportSupplier([connection]) // Any unexpected reconnect fails this fixture.
         let service = ClusterSessionService(configuration: config, transportFactory: { _, _, _, _, state, line in
@@ -172,7 +172,7 @@ final class ClusterSessionServiceTests: XCTestCase {
     func testRealLineClassificationFilteringConsoleAndCredentialSeparation() async throws {
         let server = ClusterServerConfiguration(name: "Fixture", host: "example.invalid", port: 7300, callsign: "OM0RX-12")
         let connection = TestClusterTransport()
-        let service = ClusterSessionService(configuration: .init(servers: [server]), transportFactory: { _, _, _, _, onState, onLine in
+        let service = ClusterSessionService(configuration: .init(servers: [server], requestRecentSpotsOnConnect: false), transportFactory: { _, _, _, _, onState, onLine in
             connection.onState = onState
             connection.onLine = onLine
             return connection
@@ -212,7 +212,7 @@ final class ClusterSessionServiceTests: XCTestCase {
     func testCommandIsBoundedAndNotEchoedIntoSnapshot() async throws {
         let server = ClusterServerConfiguration(name: "Fixture", host: "example.invalid", port: 7300, callsign: "OM0RX-12")
         let connection = TestClusterTransport()
-        let service = ClusterSessionService(configuration: .init(servers: [server]), transportFactory: { _, _, _, _, onState, onLine in
+        let service = ClusterSessionService(configuration: .init(servers: [server], requestRecentSpotsOnConnect: false), transportFactory: { _, _, _, _, onState, onLine in
             connection.onState = onState
             connection.onLine = onLine
             return connection
@@ -228,6 +228,38 @@ final class ClusterSessionServiceTests: XCTestCase {
             XCTFail("Oversized command must be rejected")
         } catch {}
         await service.disconnect()
+    }
+
+    func testRequestsRecentSpotsOnceForEachSuccessfulConnectionTransition() async throws {
+        let server = ClusterServerConfiguration(name: "Fixture", host: "example.invalid", port: 7300, callsign: "OM0RX-12")
+        let connection = TestClusterTransport()
+        let service = ClusterSessionService(configuration: .init(servers: [server]), transportFactory: { _, _, _, _, onState, onLine in
+            connection.onState = onState
+            connection.onLine = onLine
+            return connection
+        })
+        try await service.connect()
+        try await waitFor { connection.sent == ["sh/dx/100"] }
+        connection.onState?(.connected, nil)
+        try await Task.sleep(for: .milliseconds(20))
+        XCTAssertEqual(connection.sent, ["sh/dx/100"])
+        connection.onState?(.failed, "test interruption")
+        connection.onState?(.connected, nil)
+        try await waitFor { connection.sent == ["sh/dx/100", "sh/dx/100"] }
+        let snapshot = await service.snapshot()
+        XCTAssertEqual(snapshot.console.filter { $0.text == "Requested 100 recent DX spots" }.count, 2)
+        await service.disconnect()
+
+        let optedOut = TestClusterTransport()
+        let disabled = ClusterSessionService(configuration: .init(servers: [server], requestRecentSpotsOnConnect: false), transportFactory: { _, _, _, _, onState, onLine in
+            optedOut.onState = onState
+            optedOut.onLine = onLine
+            return optedOut
+        })
+        try await disabled.connect()
+        try await waitFor { await disabled.snapshot().connectedClusters == 1 }
+        XCTAssertTrue(optedOut.sent.isEmpty)
+        await disabled.terminate()
     }
 
     func testBoundedTelnetFramingAcrossChunks() {
@@ -341,11 +373,15 @@ final class ClusterSessionServiceTests: XCTestCase {
         object.removeValue(forKey: "forwardSpotsToFlex")
         object.removeValue(forKey: "radioSpotColorPolicy")
         object.removeValue(forKey: "hideWSPRSpots")
+        object.removeValue(forKey: "connectOnStartup")
+        object.removeValue(forKey: "requestRecentSpotsOnConnect")
         let decoded = try JSONDecoder().decode(ClusterSessionConfiguration.self,
             from: JSONSerialization.data(withJSONObject: object))
         XCTAssertFalse(decoded.forwardSpotsToFlex)
         XCTAssertEqual(decoded.radioSpotColorPolicy, .callsign)
         XCTAssertFalse(decoded.hideWSPRSpots)
+        XCTAssertTrue(decoded.connectOnStartup)
+        XCTAssertTrue(decoded.requestRecentSpotsOnConnect)
         XCTAssertEqual(decoded.commandPresets.map(\.command),
                        ["sh/dx/50", "sh/mydx 50", "sh/wwv/5", "sh/wcy/5", "sh/ann/10", "sh/u"])
     }

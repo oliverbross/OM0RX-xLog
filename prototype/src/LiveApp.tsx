@@ -787,9 +787,9 @@ function MainLiveApp() {
           if (!nativeClusterSession() && !disposed && !monitor && !clusterResumeChecked.current && state.configuration) {
             clusterResumeChecked.current = true;
             const active = state.snapshot?.connections?.some((connection: Data) => connection.phase === "connected" || connection.phase === "connecting");
-            if (!active && shouldResumeCluster(localStorage.getItem(clusterSessionIntentKey), state.configuration)) {
+            if (!active && shouldResumeCluster(state.configuration)) {
               try { await request("cluster_connect"); }
-              catch { if (!disposed) setError("Cluster could not resume. Open DX Cluster to inspect its connection and retry Connect."); }
+              catch { if (!disposed) setError("Cluster could not connect automatically. Open DX Cluster to inspect its connection and retry Connect."); }
             }
           }
         }

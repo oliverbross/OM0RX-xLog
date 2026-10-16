@@ -30,7 +30,8 @@ type Filter = { query: string; bands: string[]; modes: string[]; continents: str
 export type ClusterPalette = { status: Record<string, string>; band: Record<string, string>; mode: Record<string, string> };
 type Palette = ClusterPalette;
 type CommandPreset = { id: string; name: string; command: string };
-type Configuration = { servers: Server[]; reconnect: boolean; requestSkimmer: boolean;
+type Configuration = { servers: Server[]; connectOnStartup: boolean; requestRecentSpotsOnConnect: boolean;
+  reconnect: boolean; requestSkimmer: boolean;
   showWorkedBandModeSpots: boolean; hideWSPRSpots: boolean; maximumSpots: number; specialRules: Rule[];
   palette: Palette; filter: Filter; commandPresets: CommandPreset[]; forwardSpotsToFlex: boolean; radioSpotColorPolicy?: "callsign" | "dxcc" };
 type Forwarding = { accepted_count: number; status: string };
@@ -392,10 +393,13 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
     <section className="live-cluster-settings" id={`${panelId}-settings`} hidden={!settingsOpen} aria-labelledby={`${panelId}-settings-title`}><h3 id={`${panelId}-settings-title`}>Cluster settings</h3>
       {configuration && <div className="live-cluster-settings-body">
         <div className="live-cluster-setting-row"><label>Maximum visible spots <select value={configuration.maximumSpots} onChange={(event) => setConfiguration({ ...configuration, maximumSpots: Number(event.target.value) })}>{[50, 100, 200, 500].map((count) => <option key={count}>{count}</option>)}</select></label>
-          <label><input type="checkbox" checked={configuration.reconnect} onChange={(event) => setConfiguration({ ...configuration, reconnect: event.target.checked })} /> Reconnect automatically, including after app restart</label>
+          <label><input type="checkbox" checked={configuration.connectOnStartup} onChange={(event) => setConfiguration({ ...configuration, connectOnStartup: event.target.checked })} /> Connect automatically when xLog starts</label>
+          <label><input type="checkbox" checked={configuration.requestRecentSpotsOnConnect} onChange={(event) => setConfiguration({ ...configuration, requestRecentSpotsOnConnect: event.target.checked })} /> Request 100 recent DX spots after connecting</label>
+          <label><input type="checkbox" checked={configuration.reconnect} onChange={(event) => setConfiguration({ ...configuration, reconnect: event.target.checked })} /> Reconnect automatically after an interruption</label>
           <label><input type="checkbox" checked={configuration.requestSkimmer} onChange={(event) => setConfiguration({ ...configuration, requestSkimmer: event.target.checked })} /> Request RBN / Skimmer</label>
           <label><input type="checkbox" checked={configuration.showWorkedBandModeSpots} onChange={(event) => setConfiguration({ ...configuration, showWorkedBandModeSpots: event.target.checked })} /> Show already-worked combinations</label>
           <label><input type="checkbox" checked={configuration.hideWSPRSpots} onChange={(event) => setConfiguration({ ...configuration, hideWSPRSpots: event.target.checked })} /> Hide WSPR spots</label></div>
+        <p>The recent-spots option sends <code>sh/dx/100</code> after each successful connection.</p>
         <p>Radio spot destinations and colours are configured in Settings → Radio spots.</p>
         <h3>Servers</h3><p>Configured servers connect together. Saving settings disconnects active sessions.</p>
         {configuration.servers.map((server) => <div className="live-cluster-server" key={server.id}>

@@ -8,7 +8,7 @@ afterEach(() => { cleanup(); localStorage.clear(); });
 const palette = ["bands", "modes", "continents", "callStatuses", "dxccStatuses", "specials", "sources", "worked", "sort"];
 const response = () => ({ snapshot: { connectedClusters: 1, loadedSpots: 0, contactCount: 42, contactRevision: 1, logbookDataLoaded: true, countryDataLoaded: true,
   connections: [{ serverID: "server", serverName: "ShackCQ", phase: "connected", error: null }], spots: [], console: [] },
-  configuration: { servers: [{ id: "server", name: "ShackCQ", host: "cluster.example.invalid", port: 7300, callsign: "OM0RX", enabled: true }], reconnect: false, requestSkimmer: false, showWorkedBandModeSpots: false, hideWSPRSpots: false, maximumSpots: 100, specialRules: [], palette: { status: {}, band: {}, mode: {} }, filter: { query: "", bands: [], modes: [], continents: [], callStatuses: [], dxccStatuses: [], specials: [], sources: ["cluster", "rbl"], worked: [], sort: "newest" }, commandPresets: [], forwardSpotsToFlex: false } });
+  configuration: { servers: [{ id: "server", name: "ShackCQ", host: "cluster.example.invalid", port: 7300, callsign: "OM0RX", enabled: true }], connectOnStartup: true, requestRecentSpotsOnConnect: true, reconnect: false, requestSkimmer: false, showWorkedBandModeSpots: false, hideWSPRSpots: false, maximumSpots: 100, specialRules: [], palette: { status: {}, band: {}, mode: {} }, filter: { query: "", bands: [], modes: [], continents: [], callStatuses: [], dxccStatuses: [], specials: [], sources: ["cluster", "rbl"], worked: [], sort: "newest" }, commandPresets: [], forwardSpotsToFlex: false } });
 const luminance = (hex: string) => {
   const values = hex.match(/\w\w/g)!.map(value => parseInt(value, 16) / 255)
     .map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
@@ -136,6 +136,19 @@ describe("cluster toolbar panels", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save cluster settings" }));
     await waitFor(() => expect(request).toHaveBeenCalledWith("cluster_configure", expect.objectContaining({
       configuration: expect.objectContaining({ hideWSPRSpots: true }),
+    })));
+  });
+  it("persists default-on startup connection and recent-spot controls", async () => {
+    const data = response();
+    const request = vi.fn(async () => data);
+    render(<ClusterPanel passive snapshot={data} onRequest={request} onSelect={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    expect((screen.getByRole("checkbox", { name: "Connect automatically when xLog starts" }) as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByRole("checkbox", { name: "Request 100 recent DX spots after connecting" }) as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Request 100 recent DX spots after connecting" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save cluster settings" }));
+    await waitFor(() => expect(request).toHaveBeenCalledWith("cluster_configure", expect.objectContaining({
+      configuration: expect.objectContaining({ connectOnStartup: true, requestRecentSpotsOnConnect: false }),
     })));
   });
   it("preserves newer Radio spots settings and untouched palette colors when saving a Cluster draft", async () => {

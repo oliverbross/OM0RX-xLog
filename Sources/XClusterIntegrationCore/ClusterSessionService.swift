@@ -109,6 +109,8 @@ public struct ClusterSessionConfiguration: Codable, Sendable {
     ]
 
     public var servers: [ClusterServerConfiguration]
+    public var connectOnStartup: Bool
+    public var requestRecentSpotsOnConnect: Bool
     public var reconnect: Bool
     public var requestSkimmer: Bool
     public var showWorkedBandModeSpots: Bool
@@ -122,7 +124,8 @@ public struct ClusterSessionConfiguration: Codable, Sendable {
     public var forwardSpotsToFlex: Bool
     public var radioSpotColorPolicy: RadioSpotColorPolicy
 
-    public init(servers: [ClusterServerConfiguration], reconnect: Bool = true, requestSkimmer: Bool = true,
+    public init(servers: [ClusterServerConfiguration], connectOnStartup: Bool = true,
+                requestRecentSpotsOnConnect: Bool = true, reconnect: Bool = true, requestSkimmer: Bool = true,
                 showWorkedBandModeSpots: Bool = false, hideWSPRSpots: Bool = false, maximumSpots: Int = 200,
                 specialRules: [SpecialRule] = originalSpecialRules, palette: ClusterPalette = .originalDefaults,
                 filter: ClusterSpotFilter = .init(),
@@ -135,6 +138,8 @@ public struct ClusterSessionConfiguration: Codable, Sendable {
                     .init(name: "Users", command: "sh/u")
                 ], forwardSpotsToFlex: Bool = false, radioSpotColorPolicy: RadioSpotColorPolicy = .callsign) {
         self.servers = servers
+        self.connectOnStartup = connectOnStartup
+        self.requestRecentSpotsOnConnect = requestRecentSpotsOnConnect
         self.reconnect = reconnect
         self.requestSkimmer = requestSkimmer
         self.showWorkedBandModeSpots = showWorkedBandModeSpots
@@ -149,13 +154,16 @@ public struct ClusterSessionConfiguration: Codable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case servers, reconnect, requestSkimmer, showWorkedBandModeSpots, hideWSPRSpots, maximumSpots
+        case servers, connectOnStartup, requestRecentSpotsOnConnect, reconnect, requestSkimmer
+        case showWorkedBandModeSpots, hideWSPRSpots, maximumSpots
         case specialRules, palette, filter, commandPresets, forwardSpotsToFlex, radioSpotColorPolicy
     }
 
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         servers = try values.decode([ClusterServerConfiguration].self, forKey: .servers)
+        connectOnStartup = try values.decodeIfPresent(Bool.self, forKey: .connectOnStartup) ?? true
+        requestRecentSpotsOnConnect = try values.decodeIfPresent(Bool.self, forKey: .requestRecentSpotsOnConnect) ?? true
         reconnect = try values.decode(Bool.self, forKey: .reconnect)
         requestSkimmer = try values.decode(Bool.self, forKey: .requestSkimmer)
         showWorkedBandModeSpots = try values.decode(Bool.self, forKey: .showWorkedBandModeSpots)
@@ -540,7 +548,8 @@ public actor ClusterSessionService {
 
     private func receiveState(serverID: UUID, generation: UUID, phase: ClusterConnectionPhase, error: String?, arrivedAt: Date) {
         guard generation == transportGenerations[serverID], transports[serverID] != nil else { return }
-        if phase == .connected, statuses[serverID]?.phase != .connected,
+        let becameConnected = phase == .connected && statuses[serverID]?.phase != .connected
+        if becameConnected,
            let server = configuration.servers.first(where: { $0.id == serverID }) {
             closeHistorySegment(serverID: serverID, at: arrivedAt, phase: .disconnected)
             openHistorySegment(server: server, generation: generation, at: arrivedAt, phase: .connected)
@@ -549,6 +558,11 @@ public actor ClusterSessionService {
         }
         statuses[serverID]?.phase = phase
         statuses[serverID]?.error = error
+        if becameConnected, configuration.requestRecentSpotsOnConnect {
+            transports[serverID]?.send("sh/dx/100")
+            appendConsole(source: statuses[serverID]?.serverName ?? "Cluster",
+                          text: "Requested 100 recent DX spots", isCommand: true)
+        }
         publish()
     }
 
