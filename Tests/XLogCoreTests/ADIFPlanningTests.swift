@@ -4,14 +4,14 @@ import Testing
 
 @Suite("Read-only ADIF review and export")
 struct ADIFPlanningTests {
-    @Test("Import-only digital voice modes export under their ADIF parent", arguments: ["C4FM", "DSTAR", "c4fm", "dstar"])
-    func deprecatedDigitalVoiceExport(_ mode: String) throws {
+    @Test("Audited import-only modes export under their ADIF parent", arguments: ["C4FM", "DSTAR", "c4fm", "dstar", "PSK31", "psk31"])
+    func deprecatedModeExport(_ mode: String) throws {
         let source = record(["MODE": mode, "SUBMODE": "", "APP_OTHER_DATA": "opaque é",
                              "BAND_RX": "70cm", "FREQ_RX": "433.500000"])
         let qso = try #require(QSO(adif: source))
         let exported = qso.adifRecord
         #expect(qso.mode == mode.uppercased() && qso.submode.isEmpty)
-        #expect(exported["MODE"] == "DIGITALVOICE" && exported["SUBMODE"] == qso.mode)
+        #expect(exported["MODE"] == (qso.mode == "PSK31" ? "PSK" : "DIGITALVOICE") && exported["SUBMODE"] == qso.mode)
         #expect(exported["APP_OTHER_DATA"] == source["APP_OTHER_DATA"])
         #expect(exported["BAND_RX"] == "70cm" && exported["FREQ_RX"] == "433.500000")
         let plan = try ADIFImportPlan(preview: ADIFImportPreview(text: exported.adifDocument), existing: [qso], duplicatePolicy: .skip)
@@ -27,6 +27,8 @@ struct ADIFPlanningTests {
         let explicit = try #require(QSO(adif: record(["MODE": "DSTAR", "SUBMODE": "vendor-submode"])))
         #expect(explicit.adifRecord["MODE"] == "DIGITALVOICE")
         #expect(explicit.adifRecord["SUBMODE"] == explicit.submode)
+        let psk = try #require(QSO(adif: record(["MODE": "PSK31", "SUBMODE": "vendor-submode"])))
+        #expect(psk.adifRecord["MODE"] == "PSK" && psk.adifRecord["SUBMODE"] == psk.submode)
         let unknown = try #require(QSO(adif: record(["MODE": "FUTURE_MODE", "SUBMODE": "FUTURE_SUBMODE"])))
         #expect(unknown.adifRecord["MODE"] == "FUTURE_MODE")
         #expect(unknown.adifRecord["SUBMODE"] == "FUTURE_SUBMODE")
