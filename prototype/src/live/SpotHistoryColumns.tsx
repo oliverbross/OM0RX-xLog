@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
-import { boundHistoryColumnWidth, defaultSpotHistoryColumns, minimumHistoryColumnWidth, readSpotHistoryColumns,
+import { ArrowLeft, ArrowRight } from "lucide-react";
+import { boundHistoryColumnWidth, defaultSpotHistoryColumns, minimumHistoryColumnWidth, orderedSpotHistoryColumns, readSpotHistoryColumns,
   spotHistoryColumns, spotHistoryColumnsKey, type SpotHistoryColumn, type SpotHistoryColumnPreferences } from "./spotHistoryColumnPreferences";
 
 export function useSpotHistoryColumns() {
@@ -32,17 +33,32 @@ function WidthInput({ column, label, width, disabled, onWidth }: {
 export function SpotHistoryColumns({ id, preferences, onChange, onDone }: {
   id: string; preferences: SpotHistoryColumnPreferences; onChange: Dispatch<SetStateAction<SpotHistoryColumnPreferences>>; onDone: () => void;
 }) {
+  function move(column: SpotHistoryColumn, direction: -1 | 1) {
+    onChange(current => {
+      const order = orderedSpotHistoryColumns(current).map(([key]) => key);
+      const index = order.indexOf(column), target = index + direction;
+      if (target < 0 || target >= order.length) return current;
+      [order[index], order[target]] = [order[target], order[index]];
+      return { ...current, order };
+    });
+  }
+  const ordered = orderedSpotHistoryColumns(preferences);
   return <section id={id} className="spot-history-columns" aria-label="Spot history columns">
-    <div className="spot-history-column-fields">{spotHistoryColumns.map(([column, label]) => {
+    <div className="spot-history-column-fields">{ordered.map(([column, label], index) => {
       const shown = preferences.columns.includes(column);
       return <div key={column}><label><input type="checkbox" aria-label={`Show ${label} column`} checked={shown} disabled={column === "call"}
         onChange={event => { const checked = event.target.checked; onChange(current => ({ ...current,
           columns: spotHistoryColumns.map(([key]) => key).filter(key => key === "call" || (key === column ? checked : current.columns.includes(key))),
         })); }} />{label}</label>
         <WidthInput column={column} label={label} width={preferences.widths[column]} disabled={!shown}
-          onWidth={(key, width) => onChange(current => ({ ...current, widths: { ...current.widths, [key]: width } }))} /></div>;
+          onWidth={(key, width) => onChange(current => ({ ...current, widths: { ...current.widths, [key]: width } }))} />
+        <span className="spot-history-column-order">
+          <button type="button" aria-label={`Move ${label} column earlier`} disabled={index === 0} onClick={() => move(column, -1)}><ArrowLeft size={14} /></button>
+          <button type="button" aria-label={`Move ${label} column later`} disabled={index === ordered.length - 1} onClick={() => move(column, 1)}><ArrowRight size={14} /></button>
+        </span>
+      </div>;
     })}</div>
-    <div className="spot-history-column-actions"><p>Callsign stays visible. Drag column edges or use arrow keys. Widths are in pixels; wider tables scroll.</p>
+    <div className="spot-history-column-actions"><p>Use the column arrows to change order. Callsign stays visible. Drag column edges or use arrow keys to resize. Widths are in pixels; wider tables scroll.</p>
       <button type="button" onClick={() => onChange(defaultSpotHistoryColumns())}>Reset columns</button><button type="button" onClick={onDone}>Done</button></div>
   </section>;
 }

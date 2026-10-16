@@ -2,7 +2,7 @@ import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState, type For
 import { ChevronLeft, ChevronRight, RefreshCw, Search } from "lucide-react";
 import { useLogbookCapacity } from "./logbookCapacity";
 import { SpotHistoryColumnHeader, SpotHistoryColumns, useSpotHistoryColumns } from "./SpotHistoryColumns";
-import { spotHistoryColumns, type SpotHistoryColumn } from "./spotHistoryColumnPreferences";
+import { orderedSpotHistoryColumns, type SpotHistoryColumn } from "./spotHistoryColumnPreferences";
 import "./SpotHistoryPanel.css";
 
 type Request = (method: string, params?: Record<string, unknown>) => Promise<any>;
@@ -71,6 +71,8 @@ export function SpotHistoryPanel({ request }: { request: Request }) {
   const [columnPreferences, setColumnPreferences] = useSpotHistoryColumns();
   const [columnsOpen, setColumnsOpen] = useState(false);
   const visibleColumns = new Set(columnPreferences.columns);
+  const orderedColumns = orderedSpotHistoryColumns(columnPreferences);
+  const columnPositions = new Map(orderedColumns.map(([column], index) => [column, index]));
   const tableWidth = columnPreferences.columns.reduce((sum, column) => sum + columnPreferences.widths[column], 0);
   const resizeColumn = (column: SpotHistoryColumn, width: number) => setColumnPreferences(current => ({ ...current, widths: { ...current.widths, [column]: width } }));
   const [draft, setDraft] = useState(initialDraft);
@@ -258,12 +260,20 @@ export function SpotHistoryPanel({ request }: { request: Request }) {
     </section>}
     <div ref={tableArea} className="spot-history-table-wrap" tabIndex={0} aria-label="History reports table" aria-busy={loading}>
       <table className="spot-history-table" style={{ width: tableWidth, minWidth: "100%" }}><caption className="spot-history-sr-only">Individual cluster reports, newest received first. Select a report and open Details to read all stored fields.</caption>
-        <colgroup>{columnPreferences.columns.map(column => <col key={column} style={{ width: columnPreferences.widths[column] }} />)}</colgroup>
-        <thead><tr>{spotHistoryColumns.filter(([column]) => visibleColumns.has(column)).map(([column, label]) => <SpotHistoryColumnHeader key={column} column={column} label={label} width={columnPreferences.widths[column]} onWidth={resizeColumn} />)}</tr></thead>
+        <colgroup>{orderedColumns.filter(([column]) => visibleColumns.has(column)).map(([column]) => <col key={column} style={{ width: columnPreferences.widths[column] }} />)}</colgroup>
+        <thead><tr>{orderedColumns.filter(([column]) => visibleColumns.has(column)).map(([column, label]) => <SpotHistoryColumnHeader key={column} column={column} label={label} width={columnPreferences.widths[column]} onWidth={resizeColumn} />)}</tr></thead>
         <tbody>{page?.rows.map((row, index) => <tr key={row.id} ref={node => { if (node) rows.current.set(row.id, node); else rows.current.delete(row.id); }}
           aria-selected={selectedID === row.id} tabIndex={selectedID === row.id || (!selectionOnPage && index === 0) ? 0 : -1} onClick={() => select(row)} onDoubleClick={() => { setSelectedID(row.id); setSelectedReport(row); setDetailOpen(true); }} onKeyDown={event => rowKey(event, row, index)}>
-          <td hidden={!visibleColumns.has("utc")} data-label="Received UTC" title={`${spotHistoryUTC(row.arrivedAt)} UTC`} className="history-data">{spotHistoryUTC(row.arrivedAt)}</td><td hidden={!visibleColumns.has("call")} data-label="Callsign" className="history-call-value" title={row.callsign}>{row.callsign}</td><td hidden={!visibleColumns.has("frequency")} data-label="kHz" className="history-frequency-value history-data">{row.frequencyText || row.frequencyKHz}</td><td hidden={!visibleColumns.has("bandMode")} data-label="Band / Mode">{row.band || "—"} / {row.mode || "—"}</td>
-          <td hidden={!visibleColumns.has("spotter")} data-label="Spotter" title={row.spotter}>{row.spotter}</td><td hidden={!visibleColumns.has("source")} data-label="Source / Cluster" title={`${row.source} / ${row.clusterName}`}>{row.source} / {row.clusterName}</td><td hidden={!visibleColumns.has("country")} data-label="Country" title={row.country}>{row.country || "—"}</td><td hidden={!visibleColumns.has("comment")} data-label="Comment" title={`${row.comment}${row.commentTruncated ? " (shortened; open Details)" : ""}`}>{row.comment}</td>
+          {[
+            <td key="utc" hidden={!visibleColumns.has("utc")} data-label="Received UTC" title={`${spotHistoryUTC(row.arrivedAt)} UTC`} className="history-data">{spotHistoryUTC(row.arrivedAt)}</td>,
+            <td key="call" hidden={!visibleColumns.has("call")} data-label="Callsign" className="history-call-value" title={row.callsign}>{row.callsign}</td>,
+            <td key="frequency" hidden={!visibleColumns.has("frequency")} data-label="kHz" className="history-frequency-value history-data">{row.frequencyText || row.frequencyKHz}</td>,
+            <td key="bandMode" hidden={!visibleColumns.has("bandMode")} data-label="Band / Mode">{row.band || "—"} / {row.mode || "—"}</td>,
+            <td key="spotter" hidden={!visibleColumns.has("spotter")} data-label="Spotter" title={row.spotter}>{row.spotter}</td>,
+            <td key="source" hidden={!visibleColumns.has("source")} data-label="Source / Cluster" title={`${row.source} / ${row.clusterName}`}>{row.source} / {row.clusterName}</td>,
+            <td key="country" hidden={!visibleColumns.has("country")} data-label="Country" title={row.country}>{row.country || "—"}</td>,
+            <td key="comment" hidden={!visibleColumns.has("comment")} data-label="Comment" title={`${row.comment}${row.commentTruncated ? " (shortened; open Details)" : ""}`}>{row.comment}</td>,
+          ].sort((a, b) => columnPositions.get(a.key as SpotHistoryColumn)! - columnPositions.get(b.key as SpotHistoryColumn)!)}
         </tr>)}</tbody>
       </table>
       {(!page?.rows.length || loading || error) && <div className="spot-history-empty" role={error ? "alert" : "status"}>

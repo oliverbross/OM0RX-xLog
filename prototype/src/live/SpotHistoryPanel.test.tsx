@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { SpotHistoryPanel, spotHistoryFilters, spotHistoryUTC, type SpotHistoryObservation } from "./SpotHistoryPanel";
+import { defaultSpotHistoryColumns, spotHistoryColumnsKey } from "./spotHistoryColumnPreferences";
 
-afterEach(() => { cleanup(); vi.useRealTimers(); });
+afterEach(() => { cleanup(); vi.useRealTimers(); localStorage.clear(); });
 const report = (id = "report-1", callsign = "OM0RX/P"): SpotHistoryObservation => ({
   id, callsign, sessionID: "session-1", sequence: 1, clusterID: "cluster-1", clusterName: "Test cluster", clusterHost: "cluster.example.invalid",
   arrivedAt: "2026-10-13T10:00:00Z", reportedAt: "2026-10-13T09:59:00Z", timeBasis: "arrival", recordKind: "live",
@@ -32,6 +34,44 @@ function searchCall(call: string) { fireEvent.change(screen.getByRole("textbox",
 function deferred<T>() { let resolve!: (value: T) => void, reject!: (error: Error) => void; const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej; }); return { promise, resolve, reject }; }
 
 describe("Spot History scope and paging", () => {
+  it("persists keyboard column ordering with matching cells and widths without changing retained report state", async () => {
+    const request = fixture();
+    const view = render(<SpotHistoryPanel request={request} />);
+    fireEvent.click(await screen.findByText("OM0RX/P"));
+    fireEvent.click(screen.getByRole("button", { name: "Details" }));
+    await screen.findByText("DX de VK8AA: 14025 OM0RX/P");
+    const calls = request.mock.calls.length;
+    fireEvent.click(screen.getByRole("button", { name: "Columns" }));
+    const later = screen.getByRole("button", { name: "Move Callsign column later" });
+    later.focus(); await userEvent.keyboard("{Enter}");
+    expect(document.activeElement).toBe(later);
+    const earlier = screen.getByRole("button", { name: "Move Callsign column earlier" });
+    fireEvent.click(earlier); fireEvent.click(earlier);
+    expect((earlier as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Move Comment column later" }) as HTMLButtonElement).disabled).toBe(true);
+    const headers = () => screen.getAllByRole("columnheader").map(header => header.getAttribute("aria-label"));
+    expect(headers().slice(0, 2)).toEqual(["Callsign", "Received UTC"]);
+    const row = view.container.querySelector("tbody tr")!;
+    expect(within(row as HTMLElement).getAllByRole("cell").slice(0, 2).map(cell => cell.getAttribute("data-label")))
+      .toEqual(["Callsign", "Received UTC"]);
+    expect(Array.from(view.container.querySelectorAll("colgroup col")).slice(0, 2).map(col => (col as HTMLElement).style.width))
+      .toEqual(["110px", "165px"]);
+    fireEvent.click(screen.getByLabelText("Show Received UTC column"));
+    fireEvent.click(screen.getByLabelText("Show Received UTC column"));
+    expect(headers().slice(0, 2)).toEqual(["Callsign", "Received UTC"]);
+    expect(row.getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByText("DX de VK8AA: 14025 OM0RX/P")).toBeTruthy();
+    expect(screen.getByText("Page 1 · 1 reports shown")).toBeTruthy();
+    expect(request).toHaveBeenCalledTimes(calls);
+    expect(JSON.parse(localStorage.getItem(spotHistoryColumnsKey)!).order.slice(0, 2)).toEqual(["call", "utc"]);
+    view.unmount();
+    render(<SpotHistoryPanel request={fixture()} />); await screen.findByText("310");
+    expect(headers()[0]).toBe("Callsign");
+    fireEvent.click(screen.getByRole("button", { name: "Columns" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reset columns" }));
+    expect(headers()[0]).toBe("Received UTC");
+    expect(JSON.parse(localStorage.getItem(spotHistoryColumnsKey)!)).toEqual(defaultSpotHistoryColumns());
+  });
   it("restores keyboard focus to the persistent Details control after closing a report", async () => {
     render(<SpotHistoryPanel request={fixture()} />);
     fireEvent.click(await screen.findByText("OM0RX/P"));

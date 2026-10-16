@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { SpotHistoryPanel } from "./SpotHistoryPanel";
-import { defaultSpotHistoryColumns, readSpotHistoryColumns, spotHistoryColumnsKey } from "./spotHistoryColumnPreferences";
+import { defaultSpotHistoryColumns, orderedSpotHistoryColumns, readSpotHistoryColumns, spotHistoryColumnsKey } from "./spotHistoryColumnPreferences";
 
 const request = vi.fn(async (method: string) => method === "spot_history_query"
   ? { page: { rows: [], nextCursor: null, watermark: 1, revision: 1 } }
@@ -61,6 +61,19 @@ it("recovers malformed, oversized, future and unknown preferences", () => {
     expect(readSpotHistoryColumns(raw)).toEqual(defaultSpotHistoryColumns());
   expect(readSpotHistoryColumns('{"version":1,"columns":["country","country"],"widths":{"call":1,"country":999}}'))
     .toMatchObject({ columns: ["call", "country"], widths: { call: 96, country: 480 } });
+});
+
+it("normalizes saved ordering while retaining legacy visibility and widths", () => {
+  const legacy = readSpotHistoryColumns('{"version":1,"columns":["call","country"],"widths":{"call":177}}');
+  expect(orderedSpotHistoryColumns(legacy).map(([id]) => id)).toEqual(defaultSpotHistoryColumns().columns);
+  const ordered = readSpotHistoryColumns(JSON.stringify({ ...legacy, order: ["comment", "unknown", "call", "comment", null] }));
+  expect(ordered.order).toEqual(["comment", "call", "utc", "frequency", "bandMode", "spotter", "source", "country"]);
+  expect(ordered.columns).toEqual(legacy.columns);
+  expect(ordered.widths.call).toBe(177);
+  expect(readSpotHistoryColumns(JSON.stringify(ordered))).toEqual(ordered);
+  for (const order of [null, "call", 3, {}])
+    expect(orderedSpotHistoryColumns(readSpotHistoryColumns(JSON.stringify({ ...legacy, order }))).map(([id]) => id))
+      .toEqual(defaultSpotHistoryColumns().columns);
 });
 
 it("remains usable if preference storage is denied", () => {

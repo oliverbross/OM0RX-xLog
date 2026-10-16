@@ -6,10 +6,15 @@ export const spotHistoryColumns = [
   ["source", "Source / Cluster", 160], ["country", "Country", 140], ["comment", "Comment", 230],
 ] as const;
 export type SpotHistoryColumn = typeof spotHistoryColumns[number][0];
-export type SpotHistoryColumnPreferences = { version: 1; columns: SpotHistoryColumn[]; widths: Record<SpotHistoryColumn, number> };
+export type SpotHistoryColumnPreferences = { version: 1; columns: SpotHistoryColumn[]; order?: SpotHistoryColumn[]; widths: Record<SpotHistoryColumn, number> };
 export const spotHistoryColumnsKey = "xlog.integration.spot-history-columns.v1";
 export const minimumHistoryColumnWidth = (column: SpotHistoryColumn) => column === "call" ? 96 : 48;
 export const boundHistoryColumnWidth = (column: SpotHistoryColumn, width: number) => Math.max(minimumHistoryColumnWidth(column), boundColumnWidth(width));
+/** Preserve legacy layouts; discard unknown/duplicate IDs and append every missing known column. */
+export function orderedSpotHistoryColumns(preferences: Pick<SpotHistoryColumnPreferences, "order">) {
+  const ids = [...new Set([...(Array.isArray(preferences.order) ? preferences.order : []), ...spotHistoryColumns.map(([id]) => id)])];
+  return ids.flatMap(id => spotHistoryColumns.filter(([known]) => known === id));
+}
 export function defaultSpotHistoryColumns(): SpotHistoryColumnPreferences {
   return { version: 1, columns: spotHistoryColumns.map(([column]) => column),
     widths: Object.fromEntries(spotHistoryColumns.map(([column, , width]) => [column, width])) as Record<SpotHistoryColumn, number> };
@@ -20,6 +25,7 @@ export function readSpotHistoryColumns(raw: string | null): SpotHistoryColumnPre
   try {
     const value = JSON.parse(raw);
     if (!value || Array.isArray(value) || value.version !== 1) return result;
+    if (Array.isArray(value.order)) result.order = orderedSpotHistoryColumns(value).map(([id]) => id);
     if (Array.isArray(value.columns) && value.columns.some((id: unknown) => spotHistoryColumns.some(([known]) => known === id)))
       result.columns = spotHistoryColumns.map(([id]) => id).filter(id => id === "call" || value.columns.includes(id));
     for (const [column] of spotHistoryColumns) {
