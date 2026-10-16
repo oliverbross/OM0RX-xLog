@@ -3,7 +3,8 @@ import React from "react";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import LiveApp from "../src/LiveApp";
-import { operatorDraftFixture, testWorkspaceGeneration } from "./operator-draft-fixture";
+import { operatorDraftFixture, testPreferenceSnapshot, testWorkspaceGeneration } from "./operator-draft-fixture";
+import { defaultRotorConfiguration } from "../src/live/rotorConfigurationSession";
 
 const api = vi.hoisted(() => ({ request: vi.fn(), present: vi.fn(), layout: null as any }));
 vi.mock("../src/worker", async original => ({ ...await original<typeof import("../src/worker")>(), workerRequest: api.request, openMonitor: vi.fn() }));
@@ -25,11 +26,8 @@ beforeEach(() => {
     if (shared) return { result: shared };
     const result = method === "workspace_status" ? { workspace_exists: true, native_log_exists: false }
       : method === "settings_load" ? { settings: { stationCall: "", gridSquare: "" }, revision: 0, generation: testWorkspaceGeneration }
-      : method === "workspace_rotor_configuration_load" ? { revision: 0, generation: testWorkspaceGeneration, configuration: {
-        owner: "native_dcu1", native_dcu1: { host: "", port: 4001, name: "Rotor" },
-        hamlib: { mode: "managed", path: "", baud: 9600, host: "127.0.0.1", port: 4533, serial: {} },
-      } }
-      : method === "workspace_preferences_load" ? { stored: true, preferences: {} }
+      : method === "workspace_rotor_configuration_load" ? { revision: 0, generation: testWorkspaceGeneration, configuration: defaultRotorConfiguration() }
+      : method === "workspace_preferences_load" ? testPreferenceSnapshot()
       : method === "station_snapshot" ? { source: "direct_agent", available: true,
         radio: { observed: true, connected: true, frequency_hz: radioFrequency, mode: "CW" } }
       : method === "cluster_snapshot" ? { snapshot: { spots: [], connectedClusters: 0 } }

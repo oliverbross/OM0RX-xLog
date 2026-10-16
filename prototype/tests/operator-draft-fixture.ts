@@ -1,5 +1,17 @@
 /** In-memory implementation of the draft protocol for rendered workflow tests. */
+import type { WorkspacePreferences } from "../src/live/workspacePreferences";
+
 export const testWorkspaceGeneration = "00000000-0000-4000-8000-000000000001";
+export const testWorkspacePreferences = (overrides: Partial<WorkspacePreferences> = {}): WorkspacePreferences => ({
+  deskBandMapBands: ["20m", "15m"], detachedBandMapBands: ["20m", "15m"],
+  deskBandMapFollowsRadio: false, detachedBandMapFollowsRadio: false,
+  detachedBandMapLayout: "Adaptive grid", bandMapFontScale: 1,
+  intelligenceBands: ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m"],
+  clusterSpotOpensFullEditor: false, savedLogbookFilters: [], ...overrides,
+});
+export const testPreferenceSnapshot = (overrides: Partial<WorkspacePreferences> = {}) => ({
+  stored: true, preferences: testWorkspacePreferences(overrides), generation: testWorkspaceGeneration, revision: 0,
+});
 export function operatorDraftFixture(qso: Record<string, any>) {
   let draft = { revision: 0, qso: structuredClone(qso), generation: testWorkspaceGeneration };
   const receipts = new Map<string, any>();

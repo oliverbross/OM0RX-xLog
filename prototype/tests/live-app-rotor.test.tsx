@@ -2,7 +2,8 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import LiveApp from "../src/LiveApp";
-import { operatorDraftFixture, testWorkspaceGeneration } from "./operator-draft-fixture";
+import { operatorDraftFixture, testPreferenceSnapshot, testWorkspaceGeneration, testWorkspacePreferences } from "./operator-draft-fixture";
+import { defaultRotorConfiguration } from "../src/live/rotorConfigurationSession";
 
 const bridge = vi.hoisted(() => ({ request: vi.fn(), native: vi.fn(), tune: null as null | ((value: any) => void), rejectActivation: null as null | ((cause: Error) => void), rotorGeneration: 4,
   autoState: null as any, autoChanged: null as null | ((value: any) => void),
@@ -62,7 +63,7 @@ vi.mock("../src/live/BandMaps", async original => ({ ...await original<typeof im
   } }));
 vi.mock("../src/live/ClusterPanel", () => ({ ClusterPanel: ({ onSelect }: any) => <button onClick={() => onSelect({ id: "spot", callsign: "K1ABC", frequencyKHz: 14074, mode: "FT8", band: "20m",
   activation: { sourceEpoch: "10000000-0000-4000-8000-000000000001", spotVersion: "20000000-0000-4000-8000-000000000001" } })}>Select test spot</button> }));
-const preferences = { deskBandMapBands: ["20m"], detachedBandMapBands: ["20m"], deskBandMapFollowsRadio: false, detachedBandMapFollowsRadio: false, detachedBandMapLayout: "Single row", bandMapFontScale: 1, intelligenceBands: ["20m"], clusterSpotOpensFullEditor: false };
+const preferences = testWorkspacePreferences({ deskBandMapBands: ["20m"], detachedBandMapBands: ["20m"], detachedBandMapLayout: "Single row", intelligenceBands: ["20m"] });
 const preferenceGeneration = "12345678-1234-4234-8234-123456789abc";
 function controlOneSecondPolls() {
   // Control only the app's 1000ms snapshot intervals. Keep Testing Library's
@@ -94,8 +95,7 @@ beforeEach(() => {
   localStorage.clear(); bridge.request.mockReset(); bridge.native.mockReset(); bridge.tune = null; bridge.rejectActivation = null; bridge.rotorGeneration = 4; bridge.intentId = null;
   bridge.autoState = { armed: false, epoch: 0, owner: "native_dcu1", generation: 4, target: null, activation_pending: false, canonical_pending: false, error: "" };
   bridge.rotorConfiguration = { revision: 0, generation: testWorkspaceGeneration, configuration: {
-    owner: "native_dcu1", native_dcu1: { host: "rotor.example.invalid", port: 4001, name: "Rotor" },
-    hamlib: { mode: "managed", path: "", baud: 9600, host: "127.0.0.1", port: 4533, serial: {} },
+    ...defaultRotorConfiguration(), native_dcu1: { host: "rotor.example.invalid", port: 4001, name: "Rotor" },
   } };
   bridge.autoChanged = null;
   bridge.nativeStop = false; bridge.canvasStop = false;
@@ -139,7 +139,7 @@ beforeEach(() => {
       bridge.rotorGeneration++; bridge.intentId = params.intent_id ?? null;
     }
     const result = method === "workspace_status" ? { workspace_exists: true, native_log_exists: true }
-      : method === "workspace_preferences_load" ? { preferences, stored: true, generation: preferenceGeneration, revision: 0 }
+      : method === "workspace_preferences_load" ? { ...testPreferenceSnapshot(preferences), generation: preferenceGeneration }
       : method === "settings_load" ? { settings: { stationCall: "OM0RX", gridSquare: "JN88" }, revision: 0, generation: testWorkspaceGeneration }
       : method === "workspace_rotor_configuration_load" ? structuredClone(bridge.rotorConfiguration)
       : method === "workspace_rotor_configuration_save" ? (() => {
@@ -522,8 +522,8 @@ it("preserves rotor ownership across radio handover and clears only the stale gu
   fireEvent.click(screen.getByRole("button", { name: "Station Control" }));
   fireEvent.click(await screen.findByRole("button", { name: "Direct FLEX · LAN" }));
   expect(bridge.request.mock.calls.some(([method]) => method === "station_disconnect")).toBe(false);
-  expect(screen.getByText(/Viewing only. Apply radio selection/)).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Apply radio selection" }));
+  expect(screen.getByText("Active · Remote station · embedded xCat")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Use Direct FLEX · LAN" }));
   await waitFor(() => expect(bridge.request).toHaveBeenCalledWith("station_disconnect", { provider: "direct_agent" }));
   expect(bridge.request.mock.calls.filter(([method]) => method === "station_disconnect")).toHaveLength(1);
   expect(bridge.request.mock.calls.some(([method]) => method === "rotor_disconnect")).toBe(false);
@@ -534,7 +534,7 @@ it("preserves rotor ownership across radio handover and clears only the stale gu
   expect(screen.getByText("053°")).toBeTruthy();
 });
 
-it("hydrates the native radio choice before polling and delegates handover to the shared station session", async () => {
+it("hydrates the native radio choice before polling and leaves handover with the shared station session", async () => {
   bridge.nativeSelection = true;
   let selected!: (value: any) => void;
   const dispose = vi.fn(); bridge.selection.mockImplementation((_legacy, changed) => { selected = changed; return dispose; });
@@ -547,7 +547,8 @@ it("hydrates the native radio choice before polling and delegates handover to th
   fireEvent.click(screen.getByRole("button", { name: "Station Control" }));
   fireEvent.click(screen.getByRole("button", { name: "Local station · Hamlib" }));
   expect(bridge.applySelection).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole("button", { name: "Apply shared radio selection" }));
+  expect(screen.getByLabelText("Shared radio selection")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Use Local Hamlib" })).toBeNull();
   expect(bridge.applySelection).not.toHaveBeenCalled();
   expect(bridge.request.mock.calls.some(([method]) => ["station_disconnect", "hamlib_disconnect", "rotor_disconnect", "station_connect", "hamlib_connect"].includes(method))).toBe(false);
   expect(localStorage.getItem("xlog.integration.provider")).toBe("direct_agent");
@@ -583,9 +584,9 @@ it("keeps the prior active radio if explicit selection retirement fails", async 
   await screen.findByRole("checkbox", { name: "Auto rotor" });
   fireEvent.click(screen.getByRole("button", { name: "Station Control" }));
   fireEvent.click(screen.getByRole("button", { name: "Direct FLEX · LAN" }));
-  fireEvent.click(screen.getByRole("button", { name: "Apply radio selection" }));
+  fireEvent.click(screen.getByRole("button", { name: "Use Direct FLEX · LAN" }));
   await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("Owned release unconfirmed"));
-  expect(screen.getByRole("button", { name: "Apply radio selection" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Use Direct FLEX · LAN" })).toBeTruthy();
   expect(localStorage.getItem("xlog.integration.provider")).toBeNull();
   expect(bridge.request.mock.calls.filter(([method]) => method === "station_disconnect")).toHaveLength(1);
   expect(bridge.request.mock.calls.some(([method, params]) => method === "station_snapshot" && params.provider === "direct_flex_lan")).toBe(false);

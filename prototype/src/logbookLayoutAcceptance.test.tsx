@@ -60,7 +60,7 @@ it("opens a direct-menu Logbook with only a compact task toolbar above the table
   expect(toolbar).not.toBeNull();
   expect(within(toolbar).getByRole("textbox", { name: "Search logbook" })).toBeTruthy();
   expect(within(toolbar).getAllByRole("button").map(button => button.getAttribute("aria-label") || button.textContent?.trim())).toEqual([
-    "Search", "Edit", "Details", "Columns", "Delete", "Undo delete", "Select page", "Clear selection",
+    "Search", "Edit", "Details", "Columns", "Saved filters", "PJ country preview", "Delete", "Undo delete", "Select page", "Clear selection",
   ]);
   expect(screen.queryByRole("heading", { name: "Logbook" })).toBeNull();
   expect(screen.queryByText(/Local working copy|Selection clears/)).toBeNull();

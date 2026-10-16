@@ -1,22 +1,21 @@
 # OM0RX-xLog
 
-[![macOS 13+](https://img.shields.io/badge/macOS-13%2B-black)](#requirements)
+[![macOS 14+](https://img.shields.io/badge/macOS-14%2B-black)](#requirements)
 [![Swift 5.10](https://img.shields.io/badge/Swift-5.10-F05138)](Package.swift)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
-[![Release: v0.3.0](https://img.shields.io/badge/release-v0.3.0-12D6A0.svg)](https://github.com/oliverbross/OM0RX-xLog/releases/tag/v0.3.0)
+![Beta: 1.0.0-beta.1](https://img.shields.io/badge/beta-1.0.0--beta.1-12D6A0.svg)
 
 OM0RX-xLog is a fast, local-first amateur-radio logbook for macOS. It is the logging centre of the OM0RX station suite: contacts are committed to a local SQLite database first, enriched from QRZ and current reference data, synchronized in both directions with Wavelog, and connected to the radio through OM0RX-xCat.
 
 Created and maintained by **Oliver Bross, OM0RX**.
 
-## Shared-app Mac integration — development alpha
+## Shared-app Mac integration — 1.0 beta
 
-The `codex/unified-xlog-integration-p2` branch now builds **OM0RX-xLog
-0.4.0-alpha.6**: the shared Tauri/React app with persistent real logbook, xCluster,
+The application now builds **OM0RX-xLog 1.0.0-beta.1**: the shared Tauri/React app with persistent real logbook, xCluster,
 embedded xCat Remote Agent services, and bundled Hamlib radio/rotor helpers. It has a separate bundle and an isolated
 verified logbook copy; the working native apps and original data are preserved.
 There are no fixture contacts or spots in its runtime screens. This is not yet a
-100%-parity or production release. Read the [setup, preservation contract and open
+stable production release. Read the [setup, preservation contract and open
 acceptance gates](docs/P2_MAC_LIVE_INTEGRATION.md) before testing. Windows/Linux
 live integration remains deferred until the Mac workflows are accepted.
 
@@ -171,7 +170,7 @@ xCat remains the only process that owns the physical radio connection. xLog neve
 
 ## Requirements
 
-- macOS 13 Ventura or newer.
+- macOS 14 Sonoma or newer.
 - OM0RX-xCat running when live frequency/mode or tuning is required.
 - A Wavelog instance with an API v2 token for synchronization.
 - An eligible QRZ XML subscription for full QRZ lookup data.

@@ -1,22 +1,16 @@
-# OM0RX-xLog 0.3.0
+# OM0RX-xLog 1.0.0-beta.1
 
-The worldwide awards-library release of the native, local-first OM0RX macOS logbook.
-
-This release adds a source-backed 190-programme research catalogue while retaining xLog's two additional native Chinese award calculators. It deliberately distinguishes catalogue coverage from executable qualification.
+The first 1.0 beta of the native, local-first OM0RX macOS logbook.
 
 Highlights:
 
-- A searchable 192-entry library covering global, European, worldwide and specialist programmes.
-- Nine live native calculators for AJD, WAJA, JCC, JCG, AJA, WACA, WAGA, WAPC and WCSA.
-- Separate worked, evidence-eligible and sponsor-credited layers for live calculations.
-- Honest research-tracking, blocked and historical states for all other entries, with official sources and named unresolved dependencies.
-- A complete per-programme delivery ledger in `docs/AWARDS_COVERAGE.md`.
-- Accurate Japanese historical-entity rules, WAPC band/mode detail and WCSA school-slot milestones calculated from the complete local log.
-- Live operator intelligence for awards, operating mix, propagation and local station weather.
-- Compact xCluster opportunity markers and stable graphical HF-condition presentation.
-- Integrated rotor targeting and more reliable spot-to-radio handoff through OM0RX-xCat.
-- A fixed, readable station sidebar with live KPA500/KAT500 status, power, SWR, band, antenna and amplifier controls.
-- The complete v0.1 logging, Wavelog v2 synchronization, QRZ, ADIF, Operator Desk, world-map and multi-band-map feature set.
-- Bundled MIT attribution and reference data from ham-award-tools commit `f28a04fa5a94368ac4099ce5cec97fcd93ce0849`.
+- A complete integrated SQLite logbook that works without Wavelog, plus optional two-way Wavelog v2 synchronization with durable receipts, conflict handling and safe recovery.
+- Operator Desk, full QSO editor, previous-QSO history, ADIF import/export, searchable logbook, awards, callsign/DXCC intelligence and configurable QSO detail fields.
+- DX Cluster, live spot history, compact age display, Wavelog-compatible status classifications and colours, multi-band maps, world map and optional Maidenhead grid overlay.
+- Configured clusters connect automatically by default and request the latest 100 spots after connecting; both behaviours remain user-configurable.
+- Shared radio and rotor ownership with explicit connect/control actions, readback checks, safe stop handling and offline operation when station hardware is unavailable.
+- Resizable and repositionable Operator Desk panels, responsive detached windows, stable row hover geometry and fixed save notifications that do not shift content.
+- Clean macOS Logbook, Online and Window menus with direct Settings access and no obsolete Station Status, Station Identity or Connection Doctor entries.
+- The existing worldwide awards research library and native award calculators, with coverage and evidence boundaries documented in `docs/AWARDS_COVERAGE.md`.
 
-The downloadable app is Developer ID signed, Apple-notarized and stapled. No award application, email, payment or sponsor claim is sent by the awards library.
+This beta is locally code-signed for testing. Apple notarization is a separate release gate and is not implied by this build.

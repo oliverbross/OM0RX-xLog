@@ -39,9 +39,9 @@ describe("rendered operator workflow", () => {
     const user = userEvent.setup();
     render(<App />);
     expect(
-      screen.getByRole("button", { name: /Load OH9W.*synthetic NB/ })
+      screen.getByRole("button", { name: /Load OH9W.*synthetic NC/ })
         .textContent,
-    ).toBe("OH9WNB");
+    ).toBe("OH9WNC");
     await user.click(screen.getByRole("button", { name: "DX Cluster" }));
     await user.click(screen.getByRole("button", { name: "N7A" }));
     const call = screen.getByRole("textbox", {

@@ -6,9 +6,10 @@ import userEvent from "@testing-library/user-event";
 import LiveApp, { syncSettingsDestination } from "../src/LiveApp";
 import Conditions from "../src/live/Conditions";
 import Monitor from "../src/live/Monitor";
-import { operatorDraftFixture, testWorkspaceGeneration } from "./operator-draft-fixture";
+import { operatorDraftFixture, testPreferenceSnapshot, testWorkspaceGeneration } from "./operator-draft-fixture";
 import { contactEditFixture } from "./contact-edit-fixture";
 import { readContactJournal } from "../src/live/logbookContactSession";
+import { defaultRotorConfiguration } from "../src/live/rotorConfigurationSession";
 const calls = vi.hoisted(() => ({ request: vi.fn() }));
 const nativeMenu = vi.hoisted(() => ({ route: undefined as ((title: string) => void) | undefined }));
 const clusterStartup = vi.hoisted(() => ({ native: false, initialize: vi.fn() }));
@@ -37,13 +38,8 @@ beforeEach(() => {
       : method === "cluster_snapshot" ? { snapshot: { spots: [], connectedClusters: 0 } }
       : method === "station_snapshot" ? { source: "xcat_loopback", available: false, radio: null }
       : method === "settings_load" ? { settings: { stationCall: "", gridSquare: "" }, revision: 0, generation: testWorkspaceGeneration }
-      : method === "workspace_rotor_configuration_load" ? { revision: 0, generation: testWorkspaceGeneration, configuration: {
-        owner: "native_dcu1", native_dcu1: { host: "", port: 4001, name: "Rotor" },
-        hamlib: { mode: "managed", path: "", baud: 9600, host: "127.0.0.1", port: 4533, serial: {} },
-      } }
-      : method === "workspace_preferences_load" ? { stored: true, preferences: { deskBandMapBands: ["20m", "15m"], detachedBandMapBands: ["20m", "15m"],
-        deskBandMapFollowsRadio: false, detachedBandMapFollowsRadio: false, detachedBandMapLayout: "Adaptive grid", bandMapFontScale: 1.2,
-        intelligenceBands: ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m"], clusterSpotOpensFullEditor: false } }
+      : method === "workspace_rotor_configuration_load" ? { revision: 0, generation: testWorkspaceGeneration, configuration: defaultRotorConfiguration() }
+      : method === "workspace_preferences_load" ? testPreferenceSnapshot({ bandMapFontScale: 1.2 })
       : method === "logbook_stats" ? { stats: { qso_count: 0 } }
       : method === "logbook_draft" ? { qso: { id: "draft", start: "2026-10-12T00:00:00Z", call: "", band: "20m", mode: "SSB" } }
       : method === "lookup_call" ? { source: "No match" }
@@ -518,7 +514,7 @@ it.each([{ kind: "pota", reference_kind: "pota", reference: "US-0001", field: "P
 it("resumes a saved reconnect cluster while radio is offline, once only", async () => {
   const base = calls.request.getMockImplementation()!;
   calls.request.mockImplementation((method: string, params: unknown) => method === "cluster_snapshot" ? Promise.resolve({ ok: true, result: {
-    configuration: { reconnect: true, servers: [{ enabled: true }] }, snapshot: { spots: [], connections: [], connectedClusters: 0 },
+    configuration: { connectOnStartup: true, reconnect: true, servers: [{ enabled: true }] }, snapshot: { spots: [], connections: [], connectedClusters: 0 },
   } }) : base(method, params));
   render(<LiveApp />);
   await waitFor(() => expect(calls.request).toHaveBeenCalledWith("cluster_connect", {}));
@@ -526,22 +522,22 @@ it("resumes a saved reconnect cluster while radio is offline, once only", async 
   expect(calls.request.mock.calls.some(([method]) => ["station_connect", "station_tune", "rotor_connect", "rotor_goto"].includes(method))).toBe(false);
 });
 
-it("does not reconnect after an explicit disconnect from a prior session", async () => {
+it("honors the saved startup preference independently of a prior session disconnect", async () => {
   localStorage.setItem("xlog.integration.clusterSessionIntent", "disconnected");
   const base = calls.request.getMockImplementation()!;
   calls.request.mockImplementation((method: string, params: unknown) => method === "cluster_snapshot" ? Promise.resolve({ ok: true, result: {
-    configuration: { reconnect: true, servers: [{ enabled: true }] }, snapshot: { spots: [], connections: [], connectedClusters: 0 },
+    configuration: { connectOnStartup: true, reconnect: true, servers: [{ enabled: true }] }, snapshot: { spots: [], connections: [], connectedClusters: 0 },
   } }) : base(method, params));
   render(<LiveApp />);
   await screen.findByRole("button", { name: "Copy my existing xLog logbook" });
-  expect(calls.request.mock.calls.some(([method]) => method === "cluster_connect")).toBe(false);
+  await waitFor(() => expect(calls.request.mock.calls.filter(([method]) => method === "cluster_connect")).toHaveLength(1));
 });
 
 it("native views migrate once and leave reconnect to the shared owner", async () => {
   clusterStartup.native = true;
   const base = calls.request.getMockImplementation()!;
   calls.request.mockImplementation((method: string, params: unknown) => method === "cluster_snapshot" ? Promise.resolve({ ok: true, result: {
-    configuration: { reconnect: true, servers: [{ enabled: true }] }, snapshot: { spots: [], connections: [], connectedClusters: 0 },
+    configuration: { connectOnStartup: true, reconnect: true, servers: [{ enabled: true }] }, snapshot: { spots: [], connections: [], connectedClusters: 0 },
   } }) : base(method, params));
   render(<LiveApp />);
   await waitFor(() => expect(calls.request).toHaveBeenCalledWith("cluster_snapshot", {}));

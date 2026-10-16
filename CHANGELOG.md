@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 1.0.0-beta.1 — 2026-10-17
+
+- Promoted the complete local-first xLog desktop application to its first 1.0 beta, including the integrated logbook, optional Wavelog synchronization, ADIF interchange, cluster, maps, awards and station workflows.
+- Consolidated the macOS Logbook, Online and Window menus and retained direct Settings access without duplicate or obsolete menu entries.
+- Completed the configurable Operator Desk and detached-window sizing work, including resizable panels, stable tables, compact Callsign Intelligence, Previous QSOs, Rotor and Propagation layouts, and non-shifting save feedback.
+- Matched Wavelog call/DXCC spot classification and default colours while preserving user palette overrides; corrected band-plan mode classification and duplicate band-map spots.
+- Enabled default-on configured cluster startup with `sh/dx/100`, while preserving offline-safe radio and rotor ownership, readback and recovery barriers.
+- Repaired stale integration fixtures uncovered by the release review so the full renderer suite exercises the current rotor schema, startup policy, compact radio selector and Wavelog-compatible status model.
+
 ## 0.4.0-alpha.57 — 2026-10-17
 
 - Added an optional Maidenhead locator grid to the World Map, using Wavelog's zoom-dependent field, square and subsquare calculation.

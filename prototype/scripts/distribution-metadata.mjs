@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const destination = path.join(root, "prototype/distribution-metadata");
+const product = JSON.parse(fs.readFileSync(path.join(root, "prototype/package.json"), "utf8"));
 fs.mkdirSync(destination, { recursive: true });
 const run = (command, args, cwd = root) => execFileSync(command, args, { cwd, encoding: "utf8", maxBuffer: 32 * 1024 * 1024 });
 const components = [];
@@ -48,5 +49,5 @@ fs.writeFileSync(path.join(destination, "components.json"), JSON.stringify({ sch
   sourceCommit: run("git", ["rev-parse", "HEAD"]).trim(), rustHost,
   scope: "Resolved JavaScript runtime and Cargo target dependency inventory including build dependencies. Swift/OS dependencies are in the platform runtime manifest. Not a complete SPDX/CycloneDX SBOM or compliance certification.",
   components }, null, 2));
-fs.writeFileSync(path.join(destination, "README.txt"), "OM0RX-xLog — development alpha, not the stable macOS release.\nSource: https://github.com/oliverbross/OM0RX-xLog/tree/" + run("git", ["rev-parse", "HEAD"]).trim() + "\nMac live services require explicit setup. Original apps/data are not replaced. Windows/Linux live services remain pending. See docs/P2_MAC_LIVE_INTEGRATION.md before operating hardware or enabling synchronization.\nComponents and notices are evidence inputs; final distribution licensing/signing review remains separate.\n");
+fs.writeFileSync(path.join(destination, "README.txt"), `OM0RX-xLog ${product.version} — beta release.\nSource: https://github.com/oliverbross/OM0RX-xLog/tree/${run("git", ["rev-parse", "HEAD"]).trim()}\nMac live services require explicit setup. Original apps/data are not replaced. Windows/Linux live services remain pending. See docs/P2_MAC_LIVE_INTEGRATION.md before operating hardware or enabling synchronization.\nComponents and notices are evidence inputs; final distribution licensing/signing review remains separate.\n`);
 console.log(`Distribution metadata: ${components.length} resolved components; ${destination}`);
