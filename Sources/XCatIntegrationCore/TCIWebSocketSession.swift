@@ -156,6 +156,8 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
     public let receiverNoiseBlankerEnables: [Int: TCIReceiverNoiseBlankerEnableObservation]
     /// Independent BIN setting reports; never capability, audio effect or authority.
     public let receiverBinauralEnables: [Int: TCIReceiverBinauralEnableObservation]
+    /// Independent NR setting reports; never capability, audio effect or authority.
+    public let receiverNoiseReductionEnables: [Int: TCIReceiverNoiseReductionEnableObservation]
 
     public init(
         sequence: UInt64,
@@ -186,7 +188,8 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
         receiverAGCModes: [Int: TCIReceiverAGCModeObservation] = [:],
         receiverAGCGains: [Int: TCIReceiverAGCGainObservation] = [:],
         receiverNoiseBlankerEnables: [Int: TCIReceiverNoiseBlankerEnableObservation] = [:],
-        receiverBinauralEnables: [Int: TCIReceiverBinauralEnableObservation] = [:]
+        receiverBinauralEnables: [Int: TCIReceiverBinauralEnableObservation] = [:],
+        receiverNoiseReductionEnables: [Int: TCIReceiverNoiseReductionEnableObservation] = [:]
     ) {
         self.sequence = sequence
         self.generation = generation
@@ -217,6 +220,7 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
         self.receiverAGCGains = receiverAGCGains
         self.receiverNoiseBlankerEnables = receiverNoiseBlankerEnables
         self.receiverBinauralEnables = receiverBinauralEnables
+        self.receiverNoiseReductionEnables = receiverNoiseReductionEnables
     }
 }
 
@@ -675,7 +679,8 @@ public actor TCIReadOnlyWebSocketSession {
             receiverAGCModes: reducer.state.receiverAGCModes,
             receiverAGCGains: reducer.state.receiverAGCGains,
             receiverNoiseBlankerEnables: reducer.state.receiverNoiseBlankerEnables,
-            receiverBinauralEnables: reducer.state.receiverBinauralEnables
+            receiverBinauralEnables: reducer.state.receiverBinauralEnables,
+            receiverNoiseReductionEnables: reducer.state.receiverNoiseReductionEnables
         )
         for continuation in continuations.values {
             continuation.yield(observationValue)
