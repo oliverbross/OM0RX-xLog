@@ -249,6 +249,24 @@ public struct TCICommandEncoder: Sendable {
         return body + ";"
     }
 
+    /// Encodes one explicit transport frame without weakening the per-command
+    /// bounds. Callers retain command authority and readback ownership.
+    public func encodeFrame(_ commands: [TCIOutboundCommand]) throws -> String {
+        guard !commands.isEmpty else { throw TCICommandEncodingError.invalidArgument }
+        guard commands.count <= limits.maximumCommandsPerFeed else {
+            throw TCICommandEncodingError.tooManyArguments
+        }
+        var frame = ""
+        for command in commands {
+            frame += try encode(command)
+            guard frame.utf8.count <= limits.maximumFrameBytes,
+                  frame.utf8.count <= limits.maximumAccumulatorBytes else {
+                throw TCICommandEncodingError.frameTooLarge
+            }
+        }
+        return frame
+    }
+
     private func validateTRX(_ trx: Int) throws {
         guard trx >= 0, trx < trxCount else { throw TCICommandEncodingError.outOfBounds }
     }

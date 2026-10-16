@@ -83,7 +83,7 @@ it("explains absent native selection and never initializes or connects it", () =
   expect(screen.getByText(/No radio selected/)).toBeTruthy();
   expect(screen.queryByRole("button")).toBeNull();
 });
-it("TCI child follows saved selection and exposes no radio controls even with advertised authority", async () => {
+it("TCI child follows saved selection and exposes only explicit receive tuning", async () => {
   const context = syntheticMonitorContext();
   context.selection!.provider = "direct_tci"; context.radio.provider = "direct_tci"; context.radio.snapshot.source = "direct_tci";
   const state: StationSession = { generation: "tci-setup", revision: 4, base_url: "", last_receipt: null,
@@ -95,9 +95,11 @@ it("TCI child follows saved selection and exposes no radio controls even with ad
   });
   render(<DetachedStationControlSurface />); await act(async () => {});
   expect(screen.getByLabelText("Shared TCI endpoint")).toBeTruthy();
-  expect(screen.getByText("TCI observations are read only. Radio controls are unavailable.")).toBeTruthy();
-  expect(screen.queryByLabelText("Child receive frequency MHz")).toBeNull();
-  expect(screen.queryByRole("button", { name: /Reconnect|PTT|CW|Tune|Operate|Standby|receive/i })).toBeNull();
+  expect(screen.getByText("TCI permits explicit receive-frequency and mode tuning only. Transmit controls remain unavailable.")).toBeTruthy();
+  expect(screen.getByLabelText("Simplex frequency MHz")).toBeTruthy();
+  expect(screen.getByLabelText("Simplex mode")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Tune simplex" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /Reconnect|PTT|CW|Operate|Standby/i })).toBeNull();
   expect(screen.queryByRole("checkbox")).toBeNull();
   expect(native.invoke.mock.calls.every(([command, args]) => command === "monitor_context_snapshot" || args.params.action === "snapshot")).toBe(true);
   expect(native.worker).not.toHaveBeenCalled();

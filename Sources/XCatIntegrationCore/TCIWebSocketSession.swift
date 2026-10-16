@@ -11,9 +11,11 @@ public enum TCIWebSocketMessage: Equatable, Sendable {
     case binary(Data)
 }
 
-/// Receive-only transport surface. Deliberately has no send operation.
+/// Bounded TCI transport surface. The session below exposes only explicit
+/// receive-VFO tune writes; the transport itself grants no command authority.
 public protocol TCIWebSocketConnection: Sendable {
     func receive() async throws -> TCIWebSocketMessage
+    func send(text: String) async throws
     func close() async
 }
 
@@ -53,6 +55,10 @@ private final class NativeTCIWebSocketConnection: TCIWebSocketConnection, @unche
         }
     }
 
+    func send(text: String) async throws {
+        try await task.send(.string(text))
+    }
+
     func close() async {
         task.cancel(with: .normalClosure, reason: nil)
     }
@@ -82,6 +88,17 @@ public enum TCIReadOnlySessionError: Error, Equatable, Sendable {
     case cancelled
     case connectionFailed
     case generationExhausted
+}
+
+public enum TCITuneSessionError: Error, Equatable, Sendable {
+    case invalidTarget
+    case notReady
+    case staleObservation
+    case transmitting
+    case commandInFlight
+    case connectionChanged
+    case transportClosed
+    case readbackTimedOut
 }
 
 public struct TCIReadOnlySessionObservation: Equatable, Sendable {
@@ -133,6 +150,7 @@ public actor TCIReadOnlyWebSocketSession {
     private var lifecycleRevision: UInt64 = 0
     private var sequence: UInt64 = 0
     private var observationValue: TCIReadOnlySessionObservation
+    private var commandInFlight = false
     private var continuations: [UUID: AsyncStream<TCIReadOnlySessionObservation>.Continuation] = [:]
 
     public init(
@@ -268,6 +286,143 @@ public actor TCIReadOnlyWebSocketSession {
         resetProtocolState()
         publish(availability: .unavailable, snapshot: nil, failure: nil)
         await closingConnection?.close()
+    }
+
+    /// Sends one exact configured receiver target and returns only after newer,
+    /// authoritative TCI telemetry confirms both frequency and modulation.
+    /// There is no retry or replay on write loss, timeout, or disconnect.
+    public func tuneReceive(
+        frequencyHz: Int64,
+        mode: String,
+        expectedGeneration: UInt64,
+        timeoutNanoseconds: UInt64 = 12_000_000_000
+    ) async throws -> TCIReadOnlySessionObservation {
+        guard timeoutNanoseconds > 0, timeoutNanoseconds <= 120_000_000_000 else {
+            throw TCITuneSessionError.invalidTarget
+        }
+        guard !commandInFlight else { throw TCITuneSessionError.commandInFlight }
+        guard expectedGeneration == generation,
+              observationValue.generation == generation,
+              observationValue.availability == .available,
+              let snapshot = observationValue.snapshot,
+              snapshot.address == configuredAddress,
+              let activeConnection = connection,
+              let activeConnectionID = connectionID else {
+            throw TCITuneSessionError.notReady
+        }
+        guard snapshot.transceiver.transmitting == false else {
+            throw TCITuneSessionError.transmitting
+        }
+        let issuedAt = clock()
+        guard issuedAt.timeIntervalSince(observationValue.evidenceReceivedAt ?? .distantPast) >= -1,
+              issuedAt.timeIntervalSince(observationValue.evidenceReceivedAt ?? .distantPast) <= 5 else {
+            throw TCITuneSessionError.staleObservation
+        }
+        let lower = Int64(snapshot.vfoLimits.lower.rounded(.up))
+        let upper = Int64(snapshot.vfoLimits.upper.rounded(.down))
+        guard lower <= upper else { throw TCITuneSessionError.notReady }
+        let encoder: TCICommandEncoder
+        do {
+            encoder = try TCICommandEncoder(
+                trxCount: snapshot.trxCount,
+                channelCount: snapshot.channelCount,
+                frequencyRange: lower...upper,
+                supportedModulations: Set(snapshot.supportedModulations),
+                limits: limits
+            )
+        } catch {
+            throw TCITuneSessionError.notReady
+        }
+        let normalizedMode = mode.uppercased()
+        let frame: String
+        do {
+            frame = try encoder.encodeFrame([
+                .setVFO(address: configuredAddress, frequencyHz: frequencyHz),
+                .setModulation(trx: configuredAddress.trx, mode: normalizedMode),
+            ])
+        } catch {
+            throw TCITuneSessionError.invalidTarget
+        }
+
+        let activeGeneration = generation
+        let activeRevision = lifecycleRevision
+        let baselineSequence = observationValue.sequence
+        let stream = observations(bufferingNewest: 32)
+        commandInFlight = true
+        defer { commandInFlight = false }
+        do {
+            try await activeConnection.send(text: frame)
+        } catch {
+            await fail(
+                .transportClosed,
+                connection: activeConnection,
+                connectionID: activeConnectionID,
+                generation: activeGeneration,
+                revision: activeRevision
+            )
+            throw TCITuneSessionError.transportClosed
+        }
+
+        let confirmed: TCIReadOnlySessionObservation
+        do {
+            confirmed = try await Self.waitForTuneReadback(
+                stream: stream,
+                after: baselineSequence,
+                generation: activeGeneration,
+                issuedAt: issuedAt,
+                frequencyHz: frequencyHz,
+                mode: normalizedMode,
+                timeoutNanoseconds: timeoutNanoseconds
+            )
+        } catch let failure as TCITuneSessionError {
+            throw failure
+        } catch {
+            throw TCITuneSessionError.transportClosed
+        }
+        guard generation == activeGeneration,
+              lifecycleRevision == activeRevision,
+              connectionID == activeConnectionID,
+              connection != nil,
+              observationValue.sequence >= confirmed.sequence else {
+            throw TCITuneSessionError.connectionChanged
+        }
+        return confirmed
+    }
+
+    private static func waitForTuneReadback(
+        stream: AsyncStream<TCIReadOnlySessionObservation>,
+        after baselineSequence: UInt64,
+        generation: UInt64,
+        issuedAt: Date,
+        frequencyHz: Int64,
+        mode: String,
+        timeoutNanoseconds: UInt64
+    ) async throws -> TCIReadOnlySessionObservation {
+        try await withThrowingTaskGroup(of: TCIReadOnlySessionObservation.self) { group in
+            group.addTask {
+                for await value in stream {
+                    guard value.generation == generation else { throw TCITuneSessionError.connectionChanged }
+                    guard value.availability != .unavailable else { throw TCITuneSessionError.transportClosed }
+                    guard value.sequence > baselineSequence,
+                          value.evidenceReceivedAt.map({ $0 > issuedAt }) == true,
+                          let snapshot = value.snapshot,
+                          snapshot.frequencyHz == frequencyHz,
+                          snapshot.transceiver.modulation?.uppercased() == mode,
+                          snapshot.transceiver.transmitting == false else { continue }
+                    return value
+                }
+                throw TCITuneSessionError.transportClosed
+            }
+            group.addTask {
+                try await Task.sleep(nanoseconds: timeoutNanoseconds)
+                throw TCITuneSessionError.readbackTimedOut
+            }
+            defer { group.cancelAll() }
+            guard let result = try await group.next() else {
+                throw TCITuneSessionError.transportClosed
+            }
+            return result
+        }
     }
 
     private func process(

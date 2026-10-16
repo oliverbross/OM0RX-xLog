@@ -68,6 +68,15 @@ it("keeps local Hamlib tuning independent of the integration worker epoch", asyn
   await expect(f.session.tune("hamlib",7100000,"LSB")).resolves.toMatchObject({confirmed:true});
   expect(f.request).toHaveBeenCalledOnce();
 });
+it("binds an explicit TCI receive tune to the same durable native epochs", async () => {
+  const f=fixture(); f.state.selection.provider="direct_tci"; f.state.radio!.provider="direct_tci";
+  f.request.mockImplementation(async params => {
+    expect(params).toMatchObject({provider:"direct_tci",connection_generation:13,worker_generation:5,frequency_hz:7100000,mode:"SSB"});
+    return {operation_id:params.operation_id as string,status:"confirmed",request:{action:"manual_tune"}};
+  });
+  await expect(f.session.tune("direct_tci",7100000,"SSB")).resolves.toMatchObject({confirmed:true});
+  expect(f.request).toHaveBeenCalledOnce();
+});
 it("standalone controls tune without a main renderer and expose read-only receipt recovery", async () => {
   const f=fixture(); render(<ManualSimplexTune provider="direct_flex_lan" session={f.session} />);
   fireEvent.change(screen.getByLabelText("Simplex frequency MHz"),{target:{value:"14.074000"}});

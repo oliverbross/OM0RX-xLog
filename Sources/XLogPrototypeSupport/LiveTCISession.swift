@@ -2,7 +2,8 @@ import Foundation
 #if os(macOS)
 import XCatIntegrationCore
 
-/// Worker-owned observation adapter. No sender or radio-control API is exposed.
+/// Worker-owned TCI adapter. The only write admitted here is an exact,
+/// generation-bound receive-VFO tune with authoritative telemetry readback.
 actor LiveTCISession {
     struct Configuration: Sendable {
         let endpoint: URL
@@ -73,8 +74,41 @@ actor LiveTCISession {
             try advanceGeneration()
             await disconnect()
             return snapshot()
+        case "station_tune":
+            guard Set(params.keys) == ["provider", "frequency_hz", "mode", "expected_generation"],
+                  !terminal,
+                  let active = session,
+                  let id = connectionID,
+                  let expected = Self.integer(params["expected_generation"]),
+                  expected >= 0,
+                  UInt64(expected) == generation else { throw invalid() }
+            let (frequencyHz, mode) = try Self.tuneTarget(params)
+            let transportGeneration = (await active.currentObservation()).generation
+            do {
+                let confirmed = try await active.tuneReceive(
+                    frequencyHz: frequencyHz,
+                    mode: mode,
+                    expectedGeneration: transportGeneration
+                )
+                guard !terminal, connectionID == id, session === active else { throw cancelled() }
+                record(confirmed, connectionID: id)
+                let state = snapshot()
+                guard let radio = state["radio"] as? [String: Any],
+                      radio["frequency_hz"] as? Int64 == frequencyHz,
+                      radio["mode"] as? String == mode,
+                      radio["transmitting"] as? Bool == false else {
+                    throw WorkerFailure("station_superseded", "The authoritative TCI receive target changed before completion.")
+                }
+                return ["accepted": true, "confirmed": true, "state": state]
+            } catch let failure as WorkerFailure {
+                throw failure
+            } catch let failure as TCITuneSessionError {
+                throw Self.tuneFailure(failure)
+            } catch {
+                throw WorkerFailure("station_unknown", "TCI tune outcome is unknown. No tune was replayed.")
+            }
         default:
-            throw WorkerFailure("method_not_allowed", "TCI is read only; only explicit connect, disconnect and snapshot are available.")
+            throw WorkerFailure("method_not_allowed", "TCI permits only explicit connection, observation and receive-VFO tuning.")
         }
     }
 
@@ -119,8 +153,11 @@ actor LiveTCISession {
                 "transport_state": transport, "generated_at": receivedAt?.timeIntervalSince1970 as Any? ?? NSNull(),
                 "radio": radio, "allow_transmit": false,
                 "station": ["available": false, "commissioned": false, "radio_known": state != nil,
-                            "radio_stale": !fresh || state == nil, "allowed_actions": [String](), "supported_commands": [String]()],
-                "capabilities": ["read_only": true, "supported_commands": [String](), "requires_transmit_opt_in": false],
+                            "radio_stale": !fresh || state == nil, "allowed_actions": [String](),
+                            "supported_commands": state != nil ? ["station_tune"] : [String]()],
+                "capabilities": ["read_only": false, "receive_control_only": true,
+                                 "supported_commands": state != nil ? ["station_tune"] : [String](),
+                                 "requires_transmit_opt_in": false],
                 "rotor": NSNull(), "propagation": NSNull(),
                 "tci": ["read_only": true, "observation_sequence": sequence,
                         "availability": observation?.availability.rawValue ?? "unavailable",
@@ -158,7 +195,38 @@ actor LiveTCISession {
               let values = try? JSONDecoder().decode([Int].self, from: bytes) else { return nil }
         return values.first
     }
-    private static func invalid() -> WorkerFailure { WorkerFailure("invalid_params", "Invalid read-only TCI parameters.") }
+    private static func tuneTarget(_ params: [String: Any]) throws -> (Int64, String) {
+        guard let frequency = integer(params["frequency_hz"]),
+              (100_000...1_000_000_000).contains(frequency),
+              let rawMode = params["mode"] as? String,
+              !rawMode.isEmpty, rawMode.utf8.count <= 16,
+              rawMode.utf8.allSatisfy({ (48...57).contains($0) || (65...90).contains($0) }) else {
+            throw invalid()
+        }
+        let mode: String = switch rawMode {
+        case "SSB": frequency < 10_000_000 ? "LSB" : "USB"
+        case "FT8", "FT4", "FT2", "RTTY", "PSK", "DIGI": "DIGU"
+        default: rawMode
+        }
+        return (Int64(frequency), mode)
+    }
+    private static func tuneFailure(_ failure: TCITuneSessionError) -> WorkerFailure {
+        switch failure {
+        case .invalidTarget:
+            WorkerFailure("invalid_params", "TCI rejected the requested receive frequency or mode.")
+        case .notReady, .staleObservation:
+            WorkerFailure("station_unavailable", "TCI requires a fresh READY observation before tuning.")
+        case .transmitting:
+            WorkerFailure("station_action_blocked", "TCI receive tuning is blocked while transmit state is not authoritatively off.")
+        case .commandInFlight:
+            WorkerFailure("station_busy", "A TCI receive tune is already awaiting readback.")
+        case .connectionChanged, .transportClosed:
+            WorkerFailure("station_unknown", "TCI disconnected during the tune; its outcome is unknown and was not replayed.")
+        case .readbackTimedOut:
+            WorkerFailure("station_timeout", "TCI did not confirm the requested receive target; no tune was replayed.")
+        }
+    }
+    private static func invalid() -> WorkerFailure { WorkerFailure("invalid_params", "Invalid TCI parameters.") }
     private func invalid() -> WorkerFailure { Self.invalid() }
     private func cancelled() -> WorkerFailure { WorkerFailure("station_superseded", "TCI connection was retired before completion.") }
 }

@@ -13,10 +13,12 @@ final class LiveTCISessionTests: XCTestCase {
         let initial = try await session.handle("station_snapshot", params: minimal)
         XCTAssertEqual(initial["available"] as? Bool, false)
         XCTAssertTrue(initial["generated_at"] is NSNull)
-        for method in ["station_configuration_save", "station_reconnect", "station_tune", "station_action", "station_radio_control", "station_cat_servers", "station_add_spot"] {
+        for method in ["station_configuration_save", "station_reconnect", "station_action", "station_radio_control", "station_cat_servers", "station_add_spot"] {
             do { _ = try await session.handle(method, params: minimal); XCTFail("Read-only adapter admitted \(method)") }
             catch let failure as WorkerFailure { XCTAssertEqual(failure.code, "method_not_allowed") }
         }
+        do { _ = try await session.handle("station_tune", params: minimal); XCTFail("Incomplete TCI tune admitted") }
+        catch let failure as WorkerFailure { XCTAssertEqual(failure.code, "invalid_params") }
         for change in [["trx": true], ["channel": 16], ["endpoint": "ws://user:secret@localhost:40001"], ["endpoint": "ws://localhost:40001/?token=secret"], ["endpoint": "http://localhost:40001"], ["allow_transmit": true]] as [[String: Any]] {
             do { _ = try await session.handle("station_connect", params: connect.merging(change) { _, new in new }); XCTFail("Invalid TCI config admitted") }
             catch let failure as WorkerFailure { XCTAssertEqual(failure.code, "invalid_params") }
@@ -29,10 +31,57 @@ final class LiveTCISessionTests: XCTestCase {
         let snapshot = try await LiveStationMethods.handle("station_snapshot", params: minimal)
         XCTAssertEqual(snapshot["source"] as? String, "direct_tci")
         XCTAssertEqual(snapshot["allow_transmit"] as? Bool, false)
-        for method in ["station_reconnect", "station_tune", "station_action", "station_radio_control", "station_configuration_save", "station_add_spot", "station_cat_servers"] {
+        for method in ["station_reconnect", "station_action", "station_radio_control", "station_configuration_save", "station_add_spot", "station_cat_servers"] {
             do { _ = try await LiveStationMethods.handle(method, params: minimal); XCTFail("Router admitted TCI mutation") }
             catch let failure as WorkerFailure { XCTAssertEqual(failure.code, "method_not_allowed") }
         }
+        do { _ = try await LiveStationMethods.handle("station_tune", params: minimal); XCTFail("Incomplete TCI tune admitted") }
+        catch let failure as WorkerFailure { XCTAssertEqual(failure.code, "invalid_params") }
+    }
+
+    func testExplicitTuneUsesSavedAddressAndReturnsOnlyAfterAuthoritativeReadback() async throws {
+        let socket = TCIFixtureSocket(), time = TCIClock()
+        let session = fixture(TCIFixtureConnector([socket]), clock: { time.now() })
+        _ = try await session.handle("station_connect", params: connect)
+        await socket.enqueue(.text(Self.discovery + "trx:0,false;ready;"))
+        let ready = try await wait(session) { $0["available"] as? Bool == true }
+        XCTAssertEqual((ready["capabilities"] as? [String: Any])?["supported_commands"] as? [String], ["station_tune"])
+        let tune: [String: Any] = ["provider": "direct_tci", "frequency_hz": 7_100_000,
+                                   "mode": "SSB", "expected_generation": 1]
+        let pending = Task { try await session.handle("station_tune", params: tune) }
+        for _ in 0..<2_000 {
+            if await socket.sentTexts().count == 1 { break }
+            await Task.yield()
+        }
+        let sent = await socket.sentTexts()
+        XCTAssertEqual(sent, ["VFO:0,0,7100000;MODULATION:0,LSB;"])
+        time.advance(1)
+        await socket.enqueue(.text("vfo:0,0,7100000;modulation:0,LSB;"))
+        let result = try await pending.value
+        XCTAssertEqual(result["accepted"] as? Bool, true)
+        XCTAssertEqual(result["confirmed"] as? Bool, true)
+        let state = try XCTUnwrap(result["state"] as? [String: Any])
+        XCTAssertEqual((state["radio"] as? [String: Any])?["frequency_hz"] as? Int64, 7_100_000)
+        XCTAssertEqual((state["radio"] as? [String: Any])?["mode"] as? String, "LSB")
+        await session.terminate()
+    }
+
+    func testTuneRejectsStaleGenerationAndUnknownTransmitStateWithoutWriting() async throws {
+        let socket = TCIFixtureSocket(), session = fixture(TCIFixtureConnector([socket]))
+        _ = try await session.handle("station_connect", params: connect)
+        await socket.enqueue(.text(Self.discovery + "ready;"))
+        _ = try await wait(session) { $0["available"] as? Bool == true }
+        for expected in [0, 1] {
+            let tune: [String: Any] = ["provider": "direct_tci", "frequency_hz": 7_100_000,
+                                       "mode": "USB", "expected_generation": expected]
+            do { _ = try await session.handle("station_tune", params: tune); XCTFail("Unsafe TCI tune admitted") }
+            catch let failure as WorkerFailure {
+                XCTAssertEqual(failure.code, expected == 0 ? "invalid_params" : "station_action_blocked")
+            }
+        }
+        let sent = await socket.sentTexts()
+        XCTAssertTrue(sent.isEmpty)
+        await session.terminate()
     }
 
     func testExplicitConnectRequiresDiscoveryAndReadyAndPollDoesNotRefreshReceiptTime() async throws {
@@ -52,7 +101,7 @@ final class LiveTCISessionTests: XCTestCase {
         XCTAssertTrue(radio["split"] is NSNull)
         XCTAssertTrue(radio["transmit_frequency_hz"] is NSNull)
         XCTAssertEqual(ready["allow_transmit"] as? Bool, false)
-        XCTAssertEqual((ready["capabilities"] as? [String: Any])?["supported_commands"] as? [String], [])
+        XCTAssertEqual((ready["capabilities"] as? [String: Any])?["supported_commands"] as? [String], ["station_tune"])
         XCTAssertEqual((ready["station"] as? [String: Any])?["allowed_actions"] as? [String], [])
         let stamp = ready["generated_at"] as? Double
         time.advance(10)
@@ -204,6 +253,7 @@ private actor TCIFixtureSocket: TCIWebSocketConnection {
     private var messages: [TCIWebSocketMessage] = []
     private var waiter: CheckedContinuation<TCIWebSocketMessage, Error>?
     private var closes = 0, closed = false
+    private var sent: [String] = []
     private let resumeOnClose: Bool
     init(resumeOnClose: Bool = true) { self.resumeOnClose = resumeOnClose }
     func receive() async throws -> TCIWebSocketMessage {
@@ -211,10 +261,15 @@ private actor TCIFixtureSocket: TCIWebSocketConnection {
         if closed { throw TCIFixtureError.closed }
         return try await withCheckedThrowingContinuation { waiter = $0 }
     }
+    func send(text: String) throws {
+        guard !closed else { throw TCIFixtureError.closed }
+        sent.append(text)
+    }
     func enqueue(_ value: TCIWebSocketMessage) { if let waiter { self.waiter = nil; waiter.resume(returning: value) } else { messages.append(value) } }
     func fail() { closed = true; waiter?.resume(throwing: TCIFixtureError.closed); waiter = nil }
     func close() { closes += 1; closed = true; if resumeOnClose { waiter?.resume(throwing: TCIFixtureError.closed); waiter = nil } }
     func closeCount() -> Int { closes }
+    func sentTexts() -> [String] { sent }
 }
 private actor TCIFixtureConnector: TCIWebSocketConnecting {
     private var sockets: [TCIFixtureSocket], calls = 0

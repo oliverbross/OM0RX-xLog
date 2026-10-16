@@ -6,7 +6,7 @@ const MAX: u64 = 9_007_199_254_740_991;
 pub fn params(value: &Value) -> Result<Value, String> {
     let provider = value["provider"]
         .as_str()
-        .filter(|p| matches!(*p, "direct_agent" | "direct_flex_lan" | "hamlib"))
+        .filter(|p| matches!(*p, "direct_agent" | "direct_flex_lan" | "direct_tci" | "hamlib"))
         .ok_or("Select a supported radio before tuning.")?;
     for key in ["connection_generation", "control_revision", "worker_generation"] {
         if value[key]
@@ -83,7 +83,7 @@ pub fn admission(projection: &Value, descriptor: &Value, now: u64) -> Result<(),
             && snapshot["radio"]["observed"] == true
             && snapshot["radio"]["transmitting"] == false
             && snapshot["station"]["radio_stale"] != true
-            && (provider != "direct_flex_lan"
+            && (!matches!(provider, "direct_flex_lan" | "direct_tci")
                 || snapshot["capabilities"]["supported_commands"]
                     .as_array()
                     .is_some_and(|a| a.iter().any(|v| v == "station_tune")))
@@ -124,6 +124,15 @@ pub fn confirmed(descriptor: &Value, response: &Value) -> bool {
     };
     let state = &result["state"];
     let radio = &state["radio"];
+    if descriptor["provider"] == "direct_tci" {
+        return state["source"] == "direct_tci"
+            && state["generation"] == descriptor["connection_generation"]
+            && radio["connected"] == true
+            && radio["observed"] == true
+            && radio["transmitting"] == false
+            && radio["frequency_hz"].as_u64() == Some(hz)
+            && radio["mode"].as_str() == Some(mode);
+    }
     state["source"] == descriptor["provider"]
         && state["generation"] == descriptor["connection_generation"]
         && radio["connected"] == true
@@ -219,7 +228,10 @@ mod tests {
         let mut remote = descriptor("direct_agent");
         remote["worker_generation"] = json!(0);
         assert!(params(&remote).is_err());
-        assert!(params(&descriptor("direct_tci")).is_err());
+        let tci = params(&descriptor("direct_tci")).unwrap();
+        assert_eq!(tci["provider"], "direct_tci");
+        assert_eq!(tci["frequency_hz"], 14074000);
+        assert_eq!(tci["mode"], "SSB");
     }
     #[test]
     fn admission_fences_connection_selection_staleness_and_transmitting() {
@@ -257,5 +269,26 @@ mod tests {
             *wrong.pointer_mut(path).unwrap() = Value::Null;
             assert!(!confirmed(&target, &wrong), "{path}");
         }
+    }
+
+    #[test]
+    fn tci_requires_receive_only_authoritative_target_without_inventing_tx_state() {
+        let target = descriptor("direct_tci");
+        let now = 1800000000000u64;
+        let projection = json!({"available":true,"provider":"direct_tci","selection_id":"selection","selection_generation":2,"received_at_ms":now,
+            "snapshot":{"source":"direct_tci","generation":7,"generated_at":now/1000,"radio":{"connected":true,"observed":true,"transmitting":false,"observed_at":now/1000},
+                "station":{"radio_stale":false},"capabilities":{"supported_commands":["station_tune"]}}});
+        assert!(admission(&projection, &target, now).is_ok());
+        let reply = json!({"result":{"confirmed":true,"state":{"source":"direct_tci","generation":7,"radio":{"connected":true,"observed":true,"transmitting":false,
+            "frequency_hz":14074000,"mode":"USB","transmit_frequency_hz":null,"receive_vfo":null,"transmit_vfo":null,"split":null}}}});
+        assert!(confirmed(&target, &reply));
+        for path in ["/result/confirmed", "/result/state/generation", "/result/state/radio/transmitting", "/result/state/radio/frequency_hz", "/result/state/radio/mode"] {
+            let mut wrong = reply.clone();
+            *wrong.pointer_mut(path).unwrap() = Value::Null;
+            assert!(!confirmed(&target, &wrong), "{path}");
+        }
+        let mut no_capability = projection;
+        no_capability["snapshot"]["capabilities"]["supported_commands"] = json!([]);
+        assert!(admission(&no_capability, &target, now).is_err());
     }
 }

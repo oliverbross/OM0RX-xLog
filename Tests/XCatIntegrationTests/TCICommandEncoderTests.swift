@@ -54,6 +54,26 @@ final class TCICommandEncoderTests: XCTestCase {
         }
     }
 
+    func testReceiveTuneFrameCombinesOnlyBoundedTypedCommands() throws {
+        let commandEncoder = try encoder()
+        let address = TCIReceiverAddress(trx: 1, channel: 2)
+        XCTAssertEqual(
+            try commandEncoder.encodeFrame([
+                .setVFO(address: address, frequencyHz: 14_025_000),
+                .setModulation(trx: 1, mode: "USB"),
+            ]),
+            "VFO:1,2,14025000;MODULATION:1,USB;"
+        )
+        assertError(.invalidArgument) { try commandEncoder.encodeFrame([]) }
+        let bounded = try encoder(limits: .init(maximumFrameBytes: 30))
+        assertError(.frameTooLarge) {
+            try bounded.encodeFrame([
+                .setVFO(address: .init(trx: 0, channel: 0), frequencyHz: 14_025_000),
+                .setModulation(trx: 0, mode: "USB"),
+            ])
+        }
+    }
+
     func testAllOfficialPTTSignalSourcesAndNoArbitrarySourceEscapeHatch() throws {
         let encoder = try encoder()
         let cases: [(TCITXSignalSource, String)] = [

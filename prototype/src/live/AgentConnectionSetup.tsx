@@ -8,7 +8,7 @@ import { stationReceiveAvailable } from "./stationReceive";
 
 const journalKey = "xlog.station-session.pending";
 const reviewedKey = "xlog.station-session.reviewed";
-const providerLabels: Record<StationProvider, string> = { direct_agent: "Remote Station Agent", direct_flex_lan: "Direct FLEX LAN", direct_tci: "Direct TCI · read only", hamlib: "Local Hamlib" };
+const providerLabels: Record<StationProvider, string> = { direct_agent: "Remote Station Agent", direct_flex_lan: "Direct FLEX LAN", direct_tci: "Direct TCI · receive control", hamlib: "Local Hamlib" };
 const receiveModes = ["USB", "LSB", "CW", "CWR", "AM", "FM", "RTTY", "RTTYR", "DIGU", "DIGL"];
 const notice = (receipt: StationReceipt) => receipt.request.action === "select"
   ? receipt.status === "acknowledged" ? "Radio selection acknowledged. Connect the selected radio explicitly."
@@ -132,7 +132,7 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
   const updateConfig = (next: HamlibConfiguration) => { dirty.current = true; setConfig(next); };
   return <div className="live-station-connect" aria-label={onlySelection ? "Shared radio selection" : tci ? "Shared TCI connection setup" : flex ? "Shared FLEX connection setup" : hamlib ? "Shared Hamlib connection setup" : "Shared Agent connection setup"}>
     {tci && !onlySelection && <><h3>Direct TCI connection · read only</h3>
-      <p>Save a credential-free ws/wss endpoint and receiver selection, then connect explicitly. TCI observations are read only. Saving does not connect; interrupted connections require an explicit new connection.</p>
+      <p>Save a credential-free ws/wss endpoint and receiver selection, then connect explicitly. TCI permits explicit receive-frequency and mode tuning only. Saving does not connect; interrupted connections require an explicit new connection.</p>
       <fieldset disabled={!state || busy}>
         <label>TCI WebSocket endpoint<input aria-label="Shared TCI endpoint" type="url" autoComplete="off" placeholder="ws://127.0.0.1:50001" value={tciConfig.endpoint} onChange={event => { dirty.current = true; setTCIConfig({ ...tciConfig, endpoint: event.target.value }); }} /></label>
         <label>TCI TRX<input aria-label="Shared TCI TRX" type="number" min="0" max="15" value={Number.isNaN(tciConfig.trx) ? "" : tciConfig.trx} onChange={event => { dirty.current = true; setTCIConfig({ ...tciConfig, trx: event.target.value === "" ? NaN : Number(event.target.value) }); }} /></label>

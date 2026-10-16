@@ -4,7 +4,7 @@ import { monitorRadioFresh, monitorStation, type MonitorContext } from "./monito
 import "./StationPanel.css";
 import "./DetachedTaskSurface.css";
 
-const providers = { direct_agent: "Remote Station Agent", direct_flex_lan: "Direct FLEX LAN", direct_tci: "Direct TCI · read only", hamlib: "Local Hamlib" };
+const providers = { direct_agent: "Remote Station Agent", direct_flex_lan: "Direct FLEX LAN", direct_tci: "Direct TCI · receive control", hamlib: "Local Hamlib" };
 const frequency = (value: unknown) => typeof value === "number" && Number.isFinite(value) && value > 0 ? `${(value / 1e6).toFixed(6)} MHz` : "Unavailable";
 const text = (value: unknown) => typeof value === "string" && value.trim() ? value : "Unavailable";
 const freshTime = (time: unknown, now: number) => typeof time === "number" && Number.isFinite(time) && Math.abs(now - time * 1000) <= 5000;

@@ -232,6 +232,98 @@ final class TCIWebSocketSessionTests: XCTestCase {
         await session.disconnect()
     }
 
+    func testExplicitReceiveTuneUsesExactAddressAndRequiresNewerMatchingReadback() async throws {
+        let connection = FakeTCIWebSocketConnection(), time = TCIEvidenceClock()
+        let session = TCIReadOnlyWebSocketSession(
+            endpoint: endpoint, configuredAddress: address,
+            connector: FakeTCIWebSocketConnector(connections: [connection]), clock: { time.now() }
+        )
+        try await session.connect()
+        await connection.enqueue(.text(Self.discoveryAndState + "ready;"))
+        let ready = try await waitForObservation(session) { $0.availability == .available }
+        XCTAssertEqual(ready.generation, 1)
+
+        let pending = Task {
+            try await session.tuneReceive(
+                frequencyHz: 7_100_000, mode: "USB", expectedGeneration: 1,
+                timeoutNanoseconds: 1_000_000_000
+            )
+        }
+        for _ in 0..<2_000 {
+            if await connection.sentTexts().count == 1 { break }
+            await Task.yield()
+        }
+        let sent = await connection.sentTexts()
+        XCTAssertEqual(sent, ["VFO:0,0,7100000;MODULATION:0,USB;"])
+        time.advance(1)
+        await connection.enqueue(.text("vfo:0,0,7100000;"))
+        for _ in 0..<30 { await Task.yield() }
+        XCTAssertFalse(pending.isCancelled)
+        time.advance(1)
+        await connection.enqueue(.text("modulation:0,USB;"))
+        let confirmed = try await pending.value
+        XCTAssertEqual(confirmed.snapshot?.frequencyHz, 7_100_000)
+        XCTAssertEqual(confirmed.snapshot?.transceiver.modulation, "USB")
+        await session.disconnect()
+    }
+
+    func testTuneDisconnectIsUnknownWithoutReconnectOrReplay() async throws {
+        let connection = FakeTCIWebSocketConnection(), connector = FakeTCIWebSocketConnector(connections: [connection])
+        let session = TCIReadOnlyWebSocketSession(endpoint: endpoint, configuredAddress: address, connector: connector)
+        try await session.connect()
+        await connection.enqueue(.text(Self.discoveryAndState + "ready;"))
+        _ = try await waitForObservation(session) { $0.availability == .available }
+        let pending = Task {
+            try await session.tuneReceive(
+                frequencyHz: 7_100_000, mode: "USB", expectedGeneration: 1,
+                timeoutNanoseconds: 1_000_000_000
+            )
+        }
+        for _ in 0..<2_000 {
+            if await connection.sentTexts().count == 1 { break }
+            await Task.yield()
+        }
+        await connection.fail()
+        do {
+            _ = try await pending.value
+            XCTFail("Disconnected tune was confirmed")
+        } catch {
+            XCTAssertEqual(error as? TCITuneSessionError, .transportClosed)
+        }
+        let sent = await connection.sentTexts()
+        let connects = await connector.connectCount()
+        XCTAssertEqual(sent.count, 1)
+        XCTAssertEqual(connects, 1)
+    }
+
+    func testTuneTimeoutDoesNotReplayWhenMatchingTelemetryArrivesLate() async throws {
+        let connection = FakeTCIWebSocketConnection(), time = TCIEvidenceClock()
+        let connector = FakeTCIWebSocketConnector(connections: [connection])
+        let session = TCIReadOnlyWebSocketSession(
+            endpoint: endpoint, configuredAddress: address, connector: connector, clock: { time.now() }
+        )
+        try await session.connect()
+        await connection.enqueue(.text(Self.discoveryAndState + "ready;"))
+        _ = try await waitForObservation(session) { $0.availability == .available }
+        do {
+            _ = try await session.tuneReceive(
+                frequencyHz: 7_100_000, mode: "USB", expectedGeneration: 1,
+                timeoutNanoseconds: 1_000_000
+            )
+            XCTFail("Unconfirmed tune reported success")
+        } catch {
+            XCTAssertEqual(error as? TCITuneSessionError, .readbackTimedOut)
+        }
+        time.advance(1)
+        await connection.enqueue(.text("vfo:0,0,7100000;modulation:0,USB;"))
+        _ = try await waitForObservation(session) { $0.snapshot?.frequencyHz == 7_100_000 }
+        let sent = await connection.sentTexts()
+        let connects = await connector.connectCount()
+        XCTAssertEqual(sent, ["VFO:0,0,7100000;MODULATION:0,USB;"])
+        XCTAssertEqual(connects, 1)
+        await session.disconnect()
+    }
+
     func testConnectionOpenFailurePublishesUnavailableWithoutAutomaticRetry() async {
         let connector = FakeTCIWebSocketConnector(connections: [])
         let session = TCIReadOnlyWebSocketSession(
@@ -370,6 +462,7 @@ private actor FakeTCIWebSocketConnection: TCIWebSocketConnection {
     private var events: [Event] = []
     private var waiter: CheckedContinuation<TCIWebSocketMessage, Error>?
     private var closures = 0
+    private var sent: [String] = []
     private var closed = false
     private let closeResumesReceive: Bool
 
@@ -381,6 +474,11 @@ private actor FakeTCIWebSocketConnection: TCIWebSocketConnection {
         if !events.isEmpty { return try consume(events.removeFirst()) }
         if closed { throw FakeTransportFailure.closed }
         return try await withCheckedThrowingContinuation { waiter = $0 }
+    }
+
+    func send(text: String) async throws {
+        guard !closed else { throw FakeTransportFailure.closed }
+        sent.append(text)
     }
 
     func close() async {
@@ -401,6 +499,7 @@ private actor FakeTCIWebSocketConnection: TCIWebSocketConnection {
     }
 
     func closeCount() -> Int { closures }
+    func sentTexts() -> [String] { sent }
 
     private func deliver(_ event: Event) {
         guard let waiter else {
