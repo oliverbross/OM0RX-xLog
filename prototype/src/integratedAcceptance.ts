@@ -187,7 +187,9 @@ async function main(report: Json) {
   check("desk_map_logbook", true);
 
   await navigate("Logbook");
-  await waitForAcceptance("contact row before edit", () => !!document.querySelector(".live-logbook-table tbody tr"));
+  await waitForAcceptance("contact row before edit", () =>
+    !!document.querySelector(".live-logbook-table tbody tr") &&
+    document.querySelector(".live-logbook-table-wrap")?.getAttribute("aria-busy") === "false");
   // A rendered row can precede refresh completion. The production interaction
   // opens the editor directly from a single row click once loading gates clear.
   element<HTMLElement>(".live-logbook-table tbody tr").click();
@@ -197,13 +199,17 @@ async function main(report: Json) {
   check("contact_edit", (await worker("logbook_list")).result.qsos[0]?.comment === "Revision-safe native edit");
   // Restore the fixture's exact content through the same user-facing editor.
   await navigate("Logbook");
-  await waitForAcceptance("edited contact row", () => document.querySelector(".live-logbook-table tbody")?.textContent?.includes("Revision-safe native edit") === true);
+  await waitForAcceptance("edited contact row", () =>
+    document.querySelector(".live-logbook-table tbody")?.textContent?.includes("Revision-safe native edit") === true &&
+    document.querySelector(".live-logbook-table-wrap")?.getAttribute("aria-busy") === "false");
   element<HTMLElement>(".live-logbook-table tbody tr").click();
   await waitForAcceptance("second contact editor", () => [...document.querySelectorAll("button")].some(item => item.textContent?.trim() === "Update QSO"));
   await fill('[aria-label="Comment"]', "Isolated native UI acceptance"); await click("Update QSO");
   await waitForAcceptance("restored contact editor released", () => ![...document.querySelectorAll("button")].some(item => item.textContent?.trim() === "Update QSO"));
   await navigate("Logbook");
-  await waitForAcceptance("contact row before delete", () => !!document.querySelector(".live-logbook-table tbody tr"));
+  await waitForAcceptance("contact row before delete", () =>
+    !!document.querySelector(".live-logbook-table tbody tr") &&
+    document.querySelector(".live-logbook-table-wrap")?.getAttribute("aria-busy") === "false");
   element<HTMLElement>(".live-logbook-table tbody tr").click(); await frame(); await click("Delete QSO");
   await waitForAcceptance("revision-checked delete confirmation", () => [...document.querySelectorAll("button")].some(item => item.textContent?.trim() === "Confirm delete"));
   await click("Confirm delete");
