@@ -46,6 +46,8 @@ final class LiveTCISessionTests: XCTestCase {
         await socket.enqueue(.text(Self.discovery + "trx:0,false;ready;"))
         let ready = try await wait(session) { $0["available"] as? Bool == true }
         XCTAssertEqual((ready["capabilities"] as? [String: Any])?["supported_commands"] as? [String], ["station_tune"])
+        XCTAssertEqual((ready["tci"] as? [String: Any])?["read_only"] as? Bool, false)
+        XCTAssertEqual((ready["tci"] as? [String: Any])?["receive_control_only"] as? Bool, true)
         let tune: [String: Any] = ["provider": "direct_tci", "frequency_hz": 7_100_000,
                                    "mode": "SSB", "expected_generation": 1]
         let pending = Task { try await session.handle("station_tune", params: tune) }
