@@ -1,6 +1,6 @@
 # OM0RX-xLog live project board
 
-Tracked implementation checkpoint: `c6ada81ae2b90dba15f8d531cabe8524596f9527`.
+Tracked implementation checkpoint: `c54cc0f6ff68bc6108fb85fceec30402f4fd6615`.
 Source/test/browser evidence below remains separate from installed alpha.31 and
 unaccepted package, native interaction, provider and hardware gates.
 
@@ -39,7 +39,15 @@ Current-source TypeScript passes with R07 below. `6253f8f` adds official ADIF 3.
 import-only PSK125 and canonical PSK/PSK125 export (**18/18** Swift, **1,186/1,186**
 frontend, TypeScript), preserving raw lexical imports and explicit submodes.
 `770dda2` adds PSKAM10 import-only acceptance and PSK/PSKAM10 normalization (**18/18**
-Swift, **1,202/1,202** frontend, TypeScript). These nine bounded stages preserve
+Swift, **1,202/1,202** frontend, TypeScript). `90f7a3e` adds PSKAM31 (**18/18** Swift,
+**1,218/1,218** frontend, TypeScript); `e34a094` adds PSKAM50 (**18/18** Swift,
+**1,234/1,234** frontend, TypeScript), with lexical import-only acceptance and canonical
+PSK/submode export.
+`8c43ef5` adds official ADIF 3.1.8 import-only PSKFEC31 to canonical PSK/submode export
+(**18/18** Swift, **1,250/1,250** frontend, TypeScript); ADIF_VER remains **3.1.7**.
+`9e8b97b` maps official ADIF 3.1.8 import-only PSKHELL to HELL (**18/18** Swift,
+**1,266/1,266** frontend, TypeScript); root reviewed/diff checked. ADIF_VER stays **3.1.7**.
+These thirteen bounded stages preserve
 arbitrary fields, explicit submodes and identity. The exporter remains labeled
 3.1.7 until the full 3.1.8 enum/deprecation audit passes.
 Package/real-log acceptance and any optional record correction remain open.
@@ -161,6 +169,22 @@ frontend **41/41**, and global TX protocol/session Swift **35/35** pass. The pin
  plus independent receipt, without mute/audibility/streaming/readiness/control/RF inference.
  Agent compiled bundle **101/101** and root full-current-tree new-case **6/6** pass;
  the recurring lifecycle-flake disclosure remains separate.
+`4a34eb4` retains passive per-receiver/channel `RX_VOLUME` as exact raw **[-60, 0] dB**
+tokens with independent receipts, discovery pruning and reconnect clearing (**107/107**
+agent, **6/6** root focused). `63ef8b2` independently retains `RX_BALANCE` within
+**[-40, 40] dB** (**113/113** agent, **6/6** root). No global-volume/mute relationship,
+measured stereo output, audibility, streaming, configured freshness/readiness, control
+or tune/TX/RF authority is inferred.
+`d2b2d24` separately retains passive global `MON_VOLUME` as exact raw **[-60, 0] dB**
+tokens with its own receipt and reconnect reset (**118/118** agent, **5/5** root focused).
+It remains independent of other audio/mute state and establishes no monitoring, TX,
+configured freshness/readiness or RF authority; package/native/live gates remain open.
+`c54cc0f` separately retains passive global `MON_ENABLE` exact boolean token and parsed
+setting, independent receipt and reconnect reset (**123/123** agent, **5/5** root focused).
+It remains independent of MON_VOLUME and establishes no monitoring, audibility, streaming,
+TX, configured freshness/readiness, control or RF authority.
+The recurring closeCount **0 vs 1** lifecycle failure
+and package/native/live station/provider/network/RF gates remain open.
 Transmit/PTT, split/TX-VFO controls,
 spots, audio/IQ, package/live-server and RF
 acceptance remain open; installed alpha.31 is unchanged. See the
@@ -204,6 +228,26 @@ plus lookahead** reports complete/truncated/unknown, without semantic/frequency/
 portable-callsign inference or mutations. Agent core **8/8**, route/regression **6/6**,
 frontend **19/19**, TypeScript/build/window gates and root route **3/3**, duplicate **3/3**,
 frontend **19/19** pass. Native/package/live, correction/provider and broader quality gates stay open.
+`33e5eb4` adds pure `LogbookContactUpdateReview` admission/raw-diff checks and reuses the
+admission checks in canonical apply without changing receipt/revision/save behavior.
+Explicit failure categories, absent/empty distinctions and literal arbitrary-field paths
+are bounded to **128 changes** and **24,576 bytes per diff input**, with truncated/unavailable
+states. New checks **6/6**, contact/route regressions **15/15**, root focused **6/6** pass,
+including database/WAL/SHM/recovery-journal byte purity. Save-time normalization/metadata
+validation are not simulated. The helper adds no correction preview route/UI, apply or update Undo;
+those workflows and package/native/copied-log/live acceptance remain open. Installed alpha.31
+is unchanged.
+`8ccffe7` adds a read-only CTY DXCC-only correction preview, fenced by exact contact,
+workspace generation, revision and exact current comparison evidence. It recomputes the
+canonical local finding and uses the pure update-review owner for a single DXCC diff;
+CTY source/version/date unknowns remain explicit and stored/manual values are not changed.
+Root **2/2** plus the data-quality regression pass as focused source evidence only.
+No apply/undo/UI, operation ID, receipt, journal, provider correction or live acceptance
+is delivered; package/native/copied-log/live gates remain open and alpha.31 is unchanged.
+`327648c` adds the compact read-only CTY DXCC preview inside existing Logbook Details
+only, validating exact contact scope and evidence. Swift **2/2**, UI/bridge **22/22** and
+TypeScript pass. This is not apply/undo support; no operation ID, receipt, journal or
+provider correction is added. Package/native/copied-log/live acceptance remains open.
 
 R09 has a conservative preflight dependency in `6d9b186`: pure `QRPDXCCPreflightV1`
 screens caller-supplied contact snapshots into candidates, exclusions and unknowns, with
