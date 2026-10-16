@@ -1,6 +1,6 @@
 # TCI split observation source acceptance — 2026-10-16
 
-Bounded continuation after `f1c9292`: passive split and TX-VFO observation in the
+Bounded continuation after `f1c9292`: passive split observation in the
 main and detached Station Control surfaces.
 
 Normative source: [ExpertSDR3 TCI protocol at b081213ff97150fd29f669c633f060f93c81a286](https://github.com/ExpertSDR3/TCI/blob/b081213ff97150fd29f669c633f060f93c81a286/TCI%20Protocol.pdf).
@@ -9,10 +9,14 @@ The pinned PDF was downloaded and its text inspected with Apple PDFKit.
 - Page 18 defines `SPLIT_ENABLE:trx,bool;` as a TRX-wide split report; its read form
   has only the TRX argument. The existing reducer already validates that report.
 - Page 15 defines `VFO:trx,channel,hz;` as receiver/channel tuning. Page 19 identifies
-  A/B as receive channels. These are not authoritative TX-VFO or transmit-frequency
-  reports. No `TX_VFO` command exists in this pinned specification.
-- Accordingly, TX VFO and transmit frequency stay unavailable. Neither the saved
-  receive channel nor split status is used to infer them.
+  A/B as receive channels. These are not authoritative TX-VFO reports, and no
+  `TX_VFO` command exists in this pinned specification.
+- Page 37 separately defines the server-global `TX_FREQUENCY:hz;` notification. It
+  has no TRX, channel or VFO identity and therefore cannot identify a split TX VFO.
+- Accordingly, TX VFO stays unavailable. Neither the saved receive channel, split
+  status nor server-global transmit frequency is used to infer it. Commit `b6bf7c1`
+  later retained the global notification separately; see the
+  [global transmit-frequency acceptance](TCI_TRANSMIT_FREQUENCY_OBSERVATION_SOURCE_ACCEPTANCE_2026-10-16.md).
 
 The native session now carries a separate producer receipt timestamp for accepted
 configured-TRX split reports. Repeated valid reports refresh it; unrelated TRX,

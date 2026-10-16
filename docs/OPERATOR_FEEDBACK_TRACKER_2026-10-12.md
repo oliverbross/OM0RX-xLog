@@ -20,6 +20,9 @@ packaged UI result. Keep unresolved items here across releases.
   installed/copied-log, live-provider, native focus/display/accessibility and hardware/RF
   acceptance remain open. No record correction or live service/station/operator-data action
   occurred; installed alpha.31 remains unchanged.
+  Current-source browser checks additionally show Band Map **380×1100**, Callsign
+  Intelligence **680×500**, and Rotor **676×500**/**400×600** using their available viewport
+  without page overflow; Auto Rotor/Off/Stop remain visible. This is not packaged-app proof.
 
 - **Enhancement review reconciled, 16 October — staged programme:** The 24 supplied
   recommendations are classified against current source in
@@ -33,8 +36,9 @@ packaged UI result. Keep unresolved items here across releases.
   `4435721` adds the next bounded deprecation fix: C4FM/DSTAR now export under
   DIGITALVOICE with required submodes while local contacts, arbitrary fields and canonical
   duplicate identity remain unchanged. Swift ADIF **18/18**, frontend **1,096/1,096**,
-  TypeScript and diff checks pass; strict raw deprecated-mode ADX import and the rest of
-  the audit remain open.
+  TypeScript and diff checks pass. `c845cc8` accepts raw C4FM/DSTAR only during ADX
+  import, preserves original values/metadata/identity and keeps raw deprecated export
+  rejected; the focused frontend file passes **1,122/1,122**. The rest of the audit remains open.
 
 - **Independent Previous QSOs window, 16 October — source and synthetic visual stage:**
   `1a0e734` routes a native Window-menu surface through the existing canonical draft and
@@ -58,8 +62,9 @@ packaged UI result. Keep unresolved items here across releases.
   export of the same closed categories: exact-window authorization, extra-field/source-string
   rejection, cancellation-without-file, atomic writes and no renderer path return. Doctor
   frontend/native checks pass **8/8** each; exact-package Save/Cancel/overwrite and real
-  retained-provider acceptance remain open. The global build graph still exposes the existing
-  Logbook late-CSS ordering failure; no session start, reconnect, network/device/RF action exists.
+  retained-provider acceptance remain open. `6dbc6fb` fixes the global late-CSS gate with one
+  eager CTY-preview stylesheet import; production build plus **21/21** graph/CSS/budget checks
+  pass with no rule change. No session start, reconnect, network/device/RF action exists.
 
 - **Operating goals and calendar context, 16 October — passive source window complete:** `2f18295`
   deterministically evaluates selected callsign, entity-slot and activation-reference goals
@@ -99,9 +104,14 @@ packaged UI result. Keep unresolved items here across releases.
   see [source acceptance](TCI_RECEIVE_FILTER_SOURCE_ACCEPTANCE_2026-10-16.md).
   `7976da3` adds independently fresh configured-TRX split observation to main/detached
   Station Control. Current, retained/stale and unknown states are explicit; the official
-  pinned protocol has no authoritative TX-VFO/frequency report, so neither is inferred.
+  pinned protocol has no authoritative TX-VFO report, so that identity is not inferred.
   Focused Swift **43/43** and frontend **41/41** pass; see
   [split source acceptance](TCI_SPLIT_OBSERVATION_SOURCE_ACCEPTANCE_2026-10-16.md).
+  `b6bf7c1` retains the server-global `TX_FREQUENCY:hz;` report separately with producer
+  receipt time but no TRX/channel/VFO association, configured-evidence refresh or control
+  authority; focused protocol/session Swift checks pass **35/35**. Client-only spot commands
+  do not establish received spot inventory; see
+  [global TX source acceptance](TCI_TRANSMIT_FREQUENCY_OBSERVATION_SOURCE_ACCEPTANCE_2026-10-16.md).
   No PTT, carrier Tune, radio CW or amplifier control is exposed; transmit/PTT, split/TX-VFO,
   spots, audio/IQ, package/live-server and RF proof remain open. QLog was a behavior
   reference only, no implementation code was copied, and installed alpha.31 is unchanged.

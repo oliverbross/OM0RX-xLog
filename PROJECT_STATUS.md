@@ -23,7 +23,10 @@ See [source acceptance](docs/PJ_CTY_IMPACT_PREVIEW_SOURCE_ACCEPTANCE_2026-10-16.
 `210a0ea42f9887dd94e13d56ce83b658554fce36` aligns detached Propagation chart rows,
 adds shared 12-pixel Station Status/Rotor content insets and top-aligns Rotor content.
 The committed rendered-geometry fixture covers reference/status surfaces; the focused
-root responsive UI rerun passes **31/31**. Source/synthetic evidence does not close native
+root responsive UI rerun passes **31/31**. Current-source browser checks also show the
+detached Band Map filling **380×1100**, Callsign Intelligence filling **680×500**, and Rotor
+fitting **676×500** and **400×600** with Auto Rotor/Off/Stop visible and no page overflow.
+Source/synthetic evidence does not close native
 package, keyboard/focus, mixed-display/DPI, accessibility, live-provider or rotor/hardware
 acceptance. Installed alpha.31 remains unchanged by both commits; no live service,
 station, hardware, RF or operator-data action was performed for these slices.
@@ -37,9 +40,12 @@ until the remaining enumeration/deprecation audit is complete. `4435721` adds th
 bounded deprecation fix: import-only `C4FM` and `DSTAR` now export as
 `MODE=DIGITALVOICE` plus the required `SUBMODE` without mutating local contacts,
 dropping unknown fields or changing duplicate/update identity. Swift ADIF **18/18**,
-frontend ADIF **1,096/1,096**, TypeScript and diff checks pass. Strict raw deprecated-mode
-ADX import, the remaining enum/deprecation audit, installed/package and real-log acceptance
-remain open. See [digital-voice source acceptance](docs/ADIF_DIGITAL_VOICE_DEPRECATION_SOURCE_ACCEPTANCE_2026-10-16.md).
+frontend ADIF **1,096/1,096**, TypeScript and diff checks pass. `c845cc8` adds
+direction-aware raw ADX import acceptance for C4FM/DSTAR while keeping raw deprecated
+export rejected and preserving lexical values, explicit SUBMODE, arbitrary metadata and
+duplicate identity; the focused frontend file passes **1,122/1,122**. The remaining
+enum/deprecation audit, installed/package and real-log acceptance remain open. See
+[digital-voice source acceptance](docs/ADIF_DIGITAL_VOICE_DEPRECATION_SOURCE_ACCEPTANCE_2026-10-16.md).
 
 ## Operator-efficiency foundations — first usable source slices complete
 
@@ -67,8 +73,9 @@ checks pass in addition to the core tests. `c27dec8` adds a click-only native JS
 that same closed preview: extra fields and untyped source strings are rejected, only the exact
 Doctor window can open the chooser, cancellation creates no file, writes are atomic, and paths
 are not returned to the renderer. Focused Doctor frontend/native checks pass **8/8** each;
-TypeScript and Vite compilation pass. The global bundle graph remains blocked by the existing
-Logbook late-CSS ordering check. Exact-package Save/Cancel/overwrite and real retained-provider
+TypeScript and Vite compilation pass. `6dbc6fb` eagerly loads the missing CTY preview stylesheet
+before shared overrides; the production build and all **21/21** detached-window graph/CSS/budget
+checks now pass without changing CSS rules or weakening the gate. Exact-package Save/Cancel/overwrite and real retained-provider
 observations remain open; no session start, reconnect, network/device contact or RF action exists.
 
 R06/R20 share the passive operating-goal model committed in `2f18295`, exposed through
@@ -134,7 +141,7 @@ explicitly clears them. Focused Swift **12/12**, sync-identity **25/25**, fronte
 **72/72**, TypeScript and diff checks pass after independent review. Package/manual
 macOS interaction and copied real-log acceptance remain open.
 
-## Native TCI radio provider — receive tuning/filter/split observation source complete; broader control open
+## Native TCI radio provider — receive tuning/filter/split and global TX observation source complete; broader control open
 
 Full TCI support for SunSDR/ExpertSDR and compatible servers is now an explicit product
 programme. The current source stage provides a bounded Swift protocol/reducer, receive-only
@@ -161,10 +168,16 @@ The reducer no longer mistakes `IF_LIMITS` for a receive-filter limit. Root reru
 Swift TCI **39/39**, Rust TCI/session/selection **89/89**, frontend **23/23** and TypeScript.
 See [source acceptance](docs/TCI_RECEIVE_FILTER_SOURCE_ACCEPTANCE_2026-10-16.md).
 `7976da3` adds separately timed, configured-TRX `SPLIT_ENABLE` observation to main and
-detached Station Control. Current, retained/stale and unknown are explicit; the pinned
-protocol exposes no authoritative TX-VFO/frequency report, so neither value is inferred.
+detached Station Control. Current, retained/stale and unknown are explicit. The pinned
+protocol exposes no authoritative TX-VFO report, so that identity is not inferred.
 Focused Swift **43/43**, frontend **41/41**, TypeScript and diff checks pass. See
 [split source acceptance](docs/TCI_SPLIT_OBSERVATION_SOURCE_ACCEPTANCE_2026-10-16.md).
+`b6bf7c1` separately retains the pinned server-only `TX_FREQUENCY:hz;` notification as
+server-global telemetry with producer receipt time. It has no TRX/channel/VFO identity,
+never refreshes configured evidence and grants no transmit authority; focused Swift
+protocol/session checks pass **35/35**. The same audit confirms that the pinned spot
+add/delete/clear commands are client-only, so received spot inventory remains unavailable.
+See [global transmit-frequency source acceptance](docs/TCI_TRANSMIT_FREQUENCY_OBSERVATION_SOURCE_ACCEPTANCE_2026-10-16.md).
 Transmit/PTT, split/TX-VFO controls, spots, audio/IQ, package/live-server and RF acceptance
 remain open. QLog is a behavior reference only; no third-party code, credentials, device or
 operator data was copied. Installed alpha.31 remains unchanged.

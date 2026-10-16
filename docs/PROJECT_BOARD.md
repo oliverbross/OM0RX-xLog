@@ -23,7 +23,9 @@ two compatibility fixes are committed in `429dcae` and `7e6cfce`: UTF-8 ADIF sca
 whole-record filtering and FT4/FT2/JTTY MFSK-submode export now have focused fixtures.
 `4435721` also maps import-only C4FM/DSTAR exports to `DIGITALVOICE` plus required
 submodes while preserving local contacts, unknown fields and canonical duplicate identity.
-Swift ADIF **18/18** and frontend ADIF **1,096/1,096** pass. The exporter remains labeled
+`c845cc8` admits the raw deprecated values only on ADX import while raw export remains
+canonical-only; the focused frontend file passes **1,122/1,122**. Swift ADIF **18/18** and
+frontend ADIF **1,096/1,096** also pass. The exporter remains labeled
 3.1.7 until the full 3.1.8 enum/deprecation audit passes.
 Package/real-log acceptance and any optional record correction remain open.
 
@@ -37,6 +39,9 @@ authorization **1/1**, and **31/31 responsive UI**. See the
 historical-source and scale limits. These are source/synthetic checks only: exact-package,
 installed/copied-log, live-provider, native display/focus/accessibility and hardware/RF
 acceptance remain open. No record correction occurred; installed alpha.31 is unchanged.
+Additional current-source browser checks show Band Map **380×1100**, Callsign Intelligence
+**680×500**, and Rotor **676×500**/**400×600** filling or fitting their viewports without page
+overflow; Rotor exposes Auto Rotor/Off/Stop. This remains browser-fixture, not package proof.
 
 The next operator-efficiency source batch is also committed and independently reviewed.
 `1a0e734` adds a native Previous QSOs menu/window that follows the canonical draft and
@@ -54,7 +59,8 @@ route **5/5** pass. `c27dec8` adds an exact-window, click-only native export of 
 closed redacted categories; forged extra fields/source strings are rejected, cancellation
 creates no file, writes are atomic and no path returns to the renderer. Doctor frontend/native
 checks pass **8/8** each. Exact-package Save/Cancel/overwrite and provider acceptance remain
-open; the global build graph still reports the pre-existing Logbook late-CSS ordering failure.
+open. `6dbc6fb` adds the missing eager CTY-preview stylesheet import; production build and
+all **21/21** detached-window graph/CSS/budget checks pass without changing CSS rules.
 `2f18295` plus
  `505284a` provide the shared R06/R20 evaluator and bounded worker route (**8/8** focused Swift),
  keeping age, station scope, worked/confirmed and unknown sponsor eligibility/credit distinct.
@@ -86,12 +92,19 @@ app-local -24,000 to +24,000 Hz bound, journal-before-dispatch and newer matchin
 `IF_LIMITS` no longer incorrectly discards filter telemetry. Root reruns pass selected Swift
 TCI **39/39**, Rust TCI/session/selection **89/89**, frontend **23/23** and TypeScript.
 `7976da3` adds independent producer-time freshness for configured-TRX split observation
-and shared main/detached presentation. The official pinned protocol has no TX-VFO or
-transmit-frequency report, so the UI keeps both unavailable instead of inferring them.
-Focused Swift **43/43** and frontend **41/41** pass. Transmit/PTT, split/TX-VFO controls,
+and shared main/detached presentation. The official pinned protocol has no TX-VFO report,
+so that identity remains unavailable instead of being inferred. `b6bf7c1` separately retains
+the server-global `TX_FREQUENCY:hz;` report with producer receipt time but no TRX/channel/VFO
+association, configured-evidence refresh or control authority. Focused split Swift **43/43**,
+frontend **41/41**, and global TX protocol/session Swift **35/35** pass. The pinned spot
+add/delete/clear commands are client-only, so received spot inventory remains unavailable.
+Transmit/PTT, split/TX-VFO controls,
 spots, audio/IQ, package/live-server and RF
 acceptance remain open; installed alpha.31 is unchanged. See the
-[filter source acceptance](TCI_RECEIVE_FILTER_SOURCE_ACCEPTANCE_2026-10-16.md).
+[filter](TCI_RECEIVE_FILTER_SOURCE_ACCEPTANCE_2026-10-16.md),
+[split](TCI_SPLIT_OBSERVATION_SOURCE_ACCEPTANCE_2026-10-16.md) and
+[global TX observation](TCI_TRANSMIT_FREQUENCY_OBSERVATION_SOURCE_ACCEPTANCE_2026-10-16.md)
+source acceptances.
 
 Arbitrary ADIF contact editing is source complete. Existing Logbook contact/mutation
 sessions now round-trip modeled and retained unknown/custom fields through pointer and
