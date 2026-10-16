@@ -84,6 +84,190 @@ public struct TCICommand: Equatable, Sendable {
     }
 }
 
+/// Official TRX signal sources (TCI 2.0, ExpertSDR3/TCI b081213f, page 16).
+/// Selecting TCI audio does not enable its stream; that is a separate operation.
+public enum TCITXSignalSource: String, CaseIterable, Sendable {
+    case tci
+    case microphone1 = "mic1"
+    case microphone2 = "mic2"
+    case pcMicrophone = "micPC"
+    case eCoder2 = "ecoder2"
+}
+
+/// A closed outbound vocabulary, not a transport or permission to transmit.
+/// TX_ENABLE is a server permission report, and has no outbound setter here.
+public enum TCIOutboundCommand: Equatable, Sendable {
+    case setVFO(address: TCIReceiverAddress, frequencyHz: Int64)
+    case readVFO(address: TCIReceiverAddress)
+    case setModulation(trx: Int, mode: String)
+    case readModulation(trx: Int)
+    case setRXFilterBand(trx: Int, lowerHz: Int64, upperHz: Int64)
+    case readRXFilterBand(trx: Int)
+    case setSplitEnable(trx: Int, enabled: Bool)
+    case readSplitEnable(trx: Int)
+    case setRXChannelEnable(address: TCIReceiverAddress, enabled: Bool)
+    case readRXChannelEnable(address: TCIReceiverAddress)
+    case setTRX(trx: Int, enabled: Bool, source: TCITXSignalSource? = nil)
+    case readTRX(trx: Int)
+    case setTune(trx: Int, enabled: Bool)
+    case readTune(trx: Int)
+    case spot(callsign: String, mode: String, frequencyHz: Int64, colorARGB: UInt32, text: String)
+    case deleteSpot(callsign: String)
+    case clearSpots
+}
+
+public enum TCICommandEncodingError: Error, Equatable, Sendable {
+    case invalidConfiguration
+    case outOfBounds
+    case invalidArgument
+    case unsupportedModulation
+    case argumentTooLarge
+    case tooManyArguments
+    case commandTooLarge
+    case frameTooLarge
+}
+
+/// Pure, bounded encoder for the official ASCII grammar. Discovery values must
+/// be supplied explicitly. Callers still own readiness, freshness, TX permission,
+/// source ownership, and version/capability admission; encoding grants none.
+public struct TCICommandEncoder: Sendable {
+    public let limits: TCIProtocolLimits
+    public let trxCount: Int
+    public let channelCount: Int
+    public let frequencyRange: ClosedRange<Int64>
+    public let supportedModulations: Set<String>
+
+    public init(
+        trxCount: Int,
+        channelCount: Int,
+        frequencyRange: ClosedRange<Int64>,
+        supportedModulations: Set<String>,
+        limits: TCIProtocolLimits = .default
+    ) throws {
+        guard trxCount > 0, trxCount <= limits.maximumTRXCount,
+              channelCount > 0, channelCount <= limits.maximumChannelCount,
+              frequencyRange.lowerBound >= 0,
+              frequencyRange.upperBound <= limits.maximumFrequencyHz,
+              !supportedModulations.isEmpty,
+              supportedModulations.count <= limits.maximumArguments
+        else { throw TCICommandEncodingError.invalidConfiguration }
+        var modes: Set<String> = []
+        for mode in supportedModulations {
+            try Self.validateArgument(mode, token: true, limits: limits)
+            modes.insert(mode.uppercased())
+        }
+        self.limits = limits
+        self.trxCount = trxCount
+        self.channelCount = channelCount
+        self.frequencyRange = frequencyRange
+        self.supportedModulations = modes
+    }
+
+    public func encode(_ command: TCIOutboundCommand) throws -> String {
+        let name: String
+        var arguments: [String]
+        switch command {
+        case let .setVFO(address, frequencyHz):
+            try validateAddress(address)
+            guard frequencyRange.contains(frequencyHz) else { throw TCICommandEncodingError.outOfBounds }
+            name = "VFO"; arguments = [String(address.trx), String(address.channel), String(frequencyHz)]
+        case let .readVFO(address):
+            try validateAddress(address)
+            name = "VFO"; arguments = [String(address.trx), String(address.channel)]
+        case let .setModulation(trx, mode):
+            try validateTRX(trx)
+            try Self.validateArgument(mode, token: true, limits: limits)
+            let normalizedMode = mode.uppercased()
+            guard supportedModulations.contains(normalizedMode) else {
+                throw TCICommandEncodingError.unsupportedModulation
+            }
+            name = "MODULATION"; arguments = [String(trx), normalizedMode]
+        case let .readModulation(trx):
+            try validateTRX(trx)
+            name = "MODULATION"; arguments = [String(trx)]
+        case let .setRXFilterBand(trx, lowerHz, upperHz):
+            try validateTRX(trx)
+            // IF_LIMITS describes VFO-A IF tuning, not RX filter bandwidth.
+            guard lowerHz < upperHz, lowerHz >= -limits.maximumFrequencyHz,
+                  upperHz <= limits.maximumFrequencyHz else { throw TCICommandEncodingError.outOfBounds }
+            name = "RX_FILTER_BAND"; arguments = [String(trx), String(lowerHz), String(upperHz)]
+        case let .readRXFilterBand(trx):
+            try validateTRX(trx)
+            name = "RX_FILTER_BAND"; arguments = [String(trx)]
+        case let .setSplitEnable(trx, enabled):
+            try validateTRX(trx)
+            name = "SPLIT_ENABLE"; arguments = [String(trx), String(enabled)]
+        case let .readSplitEnable(trx):
+            try validateTRX(trx)
+            name = "SPLIT_ENABLE"; arguments = [String(trx)]
+        case let .setRXChannelEnable(address, enabled):
+            try validateAddress(address)
+            // Page 19: channel A is always on; only B can be controlled.
+            guard address.channel == 1 else { throw TCICommandEncodingError.outOfBounds }
+            name = "RX_CHANNEL_ENABLE"; arguments = [String(address.trx), String(address.channel), String(enabled)]
+        case let .readRXChannelEnable(address):
+            try validateAddress(address)
+            name = "RX_CHANNEL_ENABLE"; arguments = [String(address.trx), String(address.channel)]
+        case let .setTRX(trx, enabled, source):
+            try validateTRX(trx)
+            name = "TRX"; arguments = [String(trx), String(enabled)]
+            if let source { arguments.append(source.rawValue) }
+        case let .readTRX(trx):
+            try validateTRX(trx)
+            name = "TRX"; arguments = [String(trx)]
+        case let .setTune(trx, enabled):
+            try validateTRX(trx)
+            name = "TUNE"; arguments = [String(trx), String(enabled)]
+        case let .readTune(trx):
+            try validateTRX(trx)
+            name = "TUNE"; arguments = [String(trx)]
+        case let .spot(callsign, mode, frequencyHz, colorARGB, text):
+            try Self.validateArgument(callsign, token: true, limits: limits)
+            try Self.validateArgument(mode, token: true, limits: limits)
+            guard frequencyHz > 0, frequencyHz <= limits.maximumFrequencyHz else {
+                throw TCICommandEncodingError.outOfBounds
+            }
+            name = "SPOT"; arguments = [callsign, mode.uppercased(), String(frequencyHz), String(colorARGB), text]
+        case let .deleteSpot(callsign):
+            try Self.validateArgument(callsign, token: true, limits: limits)
+            name = "SPOT_DELETE"; arguments = [callsign]
+        case .clearSpots:
+            name = "SPOT_CLEAR"; arguments = []
+        }
+        guard arguments.count <= limits.maximumArguments else { throw TCICommandEncodingError.tooManyArguments }
+        for argument in arguments {
+            try Self.validateArgument(argument, token: false, limits: limits)
+        }
+        guard name.utf8.count <= limits.maximumCommandNameBytes else {
+            throw TCICommandEncodingError.commandTooLarge
+        }
+        // All pieces are bounded before concatenation, including arbitrary text.
+        let body = name + (arguments.isEmpty ? "" : ":" + arguments.joined(separator: ","))
+        guard body.utf8.count <= limits.maximumCommandBytes else { throw TCICommandEncodingError.commandTooLarge }
+        guard body.utf8.count < limits.maximumFrameBytes,
+              body.utf8.count < limits.maximumAccumulatorBytes else { throw TCICommandEncodingError.frameTooLarge }
+        return body + ";"
+    }
+
+    private func validateTRX(_ trx: Int) throws {
+        guard trx >= 0, trx < trxCount else { throw TCICommandEncodingError.outOfBounds }
+    }
+
+    private func validateAddress(_ address: TCIReceiverAddress) throws {
+        try validateTRX(address.trx)
+        guard address.channel >= 0, address.channel < channelCount else {
+            throw TCICommandEncodingError.outOfBounds
+        }
+    }
+
+    private static func validateArgument(_ value: String, token: Bool, limits: TCIProtocolLimits) throws {
+        guard value.utf8.count <= limits.maximumArgumentBytes else { throw TCICommandEncodingError.argumentTooLarge }
+        guard (!token || !value.isEmpty), value.utf8.allSatisfy({ byte in
+            byte >= (token ? 33 : 32) && byte <= 126 && byte != 58 && byte != 44 && byte != 59
+        }) else { throw TCICommandEncodingError.invalidArgument }
+    }
+}
+
 public struct TCITextDecodeResult: Equatable, Sendable {
     public let commands: [TCICommand]
     public let diagnostics: [TCIDiagnostic]
