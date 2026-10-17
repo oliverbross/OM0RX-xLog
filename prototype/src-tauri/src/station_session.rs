@@ -226,6 +226,21 @@ impl Session {
                 }
             }
         }
+        // 1.2.0 could persist its automatic reconnect after the journal had
+        // migrated to v2 but before the reconnect descriptor carried the slot.
+        // Repair only an absent key in a slot-owned journal. Explicit null,
+        // malformed or cross-slot identities still fail the strict checks below.
+        let mut migrated_missing_radio_id = false;
+        if saved.version == 2 && strict_radio_id {
+            for receipt in &mut saved.receipts {
+                if receipt.request["action"] != "manual_rotor_goto"
+                    && receipt.request.get("radio_id").is_none()
+                {
+                    receipt.request["radio_id"] = json!(radio_id);
+                    migrated_missing_radio_id = true;
+                }
+            }
+        }
         if saved.version != 2
             || uuid::Uuid::parse_str(&saved.generation).is_err()
             || saved.revision > MAX_REVISION
@@ -366,7 +381,7 @@ impl Session {
                 receipt.status = "unknown".into();
             }
         }
-        if migrated_path || migrated_version {
+        if migrated_path || migrated_version || migrated_missing_radio_id {
             let temporary = Self {
                 radio_id: radio_id.into(), path: path.clone(), state: Mutex::new(saved.clone()),
                 operation: Mutex::new(()), resume_checked: AtomicBool::new(false),
@@ -1106,6 +1121,38 @@ mod tests {
         assert_eq!(receipt["request"]["radio_id"], crate::radio_slots::RADIO1);
         let saved: Value = serde_json::from_slice(&std::fs::read(target).unwrap()).unwrap();
         assert_eq!(saved["version"], 2);
+    }
+    #[test]
+    fn v2_slot_journal_repairs_only_absent_radio_identity() {
+        let directory = tempfile::tempdir().unwrap();
+        let legacy = directory.path().join("station-session.json");
+        let target = directory.path().join("station-session-radio1.json");
+        let generation = uuid::Uuid::new_v4().to_string();
+        let operation_id = uuid::Uuid::new_v4().to_string();
+        let selection_id = uuid::Uuid::new_v4().to_string();
+        let journal = json!({"version":2,"generation":generation,"revision":1,
+            "base_url":"https://station.example:8443","hamlib":null,"flex":null,"tci":null,
+            "receipts":[{"operation_id":operation_id,"status":"unknown","request":{"action":"connect",
+                "generation":generation,"revision":1,"selection_generation":0,"selection_id":selection_id,
+                "allow_transmit":false}}]});
+        std::fs::write(&target, journal.to_string()).unwrap();
+
+        let session = Session::new_for(target.clone(), crate::radio_slots::RADIO1, Some(&legacy)).unwrap();
+        let receipt = session.receipt(&operation_id).unwrap();
+        assert_eq!(receipt["status"], "unknown");
+        assert_eq!(receipt["request"]["radio_id"], crate::radio_slots::RADIO1);
+        let saved: Value = serde_json::from_slice(&std::fs::read(&target).unwrap()).unwrap();
+        assert_eq!(saved["receipts"][0]["operation_id"], operation_id);
+        assert_eq!(saved["receipts"][0]["request"]["radio_id"], crate::radio_slots::RADIO1);
+
+        for invalid in [Value::Null, json!(crate::radio_slots::RADIO2)] {
+            let mut rejected = journal.clone();
+            rejected["receipts"][0]["request"]["radio_id"] = invalid;
+            let bytes = rejected.to_string();
+            std::fs::write(&target, &bytes).unwrap();
+            assert!(Session::new_for(target.clone(), crate::radio_slots::RADIO1, Some(&legacy)).is_err());
+            assert_eq!(std::fs::read_to_string(&target).unwrap(), bytes);
+        }
     }
     #[test]
     fn radio1_starts_empty_when_no_v1_session_exists() {
