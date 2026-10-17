@@ -1,5 +1,20 @@
 import Foundation
 
+private func contestASCIIBytes(_ value: String, count: ClosedRange<Int>,
+                               accepts: (UInt8, Int) -> Bool) -> Bool {
+    let bytes = Array(value.utf8)
+    return count.contains(bytes.count) && bytes.enumerated().allSatisfy { accepts($0.element, $0.offset) }
+}
+
+private func contestIsUppercaseLetter(_ byte: UInt8) -> Bool { (65...90).contains(byte) }
+private func contestIsLowercaseLetter(_ byte: UInt8) -> Bool { (97...122).contains(byte) }
+private func contestIsDigit(_ byte: UInt8) -> Bool { (48...57).contains(byte) }
+private func contestHasUnsafeSeparator(_ value: String) -> Bool {
+    value.unicodeScalars.contains {
+        CharacterSet.controlCharacters.contains($0) || CharacterSet.newlines.contains($0)
+    }
+}
+
 public enum ContestReportFormat: String, Codable, Hashable, Sendable {
     case cwRST
     case phoneRS
@@ -25,11 +40,17 @@ public struct ContestReportDescriptor: Codable, Hashable, Sendable {
         guard value.utf8.count <= maximumUTF8Bytes else { return false }
         switch format {
         case .cwRST:
-            return value.range(of: #"^[1-5][1-9][1-9]$"#, options: .regularExpression) != nil
+            return contestASCIIBytes(value, count: 3...3) { byte, index in
+                index == 0 ? (49...53).contains(byte) : (49...57).contains(byte)
+            }
         case .phoneRS:
-            return value.range(of: #"^[1-5][1-9]$"#, options: .regularExpression) != nil
+            return contestASCIIBytes(value, count: 2...2) { byte, index in
+                index == 0 ? (49...53).contains(byte) : (49...57).contains(byte)
+            }
         case .digitalRST:
-            return value.range(of: #"^[1-5][1-9][1-9]$"#, options: .regularExpression) != nil
+            return contestASCIIBytes(value, count: 3...3) { byte, index in
+                index == 0 ? (49...53).contains(byte) : (49...57).contains(byte)
+            }
         case .none:
             return value.isEmpty
         }
@@ -79,13 +100,20 @@ public enum ContestExchangeFieldKind: String, Codable, Hashable, Sendable {
         case .cqZone:
             return Int(value).map { (1...40).contains($0) } == true
         case .operatorName:
-            return value.range(of: #"^[A-Z][A-Z0-9'\-]{0,31}$"#, options: .regularExpression) != nil
+            return contestASCIIBytes(value, count: 1...32) { byte, index in
+                index == 0 ? contestIsUppercaseLetter(byte) :
+                    (contestIsUppercaseLetter(byte) || contestIsDigit(byte) || byte == 39 || byte == 45)
+            }
         case .subdivision:
-            return value.range(of: #"^[A-Z0-9]{1,8}$"#, options: .regularExpression) != nil
+            return contestASCIIBytes(value, count: 1...8) { byte, _ in
+                contestIsUppercaseLetter(byte) || contestIsDigit(byte)
+            }
         case .jarlPrefectureNumber:
             return Int(value).map { (1...99).contains($0) } == true
         case .maidenheadGrid4:
-            return value.range(of: #"^[A-R]{2}[0-9]{2}$"#, options: .regularExpression) != nil
+            return contestASCIIBytes(value, count: 4...4) { byte, index in
+                index < 2 ? (65...82).contains(byte) : contestIsDigit(byte)
+            }
         }
     }
 }
@@ -120,8 +148,11 @@ public struct ContestExchangeFieldDescriptor: Codable, Hashable, Sendable {
     }
 
     fileprivate var isCoherent: Bool {
-        id.range(of: #"^[a-z][a-z0-9-]{0,31}$"#, options: .regularExpression) != nil &&
-            !label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && label.utf8.count <= 64 &&
+        contestASCIIBytes(id, count: 1...32) { byte, index in
+            index == 0 ? contestIsLowercaseLetter(byte) :
+                (contestIsLowercaseLetter(byte) || contestIsDigit(byte) || byte == 45)
+        } && !label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && label.utf8.count <= 64 &&
+            !contestHasUnsafeSeparator(label) &&
             !acceptedKinds.isEmpty && Set(acceptedKinds).count == acceptedKinds.count &&
             (1...64).contains(maximumUTF8Bytes)
     }
@@ -210,12 +241,17 @@ public struct ContestModeProfile: Codable, Hashable, Sendable {
     }
 
     fileprivate var isCoherent: Bool {
-        let token = #"^[A-Z0-9][A-Z0-9+\-]{0,15}$"#
-        let cabrilloToken = #"^[A-Z0-9]{1,4}$"#
-        return mode.range(of: token, options: .regularExpression) != nil &&
-            adifMode.range(of: token, options: .regularExpression) != nil &&
-            adifSubmode.map { $0.range(of: token, options: .regularExpression) != nil } != false &&
-            cabrilloQSOType.range(of: cabrilloToken, options: .regularExpression) != nil && report.isCoherent
+        let modeTokens = [mode, adifMode] + (adifSubmode.map { [$0] } ?? [])
+        let modeTokensAreCoherent = modeTokens.allSatisfy { value in
+            contestASCIIBytes(value, count: 1...16) { byte, index in
+                let alphanumeric = contestIsUppercaseLetter(byte) || contestIsDigit(byte)
+                return index == 0 ? alphanumeric : (alphanumeric || byte == 43 || byte == 45)
+            }
+        }
+        let cabrilloTokenIsCoherent = contestASCIIBytes(cabrilloQSOType, count: 1...4) { byte, _ in
+            contestIsUppercaseLetter(byte) || contestIsDigit(byte)
+        }
+        return modeTokensAreCoherent && cabrilloTokenIsCoherent && report.isCoherent
     }
 }
 
@@ -360,7 +396,7 @@ public struct ContestEntryDescriptor: Codable, Hashable, Sendable {
                     serialFields.count == 1 && serialFields[0].required && serialFields[0].acceptedKinds == [.serialNumber]
             let formatterVersionsAreCoherent = [cabrilloFormatterVersion, cabrilloProjectionFormatterVersion]
                 .allSatisfy { !$0.isEmpty && $0.utf8.count <= 64 &&
-                    $0.unicodeScalars.allSatisfy { !CharacterSet.controlCharacters.contains($0) } }
+                    !contestHasUnsafeSeparator($0) }
             guard let primary = modeProfiles.first else { return false }
             return modeProfiles.count <= 8 && exchange.sentFields.count <= 16 && exchange.receivedFields.count <= 16 &&
                 primary.mode == mode && primary.adifMode == adifMode &&

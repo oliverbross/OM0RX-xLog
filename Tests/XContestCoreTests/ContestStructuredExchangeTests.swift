@@ -144,13 +144,49 @@ final class ContestStructuredExchangeTests: XCTestCase {
             scorePolicy: .pointsOnly)
         try assertInvalidDescriptor(badReport)
 
-        let controlMode = ContestEntryDescriptor(
-            cabrilloFormatterVersion: "fixture-v2", cabrilloProjectionFormatterVersion: "fixture-v2-projection",
-            modeProfiles: [.init(mode: "RTTY\n", adifMode: "RTTY", cabrilloQSOType: "RY",
-                                 report: .init(format: .digitalRST, defaultSent: "599", defaultReceived: "599", maximumUTF8Bytes: 3))],
-            exchange: fixtureEntry().exchange, serial: .init(requirement: .none, allowedScopes: []),
-            scorePolicy: .pointsOnly)
-        try assertInvalidDescriptor(controlMode)
+        let separators = ["\n", "\r", "\r\n", "\u{2028}", "\u{2029}"]
+        for separator in separators {
+            try assertInvalidDescriptor(fixtureEntry(profile: .init(
+                mode: "RTTY\(separator)", adifMode: "RTTY", cabrilloQSOType: "RY", report: digitalReport())))
+            try assertInvalidDescriptor(fixtureEntry(profile: .init(
+                mode: "RTTY", adifMode: "RTTY\(separator)", cabrilloQSOType: "RY", report: digitalReport())))
+            try assertInvalidDescriptor(fixtureEntry(profile: .init(
+                mode: "RTTY", adifMode: "RTTY", adifSubmode: "FSK\(separator)",
+                cabrilloQSOType: "RY", report: digitalReport())))
+            try assertInvalidDescriptor(fixtureEntry(profile: .init(
+                mode: "RTTY", adifMode: "RTTY", cabrilloQSOType: "RY\(separator)", report: digitalReport())))
+            try assertInvalidDescriptor(fixtureEntry(sentFields: [
+                .init(id: "name\(separator)", label: "Name", acceptedKinds: [.operatorName],
+                      maximumUTF8Bytes: 32, adifField: .name),
+            ]))
+            XCTAssertFalse(ContestReportDescriptor(format: .cwRST, defaultSent: "599", defaultReceived: "599",
+                                                   maximumUTF8Bytes: 3).accepts("59\(separator)"))
+            XCTAssertFalse(ContestReportDescriptor(format: .phoneRS, defaultSent: "59", defaultReceived: "59",
+                                                   maximumUTF8Bytes: 2).accepts("5\(separator)"))
+        }
+
+        for leadingSign in ["+", "-", "+RTTY", "-RTTY"] {
+            try assertInvalidDescriptor(fixtureEntry(profile: .init(
+                mode: leadingSign, adifMode: "RTTY", cabrilloQSOType: "RY", report: digitalReport())))
+            try assertInvalidDescriptor(fixtureEntry(profile: .init(
+                mode: "RTTY", adifMode: leadingSign, cabrilloQSOType: "RY", report: digitalReport())))
+            try assertInvalidDescriptor(fixtureEntry(profile: .init(
+                mode: "RTTY", adifMode: "RTTY", adifSubmode: leadingSign,
+                cabrilloQSOType: "RY", report: digitalReport())))
+        }
+
+        let semanticSeparators = ["\n", "\r", "\u{2028}", "\u{2029}"]
+        for separator in semanticSeparators {
+            let semanticIssues = fixtureEntry().structuralIssues(
+                mode: "RTTY", rstSent: "599", rstReceived: "599",
+                exchange: .init(rawSent: "ALICE", normalizedSent: "ALICE\(separator)",
+                                rawReceived: "BOB", normalizedReceived: "BOB\(separator)",
+                                sentFields: ["name": .init(raw: "ALICE", normalized: "ALICE\(separator)")],
+                                receivedFields: ["name": .init(raw: "BOB", normalized: "BOB\(separator)")]),
+                allowIncomplete: false)
+            XCTAssertEqual(semanticIssues.map(\.code),
+                           ["invalidStructuredExchangeField", "invalidStructuredExchangeField"])
+        }
 
         let tooManyProfiles = ContestEntryDescriptor(
             cabrilloFormatterVersion: "fixture-v2", cabrilloProjectionFormatterVersion: "fixture-v2-projection",
@@ -218,18 +254,23 @@ final class ContestStructuredExchangeTests: XCTestCase {
         )
     }
 
-    private func fixtureEntry(sentFields: [ContestExchangeFieldDescriptor]? = nil,
+    private func fixtureEntry(profile: ContestModeProfile? = nil,
+                              sentFields: [ContestExchangeFieldDescriptor]? = nil,
                               receivedFields: [ContestExchangeFieldDescriptor]? = nil) -> ContestEntryDescriptor {
         let fields = [ContestExchangeFieldDescriptor(id: "name", label: "Name", acceptedKinds: [.operatorName],
                                                      maximumUTF8Bytes: 32, adifField: .name)]
         return ContestEntryDescriptor(
             cabrilloFormatterVersion: "fixture-v2", cabrilloProjectionFormatterVersion: "fixture-v2-projection",
-            modeProfiles: [.init(mode: "RTTY", adifMode: "RTTY", cabrilloQSOType: "RY",
-                                 report: .init(format: .digitalRST, defaultSent: "599", defaultReceived: "599", maximumUTF8Bytes: 3))],
+            modeProfiles: [profile ?? .init(mode: "RTTY", adifMode: "RTTY", cabrilloQSOType: "RY",
+                                            report: digitalReport())],
             exchange: .init(sent: .structured, received: .structured, sentDefault: .stationFields,
                             adifFields: .exchangeStrings, sentFields: sentFields ?? fields,
                             receivedFields: receivedFields ?? fields),
             serial: .init(requirement: .none, allowedScopes: []), scorePolicy: .pointsOnly)
+    }
+
+    private func digitalReport() -> ContestReportDescriptor {
+        .init(format: .digitalRST, defaultSent: "599", defaultReceived: "599", maximumUTF8Bytes: 3)
     }
 
     private func serialEntry(sentFields: [ContestExchangeFieldDescriptor]) -> ContestEntryDescriptor {

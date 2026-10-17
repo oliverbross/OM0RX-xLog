@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { ContestWorkspace } from "./ContestWorkspace";
 import { MemoryContestRecoveryStorage } from "./sessionOwner";
 import type { ContestDraftSnapshot, ContestFullQSO, ContestQSOChangeResult, ContestRequest, ContestRuleMetadata, ContestSessionSummary } from "./types";
@@ -14,10 +15,10 @@ const entry = (mode: "CW" | "SSB", serial: boolean, adifFields: "none" | "stxSrx
   serial: { requirement: serial ? "requiredForCommit" : "none", allowedScopes: serial ? ["session", "band", "transmitter"] : [] },
 });
 const rules: ContestRuleMetadata[] = [
-  { identity: { id: "cq-ww-cw", version: "2026.1", edition: "2026", sourceRevision: "contest-sw@1" }, displayName: "CQ WW CW", mode: "CW", entryDescriptorVersion: 1, entry: entry("CW", false), referenceDataVersion: "cty-2026.10", sourceVerification: "provisional", sourceNote: "Pilot comparison pending" },
-  { identity: { id: "cq-wpx-cw", version: "2026.2", edition: "2026", sourceRevision: "contest-sw@2" }, displayName: "CQ WPX CW", mode: "CW", entryDescriptorVersion: 1, entry: entry("CW", true), referenceDataVersion: "cty-2026.10", sourceVerification: "verified", sourceNote: "Fixture checked" },
-  { identity: { id: "cq-ww-ssb", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: "contest-sw@ssb" }, displayName: "CQ WW SSB", mode: "SSB", entryDescriptorVersion: 1, entry: entry("SSB", false), referenceDataVersion: "cty-2026.10", sourceVerification: "provisional", sourceNote: "Fixture checked" },
-  { identity: { id: "cq-wpx-ssb", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: "contest-sw@ssb" }, displayName: "CQ WPX SSB", mode: "SSB", entryDescriptorVersion: 1, entry: entry("SSB", true), referenceDataVersion: "cty-2026.10", sourceVerification: "provisional", sourceNote: "Fixture checked" },
+  { identity: { id: "cq-ww-cw", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: "7c8b499225a73f7f8f792246881bd7aefc05452f" }, displayName: "CQ WW CW", mode: "CW", entryDescriptorVersion: 1, entry: entry("CW", false), referenceDataVersion: "cty-2026.10", sourceVerification: "provisional", sourceNote: "Pilot comparison pending" },
+  { identity: { id: "cq-wpx-cw", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: "7c8b499225a73f7f8f792246881bd7aefc05452f" }, displayName: "CQ WPX CW", mode: "CW", entryDescriptorVersion: 1, entry: entry("CW", true), referenceDataVersion: "cty-2026.10", sourceVerification: "verified", sourceNote: "Fixture checked" },
+  { identity: { id: "cq-ww-ssb", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: "7c8b499225a73f7f8f792246881bd7aefc05452f" }, displayName: "CQ WW SSB", mode: "SSB", entryDescriptorVersion: 1, entry: entry("SSB", false), referenceDataVersion: "cty-2026.10", sourceVerification: "provisional", sourceNote: "Fixture checked" },
+  { identity: { id: "cq-wpx-ssb", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: "7c8b499225a73f7f8f792246881bd7aefc05452f" }, displayName: "CQ WPX SSB", mode: "SSB", entryDescriptorVersion: 1, entry: entry("SSB", true), referenceDataVersion: "cty-2026.10", sourceVerification: "provisional", sourceNote: "Fixture checked" },
   { identity: { id: "oceania-dx-cw", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: "contest-sw@oceania" }, displayName: "Oceania DX CW", mode: "CW", entryDescriptorVersion: 1, entry: entry("CW", true, "exchangeStrings"), referenceDataVersion: "cty-2026.10", sourceVerification: "provisional", sourceNote: "Fixture checked" },
   { identity: { id: "oceania-dx-ssb", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: "contest-sw@oceania" }, displayName: "Oceania DX SSB", mode: "SSB", entryDescriptorVersion: 1, entry: entry("SSB", true, "exchangeStrings"), referenceDataVersion: "cty-2026.10", sourceVerification: "provisional", sourceNote: "Fixture checked" },
   { identity: { id: "sac-cw", version: "1.0.0-2026-rules-preview", edition: "2026-rules-preview", sourceRevision: "7c8b499225a73f7f8f792246881bd7aefc05452f" }, displayName: "Scandinavian Activity Contest CW", mode: "CW", entryDescriptorVersion: 1, entry: entry("CW", true, "exchangeStrings"), referenceDataVersion: "cty-2026.10", sourceVerification: "provisional", sourceNote: "Practice scoring preview; submission categories and dates are not fully enforced." },
@@ -223,7 +224,7 @@ it("rejects an open response from another workspace generation without activatio
 
 it("pins lost create across double submit and remount recovery", async () => {
   const storage = new MemoryContestRecoveryStorage(), { request, calls } = fixture({ loseCreate: true });
-  const view = render(<ContestWorkspace request={request} createRequestID={ids()} digestPayload={digest} recoveryStorage={storage}/>); await screen.findByRole("option", { name: "CQ WW CW · 2026" });
+  const view = render(<ContestWorkspace request={request} createRequestID={ids()} digestPayload={digest} recoveryStorage={storage}/>); await screen.findByRole("option", { name: "CQ WW CW · source-26.10.11" });
   for (const [label, value] of [["Session name","WW Test"],["Station callsign","OM0RX"],["Operator callsign","OM0RX"],["CQ zone","15"],["DXCC entity","Slovak Republic"]]) fireEvent.change(screen.getByLabelText(label), { target: { value } });
   const button = screen.getByRole("button", { name: "Create and open" }); fireEvent.click(button); fireEvent.click(button); await screen.findByText("Save status unknown");
   expect(calls.filter(([m]) => m === "contest_create")).toHaveLength(1); const original = calls.find(([m]) => m === "contest_create")![1];
@@ -295,6 +296,45 @@ it("renders the responsive contest regions without transmit or ESM controls", as
   const { request, calls } = fixture(); await open(request);
   expect(screen.getByRole("form", { name: "CW contest entry" })).toBeTruthy(); expect(screen.getByRole("region", { name: "Contest log" })).toBeTruthy(); expect(screen.getByRole("complementary", { name: "Score and multipliers" })).toBeTruthy();
   expect(screen.queryByRole("button", { name: /ESM|Transmit|Send CW|PTT/i })).toBeNull(); expect(calls.every(([method]) => method.startsWith("contest_"))).toBe(true);
+});
+
+it("routes an armed simulated operator sequence through the existing draft and commit owner only", async () => {
+  const output: string[] = [], { request, calls } = fixture();
+  render(<ContestWorkspace request={request} createRequestID={ids()} digestPayload={digest} recoveryStorage={new MemoryContestRecoveryStorage()}
+    simulateContestOutput={async entry => { output.push(`${entry.mode}:${entry.macro}:${entry.text}`); }}/>);
+  await screen.findByText("WW November"); fireEvent.click(screen.getByRole("button", { name: /WW November/ }));
+  const call = await screen.findByRole("textbox", { name: "Contest callsign" }); const exchange = screen.getByLabelText("Received exchange");
+  fireEvent.change(call, { target: { value: "K1ABC" } }); fireEvent.change(exchange, { target: { value: "05" } });
+  await waitFor(() => expect(calls.filter(([method]) => method === "contest_draft_apply").length).toBeGreaterThan(0));
+  fireEvent.click(screen.getByRole("button", { name: "Arm simulation" })); fireEvent.keyDown(exchange, { key: "Enter" });
+  await waitFor(() => expect(calls.filter(([method]) => method === "contest_qso_commit")).toHaveLength(1));
+  expect(output.map(item => item.split(":")[1])).toEqual(["QRZ"]);
+  expect(calls.every(([method]) => method.startsWith("contest_"))).toBe(true);
+  expect(screen.getByText(/no CW, voice, PTT, audio, or radio output/i)).toBeTruthy();
+});
+
+it("consumes repeated owned Enter and guards implicit form submit while a sequence is pending", async () => {
+  const gate = deferred(), { request, calls } = fixture();
+  render(<ContestWorkspace request={request} createRequestID={ids()} digestPayload={digest} recoveryStorage={new MemoryContestRecoveryStorage()}
+    simulateContestOutput={async () => { await gate.promise; }}/>);
+  await screen.findByText("WW November"); fireEvent.click(screen.getByRole("button", { name: /WW November/ }));
+  const call = await screen.findByRole("textbox", { name: "Contest callsign" }); const exchange = screen.getByLabelText("Received exchange");
+  fireEvent.change(call, { target: { value: "K1ABC" } }); fireEvent.change(exchange, { target: { value: "05" } });
+  await waitFor(() => expect(calls.some(([method]) => method === "contest_draft_apply")).toBe(true));
+  fireEvent.click(screen.getByRole("button", { name: "Arm simulation" })); (exchange as HTMLElement).focus();
+  await userEvent.keyboard("{Enter}{Enter}"); fireEvent.submit(screen.getByRole("form", { name: "CW contest entry" }));
+  expect(calls.filter(([method]) => method === "contest_qso_commit")).toHaveLength(0);
+  await act(async () => gate.resolve());
+  await waitFor(() => expect(calls.filter(([method]) => method === "contest_qso_commit")).toHaveLength(1));
+});
+
+it("keeps ordinary Enter submission available while the simulation is disarmed", async () => {
+  const { request, calls } = fixture(); await open(request);
+  fireEvent.change(screen.getByRole("textbox", { name: "Contest callsign" }), { target: { value: "K1ABC" } });
+  const exchange = screen.getByLabelText("Received exchange"); fireEvent.change(exchange, { target: { value: "05" } });
+  await waitFor(() => expect(calls.some(([method]) => method === "contest_draft_apply")).toBe(true));
+  (exchange as HTMLElement).focus(); await userEvent.keyboard("{Enter}");
+  await waitFor(() => expect(calls.filter(([method]) => method === "contest_qso_commit")).toHaveLength(1));
 });
 
 it("loads the full contact before editing, autosaves the entry draft, and preserves its serial", async () => {
