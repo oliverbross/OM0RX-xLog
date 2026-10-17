@@ -67,9 +67,12 @@ public enum ContestADIFExport {
             "STX_STRING": qso.exchange.rawSent,
             "SRX_STRING": qso.exchange.rawReceived,
         ]
-        if rule.metadata.entry.exchange.adifFields == .stxSrx {
+        switch rule.metadata.entry.exchange.adifFields {
+        case .stxSrx:
             if let sent = Int(qso.exchange.normalizedSent) { fields["STX"] = String(sent) }
             if let received = Int(qso.exchange.normalizedReceived) { fields["SRX"] = String(received) }
+        case .none, .exchangeStrings:
+            break
         }
         return fields
     }

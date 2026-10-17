@@ -11,7 +11,9 @@ final class ContestSSBTests: XCTestCase {
 
     func testRegistryPublishesBoundedModeReportExchangeAndSerialDescriptors() {
         let metadata = ContestRuleRegistry.pilots.metadata
-        XCTAssertEqual(metadata.map(\.identity.id), ["cq-wpx-cw", "cq-wpx-ssb", "cq-ww-cw", "cq-ww-ssb"])
+        XCTAssertEqual(metadata.map(\.identity.id), [
+            "cq-wpx-cw", "cq-wpx-ssb", "cq-ww-cw", "cq-ww-ssb", "oceania-dx-cw", "oceania-dx-ssb",
+        ])
         XCTAssertTrue(metadata.allSatisfy { $0.entry.isCoherent(supportedModes: $0.supportedModes) })
 
         let wwSSB = CQWWSSBRule().metadata.entry

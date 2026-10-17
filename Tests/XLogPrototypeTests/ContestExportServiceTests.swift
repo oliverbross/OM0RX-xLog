@@ -11,9 +11,10 @@ final class ContestExportServiceTests: XCTestCase {
     private let usa = ContestEntitySnapshot(adif: 291, name: "UNITED STATES", countryPrefix: "K", continent: "NA", cqZone: 5)
     private let germany = ContestEntitySnapshot(adif: 230, name: "GERMANY", countryPrefix: "DL", continent: "EU", cqZone: 14)
 
-    func testActualSQLiteFourPilotsProduceBothImmutableFormats() async throws {
+    func testActualSQLiteSixPilotsProduceBothImmutableFormats() async throws {
         for rule in [CQWWCWRule() as any ContestRule, CQWPXCWRule() as any ContestRule,
-                     CQWWSSBRule() as any ContestRule, CQWPXSSBRule() as any ContestRule] {
+                     CQWWSSBRule() as any ContestRule, CQWPXSSBRule() as any ContestRule,
+                     OceaniaDXCWRule() as any ContestRule, OceaniaDXSSBRule() as any ContestRule] {
             let fixture = try await makeFixture(rule: rule, category: "Single Operator")
             _ = try await commit(fixture, number: 1, call: "K1ABC", entity: usa)
             let stored = try await fixture.store.openSession(id: fixture.sessionID)
@@ -37,6 +38,8 @@ final class ContestExportServiceTests: XCTestCase {
             XCTAssertTrue(adifText.contains("<MODE:\(rule.metadata.entry.adifMode.utf8.count)>\(rule.metadata.entry.adifMode)"))
             XCTAssertEqual(adifText.contains("<STX:"), rule.metadata.entry.exchange.adifFields == .stxSrx)
             XCTAssertEqual(adifText.contains("<SRX:"), rule.metadata.entry.exchange.adifFields == .stxSrx)
+            XCTAssertTrue(adifText.contains("<STX_STRING:"))
+            XCTAssertTrue(adifText.contains("<SRX_STRING:"))
             XCTAssertEqual(cabrillo.sessionName, stored.metadata.name)
             XCTAssertEqual(cabrillo.requestedHeader.name, "Oliver Operator")
             XCTAssertEqual(cabrillo.station.location, "")

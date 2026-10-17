@@ -43,6 +43,7 @@ public enum ContestSentExchangeDefault: String, Codable, Hashable, Sendable {
 public enum ContestADIFExchangeFields: String, Codable, Hashable, Sendable {
     case none
     case stxSrx
+    case exchangeStrings
 }
 
 public struct ContestExchangeDescriptor: Codable, Hashable, Sendable {
@@ -111,7 +112,8 @@ public struct ContestEntryDescriptor: Codable, Hashable, Sendable {
         switch (exchange.sent, exchange.received, exchange.sentDefault, exchange.adifFields, serial.requirement) {
         case (.cqZone, .cqZone, .stationSnapshot, .none, .none):
             exchangeAndSerial = serial.allowedScopes.isEmpty
-        case (.serialNumber, .serialNumber, .reservedSerial, .stxSrx, .requiredForCommit):
+        case (.serialNumber, .serialNumber, .reservedSerial, .stxSrx, .requiredForCommit),
+             (.serialNumber, .serialNumber, .reservedSerial, .exchangeStrings, .requiredForCommit):
             exchangeAndSerial = !serial.allowedScopes.isEmpty &&
                 Set(serial.allowedScopes).count == serial.allowedScopes.count
         default:
@@ -256,5 +258,8 @@ public struct ContestRuleRegistry: Sendable {
         }
     }
 
-    public static let pilots = ContestRuleRegistry([CQWWCWRule(), CQWPXCWRule(), CQWWSSBRule(), CQWPXSSBRule()])
+    public static let pilots = ContestRuleRegistry([
+        CQWWCWRule(), CQWPXCWRule(), CQWWSSBRule(), CQWPXSSBRule(),
+        OceaniaDXCWRule(), OceaniaDXSSBRule(),
+    ])
 }

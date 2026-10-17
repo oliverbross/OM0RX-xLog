@@ -11,18 +11,18 @@ export type ContestRequest = <T = unknown>(method: ContestMethod, params?: Recor
 export type SourceVerificationStatus = "verified" | "provisional" | "unverified";
 
 export type ContestMode = "CW" | "SSB";
-export type ContestRuleID = "cq-ww-cw" | "cq-wpx-cw" | "cq-ww-ssb" | "cq-wpx-ssb";
+export type ContestRuleID = "cq-ww-cw" | "cq-wpx-cw" | "cq-ww-ssb" | "cq-wpx-ssb" | "oceania-dx-cw" | "oceania-dx-ssb";
 export type ContestRuleIdentity = { id: ContestRuleID; version: string; edition: string; sourceRevision: string };
 export type ContestEntryDescriptor = {
   mode: ContestMode; adifMode: ContestMode; cabrilloQSOType: "CW" | "PH";
   cabrilloFormatterVersion: "pilot-1" | "ssb-pilot-1";
   cabrilloProjectionFormatterVersion: "pilot-2" | "ssb-pilot-2";
   report: { format: "cwRST" | "phoneRS"; defaultSent: string; defaultReceived: string; maximumUTF8Bytes: 2 | 3 };
-  exchange: { sent: "cqZone" | "serialNumber"; received: "cqZone" | "serialNumber"; sentDefault: "stationSnapshot" | "reservedSerial"; adifFields: "none" | "stxSrx" };
+  exchange: { sent: "cqZone" | "serialNumber"; received: "cqZone" | "serialNumber"; sentDefault: "stationSnapshot" | "reservedSerial"; adifFields: "none" | "stxSrx" | "exchangeStrings" };
   serial: { requirement: "none" | "requiredForCommit"; allowedScopes: ("session" | "band" | "transmitter")[] };
 };
 export type ContestRuleMetadata = {
-  identity: ContestRuleIdentity; displayName: "CQ WW CW" | "CQ WPX CW" | "CQ WW SSB" | "CQ WPX SSB"; mode: ContestMode;
+  identity: ContestRuleIdentity; displayName: "CQ WW CW" | "CQ WPX CW" | "CQ WW SSB" | "CQ WPX SSB" | "Oceania DX CW" | "Oceania DX SSB"; mode: ContestMode;
   entryDescriptorVersion: 1;
   entry: ContestEntryDescriptor;
   referenceDataVersion: string; sourceVerification: SourceVerificationStatus; sourceNote: string;

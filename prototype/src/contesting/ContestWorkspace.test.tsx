@@ -5,12 +5,12 @@ import { ContestWorkspace } from "./ContestWorkspace";
 import { MemoryContestRecoveryStorage } from "./sessionOwner";
 import type { ContestDraftSnapshot, ContestFullQSO, ContestQSOChangeResult, ContestRequest, ContestRuleMetadata, ContestSessionSummary } from "./types";
 
-const entry = (mode: "CW" | "SSB", serial: boolean): ContestRuleMetadata["entry"] => ({
+const entry = (mode: "CW" | "SSB", serial: boolean, adifFields: "none" | "stxSrx" | "exchangeStrings" = serial ? "stxSrx" : "none"): ContestRuleMetadata["entry"] => ({
   mode, adifMode: mode, cabrilloQSOType: mode === "CW" ? "CW" : "PH",
   cabrilloFormatterVersion: mode === "CW" ? "pilot-1" : "ssb-pilot-1",
   cabrilloProjectionFormatterVersion: mode === "CW" ? "pilot-2" : "ssb-pilot-2",
   report: { format: mode === "CW" ? "cwRST" : "phoneRS", defaultSent: mode === "CW" ? "599" : "59", defaultReceived: mode === "CW" ? "599" : "59", maximumUTF8Bytes: mode === "CW" ? 3 : 2 },
-  exchange: { sent: serial ? "serialNumber" : "cqZone", received: serial ? "serialNumber" : "cqZone", sentDefault: serial ? "reservedSerial" : "stationSnapshot", adifFields: serial ? "stxSrx" : "none" },
+  exchange: { sent: serial ? "serialNumber" : "cqZone", received: serial ? "serialNumber" : "cqZone", sentDefault: serial ? "reservedSerial" : "stationSnapshot", adifFields },
   serial: { requirement: serial ? "requiredForCommit" : "none", allowedScopes: serial ? ["session", "band", "transmitter"] : [] },
 });
 const rules: ContestRuleMetadata[] = [
@@ -18,6 +18,8 @@ const rules: ContestRuleMetadata[] = [
   { identity: { id: "cq-wpx-cw", version: "2026.2", edition: "2026", sourceRevision: "contest-sw@2" }, displayName: "CQ WPX CW", mode: "CW", entryDescriptorVersion: 1, entry: entry("CW", true), referenceDataVersion: "cty-2026.10", sourceVerification: "verified", sourceNote: "Fixture checked" },
   { identity: { id: "cq-ww-ssb", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: "contest-sw@ssb" }, displayName: "CQ WW SSB", mode: "SSB", entryDescriptorVersion: 1, entry: entry("SSB", false), referenceDataVersion: "cty-2026.10", sourceVerification: "provisional", sourceNote: "Fixture checked" },
   { identity: { id: "cq-wpx-ssb", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: "contest-sw@ssb" }, displayName: "CQ WPX SSB", mode: "SSB", entryDescriptorVersion: 1, entry: entry("SSB", true), referenceDataVersion: "cty-2026.10", sourceVerification: "provisional", sourceNote: "Fixture checked" },
+  { identity: { id: "oceania-dx-cw", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: "contest-sw@oceania" }, displayName: "Oceania DX CW", mode: "CW", entryDescriptorVersion: 1, entry: entry("CW", true, "exchangeStrings"), referenceDataVersion: "cty-2026.10", sourceVerification: "provisional", sourceNote: "Fixture checked" },
+  { identity: { id: "oceania-dx-ssb", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: "contest-sw@oceania" }, displayName: "Oceania DX SSB", mode: "SSB", entryDescriptorVersion: 1, entry: entry("SSB", true, "exchangeStrings"), referenceDataVersion: "cty-2026.10", sourceVerification: "provisional", sourceNote: "Fixture checked" },
 ];
 const sessions: ContestSessionSummary[] = rules.slice(0, 2).map((rule, index) => ({ sessionID: `session-${index + 1}`, workspaceGeneration: "generation-1", revision: 1, name: index ? "WPX May" : "WW November", rule, referenceDataVersion: rule.referenceDataVersion, station: { callsign: "OM0RX", cqZone: "15", dxccEntity: "Slovak Republic" }, operator: { callsign: "OM0RX", category: "Single Operator" }, qsoCount: 0, updatedAt: "2026-10-17T01:00:00Z" }));
 function draftFor(session: ContestSessionSummary, callsign = "") : ContestDraftSnapshot { const report = session.rule.entry.report.defaultSent; return { draftID: `draft-${session.sessionID}`, sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration, revision: session.revision, reservedSerial: null, updatedAt: "2026-10-17T01:00:00Z", fields: { callsign, sentReport: report, sentExchange: session.rule.entry.exchange.sentDefault === "stationSnapshot" ? "15" : "001", receivedReport: report, receivedExchange: callsign ? "05" : "", frequencyHz: 14025000, band: "20m", mode: session.rule.mode }, validation: { errors: [], warnings: [] }, dupe: { state: "clear", reason: "Not worked on 20m." } }; }
@@ -128,6 +130,8 @@ it("creates an SSB pilot from catalog metadata and uses phone reports with WPX s
   const { request, calls } = fixture();
   render(<ContestWorkspace request={request} createRequestID={ids()} digestPayload={digest} recoveryStorage={new MemoryContestRecoveryStorage()}/>);
   await screen.findByText("WW November");
+  expect(screen.getByRole("option", { name: /Oceania DX CW/ })).toBeTruthy();
+  expect(screen.getByRole("option", { name: /Oceania DX SSB/ })).toBeTruthy();
   fireEvent.change(screen.getByLabelText("Session name"), { target: { value: "WPX SSB Saturday" } });
   fireEvent.change(screen.getByLabelText("Contest"), { target: { value: "cq-wpx-ssb" } });
   fireEvent.change(screen.getByLabelText("Station callsign"), { target: { value: "OM0RX" } });
