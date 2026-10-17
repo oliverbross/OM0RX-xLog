@@ -36,14 +36,42 @@ public struct ContestStationSnapshot: Codable, Hashable, Sendable {
     public let sentExchange: String
     public let operatorCallsigns: [String]
     public let location: String
+    public let sentExchangeFields: [String: ContestExchangeFieldValue]
 
     public init(callsign: String, entity: ContestEntitySnapshot?, sentExchange: String,
-                operatorCallsigns: [String] = [], location: String = "") {
+                operatorCallsigns: [String] = [], location: String = "",
+                sentExchangeFields: [String: ContestExchangeFieldValue] = [:]) {
         self.callsign = callsign.uppercased()
         self.entity = entity
         self.sentExchange = sentExchange
         self.operatorCallsigns = operatorCallsigns.map { $0.uppercased() }
         self.location = location
+        self.sentExchangeFields = sentExchangeFields
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case callsign, entity, sentExchange, operatorCallsigns, location, sentExchangeFields
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        callsign = try values.decode(String.self, forKey: .callsign)
+        entity = try values.decodeIfPresent(ContestEntitySnapshot.self, forKey: .entity)
+        sentExchange = try values.decode(String.self, forKey: .sentExchange)
+        operatorCallsigns = try values.decode([String].self, forKey: .operatorCallsigns)
+        location = try values.decode(String.self, forKey: .location)
+        sentExchangeFields = try values.decodeIfPresent([String: ContestExchangeFieldValue].self,
+                                                        forKey: .sentExchangeFields) ?? [:]
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encode(callsign, forKey: .callsign)
+        try values.encodeIfPresent(entity, forKey: .entity)
+        try values.encode(sentExchange, forKey: .sentExchange)
+        try values.encode(operatorCallsigns, forKey: .operatorCallsigns)
+        try values.encode(location, forKey: .location)
+        if !sentExchangeFields.isEmpty { try values.encode(sentExchangeFields, forKey: .sentExchangeFields) }
     }
 }
 
@@ -69,17 +97,57 @@ public struct ContestSessionSnapshot: Codable, Hashable, Sendable {
     }
 }
 
+public struct ContestExchangeFieldValue: Codable, Hashable, Sendable {
+    public let raw: String
+    public let normalized: String
+
+    public init(raw: String, normalized: String) {
+        self.raw = raw
+        self.normalized = normalized
+    }
+}
+
 public struct ContestExchangeSnapshot: Codable, Hashable, Sendable {
     public let rawSent: String
     public let normalizedSent: String
     public let rawReceived: String
     public let normalizedReceived: String
+    public let sentFields: [String: ContestExchangeFieldValue]
+    public let receivedFields: [String: ContestExchangeFieldValue]
 
-    public init(rawSent: String, normalizedSent: String, rawReceived: String, normalizedReceived: String) {
+    public init(rawSent: String, normalizedSent: String, rawReceived: String, normalizedReceived: String,
+                sentFields: [String: ContestExchangeFieldValue] = [:],
+                receivedFields: [String: ContestExchangeFieldValue] = [:]) {
         self.rawSent = rawSent
         self.normalizedSent = normalizedSent
         self.rawReceived = rawReceived
         self.normalizedReceived = normalizedReceived
+        self.sentFields = sentFields
+        self.receivedFields = receivedFields
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case rawSent, normalizedSent, rawReceived, normalizedReceived, sentFields, receivedFields
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        rawSent = try values.decode(String.self, forKey: .rawSent)
+        normalizedSent = try values.decode(String.self, forKey: .normalizedSent)
+        rawReceived = try values.decode(String.self, forKey: .rawReceived)
+        normalizedReceived = try values.decode(String.self, forKey: .normalizedReceived)
+        sentFields = try values.decodeIfPresent([String: ContestExchangeFieldValue].self, forKey: .sentFields) ?? [:]
+        receivedFields = try values.decodeIfPresent([String: ContestExchangeFieldValue].self, forKey: .receivedFields) ?? [:]
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encode(rawSent, forKey: .rawSent)
+        try values.encode(normalizedSent, forKey: .normalizedSent)
+        try values.encode(rawReceived, forKey: .rawReceived)
+        try values.encode(normalizedReceived, forKey: .normalizedReceived)
+        if !sentFields.isEmpty { try values.encode(sentFields, forKey: .sentFields) }
+        if !receivedFields.isEmpty { try values.encode(receivedFields, forKey: .receivedFields) }
     }
 }
 

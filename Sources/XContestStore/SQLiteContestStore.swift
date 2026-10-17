@@ -175,7 +175,8 @@ public actor SQLiteContestStore: ContestDurableRepository {
                                    operatorCallsign: currentDraft.operatorCallsign,
                                    stationLocation: currentDraft.stationLocation,
                                    provenance: ContestQSOProvenance(source: .operatorEntry))
-        let evaluation = rule.evaluate(candidate, in: session.session)
+        let evaluation = try ContestEngine.evaluate(candidate, session: session.session,
+                                                    rule: rule, allowIncomplete: false)
         let validation = evaluation.validation + semanticFrequencyIssues(band: candidate.band,
                                                                           frequencyHz: candidate.frequencyHz)
         let incomplete = validation.contains { $0.severity == .error }
@@ -189,7 +190,7 @@ public actor SQLiteContestStore: ContestDurableRepository {
                                                   multiplierCount: score.multiplierCount,
                                                   claimedScore: score.claimedScore)
         let draftEvaluation = ContestDraftEvaluationSnapshot(validation: validation,
-                                                             dupeKey: evaluation.dupeKey,
+                                                             dupeKey: incomplete ? nil : evaluation.dupeKey,
                                                              isDuplicate: isDuplicate)
         return ContestMutationProjection(session: session, draft: currentDraft,
                                          activeReservations: active, score: summary,
@@ -457,6 +458,14 @@ public actor SQLiteContestStore: ContestDurableRepository {
                       qso.exchange.normalizedSent == serial.transmittedText else {
                     throw ContestStoreError.reservationMismatch
                 }
+                if rule.metadata.entry.version == .v2 {
+                    guard let serialField = rule.metadata.entry.allocatedSerialField,
+                          let value = qso.exchange.sentFields[serialField.id],
+                          value.raw == serial.transmittedText,
+                          value.normalized == serial.transmittedText else {
+                        throw ContestStoreError.reservationMismatch
+                    }
+                }
                 let committed = ContestSerialReservation(id: serial.id, sessionID: serial.sessionID, draftID: serial.draftID,
                                                          scope: serial.scope, scopeValue: serial.scopeValue, number: serial.number,
                                                          transmittedText: serial.transmittedText, state: .committed,
@@ -693,7 +702,8 @@ public actor SQLiteContestStore: ContestDurableRepository {
             throw ContestStoreError.immutableQSOField("stationLocation")
         }
         guard before.exchange.rawSent == after.exchange.rawSent,
-              before.exchange.normalizedSent == after.exchange.normalizedSent else {
+              before.exchange.normalizedSent == after.exchange.normalizedSent,
+              before.exchange.sentFields == after.exchange.sentFields else {
             throw ContestStoreError.immutableQSOField("allocatedSentSerial")
         }
     }
@@ -701,14 +711,18 @@ public actor SQLiteContestStore: ContestDurableRepository {
     private func validateQSOStructure(_ qso: ContestQSO, for session: ContestSessionSnapshot) throws {
         guard let rule = rules.rule(for: session.rule) else { throw ContestStoreError.unknownRule(session.rule) }
         let entry = rule.metadata.entry
+        let descriptorIssues = entry.structuralIssues(mode: qso.mode, rstSent: qso.rstSent,
+                                                      rstReceived: qso.rstReceived,
+                                                      exchange: qso.exchange, allowIncomplete: true)
         let exchanges = [qso.exchange.rawSent, qso.exchange.normalizedSent,
                          qso.exchange.rawReceived, qso.exchange.normalizedReceived]
+        let reportBound = entry.modeProfile(for: qso.mode)?.report.maximumUTF8Bytes
         let valid = validCallsign(qso.callsign) &&
             rule.metadata.supportedBands.contains(qso.band) && qso.band == qso.band.lowercased() &&
-            entry.isCoherent(supportedModes: rule.metadata.supportedModes) && qso.mode == entry.mode &&
+            entry.isCoherent(supportedModes: rule.metadata.supportedModes) && reportBound != nil &&
             qso.frequencyHz > 0 && qso.frequencyHz <= 100_000_000_000 &&
-            qso.rstSent.utf8.count <= entry.report.maximumUTF8Bytes &&
-            qso.rstReceived.utf8.count <= entry.report.maximumUTF8Bytes &&
+            qso.rstSent.utf8.count <= (reportBound ?? 0) &&
+            qso.rstReceived.utf8.count <= (reportBound ?? 0) && descriptorIssues.isEmpty &&
             exchanges.allSatisfy { $0.utf8.count <= 64 } &&
             validCallsign(qso.operatorCallsign) && session.station.operatorCallsigns.contains(qso.operatorCallsign) &&
             qso.stationLocation.utf8.count <= 128 && qso.entity.map(validEntity) != false &&
@@ -801,15 +815,24 @@ public actor SQLiteContestStore: ContestDurableRepository {
         let session = try openSession(id: sessionID).session
         guard let rule = rules.rule(for: session.rule) else { throw ContestStoreError.unknownRule(session.rule) }
         let entry = rule.metadata.entry
-        let clearedSentExchange = entry.exchange.sentDefault == .stationSnapshot ? session.station.sentExchange : ""
+        let usesStationExchange = entry.exchange.sentDefault == .stationSnapshot ||
+            entry.exchange.sentDefault == .stationFields
+        let clearedSentExchange = usesStationExchange ? session.station.sentExchange : ""
+        var clearedSentFields = entry.exchange.sentDefault == .stationFields
+            ? session.station.sentExchangeFields : [:]
+        if let allocatedSerialField = entry.allocatedSerialField {
+            clearedSentFields.removeValue(forKey: allocatedSerialField.id)
+        }
+        let defaultReport = entry.modeProfile(for: old.mode)?.report ?? entry.report
         let updated = ContestDraftSnapshot(
             id: old.id, sessionID: old.sessionID, revision: revision, updatedAt: updatedAt,
             callsign: clearContact ? "" : old.callsign, band: old.band, mode: old.mode,
-            frequencyHz: old.frequencyHz, rstSent: clearContact ? entry.report.defaultSent : old.rstSent,
-            rstReceived: clearContact ? entry.report.defaultReceived : old.rstReceived,
+            frequencyHz: old.frequencyHz, rstSent: clearContact ? defaultReport.defaultSent : old.rstSent,
+            rstReceived: clearContact ? defaultReport.defaultReceived : old.rstReceived,
             exchange: clearContact ? ContestExchangeSnapshot(rawSent: clearedSentExchange,
                                                               normalizedSent: clearedSentExchange,
-                                                              rawReceived: "", normalizedReceived: "") : old.exchange,
+                                                               rawReceived: "", normalizedReceived: "",
+                                                               sentFields: clearedSentFields) : old.exchange,
             entity: clearContact ? nil : old.entity, operatorCallsign: old.operatorCallsign,
             stationLocation: old.stationLocation
         )
@@ -822,10 +845,21 @@ public actor SQLiteContestStore: ContestDurableRepository {
                                    reservation: ContestSerialReservation,
                                    revision: UInt64, updatedAt: Date) throws {
         let old = try draft(sessionID: sessionID, id: draftID)
+        let session = try openSession(id: sessionID).session
+        guard let entry = rules.rule(for: session.rule)?.metadata.entry else {
+            throw ContestStoreError.unknownRule(session.rule)
+        }
+        var sentFields = old.exchange.sentFields
+        if let field = entry.allocatedSerialField {
+            sentFields[field.id] = .init(raw: reservation.transmittedText,
+                                         normalized: reservation.transmittedText)
+        }
         let exchange = ContestExchangeSnapshot(rawSent: reservation.transmittedText,
                                                normalizedSent: reservation.transmittedText,
                                                rawReceived: old.exchange.rawReceived,
-                                               normalizedReceived: old.exchange.normalizedReceived)
+                                               normalizedReceived: old.exchange.normalizedReceived,
+                                               sentFields: sentFields,
+                                               receivedFields: old.exchange.receivedFields)
         let updated = ContestDraftSnapshot(id: old.id, sessionID: old.sessionID, revision: revision,
                                            updatedAt: updatedAt, callsign: old.callsign, band: old.band,
                                            mode: old.mode, frequencyHz: old.frequencyHz,
@@ -843,7 +877,8 @@ public actor SQLiteContestStore: ContestDurableRepository {
                                                    reservations: [ContestSerialReservation]) throws {
         for reservation in reservations {
             guard updated.exchange.rawSent == reservation.transmittedText,
-                  updated.exchange.normalizedSent == reservation.transmittedText else {
+                  updated.exchange.normalizedSent == reservation.transmittedText,
+                  updated.exchange.sentFields == old.exchange.sentFields else {
                 throw ContestRepositoryError.invalidSerialTransition
             }
             switch reservation.scope {
@@ -864,11 +899,12 @@ public actor SQLiteContestStore: ContestDurableRepository {
     }
 
     private func validateSession(_ session: ContestSessionSnapshot, metadata: ContestSessionMetadata) throws {
-        let station = session.station
         guard let rule = rules.rule(for: session.rule),
               rule.metadata.entry.isCoherent(supportedModes: rule.metadata.supportedModes) else {
             throw ContestStoreError.unknownRule(session.rule)
         }
+        let station = session.station
+        let stationDescriptorIssues = rule.metadata.entry.stationExchangeIssues(station.sentExchangeFields)
         let identityParts = [session.rule.id, session.rule.version, session.rule.edition,
                              session.rule.sourceRevision, session.referenceDataVersion]
         guard identityParts.allSatisfy({ !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && $0.utf8.count <= 128 }),
@@ -882,20 +918,26 @@ public actor SQLiteContestStore: ContestDurableRepository {
               (1...64).contains(metadata.operatorCategory.utf8.count),
               session.startedAt.timeIntervalSinceReferenceDate.isFinite,
               session.endedAt?.timeIntervalSinceReferenceDate.isFinite != false,
-              station.entity.map(validEntity) == true else { throw ContestStoreError.invalidSession }
+              station.entity.map(validEntity) == true, stationDescriptorIssues.isEmpty else {
+            throw ContestStoreError.invalidSession
+        }
     }
 
     private func validateDraft(_ draft: ContestDraftSnapshot, for session: ContestSessionSnapshot) throws {
         guard let rule = rules.rule(for: session.rule) else { throw ContestStoreError.unknownRule(session.rule) }
         let entry = rule.metadata.entry
+        let descriptorIssues = entry.structuralIssues(mode: draft.mode, rstSent: draft.rstSent,
+                                                      rstReceived: draft.rstReceived,
+                                                      exchange: draft.exchange, allowIncomplete: true)
+        let reportBound = entry.modeProfile(for: draft.mode)?.report.maximumUTF8Bytes
         let exchangeValues = [draft.exchange.rawSent, draft.exchange.normalizedSent,
                               draft.exchange.rawReceived, draft.exchange.normalizedReceived]
         guard draft.callsign.utf8.count <= 32,
               draft.callsign.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "/" }),
               rule.metadata.supportedBands.contains(draft.band), draft.band == draft.band.lowercased(),
-              entry.isCoherent(supportedModes: rule.metadata.supportedModes), draft.mode == entry.mode,
-              draft.rstSent.utf8.count <= entry.report.maximumUTF8Bytes,
-              draft.rstReceived.utf8.count <= entry.report.maximumUTF8Bytes,
+              entry.isCoherent(supportedModes: rule.metadata.supportedModes), reportBound != nil,
+              draft.rstSent.utf8.count <= (reportBound ?? 0),
+              draft.rstReceived.utf8.count <= (reportBound ?? 0), descriptorIssues.isEmpty,
               exchangeValues.allSatisfy({ $0.utf8.count <= 64 }),
               validCallsign(draft.operatorCallsign), session.station.operatorCallsigns.contains(draft.operatorCallsign),
               draft.stationLocation.utf8.count <= 128,
@@ -921,20 +963,8 @@ public actor SQLiteContestStore: ContestDurableRepository {
             (1...40).contains(entity.cqZone)
     }
 
-    private func contestBand(for frequency: Int64) -> String? {
-        switch frequency {
-        case 1_800_000..<2_000_000: return "160m"
-        case 3_500_000..<4_000_000: return "80m"
-        case 7_000_000..<7_300_000: return "40m"
-        case 14_000_000..<14_350_000: return "20m"
-        case 21_000_000..<21_450_000: return "15m"
-        case 28_000_000..<29_700_000: return "10m"
-        default: return nil
-        }
-    }
-
     private func semanticFrequencyIssues(band: String, frequencyHz: Int64) -> [ContestValidationIssue] {
-        guard frequencyHz > 0, contestBand(for: frequencyHz) != band else { return [] }
+        guard frequencyHz > 0, ContestBandPlan.band(for: frequencyHz) != band else { return [] }
         return [ContestValidationIssue(code: "frequency_band_mismatch", field: "frequencyHz",
                                        message: "Frequency does not match the selected contest band")]
     }
