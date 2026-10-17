@@ -3,7 +3,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ContestWorkspace } from "./ContestWorkspace";
 import { MemoryContestRecoveryStorage } from "./sessionOwner";
-import type { ContestDraftSnapshot, ContestRequest, ContestRuleMetadata, ContestSessionSummary } from "./types";
+import type { ContestDraftSnapshot, ContestFullQSO, ContestQSOChangeResult, ContestRequest, ContestRuleMetadata, ContestSessionSummary } from "./types";
 
 const rules: ContestRuleMetadata[] = [
   { identity: { id: "cq-ww-cw", version: "2026.1", edition: "2026", sourceRevision: "contest-sw@1" }, displayName: "CQ WW CW", mode: "CW", referenceDataVersion: "cty-2026.10", sourceVerification: "provisional", sourceNote: "Pilot comparison pending" },
@@ -13,10 +13,13 @@ const sessions: ContestSessionSummary[] = rules.map((rule, index) => ({ sessionI
 function draftFor(session: ContestSessionSummary, callsign = "") : ContestDraftSnapshot { return { draftID: `draft-${session.sessionID}`, sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration, revision: session.revision, reservedSerial: null, updatedAt: "2026-10-17T01:00:00Z", fields: { callsign, sentReport: "599", sentExchange: session.rule.identity.id === "cq-ww-cw" ? "15" : "001", receivedReport: "599", receivedExchange: callsign ? "05" : "", frequencyHz: 14025000, band: "20m", mode: "CW" }, validation: { errors: [], warnings: [] }, dupe: { state: "clear", reason: "Not worked on 20m." } }; }
 function deferred() { let resolve!: () => void; const promise = new Promise<void>(done => { resolve = done; }); return { promise, resolve }; }
 
-function fixture(options: { firstApply?: Promise<void>; firstApplyReject?: boolean; commit?: Promise<void>; loseCreate?: boolean; staleApply?: boolean; openDelay?: Record<string, Promise<void>>; openGenerationMismatch?: string } = {}) {
-  const state = new Map(sessions.map(item => [item.sessionID, { session: { ...item }, draft: draftFor(item) }]));
-  const calls: [string, Record<string, unknown>][] = []; let sequence = 0, applyCount = 0, createLost = false;
-  const receipt = (params: Record<string, unknown>, revision: number) => ({ requestID: params.requestID, payloadDigest: params.payloadDigest, committedRevision: revision, committedAt: "2026-10-17T02:00:00Z" });
+function fullQSO(session: ContestSessionSummary): ContestFullQSO { return { qsoID: `qso-${session.sessionID}`, sessionID: session.sessionID, originalUTC: "2026-10-17T02:00:00.000Z", callsign: "K1ABC", band: "20m", mode: "CW", frequencyHz: 14025000, sentReport: "599", receivedReport: "599", sentExchange: "001", normalizedSentExchange: "001", allocatedSerial: "001", receivedExchange: "1", normalizedReceivedExchange: "1", entity: { adif: 291, name: "UNITED STATES", countryPrefix: "K", continent: "NA", cqZone: 5 }, operatorCallsign: "OM0RX", stationLocation: "Home", provenance: { source: "operatorEntry", sourceIdentity: "cty-1", importedClaimedScore: null }, ruleIdentity: session.rule.identity, referenceDataVersion: session.referenceDataVersion }; }
+function fixture(options: { firstApply?: Promise<void>; firstApplyReject?: boolean; commit?: Promise<void>; loseCreate?: boolean; staleApply?: boolean; openDelay?: Record<string, Promise<void>>; openGenerationMismatch?: string; qsoSession?: "session-1" | "session-2"; change?: Promise<void>; loseChange?: boolean; rejectChange?: boolean; malformedChange?: boolean; receiptCommitted?: boolean } = {}) {
+  const state = new Map(sessions.map(item => { const session = { ...item, qsoCount: options.qsoSession === item.sessionID ? 1 : item.qsoCount }; const draft = draftFor(session); if (options.qsoSession === "session-2") draft.reservedSerial = 7; return [item.sessionID, { session, draft }]; }));
+  const contacts = new Map<string, ContestFullQSO>(); if (options.qsoSession) contacts.set(options.qsoSession, fullQSO(state.get(options.qsoSession)!.session));
+  const calls: [string, Record<string, unknown>][] = []; let sequence = 0, applyCount = 0, createLost = false, changeLost = false;
+  const changeResults = new Map<string, ContestQSOChangeResult>();
+  const receipt = (params: Record<string, unknown>, revision: number) => ({ requestID: params.requestID as string, payloadDigest: params.payloadDigest as string, committedRevision: revision, committedAt: "2026-10-17T02:00:00Z" });
   const request: ContestRequest = vi.fn(async (method, params = {}) => {
     calls.push([method, params]); const ok = (result: unknown) => ({ id: `frame-${++sequence}`, ok: true as const, result });
     if (method === "contest_catalog") return ok({ workspaceGeneration: "generation-1", rules });
@@ -34,6 +37,7 @@ function fixture(options: { firstApply?: Promise<void>; firstApplyReject?: boole
       const value = { session, draft: draftFor(session), receipt: receipt(params, 1) }; state.set(sessionID, { session, draft: value.draft }); return ok(value);
     }
     const current = state.get(params.sessionID as string)!;
+    if (method === "contest_qso_get") return ok({ sessionID: current.session.sessionID, workspaceGeneration: current.session.workspaceGeneration, revision: current.session.revision, qso: contacts.get(current.session.sessionID) });
     if (method === "contest_draft_apply") {
       if (applyCount++ === 0) { await options.firstApply; if (options.firstApplyReject) throw new Error("draft reply lost"); }
       if (options.staleApply) return { id: "frame", ok: false as const, error: { code: "stale_revision", message: "Draft changed elsewhere.", outcome: "confirmed" as const } };
@@ -47,21 +51,43 @@ function fixture(options: { firstApply?: Promise<void>; firstApplyReject?: boole
       const { multiplierLabels: _multiplierLabels, ...scoreSummary } = score(current.session);
       return ok({ ...current, qso: { qsoID: `qso-${revision}`, sessionID: current.session.sessionID, workedAt: "2026-10-17T02:00:00Z", callsign: old.fields.callsign, band: old.fields.band, mode: "CW", sentExchange: old.fields.sentExchange, receivedExchange: old.fields.receivedExchange, points: 3, multiplier: "K", isDupe: false }, score: scoreSummary, receipt: receipt(params, revision) });
     }
-    if (method === "contest_operation_receipt") return ok({ status: "not_found" });
-    if (method === "contest_log_page") return ok({ sessionID: current.session.sessionID, workspaceGeneration: current.session.workspaceGeneration, revision: params.expectedRevision, qsos: [], total: current.session.qsoCount, offset: params.offset, limit: params.limit });
+    if (method === "contest_qso_correct" || method === "contest_qso_delete") {
+      const replay = changeResults.get(params.requestID as string); if (replay) return ok(replay);
+      if (options.rejectChange) return { id: "frame", ok: false as const, error: { code: "stale_revision", message: "Contact changed elsewhere.", outcome: "confirmed" as const } };
+      await options.change; const payload = params.payload as Record<string, unknown>, before = contacts.get(current.session.sessionID)!, revision = current.session.revision + 1;
+      const target = method === "contest_qso_correct" ? { ...before, ...(payload.qso as Omit<ContestFullQSO, "entity">), entity: { adif: 230, name: "FEDERAL REPUBLIC OF GERMANY", countryPrefix: "DL", continent: "EU", cqZone: 14 } } : null;
+      current.session = { ...current.session, revision, qsoCount: target ? 1 : 0, updatedAt: "2026-10-17T02:10:00.000Z" };
+      const duplicate = !!target && current.draft.fields.callsign === target.callsign && current.draft.fields.band === target.band;
+      current.draft = { ...current.draft, revision, dupe: duplicate
+        ? { state: "duplicate", reason: `${target!.callsign} is already worked on ${target!.band}.` }
+        : { state: "clear", reason: "Not worked on this band." } };
+      if (target) contacts.set(current.session.sessionID, target); else contacts.delete(current.session.sessionID);
+      const { multiplierLabels: _labels, ...summary } = score(current.session); const changeSession = { sessionID: current.session.sessionID, workspaceGeneration: current.session.workspaceGeneration, revision, name: current.session.name, ruleIdentity: current.session.rule.identity, referenceDataVersion: current.session.referenceDataVersion, qsoCount: current.session.qsoCount, updatedAt: current.session.updatedAt };
+      const value: ContestQSOChangeResult = { session: changeSession, operation: method === "contest_qso_correct" ? "correction" : "deletion", qsoID: before.qsoID, qsoCount: current.session.qsoCount, score: summary, currentTarget: target, auditReference: { sessionID: current.session.sessionID, qsoID: before.qsoID, requestID: params.requestID as string, revision }, receipt: receipt(params, revision) };
+      changeResults.set(params.requestID as string, value);
+      if (options.loseChange && !changeLost) { changeLost = true; throw new Error("change reply lost"); }
+      if (options.malformedChange) return ok({ ...value, qsoCount: 99 });
+      return ok(value);
+    }
+    if (method === "contest_operation_receipt") { const result = changeResults.get(params.requestID as string); return ok(options.receiptCommitted && result ? { status: "committed", receipt: result.receipt } : { status: "not_found" }); }
+    if (method === "contest_log_page") { const contact = contacts.get(current.session.sessionID); const qsos = contact ? [{ qsoID: contact.qsoID, sessionID: contact.sessionID, workedAt: contact.originalUTC, callsign: contact.callsign, band: contact.band, mode: "CW", sentExchange: contact.sentExchange, receivedExchange: contact.receivedExchange, points: 3, multiplier: "prefix:DL:all", isDupe: false }] : []; return ok({ sessionID: current.session.sessionID, workspaceGeneration: current.session.workspaceGeneration, revision: params.expectedRevision, qsos, total: qsos.length, offset: params.offset, limit: params.limit }); }
     if (method === "contest_score") return ok({ ...score(current.session), revision: params.expectedRevision });
     throw new Error(`Unexpected ${method}`);
   }) as ContestRequest;
-  return { request, calls, state };
+  return { request, calls, state, contacts };
 }
 function score(session: ContestSessionSummary) { return { sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration, revision: session.revision, qsos: session.qsoCount, points: session.qsoCount * 3, multipliers: session.qsoCount, claimedScore: session.qsoCount * 3, multiplierLabels: session.qsoCount ? ["K"] : [], sourceVerification: "provisional" as const }; }
 function ids() { let value = 0; return () => `id-${++value}`; }
-const digest = async (payload: unknown) => `digest:${JSON.stringify(payload)}`;
+const digest = async (payload: unknown) => String(JSON.stringify(payload).length).padStart(64, "0");
 afterEach(cleanup);
 
 async function open(request: ContestRequest, storage = new MemoryContestRecoveryStorage()) {
   const view = render(<ContestWorkspace request={request} createRequestID={ids()} digestPayload={digest} recoveryStorage={storage}/>);
   await screen.findByText("WW November"); fireEvent.click(screen.getByRole("button", { name: /WW November/ })); await screen.findByRole("form", { name: "CW contest entry" }); return view;
+}
+async function openWPX(request: ContestRequest, storage = new MemoryContestRecoveryStorage()) {
+  const view = render(<ContestWorkspace request={request} createRequestID={ids()} digestPayload={digest} recoveryStorage={storage}/>);
+  await screen.findByText("WPX May"); fireEvent.click(screen.getByRole("button", { name: /WPX May/ })); await screen.findByRole("form", { name: "CW contest entry" }); return view;
 }
 
 it("offers serial reservation only for WPX and keeps partial calls editable after reserving", async () => {
@@ -145,7 +171,7 @@ it("pins lost create across double submit and remount recovery", async () => {
   for (const [label, value] of [["Session name","WW Test"],["Station callsign","OM0RX"],["Operator callsign","OM0RX"],["CQ zone","15"],["DXCC entity","Slovak Republic"]]) fireEvent.change(screen.getByLabelText(label), { target: { value } });
   const button = screen.getByRole("button", { name: "Create and open" }); fireEvent.click(button); fireEvent.click(button); await screen.findByText("Save status unknown");
   expect(calls.filter(([m]) => m === "contest_create")).toHaveLength(1); const original = calls.find(([m]) => m === "contest_create")![1];
-  view.unmount(); render(<ContestWorkspace request={request} createRequestID={ids()} digestPayload={digest} recoveryStorage={storage}/>); await screen.findByText("Save status unknown"); fireEvent.click(screen.getByRole("button", { name: "Retry same operation" }));
+  view.unmount(); render(<ContestWorkspace request={request} createRequestID={ids()} digestPayload={digest} recoveryStorage={storage}/>); await screen.findByText("Save status unknown"); fireEvent.click(screen.getByRole("button", { name: "Retry same save" }));
   await waitFor(() => expect(calls.filter(([m]) => m === "contest_create")).toHaveLength(2)); expect(calls.filter(([m]) => m === "contest_create")[1][1]).toEqual(original);
 });
 
@@ -165,8 +191,8 @@ it("keeps one shared in-flight draft operation across unmount and remount", asyn
   const view = await open(request, storage); fireEvent.change(screen.getByRole("textbox", { name: "Contest callsign" }), { target: { value: "K1ABC" } });
   await waitFor(() => expect(calls.filter(([method]) => method === "contest_draft_apply")).toHaveLength(1)); view.unmount();
   render(<ContestWorkspace request={request} createRequestID={ids()} digestPayload={digest} recoveryStorage={storage}/>);
-  await screen.findByText("Save in progress"); expect(calls.filter(([method]) => method === "contest_draft_apply")).toHaveLength(1);
-  await act(async () => gate.resolve()); await waitFor(() => expect(screen.queryByText("Save in progress")).toBeNull());
+  await screen.findByText("Saving…"); expect(calls.filter(([method]) => method === "contest_draft_apply")).toHaveLength(1);
+  await act(async () => gate.resolve()); await waitFor(() => expect(screen.queryByText("Saving…")).toBeNull());
   expect(calls.filter(([method]) => method === "contest_draft_apply")).toHaveLength(1);
 });
 
@@ -213,4 +239,110 @@ it("renders the responsive contest regions without transmit or ESM controls", as
   const { request, calls } = fixture(); await open(request);
   expect(screen.getByRole("form", { name: "CW contest entry" })).toBeTruthy(); expect(screen.getByRole("region", { name: "Contest log" })).toBeTruthy(); expect(screen.getByRole("complementary", { name: "Score and multipliers" })).toBeTruthy();
   expect(screen.queryByRole("button", { name: /ESM|Transmit|Send CW|PTT/i })).toBeNull(); expect(calls.every(([method]) => method.startsWith("contest_"))).toBe(true);
+});
+
+it("loads the full contact before editing, autosaves the entry draft, and preserves its serial", async () => {
+  const { request, calls } = fixture({ qsoSession: "session-2" }); await openWPX(request);
+  const entryCall = screen.getByRole("textbox", { name: "Contest callsign" }); fireEvent.change(entryCall, { target: { value: "N0CALL" } });
+  fireEvent.click(await screen.findByRole("button", { name: "Edit K1ABC" }));
+  const editor = await screen.findByRole("form", { name: "Edit K1ABC" });
+  expect(calls.findIndex(([method]) => method === "contest_draft_apply")).toBeLessThan(calls.findIndex(([method]) => method === "contest_qso_get"));
+  expect(screen.getByText("2026-10-17 02:00:00 Z")).toBeTruthy(); expect(screen.getByText("Home")).toBeTruthy(); expect(screen.getByText("001", { selector: ".contest-qso-readonly strong" })).toBeTruthy();
+  const correctedCall = screen.getByLabelText("Callsign", { selector: ".contest-qso-editor input" }); fireEvent.change(correctedCall, { target: { value: "DL1AAA" } });
+  expect(screen.getByText("Original entity")).toBeTruthy(); expect(screen.getByText(/checked against the pinned reference/)).toBeTruthy();
+  fireEvent.submit(editor); await screen.findByText("Saved DL1AAA · FEDERAL REPUBLIC OF GERMANY.");
+  const correction = calls.find(([method]) => method === "contest_qso_correct")![1];
+  expect((correction.payload as { qso: Record<string, unknown> }).qso).not.toHaveProperty("entity");
+  expect((entryCall as HTMLInputElement).value).toBe("N0CALL"); expect(screen.getByRole("button", { name: "Serial 7" })).toBeTruthy();
+});
+
+it("uses one synchronous correction action and keeps the editor on confirmed rejection", async () => {
+  const gate = deferred(), delayed = fixture({ qsoSession: "session-1", change: gate.promise }); await open(delayed.request);
+  fireEvent.click(await screen.findByRole("button", { name: "Edit K1ABC" })); await screen.findByRole("form", { name: "Edit K1ABC" });
+  fireEvent.change(screen.getByLabelText("Callsign", { selector: ".contest-qso-editor input" }), { target: { value: "DL1AAA" } });
+  const save = screen.getByRole("button", { name: "Save correction" }); fireEvent.click(save); fireEvent.click(save);
+  await waitFor(() => expect(delayed.calls.filter(([method]) => method === "contest_qso_correct")).toHaveLength(1)); await act(async () => gate.resolve()); await screen.findByText(/Saved DL1AAA/);
+
+  cleanup(); const rejected = fixture({ qsoSession: "session-1", rejectChange: true }); await open(rejected.request);
+  fireEvent.click(await screen.findByRole("button", { name: "Edit K1ABC" })); const call = await screen.findByLabelText("Callsign", { selector: ".contest-qso-editor input" }); fireEvent.change(call, { target: { value: "DL1AAA" } }); fireEvent.click(screen.getByRole("button", { name: "Save correction" }));
+  await screen.findByText("Contact changed elsewhere."); expect((call as HTMLInputElement).value).toBe("DL1AAA"); expect(screen.queryByText("Save status unknown")).toBeNull();
+});
+
+it("requires one named deletion confirmation and refreshes the recalculated log", async () => {
+  const { request, calls } = fixture({ qsoSession: "session-1" }); await open(request); fireEvent.click(await screen.findByRole("button", { name: "Edit K1ABC" })); await screen.findByRole("form", { name: "Edit K1ABC" });
+  fireEvent.click(screen.getByRole("button", { name: "Delete contact" }));
+  expect(screen.getByText("Delete K1ABC?")).toBeTruthy(); expect(screen.getByText(/recalculates score, multiplier, and duplicate credit/)).toBeTruthy(); expect(calls.some(([method]) => method === "contest_qso_delete")).toBe(false);
+  fireEvent.click(screen.getByRole("button", { name: "Confirm deletion" })); await screen.findByText("Deleted K1ABC. Score recalculated."); await screen.findByText("No QSOs in this contest.");
+});
+
+it("refreshes duplicate validation after correction and deletion while preserving the operating draft and serial", async () => {
+  const deleting = fixture({ qsoSession: "session-2" });
+  const deletingDraft = deleting.state.get("session-2")!.draft;
+  deletingDraft.fields = { ...deletingDraft.fields, callsign: "K1ABC" };
+  deletingDraft.dupe = { state: "duplicate", reason: "K1ABC is already worked on 20m." };
+  await openWPX(deleting.request);
+  expect((screen.getByRole("button", { name: "Log QSO" }) as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(await screen.findByRole("button", { name: "Edit K1ABC" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Delete contact" }));
+  fireEvent.click(screen.getByRole("button", { name: "Confirm deletion" }));
+  await screen.findByText("Not worked on this band.");
+  expect((screen.getByRole("textbox", { name: "Contest callsign" }) as HTMLInputElement).value).toBe("K1ABC");
+  expect(screen.getByRole("button", { name: "Serial 7" })).toBeTruthy();
+  expect((screen.getByRole("button", { name: "Log QSO" }) as HTMLButtonElement).disabled).toBe(false);
+
+  cleanup();
+  const correcting = fixture({ qsoSession: "session-2" });
+  const correctingDraft = correcting.state.get("session-2")!.draft;
+  correctingDraft.fields = { ...correctingDraft.fields, callsign: "DL1AAA" };
+  await openWPX(correcting.request);
+  fireEvent.click(await screen.findByRole("button", { name: "Edit K1ABC" }));
+  fireEvent.change(await screen.findByLabelText("Callsign", { selector: ".contest-qso-editor input" }), { target: { value: "DL1AAA" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save correction" }));
+  await screen.findByText("DL1AAA is already worked on 20m.");
+  expect((screen.getByRole("textbox", { name: "Contest callsign" }) as HTMLInputElement).value).toBe("DL1AAA");
+  expect(screen.getByRole("button", { name: "Serial 7" })).toBeTruthy();
+  expect((screen.getByRole("button", { name: "Log QSO" }) as HTMLButtonElement).disabled).toBe(true);
+});
+
+it("keeps operating and editor frequency validation independent and allows deletion", async () => {
+  const current = fixture({ qsoSession: "session-1" }); await open(current.request);
+  const operatingFrequency = screen.getByLabelText("Frequency Hz") as HTMLInputElement;
+  fireEvent.change(operatingFrequency, { target: { value: "abc" } });
+  const log = screen.getByRole("button", { name: "Log QSO" }) as HTMLButtonElement;
+  expect(log.disabled).toBe(true);
+  fireEvent.click(await screen.findByRole("button", { name: "Edit K1ABC" }));
+  await screen.findByRole("form", { name: "Edit K1ABC" });
+  expect(operatingFrequency.value).toBe("abc"); expect(log.disabled).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Cancel contact edit" }));
+  expect(screen.getByText("Frequency must contain digits only.")).toBeTruthy(); expect(log.disabled).toBe(true);
+
+  fireEvent.click(screen.getByRole("button", { name: "Edit K1ABC" }));
+  const editorFrequency = await screen.findByLabelText("Frequency Hz", { selector: ".contest-qso-editor input" }) as HTMLInputElement;
+  fireEvent.change(editorFrequency, { target: { value: "bad" } });
+  expect((screen.getByRole("button", { name: "Save correction" }) as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Delete contact" }));
+  const confirm = screen.getByRole("button", { name: "Confirm deletion" }) as HTMLButtonElement;
+  expect(confirm.disabled).toBe(false); fireEvent.click(confirm);
+  await waitFor(() => expect(current.calls.some(([method]) => method === "contest_qso_delete")).toBe(true));
+  expect((screen.getByLabelText("Frequency Hz") as HTMLInputElement).value).toBe("abc");
+  expect(screen.getByText("Frequency must contain digits only.")).toBeTruthy(); expect(log.disabled).toBe(true);
+});
+
+it("keeps a malformed correction response uncertain with the edit buffer intact", async () => {
+  const { request } = fixture({ qsoSession: "session-1", malformedChange: true }); await open(request); fireEvent.click(await screen.findByRole("button", { name: "Edit K1ABC" })); const call = await screen.findByLabelText("Callsign", { selector: ".contest-qso-editor input" }); fireEvent.change(call, { target: { value: "DL1AAA" } }); fireEvent.click(screen.getByRole("button", { name: "Save correction" }));
+  await screen.findByText("Save status unknown"); expect((call as HTMLInputElement).value).toBe("DL1AAA");
+});
+
+it("recovers an uncertain correction after remount by receipt or exact retry", async () => {
+  for (const receiptCommitted of [true, false]) {
+    const storage = new MemoryContestRecoveryStorage(), current = fixture({ qsoSession: "session-1", loseChange: true, receiptCommitted }); const view = await open(current.request, storage);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit K1ABC" })); fireEvent.change(await screen.findByLabelText("Callsign", { selector: ".contest-qso-editor input" }), { target: { value: "DL1AAA" } }); fireEvent.click(screen.getByRole("button", { name: "Save correction" })); await screen.findByText("Save status unknown");
+    const original = current.calls.find(([method]) => method === "contest_qso_correct")![1]; view.unmount();
+    const restartedRequest = ((method, params) => current.request(method, params)) as ContestRequest;
+    render(<ContestWorkspace request={restartedRequest} createRequestID={ids()} digestPayload={digest} recoveryStorage={storage}/>); await screen.findByText("Save status unknown");
+    fireEvent.click(screen.getByRole("button", { name: receiptCommitted ? "Check save status" : "Retry same save" }));
+    if (receiptCommitted) await screen.findByText("Saved. Contest totals refreshed.");
+    else { await screen.findByText("Saved."); expect(current.calls.filter(([method]) => method === "contest_qso_correct")[1][1]).toEqual(original); }
+    cleanup();
+  }
 });

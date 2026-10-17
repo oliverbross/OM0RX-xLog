@@ -182,7 +182,8 @@ final class ContestingLaneTests: XCTestCase {
             ])
             XCTFail("Expected generation-fenced read")
         } catch let error as ContestLaneError { XCTAssertEqual(error.code, "stale_workspace") }
-        full["callsign"] = "K2ABC"
+        full.removeValue(forKey: "entity")
+        full["callsign"] = "DL1AAA"
         full["receivedReport"] = "579"
         full["receivedExchange"] = "2"
         full["normalizedReceivedExchange"] = "2"
@@ -193,7 +194,9 @@ final class ContestingLaneTests: XCTestCase {
         let corrected = try await lane.handle(method: "contest_qso_correct", params: correctionParams)
         XCTAssertEqual(corrected["operation"] as? String, "correction")
         XCTAssertEqual((corrected["qsoCount"] as? NSNumber)?.intValue, 1)
-        XCTAssertEqual((corrected["currentTarget"] as? [String: Any])?["callsign"] as? String, "K2ABC")
+        XCTAssertEqual((corrected["currentTarget"] as? [String: Any])?["callsign"] as? String, "DL1AAA")
+        XCTAssertEqual(((corrected["currentTarget"] as? [String: Any])?["entity"] as? [String: Any])?["countryPrefix"] as? String, "DL")
+        XCTAssertEqual(((corrected["score"] as? [String: Any])?["claimedScore"] as? NSNumber)?.intValue, 1)
         XCTAssertEqual(((corrected["session"] as? [String: Any])?["revision"] as? NSNumber)?.intValue, revision + 1)
 
         var changedTimestamp = correctionParams
@@ -212,6 +215,21 @@ final class ContestingLaneTests: XCTestCase {
         immutablePayload["qso"] = immutableQSO; immutable["payload"] = immutablePayload
         do { _ = try await lane.handle(method: "contest_qso_correct", params: immutable); XCTFail("Expected immutable identity rejection") }
         catch let error as ContestLaneError { XCTAssertEqual(error.code, "immutable_qso") }
+        var callerEntity = correctionParams
+        callerEntity["requestID"] = wireID(UUID()); callerEntity["expectedRevision"] = revision + 1
+        var callerEntityPayload = try XCTUnwrap(callerEntity["payload"] as? [String: Any])
+        var callerEntityQSO = try XCTUnwrap(callerEntityPayload["qso"] as? [String: Any])
+        callerEntityQSO["entity"] = ["adif": 291, "name": "UNITED STATES", "countryPrefix": "K", "continent": "NA", "cqZone": 5]
+        callerEntityPayload["qso"] = callerEntityQSO; callerEntity["payload"] = callerEntityPayload
+        do { _ = try await lane.handle(method: "contest_qso_correct", params: callerEntity); XCTFail("Expected caller entity rejection") }
+        catch let error as ContestLaneError { XCTAssertEqual(error.code, "invalid_params") }
+        var unresolved = correctionParams
+        unresolved["requestID"] = wireID(UUID()); unresolved["expectedRevision"] = revision + 1
+        var unresolvedPayload = try XCTUnwrap(unresolved["payload"] as? [String: Any])
+        var unresolvedQSO = try XCTUnwrap(unresolvedPayload["qso"] as? [String: Any])
+        unresolvedQSO["callsign"] = "Q0ABC"; unresolvedPayload["qso"] = unresolvedQSO; unresolved["payload"] = unresolvedPayload
+        do { _ = try await lane.handle(method: "contest_qso_correct", params: unresolved); XCTFail("Expected unresolved callsign rejection") }
+        catch let error as ContestLaneError { XCTAssertEqual(error.code, "reference_mismatch") }
         var malformed = correctionParams
         malformed["requestID"] = wireID(UUID())
         malformed["expectedRevision"] = revision + 1
@@ -275,6 +293,7 @@ final class ContestingLaneTests: XCTestCase {
                                                                     revision: firstRevision, callsign: "K1ABC", minute: 31)
         let firstRead = try await qsoGet(stable, sessionID: sessionID, qsoID: firstID, revision: secondRevision)
         var first = try XCTUnwrap(firstRead["qso"] as? [String: Any])
+        first.removeValue(forKey: "entity")
         first["callsign"] = "K2ABC"
         let correctionID = UUID()
         let params = mutation(sessionID: sessionID, requestID: correctionID, revision: secondRevision,
@@ -524,7 +543,8 @@ final class ContestingLaneTests: XCTestCase {
             "expectedRevision": 4, "qsoID": qsoID]
         let got = try await workerRequest(worker, method: "contest_qso_get", params: getParams)
         var correctedQSO = try XCTUnwrap((got["result"] as? [String: Any])?["qso"] as? [String: Any])
-        correctedQSO["callsign"] = "K2ABC"
+        correctedQSO.removeValue(forKey: "entity")
+        correctedQSO["callsign"] = "DL1AAA"
         correctedQSO["receivedReport"] = "579"
         correctedQSO["receivedExchange"] = "2"
         correctedQSO["normalizedReceivedExchange"] = "2"

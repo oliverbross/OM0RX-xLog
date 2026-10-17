@@ -1,7 +1,8 @@
 export type ContestMethod =
   | "contest_catalog" | "contest_sessions" | "contest_create" | "contest_open"
   | "contest_draft_get" | "contest_draft_apply" | "contest_serial_reserve"
-  | "contest_qso_commit" | "contest_operation_receipt" | "contest_log_page" | "contest_score";
+  | "contest_qso_commit" | "contest_qso_get" | "contest_qso_correct" | "contest_qso_delete"
+  | "contest_operation_receipt" | "contest_log_page" | "contest_score";
 
 export type ContestWorkerError = { code?: string; message?: string; outcome?: "confirmed" | "uncertain" };
 export type ContestWorkerResponse<T> = { id: string; ok: true; result: T } | { id: string; ok: false; error: ContestWorkerError };
@@ -33,6 +34,23 @@ export type ContestQSO = {
   qsoID: string; sessionID: string; workedAt: string; callsign: string; band: string; mode: "CW";
   sentExchange: string; receivedExchange: string; points: number; multiplier: string | null; isDupe: boolean;
 };
+export type ContestEntity = { adif: number; name: string; countryPrefix: string; continent: string; cqZone: number };
+export type ContestQSOProvenance = {
+  source: "operatorEntry" | "importFile" | "digitalReceiver" | "networkPeer";
+  sourceIdentity: string | null; importedClaimedScore: number | null;
+};
+export type ContestFullQSO = {
+  qsoID: string; sessionID: string; originalUTC: string; callsign: string; band: string; mode: "CW";
+  frequencyHz: number; sentReport: string; receivedReport: string;
+  sentExchange: string; normalizedSentExchange: string; allocatedSerial: string;
+  receivedExchange: string; normalizedReceivedExchange: string; entity: ContestEntity | null;
+  operatorCallsign: string; stationLocation: string; provenance: ContestQSOProvenance;
+  ruleIdentity: ContestRuleIdentity; referenceDataVersion: string;
+};
+export type ContestQSOReadResult = {
+  sessionID: string; workspaceGeneration: string; revision: number; qso: ContestFullQSO;
+};
+export type ContestQSOCorrection = Omit<ContestFullQSO, "entity">;
 export type ContestScore = {
   sessionID: string; workspaceGeneration: string; revision: number; qsos: number; points: number;
   multipliers: number; claimedScore: number; multiplierLabels: string[]; sourceVerification: SourceVerificationStatus;
@@ -47,6 +65,16 @@ export type ContestOpenResult = { session: ContestSessionSummary; draft: Contest
 export type ContestDraftResult = ContestOpenResult & { receipt: ContestMutationReceipt };
 export type ContestCommitResult = ContestDraftResult & { qso: ContestQSO; score: ContestScoreSummary };
 export type ContestCreateResult = ContestDraftResult;
+export type ContestChangeSession = {
+  sessionID: string; workspaceGeneration: string; revision: number; name: string;
+  ruleIdentity: ContestRuleIdentity; referenceDataVersion: string; qsoCount: number; updatedAt: string;
+};
+export type ContestAuditReference = { sessionID: string; qsoID: string; requestID: string; revision: number };
+export type ContestQSOChangeResult = {
+  session: ContestChangeSession; operation: "correction" | "deletion"; qsoID: string; qsoCount: number;
+  score: ContestScoreSummary; currentTarget: ContestFullQSO | null;
+  auditReference: ContestAuditReference; receipt: ContestMutationReceipt;
+};
 export type ContestOperationReceiptResult = { status: "committed"; receipt: ContestMutationReceipt } | { status: "not_found" };
 export type ContestLogPage = {
   sessionID: string; workspaceGeneration: string; revision: number; qsos: ContestQSO[];

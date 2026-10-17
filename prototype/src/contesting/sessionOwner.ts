@@ -1,5 +1,5 @@
 import { ContestClient, validateDraftFields, type ContestMutation, type ContestOperationState } from "./client";
-import type { ContestDraftFields, ContestDraftResult, ContestDraftSnapshot, ContestRequest, ContestSessionSummary } from "./types";
+import type { ContestDraftFields, ContestDraftResult, ContestDraftSnapshot, ContestQSOChangeResult, ContestRequest, ContestSessionSummary } from "./types";
 
 export type ContestRecoveryStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 export type ContestOwnerLease = { id: number };
@@ -10,7 +10,7 @@ const sharedOwners = new WeakMap<ContestRequest, ContestSessionOwner>();
 
 function draftKey(sessionID: string, generation: string) { return `${generation}/${sessionID}`; }
 function operationValid(operation: ContestMutation) {
-  const scope = operation?.scope, methods = ["contest_create", "contest_draft_apply", "contest_serial_reserve", "contest_qso_commit"];
+  const scope = operation?.scope, methods = ["contest_create", "contest_draft_apply", "contest_serial_reserve", "contest_qso_commit", "contest_qso_correct", "contest_qso_delete"];
   return methods.includes(operation?.method) && !!scope && typeof scope.sessionID === "string" && scope.sessionID.length <= 128 &&
     typeof scope.workspaceGeneration === "string" && scope.workspaceGeneration.length <= 128 && typeof scope.requestID === "string" && scope.requestID.length <= 128 &&
     typeof scope.payloadDigest === "string" && scope.payloadDigest.length <= 512 && typeof scope.operationTimestamp === "string" && Number.isFinite(Date.parse(scope.operationTimestamp)) && new Date(scope.operationTimestamp).toISOString() === scope.operationTimestamp &&
@@ -144,6 +144,16 @@ export class ContestSessionOwner {
     const oldKey = draftKey(this.sessionValue.sessionID, this.sessionValue.workspaceGeneration);
     this.sessionValue = result.session; this.draftValue = result.draft; this.editVersion = 0; this.savedVersion = 0;
     delete this.recovery.drafts[oldKey]; this.persist(); this.emit(); return true;
+  }
+  applyChange(result: ContestQSOChangeResult, lease: ContestOwnerLease, admission: number) {
+    const current = this.sessionValue, draft = this.draftValue, next = result.session;
+    if (!this.accepts(lease, admission) || !current || !draft || !this.contextMatches(next.sessionID, next.workspaceGeneration) ||
+        next.referenceDataVersion !== current.referenceDataVersion || next.ruleIdentity.id !== current.rule.identity.id ||
+        next.ruleIdentity.version !== current.rule.identity.version || next.ruleIdentity.edition !== current.rule.identity.edition ||
+        next.ruleIdentity.sourceRevision !== current.rule.identity.sourceRevision) return false;
+    this.sessionValue = { ...current, revision: next.revision, qsoCount: next.qsoCount, updatedAt: next.updatedAt };
+    this.draftValue = { ...draft, revision: next.revision };
+    this.emit(); return true;
   }
 }
 
