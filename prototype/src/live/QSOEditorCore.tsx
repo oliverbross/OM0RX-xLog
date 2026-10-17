@@ -11,6 +11,7 @@ import { QSOExtraFields } from "./QSOExtraFields";
 import { qsoBands as bands, qsoFieldGroups as groups, qsoModes as modes, type QSOField as Field } from "./qsoFields";
 import { useQSOFieldPreferences } from "./useQSOFieldPreferences";
 import type { QSOCanvasPanel } from "./QSOEditorCanvas";
+import { useDuplicateContact } from "./useDuplicateContact";
 
 type Data = Record<string, any>;
 export function safeProfileURL(value: unknown): string | null {
@@ -214,6 +215,7 @@ export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draf
   useEffect(() => { setFailedImage(null); setViewedImage(null); }, [profileImage, draft?.call]);
   const matchingPrevious = useMemo(() => previous.filter((item) => call(item.call) === call(draft?.call)).slice(0, 6), [previous, draft?.call]);
   const matrixCall = call(draft?.call);
+  const duplicateDate = useDuplicateContact(draft, isEditing, request, 0);
   const matrixADIF = sameLookup && Number.isInteger(lookup?.dxcc) && lookup.dxcc > 0 ? lookup.dxcc as number : null;
   useEffect(() => connectLogbookChanges(() => {
     // Revoke in-flight replies synchronously, before React schedules the next
@@ -363,7 +365,7 @@ export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draf
         <h2 id="qso-details-title"><PanelsTopLeft size={15} aria-hidden="true" /> QSO details</h2>
         <div className="qso-detail-columns">
           {generalFields.length > 0 && <section className="qso-detail-column" aria-labelledby="qso-contact-title"><h3 id="qso-contact-title"><UserRound size={13} aria-hidden="true" /> Contact &amp; location</h3><div className="qso-fields">{generalFields.map(field)}</div></section>}
-          {(referenceFields.length > 0 || noteFields.length > 0) && <section className="qso-detail-column" aria-labelledby="qso-reference-title"><h3 id="qso-reference-title"><Star size={13} aria-hidden="true" /> References &amp; notes</h3><div className="qso-fields">{referenceFields.map(field)}<ReferenceEvidenceStatus call={draft.call} evidence={referenceEvidence} />{noteFields.map(field)}</div></section>}
+          {(referenceFields.length > 0 || noteFields.length > 0 || duplicateDate) && <section className="qso-detail-column" aria-labelledby="qso-reference-title"><h3 id="qso-reference-title"><Star size={13} aria-hidden="true" /> References &amp; notes</h3><div className="qso-fields">{referenceFields.map(field)}<ReferenceEvidenceStatus call={draft.call} evidence={referenceEvidence} />{duplicateDate && <span className="qso-dupe-status" role="status" title="Previously worked on this band and mode · UTC date">Dupe: Worked on {duplicateDate}</span>}{noteFields.map(field)}</div></section>}
           {(captured.length > 0 || stationFields.length > 0 || qslFields.length > 0) && <section className="qso-detail-column" aria-labelledby="qso-station-title"><h3 id="qso-station-title"><RadioTower size={13} aria-hidden="true" /> Station &amp; QSL</h3>
             {captured.length > 0 && <div className="qso-captured"><strong>Station context</strong><dl>{captured.map((item, index) => <div key={`${item.label}-${index}`}><dt>{item.label}<small>{item.provenance}</small></dt><dd>{item.value}</dd></div>)}</dl></div>}
             <div className="qso-fields">{stationFields.map(field)}{qslFields.map(field)}</div>
@@ -379,7 +381,7 @@ export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draf
   const matrixPanel = <section className="qso-matrices" aria-labelledby="qso-matrix-title"><h2 id="qso-matrix-title"><Grid3X3 size={15} aria-hidden="true" /> Band / mode matrix</h2><div className="qso-matrix-columns"><div className="qso-matrix-section"><div className="qso-matrix-heading"><h3>Callsign</h3><p title={matrixCall}>{matrixCall || "Callsign unresolved"}</p></div>{!request ? <p>Local matrix is unavailable.</p> : !/^[A-Z0-9/-]{3,32}$/.test(matrixCall) ? <p>Enter a callsign to inspect its local history.</p> : matchingMatrix?.callError ? <p>{matchingMatrix.callError}</p> : matchingMatrix?.callCells ? <StatusMatrix scope="Callsign" cells={matchingMatrix.callCells} /> : <p>Checking local call history…</p>}</div><div className="qso-matrix-section"><div className="qso-matrix-heading"><h3>Country</h3><p title={matrixADIF === null ? "DXCC entity unresolved" : `${displayCountry || "Country unresolved"} · DXCC ${matrixADIF}`}>{matrixADIF === null ? "DXCC entity unresolved" : `${displayCountry || "Country unresolved"} · DXCC ${matrixADIF}`}</p></div>{matrixADIF === null ? <p>Country status needs a resolved DXCC entity.</p> : !request ? <p>Country matrix is unavailable.</p> : matchingMatrix?.countryError ? <p>{matchingMatrix.countryError}</p> : matchingMatrix?.countryCells ? <StatusMatrix scope="Country" cells={matchingMatrix.countryCells} /> : <p>Checking local contacts for this DXCC entity…</p>}</div></div></section>;
   const intelligencePanel = <aside className="qso-context-panel" aria-label="Contact context"><h2 id="qso-intelligence-title"><ContactRound size={15} aria-hidden="true" /> Callsign intelligence</h2>
         <div className="qso-profile-summary">{profileImage && failedImage !== profileImage && <button ref={photoTrigger} className="qso-photo-trigger" type="button" aria-label={`View full-size QRZ photo for ${matrixCall}`} aria-haspopup="dialog" onClick={() => setViewedImage({ image: profileImage, call: matrixCall })}><img className="qso-profile-photo" src={profileImage} alt={`${matrixCall} QRZ profile photo`} loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={() => setFailedImage(profileImage)} /></button>}
-          <div className="qso-profile-identity"><div className="qso-intelligence"><strong>{profile?.name || matrixCall || "Enter a callsign"}</strong>{profile?.isNewCall === true && <b>NEW CALL</b>}</div><p>{profile ? profile.country || "Country unresolved" : "Enter a callsign to see lookup details."}</p>{profile?.nickname && <p>{profile.nickname}</p>}<span className="qso-profile-source">{profile?.source || "Lookup pending"}</span></div>
+          <div className="qso-profile-identity"><div className="qso-intelligence"><strong>{profile?.name || matrixCall || "Enter a callsign"}</strong>{profile?.isNewCall === true && <b>NEW CALL</b>}</div><p>{profile ? profile.country || "Country unresolved" : "Enter a callsign to see lookup details."}</p>{profile?.nickname && <p>{profile.nickname}</p>}<span className="qso-profile-source">{profile?.source || (matrixCall ? "Lookup pending" : "Enter a callsign")}</span></div>
         </div>
         {profile?.location_source && <p className="secondary">Position: {profile.location_source}</p>}
         {profile?.lookup_warning && <p className="qso-profile-mismatch" role="status">{profile.lookup_warning}</p>}

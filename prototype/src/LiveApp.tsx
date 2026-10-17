@@ -99,6 +99,12 @@ type Data = Record<string, any>;
 type Request = (method: string, params?: Data) => Promise<any>;
 
 const callsignLookups = new WeakMap<Request, Map<string, Promise<any>>>();
+function releaseCallsignLookup(request: Request, call: string, lookup: Promise<any>) {
+  const pending = callsignLookups.get(request), key = normalizedCall(call) || call;
+  if (pending?.get(key) !== lookup) return;
+  pending.delete(key);
+  if (!pending.size) callsignLookups.delete(request);
+}
 function ownedCallsignLookup(request: Request, call: string): Promise<any> {
   let pending = callsignLookups.get(request);
   if (!pending) { pending = new Map(); callsignLookups.set(request, pending); }
@@ -119,7 +125,12 @@ function ownedCallsignLookup(request: Request, call: string): Promise<any> {
 export function boundedCallsignLookup(request: Request, call: string, timeoutMs = 5_000): Promise<any> {
   const lookup = ownedCallsignLookup(request, call);
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error("Callsign lookup timed out.")), timeoutMs);
+    const timer = setTimeout(() => {
+      // A worker restart can abandon the transport promise forever. Retire that
+      // ownership so the existing UI retry can reach the replacement worker.
+      releaseCallsignLookup(request, call, lookup);
+      reject(new Error("Callsign lookup timed out."));
+    }, timeoutMs);
     void lookup.then(
       value => { clearTimeout(timer); resolve(value); },
       cause => { clearTimeout(timer); reject(cause); },

@@ -69,6 +69,23 @@ describe("QSOEditor", () => {
     expect(screen.getByLabelText("Callsign")).toBeTruthy();
     expect(screen.getByLabelText("Frequency MHz")).toBeTruthy();
   });
+  it("does not label an empty callsign as a pending lookup", () => {
+    render(<Harness />);
+    fireEvent.change(screen.getByLabelText("Callsign"), { target: { value: "" } });
+    expect(screen.queryByText("Lookup pending")).toBeNull();
+    expect(screen.getAllByText("Enter a callsign").length).toBeGreaterThan(0);
+  });
+  it("shows the duplicate advisory below the reference fields instead of in the panel header", async () => {
+    const request = vi.fn(async (method: string) => method === "logbook_duplicate"
+      ? { call: "EA7EU", band: "20m", mode: "CW", last_worked_at: "2026-01-02T23:55:00Z" }
+      : method === "logbook_matrix" ? { cells: [] } : {});
+    render(<Harness request={request} />);
+    const warning = await screen.findByText("Dupe: Worked on 02/01/26");
+    const references = screen.getByRole("heading", { name: "References & notes" }).parentElement!;
+    expect(references.contains(warning)).toBe(true);
+    expect(screen.getByLabelText("POTA").compareDocumentPosition(warning) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Active contact" }).parentElement?.contains(warning)).toBe(false);
+  });
   it("shows matched QRZ details below a full-width safe photo without mutating the QSO draft", () => {
     const profile = { call: "EA7EU", source: "QRZ XML", name: "Operator name", country: "Spain", gridSquare: "IM67AA", dxcc: 281,
       imageURL: "https://cdn-bio.qrz.com/e/ea7eu/photo.jpg", nickname: "On-air nickname", websiteURL: "https://station.example.com/", qslManager: "EA1AAA", iota: "EU-005", licenseClass: "Full", qth: "Seville", state: "Andalusia", county: "Seville", email: "radio@example.com" };

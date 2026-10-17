@@ -61,7 +61,7 @@ it("settles a stalled callsign lookup instead of leaving intelligence pending", 
   }
 });
 
-it("does not duplicate a timed-out callsign request and permits retry only after it settles", async () => {
+it("single-flights callsign lookup until timeout, then lets a restarted worker retry", async () => {
   vi.useFakeTimers();
   try {
     let settle!: (value: unknown) => void;
@@ -69,14 +69,18 @@ it("does not duplicate a timed-out callsign request and permits retry only after
       ? new Promise(resolve => { settle = resolve; })
       : Promise.resolve({ call: "K1ABC", source: "Recovered lookup" }));
     const first = expect(boundedCallsignLookup(request, "K1ABC", 100)).rejects.toThrow("Callsign lookup timed out");
-    await vi.advanceTimersByTimeAsync(100); await first;
-    const reused = boundedCallsignLookup(request, "k1abc", 100);
+    const joined = expect(boundedCallsignLookup(request, "k1abc", 100)).rejects.toThrow("Callsign lookup timed out");
     await vi.advanceTimersByTimeAsync(0);
     expect(request).toHaveBeenCalledTimes(1);
-    settle({ call: "K1ABC", source: "Late first lookup" });
-    await expect(reused).resolves.toMatchObject({ source: "Late first lookup" });
-    await expect(boundedCallsignLookup(request, "K1ABC", 100)).resolves.toMatchObject({ source: "Recovered lookup" });
+    await vi.advanceTimersByTimeAsync(100); await first; await joined;
+    const recovered = boundedCallsignLookup(request, "k1abc", 100);
+    await vi.advanceTimersByTimeAsync(0);
     expect(request).toHaveBeenCalledTimes(2);
+    await expect(recovered).resolves.toMatchObject({ source: "Recovered lookup" });
+    settle({ call: "K1ABC", source: "Late first lookup" });
+    await vi.advanceTimersByTimeAsync(0);
+    await expect(boundedCallsignLookup(request, "K1ABC", 100)).resolves.toMatchObject({ source: "Recovered lookup" });
+    expect(request).toHaveBeenCalledTimes(3);
   } finally {
     vi.useRealTimers();
   }
