@@ -56,6 +56,31 @@ public struct SecretStore: Sendable {
         return text
     }
 
+    /// Reports whether an item exists without requesting its protected value.
+    /// Status surfaces use this so merely opening Settings cannot trigger an
+    /// authorization dialog for a legacy ACL.
+    public func contains(_ account: Account) throws -> Bool {
+        var query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: serviceName,
+            kSecAttrAccount as String: account.rawValue,
+            kSecReturnAttributes as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+        ]
+        if #available(macOS 11.0, *) {
+            let context = LAContext()
+            context.interactionNotAllowed = true
+            query[kSecUseAuthenticationContext as String] = context
+        } else {
+            query[kSecUseAuthenticationUI as String] = kSecUseAuthenticationUIFail
+        }
+        var item: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &item)
+        if status == errSecSuccess || status == errSecInteractionNotAllowed { return true }
+        if status == errSecItemNotFound { return false }
+        throw SecretStoreError.keychain(status)
+    }
+
     public func save(_ value: String, for account: Account) throws {
         let identity: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,

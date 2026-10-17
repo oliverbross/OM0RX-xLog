@@ -16,12 +16,24 @@ struct WorkspaceCredentialStore {
         case ftpBackupPassword = "ftp-backup-password"
     }
     let service: String
-    func load(_ account: Account, allowInteraction: Bool = true) throws -> String? {
+    /// Worker reads are non-interactive by default. Only an explicitly
+    /// user-started operation may opt into a Keychain authorization dialog.
+    func load(_ account: Account) throws -> String? {
+        try load(account, allowInteraction: false)
+    }
+    func load(_ account: Account, allowInteraction: Bool) throws -> String? {
         #if os(macOS)
         return try SecretStore(service: service).load(SecretStore.Account(rawValue: account.rawValue)!,
                                                       allowInteraction: allowInteraction)
         #else
         return try NativeCredentialStore(service: service).load(account.rawValue)
+        #endif
+    }
+    func contains(_ account: Account) throws -> Bool {
+        #if os(macOS)
+        return try SecretStore(service: service).contains(SecretStore.Account(rawValue: account.rawValue)!)
+        #else
+        return try load(account) != nil
         #endif
     }
     func save(_ value: String, for account: Account) throws {

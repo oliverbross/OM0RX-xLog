@@ -38,7 +38,30 @@ final class ClusterClassificationTests: XCTestCase {
         XCTAssertEqual(result.dxccStatus, "Confirmed")
         for alias in ["USB", "LSB", "PH", "PHONE", "SSB"] {
             XCTAssertEqual(SpotLogic.normalizedMode(alias), "SSB")
+            XCTAssertEqual(SpotLogic.classificationMode(alias), "PHONE")
         }
+    }
+
+    func testWavelogQRGModeParityForClusterStatus() {
+        let index = ClusterClassificationIndex(records: [
+            ClusterContact(callsign: "K1DIGI", band: "20m", mode: "FT8", adif: 291, lotwQSL: "Y"),
+            ClusterContact(callsign: "K1PHONE", band: "40m", mode: "LSB", adif: 291),
+        ])
+
+        for digitalMode in ["FT4", "FT2", "RTTY", "PSK", "DIGI", "MFSK"] {
+            let status = index.classify(call: "K1DIGI", band: "20m", mode: digitalMode, adif: 291)
+            XCTAssertEqual(status.callStatus, "Confirmed", digitalMode)
+            XCTAssertEqual(status.dxccStatus, "Confirmed", digitalMode)
+            XCTAssertEqual(SpotLogic.classificationMode(digitalMode), "DIGI")
+        }
+        for phoneMode in ["SSB", "USB", "PHONE", "AM", "FM"] {
+            let status = index.classify(call: "K1PHONE", band: "40m", mode: phoneMode, adif: 291)
+            XCTAssertEqual(status.callStatus, "Worked", phoneMode)
+            XCTAssertEqual(status.dxccStatus, "Worked", phoneMode)
+            XCTAssertEqual(SpotLogic.classificationMode(phoneMode), "PHONE")
+        }
+        XCTAssertEqual(index.classify(call: "K1DIGI", band: "20m", mode: "CW", adif: 291).callStatus, "New Callsign")
+        XCTAssertEqual(index.classify(call: "K1PHONE", band: "40m", mode: "CW", adif: 291).callStatus, "New Callsign")
     }
 
     func testNewCallAtnoAndUnknownEntityAreIndependent() {

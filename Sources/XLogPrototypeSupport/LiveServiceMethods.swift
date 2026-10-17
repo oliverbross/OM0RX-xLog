@@ -134,7 +134,7 @@ actor LiveServiceMethods {
             for account in [WorkspaceCredentialStore.Account.wavelogToken, .qrzPassword,
                             .qrzLogbookKey, .clubLogAPIKey, .clubLogEmail,
                             .clubLogApplicationPassword, .clubLogCallsign, .ftpBackupPassword] {
-                values[account.rawValue] = !(try secrets.load(account) ?? "").isEmpty
+                values[account.rawValue] = try secrets.contains(account)
             }
             return values
         case "lookup_call":
@@ -265,7 +265,7 @@ actor LiveServiceMethods {
                 throw WorkerFailure("sync_mode_local", "Choose Wavelog mode in Settings before enabling synchronization.")
             }
             if enabled.boolValue && operation == nil {
-                guard !(try workspaceSecrets().load(.wavelogToken) ?? "").isEmpty else {
+                guard !(try workspaceSecrets().load(.wavelogToken, allowInteraction: true) ?? "").isEmpty else {
                     throw WorkerFailure("sync_configuration_required", "Save the Wavelog token before enabling automatic synchronization.")
                 }
             }

@@ -31,7 +31,7 @@ public struct ClusterClassificationIndex: Sendable {
         for var record in ordered {
             record.callsign = record.callsign.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
             record.band = record.band.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            record.mode = SpotLogic.normalizedMode(record.mode)
+            record.mode = SpotLogic.classificationMode(record.mode)
             let call = record.callsign
             byCall[call, default: []].append(record)
             let callKey = Combination(identity: call, band: record.band, mode: record.mode)
@@ -56,7 +56,7 @@ public struct ClusterClassificationIndex: Sendable {
     public func classify(call: String, band: String, mode: String, adif: Int?) -> ClusterClassification {
         let normalizedCall = call.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         let normalizedBand = band.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let normalizedMode = SpotLogic.normalizedMode(mode)
+        let normalizedMode = SpotLogic.classificationMode(mode)
         let histories = recordsByCall[normalizedCall] ?? []
         let bandModeKey = Combination(identity: normalizedCall, band: normalizedBand, mode: normalizedMode)
         let callStatus = SpotLogic.callStatus(
@@ -76,7 +76,7 @@ public struct ClusterClassificationIndex: Sendable {
 
     static func workedBeforeDate(records: [ClusterContact], band: String, mode: String) -> Date? {
         let normalizedBand = band.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let normalizedMode = SpotLogic.normalizedMode(mode)
+        let normalizedMode = SpotLogic.classificationMode(mode)
         return records.first(where: { $0.band == normalizedBand && $0.mode == normalizedMode })?.date
             ?? records.first(where: { $0.band == normalizedBand })?.date
     }

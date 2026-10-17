@@ -47,6 +47,15 @@ public enum SpotLogic {
         return ["USB", "LSB", "PHONE", "PH"].contains(value) ? "SSB" : value
     }
 
+    /// Wavelog reduces ADIF modes to its three DX-cluster QRG categories
+    /// before checking worked/confirmed band-mode status.
+    public static func classificationMode(_ mode: String) -> String {
+        let value = normalizedMode(mode)
+        if value == "CW" { return "CW" }
+        if ["SSB", "AM", "FM"].contains(value) { return "PHONE" }
+        return "DIGI"
+    }
+
     public static func source(spotter: String, comment: String) -> String {
         let spotterText = spotter.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         let text = comment.uppercased()
@@ -80,8 +89,7 @@ public enum SpotLogic {
     }
 
     /// Wavelog classifies both callsigns and DXCC entities against the exact
-    /// band + mode slot of the spot. A contact on another band or in another
-    /// mode therefore remains new for this slot.
+    /// band + QRG-mode slot of the spot. QRG modes are phone, CW and digital.
     public static func callStatus(workedBandMode: Bool, confirmedBandMode: Bool) -> String {
         if confirmedBandMode { return "Confirmed" }
         return workedBandMode ? "Worked" : "New Callsign"
