@@ -1,0 +1,12 @@
+[
+  {"callsign": "K1ABC", "prefix": "K1"},
+  {"callsign": "K1ABC/P", "prefix": "K1"},
+  {"callsign": "OM/K1ABC", "prefix": "OM0"},
+  {"callsign": "K1ABC/4", "prefix": "K4"},
+  {"callsign": "ABCD", "prefix": "AB0"},
+  {"callsign": "OPON", "prefix": ""},
+  {"callsign": "K1ABC/P/QRP", "prefix": "P0"},
+  {"callsign": "3ABC", "prefix": "3A0"},
+  {"callsign": "EA8/K1ABC/P", "prefix": "EA8"},
+  {"callsign": "K1ABC/MM/QRP", "prefix": "MM0"}
+]
