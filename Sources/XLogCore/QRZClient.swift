@@ -47,6 +47,7 @@ public enum QRZClientError: Error, LocalizedError {
 }
 
 public actor QRZClient {
+    private static let requestTimeout: TimeInterval = 12
     private let username: String
     private let password: String
     private let session: URLSession
@@ -63,13 +64,9 @@ public actor QRZClient {
         for attempt in 0..<2 {
             if sessionKey == nil { try await authenticate() }
             guard let sessionKey else { throw QRZClientError.missingSession }
-            var components = URLComponents(string: "https://xmldata.qrz.com/xml/current/")!
-            components.queryItems = [
-                URLQueryItem(name: "s", value: sessionKey),
-                URLQueryItem(name: "callsign", value: call.uppercased()),
-            ]
+            let request = Self.lookupRequest(sessionKey: sessionKey, call: call)
             let data: Data, response: URLResponse
-            do { (data, response) = try await session.data(from: components.url!) }
+            do { (data, response) = try await session.data(for: request) }
             catch { throw Self.safeTransportError(error) }
             guard (response as? HTTPURLResponse)?.statusCode == 200 else {
                 throw QRZClientError.rejected("HTTP request rejected")
@@ -160,14 +157,9 @@ public actor QRZClient {
         }
         let username = username, password = password, session = session
         let task = Task<String, Error> {
-            var components = URLComponents(string: "https://xmldata.qrz.com/xml/current/")!
-            components.queryItems = [
-                URLQueryItem(name: "username", value: username),
-                URLQueryItem(name: "password", value: password),
-                URLQueryItem(name: "agent", value: "OM0RX-xLog-0.4"),
-            ]
+            let request = Self.authenticationRequest(username: username, password: password)
             let data: Data, response: URLResponse
-            do { (data, response) = try await session.data(from: components.url!) }
+            do { (data, response) = try await session.data(for: request) }
             catch { throw Self.safeTransportError(error) }
             guard (response as? HTTPURLResponse)?.statusCode == 200 else {
                 throw QRZClientError.rejected("HTTP request rejected")
@@ -185,6 +177,32 @@ public actor QRZClient {
             authenticationTask = nil
             throw error
         }
+    }
+
+    static func lookupRequest(sessionKey: String, call: String) -> URLRequest {
+        var components = URLComponents(string: "https://xmldata.qrz.com/xml/current/")!
+        components.queryItems = [
+            URLQueryItem(name: "s", value: sessionKey),
+            URLQueryItem(name: "callsign", value: call.uppercased()),
+        ]
+        var request = URLRequest(url: components.url!)
+        request.timeoutInterval = requestTimeout
+        return request
+    }
+
+    static func authenticationRequest(username: String, password: String) -> URLRequest {
+        var body = URLComponents()
+        body.queryItems = [
+            URLQueryItem(name: "username", value: username),
+            URLQueryItem(name: "password", value: password),
+            URLQueryItem(name: "agent", value: "OM0RX-xLog-0.4"),
+        ]
+        var request = URLRequest(url: URL(string: "https://xmldata.qrz.com/xml/current/")!)
+        request.httpMethod = "POST"
+        request.httpBody = body.percentEncodedQuery?.data(using: .utf8)
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = requestTimeout
+        return request
     }
 }
 

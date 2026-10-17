@@ -218,6 +218,27 @@ struct QRZProfileTests {
             #expect(QRZFixtureURLProtocol.counts() == (failLogin ? [1, 0] : [1, 1]))
         }
     }
+
+    @Test("QRZ requests are bounded and authentication never puts credentials in the URL")
+    func requestsAreBoundedAndAuthenticationUsesPOST() throws {
+        let username = "fixture-user-private"
+        let password = "fixture-password-private"
+        let login = QRZClient.authenticationRequest(username: username, password: password)
+        #expect(login.httpMethod == "POST")
+        #expect(login.url?.query == nil)
+        #expect(login.timeoutInterval == 12)
+        #expect(login.value(forHTTPHeaderField: "Content-Type") == "application/x-www-form-urlencoded")
+        let body = String(data: try #require(login.httpBody), encoding: .utf8) ?? ""
+        #expect(body.contains("username=fixture-user-private"))
+        #expect(body.contains("password=fixture-password-private"))
+
+        let lookup = QRZClient.lookupRequest(sessionKey: "fixture-session", call: "om0aao")
+        #expect(lookup.httpMethod == "GET")
+        #expect(lookup.timeoutInterval == 12)
+        #expect(lookup.url?.query?.contains("callsign=OM0AAO") == true)
+        #expect(lookup.url?.absoluteString.contains(username) == false)
+        #expect(lookup.url?.absoluteString.contains(password) == false)
+    }
 }
 
 private final class QRZFixtureURLProtocol: URLProtocol {
@@ -250,7 +271,7 @@ private final class QRZFixtureURLProtocol: URLProtocol {
 
     override func startLoading() {
         let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
-        let login = query.contains(where: { $0.name == "username" })
+        let login = request.httpMethod == "POST" || query.contains(where: { $0.name == "username" })
         let (body, failure): (String, Bool) = Self.lock.withLock {
             if login {
                 Self.loginCount += 1
