@@ -294,14 +294,31 @@ CY0, and ordinary foreign entities use `DX`. The exporter does not infer any of
 these values from the callsign or on-air exchange.
 
 QSO exchange order is sent call, report, location/power, worked call, report,
-power/location. The formatter preserves the bounded raw exchange, rejects field
-overflow instead of silently losing text, and includes a transmitter identifier
-whenever the chosen category requires it. Category operator, assisted, band,
+power/location. The formatter preserves a validated raw power token when it fits
+the pinned six-character Cabrillo exchange template. For an admitted seven- or
+eight-byte raw power token such as `001500W` or `100WATTS`, it emits the already
+validated canonical numeric value (`1500` or `100`) without truncation; the raw
+token remains unchanged in the stored QSO and ADIF exchange string. It includes a
+transmitter identifier whenever the chosen category requires it. Category operator, assisted, band,
 power, transmitter, station, and overlay values must come from an edition-
 specific profile. Export fixtures must separately prove a continental-US
 station sending `CA` with an `EB` header, a Canadian station whose RAC section
 differs from its provincial exchange, KL7/`AK`, KH6/`PAC`, KP4/`PR`, KP2/`VI`,
 CY9/`DX`, CY0/`DX`, and an ordinary foreign station/`DX`.
+
+The inactive `arrl-dx-cw-preview-1` and `arrl-dx-ssb-preview-1` formatter slice
+supports only the shared `SINGLE-OP`/`ONE` category projection. It therefore
+emits no QSO transmitter identifier. The pinned WWROF header authority describes
+`CATEGORY-STATION` and its allowed values but, unlike `LOCATION` and multioperator
+`CATEGORY-TRANSMITTER`, does not mark it required. The slice omits that header
+because the current frozen export input has no station-category declaration; it
+must not invent `FIXED`. Full station-category selection and every multioperator
+category remain later full-port gates, so this omission does not establish
+sponsor submission readiness. A dedicated ARRL DX QSO projection is necessary
+only to render the already validated bounded raw power abbreviation, or its
+canonical numeric value when the raw token exceeds the six-character template;
+validation, scoring, category projection, ordering, and header rendering continue
+to use the shared export pipeline.
 
 ADIF retains `RST_SENT`, `RST_RCVD`, `STX_STRING`, and `SRX_STRING`. State fields
 are present only on a W/VE side, using the established ARRL mapping for `LB` and

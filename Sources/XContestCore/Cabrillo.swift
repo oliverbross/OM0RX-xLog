@@ -97,13 +97,19 @@ public enum CabrilloExporter {
         do {
             if formatterVersion == ContestExportInput.naqpPreviewFormatterVersion ||
                 formatterVersion == ContestExportInput.arrlRTTYPreviewFormatterVersion ||
-                formatterVersion == ContestExportInput.jidxPreviewFormatterVersion {
+                formatterVersion == ContestExportInput.jidxPreviewFormatterVersion ||
+                formatterVersion == ContestExportInput.arrlDXCWPreviewFormatterVersion ||
+                formatterVersion == ContestExportInput.arrlDXSSBPreviewFormatterVersion {
                 guard rule.metadata.entry.cabrilloFormatterVersion == formatterVersion,
                       rule.metadata.entry.cabrilloProjectionFormatterVersion == formatterVersion else {
                     throw CabrilloExportError.invalidHeader("formatterVersion")
                 }
                 if formatterVersion == ContestExportInput.arrlRTTYPreviewFormatterVersion {
-                    try validateARRLRTTYLocation(header: header, session: session)
+                    try validateARRLCabrilloLocation(header: header, session: session)
+                }
+                if formatterVersion == ContestExportInput.arrlDXCWPreviewFormatterVersion ||
+                    formatterVersion == ContestExportInput.arrlDXSSBPreviewFormatterVersion {
+                    try validateARRLCabrilloLocation(header: header, session: session)
                 }
                 let projection = try ContestSubmissionProjection.make(qsos: qsos, session: session,
                                                                        header: header, rule: rule)
@@ -180,6 +186,10 @@ public enum CabrilloExporter {
         }
         if rule.metadata.entry.cabrilloFormatterVersion == ContestExportInput.jidxPreviewFormatterVersion {
             return try jidxQsoLine(qso, session: session, rule: rule)
+        }
+        if rule.metadata.entry.cabrilloFormatterVersion == ContestExportInput.arrlDXCWPreviewFormatterVersion ||
+            rule.metadata.entry.cabrilloFormatterVersion == ContestExportInput.arrlDXSSBPreviewFormatterVersion {
+            return try arrlDXQsoLine(qso, session: session, rule: rule)
         }
         return try standardQsoLine(qso, session: session, rule: rule)
     }
@@ -273,7 +283,8 @@ public enum CabrilloExporter {
     }
 
     private static func standardQsoLine(_ qso: ContestQSO, session: ContestSessionSnapshot,
-                                        rule: any ContestRule) throws -> String {
+                                        rule: any ContestRule, sentExchange: String? = nil,
+                                        receivedExchange: String? = nil) throws -> String {
         guard qso.sessionID == session.id else { throw CabrilloExportError.invalidQSO(qsoID: qso.id, field: "sessionID") }
         guard session.rule == rule.metadata.identity else { throw CabrilloExportError.invalidQSO(qsoID: qso.id, field: "rule") }
         guard qso.timestampUTC.timeIntervalSinceReferenceDate.isFinite else {
@@ -289,8 +300,9 @@ public enum CabrilloExporter {
             (wholeKHz.isMultiple(of: 2) ? wholeKHz : wholeKHz + 1)
         guard frequency > 0 && frequency <= 99_999 else { throw CabrilloExportError.invalidQSO(qsoID: qso.id, field: "frequencyHz") }
         let mode = rule.metadata.entry.cabrilloQSOType
-        let values = [session.station.callsign, qso.rstSent, qso.exchange.normalizedSent,
-                      qso.callsign, qso.rstReceived, rule.cabrilloReceivedExchange(for: qso)]
+        let values = [session.station.callsign, qso.rstSent, sentExchange ?? qso.exchange.normalizedSent,
+                      qso.callsign, qso.rstReceived,
+                      receivedExchange ?? rule.cabrilloReceivedExchange(for: qso)]
         let limits = [13, 3, 6, 13, 3, 6]
         for (index, value) in values.enumerated() where value.isEmpty || value.count > limits[index] ||
             value.range(of: #"^[A-Z0-9/]+$"#, options: .regularExpression) == nil {
@@ -316,8 +328,41 @@ public enum CabrilloExporter {
         return try standardQsoLine(qso, session: session, rule: rule)
     }
 
-    private static func validateARRLRTTYLocation(header: CabrilloHeader,
-                                                  session: ContestSessionSnapshot) throws {
+    private static func arrlDXQsoLine(_ qso: ContestQSO, session: ContestSessionSnapshot,
+                                      rule: any ContestRule) throws -> String {
+        guard ["ARRL-DX-CW", "ARRL-DX-SSB"].contains(rule.metadata.cabrilloName),
+              [ContestExportInput.arrlDXCWPreviewFormatterVersion,
+               ContestExportInput.arrlDXSSBPreviewFormatterVersion]
+                .contains(rule.metadata.entry.cabrilloFormatterVersion) else {
+            throw CabrilloExportError.invalidQSO(qsoID: qso.id, field: "rule")
+        }
+        let evaluation: ContestRuleEvaluation
+        do { evaluation = try ContestEngine.evaluate(qso, session: session, rule: rule, allowIncomplete: false) }
+        catch { throw CabrilloExportError.invalidQSO(qsoID: qso.id, field: "qso") }
+        if let issue = evaluation.validation.first(where: { $0.severity == .error }) {
+            throw CabrilloExportError.invalidQSO(qsoID: qso.id, field: issue.field)
+        }
+        let sent = try arrlDXCabrilloExchange(raw: qso.exchange.rawSent,
+                                               fields: qso.exchange.sentFields, qsoID: qso.id)
+        let received = try arrlDXCabrilloExchange(raw: qso.exchange.rawReceived,
+                                                   fields: qso.exchange.receivedFields, qsoID: qso.id)
+        return try standardQsoLine(qso, session: session, rule: rule,
+                                   sentExchange: sent, receivedExchange: received)
+    }
+
+    private static func arrlDXCabrilloExchange(raw: String,
+                                                fields: [String: ContestExchangeFieldValue],
+                                                qsoID: UUID) throws -> String {
+        guard raw.count > 6 else { return raw }
+        guard let power = fields["power"], power.raw == raw, !power.normalized.isEmpty,
+              power.normalized.count <= 6 else {
+            throw CabrilloExportError.invalidQSO(qsoID: qsoID, field: "exchange")
+        }
+        return power.normalized
+    }
+
+    private static func validateARRLCabrilloLocation(header: CabrilloHeader,
+                                                      session: ContestSessionSnapshot) throws {
         let value = header.location
         guard value == session.station.location else {
             throw CabrilloExportError.invalidHeader("location")
