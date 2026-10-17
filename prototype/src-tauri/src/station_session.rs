@@ -410,9 +410,9 @@ impl Session {
         Ok(json!(&state.receipts[index]))
     }
     /// Only native application startup may restore the saved Agent connection.
-    /// Journal a fresh connection with station controls available. Reconcile a
-    /// prior uncertain connect with a new identity, but never override an
-    /// explicit disconnect or credential removal.
+    /// Journal a fresh connection while preserving the last admitted transmit
+    /// authority. Reconcile a prior uncertain connect with a new identity, but
+    /// never override an explicit disconnect or credential removal.
     pub fn resume_saved_agent(
         &self,
         selection: &Value,
@@ -435,16 +435,21 @@ impl Session {
             return Ok(None);
         }
         let state = self.state.lock().map_err(|_| "Station Control state is unavailable.")?;
+        let last_lifecycle = state.receipts.iter().rev().find(|receipt| matches!(
+            receipt.request["action"].as_str(),
+            Some("connect" | "disconnect" | "forget")
+        ));
         if state.base_url.is_empty()
-            || state.receipts.iter().rev().find(|receipt| matches!(receipt.request["action"].as_str(),
-                Some("connect" | "disconnect" | "forget")))
-                .is_some_and(|receipt| receipt.request["action"] != "connect") {
+            || last_lifecycle.is_some_and(|receipt| receipt.request["action"] != "connect") {
             return Ok(None);
         }
+        let allow_transmit = last_lifecycle
+            .and_then(|receipt| receipt.request["allow_transmit"].as_bool())
+            .unwrap_or(false);
         let params = json!({"action":"connect","operation_id":uuid::Uuid::new_v4().to_string(),
             "generation":state.generation,"revision":state.revision,
             "selection_generation":selection["generation"],"selection_id":selection["selection_id"],
-            "allow_transmit":true,"allow_keychain_interaction":false});
+            "allow_transmit":allow_transmit,"allow_keychain_interaction":false});
         drop(state);
         // The existing admission path persists pending before transport, fences
         // concurrent setup edits, and lets Swift load only this endpoint's token.
@@ -990,7 +995,7 @@ mod tests {
             "selection_id":uuid::Uuid::new_v4().to_string()})
     }
     #[test]
-    fn startup_resumes_saved_agent_once_with_controls_enabled_and_no_station_action() {
+    fn startup_without_a_prior_connect_receipt_resumes_receive_only_once() {
         let (directory, session, save) = setup();
         session.apply(&save, passive).unwrap();
         let selection = startup_selection();
@@ -999,7 +1004,7 @@ mod tests {
             assert_eq!(identity, selection["selection_id"].as_str().unwrap());
             assert_eq!(request["method"], "station_connect");
             assert_eq!(request["params"], json!({"provider":"direct_agent",
-                "base_url":"https://station.example:8443","allow_transmit":true,
+                "base_url":"https://station.example:8443","allow_transmit":false,
                 "allow_keychain_interaction":false}));
             assert_eq!(session.receipt(request["id"].as_str().unwrap()).unwrap()["status"], "pending");
             let disk: Value = serde_json::from_slice(&std::fs::read(directory.path().join("session.json")).unwrap()).unwrap();
@@ -1007,8 +1012,32 @@ mod tests {
             Ok(json!({"id":request["id"],"ok":true}))
         }).unwrap().unwrap();
         assert_eq!(receipt["status"], "acknowledged");
-        assert_eq!(receipt["request"]["allow_transmit"], true);
+        assert_eq!(receipt["request"]["allow_transmit"], false);
         assert!(session.resume_saved_agent(&selection, passive).unwrap().is_none());
+    }
+    #[test]
+    fn receive_only_connect_intent_stays_receive_only_at_startup_and_after_worker_replacement() {
+        let (directory, session, save) = setup();
+        session.apply(&save, passive).unwrap();
+        let selection = startup_selection();
+        let command = json!({"action":"connect","operation_id":uuid::Uuid::new_v4().to_string(),
+            "generation":save["generation"],"revision":1,"selection_generation":0,
+            "selection_id":selection["selection_id"],"allow_transmit":false,
+            "allow_keychain_interaction":true});
+        session.apply(&command, |request, _, _| Ok(json!({"id":request["id"],"ok":true}))).unwrap();
+
+        let assert_receive_only_connect = |request: Value, _: u64, _: &str| {
+            assert_eq!(request["method"], "station_connect");
+            assert_eq!(request["params"], json!({"provider":"direct_agent",
+                "base_url":"https://station.example:8443","allow_transmit":false,
+                "allow_keychain_interaction":false}));
+            Ok(json!({"id":request["id"],"ok":true}))
+        };
+        let restored = Session::new(directory.path().join("session.json")).unwrap();
+        assert!(restored.resume_saved_agent(&selection, assert_receive_only_connect).unwrap().is_some());
+
+        let worker = Session::new(directory.path().join("session.json")).unwrap();
+        assert!(worker.resume_saved_agent_after_worker_restart(2, &selection, assert_receive_only_connect).unwrap().is_some());
     }
     #[test]
     fn startup_does_not_connect_unselected_unsaved_or_invalid_radios() {
