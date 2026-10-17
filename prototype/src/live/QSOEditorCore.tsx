@@ -265,7 +265,7 @@ export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draf
     if (numericDrafts.dxcc !== undefined && numericDrafts.dxcc !== "" && (!/^\d+$/.test(numericDrafts.dxcc) || Number(numericDrafts.dxcc) < 1)) errors.push("DXCC must be a positive number.");
   }
   const canSave = !!draft && !busy && errors.length === 0;
-  const submit = (event?: FormEvent) => { event?.preventDefault(); if (!acceptsInput()) return; if (!canSave) { setShowErrors(true); return; } void save(); };
+  const submit = (event?: FormEvent) => { event?.preventDefault(); if (!acceptsInput()) return; if (!canSave) { setShowErrors(true); return; } setShowErrors(false); void save(); };
   const keyDown = (event: KeyboardEvent<HTMLElement>) => {
     if ((event.metaKey || event.ctrlKey) && event.key === "Enter") { event.preventDefault(); submit(); }
     if (event.key === "Escape") { event.preventDefault(); window.setTimeout(() => callRef.current?.focus(), 0); }
@@ -405,7 +405,7 @@ export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draf
         { id: "previous-qsos", title: "Previous QSOs", content: previousPanel },
         { id: "band-mode-matrix", title: "Band / mode matrix", content: matrixPanel },
       ]} /> : <div className="qso-editor-flow">{activePanel}{detailsPanel}{inspector && intelligencePanel}{inspector && previousPanel}{matrixPanel}</div>}
-      {(showErrors || errors.length > 0) && <div className="qso-validation" role="alert">{errors.length ? <ul>{errors.map((issue) => <li key={issue}>{issue}</li>)}</ul> : <span>QSO is ready to save.</span>}</div>}
+      {showErrors && <div className="qso-validation" role="alert">{errors.length ? <ul>{errors.map((issue) => <li key={issue}>{issue}</li>)}</ul> : <span>QSO is ready to save.</span>}</div>}
       <footer className="qso-actions"><div className="qso-footer-context">{followControls && <label><input type="checkbox" checked={follow} onChange={(event) => { if (acceptsInput()) setFollow(event.target.checked); }} />Follow radio</label>}<span>Saved to your local logbook.</span></div><div className="qso-footer-buttons">{contactActions}<button type="button" onClick={() => { if (acceptsInput()) clear(); }} disabled={busy}><CircleX size={13} aria-hidden="true" /> {clearLabel}</button><button className="qso-save" type="submit" disabled={!canSave}><CircleCheck size={13} aria-hidden="true" /> {isEditing ? "Update QSO" : "Log QSO"}</button></div></footer>
     </form></div>
     {viewedImage && viewedImage.image === profileImage && viewedImage.call === matrixCall && failedImage !== profileImage && <QRZPhotoViewer image={viewedImage.image} callsign={viewedImage.call} trigger={photoTrigger} onClose={() => setViewedImage(null)} onError={() => { setFailedImage(viewedImage.image); setViewedImage(null); }} />}
