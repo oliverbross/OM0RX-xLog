@@ -420,3 +420,13 @@ integration has identical Sources, Tests, prototype and workflow contents
 to this reviewed checkpoint; project records are the only additional
 changes. This remains inactive-rule/export source, not NAQP operator or
 submission acceptance.
+
+The combined baseline `6db070e0c49950c8d0fce29d6c1d233640a79ee0` subsequently
+passed all six jobs in
+[run 39059214454](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39059214454).
+Swift jobs are macOS `117473592773`, Linux `117473592701`, Windows
+`117473592693`; native Rust jobs are macOS `117473592853`, Linux
+`117473592686`, Windows `117473592513`. These are verified successful job
+conclusions; no additional per-suite counts are inferred here. The later
+WPX frontend repair has separate 146-test combined UI evidence and does
+not change this backend or native source.

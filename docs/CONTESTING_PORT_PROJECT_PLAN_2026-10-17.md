@@ -1,7 +1,7 @@
 # OM0RX-xLog Contesting — porting and delivery plan
 
 **Date:** 17 October 2026, Australia/Darwin  
-**Status:** APPROVED — fixture-scoped P1/P2 foundation and P3 pilot persistence source accepted; full stage, platform, runtime and sponsor-rule gates remain open
+**Status:** IN PROGRESS — eight catalog rule previews; three additional NAQP core/export previews remain inactive; full 94-entry, feature, operator, package and sponsor-rule gates remain open
 **Product owner:** Oliver Bross, OM0RX  
 **Delivery owner:** this contesting chat, alongside **OM0RX-xLog main**  
 **Source:** [oliverbross/contest-sw](https://github.com/oliverbross/contest-sw), a fork of Not1MM  
@@ -9,13 +9,26 @@
 
 **Provenance refresh (17 October 2026):** this substantive planning draft was preserved from the untracked file in `/Users/oliver/Documents/Projects/OM0RX-xLog` and placed in the canonical checkout at `/Users/oliver/Documents/Projects/OM0RX-xLog-beta3-resume`. Its technical inventory, programme, risks and acceptance criteria are retained. Only stale xLog source/release coordinates and workflow wording were refreshed against the consolidated `main` lineage described below.
 
-**Authorization boundary:** Oliver approved the staged implementation programme on 17 October 2026. The current authorization covers the isolated contesting branch, portable-core/rule spike, test application and directly requested test packaging. It does not authorize production installation/deployment, modification of the pinned contest-sw checkout, or a claim that source-derived rules are current sponsor-approved rules.
+**Authorization boundary:** Oliver approved the staged implementation programme on 17 October 2026 and expanded it on 18 October as recorded below. Work remains isolated from the canonical checkout and user data. The latest repository instruction requires all application packaging and installation from the canonical checkout; worktree acceptance uses ordinary test compilation and an explicit isolated test-profile host. Do not modify the pinned contest-sw checkout or treat source-derived rules as sponsor-approved rules. Integration with the main app follows its explicit runtime acceptance.
 
 **18 October expanded delivery instruction:** Oliver explicitly requested continuous work until the full contest-sw port and all available contests work, with full synthetic operator testing. After the other main chat finishes, integration must use the latest installed, runtime-accepted xLog version and its verified source commit. This supersedes the earlier integration-only planning boundary: integration is authorized after that accepted baseline is known. The operator must explicitly choose **Normal Logging** or **Contesting**, with only one operating module active; switching must preserve each module's draft and durable state while shared station services retain one owner. Oliver permits closing normal logging for this transition and testing. Coordinate the transition with the main chat's completion, and preserve user log data. Every completed logical change, including plan/evidence updates, must be committed and pushed immediately.
 
 Operator acceptance must exercise CW and SSB Run and Search & Pounce, realistic repeated synthetic contacts, duplicates, exchange validation, serial reservations, corrections/deletions, Super Check Partial and other assistance, independent score/multiplier checks, restart/recovery, and Cabrillo/ADIF output. All simulations run in isolated synthetic workspaces with transmission and keying disabled; no hardware transmission proof is inferred. Every one of the 94 audited source entries needs an explicit implementation and acceptance disposition, including digital, VHF and general-purpose entries. A populated catalog or source-derived rule stub is not a working contest. Source compatibility and current sponsor-rule validation remain separate evidence, and incomplete upstream behavior needs an explicit implemented/tested disposition rather than a silent omission. The active goal remains open until the full requested port is complete.
 
-**Current implementation ledger (17 October 2026):** work is isolated at `/Users/oliver/.codex/worktrees/xlog-contesting/OM0RX-xLog` on `codex/contesting-foundation`.
+## Current delivery snapshot — 18 October 2026
+
+| Area | Current evidence and next gate |
+| --- | --- |
+| Integrated source | `codex/contesting-foundation`, reviewed application source at `c32dc2b51a6c41d0229abdae6b49f23c1e551c8b`; all completed commits pushed |
+| Contest coverage | Six source-derived pilots plus two official-corrected SAC previews in the catalog; 86 source entries remain pending operational acceptance in the 94-entry ledger |
+| NAQP CW/SSB/RTTY | Core and versioned exports integrated; all six native jobs passed at export source `5ee75ea` and combined baseline `6db070e`; worker/structured UI implementation is in progress before registration |
+| ARRL RTTY Roundup | Inactive rule and station-resolved serial foundation in progress after Astra architecture review; no catalog or export activation yet |
+| SCP | Import/query/select and current-draft integration reviewed; all six native jobs passed at `89d1b56`; actual native chooser/package operator acceptance remains open |
+| Operator flow | WPX successor-readiness repair `830451d` integrated at `c32dc2b`; 146 combined frontend/navigation tests and build passed. Four-case dirty harness evidence remains preliminary; bounded cleanup and invalid-entry action checks are under repair |
+| Main integration | Main chat reconfirmed installed 1.2.18 / `e741010` is on runtime hold. No canonical edits, package or install from this programme at this checkpoint |
+| Remaining programme | All 94 contest dispositions, F01–F33 parity, explicit exclusive module choice, full operator/export/assistance matrix, migration/network/device integrations, performance and three-OS packaged acceptance remain required |
+
+**Implementation evidence history:** work is isolated at `/Users/oliver/.codex/worktrees/xlog-contesting/OM0RX-xLog` on `codex/contesting-foundation`. The chronological checkpoints below retain historical failures and acceptance boundaries; the snapshot above is the current programme state.
 
 - `71f71b2`: Astra-accepted fixture-scoped Foundation core; 16 focused tests passed in native and portable-only manifests on macOS. This is not three-OS or current sponsor-rule acceptance.
 - `c403ac8`: accepted test-application/runtime isolation boundary; runtime test-package acceptance remains unverified.
