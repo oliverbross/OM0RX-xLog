@@ -74,7 +74,8 @@ import Testing
         defer { clean(logbook, root, workspace) }
         let service = LiveRemoteBackupService(logbook: logbook)
         let commands = await service.nativeCommands(), planned = try plan(logbook)
-        #expect(commands === (await service.nativeCommands()))
+        let currentCommands = await service.nativeCommands()
+        #expect(commands === currentCommands)
         #expect(try await commands.availableAccount(for: planned) == nil)
         let invented = try registration(planned, workspace)
         await #expect(throws: NativeRemoteBackupCommandError.accountUnavailable) {
