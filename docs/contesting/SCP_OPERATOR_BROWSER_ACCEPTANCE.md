@@ -57,3 +57,25 @@ audit of every possible external read or write.
 Passing this gate is not packaged application, native chooser, save-dialog,
 real radio, network, RF, audio, PTT, hardware, provider-authenticity, or sponsor
 submission acceptance.
+
+The first clean committed run at `ad89ca5940854305be71c72216449c272910c51d`
+was preserved as failed evidence under
+`/Users/oliver/.codex/acceptance/contest-scp-operator-clean-ad89ca5`. It exposed
+two distinct issues: repeated authoritative validation messages used their text
+as React keys, and the acceptance driver attempted manager navigation while an
+autosave still disabled the button. The bounded browser and XCTest process
+groups were reaped with no lingering PIDs. The product now gives validation
+rows positional presentation keys, while the driver waits for the same enabled
+state a user must observe before navigation. The driver deadline and the
+zero-console-error assertion remain unchanged.
+
+A fresh dirty-development recovery run used scratch
+`/Users/oliver/.codex/build/contest-scp-operator-repair-dev1` and evidence root
+`/Users/oliver/.codex/acceptance/contest-scp-operator-repair-dev1`. It completed
+115 worker frames, six lifecycle frames, and two in-memory exports. Both forced
+stall probes reaped their owned process groups without lingering PIDs, and the
+sampled protected database metadata was unchanged. The run is repair evidence,
+not a clean committed acceptance: its manifest records the four reviewed dirty
+paths and tracked diff SHA-256
+`6da570a0bf55cbb1b8f6c57e742ea35d44d0fc13ca45e1c0c8d8f3121be67cac`.
+A clean committed rerun remains required after review and commit.

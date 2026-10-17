@@ -126,6 +126,18 @@ async function openWPX(request: ContestRequest, storage = new MemoryContestRecov
   await screen.findByText("WPX May"); fireEvent.click(screen.getByRole("button", { name: /WPX May/ })); await screen.findByRole("form", { name: "CW contest entry" }); return view;
 }
 
+it("renders repeated authoritative validation messages without duplicate React keys", async () => {
+  const { request, state } = fixture();
+  const current = state.get("session-1")!;
+  current.draft.validation = { errors: ["A required exchange field is missing.", "A required exchange field is missing."], warnings: ["A required exchange field is missing."] };
+  const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+  render(<ContestWorkspace request={request} createRequestID={ids()} digestPayload={digest} recoveryStorage={new MemoryContestRecoveryStorage()}/>);
+  fireEvent.click(await screen.findByRole("button", { name: /WW November/ }));
+  expect(await screen.findAllByText("A required exchange field is missing.")).toHaveLength(3);
+  expect(consoleError.mock.calls.some(call => call.some(value => String(value).includes("same key")))).toBe(false);
+  consoleError.mockRestore();
+});
+
 it("offers serial reservation only for WPX and keeps partial calls editable after reserving", async () => {
   const { request, calls } = fixture();
   const view = render(<ContestWorkspace request={request} createRequestID={ids()} digestPayload={digest} recoveryStorage={new MemoryContestRecoveryStorage()}/>);
