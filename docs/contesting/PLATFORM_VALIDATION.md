@@ -258,3 +258,22 @@ export concurrency test with caught error `planned`. Windows job
 `117451451846` passed 52 core and 56 store tests, including those SAC
 suites. This is not an all-green run. The combined foundation already
 contains the reviewed deterministic repair; no new SAC defect is inferred.
+
+## Explicit worker and assistance lifecycle execution
+
+[Run 39052566495](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39052566495)
+at `e51b847aacd05c0bf678fc08b78791d37f770be2` passed all six jobs.
+Actual logs confirm 13 `ContestingLaneTests` and 13
+`ContestAssistanceLaneTests` with zero failures on each runner:
+
+| Platform | Swift job | Worker lifecycle | SCP assistance lifecycle |
+| --- | --- | --- | --- |
+| macOS | `117453940443` | 13 passed | 13 passed |
+| Linux | `117453940362` | 13 passed | 13 passed |
+| Windows | `117453940484` | 13 passed | 13 passed |
+
+The other core/store/export and Rust jobs also succeeded. This is the
+six-rule baseline with the deterministic export repair, before SAC adapter
+integration. It closes native execution coverage for these two previously
+omitted suites; it does not exercise a packaged GUI, real save dialog,
+operator input or station hardware.
