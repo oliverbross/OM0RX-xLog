@@ -6,31 +6,21 @@ import Testing
 
 @Suite("QRZ XML profile projection", .serialized)
 struct QRZProfileTests {
-    private func hold(_ logbook: LiveLogbookMethods, acquired: DispatchSemaphore, release: DispatchSemaphore) {
-        logbook.withSyncOwnerLock {
-            acquired.signal()
-            release.wait()
-        }
-    }
-
-    private func waitForSignal(_ signal: DispatchSemaphore) -> Bool {
-        signal.wait(timeout: .now() + 1) == .success
-    }
-
     @Test("Workspace creation is busy while its owner holds the absent path, then ready")
     func workspaceCreationAvailabilityTransition() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
         let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
-        let acquired = DispatchSemaphore(value: 0), create = DispatchSemaphore(value: 0)
+        let acquired = AsyncStream<Void>.makeStream(), create = DispatchSemaphore(value: 0)
         let owner = Task.detached { () throws -> Void in
+            defer { acquired.continuation.finish() }
             try logbook.withSyncOwnerLock {
-                acquired.signal()
+                acquired.continuation.yield()
                 create.wait()
                 _ = try logbook.handle(method: "workspace_create", params: ["mode": "empty"])
             }
         }
-        #expect(waitForSignal(acquired))
+        for await _ in acquired.stream { break }
         guard case .busy = logbook.currentSettingsAvailability() else {
             Issue.record("An owned workspace transition with an absent path must remain transiently busy.")
             create.signal(); try await owner.value; return
@@ -130,9 +120,15 @@ struct QRZProfileTests {
         let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
         _ = try logbook.handle(method: "workspace_create", params: ["mode": "empty"])
         let worker = LiveWorker(logbook: logbook)
-        let acquired = DispatchSemaphore(value: 0), release = DispatchSemaphore(value: 0)
-        let owner = Task.detached { hold(logbook, acquired: acquired, release: release) }
-        #expect(waitForSignal(acquired))
+        let acquired = AsyncStream<Void>.makeStream(), release = DispatchSemaphore(value: 0)
+        let owner = Task.detached {
+            defer { acquired.continuation.finish() }
+            logbook.withSyncOwnerLock {
+                acquired.continuation.yield()
+                release.wait()
+            }
+        }
+        for await _ in acquired.stream { break }
         let request = try JSONSerialization.data(withJSONObject: [
             "id": "busy-lookup", "method": "lookup_call", "params": ["call": "VK8NSB"],
         ])
