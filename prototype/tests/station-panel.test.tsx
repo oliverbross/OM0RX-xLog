@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from "react";
 import { afterEach, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import StationPanel from "../src/live/StationPanel";
 
 afterEach(() => cleanup());
@@ -27,6 +27,22 @@ it("keeps a detached monitor read-only", async () => {
   expect(screen.queryByRole("button", { name: "PTT on" })).toBeNull();
   expect(screen.queryByRole("button", { name: "Connect" })).toBeNull();
   expect(screen.queryByRole("button", { name: "Go to" })).toBeNull();
+});
+
+it("allows Keychain interaction only for operator-triggered connect and reconnect", async () => {
+  const state = { source: "direct_agent", available: false, radio: null, station: null, rotor: null };
+  const request = vi.fn(async () => state);
+  render(<StationPanel snapshot={state} onRequest={request} onSnapshot={vi.fn()} />);
+  await waitFor(() => expect(request).toHaveBeenCalledWith("station_snapshot", { provider: "direct_agent" }));
+  fireEvent.change(screen.getByLabelText("Agent HTTPS URL"), { target: { value: "https://station.example" } });
+  fireEvent.click(screen.getByRole("button", { name: "Connect" }));
+  await waitFor(() => expect(request).toHaveBeenCalledWith("station_connect", {
+    provider: "direct_agent", base_url: "https://station.example", allow_transmit: true,
+    allow_keychain_interaction: true,
+  }));
+  fireEvent.click(screen.getByRole("button", { name: "Reconnect" }));
+  await waitFor(() => expect(request.mock.calls.filter(([method]) => method === "station_connect")).toHaveLength(2));
+  expect(request.mock.calls.filter(([method]) => method === "station_connect")[1][1]).toMatchObject({ allow_keychain_interaction: true });
 });
 
 it("keeps explicit safety release available when radio observation becomes stale", async () => {

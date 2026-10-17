@@ -675,7 +675,9 @@ async fn workspace_mode_present(window: tauri::WebviewWindow, app: tauri::AppHan
     generation: String, revision: u64, hide_main: bool) -> Result<(), String> {
     if window.label() != "main" { return Err("Only the main workspace presents its mode.".into()); }
     tauri::async_runtime::spawn_blocking(move || {
-        let mut presented_windows = WORKSPACE_PRESENTATION.lock().map_err(|_| "Workspace mode presentation unavailable")?;
+        // This cache is only a presentation hint; SQLite remains authoritative.
+        // Recover after a prior task panic instead of permanently disabling mode changes.
+        let mut presented_windows = recover_presentation_hint(&WORKSPACE_PRESENTATION);
         let id = format!("workspace-mode-{}", uuid::Uuid::new_v4());
         let reply = worker::request(serde_json::json!({"id":id,"method":"workspace_layout_load","params":{}}))?;
         let layout = &reply["result"]["layout"];
@@ -695,7 +697,11 @@ async fn workspace_mode_present(window: tauri::WebviewWindow, app: tauri::AppHan
         update_workspace_mode_checks(&app, windows)?;
         *presented_windows = windows;
         Ok(())
-    }).await.map_err(|_| "Workspace mode presentation failed.".to_string())?
+    }).await.map_err(|error| format!("Workspace mode presentation failed: {error}"))?
+}
+
+fn recover_presentation_hint(mutex: &Mutex<bool>) -> std::sync::MutexGuard<'_, bool> {
+    mutex.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
 #[tauri::command]
@@ -1859,9 +1865,20 @@ fn main() {
 
 #[cfg(test)]
 mod workspace_layout_tests {
-    use super::{WorkspaceLayout, DraftWake, recover_singleton, detached_window_shortcut, validate_detached_open, COMPACT_WORKSPACE_MENU_ID, STANDARD_WORKSPACE_MENU_ID};
+    use super::{WorkspaceLayout, DraftWake, recover_presentation_hint, recover_singleton, detached_window_shortcut, validate_detached_open, COMPACT_WORKSPACE_MENU_ID, STANDARD_WORKSPACE_MENU_ID};
     use super::{spot_editor_barrier, validate_spot_effect, validate_activation_reader, retires_automatic_rotor, is_raw_manual_rotor_goto, is_raw_owned_station_lifecycle, validate_auto_rotor_read, validate_auto_rotor_set, validate_radio_read, validate_follow_snapshot, validate_follow_set, validate_follow_settlement, validate_rotor_stop, AutomaticRotorCommands};
     use serde_json::json;
+
+    #[test]
+    fn presentation_hint_recovers_after_a_prior_owner_panics() {
+        let hint = std::sync::Mutex::new(false);
+        let _ = std::panic::catch_unwind(|| {
+            let _guard = hint.lock().unwrap();
+            panic!("poison presentation hint");
+        });
+        *recover_presentation_hint(&hint) = true;
+        assert!(*recover_presentation_hint(&hint));
+    }
 
     #[test]
     fn window_menu_omits_redundant_information_windows_without_retiring_saved_layout_support() {

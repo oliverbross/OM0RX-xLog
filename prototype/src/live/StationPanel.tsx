@@ -155,6 +155,7 @@ export default function StationPanel({ snapshot, onRequest, onSnapshot, monitor 
     const response = await command("station_connect", {
       provider: "direct_agent", base_url: agentURL.trim(),
       ...(token ? { token } : {}), allow_transmit: allowTransmit,
+      allow_keychain_interaction: true,
     }, "Connection request");
     if (response) setToken("");
   }
@@ -301,7 +302,7 @@ export default function StationPanel({ snapshot, onRequest, onSnapshot, monitor 
               <label>Agent token<input aria-label="Agent token" type="password" autoComplete="off" placeholder="Enter token or use saved Keychain token" value={token} onChange={(event) => setToken(event.target.value)} /></label>
               <label className="live-station-checkbox"><input type="checkbox" checked={allowTransmit} onChange={(event) => setAllowTransmit(event.target.checked)} /> Allow CAT transmit controls for this connection</label>
               <div className="live-station-actionrow"><button type="submit" disabled={busy || !agentURL.trim()}><LockKeyhole size={13} /> Connect</button>
-                <button type="button" disabled={busy || !agentURL.trim()} onClick={() => void command("station_connect", { provider: "direct_agent", base_url: agentURL.trim(), allow_transmit: allowTransmit }, "Reconnect request")}><RotateCcw size={13} /> Reconnect</button>
+                <button type="button" disabled={busy || !agentURL.trim()} onClick={() => void command("station_connect", { provider: "direct_agent", base_url: agentURL.trim(), allow_transmit: allowTransmit, allow_keychain_interaction: true }, "Reconnect request")}><RotateCcw size={13} /> Reconnect</button>
                 <button type="button" disabled={busy} onClick={() => void command("station_disconnect", { provider: "direct_agent" }, "Disconnect")}>Disconnect radio</button></div>
               <button type="button" className="live-station-quiet" disabled={busy || !agentURL.trim()} onClick={() => void command("station_forget", { provider: "direct_agent", base_url: agentURL.trim() }, "Saved token removal")}>Forget saved token for this URL</button>
             </form>)}</> : <><p className="live-station-helper">Read from the standalone xCat loopback service. xCat remains radio owner; this view does not launch it.</p>
