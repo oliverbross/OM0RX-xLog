@@ -22,9 +22,10 @@
   "interpretation": {
     "selectorAvailability": "A selector row means the pinned upstream UI can name and import the plugin; it is not xLog implementation or acceptance evidence.",
     "sourceExtraction": "Mode, exchange and duplicate policy fields are static observations from each pinned plugin source. Missing or dynamic values remain unresolved.",
-    "pilotBoundary": "Exactly eight xLog rule implementations are recorded: six source-derived pilots for CQ WW, CQ WPX, and Oceania DX in CW and SSB, plus two official-corrected SAC 2026 practice previews in CW and SSB. Evidence is scoped by field and is not current sponsor, application, package, submission, or operator acceptance.",
+    "pilotBoundary": "Exactly eleven xLog rule implementations are recorded: six source-derived pilots for CQ WW, CQ WPX, and Oceania DX in CW and SSB; two official-corrected SAC 2026 practice previews in CW and SSB; and three official-rules NAQP 2026 plain-logging previews in CW, SSB, and RTTY. Evidence is scoped by field and is not current sponsor, application, package, submission, full-port, or operator acceptance.",
     "pendingBoundary": "pending and unknown fields are deliberate; no acceptance is inferred from source presence, selector presence, shared infrastructure, or another plugin.",
-    "officialCorrectionBoundary": "SAC CW and SSB use the published SAC 2026 rules as operational authority and deliberately correct identified pinned-source defects. They are official-corrected practice and scoring previews, not claims of exact upstream parity or submission readiness."
+    "officialCorrectionBoundary": "SAC CW and SSB use the published SAC 2026 rules as operational authority and deliberately correct identified pinned-source defects. They are official-corrected practice and scoring previews, not claims of exact upstream parity or submission readiness.",
+    "naqpAuthorityBoundary": "NAQP CW, SSB, and RTTY use the published NCJ 2026 rules and multiplier form as primary authority. The pinned Python plugins remain compatibility comparators with recorded gaps; their commit is not the NAQP rule sourceRevision. These are plain-logging previews, not claims of exact upstream parity, full operating support, sponsor certification, or submission readiness."
   },
   "validation": {
     "script": "docs/contesting/validate-contest-acceptance-ledger.mjs",
@@ -6044,46 +6045,79 @@
         "extraction": "Python AST top-level literal assignments; dynamic or absent values remain unresolved"
       },
       "xlogAcceptance": {
-        "implementationStatus": "pending",
-        "ruleIdentity": null,
+        "implementationStatus": "official-rules-plain-logging-preview",
+        "ruleIdentity": {
+          "id": "naqp-cw",
+          "version": "1.0.0-2026-rules-preview",
+          "edition": "2026-rules-preview",
+          "sourceRevision": "0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8"
+        },
         "referenceIdentity": {
-          "status": "pending",
-          "value": null,
-          "source": null,
-          "resourceSha256": null
+          "status": "runtime-derived-pinned-resource",
+          "value": "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "source": "Sources/XLogPrototypeSupport/Contesting/ContestLane.swift#ContestReferenceData.bundled",
+          "resourceSha256": "e5d907fb16842cfa3dd8502c20ebe6bfc2039c6f5b2cc73f9ea6d3f5915f6d6d"
         },
         "ruleAudit": {
-          "status": "pending",
-          "evidence": []
+          "status": "official-rules-audited-gaps-open",
+          "evidence": [
+            "Sources/XContestCore/NAQPRules.swift",
+            "Tests/XContestCoreTests/SourceFixtures/naqp-2026-authority.json",
+            "docs/contesting/NAQP_RULE_CONTRACT.md"
+          ],
+          "note": "The published NCJ 2026 rules and multiplier form are primary authority. The pinned Python plugin is a compatibility comparator: it lacks the authoritative multiplier set, typed entity-qualified keys, Hawaii correction, self-contact and mobile-location safeguards, category/date/operating-time enforcement, and complete submission policy."
         },
         "sourceDerivedScoringCases": {
-          "status": "pending",
-          "evidence": []
+          "status": "official-rules-and-compatibility-tested",
+          "evidence": [
+            "Sources/XContestCore/NAQPRules.swift",
+            "Tests/XContestCoreTests/ContestNAQPTests.swift",
+            "docs/contesting/NAQP_RULE_CONTRACT.md"
+          ],
+          "note": "Official-rules behavior and explicit pinned-Python comparison gaps are tested; this does not claim exact source parity."
         },
         "independentScoringCases": {
-          "status": "pending",
-          "evidence": [],
-          "note": "No independent scoring evidence is recorded."
+          "status": "independent-arithmetic-tested",
+          "evidence": [
+            "Tests/XContestCoreTests/ContestNAQPTests.swift",
+            "Tests/XContestCoreTests/SourceFixtures/naqp-2026-authority.json",
+            "docs/contesting/NAQP_RULE_CONTRACT.md"
+          ],
+          "note": "The independent fixture proves six accepted QSOs, five multipliers, one duplicate, and claimed score 30; it is not operator acceptance."
         },
         "mutationRestart": {
-          "status": "pending",
-          "evidence": []
+          "status": "store-and-worker-lifecycle-tested",
+          "evidence": [
+            "Tests/XContestStoreTests/ContestNAQPStoreTests.swift",
+            "Tests/XLogPrototypeTests/ContestingLaneTests.swift",
+            "docs/contesting/fixtures/contesting-worker-wire.json",
+            "docs/contesting/NAQP_RULE_CONTRACT.md"
+          ],
+          "note": "Core 2ee72e1c364199bcb38c185ed7b3a20c46a2bc84, export 5ee75eae4186d71d7f38ac49d5ae43a23cc2e45d, entry d22107292532a8f77737b4fcf68134f547ca7be4, and integration c0ac00ff05968d3fb90484643e22732451170121 cover a generated workspace-generation fixture and create, partial/reset, commit, edit, delete, reopen, rescore, and export paths without a serial reservation."
         },
         "exportGoldens": {
-          "status": "pending",
-          "evidence": []
+          "status": "versioned-preview-goldens-tested",
+          "evidence": [
+            "Tests/XContestCoreTests/SourceFixtures/Exports/naqp-preview-1.json",
+            "Tests/XContestCoreTests/ContestNAQPExportTests.swift",
+            "Tests/XLogPrototypeTests/ContestNAQPADIFExportTests.swift",
+            "docs/contesting/NAQP_RULE_CONTRACT.md"
+          ],
+          "note": "Versioned Cabrillo and ADIF preview bytes are tested for CW, SSB, and RTTY. Missing sponsor headers, category eligibility, dates, operating limits, and submission validation remain open."
         },
         "runSP": {
           "status": "pending",
           "evidence": [],
-          "note": "No RunSP acceptance evidence is recorded for this plugin."
+          "note": "No full Run/S&P or packaged operator acceptance evidence is recorded for this plugin."
         },
         "platform": {
-          "status": "pending",
-          "evidence": [],
-          "note": "No plugin-specific platform evidence is recorded."
+          "status": "partial",
+          "evidence": [
+            "docs/contesting/PLATFORM_VALIDATION.md"
+          ],
+          "note": "NAQP core 2ee72e1c364199bcb38c185ed7b3a20c46a2bc84 and export 5ee75eae4186d71d7f38ac49d5ae43a23cc2e45d passed their three-platform matrices. Structured entry d22107292532a8f77737b4fcf68134f547ca7be4 is integrated at c0ac00ff05968d3fb90484643e22732451170121; its newer native entry matrix remains pending. This partial evidence does not prove full operator, package, radio, sponsor, or submission acceptance."
         },
-        "certification": "not implemented or accepted"
+        "certification": "official-rules plain-logging preview; operator, native-entry, sponsor, and submission acceptance remain pending"
       }
     },
     {
@@ -6138,46 +6172,79 @@
         "extraction": "Python AST top-level literal assignments; dynamic or absent values remain unresolved"
       },
       "xlogAcceptance": {
-        "implementationStatus": "pending",
-        "ruleIdentity": null,
+        "implementationStatus": "official-rules-plain-logging-preview",
+        "ruleIdentity": {
+          "id": "naqp-rtty",
+          "version": "1.0.0-2026-rules-preview",
+          "edition": "2026-rules-preview",
+          "sourceRevision": "0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8"
+        },
         "referenceIdentity": {
-          "status": "pending",
-          "value": null,
-          "source": null,
-          "resourceSha256": null
+          "status": "runtime-derived-pinned-resource",
+          "value": "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "source": "Sources/XLogPrototypeSupport/Contesting/ContestLane.swift#ContestReferenceData.bundled",
+          "resourceSha256": "e5d907fb16842cfa3dd8502c20ebe6bfc2039c6f5b2cc73f9ea6d3f5915f6d6d"
         },
         "ruleAudit": {
-          "status": "pending",
-          "evidence": []
+          "status": "official-rules-audited-gaps-open",
+          "evidence": [
+            "Sources/XContestCore/NAQPRules.swift",
+            "Tests/XContestCoreTests/SourceFixtures/naqp-2026-authority.json",
+            "docs/contesting/NAQP_RULE_CONTRACT.md"
+          ],
+          "note": "The published NCJ 2026 rules and multiplier form are primary authority. The pinned Python plugin is a compatibility comparator: it lacks the authoritative multiplier set, typed entity-qualified keys, Hawaii correction, self-contact and mobile-location safeguards, category/date/operating-time enforcement, and complete submission policy."
         },
         "sourceDerivedScoringCases": {
-          "status": "pending",
-          "evidence": []
+          "status": "official-rules-and-compatibility-tested",
+          "evidence": [
+            "Sources/XContestCore/NAQPRules.swift",
+            "Tests/XContestCoreTests/ContestNAQPTests.swift",
+            "docs/contesting/NAQP_RULE_CONTRACT.md"
+          ],
+          "note": "Official-rules behavior and explicit pinned-Python comparison gaps are tested; this does not claim exact source parity."
         },
         "independentScoringCases": {
-          "status": "pending",
-          "evidence": [],
-          "note": "No independent scoring evidence is recorded."
+          "status": "independent-arithmetic-tested",
+          "evidence": [
+            "Tests/XContestCoreTests/ContestNAQPTests.swift",
+            "Tests/XContestCoreTests/SourceFixtures/naqp-2026-authority.json",
+            "docs/contesting/NAQP_RULE_CONTRACT.md"
+          ],
+          "note": "The independent fixture proves six accepted QSOs, five multipliers, one duplicate, and claimed score 30; it is not operator acceptance."
         },
         "mutationRestart": {
-          "status": "pending",
-          "evidence": []
+          "status": "store-and-worker-lifecycle-tested",
+          "evidence": [
+            "Tests/XContestStoreTests/ContestNAQPStoreTests.swift",
+            "Tests/XLogPrototypeTests/ContestingLaneTests.swift",
+            "docs/contesting/fixtures/contesting-worker-wire.json",
+            "docs/contesting/NAQP_RULE_CONTRACT.md"
+          ],
+          "note": "Core 2ee72e1c364199bcb38c185ed7b3a20c46a2bc84, export 5ee75eae4186d71d7f38ac49d5ae43a23cc2e45d, entry d22107292532a8f77737b4fcf68134f547ca7be4, and integration c0ac00ff05968d3fb90484643e22732451170121 cover a generated workspace-generation fixture and create, partial/reset, commit, edit, delete, reopen, rescore, and export paths without a serial reservation."
         },
         "exportGoldens": {
-          "status": "pending",
-          "evidence": []
+          "status": "versioned-preview-goldens-tested",
+          "evidence": [
+            "Tests/XContestCoreTests/SourceFixtures/Exports/naqp-preview-1.json",
+            "Tests/XContestCoreTests/ContestNAQPExportTests.swift",
+            "Tests/XLogPrototypeTests/ContestNAQPADIFExportTests.swift",
+            "docs/contesting/NAQP_RULE_CONTRACT.md"
+          ],
+          "note": "Versioned Cabrillo and ADIF preview bytes are tested for CW, SSB, and RTTY. Missing sponsor headers, category eligibility, dates, operating limits, and submission validation remain open."
         },
         "runSP": {
           "status": "pending",
           "evidence": [],
-          "note": "No RunSP acceptance evidence is recorded for this plugin."
+          "note": "No full Run/S&P or packaged operator acceptance evidence is recorded for this plugin."
         },
         "platform": {
-          "status": "pending",
-          "evidence": [],
-          "note": "No plugin-specific platform evidence is recorded."
+          "status": "partial",
+          "evidence": [
+            "docs/contesting/PLATFORM_VALIDATION.md"
+          ],
+          "note": "NAQP core 2ee72e1c364199bcb38c185ed7b3a20c46a2bc84 and export 5ee75eae4186d71d7f38ac49d5ae43a23cc2e45d passed their three-platform matrices. Structured entry d22107292532a8f77737b4fcf68134f547ca7be4 is integrated at c0ac00ff05968d3fb90484643e22732451170121; its newer native entry matrix remains pending. This partial evidence does not prove full operator, package, radio, sponsor, or submission acceptance."
         },
-        "certification": "not implemented or accepted"
+        "certification": "official-rules plain-logging preview; operator, native-entry, sponsor, and submission acceptance remain pending"
       }
     },
     {
@@ -6232,46 +6299,79 @@
         "extraction": "Python AST top-level literal assignments; dynamic or absent values remain unresolved"
       },
       "xlogAcceptance": {
-        "implementationStatus": "pending",
-        "ruleIdentity": null,
+        "implementationStatus": "official-rules-plain-logging-preview",
+        "ruleIdentity": {
+          "id": "naqp-ssb",
+          "version": "1.0.0-2026-rules-preview",
+          "edition": "2026-rules-preview",
+          "sourceRevision": "0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8"
+        },
         "referenceIdentity": {
-          "status": "pending",
-          "value": null,
-          "source": null,
-          "resourceSha256": null
+          "status": "runtime-derived-pinned-resource",
+          "value": "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "source": "Sources/XLogPrototypeSupport/Contesting/ContestLane.swift#ContestReferenceData.bundled",
+          "resourceSha256": "e5d907fb16842cfa3dd8502c20ebe6bfc2039c6f5b2cc73f9ea6d3f5915f6d6d"
         },
         "ruleAudit": {
-          "status": "pending",
-          "evidence": []
+          "status": "official-rules-audited-gaps-open",
+          "evidence": [
+            "Sources/XContestCore/NAQPRules.swift",
+            "Tests/XContestCoreTests/SourceFixtures/naqp-2026-authority.json",
+            "docs/contesting/NAQP_RULE_CONTRACT.md"
+          ],
+          "note": "The published NCJ 2026 rules and multiplier form are primary authority. The pinned Python plugin is a compatibility comparator: it lacks the authoritative multiplier set, typed entity-qualified keys, Hawaii correction, self-contact and mobile-location safeguards, category/date/operating-time enforcement, and complete submission policy."
         },
         "sourceDerivedScoringCases": {
-          "status": "pending",
-          "evidence": []
+          "status": "official-rules-and-compatibility-tested",
+          "evidence": [
+            "Sources/XContestCore/NAQPRules.swift",
+            "Tests/XContestCoreTests/ContestNAQPTests.swift",
+            "docs/contesting/NAQP_RULE_CONTRACT.md"
+          ],
+          "note": "Official-rules behavior and explicit pinned-Python comparison gaps are tested; this does not claim exact source parity."
         },
         "independentScoringCases": {
-          "status": "pending",
-          "evidence": [],
-          "note": "No independent scoring evidence is recorded."
+          "status": "independent-arithmetic-tested",
+          "evidence": [
+            "Tests/XContestCoreTests/ContestNAQPTests.swift",
+            "Tests/XContestCoreTests/SourceFixtures/naqp-2026-authority.json",
+            "docs/contesting/NAQP_RULE_CONTRACT.md"
+          ],
+          "note": "The independent fixture proves six accepted QSOs, five multipliers, one duplicate, and claimed score 30; it is not operator acceptance."
         },
         "mutationRestart": {
-          "status": "pending",
-          "evidence": []
+          "status": "store-and-worker-lifecycle-tested",
+          "evidence": [
+            "Tests/XContestStoreTests/ContestNAQPStoreTests.swift",
+            "Tests/XLogPrototypeTests/ContestingLaneTests.swift",
+            "docs/contesting/fixtures/contesting-worker-wire.json",
+            "docs/contesting/NAQP_RULE_CONTRACT.md"
+          ],
+          "note": "Core 2ee72e1c364199bcb38c185ed7b3a20c46a2bc84, export 5ee75eae4186d71d7f38ac49d5ae43a23cc2e45d, entry d22107292532a8f77737b4fcf68134f547ca7be4, and integration c0ac00ff05968d3fb90484643e22732451170121 cover a generated workspace-generation fixture and create, partial/reset, commit, edit, delete, reopen, rescore, and export paths without a serial reservation."
         },
         "exportGoldens": {
-          "status": "pending",
-          "evidence": []
+          "status": "versioned-preview-goldens-tested",
+          "evidence": [
+            "Tests/XContestCoreTests/SourceFixtures/Exports/naqp-preview-1.json",
+            "Tests/XContestCoreTests/ContestNAQPExportTests.swift",
+            "Tests/XLogPrototypeTests/ContestNAQPADIFExportTests.swift",
+            "docs/contesting/NAQP_RULE_CONTRACT.md"
+          ],
+          "note": "Versioned Cabrillo and ADIF preview bytes are tested for CW, SSB, and RTTY. Missing sponsor headers, category eligibility, dates, operating limits, and submission validation remain open."
         },
         "runSP": {
           "status": "pending",
           "evidence": [],
-          "note": "No RunSP acceptance evidence is recorded for this plugin."
+          "note": "No full Run/S&P or packaged operator acceptance evidence is recorded for this plugin."
         },
         "platform": {
-          "status": "pending",
-          "evidence": [],
-          "note": "No plugin-specific platform evidence is recorded."
+          "status": "partial",
+          "evidence": [
+            "docs/contesting/PLATFORM_VALIDATION.md"
+          ],
+          "note": "NAQP core 2ee72e1c364199bcb38c185ed7b3a20c46a2bc84 and export 5ee75eae4186d71d7f38ac49d5ae43a23cc2e45d passed their three-platform matrices. Structured entry d22107292532a8f77737b4fcf68134f547ca7be4 is integrated at c0ac00ff05968d3fb90484643e22732451170121; its newer native entry matrix remains pending. This partial evidence does not prove full operator, package, radio, sponsor, or submission acceptance."
         },
-        "certification": "not implemented or accepted"
+        "certification": "official-rules plain-logging preview; operator, native-entry, sponsor, and submission acceptance remain pending"
       }
     },
     {
