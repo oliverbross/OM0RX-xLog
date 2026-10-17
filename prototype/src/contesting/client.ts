@@ -85,7 +85,7 @@ function validExportChunk(value: unknown, params: Record<string, unknown>) {
 
 function validIdentity(value: unknown) {
   const v = object(value);
-  return !!v && ["cq-ww-cw", "cq-wpx-cw", "cq-ww-ssb", "cq-wpx-ssb", "oceania-dx-cw", "oceania-dx-ssb", "sac-cw", "sac-ssb", "naqp-cw", "naqp-ssb", "naqp-rtty", "arrl-rtty-roundup", "jidx-cw", "jidx-ssb"].includes(String(v.id)) &&
+  return !!v && ["cq-ww-cw", "cq-wpx-cw", "cq-ww-ssb", "cq-wpx-ssb", "oceania-dx-cw", "oceania-dx-ssb", "sac-cw", "sac-ssb", "naqp-cw", "naqp-ssb", "naqp-rtty", "arrl-rtty-roundup", "jidx-cw", "jidx-ssb", "arrl-dx-cw", "arrl-dx-ssb"].includes(String(v.id)) &&
     text(v.version, 64) && text(v.edition, 32) && text(v.sourceRevision, 160);
 }
 function validReport(value: unknown) {
@@ -100,7 +100,7 @@ function validExchangeField(value: unknown) {
   return !!v && exact(v, ["id", "label", "acceptedKinds", "required", "maximumUTF8Bytes", "adifField"]) &&
     text(v.id, 32) && /^[a-z][a-z0-9-]*$/.test(v.id as string) && text(v.label, 64) &&
     Array.isArray(v.acceptedKinds) && v.acceptedKinds.length > 0 && v.acceptedKinds.length <= 5 &&
-    v.acceptedKinds.every(x => ["operatorName", "subdivision", "dxccPrefix", "serialNumber", "gridSquare", "cqZone", "jarlPrefectureNumber"].includes(String(x))) &&
+    v.acceptedKinds.every(x => ["operatorName", "subdivision", "dxccPrefix", "serialNumber", "gridSquare", "cqZone", "jarlPrefectureNumber", "power"].includes(String(x))) &&
     typeof v.required === "boolean" && uint(v.maximumUTF8Bytes) && (v.maximumUTF8Bytes as number) > 0 && (v.maximumUTF8Bytes as number) <= 64 &&
     (v.adifField === null || ["STX", "SRX", "NAME", "MY_NAME", "STATE", "MY_STATE", "GRIDSQUARE", "MY_GRIDSQUARE"].includes(String(v.adifField)));
 }
@@ -115,6 +115,12 @@ const ARRL_RECEIVED_FIELDS = [
 const ARRL_STATION_FIELDS = [
   { id: "section", label: "Cabrillo section", role: "cabrilloLocation", required: true, maximumUTF8Bytes: 3 },
 ];
+const ARRL_DX_IDENTITY = { version: "1.0.0-2.0-preview", edition: "rules-2.0-preview", sourceRevision: "bd87f1b3f635c4cd25c8d80f4b0ca06dca0a4a0f10c819289634492ae1fefee9" };
+const ARRL_DX_FIELDS = [
+  { id: "location", label: "State or province", acceptedKinds: ["subdivision"], required: false, maximumUTF8Bytes: 2, adifField: "MY_STATE" },
+  { id: "power", label: "Power", acceptedKinds: ["power"], required: false, maximumUTF8Bytes: 8, adifField: null },
+];
+const ARRL_DX_RECEIVED_FIELDS = ARRL_DX_FIELDS.map(field => ({ ...field, adifField: field.id === "location" ? "STATE" : null }));
 const JIDX_IDENTITY = { version: "1.0.0-2026-rules-preview", edition: "2026-10-rules-preview", sourceRevision: "01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa" };
 const JIDX_FIELDS = [
   { id: "number", label: "Prefecture or CQ Zone", acceptedKinds: ["cqZone", "jarlPrefectureNumber"], required: true, maximumUTF8Bytes: 2, adifField: "STX" },
@@ -130,6 +136,28 @@ const jidxMaritimeCall = (value: unknown) => {
 };
 const normalizedJIDXNumber = (value: unknown) => typeof value === "string" && /^[0-9]{1,2}$/.test(value)
   ? String(Number(value)).padStart(2, "0") : null;
+export function normalizedARRLDXPower(value: unknown): string | null {
+  if (typeof value !== "string" || !value || new TextEncoder().encode(value).length > 8 || !/^[A-Z0-9]+$/.test(value)) return null;
+  const token = value.replaceAll("WATTS", "").replaceAll("W", "");
+  if (["K", "1K", "KILO"].includes(token)) return "1000";
+  const cut: Record<string,string> = { A: "1", E: "5", N: "9", T: "0", O: "0" };
+  let digits = "";
+  for (const character of token) {
+    if (/^[0-9]$/.test(character)) digits += character;
+    else if (cut[character]) digits += cut[character];
+    else return null;
+  }
+  if (digits === "000") return "1000";
+  const watts = Number(digits);
+  return Number.isInteger(watts) && watts >= 1 && watts <= 1500 ? String(watts) : null;
+}
+function validARRLDXFieldMap(value: unknown, allowEmpty: boolean) {
+  const fields = object(value);
+  if (!fields || !exact(fields, ["location", "power"]) || !text(fields.location, 2, true) || !text(fields.power, 8, true)) return false;
+  const location = fields.location as string, power = fields.power as string;
+  if (!location && !power) return allowEmpty;
+  return (!!location !== !!power) && (!location || /^[A-Z]{2}$/.test(location)) && (!power || normalizedARRLDXPower(power) !== null);
+}
 function validResolvedSerial(value: unknown, location: unknown) {
   const v = object(value);
   if (!v || !exact(v, ["requirement", "allowedScopes", "allocatedFieldID"]) || !Array.isArray(v.allowedScopes)) return false;
@@ -140,9 +168,10 @@ function validResolvedSerial(value: unknown, location: unknown) {
 function validEntry(value: unknown, ruleID?: string) {
   const v = object(value), report = object(v?.report), exchange = object(v?.exchange), serial = object(v?.serial);
   if (v?.version === 2) {
-    const arrl = ruleID === "arrl-rtty-roundup", jidx = ruleID === "jidx-cw" || ruleID === "jidx-ssb";
+    const arrl = ruleID === "arrl-rtty-roundup", arrlDX = ruleID === "arrl-dx-cw" || ruleID === "arrl-dx-ssb", jidx = ruleID === "jidx-cw" || ruleID === "jidx-ssb";
     const keys = ["version", "mode", "adifMode", "cabrilloQSOType", "cabrilloFormatterVersion", "cabrilloProjectionFormatterVersion", "report", "exchange", "serial", "modeProfiles", "scorePolicy"];
     if (arrl) keys.push("stationResolvedSerial", "stationFields");
+    if (arrlDX) keys.push("stationFields");
     if (!v || !report || !exchange || !serial || !exact(v, keys) ||
         !exact(exchange, ["sent", "received", "sentDefault", "adifFields", "sentFields", "receivedFields"]) ||
         !exact(serial, ["requirement", "allowedScopes"]) || !validReport(report) || !Array.isArray(exchange.sentFields) || !Array.isArray(exchange.receivedFields) ||
@@ -151,6 +180,7 @@ function validEntry(value: unknown, ruleID?: string) {
     const modes: Record<string, [string, string, string]> = {
       "naqp-cw": ["CW", "CW", "CW"], "naqp-ssb": ["SSB", "SSB", "PH"], "naqp-rtty": ["RTTY", "RTTY", "RY"],
       "jidx-cw": ["CW", "CW", "CW"], "jidx-ssb": ["SSB", "SSB", "PH"],
+      "arrl-dx-cw": ["CW", "CW", "CW"], "arrl-dx-ssb": ["SSB", "SSB", "PH"],
     };
     const mode = ruleID ? (arrl ? ["RTTY", "RTTY", "RY"] as [string,string,string] : modes[ruleID]) : undefined;
     const expectedSent = [
@@ -163,21 +193,22 @@ function validEntry(value: unknown, ruleID?: string) {
     ];
     const expectedReport = arrl
       ? '{"defaultReceived":"599","defaultSent":"599","format":"digitalRST","maximumUTF8Bytes":3}'
-      : jidx && ruleID === "jidx-cw" ? '{"defaultReceived":"599","defaultSent":"599","format":"cwRST","maximumUTF8Bytes":3}'
-      : jidx ? '{"defaultReceived":"59","defaultSent":"59","format":"phoneRS","maximumUTF8Bytes":2}'
+      : (jidx || arrlDX) && ruleID?.endsWith("-cw") ? '{"defaultReceived":"599","defaultSent":"599","format":"cwRST","maximumUTF8Bytes":3}'
+      : jidx || arrlDX ? '{"defaultReceived":"59","defaultSent":"59","format":"phoneRS","maximumUTF8Bytes":2}'
       : '{"defaultReceived":"","defaultSent":"","format":"none","maximumUTF8Bytes":0}';
     const arrlMembers = !arrl || canonicalJSON(v.stationResolvedSerial) === '{"allocatedSerialFieldID":"serial","allowedScopes":["session"],"locationFieldID":"location","policy":"arrlRTTYRoundupWVEOrDX"}' &&
       canonicalJSON(v.stationFields) === canonicalJSON(ARRL_STATION_FIELDS);
+    const arrlDXMembers = !arrlDX || canonicalJSON(v.stationFields) === canonicalJSON(ARRL_STATION_FIELDS);
     return !!profile && !!mode && exact(profile, ["mode", "adifMode", "adifSubmode", "cabrilloQSOType", "report"]) &&
       canonicalJSON(report) === expectedReport &&
       canonicalJSON(profile.report) === canonicalJSON(report) && profile.adifSubmode === null &&
       v.mode === mode[0] && v.adifMode === mode[1] && v.cabrilloQSOType === mode[2] &&
       profile.mode === mode[0] && profile.adifMode === mode[1] && profile.cabrilloQSOType === mode[2] &&
-      v.cabrilloFormatterVersion === (arrl ? "arrl-rtty-preview-1" : jidx ? "jidx-preview-1" : "naqp-preview-1") && v.cabrilloProjectionFormatterVersion === (arrl ? "arrl-rtty-preview-1" : jidx ? "jidx-preview-1" : "naqp-preview-1") &&
+      v.cabrilloFormatterVersion === (arrl ? "arrl-rtty-preview-1" : jidx ? "jidx-preview-1" : arrlDX ? `arrl-dx-${ruleID?.endsWith("-cw") ? "cw" : "ssb"}-preview-1` : "naqp-preview-1") && v.cabrilloProjectionFormatterVersion === v.cabrilloFormatterVersion &&
       exchange.sent === "structured" && exchange.received === "structured" && exchange.sentDefault === "stationFields" &&
-      exchange.adifFields === "exchangeStrings" && canonicalJSON(exchange.sentFields) === canonicalJSON(arrl ? ARRL_SENT_FIELDS : jidx ? JIDX_FIELDS : expectedSent) &&
-      canonicalJSON(exchange.receivedFields) === canonicalJSON(arrl ? ARRL_RECEIVED_FIELDS : jidx ? JIDX_RECEIVED_FIELDS : expectedReceived) && serial.requirement === "none" &&
-      Array.isArray(serial.allowedScopes) && serial.allowedScopes.length === 0 && v.scorePolicy === "pointsTimesMultipliers" && arrlMembers;
+      exchange.adifFields === "exchangeStrings" && canonicalJSON(exchange.sentFields) === canonicalJSON(arrl ? ARRL_SENT_FIELDS : jidx ? JIDX_FIELDS : arrlDX ? ARRL_DX_FIELDS : expectedSent) &&
+      canonicalJSON(exchange.receivedFields) === canonicalJSON(arrl ? ARRL_RECEIVED_FIELDS : jidx ? JIDX_RECEIVED_FIELDS : arrlDX ? ARRL_DX_RECEIVED_FIELDS : expectedReceived) && serial.requirement === "none" &&
+      Array.isArray(serial.allowedScopes) && serial.allowedScopes.length === 0 && v.scorePolicy === "pointsTimesMultipliers" && arrlMembers && arrlDXMembers;
   }
   if (!v || !report || !exchange || !serial ||
       !exact(v, ["mode", "adifMode", "cabrilloQSOType", "cabrilloFormatterVersion", "cabrilloProjectionFormatterVersion", "report", "exchange", "serial"]) ||
@@ -204,9 +235,10 @@ function validRule(value: unknown) {
     "oceania-dx-cw": "Oceania DX CW", "oceania-dx-ssb": "Oceania DX SSB",
     "sac-cw": "Scandinavian Activity Contest CW", "sac-ssb": "Scandinavian Activity Contest SSB",
     "naqp-cw": "North American QSO Party CW", "naqp-ssb": "North American QSO Party SSB", "naqp-rtty": "North American QSO Party RTTY",
-    "arrl-rtty-roundup": "ARRL RTTY Roundup Preview", "jidx-cw": "JIDX CW Preview", "jidx-ssb": "JIDX Phone Preview" };
+    "arrl-rtty-roundup": "ARRL RTTY Roundup Preview", "jidx-cw": "JIDX CW Preview", "jidx-ssb": "JIDX Phone Preview",
+    "arrl-dx-cw": "ARRL International DX CW Preview", "arrl-dx-ssb": "ARRL International DX SSB Preview" };
   const id = String(identity?.id), expectedMode = id.endsWith("-ssb") ? "SSB" : id.endsWith("-rtty") || id === "arrl-rtty-roundup" ? "RTTY" : "CW";
-  const structured = id.startsWith("naqp-") || id === "arrl-rtty-roundup" || id.startsWith("jidx-");
+  const structured = id.startsWith("naqp-") || id === "arrl-rtty-roundup" || id.startsWith("jidx-") || id.startsWith("arrl-dx-");
   const expectsSerial = id.startsWith("cq-wpx-") || id.startsWith("oceania-dx-") || id.startsWith("sac-");
   const expectedADIF = id.startsWith("cq-wpx-") ? "stxSrx" : expectsSerial ? "exchangeStrings" : "none";
   const sacIdentity = !id.startsWith("sac-") || identity?.version === "1.0.0-2026-rules-preview" &&
@@ -218,17 +250,19 @@ function validRule(value: unknown) {
     validIdentity(identity) && v.displayName === names[id] && v.entryDescriptorVersion === (structured ? 2 : 1) && validEntry(entry, id) && entry?.mode === v.mode && v.mode === expectedMode &&
     family && sacIdentity && (id !== "arrl-rtty-roundup" || canonicalJSON(identity) === canonicalJSON(ARRL_IDENTITY)) &&
     (!id.startsWith("jidx-") || identity?.version === JIDX_IDENTITY.version && identity?.edition === JIDX_IDENTITY.edition && identity?.sourceRevision === JIDX_IDENTITY.sourceRevision) &&
+    (!id.startsWith("arrl-dx-") || identity?.version === ARRL_DX_IDENTITY.version && identity?.edition === ARRL_DX_IDENTITY.edition && identity?.sourceRevision === ARRL_DX_IDENTITY.sourceRevision) &&
     text(v.referenceDataVersion, 160) && text(v.sourceNote, 1_024) && ["verified", "provisional", "unverified"].includes(String(v.sourceVerification));
 }
 function validSession(value: unknown, params?: Record<string, unknown>) {
   const v = object(value), station = object(v?.station), operator = object(v?.operator);
   const rule = v?.rule as ContestRuleMetadata | undefined;
   const structuredEntry = rule && isStructuredEntry(rule.entry) ? rule.entry : undefined;
-  const arrl = rule?.identity.id === "arrl-rtty-roundup", jidx = rule?.identity.id.startsWith("jidx-") === true, structured = !!structuredEntry;
+  const arrl = rule?.identity.id === "arrl-rtty-roundup", arrlDX = rule?.identity.id.startsWith("arrl-dx-") === true, jidx = rule?.identity.id.startsWith("jidx-") === true, structured = !!structuredEntry;
   const sessionKeys = ["sessionID", "workspaceGeneration", "revision", "name", "rule", "referenceDataVersion", "station", "operator", "qsoCount", "updatedAt"];
   const stationKeys = ["callsign", "cqZone", "dxccEntity"];
   if (structured) stationKeys.push("exchangeFields");
   if (arrl) { stationKeys.push("stationFields"); sessionKeys.push("resolvedSerial"); }
+  if (arrlDX) stationKeys.push("stationFields");
   const location = object(station?.exchangeFields)?.location;
   return !!v && exact(v, sessionKeys) && !!station && exact(station, stationKeys) && text(v.sessionID, 128) && text(v.workspaceGeneration, 128) && (!params || sameContext(v, params)) && uint(v.revision) &&
     text(v.name, 128) && validRule(v.rule) && text(v.referenceDataVersion, 160) && !!station && text(station.callsign, 32) && text(station.cqZone, 8) &&
@@ -237,6 +271,7 @@ function validSession(value: unknown, params?: Record<string, unknown>) {
       ? station.dxccEntity === "" && station.cqZone === normalizedJIDXNumber(object(station.exchangeFields)?.number)
       : station.dxccEntity !== "")) &&
     (!arrl || validFieldMap(station.stationFields, ARRL_STATION_FIELDS) && validResolvedSerial(v.resolvedSerial, location)) &&
+    (!arrlDX || validFieldMap(station.stationFields, ARRL_STATION_FIELDS) && validARRLDXFieldMap(station.exchangeFields, false)) &&
     !!operator && text(operator.callsign, 32) && text(operator.category, 80) && uint(v.qsoCount) && iso(v.updatedAt);
 }
 function validFieldMap(value: unknown, descriptors: {id:string;maximumUTF8Bytes:number;required:boolean}[], requireValues = true) {
@@ -261,10 +296,12 @@ export function validateDraftFields(value: unknown, rule?: ContestRuleMetadata):
     const arrlSent = [{ id: "location", maximumUTF8Bytes: 2, required: false }, { id: "serial", maximumUTF8Bytes: 8, required: false }];
     const arrlReceived = [{ id: "exchange", maximumUTF8Bytes: 8, required: true }];
     const jidx = [{ id: "number", maximumUTF8Bytes: 2, required: true }];
+    const arrlDX = [{ id: "location", maximumUTF8Bytes: 2, required: false }, { id: "power", maximumUTF8Bytes: 8, required: false }];
     const validNAQP = validFieldMap(v.sentExchangeFields, naqp) && validFieldMap(v.receivedExchangeFields, naqp, false);
     const validARRL = validFieldMap(v.sentExchangeFields, arrlSent, false) && validFieldMap(v.receivedExchangeFields, arrlReceived, false);
     const validJIDX = validFieldMap(v.sentExchangeFields, jidx) && validFieldMap(v.receivedExchangeFields, jidx, false);
-    if (!validNAQP && !validARRL && !validJIDX)
+    const validARRLDX = validFieldMap(v.sentExchangeFields, arrlDX, false) && validFieldMap(v.receivedExchangeFields, arrlDX, false);
+    if (!validNAQP && !validARRL && !validJIDX && !validARRLDX)
       throw new Error("Contest draft contains malformed structured fields.");
   }
   if (rule && (v.mode !== rule.entry.mode || !text(v.sentReport, rule.entry.report.maximumUTF8Bytes, true) ||
@@ -272,6 +309,9 @@ export function validateDraftFields(value: unknown, rule?: ContestRuleMetadata):
       (structuredRule ? (!text(v.receivedExchange, aggregateMaximum(structuredRule.exchange.receivedFields), true) ||
         !validFieldMap(v.sentExchangeFields, structuredRule.exchange.sentFields) || !validFieldMap(v.receivedExchangeFields, structuredRule.exchange.receivedFields, false)) :
         hasStructuredMembers)))
+    throw new Error("Contest draft does not match the selected rule entry descriptor.");
+  if (rule?.identity.id.startsWith("arrl-dx-") &&
+      (!validARRLDXFieldMap(v.sentExchangeFields, false) || !validARRLDXFieldMap(v.receivedExchangeFields, true)))
     throw new Error("Contest draft does not match the selected rule entry descriptor.");
 }
 function validDraft(value: unknown, params: Record<string, unknown>, expectedDraftID?: unknown, rule?: ContestRuleMetadata,
@@ -311,7 +351,7 @@ function validProvenance(value: unknown) {
 }
 function validFullQSO(value: unknown, params: Record<string, unknown>, expectedQSOID?: unknown) {
   const v = object(value);
-  const identity = object(v?.ruleIdentity), structured = String(identity?.id).startsWith("naqp-") || identity?.id === "arrl-rtty-roundup" || String(identity?.id).startsWith("jidx-");
+  const identity = object(v?.ruleIdentity), structured = String(identity?.id).startsWith("naqp-") || identity?.id === "arrl-rtty-roundup" || String(identity?.id).startsWith("jidx-") || String(identity?.id).startsWith("arrl-dx-");
   const keys = ["qsoID", "sessionID", "originalUTC", "callsign", "band", "mode", "frequencyHz", "sentReport", "receivedReport",
     "sentExchange", "normalizedSentExchange", "allocatedSerial", "receivedExchange", "normalizedReceivedExchange", "entity", "operatorCallsign",
     "stationLocation", "provenance", "ruleIdentity", "referenceDataVersion"];
@@ -323,6 +363,12 @@ function validFullQSO(value: unknown, params: Record<string, unknown>, expectedQ
     : String(identity?.id).startsWith("jidx-")
     ? validFieldMap(v.sentExchangeFields, [{id:"number",maximumUTF8Bytes:2,required:true}]) &&
       validFieldMap(v.receivedExchangeFields, [{id:"number",maximumUTF8Bytes:2,required:true}])
+    : String(identity?.id).startsWith("arrl-dx-")
+    ? validARRLDXFieldMap(v.sentExchangeFields, false) && validARRLDXFieldMap(v.receivedExchangeFields, false) &&
+      v.sentExchange === [object(v.sentExchangeFields)?.location, object(v.sentExchangeFields)?.power].find(Boolean) &&
+      v.receivedExchange === [object(v.receivedExchangeFields)?.location, object(v.receivedExchangeFields)?.power].find(Boolean) &&
+      v.normalizedSentExchange === (object(v.sentExchangeFields)?.power ? normalizedARRLDXPower(object(v.sentExchangeFields)?.power) : object(v.sentExchangeFields)?.location) &&
+      v.normalizedReceivedExchange === (object(v.receivedExchangeFields)?.power ? normalizedARRLDXPower(object(v.receivedExchangeFields)?.power) : object(v.receivedExchangeFields)?.location)
     : validFieldMap(v.sentExchangeFields, [{id:"name",maximumUTF8Bytes:32,required:true},{id:"location",maximumUTF8Bytes:8,required:false}]) &&
       validFieldMap(v.receivedExchangeFields, [{id:"name",maximumUTF8Bytes:32,required:true},{id:"location",maximumUTF8Bytes:8,required:true}]);
   return v.sessionID === params.sessionID && (expectedQSOID === undefined || v.qsoID === expectedQSOID) && text(v.qsoID, 128) && iso(v.originalUTC) &&
@@ -365,7 +411,7 @@ function validScore(value: unknown, params: Record<string, unknown>, expectedRev
 
 function validateResult<T>(method: ContestMethod, value: unknown, params: Record<string, unknown>): T {
   const v = object(value); let valid = false;
-  if (method === "contest_catalog") valid = !!v && text(v.workspaceGeneration, 128) && Array.isArray(v.rules) && v.rules.length > 0 && v.rules.length <= 14 && v.rules.every(validRule);
+  if (method === "contest_catalog") valid = !!v && text(v.workspaceGeneration, 128) && Array.isArray(v.rules) && v.rules.length > 0 && v.rules.length <= 16 && v.rules.every(validRule);
   else if (method === "contest_sessions") valid = !!v && Array.isArray(v.sessions) && v.sessions.length <= 1_000 && v.sessions.every(x => validSession(x));
   else if (method === "contest_open" || method === "contest_draft_get") {
     const s = object(v?.session), d = object(v?.draft); valid = !!v && validSession(s, params) && s?.sessionID === params.sessionID && validDraft(d, s!, undefined, s?.rule as ContestRuleMetadata, s?.resolvedSerial) && d?.revision === s?.revision;
@@ -528,6 +574,9 @@ export function validateCreateInput(input: ContestCreateInput) {
   } else if (jidx) {
     if (!fields || !exact(fields, ["number"]) || !text(fields.number, 2) || !/^[0-9]{1,2}$/.test(fields.number as string) || stationFields ||
         maritime && (input.station.dxccEntity !== "" || normalizedJIDXNumber(fields.number) !== normalizedJIDXNumber(input.station.cqZone)))
+      throw new Error("Contest station exchange contains an invalid or oversized field.");
+  } else if (id === "arrl-dx-cw" || id === "arrl-dx-ssb") {
+    if (!validARRLDXFieldMap(fields, false) || !stationFields || !exact(stationFields, ["section"]) || !text(stationFields.section, 3))
       throw new Error("Contest station exchange contains an invalid or oversized field.");
   } else if (fields || stationFields) throw new Error("Contest station exchange does not match the selected rule.");
 }

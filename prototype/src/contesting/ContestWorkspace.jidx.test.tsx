@@ -31,7 +31,7 @@ it("creates an entityless JIDX maritime preview through the shared structured UI
     createRequestID={() => ids.shift()!}
     digestPayload={async () => digests.shift()!} recoveryStorage={new MemoryContestRecoveryStorage()}/>);
   const form = await screen.findByRole("form", { name: "Create contest session" });
-  expect(within(form).getAllByRole("option")).toHaveLength(14);
+  expect(within(form).getAllByRole("option")).toHaveLength(16);
   fireEvent.change(within(form).getByLabelText("Contest"), { target: { value: "jidx-cw" } });
   expect(within(form).getByLabelText("Station prefecture or CQ Zone")).toBeTruthy();
   const payload = item.request.payload;

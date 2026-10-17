@@ -498,8 +498,13 @@ public struct ContestEntryDescriptor: Codable, Hashable, Sendable {
                     stationFields[0].role == .cabrilloLocation && stationFields[0].required &&
                     stationFields[0].maximumUTF8Bytes == 3
             } else {
+                let cabrilloLocationIsCoherent = stationFields.isEmpty ||
+                    stationFields.count == 1 && stationFields[0].id == "section" &&
+                    stationFields[0].label == "Cabrillo section" &&
+                    stationFields[0].role == .cabrilloLocation && stationFields[0].required &&
+                    stationFields[0].maximumUTF8Bytes == 3
                 serialIsCoherent = serial.requirement == .none
-                    ? serial.allowedScopes.isEmpty && serialFields.isEmpty && stationFields.isEmpty
+                    ? serial.allowedScopes.isEmpty && serialFields.isEmpty && cabrilloLocationIsCoherent
                     : !serial.allowedScopes.isEmpty && Set(serial.allowedScopes).count == serial.allowedScopes.count &&
                         serialFields.count == 1 && serialFields[0].required && serialFields[0].acceptedKinds == [.serialNumber] &&
                         stationFields.isEmpty
@@ -687,6 +692,15 @@ public protocol ContestRule: Sendable {
 /// The store rejects a missing station entity unless the concrete rule adopts this capability.
 public protocol ContestRuleStationEntityPolicy: ContestRule {
     func allowsMissingStationEntity(in session: ContestSessionSnapshot) -> Bool
+}
+
+/// Narrow runtime-only opt-in for rules that preserve a bounded raw exchange token
+/// while validating against a distinct canonical value. Non-adopting rules keep the
+/// parser's existing uppercase projection unchanged.
+public protocol ContestRuleExchangeFieldProjection: ContestRule {
+    func projectExchangeFields(
+        _ fields: [String: ContestExchangeFieldValue]
+    ) -> [String: ContestExchangeFieldValue]
 }
 
 public extension ContestRule {

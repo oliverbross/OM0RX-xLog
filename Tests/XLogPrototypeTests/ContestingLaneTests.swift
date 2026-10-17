@@ -236,7 +236,7 @@ final class ContestingLaneTests: XCTestCase {
         XCTAssertEqual((score["qsos"] as? NSNumber)?.intValue, 1)
     }
 
-    func testFourteenRuleCatalogAndLegacyMutationRestartExportFlowUseEntryDescriptors() async throws {
+    func testSixteenRuleCatalogAndLegacyMutationRestartExportFlowUseEntryDescriptors() async throws {
         let catalogRoot = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-eight-pilot-catalog-\(UUID().uuidString)")
         defer {
             if FileManager.default.fileExists(atPath: catalogRoot.path) {
@@ -248,8 +248,8 @@ final class ContestingLaneTests: XCTestCase {
         let rules = try XCTUnwrap(catalog["rules"] as? [[String: Any]])
         XCTAssertEqual(Set(rules.compactMap { ($0["identity"] as? [String: Any])?["id"] as? String }),
                        ["cq-ww-cw", "cq-wpx-cw", "cq-ww-ssb", "cq-wpx-ssb", "oceania-dx-cw", "oceania-dx-ssb", "sac-cw", "sac-ssb",
-                        "naqp-cw", "naqp-ssb", "naqp-rtty", "arrl-rtty-roundup", "jidx-cw", "jidx-ssb"])
-        XCTAssertEqual(rules.count, 14)
+                        "naqp-cw", "naqp-ssb", "naqp-rtty", "arrl-rtty-roundup", "jidx-cw", "jidx-ssb", "arrl-dx-cw", "arrl-dx-ssb"])
+        XCTAssertEqual(rules.count, 16)
         for rule in rules {
             let mode = try XCTUnwrap(rule["mode"] as? String)
             let entry = try XCTUnwrap(rule["entry"] as? [String: Any])
@@ -257,15 +257,18 @@ final class ContestingLaneTests: XCTestCase {
             let ruleID = try XCTUnwrap((rule["identity"] as? [String: Any])?["id"] as? String)
             XCTAssertEqual((entry["report"] as? [String: Any])?["defaultSent"] as? String,
                            ruleID.hasPrefix("naqp-") ? "" : mode == "SSB" ? "59" : "599")
-            if ruleID.hasPrefix("naqp-") || ruleID == "arrl-rtty-roundup" || ruleID.hasPrefix("jidx-") {
+            if ruleID.hasPrefix("naqp-") || ruleID == "arrl-rtty-roundup" ||
+                ruleID.hasPrefix("jidx-") || ruleID.hasPrefix("arrl-dx-") {
                 XCTAssertEqual((rule["entryDescriptorVersion"] as? NSNumber)?.intValue, 2)
                 XCTAssertEqual((entry["version"] as? NSNumber)?.intValue, 2)
             } else {
                 XCTAssertEqual((rule["entryDescriptorVersion"] as? NSNumber)?.intValue, 1)
                 XCTAssertNil(entry["version"])
             }
-            if ruleID == "arrl-rtty-roundup" {
-                XCTAssertNotNil(entry["stationFields"]); XCTAssertNotNil(entry["stationResolvedSerial"])
+            if ruleID == "arrl-rtty-roundup" || ruleID.hasPrefix("arrl-dx-") {
+                XCTAssertNotNil(entry["stationFields"])
+                if ruleID == "arrl-rtty-roundup" { XCTAssertNotNil(entry["stationResolvedSerial"]) }
+                else { XCTAssertNil(entry["stationResolvedSerial"]) }
             } else {
                 XCTAssertNil(entry["stationFields"]); XCTAssertNil(entry["stationResolvedSerial"])
             }
@@ -894,10 +897,10 @@ final class ContestingLaneTests: XCTestCase {
         let workspaceGeneration = try XCTUnwrap(catalog["workspaceGeneration"] as? String)
         XCTAssertEqual(workspaceGeneration, workspaceGeneration.lowercased())
         let rules = try XCTUnwrap(catalog["rules"] as? [[String: Any]])
-        XCTAssertEqual(rules.count, 14)
+        XCTAssertEqual(rules.count, 16)
         XCTAssertEqual(Set(rules.compactMap { ($0["identity"] as? [String: Any])?["id"] as? String }),
                        ["cq-ww-cw", "cq-wpx-cw", "cq-ww-ssb", "cq-wpx-ssb", "oceania-dx-cw", "oceania-dx-ssb", "sac-cw", "sac-ssb",
-                        "naqp-cw", "naqp-ssb", "naqp-rtty", "arrl-rtty-roundup", "jidx-cw", "jidx-ssb"])
+                        "naqp-cw", "naqp-ssb", "naqp-rtty", "arrl-rtty-roundup", "jidx-cw", "jidx-ssb", "arrl-dx-cw", "arrl-dx-ssb"])
         XCTAssertTrue(rules.allSatisfy { $0["entry"] is [String: Any] })
         let rule = try XCTUnwrap(rules.first { $0["displayName"] as? String == "CQ WPX CW" })
         let sessionID = UUID(uuidString: "f7654321-89ab-4cde-8fab-0123456789ab")!

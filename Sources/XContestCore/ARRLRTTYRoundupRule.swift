@@ -59,11 +59,13 @@ private let arrlRTTYEntry = ContestEntryDescriptor(
     stationResolvedSerial: .init(policy: .arrlRTTYRoundupWVEOrDX,
                                  locationFieldID: "location", allocatedSerialFieldID: "serial",
                                  allowedScopes: [.session]),
-    stationFields: [
-        .init(id: "section", label: "Cabrillo section", role: .cabrilloLocation,
-              required: true, maximumUTF8Bytes: 3),
-    ],
+    stationFields: arrlCabrilloSectionStationFields,
     scorePolicy: .pointsTimesMultipliers)
+
+internal let arrlCabrilloSectionStationFields: [ContestStationFieldDescriptor] = [
+    .init(id: "section", label: "Cabrillo section", role: .cabrilloLocation,
+          required: true, maximumUTF8Bytes: 3),
+]
 
 /// Inactive preview of the current ARRL RTTY Roundup scoring core.
 /// Category, operating-time, mobile endpoint, worker, UI, and export acceptance remain outside this rule.

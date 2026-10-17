@@ -406,3 +406,36 @@ that opt-in for raw power such as `K` with normalized `1000`. Zero-field and
 multi-field cases fall back to the established aggregate projection. Initial
 drafts and every reset returned by commit, replay, or reopen must expose the
 same raw/normalized station-field contract.
+
+## Entry activation necessity
+
+The entry slice adds one nonpersisted `ContestRuleExchangeFieldProjection`
+capability. Only ARRL DX adopts it. The runtime passes a newly decoded field
+dictionary to the rule, and the rule returns a projected dictionary whose raw
+power token is unchanged and whose normalized value uses the already approved
+ARRL DX power normalizer. Invalid raw input remains present and is rejected by
+the core evaluator; the projection never blanks it or mutates a station
+snapshot, QSO, receipt, or stored payload. Existing rules keep their previous
+decode and wire bytes because the runtime performs no projection for rules that
+do not conform.
+
+ARRL DX reuses the independently validated `cabrilloLocation` station-field
+descriptor for Cabrillo `LOCATION`. That field is separate from contest side:
+AK, KH6, KP4, and KP2 are scored on the DX side while retaining their ARRL
+section values. The station form therefore collects a Cabrillo section plus
+exactly one sent exchange, location for a W/VE entrant or power for a DX
+entrant. The two sent-exchange controls are mutually exclusive, but both stay
+visible because the browser has no authoritative DXCC entity classification
+before the worker admits the station snapshot; the worker remains the authority
+for direction and rejects crossed or forged fields atomically.
+
+Browser acceptance exercises W/VE and DX entry in both CW and Phone. Power is
+uppercased as raw operator evidence while typing; intermediate text such as
+`KI` or `KIL` remains editable. The strict client rejects an invalid save
+without replacing that local draft or correction, so the operator can repair it
+to a valid token such as `KILO` or `100`.
+
+This activation is bounded to the existing SINGLE-OP/ONE export scope and is
+labelled as practice in the UI. It does not add simulator profiles, operator
+category coverage, RF or voice evidence, sponsor upload evidence, or a claim of
+submission readiness. Those remain acceptance gates for the full port.

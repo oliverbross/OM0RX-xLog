@@ -39,12 +39,13 @@ private func arrlDXEntry(_ mode: ARRLDXMode) -> ContestEntryDescriptor {
                       required: false, maximumUTF8Bytes: 8),
             ]),
         serial: .init(requirement: .none, allowedScopes: []),
+        stationFields: arrlCabrilloSectionStationFields,
         scorePolicy: .pointsTimesMultipliers)
 }
 
-/// Inactive scoring core for the current ARRL International DX CW rules.
-/// Worker, UI, full categories, activation, physical endpoint proof, and sponsor acceptance remain out of scope.
-public struct ARRLDXCWRule: ContestRule {
+/// Preview scoring core for the current ARRL International DX CW rules.
+/// Full categories, physical endpoint proof, and sponsor acceptance remain out of scope.
+public struct ARRLDXCWRule: ContestRule, ContestRuleExchangeFieldProjection {
     public static let identity = ContestRuleIdentity(
         id: "arrl-dx-cw", version: "1.0.0-2.0-preview", edition: "rules-2.0-preview",
         sourceRevision: arrlDXRulesDigest)
@@ -65,11 +66,16 @@ public struct ARRLDXCWRule: ContestRule {
     public func cabrilloReceivedExchange(for qso: ContestQSO) -> String {
         implementation.cabrilloReceivedExchange(for: qso)
     }
+    public func projectExchangeFields(
+        _ fields: [String: ContestExchangeFieldValue]
+    ) -> [String: ContestExchangeFieldValue] {
+        implementation.projectExchangeFields(fields)
+    }
 }
 
-/// Inactive scoring core for the current ARRL International DX Phone rules.
-/// Worker, UI, full categories, activation, physical endpoint proof, and sponsor acceptance remain out of scope.
-public struct ARRLDXSSBRule: ContestRule {
+/// Preview scoring core for the current ARRL International DX Phone rules.
+/// Full categories, physical endpoint proof, and sponsor acceptance remain out of scope.
+public struct ARRLDXSSBRule: ContestRule, ContestRuleExchangeFieldProjection {
     public static let identity = ContestRuleIdentity(
         id: "arrl-dx-ssb", version: "1.0.0-2.0-preview", edition: "rules-2.0-preview",
         sourceRevision: arrlDXRulesDigest)
@@ -89,6 +95,11 @@ public struct ARRLDXSSBRule: ContestRule {
     }
     public func cabrilloReceivedExchange(for qso: ContestQSO) -> String {
         implementation.cabrilloReceivedExchange(for: qso)
+    }
+    public func projectExchangeFields(
+        _ fields: [String: ContestExchangeFieldValue]
+    ) -> [String: ContestExchangeFieldValue] {
+        implementation.projectExchangeFields(fields)
     }
 }
 
@@ -210,6 +221,17 @@ private struct ARRLDXRule: ContestRule {
 
     func cabrilloReceivedExchange(for qso: ContestQSO) -> String {
         qso.exchange.normalizedReceived
+    }
+
+    func projectExchangeFields(
+        _ fields: [String: ContestExchangeFieldValue]
+    ) -> [String: ContestExchangeFieldValue] {
+        guard let power = fields["power"], let normalized = arrlDXNormalizePower(power.raw) else {
+            return fields
+        }
+        var projected = fields
+        projected["power"] = .init(raw: power.raw, normalized: normalized)
+        return projected
     }
 }
 

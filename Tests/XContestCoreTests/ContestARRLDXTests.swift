@@ -25,7 +25,7 @@ final class ContestARRLDXTests: XCTestCase {
             XCTAssertEqual(entry.serial.requirement, .none)
             XCTAssertTrue(entry.serial.allowedScopes.isEmpty)
             XCTAssertNil(entry.stationResolvedSerial)
-            XCTAssertTrue(entry.stationFields.isEmpty)
+            XCTAssertEqual(entry.stationFields, arrlCabrilloSectionStationFields)
             XCTAssertEqual(entry.exchange.sentFields.map(\.id), ["location", "power"])
             XCTAssertEqual(entry.exchange.receivedFields.map(\.id), ["location", "power"])
             XCTAssertEqual(rule.metadata.supportedBands, ["160m", "80m", "40m", "20m", "15m", "10m"])

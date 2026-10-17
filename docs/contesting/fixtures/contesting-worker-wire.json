@@ -2393,7 +2393,223 @@
             "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
             "sourceNote" : "SAC 2026 rules https:\/\/www.sactest.net\/blog\/scandinavian-activity-contest-2026-rules\/ verified 2026-10-18; oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/sac_ssb.py + not1mm\/lib\/database.py + not1mm\/lib\/ham_utility.py",
             "sourceVerification" : "provisional"
-          }
+          },
+          {
+          "displayName" : "ARRL International DX CW Preview",
+          "entry" : {
+            "adifMode" : "CW",
+            "cabrilloFormatterVersion" : "arrl-dx-cw-preview-1",
+            "cabrilloProjectionFormatterVersion" : "arrl-dx-cw-preview-1",
+            "cabrilloQSOType" : "CW",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "structured",
+              "receivedFields" : [
+                {
+                  "acceptedKinds" : [
+                    "subdivision"
+                  ],
+                  "adifField" : "STATE",
+                  "id" : "location",
+                  "label" : "State or province",
+                  "maximumUTF8Bytes" : 2,
+                  "required" : false
+                },
+                {
+                  "acceptedKinds" : [
+                    "power"
+                  ],
+                  "adifField" : null,
+                  "id" : "power",
+                  "label" : "Power",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : false
+                }
+              ],
+              "sent" : "structured",
+              "sentDefault" : "stationFields",
+              "sentFields" : [
+                {
+                  "acceptedKinds" : [
+                    "subdivision"
+                  ],
+                  "adifField" : "MY_STATE",
+                  "id" : "location",
+                  "label" : "State or province",
+                  "maximumUTF8Bytes" : 2,
+                  "required" : false
+                },
+                {
+                  "acceptedKinds" : [
+                    "power"
+                  ],
+                  "adifField" : null,
+                  "id" : "power",
+                  "label" : "Power",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : false
+                }
+              ]
+            },
+            "mode" : "CW",
+            "modeProfiles" : [
+              {
+                "adifMode" : "CW",
+                "adifSubmode" : null,
+                "cabrilloQSOType" : "CW",
+                "mode" : "CW",
+                "report" : {
+                  "defaultReceived" : "599",
+                  "defaultSent" : "599",
+                  "format" : "cwRST",
+                  "maximumUTF8Bytes" : 3
+                }
+              }
+            ],
+            "report" : {
+              "defaultReceived" : "599",
+              "defaultSent" : "599",
+              "format" : "cwRST",
+              "maximumUTF8Bytes" : 3
+            },
+            "scorePolicy" : "pointsTimesMultipliers",
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            },
+            "stationFields" : [
+              {
+                "id" : "section",
+                "label" : "Cabrillo section",
+                "maximumUTF8Bytes" : 3,
+                "required" : true,
+                "role" : "cabrilloLocation"
+              }
+            ],
+            "version" : 2
+          },
+          "entryDescriptorVersion" : 2,
+          "identity" : {
+            "edition" : "rules-2.0-preview",
+            "id" : "arrl-dx-cw",
+            "sourceRevision" : "bd87f1b3f635c4cd25c8d80f4b0ca06dca0a4a0f10c819289634492ae1fefee9",
+            "version" : "1.0.0-2.0-preview"
+          },
+          "mode" : "CW",
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "ARRL International DX Contest Rules v2.0 and January 2026 DXCC list, retrieved 2026-10-18; ARRL multiplier and section guidance; compared with contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f; preview only, not sponsor approval",
+          "sourceVerification" : "provisional"
+        },
+          {
+          "displayName" : "ARRL International DX SSB Preview",
+          "entry" : {
+            "adifMode" : "SSB",
+            "cabrilloFormatterVersion" : "arrl-dx-ssb-preview-1",
+            "cabrilloProjectionFormatterVersion" : "arrl-dx-ssb-preview-1",
+            "cabrilloQSOType" : "PH",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "structured",
+              "receivedFields" : [
+                {
+                  "acceptedKinds" : [
+                    "subdivision"
+                  ],
+                  "adifField" : "STATE",
+                  "id" : "location",
+                  "label" : "State or province",
+                  "maximumUTF8Bytes" : 2,
+                  "required" : false
+                },
+                {
+                  "acceptedKinds" : [
+                    "power"
+                  ],
+                  "adifField" : null,
+                  "id" : "power",
+                  "label" : "Power",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : false
+                }
+              ],
+              "sent" : "structured",
+              "sentDefault" : "stationFields",
+              "sentFields" : [
+                {
+                  "acceptedKinds" : [
+                    "subdivision"
+                  ],
+                  "adifField" : "MY_STATE",
+                  "id" : "location",
+                  "label" : "State or province",
+                  "maximumUTF8Bytes" : 2,
+                  "required" : false
+                },
+                {
+                  "acceptedKinds" : [
+                    "power"
+                  ],
+                  "adifField" : null,
+                  "id" : "power",
+                  "label" : "Power",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : false
+                }
+              ]
+            },
+            "mode" : "SSB",
+            "modeProfiles" : [
+              {
+                "adifMode" : "SSB",
+                "adifSubmode" : null,
+                "cabrilloQSOType" : "PH",
+                "mode" : "SSB",
+                "report" : {
+                  "defaultReceived" : "59",
+                  "defaultSent" : "59",
+                  "format" : "phoneRS",
+                  "maximumUTF8Bytes" : 2
+                }
+              }
+            ],
+            "report" : {
+              "defaultReceived" : "59",
+              "defaultSent" : "59",
+              "format" : "phoneRS",
+              "maximumUTF8Bytes" : 2
+            },
+            "scorePolicy" : "pointsTimesMultipliers",
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            },
+            "stationFields" : [
+              {
+                "id" : "section",
+                "label" : "Cabrillo section",
+                "maximumUTF8Bytes" : 3,
+                "required" : true,
+                "role" : "cabrilloLocation"
+              }
+            ],
+            "version" : 2
+          },
+          "entryDescriptorVersion" : 2,
+          "identity" : {
+            "edition" : "rules-2.0-preview",
+            "id" : "arrl-dx-ssb",
+            "sourceRevision" : "bd87f1b3f635c4cd25c8d80f4b0ca06dca0a4a0f10c819289634492ae1fefee9",
+            "version" : "1.0.0-2.0-preview"
+          },
+          "mode" : "SSB",
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "ARRL International DX Contest Rules v2.0 and January 2026 DXCC list, retrieved 2026-10-18; ARRL multiplier and section guidance; compared with contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f; preview only, not sponsor approval",
+          "sourceVerification" : "provisional"
+        }
         ],
         "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
       }
