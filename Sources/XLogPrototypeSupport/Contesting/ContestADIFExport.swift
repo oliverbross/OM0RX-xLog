@@ -84,6 +84,10 @@ public enum ContestADIFExport {
 
     private static func addStructuredExchangeFields(to fields: inout [String: String], qso: ContestQSO,
                                                      input: ContestExportInput, rule: any ContestRule) {
+        if rule.metadata.entry.cabrilloFormatterVersion == ContestExportInput.arrlRTTYPreviewFormatterVersion {
+            addARRLRTTYExchangeFields(to: &fields, qso: qso, input: input)
+            return
+        }
         guard rule.metadata.entry.cabrilloFormatterVersion == ContestExportInput.naqpPreviewFormatterVersion else { return }
         if let name = qso.exchange.sentFields["name"]?.normalized { fields["MY_NAME"] = name }
         if let name = qso.exchange.receivedFields["name"]?.normalized { fields["NAME"] = name }
@@ -97,6 +101,36 @@ public enum ContestADIFExport {
            let state = qso.exchange.receivedFields["location"]?.normalized {
             fields["STATE"] = state
         }
+    }
+
+    private static func addARRLRTTYExchangeFields(to fields: inout [String: String], qso: ContestQSO,
+                                                   input: ContestExportInput) {
+        if let own = input.session.station.entity {
+            fields["MY_DXCC"] = String(own.adif)
+            if own.adif == 291 || own.adif == 1 {
+                if let location = qso.exchange.sentFields["location"]?.normalized {
+                    fields["MY_STATE"] = arrlADIFSubdivision(location, entityADIF: own.adif)
+                }
+            } else if let serial = qso.exchange.sentFields["serial"]?.normalized,
+                      Int(serial).map({ $0 > 0 }) == true {
+                fields["STX"] = serial
+            }
+        }
+        if let worked = qso.entity {
+            fields["DXCC"] = String(worked.adif)
+            if worked.adif == 291 || worked.adif == 1 {
+                if let location = qso.exchange.receivedFields["exchange"]?.normalized {
+                    fields["STATE"] = arrlADIFSubdivision(location, entityADIF: worked.adif)
+                }
+            } else if let serial = qso.exchange.receivedFields["exchange"]?.normalized,
+                      Int(serial).map({ $0 > 0 }) == true {
+                fields["SRX"] = serial
+            }
+        }
+    }
+
+    private static func arrlADIFSubdivision(_ value: String, entityADIF: Int) -> String {
+        entityADIF == 1 && (value == "LB" || value == "NF") ? "NL" : value
     }
 
     private static func adifStateIsApplicable(_ entity: ContestEntitySnapshot) -> Bool {
