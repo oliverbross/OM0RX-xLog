@@ -260,6 +260,15 @@ final class LiveStationMethodsTests: XCTestCase {
     }
 
     #if os(macOS)
+    func testIndependentRotorSnapshotDoesNotRequireRadioIdentity() async throws {
+        let snapshot = try await LiveStationMethods.handle(
+            "station_rotor_snapshot",
+            params: ["provider": "direct_agent"]
+        )
+        XCTAssertEqual(snapshot["connected"] as? Bool, false)
+        XCTAssertEqual(snapshot["status"] as? String, "Disconnected")
+    }
+
     func testDirectAgentConsumesExplicitRadioIdentityBeforeExactPayloadValidation() async throws {
         let snapshot = try await LiveStationMethods.handle("station_snapshot", params: ["radio_id": "radio1", "provider": "direct_agent"])
         XCTAssertEqual(snapshot["radio_id"] as? String, "radio1")

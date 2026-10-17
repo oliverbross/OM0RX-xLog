@@ -79,6 +79,15 @@ enum LiveStationMethods {
         #endif
         #if os(macOS)
         guard params["provider"] == nil || params["provider"] is String else { throw invalidParams() }
+        // The rotor has its own process-wide transport and lifetime. It is not
+        // owned by Radio 1 or Radio 2, so route it before requiring radio_id.
+        // Keeping it behind the radio selector made every native rotor request
+        // fail validation and left the coordinator in an uncertain half-state.
+        if method.hasPrefix("station_rotor_") {
+            var rotorParams = params
+            rotorParams.removeValue(forKey: "radio_id")
+            return try await LiveRotorSession.shared.handle(method, params: rotorParams)
+        }
         guard let radioID = params["radio_id"] as? String,
               ["radio1", "radio2"].contains(radioID),
               let claim = StationRadioRegistry.claims[radioID],
