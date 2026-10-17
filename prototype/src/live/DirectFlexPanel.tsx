@@ -10,12 +10,13 @@ import { carrierTuneSession } from "./carrierTune";
 import { CarrierTuneStatus } from "./CarrierTuneStatus";
 import {pttSession} from "./pttSession";
 import {PTTStatus} from "./PTTStatus";
+import type { RadioID } from "./stationSession";
 import "./StationPanel.css";
 import "./DirectFlexPanel.css";
 
 type Data = Record<string, any>;
 type Request = (method: string, params?: Data) => Promise<Data>;
-type Props = { request: Request; snapshot: Data | null };
+type Props = { radioId: RadioID; request: Request; snapshot: Data | null };
 const provider = "direct_flex_lan";
 const modes = ["USB", "LSB", "CW", "CWR", "AM", "FM", "RTTY", "RTTYR", "DIGU", "DIGL", "FT8", "FT4"];
 const formatMHz = (hz: unknown) => typeof hz === "number" && Number.isFinite(hz) ? (hz / 1_000_000).toFixed(6) : "—";
@@ -40,7 +41,7 @@ export function validFlexEndpoint(host: string, port: string, stationName: strin
     (ipv6 === "::1" || /^(fc|fd|fe[89ab])/.test(ipv6));
 }
 
-export default function DirectFlexPanel({ request, snapshot }: Props) {
+export default function DirectFlexPanel({ radioId, request, snapshot }: Props) {
   const shared = nativeStationSelection();
   const [host, setHost] = useState(() => shared ? "" : localStorage.getItem("xlog.flex.host") || "");
   const [port, setPort] = useState(() => shared ? "4992" : localStorage.getItem("xlog.flex.port") || "4992");
@@ -95,7 +96,7 @@ export default function DirectFlexPanel({ request, snapshot }: Props) {
     const startedRFPowerRevision = rfPowerRevision.current;
     setBusy(true); setError(""); setNotice("");
     try {
-      const result: Data = method === "station_tune" && shared ? await manualTuneSession().tune(provider, params.frequency_hz, params.mode) : await request(method, { provider, ...params });
+      const result: Data = method === "station_tune" && shared ? await manualTuneSession(radioId).tune(provider, params.frequency_hz, params.mode) : await request(method, { provider, ...params });
       const confirmedRadio = result?.confirmed === true && result?.state?.radio?.observed === true ? result.state.radio : null;
       if (confirmedRadio && (method === "station_tune" || params.control === "set_frequency_a") &&
           frequencyRevision.current === startedFrequencyRevision && typeof confirmedRadio.frequency_hz === "number") {
@@ -142,7 +143,7 @@ export default function DirectFlexPanel({ request, snapshot }: Props) {
       <span className={`live-station-status ${connected ? "is-online" : "is-offline"}`}><i />{connected ? "Observed" : snapshot?.transport_state || "Disconnected"}</span></header>
     <div className="live-station-grid"><div className="live-station-main">
       <section className="live-station-card"><h3>Connection</h3>
-        {shared ? <><AgentConnectionSetup flex /><button type="button" disabled={busy} onClick={() => void act("station_snapshot", {}, "Read state")}><RefreshCw size={14} /> Read state</button></> : <form className="live-station-connect" onSubmit={event => void connect(event)}>
+        {shared ? <><AgentConnectionSetup radioId={radioId} flex /><button type="button" disabled={busy} onClick={() => void act("station_snapshot", {}, "Read state")}><RefreshCw size={14} /> Read state</button></> : <form className="live-station-connect" onSubmit={event => void connect(event)}>
           <div className="flex-connect-fields"><label>Private radio IP address<input aria-label="Private radio IP address" required inputMode="url" value={host} onChange={event => setHost(event.target.value)} placeholder="192.168.1.50" autoComplete="off" /></label>
             <label>TCP port<input aria-label="TCP port" required type="number" min="1" max="65535" value={port} onChange={event => setPort(event.target.value)} /></label>
             <label>Station name<input aria-label="Station name" required maxLength={64} value={stationName} onChange={event => setStationName(event.target.value)} /></label></div>
@@ -166,7 +167,7 @@ export default function DirectFlexPanel({ request, snapshot }: Props) {
         <button className="live-station-quiet" disabled={!connected} onClick={useObservedValues}>Use observed frequency and mode in controls</button>
       </section>
       <section className="live-station-card"><h3>Frequency and mode</h3>
-        {shared && <ManualTuneStatus />}
+        {shared && <ManualTuneStatus radioId={radioId} />}
         <div className="live-station-inline"><label>Frequency MHz<input aria-label="FLEX frequency MHz" inputMode="decimal" value={frequency} onChange={event => { frequencyEdited.current = true; frequencyRevision.current++; setFrequency(event.target.value); }} /></label><label>Mode<select aria-label="FLEX mode" value={mode} onChange={event => { modeEdited.current = true; modeRevision.current++; setMode(event.target.value); }}>{modes.map(value => <option key={value}>{value}</option>)}</select></label>
           <button disabled={busy || !supports("station_tune") || hz == null} onClick={() => hz != null && void act("station_tune", { frequency_hz: hz, mode }, "Simplex tune")}>Tune simplex</button></div>
         <div className="live-station-inline"><label>VFO<select aria-label="FLEX VFO" value={vfo} onChange={event => setVFO(event.target.value as "A" | "B")}><option>A</option><option>B</option></select></label>

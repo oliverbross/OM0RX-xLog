@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { loadStationSession, stationSessionRequest, type StationReceipt, type StationSession } from "./stationSession";
+import { loadStationSession, stationSessionRequest, type RadioID, type StationReceipt, type StationSession } from "./stationSession";
 type Data = Record<string, any>;
-const key = "xlog.tci-filter.pending";
 export function filterAdmission(snapshot: Data | null, now: number) {
   const recent = (t: unknown) => typeof t === "number" && Number.isFinite(t) && now - t * 1000 >= -1000 && now - t * 1000 <= 5000;
   return snapshot?.source === "direct_tci" && snapshot.available === true && snapshot.transport_state === "ready"
@@ -10,19 +9,21 @@ export function filterAdmission(snapshot: Data | null, now: number) {
     && snapshot.capabilities?.supported_commands?.includes("station_receive_filter") === true && snapshot.tci?.filter_scope === "trx"
     && Number.isSafeInteger(snapshot.tci?.filter_lower_hz) && Number.isSafeInteger(snapshot.tci?.filter_upper_hz);
 }
-const readJournal = () => { try { return sessionStorage.getItem(key); } catch { return "unverified"; } };
-export function TCIReceiveFilter({ snapshot, now, transport = { snapshot: loadStationSession, request: stationSessionRequest<StationReceipt | null> } }:
-  { snapshot: Data | null; now: number; transport?: { snapshot: () => Promise<StationSession>; request: (p: Record<string, unknown>) => Promise<StationReceipt | null> } }) {
+export function TCIReceiveFilter({ radioId, snapshot, now, transport }:
+  { radioId: RadioID; snapshot: Data | null; now: number; transport?: { snapshot: () => Promise<StationSession>; request: (p: Record<string, unknown>) => Promise<StationReceipt | null> } }) {
+  const journalKey = `xlog.tci-filter.${radioId}.pending`;
+  const selectedTransport = transport ?? { snapshot: () => loadStationSession(radioId), request: (params: Record<string, unknown>) => stationSessionRequest<StationReceipt | null>(radioId, params) };
+  const readJournal = () => { try { return sessionStorage.getItem(journalKey); } catch { return "unverified"; } };
   const [lower, setLower] = useState(""), [upper, setUpper] = useState("");
   const [pending, setPending] = useState(readJournal), [busy, setBusy] = useState(false), [reviewable, setReviewable] = useState(false), [message, setMessage] = useState("");
   const edges = [lower, upper].map(v => /^-?\d{1,5}$/.test(v) ? Number(v) : NaN);
   const valid = edges.every(v => Number.isSafeInteger(v) && Math.abs(v) <= 24000) && edges[0] < edges[1];
-  const remember = (id: string | null) => { if (id) sessionStorage.setItem(key, id); else sessionStorage.removeItem(key); setPending(id); };
+  const remember = (id: string | null) => { if (id) sessionStorage.setItem(journalKey, id); else sessionStorage.removeItem(journalKey); setPending(id); };
   const inspect = async (review = false) => {
     if (busy || !pending) return;
     setBusy(true);
     try {
-      const receipt = await transport.request(review ? { action: "review", operation_id: pending, reviewed_action: "tci_receive_filter" } : { action: "receipt", operation_id: pending });
+      const receipt = await selectedTransport.request(review ? { action: "review", operation_id: pending, reviewed_action: "tci_receive_filter" } : { action: "receipt", operation_id: pending });
       if (receipt && (receipt.operation_id !== pending || receipt.request.action !== "tci_receive_filter")) throw new Error("The filter receipt identity could not be verified.");
       if (review && receipt?.status !== "reviewed") throw new Error("The durable filter review could not be verified.");
       if (!receipt || ["confirmed", "reviewed"].includes(receipt.status)) { remember(null); setReviewable(false); setMessage("Filter receipt checked. No adjustment was repeated."); }
@@ -33,7 +34,7 @@ export function TCIReceiveFilter({ snapshot, now, transport = { snapshot: loadSt
     if (busy || pending || !valid || !filterAdmission(snapshot, now)) return;
     setBusy(true); setMessage("");
     try {
-      const base = await transport.snapshot(), radio = base.radio, selected = base.selection;
+      const base = await selectedTransport.snapshot(), radio = base.radio, selected = base.selection;
       const unresolved = base.tci_filter_receipt;
       if (unresolved && ["pending", "unknown"].includes(unresolved.status)) { remember(unresolved.operation_id); throw new Error("Check the existing filter receipt before another adjustment."); }
       if (selected.provider !== "direct_tci" || !selected.selection_id || radio?.provider !== "direct_tci" || radio.selection_id !== selected.selection_id
@@ -42,7 +43,7 @@ export function TCIReceiveFilter({ snapshot, now, transport = { snapshot: loadSt
         || !Number.isSafeInteger(base.worker_generation) || !base.worker_generation || !Number.isSafeInteger(radio.snapshot?.generation)
         || !filterAdmission(radio.snapshot, Date.now())) throw new Error("Refresh the selected TCI receiver before adjusting its filter.");
       const operation = crypto.randomUUID(); remember(operation);
-      const receipt = await transport.request({ action: "tci_receive_filter", operation_id: operation, generation: base.generation, revision: base.revision,
+      const receipt = await selectedTransport.request({ action: "tci_receive_filter", operation_id: operation, generation: base.generation, revision: base.revision,
         provider: "direct_tci", selection_generation: selected.generation, selection_id: selected.selection_id, control_revision: selected.control_revision,
         connection_generation: radio.snapshot.generation, worker_generation: base.worker_generation, lower_hz: edges[0], upper_hz: edges[1] });
       if (!receipt || receipt.operation_id !== operation || receipt.request.action !== "tci_receive_filter") throw new Error("Filter receipt could not be verified. Check its outcome.");

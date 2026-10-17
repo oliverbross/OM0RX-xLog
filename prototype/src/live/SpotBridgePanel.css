@@ -17,3 +17,4 @@
 .spot-bridge footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; border-top: 1px solid var(--border); padding-top: 12px; margin-top: 14px; font-size: 12px; }
 .spot-bridge footer small { flex-basis: 100%; color: var(--secondary); line-height: 1.5; }
 .spot-bridge-provider-note { color: var(--amber); border: 1px solid #70512a; border-radius: 6px; background: #342818; padding: 9px 11px; margin: 10px 0; line-height: 1.45; }
+.spot-bridge-safety { color: var(--secondary); border-left: 3px solid var(--teal); padding-left: 10px; }

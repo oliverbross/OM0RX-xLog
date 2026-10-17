@@ -31,6 +31,7 @@ struct Saved {
     receipts: Vec<Receipt>,
 }
 pub struct Session {
+    radio_id: String,
     path: PathBuf,
     state: Mutex<Saved>,
     operation: Mutex<()>,
@@ -44,7 +45,7 @@ pub fn validate(label: &str, isolated: bool, action: &str) -> Result<(), String>
     }
     if !matches!(
         action,
-        "snapshot" | "receipt" | "hamlib_catalogue" | "save" | "connect" | "disconnect" | "forget" | "select"
+        "snapshot" | "receipt" | "hamlib_catalogue" | "set_active_radio" | "save" | "connect" | "disconnect" | "forget" | "select"
             | "save_hamlib" | "connect_hamlib" | "reconnect_hamlib" | "disconnect_hamlib"
             | "save_flex" | "connect_flex" | "reconnect_flex" | "disconnect_flex"
             | "save_tci" | "connect_tci" | "disconnect_tci"
@@ -182,13 +183,30 @@ fn tci_configuration(value: &Value) -> Result<Value, String> {
     Ok(json!({"endpoint":canonical,"trx":trx,"channel":channel}))
 }
 impl Session {
+    #[cfg(test)]
     fn new(path: PathBuf) -> Result<Self, String> {
-        let mut saved = match std::fs::read(&path) {
-            Ok(bytes) if bytes.len() <= 1_048_576 => serde_json::from_slice::<Saved>(&bytes)
+        Self::new_for(path, crate::radio_slots::RADIO1, None)
+    }
+    fn new_for(path: PathBuf, radio_id: &str, legacy_path: Option<&std::path::Path>) -> Result<Self, String> {
+        crate::radio_slots::index(radio_id)?;
+        let (bytes, migrated_path) = match std::fs::read(&path) {
+            Ok(bytes) => (Some(bytes), false),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound && radio_id == crate::radio_slots::RADIO1 => {
+                match legacy_path.map(std::fs::read).transpose() {
+                    Ok(bytes) => { let migrated = bytes.is_some(); (bytes, migrated) },
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => (None, false),
+                    Err(_) => return Err("Saved Station Control state could not be read.".into()),
+                }
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => (None, false),
+            Err(_) => return Err("Saved Station Control state could not be read.".into()),
+        };
+        let mut saved = match bytes {
+            Some(bytes) if bytes.len() <= 1_048_576 => serde_json::from_slice::<Saved>(&bytes)
                 .map_err(|_| "Saved Station Control state is invalid; it was not overwritten.")?,
-            Ok(_) => return Err("Saved Station Control state is too large.".into()),
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Saved {
-                version: 1,
+            Some(_) => return Err("Saved Station Control state is too large.".into()),
+            None => Saved {
+                version: 2,
                 generation: uuid::Uuid::new_v4().to_string(),
                 revision: 0,
                 base_url: String::new(),
@@ -197,9 +215,18 @@ impl Session {
                 tci: None,
                 receipts: vec![],
             },
-            Err(_) => return Err("Saved Station Control state could not be read.".into()),
         };
-        if saved.version != 1
+        let migrated_version = saved.version == 1;
+        let strict_radio_id = legacy_path.is_some();
+        if migrated_version {
+            saved.version = 2;
+            for receipt in &mut saved.receipts {
+                if receipt.request["action"] != "manual_rotor_goto" {
+                    receipt.request["radio_id"] = json!(radio_id);
+                }
+            }
+        }
+        if saved.version != 2
             || uuid::Uuid::parse_str(&saved.generation).is_err()
             || saved.revision > MAX_REVISION
             || saved.receipts.len() > MAX_RECEIPTS
@@ -217,7 +244,7 @@ impl Session {
         let mut identities = std::collections::HashSet::new();
         for receipt in &saved.receipts {
             let action = receipt.request["action"].as_str().unwrap_or("");
-            let keys = if action == "save" {
+            let mut keys = if action == "save" {
                 vec!["action", "generation", "revision", "base_url"]
             } else if matches!(action, "save_hamlib" | "save_flex" | "save_tci") {
                 vec!["action", "generation", "revision", "configuration"]
@@ -252,6 +279,7 @@ impl Session {
                     "allow_transmit",
                 ]
             };
+            if action != "manual_rotor_goto" && (strict_radio_id || receipt.request.get("radio_id").is_some()) { keys.push("radio_id"); }
             if uuid::Uuid::parse_str(&receipt.operation_id).is_err()
                 || !identities.insert(&receipt.operation_id)
                 || !matches!(
@@ -271,6 +299,7 @@ impl Session {
                 || receipt.status == "confirmed" && !matches!(action, "manual_tune" | "tci_receive_filter")
                 || receipt.status == "reviewed" && !matches!(action, "manual_tune" | "tci_receive_filter" | "manual_rotor_goto")
                 || receipt.request["generation"] != saved.generation
+                || action != "manual_rotor_goto" && strict_radio_id && receipt.request["radio_id"] != radio_id
                 || receipt.request["revision"]
                     .as_u64()
                     .is_none_or(|revision| revision > saved.revision)
@@ -337,7 +366,16 @@ impl Session {
                 receipt.status = "unknown".into();
             }
         }
+        if migrated_path || migrated_version {
+            let temporary = Self {
+                radio_id: radio_id.into(), path: path.clone(), state: Mutex::new(saved.clone()),
+                operation: Mutex::new(()), resume_checked: AtomicBool::new(false),
+                restored_worker_generation: AtomicU64::new(0),
+            };
+            temporary.persist(&saved)?;
+        }
         Ok(Self {
+            radio_id: radio_id.into(),
             path,
             state: Mutex::new(saved),
             operation: Mutex::new(()),
@@ -372,7 +410,7 @@ impl Session {
             .lock()
             .map_err(|_| "Station Control state is unavailable.")?;
         Ok(
-            json!({"generation":state.generation,"revision":state.revision,"base_url":state.base_url,"hamlib":state.hamlib,"flex":state.flex,"tci":state.tci,
+            json!({"radio_id":self.radio_id,"generation":state.generation,"revision":state.revision,"base_url":state.base_url,"hamlib":state.hamlib,"flex":state.flex,"tci":state.tci,
             "last_receipt":state.receipts.last(),"remaining_operations":MAX_RECEIPTS-state.receipts.len()}),
         )
     }
@@ -496,6 +534,9 @@ impl Session {
         let action = params["action"]
             .as_str()
             .ok_or("Missing Station Control action.")?;
+        if params.get("radio_id").is_some_and(|value| value.as_str() != Some(&self.radio_id)) {
+            return Err("Station Control request targets a different radio slot.".into());
+        }
         if !matches!(
             action,
             "save" | "connect" | "disconnect" | "forget" | "select"
@@ -512,11 +553,12 @@ impl Session {
             return Err("Invalid Keychain interaction policy.".into());
         }
         if matches!(action, "save_tci" | "connect_tci" | "disconnect_tci") {
-            let keys: &[&str] = if action == "save_tci" {
-                &["action", "operation_id", "generation", "revision", "configuration"]
+            let mut keys: Vec<&str> = if action == "save_tci" {
+                vec!["action", "operation_id", "generation", "revision", "configuration"]
             } else {
-                &["action", "operation_id", "generation", "revision", "selection_generation", "selection_id"]
+                vec!["action", "operation_id", "generation", "revision", "selection_generation", "selection_id"]
             };
+            if params.get("radio_id").is_some() { keys.push("radio_id"); }
             if params.as_object().is_none_or(|object| {
                 object.len() != keys.len() || object.keys().any(|key| !keys.contains(&key.as_str()))
             }) {
@@ -524,7 +566,8 @@ impl Session {
             }
         }
         if action == "tci_receive_filter" {
-            let keys = ["action", "operation_id", "generation", "revision", "selection_generation", "selection_id", "provider", "control_revision", "connection_generation", "worker_generation", "lower_hz", "upper_hz"];
+            let mut keys = vec!["action", "operation_id", "generation", "revision", "selection_generation", "selection_id", "provider", "control_revision", "connection_generation", "worker_generation", "lower_hz", "upper_hz"];
+            if params.get("radio_id").is_some() { keys.push("radio_id"); }
             if params.as_object().is_none_or(|o| o.len() != keys.len() || o.keys().any(|k| !keys.contains(&k.as_str()))) {
                 return Err("Invalid exact TCI filter request.".into());
             }
@@ -541,6 +584,7 @@ impl Session {
             .filter(|value| *value <= MAX_REVISION)
             .ok_or("Invalid Station Control revision.")?;
         let mut descriptor = json!({"action":action,"generation":generation,"revision":revision});
+        if params.get("radio_id").is_some() { descriptor["radio_id"] = json!(self.radio_id); }
         if action == "save" {
             descriptor["base_url"] = json!(endpoint(
                 params["base_url"]
@@ -670,6 +714,7 @@ impl Session {
                     state.hamlib.clone().ok_or("Save Hamlib configuration before connecting.")?
                 };
                 connection["device"] = json!("radio");
+                if params.get("radio_id").is_some() { connection["radio_id"] = json!(self.radio_id); }
                 connection["tx_enabled"] = json!(action != "disconnect_hamlib" && params["allow_transmit"] == true);
             }
             if matches!(action, "connect_flex" | "reconnect_flex" | "disconnect_flex") {
@@ -677,6 +722,7 @@ impl Session {
                     state.flex.clone().ok_or("Save FLEX configuration before connecting.")?
                 };
                 connection["provider"] = json!("direct_flex_lan");
+                if params.get("radio_id").is_some() { connection["radio_id"] = json!(self.radio_id); }
                 if action != "disconnect_flex" { connection["allow_transmit"] = json!(params["allow_transmit"] == true); }
             }
             if matches!(action, "connect_tci" | "disconnect_tci") {
@@ -684,12 +730,14 @@ impl Session {
                     state.tci.clone().ok_or("Save TCI configuration before connecting.")?
                 };
                 connection["provider"] = json!("direct_tci");
+                if params.get("radio_id").is_some() { connection["radio_id"] = json!(self.radio_id); }
             }
             if matches!(action, "connect" | "forget") {
                 if state.base_url.is_empty() {
                     return Err("Save an Agent endpoint before connecting.".into());
                 }
                 connection["base_url"] = json!(state.base_url);
+                if params.get("radio_id").is_some() { connection["radio_id"] = json!(self.radio_id); }
                 connection["allow_transmit"] =
                     json!(action == "connect" && params["allow_transmit"] == true);
                 if let Some(token) = params.get("token") {
@@ -703,6 +751,9 @@ impl Session {
                     // Operators authorize/save credentials through Settings.
                     connection["allow_keychain_interaction"] = json!(false);
                 }
+            }
+            if action != "manual_rotor_goto" && params.get("radio_id").is_some() {
+                connection["radio_id"] = json!(self.radio_id);
             }
             // Every admitted lifecycle command advances shared command state,
             // fencing a second action composed against an older connection view.
@@ -767,26 +818,58 @@ impl Session {
         Ok(response)
     }
 }
-static OWNER: OnceLock<Mutex<Option<Arc<Session>>>> = OnceLock::new();
-pub fn owner(app: &tauri::AppHandle) -> Result<Arc<Session>, String> {
-    let mut owner = OWNER
-        .get_or_init(|| Mutex::new(None))
+static OWNERS: OnceLock<Mutex<[Option<Arc<Session>>; 2]>> = OnceLock::new();
+pub fn owner_for(app: &tauri::AppHandle, radio_id: &str) -> Result<Arc<Session>, String> {
+    let index = crate::radio_slots::index(radio_id)?;
+    let mut owners = OWNERS
+        .get_or_init(|| Mutex::new([None, None]))
         .lock()
         .map_err(|_| "Station Control is unavailable.")?;
-    if let Some(owner) = owner.as_ref() {
+    if let Some(owner) = owners[index].as_ref() {
         return Ok(owner.clone());
     }
-    let path = app
+    let directory = app
         .path()
         .app_config_dir()
-        .map_err(|_| "Station Control storage is unavailable.")?
-        .join("station-session.json");
-    let session = Arc::new(Session::new(path)?);
-    *owner = Some(session.clone());
+        .map_err(|_| "Station Control storage is unavailable.")?;
+    let path = directory.join(format!("station-session-{radio_id}.json"));
+    let legacy = directory.join("station-session.json");
+    let session = Arc::new(Session::new_for(path, radio_id, Some(&legacy))?);
+    owners[index] = Some(session.clone());
     Ok(session)
 }
-pub(crate) fn retained_owner() -> Option<Arc<Session>> {
-    OWNER.get().and_then(|slot| slot.lock().ok()?.clone())
+pub fn owner(app: &tauri::AppHandle) -> Result<Arc<Session>, String> {
+    let radio_id = crate::radio_slots::active(app)?;
+    owner_for(app, &radio_id)
+}
+pub(crate) fn retained_owner_for(radio_id: &str) -> Option<Arc<Session>> {
+    let index = crate::radio_slots::index(radio_id).ok()?;
+    OWNERS.get().and_then(|slot| slot.lock().ok()?.get(index)?.clone())
+}
+
+pub fn reject_duplicate_configuration(app: &tauri::AppHandle, radio_id: &str, params: &Value) -> Result<(), String> {
+    let action = params["action"].as_str().unwrap_or("");
+    let proposed = match action {
+        "save" => Some(format!("agent:{}", endpoint(params["base_url"].as_str().ok_or("Missing Agent endpoint.")?)?)),
+        "save_hamlib" => Some(format!("hamlib:{}", serde_json::to_string(&crate::hamlib::saved_radio_configuration(&params["configuration"])?).map_err(|_| "Invalid Hamlib identity.")?)),
+        "save_flex" => Some(format!("flex:{}", serde_json::to_string(&flex_configuration(&params["configuration"])?).map_err(|_| "Invalid FLEX identity.")?)),
+        "save_tci" => Some(format!("tci:{}", serde_json::to_string(&tci_configuration(&params["configuration"])?).map_err(|_| "Invalid TCI identity.")?)),
+        _ => None,
+    };
+    let Some(proposed) = proposed else { return Ok(()); };
+    let other_id = if radio_id == crate::radio_slots::RADIO1 { crate::radio_slots::RADIO2 } else { crate::radio_slots::RADIO1 };
+    let other = owner_for(app, other_id)?.snapshot()?;
+    let existing = match action {
+        "save" if !other["base_url"].as_str().unwrap_or("").is_empty() => Some(format!("agent:{}", other["base_url"].as_str().unwrap())),
+        "save_hamlib" if !other["hamlib"].is_null() => Some(format!("hamlib:{}", serde_json::to_string(&other["hamlib"]).map_err(|_| "Invalid Hamlib identity.")?)),
+        "save_flex" if !other["flex"].is_null() => Some(format!("flex:{}", serde_json::to_string(&other["flex"]).map_err(|_| "Invalid FLEX identity.")?)),
+        "save_tci" if !other["tci"].is_null() => Some(format!("tci:{}", serde_json::to_string(&other["tci"]).map_err(|_| "Invalid TCI identity.")?)),
+        _ => None,
+    };
+    if existing.as_deref() == Some(&proposed) {
+        return Err("That radio connection is already assigned to the other slot.".into());
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -1002,6 +1085,39 @@ mod tests {
         let state = session.snapshot().unwrap();
         let params = json!({"action":"save","operation_id":uuid::Uuid::new_v4().to_string(),"generation":state["generation"],"revision":0,"base_url":"https://station.example:8443"});
         (directory, session, params)
+    }
+    #[test]
+    fn v1_journal_migrates_to_radio1_v2_without_replaying_pending_work() {
+        let directory = tempfile::tempdir().unwrap();
+        let legacy = directory.path().join("station-session.json");
+        let target = directory.path().join("station-session-radio1.json");
+        let generation = uuid::Uuid::new_v4().to_string();
+        let operation_id = uuid::Uuid::new_v4().to_string();
+        let selection_id = uuid::Uuid::new_v4().to_string();
+        std::fs::write(&legacy, json!({"version":1,"generation":generation,"revision":0,
+            "base_url":"https://station.example:8443","hamlib":null,"flex":null,"tci":null,
+            "receipts":[{"operation_id":operation_id,"status":"pending","request":{"action":"connect",
+                "generation":generation,"revision":0,"selection_generation":0,"selection_id":selection_id,
+                "allow_transmit":false}}]}).to_string()).unwrap();
+        let session = Session::new_for(target.clone(), crate::radio_slots::RADIO1, Some(&legacy)).unwrap();
+        assert_eq!(session.snapshot().unwrap()["radio_id"], crate::radio_slots::RADIO1);
+        let receipt = session.receipt(&operation_id).unwrap();
+        assert_eq!(receipt["status"], "unknown");
+        assert_eq!(receipt["request"]["radio_id"], crate::radio_slots::RADIO1);
+        let saved: Value = serde_json::from_slice(&std::fs::read(target).unwrap()).unwrap();
+        assert_eq!(saved["version"], 2);
+    }
+    #[test]
+    fn radio1_starts_empty_when_no_v1_session_exists() {
+        let directory = tempfile::tempdir().unwrap();
+        let session = Session::new_for(
+            directory.path().join("station-session-radio1.json"),
+            crate::radio_slots::RADIO1,
+            Some(&directory.path().join("station-session.json")),
+        ).unwrap();
+        let snapshot = session.snapshot().unwrap();
+        assert_eq!(snapshot["radio_id"], crate::radio_slots::RADIO1);
+        assert_eq!(snapshot["base_url"], "");
     }
     fn passive(_: Value, _: u64, _: &str) -> Result<Value, String> {
         panic!("Configuration touched transport")

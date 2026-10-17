@@ -7,7 +7,7 @@ struct NativePowerSelectionTests {
     private func send(_ worker: LiveWorker, provider: Any = NSNull(),
                       selection: Any = NSNull(), sequence: Any) async throws -> [String: Any] {
         let data = try JSONSerialization.data(withJSONObject: ["id": "selection-test",
-            "method": "station_power_selection", "params": ["provider": provider,
+            "method": "station_power_selection", "params": ["radio_id": "radio1", "provider": provider,
                 "selection_id": selection, "sequence": sequence]])
         return try #require(JSONSerialization.jsonObject(with: await worker.response(to: data)) as? [String: Any])
     }
@@ -44,6 +44,10 @@ struct NativePowerSelectionTests {
         }
         let valid = try await send(worker, sequence: 1)
         #expect((valid["result"] as? [String: Any])?["accepted"] as? Bool == true)
+        let missingID = try JSONSerialization.data(withJSONObject: ["id": "missing-radio",
+            "method": "station_power_selection", "params": ["provider": NSNull(), "selection_id": NSNull(), "sequence": 2]])
+        let rejected = try #require(JSONSerialization.jsonObject(with: await worker.response(to: missingID)) as? [String: Any])
+        #expect(rejected["ok"] as? Bool == false)
         await worker.beginTerminalShutdown()
     }
 

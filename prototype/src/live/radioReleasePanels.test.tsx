@@ -18,8 +18,8 @@ for (const native of [false, true]) {
         station:provider==="direct_agent"?{allowed_actions:["cancel"]}:null,rotor:null,
         capabilities:provider==="direct_flex_lan"?{supported_commands:["cancel"]}:undefined};
       const request=vi.fn(async () => snapshot);
-      if(provider==="direct_agent") render(<StationPanel snapshot={snapshot} onRequest={request} onSnapshot={()=>{}}/>);
-      else render(<DirectFlexPanel snapshot={snapshot} request={request}/>);
+      if(provider==="direct_agent") render(<StationPanel radioId="radio1" snapshot={snapshot} onRequest={request} onSnapshot={()=>{}}/>);
+      else render(<DirectFlexPanel radioId="radio1" snapshot={snapshot} request={request}/>);
       fireEvent.click(screen.getByRole("button",{name:provider==="direct_agent"?"Cancel":"Cancel / release"}));
       if(native) {
         await waitFor(()=>expect(shared.cancel).toHaveBeenCalledExactlyOnceWith(provider));

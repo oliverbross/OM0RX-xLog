@@ -6,23 +6,31 @@ import CWSettings from "./CWSettings";
 import { validateCWProfile, type CWContext } from "./cwMacros";
 import type { CWState } from "./cwController";
 import ReferenceScheduleControl from "./ReferenceScheduleControl";
-import WSJTXPanel from "./WSJTXPanel";
 import { useSettingsSaveToast } from "./SettingsSaveToast";
 import "./ServiceSettings.css";
 
 type Data = Record<string, any>;
 type Request = (method: string, params?: Data) => Promise<Data>;
-const RadioSpotSettings = lazy(() => import("./RadioSpotSettings"));
 const QRZLookupTest = lazy(() => import("./QRZLookupTest"));
+const SpotBridgePanel = lazy(() => import("./SpotBridgePanel"));
+const WSJTXPanel = lazy(() => import("./WSJTXPanel"));
 export type ServiceSettingsProps = { values: Data; savedValues?: Data; request: Request; onChanged: (value: Data) => void; onSave: (value: Data) => Promise<void>;
   saving?: boolean; pending?: boolean; conflict?: boolean; workspaceChanged?: boolean; dirty?: boolean; sessionError?: string;
   onReconcile?: () => Promise<void>; onRetry?: () => Promise<void>; onUseSaved?: () => void;
-  dataRequest?: Request; onDataChanged?: () => void; rotorSettings?: ReactNode; clusterSettings?: ReactNode; workspaceSettings?: ReactNode; syncSettings?: ReactNode;
+  dataRequest?: Request; onDataChanged?: () => void; radioSettings?: ReactNode; rotorSettings?: ReactNode; clusterSettings?: ReactNode; workspaceSettings?: ReactNode; syncSettings?: ReactNode;
   onExternalContact?: () => void;
   availableTabs?: readonly Tab[]; requestedTab?: Tab; requestedTabRevision?: number; cwContext?: CWContext; cwState?: CWState;
   refreshCW?: () => Promise<void>; cwProvider?: string };
-const tabs = ["Station", "Logbook", "Wavelog", "Sync", "Integrations", "QRZ", "Online logs", "Reference data", "Rotator", "Cluster", "Radio spots", "CW", "Display", "Workspace", "Backups"] as const;
+const tabs = ["Station", "Radio", "Logbook", "Wavelog", "Sync", "Integrations", "Radio spots", "Cluster", "QRZ", "Online logs", "Reference data", "Rotator", "CW", "Display", "Workspace", "Backups"] as const;
 type Tab = typeof tabs[number];
+const tabLabels: Partial<Record<Tab, string>> = { Station: "General", Integrations: "WSJT-X", "Radio spots": "RUMlog compatibility" };
+const settingsGroups: { label: string; tabs: readonly Tab[] }[] = [
+  { label: "Station", tabs: ["Station", "Radio", "Rotator", "CW"] },
+  { label: "Logbook", tabs: ["Logbook", "Wavelog", "Sync"] },
+  { label: "Connections", tabs: ["Integrations", "Radio spots", "Cluster"] },
+  { label: "Services", tabs: ["QRZ", "Online logs", "Reference data"] },
+  { label: "Application", tabs: ["Display", "Workspace", "Backups"] },
+];
 
 function Credential({ account, label, request, leadingField, visible = false, showSavedStatus = false, savedStatus, missingStatus, allowRemove = false, inputType = "password", onChanged }: { account: string; label: string; request: Request; leadingField?: ReactNode; visible?: boolean; showSavedStatus?: boolean; savedStatus?: string; missingStatus?: string; allowRemove?: boolean; inputType?: "password" | "text"; onChanged?: () => void }) {
   const [value, setValue] = useState("");
@@ -125,7 +133,7 @@ function OnlineLogUploadControl({ request, visible, refreshRevision, service, pr
 
 export default function ServiceSettings({ values, savedValues, request, onChanged, onSave, saving = false, pending = false,
   conflict = false, workspaceChanged = false, dirty = false, sessionError = "", onReconcile, onRetry, onUseSaved, dataRequest, onDataChanged,
-  rotorSettings, clusterSettings, workspaceSettings, syncSettings, onExternalContact, availableTabs, requestedTab, requestedTabRevision, cwContext, cwState, refreshCW, cwProvider }: ServiceSettingsProps) {
+  radioSettings, rotorSettings, clusterSettings, workspaceSettings, syncSettings, onExternalContact, availableTabs, requestedTab, requestedTabRevision, cwContext, cwState, refreshCW, cwProvider }: ServiceSettingsProps) {
   const visibleTabs = useMemo(() => availableTabs?.filter((value, index, values) => tabs.includes(value) && values.indexOf(value) === index) ?? tabs, [availableTabs]);
   const initialTab = requestedTab && visibleTabs.includes(requestedTab) ? requestedTab : visibleTabs[0] ?? "Station";
   const [tab, setTab] = useState<Tab>(initialTab);
@@ -159,19 +167,26 @@ export default function ServiceSettings({ values, savedValues, request, onChange
     } catch (error) { saveToast.show(error instanceof Error ? error.message : "Could not save settings. Check the fields and try again.", "error"); }
   };
   return <section className="service-settings" aria-label="Station and service settings">
-    <div className="service-tabs" role="tablist" aria-label="Settings sections">{visibleTabs.map((name, index) => <button key={name} type="button" role="tab" id={`service-tab-${tabs.indexOf(name)}`} aria-controls="service-settings-panel" aria-selected={tab === name} tabIndex={tab === name ? 0 : -1} onClick={() => setTab(name)} onKeyDown={event => {
-      const next = event.key === "Home" ? 0 : event.key === "End" ? visibleTabs.length - 1 : event.key === "ArrowRight" ? (index + 1) % visibleTabs.length : event.key === "ArrowLeft" ? (index + visibleTabs.length - 1) % visibleTabs.length : null;
-      if (next !== null) { event.preventDefault(); const selected = visibleTabs[next]; setTab(selected); document.getElementById(`service-tab-${tabs.indexOf(selected)}`)?.focus(); }
-    }}>{name}</button>)}</div>
-    <div id="service-settings-panel" role="tabpanel" aria-labelledby={`service-tab-${tabs.indexOf(tab)}`}>
+    <nav className="service-tabs" aria-label="Settings sections"><div role="tablist" aria-orientation="vertical">{settingsGroups.map(group => {
+      const groupTabs = group.tabs.filter(name => visibleTabs.includes(name));
+      return groupTabs.length ? <div className="service-tab-group" key={group.label} role="presentation"><span>{group.label}</span>{groupTabs.map(name => {
+        const index = visibleTabs.indexOf(name);
+        return <button key={name} type="button" role="tab" id={`service-tab-${tabs.indexOf(name)}`} aria-controls="service-settings-panel" aria-selected={tab === name} tabIndex={tab === name ? 0 : -1} onClick={() => setTab(name)} onKeyDown={event => {
+          const next = event.key === "Home" ? 0 : event.key === "End" ? visibleTabs.length - 1 : ["ArrowRight", "ArrowDown"].includes(event.key) ? (index + 1) % visibleTabs.length : ["ArrowLeft", "ArrowUp"].includes(event.key) ? (index + visibleTabs.length - 1) % visibleTabs.length : null;
+          if (next !== null) { event.preventDefault(); const selected = visibleTabs[next]; setTab(selected); document.getElementById(`service-tab-${tabs.indexOf(selected)}`)?.focus(); }
+        }}>{tabLabels[name] ?? name}</button>;
+      })}</div> : null;
+    })}</div></nav>
+    <div className="service-settings-content"><div id="service-settings-panel" role="tabpanel" aria-labelledby={`service-tab-${tabs.indexOf(tab)}`}>
     <p hidden={!showAccountHelp}>URLs and account details are grouped with their credentials. Save settings for non-secret fields; each credential has its own secure Save button.</p>
     {tab === "Sync" && <div>{syncSettings ?? <p>Synchronization tools are unavailable in this view.</p>}</div>}
     <div hidden={tab !== "Workspace"}>{workspaceSettings ?? <p>Workspace arrangements are unavailable in this view.</p>}</div>
     <div hidden={tab !== "Display"}><DisplaySettings /></div>
+    <div hidden={tab !== "Radio"}>{radioSettings ?? <p>Radio setup is available in the main Settings window.</p>}</div>
     <div hidden={tab !== "Rotator"}>{rotorSettings ?? <p>Rotator settings are unavailable in this view.</p>}</div>
     {tab === "Cluster" && (clusterSettings ?? <p>Cluster settings unavailable.</p>)}
-    {tab === "Radio spots" && <Suspense fallback={<p role="status">Loading radio spot settings…</p>}><RadioSpotSettings request={request} visible /></Suspense>}
-    {tab === "Integrations" && <WSJTXPanel request={request} onImported={onExternalContact} />}
+    {tab === "Radio spots" && <Suspense fallback={<p role="status">Loading RUMlog compatibility…</p>}><SpotBridgePanel request={request} configurationOnly /></Suspense>}
+    {tab === "Integrations" && <Suspense fallback={<p role="status">Loading WSJT-X settings…</p>}><WSJTXPanel request={request} onImported={onExternalContact} /></Suspense>}
     <ReferenceScheduleControl request={request} visible={tab === "Reference data"} />
     {(sessionError || pending || conflict || workspaceChanged) && <div className="service-settings-recovery" role="status">
       {sessionError && <p>{sessionError}</p>}
@@ -238,6 +253,6 @@ export default function ServiceSettings({ values, savedValues, request, onChange
     {(visibleTabs.includes("Reference data") || visibleTabs.includes("Backups")) && <div hidden={tab !== "Reference data" && tab !== "Backups"}>{dataRequest ? <DataManagementPanel onRequest={dataRequest} onChanged={onDataChanged ?? (() => {})} visible={tab === "Reference data" || tab === "Backups"} section={tab === "Backups" ? "backups" : "references"} sourceSettings={savedValues ?? form} /> : <p>Reference and backup tools are unavailable in this view.</p>}</div>}
     <p className="service-security-note" hidden={!showAccountHelp && tab !== "Online logs" && tab !== "Display"}>Credentials stay in the integrated app’s separate macOS Keychain service. Existing application credentials are not changed. Never paste credentials into a support chat.</p>
     {saveToast.toast}
-    </div>
+    </div></div>
   </section>;
 }

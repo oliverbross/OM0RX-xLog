@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import DirectFlexPanel, { validFlexEndpoint } from "./DirectFlexPanel";
+import { type ComponentProps } from "react";
+import DirectFlexPanelImplementation, { validFlexEndpoint } from "./DirectFlexPanel";
+const DirectFlexPanel = (props: Omit<ComponentProps<typeof DirectFlexPanelImplementation>, "radioId">) => <DirectFlexPanelImplementation radioId="radio1" {...props} />;
 const native = vi.hoisted(() => ({ enabled: false, invoke: vi.fn(), listen: vi.fn(async () => () => {}) }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: native.invoke }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: native.listen }));
@@ -19,12 +21,12 @@ afterEach(() => { cleanup(); localStorage.clear(); });
 
 describe("direct FLEX LAN controls", () => {
   it("native Desk mounts through shared setup with full controls by default and no raw lifecycle authority", async () => {
-    native.enabled = true; native.invoke.mockImplementation(async (_command, { params }) => params.action === "snapshot" ? { generation: "setup", revision: 1, base_url: "", last_receipt: null,
+    native.enabled = true; native.invoke.mockImplementation(async (_command, { params }) => params.action === "snapshot" ? { radio_id: params.radio_id, active_radio: "radio1", tx_owner: null, generation: "setup", revision: 1, base_url: "", last_receipt: null,
       flex: { host: "192.168.1.50", port: 4992, station_name: "xLog" }, selection: { provider: "direct_flex_lan", generation: 4, selection_id: "selected" } }
       : { operation_id: params.operation_id, status: "acknowledged", request: { action: params.action } });
     const request = vi.fn(); render(<DirectFlexPanel request={request} snapshot={snapshot({ allow_transmit: true })} />);
     await waitFor(() => expect((screen.getByLabelText("Shared FLEX private IP") as HTMLInputElement).value).toBe("192.168.1.50"));
-    expect(native.invoke).toHaveBeenCalledWith("station_session_request", { params: { action: "snapshot" } });
+    expect(native.invoke).toHaveBeenCalledWith("station_session_request", { params: { action: "snapshot", radio_id: "radio1" } });
     expect(native.invoke).toHaveBeenCalledWith("radio_release_request", { params: { action: "snapshot" } });
     expect(request).not.toHaveBeenCalled(); expect(screen.queryByRole("button", { name: "Connect FLEX" })).toBeNull();
     expect((screen.getByRole("checkbox", { name: "Enable FLEX transmit commands for this connection" }) as HTMLInputElement).checked).toBe(true);

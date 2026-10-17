@@ -22,11 +22,11 @@ it("projects exact Hamlib receive capabilities only from explicit VFO and PTT ev
   expect(unknown.radio.transmitting).toBeNull();
 });
 it("native Desk uses passive shared setup and exposes no raw radio connection form", async () => {
-  native.invoke.mockClear(); native.invoke.mockImplementation(async (_command, { params }) => params.action === "hamlib_catalogue" ? { models: radioModels } : { generation: "setup", revision: 1, base_url: "", last_receipt: null,
+  native.invoke.mockClear(); native.invoke.mockImplementation(async (_command, { params }) => params.action === "hamlib_catalogue" ? { models: radioModels } : { radio_id: params.radio_id, active_radio: "radio1", tx_owner: null, generation: "setup", revision: 1, base_url: "", last_receipt: null,
     hamlib: { mode: "managed", model: 3073, path: "/dev/test-fixture", baud: 9600 }, selection: { provider: "hamlib", generation: 4, selection_id: "selection" } });
-  const request = fake(); render(<HamlibPanel request={request} snapshot={null} />);
+  const request = fake(); render(<HamlibPanel radioId="radio1" request={request} snapshot={null} />);
   await waitFor(() => expect((screen.getByLabelText("Shared Hamlib model ID") as HTMLInputElement).value).toBe("3073"));
-  expect(native.invoke).toHaveBeenCalledExactlyOnceWith("station_session_request", { params: { action: "snapshot" } });
+  expect(native.invoke).toHaveBeenCalledExactlyOnceWith("station_session_request", { params: { action: "snapshot", radio_id: "radio1" } });
   expect(request).not.toHaveBeenCalled(); expect(screen.queryByRole("button", { name: "Connect radio" })).toBeNull();
   expect(screen.getByRole("button", { name: "Connect saved Hamlib radio" })).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Load radio model catalogue" }));

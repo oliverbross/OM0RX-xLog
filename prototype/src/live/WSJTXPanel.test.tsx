@@ -24,6 +24,7 @@ describe("WSJT-X receive-only logging", () => {
         configuration: { enabled: true, address: "127.0.0.1", port: 2237 } }) : snapshot());
     render(<WSJTXPanel request={request} />);
     expect(await screen.findByText(/never sends WSJT-X packets/i)).toBeTruthy();
+    expect(screen.getByText(/It is not a CAT server/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Save and listen" }));
     await waitFor(() => expect(request).toHaveBeenCalledWith("wsjtx_start"));
     expect(request.mock.calls.map(([method]) => method).slice(0, 3)).toEqual(["wsjtx_snapshot", "wsjtx_configure", "wsjtx_start"]);

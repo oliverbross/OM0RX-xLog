@@ -111,7 +111,7 @@ describe("grouped service settings", () => {
   it("shows service details and reads only credential presence when Wavelog is first visible", async () => {
     const request = vi.fn(async (method: string) => method === "online_log_status" ? qrzUploadOff : ({ "wavelog-token": false, "qrz-logbook-key": false }));
     render(<SettingsHarness values={values} request={request} />);
-    expect(screen.getByRole("tabpanel", { name: "Station" })).toBeTruthy();
+    expect(screen.getByRole("tabpanel", { name: "General" })).toBeTruthy();
     fireEvent.click(screen.getByRole("tab", { name: "Wavelog" }));
     expect((screen.getByRole("textbox", { name: "Wavelog URL" }) as HTMLInputElement).value).toBe(values.wavelogURL);
     fireEvent.click(screen.getByRole("tab", { name: "QRZ" }));
@@ -254,7 +254,7 @@ describe("grouped service settings", () => {
     expect((screen.getByLabelText("Wavelog API v2 token") as HTMLInputElement).value).toBe("typed-test-token");
     fireEvent.click(screen.getByRole("tab", { name: "QRZ" }));
     expect((screen.getByLabelText("QRZ password") as HTMLInputElement).value).toBe("typed-test-password");
-    fireEvent.click(screen.getByRole("tab", { name: "Station" }));
+    fireEvent.click(screen.getByRole("tab", { name: "General" }));
     expect((screen.getByLabelText("Station call") as HTMLInputElement).value).toBe("M7KOD");
     expect(request).toHaveBeenCalledTimes(2);
     expect(request).toHaveBeenCalledWith("secret_status");
@@ -293,7 +293,9 @@ describe("grouped service settings", () => {
     const dataRequest = vi.fn(async (method: string) => method === "backup_list" ? { backups: [] } : { running: false, status: "Not refreshed in this session", cty_source: "bundled", state: {} });
     render(<SettingsHarness values={values} request={request} dataRequest={dataRequest} onDataChanged={vi.fn()} />);
     await waitFor(() => expect(dataRequest).toHaveBeenCalledTimes(2));
-    fireEvent.keyDown(screen.getByRole("tab", { name: "Station" }), { key: "ArrowRight" });
+    fireEvent.keyDown(screen.getByRole("tab", { name: "General" }), { key: "ArrowRight" });
+    expect(screen.getByRole("tab", { name: "Radio" }).getAttribute("aria-selected")).toBe("true");
+    fireEvent.keyDown(screen.getByRole("tab", { name: "Radio" }), { key: "ArrowRight" });
     expect(screen.getByRole("tab", { name: "Logbook" }).getAttribute("aria-selected")).toBe("true");
     fireEvent.keyDown(screen.getByRole("tab", { name: "Logbook" }), { key: "ArrowRight" });
     expect(screen.getByRole("tab", { name: "Wavelog" }).getAttribute("aria-selected")).toBe("true");
@@ -323,7 +325,7 @@ describe("grouped service settings", () => {
     expect(screen.getByRole("button", { name: "Save Wavelog API v2 token" }).hasAttribute("disabled")).toBe(true);
     fireEvent.change(screen.getByLabelText("Wavelog URL"), { target: { value: "https://another.invalid" } });
     expect(screen.getByText(/Not verified for this Wavelog URL/)).toBeTruthy();
-    fireEvent.click(screen.getByRole("tab", { name: "Station" }));
+    fireEvent.click(screen.getByRole("tab", { name: "General" }));
     fireEvent.click(screen.getByRole("tab", { name: "Wavelog" }));
     expect(request).toHaveBeenCalledTimes(1);
   });
@@ -382,7 +384,7 @@ describe("grouped service settings", () => {
     expect(sync.closest("form")).toBeNull();
     expect(screen.queryByRole("button", { name: "Save settings" })).toBeNull();
     expect(request).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("tab", { name: "Station" }));
+    fireEvent.click(screen.getByRole("tab", { name: "General" }));
     expect(screen.queryByRole("button", { name: "Run sync fixture" })).toBeNull();
     rerender(<SettingsHarness values={values} request={request} requestedTab="Sync" requestedTabRevision={1} syncSettings={<button>Run sync fixture</button>} />);
     expect(screen.getByRole("button", { name: "Run sync fixture" })).toBeTruthy();

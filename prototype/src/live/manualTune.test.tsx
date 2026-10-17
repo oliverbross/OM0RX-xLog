@@ -7,7 +7,7 @@ import type { StationReceipt, StationSession } from "./stationSession";
 afterEach(cleanup);
 function fixture() {
   let pending: string | null = null;
-  const state: StationSession = { generation:"setup", revision:3, base_url:"", last_receipt:null, worker_generation:5,
+  const state: StationSession = { radio_id:"radio1", active_radio:"radio1", tx_owner:null, generation:"setup", revision:3, base_url:"", last_receipt:null, worker_generation:5,
     manual_tune_receipt:null,
     selection:{provider:"direct_flex_lan",generation:7,selection_id:"selection",control_revision:11},
     radio:{provider:"direct_flex_lan",selection_id:"selection",selection_generation:7,snapshot:{generation:13}} };
@@ -18,7 +18,7 @@ function fixture() {
   return { session,state,snapshot,request,journal,get pending() {return pending;} };
 }
 it("mounting a detached-ready manual tune control performs no action or poll", () => {
-  const f=fixture(); render(<ManualSimplexTune provider="direct_flex_lan" session={f.session} />);
+  const f=fixture(); render(<ManualSimplexTune radioId="radio1" provider="direct_flex_lan" session={f.session} />);
   expect(f.snapshot).not.toHaveBeenCalled(); expect(f.request).not.toHaveBeenCalled();
 });
 it("binds one explicit tune to native epochs and journals before dispatch without changing a draft", async () => {
@@ -78,14 +78,14 @@ it("binds an explicit TCI receive tune to the same durable native epochs", async
   expect(f.request).toHaveBeenCalledOnce();
 });
 it("standalone controls tune without a main renderer and expose read-only receipt recovery", async () => {
-  const f=fixture(); render(<ManualSimplexTune provider="direct_flex_lan" session={f.session} />);
+  const f=fixture(); render(<ManualSimplexTune radioId="radio1" provider="direct_flex_lan" session={f.session} />);
   fireEvent.change(screen.getByLabelText("Simplex frequency MHz"),{target:{value:"14.074000"}});
   await act(async()=>{fireEvent.click(screen.getByRole("button",{name:"Tune simplex"}));});
   expect(f.request).toHaveBeenCalledOnce(); expect(screen.getByText(/confirmed by authoritative/)).toBeTruthy();
 });
 it("clears the initiating tune lost-reply error after terminal Check recovery",async()=>{
   const f=fixture();f.request.mockRejectedValueOnce(new Error("tune reply lost"));
-  render(<ManualSimplexTune provider="direct_flex_lan" session={f.session}/>);
+  render(<ManualSimplexTune radioId="radio1" provider="direct_flex_lan" session={f.session}/>);
   fireEvent.change(screen.getByLabelText("Simplex frequency MHz"),{target:{value:"14.074000"}});
   await act(async()=>{fireEvent.click(screen.getByRole("button",{name:"Tune simplex"}));});
   expect(screen.getByRole("alert").textContent).toContain("tune reply lost");const operation=f.pending!;
@@ -95,7 +95,7 @@ it("clears the initiating tune lost-reply error after terminal Check recovery",a
 });
 it("clears the initiating tune unknown-outcome error after exact durable review",async()=>{
   const f=fixture();f.request.mockImplementationOnce(async p=>({operation_id:p.operation_id as string,status:"unknown",request:{action:"manual_tune"}}));
-  render(<ManualSimplexTune provider="direct_flex_lan" session={f.session}/>);
+  render(<ManualSimplexTune radioId="radio1" provider="direct_flex_lan" session={f.session}/>);
   fireEvent.change(screen.getByLabelText("Simplex frequency MHz"),{target:{value:"14.074000"}});
   await act(async()=>{fireEvent.click(screen.getByRole("button",{name:"Tune simplex"}));});
   expect(screen.getByRole("alert").textContent).toContain("outcome is unknown");const operation=f.pending!;
@@ -116,7 +116,7 @@ it("reviewing a verified unknown never repeats it and permits only a new explici
 it("clears stale receipt and review errors after verified tune recovery",async()=>{
   const f=fixture();f.request.mockRejectedValueOnce(new Error("reply lost"));
   await expect(f.session.tune("direct_flex_lan",14074000,"USB")).rejects.toThrow("reply lost");const operation=f.pending!;
-  render(<ManualSimplexTune provider="direct_flex_lan" session={f.session}/>);
+  render(<ManualSimplexTune radioId="radio1" provider="direct_flex_lan" session={f.session}/>);
   f.request.mockRejectedValueOnce(new Error("receipt unavailable"));
   await act(async()=>{fireEvent.click(screen.getByRole("button",{name:"Check manual tune receipt"}));});expect(screen.getByRole("alert").textContent).toContain("receipt unavailable");
   f.request.mockResolvedValueOnce({operation_id:operation,status:"unknown",request:{action:"manual_tune"}});

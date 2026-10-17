@@ -21,10 +21,10 @@ export async function loadWindowSurface(search: string): Promise<ComponentType> 
   if (view === "band-maps") return (await import("./live/DetachedBandMapsSurface")).DetachedBandMapsSurface;
   if (view === "awards") return (await import("./live/DetachedAwardsSurface")).DetachedAwardsSurface;
   if (view === "logbook") return (await import("./live/DetachedLogbookSurface")).DetachedLogbookSurface;
-  if (view === "log-qso") return (await import("./live/DetachedQSOSurface")).DetachedQSOSurface;
+  if (view === "log-qso") return import("./live/DetachedQSOSurface").then(module => module.DetachedQSOSurface);
   if (view === "spot-history") return (await import("./live/DetachedSpotHistorySurface")).DetachedSpotHistorySurface;
   if (view === "dx-cluster") return (await import("./live/DetachedClusterSurface")).DetachedClusterSurface;
   if (view === "settings") return (await import("./live/DetachedSettingsSurface")).DetachedSettingsSurface;
   if (view === "chaser-dx") return (await import("./live/DetachedOpportunitiesSurface")).DetachedOpportunitiesSurface;
-  return (await import("./LiveApp")).default;
+  return import("./LiveApp").then(module => module.default);
 }

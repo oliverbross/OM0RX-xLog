@@ -52,7 +52,7 @@ describe("station equipment", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "20m" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "10m" }));
     fireEvent.click(screen.getByRole("tab", { name: "Rotator" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Station" }));
+  fireEvent.click(screen.getByRole("tab", { name: "General" }));
     expect(request).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
     await waitFor(() => expect(request).toHaveBeenCalledExactlyOnceWith("settings_save", { settings: { ...values, stationEquipment: { display: "antenna", antenna: "wire", name: "Garden wire", bands: ["20m", "10m"] } } }));

@@ -1,6 +1,8 @@
 // Opt-in local dummy integration; no serial path, live radio, or rotor is opened.
 #[path = "../src/hamlib.rs"]
 mod hamlib;
+#[path = "../src/radio_slots.rs"]
+mod radio_slots;
 
 use serde_json::{json, Value};
 use std::net::{Ipv4Addr, TcpListener};

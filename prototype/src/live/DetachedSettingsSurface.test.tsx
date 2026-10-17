@@ -53,7 +53,7 @@ it("opens at the settings form and retains dirty text across invalidation and re
   expect(screen.getByRole("tab", { name: "Logbook" })).toBeTruthy();
   fireEvent.click(screen.getByRole("tab", { name: "Logbook" }));
   expect((screen.getByLabelText("Logbook mode") as HTMLSelectElement).value).toBe("wavelog");
-  fireEvent.click(screen.getByRole("tab", { name: "Station" }));
+  fireEvent.click(screen.getByRole("tab", { name: "General" }));
   expect(screen.getByRole("tab", { name: "Rotator" })).toBeTruthy();
   expect(screen.queryByRole("tab", { name: "CW" })).toBeNull();
   expect(screen.queryByText("Settings", { selector: "strong" })).toBeNull();
@@ -82,11 +82,17 @@ it("enforces the detached non-hardware method list before IPC", async () => {
   api.request.mockResolvedValue({});
   await requestDetachedSettings("secret_status");
   await requestDetachedSettings("lookup_call", { call: "OM0AAO" });
+  await requestDetachedSettings("spot_bridge_snapshot");
+  await requestDetachedSettings("spot_bridge_configure", { configuration: {} });
   expect(api.request).toHaveBeenCalledWith("secret_status", {});
   expect(api.request).toHaveBeenCalledWith("lookup_call", { call: "OM0AAO" });
+  expect(api.request).toHaveBeenCalledWith("spot_bridge_snapshot", {});
+  expect(api.request).toHaveBeenCalledWith("spot_bridge_configure", { configuration: {} });
+  await expect(requestDetachedSettings("spot_bridge_start")).rejects.toThrow("unavailable");
+  await expect(requestDetachedSettings("spot_bridge_stop")).rejects.toThrow("unavailable");
   await expect(requestDetachedSettings("station_tune", { frequency_hz: 14_025_000 })).rejects.toThrow("unavailable");
   await expect(requestDetachedSettings("winkeyer_send", { text: "TEST" })).rejects.toThrow("unavailable");
-  expect(api.request).toHaveBeenCalledTimes(2);
+  expect(api.request).toHaveBeenCalledTimes(4);
 });
 
 it("lets every detached settings section fill the available window width", () => {

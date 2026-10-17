@@ -1,15 +1,17 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { StationProvider } from "../worker";
-export type StationSelection = { provider: StationProvider; generation: number };
+import type { RadioID } from "./stationSession";
+export type StationSelection = { radio_id: RadioID; provider: StationProvider; generation: number; selection_id?: string | null; control_revision?: number };
+export type StationSlotSelection = Omit<StationSelection, "provider"> & { provider: StationProvider | null };
 export const nativeStationSelection = () => isTauri() && new URLSearchParams(location.search).get("acceptance") !== "local";
-function checked(value: any): StationSelection {
-  if (!value || !["direct_agent", "direct_flex_lan", "direct_tci", "hamlib"].includes(value.provider) || !Number.isSafeInteger(value.generation) || value.generation < 0)
+function checked(value: any, radioId: RadioID): StationSlotSelection {
+  if (!value || value.radio_id !== radioId || value.provider !== null && !["direct_agent", "direct_flex_lan", "direct_tci", "hamlib"].includes(value.provider) || !Number.isSafeInteger(value.generation) || value.generation < 0)
     throw new Error("Native radio selection was not confirmed.");
   return value;
 }
 /** Browser storage is a one-time migration hint, never a native authority. */
-export function connectStationSelection(legacy: string | null, changed: (value: StationSelection) => void, failed: (message: string) => void) {
+export function connectStationSelection(radioId: RadioID, legacy: string | null, changed: (value: StationSlotSelection) => void, failed: (message: string) => void) {
   if (!nativeStationSelection()) return null;
   let active = true, reading = false, again = false, revision = -1;
   let stop: (() => void) | undefined;
@@ -20,7 +22,7 @@ export function connectStationSelection(legacy: string | null, changed: (value: 
     do {
       again = false;
       try {
-        const value = checked(await invoke("station_selection_snapshot", { legacy }));
+        const value = checked(await invoke("station_selection_snapshot", { radioId, legacy }), radioId);
         if (active && value.generation >= revision) { revision = value.generation; changed(value); }
       } catch (cause) { if (active) failed(cause instanceof Error ? cause.message : "Native radio selection is unavailable."); }
     } while (active && again);

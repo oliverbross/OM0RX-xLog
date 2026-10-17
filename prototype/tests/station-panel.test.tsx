@@ -12,7 +12,7 @@ it("reads observed state without connecting or commanding radio or rotor", async
     return { source: params?.provider, available: false, radio: null, station: null, rotor: null };
   });
   const publish = vi.fn();
-  render(<StationPanel snapshot={null} onRequest={request} onSnapshot={publish} />);
+  render(<StationPanel radioId="radio1" snapshot={null} onRequest={request} onSnapshot={publish} />);
   await waitFor(() => expect(request).toHaveBeenCalled());
   expect(screen.getByText("No observed radio")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "xCat companion" })).toBeNull();
@@ -22,7 +22,7 @@ it("reads observed state without connecting or commanding radio or rotor", async
 
 it("keeps a detached monitor read-only", async () => {
   const request = vi.fn(async () => ({ source: "direct_agent", available: false, radio: null, station: null, rotor: null }));
-  render(<StationPanel snapshot={null} onRequest={request} onSnapshot={vi.fn()} monitor />);
+  render(<StationPanel radioId="radio1" snapshot={null} onRequest={request} onSnapshot={vi.fn()} monitor />);
   await waitFor(() => expect(request).toHaveBeenCalled());
   expect(screen.queryByRole("button", { name: "PTT on" })).toBeNull();
   expect(screen.queryByRole("button", { name: "Connect" })).toBeNull();
@@ -32,7 +32,7 @@ it("keeps a detached monitor read-only", async () => {
 it("keeps operator-triggered connect and reconnect noninteractive", async () => {
   const state = { source: "direct_agent", available: false, radio: null, station: null, rotor: null };
   const request = vi.fn(async (_method: string, _params?: Record<string, unknown>) => state);
-  render(<StationPanel snapshot={state} onRequest={request} onSnapshot={vi.fn()} />);
+  render(<StationPanel radioId="radio1" snapshot={state} onRequest={request} onSnapshot={vi.fn()} />);
   await waitFor(() => expect(request).toHaveBeenCalledWith("station_snapshot", { provider: "direct_agent" }));
   fireEvent.change(screen.getByLabelText("Agent HTTPS URL"), { target: { value: "https://station.example" } });
   fireEvent.click(screen.getByRole("button", { name: "Connect" }));
@@ -52,7 +52,7 @@ it("keeps explicit safety release available when radio observation becomes stale
     station: { commissioned: true, radio_known: true, radio_stale: true,
       supported_commands: ["set_ptt", "clear_cw"], inhibitors: [] }, rotor: null };
   const request = vi.fn(async (_method: string) => stale);
-  render(<StationPanel snapshot={stale} onRequest={request} onSnapshot={vi.fn()} />);
+  render(<StationPanel radioId="radio1" snapshot={stale} onRequest={request} onSnapshot={vi.fn()} />);
   await waitFor(() => expect(request).toHaveBeenCalled());
   expect((screen.getByRole("button", { name: "PTT on" }) as HTMLButtonElement).disabled).toBe(true);
   expect((screen.getByRole("button", { name: "PTT off" }) as HTMLButtonElement).disabled).toBe(false);

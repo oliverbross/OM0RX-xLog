@@ -13,7 +13,7 @@ vi.mock("./AgentConnectionSetup",()=>({AgentConnectionSetup:()=>null}));
 afterEach(()=>{cleanup();shared.transition.mockClear();});
 for(const native of [true,false])for(const action of ["operate","standby"] as const)it(`${action} uses ${native?"shared native":"browser fixture"} route`,async()=>{
   shared.native=native;const snapshot={source:"direct_agent",available:true,allow_transmit:false,radio:{connected:true,observed:true,transmitting:false},station:{radio_known:true,radio_stale:false,inhibitors:[],allowed_actions:["operate","standby"],supported_commands:["station_operate","station_standby"]}};
-  const request=vi.fn(async()=>snapshot);render(<StationPanel snapshot={snapshot} onRequest={request} onSnapshot={()=>{}}/>);fireEvent.click(screen.getByRole("button",{name:action==="operate"?"Operate":"Standby"}));
+  const request=vi.fn(async()=>snapshot);render(<StationPanel radioId="radio1" snapshot={snapshot} onRequest={request} onSnapshot={()=>{}}/>);fireEvent.click(screen.getByRole("button",{name:action==="operate"?"Operate":"Standby"}));
   if(native){await waitFor(()=>expect(shared.transition).toHaveBeenCalledExactlyOnceWith(action));expect(request.mock.calls.some(args=>(args as any[])[0]==="station_action")).toBe(false);}else{await waitFor(()=>expect(request).toHaveBeenCalledWith("station_action",{provider:"direct_agent",action}));expect(shared.transition).not.toHaveBeenCalled();}
 });
 it("Monitor keeps explicit Standby reachable offline/busy and delegates lost ACK without hiding later errors",async()=>{

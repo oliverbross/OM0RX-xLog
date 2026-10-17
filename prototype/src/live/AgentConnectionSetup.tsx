@@ -1,15 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { RefreshCw } from "lucide-react";
-import { loadStationSession, stationSessionRequest, validTCIConfiguration, type TCIConfiguration, type FlexConfiguration, type HamlibConfiguration, type StationReceipt, type StationSession } from "./stationSession";
+import { loadStationSession, stationSessionRequest, validTCIConfiguration, type RadioID, type TCIConfiguration, type FlexConfiguration, type HamlibConfiguration, type StationReceipt, type StationSession } from "./stationSession";
 import type { StationProvider } from "../worker";
 import { SharedHamlibModelBrowser } from "./HamlibModelPicker";
 import type { MonitorContext } from "./monitorContext";
 import { stationReceiveAvailable } from "./stationReceive";
 import { useSettingsSaveToast } from "./SettingsSaveToast";
 
-const journalKey = "xlog.station-session.pending";
-const reviewedKey = "xlog.station-session.reviewed";
 const providerLabels: Record<StationProvider, string> = { direct_agent: "Remote Station Agent", direct_flex_lan: "Direct FLEX LAN", direct_tci: "Direct TCI · receive control", hamlib: "Local Hamlib" };
 const receiveModes = ["USB", "LSB", "CW", "CWR", "AM", "FM", "RTTY", "RTTYR", "DIGU", "DIGL"];
 const notice = (receipt: StationReceipt) => receipt.request.action === "select"
@@ -21,9 +19,11 @@ const notice = (receipt: StationReceipt) => receipt.request.action === "select"
   : "Connection outcome is unknown. Check observed station state before issuing another connection request.";
 
 /** Desk and child share one native radio setup, lifecycle and receipt owner. */
-export function AgentConnectionSetup({ connections = false, legacyEndpoint = "", providers = false, onlySelection = false, selectionTarget, activeProvider, hamlib: hamlibSetup = false, flex: flexSetup = false, followSelection = false, compact = false, receiveContext }: {
-  connections?: boolean; legacyEndpoint?: string; providers?: boolean; onlySelection?: boolean; selectionTarget?: StationProvider; activeProvider?: StationProvider; hamlib?: boolean; flex?: boolean; followSelection?: boolean; compact?: boolean; receiveContext?: MonitorContext | null;
+export function AgentConnectionSetup({ radioId, connections = false, legacyEndpoint = "", providers = false, onlySelection = false, selectionTarget, activeProvider, hamlib: hamlibSetup = false, flex: flexSetup = false, followSelection = false, compact = false, receiveContext, onSession }: {
+  radioId: RadioID; connections?: boolean; legacyEndpoint?: string; providers?: boolean; onlySelection?: boolean; selectionTarget?: StationProvider; activeProvider?: StationProvider; hamlib?: boolean; flex?: boolean; followSelection?: boolean; compact?: boolean; receiveContext?: MonitorContext | null; onSession?: (value: StationSession) => void;
 }) {
+  const journalKey = `xlog.station-session.${radioId}.pending`;
+  const reviewedKey = `xlog.station-session.${radioId}.reviewed`;
   const [state, setState] = useState<StationSession | null>(null), [url, setURL] = useState("");
   const hamlib = hamlibSetup || followSelection && state?.selection.provider === "hamlib";
   const flex = flexSetup || followSelection && state?.selection.provider === "direct_flex_lan";
@@ -45,10 +45,11 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
   const refresh = async (adopt = false) => {
     const sequence = ++readSequence.current;
     try {
-      const next = await loadStationSession();
+      const next = await loadStationSession(radioId);
       if (!active.current || sequence !== readSequence.current) return;
       if (next.generation !== current.current?.generation || next.revision !== current.current?.revision
         || next.selection.selection_id !== current.current?.selection.selection_id) setTransmit(true);
+      onSession?.(next);
       if (adopt || !dirty.current) {
         const hint = !adopt && !current.current && !next.base_url && next.revision === 0 && !next.last_receipt ? legacyEndpoint : "";
         current.current = next; setState(next); setURL(hint || next.base_url); dirty.current = !!hint; setConflict(false);
@@ -102,7 +103,7 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
       // Journal identity only: tokens and access-bearing connection details never enter browser storage.
       sessionStorage.setItem(journalKey, id); setPending(id);
       if (receive) setConsumedObservation(observation);
-      const receipt = await stationSessionRequest<StationReceipt>(receive ? { action, operation_id: id, generation: base.generation, revision: base.revision,
+      const receipt = await stationSessionRequest<StationReceipt>(radioId, receive ? { action, operation_id: id, generation: base.generation, revision: base.revision,
         provider: receiveContext!.selection!.provider, selection_generation: receiveContext!.selection!.generation, selection_id: receiveContext!.selection!.selection_id,
         control_revision: receiveContext!.selection!.control_revision, connection_generation: receiveContext!.radio.snapshot.generation,
         ...(action === "receive_frequency" ? { frequency_hz: receiveHz } : { mode: receiveMode }) }
@@ -123,7 +124,7 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
     if (!pending || inFlight.current) return;
     inFlight.current = true; setBusy(true);
     try {
-      const receipt = await stationSessionRequest<StationReceipt | null>({ action: "receipt", operation_id: pending });
+      const receipt = await stationSessionRequest<StationReceipt | null>(radioId, { action: "receipt", operation_id: pending });
       if (!active.current) return;
       setError("");
       if (receipt?.status === "saved") saveToast.show(notice(receipt));
@@ -186,7 +187,7 @@ export function AgentConnectionSetup({ connections = false, legacyEndpoint = "",
     </>}
     {hamlib && !flex && <><h3>{compact ? "Hamlib radio connection" : "Shared Hamlib radio connection"}</h3>{!compact && <p>Save configuration for Desk and Station Control, then connect explicitly. Saving does not contact a device. Request transmit permission separately for each connection.</p>}
       <fieldset disabled={!state || busy}><label>Hamlib connection<select aria-label="Shared Hamlib connection" value={config.mode} onChange={event => updateConfig(event.target.value === "external" ? { mode: "external", host: "127.0.0.1", port: 4532 } : { mode: "managed", path: "", baud: 9600 })}><option value="managed">Built-in Hamlib</option><option value="external">Existing local Hamlib daemon</option></select></label>
-      {config.mode === "managed" ? <><SharedHamlibModelBrowser selected={config.model} onSelect={id => updateConfig({ ...config, model: id })} />
+      {config.mode === "managed" ? <><SharedHamlibModelBrowser radioId={radioId} selected={config.model} onSelect={id => updateConfig({ ...config, model: id })} />
         <label>Hamlib model ID (manual entry)<input aria-label="Shared Hamlib model ID" type="number" min="1" value={config.model ?? ""} onChange={event => updateConfig({ ...config, model: Number(event.target.value) })} /></label>
         <label>Serial device or device TCP address<input aria-label="Shared Hamlib device path" value={config.path ?? ""} onChange={event => updateConfig({ ...config, path: event.target.value })} /></label>
         <label>Serial baud<input aria-label="Shared Hamlib baud" type="number" min="300" max="921600" value={config.baud ?? 9600} onChange={event => updateConfig({ ...config, baud: Number(event.target.value) })} /></label>

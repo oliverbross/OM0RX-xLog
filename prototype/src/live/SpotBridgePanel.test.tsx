@@ -14,6 +14,8 @@ describe("integrated RUMlog spot settings", () => {
     await screen.findByLabelText("Unknown Contest priority");
     expect(screen.getAllByRole("combobox")).toHaveLength(11);
     expect(request.mock.calls).toEqual([["spot_bridge_snapshot"]]);
+    expect(screen.getByText(/One way: RUMlog → xLog → radio display/)).toBeTruthy();
+    expect(screen.getByText(/Wavelog remains xLog's two-way synchronization authority/)).toBeTruthy();
     expect(screen.getByText(/not that its marker has been visually inspected/)).toBeTruthy();
   });
   it("saves the exact styles object before explicitly starting", async () => {
@@ -60,5 +62,20 @@ describe("integrated RUMlog spot settings", () => {
     view.rerender(<SpotBridgePanel request={request} provider="direct_agent" />);
     expect(screen.getByRole("button", { name: "Save and start listeners" }).hasAttribute("disabled")).toBe(false);
     expect(request.mock.calls.map(([method]) => method)).toEqual(["spot_bridge_snapshot"]);
+  });
+  it("keeps detached Settings configuration-only and never offers listener authority", async () => {
+    const request = vi.fn(async (method: string, params?: Record<string, any>) => method === "spot_bridge_configure"
+      ? { ...snapshot(), configuration: params!.configuration } : snapshot());
+    render(<SpotBridgePanel request={request} configurationOnly />);
+    const port = await screen.findByLabelText("Logbook UDP port");
+    fireEvent.change(port, { target: { value: "13062" } });
+    expect(screen.queryByRole("button", { name: "Save and start listeners" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Stop listeners" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Save RUMlog compatibility settings" }));
+    await waitFor(() => expect(request).toHaveBeenCalledWith("spot_bridge_configure", expect.objectContaining({
+      configuration: expect.objectContaining({ logbookPort: 13062, enabled: false }),
+    })));
+    expect(request.mock.calls.some(([method]) => method === "spot_bridge_start" || method === "spot_bridge_stop")).toBe(false);
+    expect(screen.getByText(/cannot start or stop UDP listeners/)).toBeTruthy();
   });
 });

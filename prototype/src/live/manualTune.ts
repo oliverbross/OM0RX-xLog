@@ -1,19 +1,20 @@
-import { loadStationSession, stationSessionRequest, type StationReceipt, type StationSession } from "./stationSession";
+import { loadStationSession, stationSessionRequest, type RadioID, type StationReceipt, type StationSession } from "./stationSession";
 import type { StationProvider } from "../worker";
 import type { MonitorContext } from "./monitorContext";
 
-const key = "xlog.station-session.manual-tune.pending";
 type State = { pending: string | null; busy: boolean; message: string; reviewable: boolean };
 type Transport = { snapshot: () => Promise<StationSession>; request: (params: Record<string, unknown>) => Promise<StationReceipt | null> };
-const native: Transport = { snapshot: loadStationSession, request: stationSessionRequest };
-const storage = { read: () => { try { return sessionStorage.getItem(key); } catch { return "unverified"; } },
-  write: (id: string | null) => { if (id) sessionStorage.setItem(key, id); else sessionStorage.removeItem(key); } };
+const native = (radioId: RadioID): Transport => ({ snapshot: () => loadStationSession(radioId), request: params => stationSessionRequest(radioId, params) });
+const storage = (radioId: RadioID) => { const key = `xlog.station-session.${radioId}.manual-tune.pending`; return {
+  read: () => { try { return sessionStorage.getItem(key); } catch { return "unverified"; } },
+  write: (id: string | null) => { if (id) sessionStorage.setItem(key, id); else sessionStorage.removeItem(key); },
+}; };
 
 /** One renderer intent journal; durable admission and deduplication are native. */
 export class ManualTuneSession {
   private state: State;
   private listeners = new Set<() => void>();
-  constructor(private transport: Transport = native, private journal: {read:()=>string|null;write:(id:string|null)=>void} = storage) {
+  constructor(private transport: Transport, private journal: {read:()=>string|null;write:(id:string|null)=>void}) {
     this.state = { pending: journal.read(), busy: false, message: "", reviewable: false };
   }
   getSnapshot = () => this.state;
@@ -69,5 +70,9 @@ export class ManualTuneSession {
     } finally { this.update({ busy:false }); }
   }
 }
-let shared: ManualTuneSession | undefined;
-export const manualTuneSession = () => shared ??= new ManualTuneSession();
+const shared = new Map<RadioID, ManualTuneSession>();
+export const manualTuneSession = (radioId: RadioID) => {
+  const existing = shared.get(radioId);
+  if (existing) return existing;
+  const session = new ManualTuneSession(native(radioId), storage(radioId)); shared.set(radioId, session); return session;
+};
