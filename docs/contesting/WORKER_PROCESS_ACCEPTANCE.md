@@ -7,18 +7,21 @@ The harness stages a minimal bootstrap `.app` directory containing the freshly b
 Run from the isolated contesting worktree:
 
 ```sh
+set -o pipefail
 source_sha="$(git rev-parse HEAD)"
 node prototype/scripts/build-contesting-worker-process.mjs \
   --scratch-path "/tmp/xlog-contesting-worker-build-${source_sha}" \
-  --output "/tmp/xlog-contesting-worker-build-${source_sha}.json"
+  --output "/tmp/xlog-contesting-worker-build-${source_sha}.json" \
+  2>&1 | tee "/tmp/xlog-contesting-worker-build-${source_sha}.log"
 
 node prototype/scripts/accept-contesting-worker-process.mjs \
   --build-manifest "/tmp/xlog-contesting-worker-build-${source_sha}.json" \
   --expected-head "$source_sha" \
-  --output "/tmp/xlog-contesting-worker-process-$(date +%Y%m%d-%H%M%S)"
+  --output "/tmp/xlog-contesting-worker-process-$(date +%Y%m%d-%H%M%S)" \
+  2>&1 | tee "/tmp/xlog-contesting-worker-process-${source_sha}.log"
 ```
 
-The scratch path, build manifest, and acceptance output must not already exist. The build helper requires clean compiled inputs, makes a fresh release worker with two build jobs, and records the full command, source commit, Swift toolchain, executable hash, and content-hashed resource manifest. Acceptance verifies those hashes before staging, hashes the staged artifacts actually launched, and verifies them again after both worker lifecycles.
+The scratch path, build manifest, build log, acceptance output, and acceptance log must not already exist. `pipefail` preserves a helper or harness failure through `tee`, while `2>&1` records both output streams. The build helper requires clean compiled inputs, streams the long Swift build instead of buffering it, makes a fresh release worker with two build jobs, and records the full command, source commit, Swift toolchain, executable hash, and content-hashed resource manifest. Acceptance verifies those hashes before staging, hashes the staged artifacts actually launched, and verifies them again after both worker lifecycles.
 
 The harness records requests, framed responses, process exits, stderr, descriptor checks, protected-path metadata snapshots, and a content-hashed inventory of the synthetic home. It writes partial evidence and terminates remaining children if a request, assertion, output parser, or process fails. It fails if:
 
