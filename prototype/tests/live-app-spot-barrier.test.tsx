@@ -353,6 +353,17 @@ it("replaces a rapid spot while the first selection is still clearing a dirty dr
   expect(screen.queryByText(/Resolve the current QSO operation|Check the pending draft operation/)).toBeNull();
 });
 
+it("keeps the latest preflight spot replaceable while the first selection is still settling", async () => {
+  await openEditor(false);
+  fireEvent.change(screen.getByLabelText("Desk map and logbook view"), { target: { value: "logbook" } });
+  fireEvent.click(screen.getByRole("button", { name: "Select synthetic report" }));
+  fireEvent.click(screen.getByRole("button", { name: "Begin synthetic logbook work" }));
+  fireEvent.click(screen.getByRole("button", { name: "Select newest report" }));
+  await waitFor(() => expect(host.activate).toHaveBeenCalledOnce());
+  expect(host.activate).toHaveBeenCalledWith({ id: "newest-report" });
+  expect(screen.queryByText("Resolve the current QSO operation before selecting another spot.")).toBeNull();
+});
+
 it("retains only the latest selection while an activation is in flight", async () => {
   let complete!: () => void;
   host.activate.mockImplementationOnce(() => new Promise<void>(resolve => { complete = resolve; }));

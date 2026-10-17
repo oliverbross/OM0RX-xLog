@@ -1060,11 +1060,11 @@ function MainLiveApp() {
     }
     const draftOperationBlocked = draftState.locked || draftState.pending || draftState.conflict || draftState.workspaceChanged || draftState.activationFrozen ||
       !draftSession.canAcceptLocalInput();
-    if (busyRef.current || logbookWorkingRef.current || logbookMutations.getSnapshot().busy || logbookMutations.getSnapshot().pending ||
+    if (!replacingPreparedSpot && (busyRef.current || logbookWorkingRef.current || logbookMutations.getSnapshot().busy || logbookMutations.getSnapshot().pending ||
       readingRadio.current || readOperation.current || mainClosing.current || layoutChanging.current || editorTransition.current ||
-      !replacingPreparedSpot && draftOperationBlocked ||
+      draftOperationBlocked ||
       contactState.locked || contactState.pending || contactState.conflict || contactState.workspaceChanged || contactState.activationFrozen ||
-      !contactSession.canAcceptLocalInput()) {
+      !contactSession.canAcceptLocalInput())) {
       setError("Resolve the current QSO operation before selecting another spot."); return;
     }
     const generation = ++selection.current;
