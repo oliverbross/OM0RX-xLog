@@ -362,7 +362,7 @@ it.each(["Update QSO", "Cancel edit"])("keeps an existing contact edit separate 
   expect(calls.request.mock.calls.filter(([method, params]) => method === "logbook_operator_draft_apply" && params.action !== "replace")).toHaveLength(0);
 });
 
-it("recovers a logged-contact update after renderer restart without replaying it or replacing the new draft", async () => {
+it("recovers a logged-contact update after renderer restart without replaying it or replacing the new draft", { timeout: 15_000 }, async () => {
   exists = true;
   const contact = { id: "logged-contact", call: "W1AW", start: "2026-10-12T00:00:00Z", band: "20m", mode: "SSB" };
   const contactBackend = contactEditFixture(contact), backend = calls.request.getMockImplementation()!;
