@@ -904,12 +904,11 @@ private final class WindowsOwnedHandle {
         var descriptor = FILE_ID_DESCRIPTOR()
         descriptor.dwSize = DWORD(MemoryLayout<FILE_ID_DESCRIPTOR>.size)
         descriptor.Type = ExtendedFileIdType
-        let identifierOffset = MemoryLayout<FILE_ID_DESCRIPTOR>.offset(of: \FILE_ID_DESCRIPTOR.Type)!
-            + MemoryLayout<FILE_ID_TYPE>.size
-        withUnsafeMutableBytes(of: &descriptor) { bytes in
-            bytes[identifierOffset ..< identifierOffset + identity.fileID.count]
-                .copyBytes(from: identity.fileID)
+        var extendedFileID = FILE_ID_128()
+        withUnsafeMutableBytes(of: &extendedFileID) { bytes in
+            bytes.copyBytes(from: identity.fileID)
         }
+        descriptor.ExtendedFileId = extendedFileID
         let result = OpenFileById(volumeHint.rawValue, &descriptor, access, sharing, nil, flags)
         guard let result, result != INVALID_HANDLE_VALUE else {
             throw ContestDatabaseSnapshotError.atomicPublicationUnsupported
