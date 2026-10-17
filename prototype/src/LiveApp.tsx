@@ -165,6 +165,7 @@ const monitor = new URLSearchParams(location.search).get("view") === "monitor";
 const detached = detachedMapKind(new URLSearchParams(location.search).get("view"));
 const frequency = (hz?: number) => typeof hz === "number" && Number.isFinite(hz) ? (hz / 1e6).toFixed(6) : "—";
 const emptySpots: Data[] = [];
+const spotSelectionDebounceMs = 220;
 const radioProviderLabels: Record<StationProvider, string> = {
   direct_agent: "Remote station · embedded xCat",
   direct_flex_lan: "Direct FLEX · LAN",
@@ -443,6 +444,8 @@ function MainLiveApp() {
   const selection = useRef(0);
   const activationStarted = useRef(false);
   const spotPreparation = useRef<Promise<void> | null>(null);
+  const spotActivationDelay = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(spotActivationDelay.current), []);
   const spotDraftRecovery = useRef<Promise<void> | null>(null);
   const spotAwaitingDraftRecovery = useRef<Data | null>(null);
   const [spotEditorEpoch, setSpotEditorEpoch] = useState(0);
@@ -1041,15 +1044,18 @@ function MainLiveApp() {
         if (draftSession.dirty) await draftSession.useShared();
       })().finally(() => { spotPreparation.current = null; });
     }
-    void spotPreparation.current.then(() => {
-      if (selection.current !== generation) return;
-      activationStarted.current = true;
-      return Promise.resolve(spotActivation.activate(spot)).finally(() => { activationStarted.current = false; });
-    }).catch(cause => {
-      const message = cause instanceof Error ? cause.message : "Spot activation is unavailable. Check its status before selecting again.";
-      if (selection.current === generation && message !== "Check the existing spot activation before selecting another report.") setError(message);
-    })
-      .finally(() => { if (selection.current === generation) pendingTune.current = false; });
+    const preparation = spotPreparation.current;
+    window.clearTimeout(spotActivationDelay.current);
+    spotActivationDelay.current = window.setTimeout(() => {
+      void preparation.then(() => {
+        if (selection.current !== generation) return;
+        activationStarted.current = true;
+        return Promise.resolve(spotActivation.activate(spot)).finally(() => { activationStarted.current = false; });
+      }).catch(cause => {
+        const message = cause instanceof Error ? cause.message : "Spot activation is unavailable. Check its status before selecting again.";
+        if (selection.current === generation && message !== "Check the existing spot activation before selecting another report.") setError(message);
+      }).finally(() => { if (selection.current === generation) pendingTune.current = false; });
+    }, spotSelectionDebounceMs);
   };
   const liveSpots: Data[] = cluster?.snapshot?.spots || emptySpots;
   const mapTarget = useMemo(() => draft?.call && lookup?.call === draft.call &&

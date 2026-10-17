@@ -65,6 +65,7 @@ impl Coordinator {
                 if state.active.is_some() || state.recovering { return Err("Another activation is active. Wait for it before retiring an old identity.".into()); }
                 if state.operations.len() + state.retired.len() >= 4096 { return Err("Activation history is full. Restart safely before continuing.".into()); }
                 state.recovering = true;
+                state.latest = Some(operation_id.into());
                 drop(state);
                 let recovered = self.backend.recover_missing(operation_id);
                 let mut state = self.state.lock().map_err(|_| "Spot activation unavailable")?;
@@ -75,7 +76,6 @@ impl Coordinator {
                     return Err("Activation retirement could not be verified.".into());
                 }
                 state.retired.insert(operation_id.into(), recovered.clone());
-                state.latest = Some(operation_id.into());
                 drop(state); self.backend.wake(); return Ok(recovered);
             }
         }
@@ -141,8 +141,9 @@ impl Coordinator {
                     "draftOnly":self.backend.draft_only(&request),
                     "tuneConfirmed":false,"rotor":"not_requested","reservationActive":false,
                     "error":"Wait for the current spot activation to finish."});
+                state.latest = Some(request.operation_id.clone());
                 state.operations.insert(request.operation_id.clone(), Operation { request, outcome:outcome.clone(), generation:None, running:false });
-                return Ok(outcome);
+                drop(state); self.backend.wake(); return Ok(outcome);
             }
             state.active = Some(request.operation_id.clone());
             state.latest = Some(request.operation_id.clone());
@@ -366,6 +367,21 @@ mod tests {
         assert_eq!(owner.reconcile(&next.operation_id).unwrap(), result);
         assert_eq!(owner.activate(next).unwrap(), result);
         assert_eq!(owner.state.lock().unwrap().active.as_deref(), Some(first.operation_id.as_str()));
+        assert!(backend.calls.lock().unwrap().is_empty());
+        owner.state.lock().unwrap().active = None;
+        assert_eq!(owner.snapshot().unwrap()["operationId"], result["operationId"]);
+    }
+    #[test]
+    fn newest_concurrent_click_owns_the_snapshot_after_the_active_operation_closes() {
+        let backend = Arc::new(Fake::new()); let owner = Coordinator::new(backend.clone());
+        let active = request(); owner.state.lock().unwrap().active = Some(active.operation_id.clone());
+        let second = request(); let second_result = owner.activate(second.clone()).unwrap();
+        let third = request(); let third_result = owner.activate(third.clone()).unwrap();
+        assert_eq!(second_result["phase"], "blocked"); assert_eq!(third_result["phase"], "blocked");
+        assert_eq!(owner.snapshot().unwrap()["phase"], "idle");
+        owner.state.lock().unwrap().active = None;
+        assert_eq!(owner.snapshot().unwrap()["operationId"], third.operation_id);
+        assert_eq!(owner.status(&second.operation_id).unwrap()["operationId"], second.operation_id);
         assert!(backend.calls.lock().unwrap().is_empty());
     }
     #[test]

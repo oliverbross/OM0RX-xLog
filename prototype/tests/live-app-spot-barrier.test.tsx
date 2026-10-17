@@ -289,6 +289,7 @@ it("cancels an unsaved logged-contact edit before loading a cluster report", asy
 it("uses only the latest of rapid successive spot clicks", async () => {
   await openEditor(false);
   fireEvent.click(screen.getByRole("button", { name: "Select synthetic report" }));
+  await act(async () => { await new Promise(resolve => window.setTimeout(resolve, 80)); });
   fireEvent.click(screen.getByRole("button", { name: "Select newer report" }));
   await waitFor(() => expect(host.activate).toHaveBeenCalledOnce());
   expect(host.activate).toHaveBeenCalledWith({ id: "newer-report" });
