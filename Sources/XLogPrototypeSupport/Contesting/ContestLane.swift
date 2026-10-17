@@ -48,6 +48,9 @@ actor ContestLane {
             case "contest_draft_apply": result = try await draftApply(params, generation: before)
             case "contest_serial_reserve": result = try await reserve(params, generation: before)
             case "contest_qso_commit": result = try await commit(params, generation: before)
+            case "contest_qso_get": result = try await qsoGet(params, generation: before)
+            case "contest_qso_correct": result = try await qsoCorrect(params, generation: before)
+            case "contest_qso_delete": result = try await qsoDelete(params, generation: before)
             case "contest_operation_receipt": result = try await receipt(params, generation: before)
             case "contest_log_page": result = try await logPage(params, generation: before)
             case "contest_score": result = try await score(params, generation: before)
@@ -237,6 +240,53 @@ actor ContestLane {
         }
     }
 
+    private func qsoGet(_ params: [String: Any], generation: String) async throws -> [String: Any] {
+        try Wire.exact(params, ["sessionID", "workspaceGeneration", "expectedRevision", "qsoID"])
+        try Wire.requireGeneration(try Wire.text(params, "workspaceGeneration", max: 128), generation)
+        let sessionID = try Wire.uuid(params, "sessionID")
+        let snapshot = try await repository().qsoReadSnapshot(
+            sessionID: sessionID, id: Wire.uuid(params, "qsoID"),
+            expectedWorkspaceGeneration: try Wire.generationID(generation),
+            expectedRevision: try Wire.uint(params, "expectedRevision"))
+        try checked(snapshot.session, generation: generation, revision: snapshot.session.revision)
+        return ["sessionID": Wire.uuidString(sessionID), "workspaceGeneration": generation,
+                "revision": snapshot.session.revision,
+                "qso": fullQSOWire(snapshot.qso, stored: snapshot.session)]
+    }
+
+    private func qsoCorrect(_ params: [String: Any], generation: String) async throws -> [String: Any] {
+        let request = try Wire.mutation(params, payloadKeys: ["qso", "reason"], requiresDraft: false)
+        try Wire.requireGeneration(request.workspaceGeneration, generation)
+        let prior = try await preflightReplay(request, compareCommittedTimestamp: false)
+        let stored = try await checkedSession(request.sessionID, generation: generation,
+                                              revision: prior == nil ? request.expectedRevision : nil)
+        let qso = try correctedQSO(Wire.object(request.payload, "qso"), stored: stored)
+        let reason = try Wire.text(request.payload, "reason", max: 1_024)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !reason.isEmpty else { throw ContestLaneError.confirmed("invalid_params", "A correction reason is required.") }
+        let result = try await repository().correctQSO(qso, reason: reason,
+            operationTimestamp: request.timestamp,
+            scope: request.coreScope(generation: stored.session.workspaceGeneration, draftID: nil),
+            committedAt: prior?.committedAt ?? request.timestamp)
+        return try await projectCommitted { try changeWire(result, generation: generation) }
+    }
+
+    private func qsoDelete(_ params: [String: Any], generation: String) async throws -> [String: Any] {
+        let request = try Wire.mutation(params, payloadKeys: ["qsoID", "reason"], requiresDraft: false)
+        try Wire.requireGeneration(request.workspaceGeneration, generation)
+        let prior = try await preflightReplay(request, compareCommittedTimestamp: false)
+        let stored = try await checkedSession(request.sessionID, generation: generation,
+                                              revision: prior == nil ? request.expectedRevision : nil)
+        let reason = try Wire.text(request.payload, "reason", max: 1_024)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !reason.isEmpty else { throw ContestLaneError.confirmed("invalid_params", "A deletion reason is required.") }
+        let result = try await repository().deleteQSO(id: Wire.uuid(request.payload, "qsoID"), reason: reason,
+            operationTimestamp: request.timestamp,
+            scope: request.coreScope(generation: stored.session.workspaceGeneration, draftID: nil),
+            committedAt: prior?.committedAt ?? request.timestamp)
+        return try await projectCommitted { try changeWire(result, generation: generation) }
+    }
+
     private func receipt(_ params: [String: Any], generation: String) async throws -> [String: Any] {
         try Wire.exact(params, ["sessionID", "workspaceGeneration", "requestID", "payloadDigest"])
         try Wire.requireGeneration(try Wire.text(params, "workspaceGeneration", max: 128), generation)
@@ -283,12 +333,13 @@ actor ContestLane {
         }
     }
 
-    private func preflightReplay(_ request: ContestMutationRequest) async throws -> ContestMutationReceipt? {
+    private func preflightReplay(_ request: ContestMutationRequest,
+                                 compareCommittedTimestamp: Bool = true) async throws -> ContestMutationReceipt? {
         do {
             let receipt = try await repository().operationReceipt(sessionID: request.sessionID,
                 workspaceGeneration: try Wire.generationID(request.workspaceGeneration), requestID: request.requestID,
                 payloadDigest: request.payloadDigest)
-            if let receipt, receipt.committedAt != request.timestamp {
+            if compareCommittedTimestamp, let receipt, receipt.committedAt != request.timestamp {
                 throw ContestLaneError.confirmed("request_conflict", "This request ID was already used with another operation timestamp.")
             }
             return receipt
@@ -393,6 +444,103 @@ actor ContestLane {
             "isDupe": scored.disposition == .duplicate]
     }
 
+    private func correctedQSO(_ value: [String: Any], stored: StoredContestSession) throws -> ContestQSO {
+        try Wire.exact(value, ["qsoID", "sessionID", "originalUTC", "callsign", "band", "mode",
+                               "frequencyHz", "sentReport", "receivedReport", "sentExchange",
+                               "normalizedSentExchange", "allocatedSerial", "receivedExchange",
+                               "normalizedReceivedExchange", "entity", "operatorCallsign", "stationLocation",
+                               "provenance", "ruleIdentity", "referenceDataVersion"])
+        let qsoID = try Wire.uuid(value, "qsoID")
+        let sessionID = try Wire.uuid(value, "sessionID")
+        guard sessionID == stored.session.id else {
+            throw ContestLaneError.confirmed("wrong_session", "The contact belongs to another contest session.")
+        }
+        let originalUTC = try Wire.date(value, "originalUTC")
+        let callsign = try Wire.callsign(value, "callsign")
+        let band = try Wire.text(value, "band", max: 8)
+        let mode = try Wire.text(value, "mode", max: 8)
+        guard let rule = rules.rule(for: stored.session.rule),
+              rule.metadata.supportedBands.contains(band), rule.metadata.supportedModes.contains(mode) else {
+            throw ContestLaneError.confirmed("invalid_params", "The corrected band or mode is unsupported.")
+        }
+        let frequency = try Wire.uint(value, "frequencyHz")
+        guard frequency > 0, frequency <= 100_000_000_000 else {
+            throw ContestLaneError.confirmed("invalid_params", "The corrected frequency is invalid.")
+        }
+        let rawSent = try Wire.text(value, "sentExchange", max: 64, empty: true)
+        let normalizedSent = try Wire.text(value, "normalizedSentExchange", max: 64, empty: true)
+        guard try Wire.text(value, "allocatedSerial", max: 64, empty: true) == normalizedSent else {
+            throw ContestLaneError.confirmed("invalid_params", "The allocated sent value is inconsistent.")
+        }
+        let suppliedEntity = try Wire.entity(Wire.object(value, "entity"))
+        guard let country = reference.resolve(callsign, at: originalUTC),
+              let resolvedEntity = try? reference.entity(country), suppliedEntity == resolvedEntity else {
+            throw ContestLaneError.confirmed("reference_mismatch", "The corrected callsign entity does not match pinned CTY data.")
+        }
+        guard try Wire.ruleIdentity(Wire.object(value, "ruleIdentity")) == stored.session.rule,
+              try Wire.text(value, "referenceDataVersion", max: 160) == stored.session.referenceDataVersion else {
+            throw ContestLaneError.confirmed("reference_mismatch", "The correction does not match the session's pinned rule and reference data.")
+        }
+        let provenance = try Wire.provenance(Wire.object(value, "provenance"))
+        return ContestQSO(id: qsoID, sessionID: sessionID, timestampUTC: originalUTC,
+            callsign: callsign, band: band, mode: mode, frequencyHz: Int64(frequency),
+            rstSent: try Wire.text(value, "sentReport", max: 3, empty: true),
+            rstReceived: try Wire.text(value, "receivedReport", max: 3, empty: true),
+            exchange: .init(rawSent: rawSent, normalizedSent: normalizedSent,
+                            rawReceived: try Wire.text(value, "receivedExchange", max: 64, empty: true),
+                            normalizedReceived: try Wire.text(value, "normalizedReceivedExchange", max: 64, empty: true)),
+            entity: resolvedEntity, operatorCallsign: try Wire.callsign(value, "operatorCallsign"),
+            stationLocation: try Wire.text(value, "stationLocation", max: 128, empty: true),
+            provenance: provenance)
+    }
+
+    private func fullQSOWire(_ qso: ContestQSO, stored: StoredContestSession) -> [String: Any] {
+        let entity: Any = qso.entity.map(Wire.entityWire) ?? NSNull()
+        return ["qsoID": Wire.uuidString(qso.id), "sessionID": Wire.uuidString(qso.sessionID),
+            "originalUTC": Wire.iso(qso.timestampUTC), "callsign": qso.callsign,
+            "band": qso.band, "mode": qso.mode, "frequencyHz": qso.frequencyHz,
+            "sentReport": qso.rstSent, "receivedReport": qso.rstReceived,
+            "sentExchange": qso.exchange.rawSent, "normalizedSentExchange": qso.exchange.normalizedSent,
+            "allocatedSerial": qso.exchange.normalizedSent,
+            "receivedExchange": qso.exchange.rawReceived,
+            "normalizedReceivedExchange": qso.exchange.normalizedReceived,
+            "entity": entity, "operatorCallsign": qso.operatorCallsign,
+            "stationLocation": qso.stationLocation, "provenance": Wire.provenanceWire(qso.provenance),
+            "ruleIdentity": Wire.ruleIdentityWire(stored.session.rule),
+            "referenceDataVersion": stored.session.referenceDataVersion]
+    }
+
+    private func changeWire(_ result: ContestQSOChangeResult, generation: String) throws -> [String: Any] {
+        guard result.session.revision == result.receipt.committedRevision,
+              result.score.revision == result.session.revision,
+              result.score.qsoCount == result.qsoCount,
+              result.session.session.id == result.before.sessionID,
+              result.before.id == result.qsoID,
+              result.after?.id == result.qsoID || result.after == nil,
+              (result.operation == .correction && result.after != nil) ||
+                (result.operation == .deletion && result.after == nil) else {
+            throw ContestLaneError.uncertain("invalid_result", "The durable QSO mutation result is incoherent.")
+        }
+        let stored = result.session
+        guard stored.session.workspaceGeneration == (try Wire.generationID(generation)) else {
+            throw ContestLaneError.uncertain("invalid_result", "The durable QSO mutation result has another workspace generation.")
+        }
+        let session: [String: Any] = ["sessionID": Wire.uuidString(stored.session.id),
+            "workspaceGeneration": generation, "revision": stored.revision,
+            "name": stored.metadata.name, "ruleIdentity": Wire.ruleIdentityWire(stored.session.rule),
+            "referenceDataVersion": stored.session.referenceDataVersion,
+            "qsoCount": result.qsoCount, "updatedAt": Wire.iso(result.receipt.committedAt)]
+        return ["session": session, "operation": result.operation.rawValue,
+            "qsoID": Wire.uuidString(result.qsoID), "qsoCount": result.qsoCount,
+            "score": scoreWire(result.score, generation: generation),
+            "currentTarget": result.after.map { fullQSOWire($0, stored: stored) } as Any? ?? NSNull(),
+            "auditReference": ["sessionID": Wire.uuidString(stored.session.id),
+                               "qsoID": Wire.uuidString(result.qsoID),
+                               "requestID": Wire.uuidString(result.receipt.requestID),
+                               "revision": result.receipt.committedRevision],
+            "receipt": receiptWire(result.receipt)]
+    }
+
     private func scoreWire(_ value: ContestScoreSnapshot, generation: String) -> [String: Any] {
         let labels = Set(value.score.qsos.flatMap(\.newMultipliers).map { "\($0.kind):\($0.value):\($0.scope)" }).sorted()
         return ["sessionID": Wire.uuidString(value.sessionID), "workspaceGeneration": generation, "revision": value.revision,
@@ -427,6 +575,9 @@ actor ContestLane {
         case ContestStoreError.invalidSession: return .confirmed("invalid_session", "The contest session is invalid.")
         case ContestStoreError.reservationMismatch: return .confirmed("reservation_mismatch", "The serial reservation does not match this contact.")
         case ContestStoreError.serialExhausted: return .confirmed("serial_exhausted", "No further serial number can be allocated.")
+        case ContestStoreError.qsoDeleted: return .confirmed("qso_deleted", "The contest contact has already been deleted.")
+        case ContestStoreError.invalidCorrectionReason: return .confirmed("invalid_params", "A bounded correction reason is required.")
+        case ContestStoreError.immutableQSOField(let field): return .confirmed("immutable_qso", "The correction changed immutable field \(field).")
         case is ContestEvaluationError: return .confirmed("invalid_qso", "The contest contact is invalid.")
         default: return .uncertain("contest_store_failed", "The contest operation did not return a confirmed result.")
         }
@@ -605,6 +756,41 @@ private enum Wire {
     }
     static func ruleIdentityWire(_ value: ContestRuleIdentity) -> [String: Any] {
         ["id": value.id, "version": value.version, "edition": value.edition, "sourceRevision": value.sourceRevision]
+    }
+    static func entity(_ value: [String: Any]) throws -> ContestEntitySnapshot {
+        try exact(value, ["adif", "name", "countryPrefix", "continent", "cqZone"])
+        return .init(adif: try int(value, "adif", range: 1...Int.max),
+                     name: try text(value, "name", max: 128),
+                     countryPrefix: try text(value, "countryPrefix", max: 16),
+                     continent: try text(value, "continent", max: 2),
+                     cqZone: try int(value, "cqZone", range: 1...40))
+    }
+    static func entityWire(_ value: ContestEntitySnapshot) -> [String: Any] {
+        ["adif": value.adif, "name": value.name, "countryPrefix": value.countryPrefix,
+         "continent": value.continent, "cqZone": value.cqZone]
+    }
+    static func provenance(_ value: [String: Any]) throws -> ContestQSOProvenance {
+        try exact(value, ["source", "sourceIdentity", "importedClaimedScore"])
+        guard let source = ContestQSOProvenance.Source(rawValue: try text(value, "source", max: 32)) else {
+            throw ContestLaneError.confirmed("invalid_params", "Contest provenance source is invalid.")
+        }
+        let sourceIdentity: String?
+        if value["sourceIdentity"] is NSNull { sourceIdentity = nil }
+        else { sourceIdentity = try text(value, "sourceIdentity", max: 256) }
+        let importedClaimedScore: Int64?
+        if value["importedClaimedScore"] is NSNull { importedClaimedScore = nil }
+        else {
+            let number = try uint(value, "importedClaimedScore")
+            guard number <= UInt64(Int64.max) else {
+                throw ContestLaneError.confirmed("invalid_params", "Imported claimed score is invalid.")
+            }
+            importedClaimedScore = Int64(number)
+        }
+        return .init(source: source, sourceIdentity: sourceIdentity, importedClaimedScore: importedClaimedScore)
+    }
+    static func provenanceWire(_ value: ContestQSOProvenance) -> [String: Any] {
+        ["source": value.source.rawValue, "sourceIdentity": value.sourceIdentity as Any? ?? NSNull(),
+         "importedClaimedScore": value.importedClaimedScore as Any? ?? NSNull()]
     }
     static func mutation(_ params: [String: Any], payloadKeys: Set<String>, requiresDraft: Bool) throws -> ContestMutationRequest {
         var keys: Set<String> = ["sessionID", "workspaceGeneration", "requestID", "expectedRevision", "payloadDigest", "operationTimestamp", "payload"]
