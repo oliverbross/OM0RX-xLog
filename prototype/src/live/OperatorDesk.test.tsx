@@ -23,16 +23,18 @@ it("shows all native top-strip fields and actions together with the three panels
   for (const name of ["Full editor", "Read radio", "Clear QSO", "Log QSO"]) expect(screen.getByRole("button", { name })).toBeTruthy();
   await waitFor(() => expect(screen.getByLabelText("DXCC 17m: Confirmed")).toBeTruthy());
 });
-it("puts an advisory duplicate date at the far end of the Active QSO header without blocking logging", async () => {
+it("puts an advisory duplicate date below the reference fields without blocking logging", async () => {
   const save = vi.fn();
   const request = vi.fn(async (method: string) => method === "logbook_duplicate"
     ? { call: "W7AIT", band: "17m", mode: "SSB", last_worked_at: "2026-01-02T23:55:00Z" }
     : method === "logbook_matrix" ? { cells: [] } : { history: { call: "W7AIT", adif: 291, previous_count: 1, previous: [], matrix: [] } });
   render(<Harness request={request} save={save} />);
   const warning = await screen.findByText("Dupe: Worked on 02/01/26");
-  const header = screen.getByRole("heading", { name: "Active QSO" }).parentElement!;
-  expect(warning.parentElement).toBe(header);
-  expect(header.lastElementChild).toBe(warning);
+  const form = screen.getByLabelText("Active QSO").querySelector("form")!;
+  const references = form.querySelector(".desk-active-references")!;
+  expect(warning.parentElement).toBe(form);
+  expect(references.nextElementSibling).toBe(warning);
+  expect(screen.getByRole("heading", { name: "Active QSO" }).parentElement?.contains(warning)).toBe(false);
   expect(warning.getAttribute("role")).toBe("status");
   const log = screen.getByRole("button", { name: "Log QSO" }) as HTMLButtonElement;
   expect(log.disabled).toBe(false);

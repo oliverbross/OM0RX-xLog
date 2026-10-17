@@ -5,7 +5,14 @@ import { LayoutRequestRejected } from "./workspaceLayoutSession";
 export async function requestWorkspaceLayout(method: "workspace_layout_load" | "workspace_layout_apply", params: Record<string, unknown> = {}): Promise<any> {
   if (!["workspace_layout_load", "workspace_layout_apply"].includes(method)) throw new Error("This operation is outside the workspace layout service.");
   const request = { id: crypto.randomUUID(), method, params };
-  const response = await invoke<any>("worker_request", { request });
+  let response;
+  try { response = await invoke<any>("worker_request", { request }); }
+  catch (cause) {
+    // Native command failures cross the Tauri bridge as strings on macOS.
+    // Preserve the reason so a later refresh can clear the same session error.
+    throw cause instanceof Error ? cause : new Error(typeof cause === "string" && cause.trim()
+      ? cause : "The shared layout transport is unavailable. Reload before retrying.");
+  }
   if (!response || response.id !== request.id || typeof response.ok !== "boolean") throw new Error("The layout response could not be correlated. Reload before retrying.");
   if (!response.ok) {
     if (typeof response.error?.message !== "string") throw new Error("The layout failure could not be verified. Reload before retrying.");

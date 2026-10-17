@@ -97,6 +97,16 @@ import appLogo from "./assets/xlog-logo-mark.png";
 
 type Data = Record<string, any>;
 type Request = (method: string, params?: Data) => Promise<any>;
+
+export function boundedCallsignLookup(request: Request, call: string, timeoutMs = 5_000): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("Callsign lookup timed out.")), timeoutMs);
+    void request("lookup_call", { call }).then(
+      value => { clearTimeout(timer); resolve(value); },
+      cause => { clearTimeout(timer); reject(cause); },
+    );
+  });
+}
 export const syncSettingsDestination = (logbookMode: unknown): "Logbook" | "Sync" => logbookMode === "local" ? "Logbook" : "Sync";
 const screenIcons: Record<string, typeof Radio> = {
   "operator-desk": LayoutDashboard, "log-qso": Radio, logbook: BookOpen, "dx-cluster": Network, "spot-history": History,
@@ -215,6 +225,7 @@ function MainLiveApp() {
   const [message, setMessage] = useState("");
   const loggedFeedback = useQSOLoggedToast();
   const [error, setError] = useState("");
+  const presentationError = useRef("");
   useEffect(() => connectSettingsChanges(() => { void settingsSession.load(); }, setError), [settingsSession]);
   useEffect(() => connectRotorConfigurationChanges(() => { void rotorConfigurationSession.load(); }, setError), [rotorConfigurationSession]);
   const editorInputState = useCallback((pending: boolean) => {
@@ -328,11 +339,18 @@ function MainLiveApp() {
   const separateWindows = workspace?.workspace_exists === true && workspaceMode(deskLayout.state.snapshot) === "windows" && !recoveryVisible;
   useEffect(() => {
     const state = deskLayout.state;
-    if (!state.snapshot || state.saving || !workspace && workspacePending) return;
+    if (!state.snapshot || state.saving || workspace?.workspace_exists !== true) return;
     void presentWorkspaceMode(state.snapshot, separateWindows)
-      .catch(cause => setError(cause instanceof Error ? cause.message : "Workspace mode presentation failed."));
+      .then(() => {
+        const previous = presentationError.current; presentationError.current = "";
+        if (previous) setError(current => current === previous ? "" : current);
+      })
+      .catch(cause => {
+        const message = cause instanceof Error ? cause.message : typeof cause === "string" && cause.trim() ? cause : "Workspace mode presentation failed.";
+        presentationError.current = message; setError(message);
+      });
   }, [deskLayout.state.snapshot, deskLayout.state.pending, deskLayout.state.saving,
-      deskLayout.state.conflict, deskLayout.state.workspaceChanged, separateWindows, workspacePending]);
+      deskLayout.state.conflict, deskLayout.state.workspaceChanged, separateWindows, workspace]);
   const acceptsInput = useCallback(() => !readingRadio.current && !mainClosing.current && !layoutChanging.current && !editorTransition.current && !logbookWorkingRef.current && draftSession.canAcceptLocalInput() && contactSession.canAcceptLocalInput(), [draftSession, contactSession]);
   useEffect(() => protectOperatorDraftClose(() => {
     const current = draftSession.getSnapshot(), contact = contactSession.getSnapshot(), mutation = logbookMutations.getSnapshot();
@@ -838,7 +856,7 @@ function MainLiveApp() {
     setLookup(null); setPrevious([]);
     if (!call || !workspace?.workspace_exists) { setLookup(null); setPrevious([]); return; }
     const loadLookup = (retry: boolean) => {
-      void request("lookup_call", { call })
+      void boundedCallsignLookup(request, call)
         .then(info => { if (!disposed) { setLookup(info); if (draftSession.canAcceptBackgroundUpdate() && baseline && !editing.current) setDraft(current => enrichedDraft(current, baseline, info)); } })
         .catch(e => {
           if (disposed) return;

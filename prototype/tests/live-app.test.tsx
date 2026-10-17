@@ -3,7 +3,7 @@ import React from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import LiveApp, { syncSettingsDestination } from "../src/LiveApp";
+import LiveApp, { boundedCallsignLookup, syncSettingsDestination } from "../src/LiveApp";
 import Conditions from "../src/live/Conditions";
 import Monitor from "../src/live/Monitor";
 import { operatorDraftFixture, testPreferenceSnapshot, testWorkspaceGeneration } from "./operator-draft-fixture";
@@ -48,6 +48,18 @@ beforeEach(() => {
   });
 });
 afterEach(cleanup);
+
+it("settles a stalled callsign lookup instead of leaving intelligence pending", async () => {
+  vi.useFakeTimers();
+  try {
+    const lookup = boundedCallsignLookup(vi.fn(() => new Promise(() => {})), "K1ABC", 100);
+    const rejected = expect(lookup).rejects.toThrow("Callsign lookup timed out");
+    await vi.advanceTimersByTimeAsync(100);
+    await rejected;
+  } finally {
+    vi.useRealTimers();
+  }
+});
 
 it("recovers a saved Operator Desk callsign after one transient launch lookup failure", async () => {
   exists = true;

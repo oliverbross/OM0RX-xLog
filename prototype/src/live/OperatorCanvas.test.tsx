@@ -36,8 +36,7 @@ function setup(custom = false, required = false, admission: { canChangeLayout?: 
   }
   return { session, request, Harness };
 }
-function unlock(title: string) {
-  fireEvent.click(screen.getByRole("button", { name: `Edit ${title} layout` }));
+function moveHandle(title: string) {
   return screen.getByRole("button", { name: `Move ${title}` });
 }
 it("retains the mounted editor when buffered input vetoes Hide or preset changes", async () => {
@@ -75,7 +74,7 @@ it("creates a custom canvas without altering Traditional and commits activation 
 it("commits one keyboard move on key release, supports cancel, and keeps panel input mounted", async () => {
   const { session, request, Harness } = setup(true); await session.refresh(); render(<Harness />);
   const input = screen.getByLabelText("Draft text"); fireEvent.change(input, { target: { value: "K1ABC" } });
-  const move = unlock("Active QSO");
+  const move = moveHandle("Active QSO");
   fireEvent.keyDown(move, { key: "ArrowRight" }); fireEvent.keyDown(move, { key: "ArrowRight" });
   expect(request).toHaveBeenCalledTimes(1); fireEvent.keyUp(move, { key: "ArrowRight" });
   await waitFor(() => expect(session.getSnapshot().snapshot?.revision).toBe(1));
@@ -86,7 +85,7 @@ it("commits one keyboard move on key release, supports cancel, and keeps panel i
 });
 it("hides and restores a panel, then removes edit handles when locked", async () => {
   const { session, Harness } = setup(true); await session.refresh(); render(<Harness />);
-  const move = unlock("Map");
+  const move = moveHandle("Map");
   fireEvent.keyDown(move, { key: "ArrowRight" }); fireEvent.keyUp(move, { key: "ArrowRight" });
   await waitFor(() => expect(session.getSnapshot().snapshot?.revision).toBe(1));
   const savedRect = session.getSnapshot().snapshot!.document.presets[1].panels.find(panel => panel.id === "world-map")!.rect;
@@ -115,7 +114,7 @@ it("keeps Stop outside overlapping frames in a locked desktop layout", async () 
 });
 it("commits pointer placement once on release and cancels a interrupted gesture", async () => {
   const { session, request, Harness } = setup(true); await session.refresh(); render(<Harness />);
-  const move = unlock("Active QSO");
+  const move = moveHandle("Active QSO");
   fireEvent.pointerDown(move, { button: 0, clientX: 20, clientY: 20 });
   fireEvent.pointerMove(move, { clientX: 120, clientY: 60 });
   expect(request).toHaveBeenCalledTimes(1);
@@ -152,10 +151,9 @@ it("clamps movement/resize, validates seeded layouts and does not mutate source 
   }
 });
 
-it("exposes edge handles only after unlock and commits only the final keyboard size", async () => {
+it("exposes edge handles throughout Arrange mode and commits only the final keyboard size", async () => {
   const { session, request, Harness } = setup(true); await session.refresh(); render(<Harness />);
-  expect(screen.queryByRole("button", { name: /Resize Active QSO/ })).toBeNull();
-  unlock("Active QSO");
+  expect(moveHandle("Active QSO")).toBeTruthy();
   const resize = screen.getByRole("button", { name: "Resize Active QSO bottom right corner" });
   expect(screen.getAllByRole("button", { name: /Resize Active QSO/ })).toHaveLength(8);
   expect(document.getElementById(resize.getAttribute("aria-describedby")!)?.textContent).toContain("Escape cancels");
@@ -172,7 +170,6 @@ it("exposes edge handles only after unlock and commits only the final keyboard s
 it("commits a pointer resize once and retains cancellation on the visible corner grip", async () => {
   const { session, request, Harness } = setup(true); await session.refresh(); render(<Harness />);
   const before = session.getSnapshot().snapshot!.document.presets[1], panel = before.panels[0];
-  unlock("Active QSO");
   const resize = screen.getByRole("button", { name: "Resize Active QSO bottom right corner" });
   fireEvent.pointerDown(resize, { button: 0, clientX: 100, clientY: 100 });
   fireEvent.pointerMove(resize, { clientX: 20, clientY: 60 });
@@ -196,7 +193,6 @@ it("fits measured information content only on request, retaining position, width
   expect(details.closest(".is-content-sized")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Fit height of Map" })).toBeNull();
   expect(request).toHaveBeenCalledTimes(1);
-  unlock("Callsign intelligence");
   fireEvent.click(screen.getByRole("button", { name: "Fit height of Callsign intelligence" }));
   await waitFor(() => expect(session.getSnapshot().snapshot?.revision).toBe(1));
   const after = session.getSnapshot().snapshot!.document.presets[1];
@@ -213,10 +209,8 @@ it("keeps fit and resize changes behind the buffered-input admission gate", asyn
     return { x: 0, y: 0, left: 0, top: 0, bottom: height, right: width, width, height, toJSON() {} };
   });
   render(<Harness />);
-  unlock("Callsign intelligence");
   fireEvent.click(screen.getByRole("button", { name: "Fit height of Callsign intelligence" }));
   expect(screen.getByRole("alert").textContent).toContain("Your text is retained");
-  unlock("Active QSO");
   const resize = screen.getByRole("button", { name: "Resize Active QSO bottom right corner" });
   fireEvent.keyDown(resize, { key: "ArrowLeft" }); fireEvent.keyUp(resize, { key: "ArrowLeft" });
   expect(screen.getByRole("alert").textContent).toContain("Your text is retained");
@@ -234,35 +228,31 @@ it("trims height with upward snapping and minimums without growing or changing o
   expect(panel.rect.height).toBe(340);
 });
 
-it("toggles editing per panel without saving and global Lock exits every edit mode", async () => {
+it("makes every panel movable and resizable in Arrange mode while global Lock removes every handle", async () => {
   const { session, request, Harness } = setup(true); await session.refresh(); render(<Harness />);
-  const input = screen.getByLabelText("Draft text"), toggle = screen.getByRole("button", { name: "Edit Active QSO layout" });
-  expect(toggle.getAttribute("aria-pressed")).toBe("false");
-  expect((screen.getByRole("button", { name: "Move Active QSO" }) as HTMLButtonElement).disabled).toBe(true);
-  const title = unlock("Active QSO");
-  expect(toggle.getAttribute("aria-pressed")).toBe("true");
-  expect(screen.queryByRole("button", { name: /Resize Map/ })).toBeNull();
+  const input = screen.getByLabelText("Draft text"), title = moveHandle("Active QSO");
+  expect(title.getAttribute("aria-disabled")).toBe("false");
+  expect(screen.getAllByRole("button", { name: /Resize Active QSO/ })).toHaveLength(8);
+  expect(screen.getAllByRole("button", { name: /Resize Map/ })).toHaveLength(8);
   fireEvent.pointerDown(title, { button: 0, clientX: 10, clientY: 10 });
   fireEvent.pointerMove(title, { clientX: 30, clientY: 30 });
-  fireEvent.click(toggle); fireEvent.pointerUp(title);
-  expect(screen.queryByRole("button", { name: /Resize Active QSO/ })).toBeNull();
-  expect(request).toHaveBeenCalledTimes(1);
-  unlock("Active QSO"); unlock("Map");
+  fireEvent.pointerUp(title);
+  expect(request).toHaveBeenCalledTimes(2);
+  await waitFor(() => expect(session.getSnapshot().snapshot?.revision).toBe(1));
+  await waitFor(() => expect((screen.getByRole("button", { name: "Lock layout" }) as HTMLButtonElement).disabled).toBe(false));
   fireEvent.click(screen.getByRole("button", { name: "Lock layout" }));
   await screen.findByRole("button", { name: "Arrange panels" });
   expect(screen.queryByRole("button", { name: /Resize / })).toBeNull();
   await waitFor(() => expect((screen.getByRole("button", { name: "Arrange panels" }) as HTMLButtonElement).disabled).toBe(false));
   fireEvent.click(screen.getByRole("button", { name: "Arrange panels" }));
-  await screen.findByRole("button", { name: "Edit Active QSO layout" });
-  expect(screen.getByRole("button", { name: "Edit Active QSO layout" }).getAttribute("aria-pressed")).toBe("false");
-  expect(screen.queryByRole("button", { name: /Resize / })).toBeNull();
+  await screen.findByRole("button", { name: "Move Active QSO" });
+  expect(screen.getAllByRole("button", { name: /Resize Active QSO/ })).toHaveLength(8);
   expect(screen.getByLabelText("Draft text")).toBe(input);
 });
 
 it("resizes a left edge with the right edge anchored and ignores perpendicular keyboard arrows", async () => {
   const { session, request, Harness } = setup(true); await session.refresh(); render(<Harness />);
   const before = session.getSnapshot().snapshot!.document.presets[1], original = before.panels.find(panel => panel.id === "callsign-intelligence")!;
-  unlock("Callsign intelligence");
   const left = screen.getByRole("button", { name: "Resize Callsign intelligence left edge" });
   fireEvent.keyDown(left, { key: "ArrowUp" }); fireEvent.keyUp(left, { key: "ArrowUp" });
   expect(request).toHaveBeenCalledTimes(1);
@@ -277,7 +267,6 @@ it("resizes a left edge with the right edge anchored and ignores perpendicular k
 
 it("retains focused resize handles across a save while rejecting input until its receipt settles", async () => {
   const { session, request, Harness } = setup(true); await session.refresh(); render(<Harness />);
-  unlock("Active QSO");
   const edge = screen.getByRole("button", { name: "Resize Active QSO right edge" });
   edge.focus();
   const backend = request.getMockImplementation()!; let release!: () => void;

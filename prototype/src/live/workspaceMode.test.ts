@@ -1,6 +1,9 @@
-import { expect, it, vi } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
 import { changedLayout, panelMinimum, WorkspaceLayoutSession, workspacePanelIDs, type LayoutSnapshot } from "./workspaceLayoutSession";
-import { orderedWorkspacePresenter, protectWorkspaceModeEditor, switchWorkspaceMode, workspaceMode, workspaceModeEditorBusy } from "./workspaceMode";
+import { orderedWorkspacePresenter, presentWorkspaceMode, protectWorkspaceModeEditor, switchWorkspaceMode, workspaceMode, workspaceModeEditorBusy } from "./workspaceMode";
+const native = vi.hoisted(() => ({ invoke: vi.fn(), isTauri: vi.fn() }));
+vi.mock("@tauri-apps/api/core", () => native);
+beforeEach(() => { vi.resetAllMocks(); native.isTauri.mockReturnValue(false); });
 function fixture() {
   return { revision: 4, generation: "12345678-1234-1234-1234-123456789abc", document: { version: 2, activePresetID: "my-desk", presets:
     ["traditional", "windowed", "my-desk"].map(id => ({ id, name: id, width: 1920, height: 1080, locked: true, snap: true,
@@ -88,4 +91,10 @@ it("shows recovery after an older delayed hide completes and continues after pre
   send.mockRejectedValueOnce(new Error("Old revision"));
   await expect(present(snapshot, false)).rejects.toThrow("Old revision");
   await expect(present(snapshot, false)).resolves.toBeUndefined();
+});
+
+it("preserves native presentation rejection details so a retry can recover", async () => {
+  native.isTauri.mockReturnValue(true);
+  native.invoke.mockRejectedValue("Separate windows did not finish opening");
+  await expect(presentWorkspaceMode(fixture(), true)).rejects.toThrow("Separate windows did not finish opening");
 });

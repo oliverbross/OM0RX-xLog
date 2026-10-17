@@ -20,7 +20,12 @@ export function orderedWorkspacePresenter(send: Present): Present {
   };
 }
 export const presentWorkspaceMode = orderedWorkspacePresenter(async (snapshot, hideMain) => {
-  if (isTauri()) await invoke("workspace_mode_present", { generation: snapshot.generation, revision: snapshot.revision, hideMain });
+  if (!isTauri()) return;
+  try { await invoke("workspace_mode_present", { generation: snapshot.generation, revision: snapshot.revision, hideMain }); }
+  catch (cause) {
+    throw cause instanceof Error ? cause : new Error(typeof cause === "string" && cause.trim()
+      ? cause : "Workspace mode presentation failed.");
+  }
 });
 /** The shared layout revision is the mode authority, including lost-ack recovery. */
 export async function switchWorkspaceMode(session: WorkspaceLayoutSession, mode: WorkspaceMode, canChange: () => boolean,

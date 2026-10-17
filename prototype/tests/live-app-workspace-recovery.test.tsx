@@ -82,6 +82,17 @@ it("explains why workspace recovery has reopened main and exposes the Settings r
   expect(screen.getByRole("main", { name: "Settings" })).toBeTruthy();
 });
 
+it("clears a transient workspace presentation failure after a successful layout refresh", async () => {
+  api.present.mockRejectedValueOnce("Separate windows did not finish opening").mockResolvedValue(undefined);
+  let view!: ReturnType<typeof render>;
+  await act(async () => { view = render(<LiveApp />); await Promise.resolve(); });
+  expect(screen.getByText("Separate windows did not finish opening")).toBeTruthy();
+  api.layout = { ...api.layout, state: { ...api.layout.state,
+    snapshot: { ...api.layout.state.snapshot, revision: 2 } } };
+  await act(async () => { view.rerender(<LiveApp />); await Promise.resolve(); });
+  expect(screen.queryByText("Separate windows did not finish opening")).toBeNull();
+});
+
 it("keeps recovery navigation visible when a Separate Windows layout outlives its workspace", async () => {
   const backend = api.request.getMockImplementation()!;
   api.request.mockImplementation((method, params) => method === "workspace_status"

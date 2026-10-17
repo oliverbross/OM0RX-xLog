@@ -21,7 +21,9 @@ it("distinguishes a verified rejection from an unknown transport outcome without
   await expect(requestWorkspaceLayout("workspace_layout_apply")).rejects.toBeInstanceOf(LayoutRequestRejected);
   native.invoke.mockRejectedValue(new Error("IPC lost"));
   await expect(requestWorkspaceLayout("workspace_layout_apply")).rejects.toThrow("IPC lost");
-  expect(native.invoke).toHaveBeenCalledTimes(2);
+  native.invoke.mockRejectedValue("native workspace unavailable");
+  await expect(requestWorkspaceLayout("workspace_layout_load")).rejects.toThrow("native workspace unavailable");
+  expect(native.invoke).toHaveBeenCalledTimes(3);
 });
 it("subscribes before initial read, coalesces wake events and disposes focus/timers", async () => {
   const stop = vi.fn(), changed = vi.fn(), failed = vi.fn(); let event!: () => void;

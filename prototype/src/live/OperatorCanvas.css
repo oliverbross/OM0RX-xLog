@@ -22,8 +22,6 @@
 .canvas-frame-tools button:first-child span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .canvas-frame.is-editing .canvas-frame-tools button:first-child { cursor:move; touch-action:none; }
 .live .canvas-frame-tools button:first-child:disabled { opacity:1; color:var(--secondary); }
-.live .canvas-edit-toggle { min-width:32px; }
-.canvas-edit-toggle[aria-pressed="true"] { color:var(--cyan); border-color:var(--cyan); }
 .canvas-frame.is-editing { outline:1px solid var(--cyan); outline-offset:1px; }
 .canvas-frame.is-editing .canvas-panel-content { border-radius:0 0 8px 8px; }
 .live .canvas-edge { position:absolute; z-index:2; min-width:0; min-height:0; padding:0; border:0; border-radius:0; background:transparent; touch-action:none; opacity:.65; }

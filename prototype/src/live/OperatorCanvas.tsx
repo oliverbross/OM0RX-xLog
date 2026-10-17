@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { Grip, MoveDiagonal2, X } from "lucide-react";
+import { Grip, X } from "lucide-react";
 import { adjustPanel, customDeskPreset, fitPanelHeight, resizeEdges, resizePanel, type ResizeEdge } from "./canvasGeometry";
 import { panelMinimum, type LayoutPreset, type LayoutState, type PanelLayout, type WorkspacePanelID, type WorkspaceLayoutSession } from "./workspaceLayoutSession";
 import "./OperatorCanvas.css";
@@ -64,7 +64,7 @@ export default function OperatorCanvas({ panels, traditional, state, session, su
         {!active.locked && <label><input type="checkbox" disabled={blocked} checked={active.snap} onChange={event => savePreset({ ...active, snap: event.target.checked })} />Snap</label>}
         {compact && visible.length > 0 && <label>Panel <select aria-label="Visible desk panel" value={selected} onChange={event => setCurrentPanel(event.target.value as WorkspacePanelID)}>{visible.map(panel => <option key={panel.id} value={panel.id}>{panels[panel.id]!.title}</option>)}</select></label>}
       </>}
-      <span role="status">{state.saving || working ? "Saving layout…" : !state.snapshot ? "Loading layout…" : custom && !active.locked ? compact ? "Expand the window to arrange panels." : "Click a panel’s arrow to edit · Drag its title to move or any edge/corner to resize · Click the arrow again to finish" : ""}</span>
+      <span role="status">{state.saving || working ? "Saving layout…" : !state.snapshot ? "Loading layout…" : custom && !active.locked ? compact ? "Expand the window to arrange panels." : "Drag a panel title to move it · Drag any edge or corner to resize · Arrow keys adjust the focused control" : ""}</span>
       {custom && Object.entries(panels).filter(([, panel]) => panel?.required && panel.safetyAction).map(([id, panel]) => <span className="canvas-safety-action" key={id}>{panel!.safetyAction}</span>)}
     </div>
     {(error || state.error || subscriptionError) && <div className="canvas-recovery" role="alert"><span>{error || state.error || subscriptionError}</span>
@@ -88,13 +88,12 @@ function PanelFrame({ panel, preset, item, compact, hidden, disabled, revision, 
   const content = useRef<HTMLDivElement>(null), tools = useRef<HTMLDivElement>(null);
   const instructionsID = useId();
   const contentSized = panel.id === "callsign-intelligence" || panel.id === "rotor";
-  const [unlocked, setUnlocked] = useState(false);
-  const editing = unlocked && !preset.locked && !compact;
+  const editing = !preset.locked && !compact;
   const [preview, setPreview] = useState<PanelLayout | null>(null), latest = useRef<PanelLayout | null>(null);
   const update = (value: PanelLayout | null) => { latest.current = value; setPreview(value); };
   const cancel = () => { drag.current = null; update(null); };
   useEffect(() => { cancel(); }, [revision, compact, preset.locked, disabled]);
-  useEffect(() => { setUnlocked(false); cancel(); }, [compact, preset.locked, preset.id]);
+  useEffect(() => { cancel(); }, [compact, preset.locked, preset.id]);
   const commit = () => { const value = latest.current; cancel(); if (!disabled && editing && value && JSON.stringify(value.rect) !== JSON.stringify(panel.rect)) onChange(value); };
   const geometry = (preview ?? panel).rect;
   const fitHeight = () => {
@@ -126,12 +125,11 @@ function PanelFrame({ panel, preset, item, compact, hidden, disabled, revision, 
   });
   const edgeNames: Record<ResizeEdge, string> = { n: "top edge", ne: "top right corner", e: "right edge", se: "bottom right corner", s: "bottom edge", sw: "bottom left corner", w: "left edge", nw: "top left corner" };
   return <div ref={frame} className={`canvas-frame${editing ? " is-editing" : ""}`} style={style} hidden={hidden} aria-label={`${item.title} panel`}>
-    {!preset.locked && !compact && <div ref={tools} className="canvas-frame-tools"><button type="button" disabled={!editing} aria-disabled={disabled || !editing} aria-label={`Move ${item.title}`} aria-describedby={instructionsID} title={editing ? "Drag this title to move; arrow keys move, Shift takes a larger step, Escape cancels" : "Click the arrow to unlock this panel first"} {...handle("move")}><Grip size={14} /><span>{item.title}</span></button>
+    {!preset.locked && !compact && <div ref={tools} className="canvas-frame-tools"><button type="button" aria-disabled={disabled} aria-label={`Move ${item.title}`} aria-describedby={instructionsID} title="Drag this title to move; arrow keys move, Shift takes a larger step, Escape cancels" {...handle("move")}><Grip size={14} /><span>{item.title}</span></button>
       {editing && contentSized && <button type="button" disabled={disabled} aria-label={`Fit height of ${item.title}`} title="Trim unused height, keeping this panel's position and width" onClick={fitHeight}>Fit height</button>}
-      <button type="button" disabled={disabled} className="canvas-edit-toggle" aria-label={`Edit ${item.title} layout`} aria-pressed={editing} aria-describedby={instructionsID} title={editing ? "Finish arranging this panel" : "Unlock this panel to move or resize"} onClick={() => { cancel(); setUnlocked(value => !value); }}><MoveDiagonal2 size={16} /></button>
       <button type="button" disabled={disabled || item.required} aria-label={`Hide ${item.title}`} onClick={onHide}><X size={14} /></button></div>}
     <div ref={content} className={`canvas-panel-content${contentSized ? " is-content-sized" : ""}`}>{item.content}</div>
-    {!preset.locked && !compact && <span id={instructionsID} className="canvas-handle-instructions">Click the arrow to unlock or finish. When unlocked, drag the title to move or any side or corner to resize. Arrow keys adjust the focused handle; Shift takes a larger step. Escape cancels a gesture.</span>}
+    {!preset.locked && !compact && <span id={instructionsID} className="canvas-handle-instructions">Arrange mode. Drag the title to move or any side or corner to resize. Arrow keys adjust the focused control; Shift takes a larger step. Escape cancels a gesture. Lock layout when finished.</span>}
     {editing && resizeEdges.map(edge => <button key={edge} type="button" className={`canvas-edge canvas-edge-${edge}`} aria-disabled={disabled} aria-label={`Resize ${item.title} ${edgeNames[edge]}`} aria-describedby={instructionsID} title={`Resize ${edgeNames[edge]}; arrow keys adjust, Shift takes a larger step, Escape cancels`} {...handle(edge)} />)}
   </div>;
 }
