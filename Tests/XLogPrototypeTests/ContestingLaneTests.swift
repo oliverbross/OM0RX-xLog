@@ -29,6 +29,20 @@ final class ContestingLaneTests: XCTestCase {
         try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys])
     }
 
+    func testSCPStatusCannotCreateServiceAfterShutdownDuringInitialGenerationFence() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-scp-shutdown-fence-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let gate = ContestGenerationGate(value: generation)
+        let lane = try ContestLane(databaseURL: root.appendingPathComponent("Contesting/contests.sqlite")) { await gate.wait() }
+        let operation = Task { try await lane.handle(method: "contest_scp_status", params: [:]) }
+        await gate.awaiting()
+        await lane.shutdown()
+        await gate.release()
+        do { _ = try await operation.value; XCTFail("Expected terminal assistance lane") }
+        catch let error as ContestLaneError { XCTAssertEqual(error.code, "scp_unavailable") }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("Contesting/SuperCheckPartial").path))
+    }
+
     private func workerRequest(_ worker: LiveWorker, method: String, params: [String: Any] = [:],
                                id: UUID = UUID()) async throws -> [String: Any] {
         let data = try JSONSerialization.data(withJSONObject: ["id": wireID(id), "method": method, "params": params])
@@ -861,4 +875,14 @@ final class ContestingLaneTests: XCTestCase {
         let response = try XCTUnwrap(JSONSerialization.jsonObject(with: responseData) as? [String: Any])
         XCTAssertEqual((response["error"] as? [String: Any])?["code"] as? String, "contest_profile_required")
     }
+}
+
+private actor ContestGenerationGate {
+    let value: String
+    private var continuation: CheckedContinuation<Void,Never>?
+    private var waiting = false
+    init(value:String){self.value=value}
+    func wait() async -> String { await withCheckedContinuation{continuation=$0;waiting=true}; return value }
+    func awaiting() async { while !waiting { await Task.yield() } }
+    func release(){continuation?.resume();continuation=nil}
 }

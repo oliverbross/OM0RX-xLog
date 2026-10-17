@@ -17,6 +17,7 @@ actor ContestLane {
     private let rules = ContestRuleRegistry.pilots
     private var store: SQLiteContestStore?
     private var exportLane: ContestExportLane?
+    private var assistanceService: ContestSCPService?
     private var tail: Task<Void, Never>?
     private var terminalShutdown = false
 
@@ -30,8 +31,8 @@ actor ContestLane {
     }
 
     func handle(method: String, params: [String: Any]) async throws -> [String: Any] {
-        if Self.isExportMethod(method) {
-            try requireExportRunning()
+        if Self.isConcurrentMethod(method) {
+            try requireConcurrentRunning(method)
             return try await perform(method: method, params: params)
         }
         let previous = tail
@@ -46,12 +47,13 @@ actor ContestLane {
     func shutdown() async {
         terminalShutdown = true
         await exportLane?.shutdown()
+        await assistanceService?.shutdown()
     }
 
     private func perform(method: String, params: [String: Any]) async throws -> [String: Any] {
-        if Self.isExportMethod(method) { try requireExportRunning() }
+        if Self.isConcurrentMethod(method) { try requireConcurrentRunning(method) }
         let before = try Wire.generation(try await generationSource())
-        if Self.isExportMethod(method) { try requireExportRunning() }
+        if Self.isConcurrentMethod(method) { try requireConcurrentRunning(method) }
         let result: [String: Any]
         do {
             switch method {
@@ -71,12 +73,18 @@ actor ContestLane {
             case "contest_score": result = try await score(params, generation: before)
             case "contest_export_prepare", "contest_export_read", "contest_export_release":
                 result = try await exportTransport().handle(method: method, params: params)
+            case "contest_scp_status", "contest_scp_query", "contest_scp_cancel", "contest_scp_select",
+                 "contest_scp_import_private":
+                result = try await assistance(method: method, params: params)
             default: throw ContestLaneError.confirmed("unknown_method", "Unknown contest method.")
             }
         } catch let error as ContestLaneError { throw error }
           catch let error as ContestExportLaneError { throw Self.map(error) }
+          catch let error as ContestAssistanceLaneError { throw Self.map(error) }
+          catch is ContestSCPServiceError { throw ContestLaneError.confirmed("scp_import_failed", "The selected SCP file could not be imported.") }
+          catch is ContestSCPError { throw ContestLaneError.confirmed("invalid_scp", "The SCP dataset or query is invalid.") }
           catch { throw Self.map(error) }
-        if Self.isExportMethod(method) { try requireExportRunning() }
+        if Self.isConcurrentMethod(method) { try requireConcurrentRunning(method) }
         let after: String
         do { after = try Wire.generation(try await generationSource()) }
         catch {
@@ -85,7 +93,7 @@ actor ContestLane {
             }
             throw ContestLaneError.uncertain("workspace_fence_failed", "The workspace could not be verified after the contest request; check its receipt before retrying.")
         }
-        if Self.isExportMethod(method) { try requireExportRunning() }
+        if Self.isConcurrentMethod(method) { try requireConcurrentRunning(method) }
         guard before == after else {
             if method.hasPrefix("contest_export_") {
                 throw ContestLaneError.uncertain("stale_workspace", "The isolated workspace changed while the export request was running; retry only with its exact coordinate.")
@@ -122,13 +130,97 @@ actor ContestLane {
         return created
     }
 
+    private func assistanceTransport() throws -> ContestSCPService {
+        if let assistanceService { return assistanceService }
+        let repository = try repository()
+        let generationSource = self.generationSource
+        let databaseURL = self.databaseURL
+        let cacheURL = databaseURL.deletingLastPathComponent()
+            .appendingPathComponent("SuperCheckPartial", isDirectory: true)
+            .appendingPathComponent("current.json")
+        let created = try ContestSCPService(cacheURL: cacheURL,
+                                            validatePrivateRoot: {
+            try ContestDatabaseBoundary.validateCache(cacheURL: cacheURL, databaseURL: databaseURL)
+        }) { scope in
+            let current = try Wire.generation(try await generationSource())
+            guard current == scope.workspaceGeneration,
+                  let sessionID = UUID(uuidString: scope.sessionID), scope.sessionID == sessionID.uuidString.lowercased() else {
+                throw ContestLaneError.confirmed("stale_workspace", "The callsign query belongs to another contest context.")
+            }
+            let stored = try await repository.openSession(id: sessionID)
+            guard stored.session.workspaceGeneration == (try Wire.generationID(current)) else {
+                throw ContestLaneError.confirmed("stale_workspace", "The callsign query belongs to another contest context.")
+            }
+        }
+        assistanceService = created
+        return created
+    }
+
+    private func assistance(method: String, params: [String: Any]) async throws -> [String: Any] {
+        let service = try assistanceTransport()
+        switch method {
+        case "contest_scp_status":
+            try Wire.exact(params, [])
+            let status = await service.status()
+            return ["dataset": status.dataset.map(Self.datasetWire) ?? NSNull(),
+                    "unavailableReason": status.unavailableReason ?? NSNull()]
+        case "contest_scp_import_private":
+            try Wire.exact(params, ["path", "sourceName"])
+            let dataset = try await service.importFile(path: try Wire.text(params, "path", max: 4_096),
+                sourceName: try Wire.text(params, "sourceName", max: 256),
+                retrievedAt: Date())
+            return ["dataset": Self.datasetWire(dataset)]
+        case "contest_scp_query":
+            try Wire.exact(params, ["sessionID", "workspaceGeneration", "requestID", "query"])
+            let context = try Wire.assistanceContext(params)
+            let result = try await service.query(try Wire.text(params, "query", max: 32), context: context)
+            return Self.queryWire(result)
+        case "contest_scp_cancel":
+            try Wire.exact(params, ["sessionID", "workspaceGeneration", "requestID"])
+            return ["cancelled": try await service.cancel(context: Wire.assistanceContext(params))]
+        case "contest_scp_select":
+            try Wire.exact(params, ["sessionID", "workspaceGeneration", "requestID", "matchID"])
+            let callsign = try await service.selectedCallsign(matchID: try Wire.text(params, "matchID", max: 160),
+                                                              context: Wire.assistanceContext(params))
+            return ["callsign": callsign]
+        default: throw ContestLaneError.confirmed("unknown_method", "Unknown callsign-assistance method.")
+        }
+    }
+
+    private static func datasetWire(_ dataset: ContestSCPDatasetInfo) -> [String: Any] {
+        ["sourceID": dataset.provenance.sourceID, "version": dataset.provenance.version,
+         "retrievedAtUTC": dataset.provenance.retrievedAtUTC.map(Wire.iso) ?? NSNull(),
+         "sha256": dataset.sha256, "byteCount": dataset.byteCount, "recordCount": dataset.recordCount,
+         "duplicateCount": dataset.duplicateCount, "digestVerification": dataset.digestVerification.rawValue]
+    }
+
+    private static func queryWire(_ result: ContestSCPQueryResult) -> [String: Any] {
+        ["sessionID": result.context.sessionID, "workspaceGeneration": result.context.workspaceGeneration,
+         "requestID": result.context.requestID, "normalizedQuery": result.normalizedQuery,
+         "matches": result.matches.map { ["matchID": $0.matchID, "callsign": $0.callsign,
+             "score": $0.score, "isPrefixMatch": $0.isPrefixMatch] },
+         "dataset": datasetWire(result.dataset), "evaluatedRecordCount": result.evaluatedRecordCount,
+         "isPartial": result.isPartial]
+    }
+
     private static func isExportMethod(_ method: String) -> Bool {
         method == "contest_export_prepare" || method == "contest_export_read" || method == "contest_export_release"
+    }
+
+    private static func isConcurrentMethod(_ method: String) -> Bool {
+        isExportMethod(method) || method.hasPrefix("contest_scp_")
     }
 
     private func requireExportRunning() throws {
         guard !terminalShutdown else {
             throw ContestLaneError.confirmed("artifact_unavailable", "The contest export lane is shut down.")
+        }
+    }
+
+    private func requireConcurrentRunning(_ method: String) throws {
+        if Self.isExportMethod(method) { try requireExportRunning(); return }
+        guard !terminalShutdown else {
+            throw ContestLaneError.confirmed("scp_unavailable", "Callsign assistance is shut down.")
         }
     }
 
@@ -631,6 +723,19 @@ actor ContestLane {
         return .confirmed(error.code, error.message)
     }
 
+    private static func map(_ error: ContestAssistanceLaneError) -> ContestLaneError {
+        switch error {
+        case .dataUnavailable: return .confirmed("scp_unavailable", "Import a local MASTER.SCP file to enable callsign suggestions.")
+        case .invalidContext, .staleResult: return .confirmed("stale_context", "The callsign suggestion belongs to another contest context.")
+        case .requestReused: return .confirmed("request_reused", "The callsign request ID was already used.")
+        case .capacityExceeded: return .confirmed("scp_busy", "Callsign assistance is busy; wait for an earlier query to settle.")
+        case .cancelled: return .confirmed("cancelled", "The callsign query was cancelled.")
+        case .stopped: return .confirmed("scp_unavailable", "Callsign assistance is shut down.")
+        case .resultUnavailable, .unknownMatch: return .confirmed("selection_unavailable", "The callsign suggestion is no longer available.")
+        case .unverifiedDataset, .invalidLimits: return .confirmed("scp_unavailable", "The local SCP dataset is unavailable.")
+        }
+    }
+
     private static func map(_ error: Error) -> ContestLaneError {
         switch error {
         case ContestRepositoryError.notFound: return .confirmed("not_found", "The contest record was not found.")
@@ -664,15 +769,33 @@ struct ContestLaneError: Error {
     static func uncertain(_ code: String, _ message: String) -> Self { .init(code: code, message: message, outcome: "uncertain") }
 }
 
-private enum ContestDatabaseBoundary {
+enum ContestDatabaseBoundary {
     static func validate(databaseURL: URL, fileManager: FileManager = .default) throws {
         let database = databaseURL.standardizedFileURL
         let supportRoot = database.deletingLastPathComponent().deletingLastPathComponent().standardizedFileURL
         let applicationSupport = supportRoot.deletingLastPathComponent().standardizedFileURL
-        guard database.path.hasPrefix(supportRoot.path + "/") else { throw unsafe() }
+        try validatePrivateFile(database, privateRoot: supportRoot, ancestorBoundary: applicationSupport,
+                                protectedFiles: protectedDatabases(applicationSupport), fileManager: fileManager)
+    }
 
-        var candidate = database
-        while candidate.path != applicationSupport.path {
+    static func validateCache(cacheURL: URL, databaseURL: URL, fileManager: FileManager = .default) throws {
+        let database = databaseURL.standardizedFileURL
+        let supportRoot = database.deletingLastPathComponent().deletingLastPathComponent().standardizedFileURL
+        let applicationSupport = supportRoot.deletingLastPathComponent().standardizedFileURL
+        try validatePrivateFile(cacheURL, privateRoot: supportRoot, ancestorBoundary: applicationSupport,
+                                protectedFiles: protectedDatabases(applicationSupport), fileManager: fileManager)
+    }
+
+    static func validatePrivateFile(_ fileURL: URL, privateRoot: URL, ancestorBoundary: URL,
+                                    protectedFiles: [URL], fileManager: FileManager = .default) throws {
+        let file = fileURL.standardizedFileURL
+        let root = privateRoot.standardizedFileURL
+        let boundary = ancestorBoundary.standardizedFileURL
+        guard file.path.hasPrefix(root.path + "/"),
+              root.path.hasPrefix(boundary.path + "/") else { throw unsafe() }
+
+        var candidate = file
+        while candidate.path != boundary.path {
             let values = try? candidate.resourceValues(forKeys: [.isSymbolicLinkKey])
             if fileManager.fileExists(atPath: candidate.path) || values?.isSymbolicLink == true {
                 guard values?.isSymbolicLink != true else { throw unsafe() }
@@ -682,17 +805,21 @@ private enum ContestDatabaseBoundary {
             candidate = parent
         }
 
-        guard fileManager.fileExists(atPath: database.path) else { return }
-        let values = try database.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
+        guard fileManager.fileExists(atPath: file.path) else { return }
+        let values = try file.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
         guard values.isRegularFile == true, values.isSymbolicLink != true else { throw unsafe() }
-        let isolated = try fileManager.attributesOfItem(atPath: database.path)
-        for protected in [
-            applicationSupport.appendingPathComponent("OM0RX-xLog/OM0RX-xLog.sqlite"),
-            applicationSupport.appendingPathComponent("OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite"),
-        ] where fileManager.fileExists(atPath: protected.path) {
+        let isolated = try fileManager.attributesOfItem(atPath: file.path)
+        for protected in protectedFiles where fileManager.fileExists(atPath: protected.path) {
             let production = try fileManager.attributesOfItem(atPath: protected.path)
             if sameFile(isolated, production) { throw unsafe() }
         }
+    }
+
+    private static func protectedDatabases(_ applicationSupport: URL) -> [URL] {
+        [
+            applicationSupport.appendingPathComponent("OM0RX-xLog/OM0RX-xLog.sqlite"),
+            applicationSupport.appendingPathComponent("OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite"),
+        ]
     }
 
     private static func sameFile(_ lhs: [FileAttributeKey: Any], _ rhs: [FileAttributeKey: Any]) -> Bool {
@@ -819,6 +946,11 @@ private enum Wire {
             throw ContestLaneError.confirmed("invalid_workspace", "Workspace generation is invalid.")
         }
         return uuid
+    }
+    static func assistanceContext(_ value: [String: Any]) throws -> ContestAssistanceContext {
+        .init(sessionID: uuidString(try uuid(value, "sessionID")),
+              workspaceGeneration: try generation(try text(value, "workspaceGeneration", max: 36)),
+              requestID: uuidString(try uuid(value, "requestID")))
     }
     static func requireGeneration(_ requested: String, _ actual: String) throws {
         guard try generation(requested) == actual else { throw ContestLaneError.confirmed("stale_workspace", "The isolated workspace generation changed.") }

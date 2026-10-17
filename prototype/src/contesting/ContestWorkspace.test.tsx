@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { ContestWorkspace } from "./ContestWorkspace";
+import { ContestWorkspace, projectSCPCallsign } from "./ContestWorkspace";
 import { MemoryContestRecoveryStorage } from "./sessionOwner";
 import type { ContestDraftSnapshot, ContestFullQSO, ContestQSOChangeResult, ContestRequest, ContestRuleMetadata, ContestSessionSummary } from "./types";
 
@@ -12,6 +12,15 @@ const entry = (mode: "CW" | "SSB", serial: boolean, adifFields: "none" | "stxSrx
   report: { format: mode === "CW" ? "cwRST" : "phoneRS", defaultSent: mode === "CW" ? "599" : "59", defaultReceived: mode === "CW" ? "599" : "59", maximumUTF8Bytes: mode === "CW" ? 3 : 2 },
   exchange: { sent: serial ? "serialNumber" : "cqZone", received: serial ? "serialNumber" : "cqZone", sentDefault: serial ? "reservedSerial" : "stationSnapshot", adifFields },
   serial: { requirement: serial ? "requiredForCommit" : "none", allowedScopes: serial ? ["session", "band", "transmitter"] : [] },
+});
+
+it("projects an SCP choice onto current fields only and rejects a reset draft",()=>{
+  const session=sessions[0], draft=draftFor(session,"K1");
+  draft.fields.receivedExchange="99";draft.reservedSerial=42;
+  const scope={ownerLeaseID:7,sessionID:session.sessionID,workspaceGeneration:session.workspaceGeneration,draftID:draft.draftID,inputCallsign:"K1"};
+  expect(projectSCPCallsign(session,draft,scope,"K1ABC")).toEqual({...draft.fields,callsign:"K1ABC"});
+  expect(draft.reservedSerial).toBe(42);
+  expect(projectSCPCallsign(session,{...draft,draftID:"next-draft"},scope,"K1ABC")).toBeNull();
 });
 const rules: ContestRuleMetadata[] = [
   { identity: { id: "cq-ww-cw", version: "2026.1", edition: "2026", sourceRevision: "contest-sw@1" }, displayName: "CQ WW CW", mode: "CW", entryDescriptorVersion: 1, entry: entry("CW", false), referenceDataVersion: "cty-2026.10", sourceVerification: "provisional", sourceNote: "Pilot comparison pending" },
