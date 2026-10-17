@@ -21,8 +21,8 @@ Operator acceptance must exercise CW and SSB Run and Search & Pounce, realistic 
 | --- | --- |
 | Integrated source | `codex/contesting-foundation`, reviewed application source at `c32dc2b51a6c41d0229abdae6b49f23c1e551c8b`; all completed commits pushed |
 | Contest coverage | Six source-derived pilots plus two official-corrected SAC previews in the catalog; 86 source entries remain pending operational acceptance in the 94-entry ledger |
-| NAQP CW/SSB/RTTY | Core and versioned exports integrated; all six native jobs passed at export source `5ee75ea` and combined baseline `6db070e`; worker/structured UI implementation is in progress before registration |
-| ARRL RTTY Roundup | Inactive rule and station-resolved serial foundation passed 85 core/62 store tests under both macOS manifests. Source review requires enforcement of the pinned 340-entity current DXCC set before accepting either endpoint; repair in progress, no catalog or export activation |
+| NAQP CW/SSB/RTTY | Core and versioned exports integrated; all six native jobs passed at foundation `ed1ad38`. Worker/structured UI candidate is frozen for review after 17 lane and 74 focused frontend tests; registration is not yet integrated |
+| ARRL RTTY Roundup | Inactive rule and station-resolved serial foundation passed 85 core/62 store tests under both macOS manifests. The pinned 340-entity membership repair is frozen for re-review; no catalog or export activation |
 | SCP | Import/query/select and current-draft integration reviewed; all six native jobs passed at `89d1b56`; actual native chooser/package operator acceptance remains open |
 | Operator flow | WPX successor-readiness repair `830451d` integrated at `c32dc2b`; 146 combined frontend/navigation tests and build passed. Browser-child cleanup and settled invalid-entry action checks passed re-review; a full worker/test-host deadline remains under repair before a clean-commit acceptance run |
 | Main integration | Main chat reconfirmed installed 1.2.18 / `e741010` is on runtime hold. No canonical edits, package or install from this programme at this checkpoint |

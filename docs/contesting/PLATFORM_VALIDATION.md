@@ -430,3 +430,15 @@ Swift jobs are macOS `117473592773`, Linux `117473592701`, Windows
 conclusions; no additional per-suite counts are inferred here. The later
 WPX frontend repair has separate 146-test combined UI evidence and does
 not change this backend or native source.
+
+The foundation integration `ed1ad3844bc55a604a41616c3abf77edb9c9121c`
+also completed all six jobs successfully in
+[run 39059799573](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39059799573).
+Swift jobs: macOS `117475229379`, Linux `117475229513`, Windows
+`117475229203`; Rust jobs: macOS `117475229360`, Linux `117475229457`,
+Windows `117475229399`. The actual Windows log confirms 79 core/export,
+64 store, five NAQP ADIF, 16 lane, 13 assistance and four SCP-worker
+tests passing, alongside the existing suites. Raw inspected log:
+`/tmp/xlog-ed1ad38-windows-ci.log`. These results close the pending
+foundation platform jobs; the later NAQP worker/UI candidate and ARRL
+station-serial policy are outside this checkpoint.
