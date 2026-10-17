@@ -18,6 +18,10 @@ usb_archive="libusb-$usb_version.tar.bz2"
 usb_url="https://github.com/libusb/libusb/releases/download/v$usb_version/$usb_archive"
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 output_dir="$script_dir/../src-tauri/binaries"
+build_jobs=${XLOG_HAMLIB_BUILD_JOBS:-$(sysctl -n hw.ncpu)}
+case "$build_jobs" in
+  ''|*[!0-9]*|0) echo 'XLOG_HAMLIB_BUILD_JOBS must be a positive integer' >&2; exit 2 ;;
+esac
 target=$(rustc -vV | sed -n 's/^host: //p')
 if [ -z "$target" ]; then
   echo 'Could not determine Rust host target' >&2
@@ -67,7 +71,7 @@ usb_install_dir="$work_dir/usb-install"
 mkdir -p "$build_dir" "$install_dir" "$usb_build_dir" "$usb_install_dir" "$output_dir"
 cd "$usb_build_dir"
 "$work_dir/libusb-$usb_version/configure" --prefix="$usb_install_dir" --disable-shared --enable-static > "$work_dir/usb-configure.log"
-make -s -j "$(sysctl -n hw.ncpu)"
+make -s -j "$build_jobs"
 make -s install
 if [ ! -f "$usb_install_dir/lib/libusb-1.0.a" ]; then
   echo 'Static libusb build is missing' >&2
@@ -86,7 +90,7 @@ if ! grep -E 'Enable USB backends +yes' "$work_dir/hamlib-configure.log" >/dev/n
   echo 'Hamlib USB backend detection failed' >&2
   exit 1
 fi
-make -s -j "$(sysctl -n hw.ncpu)"
+make -s -j "$build_jobs"
 
 for name in rigctld rotctld; do
   # With shared libraries disabled these are the final static-linked helpers.

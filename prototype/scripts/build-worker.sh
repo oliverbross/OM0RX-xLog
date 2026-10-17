@@ -12,7 +12,7 @@ worker_swift_build() {
     swift build "$@"
   fi
 }
-worker_swift_build --package-path "$repo_root" --scratch-path "$repo_root/.build/prototype-worker" -c release --product xlog-prototype-worker
-binary_dir="$(worker_swift_build --package-path "$repo_root" --scratch-path "$repo_root/.build/prototype-worker" -c release --show-bin-path)"
+worker_swift_build --package-path "$repo_root" --scratch-path "$repo_root/.build/prototype-worker" -c release "$@" --product xlog-prototype-worker
+binary_dir="$(worker_swift_build --package-path "$repo_root" --scratch-path "$repo_root/.build/prototype-worker" -c release "$@" --show-bin-path)"
 "$binary_dir/xlog-prototype-worker" --self-test
 printf 'Worker built: %s\n' "$binary_dir/xlog-prototype-worker" >&2

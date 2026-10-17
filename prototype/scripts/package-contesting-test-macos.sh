@@ -2,9 +2,12 @@
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/../.." && pwd)"
+build_jobs=2
+export CARGO_BUILD_JOBS="$build_jobs"
+export XLOG_HAMLIB_BUILD_JOBS="$build_jobs"
 cd "$root"
 node --test prototype/scripts/mac-worker-packaging.check.mjs
-bash prototype/scripts/build-worker.sh
+bash prototype/scripts/build-worker.sh -j "$build_jobs"
 node prototype/scripts/stage-worker.mjs
 bash prototype/scripts/stage-hamlib-macos.sh
 node prototype/scripts/distribution-metadata.mjs
@@ -20,7 +23,7 @@ if plutil -extract CFBundleURLTypes xml1 -o - "$bundle/Contents/Info.plist" | gr
   exit 1
 fi
 
-binary_dir="$(XLOG_PORTABLE_ONLY=1 swift build --build-system xcode --package-path "$root" --scratch-path "$root/.build/prototype-worker" -c release --show-bin-path)"
+binary_dir="$(XLOG_PORTABLE_ONLY=1 swift build --build-system xcode -j "$build_jobs" --package-path "$root" --scratch-path "$root/.build/prototype-worker" -c release --show-bin-path)"
 ditto "$binary_dir/OM0RXXLogPrototype_XLogCore.bundle" "$bundle/Contents/Resources/OM0RXXLogPrototype_XLogCore.bundle"
 ditto "$root/prototype/src-tauri/binaries/hamlib-4.7.2-notices" "$bundle/Contents/Resources/Hamlib-Licenses"
 ditto "$root/prototype/distribution-metadata" "$bundle/Contents/Resources/DistributionMetadata"
