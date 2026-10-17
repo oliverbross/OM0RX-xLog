@@ -905,6 +905,7 @@ public actor SQLiteContestStore: ContestDurableRepository {
         }
         let station = session.station
         let stationDescriptorIssues = rule.metadata.entry.stationExchangeIssues(station.sentExchangeFields)
+        let stationRuleIssues = rule.validateSession(session)
         let identityParts = [session.rule.id, session.rule.version, session.rule.edition,
                              session.rule.sourceRevision, session.referenceDataVersion]
         guard identityParts.allSatisfy({ !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && $0.utf8.count <= 128 }),
@@ -918,7 +919,8 @@ public actor SQLiteContestStore: ContestDurableRepository {
               (1...64).contains(metadata.operatorCategory.utf8.count),
               session.startedAt.timeIntervalSinceReferenceDate.isFinite,
               session.endedAt?.timeIntervalSinceReferenceDate.isFinite != false,
-              station.entity.map(validEntity) == true, stationDescriptorIssues.isEmpty else {
+              station.entity.map(validEntity) == true, stationDescriptorIssues.isEmpty,
+              !stationRuleIssues.contains(where: { $0.severity == .error }) else {
             throw ContestStoreError.invalidSession
         }
     }

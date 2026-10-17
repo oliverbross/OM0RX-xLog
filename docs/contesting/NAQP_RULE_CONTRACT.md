@@ -1,0 +1,37 @@
+# NAQP CW, SSB, and RTTY 2026 preview contract
+
+Status: isolated scoring and persistence preview. These rules are not in the public pilot registry. They are not sponsor-certified, category-complete, date-window-enforcing, packaged-app tested, cross-platform runtime accepted, or ready for log submission.
+
+## Authority and identity
+
+The primary authority is the [NCJ North American QSO Party Rules 2026](https://ncjweb.com/NAQP-Rules.pdf), retrieved 18 October 2026, SHA-256 `0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8`. The official [NAQP multiplier form](https://ncjweb.com/NAQP-Paper-Log-Form.pdf), retrieved the same day, SHA-256 `6ea80c5118f0520f95762cc679ff3ee05154d74dc1817a681664e690a01f5a8d`, supplies the state/province and other North American DXCC-prefix checklist. Section 11 of the rules explicitly adds DC, so the combined authority contains 50 states plus DC, 13 Canadian provinces/territories, and the form's DXCC-prefix list. The checked authority data is frozen in `Tests/XContestCoreTests/SourceFixtures/naqp-2026-authority.json`.
+
+The preview identities are `naqp-cw`, `naqp-ssb`, and `naqp-rtty`, version `1.0.0-2026-rules-preview`, edition `2026-rules-preview`. Their `sourceRevision` is the primary rules PDF digest above. Comparison provenance separately pins Oliver Bross's read-only `contest-sw` fork at `7c8b499225a73f7f8f792246881bd7aefc05452f`: `not1mm/plugins/naqp_cw.py`, `not1mm/plugins/naqp_ssb.py`, and `not1mm/plugins/naqp_rtty.py`, derived from Not1MM by Michael Bridak, GPL-3.0-or-later.
+
+The Python comparators award one point when either endpoint has continent `NA`, use callsign plus band for duplicates, count raw `Sect` values other than `DX` once per band, and calculate points times multipliers. The corrected preview adds official Hawaii inclusion, authoritative multiplier membership, typed exchanges, and entity-qualified keys. It does not treat raw source parity as sponsor approval.
+
+## Entry and exchange
+
+CW and SSB admit 160m, 80m, 40m, 20m, 15m, and 10m. RTTY admits 80m through 10m and rejects 160m. QSO mode profiles are `CW`, `SSB`/Cabrillo `PH`, and `RTTY`/Cabrillo `RY`; all use the descriptor's `none` report format, so RST/RS strings must be empty.
+
+The typed exchange has `name` and `location`. A North American station sends both. A station outside North America sends name only; a contact with that station is logged with received location `DX`. Typed fields and their aggregate string must agree. The session pins the station fields, and every QSO sent exchange must equal that immutable snapshot. The shared rule hook validates this station-side relationship when a durable session is created; all older v1 rules use the default empty hook and retain their creation behavior.
+
+Location fields accept state/province tokens and official DXCC prefixes, including `4U1/U`. ADIF string projection is declared through `NAME`, `MY_NAME`, `STATE`, and `MY_STATE`. The current generic ADIF and Cabrillo writers do not yet project this four-field, report-free NAQP layout, so submission export remains an explicit downstream task.
+
+The official tokens are mapped from the bundled CTY entity identity rather than inferred from the displayed prefix. ADIF 289 (`4U1U`) maps to `4U1/U`, ADIF 36 (`FO/c`) maps to `FO`, and ADIF 216 (`HK0/a`) maps to `HK0`. ADIF 175 French Polynesia (`FO`) and ADIF 161 Malpelo (`HK0/m`) remain non-North-American DX contacts and cannot acquire those multipliers. The authority fixture records the exact bundled CTY prefix, continent, ADIF identity, and expected official token for these five cases.
+
+## Eligibility, duplicates, and score
+
+A valid contact has at least one North American endpoint. The resolved entity snapshot determines endpoint eligibility. Continent `NA` qualifies directly; Hawaii also qualifies through ADIF entity 110/canonical prefix `KH6`, despite its `OC` continent classification. A non-North-American-to-non-North-American row is invalid and scores zero.
+
+Self-contacts are invalid in all three modes. A worked callsign with a complete `/MM` or `/AM` component is logged with received location `DX`, earns one QSO point when the known station endpoint is North American, and never earns a land multiplier. A state, province, or DXCC token on such a contact is rejected. This preview cannot truthfully place a mobile endpoint from the home-call entity, so a DX entrant working `/MM` or `/AM`, and an entrant operating under `/MM` or `/AM`, fail closed pending a separately resolved physical-location contract.
+
+Each accepted nonduplicate QSO is one point. Callsigns duplicate only on the same band. Worked multipliers count once per band: US state or DC, Canadian province/territory, or official other-North-American DXCC prefix. Alaska and Hawaii must resolve to their own entity and location `AK`/`HI`; mainland US cannot claim those tokens. The multiplier key carries a kind, so Hawaii state `HI` and Dominican Republic prefix `HI` remain distinct even on the same band. A non-North-American worked station logged `DX` adds no multiplier. Score is checked `points × multiplier count`; overflow is an evaluation error.
+
+The independent arithmetic fixture records six accepted contacts, five multipliers, and one duplicate for a score of `6 × 5 = 30`. It includes separate Hawaii-state and Dominican-DXCC `HI` multipliers and a state on two bands. A second fixture covers a DX entrant, a valid North American contact, and rejection of a DX-to-DX contact. Full rescore after correction or deletion uses the existing timestamp/UUID deterministic order.
+
+## Persistence and limits
+
+NAQP has no serial reservation. Store tests use an explicit three-rule registry and cover create, incomplete draft, valid draft projection, commit, exact receipt replay after restart, correction, deletion, score recovery, and rollback of a contradictory station snapshot. They also prove that self-contact commits in all three modes leave the revision, log, and operation ledger unchanged. No SQLite schema change is required; typed maps already omit empty legacy values and are included in canonical mutation bytes when present.
+
+The core does not enforce the published contest dates, maximum operating time, off periods, team registration, power, single/multi/operator constraints, transmitter count, band-change behavior, or all category rules. The official event schedule and submission deadline must be supplied by a later sponsor-facing integration. Existing eight-rule pilot registry membership, rule identities, canonical v1 payloads, stored sessions/QSOs, and durable receipts are unchanged.
