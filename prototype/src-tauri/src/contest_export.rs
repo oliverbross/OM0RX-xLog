@@ -249,11 +249,7 @@ impl PreparedCoordinate {
         Ok(())
     }
     fn suggested_filename(&self) -> String {
-        format!(
-            "xlog-contest-{}.{}",
-            self.artifact_id,
-            self.format.extension()
-        )
+        format!("xLog Contest.{}", self.format.extension())
     }
     fn outcome(
         &self,
