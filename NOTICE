@@ -45,3 +45,7 @@ translation was modified for OM0RX-xLog on 17-18 October 2026; exact behavioral
 scope and differences are recorded in docs/contesting/CORE_CONTRACT.md,
 docs/contesting/SSB_RULE_CONTRACT.md, docs/contesting/OCEANIA_RULE_CONTRACT.md
 docs/contesting/SAC_RULE_CONTRACT.md and docs/contesting/NAQP_RULE_CONTRACT.md.
+The NAQP export layout also references the NCJ Cabrillo template at
+https://ncjweb.com/NAQP_Cabrillo_Template.txt and the ADIF 3.1.8 annotated
+specification at https://www.adif.org/318/ADIF_318_annotated.htm, both retrieved
+18 October 2026; exact hashes are recorded in the NAQP rule contract.
