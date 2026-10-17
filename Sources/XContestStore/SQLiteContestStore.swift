@@ -253,10 +253,15 @@ public actor SQLiteContestStore: ContestDurableRepository {
                 throw ContestRepositoryError.notFound
             }
             let before = try openSession(id: scope.sessionID)
-            try validateDraft(draft, for: before.session)
+            guard let rule = rules.rule(for: before.session.rule) else {
+                throw ContestStoreError.unknownRule(before.session.rule)
+            }
+            let resolvedSerial = try rule.resolvedSerialRequirement(in: before.session)
             let oldDraft = try self.draft(sessionID: scope.sessionID, id: draft.id)
             let active = try activeReservations(sessionID: scope.sessionID, draftID: draft.id)
-            try validateReservationPreservingEdit(from: oldDraft, to: draft, reservations: active)
+            try validateDraft(draft, for: before.session, allowsAllocatedSerial: !active.isEmpty)
+            try validateReservationPreservingEdit(from: oldDraft, to: draft, reservations: active,
+                                                   resolvedSerial: resolvedSerial)
             try database.execute("UPDATE drafts SET revision = ?, snapshot = ?, updated_at = ? WHERE session_id = ? AND id = ?",
                                  [.uint(next), .blob(try encode(draft)), .double(draft.updatedAt.timeIntervalSince1970),
                                   .text(scope.sessionID.uuidString), .text(draft.id.uuidString)])
@@ -302,9 +307,16 @@ public actor SQLiteContestStore: ContestDurableRepository {
             guard let rule = rules.rule(for: before.session.rule) else {
                 throw ContestStoreError.unknownRule(before.session.rule)
             }
-            let serial = rule.metadata.entry.serial
+            let serial = try rule.resolvedSerialRequirement(in: before.session)
             guard serial.requirement == .requiredForCommit,
                   serial.allowedScopes.contains(serialScope) else {
+                throw ContestRepositoryError.invalidSerialTransition
+            }
+            let serialFieldID = serial.allocatedFieldID
+            let serialField = serialFieldID.flatMap { id in
+                rule.metadata.entry.exchange.sentFields.first { $0.id == id }
+            }
+            if rule.metadata.entry.version == .v2, serialField == nil {
                 throw ContestRepositoryError.invalidSerialTransition
             }
             guard try activeReservations(sessionID: scope.sessionID, draftID: draftID).isEmpty else {
@@ -319,13 +331,17 @@ public actor SQLiteContestStore: ContestDurableRepository {
                 "SELECT next_number FROM serial_counters WHERE session_id = ? AND scope = ? AND scope_value = ?",
                 [.text(scope.sessionID.uuidString), .text(serialScope.rawValue), .text(normalizedScope)]) ?? 1
             guard current < UInt64.max else { throw ContestStoreError.serialExhausted }
+            let text = String(format: "%03llu", current)
+            guard Int(text).map({ $0 > 0 }) == true,
+                  serialField.map({ text.utf8.count <= $0.maximumUTF8Bytes }) != false else {
+                throw ContestStoreError.serialExhausted
+            }
             let nextNumber = current + 1
             try database.execute(
                 "INSERT INTO serial_counters(session_id, scope, scope_value, next_number) VALUES(?, ?, ?, ?) " +
                 "ON CONFLICT(session_id, scope, scope_value) DO UPDATE SET next_number = excluded.next_number",
                 [.text(scope.sessionID.uuidString), .text(serialScope.rawValue), .text(normalizedScope), .uint(nextNumber)]
             )
-            let text = String(format: "%03llu", current)
             let reservation = ContestSerialReservation(id: reservationID, sessionID: scope.sessionID, draftID: draftID,
                                                        scope: serialScope, scopeValue: normalizedScope, number: current,
                                                        transmittedText: text, state: .reserved, reservedAt: committedAt,
@@ -337,6 +353,7 @@ public actor SQLiteContestStore: ContestDurableRepository {
                  .blob(try encode(reservation))]
             )
             try bindSerialToDraft(sessionID: scope.sessionID, draftID: draftID, reservation: reservation,
+                                  allocatedFieldID: serialFieldID,
                                   revision: next, updatedAt: committedAt)
             try advanceSession(scope.sessionID, to: next)
             let receipt = ContestMutationReceipt(requestID: scope.requestID, payloadDigest: scope.payloadDigest,
@@ -396,6 +413,15 @@ public actor SQLiteContestStore: ContestDurableRepository {
                 throw ContestRepositoryError.invalidSerialTransition
             }
             let before = try openSession(id: scope.sessionID)
+            guard let rule = rules.rule(for: before.session.rule) else {
+                throw ContestStoreError.unknownRule(before.session.rule)
+            }
+            let serial = try rule.resolvedSerialRequirement(in: before.session)
+            guard serial.requirement == .requiredForCommit,
+                  serial.allowedScopes.contains(old.scope),
+                  rule.metadata.entry.version == .v1 || serial.allocatedFieldID != nil else {
+                throw ContestRepositoryError.invalidSerialTransition
+            }
             let updated = ContestSerialReservation(id: old.id, sessionID: old.sessionID, draftID: old.draftID,
                                                    scope: old.scope, scopeValue: old.scopeValue, number: old.number,
                                                    transmittedText: old.transmittedText, state: state,
@@ -433,11 +459,11 @@ public actor SQLiteContestStore: ContestDurableRepository {
             try validateQSOStructure(qso, for: stored.session)
             let semanticIssues = semanticFrequencyIssues(band: qso.band, frequencyHz: qso.frequencyHz)
             guard semanticIssues.isEmpty else { throw ContestStoreError.invalidQSO(semanticIssues) }
-            let serialRequirement = rule.metadata.entry.serial.requirement
-            if serialRequirement == .requiredForCommit, reservationID == nil {
+            let serialRequirement = try rule.resolvedSerialRequirement(in: stored.session)
+            if serialRequirement.requirement == .requiredForCommit, reservationID == nil {
                 throw ContestStoreError.reservationMismatch
             }
-            if serialRequirement == .none, reservationID != nil { throw ContestStoreError.reservationMismatch }
+            if serialRequirement.requirement == .none, reservationID != nil { throw ContestStoreError.reservationMismatch }
             var existing = try qsos(sessionID: scope.sessionID, offset: 0, limit: Int.max)
             existing.append(qso)
             let score = try ContestEngine.score(existing, session: stored.session, rule: rule)
@@ -453,14 +479,16 @@ public actor SQLiteContestStore: ContestDurableRepository {
                 case .transmitter: serialScopeMatches = serial.scopeValue == qso.operatorCallsign.lowercased()
                 }
                 guard serial.sessionID == scope.sessionID, serial.draftID == scope.draftID,
+                      serialRequirement.allowedScopes.contains(serial.scope),
                       serialScopeMatches,
                       [.reserved, .transmitted, .uncertain].contains(serial.state),
+                      qso.exchange.rawSent == serial.transmittedText,
                       qso.exchange.normalizedSent == serial.transmittedText else {
                     throw ContestStoreError.reservationMismatch
                 }
                 if rule.metadata.entry.version == .v2 {
-                    guard let serialField = rule.metadata.entry.allocatedSerialField,
-                          let value = qso.exchange.sentFields[serialField.id],
+                    guard let serialFieldID = serialRequirement.allocatedFieldID,
+                          let value = qso.exchange.sentFields[serialFieldID],
                           value.raw == serial.transmittedText,
                           value.normalized == serial.transmittedText else {
                         throw ContestStoreError.reservationMismatch
@@ -815,13 +843,14 @@ public actor SQLiteContestStore: ContestDurableRepository {
         let session = try openSession(id: sessionID).session
         guard let rule = rules.rule(for: session.rule) else { throw ContestStoreError.unknownRule(session.rule) }
         let entry = rule.metadata.entry
+        let resolvedSerial = try rule.resolvedSerialRequirement(in: session)
         let usesStationExchange = entry.exchange.sentDefault == .stationSnapshot ||
             entry.exchange.sentDefault == .stationFields
         let clearedSentExchange = usesStationExchange ? session.station.sentExchange : ""
         var clearedSentFields = entry.exchange.sentDefault == .stationFields
             ? session.station.sentExchangeFields : [:]
-        if let allocatedSerialField = entry.allocatedSerialField {
-            clearedSentFields.removeValue(forKey: allocatedSerialField.id)
+        if let allocatedSerialFieldID = resolvedSerial.allocatedFieldID {
+            clearedSentFields.removeValue(forKey: allocatedSerialFieldID)
         }
         let defaultReport = entry.modeProfile(for: old.mode)?.report ?? entry.report
         let updated = ContestDraftSnapshot(
@@ -843,16 +872,17 @@ public actor SQLiteContestStore: ContestDurableRepository {
 
     private func bindSerialToDraft(sessionID: UUID, draftID: UUID,
                                    reservation: ContestSerialReservation,
+                                   allocatedFieldID: String?,
                                    revision: UInt64, updatedAt: Date) throws {
         let old = try draft(sessionID: sessionID, id: draftID)
         let session = try openSession(id: sessionID).session
-        guard let entry = rules.rule(for: session.rule)?.metadata.entry else {
+        guard rules.rule(for: session.rule) != nil else {
             throw ContestStoreError.unknownRule(session.rule)
         }
         var sentFields = old.exchange.sentFields
-        if let field = entry.allocatedSerialField {
-            sentFields[field.id] = .init(raw: reservation.transmittedText,
-                                         normalized: reservation.transmittedText)
+        if let allocatedFieldID {
+            sentFields[allocatedFieldID] = .init(raw: reservation.transmittedText,
+                                                 normalized: reservation.transmittedText)
         }
         let exchange = ContestExchangeSnapshot(rawSent: reservation.transmittedText,
                                                normalizedSent: reservation.transmittedText,
@@ -874,8 +904,23 @@ public actor SQLiteContestStore: ContestDurableRepository {
 
     private func validateReservationPreservingEdit(from old: ContestDraftSnapshot,
                                                    to updated: ContestDraftSnapshot,
-                                                   reservations: [ContestSerialReservation]) throws {
+                                                    reservations: [ContestSerialReservation],
+                                                    resolvedSerial: ContestResolvedSerialRequirement) throws {
         for reservation in reservations {
+            guard resolvedSerial.requirement == .requiredForCommit,
+                  resolvedSerial.allowedScopes.contains(reservation.scope) else {
+                throw ContestRepositoryError.invalidSerialTransition
+            }
+            if let allocatedFieldID = resolvedSerial.allocatedFieldID {
+                guard let oldValue = old.exchange.sentFields[allocatedFieldID],
+                      let updatedValue = updated.exchange.sentFields[allocatedFieldID],
+                      oldValue.raw == reservation.transmittedText,
+                      oldValue.normalized == reservation.transmittedText,
+                      updatedValue.raw == reservation.transmittedText,
+                      updatedValue.normalized == reservation.transmittedText else {
+                    throw ContestRepositoryError.invalidSerialTransition
+                }
+            }
             guard updated.exchange.rawSent == reservation.transmittedText,
                   updated.exchange.normalizedSent == reservation.transmittedText,
                   updated.exchange.sentFields == old.exchange.sentFields else {
@@ -906,6 +951,7 @@ public actor SQLiteContestStore: ContestDurableRepository {
         let station = session.station
         let stationDescriptorIssues = rule.metadata.entry.stationExchangeIssues(station.sentExchangeFields)
         let stationRuleIssues = rule.validateSession(session)
+        let resolvedSerialIsValid = (try? rule.resolvedSerialRequirement(in: session)) != nil
         let identityParts = [session.rule.id, session.rule.version, session.rule.edition,
                              session.rule.sourceRevision, session.referenceDataVersion]
         guard identityParts.allSatisfy({ !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && $0.utf8.count <= 128 }),
@@ -919,15 +965,17 @@ public actor SQLiteContestStore: ContestDurableRepository {
               (1...64).contains(metadata.operatorCategory.utf8.count),
               session.startedAt.timeIntervalSinceReferenceDate.isFinite,
               session.endedAt?.timeIntervalSinceReferenceDate.isFinite != false,
-              station.entity.map(validEntity) == true, stationDescriptorIssues.isEmpty,
+              station.entity.map(validEntity) == true, stationDescriptorIssues.isEmpty, resolvedSerialIsValid,
               !stationRuleIssues.contains(where: { $0.severity == .error }) else {
             throw ContestStoreError.invalidSession
         }
     }
 
-    private func validateDraft(_ draft: ContestDraftSnapshot, for session: ContestSessionSnapshot) throws {
+    private func validateDraft(_ draft: ContestDraftSnapshot, for session: ContestSessionSnapshot,
+                               allowsAllocatedSerial: Bool = false) throws {
         guard let rule = rules.rule(for: session.rule) else { throw ContestStoreError.unknownRule(session.rule) }
         let entry = rule.metadata.entry
+        let resolvedSerial = try rule.resolvedSerialRequirement(in: session)
         let descriptorIssues = entry.structuralIssues(mode: draft.mode, rstSent: draft.rstSent,
                                                       rstReceived: draft.rstReceived,
                                                       exchange: draft.exchange, allowIncomplete: true)
@@ -945,6 +993,14 @@ public actor SQLiteContestStore: ContestDurableRepository {
               draft.stationLocation.utf8.count <= 128,
               draft.updatedAt.timeIntervalSinceReferenceDate.isFinite,
               draft.entity.map(validEntity) != false else { throw ContestRepositoryError.invalidDraft }
+        if entry.stationResolvedSerial != nil && !allowsAllocatedSerial {
+            guard resolvedSerial.requirement == .none || resolvedSerial.requirement == .requiredForCommit,
+                  draft.exchange.rawSent == session.station.sentExchange,
+                  draft.exchange.normalizedSent == session.station.sentExchange,
+                  draft.exchange.sentFields == session.station.sentExchangeFields else {
+                throw ContestRepositoryError.invalidDraft
+            }
+        }
         if let frequency = draft.frequencyHz {
             guard frequency > 0, frequency <= 100_000_000_000 else {
                 throw ContestRepositoryError.invalidDraft
