@@ -1,5 +1,5 @@
 use serde_json::Value;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::{
@@ -12,7 +12,9 @@ const MAX_REQUEST: usize = 32_768;
 const MAX_RESPONSE: u64 = 1_048_576;
 static IN_FLIGHT: AtomicUsize = AtomicUsize::new(0);
 const MAX_IN_FLIGHT: usize = 16;
+const MAX_ABANDONED: usize = MAX_IN_FLIGHT;
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(45);
+const PASSIVE_STATION_STATUS_TIMEOUT: Duration = Duration::from_secs(5);
 pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     let label = crate::workspace_windows::surface_role(label);
     validate_request(request)?;
@@ -326,6 +328,7 @@ struct Session {
     child: Mutex<Option<Child>>,
     input: Mutex<Option<ChildStdin>>,
     pending: Mutex<HashMap<String, mpsc::Sender<Reply>>>,
+    abandoned: Mutex<VecDeque<String>>,
     accepting: AtomicBool,
     alive: AtomicBool,
     writes_pending: AtomicUsize,
@@ -346,6 +349,7 @@ impl Session {
             child: Mutex::new(Some(child)),
             input: Mutex::new(Some(input)),
             pending: Mutex::new(HashMap::new()),
+            abandoned: Mutex::new(VecDeque::new()),
             accepting: AtomicBool::new(true),
             alive: AtomicBool::new(true),
             writes_pending: AtomicUsize::new(0),
@@ -356,6 +360,8 @@ impl Session {
     }
 
     fn register(&self, id: &str) -> Result<mpsc::Receiver<Reply>, String> {
+        let abandoned = self.abandoned.lock()
+            .map_err(|_| "Station service routing failed")?;
         let mut pending = self
             .pending
             .lock()
@@ -363,7 +369,7 @@ impl Session {
         if !self.accepting.load(Ordering::Acquire) || !self.alive.load(Ordering::Acquire) {
             return Err("Station service unavailable; retry the request".into());
         }
-        if pending.contains_key(id) {
+        if pending.contains_key(id) || abandoned.iter().any(|value| value == id) {
             return Err("Request ID is already in flight".into());
         }
         if pending.len() >= MAX_IN_FLIGHT {
@@ -382,13 +388,34 @@ impl Session {
         if !response["ok"].is_boolean() {
             return Err("Station service returned an invalid response".into());
         }
-        let sender = self
-            .pending
-            .lock()
-            .map_err(|_| "Station service routing failed")?
-            .remove(id)
-            .ok_or("Station service returned an unknown request ID")?;
+        let mut abandoned = self.abandoned.lock()
+            .map_err(|_| "Station service routing failed")?;
+        let sender = self.pending.lock()
+            .map_err(|_| "Station service routing failed")?.remove(id);
+        let Some(sender) = sender else {
+            if let Some(index) = abandoned.iter().position(|value| value == id) {
+                abandoned.remove(index);
+                return Ok(());
+            }
+            return Err("Station service returned an unknown request ID".into());
+        };
         let _ = sender.send(Ok(response));
+        Ok(())
+    }
+
+    fn abandon(&self, id: &str) -> Result<(), String> {
+        // Match dispatch's lock order so removal and the late-reply marker are
+        // atomic from the stdout router's perspective.
+        let mut abandoned = self.abandoned.lock()
+            .map_err(|_| "Station service routing failed")?;
+        let removed = self.pending.lock()
+            .map_err(|_| "Station service routing failed")?.remove(id).is_some();
+        if removed {
+            if abandoned.len() == MAX_ABANDONED {
+                abandoned.pop_front();
+            }
+            abandoned.push_back(id.to_owned());
+        }
         Ok(())
     }
 
@@ -797,7 +824,8 @@ fn request_using(request: Value, session: impl FnOnce() -> Result<Arc<Session>, 
     let _slot = RequestSlot;
     let session = session()?;
     let identity = crate::station_identity::begin(&request, session.generation);
-    let response = request_in_session(&session, request, RESPONSE_TIMEOUT);
+    let timeout = request_timeout(&request);
+    let response = request_in_session(&session, request, timeout);
     crate::station_identity::finish(identity, &response);
     response
 }
@@ -842,11 +870,22 @@ fn request_in_session(
             let _ = write_done.send(());
             result
         });
-        let reply = receiver.recv_timeout(timeout)
+        let received = receiver.recv_timeout(timeout);
+        let timed_out = matches!(received, Err(mpsc::RecvTimeoutError::Timeout));
+        let reply = received
             .map_err(|_| service_request_failure("timed out", control_request))
             .and_then(|value| value)
             .and_then(|value| validate_response(value, &id));
-        if reply.is_err() {
+        if timed_out && request_is_passive_station_status(&request) {
+            session.abandon(&id)?;
+        }
+        // Radio and rotor snapshots are passive observations. Their Swift
+        // handlers may be queued behind an explicit Keychain interaction, but
+        // they cannot have changed RF or antenna state. Let a late response be
+        // routed to the now-dropped receiver; never kill the shared worker (or
+        // turn an unrelated lifecycle receipt unknown) just because this poll
+        // reached its local deadline.
+        if reply.is_err() && !(timed_out && request_is_passive_station_status(&request)) {
             session.retire("Station service request failed; control outcome unknown");
         }
         let write_deadline = written
@@ -874,6 +913,20 @@ fn request_can_change_station_state(request: &Value) -> bool {
         "station_rotor_goto" | "station_rotor_stop" | "rotor_goto" | "rotor_stop" | "rotor_park" |
         "hamlib_control" | "winkeyer_control" | "winkeyer_stop"
     ))
+}
+
+fn request_is_passive_station_status(request: &Value) -> bool {
+    matches!(request["method"].as_str(), Some(
+        "station_snapshot" | "station_rotor_snapshot" | "rotor_snapshot"
+    ))
+}
+
+fn request_timeout(request: &Value) -> Duration {
+    if request_is_passive_station_status(request) {
+        PASSIVE_STATION_STATUS_TIMEOUT
+    } else {
+        RESPONSE_TIMEOUT
+    }
 }
 
 fn service_request_failure(phase: &str, control_request: bool) -> String {
@@ -1600,6 +1653,67 @@ mod tests {
         assert!(result.unwrap_err().contains("outcome unknown"));
         assert!(!session.alive.load(Ordering::Acquire));
         assert!(session.register("next").is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn passive_station_status_timeout_keeps_generation_and_routes_late_reply() {
+        for method in ["station_snapshot", "station_rotor_snapshot", "rotor_snapshot"] {
+            let script = format!(
+                "IFS= read -r stale; sleep 0.1; printf '%s\\n' '{{\"id\":\"stale\",\"ok\":true,\"result\":{{}}}}'; IFS= read -r health; printf '%s\\n' '{{\"id\":\"health\",\"ok\":true,\"result\":{{}}}}'; cat >/dev/null"
+            );
+            let session = scripted_session(&script);
+            let result = request_in_session(
+                &session,
+                json!({"id":"stale","method":method,"params":{}}),
+                Duration::from_millis(20),
+            );
+            assert!(result.unwrap_err().contains("not responding"), "{method}");
+            assert!(session.alive.load(Ordering::Acquire), "{method} retired the worker");
+            assert!(!session.pending.lock().unwrap().contains_key("stale"));
+
+            let response = request_in_session(
+                &session,
+                json!({"id":"health","method":"health","params":{}}),
+                Duration::from_secs(1),
+            ).unwrap();
+            assert_eq!(response["id"], "health");
+            assert!(session.alive.load(Ordering::Acquire));
+            session.retire("test complete");
+        }
+    }
+
+    #[test]
+    fn passive_station_status_uses_bounded_timeout_without_widening_control_policy() {
+        for method in ["station_snapshot", "station_rotor_snapshot", "rotor_snapshot"] {
+            assert_eq!(request_timeout(&json!({"method":method})), PASSIVE_STATION_STATUS_TIMEOUT);
+        }
+        for method in ["station_connect", "station_tune", "station_action", "rotor_goto", "rotor_stop"] {
+            assert_eq!(request_timeout(&json!({"method":method})), RESPONSE_TIMEOUT);
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn abandoned_late_reply_tombstones_are_bounded_and_exact() {
+        let session = scripted_session("cat >/dev/null");
+        for index in 0..=MAX_ABANDONED {
+            let id = format!("stale-{index}");
+            let _receiver = session.register(&id).unwrap();
+            session.abandon(&id).unwrap();
+        }
+        let abandoned = session.abandoned.lock().unwrap();
+        assert_eq!(abandoned.len(), MAX_ABANDONED);
+        assert_eq!(abandoned.front().map(String::as_str), Some("stale-1"));
+        assert_eq!(abandoned.back().map(String::as_str), Some("stale-16"));
+        drop(abandoned);
+
+        assert!(session.dispatch(json!({"id":"stale-16","ok":true,"result":{}})).is_ok());
+        assert!(session.dispatch(json!({"id":"unrelated","ok":true,"result":{}}))
+            .unwrap_err().contains("unknown request ID"));
+        assert!(session.dispatch(json!({"id":"stale-0","ok":true,"result":{}}))
+            .unwrap_err().contains("unknown request ID"));
+        session.retire("test complete");
     }
 
     #[cfg(unix)]
