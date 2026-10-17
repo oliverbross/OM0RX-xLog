@@ -9,10 +9,10 @@ const snapshot = { source:"direct_tci",available:true,generation:7,transport_sta
   capabilities:{supported_commands:["station_receive_filter"]},tci:{trx:1,channel:1,filter_scope:"trx",filter_lower_hz:-500,filter_upper_hz:500} };
 function fixture(status="confirmed") {
   const request=vi.fn(async (p:Record<string,unknown>)=>({operation_id:p.operation_id as string,status,request:{action:"tci_receive_filter"}} as any));
-  const transport={snapshot:vi.fn(async()=>({generation:"setup",revision:0,base_url:"",last_receipt:null,worker_generation:11,
+  const transport={snapshot:vi.fn(async()=>({radio_id:"radio1" as const,active_radio:"radio1" as const,tx_owner:null,generation:"setup",revision:0,base_url:"",last_receipt:null,worker_generation:11,
     selection:{provider:"direct_tci",generation:2,selection_id:"saved",control_revision:3},
     radio:{provider:"direct_tci",selection_id:"saved",selection_generation:2,snapshot}})),request};
-  render(<TCIReceiveFilter snapshot={snapshot} now={stamp*1000} transport={transport}/>);
+  render(<TCIReceiveFilter radioId="radio1" snapshot={snapshot} now={stamp*1000} transport={transport}/>);
   fireEvent.change(screen.getByLabelText("Lower edge (Hz)"),{target:{value:"30"}});
   fireEvent.change(screen.getByLabelText("Upper edge (Hz)"),{target:{value:"2700"}});
   return transport;
@@ -37,7 +37,7 @@ it("retains unknown outcomes across remounts and checking never replays",async()
   fireEvent.click(screen.getByRole("button",{name:"Apply receive filter"}));
   await screen.findByText(/Filter outcome unknown/);
   expect((screen.getByRole("button",{name:"Apply receive filter"}) as HTMLButtonElement).disabled).toBe(true);
-  cleanup();render(<TCIReceiveFilter snapshot={snapshot} now={stamp*1000} transport={transport}/>);
+  cleanup();render(<TCIReceiveFilter radioId="radio1" snapshot={snapshot} now={stamp*1000} transport={transport}/>);
   fireEvent.click(screen.getByRole("button",{name:"Check filter receipt"}));
   await screen.findByText(/Filter outcome remains unknown/);
   expect(transport.request.mock.calls.map(c=>c[0].action)).toEqual(["tci_receive_filter","receipt"]);

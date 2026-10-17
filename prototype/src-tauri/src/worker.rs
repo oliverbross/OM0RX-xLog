@@ -59,6 +59,7 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
             | "backup_create" | "backup_list" | "backup_inspect" | "backup_import" | "backup_restore"
             | "remote_backup_request"
             | "wsjtx_snapshot" | "wsjtx_configure" | "wsjtx_start" | "wsjtx_stop"
+             | "spot_bridge_snapshot" | "spot_bridge_configure"
             | "cluster_snapshot" | "cluster_radio_spots_configure"
             | "workspace_layout_load" | "workspace_layout_apply"
         )) { Ok(()) } else { Err("Settings can only manage scoped configuration, synchronization, reference data, layouts and backups.".into()) };
@@ -681,24 +682,27 @@ fn announce_session(session: &Arc<Session>) {
             let _ = std::thread::Builder::new()
                 .name("xlog-connection-restore".into())
                 .spawn(move || {
-                    if let (Some(station), Ok(selection)) = (
-                        crate::station_session::retained_owner(),
-                        crate::station_selection::retained_snapshot(),
-                    ) {
-                        let control_revision = selection["control_revision"].as_u64().unwrap_or(u64::MAX);
-                        let radio_transport = transport.clone();
-                        if let Err(error) = station.resume_saved_agent_after_worker_restart(
-                            generation,
-                            &selection,
-                            |request, expected, identity| crate::station_selection::restore_receive_control(
-                                request,
-                                expected,
-                                identity,
-                                control_revision,
-                                |request| radio_transport(request),
-                            ),
+                    for radio_id in [crate::radio_slots::RADIO1, crate::radio_slots::RADIO2] {
+                        if let (Some(station), Ok(selection)) = (
+                            crate::station_session::retained_owner_for(radio_id),
+                            crate::station_selection::retained_snapshot_for(radio_id),
                         ) {
-                            eprintln!("Saved radio connection could not be restored after worker restart: {error}");
+                            let control_revision = selection["control_revision"].as_u64().unwrap_or(u64::MAX);
+                            let radio_transport = transport.clone();
+                            if let Err(error) = station.resume_saved_agent_after_worker_restart(
+                                generation,
+                                &selection,
+                                |request, expected, identity| crate::station_selection::restore_receive_control_for(
+                                    radio_id,
+                                    request,
+                                    expected,
+                                    identity,
+                                    control_revision,
+                                    |request| radio_transport(request),
+                                ),
+                            ) {
+                                eprintln!("Saved {radio_id} connection could not be restored after worker restart: {error}");
+                            }
                         }
                     }
                     if let Err(error) = crate::rotor_session::resume_after_worker_restart(generation, transport.clone()) {
@@ -1176,12 +1180,13 @@ mod tests {
             "sync_status", "sync_summary", "sync_mutation", "sync_receipt",
             "reference_status", "reference_resolve", "reference_refresh", "reference_schedule", "reference_configure",
             "backup_create", "backup_list", "backup_inspect", "backup_import", "backup_restore",
-            "workspace_layout_load", "workspace_layout_apply", "cluster_snapshot", "cluster_radio_spots_configure"] {
+            "workspace_layout_load", "workspace_layout_apply", "spot_bridge_snapshot", "spot_bridge_configure",
+            "cluster_snapshot", "cluster_radio_spots_configure"] {
             assert!(validate_surface("settings", &json!({"id":"settings","method":method,"params":{}})).is_ok(), "{method}");
         }
         for method in ["logbook_operator_draft", "logbook_contact", "logbook_save", "station_snapshot", "station_connect",
             "station_tune", "station_action", "station_power_selection", "rotor_snapshot", "rotor_goto",
-            "cluster_connect", "winkeyer_snapshot", "workspace_create", "workspace_preferences_save",
+            "cluster_connect", "winkeyer_snapshot", "spot_bridge_start", "spot_bridge_stop", "workspace_create", "workspace_preferences_save",
             "sync_run", "sync_configure", "sync_resolve", "sync_retry"] {
             assert!(validate_surface("settings", &json!({"id":"settings","method":method,"params":{}})).is_err(), "{method}");
         }

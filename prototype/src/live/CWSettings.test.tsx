@@ -23,7 +23,7 @@ describe("CW preferences and preview never transmit", () => {
     fireEvent.change(screen.getByLabelText("CW button colour"), { target: { value: "pink" } });
     fireEvent.click(screen.getByLabelText("Show selected macro buttons on Operator Desk"));
     expect(screen.getByLabelText("Expanded CW preview").textContent).toBe("CQ CQ DE OM0RX OM0RX K");
-    fireEvent.click(screen.getByRole("tab", { name: "Station" }));
+  fireEvent.click(screen.getByRole("tab", { name: "General" }));
     fireEvent.click(screen.getByRole("tab", { name: "CW" }));
     expect((screen.getByLabelText("CW button label") as HTMLInputElement).value).toBe("My CQ");
     expect(request).not.toHaveBeenCalled();

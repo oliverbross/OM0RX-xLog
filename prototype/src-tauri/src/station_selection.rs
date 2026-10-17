@@ -12,6 +12,7 @@ use tauri::{Emitter, Manager};
 pub(crate) type Transport = dyn Fn(Value) -> Result<Value, String> + Send + Sync;
 type Publish = dyn Fn() + Send + Sync;
 struct PowerPublication {
+    radio_id: Option<String>,
     worker_generation: u64,
     sequence: u64,
     context: (Option<String>, Option<String>),
@@ -34,6 +35,7 @@ struct State {
     qsy_fence: bool,
 }
 pub struct Selection {
+    radio_id: Option<String>,
     state: Mutex<State>,
     activity: AtomicUsize,
     path: PathBuf,
@@ -49,19 +51,37 @@ pub fn validate(label: &str, isolated: bool, mutation: bool) -> Result<(), Strin
     Ok(())
 }
 impl Selection {
+    #[cfg(test)]
     fn new(
         path: PathBuf,
         transport: Arc<Transport>,
         publish: Arc<Publish>,
     ) -> Result<Self, String> {
-        let (provider, selection_id, migrate) = match std::fs::read(&path) {
-            Ok(bytes) => {
+        Self::new_for(path, None, None, transport, publish)
+    }
+    fn new_for(path: PathBuf, radio_id: Option<&str>, legacy_path: Option<&std::path::Path>, transport: Arc<Transport>, publish: Arc<Publish>) -> Result<Self, String> {
+        if let Some(id) = radio_id { crate::radio_slots::index(id)?; }
+        let bytes = match std::fs::read(&path) {
+            Ok(bytes) => Some(bytes),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound && radio_id == Some(crate::radio_slots::RADIO1) => {
+                match legacy_path.map(std::fs::read).transpose() {
+                    Ok(bytes) => bytes,
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+                    Err(_) => return Err("Saved radio selection could not be read.".into()),
+                }
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+            Err(_) => return Err("Saved radio selection could not be read.".into()),
+        };
+        let (provider, selection_id, migrate) = match bytes {
+            Some(bytes) => {
                 let stored: Value = serde_json::from_slice(&bytes)
                     .map_err(|_| "Saved radio selection is invalid; it was not overwritten.")?;
                 let provider = stored["provider"]
                     .as_str()
                     .filter(|value| crate::station_telemetry::valid_provider(value));
-                if stored["version"] != 1 || provider.is_none() {
+                if !matches!(stored["version"].as_u64(), Some(1 | 2)) || provider.is_none()
+                    || stored["version"] == 2 && stored["radio_id"].as_str() != radio_id {
                     return Err(
                         "Saved radio selection is unsupported; it was not overwritten.".into(),
                     );
@@ -87,14 +107,14 @@ impl Selection {
                 (
                     provider.map(str::to_owned),
                     Some(selection_id),
-                    stored.get("selection_id").is_none(),
+                    stored.get("selection_id").is_none() || stored["version"] == 1,
                 )
             }
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => (None, None, false),
-            Err(_) => return Err("Saved radio selection could not be read.".into()),
+            None => (None, None, false),
         };
         let native_context = (provider.clone(), selection_id.clone());
         let owner = Self {
+            radio_id: radio_id.map(str::to_owned),
             state: Mutex::new(State {
                 provider,
                 selection_id,
@@ -109,6 +129,7 @@ impl Selection {
             transport,
             publish,
             power: Arc::new(Mutex::new(PowerPublication {
+                radio_id: radio_id.map(str::to_owned),
                 worker_generation: 0,
                 sequence: 0,
                 context: (None, None),
@@ -137,9 +158,18 @@ impl Selection {
             Ok(())
         }
     }
+    fn route_request(&self, request: &mut Value) -> Result<(), String> {
+        let Some(radio_id) = self.radio_id.as_deref() else { return Ok(()); };
+        let params = request["params"].as_object_mut().ok_or("Radio request parameters are unavailable.")?;
+        if params.get("radio_id").is_some_and(|value| value.as_str() != Some(radio_id)) {
+            return Err("Radio request targets a different slot.".into());
+        }
+        params.insert("radio_id".into(), json!(radio_id));
+        Ok(())
+    }
     fn value(&self, state: &State) -> Value {
         let power = self.power.lock().unwrap_or_else(|error| error.into_inner());
-        json!({"provider":state.provider,"generation":state.generation,"selection_id":state.selection_id,"control_revision":state.control_revision,
+        json!({"radio_id":self.radio_id,"provider":state.provider,"generation":state.generation,"selection_id":state.selection_id,"control_revision":state.control_revision,
             "power_notification":{"state":power.status,"error":power.error}})
     }
     fn save(&self, provider: &str, selection_id: &str) -> Result<(), String> {
@@ -152,7 +182,7 @@ impl Selection {
         let mut file = tempfile::NamedTempFile::new_in(directory)
             .map_err(|_| "Radio selection could not be saved")?;
         file.write_all(
-            json!({"version":1,"provider":provider,"selection_id":selection_id})
+            json!({"version":if self.radio_id.is_some(){2}else{1},"radio_id":self.radio_id,"provider":provider,"selection_id":selection_id})
                 .to_string()
                 .as_bytes(),
         )
@@ -197,11 +227,12 @@ impl Selection {
         power.status = "pending";
         power.error.clear();
         let id = format!("native-power-selection-{}", uuid::Uuid::new_v4());
+        let mut params = json!({"provider":provider,"selection_id":selection_id,"sequence":power.sequence});
+        if let Some(radio_id) = power.radio_id.as_deref() { params["radio_id"] = json!(radio_id); }
         Ok(Some(PowerNotice {
             worker_generation: power.worker_generation,
             sequence: power.sequence,
-            request: json!({"id":id,"method":"station_power_selection",
-            "params":{"provider":provider,"selection_id":selection_id,"sequence":power.sequence}}),
+            request: json!({"id":id,"method":"station_power_selection","params":params}),
         }))
     }
     fn remember_native_context(&self, state: &State) {
@@ -386,6 +417,9 @@ impl Selection {
             .map_err(|_| "Radio session is busy; wait for its current action.")?;
         self.active()?;
         if state.provider.is_none() {
+            if self.radio_id.as_deref() == Some(crate::radio_slots::RADIO2) {
+                return Ok(self.value(&state));
+            }
             let provider = legacy
                 .filter(|value| crate::station_telemetry::valid_provider(value))
                 .unwrap_or("direct_agent");
@@ -482,11 +516,12 @@ impl Selection {
         crate::auto_rotor::revoke();
         let _activity = ActivityGuard::new(&self.activity);
         let id = format!("native-radio-handover-{}", state.generation);
-        let request = if previous == "hamlib" {
+        let mut request = if previous == "hamlib" {
             json!({"id":id,"method":"hamlib_disconnect","params":{"device":"radio"}})
         } else {
             json!({"id":id,"method":"station_disconnect","params":{"provider":previous}})
         };
+        self.route_request(&mut request)?;
         let next_id = uuid::Uuid::new_v4().to_string();
         let mut saved_next = false;
         let result = (|| {
@@ -616,6 +651,7 @@ impl Selection {
             && request["params"]["action"] == "tune_simplex" { Some("hamlib") }
             else if !carrier && method == Some("station_tune") { request["params"]["provider"].as_str() } else { None };
         if provider.is_none() || provider != state.provider.as_deref() { return Err("Invalid native spot tune route.".into()); }
+        self.route_request(&mut request)?;
         let next_revision = state.control_revision.checked_add(1).filter(|value| *value <= 9_007_199_254_740_991)
             .ok_or("Radio control revision exhausted")?;
         let _admission = admit()?;
@@ -694,6 +730,7 @@ impl Selection {
                     .into(),
             );
         }
+        self.route_request(&mut request)?;
         // Only quick retained admission runs under this lock. Its guard, not
         // either mutex, lives through transport and excludes stale observations.
         let _admission = admit()?;
@@ -792,7 +829,7 @@ impl Drop for ControlGuard<'_> {
         (self.0.publish)();
     }
 }
-static OWNER: OnceLock<Mutex<Option<Arc<Selection>>>> = OnceLock::new();
+static OWNERS: OnceLock<Mutex<[Option<Arc<Selection>>; 2]>> = OnceLock::new();
 static STOPPED: AtomicBool = AtomicBool::new(false);
 fn retained(owner: Option<&Selection>, stopped: bool) -> Result<Value, String> {
     if stopped { return Err("Radio session is shutting down.".into()); }
@@ -801,51 +838,63 @@ fn retained(owner: Option<&Selection>, stopped: bool) -> Result<Value, String> {
 /// Never opens/migrates saved selection, initializes defaults or notifies a
 /// worker. A not-yet-created owner is truthfully unavailable to passive views.
 pub fn retained_snapshot() -> Result<Value, String> {
-    let owner = OWNER.get().map(|slot| slot.try_lock().map(|owner| owner.clone())
+    let owner = OWNERS.get().map(|slot| slot.try_lock().map(|owners| owners[0].clone())
+        .map_err(|_| "Radio selection is unavailable".to_string())).transpose()?.flatten();
+    retained(owner.as_deref(), STOPPED.load(Ordering::Acquire))
+}
+pub(crate) fn retained_snapshot_for(radio_id: &str) -> Result<Value, String> {
+    let index = crate::radio_slots::index(radio_id)?;
+    let owner = OWNERS.get().map(|slot| slot.try_lock().map(|owners| owners[index].clone())
         .map_err(|_| "Radio selection is unavailable".to_string())).transpose()?.flatten();
     retained(owner.as_deref(), STOPPED.load(Ordering::Acquire))
 }
 /// Called after worker registry unlock. Never initializes a preference or sends
 /// through worker::request, which would recurse back into active_session.
 pub(crate) fn worker_generation_started(generation: u64, transport: Arc<Transport>) {
-    if let Some(slot) = OWNER.get() {
+    if let Some(slot) = OWNERS.get() {
         if let Ok(slot) = slot.lock() {
-            if let Some(owner) = slot.as_ref() {
-                owner.worker_started(generation, transport);
+            for owner in slot.iter().flatten() {
+                owner.worker_started(generation, transport.clone());
             }
         }
     }
 }
-pub(crate) fn restore_receive_control(
+pub(crate) fn restore_receive_control_for(
+    radio_id: &str,
     request: Value,
     expected: u64,
     identity: &str,
     control_revision: u64,
     dispatch: impl FnOnce(Value) -> Result<Value, String>,
 ) -> Result<Value, String> {
-    let owner = OWNER.get().and_then(|slot| slot.lock().ok()?.clone())
+    let index = crate::radio_slots::index(radio_id)?;
+    let owner = OWNERS.get().and_then(|slot| slot.lock().ok()?.get(index)?.clone())
         .ok_or("Radio selection is unavailable")?;
     owner.receive_control_with_dispatch(request, expected, identity, control_revision, || Ok(()), dispatch)
 }
-pub fn owner(app: &tauri::AppHandle) -> Result<Arc<Selection>, String> {
+pub fn owner_for(app: &tauri::AppHandle, radio_id: &str) -> Result<Arc<Selection>, String> {
     if STOPPED.load(Ordering::Acquire) {
         return Err("Radio session is shutting down.".into());
     }
-    let mut slot = OWNER
-        .get_or_init(|| Mutex::new(None))
+    let index = crate::radio_slots::index(radio_id)?;
+    let mut owners = OWNERS
+        .get_or_init(|| Mutex::new([None, None]))
         .lock()
         .map_err(|_| "Radio selection is unavailable")?;
-    if let Some(owner) = slot.as_ref() {
+    if let Some(owner) = owners[index].as_ref() {
         return Ok(owner.clone());
     }
-    let path = app
+    let directory = app
         .path()
         .app_config_dir()
-        .map_err(|_| "Radio selection directory is unavailable")?
-        .join("radio-selection.json");
+        .map_err(|_| "Radio selection directory is unavailable")?;
+    let path = directory.join(format!("radio-selection-{radio_id}.json"));
+    let legacy = directory.join("radio-selection.json");
     let events = app.clone();
-    let owner = Arc::new(Selection::new(
+    let owner = Arc::new(Selection::new_for(
         path,
+        Some(radio_id),
+        Some(&legacy),
         Arc::new(|request| {
             if request["method"]
                 .as_str()
@@ -863,14 +912,18 @@ pub fn owner(app: &tauri::AppHandle) -> Result<Arc<Selection>, String> {
             let _ = events.emit_to("alerts", "xlog:alerts", ());
         }),
     )?);
-    *slot = Some(owner.clone());
+    owners[index] = Some(owner.clone());
     Ok(owner)
+}
+pub fn owner(app: &tauri::AppHandle) -> Result<Arc<Selection>, String> {
+    let radio_id = crate::radio_slots::active(app)?;
+    owner_for(app, &radio_id)
 }
 pub fn shutdown() {
     STOPPED.store(true, Ordering::Release);
-    if let Some(slot) = OWNER.get() {
+    if let Some(slot) = OWNERS.get() {
         if let Ok(slot) = slot.lock() {
-            if let Some(owner) = slot.as_ref() {
+            for owner in slot.iter().flatten() {
                 owner.stopped.store(true, Ordering::Release);
                 // Do not wait on a logging RPC ahead of worker EOF. Swift's
                 // terminal shutdown terminates capture before its first await.
@@ -882,6 +935,38 @@ pub fn shutdown() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn radio1_starts_unconfigured_when_no_v1_selection_exists() {
+        let directory = tempfile::tempdir().unwrap();
+        let owner = Selection::new_for(
+            directory.path().join("radio-selection-radio1.json"),
+            Some(crate::radio_slots::RADIO1),
+            Some(&directory.path().join("radio-selection.json")),
+            Arc::new(|_| panic!("unconfigured selection must not dispatch")),
+            Arc::new(|| {}),
+        ).unwrap();
+        assert!(owner.snapshot().unwrap()["provider"].is_null());
+        assert_eq!(owner.snapshot().unwrap()["radio_id"], crate::radio_slots::RADIO1);
+    }
+    #[test]
+    fn slot_owner_routes_every_radio_request_and_rejects_cross_slot_targets() {
+        let directory = tempfile::tempdir().unwrap();
+        let owner = Selection::new_for(
+            directory.path().join("radio-selection-radio2.json"),
+            Some(crate::radio_slots::RADIO2),
+            None,
+            Arc::new(|_| panic!("routing validation must not dispatch")),
+            Arc::new(|| {}),
+        ).unwrap();
+        for method in ["station_tune", "station_action", "station_radio_control", "station_disconnect", "hamlib_disconnect"] {
+            let mut request = json!({"method":method,"params":{}});
+            owner.route_request(&mut request).unwrap();
+            assert_eq!(request["params"]["radio_id"], crate::radio_slots::RADIO2, "{method}");
+        }
+        let mut wrong = json!({"method":"station_tune","params":{"radio_id":"radio1"}});
+        assert!(owner.route_request(&mut wrong).is_err());
+        assert_eq!(wrong["params"]["radio_id"], crate::radio_slots::RADIO1);
+    }
     #[test]
     fn amplifier_standby_retires_held_operate_and_carrier_with_native_ordered_tokens(){
         for action in ["operate","tune"] {

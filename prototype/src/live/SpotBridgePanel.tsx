@@ -25,7 +25,9 @@ export function validSpotConfiguration(value: Configuration | null): boolean {
     });
 }
 
-export default function SpotBridgePanel({ request, provider = "direct_agent" }: { request: Request; provider?: string }) {
+type Props = { request: Request; provider?: string; configurationOnly?: boolean };
+
+export default function SpotBridgePanel({ request, provider = "direct_agent", configurationOnly = false }: Props) {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [draft, setDraft] = useState<Configuration | null>(null);
   const [dirty, setDirty] = useState(false);
@@ -71,17 +73,18 @@ export default function SpotBridgePanel({ request, provider = "direct_agent" }: 
     catch (cause) { setError(cause instanceof Error ? cause.message : "Could not stop spot receiver."); }
     finally { setBusy(false); }
   };
-  return <section className="spot-bridge" aria-label="RUMlog spot bridge">
-    <header><div><h2>RUMlog spot bridge</h2><p>Logbook and contest spots → the embedded Remote Station Agent's FLEX display. No separate SpotToSunFlex application is needed.</p></div>
+  return <section className="spot-bridge" aria-label="RUMlog compatibility">
+    <header><div><h2>RUMlog compatibility</h2><p>Receive RUMlog Logbook and Contest UDP spots, classify their display style, then forward them through xLog to the embedded Remote Station Agent's FLEX display.</p></div>
       <strong className={snapshot?.running ? "teal" : "secondary"}>{snapshot?.running ? "Listening" : "Stopped"}</strong></header>
+    <p className="spot-bridge-safety">One way: RUMlog → xLog → radio display. This does not read or write a RUMlog logbook, synchronize contacts, tune the radio or key PTT. Wavelog remains xLog's two-way synchronization authority.</p>
     {error && <p className="live-error" role="alert">{error}</p>}
     {notice && <p className="live-message" role="status">{notice}</p>}{saveToast.toast}
-    {provider !== "direct_agent" && <p className="spot-bridge-provider-note" role="status">Select and connect Remote station · embedded xCat to start forwarding. Direct FLEX LAN and Hamlib do not receive these UDP spots. An already-running listener is not stopped by changing provider.</p>}
+    {!configurationOnly && provider !== "direct_agent" && <p className="spot-bridge-provider-note" role="status">Select and connect Remote station · embedded xCat to start forwarding. Direct FLEX LAN and Hamlib do not receive these UDP spots. An already-running listener is not stopped by changing provider.</p>}
     {draft ? <>
       <div className="spot-bridge-ports">
         <label>Logbook UDP port<input aria-label="Logbook UDP port" type="number" min="1024" max="65535" value={draft.logbookPort} onChange={e => edit(value => ({ ...value, logbookPort: Number(e.target.value) }))} /></label>
         <label>Contest UDP port<input aria-label="Contest UDP port" type="number" min="1024" max="65535" value={draft.contestPort} onChange={e => edit(value => ({ ...value, contestPort: Number(e.target.value) }))} /></label>
-        <span>Send RUMlog UDP to <code>127.0.0.1</code>. Close any other receiver using these ports before starting.</span>
+        <span>Configure RUMlog to send UDP spots to <code>127.0.0.1</code>. The defaults are <code>12062</code> for Logbook and <code>12063</code> for Contest. Close any other receiver using these ports before starting.</span>
       </div>
       <table><thead><tr><th>Feed</th><th>Category</th><th>Priority</th><th>Colour</th><th>Lifetime, seconds</th></tr></thead>
         <tbody>{spotCategories.map(([key, title, feed]) => <tr key={key}>
@@ -90,10 +93,11 @@ export default function SpotBridgePanel({ request, provider = "direct_agent" }: 
           <td><input type="color" aria-label={`${title} ${feed} colour`} value={draft.styles[key]?.colorHex ?? "#000000"} onChange={e => style(key, { colorHex: e.target.value.toUpperCase() })} /></td>
           <td><input type="number" aria-label={`${title} ${feed} lifetime seconds`} min="30" max="86400" value={draft.styles[key]?.lifetimeSeconds ?? ""} onChange={e => style(key, { lifetimeSeconds: Number(e.target.value) })} /></td>
         </tr>)}</tbody></table>
-      <div className="live-actions"><button disabled={busy || !validSpotConfiguration(draft)} onClick={() => void save(false)}>Save settings</button>
-        <button className="primary" disabled={busy || provider !== "direct_agent" || !validSpotConfiguration(draft)} onClick={() => void save(true)}>Save and start listeners</button>
-        <button disabled={busy || !snapshot?.running} onClick={() => void stop()}>Stop listeners</button>
+      <div className="live-actions"><button disabled={busy || !validSpotConfiguration(draft)} onClick={() => void save(false)}>Save RUMlog compatibility settings</button>
+        {!configurationOnly && <button className="primary" disabled={busy || provider !== "direct_agent" || !validSpotConfiguration(draft)} onClick={() => void save(true)}>Save and start listeners</button>}
+        {!configurationOnly && <button disabled={busy || !snapshot?.running} onClick={() => void stop()}>Stop listeners</button>}
         {dirty && <span className="amber">Unsaved changes</span>}</div>
+      {configurationOnly && <p className="spot-bridge-provider-note" role="status">This Settings window can save compatibility values but cannot start or stop UDP listeners. Use the main application with Remote station · embedded xCat selected for listener controls.</p>}
       {!validSpotConfiguration(draft) && <p role="alert">Use distinct ports from 1024–65535, priorities from 1–5 and lifetimes from 30–86400 seconds.</p>}
     </> : <p role="status">Loading saved spot settings…</p>}
     <footer><span>{snapshot?.status || "Checking receiver"}</span><span>Received {snapshot?.received_count ?? 0} · ACK accepted {snapshot?.accepted_count ?? 0} · Rejected {snapshot?.rejected_count ?? 0} · Duplicates {snapshot?.duplicate_count ?? 0} · Dropped {snapshot?.dropped_count ?? 0}</span>

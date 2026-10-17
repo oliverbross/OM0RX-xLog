@@ -15,6 +15,7 @@ import { AmplifierTransitionStatus } from "./AmplifierTransitionStatus";
 import {pttSession} from "./pttSession";
 import {PTTStatus} from "./PTTStatus";
 import { useSettingsSaveToast } from "./SettingsSaveToast";
+import type { RadioID } from "./stationSession";
 
 type Request = (method: string, params?: Record<string, unknown>) => Promise<any>;
 type RadioState = {
@@ -43,7 +44,7 @@ type StationSnapshot = {
   cat_servers?: { cat_port?: number | null; rigctl_port?: number | null; allow_transmit?: boolean };
   propagation?: { status?: string; updated_at?: number; solar_flux?: number; a_index?: number; k_index?: number } | null;
 };
-type Props = { snapshot: any; onRequest: Request; onSnapshot: (value: any) => void; monitor?: boolean; independentRotor?: boolean };
+type Props = { radioId: RadioID; snapshot: any; onRequest: Request; onSnapshot: (value: any) => void; monitor?: boolean; independentRotor?: boolean };
 const modes = ["CW", "SSB", "USB", "LSB", "AM", "FM", "FT8", "FT4", "FT2", "RTTY", "JTTY", "PSK", "DIGI"];
 const rotorBands = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "4m", "2m", "70cm", "Other"];
 
@@ -53,7 +54,7 @@ function value<T>(item: T | null | undefined, unit = ""): string { return item =
 function timestamp(epoch?: number | null): string { return typeof epoch === "number" && Number.isFinite(epoch) ? new Date(epoch * 1000).toLocaleTimeString() : "—"; }
 function errorText(cause: unknown): string { return cause instanceof Error ? cause.message : "Station request failed."; }
 
-export default function StationPanel({ snapshot, onRequest, onSnapshot, monitor = false, independentRotor = true }: Props) {
+export default function StationPanel({ radioId, snapshot, onRequest, onSnapshot, monitor = false, independentRotor = true }: Props) {
   const incoming = snapshot as StationSnapshot | null;
   const [provider] = useState<"xcat_loopback" | "direct_agent">(
     "direct_agent",
@@ -134,7 +135,7 @@ export default function StationPanel({ snapshot, onRequest, onSnapshot, monitor 
     setBusy(true); setError(""); setNotice("");
     try {
       const response = unwrap(method === "station_tune" && nativeStationSelection()
-        ? await manualTuneSession().tune("direct_agent", params.frequency_hz as number, params.mode as string)
+        ? await manualTuneSession(radioId).tune("direct_agent", params.frequency_hz as number, params.mode as string)
         : await onRequest(method, params));
       if (method === "station_connect") localStorage.setItem("xlog.remote.url", String(params.base_url));
       if (startedEndpoint !== endpointRef.current) return null;
@@ -253,7 +254,7 @@ export default function StationPanel({ snapshot, onRequest, onSnapshot, monitor 
           {[station?.kpa_detail_primary, station?.kpa_detail_secondary, station?.kat_detail_primary, station?.kat_detail_secondary, station?.route_detail].filter(Boolean).map((detail, index) => <p className="live-station-detail" key={index}>{detail}</p>)}
         </section>
         {!isMonitor && <section className="live-station-card"><h3>Radio &amp; station actions</h3>
-          {nativeStationSelection() && <ManualTuneStatus />}
+          {nativeStationSelection() && <ManualTuneStatus radioId={radioId} />}
           <form className="live-station-inline" onSubmit={(event) => void tune(event)}><label>Frequency MHz<input aria-label="Tune frequency MHz" inputMode="decimal" value={tuneMHz} onChange={(event) => setTuneMHz(event.target.value)} placeholder={connected ? frequency(radio?.frequency_hz) : "14.074000"} /></label>
             <label>Mode<select aria-label="Tune mode" value={tuneMode} onChange={(event) => setTuneMode(event.target.value)}>{modes.map((mode) => <option key={mode}>{mode}</option>)}</select></label>
             <button type="submit" disabled={busy || !connected}>Tune simplex</button></form>
@@ -297,7 +298,7 @@ export default function StationPanel({ snapshot, onRequest, onSnapshot, monitor 
       <aside className="live-station-side">
         <section className="live-station-card"><h3>{isDirect ? "Direct agent connection" : "Companion connection"}</h3>
           {isDirect ? <><p className="live-station-helper">Use the existing Remote Station Agent HTTPS endpoint. Its token is stored in the macOS Keychain, never in the logbook.</p>
-            {!isMonitor && (nativeStationSelection() ? <AgentConnectionSetup connections legacyEndpoint={agentURL} /> : <form className="live-station-connect" onSubmit={(event) => void connect(event)}><label>Agent HTTPS URL<input aria-label="Agent HTTPS URL" type="url" required placeholder="https://station.example:8443" value={agentURL} onChange={(event) => setAgentURL(event.target.value)} /></label>
+            {!isMonitor && (nativeStationSelection() ? <AgentConnectionSetup radioId={radioId} connections legacyEndpoint={agentURL} /> : <form className="live-station-connect" onSubmit={(event) => void connect(event)}><label>Agent HTTPS URL<input aria-label="Agent HTTPS URL" type="url" required placeholder="https://station.example:8443" value={agentURL} onChange={(event) => setAgentURL(event.target.value)} /></label>
               <label>Agent token<input aria-label="Agent token" type="password" autoComplete="off" placeholder="Enter token or use saved Keychain token" value={token} onChange={(event) => setToken(event.target.value)} /></label>
               <label className="live-station-checkbox"><input type="checkbox" checked={allowTransmit} onChange={(event) => setAllowTransmit(event.target.checked)} /> Allow CAT transmit controls for this connection</label>
               <div className="live-station-actionrow"><button type="submit" disabled={busy || !agentURL.trim()}><LockKeyhole size={13} /> Connect</button>

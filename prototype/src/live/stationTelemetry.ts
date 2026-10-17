@@ -2,16 +2,17 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { StationProvider } from "../worker";
 import { hamlibProjection } from "./hamlibStation";
+import type { RadioID } from "./stationSession";
 
 /** Display stream only. Tune/command confirmation must use explicit readback. */
-export function connectStationTelemetry(provider: StationProvider, changed: (snapshot: Record<string, any>) => void, failed: () => void, context: () => unknown = () => null): (() => void) | null {
+export function connectStationTelemetry(radioId: RadioID, provider: StationProvider, changed: (snapshot: Record<string, any>) => void, failed: () => void, context: () => unknown = () => null): (() => void) | null {
   if (!isTauri()) return null;
   let active = true, revision = -1, lastReceived = Date.now(), unavailable = false;
   let stop: (() => void) | undefined;
   const failure = () => { if (active) { unavailable = true; failed(); } };
   const accept = (value: any) => {
     if (!active || !value || !Number.isSafeInteger(value.revision) || value.revision <= revision || value.revision < 0 || typeof value.available !== "boolean") return;
-    if (value.provider !== provider) { failure(); return; }
+    if (value.radio_id !== radioId || value.provider !== provider) { failure(); return; }
     revision = value.revision;
     if (!value.available) { if (value.snapshot) failure(); return; }
     const age = Date.now() - value.received_at_ms;
@@ -33,7 +34,7 @@ export function connectStationTelemetry(provider: StationProvider, changed: (sna
       again = false;
       const captured = context();
       try {
-        const value = await invoke("station_telemetry_snapshot", { provider });
+        const value = await invoke("station_telemetry_snapshot", { radioId, provider });
         if (active && captured === context()) accept(value);
       } catch { if (active && captured === context()) failure(); }
     } while (active && again);

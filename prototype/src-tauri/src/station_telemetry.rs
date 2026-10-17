@@ -49,6 +49,7 @@ struct State {
     projection: Value,
 }
 pub struct StationTelemetry {
+    radio_id: Option<String>,
     read: Arc<Read>,
     publish: Arc<Publish>,
     state: Mutex<State>,
@@ -58,8 +59,13 @@ pub struct StationTelemetry {
     wake: (Mutex<()>, Condvar),
 }
 impl StationTelemetry {
+    #[cfg(test)]
     fn new(read: Arc<Read>, publish: Arc<Publish>) -> Self {
+        Self::new_for(None, read, publish)
+    }
+    fn new_for(radio_id: Option<&str>, read: Arc<Read>, publish: Arc<Publish>) -> Self {
         Self {
+            radio_id: radio_id.map(str::to_owned),
             read,
             publish,
             state: Mutex::new(State {
@@ -69,7 +75,7 @@ impl StationTelemetry {
                 epoch: 0,
                 revision: 0,
                 controls: 0,
-                projection: json!({"revision":0,"available":false,"provider":null,"snapshot":null}),
+                projection: json!({"radio_id":radio_id,"revision":0,"available":false,"provider":null,"snapshot":null}),
             }),
             reading: Mutex::new(()),
             started: AtomicBool::new(false),
@@ -112,7 +118,7 @@ impl StationTelemetry {
             state.selection_generation = selection_generation;
             state.epoch += 1;
             state.revision += 1;
-            state.projection = json!({"revision":state.revision,"available":false,"provider":provider,"snapshot":null,
+            state.projection = json!({"radio_id":self.radio_id,"revision":state.revision,"available":false,"provider":provider,"snapshot":null,
                 "selection_id":state.selection_id,"selection_generation":state.selection_generation});
         }
         Ok(state.projection.clone())
@@ -236,11 +242,12 @@ impl StationTelemetry {
             };
             state.revision += 1;
             let id = format!("radio-telemetry-{}", state.revision);
-            let request = if provider == "hamlib" {
+            let mut request = if provider == "hamlib" {
                 json!({"id":id,"method":"hamlib_snapshot","params":{"device":"radio"}})
             } else {
                 json!({"id":id,"method":"station_snapshot","params":{"provider":provider}})
             };
+            if let Some(radio_id) = self.radio_id.as_deref() { request["params"]["radio_id"] = json!(radio_id); }
             (provider, state.epoch, request)
         };
         let id = request["id"].clone();
@@ -270,7 +277,7 @@ impl StationTelemetry {
             });
         let available = result.is_some();
         let snapshot = result.unwrap_or_else(|| state.projection["snapshot"].clone());
-        state.projection = json!({"revision":state.revision,"provider":provider,"snapshot":snapshot,"available":available,
+        state.projection = json!({"radio_id":self.radio_id,"revision":state.revision,"provider":provider,"snapshot":snapshot,"available":available,
             "selection_id":state.selection_id,"selection_generation":state.selection_generation,"worker_generation":worker_generation,
             "received_at_ms":SystemTime::now().duration_since(UNIX_EPOCH).map(|time| time.as_millis() as u64).unwrap_or(0)});
         let projection = state.projection.clone();
@@ -326,7 +333,7 @@ impl Drop for ControlFence {
         }
     }
 }
-static OWNER: OnceLock<Arc<StationTelemetry>> = OnceLock::new();
+static OWNERS: OnceLock<Mutex<[Option<Arc<StationTelemetry>>; 2]>> = OnceLock::new();
 static STOPPED: AtomicBool = AtomicBool::new(false);
 fn retained(owner: Option<&StationTelemetry>, stopped: bool) -> Result<Value, String> {
     if stopped { return Err("Radio telemetry has stopped.".into()); }
@@ -338,16 +345,20 @@ fn retained(owner: Option<&StationTelemetry>, stopped: bool) -> Result<Value, St
 /// Observation children may read only an already existing projection. This
 /// path never creates the owner, selects a provider or starts device polling.
 pub fn retained_snapshot() -> Result<Value, String> {
-    retained(OWNER.get().map(Arc::as_ref), STOPPED.load(Ordering::Acquire))
+    let owner = OWNERS.get().and_then(|owners| owners.lock().ok()?.first()?.clone());
+    retained(owner.as_deref(), STOPPED.load(Ordering::Acquire))
 }
-pub fn owner(app: &tauri::AppHandle) -> Result<Arc<StationTelemetry>, String> {
+pub fn owner_for(app: &tauri::AppHandle, radio_id: &str) -> Result<Arc<StationTelemetry>, String> {
     if STOPPED.load(Ordering::Acquire) {
         return Err("Radio telemetry has stopped.".into());
     }
-    let owner = OWNER
-        .get_or_init(|| {
+    let index = crate::radio_slots::index(radio_id)?;
+    let mut owners = OWNERS.get_or_init(|| Mutex::new([None, None])).lock()
+        .map_err(|_| "Radio telemetry unavailable")?;
+    let owner = if let Some(owner) = owners[index].as_ref() { owner.clone() } else {
             let app = app.clone();
-            Arc::new(StationTelemetry::new(
+            let owner = Arc::new(StationTelemetry::new_for(
+                Some(radio_id),
                 Arc::new(|request| {
                     if request["method"] == "hamlib_snapshot" {
                         crate::hamlib::request(request)
@@ -369,9 +380,11 @@ pub fn owner(app: &tauri::AppHandle) -> Result<Arc<StationTelemetry>, String> {
                         );
                     }
                 }),
-            ))
-        })
-        .clone();
+            ));
+            owners[index] = Some(owner.clone());
+            owner
+        };
+    drop(owners);
     if STOPPED.load(Ordering::Acquire) {
         owner.stop();
         return Err("Radio telemetry has stopped.".into());
@@ -379,10 +392,16 @@ pub fn owner(app: &tauri::AppHandle) -> Result<Arc<StationTelemetry>, String> {
     owner.start();
     Ok(owner)
 }
+pub fn owner(app: &tauri::AppHandle) -> Result<Arc<StationTelemetry>, String> {
+    let radio_id = crate::radio_slots::active(app)?;
+    owner_for(app, &radio_id)
+}
 pub fn shutdown() {
     STOPPED.store(true, Ordering::Release);
-    if let Some(owner) = OWNER.get() {
-        owner.stop();
+    if let Some(owners) = OWNERS.get() {
+        if let Ok(owners) = owners.lock() {
+            for owner in owners.iter().flatten() { owner.stop(); }
+        }
     }
 }
 

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { hamlibManufacturers, loadHamlibCatalogue, type HamlibModel } from "./hamlibCatalogue";
-import { stationSessionRequest } from "./stationSession";
+import { stationSessionRequest, type RadioID } from "./stationSession";
 
 /** Shared filtering UI; browsing never changes the selected hardware. */
 export function HamlibModelPicker({ device, models, loading, selected, onSelect, labelPrefix }: {
@@ -22,9 +22,8 @@ export function HamlibModelPicker({ device, models, loading, selected, onSelect,
   </>;
 }
 
-const sharedCatalogue = () => stationSessionRequest<{ models: unknown[] }>({ action: "hamlib_catalogue" });
 /** Mount is passive. Only this explicit button requests the fixed native list. */
-export function SharedHamlibModelBrowser({ selected, onSelect }: { selected?: number; onSelect: (id: number) => void }) {
+export function SharedHamlibModelBrowser({ radioId, selected, onSelect }: { radioId: RadioID; selected?: number; onSelect: (id: number) => void }) {
   const [models, setModels] = useState<HamlibModel[]>([]), [loading, setLoading] = useState(false);
   const [attempted, setAttempted] = useState(false), [failed, setFailed] = useState(false);
   const sequence = useRef(0), inFlight = useRef(false);
@@ -34,7 +33,7 @@ export function SharedHamlibModelBrowser({ selected, onSelect }: { selected?: nu
     inFlight.current = true; const current = ++sequence.current;
     setLoading(true); setAttempted(true); setFailed(false);
     try {
-      const next = await loadHamlibCatalogue(sharedCatalogue, "radio", true);
+      const next = await loadHamlibCatalogue(() => stationSessionRequest<{ models: unknown[] }>(radioId, { action: "hamlib_catalogue" }), "radio", true);
       if (sequence.current === current) { setModels(next); setFailed(!next.length); }
     } catch { if (sequence.current === current) { setModels([]); setFailed(true); } }
     finally { inFlight.current = false; if (sequence.current === current) setLoading(false); }

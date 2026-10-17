@@ -79,7 +79,7 @@ public actor LiveWorker {
     }
     private let powerCapture: NativeDraftPowerGate
     private let powerDelivery: NativeDraftPowerDelivery
-    private var powerSelectionSequence: UInt64 = 0
+    private var powerSelectionSequence: [String: UInt64] = ["radio1": 0, "radio2": 0]
     private let logbookLane: LogbookLane
     private let contestLane: ContestLane?
     private let contestLaneInitializationError: ContestLaneError?
@@ -338,7 +338,10 @@ public actor LiveWorker {
                 guard let contestLane else { throw WorkerFailure("contest_unavailable", "The isolated contest store is unavailable.") }
                 result = try await contestLane.handle(method: method, params: params)
             } else if method == "station_power_selection" {
-                guard !terminalShutdown, Set(params.keys) == ["provider", "selection_id", "sequence"],
+                guard !terminalShutdown,
+                      Set(params.keys) == ["radio_id", "provider", "selection_id", "sequence"],
+                      let radioID = params["radio_id"] as? String,
+                      ["radio1", "radio2"].contains(radioID),
                       let sequenceValue = params["sequence"],
                       let sequenceData = try? JSONSerialization.data(withJSONObject: [sequenceValue]),
                       let sequence = try? JSONDecoder().decode([UInt64].self, from: sequenceData).first,
@@ -360,8 +363,8 @@ public actor LiveWorker {
                 // select() revokes the emission/commit lease synchronously.
                 // DB metadata cleanup is queued, never a prerequisite for a
                 // radio disconnect while a long import holds the logbook lane.
-                if sequence > powerSelectionSequence {
-                    powerSelectionSequence = sequence
+                if sequence > powerSelectionSequence[radioID, default: 0] {
+                    powerSelectionSequence[radioID] = sequence
                     powerCapture.select(provider: selectedProvider, selectionID: selectionID)
                     result = ["accepted": true]
                 } else {

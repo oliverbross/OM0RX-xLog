@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { TCIReceiveFilter } from "./TCIReceiveFilter";
 import { TCISplitObservation } from "./TCISplitObservation";
+import type { RadioID } from "./stationSession";
 type Data = Record<string, any>;
-export function TCIObservation({ snapshot, now }: { snapshot: Data | null; now?: number }) {
+export function TCIObservation({ radioId, snapshot, now }: { radioId: RadioID; snapshot: Data | null; now?: number }) {
   const [clock, setClock] = useState(Date.now);
   useEffect(() => { if (now !== undefined) return; const timer = setInterval(() => setClock(Date.now()), 1000); return () => clearInterval(timer); }, [now]);
   const radio = snapshot?.radio, current = now ?? clock;
@@ -13,5 +14,5 @@ export function TCIObservation({ snapshot, now }: { snapshot: Data | null; now?:
   return <><p role="status">{fresh ? "TCI observation current · receive controls require native checks." : "TCI observation unavailable or stale · retained values are read only."}</p>
     <p>{fresh ? "Observed receive" : "Retained receive"}: {frequency} · {radio?.mode || "Mode unavailable"}</p>
     <TCISplitObservation snapshot={snapshot} fresh={fresh} now={current} />
-    <TCIReceiveFilter snapshot={snapshot} now={current} /></>;
+    <TCIReceiveFilter radioId={radioId} snapshot={snapshot} now={current} /></>;
 }

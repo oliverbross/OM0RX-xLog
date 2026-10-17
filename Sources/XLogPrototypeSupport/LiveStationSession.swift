@@ -199,8 +199,10 @@ actor LiveStationSession {
     static let shared = LiveStationSession()
     private let rotor: LiveRotorSession
     private let receiveReadbackTimeout: Duration
+    private let radioID: String
 
-    init(rotor: LiveRotorSession = .shared, receiveReadbackTimeout: Duration = .seconds(4)) {
+    init(radioID: String = "radio1", rotor: LiveRotorSession = .shared, receiveReadbackTimeout: Duration = .seconds(4)) {
+        self.radioID = radioID
         self.rotor = rotor
         self.receiveReadbackTimeout = receiveReadbackTimeout
     }
@@ -294,7 +296,7 @@ actor LiveStationSession {
             } else {
                 transmit = false
             }
-            let keychain = StationAgentKeychain(endpoint: endpoint)
+            let keychain = StationAgentKeychain(endpoint: endpoint, radioID: radioID)
             let token = try enteredToken?.trimmingCharacters(in: .whitespacesAndNewlines)
                 ?? credentialCache.resolve(endpoint: endpoint, interactionAllowed: false) {
                     try keychain.load(interactionAllowed: $0)
@@ -398,7 +400,7 @@ actor LiveStationSession {
                 await shutdown()
             }
             try requireActive()
-            try StationAgentKeychain(endpoint: endpoint).delete()
+            try StationAgentKeychain(endpoint: endpoint, radioID: radioID).delete()
             credentialCache.invalidate(endpoint: endpoint)
             return ["forgotten": true]
 
@@ -1256,15 +1258,25 @@ actor LiveStationSession {
 private struct StationAgentKeychain {
     private let service = "com.oliverbross.OM0RXXLog.remote-agent"
     private let account: String
+    private let legacyAccount: String?
 
-    init(endpoint: String) {
-        account = SHA256.hash(data: Data(endpoint.lowercased().utf8))
+    init(endpoint: String, radioID: String) {
+        let digest = SHA256.hash(data: Data(endpoint.lowercased().utf8))
             .map { String(format: "%02x", $0) }.joined()
+        account = radioID + ":" + digest
+        legacyAccount = radioID == "radio1" ? digest : nil
     }
 
     func load(interactionAllowed: Bool) throws -> String? {
         var item: CFTypeRef?
-        let status = SecItemCopyMatching(query(returnData: true, interactionAllowed: interactionAllowed) as CFDictionary, &item)
+        var status = SecItemCopyMatching(query(returnData: true, interactionAllowed: interactionAllowed) as CFDictionary, &item)
+        if status == errSecItemNotFound, let legacyAccount {
+            status = SecItemCopyMatching(query(account: legacyAccount, returnData: true, interactionAllowed: interactionAllowed) as CFDictionary, &item)
+            if status == errSecSuccess, let data = item as? Data, let token = String(data: data, encoding: .utf8) {
+                try save(token)
+                return token
+            }
+        }
         if status == errSecItemNotFound { return nil }
         guard status == errSecSuccess, let data = item as? Data,
               let token = String(data: data, encoding: .utf8) else {
@@ -1294,12 +1306,18 @@ private struct StationAgentKeychain {
         guard status == errSecSuccess || status == errSecItemNotFound else {
             throw WorkerFailure("station_credentials_unavailable", "Station credentials could not be removed.")
         }
+        if let legacyAccount {
+            let legacyStatus = SecItemDelete(query(account: legacyAccount) as CFDictionary)
+            guard legacyStatus == errSecSuccess || legacyStatus == errSecItemNotFound else {
+                throw WorkerFailure("station_credentials_unavailable", "Station credentials could not be removed.")
+            }
+        }
     }
 
-    private func query(returnData: Bool = false, interactionAllowed: Bool = false) -> [String: Any] {
+    private func query(account selectedAccount: String? = nil, returnData: Bool = false, interactionAllowed: Bool = false) -> [String: Any] {
         var fields: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
                                      kSecAttrService as String: service,
-                                     kSecAttrAccount as String: account]
+                                     kSecAttrAccount as String: selectedAccount ?? account]
         if returnData {
             fields[kSecReturnData as String] = true
             fields[kSecMatchLimit as String] = kSecMatchLimitOne

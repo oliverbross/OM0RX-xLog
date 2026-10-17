@@ -52,7 +52,7 @@ struct NativeDraftPowerCaptureTests {
         let delivery = NativeDraftPowerDelivery()
         let worker = LiveWorker(logbook: service, powerCapture: gate, powerDelivery: delivery)
         await worker.startPowerCapture(registerStation: false)
-        _ = try await request(worker, "station_power_selection", ["provider": "direct_agent", "selection_id": UUID().uuidString, "sequence": 1])
+        _ = try await request(worker, "station_power_selection", ["radio_id": "radio1", "provider": "direct_agent", "selection_id": UUID().uuidString, "sequence": 1])
         gate.attach(sourceID: source, endpointID: "fixture")
         gate.connection(sourceID: source, sequence: 1, sessionID: session, startedAt: Date().addingTimeInterval(-1), ready: true)
         await worker.drainPowerCapture()
@@ -123,7 +123,7 @@ struct NativeDraftPowerCaptureTests {
     @Test("Provider fence and terminal shutdown retire emission/commit eligibility")
     func lifecycle() async throws {
         try await fixture { worker, service, gate, source, session, _ in
-        _ = try await request(worker, "station_power_selection", ["provider": NSNull(), "selection_id": NSNull(), "sequence": 2])
+        _ = try await request(worker, "station_power_selection", ["radio_id": "radio1", "provider": NSNull(), "selection_id": NSNull(), "sequence": 2])
             await worker.drainPowerCapture()
             let before = try service.powerOwnerSnapshot()
             try emit(gate, source: source, session: session, watts: 500)

@@ -261,7 +261,7 @@ it("keeps service fields and credentials mounted across Workspace and saves layo
   expect(request.mock.calls).toEqual([["secret_status"]]);
   fireEvent.click(screen.getByRole("tab", { name: "Wavelog" }));
   expect(input("Wavelog API v2 token")).toBe(token); expect(token.value).toBe("unit-test-draft-token");
-  fireEvent.click(screen.getByRole("tab", { name: "Station" }));
+  fireEvent.click(screen.getByRole("tab", { name: "General" }));
   expect(input("Operator call")).toBe(operator); expect(operator.value).toBe("W1AW");
   fireEvent.click(button("Save settings"));
   await waitFor(() => expect(request).toHaveBeenCalledWith("settings_save", { settings: {

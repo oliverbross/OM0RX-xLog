@@ -5,6 +5,8 @@ import { ManualSimplexTune } from "./ManualSimplexTune";
 import { TCISplitObservation } from "./TCISplitObservation";
 import { ManualRotorControl, ManualRotorStatus } from "./ManualRotorControl";
 import { manualRotorGotoSession, type ManualRotorGotoSession } from "./manualRotorGoto";
+import { listen } from "@tauri-apps/api/event";
+import { loadStationSession, type RadioID } from "./stationSession";
 import "./StationPanel.css";
 import "./DetachedStationControlSurface.css";
 
@@ -61,6 +63,15 @@ export function StationControlSurface({ connect = connectMonitorContext, configu
   </main></div>;
 }
 export function DetachedStationControlSurface() {
-  return <StationControlSurface rotorControls configuration={new URLSearchParams(location.search).get("acceptance") === "local" ? undefined : context => <><AgentConnectionSetup connections providers followSelection compact receiveContext={context} />
-    {context?.selection?.provider && <ManualSimplexTune provider={context.selection.provider} context={context} />}</>} />;
+  const localAcceptance = new URLSearchParams(location.search).get("acceptance") === "local";
+  const [radioId, setRadioId] = useState<RadioID | null>(localAcceptance ? "radio1" : null);
+  useEffect(() => {
+    if (localAcceptance) return;
+    let active = true, stop: (() => void) | undefined;
+    const refresh = () => { void loadStationSession("radio1").then(value => { if (active) setRadioId(value.active_radio); }).catch(() => {}); };
+    void listen("xlog:station-session", refresh).then(dispose => { if (active) { stop = dispose; refresh(); } else dispose(); }).catch(() => {});
+    return () => { active = false; stop?.(); };
+  }, [localAcceptance]);
+  return <StationControlSurface rotorControls configuration={localAcceptance ? undefined : context => radioId ? <><AgentConnectionSetup key={`${radioId}-setup`} radioId={radioId} connections providers followSelection compact receiveContext={context} />
+    {context?.selection?.provider && <ManualSimplexTune key={`${radioId}-tune`} radioId={radioId} provider={context.selection.provider} context={context} />}</> : <p role="status">Loading active radio routing…</p>} />;
 }

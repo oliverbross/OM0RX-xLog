@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, useS
 import { nativeSpotEditor, useSpotEditor } from "./live/useSpotEditor";
 import { activationDisablesFollow, validSpotActivationSnapshot } from "./live/spotActivation";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { manualTuneSession } from "./live/manualTune";
 import { manualRotorGotoSession } from "./live/manualRotorGoto";
 import { loadReadRadioJournal, type ReadRadioJournal } from "./live/readRadioJournal";
@@ -60,6 +61,7 @@ import { DeskMapLogbook } from "./live/DeskMapLogbook";
 import SyncPanel from "./live/SyncPanel";
 import { watchSyncCompletion } from "./live/syncCompletion";
 import ServiceSettings from "./live/ServiceSettings";
+import RadioSettings from "./live/RadioSettings";
 import { SettingsSession, readSettingsJournal, settingsDraftIsDirty } from "./live/settingsSession";
 import { connectSettingsChanges, requestSettings } from "./live/settingsTransport";
 import { clearLegacyRotorConfiguration, legacyRotorConfiguration, readRotorConfigurationJournal,
@@ -91,6 +93,7 @@ import { amplifierTransitionSession } from "./live/amplifierTransition";
 import { AmplifierTransitionStatus } from "./live/AmplifierTransitionStatus";
 import { AgentConnectionSetup } from "./live/AgentConnectionSetup";
 import { TCIObservation } from "./live/TCIObservation";
+import { loadStationSession, type RadioID } from "./live/stationSession";
 import { providerAllowsCWDesk } from "./live/cwVisibility";
 import { clearConnectedHandoverMessage, rotorCommandParams, rotorProjection, validRotorSnapshot, type RotorSnapshot } from "./live/rotorControl";
 import type { ContestRequest } from "./contesting/types";
@@ -206,8 +209,9 @@ function MainLiveApp() {
   const logbookWorkingRef = useRef(false);
   const [logbookWorking, setLogbookWorking] = useState(false);
   const logbookWorkingChanged = useCallback((value: boolean) => { logbookWorkingRef.current = value; setLogbookWorking(value); }, []);
-  type MenuSettingsTab = "Station" | "Logbook" | "Wavelog" | "Sync" | "QRZ" | "Online logs" | "Reference data";
+  type MenuSettingsTab = "Station" | "Radio" | "Logbook" | "Wavelog" | "Sync" | "QRZ" | "Online logs" | "Reference data";
   const [settingsTabRequest, setSettingsTabRequest] = useState<{ tab: MenuSettingsTab; revision: number }>({ tab: "Station", revision: 0 });
+  const [radioSettingsRequest, setRadioSettingsRequest] = useState<{ radioId: RadioID; revision: number }>({ radioId: "radio1", revision: 0 });
   const [workspace, setWorkspace] = useState<Data | null>(null);
   const workspaceRef = useRef(workspace); workspaceRef.current = workspace;
   const [workspacePending, setWorkspacePending] = useState(true);
@@ -295,7 +299,16 @@ function MainLiveApp() {
     draftSession.setLocalInputPending(!contactSession.getSnapshot().draft && pending);
   }, [draftSession, contactSession]);
   const setView = useCallback((next: string) => {
-    if (next === viewRef.current) return true;
+    const radioSettingsRoute = next === "Station Control" || next === "Radio 1 Settings" || next === "Radio 2 Settings";
+    const requestedRadioId: RadioID = next === "Radio 2 Settings" ? "radio2" : "radio1";
+    if (radioSettingsRoute) next = "Settings";
+    if (next === viewRef.current) {
+      if (radioSettingsRoute) {
+        setSettingsTabRequest(previous => ({ tab: "Radio", revision: previous.revision + 1 }));
+        setRadioSettingsRequest(previous => ({ radioId: requestedRadioId, revision: previous.revision + 1 }));
+      }
+      return true;
+    }
     if (next === contestTitle && contestCapabilityRef.current !== "available") {
       if (contestCapabilityRef.current === "unavailable")
         setError("Contesting requires the isolated OM0RX-xLog Contesting Test runtime.");
@@ -310,6 +323,10 @@ function MainLiveApp() {
       setError("Finish the buffered draft fields and check any pending activation before changing views. Your text is retained."); return false;
     }
     viewRef.current = next; writeView(next);
+    if (radioSettingsRoute) {
+      setSettingsTabRequest(previous => ({ tab: "Radio", revision: previous.revision + 1 }));
+      setRadioSettingsRequest(previous => ({ radioId: requestedRadioId, revision: previous.revision + 1 }));
+    }
     return true;
   }, [draftSession, contactSession]);
   const [draftUpdateHealth] = useState(() => ownDraftUpdateWarnings(setError));
@@ -449,6 +466,7 @@ function MainLiveApp() {
   const providerGeneration = useRef(-1);
   const providerReadyRef = useRef(!nativeStationSelection());
   const [providerReady, setProviderReady] = useState(providerReadyRef.current);
+  const [activeRadio, setActiveRadio] = useState<RadioID | null>(() => nativeStationSelection() ? null : "radio1");
   const selection = useRef(0);
   const activationStarted = useRef(false);
   const spotPreparation = useRef<Promise<void> | null>(null);
@@ -468,15 +486,38 @@ function MainLiveApp() {
     };
     window.addEventListener("storage", changed); return () => window.removeEventListener("storage", changed);
   }, []);
-  useEffect(() => connectStationSelection(savedProvider, value => {
+  useEffect(() => {
+    if (!nativeStationSelection()) return;
+    let active = true, reading = false, again = false, stop: (() => void) | undefined;
+    const refresh = async () => {
+      if (reading) { again = true; return; }
+      reading = true;
+      do {
+        again = false;
+        try { const session = await loadStationSession("radio1"); if (active) setActiveRadio(session.active_radio); }
+        catch (cause) { if (active) setError(cause instanceof Error ? cause.message : "Active radio routing is unavailable."); }
+      } while (active && again);
+      reading = false;
+    };
+    void listen("xlog:station-session", () => { void refresh(); }).then(dispose => { if (active) { stop = dispose; void refresh(); } else dispose(); })
+      .catch(cause => { if (active) setError(cause instanceof Error ? cause.message : "Active radio routing events are unavailable."); });
+    return () => { active = false; stop?.(); };
+  }, []);
+  useEffect(() => {
+    if (!nativeStationSelection() || !activeRadio) return;
+    selection.current++; pendingTune.current = false; setStation(null);
+    providerGeneration.current = -1; providerReadyRef.current = false; setProviderReady(false);
+    return connectStationSelection(activeRadio, activeRadio === "radio1" ? savedProvider : null, value => {
     if (value.generation < providerGeneration.current) return;
+    if (!value.provider) { providerGeneration.current = value.generation; providerReadyRef.current = false; setProviderReady(false); return; }
     const changed = provider.current !== value.provider;
     if (changed) {
       selection.current++; pendingTune.current = false; disarmAutoRotor(); setStation(null);
       provider.current = value.provider; setStationProvider(value.provider); setViewProvider(value.provider);
     }
     providerGeneration.current = value.generation; providerReadyRef.current = true; setProviderReady(true);
-  }, message => { providerReadyRef.current = false; setProviderReady(false); setError(message); }) ?? undefined, []);
+    }, message => { providerReadyRef.current = false; setProviderReady(false); setError(message); }) ?? undefined;
+  }, [activeRadio, disarmAutoRotor, savedProvider]);
   const request: Request = useCallback(async (method, params = {}) => {
     try {
       if (method === "cluster_connect" || method === "cluster_disconnect") {
@@ -542,7 +583,8 @@ function MainLiveApp() {
         }
       }
       const isStation = method.startsWith("station_");
-      if (!providerReadyRef.current && (isStation || method.startsWith("hamlib_") && params.device === "radio"))
+      const radioId = activeRadio;
+      if ((!radioId || !providerReadyRef.current) && (isStation || method.startsWith("hamlib_") && params.device === "radio"))
         throw new Error("Wait for the shared radio selection to load before using the radio.");
       if (providerTransition.current && ((isStation && method !== "station_snapshot") || method === "hamlib_connect" || method === "hamlib_reconnect" || method === "hamlib_control"))
         throw new Error("Wait for station handover to finish before sending another control.");
@@ -554,10 +596,10 @@ function MainLiveApp() {
         if(requestedProvider!=="direct_agent")throw new Error("Amplifier controls require the Agent.");
         return amplifierTransitionSession().transition(params.action as "operate"|"standby");
       }
-      if (method === "station_tune" && nativeStationSelection()) return manualTuneSession().tune(requestedProvider, params.frequency_hz as number, params.mode as string);
+      if (method === "station_tune" && nativeStationSelection()) return manualTuneSession(radioId!).tune(requestedProvider, params.frequency_hz as number, params.mode as string);
       const result = isStation && requestedProvider === "hamlib"
-        ? await hamlibStationRequest(method, params, async (name, args) => (await workerRequest(name, args)).result as Data)
-        : (await workerRequest(method, isStation ? { provider: provider.current, ...params } : params)).result as Data;
+        ? await hamlibStationRequest(method, params, async (name, args) => (await workerRequest(name, { radio_id: radioId, ...args })).result as Data)
+        : (await workerRequest(method, isStation ? { radio_id: radioId, provider: provider.current, ...params } : params)).result as Data;
       if (method.startsWith("cluster_") && result?.snapshot && clusterEpoch === clusterMutationEpoch.current) {
         setCluster(result);
         if (result.resume_error) setError(String(result.resume_error));
@@ -570,7 +612,7 @@ function MainLiveApp() {
       }
       return result;
     } catch (e) { throw new Error(e instanceof Error ? e.message : "Operation failed"); }
-  }, [disarmAutoRotor]);
+  }, [activeRadio, disarmAutoRotor]);
   const panelRequest = useDeferredPanelReads(request, refresh,
     workspace?.workspace_exists === true && !workspacePending && view !== "Chaser & DX" && !separateWindows);
   const referenceEvidence = useReferenceEvidence(draft, (contactEdit.draft ? contactEdit.base : sharedDraft.base)?.generation, request, refresh);
@@ -696,7 +738,7 @@ function MainLiveApp() {
     selection.current++; pendingTune.current = false; disarmAutoRotor();
     setBusy(true); setError("");
     try {
-      await retireStationProvider(provider.current, async (method, params) => workerRequest(method, params));
+        await retireStationProvider(provider.current, async (method, params) => workerRequest(method, { radio_id: activeRadio, ...params }));
       localStorage.setItem("xlog.integration.provider", next);
       provider.current = next; setStationProvider(next);
       setStation(null);
@@ -824,7 +866,7 @@ function MainLiveApp() {
     }
   }, [sharedDraft.workspaceChanged, sharedDraft.conflict, sharedDraft.pending?.operationID, sharedDraft.error, disarmAutoRotor]);
   useEffect(() => {
-    if (!providerReady) return;
+    if (!providerReady || !activeRadio) return;
     let disposed = false;
     const observe = (state: Data) => {
       if (disposed || state.source !== provider.current) return;
@@ -843,7 +885,7 @@ function MainLiveApp() {
     const unavailable = () => {
       if (!disposed) setStation(s => s ? { ...s, available: false, radio: { ...s.radio, connected: false, observed: false }, connection_error: "Station connection unavailable" } : null);
     };
-    const stopTelemetry = connectStationTelemetry(stationProvider, observe, unavailable, () => selection.current);
+    const stopTelemetry = connectStationTelemetry(activeRadio, stationProvider, observe, unavailable, () => selection.current);
     if (stopTelemetry) return () => { disposed = true; stopTelemetry(); };
     // Browser fixtures have no native telemetry owner.
     const pollStation = async () => {
@@ -862,7 +904,7 @@ function MainLiveApp() {
     };
     void pollStation(); const timer = setInterval(() => void pollStation(), stationProvider === "hamlib" ? 1000 : 250);
     return () => { disposed = true; clearInterval(timer); };
-  }, [request, stationProvider, providerReady]);
+  }, [request, stationProvider, providerReady, activeRadio]);
   useEffect(() => {
     let disposed = false;
     const pollCluster = async () => {
@@ -1082,7 +1124,7 @@ function MainLiveApp() {
   const contestView = view === contestTitle && contestCapability === "available" && workspace?.workspace_exists === true;
   const displayedSeparateWindows = separateWindows && !contestView;
   const navigation = workspaceMenuScreensFor({ contesting: contestCapability === "available" && workspace?.workspace_exists === true })
-    .map(screen => [screen.title, screenIcons[screen.id] ?? Award] as const);
+    .map(screen => [screen.title, screenIcons[screen.id] ?? Award, screen.group] as const);
   return <div className="app live">
     <header className="station-rail main-station-rail"><strong className="brand teal"><img src={appLogo} alt="" width={32} height={32} />OM0RX-xLog</strong><strong className="cyan rail-frequency">{frequency(station?.radio?.frequency_hz)} MHz · {station?.radio?.mode || "Radio offline"}</strong>
       <span className={station?.radio?.connected ? "teal" : "amber"}>{station?.radio?.connected ? "Connected" : "Disconnected"}</span>
@@ -1091,7 +1133,7 @@ function MainLiveApp() {
       {workspace?.workspace_exists && <SharedPropagationConditions compact request={request} weatherKey={settings?.gridSquare || ""} />}
       <span className="rail-end">{stats?.stats?.qso_count?.toLocaleString() ?? "—"} contacts · Integrated logbook</span>
     </header>
-    <aside className="sidebar" style={displayedSeparateWindows ? { display: "none" } : undefined}><nav>{navigation.map(([name, Icon], i) => <div key={name}>{(i === 0 || name === "Station Control" || name === contestTitle) && <div className="nav-group">{i === 0 ? "Station log" : name === contestTitle ? "Contesting" : "Services"}</div>}<button aria-current={view === name ? "page" : undefined} onClick={() => setView(name)}><Icon size={17} />{name}</button></div>)}</nav>
+    <aside className="sidebar" style={displayedSeparateWindows ? { display: "none" } : undefined}><nav>{navigation.map(([name, Icon, group], i) => <div key={name}>{(i === 0 || navigation[i - 1][2] !== group) && <div className="nav-group">{group === "Logbook" ? "Station log" : group === "View" ? "Explore" : group === "Contesting" ? "Contesting" : group === "Station" ? "Services" : "Application"}</div>}<button aria-current={view === name ? "page" : undefined} onClick={() => setView(name)}><Icon size={17} />{name}</button></div>)}</nav>
       <SidebarStation snapshot={stationWithRotor} provider={stationProvider} busy={busy} onAction={action => {
         if(nativeStationSelection())void amplifierTransitionSession().transition(action as "operate"|"standby").catch(()=>{});
         else void run(async()=>{await request("station_action",{action});});
@@ -1137,7 +1179,7 @@ function MainLiveApp() {
         {view === "Settings" && <section className="service-settings" aria-label="Settings recovery">
           <h2>Settings</h2>
           <p>Radio connection setup is available below. Logbook settings will be available after your workspace reconnects.</p>
-          <AgentConnectionSetup providers connections followSelection />
+          {activeRadio ? <AgentConnectionSetup key={activeRadio} radioId={activeRadio} providers connections followSelection /> : <p role="status">Loading active radio routing…</p>}
         </section>}
         <WorkspaceGate workspace={workspace} pending={workspacePending} busy={busy}
           retry={() => void run(reload)} create={mode => void run(async () => { await request("workspace_create", { mode }); await reload(); })} />
@@ -1185,12 +1227,12 @@ function MainLiveApp() {
       {view === "Station Control" && <><div className="live-tabs" role="group" aria-label="Station sections">{["Control and connections", "RUMlog spots", "WSJT-X logging"].map(section => <button key={section} aria-pressed={stationSection === section} onClick={() => setStationSection(section)}>{section}</button>)}</div>
         {stationSection === "RUMlog spots" ? <SpotBridgePanel request={request} provider={stationProvider} /> : stationSection === "WSJT-X logging" ? <WSJTXPanel request={request} onImported={() => setRefresh(n => n + 1)} /> : <><div className="live-station-provider" role="group" aria-label="Radio connection type">
         {([ ["direct_agent", "Remote station · embedded xCat"], ["direct_flex_lan", "Direct FLEX · LAN"], ["direct_tci", "Direct TCI · read only"], ["hamlib", "Local station · Hamlib"] ] as const).map(([id, label]) => <button key={id} className={viewProvider === id ? "selected" : ""} aria-pressed={viewProvider === id} disabled={busy} onClick={() => setViewProvider(id)}>{label}</button>)}
-        {nativeStationSelection() ? <AgentConnectionSetup providers onlySelection selectionTarget={viewProvider} activeProvider={stationProvider} /> : <>{viewProvider !== stationProvider && <button type="button" disabled={busy} onClick={() => void applyProvider()}>Use {radioProviderLabels[viewProvider]}</button>}<span>Active · {radioProviderLabels[stationProvider]}</span></>}
+        {nativeStationSelection() ? activeRadio && <AgentConnectionSetup key={activeRadio} radioId={activeRadio} providers onlySelection selectionTarget={viewProvider} activeProvider={stationProvider} /> : <>{viewProvider !== stationProvider && <button type="button" disabled={busy} onClick={() => void applyProvider()}>Use {radioProviderLabels[viewProvider]}</button>}<span>Active · {radioProviderLabels[stationProvider]}</span></>}
         </div>
         {viewProvider === "direct_tci" ? <section className="live-station" aria-label="Direct TCI observations"><h2>Direct TCI · read only</h2>
-          {stationProvider === viewProvider ? <><AgentConnectionSetup followSelection connections /><TCIObservation snapshot={station} /></> : <p>Apply Direct TCI selection to review its saved configuration.</p>}</section> : viewProvider === "hamlib" ? <HamlibPanel request={viewedStationRequest} snapshot={stationProvider === viewProvider ? station : null} /> :
-          viewProvider === "direct_flex_lan" ? <DirectFlexPanel request={viewedStationRequest} snapshot={stationProvider === viewProvider ? station : null} /> :
-          <StationPanel snapshot={stationProvider === viewProvider ? station : null} onRequest={viewedStationRequest} onSnapshot={value => { if (stationProvider === viewProvider && provider.current === viewProvider) setStation(value); }} independentRotor />}</>}</>}
+          {stationProvider === viewProvider && activeRadio ? <><AgentConnectionSetup key={activeRadio} radioId={activeRadio} followSelection connections /><TCIObservation key={activeRadio} radioId={activeRadio} snapshot={station} /></> : <p>Apply Direct TCI selection to review its saved configuration.</p>}</section> : activeRadio && viewProvider === "hamlib" ? <HamlibPanel key={activeRadio} radioId={activeRadio} request={viewedStationRequest} snapshot={stationProvider === viewProvider ? station : null} /> :
+          activeRadio && viewProvider === "direct_flex_lan" ? <DirectFlexPanel key={activeRadio} radioId={activeRadio} request={viewedStationRequest} snapshot={stationProvider === viewProvider ? station : null} /> :
+          activeRadio ? <StationPanel key={activeRadio} radioId={activeRadio} snapshot={stationProvider === viewProvider ? station : null} onRequest={viewedStationRequest} onSnapshot={value => { if (stationProvider === viewProvider && provider.current === viewProvider) setStation(value); }} independentRotor /> : <p role="status">Loading active radio routing…</p>}</>}</>}
       {view === "Awards" && <IntegratedAwards request={panelRequest} refresh={refresh} initialStats={stats?.awards} onUndock={() => void openDetachedAwards().catch(cause => setError(cause.message))} />}
       {view === "Settings" && settings && <ServiceSettings values={settings} savedValues={settingsState.base?.settings} request={request}
         onChanged={value => settingsSession.edit(value)} onSave={async value => { await settingsSession.save(value); await draftSession.refresh(); }}
@@ -1199,7 +1241,7 @@ function MainLiveApp() {
         onReconcile={async () => { try { await settingsSession.reconcile(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Settings receipt could not be checked."); } }}
         onRetry={async () => { try { await settingsSession.retry(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Settings save could not be retried."); } }}
         onUseSaved={() => { try { settingsSession.useSaved(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Saved Settings could not be restored."); } }}
-        requestedTab={settingsTabRequest.tab} requestedTabRevision={settingsTabRequest.revision} syncSettings={settings.logbookMode === "local" ? <p>Integrated-only mode. Wavelog synchronization is disabled. Choose Integrated logbook + Wavelog synchronization in Settings → Logbook to enable it.</p> : <SyncPanel request={request} onChanged={() => setRefresh(n => n + 1)} />} onExternalContact={() => setRefresh(n => n + 1)} cwContext={cwContext} cwState={cw.state} cwProvider={stationProvider} refreshCW={() => cw.controller.pollWinKeyer()} rotorSettings={<RotorPanel snapshot={rotorState} request={request} onManual={disarmAutoRotor} configurationSession={rotorConfigurationSession} automaticRotorArmed={autoRotor} automaticRotorAvailable={!!nativeAutoRotor.state && !nativeAutoRotor.error && !!rotorState?.owner && Number.isSafeInteger(rotorState.generation)} automaticRotorError={nativeAutoRotor.error} onAutomaticRotorChange={setAutomaticRotor} />} clusterSettings={<ClusterPanel settingsOnly snapshot={null} onRequest={request} onSelect={() => {}} />} workspaceSettings={<WorkspaceSettings {...deskLayout} equipment={deskKind === "none" ? undefined : deskKind} requiredRotor={deskKind === "rotor" && !!rotorState?.owner} available={["active-qso", "callsign-intelligence", "world-map", "band-maps", "dx-cluster", "logbook", "awards", "chaser-dx", "spot-history", ...(deskKind === "none" ? [] : [deskKind] as ("rotor" | "antenna")[])]} />} dataRequest={dataManagementRequest} onDataChanged={() => { setDraft(null); setStats(null); latestWorkspacePreferences.current = null; setWorkspacePreferences(null); setRefresh(n => n + 1); }} />}
+        requestedTab={settingsTabRequest.tab} requestedTabRevision={settingsTabRequest.revision} radioSettings={<RadioSettings requestedRadioId={radioSettingsRequest.radioId} requestedRadioRevision={radioSettingsRequest.revision} />} syncSettings={settings.logbookMode === "local" ? <p>Integrated-only mode. Wavelog synchronization is disabled. Choose Integrated logbook + Wavelog synchronization in Settings → Logbook to enable it.</p> : <SyncPanel request={request} onChanged={() => setRefresh(n => n + 1)} />} onExternalContact={() => setRefresh(n => n + 1)} cwContext={cwContext} cwState={cw.state} cwProvider={stationProvider} refreshCW={() => cw.controller.pollWinKeyer()} rotorSettings={<RotorPanel snapshot={rotorState} request={request} onManual={disarmAutoRotor} configurationSession={rotorConfigurationSession} automaticRotorArmed={autoRotor} automaticRotorAvailable={!!nativeAutoRotor.state && !nativeAutoRotor.error && !!rotorState?.owner && Number.isSafeInteger(rotorState.generation)} automaticRotorError={nativeAutoRotor.error} onAutomaticRotorChange={setAutomaticRotor} />} clusterSettings={<ClusterPanel settingsOnly snapshot={null} onRequest={request} onSelect={() => {}} />} workspaceSettings={<WorkspaceSettings {...deskLayout} equipment={deskKind === "none" ? undefined : deskKind} requiredRotor={deskKind === "rotor" && !!rotorState?.owner} available={["active-qso", "callsign-intelligence", "world-map", "band-maps", "dx-cluster", "logbook", "awards", "chaser-dx", "spot-history", ...(deskKind === "none" ? [] : [deskKind] as ("rotor" | "antenna")[])]} />} dataRequest={dataManagementRequest} onDataChanged={() => { setDraft(null); setStats(null); latestWorkspacePreferences.current = null; setWorkspacePreferences(null); setRefresh(n => n + 1); }} />}
       </>}
       </>}
       </WorkspaceModeSurface>

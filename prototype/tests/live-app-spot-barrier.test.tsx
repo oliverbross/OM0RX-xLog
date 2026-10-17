@@ -38,7 +38,7 @@ vi.mock("../src/live/operatorDraftWindows", async original => ({ ...await origin
     host.close = { blocked, explain, closing, command }; return () => { host.close = undefined; };
   } }));
 vi.mock("../src/live/useAutoRotor", () => ({ useAutoRotor: () => ({ state: null, error: "", set: vi.fn().mockResolvedValue(undefined), refresh: vi.fn() }) }));
-vi.mock("../src/live/stationTelemetry", () => ({ connectStationTelemetry: (_provider: string, changed: (value: any) => void) => {
+vi.mock("../src/live/stationTelemetry", () => ({ connectStationTelemetry: (_radioId: string, _provider: string, changed: (value: any) => void) => {
   host.telemetry = changed; return () => { host.telemetry = undefined; };
 } }));
 vi.mock("../src/live/useSpotActivation", () => ({ useSpotActivation: () => ({ status: null, error: "", requesting: false, activate: host.activate, reconcile: vi.fn() }) }));

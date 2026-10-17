@@ -268,9 +268,15 @@ it("native menu navigation preserves the draft and never changes equipment or st
     ? Promise.resolve({ result: { qsos: [], total: 0, offset: 0, limit: 20 } }) : backend(method, params));
   render(<LiveApp />);
   fireEvent.change(await screen.findByLabelText("Callsign"), { target: { value: "K1ABC" } });
-  for (const title of ["Settings", "Logbook", "Station Control", "Log QSO", "Operator Desk"]) {
+  for (const title of ["Settings", "Logbook", "Station Control", "Radio 2 Settings", "Radio 1 Settings", "Log QSO", "Operator Desk"]) {
     await act(async () => nativeMenu.route?.(title));
-    expect(screen.getByRole("main", { name: title })).toBeTruthy();
+    const settingsRoute = title === "Station Control" || title === "Radio 1 Settings" || title === "Radio 2 Settings";
+    expect(screen.getByRole("main", { name: settingsRoute ? "Settings" : title })).toBeTruthy();
+    if (settingsRoute) {
+      expect(screen.getByRole("tab", { name: "Radio" }).getAttribute("aria-selected")).toBe("true");
+      const requestedRadio = title === "Radio 2 Settings" ? "Radio 2" : "Radio 1";
+      expect(screen.getByRole("tab", { name: requestedRadio }).getAttribute("aria-selected")).toBe("true");
+    }
   }
   expect((screen.getByLabelText("Callsign") as HTMLInputElement).value).toBe("K1ABC");
   expect(calls.request.mock.calls.some(([method]) => ["station_connect", "station_disconnect", "station_tune", "rotor_connect", "rotor_goto", "sync_run", "settings_save"].includes(method))).toBe(false);
@@ -364,10 +370,10 @@ it("keeps Sync inside Settings and supports repeat legacy navigation without cha
   expect(screen.getByRole("main", { name: "Settings" })).toBeTruthy();
   expect(screen.getByRole("tab", { name: "Sync" }).getAttribute("aria-selected")).toBe("true");
   expect(await screen.findByText("Automatic sync on")).toBeTruthy();
-  fireEvent.click(screen.getByRole("tab", { name: "Station" }));
+  fireEvent.click(screen.getByRole("tab", { name: "General" }));
   await act(async () => nativeMenu.route?.("Sync"));
   expect(screen.getByRole("tab", { name: "Sync" }).getAttribute("aria-selected")).toBe("true");
-  fireEvent.click(screen.getByRole("tab", { name: "Station" }));
+  fireEvent.click(screen.getByRole("tab", { name: "General" }));
   fireEvent.keyDown(window, { key: "s", ctrlKey: true, shiftKey: true });
   expect(screen.getByRole("tab", { name: "Sync" }).getAttribute("aria-selected")).toBe("true");
   expect(calls.request.mock.calls.some(([method]) => ["sync_run", "sync_configure", "settings_save", "station_tune"].includes(method))).toBe(false);

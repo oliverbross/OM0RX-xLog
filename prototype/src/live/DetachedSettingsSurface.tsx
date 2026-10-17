@@ -22,6 +22,7 @@ export const detachedSettingsMethods = [
   "backup_create", "backup_list", "backup_inspect", "backup_import", "backup_restore",
   "remote_backup_request",
   "wsjtx_snapshot", "wsjtx_configure", "wsjtx_start", "wsjtx_stop",
+  "spot_bridge_snapshot", "spot_bridge_configure",
   "cluster_snapshot", "cluster_radio_spots_configure",
 ] as const;
 

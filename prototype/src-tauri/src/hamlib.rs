@@ -116,13 +116,28 @@ impl Session {
 }
 
 static RADIO: OnceLock<Mutex<Option<Session>>> = OnceLock::new();
+static RADIO2: OnceLock<Mutex<Option<Session>>> = OnceLock::new();
 static ROTOR: OnceLock<Mutex<Option<Session>>> = OnceLock::new();
+static RADIO_IDENTITIES: OnceLock<Mutex<[Option<String>; 2]>> = OnceLock::new();
+static RADIO_LIFECYCLE: Mutex<()> = Mutex::new(());
 static GENERATION: AtomicU64 = AtomicU64::new(0);
-fn slot(device: Device) -> &'static Mutex<Option<Session>> {
+fn radio_id(params: &Value) -> Result<&str, String> {
+    #[cfg(test)]
+    let value = params.get("radio_id").and_then(Value::as_str).unwrap_or(crate::radio_slots::RADIO1);
+    #[cfg(not(test))]
+    let value = params.get("radio_id").and_then(Value::as_str).ok_or("Radio slot is required")?;
+    crate::radio_slots::index(value)?;
+    Ok(value)
+}
+fn slot(device: Device, params: &Value) -> Result<&'static Mutex<Option<Session>>, String> {
     if device == Device::Radio {
-        RADIO.get_or_init(|| Mutex::new(None))
+        Ok(if radio_id(params)? == crate::radio_slots::RADIO1 {
+            RADIO.get_or_init(|| Mutex::new(None))
+        } else {
+            RADIO2.get_or_init(|| Mutex::new(None))
+        })
     } else {
-        ROTOR.get_or_init(|| Mutex::new(None))
+        Ok(ROTOR.get_or_init(|| Mutex::new(None)))
     }
 }
 
@@ -1403,7 +1418,11 @@ fn dispatch(method: &str, params: &Value) -> Result<Value, String> {
         return capabilities(device, params, None);
     }
     // Rig and rotor have independent locks, so a slow rig poll cannot delay rotor stop.
-    let mut session_slot = slot(device)
+    let radio_id = (device == Device::Radio).then(|| radio_id(params)).transpose()?;
+    let _lifecycle = if device == Device::Radio && matches!(method, "hamlib_connect" | "hamlib_reconnect" | "hamlib_disconnect") {
+        Some(RADIO_LIFECYCLE.lock().map_err(|_| "Hamlib radio lifecycle lock failed")?)
+    } else { None };
+    let mut session_slot = slot(device, params)?
         .lock()
         .map_err(|_| "Hamlib device lock failed")?;
     match method {
@@ -1412,6 +1431,24 @@ fn dispatch(method: &str, params: &Value) -> Result<Value, String> {
                 return Err("Device already has a Hamlib session; disconnect it first".into());
             }
             validate_connection_config(params)?;
+            let mut claimed_tx = false;
+            if device == Device::Radio && params["tx_enabled"] == true {
+                crate::radio_slots::claim_tx(radio_id.unwrap())?;
+                claimed_tx = true;
+            }
+            let identity = if device == Device::Radio {
+                Some(serde_json::to_string(&saved_radio_configuration(params)?)
+                    .map_err(|_| "Hamlib radio identity is invalid")?)
+            } else { None };
+            if let Some(identity) = identity.as_ref() {
+                let index = crate::radio_slots::index(radio_id.unwrap())?;
+                let identities = RADIO_IDENTITIES.get_or_init(|| Mutex::new([None, None])).lock()
+                    .map_err(|_| "Hamlib radio identity registry failed")?;
+                if identities[1 - index].as_ref() == Some(identity) {
+                    if claimed_tx { crate::radio_slots::release_tx(radio_id.unwrap()); }
+                    return Err("That Hamlib connection is already assigned to the other radio.".into());
+                }
+            }
             if method == "hamlib_reconnect" {
                 // Explicit reconnect creates a new generation. No frequency,
                 // mode, PTT, CW, or rotor command is copied to the new session.
@@ -1419,23 +1456,45 @@ fn dispatch(method: &str, params: &Value) -> Result<Value, String> {
                     if let Some(session) = session_slot.as_mut() {
                         release_owned_tx(session)?;
                     }
+                    crate::radio_slots::release_tx(radio_id.unwrap());
+                    if claimed_tx { crate::radio_slots::claim_tx(radio_id.unwrap())?; }
                 }
                 *session_slot = None;
             }
             let generation = GENERATION.fetch_add(1, Ordering::AcqRel) + 1;
             let session = match params["mode"].as_str() {
-                Some("managed") => start_managed(device, params, generation)?,
-                Some("external") => start_external(device, params, generation)?,
-                _ => return Err("mode must be managed or external".into()),
+                Some("managed") => start_managed(device, params, generation),
+                Some("external") => start_external(device, params, generation),
+                _ => Err("mode must be managed or external".into()),
+            };
+            let session = match session {
+                Ok(session) => session,
+                Err(error) => {
+                    if claimed_tx { crate::radio_slots::release_tx(radio_id.unwrap()); }
+                    return Err(error);
+                }
             };
             *session_slot = Some(session);
             let result = observed(session_slot.as_mut().unwrap(), device);
             if result.is_err() {
                 *session_slot = None;
+                if claimed_tx { crate::radio_slots::release_tx(radio_id.unwrap()); }
+            } else if let Some(identity) = identity {
+                RADIO_IDENTITIES.get_or_init(|| Mutex::new([None, None])).lock()
+                    .map_err(|_| "Hamlib radio identity registry failed")?[crate::radio_slots::index(radio_id.unwrap())?] = Some(identity);
             }
             result
         }
-        "hamlib_disconnect" => disconnect_session(&mut session_slot, device),
+        "hamlib_disconnect" => {
+            let result = disconnect_session(&mut session_slot, device);
+            if result.is_ok() && device == Device::Radio {
+                let id = radio_id.unwrap();
+                crate::radio_slots::release_tx(id);
+                RADIO_IDENTITIES.get_or_init(|| Mutex::new([None, None])).lock()
+                    .map_err(|_| "Hamlib radio identity registry failed")?[crate::radio_slots::index(id)?] = None;
+            }
+            result
+        },
         "hamlib_status" => Ok(session_status(&mut session_slot, device)),
         "hamlib_capabilities" => {
             let result = capabilities(device, params, session_slot.as_mut());

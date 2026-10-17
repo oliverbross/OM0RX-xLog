@@ -1,6 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
+export type RadioID = "radio1" | "radio2";
 export type StationReceipt = { operation_id: string; status: "pending" | "unknown" | "saved" | "acknowledged" | "confirmed" | "reviewed"; request: { action: string } };
 export type StationSession = {
+  radio_id: RadioID;
+  active_radio: RadioID;
+  tx_owner: RadioID | null;
   generation: string; revision: number; base_url: string; last_receipt: StationReceipt | null; manual_tune_receipt?: StationReceipt | null;
   tci_filter_receipt?: StationReceipt | null;
   hamlib?: HamlibConfiguration | null;
@@ -20,7 +24,10 @@ export function validTCIConfiguration(configuration: TCIConfiguration): boolean 
       [configuration.trx, configuration.channel].every(value => Number.isInteger(value) && value >= 0 && value <= 15);
   } catch { return false; }
 }
-export async function stationSessionRequest<T>(params: Record<string, unknown>): Promise<T> {
-  return invoke<T>("station_session_request", { params });
+export async function stationSessionRequest<T>(radioId: RadioID, params: Record<string, unknown>): Promise<T> {
+  return invoke<T>("station_session_request", { params: { ...params, radio_id: radioId } });
 }
-export const loadStationSession = () => stationSessionRequest<StationSession>({ action: "snapshot" });
+export const loadStationSession = (radioId: RadioID) => stationSessionRequest<StationSession>(radioId, { action: "snapshot" }).then(value => {
+  if (value.radio_id !== radioId) throw new Error("The radio setup response did not match the requested radio.");
+  return value;
+});

@@ -32,10 +32,18 @@ Windows agent. It exposes only implemented capabilities and distinguishes fresh
 observations from command acknowledgements. Its RF power setting uses the
 radio's observed 0–100 level, not a measured-watts claim. SmartLink,
 direct-FLEX RIT/XIT and direct-FLEX CAT listeners remain open parity work.
-The **Station Control → RUMlog spots** tab configures all eleven native
-Logbook/Contest categories, colours, priorities and lifetimes. Its explicit
-loopback listeners currently forward through the Remote Station Agent and
-require matching acknowledgements; they do not tune or transmit the radio.
+The focused **RUMlog compatibility** settings configure all eleven native
+Logbook/Contest spot categories, colours, priorities and lifetimes. RUMlog sends
+these spots one way over loopback UDP to xLog, which forwards them through the
+Remote Station Agent for FLEX display and requires matching acknowledgements.
+This is not logbook synchronization: it neither reads nor writes a RUMlog
+logbook, and it does not tune or transmit. Wavelog remains xLog's two-way
+synchronization authority.
+
+The separate **WSJT-X UDP logging** settings receive Logged ADIF and bounded CQ
+activity on loopback or IPv4 multicast, default port `2237`. This path is
+receive-only and is not a CAT server; WSJT-X CAT or rig control must be
+configured independently.
 
 Radio and rotor connections have independent ownership. Pair any radio provider
 with a bundled Hamlib rotor or the native DCU-1 connection; changing radio mode

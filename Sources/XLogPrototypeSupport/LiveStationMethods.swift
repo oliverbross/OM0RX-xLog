@@ -22,6 +22,16 @@ actor StationProviderClaim {
         if owner == provider && ownerLease == lease { owner = nil; ownerLease = nil }
     }
 }
+
+private enum StationRadioRegistry {
+    static let claims = ["radio1": StationProviderClaim(), "radio2": StationProviderClaim()]
+    static let agents = ["radio1": LiveStationSession(radioID: "radio1"), "radio2": LiveStationSession(radioID: "radio2")]
+    static let flex = ["radio1": LiveFlexSession(), "radio2": LiveFlexSession()]
+    static let tci = [
+        "radio1": LiveTCISession(claim: claims["radio1"]!),
+        "radio2": LiveTCISession(claim: claims["radio2"]!),
+    ]
+}
 #endif
 
 /// The Mac worker talks to the real xCat loopback service. No values are
@@ -69,28 +79,37 @@ enum LiveStationMethods {
         #endif
         #if os(macOS)
         guard params["provider"] == nil || params["provider"] is String else { throw invalidParams() }
+        guard let radioID = params["radio_id"] as? String,
+              ["radio1", "radio2"].contains(radioID),
+              let claim = StationRadioRegistry.claims[radioID],
+              let agent = StationRadioRegistry.agents[radioID],
+              let flex = StationRadioRegistry.flex[radioID],
+              let tci = StationRadioRegistry.tci[radioID] else { throw invalidParams() }
+        var routed = params
+        routed.removeValue(forKey: "radio_id")
         let selectedProvider = params["provider"] as? String ?? "xcat_loopback"
         if selectedProvider == "direct_tci" {
-            return try await LiveTCISession.shared.handle(method, params: params)
+            var result = try await tci.handle(method, params: routed); result["radio_id"] = radioID; return result
         }
         if selectedProvider == "direct_flex_lan" {
             if method == "station_connect" {
-                let remote = await LiveStationSession.shared.snapshot()
+                let remote = await agent.snapshot()
                 guard remote["transport_state"] as? String == RadioConnectionState.stopped.rawValue,
                       remote["radio"] is NSNull else {
                     throw WorkerFailure("station_busy", "Disconnect the Remote Station Agent before connecting direct FLEX.")
                 }
-                try await StationProviderClaim.shared.reserve(selectedProvider)
+                try await claim.reserve(selectedProvider)
             }
             do {
-                let result = try await LiveFlexSession.shared.handle(method, params: params)
+                var result = try await flex.handle(method, params: routed)
                 if method == "station_disconnect" {
-                    await StationProviderClaim.shared.release(selectedProvider)
+                    await claim.release(selectedProvider)
                 }
+                result["radio_id"] = radioID
                 return result
             } catch {
-                if method == "station_connect", !(await LiveFlexSession.shared.isAttached()) {
-                    await StationProviderClaim.shared.release(selectedProvider)
+                if method == "station_connect", !(await flex.isAttached()) {
+                    await claim.release(selectedProvider)
                 }
                 throw error
             }
@@ -98,35 +117,35 @@ enum LiveStationMethods {
         if LiveStationSession.methods.contains(method) {
             guard selectedProvider == "direct_agent" else { throw invalidParams() }
             if method == "station_connect" {
-                guard !(await LiveFlexSession.shared.isAttached()) else {
+                guard !(await flex.isAttached()) else {
                     throw WorkerFailure("station_busy", "Disconnect direct FLEX before connecting the Remote Station Agent.")
                 }
-                try await StationProviderClaim.shared.reserve(selectedProvider)
+                try await claim.reserve(selectedProvider)
             }
             do {
-                let result = try await LiveStationSession.shared.handle(method, params: params)
+                var result = try await agent.handle(method, params: routed)
                 if method == "station_disconnect" {
-                    await StationProviderClaim.shared.release(selectedProvider)
+                    await claim.release(selectedProvider)
                 } else if method == "station_forget" {
-                    let state = await LiveStationSession.shared.snapshot()
+                    let state = await agent.snapshot()
                     if state["transport_state"] as? String == RadioConnectionState.stopped.rawValue,
                        state["radio"] is NSNull {
-                        await StationProviderClaim.shared.release(selectedProvider)
+                        await claim.release(selectedProvider)
                     }
                 }
-                return result
+                result["radio_id"] = radioID; return result
             } catch {
                 if method == "station_connect" {
-                    let state = await LiveStationSession.shared.snapshot()
+                    let state = await agent.snapshot()
                     if state["transport_state"] as? String == RadioConnectionState.stopped.rawValue,
                        state["radio"] is NSNull {
-                        await StationProviderClaim.shared.release(selectedProvider)
+                        await claim.release(selectedProvider)
                     }
                 } else if method == "station_forget" {
-                    let state = await LiveStationSession.shared.snapshot()
+                    let state = await agent.snapshot()
                     if state["transport_state"] as? String == RadioConnectionState.stopped.rawValue,
                        state["radio"] is NSNull {
-                        await StationProviderClaim.shared.release(selectedProvider)
+                        await claim.release(selectedProvider)
                     }
                 }
                 throw error
@@ -134,33 +153,33 @@ enum LiveStationMethods {
         }
         let provider = selectedProvider
         if provider == "direct_agent" {
-            guard Set(params.keys).isSubset(of: method == "station_tune"
+            guard Set(routed.keys).isSubset(of: method == "station_tune"
                 ? ["provider", "frequency_hz", "mode", "expected_generation"] : method == "station_action"
                 ? ["provider", "action", "expected_generation", "expected_native_intent"] : ["provider"]) else { throw invalidParams() }
-            if method == "station_snapshot" { return await LiveStationSession.shared.snapshot() }
+            if method == "station_snapshot" { var result = await agent.snapshot(); result["radio_id"] = radioID; return result }
             if method == "station_tune" {
-                let target = try tuneTarget(params)
-                let expected = try params["expected_generation"].map { raw -> UInt64 in
+                let target = try tuneTarget(routed)
+                let expected = try routed["expected_generation"].map { raw -> UInt64 in
                     let value = try integer(raw)
                     guard (0...9_007_199_254_740_991).contains(value) else { throw invalidParams() }
                     return UInt64(value)
                 }
-                return try await LiveStationSession.shared.tune(frequencyHz: target.0, mode: target.1, expectedGeneration: expected)
+                var result = try await agent.tune(frequencyHz: target.0, mode: target.1, expectedGeneration: expected); result["radio_id"] = radioID; return result
             }
-            guard let action = params["action"] as? String,
+            guard let action = routed["action"] as? String,
                   ["standby", "operate", "tune", "cancel"].contains(action) else { throw invalidParams() }
-            let expected = try params["expected_generation"].map { raw -> UInt64 in
+            let expected = try routed["expected_generation"].map { raw -> UInt64 in
                 let value = try integer(raw)
                 guard ["cancel", "tune", "operate", "standby"].contains(action), (0...9_007_199_254_740_991).contains(value) else { throw invalidParams() }
                 return UInt64(value)
             }
-            let nativeIntent = try params["expected_native_intent"].map { raw -> UInt64 in
+            let nativeIntent = try routed["expected_native_intent"].map { raw -> UInt64 in
                 let value = try integer(raw)
                 guard ["cancel", "tune", "operate", "standby"].contains(action), expected != nil,
                       (1...9_007_199_254_740_991).contains(value) else { throw invalidParams() }
                 return UInt64(value)
             }
-            return try await LiveStationSession.shared.action(action, expectedGeneration: expected, expectedNativeIntent: nativeIntent)
+            var result = try await agent.action(action, expectedGeneration: expected, expectedNativeIntent: nativeIntent); result["radio_id"] = radioID; return result
         }
         guard provider == "xcat_loopback" else { throw invalidParams() }
         #endif

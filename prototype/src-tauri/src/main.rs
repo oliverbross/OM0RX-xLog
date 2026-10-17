@@ -10,6 +10,7 @@ mod rotor_telemetry;
 mod station_telemetry;
 mod station_selection;
 mod station_session;
+mod radio_slots;
 mod station_identity;
 mod alerts;
 mod dx_alerts;
@@ -368,6 +369,9 @@ const ONLINE_WAVELOG_SETTINGS_MENU_ID: &str = "online_wavelog_settings";
 const ONLINE_QRZ_SETTINGS_MENU_ID: &str = "online_qrz_settings";
 const ONLINE_LOG_UPLOADS_MENU_ID: &str = "online_log_uploads";
 const ONLINE_REFERENCE_DATA_MENU_ID: &str = "online_reference_data";
+const RADIO_SETTINGS_MENU_ID: &str = "radio_settings";
+const RADIO1_SETTINGS_MENU_ID: &str = "radio1_settings";
+const RADIO2_SETTINGS_MENU_ID: &str = "radio2_settings";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum WorkspaceLayout {
@@ -439,11 +443,7 @@ fn workspace_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     append_screen_group(app, &view, "View")?;
     append_logbook_menu(app, &menu)?;
     if runtime_profile::CONTESTING_TEST { append_contesting_menu(app, &menu)?; }
-    let station = Submenu::new(app, "Station", true)?;
-    append_screen_group(app, &station, "Station")?;
-    let items = menu.items()?;
-    let before_window = items.iter().position(|item| item.id().0 == WINDOW_SUBMENU_ID).unwrap_or(items.len());
-    menu.insert(&station, before_window)?;
+    append_radio_menu(app, &menu)?;
     append_online_menu(app, &menu)?;
     let existing_window = menu.items()?.iter().filter_map(|item| item.as_submenu().cloned())
         .find(|submenu| submenu.id().0 == WINDOW_SUBMENU_ID);
@@ -552,6 +552,32 @@ fn online_menu_route(id: &str) -> Option<&'static str> {
         ONLINE_QRZ_SETTINGS_MENU_ID => Some("qrz-settings"),
         ONLINE_LOG_UPLOADS_MENU_ID => Some("online-log-settings"),
         ONLINE_REFERENCE_DATA_MENU_ID => Some("reference-data-settings"),
+        _ => None,
+    }
+}
+
+fn append_radio_menu(app: &tauri::AppHandle, menu: &Menu<tauri::Wry>) -> tauri::Result<()> {
+    let radio = Submenu::new(app, "Radio", true)?;
+    radio.append(&MenuItem::with_id(app, RADIO_SETTINGS_MENU_ID,
+        "Radio Settings…", true, None::<&str>)?)?;
+    radio.append(&PredefinedMenuItem::separator(app)?)?;
+    for (title, menu_id) in [("Radio 1", RADIO1_SETTINGS_MENU_ID), ("Radio 2", RADIO2_SETTINGS_MENU_ID)] {
+        let slot = Submenu::new(app, title, true)?;
+        slot.append(&MenuItem::with_id(app, menu_id,
+            "Connection & Setup…", true, None::<&str>)?)?;
+        radio.append(&slot)?;
+    }
+    let items = menu.items()?;
+    let before_window = items.iter().position(|item| item.id().0 == WINDOW_SUBMENU_ID).unwrap_or(items.len());
+    menu.insert(&radio, before_window)?;
+    Ok(())
+}
+
+fn radio_menu_route(id: &str) -> Option<&'static str> {
+    match id {
+        RADIO_SETTINGS_MENU_ID => Some("station-control"),
+        RADIO1_SETTINGS_MENU_ID => Some("radio1-settings"),
+        RADIO2_SETTINGS_MENU_ID => Some("radio2-settings"),
         _ => None,
     }
 }
@@ -851,9 +877,10 @@ async fn map_context_snapshot(window: tauri::WebviewWindow, app: tauri::AppHandl
 }
 
 #[tauri::command]
-async fn station_telemetry_snapshot(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>, provider: Option<String>) -> Result<serde_json::Value, String> {
+async fn station_telemetry_snapshot(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>, radio_id: String, provider: Option<String>) -> Result<serde_json::Value, String> {
     station_telemetry::validate(window.label(), runtime_profile::isolated(state.path.is_some()), provider.is_some())?;
-    station_telemetry::owner(&app)?.snapshot()
+    radio_slots::index(&radio_id)?;
+    station_telemetry::owner_for(&app, &radio_id)?.snapshot()
 }
 
 #[tauri::command]
@@ -1091,33 +1118,48 @@ async fn amplifier_transition_request(app: tauri::AppHandle, window: tauri::Webv
 }
 
 #[tauri::command]
-async fn station_selection_snapshot(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>, legacy: Option<String>) -> Result<serde_json::Value, String> {
+async fn station_selection_snapshot(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>, radio_id: String, legacy: Option<String>) -> Result<serde_json::Value, String> {
     runtime_profile::require_external_io_disabled()?;
     station_selection::validate(window.label(), runtime_profile::isolated(state.path.is_some()), legacy.is_some())?;
-    let owner = station_selection::owner(&app)?;
+    radio_slots::index(&radio_id)?;
+    if radio_id != radio_slots::RADIO1 && legacy.is_some() { return Err("Legacy selection applies only to radio1.".into()); }
+    let owner = station_selection::owner_for(&app, &radio_id)?;
     let main = window.label() == "main";
     let value = tauri::async_runtime::spawn_blocking(move || if main { owner.initialize(legacy.as_deref()) } else { owner.snapshot() })
         .await.map_err(|_| "Radio selection task failed".to_string())??;
-    if main && value["provider"].is_string() { station_telemetry::owner(&app)?.select_selection(&value, true)?; }
+    if main && value["provider"].is_string() { station_telemetry::owner_for(&app, &radio_id)?.select_selection(&value, true)?; }
     Ok(value)
 }
 
 #[tauri::command]
 async fn station_session_request(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, params: serde_json::Value) -> Result<serde_json::Value, String> {
     runtime_profile::require_external_io_disabled()?;
-    let action = params["action"].as_str().unwrap_or("");
-    station_session::validate_live(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire), action)?;
+    let action = params["action"].as_str().unwrap_or("").to_owned();
+    station_session::validate_live(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire), &action)?;
     if action == "hamlib_catalogue" {
         return tauri::async_runtime::spawn_blocking(move || station_session::hamlib_catalogue(&params, hamlib::request))
             .await.map_err(|_| "Radio model catalogue task failed.".to_string())?;
     }
-    let owner = station_session::owner(&app)?;
+    let radio_id = params["radio_id"].as_str().ok_or("Missing radio slot.")?.to_owned();
+    radio_slots::index(&radio_id)?;
+    if action == "set_active_radio" {
+        if params.as_object().is_none_or(|value| value.len() != 2) { return Err("Invalid active radio request.".into()); }
+        let value = radio_slots::set_active(&app, &radio_id)?;
+        for label in ["main", "station-control"] {
+            let _ = app.emit_to(label, "xlog:station-session", serde_json::json!({"radio_id":radio_id}));
+        }
+        return Ok(value);
+    }
+    let owner = station_session::owner_for(&app, &radio_id)?;
+    station_session::reject_duplicate_configuration(&app, &radio_id, &params)?;
     if action == "snapshot" {
         let mut value = owner.snapshot()?;
         value["manual_tune_receipt"] = owner.unresolved_receipt("manual_tune")?;
         value["tci_filter_receipt"] = owner.unresolved_receipt("tci_receive_filter")?;
-        value["selection"] = station_selection::owner(&app)?.snapshot()?;
-        value["radio"] = station_telemetry::retained_snapshot().unwrap_or(serde_json::Value::Null);
+        value["active_radio"] = serde_json::json!(radio_slots::active(&app)?);
+        value["tx_owner"] = serde_json::json!(radio_slots::tx_owner());
+        value["selection"] = station_selection::owner_for(&app, &radio_id)?.snapshot()?;
+        value["radio"] = station_telemetry::owner_for(&app, &radio_id)?.snapshot()?;
         value["worker_generation"] = serde_json::json!(worker::generation());
         return Ok(value);
     }
@@ -1128,10 +1170,14 @@ async fn station_session_request(app: tauri::AppHandle, window: tauri::WebviewWi
         }
         return owner.review(params["operation_id"].as_str().ok_or("Missing operation identity.")?, params["reviewed_action"].as_str().unwrap());
     }
-    let selection = station_selection::owner(&app)?;
-    let telemetry = station_telemetry::owner(&app)?;
+    let selection = station_selection::owner_for(&app, &radio_id)?;
+    let telemetry = station_telemetry::owner_for(&app, &radio_id)?;
     let changed = app.clone();
+    let routed_radio_id = radio_id.clone();
     let result = tauri::async_runtime::spawn_blocking(move || owner.apply(&params, |request, generation, identity| {
+        let requests_tx = (request["method"] == "station_connect" && request["params"]["allow_transmit"] == true)
+            || matches!(request["method"].as_str(), Some("hamlib_connect" | "hamlib_reconnect")) && request["params"]["tx_enabled"] == true;
+        if requests_tx { radio_slots::claim_active_tx(&app, &routed_radio_id)?; }
         if params["action"] == "manual_tune" { return manual_tune::execute(&app, &params, request, generation, identity); }
         if params["action"] == "tci_receive_filter" { return tci_filter::execute(&app, &params, request, generation, identity); }
         if request["method"] == "station_radio_control" || request["method"] == "hamlib_control" {
@@ -1159,7 +1205,11 @@ async fn station_session_request(app: tauri::AppHandle, window: tauri::WebviewWi
             }
         } else { selection.monitor_action(request, generation, identity, || telemetry.control()) }
     })).await.map_err(|_| "Station Control task ended; inspect the operation receipt before retrying.".to_string())?;
-    for label in ["main", "station-control"] { let _ = changed.emit_to(label, "xlog:station-session", ()); }
+    if matches!(action.as_str(), "disconnect" | "disconnect_hamlib" | "disconnect_flex" | "forget")
+        && result.as_ref().is_ok_and(|value| value["status"] == "acknowledged") {
+        radio_slots::release_tx(&radio_id);
+    }
+    for label in ["main", "station-control"] { let _ = changed.emit_to(label, "xlog:station-session", serde_json::json!({"radio_id":radio_id})); }
     result
 }
 
@@ -1743,6 +1793,13 @@ fn main() {
             }
         })
         .on_menu_event(|app, event| {
+            if let Some(screen) = radio_menu_route(&event.id().0) {
+                let app = app.clone(); let screen = screen.to_owned();
+                tauri::async_runtime::spawn(async move {
+                    if let Err(error) = navigate_workspace(app, screen).await { eprintln!("Could not open radio settings: {error}"); }
+                });
+                return;
+            }
             if let Some(screen) = online_menu_route(&event.id().0) {
                 let app = app.clone(); let screen = screen.to_owned();
                 tauri::async_runtime::spawn(async move {
@@ -1829,25 +1886,29 @@ fn main() {
                     auto_rotor::revoke).map_err(std::io::Error::other)?;
                 let selection_app = app.handle().clone();
                 tauri::async_runtime::spawn_blocking(move || {
-                    if let Err(error) = station_selection::owner(&selection_app).and_then(|owner| {
-                        // Native saved intent seeds display polling once. Passive
-                        // window reads never default, migrate or choose a radio.
-                        let saved = owner.snapshot()?;
-                        if saved["provider"].is_string() {
-                            station_telemetry::owner(&selection_app)?.select_selection(&saved, true)?;
+                    if let Err(error) = (|| {
+                        for radio_id in [radio_slots::RADIO1, radio_slots::RADIO2] {
+                            let owner = station_selection::owner_for(&selection_app, radio_id)?;
+                            // Native saved intent seeds display polling once. Passive
+                            // window reads never default, migrate or choose a radio.
+                            let saved = owner.snapshot()?;
+                            let telemetry = station_telemetry::owner_for(&selection_app, radio_id)?;
+                            if saved["provider"].is_string() {
+                                telemetry.select_selection(&saved, true)?;
+                            }
+                            owner.notify_saved()?;
+                            // Startup alone restores each native saved Agent intent.
+                            // Snapshot/renderer reads remain passive; an intervening
+                            // handover or radio control invalidates this exact view.
+                            station_session::owner_for(&selection_app, radio_id)?.resume_saved_agent(&saved, |request, generation, identity| {
+                                let (result, epoch) = owner.receive_startup_control(request, generation, identity, 0,
+                                    startup_auto_rotor.epoch, || telemetry.control())?;
+                                startup_auto_rotor.epoch = epoch;
+                                Ok(result)
+                            })?;
                         }
-                        owner.notify_saved()?;
-                        // Startup alone restores native saved Agent intent.
-                        // Snapshot/renderer reads remain passive; an intervening
-                        // handover or radio control invalidates this exact view.
-                        station_session::owner(&selection_app)?.resume_saved_agent(&saved, |request, generation, identity| {
-                            let (result, epoch) = owner.receive_startup_control(request, generation, identity, 0,
-                                startup_auto_rotor.epoch, || station_telemetry::owner(&selection_app)?.control())?;
-                            startup_auto_rotor.epoch = epoch;
-                            Ok(result)
-                        })?;
-                        Ok(())
-                    }) {
+                        Ok::<(), String>(())
+                    })() {
                         eprintln!("Native station startup unavailable: {error}");
                     }
                     match rotor_session::resume(startup_auto_rotor.epoch) {
@@ -1983,6 +2044,21 @@ mod workspace_layout_tests {
         }
         assert!(super::online_menu_route("online_lotw_login").is_none());
         assert!(super::online_menu_route("online_eqsl_login").is_none());
+    }
+
+    #[test]
+    fn radio_menu_routes_to_settings_without_bypassing_slot_receipts() {
+        for (menu_id, route) in [
+            (super::RADIO_SETTINGS_MENU_ID, "station-control"),
+            (super::RADIO1_SETTINGS_MENU_ID, "radio1-settings"),
+            (super::RADIO2_SETTINGS_MENU_ID, "radio2-settings"),
+        ] {
+            assert_eq!(super::radio_menu_route(menu_id), Some(route));
+            assert!(crate::workspace_navigation::screen(route).is_some());
+        }
+        for bypass in ["radio1_connect", "radio2_disconnect", "radio1_reset_cat"] {
+            assert!(super::radio_menu_route(bypass).is_none());
+        }
     }
 
     #[test]

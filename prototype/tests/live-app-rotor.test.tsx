@@ -11,9 +11,16 @@ const bridge = vi.hoisted(() => ({ request: vi.fn(), native: vi.fn(), tune: null
   nativeStop: false, canvasStop: false,
   rotorConfiguration: null as any,
   preferenceView: null as any, preferenceChange: null as null | ((value: any) => void),
-  telemetry: vi.fn(), stationTelemetry: vi.fn(), selectTelemetry: vi.fn(), intentId: null as string | null }));
+  telemetry: vi.fn(), stationTelemetry: vi.fn(), selectTelemetry: vi.fn(), intentId: null as string | null, activeRadio: "radio1" as "radio1" | "radio2" }));
 vi.mock("@tauri-apps/api/core", async original => ({ ...await original<typeof import("@tauri-apps/api/core")>(),
-  invoke: (command: string, params: any) => command === "monitor_rotor_stop" ? bridge.native(command, params) : Promise.resolve({}) }));
+  invoke: (command: string, params: any) => command === "monitor_rotor_stop" ? bridge.native(command, params)
+    : command === "station_session_request" && params?.params?.action === "snapshot" ? Promise.resolve({ radio_id: params.params.radio_id, active_radio: bridge.activeRadio, tx_owner: null,
+      generation: `${params.params.radio_id}-fixture`, revision: 1, base_url: "", last_receipt: null, selection: { provider: "direct_agent", generation: 1, selection_id: "fixture" } }) : Promise.resolve({}) }));
+vi.mock("@tauri-apps/api/event", async original => {
+  const actual = await original<typeof import("@tauri-apps/api/event")>();
+  return { ...actual, listen: (event: string, handler: any, options?: any) => event === "xlog:station-session"
+    ? Promise.resolve(() => {}) : actual.listen(event, handler, options) };
+});
 vi.mock("../src/live/useSpotEditor", async () => {
   const { useEffect } = await import("react");
   return { nativeSpotEditor: () => bridge.nativeStop, useSpotEditor: (participants: any[]) => {
@@ -87,9 +94,18 @@ function controlOneSecondPolls() {
   };
 }
 async function openRotorSettings() {
-  fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: "Settings" }));
+  const sidebar = document.querySelector<HTMLElement>(".sidebar");
+  if (!sidebar) throw new Error("Sidebar unavailable");
+  fireEvent.click(within(sidebar).getByRole("button", { name: "Settings" }));
   fireEvent.click(await screen.findByRole("tab", { name: "Rotator" }));
   return screen.findByRole("region", { name: "Independent rotor" });
+}
+async function openRadioSettings() {
+  const sidebar = document.querySelector<HTMLElement>(".sidebar");
+  if (!sidebar) throw new Error("Sidebar unavailable");
+  fireEvent.click(within(sidebar).getByRole("button", { name: "Settings" }));
+  fireEvent.click(await screen.findByRole("tab", { name: "Radio" }));
+  await screen.findByRole("tab", { name: "Radio 1" });
 }
 async function waitForDesk() {
   return screen.findByLabelText("Desk Frequency MHz");
@@ -100,7 +116,7 @@ async function armAutoRotor() {
 }
 beforeEach(() => {
   localStorage.clear(); bridge.request.mockReset(); bridge.native.mockReset(); bridge.tune = null; bridge.rejectActivation = null; bridge.rotorGeneration = 4; bridge.intentId = null;
-  bridge.autoState = { armed: false, epoch: 0, owner: "native_dcu1", generation: 4, target: null, activation_pending: false, canonical_pending: false, error: "" };
+  bridge.autoState = { armed: false, epoch: 0, owner: "native_dcu1", generation: 4, target: null, activation_pending: false, canonical_pending: false, error: "" }; bridge.activeRadio = "radio1";
   bridge.rotorConfiguration = { revision: 0, generation: testWorkspaceGeneration, configuration: {
     ...defaultRotorConfiguration(), native_dcu1: { host: "rotor.example.invalid", port: 4001, name: "Rotor" },
   } };
@@ -170,7 +186,7 @@ beforeEach(() => {
 it("follows native radio telemetry without polling but Read radio still uses explicit readback", async () => {
   let update!: (value: any) => void, unavailable!: () => void;
   const stop = vi.fn();
-  bridge.stationTelemetry.mockImplementation((_provider, changed, failed) => { update = changed; unavailable = failed; return stop; });
+  bridge.stationTelemetry.mockImplementation((_radioId, _provider, changed, failed) => { update = changed; unavailable = failed; return stop; });
   const view = render(<LiveApp />);
   await screen.findByLabelText("Desk Frequency MHz");
   await act(async () => update({ source: "direct_agent", radio: { connected: true, observed: true, frequency_hz: 7050000, mode: "CW" } }));
@@ -530,18 +546,12 @@ it("does not retry or redirect an explicit Stop across an owner switch", async (
   expect(bridge.request.mock.calls.some(([method]) => method === "rotor_stop")).toBe(false);
 });
 
-it("preserves rotor ownership across radio handover and clears only the stale guidance", async () => {
+it("preserves rotor ownership while browsing radio settings", async () => {
   render(<LiveApp />);
   await waitForDesk();
-  fireEvent.click(screen.getByRole("button", { name: "Station Control" }));
-  fireEvent.click(await screen.findByRole("button", { name: "Direct FLEX · LAN" }));
+  await openRadioSettings();
   expect(bridge.request.mock.calls.some(([method]) => method === "station_disconnect")).toBe(false);
-  expect(screen.getByText("Active · Remote station · embedded xCat")).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Use Direct FLEX · LAN" }));
-  await waitFor(() => expect(bridge.request).toHaveBeenCalledWith("station_disconnect", { provider: "direct_agent" }));
-  expect(bridge.request.mock.calls.filter(([method]) => method === "station_disconnect")).toHaveLength(1);
   expect(bridge.request.mock.calls.some(([method]) => method === "rotor_disconnect")).toBe(false);
-  await waitFor(() => expect(screen.queryByText("Previous radio disconnected. Connect the selected radio explicitly.")).toBeNull());
   expect(screen.queryByRole("region", { name: "Independent rotor" })).toBeNull();
   await openRotorSettings();
   expect(screen.getByRole("region", { name: "Independent rotor" })).toBeTruthy();
@@ -551,17 +561,19 @@ it("preserves rotor ownership across radio handover and clears only the stale gu
 it("hydrates the native radio choice before polling and leaves handover with the shared station session", async () => {
   bridge.nativeSelection = true;
   let selected!: (value: any) => void;
-  const dispose = vi.fn(); bridge.selection.mockImplementation((_legacy, changed) => { selected = changed; return dispose; });
+  const dispose = vi.fn(); bridge.selection.mockImplementation((_radioId, _legacy, changed) => { selected = changed; return dispose; });
   localStorage.setItem("xlog.integration.provider", "direct_agent");
   const rendered = render(<LiveApp />);
   await waitForDesk();
   expect(bridge.request.mock.calls.some(([method]) => method === "station_snapshot")).toBe(false);
+  await waitFor(() => expect(selected).toBeTypeOf("function"));
   await act(async () => selected({ provider: "direct_flex_lan", generation: 7 }));
   await waitFor(() => expect(bridge.request.mock.calls.some(([method, params]) => method === "station_snapshot" && params.provider === "direct_flex_lan")).toBe(true));
-  fireEvent.click(screen.getByRole("button", { name: "Station Control" }));
-  fireEvent.click(screen.getByRole("button", { name: "Local station · Hamlib" }));
+  await openRadioSettings();
+  const radioOne = screen.getByRole("tabpanel", { name: "Radio 1" });
+  fireEvent.change(within(radioOne).getByLabelText("Shared radio provider"), { target: { value: "hamlib" } });
   expect(bridge.applySelection).not.toHaveBeenCalled();
-  expect(screen.getByLabelText("Shared radio selection")).toBeTruthy();
+  expect(within(radioOne).getByLabelText("Shared Agent connection setup")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Use Local Hamlib" })).toBeNull();
   expect(bridge.applySelection).not.toHaveBeenCalled();
   expect(bridge.request.mock.calls.some(([method]) => ["station_disconnect", "hamlib_disconnect", "rotor_disconnect", "station_connect", "hamlib_connect"].includes(method))).toBe(false);
@@ -569,39 +581,40 @@ it("hydrates the native radio choice before polling and leaves handover with the
   rendered.unmount(); expect(dispose).toHaveBeenCalledOnce();
 });
 
-it("browses inactive radio tabs without disconnecting or changing the active poll provider", async () => {
+it("routes selection, telemetry and explicit radio reads through persisted Radio 2", async () => {
+  bridge.nativeSelection = true; bridge.activeRadio = "radio2";
+  bridge.selection.mockImplementation((_radioId, _legacy, changed) => {
+    changed({ provider: "direct_agent", generation: 9 }); return vi.fn();
+  });
+  render(<LiveApp />);
+  await waitFor(() => expect(bridge.selection).toHaveBeenCalledWith("radio2", null, expect.any(Function), expect.any(Function)));
+  await waitFor(() => expect(bridge.stationTelemetry).toHaveBeenCalledWith("radio2", "direct_agent", expect.any(Function), expect.any(Function), expect.any(Function)));
+  fireEvent.click(await screen.findByRole("button", { name: "Read radio" }));
+  await waitFor(() => expect(bridge.request.mock.calls.some(([method, params]) => method === "station_snapshot" && params.radio_id === "radio2" && params.provider === "direct_agent")).toBe(true));
+});
+
+it("browses the standby radio without disconnecting or changing the active poll provider", async () => {
   render(<LiveApp />);
   await waitForDesk();
-  fireEvent.click(screen.getByRole("button", { name: "Station Control" }));
-  fireEvent.click(screen.getByRole("button", { name: "Local station · Hamlib" }));
-  await waitFor(() => expect(screen.getByRole("button", { name: "Disconnect" }).hasAttribute("disabled")).toBe(true));
+  await openRadioSettings();
+  fireEvent.click(screen.getByRole("tab", { name: "Radio 2" }));
   expect(bridge.request.mock.calls.some(([method]) => method === "hamlib_status")).toBe(false);
-  fireEvent.click(screen.getByRole("button", { name: "Direct FLEX · LAN" }));
   expect(bridge.request.mock.calls.some(([method]) => method === "station_disconnect" || method === "hamlib_disconnect")).toBe(false);
   expect(localStorage.getItem("xlog.integration.provider")).toBeNull();
   await waitFor(() => expect(bridge.request.mock.calls.some(([method, params]) => method === "station_snapshot" && params.provider === "direct_agent")).toBe(true));
   expect(bridge.request.mock.calls.some(([method, params]) => method === "station_snapshot" && params.provider === "direct_flex_lan")).toBe(false);
 
-  fireEvent.change(screen.getByRole("textbox", { name: "Private radio IP address" }), { target: { value: "192.168.1.50" } });
-  fireEvent.click(screen.getByRole("button", { name: "Connect FLEX" }));
-  await waitFor(() => expect(screen.getByText(/Apply this radio selection before connecting/)).toBeTruthy());
   expect(bridge.request.mock.calls.some(([method]) => method === "station_connect")).toBe(false);
 });
 
-it("keeps the prior active radio if explicit selection retirement fails", async () => {
-  const base = bridge.request.getMockImplementation()!;
-  bridge.request.mockImplementation(async (method: string, params: any = {}) => {
-    if (method === "station_disconnect") throw new Error("Owned release unconfirmed");
-    return base(method, params);
-  });
+it("keeps provider browsing as a radio-settings draft until explicitly applied", async () => {
   render(<LiveApp />);
   await waitForDesk();
-  fireEvent.click(screen.getByRole("button", { name: "Station Control" }));
-  fireEvent.click(screen.getByRole("button", { name: "Direct FLEX · LAN" }));
-  fireEvent.click(screen.getByRole("button", { name: "Use Direct FLEX · LAN" }));
-  await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("Owned release unconfirmed"));
-  expect(screen.getByRole("button", { name: "Use Direct FLEX · LAN" })).toBeTruthy();
+  await openRadioSettings();
+  const radioOne = screen.getByRole("tabpanel", { name: "Radio 1" });
+  fireEvent.change(within(radioOne).getByLabelText("Shared radio provider"), { target: { value: "direct_flex_lan" } });
+  expect(within(radioOne).getByRole("button", { name: "Apply shared radio selection" })).toBeTruthy();
   expect(localStorage.getItem("xlog.integration.provider")).toBeNull();
-  expect(bridge.request.mock.calls.filter(([method]) => method === "station_disconnect")).toHaveLength(1);
+  expect(bridge.request.mock.calls.filter(([method]) => method === "station_disconnect")).toHaveLength(0);
   expect(bridge.request.mock.calls.some(([method, params]) => method === "station_snapshot" && params.provider === "direct_flex_lan")).toBe(false);
 });

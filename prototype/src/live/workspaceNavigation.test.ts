@@ -13,7 +13,9 @@ function fixture() {
 it("has every existing destination and no unknown navigation or CW function-key shortcut", () => {
   expect(workspaceMenuScreens.some(screen => screen.id === "sync")).toBe(false);
   expect(workspaceMenuScreens.some(screen => screen.id === "settings")).toBe(true);
-  expect(workspaceScreens.map(s => s.title)).toEqual(["Operator Desk", "Log QSO", "Logbook", "DX Cluster", "Spot History", "World Map", "Band Maps", "Chaser & DX", "Awards", "Station Control", "Sync", "Wavelog Settings", "QRZ Settings", "Online Log Settings", "Reference Data Settings", "Settings", "Contest Manager / Desk"]);
+  expect(workspaceMenuScreens.some(screen => screen.id === "station-control")).toBe(false);
+  expect(workspaceMenuScreens.some(screen => screen.id === "radio1-settings" || screen.id === "radio2-settings")).toBe(false);
+  expect(workspaceScreens.map(s => s.title)).toEqual(["Operator Desk", "Log QSO", "Logbook", "DX Cluster", "Spot History", "World Map", "Band Maps", "Chaser & DX", "Awards", "Station Control", "Radio 1 Settings", "Radio 2 Settings", "Sync", "Wavelog Settings", "QRZ Settings", "Online Log Settings", "Reference Data Settings", "Settings", "Contest Manager / Desk"]);
   expect(workspaceMenuScreensFor({ contesting: false }).some(screen => screen.id === "contesting")).toBe(false);
   expect(workspaceMenuScreensFor({ contesting: true }).filter(screen => screen.id === "contesting")).toHaveLength(1);
   for (const s of workspaceScreens) {
