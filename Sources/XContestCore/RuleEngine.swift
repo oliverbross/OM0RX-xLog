@@ -664,8 +664,14 @@ public struct ContestRuleEvaluation: Sendable {
     }
 }
 
+public enum ContestDraftResetSentProjection: Sendable, Equatable {
+    case stationAggregate
+    case soleStationField
+}
+
 public protocol ContestRule: Sendable {
     var metadata: ContestRuleMetadata { get }
+    var draftResetSentProjection: ContestDraftResetSentProjection { get }
     func validateSession(_ session: ContestSessionSnapshot) -> [ContestValidationIssue]
     func resolvedSerialRequirement(in session: ContestSessionSnapshot) throws -> ContestResolvedSerialRequirement
     func evaluate(_ qso: ContestQSO, in session: ContestSessionSnapshot) -> ContestRuleEvaluation
@@ -679,6 +685,8 @@ public protocol ContestRuleStationEntityPolicy: ContestRule {
 }
 
 public extension ContestRule {
+    var draftResetSentProjection: ContestDraftResetSentProjection { .stationAggregate }
+
     func validateSession(_ session: ContestSessionSnapshot) -> [ContestValidationIssue] { [] }
 
     func resolvedSerialRequirement(in session: ContestSessionSnapshot) throws -> ContestResolvedSerialRequirement {

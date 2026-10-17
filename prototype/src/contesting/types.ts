@@ -11,11 +11,11 @@ export type ContestRequest = <T = unknown>(method: ContestMethod, params?: Recor
 export type SourceVerificationStatus = "verified" | "provisional" | "unverified";
 
 export type ContestMode = "CW" | "SSB" | "RTTY";
-export type ContestRuleID = "cq-ww-cw" | "cq-wpx-cw" | "cq-ww-ssb" | "cq-wpx-ssb" | "oceania-dx-cw" | "oceania-dx-ssb" | "sac-cw" | "sac-ssb" | "naqp-cw" | "naqp-ssb" | "naqp-rtty" | "arrl-rtty-roundup";
+export type ContestRuleID = "cq-ww-cw" | "cq-wpx-cw" | "cq-ww-ssb" | "cq-wpx-ssb" | "oceania-dx-cw" | "oceania-dx-ssb" | "sac-cw" | "sac-ssb" | "naqp-cw" | "naqp-ssb" | "naqp-rtty" | "arrl-rtty-roundup" | "jidx-cw" | "jidx-ssb";
 export type ContestRuleIdentity = { id: ContestRuleID; version: string; edition: string; sourceRevision: string };
 export type ContestReportDescriptor = { format: "cwRST" | "phoneRS" | "digitalRST" | "none"; defaultSent: string; defaultReceived: string; maximumUTF8Bytes: number };
 export type ContestExchangeFieldDescriptor = {
-  id: string; label: string; acceptedKinds: ("operatorName" | "subdivision" | "dxccPrefix" | "serialNumber" | "gridSquare")[];
+  id: string; label: string; acceptedKinds: ("operatorName" | "subdivision" | "dxccPrefix" | "serialNumber" | "gridSquare" | "cqZone" | "jarlPrefectureNumber")[];
   required: boolean; maximumUTF8Bytes: number; adifField: "STX" | "SRX" | "NAME" | "MY_NAME" | "STATE" | "MY_STATE" | "GRIDSQUARE" | "MY_GRIDSQUARE" | null;
 };
 export type ContestStationFieldDescriptor = {

@@ -852,14 +852,26 @@ public actor SQLiteContestStore: ContestDurableRepository {
         if let allocatedSerialFieldID = resolvedSerial.allocatedFieldID {
             clearedSentFields.removeValue(forKey: allocatedSerialFieldID)
         }
+        let resetSentExchange: (raw: String, normalized: String)
+        switch rule.draftResetSentProjection {
+        case .stationAggregate:
+            resetSentExchange = (clearedSentExchange, clearedSentExchange)
+        case .soleStationField:
+            if entry.exchange.sentDefault == .stationFields, clearedSentFields.count == 1,
+               let field = clearedSentFields.values.first {
+                resetSentExchange = (field.raw, field.normalized)
+            } else {
+                resetSentExchange = (clearedSentExchange, clearedSentExchange)
+            }
+        }
         let defaultReport = entry.modeProfile(for: old.mode)?.report ?? entry.report
         let updated = ContestDraftSnapshot(
             id: old.id, sessionID: old.sessionID, revision: revision, updatedAt: updatedAt,
             callsign: clearContact ? "" : old.callsign, band: old.band, mode: old.mode,
             frequencyHz: old.frequencyHz, rstSent: clearContact ? defaultReport.defaultSent : old.rstSent,
             rstReceived: clearContact ? defaultReport.defaultReceived : old.rstReceived,
-            exchange: clearContact ? ContestExchangeSnapshot(rawSent: clearedSentExchange,
-                                                              normalizedSent: clearedSentExchange,
+            exchange: clearContact ? ContestExchangeSnapshot(rawSent: resetSentExchange.raw,
+                                                              normalizedSent: resetSentExchange.normalized,
                                                                rawReceived: "", normalizedReceived: "",
                                                                sentFields: clearedSentFields) : old.exchange,
             entity: clearContact ? nil : old.entity, operatorCallsign: old.operatorCallsign,

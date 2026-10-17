@@ -73,7 +73,7 @@ describe("Swift contest worker wire fixture", () => {
     );
 
     const catalog = await client.catalog();
-    expect(new Set(catalog.rules.map(rule => rule.identity.id))).toEqual(new Set(["cq-ww-cw", "cq-wpx-cw", "cq-ww-ssb", "cq-wpx-ssb", "oceania-dx-cw", "oceania-dx-ssb", "sac-cw", "sac-ssb", "naqp-cw", "naqp-ssb", "naqp-rtty", "arrl-rtty-roundup"]));
+    expect(new Set(catalog.rules.map(rule => rule.identity.id))).toEqual(new Set(["cq-ww-cw", "cq-wpx-cw", "cq-ww-ssb", "cq-wpx-ssb", "oceania-dx-cw", "oceania-dx-ssb", "sac-cw", "sac-ssb", "naqp-cw", "naqp-ssb", "naqp-rtty", "arrl-rtty-roundup", "jidx-cw", "jidx-ssb"]));
     const entries = Object.fromEntries(catalog.rules.map(rule => [rule.identity.id,
       [rule.entryDescriptorVersion, rule.mode, rule.entry.cabrilloQSOType, rule.entry.report.defaultSent, rule.entry.serial.requirement]]));
     expect(entries).toEqual({
@@ -84,6 +84,7 @@ describe("Swift contest worker wire fixture", () => {
       "naqp-cw": [2, "CW", "CW", "", "none"], "naqp-ssb": [2, "SSB", "PH", "", "none"],
       "naqp-rtty": [2, "RTTY", "RY", "", "none"],
       "arrl-rtty-roundup": [2, "RTTY", "RY", "599", "none"],
+      "jidx-cw": [2, "CW", "CW", "599", "none"], "jidx-ssb": [2, "SSB", "PH", "59", "none"],
     });
     const created = await client.create(catalog.workspaceGeneration, createInput());
     const reserved = await client.reserveSerial(created.session, created.draft.draftID);
