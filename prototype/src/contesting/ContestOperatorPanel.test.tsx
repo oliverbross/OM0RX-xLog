@@ -50,10 +50,10 @@ function draftResult(current: ContestSessionSummary, next: ContestDraftSnapshot)
 afterEach(cleanup);
 
 function Harness({ mode, serial = false, duplicate = false, invalid = false, unchecked = false, workerBlank = false,
-  workerMissingExchange = false, workerMissingSerial = false, invalidCall = "", uncertainCommit = false, simulate }:
+  workerMissingExchange = false, workerMissingSerial = false, invalidCall = "", uncertainCommit = false, reserveReplyGate, simulate }:
   { mode: "CW" | "SSB"; serial?: boolean; duplicate?: boolean; invalid?: boolean; unchecked?: boolean;
     workerBlank?: boolean; workerMissingExchange?: boolean; workerMissingSerial?: boolean; invalidCall?: string;
-    uncertainCommit?: boolean; simulate?: ContestSimulationAdapter }) {
+    uncertainCommit?: boolean; reserveReplyGate?: Promise<void>; simulate?: ContestSimulationAdapter }) {
   const [active, setActive] = useState(() => session(mode, serial));
   const [current, setCurrent] = useState(() => ({ ...draft(active), ...(duplicate ? { fields: { ...draft(active).fields, callsign: "K1ABC" }, dupe: { state: "duplicate" as const, reason: "Worked" } } : {}) }));
   const [editGeneration, setEditGeneration] = useState(0), [reserveCount, setReserveCount] = useState(0), [commitCount, setCommitCount] = useState(0);
@@ -69,7 +69,8 @@ function Harness({ mode, serial = false, duplicate = false, invalid = false, unc
     const revision = current.revision + 1, next = { ...current, revision, reservedSerial: 7, fields: { ...current.fields, sentExchange: "007" },
       validation: { errors: current.fields.receivedExchange ? [] : ["Received serial must be a positive integer."], warnings: [] },
       dupe: { state: "clear" as const, reason: "Clear" } };
-    admittedDraft.current = next; setActive(value => ({ ...value, revision })); setCurrent(next); return draftResult({ ...active, revision }, next);
+    admittedDraft.current = next; setActive(value => ({ ...value, revision })); setCurrent(next); await reserveReplyGate;
+    return draftResult({ ...active, revision }, next);
   };
   const commit = async () => {
     setCommitCount(value => value + 1);
@@ -116,8 +117,9 @@ function Harness({ mode, serial = false, duplicate = false, invalid = false, unc
     <input aria-label="Exchange" data-contest-operator-field="exchange" value={current.fields.receivedExchange} onChange={event => { setEditGeneration(value => value + 1);
       const next = { ...admittedDraft.current, fields: { ...admittedDraft.current.fields, receivedExchange: event.target.value } }; admittedDraft.current = next; setCurrent(next); }}/>
     <input aria-label="Unrelated note" defaultValue="notes"/>
-    </form><button onClick={() => setBlocked(true)}>Block entry</button><button onClick={() => { ownerDirty.current = true;
+    </form><button onClick={() => setBlocked(true)}>Block entry</button><button onClick={() => setBlocked(false)}>Unblock entry</button><button onClick={() => { ownerDirty.current = true;
       setEditGeneration(value => value + 1); setCurrent(value => ({ ...value, fields: { ...value.fields, callsign: "K1ABD" } })); }}>Edit before admission</button>
+      <output data-testid="owner-draft">{current.revision}/{current.reservedSerial ?? "none"}</output>
       {uncertainCommit && <><button onClick={() => recover(false)}>Recover wrong mutation</button>
       <button onClick={() => recover(true)}>Recover mutation</button></>}<output data-testid="calls">{reserveCount}/{commitCount}</output></>;
 }
@@ -146,6 +148,55 @@ describe("ContestOperatorPanel simulated owner integration", () => {
     expect(screen.getByTestId("calls").textContent).toBe("1/0");
     await act(async () => gate.resolve()); await waitFor(() => expect(screen.getByTestId("calls").textContent).toBe("1/1"));
     expect(sent).toEqual(["EXCH"]); view.unmount();
+  });
+
+  it("continues from an owner successor that rendered before the reserve reply settles", async () => {
+    const reply = deferred(), sent: string[] = [];
+    render(<Harness mode="CW" serial reserveReplyGate={reply.promise} simulate={async entry => { sent.push(entry.macro); }}/>);
+    fireEvent.change(screen.getByLabelText("Call"), { target: { value: "K1ABC" } });
+    fireEvent.change(screen.getByLabelText("Exchange"), { target: { value: "123" } });
+    fireEvent.change(screen.getByLabelText("Operating style"), { target: { value: "search-and-pounce" } });
+    fireEvent.click(screen.getByRole("button", { name: "Arm simulation" }));
+    fireEvent.keyDown(screen.getByLabelText("Exchange"), { key: "Enter" });
+    await waitFor(() => expect(screen.getByTestId("calls").textContent).toBe("1/0"));
+    await waitFor(() => expect(screen.getByTestId("owner-draft").textContent).toBe("2/7"));
+    expect(sent).toEqual([]);
+    await act(async () => reply.resolve());
+    await waitFor(() => expect(screen.getByTestId("calls").textContent).toBe("1/1"));
+    expect(sent).toEqual(["EXCH"]);
+  });
+
+  it("waits for the owner to become enabled after the reserved successor and reply are both ready", async () => {
+    const reply = deferred(), sent: string[] = [];
+    render(<Harness mode="CW" serial reserveReplyGate={reply.promise} simulate={async entry => { sent.push(entry.macro); }}/>);
+    fireEvent.change(screen.getByLabelText("Call"), { target: { value: "K1ABC" } });
+    fireEvent.change(screen.getByLabelText("Exchange"), { target: { value: "123" } });
+    fireEvent.change(screen.getByLabelText("Operating style"), { target: { value: "search-and-pounce" } });
+    fireEvent.click(screen.getByRole("button", { name: "Arm simulation" }));
+    fireEvent.keyDown(screen.getByLabelText("Exchange"), { key: "Enter" });
+    await waitFor(() => expect(screen.getByTestId("owner-draft").textContent).toBe("2/7"));
+    fireEvent.click(screen.getByRole("button", { name: "Block entry" }));
+    await act(async () => reply.resolve());
+    expect(sent).toEqual([]); expect(screen.getByTestId("calls").textContent).toBe("1/0");
+    fireEvent.click(screen.getByRole("button", { name: "Unblock entry" }));
+    await waitFor(() => expect(screen.getByTestId("calls").textContent).toBe("1/1"));
+    expect(sent).toEqual(["EXCH"]);
+  });
+
+  it.each(["edit", "escape"] as const)("revokes the reserved continuation on delayed-reply %s", async action => {
+    const reply = deferred(), sent: string[] = [];
+    render(<Harness mode="CW" serial reserveReplyGate={reply.promise} simulate={async entry => { sent.push(entry.macro); }}/>);
+    fireEvent.change(screen.getByLabelText("Call"), { target: { value: "K1ABC" } });
+    fireEvent.change(screen.getByLabelText("Exchange"), { target: { value: "123" } });
+    fireEvent.change(screen.getByLabelText("Operating style"), { target: { value: "search-and-pounce" } });
+    fireEvent.click(screen.getByRole("button", { name: "Arm simulation" }));
+    fireEvent.keyDown(screen.getByLabelText("Exchange"), { key: "Enter" });
+    await waitFor(() => expect(screen.getByTestId("owner-draft").textContent).toBe("2/7"));
+    if (action === "edit") fireEvent.click(screen.getByRole("button", { name: "Edit before admission" }));
+    else fireEvent.keyDown(screen.getByLabelText("Exchange"), { key: "Escape" });
+    await act(async () => reply.resolve()); await act(async () => {});
+    expect(sent).toEqual([]); expect(screen.getByTestId("calls").textContent).toBe("1/0");
+    expect(screen.getByRole("button", { name: "Arm simulation" })).toBeTruthy();
   });
 
   it("sends QSOB4 for a duplicate and never mutates the contest", async () => {
@@ -217,7 +268,7 @@ describe("ContestOperatorPanel simulated owner integration", () => {
   });
 
   it.each(["CW", "SSB"] as const)("auto-reserves WPX %s in Run before receiving the exchange", async mode => {
-    const wpxOutput = vi.fn(); render(<Harness mode={mode} serial workerMissingExchange workerMissingSerial simulate={wpxOutput}/>);
+    const wpxOutput = vi.fn(); render(<Harness mode={mode} serial unchecked workerMissingExchange workerMissingSerial simulate={wpxOutput}/>);
     await act(async () => {});
     const call = screen.getByLabelText("Call"); fireEvent.click(screen.getByRole("button", { name: "Arm simulation" })); fireEvent.keyDown(call, { key: "Enter" });
     await waitFor(() => expect(screen.getByTestId("calls").textContent).toBe("1/0"));
@@ -226,7 +277,7 @@ describe("ContestOperatorPanel simulated owner integration", () => {
   });
 
   it("auto-reserves WPX S&P with a completed received exchange", async () => {
-    const wpxOutput = vi.fn(); render(<Harness mode="CW" serial workerMissingSerial simulate={wpxOutput}/>);
+    const wpxOutput = vi.fn(); render(<Harness mode="CW" serial unchecked workerMissingSerial simulate={wpxOutput}/>);
     await waitFor(() => expect((screen.getByLabelText("Exchange") as HTMLInputElement).value).toBe("123"));
     fireEvent.change(screen.getByLabelText("Operating style"), { target: { value: "search-and-pounce" } });
     fireEvent.click(screen.getByRole("button", { name: "Arm simulation" })); fireEvent.keyDown(screen.getByLabelText("Exchange"), { key: "Enter" });

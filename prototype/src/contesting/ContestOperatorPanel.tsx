@@ -20,6 +20,7 @@ export type ContestSimulationAdapter = (entry: ContestSimulationEntry) => Promis
 export type ContestOperatorRecovery = { sequence: number; method: "contest_serial_reserve" | "contest_qso_commit";
   sessionID: string; workspaceGeneration: string; requestID: string; payloadDigest: string } | null;
 type Trace = ContestSimulationEntry & { status: "pending" | "confirmed" | "failed" | "stopped" };
+type ReservationIntent = Extract<OperatorFlowIntent, { kind: "reserve-serial" }>;
 
 type Props = {
   session: ContestSessionSummary;
@@ -47,9 +48,11 @@ function valueState(value: string, pattern: RegExp): "empty" | "valid" | "invali
 }
 function cuesFor(session: ContestSessionSummary, draft: ContestDraftSnapshot, focus: OperatorField, correctedCall: boolean): OperatorFlowCues {
   const checked = draft.dupe.state !== "unchecked";
+  const reserveFirstUnchecked = session.rule.entry.serial.requirement === "requiredForCommit" && draft.reservedSerial === null &&
+    draft.validation.errors.every(error => error === "Sent serial must be a positive integer." || error === "Received serial must be a positive integer.");
   const call = draft.fields.callsign.trim();
   const callShape = /^[A-Z0-9]+(?:\/[A-Z0-9]+)*$/.test(call) && /[A-Z]/.test(call) && /\d/.test(call);
-  const callsign = call === "" ? "empty" : checked && callShape ? "valid" : "invalid";
+  const callsign = call === "" ? "empty" : (checked || reserveFirstUnchecked) && callShape ? "valid" : "invalid";
   const rawExchange = draft.fields.receivedExchange.trim(), numeric = /^\d+$/.test(rawExchange) ? Number(rawExchange) : NaN;
   const exchange = rawExchange === "" ? "empty" : Number.isSafeInteger(numeric) && numeric > 0 &&
     (session.rule.entry.exchange.received !== "cqZone" || numeric <= 40) ? "valid" : "invalid";
@@ -73,9 +76,11 @@ export function ContestOperatorPanel({ session, draft, entryRoot, editGeneration
   const [state, setState] = useState<OperatorFlowState>(() => createOperatorFlow(contextRef.current));
   const stateRef = useRef(state), draftRef = useRef(draft), sessionRef = useRef(session), disabledRef = useRef(disabled);
   const admitIntentRef = useRef(admitIntent);
+  const reserveSerialRef = useRef(reserveSerial), commitQSORef = useRef(commitQSO);
   const focusRef = useRef<OperatorField>("callsign"), editRef = useRef(editGeneration);
   const recoveryRef = useRef(0), admissionRef = useRef(0), lastSentCall = useRef("");
   const uncertainOperationRef = useRef<{ token: OperatorOperationToken; operation: ContestMutation } | null>(null);
+  const [reservationContinuation, setReservationContinuation] = useState<{ intent: ReservationIntent; result: ContestDraftResult } | null>(null);
   const aliveRef = useRef(true);
   const [trace, setTrace] = useState<Trace[]>([]);
   const audited = supported(session);
@@ -84,6 +89,8 @@ export function ContestOperatorPanel({ session, draft, entryRoot, editGeneration
   sessionRef.current = session;
   disabledRef.current = disabled;
   admitIntentRef.current = admitIntent;
+  reserveSerialRef.current = reserveSerial;
+  commitQSORef.current = commitQSO;
   const setFlow = (next: OperatorFlowState) => { stateRef.current = next; guardFormSubmit(next.armed || !!next.pending); setState(next); };
   const updateTrace = (operationID: string, status: Trace["status"]) => setTrace(items =>
     items.map(item => item.operationID === operationID ? { ...item, status } : item).slice(-MAX_TRACE));
@@ -164,19 +171,17 @@ export function ContestOperatorPanel({ session, draft, entryRoot, editGeneration
         settle(intent.token, "failed"); return;
       }
       if (intent.kind === "reserve-serial") {
-        const result = await reserveSerial(); draftRef.current = result.draft;
+        const result = await reserveSerialRef.current(); draftRef.current = result.draft;
         if (!aliveRef.current) return;
-        step({ type: "authoritative-reservation", context: intent.context, token: intent.token,
-          predecessorDraftIdentity: intent.draftIdentity, cues: cuesFor(sessionRef.current, result.draft, focusRef.current,
-            !!lastSentCall.current && result.draft.fields.callsign !== lastSentCall.current) });
+        setReservationContinuation({ intent, result });
+        return;
       } else {
-        const result = await commitQSO(); draftRef.current = result.draft;
+        const result = await commitQSORef.current(); draftRef.current = result.draft;
         if (!aliveRef.current) return;
         settle(intent.token, "confirmed");
         step({ type: "cues", context: intent.context, cues: cuesFor(sessionRef.current, result.draft, "callsign", false) });
         return;
       }
-      settle(intent.token, "confirmed");
     } catch (cause) {
       if (!aliveRef.current) return;
       if (cause instanceof ContestMutationUncertain) uncertainOperationRef.current = { token: intent.token, operation: cause.operation };
@@ -236,6 +241,26 @@ export function ContestOperatorPanel({ session, draft, entryRoot, editGeneration
     contextRef.current = context;
     step({ type: "context-changed", previous, context });
   }, [editGeneration]);
+  useEffect(() => {
+    const continuation = reservationContinuation;
+    if (!continuation) return;
+    const { intent, result } = continuation, pending = stateRef.current.pending, current = stateRef.current.context;
+    const pendingMatches = pending?.kind === "reserve-serial" && pending.token.operationID === intent.token.operationID &&
+      pending.token.admission === intent.token.admission;
+    const contextMatches = current.sessionID === intent.context.sessionID && current.workspaceGeneration === intent.context.workspaceGeneration &&
+      current.contextGeneration === intent.context.contextGeneration && current.signalMode === intent.context.signalMode &&
+      current.serialRequired === intent.context.serialRequired;
+    if (!pendingMatches || !contextMatches) { setReservationContinuation(null); return; }
+    if (disabled || draftIdentity(draft) !== draftIdentity(result.draft)) return;
+    if (!admitIntentRef.current(draftIdentity(result.draft), intent.context)) {
+      setReservationContinuation(null); settle(intent.token, "failed"); return;
+    }
+    setReservationContinuation(null); draftRef.current = draft;
+    step({ type: "authoritative-reservation", context: intent.context, token: intent.token,
+      predecessorDraftIdentity: intent.draftIdentity, cues: cuesFor(sessionRef.current, draft, focusRef.current,
+        !!lastSentCall.current && draft.fields.callsign !== lastSentCall.current) });
+    settle(intent.token, "confirmed");
+  }, [disabled, draft.draftID, draft.revision, reservationContinuation, state.context.contextGeneration]);
   useEffect(() => {
     if (!recovery || recovery.sequence <= recoveryRef.current) return;
     recoveryRef.current = recovery.sequence;
