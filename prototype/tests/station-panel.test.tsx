@@ -29,7 +29,7 @@ it("keeps a detached monitor read-only", async () => {
   expect(screen.queryByRole("button", { name: "Go to" })).toBeNull();
 });
 
-it("allows Keychain interaction only for operator-triggered connect and reconnect", async () => {
+it("keeps operator-triggered connect and reconnect noninteractive", async () => {
   const state = { source: "direct_agent", available: false, radio: null, station: null, rotor: null };
   const request = vi.fn(async (_method: string, _params?: Record<string, unknown>) => state);
   render(<StationPanel snapshot={state} onRequest={request} onSnapshot={vi.fn()} />);
@@ -38,11 +38,12 @@ it("allows Keychain interaction only for operator-triggered connect and reconnec
   fireEvent.click(screen.getByRole("button", { name: "Connect" }));
   await waitFor(() => expect(request).toHaveBeenCalledWith("station_connect", {
     provider: "direct_agent", base_url: "https://station.example", allow_transmit: true,
-    allow_keychain_interaction: true,
   }));
   fireEvent.click(screen.getByRole("button", { name: "Reconnect" }));
   await waitFor(() => expect(request.mock.calls.filter(([method]) => method === "station_connect")).toHaveLength(2));
-  expect(request.mock.calls.filter(([method]) => method === "station_connect")[1][1]).toMatchObject({ allow_keychain_interaction: true });
+  for (const [, params] of request.mock.calls.filter(([method]) => method === "station_connect")) {
+    expect(params).not.toHaveProperty("allow_keychain_interaction");
+  }
 });
 
 it("keeps explicit safety release available when radio observation becomes stale", async () => {
