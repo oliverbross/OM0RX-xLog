@@ -38,6 +38,41 @@ latest installed main source is runtime-accepted.
 
 ## Implementation order
 
+### Read-only main-source refresh, 18 October 2026
+
+The canonical checkout was verified clean at
+`e741010453b9026be55ba0f657cc5aa188dd28d6`, currently on
+`codex/dual-radio-settings` tracking the corresponding origin branch. The main
+chat still holds its installed 1.2.18 runtime acceptance. This is an integration
+audit, not permission to merge that unaccepted baseline. Resolve the accepted
+installed commit explicitly when the hold clears; the local branch named
+`main` is not a substitute for the actual installed-source coordinate.
+
+Comparison with the shared contest baseline
+`e42376db0bd65c1b2b5668692a52ed12cd802536` adds these transition requirements:
+
+- `LiveApp.tsx` now debounces spot selection and retains the latest queued spot
+  while activation or draft recovery finishes. Module retirement must cancel
+  or fence the debounce, queued selection and deferred drain/recovery callbacks.
+  A queued normal-log spot must not execute after entering Contesting or after
+  returning to a new Normal Logging context.
+- Follow Radio admission now reconciles a retained radio-read journal before
+  enabling follow. Preserve that recovery path and its reservation check; a
+  module switch cannot erase the journal or bypass it merely by closing a UI.
+- Native spot activation, observed radio state and remote simplex tuning have
+  changed together. Integrate the accepted source as a reviewed whole and rerun
+  its ownership/readback tests alongside module-switch tests; do not transplant
+  only the visible React changes.
+- Normal QSO creation and editing now apply mode-aware signal-report defaults.
+  Preserve those normal-log changes while contest reports remain governed by
+  the contest descriptor and frozen QSO values, including report-free NAQP.
+
+The source audit caused no canonical edits, package/install action, station
+command or changes to the active module. All implementation gates below remain
+open until the main baseline is runtime-accepted.
+
+### Transition implementation
+
 1. Audit the latest runtime-accepted main source before changing shared native
    ownership. Record its exact installed-source and build provenance.
 2. Reuse the existing editor-close and owner-revocation mechanisms to define
