@@ -66,9 +66,18 @@ describe("ContestClient", () => {
     const crossedFamily = structuredClone(rule) as unknown as Record<string, unknown>;
     crossedFamily.entry = { ...rule.entry, exchange: { sent: "serialNumber", received: "serialNumber", sentDefault: "reservedSerial", adifFields: "stxSrx" },
       serial: { requirement: "requiredForCommit", allowedScopes: ["session", "band", "transmitter"] } };
+    const sac = structuredClone(rule) as unknown as Record<string, unknown>;
+    sac.identity = { id: "sac-cw", version: "1.0.0-2026-rules-preview", edition: "2026-rules-preview", sourceRevision: "7c8b499225a73f7f8f792246881bd7aefc05452f" };
+    sac.displayName = "Scandinavian Activity Contest CW";
+    sac.entry = { ...rule.entry, exchange: { sent: "serialNumber", received: "serialNumber", sentDefault: "reservedSerial", adifFields: "exchangeStrings" },
+      serial: { requirement: "requiredForCommit", allowedScopes: ["session", "band", "transmitter"] } };
+    const wrongSACIdentity = structuredClone(sac) as Record<string, unknown>;
+    wrongSACIdentity.identity = { ...(sac.identity as Record<string, unknown>), edition: "source-26.10.11" };
+    const wrongSACFamily = structuredClone(sac) as Record<string, unknown>;
+    (wrongSACFamily.entry as Record<string, any>).exchange.adifFields = "stxSrx";
     const missingVersion = structuredClone(rule) as unknown as Record<string, unknown>; delete missingVersion.entryDescriptorVersion;
     const unknownVersion = { ...rule, entryDescriptorVersion: 2 };
-    for (const badRule of [crossedMode, crossedFamily, missingVersion, unknownVersion]) {
+    for (const badRule of [crossedMode, crossedFamily, wrongSACIdentity, wrongSACFamily, missingVersion, unknownVersion]) {
       const request = vi.fn(async () => ({ id: "frame", ok: true as const, result: { workspaceGeneration: "generation-1", rules: [badRule] } }));
       const client = new ContestClient(request as ContestRequest);
       await expect(client.catalog()).rejects.toThrow("Malformed or stale contest_catalog response");

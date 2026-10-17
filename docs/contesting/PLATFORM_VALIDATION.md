@@ -231,3 +231,30 @@ The predecessor four-pilot adapter
 [run 39049346200](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39049346200)
 at `a074a34f35fd3916d332e97b496c174fc5ff59aa` also completed all six jobs
 successfully; no uninspected per-suite counts are claimed for that run here.
+
+## Combined six-rule foundation
+
+[Run 39052034797](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39052034797)
+passed all six jobs at `6e721cdd2a15c850302a938c550892b0bf26c31a`.
+Swift jobs `117452405170` (macOS), `117452405054` (Linux) and `117452405090`
+(Windows) each executed 54 core tests. Store/snapshot counts were 49 on
+macOS/Linux and 54 on Windows. The repaired 11-test export-lane suite passed
+on every OS. All existing export-support steps passed. Rust jobs
+`117452405093`, `117452405068` and `117452405122` each executed 18 tests.
+
+This closes native test evidence for the combined SCP core, six rule pilots
+and deterministic export concurrency repair. Its workflow still omits
+`ContestingLaneTests` and `ContestAssistanceLaneTests`. Reviewed CI change
+`e51b847aacd05c0bf678fc08b78791d37f770be2` adds anchored nonzero discovery
+checks and actual execution of those classes on all three operating systems;
+local discovery found 13 tests in each class, while hosted results remain
+pending at this checkpoint. Later SAC integration adds another worker test.
+
+The separate SAC core [run 39051704053](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39051704053)
+at `c406a5fcfc1168b1f7c8c455d0d00486a425c380` passed Linux/Windows Swift
+and all Rust jobs. macOS Swift job `117451451879` passed 52 core and 51
+store tests, including 8 SAC and 2 SAC store tests, then failed the old
+export concurrency test with caught error `planned`. Windows job
+`117451451846` passed 52 core and 56 store tests, including those SAC
+suites. This is not an all-green run. The combined foundation already
+contains the reviewed deterministic repair; no new SAC defect is inferred.

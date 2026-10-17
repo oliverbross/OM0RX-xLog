@@ -34,7 +34,7 @@ function createInput(): ContestCreateInput {
 
 describe("Swift contest worker wire fixture", () => {
   it("parses the generated create, reserve, apply, commit, and exact replay lifecycle", async () => {
-    expect(fixture.schemaVersion).toBe(5);
+    expect(fixture.schemaVersion).toBe(6);
     expect(fixture.provenance.liveWorkerResponses).toContain("reserve");
     expect(fixture.provenance.postCommitUncertain).toBe("actual direct ContestLane error serialized by the Swift fixture test; not a LiveWorker response");
     expect(fixture.assertions.allContestUUIDsCanonicalLowercase).toBe(true);
@@ -69,13 +69,14 @@ describe("Swift contest worker wire fixture", () => {
     );
 
     const catalog = await client.catalog();
-    expect(new Set(catalog.rules.map(rule => rule.identity.id))).toEqual(new Set(["cq-ww-cw", "cq-wpx-cw", "cq-ww-ssb", "cq-wpx-ssb", "oceania-dx-cw", "oceania-dx-ssb"]));
+    expect(new Set(catalog.rules.map(rule => rule.identity.id))).toEqual(new Set(["cq-ww-cw", "cq-wpx-cw", "cq-ww-ssb", "cq-wpx-ssb", "oceania-dx-cw", "oceania-dx-ssb", "sac-cw", "sac-ssb"]));
     const entries = Object.fromEntries(catalog.rules.map(rule => [rule.identity.id,
       [rule.entryDescriptorVersion, rule.mode, rule.entry.cabrilloQSOType, rule.entry.report.defaultSent, rule.entry.serial.requirement]]));
     expect(entries).toEqual({
       "cq-ww-cw": [1, "CW", "CW", "599", "none"], "cq-wpx-cw": [1, "CW", "CW", "599", "requiredForCommit"],
       "cq-ww-ssb": [1, "SSB", "PH", "59", "none"], "cq-wpx-ssb": [1, "SSB", "PH", "59", "requiredForCommit"],
       "oceania-dx-cw": [1, "CW", "CW", "599", "requiredForCommit"], "oceania-dx-ssb": [1, "SSB", "PH", "59", "requiredForCommit"],
+      "sac-cw": [1, "CW", "CW", "599", "requiredForCommit"], "sac-ssb": [1, "SSB", "PH", "59", "requiredForCommit"],
     });
     const created = await client.create(catalog.workspaceGeneration, createInput());
     const reserved = await client.reserveSerial(created.session, created.draft.draftID);

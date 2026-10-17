@@ -45,7 +45,9 @@ Intentional differences are strict and deterministic: the formatter has no files
 
 ## ADIF 3.1.7 mapping
 
-The mapper reuses xLog's `ADIFRecord` writer and parser. It follows the released ADIF 3.1.7 field semantics: `QSO_DATE` and `TIME_ON` are UTC, `FREQ` is MHz, `MODE` is the descriptor's CW or SSB mode, `CONTEST_ID` names the contest, and `STX`/`SRX` contain numeric WPX serials. WPX CW and SSB advertise the numeric `stxSrx` mapping; Oceania DX CW and SSB advertise `exchangeStrings`, which emits only `STX_STRING`/`SRX_STRING`; WW advertises none. String exchange fields retain the exact exchange text, including leading zeroes. Lengths are UTF-8 byte lengths as emitted by `ADIFRecord`.
+The mapper reuses xLog's `ADIFRecord` writer and parser. It follows the released ADIF 3.1.7 field semantics: `QSO_DATE` and `TIME_ON` are UTC, `FREQ` is MHz, `MODE` is the descriptor's CW or SSB mode, `CONTEST_ID` names the contest, and `STX`/`SRX` contain numeric WPX serials. WPX CW and SSB advertise the numeric `stxSrx` mapping; Oceania DX and SAC CW/SSB advertise `exchangeStrings`, which emits only `STX_STRING`/`SRX_STRING`; WW advertises none. String exchange fields retain the exact exchange text, including leading zeroes. Lengths are UTF-8 byte lengths as emitted by `ADIFRecord`.
+
+SAC Cabrillo and ADIF output is a deterministic scoring and format preview. The current submission header does not model every SAC category or contest-date eligibility rule, so the UI labels it as a practice export rather than sponsor-submission ready.
 
 The current untyped operational `station.location` is used only to validate each QSO against its frozen station snapshot. It is not emitted as `MY_GRIDSQUARE`, `MY_CITY`, or Cabrillo `LOCATION`; those standards fields require a future typed station-location contract rather than guessing from a free-form value.
 

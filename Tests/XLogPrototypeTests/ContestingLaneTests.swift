@@ -180,14 +180,18 @@ final class ContestingLaneTests: XCTestCase {
         XCTAssertEqual((score["qsos"] as? NSNumber)?.intValue, 1)
     }
 
-    func testSixPilotCatalogAndPhoneMutationRestartExportFlowUseEntryDescriptors() async throws {
-        let catalogRoot = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-four-pilot-catalog-\(UUID().uuidString)")
-        defer { try? FileManager.default.removeItem(at: catalogRoot) }
+    func testEightPilotCatalogAndPhoneMutationRestartExportFlowUseEntryDescriptors() async throws {
+        let catalogRoot = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-eight-pilot-catalog-\(UUID().uuidString)")
+        defer {
+            if FileManager.default.fileExists(atPath: catalogRoot.path) {
+                try? FileManager.default.removeItem(at: catalogRoot)
+            }
+        }
         let catalogLane = try ContestLane(databaseURL: catalogRoot.appendingPathComponent("Contesting/contests.sqlite")) { [generation] in generation }
         let catalog = try await catalogLane.handle(method: "contest_catalog", params: [:])
         let rules = try XCTUnwrap(catalog["rules"] as? [[String: Any]])
         XCTAssertEqual(Set(rules.compactMap { ($0["identity"] as? [String: Any])?["id"] as? String }),
-                       ["cq-ww-cw", "cq-wpx-cw", "cq-ww-ssb", "cq-wpx-ssb", "oceania-dx-cw", "oceania-dx-ssb"])
+                       ["cq-ww-cw", "cq-wpx-cw", "cq-ww-ssb", "cq-wpx-ssb", "oceania-dx-cw", "oceania-dx-ssb", "sac-cw", "sac-ssb"])
         for rule in rules {
             let mode = try XCTUnwrap(rule["mode"] as? String)
             let entry = try XCTUnwrap(rule["entry"] as? [String: Any])
@@ -195,7 +199,8 @@ final class ContestingLaneTests: XCTestCase {
             XCTAssertEqual((entry["report"] as? [String: Any])?["defaultSent"] as? String, mode == "CW" ? "599" : "59")
         }
 
-        for ruleName in ["CQ WW SSB", "CQ WPX SSB", "Oceania DX CW", "Oceania DX SSB"] {
+        for ruleName in ["CQ WW SSB", "CQ WPX SSB", "Oceania DX CW", "Oceania DX SSB",
+                         "Scandinavian Activity Contest CW", "Scandinavian Activity Contest SSB"] {
             let root = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-ssb-lifecycle-\(UUID().uuidString)")
             defer { try? FileManager.default.removeItem(at: root) }
             let lane = try ContestLane(databaseURL: root.appendingPathComponent("Contesting/contests.sqlite")) { [generation] in generation }
@@ -225,7 +230,7 @@ final class ContestingLaneTests: XCTestCase {
             let sent = serialContest ? "001" : "15"
             let received = serialContest ? "101" : "5"
             let fields: [String: Any] = ["callsign": "K1ABC", "sentReport": report, "sentExchange": sent,
-                "receivedReport": report, "receivedExchange": received, "frequencyHz": 14_250_000,
+                "receivedReport": report, "receivedExchange": received, "frequencyHz": mode == "CW" ? 14_025_000 : 14_250_000,
                 "band": "20m", "mode": mode]
             _ = try await lane.handle(method: "contest_draft_apply", params: mutation(
                 sessionID: sessionID, requestID: UUID(), revision: revision,
@@ -257,7 +262,7 @@ final class ContestingLaneTests: XCTestCase {
                 let document = try XCTUnwrap(String(data: data, encoding: .utf8))
                 XCTAssertTrue(format == "cabrillo" ? document.contains(mode == "CW" ? " CW " : " PH ") : document.contains("<MODE:\(mode.utf8.count)>\(mode)"))
                 XCTAssertEqual(document.contains("<STX:"), format == "adif" && ruleName == "CQ WPX SSB")
-                if format == "adif" && ruleName.hasPrefix("Oceania") {
+                if format == "adif" && (ruleName.hasPrefix("Oceania") || ruleName.hasPrefix("Scandinavian")) {
                     XCTAssertTrue(document.contains("<STX_STRING:")); XCTAssertTrue(document.contains("<SRX_STRING:"))
                     XCTAssertFalse(document.contains("<STX:")); XCTAssertFalse(document.contains("<SRX:"))
                 }
@@ -327,6 +332,49 @@ final class ContestingLaneTests: XCTestCase {
         XCTAssertEqual((ssbScore["points"] as? NSNumber)?.intValue, 50)
         XCTAssertEqual((ssbScore["multipliers"] as? NSNumber)?.intValue, 2)
         XCTAssertEqual((ssbScore["claimedScore"] as? NSNumber)?.intValue, 100)
+    }
+
+    func testSACWorkerScoringMatchesIndependentFortyFourAndTwelveOracles() async throws {
+        let cwRoot = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-sac-cw-oracle-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: cwRoot) }
+        let cwLane = try ContestLane(databaseURL: cwRoot.appendingPathComponent("Contesting/contests.sqlite")) { [generation] in generation }
+        let (cwSession, cwDraft, _) = try await makeSession(cwLane, ruleName: "Scandinavian Activity Contest CW",
+            stationCallsign: "SM0AAA", cqZone: "14", dxccEntity: "SWEDEN")
+        var cwRevision = 1
+        let cwContacts: [(String, String, Int, String)] = [
+            ("DL1AAA", "20m", 14_030_000, "101"), ("K1ABC", "20m", 14_031_000, "102"),
+            ("K1XYZ", "20m", 14_032_000, "103"), ("K1ABC", "40m", 7_030_000, "104"),
+            ("OH1AAA", "20m", 14_033_000, "105"), ("K1ABC", "20m", 14_034_000, "106"),
+        ]
+        for (index, contact) in cwContacts.enumerated() {
+            cwRevision = try await commitSerialContact(cwLane, sessionID: cwSession, draftID: cwDraft, revision: cwRevision,
+                call: contact.0, band: contact.1, frequencyHz: contact.2, mode: "CW", report: "599", received: contact.3, minute: index)
+        }
+        let cwScore = try await cwLane.handle(method: "contest_score", params: [
+            "sessionID": wireID(cwSession), "workspaceGeneration": generation, "expectedRevision": cwRevision])
+        XCTAssertEqual((cwScore["points"] as? NSNumber)?.intValue, 11)
+        XCTAssertEqual((cwScore["multipliers"] as? NSNumber)?.intValue, 4)
+        XCTAssertEqual((cwScore["claimedScore"] as? NSNumber)?.intValue, 44)
+
+        let ssbRoot = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-sac-ssb-oracle-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: ssbRoot) }
+        let ssbLane = try ContestLane(databaseURL: ssbRoot.appendingPathComponent("Contesting/contests.sqlite")) { [generation] in generation }
+        let (ssbSession, ssbDraft, _) = try await makeSession(ssbLane, ruleName: "Scandinavian Activity Contest SSB")
+        var ssbRevision = 1
+        let ssbContacts: [(String, String, Int, String)] = [
+            ("SM1AAA", "20m", 14_250_000, "201"), ("SM2AAA", "20m", 14_251_000, "202"),
+            ("SM1BBB", "20m", 14_252_000, "203"), ("OH1AAA", "40m", 7_150_000, "204"),
+            ("K1ABC", "20m", 14_253_000, "205"),
+        ]
+        for (index, contact) in ssbContacts.enumerated() {
+            ssbRevision = try await commitSerialContact(ssbLane, sessionID: ssbSession, draftID: ssbDraft, revision: ssbRevision,
+                call: contact.0, band: contact.1, frequencyHz: contact.2, mode: "SSB", report: "59", received: contact.3, minute: index)
+        }
+        let ssbScore = try await ssbLane.handle(method: "contest_score", params: [
+            "sessionID": wireID(ssbSession), "workspaceGeneration": generation, "expectedRevision": ssbRevision])
+        XCTAssertEqual((ssbScore["points"] as? NSNumber)?.intValue, 4)
+        XCTAssertEqual((ssbScore["multipliers"] as? NSNumber)?.intValue, 3)
+        XCTAssertEqual((ssbScore["claimedScore"] as? NSNumber)?.intValue, 12)
     }
 
     func testQSOGetCorrectionDeletionReplayAndStrictFailures() async throws {
@@ -665,9 +713,9 @@ final class ContestingLaneTests: XCTestCase {
         let workspaceGeneration = try XCTUnwrap(catalog["workspaceGeneration"] as? String)
         XCTAssertEqual(workspaceGeneration, workspaceGeneration.lowercased())
         let rules = try XCTUnwrap(catalog["rules"] as? [[String: Any]])
-        XCTAssertEqual(rules.count, 6)
+        XCTAssertEqual(rules.count, 8)
         XCTAssertEqual(Set(rules.compactMap { ($0["identity"] as? [String: Any])?["id"] as? String }),
-                       ["cq-ww-cw", "cq-wpx-cw", "cq-ww-ssb", "cq-wpx-ssb", "oceania-dx-cw", "oceania-dx-ssb"])
+                       ["cq-ww-cw", "cq-wpx-cw", "cq-ww-ssb", "cq-wpx-ssb", "oceania-dx-cw", "oceania-dx-ssb", "sac-cw", "sac-ssb"])
         XCTAssertTrue(rules.allSatisfy { $0["entry"] is [String: Any] })
         let rule = try XCTUnwrap(rules.first { $0["displayName"] as? String == "CQ WPX CW" })
         let sessionID = UUID(uuidString: "f7654321-89ab-4cde-8fab-0123456789ab")!
@@ -770,7 +818,7 @@ final class ContestingLaneTests: XCTestCase {
         XCTAssertEqual((receipt["result"] as? [String: Any])?["status"] as? String, "committed")
 
         if let output = ProcessInfo.processInfo.environment["XLOG_CONTEST_FIXTURE_OUTPUT"] {
-            let fixture: [String: Any] = ["schemaVersion": 5,
+            let fixture: [String: Any] = ["schemaVersion": 6,
                 "requests": ["create": createParams, "reserve": reserveParams, "apply": applyParams,
                              "commit": commitParams, "qsoGet": getParams, "qsoCorrect": correctionParams,
                              "qsoDelete": deletionParams, "postCommitApply": uncertainParams],

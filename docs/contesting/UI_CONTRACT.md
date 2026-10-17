@@ -1,6 +1,6 @@
 # Contesting UI contract
 
-The contest workspace is an isolated, local-only pilot for CQ WW, CQ WPX, and Oceania DX in CW and SSB. The React component receives the existing worker request function and never calls station, radio, keying, network, normal-log, or generic service methods.
+The contest workspace is an isolated, local-only pilot for CQ WW, CQ WPX, Oceania DX, and Scandinavian Activity Contest in CW and SSB. SAC is explicitly presented as a scoring practice preview: category and contest-date eligibility are not fully enforced, and its exports are not represented as sponsor-submission ready. The React component receives the existing worker request function and never calls station, radio, keying, network, normal-log, or generic service methods.
 
 ## Request framing
 
@@ -45,7 +45,7 @@ The backend owns durable sessions, drafts, serial reservations, QSOs, receipts, 
 
 The workspace uses xLog's existing colors, typography, field controls, table density, focus rings, and responsive card-to-row behavior. It provides:
 
-- a manager to create/open CQ WW, CQ WPX, and Oceania DX CW/SSB sessions;
+- a manager to create/open CQ WW, CQ WPX, Oceania DX, and SAC CW/SSB sessions;
 - immutable station, operator, CQ zone, and DXCC entity snapshots;
 - compact mode-specific callsign, report, exchange, band, frequency, and serial fields;
 - explicit validation and contest-dupe state;
