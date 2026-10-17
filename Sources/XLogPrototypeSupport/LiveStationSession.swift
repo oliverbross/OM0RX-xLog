@@ -653,6 +653,9 @@ actor LiveStationSession {
             guard generation == connectionGeneration, sessionID == powerSessionID,
                   self.client === client else { throw lifecycleChanged() }
         }
+        if let failure = tuneError as? RemoteAgentCommandFailure {
+            throw WorkerFailure(failure.code, failure.message)
+        }
         if tuneError != nil {
             throw WorkerFailure("station_rejected", "The Remote Station Agent did not confirm the tune request.")
         }

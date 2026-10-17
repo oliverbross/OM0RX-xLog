@@ -316,6 +316,33 @@ it("uses only the latest of rapid successive spot clicks", async () => {
   expect(host.activate).toHaveBeenCalledWith({ id: "newer-report" });
 });
 
+it("retains the latest rapid click while a durable draft receipt is still arriving", async () => {
+  const qso = { id: "draft", call: "", start: "2026-10-12T00:00:00Z", frequencyHz: 14074000, mode: "FT8", band: "20m" };
+  const operationID = crypto.randomUUID();
+  const mutation = { operationID, draftID: qso.id, expectedRevision: 0, generation: testWorkspaceGeneration,
+    action: "replace", qso };
+  const current = { revision: 1, qso, generation: testWorkspaceGeneration };
+  const receipt = { mutation, draft: current };
+  localStorage.setItem("xlog.integration.operatorDraft.main.v1", JSON.stringify({
+    draft: qso, base: { revision: 0, qso, generation: testWorkspaceGeneration }, pending: mutation,
+  }));
+  const backend = host.request.getMockImplementation()!;
+  let receiptChecks = 0;
+  host.request.mockImplementation(async (method, params) => {
+    if (method === "logbook_operator_draft_receipt")
+      return { result: { receipt: ++receiptChecks < 4 ? null : receipt } };
+    if (method === "logbook_operator_draft" && receiptChecks >= 4) return { result: { draft: current } };
+    return backend(method, params);
+  });
+  await openEditor(false);
+  fireEvent.click(screen.getByRole("button", { name: "Select synthetic report" }));
+  fireEvent.click(screen.getByRole("button", { name: "Select newer report" }));
+  await waitFor(() => expect(host.activate).toHaveBeenCalledOnce(), { timeout: 2_000 });
+  expect(host.activate).toHaveBeenCalledWith({ id: "newer-report" });
+  expect(receiptChecks).toBeGreaterThanOrEqual(4);
+  expect(screen.queryByText(/current QSO operation|current QSO change needs attention/)).toBeNull();
+});
+
 it("replaces a rapid spot while the first selection is still clearing a dirty draft", async () => {
   await openEditor(false);
   fireEvent.change(screen.getByLabelText("Desk Name"), { target: { value: "Unsaved lookup text" } });

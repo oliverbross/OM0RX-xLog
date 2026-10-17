@@ -1027,7 +1027,11 @@ function MainLiveApp() {
       setError("");
       return;
     }
-    const replacingPreparedSpot = pendingTune.current && !!spotPreparation.current;
+    // The lookup/draft side of a spot activation can outlive its preparation
+    // promise.  Keep the whole selection window replaceable so a faster second
+    // click becomes the latest target instead of being mistaken for unrelated
+    // QSO work.
+    const replacingPreparedSpot = pendingTune.current;
     if ((draftState.activationFrozen || contactState.activationFrozen) && spotEditor.initializing) {
       setError(spotEditor.error || "QSO editor registration is still initializing. Spot selection remains disabled and your draft is retained; recovery retries automatically.");
       return;
@@ -1043,7 +1047,12 @@ function MainLiveApp() {
           spotAwaitingDraftRecovery.current = null;
           const current = draftSession.getSnapshot();
           if (!current.pending && requested) selectSpot(requested);
-          else setError(current.error || "Resolve the current QSO operation before selecting another spot.");
+          else if (requested && !current.conflict && !current.workspaceChanged && !current.activationFrozen) {
+            // A native activation may have closed while its durable draft
+            // receipt is still arriving.  Retain only the newest report and
+            // retry the read-only reconciliation; never replay the old tune.
+            window.setTimeout(() => selectSpotRef.current(requested), 120);
+          } else setError(current.error || "The current QSO change needs attention before another report can be loaded.");
         }).catch(cause => setError(cause instanceof Error ? cause.message : "The saved QSO operation could not be checked."))
           .finally(() => { spotDraftRecovery.current = null; });
       }
