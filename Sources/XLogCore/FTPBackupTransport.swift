@@ -11,8 +11,10 @@ public struct FTPBackupCredential: Sendable, CustomStringConvertible, CustomDebu
     public let accountID: UUID
     fileprivate let username: String
     fileprivate let password: String
+    public let certificateAuthority: FTPBackupCertificateAuthority?
 
-    public init(accountID: UUID, username: String, password: String) throws {
+    public init(accountID: UUID, username: String, password: String,
+                certificateAuthority: FTPBackupCertificateAuthority? = nil) throws {
         func valid(_ value: String, maximum: Int) -> Bool {
             !value.isEmpty && value.utf8.count <= maximum && value.unicodeScalars.allSatisfy {
                 $0.value != 0 && $0.value != 10 && $0.value != 13
@@ -22,10 +24,17 @@ public struct FTPBackupCredential: Sendable, CustomStringConvertible, CustomDebu
             throw FTPBackupError.invalidCredential
         }
         self.accountID = accountID; self.username = username; self.password = password
+        self.certificateAuthority = certificateAuthority
     }
 
     public var description: String { "FTPBackupCredential(redacted)" }
     public var debugDescription: String { description }
+
+    public init(configuration: FTPBackupConfiguration, password: String) throws {
+        try self.init(accountID: configuration.destination.accountID,
+            username: configuration.username, password: password,
+            certificateAuthority: configuration.certificateAuthority)
+    }
 }
 
 public protocol FTPBackupCredentialSource: Sendable {
@@ -42,8 +51,8 @@ public protocol FTPBackupClient: Sendable {
 }
 
 /// macOS system-libcurl driver. It disables proxies/netrc/redirects, keeps
-/// credentials in memory, validates FTPS certificates using the system trust
-/// backend and bounds both time and downloaded bytes. The pre-transfer MKD is
+/// credentials in memory, validates FTPS using system trust or a native CA blob,
+/// and bounds both time and downloaded bytes. The pre-transfer MKD is
 /// the exclusive reservation; an acknowledged 550 proves only that no STOR was
 /// sent because FTP uses that code for several failures. Any other failed or
 /// lost acknowledgement remains uncertain upstream.
@@ -54,6 +63,9 @@ public struct LibcurlFTPBackupClient: FTPBackupClient {
                                          credential: FTPBackupCredential, bytes: Data,
                                          requireTLS: Bool) async throws -> FTPBackupCreateResult {
         try Task.checkCancellation()
+        guard credential.certificateAuthority == nil || (requireTLS && url.scheme == "ftps") else {
+            throw FTPBackupError.invalidDestination
+        }
         let result = await Task.detached(priority: .utility) {
             var response: CLong = 0
             let code: Int32 = url.absoluteString.withCString { urlValue in
@@ -61,9 +73,13 @@ public struct LibcurlFTPBackupClient: FTPBackupClient {
                     credential.password.withCString { password in
                         ("MKD " + directory).withCString { command in
                             bytes.withUnsafeBytes { body in
-                                xlog_ftp_upload(urlValue, username, password, command,
-                                    body.bindMemory(to: UInt8.self).baseAddress, body.count,
-                                    requireTLS ? 1 : 0, &response)
+                                (credential.certificateAuthority?.pem ?? Data()).withUnsafeBytes { ca in
+                                    xlog_ftp_upload(urlValue, username, password, command,
+                                        body.bindMemory(to: UInt8.self).baseAddress, body.count,
+                                        requireTLS ? 1 : 0,
+                                        ca.isEmpty ? nil : ca.bindMemory(to: UInt8.self).baseAddress,
+                                        ca.count, &response)
+                                }
                             }
                         }
                     }
@@ -82,6 +98,9 @@ public struct LibcurlFTPBackupClient: FTPBackupClient {
     public func download(url: URL, credential: FTPBackupCredential,
                          maximumBytes: Int, requireTLS: Bool) async throws -> Data {
         guard maximumBytes > 0 else { throw FTPBackupError.invalidPackage }
+        guard credential.certificateAuthority == nil || (requireTLS && url.scheme == "ftps") else {
+            throw FTPBackupError.invalidDestination
+        }
         try Task.checkCancellation()
         let result = await Task.detached(priority: .utility) { () -> (Int32, Data?) in
             var output: UnsafeMutablePointer<UInt8>?, length = 0
@@ -89,8 +108,12 @@ public struct LibcurlFTPBackupClient: FTPBackupClient {
             let code: Int32 = url.absoluteString.withCString { urlValue in
                 credential.username.withCString { username in
                     credential.password.withCString { password in
-                        xlog_ftp_download(urlValue, username, password, maximumBytes,
-                            requireTLS ? 1 : 0, &output, &length, &response)
+                        (credential.certificateAuthority?.pem ?? Data()).withUnsafeBytes { ca in
+                            xlog_ftp_download(urlValue, username, password, maximumBytes,
+                                requireTLS ? 1 : 0, &output, &length,
+                                ca.isEmpty ? nil : ca.bindMemory(to: UInt8.self).baseAddress,
+                                ca.count, &response)
+                        }
                     }
                 }
             }
@@ -238,7 +261,10 @@ public actor FTPBackupTransport: RemoteBackupUploadTransport, RemoteBackupRestor
             if Task.isCancelled || error is CancellationError { throw CancellationError() }
             throw FTPBackupError.credentialUnavailable
         }
-        guard credential.accountID == destination.accountID else { throw FTPBackupError.accountMismatch }
+        guard credential.accountID == destination.accountID,
+              credential.certificateAuthority?.identity == destination.ftpsTrust else {
+            throw FTPBackupError.accountMismatch
+        }
         return credential
     }
 

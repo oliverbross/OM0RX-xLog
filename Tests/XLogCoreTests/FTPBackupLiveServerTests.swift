@@ -10,6 +10,55 @@ import Testing
 
     private var environment: [String: String] { ProcessInfo.processInfo.environment }
 
+    @Test("Trusted implicit FTPS uploads, verifies, restores and refuses replay",
+          .enabled(if: ProcessInfo.processInfo.environment["XLOG_FTPS_TRUSTED_ENDPOINT"] != nil))
+    func trustedImplicitFTPS() async throws {
+        let (plan, credentials, bytes) = try trustedFixture()
+        let transport = try FTPBackupTransport(destination: plan.destination, credentials: credentials)
+        #expect(try await transport.createExclusively(plan: plan, bytes: bytes) == .created)
+        #expect(try await transport.verifiedRemoteIdentity(plan: plan) == plan.package)
+        let remote = try #require(try await transport.verifiedRemoteObject(plan: plan))
+        let receipt = try RemoteBackupUploadReceipt(plan: plan,
+            outcome: .verified(package: plan.package, at: Date(timeIntervalSince1970: 1)), remoteObject: remote)
+        #expect(try await transport.downloadVerified(receipt: receipt) == bytes)
+        let replay = try FTPBackupTransport(destination: plan.destination, credentials: credentials)
+        #expect(try await replay.createExclusively(plan: plan, bytes: bytes) == .notCreated)
+    }
+
+    @Test("Implicit FTPS rejects wrong CA and wrong hostname before upload",
+          .enabled(if: ProcessInfo.processInfo.environment["XLOG_FTPS_TRUSTED_ENDPOINT"] != nil),
+          arguments: ["wrong-ca", "wrong-host"])
+    func rejectedConfiguredTrust(mode: String) async throws {
+        let (plan, credentials, bytes) = try trustedFixture(mode: mode)
+        let transport = try FTPBackupTransport(destination: plan.destination, credentials: credentials)
+        await #expect(throws: FTPBackupError.remoteRejected) {
+            try await transport.createExclusively(plan: plan, bytes: bytes)
+        }
+        await #expect(throws: FTPBackupError.operationInProgress) {
+            try await transport.verifiedRemoteObject(plan: plan)
+        }
+        await #expect(throws: FTPBackupError.operationInProgress) {
+            try await transport.createExclusively(plan: plan, bytes: bytes)
+        }
+    }
+
+    private func trustedFixture(mode: String = "trusted") throws -> (RemoteBackupUploadPlan, Credentials, Data) {
+        var endpoint = try #require(environment["XLOG_FTPS_TRUSTED_ENDPOINT"])
+        if mode == "wrong-host" { endpoint = endpoint.replacingOccurrences(of: "localhost", with: "127.0.0.1") }
+        let path = try #require(environment[mode == "wrong-ca" ? "XLOG_FTPS_WRONG_CA_PATH" : "XLOG_FTPS_CA_PATH"])
+        let authority = try FTPBackupCertificateAuthority(pem: Data(contentsOf: URL(fileURLWithPath: path)), revision: 1)
+        let configuration = try FTPBackupConfiguration(workspaceGeneration: UUID(), accountHandle: UUID(),
+            credentialRevision: 1, provider: .ftps, endpoint: endpoint, directory: "/backups/logs",
+            username: try #require(environment["XLOG_FTP_LIVE_USERNAME"]), certificateAuthority: authority)
+        let bytes = Data("OM0RX-xLog synthetic trusted implicit FTPS acceptance\n".utf8)
+        let plan = try RemoteBackupUploadPlan(workspaceGeneration: configuration.workspaceGeneration,
+            destination: configuration.destination, backupID: UUID(),
+            package: RemoteBackupPackageIdentity(sha256: BackupPackageSeal.hash(bytes), byteCount: Int64(bytes.count)))
+        let credential = try FTPBackupCredential(configuration: configuration,
+            password: try #require(environment["XLOG_FTP_LIVE_PASSWORD"]))
+        return (plan, Credentials(value: credential), bytes)
+    }
+
     @Test("Disposable FTP upload, independent verification and restore",
           .enabled(if: ProcessInfo.processInfo.environment["XLOG_FTP_LIVE_ENDPOINT"] != nil))
     func disposablePlainFTP() async throws {

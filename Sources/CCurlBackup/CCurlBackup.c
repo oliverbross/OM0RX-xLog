@@ -48,7 +48,10 @@ static size_t xlog_curl_write(char *source, size_t size, size_t count, void *con
 }
 
 static CURL *xlog_curl_handle(const char *url, const char *username,
-                              const char *password, int require_tls) {
+                              const char *password, int require_tls,
+                              const uint8_t *ca_pem, size_t ca_length) {
+    if ((ca_pem == NULL) != (ca_length == 0) || ca_length > 65536 ||
+        (ca_length > 0 && (!require_tls || strncmp(url, "ftps://", 7) != 0))) return NULL;
     pthread_once(&xlog_curl_once, xlog_curl_initialize);
     CURL *handle = curl_easy_init();
     if (handle == NULL) return NULL;
@@ -75,17 +78,29 @@ static CURL *xlog_curl_handle(const char *url, const char *username,
         curl_easy_cleanup(handle);
         return NULL;
     }
+    if (ca_length > 0) {
+#if LIBCURL_VERSION_NUM >= 0x074d00
+        struct curl_blob authority = { (void *)ca_pem, ca_length, CURL_BLOB_COPY };
+        if (curl_easy_setopt(handle, CURLOPT_CAINFO_BLOB, &authority) != CURLE_OK) {
+            curl_easy_cleanup(handle);
+            return NULL;
+        }
+#else
+        curl_easy_cleanup(handle);
+        return NULL;
+#endif
+    }
     return handle;
 }
 
 int32_t xlog_ftp_upload(const char *url, const char *username,
                         const char *password, const char *mkdir_command,
                         const uint8_t *bytes, size_t length, int require_tls,
-                        long *response_code) {
+                        const uint8_t *ca_pem, size_t ca_length, long *response_code) {
     if (url == NULL || username == NULL || password == NULL || mkdir_command == NULL ||
         bytes == NULL || length == 0 || response_code == NULL) return XLOG_FTP_RESULT_FAILED;
     *response_code = 0;
-    CURL *handle = xlog_curl_handle(url, username, password, require_tls);
+    CURL *handle = xlog_curl_handle(url, username, password, require_tls, ca_pem, ca_length);
     if (handle == NULL) return XLOG_FTP_RESULT_FAILED;
     struct curl_slist *commands = curl_slist_append(NULL, mkdir_command);
     struct xlog_upload_cursor cursor = { bytes, length, 0 };
@@ -112,11 +127,12 @@ int32_t xlog_ftp_upload(const char *url, const char *username,
 int32_t xlog_ftp_download(const char *url, const char *username,
                           const char *password, size_t maximum_length,
                           int require_tls, uint8_t **output,
-                          size_t *output_length, long *response_code) {
+                          size_t *output_length, const uint8_t *ca_pem,
+                          size_t ca_length, long *response_code) {
     if (url == NULL || username == NULL || password == NULL || maximum_length == 0 ||
         output == NULL || output_length == NULL || response_code == NULL) return XLOG_FTP_RESULT_FAILED;
     *output = NULL; *output_length = 0; *response_code = 0;
-    CURL *handle = xlog_curl_handle(url, username, password, require_tls);
+    CURL *handle = xlog_curl_handle(url, username, password, require_tls, ca_pem, ca_length);
     if (handle == NULL) return XLOG_FTP_RESULT_FAILED;
     struct xlog_download_buffer buffer = { NULL, 0, maximum_length, 0 };
     if (curl_easy_setopt(handle, CURLOPT_MAXFILESIZE_LARGE, (curl_off_t)maximum_length) != CURLE_OK ||

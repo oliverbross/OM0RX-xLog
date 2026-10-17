@@ -194,6 +194,7 @@ expected_sha256="$(printf 'OM0RX-xLog synthetic disposable FTP acceptance\n' | s
 [[ "$plain_sha256" == "$expected_sha256" ]]
 
 mkdir -p "$(dirname "$report_path")"
+bash "$repo_root/prototype/scripts/run-disposable-ftps-acceptance.sh" "$acceptance_root/trusted-ftps-report.json"
 source_commit="$(git -C "$repo_root" rev-parse HEAD)"
 tracked_source_dirty=false
 if [[ -n "$(git -C "$repo_root" status --short --untracked-files=no)" ]]; then
@@ -207,6 +208,7 @@ jq -n \
   --slurpfile deadline "$acceptance_root/deadline.json" \
   --slurpfile upload_stall "$acceptance_root/upload-stall-result.json" \
   --slurpfile upload_deadline "$acceptance_root/upload-deadline-result.json" \
+  --slurpfile trusted_ftps "$acceptance_root/trusted-ftps-report.json" \
   '{schema: 1, status: "passed", source_commit: $source_commit,
     tracked_source_dirty: $tracked_source_dirty, scope: "disposable-local-transport",
     synthetic_data_only: true, external_network: false, station_io: false,
@@ -229,8 +231,6 @@ jq -n \
        total_deadline_elapsed_seconds: $deadline[0].elapsed_seconds,
        upload_timeout: {stall: $upload_stall[0], deadline: $upload_deadline[0]},
       object_count: 1, sha256: $plain_sha256},
-    ftps: {untrusted_certificate_rejected: true, object_count: 0,
-      trusted_certificate_success: false,
-      remaining_gate: "trusted certificate without modifying operator trust store"}}' \
+    ftps: $trusted_ftps[0].ftps}' \
   > "$report_path"
 echo "Disposable FTP acceptance passed: $report_path"

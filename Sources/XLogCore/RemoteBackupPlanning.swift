@@ -54,11 +54,13 @@ public struct RemoteBackupDestination: Equatable, Sendable {
     public let security: RemoteBackupTransportSecurity
     public let schedule: RemoteBackupSchedule
     public let retention: RemoteBackupRetention
+    public let ftpsTrust: FTPSBackupTrustIdentity?
 
     public init(id: UUID, revision: UInt64, provider: RemoteBackupProvider, accountID: UUID,
                 location: RemoteBackupLocation, security: RemoteBackupTransportSecurity = .authenticatedEncryptionRequired,
-                schedule: RemoteBackupSchedule = .disabled, retention: RemoteBackupRetention = .keepAll) throws {
-        guard revision > 0 else { throw RemoteBackupPlanningError.invalidDestination }
+                schedule: RemoteBackupSchedule = .disabled, retention: RemoteBackupRetention = .keepAll,
+                ftpsTrust: FTPSBackupTrustIdentity? = nil) throws {
+        guard revision > 0, ftpsTrust == nil || provider == .ftps else { throw RemoteBackupPlanningError.invalidDestination }
         switch (provider, location) {
         case (.googleDrive, .cloudFolder(let folder)), (.oneDrive, .cloudFolder(let folder)), (.dropbox, .cloudFolder(let folder)):
             guard Self.isFolderID(folder, provider: provider), security == .authenticatedEncryptionRequired else {
@@ -78,6 +80,7 @@ public struct RemoteBackupDestination: Equatable, Sendable {
         }
         self.id = id; self.revision = revision; self.provider = provider; self.accountID = accountID
         self.location = location; self.security = security; self.schedule = schedule; self.retention = retention
+        self.ftpsTrust = ftpsTrust
     }
 
     private static func isOpaqueID(_ value: String) -> Bool {
@@ -466,6 +469,7 @@ internal struct RemoteBackupStoredOperation: Codable {
     let endpoint: String?
     let directory: String?
     let plainFTP: Bool
+    let ftpsTrust: FTPSBackupTrustIdentity?
     let scheduleHours: Int?
     let retainedCount: Int?
     let packageSHA256: String
@@ -485,6 +489,7 @@ internal struct RemoteBackupStoredOperation: Codable {
         case .server(let url, let path): cloudFolderID = nil; endpoint = url.absoluteString; directory = path
         }
         plainFTP = destination.security == .explicitlyAcceptedPlainFTP
+        ftpsTrust = destination.ftpsTrust
         scheduleHours = destination.schedule.intervalHours; retainedCount = destination.retention.latestVerifiedCount
         packageSHA256 = plan.package.sha256; packageByteCount = plan.package.byteCount
         switch outcome {
@@ -509,7 +514,8 @@ internal struct RemoteBackupStoredOperation: Codable {
             provider: provider, accountID: accountID, location: location,
             security: plainFTP ? .explicitlyAcceptedPlainFTP : .authenticatedEncryptionRequired,
             schedule: try scheduleHours.map { try .every(hours: $0) } ?? .disabled,
-            retention: try retainedCount.map { try .keepLatestVerified($0) } ?? .keepAll)
+            retention: try retainedCount.map { try .keepLatestVerified($0) } ?? .keepAll,
+            ftpsTrust: ftpsTrust)
         let package = try RemoteBackupPackageIdentity(sha256: packageSHA256, byteCount: packageByteCount)
         let plan = try RemoteBackupUploadPlan(workspaceGeneration: workspaceGeneration, destination: destination,
             backupID: backupID, package: package)
