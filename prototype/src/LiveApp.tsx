@@ -58,6 +58,7 @@ import CWDesk from "./live/CWDesk";
 import { useSharedCW } from "./live/useSharedCW";
 import { OperatorWorkspace } from "./live/OperatorWorkspace";
 import { DeskMapLogbook } from "./live/DeskMapLogbook";
+import { DeskPreviousQSOs } from "./live/DeskPreviousQSOs";
 import SyncPanel from "./live/SyncPanel";
 import { watchSyncCompletion } from "./live/syncCompletion";
 import ServiceSettings from "./live/ServiceSettings";
@@ -982,7 +983,7 @@ function MainLiveApp() {
     const timer = setTimeout(() => {
       // A large history query must not hold QRZ details hostage.
       loadLookup(false);
-      void request("logbook_previous", { call, limit: 10 })
+      void request("logbook_previous", { call, limit: 25 })
         .then(history => { if (!disposed) setPrevious(history.qsos); }).catch(() => { if (!disposed) setPrevious([]); });
     }, 400);
     return () => { disposed = true; clearTimeout(timer); if (retryTimer) clearTimeout(retryTimer); };
@@ -1149,6 +1150,8 @@ function MainLiveApp() {
     onReadRadio: readRadioIntoDraft, follow, setFollow: setFollowImmediate, rotor: rotorState,
     rotorConfigured: hasConfiguredRotor(rotorConfigurationState.base?.configuration), autoRotor, setAutoRotor: changeAutoRotor,
     onManualRotor: disarmAutoRotor, isEditing: editing.current, intelligenceBands: workspacePreferences?.intelligenceBands };
+  const deskCall = normalizedCall(draft?.call);
+  const deskPrevious = previous.filter(qso => normalizedCall(qso?.call) === deskCall);
   const deskEquipment = equipmentProfile(settings?.stationEquipment), deskKind = deskEquipmentKind(deskEquipment, rotorState, hasConfiguredRotor(rotorConfigurationState.base?.configuration));
   const deskBands = <BandMaps spots={liveSpots} onSelect={selectSpot} radioFrequencyHz={station?.radio?.frequency_hz} compact preferences={workspacePreferences ? bandMapView(workspacePreferences, true) : undefined} onPreferencesChange={value => changeBandMapPreferences(true, value)} />;
   const radioConnectionLabel = station?.radio?.connected ? station.radio.observed ? "Connected" : "Refreshing" : "Disconnected";
@@ -1228,6 +1231,7 @@ function MainLiveApp() {
         logbook={<LogbookPanel columnContext="desk" onRequest={request} refreshKey={refresh} mutations={logbookMutations}
           disabled={editorLocked || busy || editorBufferPending.current || editorTransition.current}
           onWorkingChange={logbookWorkingChanged} onChanged={() => setRefresh(n => n + 1)} onUndock={() => void openDetachedLogbook().catch(cause => setError(cause.message))} onEdit={editLoggedContact} />}
+        previousQSOs={<DeskPreviousQSOs call={deskCall} qsos={deskPrevious} />} hasPreviousQSOs={deskPrevious.length > 0}
         busy={logbookWorking || logbookMutation.busy || !!logbookMutation.pending}
         canChangeView={() => !logbookWorkingRef.current && !mainClosing.current && !layoutChanging.current && !editorTransition.current && !logbookMutations.getSnapshot().busy && !logbookMutations.getSnapshot().pending} />}
         cluster={cluster} selectedSpotId={selected} onSelect={selectSpot} onRequest={request} bandMaps={deskBands} /></div></>} />}

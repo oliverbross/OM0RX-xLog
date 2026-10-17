@@ -1,6 +1,7 @@
 export const deskMapLogbookKey = "xlog.integration.desk-map-logbook.v1";
 export const deskMapLogbookViews = [
   ["map", "Map"], ["logbook", "Logbook"],
+  ["logbook-previous", "Logbook + Previous QSO's"],
   ["logbook-above", "Logbook above map"], ["logbook-below", "Logbook below map"],
 ] as const;
 export type DeskMapLogbookView = typeof deskMapLogbookViews[number][0];
