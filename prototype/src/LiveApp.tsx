@@ -833,18 +833,26 @@ function MainLiveApp() {
   }, [request, disarmAutoRotor]);
   useEffect(() => {
     const call = normalizedCall(draft?.call); let disposed = false;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
     const baseline = draft;
     setLookup(null); setPrevious([]);
     if (!call || !workspace?.workspace_exists) { setLookup(null); setPrevious([]); return; }
-    const timer = setTimeout(() => {
-      // A large history query must not hold QRZ details hostage.
+    const loadLookup = (retry: boolean) => {
       void request("lookup_call", { call })
         .then(info => { if (!disposed) { setLookup(info); if (draftSession.canAcceptBackgroundUpdate() && baseline && !editing.current) setDraft(current => enrichedDraft(current, baseline, info)); } })
-        .catch(e => { if (!disposed) setLookup({ call, source: e.message }); });
+        .catch(e => {
+          if (disposed) return;
+          if (!retry) { retryTimer = setTimeout(() => loadLookup(true), 750); return; }
+          setLookup({ call, source: e instanceof Error ? e.message : "Lookup unavailable" });
+        });
+    };
+    const timer = setTimeout(() => {
+      // A large history query must not hold QRZ details hostage.
+      loadLookup(false);
       void request("logbook_previous", { call, limit: 10 })
         .then(history => { if (!disposed) setPrevious(history.qsos); }).catch(() => { if (!disposed) setPrevious([]); });
     }, 400);
-    return () => { disposed = true; clearTimeout(timer); };
+    return () => { disposed = true; clearTimeout(timer); if (retryTimer) clearTimeout(retryTimer); };
   }, [draft?.call, request, workspace?.workspace_exists]);
   const clear = async () => {
     if (contactSession.getSnapshot().draft) contactSession.cancel();

@@ -5,6 +5,7 @@ import { clusterBandColors, clusterModeColors, clusterStatusCode, clusterStatusC
 import { boundColumnWidth, compactClusterColumns, compactClusterHeader, defaultWorkspacePreferences, operatorWorkspaceKey, readWorkspacePreferences, splitBounds,
   type CompactColumn, type WorkspacePreferences } from "./operatorWorkspacePreferences";
 import { formatSpotAge, useSpotAgeClock } from "./spotAge";
+import { countryDisplay } from "./countryDisplay";
 import "./OperatorWorkspace.css";
 
 export type OperatorWorkspaceProps = { map: ReactNode; bandMaps: ReactNode; cluster: unknown;
@@ -16,6 +17,7 @@ function spotText(column: CompactColumn, spot: LiveClusterSpot, now: number): st
     case "time": return formatSpotAge(spot.receivedAt, now);
     case "frequency": return (spot.frequencyKHz / 1000).toFixed(6);
     case "cq": return String(spot.cqZone ?? "—");
+    case "country": return countryDisplay(spot.country);
     case "spotter": return `${spot.spotter}${spot.aggregateCount > 1 ? ` +${spot.aggregateCount - 1}` : ""}`;
     case "special": return spot.specialTags.length ? spot.specialTags.join(" · ") : "—";
     case "workedBefore": return spot.workedBefore == null ? "—" : `✓ ${new Date((spot.workedBefore + 978307200) * 1000).toLocaleString()}`;

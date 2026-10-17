@@ -13,6 +13,7 @@ it("fits the compact QSO fields on one line before reflowing at the readable min
   expect(desk).toContain("@container active-qso (max-width: 694px)");
   expect(desk).toContain("minmax(150px, 1.09fr) 106px 78px minmax(94px, 1fr) 58px 68px 44px 44px");
   expect(desk).toContain("minimums total 691px including gaps");
+  expect(desk).toContain(".desk-active { container: active-qso / inline-size; overflow-x: hidden; }");
   expect(desk).toContain("grid-template-columns: repeat(6, minmax(0, 1fr))");
   expect(desk).toContain(".desk-call { grid-column: span 3; }");
   expect(desk).toContain(".desk-date, .desk-frequency { grid-column: span 2; }");

@@ -49,6 +49,22 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+it("recovers a saved Operator Desk callsign after one transient launch lookup failure", async () => {
+  exists = true;
+  draftBackend = operatorDraftFixture({ id: "draft", start: "2026-10-12T00:00:00Z", call: "K1ABC", band: "20m", mode: "SSB" });
+  const backend = calls.request.getMockImplementation()!;
+  let attempts = 0;
+  calls.request.mockImplementation((method, params) => method === "lookup_call"
+    ? ++attempts === 1 ? Promise.reject(new Error("Worker warming up"))
+      : Promise.resolve({ ok: true, result: { call: params.call, source: "Recovered lookup", country: "United States", dxcc: 291 } })
+    : backend(method, params));
+  render(<LiveApp />);
+  await waitFor(() => expect(attempts).toBe(2), { timeout: 2_500 });
+  expect(await screen.findByText("Recovered lookup")).toBeTruthy();
+  expect(screen.getAllByText("United States").length).toBeGreaterThan(0);
+  expect(screen.queryByText("Worker warming up")).toBeNull();
+});
+
 it.each(["missing", "unavailable", "pending"])("keeps Settings reachable with a %s workspace without creating or editing station data", async state => {
   const backend = calls.request.getMockImplementation()!;
   calls.request.mockImplementation((method, params) => method === "workspace_status" && state !== "missing"
