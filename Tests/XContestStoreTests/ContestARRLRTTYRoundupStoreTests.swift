@@ -92,6 +92,19 @@ final class ContestARRLRTTYRoundupStoreTests: XCTestCase {
         } catch let error as ContestStoreError {
             XCTAssertEqual(error, .invalidSession)
         }
+        let invalidSectionIDs = IDs(4)
+        do {
+            _ = try await store.createSession(
+                session(invalidSectionIDs, entity: usa, call: "K1SEC", location: "CA", section: "CA"),
+                metadata: metadata(call: "K1SEC"),
+                initialDraft: draft(invalidSectionIDs, revision: 1, call: "VE2AAA", sent: "CA",
+                                    sentFields: locationFields("CA"), operatorCallsign: "K1SEC"),
+                scope: mutation(invalidSectionIDs, 1, revision: 0, digest: "invalid-section",
+                                draft: invalidSectionIDs.draft), committedAt: date)
+            XCTFail("Expected invalid Cabrillo section to reject atomically")
+        } catch let error as ContestStoreError {
+            XCTAssertEqual(error, .invalidSession)
+        }
         let storedSessions = try await store.listStoredSessions()
         XCTAssertEqual(storedSessions.map(\.session.id), [ids.session])
         XCTAssertEqual(try rawScalarInt(url, "SELECT COUNT(*) FROM operations"), 2)
@@ -270,13 +283,14 @@ final class ContestARRLRTTYRoundupStoreTests: XCTestCase {
     }
 
     private func session(_ ids: IDs, entity: ContestEntitySnapshot, call: String, location: String?,
-                         serial: String? = nil) -> ContestSessionSnapshot {
+                         serial: String? = nil, section suppliedSection: String? = nil) -> ContestSessionSnapshot {
         var fields = locationFields(location)
         if let serial { fields["serial"] = .init(raw: serial, normalized: serial) }
         return .init(id: ids.session, workspaceGeneration: generation, rule: ARRLRTTYRoundupRule.identity,
                      referenceDataVersion: "cty-arrl-fixture", startedAt: date,
-                     station: .init(callsign: call, entity: entity, sentExchange: location ?? "",
-                                    operatorCallsigns: [call], location: "fixture", sentExchangeFields: fields))
+                      station: .init(callsign: call, entity: entity, sentExchange: location ?? "",
+                                     operatorCallsigns: [call], location: suppliedSection ?? section(for: entity),
+                                     sentExchangeFields: fields))
     }
 
     private func metadata(call: String) -> ContestSessionMetadata {
@@ -293,7 +307,17 @@ final class ContestARRLRTTYRoundupStoreTests: XCTestCase {
               exchange: .init(rawSent: sent, normalizedSent: sent, rawReceived: received,
                               normalizedReceived: received, sentFields: sentFields,
                               receivedFields: ["exchange": .init(raw: received, normalized: received)]),
-              entity: usa, operatorCallsign: operatorCallsign ?? metadataCall(ids), stationLocation: "fixture")
+              entity: usa, operatorCallsign: operatorCallsign ?? metadataCall(ids), stationLocation: "DX")
+    }
+
+    private func section(for entity: ContestEntitySnapshot) -> String {
+        switch entity.adif {
+        case 291: return "EB"
+        case 1: return "QC"
+        case 6: return "AK"
+        case 110: return "PAC"
+        default: return "DX"
+        }
     }
 
     private func qso(_ ids: IDs, call: String = "K1ABC", received: String = "CA",
@@ -307,7 +331,7 @@ final class ContestARRLRTTYRoundupStoreTests: XCTestCase {
                               rawReceived: received, normalizedReceived: received,
                               sentFields: ["serial": .init(raw: fieldRaw, normalized: fieldNormalized)],
                               receivedFields: ["exchange": .init(raw: received, normalized: received)]),
-              entity: entity ?? usa, operatorCallsign: metadataCall(ids), stationLocation: "fixture",
+              entity: entity ?? usa, operatorCallsign: metadataCall(ids), stationLocation: "DX",
               provenance: .init(source: .operatorEntry))
     }
 
@@ -322,7 +346,7 @@ final class ContestARRLRTTYRoundupStoreTests: XCTestCase {
                               receivedFields: ["exchange": .init(raw: "QC", normalized: "QC")]),
               entity: ContestEntitySnapshot(adif: 1, name: "CANADA", countryPrefix: "VE",
                                             continent: "NA", cqZone: 4),
-              operatorCallsign: "K1AAA", stationLocation: "fixture",
+              operatorCallsign: "K1AAA", stationLocation: "EB",
               provenance: .init(source: .operatorEntry))
     }
 

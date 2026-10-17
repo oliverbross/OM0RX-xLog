@@ -59,6 +59,10 @@ private let arrlRTTYEntry = ContestEntryDescriptor(
     stationResolvedSerial: .init(policy: .arrlRTTYRoundupWVEOrDX,
                                  locationFieldID: "location", allocatedSerialFieldID: "serial",
                                  allowedScopes: [.session]),
+    stationFields: [
+        .init(id: "section", label: "Cabrillo section", role: .cabrilloLocation,
+              required: true, maximumUTF8Bytes: 3),
+    ],
     scorePolicy: .pointsTimesMultipliers)
 
 /// Inactive preview of the current ARRL RTTY Roundup scoring core.
@@ -88,7 +92,12 @@ public struct ARRLRTTYRoundupRule: ContestRule {
             return [issue("unsupportedMobileStation", "station.callsign",
                           "This preview cannot prove the physical endpoint of an air or maritime mobile entrant.")]
         }
-        return arrlRTTYStationExchangeIssues(session.station, entity: entity)
+        var issues = arrlRTTYStationExchangeIssues(session.station, entity: entity)
+        if !arrlRTTYCabrilloLocationIsValid(session.station.location, entityADIF: entity.adif) {
+            issues.append(issue("invalidStationSection", "station.location",
+                                "The frozen Cabrillo section does not match the resolved station entity."))
+        }
+        return issues
     }
 
     public func evaluate(_ qso: ContestQSO, in session: ContestSessionSnapshot) -> ContestRuleEvaluation {

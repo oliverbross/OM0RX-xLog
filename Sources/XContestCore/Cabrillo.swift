@@ -227,20 +227,8 @@ public enum CabrilloExporter {
             throw CabrilloExportError.invalidHeader("location")
         }
         guard let entity = session.station.entity,
-              arrlRTTYLocationIsValid(value, entityADIF: entity.adif) else {
+              arrlRTTYCabrilloLocationIsValid(value, entityADIF: entity.adif) else {
             throw CabrilloExportError.invalidHeader("location")
-        }
-    }
-
-    private static func arrlRTTYLocationIsValid(_ value: String, entityADIF: Int) -> Bool {
-        switch entityADIF {
-        case 291: return arrlUSSectionAbbreviations.contains(value)
-        case 1: return arrlCanadaSectionAbbreviations.contains(value)
-        case 6: return value == "AK"
-        case 202: return value == "PR"
-        case 285: return value == "VI"
-        case let code where arrlPacificSectionEntityCodes.contains(code): return value == "PAC"
-        default: return value == "DX"
         }
     }
 
@@ -338,5 +326,17 @@ public enum CabrilloExporter {
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
         formatter.dateFormat = format
         return formatter
+    }
+}
+
+internal func arrlRTTYCabrilloLocationIsValid(_ value: String, entityADIF: Int) -> Bool {
+    switch entityADIF {
+    case 291: return arrlUSSectionAbbreviations.contains(value)
+    case 1: return arrlCanadaSectionAbbreviations.contains(value)
+    case 6: return value == "AK"
+    case 202: return value == "PR"
+    case 285: return value == "VI"
+    case let code where arrlPacificSectionEntityCodes.contains(code): return value == "PAC"
+    default: return value == "DX"
     }
 }

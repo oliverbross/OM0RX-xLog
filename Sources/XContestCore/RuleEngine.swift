@@ -255,6 +255,34 @@ public struct ContestResolvedSerialRequirement: Equatable, Sendable {
     }
 }
 
+public enum ContestStationFieldRole: String, Codable, Hashable, Sendable {
+    case cabrilloLocation
+}
+
+public struct ContestStationFieldDescriptor: Codable, Hashable, Sendable {
+    public let id: String
+    public let label: String
+    public let role: ContestStationFieldRole
+    public let required: Bool
+    public let maximumUTF8Bytes: Int
+
+    public init(id: String, label: String, role: ContestStationFieldRole,
+                required: Bool, maximumUTF8Bytes: Int) {
+        self.id = id
+        self.label = label
+        self.role = role
+        self.required = required
+        self.maximumUTF8Bytes = maximumUTF8Bytes
+    }
+
+    fileprivate var isCoherent: Bool {
+        contestASCIIBytes(id, count: 1...32) { byte, index in
+            let alphanumeric = contestIsLowercaseLetter(byte) || contestIsDigit(byte)
+            return index == 0 ? contestIsLowercaseLetter(byte) : (alphanumeric || byte == 45)
+        } && !label.isEmpty && label.utf8.count <= 80 && maximumUTF8Bytes > 0 && maximumUTF8Bytes <= 16
+    }
+}
+
 public enum ContestSerialResolutionError: Error, Equatable {
     case ruleIdentityMismatch
     case invalidRuleDescriptor
@@ -309,6 +337,7 @@ public struct ContestEntryDescriptor: Codable, Hashable, Sendable {
     public let exchange: ContestExchangeDescriptor
     public let serial: ContestSerialDescriptor
     public let stationResolvedSerial: ContestStationResolvedSerialDescriptor?
+    public let stationFields: [ContestStationFieldDescriptor]
     public let modeProfiles: [ContestModeProfile]
     public let scorePolicy: ContestScorePolicy
 
@@ -326,6 +355,7 @@ public struct ContestEntryDescriptor: Codable, Hashable, Sendable {
         self.exchange = exchange
         self.serial = serial
         self.stationResolvedSerial = nil
+        self.stationFields = []
         self.modeProfiles = []
         self.scorePolicy = .pointsTimesMultipliers
     }
@@ -334,6 +364,7 @@ public struct ContestEntryDescriptor: Codable, Hashable, Sendable {
                 modeProfiles: [ContestModeProfile], exchange: ContestExchangeDescriptor,
                 serial: ContestSerialDescriptor,
                 stationResolvedSerial: ContestStationResolvedSerialDescriptor? = nil,
+                stationFields: [ContestStationFieldDescriptor] = [],
                 scorePolicy: ContestScorePolicy) {
         let primary = modeProfiles.first ?? ContestModeProfile(
             mode: "", adifMode: "", cabrilloQSOType: "",
@@ -348,13 +379,14 @@ public struct ContestEntryDescriptor: Codable, Hashable, Sendable {
         self.exchange = exchange
         self.serial = serial
         self.stationResolvedSerial = stationResolvedSerial
+        self.stationFields = stationFields
         self.modeProfiles = modeProfiles
         self.scorePolicy = scorePolicy
     }
 
     private enum CodingKeys: String, CodingKey {
         case version, mode, adifMode, cabrilloQSOType, cabrilloFormatterVersion,
-             cabrilloProjectionFormatterVersion, report, exchange, serial, stationResolvedSerial,
+             cabrilloProjectionFormatterVersion, report, exchange, serial, stationResolvedSerial, stationFields,
              modeProfiles, scorePolicy
     }
 
@@ -371,18 +403,21 @@ public struct ContestEntryDescriptor: Codable, Hashable, Sendable {
         serial = try values.decode(ContestSerialDescriptor.self, forKey: .serial)
         if version == .v1 {
             guard !values.contains(.modeProfiles), !values.contains(.scorePolicy),
-                  !values.contains(.stationResolvedSerial) else {
+                  !values.contains(.stationResolvedSerial), !values.contains(.stationFields) else {
                 throw DecodingError.dataCorruptedError(
                     forKey: .version, in: values,
                     debugDescription: "Version 1 entries cannot declare version 2 mode or score semantics.")
             }
             modeProfiles = []
             stationResolvedSerial = nil
+            stationFields = []
             scorePolicy = .pointsTimesMultipliers
         } else {
             modeProfiles = try values.decode([ContestModeProfile].self, forKey: .modeProfiles)
             stationResolvedSerial = try values.decodeIfPresent(ContestStationResolvedSerialDescriptor.self,
                                                                 forKey: .stationResolvedSerial)
+            stationFields = try values.decodeIfPresent([ContestStationFieldDescriptor].self,
+                                                        forKey: .stationFields) ?? []
             scorePolicy = try values.decode(ContestScorePolicy.self, forKey: .scorePolicy)
             guard hasCoherentV2Shape else {
                 throw DecodingError.dataCorruptedError(
@@ -405,6 +440,7 @@ public struct ContestEntryDescriptor: Codable, Hashable, Sendable {
         try values.encode(serial, forKey: .serial)
         if version == .v2 {
             try values.encodeIfPresent(stationResolvedSerial, forKey: .stationResolvedSerial)
+            if !stationFields.isEmpty { try values.encode(stationFields, forKey: .stationFields) }
             try values.encode(modeProfiles, forKey: .modeProfiles)
             try values.encode(scorePolicy, forKey: .scorePolicy)
         }
@@ -454,12 +490,16 @@ public struct ContestEntryDescriptor: Codable, Hashable, Sendable {
                     matchingSerial.count == 1 && matchingSerial[0].acceptedKinds == [.serialNumber] &&
                     !matchingSerial[0].required && matchingLocation.count == 1 &&
                     matchingLocation[0].acceptedKinds == [.subdivision] && !matchingLocation[0].required &&
-                    serialFields.count == 1
+                    serialFields.count == 1 && stationFields.count == 1 &&
+                    stationFields[0].id == "section" && stationFields[0].label == "Cabrillo section" &&
+                    stationFields[0].role == .cabrilloLocation && stationFields[0].required &&
+                    stationFields[0].maximumUTF8Bytes == 3
             } else {
                 serialIsCoherent = serial.requirement == .none
-                    ? serial.allowedScopes.isEmpty && serialFields.isEmpty
+                    ? serial.allowedScopes.isEmpty && serialFields.isEmpty && stationFields.isEmpty
                     : !serial.allowedScopes.isEmpty && Set(serial.allowedScopes).count == serial.allowedScopes.count &&
-                        serialFields.count == 1 && serialFields[0].required && serialFields[0].acceptedKinds == [.serialNumber]
+                        serialFields.count == 1 && serialFields[0].required && serialFields[0].acceptedKinds == [.serialNumber] &&
+                        stationFields.isEmpty
             }
             let formatterVersionsAreCoherent = [cabrilloFormatterVersion, cabrilloProjectionFormatterVersion]
                 .allSatisfy { !$0.isEmpty && $0.utf8.count <= 64 &&
@@ -474,7 +514,10 @@ public struct ContestEntryDescriptor: Codable, Hashable, Sendable {
                 !(sentFieldIDs + receivedFieldIDs).isEmpty &&
                 Set(sentFieldIDs).count == sentFieldIDs.count &&
                 Set(receivedFieldIDs).count == receivedFieldIDs.count &&
-                (exchange.sentFields + exchange.receivedFields).allSatisfy(\.isCoherent) && serialIsCoherent
+                (exchange.sentFields + exchange.receivedFields).allSatisfy(\.isCoherent) &&
+                Set(stationFields.map(\.id)).count == stationFields.count &&
+                Set(stationFields.map(\.role)).count == stationFields.count &&
+                stationFields.allSatisfy(\.isCoherent) && serialIsCoherent
     }
 
     public func modeProfile(for candidate: String) -> ContestModeProfile? {
@@ -495,6 +538,12 @@ public struct ContestEntryDescriptor: Codable, Hashable, Sendable {
             guard serial.requirement == .requiredForCommit else { return nil }
             matches = exchange.sentFields.filter { $0.required && $0.acceptedKinds == [.serialNumber] }
         }
+        return matches.count == 1 ? matches[0] : nil
+    }
+
+    public var cabrilloLocationField: ContestStationFieldDescriptor? {
+        guard version == .v2 else { return nil }
+        let matches = stationFields.filter { $0.role == .cabrilloLocation }
         return matches.count == 1 ? matches[0] : nil
     }
 
