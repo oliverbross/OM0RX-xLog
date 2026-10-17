@@ -1,10 +1,12 @@
-# Contest core and store platform validation
+# Contest portability and native export validation
 
-The `Contest core and store portability` workflow runs the focused
-`XContestCoreTests` and `XContestStoreTests` targets on GitHub-hosted macOS
-14, Ubuntu 24.04, and Windows Server 2022 runners. It supplements the existing
-project CI; it does not replace the broad Swift, prototype, frontend, Rust,
-packaging, or runtime acceptance jobs.
+The `Contest portability` workflow runs the focused
+`XContestCoreTests`, `XContestStoreTests`, and contest export-support test
+classes on GitHub-hosted macOS 14, Ubuntu 24.04, and Windows Server 2022
+runners. A separate job in the same workflow compiles the native desktop binary
+with the `contesting-test` feature and runs only the injected native export-save
+tests. It supplements the existing project CI; it does not replace the broad
+Swift, prototype, frontend, Rust, packaging, or runtime acceptance jobs.
 
 The workflow runs for relevant pushes and pull requests and can also be started
 manually. It has read-only repository permission. It does not read credentials,
@@ -23,12 +25,26 @@ or upload a production artifact.
   still compiles that manifest's portable targets and test products.
 - The `--filter` arguments limit test execution to each contest test target;
   they do not limit compilation. Both runs use the same per-runner scratch
-  directory. The Windows commands pass the existing SQLite include and library
-  paths.
+  directory and two Swift jobs. The Windows commands pass the existing SQLite
+  include and library paths. Discovery must find the ADIF mapper, export
+  service, export transport, and real `LiveWorker` wire test classes before any
+  of those four filters runs. The fixture-output environment variable is not
+  set, so CI runs the real `LiveWorker` wire assertions without regenerating
+  the committed fixture. Committed-fixture consumption remains covered by the
+  TypeScript test.
+- The native job records Rust and Cargo versions and uses an OS- and
+  `Cargo.lock`-keyed target cache under the runner temporary directory, separate
+  from packaging targets. Its local Tauri configuration uses the Contesting
+  Test name and identifier with bundling disabled and no external binaries.
+  It discovers at least one `contest_export::tests::` test, then executes that
+  exact filter with `--locked` and two Cargo jobs. Linux installs the same Tauri
+  compile dependencies as the prototype workflow.
 
-Changes to the contest core, store, SQLite system-library target, focused tests,
-package manifest, or this workflow trigger the matrix. Documentation-only
-changes do not claim a new platform result.
+Changes to the contest core, store, export-support sources, `LiveWorker`, SQLite
+system-library target, focused tests, generated worker fixture, native export
+module and its narrow registration/accessors, package manifests, lockfile, or
+this workflow trigger the matrix. Documentation-only changes do not claim a new
+platform result.
 
 ## Evidence boundary
 
@@ -66,6 +82,23 @@ and export-service changes beyond the exact commit recorded above.
 These are native Swift compile-and-test results for the workflow's portable
 manifest. They do not prove a packaged application, renderer or worker runtime,
 installation, device access, radio behavior, or end-to-end contest operation.
+
+## Export extension pending validation
+
+The workflow source now requests four additional portable Swift classes on all
+three runners: `ContestADIFExportTests`, `ContestExportServiceTests`,
+`ContestExportLaneTests`, and `ContestExportWorkerWireTests`. It also requests a
+three-platform, nonpackaging native Rust job limited to
+`contest_export::tests::`. No hosted run for this extension is recorded yet.
+Until a run at the exact integrated commit passes, the existing platform table
+continues to describe only its recorded source and commands.
+
+The native job proves compilation of the desktop binary under the Test feature
+and the injected memory/filesystem save behaviors covered by the filtered unit
+tests. It does not stage a Swift worker or Hamlib helper, invoke Tauri build,
+create or sign an application bundle, show a real save panel, launch the app,
+exercise a renderer, access credentials or station hardware, or establish
+foreground runtime acceptance.
 
 ## Snapshot integration follow-up
 
