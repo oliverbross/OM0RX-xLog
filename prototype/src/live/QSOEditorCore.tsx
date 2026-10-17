@@ -9,6 +9,7 @@ import { connectLogbookChanges } from "./logbookWindows";
 import { fillEmptyLookupFields } from "./draftEnrichment";
 import { QSOExtraFields } from "./QSOExtraFields";
 import { qsoBands as bands, qsoFieldGroups as groups, qsoModes as modes, type QSOField as Field } from "./qsoFields";
+import { applyModeSignalReportDefaults } from "./signalReportDefaults";
 import { useQSOFieldPreferences } from "./useQSOFieldPreferences";
 import type { QSOCanvasPanel } from "./QSOEditorCanvas";
 import { useDuplicateContact } from "./useDuplicateContact";
@@ -143,6 +144,7 @@ export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draf
     };
     setDraft((current) => {
       if (!current) return current;
+      if (key === "mode" && typeof value === "string") return applyModeSignalReportDefaults(current, value);
       const fields = backedFields[key];
       if (!fields || value !== null && value !== "") return { ...current, [key]: value };
       const extraFields = { ...(current.extraFields ?? {}) };

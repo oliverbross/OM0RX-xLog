@@ -68,8 +68,8 @@ public struct QSO: Codable, Identifiable, Hashable, Sendable {
         frequencyHz: Int64? = nil,
         receiveFrequencyHz: Int64? = nil,
         receiveBand: String = "",
-        rstSent: String = "59",
-        rstReceived: String = "59",
+        rstSent: String? = nil,
+        rstReceived: String? = nil,
         name: String = "",
         gridSquare: String = "",
         country: String = "",
@@ -115,7 +115,8 @@ public struct QSO: Codable, Identifiable, Hashable, Sendable {
         self.start = start; self.end = end; self.band = band.lowercased(); self.mode = mode.uppercased()
         self.submode = submode.uppercased(); self.frequencyHz = frequencyHz
         self.receiveFrequencyHz = receiveFrequencyHz; self.receiveBand = receiveBand.lowercased()
-        self.rstSent = rstSent; self.rstReceived = rstReceived; self.name = name
+        let defaultReport = mode.uppercased() == "CW" ? "599" : "59"
+        self.rstSent = rstSent ?? defaultReport; self.rstReceived = rstReceived ?? defaultReport; self.name = name
         self.gridSquare = gridSquare.uppercased(); self.country = country; self.dxcc = dxcc
         self.continent = continent; self.cqZone = cqZone; self.ituZone = ituZone
         self.state = state; self.county = county; self.qth = qth; self.iota = iota

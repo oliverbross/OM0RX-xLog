@@ -10,6 +10,7 @@ import { DeskAntenna } from "./StationEquipment";
 import { deskEquipmentKind, equipmentProfile } from "./equipmentPreferences";
 import QSOHeader, { ReferenceEvidenceStatus, type ReferenceEvidence } from "./QSOHeader";
 import { useDuplicateContact } from "./useDuplicateContact";
+import { applyModeSignalReportDefaults } from "./signalReportDefaults";
 
 type Data = Record<string, any>;
 type Request = (method: string, params?: Data) => Promise<any>;
@@ -68,7 +69,9 @@ export function DeskQSO({ draft, setDraft: writeDraft, save, clear, busy, draftL
   const update = (key: string, value: unknown) => {
     if (!acceptsInput()) return;
     if (["frequencyHz", "band", "mode"].includes(key)) setFollow(false);
-    setDraft(current => current ? { ...current, [key]: value, ...(key === "sigInfo" && value && !current.sig ? { sig: "COTA" } : {}) } : current);
+    setDraft(current => current ? key === "mode" && typeof value === "string"
+      ? applyModeSignalReportDefaults(current, value)
+      : { ...current, [key]: value, ...(key === "sigInfo" && value && !current.sig ? { sig: "COTA" } : {}) } : current);
   };
   const textField = (key: string, title: string, className = "") => <label className={className}><span>{title}</span><input aria-label={`Desk ${title}`} value={draft[key] ?? ""} maxLength={key === "call" ? 32 : undefined} onChange={event => update(key, ["call", "gridSquare"].includes(key) ? event.target.value.toUpperCase() : event.target.value)} autoComplete="off" spellCheck={false} /></label>;
   const selectField = (key: string, title: string, options: string[]) => <label><span>{title}</span><select aria-label={`Desk ${title}`} value={draft[key] ?? ""} onChange={event => update(key, event.target.value)}><option value="">—</option>{draft[key] && !options.includes(draft[key]) && <option>{draft[key]}</option>}{options.map(value => <option key={value}>{value}</option>)}</select></label>;
