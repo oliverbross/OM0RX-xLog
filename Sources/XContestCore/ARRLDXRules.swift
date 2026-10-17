@@ -43,7 +43,7 @@ private func arrlDXEntry(_ mode: ARRLDXMode) -> ContestEntryDescriptor {
 }
 
 /// Inactive scoring core for the current ARRL International DX CW rules.
-/// Worker, UI, categories, exports, physical endpoint proof, and sponsor acceptance remain out of scope.
+/// Worker, UI, full categories, activation, physical endpoint proof, and sponsor acceptance remain out of scope.
 public struct ARRLDXCWRule: ContestRule {
     public static let identity = ContestRuleIdentity(
         id: "arrl-dx-cw", version: "1.0.0-2.0-preview", edition: "rules-2.0-preview",
@@ -68,7 +68,7 @@ public struct ARRLDXCWRule: ContestRule {
 }
 
 /// Inactive scoring core for the current ARRL International DX Phone rules.
-/// Worker, UI, categories, exports, physical endpoint proof, and sponsor acceptance remain out of scope.
+/// Worker, UI, full categories, activation, physical endpoint proof, and sponsor acceptance remain out of scope.
 public struct ARRLDXSSBRule: ContestRule {
     public static let identity = ContestRuleIdentity(
         id: "arrl-dx-ssb", version: "1.0.0-2.0-preview", edition: "rules-2.0-preview",

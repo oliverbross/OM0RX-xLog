@@ -33,6 +33,10 @@ public struct ContestExportInput: Codable, Hashable, Sendable {
     public static let arrlRTTYPreviewFormatterVersion = "arrl-rtty-preview-1"
     /// JIDX Cabrillo 2.0 and role-resolved two-digit number projection.
     public static let jidxPreviewFormatterVersion = "jidx-preview-1"
+    /// ARRL International DX CW directional location/power projection.
+    public static let arrlDXCWPreviewFormatterVersion = "arrl-dx-cw-preview-1"
+    /// ARRL International DX Phone directional location/power projection.
+    public static let arrlDXSSBPreviewFormatterVersion = "arrl-dx-ssb-preview-1"
 
     public let schemaVersion: String
     public let formatterVersion: String
@@ -65,7 +69,9 @@ public struct ContestExportInput: Codable, Hashable, Sendable {
         let validated = try validatedCommon(rule: rule)
         if formatterVersion == Self.naqpPreviewFormatterVersion ||
             formatterVersion == Self.arrlRTTYPreviewFormatterVersion ||
-            formatterVersion == Self.jidxPreviewFormatterVersion {
+            formatterVersion == Self.jidxPreviewFormatterVersion ||
+            formatterVersion == Self.arrlDXCWPreviewFormatterVersion ||
+            formatterVersion == Self.arrlDXSSBPreviewFormatterVersion {
             return try validatedProjectionAfterCommonValidation(rule: rule).score
         }
         switch formatterVersion {
