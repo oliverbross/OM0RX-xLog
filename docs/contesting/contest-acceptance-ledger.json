@@ -22,10 +22,11 @@
   "interpretation": {
     "selectorAvailability": "A selector row means the pinned upstream UI can name and import the plugin; it is not xLog implementation or acceptance evidence.",
     "sourceExtraction": "Mode, exchange and duplicate policy fields are static observations from each pinned plugin source. Missing or dynamic values remain unresolved.",
-    "pilotBoundary": "Exactly eleven xLog rule implementations are recorded: six source-derived pilots for CQ WW, CQ WPX, and Oceania DX in CW and SSB; two official-corrected SAC 2026 practice previews in CW and SSB; and three official-rules NAQP 2026 plain-logging previews in CW, SSB, and RTTY. Evidence is scoped by field and is not current sponsor, application, package, submission, full-port, or operator acceptance.",
+    "pilotBoundary": "Exactly twelve xLog rule implementations are recorded: six source-derived pilots for CQ WW, CQ WPX, and Oceania DX in CW and SSB; two official-corrected SAC 2026 practice previews in CW and SSB; three official-rules NAQP 2026 plain-logging previews in CW, SSB, and RTTY; and one official-rules ARRL RTTY Roundup plain-logging preview. Evidence is scoped by field and is not current sponsor, application, package, submission, full-port, digital-output, or operator acceptance.",
     "pendingBoundary": "pending and unknown fields are deliberate; no acceptance is inferred from source presence, selector presence, shared infrastructure, or another plugin.",
     "officialCorrectionBoundary": "SAC CW and SSB use the published SAC 2026 rules as operational authority and deliberately correct identified pinned-source defects. They are official-corrected practice and scoring previews, not claims of exact upstream parity or submission readiness.",
-    "naqpAuthorityBoundary": "NAQP CW, SSB, and RTTY use the published NCJ 2026 rules and multiplier form as primary authority. The pinned Python plugins remain compatibility comparators with recorded gaps; their commit is not the NAQP rule sourceRevision. These are plain-logging previews, not claims of exact upstream parity, full operating support, sponsor certification, or submission readiness."
+    "naqpAuthorityBoundary": "NAQP CW, SSB, and RTTY use the published NCJ 2026 rules and multiplier form as primary authority. The pinned Python plugins remain compatibility comparators with recorded gaps; their commit is not the NAQP rule sourceRevision. These are plain-logging previews, not claims of exact upstream parity, full operating support, sponsor certification, or submission readiness.",
+    "arrlRTTYAuthorityBoundary": "ARRL RTTY Roundup uses the published ARRL Rules v3.0b plus pinned ARRL/RAC section and current DXCC authority as primary authority. The pinned Python plugin remains a compatibility comparator with recorded gaps; its commit is not the rule sourceRevision. This is a plain-logging preview with versioned Cabrillo and ADIF output, not a claim of full Run/S&P operation, real RTTY generation/keying, category/date/operating-time enforcement, sponsor certification, or submission readiness."
   },
   "validation": {
     "script": "docs/contesting/validate-contest-acceptance-ledger.mjs",
@@ -1422,46 +1423,83 @@
         "extraction": "Python AST top-level literal assignments; dynamic or absent values remain unresolved"
       },
       "xlogAcceptance": {
-        "implementationStatus": "pending",
-        "ruleIdentity": null,
+        "implementationStatus": "official-rules-plain-logging-preview",
+        "ruleIdentity": {
+          "id": "arrl-rtty-roundup",
+          "version": "1.0.0-3.0b-preview",
+          "edition": "rules-3.0b-preview",
+          "sourceRevision": "87c9f0032e6ce502b4ae94d47b397a9a34c49a3eafdb5a50fc226694696fe1ce"
+        },
         "referenceIdentity": {
-          "status": "pending",
-          "value": null,
-          "source": null,
-          "resourceSha256": null
+          "status": "runtime-derived-pinned-resource",
+          "value": "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "source": "Sources/XLogPrototypeSupport/Contesting/ContestLane.swift#ContestReferenceData.bundled",
+          "resourceSha256": "e5d907fb16842cfa3dd8502c20ebe6bfc2039c6f5b2cc73f9ea6d3f5915f6d6d"
         },
         "ruleAudit": {
-          "status": "pending",
-          "evidence": []
+          "status": "official-rules-audited-gaps-open",
+          "evidence": [
+            "Sources/XContestCore/ARRLRTTYRoundupRule.swift",
+            "Tests/XContestCoreTests/SourceFixtures/arrl-rtty-roundup-authority.json",
+            "docs/contesting/ARRL_RTTY_ROUNDUP_CONTRACT.md"
+          ],
+          "note": "ARRL Rules v3.0b and pinned section/DXCC lists are primary authority. The pinned Python plugin is a compatibility comparator: its exchange validator accepts every value, its multiplier SQL infers W/VE versus DX from database value type, and it does not establish immutable entity-qualified multiplier keys, current authority membership, station-resolved serial ownership, mobile endpoint safeguards, or complete category/date/submission policy."
         },
         "sourceDerivedScoringCases": {
-          "status": "pending",
-          "evidence": []
+          "status": "official-rules-and-compatibility-tested",
+          "evidence": [
+            "Sources/XContestCore/ARRLRTTYRoundupRule.swift",
+            "Tests/XContestCoreTests/ContestARRLRTTYRoundupTests.swift",
+            "Tests/XContestCoreTests/SourceFixtures/arrl-rtty-roundup-authority.json",
+            "docs/contesting/ARRL_RTTY_ROUNDUP_CONTRACT.md"
+          ],
+          "note": "Official-rules behavior and explicit pinned-Python comparison gaps are tested; this does not claim exact source parity."
         },
         "independentScoringCases": {
-          "status": "pending",
-          "evidence": [],
-          "note": "No independent scoring evidence is recorded."
+          "status": "independent-arithmetic-tested",
+          "evidence": [
+            "Tests/XContestCoreTests/ContestARRLRTTYRoundupTests.swift",
+            "Tests/XContestCoreTests/SourceFixtures/arrl-rtty-roundup-authority.json",
+            "docs/contesting/ARRL_RTTY_ROUNDUP_CONTRACT.md"
+          ],
+          "note": "The independent fixture proves six accepted QSOs, six multipliers, and claimed score 36 across subdivision and DXCC cases; it is not operator acceptance."
         },
         "mutationRestart": {
-          "status": "pending",
-          "evidence": []
+          "status": "store-and-worker-lifecycle-tested",
+          "evidence": [
+            "Tests/XContestStoreTests/ContestARRLRTTYRoundupStoreTests.swift",
+            "Tests/XLogPrototypeTests/ContestingLaneTests.swift",
+            "docs/contesting/fixtures/arrl-rtty-worker-wire.json",
+            "prototype/src/contesting/arrlRTTYWireFixture.test.ts",
+            "prototype/src/contesting/ContestWorkspace.arrlRTTY.test.tsx",
+            "docs/contesting/ARRL_RTTY_ROUNDUP_CONTRACT.md"
+          ],
+          "note": "Station/serial policy 5f9344145cf185df510443118e730fcd9f1f3df1, versioned export d7cfa55f0d95ee4d96d39af1039ed3e1c9abeb73, authority wire 3e3da866ed7fd9d200f518319d7d4badb133702c, and entry 003b30ab5ed79ac96e502859e772075e49be1a92 cover W/VE no-reserve behavior plus DX reserve, replay, commit, reset, reopen, correction, delete, export, and crossed-authority rejection."
         },
         "exportGoldens": {
-          "status": "pending",
-          "evidence": []
+          "status": "versioned-preview-goldens-tested",
+          "evidence": [
+            "Tests/XContestCoreTests/SourceFixtures/Exports/arrl-rtty-preview-1.json",
+            "Tests/XContestCoreTests/ContestARRLRTTYRoundupExportTests.swift",
+            "Tests/XLogPrototypeTests/ContestARRLRTTYADIFExportTests.swift",
+            "Tests/XContestCoreTests/SourceFixtures/arrl-rtty-roundup-export-authority.json",
+            "docs/contesting/ARRL_RTTY_ROUNDUP_CONTRACT.md"
+          ],
+          "note": "Versioned Cabrillo and ADIF preview bytes cover W/VE and DX exchange directions plus frozen section mapping. Category/date/operating-time eligibility, full sponsor headers, submission validation, and real digital-output operation remain open."
         },
         "runSP": {
           "status": "pending",
           "evidence": [],
-          "note": "No RunSP acceptance evidence is recorded for this plugin."
+          "note": "No full Run/S&P, ESM, real RTTY output/keying, or packaged operator acceptance evidence is recorded for this plugin."
         },
         "platform": {
-          "status": "pending",
-          "evidence": [],
-          "note": "No plugin-specific platform evidence is recorded."
+          "status": "partial",
+          "evidence": [
+            "docs/contesting/PLATFORM_VALIDATION.md"
+          ],
+          "note": "ARRL station-resolved core/store policy 5f9344145cf185df510443118e730fcd9f1f3df1 completed its three-platform matrix. Export d7cfa55f0d95ee4d96d39af1039ed3e1c9abeb73 passed all six jobs at 89bff236cf58e917b19dced947f48c803de95b25 in run 39063447673, and stage 1 authority wire 3e3da866ed7fd9d200f518319d7d4badb133702c passed all six jobs in run 39064390063. Entry 003b30ab5ed79ac96e502859e772075e49be1a92 has accepted source and focused local evidence; its integrated native matrix remains pending. This partial evidence does not prove package, radio, digital-output, full operator, sponsor, or submission acceptance."
         },
-        "certification": "not implemented or accepted"
+        "certification": "official-rules plain-logging preview; full operator, digital-output, sponsor, category/date, and submission acceptance remain pending"
       }
     },
     {
@@ -6115,7 +6153,7 @@
           "evidence": [
             "docs/contesting/PLATFORM_VALIDATION.md"
           ],
-          "note": "NAQP core 2ee72e1c364199bcb38c185ed7b3a20c46a2bc84 and export 5ee75eae4186d71d7f38ac49d5ae43a23cc2e45d passed their three-platform matrices. Structured entry d22107292532a8f77737b4fcf68134f547ca7be4 is integrated at c0ac00ff05968d3fb90484643e22732451170121; its newer native entry matrix remains pending. This partial evidence does not prove full operator, package, radio, sponsor, or submission acceptance."
+          "note": "NAQP core 2ee72e1c364199bcb38c185ed7b3a20c46a2bc84 and export 5ee75eae4186d71d7f38ac49d5ae43a23cc2e45d passed their three-platform matrices. Structured entry d22107292532a8f77737b4fcf68134f547ca7be4 is integrated at c0ac00ff05968d3fb90484643e22732451170121; run 39062402856 passed all six native jobs at that integration. This partial evidence does not prove full operator, package, radio, sponsor, or submission acceptance."
         },
         "certification": "official-rules plain-logging preview; operator, native-entry, sponsor, and submission acceptance remain pending"
       }
@@ -6242,7 +6280,7 @@
           "evidence": [
             "docs/contesting/PLATFORM_VALIDATION.md"
           ],
-          "note": "NAQP core 2ee72e1c364199bcb38c185ed7b3a20c46a2bc84 and export 5ee75eae4186d71d7f38ac49d5ae43a23cc2e45d passed their three-platform matrices. Structured entry d22107292532a8f77737b4fcf68134f547ca7be4 is integrated at c0ac00ff05968d3fb90484643e22732451170121; its newer native entry matrix remains pending. This partial evidence does not prove full operator, package, radio, sponsor, or submission acceptance."
+          "note": "NAQP core 2ee72e1c364199bcb38c185ed7b3a20c46a2bc84 and export 5ee75eae4186d71d7f38ac49d5ae43a23cc2e45d passed their three-platform matrices. Structured entry d22107292532a8f77737b4fcf68134f547ca7be4 is integrated at c0ac00ff05968d3fb90484643e22732451170121; run 39062402856 passed all six native jobs at that integration. This partial evidence does not prove full operator, package, radio, sponsor, or submission acceptance."
         },
         "certification": "official-rules plain-logging preview; operator, native-entry, sponsor, and submission acceptance remain pending"
       }
@@ -6369,7 +6407,7 @@
           "evidence": [
             "docs/contesting/PLATFORM_VALIDATION.md"
           ],
-          "note": "NAQP core 2ee72e1c364199bcb38c185ed7b3a20c46a2bc84 and export 5ee75eae4186d71d7f38ac49d5ae43a23cc2e45d passed their three-platform matrices. Structured entry d22107292532a8f77737b4fcf68134f547ca7be4 is integrated at c0ac00ff05968d3fb90484643e22732451170121; its newer native entry matrix remains pending. This partial evidence does not prove full operator, package, radio, sponsor, or submission acceptance."
+          "note": "NAQP core 2ee72e1c364199bcb38c185ed7b3a20c46a2bc84 and export 5ee75eae4186d71d7f38ac49d5ae43a23cc2e45d passed their three-platform matrices. Structured entry d22107292532a8f77737b4fcf68134f547ca7be4 is integrated at c0ac00ff05968d3fb90484643e22732451170121; run 39062402856 passed all six native jobs at that integration. This partial evidence does not prove full operator, package, radio, sponsor, or submission acceptance."
         },
         "certification": "official-rules plain-logging preview; operator, native-entry, sponsor, and submission acceptance remain pending"
       }
