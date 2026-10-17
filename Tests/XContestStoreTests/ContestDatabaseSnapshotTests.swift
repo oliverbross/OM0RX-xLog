@@ -649,14 +649,21 @@ final class ContestDatabaseSnapshotTests: XCTestCase {
                 to: staging.appendingPathComponent(ContestDatabaseSnapshotter.databaseFileName))
             try Data("attacker replacement".utf8).write(to: staging.appendingPathComponent("replacement-marker"))
         }))
-        await assertSnapshotError(.unsafePath(canonicalTemporaryPath(parent.path))) {
+        var snapshotError: ContestDatabaseSnapshotError?
+        do {
             _ = try await snapshotter.createSnapshot(sourceDatabaseURL: source,
                                                        destinationDirectoryURL: destination)
+            XCTFail("Replaced staging directory published")
+        } catch let error as ContestDatabaseSnapshotError {
+            snapshotError = error
+        } catch {
+            XCTFail("Unexpected error: \(error)")
         }
         XCTAssertFalse(FileManager.default.fileExists(atPath: destination.path))
         let replacement = try XCTUnwrap(FileManager.default.contentsOfDirectory(
             at: parent, includingPropertiesForKeys: nil)
             .first { $0.lastPathComponent.hasPrefix(".contest-snapshot-") })
+        XCTAssertEqual(snapshotError, .unsafePath(canonicalTemporaryPath(replacement.path)))
         XCTAssertEqual(try Data(contentsOf: replacement.appendingPathComponent("replacement-marker")),
                        Data("attacker replacement".utf8))
         XCTAssertEqual(try Data(contentsOf: replacement.appendingPathComponent(ContestDatabaseSnapshotter.databaseFileName)),
