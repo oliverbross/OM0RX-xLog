@@ -39,6 +39,20 @@ it.each(["desk", "editor"])("puts evidence beneath the %s reference fields inste
   expect(status.parentElement).not.toBe(heading.parentElement);
   expect(status.closest(kind === "desk" ? ".desk-active-references" : ".qso-fields")).toBeTruthy();
 });
+it("reserves a stable two-line desk slot and contains long verification text without moving the actions", () => {
+  const view = render(<DeskQSO {...props} referenceEvidence={null} />);
+  const slot = view.container.querySelector(".desk-ref-slot")!;
+  const actions = view.container.querySelector(".desk-active-actions")!;
+  expect(slot).toBeTruthy();
+  expect(slot.querySelector('[role="status"]')).toBeNull();
+  view.rerender(<DeskQSO {...props} referenceEvidence={{ call: "H49A", rows: [{ kind: "pota", reference: "OC-123456789", status: "verified", name: "A deliberately long verified reference name that must wrap inside the operator desk" }] }} />);
+  expect(view.container.querySelector(".desk-ref-slot")).toBe(slot);
+  expect(view.container.querySelector(".desk-active-actions")).toBe(actions);
+  expect(slot.querySelector('[role="status"]')?.textContent).toContain("deliberately long verified reference name");
+  const css = readFileSync("src/live/OperatorDesk.css", "utf8");
+  expect(css).toMatch(/\.desk-ref-slot \{[^}]*block-size: 2\.8em;[^}]*overflow: hidden;/);
+  expect(css).toMatch(/\.desk-ref-slot \.qso-reference-status > span \{[^}]*overflow-wrap: anywhere;/);
+});
 it("removes the global tuning status row while retaining the authoritative tune fence and errors", async () => {
   const source = readFileSync("src/LiveApp.tsx", "utf8");
   expect(source).not.toContain("waiting for observed radio state");

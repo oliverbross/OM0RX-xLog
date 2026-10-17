@@ -106,7 +106,7 @@ export function DeskQSO({ draft, setDraft: writeDraft, save, clear, busy, draftL
       }} /></label>{selectField("band", "Band", bands)}{selectField("mode", "Mode", modes)}{textField("rstSent", "RST S")}{textField("rstReceived", "RST R")}
     </div>
     <div className="desk-active-location">{textField("name", "Name")}{textField("comment", "Comment")}{textField("gridSquare", "Grid")}{textField("country", "Country")}{textField("county", "County")}</div>
-    <div className="desk-active-references">{textField("potaReference", "POTA")}{textField("sotaReference", "SOTA")}{textField("iota", "IOTA")}{textField("wwffReference", "WWFF")}{textField("sigInfo", "Castle")}<ReferenceEvidenceStatus call={draft.call} evidence={referenceEvidence} /></div>
+    <div className="desk-active-references">{textField("potaReference", "POTA")}{textField("sotaReference", "SOTA")}{textField("iota", "IOTA")}{textField("wwffReference", "WWFF")}{textField("sigInfo", "Castle")}<div className="desk-ref-slot"><ReferenceEvidenceStatus call={draft.call} evidence={referenceEvidence} /></div></div>
     {duplicateDate && <p className="desk-active-duplicate" role="status" title="Previously worked on this band and mode · UTC date">Dupe: Worked on {duplicateDate}</p>}
     {error && <p className="desk-error" role="alert">{error}</p>}
     {(!validFrequency || !validTime || frequencyBand && frequencyBand !== draft.band) && <p className="desk-error" role="alert">Check the UTC date, frequency and band before logging.</p>}
