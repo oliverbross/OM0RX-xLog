@@ -16,7 +16,7 @@
         "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "requestID" : "87654321-89ab-4cde-8fab-0123456789ab",
         "sessionID" : "37654321-89ab-4cde-8fab-0123456789ab",
-        "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+        "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
       },
       "complete" : {
         "draftID" : "47654321-89ab-4cde-8fab-0123456789ab",
@@ -45,7 +45,7 @@
         "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "requestID" : "77654321-89ab-4cde-8fab-0123456789ab",
         "sessionID" : "37654321-89ab-4cde-8fab-0123456789ab",
-        "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+        "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
       },
       "create" : {
         "expectedRevision" : 0,
@@ -77,11 +77,11 @@
         "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "requestID" : "47654321-89ab-4cde-8fab-0123456789ab",
         "sessionID" : "37654321-89ab-4cde-8fab-0123456789ab",
-        "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+        "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
       },
       "open" : {
         "sessionID" : "37654321-89ab-4cde-8fab-0123456789ab",
-        "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+        "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
       },
       "partial" : {
         "draftID" : "47654321-89ab-4cde-8fab-0123456789ab",
@@ -110,7 +110,7 @@
         "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "requestID" : "57654321-89ab-4cde-8fab-0123456789ab",
         "sessionID" : "37654321-89ab-4cde-8fab-0123456789ab",
-        "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+        "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
       },
       "reset" : {
         "draftID" : "47654321-89ab-4cde-8fab-0123456789ab",
@@ -139,12 +139,12 @@
         "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "requestID" : "67654321-89ab-4cde-8fab-0123456789ab",
         "sessionID" : "37654321-89ab-4cde-8fab-0123456789ab",
-        "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+        "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
       }
     },
     "responses" : {
       "commit" : {
-        "id" : "cc9b6d37-b467-40bf-97f2-f91d160fee9a",
+        "id" : "3a226aeb-69cd-4fa8-8dcd-985590531fc9",
         "ok" : true,
         "result" : {
           "draft" : {
@@ -186,7 +186,7 @@
 
               ]
             },
-            "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+            "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
           },
           "qso" : {
             "band" : "20m",
@@ -218,7 +218,7 @@
             "revision" : 5,
             "sessionID" : "37654321-89ab-4cde-8fab-0123456789ab",
             "sourceVerification" : "provisional",
-            "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+            "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
           },
           "session" : {
             "name" : "NAQP generated wire",
@@ -341,12 +341,12 @@
               }
             },
             "updatedAt" : "2026-10-18T11:04:00.000Z",
-            "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+            "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
           }
         }
       },
       "complete" : {
-        "id" : "ccd495c9-9ae9-4a64-bb99-8027a4e89cb0",
+        "id" : "3f261379-2dfd-4898-ba5e-34d5ffedea6c",
         "ok" : true,
         "result" : {
           "draft" : {
@@ -385,7 +385,7 @@
 
               ]
             },
-            "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+            "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
           },
           "receipt" : {
             "committedAt" : "2026-10-18T11:03:00.000Z",
@@ -514,12 +514,12 @@
               }
             },
             "updatedAt" : "2026-10-18T11:03:00.000Z",
-            "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+            "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
           }
         }
       },
       "create" : {
-        "id" : "95722267-b5bd-4fe6-9be2-152087cb8204",
+        "id" : "495232e0-03b9-44ad-8d25-34ec2281f6e1",
         "ok" : true,
         "result" : {
           "draft" : {
@@ -562,7 +562,7 @@
 
               ]
             },
-            "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+            "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
           },
           "receipt" : {
             "committedAt" : "2026-10-18T11:00:00.000Z",
@@ -691,12 +691,12 @@
               }
             },
             "updatedAt" : "2026-10-18T11:00:00.000Z",
-            "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+            "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
           }
         }
       },
       "open" : {
-        "id" : "a3d5ad50-a317-4151-89b1-eb422003f1ac",
+        "id" : "db0b5c8f-d421-481c-bfd2-537b88828a96",
         "ok" : true,
         "result" : {
           "draft" : {
@@ -737,7 +737,7 @@
 
               ]
             },
-            "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+            "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
           },
           "session" : {
             "name" : "NAQP generated wire",
@@ -860,12 +860,12 @@
               }
             },
             "updatedAt" : "2026-10-18T11:02:00.000Z",
-            "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+            "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
           }
         }
       },
       "partial" : {
-        "id" : "628850e3-eecc-4be5-ba94-addccd57afdc",
+        "id" : "b2acfde2-3b0d-4a95-90e1-00817421d483",
         "ok" : true,
         "result" : {
           "draft" : {
@@ -906,7 +906,7 @@
 
               ]
             },
-            "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+            "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
           },
           "receipt" : {
             "committedAt" : "2026-10-18T11:01:00.000Z",
@@ -1035,12 +1035,12 @@
               }
             },
             "updatedAt" : "2026-10-18T11:01:00.000Z",
-            "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+            "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
           }
         }
       },
       "reset" : {
-        "id" : "28aa9a73-466b-4b16-a673-c9879a6e3cdd",
+        "id" : "8fee5a01-4605-47d0-ac7e-47ba81629e94",
         "ok" : true,
         "result" : {
           "draft" : {
@@ -1083,7 +1083,7 @@
 
               ]
             },
-            "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+            "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
           },
           "receipt" : {
             "committedAt" : "2026-10-18T11:02:00.000Z",
@@ -1212,7 +1212,7 @@
               }
             },
             "updatedAt" : "2026-10-18T11:02:00.000Z",
-            "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+            "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
           }
         }
       }
@@ -1256,7 +1256,7 @@
       "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "requestID" : "c7654321-89ab-4cde-8fab-0123456789ab",
       "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
-      "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+      "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
     },
     "commit" : {
       "draftID" : "a7654321-89ab-4cde-8fab-0123456789ab",
@@ -1268,7 +1268,7 @@
       "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "requestID" : "d7654321-89ab-4cde-8fab-0123456789ab",
       "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
-      "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+      "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
     },
     "create" : {
       "expectedRevision" : 0,
@@ -1296,7 +1296,7 @@
       "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "requestID" : "a7654321-89ab-4cde-8fab-0123456789ab",
       "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
-      "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+      "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
     },
     "postCommitApply" : {
       "draftID" : "a7654321-89ab-4cde-8fab-0123456789ab",
@@ -1317,7 +1317,7 @@
       "payloadDigest" : "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
       "requestID" : "e7654321-89ab-4cde-8fab-0123456789ab",
       "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
-      "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+      "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
     },
     "qsoCorrect" : {
       "expectedRevision" : 4,
@@ -1358,7 +1358,7 @@
       "payloadDigest" : "1111111111111111111111111111111111111111111111111111111111111111",
       "requestID" : "17654321-89ab-4cde-8fab-0123456789ab",
       "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
-      "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+      "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
     },
     "qsoDelete" : {
       "expectedRevision" : 5,
@@ -1370,13 +1370,13 @@
       "payloadDigest" : "2222222222222222222222222222222222222222222222222222222222222222",
       "requestID" : "27654321-89ab-4cde-8fab-0123456789ab",
       "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
-      "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+      "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
     },
     "qsoGet" : {
       "expectedRevision" : 4,
       "qsoID" : "d7654321-89ab-4cde-8fab-0123456789ab",
       "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
-      "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+      "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
     },
     "reserve" : {
       "draftID" : "a7654321-89ab-4cde-8fab-0123456789ab",
@@ -1388,12 +1388,12 @@
       "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "requestID" : "b7654321-89ab-4cde-8fab-0123456789ab",
       "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
-      "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+      "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
     }
   },
   "responses" : {
     "apply" : {
-      "id" : "d4825340-baf3-4ae7-8427-0602e1c560ad",
+      "id" : "00c99c63-4364-40f9-a1f3-21f04e604f4e",
       "ok" : true,
       "result" : {
         "draft" : {
@@ -1424,7 +1424,7 @@
 
             ]
           },
-          "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
         },
         "receipt" : {
           "committedAt" : "2026-10-17T02:02:00.000Z",
@@ -1489,15 +1489,122 @@
             "dxccEntity" : "SLOVAK REPUBLIC"
           },
           "updatedAt" : "2026-10-17T02:02:00.000Z",
-          "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
         }
       }
     },
     "catalog" : {
-      "id" : "ac1ea1fd-a46c-434b-9aae-94eb0b8f66b0",
+      "id" : "562e0ec0-8c4e-414d-8ece-78d6abe0374b",
       "ok" : true,
       "result" : {
         "rules" : [
+          {
+            "displayName" : "ARRL RTTY Roundup Preview",
+            "entry" : {
+              "adifMode" : "RTTY",
+              "cabrilloFormatterVersion" : "arrl-rtty-preview-1",
+              "cabrilloProjectionFormatterVersion" : "arrl-rtty-preview-1",
+              "cabrilloQSOType" : "RY",
+              "exchange" : {
+                "adifFields" : "exchangeStrings",
+                "received" : "structured",
+                "receivedFields" : [
+                  {
+                    "acceptedKinds" : [
+                      "subdivision",
+                      "serialNumber"
+                    ],
+                    "adifField" : null,
+                    "id" : "exchange",
+                    "label" : "State, province, or serial",
+                    "maximumUTF8Bytes" : 8,
+                    "required" : true
+                  }
+                ],
+                "sent" : "structured",
+                "sentDefault" : "stationFields",
+                "sentFields" : [
+                  {
+                    "acceptedKinds" : [
+                      "subdivision"
+                    ],
+                    "adifField" : "MY_STATE",
+                    "id" : "location",
+                    "label" : "State or province",
+                    "maximumUTF8Bytes" : 2,
+                    "required" : false
+                  },
+                  {
+                    "acceptedKinds" : [
+                      "serialNumber"
+                    ],
+                    "adifField" : "STX",
+                    "id" : "serial",
+                    "label" : "Serial",
+                    "maximumUTF8Bytes" : 8,
+                    "required" : false
+                  }
+                ]
+              },
+              "mode" : "RTTY",
+              "modeProfiles" : [
+                {
+                  "adifMode" : "RTTY",
+                  "adifSubmode" : null,
+                  "cabrilloQSOType" : "RY",
+                  "mode" : "RTTY",
+                  "report" : {
+                    "defaultReceived" : "599",
+                    "defaultSent" : "599",
+                    "format" : "digitalRST",
+                    "maximumUTF8Bytes" : 3
+                  }
+                }
+              ],
+              "report" : {
+                "defaultReceived" : "599",
+                "defaultSent" : "599",
+                "format" : "digitalRST",
+                "maximumUTF8Bytes" : 3
+              },
+              "scorePolicy" : "pointsTimesMultipliers",
+              "serial" : {
+                "allowedScopes" : [
+
+                ],
+                "requirement" : "none"
+              },
+              "stationFields" : [
+                {
+                  "id" : "section",
+                  "label" : "Cabrillo section",
+                  "maximumUTF8Bytes" : 3,
+                  "required" : true,
+                  "role" : "cabrilloLocation"
+                }
+              ],
+              "stationResolvedSerial" : {
+                "allocatedSerialFieldID" : "serial",
+                "allowedScopes" : [
+                  "session"
+                ],
+                "locationFieldID" : "location",
+                "policy" : "arrlRTTYRoundupWVEOrDX"
+              },
+              "version" : 2
+            },
+            "entryDescriptorVersion" : 2,
+            "identity" : {
+              "edition" : "rules-3.0b-preview",
+              "id" : "arrl-rtty-roundup",
+              "sourceRevision" : "87c9f0032e6ce502b4ae94d47b397a9a34c49a3eafdb5a50fc226694696fe1ce",
+              "version" : "1.0.0-3.0b-preview"
+            },
+            "mode" : "RTTY",
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "sourceNote" : "ARRL RTTY Roundup Rules v3.0b and January 2026 DXCC list, retrieved 2026-10-18; multiplier lists v1.2.0; compared with contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/arrl_rtty_ru.py; preview only, not sponsor approval",
+            "sourceVerification" : "provisional"
+          },
           {
             "displayName" : "CQ WPX CW",
             "entry" : {
@@ -2126,11 +2233,11 @@
             "sourceVerification" : "provisional"
           }
         ],
-        "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+        "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
       }
     },
     "commit" : {
-      "id" : "d77ecec0-5ee6-4d66-8b53-566f43104d29",
+      "id" : "dd4d1115-b6ad-4af0-a2e1-c20be8c36949",
       "ok" : true,
       "result" : {
         "draft" : {
@@ -2165,7 +2272,7 @@
 
             ]
           },
-          "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
         },
         "qso" : {
           "band" : "20m",
@@ -2197,7 +2304,7 @@
           "revision" : 4,
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "sourceVerification" : "provisional",
-          "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
         },
         "session" : {
           "name" : "Browser wire test",
@@ -2256,7 +2363,7 @@
             "dxccEntity" : "SLOVAK REPUBLIC"
           },
           "updatedAt" : "2026-10-17T02:03:00.000Z",
-          "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
         }
       }
     },
@@ -2266,11 +2373,11 @@
         "message" : "Contest identity must be a canonical lowercase UUID.",
         "outcome" : "confirmed"
       },
-      "id" : "a466daa3-4b51-4ed0-8605-fb311f622e49",
+      "id" : "d2f8547c-49f3-4bde-9b6d-1693e3471247",
       "ok" : false
     },
     "create" : {
-      "id" : "22567dd7-c4a8-477f-83a4-d495374e40ae",
+      "id" : "8dc1b94d-bc49-45c3-a6b4-47b031835c8d",
       "ok" : true,
       "result" : {
         "draft" : {
@@ -2306,7 +2413,7 @@
 
             ]
           },
-          "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
         },
         "receipt" : {
           "committedAt" : "2026-10-17T02:00:00.000Z",
@@ -2371,7 +2478,7 @@
             "dxccEntity" : "SLOVAK REPUBLIC"
           },
           "updatedAt" : "2026-10-17T02:00:00.000Z",
-          "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
         }
       }
     },
@@ -2385,7 +2492,7 @@
       "ok" : false
     },
     "qsoCorrect" : {
-      "id" : "dee62a35-29eb-4765-8b86-af0b0a541ec3",
+      "id" : "4d9a4c85-b571-4118-814d-ef943ccc99f9",
       "ok" : true,
       "result" : {
         "auditReference" : {
@@ -2448,7 +2555,7 @@
           "revision" : 5,
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "sourceVerification" : "provisional",
-          "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
         },
         "session" : {
           "name" : "Browser wire test",
@@ -2463,12 +2570,12 @@
           },
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "updatedAt" : "2026-10-17T02:03:30.000Z",
-          "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
         }
       }
     },
     "qsoCorrectReplayAfterDelete" : {
-      "id" : "815b11a4-4842-4d59-9ad1-7826c7184d95",
+      "id" : "eccc4cfb-836d-4987-8dfb-bc9ea64bda5d",
       "ok" : true,
       "result" : {
         "auditReference" : {
@@ -2531,7 +2638,7 @@
           "revision" : 5,
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "sourceVerification" : "provisional",
-          "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
         },
         "session" : {
           "name" : "Browser wire test",
@@ -2546,12 +2653,12 @@
           },
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "updatedAt" : "2026-10-17T02:03:30.000Z",
-          "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
         }
       }
     },
     "qsoDelete" : {
-      "id" : "a241c57d-9401-4650-a014-a020a3669f99",
+      "id" : "b94c9efa-19e4-4c19-86af-744c3587a0b1",
       "ok" : true,
       "result" : {
         "auditReference" : {
@@ -2578,7 +2685,7 @@
           "revision" : 6,
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "sourceVerification" : "provisional",
-          "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
         },
         "session" : {
           "name" : "Browser wire test",
@@ -2593,12 +2700,12 @@
           },
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "updatedAt" : "2026-10-17T02:03:40.000Z",
-          "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
         }
       }
     },
     "qsoDeleteReplay" : {
-      "id" : "7201072f-71f5-4f64-a094-4f0d69e061f8",
+      "id" : "e0376d79-9607-4529-a25b-857051f8084c",
       "ok" : true,
       "result" : {
         "auditReference" : {
@@ -2625,7 +2732,7 @@
           "revision" : 6,
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "sourceVerification" : "provisional",
-          "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
         },
         "session" : {
           "name" : "Browser wire test",
@@ -2640,12 +2747,12 @@
           },
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "updatedAt" : "2026-10-17T02:03:40.000Z",
-          "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
         }
       }
     },
     "qsoGet" : {
-      "id" : "339b97e9-fe4a-46ce-9f49-db4c730636ca",
+      "id" : "59b80e4c-56cf-49ef-a56b-46ff525513f8",
       "ok" : true,
       "result" : {
         "qso" : {
@@ -2687,11 +2794,11 @@
         },
         "revision" : 4,
         "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
-        "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+        "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
       }
     },
     "receiptAfterUncertain" : {
-      "id" : "620cd2b8-91a0-4ff7-8ff4-5cf3d0952d5b",
+      "id" : "b9973f41-cf5c-4b8b-b383-311e408ccfa4",
       "ok" : true,
       "result" : {
         "receipt" : {
@@ -2704,7 +2811,7 @@
       }
     },
     "replay" : {
-      "id" : "8e58a1a6-a58d-4784-92f0-f37452c82bed",
+      "id" : "cb512052-2044-4410-b166-3c6ddf46b789",
       "ok" : true,
       "result" : {
         "draft" : {
@@ -2739,7 +2846,7 @@
 
             ]
           },
-          "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
         },
         "qso" : {
           "band" : "20m",
@@ -2771,7 +2878,7 @@
           "revision" : 4,
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "sourceVerification" : "provisional",
-          "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
         },
         "session" : {
           "name" : "Browser wire test",
@@ -2830,12 +2937,12 @@
             "dxccEntity" : "SLOVAK REPUBLIC"
           },
           "updatedAt" : "2026-10-17T02:03:00.000Z",
-          "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
         }
       }
     },
     "reserve" : {
-      "id" : "766c43d4-9de9-408a-91e2-7796fc595676",
+      "id" : "41cdb665-c88e-4e33-8faa-61613a127fdb",
       "ok" : true,
       "result" : {
         "draft" : {
@@ -2870,7 +2977,7 @@
 
             ]
           },
-          "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
         },
         "receipt" : {
           "committedAt" : "2026-10-17T02:01:00.000Z",
@@ -2935,7 +3042,7 @@
             "dxccEntity" : "SLOVAK REPUBLIC"
           },
           "updatedAt" : "2026-10-17T02:01:00.000Z",
-          "workspaceGeneration" : "a7c65d54-22d3-4a76-9ad7-1b751929c25d"
+          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
         }
       }
     }

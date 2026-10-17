@@ -11,12 +11,23 @@ export type ContestRequest = <T = unknown>(method: ContestMethod, params?: Recor
 export type SourceVerificationStatus = "verified" | "provisional" | "unverified";
 
 export type ContestMode = "CW" | "SSB" | "RTTY";
-export type ContestRuleID = "cq-ww-cw" | "cq-wpx-cw" | "cq-ww-ssb" | "cq-wpx-ssb" | "oceania-dx-cw" | "oceania-dx-ssb" | "sac-cw" | "sac-ssb" | "naqp-cw" | "naqp-ssb" | "naqp-rtty";
+export type ContestRuleID = "cq-ww-cw" | "cq-wpx-cw" | "cq-ww-ssb" | "cq-wpx-ssb" | "oceania-dx-cw" | "oceania-dx-ssb" | "sac-cw" | "sac-ssb" | "naqp-cw" | "naqp-ssb" | "naqp-rtty" | "arrl-rtty-roundup";
 export type ContestRuleIdentity = { id: ContestRuleID; version: string; edition: string; sourceRevision: string };
-export type ContestReportDescriptor = { format: "cwRST" | "phoneRS" | "none"; defaultSent: string; defaultReceived: string; maximumUTF8Bytes: number };
+export type ContestReportDescriptor = { format: "cwRST" | "phoneRS" | "digitalRST" | "none"; defaultSent: string; defaultReceived: string; maximumUTF8Bytes: number };
 export type ContestExchangeFieldDescriptor = {
   id: string; label: string; acceptedKinds: ("operatorName" | "subdivision" | "dxccPrefix" | "serialNumber" | "gridSquare")[];
   required: boolean; maximumUTF8Bytes: number; adifField: "STX" | "SRX" | "NAME" | "MY_NAME" | "STATE" | "MY_STATE" | "GRIDSQUARE" | "MY_GRIDSQUARE" | null;
+};
+export type ContestStationFieldDescriptor = {
+  id: string; label: string; role: "cabrilloLocation"; required: boolean; maximumUTF8Bytes: number;
+};
+export type ContestStationResolvedSerialDescriptor = {
+  policy: "arrlRTTYRoundupWVEOrDX"; locationFieldID: string; allocatedSerialFieldID: string;
+  allowedScopes: ("session" | "band" | "transmitter")[];
+};
+export type ContestResolvedSerial = {
+  requirement: "none" | "requiredForCommit"; allowedScopes: ("session" | "band" | "transmitter")[];
+  allocatedFieldID: string | null;
 };
 export type ContestEntryDescriptorV1 = {
   mode: ContestMode; adifMode: ContestMode; cabrilloQSOType: "CW" | "PH";
@@ -33,6 +44,8 @@ export type ContestEntryDescriptorV2 = {
   serial: { requirement: "none" | "requiredForCommit"; allowedScopes: ("session" | "band" | "transmitter")[] };
   modeProfiles: { mode: ContestMode; adifMode: "CW" | "SSB" | "RTTY"; adifSubmode: string | null; cabrilloQSOType: "CW" | "PH" | "RY"; report: ContestReportDescriptor }[];
   scorePolicy: "pointsOnly" | "pointsTimesMultipliers";
+  stationResolvedSerial?: ContestStationResolvedSerialDescriptor;
+  stationFields?: ContestStationFieldDescriptor[];
 };
 export type ContestEntryDescriptor = ContestEntryDescriptorV1 | ContestEntryDescriptorV2;
 export type ContestRuleMetadata = {
@@ -45,12 +58,12 @@ type StructuredEntry = ContestEntryDescriptorV2 & { exchange: ContestEntryDescri
   sentFields: ContestExchangeFieldDescriptor[]; receivedFields: ContestExchangeFieldDescriptor[];
 } };
 export function isStructuredEntry(entry: ContestEntryDescriptor): entry is StructuredEntry { return "version" in entry && entry.version === 2; }
-export type ContestStationSnapshot = { callsign: string; cqZone: string; dxccEntity: string; exchangeFields?: Record<string, string> };
+export type ContestStationSnapshot = { callsign: string; cqZone: string; dxccEntity: string; exchangeFields?: Record<string, string>; stationFields?: Record<string, string> };
 export type ContestOperatorSnapshot = { callsign: string; category: string };
 export type ContestSessionSummary = {
   sessionID: string; workspaceGeneration: string; revision: number; name: string; rule: ContestRuleMetadata;
   referenceDataVersion: string; station: ContestStationSnapshot; operator: ContestOperatorSnapshot;
-  qsoCount: number; updatedAt: string;
+  qsoCount: number; updatedAt: string; resolvedSerial?: ContestResolvedSerial;
 };
 export type ContestDraftFields = {
   callsign: string; sentReport: string; sentExchange: string; receivedReport: string; receivedExchange: string;
@@ -60,7 +73,7 @@ export type ContestDraftFields = {
 export type ContestDraftSnapshot = {
   draftID: string; sessionID: string; workspaceGeneration: string; revision: number; fields: ContestDraftFields;
   reservedSerial: number | null; validation: { errors: string[]; warnings: string[] };
-  dupe: { state: "clear" | "duplicate" | "unchecked"; reason: string }; updatedAt: string;
+  dupe: { state: "clear" | "duplicate" | "unchecked"; reason: string }; updatedAt: string; resolvedSerial?: ContestResolvedSerial;
 };
 export type ContestQSO = {
   qsoID: string; sessionID: string; workedAt: string; callsign: string; band: string; mode: ContestMode;
