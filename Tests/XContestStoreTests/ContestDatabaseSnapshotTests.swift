@@ -545,6 +545,94 @@ final class ContestDatabaseSnapshotTests: XCTestCase {
         XCTAssertEqual(metadata.schemaVersion, 2)
     }
 
+    func testWindowsDatabaseChildClosesBeforePublicationWhileDirectoryPinsRemain() async throws {
+        let source = databaseURL(), store = try SQLiteContestStore(databaseURL: source)
+        _ = try await create(store)
+        let destination = destinationDirectory()
+        let parent = destination.deletingLastPathComponent()
+        let moved = parent.appendingPathComponent("temporarily-moved-staging")
+        let history = LockedHistory()
+        let snapshotter = ContestDatabaseSnapshotter(hooks: .init(afterDatabaseClosed: {
+            let staging = try FileManager.default.contentsOfDirectory(at: parent,
+                                                                       includingPropertiesForKeys: nil)
+                .first { $0.lastPathComponent.hasPrefix(".contest-snapshot-") }!
+            do {
+                try FileManager.default.moveItem(at: staging, to: moved)
+                history.append("held-child-move-succeeded")
+            } catch {
+                history.append("held-child-move-denied")
+            }
+        }, beforePublication: {
+            let staging = try FileManager.default.contentsOfDirectory(at: parent,
+                                                                       includingPropertiesForKeys: nil)
+                .first { $0.lastPathComponent.hasPrefix(".contest-snapshot-") }!
+            try FileManager.default.moveItem(at: staging, to: moved)
+            history.append("late-move-succeeded")
+            do {
+                try FileManager.default.moveItem(
+                    at: parent,
+                    to: parent.deletingLastPathComponent().appendingPathComponent("unexpected-moved-parent"))
+                history.append("late-parent-move-succeeded")
+            } catch {
+                history.append("late-parent-move-denied")
+            }
+            try FileManager.default.moveItem(at: moved, to: staging)
+            history.append("late-move-restored")
+        }))
+        _ = try await snapshotter.createSnapshot(sourceDatabaseURL: source,
+                                                  destinationDirectoryURL: destination)
+        XCTAssertEqual(history.values, [
+            "held-child-move-denied",
+            "late-move-succeeded",
+            "late-parent-move-denied",
+            "late-move-restored",
+        ])
+        let metadata = try await ContestDatabaseSnapshotter().inspectSnapshot(at: destination)
+        XCTAssertEqual(metadata.schemaVersion, 2)
+    }
+
+    func testWindowsErrorAfterDatabaseChildCloseCleansOwnedStaging() async throws {
+        enum Injected: Error { case stop }
+        let source = databaseURL(), store = try SQLiteContestStore(databaseURL: source)
+        _ = try await create(store)
+        let destination = destinationDirectory()
+        let history = LockedHistory()
+        let snapshotter = ContestDatabaseSnapshotter(hooks: .init(beforePublication: {
+            history.append("publication-phase")
+            throw Injected.stop
+        }))
+        do {
+            _ = try await snapshotter.createSnapshot(sourceDatabaseURL: source,
+                                                       destinationDirectoryURL: destination)
+            XCTFail("Injected failure ignored")
+        } catch is Injected {}
+        XCTAssertEqual(history.values, ["publication-phase"])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: destination.path))
+        assertNoStaging(in: destination.deletingLastPathComponent())
+
+        let cancelDestination = destinationDirectory()
+        let entered = DispatchSemaphore(value: 0), release = DispatchSemaphore(value: 0)
+        let cancellable = ContestDatabaseSnapshotter(hooks: .init(beforePublication: {
+            entered.signal()
+            release.wait()
+        }))
+        let task = Task.detached {
+            try await cancellable.createSnapshot(sourceDatabaseURL: source,
+                                                  destinationDirectoryURL: cancelDestination)
+        }
+        XCTAssertEqual(entered.wait(timeout: .now() + 5), .success)
+        task.cancel()
+        release.signal()
+        do {
+            _ = try await task.value
+            XCTFail("Cancelled publication phase published")
+        } catch let error as ContestDatabaseSnapshotError {
+            XCTAssertEqual(error, .cancelled)
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: cancelDestination.path))
+        assertNoStaging(in: cancelDestination.deletingLastPathComponent())
+    }
+
     func testWindowsLateStagingReplacementIsPreservedAndOwnedHandlesAreCleaned() async throws {
         let source = databaseURL(), store = try SQLiteContestStore(databaseURL: source)
         _ = try await create(store)
@@ -726,6 +814,14 @@ private final class LockedFlags: @unchecked Sendable {
     var parentMoveDenied: Bool { lock.withLock { values.parent } }
     func setStagingMoveDenied() { lock.withLock { values.staging = true } }
     func setParentMoveDenied() { lock.withLock { values.parent = true } }
+}
+
+private final class LockedHistory: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storage: [String] = []
+
+    var values: [String] { lock.withLock { storage } }
+    func append(_ value: String) { lock.withLock { storage.append(value) } }
 }
 
 private actor AsyncSemaphore {
