@@ -4,6 +4,9 @@ import screens from "./workspaceScreens.json";
 export const workspaceScreens = screens;
 // Keep legacy routes valid without displaying their former top-level entries.
 export const workspaceMenuScreens = screens.filter(screen => !screen.hidden);
+export function workspaceMenuScreensFor(capabilities: { contesting: boolean }) {
+  return screens.filter(screen => !screen.hidden || capabilities.contesting && screen.id === "contesting");
+}
 type Navigation = { revision: number; screen: string };
 export const workspaceModeRoutes = { "workspace-mode-canvas": "Workspace Mode: Canvas", "workspace-mode-windows": "Workspace Mode: Separate Windows" } as const;
 export function validWorkspaceNavigation(value: any): value is Navigation {

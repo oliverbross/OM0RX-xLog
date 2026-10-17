@@ -1,12 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const invoke = vi.hoisted(() => vi.fn());
 vi.mock("@tauri-apps/api/core", () => ({ invoke, isTauri: () => true }));
-import { requestQSODataQuality, requestQSOCorrectionPreview } from "./worker";
+import { framedWorkerRequest, requestQSODataQuality, requestQSOCorrectionPreview } from "./worker";
 
 const scope = { contactID: "11111111-1111-1111-1111-111111111111", generation: "22222222-2222-2222-2222-222222222222", expectedRevision: 7 };
 const evidence = { field: "dxcc", value: "517", source: "suppliedCTYReference", date: null,
   dateRole: "referenceSourceDate", rawDate: null, referenceSource: "bundled_cty", referenceVersion: null };
 beforeEach(() => invoke.mockReset());
+it("preserves a framed confirmed rejection for callers that reconcile operation receipts", async () => {
+  const rejected = { id: "request-1", ok: false as const,
+    error: { code: "invalid_exchange", message: "Exchange rejected.", outcome: "confirmed" as const } };
+  invoke.mockResolvedValue(rejected);
+  await expect(framedWorkerRequest("contest_qso_commit", { requestID: "request-1" })).resolves.toEqual(rejected);
+  expect(invoke).toHaveBeenCalledExactlyOnceWith("worker_request", {
+    request: { id: expect.any(String), method: "contest_qso_commit", params: { requestID: "request-1" } },
+  });
+});
 describe("read-only QSO data-quality bridge", () => {
   it("sends only the exact retained scope and preserves explicit unknowns", async () => {
     const report = { contactID: scope.contactID, contactRevision: 7, referenceComparison: null, retainedPowerObservation: null };

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { nativeSpotEditor, useSpotEditor } from "./live/useSpotEditor";
 import { activationDisablesFollow, validSpotActivationSnapshot } from "./live/spotActivation";
 import { invoke } from "@tauri-apps/api/core";
@@ -13,7 +13,7 @@ import { nativeRotorStop } from "./live/nativeRotorStop";
 import { useFollowRadio } from "./live/useFollowRadio";
 import { useReferenceEvidence } from "./live/useReferenceEvidence";
 import { Radio, BookOpen, Network, History, Map as MapIcon, Settings, Activity, Award, LayoutDashboard, ExternalLink, RefreshCw } from "lucide-react";
-import { workerRequest, openMonitor, openDetachedMap, detachedMapKind,
+import { workerRequest, framedWorkerRequest, openMonitor, openDetachedMap, detachedMapKind,
   type StationProvider } from "./worker";
 import WorldMap from "./Map";
 import type { Spot } from "./model";
@@ -81,7 +81,7 @@ import { LogbookMutationSession, readLogbookMutationJournal } from "./live/logbo
 import { LogbookMutationStatus } from "./live/LogbookMutationStatus";
 import { requestLogbookContact } from "./live/logbookContactTransport";
 import { ContactEditStatus } from "./live/ContactEditStatus";
-import { connectWorkspaceNavigation, workspaceMenuScreens } from "./live/workspaceNavigation";
+import { connectWorkspaceNavigation, workspaceMenuScreensFor } from "./live/workspaceNavigation";
 import { retireStationProvider } from "./live/stationHandover";
 import RotorPanel from "./live/RotorPanel";
 import { connectRotorTelemetry } from "./live/rotorTelemetry";
@@ -93,11 +93,19 @@ import { AgentConnectionSetup } from "./live/AgentConnectionSetup";
 import { TCIObservation } from "./live/TCIObservation";
 import { providerAllowsCWDesk } from "./live/cwVisibility";
 import { clearConnectedHandoverMessage, rotorCommandParams, rotorProjection, validRotorSnapshot, type RotorSnapshot } from "./live/rotorControl";
+import type { ContestRequest } from "./contesting/types";
 import "./live/live.css";
 import appLogo from "./assets/xlog-logo-mark.png";
 
 type Data = Record<string, any>;
 type Request = (method: string, params?: Data) => Promise<any>;
+const contestTitle = "Contest Manager / Desk";
+const contestRequest: ContestRequest = (method, params = {}) => framedWorkerRequest(method, params);
+const ContestWorkspace = lazy(() => import("./contesting/ContestWorkspace"));
+export function contestingRuntimeAvailable(value: unknown): boolean {
+  return !!value && typeof value === "object" && !Array.isArray(value) &&
+    (value as Data).mode === "contesting_test" && (value as Data).isolated_workspace === true;
+}
 
 const callsignLookups = new WeakMap<Request, Map<string, Promise<any>>>();
 function releaseCallsignLookup(request: Request, call: string, lookup: Promise<any>) {
@@ -157,7 +165,6 @@ const screenIcons: Record<string, typeof Radio> = {
   "world-map": MapIcon, "band-maps": Activity, "chaser-dx": Activity, awards: Award,
   "station-control": Radio, sync: RefreshCw, settings: Settings,
 };
-const navigation = workspaceMenuScreens.map(screen => [screen.title, screenIcons[screen.id]] as const);
 const monitor = new URLSearchParams(location.search).get("view") === "monitor";
 const detached = detachedMapKind(new URLSearchParams(location.search).get("view"));
 const frequency = (hz?: number) => typeof hz === "number" && Number.isFinite(hz) ? (hz / 1e6).toFixed(6) : "—";
@@ -203,6 +210,15 @@ function MainLiveApp() {
   const [settingsTabRequest, setSettingsTabRequest] = useState<{ tab: MenuSettingsTab; revision: number }>({ tab: "Station", revision: 0 });
   const [workspace, setWorkspace] = useState<Data | null>(null);
   const [workspacePending, setWorkspacePending] = useState(true);
+  const [contestCapability, setContestCapability] = useState<"checking" | "available" | "unavailable">("checking");
+  const contestCapabilityRef = useRef(contestCapability); contestCapabilityRef.current = contestCapability;
+  useEffect(() => {
+    let active = true;
+    void framedWorkerRequest("health").then(response => {
+      if (active) setContestCapability(response.ok === true && contestingRuntimeAvailable(response.result) ? "available" : "unavailable");
+    }).catch(() => { if (active) setContestCapability("unavailable"); });
+    return () => { active = false; };
+  }, []);
   const deskLayout = useWorkspaceLayout(workspace?.workspace_exists === true);
   const modeAction = useRef<(title: string) => Promise<boolean>>(async () => false);
   const [settingsSession] = useState(() => new SettingsSession(requestSettings,
@@ -278,6 +294,11 @@ function MainLiveApp() {
   }, [draftSession, contactSession]);
   const setView = useCallback((next: string) => {
     if (next === viewRef.current) return true;
+    if (next === contestTitle && contestCapabilityRef.current !== "available") {
+      if (contestCapabilityRef.current === "unavailable")
+        setError("Contesting requires the isolated OM0RX-xLog Contesting Test runtime.");
+      return false;
+    }
     if (logbookWorkingRef.current) { setError("Wait for the logbook operation to finish before changing views."); return false; }
     if (readingRadio.current || editorBufferPending.current || mainClosing.current || layoutChanging.current || editorTransition.current || !draftSession.canAcceptLocalInput() || !contactSession.canAcceptLocalInput()) {
       setError("Finish the buffered draft fields and check any pending activation before changing views. Your text is retained."); return false;
@@ -306,7 +327,7 @@ function MainLiveApp() {
   }, setError, undefined, retry => {
     const draft = draftSession.subscribe(retry), contact = contactSession.subscribe(retry), layout = deskLayout.session.subscribe(retry);
     return () => { draft(); contact(); layout(); };
-  }), [showOnlineSettings, showSyncSettings, setView, draftSession, contactSession, logbookWorking]);
+  }), [showOnlineSettings, showSyncSettings, setView, draftSession, contactSession, logbookWorking, contestCapability]);
   const [refresh, setRefresh] = useState(0);
   useEffect(() => connectLogbookChanges(() => setRefresh(value => value + 1), setError), []);
   const [busy, setBusy] = useState(false);
@@ -1052,6 +1073,10 @@ function MainLiveApp() {
     onManualRotor: disarmAutoRotor, isEditing: editing.current, intelligenceBands: workspacePreferences?.intelligenceBands };
   const deskEquipment = equipmentProfile(settings?.stationEquipment), deskKind = deskEquipmentKind(deskEquipment, rotorState, hasConfiguredRotor(rotorConfigurationState.base?.configuration));
   const deskBands = <BandMaps spots={liveSpots} onSelect={selectSpot} radioFrequencyHz={station?.radio?.frequency_hz} compact preferences={workspacePreferences ? bandMapView(workspacePreferences, true) : undefined} onPreferencesChange={value => changeBandMapPreferences(true, value)} />;
+  const contestView = view === contestTitle && contestCapability === "available";
+  const displayedSeparateWindows = separateWindows && !contestView;
+  const navigation = workspaceMenuScreensFor({ contesting: contestCapability === "available" })
+    .map(screen => [screen.title, screenIcons[screen.id] ?? Award] as const);
   return <div className="app live">
     <header className="station-rail main-station-rail"><strong className="brand teal"><img src={appLogo} alt="" width={32} height={32} />OM0RX-xLog</strong><strong className="cyan rail-frequency">{frequency(station?.radio?.frequency_hz)} MHz · {station?.radio?.mode || "Radio offline"}</strong>
       <span className={station?.radio?.connected ? "teal" : "amber"}>{station?.radio?.connected ? "Connected" : "Disconnected"}</span>
@@ -1060,7 +1085,7 @@ function MainLiveApp() {
       {workspace?.workspace_exists && <SharedPropagationConditions compact request={request} weatherKey={settings?.gridSquare || ""} />}
       <span className="rail-end">{stats?.stats?.qso_count?.toLocaleString() ?? "—"} contacts · Integrated logbook</span>
     </header>
-    <aside className="sidebar" style={separateWindows ? { display: "none" } : undefined}><nav>{navigation.map(([name, Icon], i) => <div key={name}>{(i === 0 || name === "Station Control") && <div className="nav-group">{i === 0 ? "Station log" : "Services"}</div>}<button aria-current={view === name ? "page" : undefined} onClick={() => setView(name)}><Icon size={17} />{name}</button></div>)}</nav>
+    <aside className="sidebar" style={displayedSeparateWindows ? { display: "none" } : undefined}><nav>{navigation.map(([name, Icon], i) => <div key={name}>{(i === 0 || name === "Station Control" || name === contestTitle) && <div className="nav-group">{i === 0 ? "Station log" : name === contestTitle ? "Contesting" : "Services"}</div>}<button aria-current={view === name ? "page" : undefined} onClick={() => setView(name)}><Icon size={17} />{name}</button></div>)}</nav>
       <SidebarStation snapshot={stationWithRotor} provider={stationProvider} busy={busy} onAction={action => {
         if(nativeStationSelection())void amplifierTransitionSession().transition(action as "operate"|"standby").catch(()=>{});
         else void run(async()=>{await request("station_action",{action});});
@@ -1068,7 +1093,7 @@ function MainLiveApp() {
       {nativeStationSelection() && stationProvider === "direct_agent" && view !== "Station Control" && <AmplifierTransitionStatus />}
       <div className="sidebar-foot"><button onClick={() => void openMonitor().catch(e => setError(e.message))}><ExternalLink size={16} />Monitor</button><strong className="teal">{settings?.stationCall || "Station not configured"}</strong><span>{settings?.gridSquare || "Set station grid"}</span></div>
     </aside>
-    <main className="qso-feedback-area live-feedback-host" aria-label={separateWindows ? "Separate Windows" : view} style={separateWindows ? { gridColumn: "1 / -1" } : undefined}>
+    <main className="qso-feedback-area live-feedback-host" aria-label={displayedSeparateWindows ? "Separate Windows" : view} style={displayedSeparateWindows ? { gridColumn: "1 / -1" } : undefined}>
       <StableFeedbackLayer>
       {error && <div className="live-error" role="alert">{error}<button onClick={() => setError("")}>Dismiss</button></div>}
       {workspaceMode(deskLayout.state.snapshot) === "windows" && recoveryVisible && (configurationRecovery || layoutRecovery) &&
@@ -1100,7 +1125,8 @@ function MainLiveApp() {
       {message && !message.endsWith("· radio frequency and mode confirmed") && <p className="live-message" role="status">{message}</p>}
       </StableFeedbackLayer>
       {loggedFeedback.toast}
-      <WorkspaceModeSurface separateWindows={separateWindows}>
+      <WorkspaceModeSurface separateWindows={displayedSeparateWindows}>
+      {contestView ? <Suspense fallback={null}><ContestWorkspace request={contestRequest} /></Suspense> : <>
       {!workspace?.workspace_exists && <>
         {view === "Settings" && <section className="service-settings" aria-label="Settings recovery">
           <h2>Settings</h2>
@@ -1168,6 +1194,7 @@ function MainLiveApp() {
         onRetry={async () => { try { await settingsSession.retry(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Settings save could not be retried."); } }}
         onUseSaved={() => { try { settingsSession.useSaved(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Saved Settings could not be restored."); } }}
         requestedTab={settingsTabRequest.tab} requestedTabRevision={settingsTabRequest.revision} syncSettings={settings.logbookMode === "local" ? <p>Integrated-only mode. Wavelog synchronization is disabled. Choose Integrated logbook + Wavelog synchronization in Settings → Logbook to enable it.</p> : <SyncPanel request={request} onChanged={() => setRefresh(n => n + 1)} />} onExternalContact={() => setRefresh(n => n + 1)} cwContext={cwContext} cwState={cw.state} cwProvider={stationProvider} refreshCW={() => cw.controller.pollWinKeyer()} rotorSettings={<RotorPanel snapshot={rotorState} request={request} onManual={disarmAutoRotor} configurationSession={rotorConfigurationSession} automaticRotorArmed={autoRotor} automaticRotorAvailable={!!nativeAutoRotor.state && !nativeAutoRotor.error && !!rotorState?.owner && Number.isSafeInteger(rotorState.generation)} automaticRotorError={nativeAutoRotor.error} onAutomaticRotorChange={setAutomaticRotor} />} clusterSettings={<ClusterPanel settingsOnly snapshot={null} onRequest={request} onSelect={() => {}} />} workspaceSettings={<WorkspaceSettings {...deskLayout} equipment={deskKind === "none" ? undefined : deskKind} requiredRotor={deskKind === "rotor" && !!rotorState?.owner} available={["active-qso", "callsign-intelligence", "world-map", "band-maps", "dx-cluster", "logbook", "awards", "chaser-dx", "spot-history", ...(deskKind === "none" ? [] : [deskKind] as ("rotor" | "antenna")[])]} />} dataRequest={dataManagementRequest} onDataChanged={() => { setDraft(null); setStats(null); latestWorkspacePreferences.current = null; setWorkspacePreferences(null); setRefresh(n => n + 1); }} />}
+      </>}
       </>}
       </WorkspaceModeSurface>
     </main></div>;

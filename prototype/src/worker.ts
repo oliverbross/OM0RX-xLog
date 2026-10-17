@@ -5,6 +5,8 @@ export const desktop = isTauri();
 export type DetachedMapKind = "world-map" | "band-maps";
 export type DetachedSpotKind = DetachedMapKind | "dx-cluster";
 export type StationProvider = "direct_agent" | "direct_flex_lan" | "direct_tci" | "hamlib";
+export type WorkerResponse<T = unknown> = { id: string; ok: true; result: T } |
+  { id: string; ok: false; error: { code?: string; message?: string; outcome?: "confirmed" | "uncertain" } };
 export type DetachedMapProjection = {
   revision?: number;
   spots: Record<string, any>[]; palette?: Record<string, unknown>;
@@ -82,22 +84,23 @@ export async function announceMonitorReady(): Promise<void> {
 export async function publishMonitorProjection(projection: MonitorProjection): Promise<void> {
   if (desktop) await emitTo("monitor", "xlog:monitor-projection", projection);
 }
-export async function workerRequest(
+export async function framedWorkerRequest<T = unknown>(
   method: string,
   params: Record<string, unknown> = {},
-) {
+): Promise<WorkerResponse<T>> {
   if (!desktop)
     throw new Error(
       "The browser cannot connect to station services. Launch OM0RX-xLog on your desktop.",
     );
-  const response = await invoke<{
-    id: string;
-    ok: boolean;
-    result?: unknown;
-    error?: { code?: string; message?: string };
-  }>("worker_request", {
+  return invoke<WorkerResponse<T>>("worker_request", {
     request: { id: crypto.randomUUID(), method, params },
   });
+}
+export async function workerRequest(
+  method: string,
+  params: Record<string, unknown> = {},
+) {
+  const response = await framedWorkerRequest(method, params);
   if (!response.ok)
     throw new Error(
       response.error?.message || "The operation failed; no successful outcome was confirmed.",

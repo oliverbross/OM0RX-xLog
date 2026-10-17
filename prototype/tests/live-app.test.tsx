@@ -18,7 +18,8 @@ vi.mock("../src/live/clusterResume", async importOriginal => ({ ...await importO
   nativeClusterSession: () => clusterStartup.native, initializeNativeClusterResume: clusterStartup.initialize }));
 vi.mock("../src/live/workspaceNavigation", async importOriginal => ({ ...await importOriginal<typeof import("../src/live/workspaceNavigation")>(),
   connectWorkspaceNavigation: (route: (title: string) => void) => { nativeMenu.route = route; return () => { nativeMenu.route = undefined; }; } }));
-vi.mock("../src/worker", async (importOriginal) => ({ ...await importOriginal<typeof import("../src/worker")>(), workerRequest: calls.request, openMonitor: vi.fn() }));
+vi.mock("../src/worker", async (importOriginal) => ({ ...await importOriginal<typeof import("../src/worker")>(),
+  workerRequest: calls.request, framedWorkerRequest: calls.request, openMonitor: vi.fn() }));
 vi.mock("../src/live/operatorDraftTransport", () => ({ requestOperatorDraft: async (method: string, params: any = {}) => (await calls.request(method, params)).result }));
 vi.mock("../src/live/logbookContactTransport", () => ({ requestLogbookContact: async (method: string, params: any = {}) => (await calls.request(method, params)).result }));
 vi.mock("../src/live/useSpotActivation", () => ({ useSpotActivation: () => ({ status: null, error: "", requesting: false, checked: false,
@@ -273,6 +274,54 @@ it("native menu navigation preserves the draft and never changes equipment or st
   }
   expect((screen.getByLabelText("Callsign") as HTMLInputElement).value).toBe("K1ABC");
   expect(calls.request.mock.calls.some(([method]) => ["station_connect", "station_disconnect", "station_tune", "rotor_connect", "rotor_goto", "sync_run", "settings_save"].includes(method))).toBe(false);
+});
+
+it("exposes the Contest Manager only for authoritative isolated contest-test health", async () => {
+  const backend = calls.request.getMockImplementation()!;
+  calls.request.mockImplementation((method, params) => method === "health"
+    ? Promise.resolve({ id: "health", ok: true, result: { mode: "contesting_test", isolated_workspace: true } })
+    : method === "contest_catalog"
+      ? Promise.resolve({ id: "catalog", ok: true, result: { workspaceGeneration: testWorkspaceGeneration, rules: [] } })
+      : method === "contest_sessions"
+        ? Promise.resolve({ id: "sessions", ok: true, result: { sessions: [] } })
+        : backend(method, params));
+  render(<LiveApp />);
+  const contest = await screen.findByRole("button", { name: "Contest Manager / Desk" });
+  fireEvent.click(contest);
+  expect(await screen.findByRole("heading", { name: "Contest Workspace" })).toBeTruthy();
+  expect(screen.getByRole("main", { name: "Contest Manager / Desk" })).toBeTruthy();
+  expect(calls.request.mock.calls.filter(([method]) => method === "contest_catalog")).toHaveLength(1);
+  await act(async () => nativeMenu.route?.("Operator Desk"));
+  expect(screen.getByRole("main", { name: "Operator Desk" })).toBeTruthy();
+});
+
+it.each([
+  [{ mode: "integrated", isolated_workspace: true }, "production mode"],
+  [{ mode: "contesting_test", isolated_workspace: false }, "shared workspace"],
+  [{ mode: "contesting_test" }, "malformed health"],
+])("keeps Contesting unavailable for %s (%s)", async (health, _label) => {
+  const backend = calls.request.getMockImplementation()!;
+  calls.request.mockImplementation((method, params) => method === "health"
+    ? Promise.resolve({ id: "health", ok: true, result: health }) : backend(method, params));
+  render(<LiveApp />);
+  await waitFor(() => expect(calls.request.mock.calls.some(([method]) => method === "health")).toBe(true));
+  expect(screen.queryByRole("button", { name: "Contest Manager / Desk" })).toBeNull();
+  await act(async () => nativeMenu.route?.("Contest Manager / Desk"));
+  expect(screen.getByRole("main", { name: "Operator Desk" })).toBeTruthy();
+  expect(calls.request.mock.calls.some(([method]) => method.startsWith("contest_"))).toBe(false);
+});
+
+it("rejects a malformed truthy health frame instead of exposing Contesting", async () => {
+  const backend = calls.request.getMockImplementation()!;
+  calls.request.mockImplementation((method, params) => method === "health"
+    ? Promise.resolve({ id: "health", ok: "true", result: { mode: "contesting_test", isolated_workspace: true } })
+    : backend(method, params));
+  render(<LiveApp />);
+  await waitFor(() => expect(calls.request.mock.calls.some(([method]) => method === "health")).toBe(true));
+  expect(screen.queryByRole("button", { name: "Contest Manager / Desk" })).toBeNull();
+  await act(async () => nativeMenu.route?.("Contest Manager / Desk"));
+  expect(screen.getByRole("main", { name: "Operator Desk" })).toBeTruthy();
+  expect(calls.request.mock.calls.some(([method]) => method.startsWith("contest_"))).toBe(false);
 });
 
 it("routes Sync to the Logbook choice in integrated-only mode", () => {
@@ -684,7 +733,7 @@ it("confirmed migration recovery does not clear a newer unrelated workspace erro
 it("starts with real-data onboarding and only reads; never creates a log or commands hardware implicitly", async () => {
   render(<LiveApp />);
   await waitFor(() => expect(screen.getByRole("button", { name: "Copy my existing xLog logbook" }).hasAttribute("disabled")).toBe(false));
-  expect(calls.request.mock.calls.every(([method]) => ["workspace_status", "cluster_snapshot", "station_snapshot", "rotor_snapshot"].includes(method))).toBe(true);
+  expect(calls.request.mock.calls.every(([method]) => ["health", "workspace_status", "cluster_snapshot", "station_snapshot", "rotor_snapshot"].includes(method))).toBe(true);
   expect(screen.getByText("No sample contacts, spots or station readings are loaded.")).toBeTruthy();
 });
 

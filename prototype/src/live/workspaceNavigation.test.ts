@@ -1,5 +1,5 @@
 import { expect, it, vi } from "vitest";
-import { connectWorkspaceNavigation, validWorkspaceNavigation, workspaceScreens, workspaceMenuScreens } from "./workspaceNavigation";
+import { connectWorkspaceNavigation, validWorkspaceNavigation, workspaceScreens, workspaceMenuScreens, workspaceMenuScreensFor } from "./workspaceNavigation";
 import { OperatorDraftSession } from "./operatorDraftSession";
 import { SpotActivationEditor } from "./spotActivation";
 const tick = async () => { for (let i = 0; i < 12; i++) await Promise.resolve(); };
@@ -13,7 +13,9 @@ function fixture() {
 it("has every existing destination and no unknown navigation or CW function-key shortcut", () => {
   expect(workspaceMenuScreens.some(screen => screen.id === "sync")).toBe(false);
   expect(workspaceMenuScreens.some(screen => screen.id === "settings")).toBe(true);
-  expect(workspaceScreens.map(s => s.title)).toEqual(["Operator Desk", "Log QSO", "Logbook", "DX Cluster", "Spot History", "World Map", "Band Maps", "Chaser & DX", "Awards", "Station Control", "Sync", "Wavelog Settings", "QRZ Settings", "Online Log Settings", "Reference Data Settings", "Settings"]);
+  expect(workspaceScreens.map(s => s.title)).toEqual(["Operator Desk", "Log QSO", "Logbook", "DX Cluster", "Spot History", "World Map", "Band Maps", "Chaser & DX", "Awards", "Station Control", "Sync", "Wavelog Settings", "QRZ Settings", "Online Log Settings", "Reference Data Settings", "Settings", "Contest Manager / Desk"]);
+  expect(workspaceMenuScreensFor({ contesting: false }).some(screen => screen.id === "contesting")).toBe(false);
+  expect(workspaceMenuScreensFor({ contesting: true }).filter(screen => screen.id === "contesting")).toHaveLength(1);
   for (const s of workspaceScreens) {
     expect(validWorkspaceNavigation({ revision: 1, screen: s.id })).toBe(true);
     if (s.shortcut) expect(s.shortcut).toMatch(/^CmdOrCtrl\+/);
