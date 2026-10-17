@@ -44,6 +44,16 @@ public enum CabrilloExportError: Error, Equatable {
 }
 
 public enum CabrilloExporter {
+    public static func document(input: ContestExportInput, rule: any ContestRule,
+                                createdBy: String = "OM0RX-xLog") throws -> String {
+        let score: ContestScore
+        do { score = try input.validatedScore(rule: rule) }
+        catch { throw CabrilloExportError.invalidHeader("exportInput") }
+        return try document(header: input.metadata.cabrilloHeader, score: score,
+                            qsos: input.qsos, session: input.session, rule: rule,
+                            createdBy: createdBy)
+    }
+
     public static func document(header: CabrilloHeader, score: ContestScore, qsos: [ContestQSO],
                                 session: ContestSessionSnapshot, rule: any ContestRule,
                                 createdBy: String = "OM0RX-xLog") throws -> String {
@@ -104,7 +114,10 @@ public enum CabrilloExporter {
             throw CabrilloExportError.invalidQSO(qsoID: qso.id, field: issue.field)
         }
         guard qso.frequencyHz > 0 else { throw CabrilloExportError.invalidQSO(qsoID: qso.id, field: "frequencyHz") }
-        let frequency = qso.frequencyHz / 1_000
+        let wholeKHz = qso.frequencyHz / 1_000
+        let remainder = qso.frequencyHz % 1_000
+        let frequency = remainder < 500 ? wholeKHz : remainder > 500 ? wholeKHz + 1 :
+            (wholeKHz.isMultiple(of: 2) ? wholeKHz : wholeKHz + 1)
         guard frequency > 0 && frequency <= 99_999 else { throw CabrilloExportError.invalidQSO(qsoID: qso.id, field: "frequencyHz") }
         let mode = qso.mode == "CW" ? "CW" : qso.mode
         let values = [session.station.callsign, qso.rstSent, qso.exchange.normalizedSent,
