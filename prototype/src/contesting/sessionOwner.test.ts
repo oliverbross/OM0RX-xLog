@@ -5,6 +5,7 @@ import { ContestSessionOwner, MemoryContestRecoveryStorage } from "./sessionOwne
 import type { ContestDraftSnapshot, ContestRequest, ContestSessionSummary } from "./types";
 
 const fixture = JSON.parse(readFileSync(new URL("../../../docs/contesting/fixtures/contesting-worker-wire.json", import.meta.url), "utf8"));
+const arrlFixture = JSON.parse(readFileSync(new URL("../../../docs/contesting/fixtures/arrl-rtty-worker-wire.json", import.meta.url), "utf8"));
 const recoveryKey = (generation: string) => `xlog.contesting.local-test-workspace.v2:${encodeURIComponent(generation)}`;
 
 function activateRecovered(session: ContestSessionSummary, draft: ContestDraftSnapshot, recovered: ContestDraftSnapshot["fields"]) {
@@ -35,5 +36,13 @@ describe("ContestSessionOwner structured recovery", () => {
     const invalid = { ...result.draft.fields, sentExchange: `${"X".repeat(32)} CA`,
       sentExchangeFields: { name: "X".repeat(32), location: "CA" }, receivedExchangeFields: { name: "", location: "" } };
     expect(activateRecovered(result.session, result.draft, invalid)).toEqual(result.draft.fields);
+  });
+
+  it("retains an ARRL draft recovery only for its authoritative descriptor", () => {
+    const result = arrlFixture.dx.applyResponse.result as { session: ContestSessionSummary; draft: ContestDraftSnapshot };
+    expect(activateRecovered(result.session, result.draft, result.draft.fields)).toEqual(result.draft.fields);
+    const naqp = fixture.naqp.responses.create.result as { session: ContestSessionSummary; draft: ContestDraftSnapshot };
+    expect(activateRecovered(naqp.session, naqp.draft, result.draft.fields)).toEqual(naqp.draft.fields);
+    expect(activateRecovered(result.session, result.draft, naqp.draft.fields)).toEqual(result.draft.fields);
   });
 });

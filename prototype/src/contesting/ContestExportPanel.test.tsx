@@ -6,6 +6,7 @@ import { ContestExportPanel } from "./ContestExportPanel";
 import { ContestExportSaveOwner, type ContestExportSaveAdapter } from "./contestExportSave";
 import { MemoryContestRecoveryStorage } from "./sessionOwner";
 import type { ContestPreparedExport, ContestSessionSummary } from "./types";
+import arrlFixtureJSON from "../../../docs/contesting/fixtures/arrl-rtty-worker-wire.json";
 
 const session: ContestSessionSummary = { sessionID: "20000000-0000-4000-8000-000000000002", workspaceGeneration: "30000000-0000-4000-8000-000000000003",
   revision: 7, name: "WW", rule: { identity: { id: "cq-ww-cw", version: "2026.1", edition: "2026", sourceRevision: "fixture" },
@@ -29,6 +30,20 @@ function setup(adapter?: ContestExportSaveAdapter, category = "Single Operator",
   return { view, owner, prepare, release, onClose, onSaved, adapter, opener };
 }
 function fillAndPrepare() { fireEvent.change(screen.getByLabelText("Location"), { target: { value: "DX" } }); fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Operator" } }); fireEvent.click(screen.getByRole("button", { name: "Prepare export" })); }
+
+it("freezes the ARRL Cabrillo section independently of the on-air exchange", async () => {
+  const wire = arrlFixtureJSON as any;
+  const arrl = wire.dx.createResponse.result.session as ContestSessionSummary;
+  const { prepare } = setup(undefined, "Single Operator", arrl);
+  const section = screen.getByLabelText("Cabrillo section") as HTMLInputElement;
+  expect(section.value).toBe("DX"); expect(section.readOnly).toBe(true);
+  fireEvent.change(section, { target: { value: "CA" } });
+  fireEvent.change(screen.getByLabelText("Name"), { target: { value: "DX Operator" } });
+  fireEvent.click(screen.getByRole("button", { name: "Prepare export" }));
+  await screen.findByRole("region", { name: "Prepared export summary" });
+  expect(prepare).toHaveBeenCalledWith("cabrillo", expect.objectContaining({ location: "DX", categoryMode: "RTTY" }));
+  expect(arrl.station.exchangeFields).toEqual({ location: "", serial: "" });
+});
 
 it("uses fixed preview categories, prepares once, and shows a compact non-sensitive summary", async () => {
   const { prepare } = setup();

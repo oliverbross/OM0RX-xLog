@@ -25,7 +25,8 @@ export function ContestExportPanel({ session, opener, saveOwner, prepare, releas
   const [preparing, setPreparing] = useState(false), [error, setError] = useState("");
   const [cancelled, setCancelled] = useState(false), [format, setFormat] = useState<ContestExportFormat>("cabrillo");
   const [assisted, setAssisted] = useState("NON-ASSISTED"), [band, setBand] = useState("ALL"), [power, setPower] = useState("LOW");
-  const [location, setLocation] = useState(""), [club, setClub] = useState(""), [name, setName] = useState("");
+  const frozenLocation = session.rule.identity.id === "arrl-rtty-roundup" ? session.station.stationFields?.section ?? "" : null;
+  const [location, setLocation] = useState(frozenLocation ?? ""), [club, setClub] = useState(""), [name, setName] = useState("");
   const [address, setAddress] = useState(""), [email, setEmail] = useState("");
   const supported = singleOperator(session.operator.category);
   const sacPreview = session.rule.identity.id.startsWith("sac-");
@@ -56,7 +57,7 @@ export function ContestExportPanel({ session, opener, saveOwner, prepare, releas
   };
   const makeHeader = (): ContestCabrilloHeader => ({ callsign: session.station.callsign, categoryOperator: "SINGLE-OP",
     categoryAssisted: assisted, categoryBand: band, categoryMode: session.rule.mode, categoryTransmitter: "ONE", categoryPower: power,
-    operators: [session.operator.callsign], location: location.trim(), ...(club.trim() ? { club: club.trim() } : {}),
+    operators: [session.operator.callsign], location: (frozenLocation ?? location).trim(), ...(club.trim() ? { club: club.trim() } : {}),
     name: name.trim(), addressLines: address.trim() ? [address.trim()] : [], email: email.trim() });
   const runPrepare = async () => {
     if (!supported || preparing || !location.trim() || !name.trim()) return;
@@ -87,7 +88,7 @@ export function ContestExportPanel({ session, opener, saveOwner, prepare, releas
         <label>Assistance<select value={assisted} disabled={preparing} onChange={event => setAssisted(event.target.value)}><option>NON-ASSISTED</option><option>ASSISTED</option></select></label>
         <label>Band<select value={band} disabled={preparing} onChange={event => setBand(event.target.value)}>{bands.map(value => <option key={value}>{value}</option>)}</select></label>
         <label>Power<select value={power} disabled={preparing} onChange={event => setPower(event.target.value)}><option>HIGH</option><option>LOW</option><option>QRP</option></select></label>
-        <label>Location<input maxLength={64} required disabled={preparing} value={location} onChange={event => setLocation(event.target.value)}/></label>
+        <label>{frozenLocation !== null ? "Cabrillo section" : "Location"}<input maxLength={64} required readOnly={frozenLocation !== null} disabled={preparing} value={frozenLocation ?? location} onChange={event => { if (frozenLocation === null) setLocation(event.target.value); }}/></label>
         <label>Name<input maxLength={75} required disabled={preparing} value={name} onChange={event => setName(event.target.value)}/></label>
         <label>Club<input maxLength={128} disabled={preparing} value={club} onChange={event => setClub(event.target.value)}/></label>
         <label>Email<input maxLength={254} disabled={preparing} value={email} onChange={event => setEmail(event.target.value)}/></label>
