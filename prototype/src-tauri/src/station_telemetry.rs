@@ -185,6 +185,19 @@ impl StationTelemetry {
                 && observed_age.is_some_and(|age| (-1000..=5000).contains(&age)) && field_fresh
                 && snapshot["fields"]["frequency"].is_object() && snapshot["fields"]["mode"].is_object()
                 && snapshot["fields"]["vfo"]["VFO"] == "VFOA" && snapshot["fields"]["ptt"]["PTT"] == "0"
+        } else if provider == "direct_agent" {
+            // The Remote Station Agent owns the physical receive-VFO choice and
+            // re-reads the radio before and after tuneSimplex.  Its compact
+            // snapshot can legitimately omit per-VFO/timestamp detail, so the
+            // native admission fence must use the fresh transport observation,
+            // exact connection identity, idle radio state and advertised command
+            // capability instead of duplicating the worker's own fresh station
+            // and readback checks or requiring FLEX-specific VFO-A metadata.
+            let radio = &snapshot["radio"];
+            snapshot["source"] == provider && snapshot["generation"].as_u64() == Some(connection)
+                && radio["connected"] == true && radio["observed"] == true && radio["transmitting"] == false
+                && snapshot[capability_owner]["supported_commands"].as_array().is_some_and(|commands|
+                    advertised.iter().all(|advertised| commands.iter().any(|command| command == *advertised)))
         } else {
             let radio = &snapshot["radio"];
             let source_age = snapshot["generated_at"].as_f64().map(|time| now as f64 - time * 1000.0);
@@ -602,6 +615,18 @@ mod tests {
             let (owner, identity) = receive_fixture(provider); let fence = owner.receive_control_at(2, &identity, 13, control, 10000).unwrap();
             assert_eq!(owner.snapshot().unwrap()["available"], false); assert!(owner.receive_control_at(2, &identity, 13, control, 10000).is_err()); drop(fence);
             assert_eq!(owner.state.lock().unwrap().controls, 0);
+        }
+        for control in ["set_receive_frequency_a", "set_receive_mode_a", "tune_simplex"] {
+            let (owner, identity) = receive_fixture("direct_agent");
+            {
+                let mut state = owner.state.lock().unwrap();
+                let radio = &mut state.projection["snapshot"]["radio"];
+                radio.as_object_mut().unwrap().remove("observed_at");
+                radio.as_object_mut().unwrap().remove("receive_vfo");
+                radio.as_object_mut().unwrap().remove("vfos");
+            }
+            let fence = owner.receive_control_at(2, &identity, 13, control, 10000).unwrap();
+            drop(fence);
         }
         let (owner, identity) = receive_fixture("direct_flex_lan"); assert!(owner.receive_control_at(2, &identity, 13, "ptt", 10000).is_err());
         assert!(owner.receive_control_at(2, &identity, 13, "set_mode", 10000).is_err());
