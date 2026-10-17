@@ -95,9 +95,6 @@ impl AutomaticRotor {
     fn new() -> Self { Self { authority: AtomicU64::new(0), state: Mutex::new(State::default()) } }
     fn epoch(&self) -> u64 { self.authority.load(Ordering::Acquire) >> 1 }
     fn armed(&self) -> bool { self.authority.load(Ordering::Acquire) & 1 != 0 }
-    pub(crate) fn disarmed_at_epoch(&self, epoch: u64) -> bool {
-        self.authority.load(Ordering::Acquire) == epoch << 1
-    }
     fn permits_epoch(&self, epoch: u64) -> bool { self.authority.load(Ordering::Acquire) == (epoch << 1 | 1) }
     fn advance_epoch(&self, disarm: bool) {
         let _ = self.authority.fetch_update(Ordering::AcqRel, Ordering::Acquire, |value| {
@@ -516,13 +513,13 @@ mod tests {
         assert_eq!(owner.snapshot().unwrap()["armed"], false);
     }
     #[test]
-    fn disconnected_readback_retires_arming_and_does_not_connect_anything() {
+    fn disconnected_readback_preserves_intent_but_removes_turn_eligibility() {
         let (owner, coordinator, _) = coordinator_fixture();
         coordinator.handle(json!({"id":"observe","method":"rotor_snapshot","params":{}}), |request| {
             assert_eq!(request["method"], "station_rotor_snapshot");
             Ok(json!({"id":request["id"],"ok":true,"result":{"connected":false}}))
         }).unwrap();
-        assert_eq!(owner.snapshot().unwrap()["armed"], false);
+        assert_eq!(owner.snapshot().unwrap()["armed"], true);
         assert!(coordinator.automatic_owner().unwrap().is_none());
     }
     #[test]
