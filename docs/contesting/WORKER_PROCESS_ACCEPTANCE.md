@@ -43,11 +43,11 @@ The descriptor checks are sampled process evidence. The stronger prevention boun
 
 The harness does not monitor every filesystem path. Its outside-root evidence is limited to before/after metadata for the two protected production SQLite databases and their sidecars, plus the observed synthetic test support root. The synthetic-home inventory covers only that home. The acceptance harness and documentation may be uncommitted while they collect evidence, but `Package.swift`, `Sources`, and `Tests` must match the expected commit. Re-run this gate for the final packaged application after the approved main-line merge.
 
-## Pending correction/deletion extension
+## Accepted correction/deletion extension
 
-The reviewed source extension after the `ff2b8e3` run has not yet completed acceptance. A future run from the exact integrated commit will retain the same bootstrap, profile, synthetic home, external-I/O denials, descriptor samples, protected metadata checks, normal isolated-log zero assertions, and build-manifest provenance. Each framed exchange receives a monotonically numbered `operation` in the evidence report, which also records its exact process lifecycle and method. The source bounds the two-process scenario to exactly 57 framed operations and fails if that ledger changes without review.
+The reviewed extension passed on 18 October 2026 at exact clean source `46ee0c3f033024c68db045ec9935d64d012b31fd`. It retains the bootstrap, profile, synthetic home, external-I/O denials, descriptor samples, protected metadata checks, normal isolated-log zero assertions, and build-manifest provenance. Each framed exchange receives a monotonically numbered `operation` in the evidence report, which also records its exact process lifecycle and method. The source bounds the two-process scenario to exactly 57 framed operations and fails if that ledger changes without review.
 
-After the first WPX contact is committed with serial `001`, the extended scenario will:
+After the first WPX contact is committed with serial `001`, the extended scenario exercises these checks:
 
 1. read the complete revision-bound QSO and verify its original UTC, resolved DL entity, operator provenance, sent exchange, and allocated serial;
 2. reject a generation-mismatched read;
@@ -60,6 +60,29 @@ After the first WPX contact is committed with serial `001`, the extended scenari
 9. restart the real worker, verify both mutation receipts, require the original tombstoned commit replay to return `qso_deleted`, replay the live replacement commit exactly, replay the exact correction and deletion responses after the later delete/recommit sequence, recheck the tombstone, and verify the replacement live contact uses serial `002`.
 
 The new helper has a focused Node test proving that correction construction removes `entity` and refuses harness changes to immutable identity, UTC, provenance, sent allocation, rule, and reference fields. Source validation is not worker-process acceptance. A fresh release worker and new evidence directory must be produced only after this script is reviewed and committed; the historical binary below does not contain or test the integrated correction/deletion implementation.
+
+The accepted `46ee0c3` worker was freshly built with Apple Swift 6.4, the Xcode
+build system and two jobs. It is 37,104,376 bytes, SHA-256
+`1cc7fc4d6c28adfd555200d626aa2aa2c6e1e5b12099d21b8ec543b3e4c49d37`.
+The resource tree is `748093a0e25253926e8440a7afc997947da0211c1a7d11ee4d695e57cdc3d1b3`;
+the build manifest is `157e21b7b2f2cf206dc8227d54cba1070579b44dbae6f2947ddb43b4bd7275ef`.
+The first attempt completed all behavioral checks but failed the protected
+metadata assertion during concurrent Integrated Preview activity. It remains
+rejected and preserved. An acceptance-only retry reused the exact manifest,
+worker and resources in a fresh evidence directory after a metadata-only
+preflight. No source changes or rebuild occurred between attempts.
+
+The actual retry gate passed all 19 assertions and all 57 exchanges, with 41
+frames in the first worker and 16 after restart. Both exited zero with empty
+stderr. Protected database and sidecar metadata matched across the gate,
+contents were not read, the normal isolated log remained empty, and staged
+artifact hashes were unchanged. Evidence is preserved in the corrections
+worktree under `dist/contesting-test/acceptance/46ee0c3f033024c68db045ec9935d64d012b31fd-worker-process-57-retry1/`;
+`evidence/acceptance.json` has SHA-256
+`4a291b8309530887dd723c1d5a7812686917583de28b2dfb55ffb9247d977e19`.
+This is worker-only correction/deletion acceptance. It predates the later
+export transport/projection/native-save integrations and does not validate
+their runtime, a final Test.app, native UI, hardware, or other operating systems.
 
 ## Accepted worker-process run
 
