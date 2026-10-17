@@ -39,19 +39,24 @@ it.each(["desk", "editor"])("puts evidence beneath the %s reference fields inste
   expect(status.parentElement).not.toBe(heading.parentElement);
   expect(status.closest(kind === "desk" ? ".desk-active-references" : ".qso-fields")).toBeTruthy();
 });
-it("reserves a stable two-line desk slot and contains long verification text without moving the actions", () => {
+it("contains the live long POTA evidence in a stable two-line narrow-desk slot", () => {
   const view = render(<DeskQSO {...props} referenceEvidence={null} />);
   const slot = view.container.querySelector(".desk-ref-slot")!;
   const actions = view.container.querySelector(".desk-active-actions")!;
   expect(slot).toBeTruthy();
   expect(slot.querySelector('[role="status"]')).toBeNull();
-  view.rerender(<DeskQSO {...props} referenceEvidence={{ call: "H49A", rows: [{ kind: "pota", reference: "OC-123456789", status: "verified", name: "A deliberately long verified reference name that must wrap inside the operator desk" }] }} />);
+  view.rerender(<DeskQSO {...props} referenceEvidence={{ call: "H49A", rows: [{ kind: "pota", reference: "DE-1081", status: "verified", name: "Wangerland Bird Sanctuary" }] }} />);
   expect(view.container.querySelector(".desk-ref-slot")).toBe(slot);
   expect(view.container.querySelector(".desk-active-actions")).toBe(actions);
-  expect(slot.querySelector('[role="status"]')?.textContent).toContain("deliberately long verified reference name");
+  expect(slot.querySelector('[role="status"]')?.textContent).toBe("POTA DE-1081 · Verified: Wangerland Bird Sanctuary");
   const css = readFileSync("src/live/OperatorDesk.css", "utf8");
-  expect(css).toMatch(/\.desk-ref-slot \{[^}]*block-size: 2\.8em;[^}]*overflow: hidden;/);
-  expect(css).toMatch(/\.desk-ref-slot \.qso-reference-status > span \{[^}]*overflow-wrap: anywhere;/);
+  expect(css).toMatch(/\.desk-active \{[^}]*max-width: 100%;[^}]*overflow-x: hidden;/);
+  expect(css).toMatch(/\.desk-active form \{[^}]*min-width: 0;[^}]*max-width: 100%;[^}]*overflow-x: hidden;/);
+  expect(css).toMatch(/\.desk-active-references \{[^}]*min-width: 0;[^}]*max-width: 100%;[^}]*overflow-x: hidden;/);
+  expect(css).toMatch(/\.desk-ref-slot \{[^}]*min-width: 0;[^}]*max-width: 100%;[^}]*block-size: 2\.8em;[^}]*overflow: hidden;[^}]*contain: inline-size paint;/);
+  expect(css).toMatch(/\.desk-ref-slot > \.qso-reference-status \{[^}]*display: -webkit-box;[^}]*height: 100%;[^}]*overflow: hidden;[^}]*-webkit-box-orient: vertical;[^}]*-webkit-line-clamp: 2;/);
+  expect(css).toMatch(/\.desk-ref-slot \.qso-reference-status > span \{[^}]*min-width: 0;[^}]*white-space: normal;[^}]*overflow-wrap: anywhere;[^}]*word-break: break-word;/);
+  expect(css).toMatch(/\.desk-active-actions \{[^}]*min-width: 0;[^}]*max-width: 100%;[^}]*flex: 0 0 auto;/);
 });
 it("removes the global tuning status row while retaining the authoritative tune fence and errors", async () => {
   const source = readFileSync("src/LiveApp.tsx", "utf8");
@@ -66,13 +71,12 @@ it("removes the global tuning status row while retaining the authoritative tune 
     return { operationId, phase: "confirmed", tuneConfirmed: false, rotor: "not_requested", reservationActive: false };
   });
   const client = new SpotActivationClient(call, () => operationId);
-  await expect(client.activate({ id: "native-report", activation, frequencyKHz: 28020, mode: "CW" })).rejects.toThrow("lost");
-  expect(call).toHaveBeenCalledExactlyOnceWith("activate_spot", { operationId, spotId: "native-report", ...activation });
+  await client.activate({ id: "native-report", activation, frequencyKHz: 28020, mode: "CW" });
+  expect(call).toHaveBeenNthCalledWith(1, "activate_spot", { operationId, spotId: "native-report", ...activation });
+  expect(call).toHaveBeenNthCalledWith(2, "spot_activation_reconcile", { operationId });
   render(<SpotActivationStatus status={client.getSnapshot().status} error={client.getSnapshot().error} reconcile={() => {}} />);
-  expect(screen.getByRole("alert").textContent).toContain("Activation acknowledgement unavailable");
-  expect(screen.getByRole("button", { name: "Check activation" })).toBeTruthy();
-  await client.refresh();
-  expect(call).toHaveBeenLastCalledWith("spot_activation_status", { operationId });
+  expect(screen.getByRole("status").textContent).toContain("radio tune is not confirmed");
+  expect(screen.queryByRole("button", { name: "Check activation" })).toBeNull();
   expect(client.getSnapshot().status).toMatchObject({ tuneConfirmed: false });
   expect(activationMessage(client.getSnapshot().status)).toContain("radio tune is not confirmed");
   expect(call.mock.calls.filter(([command]) => command === "activate_spot")).toHaveLength(1);
