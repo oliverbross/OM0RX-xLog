@@ -90,6 +90,7 @@ public enum ContestExchangeFieldKind: String, Codable, Hashable, Sendable {
     case cqZone
     case operatorName
     case subdivision
+    case dxccPrefix
     case jarlPrefectureNumber
     case maidenheadGrid4
 
@@ -107,6 +108,10 @@ public enum ContestExchangeFieldKind: String, Codable, Hashable, Sendable {
         case .subdivision:
             return contestASCIIBytes(value, count: 1...8) { byte, _ in
                 contestIsUppercaseLetter(byte) || contestIsDigit(byte)
+            }
+        case .dxccPrefix:
+            return contestASCIIBytes(value, count: 1...8) { byte, _ in
+                contestIsUppercaseLetter(byte) || contestIsDigit(byte) || byte == 47
             }
         case .jarlPrefectureNumber:
             return Int(value).map { (1...99).contains($0) } == true
@@ -544,8 +549,13 @@ public struct ContestRuleEvaluation: Sendable {
 
 public protocol ContestRule: Sendable {
     var metadata: ContestRuleMetadata { get }
+    func validateSession(_ session: ContestSessionSnapshot) -> [ContestValidationIssue]
     func evaluate(_ qso: ContestQSO, in session: ContestSessionSnapshot) -> ContestRuleEvaluation
     func cabrilloReceivedExchange(for qso: ContestQSO) -> String
+}
+
+public extension ContestRule {
+    func validateSession(_ session: ContestSessionSnapshot) -> [ContestValidationIssue] { [] }
 }
 
 public enum ContestQSODisposition: String, Codable, Sendable { case accepted, duplicate, invalid }
@@ -647,7 +657,7 @@ public enum ContestEngine {
         let descriptorIssues = rule.metadata.entry.structuralIssues(
             mode: qso.mode, rstSent: qso.rstSent, rstReceived: qso.rstReceived,
             exchange: qso.exchange, allowIncomplete: allowIncomplete)
-        return ContestRuleEvaluation(validation: descriptorIssues + ruleEvaluation.validation,
+        return ContestRuleEvaluation(validation: rule.validateSession(session) + descriptorIssues + ruleEvaluation.validation,
                                      dupeKey: ruleEvaluation.dupeKey, points: ruleEvaluation.points,
                                      multiplierCandidates: ruleEvaluation.multiplierCandidates)
     }
