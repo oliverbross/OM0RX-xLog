@@ -19,12 +19,12 @@ Operator acceptance must exercise CW and SSB Run and Search & Pounce, realistic 
 
 | Area | Current evidence and next gate |
 | --- | --- |
-| Integrated source | `codex/contesting-foundation`, reviewed application source at `c32dc2b51a6c41d0229abdae6b49f23c1e551c8b`; all completed commits pushed |
+| Integrated source | `codex/contesting-foundation`, reviewed application source at `420774651dd8dd593e28ce1e56b4f1641daa4097`; all completed commits pushed |
 | Contest coverage | Six source-derived pilots plus two official-corrected SAC previews in the catalog; 86 source entries remain pending operational acceptance in the 94-entry ledger |
 | NAQP CW/SSB/RTTY | Core and versioned exports integrated; all six native jobs passed at foundation `ed1ad38`. Entry review requires real worker/client blank-map compatibility, descriptor-aware aggregate bounds, strict v2 metadata admission and mixed-case station normalization; repairs are in progress before registration |
 | ARRL RTTY Roundup | Inactive rule and station-resolved serial foundation approved and pushed at `5f93441`, with 85 core/62 store tests under both macOS manifests and independently verified 340-entity membership. Versioned export implementation follows; no catalog activation |
 | SCP | Import/query/select and current-draft integration reviewed; all six native jobs passed at `89d1b56`; actual native chooser/package operator acceptance remains open |
-| Operator flow | WPX successor-readiness repair `830451d` integrated at `c32dc2b`; 146 combined frontend/navigation tests and build passed. Browser-child cleanup and settled invalid-entry action checks passed re-review; a full worker/test-host deadline remains under repair before a clean-commit acceptance run |
+| Operator flow | WPX successor-readiness repair `830451d` integrated at `c32dc2b`; 146 combined frontend/navigation tests and build passed. Whole-host deadline and stalled-worker cleanup passed source re-review; harness `f72d4f7` is pushed and its required clean-commit four-case acceptance run is in progress |
 | Main integration | Main chat reconfirmed installed 1.2.18 / `e741010` is on runtime hold. No canonical edits, package or install from this programme at this checkpoint |
 | Remaining programme | All 94 contest dispositions, F01–F33 parity, explicit exclusive module choice, full operator/export/assistance matrix, migration/network/device integrations, performance and three-OS packaged acceptance remain required |
 
@@ -202,6 +202,8 @@ New app packaging/install work will follow the repository's canonical-checkout w
 ARRL RTTY Roundup source is Astra-approved and pushed at `5f93441`. Re-review independently extracted the pinned January 2026 DXCC list, verified all 340 unique IDs against the fixture and production set, and reran six core plus three store tests. Both station and worked endpoints reject deleted or fabricated IDs; failed writes preserve draft, reservation, counter, revision and receipts. Final affected suites passed 85 core and 62 store tests under each local manifest. The new station-dependent serial policy retains the existing eight-rule and NAQP identities and durable format. This is inactive core/store source; versioned exports are the next slice before worker/UI activation.
 
 Foundation integration of `5f93441` passed nine focused native core/store tests and 32 portable-manifest integration tests: six ARRL core, three ARRL store, 16 lifecycle, four SCP worker and three export wire. Raw logs are `/tmp/xlog-arrl-policy-integration.log`, `/tmp/xlog-arrl-policy-integration-portable.log` and `/tmp/xlog-arrl-policy-integration-export-wire.log`. The first command's native manifest does not include prototype worker targets; those were explicitly executed under the portable manifest. Hosted policy run `39061073845` is still pending at this checkpoint.
+
+The full-host operator watchdog repair is Astra-approved and pushed at `f72d4f76052f0996bc5897ce8d0d0e407a64961e`. Its outer runner bounds the owned XCTest process group, drains bounded output, escalates TERM to KILL and verifies cleanup. Independent response/shutdown stall and TERM-ignoring descendant probes passed. The provisional dirty-source gate recorded 102 ordinary frames plus two lifecycle frames, eight commits, six reservations, four exports and four settled invalid-exchange checks; protected database metadata was unchanged. A new clean-commit compilation and run is required and is in progress. The next expansion must exercise both operating styles for every profile, independently check export fields and verify scores after correction/deletion; the current four-case gate does not cover those requirements.
 
 ## 1. Review decision
 

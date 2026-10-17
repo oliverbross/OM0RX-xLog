@@ -442,3 +442,20 @@ tests passing, alongside the existing suites. Raw inspected log:
 `/tmp/xlog-ed1ad38-windows-ci.log`. These results close the pending
 foundation platform jobs; the later NAQP worker/UI candidate and ARRL
 station-serial policy are outside this checkpoint.
+
+## ARRL station-resolved serial policy
+
+Reviewed source `5f9344145cf185df510443118e730fcd9f1f3df1` is running
+[matrix 39061073845](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39061073845).
+macOS Swift job `117478983619` and Linux Swift job `117478983715` passed;
+their actual logs confirm six ARRL core and three ARRL store tests each.
+All three Rust jobs passed. Windows Swift `117478983725` is still pending,
+so this checkpoint does not claim the completed three-platform matrix.
+Raw logs: `/tmp/xlog-5f93441-{macos,linux}-ci.log`.
+
+Foundation merge `420774651dd8dd593e28ce1e56b4f1641daa4097` passed 32
+focused portable-manifest integration tests locally (six ARRL core,
+three ARRL store, 16 lane, four SCP worker, three export wire), plus nine
+focused core/store tests through the native manifest. Its own matrix is
+[run 39061421629](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39061421629),
+pending at this checkpoint. Neither source registers ARRL in the catalog.
