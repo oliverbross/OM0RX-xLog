@@ -19,7 +19,10 @@ public struct ContestExportMetadata: Codable, Hashable, Sendable {
 /// for obtaining all fields from one atomic read snapshot before constructing this value.
 public struct ContestExportInput: Codable, Hashable, Sendable {
     public static let currentSchemaVersion = "1"
-    public static let currentFormatterVersion = "pilot-1"
+    /// Frozen source-preview behavior used by existing callers and ADIF export.
+    public static let legacyFormatterVersion = "pilot-1"
+    /// Cabrillo preview policy that projects a single-band claim while retaining the complete valid log.
+    public static let submissionProjectionFormatterVersion = "pilot-2"
 
     public let schemaVersion: String
     public let formatterVersion: String
@@ -32,7 +35,7 @@ public struct ContestExportInput: Codable, Hashable, Sendable {
     public let qsos: [ContestQSO]
 
     public init(schemaVersion: String = Self.currentSchemaVersion,
-                formatterVersion: String = Self.currentFormatterVersion,
+                formatterVersion: String = Self.legacyFormatterVersion,
                 generatedAtUTC: Date, sessionRevision: UInt64,
                 session: ContestSessionSnapshot, ruleIdentity: ContestRuleIdentity,
                 referenceDataVersion: String, metadata: ContestExportMetadata,
@@ -49,8 +52,39 @@ public struct ContestExportInput: Codable, Hashable, Sendable {
     }
 
     public func validatedScore(rule: any ContestRule) throws -> ContestScore {
+        let validated = try validatedCommon(rule: rule)
+        switch formatterVersion {
+        case Self.legacyFormatterVersion:
+            let categoryBand = metadata.cabrilloHeader.categoryBand.uppercased()
+            if categoryBand != "ALL" {
+                let expectedBand = categoryBand.lowercased()
+                guard rule.metadata.supportedBands.contains(expectedBand),
+                      qsos.allSatisfy({ $0.band == expectedBand }) else {
+                    throw ContestExportInputError.metadataMismatch
+                }
+            }
+            return validated
+        case Self.submissionProjectionFormatterVersion:
+            return try validatedProjectionAfterCommonValidation(rule: rule).score
+        default:
+            throw ContestExportInputError.unsupportedFormatter(formatterVersion)
+        }
+    }
+
+    public func validatedProjection(rule: any ContestRule) throws -> ContestSubmissionProjection {
+        guard formatterVersion == Self.submissionProjectionFormatterVersion else {
+            throw ContestExportInputError.unsupportedFormatter(formatterVersion)
+        }
+        _ = try validatedCommon(rule: rule)
+        return try validatedProjectionAfterCommonValidation(rule: rule)
+    }
+
+    private func validatedCommon(rule: any ContestRule) throws -> ContestScore {
         guard schemaVersion == Self.currentSchemaVersion else { throw ContestExportInputError.unsupportedSchema(schemaVersion) }
-        guard formatterVersion == Self.currentFormatterVersion else { throw ContestExportInputError.unsupportedFormatter(formatterVersion) }
+        guard formatterVersion == Self.legacyFormatterVersion ||
+                formatterVersion == Self.submissionProjectionFormatterVersion else {
+            throw ContestExportInputError.unsupportedFormatter(formatterVersion)
+        }
         guard ruleIdentity == session.rule, ruleIdentity == rule.metadata.identity else {
             throw ContestExportInputError.ruleMismatch
         }
@@ -83,13 +117,6 @@ public struct ContestExportInput: Codable, Hashable, Sendable {
                   $0.stationLocation == session.station.location }) else {
             throw ContestExportInputError.metadataMismatch
         }
-        let categoryBand = metadata.cabrilloHeader.categoryBand.uppercased()
-        if categoryBand != "ALL" {
-            let expectedBand = categoryBand.lowercased()
-            guard rule.metadata.supportedBands.contains(expectedBand), qsos.allSatisfy({ $0.band == expectedBand }) else {
-                throw ContestExportInputError.metadataMismatch
-            }
-        }
         do {
             let score = try ContestEngine.score(qsos, session: session, rule: rule)
             if let invalid = score.qsos.first(where: { $0.disposition == .invalid }) {
@@ -98,6 +125,19 @@ public struct ContestExportInput: Codable, Hashable, Sendable {
             return score
         }
         catch let error as ContestEvaluationError { throw ContestExportInputError.invalidContacts(error) }
+    }
+
+    private func validatedProjectionAfterCommonValidation(rule: any ContestRule) throws -> ContestSubmissionProjection {
+        do {
+            return try ContestSubmissionProjection.make(qsos: qsos, session: session,
+                                                        header: metadata.cabrilloHeader, rule: rule)
+        } catch let error as ContestSubmissionProjectionError {
+            switch error {
+            case let .semanticInvalidQSO(id): throw ContestExportInputError.semanticInvalidQSO(id)
+            case let .invalidContacts(error): throw ContestExportInputError.invalidContacts(error)
+            case .unsupportedCategory: throw ContestExportInputError.metadataMismatch
+            }
+        }
     }
 
     public var deterministicallyOrderedQSOs: [ContestQSO] {

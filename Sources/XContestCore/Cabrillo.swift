@@ -51,25 +51,41 @@ public enum CabrilloExporter {
         catch { throw CabrilloExportError.invalidHeader("exportInput") }
         return try document(header: input.metadata.cabrilloHeader, score: score,
                             qsos: input.qsos, session: input.session, rule: rule,
-                            createdBy: createdBy)
+                            formatterVersion: input.formatterVersion, createdBy: createdBy)
     }
 
     public static func document(header: CabrilloHeader, score: ContestScore, qsos: [ContestQSO],
                                 session: ContestSessionSnapshot, rule: any ContestRule,
+                                formatterVersion: String = ContestExportInput.legacyFormatterVersion,
                                 createdBy: String = "OM0RX-xLog") throws -> String {
         guard session.rule == rule.metadata.identity else { throw CabrilloExportError.invalidHeader("rule") }
         guard header.callsign == session.station.callsign else { throw CabrilloExportError.invalidHeader("callsign") }
         guard header.categoryMode == "CW" else { throw CabrilloExportError.invalidHeader("categoryMode") }
-        let categoryBand = header.categoryBand.uppercased()
-        let usedBands = Set(qsos.map(\.band))
-        if categoryBand != "ALL" {
-            let expectedBand = categoryBand.lowercased()
-            guard rule.metadata.supportedBands.contains(expectedBand), usedBands.allSatisfy({ $0 == expectedBand }) else {
-                throw CabrilloExportError.invalidHeader("categoryBand")
-            }
-        }
         let recomputed: ContestScore
-        do { recomputed = try ContestEngine.score(qsos, session: session, rule: rule) }
+        let renderedQSOs: [ContestQSO]
+        do {
+            switch formatterVersion {
+            case ContestExportInput.legacyFormatterVersion:
+                let categoryBand = header.categoryBand.uppercased()
+                let usedBands = Set(qsos.map(\.band))
+                if categoryBand != "ALL" {
+                    let expectedBand = categoryBand.lowercased()
+                    guard rule.metadata.supportedBands.contains(expectedBand),
+                          usedBands.allSatisfy({ $0 == expectedBand }) else {
+                        throw CabrilloExportError.invalidHeader("categoryBand")
+                    }
+                }
+                recomputed = try ContestEngine.score(qsos, session: session, rule: rule)
+                renderedQSOs = qsos
+            case ContestExportInput.submissionProjectionFormatterVersion:
+                let projection = try ContestSubmissionProjection.make(qsos: qsos, session: session,
+                                                                       header: header, rule: rule)
+                recomputed = projection.score
+                renderedQSOs = projection.renderedQSOs
+            default:
+                throw CabrilloExportError.invalidHeader("formatterVersion")
+            }
+        } catch let error as CabrilloExportError { throw error }
         catch { throw CabrilloExportError.invalidHeader("score") }
         guard recomputed == score else { throw CabrilloExportError.invalidHeader("score") }
         let call = try token(header.callsign, field: "callsign")
@@ -96,7 +112,7 @@ public enum CabrilloExporter {
         lines.append("NAME: \(try safe(header.name, field: "name"))")
         for address in header.addressLines { lines.append("ADDRESS: \(try safe(address, field: "address"))") }
         lines.append("EMAIL: \(try safe(header.email, field: "email"))")
-        for qso in qsos.sorted(by: deterministicOrder) {
+        for qso in renderedQSOs.sorted(by: deterministicOrder) {
             lines.append(try qsoLine(qso, session: session, rule: rule))
         }
         lines.append("END-OF-LOG:")

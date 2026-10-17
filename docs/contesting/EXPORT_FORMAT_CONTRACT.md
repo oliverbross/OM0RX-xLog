@@ -12,6 +12,33 @@ QSO ordering is UTC timestamp followed by the complete UUID string. Cabrillo out
 
 ## Cabrillo source comparison
 
+### Versioned submission projection
+
+Explicit `pilot-1` inputs and default direct formatter calls retain the legacy
+interpretation and golden output, including rejection of off-band contacts for
+a single-band header. ADIF continues to use `pilot-1`; its preservation mapping
+is unchanged. Unknown formatter versions are rejected.
+
+`ContestExportService` explicitly selects `pilot-2` for new Cabrillo artifacts.
+This policy first validates every contact in the coherent captured snapshot,
+then recomputes the claimed score over all contacts for `ALL`, or over the
+selected band only. Every original valid contact is rendered in deterministic
+order, including off-band contacts and duplicates. An invalid off-band contact
+still rejects the export. Selected-band scoring starts a fresh rule-engine
+pass, so an earlier WPX prefix on another band cannot consume selected-band
+multiplier credit. No eligible contacts produces a zero claimed score. The
+artifact metadata and Cabrillo claim use the same projection; a mismatched
+caller-supplied score is rejected.
+
+The supported `pilot-2` preview category is single-operator CW with no overlay,
+one transmitter, power `HIGH`, `LOW`, or `QRP`, assistance `ASSISTED` or
+`NON-ASSISTED`, and `ALL` or one supported pilot band. Unsupported combinations
+are explicit errors. This change does not alter stored session scores, rule
+identities, historical receipts, serials, or previously prepared bytes. It does
+not add event-window, operating-time, station-eligibility, or current sponsor
+validation; both pilots remain source-derived previews, not submission-ready
+implementations. The sponsor audit records the remaining gaps separately.
+
 The parity reference is the read-only `contest-sw` checkout at `7c8b499225a73f7f8f792246881bd7aefc05452f`, specifically `not1mm/plugins/cq_ww_cw.py`, `not1mm/plugins/cq_wpx_cw.py`, and `not1mm/lib/plugin_common.py`. The pilot preserves their contest identifiers, QSO column layout, ascending chronology, integer-kHz output, headers, and CRLF convention.
 
 Intentional differences are strict and deterministic: the formatter has no filesystem or clock access; it accepts no live database handle; it validates rather than silently dropping unencodable text; it breaks timestamp ties by full QSO UUID; it recomputes score from the supplied snapshot; and it binds the exact rule and reference identities. This is source parity evidence, not current sponsor approval or a submission-ready workflow.
