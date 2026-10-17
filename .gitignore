@@ -6,6 +6,7 @@ dist/
 .impeccable/review/
 .recovery/
 prototype/node_modules/
+/node_modules/
 prototype/src-tauri/target/
 prototype/src-tauri/gen/
 prototype/src-tauri/binaries/
