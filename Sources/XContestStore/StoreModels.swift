@@ -84,6 +84,74 @@ public struct ContestQSOCommitResult: Codable, Hashable, Sendable {
     public let projection: ContestMutationProjection
 }
 
+public enum ContestQSOChangeOperation: String, Codable, Hashable, Sendable {
+    case correction
+    case deletion
+}
+
+public struct ContestQSOReadSnapshot: Codable, Hashable, Sendable {
+    public let session: StoredContestSession
+    public let qso: ContestQSO
+
+    public init(session: StoredContestSession, qso: ContestQSO) {
+        self.session = session
+        self.qso = qso
+    }
+}
+
+public struct ContestQSOAuditRecord: Codable, Hashable, Sendable {
+    public let sessionID: UUID
+    public let qsoID: UUID
+    public let operation: ContestQSOChangeOperation
+    public let before: ContestQSO
+    public let after: ContestQSO?
+    public let reason: String
+    public let requestID: UUID
+    public let operationTimestamp: Date
+    public let committedAt: Date
+    public let committedRevision: UInt64
+
+    public init(sessionID: UUID, qsoID: UUID, operation: ContestQSOChangeOperation,
+                before: ContestQSO, after: ContestQSO?, reason: String,
+                requestID: UUID, operationTimestamp: Date, committedAt: Date,
+                committedRevision: UInt64) {
+        self.sessionID = sessionID
+        self.qsoID = qsoID
+        self.operation = operation
+        self.before = before
+        self.after = after
+        self.reason = reason
+        self.requestID = requestID
+        self.operationTimestamp = operationTimestamp
+        self.committedAt = committedAt
+        self.committedRevision = committedRevision
+    }
+}
+
+public struct ContestQSOChangeResult: Codable, Hashable, Sendable {
+    public let session: StoredContestSession
+    public let operation: ContestQSOChangeOperation
+    public let qsoID: UUID
+    public let before: ContestQSO
+    public let after: ContestQSO?
+    public let score: ContestScoreSummarySnapshot
+    public let receipt: ContestMutationReceipt
+    public let qsoCount: Int
+
+    public init(session: StoredContestSession, operation: ContestQSOChangeOperation,
+                qsoID: UUID, before: ContestQSO, after: ContestQSO?,
+                score: ContestScoreSummarySnapshot, receipt: ContestMutationReceipt, qsoCount: Int) {
+        self.session = session
+        self.operation = operation
+        self.qsoID = qsoID
+        self.before = before
+        self.after = after
+        self.score = score
+        self.receipt = receipt
+        self.qsoCount = qsoCount
+    }
+}
+
 public struct ContestLogPage: Codable, Hashable, Sendable {
     public let sessionID: UUID
     public let workspaceGeneration: UUID
@@ -171,6 +239,9 @@ public enum ContestStoreError: Error, Equatable {
     case reservationMismatch
     case serialExhausted
     case invalidPage
+    case qsoDeleted(UUID)
+    case invalidCorrectionReason
+    case immutableQSOField(String)
 }
 
 public protocol ContestDurableRepository: Sendable {
@@ -198,6 +269,15 @@ public protocol ContestDurableRepository: Sendable {
     func commitQSO(_ qso: ContestQSO, reservationID: UUID?, scope: ContestMutationScope,
                    committedAt: Date) async throws -> ContestQSOCommitResult
     func qso(sessionID: UUID, id: UUID) async throws -> ContestQSO
+    func qsoReadSnapshot(sessionID: UUID, id: UUID, expectedWorkspaceGeneration: UUID,
+                         expectedRevision: UInt64) async throws -> ContestQSOReadSnapshot
+    func correctQSO(_ corrected: ContestQSO, reason: String, operationTimestamp: Date,
+                    scope: ContestMutationScope,
+                    committedAt: Date) async throws -> ContestQSOChangeResult
+    func deleteQSO(id: UUID, reason: String, operationTimestamp: Date,
+                   scope: ContestMutationScope,
+                   committedAt: Date) async throws -> ContestQSOChangeResult
+    func qsoAuditTrail(sessionID: UUID, qsoID: UUID) async throws -> [ContestQSOAuditRecord]
     func logPage(sessionID: UUID, offset: Int, limit: Int) async throws -> ContestLogPage
     func scoreSnapshot(sessionID: UUID) async throws -> ContestScoreSnapshot
 }

@@ -492,6 +492,40 @@ final class ContestStoreTests: XCTestCase {
         await reader.installReadSnapshotHookForTesting(nil)
     }
 
+    func testRevisionBoundQSOReadIsCoherentAcrossConcurrentCorrection() async throws {
+        let url = databaseURL()
+        let reader = try SQLiteContestStore(databaseURL: url)
+        _ = try await create(reader)
+        let committed = try await commitWPX(reader, qsoID: fixedUUID(546), callsign: "K1ABC",
+                                            revision: 1, requestBase: 546)
+        let corrected = changing(committed.qso, callsign: "DL1AAA")
+        let writer = try SQLiteContestStore(databaseURL: url)
+        let start = AsyncGate()
+        await reader.installReadSnapshotHookForTesting {
+            Task { await start.open() }
+            Thread.sleep(forTimeInterval: 0.15)
+        }
+        let writing = Task {
+            await start.wait()
+            return try await writer.correctQSO(corrected, reason: "Concurrent correction",
+                                               operationTimestamp: self.baseDate.addingTimeInterval(10),
+                                               scope: self.mutation(548, revision: 3,
+                                                                    digest: "concurrent-read", draftID: nil),
+                                               committedAt: self.baseDate.addingTimeInterval(11))
+        }
+        let snapshot = try await reader.qsoReadSnapshot(sessionID: sessionID, id: committed.qso.id,
+                                                        expectedWorkspaceGeneration: generationID,
+                                                        expectedRevision: 3)
+        _ = try await writing.value
+        await reader.installReadSnapshotHookForTesting(nil)
+        XCTAssertEqual(snapshot.session.revision, 3)
+        XCTAssertEqual(snapshot.qso, committed.qso)
+        let current = try await reader.qsoReadSnapshot(sessionID: sessionID, id: committed.qso.id,
+                                                       expectedWorkspaceGeneration: generationID,
+                                                       expectedRevision: 4)
+        XCTAssertEqual(current.qso, corrected)
+    }
+
     func testWorkspaceGenerationPreservesAllUUIDBitsAndSchemaFailsClosed() async throws {
         let url = databaseURL()
         let store = try SQLiteContestStore(databaseURL: url)
@@ -708,6 +742,430 @@ final class ContestStoreTests: XCTestCase {
                                                scope: try XCTUnwrap(finalCommitScope),
                                                committedAt: baseDate.addingTimeInterval(999))
         XCTAssertEqual(replay, result)
+        let correctedQSO = changing(try XCTUnwrap(finalQSO), callsign: "OH1BBB")
+        let correction = try await store.correctQSO(correctedQSO, reason: "Bounded late correction",
+                                                    operationTimestamp: baseDate.addingTimeInterval(1_000),
+                                                    scope: mutation(901, revision: revision + 1,
+                                                                    digest: "late-correction", draftID: nil),
+                                                    committedAt: baseDate.addingTimeInterval(1_001))
+        let correctionData = try JSONEncoder().encode(correction)
+        let correctionJSON = try XCTUnwrap(String(data: correctionData, encoding: .utf8))
+        XCTAssertLessThan(correctionData.count, 12_000)
+        XCTAssertFalse(correctionJSON.contains(fixedUUID(800).uuidString))
+    }
+
+    func testCorrectionPromotesFirstDupeAndMatchesFullScoreOracle() async throws {
+        let store = try SQLiteContestStore(databaseURL: databaseURL())
+        _ = try await create(store)
+        let first = try await commitWPX(store, qsoID: fixedUUID(910), callsign: "K1ABC",
+                                        revision: 1, requestBase: 910)
+        let second = try await commitWPX(store, qsoID: fixedUUID(911), callsign: "K1ABC",
+                                         revision: 3, requestBase: 912)
+        XCTAssertEqual(second.committedEvaluation.disposition, .duplicate)
+        let corrected = changing(first.qso, callsign: "DL1AAA")
+        let result = try await store.correctQSO(corrected, reason: "Correct copied callsign",
+                                                operationTimestamp: baseDate.addingTimeInterval(20),
+                                                scope: mutation(914, revision: 5, digest: "correct-first", draftID: nil),
+                                                committedAt: baseDate.addingTimeInterval(21))
+        let live = try await store.sessionReadSnapshot(id: sessionID)
+        let oracle = try ContestEngine.score(live.qsos, session: live.session.session, rule: CQWPXCWRule())
+        XCTAssertEqual(result.score.totalPoints, oracle.totalPoints)
+        XCTAssertEqual(result.score.multiplierCount, oracle.multiplierCount)
+        XCTAssertEqual(result.score.claimedScore, oracle.claimedScore)
+        XCTAssertEqual(oracle.qsos.first(where: { $0.qsoID == second.qso.id })?.disposition, .accepted)
+        XCTAssertEqual(result.qsoCount, 2)
+    }
+
+    func testDeleteRemovesSoleMultiplierPreservesDraftSerialLedgerAndOrdering() async throws {
+        let store = try SQLiteContestStore(databaseURL: databaseURL())
+        _ = try await create(store)
+        let firstID = fixedUUID(920)
+        let secondID = fixedUUID(921)
+        let first = try await commitWPX(store, qsoID: firstID, callsign: "K1ABC",
+                                        revision: 1, requestBase: 920)
+        let second = try await commitWPX(store, qsoID: secondID, callsign: "K1ABC",
+                                         revision: 3, requestBase: 922)
+        XCTAssertEqual(second.committedEvaluation.disposition, .duplicate)
+        let active = try await store.reserveSerial(reservationID: fixedUUID(925), serialScope: .session,
+                                                   scopeValue: "",
+                                                   scope: mutation(924, revision: 5, digest: "active", draftID: draftID),
+                                                   committedAt: baseDate.addingTimeInterval(24))
+        let operatingDraft = makeDraft(revision: 7, callsign: "JA1AAA",
+                                       updatedAt: baseDate.addingTimeInterval(25),
+                                       sent: active.reservation.transmittedText, received: "321")
+        _ = try await store.updateDraft(operatingDraft,
+                                        scope: mutation(925, revision: 6, digest: "active-draft", draftID: draftID),
+                                        committedAt: baseDate.addingTimeInterval(25))
+        let draftBefore = try await store.draft(sessionID: sessionID, id: draftID)
+        let reservationsBefore = try await store.reservations(sessionID: sessionID, draftID: draftID)
+        _ = try await store.correctQSO(changingReceived(second.qso, received: "102"), reason: "Fix report",
+                                       operationTimestamp: baseDate.addingTimeInterval(26),
+                                       scope: mutation(926, revision: 7, digest: "correct-active", draftID: nil),
+                                       committedAt: baseDate.addingTimeInterval(27))
+        let deleted = try await store.deleteQSO(id: first.qso.id, reason: "Remove bad contact",
+                                                operationTimestamp: baseDate.addingTimeInterval(30),
+                                                scope: mutation(927, revision: 8, digest: "delete", draftID: nil),
+                                                committedAt: baseDate.addingTimeInterval(31))
+        XCTAssertEqual(deleted.qsoCount, 1)
+        XCTAssertEqual(deleted.score.multiplierCount, 1)
+        let draftAfter = try await store.draft(sessionID: sessionID, id: draftID)
+        let reservationsAfter = try await store.reservations(sessionID: sessionID, draftID: draftID)
+        XCTAssertEqual(draftAfter, draftBefore)
+        XCTAssertEqual(reservationsAfter, reservationsBefore)
+        let page = try await store.logPage(sessionID: sessionID, offset: 0, limit: 20)
+        XCTAssertEqual(page.qsos.map(\.id), [secondID])
+        let survivorScore = try await store.scoreSnapshot(sessionID: sessionID)
+        XCTAssertEqual(survivorScore.score.qsos.first?.disposition, .accepted)
+        _ = try await store.transitionSerial(reservationID: active.reservation.id, to: .void,
+                                             scope: mutation(928, revision: 9, digest: "void-active", draftID: draftID),
+                                             committedAt: baseDate.addingTimeInterval(32))
+        let next = try await store.reserveSerial(reservationID: fixedUUID(926), serialScope: .session,
+                                                 scopeValue: "",
+                                                 scope: mutation(929, revision: 10, digest: "next", draftID: draftID),
+                                                 committedAt: baseDate.addingTimeInterval(33))
+        XCTAssertEqual(next.reservation.number, 4)
+        XCTAssertEqual(second.qso.timestampUTC, first.qso.timestampUTC)
+    }
+
+    func testCorrectionReplaySurvivesLaterDeleteAndReopenWhileNewRequestsSeeTombstone() async throws {
+        let url = databaseURL()
+        let store = try SQLiteContestStore(databaseURL: url)
+        _ = try await create(store)
+        let committed = try await commitWPX(store, qsoID: fixedUUID(930), callsign: "K1ABC",
+                                            revision: 1, requestBase: 930)
+        let corrected = changing(committed.qso, callsign: "DL1AAA")
+        let correctionScope = mutation(932, revision: 3, digest: "correction", draftID: nil)
+        let first = try await store.correctQSO(corrected, reason: "Fix call",
+                                               operationTimestamp: baseDate.addingTimeInterval(40),
+                                               scope: correctionScope,
+                                               committedAt: baseDate.addingTimeInterval(41))
+        _ = try await store.deleteQSO(id: corrected.id, reason: "Later delete",
+                                      operationTimestamp: baseDate.addingTimeInterval(42),
+                                      scope: mutation(933, revision: 4, digest: "delete-later", draftID: nil),
+                                      committedAt: baseDate.addingTimeInterval(43))
+        let reopened = try SQLiteContestStore(databaseURL: url)
+        let replay = try await reopened.correctQSO(corrected, reason: "Fix call",
+                                                   operationTimestamp: baseDate.addingTimeInterval(40),
+                                                   scope: correctionScope,
+                                                   committedAt: baseDate.addingTimeInterval(999))
+        XCTAssertEqual(replay, first)
+        do {
+            _ = try await reopened.deleteQSO(id: corrected.id, reason: "Another delete",
+                                             operationTimestamp: baseDate.addingTimeInterval(44),
+                                             scope: mutation(934, revision: 5, digest: "new-delete", draftID: nil),
+                                             committedAt: baseDate.addingTimeInterval(45))
+            XCTFail("Expected explicit tombstone error")
+        } catch let error as ContestStoreError {
+            XCTAssertEqual(error, .qsoDeleted(corrected.id))
+        }
+        do {
+            _ = try await reopened.correctQSO(corrected, reason: "Different reason",
+                                              operationTimestamp: baseDate.addingTimeInterval(40),
+                                              scope: correctionScope,
+                                              committedAt: baseDate)
+            XCTFail("Expected canonical conflict")
+        } catch let error as ContestRepositoryError {
+            XCTAssertEqual(error, .requestPayloadConflict(requestID: correctionScope.requestID))
+        }
+        do {
+            _ = try await reopened.correctQSO(corrected, reason: "Fix call",
+                                              operationTimestamp: baseDate.addingTimeInterval(400),
+                                              scope: correctionScope,
+                                              committedAt: baseDate)
+            XCTFail("Expected operation timestamp conflict")
+        } catch let error as ContestRepositoryError {
+            XCTAssertEqual(error, .requestPayloadConflict(requestID: correctionScope.requestID))
+        }
+        do {
+            _ = try await reopened.deleteQSO(id: corrected.id, reason: "Cross operation",
+                                             operationTimestamp: baseDate.addingTimeInterval(40),
+                                             scope: correctionScope, committedAt: baseDate)
+            XCTFail("Expected cross-operation conflict")
+        } catch let error as ContestRepositoryError {
+            XCTAssertEqual(error, .requestPayloadConflict(requestID: correctionScope.requestID))
+        }
+        let audit = try await reopened.qsoAuditTrail(sessionID: sessionID, qsoID: corrected.id)
+        XCTAssertEqual(audit.map(\.operation), [.correction, .deletion])
+        XCTAssertEqual(audit.first?.operationTimestamp, baseDate.addingTimeInterval(40))
+    }
+
+    func testRevisionBoundReadAndCorrectionValidationFences() async throws {
+        let store = try SQLiteContestStore(databaseURL: databaseURL())
+        _ = try await create(store)
+        let committed = try await commitWPX(store, qsoID: fixedUUID(940), callsign: "K1ABC",
+                                            revision: 1, requestBase: 940)
+        let snapshot = try await store.qsoReadSnapshot(sessionID: sessionID, id: committed.qso.id,
+                                                       expectedWorkspaceGeneration: generationID,
+                                                       expectedRevision: 3)
+        XCTAssertEqual(snapshot.session.revision, 3)
+        XCTAssertEqual(snapshot.qso, committed.qso)
+        do {
+            _ = try await store.qsoReadSnapshot(sessionID: sessionID, id: committed.qso.id,
+                                                expectedWorkspaceGeneration: generationID,
+                                                expectedRevision: 2)
+            XCTFail("Expected fenced stale read")
+        } catch let error as ContestRepositoryError {
+            XCTAssertEqual(error, .staleRevision(expected: 2, actual: 3))
+        }
+        let otherGeneration = UUID(uuidString: "ffffffff-ffff-ffff-8000-000000000008")!
+        do {
+            _ = try await store.qsoReadSnapshot(sessionID: sessionID, id: committed.qso.id,
+                                                expectedWorkspaceGeneration: otherGeneration,
+                                                expectedRevision: 3)
+            XCTFail("Expected full UUID generation fence")
+        } catch let error as ContestRepositoryError {
+            XCTAssertEqual(error, .staleWorkspaceGeneration)
+        }
+        let wrongSession = ContestQSO(id: committed.qso.id, sessionID: fixedUUID(999),
+                                      timestampUTC: committed.qso.timestampUTC, callsign: committed.qso.callsign,
+                                      band: committed.qso.band, mode: committed.qso.mode,
+                                      frequencyHz: committed.qso.frequencyHz, rstSent: committed.qso.rstSent,
+                                      rstReceived: committed.qso.rstReceived, exchange: committed.qso.exchange,
+                                      entity: committed.qso.entity, operatorCallsign: committed.qso.operatorCallsign,
+                                      stationLocation: committed.qso.stationLocation, provenance: committed.qso.provenance)
+        do {
+            _ = try await store.correctQSO(wrongSession, reason: "Wrong session",
+                                           operationTimestamp: baseDate.addingTimeInterval(50),
+                                           scope: mutation(942, revision: 3, digest: "wrong-session", draftID: nil),
+                                           committedAt: baseDate.addingTimeInterval(51))
+            XCTFail("Expected immutable session rejection")
+        } catch let error as ContestStoreError {
+            XCTAssertEqual(error, .immutableQSOField("sessionID"))
+        }
+        let invalid = changing(committed.qso, callsign: "")
+        do {
+            _ = try await store.correctQSO(invalid, reason: "Invalid correction",
+                                           operationTimestamp: baseDate.addingTimeInterval(52),
+                                           scope: mutation(943, revision: 3, digest: "invalid", draftID: nil),
+                                           committedAt: baseDate.addingTimeInterval(53))
+            XCTFail("Expected invalid QSO")
+        } catch let error as ContestStoreError {
+            guard case .invalidQSO = error else { return XCTFail("Unexpected error: \(error)") }
+        }
+        let oversizedExchange = ContestExchangeSnapshot(rawSent: committed.qso.exchange.rawSent,
+                                                         normalizedSent: committed.qso.exchange.normalizedSent,
+                                                         rawReceived: String(repeating: "1", count: 65),
+                                                         normalizedReceived: committed.qso.exchange.normalizedReceived)
+        let oversizedEntity = ContestEntitySnapshot(adif: 291, name: String(repeating: "E", count: 129),
+                                                     countryPrefix: "K", continent: "NA", cqZone: 5)
+        let structurallyInvalid = [
+            copyQSO(committed.qso, callsign: String(repeating: "A", count: 33) + "1"),
+            copyQSO(committed.qso, exchange: oversizedExchange),
+            copyQSO(committed.qso, entity: oversizedEntity)
+        ]
+        for (offset, candidate) in structurallyInvalid.enumerated() {
+            do {
+                _ = try await store.correctQSO(candidate, reason: "Oversized value",
+                                               operationTimestamp: baseDate.addingTimeInterval(Double(54 + offset)),
+                                               scope: mutation(944 + offset, revision: 3,
+                                                               digest: "oversized-\(offset)", draftID: nil),
+                                               committedAt: baseDate.addingTimeInterval(Double(57 + offset)))
+                XCTFail("Expected structural bound rejection")
+            } catch let error as ContestStoreError {
+                guard case .invalidQSO(let issues) = error else { return XCTFail("Unexpected error: \(error)") }
+                XCTAssertEqual(issues.map(\.code), ["qso_structural_bounds"])
+            }
+        }
+        let immutables: [(String, ContestQSO)] = [
+            ("timestampUTC", copyQSO(committed.qso, timestampUTC: committed.qso.timestampUTC.addingTimeInterval(1))),
+            ("provenance", copyQSO(committed.qso, provenance: ContestQSOProvenance(source: .importFile))),
+            ("operatorCallsign", copyQSO(committed.qso, operatorCallsign: "OM1ABC")),
+            ("stationLocation", copyQSO(committed.qso, stationLocation: "JN99")),
+            ("allocatedSentSerial", copyQSO(committed.qso,
+                exchange: ContestExchangeSnapshot(rawSent: "999", normalizedSent: "999",
+                                                  rawReceived: committed.qso.exchange.rawReceived,
+                                                  normalizedReceived: committed.qso.exchange.normalizedReceived)))
+        ]
+        for (offset, item) in immutables.enumerated() {
+            do {
+                _ = try await store.correctQSO(item.1, reason: "Immutable test",
+                                               operationTimestamp: baseDate.addingTimeInterval(Double(60 + offset)),
+                                               scope: mutation(948 + offset, revision: 3,
+                                                               digest: "immutable-\(offset)", draftID: nil),
+                                               committedAt: baseDate.addingTimeInterval(Double(70 + offset)))
+                XCTFail("Expected immutable field rejection")
+            } catch let error as ContestStoreError {
+                XCTAssertEqual(error, .immutableQSOField(item.0))
+            }
+        }
+        let highBitScope = ContestMutationScope(sessionID: sessionID, workspaceGeneration: otherGeneration,
+                                                requestID: request(951), expectedRevision: 3,
+                                                draftID: nil, payloadDigest: "wrong-generation")
+        do {
+            _ = try await store.deleteQSO(id: committed.qso.id, reason: "Wrong generation",
+                                          operationTimestamp: baseDate.addingTimeInterval(80),
+                                          scope: highBitScope, committedAt: baseDate.addingTimeInterval(81))
+            XCTFail("Expected mutation generation fence")
+        } catch let error as ContestRepositoryError {
+            XCTAssertEqual(error, .staleWorkspaceGeneration)
+        }
+        let unchangedSession = try await store.openSession(id: sessionID)
+        let unchangedAudit = try await store.qsoAuditTrail(sessionID: sessionID, qsoID: committed.qso.id)
+        XCTAssertEqual(unchangedSession.revision, 3)
+        XCTAssertTrue(unchangedAudit.isEmpty)
+    }
+
+    func testWWSentZoneIsImmutableDuringCorrection() async throws {
+        let store = try SQLiteContestStore(databaseURL: databaseURL())
+        _ = try await store.createSession(makeSession(rule: CQWWCWRule.identity, sentExchange: "15"),
+                                          metadata: makeMetadata(), initialDraft: makeDraft(revision: 1, sent: "15"),
+                                          scope: mutation(1, revision: 0, digest: "ww-create-correction", draftID: draftID),
+                                          committedAt: baseDate)
+        let qso = makeQSO(id: fixedUUID(949), callsign: "K1ABC", sent: "15", received: "5")
+        _ = try await store.commitQSO(qso, reservationID: nil,
+                                      scope: mutation(2, revision: 1, digest: "ww-commit-correction", draftID: draftID),
+                                      committedAt: baseDate.addingTimeInterval(1))
+        let changedExchange = ContestExchangeSnapshot(rawSent: "16", normalizedSent: "16",
+                                                       rawReceived: "5", normalizedReceived: "5")
+        do {
+            _ = try await store.correctQSO(copyQSO(qso, exchange: changedExchange), reason: "Bad zone change",
+                                           operationTimestamp: baseDate.addingTimeInterval(2),
+                                           scope: mutation(3, revision: 2, digest: "ww-zone-change", draftID: nil),
+                                           committedAt: baseDate.addingTimeInterval(3))
+            XCTFail("Expected pinned sent zone rejection")
+        } catch let error as ContestStoreError {
+            XCTAssertEqual(error, .immutableQSOField("allocatedSentSerial"))
+        }
+    }
+
+    func testConcurrentCorrectionsAndInjectedFailureRollbackAtomically() async throws {
+        enum Injected: Error { case stop }
+        let url = databaseURL()
+        let creator = try SQLiteContestStore(databaseURL: url)
+        _ = try await create(creator)
+        let committed = try await commitWPX(creator, qsoID: fixedUUID(950), callsign: "K1ABC",
+                                            revision: 1, requestBase: 950)
+        await creator.installMutationWriteHookForTesting { stage in
+            if stage == "beforeCommit" { throw Injected.stop }
+        }
+        do {
+            _ = try await creator.correctQSO(changing(committed.qso, callsign: "DL1AAA"), reason: "Injected",
+                                             operationTimestamp: baseDate.addingTimeInterval(60),
+                                             scope: mutation(952, revision: 3, digest: "injected", draftID: nil),
+                                             committedAt: baseDate.addingTimeInterval(61))
+            XCTFail("Expected injected failure")
+        } catch is Injected {}
+        await creator.installMutationWriteHookForTesting(nil)
+        let sessionAfterFailure = try await creator.openSession(id: sessionID)
+        let qsoAfterFailure = try await creator.qso(sessionID: sessionID, id: committed.qso.id)
+        let auditAfterFailure = try await creator.qsoAuditTrail(sessionID: sessionID, qsoID: committed.qso.id)
+        let receiptAfterFailure = try await creator.operationReceipt(sessionID: sessionID,
+                                                                     workspaceGeneration: generationID,
+                                                                     requestID: request(952), payloadDigest: "injected")
+        XCTAssertEqual(sessionAfterFailure.revision, 3)
+        XCTAssertEqual(qsoAfterFailure, committed.qso)
+        XCTAssertTrue(auditAfterFailure.isEmpty)
+        XCTAssertNil(receiptAfterFailure)
+
+        await creator.installMutationWriteHookForTesting { stage in
+            if stage == "beforeCommit" { throw Injected.stop }
+        }
+        do {
+            _ = try await creator.deleteQSO(id: committed.qso.id, reason: "Injected deletion",
+                                            operationTimestamp: baseDate.addingTimeInterval(61),
+                                            scope: mutation(953, revision: 3, digest: "injected-delete", draftID: nil),
+                                            committedAt: baseDate.addingTimeInterval(62))
+            XCTFail("Expected injected deletion failure")
+        } catch is Injected {}
+        await creator.installMutationWriteHookForTesting(nil)
+        let afterDeleteFailure = try await creator.openSession(id: sessionID)
+        let liveAfterDeleteFailure = try await creator.qso(sessionID: sessionID, id: committed.qso.id)
+        let deleteAuditAfterFailure = try await creator.qsoAuditTrail(sessionID: sessionID, qsoID: committed.qso.id)
+        let deleteReceiptAfterFailure = try await creator.operationReceipt(sessionID: sessionID,
+                                                                           workspaceGeneration: generationID,
+                                                                           requestID: request(953),
+                                                                           payloadDigest: "injected-delete")
+        XCTAssertEqual(afterDeleteFailure.revision, 3)
+        XCTAssertEqual(liveAfterDeleteFailure, committed.qso)
+        XCTAssertTrue(deleteAuditAfterFailure.isEmpty)
+        XCTAssertNil(deleteReceiptAfterFailure)
+
+        let first = try SQLiteContestStore(databaseURL: url)
+        let second = try SQLiteContestStore(databaseURL: url)
+        let outcomes = await withTaskGroup(of: Result<ContestQSOChangeResult, Error>.self) { group in
+            group.addTask {
+                do { return .success(try await first.correctQSO(self.changing(committed.qso, callsign: "DL1AAA"),
+                                                                reason: "Writer one", operationTimestamp: self.baseDate.addingTimeInterval(62),
+                                                                scope: self.mutation(954, revision: 3, digest: "writer-one", draftID: nil),
+                                                                committedAt: self.baseDate.addingTimeInterval(63))) }
+                catch { return .failure(error) }
+            }
+            group.addTask {
+                do { return .success(try await second.correctQSO(self.changing(committed.qso, callsign: "JA1AAA"),
+                                                                 reason: "Writer two", operationTimestamp: self.baseDate.addingTimeInterval(64),
+                                                                 scope: self.mutation(955, revision: 3, digest: "writer-two", draftID: nil),
+                                                                 committedAt: self.baseDate.addingTimeInterval(65))) }
+                catch { return .failure(error) }
+            }
+            return await group.reduce(into: []) { $0.append($1) }
+        }
+        XCTAssertEqual(outcomes.filter { if case .success = $0 { true } else { false } }.count, 1)
+        XCTAssertEqual(outcomes.filter { if case .failure(let error as ContestRepositoryError) = $0,
+                                           case .staleRevision = error { true } else { false } }.count, 1)
+        let auditAfterWriters = try await creator.qsoAuditTrail(sessionID: sessionID, qsoID: committed.qso.id)
+        XCTAssertEqual(auditAfterWriters.count, 1)
+    }
+
+    func testVersionOneMigrationPreservesRealSessionQSOReservationCounterAndReceiptReplay() async throws {
+        let url = databaseURL()
+        let original = try SQLiteContestStore(databaseURL: url)
+        let created = try await create(original)
+        let committed = try await commitWPX(original, qsoID: fixedUUID(970), callsign: "K1ABC",
+                                            revision: 1, requestBase: 970)
+        let draftBefore = try await original.draft(sessionID: sessionID, id: draftID)
+        let reservationsBefore = try await original.reservations(sessionID: sessionID, draftID: draftID)
+        let commitScope = mutation(971, revision: 2, digest: "commit-970", draftID: draftID)
+        let originalReceipt = try await original.operationReceipt(sessionID: sessionID,
+                                                                  workspaceGeneration: generationID,
+                                                                  requestID: commitScope.requestID,
+                                                                  payloadDigest: commitScope.payloadDigest)
+        XCTAssertEqual(originalReceipt, committed.receipt)
+        try rawExecute("PRAGMA foreign_keys = OFF; DROP TABLE qso_audit; DROP INDEX qsos_session_order; ALTER TABLE qsos RENAME TO qsos_v2; CREATE TABLE qsos(id TEXT PRIMARY KEY, session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE, timestamp REAL NOT NULL, snapshot BLOB NOT NULL); INSERT INTO qsos(id, session_id, timestamp, snapshot) SELECT id, session_id, timestamp, snapshot FROM qsos_v2; DROP TABLE qsos_v2; CREATE INDEX qsos_session_order ON qsos(session_id, timestamp, id); PRAGMA user_version = 1", at: url)
+
+        let migrated = try SQLiteContestStore(databaseURL: url)
+        let sessionAfter = try await migrated.openSession(id: sessionID)
+        let draftAfter = try await migrated.draft(sessionID: sessionID, id: draftID)
+        let reservationsAfter = try await migrated.reservations(sessionID: sessionID, draftID: draftID)
+        let qsoAfter = try await migrated.qso(sessionID: sessionID, id: committed.qso.id)
+        let receiptAfter = try await migrated.operationReceipt(sessionID: sessionID,
+                                                               workspaceGeneration: generationID,
+                                                               requestID: commitScope.requestID,
+                                                               payloadDigest: commitScope.payloadDigest)
+        XCTAssertEqual(try rawScalar("PRAGMA user_version", at: url), 2)
+        XCTAssertEqual(sessionAfter.revision, committed.session.revision)
+        XCTAssertEqual(draftAfter, draftBefore)
+        XCTAssertEqual(reservationsAfter, reservationsBefore)
+        XCTAssertEqual(qsoAfter, committed.qso)
+        XCTAssertEqual(receiptAfter, committed.receipt)
+        let replay = try await migrated.commitQSO(committed.qso,
+                                                  reservationID: reservationsBefore.first?.id,
+                                                  scope: commitScope,
+                                                  committedAt: baseDate.addingTimeInterval(999))
+        XCTAssertEqual(replay, committed)
+        XCTAssertEqual(created.session.session.id, sessionID)
+        let next = try await migrated.reserveSerial(reservationID: fixedUUID(972), serialScope: .session,
+                                                    scopeValue: "",
+                                                    scope: mutation(972, revision: 3, digest: "after-migration", draftID: draftID),
+                                                    committedAt: baseDate.addingTimeInterval(1000))
+        XCTAssertEqual(next.reservation.number, 2)
+    }
+
+    func testVersionOneMigrationFailureRollsBackAndCorrectionResultIsBounded() async throws {
+        let broken = databaseURL()
+        try rawExecute("CREATE TABLE qsos(id TEXT PRIMARY KEY, session_id TEXT NOT NULL, timestamp REAL NOT NULL, snapshot BLOB NOT NULL); CREATE INDEX qsos_session_order ON qsos(session_id, timestamp, id); CREATE TABLE qso_audit(bad INTEGER); PRAGMA user_version = 1", at: broken)
+        XCTAssertThrowsError(try SQLiteContestStore(databaseURL: broken))
+        XCTAssertEqual(try rawScalar("PRAGMA user_version", at: broken), 1)
+        XCTAssertEqual(try rawScalar("SELECT COUNT(*) FROM pragma_table_info('qsos') WHERE name = 'is_deleted'", at: broken), 0)
+
+        let store = try SQLiteContestStore(databaseURL: databaseURL())
+        _ = try await create(store)
+        let committed = try await commitWPX(store, qsoID: fixedUUID(960), callsign: "K1ABC",
+                                            revision: 1, requestBase: 960)
+        let result = try await store.correctQSO(changing(committed.qso, callsign: "DL1AAA"), reason: "Bounded",
+                                                operationTimestamp: baseDate.addingTimeInterval(70),
+                                                scope: mutation(962, revision: 3, digest: "bounded", draftID: nil),
+                                                committedAt: baseDate.addingTimeInterval(71))
+        XCTAssertLessThan(try JSONEncoder().encode(result).count, 12_000)
     }
 
     func testExplicitFileURLRequired() {
@@ -752,6 +1210,50 @@ final class ContestStoreTests: XCTestCase {
                                                      rawReceived: received, normalizedReceived: received),
                    entity: usa, operatorCallsign: "OM0RX", stationLocation: "JN98",
                    provenance: ContestQSOProvenance(source: .operatorEntry))
+    }
+
+    private func changing(_ qso: ContestQSO, callsign: String) -> ContestQSO {
+        ContestQSO(id: qso.id, sessionID: qso.sessionID, timestampUTC: qso.timestampUTC,
+                   callsign: callsign, band: qso.band, mode: qso.mode, frequencyHz: qso.frequencyHz,
+                   rstSent: qso.rstSent, rstReceived: qso.rstReceived, exchange: qso.exchange,
+                   entity: qso.entity, operatorCallsign: qso.operatorCallsign,
+                   stationLocation: qso.stationLocation, provenance: qso.provenance)
+    }
+
+    private func changingReceived(_ qso: ContestQSO, received: String) -> ContestQSO {
+        let exchange = ContestExchangeSnapshot(rawSent: qso.exchange.rawSent,
+                                               normalizedSent: qso.exchange.normalizedSent,
+                                               rawReceived: received, normalizedReceived: received)
+        return copyQSO(qso, exchange: exchange)
+    }
+
+    private func copyQSO(_ qso: ContestQSO, timestampUTC: Date? = nil,
+                         callsign: String? = nil,
+                         exchange: ContestExchangeSnapshot? = nil,
+                         entity: ContestEntitySnapshot? = nil,
+                         provenance: ContestQSOProvenance? = nil,
+                         operatorCallsign: String? = nil,
+                         stationLocation: String? = nil) -> ContestQSO {
+        ContestQSO(id: qso.id, sessionID: qso.sessionID, timestampUTC: timestampUTC ?? qso.timestampUTC,
+                   callsign: callsign ?? qso.callsign, band: qso.band, mode: qso.mode, frequencyHz: qso.frequencyHz,
+                   rstSent: qso.rstSent, rstReceived: qso.rstReceived, exchange: exchange ?? qso.exchange,
+                   entity: entity ?? qso.entity, operatorCallsign: operatorCallsign ?? qso.operatorCallsign,
+                   stationLocation: stationLocation ?? qso.stationLocation,
+                   provenance: provenance ?? qso.provenance)
+    }
+
+    private func commitWPX(_ store: SQLiteContestStore, qsoID: UUID, callsign: String,
+                           revision: UInt64, requestBase: Int) async throws -> ContestQSOCommitResult {
+        let reserved = try await store.reserveSerial(reservationID: fixedUUID(requestBase + 100), serialScope: .session,
+                                                     scopeValue: "",
+                                                     scope: mutation(requestBase, revision: revision,
+                                                                     digest: "reserve-\(requestBase)", draftID: draftID),
+                                                     committedAt: baseDate.addingTimeInterval(Double(requestBase)))
+        let qso = makeQSO(id: qsoID, callsign: callsign, sent: reserved.reservation.transmittedText)
+        return try await store.commitQSO(qso, reservationID: reserved.reservation.id,
+                                         scope: mutation(requestBase + 1, revision: revision + 1,
+                                                         digest: "commit-\(requestBase)", draftID: draftID),
+                                         committedAt: baseDate.addingTimeInterval(Double(requestBase + 1)))
     }
 
     private func mutation(_ number: Int, revision: UInt64, digest: String, draftID: UUID?) -> ContestMutationScope {
