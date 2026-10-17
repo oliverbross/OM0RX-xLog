@@ -1,0 +1,151 @@
+{
+  "constraints": {
+    "category": {
+      "status": "unresolved"
+    },
+    "eligibility": {
+      "status": "unresolved"
+    },
+    "time": {
+      "status": "unresolved"
+    },
+    "unresolved": [
+      "official rules authority and edition",
+      "supported band limits",
+      "category and operating-time enforcement",
+      "Cabrillo field-level golden output"
+    ]
+  },
+  "definitionSchemaVersion": "1.0.0",
+  "entry": {
+    "exchange": {
+      "received": [
+        {
+          "id": "name",
+          "kind": "letters"
+        },
+        {
+          "id": "tenTenNumber",
+          "kind": "digits"
+        },
+        {
+          "id": "location",
+          "kind": "letters"
+        }
+      ],
+      "sent": {
+        "kind": "station-setting"
+      }
+    },
+    "report": {
+      "cw": "599",
+      "phone": "59"
+    },
+    "scorePolicy": "pointsOnly",
+    "serial": {
+      "allowedScopes": [],
+      "requirement": "none"
+    }
+  },
+  "goldenScenarios": [
+    {
+      "expected": {
+        "points": 2
+      },
+      "id": "valid-positive-member",
+      "qso": {
+        "isDupe": false,
+        "receivedExchange": "ALICE 12345 TX"
+      }
+    },
+    {
+      "expected": {
+        "points": 1
+      },
+      "id": "valid-zero-nonmember",
+      "qso": {
+        "isDupe": false,
+        "receivedExchange": "ALICE 0 TX"
+      }
+    },
+    {
+      "expected": {
+        "points": 0
+      },
+      "id": "duplicate",
+      "qso": {
+        "isDupe": true,
+        "receivedExchange": "ALICE 12345 TX"
+      }
+    },
+    {
+      "expected": {
+        "validation": "error"
+      },
+      "id": "invalid-two-token-exchange",
+      "qso": {
+        "isDupe": false,
+        "receivedExchange": "ALICE TX"
+      }
+    }
+  ],
+  "identity": {
+    "contentDigest": "sha256:b075fcf1737b76b5b08e822e3a345be16f6b965ccab74af54936a00ad5b64cc8",
+    "edition": "pinned-python-comparator-draft",
+    "id": "ten-ten-seasonal",
+    "version": "0.1.0-draft"
+  },
+  "metadata": {
+    "cabrilloName": "10-10",
+    "displayName": "10-10 seasonal family",
+    "supportedBands": [],
+    "supportedModes": [
+      "CW",
+      "SSB"
+    ]
+  },
+  "policies": {
+    "dupe": {
+      "kind": "once-per-contest"
+    },
+    "eligibility": {
+      "kind": "unresolved"
+    },
+    "export": {
+      "kind": "existing-cabrillo-adif"
+    },
+    "multipliers": {
+      "kind": "none"
+    },
+    "points": {
+      "clauses": [
+        {
+          "points": 0,
+          "when": "duplicate"
+        },
+        {
+          "points": 2,
+          "when": "valid-received-exchange-and-positive-member-number"
+        },
+        {
+          "points": 1,
+          "when": "valid-received-exchange-and-zero-member-number"
+        }
+      ],
+      "defaultPoints": 0,
+      "kind": "bounded-clauses"
+    },
+    "serial": {
+      "kind": "none"
+    }
+  },
+  "provenance": [
+    {
+      "kind": "python-comparator",
+      "locator": "not1mm/plugins/10_10_{fall,spring,summer,winter}_*.py",
+      "revision": "7c8b499225a73f7f8f792246881bd7aefc05452f",
+      "sha256": "61a67dfd7b446b48bcad9eabea379107107730557f461f5104640b2af73fb522"
+    }
+  ],
+  "status": "source-derived-draft"
+}
