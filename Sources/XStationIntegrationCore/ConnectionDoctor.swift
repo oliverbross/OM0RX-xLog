@@ -1,6 +1,8 @@
 // GPL-3.0-only; Copyright Oliver Bross OM0RX.
 import Foundation
+#if canImport(CoreFoundation)
 import CoreFoundation
+#endif
 
 /// A passive explanation of a previously retained worker snapshot. This module
 /// has no provider, credential store, file, network or command dependencies.
@@ -130,12 +132,24 @@ public enum ConnectionDoctor {
         Check(stage: stage, status: status, reason: reason)
     }
     private static func boolean(_ value: Any?) -> Bool? {
-        guard let number = value as? NSNumber, CFGetTypeID(number) == CFBooleanGetTypeID() else { return nil }
+        guard let number = value as? NSNumber, isBoolean(number) else { return nil }
         return number.boolValue
     }
     private static func number(_ value: Any?) -> Double? {
-        guard let number = value as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID(),
+        guard let number = value as? NSNumber, !isBoolean(number),
               number.doubleValue.isFinite else { return nil }
         return number.doubleValue
+    }
+    private static func isBoolean(_ number: NSNumber) -> Bool {
+        #if canImport(CoreFoundation)
+        CFGetTypeID(number) == CFBooleanGetTypeID()
+        #else
+        isFoundationBoolean(number)
+        #endif
+    }
+    /// swift-corelibs-foundation represents JSON booleans with its canonical
+    /// true/false NSNumber singletons. Identity avoids conflating Int8 with Bool.
+    static func isFoundationBoolean(_ number: NSNumber) -> Bool {
+        number === NSNumber(value: true) || number === NSNumber(value: false)
     }
 }

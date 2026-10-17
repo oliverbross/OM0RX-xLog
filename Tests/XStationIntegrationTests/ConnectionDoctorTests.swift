@@ -10,6 +10,27 @@ final class ConnectionDoctorTests: XCTestCase {
          "capabilities": ["supported_commands": ["station_tune", "ptt", "send_cw", "set_rf_power"]]]
     }
 
+    private func jsonNumber(_ literal: String) throws -> NSNumber {
+        try XCTUnwrap(JSONSerialization.jsonObject(with: Data(literal.utf8), options: [.fragmentsAllowed]) as? NSNumber)
+    }
+
+    func testFoundationBooleanFallbackUsesIdentityRatherThanNumericEncodingOrEquality() throws {
+        XCTAssertTrue(ConnectionDoctor.isFoundationBoolean(try jsonNumber("true")))
+        XCTAssertTrue(ConnectionDoctor.isFoundationBoolean(try jsonNumber("false")))
+        XCTAssertFalse(ConnectionDoctor.isFoundationBoolean(try jsonNumber("0")))
+        XCTAssertFalse(ConnectionDoctor.isFoundationBoolean(try jsonNumber("1")))
+        XCTAssertFalse(ConnectionDoctor.isFoundationBoolean(NSNumber(value: Int8(0))))
+        XCTAssertFalse(ConnectionDoctor.isFoundationBoolean(NSNumber(value: Int8(1))))
+        XCTAssertFalse(ConnectionDoctor.isFoundationBoolean(NSNumber(value: UInt8(0))))
+        XCTAssertFalse(ConnectionDoctor.isFoundationBoolean(NSNumber(value: UInt8(1))))
+
+        var value = snapshot()
+        value["radio"] = ["connected": true, "observed": true, "received_at": 100.0]
+        XCTAssertEqual(ConnectionDoctor.project(retainedSnapshot: value, now: 100).freshness, .fresh)
+        value["radio"] = ["connected": true, "observed": true, "received_at": true]
+        XCTAssertEqual(ConnectionDoctor.project(retainedSnapshot: value, now: 100).freshness, .unknown)
+    }
+
     func testDeterministicStagedTCIReadOnlyProjection() {
         let value = snapshot()
         let report = ConnectionDoctor.project(retainedSnapshot: value, now: 102)

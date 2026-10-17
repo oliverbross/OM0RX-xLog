@@ -9,6 +9,8 @@ on:
       - 'Sources/CSQLitePrototype/**'
       - 'Tests/XContestCoreTests/**'
       - 'Tests/XContestStoreTests/**'
+      - 'Sources/XStationIntegrationCore/ConnectionDoctor.swift'
+      - 'Tests/XStationIntegrationTests/ConnectionDoctorTests.swift'
       - 'Package.swift'
       - '.github/workflows/contest-portability.yml'
   pull_request:
@@ -18,6 +20,8 @@ on:
       - 'Sources/CSQLitePrototype/**'
       - 'Tests/XContestCoreTests/**'
       - 'Tests/XContestStoreTests/**'
+      - 'Sources/XStationIntegrationCore/ConnectionDoctor.swift'
+      - 'Tests/XStationIntegrationTests/ConnectionDoctorTests.swift'
       - 'Package.swift'
       - '.github/workflows/contest-portability.yml'
 
@@ -104,4 +108,10 @@ jobs:
           swift test --scratch-path .build/contest-platform --filter XContestCoreTests -Xcc "-I$env:XLOG_SQLITE_PREFIX/include" -Xlinker "/LIBPATH:$env:XLOG_SQLITE_PREFIX/lib"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           swift test --scratch-path .build/contest-platform --filter XContestStoreTests -Xcc "-I$env:XLOG_SQLITE_PREFIX/include" -Xlinker "/LIBPATH:$env:XLOG_SQLITE_PREFIX/lib"
+          exit $LASTEXITCODE
+      - name: Test Windows ConnectionDoctor boolean fallback
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          swift test --scratch-path .build/contest-platform --filter XStationIntegrationTests.ConnectionDoctorTests -Xcc "-I$env:XLOG_SQLITE_PREFIX/include" -Xlinker "/LIBPATH:$env:XLOG_SQLITE_PREFIX/lib"
           exit $LASTEXITCODE
