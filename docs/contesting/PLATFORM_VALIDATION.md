@@ -66,3 +66,21 @@ and export-service changes beyond the exact commit recorded above.
 These are native Swift compile-and-test results for the workflow's portable
 manifest. They do not prove a packaged application, renderer or worker runtime,
 installation, device access, radio behavior, or end-to-end contest operation.
+
+## Snapshot integration follow-up
+
+Run `39038651231` at `2f7418b62f8639366c55929b40c835ea0ee8ef2f`
+passed macOS but failed Linux compilation because Swift's Glibc module did not
+expose `renameat2`, and Windows compilation because WinSDK and Foundation both
+declare `UUID`. Reviewed commit `09cd62d` adds a Linux-only C wrapper with
+`RENAME_NOREPLACE` and explicitly qualifies the Foundation type. It does not
+add an overwrite fallback. The Linux libc binding requires glibc 2.28 or newer;
+the selected Ubuntu 24.04 runner satisfies that requirement.
+
+Integrated run `39039297251` at
+`478269e9adce94d1eec8ec9f7282c9e7406e8b54` is pending. The workflow filters
+the whole `XContestStoreTests` target, so the snapshot class is included.
+Windows snapshot publication currently fails closed; capability-specific
+publication tests are explicitly skipped and independent inspection/configuration
+tests remain runnable. Passing those tests will not establish Windows publication
+support. Its native implementation is a separate, unfinished slice.
