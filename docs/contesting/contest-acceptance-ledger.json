@@ -22,12 +22,13 @@
   "interpretation": {
     "selectorAvailability": "A selector row means the pinned upstream UI can name and import the plugin; it is not xLog implementation or acceptance evidence.",
     "sourceExtraction": "Mode, exchange and duplicate policy fields are static observations from each pinned plugin source. Missing or dynamic values remain unresolved.",
-    "pilotBoundary": "Exactly fourteen xLog rule implementations are recorded: six source-derived pilots for CQ WW, CQ WPX, and Oceania DX in CW and SSB; two official-corrected SAC 2026 practice previews in CW and SSB; three official-rules NAQP 2026 plain-logging previews in CW, SSB, and RTTY; one official-rules ARRL RTTY Roundup plain-logging preview; and two official-rules JIDX 2026 practice previews in CW and SSB. Evidence is scoped by field and is not current sponsor, application, native-package, submission, full-port, real-radio/keying, full Run/S&P, or operator acceptance.",
+    "pilotBoundary": "Exactly sixteen xLog rule implementations are recorded: six source-derived pilots for CQ WW, CQ WPX, and Oceania DX in CW and SSB; two official-corrected SAC 2026 practice previews in CW and SSB; three official-rules NAQP 2026 plain-logging previews in CW, SSB, and RTTY; one official-rules ARRL RTTY Roundup plain-logging preview; two official-rules ARRL DX practice previews in CW and SSB; and two official-rules JIDX 2026 practice previews in CW and SSB. Evidence is scoped by field and is not current sponsor, application, native-package, submission, full-port, real-radio/keying, full Run/S&P, or operator acceptance.",
     "pendingBoundary": "pending and unknown fields are deliberate; no acceptance is inferred from source presence, selector presence, shared infrastructure, or another plugin.",
     "officialCorrectionBoundary": "SAC CW and SSB use the published SAC 2026 rules as operational authority and deliberately correct identified pinned-source defects. They are official-corrected practice and scoring previews, not claims of exact upstream parity or submission readiness.",
     "naqpAuthorityBoundary": "NAQP CW, SSB, and RTTY use the published NCJ 2026 rules and multiplier form as primary authority. The pinned Python plugins remain compatibility comparators with recorded gaps; their commit is not the NAQP rule sourceRevision. These are plain-logging previews, not claims of exact upstream parity, full operating support, sponsor certification, or submission readiness.",
     "arrlRTTYAuthorityBoundary": "ARRL RTTY Roundup uses the published ARRL Rules v3.0b plus pinned ARRL/RAC section and current DXCC authority as primary authority. The pinned Python plugin remains a compatibility comparator with recorded gaps; its commit is not the rule sourceRevision. This is a plain-logging preview with versioned Cabrillo and ADIF output, not a claim of full Run/S&P operation, real RTTY generation/keying, category/date/operating-time enforcement, sponsor certification, or submission readiness.",
-    "jidxAuthorityBoundary": "JIDX CW and SSB use the published JIDX 2026-10 rules, multiplier list, electronic-log guide, upload pages, ADIF 3.1.7, and pinned callsign/reference authorities as primary evidence. The pinned Python plugins remain compatibility comparators with recorded scoring, role, multiplier-scope, and export-token gaps; their commit is not the JIDX rule sourceRevision. These are shared-UI practice previews with versioned Cabrillo and ADIF output, not claims of native-package launch, full Run/S&P operation, real radio/keying, full-category enforcement, sponsor certification, or submission readiness."
+    "jidxAuthorityBoundary": "JIDX CW and SSB use the published JIDX 2026-10 rules, multiplier list, electronic-log guide, upload pages, ADIF 3.1.7, and pinned callsign/reference authorities as primary evidence. The pinned Python plugins remain compatibility comparators with recorded scoring, role, multiplier-scope, and export-token gaps; their commit is not the JIDX rule sourceRevision. These are shared-UI practice previews with versioned Cabrillo and ADIF output, not claims of native-package launch, full Run/S&P operation, real radio/keying, full-category enforcement, sponsor certification, or submission readiness.",
+    "arrlDXAuthorityBoundary": "ARRL DX CW and SSB use the published ARRL DX Rules v2.0, pinned US, Canadian, and W/VE multiplier lists, contest-section guidance, current DXCC authority, and supplemental ARRL power-normalization guidance as primary authority. The pinned Python plugins remain compatibility comparators with recorded directional, multiplier, exchange, and export gaps; their commit is not the ARRL DX rule sourceRevision. These are shared-UI practice previews with versioned Cabrillo and ADIF output, not claims of browser-worker Run/S&P, operator-profile coverage, native-package launch, full-category enforcement, cross-platform acceptance, sponsor certification, or submission readiness."
   },
   "validation": {
     "script": "docs/contesting/validate-contest-acceptance-ledger.mjs",
@@ -1138,46 +1139,85 @@
         "extraction": "Python AST top-level literal assignments; dynamic or absent values remain unresolved"
       },
       "xlogAcceptance": {
-        "implementationStatus": "pending",
-        "ruleIdentity": null,
+        "implementationStatus": "official-rules-practice-preview",
+        "ruleIdentity": {
+          "id": "arrl-dx-cw",
+          "version": "1.0.0-2.0-preview",
+          "edition": "rules-2.0-preview",
+          "sourceRevision": "bd87f1b3f635c4cd25c8d80f4b0ca06dca0a4a0f10c819289634492ae1fefee9"
+        },
         "referenceIdentity": {
-          "status": "pending",
-          "value": null,
-          "source": null,
-          "resourceSha256": null
+          "status": "runtime-derived-pinned-resource",
+          "value": "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "source": "Sources/XLogPrototypeSupport/Contesting/ContestLane.swift#ContestReferenceData.bundled",
+          "resourceSha256": "e5d907fb16842cfa3dd8502c20ebe6bfc2039c6f5b2cc73f9ea6d3f5915f6d6d"
         },
         "ruleAudit": {
-          "status": "pending",
-          "evidence": []
+          "status": "official-rules-audited-gaps-open",
+          "evidence": [
+            "Sources/XContestCore/ARRLDXRules.swift",
+            "Tests/XContestCoreTests/SourceFixtures/arrl-dx-authority.json",
+            "docs/contesting/ARRL_DX_CONTRACT.md"
+          ],
+          "note": "Primary authority is the pinned sponsor rules and supporting multiplier, section, DXCC, and power-normalization material. The Python plugins are compatibility comparators with explicit directional, multiplier, exchange, and export gaps; exact comparator parity is not claimed."
         },
         "sourceDerivedScoringCases": {
-          "status": "pending",
-          "evidence": []
+          "status": "official-rules-and-compatibility-tested",
+          "evidence": [
+            "Sources/XContestCore/ARRLDXRules.swift",
+            "Tests/XContestCoreTests/ContestARRLDXTests.swift",
+            "Tests/XContestCoreTests/SourceFixtures/arrl-dx-authority.json",
+            "docs/contesting/ARRL_DX_CONTRACT.md"
+          ],
+          "note": "Official direction, exchange, eligibility, three-point, per-band duplicate, and per-band multiplier behavior is tested with explicit pinned-Python differences; this is not a claim of exact comparator parity."
         },
         "independentScoringCases": {
-          "status": "pending",
-          "evidence": [],
-          "note": "No independent scoring evidence is recorded."
+          "status": "independent-arithmetic-tested",
+          "evidence": [
+            "Tests/XContestCoreTests/ContestARRLDXTests.swift",
+            "Tests/XContestCoreTests/SourceFixtures/arrl-dx-authority.json",
+            "docs/contesting/ARRL_DX_CONTRACT.md"
+          ],
+          "note": "Independent CW and SSB fixtures prove W/VE score 75 and DX scores 108 then 126, including duplicates and per-band DXCC or W/VE subdivision multipliers; they are not operator acceptance."
         },
         "mutationRestart": {
-          "status": "pending",
-          "evidence": []
+          "status": "store-worker-four-way-shared-ui-fixture-tested",
+          "evidence": [
+            "Tests/XContestStoreTests/ContestARRLDXStoreTests.swift",
+            "Tests/XLogPrototypeTests/ContestARRLDXWorkerWireTests.swift",
+            "docs/contesting/fixtures/arrl-dx-worker-wire.json",
+            "prototype/src/contesting/arrlDXWireFixture.test.ts",
+            "prototype/src/contesting/ContestWorkspace.arrlDX.test.tsx",
+            "docs/contesting/ARRL_DX_CONTRACT.md"
+          ],
+          "note": "Core and store coverage spans both modes and both contest directions. The real worker fixture covers W/VE and DX in CW and SSB through create, two sequential returned-draft commits, reset, commit replay, restart/reopen, received-exchange correction, deletion, and Cabrillo/ADIF export. Its forged correction clears wire consistency and is rejected by the authoritative stored-QSO immutability guard for allocatedSentSerial; this is not isolated directional-validator evidence. Fixture-backed React tests cover four creation/input paths plus partial K/KI/KIL/KILO entry and invalid 2000 then valid 100 correction recovery. No browser-worker Run/S&P or packaged operator lifecycle is evidenced."
         },
         "exportGoldens": {
-          "status": "pending",
-          "evidence": []
+          "status": "versioned-practice-preview-goldens-tested",
+          "evidence": [
+            "Tests/XContestCoreTests/SourceFixtures/Exports/arrl-dx-preview-1.json",
+            "Tests/XContestCoreTests/ContestARRLDXExportTests.swift",
+            "Tests/XLogPrototypeTests/ContestARRLDXADIFExportTests.swift",
+            "Tests/XContestCoreTests/SourceFixtures/arrl-dx-export-authority.json",
+            "Tests/XLogPrototypeTests/ContestARRLDXWorkerWireTests.swift",
+            "docs/contesting/fixtures/arrl-dx-worker-wire.json",
+            "docs/contesting/ARRL_DX_CONTRACT.md"
+          ],
+          "note": "Core/export-layer versioned CW and SSB Cabrillo and ADIF goldens cover both directions, section-independent LOCATION, raw and normalized power, bounded over-width power projection, state-versus-power ADIF fields, deterministic order, and strict identities. The real worker fixture exports both formats in all four direction/mode scenarios. Shared-UI export flow, full categories and operator profiles, sponsor validation/upload, and submission readiness remain open."
         },
         "runSP": {
           "status": "pending",
           "evidence": [],
-          "note": "No RunSP acceptance evidence is recorded for this plugin."
+          "note": "No browser-worker Run/S&P, real radio/keying or voice, packaged operator, or operator-profile acceptance evidence is recorded for this plugin."
         },
         "platform": {
-          "status": "pending",
-          "evidence": [],
-          "note": "No plugin-specific platform evidence is recorded."
+          "status": "partial",
+          "evidence": [
+            "docs/contesting/PLATFORM_VALIDATION.md"
+          ],
+          "note": "ARRL DX core de3606d8d2d97d8a625778fa468046aec13b6145, exports cea99e1d583f71efc6c7810dc105df0b7b664cbc, and activation d764479a028760704990c803650dea653cb3ea39 have reviewed source plus focused native, portable, real-worker, fixture-backed React, and frontend-build evidence. The exact activation-SHA catalog matrix is pending; native-package launch, browser-worker Run/S&P, real radio/keying or voice, operator profiles, full-category validation, cross-platform acceptance, sponsor certification, and upload acceptance remain pending."
         },
-        "certification": "not implemented or accepted"
+        "certification": "official-rules practice preview; browser-worker Run/S&P, native-package, real radio/keying or voice, operator profiles, full-category, cross-platform, sponsor, and submission acceptance remain pending"
       }
     },
     {
@@ -1234,46 +1274,85 @@
         "extraction": "Python AST top-level literal assignments; dynamic or absent values remain unresolved"
       },
       "xlogAcceptance": {
-        "implementationStatus": "pending",
-        "ruleIdentity": null,
+        "implementationStatus": "official-rules-practice-preview",
+        "ruleIdentity": {
+          "id": "arrl-dx-ssb",
+          "version": "1.0.0-2.0-preview",
+          "edition": "rules-2.0-preview",
+          "sourceRevision": "bd87f1b3f635c4cd25c8d80f4b0ca06dca0a4a0f10c819289634492ae1fefee9"
+        },
         "referenceIdentity": {
-          "status": "pending",
-          "value": null,
-          "source": null,
-          "resourceSha256": null
+          "status": "runtime-derived-pinned-resource",
+          "value": "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "source": "Sources/XLogPrototypeSupport/Contesting/ContestLane.swift#ContestReferenceData.bundled",
+          "resourceSha256": "e5d907fb16842cfa3dd8502c20ebe6bfc2039c6f5b2cc73f9ea6d3f5915f6d6d"
         },
         "ruleAudit": {
-          "status": "pending",
-          "evidence": []
+          "status": "official-rules-audited-gaps-open",
+          "evidence": [
+            "Sources/XContestCore/ARRLDXRules.swift",
+            "Tests/XContestCoreTests/SourceFixtures/arrl-dx-authority.json",
+            "docs/contesting/ARRL_DX_CONTRACT.md"
+          ],
+          "note": "Primary authority is the pinned sponsor rules and supporting multiplier, section, DXCC, and power-normalization material. The Python plugins are compatibility comparators with explicit directional, multiplier, exchange, and export gaps; exact comparator parity is not claimed."
         },
         "sourceDerivedScoringCases": {
-          "status": "pending",
-          "evidence": []
+          "status": "official-rules-and-compatibility-tested",
+          "evidence": [
+            "Sources/XContestCore/ARRLDXRules.swift",
+            "Tests/XContestCoreTests/ContestARRLDXTests.swift",
+            "Tests/XContestCoreTests/SourceFixtures/arrl-dx-authority.json",
+            "docs/contesting/ARRL_DX_CONTRACT.md"
+          ],
+          "note": "Official direction, exchange, eligibility, three-point, per-band duplicate, and per-band multiplier behavior is tested with explicit pinned-Python differences; this is not a claim of exact comparator parity."
         },
         "independentScoringCases": {
-          "status": "pending",
-          "evidence": [],
-          "note": "No independent scoring evidence is recorded."
+          "status": "independent-arithmetic-tested",
+          "evidence": [
+            "Tests/XContestCoreTests/ContestARRLDXTests.swift",
+            "Tests/XContestCoreTests/SourceFixtures/arrl-dx-authority.json",
+            "docs/contesting/ARRL_DX_CONTRACT.md"
+          ],
+          "note": "Independent CW and SSB fixtures prove W/VE score 75 and DX scores 108 then 126, including duplicates and per-band DXCC or W/VE subdivision multipliers; they are not operator acceptance."
         },
         "mutationRestart": {
-          "status": "pending",
-          "evidence": []
+          "status": "store-worker-four-way-shared-ui-fixture-tested",
+          "evidence": [
+            "Tests/XContestStoreTests/ContestARRLDXStoreTests.swift",
+            "Tests/XLogPrototypeTests/ContestARRLDXWorkerWireTests.swift",
+            "docs/contesting/fixtures/arrl-dx-worker-wire.json",
+            "prototype/src/contesting/arrlDXWireFixture.test.ts",
+            "prototype/src/contesting/ContestWorkspace.arrlDX.test.tsx",
+            "docs/contesting/ARRL_DX_CONTRACT.md"
+          ],
+          "note": "Core and store coverage spans both modes and both contest directions. The real worker fixture covers W/VE and DX in CW and SSB through create, two sequential returned-draft commits, reset, commit replay, restart/reopen, received-exchange correction, deletion, and Cabrillo/ADIF export. Its forged correction clears wire consistency and is rejected by the authoritative stored-QSO immutability guard for allocatedSentSerial; this is not isolated directional-validator evidence. Fixture-backed React tests cover four creation/input paths plus partial K/KI/KIL/KILO entry and invalid 2000 then valid 100 correction recovery. No browser-worker Run/S&P or packaged operator lifecycle is evidenced."
         },
         "exportGoldens": {
-          "status": "pending",
-          "evidence": []
+          "status": "versioned-practice-preview-goldens-tested",
+          "evidence": [
+            "Tests/XContestCoreTests/SourceFixtures/Exports/arrl-dx-preview-1.json",
+            "Tests/XContestCoreTests/ContestARRLDXExportTests.swift",
+            "Tests/XLogPrototypeTests/ContestARRLDXADIFExportTests.swift",
+            "Tests/XContestCoreTests/SourceFixtures/arrl-dx-export-authority.json",
+            "Tests/XLogPrototypeTests/ContestARRLDXWorkerWireTests.swift",
+            "docs/contesting/fixtures/arrl-dx-worker-wire.json",
+            "docs/contesting/ARRL_DX_CONTRACT.md"
+          ],
+          "note": "Core/export-layer versioned CW and SSB Cabrillo and ADIF goldens cover both directions, section-independent LOCATION, raw and normalized power, bounded over-width power projection, state-versus-power ADIF fields, deterministic order, and strict identities. The real worker fixture exports both formats in all four direction/mode scenarios. Shared-UI export flow, full categories and operator profiles, sponsor validation/upload, and submission readiness remain open."
         },
         "runSP": {
           "status": "pending",
           "evidence": [],
-          "note": "No RunSP acceptance evidence is recorded for this plugin."
+          "note": "No browser-worker Run/S&P, real radio/keying or voice, packaged operator, or operator-profile acceptance evidence is recorded for this plugin."
         },
         "platform": {
-          "status": "pending",
-          "evidence": [],
-          "note": "No plugin-specific platform evidence is recorded."
+          "status": "partial",
+          "evidence": [
+            "docs/contesting/PLATFORM_VALIDATION.md"
+          ],
+          "note": "ARRL DX core de3606d8d2d97d8a625778fa468046aec13b6145, exports cea99e1d583f71efc6c7810dc105df0b7b664cbc, and activation d764479a028760704990c803650dea653cb3ea39 have reviewed source plus focused native, portable, real-worker, fixture-backed React, and frontend-build evidence. The exact activation-SHA catalog matrix is pending; native-package launch, browser-worker Run/S&P, real radio/keying or voice, operator profiles, full-category validation, cross-platform acceptance, sponsor certification, and upload acceptance remain pending."
         },
-        "certification": "not implemented or accepted"
+        "certification": "official-rules practice preview; browser-worker Run/S&P, native-package, real radio/keying or voice, operator profiles, full-category, cross-platform, sponsor, and submission acceptance remain pending"
       }
     },
     {
