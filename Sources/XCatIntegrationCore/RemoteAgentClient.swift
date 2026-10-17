@@ -68,9 +68,9 @@ public actor RemoteAgentClient: RadioControlling {
     // has been observed taking just over seven seconds across the AU-SK link. A lost
     // reply is never replayed. The one exception is an explicit station-busy rejection:
     // the Agent guarantees that response was returned before the FLEX command was sent,
-    // so the same idempotency identity may wait briefly for the coordinator and retry.
+    // so a fresh request identity may wait for the prior guarded writer to drain.
     static let receiveTuneCommandTimeout: TimeInterval = 12
-    static let receiveTuneBusyAttempts = 4
+    static let receiveTuneBusyWait: Duration = .seconds(12)
     static let receiveTuneRetryableFailures: Set<String> = ["station-busy"]
     public typealias StateHandler = @Sendable (RadioConnectionState, String) -> Void
     public typealias SnapshotHandler = @Sendable (RadioSnapshot) -> Void
@@ -233,17 +233,11 @@ public actor RemoteAgentClient: RadioControlling {
         }
         // Keep the existing one-request fast path for an already-simplex A.
         if value.slice.uppercased() == "A", value.transmitSlice.uppercased() == "A" {
-            try await execute(.frequencyAndMode(frequencyHz, mode: normalized, vfo: "A"),
-                              attempts: Self.receiveTuneBusyAttempts,
-                              timeoutInterval: Self.receiveTuneCommandTimeout,
-                              retryableFailures: Self.receiveTuneRetryableFailures)
+            try await executeReceiveTune(.frequencyAndMode(frequencyHz, mode: normalized, vfo: "A"))
             recordSimplexTarget(frequencyHz, mode: normalized)
             return
         }
-        try await execute(.tuneSimplex(frequencyHz, mode: normalized),
-                          attempts: Self.receiveTuneBusyAttempts,
-                          timeoutInterval: Self.receiveTuneCommandTimeout,
-                          retryableFailures: Self.receiveTuneRetryableFailures)
+        try await executeReceiveTune(.tuneSimplex(frequencyHz, mode: normalized))
         recordSimplexTarget(frequencyHz, mode: normalized)
     }
 
@@ -264,11 +258,23 @@ public actor RemoteAgentClient: RadioControlling {
             try await execute(.split(false, txFrequencyHz: nil), attempts: 1,
                               timeoutInterval: Self.receiveTuneCommandTimeout)
         }
-        try await execute(.frequencyAndMode(frequencyHz, mode: mode, vfo: "A"),
-                          attempts: Self.receiveTuneBusyAttempts,
-                          timeoutInterval: Self.receiveTuneCommandTimeout,
-                          retryableFailures: Self.receiveTuneRetryableFailures)
+        try await executeReceiveTune(.frequencyAndMode(frequencyHz, mode: mode, vfo: "A"))
         recordSimplexTarget(frequencyHz, mode: mode)
+    }
+
+    private func executeReceiveTune(_ command: RemoteAgentCommand) async throws {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: Self.receiveTuneBusyWait)
+        while true {
+            do {
+                try await execute(command, attempts: 1, timeoutInterval: Self.receiveTuneCommandTimeout)
+                return
+            } catch let failure as RemoteAgentCommandFailure
+                where Self.receiveTuneRetryableFailures.contains(failure.code) {
+                guard clock.now < deadline else { throw failure }
+                try await Task.sleep(for: .milliseconds(250))
+            }
+        }
     }
 
     public func setSecondaryFrequency(_ frequencyHz: Int64) async throws {
@@ -522,8 +528,7 @@ public actor RemoteAgentClient: RadioControlling {
     }
 
     private func execute(_ command: RemoteAgentCommand, expectedSpot: FlexSpot? = nil,
-                         attempts: Int = 2, timeoutInterval: TimeInterval? = nil,
-                         retryableFailures: Set<String> = []) async throws {
+                         attempts: Int = 2, timeoutInterval: TimeInterval? = nil) async throws {
         guard shouldRun else { throw XCatError.notConnected }
         let commandGeneration = generation
         guard value.remoteStationStatus?.supportedCommands.contains(command.name) == true else {
@@ -556,13 +561,9 @@ public actor RemoteAgentClient: RadioControlling {
             } catch {
                 lastError = error
                 if attempt + 1 < attempts {
-                    if retryableFailures.isEmpty ||
-                        (error as? RemoteAgentCommandFailure).map({ retryableFailures.contains($0.code) }) == true {
-                        try await Task.sleep(for: .milliseconds(200))
-                        continue
-                    }
+                    try await Task.sleep(for: .milliseconds(200))
+                    continue
                 }
-                break
             }
         }
         throw lastError ?? XCatError.server("Remote Agent command failed.")

@@ -162,9 +162,11 @@ final class RemoteAgentObservedSnapshotTests: XCTestCase {
     }
 
     func testSimplexTuneRetriesOnlyAnExplicitStationBusyRejection() async throws {
-        try await fixture(commands: [nil], commandFailures: ["station-busy", "station-busy"], verify: { script in
-            XCTAssertEqual(script.sentCommands.count, 3)
-            XCTAssertEqual(Set(script.sentCommands.compactMap { $0["request_id"] as? String }).count, 1)
+        try await fixture(commands: [nil], commandFailures: Array(repeating: "station-busy", count: 5), verify: { script in
+            XCTAssertEqual(script.sentCommands.count, 6,
+                           "A guarded writer can remain busy beyond the former four-attempt window")
+            XCTAssertEqual(Set(script.sentCommands.compactMap { $0["request_id"] as? String }).count, 6,
+                           "A cached pre-dispatch rejection must not poison the next safe attempt")
         }) { client, _ in
             try await client.tuneSimplex(7_188_000, mode: "LSB")
         }
