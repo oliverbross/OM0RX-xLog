@@ -8,6 +8,7 @@ public actor SQLiteContestStore: ContestDurableRepository {
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
     private var readSnapshotHookForTesting: (@Sendable () -> Void)?
+    private var mutationWriteHookForTesting: (@Sendable (String) throws -> Void)?
 
     public init(databaseURL: URL, busyTimeoutMilliseconds: Int32 = 5_000,
                 rules: ContestRuleRegistry = .pilots) throws {
@@ -23,6 +24,10 @@ public actor SQLiteContestStore: ContestDurableRepository {
 
     func installReadSnapshotHookForTesting(_ hook: (@Sendable () -> Void)?) {
         readSnapshotHookForTesting = hook
+    }
+
+    func installMutationWriteHookForTesting(_ hook: (@Sendable (String) throws -> Void)?) {
+        mutationWriteHookForTesting = hook
     }
 
     public func createSession(_ session: ContestSessionSnapshot, metadata: ContestSessionMetadata,
@@ -419,6 +424,7 @@ public actor SQLiteContestStore: ContestDurableRepository {
             guard qso.sessionID == scope.sessionID else { throw ContestEvaluationError.wrongSession(qsoID: qso.id) }
             let stored = try openSession(id: scope.sessionID)
             guard let rule = rules.rule(for: stored.session.rule) else { throw ContestStoreError.unknownRule(stored.session.rule) }
+            try validateQSOStructure(qso, for: stored.session)
             let semanticIssues = semanticFrequencyIssues(band: qso.band, frequencyHz: qso.frequencyHz)
             guard semanticIssues.isEmpty else { throw ContestStoreError.invalidQSO(semanticIssues) }
             if stored.session.rule == CQWPXCWRule.identity, reservationID == nil {
@@ -482,13 +488,139 @@ public actor SQLiteContestStore: ContestDurableRepository {
         }
     }
 
+    public func qsoReadSnapshot(sessionID: UUID, id: UUID, expectedWorkspaceGeneration: UUID,
+                                expectedRevision: UInt64) throws -> ContestQSOReadSnapshot {
+        try database.readTransaction {
+            let stored = try openSession(id: sessionID)
+            guard stored.session.workspaceGeneration == expectedWorkspaceGeneration else {
+                throw ContestRepositoryError.staleWorkspaceGeneration
+            }
+            guard stored.revision == expectedRevision else {
+                throw ContestRepositoryError.staleRevision(expected: expectedRevision, actual: stored.revision)
+            }
+            readSnapshotHookForTesting?()
+            let value = try qso(sessionID: sessionID, id: id)
+            return ContestQSOReadSnapshot(session: stored, qso: value)
+        }
+    }
+
+    public func correctQSO(_ corrected: ContestQSO, reason: String, operationTimestamp: Date,
+                           scope: ContestMutationScope,
+                           committedAt: Date) throws -> ContestQSOChangeResult {
+        let normalizedReason = reason.trimmingCharacters(in: .whitespacesAndNewlines)
+        let canonical = try canonicalPayload(scope: scope,
+                                             payload: CorrectQSOPayload(qso: corrected, reason: normalizedReason,
+                                                                        operationTimestamp: operationTimestamp))
+        return try database.transaction {
+            if let result: ContestQSOChangeResult = try replay(scope: scope, canonicalPayload: canonical) { return result }
+            let next = try verify(scope)
+            try validateQSOChange(reason: normalizedReason, operationTimestamp: operationTimestamp,
+                                  scope: scope, committedAt: committedAt)
+            let before = try qso(sessionID: scope.sessionID, id: corrected.id)
+            try validateImmutableQSOFields(before: before, after: corrected)
+            let stored = try openSession(id: scope.sessionID)
+            guard let rule = rules.rule(for: stored.session.rule) else {
+                throw ContestStoreError.unknownRule(stored.session.rule)
+            }
+            try validateQSOStructure(corrected, for: stored.session)
+            let semanticIssues = semanticFrequencyIssues(band: corrected.band, frequencyHz: corrected.frequencyHz)
+            guard semanticIssues.isEmpty else { throw ContestStoreError.invalidQSO(semanticIssues) }
+            var contacts = try qsos(sessionID: scope.sessionID, offset: 0, limit: Int.max)
+            guard let index = contacts.firstIndex(where: { $0.id == corrected.id }) else {
+                throw ContestRepositoryError.notFound
+            }
+            contacts[index] = corrected
+            let score = try ContestEngine.score(contacts, session: stored.session, rule: rule)
+            if let evaluation = score.qsos.first(where: { $0.qsoID == corrected.id }),
+               evaluation.disposition == .invalid {
+                throw ContestStoreError.invalidQSO(evaluation.issues)
+            }
+            let audit = ContestQSOAuditRecord(sessionID: scope.sessionID, qsoID: corrected.id,
+                                              operation: .correction, before: before, after: corrected,
+                                              reason: normalizedReason, requestID: scope.requestID,
+                                              operationTimestamp: operationTimestamp,
+                                              committedAt: committedAt, committedRevision: next)
+            try appendAudit(audit)
+            try mutationWriteHookForTesting?("afterAudit")
+            try database.execute("UPDATE qsos SET snapshot = ? WHERE session_id = ? AND id = ? AND is_deleted = 0",
+                                 [.blob(try encode(corrected)), .text(scope.sessionID.uuidString),
+                                  .text(corrected.id.uuidString)])
+            try advanceSession(scope.sessionID, to: next)
+            let receipt = ContestMutationReceipt(requestID: scope.requestID, payloadDigest: scope.payloadDigest,
+                                                 committedRevision: next, committedAt: committedAt,
+                                                 result: .qso(corrected.id))
+            let result = makeQSOChangeResult(stored: stored, operation: .correction,
+                                             before: before, after: corrected, score: score,
+                                             revision: next, receipt: receipt)
+            try saveOperation(scope: scope, canonicalPayload: canonical, receipt: receipt, result: result)
+            try mutationWriteHookForTesting?("beforeCommit")
+            return result
+        }
+    }
+
+    public func deleteQSO(id: UUID, reason: String, operationTimestamp: Date,
+                          scope: ContestMutationScope,
+                          committedAt: Date) throws -> ContestQSOChangeResult {
+        let normalizedReason = reason.trimmingCharacters(in: .whitespacesAndNewlines)
+        let canonical = try canonicalPayload(scope: scope,
+                                             payload: DeleteQSOPayload(qsoID: id, reason: normalizedReason,
+                                                                       operationTimestamp: operationTimestamp))
+        return try database.transaction {
+            if let result: ContestQSOChangeResult = try replay(scope: scope, canonicalPayload: canonical) { return result }
+            let next = try verify(scope)
+            try validateQSOChange(reason: normalizedReason, operationTimestamp: operationTimestamp,
+                                  scope: scope, committedAt: committedAt)
+            let before = try qso(sessionID: scope.sessionID, id: id)
+            let stored = try openSession(id: scope.sessionID)
+            guard let rule = rules.rule(for: stored.session.rule) else {
+                throw ContestStoreError.unknownRule(stored.session.rule)
+            }
+            let contacts = try qsos(sessionID: scope.sessionID, offset: 0, limit: Int.max)
+                .filter { $0.id != id }
+            let score = try ContestEngine.score(contacts, session: stored.session, rule: rule)
+            let audit = ContestQSOAuditRecord(sessionID: scope.sessionID, qsoID: id,
+                                              operation: .deletion, before: before, after: nil,
+                                              reason: normalizedReason, requestID: scope.requestID,
+                                              operationTimestamp: operationTimestamp,
+                                              committedAt: committedAt, committedRevision: next)
+            try appendAudit(audit)
+            try mutationWriteHookForTesting?("afterAudit")
+            try database.execute("UPDATE qsos SET is_deleted = 1, deleted_at = ? WHERE session_id = ? AND id = ? AND is_deleted = 0",
+                                 [.double(committedAt.timeIntervalSince1970), .text(scope.sessionID.uuidString),
+                                  .text(id.uuidString)])
+            try advanceSession(scope.sessionID, to: next)
+            let receipt = ContestMutationReceipt(requestID: scope.requestID, payloadDigest: scope.payloadDigest,
+                                                 committedRevision: next, committedAt: committedAt,
+                                                 result: .qso(id))
+            let result = makeQSOChangeResult(stored: stored, operation: .deletion,
+                                             before: before, after: nil, score: score,
+                                             revision: next, receipt: receipt)
+            try saveOperation(scope: scope, canonicalPayload: canonical, receipt: receipt, result: result)
+            try mutationWriteHookForTesting?("beforeCommit")
+            return result
+        }
+    }
+
+    public func qsoAuditTrail(sessionID: UUID, qsoID: UUID) throws -> [ContestQSOAuditRecord] {
+        _ = try openSession(id: sessionID)
+        var values: [ContestQSOAuditRecord] = []
+        try database.query(
+            "SELECT record FROM qso_audit WHERE session_id = ? AND qso_id = ? ORDER BY committed_revision ASC, request_id ASC",
+            [.text(sessionID.uuidString), .text(qsoID.uuidString)]
+        ) { row in values.append(try self.decode(ContestQSOAuditRecord.self, from: row.blob(0))) }
+        return values
+    }
+
     public func qso(sessionID: UUID, id: UUID) throws -> ContestQSO {
         var value: ContestQSO?
-        try database.query("SELECT snapshot FROM qsos WHERE session_id = ? AND id = ?",
+        var deleted = false
+        try database.query("SELECT snapshot, is_deleted FROM qsos WHERE session_id = ? AND id = ?",
                            [.text(sessionID.uuidString), .text(id.uuidString)]) { row in
             value = try self.decode(ContestQSO.self, from: row.blob(0))
+            deleted = try row.uint(1) != 0
         }
         guard let value else { throw ContestRepositoryError.notFound }
+        guard !deleted else { throw ContestStoreError.qsoDeleted(id) }
         return value
     }
 
@@ -496,14 +628,14 @@ public actor SQLiteContestStore: ContestDurableRepository {
         guard offset >= 0, limit > 0 else { throw ContestStoreError.invalidPage }
         var values: [ContestQSO] = []
         try database.query(
-            "SELECT snapshot FROM qsos WHERE session_id = ? ORDER BY timestamp ASC, id ASC LIMIT ? OFFSET ?",
+            "SELECT snapshot FROM qsos WHERE session_id = ? AND is_deleted = 0 ORDER BY timestamp ASC, id ASC LIMIT ? OFFSET ?",
             [.text(sessionID.uuidString), .int64(Int64(limit)), .int64(Int64(offset))]
         ) { row in values.append(try self.decode(ContestQSO.self, from: row.blob(0))) }
         return values
     }
 
     private func qsoCount(sessionID: UUID) throws -> Int {
-        try database.scalarInt("SELECT COUNT(*) FROM qsos WHERE session_id = ?", [.text(sessionID.uuidString)])
+        try database.scalarInt("SELECT COUNT(*) FROM qsos WHERE session_id = ? AND is_deleted = 0", [.text(sessionID.uuidString)])
     }
 
     public func logPage(sessionID: UUID, offset: Int, limit: Int) throws -> ContestLogPage {
@@ -512,7 +644,7 @@ public actor SQLiteContestStore: ContestDurableRepository {
             let stored = try openSession(id: sessionID)
             readSnapshotHookForTesting?()
             let values = try qsos(sessionID: sessionID, offset: offset, limit: limit)
-            let total = try database.scalarInt("SELECT COUNT(*) FROM qsos WHERE session_id = ?", [.text(sessionID.uuidString)])
+            let total = try database.scalarInt("SELECT COUNT(*) FROM qsos WHERE session_id = ? AND is_deleted = 0", [.text(sessionID.uuidString)])
             return ContestLogPage(sessionID: sessionID, workspaceGeneration: stored.session.workspaceGeneration,
                                   revision: stored.revision, qsos: values, total: total, offset: offset, limit: limit)
         }
@@ -528,6 +660,86 @@ public actor SQLiteContestStore: ContestDurableRepository {
                                         revision: stored.revision,
                                         score: try ContestEngine.score(values, session: stored.session, rule: rule))
         }
+    }
+
+    private func validateQSOChange(reason: String, operationTimestamp: Date,
+                                   scope: ContestMutationScope, committedAt: Date) throws {
+        guard scope.draftID == nil else { throw ContestRepositoryError.invalidDraft }
+        guard !reason.isEmpty, reason.utf8.count <= 1_024 else {
+            throw ContestStoreError.invalidCorrectionReason
+        }
+        guard operationTimestamp.timeIntervalSinceReferenceDate.isFinite,
+              committedAt.timeIntervalSinceReferenceDate.isFinite else {
+            throw ContestStoreError.invalidCorrectionReason
+        }
+    }
+
+    private func validateImmutableQSOFields(before: ContestQSO, after: ContestQSO) throws {
+        guard before.id == after.id else { throw ContestStoreError.immutableQSOField("id") }
+        guard before.sessionID == after.sessionID else { throw ContestStoreError.immutableQSOField("sessionID") }
+        guard before.timestampUTC == after.timestampUTC else { throw ContestStoreError.immutableQSOField("timestampUTC") }
+        guard before.provenance == after.provenance else { throw ContestStoreError.immutableQSOField("provenance") }
+        guard before.operatorCallsign == after.operatorCallsign else {
+            throw ContestStoreError.immutableQSOField("operatorCallsign")
+        }
+        guard before.stationLocation == after.stationLocation else {
+            throw ContestStoreError.immutableQSOField("stationLocation")
+        }
+        guard before.exchange.rawSent == after.exchange.rawSent,
+              before.exchange.normalizedSent == after.exchange.normalizedSent else {
+            throw ContestStoreError.immutableQSOField("allocatedSentSerial")
+        }
+    }
+
+    private func validateQSOStructure(_ qso: ContestQSO, for session: ContestSessionSnapshot) throws {
+        guard let rule = rules.rule(for: session.rule) else { throw ContestStoreError.unknownRule(session.rule) }
+        let exchanges = [qso.exchange.rawSent, qso.exchange.normalizedSent,
+                         qso.exchange.rawReceived, qso.exchange.normalizedReceived]
+        let valid = validCallsign(qso.callsign) &&
+            rule.metadata.supportedBands.contains(qso.band) && qso.band == qso.band.lowercased() &&
+            rule.metadata.supportedModes.contains(qso.mode) && qso.mode == qso.mode.uppercased() &&
+            qso.frequencyHz > 0 && qso.frequencyHz <= 100_000_000_000 &&
+            qso.rstSent.utf8.count <= 3 && qso.rstReceived.utf8.count <= 3 &&
+            exchanges.allSatisfy { $0.utf8.count <= 64 } &&
+            validCallsign(qso.operatorCallsign) && session.station.operatorCallsigns.contains(qso.operatorCallsign) &&
+            qso.stationLocation.utf8.count <= 128 && qso.entity.map(validEntity) != false &&
+            qso.timestampUTC.timeIntervalSinceReferenceDate.isFinite &&
+            qso.provenance.sourceIdentity.map { $0.utf8.count <= 256 } != false
+        guard valid else {
+            throw ContestStoreError.invalidQSO([
+                ContestValidationIssue(code: "qso_structural_bounds", field: "qso",
+                                       message: "QSO exceeds durable contest field bounds")
+            ])
+        }
+    }
+
+    private func appendAudit(_ record: ContestQSOAuditRecord) throws {
+        try database.execute(
+            "INSERT INTO qso_audit(session_id, qso_id, operation, before_snapshot, after_snapshot, reason, request_id, operation_timestamp, committed_at, committed_revision, record) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [.text(record.sessionID.uuidString), .text(record.qsoID.uuidString),
+             .text(record.operation.rawValue), .blob(try encode(record.before)),
+             .blob(try record.after.map(encode) ?? Data()), .text(record.reason),
+             .text(record.requestID.uuidString), .double(record.operationTimestamp.timeIntervalSince1970),
+             .double(record.committedAt.timeIntervalSince1970),
+             .uint(record.committedRevision), .blob(try encode(record))]
+        )
+    }
+
+    private func makeQSOChangeResult(stored: StoredContestSession,
+                                     operation: ContestQSOChangeOperation,
+                                     before: ContestQSO, after: ContestQSO?, score: ContestScore,
+                                     revision: UInt64, receipt: ContestMutationReceipt) -> ContestQSOChangeResult {
+        let session = StoredContestSession(session: stored.session, metadata: stored.metadata,
+                                           revision: revision, createdAt: stored.createdAt)
+        let summary = ContestScoreSummarySnapshot(sessionID: stored.session.id,
+                                                  workspaceGeneration: stored.session.workspaceGeneration,
+                                                  revision: revision, qsoCount: score.qsos.count,
+                                                  totalPoints: score.totalPoints,
+                                                  multiplierCount: score.multiplierCount,
+                                                  claimedScore: score.claimedScore)
+        return ContestQSOChangeResult(session: session, operation: operation, qsoID: before.id,
+                                      before: before, after: after, score: summary,
+                                      receipt: receipt, qsoCount: score.qsos.count)
     }
 
     private func verify(_ scope: ContestMutationScope) throws -> UInt64 {
@@ -737,6 +949,8 @@ private struct UpdateDraftPayload: Encodable { let operation = "updateDraft"; le
 private struct ReservePayload: Encodable { let operation = "reserveSerial"; let reservationID: UUID; let serialScope: ContestSerialScope; let scopeValue: String }
 private struct TransitionPayload: Encodable { let operation = "transitionSerial"; let reservationID: UUID; let state: ContestSerialState }
 private struct CommitPayload: Encodable { let operation = "commitQSO"; let qso: ContestQSO; let reservationID: UUID? }
+private struct CorrectQSOPayload: Encodable { let operation = "correctQSO"; let qso: ContestQSO; let reason: String; let operationTimestamp: Date }
+private struct DeleteQSOPayload: Encodable { let operation = "deleteQSO"; let qsoID: UUID; let reason: String; let operationTimestamp: Date }
 private struct CanonicalMutation<Payload: Encodable>: Encodable {
     let sessionID: UUID
     let workspaceGeneration: UUID
@@ -860,22 +1074,22 @@ private final class SQLiteDatabase: @unchecked Sendable {
     private func migrate() throws {
         try transaction {
             let version = try scalarInt("PRAGMA user_version")
-            guard version <= 1 else { throw ContestStoreError.unsupportedSchema(version) }
-            guard version == 0 else { return }
-            try execute("""
+            guard version <= 2 else { throw ContestStoreError.unsupportedSchema(version) }
+            if version == 0 {
+                try execute("""
                 CREATE TABLE sessions(
                     id TEXT PRIMARY KEY, generation TEXT NOT NULL, revision INTEGER NOT NULL,
                     snapshot BLOB NOT NULL, metadata BLOB NOT NULL, created_at REAL NOT NULL
                 )
                 """)
-            try execute("""
+                try execute("""
                 CREATE TABLE drafts(
                     id TEXT PRIMARY KEY, session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
                     revision INTEGER NOT NULL, snapshot BLOB NOT NULL, updated_at REAL NOT NULL,
                     UNIQUE(session_id, id)
                 )
                 """)
-            try execute("""
+                try execute("""
                 CREATE TABLE operations(
                     session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
                     request_id TEXT NOT NULL, payload_digest TEXT NOT NULL, canonical_payload BLOB NOT NULL,
@@ -883,14 +1097,14 @@ private final class SQLiteDatabase: @unchecked Sendable {
                     PRIMARY KEY(session_id, request_id)
                 )
                 """)
-            try execute("""
+                try execute("""
                 CREATE TABLE serial_counters(
                     session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
                     scope TEXT NOT NULL, scope_value TEXT NOT NULL, next_number INTEGER NOT NULL,
                     PRIMARY KEY(session_id, scope, scope_value)
                 )
                 """)
-            try execute("""
+                try execute("""
                 CREATE TABLE serial_reservations(
                     id TEXT PRIMARY KEY, session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
                     draft_id TEXT NOT NULL REFERENCES drafts(id), scope TEXT NOT NULL, scope_value TEXT NOT NULL,
@@ -898,14 +1112,36 @@ private final class SQLiteDatabase: @unchecked Sendable {
                     UNIQUE(session_id, scope, scope_value, number)
                 )
                 """)
-            try execute("""
+                try execute("""
                 CREATE TABLE qsos(
                     id TEXT PRIMARY KEY, session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
-                    timestamp REAL NOT NULL, snapshot BLOB NOT NULL
+                    timestamp REAL NOT NULL, snapshot BLOB NOT NULL,
+                    is_deleted INTEGER NOT NULL DEFAULT 0, deleted_at REAL
                 )
                 """)
-            try execute("CREATE INDEX qsos_session_order ON qsos(session_id, timestamp, id)")
-            try execute("PRAGMA user_version = 1")
+                try execute("CREATE INDEX qsos_session_order ON qsos(session_id, is_deleted, timestamp, id)")
+            } else if version == 1 {
+                try execute("ALTER TABLE qsos ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0")
+                try execute("ALTER TABLE qsos ADD COLUMN deleted_at REAL")
+                try execute("DROP INDEX qsos_session_order")
+                try execute("CREATE INDEX qsos_session_order ON qsos(session_id, is_deleted, timestamp, id)")
+            }
+            if version < 2 {
+                try execute("""
+                    CREATE TABLE qso_audit(
+                        session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+                        qso_id TEXT NOT NULL REFERENCES qsos(id), operation TEXT NOT NULL,
+                        before_snapshot BLOB NOT NULL, after_snapshot BLOB NOT NULL,
+                        reason TEXT NOT NULL, request_id TEXT NOT NULL,
+                        operation_timestamp REAL NOT NULL,
+                        committed_at REAL NOT NULL, committed_revision INTEGER NOT NULL,
+                        record BLOB NOT NULL,
+                        PRIMARY KEY(session_id, request_id)
+                    )
+                    """)
+                try execute("CREATE INDEX qso_audit_target_order ON qso_audit(session_id, qso_id, committed_revision, request_id)")
+                try execute("PRAGMA user_version = 2")
+            }
         }
     }
 
