@@ -1258,7 +1258,8 @@ private final class PinnedSnapshotParent {
     private func renameStagingHandle(to path: String) throws {
         let fileName = Array(try windowsSnapshotPath(path).utf16)
         let fileNameOffset = MemoryLayout<FILE_RENAME_INFO>.offset(of: \FILE_RENAME_INFO.FileName)!
-        let byteCount = fileNameOffset + fileName.count * MemoryLayout<WCHAR>.stride
+        let fileNameByteCount = fileName.count * MemoryLayout<WCHAR>.stride
+        let byteCount = fileNameOffset + fileNameByteCount + MemoryLayout<WCHAR>.stride
         let buffer = UnsafeMutableRawPointer.allocate(byteCount: byteCount,
                                                       alignment: MemoryLayout<FILE_RENAME_INFO>.alignment)
         defer { buffer.deallocate() }
@@ -1266,10 +1267,11 @@ private final class PinnedSnapshotParent {
         rename.initialize(to: FILE_RENAME_INFO())
         rename.pointee.ReplaceIfExists = BOOLEAN(0)
         rename.pointee.RootDirectory = nil
-        rename.pointee.FileNameLength = DWORD(fileName.count * MemoryLayout<WCHAR>.stride)
+        rename.pointee.FileNameLength = DWORD(fileNameByteCount)
         fileName.withUnsafeBytes { bytes in
             buffer.advanced(by: fileNameOffset).copyMemory(from: bytes.baseAddress!, byteCount: bytes.count)
         }
+        buffer.advanced(by: fileNameOffset + fileNameByteCount).storeBytes(of: WCHAR(0), as: WCHAR.self)
         guard SetFileInformationByHandle(stagingHandle.rawValue, FileRenameInfo, buffer, DWORD(byteCount)) else {
             let code = GetLastError()
             if code == DWORD(ERROR_ALREADY_EXISTS) || code == DWORD(ERROR_FILE_EXISTS) {
