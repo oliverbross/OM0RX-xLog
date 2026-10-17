@@ -8,13 +8,15 @@ import Darwin
 #if os(macOS)
 private actor ContestOperatorAcceptanceBridge {
     private let supportRoot: URL
+    private let fixtureRoot: URL
     private let profile: AppRuntimeProfile
     private let responseFD: Int32
     private let stallMode: String?
     private var worker: LiveWorker?
 
-    init(supportRoot: URL, profile: AppRuntimeProfile, responseFD: Int32, stallMode: String?) {
+    init(supportRoot: URL, fixtureRoot: URL, profile: AppRuntimeProfile, responseFD: Int32, stallMode: String?) {
         self.supportRoot = supportRoot
+        self.fixtureRoot = fixtureRoot
         self.profile = profile
         self.responseFD = responseFD
         self.stallMode = stallMode
@@ -27,6 +29,10 @@ private actor ContestOperatorAcceptanceBridge {
 
     private func respond(id: String, result: [String: Any] = [:]) throws {
         let data = try JSONSerialization.data(withJSONObject: ["id": id, "ok": true, "result": result], options: [.sortedKeys]) + Data([10])
+        try write(data)
+    }
+
+    private func write(_ data: Data) throws {
         var written = 0
         try data.withUnsafeBytes { bytes in
             while written < bytes.count {
@@ -35,6 +41,12 @@ private actor ContestOperatorAcceptanceBridge {
                 written += count
             }
         }
+    }
+
+    private func forward(id: String, method: String, params: [String: Any]) async throws {
+        if worker == nil { worker = newWorker() }
+        let request = try JSONSerialization.data(withJSONObject: ["id": id, "method": method, "params": params], options: [.sortedKeys])
+        try write(await worker!.response(to: request) + Data([10]))
     }
 
     func handle(_ requestData: Data) async throws {
@@ -54,17 +66,28 @@ private actor ContestOperatorAcceptanceBridge {
             if let worker { await worker.shutdown() }
             worker = nil
             try respond(id: id, result: ["lifecycle": "shutdown"])
+        case "__acceptance_scp_import":
+            guard let params = request["params"] as? [String: Any], let selector = params["selector"] as? String,
+                  let filename = ["valid": "acceptance-valid.scp", "invalid": "acceptance-invalid.scp"][selector] else {
+                throw NSError(domain: "ContestOperatorBrowserAcceptance", code: 21,
+                              userInfo: [NSLocalizedDescriptionKey: "Unknown test-owned SCP fixture selector."])
+            }
+            let selected = fixtureRoot.appendingPathComponent(filename)
+            guard selected.deletingLastPathComponent().standardizedFileURL == fixtureRoot.standardizedFileURL,
+                  FileManager.default.isReadableFile(atPath: selected.path) else {
+                throw NSError(domain: "ContestOperatorBrowserAcceptance", code: 22,
+                              userInfo: [NSLocalizedDescriptionKey: "Test-owned SCP fixture is unavailable."])
+            }
+            try await forward(id: id, method: "contest_scp_import_private",
+                              params: ["path": selected.path, "sourceName": selected.lastPathComponent])
+        case "__acceptance_replace_workspace":
+            if let worker { await worker.shutdown() }
+            worker = nil
+            try? FileManager.default.removeItem(at: supportRoot)
+            try await forward(id: id, method: "workspace_create", params: ["mode": "empty"])
         default:
             if worker == nil { worker = newWorker() }
-            let response = await worker!.response(to: requestData) + Data([10])
-            var written = 0
-            try response.withUnsafeBytes { bytes in
-                while written < bytes.count {
-                    let count = Darwin.write(responseFD, bytes.baseAddress!.advanced(by: written), bytes.count - written)
-                    guard count >= 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
-                    written += count
-                }
-            }
+            try write(await worker!.response(to: requestData) + Data([10]))
         }
     }
 
@@ -151,7 +174,13 @@ final class ContestOperatorBrowserAcceptanceTests: XCTestCase {
         guard case .contestingTest(let supportRoot) = profile else { return XCTFail("Expected Contesting Test profile") }
 
         let repositoryRoot = URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
-        let script = repositoryRoot.appendingPathComponent("prototype/scripts/accept-contest-operator-browser.mjs")
+        let scenario = environment["XLOG_OPERATOR_ACCEPTANCE_SCENARIO"] ?? "operator"
+        guard ["operator", "scp"].contains(scenario) else {
+            throw NSError(domain: "ContestOperatorBrowserAcceptance", code: 7,
+                          userInfo: [NSLocalizedDescriptionKey: "Unknown browser acceptance scenario."])
+        }
+        let scriptName = scenario == "scp" ? "accept-contest-scp-operator-browser.mjs" : "accept-contest-operator-browser.mjs"
+        let script = repositoryRoot.appendingPathComponent("prototype/scripts/\(scriptName)")
         guard FileManager.default.fileExists(atPath: script.path) else {
             throw NSError(domain: "ContestOperatorBrowserAcceptance", code: 4,
                           userInfo: [NSLocalizedDescriptionKey: "Acceptance driver is missing."])
@@ -177,7 +206,8 @@ final class ContestOperatorBrowserAcceptanceTests: XCTestCase {
         process.standardInput = responses
         process.standardError = diagnostics
         try process.run()
-        let bridge = ContestOperatorAcceptanceBridge(supportRoot: supportRoot, profile: profile,
+        let bridge = ContestOperatorAcceptanceBridge(supportRoot: supportRoot,
+                                                     fixtureRoot: outputURL.appendingPathComponent("fixtures", isDirectory: true), profile: profile,
                                                      responseFD: responses.fileHandleForWriting.fileDescriptor,
                                                      stallMode: environment["XLOG_OPERATOR_ACCEPTANCE_STALL"])
         let lifecycle = ContestOperatorAcceptanceLifecycle()
