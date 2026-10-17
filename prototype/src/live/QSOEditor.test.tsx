@@ -455,8 +455,8 @@ describe("QSOEditor", () => {
 
   it("does not show callsign validation after a successful save clears the current draft", async () => {
     function SuccessfulSaveHarness() {
-      const [draft, setDraft] = useState<Record<string, any>>(() => initial());
-      return <QSOEditor draft={draft} setDraft={setDraft} save={() => setDraft(current => ({ ...current, call: "" }))}
+      const [draft, setDraft] = useState<Record<string, any> | null>(() => initial());
+      return <QSOEditor draft={draft} setDraft={setDraft} save={() => setDraft(current => current ? ({ ...current, call: "" }) : current)}
         clear={() => {}} busy={false} lookup={null} previous={[]} follow={false} setFollow={() => {}} />;
     }
     render(<SuccessfulSaveHarness />);
