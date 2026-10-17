@@ -45,7 +45,7 @@ The harness does not monitor every filesystem path. Its outside-root evidence is
 
 ## Pending correction/deletion extension
 
-The reviewed source extension after the `ff2b8e3` run has not yet been built or executed. A future run from the exact integrated commit will retain the same bootstrap, profile, synthetic home, external-I/O denials, descriptor samples, protected metadata checks, normal isolated-log zero assertions, and build-manifest provenance. Each framed exchange now receives a monotonically numbered `operation` in the evidence report, which also records its exact process lifecycle and method. The source bounds the two-process scenario to exactly 56 framed operations and fails if that ledger changes without review.
+The reviewed source extension after the `ff2b8e3` run has not yet completed acceptance. A future run from the exact integrated commit will retain the same bootstrap, profile, synthetic home, external-I/O denials, descriptor samples, protected metadata checks, normal isolated-log zero assertions, and build-manifest provenance. Each framed exchange receives a monotonically numbered `operation` in the evidence report, which also records its exact process lifecycle and method. The source bounds the two-process scenario to exactly 57 framed operations and fails if that ledger changes without review.
 
 After the first WPX contact is committed with serial `001`, the extended scenario will:
 
@@ -57,7 +57,7 @@ After the first WPX contact is committed with serial `001`, the extended scenari
 6. reread the operating draft and require duplicate state while preserving its fields and active serial `002`;
 7. delete the corrected contact, require a tombstone on full-QSO read, retrieve the deletion receipt, and require the same draft to become clear without losing serial `002`;
 8. commit that draft with serial `002` and require the next reservation to be `003`; and
-9. restart the real worker, verify both mutation receipts, replay the exact correction and deletion responses after the later delete/recommit sequence, recheck the tombstone, and verify the replacement live contact uses serial `002`.
+9. restart the real worker, verify both mutation receipts, require the original tombstoned commit replay to return `qso_deleted`, replay the live replacement commit exactly, replay the exact correction and deletion responses after the later delete/recommit sequence, recheck the tombstone, and verify the replacement live contact uses serial `002`.
 
 The new helper has a focused Node test proving that correction construction removes `entity` and refuses harness changes to immutable identity, UTC, provenance, sent allocation, rule, and reference fields. Source validation is not worker-process acceptance. A fresh release worker and new evidence directory must be produced only after this script is reviewed and committed; the historical binary below does not contain or test the integrated correction/deletion implementation.
 
