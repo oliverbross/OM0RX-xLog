@@ -102,6 +102,26 @@ impl AutomaticRotor {
             Some(next.map(|next| if disarm { next & !1 } else { next }).unwrap_or(MAX_EPOCH << 1))
         });
     }
+    fn rebase_disarmed_epoch(&self, expected_epoch: u64) -> Option<u64> {
+        let Some(current) = expected_epoch.checked_mul(2).filter(|_| expected_epoch < MAX_EPOCH) else {
+            self.revoke();
+            return None;
+        };
+        let Some(next) = current.checked_add(2) else {
+            self.revoke();
+            return None;
+        };
+        if self.authority.compare_exchange(current, next, Ordering::AcqRel, Ordering::Acquire).is_err() {
+            // Saved radio restoration is independent. A newer explicit Arm,
+            // Off, lifecycle or worker boundary wins, is revoked by this radio
+            // lifecycle, and invalidates only the pending startup Auto token.
+            self.revoke();
+            return None;
+        }
+        // Authority-only: never wait for metadata and then clear state belonging
+        // to a newer explicit command which raced after this successful CAS.
+        Some(next >> 1)
+    }
     fn snapshot(&self) -> Result<Value, String> {
         let state = self.state.lock().map_err(|_| "Automatic rotor state unavailable")?;
         let authority = self.authority.load(Ordering::Acquire);
@@ -273,6 +293,9 @@ pub fn set_armed(armed: bool, expected_owner: Option<&str>, expected_generation:
     })
 }
 pub fn revoke() { owner().revoke(); }
+pub(crate) fn rebase_disarmed_epoch(expected_epoch: u64) -> Option<u64> {
+    owner().rebase_disarmed_epoch(expected_epoch)
+}
 pub fn note_reconcile_error(expected_epoch: u64, error: &str) { owner().note_reconcile_error(expected_epoch, error); }
 pub fn canonical_will_change() -> CanonicalChange { owner().canonical_will_change() }
 pub fn activation_started(target: Target) -> Result<Permit, String> {
@@ -315,6 +338,32 @@ mod tests {
     }
     fn armed() -> Arc<AutomaticRotor> {
         let owner = Arc::new(AutomaticRotor::new()); owner.arm("native_dcu1", 7).unwrap(); owner
+    }
+    #[test]
+    fn saved_radio_startup_rebases_only_the_exact_disarmed_epoch() {
+        let success = AutomaticRotor::new();
+        let rebased = success.rebase_disarmed_epoch(0).unwrap();
+        assert_eq!(rebased, 1);
+        assert!(!success.test_armed());
+        success.test_arm_at_epoch("native_dcu1", 7, rebased, &["20m".into()]).unwrap();
+        assert!(success.test_armed());
+
+        let stale = AutomaticRotor::new();
+        stale.rebase_disarmed_epoch(0).unwrap();
+        assert!(stale.rebase_disarmed_epoch(0).is_none());
+        assert!(!stale.test_armed());
+
+        let armed = AutomaticRotor::new();
+        armed.test_arm_at_epoch("native_dcu1", 7, 0, &["20m".into()]).unwrap();
+        let armed_epoch = armed.test_epoch();
+        assert!(armed.rebase_disarmed_epoch(armed_epoch).is_none());
+        assert!(!armed.test_armed());
+
+        let stopped = AutomaticRotor::new();
+        let reserved = stopped.test_epoch();
+        stopped.revoke();
+        assert!(stopped.rebase_disarmed_epoch(reserved).is_none());
+        assert!(!stopped.test_armed());
     }
     fn begin(owner: &Arc<AutomaticRotor>, call: &str, activation: bool) -> Permit {
         owner.begin(target(call), activation, Some(("native_dcu1".into(), 7))).unwrap()

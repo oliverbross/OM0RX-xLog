@@ -559,6 +559,17 @@ impl Selection {
         admit: impl FnOnce() -> Result<G, String>, dispatch: impl FnOnce(Value) -> Result<Value, String>) -> Result<Value, String> {
         self.control_scoped_dispatch(request, Some((expected, identity, Some(control_revision))), admit, dispatch)
     }
+    pub(crate) fn receive_startup_control<G>(&self, request: Value, expected: u64, identity: &str, control_revision: u64,
+        mut auto_rotor_epoch: u64, admit: impl FnOnce() -> Result<G, String>) -> Result<(Value, u64), String> {
+        if request["method"] != "station_connect" || request["params"]["provider"] != "direct_agent" {
+            return Err("Invalid saved station startup route.".into());
+        }
+        let result = self.control_scoped_dispatch_with_startup(request,
+            Some((expected, identity, Some(control_revision))), Some(&mut auto_rotor_epoch),
+            crate::auto_rotor::rebase_disarmed_epoch, admit,
+            |request| (self.transport)(request))?;
+        Ok((result, auto_rotor_epoch))
+    }
     pub fn manual_tune<G>(&self, request: Value, expected: u64, identity: &str, control_revision: u64,
         admit: impl FnOnce() -> Result<G, String>, dispatch: impl FnOnce(Value) -> Result<Value, String>) -> Result<Value, String> {
         let state = self.state.try_lock().map_err(|_| "Radio selection is busy")?;
@@ -646,7 +657,13 @@ impl Selection {
         }
         self.control_scoped_dispatch(request, Some((expected, selection_id, None)), admit, dispatch)
     }
-    fn control_scoped_dispatch<G>(&self, mut request: Value, expected: Option<(u64, &str, Option<u64>)>, admit: impl FnOnce() -> Result<G, String>,
+    fn control_scoped_dispatch<G>(&self, request: Value, expected: Option<(u64, &str, Option<u64>)>, admit: impl FnOnce() -> Result<G, String>,
+        dispatch: impl FnOnce(Value) -> Result<Value, String>) -> Result<Value, String> {
+        self.control_scoped_dispatch_with_startup(request, expected, None, |_| None, admit, dispatch)
+    }
+    fn control_scoped_dispatch_with_startup<G>(&self, mut request: Value, expected: Option<(u64, &str, Option<u64>)>,
+        startup_auto_epoch: Option<&mut u64>, rebase_startup_auto: impl FnOnce(u64) -> Option<u64>,
+        admit: impl FnOnce() -> Result<G, String>,
         dispatch: impl FnOnce(Value) -> Result<Value, String>) -> Result<Value, String> {
         let mut state = self
             .state
@@ -687,7 +704,13 @@ impl Selection {
         }
         if matches!(request["method"].as_str(), Some("station_connect" | "station_disconnect" | "station_reconnect"
             | "station_forget" | "station_configure" | "station_configuration_apply" | "hamlib_connect" | "hamlib_disconnect" | "hamlib_reconnect")) {
-            crate::auto_rotor::revoke();
+            if let Some(epoch) = startup_auto_epoch {
+                if let Some(rebased) = rebase_startup_auto(*epoch) {
+                    *epoch = rebased;
+                }
+            } else {
+                crate::auto_rotor::revoke();
+            }
         }
         let lifecycle = matches!(
             request["method"].as_str(),
@@ -2077,6 +2100,34 @@ mod tests {
             || -> Result<(), String> { panic!("duplicate restore admitted") },
             |_| -> Result<Value, String> { panic!("duplicate restore dispatched") }).is_err());
         assert_eq!(calls.lock().unwrap().iter().filter(|item| item["method"] == "station_connect").count(), 0);
+    }
+    #[test]
+    fn saved_startup_auto_rebase_never_blocks_the_independent_station_connect() {
+        for rebase_succeeds in [true, false] {
+            let (_directory, owner, _) = fixture();
+            let selected = initialized(&owner, Some("direct_agent"));
+            let identity = selected["selection_id"].as_str().unwrap();
+            let revision = selected["control_revision"].as_u64().unwrap();
+            let mut epoch = 41;
+            let mut rebases = 0;
+            let mut dispatched = 0;
+            let request = json!({"id":"saved-startup","method":"station_connect",
+                "params":{"provider":"direct_agent","base_url":"https://station.example:8443",
+                    "allow_transmit":true,"allow_keychain_interaction":false}});
+            owner.control_scoped_dispatch_with_startup(request,
+                Some((0, identity, Some(revision))), Some(&mut epoch), |observed| {
+                    rebases += 1;
+                    assert_eq!(observed, 41);
+                    rebase_succeeds.then_some(42)
+                }, || Ok(()), |sent| {
+                    dispatched += 1;
+                    Ok(reply(&sent, true))
+                }).unwrap();
+            assert_eq!(rebases, 1);
+            assert_eq!(dispatched, 1);
+            assert_eq!(epoch, if rebase_succeeds { 42 } else { 41 });
+            assert_eq!(owner.snapshot().unwrap()["control_revision"].as_u64(), Some(revision + 1));
+        }
     }
     #[test]
     fn tci_filter_rejects_stale_selection_and_consumed_control_epoch() {

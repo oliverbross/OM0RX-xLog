@@ -1766,7 +1766,7 @@ fn main() {
                 // Reserve the first automatic-rotor command before renderer
                 // input can arrive. A later explicit Off supersedes this token
                 // even while saved connection/telemetry checks are running.
-                let startup_auto_rotor = AUTOMATIC_ROTOR_COMMANDS.begin(true,
+                let mut startup_auto_rotor = AUTOMATIC_ROTOR_COMMANDS.begin(true,
                     || auto_rotor::snapshot()?["epoch"].as_u64().ok_or_else(|| "Automatic rotor epoch unavailable".into()),
                     auto_rotor::revoke).map_err(std::io::Error::other)?;
                 let selection_app = app.handle().clone();
@@ -1783,8 +1783,10 @@ fn main() {
                         // Snapshot/renderer reads remain passive; an intervening
                         // handover or radio control invalidates this exact view.
                         station_session::owner(&selection_app)?.resume_saved_agent(&saved, |request, generation, identity| {
-                            owner.receive_control(request, generation, identity, 0,
-                                || station_telemetry::owner(&selection_app)?.control())
+                            let (result, epoch) = owner.receive_startup_control(request, generation, identity, 0,
+                                startup_auto_rotor.epoch, || station_telemetry::owner(&selection_app)?.control())?;
+                            startup_auto_rotor.epoch = epoch;
+                            Ok(result)
                         })?;
                         Ok(())
                     }) {
