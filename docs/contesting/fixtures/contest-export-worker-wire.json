@@ -29,7 +29,7 @@
       "payloadDigest" : "4444444444444444444444444444444444444444444444444444444444444444",
       "requestID" : "e6111111-2222-4333-8444-555555555555",
       "sessionID" : "e1111111-2222-4333-8444-555555555555",
-      "workspaceGeneration" : "1ef311b6-5820-4caa-8b56-a1146299f147"
+      "workspaceGeneration" : "dca08c03-7e03-499d-bdc1-29b985037f1f"
     },
     "prepare" : {
       "expectedRevision" : 3,
@@ -55,7 +55,7 @@
         ]
       },
       "sessionID" : "e1111111-2222-4333-8444-555555555555",
-      "workspaceGeneration" : "1ef311b6-5820-4caa-8b56-a1146299f147"
+      "workspaceGeneration" : "dca08c03-7e03-499d-bdc1-29b985037f1f"
     },
     "reads" : [
       {
@@ -63,13 +63,13 @@
         "length" : 450,
         "offset" : 0,
         "sessionID" : "e1111111-2222-4333-8444-555555555555",
-        "workspaceGeneration" : "1ef311b6-5820-4caa-8b56-a1146299f147"
+        "workspaceGeneration" : "dca08c03-7e03-499d-bdc1-29b985037f1f"
       }
     ],
     "release" : {
       "exportID" : "e5111111-2222-4333-8444-555555555555",
       "sessionID" : "e1111111-2222-4333-8444-555555555555",
-      "workspaceGeneration" : "1ef311b6-5820-4caa-8b56-a1146299f147"
+      "workspaceGeneration" : "dca08c03-7e03-499d-bdc1-29b985037f1f"
     }
   },
   "responses" : {
@@ -107,7 +107,7 @@
 
             ]
           },
-          "workspaceGeneration" : "1ef311b6-5820-4caa-8b56-a1146299f147"
+          "workspaceGeneration" : "dca08c03-7e03-499d-bdc1-29b985037f1f"
         },
         "receipt" : {
           "committedAt" : "2026-10-17T03:04:00.000Z",
@@ -144,7 +144,7 @@
             "dxccEntity" : "SLOVAK REPUBLIC"
           },
           "updatedAt" : "2026-10-17T03:04:00.000Z",
-          "workspaceGeneration" : "1ef311b6-5820-4caa-8b56-a1146299f147"
+          "workspaceGeneration" : "dca08c03-7e03-499d-bdc1-29b985037f1f"
         }
       }
     },
@@ -182,7 +182,7 @@
 
             ]
           },
-          "workspaceGeneration" : "1ef311b6-5820-4caa-8b56-a1146299f147"
+          "workspaceGeneration" : "dca08c03-7e03-499d-bdc1-29b985037f1f"
         },
         "session" : {
           "name" : "Export wire fixture",
@@ -213,7 +213,7 @@
             "dxccEntity" : "SLOVAK REPUBLIC"
           },
           "updatedAt" : "2026-10-17T03:02:00.000Z",
-          "workspaceGeneration" : "1ef311b6-5820-4caa-8b56-a1146299f147"
+          "workspaceGeneration" : "dca08c03-7e03-499d-bdc1-29b985037f1f"
         }
       }
     },
@@ -227,7 +227,7 @@
         "claimedScore" : 6,
         "expiresAfterSeconds" : 600,
         "format" : "cabrillo",
-        "formatterVersion" : "pilot-1",
+        "formatterVersion" : "pilot-2",
         "generatedAtUTC" : "2026-10-17T03:03:00.000Z",
         "inputSchemaVersion" : "1",
         "multiplierCount" : 2,
@@ -236,7 +236,7 @@
         "sessionID" : "e1111111-2222-4333-8444-555555555555",
         "sha256" : "5df42719e8029ab403d7c2774716b66a07e5501a4bb7854449d54bd5cd0a60f1",
         "totalPoints" : 3,
-        "workspaceGeneration" : "1ef311b6-5820-4caa-8b56-a1146299f147"
+        "workspaceGeneration" : "dca08c03-7e03-499d-bdc1-29b985037f1f"
       }
     },
     "reads" : [
@@ -252,7 +252,7 @@
           "revision" : 3,
           "sessionID" : "e1111111-2222-4333-8444-555555555555",
           "sha256" : "5df42719e8029ab403d7c2774716b66a07e5501a4bb7854449d54bd5cd0a60f1",
-          "workspaceGeneration" : "1ef311b6-5820-4caa-8b56-a1146299f147"
+          "workspaceGeneration" : "dca08c03-7e03-499d-bdc1-29b985037f1f"
         }
       }
     ],
@@ -274,7 +274,7 @@
         "claimedScore" : 6,
         "expiresAfterSeconds" : 600,
         "format" : "cabrillo",
-        "formatterVersion" : "pilot-1",
+        "formatterVersion" : "pilot-2",
         "generatedAtUTC" : "2026-10-17T03:03:00.000Z",
         "inputSchemaVersion" : "1",
         "multiplierCount" : 2,
@@ -283,7 +283,7 @@
         "sessionID" : "e1111111-2222-4333-8444-555555555555",
         "sha256" : "5df42719e8029ab403d7c2774716b66a07e5501a4bb7854449d54bd5cd0a60f1",
         "totalPoints" : 3,
-        "workspaceGeneration" : "1ef311b6-5820-4caa-8b56-a1146299f147"
+        "workspaceGeneration" : "dca08c03-7e03-499d-bdc1-29b985037f1f"
       }
     },
     "stopped" : {

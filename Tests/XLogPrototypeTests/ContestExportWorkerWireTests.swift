@@ -57,6 +57,10 @@ final class ContestExportWorkerWireTests: XCTestCase {
         let replayFrame = try await frame(worker, method: "contest_export_prepare", params: prepare)
         XCTAssertEqual(try canonical(try result(preparedFrame)), try canonical(try result(replayFrame)))
         let prepared = try result(preparedFrame)
+        XCTAssertEqual(prepared["formatterVersion"] as? String, "pilot-2")
+        XCTAssertEqual((prepared["byteLength"] as? NSNumber)?.intValue, 450)
+        XCTAssertEqual(prepared["sha256"] as? String,
+                       "5df42719e8029ab403d7c2774716b66a07e5501a4bb7854449d54bd5cd0a60f1")
         let openAfterPrepare = try await frame(worker, method: "contest_open", params: [
             "sessionID": wire(sessionID), "workspaceGeneration": generation,
         ])
