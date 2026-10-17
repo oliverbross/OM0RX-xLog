@@ -244,6 +244,28 @@ pub fn install(app: &tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 pub(crate) fn automatic_policy_saved() -> Result<AutomaticPolicy, String> { automatic_policy(&load()?) }
+
+fn await_startup_observation(
+    attempts: usize,
+    mut observe: impl FnMut() -> Result<(), String>,
+    mut current: impl FnMut() -> Result<Option<(String, u64)>, String>,
+    mut wait: impl FnMut(),
+) -> Result<(String, u64), String> {
+    let mut previous = None;
+    for attempt in 0..attempts {
+        if observe().is_err() {
+            previous = None;
+        } else if let Some(observed) = current()? {
+            if previous.as_ref() == Some(&observed) { return Ok(observed); }
+            previous = Some(observed);
+        } else {
+            previous = None;
+        }
+        if attempt + 1 < attempts { wait(); }
+    }
+    Err("Timed out waiting for a stable connected rotor observation; automatic rotor remains off.".into())
+}
+
 pub fn resume() -> Result<Option<AutomaticStartup>, String> {
     let mut policy = None;
     let connected = owner()?.resume(|| {
@@ -253,15 +275,18 @@ pub fn resume() -> Result<Option<AutomaticStartup>, String> {
     }, crate::rotor::request_startup)?;
     if connected.is_none() || !policy.as_ref().is_some_and(|value| value.startup) { return Ok(None); }
 
-    // A successful reconnect is not telemetry. Observe the native owner again
-    // before minting launch-time permission; this operation never moves it.
-    let id = uuid::Uuid::new_v4().to_string();
-    let observed = crate::rotor::request(json!({"id":id,"method":"rotor_snapshot","params":{}}))?;
-    if observed["id"] != id || observed["ok"] != true {
-        return Err("Automatic rotor startup observation was not acknowledged.".into());
-    }
-    let (owner, generation) = crate::rotor::automatic_owner()?
-        .ok_or("Observe a connected rotor before enabling automatic turns.")?;
+    // Reconnect acknowledgement is not telemetry. DCU-1 can need a short time
+    // before its first valid position, so use passive startup-only observations
+    // and require the same owner twice. No observation can dispatch motion.
+    let (owner, generation) = await_startup_observation(20, || {
+        let id = uuid::Uuid::new_v4().to_string();
+        let observed = crate::rotor::request_startup_observation(
+            json!({"id":id,"method":"rotor_snapshot","params":{}}))?;
+        if observed["id"] != id || observed["ok"] != true {
+            return Err("Automatic rotor startup observation was not acknowledged.".into());
+        }
+        Ok(())
+    }, crate::rotor::automatic_owner, || std::thread::sleep(std::time::Duration::from_millis(250)))?;
     Ok(Some(AutomaticStartup { owner, generation, bands: policy.unwrap().bands }))
 }
 pub(crate) fn resume_after_worker_restart(
@@ -499,5 +524,49 @@ mod tests {
         assert!(automatic_policy(&saved).is_err());
         saved["configuration"]["auto_rotor_bands"] = json!(["1.25m"]);
         assert!(automatic_policy(&saved).is_err());
+    }
+
+    #[test]
+    fn delayed_startup_observation_becomes_ready_without_motion() {
+        let observations = std::cell::Cell::new(0);
+        let waits = std::cell::Cell::new(0);
+        let owner = await_startup_observation(6, || {
+            observations.set(observations.get() + 1);
+            Ok(())
+        }, || {
+            Ok((observations.get() >= 3).then(|| ("native_dcu1".into(), 7)))
+        }, || waits.set(waits.get() + 1)).unwrap();
+        assert_eq!(owner, ("native_dcu1".into(), 7));
+        assert_eq!(observations.get(), 4);
+        assert_eq!(waits.get(), 3);
+    }
+
+    #[test]
+    fn startup_observation_timeout_stays_passive() {
+        let observations = std::cell::Cell::new(0);
+        let waits = std::cell::Cell::new(0);
+        let result = await_startup_observation(3, || {
+            observations.set(observations.get() + 1);
+            Ok(())
+        }, || Ok(None), || waits.set(waits.get() + 1));
+        assert!(result.unwrap_err().contains("automatic rotor remains off"));
+        assert_eq!(observations.get(), 3);
+        assert_eq!(waits.get(), 2);
+    }
+
+    #[test]
+    fn explicit_off_during_startup_observation_wait_cannot_be_overwritten() {
+        let authority = crate::auto_rotor::AutomaticRotor::testing();
+        let startup_epoch = authority.test_epoch();
+        let ready = std::cell::Cell::new(false);
+        let observed = await_startup_observation(4, || Ok(()), || {
+            Ok(ready.get().then(|| ("native_dcu1".into(), 7)))
+        }, || {
+            authority.revoke();
+            ready.set(true);
+        }).unwrap();
+        assert!(authority.test_arm_at_epoch(&observed.0, observed.1, startup_epoch,
+            &["20m".into()]).is_err());
+        assert!(!authority.test_armed());
     }
 }

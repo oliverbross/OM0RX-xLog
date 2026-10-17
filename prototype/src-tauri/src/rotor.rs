@@ -67,15 +67,16 @@ impl RotorCoordinator {
     where
         F: FnOnce(Value) -> Result<Value, String>,
     {
-        self.handle_scoped(request, None, false, backend)
+        self.handle_scoped(request, None, false, false, backend)
     }
 
     pub(crate) fn handle_automatic<F>(&self, request: Value, permit: &crate::auto_rotor::Permit, backend: F) -> Result<Value, String>
     where F: FnOnce(Value) -> Result<Value, String> {
-        self.handle_scoped(request, Some(permit), false, backend)
+        self.handle_scoped(request, Some(permit), false, false, backend)
     }
 
-    fn handle_scoped<F>(&self, request: Value, automatic: Option<&crate::auto_rotor::Permit>, startup: bool, backend: F) -> Result<Value, String>
+    fn handle_scoped<F>(&self, request: Value, automatic: Option<&crate::auto_rotor::Permit>, startup: bool,
+        startup_observation: bool, backend: F) -> Result<Value, String>
     where F: FnOnce(Value) -> Result<Value, String> {
         let id = request["id"]
             .as_str()
@@ -102,6 +103,9 @@ impl RotorCoordinator {
         let mut state = self.state.lock().map_err(|_| "Rotor owner lock failed")?;
         if startup && (method != "rotor_connect" || state.owner.is_some()) {
             return Err("Rotor owner changed; startup connection was not sent.".into());
+        }
+        if startup_observation && method != "rotor_snapshot" {
+            return Err("Automatic rotor startup observation is passive.".into());
         }
         // Also revoke at actual manual admission: an explicit Arm interleaved
         // while this command waited cannot survive the ensuing manual action.
@@ -143,7 +147,7 @@ impl RotorCoordinator {
                     current.last_observed = Some(Instant::now());
                 } else {
                     current.last_observed = None;
-                    self.automatic.revoke();
+                    if !startup_observation { self.automatic.revoke(); }
                 }
             }
             return Ok(success(
@@ -471,13 +475,16 @@ pub(crate) fn request_manual_generation(request: Value, expected_worker: u64) ->
         || Ok(worker::generation()), worker::request_existing_generation, hamlib::request))
 }
 pub(crate) fn request_startup(request: Value) -> Result<Value, String> {
-    coordinator().handle_scoped(request, None, true, dispatch)
+    coordinator().handle_scoped(request, None, true, false, dispatch)
 }
 pub(crate) fn request_startup_with(
     request: Value,
     dispatch: impl FnOnce(Value) -> Result<Value, String>,
 ) -> Result<Value, String> {
-    coordinator().handle_scoped(request, None, true, dispatch)
+    coordinator().handle_scoped(request, None, true, false, dispatch)
+}
+pub(crate) fn request_startup_observation(request: Value) -> Result<Value, String> {
+    coordinator().handle_scoped(request, None, false, true, dispatch)
 }
 pub(crate) fn worker_restarted() -> Result<(), String> {
     crate::auto_rotor::revoke();
@@ -539,16 +546,16 @@ mod tests {
         let coordinator = RotorCoordinator::new();
         let connect = json!({"id":"startup","method":"rotor_connect",
             "params":{"owner":"native_dcu1","host":"rotor.example.invalid","port":4001,"name":"ARCO"}});
-        coordinator.handle_scoped(connect.clone(), None, true, |request| {
+        coordinator.handle_scoped(connect.clone(), None, true, false, |request| {
             assert_eq!(request["method"], "station_rotor_connect");
             assert_eq!(request["params"], json!({"provider":"direct_agent","host":"rotor.example.invalid","port":4001,"name":"ARCO"}));
             Ok(success("startup", json!({"connected":false})))
         }).unwrap();
-        assert!(coordinator.handle_scoped(connect.clone(), None, true, |_| panic!("Second startup connection")).is_err());
+        assert!(coordinator.handle_scoped(connect.clone(), None, true, false, |_| panic!("Second startup connection")).is_err());
         let fresh = RotorCoordinator::new();
         for method in ["rotor_goto", "rotor_stop", "rotor_park", "rotor_disconnect"] {
             assert!(fresh.handle_scoped(json!({"id":"motion","method":method,"params":{"owner":"native_dcu1","generation":0,"bearing":90}}),
-                None, true, |_| panic!("Startup issued motion")).is_err());
+                None, true, false, |_| panic!("Startup issued motion")).is_err());
         }
     }
 
@@ -559,7 +566,7 @@ mod tests {
         let startup = RotorCoordinator::with_authority(startup_authority.clone());
         let connect = json!({"id":"startup","method":"rotor_connect",
             "params":{"owner":"native_dcu1","host":"rotor.example.invalid","port":4001,"name":"ARCO"}});
-        startup.handle_scoped(connect.clone(), None, true, |request| {
+        startup.handle_scoped(connect.clone(), None, true, false, |request| {
             Ok(success(request["id"].as_str().unwrap(), json!({"connected":true})))
         }).unwrap();
         assert!(startup_authority.test_armed());
@@ -569,6 +576,30 @@ mod tests {
         let manual = RotorCoordinator::with_authority(manual_authority.clone());
         manual.handle(connect, |_| Ok(success("startup", json!({"connected":true})))).unwrap();
         assert!(!manual_authority.test_armed());
+    }
+
+    #[test]
+    fn startup_observation_is_passive_but_an_ordinary_failed_snapshot_revokes() {
+        let authority = Arc::new(crate::auto_rotor::AutomaticRotor::testing());
+        authority.arm("native_dcu1", 7).unwrap();
+        let coordinator = RotorCoordinator::with_authority(authority.clone());
+        let connect = json!({"id":"startup","method":"rotor_connect",
+            "params":{"owner":"native_dcu1","host":"rotor.example.invalid","port":4001,"name":"ARCO"}});
+        coordinator.handle_scoped(connect, None, true, false, |request| {
+            Ok(success(request["id"].as_str().unwrap(), json!({"connected":true})))
+        }).unwrap();
+
+        let snapshot = json!({"id":"observe","method":"rotor_snapshot","params":{}});
+        let pending = coordinator.handle_scoped(snapshot.clone(), None, false, true,
+            |_| Err("DCU-1 is still starting".into())).unwrap();
+        assert_eq!(pending["result"]["backend_available"], false);
+        assert!(authority.test_armed());
+        assert!(coordinator.handle_scoped(json!({"id":"motion","method":"rotor_stop",
+            "params":{"owner":"native_dcu1","generation":1}}), None, false, true,
+            |_| panic!("Startup observation issued motion")).is_err());
+
+        coordinator.handle(snapshot, |_| Err("DCU-1 stopped responding".into())).unwrap();
+        assert!(!authority.test_armed());
     }
 
     #[test]

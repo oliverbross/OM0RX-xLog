@@ -137,6 +137,13 @@ impl AutomaticRotor {
     }
     #[cfg(test)]
     pub(crate) fn test_armed(&self) -> bool { self.armed() }
+    #[cfg(test)]
+    pub(crate) fn test_epoch(&self) -> u64 { self.epoch() }
+    #[cfg(test)]
+    pub(crate) fn test_arm_at_epoch(&self, owner: &str, generation: u64, expected_epoch: u64,
+        bands: &[String]) -> Result<Value, String> {
+        self.arm_at_epoch(owner, generation, expected_epoch, bands)
+    }
     pub(crate) fn revoke(&self) {
         // Revoke before taking any lock: a queued automatic turn cannot become
         // valid while a manual Stop waits behind an already-admitted driver RPC.
@@ -376,6 +383,7 @@ mod tests {
         let result = owner.turn(&permit, || panic!("excluded band must not read again"),
             |_| panic!("excluded band must not look up"), |_, _| panic!("excluded band must not move")).unwrap();
         assert_eq!(result["requested"], false);
+        assert!(owner.armed());
 
         assert!(normalize_bands(&["20m".into(), "20m".into()]).is_err());
         assert!(normalize_bands(&["1.25m".into()]).is_err());
