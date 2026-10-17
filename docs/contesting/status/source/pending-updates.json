@@ -1,5 +1,6 @@
 {
   "proposalDate": "2026-10-18",
+  "measuredAt": "2026-10-17T23:43:54Z",
   "publishedSnapshot": "CONTESTING_STATUS_2026-10-18.md",
   "publishedWorkbook": "CONTESTING_PARITY_MATRIX_2026-10-18.xlsx",
   "applyToPublishedFiles": false,
@@ -29,14 +30,14 @@
     {
       "source": "6f09668f61b374d5577b67b46103115795ddd480",
       "workflowRun": "39077722192",
-      "status": "pending-at-proposal",
-      "result": "Do not infer a pass until the run completes."
+      "status": "passed",
+      "result": "All six native Swift/Rust jobs passed across macOS, Linux and Windows (verified 2026-10-18)."
     },
     {
       "source": "dc323465f6565d891f43626da80dc08aad70e6e7",
       "workflowRun": "39077685821",
-      "status": "pending-at-proposal",
-      "result": "Do not infer a pass until the run completes."
+      "status": "passed",
+      "result": "All six native Swift/Rust jobs passed across macOS, Linux and Windows (verified 2026-10-18)."
     },
     {
       "source": "6f09668f61b374d5577b67b46103115795ddd480",
@@ -50,10 +51,60 @@
     }
   ],
   "naqpBoundary": {
-    "status": "changes-requested",
-    "finding": "A missing-name early return masks invalid nonempty DX/mobile-location input.",
-    "workInProgress": "SOL repair is active.",
-    "acceptance": "No NAQP acceptance upgrade; dirty development evidence remains diagnostic."
+    "statusAtProposal": "changes-requested",
+    "findingAtProposal": "A missing-name early return masked invalid nonempty DX/mobile-location input.",
+    "subsequentStatus": "The combined-foundation source fix was committed as 054cfc5 and its stated code checks passed; a clean operator rehearsal and new native CI are now pending.",
+    "acceptance": "The earlier diagnostic state is superseded for source-code evidence. The f687462 synthetic operator/runtime evidence is separately recorded and does not establish installed native-app or hardware acceptance for 054cfc5. Fresh rehearsal and native CI for 054cfc5 remain pending."
   },
-  "refreshGate": "After the two pending workflow runs resolve and the NAQP repair receives reviewed clean acceptance, update the report source claims and regenerate to an alternate output directory for review. Replace the published snapshot only after its workbook is no longer open and the report delta is accepted."
+  "refreshGate": "Foundation and history native workflows are resolved, and the 10-10 declarative pilot is now integrated in the foundation source. Its native CI and any fresh operator acceptance remain pending. Wait for those results and the NAQP clean operator rehearsal and new native CI before updating report claims and regenerating to an alternate output directory for review. Replace the published snapshot only after its workbook is no longer open and the report delta is accepted.",
+  "subsequentEvidence": {
+    "measuredAtLocalDate": "2026-10-18",
+    "measuredAtUtc": "2026-10-17T23:43:54Z",
+    "reconciledAtUtc": "2026-10-17T23:43:54Z",
+    "currentFoundationMilestone": {
+      "commit": "90648fdd6c81426ce53dc1f97c41ca276619d880",
+      "status": "pushed",
+      "newNativeCI": "pending",
+      "scope": "Source integration milestone only; the original published report snapshot and its cutoff are unchanged."
+    },
+    "foundationAndHistory": {
+      "integrationCommit": "6f09668f61b374d5577b67b46103115795ddd480",
+      "historyCommit": "dc323465f6565d891f43626da80dc08aad70e6e7",
+      "nativeWorkflowRuns": ["39077722192", "39077685821"],
+      "status": "passed",
+      "result": "Both commits passed all six native Swift/Rust jobs across macOS, Linux and Windows."
+    },
+    "metadataExtractor": {
+      "sourceCommit": "c8a7317",
+      "integratedFoundation": "1423f6d",
+      "result": "94 metadata records extracted; zero semantic automatic ports. Catalog remains 16 previews, 78 pending and 0 fully ported."
+    },
+    "tenTenDeclarativePilot": {
+      "sourceCommit": "25a2504",
+      "sourceBranch": "codex/contest-plugin-generator",
+      "foundationIntegrationCommit": "90648fdd6c81426ce53dc1f97c41ca276619d880",
+      "status": "integrated-and-pushed; native-ci-pending; no-fresh-operator-acceptance",
+      "evidence": "docs/contesting/TEN_TEN_DECLARATIVE_PILOT.md and docs/contesting/evidence/ten-ten-declarative-pilot-2026-10-18.json; product Sources, Tests, Package.swift, prototype, and workflow content match source commit 25a2504 byte-for-byte",
+      "result": "Four inactive 10-10 definitions share one rule; 143 core and 72 store checks passed and are accepted as source/test evidence. Export/custom-definition byte persistence and UI remain inactive; catalog count unchanged. No runtime/operator acceptance is claimed."
+    },
+    "naqp": {
+      "sourceCommit": "054cfc5",
+      "sourceBranch": "codex/contest-naqp-integration",
+      "status": "combined-foundation-merge-committed; clean-operator-rehearsal-started; fresh-acceptance-pending",
+      "validation": "134 core, 72 store and 42 support checks passed; 182 frontend checks and production build passed.",
+      "cleanOperatorRehearsal": "pending",
+      "newNativeCI": "pending",
+      "boundary": "The combined source commit is not yet accepted through a fresh clean operator rehearsal or native CI. Earlier operator evidence is recorded separately under its exact source commit."
+    },
+    "historicalOperatorEvidence": {
+      "sourceCommit": "f687462",
+      "operatorCheckpointCommit": "0556d02",
+      "checkpoint": "docs/contesting/NAQP_OPERATOR_ACCEPTANCE_CHECKPOINT_f687462.md",
+      "workflowRuns": {"contestPortability": "39078526141", "regularCI": "39078526145"},
+      "status": "passed-for-that-source-commit",
+      "observedScope": "346 ordinary and 3 lifecycle frames; 26 commits; 14 exports; 82 simulator outputs; no physical hardware.",
+      "runtimeBoundary": "The checkpoint includes passing isolated synthetic worker/UI simulator runtime evidence. It does not establish an installed native-app run or hardware acceptance, and it does not transfer acceptance to combined source commit 054cfc5."
+    },
+    "reportingBoundary": "Keep completed source evidence, pending source integration, and runtime/device acceptance separate. Preserve the published 2026-10-18 snapshot and generated files until review and workbook lock clearance."
+  }
 }

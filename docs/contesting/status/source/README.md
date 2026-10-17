@@ -31,8 +31,8 @@ For a non-destructive reproduction, point `XLOG_REPORT_OUTPUT_DIR` to a new temp
 
 ## Proposed next refresh
 
-`pending-updates.json` records evidence reported after the published snapshot, including the two newly pending integrated-source runs and the NAQP review boundary. It is a review queue only; the builder does not apply it automatically. Resolve pending runs and the NAQP repair, then update the pinned source and report claims deliberately.
+`pending-updates.json` records evidence measured after the published snapshot. The foundation and history native runs have passed; the metadata extractor still reports zero semantic automatic ports. The 10-10 pilot is now integrated in pushed foundation commit `90648fdd`; its 143 core and 72 store checks are recorded as source/test evidence, while fresh native CI and operator acceptance remain pending. NAQP source `f687462` has a passed operator checkpoint and isolated synthetic worker/UI runtime evidence, with native workflow runs 39078526141 and 39078526145; this does not establish installed native-app or hardware acceptance. The later combined source commit `054cfc5` has passed its reported code checks, while a fresh clean operator rehearsal and native CI remain pending. These are source updates only: the builder does not apply them automatically. Review integration and operator evidence before changing the pinned snapshot claims.
 
 ## Evidence boundary
 
-This source reproduces the fixed 94-contest and 33-feature report and its stated evidence boundary. Later native test runs, branch changes, dirty development results and production/runtime outcomes require an explicit evidence review before updating any report claim.
+This source reproduces the fixed 94-contest and 33-feature report and its stated evidence boundary. Later native test runs, branch changes, and runtime/device outcomes remain separately identified in `pending-updates.json`; they require explicit evidence review before updating any report claim. The open workbook lock is preserved, and the published snapshot and generated outputs remain unchanged.
