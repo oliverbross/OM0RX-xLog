@@ -12,7 +12,7 @@
   "tests": [
     {
       "command": "XLOG_PORTABLE_ONLY=1 swift test --filter ContestDeclarativeRuleTests",
-      "result": "10 tests, 0 failures",
+      "result": "9 tests, 0 failures (verified in the retained full-core log)",
       "logPath": "/Users/oliver/.local/state/lean-ctx/tee/XLOG_PORTABLE_ONLY_1_swift_test_--filter_48526182.log",
       "logSHA256": "21813ee84b575f38e89fe7118ad161eed6217785d9bd2e942d3928283a8a354d",
       "logScope": "The retained full-core raw log contains the same focused suite passing; the earlier standalone passing output was below lean-ctx's retained-log threshold."

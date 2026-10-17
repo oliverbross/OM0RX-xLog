@@ -697,6 +697,8 @@ public protocol ContestRule: Sendable {
                        in session: ContestSessionSnapshot) -> [ContestValidationIssue]
     func resolvedSerialRequirement(in session: ContestSessionSnapshot) throws -> ContestResolvedSerialRequirement
     func evaluate(_ qso: ContestQSO, in session: ContestSessionSnapshot) -> ContestRuleEvaluation
+    func partialDraftDupeKey(for qso: ContestQSO, in session: ContestSessionSnapshot,
+                             validation: [ContestValidationIssue]) -> String?
     func cabrilloReceivedExchange(for qso: ContestQSO) -> String
 }
 
@@ -716,6 +718,9 @@ public protocol ContestRuleExchangeFieldProjection: ContestRule {
 }
 
 public extension ContestRule {
+    func partialDraftDupeKey(for qso: ContestQSO, in session: ContestSessionSnapshot,
+                             validation: [ContestValidationIssue]) -> String? { nil }
+
     var draftResetSentProjection: ContestDraftResetSentProjection { .stationAggregate }
     func validateSession(_ session: ContestSessionSnapshot) -> [ContestValidationIssue] { [] }
     func validateDraft(_ draft: ContestDraftSnapshot,

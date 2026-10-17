@@ -27,6 +27,19 @@ Start with one source-derived 10-10 family definition and four mode/season varia
 
 Keep the 16 accepted family implementations as regression references. Migrate each family only when the shared definition produces identical accepted behavior plus any recorded official correction. No large CQ WPX shadow migration is required before the small pilot, but existing family tests remain mandatory regressions whenever shared engine code changes.
 
+### Implementation sequence after the first pilot
+
+The executable core/store pilot is accepted at `25a2504` and integrated at `90648fd`: four inactive 10-10 definitions share one implementation, including an independently authored definition test. This proves source-inspected scoring expectations and local core/store behavior; the Python differential harness, exports and operator activation remain open. The next storage slice persists canonical definition bytes atomically with session creation and reloads them without requiring a caller-supplied Swift rule. A new definition version must not alter an existing session.
+
+The next reusable scoring primitive is a unique-key multiplier with explicit scope, followed by shared structured export projections. Initial candidate cohorts below were inspected against the clean pinned Python source `7c8b499225a73f7f8f792246881bd7aefc05452f`; they are prioritization evidence, not official-rule approval or implemented parity.
+
+| Candidate cohort | Shared source behavior | Particulars to preserve before activation |
+| --- | --- | --- |
+| CWT, CW Open, ICWC MST | One point per nonduplicate contact, unique callsign multiplier, points times multipliers | Exchange layouts differ; CW Open and MST allocate serials. Pin each event's rules, sessions, bands and exchange expectations independently. |
+| K1USN SST, Phone Weekly Test | Name/location exchange and section-by-band multiplier queries | Phone Weekly Test adds a North America contact condition. The source's DX exclusions must be checked against each sponsor's rules; these definitions must not be assumed equivalent. |
+
+These cohorts extend the shared policy vocabulary rather than adding new per-contest Swift classes. Source defects need explicit dispositions: for example, the pinned CW Open one-token exchange branch calls `isalpha()` on a list, so a parser must not blindly translate that branch into accepted application behavior. A malformed exchange should produce a tested validation result. All cohort activation still requires independently expected scoring, edits/duplicates, exports, and representative operator workflows.
+
 Testing scales at three levels:
 
 1. Test the common engine once with unit, property and transaction/restart scenarios for each policy primitive.

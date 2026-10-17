@@ -7,6 +7,7 @@ final class ContestNAQPStoreTests: XCTestCase {
     private let date = Date(timeIntervalSince1970: 1_900_200_000)
     private let usa = ContestEntitySnapshot(adif: 291, name: "UNITED STATES", countryPrefix: "K", continent: "NA", cqZone: 5)
     private let canada = ContestEntitySnapshot(adif: 1, name: "CANADA", countryPrefix: "VE", continent: "NA", cqZone: 4)
+    private let germany = ContestEntitySnapshot(adif: 230, name: "GERMANY", countryPrefix: "DL", continent: "EU", cqZone: 14)
 
     func testThreeModesDraftCommitReplayAndRestartWithoutSerialReservation() async throws {
         let cases: [(any ContestRule, String, Int64)] = [
@@ -169,6 +170,74 @@ final class ContestNAQPStoreTests: XCTestCase {
         }
     }
 
+    func testPartialDraftDuplicateProjectionIgnoresOnlyBlankReceivedFields() async throws {
+        struct Candidate {
+            let call: String
+            let band: String
+            let frequency: Int64
+            let name: String
+            let location: String
+            let sentName: String
+            let entity: ContestEntitySnapshot
+            let expectedDuplicate: Bool?
+        }
+        let candidates = [
+            Candidate(call: "VE3AAA", band: "20m", frequency: 14_050_000, name: "", location: "", sentName: "AL", entity: canada, expectedDuplicate: true),
+            Candidate(call: "VE3BBB", band: "20m", frequency: 14_050_000, name: "", location: "", sentName: "AL", entity: canada, expectedDuplicate: false),
+            Candidate(call: "VE3AAA", band: "20m", frequency: 14_050_000, name: "SAM", location: "", sentName: "AL", entity: canada, expectedDuplicate: true),
+            Candidate(call: "VE3AAA", band: "20m", frequency: 14_050_000, name: "", location: "ON", sentName: "AL", entity: canada, expectedDuplicate: true),
+            Candidate(call: "VE3AAA", band: "20m", frequency: 14_050_000, name: "SAM", location: "CA", sentName: "AL", entity: canada, expectedDuplicate: nil),
+            Candidate(call: "DL1ABC", band: "20m", frequency: 14_050_000, name: "", location: "CA", sentName: "AL", entity: germany, expectedDuplicate: nil),
+            Candidate(call: "DL1ABC", band: "20m", frequency: 14_050_000, name: "", location: "DX", sentName: "AL", entity: germany, expectedDuplicate: false),
+            Candidate(call: "K1ABC/MM", band: "20m", frequency: 14_050_000, name: "", location: "CA", sentName: "AL", entity: usa, expectedDuplicate: nil),
+            Candidate(call: "K1ABC/MM", band: "20m", frequency: 14_050_000, name: "", location: "DX", sentName: "AL", entity: usa, expectedDuplicate: false),
+            Candidate(call: "VE3AAA", band: "40m", frequency: 7_050_000, name: "", location: "", sentName: "AL", entity: canada, expectedDuplicate: false),
+            Candidate(call: "ABC", band: "20m", frequency: 14_050_000, name: "", location: "", sentName: "AL", entity: canada, expectedDuplicate: nil),
+            Candidate(call: "VE3AAA", band: "40m", frequency: 14_050_000, name: "", location: "", sentName: "AL", entity: canada, expectedDuplicate: nil),
+            Candidate(call: "VE3AAA", band: "20m", frequency: 14_050_000, name: "", location: "", sentName: "BOB", entity: canada, expectedDuplicate: nil),
+        ]
+
+        for (index, candidate) in candidates.enumerated() {
+            let ids = IDs(50 + index)
+            let store = try makeStore(databaseURL())
+            _ = try await create(store, ids: ids, rule: NAQPCWRule())
+            _ = try await store.commitQSO(
+                qso(ids: ids, id: fixedUUID(800 + index), mode: "CW", frequency: 14_050_000,
+                    receivedName: "SAM", receivedLocation: "ON"), reservationID: nil,
+                scope: mutation(ids, request: 2, revision: 1, digest: "known-contact"),
+                committedAt: date.addingTimeInterval(1))
+            let updated = try await store.updateDraft(
+                draft(ids: ids, revision: 3, mode: "CW", frequency: candidate.frequency,
+                      call: candidate.call, entity: candidate.entity, receivedName: candidate.name,
+                      receivedLocation: candidate.location, band: candidate.band,
+                      sentName: candidate.sentName),
+                scope: mutation(ids, request: 3, revision: 2, digest: "partial-dupe"),
+                committedAt: date.addingTimeInterval(2))
+            XCTAssertEqual(updated.projection.draftEvaluation.isDuplicate, candidate.expectedDuplicate,
+                           "Unexpected partial duplicate state for candidate \(index)")
+        }
+
+        let deletedIDs = IDs(70)
+        let deletedStore = try makeStore(databaseURL())
+        _ = try await create(deletedStore, ids: deletedIDs, rule: NAQPCWRule())
+        let deletedContact = qso(ids: deletedIDs, id: fixedUUID(900), mode: "CW", frequency: 14_050_000,
+                                 receivedName: "SAM", receivedLocation: "ON")
+        _ = try await deletedStore.commitQSO(
+            deletedContact, reservationID: nil,
+            scope: mutation(deletedIDs, request: 2, revision: 1, digest: "deleted-contact"),
+            committedAt: date.addingTimeInterval(1))
+        _ = try await deletedStore.deleteQSO(
+            id: deletedContact.id, reason: "Remove duplicate source", operationTimestamp: date.addingTimeInterval(2),
+            scope: mutationWithoutDraft(deletedIDs, request: 3, revision: 2, digest: "delete-contact"),
+            committedAt: date.addingTimeInterval(2))
+        let afterDeletion = try await deletedStore.updateDraft(
+            draft(ids: deletedIDs, revision: 4, mode: "CW", frequency: 14_050_000,
+                  call: "VE3AAA", entity: canada, receivedName: "", receivedLocation: ""),
+            scope: mutation(deletedIDs, request: 4, revision: 3, digest: "after-delete"),
+            committedAt: date.addingTimeInterval(3))
+        XCTAssertEqual(afterDeletion.projection.draftEvaluation.isDuplicate, false)
+    }
+
     private func makeStore(_ url: URL) throws -> SQLiteContestStore {
         try SQLiteContestStore(databaseURL: url,
                                rules: ContestRuleRegistry([NAQPCWRule(), NAQPSSBRule(), NAQPRTTYRule()]))
@@ -204,11 +273,13 @@ final class ContestNAQPStoreTests: XCTestCase {
 
     private func draft(ids: IDs, revision: UInt64, mode: String, frequency: Int64,
                        call: String, entity: ContestEntitySnapshot,
-                       receivedName: String, receivedLocation: String) -> ContestDraftSnapshot {
+                       receivedName: String, receivedLocation: String,
+                       band: String = "20m", sentName: String = "AL") -> ContestDraftSnapshot {
         ContestDraftSnapshot(id: ids.draft, sessionID: ids.session, revision: revision,
-                             updatedAt: date.addingTimeInterval(1), callsign: call, band: "20m",
+                             updatedAt: date.addingTimeInterval(1), callsign: call, band: band,
                              mode: mode, frequencyHz: frequency, rstSent: "", rstReceived: "",
-                             exchange: exchange(receivedName: receivedName, receivedLocation: receivedLocation),
+                             exchange: exchange(receivedName: receivedName, receivedLocation: receivedLocation,
+                                                sentName: sentName),
                              entity: entity, operatorCallsign: "K1AAA", stationLocation: "MA")
     }
 
@@ -232,11 +303,12 @@ final class ContestNAQPStoreTests: XCTestCase {
                    stationLocation: qso.stationLocation, provenance: qso.provenance)
     }
 
-    private func exchange(receivedName: String, receivedLocation: String) -> ContestExchangeSnapshot {
-        .init(rawSent: "AL CA", normalizedSent: "AL CA",
+    private func exchange(receivedName: String, receivedLocation: String,
+                          sentName: String = "AL") -> ContestExchangeSnapshot {
+        .init(rawSent: "\(sentName) CA", normalizedSent: "\(sentName) CA",
               rawReceived: "\(receivedName) \(receivedLocation)",
               normalizedReceived: "\(receivedName) \(receivedLocation)",
-              sentFields: stationFields(),
+              sentFields: stationFields(name: sentName),
               receivedFields: ["name": .init(raw: receivedName, normalized: receivedName),
                                "location": .init(raw: receivedLocation, normalized: receivedLocation)])
     }

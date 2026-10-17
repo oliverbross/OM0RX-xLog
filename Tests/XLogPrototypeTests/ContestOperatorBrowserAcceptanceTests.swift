@@ -175,11 +175,15 @@ final class ContestOperatorBrowserAcceptanceTests: XCTestCase {
 
         let repositoryRoot = URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
         let scenario = environment["XLOG_OPERATOR_ACCEPTANCE_SCENARIO"] ?? "operator"
-        guard ["operator", "scp"].contains(scenario) else {
+        guard ["operator", "scp", "naqp"].contains(scenario) else {
             throw NSError(domain: "ContestOperatorBrowserAcceptance", code: 7,
                           userInfo: [NSLocalizedDescriptionKey: "Unknown browser acceptance scenario."])
         }
-        let scriptName = scenario == "scp" ? "accept-contest-scp-operator-browser.mjs" : "accept-contest-operator-browser.mjs"
+        let scriptName = switch scenario {
+        case "scp": "accept-contest-scp-operator-browser.mjs"
+        case "naqp": "accept-contest-naqp-operator-browser.mjs"
+        default: "accept-contest-operator-browser.mjs"
+        }
         let script = repositoryRoot.appendingPathComponent("prototype/scripts/\(scriptName)")
         guard FileManager.default.fileExists(atPath: script.path) else {
             throw NSError(domain: "ContestOperatorBrowserAcceptance", code: 4,

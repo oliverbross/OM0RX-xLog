@@ -4,9 +4,23 @@ import { ContestMutationUncertain, type ContestMutation } from "./client";
 import { createOperatorFlow, operatorFlowAdmissionShape, operatorFlowStep, type OperatorField, type OperatorFlowContext,
   type OperatorFlowCues, type OperatorFlowEvent, type OperatorFlowIntent, type OperatorFlowState, type OperatorMacroRole,
   type OperatorOperationToken, type OperatorStyle } from "./operatorFlow";
-import type { ContestCommitResult, ContestDraftResult, ContestDraftSnapshot, ContestSessionSummary } from "./types";
+import { isStructuredEntry, type ContestCommitResult, type ContestDraftResult, type ContestDraftSnapshot, type ContestSessionSummary } from "./types";
 
-const AUDITED_RULES = new Set(["cq-ww-cw", "cq-wpx-cw", "cq-ww-ssb", "cq-wpx-ssb"]);
+type AuditedRuleProfile = {
+  mode: "CW" | "SSB";
+  version: string;
+  edition: string;
+  source: string;
+  structured: boolean;
+};
+const AUDITED_RULES: ReadonlyMap<string, AuditedRuleProfile> = new Map([
+  ["cq-ww-cw", { mode: "CW", version: "1.0.0-source-spike", edition: "source-26.10.11", source: "7c8b499225a73f7f8f792246881bd7aefc05452f", structured: false }],
+  ["cq-wpx-cw", { mode: "CW", version: "1.0.0-source-spike", edition: "source-26.10.11", source: "7c8b499225a73f7f8f792246881bd7aefc05452f", structured: false }],
+  ["cq-ww-ssb", { mode: "SSB", version: "1.0.0-source-spike", edition: "source-26.10.11", source: "7c8b499225a73f7f8f792246881bd7aefc05452f", structured: false }],
+  ["cq-wpx-ssb", { mode: "SSB", version: "1.0.0-source-spike", edition: "source-26.10.11", source: "7c8b499225a73f7f8f792246881bd7aefc05452f", structured: false }],
+  ["naqp-cw", { mode: "CW", version: "1.0.0-2026-rules-preview", edition: "2026-rules-preview", source: "0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8", structured: true }],
+  ["naqp-ssb", { mode: "SSB", version: "1.0.0-2026-rules-preview", edition: "2026-rules-preview", source: "0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8", structured: true }],
+] as const);
 const PINNED_SOURCE = "7c8b499225a73f7f8f792246881bd7aefc05452f";
 const MAX_TRACE = 24;
 
@@ -40,8 +54,24 @@ type Props = {
 const immediateSimulation: ContestSimulationAdapter = async () => {};
 const draftIdentity = (draft: ContestDraftSnapshot) => `${draft.draftID}@${draft.revision}`;
 function supported(session: ContestSessionSummary) {
-  return AUDITED_RULES.has(session.rule.identity.id) && session.rule.identity.version === "1.0.0-source-spike" &&
-    session.rule.identity.edition === "source-26.10.11" && session.rule.identity.sourceRevision === PINNED_SOURCE;
+  const profile = AUDITED_RULES.get(session.rule.identity.id);
+  if (!profile || session.rule.mode !== profile.mode || session.rule.identity.version !== profile.version ||
+      session.rule.identity.edition !== profile.edition || session.rule.identity.sourceRevision !== profile.source) return false;
+  if (profile.structured) {
+    const entry = session.rule.entry;
+    if (session.rule.entryDescriptorVersion !== 2 || !isStructuredEntry(entry)) return false;
+    const fieldsMatch = (fields: typeof entry.exchange.sentFields, locationRequired: boolean) => fields?.length === 2 && fields[0].id === "name" &&
+      fields[0].required && fields[0].acceptedKinds.length === 1 && fields[0].acceptedKinds[0] === "operatorName" &&
+      fields[1].id === "location" && fields[1].required === locationRequired && fields[1].acceptedKinds.includes("subdivision") && fields[1].acceptedKinds.includes("dxccPrefix");
+    return entry.mode === profile.mode && entry.adifMode === profile.mode &&
+      entry.cabrilloQSOType === (profile.mode === "CW" ? "CW" : "PH") && entry.cabrilloFormatterVersion === "naqp-preview-1" &&
+      entry.cabrilloProjectionFormatterVersion === "naqp-preview-1" && entry.report.format === "none" && entry.report.defaultSent === "" &&
+      entry.report.defaultReceived === "" && entry.report.maximumUTF8Bytes === 0 && entry.exchange.sent === "structured" &&
+      entry.exchange.received === "structured" && entry.exchange.sentDefault === "stationFields" && entry.exchange.adifFields === "exchangeStrings" &&
+      fieldsMatch(entry.exchange.sentFields, false) && fieldsMatch(entry.exchange.receivedFields, true) && entry.serial.requirement === "none" &&
+      entry.serial.allowedScopes.length === 0;
+  }
+  return !isStructuredEntry(session.rule.entry) && session.rule.identity.sourceRevision === PINNED_SOURCE;
 }
 function operatorSignalMode(session: ContestSessionSummary): "CW" | "SSB" {
   if (session.rule.mode === "CW" || session.rule.mode === "SSB") return session.rule.mode;
@@ -50,32 +80,70 @@ function operatorSignalMode(session: ContestSessionSummary): "CW" | "SSB" {
 function valueState(value: string, pattern: RegExp): "empty" | "valid" | "invalid" {
   return value.trim() === "" ? "empty" : pattern.test(value.trim()) ? "valid" : "invalid";
 }
+const REQUIRED_EXCHANGE_FIELD = "A required exchange field is missing.";
+function structuredMissingReceivedErrors(session: ContestSessionSummary, draft: ContestDraftSnapshot) {
+  if (!isStructuredEntry(session.rule.entry)) return [];
+  const values = draft.fields.receivedExchangeFields ?? {};
+  return session.rule.entry.exchange.receivedFields
+    .filter(field => field.required && !(values[field.id] ?? "").trim())
+    .map(() => REQUIRED_EXCHANGE_FIELD);
+}
+function exactErrors(actual: readonly string[], expected: readonly string[]) {
+  const sortedExpected = [...expected].sort();
+  return actual.length === expected.length && [...actual].sort().every((error, index) => error === sortedExpected[index]);
+}
+function structuredIncompleteReceivedReady(session: ContestSessionSummary, draft: ContestDraftSnapshot) {
+  const missing = structuredMissingReceivedErrors(session, draft);
+  if (missing.length === 0 || !isStructuredEntry(session.rule.entry)) return false;
+  const values = draft.fields.receivedExchangeFields ?? {}, nameMissing = !(values.name ?? "").trim(), locationMissing = !(values.location ?? "").trim();
+  const candidates: string[][] = [];
+  if (nameMissing && locationMissing) candidates.push([...missing, "NAQP name is required."],
+    [...missing, "NAQP name is required.", "Received location does not match the resolved North American entity."]);
+  else if (nameMissing) candidates.push([...missing, "NAQP name is required."]);
+  else if (locationMissing) candidates.push([...missing, "North American exchange location must match resolved geography.",
+    "Received location does not match the resolved North American entity."],
+  [...missing, "A non-North-American contact is logged with location DX."]);
+  return candidates.some(expected => exactErrors(draft.validation.errors, expected));
+}
+function structuredCallOnlyReady(session: ContestSessionSummary, draft: ContestDraftSnapshot) {
+  return draft.dupe.state === "clear" && structuredIncompleteReceivedReady(session, draft);
+}
 function cuesFor(session: ContestSessionSummary, draft: ContestDraftSnapshot, focus: OperatorField, correctedCall: boolean): OperatorFlowCues {
   const checked = draft.dupe.state !== "unchecked";
   const reserveFirstUnchecked = session.rule.entry.serial.requirement === "requiredForCommit" && draft.reservedSerial === null &&
     draft.validation.errors.every(error => error === "Sent serial must be a positive integer." || error === "Received serial must be a positive integer.");
   const call = draft.fields.callsign.trim();
   const callShape = /^[A-Z0-9]+(?:\/[A-Z0-9]+)*$/.test(call) && /[A-Z]/.test(call) && /\d/.test(call);
-  const callsign = call === "" ? "empty" : (checked || reserveFirstUnchecked) && callShape ? "valid" : "invalid";
+  const callsign = call === "" ? "empty" : (checked || reserveFirstUnchecked || structuredCallOnlyReady(session, draft)) && callShape ? "valid" : "invalid";
   const rawExchange = draft.fields.receivedExchange.trim(), numeric = /^\d+$/.test(rawExchange) ? Number(rawExchange) : NaN;
-  const exchange = rawExchange === "" ? "empty" : Number.isSafeInteger(numeric) && numeric > 0 &&
+  const exchange = isStructuredEntry(session.rule.entry) ? (() => {
+    const fields = session.rule.entry.exchange.receivedFields, values = draft.fields.receivedExchangeFields ?? {};
+    const any = fields.some(field => (values[field.id] ?? "").trim() !== "");
+    return !any ? "empty" : fields.every(field => !field.required || (values[field.id] ?? "").trim() !== "") ? "valid" : "invalid";
+  })() : rawExchange === "" ? "empty" : Number.isSafeInteger(numeric) && numeric > 0 &&
     (session.rule.entry.exchange.received !== "cqZone" || numeric <= 40) ? "valid" : "invalid";
   return { draftIdentity: draftIdentity(draft), focus, callsign, exchange,
     duplicate: draft.dupe.state === "duplicate" && callsign === "valid", correctedCall: correctedCall && callsign === "valid",
     reservedSerial: draft.reservedSerial };
 }
 function rendered(macro: OperatorMacroRole, session: ContestSessionSummary, draft: ContestDraftSnapshot) {
+  const sentExchange = isStructuredEntry(session.rule.entry) ? session.rule.entry.exchange.sentFields
+    .map(field => draft.fields.sentExchangeFields?.[field.id]?.trim() ?? "").filter(Boolean).join(" ") : draft.fields.sentExchange;
   const templates: Record<OperatorMacroRole, string> = {
-    CQ: "CQ CQ DE {MYCALL} {MYCALL} K", EXCH: "{RST} {SERIAL}", QRZ: "TU {MYCALL} QRZ",
+    CQ: "CQ CQ DE {MYCALL} {MYCALL} K", EXCH: isStructuredEntry(session.rule.entry) ? "{SERIAL}" : "{RST} {SERIAL}", QRZ: "TU {MYCALL} QRZ",
     AGN: "AGN", HISCALL: "{CALL}", MYCALL: "{MYCALL}", QSOB4: "QSO B4",
   };
   return expandCWMacro(templates[macro], { MYCALL: session.station.callsign, CALL: draft.fields.callsign,
-    RST: draft.fields.sentReport, SERIAL: draft.fields.sentExchange }, 128);
+    RST: draft.fields.sentReport, SERIAL: sentExchange }, 128);
 }
 
 export function ContestOperatorPanel({ session, draft, entryRoot, editGeneration, disabled, recovery, reserveSerial, commitQSO,
   admitIntent, guardFormSubmit, focusField, simulateOutput = immediateSimulation }: Props) {
-  const signalMode = operatorSignalMode(session);
+  const audited = supported(session);
+  // Unsupported profiles never execute an operator intent. This inert context
+  // lets RTTY render its explicit Plain Log boundary without claiming a
+  // digital-output implementation.
+  const signalMode = audited ? operatorSignalMode(session) : "CW";
   const contextRef = useRef<OperatorFlowContext>({ sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration,
     contextGeneration: 1, signalMode, serialRequired: session.rule.entry.serial.requirement === "requiredForCommit" });
   const [state, setState] = useState<OperatorFlowState>(() => createOperatorFlow(contextRef.current));
@@ -88,8 +156,6 @@ export function ContestOperatorPanel({ session, draft, entryRoot, editGeneration
   const [reservationContinuation, setReservationContinuation] = useState<{ intent: ReservationIntent; result: ContestDraftResult } | null>(null);
   const aliveRef = useRef(true);
   const [trace, setTrace] = useState<Trace[]>([]);
-  const audited = supported(session);
-
   draftRef.current = draft;
   sessionRef.current = session;
   disabledRef.current = disabled;
@@ -126,26 +192,34 @@ export function ContestOperatorPanel({ session, draft, entryRoot, editGeneration
     const current = draftRef.current;
     return current.validation.errors.length === 0 && current.dupe.state === "clear";
   }
-  const receivedError = () => sessionRef.current.rule.entry.exchange.received === "cqZone" ?
-    "CQ zone must be an integer from 1 through 40." : "Received serial must be a positive integer.";
+  const receivedErrors = () => isStructuredEntry(sessionRef.current.rule.entry) ? ["A required exchange field is missing."] :
+    [sessionRef.current.rule.entry.exchange.received === "cqZone" ? "CQ zone must be an integer from 1 through 40." : "Received serial must be a positive integer."];
   const sentSerialError = "Sent serial must be a positive integer.";
   const errorsOnly = (...allowed: string[]) => draftRef.current.validation.errors.every(error => allowed.includes(error));
   function reserveReady(planWillCommit: boolean) {
     const current = draftRef.current, cues = cuesFor(sessionRef.current, current, focusRef.current, false);
-    const report = sessionRef.current.rule.entry.report.format === "cwRST" ? /^\d{3}$/ : /^\d{2}$/;
-    return cues.callsign === "valid" && (cues.exchange === "valid" || !planWillCommit && cues.exchange === "empty") && !cues.duplicate && report.test(current.fields.sentReport) &&
-      report.test(current.fields.receivedReport) && current.fields.mode === sessionRef.current.rule.mode && current.fields.frequencyHz !== null &&
+    const format = sessionRef.current.rule.entry.report.format, report = format === "cwRST" ? /^\d{3}$/ : /^\d{2}$/;
+    const reportsReady = format === "none" ? current.fields.sentReport === "" && current.fields.receivedReport === "" :
+      report.test(current.fields.sentReport) && report.test(current.fields.receivedReport);
+    return cues.callsign === "valid" && (cues.exchange === "valid" || !planWillCommit && cues.exchange === "empty") && !cues.duplicate && reportsReady && current.fields.mode === sessionRef.current.rule.mode && current.fields.frequencyHz !== null &&
       Number.isSafeInteger(current.fields.frequencyHz) && current.fields.frequencyHz! > 0 &&
-      errorsOnly(sentSerialError, ...(planWillCommit ? [] : [receivedError()]));
+      errorsOnly(sentSerialError, ...(planWillCommit ? [] : receivedErrors()));
   }
   function sendReady(macro: OperatorMacroRole) {
     const current = draftRef.current, planWillCommit = !!stateRef.current.plan?.commit;
     if (planWillCommit) return commitReady();
-    if (macro === "CQ" && current.fields.callsign.trim() === "") return errorsOnly("A valid callsign is required.",
-      "Contest geography could not be resolved.", receivedError(), ...(stateRef.current.context.serialRequired ?
-        [sentSerialError, "A WPX prefix could not be derived."] : []));
-    if (macro === "QSOB4") return current.validation.errors.length === 0 && current.dupe.state === "duplicate";
-    return errorsOnly(receivedError(), ...(stateRef.current.context.serialRequired ? [sentSerialError] : []));
+    if (macro === "CQ" && current.fields.callsign.trim() === "") {
+      const missing = structuredMissingReceivedErrors(sessionRef.current, current);
+      if (isStructuredEntry(sessionRef.current.rule.entry)) return exactErrors(current.validation.errors,
+        [...missing, "A valid callsign is required.", "Resolved contest geography is missing or invalid."]);
+      return errorsOnly("A valid callsign is required.", "Contest geography could not be resolved.", ...receivedErrors(),
+        ...(stateRef.current.context.serialRequired ? [sentSerialError, "A WPX prefix could not be derived."] : []));
+    }
+    if (macro === "QSOB4") return current.dupe.state === "duplicate" &&
+      (current.validation.errors.length === 0 || structuredIncompleteReceivedReady(sessionRef.current, current));
+    if (isStructuredEntry(sessionRef.current.rule.entry) && structuredMissingReceivedErrors(sessionRef.current, current).length > 0)
+      return structuredCallOnlyReady(sessionRef.current, current);
+    return errorsOnly(...receivedErrors(), ...(stateRef.current.context.serialRequired ? [sentSerialError] : []));
   }
   async function execute(intent: OperatorFlowIntent) {
     if (intent.kind === "stop-and-disarm") {
@@ -289,7 +363,7 @@ export function ContestOperatorPanel({ session, draft, entryRoot, editGeneration
   }, [recovery, draft]);
 
   if (!audited) return <section className="contest-operator is-unsupported" aria-label="Run and S&P simulation">
-    <strong>Run / S&amp;P simulation unavailable</strong><p>This guarded operator flow is currently limited to the audited CQ WW and CQ WPX CW/SSB pilots. Plain Log remains available.</p>
+    <strong>Run / S&amp;P simulation unavailable</strong><p>This guarded operator flow is limited to the audited CQ WW, CQ WPX, and NAQP CW/SSB profiles. RTTY and other profiles remain Plain Log only.</p>
   </section>;
   const pending = state.pending;
   return <section className="contest-operator" aria-label="Run and S&P simulation">

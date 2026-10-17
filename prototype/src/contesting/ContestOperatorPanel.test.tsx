@@ -9,6 +9,7 @@ import { ContestOperatorPanel, type ContestOperatorRecovery, type ContestSimulat
 import type { ContestCommitResult, ContestDraftResult, ContestDraftSnapshot, ContestSessionSummary } from "./types";
 
 const SOURCE = "7c8b499225a73f7f8f792246881bd7aefc05452f";
+const NAQP_SOURCE = "0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8";
 type WorkerDraftFixture = { responses: Record<string, { result?: { draft?: ContestDraftSnapshot } }> };
 const workerFixture = workerFixtureJSON as unknown as WorkerDraftFixture;
 const exportFixture = exportFixtureJSON as unknown as WorkerDraftFixture;
@@ -122,6 +123,74 @@ function Harness({ mode, serial = false, duplicate = false, invalid = false, unc
       <output data-testid="owner-draft">{current.revision}/{current.reservedSerial ?? "none"}</output>
       {uncertainCommit && <><button onClick={() => recover(false)}>Recover wrong mutation</button>
       <button onClick={() => recover(true)}>Recover mutation</button></>}<output data-testid="calls">{reserveCount}/{commitCount}</output></>;
+}
+
+function naqpSession(mode: "CW" | "SSB" | "RTTY", overrides: Partial<ContestSessionSummary["rule"]> = {}): ContestSessionSummary {
+  const field = (id: "name" | "location", sent: boolean) => ({ id, label: id === "name" ? "Name" : "Location",
+    acceptedKinds: id === "name" ? ["operatorName" as const] : ["subdivision" as const, "dxccPrefix" as const], required: id === "name" || !sent,
+    maximumUTF8Bytes: id === "name" ? 32 : 8, adifField: `${sent ? "MY_" : ""}${id === "name" ? "NAME" : "STATE"}` as "MY_NAME" | "MY_STATE" | "NAME" | "STATE" });
+  const rule: ContestSessionSummary["rule"] = { identity: { id: `naqp-${mode.toLowerCase()}` as "naqp-cw" | "naqp-ssb" | "naqp-rtty",
+    version: "1.0.0-2026-rules-preview", edition: "2026-rules-preview", sourceRevision: NAQP_SOURCE },
+    displayName: `NAQP ${mode}`, mode, entryDescriptorVersion: 2, entry: { version: 2, mode, adifMode: mode,
+      cabrilloQSOType: mode === "CW" ? "CW" : mode === "SSB" ? "PH" : "RY", cabrilloFormatterVersion: "naqp-preview-1",
+      cabrilloProjectionFormatterVersion: "naqp-preview-1", report: { format: "none", defaultSent: "", defaultReceived: "", maximumUTF8Bytes: 0 },
+      exchange: { sent: "structured", received: "structured", sentDefault: "stationFields", adifFields: "exchangeStrings",
+        sentFields: [field("name", true), field("location", true)], receivedFields: [field("name", false), field("location", false)] },
+      serial: { requirement: "none", allowedScopes: [] }, modeProfiles: [{ mode, adifMode: mode, adifSubmode: null,
+        cabrilloQSOType: mode === "CW" ? "CW" : mode === "SSB" ? "PH" : "RY",
+        report: { format: "none", defaultSent: "", defaultReceived: "", maximumUTF8Bytes: 0 } }], scorePolicy: "pointsTimesMultipliers" },
+    referenceDataVersion: "cty-test", sourceVerification: "verified", sourceNote: "Pinned NAQP test rule", ...overrides };
+  return { sessionID: "a1111111-1111-4111-8111-111111111111", workspaceGeneration: "a2222222-2222-4222-8222-222222222222",
+    revision: 1, name: "NAQP operator", rule, referenceDataVersion: rule.referenceDataVersion,
+    station: { callsign: "K1AAA", cqZone: "5", dxccEntity: "United States", exchangeFields: { name: "AL", location: "CA" },
+      stationFields: { name: "AL", location: "CA" } }, operator: { callsign: "K1AAA", category: "Single Operator" },
+    qsoCount: 0, updatedAt: "2026-10-18T00:00:00.000Z" };
+}
+
+function StructuredHarness({ mode, ruleOverrides, duplicate = false, invalidPartialLocation = false, simulate = async () => {} }:
+  { mode: "CW" | "SSB" | "RTTY"; ruleOverrides?: Partial<ContestSessionSummary["rule"]>; duplicate?: boolean;
+    invalidPartialLocation?: boolean; simulate?: ContestSimulationAdapter }) {
+  const [active, setActive] = useState(() => naqpSession(mode, ruleOverrides));
+  const blank = (value: ContestSessionSummary): ContestDraftSnapshot => ({ draftID: "a3333333-3333-4333-8333-333333333333",
+    sessionID: value.sessionID, workspaceGeneration: value.workspaceGeneration, revision: value.revision,
+    fields: { callsign: "", sentReport: "", sentExchange: "AL CA", receivedReport: "", receivedExchange: "", frequencyHz: mode === "SSB" ? 14_250_000 : 14_050_000,
+      band: "20m", mode, sentExchangeFields: { name: "AL", location: "CA" }, receivedExchangeFields: { name: "", location: "" } },
+    reservedSerial: null, validation: { errors: ["A required exchange field is missing.", "A required exchange field is missing.",
+      "A valid callsign is required.", "Resolved contest geography is missing or invalid."], warnings: [] },
+    dupe: { state: "unchecked", reason: "Awaiting authoritative dupe check" }, updatedAt: value.updatedAt });
+  const [current, setCurrent] = useState(() => blank(active));
+  const [commits, setCommits] = useState(0), [reserves, setReserves] = useState(0), [editGeneration, setEditGeneration] = useState(0);
+  const root = useRef<HTMLFormElement>(null), admitted = useRef(current); admitted.current = current;
+  const update = (fields: ContestDraftSnapshot["fields"]) => { const received = fields.receivedExchangeFields ?? {}, call = fields.callsign.trim();
+    const missing = [received.name, received.location].filter(value => !value?.trim()).map(() => "A required exchange field is missing.");
+    const callShape = /^[A-Z0-9]+(?:\/[A-Z0-9]+)*$/.test(call) && /[A-Z]/.test(call) && /\d/.test(call);
+    const next = { ...admitted.current, fields: { ...fields,
+      receivedExchange: [received.name, received.location].filter(Boolean).join(" ") },
+      validation: { errors: [...missing, ...(!received.name?.trim() ? ["NAQP name is required."] : !received.location?.trim() ?
+        ["North American exchange location must match resolved geography.", "Received location does not match the resolved North American entity."] : []),
+        ...(callShape ? [] : ["A valid callsign is required."]),
+        ...(call ? [] : ["Resolved contest geography is missing or invalid."])], warnings: [] },
+      dupe: callShape ? invalidPartialLocation && !received.name?.trim() && received.location === "CA" &&
+        (call === "DL1ABC" || call === "K1ABC/MM") ? { state: "unchecked" as const, reason: "Validation must complete before dupe checking" } :
+        duplicate && call === "VE3AAA" ? { state: "duplicate" as const, reason: "Worked on this band" } :
+        { state: "clear" as const, reason: "Clear" } : { state: "unchecked" as const, reason: "Awaiting authoritative dupe check" } };
+    admitted.current = next; setCurrent(next); setEditGeneration(value => value + 1); };
+  const commit = async () => { setCommits(value => value + 1); const revision = active.revision + 1, next = { ...blank(active), revision,
+    draftID: "a5555555-5555-4555-8555-555555555555" }; setActive(value => ({ ...value, revision, qsoCount: value.qsoCount + 1 })); admitted.current = next; setCurrent(next);
+    return { ...draftResult({ ...active, revision, qsoCount: active.qsoCount + 1 }, next), qso: { qsoID: "a6666666-6666-4666-8666-666666666666",
+      sessionID: active.sessionID, workedAt: "2026-10-18T00:00:01.000Z", callsign: current.fields.callsign, band: "20m", mode,
+      sentExchange: current.fields.sentExchange, receivedExchange: current.fields.receivedExchange, points: 1, multiplier: "CA", isDupe: false },
+      score: { sessionID: active.sessionID, workspaceGeneration: active.workspaceGeneration, revision, qsos: 1, points: 1, multipliers: 1,
+        claimedScore: 1, sourceVerification: "verified" as const } } satisfies ContestCommitResult; };
+  return <><form ref={root}><ContestOperatorPanel session={active} draft={current} entryRoot={root} editGeneration={editGeneration} disabled={false}
+    recovery={null} reserveSerial={async () => { setReserves(value => value + 1); throw new Error("NAQP must not reserve serials"); }} commitQSO={commit}
+    admitIntent={identity => `${admitted.current.draftID}@${admitted.current.revision}` === identity} guardFormSubmit={() => {}} focusField={() => {}} simulateOutput={simulate}/>
+    <input aria-label="Call" data-contest-operator-field="callsign" value={current.fields.callsign} onChange={event => update({ ...current.fields, callsign: event.target.value.toUpperCase() })}/>
+    <input aria-label="Received Name" data-contest-operator-field="exchange" value={current.fields.receivedExchangeFields?.name ?? ""} onChange={event => update({ ...current.fields,
+      receivedExchangeFields: { ...current.fields.receivedExchangeFields, name: event.target.value.toUpperCase() } })}/>
+    <input aria-label="Received Location" data-contest-operator-field="exchange" value={current.fields.receivedExchangeFields?.location ?? ""} onChange={event => update({ ...current.fields,
+      receivedExchangeFields: { ...current.fields.receivedExchangeFields, location: event.target.value.toUpperCase() } })}/></form>
+    <output data-testid="structured-calls">{reserves}/{commits}</output></>;
 }
 
 describe("ContestOperatorPanel simulated owner integration", () => {
@@ -332,10 +401,99 @@ describe("ContestOperatorPanel simulated owner integration", () => {
     expect((call as HTMLInputElement).value).toBe("");
   });
 
+  it.each(["CW", "SSB"] as const)("runs a report-free NAQP %s contact with the frozen station exchange and no serial allocation", async mode => {
+    const sent: { macro: string; text: string }[] = [];
+    render(<StructuredHarness mode={mode} simulate={async entry => { sent.push(entry); }}/>);
+    const call = screen.getByLabelText("Call");
+    fireEvent.click(screen.getByRole("button", { name: "Arm simulation" }));
+    fireEvent.keyDown(call, { key: mode === "CW" ? "Enter" : "F1" });
+    await waitFor(() => expect(sent.map(item => item.macro)).toEqual(["CQ"]));
+    fireEvent.keyDown(call, { key: "Escape" });
+    fireEvent.change(screen.getByLabelText("Call"), { target: { value: "VE3AAA" } });
+    fireEvent.click(screen.getByRole("button", { name: "Arm simulation" }));
+    fireEvent.keyDown(screen.getByLabelText("Call"), { key: "Enter" });
+    await waitFor(() => expect(sent.map(item => item.macro)).toEqual(["CQ", "HISCALL", "EXCH"]));
+    expect(sent[2].text).toBe("AL CA");
+    expect(sent[2].text).not.toMatch(/\b(?:59|599|\d{3})\b/);
+    fireEvent.change(screen.getByLabelText("Received Name"), { target: { value: "SAM" } });
+    fireEvent.change(screen.getByLabelText("Received Location"), { target: { value: "ON" } });
+    fireEvent.click(screen.getByRole("button", { name: "Arm simulation" }));
+    fireEvent.keyDown(screen.getByLabelText("Received Location"), { key: "Enter" });
+    await waitFor(() => expect(screen.getByTestId("structured-calls").textContent).toBe("0/1"));
+    expect(sent.at(-1)?.macro).toBe("QRZ");
+  });
+
+  it.each(["CW", "SSB"] as const)("logs a report-free NAQP %s S&P contact without reserve or implicit report output", async mode => {
+    const sent: { macro: string; text: string }[] = [];
+    render(<StructuredHarness mode={mode} simulate={async entry => { sent.push(entry); }}/>);
+    fireEvent.change(screen.getByLabelText("Operating style"), { target: { value: "search-and-pounce" } });
+    fireEvent.change(screen.getByLabelText("Call"), { target: { value: "K2AAA" } });
+    fireEvent.click(screen.getByRole("button", { name: "Arm simulation" }));
+    fireEvent.keyDown(screen.getByLabelText("Call"), { key: "Enter" });
+    await waitFor(() => expect(sent).toEqual([expect.objectContaining({ macro: "MYCALL" })]));
+    fireEvent.keyDown(screen.getByLabelText("Call"), { key: "Escape" });
+    fireEvent.change(screen.getByLabelText("Received Name"), { target: { value: "BOB" } });
+    fireEvent.change(screen.getByLabelText("Received Location"), { target: { value: "NY" } });
+    fireEvent.click(screen.getByRole("button", { name: "Arm simulation" }));
+    fireEvent.keyDown(screen.getByLabelText("Received Location"), { key: "Enter" });
+    await waitFor(() => expect(screen.getByTestId("structured-calls").textContent).toBe("0/1"));
+    expect(sent).toEqual([expect.objectContaining({ macro: "MYCALL" }), expect.objectContaining({ macro: "EXCH", text: "AL CA" })]);
+  });
+
+  it.each(["CW", "SSB"] as const)("sends immediate QSOB4 for an authoritative partial NAQP %s duplicate", async mode => {
+    const sent: { macro: string; text: string }[] = [];
+    render(<StructuredHarness mode={mode} duplicate simulate={async entry => { sent.push(entry); }}/>);
+    fireEvent.change(screen.getByLabelText("Call"), { target: { value: "VE3AAA" } });
+    fireEvent.click(screen.getByRole("button", { name: "Arm simulation" }));
+    fireEvent.keyDown(screen.getByLabelText("Call"), { key: "Enter" });
+    await waitFor(() => expect(sent.map(item => item.macro)).toEqual(["QSOB4"]));
+    expect(screen.getByTestId("structured-calls").textContent).toBe("0/0");
+  });
+
+  it.each(["CW", "SSB"] as const)("rejects a malformed NAQP %s callsign while received fields remain incomplete", async mode => {
+    const simulate = vi.fn(); render(<StructuredHarness mode={mode} simulate={simulate}/>);
+    fireEvent.change(screen.getByLabelText("Call"), { target: { value: "ABC" } });
+    fireEvent.click(screen.getByRole("button", { name: "Arm simulation" }));
+    fireEvent.keyDown(screen.getByLabelText("Call"), { key: "Enter" });
+    await act(async () => {});
+    expect(simulate).not.toHaveBeenCalled(); expect(screen.getByTestId("structured-calls").textContent).toBe("0/0");
+  });
+
+  it.each(["CW", "SSB"] as const)("blocks NAQP %s DX and mobile invalid locations while the name is blank", async mode => {
+    for (const call of ["DL1ABC", "K1ABC/MM"]) {
+      const simulate = vi.fn();
+      const view = render(<StructuredHarness mode={mode} invalidPartialLocation simulate={simulate}/>);
+      fireEvent.change(screen.getByLabelText("Call"), { target: { value: call } });
+      fireEvent.change(screen.getByLabelText("Received Location"), { target: { value: "CA" } });
+      fireEvent.click(screen.getByRole("button", { name: "Arm simulation" }));
+      fireEvent.keyDown(screen.getByLabelText("Call"), { key: "Enter" });
+      await act(async () => {});
+      expect(simulate).not.toHaveBeenCalled();
+      expect(screen.getByTestId("structured-calls").textContent).toBe("0/0");
+      view.unmount();
+    }
+  });
+
+  it("keeps NAQP RTTY and crossed NAQP metadata on Plain Log without mutation or simulated output", () => {
+    const simulate = vi.fn(), reserve = vi.fn(), commit = vi.fn();
+    const rtty = naqpSession("RTTY"), rttyDraft = { ...draft(rtty), fields: { ...draft(rtty).fields, sentReport: "", receivedReport: "" } };
+    const root = { current: null };
+    const first = render(<ContestOperatorPanel session={rtty} draft={rttyDraft} entryRoot={root} editGeneration={0} disabled={false} recovery={null}
+      reserveSerial={reserve} commitQSO={commit} admitIntent={() => true} guardFormSubmit={() => {}} focusField={() => {}} simulateOutput={simulate}/>);
+    expect(screen.getByText(/RTTY and other profiles remain Plain Log only/i)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Arm simulation" })).toBeNull();
+    first.unmount();
+    const crossed = naqpSession("SSB", { identity: { ...naqpSession("SSB").rule.identity, id: "naqp-cw" } });
+    render(<ContestOperatorPanel session={crossed} draft={draft(crossed)} entryRoot={root} editGeneration={0} disabled={false} recovery={null}
+      reserveSerial={reserve} commitQSO={commit} admitIntent={() => true} guardFormSubmit={() => {}} focusField={() => {}} simulateOutput={simulate}/>);
+    expect(screen.getByText(/simulation unavailable/i)).toBeTruthy();
+    expect(simulate).not.toHaveBeenCalled(); expect(reserve).not.toHaveBeenCalled(); expect(commit).not.toHaveBeenCalled();
+  });
+
   it("keeps unaudited profiles on Plain Log with an explicit boundary", () => {
     const active = session("CW"); active.rule = { ...active.rule, identity: { ...active.rule.identity, id: "sac-cw" } }; const current = draft(active); const root = { current: null };
     render(<ContestOperatorPanel session={active} draft={current} entryRoot={root} editGeneration={0} disabled={false} recovery={null}
       reserveSerial={vi.fn()} commitQSO={vi.fn()} admitIntent={() => true} guardFormSubmit={() => {}} focusField={vi.fn()}/>);
-    expect(screen.getByText(/currently limited to the audited CQ WW and CQ WPX/)).toBeTruthy();
+    expect(screen.getByText(/limited to the audited CQ WW, CQ WPX, and NAQP CW\/SSB profiles/i)).toBeTruthy();
   });
 });
