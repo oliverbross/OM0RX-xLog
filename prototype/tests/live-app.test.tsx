@@ -277,6 +277,7 @@ it("native menu navigation preserves the draft and never changes equipment or st
 });
 
 it("exposes the Contest Manager only for authoritative isolated contest-test health", async () => {
+  exists = true;
   const backend = calls.request.getMockImplementation()!;
   calls.request.mockImplementation((method, params) => method === "health"
     ? Promise.resolve({ id: "health", ok: true, result: { mode: "contesting_test", isolated_workspace: true } })
@@ -290,9 +291,31 @@ it("exposes the Contest Manager only for authoritative isolated contest-test hea
   fireEvent.click(contest);
   expect(await screen.findByRole("heading", { name: "Contest Workspace" })).toBeTruthy();
   expect(screen.getByRole("main", { name: "Contest Manager / Desk" })).toBeTruthy();
-  expect(calls.request.mock.calls.filter(([method]) => method === "contest_catalog")).toHaveLength(1);
+  await waitFor(() => expect(calls.request.mock.calls.filter(([method]) => method === "contest_catalog")).toHaveLength(1));
   await act(async () => nativeMenu.route?.("Operator Desk"));
   expect(screen.getByRole("main", { name: "Operator Desk" })).toBeTruthy();
+});
+
+it("keeps a fresh contest-test profile in onboarding until its isolated workspace is created", async () => {
+  const backend = calls.request.getMockImplementation()!;
+  calls.request.mockImplementation((method, params) => method === "health"
+    ? Promise.resolve({ id: "health", ok: true, result: { mode: "contesting_test", isolated_workspace: true } })
+    : method === "contest_catalog"
+      ? Promise.resolve({ id: "catalog", ok: true, result: { workspaceGeneration: testWorkspaceGeneration, rules: [] } })
+      : method === "contest_sessions"
+        ? Promise.resolve({ id: "sessions", ok: true, result: { sessions: [] } })
+        : backend(method, params));
+  render(<LiveApp />);
+  await screen.findByRole("button", { name: "Create empty logbook" });
+  expect(screen.queryByRole("button", { name: "Contest Manager / Desk" })).toBeNull();
+  await act(async () => nativeMenu.route?.("Contest Manager / Desk"));
+  expect(await screen.findByText("Create or reconnect this isolated workspace before opening Contesting.")).toBeTruthy();
+  expect(screen.getByRole("main", { name: "Operator Desk" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Create empty logbook" }));
+  const contest = await screen.findByRole("button", { name: "Contest Manager / Desk" });
+  expect(calls.request.mock.calls.filter(([method]) => method === "health").length).toBeGreaterThanOrEqual(2);
+  fireEvent.click(contest);
+  expect(await screen.findByRole("heading", { name: "Contest Workspace" })).toBeTruthy();
 });
 
 it.each([

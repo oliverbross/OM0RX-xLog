@@ -63,6 +63,30 @@ async function open(request: ContestRequest, storage = new MemoryContestRecovery
   await screen.findByText("WW November"); fireEvent.click(screen.getByRole("button", { name: /WW November/ })); await screen.findByRole("form", { name: "CW contest entry" }); return view;
 }
 
+it("offers serial reservation only for WPX and keeps partial calls editable after reserving", async () => {
+  const { request, calls } = fixture();
+  const view = render(<ContestWorkspace request={request} createRequestID={ids()} digestPayload={digest} recoveryStorage={new MemoryContestRecoveryStorage()}/>);
+  await screen.findByText("WW November");
+  fireEvent.click(screen.getByRole("button", { name: /WW November/ }));
+  await screen.findByRole("form", { name: "CW contest entry" });
+  expect(screen.queryByRole("button", { name: "Reserve serial" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Contest Manager" }));
+  fireEvent.click(screen.getByRole("button", { name: /WPX May/ }));
+  const reserve = await screen.findByRole("button", { name: "Reserve serial" });
+  fireEvent.click(reserve);
+  await screen.findByRole("button", { name: "Serial 1" });
+  const call = screen.getByRole("textbox", { name: "Contest callsign" }) as HTMLInputElement;
+  fireEvent.change(call, { target: { value: "K" } });
+  await waitFor(() => expect(calls.some(([method, params]) => method === "contest_draft_apply" &&
+    ((params.payload as { fields?: ContestDraftSnapshot["fields"] }).fields?.callsign === "K"))).toBe(true));
+  expect(call.value).toBe("K");
+  fireEvent.change(call, { target: { value: "K1" } });
+  await waitFor(() => expect(calls.some(([method, params]) => method === "contest_draft_apply" &&
+    ((params.payload as { fields?: ContestDraftSnapshot["fields"] }).fields?.callsign === "K1"))).toBe(true));
+  expect(call.value).toBe("K1");
+  view.unmount();
+});
+
 it("drains edits made during a delayed save before an immediate Log", async () => {
   const gate = deferred(), { request, calls, state } = fixture({ firstApply: gate.promise }); await open(request);
   const call = screen.getByRole("textbox", { name: "Contest callsign" }); fireEvent.change(call, { target: { value: "K1A" } });

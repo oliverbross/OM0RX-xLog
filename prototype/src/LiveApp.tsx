@@ -209,15 +209,17 @@ function MainLiveApp() {
   type MenuSettingsTab = "Station" | "Logbook" | "Wavelog" | "Sync" | "QRZ" | "Online logs" | "Reference data";
   const [settingsTabRequest, setSettingsTabRequest] = useState<{ tab: MenuSettingsTab; revision: number }>({ tab: "Station", revision: 0 });
   const [workspace, setWorkspace] = useState<Data | null>(null);
+  const workspaceRef = useRef(workspace); workspaceRef.current = workspace;
   const [workspacePending, setWorkspacePending] = useState(true);
   const [contestCapability, setContestCapability] = useState<"checking" | "available" | "unavailable">("checking");
   const contestCapabilityRef = useRef(contestCapability); contestCapabilityRef.current = contestCapability;
-  useEffect(() => {
-    let active = true;
-    void framedWorkerRequest("health").then(response => {
-      if (active) setContestCapability(response.ok === true && contestingRuntimeAvailable(response.result) ? "available" : "unavailable");
-    }).catch(() => { if (active) setContestCapability("unavailable"); });
-    return () => { active = false; };
+  const refreshContestCapability = useCallback(async () => {
+    try {
+      const response = await framedWorkerRequest("health");
+      if (mounted.current) setContestCapability(response.ok === true && contestingRuntimeAvailable(response.result) ? "available" : "unavailable");
+    } catch {
+      if (mounted.current) setContestCapability("unavailable");
+    }
   }, []);
   const deskLayout = useWorkspaceLayout(workspace?.workspace_exists === true);
   const modeAction = useRef<(title: string) => Promise<boolean>>(async () => false);
@@ -299,6 +301,10 @@ function MainLiveApp() {
         setError("Contesting requires the isolated OM0RX-xLog Contesting Test runtime.");
       return false;
     }
+    if (next === contestTitle && workspaceRef.current?.workspace_exists !== true) {
+      setError("Create or reconnect this isolated workspace before opening Contesting.");
+      return false;
+    }
     if (logbookWorkingRef.current) { setError("Wait for the logbook operation to finish before changing views."); return false; }
     if (readingRadio.current || editorBufferPending.current || mainClosing.current || layoutChanging.current || editorTransition.current || !draftSession.canAcceptLocalInput() || !contactSession.canAcceptLocalInput()) {
       setError("Finish the buffered draft fields and check any pending activation before changing views. Your text is retained."); return false;
@@ -327,7 +333,7 @@ function MainLiveApp() {
   }, setError, undefined, retry => {
     const draft = draftSession.subscribe(retry), contact = contactSession.subscribe(retry), layout = deskLayout.session.subscribe(retry);
     return () => { draft(); contact(); layout(); };
-  }), [showOnlineSettings, showSyncSettings, setView, draftSession, contactSession, logbookWorking, contestCapability]);
+  }), [showOnlineSettings, showSyncSettings, setView, draftSession, contactSession, logbookWorking, contestCapability, workspace?.workspace_exists]);
   const [refresh, setRefresh] = useState(0);
   useEffect(() => connectLogbookChanges(() => setRefresh(value => value + 1), setError), []);
   const [busy, setBusy] = useState(false);
@@ -702,7 +708,7 @@ function MainLiveApp() {
     const revision = ++reloadRevision.current;
     setWorkspacePending(true);
     try {
-    const state = await request("workspace_status");
+    const [state] = await Promise.all([request("workspace_status"), refreshContestCapability()]);
     if (state.workspace_exists) {
       await preferenceWrite.current.catch(() => {});
       const [, , , loaded] = await Promise.all([settingsSession.load(), loadRotorConfiguration(), draftSession.load(), request("workspace_preferences_load")]);
@@ -727,7 +733,7 @@ function MainLiveApp() {
       if (revision === reloadRevision.current) setStats(totals);
     }).catch(() => { if (revision === reloadRevision.current) setError("Logbook totals could not be loaded. Your draft is available; reopen the workspace to retry."); });
     } finally { if (revision === reloadRevision.current) setWorkspacePending(false); }
-  }, [request, settingsSession, loadRotorConfiguration, draftSession, contactSession]);
+  }, [request, settingsSession, loadRotorConfiguration, draftSession, contactSession, refreshContestCapability]);
   const changeBandMapPreferences = (compact: boolean, view: BandMapViewPreferences) => {
     const current = latestWorkspacePreferences.current;
     if (!current || !validBandMapView(view)) return;
@@ -1073,9 +1079,9 @@ function MainLiveApp() {
     onManualRotor: disarmAutoRotor, isEditing: editing.current, intelligenceBands: workspacePreferences?.intelligenceBands };
   const deskEquipment = equipmentProfile(settings?.stationEquipment), deskKind = deskEquipmentKind(deskEquipment, rotorState, hasConfiguredRotor(rotorConfigurationState.base?.configuration));
   const deskBands = <BandMaps spots={liveSpots} onSelect={selectSpot} radioFrequencyHz={station?.radio?.frequency_hz} compact preferences={workspacePreferences ? bandMapView(workspacePreferences, true) : undefined} onPreferencesChange={value => changeBandMapPreferences(true, value)} />;
-  const contestView = view === contestTitle && contestCapability === "available";
+  const contestView = view === contestTitle && contestCapability === "available" && workspace?.workspace_exists === true;
   const displayedSeparateWindows = separateWindows && !contestView;
-  const navigation = workspaceMenuScreensFor({ contesting: contestCapability === "available" })
+  const navigation = workspaceMenuScreensFor({ contesting: contestCapability === "available" && workspace?.workspace_exists === true })
     .map(screen => [screen.title, screenIcons[screen.id] ?? Award] as const);
   return <div className="app live">
     <header className="station-rail main-station-rail"><strong className="brand teal"><img src={appLogo} alt="" width={32} height={32} />OM0RX-xLog</strong><strong className="cyan rail-frequency">{frequency(station?.radio?.frequency_hz)} MHz · {station?.radio?.mode || "Radio offline"}</strong>

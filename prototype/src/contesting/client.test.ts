@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { canonicalJSON, ContestClient, ContestMutationUncertain, ContestServerError, validateDraftFields } from "./client";
+import { canonicalJSON, ContestClient, ContestMutationUncertain, ContestServerError, validateCreateInput, validateDraftFields } from "./client";
 import type { ContestDraftFields, ContestRequest, ContestSessionSummary } from "./types";
 
 const rule = { identity: { id: "cq-ww-cw", version: "2026.1", edition: "2026", sourceRevision: "source-1" }, displayName: "CQ WW CW", mode: "CW", referenceDataVersion: "cty-2026.10", sourceVerification: "verified", sourceNote: "Checked" } as const;
@@ -49,10 +49,19 @@ describe("ContestClient", () => {
     expect(() => canonicalJSON({ frequencyHz: Number.NaN })).toThrow("finite");
     expect(() => canonicalJSON({ frequencyHz: Number.POSITIVE_INFINITY })).toThrow("finite");
     expect(() => validateDraftFields({ ...fields, callsign: "X".repeat(33) })).toThrow("oversized");
+    expect(() => validateDraftFields({ ...fields, sentReport: "5999" })).toThrow("oversized");
+    expect(() => validateCreateInput({ name: "😀".repeat(64), ruleIdentity: rule.identity, referenceDataVersion: rule.referenceDataVersion,
+      station: session.station, operator: session.operator })).toThrow("oversized");
     const digest = vi.fn(async () => "digest");
     const client = new ContestClient(vi.fn() as ContestRequest, () => "request", digest);
     await expect(client.applyDraft(session, "draft-1", { ...fields, frequencyHz: Number.NaN })).rejects.toThrow("invalid");
     expect(digest).not.toHaveBeenCalled();
+  });
+
+  it("allows partial callsign drafts to reach backend validation and remain editable", () => {
+    expect(() => validateDraftFields({ ...fields, callsign: "K" })).not.toThrow();
+    expect(() => validateDraftFields({ ...fields, callsign: "K1" })).not.toThrow();
+    expect(() => validateDraftFields({ ...fields, callsign: "K1/" })).not.toThrow();
   });
 
   it("pins exact rule and reference identities into a preallocated create scope", async () => {

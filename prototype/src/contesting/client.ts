@@ -29,7 +29,9 @@ async function sha256(payload: unknown): Promise<string> {
 }
 function defaultID() { if (!globalThis.crypto?.randomUUID) throw new Error("Secure contest request identity is unavailable."); return globalThis.crypto.randomUUID(); }
 function object(value: unknown): Record<string, unknown> | null { return value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null; }
-function text(value: unknown, max = 256, allowEmpty = false): value is string { return typeof value === "string" && value.length <= max && (allowEmpty || value.length > 0); }
+function text(value: unknown, max = 256, allowEmpty = false): value is string {
+  return typeof value === "string" && new TextEncoder().encode(value).length <= max && (allowEmpty || value.length > 0);
+}
 function uint(value: unknown): value is number { return Number.isSafeInteger(value) && (value as number) >= 0; }
 function iso(value: unknown): value is string { return text(value, 64) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().length > 0; }
 function utcOperationISO(value: unknown): value is string { return iso(value) && new Date(value).toISOString() === value; }
@@ -47,13 +49,13 @@ function validRule(value: unknown) {
 function validSession(value: unknown, params?: Record<string, unknown>) {
   const v = object(value), station = object(v?.station), operator = object(v?.operator);
   return !!v && text(v.sessionID, 128) && text(v.workspaceGeneration, 128) && (!params || sameContext(v, params)) && uint(v.revision) &&
-    text(v.name, 160) && validRule(v.rule) && text(v.referenceDataVersion, 160) && !!station && text(station.callsign, 32) && text(station.cqZone, 8) &&
+    text(v.name, 128) && validRule(v.rule) && text(v.referenceDataVersion, 160) && !!station && text(station.callsign, 32) && text(station.cqZone, 8) &&
     text(station.dxccEntity, 160) && !!operator && text(operator.callsign, 32) && text(operator.category, 80) && uint(v.qsoCount) && iso(v.updatedAt);
 }
 export function validateDraftFields(value: unknown): asserts value is ContestDraftFields {
   const v = object(value);
-  if (!v || !text(v.callsign, 32, true) || !text(v.sentReport, 8, true) || !text(v.sentExchange, 32, true) ||
-      !text(v.receivedReport, 8, true) || !text(v.receivedExchange, 32, true) || !text(v.band, 8) || !BANDS.has(v.band) || v.mode !== "CW" ||
+  if (!v || !text(v.callsign, 32, true) || !text(v.sentReport, 3, true) || !text(v.sentExchange, 32, true) ||
+      !text(v.receivedReport, 3, true) || !text(v.receivedExchange, 32, true) || !text(v.band, 8) || !BANDS.has(v.band) || v.mode !== "CW" ||
       !(v.frequencyHz === null || uint(v.frequencyHz) && (v.frequencyHz as number) <= 100_000_000_000)) throw new Error("Contest draft contains an invalid or oversized field.");
 }
 function validDraft(value: unknown, params: Record<string, unknown>, expectedDraftID?: unknown) {
@@ -153,7 +155,7 @@ export class ContestClient {
 }
 
 export function validateCreateInput(input: ContestCreateInput) {
-  if (!text(input.name, 160) || !validIdentity(input.ruleIdentity) || !text(input.referenceDataVersion, 160) ||
+  if (!text(input.name, 128) || !validIdentity(input.ruleIdentity) || !text(input.referenceDataVersion, 160) ||
       !text(input.station.callsign, 32) || !text(input.station.cqZone, 8) || !text(input.station.dxccEntity, 160) ||
       !text(input.operator.callsign, 32) || !text(input.operator.category, 80)) throw new Error("Contest session contains an invalid or oversized field.");
 }
