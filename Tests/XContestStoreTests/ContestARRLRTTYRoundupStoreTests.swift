@@ -110,6 +110,69 @@ final class ContestARRLRTTYRoundupStoreTests: XCTestCase {
         XCTAssertEqual(try rawScalarInt(url, "SELECT COUNT(*) FROM operations"), 2)
     }
 
+    func testWVEAggregateResetPreservesAdmittedRawFieldAcrossSequentialContacts() async throws {
+        let ids = IDs(5)
+        let url = databaseURL()
+        var store: SQLiteContestStore? = try SQLiteContestStore(databaseURL: url, rules: registry)
+        let fields = ["location": ContestExchangeFieldValue(raw: "ct", normalized: "CT")]
+        let admittedSession = session(ids, entity: usa, call: "K1AAA", location: "CT",
+                                      locationFieldRaw: "ct")
+        let initial = draft(ids, revision: 1, call: "VE2AAA", sent: "CT", sentFields: fields,
+                            received: "QC", operatorCallsign: "K1AAA")
+        _ = try await store!.createSession(
+            admittedSession, metadata: metadata(call: "K1AAA"), initialDraft: initial,
+            scope: mutation(ids, 1, revision: 0, digest: "create-raw-field", draft: ids.draft),
+            committedAt: date)
+
+        let firstQSO = wveQSO(ids, value: 501, call: "VE2AAA", received: "QC",
+                              sent: "CT", sentFields: fields)
+        let firstScope = mutation(ids, 2, revision: 1, digest: "first", draft: ids.draft)
+        let first = try await store!.commitQSO(
+            firstQSO, reservationID: nil, scope: firstScope, committedAt: date.addingTimeInterval(1))
+        XCTAssertEqual(first.draft.exchange.rawSent, "CT")
+        XCTAssertEqual(first.draft.exchange.normalizedSent, "CT")
+        XCTAssertEqual(first.draft.exchange.sentFields, fields)
+
+        let returned = first.draft
+        let nextDraft = ContestDraftSnapshot(
+            id: returned.id, sessionID: returned.sessionID, revision: 3,
+            updatedAt: date.addingTimeInterval(2), callsign: "VE3AAA", band: returned.band,
+            mode: returned.mode, frequencyHz: returned.frequencyHz, rstSent: returned.rstSent,
+            rstReceived: returned.rstReceived,
+            exchange: .init(rawSent: returned.exchange.rawSent,
+                            normalizedSent: returned.exchange.normalizedSent,
+                            rawReceived: "ON", normalizedReceived: "ON",
+                            sentFields: returned.exchange.sentFields,
+                            receivedFields: ["exchange": .init(raw: "ON", normalized: "ON")]),
+            entity: ContestEntitySnapshot(adif: 1, name: "CANADA", countryPrefix: "VE",
+                                          continent: "NA", cqZone: 4),
+            operatorCallsign: returned.operatorCallsign, stationLocation: returned.stationLocation)
+        _ = try await store!.updateDraft(
+            nextDraft, scope: mutation(ids, 3, revision: 2, digest: "next-draft", draft: ids.draft),
+            committedAt: date.addingTimeInterval(2))
+        let secondQSO = wveQSO(ids, value: 502, call: "VE3AAA", received: "ON",
+                               sent: nextDraft.exchange.rawSent, sentFields: nextDraft.exchange.sentFields)
+        let secondScope = mutation(ids, 4, revision: 3, digest: "second", draft: ids.draft)
+        let second = try await store!.commitQSO(
+            secondQSO, reservationID: nil, scope: secondScope, committedAt: date.addingTimeInterval(3))
+        XCTAssertEqual(second.draft.exchange.rawSent, "CT")
+        XCTAssertEqual(second.draft.exchange.normalizedSent, "CT")
+        XCTAssertEqual(second.draft.exchange.sentFields, fields)
+        store = nil
+
+        store = try SQLiteContestStore(databaseURL: url, rules: registry)
+        let replayedFirst = try await store!.commitQSO(
+            firstQSO, reservationID: nil, scope: firstScope, committedAt: date.addingTimeInterval(10))
+        let replayedSecond = try await store!.commitQSO(
+            secondQSO, reservationID: nil, scope: secondScope, committedAt: date.addingTimeInterval(11))
+        let reopenedDraft = try await store!.draft(sessionID: ids.session, id: ids.draft)
+        XCTAssertEqual(replayedFirst, first)
+        XCTAssertEqual(replayedSecond, second)
+        XCTAssertEqual(reopenedDraft.exchange.rawSent, "CT")
+        XCTAssertEqual(reopenedDraft.exchange.normalizedSent, "CT")
+        XCTAssertEqual(reopenedDraft.exchange.sentFields, fields)
+    }
+
     func testDXReservationForgeryEditCommitRestartReplayAndNonreuse() async throws {
         let url = databaseURL()
         let ids = IDs(10)
@@ -283,8 +346,12 @@ final class ContestARRLRTTYRoundupStoreTests: XCTestCase {
     }
 
     private func session(_ ids: IDs, entity: ContestEntitySnapshot, call: String, location: String?,
-                         serial: String? = nil, section suppliedSection: String? = nil) -> ContestSessionSnapshot {
+                         serial: String? = nil, section suppliedSection: String? = nil,
+                         locationFieldRaw: String? = nil) -> ContestSessionSnapshot {
         var fields = locationFields(location)
+        if let location, let locationFieldRaw {
+            fields["location"] = .init(raw: locationFieldRaw, normalized: location)
+        }
         if let serial { fields["serial"] = .init(raw: serial, normalized: serial) }
         return .init(id: ids.session, workspaceGeneration: generation, rule: ARRLRTTYRoundupRule.identity,
                      referenceDataVersion: "cty-arrl-fixture", startedAt: date,
@@ -335,15 +402,17 @@ final class ContestARRLRTTYRoundupStoreTests: XCTestCase {
               provenance: .init(source: .operatorEntry))
     }
 
-    private func wveQSO(_ ids: IDs) -> ContestQSO {
-        .init(id: requestID(ids, 401), sessionID: ids.session,
-              timestampUTC: date.addingTimeInterval(20), callsign: "VE2AAA",
+    private func wveQSO(_ ids: IDs, value: Int = 401, call: String = "VE2AAA", received: String = "QC",
+                        sent: String = "CA",
+                        sentFields: [String: ContestExchangeFieldValue]? = nil) -> ContestQSO {
+        .init(id: requestID(ids, value), sessionID: ids.session,
+              timestampUTC: date.addingTimeInterval(20), callsign: call,
               band: "20m", mode: "RTTY", frequencyHz: 14_080_000,
               rstSent: "599", rstReceived: "599",
-              exchange: .init(rawSent: "CA", normalizedSent: "CA",
-                              rawReceived: "QC", normalizedReceived: "QC",
-                              sentFields: locationFields("CA"),
-                              receivedFields: ["exchange": .init(raw: "QC", normalized: "QC")]),
+              exchange: .init(rawSent: sent, normalizedSent: sent,
+                              rawReceived: received, normalizedReceived: received,
+                              sentFields: sentFields ?? locationFields(sent),
+                              receivedFields: ["exchange": .init(raw: received, normalized: received)]),
               entity: ContestEntitySnapshot(adif: 1, name: "CANADA", countryPrefix: "VE",
                                             continent: "NA", cqZone: 4),
               operatorCallsign: "K1AAA", stationLocation: "EB",

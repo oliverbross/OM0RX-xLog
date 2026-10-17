@@ -1,0 +1,17 @@
+{
+  "retrievedAt": "2026-10-18",
+  "primaryAuthorities": [
+    {"name":"ARRL DX Rules v2.0","url":"https://contests.arrl.org/ContestRules/DX-Rules.pdf","cachedPath":"/tmp/arrl-dx-rules-v2.0-2026-10-18.pdf","bytes":250769,"sha256":"bd87f1b3f635c4cd25c8d80f4b0ca06dca0a4a0f10c819289634492ae1fefee9"},
+    {"name":"ARRL United States contest multipliers v1.2.0","url":"https://contests.arrl.org/contestmultipliers.php?a=usa","cachedPath":"/tmp/arrl-contest-multipliers-usa-2026-10-18.html","bytes":5793,"sha256":"4d87d53ca04a5cc9e4439508c61a690d073c193477687743f929cb56d1b0a914"},
+    {"name":"ARRL Canadian contest multipliers v1.2.0","url":"https://contests.arrl.org/contestmultipliers.php?a=ve","cachedPath":"/tmp/arrl-contest-multipliers-ve-2026-10-18.html","bytes":4428,"sha256":"f7e617b05918c63aa568672b63d38b33bd7d6f784f2073a0fb4086f914037c1a"},
+    {"name":"ARRL DXCC Current Entities January 2026","url":"https://www.arrl.org/files/file/DXCC/DXCC_Current.pdf","cachedPath":"/tmp/arrl-dxcc-current-2026-10-18.pdf","bytes":156080,"sha256":"409d7f5842375468f559753c41c5569115fa57401d587aa4573829d275f92c2c"},
+    {"name":"ARRL contest-section guidance","url":"https://www.arrl.org/contest-sections-list","cachedPath":"/tmp/arrl-contest-sections-list-guidance-2026-10-18.html","bytes":35066,"sha256":"d841c2faad5cc6b37d73a13289f5cd8fad2924b75ac701c5c3820b0aab812a6f"},
+    {"name":"ARRL and RAC section list v1.2.0","url":"https://contests.arrl.org/contestmultipliers.php?a=wve","cachedPath":"/tmp/arrl-contest-multipliers-wve-sections-2026-10-18.html","bytes":9535,"sha256":"5618ceeeb46494dd94313f32a9f33f2fd5a8d5be96693a502de5b147f927ebe6"}
+  ],
+  "supplementalAuthority": {"name":"ARRL Contest Update power normalization","url":"https://www.arrl.org/contest-update-issues?issue=2020-02-05","cachedPath":"/tmp/arrl-contest-update-power-normalization-2020-02-05.html","bytes":76855,"sha256":"8bbe551e561cd919c6d53e9bb58866303eb9106edf1b46b1a9ebbaad99863a80"},
+  "sharedCurrentDXCCAuthority": "arrl-rtty-roundup-authority.json#currentDXCCEntityAuthority",
+  "sourceComparators": [
+    {"mode":"CW","repository":"/Users/oliver/Documents/Projects/contest-sw","revision":"7c8b499225a73f7f8f792246881bd7aefc05452f","path":"not1mm/plugins/arrl_dx_cw.py","fileSha256":"50dad8d13b4e782f6a846660f96a96357ae96866dac4ae5787f97818ed00e2d2","dupeType":2,"points":3,"sentExchangeSource":"configuration","receivedExchangeField":"NR","wveMultiplier":"CountryPrefix:Band","dxMultiplier":"NR:Band"},
+    {"mode":"SSB","repository":"/Users/oliver/Documents/Projects/contest-sw","revision":"7c8b499225a73f7f8f792246881bd7aefc05452f","path":"not1mm/plugins/arrl_dx_ssb.py","fileSha256":"357f333526a8cda2f654c84245056cf47cc95bbb0be0c1add64b1e53c3474387","dupeType":2,"points":3,"sentExchangeSource":"configuration","receivedExchangeField":"NR","wveMultiplier":"CountryPrefix:Band","dxMultiplier":"NR:Band"}
+  ]
+}

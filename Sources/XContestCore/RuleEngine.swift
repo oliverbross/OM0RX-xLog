@@ -90,6 +90,7 @@ public enum ContestExchangeFieldKind: String, Codable, Hashable, Sendable {
     case cqZone
     case operatorName
     case subdivision
+    case power
     case dxccPrefix
     case jarlPrefectureNumber
     case maidenheadGrid4
@@ -109,6 +110,8 @@ public enum ContestExchangeFieldKind: String, Codable, Hashable, Sendable {
             return contestASCIIBytes(value, count: 1...8) { byte, _ in
                 contestIsUppercaseLetter(byte) || contestIsDigit(byte)
             }
+        case .power:
+            return Int(value).map { (1...1_500).contains($0) && String($0) == value } == true
         case .dxccPrefix:
             return contestASCIIBytes(value, count: 1...8) { byte, _ in
                 contestIsUppercaseLetter(byte) || contestIsDigit(byte) || byte == 47
@@ -664,9 +667,17 @@ public struct ContestRuleEvaluation: Sendable {
     }
 }
 
+public enum ContestDraftResetSentProjection: Sendable, Equatable {
+    case stationAggregate
+    case soleStationField
+}
+
 public protocol ContestRule: Sendable {
     var metadata: ContestRuleMetadata { get }
+    var draftResetSentProjection: ContestDraftResetSentProjection { get }
     func validateSession(_ session: ContestSessionSnapshot) -> [ContestValidationIssue]
+    func validateDraft(_ draft: ContestDraftSnapshot,
+                       in session: ContestSessionSnapshot) -> [ContestValidationIssue]
     func resolvedSerialRequirement(in session: ContestSessionSnapshot) throws -> ContestResolvedSerialRequirement
     func evaluate(_ qso: ContestQSO, in session: ContestSessionSnapshot) -> ContestRuleEvaluation
     func cabrilloReceivedExchange(for qso: ContestQSO) -> String
@@ -679,7 +690,10 @@ public protocol ContestRuleStationEntityPolicy: ContestRule {
 }
 
 public extension ContestRule {
+    var draftResetSentProjection: ContestDraftResetSentProjection { .stationAggregate }
     func validateSession(_ session: ContestSessionSnapshot) -> [ContestValidationIssue] { [] }
+    func validateDraft(_ draft: ContestDraftSnapshot,
+                       in session: ContestSessionSnapshot) -> [ContestValidationIssue] { [] }
 
     func resolvedSerialRequirement(in session: ContestSessionSnapshot) throws -> ContestResolvedSerialRequirement {
         guard session.rule == metadata.identity else { throw ContestSerialResolutionError.ruleIdentityMismatch }
