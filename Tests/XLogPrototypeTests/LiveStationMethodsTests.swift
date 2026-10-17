@@ -4,6 +4,61 @@ import XCatIntegrationCore
 @testable import XLogPrototypeSupport
 
 final class LiveStationMethodsTests: XCTestCase {
+    func testAgentCredentialCacheReadsAStoredTokenOnlyOncePerWorker() throws {
+        var cache = StationAgentCredentialCache()
+        var reads = 0
+        let load: (Bool) throws -> String? = { interactionAllowed in
+            reads += 1
+            XCTAssertFalse(interactionAllowed)
+            return "fixture-token"
+        }
+
+        XCTAssertEqual(try cache.resolve(endpoint: "https://station.example", interactionAllowed: false, load: load), "fixture-token")
+        XCTAssertEqual(try cache.resolve(endpoint: "https://station.example", interactionAllowed: false, load: load), "fixture-token")
+        XCTAssertEqual(reads, 1)
+    }
+
+    func testAgentCredentialCacheReadsAMissingTokenOnlyOnceInBackground() throws {
+        var cache = StationAgentCredentialCache()
+        var reads = 0
+        let load: (Bool) throws -> String? = { _ in reads += 1; return nil }
+
+        XCTAssertNil(try cache.resolve(endpoint: "https://missing.example", interactionAllowed: false, load: load))
+        XCTAssertNil(try cache.resolve(endpoint: "https://missing.example", interactionAllowed: false, load: load))
+        XCTAssertEqual(reads, 1)
+    }
+
+    func testAgentCredentialCacheBoundsBackgroundFailuresButPermitsInteractiveRecovery() throws {
+        var cache = StationAgentCredentialCache()
+        var reads: [Bool] = []
+        let load: (Bool) throws -> String? = { interactionAllowed in
+            reads.append(interactionAllowed)
+            if !interactionAllowed { throw WorkerFailure("fixture", "Background access denied") }
+            return "interactive-token"
+        }
+
+        XCTAssertThrowsError(try cache.resolve(endpoint: "https://station.example", interactionAllowed: false, load: load))
+        XCTAssertNil(try cache.resolve(endpoint: "https://station.example", interactionAllowed: false, load: load))
+        XCTAssertEqual(try cache.resolve(endpoint: "https://station.example", interactionAllowed: true, load: load), "interactive-token")
+        XCTAssertEqual(try cache.resolve(endpoint: "https://station.example", interactionAllowed: false, load: load), "interactive-token")
+        XCTAssertEqual(reads, [false, true])
+
+        cache.invalidate(endpoint: "https://station.example")
+        XCTAssertThrowsError(try cache.resolve(endpoint: "https://station.example", interactionAllowed: false, load: load))
+        XCTAssertEqual(reads, [false, true, false])
+    }
+
+    func testAgentCredentialCacheUsesNewExplicitCredentialWithoutReadingStorage() throws {
+        var cache = StationAgentCredentialCache()
+        cache.remember("new-token", endpoint: "https://station.example")
+        var reads = 0
+        XCTAssertEqual(try cache.resolve(endpoint: "https://station.example", interactionAllowed: true) { _ in
+            reads += 1
+            return "old-token"
+        }, "new-token")
+        XCTAssertEqual(reads, 0)
+    }
+
     func testGUIPTTRequiresNewerProofAndCannotClearOtherReleaseSources() throws {
         var ptt=StationGUIPTT(),other=StationTransmitOwnership();let id=UUID().uuidString
         other.beginControl("send_cw");other.beginAction(.tune)

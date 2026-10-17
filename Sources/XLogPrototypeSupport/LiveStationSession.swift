@@ -160,6 +160,36 @@ struct StationPowerSessionState {
     }
 }
 
+struct StationAgentCredentialCache {
+    private var tokens: [String: String] = [:]
+    private var attemptedNoninteractive: Set<String> = []
+
+    /// Background recovery gets one Keychain attempt per endpoint and worker.
+    /// An explicit interactive connect bypasses a cached miss or denial.
+    mutating func resolve(
+        endpoint: String,
+        interactionAllowed: Bool,
+        load: (Bool) throws -> String?
+    ) throws -> String? {
+        if let token = tokens[endpoint] { return token }
+        if !interactionAllowed, attemptedNoninteractive.contains(endpoint) { return nil }
+        if !interactionAllowed { attemptedNoninteractive.insert(endpoint) }
+        guard let token = try load(interactionAllowed), !token.isEmpty else { return nil }
+        tokens[endpoint] = token
+        return token
+    }
+
+    mutating func remember(_ token: String, endpoint: String) {
+        tokens[endpoint] = token
+        attemptedNoninteractive.insert(endpoint)
+    }
+
+    mutating func invalidate(endpoint: String) {
+        tokens.removeValue(forKey: endpoint)
+        attemptedNoninteractive.remove(endpoint)
+    }
+}
+
 /// Explicitly connected direct Remote Station Agent owner. This uses the same
 /// authenticated HTTPS/WSS client and authoritative state decoder as xCat.
 actor LiveStationSession {
@@ -195,6 +225,7 @@ actor LiveStationSession {
     private var lifecycleTransitions = 0
     private var terminalShutdown = false
     private var directTransmitAcquisitions = 0
+    private var credentialCache = StationAgentCredentialCache()
 
     func installPowerCapture(_ capture: NativeDraftPowerGate) {
         // Worker startup registers before requests can explicitly connect.
@@ -269,7 +300,9 @@ actor LiveStationSession {
             }
             let keychain = StationAgentKeychain(endpoint: endpoint)
             let token = try enteredToken?.trimmingCharacters(in: .whitespacesAndNewlines)
-                ?? keychain.load(interactionAllowed: allowKeychainInteraction)
+                ?? credentialCache.resolve(endpoint: endpoint, interactionAllowed: allowKeychainInteraction) {
+                    try keychain.load(interactionAllowed: $0)
+                }
             guard let token, !token.isEmpty, token.utf8.count <= 4_096 else {
                 throw WorkerFailure("station_credentials_required", "Enter a Remote Station Agent token.")
             }
@@ -327,6 +360,7 @@ actor LiveStationSession {
             allowTransmit = transmit
             if enteredToken != nil {
                 try keychain.save(token)
+                credentialCache.remember(token, endpoint: endpoint)
             }
             await next.start()
             guard !terminalShutdown, generation == connectionGeneration, client === next else {
@@ -369,6 +403,7 @@ actor LiveStationSession {
             }
             try requireActive()
             try StationAgentKeychain(endpoint: endpoint).delete()
+            credentialCache.invalidate(endpoint: endpoint)
             return ["forgotten": true]
 
         case "station_configuration":
